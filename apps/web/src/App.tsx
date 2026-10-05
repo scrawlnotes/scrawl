@@ -1,12 +1,13 @@
-import { dirname, INBOX, type TreeNode } from '@scrawlnotes/core';
+import { dayOf, dirname, dueToday, INBOX, openCount, type TreeNode } from '@scrawlnotes/core';
 import type { EditorStats } from '@scrawlnotes/editor';
 import { type MouseEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ContextMenu, type MenuItem, MoveDialog, NewDialog, type NewKind, RenameDialog } from './dialogs';
 import { FormatBar } from './FormatBar';
 import { Icon } from './Icon';
-import { iconOf, isNote, labelOf, placeholderOf } from './items';
+import { iconOf, isNote, labelOf, placeholderOf, tasksFolder, tasksOf, TODAY, UPCOMING } from './items';
 import { Session } from './session';
 import { Sidebar } from './Sidebar';
+import { DueView, type TaskActions, TaskList } from './Tasks';
 import { isDesktop } from './storage';
 
 type Theme = 'dark' | 'light';
@@ -33,7 +34,7 @@ function folderPaths(nodes: TreeNode[], out: string[] = []): string[] {
 export function App() {
   const host = useRef<HTMLDivElement>(null);
   const [session] = useState(() => new Session());
-  const { ready, needsFolder, folder, tree, tabs, active, titles, saved, stats, format, source } = useSyncExternalStore(
+  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, saved, stats, format, source } = useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
   );
@@ -104,6 +105,20 @@ export function App() {
     openMenu(event, [{ label: 'New note here', run: () => void session.newNote(path) }]);
   const closeMenu = useCallback(() => setMenu(null), []);
 
+  const today = dayOf(new Date());
+  const taskActions: TaskActions = {
+    add: (target, input) => session.addTask(target, input),
+    update: (target, id, change) => session.updateTask(target, id, change),
+    setDone: (target, id, done) => session.setTaskDone(target, id, done),
+    remove: (target, id) => session.removeTask(target, id),
+    menu: openMenu,
+  };
+  const dueNow = dueToday(tasks, today);
+  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length };
+  for (const [target, list] of Object.entries(tasks)) counts[tasksOf(target)] = openCount(list);
+  const listFolder = active ? tasksFolder(active) : null;
+  const isDueView = active === TODAY || active === UPCOMING;
+
   return (
     <div className="app">
       {needsFolder && (
@@ -119,6 +134,7 @@ export function App() {
         tree={tree}
         titles={titles}
         active={active}
+        counts={counts}
         onOpen={(id) => void session.open(id)}
         onTrash={(path) => void session.trash(path)}
         onMove={(path, target) => void session.move(path, target)}
@@ -164,7 +180,9 @@ export function App() {
         </div>
         <FormatBar format={format} onFormat={(action) => session.format(action)} onLink={(url) => session.setLink(url)} />
         <div className="editor" ref={host} hidden={!showingEditor} />
-        {!showingEditor && (
+        {listFolder !== null && <TaskList folder={listFolder} tasks={tasks[listFolder] ?? []} today={today} actions={taskActions} />}
+        {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} today={today} actions={taskActions} />}
+        {!showingEditor && listFolder === null && !isDueView && (
           <section className="placeholder">
             {active ? (
               <>

@@ -129,12 +129,11 @@ vault/
   Inbox/                     dosyalanmamış notlar
   <klasör>/
     <not>.md                 düz markdown
-    tasks.json               klasörün görev listesi (kayıt başına id, updatedAt, author)
+    tasks.json               klasörün görev listesi (Inbox'ınki dahil); ağaç yapısı `parent` alanıyla
     <ad>.board.json          pano (sonra)
   _attachments/              resim, ses, dosya (şimdilik kökte tek klasör; not taşınınca link bozulmaz)
   .scrawl/
     trash/                   silinen notlar
-    inbox-tasks.json         klasörsüz görevler
     sync-state.json          cihaza özel, sync edilmez
     workspace.json           açık sekmeler ve düzen, cihaza özel
 ```
@@ -158,7 +157,7 @@ vault/
 |---|---|---|
 | 0 | İskelet ve editör denemesi | Monorepo kurulu; live preview prototipi başlık, vurgu, liste, link, resim ve kod bloğuyla tarayıcıda denenebiliyor |
 | 1 | Masaüstü editör | Sekmeler, scratch notlar, kenar çubuğu, medya, dark mode, kurulabilir sürüm; yerel klasörle günlük kullanımda Notepad'in yerini alıyor |
-| 2 | Görevler | Klasör görev listeleri, alt görevler, filtreler, Today/Upcoming, "göreve çevir" |
+| 2 | Görevler | **İlk dilim bitti:** klasör görev listeleri, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri. **Kalan:** bölümler, sürükleyerek sıralama, kayıtlı filtreler, taşıma, "göreve çevir" |
 | 3 | Sync + web | OneDrive adaptörü, çakışma çözümü; web sürümü yayında ve telefonda PWA olarak kullanılabilir |
 | 4 | Paylaşım | PDF/HTML/MD dışa aktarma; yayın servisi ve "link olarak paylaş" |
 | 5 | Mobil | Native iOS uygulaması (sonra Android) |

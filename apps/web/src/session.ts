@@ -1,18 +1,26 @@
 import {
+  addTask,
   ATTACHMENTS,
   createFolder,
   createScratchNote,
   dirname,
   displayTitle,
   INBOX,
+  loadTasks,
   loadWorkspace,
   moveNote,
+  type NewTask,
   readTree,
+  removeTask,
   renameNote,
   saveAttachment,
+  saveTasks,
   saveWorkspace,
+  setDone,
+  type Task,
   trashNote,
   type TreeNode,
+  updateTask,
   type VaultFs,
 } from '@scrawlnotes/core';
 import {
@@ -62,6 +70,8 @@ export interface Snapshot {
   active: string | null;
   /** Display name of every note, kept current while a note is being typed. */
   titles: Record<string, string>;
+  /** The task list of every folder, by folder path. */
+  tasks: Record<string, Task[]>;
   saved: boolean;
   /** Cursor and formatting of the note on screen; null while a view is shown instead. */
   stats: EditorStats | null;
@@ -90,6 +100,7 @@ export class Session {
     tabs: [],
     active: null,
     titles: {},
+    tasks: {},
     saved: true,
     stats: null,
     format: null,
@@ -107,6 +118,8 @@ export class Session {
   private external = false;
   private readonly images = new Map<string, string>();
   private timer = 0;
+  /** Task files are written one after another, so an older list never lands on top of a newer one. */
+  private taskWrites: Promise<void> = Promise.resolve();
   /** Identifies the current start; a start that was disposed while loading must not finish. */
   private run = 0;
   private parent: HTMLElement | null = null;
@@ -159,7 +172,9 @@ export class Session {
 
     const titles = titlesOf(tree);
     const tabs = workspace.tabs.filter((id) => id in titles || !isNote(id));
-    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs });
+    const tasks = await this.readTasks(tree);
+    if (run !== this.run) return;
+    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
@@ -255,8 +270,54 @@ export class Session {
 
   private async refreshTree() {
     await this.flush();
+    await this.taskWrites;
     const tree = await readTree(this.fs);
-    this.set({ tree, titles: titlesOf(tree) });
+    this.set({ tree, titles: titlesOf(tree), tasks: await this.readTasks(tree) });
+  }
+
+  /** Reads the task list of the inbox and of every folder. */
+  private async readTasks(tree: TreeNode[]): Promise<Record<string, Task[]>> {
+    const folders = new Set([INBOX]);
+    const visit = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (node.kind !== 'folder') continue;
+        folders.add(node.path);
+        visit(node.children ?? []);
+      }
+    };
+    visit(tree);
+    const lists = await Promise.all([...folders].map(async (folder) => [folder, await loadTasks(this.fs, folder)] as const));
+    return Object.fromEntries(lists);
+  }
+
+  /** Applies a change to a folder's task list and saves it. */
+  private changeTasks(folder: string, change: (tasks: Task[]) => Task[]) {
+    const current = this.snapshot.tasks[folder] ?? [];
+    const next = change(current);
+    if (next === current) return;
+    this.set({ tasks: { ...this.snapshot.tasks, [folder]: next }, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(() => saveTasks(this.fs, folder, next))
+      .catch(() => undefined)
+      .then(() => {
+        if (!this.pending.size) this.set({ saved: true });
+      });
+  }
+
+  addTask(folder: string, input: NewTask) {
+    this.changeTasks(folder, (tasks) => addTask(tasks, input));
+  }
+
+  updateTask(folder: string, id: string, patch: Partial<Pick<Task, 'title' | 'due' | 'priority'>>) {
+    this.changeTasks(folder, (tasks) => updateTask(tasks, id, patch));
+  }
+
+  setTaskDone(folder: string, id: string, done: boolean) {
+    this.changeTasks(folder, (tasks) => setDone(tasks, id, done));
+  }
+
+  removeTask(folder: string, id: string) {
+    this.changeTasks(folder, (tasks) => removeTask(tasks, id));
   }
 
   /** Shows a note or a view, adding a tab for it when it has none. */

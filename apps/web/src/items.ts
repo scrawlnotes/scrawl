@@ -10,6 +10,8 @@ const BOARD = 'board:';
 export const tasksOf = (folder: string) => `${TASKS}${folder}`;
 export const boardOf = (folder: string) => `${BOARD}${folder}`;
 export const isNote = (id: string) => !id.includes(':');
+/** The folder a task list tab belongs to, or null for any other tab. */
+export const tasksFolder = (id: string) => (id.startsWith(TASKS) ? id.slice(TASKS.length) : null);
 
 export function iconOf(id: string): IconName {
   return isNote(id) ? 'note' : id.startsWith(BOARD) ? 'board' : 'tasks';

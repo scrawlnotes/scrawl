@@ -9,6 +9,8 @@ interface Props {
   tree: TreeNode[];
   titles: Record<string, string>;
   active: string | null;
+  /** Open tasks behind a view row, by the id the row opens. */
+  counts: Record<string, number>;
   onOpen: (id: string) => void;
   onTrash: (path: string) => void;
   onMove: (path: string, folder: string) => void;
@@ -22,7 +24,7 @@ const countNotes = (node: TreeNode): number =>
   node.kind === 'note' ? 1 : (node.children ?? []).reduce((sum, child) => sum + countNotes(child), 0);
 
 /** One tree: views over everything on top, then the folders with their task list and notes. */
-export function Sidebar({ tree, titles, active, onOpen, onTrash, onMove, onNewFolder, onNoteMenu, onFolderMenu }: Props) {
+export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove, onNewFolder, onNoteMenu, onFolderMenu }: Props) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [folderName, setFolderName] = useState<string | null>(null);
@@ -62,6 +64,7 @@ export function Sidebar({ tree, titles, active, onOpen, onTrash, onMove, onNewFo
       <button type="button" className="it-main" onClick={() => onOpen(id)}>
         {label}
       </button>
+      <span className="ct">{counts[id] || ''}</span>
     </div>
   );
 
@@ -131,6 +134,15 @@ export function Sidebar({ tree, titles, active, onOpen, onTrash, onMove, onNewFo
           </button>
           <span className="ct">{(inbox && countNotes(inbox)) || ''}</span>
         </div>
+        {inboxOpen &&
+          viewRow(
+            tasksOf(INBOX),
+            <>
+              <Icon name="tasks" />
+              <span>Tasks</span>
+            </>,
+            1,
+          )}
         {inboxOpen && inbox && children(inbox, 1)}
         {viewRow(TODAY, <span>Today</span>, 0)}
         {viewRow(UPCOMING, <span>Upcoming</span>, 0)}
