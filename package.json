@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @scrawlnotes/web dev",
     "desktop": "pnpm --filter @scrawlnotes/desktop dev",
+    "desktop:build": "pnpm --filter @scrawlnotes/desktop build",
     "build": "pnpm --filter @scrawlnotes/web build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
