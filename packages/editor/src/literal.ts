@@ -1,0 +1,92 @@
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
+import type { EditorState, Extension } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { sourceMode } from './livePreview';
+
+// In the normal view the note is text, not Markdown: what is typed or pasted stays as it is.
+// `*.txt`, `__init__` or a `#` at the start of a line must not turn into formatting. Characters
+// that would act as Markdown syntax are therefore escaped with a backslash as they come in; the
+// preview hides the backslash. Formatting is applied with the format controls only.
+
+/** Syntax made of punctuation that the user can type. */
+const MARKS = new Set([
+  'EmphasisMark',
+  'StrikethroughMark',
+  'CodeMark',
+  'LinkMark',
+  'HeaderMark',
+  'QuoteMark',
+  'ListMark',
+  'TableDelimiter',
+  'HorizontalRule',
+]);
+// These become syntax when a space is typed after them, so the typed text does not overlap them.
+const PREFIX_MARKS = new Set(['HeaderMark', 'ListMark']);
+const PUNCTUATION = /[!-/:-@[-`{-~]/;
+
+interface Span {
+  from: number;
+  to: number;
+}
+
+/** Positions of the characters in `inserted` that act as Markdown syntax and need a backslash. */
+export function positionsToEscape(state: EditorState, inserted: readonly Span[]): number[] {
+  const doc = state.doc;
+  const end = Math.max(...inserted.map((r) => doc.lineAt(r.to).to));
+  const tree = ensureSyntaxTree(state, end, 100) ?? syntaxTree(state);
+  const out = new Set<number>();
+  for (const range of inserted) {
+    tree.iterate({
+      from: doc.lineAt(range.from).from,
+      to: doc.lineAt(range.to).to,
+      enter(node) {
+        if (!MARKS.has(node.name)) return;
+        let from = Math.max(node.from, range.from);
+        let to = Math.min(node.to, range.to);
+        // A backslash has no effect inside a code span, so a typed closing backtick is undone
+        // by escaping the opening one.
+        const span = node.name === 'CodeMark' ? node.node.parent : null;
+        const open = span?.name === 'InlineCode' ? span.getChild('CodeMark') : null;
+        if (open && to > from) ({ from, to } = open);
+        for (let pos = from; pos < to; pos++) {
+          if (PUNCTUATION.test(doc.sliceString(pos, pos + 1))) out.add(pos);
+        }
+        if (PREFIX_MARKS.has(node.name) && node.to === range.from) {
+          // `1.` is escaped at the dot: a backslash before a digit is not an escape.
+          out.add(/\d/.test(doc.sliceString(node.from, node.from + 1)) ? node.to - 1 : node.from);
+        }
+      },
+    });
+  }
+  return [...out].sort((a, b) => a - b);
+}
+
+const TYPED = ['input.type', 'input.paste', 'input.drop'];
+
+/** Escapes Markdown syntax in text as it is typed, pasted or dropped. Off in source mode. */
+export function literalInput(): Extension {
+  let busy = false;
+  return EditorView.updateListener.of((update) => {
+    if (busy || !update.docChanged || update.view.composing || update.state.field(sourceMode, false)) return;
+    if (!update.transactions.some((tr) => TYPED.some((event) => tr.isUserEvent(event)))) return;
+    let inserted: Span[] = [];
+    update.changes.iterChangedRanges((_fromA, _toA, from, to) => {
+      if (to > from) inserted.push({ from, to });
+    });
+    busy = true;
+    try {
+      // Escaping one mark can let the characters next to it pair up differently, so look again.
+      for (let pass = 0; pass < 4 && inserted.length; pass++) {
+        const state = update.view.state;
+        const positions = positionsToEscape(state, inserted);
+        if (!positions.length) break;
+        const changes = state.changes(positions.map((from) => ({ from, insert: '\\' })));
+        // Same user event as typing, so one undo step removes the character and its backslash.
+        update.view.dispatch({ changes, userEvent: 'input.type' });
+        inserted = inserted.map((r) => ({ from: changes.mapPos(r.from, -1), to: changes.mapPos(r.to, 1) }));
+      }
+    } finally {
+      busy = false;
+    }
+  });
+}
