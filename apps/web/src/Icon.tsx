@@ -17,6 +17,30 @@ const shapes = {
       <path d="M9.5 4v16M14.5 4v10" />
     </>
   ),
+  subtask: (
+    <>
+      <path d="M6 5v8a3 3 0 0 0 3 3h3" />
+      <path d="M17 13v6M14 16h6" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="4" y="5.5" width="16" height="14.5" rx="2" />
+      <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
+    </>
+  ),
+  flag: (
+    <>
+      <path d="M6 21V4" />
+      <path d="M6 4.5h11l-2.5 4 2.5 4H6" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7" />
+      <path d="M10.5 10.5v5.5M13.5 10.5v5.5" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof shapes;

@@ -178,7 +178,9 @@ export function App() {
             +
           </button>
         </div>
-        <FormatBar format={format} onFormat={(action) => session.format(action)} onLink={(url) => session.setLink(url)} />
+        {showingEditor && (
+          <FormatBar format={format} onFormat={(action) => session.format(action)} onLink={(url) => session.setLink(url)} />
+        )}
         <div className="editor" ref={host} hidden={!showingEditor} />
         {listFolder !== null && <TaskList folder={listFolder} tasks={tasks[listFolder] ?? []} today={today} actions={taskActions} />}
         {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} today={today} actions={taskActions} />}
@@ -203,14 +205,16 @@ export function App() {
               {folder.split(/[\\/]/).pop()}
             </button>
           )}
-          <button
-            type="button"
-            aria-pressed={source}
-            title="Show the note as plain Markdown"
-            onClick={() => session.setSource(!source)}
-          >
-            Markdown
-          </button>
+          {showingEditor && (
+            <button
+              type="button"
+              aria-pressed={source}
+              title="Show the note as plain Markdown"
+              onClick={() => session.setSource(!source)}
+            >
+              Markdown
+            </button>
+          )}
           <button type="button" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}>
             {theme === 'dark' ? 'Light' : 'Dark'}
           </button>

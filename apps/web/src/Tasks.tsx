@@ -12,8 +12,9 @@ import {
   progressOf,
   type Task,
 } from '@scrawlnotes/core';
-import { type KeyboardEvent, type MouseEvent, useRef, useState } from 'react';
+import { type KeyboardEvent, type MouseEvent, type ReactNode, useRef, useState } from 'react';
 import type { MenuItem } from './dialogs';
+import { Icon, type IconName } from './Icon';
 
 export interface TaskActions {
   add: (folder: string, input: NewTask) => void;
@@ -48,37 +49,40 @@ const dueClass = (day: string, today: string) => (day < today ? 'due late' : day
 /** The next Monday after `today`. */
 function nextWeek(today: string): string {
   const weekday = toDate(today).getDay();
-  return addDays(today, ((8 - weekday) % 7) || 7);
+  return addDays(today, (8 - weekday) % 7 || 7);
 }
 
-function AddTask({ placeholder, autoFocus, onAdd, onCancel }: {
-  placeholder: string;
-  autoFocus?: boolean;
-  onAdd: (title: string) => void;
-  onCancel?: () => void;
-}) {
+/** The row a new task is typed into. Enter adds it and keeps the row for the next one. */
+function Composer({ placeholder, onAdd, onClose }: { placeholder: string; onAdd: (title: string) => void; onClose: () => void }) {
   const [title, setTitle] = useState('');
   const onKey = (event: KeyboardEvent) => {
     if (event.key === 'Enter' && title.trim()) {
-      // The field stays, ready for the next task.
       onAdd(title);
       setTitle('');
-    } else if (event.key === 'Escape') {
-      setTitle('');
-      onCancel?.();
-    }
+    } else if (event.key === 'Escape') onClose();
   };
   return (
-    <input
-      className="task-add"
-      aria-label={placeholder}
-      placeholder={placeholder}
-      autoFocus={autoFocus}
-      value={title}
-      onChange={(event) => setTitle(event.target.value)}
-      onKeyDown={onKey}
-      onBlur={() => !title.trim() && onCancel?.()}
-    />
+    <div className="task composing">
+      <span className="cb" />
+      <input
+        className="tt-edit"
+        aria-label={placeholder}
+        placeholder={placeholder}
+        autoFocus
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        onKeyDown={onKey}
+        onBlur={() => !title.trim() && onClose()}
+      />
+    </div>
+  );
+}
+
+function IconButton({ icon, title, onClick }: { icon: IconName; title: string; onClick: (event: MouseEvent) => void }) {
+  return (
+    <button type="button" title={title} aria-label={title} onClick={onClick}>
+      <Icon name={icon} />
+    </button>
   );
 }
 
@@ -128,7 +132,7 @@ function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemP
     );
 
   return (
-    <div className="task-node">
+    <>
       <div className={task.done ? 'task done' : 'task'}>
         <button
           type="button"
@@ -140,7 +144,7 @@ function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemP
         />
         <div className="task-body">
           {editing === null ? (
-            <button type="button" className="tt" title="Click to edit" onClick={() => setEditing(task.title)}>
+            <button type="button" className="tt" onClick={() => setEditing(task.title)}>
               {task.title}
             </button>
           ) : (
@@ -159,36 +163,39 @@ function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemP
           )}
           {(task.due || progress.total > 0 || flat) && (
             <div className="meta">
-              {task.due && <span className={dueClass(task.due, today)}>{dueLabel(task.due, today)}</span>}
-              {progress.total > 0 && (
-                <span>
-                  {progress.done} of {progress.total}
-                </span>
+              {task.due && (
+                <button type="button" className={dueClass(task.due, today)} title="Change the date" onClick={dateMenu}>
+                  {dueLabel(task.due, today)}
+                </button>
               )}
+              {progress.total > 0 &&
+                (flat ? (
+                  <span>
+                    {progress.done} of {progress.total}
+                  </span>
+                ) : (
+                  <button type="button" aria-expanded={open} title={open ? 'Hide subtasks' : 'Show subtasks'} onClick={() => setOpen(!open)}>
+                    {open ? '▾' : '▸'} {progress.done} of {progress.total}
+                  </button>
+                ))}
               {flat && <span>{basename(folder)}</span>}
             </div>
           )}
         </div>
         <div className="task-actions">
-          {children.length > 0 && (
-            <button type="button" title={open ? 'Hide subtasks' : 'Show subtasks'} aria-expanded={open} onClick={() => setOpen(!open)}>
-              {open ? '▾' : '▸'}
-            </button>
-          )}
           {canNest && (
-            <button type="button" title="Add subtask" onClick={() => setAdding(true)}>
-              + Subtask
-            </button>
+            <IconButton
+              icon="subtask"
+              title="Add subtask"
+              onClick={() => {
+                setOpen(true);
+                setAdding(true);
+              }}
+            />
           )}
-          <button type="button" title="Due date" onClick={dateMenu}>
-            Date
-          </button>
-          <button type="button" title="Priority" onClick={priorityMenu}>
-            Priority
-          </button>
-          <button type="button" title="Delete task" onClick={() => actions.remove(folder, task.id)}>
-            ×
-          </button>
+          <IconButton icon="calendar" title="Date" onClick={dateMenu} />
+          <IconButton icon="flag" title="Priority" onClick={priorityMenu} />
+          <IconButton icon="trash" title="Delete" onClick={() => actions.remove(folder, task.id)} />
           <input
             ref={datePicker}
             className="date-picker"
@@ -206,16 +213,49 @@ function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemP
             <TaskItem key={child.id} folder={folder} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} />
           ))}
           {adding && (
-            <AddTask
-              placeholder="Subtask"
-              autoFocus
-              onAdd={(title) => actions.add(folder, { title, parent: task.id })}
-              onCancel={() => setAdding(false)}
-            />
+            <Composer placeholder="Subtask name" onAdd={(title) => actions.add(folder, { title, parent: task.id })} onClose={() => setAdding(false)} />
           )}
         </div>
       )}
-    </div>
+    </>
+  );
+}
+
+/** The header and list frame the task views share, with the add row at the end of the list. */
+function TaskPage({ title, detail, onAdd, footer, children }: {
+  title: string;
+  detail?: string;
+  /** Without it the view cannot add tasks. */
+  onAdd?: (title: string) => void;
+  /** Shown under the add row. */
+  footer?: ReactNode;
+  children: ReactNode;
+}) {
+  const [composing, setComposing] = useState(false);
+  return (
+    <section className="tasks">
+      <header className="th">
+        <b>{title}</b>
+        {detail && <span>{detail}</span>}
+        {onAdd && (
+          <button type="button" className="add" onClick={() => setComposing(true)}>
+            Add task
+          </button>
+        )}
+      </header>
+      <div className="tl">
+        {children}
+        {onAdd &&
+          (composing ? (
+            <Composer placeholder="Task name" onAdd={onAdd} onClose={() => setComposing(false)} />
+          ) : (
+            <button type="button" className="qa" onClick={() => setComposing(true)}>
+              + Add task
+            </button>
+          ))}
+        {footer}
+      </div>
+    </section>
   );
 }
 
@@ -225,23 +265,21 @@ export function TaskList({ folder, tasks, today, actions }: { folder: string; ta
   const top = childrenOf(tasks, null).filter((task) => showDone || !task.done);
   const completed = tasks.filter((task) => task.done).length;
   return (
-    <section className="tasks">
-      <header className="th">
-        <b>{basename(folder)}</b>
-        <span>Tasks</span>
-      </header>
-      <div className="tl">
-        {top.map((task) => (
-          <TaskItem key={task.id} folder={folder} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} />
-        ))}
-        <AddTask placeholder="Add task" onAdd={(title) => actions.add(folder, { title })} />
-        {completed > 0 && (
-          <button type="button" className="task-completed" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
+    <TaskPage
+      title={basename(folder)}
+      onAdd={(title) => actions.add(folder, { title })}
+      footer={
+        completed > 0 && (
+          <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
             {showDone ? 'Hide' : 'Show'} {completed} completed
           </button>
-        )}
-      </div>
-    </section>
+        )
+      }
+    >
+      {top.map((task) => (
+        <TaskItem key={task.id} folder={folder} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} />
+      ))}
+    </TaskPage>
   );
 }
 
@@ -267,33 +305,24 @@ export function DueView({ kind, lists, today, actions }: {
 
   if (kind === 'today') {
     const due = dueToday(lists, today);
-    const none = due.overdue.length + due.today.length === 0;
     return (
-      <section className="tasks">
-        <header className="th">
-          <b>Today</b>
-          <span>{toDate(today).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-        </header>
-        <div className="tl">
-          {section('Overdue', due.overdue)}
-          {section('Today', due.today)}
-          {none && <p className="task-empty">Nothing is due today.</p>}
-          <AddTask placeholder="Add a task for today" onAdd={(title) => actions.add(INBOX, { title, due: today })} />
-        </div>
-      </section>
+      <TaskPage
+        title="Today"
+        detail={toDate(today).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+        onAdd={(title) => actions.add(INBOX, { title, due: today })}
+      >
+        {section('Overdue', due.overdue)}
+        {section('Today', due.today)}
+        {due.overdue.length + due.today.length === 0 && <p className="task-empty">Nothing is due today.</p>}
+      </TaskPage>
     );
   }
 
   const days = dueUpcoming(lists, today);
   return (
-    <section className="tasks">
-      <header className="th">
-        <b>Upcoming</b>
-      </header>
-      <div className="tl">
-        {days.map(({ day, tasks }) => section(`${dueLabel(day, today)} · ${toDate(day).toLocaleDateString('en-US', SHORT)}`, tasks))}
-        {days.length === 0 && <p className="task-empty">Nothing is scheduled after today.</p>}
-      </div>
-    </section>
+    <TaskPage title="Upcoming">
+      {days.map(({ day, tasks }) => section(`${dueLabel(day, today)} · ${toDate(day).toLocaleDateString('en-US', SHORT)}`, tasks))}
+      {days.length === 0 && <p className="task-empty">Nothing is scheduled after today.</p>}
+    </TaskPage>
   );
 }
