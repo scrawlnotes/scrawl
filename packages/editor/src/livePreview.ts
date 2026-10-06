@@ -18,6 +18,7 @@ import {
   WidgetType,
 } from '@codemirror/view';
 import type { SyntaxNode, Tree } from '@lezer/common';
+import { linkUrl } from './commands';
 
 export interface LivePreviewOptions {
   /** Maps an image source as written in the note to a URL the browser can load. */
@@ -221,7 +222,7 @@ function collect(
   const link = (node: SyntaxNode) => {
     const [open, close] = node.getChildren('LinkMark');
     if (!open || !close) return;
-    const url = node.getChild('URL');
+    const url = linkUrl(node);
     const href = url ? doc.sliceString(url.from, url.to) : '';
     if (close.from > open.to) {
       const deco = Decoration.mark({ class: 'cm-sl-link', attributes: { 'data-href': href, title: href }, kind: 'link' });

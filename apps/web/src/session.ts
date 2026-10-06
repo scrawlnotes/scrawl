@@ -19,6 +19,7 @@ import {
   moveHistory,
   moveItem,
   type NewTask,
+  pageTitle,
   pruneHistory,
   readTrash,
   readTree,
@@ -46,6 +47,7 @@ import {
   type EditorStats,
   type FormatState,
   formatState,
+  linkTitleChange,
   type ScrawlEditor,
   selectNextOccurrence,
   selectSelectionMatches,
@@ -60,7 +62,7 @@ import {
 } from '@scrawlnotes/editor';
 import { boardOf, folderOf, isNote, listOf, tabOf } from './items';
 import { sampleDoc } from './sample';
-import { chooseVaultFolder, isDesktop, openVault, vaultFolder } from './storage';
+import { chooseVaultFolder, fetchPageHead, isDesktop, openVault, vaultFolder } from './storage';
 
 const SAVE_DELAY_MS = 400;
 
@@ -200,6 +202,7 @@ export class Session {
         this.set({ stats, format: this.editor ? formatState(this.editor.view.state) : null });
       },
       onChange: (doc) => this.changed(doc),
+      onLinkPasted: (url) => void this.fillLinkTitle(this.snapshot.active, url),
     });
     window.addEventListener('pagehide', this.flush);
 
@@ -234,12 +237,39 @@ export class Session {
     const path = this.snapshot.active;
     // Text that just came from the file is not an edit to save back.
     if (!path || !isNote(path) || this.external) return;
+    this.queueSave(path, doc);
+  }
+
+  /** Marks a note as changed, to be saved shortly. */
+  private queueSave(path: string, doc: string) {
     this.pending.set(path, doc);
     const title = displayTitle(path, doc);
     const titles = this.snapshot.titles[path] === title ? this.snapshot.titles : { ...this.snapshot.titles, [path]: title };
     this.set({ saved: false, titles });
     window.clearTimeout(this.timer);
     this.timer = window.setTimeout(this.flush, SAVE_DELAY_MS);
+  }
+
+  /**
+   * Puts the title of a web page in place of the address of the link just pasted for it, in the
+   * note at `path`, also when that note is no longer on screen. Desktop only.
+   */
+  private async fillLinkTitle(path: string | null, url: string) {
+    const html = path && (await fetchPageHead(url));
+    const title = html && pageTitle(html);
+    if (!path || !title) return;
+    const view = this.editor?.view;
+    if (view && this.snapshot.active === path) {
+      const change = linkTitleChange(view.state, url, title);
+      if (change) view.dispatch(change);
+      return;
+    }
+    const state = this.states.get(path);
+    const change = state && linkTitleChange(state, url, title);
+    if (!state || !change) return;
+    const next = state.update(change).state;
+    this.states.set(path, next);
+    this.queueSave(path, next.doc.toString());
   }
 
   /** Writes every unsaved note to the vault. */

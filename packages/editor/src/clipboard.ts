@@ -4,7 +4,7 @@ import { previewItems, roleRanges, sourceMode } from './livePreview';
 import { renderHtml } from './render';
 
 /** Carries the Markdown of a copied piece from one note to another. */
-const MARKDOWN_TYPE = 'application/x-scrawl-markdown';
+export const MARKDOWN_TYPE = 'application/x-scrawl-markdown';
 
 interface Span {
   from: number;

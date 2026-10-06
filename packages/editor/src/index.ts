@@ -28,6 +28,7 @@ import {
   toggleLinePrefix,
 } from './commands';
 import { findPanel } from './find';
+import { linkPaste } from './links';
 import { cursorBehavior } from './cursor';
 import { literalInput } from './literal';
 import { livePreview, type LivePreviewOptions, setSourceMode, sourceMode } from './livePreview';
@@ -40,6 +41,7 @@ export { clipboard, markdownSlice, visibleText } from './clipboard';
 export * from './commands';
 export { addCursorBelow, selectNextOccurrence, selectSelectionMatches };
 export { literalPattern } from './find';
+export { linkAddress, linkText, linkTitleChange, pastedLink, pastedUrl } from './links';
 export { cursorBehavior, restingPosition } from './cursor';
 export { buildDecorations, livePreview, type LivePreviewOptions, setSourceMode, sourceMode } from './livePreview';
 export { literalInput, positionsToEscape } from './literal';
@@ -68,6 +70,8 @@ export interface ScrawlEditorOptions extends LivePreviewOptions {
   onStats?: (stats: EditorStats) => void;
   /** Stores a pasted or dropped image and returns the source to write into the note. */
   saveImage?: (file: File) => Promise<string>;
+  /** A web address was pasted as a link with the address as its text; see `linkTitleChange`. */
+  onLinkPasted?: (url: string) => void;
 }
 
 export interface ScrawlEditor {
@@ -128,6 +132,10 @@ function imageInput(saveImage: (file: File) => Promise<string>) {
   });
 }
 
+// Pasted addresses are made into links by `linkPaste`, which writes the syntax so that it is not
+// escaped as typed text; the language's own version of that is left out.
+const markdownSupport = markdown({ base: markdownLanguage, codeLanguages: languages, pasteURLAsLink: false });
+
 export interface ScrawlViewer {
   /** Shows another text, from the top. */
   show(doc: string): void;
@@ -140,7 +148,7 @@ export function createViewer(options: LivePreviewOptions & { parent: HTMLElement
     EditorState.readOnly.of(true),
     EditorView.editable.of(false),
     EditorView.lineWrapping,
-    markdown({ base: markdownLanguage, codeLanguages: languages }),
+    markdownSupport,
     livePreview(options),
     tableGrid,
     scrawlTheme,
@@ -218,12 +226,13 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         highlightSelectionMatches(),
         search({ top: false, createPanel: findPanel }),
         EditorView.lineWrapping,
-        markdown({ base: markdownLanguage, codeLanguages: languages }),
+        markdownSupport,
         livePreview(options),
         tableGrid,
         slashMenu(slashItems),
         cursorBehavior,
         clipboard,
+        linkPaste(options.onLinkPasted),
         options.saveImage ? imageInput(options.saveImage) : [],
         scrawlTheme,
         keymap.of([...formatKeymap, ...searchKeymap, ...historyKeymap, ...defaultKeymap, indentWithTab]),

@@ -121,12 +121,21 @@ export interface LinkInfo {
   url: string;
 }
 
+/**
+ * A link's address. The link's text can hold an address of its own, when the text is a web
+ * address, so the address is the one after the text.
+ */
+export function linkUrl(link: SyntaxNode): SyntaxNode | null {
+  const close = link.getChildren('LinkMark')[1];
+  return link.getChildren('URL').find((url) => close && url.from >= close.to) ?? null;
+}
+
 /** The link the main selection lies in, if any. */
 export function linkAt(state: EditorState): LinkInfo | null {
   const node = enclosing(state, state.selection.main, 'Link');
   const [open, close] = node?.getChildren('LinkMark') ?? [];
   if (!node || !open || !close) return null;
-  const url = node.getChild('URL');
+  const url = linkUrl(node);
   return {
     from: node.from,
     to: node.to,

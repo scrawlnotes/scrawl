@@ -35,3 +35,13 @@ export async function chooseVaultFolder(): Promise<boolean> {
   await invoke('settings_save', { settings: { vault: chosen } });
   return true;
 }
+
+/** The start of a web page, to take its title from. Desktop only: a web page may not read other sites. */
+export async function fetchPageHead(url: string): Promise<string | null> {
+  if (!isDesktop) return null;
+  try {
+    return await invoke<string>('fetch_page_head', { url });
+  } catch {
+    return null;
+  }
+}

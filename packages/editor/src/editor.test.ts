@@ -4,6 +4,7 @@ import { EditorSelection, EditorState, type StateCommand } from '@codemirror/sta
 import { describe, expect, it } from 'vitest';
 import {
   insertTable,
+  linkAt,
   setLink,
   splitSelectionIntoLines,
   toggleBold,
@@ -13,6 +14,7 @@ import {
   toggleLinePrefix,
 } from './commands';
 import { literalPattern } from './find';
+import { linkTitleChange, pastedLink, pastedUrl } from './links';
 import { restingPosition } from './cursor';
 import { markdownSlice, visibleText } from './clipboard';
 import { positionsToEscape } from './literal';
@@ -398,5 +400,36 @@ describe('split selection into lines', () => {
     let state = stateOf('|one\ntwo\n|three');
     splitSelectionIntoLines({ state, dispatch: (tr) => (state = tr.state) });
     expect(state.selection.ranges.map((r) => [r.from, r.to])).toEqual([[0, 3], [4, 7]]);
+  });
+});
+
+describe('pasted links', () => {
+  it('knows a pasted web address from other text', () => {
+    expect(pastedUrl('  https://example.com/a?b=c#d \n')).toBe('https://example.com/a?b=c#d');
+    expect(pastedUrl('see https://example.com')).toBeNull();
+    expect(pastedUrl('ftp://example.com')).toBeNull();
+  });
+
+  it('writes the address so that it stays one link, with the address it points to', () => {
+    const url = 'https://en.wikipedia.org/wiki/Scrawl_(film)?a[]=1';
+    const doc = pastedLink(url);
+    expect(doc).toBe('[https://en.wikipedia.org/wiki/Scrawl_(film)?a%5B%5D=1](https://en.wikipedia.org/wiki/Scrawl_%28film%29?a[]=1)');
+    const state = stateOf(doc);
+    ensureSyntaxTree(state, state.doc.length, 5000);
+    const text = 'https://en.wikipedia.org/wiki/Scrawl_(film)?a%5B%5D=1';
+    expect(decorations(doc).filter((d) => d.startsWith('link'))).toEqual([`link 1-${1 + text.length}`]);
+    expect(linkAt(EditorState.create({ doc, selection: { anchor: 5 }, extensions }))?.url).toBe(
+      'https://en.wikipedia.org/wiki/Scrawl_%28film%29?a[]=1',
+    );
+  });
+
+  it('puts the page title in place of the address, unless the link was changed', () => {
+    const url = 'https://example.com/a_b';
+    let state = stateOf(`See ${pastedLink(url)} now`);
+    state = state.update(linkTitleChange(state, url, ' The *best* page ')!).state;
+    expect(state.doc.toString()).toBe('See [The \\*best\\* page](https://example.com/a_b) now');
+    // Once the text is no longer the address, the title has nothing to replace.
+    expect(linkTitleChange(state, url, 'Other')).toBeNull();
+    expect(linkTitleChange(stateOf('no link here'), url, 'Title')).toBeNull();
   });
 });
