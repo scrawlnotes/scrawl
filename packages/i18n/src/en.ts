@@ -108,19 +108,23 @@ export const en = {
   'delete.taskWithSubtasks': '{name} and its {subtasks} will be deleted. This cannot be undone.',
   'delete.forever': 'Delete forever',
   'delete.foreverText': '{name} will be deleted for good. This cannot be undone.',
+  'delete.foreverWithFiles': '{name} will be deleted for good, with the attached files nothing else uses. This cannot be undone.',
   'delete.empty': 'Empty trash',
   'delete.emptyText': {
-    one: 'The item in the trash will be deleted for good. This cannot be undone.',
-    other: 'All {count} items in the trash will be deleted for good. This cannot be undone.',
+    one: 'The item in the trash will be deleted for good, with the attached files nothing else uses. This cannot be undone.',
+    other: 'All {count} items in the trash will be deleted for good, with the attached files nothing else uses. This cannot be undone.',
   },
 
   // trash
   'trash.title': 'Trash',
   'trash.empty': 'Empty trash',
   'trash.restoreTo': 'Restore to {place}',
+  'trash.restore': 'Restore',
+  'trash.unused': 'Not used in any note',
   'trash.topLevel': 'the top level',
   'trash.emptyFolder': 'Empty',
-  'trash.note': 'Restore puts an item back where it was. Nothing here is deleted until you delete it.',
+  'trash.note':
+    'Restore puts an item back where it was. Attached files that no note uses any more are moved here when Scrawl starts. Nothing here is deleted until you delete it.',
   'trash.nothing': 'The trash is empty.',
 
   // history
@@ -196,7 +200,10 @@ export const en = {
 
   // editor
   'editor.copyCode': 'Copy code',
-  'editor.open': 'Open {name}',
+  'editor.openHint': '{name} (double-click to open)',
+  'editor.item.open': 'Open',
+  'editor.item.reveal': 'Show in folder',
+  'editor.item.delete': 'Delete',
   'editor.play': 'Play {name}',
   'editor.pause': 'Pause {name}',
   'editor.voiceMemo': 'Voice memo',

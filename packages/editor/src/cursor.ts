@@ -171,6 +171,100 @@ function deleteAboveTable(view: EditorView, pos: number): boolean {
   return tableRanges(view.state).some((t) => t.from - 1 === pos);
 }
 
+type Piece = { from: number; to: number };
+
+/** The formatted spans with both of their hidden marks on the lines from `from` to `to`. */
+function spansOn(state: EditorState, from: number, to: number): { open: RoleRange; close: RoleRange }[] {
+  const spans = new Map<string, { open?: RoleRange; close?: RoleRange }>();
+  for (const r of roleRanges(state, state.doc.lineAt(from).from, state.doc.lineAt(to).to)) {
+    if (!isInline(r) || !r.span) continue;
+    const key = `${r.span.from}:${r.span.to}`;
+    const span = spans.get(key) ?? {};
+    span[r.role as 'open' | 'close'] = r;
+    spans.set(key, span);
+  }
+  return [...spans.values()].filter((s): s is { open: RoleRange; close: RoleRange } => !!s.open && !!s.close);
+}
+
+/**
+ * What to take away instead of `from`-`to`, so that no formatted span is left with only one of
+ * its hidden marks, which would show as a stray `[` or `**`. A span whose text is all taken goes
+ * whole, marks included, when one of its marks was in the range too or when the text is deleted
+ * rather than typed over. A span whose text is only partly taken keeps its marks, and what is
+ * left of its text keeps its format, as in a word processor. Null when the range can go as it is.
+ */
+export function wholeSpanDeletion(state: EditorState, from: number, to: number, deleting: boolean): Piece[] | null {
+  const spans = spansOn(state, from, to);
+  let pieces: Piece[] = [{ from, to }];
+  let changed = false;
+  // A span that grows to its whole length can reach into another one; a few rounds settle that.
+  for (let round = 0, again = true; again && round < 8; round++) {
+    again = false;
+    for (const { open, close } of spans) {
+      const next: Piece[] = [];
+      for (const p of pieces) {
+        const touches = (mark: RoleRange) => p.from < mark.to && p.to > mark.from;
+        const takesText = p.from <= open.to && p.to >= close.from;
+        if (takesText && (touches(open) || touches(close) || deleting)) {
+          const whole = { from: Math.min(p.from, open.from), to: Math.max(p.to, close.to) };
+          if (whole.from !== p.from || whole.to !== p.to) again = true;
+          next.push(whole);
+        } else if (touches(open) || touches(close)) {
+          again = true;
+          let parts = [p];
+          for (const mark of [open, close]) {
+            parts = parts.flatMap((q) =>
+              q.from < mark.to && q.to > mark.from ? [{ from: q.from, to: mark.from }, { from: mark.to, to: q.to }] : [q],
+            );
+          }
+          next.push(...parts.filter((q) => q.to > q.from));
+        } else {
+          next.push(p);
+        }
+      }
+      // Pieces that grew into each other become one.
+      next.sort((a, b) => a.from - b.from);
+      pieces = [];
+      for (const p of next) {
+        const last = pieces[pieces.length - 1];
+        if (last && p.from <= last.to) last.to = Math.max(last.to, p.to);
+        else pieces.push({ ...p });
+      }
+      changed ||= again;
+    }
+  }
+  return changed ? pieces : null;
+}
+
+/** Edits that take away a selection, as opposed to the single characters Backspace and Delete take. */
+const takesSelection = (tr: Transaction) =>
+  tr.isUserEvent('delete') || tr.isUserEvent('input.type') || tr.isUserEvent('input.paste');
+
+/** A selection that is deleted, cut or typed over takes formatted spans whole or not at all; see `wholeSpanDeletion`. */
+const keepSpansWhole = EditorState.transactionFilter.of((tr) => {
+  if (!tr.docChanged || !takesSelection(tr)) return tr;
+  const state = tr.startState;
+  if (state.field(sourceMode, false)) return tr;
+  const edits: { from: number; to: number; text: string }[] = [];
+  tr.changes.iterChanges((from, to, _fromB, _toB, inserted) => edits.push({ from, to, text: inserted.toString() }));
+  // Several cursors at once are left as they are.
+  if (edits.length !== 1 || edits[0]!.to === edits[0]!.from) return tr;
+  const { from, to, text } = edits[0]!;
+  const pieces = wholeSpanDeletion(state, from, to, tr.isUserEvent('delete'));
+  if (!pieces) return tr;
+  // What was typed or pasted goes where the first remaining piece starts.
+  const at = pieces[0]?.from ?? from;
+  const specs = pieces.length ? pieces.map((p, i) => ({ ...p, insert: i === 0 ? text : '' })) : [{ from, insert: text }];
+  const changes = state.changes(specs);
+  return {
+    changes,
+    selection: { anchor: changes.mapPos(at, -1) + text.length },
+    effects: tr.effects,
+    scrollIntoView: tr.scrollIntoView,
+    userEvent: tr.annotation(Transaction.userEvent),
+  };
+});
+
 /** Backspace deletes the character before the hidden marks, not the marks. */
 const backspace: Command = (view) => {
   const start = singleCursor(view.state);
@@ -231,6 +325,7 @@ const leaveEmptyBlock: Command = (view) => {
 
 export const cursorBehavior: Extension = [
   normalizeCursor,
+  keepSpansWhole,
   // Highest: the Markdown keymap also binds Enter and Backspace at high precedence and would run first.
   Prec.highest(
     keymap.of([

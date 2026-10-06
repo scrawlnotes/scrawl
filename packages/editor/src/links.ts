@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import type { EditorState, Extension, TransactionSpec } from '@codemirror/state';
+import type { EditorState, Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 import { MARKDOWN_TYPE } from './clipboard';
@@ -46,10 +46,9 @@ function inside(state: EditorState, pos: number): boolean {
 
 /**
  * A pasted web address becomes a link. Over selected text it links that text; at the cursor
- * the address itself is the text, and `onPasted` is told, so that the page's title can take its
- * place once it is known.
+ * the address itself is the text.
  */
-export function linkPaste(onPasted?: (url: string) => void): Extension {
+export function linkPaste(): Extension {
   return EditorView.domEventHandlers({
     paste(event, view) {
       const data = event.clipboardData;
@@ -69,7 +68,6 @@ export function linkPaste(onPasted?: (url: string) => void): Extension {
         // Not `input.paste`: the link syntax is ours and must not be escaped as typed text.
         userEvent: 'input.link',
       });
-      onPasted?.(url);
       return true;
     },
   });
@@ -77,16 +75,3 @@ export function linkPaste(onPasted?: (url: string) => void): Extension {
 
 /** The Markdown of the link a pasted address becomes. */
 export const pastedLink = (url: string) => `[${urlText(url)}](${linkAddress(url)})`;
-
-/**
- * Gives the link that was pasted for `url` the page's title as its text. Null when that link is
- * gone or its text was changed in the meantime: then the user's text stays.
- */
-export function linkTitleChange(state: EditorState, url: string, title: string): TransactionSpec | null {
-  const at = state.doc.toString().indexOf(pastedLink(url));
-  if (at < 0 || !title.trim()) return null;
-  return {
-    changes: { from: at + 1, to: at + 1 + urlText(url).length, insert: linkText(title.trim()) },
-    userEvent: 'input.link',
-  };
-}

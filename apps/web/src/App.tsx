@@ -201,7 +201,9 @@ export function App() {
   const deleteForever = (item: TrashItem) =>
     ask(
       t('delete.forever'),
-      t('delete.foreverText', { name: quote(item.title) }),
+      t(item.kind === 'note' || item.kind === 'folder' ? 'delete.foreverWithFiles' : 'delete.foreverText', {
+        name: quote(item.title),
+      }),
       () => void session.deleteForever(item),
       t('delete.forever'),
     );
@@ -234,6 +236,14 @@ export function App() {
       ...(path === INBOX ? [] : [{ label: t('menu.deleteFolder'), run: () => deleteFolder(path) }]),
     ]);
   const closeMenu = useCallback(() => setMenu(null), []);
+
+  // An image, file or recording in a note has its right-click menu drawn like the others.
+  useEffect(() => {
+    session.showMenu = (at, items) => setMenu({ at, items });
+    return () => {
+      session.showMenu = null;
+    };
+  }, [session]);
 
   const onTabDragOver = (event: DragEvent) => {
     if (!event.dataTransfer.types.includes(TAB_DRAG_TYPE)) return;

@@ -296,6 +296,18 @@ p { margin: 0; max-width: 68ch; }
 .copy .x.hot::after { content: "Cancel copying"; position: absolute; left: calc(100% + 6px); top: -2px; padding: 2px 7px; border: 1px solid var(--m-line); border-radius: 4px; background: var(--m-bg); color: var(--m-fg); font-size: 11px; white-space: nowrap; }
 .copy .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 0 0 5px 5px; background: var(--m-line); overflow: hidden; }
 .copy .bar i { display: block; height: 100%; background: var(--m-accent); }
+/* direction A: a selected image, file or recording, and what can be done with it.
+   A chip has its bar beside it on its line; an image has it in its top right corner. */
+.pick-item { cursor: pointer; }
+.sel-on { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+.pic { position: relative; display: inline-block; margin: 6px 0 2px; vertical-align: top; border-radius: 4px; }
+.mock .pic svg.wb { display: block; width: 360px; height: 176px; border-radius: 4px; }
+.ibar { display: inline-flex; align-items: center; gap: 1px; margin-left: 8px; padding: 3px; vertical-align: middle; background: var(--m-side); border: 1px solid var(--m-line); border-radius: 7px; box-shadow: 0 6px 18px rgb(0 0 0 / .28); font: 12px/1 var(--m-ui); white-space: nowrap; }
+.pic .ibar { position: absolute; top: 8px; right: 8px; margin: 0; }
+.ibar span { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 4px; color: var(--m-fg); }
+.ibar span.hot { background: var(--m-sel); }
+.mock .ibar svg { width: 13px; height: 13px; color: var(--m-dim); }
+.ibar i { align-self: stretch; width: 1px; margin: 3px 2px; background: var(--m-line); }
 .earlier { border-top: 1px solid var(--rule); padding-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 </style>
 
@@ -330,6 +342,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-history" data-aview="history">History</button>
         <button type="button" id="a-media" data-aview="media">Media</button>
         <button type="button" id="a-copy" data-aview="copy">Copying</button>
+        <button type="button" id="a-item" data-aview="item">Item menu</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -508,6 +521,10 @@ p { margin: 0; max-width: 68ch; }
   ICON.board = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.5 4v16M14.5 4v10"/></svg>';
   ICON.trash = '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/></svg>';
   ICON.folder = '<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>';
+  ICON.open = '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
+  ICON.audio = '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
+  ICON.image = '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L20 18"/></svg>';
+  ICON.file = '<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';
   ICON.restore = '<svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4v4.5H9"/></svg>';
   var src = document.createElement('div');
   src.innerHTML = TEMPLATE;
@@ -541,7 +558,7 @@ p { margin: 0; max-width: 68ch; }
       row({ chev: '▸', label: 'Snippets' }) +
       row({ chev: '▸', label: 'Reading' }) +
       '</div>' +
-      '<div class="side-foot">' + row({ icon: 'trash', label: 'Trash', ct: 6, go: 'trash', on: view === 'trash' }) + '</div>';
+      '<div class="side-foot">' + row({ icon: 'trash', label: 'Trash', ct: 8, go: 'trash', on: view === 'trash' }) + '</div>';
   }
   function task(p, title, meta) {
     return '<div class="task"><span class="cb ' + p + '"></span><div><div class="tt">' + title + '</div><div class="meta">' + meta + '</div></div></div>';
@@ -579,17 +596,19 @@ p { margin: 0; max-width: 68ch; }
       '<div><div class="tt">' + name + '</div><div class="meta">' + meta + '</div></div>' +
       '<div class="ta"><span class="hot tip" data-tip="Restore to Work">' + ICON.restore + '</span><span title="Delete forever">' + ICON.trash + '</span></div></div>';
   }
-  var TRASH = '<div class="tasksv"><div class="th"><b>Trash</b><span class="count">6 items</span><button type="button" class="ghost">Empty trash</button></div><div class="tl">' +
-    '<div class="sec">Today <small>3</small></div>' +
+  var TRASH = '<div class="tasksv"><div class="th"><b>Trash</b><span class="count">8 items</span><button type="button" class="ghost">Empty trash</button></div><div class="tl">' +
+    '<div class="sec">Today <small>5</small></div>' +
     trow('notes', 'Meeting notes', '<span>Work</span><span>11:35</span>', true) +
     trow('folder', 'Old drafts', '<span>2 notes, 1 task list</span><span>11:20</span>') +
     trow('tasks', 'Sprint 12', '<span>Scrawl</span><span>3 tasks</span><span>10:02</span>') +
+    trow('image', 'M24-stelora.png', '<span>Not used in any note</span><span>42.9 MB</span><span>09:30</span>') +
+    trow('audio', '2026-10-05-181402.webm', '<span>Not used in any note</span><span>310 KB</span><span>09:30</span>') +
     '<div class="sec">Yesterday <small>2</small></div>' +
     trow('notes', 'untitled', '<span>Inbox</span><span>18:44</span>') +
     trow('notes', 'Standup 10-04', '<span>Scrawl / meetings</span><span>09:12</span>') +
     '<div class="sec">Oct 1 <small>1</small></div>' +
     trow('notes', 'Grocery list', '<span>Home</span><span>20:05</span>') +
-    '<p class="trash-note">Restore puts an item back where it was. Nothing here is deleted until you delete it.</p>' +
+    '<p class="trash-note">Restore puts an item back where it was. Attached files that no note uses any more are moved here when Scrawl starts. Nothing here is deleted until you delete it.</p>' +
     '</div></div>';
   function hl(time, ago, on) {
     return '<div class="hl' + (on ? ' on' : '') + '"><span>' + time + '</span>' + (ago ? '<small>' + ago + '</small>' : '') + '</div>';
@@ -622,7 +641,6 @@ p { margin: 0; max-width: 68ch; }
     '<div class="hist-foot"><span class="hint">Restoring keeps the current text as a version too.</span>' +
       '<button type="button" class="ghost">Close</button><button type="button" class="add">Restore this version</button></div>' +
     '</div></div>';
-  ICON.file = '<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';
   var FBAR = '<div class="fbar">' +
     '<div class="g"><span><b>B</b></span><span><em>I</em></span><span><s>S</s></span><span>&lt;/&gt;</span><span>Link</span></div>' +
     '<div class="g"><span>H1</span><span>H2</span><span>H3</span></div>' +
@@ -648,7 +666,6 @@ p { margin: 0; max-width: 68ch; }
     '<div class="ln">&nbsp;</div>' +
     '<div class="ln">Next: send the estimate by Thursday.<span class="caret"></span></div>' +
     '</div></div>';
-  ICON.image = '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L20 18"/></svg>';
   function copying(icon, name, done, total, hot) {
     var share = Math.round(done / total * 100);
     return '<span class="copy">' + ICON[icon] + name + '<small>' + done + ' / ' + total + ' MB</small>' +
@@ -666,6 +683,38 @@ p { margin: 0; max-width: 68ch; }
     '<div class="ln">&nbsp;</div>' +
     '<div class="ln">Next: ask about the drainage<span class="caret"></span></div>' +
     '</div></div>';
+  // A whiteboard photo: sticky notes and a few lines of marker.
+  var BOARD_PHOTO = '<svg class="wb" viewBox="0 0 360 176" style="stroke:none">' +
+    '<rect width="360" height="176" fill="var(--m-code)"/>' +
+    '<rect x="22" y="22" width="66" height="54" rx="3" fill="color-mix(in srgb, var(--m-accent) 55%, var(--m-code))"/>' +
+    '<rect x="98" y="26" width="66" height="54" rx="3" fill="color-mix(in srgb, var(--m-hl-function, #7ab0f5) 45%, var(--m-code))"/>' +
+    '<rect x="40" y="90" width="66" height="54" rx="3" fill="color-mix(in srgb, var(--m-hl-string, #9ece8a) 45%, var(--m-code))"/>' +
+    '<path d="M196 40h120M196 60h96M196 80h110M196 112h70M196 132h104" stroke="var(--m-faint)" stroke-width="3" stroke-linecap="round" fill="none"/>' +
+    '<path d="M120 110c20 -6 40 -6 60 2" stroke="var(--m-faint)" stroke-width="2" fill="none"/>' +
+    '</svg>';
+  function ibar(open) {
+    return '<span class="ibar">' + (open ? '<span class="hot">' + ICON.open + 'Open</span>' : '') +
+      '<span>' + ICON.folder + 'Show in folder</span><i></i><span>' + ICON.trash + 'Delete</span></span>';
+  }
+  function itemView(sel) {
+    return FBAR.replace(/<div class="rec">[\s\S]*?<\/div>/, '<div class="g"><span>Record</span></div>') + '<div class="ed"><div class="col">' +
+      '<div class="ln h1">Client call, Oct 6</div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln">They sent the revised scope as a PDF:</div>' +
+      '<div class="ln"><span class="file pick-item' + (sel === 'file' ? ' sel-on' : '') + '" data-go="item-file">' + ICON.file + 'scope-v3.pdf<small>2.4 MB</small></span>' +
+        (sel === 'file' ? ibar(true) : '') + '</div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln">The whiteboard after the call:</div>' +
+      '<div class="ln"><span class="pic pick-item' + (sel === 'image' ? ' sel-on' : '') + '" data-go="item">' + BOARD_PHOTO +
+        (sel === 'image' ? ibar(true) : '') + '</span></div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln">Their notes on the budget:</div>' +
+      '<div class="ln"><span class="aud pick-item' + (sel === 'audio' ? ' sel-on' : '') + '" data-go="item-audio"><span class="play"></span><span class="wv">' + waveOf(0) + '</span>Voice memo · 0:42</span>' +
+        (sel === 'audio' ? ibar(false) : '') + '</div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln">Next: send the estimate by Thursday.</div>' +
+      '</div></div>';
+  }
   function tab(kind, label, go, on, dot) {
     return '<div class="tab' + (on ? ' on' : '') + '" data-go="' + go + '">' + ICON[kind] + '<span>' + label + '</span>' + (dot ? '<i></i>' : '') + '</div>';
   }
@@ -676,14 +725,18 @@ p { margin: 0; max-width: 68ch; }
     tasks: '<span>7 open</span><span>2 due today</span>',
     board: '<span>4 columns</span><span>8 cards</span>',
     today: '<span>3 tasks</span><span>1 overdue</span>',
-    trash: '<span>6 items</span>',
+    trash: '<span>8 items</span>',
     history: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     media: '<span>Ln 12, Col 37</span><span>412 characters</span><span>Markdown</span>',
-    copy: '<span>Ln 10, Col 29</span><span>186 characters</span><span>Markdown</span>'
+    copy: '<span>Ln 10, Col 29</span><span>186 characters</span><span>Markdown</span>',
+    item: '<span>Ln 7, Col 1</span><span>396 characters</span><span>Markdown</span>',
+    'item-file': '<span>Ln 4, Col 1</span><span>396 characters</span><span>Markdown</span>',
+    'item-audio': '<span>Ln 10, Col 1</span><span>396 characters</span><span>Markdown</span>'
   };
   function renderA(section, view) {
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
       (view === 'copy' ? tab('notes', 'Site visit, Oct 6', 'copy', true) : '') +
+      (view.indexOf('item') === 0 ? tab('notes', 'Client call, Oct 6', view, true) : '') +
       tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
       tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks') +
@@ -692,14 +745,14 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio') }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + '<span>Synced to OneDrive 12 s ago</span></div></section>' +
       (view === 'history' ? HISTORY : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
-      b.setAttribute('aria-pressed', String(b.dataset.aview === view));
+      b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });
   }
   var sectionA = document.querySelector('.dir[data-dir="a"]');

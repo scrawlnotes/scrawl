@@ -1,24 +1,35 @@
 import { dayOf, dirname, type TrashItem } from '@scrawlnotes/core';
+import { sizeText } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
 import { Icon, type IconName } from './Icon';
 import { clockTime, contentsText, pastDayLabel } from './text';
 
-const ICONS: Record<TrashItem['kind'], IconName> = { note: 'note', tasks: 'tasks', folder: 'folder' };
+const ICONS: Record<Exclude<TrashItem['kind'], 'attachment'>, IconName> = { note: 'note', tasks: 'tasks', folder: 'folder' };
+const IMAGE = /\.(png|jpe?g|gif|webp|avif|svg|bmp|ico)$/i;
+const AUDIO = /\.(webm|ogg|oga|opus|mp3|m4a|aac|wav|flac)$/i;
+
+const iconOf = (item: TrashItem): IconName =>
+  item.kind !== 'attachment' ? ICONS[item.kind] : IMAGE.test(item.title) ? 'image' : AUDIO.test(item.title) ? 'audio' : 'file';
+
 /** The folder an item goes back to, as a path to read: `Scrawl / meetings`; empty for the top level. */
 const placeOf = (from: string) => dirname(from).split('/').filter(Boolean).join(' / ');
 
 function TrashRow({ item, onRestore, onDelete }: { item: TrashItem; onRestore: () => void; onDelete: () => void }) {
-  const place = placeOf(item.from);
+  // An attached file goes back to the attachments, which is no place to name.
+  const file = item.kind === 'attachment';
+  const place = file ? '' : placeOf(item.from);
   const meta = [
     place,
+    file && t('trash.unused'),
+    item.size !== undefined && sizeText(item.size),
     item.holds && (contentsText(item.holds) || t('trash.emptyFolder')),
     item.tasks !== undefined && item.tasks > 0 && t('count.tasks', { count: item.tasks }),
     clockTime(item.deleted),
   ].filter(Boolean);
-  const restore = t('trash.restoreTo', { place: place || t('trash.topLevel') });
+  const restore = file ? t('trash.restore') : t('trash.restoreTo', { place: place || t('trash.topLevel') });
   return (
     <div className="trow">
-      <Icon name={ICONS[item.kind]} />
+      <Icon name={iconOf(item)} />
       <div className="task-body">
         <span className="trow-title">{item.title}</span>
         <div className="meta">

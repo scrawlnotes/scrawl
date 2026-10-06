@@ -38,19 +38,19 @@ export async function chooseVaultFolder(): Promise<boolean> {
   return true;
 }
 
-/** The start of a web page, to take its title from. Desktop only: a web page may not read other sites. */
-export async function fetchPageHead(url: string): Promise<string | null> {
-  if (!isDesktop) return null;
-  try {
-    return await invoke<string>('fetch_page_head', { url });
-  } catch {
-    return null;
-  }
-}
-
 /** Desktop: opens a file in the vault with the program the system uses for it. */
 export async function openFileOnDesktop(path: string): Promise<void> {
   if (folder) await invoke('open_file', { root: folder, path });
+}
+
+/** Desktop: shows a file in the vault selected in its folder, in the system's file manager. */
+export async function revealFileOnDesktop(path: string): Promise<void> {
+  if (folder) await invoke('reveal_file', { root: folder, path });
+}
+
+/** Desktop: opens a web or mail address in the default browser or mail program. */
+export async function openUrlOnDesktop(url: string): Promise<void> {
+  await invoke('open_url', { url });
 }
 
 /** Desktop: an address the web view reads a file of the notes folder from, straight from disk. */

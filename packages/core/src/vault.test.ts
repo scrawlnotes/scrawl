@@ -17,10 +17,12 @@ import {
   readTrash,
   readTree,
   renameItem,
+  restoreAttachments,
   restoreFromTrash,
   saveAttachment,
   saveFile,
   saveWorkspace,
+  sweepAttachments,
   titleOf,
   trashFolder,
   trashItem,
@@ -278,6 +280,81 @@ describe('trash', () => {
     await emptyTrash(fs);
     expect(await readTrash(fs)).toEqual([]);
     expect(await fs.list('.scrawl/trash')).toEqual([]);
+  });
+});
+
+describe('unused attachments', () => {
+  const later = new Date(2026, 9, 6, 9, 30, 0);
+  const files = async (fs: MemoryFs) => (await fs.list('_attachments')).map((e) => e.name).sort();
+
+  it('go to the trash when nothing links to them, also not a note in the trash', async () => {
+    const fs = new MemoryFs();
+    for (const name of ['photo.png', 'Scope v3 (final).pdf', 'memo.webm', 'list.pdf', 'trashed.png', 'unsaved.png', 'old.png', 'gone.png']) {
+      await fs.writeText(`_attachments/${name}`, 'data');
+    }
+    await fs.writeText('Work/call.md', '![](_attachments/photo.png)\n[Scope v3 \\(final\\)](_attachments/Scope%20v3%20%28final%29.pdf)');
+    await fs.writeText('Inbox/2026-10-05 101010.md', '[memo](_attachments/memo.webm)');
+    await fs.writeText('Work/Sprint.tasks.json', '{"tasks":[{"id":"1","title":"Read [it](_attachments/list.pdf)"}]}');
+    await fs.writeText('Old/note.md', '![](_attachments/trashed.png)');
+    await trashItem(fs, 'Old/note.md', at);
+    // History keeps old text but does not keep files: restoring a version brings them back.
+    await fs.writeText('.scrawl/history/Work/call.md/2026-10-01 090000.md', '![](_attachments/old.png)');
+
+    expect(await sweepAttachments(fs, () => ['![](_attachments/unsaved.png)'], later)).toBe(2);
+    expect(await files(fs)).toEqual(['Scope v3 (final).pdf', 'list.pdf', 'memo.webm', 'photo.png', 'trashed.png', 'unsaved.png']);
+    const swept = (await readTrash(fs)).filter((i) => i.kind === 'attachment');
+    expect(swept.map((i) => [i.title, i.from, i.size]).sort()).toEqual([
+      ['gone.png', '_attachments/gone.png', 4],
+      ['old.png', '_attachments/old.png', 4],
+    ]);
+    // Sweeping again finds nothing more; without the unsaved note its file would go too.
+    expect(await sweepAttachments(fs, () => ['![](_attachments/unsaved.png)'], later)).toBe(0);
+    expect(await sweepAttachments(fs, () => [], later)).toBe(1);
+  });
+
+  it('come back with an old version or a note from the trash that links to them', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('_attachments/a.png', 'a');
+    await fs.writeText('_attachments/b.png', 'b');
+    expect(await sweepAttachments(fs, () => [], at)).toBe(2);
+    expect(await files(fs)).toEqual([]);
+
+    // An old version of a note is restored from its history.
+    expect(await restoreAttachments(fs, ['![](_attachments/b.png)'])).toBe(1);
+    expect(await files(fs)).toEqual(['b.png']);
+
+    // A note in the trash whose file went meanwhile, as another device may leave it.
+    await fs.writeText('Work/call.md', '![](_attachments/a.png)');
+    await trashItem(fs, 'Work/call.md', later);
+    const note = (await readTrash(fs)).find((i) => i.kind === 'note')!;
+    expect(await restoreFromTrash(fs, note)).toBe('Work/call.md');
+    expect(await files(fs)).toEqual(['a.png', 'b.png']);
+    expect(await readTrash(fs)).toEqual([]);
+  });
+
+  it('do not come back over another file that took their name', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('_attachments/scope.pdf', 'old');
+    await sweepAttachments(fs, () => [], at);
+    await fs.writeText('_attachments/scope.pdf', 'new');
+    expect(await restoreAttachments(fs, ['[scope](_attachments/scope.pdf)'])).toBe(0);
+    expect(await fs.readText('_attachments/scope.pdf')).toBe('new');
+  });
+
+  it('are deleted for good with the note that was the only one to link to them', async () => {
+    const fs = new MemoryFs();
+    for (const name of ['mine.png', 'shared.png', 'open.png']) await fs.writeText(`_attachments/${name}`, 'x');
+    await fs.writeText('Work/a.md', '![](_attachments/mine.png) ![](_attachments/shared.png) ![](_attachments/open.png)');
+    await fs.writeText('Work/b.md', '![](_attachments/shared.png)');
+    await trashItem(fs, 'Work/a.md', at);
+    const [note] = await readTrash(fs);
+    await deleteFromTrash(fs, note!, ['![](_attachments/open.png)']);
+    expect(await files(fs)).toEqual(['open.png', 'shared.png']);
+
+    await fs.writeText('Work/c.md', '![](_attachments/open.png)');
+    await trashFolder(fs, 'Work', later);
+    await emptyTrash(fs);
+    expect(await files(fs)).toEqual([]);
   });
 });
 

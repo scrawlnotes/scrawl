@@ -199,7 +199,8 @@ export async function trashFolder(fs: VaultFs, path: string, now = new Date()): 
 export interface TrashItem {
   /** Where it is in the trash. */
   path: string;
-  kind: 'note' | 'tasks' | 'folder';
+  /** An attachment is a file that no note linked to any more. */
+  kind: 'note' | 'tasks' | 'folder' | 'attachment';
   /** What it was called in the interface. */
   title: string;
   /** The path it had, which it is restored to. */
@@ -210,6 +211,8 @@ export interface TrashItem {
   holds?: { notes: number; lists: number; folders: number };
   /** How many tasks a task list has. */
   tasks?: number;
+  /** An attachment's size in bytes. */
+  size?: number;
 }
 
 async function countTree(fs: VaultFs, dir: string): Promise<{ notes: number; lists: number; folders: number }> {
@@ -236,11 +239,16 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
   const items: TrashItem[] = [];
   for (const entry of await fs.list(TRASH)) {
     if (entry.path === TRASH_INDEX) continue;
+    const record = records.get(entry.name);
+    if (record?.from.startsWith(`${ATTACHMENTS}/`) && entry.kind === 'file') {
+      const title = basename(record.from);
+      items.push({ path: entry.path, kind: 'attachment', title, from: record.from, deleted: record.deleted, size: entry.size });
+      continue;
+    }
     const isFolder = entry.kind === 'dir';
     const isList = !isFolder && entry.name.endsWith(TASK_LIST_EXT);
     // Anything else was not put there by the app.
     if (!isFolder && !isList && !entry.name.endsWith('.md')) continue;
-    const record = records.get(entry.name);
     // Trash names start with the moment of deleting: `2026-10-05 143207 Plan.md`.
     const stamped = parseStamp(entry.name);
     const name = record ? basename(record.from) : stamped?.rest.startsWith(' ') ? stamped.rest.slice(1) : entry.name;
@@ -258,7 +266,11 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
   return items.sort((a, b) => b.deleted.localeCompare(a.deleted));
 }
 
-/** Puts an item back where it was, numbering its name when that is taken. Returns the path it got. */
+/**
+ * Puts an item back where it was, numbering its name when that is taken. A note or a folder
+ * brings back the attached files it links to that went to the trash meanwhile. Returns the path
+ * it got.
+ */
 export async function restoreFromTrash(fs: VaultFs, item: TrashItem): Promise<string> {
   const folder = dirname(item.from);
   const [name, ext] = item.kind === 'folder' ? [basename(item.from), ''] : splitName(basename(item.from));
@@ -270,18 +282,122 @@ export async function restoreFromTrash(fs: VaultFs, item: TrashItem): Promise<st
     await fs.move(item.path, target);
   }
   await forget(fs, basename(item.path));
+  if (item.kind === 'note' || item.kind === 'folder') await restoreAttachments(fs, await textsOf(fs, target));
   return target;
 }
 
-/** Deletes an item in the trash for good. */
-export async function deleteFromTrash(fs: VaultFs, item: TrashItem): Promise<void> {
+/**
+ * Deletes an item in the trash for good. A note or a folder takes with it the attached files
+ * that only it linked to. `unsaved` is the text of notes not written yet.
+ */
+export async function deleteFromTrash(fs: VaultFs, item: TrashItem, unsaved: string[] = []): Promise<void> {
+  const texts = item.kind === 'note' || item.kind === 'folder' ? await textsOf(fs, item.path) : [];
   await fs.remove(item.path);
   await forget(fs, basename(item.path));
+  await removeAttachmentsOf(fs, texts, unsaved);
 }
 
-/** Deletes everything in the trash for good. */
-export async function emptyTrash(fs: VaultFs): Promise<void> {
-  if ((await fs.list(TRASH)).length > 0) await fs.remove(TRASH);
+/** Deletes everything in the trash for good, with the attached files that only its notes linked to. */
+export async function emptyTrash(fs: VaultFs, unsaved: string[] = []): Promise<void> {
+  if ((await fs.list(TRASH)).length === 0) return;
+  const texts = await textsOf(fs, TRASH);
+  await fs.remove(TRASH);
+  await removeAttachmentsOf(fs, texts, unsaved);
+}
+
+/** Notes and task lists are what can link to attached files. */
+const canLink = (name: string) => name.endsWith('.md') || name.endsWith('.json');
+
+/** The text of every note and task list at `path`: a file, or a folder all the way down. */
+async function textsOf(fs: VaultFs, path: string): Promise<string[]> {
+  if (canLink(path)) return [await fs.readText(path)];
+  const texts: string[] = [];
+  const visit = async (dir: string) => {
+    for (const entry of await fs.list(dir)) {
+      if (entry.path === TRASH_INDEX) continue;
+      if (entry.kind === 'dir') {
+        // Attachments, the app's own state and other tools' folders link to nothing.
+        if (dir === '' && isHidden(entry.name)) continue;
+        await visit(entry.path);
+      } else if (canLink(entry.name)) texts.push(await fs.readText(entry.path));
+    }
+  };
+  await visit(path);
+  return texts;
+}
+
+/** Everything that can link to attached files: the notes and task lists in the vault and in its trash. */
+const allTexts = async (fs: VaultFs) => [...(await textsOf(fs, '')), ...(await textsOf(fs, TRASH))];
+
+/**
+ * Text to look for attachment paths in: lower case, with Markdown's backslash escapes and the
+ * percent-encoding of link addresses undone. A file whose path is found in it is linked. A path
+ * that is only mentioned keeps a file that could go; that is the safe way to be wrong.
+ */
+function linkedIn(texts: string[]): string {
+  const all = texts.join('\n');
+  const decoded = all.replace(/\\([!-/:-@[-`{-~])/g, '$1').replace(/(%[0-9a-f]{2})+/gi, (run) => {
+    try {
+      return decodeURIComponent(run);
+    } catch {
+      return run;
+    }
+  });
+  return `${all}\n${decoded}`.toLowerCase();
+}
+
+/** The attached files in the vault, but not those still being written. */
+async function attachedFiles(fs: VaultFs): Promise<Entry[]> {
+  return (await fs.list(ATTACHMENTS)).filter(
+    (e) => e.kind === 'file' && !isHidden(e.name) && !writing.has(e.path.toLowerCase()),
+  );
+}
+
+/**
+ * Moves the attached files that nothing links to any more into the trash, where they can still
+ * be restored. Notes in the trash count, so that restoring one shows its files. `unsaved` gives
+ * the text of notes not written yet. Returns how many files were moved.
+ */
+export async function sweepAttachments(fs: VaultFs, unsaved: () => string[] = () => [], now = new Date()): Promise<number> {
+  const files = await attachedFiles(fs);
+  if (files.length === 0) return 0;
+  const texts = await allTexts(fs);
+  const linked = linkedIn([...texts, ...unsaved()]);
+  let moved = 0;
+  for (const file of files) {
+    if (linked.includes(file.path.toLowerCase())) continue;
+    await trashItem(fs, file.path, now);
+    moved++;
+  }
+  return moved;
+}
+
+/**
+ * Brings back from the trash the attached files that `texts` link to, unless another file of
+ * the same name has taken their place. Returns how many came back.
+ */
+export async function restoreAttachments(fs: VaultFs, texts: string[]): Promise<number> {
+  const linked = linkedIn(texts);
+  const present = await names(fs, ATTACHMENTS);
+  let restored = 0;
+  // The latest deleted comes first, so of a file deleted twice its last version comes back.
+  for (const item of await readTrash(fs)) {
+    const from = item.from.toLowerCase();
+    if (item.kind !== 'attachment' || present.has(from) || !linked.includes(from)) continue;
+    present.add((await restoreFromTrash(fs, item)).toLowerCase());
+    restored++;
+  }
+  return restored;
+}
+
+/** Deletes for good the attached files that `texts` linked to, when nothing else links to them. */
+async function removeAttachmentsOf(fs: VaultFs, texts: string[], unsaved: string[]): Promise<void> {
+  if (texts.length === 0) return;
+  const gone = linkedIn(texts);
+  const files = (await attachedFiles(fs)).filter((file) => gone.includes(file.path.toLowerCase()));
+  if (files.length === 0) return;
+  const linked = linkedIn([...(await allTexts(fs)), ...unsaved]);
+  for (const file of files) if (!linked.includes(file.path.toLowerCase())) await fs.remove(file.path);
 }
 
 /**

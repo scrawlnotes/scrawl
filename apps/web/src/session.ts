@@ -20,18 +20,19 @@ import {
   moveHistory,
   moveItem,
   type NewTask,
-  pageTitle,
   pruneHistory,
   readTrash,
   readTree,
   removeTask,
   renameItem,
+  restoreAttachments,
   restoreFromTrash,
   saveAttachment,
   saveFile,
   saveTasks,
   saveWorkspace,
   setDone,
+  sweepAttachments,
   type Task,
   trashFolder,
   trashItem,
@@ -55,9 +56,9 @@ import {
   type EditorStats,
   type FormatState,
   formatState,
+  type ItemAction,
   linkAddress,
   linkText,
-  linkTitleChange,
   type ScrawlEditor,
   selectNextOccurrence,
   selectSelectionMatches,
@@ -74,7 +75,16 @@ import {
 } from '@scrawlnotes/editor';
 import { boardOf, folderOf, isNote, listOf, tabOf } from './items';
 import { sampleDoc } from './sample';
-import { chooseVaultFolder, fetchPageHead, fileUrl, isDesktop, openFileOnDesktop, openVault, vaultFolder } from './storage';
+import {
+  chooseVaultFolder,
+  fileUrl,
+  isDesktop,
+  openFileOnDesktop,
+  openUrlOnDesktop,
+  openVault,
+  revealFileOnDesktop,
+  vaultFolder,
+} from './storage';
 
 const SAVE_DELAY_MS = 400;
 
@@ -174,6 +184,8 @@ export class Session {
   /** Editing state of each open note that is not on screen, undo history included. */
   private readonly states = new Map<string, EditorState>();
   private readonly pending = new Map<string, string>();
+  /** Shows the menu of a right click in a note; the interface sets it, to draw it like its other menus. */
+  showMenu: ((at: { x: number; y: number }, items: ItemAction[]) => void) | null = null;
   /** The text of each open note as it was last read from or written to the vault. */
   private readonly disk = new Map<string, string>();
   /** When a version of each note was last kept in this session. */
@@ -246,8 +258,11 @@ export class Session {
         this.set({ stats, format: this.editor ? formatState(this.editor.view.state) : null });
       },
       onChange: (doc) => this.changed(doc),
-      onLinkPasted: (url) => void this.fillLinkTitle(this.snapshot.active, url),
       openFile: (src) => void this.openFile(src),
+      revealFile: isDesktop ? (src) => void revealFileOnDesktop(src).catch(() => undefined) : undefined,
+      // The desktop web view does not open new windows; links go to the default browser.
+      openLink: isDesktop ? (href) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
+      showMenu: (at, items) => this.showMenu?.(at, items),
       fileSize: (src) => this.sizes.get(src),
       resolveAudio: (src) => this.mediaUrl(src),
       record: () => void this.startRecording(),
@@ -268,6 +283,27 @@ export class Session {
     if (first) await this.open(first);
     // Versions past their keeping time go, also those of notes deleted long ago.
     void pruneHistory(this.fs).catch(() => undefined);
+    void this.sweepAttachments(run);
+  }
+
+  /** The text of every open note, saved or not. */
+  private openTexts = () => [
+    ...this.pending.values(),
+    ...[...this.states.values()].map((state) => state.doc.toString()),
+    ...(this.editor ? [this.editor.view.state.doc.toString()] : []),
+  ];
+
+  /**
+   * Attached files that no note links to any more go to the trash. It is done as the app opens,
+   * when no undo can bring a link back: until then a removed file stays where it is.
+   */
+  private async sweepAttachments(run: number) {
+    try {
+      const moved = await sweepAttachments(this.fs, this.openTexts);
+      if (moved > 0 && run === this.run) this.set({ trash: await readTrash(this.fs) });
+    } catch {
+      // It is tried again the next time the app opens.
+    }
   }
 
   dispose() {
@@ -297,28 +333,6 @@ export class Session {
     this.set({ saved: false, titles });
     window.clearTimeout(this.timer);
     this.timer = window.setTimeout(this.flush, SAVE_DELAY_MS);
-  }
-
-  /**
-   * Puts the title of a web page in place of the address of the link just pasted for it, in the
-   * note at `path`, also when that note is no longer on screen. Desktop only.
-   */
-  private async fillLinkTitle(path: string | null, url: string) {
-    const html = path && (await fetchPageHead(url));
-    const title = html && pageTitle(html);
-    if (!path || !title) return;
-    const view = this.editor?.view;
-    if (view && this.snapshot.active === path) {
-      const change = linkTitleChange(view.state, url, title);
-      if (change) view.dispatch(change);
-      return;
-    }
-    const state = this.states.get(path);
-    const change = state && linkTitleChange(state, url, title);
-    if (!state || !change) return;
-    const next = state.update(change).state;
-    this.states.set(path, next);
-    this.queueSave(path, next.doc.toString());
   }
 
   /** Writes every unsaved note to the vault. */
@@ -587,6 +601,9 @@ export class Session {
     const view = this.editor?.view;
     if (!view || this.snapshot.active !== path) return;
     await this.keep(path, view.state.doc.toString(), true);
+    // Files the version links to that went to the trash meanwhile come back with it, before it shows them.
+    if (await restoreAttachments(this.fs, [text]).catch(() => 0)) this.set({ trash: await readTrash(this.fs) });
+    if (this.snapshot.active !== path) return;
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: text },
       selection: { anchor: 0 },
@@ -838,12 +855,12 @@ export class Session {
 
   /** Deletes an item in the trash for good. */
   async deleteForever(item: TrashItem) {
-    await deleteFromTrash(this.fs, item);
+    await deleteFromTrash(this.fs, item, this.openTexts());
     await this.refreshTree();
   }
 
   async emptyTrash() {
-    await emptyTrash(this.fs);
+    await emptyTrash(this.fs, this.openTexts());
     await this.refreshTree();
   }
 

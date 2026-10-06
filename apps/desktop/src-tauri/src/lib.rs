@@ -178,6 +178,34 @@ async fn open_file(app: tauri::AppHandle, root: String, path: String) -> Result<
         .map_err(|e| e.to_string())
 }
 
+/// Shows a file of the vault selected in its folder, in the system's file manager.
+#[tauri::command]
+async fn reveal_file(app: tauri::AppHandle, root: String, path: String) -> Result<(), String> {
+    let target = resolve(&root, &path)?;
+    app.opener()
+        .reveal_item_in_dir(target)
+        .map_err(|e| e.to_string())
+}
+
+/// Opens a link of a note in the default browser, or a mail address in the mail program.
+/// The web view itself ignores links that would open a new window.
+#[tauri::command]
+async fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    if !is_openable(&url) {
+        return Err("Only web and mail addresses can be opened.".into());
+    }
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+fn is_openable(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    ["http://", "https://", "mailto:"]
+        .iter()
+        .any(|scheme| lower.starts_with(scheme))
+}
+
 #[tauri::command]
 async fn fs_move(root: String, from: String, to: String) -> Result<(), String> {
     let target = resolve(&root, &to)?;
@@ -240,45 +268,6 @@ async fn settings_save(app: tauri::AppHandle, settings: Settings) -> Result<(), 
     allow_vault(&app, &settings)
 }
 
-/// How much of a web page is read for its title. The title is in the page's head, near the top.
-const PAGE_HEAD_BYTES: u64 = 512 * 1024;
-
-/// The start of a web page, from which the app takes its title. A page that is not HTML gives
-/// nothing. Pages are read here because the web view may not read other sites.
-#[tauri::command]
-async fn fetch_page_head(url: String) -> Result<String, String> {
-    if !(url.starts_with("http://") || url.starts_with("https://")) {
-        return Err("Only web addresses can be read.".into());
-    }
-    tauri::async_runtime::spawn_blocking(move || read_page_head(&url))
-        .await
-        .map_err(|e| e.to_string())?
-}
-
-fn read_page_head(url: &str) -> Result<String, String> {
-    use std::io::Read;
-    let agent = ureq::AgentBuilder::new()
-        .timeout(std::time::Duration::from_secs(5))
-        .redirects(5)
-        .user_agent("Mozilla/5.0 (compatible; Scrawl)")
-        .build();
-    let response = agent
-        .get(url)
-        .set("Accept", "text/html,application/xhtml+xml")
-        .call()
-        .map_err(|e| e.to_string())?;
-    if !response.content_type().contains("html") {
-        return Ok(String::new());
-    }
-    let mut bytes = Vec::new();
-    response
-        .into_reader()
-        .take(PAGE_HEAD_BYTES)
-        .read_to_end(&mut bytes)
-        .map_err(message)?;
-    Ok(String::from_utf8_lossy(&bytes).into_owned())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -294,8 +283,9 @@ pub fn run() {
             fs_mkdir,
             settings_load,
             settings_save,
-            fetch_page_head,
             open_file,
+            reveal_file,
+            open_url,
             fs_write_part
         ])
         .run(tauri::generate_context!())
@@ -325,12 +315,14 @@ mod tests {
         assert!(percent_decode("broken%2").is_err());
     }
 
-    // Needs the network, so it runs only when asked for: `cargo test -- --ignored`.
     #[test]
-    #[ignore]
-    fn reads_the_head_of_a_web_page() {
-        let html = read_page_head("https://example.com/").unwrap();
-        assert!(html.contains("<title>Example Domain</title>"));
+    fn only_web_and_mail_addresses_open() {
+        assert!(is_openable("https://github.com/tauri-apps/tauri"));
+        assert!(is_openable("HTTP://example.com"));
+        assert!(is_openable("mailto:someone@example.com"));
+        assert!(!is_openable("file:///C:/Windows/system32/calc.exe"));
+        assert!(!is_openable("C:/Windows/notepad.exe"));
+        assert!(!is_openable("javascript:alert(1)"));
     }
 
     #[test]

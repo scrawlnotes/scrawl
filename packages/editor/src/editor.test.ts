@@ -14,8 +14,8 @@ import {
   toggleLinePrefix,
 } from './commands';
 import { literalPattern } from './find';
-import { linkTitleChange, pastedLink, pastedUrl } from './links';
-import { restingPosition } from './cursor';
+import { pastedLink, pastedUrl } from './links';
+import { cursorBehavior, restingPosition } from './cursor';
 import { markdownSlice, visibleText } from './clipboard';
 import { addCopy, type Copy, copiesField, copyFollows, copyPosition, copyProgress, dropCopy, progressText } from './copies';
 import { positionsToEscape } from './literal';
@@ -451,6 +451,59 @@ describe('attachments', () => {
     expect(visibleText(state, 0, state.doc.length)).toBe('See Voice memo now');
     expect(linkAt(state)).toBeNull();
   });
+
+  it('shows what can be done with an image or a file only while the selection is that item alone', () => {
+    const items = (text: string) => {
+      const state = stateOf(text);
+      const tree = ensureSyntaxTree(state, state.doc.length, 5000)!;
+      const out: string[] = [];
+      for (let iter = buildDecorations(state, [{ from: 0, to: state.doc.length }], {}, tree).iter(); iter.value; iter.next()) {
+        const widget = iter.value.spec.widget as { selected?: boolean; active?: boolean } | undefined;
+        if (widget?.selected !== undefined) out.push(`${iter.value.spec.kind} ${widget.selected} ${widget.active}`);
+      }
+      return out;
+    };
+    const image = '![](_attachments/a.png)';
+    const file = '[a.pdf](_attachments/a.pdf)';
+    expect(items(`|${image}| ${file}`)).toEqual(['image true true', 'attachment false false']);
+    expect(items(`${image} |${file}|`)).toEqual(['image false false', 'attachment true true']);
+    // Inside a longer selection an item is selected but offers nothing of its own.
+    expect(items(`|${image} ${file}|`)).toEqual(['image true false', 'attachment true false']);
+    expect(items(`${image}| ${file}`)).toEqual(['image false false', 'attachment false false']);
+  });
+});
+
+describe('deleting a selection', () => {
+  /** Deletes (or, with `text`, types over) the selection marked in `text` and shows the result. */
+  const take = (marked: string, typed = '') => {
+    let state = stateOf(marked);
+    state = EditorState.create({ doc: state.doc, selection: state.selection, extensions: [extensions, cursorBehavior] });
+    ensureSyntaxTree(state, state.doc.length, 5000);
+    const { from, to } = state.selection.main;
+    const tr = state.update({ changes: { from, to, insert: typed }, userEvent: typed ? 'input.type' : 'delete.backward' });
+    const { head } = tr.state.selection.main;
+    const doc = tr.state.doc.toString();
+    return `${doc.slice(0, head)}|${doc.slice(head)}`;
+  };
+
+  it('takes a link whole when the selection reaches into its hidden syntax', () => {
+    // From the start of the link text to the end of the line: the `[` stayed behind.
+    expect(take('Docs: [|Tauri](https://tauri.app)|')).toBe('Docs: |');
+    // From before the link to the end of its text: `](https://tauri.app)` stayed behind.
+    expect(take('Docs: |[Tauri|](https://tauri.app) end')).toBe('Docs: | end');
+    expect(take('|Some **bold**| here')).toBe('| here');
+  });
+
+  it('takes a span whose text is deleted with its marks, but keeps it when the text is typed over', () => {
+    expect(take('See [|Tauri|](https://tauri.app)')).toBe('See |');
+    expect(take('See [|Tauri|](https://tauri.app)', 'Docs')).toBe('See [Docs|](https://tauri.app)');
+  });
+
+  it('keeps the format of what is left of a span', () => {
+    expect(take('Docs: [Tau|ri](https://tauri.app) end|')).toBe('Docs: [Tau|](https://tauri.app)');
+    expect(take('|Docs: [Tau|ri](https://tauri.app)')).toBe('|[ri](https://tauri.app)');
+    expect(take('a **bo|ld** and *it|alic*')).toBe('a **bo|***alic*');
+  });
 });
 
 describe('pasted links', () => {
@@ -473,13 +526,4 @@ describe('pasted links', () => {
     );
   });
 
-  it('puts the page title in place of the address, unless the link was changed', () => {
-    const url = 'https://example.com/a_b';
-    let state = stateOf(`See ${pastedLink(url)} now`);
-    state = state.update(linkTitleChange(state, url, ' The *best* page ')!).state;
-    expect(state.doc.toString()).toBe('See [The \\*best\\* page](https://example.com/a_b) now');
-    // Once the text is no longer the address, the title has nothing to replace.
-    expect(linkTitleChange(state, url, 'Other')).toBeNull();
-    expect(linkTitleChange(stateOf('no link here'), url, 'Title')).toBeNull();
-  });
 });

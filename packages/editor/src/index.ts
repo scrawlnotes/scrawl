@@ -45,8 +45,9 @@ export * from './commands';
 export { addCursorBelow, selectNextOccurrence, selectSelectionMatches };
 export { literalPattern } from './find';
 export { addCopy, type Copy, copyFollows, copyPosition, copyProgress, dropCopy, progressText, showCopy } from './copies';
-export { linkAddress, linkText, linkTitleChange, pastedLink, pastedUrl } from './links';
+export { linkAddress, linkText, pastedLink, pastedUrl } from './links';
 export { cursorBehavior, restingPosition } from './cursor';
+export { type ItemAction, sizeText } from './media';
 export { buildDecorations, livePreview, type LivePreviewOptions, setSourceMode, sourceMode } from './livePreview';
 export { literalInput, positionsToEscape } from './literal';
 export { textSelection } from './selection';
@@ -79,8 +80,6 @@ export interface ScrawlEditorOptions extends LivePreviewOptions {
   addFiles?: (files: File[], at: number) => void;
   /** Starts recording from the microphone, for the `/` menu. */
   record?: () => void;
-  /** A web address was pasted as a link with the address as its text; see `linkTitleChange`. */
-  onLinkPasted?: (url: string) => void;
 }
 
 export interface ScrawlEditor {
@@ -227,7 +226,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         slashMenu(slashItems),
         cursorBehavior,
         clipboard,
-        linkPaste(options.onLinkPasted),
+        linkPaste(),
         // Before `fileInput`: a dragged image comes with a file, which here is moved, not copied.
         widgetMoves,
         addFiles ? fileInput(addFiles) : [],

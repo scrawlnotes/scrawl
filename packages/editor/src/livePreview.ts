@@ -1,6 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
 import {
-  EditorSelection,
   type EditorState,
   type Extension,
   type Range,
@@ -20,7 +19,7 @@ import {
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { t } from '@scrawlnotes/i18n';
 import { linkUrl } from './commands';
-import { attachmentOf, AudioWidget, dragWidget, FileWidget, isAudio, type MediaOptions, onlyDrags } from './media';
+import { attachmentOf, AudioWidget, FileWidget, isAudio, ItemWidget, type MediaOptions, selectWidget } from './media';
 
 export interface LivePreviewOptions extends MediaOptions {
   /**
@@ -28,7 +27,18 @@ export interface LivePreviewOptions extends MediaOptions {
    * the image is read.
    */
   resolveImage?: (src: string) => string | Promise<string>;
+  /** Opens a web or mail address of the note. Without it, the browser opens it in a new tab. */
+  openLink?: (href: string) => void;
 }
+
+const openInBrowser = (href: string) => void window.open(href, '_blank', 'noopener');
+
+/**
+ * An image finished loading, so its line is taller now. The editor measures its lines again only
+ * when something in it is drawn anew, or when it grows; a short note does not grow, as it is
+ * already as tall as the window. So each load draws the images anew, keeping their elements.
+ */
+const imageLoaded = StateEffect.define<null>();
 
 /** Source mode shows the note as plain Markdown: nothing is hidden or replaced. */
 export const setSourceMode = StateEffect.define<boolean>();
@@ -89,49 +99,67 @@ class RuleWidget extends WidgetType {
   }
 }
 
-class ImageWidget extends WidgetType {
+/** An image in a note. A click selects it, a double click opens it. */
+class ImageWidget extends ItemWidget {
+  protected override rootClass = 'cm-sl-img-wrap';
+  protected readonly selectedClass = 'cm-sl-img-selected';
+
   constructor(
     /** The source as the note has it. */
-    readonly src: string,
+    src: string,
     readonly alt: string,
-    /** Length of the Markdown source the widget stands for. */
-    readonly length: number,
-    readonly selected: boolean,
-    readonly resolve?: (src: string) => string | Promise<string>,
+    length: number,
+    selected: boolean,
+    active: boolean,
+    readonly preview: LivePreviewOptions,
+    /** How many images had loaded in the editor when it was made; see `imageLoaded`. */
+    readonly loads: number,
   ) {
-    super();
+    super(src, length, selected, active, preview);
   }
-  eq(other: ImageWidget) {
-    return (
-      other.src === this.src && other.alt === this.alt && other.length === this.length && other.selected === this.selected
-    );
+  protected key() {
+    return `${this.src}\n${this.alt}\n${this.length}`;
   }
-  toDOM(view: EditorView) {
+  override eq(other: ImageWidget) {
+    return super.eq(other) && other.loads === this.loads;
+  }
+  protected file() {
+    return attachmentOf(this.src);
+  }
+  /**
+   * The bar sits in the image's top right corner. An image narrower than the bar has it from its
+   * left edge instead, so that none of it goes under the line numbers.
+   */
+  protected override placeBar(view: EditorView, root: HTMLElement, bar: HTMLElement) {
+    view.requestMeasure({
+      read: () => bar.offsetWidth + 16 > root.clientWidth,
+      write: (narrow) => bar.classList.toggle('cm-sl-itembar-start', narrow),
+    });
+  }
+  protected opener() {
+    const file = this.file();
+    const { openFile, openLink = openInBrowser } = this.preview;
+    if (file) return openFile ? () => openFile(file) : null;
+    return /^https?:/i.test(this.src) ? () => openLink(this.src) : null;
+  }
+  protected body(view: EditorView, root: HTMLElement) {
     const img = document.createElement('img');
-    img.className = this.selected ? 'cm-sl-img cm-sl-img-selected' : 'cm-sl-img';
+    img.className = 'cm-sl-img';
     // Large images are read when they come into view and decoded aside, so typing never waits on them.
     img.loading = 'lazy';
     img.decoding = 'async';
-    const url = this.resolve?.(this.src) ?? this.src;
+    const url = this.preview.resolveImage?.(this.src) ?? this.src;
     if (typeof url === 'string') img.src = url;
     else void url.then((resolved) => (img.src = resolved), () => undefined);
     img.alt = this.alt;
     img.title = this.alt;
-    // Pressing and moving drags the image to another place in the note.
-    img.draggable = true;
-    img.addEventListener('dragstart', () => dragWidget(view, img, this.length));
     // The image changes the line height once it loads.
-    img.addEventListener('load', () => view.requestMeasure());
-    // A click selects the whole image, so it can be copied, cut or deleted as one unit.
-    img.addEventListener('click', () => {
-      const from = view.posAtDOM(img);
-      view.dispatch({ selection: EditorSelection.range(from, from + this.length) });
-      view.focus();
+    img.addEventListener('load', () => {
+      if (img.isConnected) view.dispatch({ effects: imageLoaded.of(null) });
     });
+    img.addEventListener('click', () => selectWidget(view, root, this.length));
+    img.addEventListener('dblclick', () => this.opener()?.());
     return img;
-  }
-  ignoreEvent(event: Event) {
-    return onlyDrags(event);
   }
 }
 
@@ -215,6 +243,7 @@ function collect(
   ranges: readonly { from: number; to: number }[],
   options: LivePreviewOptions,
   tree: Tree,
+  loads = 0,
 ): Item[] {
   if (state.field(sourceMode, false)) return [];
   const doc = state.doc;
@@ -232,6 +261,12 @@ function collect(
     if (to > from) out.push({ from, to, deco: hide, role, span: span && { from: span.from, to: span.to } });
   };
 
+  // An image, file or recording is selected when a selection covers it; it is the active one when
+  // the selection is that item alone.
+  const { ranges: selection, main } = state.selection;
+  const selected = (node: SyntaxNode) => selection.some((r) => !r.empty && r.from <= node.from && r.to >= node.to);
+  const active = (node: SyntaxNode) => selection.length === 1 && main.from === node.from && main.to === node.to;
+
   /** Returns false for a link to an attachment, which is drawn as a whole and has nothing inside to decorate. */
   const link = (node: SyntaxNode): false | undefined => {
     const [open, close] = node.getChildren('LinkMark');
@@ -243,10 +278,9 @@ function collect(
       // The link text as it reads: escapes are typed characters.
       const label = doc.sliceString(open.to, close.from).replace(/\\([!-/:-@[-`{-~])/g, '$1') || src.slice(src.lastIndexOf('/') + 1);
       const length = node.to - node.from;
-      const isSelected = state.selection.ranges.some((r) => !r.empty && r.from <= node.from && r.to >= node.to);
       const widget = isAudio(src)
-        ? new AudioWidget(src, label, length, isSelected, options)
-        : new FileWidget(src, label, length, isSelected, options);
+        ? new AudioWidget(src, label, length, selected(node), active(node), options)
+        : new FileWidget(src, label, length, selected(node), active(node), options);
       out.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget, kind: 'attachment', label }), role: 'unit' });
       return false;
     }
@@ -264,8 +298,7 @@ function collect(
     if (!open || !close || !url) return;
     const src = doc.sliceString(url.from, url.to);
     const alt = doc.sliceString(open.to, close.from);
-    const isSelected = state.selection.ranges.some((r) => !r.empty && r.from <= node.from && r.to >= node.to);
-    const widget = new ImageWidget(src, alt, node.to - node.from, isSelected, options.resolveImage);
+    const widget = new ImageWidget(src, alt, node.to - node.from, selected(node), active(node), options, loads);
     out.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget, kind: 'image', alt }), role: 'unit' });
   };
 
@@ -422,27 +455,32 @@ class Atomic extends RangeValue {}
 const atomic = new Atomic();
 
 /** Ctrl/Cmd+click on a rendered link opens it. */
-const followLinks = EditorView.domEventHandlers({
-  mousedown(event) {
-    if (!(event.ctrlKey || event.metaKey) || !(event.target instanceof HTMLElement)) return false;
-    const href = event.target.closest<HTMLElement>('.cm-sl-link')?.dataset.href;
-    if (!href || !/^(https?:|mailto:)/i.test(href)) return false;
-    window.open(href, '_blank', 'noopener');
-    event.preventDefault();
-    return true;
-  },
-});
+const followLinks = (open: (href: string) => void) =>
+  EditorView.domEventHandlers({
+    mousedown(event) {
+      if (!(event.ctrlKey || event.metaKey) || !(event.target instanceof HTMLElement)) return false;
+      const href = event.target.closest<HTMLElement>('.cm-sl-link')?.dataset.href;
+      if (!href || !/^(https?:|mailto:)/i.test(href)) return false;
+      open(href);
+      event.preventDefault();
+      return true;
+    },
+  });
 
 export function livePreview(options: LivePreviewOptions = {}): Extension {
   const plugin = ViewPlugin.fromClass(
     class {
       decorations!: DecorationSet;
       atomic!: RangeSet<Atomic>;
+      loads = 0;
       constructor(view: EditorView) {
         this.build(view);
       }
       update(update: ViewUpdate) {
+        const loaded = update.transactions.some((tr) => tr.effects.some((effect) => effect.is(imageLoaded)));
+        if (loaded) this.loads++;
         if (
+          loaded ||
           update.docChanged ||
           update.viewportChanged ||
           update.selectionSet ||
@@ -453,7 +491,7 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
         }
       }
       build(view: EditorView) {
-        const items = collect(view.state, view.visibleRanges, options, syntaxTree(view.state));
+        const items = collect(view.state, view.visibleRanges, options, syntaxTree(view.state), this.loads);
         const decos: Range<Decoration>[] = [];
         const units: Range<Atomic>[] = [];
         for (const item of items) {
@@ -468,5 +506,5 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
     { decorations: (v) => v.decorations },
   );
   const atomicRanges = EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomic ?? RangeSet.empty);
-  return [sourceMode, plugin, atomicRanges, followLinks];
+  return [sourceMode, plugin, atomicRanges, followLinks(options.openLink ?? openInBrowser)];
 }

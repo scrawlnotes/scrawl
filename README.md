@@ -15,9 +15,11 @@ for the roadmap (in Turkish).
   place: unnamed notes are called by their first line and land in the Inbox.
 - **Task lists** live in folders, as many as you want, with subtasks, priorities and due dates;
   Today and Upcoming gather them all.
+- **Attached files** are selected with a click and offer Open, Show in folder and Delete. Files
+  no note uses any more go to the trash when the app starts.
 - **Safety nets**: a trash you can restore from, and the history of every note (kept on this
   device) with a window to look back and restore.
-- Pasted web addresses become links that take the page's title (desktop).
+- Pasted web addresses become links; Ctrl+click opens them in the browser.
 
 ## Development
 

@@ -42,6 +42,25 @@ const shapes = {
       <path d="M4.5 4v4.5H9" />
     </>
   ),
+  image: (
+    <>
+      <rect x="4" y="5" width="16" height="14" rx="2" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path d="M5 17l4.5-4.5 3 3 2.5-2.5L20 18" />
+    </>
+  ),
+  audio: (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
+    </>
+  ),
+  file: (
+    <>
+      <path d="M6 3h8l4 4v14H6z" />
+      <path d="M14 3v4h4" />
+    </>
+  ),
   trash: (
     <>
       <path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7" />

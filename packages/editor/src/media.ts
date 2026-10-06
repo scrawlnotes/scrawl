@@ -6,10 +6,21 @@ import { t } from '@scrawlnotes/i18n';
 export interface MediaOptions {
   /** Opens an attached file with the program the system uses for it. */
   openFile?: (src: string) => void;
+  /** Shows an attached file selected in its folder, in the system's file manager. */
+  revealFile?: (src: string) => void;
   /** An attached file's size in bytes, when it is known. */
   fileSize?: (src: string) => number | undefined;
   /** An address the browser can play an attached recording from. */
   resolveAudio?: (src: string) => Promise<string>;
+  /** Shows the menu of a right click at the pointer, drawn like the host's other menus. */
+  showMenu?: (at: { x: number; y: number }, items: ItemAction[]) => void;
+}
+
+/** Something that can be done with an image, file or recording in a note. */
+export interface ItemAction {
+  kind: 'open' | 'reveal' | 'delete';
+  label: string;
+  run: () => void;
 }
 
 const ATTACHMENTS = '_attachments/';
@@ -37,7 +48,8 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string) =>
 const FILE_ICON =
   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';
 
-function sizeText(bytes: number): string {
+/** A file size as people read it: `840 KB`, `2.4 MB`. */
+export function sizeText(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ['KB', 'MB', 'GB'];
   let value = bytes / 1024;
@@ -103,50 +115,171 @@ export const widgetMoves = EditorView.domEventHandlers({
   },
 });
 
-/** Selects the widget's whole link when it is clicked with Shift, so it can be cut or copied as one. */
-function selectOnShift(view: EditorView, dom: HTMLElement, length: number, event: MouseEvent): boolean {
-  if (!event.shiftKey) return false;
+/** Selects the Markdown a widget stands for, so that the widget is selected as one unit. */
+export function selectWidget(view: EditorView, dom: HTMLElement, length: number) {
   const from = view.posAtDOM(dom);
   view.dispatch({ selection: EditorSelection.range(from, from + length) });
   view.focus();
-  return true;
 }
 
-/** An attached file: its name and size; a click opens it. */
-export class FileWidget extends WidgetType {
+/** Takes the Markdown a widget stands for out of the note, as one step that undo takes back. */
+function removeWidget(view: EditorView, dom: HTMLElement, length: number) {
+  const from = view.posAtDOM(dom);
+  view.dispatch({ changes: { from, to: from + length }, selection: { anchor: from }, scrollIntoView: true, userEvent: 'delete' });
+  view.focus();
+}
+
+const ACTION_ICONS: Record<ItemAction['kind'], string> = {
+  open: '<path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+  reveal: '<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  delete: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7"/><path d="M10.5 10.5v5.5M13.5 10.5v5.5"/>',
+};
+
+/** The bar a selected item shows, after the Item menu view of design/mockups.html (direction A). */
+function itemBar(actions: ItemAction[]): HTMLElement {
+  const bar = el('span', 'cm-sl-itembar');
+  bar.setAttribute('role', 'toolbar');
+  for (const action of actions) {
+    if (action.kind === 'delete' && bar.childElementCount > 0) bar.append(el('i', 'cm-sl-itembar-gap'));
+    const button = el('button', 'cm-sl-itembar-button');
+    button.type = 'button';
+    button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ACTION_ICONS[action.kind]}</svg>`;
+    button.append(action.label);
+    // The note keeps its selection and its focus while a button is pressed.
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      action.run();
+    });
+    bar.append(button);
+  }
+  bar.addEventListener('dblclick', (event) => event.stopPropagation());
+  return bar;
+}
+
+/** An item's DOM, with what is needed to show a change of selection without drawing it again. */
+type ItemDom = HTMLElement & { itemKey?: string; itemBody?: HTMLElement };
+
+/**
+ * An image, file or recording in a note. A click selects it as one unit. Selected on its own, it
+ * shows a bar of what can be done with it, which a right click offers as a menu too.
+ */
+export abstract class ItemWidget extends WidgetType {
+  /** The class of the widget's outer element. */
+  protected rootClass = 'cm-sl-item';
+  /** The class the item has while it is selected. */
+  protected abstract readonly selectedClass: string;
+
   constructor(
     readonly src: string,
-    readonly name: string,
     /** Length of the Markdown the widget stands for. */
     readonly length: number,
+    /** Inside a selection. */
     readonly selected: boolean,
+    /** The selection is this item and nothing else. */
+    readonly active: boolean,
     readonly options: MediaOptions,
   ) {
     super();
   }
-  eq(other: FileWidget) {
-    return other.src === this.src && other.name === this.name && other.length === this.length && other.selected === this.selected;
+
+  /** What tells one item from another, the selection left out. */
+  protected abstract key(): string;
+  /** Draws the item itself, the part that is outlined when it is selected. */
+  protected abstract body(view: EditorView, root: HTMLElement): HTMLElement;
+  /** Opens the item; null when it has nothing to open it with. */
+  protected abstract opener(): (() => void) | null;
+  /** The attached file the item shows, for Show in folder; null for an image from the web. */
+  protected abstract file(): string | null;
+
+  eq(other: ItemWidget) {
+    return other.key() === this.key() && other.selected === this.selected && other.active === this.active;
   }
+
+  private actions(view: EditorView, root: HTMLElement): ItemAction[] {
+    const open = this.opener();
+    const file = this.file();
+    const reveal = this.options.revealFile;
+    const actions: ItemAction[] = [];
+    if (open) actions.push({ kind: 'open', label: t('editor.item.open'), run: open });
+    if (file && reveal) actions.push({ kind: 'reveal', label: t('editor.item.reveal'), run: () => reveal(file) });
+    actions.push({ kind: 'delete', label: t('editor.item.delete'), run: () => removeWidget(view, root, this.length) });
+    return actions;
+  }
+
   toDOM(view: EditorView) {
-    const chip = el('span', this.selected ? 'cm-sl-file cm-sl-file-selected' : 'cm-sl-file');
-    chip.title = t('editor.open', { name: this.name });
+    const root: ItemDom = el('span', this.rootClass);
+    const body = this.body(view, root);
+    root.append(body);
+    root.itemKey = this.key();
+    root.itemBody = body;
+    // Pressing and moving drags the item to another place in the note. A note that is only shown,
+    // like an earlier version, has nothing to do with its items but look at them.
+    body.draggable = !view.state.readOnly;
+    body.addEventListener('dragstart', () => dragWidget(view, root, this.length));
+    body.addEventListener('contextmenu', (event) => {
+      const show = this.options.showMenu;
+      if (!show || view.state.readOnly) return;
+      event.preventDefault();
+      selectWidget(view, root, this.length);
+      show({ x: event.clientX, y: event.clientY }, this.actions(view, root));
+    });
+    this.showSelection(view, root);
+    return root;
+  }
+
+  /** A change of selection only changes the outline and the bar, so a playing recording plays on. */
+  updateDOM(dom: HTMLElement, view: EditorView) {
+    if ((dom as ItemDom).itemKey !== this.key()) return false;
+    this.showSelection(view, dom);
+    return true;
+  }
+
+  private showSelection(view: EditorView, root: ItemDom) {
+    root.itemBody?.classList.toggle(this.selectedClass, this.selected || this.active);
+    root.querySelector(':scope > .cm-sl-itembar')?.remove();
+    if (this.active && !view.state.readOnly) {
+      const bar = itemBar(this.actions(view, root));
+      root.append(bar);
+      this.placeBar(view, root, bar);
+    }
+  }
+
+  /** Lets an item place its bar once it is shown. */
+  protected placeBar(_view: EditorView, _root: HTMLElement, _bar: HTMLElement) {}
+
+  ignoreEvent(event: Event) {
+    return onlyDrags(event);
+  }
+}
+
+/** An attached file: its name and size. A click selects it, a double click opens it. */
+export class FileWidget extends ItemWidget {
+  protected readonly selectedClass = 'cm-sl-file-selected';
+
+  constructor(src: string, readonly name: string, length: number, selected: boolean, active: boolean, options: MediaOptions) {
+    super(src, length, selected, active, options);
+  }
+  protected key() {
+    return `${this.src}\n${this.name}\n${this.length}`;
+  }
+  protected opener() {
+    const open = this.options.openFile;
+    return open ? () => open(this.src) : null;
+  }
+  protected file() {
+    return this.src;
+  }
+  protected body(view: EditorView, root: HTMLElement) {
+    const chip = el('span', 'cm-sl-file');
+    chip.title = t('editor.openHint', { name: this.name });
     chip.innerHTML = FILE_ICON;
     chip.append(this.name);
     const bytes = this.options.fileSize?.(this.src);
     if (bytes !== undefined) chip.append(Object.assign(el('small', ''), { textContent: sizeText(bytes) }));
-    // Pressing and moving drags the file to another place; a press and release opens it.
-    chip.draggable = true;
-    chip.addEventListener('dragstart', () => dragWidget(view, chip, this.length));
-    chip.addEventListener('mousedown', (event) => {
-      if (event.shiftKey) event.preventDefault();
-    });
-    chip.addEventListener('click', (event) => {
-      if (!selectOnShift(view, chip, this.length, event)) this.options.openFile?.(this.src);
-    });
+    chip.addEventListener('click', () => selectWidget(view, root, this.length));
+    chip.addEventListener('dblclick', () => this.opener()?.());
     return chip;
-  }
-  ignoreEvent(event: Event) {
-    return onlyDrags(event);
   }
 }
 
@@ -186,22 +319,28 @@ function waveOf(src: string, url: Promise<string>): Promise<Wave> {
 /** Only one recording plays at a time. */
 let playing: HTMLAudioElement | null = null;
 
-/** An attached recording: a play button, its waveform, which fills as it plays, and its length. */
-export class AudioWidget extends WidgetType {
-  constructor(
-    readonly src: string,
-    readonly label: string,
-    readonly length: number,
-    readonly selected: boolean,
-    readonly options: MediaOptions,
-  ) {
-    super();
+/**
+ * An attached recording: a play button, its waveform, which fills as it plays, and its length.
+ * The button plays it and the waveform plays it from where it is clicked; a click anywhere else
+ * selects it.
+ */
+export class AudioWidget extends ItemWidget {
+  protected readonly selectedClass = 'cm-sl-audio-selected';
+
+  constructor(src: string, readonly label: string, length: number, selected: boolean, active: boolean, options: MediaOptions) {
+    super(src, length, selected, active, options);
   }
-  eq(other: AudioWidget) {
-    return other.src === this.src && other.label === this.label && other.length === this.length && other.selected === this.selected;
+  protected key() {
+    return `${this.src}\n${this.label}\n${this.length}`;
   }
-  toDOM(view: EditorView) {
-    const root = el('span', this.selected ? 'cm-sl-audio cm-sl-audio-selected' : 'cm-sl-audio');
+  protected opener() {
+    return null;
+  }
+  protected file() {
+    return this.src;
+  }
+  protected body(view: EditorView, root: HTMLElement) {
+    const player = el('span', 'cm-sl-audio');
     const play = el('button', 'cm-sl-audio-play');
     play.type = 'button';
     play.setAttribute('aria-label', t('editor.play', { name: this.label }));
@@ -210,7 +349,7 @@ export class AudioWidget extends WidgetType {
     wave.append(...bars);
     const time = el('span', 'cm-sl-audio-time');
     time.textContent = this.label;
-    root.append(play, wave, time);
+    player.append(play, wave, time);
 
     const resolve = this.options.resolveAudio;
     let duration = 0;
@@ -232,7 +371,7 @@ export class AudioWidget extends WidgetType {
       time.textContent = `${clock(audio.currentTime)} / ${clock(total)}`;
     };
     const stopped = () => {
-      root.classList.remove('cm-sl-audio-playing');
+      player.classList.remove('cm-sl-audio-playing');
       play.setAttribute('aria-label', t('editor.play', { name: this.label }));
     };
     const start = async () => {
@@ -250,19 +389,12 @@ export class AudioWidget extends WidgetType {
       if (playing && playing !== audio) playing.pause();
       playing = audio;
       await audio.play();
-      root.classList.add('cm-sl-audio-playing');
+      player.classList.add('cm-sl-audio-playing');
       play.setAttribute('aria-label', t('editor.pause', { name: this.label }));
     };
     (root as HTMLElement & { audio?: () => HTMLAudioElement | null }).audio = () => audio;
 
-    // Pressing and moving drags the recording to another place; a press and release plays it.
-    root.draggable = true;
-    root.addEventListener('dragstart', () => dragWidget(view, root, this.length));
-    root.addEventListener('mousedown', (event) => {
-      if (event.shiftKey) event.preventDefault();
-    });
-    root.addEventListener('click', (event) => {
-      if (selectOnShift(view, root, this.length, event)) return;
+    player.addEventListener('click', (event) => {
       if (event.target === play || play.contains(event.target as Node)) {
         if (audio && !audio.paused) audio.pause();
         else void start();
@@ -274,14 +406,13 @@ export class AudioWidget extends WidgetType {
           const total = duration || audio!.duration;
           if (Number.isFinite(total)) audio!.currentTime = at * total;
         });
+      } else {
+        selectWidget(view, root, this.length);
       }
     });
-    return root;
+    return player;
   }
   destroy(dom: HTMLElement) {
     (dom as HTMLElement & { audio?: () => HTMLAudioElement | null }).audio?.()?.pause();
-  }
-  ignoreEvent(event: Event) {
-    return onlyDrags(event);
   }
 }
