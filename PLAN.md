@@ -49,8 +49,9 @@ Sublime/Notepad'de kapatılmayan sekmelerin yerini alacak bir çalışma notu uy
 ### 4.2 Not editörü
 
 - **Scratch sekmeler:** Ctrl+N, 1, Enter kalıcı bir not açar. Başlık ilk satırdan türetilir. Dosyalanmamış notlar Inbox'ta durur. Adı verilmemiş not boş kapatılırsa iz bırakmaz.
-- **Hızlı yakalama:** masaüstünde global kısayolla küçük bir pencere; yaz, Esc, not Inbox'a düşer.
-- **Inbox bakımı:** her öğe için tek tuşla dosyala, göreve çevir veya arşivle. Uzun süre dokunulmayanlar arşive iner, silinmez.
+- **Hızlı yakalama:** şimdilik yok. Her yerde arama penceresi yapılınca onun içine alınabilir.
+- **Inbox arşivleme:** Inbox'taki not sağ tıkla arşivlenir; 30 gün dokunulmayan Inbox notları kendiliğinden arşive iner, silinmez. Arşiv, kenar çubuğunun en altında kapalı duran normal bir `Archive/` klasörüdür; Move to ile geri çıkarılır. Inbox'tan "göreve çevir" görevler aşamasındadır.
+- **Sekmeler:** sürüklenerek sıralanır; sıra bir sonraki açılışta korunur.
 - **Gezinme ve arama:** ayrı bir aşamada; Spotlight veya Rider'daki "her yerde ara" tarzında tek bir arama penceresi (nota git, tam metin, komutlar).
 - **Düzenleme:** çoklu imleç, satır taşıma/çoğaltma, bul-değiştir. Enter tek satır iner.
 - **Live preview:** başlık, kalın/italik, liste, kod bloğu (renklendirme ve kopyala düğmesi), tablo, alıntı yerinde biçimlenir.
@@ -70,8 +71,9 @@ Sublime/Notepad'de kapatılmayan sekmelerin yerini alacak bir çalışma notu uy
 - **Sağ tık:** notta ve görev listesinde Move to…, Rename, Delete; klasörde New note here ve Delete folder (Inbox'ta yok). Sürükle-bırak ek yol olarak kalır.
 - **Silme:** not, görev listesi, klasör ve görev silinmeden önce onay sorulur. Not, liste ve klasör (içindekilerle) `.scrawl/trash`'e gider; silinen görev geri gelmez.
 - **Tablo kenarı:** imleç tablonun kenarında duramaz; tablonun hemen altına yazılan metin araya boş satır konarak tablodan ayrılır.
-- **Medya:** panodan resim yapıştırma, sürükle-bırak dosya, satır içi ses kaydı ve oynatıcı, yapıştırılan linkin başlığını çekme.
-- **Sürüm geçmişi:** not başına yerel anlık görüntüler.
+- **Medya:** panodan resim yapıştırma; resim dışı dosyaları bırakma (`_attachments`'a kendi adıyla kopyalanır, notta dosya linki olur, sistemdeki programıyla açılır); biçim çubuğundan veya `/` menüsünden ses kaydı, notta kendi tasarımımız olan oynatıcı; tek başına yapıştırılan URL link olarak girer ve sayfanın başlığı arka planda çekilip linkin metni olur (yalnızca masaüstünde; tarayıcı başka sitelerin sayfasını okumaya izin vermez).
+- **Sürüm geçmişi:** not başına yerel anlık görüntüler, `.scrawl/history/` içinde. Kayıtta en fazla 10 dakikada bir alınır; not uygulama dışında değişirse eski hali de saklanır. Son 24 saatin hepsi, sonrasında günde bir tane tutulur, 60 günden eskiler silinir. Not taşınınca veya adı değişince geçmişi de gider. Sağ tık → History…: zamanlar, önizleme ve Restore (restore öncesi şimdiki hal de saklanır).
+- **Çöp kutusu:** kenar çubuğunun en altında Trash; silinen not, liste ve klasörler silinme zamanı ve eski yeriyle listelenir. Restore eski yerine döndürür, Delete forever ve Empty trash onay ister.
 - **Dark mode:** sistemle uyumlu, elle değiştirilebilir; ayarlar ekranıyla birlikte gelir.
 
 ### 4.3 Görevler
@@ -134,9 +136,11 @@ vault/
     <not>.md                 düz markdown
     <ad>.tasks.json          görev listesi, bir klasörde istenen sayıda; ağaç yapısı `parent` alanıyla
     <ad>.board.json          pano (sonra)
+  Archive/                   arşivlenen Inbox notları
   _attachments/              resim, ses, dosya (şimdilik kökte tek klasör; not taşınınca link bozulmaz)
   .scrawl/
-    trash/                   silinen notlar ve görev listeleri
+    trash/                   silinen notlar, görev listeleri ve klasörler; eski yerleri bir dizinde tutulur
+    history/                 notların yerel anlık görüntüleri, cihaza özel
     sync-state.json          cihaza özel, sync edilmez
     workspace.json           açık sekmeler ve düzen, cihaza özel
 ```
@@ -159,12 +163,13 @@ vault/
 | # | Aşama | Bitti sayılır |
 |---|---|---|
 | 0 | İskelet ve editör denemesi | Monorepo kurulu; live preview prototipi başlık, vurgu, liste, link, resim ve kod bloğuyla tarayıcıda denenebiliyor |
-| 1 | Masaüstü editör | Sekmeler, scratch notlar, kenar çubuğu, medya, dark mode, kurulabilir sürüm; yerel klasörle günlük kullanımda Notepad'in yerini alıyor |
+| 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler, scratch notlar, kenar çubuğu, resim, kurulabilir sürüm. **Kalan, sırayla:** (1) sekme sürükleme, biçim çubuğunda çoklu imleç, kod bloğunda kopyala; (2) çöp kutusu ekranı; (3) sürüm geçmişi; (4) Inbox arşivleme; (5) medya: link başlığı, dosya bırakma, ses kaydı; (6) çeviri altyapısı, README |
+| 1b | Ayarlar | Ayarlar ekranı: tema ve dark mode (sistemle uyumlu, seçim hatırlanır), not klasörü, dil |
 | 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri. **Kalan:** bölümler, sürükleyerek sıralama, kayıtlı filtreler, taşıma, "göreve çevir" |
 | 3 | Sync + web | OneDrive adaptörü, çakışma çözümü; web sürümü yayında ve telefonda PWA olarak kullanılabilir |
 | 4 | Paylaşım | PDF/HTML/MD dışa aktarma; yayın servisi ve "link olarak paylaş" |
 | 5 | Mobil | Native iOS uygulaması (sonra Android) |
-| 6 | Sonrası | Her yerde arama (Spotlight/Rider tarzı), hızlı yakalama, bölünmüş görünüm, Pano, Google Drive adaptörü, klasör paylaşımıyla çok kullanıcı, komut satırı aracı ve MCP sunucusu, ek diller |
+| 6 | Sonrası | Her yerde arama (Spotlight/Rider tarzı; hızlı yakalama belki bunun içinde), bölünmüş görünüm, Pano, Google Drive adaptörü, klasör paylaşımıyla çok kullanıcı, komut satırı aracı ve MCP sunucusu, ek diller |
 
 ## 7. Riskler
 

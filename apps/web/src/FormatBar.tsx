@@ -34,6 +34,11 @@ const groups: Item[][] = [
     { action: 'quote', label: 'Quote', title: 'Quote', active: (f) => f.quote },
     { action: 'codeBlock', label: 'Code block', title: 'Code block', active: (f) => f.codeBlock },
   ],
+  [
+    { action: 'nextMatch', label: 'Next match', title: 'Also select the next match (Ctrl+D)' },
+    { action: 'allMatches', label: 'All matches', title: 'Select every match of the selection' },
+    { action: 'cursorBelow', label: 'Cursor below', title: 'Add a cursor on the line below (Ctrl+Alt+Down)' },
+  ],
 ];
 
 // The bar must not take the focus (and with it the selection) away from the editor.

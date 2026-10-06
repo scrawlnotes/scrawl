@@ -101,6 +101,16 @@ describe('live preview', () => {
     ]);
   });
 
+  it('puts a copy button for the code, without its fences, at the end of the opening line', () => {
+    const state = stateOf('```js\nlet a\nlet b\n```\n\n|');
+    const tree = ensureSyntaxTree(state, state.doc.length, 5000)!;
+    const found: { at: number; code: string }[] = [];
+    for (let iter = buildDecorations(state, [{ from: 0, to: state.doc.length }], {}, tree).iter(); iter.value; iter.next()) {
+      if (iter.value.spec.kind === 'copy') found.push({ at: iter.from, code: (iter.value.spec.widget as { code: string }).code });
+    }
+    expect(found).toEqual([{ at: 5, code: 'let a\nlet b' }]);
+  });
+
   it('hides quote marks', () => {
     expect(decorations('> quo|ted')).toEqual(['quote 0-0', 'hide 0-2']);
   });

@@ -29,12 +29,15 @@ import {
   type VaultFs,
 } from '@scrawlnotes/core';
 import {
+  addCursorBelow,
   createEditor,
   type EditorState,
   type EditorStats,
   type FormatState,
   formatState,
   type ScrawlEditor,
+  selectNextOccurrence,
+  selectSelectionMatches,
   setLink,
   toggleBold,
   toggleCode,
@@ -50,6 +53,7 @@ import { chooseVaultFolder, isDesktop, openVault, vaultFolder } from './storage'
 
 const SAVE_DELAY_MS = 400;
 
+// What the format bar does: formatting, and the commands that make more than one cursor.
 const formatCommands = {
   bold: toggleBold,
   italic: toggleItalic,
@@ -61,6 +65,9 @@ const formatCommands = {
   list: toggleLinePrefix('list'),
   quote: toggleLinePrefix('quote'),
   codeBlock: toggleCodeBlock,
+  nextMatch: selectNextOccurrence,
+  allMatches: selectSelectionMatches,
+  cursorBelow: addCursorBelow,
 };
 export type FormatAction = keyof typeof formatCommands;
 
@@ -394,6 +401,17 @@ export class Session {
   /** Opens the board of `folder`, a placeholder until boards are built. */
   async openBoard(folder: string) {
     await this.open(boardOf(folder));
+  }
+
+  /** Moves a tab to `index`, a gap between the tabs as they are now: 0 is before the first. */
+  moveTab(id: string, index: number) {
+    const { tabs } = this.snapshot;
+    const from = tabs.indexOf(id);
+    if (from < 0 || index === from || index === from + 1) return;
+    const rest = tabs.filter((tab) => tab !== id);
+    rest.splice(index > from ? index - 1 : index, 0, id);
+    this.set({ tabs: rest });
+    this.saveWorkspace();
   }
 
   /** Takes a note out of the tab bar and shows a neighbor. Closing the last tab leaves nothing open. */

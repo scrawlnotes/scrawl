@@ -11,7 +11,7 @@ import {
   type TreeNode,
 } from '@scrawlnotes/core';
 import type { EditorStats } from '@scrawlnotes/editor';
-import { type MouseEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { type DragEvent, type MouseEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ConfirmDialog, ContextMenu, type FolderChoice, type MenuItem, MoveDialog, NewDialog, RenameDialog } from './dialogs';
 import { FormatBar } from './FormatBar';
 import { Icon } from './Icon';
@@ -39,6 +39,9 @@ type OpenDialog =
   | { kind: 'rename'; path: string }
   | { kind: 'confirm'; title: string; message: string; run: () => void }
   | null;
+
+// A tab being dragged to another place in the tab bar.
+const TAB_DRAG_TYPE = 'application/x-scrawl-tab';
 
 const count = (n: number, unit: string) => `${n.toLocaleString('en-US')} ${unit}${n === 1 ? '' : 's'}`;
 const quote = (name: string) => `“${name}”`;
@@ -101,6 +104,10 @@ export function App() {
   // With nothing open the app asks what to create, until that is declined once.
   const [declined, setDeclined] = useState(false);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[] } | null>(null);
+  const tabBar = useRef<HTMLDivElement>(null);
+  const [draggedTab, setDraggedTab] = useState<string | null>(null);
+  /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
+  const [tabGap, setTabGap] = useState<number | null>(null);
   const empty = ready && !needsFolder && tabs.length === 0;
   const showNew = dialog?.kind === 'new' || (empty && !declined && !dialog);
   const showingEditor = active !== null && isNote(active);
@@ -202,6 +209,35 @@ export function App() {
     ]);
   const closeMenu = useCallback(() => setMenu(null), []);
 
+  const onTabDragOver = (event: DragEvent) => {
+    if (!event.dataTransfer.types.includes(TAB_DRAG_TYPE)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const boxes = [...tabBar.current!.querySelectorAll('.tab')].map((tab) => tab.getBoundingClientRect());
+    const index = boxes.findIndex((box) => event.clientX < box.left + box.width / 2);
+    setTabGap(index < 0 ? boxes.length : index);
+  };
+  const onTabDrop = (event: DragEvent) => {
+    const id = event.dataTransfer.getData(TAB_DRAG_TYPE);
+    if (!id || tabGap === null) return;
+    event.preventDefault();
+    session.moveTab(id, tabGap);
+    setTabGap(null);
+  };
+  // No mark where the tab would not move: right before or after itself.
+  const draggedFrom = draggedTab ? tabs.indexOf(draggedTab) : -1;
+  const shownGap = tabGap !== null && tabGap !== draggedFrom && tabGap !== draggedFrom + 1 ? tabGap : null;
+  const tabClass = (id: string, i: number) =>
+    [
+      'tab',
+      id === active && 'on',
+      id === draggedTab && 'dragging',
+      shownGap === i && 'gap-before',
+      shownGap === tabs.length && i === tabs.length - 1 && 'gap-after',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
   const today = dayOf(new Date());
   const taskActions: TaskActions = {
     add: (target, input) => session.addTask(target, input),
@@ -240,13 +276,30 @@ export function App() {
         onFolderMenu={folderMenu}
       />
       <main className="main">
-        <div className="tabs" role="tablist">
-          {tabs.map((id) => (
+        <div
+          ref={tabBar}
+          className="tabs"
+          role="tablist"
+          onDragOver={onTabDragOver}
+          onDrop={onTabDrop}
+          onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setTabGap(null)}
+        >
+          {tabs.map((id, i) => (
             <div
               key={id}
-              className={id === active ? 'tab on' : 'tab'}
+              className={tabClass(id, i)}
               role="tab"
               aria-selected={id === active}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.setData(TAB_DRAG_TYPE, id);
+                event.dataTransfer.effectAllowed = 'move';
+                setDraggedTab(id);
+              }}
+              onDragEnd={() => {
+                setDraggedTab(null);
+                setTabGap(null);
+              }}
               onMouseDown={(event) => event.button === 1 && void session.close(id)}
               onContextMenu={(event) => {
                 const path = isNote(id) ? id : listOf(id);

@@ -121,6 +121,64 @@ class ImageWidget extends WidgetType {
   }
 }
 
+const icon = (paths: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
+const COPY_ICON = icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>');
+const COPIED_ICON = icon('<path d="m5 12.5 4.5 4.5L19 7.5"/>');
+
+/** Puts text on the clipboard. Where the clipboard API is not allowed, the older copy command still works inside a click. */
+function copyText(text: string): Promise<void> {
+  return navigator.clipboard.writeText(text).catch(() => {
+    const focused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.style.cssText = 'position: fixed; opacity: 0; pointer-events: none';
+    document.body.append(area);
+    area.select();
+    const copied = document.execCommand('copy');
+    area.remove();
+    focused?.focus();
+    if (!copied) throw new Error('The clipboard is not available.');
+  });
+}
+
+/** The button in the corner of a code block that copies the code, without the fences. */
+class CopyWidget extends WidgetType {
+  constructor(readonly code: string) {
+    super();
+  }
+  eq(other: CopyWidget) {
+    return other.code === this.code;
+  }
+  toDOM() {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'cm-sl-copy';
+    button.title = 'Copy code';
+    button.setAttribute('aria-label', 'Copy code');
+    button.innerHTML = COPY_ICON;
+    // Pressing the button leaves the cursor where it was.
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', () => {
+      copyText(this.code).then(
+        () => {
+          button.innerHTML = COPIED_ICON;
+          button.classList.add('cm-sl-copied');
+          window.setTimeout(() => {
+            button.innerHTML = COPY_ICON;
+            button.classList.remove('cm-sl-copied');
+          }, 1200);
+        },
+        // Nothing was copied, so the button does not say it was.
+        () => undefined,
+      );
+    });
+    return button;
+  }
+  ignoreEvent() {
+    return true;
+  }
+}
+
 // `kind` is not used by CodeMirror; it names the decoration for tests and debugging.
 const hide = Decoration.replace({ kind: 'hide' });
 const syntax = Decoration.mark({ class: 'cm-sl-syntax', kind: 'syntax' });
@@ -290,6 +348,10 @@ function collect(
             const at = doc.line(n).from;
             out.push({ from: at, to: at, deco: Decoration.line({ class: `cm-sl-codeblock${edge}`, kind: 'codeblock' }) });
           }
+          const text = ref.node.getChild('CodeText');
+          const end = doc.line(first).to;
+          const widget = new CopyWidget(text ? doc.sliceString(text.from, text.to) : '');
+          out.push({ from: end, to: end, deco: Decoration.widget({ widget, side: 1, kind: 'copy' }) });
           return;
         }
         if (name === 'CodeMark' || name === 'CodeInfo') {
