@@ -104,13 +104,13 @@ describe('completing', () => {
 });
 
 describe('task file', () => {
-  it('round-trips through a file in the folder', async () => {
+  it('round-trips through its file', async () => {
     const fs = new MemoryFs();
     const tasks = list(['a'], ['a1', 'a']);
-    await saveTasks(fs, 'Work', tasks);
-    expect(await fs.readText('Work/tasks.json')).toBe(serializeTasks(tasks));
-    expect(await loadTasks(fs, 'Work')).toEqual(tasks);
-    expect(await loadTasks(fs, 'Other')).toEqual([]);
+    await saveTasks(fs, 'Work/Sprint.tasks.json', tasks);
+    expect(await fs.readText('Work/Sprint.tasks.json')).toBe(serializeTasks(tasks));
+    expect(await loadTasks(fs, 'Work/Sprint.tasks.json')).toEqual(tasks);
+    expect(await loadTasks(fs, 'Work/Other.tasks.json')).toEqual([]);
   });
 
   it('survives a broken file and broken entries', () => {
@@ -131,16 +131,16 @@ describe('task file', () => {
 
 describe('due views', () => {
   const lists = {
-    Work: list(
+    'Work/Tasks.tasks.json': list(
       ['late', null, { due: '2026-10-03' }],
       ['today-p3', null, { due: '2026-10-05', priority: 3 }],
       ['done-today', null, { due: '2026-10-05', done: true }],
       ['next', null, { due: '2026-10-09' }],
       ['undated'],
     ),
-    Home: list(['today-p1', null, { due: '2026-10-05', priority: 1 }], ['tomorrow', null, { due: '2026-10-06' }]),
+    'Home/Tasks.tasks.json': list(['today-p1', null, { due: '2026-10-05', priority: 1 }], ['tomorrow', null, { due: '2026-10-06' }]),
   };
-  const ids = (due: { folder: string; task: Task }[]) => due.map((d) => `${d.folder}/${d.task.id}`);
+  const ids = (due: { list: string; task: Task }[]) => due.map((d) => `${d.list.split('/')[0]}/${d.task.id}`);
 
   it('collects what is due today from every list, late tasks apart, by priority', () => {
     const { overdue, today } = dueToday(lists, '2026-10-05');

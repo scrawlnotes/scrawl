@@ -71,9 +71,11 @@ export class MemoryFs implements VaultFs {
     this.files.delete(from);
   }
 
+  /** Removes a file, or a directory with everything in it. */
   async remove(path: string): Promise<void> {
-    this.files.delete(path);
-    this.dirs.delete(path);
+    const inside = (p: string) => p === path || p.startsWith(`${path}/`);
+    for (const p of [...this.files.keys()]) if (inside(p)) this.files.delete(p);
+    for (const p of [...this.dirs]) if (inside(p)) this.dirs.delete(p);
   }
 
   async mkdir(path: string): Promise<void> {

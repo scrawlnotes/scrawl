@@ -1,10 +1,20 @@
-import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Icon, type IconName } from './Icon';
 
 /** A small window in the middle of the app. Esc or a click beside it closes it. */
-function Dialog({ label, onClose, onKeyDown, children }: {
+function Dialog({ label, onClose, onEscape = onClose, onKeyDown, children }: {
   label: string;
   onClose: () => void;
+  /** What Esc does, when it is not closing. */
+  onEscape?: () => void;
   onKeyDown?: (event: KeyboardEvent) => void;
   children: ReactNode;
 }) {
@@ -22,7 +32,7 @@ function Dialog({ label, onClose, onKeyDown, children }: {
         aria-label={label}
         tabIndex={-1}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') onClose();
+          if (event.key === 'Escape') onEscape();
           else onKeyDown?.(event);
         }}
       >
@@ -32,7 +42,93 @@ function Dialog({ label, onClose, onKeyDown, children }: {
   );
 }
 
+/** A folder picked from the list, or a name typed for a folder that does not exist yet. */
+export interface FolderChoice {
+  folder: string;
+  create: boolean;
+}
+
+type FolderPicker = ReturnType<typeof useFolderPicker>;
+
+/**
+ * The folder list of Move to and Create: typing filters it, the arrow keys move through it, and
+ * a name no folder has can be picked to create that folder.
+ */
+function useFolderPicker(folders: string[], initial?: string) {
+  const [query, setQuery] = useState('');
+  const [index, setIndex] = useState(() => Math.max(0, initial === undefined ? 0 : folders.indexOf(initial)));
+  const typed = query.trim();
+  const matches = folders.filter((f) => f.toLowerCase().includes(typed.toLowerCase()));
+  const canCreate = typed !== '' && !folders.some((f) => f.toLowerCase() === typed.toLowerCase());
+  const count = matches.length + (canCreate ? 1 : 0);
+  const selected = Math.min(index, count - 1);
+  const choiceAt = (i: number): FolderChoice | null =>
+    i >= 0 && i < matches.length ? { folder: matches[i]!, create: false } : canCreate && i === matches.length ? { folder: typed, create: true } : null;
+  return {
+    query,
+    typed,
+    matches,
+    canCreate,
+    count,
+    selected,
+    choiceAt,
+    filter: (value: string) => {
+      setQuery(value);
+      setIndex(0);
+    },
+    select: setIndex,
+    /** Moves the selection for the arrow keys; returns whether the key was one of them. */
+    step: (key: string) => {
+      if (key === 'ArrowDown') setIndex(Math.min(selected + 1, count - 1));
+      else if (key === 'ArrowUp') setIndex(Math.max(selected - 1, 0));
+      else return false;
+      return true;
+    },
+  };
+}
+
+// A click on the list must not take the keyboard away from the field typed into.
+const keepFocus = (event: ReactMouseEvent) => event.preventDefault();
+
+function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: string; onPick: (index: number) => void }) {
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [picker.selected, picker.query]);
+  return (
+    <div ref={list} className="choices" role="listbox" aria-label="Folders">
+      {picker.matches.map((folder, i) => (
+        <button
+          key={folder}
+          type="button"
+          role="option"
+          aria-selected={i === picker.selected}
+          tabIndex={-1}
+          onMouseDown={keepFocus}
+          onClick={() => onPick(i)}
+        >
+          <span>{folder}</span>
+        </button>
+      ))}
+      {picker.canCreate && (
+        <button
+          type="button"
+          role="option"
+          aria-selected={picker.selected === picker.matches.length}
+          tabIndex={-1}
+          onMouseDown={keepFocus}
+          onClick={() => onPick(picker.matches.length)}
+        >
+          <span>Create folder “{picker.typed}”</span>
+        </button>
+      )}
+      {picker.count === 0 && <p>{empty}</p>}
+    </div>
+  );
+}
+
 export type NewKind = 'note' | 'tasks' | 'board';
+type ItemKind = Exclude<NewKind, 'board'>;
 
 const KINDS: { kind: NewKind; label: string; icon: IconName }[] = [
   { kind: 'note', label: 'Note', icon: 'note' },
@@ -40,8 +136,32 @@ const KINDS: { kind: NewKind; label: string; icon: IconName }[] = [
   { kind: 'board', label: 'Board', icon: 'board' },
 ];
 
+/**
+ * Creates a note, a task list or a board. The kind is chosen first; a note or a task list then
+ * gets a name, which may be left empty, and a folder.
+ */
+export function NewDialog({ folders, folder, onCreate, onBoard, onClose }: {
+  /** Every folder, the inbox first. */
+  folders: string[];
+  /** The folder chosen to begin with. */
+  folder: string;
+  /** Returns a message when the item cannot be made. */
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string) => Promise<string | null>;
+  /** Boards have no name or folder to ask for yet. */
+  onBoard: () => void;
+  onClose: () => void;
+}) {
+  const [kind, setKind] = useState<ItemKind | null>(null);
+  if (kind) {
+    return (
+      <NewItemForm kind={kind} folders={folders} folder={folder} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
+    );
+  }
+  return <KindChoice onPick={(picked) => (picked === 'board' ? onBoard() : setKind(picked))} onClose={onClose} />;
+}
+
 /** Asks what to create: press 1, 2 or 3, or choose with the arrow keys or the mouse. */
-export function NewDialog({ onPick, onClose }: { onPick: (kind: NewKind) => void; onClose: () => void }) {
+function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onClose: () => void }) {
   const [index, setIndex] = useState(0);
   const onKey = (event: KeyboardEvent) => {
     const number = Number(event.key);
@@ -76,7 +196,82 @@ export function NewDialog({ onPick, onClose }: { onPick: (kind: NewKind) => void
   );
 }
 
-/** Picks the folder to move a note to. Typing filters the list and can name a new folder. */
+/** The second step of Create: a name, which may be left empty, and the folder to put the item in. */
+function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
+  kind: ItemKind;
+  folders: string[];
+  folder: string;
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string) => Promise<string | null>;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const busy = useRef(false);
+  const picker = useFolderPicker(folders, folder);
+  const title = kind === 'note' ? 'New note' : 'New task list';
+
+  const create = async () => {
+    const choice = picker.choiceAt(picker.selected);
+    if (!choice || busy.current) return;
+    busy.current = true;
+    const failed = await onCreate(kind, choice, name);
+    busy.current = false;
+    setError(failed);
+  };
+  const onKey = (event: KeyboardEvent) => {
+    if (picker.step(event.key)) event.preventDefault();
+    // Enter on Back or Create is that button's own click.
+    else if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
+      event.preventDefault();
+      void create();
+    }
+  };
+  return (
+    <Dialog label={title} onClose={onClose} onEscape={onBack} onKeyDown={onKey}>
+      <h2>{title}</h2>
+      <label className="field">
+        <span>Name</span>
+        <input
+          id="new-name"
+          autoFocus
+          placeholder={kind === 'note' ? 'Named by its first line' : 'Tasks'}
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value);
+            setError(null);
+          }}
+        />
+      </label>
+      <label className="field">
+        <span>Folder</span>
+        <input
+          id="new-folder"
+          placeholder="Type to find or create a folder"
+          value={picker.query}
+          onChange={(event) => {
+            picker.filter(event.target.value);
+            setError(null);
+          }}
+        />
+      </label>
+      <div className="field-list">
+        <FolderList picker={picker} empty="Type a name to create a folder." onPick={picker.select} />
+      </div>
+      {error && <p role="alert">{error}</p>}
+      <div className="dialog-actions">
+        <button type="button" onClick={onBack}>
+          Back
+        </button>
+        <button type="button" className="primary" onClick={() => void create()}>
+          Create
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
+/** Picks the folder to move a note or a task list to. Typing filters the list and can name a new folder. */
 export function MoveDialog({ folders, current, onMove, onCreate, onClose }: {
   folders: string[];
   current: string;
@@ -84,25 +279,21 @@ export function MoveDialog({ folders, current, onMove, onCreate, onClose }: {
   onCreate: (name: string) => Promise<string | null>;
   onClose: () => void;
 }) {
-  const [query, setQuery] = useState('');
-  const [index, setIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const typed = query.trim();
-  const matches = folders.filter((f) => f !== current && f.toLowerCase().includes(typed.toLowerCase()));
-  const canCreate = typed !== '' && !folders.some((f) => f.toLowerCase() === typed.toLowerCase());
-  const count = matches.length + (canCreate ? 1 : 0);
+  const picker = useFolderPicker(folders.filter((f) => f !== current));
 
   const pick = async (i: number) => {
-    const folder = matches[i];
-    if (folder !== undefined) onMove(folder);
-    else if (canCreate) setError(await onCreate(typed));
+    const choice = picker.choiceAt(i);
+    if (!choice) return;
+    if (choice.create) setError(await onCreate(choice.folder));
+    else onMove(choice.folder);
   };
   const onKey = (event: KeyboardEvent) => {
-    if (event.key === 'ArrowDown') setIndex((i) => Math.min(i + 1, count - 1));
-    else if (event.key === 'ArrowUp') setIndex((i) => Math.max(i - 1, 0));
-    else if (event.key === 'Enter') void pick(Math.min(index, count - 1));
-    else return;
-    event.preventDefault();
+    if (picker.step(event.key)) event.preventDefault();
+    else if (event.key === 'Enter') {
+      event.preventDefault();
+      void pick(picker.selected);
+    }
   };
   return (
     <Dialog label="Move to" onClose={onClose} onKeyDown={onKey}>
@@ -112,38 +303,19 @@ export function MoveDialog({ folders, current, onMove, onCreate, onClose }: {
         aria-label="Folder"
         placeholder="Type a folder name"
         autoFocus
-        value={query}
+        value={picker.query}
         onChange={(event) => {
-          setQuery(event.target.value);
-          setIndex(0);
+          picker.filter(event.target.value);
           setError(null);
         }}
       />
-      <div className="choices" role="listbox">
-        {matches.map((folder, i) => (
-          <button key={folder} type="button" role="option" aria-selected={i === index} tabIndex={-1} onClick={() => void pick(i)}>
-            <span>{folder}</span>
-          </button>
-        ))}
-        {canCreate && (
-          <button
-            type="button"
-            role="option"
-            aria-selected={index >= matches.length}
-            tabIndex={-1}
-            onClick={() => void pick(matches.length)}
-          >
-            <span>Create folder “{typed}”</span>
-          </button>
-        )}
-        {count === 0 && <p>No other folder yet. Type a name to create one.</p>}
-      </div>
+      <FolderList picker={picker} empty="No other folder yet. Type a name to create one." onPick={(i) => void pick(i)} />
       {error && <p role="alert">{error}</p>}
     </Dialog>
   );
 }
 
-/** Asks for a note's name. */
+/** Asks for the name of a note or a task list. */
 export function RenameDialog({ name, onRename, onClose }: {
   name: string;
   onRename: (name: string) => Promise<string | null>;
@@ -162,8 +334,8 @@ export function RenameDialog({ name, onRename, onClose }: {
       <h2>Rename</h2>
       <form onSubmit={submit}>
         <input
-          id="rename-note"
-          aria-label="Note name"
+          id="rename-item"
+          aria-label="Name"
           autoFocus
           value={value}
           onFocus={(event) => event.target.select()}
@@ -179,6 +351,37 @@ export function RenameDialog({ name, onRename, onClose }: {
           </button>
         </div>
       </form>
+    </Dialog>
+  );
+}
+
+/** Asks before something is deleted. Enter confirms, Esc or Cancel leaves it be. */
+export function ConfirmDialog({ title, message, action, onConfirm, onClose }: {
+  title: string;
+  message: string;
+  /** The label of the confirming button. */
+  action: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const onKey = (event: KeyboardEvent) => {
+    // Enter on Cancel is that button's own click.
+    if (event.key !== 'Enter' || event.target instanceof HTMLButtonElement) return;
+    event.preventDefault();
+    onConfirm();
+  };
+  return (
+    <Dialog label={title} onClose={onClose} onKeyDown={onKey}>
+      <h2>{title}</h2>
+      <p className="confirm">{message}</p>
+      <div className="dialog-actions">
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="primary" onClick={onConfirm}>
+          {action}
+        </button>
+      </div>
     </Dialog>
   );
 }

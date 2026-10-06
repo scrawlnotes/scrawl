@@ -2,23 +2,28 @@ import {
   addTask,
   ATTACHMENTS,
   createFolder,
+  createNote,
   createScratchNote,
+  createTaskList,
   dirname,
   displayTitle,
   INBOX,
+  INBOX_TASKS,
+  isScratchNote,
   loadTasks,
   loadWorkspace,
-  moveNote,
+  moveItem,
   type NewTask,
   readTree,
   removeTask,
-  renameNote,
+  renameItem,
   saveAttachment,
   saveTasks,
   saveWorkspace,
   setDone,
   type Task,
-  trashNote,
+  trashFolder,
+  trashItem,
   type TreeNode,
   updateTask,
   type VaultFs,
@@ -39,7 +44,7 @@ import {
   toggleLinePrefix,
   toggleStrike,
 } from '@scrawlnotes/editor';
-import { boardOf, isNote, tasksOf } from './items';
+import { boardOf, folderOf, isNote, listOf, tabOf } from './items';
 import { sampleDoc } from './sample';
 import { chooseVaultFolder, isDesktop, openVault, vaultFolder } from './storage';
 
@@ -70,7 +75,7 @@ export interface Snapshot {
   active: string | null;
   /** Display name of every note, kept current while a note is being typed. */
   titles: Record<string, string>;
-  /** The task list of every folder, by folder path. */
+  /** Every task list, by the path of its file. */
   tasks: Record<string, Task[]>;
   saved: boolean;
   /** Cursor and formatting of the note on screen; null while a view is shown instead. */
@@ -165,15 +170,23 @@ export class Session {
         this.images.set(path, URL.createObjectURL(file));
         return path;
       },
-      onStats: (stats) => this.set({ stats, format: this.editor ? formatState(this.editor.view.state) : null }),
+      onStats: (stats) => {
+        // The editor reports as soon as it exists, before any note is in it.
+        const { active } = this.snapshot;
+        if (!active || !isNote(active)) return;
+        this.set({ stats, format: this.editor ? formatState(this.editor.view.state) : null });
+      },
       onChange: (doc) => this.changed(doc),
     });
     window.addEventListener('pagehide', this.flush);
 
     const titles = titlesOf(tree);
-    const tabs = workspace.tabs.filter((id) => id in titles || !isNote(id));
     const tasks = await this.readTasks(tree);
     if (run !== this.run) return;
+    const tabs = workspace.tabs.filter((id) => {
+      const list = listOf(id);
+      return list !== null ? list in tasks : id in titles || !isNote(id);
+    });
     this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
@@ -268,56 +281,60 @@ export class Session {
     await this.refreshTree();
   }
 
-  private async refreshTree() {
+  /** Writes every unsaved note and task list. */
+  private async settle() {
     await this.flush();
     await this.taskWrites;
+  }
+
+  private async refreshTree() {
+    await this.settle();
     const tree = await readTree(this.fs);
     this.set({ tree, titles: titlesOf(tree), tasks: await this.readTasks(tree) });
   }
 
-  /** Reads the task list of the inbox and of every folder. */
+  /** Reads the inbox's task list and every other task list in the vault. */
   private async readTasks(tree: TreeNode[]): Promise<Record<string, Task[]>> {
-    const folders = new Set([INBOX]);
+    const paths = [INBOX_TASKS];
     const visit = (nodes: TreeNode[]) => {
       for (const node of nodes) {
-        if (node.kind !== 'folder') continue;
-        folders.add(node.path);
-        visit(node.children ?? []);
+        if (node.kind === 'tasks') paths.push(node.path);
+        else if (node.kind === 'folder') visit(node.children ?? []);
       }
     };
     visit(tree);
-    const lists = await Promise.all([...folders].map(async (folder) => [folder, await loadTasks(this.fs, folder)] as const));
+    const lists = await Promise.all(paths.map(async (path) => [path, await loadTasks(this.fs, path)] as const));
     return Object.fromEntries(lists);
   }
 
-  /** Applies a change to a folder's task list and saves it. */
-  private changeTasks(folder: string, change: (tasks: Task[]) => Task[]) {
-    const current = this.snapshot.tasks[folder] ?? [];
+  /** Applies a change to a task list and saves it. */
+  private changeTasks(list: string, change: (tasks: Task[]) => Task[]) {
+    const current = this.snapshot.tasks[list] ?? [];
     const next = change(current);
     if (next === current) return;
-    this.set({ tasks: { ...this.snapshot.tasks, [folder]: next }, saved: false });
+    this.set({ tasks: { ...this.snapshot.tasks, [list]: next }, saved: false });
     this.taskWrites = this.taskWrites
-      .then(() => saveTasks(this.fs, folder, next))
+      .then(() => saveTasks(this.fs, list, next))
       .catch(() => undefined)
       .then(() => {
         if (!this.pending.size) this.set({ saved: true });
       });
   }
 
-  addTask(folder: string, input: NewTask) {
-    this.changeTasks(folder, (tasks) => addTask(tasks, input));
+  addTask(list: string, input: NewTask) {
+    this.changeTasks(list, (tasks) => addTask(tasks, input));
   }
 
-  updateTask(folder: string, id: string, patch: Partial<Pick<Task, 'title' | 'due' | 'priority'>>) {
-    this.changeTasks(folder, (tasks) => updateTask(tasks, id, patch));
+  updateTask(list: string, id: string, patch: Partial<Pick<Task, 'title' | 'due' | 'priority'>>) {
+    this.changeTasks(list, (tasks) => updateTask(tasks, id, patch));
   }
 
-  setTaskDone(folder: string, id: string, done: boolean) {
-    this.changeTasks(folder, (tasks) => setDone(tasks, id, done));
+  setTaskDone(list: string, id: string, done: boolean) {
+    this.changeTasks(list, (tasks) => setDone(tasks, id, done));
   }
 
-  removeTask(folder: string, id: string) {
-    this.changeTasks(folder, (tasks) => removeTask(tasks, id));
+  removeTask(list: string, id: string) {
+    this.changeTasks(list, (tasks) => removeTask(tasks, id));
   }
 
   /** Shows a note or a view, adding a tab for it when it has none. */
@@ -350,24 +367,33 @@ export class Session {
     if (isNote(id)) window.setTimeout(() => this.editor?.view.focus());
   }
 
-  /** Creates an empty note in `folder`, or in the inbox, and opens it. */
+  /** Creates an empty scratch note in `folder`, or in the inbox, and opens it. */
   async newNote(folder?: string) {
     const path = await createScratchNote(this.fs, new Date(), folder);
     await this.refreshTree();
     await this.open(path);
   }
 
-  /** The folder new things are created in: the one the tab on screen belongs to, else the inbox. */
-  private currentFolder(): string {
-    const { active } = this.snapshot;
-    if (!active) return INBOX;
-    return (isNote(active) ? dirname(active) : active.slice(active.indexOf(':') + 1)) || INBOX;
+  /**
+   * Creates a note or a task list called `name` (a default name when it is empty) in `folder`,
+   * which is made first when `newFolder` is set, and opens it. Returns a message when it cannot be made.
+   */
+  async create(kind: 'note' | 'tasks', folder: string, name: string, newFolder: boolean): Promise<string | null> {
+    let path: string;
+    try {
+      const target = newFolder ? await createFolder(this.fs, folder) : folder;
+      path = kind === 'note' ? await createNote(this.fs, target, name) : await createTaskList(this.fs, target, name);
+    } catch (error) {
+      return error instanceof Error ? error.message : 'It could not be created.';
+    }
+    await this.refreshTree();
+    await this.open(tabOf(path));
+    return null;
   }
 
-  /** Opens the task list or board of the current folder. Both are placeholders until they are built. */
-  async newItem(kind: 'tasks' | 'board') {
-    const folder = this.currentFolder();
-    await this.open(kind === 'tasks' ? tasksOf(folder) : boardOf(folder));
+  /** Opens the board of `folder`, a placeholder until boards are built. */
+  async openBoard(folder: string) {
+    await this.open(boardOf(folder));
   }
 
   /** Takes a note out of the tab bar and shows a neighbor. Closing the last tab leaves nothing open. */
@@ -394,21 +420,37 @@ export class Session {
   async close(path: string) {
     await this.flush();
     const state = path === this.snapshot.active ? this.editor?.view.state : this.states.get(path);
-    // An inbox note that was never written in leaves nothing behind, like an empty editor tab.
-    const discard = isNote(path) && dirname(path) === INBOX && state?.doc.toString().trim() === '';
+    // A note that was never named or written in leaves nothing behind, like an empty editor tab.
+    const discard = isNote(path) && isScratchNote(path) && state?.doc.toString().trim() === '';
     if (discard) await this.fs.remove(path);
     await this.detach(path);
     if (discard) await this.refreshTree();
   }
 
+  /** Moves a note or a task list to the trash. */
   async trash(path: string) {
-    await this.flush();
-    await trashNote(this.fs, path);
-    await this.detach(path);
+    await this.settle();
+    await trashItem(this.fs, path);
+    await this.detach(tabOf(path));
     await this.refreshTree();
   }
 
-  /** A note changed its path: its tab and its editing state follow it. */
+  /** Moves a folder and everything in it to the trash. The tabs of what was in it close. */
+  async trashFolder(path: string) {
+    await this.settle();
+    const inside = (id: string) => {
+      const folder = folderOf(id);
+      return folder !== null && (folder === path || folder.startsWith(`${path}/`));
+    };
+    const { tabs, active } = this.snapshot;
+    // The tab on screen goes last, so the one shown after it is from outside the folder.
+    for (const tab of tabs.filter(inside)) if (tab !== active) await this.detach(tab);
+    if (active && inside(active)) await this.detach(active);
+    await trashFolder(this.fs, path);
+    await this.refreshTree();
+  }
+
+  /** A note or a task list changed its path: its tab and its editing state follow it. */
   private async repath(path: string, target: string) {
     const state = this.states.get(path);
     if (state) {
@@ -420,19 +462,21 @@ export class Session {
       this.disk.delete(path);
       this.disk.set(target, onDisk);
     }
+    const [from, to] = [tabOf(path), tabOf(target)];
     const { tabs, active } = this.snapshot;
-    this.set({ tabs: tabs.map((tab) => (tab === path ? target : tab)), active: active === path ? target : active });
+    this.set({ tabs: tabs.map((tab) => (tab === from ? to : tab)), active: active === from ? to : active });
     this.saveWorkspace();
     await this.refreshTree();
   }
 
+  /** Moves a note or a task list into `folder`. */
   async move(path: string, folder: string) {
     if (dirname(path) === folder) return;
-    await this.flush();
-    await this.repath(path, await moveNote(this.fs, path, folder));
+    await this.settle();
+    await this.repath(path, await moveItem(this.fs, path, folder));
   }
 
-  /** Moves a note into a folder that is created for it. Returns a message when the name cannot be used. */
+  /** Moves a note or a task list into a folder that is created for it. Returns a message when the name cannot be used. */
   async moveToNewFolder(path: string, name: string): Promise<string | null> {
     try {
       await this.move(path, await createFolder(this.fs, name));
@@ -442,11 +486,11 @@ export class Session {
     }
   }
 
-  /** Gives a note a name. Returns a message when the name cannot be used. */
+  /** Gives a note or a task list a name. Returns a message when the name cannot be used. */
   async rename(path: string, name: string): Promise<string | null> {
-    await this.flush();
+    await this.settle();
     try {
-      await this.repath(path, await renameNote(this.fs, path, name));
+      await this.repath(path, await renameItem(this.fs, path, name));
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : 'The note could not be renamed.';

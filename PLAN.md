@@ -42,13 +42,13 @@ Sublime/Notepad'de kapatılmayan sekmelerin yerini alacak bir çalışma notu uy
 
 ### 4.1 Kenar çubuğu ve sekmeler
 
-- **Tek ağaç.** Üstte tüm klasörleri kapsayan görünümler (Inbox, Today, Upcoming), altında klasörler. Bir klasör açıldığında görev listesi, panoları, notları ve alt klasörleri aynı yerde durur.
+- **Tek ağaç.** Üstte tüm klasörleri kapsayan görünümler (Today, Upcoming), altlarında Inbox, en altta klasörler. Bir klasör açıldığında görev listeleri, panoları, notları ve alt klasörleri aynı yerde durur.
 - **Her şey sekmedir.** Sekme not, görev listesi veya pano taşır; baştaki simge türünü gösterir. Bölünmüş görünümde farklı türler yan yana açılır.
 - **Yeni modül** = klasörün içinde yeni bir öğe türü + yeni bir sekme türü. İskelet değişmez.
 
 ### 4.2 Not editörü
 
-- **Scratch sekmeler:** Ctrl+N anında kalıcı bir not açar. Başlık ilk satırdan türetilir. Dosyalanmamış notlar Inbox'ta durur.
+- **Scratch sekmeler:** Ctrl+N, 1, Enter kalıcı bir not açar. Başlık ilk satırdan türetilir. Dosyalanmamış notlar Inbox'ta durur. Adı verilmemiş not boş kapatılırsa iz bırakmaz.
 - **Hızlı yakalama:** masaüstünde global kısayolla küçük bir pencere; yaz, Esc, not Inbox'a düşer.
 - **Inbox bakımı:** her öğe için tek tuşla dosyala, göreve çevir veya arşivle. Uzun süre dokunulmayanlar arşive iner, silinmez.
 - **Gezinme ve arama:** ayrı bir aşamada; Spotlight veya Rider'daki "her yerde ara" tarzında tek bir arama penceresi (nota git, tam metin, komutlar).
@@ -65,19 +65,21 @@ Sublime/Notepad'de kapatılmayan sekmelerin yerini alacak bir çalışma notu uy
 - **Çoklu imleç çubukta:** sonraki eşleşme, tüm eşleşmeler, alt satıra imleç.
 - **Bul/değiştir:** editörün altında tek satırlık çubuk; ekranda görünen metni arar.
 - **Masaüstü:** Tauri kabuğu; notlar seçilen klasörde `.md` dosyalarıdır, klasör seçimi kabuğun ayar dosyasında tutulur.
-- **Oluşturma penceresi:** "+" ve Ctrl+N ortada küçük bir pencere açar: 1 Note, 2 Task list, 3 Board. Açık sekme yokken uygulama da bu pencereyle açılır.
+- **Oluşturma penceresi:** "+" ve Ctrl+N ortada küçük bir pencere açar: 1 Note, 2 Task list, 3 Board. Açık sekme yokken uygulama da bu pencereyle açılır. Not ve görev listesi için ikinci adımda ad ve klasör sorulur: ad boş kalabilir (not ilk satırından, liste `Tasks` adını alır); klasör açık sekmenin klasörüyle başlar, sekme yoksa Inbox. Klasör listesi Move to penceresindekiyle aynıdır; olmayan bir ad yazılırsa klasör oluşturulur. Enter oluşturur, Esc ilk adıma döner.
 - **Not adı:** adlandırılmamış not ilk satırıyla, adlandırılmış not dosya adıyla görünür.
-- **Sağ tık:** notta Move to…, Rename, Delete; klasörde New note here. Sürükle-bırak ek yol olarak kalır.
+- **Sağ tık:** notta ve görev listesinde Move to…, Rename, Delete; klasörde New note here ve Delete folder (Inbox'ta yok). Sürükle-bırak ek yol olarak kalır.
+- **Silme:** not, görev listesi, klasör ve görev silinmeden önce onay sorulur. Not, liste ve klasör (içindekilerle) `.scrawl/trash`'e gider; silinen görev geri gelmez.
 - **Tablo kenarı:** imleç tablonun kenarında duramaz; tablonun hemen altına yazılan metin araya boş satır konarak tablodan ayrılır.
 - **Medya:** panodan resim yapıştırma, sürükle-bırak dosya, satır içi ses kaydı ve oynatıcı, yapıştırılan linkin başlığını çekme.
 - **Sürüm geçmişi:** not başına yerel anlık görüntüler.
-- **Dark mode:** sistemle uyumlu, elle değiştirilebilir.
+- **Dark mode:** sistemle uyumlu, elle değiştirilebilir; ayarlar ekranıyla birlikte gelir.
 
 ### 4.3 Görevler
 
-- Klasör başına bir görev listesi: bölüm > görev > alt görev.
+- Bir klasörde istenen sayıda görev listesi; her liste kendi adıyla ayrı bir dosyadır. Liste yalnızca oluşturma penceresinden açılır, klasörle birlikte kendiliğinden gelmez. Yapı: bölüm > görev > alt görev.
+- Inbox'ın kendi görev listesi her zaman vardır; Today'den eklenen görevler oraya gider.
 - Görev alanları: başlık, açıklama, öncelik (p1-p4), tarih, tamamlanma.
-- Tüm klasörleri kapsayan görünümler: Inbox, Today, Upcoming, kayıtlı filtreler (ör. "bu hafta ve p1").
+- Tüm listeleri kapsayan görünümler: Today, Upcoming, kayıtlı filtreler (ör. "bu hafta ve p1").
 - Klavye öncelikli hızlı ekleme (düz alanlarla).
 - Notla tek bağlantı: notta metni seçip "göreve çevir". Görev listede oluşur, nota geri link taşır; notun içine bir şey yazılmaz.
 - Veri modelinde `recurrence`, `reminder`, `assignee` ve `author` alanları ayrılır ama v1'de kullanılmaz.
@@ -127,13 +129,14 @@ design/             arayüz taslakları
 ```
 vault/
   Inbox/                     dosyalanmamış notlar
+    tasks.json               Inbox'ın görev listesi
   <klasör>/
     <not>.md                 düz markdown
-    tasks.json               klasörün görev listesi (Inbox'ınki dahil); ağaç yapısı `parent` alanıyla
+    <ad>.tasks.json          görev listesi, bir klasörde istenen sayıda; ağaç yapısı `parent` alanıyla
     <ad>.board.json          pano (sonra)
   _attachments/              resim, ses, dosya (şimdilik kökte tek klasör; not taşınınca link bozulmaz)
   .scrawl/
-    trash/                   silinen notlar
+    trash/                   silinen notlar ve görev listeleri
     sync-state.json          cihaza özel, sync edilmez
     workspace.json           açık sekmeler ve düzen, cihaza özel
 ```
@@ -157,7 +160,7 @@ vault/
 |---|---|---|
 | 0 | İskelet ve editör denemesi | Monorepo kurulu; live preview prototipi başlık, vurgu, liste, link, resim ve kod bloğuyla tarayıcıda denenebiliyor |
 | 1 | Masaüstü editör | Sekmeler, scratch notlar, kenar çubuğu, medya, dark mode, kurulabilir sürüm; yerel klasörle günlük kullanımda Notepad'in yerini alıyor |
-| 2 | Görevler | **İlk dilim bitti:** klasör görev listeleri, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri. **Kalan:** bölümler, sürükleyerek sıralama, kayıtlı filtreler, taşıma, "göreve çevir" |
+| 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri. **Kalan:** bölümler, sürükleyerek sıralama, kayıtlı filtreler, taşıma, "göreve çevir" |
 | 3 | Sync + web | OneDrive adaptörü, çakışma çözümü; web sürümü yayında ve telefonda PWA olarak kullanılabilir |
 | 4 | Paylaşım | PDF/HTML/MD dışa aktarma; yayın servisi ve "link olarak paylaş" |
 | 5 | Mobil | Native iOS uygulaması (sonra Android) |

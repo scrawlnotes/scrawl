@@ -1,19 +1,47 @@
-import { dayOf, dirname, dueToday, INBOX, openCount, type TreeNode } from '@scrawlnotes/core';
+import {
+  basename,
+  dayOf,
+  dirname,
+  dueToday,
+  INBOX,
+  INBOX_TASKS,
+  listName,
+  openCount,
+  removeTask,
+  type TreeNode,
+} from '@scrawlnotes/core';
 import type { EditorStats } from '@scrawlnotes/editor';
 import { type MouseEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ContextMenu, type MenuItem, MoveDialog, NewDialog, type NewKind, RenameDialog } from './dialogs';
+import { ConfirmDialog, ContextMenu, type FolderChoice, type MenuItem, MoveDialog, NewDialog, RenameDialog } from './dialogs';
 import { FormatBar } from './FormatBar';
 import { Icon } from './Icon';
-import { iconOf, isNote, labelOf, placeholderOf, tasksFolder, tasksOf, TODAY, UPCOMING } from './items';
+import {
+  BOARD_PLACEHOLDER,
+  folderOf,
+  iconOf,
+  isNote,
+  isTaskListPath,
+  labelOf,
+  listOf,
+  tasksOf,
+  TODAY,
+  UPCOMING,
+} from './items';
 import { Session } from './session';
 import { Sidebar } from './Sidebar';
 import { DueView, type TaskActions, TaskList } from './Tasks';
 import { isDesktop } from './storage';
 
 type Theme = 'dark' | 'light';
-type OpenDialog = { kind: 'new' } | { kind: 'move'; path: string } | { kind: 'rename'; path: string } | null;
+type OpenDialog =
+  | { kind: 'new' }
+  | { kind: 'move'; path: string }
+  | { kind: 'rename'; path: string }
+  | { kind: 'confirm'; title: string; message: string; run: () => void }
+  | null;
 
 const count = (n: number, unit: string) => `${n.toLocaleString('en-US')} ${unit}${n === 1 ? '' : 's'}`;
+const quote = (name: string) => `“${name}”`;
 
 function position(stats: EditorStats): string {
   if (stats.selectedChars === 0) return `Ln ${stats.line}, Col ${stats.col}`;
@@ -29,6 +57,36 @@ function folderPaths(nodes: TreeNode[], out: string[] = []): string[] {
     folderPaths(node.children ?? [], out);
   }
   return out;
+}
+
+function findNode(nodes: TreeNode[], path: string): TreeNode | undefined {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    const found = findNode(node.children ?? [], path);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/** What a folder holds, all the way down, as "2 notes, 1 task list"; empty when it holds nothing. */
+function contentsOf(folder: TreeNode): string {
+  const totals = { note: 0, tasks: 0, folder: 0 };
+  const visit = (nodes: TreeNode[]) => {
+    for (const node of nodes) {
+      totals[node.kind]++;
+      visit(node.children ?? []);
+    }
+  };
+  visit(folder.children ?? []);
+  const parts: [number, string][] = [
+    [totals.note, 'note'],
+    [totals.tasks, 'task list'],
+    [totals.folder, 'folder'],
+  ];
+  return parts
+    .filter(([n]) => n > 0)
+    .map(([n, unit]) => count(n, unit))
+    .join(', ');
 }
 
 export function App() {
@@ -85,24 +143,63 @@ export function App() {
     if (empty) setDeclined(true);
     setDialog(null);
   };
-  const create = (kind: NewKind) => {
+  // New things go to the folder of the tab on screen, or to the inbox.
+  const newFolder = (active && folderOf(active)) || INBOX;
+  const create = async (kind: 'note' | 'tasks', choice: FolderChoice, name: string) => {
+    const error = await session.create(kind, choice.folder, name, choice.create);
+    if (!error) setDialog(null);
+    return error;
+  };
+  const openBoard = () => {
     setDialog(null);
-    if (kind === 'note') void session.newNote();
-    else void session.newItem(kind);
+    void session.openBoard(newFolder);
+  };
+
+  // Nothing is deleted without asking first.
+  const ask = (title: string, message: string, run: () => void) => setDialog({ kind: 'confirm', title, message, run });
+  const deleteItem = (path: string) => {
+    if (isTaskListPath(path)) {
+      const total = tasks[path]?.length ?? 0;
+      const what = total > 0 ? `${quote(listName(path))} and its ${count(total, 'task')}` : quote(listName(path));
+      ask('Delete task list', `${what} will be moved to the trash.`, () => void session.trash(path));
+    } else {
+      ask('Delete note', `${quote(titles[path] ?? 'untitled')} will be moved to the trash.`, () => void session.trash(path));
+    }
+  };
+  const deleteFolder = (path: string) => {
+    const node = findNode(tree, path);
+    const contents = node ? contentsOf(node) : '';
+    const what = contents ? `${quote(basename(path))} and everything in it (${contents})` : quote(basename(path));
+    ask('Delete folder', `${what} will be moved to the trash.`, () => void session.trashFolder(path));
+  };
+  const deleteTask = (list: string, id: string) => {
+    const listTasks = tasks[list] ?? [];
+    const task = listTasks.find((t) => t.id === id);
+    if (!task) return;
+    // A task goes together with its subtasks.
+    const subtasks = listTasks.length - removeTask(listTasks, id).length - 1;
+    const what = subtasks > 0 ? `${quote(task.title)} and its ${count(subtasks, 'subtask')}` : quote(task.title);
+    ask('Delete task', `${what} will be deleted. This cannot be undone.`, () => session.removeTask(list, id));
   };
 
   const openMenu = (event: MouseEvent, items: MenuItem[]) => {
     event.preventDefault();
     setMenu({ at: { x: event.clientX, y: event.clientY }, items });
   };
-  const noteMenu = (event: MouseEvent, path: string) =>
+  // The menu of a note or a task list; the inbox's own list has none.
+  const itemMenu = (event: MouseEvent, path: string) =>
+    path !== INBOX_TASKS &&
     openMenu(event, [
       { label: 'Move to…', run: () => setDialog({ kind: 'move', path }) },
       { label: 'Rename', run: () => setDialog({ kind: 'rename', path }) },
-      { label: 'Delete', run: () => void session.trash(path) },
+      { label: 'Delete', run: () => deleteItem(path) },
     ]);
+  // The inbox is always there; it cannot be deleted.
   const folderMenu = (event: MouseEvent, path: string) =>
-    openMenu(event, [{ label: 'New note here', run: () => void session.newNote(path) }]);
+    openMenu(event, [
+      { label: 'New note here', run: () => void session.newNote(path) },
+      ...(path === INBOX ? [] : [{ label: 'Delete folder', run: () => deleteFolder(path) }]),
+    ]);
   const closeMenu = useCallback(() => setMenu(null), []);
 
   const today = dayOf(new Date());
@@ -110,13 +207,13 @@ export function App() {
     add: (target, input) => session.addTask(target, input),
     update: (target, id, change) => session.updateTask(target, id, change),
     setDone: (target, id, done) => session.setTaskDone(target, id, done),
-    remove: (target, id) => session.removeTask(target, id),
+    remove: deleteTask,
     menu: openMenu,
   };
   const dueNow = dueToday(tasks, today);
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length };
-  for (const [target, list] of Object.entries(tasks)) counts[tasksOf(target)] = openCount(list);
-  const listFolder = active ? tasksFolder(active) : null;
+  for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
+  const list = active ? listOf(active) : null;
   const isDueView = active === TODAY || active === UPCOMING;
 
   return (
@@ -136,10 +233,10 @@ export function App() {
         active={active}
         counts={counts}
         onOpen={(id) => void session.open(id)}
-        onTrash={(path) => void session.trash(path)}
+        onTrash={deleteItem}
         onMove={(path, target) => void session.move(path, target)}
         onNewFolder={(name) => session.newFolder(name)}
-        onNoteMenu={noteMenu}
+        onItemMenu={itemMenu}
         onFolderMenu={folderMenu}
       />
       <main className="main">
@@ -151,7 +248,10 @@ export function App() {
               role="tab"
               aria-selected={id === active}
               onMouseDown={(event) => event.button === 1 && void session.close(id)}
-              onContextMenu={(event) => isNote(id) && noteMenu(event, id)}
+              onContextMenu={(event) => {
+                const path = isNote(id) ? id : listOf(id);
+                if (path) itemMenu(event, path);
+              }}
             >
               <button type="button" className="tab-title" onClick={() => void session.open(id)}>
                 <Icon name={iconOf(id)} />
@@ -182,14 +282,14 @@ export function App() {
           <FormatBar format={format} onFormat={(action) => session.format(action)} onLink={(url) => session.setLink(url)} />
         )}
         <div className="editor" ref={host} hidden={!showingEditor} />
-        {listFolder !== null && <TaskList folder={listFolder} tasks={tasks[listFolder] ?? []} today={today} actions={taskActions} />}
+        {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} today={today} actions={taskActions} />}
         {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} today={today} actions={taskActions} />}
-        {!showingEditor && listFolder === null && !isDueView && (
+        {!showingEditor && list === null && !isDueView && (
           <section className="placeholder">
             {active ? (
               <>
                 <h1>{labelOf(active, titles)}</h1>
-                <p>{placeholderOf(active)}</p>
+                <p>{BOARD_PLACEHOLDER}</p>
               </>
             ) : (
               empty && <p>Nothing is open. Press {isDesktop ? 'Ctrl+N' : 'Alt+N'} to create something.</p>
@@ -221,7 +321,15 @@ export function App() {
         </footer>
       </main>
 
-      {showNew && <NewDialog onPick={create} onClose={closeDialog} />}
+      {showNew && (
+        <NewDialog
+          folders={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
+          folder={newFolder}
+          onCreate={create}
+          onBoard={openBoard}
+          onClose={closeDialog}
+        />
+      )}
       {dialog?.kind === 'move' && (
         <MoveDialog
           folders={folderPaths(tree)}
@@ -240,8 +348,20 @@ export function App() {
       )}
       {dialog?.kind === 'rename' && (
         <RenameDialog
-          name={titles[dialog.path] ?? ''}
+          name={isTaskListPath(dialog.path) ? listName(dialog.path) : (titles[dialog.path] ?? '')}
           onRename={(name) => session.rename(dialog.path, name)}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'confirm' && (
+        <ConfirmDialog
+          title={dialog.title}
+          message={dialog.message}
+          action="Delete"
+          onConfirm={() => {
+            setDialog(null);
+            dialog.run();
+          }}
           onClose={closeDialog}
         />
       )}

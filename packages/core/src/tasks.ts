@@ -1,4 +1,4 @@
-import { join, type VaultFs } from './fs';
+import type { VaultFs } from './fs';
 
 /** Priority 1 is the highest; 4 means no priority was set. */
 export type Priority = 1 | 2 | 3 | 4;
@@ -32,7 +32,8 @@ export interface Task {
 
 /** How deep subtasks may nest below a top-level task. */
 export const MAX_DEPTH = 4;
-const TASKS_FILE = 'tasks.json';
+/** A task list is a file of its own: `<name>.tasks.json`. The inbox keeps its tasks in `tasks.json`. */
+export const TASK_LIST_EXT = '.tasks.json';
 
 type Clock = () => Date;
 const iso = (now: Clock) => now().toISOString();
@@ -87,16 +88,17 @@ export function serializeTasks(tasks: Task[]): string {
   return `${JSON.stringify({ version: 1, tasks }, null, 2)}\n`;
 }
 
-export async function loadTasks(fs: VaultFs, folder: string): Promise<Task[]> {
+/** Reads the task list at `path`. A list whose file is missing is empty. */
+export async function loadTasks(fs: VaultFs, path: string): Promise<Task[]> {
   try {
-    return parseTasks(await fs.readText(join(folder, TASKS_FILE)));
+    return parseTasks(await fs.readText(path));
   } catch {
     return [];
   }
 }
 
-export function saveTasks(fs: VaultFs, folder: string, tasks: Task[]): Promise<void> {
-  return fs.writeText(join(folder, TASKS_FILE), serializeTasks(tasks));
+export function saveTasks(fs: VaultFs, path: string, tasks: Task[]): Promise<void> {
+  return fs.writeText(path, serializeTasks(tasks));
 }
 
 /** The subtasks of `parent` (or the top-level tasks), in their order. */
@@ -195,15 +197,15 @@ export function progressOf(tasks: Task[], id: string): { done: number; total: nu
 
 export const openCount = (tasks: Task[]) => tasks.filter((t) => !t.done).length;
 
-/** An open task with a due day, and the folder its list belongs to. */
+/** An open task with a due day, and the path of the list it is in. */
 export interface DueTask {
-  folder: string;
+  list: string;
   task: Task;
 }
 
 function dueTasks(lists: Record<string, Task[]>): DueTask[] {
   return Object.entries(lists)
-    .flatMap(([folder, tasks]) => tasks.filter((t) => !t.done && t.due).map((task) => ({ folder, task })))
+    .flatMap(([list, tasks]) => tasks.filter((t) => !t.done && t.due).map((task) => ({ list, task })))
     .sort((a, b) => a.task.due!.localeCompare(b.task.due!) || a.task.priority - b.task.priority);
 }
 

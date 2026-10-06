@@ -1,30 +1,31 @@
-import { INBOX, type TreeNode } from '@scrawlnotes/core';
+import { INBOX, INBOX_TASKS, type TreeNode } from '@scrawlnotes/core';
 import { type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useState } from 'react';
 import { Icon } from './Icon';
-import { tasksOf, TODAY, UPCOMING } from './items';
+import { tabOf, tasksOf, TODAY, UPCOMING } from './items';
 
-const NOTE_DRAG_TYPE = 'application/x-scrawl-note';
+// A note or a task list being dragged onto a folder.
+const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
 
 interface Props {
   tree: TreeNode[];
   titles: Record<string, string>;
   active: string | null;
-  /** Open tasks behind a view row, by the id the row opens. */
+  /** Open tasks behind a row, by the id of the tab the row opens. */
   counts: Record<string, number>;
   onOpen: (id: string) => void;
   onTrash: (path: string) => void;
   onMove: (path: string, folder: string) => void;
   onNewFolder: (name: string) => Promise<string | null>;
-  /** A right click on a note or a folder. */
-  onNoteMenu: (event: MouseEvent, path: string) => void;
+  /** A right click on a note, a task list or a folder. */
+  onItemMenu: (event: MouseEvent, path: string) => void;
   onFolderMenu: (event: MouseEvent, path: string) => void;
 }
 
 const countNotes = (node: TreeNode): number =>
   node.kind === 'note' ? 1 : (node.children ?? []).reduce((sum, child) => sum + countNotes(child), 0);
 
-/** One tree: views over everything on top, then the folders with their task list and notes. */
-export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove, onNewFolder, onNoteMenu, onFolderMenu }: Props) {
+/** One tree: views over everything on top, then the inbox, then the folders with their task lists and notes. */
+export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove, onNewFolder, onItemMenu, onFolderMenu }: Props) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [folderName, setFolderName] = useState<string | null>(null);
@@ -46,7 +47,7 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
 
   const dropProps = (folder: string) => ({
     onDragOver: (event: DragEvent) => {
-      if (!event.dataTransfer.types.includes(NOTE_DRAG_TYPE)) return;
+      if (!event.dataTransfer.types.includes(ITEM_DRAG_TYPE)) return;
       event.preventDefault();
       setDropTarget(folder);
     },
@@ -54,7 +55,7 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
     onDrop: (event: DragEvent) => {
       event.preventDefault();
       setDropTarget(null);
-      const path = event.dataTransfer.getData(NOTE_DRAG_TYPE);
+      const path = event.dataTransfer.getData(ITEM_DRAG_TYPE);
       if (path) onMove(path, folder);
     },
   });
@@ -68,26 +69,35 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
     </div>
   );
 
-  const noteRow = (node: TreeNode, depth: number) => (
-    <div
-      key={node.path}
-      className={`it d${depth}${node.path === active ? ' on' : ''}`}
-      draggable
-      onDragStart={(event) => event.dataTransfer.setData(NOTE_DRAG_TYPE, node.path)}
-      onContextMenu={(event) => onNoteMenu(event, node.path)}
-    >
-      <button type="button" className="it-main" onClick={() => onOpen(node.path)}>
-        <Icon name="note" />
-        <span>{titles[node.path] ?? node.title}</span>
-      </button>
-      <button type="button" className="it-action" title="Move to trash" onClick={() => onTrash(node.path)}>
-        ×
-      </button>
-    </div>
-  );
+  // A task list shows how many of its tasks are open where a note has its trash button.
+  const itemRow = (node: TreeNode, depth: number) => {
+    const tab = tabOf(node.path);
+    const isList = node.kind === 'tasks';
+    return (
+      <div
+        key={node.path}
+        className={`it d${depth}${tab === active ? ' on' : ''}`}
+        draggable
+        onDragStart={(event) => event.dataTransfer.setData(ITEM_DRAG_TYPE, node.path)}
+        onContextMenu={(event) => onItemMenu(event, node.path)}
+      >
+        <button type="button" className="it-main" onClick={() => onOpen(tab)}>
+          <Icon name={isList ? 'tasks' : 'note'} />
+          <span>{titles[node.path] ?? node.title}</span>
+        </button>
+        {isList ? (
+          <span className="ct">{counts[tab] || ''}</span>
+        ) : (
+          <button type="button" className="it-action" title="Move to trash" onClick={() => onTrash(node.path)}>
+            ×
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const children = (node: TreeNode, depth: number): ReactNode =>
-    node.children?.map((child) => (child.kind === 'note' ? noteRow(child, depth) : folderRow(child, depth)));
+    node.children?.map((child) => (child.kind === 'folder' ? folderRow(child, depth) : itemRow(child, depth)));
 
   const folderRow = (node: TreeNode, depth: number): ReactNode => {
     const open = !collapsed.has(node.path);
@@ -104,15 +114,6 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
           </button>
           {!open && <span className="ct">{countNotes(node) || ''}</span>}
         </div>
-        {open &&
-          viewRow(
-            tasksOf(node.path),
-            <>
-              <Icon name="tasks" />
-              <span>Tasks</span>
-            </>,
-            depth + 1,
-          )}
         {open && children(node, depth + 1)}
       </div>
     );
@@ -124,6 +125,8 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
   return (
     <aside className="side">
       <nav className="tree">
+        {viewRow(TODAY, <span>Today</span>, 0)}
+        {viewRow(UPCOMING, <span>Upcoming</span>, 0)}
         <div
           className={`it d0${dropTarget === INBOX ? ' drop' : ''}`}
           {...dropProps(INBOX)}
@@ -136,7 +139,7 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
         </div>
         {inboxOpen &&
           viewRow(
-            tasksOf(INBOX),
+            tasksOf(INBOX_TASKS),
             <>
               <Icon name="tasks" />
               <span>Tasks</span>
@@ -144,8 +147,6 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
             1,
           )}
         {inboxOpen && inbox && children(inbox, 1)}
-        {viewRow(TODAY, <span>Today</span>, 0)}
-        {viewRow(UPCOMING, <span>Upcoming</span>, 0)}
 
         <div className="grp">
           <span>Folders</span>
@@ -170,7 +171,7 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
         )}
         {tree
           .filter((node) => node.path !== INBOX)
-          .map((node) => (node.kind === 'note' ? noteRow(node, 0) : folderRow(node, 0)))}
+          .map((node) => (node.kind === 'folder' ? folderRow(node, 0) : itemRow(node, 0)))}
       </nav>
     </aside>
   );

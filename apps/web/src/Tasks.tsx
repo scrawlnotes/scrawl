@@ -3,9 +3,11 @@ import {
   basename,
   childrenOf,
   depthOf,
+  dirname,
   dueToday,
   dueUpcoming,
-  INBOX,
+  INBOX_TASKS,
+  listName,
   MAX_DEPTH,
   type NewTask,
   type Priority,
@@ -15,12 +17,14 @@ import {
 import { type KeyboardEvent, type MouseEvent, type ReactNode, useRef, useState } from 'react';
 import type { MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
+import { listLabel } from './items';
 
+/** What can be done to a task, in the list at the path given. */
 export interface TaskActions {
-  add: (folder: string, input: NewTask) => void;
-  update: (folder: string, id: string, patch: Partial<Pick<Task, 'title' | 'due' | 'priority'>>) => void;
-  setDone: (folder: string, id: string, done: boolean) => void;
-  remove: (folder: string, id: string) => void;
+  add: (list: string, input: NewTask) => void;
+  update: (list: string, id: string, patch: Partial<Pick<Task, 'title' | 'due' | 'priority'>>) => void;
+  setDone: (list: string, id: string, done: boolean) => void;
+  remove: (list: string, id: string) => void;
   /** Opens a menu at the pointer. */
   menu: (event: MouseEvent, items: MenuItem[]) => void;
 }
@@ -87,18 +91,19 @@ function IconButton({ icon, title, onClick }: { icon: IconName; title: string; o
 }
 
 interface ItemProps {
-  folder: string;
+  /** The path of the list the task is in. */
+  list: string;
   task: Task;
   /** The whole list the task is in. */
   tasks: Task[];
   today: string;
   showDone: boolean;
   actions: TaskActions;
-  /** In the views over all folders: the task alone, with the folder it is in. */
+  /** In the views over all lists: the task alone, with the list it is in. */
   flat?: boolean;
 }
 
-function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemProps) {
+function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemProps) {
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(true);
@@ -109,10 +114,10 @@ function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemP
   const canNest = !flat && depthOf(tasks, task.id) < MAX_DEPTH;
 
   const commitTitle = () => {
-    if (editing !== null && editing.trim() && editing !== task.title) actions.update(folder, task.id, { title: editing });
+    if (editing !== null && editing.trim() && editing !== task.title) actions.update(list, task.id, { title: editing });
     setEditing(null);
   };
-  const setDue = (due: string | null) => actions.update(folder, task.id, { due });
+  const setDue = (due: string | null) => actions.update(list, task.id, { due });
 
   const dateMenu = (event: MouseEvent) =>
     actions.menu(event, [
@@ -127,7 +132,7 @@ function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemP
       event,
       ([1, 2, 3, 4] as Priority[]).map((priority) => ({
         label: `${priority === task.priority ? '✓ ' : ''}${priority === 4 ? 'No priority' : `Priority ${priority}`}`,
-        run: () => actions.update(folder, task.id, { priority }),
+        run: () => actions.update(list, task.id, { priority }),
       })),
     );
 
@@ -140,7 +145,7 @@ function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemP
           role="checkbox"
           aria-checked={task.done}
           aria-label={task.done ? `Reopen ${task.title}` : `Complete ${task.title}`}
-          onClick={() => actions.setDone(folder, task.id, !task.done)}
+          onClick={() => actions.setDone(list, task.id, !task.done)}
         />
         <div className="task-body">
           {editing === null ? (
@@ -178,7 +183,7 @@ function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemP
                     {open ? '▾' : '▸'} {progress.done} of {progress.total}
                   </button>
                 ))}
-              {flat && <span>{basename(folder)}</span>}
+              {flat && <span>{listLabel(list)}</span>}
             </div>
           )}
         </div>
@@ -195,7 +200,7 @@ function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemP
           )}
           <IconButton icon="calendar" title="Date" onClick={dateMenu} />
           <IconButton icon="flag" title="Priority" onClick={priorityMenu} />
-          <IconButton icon="trash" title="Delete" onClick={() => actions.remove(folder, task.id)} />
+          <IconButton icon="trash" title="Delete" onClick={() => actions.remove(list, task.id)} />
           <input
             ref={datePicker}
             className="date-picker"
@@ -210,10 +215,10 @@ function TaskItem({ folder, task, tasks, today, showDone, actions, flat }: ItemP
       {(children.length > 0 || adding) && open && (
         <div className="subs">
           {children.map((child) => (
-            <TaskItem key={child.id} folder={folder} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} />
+            <TaskItem key={child.id} list={list} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} />
           ))}
           {adding && (
-            <Composer placeholder="Subtask name" onAdd={(title) => actions.add(folder, { title, parent: task.id })} onClose={() => setAdding(false)} />
+            <Composer placeholder="Subtask name" onAdd={(title) => actions.add(list, { title, parent: task.id })} onClose={() => setAdding(false)} />
           )}
         </div>
       )}
@@ -259,15 +264,16 @@ function TaskPage({ title, detail, onAdd, footer, children }: {
   );
 }
 
-/** The task list of one folder. */
-export function TaskList({ folder, tasks, today, actions }: { folder: string; tasks: Task[]; today: string; actions: TaskActions }) {
+/** One task list, with the folder it is in beside its name. */
+export function TaskList({ list, tasks, today, actions }: { list: string; tasks: Task[]; today: string; actions: TaskActions }) {
   const [showDone, setShowDone] = useState(false);
   const top = childrenOf(tasks, null).filter((task) => showDone || !task.done);
   const completed = tasks.filter((task) => task.done).length;
   return (
     <TaskPage
-      title={basename(folder)}
-      onAdd={(title) => actions.add(folder, { title })}
+      title={listName(list)}
+      detail={basename(dirname(list))}
+      onAdd={(title) => actions.add(list, { title })}
       footer={
         completed > 0 && (
           <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
@@ -277,23 +283,23 @@ export function TaskList({ folder, tasks, today, actions }: { folder: string; ta
       }
     >
       {top.map((task) => (
-        <TaskItem key={task.id} folder={folder} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} />
+        <TaskItem key={task.id} list={list} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} />
       ))}
     </TaskPage>
   );
 }
 
-/** Today or Upcoming: what is due, from every folder's list. */
+/** Today or Upcoming: what is due, from every task list. */
 export function DueView({ kind, lists, today, actions }: {
   kind: 'today' | 'upcoming';
   lists: Record<string, Task[]>;
   today: string;
   actions: TaskActions;
 }) {
-  const item = ({ folder, task }: { folder: string; task: Task }) => (
-    <TaskItem key={`${folder}/${task.id}`} folder={folder} task={task} tasks={lists[folder] ?? []} today={today} showDone={false} actions={actions} flat />
+  const item = ({ list, task }: { list: string; task: Task }) => (
+    <TaskItem key={`${list}/${task.id}`} list={list} task={task} tasks={lists[list] ?? []} today={today} showDone={false} actions={actions} flat />
   );
-  const section = (title: string, tasks: { folder: string; task: Task }[]) =>
+  const section = (title: string, tasks: { list: string; task: Task }[]) =>
     tasks.length > 0 && (
       <div key={title}>
         <div className="sec">
@@ -309,7 +315,7 @@ export function DueView({ kind, lists, today, actions }: {
       <TaskPage
         title="Today"
         detail={toDate(today).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-        onAdd={(title) => actions.add(INBOX, { title, due: today })}
+        onAdd={(title) => actions.add(INBOX_TASKS, { title, due: today })}
       >
         {section('Overdue', due.overdue)}
         {section('Today', due.today)}

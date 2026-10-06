@@ -578,6 +578,10 @@ input:focus {
   font: inherit;
 }
 
+.dialog input:focus {
+  border-color: var(--sl-accent);
+}
+
 .dialog p {
   margin: 2px;
   color: var(--sl-dim);
@@ -586,6 +590,12 @@ input:focus {
 
 .dialog p[role='alert'] {
   color: var(--sl-accent);
+}
+
+.dialog p.confirm {
+  margin: 2px 2px 6px;
+  color: var(--sl-fg);
+  font-size: 13px;
 }
 
 .choices {
@@ -617,6 +627,29 @@ input:focus {
   color: var(--sl-dim);
   font: 11px var(--sl-font-mono);
   text-align: center;
+}
+
+/* a labelled field: the label in a narrow column, the field beside it */
+.field {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.field > span {
+  padding-left: 2px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+/* a list that belongs to the field above it lines up with that field */
+.field-list {
+  margin-left: 54px;
+}
+
+.field-list .choices {
+  max-height: 30vh;
 }
 
 .dialog-actions {
