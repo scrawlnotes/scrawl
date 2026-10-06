@@ -1,3 +1,4 @@
+import { t } from '@scrawlnotes/i18n';
 import {
   basename,
   dayOf,
@@ -18,7 +19,6 @@ import { FormatBar } from './FormatBar';
 import { HistoryDialog } from './History';
 import { Icon } from './Icon';
 import {
-  BOARD_PLACEHOLDER,
   folderOf,
   iconOf,
   isNote,
@@ -33,7 +33,7 @@ import {
 import { Session } from './session';
 import { Sidebar } from './Sidebar';
 import { DueView, type TaskActions, TaskList } from './Tasks';
-import { contentsText, count, quote } from './text';
+import { contentsText, quote } from './text';
 import { TrashView } from './Trash';
 import { isDesktop } from './storage';
 
@@ -49,12 +49,15 @@ type OpenDialog =
 // A tab being dragged to another place in the tab bar.
 const TAB_DRAG_TYPE = 'application/x-scrawl-tab';
 
+// Ctrl+N and Ctrl+W belong to the browser on the web, so Alt is used there.
+const keys = (key: string) => `${isDesktop ? 'Ctrl' : 'Alt'}+${key}`;
 
 function position(stats: EditorStats): string {
-  if (stats.selectedChars === 0) return `Ln ${stats.line}, Col ${stats.col}`;
-  const selected = `${count(stats.selectedChars, 'character')} selected`;
-  if (stats.cursors > 1) return `${count(stats.cursors, 'selection')}, ${selected}`;
-  return stats.selectedLines > 1 ? `${count(stats.selectedLines, 'line')}, ${selected}` : selected;
+  if (stats.selectedChars === 0) return t('status.position', { line: stats.line, col: stats.col });
+  const characters = t('count.characters', { count: stats.selectedChars });
+  if (stats.cursors > 1) return t('status.selections', { selections: t('count.selections', { count: stats.cursors }), characters });
+  if (stats.selectedLines > 1) return t('status.selectedLines', { lines: t('count.lines', { count: stats.selectedLines }), characters });
+  return t('status.selected', { characters });
 }
 
 function folderPaths(nodes: TreeNode[], out: string[] = []): string[] {
@@ -160,47 +163,50 @@ export function App() {
   };
 
   // Nothing is deleted without asking first.
-  const ask = (title: string, message: string, run: () => void, action = 'Delete') =>
+  const ask = (title: string, message: string, run: () => void, action = t('delete.action')) =>
     setDialog({ kind: 'confirm', title, message, action, run });
   const deleteItem = (path: string) => {
     if (isTaskListPath(path)) {
+      const name = quote(listName(path));
       const total = tasks[path]?.length ?? 0;
-      const what = total > 0 ? `${quote(listName(path))} and its ${count(total, 'task')}` : quote(listName(path));
-      ask('Delete task list', `${what} will be moved to the trash.`, () => void session.trash(path));
+      const message =
+        total > 0 ? t('delete.listWithTasks', { name, tasks: t('count.tasks', { count: total }) }) : t('delete.listText', { name });
+      ask(t('delete.list'), message, () => void session.trash(path));
     } else {
-      ask('Delete note', `${quote(titles[path] ?? 'untitled')} will be moved to the trash.`, () => void session.trash(path));
+      const name = quote(titles[path] ?? t('note.untitled'));
+      ask(t('delete.note'), t('delete.noteText', { name }), () => void session.trash(path));
     }
   };
   const deleteFolder = (path: string) => {
     const node = findNode(tree, path);
     const contents = node ? contentsOf(node) : '';
-    const what = contents ? `${quote(basename(path))} and everything in it (${contents})` : quote(basename(path));
-    ask('Delete folder', `${what} will be moved to the trash.`, () => void session.trashFolder(path));
+    const name = quote(basename(path));
+    const message = contents ? t('delete.folderWithContents', { name, contents }) : t('delete.folderText', { name });
+    ask(t('delete.folder'), message, () => void session.trashFolder(path));
   };
   const deleteTask = (list: string, id: string) => {
     const listTasks = tasks[list] ?? [];
-    const task = listTasks.find((t) => t.id === id);
+    const task = listTasks.find((candidate) => candidate.id === id);
     if (!task) return;
     // A task goes together with its subtasks.
     const subtasks = listTasks.length - removeTask(listTasks, id).length - 1;
-    const what = subtasks > 0 ? `${quote(task.title)} and its ${count(subtasks, 'subtask')}` : quote(task.title);
-    ask('Delete task', `${what} will be deleted. This cannot be undone.`, () => session.removeTask(list, id));
+    const name = quote(task.title);
+    const message =
+      subtasks > 0
+        ? t('delete.taskWithSubtasks', { name, subtasks: t('count.subtasks', { count: subtasks }) })
+        : t('delete.taskText', { name });
+    ask(t('delete.task'), message, () => session.removeTask(list, id));
   };
 
   const deleteForever = (item: TrashItem) =>
     ask(
-      'Delete forever',
-      `${quote(item.title)} will be deleted for good. This cannot be undone.`,
+      t('delete.forever'),
+      t('delete.foreverText', { name: quote(item.title) }),
       () => void session.deleteForever(item),
-      'Delete forever',
+      t('delete.forever'),
     );
   const askEmptyTrash = () =>
-    ask(
-      'Empty trash',
-      `${trash.length === 1 ? 'The item' : `All ${count(trash.length, 'item')}`} in the trash will be deleted for good. This cannot be undone.`,
-      () => void session.emptyTrash(),
-      'Empty trash',
-    );
+    ask(t('delete.empty'), t('delete.emptyText', { count: trash.length }), () => void session.emptyTrash(), t('delete.empty'));
 
   // The history window restores into the editor, so the note is opened first.
   const showHistory = async (path: string) => {
@@ -216,16 +222,16 @@ export function App() {
   const itemMenu = (event: MouseEvent, path: string) =>
     path !== INBOX_TASKS &&
     openMenu(event, [
-      { label: 'Move to…', run: () => setDialog({ kind: 'move', path }) },
-      { label: 'Rename', run: () => setDialog({ kind: 'rename', path }) },
-      ...(isTaskListPath(path) ? [] : [{ label: 'History…', run: () => void showHistory(path) }]),
-      { label: 'Delete', run: () => deleteItem(path) },
+      { label: t('menu.moveTo'), run: () => setDialog({ kind: 'move', path }) },
+      { label: t('menu.rename'), run: () => setDialog({ kind: 'rename', path }) },
+      ...(isTaskListPath(path) ? [] : [{ label: t('menu.history'), run: () => void showHistory(path) }]),
+      { label: t('menu.delete'), run: () => deleteItem(path) },
     ]);
   // The inbox is always there; it cannot be deleted.
   const folderMenu = (event: MouseEvent, path: string) =>
     openMenu(event, [
-      { label: 'New note here', run: () => void session.newNote(path) },
-      ...(path === INBOX ? [] : [{ label: 'Delete folder', run: () => deleteFolder(path) }]),
+      { label: t('menu.newNoteHere'), run: () => void session.newNote(path) },
+      ...(path === INBOX ? [] : [{ label: t('menu.deleteFolder'), run: () => deleteFolder(path) }]),
     ]);
   const closeMenu = useCallback(() => setMenu(null), []);
 
@@ -276,10 +282,10 @@ export function App() {
     <div className="app">
       {needsFolder && (
         <div className="welcome">
-          <h1>Choose a folder for your notes</h1>
-          <p>Notes are kept as plain Markdown files in a folder on this computer. Pick an empty folder, or one that already holds .md files.</p>
+          <h1>{t('welcome.title')}</h1>
+          <p>{t('welcome.text')}</p>
           <button type="button" onClick={() => void session.chooseFolder()}>
-            Choose folder
+            {t('welcome.choose')}
           </button>
         </div>
       )}
@@ -334,7 +340,7 @@ export function App() {
               <button
                 type="button"
                 className="tab-close"
-                title={isDesktop ? 'Close (Ctrl+W)' : 'Close (Alt+W)'}
+                title={t('tab.close', { keys: keys('W') })}
                 onClick={() => void session.close(id)}
               >
                 {isNote(id) && dirname(id) === INBOX && <i className="tab-dot" />}
@@ -345,7 +351,7 @@ export function App() {
           <button
             type="button"
             className="tab-new"
-            title={isDesktop ? 'New… (Ctrl+N)' : 'New… (Alt+N)'}
+            title={t('tab.new', { keys: keys('N') })}
             onClick={() => setDialog({ kind: 'new' })}
           >
             +
@@ -379,19 +385,19 @@ export function App() {
             {active ? (
               <>
                 <h1>{labelOf(active, titles)}</h1>
-                <p>{BOARD_PLACEHOLDER}</p>
+                <p>{t('board.placeholder')}</p>
               </>
             ) : (
-              empty && <p>Nothing is open. Press {isDesktop ? 'Ctrl+N' : 'Alt+N'} to create something.</p>
+              empty && <p>{t('empty.nothingOpen', { keys: keys('N') })}</p>
             )}
           </section>
         )}
         <footer className="status">
           {stats && <span>{position(stats)}</span>}
-          {stats && <span>{count(stats.chars, 'character')}</span>}
-          <span className="push">{!ready ? 'Opening…' : saved ? 'Saved' : 'Saving…'}</span>
+          {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
+          <span className="push">{!ready ? t('status.opening') : saved ? t('status.saved') : t('status.saving')}</span>
           {folder && (
-            <button type="button" title={`Notes folder: ${folder}. Click to change.`} onClick={() => void session.chooseFolder()}>
+            <button type="button" title={t('status.folder', { folder })} onClick={() => void session.chooseFolder()}>
               {folder.split(/[\\/]/).pop()}
             </button>
           )}
@@ -399,14 +405,14 @@ export function App() {
             <button
               type="button"
               aria-pressed={source}
-              title="Show the note as plain Markdown"
+              title={t('status.markdownTitle')}
               onClick={() => session.setSource(!source)}
             >
-              Markdown
+              {t('status.markdown')}
             </button>
           )}
-          <button type="button" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}>
-            {theme === 'dark' ? 'Light' : 'Dark'}
+          <button type="button" onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}>
+            {theme === 'dark' ? t('status.light') : t('status.dark')}
           </button>
         </footer>
       </main>
@@ -458,7 +464,7 @@ export function App() {
       {dialog?.kind === 'history' && (
         <HistoryDialog
           path={dialog.path}
-          title={titles[dialog.path] ?? 'untitled'}
+          title={titles[dialog.path] ?? t('note.untitled')}
           current={session.textOf(dialog.path)}
           today={today}
           source={session}

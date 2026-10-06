@@ -1,5 +1,6 @@
 import { EditorSelection } from '@codemirror/state';
 import { type EditorView, WidgetType } from '@codemirror/view';
+import { t } from '@scrawlnotes/i18n';
 
 /** How a note reaches the files attached to it. All of it is optional; without it the widgets only show. */
 export interface MediaOptions {
@@ -79,7 +80,7 @@ export class FileWidget extends WidgetType {
   }
   toDOM(view: EditorView) {
     const chip = el('span', this.selected ? 'cm-sl-file cm-sl-file-selected' : 'cm-sl-file');
-    chip.title = `Open ${this.name}`;
+    chip.title = t('editor.open', { name: this.name });
     chip.innerHTML = FILE_ICON;
     chip.append(this.name);
     const bytes = this.options.fileSize?.(this.src);
@@ -149,7 +150,7 @@ export class AudioWidget extends WidgetType {
     const root = el('span', this.selected ? 'cm-sl-audio cm-sl-audio-selected' : 'cm-sl-audio');
     const play = el('button', 'cm-sl-audio-play');
     play.type = 'button';
-    play.setAttribute('aria-label', `Play ${this.label}`);
+    play.setAttribute('aria-label', t('editor.play', { name: this.label }));
     const bars = Array.from({ length: BARS }, () => el('i', ''));
     const wave = el('span', 'cm-sl-audio-wave');
     wave.append(...bars);
@@ -178,7 +179,7 @@ export class AudioWidget extends WidgetType {
     };
     const stopped = () => {
       root.classList.remove('cm-sl-audio-playing');
-      play.setAttribute('aria-label', `Play ${this.label}`);
+      play.setAttribute('aria-label', t('editor.play', { name: this.label }));
     };
     const start = async () => {
       if (!audio) {
@@ -196,7 +197,7 @@ export class AudioWidget extends WidgetType {
       playing = audio;
       await audio.play();
       root.classList.add('cm-sl-audio-playing');
-      play.setAttribute('aria-label', `Pause ${this.label}`);
+      play.setAttribute('aria-label', t('editor.pause', { name: this.label }));
     };
     (root as HTMLElement & { audio?: () => HTMLAudioElement | null }).audio = () => audio;
 

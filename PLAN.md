@@ -117,10 +117,10 @@ Arayüz web-first yazılır; Tauri aynı uygulamayı sarar. Platform farkı yaln
 
 ```
 apps/desktop        Tauri kabuğu
-apps/web            web kabuğu
-packages/core       veri modeli, vault, görevler, sync motoru, adaptörler (arayüzden bağımsız)
+apps/web            React arayüzü (sekmeler, kenar çubuğu, görev görünümleri) ve tarayıcı depolaması
+packages/core       veri modeli, vault, görevler, çöp kutusu, geçmiş, sync motoru, adaptörler (arayüzden bağımsız)
 packages/editor     CodeMirror 6 live preview eklentileri
-packages/ui         React arayüzü (sekmeler, kenar çubuğu, görev görünümleri)
+packages/i18n       arayüz metinleri; dil başına bir sözlük
 services/publish    Cloudflare Worker (paylaşım linki)
 design/             arayüz taslakları
 ```
@@ -161,7 +161,7 @@ vault/
 | # | Aşama | Bitti sayılır |
 |---|---|---|
 | 0 | İskelet ve editör denemesi | Monorepo kurulu; live preview prototipi başlık, vurgu, liste, link, resim ve kod bloğuyla tarayıcıda denenebiliyor |
-| 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler (sürükleyerek sıralama dahil), scratch notlar, kenar çubuğu, resim, biçim çubuğunda çoklu imleç, kod bloğunda kopyala, çöp kutusu ekranı, sürüm geçmişi, link başlığı, dosya bırakma, ses kaydı ve oynatıcı, kurulabilir sürüm. **Kalan:** çeviri altyapısı, README |
+| 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler (sürükleyerek sıralama dahil), scratch notlar, kenar çubuğu, resim, biçim çubuğunda çoklu imleç, kod bloğunda kopyala, çöp kutusu ekranı, sürüm geçmişi, link başlığı, dosya bırakma, ses kaydı ve oynatıcı, çeviri altyapısı (`packages/i18n`, şimdilik İngilizce), kurulabilir sürüm. **Kalan:** masaüstünde deneme (mikrofon, dosya açma, link başlığı) |
 | 1b | Ayarlar | Ayarlar ekranı: tema ve dark mode (sistemle uyumlu, seçim hatırlanır), not klasörü, dil |
 | 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri. **Kalan:** bölümler, sürükleyerek sıralama, kayıtlı filtreler, taşıma, "göreve çevir" |
 | 3 | Sync + web | OneDrive adaptörü, çakışma çözümü; web sürümü yayında ve telefonda PWA olarak kullanılabilir |

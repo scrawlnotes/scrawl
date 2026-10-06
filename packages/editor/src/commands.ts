@@ -9,6 +9,7 @@ import {
 } from '@codemirror/state';
 import type { KeyBinding } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
+import { t } from '@scrawlnotes/i18n';
 import { attachmentOf } from './media';
 
 interface Span {
@@ -302,7 +303,13 @@ function insertBlock(block: string): StateCommand {
   };
 }
 
-export const insertTable = insertBlock('| Column 1 | Column 2 |\n| -------- | -------- |\n|          |          |');
+/** Inserts a table of two columns, with a header and one empty row. */
+export const insertTable: StateCommand = (target) => {
+  const header = [1, 2].map((n) => t('table.column', { n }));
+  const row = (cells: string[]) => `| ${cells.join(' | ')} |`;
+  const block = [row(header), row(header.map((h) => '-'.repeat(h.length))), row(header.map((h) => ' '.repeat(h.length)))];
+  return insertBlock(block.join('\n'))(target);
+};
 export const insertDivider = insertBlock('---');
 
 /**

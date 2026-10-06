@@ -1,6 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorSelection, type EditorState, type Extension, type Range, StateField } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view';
+import { t } from '@scrawlnotes/i18n';
 import { sourceMode } from './livePreview';
 import { renderInline } from './render';
 
@@ -245,7 +246,7 @@ class TableWidget extends WidgetType {
     model.header.forEach((_, col) => {
       const cell = addCell(head, 'th', -1, col);
       if (model.header.length > 1) {
-        control(cell, 'cm-sl-grid-del cm-sl-grid-del-col', '×', 'Delete column', () =>
+        control(cell, 'cm-sl-grid-del cm-sl-grid-del-col', '×', t('table.deleteColumn'), () =>
           reshape((t) => {
             t.header.splice(col, 1);
             t.align.splice(col, 1);
@@ -260,16 +261,16 @@ class TableWidget extends WidgetType {
       let lastCell: HTMLElement | null = null;
       model.header.forEach((_, col) => (lastCell = addCell(tr, 'td', row, col)));
       if (lastCell) {
-        control(lastCell, 'cm-sl-grid-del cm-sl-grid-del-row', '×', 'Delete row', () => reshape((t) => t.rows.splice(row, 1)));
+        control(lastCell, 'cm-sl-grid-del cm-sl-grid-del-row', '×', t('table.deleteRow'), () => reshape((t) => t.rows.splice(row, 1)));
       }
     });
 
     const actions = wrap.appendChild(document.createElement('div'));
     actions.className = 'cm-sl-grid-actions';
-    control(actions, '', '+ Row', 'Add a row', () =>
+    control(actions, '', t('table.addRow'), t('table.addRowTitle'), () =>
       reshape((t) => t.rows.push(t.header.map(() => '')), { row: model.rows.length, col: 0 }),
     );
-    control(actions, '', '+ Column', 'Add a column', () =>
+    control(actions, '', t('table.addColumn'), t('table.addColumnTitle'), () =>
       reshape(
         (t) => {
           t.header.push('');
@@ -279,7 +280,7 @@ class TableWidget extends WidgetType {
         { row: -1, col: model.header.length },
       ),
     );
-    control(actions, '', 'Delete table', 'Delete the whole table', () => {
+    control(actions, '', t('table.delete'), t('table.deleteTitle'), () => {
       editing = null;
       view.dispatch({ changes: range(), userEvent: 'delete.table' });
       view.focus();

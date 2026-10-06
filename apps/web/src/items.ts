@@ -1,4 +1,5 @@
 import { basename, dirname, INBOX_TASKS, listName, TASK_LIST_EXT } from '@scrawlnotes/core';
+import { t } from '@scrawlnotes/i18n';
 import type { IconName } from './Icon';
 
 // A tab holds a note (its vault path) or a view. View ids contain `:`, which no path can.
@@ -29,7 +30,7 @@ export function folderOf(id: string): string | null {
 /** A task list's name and, apart from it, the folder it is in. */
 export function listLabel(list: string): string {
   const folder = basename(dirname(list));
-  return folder ? `${listName(list)} · ${folder}` : listName(list);
+  return folder ? t('tab.list', { list: listName(list), folder }) : listName(list);
 }
 
 export function iconOf(id: string): IconName {
@@ -38,14 +39,11 @@ export function iconOf(id: string): IconName {
 }
 
 export function labelOf(id: string, titles: Record<string, string>): string {
-  if (id === TODAY) return 'Today';
-  if (id === UPCOMING) return 'Upcoming';
-  if (id === TRASH) return 'Trash';
+  if (id === TODAY) return t('side.today');
+  if (id === UPCOMING) return t('side.upcoming');
+  if (id === TRASH) return t('side.trash');
   const list = listOf(id);
   if (list !== null) return listLabel(list);
-  if (id.startsWith(BOARD)) return `Board · ${basename(id.slice(BOARD.length))}`;
-  return titles[id] ?? 'untitled';
+  if (id.startsWith(BOARD)) return t('tab.board', { folder: basename(id.slice(BOARD.length)) });
+  return titles[id] ?? t('note.untitled');
 }
-
-/** What the empty page of a board says until boards are built. */
-export const BOARD_PLACEHOLDER = 'Boards are not built yet. This tab will hold the board of this folder.';

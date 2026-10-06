@@ -10,6 +10,7 @@ import {
 } from '@codemirror/search';
 import type { EditorState } from '@codemirror/state';
 import type { EditorView, Panel } from '@codemirror/view';
+import { t } from '@scrawlnotes/i18n';
 
 const PUNCTUATION = /[!-/:-@[-`{-~]/;
 const REGEX_SYNTAX = /[\\^$.*+?()[\]{}|/]/;
@@ -70,12 +71,12 @@ export function findPanel(view: EditorView): Panel {
 
   const selected = view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to);
   const find = element(findRow, 'input');
-  find.placeholder = 'Find';
-  find.setAttribute('aria-label', 'Find');
+  find.placeholder = t('find.find');
+  find.setAttribute('aria-label', t('find.find'));
   find.value = selected && !selected.includes('\n') ? selected : last.term;
   const count = element(findRow, 'span', 'cm-sl-find-count');
-  button(findRow, '↑', 'Previous match (Shift+Enter)', () => findPrevious(view));
-  button(findRow, '↓', 'Next match (Enter)', () => findNext(view));
+  button(findRow, '↑', t('find.previous'), () => findPrevious(view));
+  button(findRow, '↓', t('find.next'), () => findNext(view));
 
   const toggle = (label: string, title: string, key: 'matchCase' | 'wholeWord') => {
     const el = button(findRow, label, title, () => {
@@ -85,20 +86,20 @@ export function findPanel(view: EditorView): Panel {
     });
     el.setAttribute('aria-pressed', String(last[key]));
   };
-  toggle('Aa', 'Match case', 'matchCase');
-  toggle('Word', 'Whole words only', 'wholeWord');
+  toggle('Aa', t('find.matchCase'), 'matchCase');
+  toggle(t('find.word'), t('find.wholeWord'), 'wholeWord');
 
   const close = () => {
     closeSearchPanel(view);
     view.focus();
   };
-  button(findRow, '×', 'Close (Esc)', close).classList.add('cm-sl-find-close');
+  button(findRow, '×', t('find.close'), close).classList.add('cm-sl-find-close');
 
   const replace = element(replaceRow, 'input');
-  replace.placeholder = 'Replace with';
-  replace.setAttribute('aria-label', 'Replace with');
-  button(replaceRow, 'Replace', 'Replace this match', () => replaceNext(view));
-  button(replaceRow, 'Replace all', 'Replace every match', () => replaceAll(view));
+  replace.placeholder = t('find.replaceWith');
+  replace.setAttribute('aria-label', t('find.replaceWith'));
+  button(replaceRow, t('find.replace'), t('find.replaceTitle'), () => replaceNext(view));
+  button(replaceRow, t('find.replaceAll'), t('find.replaceAllTitle'), () => replaceAll(view));
 
   const commit = () => {
     last.term = find.value;
@@ -115,7 +116,7 @@ export function findPanel(view: EditorView): Panel {
   const showCount = (state: EditorState) => {
     const { total, current } = countMatches(state);
     const many = total >= MAX_COUNTED ? `${MAX_COUNTED}+` : String(total);
-    count.textContent = !find.value ? '' : total === 0 ? 'No matches' : current ? `${current} of ${many}` : many;
+    count.textContent = !find.value ? '' : total === 0 ? t('find.none') : current ? t('find.position', { current, total: many }) : many;
   };
 
   find.addEventListener('input', commit);

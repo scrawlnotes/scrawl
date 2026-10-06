@@ -1,4 +1,5 @@
 import { INBOX, INBOX_TASKS, type TreeNode } from '@scrawlnotes/core';
+import { t } from '@scrawlnotes/i18n';
 import { type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useState } from 'react';
 import { Icon } from './Icon';
 import { tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
@@ -88,7 +89,7 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
         {isList ? (
           <span className="ct">{counts[tab] || ''}</span>
         ) : (
-          <button type="button" className="it-action" title="Move to trash" onClick={() => onTrash(node.path)}>
+          <button type="button" className="it-action" title={t('side.moveToTrash')} onClick={() => onTrash(node.path)}>
             ×
           </button>
         )}
@@ -125,15 +126,15 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
   return (
     <aside className="side">
       <nav className="tree">
-        {viewRow(TODAY, <span>Today</span>, 0)}
-        {viewRow(UPCOMING, <span>Upcoming</span>, 0)}
+        {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
+        {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
         <div
           className={`it d0${dropTarget === INBOX ? ' drop' : ''}`}
           {...dropProps(INBOX)}
           onContextMenu={(event) => onFolderMenu(event, INBOX)}
         >
           <button type="button" className="it-main" aria-expanded={inboxOpen} onClick={() => toggle(INBOX)}>
-            <span>Inbox</span>
+            <span>{t('side.inbox')}</span>
           </button>
           <span className="ct">{(inbox && countNotes(inbox)) || ''}</span>
         </div>
@@ -142,15 +143,15 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
             tasksOf(INBOX_TASKS),
             <>
               <Icon name="tasks" />
-              <span>Tasks</span>
+              <span>{t('side.tasks')}</span>
             </>,
             1,
           )}
         {inboxOpen && inbox && children(inbox, 1)}
 
         <div className="grp">
-          <span>Folders</span>
-          <button type="button" title="New folder" aria-label="New folder" onClick={() => setFolderName('')}>
+          <span>{t('side.folders')}</span>
+          <button type="button" title={t('side.newFolder')} aria-label={t('side.newFolder')} onClick={() => setFolderName('')}>
             +
           </button>
         </div>
@@ -158,8 +159,8 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
           <form className="it-form" onSubmit={submitFolder}>
             <input
               id="new-folder-name"
-              aria-label="Folder name"
-              placeholder="Folder name"
+              aria-label={t('side.folderName')}
+              placeholder={t('side.folderName')}
               autoFocus
               value={folderName}
               onChange={(event) => setFolderName(event.target.value)}
@@ -179,7 +180,7 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
           TRASH,
           <>
             <Icon name="trash" />
-            <span>Trash</span>
+            <span>{t('side.trash')}</span>
           </>,
           0,
         )}

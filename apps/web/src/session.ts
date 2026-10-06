@@ -1,3 +1,4 @@
+import { t } from '@scrawlnotes/i18n';
 import {
   addTask,
   ATTACHMENTS,
@@ -49,6 +50,7 @@ import {
   type FormatState,
   formatState,
   linkAddress,
+  linkText,
   linkTitleChange,
   type ScrawlEditor,
   selectNextOccurrence,
@@ -388,7 +390,7 @@ export class Session {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      this.set({ recordError: 'The microphone could not be used' });
+      this.set({ recordError: t('format.noMicrophone') });
       window.setTimeout(() => this.set({ recordError: null }), 4000);
       return;
     }
@@ -417,7 +419,7 @@ export class Session {
     if (blob.size === 0) return;
     const path = await saveAttachment(this.fs, blob);
     this.sizes.set(path, blob.size);
-    await this.insertInto(note, `[Voice memo](${linkAddress(path)})`);
+    await this.insertInto(note, `[${linkText(t('editor.voiceMemo'))}](${linkAddress(path)})`);
   }
 
   /**
@@ -632,7 +634,7 @@ export class Session {
       const target = newFolder ? await createFolder(this.fs, folder) : folder;
       path = kind === 'note' ? await createNote(this.fs, target, name) : await createTaskList(this.fs, target, name);
     } catch (error) {
-      return error instanceof Error ? error.message : 'It could not be created.';
+      return error instanceof Error ? error.message : t('error.create');
     }
     await this.refreshTree();
     await this.open(tabOf(path));
@@ -762,7 +764,7 @@ export class Session {
       await this.move(path, await createFolder(this.fs, name));
       return null;
     } catch (error) {
-      return error instanceof Error ? error.message : 'The folder could not be created.';
+      return error instanceof Error ? error.message : t('error.createFolder');
     }
   }
 
@@ -773,7 +775,7 @@ export class Session {
       await this.repath(path, await renameItem(this.fs, path, name));
       return null;
     } catch (error) {
-      return error instanceof Error ? error.message : 'The note could not be renamed.';
+      return error instanceof Error ? error.message : t('error.rename');
     }
   }
 
@@ -782,7 +784,7 @@ export class Session {
     try {
       await createFolder(this.fs, name);
     } catch (error) {
-      return error instanceof Error ? error.message : 'The folder could not be created.';
+      return error instanceof Error ? error.message : t('error.createFolder');
     }
     await this.refreshTree();
     return null;

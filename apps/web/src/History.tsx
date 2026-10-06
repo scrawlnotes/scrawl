@@ -1,5 +1,6 @@
 import { dayOf, type Version } from '@scrawlnotes/core';
 import { createViewer, type ScrawlViewer } from '@scrawlnotes/editor';
+import { t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { Dialog } from './dialogs';
 import { clockTime, pastDayLabel } from './text';
@@ -9,9 +10,9 @@ const MINUTE = 60_000;
 /** How long ago a moment of the last day was: `just now`, `12 min ago`, `3 h ago`. */
 function ago(iso: string, now: number): string | null {
   const minutes = Math.floor((now - Date.parse(iso)) / MINUTE);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  return minutes < 24 * 60 ? `${Math.floor(minutes / 60)} h ago` : null;
+  if (minutes < 1) return t('ago.now');
+  if (minutes < 60) return t('ago.minutes', { count: minutes });
+  return minutes < 24 * 60 ? t('ago.hours', { count: Math.floor(minutes / 60) }) : null;
 }
 
 /** Where the window gets a note's versions from. */
@@ -112,14 +113,14 @@ export function HistoryDialog({ path, title, current, today, source, onRestore, 
   );
 
   return (
-    <Dialog label={`History of ${title}`} className="history" onClose={onClose} onKeyDown={onKey}>
+    <Dialog label={t('history.label', { name: title })} className="history" onClose={onClose} onKeyDown={onKey}>
       <header className="history-head">
-        <h2>History</h2>
+        <h2>{t('history.title')}</h2>
         <span>{title}</span>
       </header>
       <div className="history-body">
-        <div ref={list} className="history-list" role="listbox" aria-label="Versions">
-          {row(-1, 'Current version', null)}
+        <div ref={list} className="history-list" role="listbox" aria-label={t('history.versions')}>
+          {row(-1, t('history.current'), null)}
           {days.map(({ day, items }) => (
             <div key={day}>
               <div className="history-day">{pastDayLabel(day, today)}</div>
@@ -128,14 +129,14 @@ export function HistoryDialog({ path, title, current, today, source, onRestore, 
               )}
             </div>
           ))}
-          {versions?.length === 0 && <p>No earlier versions yet. One is kept at most every ten minutes while you write.</p>}
+          {versions?.length === 0 && <p>{t('history.none')}</p>}
         </div>
         <div ref={preview} className="history-view" />
       </div>
       <div className="dialog-actions history-foot">
-        <span>Restoring keeps the current text as a version too.</span>
+        <span>{t('history.hint')}</span>
         <button type="button" onClick={onClose}>
-          Close
+          {t('dialog.close')}
         </button>
         <button
           type="button"
@@ -143,7 +144,7 @@ export function HistoryDialog({ path, title, current, today, source, onRestore, 
           disabled={selected < 0 || shown === null}
           onClick={() => shown !== null && onRestore(shown)}
         >
-          Restore this version
+          {t('history.restore')}
         </button>
       </div>
     </Dialog>

@@ -14,6 +14,7 @@ import {
   progressOf,
   type Task,
 } from '@scrawlnotes/core';
+import { locale, t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, type MouseEvent, type ReactNode, useRef, useState } from 'react';
 import type { MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
@@ -39,13 +40,13 @@ const toDate = (day: string) => {
 
 /** A due day the way people say it: Today, Tomorrow, a weekday within the week, else a date. */
 function dueLabel(day: string, today: string): string {
-  if (day === today) return 'Today';
-  if (day === addDays(today, 1)) return 'Tomorrow';
-  if (day === addDays(today, -1)) return 'Yesterday';
+  if (day === today) return t('day.today');
+  if (day === addDays(today, 1)) return t('day.tomorrow');
+  if (day === addDays(today, -1)) return t('day.yesterday');
   const date = toDate(day);
-  if (day > today && day < addDays(today, 7)) return date.toLocaleDateString('en-US', WEEKDAY);
+  if (day > today && day < addDays(today, 7)) return date.toLocaleDateString(locale(), WEEKDAY);
   const sameYear = day.slice(0, 4) === today.slice(0, 4);
-  return date.toLocaleDateString('en-US', sameYear ? SHORT : { ...SHORT, year: 'numeric' });
+  return date.toLocaleDateString(locale(), sameYear ? SHORT : { ...SHORT, year: 'numeric' });
 }
 
 const dueClass = (day: string, today: string) => (day < today ? 'due late' : day === today ? 'due today' : 'due');
@@ -121,17 +122,17 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
 
   const dateMenu = (event: MouseEvent) =>
     actions.menu(event, [
-      { label: 'Today', run: () => setDue(today) },
-      { label: 'Tomorrow', run: () => setDue(addDays(today, 1)) },
-      { label: 'Next week', run: () => setDue(nextWeek(today)) },
-      { label: 'Pick a date…', run: () => datePicker.current?.showPicker() },
-      ...(task.due ? [{ label: 'No date', run: () => setDue(null) }] : []),
+      { label: t('day.today'), run: () => setDue(today) },
+      { label: t('day.tomorrow'), run: () => setDue(addDays(today, 1)) },
+      { label: t('tasks.nextWeek'), run: () => setDue(nextWeek(today)) },
+      { label: t('tasks.pickDate'), run: () => datePicker.current?.showPicker() },
+      ...(task.due ? [{ label: t('tasks.noDate'), run: () => setDue(null) }] : []),
     ]);
   const priorityMenu = (event: MouseEvent) =>
     actions.menu(
       event,
       ([1, 2, 3, 4] as Priority[]).map((priority) => ({
-        label: `${priority === task.priority ? '✓ ' : ''}${priority === 4 ? 'No priority' : `Priority ${priority}`}`,
+        label: `${priority === task.priority ? '✓ ' : ''}${priority === 4 ? t('tasks.noPriority') : t('tasks.priorityN', { n: priority })}`,
         run: () => actions.update(list, task.id, { priority }),
       })),
     );
@@ -144,7 +145,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
           className={`cb p${task.priority}`}
           role="checkbox"
           aria-checked={task.done}
-          aria-label={task.done ? `Reopen ${task.title}` : `Complete ${task.title}`}
+          aria-label={t(task.done ? 'tasks.reopen' : 'tasks.complete', { name: task.title })}
           onClick={() => actions.setDone(list, task.id, !task.done)}
         />
         <div className="task-body">
@@ -155,7 +156,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
           ) : (
             <input
               className="tt-edit"
-              aria-label="Task title"
+              aria-label={t('tasks.title')}
               autoFocus
               value={editing}
               onChange={(event) => setEditing(event.target.value)}
@@ -169,18 +170,16 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
           {(task.due || progress.total > 0 || flat) && (
             <div className="meta">
               {task.due && (
-                <button type="button" className={dueClass(task.due, today)} title="Change the date" onClick={dateMenu}>
+                <button type="button" className={dueClass(task.due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
                   {dueLabel(task.due, today)}
                 </button>
               )}
               {progress.total > 0 &&
                 (flat ? (
-                  <span>
-                    {progress.done} of {progress.total}
-                  </span>
+                  <span>{t('tasks.progress', { done: progress.done, total: progress.total })}</span>
                 ) : (
-                  <button type="button" aria-expanded={open} title={open ? 'Hide subtasks' : 'Show subtasks'} onClick={() => setOpen(!open)}>
-                    {open ? '▾' : '▸'} {progress.done} of {progress.total}
+                  <button type="button" aria-expanded={open} title={t(open ? 'tasks.hideSubtasks' : 'tasks.showSubtasks')} onClick={() => setOpen(!open)}>
+                    {open ? '▾' : '▸'} {t('tasks.progress', { done: progress.done, total: progress.total })}
                   </button>
                 ))}
               {flat && <span>{listLabel(list)}</span>}
@@ -191,21 +190,21 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
           {canNest && (
             <IconButton
               icon="subtask"
-              title="Add subtask"
+              title={t('tasks.addSubtask')}
               onClick={() => {
                 setOpen(true);
                 setAdding(true);
               }}
             />
           )}
-          <IconButton icon="calendar" title="Date" onClick={dateMenu} />
-          <IconButton icon="flag" title="Priority" onClick={priorityMenu} />
-          <IconButton icon="trash" title="Delete" onClick={() => actions.remove(list, task.id)} />
+          <IconButton icon="calendar" title={t('tasks.date')} onClick={dateMenu} />
+          <IconButton icon="flag" title={t('tasks.priority')} onClick={priorityMenu} />
+          <IconButton icon="trash" title={t('tasks.delete')} onClick={() => actions.remove(list, task.id)} />
           <input
             ref={datePicker}
             className="date-picker"
             type="date"
-            aria-label="Due date"
+            aria-label={t('tasks.dueDate')}
             tabIndex={-1}
             value={task.due ?? ''}
             onChange={(event) => setDue(event.target.value || null)}
@@ -218,7 +217,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
             <TaskItem key={child.id} list={list} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} />
           ))}
           {adding && (
-            <Composer placeholder="Subtask name" onAdd={(title) => actions.add(list, { title, parent: task.id })} onClose={() => setAdding(false)} />
+            <Composer placeholder={t('tasks.subtaskName')} onAdd={(title) => actions.add(list, { title, parent: task.id })} onClose={() => setAdding(false)} />
           )}
         </div>
       )}
@@ -244,7 +243,7 @@ function TaskPage({ title, detail, onAdd, footer, children }: {
         {detail && <span>{detail}</span>}
         {onAdd && (
           <button type="button" className="add" onClick={() => setComposing(true)}>
-            Add task
+            {t('tasks.add')}
           </button>
         )}
       </header>
@@ -252,10 +251,10 @@ function TaskPage({ title, detail, onAdd, footer, children }: {
         {children}
         {onAdd &&
           (composing ? (
-            <Composer placeholder="Task name" onAdd={onAdd} onClose={() => setComposing(false)} />
+            <Composer placeholder={t('tasks.name')} onAdd={onAdd} onClose={() => setComposing(false)} />
           ) : (
             <button type="button" className="qa" onClick={() => setComposing(true)}>
-              + Add task
+              {t('tasks.addRow')}
             </button>
           ))}
         {footer}
@@ -277,7 +276,7 @@ export function TaskList({ list, tasks, today, actions }: { list: string; tasks:
       footer={
         completed > 0 && (
           <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
-            {showDone ? 'Hide' : 'Show'} {completed} completed
+            {t(showDone ? 'tasks.hideCompleted' : 'tasks.showCompleted', { count: completed })}
           </button>
         )
       }
@@ -313,22 +312,22 @@ export function DueView({ kind, lists, today, actions }: {
     const due = dueToday(lists, today);
     return (
       <TaskPage
-        title="Today"
-        detail={toDate(today).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+        title={t('tasks.today')}
+        detail={toDate(today).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' })}
         onAdd={(title) => actions.add(INBOX_TASKS, { title, due: today })}
       >
-        {section('Overdue', due.overdue)}
-        {section('Today', due.today)}
-        {due.overdue.length + due.today.length === 0 && <p className="task-empty">Nothing is due today.</p>}
+        {section(t('tasks.overdue'), due.overdue)}
+        {section(t('tasks.today'), due.today)}
+        {due.overdue.length + due.today.length === 0 && <p className="task-empty">{t('tasks.nothingToday')}</p>}
       </TaskPage>
     );
   }
 
   const days = dueUpcoming(lists, today);
   return (
-    <TaskPage title="Upcoming">
-      {days.map(({ day, tasks }) => section(`${dueLabel(day, today)} · ${toDate(day).toLocaleDateString('en-US', SHORT)}`, tasks))}
-      {days.length === 0 && <p className="task-empty">Nothing is scheduled after today.</p>}
+    <TaskPage title={t('tasks.upcoming')}>
+      {days.map(({ day, tasks }) => section(`${dueLabel(day, today)} · ${toDate(day).toLocaleDateString(locale(), SHORT)}`, tasks))}
+      {days.length === 0 && <p className="task-empty">{t('tasks.nothingLater')}</p>}
     </TaskPage>
   );
 }

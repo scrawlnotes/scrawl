@@ -18,6 +18,7 @@ import {
   WidgetType,
 } from '@codemirror/view';
 import type { SyntaxNode, Tree } from '@lezer/common';
+import { t } from '@scrawlnotes/i18n';
 import { linkUrl } from './commands';
 import { attachmentOf, AudioWidget, FileWidget, isAudio, type MediaOptions } from './media';
 
@@ -139,7 +140,7 @@ function copyText(text: string): Promise<void> {
     const copied = document.execCommand('copy');
     area.remove();
     focused?.focus();
-    if (!copied) throw new Error('The clipboard is not available.');
+    if (!copied) throw new Error(t('error.clipboard'));
   });
 }
 
@@ -155,8 +156,8 @@ class CopyWidget extends WidgetType {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'cm-sl-copy';
-    button.title = 'Copy code';
-    button.setAttribute('aria-label', 'Copy code');
+    button.title = t('editor.copyCode');
+    button.setAttribute('aria-label', t('editor.copyCode'));
     button.innerHTML = COPY_ICON;
     // Pressing the button leaves the cursor where it was.
     button.addEventListener('mousedown', (event) => event.preventDefault());

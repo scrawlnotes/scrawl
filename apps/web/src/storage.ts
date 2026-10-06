@@ -1,4 +1,5 @@
 import type { VaultFs } from '@scrawlnotes/core';
+import { t } from '@scrawlnotes/i18n';
 import { openBrowserVault } from './opfsFs';
 import { TauriFs } from './tauriFs';
 
@@ -30,7 +31,7 @@ export async function openVault(): Promise<VaultFs | null> {
 /** Asks for the notes folder and remembers it. Returns false when the dialog was cancelled. */
 export async function chooseVaultFolder(): Promise<boolean> {
   const { open } = await import('@tauri-apps/plugin-dialog');
-  const chosen = await open({ directory: true, title: 'Choose the folder for your notes' });
+  const chosen = await open({ directory: true, title: t('welcome.dialog') });
   if (typeof chosen !== 'string') return false;
   await invoke('settings_save', { settings: { vault: chosen } });
   return true;

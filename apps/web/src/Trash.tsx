@@ -1,6 +1,7 @@
 import { dayOf, dirname, type TrashItem } from '@scrawlnotes/core';
+import { t } from '@scrawlnotes/i18n';
 import { Icon, type IconName } from './Icon';
-import { clockTime, contentsText, count, pastDayLabel } from './text';
+import { clockTime, contentsText, pastDayLabel } from './text';
 
 const ICONS: Record<TrashItem['kind'], IconName> = { note: 'note', tasks: 'tasks', folder: 'folder' };
 /** The folder an item goes back to, as a path to read: `Scrawl / meetings`; empty for the top level. */
@@ -10,11 +11,11 @@ function TrashRow({ item, onRestore, onDelete }: { item: TrashItem; onRestore: (
   const place = placeOf(item.from);
   const meta = [
     place,
-    item.holds && (contentsText(item.holds) || 'Empty'),
-    item.tasks !== undefined && item.tasks > 0 && count(item.tasks, 'task'),
+    item.holds && (contentsText(item.holds) || t('trash.emptyFolder')),
+    item.tasks !== undefined && item.tasks > 0 && t('count.tasks', { count: item.tasks }),
     clockTime(item.deleted),
   ].filter(Boolean);
-  const restore = `Restore to ${place || 'the top level'}`;
+  const restore = t('trash.restoreTo', { place: place || t('trash.topLevel') });
   return (
     <div className="trow">
       <Icon name={ICONS[item.kind]} />
@@ -30,7 +31,7 @@ function TrashRow({ item, onRestore, onDelete }: { item: TrashItem; onRestore: (
         <button type="button" title={restore} aria-label={restore} onClick={onRestore}>
           <Icon name="restore" />
         </button>
-        <button type="button" title="Delete forever" aria-label="Delete forever" onClick={onDelete}>
+        <button type="button" title={t('delete.forever')} aria-label={t('delete.forever')} onClick={onDelete}>
           <Icon name="trash" />
         </button>
       </div>
@@ -57,11 +58,11 @@ export function TrashView({ items, today, onRestore, onDelete, onEmpty }: {
   return (
     <section className="tasks">
       <header className="th">
-        <b>Trash</b>
-        {items.length > 0 && <span>{count(items.length, 'item')}</span>}
+        <b>{t('trash.title')}</b>
+        {items.length > 0 && <span>{t('count.items', { count: items.length })}</span>}
         {items.length > 0 && (
           <button type="button" className="ghost" onClick={onEmpty}>
-            Empty trash
+            {t('trash.empty')}
           </button>
         )}
       </header>
@@ -77,9 +78,9 @@ export function TrashView({ items, today, onRestore, onDelete, onEmpty }: {
           </div>
         ))}
         {items.length > 0 ? (
-          <p className="trash-note">Restore puts an item back where it was. Nothing here is deleted until you delete it.</p>
+          <p className="trash-note">{t('trash.note')}</p>
         ) : (
-          <p className="task-empty">The trash is empty.</p>
+          <p className="task-empty">{t('trash.nothing')}</p>
         )}
       </div>
     </section>

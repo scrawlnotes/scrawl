@@ -18,6 +18,7 @@ import {
   lineNumbers,
   rectangularSelection,
 } from '@codemirror/view';
+import { t } from '@scrawlnotes/i18n';
 import { clipboard, visibleText } from './clipboard';
 import {
   formatKeymap,
@@ -197,20 +198,20 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
   const saveImage = options.saveImage;
   const record = options.record;
   const slashItems: SlashItem[] = [
-    { label: 'Heading 1', run: toggleHeading(1) },
-    { label: 'Heading 2', run: toggleHeading(2) },
-    { label: 'Heading 3', run: toggleHeading(3) },
-    { label: 'Bullet list', run: toggleLinePrefix('list') },
-    { label: 'Quote', run: toggleLinePrefix('quote') },
-    { label: 'Code block', run: toggleCodeBlock },
-    { label: 'Table', run: addTable },
-    { label: 'Divider', run: insertDivider },
+    { label: t('slash.heading1'), run: toggleHeading(1) },
+    { label: t('slash.heading2'), run: toggleHeading(2) },
+    { label: t('slash.heading3'), run: toggleHeading(3) },
+    { label: t('slash.list'), run: toggleLinePrefix('list') },
+    { label: t('slash.quote'), run: toggleLinePrefix('quote') },
+    { label: t('slash.codeBlock'), run: toggleCodeBlock },
+    { label: t('slash.table'), run: addTable },
+    { label: t('slash.divider'), run: insertDivider },
   ];
-  if (record) slashItems.push({ label: 'Audio recording', detail: 'from the microphone', run: () => record() });
+  if (record) slashItems.push({ label: t('slash.recording'), detail: t('slash.fromMicrophone'), run: () => record() });
   if (saveImage) {
     slashItems.push({
-      label: 'Image',
-      detail: 'from a file',
+      label: t('slash.image'),
+      detail: t('slash.fromFile'),
       run(view) {
         const input = document.createElement('input');
         input.type = 'file';

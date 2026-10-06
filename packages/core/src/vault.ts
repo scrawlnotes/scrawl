@@ -1,3 +1,4 @@
+import { t } from '@scrawlnotes/i18n';
 import { basename, dirname, type Entry, join, type VaultFs } from './fs';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
 import { loadTasks, serializeTasks, TASK_LIST_EXT } from './tasks';
@@ -44,7 +45,7 @@ export function titleOf(text: string): string {
     // A backslash-escaped character is literal text; keep it out of the mark stripping below.
     .replace(/\\([!-/:-@[-`{-~])|\*\*|__|~~|[*_`]/g, '$1')
     .trim();
-  return title || 'untitled';
+  return title || t('note.untitled');
 }
 
 // Names given by `createScratchNote`: a note that has not been named by the user yet.
@@ -64,14 +65,14 @@ export const isScratchNote = (path: string) => SCRATCH_NAME.test(basename(path))
 
 /** What a task list is called: its file name, or Tasks for the inbox's own list. */
 export function listName(path: string): string {
-  return path === INBOX_TASKS ? 'Tasks' : basename(path).slice(0, -TASK_LIST_EXT.length);
+  return path === INBOX_TASKS ? t('tasks.defaultList') : basename(path).slice(0, -TASK_LIST_EXT.length);
 }
 
 /** The paths in `dir`, lowercased for `freePath`. */
 async function names(fs: VaultFs, dir: string): Promise<Set<string>> {
   const taken = new Set((await fs.list(dir)).map((e) => e.path.toLowerCase()));
   // The inbox's own list is called Tasks, so no other list there may take that name.
-  if (dir === INBOX) taken.add(join(INBOX, `Tasks${TASK_LIST_EXT}`).toLowerCase());
+  if (dir === INBOX) taken.add(join(INBOX, `${t('tasks.defaultList')}${TASK_LIST_EXT}`).toLowerCase());
   return taken;
 }
 
@@ -81,7 +82,7 @@ const cleanName = (name: string) => name.replace(/[\\/:*?"<>|]/g, ' ').replace(/
 function fileName(name: string, ext: string): string {
   const clean = cleanName(name);
   const bare = clean.toLowerCase().endsWith(ext) ? clean.slice(0, -ext.length).trim() : clean;
-  if (!bare || isHidden(bare)) throw new Error('That name cannot be used.');
+  if (!bare || isHidden(bare)) throw new Error(t('error.name'));
   return bare;
 }
 
@@ -105,7 +106,7 @@ export async function createNote(fs: VaultFs, folder: string, name: string, now 
 
 /** Creates an empty task list in `folder`. Without a name it is called Tasks, numbered when taken. */
 export async function createTaskList(fs: VaultFs, folder: string, name: string): Promise<string> {
-  const base = name.trim() ? fileName(name, TASK_LIST_EXT) : 'Tasks';
+  const base = name.trim() ? fileName(name, TASK_LIST_EXT) : t('tasks.defaultList');
   const path = freePath(folder, base, TASK_LIST_EXT, await names(fs, folder));
   await fs.writeText(path, serializeTasks([]));
   return path;
@@ -113,7 +114,7 @@ export async function createTaskList(fs: VaultFs, folder: string, name: string):
 
 export async function createFolder(fs: VaultFs, name: string): Promise<string> {
   const clean = cleanName(name);
-  if (!clean || isHidden(clean)) throw new Error('That folder name cannot be used.');
+  if (!clean || isHidden(clean)) throw new Error(t('error.folderName'));
   await fs.mkdir(clean);
   return clean;
 }

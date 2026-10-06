@@ -1,3 +1,4 @@
+import { type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type FormEvent,
   type KeyboardEvent,
@@ -98,7 +99,7 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
     list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [picker.selected, picker.query]);
   return (
-    <div ref={list} className="choices" role="listbox" aria-label="Folders">
+    <div ref={list} className="choices" role="listbox" aria-label={t('folders.label')}>
       {picker.matches.map((folder, i) => (
         <button
           key={folder}
@@ -121,7 +122,7 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
           onMouseDown={keepFocus}
           onClick={() => onPick(picker.matches.length)}
         >
-          <span>Create folder “{picker.typed}”</span>
+          <span>{t('folders.create', { name: picker.typed })}</span>
         </button>
       )}
       {picker.count === 0 && <p>{empty}</p>}
@@ -132,10 +133,10 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
 export type NewKind = 'note' | 'tasks' | 'board';
 type ItemKind = Exclude<NewKind, 'board'>;
 
-const KINDS: { kind: NewKind; label: string; icon: IconName }[] = [
-  { kind: 'note', label: 'Note', icon: 'note' },
-  { kind: 'tasks', label: 'Task list', icon: 'tasks' },
-  { kind: 'board', label: 'Board', icon: 'board' },
+const KINDS: { kind: NewKind; label: MessageKey; icon: IconName }[] = [
+  { kind: 'note', label: 'create.note', icon: 'note' },
+  { kind: 'tasks', label: 'create.tasks', icon: 'tasks' },
+  { kind: 'board', label: 'create.board', icon: 'board' },
 ];
 
 /**
@@ -175,8 +176,8 @@ function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onCl
     event.preventDefault();
   };
   return (
-    <Dialog label="Create" onClose={onClose} onKeyDown={onKey}>
-      <h2>Create</h2>
+    <Dialog label={t('create.title')} onClose={onClose} onKeyDown={onKey}>
+      <h2>{t('create.title')}</h2>
       <div className="choices" role="listbox">
         {KINDS.map((item, i) => (
           <button
@@ -190,7 +191,7 @@ function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onCl
           >
             <kbd>{i + 1}</kbd>
             <Icon name={item.icon} />
-            <span>{item.label}</span>
+            <span>{t(item.label)}</span>
           </button>
         ))}
       </div>
@@ -211,7 +212,7 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
   const picker = useFolderPicker(folders, folder);
-  const title = kind === 'note' ? 'New note' : 'New task list';
+  const title = kind === 'note' ? t('create.newNote') : t('create.newList');
 
   const create = async () => {
     const choice = picker.choiceAt(picker.selected);
@@ -233,11 +234,11 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
     <Dialog label={title} onClose={onClose} onEscape={onBack} onKeyDown={onKey}>
       <h2>{title}</h2>
       <label className="field">
-        <span>Name</span>
+        <span>{t('create.name')}</span>
         <input
           id="new-name"
           autoFocus
-          placeholder={kind === 'note' ? 'Named by its first line' : 'Tasks'}
+          placeholder={kind === 'note' ? t('create.noteName') : t('create.listName')}
           value={name}
           onChange={(event) => {
             setName(event.target.value);
@@ -246,10 +247,10 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
         />
       </label>
       <label className="field">
-        <span>Folder</span>
+        <span>{t('create.folder')}</span>
         <input
           id="new-folder"
-          placeholder="Type to find or create a folder"
+          placeholder={t('create.findFolder')}
           value={picker.query}
           onChange={(event) => {
             picker.filter(event.target.value);
@@ -258,15 +259,15 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
         />
       </label>
       <div className="field-list">
-        <FolderList picker={picker} empty="Type a name to create a folder." onPick={picker.select} />
+        <FolderList picker={picker} empty={t('create.typeToCreate')} onPick={picker.select} />
       </div>
       {error && <p role="alert">{error}</p>}
       <div className="dialog-actions">
         <button type="button" onClick={onBack}>
-          Back
+          {t('dialog.back')}
         </button>
         <button type="button" className="primary" onClick={() => void create()}>
-          Create
+          {t('create.create')}
         </button>
       </div>
     </Dialog>
@@ -298,12 +299,12 @@ export function MoveDialog({ folders, current, onMove, onCreate, onClose }: {
     }
   };
   return (
-    <Dialog label="Move to" onClose={onClose} onKeyDown={onKey}>
-      <h2>Move to</h2>
+    <Dialog label={t('move.title')} onClose={onClose} onKeyDown={onKey}>
+      <h2>{t('move.title')}</h2>
       <input
         id="move-folder"
-        aria-label="Folder"
-        placeholder="Type a folder name"
+        aria-label={t('move.folder')}
+        placeholder={t('move.typeFolder')}
         autoFocus
         value={picker.query}
         onChange={(event) => {
@@ -311,7 +312,7 @@ export function MoveDialog({ folders, current, onMove, onCreate, onClose }: {
           setError(null);
         }}
       />
-      <FolderList picker={picker} empty="No other folder yet. Type a name to create one." onPick={(i) => void pick(i)} />
+      <FolderList picker={picker} empty={t('move.none')} onPick={(i) => void pick(i)} />
       {error && <p role="alert">{error}</p>}
     </Dialog>
   );
@@ -332,12 +333,12 @@ export function RenameDialog({ name, onRename, onClose }: {
     else onClose();
   };
   return (
-    <Dialog label="Rename" onClose={onClose}>
-      <h2>Rename</h2>
+    <Dialog label={t('rename.title')} onClose={onClose}>
+      <h2>{t('rename.title')}</h2>
       <form onSubmit={submit}>
         <input
           id="rename-item"
-          aria-label="Name"
+          aria-label={t('rename.name')}
           autoFocus
           value={value}
           onFocus={(event) => event.target.select()}
@@ -346,10 +347,10 @@ export function RenameDialog({ name, onRename, onClose }: {
         {error && <p role="alert">{error}</p>}
         <div className="dialog-actions">
           <button type="button" onClick={onClose}>
-            Cancel
+            {t('dialog.cancel')}
           </button>
           <button type="submit" className="primary">
-            Rename
+            {t('rename.title')}
           </button>
         </div>
       </form>
@@ -378,7 +379,7 @@ export function ConfirmDialog({ title, message, action, onConfirm, onClose }: {
       <p className="confirm">{message}</p>
       <div className="dialog-actions">
         <button type="button" onClick={onClose}>
-          Cancel
+          {t('dialog.cancel')}
         </button>
         <button type="button" className="primary" onClick={onConfirm}>
           {action}

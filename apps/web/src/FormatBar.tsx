@@ -1,4 +1,5 @@
 import type { FormatState } from '@scrawlnotes/editor';
+import { type MessageKey, t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import type { FormatAction } from './session';
 
@@ -31,43 +32,48 @@ function Recording({ since, onStop }: { since: number; onStop: () => void }) {
     <div className="fmt-rec" role="status">
       <i />
       <span>{clock(now - since)}</span>
-      <small>Recording</small>
-      <button type="button" className="fmt-stop" title="Stop recording and put it in the note" onClick={onStop}>
-        Stop
+      <small>{t('format.recording')}</small>
+      <button type="button" className="fmt-stop" title={t('format.stopTitle')} onClick={onStop}>
+        {t('format.stop')}
       </button>
     </div>
   );
 }
 
+// Button faces that read the same in every language.
+type Mark = 'B' | 'I' | 'S' | '</>' | 'H1' | 'H2' | 'H3';
+const MARKS: ReadonlySet<string> = new Set<Mark>(['B', 'I', 'S', '</>', 'H1', 'H2', 'H3']);
+
 interface Item {
   action: FormatAction;
-  label: string;
-  title: string;
+  /** Shown on the button: a mark, or a key into the dictionary. */
+  label: Mark | MessageKey;
+  title: MessageKey;
   active?: (format: FormatState) => boolean;
   className?: string;
 }
 
 const groups: Item[][] = [
   [
-    { action: 'bold', label: 'B', title: 'Bold', active: (f) => f.bold, className: 'fmt-bold' },
-    { action: 'italic', label: 'I', title: 'Italic', active: (f) => f.italic, className: 'fmt-italic' },
-    { action: 'strike', label: 'S', title: 'Strikethrough', active: (f) => f.strike, className: 'fmt-strike' },
-    { action: 'code', label: '</>', title: 'Code', active: (f) => f.code },
+    { action: 'bold', label: 'B', title: 'format.bold', active: (f) => f.bold, className: 'fmt-bold' },
+    { action: 'italic', label: 'I', title: 'format.italic', active: (f) => f.italic, className: 'fmt-italic' },
+    { action: 'strike', label: 'S', title: 'format.strike', active: (f) => f.strike, className: 'fmt-strike' },
+    { action: 'code', label: '</>', title: 'format.code', active: (f) => f.code },
   ],
   [
-    { action: 'h1', label: 'H1', title: 'Heading 1', active: (f) => f.heading === 1 },
-    { action: 'h2', label: 'H2', title: 'Heading 2', active: (f) => f.heading === 2 },
-    { action: 'h3', label: 'H3', title: 'Heading 3', active: (f) => f.heading === 3 },
+    { action: 'h1', label: 'H1', title: 'format.h1', active: (f) => f.heading === 1 },
+    { action: 'h2', label: 'H2', title: 'format.h2', active: (f) => f.heading === 2 },
+    { action: 'h3', label: 'H3', title: 'format.h3', active: (f) => f.heading === 3 },
   ],
   [
-    { action: 'list', label: 'List', title: 'Bullet list', active: (f) => f.list },
-    { action: 'quote', label: 'Quote', title: 'Quote', active: (f) => f.quote },
-    { action: 'codeBlock', label: 'Code block', title: 'Code block', active: (f) => f.codeBlock },
+    { action: 'list', label: 'format.list', title: 'format.listTitle', active: (f) => f.list },
+    { action: 'quote', label: 'format.quote', title: 'format.quote', active: (f) => f.quote },
+    { action: 'codeBlock', label: 'format.codeBlock', title: 'format.codeBlock', active: (f) => f.codeBlock },
   ],
   [
-    { action: 'nextMatch', label: 'Next match', title: 'Also select the next match (Ctrl+D)' },
-    { action: 'allMatches', label: 'All matches', title: 'Select every match of the selection' },
-    { action: 'cursorBelow', label: 'Cursor below', title: 'Add a cursor on the line below (Ctrl+Alt+Down)' },
+    { action: 'nextMatch', label: 'format.nextMatch', title: 'format.nextMatchTitle' },
+    { action: 'allMatches', label: 'format.allMatches', title: 'format.allMatchesTitle' },
+    { action: 'cursorBelow', label: 'format.cursorBelow', title: 'format.cursorBelowTitle' },
   ],
 ];
 
@@ -106,22 +112,22 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
           id="link-address"
           ref={input}
           type="url"
-          aria-label="Link address"
-          placeholder="Paste or type a link, then press Enter"
+          aria-label={t('format.linkAddress')}
+          placeholder={t('format.linkPlaceholder')}
           value={url}
           onChange={(event) => setUrl(event.target.value)}
           onKeyDown={onKey}
         />
         <button type="button" onClick={() => finishLink(url)}>
-          Apply
+          {t('format.apply')}
         </button>
         {format?.link && (
           <button type="button" onClick={() => finishLink('')}>
-            Remove link
+            {t('format.removeLink')}
           </button>
         )}
         <button type="button" onClick={() => finishLink(null)}>
-          Cancel
+          {t('dialog.cancel')}
         </button>
         {recording && <Recording since={recording.since} onStop={onStop} />}
       </div>
@@ -129,7 +135,7 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
   }
 
   return (
-    <div className="fmt" role="toolbar" aria-label="Formatting" onMouseDown={keepEditorFocus}>
+    <div className="fmt" role="toolbar" aria-label={t('format.label')} onMouseDown={keepEditorFocus}>
       {groups.map((items, i) => (
         <div className="fmt-group" key={i}>
           {items.map((item) => (
@@ -137,25 +143,25 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
               key={item.action}
               type="button"
               className={item.className}
-              title={item.title}
+              title={t(item.title)}
               disabled={!format}
               aria-pressed={(format && item.active?.(format)) ?? false}
               onClick={() => onFormat(item.action)}
             >
-              {item.label}
+              {MARKS.has(item.label) ? item.label : t(item.label as MessageKey)}
             </button>
           ))}
           {i === 0 && (
-            <button type="button" title="Link" disabled={!format} aria-pressed={!!format?.link} onClick={startLink}>
-              Link
+            <button type="button" title={t('format.link')} disabled={!format} aria-pressed={!!format?.link} onClick={startLink}>
+              {t('format.link')}
             </button>
           )}
         </div>
       ))}
       {!recording && (
         <div className="fmt-group">
-          <button type="button" title="Record from the microphone into the note" disabled={!format} onClick={onRecord}>
-            Record
+          <button type="button" title={t('format.recordTitle')} disabled={!format} onClick={onRecord}>
+            {t('format.record')}
           </button>
         </div>
       )}
