@@ -1,7 +1,7 @@
 import { INBOX, INBOX_TASKS, type TreeNode } from '@scrawlnotes/core';
 import { type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useState } from 'react';
 import { Icon } from './Icon';
-import { tabOf, tasksOf, TODAY, UPCOMING } from './items';
+import { tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 
 // A note or a task list being dragged onto a folder.
 const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
@@ -173,6 +173,17 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
           .filter((node) => node.path !== INBOX)
           .map((node) => (node.kind === 'folder' ? folderRow(node, 0) : itemRow(node, 0)))}
       </nav>
+      {/* The trash stays at the foot of the sidebar, apart from the folders. */}
+      <div className="side-foot">
+        {viewRow(
+          TRASH,
+          <>
+            <Icon name="trash" />
+            <span>Trash</span>
+          </>,
+          0,
+        )}
+      </div>
     </aside>
   );
 }

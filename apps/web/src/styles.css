@@ -97,11 +97,24 @@ input:focus {
 
 /* sidebar: one tree, as in design/mockups.html (direction A) */
 .side {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  padding: 10px 8px;
   background: var(--sl-side);
   border-right: 1px solid var(--sl-line);
+}
+
+.tree {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 8px;
   overflow-y: auto;
+}
+
+.side-foot {
+  flex: none;
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--sl-line);
 }
 
 .it {
@@ -973,4 +986,58 @@ button.cb:hover::after {
 .task-empty {
   margin: 14px 0 6px;
   color: var(--sl-dim);
+}
+
+/* trash: after the Trash view of design/mockups.html (direction A) */
+.th .ghost {
+  margin-left: auto;
+  padding: 3px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.th .ghost:hover {
+  color: var(--sl-fg);
+}
+
+.trow {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 10px;
+  margin: 0 -8px;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.trow:hover {
+  border-radius: 5px;
+  background: var(--sl-side);
+}
+
+.trow:hover .task-actions {
+  opacity: 1;
+}
+
+.trow > .icon {
+  justify-self: center;
+  width: 14px;
+  height: 14px;
+  color: var(--sl-dim);
+}
+
+.trow-title {
+  overflow: hidden;
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-note {
+  margin: 0;
+  padding: 12px 0 0;
+  color: var(--sl-faint);
+  font-size: 12px;
 }

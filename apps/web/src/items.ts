@@ -4,6 +4,7 @@ import type { IconName } from './Icon';
 // A tab holds a note (its vault path) or a view. View ids contain `:`, which no path can.
 export const TODAY = 'view:today';
 export const UPCOMING = 'view:upcoming';
+export const TRASH = 'view:trash';
 const TASKS = 'tasks:';
 const BOARD = 'board:';
 
@@ -32,12 +33,14 @@ export function listLabel(list: string): string {
 }
 
 export function iconOf(id: string): IconName {
+  if (id === TRASH) return 'trash';
   return isNote(id) ? 'note' : id.startsWith(BOARD) ? 'board' : 'tasks';
 }
 
 export function labelOf(id: string, titles: Record<string, string>): string {
   if (id === TODAY) return 'Today';
   if (id === UPCOMING) return 'Upcoming';
+  if (id === TRASH) return 'Trash';
   const list = listOf(id);
   if (list !== null) return listLabel(list);
   if (id.startsWith(BOARD)) return `Board · ${basename(id.slice(BOARD.length))}`;

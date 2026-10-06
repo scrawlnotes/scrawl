@@ -5,8 +5,10 @@ import {
   createNote,
   createScratchNote,
   createTaskList,
+  deleteFromTrash,
   dirname,
   displayTitle,
+  emptyTrash,
   INBOX,
   INBOX_TASKS,
   isScratchNote,
@@ -14,9 +16,11 @@ import {
   loadWorkspace,
   moveItem,
   type NewTask,
+  readTrash,
   readTree,
   removeTask,
   renameItem,
+  restoreFromTrash,
   saveAttachment,
   saveTasks,
   saveWorkspace,
@@ -24,6 +28,7 @@ import {
   type Task,
   trashFolder,
   trashItem,
+  type TrashItem,
   type TreeNode,
   updateTask,
   type VaultFs,
@@ -84,6 +89,8 @@ export interface Snapshot {
   titles: Record<string, string>;
   /** Every task list, by the path of its file. */
   tasks: Record<string, Task[]>;
+  /** What is in the trash, the latest deleted first. */
+  trash: TrashItem[];
   saved: boolean;
   /** Cursor and formatting of the note on screen; null while a view is shown instead. */
   stats: EditorStats | null;
@@ -113,6 +120,7 @@ export class Session {
     active: null,
     titles: {},
     tasks: {},
+    trash: [],
     saved: true,
     stats: null,
     format: null,
@@ -189,12 +197,13 @@ export class Session {
 
     const titles = titlesOf(tree);
     const tasks = await this.readTasks(tree);
+    const trash = await readTrash(this.fs);
     if (run !== this.run) return;
     const tabs = workspace.tabs.filter((id) => {
       const list = listOf(id);
       return list !== null ? list in tasks : id in titles || !isNote(id);
     });
-    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks });
+    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, trash });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
@@ -297,7 +306,7 @@ export class Session {
   private async refreshTree() {
     await this.settle();
     const tree = await readTree(this.fs);
-    this.set({ tree, titles: titlesOf(tree), tasks: await this.readTasks(tree) });
+    this.set({ tree, titles: titlesOf(tree), tasks: await this.readTasks(tree), trash: await readTrash(this.fs) });
   }
 
   /** Reads the inbox's task list and every other task list in the vault. */
@@ -465,6 +474,23 @@ export class Session {
     for (const tab of tabs.filter(inside)) if (tab !== active) await this.detach(tab);
     if (active && inside(active)) await this.detach(active);
     await trashFolder(this.fs, path);
+    await this.refreshTree();
+  }
+
+  /** Puts an item from the trash back where it was. */
+  async restore(item: TrashItem) {
+    await restoreFromTrash(this.fs, item);
+    await this.refreshTree();
+  }
+
+  /** Deletes an item in the trash for good. */
+  async deleteForever(item: TrashItem) {
+    await deleteFromTrash(this.fs, item);
+    await this.refreshTree();
+  }
+
+  async emptyTrash() {
+    await emptyTrash(this.fs);
     await this.refreshTree();
   }
 

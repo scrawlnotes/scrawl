@@ -35,6 +35,13 @@ const shapes = {
       <path d="M6 4.5h11l-2.5 4 2.5 4H6" />
     </>
   ),
+  folder: <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />,
+  restore: (
+    <>
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
+      <path d="M4.5 4v4.5H9" />
+    </>
+  ),
   trash: (
     <>
       <path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7" />

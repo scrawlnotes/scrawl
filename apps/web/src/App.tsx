@@ -8,6 +8,7 @@ import {
   listName,
   openCount,
   removeTask,
+  type TrashItem,
   type TreeNode,
 } from '@scrawlnotes/core';
 import type { EditorStats } from '@scrawlnotes/editor';
@@ -25,11 +26,14 @@ import {
   listOf,
   tasksOf,
   TODAY,
+  TRASH,
   UPCOMING,
 } from './items';
 import { Session } from './session';
 import { Sidebar } from './Sidebar';
 import { DueView, type TaskActions, TaskList } from './Tasks';
+import { contentsText, count, quote } from './text';
+import { TrashView } from './Trash';
 import { isDesktop } from './storage';
 
 type Theme = 'dark' | 'light';
@@ -37,14 +41,12 @@ type OpenDialog =
   | { kind: 'new' }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
-  | { kind: 'confirm'; title: string; message: string; run: () => void }
+  | { kind: 'confirm'; title: string; message: string; action: string; run: () => void }
   | null;
 
 // A tab being dragged to another place in the tab bar.
 const TAB_DRAG_TYPE = 'application/x-scrawl-tab';
 
-const count = (n: number, unit: string) => `${n.toLocaleString('en-US')} ${unit}${n === 1 ? '' : 's'}`;
-const quote = (name: string) => `“${name}”`;
 
 function position(stats: EditorStats): string {
   if (stats.selectedChars === 0) return `Ln ${stats.line}, Col ${stats.col}`;
@@ -81,21 +83,13 @@ function contentsOf(folder: TreeNode): string {
     }
   };
   visit(folder.children ?? []);
-  const parts: [number, string][] = [
-    [totals.note, 'note'],
-    [totals.tasks, 'task list'],
-    [totals.folder, 'folder'],
-  ];
-  return parts
-    .filter(([n]) => n > 0)
-    .map(([n, unit]) => count(n, unit))
-    .join(', ');
+  return contentsText({ notes: totals.note, lists: totals.tasks, folders: totals.folder });
 }
 
 export function App() {
   const host = useRef<HTMLDivElement>(null);
   const [session] = useState(() => new Session());
-  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, saved, stats, format, source } = useSyncExternalStore(
+  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, trash, saved, stats, format, source } = useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
   );
@@ -163,7 +157,8 @@ export function App() {
   };
 
   // Nothing is deleted without asking first.
-  const ask = (title: string, message: string, run: () => void) => setDialog({ kind: 'confirm', title, message, run });
+  const ask = (title: string, message: string, run: () => void, action = 'Delete') =>
+    setDialog({ kind: 'confirm', title, message, action, run });
   const deleteItem = (path: string) => {
     if (isTaskListPath(path)) {
       const total = tasks[path]?.length ?? 0;
@@ -188,6 +183,21 @@ export function App() {
     const what = subtasks > 0 ? `${quote(task.title)} and its ${count(subtasks, 'subtask')}` : quote(task.title);
     ask('Delete task', `${what} will be deleted. This cannot be undone.`, () => session.removeTask(list, id));
   };
+
+  const deleteForever = (item: TrashItem) =>
+    ask(
+      'Delete forever',
+      `${quote(item.title)} will be deleted for good. This cannot be undone.`,
+      () => void session.deleteForever(item),
+      'Delete forever',
+    );
+  const askEmptyTrash = () =>
+    ask(
+      'Empty trash',
+      `${trash.length === 1 ? 'The item' : `All ${count(trash.length, 'item')}`} in the trash will be deleted for good. This cannot be undone.`,
+      () => void session.emptyTrash(),
+      'Empty trash',
+    );
 
   const openMenu = (event: MouseEvent, items: MenuItem[]) => {
     event.preventDefault();
@@ -247,7 +257,7 @@ export function App() {
     menu: openMenu,
   };
   const dueNow = dueToday(tasks, today);
-  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length };
+  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length, [TRASH]: trash.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   const list = active ? listOf(active) : null;
   const isDueView = active === TODAY || active === UPCOMING;
@@ -337,7 +347,16 @@ export function App() {
         <div className="editor" ref={host} hidden={!showingEditor} />
         {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} today={today} actions={taskActions} />}
         {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} today={today} actions={taskActions} />}
-        {!showingEditor && list === null && !isDueView && (
+        {active === TRASH && (
+          <TrashView
+            items={trash}
+            today={today}
+            onRestore={(item) => void session.restore(item)}
+            onDelete={deleteForever}
+            onEmpty={askEmptyTrash}
+          />
+        )}
+        {!showingEditor && list === null && !isDueView && active !== TRASH && (
           <section className="placeholder">
             {active ? (
               <>
@@ -410,7 +429,7 @@ export function App() {
         <ConfirmDialog
           title={dialog.title}
           message={dialog.message}
-          action="Delete"
+          action={dialog.action}
           onConfirm={() => {
             setDialog(null);
             dialog.run();

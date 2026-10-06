@@ -1,19 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryFs } from './fs';
-import { loadTasks } from './tasks';
+import { addTask, loadTasks, serializeTasks } from './tasks';
 import {
   createFolder,
   createNote,
   createScratchNote,
   createTaskList,
+  deleteFromTrash,
   displayTitle,
+  emptyTrash,
   INBOX_TASKS,
   isScratchNote,
   listName,
   loadWorkspace,
   moveItem,
+  readTrash,
   readTree,
   renameItem,
+  restoreFromTrash,
   saveAttachment,
   saveWorkspace,
   titleOf,
@@ -173,6 +177,106 @@ describe('vault', () => {
     expect(await fs.readText(`${trash}/old/notes.md`)).toBe('old');
     expect(await fs.readText(`${trash}/report.pdf`)).toBe('pdf');
     expect((await readTree(fs)).map((n) => n.path)).toEqual(['Home']);
+  });
+});
+
+describe('trash', () => {
+  const later = new Date(2026, 9, 5, 15, 0, 0);
+
+  it('lists what was deleted, the latest first, with where it was', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('Work/2026-10-05 101010.md', '# Call the bank');
+    await fs.writeText('Work/Sprint.tasks.json', serializeTasks(addTask(addTask([], { title: 'a' }), { title: 'b' })));
+    await fs.writeText('Old/one.md', '1');
+    await fs.writeText('Old/Inner/two.md', '2');
+    await fs.mkdir('Old/Empty');
+    await trashItem(fs, 'Work/2026-10-05 101010.md', at);
+    await trashItem(fs, 'Work/Sprint.tasks.json', at);
+    await trashFolder(fs, 'Old', later);
+
+    expect(await readTrash(fs)).toEqual([
+      {
+        path: '.scrawl/trash/2026-10-05 150000 Old',
+        kind: 'folder',
+        title: 'Old',
+        from: 'Old',
+        deleted: later.toISOString(),
+        holds: { notes: 2, lists: 0, folders: 2 },
+      },
+      {
+        path: '.scrawl/trash/2026-10-05 143207 2026-10-05 101010.md',
+        kind: 'note',
+        title: 'Call the bank',
+        from: 'Work/2026-10-05 101010.md',
+        deleted: at.toISOString(),
+      },
+      {
+        path: '.scrawl/trash/2026-10-05 143207 Sprint.tasks.json',
+        kind: 'tasks',
+        title: 'Sprint',
+        from: 'Work/Sprint.tasks.json',
+        deleted: at.toISOString(),
+        tasks: 2,
+      },
+    ]);
+  });
+
+  it('never lets two deletions in the same second clash', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('A/plan.md', 'a');
+    await fs.writeText('B/plan.md', 'b');
+    await trashItem(fs, 'A/plan.md', at);
+    await trashItem(fs, 'B/plan.md', at);
+    expect((await readTrash(fs)).map((i) => [i.path, i.from])).toEqual([
+      ['.scrawl/trash/2026-10-05 143207 plan.md', 'A/plan.md'],
+      ['.scrawl/trash/2026-10-05 143207 plan 2.md', 'B/plan.md'],
+    ]);
+  });
+
+  it('restores an item where it was, numbering it when the name is taken', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('Work/plan.md', 'old');
+    await trashItem(fs, 'Work/plan.md', at);
+    await fs.writeText('Work/plan.md', 'new');
+    const [item] = await readTrash(fs);
+    expect(await restoreFromTrash(fs, item!)).toBe('Work/plan 2.md');
+    expect(await fs.readText('Work/plan 2.md')).toBe('old');
+    expect(await readTrash(fs)).toEqual([]);
+  });
+
+  it('restores a folder with everything in it, even when its place is gone', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('Work/Old/one.md', '1');
+    await fs.mkdir('Work/Old/Empty');
+    await trashFolder(fs, 'Work/Old', at);
+    await fs.remove('Work');
+    const [item] = await readTrash(fs);
+    expect(await restoreFromTrash(fs, item!)).toBe('Work/Old');
+    expect(await fs.readText('Work/Old/one.md')).toBe('1');
+    expect((await fs.list('Work/Old')).map((e) => e.name).sort()).toEqual(['Empty', 'one.md']);
+  });
+
+  it('sends items deleted before the trash kept an index to the inbox', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('.scrawl/trash/2026-10-01 090000 Grocery list.md', 'milk');
+    const [item] = await readTrash(fs);
+    expect(item).toMatchObject({ title: 'Grocery list', from: 'Inbox/Grocery list.md' });
+    expect(item!.deleted).toBe(new Date(2026, 9, 1, 9, 0, 0).toISOString());
+    expect(await restoreFromTrash(fs, item!)).toBe('Inbox/Grocery list.md');
+  });
+
+  it('deletes one item or everything for good', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('a.md', 'a');
+    await fs.writeText('b.md', 'b');
+    await trashItem(fs, 'a.md', at);
+    await trashItem(fs, 'b.md', later);
+    const [b] = await readTrash(fs);
+    await deleteFromTrash(fs, b!);
+    expect((await readTrash(fs)).map((i) => i.title)).toEqual(['a']);
+    await emptyTrash(fs);
+    expect(await readTrash(fs)).toEqual([]);
+    expect(await fs.list('.scrawl/trash')).toEqual([]);
   });
 
   it('stores attachments under a time-based path without spaces', async () => {
