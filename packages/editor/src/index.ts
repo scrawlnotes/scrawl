@@ -128,6 +128,33 @@ function imageInput(saveImage: (file: File) => Promise<string>) {
   });
 }
 
+export interface ScrawlViewer {
+  /** Shows another text, from the top. */
+  show(doc: string): void;
+  destroy(): void;
+}
+
+/** A note as it reads in the editor, without editing: for looking at an earlier version. */
+export function createViewer(options: LivePreviewOptions & { parent: HTMLElement; doc?: string }): ScrawlViewer {
+  const extensions = [
+    EditorState.readOnly.of(true),
+    EditorView.editable.of(false),
+    EditorView.lineWrapping,
+    markdown({ base: markdownLanguage, codeLanguages: languages }),
+    livePreview(options),
+    tableGrid,
+    scrawlTheme,
+  ];
+  const view = new EditorView({ parent: options.parent, state: EditorState.create({ doc: options.doc ?? '', extensions }) });
+  return {
+    show(doc) {
+      view.setState(EditorState.create({ doc, extensions }));
+      view.scrollDOM.scrollTop = 0;
+    },
+    destroy: () => view.destroy(),
+  };
+}
+
 export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
   // The note's length is recounted only when its text or the view mode changes, not on every cursor move.
   let counted: { doc: unknown; source: boolean; chars: number } | null = null;

@@ -246,6 +246,28 @@ p { margin: 0; max-width: 68ch; }
 .tip { position: relative; }
 .tip::after { content: attr(data-tip); position: absolute; right: 0; top: calc(100% + 4px); padding: 3px 7px; border: 1px solid var(--m-line); border-radius: 4px; background: var(--m-bg); color: var(--m-fg); font-size: 11px; white-space: nowrap; z-index: 2; }
 .trash-note { padding: 12px 0 0; font-size: 12px; color: var(--m-faint); }
+
+/* direction A: a note's history, a window over the editor like the app's other dialogs */
+.mock.dir-a { position: relative; }
+.ovl { position: absolute; inset: 0; z-index: 3; display: flex; align-items: flex-start; justify-content: center; padding-top: 44px; background: rgb(0 0 0 / .35); }
+.hist { display: flex; flex-direction: column; width: 780px; height: 500px; background: var(--m-side); border: 1px solid var(--m-line); border-radius: 9px; box-shadow: 0 12px 32px rgb(0 0 0 / .4); overflow: hidden; }
+.hist-head { display: flex; align-items: baseline; gap: 10px; padding: 12px 14px 10px; border-bottom: 1px solid var(--m-line); }
+.hist-head b { font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--m-dim); }
+.hist-head span { color: var(--m-fg); }
+.hist-body { display: grid; grid-template-columns: 196px minmax(0, 1fr); flex: 1; min-height: 0; }
+.hist-list { padding: 6px 8px; border-right: 1px solid var(--m-line); overflow: hidden; }
+.hl-sec { padding: 8px 8px 3px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.hl { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 4px; color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.hl small { font-size: 11px; color: var(--m-faint); }
+.hl.on { background: var(--m-sel); color: var(--m-fg); }
+.hist-view { padding: 14px 22px; background: var(--m-bg); overflow: hidden; font: 13px/1.65 var(--m-ed); }
+.hist-view .ln { min-height: 1.65em; }
+.hist-view .ln::before { content: none; }
+.hist-view .gone { color: var(--m-faint); }
+.hist-foot { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--m-line); }
+.hist-foot .hint { margin-right: auto; font-size: 12px; color: var(--m-faint); }
+.hist-foot .ghost { margin-left: 0; }
+.hist-foot .add { margin-left: 0; }
 .earlier { border-top: 1px solid var(--rule); padding-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 </style>
 
@@ -277,6 +299,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-board" data-aview="board">Board</button>
         <button type="button" id="a-split" data-aview="split">Split</button>
         <button type="button" id="a-trash" data-aview="trash">Trash</button>
+        <button type="button" id="a-history" data-aview="history">History</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -538,6 +561,37 @@ p { margin: 0; max-width: 68ch; }
     trow('notes', 'Grocery list', '<span>Home</span><span>20:05</span>') +
     '<p class="trash-note">Restore puts an item back where it was. Nothing here is deleted until you delete it.</p>' +
     '</div></div>';
+  function hl(time, ago, on) {
+    return '<div class="hl' + (on ? ' on' : '') + '"><span>' + time + '</span>' + (ago ? '<small>' + ago + '</small>' : '') + '</div>';
+  }
+  var HISTORY = '<div class="ovl"><div class="hist">' +
+    '<div class="hist-head"><b>History</b><span>Sync engine: open questions</span></div>' +
+    '<div class="hist-body">' +
+      '<div class="hist-list">' +
+        hl('Current version') +
+        '<div class="hl-sec">Today</div>' +
+        hl('14:41', '12 min ago', true) + hl('14:12', '') + hl('13:30', '') + hl('10:05', '') +
+        '<div class="hl-sec">Yesterday</div>' +
+        hl('18:02', '') +
+        '<div class="hl-sec">Oct 3</div>' +
+        hl('11:15', '') +
+        '<div class="hl-sec">Sep 28</div>' +
+        hl('16:40', '') +
+      '</div>' +
+      '<div class="hist-view">' +
+        '<div class="ln h1">Sync engine: open questions</div>' +
+        '<div class="ln">&nbsp;</div>' +
+        '<div class="ln">Delta API returns a <b>cursor</b> per drive. Store it in <span class="ic">sync-state.json</span>, never in the vault.</div>' +
+        '<div class="ln">&nbsp;</div>' +
+        '<div class="ln li"><span class="bu">•</span>Notes conflict: 3-way merge, fall back to a copy</div>' +
+        '<div class="ln li"><span class="bu">•</span>Tasks merge per record, last write wins per field</div>' +
+        '<div class="ln li"><span class="bu">•</span>Ask before deleting anything on the remote</div>' +
+        '<div class="ln">Token refresh for SPAs: <span class="lnk">MSAL browser docs</span>, 24 h refresh window.</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="hist-foot"><span class="hint">Restoring keeps the current text as a version too.</span>' +
+      '<button type="button" class="ghost">Close</button><button type="button" class="add">Restore this version</button></div>' +
+    '</div></div>';
   function tab(kind, label, go, on, dot) {
     return '<div class="tab' + (on ? ' on' : '') + '" data-go="' + go + '">' + ICON[kind] + '<span>' + label + '</span>' + (dot ? '<i></i>' : '') + '</div>';
   }
@@ -548,10 +602,11 @@ p { margin: 0; max-width: 68ch; }
     tasks: '<span>7 open</span><span>2 due today</span>',
     board: '<span>4 columns</span><span>8 cards</span>',
     today: '<span>3 tasks</span><span>1 overdue</span>',
-    trash: '<span>6 items</span>'
+    trash: '<span>6 items</span>',
+    history: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
   };
   function renderA(section, view) {
-    var noteTabs = tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split') +
+    var noteTabs = tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
       tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks') +
       (view === 'trash' ? tab('trash', 'Trash', 'trash', true) : '');
@@ -559,11 +614,12 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
-      '<div class="status">' + STATUS[view] + '<span>Synced to OneDrive 12 s ago</span></div></section>';
+      '<div class="status">' + STATUS[view] + '<span>Synced to OneDrive 12 s ago</span></div></section>' +
+      (view === 'history' ? HISTORY : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view));
     });

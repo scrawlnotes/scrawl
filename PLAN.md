@@ -163,7 +163,7 @@ vault/
 | # | Aşama | Bitti sayılır |
 |---|---|---|
 | 0 | İskelet ve editör denemesi | Monorepo kurulu; live preview prototipi başlık, vurgu, liste, link, resim ve kod bloğuyla tarayıcıda denenebiliyor |
-| 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler, scratch notlar, kenar çubuğu, resim, kurulabilir sürüm. **Kalan, sırayla:** (1) sekme sürükleme, biçim çubuğunda çoklu imleç, kod bloğunda kopyala; (2) çöp kutusu ekranı; (3) sürüm geçmişi; (4) Inbox arşivleme; (5) medya: link başlığı, dosya bırakma, ses kaydı; (6) çeviri altyapısı, README |
+| 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler (sürükleyerek sıralama dahil), scratch notlar, kenar çubuğu, resim, biçim çubuğunda çoklu imleç, kod bloğunda kopyala, çöp kutusu ekranı, sürüm geçmişi, kurulabilir sürüm. **Kalan, sırayla:** (4) Inbox arşivleme; (5) medya: link başlığı, dosya bırakma, ses kaydı; (6) çeviri altyapısı, README |
 | 1b | Ayarlar | Ayarlar ekranı: tema ve dark mode (sistemle uyumlu, seçim hatırlanır), not klasörü, dil |
 | 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri. **Kalan:** bölümler, sürükleyerek sıralama, kayıtlı filtreler, taşıma, "göreve çevir" |
 | 3 | Sync + web | OneDrive adaptörü, çakışma çözümü; web sürümü yayında ve telefonda PWA olarak kullanılabilir |

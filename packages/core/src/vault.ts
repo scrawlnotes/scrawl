@@ -1,4 +1,5 @@
 import { basename, dirname, type Entry, join, type VaultFs } from './fs';
+import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
 import { loadTasks, serializeTasks, TASK_LIST_EXT } from './tasks';
 
 export const INBOX = 'Inbox';
@@ -64,28 +65,6 @@ export const isScratchNote = (path: string) => SCRATCH_NAME.test(basename(path))
 /** What a task list is called: its file name, or Tasks for the inbox's own list. */
 export function listName(path: string): string {
   return path === INBOX_TASKS ? 'Tasks' : basename(path).slice(0, -TASK_LIST_EXT.length);
-}
-
-/** A file name split into the name the user sees and the extension that says what the file is. */
-function splitName(name: string): [string, string] {
-  if (name.endsWith(TASK_LIST_EXT)) return [name.slice(0, -TASK_LIST_EXT.length), TASK_LIST_EXT];
-  const dot = name.lastIndexOf('.');
-  return dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
-}
-
-const pad = (n: number) => String(n).padStart(2, '0');
-const stamp = (d: Date) =>
-  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-
-/**
- * A path that no entry of `taken` uses, made by numbering `name` when needed. Case is ignored:
- * on Windows `tasks` and `Tasks` are the same file, and writing one would replace the other.
- */
-function freePath(dir: string, name: string, ext: string, taken: ReadonlySet<string>): string {
-  for (let n = 1; ; n++) {
-    const path = join(dir, `${name}${n > 1 ? ` ${n}` : ''}${ext}`);
-    if (!taken.has(path.toLowerCase())) return path;
-  }
 }
 
 /** The paths in `dir`, lowercased for `freePath`. */
@@ -196,19 +175,6 @@ async function trashPath(fs: VaultFs, name: string, ext: string, now: Date): Pro
   return freePath(TRASH, `${stamp(now)} ${name}`, ext, await names(fs, TRASH));
 }
 
-/**
- * Moves every file under `from` to the same place under `to`, folders included, empty ones too.
- * Files are moved one by one, since not every storage can move a folder.
- */
-async function moveTree(fs: VaultFs, from: string, to: string): Promise<void> {
-  await fs.mkdir(to);
-  for (const entry of await fs.list(from)) {
-    const target = to + entry.path.slice(from.length);
-    if (entry.kind === 'dir') await moveTree(fs, entry.path, target);
-    else await fs.move(entry.path, target);
-  }
-}
-
 /** Deleted notes and task lists go to the trash instead of being removed, and the trash remembers where they were. */
 export async function trashItem(fs: VaultFs, path: string, now = new Date()): Promise<void> {
   const [name, ext] = splitName(basename(path));
@@ -242,9 +208,6 @@ export interface TrashItem {
   tasks?: number;
 }
 
-// Trash names start with the moment of deleting: `2026-10-05 143207 Plan.md`.
-const TRASH_NAME = /^(\d{4})-(\d{2})-(\d{2}) (\d{2})(\d{2})(\d{2}) (.+)$/;
-
 async function countTree(fs: VaultFs, dir: string): Promise<{ notes: number; lists: number; folders: number }> {
   const holds = { notes: 0, lists: 0, folders: 0 };
   const visit = async (path: string) => {
@@ -274,12 +237,11 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
     // Anything else was not put there by the app.
     if (!isFolder && !isList && !entry.name.endsWith('.md')) continue;
     const record = records.get(entry.name);
-    const stamped = TRASH_NAME.exec(entry.name);
-    const name = record ? basename(record.from) : (stamped?.[7] ?? entry.name);
+    // Trash names start with the moment of deleting: `2026-10-05 143207 Plan.md`.
+    const stamped = parseStamp(entry.name);
+    const name = record ? basename(record.from) : stamped?.rest.startsWith(' ') ? stamped.rest.slice(1) : entry.name;
     const from = record?.from ?? (isFolder ? name : join(INBOX, name));
-    const deleted =
-      record?.deleted ??
-      (stamped ? new Date(+stamped[1]!, +stamped[2]! - 1, +stamped[3]!, +stamped[4]!, +stamped[5]!, +stamped[6]!) : new Date(0)).toISOString();
+    const deleted = record?.deleted ?? (stamped?.time ?? new Date(0)).toISOString();
     const item = { path: entry.path, from, deleted };
     if (isFolder) items.push({ ...item, kind: 'folder', title: name, holds: await countTree(fs, entry.path) });
     else if (isList) items.push({ ...item, kind: 'tasks', title: listName(name), tasks: (await loadTasks(fs, entry.path)).length });

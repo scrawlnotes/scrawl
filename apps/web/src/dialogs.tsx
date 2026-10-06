@@ -10,8 +10,10 @@ import {
 import { Icon, type IconName } from './Icon';
 
 /** A small window in the middle of the app. Esc or a click beside it closes it. */
-function Dialog({ label, onClose, onEscape = onClose, onKeyDown, children }: {
+export function Dialog({ label, className, onClose, onEscape = onClose, onKeyDown, children }: {
   label: string;
+  /** Added to the window's own class, for a window that is laid out differently. */
+  className?: string;
   onClose: () => void;
   /** What Esc does, when it is not closing. */
   onEscape?: () => void;
@@ -27,7 +29,7 @@ function Dialog({ label, onClose, onEscape = onClose, onKeyDown, children }: {
     <div className="backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div
         ref={panel}
-        className="dialog"
+        className={className ? `dialog ${className}` : 'dialog'}
         role="dialog"
         aria-label={label}
         tabIndex={-1}

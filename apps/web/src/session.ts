@@ -12,10 +12,14 @@ import {
   INBOX,
   INBOX_TASKS,
   isScratchNote,
+  keepVersion,
+  listVersions,
   loadTasks,
   loadWorkspace,
+  moveHistory,
   moveItem,
   type NewTask,
+  pruneHistory,
   readTrash,
   readTree,
   removeTask,
@@ -32,6 +36,8 @@ import {
   type TreeNode,
   updateTask,
   type VaultFs,
+  type Version,
+  VERSION_EVERY_MS,
 } from '@scrawlnotes/core';
 import {
   addCursorBelow,
@@ -134,6 +140,8 @@ export class Session {
   private readonly pending = new Map<string, string>();
   /** The text of each open note as it was last read from or written to the vault. */
   private readonly disk = new Map<string, string>();
+  /** When a version of each note was last kept in this session. */
+  private readonly versionedAt = new Map<string, number>();
   /** Set while a change made outside the app is being put into the editor. */
   private external = false;
   private readonly images = new Map<string, string>();
@@ -179,7 +187,7 @@ export class Session {
 
     this.editor = createEditor({
       parent,
-      resolveImage: (src) => this.images.get(src) ?? src,
+      resolveImage: this.resolveImage,
       saveImage: async (file) => {
         const path = await saveAttachment(this.fs, file);
         this.images.set(path, URL.createObjectURL(file));
@@ -207,6 +215,8 @@ export class Session {
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
+    // Versions past their keeping time go, also those of notes deleted long ago.
+    void pruneHistory(this.fs).catch(() => undefined);
   }
 
   dispose() {
@@ -239,12 +249,64 @@ export class Session {
     this.pending.clear();
     await Promise.all(
       writes.map(async ([path, doc]) => {
+        // What the file held before this save is kept as a version, at most every ten minutes.
+        const before = this.disk.get(path);
+        if (before !== undefined && before !== doc) await this.keep(path, before);
         await this.fs.writeText(path, doc);
         this.disk.set(path, doc);
       }),
     );
     if (!this.pending.size && !this.snapshot.saved) this.set({ saved: true });
   };
+
+  /** Keeps `text` as an earlier version of the note at `path`, as `keepVersion` decides. */
+  private async keep(path: string, text: string, always = false) {
+    const now = Date.now();
+    // While the version kept last in this session is recent, the vault is not even asked.
+    if (!always && now - (this.versionedAt.get(path) ?? 0) < VERSION_EVERY_MS) return;
+    try {
+      await keepVersion(this.fs, path, text, { now: new Date(now), always });
+    } catch {
+      // The history is a safety net: failing to keep a version must not keep the note from saving.
+    }
+    this.versionedAt.set(path, now);
+  }
+
+  /** The earlier versions of a note, the latest first. */
+  versions(path: string): Promise<Version[]> {
+    return listVersions(this.fs, path);
+  }
+
+  readVersion(version: Version): Promise<string> {
+    return this.fs.readText(version.path);
+  }
+
+  /** The text of an open note as it is now, saved or not. */
+  textOf(path: string): string {
+    const state = path === this.snapshot.active ? this.editor?.view.state : this.states.get(path);
+    return state?.doc.toString() ?? this.disk.get(path) ?? '';
+  }
+
+  /** The address an image in a note loads from. */
+  resolveImage = (src: string) => this.images.get(src) ?? src;
+
+  /**
+   * Puts an earlier version's text into the note, as an edit that undo takes back. The text the
+   * note has now is kept as a version first.
+   */
+  async restoreVersion(path: string, text: string) {
+    await this.open(path);
+    const view = this.editor?.view;
+    if (!view || this.snapshot.active !== path) return;
+    await this.keep(path, view.state.doc.toString(), true);
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: text },
+      selection: { anchor: 0 },
+      scrollIntoView: true,
+      userEvent: 'input.restore',
+    });
+    view.focus();
+  }
 
   private saveWorkspace() {
     void saveWorkspace(this.fs, { tabs: this.snapshot.tabs, active: this.snapshot.active });
@@ -276,7 +338,10 @@ export class Session {
       } catch {
         continue;
       }
-      if (text === this.disk.get(path)) continue;
+      const known = this.disk.get(path);
+      if (text === known) continue;
+      // The text it had here is kept, whatever the other program did to it.
+      if (known !== undefined) await this.keep(path, known, true);
       this.disk.set(path, text);
       const view = path === this.snapshot.active ? this.editor?.view : undefined;
       if (!view) {
@@ -505,6 +570,10 @@ export class Session {
     if (onDisk !== undefined) {
       this.disk.delete(path);
       this.disk.set(target, onDisk);
+    }
+    if (path.endsWith('.md')) {
+      await moveHistory(this.fs, path, target).catch(() => undefined);
+      this.versionedAt.delete(path);
     }
     const [from, to] = [tabOf(path), tabOf(target)];
     const { tabs, active } = this.snapshot;

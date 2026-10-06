@@ -15,6 +15,7 @@ import type { EditorStats } from '@scrawlnotes/editor';
 import { type DragEvent, type MouseEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ConfirmDialog, ContextMenu, type FolderChoice, type MenuItem, MoveDialog, NewDialog, RenameDialog } from './dialogs';
 import { FormatBar } from './FormatBar';
+import { HistoryDialog } from './History';
 import { Icon } from './Icon';
 import {
   BOARD_PLACEHOLDER,
@@ -42,6 +43,7 @@ type OpenDialog =
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
   | { kind: 'confirm'; title: string; message: string; action: string; run: () => void }
+  | { kind: 'history'; path: string }
   | null;
 
 // A tab being dragged to another place in the tab bar.
@@ -199,6 +201,12 @@ export function App() {
       'Empty trash',
     );
 
+  // The history window restores into the editor, so the note is opened first.
+  const showHistory = async (path: string) => {
+    await session.open(path);
+    setDialog({ kind: 'history', path });
+  };
+
   const openMenu = (event: MouseEvent, items: MenuItem[]) => {
     event.preventDefault();
     setMenu({ at: { x: event.clientX, y: event.clientY }, items });
@@ -209,6 +217,7 @@ export function App() {
     openMenu(event, [
       { label: 'Move to…', run: () => setDialog({ kind: 'move', path }) },
       { label: 'Rename', run: () => setDialog({ kind: 'rename', path }) },
+      ...(isTaskListPath(path) ? [] : [{ label: 'History…', run: () => void showHistory(path) }]),
       { label: 'Delete', run: () => deleteItem(path) },
     ]);
   // The inbox is always there; it cannot be deleted.
@@ -433,6 +442,20 @@ export function App() {
           onConfirm={() => {
             setDialog(null);
             dialog.run();
+          }}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'history' && (
+        <HistoryDialog
+          path={dialog.path}
+          title={titles[dialog.path] ?? 'untitled'}
+          current={session.textOf(dialog.path)}
+          today={today}
+          source={session}
+          onRestore={(text) => {
+            setDialog(null);
+            void session.restoreVersion(dialog.path, text);
           }}
           onClose={closeDialog}
         />

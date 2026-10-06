@@ -710,6 +710,118 @@ input:focus {
   font-weight: 600;
 }
 
+.dialog-actions .primary:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* a note's history: after the History window of design/mockups.html (direction A) */
+.dialog.history {
+  gap: 0;
+  width: min(780px, calc(100vw - 32px));
+  height: min(500px, calc(100vh - 140px));
+  padding: 0;
+  overflow: hidden;
+}
+
+.history-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.history-head span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 196px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.history-list {
+  padding: 6px 8px;
+  border-right: 1px solid var(--sl-line);
+  overflow-y: auto;
+}
+
+.history-list button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--sl-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.history-list button:hover {
+  color: var(--sl-fg);
+}
+
+.history-list button[aria-selected='true'] {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.history-list small {
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.history-list p {
+  margin: 8px;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.history-day {
+  padding: 8px 8px 3px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* The editor's own view, read-only, fills the right side. */
+.history-view {
+  position: relative;
+  min-width: 0;
+  background: var(--sl-bg);
+}
+
+.history-view .cm-editor {
+  position: absolute;
+  inset: 0;
+  height: auto;
+}
+
+.dialog.history .history-view .cm-content {
+  padding: 14px 10px;
+}
+
+.history-foot {
+  align-items: center;
+  padding: 10px 14px;
+  border-top: 1px solid var(--sl-line);
+}
+
+.history-foot span {
+  margin-right: auto;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
 /* tasks: after the Tasks view of design/mockups.html (direction A) */
 :root {
   --sl-p1: #f0706a;
