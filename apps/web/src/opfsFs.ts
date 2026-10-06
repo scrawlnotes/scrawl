@@ -1,5 +1,10 @@
 import { basename, dirname, type Entry, join, MemoryFs, PART_SIZE, type PartsOptions, type VaultFs } from '@scrawlnotes/core';
 
+/** A file handle that can move itself, which not every browser offers yet. */
+interface Movable {
+  move(parent: FileSystemDirectoryHandle, name: string): Promise<void>;
+}
+
 /** A vault in the browser's origin private file system. */
 class OpfsFs implements VaultFs {
   constructor(private readonly root: FileSystemDirectoryHandle) {}
@@ -74,8 +79,14 @@ class OpfsFs implements VaultFs {
     }
   }
 
+  // Browsers that can move a file move it in place, however large; others copy it and delete the original.
   async move(from: string, to: string): Promise<void> {
-    await this.writeBlob(to, await this.readBlob(from));
+    const source: FileSystemFileHandle & Partial<Movable> = await this.file(from, false);
+    if (typeof source.move === 'function') {
+      await source.move(await this.dir(dirname(to), true), basename(to));
+      return;
+    }
+    await this.writeBlob(to, await source.getFile());
     await this.remove(from);
   }
 
