@@ -30,11 +30,11 @@ import {
   toggleLinePrefix,
 } from './commands';
 import { findPanel } from './find';
-import { widgetMoves } from './media';
+import { attachmentChanges, widgetMoves } from './media';
 import { linkPaste } from './links';
 import { cursorBehavior } from './cursor';
 import { literalInput } from './literal';
-import { livePreview, type LivePreviewOptions, setSourceMode, sourceMode } from './livePreview';
+import { livePreview, type LivePreviewOptions, mediaChanged, setSourceMode, sourceMode } from './livePreview';
 import { textSelection } from './selection';
 import { type SlashItem, slashMenu } from './slash';
 import { enterTable, tableGrid, tableRanges } from './table';
@@ -47,7 +47,7 @@ export { literalPattern } from './find';
 export { addCopy, type Copy, copyFollows, copyPosition, copyProgress, dropCopy, progressText, showCopy } from './copies';
 export { linkAddress, linkText, pastedLink, pastedUrl } from './links';
 export { cursorBehavior, restingPosition } from './cursor';
-export { type ItemAction, sizeText } from './media';
+export { attachmentChanges, attachmentsIn, type ItemAction, sizeText } from './media';
 export { buildDecorations, livePreview, type LivePreviewOptions, setSourceMode, sourceMode } from './livePreview';
 export { literalInput, positionsToEscape } from './literal';
 export { textSelection } from './selection';
@@ -80,6 +80,8 @@ export interface ScrawlEditorOptions extends LivePreviewOptions {
   addFiles?: (files: File[], at: number) => void;
   /** Starts recording from the microphone, for the `/` menu. */
   record?: () => void;
+  /** The note stopped linking to some attached files, or started linking to them, as an edit or undo did. */
+  onAttachments?: (removed: string[], added: string[]) => void;
 }
 
 export interface ScrawlEditor {
@@ -90,6 +92,8 @@ export interface ScrawlEditor {
   setState(state: EditorState): void;
   /** Shows the note as plain Markdown instead of the formatted preview. */
   setSourceMode(on: boolean): void;
+  /** Draws the note's images, files and recordings anew, after files of it came back. */
+  refreshMedia(): void;
   destroy(): void;
 }
 
@@ -237,6 +241,17 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
           // `view.state`, not `update.state`: another listener may have changed the note again from
           // inside this update, and the text to save is the newest one.
           if (update.docChanged) options.onChange?.(update.view.state.doc.toString());
+          if (update.docChanged && options.onAttachments) {
+            const removed = new Set<string>();
+            const added = new Set<string>();
+            for (const tr of update.transactions) {
+              const change = attachmentChanges(tr);
+              // A link taken away and put back within one update is neither.
+              for (const src of change.removed) if (!added.delete(src)) removed.add(src);
+              for (const src of change.added) if (!removed.delete(src)) added.add(src);
+            }
+            if (removed.size || added.size) options.onAttachments([...removed], [...added]);
+          }
           const modeChanged = update.startState.field(sourceMode) !== update.state.field(sourceMode);
           if (update.docChanged || update.selectionSet || modeChanged) options.onStats?.(stats(update.view.state));
         }),
@@ -256,6 +271,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
       options.onStats?.(stats(state));
     },
     setSourceMode: (on) => view.dispatch({ effects: setSourceMode.of(on) }),
+    refreshMedia: () => view.dispatch({ effects: mediaChanged.of(null) }),
     destroy: () => view.destroy(),
   };
 }

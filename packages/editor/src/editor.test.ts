@@ -20,6 +20,7 @@ import { markdownSlice, visibleText } from './clipboard';
 import { addCopy, type Copy, copiesField, copyFollows, copyPosition, copyProgress, dropCopy, progressText } from './copies';
 import { positionsToEscape } from './literal';
 import { buildDecorations, setSourceMode, sourceMode } from './livePreview';
+import { attachmentChanges } from './media';
 import { cellMarkdown, parseTable, serializeTable, tableDecorations, tableGrid } from './table';
 
 const extensions = [markdown({ base: markdownLanguage }), sourceMode, EditorState.allowMultipleSelections.of(true)];
@@ -450,6 +451,27 @@ describe('attachments', () => {
     ensureSyntaxTree(state, state.doc.length, 5000);
     expect(visibleText(state, 0, state.doc.length)).toBe('See Voice memo now');
     expect(linkAt(state)).toBeNull();
+  });
+
+  it('tells which attached files an edit stopped or started linking to', () => {
+    const file = '[b.pdf](_attachments/b%20c.pdf)';
+    const state = EditorState.create({ doc: `${file} and [site](https://x.y)\n![](<_attachments/my a.png>)`, extensions });
+    const removed = state.update({ changes: { from: 0, to: file.length } });
+    expect(attachmentChanges(removed)).toEqual({ removed: ['_attachments/b c.pdf'], added: [] });
+    // Undo puts it back.
+    expect(attachmentChanges(removed.state.update({ changes: { from: 0, insert: file } }))).toEqual({
+      removed: [],
+      added: ['_attachments/b c.pdf'],
+    });
+    // Moved to the next line, it is still linked.
+    const moved = state.update({ changes: [{ from: 0, to: file.length }, { from: state.doc.length, insert: ` ${file}` }] });
+    expect(attachmentChanges(moved)).toEqual({ removed: [], added: [] });
+    // Typing elsewhere on a line with a file changes nothing.
+    expect(attachmentChanges(state.update({ changes: { from: file.length, insert: 'x' } }))).toEqual({ removed: [], added: [] });
+    expect(attachmentChanges(state.update({ changes: { from: state.doc.line(2).from, to: state.doc.length } }))).toEqual({
+      removed: ['_attachments/my a.png'],
+      added: [],
+    });
   });
 
   it('shows what can be done with an image or a file only while the selection is that item alone', () => {

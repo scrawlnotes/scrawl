@@ -353,39 +353,60 @@ async function attachedFiles(fs: VaultFs): Promise<Entry[]> {
   );
 }
 
+/** Moves those of `files` that nothing links to into the trash. Returns their paths. */
+async function trashIfUnlinked(fs: VaultFs, files: Entry[], unsaved: () => string[], now: Date): Promise<string[]> {
+  if (files.length === 0) return [];
+  const texts = await allTexts(fs);
+  // Asked only now, after reading the vault, so that an edit made meanwhile counts.
+  const linked = linkedIn([...texts, ...unsaved()]);
+  const moved: string[] = [];
+  for (const file of files) {
+    if (linked.includes(file.path.toLowerCase())) continue;
+    await trashItem(fs, file.path, now);
+    moved.push(file.path);
+  }
+  return moved;
+}
+
 /**
  * Moves the attached files that nothing links to any more into the trash, where they can still
  * be restored. Notes in the trash count, so that restoring one shows its files. `unsaved` gives
  * the text of notes not written yet. Returns how many files were moved.
  */
 export async function sweepAttachments(fs: VaultFs, unsaved: () => string[] = () => [], now = new Date()): Promise<number> {
-  const files = await attachedFiles(fs);
-  if (files.length === 0) return 0;
-  const texts = await allTexts(fs);
-  const linked = linkedIn([...texts, ...unsaved()]);
-  let moved = 0;
-  for (const file of files) {
-    if (linked.includes(file.path.toLowerCase())) continue;
-    await trashItem(fs, file.path, now);
-    moved++;
-  }
-  return moved;
+  return (await trashIfUnlinked(fs, await attachedFiles(fs), unsaved, now)).length;
+}
+
+/**
+ * Moves the attached files at `paths`, which a note stopped linking to, into the trash when no
+ * other note links to them either. Returns the paths of those moved.
+ */
+export async function trashUnlinked(
+  fs: VaultFs,
+  paths: string[],
+  unsaved: () => string[] = () => [],
+  now = new Date(),
+): Promise<string[]> {
+  const wanted = new Set(paths.map((path) => path.toLowerCase()));
+  const files = (await attachedFiles(fs)).filter((file) => wanted.has(file.path.toLowerCase()));
+  return trashIfUnlinked(fs, files, unsaved, now);
 }
 
 /**
  * Brings back from the trash the attached files that `texts` link to, unless another file of
- * the same name has taken their place. Returns how many came back.
+ * the same name has taken their place. Returns the paths of those that came back.
  */
-export async function restoreAttachments(fs: VaultFs, texts: string[]): Promise<number> {
+export async function restoreAttachments(fs: VaultFs, texts: string[]): Promise<string[]> {
   const linked = linkedIn(texts);
   const present = await names(fs, ATTACHMENTS);
-  let restored = 0;
+  const restored: string[] = [];
   // The latest deleted comes first, so of a file deleted twice its last version comes back.
   for (const item of await readTrash(fs)) {
     const from = item.from.toLowerCase();
     if (item.kind !== 'attachment' || present.has(from) || !linked.includes(from)) continue;
-    present.add((await restoreFromTrash(fs, item)).toLowerCase());
-    restored++;
+    const path = await restoreFromTrash(fs, item);
+    present.add(path.toLowerCase());
+    restored.push(path);
   }
   return restored;
 }

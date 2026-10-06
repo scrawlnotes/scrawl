@@ -40,6 +40,9 @@ const openInBrowser = (href: string) => void window.open(href, '_blank', 'noopen
  */
 const imageLoaded = StateEffect.define<null>();
 
+/** Files of the note came back, from the trash for example: its images, files and recordings are drawn anew. */
+export const mediaChanged = StateEffect.define<null>();
+
 /** Source mode shows the note as plain Markdown: nothing is hidden or replaced. */
 export const setSourceMode = StateEffect.define<boolean>();
 export const sourceMode = StateField.define<boolean>({
@@ -112,10 +115,11 @@ class ImageWidget extends ItemWidget {
     selected: boolean,
     active: boolean,
     readonly preview: LivePreviewOptions,
+    version: number,
     /** How many images had loaded in the editor when it was made; see `imageLoaded`. */
     readonly loads: number,
   ) {
-    super(src, length, selected, active, preview);
+    super(src, length, selected, active, preview, version);
   }
   protected key() {
     return `${this.src}\n${this.alt}\n${this.length}`;
@@ -243,7 +247,7 @@ function collect(
   ranges: readonly { from: number; to: number }[],
   options: LivePreviewOptions,
   tree: Tree,
-  loads = 0,
+  drawn = { loads: 0, version: 0 },
 ): Item[] {
   if (state.field(sourceMode, false)) return [];
   const doc = state.doc;
@@ -279,8 +283,8 @@ function collect(
       const label = doc.sliceString(open.to, close.from).replace(/\\([!-/:-@[-`{-~])/g, '$1') || src.slice(src.lastIndexOf('/') + 1);
       const length = node.to - node.from;
       const widget = isAudio(src)
-        ? new AudioWidget(src, label, length, selected(node), active(node), options)
-        : new FileWidget(src, label, length, selected(node), active(node), options);
+        ? new AudioWidget(src, label, length, selected(node), active(node), options, drawn.version)
+        : new FileWidget(src, label, length, selected(node), active(node), options, drawn.version);
       out.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget, kind: 'attachment', label }), role: 'unit' });
       return false;
     }
@@ -298,7 +302,7 @@ function collect(
     if (!open || !close || !url) return;
     const src = doc.sliceString(url.from, url.to);
     const alt = doc.sliceString(open.to, close.from);
-    const widget = new ImageWidget(src, alt, node.to - node.from, selected(node), active(node), options, loads);
+    const widget = new ImageWidget(src, alt, node.to - node.from, selected(node), active(node), options, drawn.version, drawn.loads);
     out.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget, kind: 'image', alt }), role: 'unit' });
   };
 
@@ -472,15 +476,20 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
     class {
       decorations!: DecorationSet;
       atomic!: RangeSet<Atomic>;
-      loads = 0;
+      drawn = { loads: 0, version: 0 };
       constructor(view: EditorView) {
         this.build(view);
       }
       update(update: ViewUpdate) {
-        const loaded = update.transactions.some((tr) => tr.effects.some((effect) => effect.is(imageLoaded)));
-        if (loaded) this.loads++;
+        const has = (type: typeof imageLoaded) => update.transactions.some((tr) => tr.effects.some((e) => e.is(type)));
+        const loaded = has(imageLoaded);
+        const changed = has(mediaChanged);
+        if (loaded || changed) {
+          this.drawn = { loads: this.drawn.loads + (loaded ? 1 : 0), version: this.drawn.version + (changed ? 1 : 0) };
+        }
         if (
           loaded ||
+          changed ||
           update.docChanged ||
           update.viewportChanged ||
           update.selectionSet ||
@@ -491,7 +500,7 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
         }
       }
       build(view: EditorView) {
-        const items = collect(view.state, view.visibleRanges, options, syntaxTree(view.state), this.loads);
+        const items = collect(view.state, view.visibleRanges, options, syntaxTree(view.state), this.drawn);
         const decos: Range<Decoration>[] = [];
         const units: Range<Atomic>[] = [];
         for (const item of items) {

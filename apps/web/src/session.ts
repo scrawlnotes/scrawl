@@ -36,6 +36,7 @@ import {
   type Task,
   trashFolder,
   trashItem,
+  trashUnlinked,
   type TrashItem,
   type TreeNode,
   updateTask,
@@ -184,6 +185,8 @@ export class Session {
   /** Editing state of each open note that is not on screen, undo history included. */
   private readonly states = new Map<string, EditorState>();
   private readonly pending = new Map<string, string>();
+  /** Attached files the note on screen stopped linking to, to go to the trash once it is saved. */
+  private readonly unlinked = new Set<string>();
   /** Shows the menu of a right click in a note; the interface sets it, to draw it like its other menus. */
   showMenu: ((at: { x: number; y: number }, items: ItemAction[]) => void) | null = null;
   /** The text of each open note as it was last read from or written to the vault. */
@@ -263,6 +266,7 @@ export class Session {
       // The desktop web view does not open new windows; links go to the default browser.
       openLink: isDesktop ? (href) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
       showMenu: (at, items) => this.showMenu?.(at, items),
+      onAttachments: (removed, added) => this.attachmentsChanged(removed, added),
       fileSize: (src) => this.sizes.get(src),
       resolveAudio: (src) => this.mediaUrl(src),
       record: () => void this.startRecording(),
@@ -294,8 +298,8 @@ export class Session {
   ];
 
   /**
-   * Attached files that no note links to any more go to the trash. It is done as the app opens,
-   * when no undo can bring a link back: until then a removed file stays where it is.
+   * Attached files that no note links to any more go to the trash as the app opens too: those
+   * whose links were removed while it was closed, by another program or another device.
    */
   private async sweepAttachments(run: number) {
     try {
@@ -350,7 +354,66 @@ export class Session {
       }),
     );
     this.markSaved();
+    void this.trashUnlinkedFiles();
   };
+
+  /**
+   * The note on screen stopped linking to some attached files, or links to them again. Files
+   * linked again come back from the trash at once, as undo, paste or a restored version expect.
+   */
+  private attachmentsChanged(removed: string[], added: string[]) {
+    for (const src of added) this.unlinked.delete(src);
+    for (const src of removed) this.unlinked.add(src);
+    if (added.length) void this.bringBack(added);
+  }
+
+  /**
+   * Browser only: what was read of files that moved can no longer be read, so it is read again
+   * from where they are next.
+   */
+  private forgetMedia(paths: string[]) {
+    for (const path of paths) {
+      void this.images.get(path)?.then((url) => URL.revokeObjectURL(url), () => undefined);
+      this.images.delete(path);
+      const url = this.media.get(path);
+      if (url) URL.revokeObjectURL(url);
+      this.media.delete(path);
+    }
+  }
+
+  /** Brings attached files back from the trash that the notes in `texts` link to. */
+  private async bringBack(texts: string[]) {
+    try {
+      const restored = await restoreAttachments(this.fs, texts);
+      if (restored.length === 0) return;
+      // An image may have been read while its file was coming back; it is read again in full.
+      this.forgetMedia(restored);
+      this.editor?.refreshMedia();
+      this.set({ trash: await readTrash(this.fs) });
+    } catch {
+      // A file that cannot come back shows as missing; the trash still has it.
+    }
+  }
+
+  /**
+   * Attached files that no note links to any more go to the trash as soon as the note that let
+   * go of them is saved, unless another note, saved or not, still links to them.
+   */
+  private async trashUnlinkedFiles() {
+    if (this.unlinked.size === 0) return;
+    const paths = [...this.unlinked];
+    this.unlinked.clear();
+    try {
+      const moved = await trashUnlinked(this.fs, paths, this.openTexts);
+      if (moved.length === 0) return;
+      this.forgetMedia(moved);
+      this.set({ trash: await readTrash(this.fs) });
+      // An undo or a paste in the moment it took brings them straight back.
+      await this.bringBack(this.openTexts());
+    } catch {
+      // The next start moves them, as it does any file nothing links to.
+    }
+  }
 
   /** Shows "Saved" once nothing waits to be written: no note, and no file being copied. */
   private markSaved() {
@@ -602,7 +665,11 @@ export class Session {
     if (!view || this.snapshot.active !== path) return;
     await this.keep(path, view.state.doc.toString(), true);
     // Files the version links to that went to the trash meanwhile come back with it, before it shows them.
-    if (await restoreAttachments(this.fs, [text]).catch(() => 0)) this.set({ trash: await readTrash(this.fs) });
+    const restored = await restoreAttachments(this.fs, [text]).catch(() => []);
+    if (restored.length) {
+      this.forgetMedia(restored);
+      this.set({ trash: await readTrash(this.fs) });
+    }
     if (this.snapshot.active !== path) return;
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: text },

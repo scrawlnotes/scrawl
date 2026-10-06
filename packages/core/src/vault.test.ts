@@ -23,6 +23,7 @@ import {
   saveFile,
   saveWorkspace,
   sweepAttachments,
+  trashUnlinked,
   titleOf,
   trashFolder,
   trashItem,
@@ -320,7 +321,7 @@ describe('unused attachments', () => {
     expect(await files(fs)).toEqual([]);
 
     // An old version of a note is restored from its history.
-    expect(await restoreAttachments(fs, ['![](_attachments/b.png)'])).toBe(1);
+    expect(await restoreAttachments(fs, ['![](_attachments/b.png)'])).toEqual(['_attachments/b.png']);
     expect(await files(fs)).toEqual(['b.png']);
 
     // A note in the trash whose file went meanwhile, as another device may leave it.
@@ -332,12 +333,24 @@ describe('unused attachments', () => {
     expect(await readTrash(fs)).toEqual([]);
   });
 
+  it('go to the trash as soon as a note stops linking to them, unless another note links to them', async () => {
+    const fs = new MemoryFs();
+    for (const name of ['mine.png', 'shared.png', 'open.png', 'other.png']) await fs.writeText(`_attachments/${name}`, 'x');
+    await fs.writeText('Work/a.md', 'nothing left');
+    await fs.writeText('Work/b.md', '![](_attachments/shared.png)');
+    const unsaved = () => ['![](_attachments/open.png)'];
+    const paths = ['_attachments/mine.png', '_attachments/shared.png', '_attachments/open.png', '_attachments/gone.png'];
+    expect(await trashUnlinked(fs, paths, unsaved, at)).toEqual(['_attachments/mine.png']);
+    expect(await files(fs)).toEqual(['open.png', 'other.png', 'shared.png']);
+    expect((await readTrash(fs)).map((i) => i.title)).toEqual(['mine.png']);
+  });
+
   it('do not come back over another file that took their name', async () => {
     const fs = new MemoryFs();
     await fs.writeText('_attachments/scope.pdf', 'old');
     await sweepAttachments(fs, () => [], at);
     await fs.writeText('_attachments/scope.pdf', 'new');
-    expect(await restoreAttachments(fs, ['[scope](_attachments/scope.pdf)'])).toBe(0);
+    expect(await restoreAttachments(fs, ['[scope](_attachments/scope.pdf)'])).toEqual([]);
     expect(await fs.readText('_attachments/scope.pdf')).toBe('new');
   });
 

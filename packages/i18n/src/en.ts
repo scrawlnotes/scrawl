@@ -124,7 +124,7 @@ export const en = {
   'trash.topLevel': 'the top level',
   'trash.emptyFolder': 'Empty',
   'trash.note':
-    'Restore puts an item back where it was. Attached files that no note uses any more are moved here when Scrawl starts. Nothing here is deleted until you delete it.',
+    'Restore puts an item back where it was. Attached files that no note uses any more are moved here. Nothing here is deleted until you delete it.',
   'trash.nothing': 'The trash is empty.',
 
   // history

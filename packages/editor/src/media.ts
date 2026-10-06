@@ -1,4 +1,4 @@
-import { EditorSelection } from '@codemirror/state';
+import { EditorSelection, type Transaction } from '@codemirror/state';
 import { EditorView, WidgetType } from '@codemirror/view';
 import { t } from '@scrawlnotes/i18n';
 
@@ -38,6 +38,35 @@ export function attachmentOf(href: string): string | null {
 }
 
 export const isAudio = (src: string) => AUDIO.test(src);
+
+/** Where a Markdown link or image points: `](address)` or `](<address with spaces>)`. */
+const DESTINATION = /\]\(\s*(?:<([^>\n]*)>|([^\s)]+))/g;
+
+/** The attached files that the links and images in `text` point to. */
+export function attachmentsIn(text: string): Set<string> {
+  const found = new Set<string>();
+  for (const m of text.matchAll(DESTINATION)) {
+    const src = attachmentOf(m[1] ?? m[2] ?? '');
+    if (src) found.add(src);
+  }
+  return found;
+}
+
+/**
+ * The attached files a change stopped linking to and started linking to, judged by the lines it
+ * touched. A file moved within the note is in neither.
+ */
+export function attachmentChanges(tr: Transaction): { removed: string[]; added: string[] } {
+  const before = new Set<string>();
+  const after = new Set<string>();
+  const { doc: a } = tr.startState;
+  const { doc: b } = tr.state;
+  tr.changes.iterChangedRanges((fromA, toA, fromB, toB) => {
+    for (const src of attachmentsIn(a.sliceString(a.lineAt(fromA).from, a.lineAt(toA).to))) before.add(src);
+    for (const src of attachmentsIn(b.sliceString(b.lineAt(fromB).from, b.lineAt(toB).to))) after.add(src);
+  });
+  return { removed: [...before].filter((src) => !after.has(src)), added: [...after].filter((src) => !before.has(src)) };
+}
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string) => {
   const node = document.createElement(tag);
@@ -179,12 +208,18 @@ export abstract class ItemWidget extends WidgetType {
     /** The selection is this item and nothing else. */
     readonly active: boolean,
     readonly options: MediaOptions,
+    /** Counts the times the note's files came back; each draws the items anew, to show them. */
+    readonly version: number,
   ) {
     super();
   }
 
   /** What tells one item from another, the selection left out. */
   protected abstract key(): string;
+  /** What has to change for the item to be drawn anew. */
+  private identity() {
+    return `${this.key()}\n${this.version}`;
+  }
   /** Draws the item itself, the part that is outlined when it is selected. */
   protected abstract body(view: EditorView, root: HTMLElement): HTMLElement;
   /** Opens the item; null when it has nothing to open it with. */
@@ -193,7 +228,7 @@ export abstract class ItemWidget extends WidgetType {
   protected abstract file(): string | null;
 
   eq(other: ItemWidget) {
-    return other.key() === this.key() && other.selected === this.selected && other.active === this.active;
+    return other.identity() === this.identity() && other.selected === this.selected && other.active === this.active;
   }
 
   private actions(view: EditorView, root: HTMLElement): ItemAction[] {
@@ -211,7 +246,7 @@ export abstract class ItemWidget extends WidgetType {
     const root: ItemDom = el('span', this.rootClass);
     const body = this.body(view, root);
     root.append(body);
-    root.itemKey = this.key();
+    root.itemKey = this.identity();
     root.itemBody = body;
     // Pressing and moving drags the item to another place in the note. A note that is only shown,
     // like an earlier version, has nothing to do with its items but look at them.
@@ -230,7 +265,7 @@ export abstract class ItemWidget extends WidgetType {
 
   /** A change of selection only changes the outline and the bar, so a playing recording plays on. */
   updateDOM(dom: HTMLElement, view: EditorView) {
-    if ((dom as ItemDom).itemKey !== this.key()) return false;
+    if ((dom as ItemDom).itemKey !== this.identity()) return false;
     this.showSelection(view, dom);
     return true;
   }
@@ -257,8 +292,16 @@ export abstract class ItemWidget extends WidgetType {
 export class FileWidget extends ItemWidget {
   protected readonly selectedClass = 'cm-sl-file-selected';
 
-  constructor(src: string, readonly name: string, length: number, selected: boolean, active: boolean, options: MediaOptions) {
-    super(src, length, selected, active, options);
+  constructor(
+    src: string,
+    readonly name: string,
+    length: number,
+    selected: boolean,
+    active: boolean,
+    options: MediaOptions,
+    version: number,
+  ) {
+    super(src, length, selected, active, options, version);
   }
   protected key() {
     return `${this.src}\n${this.name}\n${this.length}`;
@@ -327,8 +370,16 @@ let playing: HTMLAudioElement | null = null;
 export class AudioWidget extends ItemWidget {
   protected readonly selectedClass = 'cm-sl-audio-selected';
 
-  constructor(src: string, readonly label: string, length: number, selected: boolean, active: boolean, options: MediaOptions) {
-    super(src, length, selected, active, options);
+  constructor(
+    src: string,
+    readonly label: string,
+    length: number,
+    selected: boolean,
+    active: boolean,
+    options: MediaOptions,
+    version: number,
+  ) {
+    super(src, length, selected, active, options, version);
   }
   protected key() {
     return `${this.src}\n${this.label}\n${this.length}`;
