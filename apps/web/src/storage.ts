@@ -45,3 +45,8 @@ export async function fetchPageHead(url: string): Promise<string | null> {
     return null;
   }
 }
+
+/** Desktop: opens a file in the vault with the program the system uses for it. */
+export async function openFileOnDesktop(path: string): Promise<void> {
+  if (folder) await invoke('open_file', { root: folder, path });
+}

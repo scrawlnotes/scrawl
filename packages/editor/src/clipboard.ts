@@ -17,8 +17,9 @@ interface Span {
  * other place for it.
  */
 export function visibleText(state: EditorState, from: number, to: number, links = false): string {
+  const replaced = new Set(['hide', 'image', 'attachment']);
   const items = previewItems(state, from, to)
-    .filter((item) => item.to > item.from && (item.deco?.spec.kind === 'hide' || item.deco?.spec.kind === 'image'))
+    .filter((item) => item.to > item.from && replaced.has(item.deco?.spec.kind))
     .sort((a, b) => a.from - b.from);
   let out = '';
   let pos = from;
@@ -28,6 +29,8 @@ export function visibleText(state: EditorState, from: number, to: number, links 
     if (end <= start) continue;
     out += state.sliceDoc(pos, start);
     if (item.deco!.spec.kind === 'image') out += links ? (item.deco!.spec.alt as string) : '';
+    // An attached file reads as its name, the way it shows.
+    else if (item.deco!.spec.kind === 'attachment') out += item.deco!.spec.label as string;
     else if (links && item.role === 'close') {
       const url = /^\]\(\s*<?([^)\s>]+)/.exec(state.sliceDoc(item.from, item.to))?.[1];
       if (url) out += ` (${url})`;

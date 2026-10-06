@@ -23,7 +23,9 @@ class OpfsFs implements VaultFs {
     }
     const out: Entry[] = [];
     for await (const [name, child] of handle.entries()) {
-      out.push({ name, path: join(dir, name), kind: child.kind === 'directory' ? 'dir' : 'file' });
+      const path = join(dir, name);
+      if (child.kind === 'directory') out.push({ name, path, kind: 'dir' });
+      else out.push({ name, path, kind: 'file', size: (await (child as FileSystemFileHandle).getFile()).size });
     }
     return out;
   }

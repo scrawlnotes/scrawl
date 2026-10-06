@@ -21,8 +21,11 @@ export class TauriFs implements VaultFs {
     return invoke('fs_write_text', { root: this.root, path, text });
   }
 
+  // The bytes go as they are, not as JSON; the paths ride along in headers, which must be ASCII.
   async writeBlob(path: string, data: Blob): Promise<void> {
-    await invoke('fs_write_bytes', { root: this.root, path, data: Array.from(new Uint8Array(await data.arrayBuffer())) });
+    await invoke('fs_write_bytes', new Uint8Array(await data.arrayBuffer()), {
+      headers: { 'x-root': encodeURIComponent(this.root), 'x-path': encodeURIComponent(path) },
+    });
   }
 
   move(from: string, to: string): Promise<void> {

@@ -19,6 +19,7 @@ import {
   renameItem,
   restoreFromTrash,
   saveAttachment,
+  saveFile,
   saveWorkspace,
   titleOf,
   trashFolder,
@@ -284,6 +285,17 @@ describe('trash', () => {
     const image = new Blob(['x'], { type: 'image/png' });
     expect(await saveAttachment(fs, image, at)).toBe('_attachments/2026-10-05-143207.png');
     expect(await saveAttachment(fs, image, at)).toBe('_attachments/2026-10-05-143207-2.png');
+  });
+
+  it('stores other files under their own name, and a recording as .webm', async () => {
+    const fs = new MemoryFs();
+    const pdf = new File(['%PDF'], 'Scope: v3.pdf', { type: 'application/pdf' });
+    expect(await saveFile(fs, pdf)).toBe('_attachments/Scope v3.pdf');
+    expect(await saveFile(fs, pdf)).toBe('_attachments/Scope v3 2.pdf');
+    expect(await saveFile(fs, new File(['x'], '.env'))).toBe('_attachments/file .env');
+    expect((await fs.list('_attachments')).find((e) => e.name === 'Scope v3.pdf')?.size).toBe(4);
+    const voice = new Blob(['ogg'], { type: 'audio/webm;codecs=opus' });
+    expect(await saveAttachment(fs, voice, at)).toBe('_attachments/2026-10-05-143207.webm');
   });
 
   it('rejects folder names that would be hidden', async () => {

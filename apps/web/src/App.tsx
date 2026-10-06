@@ -91,7 +91,8 @@ function contentsOf(folder: TreeNode): string {
 export function App() {
   const host = useRef<HTMLDivElement>(null);
   const [session] = useState(() => new Session());
-  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, trash, saved, stats, format, source } = useSyncExternalStore(
+  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, trash, saved, stats, format, source, recording, recordError } =
+    useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
   );
@@ -351,7 +352,15 @@ export function App() {
           </button>
         </div>
         {showingEditor && (
-          <FormatBar format={format} onFormat={(action) => session.format(action)} onLink={(url) => session.setLink(url)} />
+          <FormatBar
+            format={format}
+            onFormat={(action) => session.format(action)}
+            onLink={(url) => session.setLink(url)}
+            recording={recording}
+            recordError={recordError}
+            onRecord={() => void session.startRecording()}
+            onStop={() => session.stopRecording()}
+          />
         )}
         <div className="editor" ref={host} hidden={!showingEditor} />
         {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} today={today} actions={taskActions} />}

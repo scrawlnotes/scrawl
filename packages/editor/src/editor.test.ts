@@ -403,6 +403,25 @@ describe('split selection into lines', () => {
   });
 });
 
+describe('attachments', () => {
+  it('draws a link to an attached file as the file, and other links as links', () => {
+    expect(decorations('[scope v3.pdf](_attachments/scope%20v3.pdf) and [site](https://x.y)|')).toEqual([
+      'attachment 0-43',
+      'hide 48-49',
+      'link 49-53',
+      'hide 53-67',
+    ]);
+  });
+
+  it('reads an attached file as its name, and leaves it out of the link editor', () => {
+    const doc = 'See [Voice memo](_attachments/2026-10-06-153739.webm) now';
+    const state = EditorState.create({ doc, selection: { anchor: 4 }, extensions });
+    ensureSyntaxTree(state, state.doc.length, 5000);
+    expect(visibleText(state, 0, state.doc.length)).toBe('See Voice memo now');
+    expect(linkAt(state)).toBeNull();
+  });
+});
+
 describe('pasted links', () => {
   it('knows a pasted web address from other text', () => {
     expect(pastedUrl('  https://example.com/a?b=c#d \n')).toBe('https://example.com/a?b=c#d');

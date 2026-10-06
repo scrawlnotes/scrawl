@@ -28,7 +28,7 @@ import {
   toggleLinePrefix,
 } from './commands';
 import { findPanel } from './find';
-import { linkPaste } from './links';
+import { linkAddress, linkPaste, linkText } from './links';
 import { cursorBehavior } from './cursor';
 import { literalInput } from './literal';
 import { livePreview, type LivePreviewOptions, setSourceMode, sourceMode } from './livePreview';
@@ -70,6 +70,10 @@ export interface ScrawlEditorOptions extends LivePreviewOptions {
   onStats?: (stats: EditorStats) => void;
   /** Stores a pasted or dropped image and returns the source to write into the note. */
   saveImage?: (file: File) => Promise<string>;
+  /** Stores a pasted or dropped file that is not an image, and returns its path in the vault. */
+  saveFile?: (file: File) => Promise<string>;
+  /** Starts recording from the microphone, for the `/` menu. */
+  record?: () => void;
   /** A web address was pasted as a link with the address as its text; see `linkTitleChange`. */
   onLinkPasted?: (url: string) => void;
 }
@@ -98,32 +102,42 @@ function statsOf(state: EditorState, chars: number): EditorStats {
   };
 }
 
-const images = (files: FileList | undefined | null) => [...(files ?? [])].filter((f) => f.type.startsWith('image/'));
+const isImage = (file: File) => file.type.startsWith('image/');
 
-/** Pasted and dropped image files are stored through `saveImage` and inserted as Markdown images. */
-function imageInput(saveImage: (file: File) => Promise<string>) {
+/**
+ * Pasted and dropped files are stored and inserted where they land: images through `saveImage`
+ * as Markdown images, other files through `saveFile` as links, which show as attached files.
+ * Without a place to store a kind of file, that kind is left to the browser.
+ */
+function fileInput(saveImage?: (file: File) => Promise<string>, saveFile?: (file: File) => Promise<string>) {
+  const accepted = (list: FileList | undefined | null) =>
+    [...(list ?? [])].filter((file) => (isImage(file) ? saveImage : saveFile));
   const insert = async (view: EditorView, files: File[], at?: number) => {
-    const sources = await Promise.all(files.map(saveImage));
-    const text = sources.map((src) => `![](${src})`).join('\n');
+    const pieces = await Promise.all(
+      files.map(async (file) =>
+        isImage(file) ? `![](${await saveImage!(file)})` : `[${linkText(file.name)}](${linkAddress(await saveFile!(file))})`,
+      ),
+    );
+    const text = pieces.join('\n');
     const range = at === undefined ? view.state.selection.main : { from: at, to: at };
     view.dispatch({
       changes: { from: range.from, to: range.to, insert: text },
       selection: { anchor: range.from + text.length },
       scrollIntoView: true,
-      // Not `input.paste`: the image syntax is ours and must not be escaped as typed text.
+      // Not `input.paste`: the syntax is ours and must not be escaped as typed text.
       userEvent: 'input.image',
     });
   };
   return EditorView.domEventHandlers({
     paste(event, view) {
-      const files = images(event.clipboardData?.files);
+      const files = accepted(event.clipboardData?.files);
       if (!files.length) return false;
       event.preventDefault();
       void insert(view, files);
       return true;
     },
     drop(event, view) {
-      const files = images(event.dataTransfer?.files);
+      const files = accepted(event.dataTransfer?.files);
       if (!files.length) return false;
       event.preventDefault();
       void insert(view, files, view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? undefined);
@@ -181,6 +195,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
     if (table) enterTable(view, table.from);
   };
   const saveImage = options.saveImage;
+  const record = options.record;
   const slashItems: SlashItem[] = [
     { label: 'Heading 1', run: toggleHeading(1) },
     { label: 'Heading 2', run: toggleHeading(2) },
@@ -191,6 +206,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
     { label: 'Table', run: addTable },
     { label: 'Divider', run: insertDivider },
   ];
+  if (record) slashItems.push({ label: 'Audio recording', detail: 'from the microphone', run: () => record() });
   if (saveImage) {
     slashItems.push({
       label: 'Image',
@@ -233,7 +249,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         cursorBehavior,
         clipboard,
         linkPaste(options.onLinkPasted),
-        options.saveImage ? imageInput(options.saveImage) : [],
+        fileInput(options.saveImage, options.saveFile),
         scrawlTheme,
         keymap.of([...formatKeymap, ...searchKeymap, ...historyKeymap, ...defaultKeymap, indentWithTab]),
         EditorView.updateListener.of((update) => {

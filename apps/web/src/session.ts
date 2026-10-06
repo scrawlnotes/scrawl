@@ -27,6 +27,7 @@ import {
   renameItem,
   restoreFromTrash,
   saveAttachment,
+  saveFile,
   saveTasks,
   saveWorkspace,
   setDone,
@@ -47,6 +48,7 @@ import {
   type EditorStats,
   type FormatState,
   formatState,
+  linkAddress,
   linkTitleChange,
   type ScrawlEditor,
   selectNextOccurrence,
@@ -62,9 +64,26 @@ import {
 } from '@scrawlnotes/editor';
 import { boardOf, folderOf, isNote, listOf, tabOf } from './items';
 import { sampleDoc } from './sample';
-import { chooseVaultFolder, fetchPageHead, isDesktop, openVault, vaultFolder } from './storage';
+import { chooseVaultFolder, fetchPageHead, isDesktop, openFileOnDesktop, openVault, vaultFolder } from './storage';
 
 const SAVE_DELAY_MS = 400;
+
+const IMAGE = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
+// Files read back from storage carry no type; the browser needs one to play or show them.
+const TYPES: Record<string, string> = {
+  pdf: 'application/pdf',
+  webm: 'audio/webm',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  opus: 'audio/ogg',
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  wav: 'audio/wav',
+  flac: 'audio/flac',
+  txt: 'text/plain',
+};
+const typeOf = (path: string) => TYPES[path.slice(path.lastIndexOf('.') + 1).toLowerCase()] ?? '';
 
 // What the format bar does: formatting, and the commands that make more than one cursor.
 const formatCommands = {
@@ -102,6 +121,10 @@ export interface Snapshot {
   saved: boolean;
   /** Cursor and formatting of the note on screen; null while a view is shown instead. */
   stats: EditorStats | null;
+  /** When the recording from the microphone started; null while nothing is recorded. */
+  recording: { since: number } | null;
+  /** Why the microphone could not be used, shown for a moment. */
+  recordError: string | null;
   format: FormatState | null;
   source: boolean;
 }
@@ -133,6 +156,8 @@ export class Session {
     stats: null,
     format: null,
     source: false,
+    recording: null,
+    recordError: null,
   };
   private readonly listeners = new Set<() => void>();
   private fs!: VaultFs;
@@ -147,6 +172,11 @@ export class Session {
   /** Set while a change made outside the app is being put into the editor. */
   private external = false;
   private readonly images = new Map<string, string>();
+  /** The size of each attached file, by its path. */
+  private readonly sizes = new Map<string, number>();
+  /** Addresses of attached files the browser was asked to play or show, by their path. */
+  private readonly media = new Map<string, string>();
+  private recorder: MediaRecorder | null = null;
   private timer = 0;
   /** Task files are written one after another, so an older list never lands on top of a newer one. */
   private taskWrites: Promise<void> = Promise.resolve();
@@ -175,7 +205,9 @@ export class Session {
     }
     this.fs = fs;
     for (const entry of await this.fs.list(ATTACHMENTS)) {
-      this.images.set(entry.path, URL.createObjectURL(await this.fs.readBlob(entry.path)));
+      if (entry.size !== undefined) this.sizes.set(entry.path, entry.size);
+      // Images show as soon as a note is open; other files are read when they are opened or played.
+      if (IMAGE.test(entry.name)) this.images.set(entry.path, URL.createObjectURL(await this.fs.readBlob(entry.path)));
     }
     let tree = await readTree(this.fs);
     // The browser vault starts with a sample note. A folder on disk is the user's own; nothing is put there unasked.
@@ -203,6 +235,15 @@ export class Session {
       },
       onChange: (doc) => this.changed(doc),
       onLinkPasted: (url) => void this.fillLinkTitle(this.snapshot.active, url),
+      saveFile: async (file) => {
+        const path = await saveFile(this.fs, file);
+        this.sizes.set(path, file.size);
+        return path;
+      },
+      openFile: (src) => void this.openFile(src),
+      fileSize: (src) => this.sizes.get(src),
+      resolveAudio: (src) => this.mediaUrl(src),
+      record: () => void this.startRecording(),
     });
     window.addEventListener('pagehide', this.flush);
 
@@ -224,6 +265,7 @@ export class Session {
 
   dispose() {
     this.run++;
+    this.stopRecording();
     window.removeEventListener('pagehide', this.flush);
     if (!this.editor) return;
     void this.flush();
@@ -315,6 +357,101 @@ export class Session {
   textOf(path: string): string {
     const state = path === this.snapshot.active ? this.editor?.view.state : this.states.get(path);
     return state?.doc.toString() ?? this.disk.get(path) ?? '';
+  }
+
+  /** An address the browser can play or show an attached file from. */
+  private async mediaUrl(src: string): Promise<string> {
+    let url = this.media.get(src);
+    if (!url) {
+      const blob = await this.fs.readBlob(src);
+      url = URL.createObjectURL(new Blob([blob], { type: typeOf(src) }));
+      this.media.set(src, url);
+    }
+    return url;
+  }
+
+  /** Opens an attached file: on desktop with the program the system uses for it, in the browser in a new tab. */
+  async openFile(src: string) {
+    try {
+      if (isDesktop) await openFileOnDesktop(src);
+      else window.open(await this.mediaUrl(src), '_blank', 'noopener');
+    } catch {
+      // A file that is gone or cannot be opened simply does not open.
+    }
+  }
+
+  /** Records from the microphone into the note on screen, until `stopRecording`. */
+  async startRecording() {
+    const note = this.snapshot.active;
+    if (this.recorder || !note || !isNote(note)) return;
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      this.set({ recordError: 'The microphone could not be used' });
+      window.setTimeout(() => this.set({ recordError: null }), 4000);
+      return;
+    }
+    const type = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+    const recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    const chunks: Blob[] = [];
+    recorder.addEventListener('dataavailable', (event) => {
+      if (event.data.size > 0) chunks.push(event.data);
+    });
+    recorder.addEventListener('stop', () => {
+      for (const track of stream.getTracks()) track.stop();
+      this.recorder = null;
+      this.set({ recording: null });
+      void this.saveRecording(note, new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
+    });
+    recorder.start();
+    this.recorder = recorder;
+    this.set({ recording: { since: Date.now() }, recordError: null });
+  }
+
+  stopRecording() {
+    this.recorder?.stop();
+  }
+
+  private async saveRecording(note: string, blob: Blob) {
+    if (blob.size === 0) return;
+    const path = await saveAttachment(this.fs, blob);
+    this.sizes.set(path, blob.size);
+    await this.insertInto(note, `[Voice memo](${linkAddress(path)})`);
+  }
+
+  /**
+   * Puts Markdown on a line of its own: after the cursor's line when the note is on screen, else
+   * at the end of the note, also when its tab was closed meanwhile.
+   */
+  private async insertInto(path: string, markdown: string) {
+    const view = this.editor?.view;
+    if (view && this.snapshot.active === path) {
+      const line = view.state.doc.lineAt(view.state.selection.main.head);
+      const insert = (line.length > 0 ? '\n' : '') + markdown;
+      view.dispatch({
+        changes: { from: line.to, insert },
+        selection: { anchor: line.to + insert.length },
+        scrollIntoView: true,
+        // Not typed text: the link syntax is ours and stays as it is.
+        userEvent: 'input.media',
+      });
+      return;
+    }
+    const state = this.states.get(path);
+    if (state) {
+      const insert = (state.doc.length > 0 ? '\n' : '') + markdown;
+      const next = state.update({ changes: { from: state.doc.length, insert } }).state;
+      this.states.set(path, next);
+      this.queueSave(path, next.doc.toString());
+      return;
+    }
+    try {
+      const text = await this.fs.readText(path);
+      await this.fs.writeText(path, `${text}${text && !text.endsWith('\n') ? '\n' : ''}${markdown}\n`);
+    } catch {
+      // The note itself is gone; the recording stays in the attachments.
+    }
   }
 
   /** The address an image in a note loads from. */

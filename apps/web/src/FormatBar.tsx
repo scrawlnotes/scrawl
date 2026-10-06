@@ -7,6 +7,36 @@ interface Props {
   format: FormatState | null;
   onFormat: (action: FormatAction) => void;
   onLink: (url: string) => void;
+  /** When the recording started, while one is going on. */
+  recording: { since: number } | null;
+  /** Why the microphone could not be used, for a moment. */
+  recordError: string | null;
+  onRecord: () => void;
+  onStop: () => void;
+}
+
+const clock = (ms: number) => {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+/** The recording going on: a blinking dot, how long it has run, and the button that ends it. */
+function Recording({ since, onStop }: { since: number; onStop: () => void }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, []);
+  return (
+    <div className="fmt-rec" role="status">
+      <i />
+      <span>{clock(now - since)}</span>
+      <small>Recording</small>
+      <button type="button" className="fmt-stop" title="Stop recording and put it in the note" onClick={onStop}>
+        Stop
+      </button>
+    </div>
+  );
 }
 
 interface Item {
@@ -47,7 +77,7 @@ const keepEditorFocus = (event: MouseEvent) => {
 };
 
 /** The formatting controls: a fixed row above the editor that acts on the selection or the word at the cursor. */
-export function FormatBar({ format, onFormat, onLink }: Props) {
+export function FormatBar({ format, onFormat, onLink, recording, recordError, onRecord, onStop }: Props) {
   const [linking, setLinking] = useState(false);
   const [url, setUrl] = useState('');
   const input = useRef<HTMLInputElement>(null);
@@ -93,6 +123,7 @@ export function FormatBar({ format, onFormat, onLink }: Props) {
         <button type="button" onClick={() => finishLink(null)}>
           Cancel
         </button>
+        {recording && <Recording since={recording.since} onStop={onStop} />}
       </div>
     );
   }
@@ -121,6 +152,19 @@ export function FormatBar({ format, onFormat, onLink }: Props) {
           )}
         </div>
       ))}
+      {!recording && (
+        <div className="fmt-group">
+          <button type="button" title="Record from the microphone into the note" disabled={!format} onClick={onRecord}>
+            Record
+          </button>
+        </div>
+      )}
+      {recording && <Recording since={recording.since} onStop={onStop} />}
+      {recordError && !recording && (
+        <span className="fmt-error" role="alert">
+          {recordError}
+        </span>
+      )}
     </div>
   );
 }

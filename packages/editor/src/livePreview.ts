@@ -19,8 +19,9 @@ import {
 } from '@codemirror/view';
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { linkUrl } from './commands';
+import { attachmentOf, AudioWidget, FileWidget, isAudio, type MediaOptions } from './media';
 
-export interface LivePreviewOptions {
+export interface LivePreviewOptions extends MediaOptions {
   /** Maps an image source as written in the note to a URL the browser can load. */
   resolveImage?: (src: string) => string;
 }
@@ -219,11 +220,24 @@ function collect(
     if (to > from) out.push({ from, to, deco: hide, role, span: span && { from: span.from, to: span.to } });
   };
 
-  const link = (node: SyntaxNode) => {
+  /** Returns false for a link to an attachment, which is drawn as a whole and has nothing inside to decorate. */
+  const link = (node: SyntaxNode): false | undefined => {
     const [open, close] = node.getChildren('LinkMark');
     if (!open || !close) return;
     const url = linkUrl(node);
     const href = url ? doc.sliceString(url.from, url.to) : '';
+    const src = attachmentOf(href);
+    if (src) {
+      // The link text as it reads: escapes are typed characters.
+      const label = doc.sliceString(open.to, close.from).replace(/\\([!-/:-@[-`{-~])/g, '$1') || src.slice(src.lastIndexOf('/') + 1);
+      const length = node.to - node.from;
+      const isSelected = state.selection.ranges.some((r) => !r.empty && r.from <= node.from && r.to >= node.to);
+      const widget = isAudio(src)
+        ? new AudioWidget(src, label, length, isSelected, options)
+        : new FileWidget(src, label, length, isSelected, options);
+      out.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget, kind: 'attachment', label }), role: 'unit' });
+      return false;
+    }
     if (close.from > open.to) {
       const deco = Decoration.mark({ class: 'cm-sl-link', attributes: { 'data-href': href, title: href }, kind: 'link' });
       out.push({ from: open.to, to: close.from, deco });
@@ -305,10 +319,7 @@ function collect(
           return;
         }
 
-        if (name === 'Link') {
-          link(ref.node);
-          return;
-        }
+        if (name === 'Link') return link(ref.node);
         if (name === 'Image') {
           image(ref.node);
           return false;

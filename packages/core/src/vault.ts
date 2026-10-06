@@ -282,12 +282,25 @@ export async function emptyTrash(fs: VaultFs): Promise<void> {
 
 /** Stores an image and returns the source to write into a note. */
 export async function saveAttachment(fs: VaultFs, file: Blob, now = new Date()): Promise<string> {
-  const ext = file.type.split('/')[1]?.replace('svg+xml', 'svg').replace('jpeg', 'jpg') || 'bin';
+  // `audio/webm;codecs=opus` is a .webm file.
+  const subtype = file.type.split(';')[0]!.split('/')[1]?.trim();
+  const ext = subtype?.replace('svg+xml', 'svg').replace('jpeg', 'jpg').replace('mpeg', 'mp3') || 'bin';
   // No spaces: the path is written into a Markdown image, where a space would end the address.
   const name = stamp(now).replace(' ', '-');
   const taken = await names(fs, ATTACHMENTS);
   let path = join(ATTACHMENTS, `${name}.${ext}`);
   for (let n = 2; taken.has(path.toLowerCase()); n++) path = join(ATTACHMENTS, `${name}-${n}.${ext}`);
+  await fs.writeBlob(path, file);
+  return path;
+}
+
+/**
+ * Stores a file that is not an image under its own name, numbered when the name is taken.
+ * Returns its path; written into a link, the path needs `linkAddress` for its spaces.
+ */
+export async function saveFile(fs: VaultFs, file: File): Promise<string> {
+  const [name, ext] = splitName(cleanName(file.name) || 'file');
+  const path = freePath(ATTACHMENTS, isHidden(name) ? `file ${name}` : name, ext, await names(fs, ATTACHMENTS));
   await fs.writeBlob(path, file);
   return path;
 }

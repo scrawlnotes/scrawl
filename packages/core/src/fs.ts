@@ -21,6 +21,8 @@ export interface Entry {
   name: string;
   path: string;
   kind: 'file' | 'dir';
+  /** A file's size in bytes, where the storage tells it without reading the file. */
+  size?: number;
 }
 
 export const join = (...parts: string[]) => parts.filter(Boolean).join('/');
@@ -40,7 +42,8 @@ export class MemoryFs implements VaultFs {
       const name = path.slice(prefix.length).split('/')[0]!;
       const direct = prefix + name === path;
       if (!entries.has(name) || (direct && isFile)) {
-        entries.set(name, { name, path: prefix + name, kind: direct && isFile ? 'file' : 'dir' });
+        const file = direct && isFile;
+        entries.set(name, { name, path: prefix + name, kind: file ? 'file' : 'dir', ...(file && { size: this.files.get(path)!.size }) });
       }
     };
     for (const path of this.files.keys()) add(path, true);

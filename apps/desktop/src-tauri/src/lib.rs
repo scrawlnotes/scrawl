@@ -1,5 +1,5 @@
-//! The desktop shell: a window around the web app, plus file access to the vault folder and
-//! reading the titles of web pages.
+//! The desktop shell: a window around the web app, plus file access to the vault folder,
+//! opening attached files, and reading the titles of web pages.
 //!
 //! The commands mirror the `VaultFs` interface of `packages/core`. Every path is relative to
 //! the vault root that the user chose, and may not leave it.
@@ -9,14 +9,17 @@ use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tauri::ipc::Response;
+use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::Manager;
+use tauri_plugin_opener::OpenerExt;
 
 #[derive(Serialize)]
 struct Entry {
     name: String,
     path: String,
     kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    size: Option<u64>,
 }
 
 fn message(error: std::io::Error) -> String {
@@ -65,17 +68,24 @@ async fn fs_list(root: String, dir: String) -> Result<Vec<Entry>, String> {
     for entry in entries {
         let entry = entry.map_err(message)?;
         let name = entry.file_name().to_string_lossy().into_owned();
-        let kind = if entry.file_type().map_err(message)?.is_dir() {
-            "dir"
+        let is_dir = entry.file_type().map_err(message)?.is_dir();
+        let kind = if is_dir { "dir" } else { "file" };
+        let size = if is_dir {
+            None
         } else {
-            "file"
+            entry.metadata().ok().map(|m| m.len())
         };
         let path = if dir.is_empty() {
             name.clone()
         } else {
             format!("{dir}/{name}")
         };
-        out.push(Entry { name, path, kind });
+        out.push(Entry {
+            name,
+            path,
+            kind,
+            size,
+        });
     }
     Ok(out)
 }
@@ -92,9 +102,52 @@ async fn fs_write_text(root: String, path: String, text: String) -> Result<(), S
     write_atomic(&resolve(&root, &path)?, text.as_bytes())
 }
 
+/// Undoes the percent-encoding that lets a path travel in a header, which must be ASCII.
+fn percent_decode(text: &str) -> Result<String, String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            let hex = text.get(i + 1..i + 3).ok_or("Broken escape in a path")?;
+            out.push(u8::from_str_radix(hex, 16).map_err(|e| e.to_string())?);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).map_err(|e| e.to_string())
+}
+
+fn header(request: &Request<'_>, name: &str) -> Result<String, String> {
+    let value = request
+        .headers()
+        .get(name)
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| format!("Missing header {name}"))?;
+    percent_decode(value)
+}
+
+/// Writes a file sent as raw bytes, with the vault and the path in the `x-root` and `x-path`
+/// headers. Raw, because a large attachment would not survive being sent as a JSON array.
 #[tauri::command]
-async fn fs_write_bytes(root: String, path: String, data: Vec<u8>) -> Result<(), String> {
-    write_atomic(&resolve(&root, &path)?, &data)
+async fn fs_write_bytes(request: Request<'_>) -> Result<(), String> {
+    let InvokeBody::Raw(data) = request.body() else {
+        return Err("Expected the file's bytes".into());
+    };
+    let root = header(&request, "x-root")?;
+    let path = header(&request, "x-path")?;
+    write_atomic(&resolve(&root, &path)?, data)
+}
+
+/// Opens a file in the vault with the program the system uses for its kind.
+#[tauri::command]
+async fn open_file(app: tauri::AppHandle, root: String, path: String) -> Result<(), String> {
+    let target = resolve(&root, &path)?;
+    app.opener()
+        .open_path(target.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -187,6 +240,7 @@ fn read_page_head(url: &str) -> Result<String, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             fs_list,
             fs_read,
@@ -197,7 +251,8 @@ pub fn run() {
             fs_mkdir,
             settings_load,
             settings_save,
-            fetch_page_head
+            fetch_page_head,
+            open_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running Scrawl");
@@ -215,6 +270,15 @@ mod tests {
         assert!(resolve("C:/vault", "Inbox/../../outside.md").is_err());
         assert!(resolve("C:/vault", "/etc/passwd").is_err());
         assert!(resolve("C:/vault", "C:/Windows/system.ini").is_err());
+    }
+
+    #[test]
+    fn percent_decode_reads_what_encode_uri_component_wrote() {
+        assert_eq!(
+            percent_decode("_attachments%2FScope%20v3%20%C4%9F.pdf").unwrap(),
+            "_attachments/Scope v3 ğ.pdf"
+        );
+        assert!(percent_decode("broken%2").is_err());
     }
 
     // Needs the network, so it runs only when asked for: `cargo test -- --ignored`.

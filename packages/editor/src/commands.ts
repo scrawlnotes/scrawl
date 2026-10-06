@@ -9,6 +9,7 @@ import {
 } from '@codemirror/state';
 import type { KeyBinding } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
+import { attachmentOf } from './media';
 
 interface Span {
   from: number;
@@ -130,12 +131,16 @@ export function linkUrl(link: SyntaxNode): SyntaxNode | null {
   return link.getChildren('URL').find((url) => close && url.from >= close.to) ?? null;
 }
 
-/** The link the main selection lies in, if any. */
+/**
+ * The link the main selection lies in, if any. A link to an attached file is not one here: it
+ * shows as the file, and its address is not for editing.
+ */
 export function linkAt(state: EditorState): LinkInfo | null {
   const node = enclosing(state, state.selection.main, 'Link');
   const [open, close] = node?.getChildren('LinkMark') ?? [];
   if (!node || !open || !close) return null;
   const url = linkUrl(node);
+  if (url && attachmentOf(state.sliceDoc(url.from, url.to))) return null;
   return {
     from: node.from,
     to: node.to,
