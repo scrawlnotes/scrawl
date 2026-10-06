@@ -50,7 +50,6 @@ Sublime/Notepad'de kapatılmayan sekmelerin yerini alacak bir çalışma notu uy
 
 - **Scratch sekmeler:** Ctrl+N, 1, Enter kalıcı bir not açar. Başlık ilk satırdan türetilir. Dosyalanmamış notlar Inbox'ta durur. Adı verilmemiş not boş kapatılırsa iz bırakmaz.
 - **Hızlı yakalama:** şimdilik yok. Her yerde arama penceresi yapılınca onun içine alınabilir.
-- **Inbox arşivleme:** Inbox'taki not sağ tıkla arşivlenir; 30 gün dokunulmayan Inbox notları kendiliğinden arşive iner, silinmez. Arşiv, kenar çubuğunun en altında kapalı duran normal bir `Archive/` klasörüdür; Move to ile geri çıkarılır. Inbox'tan "göreve çevir" görevler aşamasındadır.
 - **Sekmeler:** sürüklenerek sıralanır; sıra bir sonraki açılışta korunur.
 - **Gezinme ve arama:** ayrı bir aşamada; Spotlight veya Rider'daki "her yerde ara" tarzında tek bir arama penceresi (nota git, tam metin, komutlar).
 - **Düzenleme:** çoklu imleç, satır taşıma/çoğaltma, bul-değiştir. Enter tek satır iner.
@@ -136,7 +135,6 @@ vault/
     <not>.md                 düz markdown
     <ad>.tasks.json          görev listesi, bir klasörde istenen sayıda; ağaç yapısı `parent` alanıyla
     <ad>.board.json          pano (sonra)
-  Archive/                   arşivlenen Inbox notları
   _attachments/              resim, ses, dosya (şimdilik kökte tek klasör; not taşınınca link bozulmaz)
   .scrawl/
     trash/                   silinen notlar, görev listeleri ve klasörler; eski yerleri bir dizinde tutulur
@@ -163,7 +161,7 @@ vault/
 | # | Aşama | Bitti sayılır |
 |---|---|---|
 | 0 | İskelet ve editör denemesi | Monorepo kurulu; live preview prototipi başlık, vurgu, liste, link, resim ve kod bloğuyla tarayıcıda denenebiliyor |
-| 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler (sürükleyerek sıralama dahil), scratch notlar, kenar çubuğu, resim, biçim çubuğunda çoklu imleç, kod bloğunda kopyala, çöp kutusu ekranı, sürüm geçmişi, kurulabilir sürüm. **Kalan, sırayla:** (4) Inbox arşivleme; (5) medya: link başlığı, dosya bırakma, ses kaydı; (6) çeviri altyapısı, README |
+| 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler (sürükleyerek sıralama dahil), scratch notlar, kenar çubuğu, resim, biçim çubuğunda çoklu imleç, kod bloğunda kopyala, çöp kutusu ekranı, sürüm geçmişi, kurulabilir sürüm. **Kalan, sırayla:** (1) medya: link başlığı, dosya bırakma, ses kaydı; (2) çeviri altyapısı, README |
 | 1b | Ayarlar | Ayarlar ekranı: tema ve dark mode (sistemle uyumlu, seçim hatırlanır), not klasörü, dil |
 | 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri. **Kalan:** bölümler, sürükleyerek sıralama, kayıtlı filtreler, taşıma, "göreve çevir" |
 | 3 | Sync + web | OneDrive adaptörü, çakışma çözümü; web sürümü yayında ve telefonda PWA olarak kullanılabilir |
