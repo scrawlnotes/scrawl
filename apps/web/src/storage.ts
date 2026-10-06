@@ -1,5 +1,6 @@
 import type { VaultFs } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { openBrowserVault } from './opfsFs';
 import { TauriFs } from './tauriFs';
 
@@ -51,3 +52,6 @@ export async function fetchPageHead(url: string): Promise<string | null> {
 export async function openFileOnDesktop(path: string): Promise<void> {
   if (folder) await invoke('open_file', { root: folder, path });
 }
+
+/** Desktop: an address the web view reads a file of the notes folder from, straight from disk. */
+export const fileUrl = (path: string) => (folder ? convertFileSrc(`${folder}/${path}`) : path);

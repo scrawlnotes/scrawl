@@ -30,6 +30,7 @@ import {
   toggleLinePrefix,
 } from './commands';
 import { findPanel } from './find';
+import { widgetMoves } from './media';
 import { linkPaste } from './links';
 import { cursorBehavior } from './cursor';
 import { literalInput } from './literal';
@@ -227,6 +228,8 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         cursorBehavior,
         clipboard,
         linkPaste(options.onLinkPasted),
+        // Before `fileInput`: a dragged image comes with a file, which here is moved, not copied.
+        widgetMoves,
         addFiles ? fileInput(addFiles) : [],
         copiesField,
         scrawlTheme,

@@ -20,11 +20,14 @@ import {
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { t } from '@scrawlnotes/i18n';
 import { linkUrl } from './commands';
-import { attachmentOf, AudioWidget, FileWidget, isAudio, type MediaOptions } from './media';
+import { attachmentOf, AudioWidget, dragWidget, FileWidget, isAudio, type MediaOptions, onlyDrags } from './media';
 
 export interface LivePreviewOptions extends MediaOptions {
-  /** Maps an image source as written in the note to a URL the browser can load. */
-  resolveImage?: (src: string) => string;
+  /**
+   * Maps an image source as written in the note to a URL the browser can load, at once or once
+   * the image is read.
+   */
+  resolveImage?: (src: string) => string | Promise<string>;
 }
 
 /** Source mode shows the note as plain Markdown: nothing is hidden or replaced. */
@@ -88,11 +91,13 @@ class RuleWidget extends WidgetType {
 
 class ImageWidget extends WidgetType {
   constructor(
+    /** The source as the note has it. */
     readonly src: string,
     readonly alt: string,
     /** Length of the Markdown source the widget stands for. */
     readonly length: number,
     readonly selected: boolean,
+    readonly resolve?: (src: string) => string | Promise<string>,
   ) {
     super();
   }
@@ -104,23 +109,29 @@ class ImageWidget extends WidgetType {
   toDOM(view: EditorView) {
     const img = document.createElement('img');
     img.className = this.selected ? 'cm-sl-img cm-sl-img-selected' : 'cm-sl-img';
-    img.src = this.src;
+    // Large images are read when they come into view and decoded aside, so typing never waits on them.
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    const url = this.resolve?.(this.src) ?? this.src;
+    if (typeof url === 'string') img.src = url;
+    else void url.then((resolved) => (img.src = resolved), () => undefined);
     img.alt = this.alt;
     img.title = this.alt;
-    img.draggable = false;
+    // Pressing and moving drags the image to another place in the note.
+    img.draggable = true;
+    img.addEventListener('dragstart', () => dragWidget(view, img, this.length));
     // The image changes the line height once it loads.
     img.addEventListener('load', () => view.requestMeasure());
-    // Clicking selects the whole image, so it can be copied, cut or deleted as one unit.
-    img.addEventListener('mousedown', (event) => {
-      event.preventDefault();
+    // A click selects the whole image, so it can be copied, cut or deleted as one unit.
+    img.addEventListener('click', () => {
       const from = view.posAtDOM(img);
       view.dispatch({ selection: EditorSelection.range(from, from + this.length) });
       view.focus();
     });
     return img;
   }
-  ignoreEvent() {
-    return true;
+  ignoreEvent(event: Event) {
+    return onlyDrags(event);
   }
 }
 
@@ -254,7 +265,7 @@ function collect(
     const src = doc.sliceString(url.from, url.to);
     const alt = doc.sliceString(open.to, close.from);
     const isSelected = state.selection.ranges.some((r) => !r.empty && r.from <= node.from && r.to >= node.to);
-    const widget = new ImageWidget(options.resolveImage?.(src) ?? src, alt, node.to - node.from, isSelected);
+    const widget = new ImageWidget(src, alt, node.to - node.from, isSelected, options.resolveImage);
     out.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget, kind: 'image', alt }), role: 'unit' });
   };
 

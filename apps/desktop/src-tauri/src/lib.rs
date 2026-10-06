@@ -212,17 +212,32 @@ fn settings_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("settings.json"))
 }
 
+/// Lets the web view show files of the notes folder straight from disk (images, without
+/// reading them into the page first). Nothing outside the folder is allowed.
+fn allow_vault(app: &tauri::AppHandle, settings: &Settings) -> Result<(), String> {
+    match &settings.vault {
+        Some(vault) => app
+            .asset_protocol_scope()
+            .allow_directory(vault, true)
+            .map_err(|e| e.to_string()),
+        None => Ok(()),
+    }
+}
+
 /// A missing or unreadable settings file means nothing has been chosen yet.
 #[tauri::command]
 async fn settings_load(app: tauri::AppHandle) -> Result<Settings, String> {
     let text = fs::read_to_string(settings_file(&app)?).unwrap_or_default();
-    Ok(serde_json::from_str(&text).unwrap_or_default())
+    let settings: Settings = serde_json::from_str(&text).unwrap_or_default();
+    allow_vault(&app, &settings)?;
+    Ok(settings)
 }
 
 #[tauri::command]
 async fn settings_save(app: tauri::AppHandle, settings: Settings) -> Result<(), String> {
     let text = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    write_atomic(&settings_file(&app)?, text.as_bytes())
+    write_atomic(&settings_file(&app)?, text.as_bytes())?;
+    allow_vault(&app, &settings)
 }
 
 /// How much of a web page is read for its title. The title is in the page's head, near the top.

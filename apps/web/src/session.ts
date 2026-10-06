@@ -74,11 +74,10 @@ import {
 } from '@scrawlnotes/editor';
 import { boardOf, folderOf, isNote, listOf, tabOf } from './items';
 import { sampleDoc } from './sample';
-import { chooseVaultFolder, fetchPageHead, isDesktop, openFileOnDesktop, openVault, vaultFolder } from './storage';
+import { chooseVaultFolder, fetchPageHead, fileUrl, isDesktop, openFileOnDesktop, openVault, vaultFolder } from './storage';
 
 const SAVE_DELAY_MS = 400;
 
-const IMAGE = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
 // Files read back from storage carry no type; the browser needs one to play or show them.
 const TYPES: Record<string, string> = {
   pdf: 'application/pdf',
@@ -181,7 +180,8 @@ export class Session {
   private readonly versionedAt = new Map<string, number>();
   /** Set while a change made outside the app is being put into the editor. */
   private external = false;
-  private readonly images = new Map<string, string>();
+  /** Browser only: addresses of attached images read so far, by their path. */
+  private readonly images = new Map<string, Promise<string>>();
   /** The size of each attached file, by its path. */
   private readonly sizes = new Map<string, number>();
   /** Addresses of attached files the browser was asked to play or show, by their path. */
@@ -222,9 +222,8 @@ export class Session {
         await this.fs.remove(entry.path).catch(() => undefined);
         continue;
       }
+      // Nothing is read here: images are read when a note shows them, other files when they are opened.
       if (entry.size !== undefined) this.sizes.set(entry.path, entry.size);
-      // Images show as soon as a note is open; other files are read when they are opened or played.
-      if (IMAGE.test(entry.name)) this.images.set(entry.path, URL.createObjectURL(await this.fs.readBlob(entry.path)));
     }
     let tree = await readTree(this.fs);
     // The browser vault starts with a sample note. A folder on disk is the user's own; nothing is put there unasked.
@@ -434,7 +433,8 @@ export class Session {
         const options = { onProgress, signal: stop.signal };
         const src = copy.image ? await saveAttachment(this.fs, file, new Date(), options) : await saveFile(this.fs, file, options);
         this.sizes.set(src, file.size);
-        if (copy.image) this.images.set(src, URL.createObjectURL(file));
+        // In the browser the copied file is at hand, so the image need not be read back.
+        if (copy.image && !isDesktop) this.images.set(src, Promise.resolve(URL.createObjectURL(file)));
         const markdown = copy.image ? `![](${src})` : `[${linkText(file.name)}](${linkAddress(src)})`;
         this.applyTo(
           note,
@@ -561,7 +561,22 @@ export class Session {
   }
 
   /** The address an image in a note loads from. */
-  resolveImage = (src: string) => this.images.get(src) ?? src;
+  /**
+   * The address an image in a note loads from. On desktop the web view reads it from the notes
+   * folder itself; in the browser it is read from storage the first time a note shows it.
+   */
+  resolveImage = (src: string): string | Promise<string> => {
+    if (!src.startsWith(`${ATTACHMENTS}/`)) return src;
+    if (isDesktop) return fileUrl(src);
+    let url = this.images.get(src);
+    if (!url) {
+      url = this.fs.readBlob(src).then((blob) => URL.createObjectURL(blob));
+      // An image that could not be read is tried again the next time.
+      url.catch(() => this.images.delete(src));
+      this.images.set(src, url);
+    }
+    return url;
+  };
 
   /**
    * Puts an earlier version's text into the note, as an edit that undo takes back. The text the

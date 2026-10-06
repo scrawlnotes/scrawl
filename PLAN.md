@@ -70,7 +70,7 @@ Sublime/Notepad'de kapatılmayan sekmelerin yerini alacak bir çalışma notu uy
 - **Sağ tık:** notta ve görev listesinde Move to…, Rename, Delete; klasörde New note here ve Delete folder (Inbox'ta yok). Sürükle-bırak ek yol olarak kalır.
 - **Silme:** not, görev listesi, klasör ve görev silinmeden önce onay sorulur. Not, liste ve klasör (içindekilerle) `.scrawl/trash`'e gider; silinen görev geri gelmez.
 - **Tablo kenarı:** imleç tablonun kenarında duramaz; tablonun hemen altına yazılan metin araya boş satır konarak tablodan ayrılır.
-- **Medya:** panodan resim yapıştırma; resim dışı dosyaları bırakma (`_attachments`'a kendi adıyla kopyalanır, notta dosya linki olur, sistemdeki programıyla açılır); biçim çubuğundan veya `/` menüsünden ses kaydı, notta kendi tasarımımız olan oynatıcı; tek başına yapıştırılan URL link olarak girer ve sayfanın başlığı arka planda çekilip linkin metni olur (yalnızca masaüstünde; tarayıcı başka sitelerin sayfasını okumaya izin vermez).
+- **Medya:** panodan resim yapıştırma; resim dışı dosyaları bırakma (`_attachments`'a kendi adıyla kopyalanır, notta dosya linki olur, sistemdeki programıyla açılır); biçim çubuğundan veya `/` menüsünden ses kaydı, notta kendi tasarımımız olan oynatıcı; resim, dosya ve kayıt not içinde sürüklenerek taşınır; tek başına yapıştırılan URL link olarak girer ve sayfanın başlığı arka planda çekilip linkin metni olur (yalnızca masaüstünde; tarayıcı başka sitelerin sayfasını okumaya izin vermez).
 - **Sürüm geçmişi:** not başına yerel anlık görüntüler, `.scrawl/history/` içinde. Kayıtta en fazla 10 dakikada bir alınır; not uygulama dışında değişirse eski hali de saklanır. Son 24 saatin hepsi, sonrasında günde bir tane tutulur, 60 günden eskiler silinir. Not taşınınca veya adı değişince geçmişi de gider. Sağ tık → History…: zamanlar, önizleme ve Restore (restore öncesi şimdiki hal de saklanır).
 - **Çöp kutusu:** kenar çubuğunun en altında Trash; silinen not, liste ve klasörler silinme zamanı ve eski yeriyle listelenir. Restore eski yerine döndürür, Delete forever ve Empty trash onay ister.
 - **Dark mode:** sistemle uyumlu, elle değiştirilebilir; ayarlar ekranıyla birlikte gelir.
@@ -161,13 +161,13 @@ vault/
 | # | Aşama | Bitti sayılır |
 |---|---|---|
 | 0 | İskelet ve editör denemesi | Monorepo kurulu; live preview prototipi başlık, vurgu, liste, link, resim ve kod bloğuyla tarayıcıda denenebiliyor |
-| 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler (sürükleyerek sıralama dahil), scratch notlar, kenar çubuğu, resim, biçim çubuğunda çoklu imleç, kod bloğunda kopyala, çöp kutusu ekranı, sürüm geçmişi, link başlığı, dosya bırakma, ses kaydı ve oynatıcı, çeviri altyapısı (`packages/i18n`, şimdilik İngilizce), kurulabilir sürüm. **Kalan:** masaüstünde deneme (mikrofon, dosya açma, link başlığı) |
-| 1b | Ayarlar | Ayarlar ekranı: tema ve dark mode (sistemle uyumlu, seçim hatırlanır), not klasörü, dil |
-| 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri. **Kalan:** bölümler, sürükleyerek sıralama, kayıtlı filtreler, taşıma, "göreve çevir" |
-| 3 | Sync + web | OneDrive adaptörü, çakışma çözümü; web sürümü yayında ve telefonda PWA olarak kullanılabilir |
-| 4 | Paylaşım | PDF/HTML/MD dışa aktarma; yayın servisi ve "link olarak paylaş" |
-| 5 | Mobil | Native iOS uygulaması (sonra Android) |
-| 6 | Sonrası | Her yerde arama (Spotlight/Rider tarzı; hızlı yakalama belki bunun içinde), bölünmüş görünüm, Pano, Google Drive adaptörü, klasör paylaşımıyla çok kullanıcı, komut satırı aracı ve MCP sunucusu, ek diller |
+| 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler (sürükleyerek sıralama dahil), scratch notlar, kenar çubuğu, resim, biçim çubuğunda çoklu imleç, kod bloğunda kopyala, çöp kutusu ekranı, sürüm geçmişi, link başlığı, dosya bırakma, ses kaydı ve oynatıcı, çeviri altyapısı (`packages/i18n`, şimdilik İngilizce), kurulabilir sürüm. **Kalan:** masaüstünde deneme (dosya açma, link başlığı) |
+| 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri. **Kalan:** açıklama, bölümler, sürükleyerek sıralama, taşıma, "göreve çevir", kayıtlı filtreler |
+| 3 | Ayarlar | Ayarlar ekranı: tema ve dark mode (sistemle uyumlu, seçim hatırlanır), not klasörü, dil |
+| 4 | Sync + web | OneDrive adaptörü, çakışma çözümü; web sürümü yayında ve telefonda PWA olarak kullanılabilir |
+| 5 | Paylaşım | PDF/HTML/MD dışa aktarma; yayın servisi ve "link olarak paylaş" |
+| 6 | Mobil | Native iOS uygulaması (sonra Android) |
+| 7 | Sonrası | Her yerde arama (Spotlight/Rider tarzı; hızlı yakalama belki bunun içinde), bölünmüş görünüm, Pano, Google Drive adaptörü, klasör paylaşımıyla çok kullanıcı, komut satırı aracı ve MCP sunucusu, ek diller |
 
 ## 7. Riskler
 

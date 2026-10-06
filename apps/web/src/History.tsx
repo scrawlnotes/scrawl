@@ -19,7 +19,7 @@ function ago(iso: string, now: number): string | null {
 export interface HistorySource {
   versions(path: string): Promise<Version[]>;
   readVersion(version: Version): Promise<string>;
-  resolveImage(src: string): string;
+  resolveImage(src: string): string | Promise<string>;
 }
 
 /**

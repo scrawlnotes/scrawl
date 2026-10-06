@@ -1,5 +1,5 @@
 import { EditorSelection } from '@codemirror/state';
-import { type EditorView, WidgetType } from '@codemirror/view';
+import { EditorView, WidgetType } from '@codemirror/view';
 import { t } from '@scrawlnotes/i18n';
 
 /** How a note reaches the files attached to it. All of it is optional; without it the widgets only show. */
@@ -54,6 +54,55 @@ const clock = (seconds: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
+/**
+ * Lets the editor see a drag that starts on a widget, for its drop cursor and for `widgetMoves`.
+ * Every other event inside the widget is the widget's own.
+ */
+export const onlyDrags = (event: Event) => event.type !== 'dragstart' && event.type !== 'dragend';
+
+/** The widget being dragged in a note, by the Markdown it stands for. */
+let dragged: { view: EditorView; from: number; to: number } | null = null;
+
+/** Remembers which widget a drag started on; `widgetMoves` moves it where it is dropped. */
+export function dragWidget(view: EditorView, dom: HTMLElement, length: number) {
+  const from = view.posAtDOM(dom);
+  dragged = { view, from, to: from + length };
+}
+
+/**
+ * Moves a dragged image, file or recording to where it is dropped in its note, as one step that
+ * undo takes back. The browser offers a dragged image as a file too; it is not copied again.
+ */
+export const widgetMoves = EditorView.domEventHandlers({
+  dragover(event, view) {
+    if (dragged?.view !== view) return false;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    return false;
+  },
+  drop(event, view) {
+    if (dragged?.view !== view) return false;
+    const { from, to } = dragged;
+    dragged = null;
+    event.preventDefault();
+    const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+    if (pos === null || (pos >= from && pos <= to)) return true;
+    const changes = view.state.changes([{ from, to }, { from: pos, insert: view.state.sliceDoc(from, to) }]);
+    view.dispatch({
+      changes,
+      selection: { anchor: changes.mapPos(pos, -1), head: changes.mapPos(pos, 1) },
+      scrollIntoView: true,
+      userEvent: 'move.drop',
+    });
+    view.focus();
+    return true;
+  },
+  dragend() {
+    dragged = null;
+    return false;
+  },
+});
+
 /** Selects the widget's whole link when it is clicked with Shift, so it can be cut or copied as one. */
 function selectOnShift(view: EditorView, dom: HTMLElement, length: number, event: MouseEvent): boolean {
   if (!event.shiftKey) return false;
@@ -85,14 +134,19 @@ export class FileWidget extends WidgetType {
     chip.append(this.name);
     const bytes = this.options.fileSize?.(this.src);
     if (bytes !== undefined) chip.append(Object.assign(el('small', ''), { textContent: sizeText(bytes) }));
+    // Pressing and moving drags the file to another place; a press and release opens it.
+    chip.draggable = true;
+    chip.addEventListener('dragstart', () => dragWidget(view, chip, this.length));
     chip.addEventListener('mousedown', (event) => {
-      event.preventDefault();
+      if (event.shiftKey) event.preventDefault();
+    });
+    chip.addEventListener('click', (event) => {
       if (!selectOnShift(view, chip, this.length, event)) this.options.openFile?.(this.src);
     });
     return chip;
   }
-  ignoreEvent() {
-    return true;
+  ignoreEvent(event: Event) {
+    return onlyDrags(event);
   }
 }
 
@@ -201,8 +255,13 @@ export class AudioWidget extends WidgetType {
     };
     (root as HTMLElement & { audio?: () => HTMLAudioElement | null }).audio = () => audio;
 
+    // Pressing and moving drags the recording to another place; a press and release plays it.
+    root.draggable = true;
+    root.addEventListener('dragstart', () => dragWidget(view, root, this.length));
     root.addEventListener('mousedown', (event) => {
-      event.preventDefault();
+      if (event.shiftKey) event.preventDefault();
+    });
+    root.addEventListener('click', (event) => {
       if (selectOnShift(view, root, this.length, event)) return;
       if (event.target === play || play.contains(event.target as Node)) {
         if (audio && !audio.paused) audio.pause();
@@ -222,7 +281,7 @@ export class AudioWidget extends WidgetType {
   destroy(dom: HTMLElement) {
     (dom as HTMLElement & { audio?: () => HTMLAudioElement | null }).audio?.()?.pause();
   }
-  ignoreEvent() {
-    return true;
+  ignoreEvent(event: Event) {
+    return onlyDrags(event);
   }
 }
