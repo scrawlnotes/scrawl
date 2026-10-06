@@ -141,6 +141,34 @@ async fn fs_write_bytes(request: Request<'_>) -> Result<(), String> {
     write_atomic(&resolve(&root, &path)?, data)
 }
 
+/// Writes one part of a large file, sent as raw bytes: the vault, the path and where the part
+/// starts go in the `x-root`, `x-path` and `x-offset` headers. The first part starts the file,
+/// each later one must continue exactly where the file ends.
+#[tauri::command]
+async fn fs_write_part(request: Request<'_>) -> Result<(), String> {
+    use std::io::Write;
+    let InvokeBody::Raw(data) = request.body() else {
+        return Err("Expected the part's bytes".into());
+    };
+    let root = header(&request, "x-root")?;
+    let path = header(&request, "x-path")?;
+    let offset: u64 = header(&request, "x-offset")?
+        .parse()
+        .map_err(|_| "Broken part offset".to_string())?;
+    let target = resolve(&root, &path)?;
+    let mut file = if offset == 0 {
+        create_parent(&target)?;
+        fs::File::create(&target).map_err(message)?
+    } else {
+        let file = fs::OpenOptions::new().append(true).open(&target).map_err(message)?;
+        if file.metadata().map_err(message)?.len() != offset {
+            return Err("A part arrived out of order".into());
+        }
+        file
+    };
+    file.write_all(data).map_err(message)
+}
+
 /// Opens a file in the vault with the program the system uses for its kind.
 #[tauri::command]
 async fn open_file(app: tauri::AppHandle, root: String, path: String) -> Result<(), String> {
@@ -252,7 +280,8 @@ pub fn run() {
             settings_load,
             settings_save,
             fetch_page_head,
-            open_file
+            open_file,
+            fs_write_part
         ])
         .run(tauri::generate_context!())
         .expect("error while running Scrawl");

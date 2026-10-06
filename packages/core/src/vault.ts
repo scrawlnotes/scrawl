@@ -1,5 +1,5 @@
 import { t } from '@scrawlnotes/i18n';
-import { basename, dirname, type Entry, join, type VaultFs } from './fs';
+import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
 import { loadTasks, serializeTasks, TASK_LIST_EXT } from './tasks';
 
@@ -67,6 +67,9 @@ export const isScratchNote = (path: string) => SCRATCH_NAME.test(basename(path))
 export function listName(path: string): string {
   return path === INBOX_TASKS ? t('tasks.defaultList') : basename(path).slice(0, -TASK_LIST_EXT.length);
 }
+
+/** Paths of files being written in parts, which no other file may take until they are there. */
+const writing = new Set<string>();
 
 /** The paths in `dir`, lowercased for `freePath`. */
 async function names(fs: VaultFs, dir: string): Promise<Set<string>> {
@@ -281,17 +284,38 @@ export async function emptyTrash(fs: VaultFs): Promise<void> {
   if ((await fs.list(TRASH)).length > 0) await fs.remove(TRASH);
 }
 
-/** Stores an image and returns the source to write into a note. */
-export async function saveAttachment(fs: VaultFs, file: Blob, now = new Date()): Promise<string> {
+/**
+ * Takes the first free attachment path that `pick` gives, also free of copies still being
+ * written. Nothing awaits between choosing and taking it, so two copies never get the same name.
+ */
+function reserve(listed: Set<string>, pick: (taken: Set<string>) => string): string {
+  const path = pick(new Set([...listed, ...writing]));
+  writing.add(path.toLowerCase());
+  return path;
+}
+
+/** Writes an attachment in parts to a path that `reserve` took, and gives the name back after. */
+async function writeAttachment(fs: VaultFs, path: string, file: Blob, options: PartsOptions): Promise<void> {
+  try {
+    await fs.writeBlobInParts(path, file, options);
+  } finally {
+    writing.delete(path.toLowerCase());
+  }
+}
+
+/** Stores an image or a recording and returns the source to write into a note. */
+export async function saveAttachment(fs: VaultFs, file: Blob, now = new Date(), options: PartsOptions = {}): Promise<string> {
   // `audio/webm;codecs=opus` is a .webm file.
   const subtype = file.type.split(';')[0]!.split('/')[1]?.trim();
   const ext = subtype?.replace('svg+xml', 'svg').replace('jpeg', 'jpg').replace('mpeg', 'mp3') || 'bin';
   // No spaces: the path is written into a Markdown image, where a space would end the address.
   const name = stamp(now).replace(' ', '-');
-  const taken = await names(fs, ATTACHMENTS);
-  let path = join(ATTACHMENTS, `${name}.${ext}`);
-  for (let n = 2; taken.has(path.toLowerCase()); n++) path = join(ATTACHMENTS, `${name}-${n}.${ext}`);
-  await fs.writeBlob(path, file);
+  const path = reserve(await names(fs, ATTACHMENTS), (taken) => {
+    let free = join(ATTACHMENTS, `${name}.${ext}`);
+    for (let n = 2; taken.has(free.toLowerCase()); n++) free = join(ATTACHMENTS, `${name}-${n}.${ext}`);
+    return free;
+  });
+  await writeAttachment(fs, path, file, options);
   return path;
 }
 
@@ -299,10 +323,12 @@ export async function saveAttachment(fs: VaultFs, file: Blob, now = new Date()):
  * Stores a file that is not an image under its own name, numbered when the name is taken.
  * Returns its path; written into a link, the path needs `linkAddress` for its spaces.
  */
-export async function saveFile(fs: VaultFs, file: File): Promise<string> {
+export async function saveFile(fs: VaultFs, file: File, options: PartsOptions = {}): Promise<string> {
   const [name, ext] = splitName(cleanName(file.name) || 'file');
-  const path = freePath(ATTACHMENTS, isHidden(name) ? `file ${name}` : name, ext, await names(fs, ATTACHMENTS));
-  await fs.writeBlob(path, file);
+  const path = reserve(await names(fs, ATTACHMENTS), (taken) =>
+    freePath(ATTACHMENTS, isHidden(name) ? `file ${name}` : name, ext, taken),
+  );
+  await writeAttachment(fs, path, file, options);
   return path;
 }
 

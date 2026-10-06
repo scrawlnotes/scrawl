@@ -43,8 +43,14 @@ import {
   VERSION_EVERY_MS,
 } from '@scrawlnotes/core';
 import {
+  addCopy,
   addCursorBelow,
+  type Copy,
+  copyFollows,
+  copyPosition,
+  copyProgress,
   createEditor,
+  dropCopy,
   type EditorState,
   type EditorStats,
   type FormatState,
@@ -56,6 +62,7 @@ import {
   selectNextOccurrence,
   selectSelectionMatches,
   setLink,
+  showCopy,
   toggleBold,
   toggleCode,
   toggleCodeBlock,
@@ -63,6 +70,7 @@ import {
   toggleItalic,
   toggleLinePrefix,
   toggleStrike,
+  type TransactionSpec,
 } from '@scrawlnotes/editor';
 import { boardOf, folderOf, isNote, listOf, tabOf } from './items';
 import { sampleDoc } from './sample';
@@ -179,6 +187,8 @@ export class Session {
   /** Addresses of attached files the browser was asked to play or show, by their path. */
   private readonly media = new Map<string, string>();
   private recorder: MediaRecorder | null = null;
+  /** How many files are being copied into notes. */
+  private copying = 0;
   private timer = 0;
   /** Task files are written one after another, so an older list never lands on top of a newer one. */
   private taskWrites: Promise<void> = Promise.resolve();
@@ -207,6 +217,11 @@ export class Session {
     }
     this.fs = fs;
     for (const entry of await this.fs.list(ATTACHMENTS)) {
+      // A copy that was cut off when the app closed leaves its hidden part behind.
+      if (entry.name.startsWith('.') && entry.name.endsWith('.part')) {
+        await this.fs.remove(entry.path).catch(() => undefined);
+        continue;
+      }
       if (entry.size !== undefined) this.sizes.set(entry.path, entry.size);
       // Images show as soon as a note is open; other files are read when they are opened or played.
       if (IMAGE.test(entry.name)) this.images.set(entry.path, URL.createObjectURL(await this.fs.readBlob(entry.path)));
@@ -224,11 +239,7 @@ export class Session {
     this.editor = createEditor({
       parent,
       resolveImage: this.resolveImage,
-      saveImage: async (file) => {
-        const path = await saveAttachment(this.fs, file);
-        this.images.set(path, URL.createObjectURL(file));
-        return path;
-      },
+      addFiles: (files, at) => this.addFiles(files, at),
       onStats: (stats) => {
         // The editor reports as soon as it exists, before any note is in it.
         const { active } = this.snapshot;
@@ -237,11 +248,6 @@ export class Session {
       },
       onChange: (doc) => this.changed(doc),
       onLinkPasted: (url) => void this.fillLinkTitle(this.snapshot.active, url),
-      saveFile: async (file) => {
-        const path = await saveFile(this.fs, file);
-        this.sizes.set(path, file.size);
-        return path;
-      },
       openFile: (src) => void this.openFile(src),
       fileSize: (src) => this.sizes.get(src),
       resolveAudio: (src) => this.mediaUrl(src),
@@ -330,8 +336,13 @@ export class Session {
         this.disk.set(path, doc);
       }),
     );
-    if (!this.pending.size && !this.snapshot.saved) this.set({ saved: true });
+    this.markSaved();
   };
+
+  /** Shows "Saved" once nothing waits to be written: no note, and no file being copied. */
+  private markSaved() {
+    if (!this.pending.size && this.copying === 0 && !this.snapshot.saved) this.set({ saved: true });
+  }
 
   /** Keeps `text` as an earlier version of the note at `path`, as `keepVersion` decides. */
   private async keep(path: string, text: string, always = false) {
@@ -379,6 +390,104 @@ export class Session {
       else window.open(await this.mediaUrl(src), '_blank', 'noopener');
     } catch {
       // A file that is gone or cannot be opened simply does not open.
+    }
+  }
+
+  /** Files were pasted, dropped or picked in the note on screen, to go at `at`. */
+  private addFiles(files: File[], at: number) {
+    const note = this.snapshot.active;
+    if (note && isNote(note)) void this.copyFiles(note, files, at);
+  }
+
+  /**
+   * Copies files into the attachments one after another. Each shows where it will land, with how
+   * far it got and a way to stop it, and goes into the note once it is there. A copy that is
+   * stopped or fails leaves nothing behind.
+   */
+  private async copyFiles(note: string, files: File[], at: number) {
+    const jobs = files.map((file) => {
+      const stop = new AbortController();
+      const copy: Copy = {
+        id: crypto.randomUUID(),
+        name: file.name,
+        image: file.type.startsWith('image/'),
+        total: file.size,
+        written: 0,
+        shown: false,
+        cancel: () => stop.abort(),
+      };
+      return { file, copy, stop };
+    });
+    this.applyTo(note, { effects: jobs.map(({ copy }) => addCopy.of({ copy, pos: at })) });
+    this.copying += jobs.length;
+    this.set({ saved: false });
+    for (const { file, copy, stop } of jobs) {
+      // A copy that is over within half a second never shows.
+      const reveal = window.setTimeout(() => this.applyTo(note, { effects: showCopy.of(copy.id) }), 500);
+      let told = 0;
+      const onProgress = (written: number) => {
+        if (Date.now() - told < 100 && written < file.size) return;
+        told = Date.now();
+        this.applyTo(note, { effects: copyProgress.of({ id: copy.id, written }) });
+      };
+      try {
+        const options = { onProgress, signal: stop.signal };
+        const src = copy.image ? await saveAttachment(this.fs, file, new Date(), options) : await saveFile(this.fs, file, options);
+        this.sizes.set(src, file.size);
+        if (copy.image) this.images.set(src, URL.createObjectURL(file));
+        const markdown = copy.image ? `![](${src})` : `[${linkText(file.name)}](${linkAddress(src)})`;
+        this.applyTo(
+          note,
+          (state) => {
+            const pos = copyPosition(state, copy.id);
+            if (pos === null) return null;
+            // The next file dropped with this one goes on the line below.
+            const insert = markdown + (copyFollows(state, copy.id) ? '\n' : '');
+            return { changes: { from: pos, insert }, effects: dropCopy.of(copy.id), userEvent: 'input.media' };
+          },
+          markdown,
+        );
+      } catch {
+        this.applyTo(note, { effects: dropCopy.of(copy.id) });
+      } finally {
+        window.clearTimeout(reveal);
+        this.copying--;
+        this.markSaved();
+      }
+    }
+  }
+
+  /**
+   * Changes a note wherever it is: in the editor when it is on screen, in its kept state when
+   * its tab is in the background. A note whose tab was closed gets `appended` at its end, if given.
+   */
+  private applyTo(path: string, change: TransactionSpec | ((state: EditorState) => TransactionSpec | null), appended?: string) {
+    const make = typeof change === 'function' ? change : () => change;
+    const view = this.editor?.view;
+    if (view && this.snapshot.active === path) {
+      const spec = make(view.state);
+      if (spec) view.dispatch(spec);
+      return;
+    }
+    const state = this.states.get(path);
+    if (state) {
+      const spec = make(state);
+      if (!spec) return;
+      const next = state.update(spec).state;
+      this.states.set(path, next);
+      if (next.doc !== state.doc) this.queueSave(path, next.doc.toString());
+      return;
+    }
+    if (appended) void this.appendToFile(path, appended);
+  }
+
+  /** Adds Markdown on a line of its own at the end of a note that is not open. */
+  private async appendToFile(path: string, markdown: string) {
+    try {
+      const text = await this.fs.readText(path);
+      await this.fs.writeText(path, `${text}${text && !text.endsWith('\n') ? '\n' : ''}${markdown}\n`);
+    } catch {
+      // The note itself is gone; the file stays in the attachments.
     }
   }
 
@@ -448,12 +557,7 @@ export class Session {
       this.queueSave(path, next.doc.toString());
       return;
     }
-    try {
-      const text = await this.fs.readText(path);
-      await this.fs.writeText(path, `${text}${text && !text.endsWith('\n') ? '\n' : ''}${markdown}\n`);
-    } catch {
-      // The note itself is gone; the recording stays in the attachments.
-    }
+    await this.appendToFile(path, markdown);
   }
 
   /** The address an image in a note loads from. */
@@ -567,7 +671,7 @@ export class Session {
       .then(() => saveTasks(this.fs, list, next))
       .catch(() => undefined)
       .then(() => {
-        if (!this.pending.size) this.set({ saved: true });
+        this.markSaved();
       });
   }
 

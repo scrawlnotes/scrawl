@@ -200,6 +200,8 @@ export const en = {
   'editor.play': 'Play {name}',
   'editor.pause': 'Pause {name}',
   'editor.voiceMemo': 'Voice memo',
+  'copy.cancel': 'Cancel copying',
+  'copy.cancelName': 'Cancel copying {name}',
   'slash.heading1': 'Heading 1',
   'slash.heading2': 'Heading 2',
   'slash.heading3': 'Heading 3',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MemoryFs } from './fs';
+import { MemoryFs, PART_SIZE } from './fs';
 import { addTask, loadTasks, serializeTasks } from './tasks';
 import {
   createFolder,
@@ -279,7 +279,9 @@ describe('trash', () => {
     expect(await readTrash(fs)).toEqual([]);
     expect(await fs.list('.scrawl/trash')).toEqual([]);
   });
+});
 
+describe('attachments, folders and the workspace', () => {
   it('stores attachments under a time-based path without spaces', async () => {
     const fs = new MemoryFs();
     const image = new Blob(['x'], { type: 'image/png' });
@@ -296,6 +298,27 @@ describe('trash', () => {
     expect((await fs.list('_attachments')).find((e) => e.name === 'Scope v3.pdf')?.size).toBe(4);
     const voice = new Blob(['ogg'], { type: 'audio/webm;codecs=opus' });
     expect(await saveAttachment(fs, voice, at)).toBe('_attachments/2026-10-05-143207.webm');
+  });
+
+  it('copies a large file in parts, telling how far it got', async () => {
+    const fs = new MemoryFs();
+    const big = new File([new Uint8Array(PART_SIZE * 2 + 10)], 'big.bin');
+    const progress: number[] = [];
+    const path = await saveFile(fs, big, { onProgress: (written) => progress.push(written) });
+    expect(progress).toEqual([PART_SIZE, PART_SIZE * 2, PART_SIZE * 2 + 10]);
+    expect((await fs.readBlob(path)).size).toBe(big.size);
+  });
+
+  it('leaves nothing when a copy is stopped, and keeps a name taken while it is copied', async () => {
+    const fs = new MemoryFs();
+    const big = new File([new Uint8Array(PART_SIZE * 3)], 'big.bin');
+    const stop = new AbortController();
+    const first = saveFile(fs, big, { signal: stop.signal, onProgress: () => stop.abort() });
+    // Started while the first is still being written, the second gets a name of its own.
+    const second = saveFile(fs, new File(['x'], 'big.bin'));
+    await expect(first).rejects.toThrow();
+    expect(await second).toBe('_attachments/big 2.bin');
+    expect((await fs.list('_attachments')).map((e) => e.name)).toEqual(['big 2.bin']);
   });
 
   it('rejects folder names that would be hidden', async () => {

@@ -11,11 +11,26 @@ export interface VaultFs {
   writeText(path: string, text: string): Promise<void>;
   readBlob(path: string): Promise<Blob>;
   writeBlob(path: string, data: Blob): Promise<void>;
+  /**
+   * Writes a large file part by part, telling after each part how much is written, and stops
+   * when `signal` aborts. The file is there only once it is complete; a write that does not
+   * finish leaves nothing behind.
+   */
+  writeBlobInParts(path: string, data: Blob, options?: PartsOptions): Promise<void>;
   /** Moves or renames a file, creating the target's parent directories as needed. */
   move(from: string, to: string): Promise<void>;
   remove(path: string): Promise<void>;
   mkdir(path: string): Promise<void>;
 }
+
+export interface PartsOptions {
+  /** Told how many bytes are written so far, after each part. */
+  onProgress?: (written: number) => void;
+  signal?: AbortSignal;
+}
+
+/** How much of a file is written at a time: small enough to show progress and to stop in between. */
+export const PART_SIZE = 4 * 1024 * 1024;
 
 export interface Entry {
   name: string;
@@ -67,6 +82,19 @@ export class MemoryFs implements VaultFs {
 
   async writeText(path: string, text: string): Promise<void> {
     this.files.set(path, new Blob([text], { type: 'text/markdown' }));
+  }
+
+  async writeBlobInParts(path: string, data: Blob, { onProgress, signal }: PartsOptions = {}): Promise<void> {
+    const parts: Blob[] = [];
+    for (let offset = 0; offset < data.size; offset += PART_SIZE) {
+      signal?.throwIfAborted();
+      parts.push(data.slice(offset, offset + PART_SIZE));
+      // A turn of the event loop between parts, as real storage takes, so that a stop can come in.
+      await new Promise((resolve) => setTimeout(resolve));
+      onProgress?.(Math.min(offset + PART_SIZE, data.size));
+    }
+    signal?.throwIfAborted();
+    this.files.set(path, new Blob(parts, { type: data.type }));
   }
 
   async move(from: string, to: string): Promise<void> {

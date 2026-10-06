@@ -17,6 +17,7 @@ import { literalPattern } from './find';
 import { linkTitleChange, pastedLink, pastedUrl } from './links';
 import { restingPosition } from './cursor';
 import { markdownSlice, visibleText } from './clipboard';
+import { addCopy, type Copy, copiesField, copyFollows, copyPosition, copyProgress, dropCopy, progressText } from './copies';
 import { positionsToEscape } from './literal';
 import { buildDecorations, setSourceMode, sourceMode } from './livePreview';
 import { cellMarkdown, parseTable, serializeTable, tableDecorations, tableGrid } from './table';
@@ -400,6 +401,36 @@ describe('split selection into lines', () => {
     let state = stateOf('|one\ntwo\n|three');
     splitSelectionIntoLines({ state, dispatch: (tr) => (state = tr.state) });
     expect(state.selection.ranges.map((r) => [r.from, r.to])).toEqual([[0, 3], [4, 7]]);
+  });
+});
+
+describe('files being copied in', () => {
+  const copy = (id: string): Copy => ({ id, name: `${id}.png`, image: true, total: 100, written: 0, shown: false, cancel: () => {} });
+
+  it('keeps its place while the note is edited, out of the note text', () => {
+    let state = EditorState.create({ doc: 'see here', extensions: [copiesField] });
+    state = state.update({ effects: addCopy.of({ copy: copy('a'), pos: 4 }) }).state;
+    state = state.update({ changes: { from: 0, insert: 'Please ' } }).state;
+    expect(copyPosition(state, 'a')).toBe(11);
+    expect(state.doc.toString()).toBe('Please see here');
+    state = state.update({ effects: dropCopy.of('a') }).state;
+    expect(copyPosition(state, 'a')).toBeNull();
+  });
+
+  it('knows when another file dropped with it waits behind it', () => {
+    let state = EditorState.create({ doc: 'x', extensions: [copiesField] });
+    state = state.update({ effects: [addCopy.of({ copy: copy('a'), pos: 1 }), addCopy.of({ copy: copy('b'), pos: 1 })] }).state;
+    expect(copyFollows(state, 'a')).toBe(true);
+    expect(copyFollows(state, 'b')).toBe(false);
+    state = state.update({ effects: copyProgress.of({ id: 'a', written: 40 }) }).state;
+    expect(copyPosition(state, 'a')).toBe(1);
+    expect(copyFollows(state, 'a')).toBe(true);
+  });
+
+  it('writes how far a copy is in the unit of the whole', () => {
+    expect(progressText(13_002_342, 44_983_910)).toBe('12.4 / 42.9 MB');
+    expect(progressText(0, 2048)).toBe('0 / 2 KB');
+    expect(progressText(10, 300)).toBe('10 / 300 B');
   });
 });
 

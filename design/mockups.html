@@ -286,6 +286,16 @@ p { margin: 0; max-width: 68ch; }
 .aud .time { font-variant-numeric: tabular-nums; }
 .aud.playing .play::after { width: 7px; height: 9px; margin: 0; border: 0; background: linear-gradient(90deg, var(--m-on-accent) 0 2.5px, transparent 2.5px 4.5px, var(--m-on-accent) 4.5px 7px); }
 .aud.playing .wv i.on { background: var(--m-accent); }
+
+/* direction A: a file being copied into a note, where it will land. It is not in the note's text yet. */
+.copy { position: relative; display: inline-flex; align-items: center; gap: 8px; margin: 4px 0; padding: 5px 6px 7px 9px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-side); font: 12px/1.4 var(--m-ui); color: var(--m-fg); vertical-align: middle; }
+.copy svg { width: 15px; height: 15px; color: var(--m-dim); }
+.copy small { color: var(--m-faint); font-variant-numeric: tabular-nums; }
+.copy .x { position: relative; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; color: var(--m-dim); font-size: 14px; line-height: 1; }
+.copy .x.hot { background: var(--m-line); color: var(--m-fg); }
+.copy .x.hot::after { content: "Cancel copying"; position: absolute; left: calc(100% + 6px); top: -2px; padding: 2px 7px; border: 1px solid var(--m-line); border-radius: 4px; background: var(--m-bg); color: var(--m-fg); font-size: 11px; white-space: nowrap; }
+.copy .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 0 0 5px 5px; background: var(--m-line); overflow: hidden; }
+.copy .bar i { display: block; height: 100%; background: var(--m-accent); }
 .earlier { border-top: 1px solid var(--rule); padding-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 </style>
 
@@ -319,6 +329,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-trash" data-aview="trash">Trash</button>
         <button type="button" id="a-history" data-aview="history">History</button>
         <button type="button" id="a-media" data-aview="media">Media</button>
+        <button type="button" id="a-copy" data-aview="copy">Copying</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -637,6 +648,24 @@ p { margin: 0; max-width: 68ch; }
     '<div class="ln">&nbsp;</div>' +
     '<div class="ln">Next: send the estimate by Thursday.<span class="caret"></span></div>' +
     '</div></div>';
+  ICON.image = '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L20 18"/></svg>';
+  function copying(icon, name, done, total, hot) {
+    var share = Math.round(done / total * 100);
+    return '<span class="copy">' + ICON[icon] + name + '<small>' + done + ' / ' + total + ' MB</small>' +
+      '<span class="x' + (hot ? ' hot' : '') + '">×</span><span class="bar"><i style="width:' + share + '%"></i></span></span>';
+  }
+  var COPY = FBAR.replace(/<div class="rec">[\s\S]*?<\/div>/, '<div class="g"><span>Record</span></div>') + '<div class="ed"><div class="col">' +
+    '<div class="ln h1">Site visit, Oct 6</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">Photos from the roof, the full-size one first:</div>' +
+    '<div class="ln">' + copying('image', 'M24-stelora.png', 12.4, 42.9, true) + '</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">The survey they sent, and the drawings:</div>' +
+    '<div class="ln"><span class="file">' + ICON.file + 'survey-2026.pdf<small>1.8 MB</small></span></div>' +
+    '<div class="ln">' + copying('file', 'drawings.zip', 3.1, 8.0, false) + '</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">Next: ask about the drainage<span class="caret"></span></div>' +
+    '</div></div>';
   function tab(kind, label, go, on, dot) {
     return '<div class="tab' + (on ? ' on' : '') + '" data-go="' + go + '">' + ICON[kind] + '<span>' + label + '</span>' + (dot ? '<i></i>' : '') + '</div>';
   }
@@ -649,10 +678,12 @@ p { margin: 0; max-width: 68ch; }
     today: '<span>3 tasks</span><span>1 overdue</span>',
     trash: '<span>6 items</span>',
     history: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
-    media: '<span>Ln 12, Col 37</span><span>412 characters</span><span>Markdown</span>'
+    media: '<span>Ln 12, Col 37</span><span>412 characters</span><span>Markdown</span>',
+    copy: '<span>Ln 10, Col 29</span><span>186 characters</span><span>Markdown</span>'
   };
   function renderA(section, view) {
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
+      (view === 'copy' ? tab('notes', 'Site visit, Oct 6', 'copy', true) : '') +
       tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
       tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks') +
@@ -661,7 +692,7 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +

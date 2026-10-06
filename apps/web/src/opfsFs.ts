@@ -1,4 +1,4 @@
-import { basename, dirname, type Entry, join, MemoryFs, type VaultFs } from '@scrawlnotes/core';
+import { basename, dirname, type Entry, join, MemoryFs, PART_SIZE, type PartsOptions, type VaultFs } from '@scrawlnotes/core';
 
 /** A vault in the browser's origin private file system. */
 class OpfsFs implements VaultFs {
@@ -46,6 +46,25 @@ class OpfsFs implements VaultFs {
 
   writeText(path: string, text: string): Promise<void> {
     return this.writeBlob(path, text);
+  }
+
+  // The browser keeps what is written aside until `close`, and `abort` drops it.
+  async writeBlobInParts(path: string, data: Blob, { onProgress, signal }: PartsOptions = {}): Promise<void> {
+    const writable = await (await this.file(path, true)).createWritable();
+    try {
+      for (let offset = 0; offset < data.size; offset += PART_SIZE) {
+        signal?.throwIfAborted();
+        await writable.write(data.slice(offset, offset + PART_SIZE));
+        onProgress?.(Math.min(offset + PART_SIZE, data.size));
+      }
+      signal?.throwIfAborted();
+      await writable.close();
+    } catch (error) {
+      await writable.abort().catch(() => undefined);
+      // Opening the file for writing made it; a copy that did not finish leaves nothing.
+      await this.remove(path).catch(() => undefined);
+      throw error;
+    }
   }
 
   async move(from: string, to: string): Promise<void> {
