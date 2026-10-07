@@ -408,6 +408,81 @@ export function MoveTaskDialog({ title, subtasks, places, onMove, onClose }: {
   );
 }
 
+/**
+ * Makes a task from a note: its title, from what was selected, and the list or section it goes
+ * to. After the To task view of design/mockups.html (direction A).
+ */
+export function NewTaskDialog({ title, note, places, initial, onAdd, onClose }: {
+  title: string;
+  /** The name of the note it links back to. */
+  note: string;
+  places: TaskPlaceChoice[];
+  /** The place picked at first. */
+  initial: number;
+  onAdd: (title: string, place: TaskPlaceChoice) => void;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(title);
+  const [index, setIndex] = useState(initial);
+  // The note's name is underlined, wherever the sentence puts it.
+  const linksBack = t('toTask.linksBack').split('{note}');
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [index]);
+  const add = () => {
+    const place = places[index];
+    if (value.trim() && place) onAdd(value, place);
+  };
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === 'ArrowDown') setIndex(Math.min(index + 1, places.length - 1));
+    else if (event.key === 'ArrowUp') setIndex(Math.max(index - 1, 0));
+    else if (event.key === 'Enter') add();
+    else return;
+    event.preventDefault();
+  };
+  return (
+    <Dialog label={t('toTask.title')} className="move-task" onClose={onClose} onKeyDown={onKey}>
+      <h2>{t('toTask.title')}</h2>
+      <input
+        aria-label={t('tasks.title')}
+        placeholder={t('tasks.name')}
+        autoFocus
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+      />
+      <p className="links-back">
+        {linksBack[0]}
+        <u>{note}</u>
+        {linksBack[1]}
+      </p>
+      <p className="choices-label">{t('toTask.addTo')}</p>
+      <div ref={list} className="choices" role="listbox" aria-label={t('moveTask.places')}>
+        {places.map((place, i) => (
+          <button
+            key={`${place.list}\n${place.section ?? ''}`}
+            type="button"
+            role="option"
+            className={place.section === null ? undefined : 'sub'}
+            aria-selected={i === index}
+            tabIndex={-1}
+            onMouseDown={keepFocus}
+            onClick={() => setIndex(i)}
+            onDoubleClick={() => value.trim() && onAdd(value, place)}
+          >
+            {place.section === null && <Icon name="tasks" />}
+            <span>{place.label}</span>
+            {place.folder && <small>{place.folder}</small>}
+          </button>
+        ))}
+      </div>
+      <p className="dialog-hint">
+        <kbd>Enter</kbd> {t('toTask.adds')} · <kbd>Esc</kbd> {t('toTask.cancels')}
+      </p>
+    </Dialog>
+  );
+}
+
 /** Asks for the name of a note or a task list. */
 export function RenameDialog({ name, onRename, onClose }: {
   name: string;

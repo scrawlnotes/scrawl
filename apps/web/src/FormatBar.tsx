@@ -14,6 +14,10 @@ interface Props {
   recordError: string | null;
   onRecord: () => void;
   onStop: () => void;
+  /** Makes a task from the selection, or from the line the cursor is on. */
+  onToTask: () => void;
+  /** The keys that do the same, to show in the button's tooltip. */
+  toTaskKeys: string;
 }
 
 const clock = (ms: number) => {
@@ -83,7 +87,7 @@ const keepEditorFocus = (event: MouseEvent) => {
 };
 
 /** The formatting controls: a fixed row above the editor that acts on the selection or the word at the cursor. */
-export function FormatBar({ format, onFormat, onLink, recording, recordError, onRecord, onStop }: Props) {
+export function FormatBar({ format, onFormat, onLink, recording, recordError, onRecord, onStop, onToTask, toTaskKeys }: Props) {
   const [linking, setLinking] = useState(false);
   const [url, setUrl] = useState('');
   const input = useRef<HTMLInputElement>(null);
@@ -158,6 +162,11 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
           )}
         </div>
       ))}
+      <div className="fmt-group">
+        <button type="button" title={t('format.toTaskTitle', { keys: toTaskKeys })} disabled={!format} onClick={onToTask}>
+          {t('format.toTask')}
+        </button>
+      </div>
       {!recording && (
         <div className="fmt-group">
           <button type="button" title={t('format.recordTitle')} disabled={!format} onClick={onRecord}>

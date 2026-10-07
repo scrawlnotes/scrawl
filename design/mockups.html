@@ -360,6 +360,17 @@ p { margin: 0; max-width: 68ch; }
 .mdlg .ch.here { color: var(--m-faint); }
 .mdlg .ch .tick { margin-left: auto; color: var(--m-faint); font-size: 12px; }
 .ta.show { opacity: 1; }
+/* direction A: a task made from a note. The selected text, or the line the cursor is on, becomes
+   its title; the list it goes to starts at one in the note's folder. The note itself is left as
+   it was; the task links back to it. */
+.fbar .g span.hot { background: var(--m-sel); color: var(--m-accent); }
+.mdlg .field.filled { color: var(--m-fg); }
+.mdlg .from { margin: 6px 2px 10px; font-size: 12px; color: var(--m-faint); }
+.mdlg .from u { color: var(--m-dim); text-underline-offset: 2px; }
+.mdlg .label { margin: 0 2px 4px; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.mdlg .foot { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--m-line); font-size: 11.5px; color: var(--m-faint); }
+.mdlg .foot kbd { font: inherit; padding: 0 4px; border: 1px solid var(--m-line); border-radius: 3px; color: var(--m-dim); }
+.toast-status { color: var(--m-accent); }
 .earlier { border-top: 1px solid var(--rule); padding-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 </style>
 
@@ -399,6 +410,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-sections" data-aview="sections">Sections</button>
         <button type="button" id="a-drag" data-aview="drag">Drag</button>
         <button type="button" id="a-movetask" data-aview="movetask">Move task</button>
+        <button type="button" id="a-totask" data-aview="totask">To task</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -850,6 +862,35 @@ p { margin: 0; max-width: 68ch; }
       '</div></div></div>';
     return { body: list, overlay: dialog };
   }
+  function toTaskView() {
+    var bar = FBAR.replace(/<div class="rec">[\s\S]*?<\/div>/,
+      '<div class="g"><span class="hot">To task</span></div><div class="g"><span>Record</span></div>');
+    var note = bar + '<div class="ed"><div class="col">' +
+      '<div class="ln h1">Sync engine: open questions</div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln">Delta API returns a <b>cursor</b> per drive. Store it in <span class="ic">sync-state.json</span>, never in the vault.</div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln li"><span class="bu">•</span>Notes conflict: 3-way merge, fall back to a copy</div>' +
+      '<div class="ln li"><span class="bu">•</span>Tasks merge per record, last write wins per field</div>' +
+      '<div class="ln li"><span class="bu">•</span><span class="selx">Ask before deleting anything on the remote</span></div>' +
+      '<div class="ln">Token refresh for SPAs: <span class="lnk">MSAL browser docs</span>, 24 h refresh window.</div>' +
+      '</div></div>';
+    function ch(cls, icon, name, small) {
+      return '<div class="ch' + (cls ? ' ' + cls : '') + '">' + (icon ? ICON[icon] : '') + '<span>' + name + '</span>' +
+        (small ? '<small>' + small + '</small>' : '') + '</div>';
+    }
+    var dialog = '<div class="ovl"><div class="mdlg"><h3>New task</h3>' +
+      '<div class="field filled">Ask before deleting anything on the remote<span class="caret"></span></div>' +
+      '<div class="from">Links back to <u>Sync engine: open questions</u></div>' +
+      '<div class="label">Add to</div><div class="choices">' +
+      ch('on', 'tasks', 'Tasks', 'Scrawl') +
+      ch('sub', '', 'Phase 0') +
+      ch('sub', '', 'Phase 1') +
+      ch('', 'tasks', 'Tasks', 'Inbox') +
+      ch('', 'tasks', 'Groceries', 'Home') +
+      '</div><div class="foot"><kbd>Enter</kbd> adds · <kbd>Esc</kbd> cancels</div></div></div>';
+    return { body: note, overlay: dialog };
+  }
   function tab(kind, label, go, on, dot) {
     return '<div class="tab' + (on ? ' on' : '') + '" data-go="' + go + '">' + ICON[kind] + '<span>' + label + '</span>' + (dot ? '<i></i>' : '') + '</div>';
   }
@@ -871,13 +912,14 @@ p { margin: 0; max-width: 68ch; }
     sections: '<span>13 open</span><span>1 due today</span>',
     drag: '<span>13 open</span><span>1 due today</span>',
     movetask: '<span>13 open</span><span>1 due today</span>',
+    totask: '<span>Ln 7, Col 1</span><span>42 characters selected</span><span>Markdown</span>',
     'desc-new': '<span>4 open</span><span>1 due today</span>'
   };
   function renderA(section, view) {
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
       (view === 'copy' ? tab('notes', 'Site visit, Oct 6', 'copy', true) : '') +
       (view.indexOf('item') === 0 ? tab('notes', 'Client call, Oct 6', view, true) : '') +
-      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history') +
+      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
       tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag' || view === 'movetask') +
       (view === 'trash' ? tab('trash', 'Trash', 'trash', true) : '');
@@ -885,12 +927,12 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + '<span>Synced to OneDrive 12 s ago</span></div></section>' +
-      (view === 'history' ? HISTORY : '') + (view === 'movetask' ? moveTaskView().overlay : '');
+      (view === 'history' ? HISTORY : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });

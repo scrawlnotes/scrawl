@@ -21,6 +21,7 @@ import {
   moveSection,
   moveTask,
   moveTaskToList,
+  relinkNote,
   loadWorkspace,
   moveHistory,
   moveItem,
@@ -76,6 +77,7 @@ import {
   selectNextOccurrence,
   selectSelectionMatches,
   setLink,
+  visibleText,
   showCopy,
   toggleBold,
   toggleCode,
@@ -100,6 +102,8 @@ import {
 } from './storage';
 
 const SAVE_DELAY_MS = 400;
+/** What starts a list item, a task box, a quote or a heading, nested as deep as it goes. */
+const LINE_MARKERS = /^\s*(?:(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?|>\s?|#{1,6}\s+)+/;
 
 // Files read back from storage carry no type; the browser needs one to play or show them.
 const TYPES: Record<string, string> = {
@@ -845,6 +849,26 @@ export class Session {
     this.changeList(target, () => moved.to);
   }
 
+  /**
+   * What a task made from the note on screen starts with: the selection as it reads, or else the
+   * line the cursor is on. Its first line is the title, the rest the description.
+   */
+  taskFromNote(): { note: string; title: string; description: string } | null {
+    const view = this.editor?.view;
+    const note = this.snapshot.active;
+    if (!view || !note || !isNote(note)) return null;
+    const { state } = view;
+    const { main } = state.selection;
+    const line = state.doc.lineAt(main.head);
+    const [from, to] = main.empty ? [line.from, line.to] : [main.from, main.to];
+    // A list item, quote or heading reads without its marker, as it shows.
+    const lines = visibleText(state, from, to)
+      .split('\n')
+      .map((text) => text.replace(LINE_MARKERS, '').trim())
+      .filter(Boolean);
+    return { note, title: lines[0] ?? '', description: lines.slice(1).join('\n') };
+  }
+
   moveSection(list: string, id: string, after: string | null) {
     this.changeList(list, (current) => moveSection(current, id, after));
   }
@@ -1026,6 +1050,8 @@ export class Session {
     if (path.endsWith('.md')) {
       await moveHistory(this.fs, path, target).catch(() => undefined);
       this.versionedAt.delete(path);
+      // Tasks made from the note link to it where it is now.
+      for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkNote(current, path, target));
     }
     const [from, to] = [tabOf(path), tabOf(target)];
     const { tabs, active } = this.snapshot;

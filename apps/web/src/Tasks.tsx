@@ -51,6 +51,9 @@ export interface TaskActions {
   moveTask: (list: string, id: string, place: TaskPlace) => void;
   /** Asks where to, then moves the task to another list or section. */
   moveTo: (list: string, id: string) => void;
+  /** What the note at a path is called, or null when it is not there any more. */
+  noteTitle: (path: string) => string | null;
+  openNote: (path: string) => void;
   moveSection: (list: string, id: string, after: string | null) => void;
 }
 
@@ -237,7 +240,18 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, drag }: I
       })),
     );
 
-  const meta = (task.due || progress.total > 0 || flat) && (
+  // The note the task was made from: a link to it, or only its name once the note is gone.
+  const noteName = task.note ? actions.noteTitle(task.note) : null;
+  const from =
+    task.note &&
+    (noteName !== null ? (
+      <button type="button" className="from" onClick={() => actions.openNote(task.note!)}>
+        {t('tasks.from', { note: noteName })}
+      </button>
+    ) : (
+      <span className="from gone">{t('tasks.from', { note: basename(task.note).replace(/\.md$/, '') })}</span>
+    ));
+  const meta = (task.due || progress.total > 0 || flat || from) && (
     <div className="meta">
       {task.due && (
         <button type="button" className={dueClass(task.due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
@@ -253,6 +267,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, drag }: I
           </button>
         ))}
       {flat && <span>{listLabel(list)}</span>}
+      {from}
     </div>
   );
   const className = ['task', task.done && 'done', editing && 'editing'].filter(Boolean).join(' ');

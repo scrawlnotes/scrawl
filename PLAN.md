@@ -86,7 +86,7 @@ Sublime/Notepad'de kapatılmayan sekmelerin yerini alacak bir çalışma notu uy
 - Açıklama düz metindir; listede başlığın altında en fazla iki satır görünür. Başlığa tıklayınca satır, başlık ve açıklamanın birlikte düzenlendiği bir kutuya döner: başlıkta Enter, açıklamada Ctrl+Enter kaydeder, Esc vazgeçer, kutunun dışına tıklamak kaydeder. Yeni görev satırı yalnızca başlık alır.
 - Tüm listeleri kapsayan görünümler: Today, Upcoming, kayıtlı filtreler (ör. "bu hafta ve p1").
 - Klavye öncelikli hızlı ekleme (düz alanlarla).
-- Notla tek bağlantı: notta metni seçip "göreve çevir". Görev listede oluşur, nota geri link taşır; notun içine bir şey yazılmaz.
+- Notla tek bağlantı: notta metni seçip "göreve çevir". Görev listede oluşur, nota geri link taşır; notun içine bir şey yazılmaz. Biçim çubuğundaki To task düğmesi (Ctrl+T, web'de Alt+T) seçimi, seçim yoksa imlecin satırını alır; ilk satır başlık, kalanı açıklama olur, liste/alıntı/başlık işaretleri alınmaz. New task penceresinde başlık düzenlenir ve liste ya da bölüm seçilir; başlangıçta notun klasöründeki ilk liste, yoksa Inbox seçilidir. Görevin altında "from: <not adı>" linki notu açar; not taşınır ya da adı değişirse link takip eder, not silinirse soluk görünür.
 - Veri modelinde `recurrence`, `reminder`, `assignee` ve `author` alanları ayrılır ama v1'de kullanılmaz.
 
 ### 4.4 Paylaşım
@@ -166,7 +166,7 @@ vault/
 |---|---|---|
 | 0 | İskelet ve editör denemesi | Monorepo kurulu; live preview prototipi başlık, vurgu, liste, link, resim ve kod bloğuyla tarayıcıda denenebiliyor |
 | 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler (sürükleyerek sıralama dahil), scratch notlar, kenar çubuğu, resim, biçim çubuğunda çoklu imleç, kod bloğunda kopyala, çöp kutusu ekranı, sürüm geçmişi, dosya bırakma, ses kaydı ve oynatıcı, resim/dosya/kayıt menüsü, kullanılmayan eklerin temizliği, çeviri altyapısı (`packages/i18n`, şimdilik İngilizce), kurulabilir sürüm. **Kalan:** masaüstünde deneme (Show in folder, linki tarayıcıda açma) |
-| 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri, açıklama, bölümler, sürükleyerek sıralama, başka listeye taşıma. **Kalan:** "göreve çevir", kayıtlı filtreler |
+| 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri, açıklama, bölümler, sürükleyerek sıralama, başka listeye taşıma, notu göreve çevirme. **Kalan:** kayıtlı filtreler |
 | 3 | Ayarlar | Ayarlar ekranı: tema ve dark mode (sistemle uyumlu, seçim hatırlanır), not klasörü, dil |
 | 4 | Sync + web | OneDrive adaptörü, çakışma çözümü; web sürümü yayında ve telefonda PWA olarak kullanılabilir |
 | 5 | Paylaşım | PDF/HTML/MD dışa aktarma; yayın servisi ve "link olarak paylaş" |

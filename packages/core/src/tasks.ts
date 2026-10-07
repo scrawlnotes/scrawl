@@ -262,6 +262,12 @@ export function moveTaskToList(
   };
 }
 
+/** Points the tasks made from the note at `from` to the note's new path. */
+export function relinkNote(list: TaskList, from: string, to: string): TaskList {
+  if (!list.tasks.some((t) => t.note === from)) return list;
+  return { ...list, tasks: list.tasks.map((t) => (t.note === from ? { ...t, note: to } : t)) };
+}
+
 /** Removes a section with its tasks and their subtasks, as Todoist does. */
 export function removeSection(list: TaskList, id: string): TaskList {
   let tasks = list.tasks;
@@ -300,6 +306,9 @@ export interface NewTask {
   parent?: string | null;
   /** For a top-level task: the section it goes in. */
   section?: string | null;
+  description?: string;
+  /** The note it was made from. */
+  note?: string | null;
   due?: string | null;
   priority?: Priority;
 }
@@ -328,6 +337,8 @@ export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Da
     updated: stamp,
     completed: null,
     ...(section !== null && { section }),
+    ...(input.description?.trim() && { description: input.description.trim() }),
+    ...(input.note && { note: input.note }),
   };
   return [...tasks, task];
 }

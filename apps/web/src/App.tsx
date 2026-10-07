@@ -24,6 +24,7 @@ import {
   MoveDialog,
   MoveTaskDialog,
   NewDialog,
+  NewTaskDialog,
   RenameDialog,
   type TaskPlaceChoice,
 } from './dialogs';
@@ -36,6 +37,7 @@ import {
   isNote,
   isTaskListPath,
   labelOf,
+  listLabel,
   listOf,
   tasksOf,
   TODAY,
@@ -57,6 +59,7 @@ type OpenDialog =
   | { kind: 'confirm'; title: string; message: string; action: string; run: () => void }
   | { kind: 'history'; path: string }
   | { kind: 'moveTask'; list: string; id: string }
+  | { kind: 'toTask'; note: string; title: string; description: string }
   | null;
 
 // A tab being dragged to another place in the tab bar.
@@ -145,12 +148,21 @@ export function App() {
       if (!modifier || event.shiftKey) return;
       if (event.code === 'KeyN') setDialog({ kind: 'new' });
       else if (event.code === 'KeyW' && active) void session.close(active);
+      else if (event.code === 'KeyT' && active && isNote(active)) startToTask();
       else return;
       event.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [session, active]);
+
+  // Something that happened, shown in the status bar for a moment.
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     // Coming back to the window: another program may have changed the notes in the meantime.
@@ -218,22 +230,31 @@ export function App() {
     const task = tasks[list]?.find((candidate) => candidate.id === id);
     const known = (sections[list] ?? []).some((section) => section.id === task?.section);
     const here = task?.parent === null ? (known ? task.section! : null) : undefined;
-    return Object.keys(tasks).flatMap((path) => [
+    return allPlaces((path, section) => path === list && here === section);
+  };
+  /** Every list, at its top level and in each of its sections. */
+  const allPlaces = (isHere: (list: string, section: string | null) => boolean = () => false): TaskPlaceChoice[] =>
+    Object.keys(tasks).flatMap((path) => [
       {
         list: path,
         section: null,
         label: listName(path),
         folder: path === INBOX_TASKS ? INBOX : basename(dirname(path)),
-        here: path === list && here === null,
+        here: isHere(path, null),
       },
       ...(sections[path] ?? []).map((section) => ({
         list: path,
         section: section.id,
         label: section.name,
-        here: path === list && here === section.id,
+        here: isHere(path, section.id),
       })),
     ]);
-  };
+
+  // A task from the note on screen: what is selected, or the line the cursor is on.
+  function startToTask() {
+    const made = session.taskFromNote();
+    if (made) setDialog({ kind: 'toTask', ...made });
+  }
 
   // A section goes together with its tasks, as in Todoist.
   const deleteSection = (list: string, section: Section) => {
@@ -335,6 +356,8 @@ export function App() {
     moveTask: (list, id, place) => session.moveTask(list, id, place),
     moveSection: (list, id, after) => session.moveSection(list, id, after),
     moveTo: (list, id) => setDialog({ kind: 'moveTask', list, id }),
+    noteTitle: (path) => titles[path] ?? null,
+    openNote: (path) => void session.open(path),
   };
   const dueNow = dueToday(tasks, today);
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length, [TRASH]: trash.length };
@@ -430,6 +453,8 @@ export function App() {
             recordError={recordError}
             onRecord={() => void session.startRecording()}
             onStop={() => session.stopRecording()}
+            onToTask={startToTask}
+            toTaskKeys={keys('T')}
           />
         )}
         <div className="editor" ref={host} hidden={!showingEditor} />
@@ -459,6 +484,11 @@ export function App() {
         <footer className="status">
           {stats && <span>{position(stats)}</span>}
           {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
+          {notice && (
+            <span className="notice" role="status">
+              {notice}
+            </span>
+          )}
           <span className="push">{!ready ? t('status.opening') : saved ? t('status.saved') : t('status.saving')}</span>
           {folder && (
             <button type="button" title={t('status.folder', { folder })} onClick={() => void session.chooseFolder()}>
@@ -537,6 +567,27 @@ export function App() {
               places={taskPlaces(dialog.list, task.id)}
               onMove={(place) => {
                 session.moveTaskTo(dialog.list, task.id, place.list, place.section);
+                setDialog(null);
+              }}
+              onClose={closeDialog}
+            />
+          );
+        })()}
+      {dialog?.kind === 'toTask' &&
+        (() => {
+          const places = allPlaces();
+          // A list in the note's own folder first, else the inbox's.
+          const near = places.findIndex((place) => place.section === null && dirname(place.list) === dirname(dialog.note));
+          const inbox = places.findIndex((place) => place.list === INBOX_TASKS && place.section === null);
+          return (
+            <NewTaskDialog
+              title={dialog.title}
+              note={titles[dialog.note] ?? basename(dialog.note)}
+              places={places}
+              initial={near >= 0 ? near : Math.max(inbox, 0)}
+              onAdd={(title, place) => {
+                session.addTask(place.list, { title, description: dialog.description, section: place.section, note: dialog.note });
+                setNotice(t('toTask.added', { list: listLabel(place.list) }));
                 setDialog(null);
               }}
               onClose={closeDialog}

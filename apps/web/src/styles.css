@@ -767,6 +767,51 @@ input:focus {
   font-size: 12px;
 }
 
+/* Making a task from a note: the note it links back to, and where it goes. */
+.dialog p.links-back {
+  margin: 0 2px 4px;
+  color: var(--sl-faint);
+}
+
+.dialog p.choices-label {
+  margin: 4px 2px 0;
+  color: var(--sl-faint);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.dialog p.dialog-hint {
+  margin: 4px 2px 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--sl-line);
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.dialog-hint kbd {
+  padding: 0 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  color: var(--sl-dim);
+  font: inherit;
+}
+
+/* The note a task was made from, under the task. */
+.meta .from {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.meta .from.gone {
+  color: var(--sl-faint);
+  text-decoration: none;
+}
+
+.status .notice {
+  color: var(--sl-accent);
+}
+
 /* a labelled field: the label in a narrow column, the field beside it */
 .field {
   display: grid;

@@ -20,6 +20,7 @@ import {
   parseList,
   parseTasks,
   progressOf,
+  relinkNote,
   removeSection,
   removeTask,
   renameSection,
@@ -252,6 +253,15 @@ describe('sections', () => {
     const sub = moveTaskToList(sample(), other, 'p0a1', 'gone', now);
     expect(titles(sectionTasks(sub.to, null))).toEqual(['there', 'under p0']);
     expect(sub.to.tasks.find((t) => t.id === 'p0a1')!.section).toBeUndefined();
+  });
+
+  it('makes a task from a note, and follows the note when it moves', () => {
+    const tasks = addTask([], { title: 'Ask first', description: '  on the remote \n', note: 'Scrawl/Sync.md' }, now, 't');
+    expect(tasks[0]).toMatchObject({ title: 'Ask first', description: 'on the remote', note: 'Scrawl/Sync.md' });
+    const list = relinkNote({ sections: [], tasks }, 'Scrawl/Sync.md', 'Scrawl/Sync engine.md');
+    expect(list.tasks[0]!.note).toBe('Scrawl/Sync engine.md');
+    expect(relinkNote(list, 'Other.md', 'Elsewhere.md')).toBe(list);
+    expect(addTask([], { title: 'plain' }, now, 'p')[0]).not.toHaveProperty('note');
   });
 
   it('moves a section with its tasks', () => {
