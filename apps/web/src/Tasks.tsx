@@ -6,6 +6,7 @@ import {
   dirname,
   dueToday,
   dueUpcoming,
+  filterTasks,
   INBOX_TASKS,
   listName,
   MAX_DEPTH,
@@ -15,6 +16,7 @@ import {
   type Section,
   sectionTasks,
   type Task,
+  type TaskFilter,
   type TaskList as List,
   type TaskPatch,
   type TaskPlace,
@@ -189,6 +191,8 @@ interface ItemProps {
   actions: TaskActions;
   /** In the views over all lists: the task alone, with the list it is in. */
   flat?: boolean;
+  /** In a view that groups its tasks by list: the list is not named again. */
+  grouped?: boolean;
   /** In a list, where tasks can be dragged to another place. */
   drag?: DragHandlers;
 }
@@ -199,7 +203,7 @@ interface Draft {
   description: string;
 }
 
-function TaskItem({ list, task, tasks, today, showDone, actions, flat, drag }: ItemProps) {
+function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, drag }: ItemProps) {
   const [editing, setEditing] = useState<Draft | null>(null);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(true);
@@ -251,7 +255,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, drag }: I
     ) : (
       <span className="from gone">{t('tasks.from', { note: basename(task.note).replace(/\.md$/, '') })}</span>
     ));
-  const meta = (task.due || progress.total > 0 || flat || from) && (
+  const meta = (task.due || progress.total > 0 || (flat && !grouped) || from) && (
     <div className="meta">
       {task.due && (
         <button type="button" className={dueClass(task.due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
@@ -266,7 +270,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, drag }: I
             {open ? '▾' : '▸'} {t('tasks.progress', { done: progress.done, total: progress.total })}
           </button>
         ))}
-      {flat && <span>{listLabel(list)}</span>}
+      {flat && !grouped && <span>{listLabel(list)}</span>}
       {from}
     </div>
   );
@@ -388,9 +392,11 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, drag }: I
 }
 
 /** The header and list frame the task views share, with the add row at the end of the list. */
-function TaskPage({ title, detail, onAdd, onAddClick, footer, children }: {
+function TaskPage({ title, detail, extra, onAdd, onAddClick, footer, children }: {
   title: string;
   detail?: string;
+  /** More in the header, after the detail. */
+  extra?: ReactNode;
   /** Without it the view cannot add tasks. */
   onAdd?: (title: string) => void;
   /** Instead of `onAdd`: the header's Add task button only says it was pressed; the view adds the row itself. */
@@ -405,6 +411,7 @@ function TaskPage({ title, detail, onAdd, onAddClick, footer, children }: {
       <header className="th">
         <b>{title}</b>
         {detail && <span>{detail}</span>}
+        {extra}
         {(onAdd || onAddClick) && (
           <button type="button" className="add" onClick={onAddClick ?? (() => setComposing(true))}>
             {t('tasks.add')}
@@ -820,6 +827,65 @@ export function TaskList({ list, tasks, sections, today, actions }: {
           {t('sections.add')}
         </button>
       )}
+    </TaskPage>
+  );
+}
+
+/**
+ * A saved filter: the open tasks of every list that match it, by the list they are in, after the
+ * Filter view of design/mockups.html (direction A).
+ */
+export function FilterView({ filter, lists, today, actions, onEdit }: {
+  filter: TaskFilter;
+  lists: Record<string, Task[]>;
+  today: string;
+  actions: TaskActions;
+  onEdit: () => void;
+}) {
+  const groups = filterTasks(filter, lists, today);
+  const chips = [
+    filter.due !== 'any' && t(`filter.due.${filter.due}`),
+    ...[...filter.priorities].sort().map((p) => (p === 4 ? t('filter.noPriority') : `p${p}`)),
+    ...(filter.folders.length > 0 ? filter.folders.map((f) => basename(f)) : [t('filter.allLists')]),
+    filter.text.trim() && `“${filter.text.trim()}”`,
+  ].filter(Boolean);
+  return (
+    <TaskPage
+      title={filter.name}
+      extra={
+        <>
+          {chips.map((chip, i) => (
+            <span key={i} className="chip">
+              {chip}
+            </span>
+          ))}
+          <button type="button" className="ghost" onClick={onEdit}>
+            {t('filter.edit')}
+          </button>
+        </>
+      }
+    >
+      {groups.map(({ list, tasks }) => (
+        <div key={list}>
+          <div className="sec">
+            {listLabel(list)} <small>{tasks.length}</small>
+          </div>
+          {tasks.map((task) => (
+            <TaskItem
+              key={task.id}
+              list={list}
+              task={task}
+              tasks={lists[list] ?? []}
+              today={today}
+              showDone={false}
+              actions={actions}
+              flat
+              grouped
+            />
+          ))}
+        </div>
+      ))}
+      {groups.length === 0 && <p className="task-empty">{t('filter.nothing')}</p>}
     </TaskPage>
   );
 }

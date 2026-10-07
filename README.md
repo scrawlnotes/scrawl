@@ -13,8 +13,9 @@ for the roadmap (in Turkish).
   images, attached files and voice memos, a `/` menu, find and replace, multiple cursors.
 - **Tabs** for notes, task lists and views, reordered by dragging. New notes need no name or
   place: unnamed notes are called by their first line and land in the Inbox.
-- **Task lists** live in folders, as many as you want, with subtasks, priorities and due dates;
-  Today and Upcoming gather them all.
+- **Task lists** live in folders, as many as you want, with sections, subtasks, priorities, due
+  dates and descriptions, reordered by dragging. Today, Upcoming and saved filters gather them
+  all. A line of a note becomes a task that links back to it.
 - **Attached files** are selected with a click and offer Open, Show in folder and Delete. A file
   no note uses any more goes to the trash, and comes back if undo or paste links it again.
 - **Safety nets**: a trash you can restore from, and the history of every note (kept on this

@@ -371,6 +371,43 @@ p { margin: 0; max-width: 68ch; }
 .mdlg .foot { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--m-line); font-size: 11.5px; color: var(--m-faint); }
 .mdlg .foot kbd { font: inherit; padding: 0 4px; border: 1px solid var(--m-line); border-radius: 3px; color: var(--m-dim); }
 .toast-status { color: var(--m-accent); }
+/* direction A: saved filters. They sit under Today and Upcoming; a filter is a view over every
+   list, its tasks grouped by the list they are in, and it is set in a small window of choices. */
+.fdlg { width: 470px; }
+.frow { display: grid; grid-template-columns: 70px minmax(0, 1fr); align-items: center; gap: 10px; margin-bottom: 10px; }
+.frow .fl { font-size: 12px; color: var(--m-dim); }
+.fchips { display: flex; flex-wrap: wrap; gap: 5px; }
+.fchips span { padding: 2px 10px; border: 1px solid var(--m-line); border-radius: 12px; font-size: 12px; color: var(--m-dim); }
+.fchips span.on { background: var(--m-sel); border-color: transparent; color: var(--m-fg); }
+.fchips .dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--pc, var(--m-faint)); vertical-align: 1px; }
+.mdlg .foot .count { margin-right: auto; color: var(--m-dim); }
+.mdlg .foot .ghost, .mdlg .foot .add { margin-left: 0; }
+.th .chip.on { color: var(--m-fg); }
+/* direction A on a narrow window or a phone. The sidebar is a drawer opened by the button left
+   of the tabs; tabs keep a width and scroll; the format bar stays one line and scrolls; the line
+   numbers make room for the text; on a touch screen a task's buttons show without hovering. */
+.mock.phones { display: flex; gap: 22px; padding: 20px; background: var(--m-rail); min-width: 1250px; height: auto; }
+.phone { position: relative; flex: none; width: 375px; height: 600px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--m-line); border-radius: 14px; background: var(--m-bg); }
+.phone .cap { position: absolute; left: 0; right: 0; bottom: -1px; }
+.ptabs { display: flex; flex: none; height: 38px; background: var(--m-side); border-bottom: 1px solid var(--m-line); overflow: hidden; }
+.ptabs .burger { flex: none; display: grid; place-items: center; width: 42px; border-right: 1px solid var(--m-line); color: var(--m-fg); }
+.mock .ptabs .burger svg { width: 16px; height: 16px; }
+.ptabs .tab { flex: none; width: 132px; }
+.ptabs .tab.plus { width: 36px; }
+.pfbar { flex: none; overflow: hidden; white-space: nowrap; -webkit-mask-image: linear-gradient(90deg, #000 82%, transparent); mask-image: linear-gradient(90deg, #000 82%, transparent); }
+.pfbar .g { flex: none; }
+.phone .ed { padding: 14px 18px; font-size: 13px; }
+.phone .ln::before { content: none; }
+.phone .status { display: flex; gap: 14px; flex: none; height: 24px; align-items: center; padding: 0 12px; border-top: 1px solid var(--m-line); background: var(--m-side); font-size: 11.5px; color: var(--m-dim); }
+.phone .status span:last-child { margin-left: auto; }
+.phone .th { padding: 14px 16px 8px; flex-wrap: wrap; }
+.phone .tl { padding: 0 16px 16px; }
+.phone .task { grid-template-columns: 18px minmax(0, 1fr) auto; }
+.tmore { display: grid; place-items: center; width: 28px; height: 24px; margin-top: -2px; border-radius: 4px; color: var(--m-faint); letter-spacing: 1px; }
+.pdrawer { position: absolute; top: 0; bottom: 0; left: 0; z-index: 3; width: 282px; display: flex; flex-direction: column; gap: 0; padding: 10px 8px; background: var(--m-side); border-right: 1px solid var(--m-line); box-shadow: 10px 0 28px rgb(0 0 0 / .4); }
+.pdrawer .tree { flex: 1; overflow: hidden; }
+.pbackdrop { position: absolute; inset: 0; z-index: 2; background: rgb(0 0 0 / .45); }
+.phone-label { position: absolute; top: -18px; left: 2px; font-size: 11px; color: var(--m-faint); }
 .earlier { border-top: 1px solid var(--rule); padding-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 </style>
 
@@ -411,6 +448,9 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-drag" data-aview="drag">Drag</button>
         <button type="button" id="a-movetask" data-aview="movetask">Move task</button>
         <button type="button" id="a-totask" data-aview="totask">To task</button>
+        <button type="button" id="a-filter" data-aview="filter">Filter</button>
+        <button type="button" id="a-filteredit" data-aview="filteredit">Filter edit</button>
+        <button type="button" id="a-phone" data-aview="phone">Phone</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -611,6 +651,9 @@ p { margin: 0; max-width: 68ch; }
     return '<div class="tree">' +
       row({ label: 'Today', ct: 3, go: 'today', on: view === 'today' }) +
       row({ label: 'Upcoming', ct: 9 }) +
+      (view.indexOf('filter') === 0
+        ? row({ icon: 'filter', label: 'This week · p1', ct: 3, go: 'filter', on: true }) + row({ icon: 'filter', label: 'No date', ct: 6 })
+        : '') +
       row({ label: 'Inbox', ct: 4 }) +
       row({ d: 1, icon: 'tasks', label: 'Tasks', ct: 2 }) +
       '<div class="grp">Folders</div>' +
@@ -891,6 +934,68 @@ p { margin: 0; max-width: 68ch; }
       '</div><div class="foot"><kbd>Enter</kbd> adds · <kbd>Esc</kbd> cancels</div></div></div>';
     return { body: note, overlay: dialog };
   }
+  ICON.filter = '<svg viewBox="0 0 24 24"><path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/></svg>';
+  function filterView() {
+    return '<div class="tasksv"><div class="th"><b>This week · p1</b><span class="chip">This week</span><span class="chip">p1</span><span class="chip">All lists</span>' +
+      '<button type="button" class="ghost">Edit filter</button></div><div class="tl">' +
+      '<div class="sec">Tasks · Scrawl <small>2</small></div>' +
+      task('p1', 'Prototype live preview', '<span class="today">Today</span><span>2 of 4</span>') +
+      task('p1', 'Fix the crash when the notes folder is gone', '<span>Thursday</span><span>Phase 1</span>') +
+      '<div class="sec">Sprint · Demo <small>1</small></div>' +
+      task('p1', 'Register scrawlnotes on GitHub and npm', '<span class="today">Yesterday</span>') +
+      '</div></div>';
+  }
+  function filterEdit() {
+    function chips(items) {
+      return '<div class="fchips">' + items.map(function (it) {
+        return '<span' + (it.on ? ' class="on"' : '') + '>' + (it.p ? '<i class="dot ' + it.p + '"></i>' : '') + it.label + '</span>';
+      }).join('') + '</div>';
+    }
+    return '<div class="ovl"><div class="mdlg fdlg"><h3>Filter</h3>' +
+      '<div class="frow"><span class="fl">Name</span><div class="field filled">This week · p1</div></div>' +
+      '<div class="frow"><span class="fl">Due</span>' + chips([{ label: 'Any' }, { label: 'Overdue' }, { label: 'Today' }, { label: 'This week', on: true }, { label: 'Next 7 days' }, { label: 'No date' }]) + '</div>' +
+      '<div class="frow"><span class="fl">Priority</span>' + chips([{ label: 'p1', p: 'p1', on: true }, { label: 'p2', p: 'p2' }, { label: 'p3', p: 'p3' }, { label: 'None' }]) + '</div>' +
+      '<div class="frow"><span class="fl">In</span>' + chips([{ label: 'All lists', on: true }, { label: 'Inbox' }, { label: 'Scrawl' }, { label: 'Home' }, { label: 'Demo' }]) + '</div>' +
+      '<div class="frow"><span class="fl">Contains</span><div class="field">Text in the title or description</div></div>' +
+      '<div class="foot"><span class="count">3 open tasks</span><button type="button" class="ghost">Cancel</button><button type="button" class="add">Save filter</button></div>' +
+      '</div></div>';
+  }
+  ICON.burger = '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
+  ICON.cal = '<svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg>';
+  ICON.flag = '<svg viewBox="0 0 24 24"><path d="M6 21V4"/><path d="M6 4.5h11l-2.5 4 2.5 4H6"/></svg>';
+  function phoneTabs(active) {
+    var tabs = [['notes', 'Sync engine: open questions'], ['tasks', 'Tasks · Scrawl'], ['tasks', 'Today']];
+    return '<div class="ptabs"><span class="burger" title="Folders and views">' + ICON.burger + '</span>' +
+      tabs.map(function (t, i) { return tab(t[0], t[1], 'phone', i === active); }).join('') + '<div class="tab plus">+</div></div>';
+  }
+  function phoneView() {
+    var bar = FBAR.replace(/<div class="rec">[\s\S]*?<\/div>/, '<div class="g"><span>To task</span></div><div class="g"><span>Record</span></div>')
+      .replace('class="fbar"', 'class="fbar pfbar"');
+    var note = '<div class="phone">' + phoneTabs(0) + bar + '<div class="ed"><div class="col">' +
+      '<div class="ln h1">Sync engine: open questions</div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln">Delta API returns a <b>cursor</b> per drive. Store it in <span class="ic">sync-state.json</span>, never in the vault.</div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln li"><span class="bu">•</span>Notes conflict: 3-way merge, fall back to a copy</div>' +
+      '<div class="ln li"><span class="bu">•</span>Tasks merge per record, last write wins per field</div>' +
+      '<div class="ln li"><span class="bu">•</span>Deletes go to trash first</div>' +
+      '<div class="ln">Token refresh for SPAs: <span class="lnk">MSAL browser docs</span>, 24 h refresh window.<span class="caret"></span></div>' +
+      '</div></div><div class="status"><span>Ln 8, Col 52</span><span>Saved</span></div></div>';
+    var actions = '<span class="tmore">···</span>';
+    function prow(p, title, meta) {
+      return '<div class="task"><span class="cb ' + p + '"></span><div><div class="tt">' + title + '</div>' + (meta ? '<div class="meta">' + meta + '</div>' : '') + '</div>' + actions + '</div>';
+    }
+    var list = '<div class="phone">' + phoneTabs(1) + '<div class="tasksv"><div class="th"><b>Tasks</b><span class="chip">Scrawl</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      prow('p2', 'Register scrawlnotes on GitHub and npm', '<span>Tomorrow</span>') +
+      '<div class="sec fold"><span class="chev">▾</span>Phase 0 <small>2</small><span class="more" style="opacity: 1">···</span></div>' +
+      prow('p1', 'Prototype live preview', '<span class="today">Today</span><span>2 of 4</span>') +
+      prow('p3', 'Decide retry budget for sync', '<span>Oct 9</span>') +
+      '<div class="qa">+ Add task</div>' +
+      '</div></div><div class="status"><span>7 open</span><span>Saved</span></div></div>';
+    var drawer = '<div class="phone">' + phoneTabs(1) + '<div class="tasksv"><div class="th"><b>Tasks</b></div></div>' +
+      '<div class="pbackdrop"></div><div class="pdrawer">' + projectTree('tasks') + '</div></div>';
+    return '<div class="phone-wrap" style="position: relative">' + note + '</div><div style="position: relative">' + list + '</div><div style="position: relative">' + drawer + '</div>';
+  }
   function tab(kind, label, go, on, dot) {
     return '<div class="tab' + (on ? ' on' : '') + '" data-go="' + go + '">' + ICON[kind] + '<span>' + label + '</span>' + (dot ? '<i></i>' : '') + '</div>';
   }
@@ -913,26 +1018,38 @@ p { margin: 0; max-width: 68ch; }
     drag: '<span>13 open</span><span>1 due today</span>',
     movetask: '<span>13 open</span><span>1 due today</span>',
     totask: '<span>Ln 7, Col 1</span><span>42 characters selected</span><span>Markdown</span>',
+    filter: '<span>3 tasks</span><span>1 overdue</span>',
+    filteredit: '<span>3 tasks</span><span>1 overdue</span>',
     'desc-new': '<span>4 open</span><span>1 due today</span>'
   };
   function renderA(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.classList.toggle('phones', view === 'phone');
+    if (view === 'phone') {
+      mock.innerHTML = phoneView();
+      section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.dataset.aview === 'phone'));
+      });
+      return;
+    }
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
       (view === 'copy' ? tab('notes', 'Site visit, Oct 6', 'copy', true) : '') +
       (view.indexOf('item') === 0 ? tab('notes', 'Client call, Oct 6', view, true) : '') +
       tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
+      (view.indexOf('filter') === 0 ? tab('filter', 'This week · p1', 'filter', true) : '') +
       tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag' || view === 'movetask') +
       (view === 'trash' ? tab('trash', 'Trash', 'trash', true) : '');
     var boardTab = tab('board', 'Roadmap · Scrawl', 'board', view === 'board' || view === 'split');
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView() }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + '<span>Synced to OneDrive 12 s ago</span></div></section>' +
-      (view === 'history' ? HISTORY : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '');
+      (view === 'history' ? HISTORY : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });

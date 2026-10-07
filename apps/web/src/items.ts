@@ -1,4 +1,4 @@
-import { basename, dirname, INBOX_TASKS, listName, TASK_LIST_EXT } from '@scrawlnotes/core';
+import { basename, dirname, INBOX_TASKS, listName, TASK_LIST_EXT, type TaskFilter } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import type { IconName } from './Icon';
 
@@ -8,6 +8,12 @@ export const UPCOMING = 'view:upcoming';
 export const TRASH = 'view:trash';
 const TASKS = 'tasks:';
 const BOARD = 'board:';
+const FILTER = 'filter:';
+
+/** The tab of a saved filter, by its id. */
+export const filterTab = (id: string) => `${FILTER}${id}`;
+/** The id of the filter a tab shows, or null for any other tab. */
+export const filterOf = (tab: string) => (tab.startsWith(FILTER) ? tab.slice(FILTER.length) : null);
 
 /** The tab of a task list, by the path of its file. */
 export const tasksOf = (list: string) => `${TASKS}${list}`;
@@ -35,11 +41,14 @@ export function listLabel(list: string): string {
 
 export function iconOf(id: string): IconName {
   if (id === TRASH) return 'trash';
+  if (id.startsWith(FILTER)) return 'filter';
   return isNote(id) ? 'note' : id.startsWith(BOARD) ? 'board' : 'tasks';
 }
 
-export function labelOf(id: string, titles: Record<string, string>): string {
+export function labelOf(id: string, titles: Record<string, string>, filters: TaskFilter[] = []): string {
   if (id === TODAY) return t('side.today');
+  const filter = filterOf(id);
+  if (filter !== null) return filters.find((f) => f.id === filter)?.name ?? t('filter.title');
   if (id === UPCOMING) return t('side.upcoming');
   if (id === TRASH) return t('side.trash');
   const list = listOf(id);

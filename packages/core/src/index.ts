@@ -1,3 +1,4 @@
+export * from './filters';
 export * from './fs';
 export * from './history';
 export * from './tasks';

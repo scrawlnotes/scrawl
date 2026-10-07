@@ -17,6 +17,7 @@ import {
   isScratchNote,
   keepVersion,
   listVersions,
+  loadFilters,
   loadList,
   moveSection,
   moveTask,
@@ -37,6 +38,7 @@ import {
   restoreFromTrash,
   saveAttachment,
   saveFile,
+  saveFilters,
   saveList,
   sectionTasks,
   saveWorkspace,
@@ -44,6 +46,7 @@ import {
   sweepAttachments,
   type Section,
   type Task,
+  type TaskFilter,
   type TaskList,
   type TaskPlace,
   type TaskPatch,
@@ -88,7 +91,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardOf, folderOf, isNote, listOf, tabOf } from './items';
+import { boardOf, filterOf, filterTab, folderOf, isNote, listOf, tabOf } from './items';
 import { sampleDoc } from './sample';
 import {
   chooseVaultFolder,
@@ -154,6 +157,8 @@ export interface Snapshot {
   tasks: Record<string, Task[]>;
   /** The sections of every task list, by the path of its file. */
   sections: Record<string, Section[]>;
+  /** The saved filters, in the order they were made. */
+  filters: TaskFilter[];
   /** What is in the trash, the latest deleted first. */
   trash: TrashItem[];
   saved: boolean;
@@ -190,6 +195,7 @@ export class Session {
     titles: {},
     tasks: {},
     sections: {},
+    filters: [],
     trash: [],
     saved: true,
     stats: null,
@@ -294,13 +300,16 @@ export class Session {
 
     const titles = titlesOf(tree);
     const { tasks, sections } = await this.readLists(tree);
+    const filters = await loadFilters(this.fs);
     const trash = await readTrash(this.fs);
     if (run !== this.run) return;
     const tabs = workspace.tabs.filter((id) => {
       const list = listOf(id);
+      const filter = filterOf(id);
+      if (filter !== null) return filters.some((f) => f.id === filter);
       return list !== null ? list in tasks : id in titles || !isNote(id);
     });
-    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, trash });
+    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, filters, trash });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
@@ -871,6 +880,29 @@ export class Session {
 
   moveSection(list: string, id: string, after: string | null) {
     this.changeList(list, (current) => moveSection(current, id, after));
+  }
+
+  /** Saves a filter, a new one or a changed one, and shows it. */
+  saveFilter(filter: TaskFilter) {
+    const { filters } = this.snapshot;
+    const next = filters.some((f) => f.id === filter.id) ? filters.map((f) => (f.id === filter.id ? filter : f)) : [...filters, filter];
+    this.writeFilters(next);
+    void this.open(filterTab(filter.id));
+  }
+
+  /** Deletes a saved filter, and closes its tab; its tasks stay where they are. The interface asks first. */
+  async removeFilter(id: string) {
+    const tab = filterTab(id);
+    if (this.snapshot.tabs.includes(tab)) await this.close(tab);
+    this.writeFilters(this.snapshot.filters.filter((f) => f.id !== id));
+  }
+
+  private writeFilters(filters: TaskFilter[]) {
+    this.set({ filters, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(() => saveFilters(this.fs, filters))
+      .catch(() => undefined)
+      .then(() => this.markSaved());
   }
 
   /** Deletes a section with its tasks; the interface asks first. */

@@ -1,8 +1,8 @@
-import { INBOX, INBOX_TASKS, type TreeNode } from '@scrawlnotes/core';
+import { INBOX, INBOX_TASKS, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useState } from 'react';
 import { Icon } from './Icon';
-import { tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { filterTab, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 
 // A note or a task list being dragged onto a folder.
 const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
@@ -20,13 +20,29 @@ interface Props {
   /** A right click on a note, a task list or a folder. */
   onItemMenu: (event: MouseEvent, path: string) => void;
   onFolderMenu: (event: MouseEvent, path: string) => void;
+  /** The saved filters, under Today and Upcoming. */
+  filters: TaskFilter[];
+  onFilterMenu: (event: MouseEvent, filter: TaskFilter) => void;
 }
 
 const countNotes = (node: TreeNode): number =>
   node.kind === 'note' ? 1 : (node.children ?? []).reduce((sum, child) => sum + countNotes(child), 0);
 
 /** One tree: views over everything on top, then the inbox, then the folders with their task lists and notes. */
-export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove, onNewFolder, onItemMenu, onFolderMenu }: Props) {
+export function Sidebar({
+  tree,
+  titles,
+  active,
+  counts,
+  onOpen,
+  onTrash,
+  onMove,
+  onNewFolder,
+  onItemMenu,
+  onFolderMenu,
+  filters,
+  onFilterMenu,
+}: Props) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [folderName, setFolderName] = useState<string | null>(null);
@@ -128,6 +144,18 @@ export function Sidebar({ tree, titles, active, counts, onOpen, onTrash, onMove,
       <nav className="tree">
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
+        {filters.map((filter) => (
+          <div key={filter.id} onContextMenu={(event) => onFilterMenu(event, filter)}>
+            {viewRow(
+              filterTab(filter.id),
+              <>
+                <Icon name="filter" />
+                <span>{filter.name}</span>
+              </>,
+              0,
+            )}
+          </div>
+        ))}
         <div
           className={`it d0${dropTarget === INBOX ? ' drop' : ''}`}
           {...dropProps(INBOX)}

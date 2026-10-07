@@ -1,3 +1,4 @@
+import { DUE_RULES, type FilterChoices, filterName, type Priority, type TaskFilter } from '@scrawlnotes/core';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type FormEvent,
@@ -131,20 +132,21 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
   );
 }
 
-export type NewKind = 'note' | 'tasks' | 'board';
-type ItemKind = Exclude<NewKind, 'board'>;
+export type NewKind = 'note' | 'tasks' | 'board' | 'filter';
+type ItemKind = Exclude<NewKind, 'board' | 'filter'>;
 
 const KINDS: { kind: NewKind; label: MessageKey; icon: IconName }[] = [
   { kind: 'note', label: 'create.note', icon: 'note' },
   { kind: 'tasks', label: 'create.tasks', icon: 'tasks' },
   { kind: 'board', label: 'create.board', icon: 'board' },
+  { kind: 'filter', label: 'create.filter', icon: 'filter' },
 ];
 
 /**
  * Creates a note, a task list or a board. The kind is chosen first; a note or a task list then
  * gets a name, which may be left empty, and a folder.
  */
-export function NewDialog({ folders, folder, onCreate, onBoard, onClose }: {
+export function NewDialog({ folders, folder, onCreate, onBoard, onFilter, onClose }: {
   /** Every folder, the inbox first. */
   folders: string[];
   /** The folder chosen to begin with. */
@@ -153,6 +155,8 @@ export function NewDialog({ folders, folder, onCreate, onBoard, onClose }: {
   onCreate: (kind: ItemKind, folder: FolderChoice, name: string) => Promise<string | null>;
   /** Boards have no name or folder to ask for yet. */
   onBoard: () => void;
+  /** A filter has a window of its own. */
+  onFilter: () => void;
   onClose: () => void;
 }) {
   const [kind, setKind] = useState<ItemKind | null>(null);
@@ -161,10 +165,15 @@ export function NewDialog({ folders, folder, onCreate, onBoard, onClose }: {
       <NewItemForm kind={kind} folders={folders} folder={folder} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
     );
   }
-  return <KindChoice onPick={(picked) => (picked === 'board' ? onBoard() : setKind(picked))} onClose={onClose} />;
+  return (
+    <KindChoice
+      onPick={(picked) => (picked === 'board' ? onBoard() : picked === 'filter' ? onFilter() : setKind(picked))}
+      onClose={onClose}
+    />
+  );
 }
 
-/** Asks what to create: press 1, 2 or 3, or choose with the arrow keys or the mouse. */
+/** Asks what to create: press its number, or choose with the arrow keys or the mouse. */
 function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onClose: () => void }) {
   const [index, setIndex] = useState(0);
   const onKey = (event: KeyboardEvent) => {
@@ -315,6 +324,116 @@ export function MoveDialog({ folders, current, onMove, onCreate, onClose }: {
       />
       <FolderList picker={picker} empty={t('move.none')} onPick={(i) => void pick(i)} />
       {error && <p role="alert">{error}</p>}
+    </Dialog>
+  );
+}
+
+/** One choice among a few, or one of several picked, shown as a row of chips. */
+function Chips<T>({ label, items, picked, onPick, name }: {
+  label: string;
+  items: { value: T; label: string; dot?: string }[];
+  picked: (value: T) => boolean;
+  onPick: (value: T) => void;
+  /** For a choice of one: radio buttons, else checkboxes. */
+  name?: string;
+}) {
+  return (
+    <div className="frow">
+      <span>{label}</span>
+      <div className="fchips" role={name ? 'radiogroup' : 'group'} aria-label={label}>
+        {items.map((item) => (
+          <button
+            key={String(item.value)}
+            type="button"
+            role={name ? 'radio' : 'checkbox'}
+            aria-checked={picked(item.value)}
+            onClick={() => onPick(item.value)}
+          >
+            {item.dot && <i className={`dot ${item.dot}`} />}
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Makes a filter or changes one, after the Filter edit view of design/mockups.html (direction
+ * A). Every choice narrows what it shows; the count of open tasks follows them.
+ */
+export function FilterDialog({ filter, folders, count, onSave, onClose }: {
+  /** The filter changed; null for a new one. */
+  filter: TaskFilter | null;
+  /** The top-level folders, the inbox first. */
+  folders: string[];
+  /** How many open tasks the choices would show. */
+  count: (choices: FilterChoices) => number;
+  onSave: (filter: TaskFilter) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(filter?.name ?? '');
+  const [choices, setChoices] = useState<FilterChoices>(
+    filter ?? { due: 'any', priorities: [], folders: [], text: '' },
+  );
+  const toggle = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+  const save = () =>
+    onSave({ ...choices, id: filter?.id ?? crypto.randomUUID(), name: name.trim() || filterName(choices), text: choices.text.trim() });
+  const shown = count(choices);
+  return (
+    <Dialog
+      label={t('filter.title')}
+      className="filter-dialog"
+      onClose={onClose}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+          event.preventDefault();
+          save();
+        }
+      }}
+    >
+      <h2>{t('filter.title')}</h2>
+      <div className="frow">
+        <span>{t('filter.name')}</span>
+        <input aria-label={t('filter.name')} placeholder={filterName(choices)} autoFocus value={name} onChange={(event) => setName(event.target.value)} />
+      </div>
+      <Chips
+        label={t('filter.due')}
+        name="due"
+        items={DUE_RULES.map((rule) => ({ value: rule, label: t(`filter.due.${rule}`) }))}
+        picked={(rule) => choices.due === rule}
+        onPick={(due) => setChoices({ ...choices, due })}
+      />
+      <Chips<Priority>
+        label={t('filter.priority')}
+        items={([1, 2, 3, 4] as Priority[]).map((p) => ({ value: p, label: p === 4 ? t('filter.priorityNone') : `p${p}`, dot: p === 4 ? undefined : `p${p}` }))}
+        picked={(p) => choices.priorities.includes(p)}
+        onPick={(p) => setChoices({ ...choices, priorities: toggle(choices.priorities, p) })}
+      />
+      <Chips<string | null>
+        label={t('filter.in')}
+        items={[{ value: null, label: t('filter.allLists') }, ...folders.map((f) => ({ value: f, label: f }))]}
+        picked={(f) => (f === null ? choices.folders.length === 0 : choices.folders.includes(f))}
+        onPick={(f) => setChoices({ ...choices, folders: f === null ? [] : toggle(choices.folders, f) })}
+      />
+      <div className="frow">
+        <span>{t('filter.contains')}</span>
+        <input
+          aria-label={t('filter.contains')}
+          placeholder={t('filter.containsHint')}
+          value={choices.text}
+          onChange={(event) => setChoices({ ...choices, text: event.target.value })}
+        />
+      </div>
+      <div className="dialog-actions filter-foot">
+        <span className="count">{t('filter.matching', { count: shown })}</span>
+        <button type="button" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" onClick={save}>
+          {t('filter.save')}
+        </button>
+      </div>
     </Dialog>
   );
 }

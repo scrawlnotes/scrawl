@@ -4,6 +4,7 @@ import {
   dayOf,
   dirname,
   dueToday,
+  filterTasks,
   INBOX,
   INBOX_TASKS,
   listName,
@@ -11,6 +12,7 @@ import {
   removeSection,
   removeTask,
   type Section,
+  type TaskFilter,
   type TrashItem,
   type TreeNode,
 } from '@scrawlnotes/core';
@@ -19,6 +21,7 @@ import { type DragEvent, type MouseEvent, useCallback, useEffect, useRef, useSta
 import {
   ConfirmDialog,
   ContextMenu,
+  FilterDialog,
   type FolderChoice,
   type MenuItem,
   MoveDialog,
@@ -32,6 +35,8 @@ import { FormatBar } from './FormatBar';
 import { HistoryDialog } from './History';
 import { Icon } from './Icon';
 import {
+  filterOf,
+  filterTab,
   folderOf,
   iconOf,
   isNote,
@@ -46,7 +51,7 @@ import {
 } from './items';
 import { Session } from './session';
 import { Sidebar } from './Sidebar';
-import { DueView, type TaskActions, TaskList } from './Tasks';
+import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
 import { contentsText, quote } from './text';
 import { TrashView } from './Trash';
 import { isDesktop } from './storage';
@@ -60,6 +65,7 @@ type OpenDialog =
   | { kind: 'history'; path: string }
   | { kind: 'moveTask'; list: string; id: string }
   | { kind: 'toTask'; note: string; title: string; description: string }
+  | { kind: 'filter'; filter: TaskFilter | null }
   | null;
 
 // A tab being dragged to another place in the tab bar.
@@ -110,7 +116,7 @@ function contentsOf(folder: TreeNode): string {
 export function App() {
   const host = useRef<HTMLDivElement>(null);
   const [session] = useState(() => new Session());
-  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, trash, saved, stats, format, source, recording, recordError } =
+  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, filters, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -256,6 +262,17 @@ export function App() {
     if (made) setDialog({ kind: 'toTask', ...made });
   }
 
+  // A filter's menu: change it, or delete it; its tasks stay where they are.
+  const filterMenu = (event: MouseEvent, filter: TaskFilter) =>
+    openMenu(event, [
+      { label: t('filter.edit'), run: () => setDialog({ kind: 'filter', filter }) },
+      {
+        label: t('menu.delete'),
+        run: () =>
+          ask(t('delete.filter'), t('delete.filterText', { name: quote(filter.name) }), () => void session.removeFilter(filter.id)),
+      },
+    ]);
+
   // A section goes together with its tasks, as in Todoist.
   const deleteSection = (list: string, section: Section) => {
     const whole = { sections: sections[list] ?? [], tasks: tasks[list] ?? [] };
@@ -362,8 +379,15 @@ export function App() {
   const dueNow = dueToday(tasks, today);
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length, [TRASH]: trash.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
+  for (const filter of filters) {
+    counts[filterTab(filter.id)] = filterTasks(filter, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0);
+  }
   const list = active ? listOf(active) : null;
   const isDueView = active === TODAY || active === UPCOMING;
+  const filterId = active ? filterOf(active) : null;
+  const activeFilter = filters.find((filter) => filter.id === filterId) ?? null;
+  // Filters look in the top-level folders, with everything inside them; the inbox comes first.
+  const topFolders = [INBOX, ...tree.filter((node) => node.kind === 'folder' && node.path !== INBOX).map((node) => node.path)];
 
   return (
     <div className="app">
@@ -387,6 +411,8 @@ export function App() {
         onNewFolder={(name) => session.newFolder(name)}
         onItemMenu={itemMenu}
         onFolderMenu={folderMenu}
+        filters={filters}
+        onFilterMenu={filterMenu}
       />
       <main className="main">
         <div
@@ -421,7 +447,7 @@ export function App() {
             >
               <button type="button" className="tab-title" onClick={() => void session.open(id)}>
                 <Icon name={iconOf(id)} />
-                <span>{labelOf(id, titles)}</span>
+                <span>{labelOf(id, titles, filters)}</span>
               </button>
               {/* The dot marks a note that has not been filed yet; it gives way to the close button on hover. */}
               <button
@@ -460,6 +486,15 @@ export function App() {
         <div className="editor" ref={host} hidden={!showingEditor} />
         {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} />}
         {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} today={today} actions={taskActions} />}
+        {activeFilter && (
+          <FilterView
+            filter={activeFilter}
+            lists={tasks}
+            today={today}
+            actions={taskActions}
+            onEdit={() => setDialog({ kind: 'filter', filter: activeFilter })}
+          />
+        )}
         {active === TRASH && (
           <TrashView
             items={trash}
@@ -469,11 +504,11 @@ export function App() {
             onEmpty={askEmptyTrash}
           />
         )}
-        {!showingEditor && list === null && !isDueView && active !== TRASH && (
+        {!showingEditor && list === null && !isDueView && !activeFilter && active !== TRASH && (
           <section className="placeholder">
             {active ? (
               <>
-                <h1>{labelOf(active, titles)}</h1>
+                <h1>{labelOf(active, titles, filters)}</h1>
                 <p>{t('board.placeholder')}</p>
               </>
             ) : (
@@ -517,6 +552,19 @@ export function App() {
           folder={newFolder}
           onCreate={create}
           onBoard={openBoard}
+          onFilter={() => setDialog({ kind: 'filter', filter: null })}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'filter' && (
+        <FilterDialog
+          filter={dialog.filter}
+          folders={topFolders}
+          count={(choices) => filterTasks(choices, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0)}
+          onSave={(filter) => {
+            session.saveFilter(filter);
+            setDialog(null);
+          }}
           onClose={closeDialog}
         />
       )}
