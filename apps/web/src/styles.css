@@ -1085,6 +1085,107 @@ button.cb:hover::after {
   height: 14px;
 }
 
+/* A task's description reads under its title, two lines at most. */
+.desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--sl-dim);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.task.done .desc {
+  color: var(--sl-faint);
+}
+
+/* A task open for editing: its title, its description and a row to save or cancel, after the
+   Description view of design/mockups.html (direction A). */
+.task.editing {
+  position: relative;
+  grid-template-columns: 18px minmax(0, 1fr);
+  margin: 4px -10px;
+  padding: 9px 10px 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-side);
+}
+
+.subs .task.editing {
+  padding: 7px 10px 10px;
+}
+
+/* Its buttons are not needed while it is edited; the date picker they hold still opens. */
+.task.editing .task-actions {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+}
+
+.task.editing .task-actions button {
+  display: none;
+}
+
+.desc-edit {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 3em;
+  margin-top: 3px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  overflow: hidden;
+}
+
+.desc-edit::placeholder {
+  color: var(--sl-faint);
+}
+
+.edit-foot {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--sl-line);
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.edit-foot .hint {
+  margin-right: auto;
+}
+
+.edit-foot kbd {
+  padding: 0 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 3px;
+  color: var(--sl-dim);
+  font: inherit;
+}
+
+.edit-foot .ghost {
+  padding: 3px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.edit-foot .ghost:hover {
+  color: var(--sl-fg);
+}
+
 /* Only there to open the browser's date picker next to the row. */
 .date-picker {
   position: absolute;

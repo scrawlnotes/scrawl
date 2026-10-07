@@ -13,9 +13,19 @@ import {
   type Priority,
   progressOf,
   type Task,
+  type TaskPatch,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, type MouseEvent, type ReactNode, useRef, useState } from 'react';
+import {
+  Fragment,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import type { MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { listLabel } from './items';
@@ -23,7 +33,7 @@ import { listLabel } from './items';
 /** What can be done to a task, in the list at the path given. */
 export interface TaskActions {
   add: (list: string, input: NewTask) => void;
-  update: (list: string, id: string, patch: Partial<Pick<Task, 'title' | 'due' | 'priority'>>) => void;
+  update: (list: string, id: string, patch: TaskPatch) => void;
   setDone: (list: string, id: string, done: boolean) => void;
   remove: (list: string, id: string) => void;
   /** Opens a menu at the pointer. */
@@ -83,6 +93,40 @@ function Composer({ placeholder, onAdd, onClose }: { placeholder: string; onAdd:
   );
 }
 
+/** A text field as tall as what is written in it. */
+function GrowingField({ value, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
+  const field = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const element = field.current;
+    if (!element) return;
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+  }, [value]);
+  return <textarea ref={field} rows={2} value={value} {...props} />;
+}
+
+const SAVE_KEYS = /Mac|iPhone|iPad/.test(navigator.platform) ? ['⌘', 'Enter'] : ['Ctrl', 'Enter'];
+
+/** "Ctrl + Enter saves · Esc cancels", with the keys drawn as keys in any language. */
+function EditHint() {
+  const keys = (names: string[]) =>
+    names.map((name, i) => (
+      <Fragment key={name}>
+        {i > 0 && ' + '}
+        <kbd>{name}</kbd>
+      </Fragment>
+    ));
+  return (
+    <span className="hint">
+      {t('tasks.editHint')
+        .split(/(\{save\}|\{cancel\})/)
+        .map((part, i) => (
+          <Fragment key={i}>{part === '{save}' ? keys(SAVE_KEYS) : part === '{cancel}' ? keys(['Esc']) : part}</Fragment>
+        ))}
+    </span>
+  );
+}
+
 function IconButton({ icon, title, onClick }: { icon: IconName; title: string; onClick: (event: MouseEvent) => void }) {
   return (
     <button type="button" title={title} aria-label={title} onClick={onClick}>
@@ -104,8 +148,14 @@ interface ItemProps {
   flat?: boolean;
 }
 
+/** A task's title and description while they are edited. */
+interface Draft {
+  title: string;
+  description: string;
+}
+
 function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemProps) {
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Draft | null>(null);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(true);
   const datePicker = useRef<HTMLInputElement>(null);
@@ -114,10 +164,18 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
   const progress = progressOf(tasks, task.id);
   const canNest = !flat && depthOf(tasks, task.id) < MAX_DEPTH;
 
-  const commitTitle = () => {
-    if (editing !== null && editing.trim() && editing !== task.title) actions.update(list, task.id, { title: editing });
+  const startEditing = () => setEditing({ title: task.title, description: task.description ?? '' });
+  const save = () => {
+    if (!editing) return;
+    const patch: TaskPatch = {};
+    if (editing.title.trim() && editing.title !== task.title) patch.title = editing.title;
+    if (editing.description.trim() !== (task.description ?? '')) patch.description = editing.description;
+    if (Object.keys(patch).length > 0) actions.update(list, task.id, patch);
     setEditing(null);
   };
+  const cancel = () => setEditing(null);
+  // Cancel keeps the focus in the fields, so pressing it is not leaving the editor, which saves.
+  const keepFocus = (event: MouseEvent) => event.preventDefault();
   const setDue = (due: string | null) => actions.update(list, task.id, { due });
 
   const dateMenu = (event: MouseEvent) =>
@@ -137,9 +195,33 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
       })),
     );
 
+  const meta = (task.due || progress.total > 0 || flat) && (
+    <div className="meta">
+      {task.due && (
+        <button type="button" className={dueClass(task.due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
+          {dueLabel(task.due, today)}
+        </button>
+      )}
+      {progress.total > 0 &&
+        (flat ? (
+          <span>{t('tasks.progress', { done: progress.done, total: progress.total })}</span>
+        ) : (
+          <button type="button" aria-expanded={open} title={t(open ? 'tasks.hideSubtasks' : 'tasks.showSubtasks')} onClick={() => setOpen(!open)}>
+            {open ? '▾' : '▸'} {t('tasks.progress', { done: progress.done, total: progress.total })}
+          </button>
+        ))}
+      {flat && <span>{listLabel(list)}</span>}
+    </div>
+  );
+  const className = ['task', task.done && 'done', editing && 'editing'].filter(Boolean).join(' ');
+
   return (
     <>
-      <div className={task.done ? 'task done' : 'task'}>
+      <div
+        className={className}
+        // Leaving the editor, by a click elsewhere or by Tab, saves it.
+        onBlur={editing ? (event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && save() : undefined}
+      >
         <button
           type="button"
           className={`cb p${task.priority}`}
@@ -148,44 +230,53 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
           aria-label={t(task.done ? 'tasks.reopen' : 'tasks.complete', { name: task.title })}
           onClick={() => actions.setDone(list, task.id, !task.done)}
         />
-        <div className="task-body">
-          {editing === null ? (
-            <button type="button" className="tt" onClick={() => setEditing(task.title)}>
+        {editing ? (
+          <>
+            <div className="task-body">
+              <input
+                className="tt-edit"
+                aria-label={t('tasks.title')}
+                autoFocus
+                value={editing.title}
+                onChange={(event) => setEditing({ ...editing, title: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    save();
+                  } else if (event.key === 'Escape') cancel();
+                }}
+              />
+              <GrowingField
+                className="desc-edit"
+                aria-label={t('tasks.description')}
+                placeholder={t('tasks.description')}
+                value={editing.description}
+                onChange={(event) => setEditing({ ...editing, description: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                    event.preventDefault();
+                    save();
+                  } else if (event.key === 'Escape') cancel();
+                }}
+              />
+              {meta}
+            </div>
+            <div className="edit-foot">
+              <EditHint />
+              <button type="button" className="ghost" onMouseDown={keepFocus} onClick={cancel}>
+                {t('dialog.cancel')}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="task-body">
+            <button type="button" className="tt" onClick={startEditing}>
               {task.title}
             </button>
-          ) : (
-            <input
-              className="tt-edit"
-              aria-label={t('tasks.title')}
-              autoFocus
-              value={editing}
-              onChange={(event) => setEditing(event.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') commitTitle();
-                else if (event.key === 'Escape') setEditing(null);
-              }}
-            />
-          )}
-          {(task.due || progress.total > 0 || flat) && (
-            <div className="meta">
-              {task.due && (
-                <button type="button" className={dueClass(task.due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
-                  {dueLabel(task.due, today)}
-                </button>
-              )}
-              {progress.total > 0 &&
-                (flat ? (
-                  <span>{t('tasks.progress', { done: progress.done, total: progress.total })}</span>
-                ) : (
-                  <button type="button" aria-expanded={open} title={t(open ? 'tasks.hideSubtasks' : 'tasks.showSubtasks')} onClick={() => setOpen(!open)}>
-                    {open ? '▾' : '▸'} {t('tasks.progress', { done: progress.done, total: progress.total })}
-                  </button>
-                ))}
-              {flat && <span>{listLabel(list)}</span>}
-            </div>
-          )}
-        </div>
+            {task.description && <div className="desc">{task.description}</div>}
+            {meta}
+          </div>
+        )}
         <div className="task-actions">
           {canNest && (
             <IconButton

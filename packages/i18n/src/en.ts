@@ -142,6 +142,8 @@ export const en = {
   'tasks.name': 'Task name',
   'tasks.subtaskName': 'Subtask name',
   'tasks.title': 'Task title',
+  'tasks.description': 'Description',
+  'tasks.editHint': '{save} saves · {cancel} cancels',
   'tasks.complete': 'Complete {name}',
   'tasks.reopen': 'Reopen {name}',
   'tasks.changeDate': 'Change the date',

@@ -17,9 +17,10 @@ export interface Task {
   created: string;
   updated: string;
   completed: string | null;
-  // Not used by the interface yet. They are part of the format now so that files written today
-  // stay valid when sections, notes, labels, repeating tasks, reminders and sharing arrive.
+  /** Plain text under the title, line breaks kept. Left out of the file when there is none. */
   description?: string;
+  // Not used by the interface yet. They are part of the format now so that files written today
+  // stay valid when sections, labels, repeating tasks, reminders and sharing arrive.
   section?: string | null;
   labels?: string[];
   recurrence?: string | null;
@@ -77,6 +78,7 @@ export function parseTasks(text: string): Task[] {
       created: typeof raw.created === 'string' ? raw.created : '',
       updated: typeof raw.updated === 'string' ? raw.updated : '',
       completed: typeof raw.completed === 'string' ? raw.completed : null,
+      description: typeof raw.description === 'string' && raw.description.trim() ? raw.description : undefined,
     });
   }
   // A subtask whose parent is gone becomes a top-level task instead of disappearing.
@@ -157,14 +159,18 @@ export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Da
   return [...tasks, task];
 }
 
-export function updateTask(
-  tasks: Task[],
-  id: string,
-  patch: Partial<Pick<Task, 'title' | 'due' | 'priority'>>,
-  now: Clock = () => new Date(),
-): Task[] {
+/** What can be changed of a task by editing it. */
+export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'priority'>>;
+
+/**
+ * Changes a task. An empty title keeps the old one. A description loses the blank lines and
+ * spaces around it, and an empty one is removed.
+ */
+export function updateTask(tasks: Task[], id: string, patch: TaskPatch, now: Clock = () => new Date()): Task[] {
   if (patch.title !== undefined && !patch.title.trim()) return tasks;
-  const clean = patch.title === undefined ? patch : { ...patch, title: patch.title.trim() };
+  const clean = { ...patch };
+  if (clean.title !== undefined) clean.title = clean.title.trim();
+  if (clean.description !== undefined) clean.description = clean.description.trim() || undefined;
   return tasks.map((t) => (t.id === id ? { ...t, ...clean, updated: iso(now) } : t));
 }
 

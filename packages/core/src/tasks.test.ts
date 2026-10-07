@@ -73,6 +73,15 @@ describe('adding and editing', () => {
     expect(tasks[0]).toMatchObject({ title: 'Buy milk', due: '2026-10-06', priority: 1 });
     expect(updateTask(tasks, 'a', { title: ' ' }, now)[0]!.title).toBe('Buy milk');
   });
+
+  it('keeps a description with its line breaks, and leaves an empty one out of the file', () => {
+    let tasks = updateTask(list(['a']), 'a', { description: '\n  Ask the owner first.\n  Else @scrawlnotes.\n\n' }, now);
+    expect(tasks[0]!.description).toBe('Ask the owner first.\n  Else @scrawlnotes.');
+    expect(parseTasks(serializeTasks(tasks))[0]!.description).toBe('Ask the owner first.\n  Else @scrawlnotes.');
+    tasks = updateTask(tasks, 'a', { description: '  \n ' }, now);
+    expect(tasks[0]!.description).toBeUndefined();
+    expect(serializeTasks(tasks)).not.toContain('description');
+  });
 });
 
 describe('completing', () => {

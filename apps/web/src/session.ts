@@ -34,6 +34,7 @@ import {
   setDone,
   sweepAttachments,
   type Task,
+  type TaskPatch,
   trashFolder,
   trashItem,
   trashUnlinked,
@@ -778,7 +779,7 @@ export class Session {
     this.changeTasks(list, (tasks) => addTask(tasks, input));
   }
 
-  updateTask(list: string, id: string, patch: Partial<Pick<Task, 'title' | 'due' | 'priority'>>) {
+  updateTask(list: string, id: string, patch: TaskPatch) {
     this.changeTasks(list, (tasks) => updateTask(tasks, id, patch));
   }
 

@@ -308,6 +308,17 @@ p { margin: 0; max-width: 68ch; }
 .ibar span.hot { background: var(--m-sel); }
 .mock .ibar svg { width: 13px; height: 13px; color: var(--m-dim); }
 .ibar i { align-self: stretch; width: 1px; margin: 3px 2px; background: var(--m-line); }
+/* direction A: a task's description. It reads under the title, two lines at most; a click on the
+   title opens the row as a small editor for both. */
+.task .desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; font-size: 12px; line-height: 1.5; color: var(--m-dim); }
+.task.editing { grid-template-columns: 18px minmax(0, 1fr); margin: 4px -10px; padding: 9px 10px 10px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); }
+.task.editing .tt { color: var(--m-fg); }
+.edit-desc { min-height: 3em; margin-top: 3px; white-space: pre-line; font-size: 12px; line-height: 1.5; color: var(--m-fg); }
+.edit-desc.empty { color: var(--m-faint); }
+.edit-foot { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--m-line); font-size: 11.5px; color: var(--m-faint); }
+.edit-foot .hint { margin-right: auto; }
+.edit-foot kbd { font: inherit; padding: 0 4px; border: 1px solid var(--m-line); border-radius: 3px; color: var(--m-dim); }
+.edit-foot .ghost { margin-left: 0; }
 .earlier { border-top: 1px solid var(--rule); padding-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 </style>
 
@@ -343,6 +354,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-media" data-aview="media">Media</button>
         <button type="button" id="a-copy" data-aview="copy">Copying</button>
         <button type="button" id="a-item" data-aview="item">Item menu</button>
+        <button type="button" id="a-desc" data-aview="desc">Description</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -715,6 +727,33 @@ p { margin: 0; max-width: 68ch; }
       '<div class="ln">Next: send the estimate by Thursday.</div>' +
       '</div></div>';
   }
+  function dtask(p, title, meta, desc) {
+    return '<div class="task"><span class="cb ' + p + '"></span><div><div class="tt">' + title + '</div>' +
+      (desc ? '<div class="desc">' + desc + '</div>' : '') +
+      (meta ? '<div class="meta">' + meta + '</div>' : '') + '</div></div>';
+  }
+  // The list as it reads, with one task open for editing. `empty` shows the editor of a task
+  // that has no description yet.
+  function descView(empty) {
+    var editing = '<div class="task editing"><span class="cb p2"></span><div>' +
+      '<div class="tt">Decide retry budget for sync' + (empty ? '<span class="caret"></span>' : '') + '</div>' +
+      (empty
+        ? '<div class="edit-desc empty" data-go="desc">Description</div>'
+        : '<div class="edit-desc" data-go="desc-new">Graph throttles at ~10k requests per 10 min per app.\nStart with 5 retries, back off from 2 s, and show it in the status bar.<span class="caret"></span></div>') +
+      '<div class="meta"><span>Oct 9</span></div></div>' +
+      '<div class="edit-foot"><span class="hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> saves · <kbd>Esc</kbd> cancels</span>' +
+      '<button type="button" class="ghost">Cancel</button></div></div>';
+    return '<div class="tasksv"><div class="th"><b>Tasks</b><span class="chip">Scrawl</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Inbox <small>4</small></div>' +
+      dtask('p1', 'Register scrawlnotes on GitHub and npm', '<span class="today">Today</span>',
+        'npm has the name already; ask its owner first, else publish as @scrawlnotes/core.') +
+      editing +
+      dtask('p3', 'Hot exit: restore tabs after a crash', '<span>Oct 14</span><span>editor</span>',
+        'Write the open tabs and their unsaved text every few seconds to .scrawl/session.json.\nOn start, offer them back once; never twice.\nTest with a killed process, not only a closed window.') +
+      dtask('', 'Full-text search index', '') +
+      '<div class="qa">+ Add task</div>' +
+      '</div></div>';
+  }
   function tab(kind, label, go, on, dot) {
     return '<div class="tab' + (on ? ' on' : '') + '" data-go="' + go + '">' + ICON[kind] + '<span>' + label + '</span>' + (dot ? '<i></i>' : '') + '</div>';
   }
@@ -731,7 +770,9 @@ p { margin: 0; max-width: 68ch; }
     copy: '<span>Ln 10, Col 29</span><span>186 characters</span><span>Markdown</span>',
     item: '<span>Ln 7, Col 1</span><span>396 characters</span><span>Markdown</span>',
     'item-file': '<span>Ln 4, Col 1</span><span>396 characters</span><span>Markdown</span>',
-    'item-audio': '<span>Ln 10, Col 1</span><span>396 characters</span><span>Markdown</span>'
+    'item-audio': '<span>Ln 10, Col 1</span><span>396 characters</span><span>Markdown</span>',
+    desc: '<span>4 open</span><span>1 due today</span>',
+    'desc-new': '<span>4 open</span><span>1 due today</span>'
   };
   function renderA(section, view) {
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
@@ -739,13 +780,13 @@ p { margin: 0; max-width: 68ch; }
       (view.indexOf('item') === 0 ? tab('notes', 'Client call, Oct 6', view, true) : '') +
       tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
-      tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks') +
+      tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view.indexOf('desc') === 0) +
       (view === 'trash' ? tab('trash', 'Trash', 'trash', true) : '');
     var boardTab = tab('board', 'Roadmap · Scrawl', 'board', view === 'board' || view === 'split');
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio') }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true) }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
