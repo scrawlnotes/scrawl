@@ -113,12 +113,22 @@ Sublime/Notepad'de kapatılmayan sekmelerin yerini alacak bir çalışma notu uy
 - **Today, Upcoming ve filtreler:** tarihli kartlar görevlerin yanında görünür, kendi panosunun başlığı altında ve kimliğiyle (`SCR-12 Başlık`). Done ve dropped sütunlarındakiler görünmez. Tıklayınca kart pano sekmesinde sağ panelde açılır; satırdaki kutu işaretlenince kart ilk done sütununa gider (zaman çizgisine yazılır). Kayıtlı filtrelerin In seçeneğinde panolar da listelenir; Due, Priority ve Contains kartlara aynı şekilde uygulanır. Today ve Upcoming'de kart sürüklenmez, Move to… kartta yoktur.
 - **Yapmayacaklarımız:** sprint, puan, hız, burndown, epic, özel alanlar, otomasyon, power-up.
 
-### 4.5 Paylaşım
+### 4.5 Anahtarlar (Keys)
+
+- **Ne için:** API anahtarları, veritabanı şifreleri, kullanıcı adları ve ortam değişkenleri. Her biri `<ad>.env` dosyasıdır; oluşturma penceresinden (4 Keys, Board'dan sonra, Filter'dan önce) ad ve klasörle açılır, adı verilmezse `Keys` olur. Başlığı dosya adıdır, ilk satır değil.
+- **Biçim:** düz `.env`: `KEY=value` satırları, her grubun önünde `# başlık` yorumu. Önünde başka yorum olmayan yorum grup başlığıdır, onu izleyen yorumlar grubun notudur; başlıktan önceki anahtarlar adsız bir gruptur ("No group"). Kullanıcı adı için ayrı alan yoktur: aynı grupta `DB_USER` ve `DB_PASSWORD` iki satırdır. Boşluklu değer tırnak içinde yazılır, `export` ve tırnaklı değerler okunur.
+- **Table:** gruplar kart olarak; başlığın sağında Copy as .env (grubu .env metni olarak panoya alır), + Add key ve `···` (Rename, Delete). + Add key grubun altında Add/Cancel düğmeli bir satır açar; eklenen anahtar yazıldığı sırayla grubun başına girer, satır açık kalır. Anahtara ya da değere tıklayınca satır yerinde Save/Cancel ile düzenlenir; satırın `···` menüsünde Edit ve Delete. Silme onay sorar (boş grup sormaz). Add group başlığın sağındadır; yeni grup açılınca anahtar satırı da açılır.
+- **Gizli değerler:** adında PASS, PWD, SECRET, TOKEN, KEY ya da PRIVATE geçen değerler ve şifre taşıyan adresler (`postgres://kullanıcı:şifre@...`) on nokta olarak görünür; göz simgesiyle açılır, sekme kapanınca yine gizlenir. Her değerin kopyala düğmesi vardır, basınca "Copied" çıkar.
+- **Text:** dosya olduğu gibi, satır numaralı küçük bir editörde (yorum soluk, anahtar adı kısık); yorum ve boş satırlar korunur. Table ile Text arasındaki seçim, panodaki Board/List gibi, cihazda dosya başına hatırlanır.
+- **Telefon:** her anahtar değerinin üstünde, düğmeler yanda; Add group listenin sonunda.
+- **Güvenlik:** şimdilik düz metindir ve sync ile buluta düz gider; dosya şifrelemesi sonraki bir aşamadadır. Keys dosyalarının sürüm geçmişi tutulmaz, böylece değiştirilen bir şifre geride kalmaz. Sync'te notlar gibi satır satır birleşir. Aramadaki yeri, arama yapılınca konuşulacak.
+
+### 4.6 Paylaşım
 
 - **Dışa aktarma:** PDF, tek dosya HTML (resimler gömülü), `.md` + ekler (zip).
 - **Herkese açık link:** not statik HTML'e çevrilip küçük bir yayın servisine (kullanıcının kendi Cloudflare hesabı) yüklenir, tahmin edilemez bir URL döner. İsteğe bağlıdır; uygulama onsuz da çalışır.
 
-### 4.6 Sonraki yönler
+### 4.7 Sonraki yönler
 
 - **Agent-first:** vault'u açan bir komut satırı aracı ve MCP sunucusu. `packages/core` arayüzden bağımsız tutulduğu için aynı kodu kullanırlar. Pano bu aşamaya hazır gelir: kart alma, sütun değiştirme, yorum yazma ve brief okuma dosya biçiminde baştan vardır; sütun türleri sayesinde ajan "ilk active sütun" ve "review sütunu" diyebilir, sütun adını bilmesi gerekmez.
 
@@ -163,6 +173,7 @@ Bir space kendi içinde eksiksiz bir kök klasördür; bugünkü tek vault, kiş
     <not>.md                 düz markdown
     <ad>.tasks.json          görev listesi, bir klasörde istenen sayıda; ağaç yapısı `parent` alanıyla
     <ad>.board.json          pano: sütunlar ve türleri, fazlar, kartlar, yorumlar ve hareketler
+    <ad>.env                 anahtarlar: `# başlık` gruplarında KEY=value satırları
   _attachments/              resim, ses, dosya (space'in kökünde tek klasör; not taşınınca link bozulmaz)
   .scrawl/
     trash/                   silinen notlar, görev listeleri ve klasörler; eski yerleri bir dizinde tutulur

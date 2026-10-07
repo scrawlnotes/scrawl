@@ -17,6 +17,7 @@ import {
   type ColumnKind,
   createBoard,
   createFolder,
+  createKeys,
   createNote,
   createScratchNote,
   createTaskList,
@@ -30,6 +31,7 @@ import {
   INBOX_TASKS,
   isScratchNote,
   keepVersion,
+  type KeysLook,
   listVersions,
   loadFilters,
   loadSpace,
@@ -135,7 +137,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardPathOf, filterOf, filterTab, folderOf, isNote, listOf, tabOf } from './items';
+import { boardPathOf, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, tabOf } from './items';
 import { sampleDoc } from './sample';
 import {
   chooseVaultFolder,
@@ -214,6 +216,10 @@ export interface Snapshot {
   boards: Record<string, Board>;
   /** How each board was last looked at on this device, by the path of its file. */
   boardLooks: Record<string, BoardLook>;
+  /** The text of every keys file, by its path. */
+  keys: Record<string, string>;
+  /** How each keys file was last looked at on this device, by its path. */
+  keysLooks: Record<string, KeysLook>;
   /** The saved filters, in the order they were made. */
   filters: TaskFilter[];
   /** The settings of the open space, its name among them. */
@@ -256,6 +262,8 @@ export class Session {
     sections: {},
     boards: {},
     boardLooks: {},
+    keys: {},
+    keysLooks: {},
     filters: [],
     space: {},
     trash: [],
@@ -278,8 +286,11 @@ export class Session {
   showMenu: ((at: { x: number; y: number }, items: ItemAction[]) => void) | null = null;
   /** The text of each open note as it was last read from or written to the vault. */
   private readonly disk = new Map<string, string>();
-  /** What each task list and board file held when it was last read or written here, to tell what changed there since. */
+  /** What each task list, board and keys file held when it was last read or written here, to tell what changed there since. */
   private readonly records = new Map<string, string>();
+  /** Keys files changed here and not written yet; like notes, they are written a moment after the last change. */
+  private readonly keysPending = new Set<string>();
+  private keysTimer = 0;
   /** When a version of each note was last kept in this session. */
   private readonly versionedAt = new Map<string, number>();
   /** Set while a change made outside the app is being put into the editor. */
@@ -363,7 +374,7 @@ export class Session {
     window.addEventListener('pagehide', this.flush);
 
     const titles = titlesOf(tree);
-    const { tasks, sections, boards } = await this.readLists(tree);
+    const { tasks, sections, boards, keys } = await this.readLists(tree);
     const filters = await loadFilters(this.fs);
     const space = await loadSpace(this.fs);
     const trash = await readTrash(this.fs);
@@ -374,10 +385,13 @@ export class Session {
       const filter = filterOf(id);
       if (filter !== null) return filters.some((f) => f.id === filter);
       if (board !== null) return board in boards;
+      const keysFile = keysPathOf(id);
+      if (keysFile !== null) return keysFile in keys;
       return list !== null ? list in tasks : id in titles || !isNote(id);
     });
     const boardLooks = Object.fromEntries(Object.entries(workspace.boards).filter(([path]) => path in boards));
-    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, boards, boardLooks, filters, space, trash });
+    const keysLooks = Object.fromEntries(Object.entries(workspace.keys).filter(([path]) => path in keys));
+    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, boards, boardLooks, keys, keysLooks, filters, space, trash });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
@@ -435,8 +449,9 @@ export class Session {
     this.timer = window.setTimeout(this.flush, SAVE_DELAY_MS);
   }
 
-  /** Writes every unsaved note to the vault. */
+  /** Writes every unsaved note to the vault; keys files waiting to be written are queued too. */
   flush = async () => {
+    this.flushKeys();
     window.clearTimeout(this.timer);
     const writes = [...this.pending];
     this.pending.clear();
@@ -547,9 +562,9 @@ export class Session {
     }
   }
 
-  /** Shows "Saved" once nothing waits to be written: no note, and no file being copied. */
+  /** Shows "Saved" once nothing waits to be written: no note, no keys file, and no file being copied. */
   private markSaved() {
-    if (!this.pending.size && this.copying === 0 && !this.snapshot.saved) this.set({ saved: true });
+    if (!this.pending.size && !this.keysPending.size && this.copying === 0 && !this.snapshot.saved) this.set({ saved: true });
   }
 
   /** Keeps `text` as an earlier version of the note at `path`, as `keepVersion` decides. */
@@ -863,9 +878,14 @@ export class Session {
   }
 
   private saveWorkspace() {
-    const { tabs, active, boards, boardLooks } = this.snapshot;
-    // Boards that are gone are forgotten.
-    void saveWorkspace(this.fs, { tabs, active, boards: Object.fromEntries(Object.entries(boardLooks).filter(([path]) => path in boards)) });
+    const { tabs, active, boards, boardLooks, keys, keysLooks } = this.snapshot;
+    // Boards and keys files that are gone are forgotten.
+    void saveWorkspace(this.fs, {
+      tabs,
+      active,
+      boards: Object.fromEntries(Object.entries(boardLooks).filter(([path]) => path in boards)),
+      keys: Object.fromEntries(Object.entries(keysLooks).filter(([path]) => path in keys)),
+    });
   }
 
   /** Remembers how a board is looked at: as columns or a list, and which phase. */
@@ -874,10 +894,18 @@ export class Session {
     this.saveWorkspace();
   }
 
-  /** A board's look goes with it when it moves. */
+  /** Remembers how a keys file is looked at: as a table or as its text. */
+  lookAtKeys(path: string, look: KeysLook) {
+    this.set({ keysLooks: { ...this.snapshot.keysLooks, [path]: look } });
+    this.saveWorkspace();
+  }
+
+  /** A board's or a keys file's look goes with it when it moves. */
   private moveLook(from: string, to: string) {
     const { [from]: look, ...rest } = this.snapshot.boardLooks;
     if (look) this.set({ boardLooks: { ...rest, [to]: look } });
+    const { [from]: keysLook, ...others } = this.snapshot.keysLooks;
+    if (keysLook) this.set({ keysLooks: { ...others, [to]: keysLook } });
   }
 
   /** Desktop: asks for the notes folder and opens it. Open notes are saved and closed first. */
@@ -930,7 +958,7 @@ export class Session {
     await this.refreshTree();
   }
 
-  /** Writes every unsaved note and task list. */
+  /** Writes every unsaved note, task list, board and keys file. */
   private async settle() {
     await this.flush();
     await this.taskWrites;
@@ -998,14 +1026,16 @@ export class Session {
     this.saveWorkspace();
   }
 
-  /** Reads the inbox's task list, every other task list and every board in the vault. */
-  private async readLists(tree: TreeNode[]): Promise<Pick<Snapshot, 'tasks' | 'sections' | 'boards'>> {
+  /** Reads the inbox's task list, every other task list, every board and every keys file in the vault. */
+  private async readLists(tree: TreeNode[]): Promise<Pick<Snapshot, 'tasks' | 'sections' | 'boards' | 'keys'>> {
     const paths = [INBOX_TASKS];
     const boardPaths: string[] = [];
+    const keysPaths: string[] = [];
     const visit = (nodes: TreeNode[]) => {
       for (const node of nodes) {
         if (node.kind === 'tasks') paths.push(node.path);
         else if (node.kind === 'board') boardPaths.push(node.path);
+        else if (node.kind === 'keys') keysPaths.push(node.path);
         else if (node.kind === 'folder') visit(node.children ?? []);
       }
     };
@@ -1019,11 +1049,58 @@ export class Session {
     };
     const lists = await Promise.all(paths.map(async (path) => [path, parseList((await read(path)) ?? '')] as const));
     const boards = await Promise.all(boardPaths.map(async (path) => [path, parseBoard((await read(path)) ?? '')] as const));
+    const keys = await Promise.all(keysPaths.map(async (path) => [path, (await read(path)) ?? ''] as const));
     return {
       tasks: Object.fromEntries(lists.map(([path, list]) => [path, list.tasks])),
       sections: Object.fromEntries(lists.map(([path, list]) => [path, list.sections])),
       boards: Object.fromEntries(boards),
+      keys: Object.fromEntries(keys),
     };
+  }
+
+  /** Changes the text of a keys file, from its table or as text, and writes it a moment after the last change. */
+  changeKeys(path: string, text: string) {
+    const current = this.snapshot.keys[path];
+    if (current === undefined || current === text) return;
+    this.set({ keys: { ...this.snapshot.keys, [path]: text }, saved: false });
+    this.keysPending.add(path);
+    window.clearTimeout(this.keysTimer);
+    this.keysTimer = window.setTimeout(() => this.flushKeys(), SAVE_DELAY_MS);
+  }
+
+  /** Puts the keys files waiting to be written into the queue the task lists and boards are written by. */
+  private flushKeys() {
+    window.clearTimeout(this.keysTimer);
+    for (const path of this.keysPending) {
+      this.taskWrites = this.taskWrites.then(() => this.writeKeys(path)).catch(() => undefined);
+    }
+    this.keysPending.clear();
+    this.taskWrites = this.taskWrites.then(() => this.markSaved());
+  }
+
+  /**
+   * Writes a keys file as it is shown now. What sync or another program wrote to it since it was
+   * read here is merged in line by line; where both changed the same lines, what was done here
+   * is written. What came in is then shown too, on top of any change made meanwhile.
+   */
+  private async writeKeys(path: string) {
+    const text = this.snapshot.keys[path];
+    if (text === undefined) return;
+    const known = this.records.get(path);
+    let written = text;
+    if (known !== undefined) {
+      const disk = await this.fs.readText(path).catch(() => null);
+      if (disk !== null && disk !== known && disk !== text) {
+        const merged = mergeText(known, text, disk);
+        if (merged.clean) written = merged.text;
+      }
+    }
+    await this.fs.writeText(path, written);
+    this.records.set(path, written);
+    if (written === text) return;
+    const now = this.snapshot.keys[path];
+    if (now === undefined) return;
+    this.set({ keys: { ...this.snapshot.keys, [path]: now === text ? written : mergeText(text, now, written).text } });
   }
 
   /** Applies a change to a board and saves it. Board files share the queue of task files. */
@@ -1262,8 +1339,11 @@ export class Session {
 
   // ---------- boards ----------
 
-  addCard(board: string, input: NewCard) {
-    this.changeBoard(board, (current) => addCard(current, input));
+  /** Adds a card; returns its id, so that the next card typed can go after it. */
+  addCard(board: string, input: NewCard): string {
+    const id = crypto.randomUUID();
+    this.changeBoard(board, (current) => addCard(current, input, undefined, undefined, id));
+    return id;
   }
 
   moveCard(board: string, id: string, place: CardPlace) {
@@ -1363,11 +1443,17 @@ export class Session {
   }
 
   /**
-   * Creates a note, a task list or a board called `name` (a default name when it is empty) in
-   * `folder`, which is made first when `newFolder` is set, and opens it. A board starts from
-   * `template`. Returns a message when it cannot be made.
+   * Creates a note, a task list, a board or a keys file called `name` (a default name when it is
+   * empty) in `folder`, which is made first when `newFolder` is set, and opens it. A board starts
+   * from `template`. Returns a message when it cannot be made.
    */
-  async create(kind: 'note' | 'tasks' | 'board', folder: string, name: string, newFolder: boolean, template: Template = 'software'): Promise<string | null> {
+  async create(
+    kind: 'note' | 'tasks' | 'board' | 'keys',
+    folder: string,
+    name: string,
+    newFolder: boolean,
+    template: Template = 'software',
+  ): Promise<string | null> {
     let path: string;
     try {
       const target = newFolder ? await createFolder(this.fs, folder) : folder;
@@ -1376,7 +1462,9 @@ export class Session {
           ? await createNote(this.fs, target, name)
           : kind === 'tasks'
             ? await createTaskList(this.fs, target, name)
-            : await createBoard(this.fs, target, name, template);
+            : kind === 'keys'
+              ? await createKeys(this.fs, target, name)
+              : await createBoard(this.fs, target, name, template);
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }

@@ -10,6 +10,7 @@ export function contentsText(holds: Holds): string {
     holds.notes > 0 && t('count.notes', { count: holds.notes }),
     holds.lists > 0 && t('count.lists', { count: holds.lists }),
     holds.boards > 0 && t('count.boards', { count: holds.boards }),
+    holds.keys > 0 && t('count.keyFiles', { count: holds.keys }),
     holds.folders > 0 && t('count.folders', { count: holds.folders }),
   ]
     .filter(Boolean)

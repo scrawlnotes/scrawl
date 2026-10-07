@@ -43,6 +43,7 @@ import { scrawlTheme } from './theme';
 export { clipboard, markdownSlice, visibleText } from './clipboard';
 export * from './commands';
 export { addCursorBelow, selectNextOccurrence, selectSelectionMatches };
+export { createEnvEditor, type EnvEditor } from './env';
 export { literalPattern } from './find';
 export { addCopy, type Copy, copyFollows, copyPosition, copyProgress, dropCopy, progressText, showCopy } from './copies';
 export { linkAddress, linkText, pastedLink, pastedUrl } from './links';

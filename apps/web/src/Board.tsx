@@ -30,7 +30,8 @@ import { dueClass, dueLabel } from './Tasks';
 
 /** What can be done on a board, at the path given. */
 export interface BoardActions extends CardPanelActions {
-  addCard: (board: string, input: NewCard) => void;
+  /** Returns the new card's id. */
+  addCard: (board: string, input: NewCard) => string;
   moveCard: (board: string, id: string, place: CardPlace) => void;
   /** Asks first, then deletes the card. */
   removeCard: (board: string, card: Card) => void;
@@ -818,8 +819,11 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
   onInFull: (group: string, full: boolean) => void;
 }) {
   const [sort, setSort] = useState<Sort | null>(null);
-  /** The group a card is being typed into. */
-  const [adding, setAdding] = useState<string | null>(null);
+  /**
+   * The group a card is being typed into, and the card added last from its line: the next goes
+   * after it, and the line stays right under it.
+   */
+  const [adding, setAdding] = useState<{ group: string; after: string | null } | null>(null);
   const toggle = (field: Sort['field']) =>
     setSort((now) => (now?.field === field ? (now.desc ? null : { field, desc: true }) : { field, desc: false }));
   const groups: ListGroup[] = board.phasesOn
@@ -848,8 +852,17 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
   // the cards in no phase only when there are some.
   const shown = groups.map((group) => ({ ...group, cards: sortCards(board, group.cards.filter(visible), sort) })).filter((g) => g.cards.length > 0 || g.id !== 'none');
   // A card typed into a status's group goes into that column; into a phase's, into that phase.
-  const addTo = (group: ListGroup, title: string) =>
-    actions.addCard(path, { title, first: true, ...(group.status ? { column: group.id } : { phase: group.id === 'none' ? null : group.id }) });
+  // The first goes first in the group, each next one after the one before.
+  const addTo = (group: ListGroup, title: string) => {
+    const after = adding?.group === group.id ? adding.after : null;
+    const id = actions.addCard(path, {
+      title,
+      first: true,
+      ...(after && { after }),
+      ...(group.status ? { column: group.id } : { phase: group.id === 'none' ? null : group.id }),
+    });
+    setAdding({ group: group.id, after: id });
+  };
   const head = (field: Sort['field']) => (
     <button type="button" role="columnheader" className={sort?.field === field ? 'sorted' : ''} onClick={() => toggle(field)}>
       {t(`list.${field}`)}
@@ -910,12 +923,20 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
         const open = toggled.includes(group.id) ? group.finished === true : group.finished !== true;
         const many = group.cards.length > MANY_ROWS;
         const full = inFull.includes(group.id);
-        // The open card is never hidden: not in a closed group, not among a long group's rest.
+        const typing = open && adding?.group === group.id;
+        // The cards just typed in are never hidden among a long group's rest, nor is the open card.
+        const lastAdded = typing && adding.after ? group.cards.findIndex((card) => card.id === adding.after) : -1;
         const rows = !open
           ? group.cards.filter((card) => card.id === openCard)
           : many && !full
-            ? group.cards.filter((card, index) => index < SHOWN_FIRST || card.id === openCard)
+            ? group.cards.filter((card, index) => index < SHOWN_FIRST || index <= lastAdded || card.id === openCard)
             : group.cards;
+        // The line a card is typed in: first in the group, then right under the card added last.
+        const lines = rows.map(row);
+        if (typing) {
+          const at = adding.after ? rows.findIndex((card) => card.id === adding.after) + 1 : 0;
+          lines.splice(at, 0, <ListComposer key="composer" onAdd={(title) => addTo(group, title)} onClose={() => setAdding(null)} />);
+        }
         return (
           <div key={group.id}>
             <div className="lsec">
@@ -927,22 +948,21 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
                 {group.doneWhen && <span className="dw">{group.doneWhen}</span>}
               </button>
               {/* While a card is typed, the line's own buttons do it. In a closed group, the group opens for it. */}
-              {adding !== group.id && (
+              {adding?.group !== group.id && (
                 <button
                   type="button"
                   className="ladd"
                   onClick={() => {
                     if (!open) onToggle(group.id);
-                    setAdding(group.id);
+                    setAdding({ group: group.id, after: null });
                   }}
                 >
                   {t('board.addCardRow')}
                 </button>
               )}
             </div>
-            {open && adding === group.id && <ListComposer onAdd={(title) => addTo(group, title)} onClose={() => setAdding(null)} />}
-            {rows.map(row)}
-            {open && group.cards.length === 0 && adding !== group.id && <div className="lnone">{t('list.noCards')}</div>}
+            {lines}
+            {open && group.cards.length === 0 && !typing && <div className="lnone">{t('list.noCards')}</div>}
             {open && many && (
               <button type="button" className="lmore" onClick={() => onInFull(group.id, !full)}>
                 {full ? t('list.showLess') : t('list.showMore', { count: group.cards.length - rows.length })}

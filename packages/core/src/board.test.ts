@@ -91,6 +91,13 @@ describe('templates', () => {
     // Added from the top of a list, a card goes first in its column.
     board = addCard(board, { title: 'Crash when a board is renamed', first: true }, now, undefined, 'k2');
     expect(columnCards(board, board.columns[0]!.id).map((c) => c.id)).toEqual(['k2', 'k1']);
+    // Typed one after another, cards go each after the one before, in the order typed.
+    board = addCard(board, { title: 'Tabs lose their order', first: true, after: 'k2' }, now, undefined, 'k3');
+    board = addCard(board, { title: 'Trash forgets the folder', first: true, after: 'k3' }, now, undefined, 'k4');
+    expect(columnCards(board, board.columns[0]!.id).map((c) => c.id)).toEqual(['k2', 'k3', 'k4', 'k1']);
+    // A card that is not in the column any more is no place to go after: first, as asked.
+    board = addCard(board, { title: 'Sync stops offline', first: true, after: 'gone' }, now, undefined, 'k5');
+    expect(columnCards(board, board.columns[0]!.id)[0]!.id).toBe('k5');
   });
 
   it('tells the status of each column: the first active one not started, the later ones started', () => {

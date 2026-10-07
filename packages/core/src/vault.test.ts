@@ -5,6 +5,7 @@ import { addTask, loadTasks, serializeTasks } from './tasks';
 import {
   boardName,
   createBoard,
+  createKeys,
   createFolder,
   createNote,
   createScratchNote,
@@ -144,6 +145,29 @@ describe('vault', () => {
     await expect(createBoard(fs, 'Work', '.hidden', 'simple')).rejects.toThrow();
   });
 
+  it('creates keys files, called Keys without a name, listed after boards and trashed with their count', async () => {
+    const fs = new MemoryFs();
+    expect(await createKeys(fs, 'Work', '')).toBe('Work/Keys.env');
+    expect(await createKeys(fs, 'Work', 'Production.env')).toBe('Work/Production.env');
+    expect(await fs.readText('Work/Production.env')).toBe('');
+    await createBoard(fs, 'Work', 'Roadmap', 'simple');
+    await fs.writeText('Work/plan.md', 'plan');
+    await fs.mkdir('Work/meetings');
+    // A file that is only `.env`, as other tools keep, is not one of the app's.
+    await fs.writeText('Work/.env', 'A=1');
+    expect((await readTree(fs, 'Work')).map((n) => [n.kind, n.title ?? n.name])).toEqual([
+      ['board', 'Roadmap'],
+      ['keys', 'Keys'],
+      ['keys', 'Production'],
+      ['folder', 'meetings'],
+      ['note', 'plan'],
+    ]);
+    expect(await renameItem(fs, 'Work/Keys.env', 'Staging')).toBe('Work/Staging.env');
+    await fs.writeText('Work/Production.env', '# DB\nHOST=a\nPASSWORD=b\n');
+    await trashItem(fs, 'Work/Production.env', new Date(2026, 9, 5, 15, 0, 0));
+    expect((await readTrash(fs))[0]).toMatchObject({ kind: 'keys', title: 'Production', keys: 2, from: 'Work/Production.env' });
+  });
+
   it('renames and moves a board, keeping it a board', async () => {
     const fs = new MemoryFs();
     const path = await createBoard(fs, 'Work', 'Roadmap', 'software');
@@ -237,7 +261,7 @@ describe('trash', () => {
         title: 'Old',
         from: 'Old',
         deleted: later.toISOString(),
-        holds: { notes: 2, lists: 0, boards: 0, folders: 2 },
+        holds: { notes: 2, lists: 0, boards: 0, keys: 0, folders: 2 },
       },
       {
         path: '.scrawl/trash/2026-10-05 143207 2026-10-05 101010.md',
@@ -267,7 +291,7 @@ describe('trash', () => {
     expect(await restoreFromTrash(fs, item!)).toBe(path);
     await createBoard(fs, 'Work/sub', 'B', 'simple');
     await trashFolder(fs, 'Work', at);
-    expect((await readTrash(fs))[0]).toMatchObject({ kind: 'folder', holds: { notes: 0, lists: 0, boards: 2, folders: 1 } });
+    expect((await readTrash(fs))[0]).toMatchObject({ kind: 'folder', holds: { notes: 0, lists: 0, boards: 2, keys: 0, folders: 1 } });
   });
 
   it('never lets two deletions in the same second clash', async () => {
@@ -463,14 +487,15 @@ describe('attachments, folders and the workspace', () => {
 
   it('round-trips the workspace and survives a missing or broken file', async () => {
     const fs = new MemoryFs();
-    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {} });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {}, keys: {} });
     const boards = { 'Scrawl/Roadmap.board.json': { view: 'list' as const, phase: null }, 'Home/Renovation.board.json': { view: 'board' as const, phase: 'p2' }, 'Work/Plan.board.json': { view: 'list' as const } };
-    await saveWorkspace(fs, { tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards });
-    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards });
-    // A workspace written before boards were remembered still opens.
+    const keys = { 'Scrawl/Production.env': { view: 'text' as const } };
+    await saveWorkspace(fs, { tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards, keys });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards, keys });
+    // A workspace written before boards and keys files were remembered still opens.
     await fs.writeText('.scrawl/workspace.json', '{"tabs":["Inbox/a.md"],"active":null}');
-    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: null, boards: {} });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: null, boards: {}, keys: {} });
     await fs.writeText('.scrawl/workspace.json', 'not json');
-    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {} });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {}, keys: {} });
   });
 });

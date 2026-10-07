@@ -13,11 +13,14 @@ import {
   filterTasks,
   INBOX,
   INBOX_TASKS,
+  keyCount,
   keyOf,
+  keysName,
   listName,
   openCardCount,
   openCount,
   parseCardRef,
+  parseKeys,
   type Phase,
   phaseCards,
   dueCards,
@@ -52,6 +55,7 @@ import { type BoardActions, BoardView } from './Board';
 import { FormatBar } from './FormatBar';
 import { HistoryDialog } from './History';
 import { Icon } from './Icon';
+import { type KeysActions, KeysView } from './Keys';
 import {
   boardLabel,
   boardOf,
@@ -61,8 +65,10 @@ import {
   folderOf,
   iconOf,
   isBoardPath,
+  isKeysPath,
   isNote,
   isTaskListPath,
+  keysPathOf,
   labelOf,
   listLabel,
   listOf,
@@ -131,7 +137,7 @@ function findNode(nodes: TreeNode[], path: string): TreeNode | undefined {
 
 /** What a folder holds, all the way down, as "2 notes, 1 task list"; empty when it holds nothing. */
 function contentsOf(folder: TreeNode): string {
-  const totals = { note: 0, tasks: 0, board: 0, folder: 0 };
+  const totals = { note: 0, tasks: 0, board: 0, keys: 0, folder: 0 };
   const visit = (nodes: TreeNode[]) => {
     for (const node of nodes) {
       totals[node.kind]++;
@@ -139,7 +145,7 @@ function contentsOf(folder: TreeNode): string {
     }
   };
   visit(folder.children ?? []);
-  return contentsText({ notes: totals.note, lists: totals.tasks, boards: totals.board, folders: totals.folder });
+  return contentsText({ notes: totals.note, lists: totals.tasks, boards: totals.board, keys: totals.keys, folders: totals.folder });
 }
 
 export function App() {
@@ -147,7 +153,7 @@ export function App() {
   const [session] = useState(() => new Session());
   const [syncService] = useState(() => new SyncService(session));
   const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
-  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, boardLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
+  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -166,6 +172,8 @@ export function App() {
   const [draggedTab, setDraggedTab] = useState<string | null>(null);
   /** The card open in a panel beside its board's columns. */
   const [openCard, setOpenCard] = useState<{ board: string; id: string } | null>(null);
+  /** What the status bar says about a view other than a note's: a keys file's counts, or its cursor. */
+  const [viewStatus, setViewStatus] = useState<string[] | null>(null);
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
   const [tabGap, setTabGap] = useState<number | null>(null);
   const empty = ready && !needsFolder && tabs.length === 0;
@@ -265,6 +273,12 @@ export function App() {
       const message =
         total > 0 ? t('delete.boardWithCards', { name, cards: t('count.cards', { count: total }) }) : t('delete.boardText', { name });
       ask(t('delete.board'), message, () => void session.trash(path));
+    } else if (isKeysPath(path)) {
+      const name = quote(keysName(path));
+      const total = keyCount(parseKeys(keyFiles[path] ?? ''));
+      const message =
+        total > 0 ? t('delete.keysFileWithKeys', { name, keys: t('count.keys', { count: total }) }) : t('delete.keysFileText', { name });
+      ask(t('delete.keysFile'), message, () => void session.trash(path));
     } else {
       const name = quote(titles[path] ?? t('note.untitled'));
       ask(t('delete.note'), t('delete.noteText', { name }), () => void session.trash(path));
@@ -413,7 +427,8 @@ export function App() {
     openMenu(event, [
       { label: t('menu.moveTo'), run: () => setDialog({ kind: 'move', path }) },
       { label: t('menu.rename'), run: () => setDialog({ kind: 'rename', path }) },
-      ...(isTaskListPath(path) || isBoardPath(path) ? [] : [{ label: t('menu.history'), run: () => void showHistory(path) }]),
+      // Only notes keep a history; a keys file keeps none, so that a password changed is gone.
+      ...(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) ? [] : [{ label: t('menu.history'), run: () => void showHistory(path) }]),
       { label: t('menu.delete'), run: () => deleteItem(path) },
     ]);
   // The inbox is always there; it cannot be deleted. A new note shows at once, out from under the drawer.
@@ -547,6 +562,11 @@ export function App() {
     noteTitle: (path) => titles[path] ?? null,
     openNote: (path) => void session.open(path),
   };
+  const keysActions: KeysActions = {
+    change: (path, text) => session.changeKeys(path, text),
+    menu: openMenu,
+    ask: (title, message, run) => ask(title, message, run),
+  };
   const dueNow = dueToday(tasks, today);
   const dueCardsNow = dueCards(boards).filter((d) => d.card.due! <= today).length;
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [TRASH]: trash.length };
@@ -560,6 +580,8 @@ export function App() {
   const list = active ? listOf(active) : null;
   const boardPath = active ? boardPathOf(active) : null;
   const board = boardPath !== null ? boards[boardPath] : undefined;
+  const keysPath = active ? keysPathOf(active) : null;
+  const keysText = keysPath !== null ? keyFiles[keysPath] : undefined;
   const isDueView = active === TODAY || active === UPCOMING;
   const filterId = active ? filterOf(active) : null;
   const activeFilter = filters.find((filter) => filter.id === filterId) ?? null;
@@ -693,6 +715,18 @@ export function App() {
             onCloseCard={() => setOpenCard(null)}
           />
         )}
+        {keysPath !== null && keysText !== undefined && (
+          <KeysView
+            key={keysPath}
+            path={keysPath}
+            name={keysName(keysPath)}
+            text={keysText}
+            look={keysLooks[keysPath]}
+            onLook={(look) => session.lookAtKeys(keysPath, look)}
+            actions={keysActions}
+            onStatus={setViewStatus}
+          />
+        )}
         {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} boards={boards} today={today} actions={taskActions} />}
         {activeFilter && (
           <FilterView
@@ -713,7 +747,7 @@ export function App() {
             onEmpty={askEmptyTrash}
           />
         )}
-        {!showingEditor && list === null && !board && !isDueView && !activeFilter && active !== TRASH && (
+        {!showingEditor && list === null && !board && keysText === undefined && !isDueView && !activeFilter && active !== TRASH && (
           <section className="placeholder">
             {active ? (
               <>
@@ -728,6 +762,7 @@ export function App() {
         <footer className="status">
           {stats && <span>{position(stats)}</span>}
           {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
+          {keysText !== undefined && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
           {notice && (
             <span className="notice" role="status">
               {notice}
@@ -828,7 +863,15 @@ export function App() {
       )}
       {dialog?.kind === 'rename' && (
         <RenameDialog
-          name={isTaskListPath(dialog.path) ? listName(dialog.path) : isBoardPath(dialog.path) ? boardName(dialog.path) : (titles[dialog.path] ?? '')}
+          name={
+            isTaskListPath(dialog.path)
+              ? listName(dialog.path)
+              : isBoardPath(dialog.path)
+                ? boardName(dialog.path)
+                : isKeysPath(dialog.path)
+                  ? keysName(dialog.path)
+                  : (titles[dialog.path] ?? '')
+          }
           onRename={(name) => session.rename(dialog.path, name)}
           onClose={closeDialog}
         />

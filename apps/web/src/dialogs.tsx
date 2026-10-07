@@ -132,19 +132,22 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
   );
 }
 
-export type NewKind = 'note' | 'tasks' | 'board' | 'filter';
+export type NewKind = 'note' | 'tasks' | 'board' | 'keys' | 'filter';
 export type ItemKind = Exclude<NewKind, 'filter'>;
 
-const KINDS: { kind: NewKind; label: MessageKey; icon: IconName }[] = [
+// Keys come after Board and before Filter, which is a view rather than a file; what they are for
+// is said beside them, as the kind least known.
+const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: MessageKey }[] = [
   { kind: 'note', label: 'create.note', icon: 'note' },
   { kind: 'tasks', label: 'create.tasks', icon: 'tasks' },
   { kind: 'board', label: 'create.board', icon: 'board' },
+  { kind: 'keys', label: 'create.keys', icon: 'keys', text: 'create.keysText' },
   { kind: 'filter', label: 'create.filter', icon: 'filter' },
 ];
 
 /**
- * Creates a note, a task list or a board. The kind is chosen first; the item then gets a name,
- * which may be left empty, and a folder; a board also starts from a template.
+ * Creates a note, a task list, a board or a keys file. The kind is chosen first; the item then
+ * gets a name, which may be left empty, and a folder; a board also starts from a template.
  */
 export function NewDialog({ folders, folder, onCreate, onFilter, onClose }: {
   /** Every folder, the inbox first. */
@@ -166,8 +169,8 @@ export function NewDialog({ folders, folder, onCreate, onFilter, onClose }: {
   return <KindChoice onPick={(picked) => (picked === 'filter' ? onFilter() : setKind(picked))} onClose={onClose} />;
 }
 
-const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard' };
-const NAME_HINTS: Record<ItemKind, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName' };
+const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard', keys: 'create.newKeys' };
+const NAME_HINTS: Record<ItemKind, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName', keys: 'create.keysName' };
 
 /** The ways a board can start: its columns by kind, and whether phases are on. */
 const TEMPLATES: { template: Template; label: MessageKey; text: MessageKey; columns: string[] }[] = [
@@ -189,7 +192,7 @@ function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onCl
     event.preventDefault();
   };
   return (
-    <Dialog label={t('create.title')} onClose={onClose} onKeyDown={onKey}>
+    <Dialog label={t('create.title')} className="create-kinds" onClose={onClose} onKeyDown={onKey}>
       <h2>{t('create.title')}</h2>
       <div className="choices" role="listbox">
         {KINDS.map((item, i) => (
@@ -205,6 +208,7 @@ function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onCl
             <kbd>{i + 1}</kbd>
             <Icon name={item.icon} />
             <span>{t(item.label)}</span>
+            {item.text && <small>{t(item.text)}</small>}
           </button>
         ))}
       </div>

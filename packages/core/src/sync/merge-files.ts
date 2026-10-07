@@ -1,6 +1,7 @@
 import { diff3Merge } from 'node-diff3';
 import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from '../board';
 import { parseFilters, serializeFilters, type TaskFilter } from '../filters';
+import { KEYS_EXT } from '../keys';
 import { parseSpace, serializeSpace } from '../space';
 import { parseList, serializeList, type Task, type Section, TASK_LIST_EXT } from '../tasks';
 import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrder } from './merge-records';
@@ -15,7 +16,8 @@ const TRASH_INDEX = '.scrawl/trash/index.json';
 /** How a file is merged; null for a file that cannot be (an attachment). */
 export function mergeKindOf(path: string): MergeKind | null {
   const lower = path.toLowerCase();
-  if (lower.endsWith('.md')) return 'text';
+  // A keys file is lines of text too: two devices that changed different keys keep both.
+  if (lower.endsWith('.md') || lower.endsWith(KEYS_EXT)) return 'text';
   if (lower.endsWith(TASK_LIST_EXT) || lower === INBOX_TASKS.toLowerCase()) return 'tasks';
   if (lower.endsWith(BOARD_EXT)) return 'board';
   if (lower === '.scrawl/filters.json') return 'filters';

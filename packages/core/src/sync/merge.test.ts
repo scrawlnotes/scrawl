@@ -21,6 +21,7 @@ function merged(kind: Parameters<typeof mergeFile>[0], base: string, local: stri
 describe('which files merge', () => {
   it('knows notes, task lists, boards and the files of a space', () => {
     expect(mergeKindOf('Scrawl/Plan.md')).toBe('text');
+    expect(mergeKindOf('Scrawl/Production.env')).toBe('text');
     expect(mergeKindOf('Scrawl/Work.tasks.json')).toBe('tasks');
     expect(mergeKindOf('Inbox/tasks.json')).toBe('tasks');
     expect(mergeKindOf('Scrawl/Roadmap.board.json')).toBe('board');

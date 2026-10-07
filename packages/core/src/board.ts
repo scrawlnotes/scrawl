@@ -507,9 +507,14 @@ export interface NewCard {
   note?: string | null;
   /** Put first in its column rather than last. */
   first?: boolean;
+  /** Put right after this card of its column, when it is there: cards typed one after another keep their order. */
+  after?: string;
 }
 
-/** Adds a card at the end of its column, with the next key. A title of only spaces adds none. */
+/**
+ * Adds a card at the end of its column, with the next key: or first, or after a card, as asked.
+ * A title of only spaces adds none.
+ */
 export function addCard(board: Board, input: NewCard, now: Clock = () => new Date(), by?: string, id: string = newId()): Board {
   const title = input.title.trim();
   const column = input.column && board.columns.some((c) => c.id === input.column) ? input.column : board.columns[0]?.id;
@@ -518,6 +523,7 @@ export function addCard(board: Board, input: NewCard, now: Clock = () => new Dat
   const stamp = iso(now);
   const inColumn = columnCards(board, column);
   const last = inColumn.at(-1);
+  const after = input.after ? inColumn.find((c) => c.id === input.after) : undefined;
   const card: Card = {
     id,
     key: board.nextKey,
@@ -525,7 +531,7 @@ export function addCard(board: Board, input: NewCard, now: Clock = () => new Dat
     ...(input.description?.trim() && { description: input.description.trim() }),
     column,
     ...(phase && board.phases.some((p) => p.id === phase) && { phase }),
-    order: input.first ? (inColumn[0]?.order ?? 1) - 1 : (last?.order ?? -1) + 1,
+    order: after ? after.order + 1 : input.first ? (inColumn[0]?.order ?? 1) - 1 : (last?.order ?? -1) + 1,
     priority: input.priority ?? 4,
     due: input.due ?? null,
     ...(input.labels && input.labels.length > 0 && { labels: cleanLabels(input.labels) }),
@@ -537,7 +543,9 @@ export function addCard(board: Board, input: NewCard, now: Clock = () => new Dat
     completed: columnOf(board, { column } as Card)?.kind === 'done' ? stamp : null,
     timeline: [],
   };
-  return { ...board, nextKey: board.nextKey + 1, cards: [...board.cards, card] };
+  // The cards after it in its column move down one to make room.
+  const cards = after ? board.cards.map((c) => (c.column === column && c.order > after.order ? { ...c, order: c.order + 1 } : c)) : board.cards;
+  return { ...board, nextKey: board.nextKey + 1, cards: [...cards, card] };
 }
 
 function cleanLabels(labels: string[]): string[] {

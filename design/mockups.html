@@ -664,6 +664,47 @@ p { margin: 0; max-width: 68ch; }
 /* a long group shows its first cards and a row for the rest, at the list's left edge */
 .lmore { padding: 6px 0 7px 0; border-bottom: 1px solid var(--m-line); color: var(--m-faint); font-size: 12px; }
 /* adding a card in the list: a row at the end of each group, and the row as it is typed in */
+/* Keys: a .env file as groups of keys, each group a "# heading" in the file */
+.kv { flex: 1; min-height: 0; overflow: hidden; padding: 2px 16px 14px; font-size: 12.5px; }
+.kv-grp { margin-top: 12px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-side); }
+.kv-h { display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 12px; border-bottom: 1px solid var(--m-line); font-weight: 600; }
+.kv-h small { font-weight: 400; color: var(--m-faint); font-variant-numeric: tabular-nums; }
+.kv-h .acts { display: flex; gap: 2px; margin-left: auto; font-weight: 400; }
+.kv-h .acts span { padding: 2px 8px; border-radius: 5px; color: var(--m-faint); font-size: 12px; }
+.kv-row { display: grid; grid-template-columns: 210px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--m-line); }
+.kv-grp .kv-row:last-child { border-bottom: 0; }
+.kv-row .k { font: 12px var(--m-mono); color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kv-row .v { font: 12.5px var(--m-mono); color: var(--m-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kv-row .v.hid { color: var(--m-dim); letter-spacing: 2px; }
+.kv-row .ib { display: flex; gap: 2px; }
+.kv-row .ib span { position: relative; display: grid; place-items: center; width: 24px; height: 22px; border-radius: 5px; color: var(--m-faint); }
+.mock .kv-row .ib svg { width: 14px; height: 14px; }
+.kv-row .ib span.on { color: var(--m-fg); }
+.kv-row .ib span.tipped { background: var(--m-sel); color: var(--m-fg); }
+.kv-row .ib .tip { position: absolute; bottom: 26px; right: -2px; padding: 2px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); font: 11px var(--m-ui); white-space: nowrap; }
+.kv-comp { display: grid; grid-template-columns: 210px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--m-line); }
+.kv-comp .in { padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); font: 12.5px var(--m-mono); color: var(--m-fg); }
+.kv-comp .in.on { border-color: var(--m-accent); }
+.kv-comp .in.ph { color: var(--m-faint); }
+.kv-comp .bt { display: flex; gap: 6px; }
+.kvtext { flex: 1; min-height: 0; margin: 12px 16px 14px; padding: 10px 0; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-code); font: 12.5px/1.75 var(--m-mono); color: var(--m-fg); overflow: hidden; }
+.kvtext div { display: grid; grid-template-columns: 38px 1fr; }
+.kvtext i { font-style: normal; color: var(--m-faint); text-align: right; padding-right: 12px; }
+.kvtext .c { color: var(--m-faint); }
+.kvtext .k { color: var(--m-dim); }
+.kvtext .hint { margin: 0 16px; padding: 0; border: 0; background: none; font: 12px var(--m-ui); color: var(--m-faint); }
+.phone .kv { padding: 0 12px 12px; }
+.phone .kv-row { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; padding: 7px 8px 7px 12px; }
+.phone .kv-row .k { grid-column: 1; font-size: 11px; }
+.phone .kv-row .v { grid-column: 1; }
+.phone .kv-row .ib { grid-column: 2; grid-row: 1 / 3; }
+.phone .kv-add { margin-top: 12px; padding: 9px; border: 1px dashed var(--m-line); border-radius: 8px; color: var(--m-faint); text-align: center; font-size: 12.5px; }
+.choices-m { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
+.choices-m span { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 6px; color: var(--m-fg); }
+.choices-m span.on { background: var(--m-sel); }
+.choices-m kbd { min-width: 16px; text-align: center; }
+.mock .choices-m svg { width: 15px; height: 15px; color: var(--m-dim); }
+.choices-m small { margin-left: auto; color: var(--m-faint); font-size: 11.5px; }
 .lsec .ladd { margin-left: auto; padding: 2px 8px; border-radius: 5px; color: var(--m-faint); font-size: 12px; font-weight: 400; }
 .lsec .ladd.hot { background: var(--m-sel); color: var(--m-fg); }
 .lcomp { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--m-line); }
@@ -852,6 +893,11 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-isstatus" data-aview="isstatus">Issue status</button>
         <button type="button" id="a-isadd" data-aview="isadd">Issues add</button>
         <button type="button" id="a-isempty" data-aview="isempty">Issues empty</button>
+        <button type="button" id="a-keysnew" data-aview="keysnew">Keys new</button>
+        <button type="button" id="a-keys" data-aview="keys">Keys</button>
+        <button type="button" id="a-keysadd" data-aview="keysadd">Keys add</button>
+        <button type="button" id="a-keystext" data-aview="keystext">Keys text</button>
+        <button type="button" id="a-keysphone" data-aview="keysphone">Keys phone</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -1061,6 +1107,7 @@ p { margin: 0; max-width: 68ch; }
       row({ chev: '▾', label: 'Scrawl' }) +
       row({ d: 1, icon: 'tasks', label: 'Tasks', ct: 7, go: 'tasks', on: view === 'tasks' }) +
       row({ d: 1, icon: 'board', label: 'Roadmap', ct: 13, go: 'board', on: view === 'board' || view === 'card' || view === 'list' }) +
+      (view.indexOf('keys') === 0 ? row({ d: 1, icon: 'key', label: 'Production', go: 'keys', on: view !== 'keysnew' }) : '') +
       row({ d: 1, icon: 'notes', label: 'Sync engine: open questions', go: 'note', on: note }) +
       row({ d: 1, icon: 'notes', label: 'Live preview spike' }) +
       row({ d: 1, icon: 'notes', label: 'Vault layout' }) +
@@ -1439,6 +1486,61 @@ p { margin: 0; max-width: 68ch; }
       .replace(/<div class="cp-foot">[\s\S]*?<\/div>/, '');
   }
   var ISSUES_CARD = '<div class="bwrap">' + ISSUES_LIST.replace('<div class="lrow"><span class="key">ISS-47</span>', '<div class="lrow on"><span class="key">ISS-47</span>') + issuePanel() + '</div>';
+  // Keys: API keys, passwords and settings in a .env file: KEY=value lines, a "# heading" before
+  // each group of them. Its title is the file's name. Values whose names say they are secret
+  // (PASSWORD, SECRET, TOKEN, KEY) show as dots until the eye is clicked; every value has a copy
+  // button. A group copies as .env text; Text shows the file as it is.
+  ICON.key = '<svg viewBox="0 0 24 24"><circle cx="8" cy="15.5" r="4"/><path d="M10.9 12.6L19 4.5M15.5 8l3 3M13.5 10l2 2"/></svg>';
+  ICON.eye = '<svg viewBox="0 0 24 24"><path d="M2.5 12s3.4-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.4 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>';
+  ICON.eyeoff = '<svg viewBox="0 0 24 24"><path d="M2.5 12s3.4-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.4 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/><path d="M4 4l16 16"/></svg>';
+  var DOTS = '••••••••••';
+  function kvRow(key, value, o) {
+    o = o || {};
+    var secret = o.secret, shown = o.shown;
+    return '<div class="kv-row"><span class="k">' + key + '</span><span class="v' + (secret && !shown ? ' hid' : '') + '">' + (secret && !shown ? DOTS : value) + '</span>' +
+      '<span class="ib">' + (secret ? '<span class="' + (shown ? 'on' : '') + '" title="' + (shown ? 'Hide' : 'Show') + '">' + (shown ? ICON.eyeoff : ICON.eye) + '</span>' : '') +
+      '<span class="' + (o.copied ? 'tipped' : '') + '" title="Copy value">' + ICON.copies + (o.copied ? '<span class="tip">Copied</span>' : '') + '</span></span></div>';
+  }
+  function kvGroup(name, count, rows, adding) {
+    return '<div class="kv-grp"><div class="kv-h">' + name + ' <small>' + count + '</small><span class="acts"><span>Copy as .env</span>' + (adding ? '' : '<span>+ Add key</span>') + '</span></div>' + rows + '</div>';
+  }
+  function keysHead(view) {
+    return '<div class="th"><b>Production</b><span class="vsw"><span' + (view === 'text' ? '' : ' class="on"') + '>Table</span><span' + (view === 'text' ? ' class="on"' : '') + '>Text</span></span>' +
+      (view === 'text' ? '' : '<button type="button" class="ghost">Add group</button>') + '</div>';
+  }
+  function keysGroups(adding) {
+    return kvGroup('Production DB', 4,
+        (adding ? '<div class="kv-comp"><span class="in on">REDIS_URL<span class="caret"></span></span><span class="in ph">Value</span><span class="bt"><span class="st-btn go">Add</span><span class="st-btn">Cancel</span></span></div>' : '') +
+        kvRow('DB_HOST', 'db.prod.example.com') + kvRow('DB_PORT', '5432') + kvRow('DB_USER', 'scrawl_app', { copied: !adding }) + kvRow('DB_PASSWORD', 'x', { secret: true }), adding) +
+      kvGroup('OpenAI', 1, kvRow('OPENAI_API_KEY', 'sk-proj-4f9aT1c8Qw2LmN7r', { secret: true, shown: !adding })) +
+      kvGroup('Stripe (test)', 2, kvRow('STRIPE_SECRET_KEY', 'x', { secret: true }) + kvRow('STRIPE_WEBHOOK_SECRET', 'x', { secret: true }));
+  }
+  function keysView(adding) { return '<div class="bv">' + keysHead('table') + '<div class="kv">' + keysGroups(adding) + '</div></div>'; }
+  var KEYS_TEXT = '<div class="bv">' + keysHead('text') + '<div class="kvtext">' +
+    ['<span class="c"># Production DB</span>', '<span class="k">DB_HOST</span>=db.prod.example.com', '<span class="k">DB_PORT</span>=5432', '<span class="k">DB_USER</span>=scrawl_app', '<span class="k">DB_PASSWORD</span>=c4mp-f1re-77', '',
+     '<span class="c"># OpenAI</span>', '<span class="k">OPENAI_API_KEY</span>=sk-proj-4f9aT1c8Qw2LmN7r', '',
+     '<span class="c"># Stripe (test)</span>', '<span class="k">STRIPE_SECRET_KEY</span>=sk_test_51Hq8d2', '<span class="k">STRIPE_WEBHOOK_SECRET</span>=whsec_9Lk2'].map(function (line, i) { return '<div><i>' + (i + 1) + '</i><span>' + (line || '&nbsp;') + '</span></div>'; }).join('') +
+    '</div></div>';
+  /** Create, with Keys among the kinds: after Board, before Filter, which is a view rather than a file. */
+  function keysCreate() {
+    function choice(n, icon, label, on, note) { return '<span' + (on ? ' class="on"' : '') + '><kbd>' + n + '</kbd>' + ICON[icon] + label + (note ? '<small>' + note + '</small>' : '') + '</span>'; }
+    return '<div class="ovl"><div class="mdlg" style="width: 380px"><h3>Create</h3><div class="choices-m">' +
+      choice(1, 'notes', 'Note') + choice(2, 'tasks', 'Task list') + choice(3, 'board', 'Board') + choice(4, 'key', 'Keys', true, 'API keys, passwords, settings') + choice(5, 'filter', 'Filter') +
+      '</div></div></div>';
+  }
+  /** On a phone: each key over its value, the buttons beside; Add group at the end. */
+  function keysPhones() {
+    function head(text) {
+      return '<div class="ptabs"><span class="burger" title="Folders and views">' + ICON.burger + '</span>' + tab('key', 'Production', 'phone', true) + '<div class="tab plus">+</div></div>' +
+        '<div class="bv" style="flex: none"><div class="th"><b>Production</b><span class="vsw"><span' + (text ? '' : ' class="on"') + '>Table</span><span' + (text ? ' class="on"' : '') + '>Text</span></span></div></div>';
+    }
+    var table = '<div class="phone">' + head(false) + '<div class="kv">' +
+      kvGroup('Production DB', 4, kvRow('DB_HOST', 'db.prod.example.com') + kvRow('DB_PORT', '5432') + kvRow('DB_USER', 'scrawl_app', { copied: true }) + kvRow('DB_PASSWORD', 'x', { secret: true })) +
+      kvGroup('OpenAI', 1, kvRow('OPENAI_API_KEY', 'sk-proj-4f9aT1c8Qw2LmN7r', { secret: true, shown: true })) +
+      '<div class="kv-add">+ Add group</div></div></div>';
+    var text = '<div class="phone">' + head(true) + KEYS_TEXT.slice(KEYS_TEXT.indexOf('<div class="kvtext">'), KEYS_TEXT.lastIndexOf('</div>')) + '</div>';
+    return [table, text].map(function (phone) { return '<div style="position: relative">' + phone + '</div>'; }).join('');
+  }
   function trow(kind, name, meta, hover) {
     return '<div class="trow' + (hover ? ' hover' : '') + '">' + ICON[kind] +
       '<div><div class="tt">' + name + '</div><div class="meta">' + meta + '</div></div>' +
@@ -1957,6 +2059,10 @@ p { margin: 0; max-width: 68ch; }
     islist: '<span>52 open</span><span>109 cards</span>',
     isadd: '<span>5 open</span><span>62 cards</span>',
     isempty: '<span>0 open</span><span>0 cards</span>',
+    keys: '<span>3 groups</span><span>7 keys</span>',
+    keysadd: '<span>3 groups</span><span>7 keys</span>',
+    keystext: '<span>Ln 5, Col 25</span><span>.env</span>',
+    keysnew: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     isboard: '<span>52 open</span><span>109 cards</span>',
     isstatus: '<span>52 open</span><span>ISS-47</span>',
     phmore: '<span>Phase 7 · 8/8 done</span><span>142 cards</span>',
@@ -1965,13 +2071,13 @@ p { margin: 0; max-width: 68ch; }
   };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
-    mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone');
+    mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone');
     mock.classList.toggle('four', view === 'settingsphone');
     mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty');
     mock.classList.toggle('wider', view === 'isstatus');
     mock.classList.toggle('wider', view === 'card');
-    if (view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone') {
-      mock.innerHTML = view === 'phone' ? phoneView() : view === 'syncphone' ? syncPhones() : view === 'phphone' ? phasesPhones() : settingsPhones();
+    if (view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone') {
+      mock.innerHTML = view === 'phone' ? phoneView() : view === 'syncphone' ? syncPhones() : view === 'phphone' ? phasesPhones() : view === 'keysphone' ? keysPhones() : settingsPhones();
       section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
         b.setAttribute('aria-pressed', String(b.dataset.aview === view));
       });
@@ -1980,7 +2086,8 @@ p { margin: 0; max-width: 68ch; }
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
       (view === 'copy' ? tab('notes', 'Site visit, Oct 6', 'copy', true) : '') +
       (view.indexOf('item') === 0 ? tab('notes', 'Client call, Oct 6', view, true) : '') +
-      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask' || view.indexOf('settings') === 0 || view.indexOf('sync') === 0) +
+      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask' || view.indexOf('settings') === 0 || view.indexOf('sync') === 0 || view === 'keysnew') +
+      (view.indexOf('keys') === 0 && view !== 'keysnew' ? tab('key', 'Production · Scrawl', 'keys', true) : '') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
       (view.indexOf('filter') === 0 ? tab('filter', 'This week · p1', 'filter', true) : '') +
       tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view === 'newboard' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag' || view === 'movetask') +
@@ -1989,13 +2096,13 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty() }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + syncStatus(view === 'note', view === 'syncpanel' ? 'syncing' : view === 'syncdone' ? 'open' : null) + '</div></section>' +
       (view === 'syncpanel' ? syncPanel('syncing') : view === 'syncdone' ? syncPanel('done') : '') +
-      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
+      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });
