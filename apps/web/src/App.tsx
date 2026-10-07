@@ -72,14 +72,15 @@ import {
   TRASH,
   UPCOMING,
 } from './items';
+import { applyTheme, loadMode, loadTheme, type Mode, onSystemShade, saveMode, saveTheme, shadeOfMode, systemShade } from './device';
 import { Session } from './session';
+import { Settings } from './Settings';
 import { Sidebar } from './Sidebar';
 import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
 import { contentsText, quote } from './text';
 import { TrashView } from './Trash';
 import { isDesktop } from './storage';
 
-type Theme = 'dark' | 'light';
 type OpenDialog =
   | { kind: 'new' }
   | { kind: 'phase'; board: string; phase: Phase }
@@ -91,6 +92,7 @@ type OpenDialog =
   | { kind: 'toTask'; note: string; title: string; description: string }
   | { kind: 'toCard'; note: string; title: string; description: string }
   | { kind: 'filter'; filter: TaskFilter | null }
+  | { kind: 'settings' }
   | null;
 
 // A tab being dragged to another place in the tab bar.
@@ -141,12 +143,15 @@ function contentsOf(folder: TreeNode): string {
 export function App() {
   const host = useRef<HTMLDivElement>(null);
   const [session] = useState(() => new Session());
-  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, filters, trash, saved, stats, format, source, recording, recordError } =
+  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, filters, space, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
   );
-  const [theme, setTheme] = useState<Theme>('dark');
+  // The mode and the theme chosen on this device, and the shade the device itself is in, for System.
+  const [mode, setMode] = useState<Mode>(loadMode);
+  const [theme, setTheme] = useState(loadTheme);
+  const [system, setSystem] = useState(systemShade);
   const [dialog, setDialog] = useState<OpenDialog>(null);
   // With nothing open the app asks what to create, until that is declined once.
   const [declined, setDeclined] = useState(false);
@@ -168,9 +173,11 @@ export function App() {
     return () => session.dispose();
   }, [session]);
 
+  useEffect(() => onSystemShade(() => setSystem(systemShade())), []);
+
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    applyTheme(theme, shadeOfMode(mode, system));
+  }, [theme, mode, system]);
 
   useEffect(() => {
     if (!empty) setDeclined(false);
@@ -182,6 +189,9 @@ export function App() {
       const modifier = isDesktop ? (event.ctrlKey || event.metaKey) && !event.altKey : event.altKey && !event.ctrlKey;
       if (!modifier || event.shiftKey) return;
       if (event.code === 'KeyN') setDialog({ kind: 'new' });
+      // The comma is a key of its own on some layouts (Turkish Q has it beside Enter), so it is
+      // known by what it types too.
+      else if (event.code === 'Comma' || event.key === ',') setDialog({ kind: 'settings' });
       else if (event.code === 'KeyW' && active) void session.close(active);
       else if (event.code === 'KeyT' && active && isNote(active)) startToTask();
       else return;
@@ -574,6 +584,11 @@ export function App() {
         onFolderMenu={folderMenu}
         filters={filters}
         onFilterMenu={filterMenu}
+        onSettings={() => {
+          setDrawer(false);
+          setDialog({ kind: 'settings' });
+        }}
+        settingsOpen={dialog?.kind === 'settings'}
       />
       <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
       <main className="main">
@@ -708,11 +723,6 @@ export function App() {
             </span>
           )}
           <span className="push">{!ready ? t('status.opening') : saved ? t('status.saved') : t('status.saving')}</span>
-          {folder && (
-            <button type="button" title={t('status.folder', { folder })} onClick={() => void session.chooseFolder()}>
-              {folder.split(/[\\/]/).pop()}
-            </button>
-          )}
           {showingEditor && (
             <button
               type="button"
@@ -723,9 +733,6 @@ export function App() {
               {t('status.markdown')}
             </button>
           )}
-          <button type="button" onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}>
-            {theme === 'dark' ? t('status.light') : t('status.dark')}
-          </button>
         </footer>
       </main>
 
@@ -735,6 +742,26 @@ export function App() {
           folder={newFolder}
           onCreate={create}
           onFilter={() => setDialog({ kind: 'filter', filter: null })}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'settings' && (
+        <Settings
+          mode={mode}
+          onMode={(choice) => {
+            setMode(choice);
+            saveMode(choice);
+          }}
+          theme={theme}
+          onTheme={(id) => {
+            setTheme(id);
+            saveTheme(id);
+          }}
+          system={system}
+          spaceName={space.name}
+          onRenameSpace={(name) => session.renameSpace(name)}
+          folder={folder}
+          onChangeFolder={isDesktop ? () => void session.chooseFolder() : undefined}
           onClose={closeDialog}
         />
       )}

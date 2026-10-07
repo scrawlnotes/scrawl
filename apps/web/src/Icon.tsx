@@ -75,6 +75,25 @@ const shapes = {
       <path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7" />
       <path d="M10.5 10.5v5.5M13.5 10.5v5.5" />
     </>
+  ),  settings: (
+    <>
+      <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+      <circle cx="16" cy="7" r="2" />
+      <circle cx="8" cy="17" r="2" />
+    </>
+  ),
+  language: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M4 12h16M12 4c2.5 2.5 3.5 5.2 3.5 8s-1 5.5-3.5 8c-2.5-2.5-3.5-5.2-3.5-8s1-5.5 3.5-8z" />
+    </>
+  ),
+  /** Half dark: the look of the app. */
+  appearance: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none" />
+    </>
   ),
 };
 

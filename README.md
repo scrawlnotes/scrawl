@@ -3,7 +3,7 @@
 Work notes that behave like the tabs you never close: open, type, and it is kept.
 Plain Markdown files, a separate task manager, and sync to your own cloud drive. No server.
 
-Status: the editor, task lists and boards are in daily use; settings and sync come next. See [PLAN.md](PLAN.md)
+Status: the editor, task lists and boards are in daily use, and settings have arrived; sync comes next. See [PLAN.md](PLAN.md)
 for the roadmap (in Turkish).
 
 ## What it does today
@@ -25,6 +25,8 @@ for the roadmap (in Turkish).
   no note uses any more goes to the trash, and comes back if undo or paste links it again.
 - **Safety nets**: a trash you can restore from, and the history of every note (kept on this
   device) with a window to look back and restore.
+- **Settings**, from the button beside Trash: light, dark or as the device is, eight themes that
+  colour everything down to code blocks and board columns, and the name and folder of your space.
 - Pasted web addresses become links; Ctrl+click opens them in the browser.
 
 ## Development

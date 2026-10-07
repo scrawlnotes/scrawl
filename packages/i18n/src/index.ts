@@ -16,6 +16,12 @@ let language = 'en-US';
 /** The language dates and numbers are written in. */
 export const locale = () => language;
 
+/**
+ * The languages the interface can be shown in: English, and each dictionary added after it. The
+ * settings offer a choice once there is more than one.
+ */
+export const languages: { tag: string; name: string; dictionary: Partial<Messages> }[] = [{ tag: 'en-US', name: 'English', dictionary: en }];
+
 /** Switches the interface to another dictionary. Keys it lacks fall back to English. */
 export function setLanguage(tag: string, dictionary: Partial<Messages>) {
   language = tag;

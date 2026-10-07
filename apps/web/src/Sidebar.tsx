@@ -23,6 +23,9 @@ interface Props {
   /** The saved filters, under Today and Upcoming. */
   filters: TaskFilter[];
   onFilterMenu: (event: MouseEvent, filter: TaskFilter) => void;
+  /** Opens the settings; `settingsOpen` while they are open. */
+  onSettings: () => void;
+  settingsOpen: boolean;
 }
 
 const countNotes = (node: TreeNode): number =>
@@ -42,6 +45,8 @@ export function Sidebar({
   onFolderMenu,
   filters,
   onFilterMenu,
+  onSettings,
+  settingsOpen,
 }: Props) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -214,7 +219,7 @@ export function Sidebar({
           .filter((node) => node.path !== INBOX)
           .map((node) => (node.kind === 'folder' ? folderRow(node, 0) : itemRow(node, 0)))}
       </nav>
-      {/* The trash stays at the foot of the sidebar, apart from the folders. */}
+      {/* The trash stays at the foot of the sidebar, apart from the folders, with the settings beside it. */}
       <div className="side-foot">
         {viewRow(
           TRASH,
@@ -224,6 +229,15 @@ export function Sidebar({
           </>,
           0,
         )}
+        <button
+          type="button"
+          className={`side-settings${settingsOpen ? ' on' : ''}`}
+          title={t('side.settings')}
+          aria-label={t('side.settings')}
+          onClick={onSettings}
+        >
+          <Icon name="settings" />
+        </button>
       </div>
     </aside>
   );

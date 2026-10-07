@@ -32,6 +32,7 @@ import {
   listVersions,
   loadBoard,
   loadFilters,
+  loadSpace,
   loadList,
   moveCard,
   moveCardToKind,
@@ -68,6 +69,7 @@ import {
   saveBoard,
   saveFile,
   saveFilters,
+  saveSpace,
   saveList,
   sectionTasks,
   saveWorkspace,
@@ -77,6 +79,7 @@ import {
   sweepAttachments,
   type Section,
   type Task,
+  type SpaceInfo,
   type TaskFilter,
   type TaskList,
   type TaskPlace,
@@ -198,6 +201,8 @@ export interface Snapshot {
   boards: Record<string, Board>;
   /** The saved filters, in the order they were made. */
   filters: TaskFilter[];
+  /** The settings of the open space, its name among them. */
+  space: SpaceInfo;
   /** What is in the trash, the latest deleted first. */
   trash: TrashItem[];
   saved: boolean;
@@ -236,6 +241,7 @@ export class Session {
     sections: {},
     boards: {},
     filters: [],
+    space: {},
     trash: [],
     saved: true,
     stats: null,
@@ -341,6 +347,7 @@ export class Session {
     const titles = titlesOf(tree);
     const { tasks, sections, boards } = await this.readLists(tree);
     const filters = await loadFilters(this.fs);
+    const space = await loadSpace(this.fs);
     const trash = await readTrash(this.fs);
     if (run !== this.run) return;
     const tabs = workspace.tabs.filter((id) => {
@@ -351,7 +358,7 @@ export class Session {
       if (board !== null) return board in boards;
       return list !== null ? list in tasks : id in titles || !isNote(id);
     });
-    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, boards, filters, trash });
+    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, boards, filters, space, trash });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
@@ -1007,6 +1014,17 @@ export class Session {
     const tab = filterTab(id);
     if (this.snapshot.tabs.includes(tab)) await this.close(tab);
     this.writeFilters(this.snapshot.filters.filter((f) => f.id !== id));
+  }
+
+  /** Names the open space; a name of only spaces gives it back the name of its kind. */
+  renameSpace(name: string) {
+    const { name: _old, ...rest } = this.snapshot.space;
+    const space: SpaceInfo = name.trim() ? { ...rest, name: name.trim() } : rest;
+    this.set({ space, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(() => saveSpace(this.fs, space))
+      .catch(() => undefined)
+      .then(() => this.markSaved());
   }
 
   private writeFilters(filters: TaskFilter[]) {
