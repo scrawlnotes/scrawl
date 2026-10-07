@@ -17,6 +17,7 @@ const shapes = {
       <path d="M9.5 4v16M14.5 4v10" />
     </>
   ),
+  comment: <path d="M4 5h16v11H9l-5 4z" />,
   subtask: (
     <>
       <path d="M6 5v8a3 3 0 0 0 3 3h3" />

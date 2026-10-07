@@ -2,6 +2,8 @@ import { t } from '@scrawlnotes/i18n';
 import {
   basename,
   boardName,
+  type Card,
+  type Column,
   dayOf,
   dirname,
   dueToday,
@@ -11,6 +13,8 @@ import {
   listName,
   openCardCount,
   openCount,
+  type Phase,
+  phaseCards,
   removeSection,
   removeTask,
   type Section,
@@ -35,11 +39,13 @@ import {
   RenameDialog,
   type TaskPlaceChoice,
 } from './dialogs';
+import { type BoardActions, BoardView } from './Board';
 import { FormatBar } from './FormatBar';
 import { HistoryDialog } from './History';
 import { Icon } from './Icon';
 import {
   boardOf,
+  boardPathOf,
   filterOf,
   filterTab,
   folderOf,
@@ -306,6 +312,36 @@ export function App() {
     ask(t('delete.section'), message, () => session.removeSection(list, section.id));
   };
 
+  // A card, a column with cards, or a phase is not deleted without asking; closing a phase asks too.
+  const deleteCard = (board: string, card: Card) =>
+    ask(t('delete.card'), t('delete.cardText', { name: quote(card.title) }), () => session.removeCard(board, card.id));
+  const deleteColumn = (board: string, column: Column) => {
+    const total = boards[board]?.cards.filter((card) => card.column === column.id).length ?? 0;
+    if (total === 0) return session.removeColumn(board, column.id);
+    const message = t('delete.columnWithCards', { name: quote(column.name), cards: t('count.cards', { count: total }) });
+    ask(t('delete.column'), message, () => session.removeColumn(board, column.id));
+  };
+  const deletePhase = (board: string, phase: Phase) =>
+    ask(t('delete.phase'), t('delete.phaseText', { name: quote(phase.name) }), () => session.removePhase(board, phase.id));
+  const closePhase = (board: string, phase: Phase) => {
+    const whole = boards[board];
+    if (!whole) return;
+    const at = whole.phases.findIndex((p) => p.id === phase.id);
+    const next = whole.phases.slice(at + 1).find((p) => p.state !== 'done');
+    const left = phaseCards(whole, phase.id).filter((card) => {
+      const kind = whole.columns.find((column) => column.id === card.column)?.kind;
+      return kind !== 'done' && kind !== 'dropped';
+    }).length;
+    const name = quote(phase.name);
+    const message =
+      left === 0
+        ? t('phase.closeText', { name })
+        : next
+          ? t('phase.closeLeftovers', { name, cards: t('count.cards', { count: left }), next: quote(next.name) })
+          : t('phase.closeToBacklog', { name, cards: t('count.cards', { count: left }) });
+    ask(t('phase.close'), message, () => session.closePhase(board, phase.id), t('phase.closeAction'));
+  };
+
   const deleteForever = (item: TrashItem) =>
     ask(
       t('delete.forever'),
@@ -405,6 +441,26 @@ export function App() {
     noteTitle: (path) => titles[path] ?? null,
     openNote: (path) => void session.open(path),
   };
+  const boardActions: BoardActions = {
+    addCard: (board, input) => session.addCard(board, input),
+    moveCard: (board, id, place) => session.moveCard(board, id, place),
+    removeCard: deleteCard,
+    openCard: () => undefined,
+    menu: openMenu,
+    addColumn: (board, name, kind, after) => session.addColumn(board, name, kind, after),
+    renameColumn: (board, id, name) => session.renameColumn(board, id, name),
+    setColumnKind: (board, id, kind) => session.setColumnKind(board, id, kind),
+    moveColumn: (board, id, after) => session.moveColumn(board, id, after),
+    removeColumn: deleteColumn,
+    addPhase: (board, name) => session.addPhase(board, name),
+    renamePhase: (board, id, name) => session.renamePhase(board, id, name),
+    closePhase,
+    reopenPhase: (board, id) => session.reopenPhase(board, id),
+    removePhase: deletePhase,
+    setPhasesOn: (board, on) => session.setPhasesOn(board, on),
+    noteTitle: (path) => titles[path] ?? null,
+    openNote: (path) => void session.open(path),
+  };
   const dueNow = dueToday(tasks, today);
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length, [TRASH]: trash.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
@@ -413,6 +469,8 @@ export function App() {
     counts[filterTab(filter.id)] = filterTasks(filter, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0);
   }
   const list = active ? listOf(active) : null;
+  const boardPath = active ? boardPathOf(active) : null;
+  const board = boardPath !== null ? boards[boardPath] : undefined;
   const isDueView = active === TODAY || active === UPCOMING;
   const filterId = active ? filterOf(active) : null;
   const activeFilter = filters.find((filter) => filter.id === filterId) ?? null;
@@ -526,6 +584,9 @@ export function App() {
         )}
         <div className="editor" ref={host} hidden={!showingEditor} />
         {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} />}
+        {boardPath !== null && board && (
+          <BoardView key={boardPath} path={boardPath} board={board} name={boardName(boardPath)} today={today} actions={boardActions} />
+        )}
         {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} today={today} actions={taskActions} />}
         {activeFilter && (
           <FilterView
@@ -545,7 +606,7 @@ export function App() {
             onEmpty={askEmptyTrash}
           />
         )}
-        {!showingEditor && list === null && !isDueView && !activeFilter && active !== TRASH && (
+        {!showingEditor && list === null && !board && !isDueView && !activeFilter && active !== TRASH && (
           <section className="placeholder">
             {active ? (
               <>

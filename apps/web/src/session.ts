@@ -1,9 +1,15 @@
 import { t } from '@scrawlnotes/i18n';
 import {
+  addCard,
+  addColumn,
+  addPhase,
   addSection,
   addTask,
   ATTACHMENTS,
   type Board,
+  type CardPlace,
+  closePhase,
+  type ColumnKind,
   createBoard,
   createFolder,
   createNote,
@@ -22,9 +28,13 @@ import {
   loadBoard,
   loadFilters,
   loadList,
+  moveCard,
+  moveColumn,
+  movePhase,
   moveSection,
   moveTask,
   moveTaskToList,
+  type NewCard,
   relinkBoardNote,
   relinkNote,
   loadWorkspace,
@@ -34,10 +44,15 @@ import {
   pruneHistory,
   readTrash,
   readTree,
+  removeCard,
+  removeColumn,
+  removePhase,
   removeSection,
   removeTask,
+  renameColumn,
   renameSection,
   renameItem,
+  reopenPhase,
   restoreAttachments,
   restoreFromTrash,
   saveAttachment,
@@ -47,7 +62,9 @@ import {
   saveList,
   sectionTasks,
   saveWorkspace,
+  setColumnKind,
   setDone,
+  setPhasesOn,
   sweepAttachments,
   type Section,
   type Task,
@@ -61,6 +78,7 @@ import {
   trashUnlinked,
   type TrashItem,
   type TreeNode,
+  updatePhase,
   updateTask,
   type VaultFs,
   type Version,
@@ -807,7 +825,7 @@ export class Session {
   }
 
   /** Applies a change to a board and saves it. Board files share the queue of task files. */
-  changeBoard(path: string, change: (board: Board) => Board) {
+  private changeBoard(path: string, change: (board: Board) => Board) {
     const current = this.snapshot.boards[path];
     if (!current) return;
     const next = change(current);
@@ -984,6 +1002,72 @@ export class Session {
     }
     // Deferred: the editor is still hidden when it replaces a view, and a hidden element cannot take focus.
     if (isNote(id)) window.setTimeout(() => this.editor?.view.focus());
+  }
+
+  // ---------- boards ----------
+
+  addCard(board: string, input: NewCard) {
+    this.changeBoard(board, (current) => addCard(current, input));
+  }
+
+  moveCard(board: string, id: string, place: CardPlace) {
+    this.changeBoard(board, (current) => moveCard(current, id, place));
+  }
+
+  /** Deletes a card for good; the interface asks first. */
+  removeCard(board: string, id: string) {
+    this.changeBoard(board, (current) => removeCard(current, id));
+  }
+
+  addColumn(board: string, name: string, kind: ColumnKind, after?: string) {
+    this.changeBoard(board, (current) => addColumn(current, name, kind, after));
+  }
+
+  renameColumn(board: string, id: string, name: string) {
+    this.changeBoard(board, (current) => renameColumn(current, id, name));
+  }
+
+  setColumnKind(board: string, id: string, kind: ColumnKind) {
+    this.changeBoard(board, (current) => setColumnKind(current, id, kind));
+  }
+
+  moveColumn(board: string, id: string, after: string | null) {
+    this.changeBoard(board, (current) => moveColumn(current, id, after));
+  }
+
+  /** Deletes a column; its cards go to the first column. The interface asks first when it has cards. */
+  removeColumn(board: string, id: string) {
+    this.changeBoard(board, (current) => removeColumn(current, id));
+  }
+
+  addPhase(board: string, name: string) {
+    this.changeBoard(board, (current) => addPhase(current, { name }));
+  }
+
+  renamePhase(board: string, id: string, name: string) {
+    this.changeBoard(board, (current) => updatePhase(current, id, { name }));
+  }
+
+  movePhase(board: string, id: string, after: string | null) {
+    this.changeBoard(board, (current) => movePhase(current, id, after));
+  }
+
+  /** Closes a phase; its unfinished cards go to the next phase, or out of any phase when there is none. */
+  closePhase(board: string, id: string) {
+    this.changeBoard(board, (current) => closePhase(current, id, 'next'));
+  }
+
+  reopenPhase(board: string, id: string) {
+    this.changeBoard(board, (current) => reopenPhase(current, id));
+  }
+
+  /** Deletes a phase; its cards stay, in no phase. The interface asks first. */
+  removePhase(board: string, id: string) {
+    this.changeBoard(board, (current) => removePhase(current, id));
+  }
+
+  setPhasesOn(board: string, on: boolean) {
+    this.changeBoard(board, (current) => setPhasesOn(current, on));
   }
 
   /** Creates an empty scratch note in `folder`, or in the inbox, and opens it. */

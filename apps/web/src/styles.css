@@ -1911,3 +1911,381 @@ button.cb:hover::after {
     opacity: 0;
   }
 }
+
+/* board: after the Board view of design/mockups.html (direction A). Columns side by side, each
+   with its kind's colour at its head; a card shows its key, priority and a little meta. */
+.bv {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.bv .th {
+  padding: 14px 16px 6px;
+}
+
+.bv .th .wait {
+  color: var(--sl-accent);
+  font-size: 11.5px;
+}
+
+.bv .th .ghost {
+  margin-left: auto;
+}
+
+.phases {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 16px 0;
+  font-size: 11.5px;
+}
+
+.ph {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  color: var(--sl-dim);
+  white-space: nowrap;
+}
+
+.ph:hover {
+  color: var(--sl-fg);
+}
+
+.ph small {
+  color: var(--sl-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.ph .tick {
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.ph.upcoming,
+.ph.add {
+  color: var(--sl-faint);
+}
+
+.ph.on {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.ph.on small {
+  color: var(--sl-dim);
+  font-weight: 400;
+}
+
+.ph.all {
+  margin-left: auto;
+}
+
+.ph-edit {
+  width: 140px;
+  padding: 2px 8px;
+  border: 1px solid var(--sl-accent);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 11.5px;
+}
+
+.donewhen {
+  flex: none;
+  margin: 0;
+  padding: 4px 16px 0 25px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.donewhen b {
+  margin-right: 6px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.board {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 0;
+  padding: 10px 16px 14px;
+  overflow: auto;
+}
+
+.colm {
+  display: flex;
+  flex: 0 0 236px;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 100%;
+  padding: 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-side);
+}
+
+.colm h3 {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+  color: var(--sl-dim);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.colm .kind {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--sl-faint);
+}
+
+.colm.kind-active .kind {
+  background: var(--sl-kind-active);
+}
+
+.colm.kind-review .kind {
+  background: var(--sl-kind-review);
+}
+
+.colm.kind-done .kind {
+  background: var(--sl-kind-done);
+}
+
+.colm.kind-dropped .kind {
+  background: var(--sl-kind-dropped);
+}
+
+.colm-name {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.colm-name:hover {
+  color: var(--sl-fg);
+}
+
+.colm-edit {
+  min-width: 0;
+  flex: 1;
+  padding: 0 4px;
+  border: 1px solid var(--sl-accent);
+  border-radius: 4px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+}
+
+.colm h3 small {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.colm h3 .more {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 18px;
+  border-radius: 4px;
+  color: var(--sl-faint);
+  letter-spacing: 1px;
+  opacity: 0;
+}
+
+.colm:hover h3 .more,
+.colm h3 .more:focus-visible {
+  opacity: 1;
+}
+
+.colm h3 .more:hover {
+  background: var(--sl-code);
+  color: var(--sl-fg);
+}
+
+.colm-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 8px;
+  overflow-y: auto;
+}
+
+.kc {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+}
+
+.kc:hover {
+  border-color: var(--sl-faint);
+}
+
+.kc.lifted {
+  opacity: 0.35;
+}
+
+.kc-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 9px;
+  color: var(--sl-fg);
+  text-align: left;
+  cursor: grab;
+}
+
+.kc .key {
+  color: var(--sl-faint);
+  font: 10.5px var(--sl-font-mono);
+  letter-spacing: 0.02em;
+}
+
+.kc .kt {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.kc .kt .dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--sl-faint);
+}
+
+.kc .kt .dot.p1 {
+  background: var(--sl-p1);
+}
+
+.kc .kt .dot.p2 {
+  background: var(--sl-p2);
+}
+
+.kc .kt .dot.p3 {
+  background: var(--sl-p3);
+}
+
+.kc .meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 9px;
+  color: var(--sl-dim);
+  font-size: 11.5px;
+}
+
+.kc .lbl {
+  padding: 0 6px;
+  border-radius: 9px;
+  background: hsl(var(--lh) 60% 55% / 0.18);
+  color: hsl(var(--lh) 60% 65%);
+  font-size: 10.5px;
+  line-height: 16px;
+}
+
+:root[data-theme='light'] .kc .lbl {
+  color: hsl(var(--lh) 55% 35%);
+}
+
+.kc .cm {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.kc .cm .icon {
+  width: 11px;
+  height: 11px;
+}
+
+.kc .phase {
+  color: var(--sl-faint);
+}
+
+.kc .who {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+.kc.composing {
+  padding: 4px;
+}
+
+.kc-edit {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 5px;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 13px;
+}
+
+.kc-drop {
+  flex: none;
+  height: 2px;
+  margin: -1px 0;
+  border-radius: 1px;
+  background: var(--sl-accent);
+}
+
+.colm .qa {
+  flex: none;
+  padding: 2px 2px 0;
+  font-size: 12px;
+}
+
+.colm-add {
+  flex: none;
+  padding: 8px 12px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-faint);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.colm-add:hover {
+  color: var(--sl-fg);
+}

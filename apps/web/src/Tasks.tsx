@@ -94,7 +94,7 @@ const toDate = (day: string) => {
 };
 
 /** A due day the way people say it: Today, Tomorrow, a weekday within the week, else a date. */
-function dueLabel(day: string, today: string): string {
+export function dueLabel(day: string, today: string): string {
   if (day === today) return t('day.today');
   if (day === addDays(today, 1)) return t('day.tomorrow');
   if (day === addDays(today, -1)) return t('day.yesterday');
@@ -104,7 +104,7 @@ function dueLabel(day: string, today: string): string {
   return date.toLocaleDateString(locale(), sameYear ? SHORT : { ...SHORT, year: 'numeric' });
 }
 
-const dueClass = (day: string, today: string) => (day < today ? 'due late' : day === today ? 'due today' : 'due');
+export const dueClass = (day: string, today: string) => (day < today ? 'due late' : day === today ? 'due today' : 'due');
 
 /** The next Monday after `today`. */
 function nextWeek(today: string): string {
