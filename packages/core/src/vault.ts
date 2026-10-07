@@ -23,10 +23,19 @@ export interface TreeNode {
   children?: TreeNode[];
 }
 
-/** Which notes are open on this device. Not synced. */
+/** How a board was last looked at on this device: as columns or as a list, and which phase. */
+export interface BoardLook {
+  view: 'board' | 'list';
+  /** The phase shown: its id, or null for every card; unset until one is chosen. */
+  phase?: string | null;
+}
+
+/** Which notes are open on this device, and how its boards were looked at. Not synced. */
 export interface Workspace {
   tabs: string[];
   active: string | null;
+  /** By the path of each board. */
+  boards: Record<string, BoardLook>;
 }
 
 const isNote = (entry: Entry) => entry.kind === 'file' && entry.name.endsWith('.md');
@@ -524,9 +533,17 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
   try {
     const data = JSON.parse(await fs.readText(WORKSPACE)) as Partial<Workspace>;
     const tabs = Array.isArray(data.tabs) ? data.tabs.filter((t) => typeof t === 'string') : [];
-    return { tabs, active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null };
+    const boards: Record<string, BoardLook> = {};
+    if (data.boards && typeof data.boards === 'object') {
+      for (const [path, look] of Object.entries(data.boards as Record<string, unknown>)) {
+        if (!look || typeof look !== 'object') continue;
+        const { view, phase } = look as Partial<BoardLook>;
+        boards[path] = { view: view === 'list' ? 'list' : 'board', ...((typeof phase === 'string' || phase === null) && { phase }) };
+      }
+    }
+    return { tabs, active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null, boards };
   } catch {
-    return { tabs: [], active: null };
+    return { tabs: [], active: null, boards: {} };
   }
 }
 

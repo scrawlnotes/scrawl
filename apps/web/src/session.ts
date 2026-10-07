@@ -9,6 +9,7 @@ import {
   ATTACHMENTS,
   type Board,
   BOARD_EXT,
+  type BoardLook,
   type CardPatch,
   type CardPlace,
   closePhase,
@@ -211,6 +212,8 @@ export interface Snapshot {
   sections: Record<string, Section[]>;
   /** Every board, by the path of its file. */
   boards: Record<string, Board>;
+  /** How each board was last looked at on this device, by the path of its file. */
+  boardLooks: Record<string, BoardLook>;
   /** The saved filters, in the order they were made. */
   filters: TaskFilter[];
   /** The settings of the open space, its name among them. */
@@ -252,6 +255,7 @@ export class Session {
     tasks: {},
     sections: {},
     boards: {},
+    boardLooks: {},
     filters: [],
     space: {},
     trash: [],
@@ -372,7 +376,8 @@ export class Session {
       if (board !== null) return board in boards;
       return list !== null ? list in tasks : id in titles || !isNote(id);
     });
-    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, boards, filters, space, trash });
+    const boardLooks = Object.fromEntries(Object.entries(workspace.boards).filter(([path]) => path in boards));
+    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, boards, boardLooks, filters, space, trash });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
@@ -858,7 +863,21 @@ export class Session {
   }
 
   private saveWorkspace() {
-    void saveWorkspace(this.fs, { tabs: this.snapshot.tabs, active: this.snapshot.active });
+    const { tabs, active, boards, boardLooks } = this.snapshot;
+    // Boards that are gone are forgotten.
+    void saveWorkspace(this.fs, { tabs, active, boards: Object.fromEntries(Object.entries(boardLooks).filter(([path]) => path in boards)) });
+  }
+
+  /** Remembers how a board is looked at: as columns or a list, and which phase. */
+  lookAtBoard(path: string, look: BoardLook) {
+    this.set({ boardLooks: { ...this.snapshot.boardLooks, [path]: look } });
+    this.saveWorkspace();
+  }
+
+  /** A board's look goes with it when it moves. */
+  private moveLook(from: string, to: string) {
+    const { [from]: look, ...rest } = this.snapshot.boardLooks;
+    if (look) this.set({ boardLooks: { ...rest, [to]: look } });
   }
 
   /** Desktop: asks for the notes folder and opens it. Open notes are saved and closed first. */
@@ -971,6 +990,7 @@ export class Session {
       await moveHistory(this.fs, from, to).catch(() => undefined);
       this.versionedAt.delete(from);
     }
+    this.moveLook(from, to);
     const [tab, target] = [tabOf(from), tabOf(to)];
     const { tabs, active } = this.snapshot;
     if (!tabs.includes(tab)) return;
@@ -1470,11 +1490,12 @@ export class Session {
     if (path.endsWith(BOARD_EXT)) {
       for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkBoard(current, path, target));
     }
+    this.moveLook(path, target);
     const [from, to] = [tabOf(path), tabOf(target)];
     const { tabs, active } = this.snapshot;
     this.set({ tabs: tabs.map((tab) => (tab === from ? to : tab)), active: active === from ? to : active });
-    this.saveWorkspace();
     await this.refreshTree();
+    this.saveWorkspace();
   }
 
   /** Moves a note, a task list or a board into `folder`. */

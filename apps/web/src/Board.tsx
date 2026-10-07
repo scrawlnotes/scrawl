@@ -1,6 +1,7 @@
 import {
   addDays,
   type Board,
+  type BoardLook,
   type Card,
   type CardPlace,
   type Column,
@@ -570,24 +571,49 @@ function BoardList({ board, path, today, actions, openCard, visible }: {
   );
 }
 
+/** The phase a board shows at first: the one chosen last on this device while it is there, otherwise the current one. */
+function firstShown(board: Board, look: BoardLook | undefined): Shown {
+  if (look?.phase === null) return { all: true };
+  if (typeof look?.phase === 'string' && board.phasesOn && board.phases.some((p) => p.id === look.phase)) return { phase: look.phase };
+  const current = currentPhase(board);
+  return board.phasesOn && current ? { phase: current.id } : { all: true };
+}
+
 /**
  * A board: its columns with their cards, the phase strip above when phases are on, and the
- * open card in a panel on the right. The same cards read as a list too.
+ * open card in a panel on the right. The same cards read as a list too. Columns or list, and
+ * the phase chosen, are remembered on the device for each board.
  */
-export function BoardView({ path, board, name, today, actions, openCard, onCloseCard }: {
+export function BoardView({ path, board, name, today, actions, look, onLook, openCard, onCloseCard }: {
   path: string;
   board: Board;
   /** What the board is called. */
   name: string;
   today: string;
   actions: BoardActions;
+  /** How the board was last looked at on this device. */
+  look: BoardLook | undefined;
+  onLook: (look: BoardLook) => void;
   /** The card shown in the panel, by its id. */
   openCard: string | null;
   onCloseCard: () => void;
 }) {
   const current = currentPhase(board);
-  const [view, setView] = useState<'board' | 'list'>('board');
-  const [shown, setShown] = useState<Shown>(() => (board.phasesOn && current ? { phase: current.id } : { all: true }));
+  const [view, setView] = useState<'board' | 'list'>(look?.view ?? 'board');
+  const [shown, setShown] = useState<Shown>(() => firstShown(board, look));
+  /** A phase chosen here is remembered; until one is, the board opens on its current phase. */
+  const [phaseChosen, setPhaseChosen] = useState(look?.phase !== undefined);
+  const remember = (nextView: 'board' | 'list', nextShown: Shown, chosen: boolean) =>
+    onLook({ view: nextView, ...(chosen && { phase: 'all' in nextShown ? null : nextShown.phase }) });
+  const chooseView = (next: 'board' | 'list') => {
+    setView(next);
+    remember(next, shown, phaseChosen);
+  };
+  const choosePhase = (next: Shown) => {
+    setShown(next);
+    setPhaseChosen(true);
+    remember(view, next, true);
+  };
   // A phase that is gone, or phases turned off, shows everything.
   useEffect(() => {
     if ('phase' in shown && (!board.phasesOn || !board.phases.some((p) => p.id === shown.phase))) {
@@ -725,10 +751,10 @@ export function BoardView({ path, board, name, today, actions, openCard, onClose
       <header className="th">
         <b>{name}</b>
         <span className="vsw" role="tablist">
-          <button type="button" role="tab" aria-selected={view === 'board'} onClick={() => setView('board')}>
+          <button type="button" role="tab" aria-selected={view === 'board'} onClick={() => chooseView('board')}>
             {t('board.viewBoard')}
           </button>
-          <button type="button" role="tab" aria-selected={view === 'list'} onClick={() => setView('list')}>
+          <button type="button" role="tab" aria-selected={view === 'list'} onClick={() => chooseView('list')}>
             {t('board.viewList')}
           </button>
         </span>
@@ -737,7 +763,7 @@ export function BoardView({ path, board, name, today, actions, openCard, onClose
           {t('board.more')}
         </button>
       </header>
-      {board.phasesOn && view === 'board' && <PhaseStrip board={board} path={path} shown={shown} onShow={setShown} actions={actions} />}
+      {board.phasesOn && view === 'board' && <PhaseStrip board={board} path={path} shown={shown} onShow={choosePhase} actions={actions} />}
       {shownPhase?.doneWhen && view === 'board' && (
         <p className="donewhen">
           <b>{t('board.doneWhen')}</b>

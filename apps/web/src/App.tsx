@@ -147,7 +147,7 @@ export function App() {
   const [session] = useState(() => new Session());
   const [syncService] = useState(() => new SyncService(session));
   const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
-  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, filters, space, trash, saved, stats, format, source, recording, recordError } =
+  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, boardLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -687,6 +687,8 @@ export function App() {
             name={boardName(boardPath)}
             today={today}
             actions={boardActions}
+            look={boardLooks[boardPath]}
+            onLook={(look) => session.lookAtBoard(boardPath, look)}
             openCard={openCard?.board === boardPath ? openCard.id : null}
             onCloseCard={() => setOpenCard(null)}
           />

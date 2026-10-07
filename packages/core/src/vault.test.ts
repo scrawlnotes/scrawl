@@ -463,10 +463,14 @@ describe('attachments, folders and the workspace', () => {
 
   it('round-trips the workspace and survives a missing or broken file', async () => {
     const fs = new MemoryFs();
-    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null });
-    await saveWorkspace(fs, { tabs: ['Inbox/a.md'], active: 'Inbox/a.md' });
-    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: 'Inbox/a.md' });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {} });
+    const boards = { 'Scrawl/Roadmap.board.json': { view: 'list' as const, phase: null }, 'Home/Renovation.board.json': { view: 'board' as const, phase: 'p2' }, 'Work/Plan.board.json': { view: 'list' as const } };
+    await saveWorkspace(fs, { tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards });
+    // A workspace written before boards were remembered still opens.
+    await fs.writeText('.scrawl/workspace.json', '{"tabs":["Inbox/a.md"],"active":null}');
+    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: null, boards: {} });
     await fs.writeText('.scrawl/workspace.json', 'not json');
-    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {} });
   });
 });
