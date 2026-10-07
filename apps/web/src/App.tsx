@@ -35,6 +35,7 @@ import {
   type ItemKind,
   type MenuItem,
   MoveDialog,
+  PhaseDialog,
   MoveTaskDialog,
   NewDialog,
   NewTaskDialog,
@@ -74,6 +75,7 @@ import { isDesktop } from './storage';
 type Theme = 'dark' | 'light';
 type OpenDialog =
   | { kind: 'new' }
+  | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
   | { kind: 'confirm'; title: string; message: string; action: string; run: () => void }
@@ -484,6 +486,8 @@ export function App() {
     removeColumn: deleteColumn,
     addPhase: (board, name) => session.addPhase(board, name),
     renamePhase: (board, id, name) => session.renamePhase(board, id, name),
+    editPhase: (board, phase) => setDialog({ kind: 'phase', board, phase }),
+    movePhase: (board, id, after) => session.movePhase(board, id, after),
     closePhase,
     reopenPhase: (board, id) => session.reopenPhase(board, id),
     removePhase: deletePhase,
@@ -693,6 +697,19 @@ export function App() {
           folder={newFolder}
           onCreate={create}
           onFilter={() => setDialog({ kind: 'filter', filter: null })}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'phase' && (
+        <PhaseDialog
+          phase={dialog.phase}
+          notes={Object.entries(titles)
+            .map(([path, title]) => ({ path, title }))
+            .sort((a, b) => a.title.localeCompare(b.title))}
+          onSave={(patch) => {
+            session.updatePhase(dialog.board, dialog.phase.id, patch);
+            setDialog(null);
+          }}
           onClose={closeDialog}
         />
       )}

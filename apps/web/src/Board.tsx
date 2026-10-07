@@ -8,6 +8,7 @@ import {
   columnCards,
   currentPhase,
   keyOf,
+  isFinished,
   type NewCard,
   type Phase,
   phaseProgress,
@@ -36,6 +37,9 @@ export interface BoardActions extends CardPanelActions {
   removeColumn: (board: string, column: Column) => void;
   addPhase: (board: string, name: string) => void;
   renamePhase: (board: string, id: string, name: string) => void;
+  /** Opens the phase's window: its goal, when it is done, its note. */
+  editPhase: (board: string, phase: Phase) => void;
+  movePhase: (board: string, id: string, after: string | null) => void;
   /** Asks first, then closes the phase. */
   closePhase: (board: string, phase: Phase) => void;
   reopenPhase: (board: string, id: string) => void;
@@ -293,15 +297,20 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
 }) {
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
-  const menu = (event: MouseEvent, phase: Phase) =>
+  const menu = (event: MouseEvent, phase: Phase) => {
+    const at = board.phases.findIndex((p) => p.id === phase.id);
     actions.menu(event, [
+      { label: t('phase.edit'), run: () => actions.editPhase(path, phase) },
       { label: t('menu.rename'), run: () => setRenaming(phase.id) },
+      ...(at > 0 ? [{ label: t('board.moveUp'), run: () => actions.movePhase(path, phase.id, at >= 2 ? board.phases[at - 2]!.id : null) }] : []),
+      ...(at < board.phases.length - 1 ? [{ label: t('board.moveDown'), run: () => actions.movePhase(path, phase.id, board.phases[at + 1]!.id) }] : []),
       ...(phase.state === 'done'
         ? [{ label: t('board.reopenPhase'), run: () => actions.reopenPhase(path, phase.id) }]
         : [{ label: t('board.closePhase'), run: () => actions.closePhase(path, phase) }]),
       ...(phase.state === 'upcoming' ? [{ label: t('board.makeCurrent'), run: () => actions.reopenPhase(path, phase.id) }] : []),
       { label: t('menu.delete'), run: () => actions.removePhase(path, phase) },
     ]);
+  };
   return (
     <div className="phases" role="tablist">
       {board.phases.map((phase) => {
@@ -357,9 +366,143 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
   );
 }
 
+/** What the list is sorted by, and which way. */
+interface Sort {
+  field: 'key' | 'title' | 'status' | 'priority' | 'due' | 'assignee';
+  desc: boolean;
+}
+
+/** Cards in a list's order: by the field asked, else by column then place; finished cards last. */
+function sortCards(board: Board, cards: Card[], sort: Sort | null): Card[] {
+  const columnAt = new Map(board.columns.map((c, i) => [c.id, i]));
+  const rank = (card: Card) => (isFinished(board, card) ? 1 : 0);
+  const value = (card: Card): string | number => {
+    switch (sort?.field) {
+      case 'key':
+        return card.key;
+      case 'title':
+        return card.title.toLowerCase();
+      case 'priority':
+        return card.priority;
+      case 'due':
+        return card.due ?? '9999';
+      case 'assignee':
+        return (card.assignee ?? '\uffff').toLowerCase();
+      default:
+        return (columnAt.get(card.column) ?? 0) * 100000 + card.order;
+    }
+  };
+  return [...cards].sort((a, b) => {
+    if (!sort || sort.field === 'status') {
+      const byRank = rank(a) - rank(b);
+      if (byRank) return byRank;
+    }
+    const [x, y] = [value(a), value(b)];
+    const order = x < y ? -1 : x > y ? 1 : a.order - b.order;
+    return sort?.desc ? -order : order;
+  });
+}
+
+/** The same cards as a table, grouped by phase, sorted by a click on a column header. */
+function BoardList({ board, path, today, actions, openCard, visible }: {
+  board: Board;
+  path: string;
+  today: string;
+  actions: BoardActions;
+  openCard: string | null;
+  visible: (card: Card) => boolean;
+}) {
+  const [sort, setSort] = useState<Sort | null>(null);
+  const toggle = (field: Sort['field']) =>
+    setSort((now) => (now?.field === field ? (now.desc ? null : { field, desc: true }) : { field, desc: false }));
+  const groups: { id: string | null; label: string; detail?: string; cards: Card[] }[] = board.phasesOn
+    ? [
+        ...board.phases.map((phase) => {
+          const { done, total } = phaseProgress(board, phase.id);
+          return { id: phase.id, label: phase.name, detail: t('board.progress', { done, total }), cards: board.cards.filter((c) => c.phase === phase.id) };
+        }),
+        { id: null, label: t('list.noPhase'), cards: board.cards.filter((c) => !c.phase || !board.phases.some((p) => p.id === c.phase)) },
+      ]
+    : [{ id: null, label: '', cards: board.cards }];
+  const shown = groups.map((group) => ({ ...group, cards: sortCards(board, group.cards.filter(visible), sort) })).filter((g) => g.cards.length > 0);
+  const head = (field: Sort['field']) => (
+    <button type="button" role="columnheader" className={sort?.field === field ? 'sorted' : ''} onClick={() => toggle(field)}>
+      {t(`list.${field}`)}
+      {sort?.field === field && <span>{sort.desc ? ' ↑' : ' ↓'}</span>}
+    </button>
+  );
+  const row = (card: Card) => {
+    const column = board.columns.find((c) => c.id === card.column);
+    const menu = (event: MouseEvent) =>
+      actions.menu(event, [
+        ...board.columns
+          .filter((c) => c.id !== card.column)
+          .map((c) => ({ label: t('board.moveToColumn', { column: c.name }), run: () => actions.moveToColumn(path, card.id, c.id) })),
+        { label: t('menu.delete'), run: () => actions.removeCard(path, card) },
+      ]);
+    return (
+      <div
+        key={card.id}
+        className={`lrow${isFinished(board, card) ? ' done' : ''}${card.id === openCard ? ' on' : ''}`}
+        role="row"
+        onClick={() => actions.openCard(path, card.id)}
+        onContextMenu={menu}
+      >
+        <span className="key">{keyOf(board, card)}</span>
+        <span className="tt">{card.title}</span>
+        <span className={`st kind-${column?.kind ?? 'active'}`}>
+          <i className="kind" />
+          {column?.name}
+        </span>
+        <span className="pr">
+          <i className={`dot p${card.priority}`} />
+          {card.priority < 4 ? `p${card.priority}` : '–'}
+        </span>
+        <span className="lbls">
+          {card.labels?.map((label) => (
+            <span key={label} className="lbl" style={{ '--lh': labelHue(label) } as React.CSSProperties}>
+              {label}
+            </span>
+          ))}
+        </span>
+        <span>{card.assignee && <span className="who" title={card.assignee}>{card.assignee.slice(0, 1).toUpperCase()}</span>}</span>
+        <span className={card.due ? dueClass(card.due, today) : 'due'}>{card.due ? dueLabel(card.due, today) : ''}</span>
+      </div>
+    );
+  };
+  return (
+    <div className="blist" role="table">
+      <div className="lrow head" role="row">
+        {head('key')}
+        {head('title')}
+        {head('status')}
+        {head('priority')}
+        <span role="columnheader">{t('list.labels')}</span>
+        {head('assignee')}
+        {head('due')}
+      </div>
+      {shown.map((group) => (
+        <div key={group.id ?? 'none'}>
+          {group.label && (
+            <div className="lsec">
+              {group.label}
+              {group.detail && <small>{group.detail}</small>}
+              {group.id !== null && board.phases.find((p) => p.id === group.id)?.doneWhen && (
+                <span className="dw">{board.phases.find((p) => p.id === group.id)!.doneWhen}</span>
+              )}
+            </div>
+          )}
+          {group.cards.map(row)}
+        </div>
+      ))}
+      {shown.length === 0 && <p className="task-empty">{t('list.empty')}</p>}
+    </div>
+  );
+}
+
 /**
  * A board: its columns with their cards, the phase strip above when phases are on, and the
- * open card in a panel on the right.
+ * open card in a panel on the right. The same cards read as a list too.
  */
 export function BoardView({ path, board, name, today, actions, openCard, onCloseCard }: {
   path: string;
@@ -373,6 +516,7 @@ export function BoardView({ path, board, name, today, actions, openCard, onClose
   onCloseCard: () => void;
 }) {
   const current = currentPhase(board);
+  const [view, setView] = useState<'board' | 'list'>('board');
   const [shown, setShown] = useState<Shown>(() => (board.phasesOn && current ? { phase: current.id } : { all: true }));
   // A phase that is gone, or phases turned off, shows everything.
   useEffect(() => {
@@ -462,18 +606,28 @@ export function BoardView({ path, board, name, today, actions, openCard, onClose
     <section className="bv">
       <header className="th">
         <b>{name}</b>
+        <span className="vsw" role="tablist">
+          <button type="button" role="tab" aria-selected={view === 'board'} onClick={() => setView('board')}>
+            {t('board.viewBoard')}
+          </button>
+          <button type="button" role="tab" aria-selected={view === 'list'} onClick={() => setView('list')}>
+            {t('board.viewList')}
+          </button>
+        </span>
         {waiting > 0 && <span className="wait">{t('board.toReview', { count: waiting })}</span>}
         <button type="button" className="ghost" onClick={boardMenu}>
           {t('board.more')}
         </button>
       </header>
-      {board.phasesOn && <PhaseStrip board={board} path={path} shown={shown} onShow={setShown} actions={actions} />}
-      {shownPhase?.doneWhen && (
+      {board.phasesOn && view === 'board' && <PhaseStrip board={board} path={path} shown={shown} onShow={setShown} actions={actions} />}
+      {shownPhase?.doneWhen && view === 'board' && (
         <p className="donewhen">
           <b>{t('board.doneWhen')}</b>
           {shownPhase.doneWhen}
         </p>
       )}
+      {view === 'list' && <BoardList board={board} path={path} today={today} actions={actions} openCard={openCard} visible={() => true} />}
+      {view === 'board' && (
       <div
         ref={columns}
         className="board"
@@ -501,6 +655,7 @@ export function BoardView({ path, board, name, today, actions, openCard, onClose
           {t('board.addColumnRow')}
         </button>
       </div>
+      )}
     </section>
     {open && <CardPanel key={open.id} board={board} path={path} card={open} today={today} actions={actions} onClose={onCloseCard} />}
     </div>

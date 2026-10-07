@@ -38,6 +38,7 @@ import {
   moveTask,
   moveTaskToList,
   type NewCard,
+  type PhasePatch,
   relinkBoardNote,
   relinkNote,
   loadWorkspace,
@@ -1106,6 +1107,10 @@ export class Session {
 
   renamePhase(board: string, id: string, name: string) {
     this.changeBoard(board, (current) => updatePhase(current, id, { name }));
+  }
+
+  updatePhase(board: string, id: string, patch: PhasePatch) {
+    this.changeBoard(board, (current) => updatePhase(current, id, patch));
   }
 
   movePhase(board: string, id: string, after: string | null) {

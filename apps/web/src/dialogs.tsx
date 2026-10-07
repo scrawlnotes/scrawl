@@ -1,4 +1,4 @@
-import { DUE_RULES, type FilterChoices, filterName, type Priority, type TaskFilter, type Template } from '@scrawlnotes/core';
+import { DUE_RULES, type FilterChoices, filterName, type Phase, type PhasePatch, type Priority, type TaskFilter, type Template } from '@scrawlnotes/core';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type FormEvent,
@@ -707,6 +707,77 @@ export function ConfirmDialog({ title, message, action, onConfirm, onClose }: {
 export interface MenuItem {
   label: string;
   run: () => void;
+}
+
+/** A note the phase window can point a phase at. */
+export interface NoteChoice {
+  path: string;
+  title: string;
+}
+
+/** A phase's name, what it is for, when it counts as done, and a note with more. */
+export function PhaseDialog({ phase, notes, onSave, onClose }: {
+  phase: Phase;
+  notes: NoteChoice[];
+  onSave: (patch: PhasePatch) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(phase.name);
+  const [goal, setGoal] = useState(phase.goal ?? '');
+  const [doneWhen, setDoneWhen] = useState(phase.doneWhen ?? '');
+  const [note, setNote] = useState(phase.note ?? '');
+  const save = () => {
+    if (!name.trim()) return;
+    onSave({ name, goal, doneWhen, note: note || null });
+  };
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey || event.target instanceof HTMLInputElement)) {
+      event.preventDefault();
+      save();
+    }
+  };
+  return (
+    <Dialog label={t('phase.title')} className="phase-dialog" onClose={onClose} onKeyDown={onKey}>
+      <h2>{t('phase.title')}</h2>
+      <label className="field">
+        <span>{t('phase.name')}</span>
+        <input id="phase-name" autoFocus value={name} onChange={(event) => setName(event.target.value)} />
+      </label>
+      <label className="field">
+        <span>{t('phase.goal')}</span>
+        <textarea id="phase-goal" rows={2} placeholder={t('phase.goalHint')} value={goal} onChange={(event) => setGoal(event.target.value)} />
+      </label>
+      <label className="field">
+        <span>{t('phase.doneWhen')}</span>
+        <textarea
+          id="phase-done"
+          rows={2}
+          placeholder={t('phase.doneWhenHint')}
+          value={doneWhen}
+          onChange={(event) => setDoneWhen(event.target.value)}
+        />
+      </label>
+      <label className="field">
+        <span>{t('phase.note')}</span>
+        <select id="phase-note" value={note} onChange={(event) => setNote(event.target.value)}>
+          <option value="">{t('phase.noNote')}</option>
+          {notes.map((choice) => (
+            <option key={choice.path} value={choice.path}>
+              {choice.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="dialog-actions">
+        <button type="button" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" disabled={!name.trim()} onClick={save}>
+          {t('phase.save')}
+        </button>
+      </div>
+    </Dialog>
+  );
 }
 
 /** The menu of a right click, at the pointer. */
