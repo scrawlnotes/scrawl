@@ -1,0 +1,705 @@
+import type { VaultFs } from './fs';
+import type { Priority } from './tasks';
+
+// A board is a file of its own in a folder: `<name>.board.json`. It holds its columns, its
+// phases and its cards; a card carries its own timeline of moves and comments. Everything here
+// is a pure function over the board value, as with task lists; the interface saves the result.
+
+/** A board file: `<name>.board.json`. */
+export const BOARD_EXT = '.board.json';
+
+/**
+ * What a column means, apart from its name. The kind sets the behaviour: new cards land in the
+ * first column; cards in a done or dropped column are finished; a review column is where an
+ * agent leaves its work for a person to look at.
+ */
+export type ColumnKind = 'backlog' | 'active' | 'review' | 'done' | 'dropped';
+
+export const COLUMN_KINDS: readonly ColumnKind[] = ['backlog', 'active', 'review', 'done', 'dropped'];
+
+export interface Column {
+  id: string;
+  name: string;
+  kind: ColumnKind;
+}
+
+/** A phase is an ordered unit of scope without dates; exactly one is current while any is open. */
+export type PhaseState = 'done' | 'current' | 'upcoming';
+
+export interface Phase {
+  id: string;
+  name: string;
+  state: PhaseState;
+  /** What the phase is for, a sentence or two. */
+  goal?: string;
+  /** When the phase counts as finished. */
+  doneWhen?: string;
+  /** Path of a note with more, if any. */
+  note?: string | null;
+}
+
+/** A card's timeline holds its moves between columns and the comments on it, in one stream. */
+export type TimelineEntry =
+  | { id: string; at: string; by?: string; kind: 'move'; from: string | null; to: string }
+  | { id: string; at: string; by?: string; kind: 'comment'; text: string; edited?: string };
+
+export interface Card {
+  id: string;
+  /** The number in the card's key: `SCR-12` is key 12 on a board with prefix `SCR`. */
+  key: number;
+  title: string;
+  /** Markdown, as a note's text. Left out when there is none. */
+  description?: string;
+  /** The column the card is in. */
+  column: string;
+  /** The phase the card belongs to; none means the general backlog. */
+  phase?: string | null;
+  /** Position within its column. */
+  order: number;
+  priority: Priority;
+  /** Due day as `YYYY-MM-DD`. */
+  due: string | null;
+  /** Free words; a board colours them. Left out when empty. */
+  labels?: string[];
+  /** Who the card is on: a person's or an agent's name. */
+  assignee?: string | null;
+  author?: string | null;
+  /** Path of the note the card was made from. */
+  note?: string | null;
+  created: string;
+  updated: string;
+  /** When the card last entered a done column; null while it is not in one. */
+  completed: string | null;
+  timeline: TimelineEntry[];
+}
+
+export interface Board {
+  /** The letters before the dash in every card's key. */
+  prefix: string;
+  /** The key the next card gets. */
+  nextKey: number;
+  /** Whether the phase strip shows and new cards join the current phase. */
+  phasesOn: boolean;
+  /** In the order they are shown. */
+  columns: Column[];
+  /** In their order. */
+  phases: Phase[];
+  cards: Card[];
+}
+
+export type Template = 'software' | 'simple';
+
+type Clock = () => Date;
+const iso = (now: Clock) => now().toISOString();
+const newId = () => crypto.randomUUID();
+
+const SOFTWARE: [string, ColumnKind][] = [
+  ['Backlog', 'backlog'],
+  ['Todo', 'active'],
+  ['Doing', 'active'],
+  ['Review', 'review'],
+  ['Done', 'done'],
+];
+const SIMPLE: [string, ColumnKind][] = [
+  ['Todo', 'active'],
+  ['Doing', 'active'],
+  ['Done', 'done'],
+];
+
+/**
+ * The letters a board's keys start with, from its name: the initials of several words
+ * (`Client portal` → `CP`), the first three letters of one (`Roadmap` → `ROA`), `BRD` when the
+ * name has no letters to use.
+ */
+export function prefixFor(name: string): string {
+  const words = name
+    .normalize('NFD')
+    .replace(/[^A-Za-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+  const prefix = words.length >= 2 ? words.map((w) => w[0]!).join('').slice(0, 4) : (words[0] ?? '').slice(0, 3);
+  return prefix.toUpperCase() || 'BRD';
+}
+
+/** A board as a template starts it. The template only sets the start; everything changes later. */
+export function newBoard(name: string, template: Template, ids: () => string = newId): Board {
+  return {
+    prefix: prefixFor(name),
+    nextKey: 1,
+    phasesOn: template === 'software',
+    columns: (template === 'software' ? SOFTWARE : SIMPLE).map(([name, kind]) => ({ id: ids(), name, kind })),
+    phases: [],
+    cards: [],
+  };
+}
+
+/** Reads a board file. Anything that is not usable is left out rather than failing the board. */
+export function parseBoard(text: string): Board {
+  let data: Partial<Record<keyof Board, unknown>> | null;
+  try {
+    data = JSON.parse(text) as typeof data;
+  } catch {
+    return emptyBoard();
+  }
+  const columns = parseColumns(data?.columns);
+  const phases = parsePhases(data?.phases);
+  const cards = parseCards(data?.cards, columns);
+  const maxKey = cards.reduce((max, c) => Math.max(max, c.key), 0);
+  const stored = typeof data?.nextKey === 'number' && Number.isInteger(data.nextKey) ? data.nextKey : 1;
+  return {
+    prefix: typeof data?.prefix === 'string' && data.prefix.trim() ? data.prefix.trim() : 'BRD',
+    nextKey: Math.max(stored, maxKey + 1),
+    phasesOn: data?.phasesOn === true,
+    columns,
+    phases: withOneCurrent(phases),
+    cards,
+  };
+}
+
+function emptyBoard(): Board {
+  return { prefix: 'BRD', nextKey: 1, phasesOn: false, columns: [], phases: [], cards: [] };
+}
+
+function parseColumns(list: unknown): Column[] {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  const out: Column[] = [];
+  for (const raw of list as Partial<Column>[]) {
+    if (!raw || typeof raw.id !== 'string' || typeof raw.name !== 'string' || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    out.push({ ...raw, id: raw.id, name: raw.name, kind: COLUMN_KINDS.includes(raw.kind as ColumnKind) ? (raw.kind as ColumnKind) : 'active' });
+  }
+  return out;
+}
+
+function parsePhases(list: unknown): Phase[] {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  const out: Phase[] = [];
+  for (const raw of list as Partial<Phase>[]) {
+    if (!raw || typeof raw.id !== 'string' || typeof raw.name !== 'string' || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    out.push({
+      ...raw,
+      id: raw.id,
+      name: raw.name,
+      state: raw.state === 'done' || raw.state === 'current' ? raw.state : 'upcoming',
+      goal: typeof raw.goal === 'string' && raw.goal.trim() ? raw.goal : undefined,
+      doneWhen: typeof raw.doneWhen === 'string' && raw.doneWhen.trim() ? raw.doneWhen : undefined,
+      note: typeof raw.note === 'string' ? raw.note : undefined,
+    });
+  }
+  return out;
+}
+
+function parseCards(list: unknown, columns: Column[]): Card[] {
+  if (!Array.isArray(list)) return [];
+  const known = new Set(columns.map((c) => c.id));
+  const first = columns[0]?.id;
+  const seen = new Set<string>();
+  const out: Card[] = [];
+  for (const raw of list as Partial<Card>[]) {
+    if (!raw || typeof raw.id !== 'string' || typeof raw.title !== 'string' || seen.has(raw.id)) continue;
+    // A card whose column is gone goes to the first column instead of disappearing.
+    const column = typeof raw.column === 'string' && known.has(raw.column) ? raw.column : first;
+    if (!column) continue;
+    seen.add(raw.id);
+    out.push({
+      // Unknown fields are kept, so a newer version's data survives being saved by an older one.
+      ...raw,
+      id: raw.id,
+      key: typeof raw.key === 'number' && Number.isInteger(raw.key) && raw.key > 0 ? raw.key : 0,
+      title: raw.title,
+      description: typeof raw.description === 'string' && raw.description.trim() ? raw.description : undefined,
+      column,
+      phase: typeof raw.phase === 'string' ? raw.phase : undefined,
+      order: typeof raw.order === 'number' ? raw.order : 0,
+      priority: raw.priority === 1 || raw.priority === 2 || raw.priority === 3 ? raw.priority : 4,
+      due: typeof raw.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.due) ? raw.due : null,
+      labels: Array.isArray(raw.labels) && raw.labels.length > 0 ? raw.labels.filter((l): l is string => typeof l === 'string') : undefined,
+      created: typeof raw.created === 'string' ? raw.created : '',
+      updated: typeof raw.updated === 'string' ? raw.updated : '',
+      completed: typeof raw.completed === 'string' ? raw.completed : null,
+      timeline: parseTimeline(raw.timeline),
+    });
+  }
+  // Cards without a key, from a file written by hand, are numbered after the ones that have one.
+  let next = out.reduce((max, c) => Math.max(max, c.key), 0) + 1;
+  return out.map((c) => (c.key > 0 ? c : { ...c, key: next++ }));
+}
+
+function parseTimeline(list: unknown): TimelineEntry[] {
+  if (!Array.isArray(list)) return [];
+  const out: TimelineEntry[] = [];
+  for (const raw of list as Partial<TimelineEntry>[]) {
+    if (!raw || typeof raw.id !== 'string' || typeof raw.at !== 'string') continue;
+    const by = typeof raw.by === 'string' ? { by: raw.by } : {};
+    if (raw.kind === 'move' && typeof raw.to === 'string') {
+      out.push({ id: raw.id, at: raw.at, ...by, kind: 'move', from: typeof raw.from === 'string' ? raw.from : null, to: raw.to });
+    } else if (raw.kind === 'comment' && typeof raw.text === 'string') {
+      out.push({ id: raw.id, at: raw.at, ...by, kind: 'comment', text: raw.text, ...(typeof raw.edited === 'string' && { edited: raw.edited }) });
+    }
+  }
+  return out;
+}
+
+/** Exactly one phase is current while any is open: the first open one, when none is marked. */
+function withOneCurrent(phases: Phase[]): Phase[] {
+  const current = phases.findIndex((p) => p.state === 'current');
+  const first = phases.findIndex((p) => p.state !== 'done');
+  if (current === -1 && first === -1) return phases;
+  const keep = current === -1 ? first : current;
+  return phases.map((p, i) => {
+    if (i === keep) return p.state === 'current' ? p : { ...p, state: 'current' };
+    return p.state === 'current' ? { ...p, state: 'upcoming' } : p;
+  });
+}
+
+/** A board as its file holds it. */
+export function serializeBoard(board: Board): string {
+  const { phases, ...rest } = board;
+  return `${JSON.stringify({ version: 1, ...rest, ...(phases.length > 0 && { phases }) }, null, 2)}\n`;
+}
+
+/** Reads the board at `path`. A board whose file is missing is empty. */
+export async function loadBoard(fs: VaultFs, path: string): Promise<Board> {
+  try {
+    return parseBoard(await fs.readText(path));
+  } catch {
+    return emptyBoard();
+  }
+}
+
+export function saveBoard(fs: VaultFs, path: string, board: Board): Promise<void> {
+  return fs.writeText(path, serializeBoard(board));
+}
+
+// ---------- reading ----------
+
+/** A card's key as it is shown: `SCR-12`. */
+export const keyOf = (board: Board, card: Card): string => `${board.prefix}-${card.key}`;
+
+export const columnOf = (board: Board, card: Card): Column | undefined => board.columns.find((c) => c.id === card.column);
+
+/** Cards in a done or dropped column are finished. */
+export const isFinished = (board: Board, card: Card): boolean => {
+  const kind = columnOf(board, card)?.kind;
+  return kind === 'done' || kind === 'dropped';
+};
+
+/** The cards of a column, in their order. */
+export function columnCards(board: Board, column: string): Card[] {
+  return board.cards.filter((c) => c.column === column).sort((a, b) => a.order - b.order);
+}
+
+/** The first column of a kind, where a card goes when the kind is all that is known. */
+export const firstColumn = (board: Board, kind: ColumnKind): Column | undefined => board.columns.find((c) => c.kind === kind);
+
+export const currentPhase = (board: Board): Phase | undefined => board.phases.find((p) => p.state === 'current');
+
+/**
+ * The cards of a phase, or of none with `null`. A card whose phase is gone counts as in none.
+ */
+export function phaseCards(board: Board, phase: string | null): Card[] {
+  const known = new Set(board.phases.map((p) => p.id));
+  return board.cards.filter((c) => (c.phase && known.has(c.phase) ? c.phase : null) === phase);
+}
+
+/**
+ * How far a phase is: cards in done columns against all its cards. Dropped cards count in
+ * neither, so dropping one does not hold a phase back.
+ */
+export function phaseProgress(board: Board, phase: string | null): { done: number; total: number } {
+  const cards = phaseCards(board, phase).filter((c) => columnOf(board, c)?.kind !== 'dropped');
+  return { done: cards.filter((c) => columnOf(board, c)?.kind === 'done').length, total: cards.length };
+}
+
+/** A phase can close once every card of it is finished. */
+export function phaseCanClose(board: Board, phase: string): boolean {
+  return phaseCards(board, phase).every((c) => isFinished(board, c));
+}
+
+/** How many cards wait in review columns: the person's inbox. */
+export const reviewCount = (board: Board): number => board.cards.filter((c) => columnOf(board, c)?.kind === 'review').length;
+
+export const openCardCount = (board: Board): number => board.cards.filter((c) => !isFinished(board, c)).length;
+
+// ---------- columns ----------
+
+/** Adds a column after `after`, or at the end with `undefined`. A name of only spaces adds none. */
+export function addColumn(board: Board, name: string, kind: ColumnKind, after?: string, id: string = newId()): Board {
+  const clean = name.trim();
+  if (!clean) return board;
+  const column: Column = { id, name: clean, kind };
+  const at = after === undefined ? board.columns.length : board.columns.findIndex((c) => c.id === after) + 1;
+  return { ...board, columns: [...board.columns.slice(0, at), column, ...board.columns.slice(at)] };
+}
+
+export function renameColumn(board: Board, id: string, name: string): Board {
+  const clean = name.trim();
+  if (!clean) return board;
+  return { ...board, columns: board.columns.map((c) => (c.id === id ? { ...c, name: clean } : c)) };
+}
+
+/** Changes what a column means. The last done column cannot become something else. */
+export function setColumnKind(board: Board, id: string, kind: ColumnKind, now: Clock = () => new Date()): Board {
+  const column = board.columns.find((c) => c.id === id);
+  if (!column || column.kind === kind) return board;
+  if (column.kind === 'done' && kind !== 'done' && board.columns.filter((c) => c.kind === 'done').length === 1) return board;
+  const stamp = iso(now);
+  return {
+    ...board,
+    columns: board.columns.map((c) => (c.id === id ? { ...c, kind } : c)),
+    // Cards in the column are finished, or not, as of now.
+    cards: board.cards.map((c) => (c.column === id ? { ...c, completed: kind === 'done' ? (c.completed ?? stamp) : null } : c)),
+  };
+}
+
+/** Moves a column to just after `after`, or to the front with `null`. */
+export function moveColumn(board: Board, id: string, after: string | null): Board {
+  const column = board.columns.find((c) => c.id === id);
+  if (!column || after === id) return board;
+  const rest = board.columns.filter((c) => c.id !== id);
+  const at = after === null ? 0 : rest.findIndex((c) => c.id === after) + 1;
+  if (after !== null && at === 0) return board;
+  return { ...board, columns: [...rest.slice(0, at), column, ...rest.slice(at)] };
+}
+
+/**
+ * Removes a column; its cards go to the end of the first column that remains. The last column
+ * and the last done column stay.
+ */
+export function removeColumn(board: Board, id: string, now: Clock = () => new Date(), by?: string): Board {
+  const column = board.columns.find((c) => c.id === id);
+  if (!column || board.columns.length === 1) return board;
+  if (column.kind === 'done' && board.columns.filter((c) => c.kind === 'done').length === 1) return board;
+  const rest = board.columns.filter((c) => c.id !== id);
+  const target = rest[0]!;
+  let out: Board = { ...board, columns: rest };
+  for (const card of columnCards(board, id)) out = moveCard(out, card.id, { column: target.id, after: columnCards(out, target.id).pop()?.id ?? null }, now, by);
+  return out;
+}
+
+// ---------- phases ----------
+
+export function setPhasesOn(board: Board, on: boolean): Board {
+  return board.phasesOn === on ? board : { ...board, phasesOn: on };
+}
+
+/** What a phase is described by, apart from its state. */
+export type PhasePatch = Partial<Pick<Phase, 'name' | 'goal' | 'doneWhen' | 'note'>>;
+
+/** Adds a phase at the end. It is current when no other phase is open. */
+export function addPhase(board: Board, patch: PhasePatch & { name: string }, id: string = newId()): Board {
+  const name = patch.name.trim();
+  if (!name) return board;
+  const phase: Phase = { id, name, state: 'upcoming', ...cleanPhase(patch) };
+  return { ...board, phases: withOneCurrent([...board.phases, phase]) };
+}
+
+function cleanPhase(patch: PhasePatch): Omit<PhasePatch, 'name'> {
+  const out: Omit<PhasePatch, 'name'> = {};
+  if (patch.goal !== undefined) out.goal = patch.goal.trim() || undefined;
+  if (patch.doneWhen !== undefined) out.doneWhen = patch.doneWhen.trim() || undefined;
+  if (patch.note !== undefined) out.note = patch.note || undefined;
+  return out;
+}
+
+export function updatePhase(board: Board, id: string, patch: PhasePatch): Board {
+  if (patch.name !== undefined && !patch.name.trim()) return board;
+  const clean = { ...cleanPhase(patch), ...(patch.name !== undefined && { name: patch.name.trim() }) };
+  return { ...board, phases: board.phases.map((p) => (p.id === id ? withoutEmpty({ ...p, ...clean }) : p)) };
+}
+
+/** A phase without the fields that were cleared, so the file does not carry them as null. */
+function withoutEmpty(phase: Phase): Phase {
+  return Object.fromEntries(Object.entries(phase).filter(([, v]) => v !== undefined)) as unknown as Phase;
+}
+
+/** Moves a phase to just after `after`, or to the front with `null`. */
+export function movePhase(board: Board, id: string, after: string | null): Board {
+  const phase = board.phases.find((p) => p.id === id);
+  if (!phase || after === id) return board;
+  const rest = board.phases.filter((p) => p.id !== id);
+  const at = after === null ? 0 : rest.findIndex((p) => p.id === after) + 1;
+  if (after !== null && at === 0) return board;
+  return { ...board, phases: [...rest.slice(0, at), phase, ...rest.slice(at)] };
+}
+
+/** Removes a phase; its cards stay, in no phase. */
+export function removePhase(board: Board, id: string): Board {
+  if (!board.phases.some((p) => p.id === id)) return board;
+  return {
+    ...board,
+    phases: withOneCurrent(board.phases.filter((p) => p.id !== id)),
+    cards: board.cards.map((c) => (c.phase === id ? stripPhase(c) : c)),
+  };
+}
+
+function stripPhase(card: Card): Card {
+  const { phase: _gone, ...rest } = card;
+  return rest;
+}
+
+/**
+ * Closes a phase: it is done, and the next open phase becomes current. Cards of it that are not
+ * finished go to the next phase, or to no phase with `'backlog'`.
+ */
+export function closePhase(board: Board, id: string, leftovers: 'next' | 'backlog', now: Clock = () => new Date()): Board {
+  const at = board.phases.findIndex((p) => p.id === id);
+  if (at === -1 || board.phases[at]!.state === 'done') return board;
+  const next = board.phases.slice(at + 1).find((p) => p.state !== 'done');
+  const stamp = iso(now);
+  const phases = board.phases.map((p) => (p.id === id ? { ...p, state: 'done' as const } : p.state === 'current' ? { ...p, state: 'upcoming' as const } : p));
+  return {
+    ...board,
+    phases: withOneCurrent(phases),
+    cards: board.cards.map((c) => {
+      if (c.phase !== id || isFinished(board, c)) return c;
+      return leftovers === 'next' && next ? { ...c, phase: next.id, updated: stamp } : { ...stripPhase(c), updated: stamp };
+    }),
+  };
+}
+
+/** Reopens a phase and makes it current; the phase that was current waits again. */
+export function reopenPhase(board: Board, id: string): Board {
+  if (!board.phases.some((p) => p.id === id)) return board;
+  return { ...board, phases: board.phases.map((p) => (p.id === id ? { ...p, state: 'current' } : p.state === 'current' ? { ...p, state: 'upcoming' } : p)) };
+}
+
+// ---------- cards ----------
+
+export interface NewCard {
+  title: string;
+  /** The column it starts in; the first column when left out. */
+  column?: string;
+  /** The phase it belongs to; the current phase when left out and phases are on. */
+  phase?: string | null;
+  description?: string;
+  priority?: Priority;
+  due?: string | null;
+  labels?: string[];
+  assignee?: string | null;
+  /** The note it was made from. */
+  note?: string | null;
+}
+
+/** Adds a card at the end of its column, with the next key. A title of only spaces adds none. */
+export function addCard(board: Board, input: NewCard, now: Clock = () => new Date(), by?: string, id: string = newId()): Board {
+  const title = input.title.trim();
+  const column = input.column && board.columns.some((c) => c.id === input.column) ? input.column : board.columns[0]?.id;
+  if (!title || !column) return board;
+  const phase = input.phase === undefined ? (board.phasesOn ? currentPhase(board)?.id : undefined) : input.phase;
+  const stamp = iso(now);
+  const last = columnCards(board, column).pop();
+  const card: Card = {
+    id,
+    key: board.nextKey,
+    title,
+    ...(input.description?.trim() && { description: input.description.trim() }),
+    column,
+    ...(phase && board.phases.some((p) => p.id === phase) && { phase }),
+    order: (last?.order ?? -1) + 1,
+    priority: input.priority ?? 4,
+    due: input.due ?? null,
+    ...(input.labels && input.labels.length > 0 && { labels: cleanLabels(input.labels) }),
+    ...(input.assignee && { assignee: input.assignee }),
+    ...(by && { author: by }),
+    ...(input.note && { note: input.note }),
+    created: stamp,
+    updated: stamp,
+    completed: columnOf(board, { column } as Card)?.kind === 'done' ? stamp : null,
+    timeline: [],
+  };
+  return { ...board, nextKey: board.nextKey + 1, cards: [...board.cards, card] };
+}
+
+function cleanLabels(labels: string[]): string[] {
+  return [...new Set(labels.map((l) => l.trim()).filter(Boolean))];
+}
+
+/** What can be changed of a card by editing it. */
+export type CardPatch = Partial<Pick<Card, 'title' | 'description' | 'priority' | 'due' | 'labels' | 'assignee' | 'phase'>>;
+
+/**
+ * Changes a card. An empty title keeps the old one; an empty description, label list or
+ * assignee is removed; a phase the board does not have is treated as none.
+ */
+export function updateCard(board: Board, id: string, patch: CardPatch, now: Clock = () => new Date()): Board {
+  if (patch.title !== undefined && !patch.title.trim()) return board;
+  return {
+    ...board,
+    cards: board.cards.map((c) => {
+      if (c.id !== id) return c;
+      const next: Card = { ...c, updated: iso(now) };
+      if (patch.title !== undefined) next.title = patch.title.trim();
+      if (patch.priority !== undefined) next.priority = patch.priority;
+      if (patch.due !== undefined) next.due = patch.due;
+      if (patch.description !== undefined) setOrDrop(next, 'description', patch.description.trim() || undefined);
+      if (patch.labels !== undefined) setOrDrop(next, 'labels', patch.labels.length ? cleanLabels(patch.labels) : undefined);
+      if (patch.assignee !== undefined) setOrDrop(next, 'assignee', patch.assignee || undefined);
+      if (patch.phase !== undefined) setOrDrop(next, 'phase', patch.phase && board.phases.some((p) => p.id === patch.phase) ? patch.phase : undefined);
+      return next;
+    }),
+  };
+}
+
+function setOrDrop<K extends 'description' | 'labels' | 'assignee' | 'phase'>(card: Card, field: K, value: Card[K] | undefined): void {
+  if (value === undefined) delete card[field];
+  else card[field] = value;
+}
+
+/** Where a card goes: its column and the card it comes right after there, null to come first. */
+export interface CardPlace {
+  column: string;
+  after: string | null;
+}
+
+/**
+ * Moves a card within its column or to another. A change of column is written to the card's
+ * timeline, and entering a done column marks it completed.
+ */
+export function moveCard(board: Board, id: string, place: CardPlace, now: Clock = () => new Date(), by?: string): Board {
+  const card = board.cards.find((c) => c.id === id);
+  const column = board.columns.find((c) => c.id === place.column);
+  if (!card || !column) return board;
+  const siblings = columnCards(board, place.column).filter((c) => c.id !== id);
+  const at = place.after === null ? 0 : siblings.findIndex((c) => c.id === place.after) + 1;
+  const ordered = [...siblings.slice(0, at), card, ...siblings.slice(at)];
+  const before = columnCards(board, place.column);
+  if (card.column === place.column && before.length === ordered.length && before.every((c, i) => c.id === ordered[i]!.id)) return board;
+  const orderOf = new Map(ordered.map((c, i) => [c.id, i]));
+  const stamp = iso(now);
+  const changed = card.column !== place.column;
+  return {
+    ...board,
+    cards: board.cards.map((c) => {
+      if (c.id === id) {
+        return {
+          ...c,
+          column: place.column,
+          order: orderOf.get(id)!,
+          updated: stamp,
+          completed: column.kind === 'done' ? (changed ? stamp : c.completed) : null,
+          timeline: changed ? [...c.timeline, { id: newId(), at: stamp, ...(by && { by }), kind: 'move', from: c.column, to: place.column }] : c.timeline,
+        };
+      }
+      const order = orderOf.get(c.id);
+      return order === undefined || order === c.order ? c : { ...c, order };
+    }),
+  };
+}
+
+/** Moves a card to the end of the first column of `kind`: what an agent does without knowing names. */
+export function moveCardToKind(board: Board, id: string, kind: ColumnKind, now: Clock = () => new Date(), by?: string): Board {
+  const column = firstColumn(board, kind);
+  if (!column) return board;
+  return moveCard(board, id, { column: column.id, after: columnCards(board, column.id).filter((c) => c.id !== id).pop()?.id ?? null }, now, by);
+}
+
+export function removeCard(board: Board, id: string): Board {
+  return board.cards.some((c) => c.id === id) ? { ...board, cards: board.cards.filter((c) => c.id !== id) } : board;
+}
+
+/** Points the cards made from the note at `from` to the note's new path. */
+export function relinkBoardNote(board: Board, from: string, to: string): Board {
+  if (!board.cards.some((c) => c.note === from)) return board;
+  return { ...board, cards: board.cards.map((c) => (c.note === from ? { ...c, note: to } : c)) };
+}
+
+// ---------- comments ----------
+
+/** Adds a comment to a card's timeline. A comment of only spaces adds none. */
+export function addComment(board: Board, cardId: string, text: string, now: Clock = () => new Date(), by?: string, id: string = newId()): Board {
+  const clean = text.trim();
+  if (!clean) return board;
+  const stamp = iso(now);
+  return mapCard(board, cardId, (c) => ({ ...c, updated: stamp, timeline: [...c.timeline, { id, at: stamp, ...(by && { by }), kind: 'comment', text: clean }] }));
+}
+
+/** Changes a comment's text and notes when it was edited. An empty text keeps the old one. */
+export function editComment(board: Board, cardId: string, id: string, text: string, now: Clock = () => new Date()): Board {
+  const clean = text.trim();
+  if (!clean) return board;
+  const stamp = iso(now);
+  return mapCard(board, cardId, (c) => ({
+    ...c,
+    updated: stamp,
+    timeline: c.timeline.map((e) => (e.id === id && e.kind === 'comment' && e.text !== clean ? { ...e, text: clean, edited: stamp } : e)),
+  }));
+}
+
+export function removeComment(board: Board, cardId: string, id: string, now: Clock = () => new Date()): Board {
+  return mapCard(board, cardId, (c) =>
+    c.timeline.some((e) => e.id === id && e.kind === 'comment') ? { ...c, updated: iso(now), timeline: c.timeline.filter((e) => e.id !== id) } : c,
+  );
+}
+
+function mapCard(board: Board, id: string, fn: (card: Card) => Card): Board {
+  const card = board.cards.find((c) => c.id === id);
+  if (!card) return board;
+  const next = fn(card);
+  return next === card ? board : { ...board, cards: board.cards.map((c) => (c.id === id ? next : c)) };
+}
+
+// ---------- across boards ----------
+
+/** An open card with a due day, and the path of the board it is on. */
+export interface DueCard {
+  board: string;
+  card: Card;
+}
+
+/** Dated cards that are not finished, across boards, by day then priority. */
+export function dueCards(boards: Record<string, Board>): DueCard[] {
+  return Object.entries(boards)
+    .flatMap(([path, board]) => board.cards.filter((c) => c.due && !isFinished(board, c)).map((card) => ({ board: path, card })))
+    .sort((a, b) => a.card.due!.localeCompare(b.card.due!) || a.card.priority - b.card.priority);
+}
+
+// ---------- briefs ----------
+
+/** The texts a brief carries for the notes it links: path to text. */
+export type NoteTexts = Record<string, string>;
+
+/**
+ * A card as a markdown brief for a person or an agent: key, title, fields, description,
+ * comments, and the text of the note it came from when given.
+ */
+export function cardBrief(board: Board, card: Card, notes: NoteTexts = {}): string {
+  const lines = [`# ${keyOf(board, card)} ${card.title}`, ''];
+  const fields: string[] = [`Status: ${columnOf(board, card)?.name ?? '?'}`];
+  const phase = card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
+  if (phase) fields.push(`Phase: ${phase.name}`);
+  if (card.priority < 4) fields.push(`Priority: p${card.priority}`);
+  if (card.due) fields.push(`Due: ${card.due}`);
+  if (card.labels?.length) fields.push(`Labels: ${card.labels.join(', ')}`);
+  if (card.assignee) fields.push(`Assignee: ${card.assignee}`);
+  lines.push(...fields.map((f) => `- ${f}`), '');
+  if (card.description) lines.push(card.description.trim(), '');
+  const comments = card.timeline.filter((e): e is Extract<TimelineEntry, { kind: 'comment' }> => e.kind === 'comment');
+  if (comments.length) {
+    lines.push('## Comments', '');
+    for (const c of comments) lines.push(`**${c.by ?? '?'}**, ${c.at.slice(0, 16).replace('T', ' ')}:`, '', c.text.trim(), '');
+  }
+  if (card.note && notes[card.note] !== undefined) lines.push(`## From the note ${card.note}`, '', notes[card.note]!.trim(), '');
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
+/** A phase as a brief: its goal, when it is done, and its cards by column. */
+export function phaseBrief(board: Board, phase: Phase, notes: NoteTexts = {}): string {
+  const lines = [`# ${phase.name}`, ''];
+  if (phase.goal) lines.push(phase.goal.trim(), '');
+  if (phase.doneWhen) lines.push(`Done when: ${phase.doneWhen.trim()}`, '');
+  if (phase.note && notes[phase.note] !== undefined) lines.push(notes[phase.note]!.trim(), '');
+  const { done, total } = phaseProgress(board, phase.id);
+  lines.push(`## Cards (${done}/${total} done)`, '');
+  for (const column of board.columns) {
+    const cards = columnCards(board, column.id).filter((c) => c.phase === phase.id);
+    if (!cards.length) continue;
+    lines.push(`### ${column.name}`, '');
+    for (const c of cards) lines.push(`- ${keyOf(board, c)} ${c.title}${c.priority < 4 ? ` (p${c.priority})` : ''}`);
+    lines.push('');
+  }
+  return `${lines.join('\n').trimEnd()}\n`;
+}
