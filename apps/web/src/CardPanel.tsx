@@ -236,7 +236,8 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
   const columnName = (id: string | null) => (id === null ? '' : (board.columns.find((c) => c.id === id)?.name ?? t('card.removedColumn')));
 
   return (
-    <aside className="cpanel" aria-label={keyOf(board, card)}>
+    <div className="backdrop card-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="cpanel" role="dialog" aria-label={keyOf(board, card)}>
       <div className="cp-head">
         <span className="key">{keyOf(board, card)}</span>
         <span className="where">{boardLabel(path)}</span>
@@ -248,56 +249,8 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
         </button>
       </div>
       <div className="cp-body">
+        <div className="cp-main">
         <TextField id="card-title" label={t('card.title')} value={card.title} onSave={(title) => update({ title })} />
-        <div className="fields">
-          <label htmlFor="card-status">{t('card.status')}</label>
-          <select id="card-status" value={card.column} onChange={(event) => actions.moveToColumn(path, card.id, event.target.value)}>
-            {board.columns.map((column) => (
-              <option key={column.id} value={column.id}>
-                {column.name}
-              </option>
-            ))}
-          </select>
-          {board.phasesOn && (
-            <>
-              <label htmlFor="card-phase">{t('card.phase')}</label>
-              <select id="card-phase" value={card.phase ?? ''} onChange={(event) => update({ phase: event.target.value || null })}>
-                <option value="">{t('card.noPhase')}</option>
-                {board.phases.map((phase) => (
-                  <option key={phase.id} value={phase.id}>
-                    {phase.name}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-          <label htmlFor="card-priority">{t('card.priority')}</label>
-          <select id="card-priority" value={card.priority} onChange={(event) => update({ priority: Number(event.target.value) as Priority })}>
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {p === 4 ? t('tasks.noPriority') : t('tasks.priorityN', { n: p })}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="card-labels">{t('card.labels')}</label>
-          <TextField
-            id="card-labels"
-            label={t('card.labels')}
-            placeholder={t('card.labelsHint')}
-            value={card.labels?.join(', ') ?? ''}
-            onSave={(text) => update({ labels: text.split(',').map((l) => l.trim()).filter(Boolean) })}
-          />
-          <label htmlFor="card-due">{t('card.due')}</label>
-          <input id="card-due" type="date" value={card.due ?? ''} onChange={(event) => update({ due: event.target.value || null })} />
-          <label htmlFor="card-assignee">{t('card.assignee')}</label>
-          <TextField
-            id="card-assignee"
-            label={t('card.assignee')}
-            placeholder={t('card.unassigned')}
-            value={card.assignee ?? ''}
-            onSave={(text) => update({ assignee: text.trim() || null })}
-          />
-        </div>
         <div className="cp-sec">{t('card.description')}</div>
         <div className="cp-desc" ref={host} />
         {card.note && (
@@ -354,8 +307,61 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
             )}
           </div>
         </div>
+        </div>
+        <aside className="cp-side">
+        <div className="fields">
+          <label htmlFor="card-status">{t('card.status')}</label>
+          <select id="card-status" value={card.column} onChange={(event) => actions.moveToColumn(path, card.id, event.target.value)}>
+            {board.columns.map((column) => (
+              <option key={column.id} value={column.id}>
+                {column.name}
+              </option>
+            ))}
+          </select>
+          {board.phasesOn && (
+            <>
+              <label htmlFor="card-phase">{t('card.phase')}</label>
+              <select id="card-phase" value={card.phase ?? ''} onChange={(event) => update({ phase: event.target.value || null })}>
+                <option value="">{t('card.noPhase')}</option>
+                {board.phases.map((phase) => (
+                  <option key={phase.id} value={phase.id}>
+                    {phase.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          <label htmlFor="card-priority">{t('card.priority')}</label>
+          <select id="card-priority" value={card.priority} onChange={(event) => update({ priority: Number(event.target.value) as Priority })}>
+            {PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {p === 4 ? t('tasks.noPriority') : t('tasks.priorityN', { n: p })}
+              </option>
+            ))}
+          </select>
+          <label htmlFor="card-labels">{t('card.labels')}</label>
+          <TextField
+            id="card-labels"
+            label={t('card.labels')}
+            placeholder={t('card.labelsHint')}
+            value={card.labels?.join(', ') ?? ''}
+            onSave={(text) => update({ labels: text.split(',').map((l) => l.trim()).filter(Boolean) })}
+          />
+          <label htmlFor="card-due">{t('card.due')}</label>
+          <input id="card-due" type="date" value={card.due ?? ''} onChange={(event) => update({ due: event.target.value || null })} />
+          <label htmlFor="card-assignee">{t('card.assignee')}</label>
+          <TextField
+            id="card-assignee"
+            label={t('card.assignee')}
+            placeholder={t('card.unassigned')}
+            value={card.assignee ?? ''}
+            onSave={(text) => update({ assignee: text.trim() || null })}
+          />
+        </div>
+        </aside>
       </div>
       <div className="cp-foot">{t('card.keys', { n: board.columns.length })}</div>
-    </aside>
+    </section>
+    </div>
   );
 }
