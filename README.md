@@ -17,7 +17,7 @@ for the roadmap (in Turkish).
   dates and descriptions, reordered by dragging. Today, Upcoming and saved filters gather them
   all. A line of a note becomes a task that links back to it.
 - **Boards** are files in folders too: columns with a kind (backlog, active, review, done, dropped),
-  cards with a key like , a description in the same editor, a timeline of moves and
+  cards with a key like `ROA-12`, a description in the same editor, a timeline of moves and
   comments, and phases: ordered units of scope with a "done when" line. A board starts from a
   Software or a Simple template and reads as columns or as a list. A card copies as a Markdown brief
   for a person or an agent; a note's line becomes a card; a card becomes a task for today.
