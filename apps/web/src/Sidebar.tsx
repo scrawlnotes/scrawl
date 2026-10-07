@@ -94,10 +94,10 @@ export function Sidebar({
     </div>
   );
 
-  // A task list shows how many of its tasks are open where a note has its trash button.
+  // A task list or a board shows how many of its tasks or cards are open where a note has its trash button.
   const itemRow = (node: TreeNode, depth: number) => {
     const tab = tabOf(node.path);
-    const isList = node.kind === 'tasks';
+    const counted = node.kind === 'tasks' || node.kind === 'board';
     return (
       <div
         key={node.path}
@@ -107,10 +107,10 @@ export function Sidebar({
         onContextMenu={(event) => onItemMenu(event, node.path)}
       >
         <button type="button" className="it-main" onClick={() => onOpen(tab)}>
-          <Icon name={isList ? 'tasks' : 'note'} />
+          <Icon name={node.kind === 'folder' ? 'folder' : node.kind} />
           <span>{titles[node.path] ?? node.title}</span>
         </button>
-        {isList ? (
+        {counted ? (
           <span className="ct">{counts[tab] || ''}</span>
         ) : (
           <button type="button" className="it-action" title={t('side.moveToTrash')} onClick={() => onTrash(node.path)}>

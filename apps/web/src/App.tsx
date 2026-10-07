@@ -1,6 +1,7 @@
 import { t } from '@scrawlnotes/i18n';
 import {
   basename,
+  boardName,
   dayOf,
   dirname,
   dueToday,
@@ -8,11 +9,13 @@ import {
   INBOX,
   INBOX_TASKS,
   listName,
+  openCardCount,
   openCount,
   removeSection,
   removeTask,
   type Section,
   type TaskFilter,
+  type Template,
   type TrashItem,
   type TreeNode,
 } from '@scrawlnotes/core';
@@ -23,6 +26,7 @@ import {
   ContextMenu,
   FilterDialog,
   type FolderChoice,
+  type ItemKind,
   type MenuItem,
   MoveDialog,
   MoveTaskDialog,
@@ -35,15 +39,18 @@ import { FormatBar } from './FormatBar';
 import { HistoryDialog } from './History';
 import { Icon } from './Icon';
 import {
+  boardOf,
   filterOf,
   filterTab,
   folderOf,
   iconOf,
+  isBoardPath,
   isNote,
   isTaskListPath,
   labelOf,
   listLabel,
   listOf,
+  pathOf,
   tasksOf,
   TODAY,
   TRASH,
@@ -102,7 +109,7 @@ function findNode(nodes: TreeNode[], path: string): TreeNode | undefined {
 
 /** What a folder holds, all the way down, as "2 notes, 1 task list"; empty when it holds nothing. */
 function contentsOf(folder: TreeNode): string {
-  const totals = { note: 0, tasks: 0, folder: 0 };
+  const totals = { note: 0, tasks: 0, board: 0, folder: 0 };
   const visit = (nodes: TreeNode[]) => {
     for (const node of nodes) {
       totals[node.kind]++;
@@ -110,13 +117,13 @@ function contentsOf(folder: TreeNode): string {
     }
   };
   visit(folder.children ?? []);
-  return contentsText({ notes: totals.note, lists: totals.tasks, folders: totals.folder });
+  return contentsText({ notes: totals.note, lists: totals.tasks, boards: totals.board, folders: totals.folder });
 }
 
 export function App() {
   const host = useRef<HTMLDivElement>(null);
   const [session] = useState(() => new Session());
-  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, filters, trash, saved, stats, format, source, recording, recordError } =
+  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, filters, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -197,14 +204,10 @@ export function App() {
   };
   // New things go to the folder of the tab on screen, or to the inbox.
   const newFolder = (active && folderOf(active)) || INBOX;
-  const create = async (kind: 'note' | 'tasks', choice: FolderChoice, name: string) => {
-    const error = await session.create(kind, choice.folder, name, choice.create);
+  const create = async (kind: ItemKind, choice: FolderChoice, name: string, template: Template) => {
+    const error = await session.create(kind, choice.folder, name, choice.create, template);
     if (!error) setDialog(null);
     return error;
-  };
-  const openBoard = () => {
-    setDialog(null);
-    void session.openBoard(newFolder);
   };
 
   // Nothing is deleted without asking first.
@@ -217,6 +220,12 @@ export function App() {
       const message =
         total > 0 ? t('delete.listWithTasks', { name, tasks: t('count.tasks', { count: total }) }) : t('delete.listText', { name });
       ask(t('delete.list'), message, () => void session.trash(path));
+    } else if (isBoardPath(path)) {
+      const name = quote(boardName(path));
+      const total = boards[path]?.cards.length ?? 0;
+      const message =
+        total > 0 ? t('delete.boardWithCards', { name, cards: t('count.cards', { count: total }) }) : t('delete.boardText', { name });
+      ask(t('delete.board'), message, () => void session.trash(path));
     } else {
       const name = quote(titles[path] ?? t('note.untitled'));
       ask(t('delete.note'), t('delete.noteText', { name }), () => void session.trash(path));
@@ -319,13 +328,13 @@ export function App() {
     event.preventDefault();
     setMenu({ at: { x: event.clientX, y: event.clientY }, items });
   };
-  // The menu of a note or a task list; the inbox's own list has none.
+  // The menu of a note, a task list or a board; the inbox's own list has none.
   const itemMenu = (event: MouseEvent, path: string) =>
     path !== INBOX_TASKS &&
     openMenu(event, [
       { label: t('menu.moveTo'), run: () => setDialog({ kind: 'move', path }) },
       { label: t('menu.rename'), run: () => setDialog({ kind: 'rename', path }) },
-      ...(isTaskListPath(path) ? [] : [{ label: t('menu.history'), run: () => void showHistory(path) }]),
+      ...(isTaskListPath(path) || isBoardPath(path) ? [] : [{ label: t('menu.history'), run: () => void showHistory(path) }]),
       { label: t('menu.delete'), run: () => deleteItem(path) },
     ]);
   // The inbox is always there; it cannot be deleted. A new note shows at once, out from under the drawer.
@@ -399,6 +408,7 @@ export function App() {
   const dueNow = dueToday(tasks, today);
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length, [TRASH]: trash.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
+  for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const filter of filters) {
     counts[filterTab(filter.id)] = filterTasks(filter, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0);
   }
@@ -472,7 +482,7 @@ export function App() {
               }}
               onMouseDown={(event) => event.button === 1 && void session.close(id)}
               onContextMenu={(event) => {
-                const path = isNote(id) ? id : listOf(id);
+                const path = pathOf(id);
                 if (path) itemMenu(event, path);
               }}
             >
@@ -582,7 +592,6 @@ export function App() {
           folders={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
           folder={newFolder}
           onCreate={create}
-          onBoard={openBoard}
           onFilter={() => setDialog({ kind: 'filter', filter: null })}
           onClose={closeDialog}
         />
@@ -617,7 +626,7 @@ export function App() {
       )}
       {dialog?.kind === 'rename' && (
         <RenameDialog
-          name={isTaskListPath(dialog.path) ? listName(dialog.path) : (titles[dialog.path] ?? '')}
+          name={isTaskListPath(dialog.path) ? listName(dialog.path) : isBoardPath(dialog.path) ? boardName(dialog.path) : (titles[dialog.path] ?? '')}
           onRename={(name) => session.rename(dialog.path, name)}
           onClose={closeDialog}
         />

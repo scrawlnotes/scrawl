@@ -1,4 +1,4 @@
-import { DUE_RULES, type FilterChoices, filterName, type Priority, type TaskFilter } from '@scrawlnotes/core';
+import { DUE_RULES, type FilterChoices, filterName, type Priority, type TaskFilter, type Template } from '@scrawlnotes/core';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type FormEvent,
@@ -133,7 +133,7 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
 }
 
 export type NewKind = 'note' | 'tasks' | 'board' | 'filter';
-type ItemKind = Exclude<NewKind, 'board' | 'filter'>;
+export type ItemKind = Exclude<NewKind, 'filter'>;
 
 const KINDS: { kind: NewKind; label: MessageKey; icon: IconName }[] = [
   { kind: 'note', label: 'create.note', icon: 'note' },
@@ -143,18 +143,16 @@ const KINDS: { kind: NewKind; label: MessageKey; icon: IconName }[] = [
 ];
 
 /**
- * Creates a note, a task list or a board. The kind is chosen first; a note or a task list then
- * gets a name, which may be left empty, and a folder.
+ * Creates a note, a task list or a board. The kind is chosen first; the item then gets a name,
+ * which may be left empty, and a folder; a board also starts from a template.
  */
-export function NewDialog({ folders, folder, onCreate, onBoard, onFilter, onClose }: {
+export function NewDialog({ folders, folder, onCreate, onFilter, onClose }: {
   /** Every folder, the inbox first. */
   folders: string[];
   /** The folder chosen to begin with. */
   folder: string;
   /** Returns a message when the item cannot be made. */
-  onCreate: (kind: ItemKind, folder: FolderChoice, name: string) => Promise<string | null>;
-  /** Boards have no name or folder to ask for yet. */
-  onBoard: () => void;
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template) => Promise<string | null>;
   /** A filter has a window of its own. */
   onFilter: () => void;
   onClose: () => void;
@@ -165,13 +163,17 @@ export function NewDialog({ folders, folder, onCreate, onBoard, onFilter, onClos
       <NewItemForm kind={kind} folders={folders} folder={folder} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
     );
   }
-  return (
-    <KindChoice
-      onPick={(picked) => (picked === 'board' ? onBoard() : picked === 'filter' ? onFilter() : setKind(picked))}
-      onClose={onClose}
-    />
-  );
+  return <KindChoice onPick={(picked) => (picked === 'filter' ? onFilter() : setKind(picked))} onClose={onClose} />;
 }
+
+const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard' };
+const NAME_HINTS: Record<ItemKind, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName' };
+
+/** The two ways a board can start: its columns by kind, and whether phases are on. */
+const TEMPLATES: { template: Template; label: MessageKey; text: MessageKey; columns: string[] }[] = [
+  { template: 'software', label: 'create.software', text: 'create.softwareText', columns: ['backlog', 'active', 'active', 'review', 'done'] },
+  { template: 'simple', label: 'create.simple', text: 'create.simpleText', columns: ['active', 'active', 'done'] },
+];
 
 /** Asks what to create: press its number, or choose with the arrow keys or the mouse. */
 function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onClose: () => void }) {
@@ -209,26 +211,30 @@ function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onCl
   );
 }
 
-/** The second step of Create: a name, which may be left empty, and the folder to put the item in. */
+/**
+ * The second step of Create: a name, which may be left empty, the folder to put the item in,
+ * and for a board the template it starts from.
+ */
 function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
   kind: ItemKind;
   folders: string[];
   folder: string;
-  onCreate: (kind: ItemKind, folder: FolderChoice, name: string) => Promise<string | null>;
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template) => Promise<string | null>;
   onBack: () => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState('');
+  const [template, setTemplate] = useState<Template>('software');
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
   const picker = useFolderPicker(folders, folder);
-  const title = kind === 'note' ? t('create.newNote') : t('create.newList');
+  const title = t(TITLES[kind]);
 
   const create = async () => {
     const choice = picker.choiceAt(picker.selected);
     if (!choice || busy.current) return;
     busy.current = true;
-    const failed = await onCreate(kind, choice, name);
+    const failed = await onCreate(kind, choice, name, template);
     busy.current = false;
     setError(failed);
   };
@@ -248,7 +254,7 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
         <input
           id="new-name"
           autoFocus
-          placeholder={kind === 'note' ? t('create.noteName') : t('create.listName')}
+          placeholder={t(NAME_HINTS[kind])}
           value={name}
           onChange={(event) => {
             setName(event.target.value);
@@ -271,6 +277,31 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
       <div className="field-list">
         <FolderList picker={picker} empty={t('create.typeToCreate')} onPick={picker.select} />
       </div>
+      {kind === 'board' && (
+        <div className="field templates-field">
+          <span id="new-template-label">{t('create.template')}</span>
+          <div className="templates" role="radiogroup" aria-labelledby="new-template-label">
+            {TEMPLATES.map((item) => (
+              <button
+                key={item.template}
+                type="button"
+                role="radio"
+                aria-checked={template === item.template}
+                onClick={() => setTemplate(item.template)}
+              >
+                <b>{t(item.label)}</b>
+                <span className="cols">
+                  {item.columns.map((column, i) => (
+                    <i key={i} className={column} />
+                  ))}
+                </span>
+                <small>{t(item.text)}</small>
+              </button>
+            ))}
+          </div>
+          <p className="dialog-hint">{t('create.templateHint')}</p>
+        </div>
+      )}
       {error && <p role="alert">{error}</p>}
       <div className="dialog-actions">
         <button type="button" onClick={onBack}>

@@ -16,6 +16,11 @@
   --sl-hl-function: #7ab0f5;
   --sl-hl-type: #5ccfc0;
   --sl-hl-property: #b8c4d9;
+  /* What a board's column kinds are coloured: active, review, done and dropped; backlog has none. */
+  --sl-kind-active: #6aa5f0;
+  --sl-kind-review: var(--sl-accent);
+  --sl-kind-done: #5cb87a;
+  --sl-kind-dropped: #f0706a;
   --sl-font-ui: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   --sl-font-mono: 'JetBrains Mono', Consolas, 'Courier New', monospace;
   --sl-font-editor: var(--sl-font-mono);
@@ -39,6 +44,9 @@
   --sl-hl-function: #2360b8;
   --sl-hl-type: #0f7a70;
   --sl-hl-property: #3d4656;
+  --sl-kind-active: #2f6fc4;
+  --sl-kind-done: #2e8a55;
+  --sl-kind-dropped: #c9342c;
 }
 
 html,
@@ -926,6 +934,78 @@ input:focus {
 
 .field-list .choices {
   max-height: 30vh;
+}
+
+/* The Board step of Create: a template is a card with its columns drawn by kind. */
+.templates-field {
+  align-items: start;
+}
+
+.templates-field > span {
+  padding-top: 10px;
+}
+
+.templates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.templates button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  text-align: left;
+}
+
+.templates button[aria-checked='true'] {
+  border-color: var(--sl-accent);
+  background: color-mix(in srgb, var(--sl-accent) 8%, transparent);
+}
+
+.templates b {
+  color: var(--sl-fg);
+  font-size: 12.5px;
+}
+
+.templates .cols {
+  display: flex;
+  gap: 3px;
+}
+
+.templates .cols i {
+  flex: 1;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--sl-line);
+}
+
+.templates .cols i.active {
+  background: color-mix(in srgb, var(--sl-kind-active) 55%, var(--sl-line));
+}
+
+.templates .cols i.review {
+  background: color-mix(in srgb, var(--sl-kind-review) 55%, var(--sl-line));
+}
+
+.templates .cols i.done {
+  background: color-mix(in srgb, var(--sl-kind-done) 55%, var(--sl-line));
+}
+
+.templates small {
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.templates-field .dialog-hint {
+  grid-column: 2;
+  margin: 0;
 }
 
 .dialog-actions {

@@ -1,3 +1,4 @@
+import { BOARD_EXT } from './board';
 import { join, type VaultFs } from './fs';
 import { TASK_LIST_EXT } from './tasks';
 
@@ -5,7 +6,7 @@ import { TASK_LIST_EXT } from './tasks';
 
 /** A file name split into the name the user sees and the extension that says what the file is. */
 export function splitName(name: string): [string, string] {
-  if (name.endsWith(TASK_LIST_EXT)) return [name.slice(0, -TASK_LIST_EXT.length), TASK_LIST_EXT];
+  for (const ext of [TASK_LIST_EXT, BOARD_EXT]) if (name.endsWith(ext)) return [name.slice(0, -ext.length), ext];
   const dot = name.lastIndexOf('.');
   return dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
 }

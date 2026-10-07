@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryFs, PART_SIZE } from './fs';
+import { addCard, loadBoard, saveBoard } from './board';
 import { addTask, loadTasks, serializeTasks } from './tasks';
 import {
+  boardName,
+  createBoard,
   createFolder,
   createNote,
   createScratchNote,
@@ -121,6 +124,35 @@ describe('vault', () => {
     expect(listName('Inbox/Tasks 2.tasks.json')).toBe('Tasks 2');
   });
 
+  it('creates boards from a template, called Board without a name, with keys after the name', async () => {
+    const fs = new MemoryFs();
+    expect(await createBoard(fs, 'Work', '', 'simple')).toBe('Work/Board.board.json');
+    expect(await createBoard(fs, 'Work', '', 'simple')).toBe('Work/Board 2.board.json');
+    expect(await createBoard(fs, 'Work', 'Client portal.board.json', 'software')).toBe('Work/Client portal.board.json');
+    const simple = await loadBoard(fs, 'Work/Board.board.json');
+    expect(simple.columns.map((c) => c.name)).toEqual(['Todo', 'Doing', 'Done']);
+    expect(simple.prefix).toBe('BOA');
+    const software = await loadBoard(fs, 'Work/Client portal.board.json');
+    expect(software.columns).toHaveLength(5);
+    expect(software.prefix).toBe('CP');
+    expect(boardName('Work/Client portal.board.json')).toBe('Client portal');
+    expect((await readTree(fs, 'Work')).map((n) => [n.kind, n.title])).toEqual([
+      ['board', 'Board'],
+      ['board', 'Board 2'],
+      ['board', 'Client portal'],
+    ]);
+    await expect(createBoard(fs, 'Work', '.hidden', 'simple')).rejects.toThrow();
+  });
+
+  it('renames and moves a board, keeping it a board', async () => {
+    const fs = new MemoryFs();
+    const path = await createBoard(fs, 'Work', 'Roadmap', 'software');
+    expect(await renameItem(fs, path, 'Plan')).toBe('Work/Plan.board.json');
+    await fs.mkdir('Done');
+    expect(await moveItem(fs, 'Work/Plan.board.json', 'Done')).toBe('Done/Plan.board.json');
+    expect((await loadBoard(fs, 'Done/Plan.board.json')).columns).toHaveLength(5);
+  });
+
   it('renames a note within its folder', async () => {
     const fs = new MemoryFs();
     await fs.writeText('Work/2026-10-05 143207.md', 'text');
@@ -205,7 +237,7 @@ describe('trash', () => {
         title: 'Old',
         from: 'Old',
         deleted: later.toISOString(),
-        holds: { notes: 2, lists: 0, folders: 2 },
+        holds: { notes: 2, lists: 0, boards: 0, folders: 2 },
       },
       {
         path: '.scrawl/trash/2026-10-05 143207 2026-10-05 101010.md',
@@ -223,6 +255,19 @@ describe('trash', () => {
         tasks: 2,
       },
     ]);
+  });
+
+  it('lists a deleted board with how many cards it has, and a folder with its boards', async () => {
+    const fs = new MemoryFs();
+    const path = await createBoard(fs, 'Work', 'Roadmap', 'software');
+    await saveBoard(fs, path, addCard(await loadBoard(fs, path), { title: 'One' }));
+    await trashItem(fs, path, at);
+    const [item] = await readTrash(fs);
+    expect(item).toMatchObject({ kind: 'board', title: 'Roadmap', from: path, cards: 1 });
+    expect(await restoreFromTrash(fs, item!)).toBe(path);
+    await createBoard(fs, 'Work/sub', 'B', 'simple');
+    await trashFolder(fs, 'Work', at);
+    expect((await readTrash(fs))[0]).toMatchObject({ kind: 'folder', holds: { notes: 0, lists: 0, boards: 2, folders: 1 } });
   });
 
   it('never lets two deletions in the same second clash', async () => {

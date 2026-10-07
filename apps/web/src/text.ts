@@ -1,14 +1,15 @@
-import { addDays } from '@scrawlnotes/core';
+import { addDays, type Holds } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 
 /** A name as it is quoted in messages. */
 export const quote = (name: string) => t('quote', { name });
 
 /** What a folder holds, as `2 notes, 1 task list`; empty when it holds nothing. */
-export function contentsText(holds: { notes: number; lists: number; folders: number }): string {
+export function contentsText(holds: Holds): string {
   return [
     holds.notes > 0 && t('count.notes', { count: holds.notes }),
     holds.lists > 0 && t('count.lists', { count: holds.lists }),
+    holds.boards > 0 && t('count.boards', { count: holds.boards }),
     holds.folders > 0 && t('count.folders', { count: holds.folders }),
   ]
     .filter(Boolean)

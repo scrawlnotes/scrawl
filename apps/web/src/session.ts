@@ -3,6 +3,8 @@ import {
   addSection,
   addTask,
   ATTACHMENTS,
+  type Board,
+  createBoard,
   createFolder,
   createNote,
   createScratchNote,
@@ -17,11 +19,13 @@ import {
   isScratchNote,
   keepVersion,
   listVersions,
+  loadBoard,
   loadFilters,
   loadList,
   moveSection,
   moveTask,
   moveTaskToList,
+  relinkBoardNote,
   relinkNote,
   loadWorkspace,
   moveHistory,
@@ -37,6 +41,7 @@ import {
   restoreAttachments,
   restoreFromTrash,
   saveAttachment,
+  saveBoard,
   saveFile,
   saveFilters,
   saveList,
@@ -50,6 +55,7 @@ import {
   type TaskList,
   type TaskPlace,
   type TaskPatch,
+  type Template,
   trashFolder,
   trashItem,
   trashUnlinked,
@@ -91,7 +97,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardOf, filterOf, filterTab, folderOf, isNote, listOf, tabOf } from './items';
+import { boardPathOf, filterOf, filterTab, folderOf, isNote, listOf, tabOf } from './items';
 import { sampleDoc } from './sample';
 import {
   chooseVaultFolder,
@@ -157,6 +163,8 @@ export interface Snapshot {
   tasks: Record<string, Task[]>;
   /** The sections of every task list, by the path of its file. */
   sections: Record<string, Section[]>;
+  /** Every board, by the path of its file. */
+  boards: Record<string, Board>;
   /** The saved filters, in the order they were made. */
   filters: TaskFilter[];
   /** What is in the trash, the latest deleted first. */
@@ -195,6 +203,7 @@ export class Session {
     titles: {},
     tasks: {},
     sections: {},
+    boards: {},
     filters: [],
     trash: [],
     saved: true,
@@ -299,17 +308,19 @@ export class Session {
     window.addEventListener('pagehide', this.flush);
 
     const titles = titlesOf(tree);
-    const { tasks, sections } = await this.readLists(tree);
+    const { tasks, sections, boards } = await this.readLists(tree);
     const filters = await loadFilters(this.fs);
     const trash = await readTrash(this.fs);
     if (run !== this.run) return;
     const tabs = workspace.tabs.filter((id) => {
       const list = listOf(id);
+      const board = boardPathOf(id);
       const filter = filterOf(id);
       if (filter !== null) return filters.some((f) => f.id === filter);
+      if (board !== null) return board in boards;
       return list !== null ? list in tasks : id in titles || !isNote(id);
     });
-    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, filters, trash });
+    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, boards, filters, trash });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
@@ -774,21 +785,40 @@ export class Session {
     this.set({ tree, titles: titlesOf(tree), ...(await this.readLists(tree)), trash: await readTrash(this.fs) });
   }
 
-  /** Reads the inbox's task list and every other task list in the vault. */
-  private async readLists(tree: TreeNode[]): Promise<Pick<Snapshot, 'tasks' | 'sections'>> {
+  /** Reads the inbox's task list, every other task list and every board in the vault. */
+  private async readLists(tree: TreeNode[]): Promise<Pick<Snapshot, 'tasks' | 'sections' | 'boards'>> {
     const paths = [INBOX_TASKS];
+    const boardPaths: string[] = [];
     const visit = (nodes: TreeNode[]) => {
       for (const node of nodes) {
         if (node.kind === 'tasks') paths.push(node.path);
+        else if (node.kind === 'board') boardPaths.push(node.path);
         else if (node.kind === 'folder') visit(node.children ?? []);
       }
     };
     visit(tree);
     const lists = await Promise.all(paths.map(async (path) => [path, await loadList(this.fs, path)] as const));
+    const boards = await Promise.all(boardPaths.map(async (path) => [path, await loadBoard(this.fs, path)] as const));
     return {
       tasks: Object.fromEntries(lists.map(([path, list]) => [path, list.tasks])),
       sections: Object.fromEntries(lists.map(([path, list]) => [path, list.sections])),
+      boards: Object.fromEntries(boards),
     };
+  }
+
+  /** Applies a change to a board and saves it. Board files share the queue of task files. */
+  changeBoard(path: string, change: (board: Board) => Board) {
+    const current = this.snapshot.boards[path];
+    if (!current) return;
+    const next = change(current);
+    if (next === current) return;
+    this.set({ boards: { ...this.snapshot.boards, [path]: next }, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(() => saveBoard(this.fs, path, next))
+      .catch(() => undefined)
+      .then(() => {
+        this.markSaved();
+      });
   }
 
   private listAt(path: string): TaskList {
@@ -964,25 +994,26 @@ export class Session {
   }
 
   /**
-   * Creates a note or a task list called `name` (a default name when it is empty) in `folder`,
-   * which is made first when `newFolder` is set, and opens it. Returns a message when it cannot be made.
+   * Creates a note, a task list or a board called `name` (a default name when it is empty) in
+   * `folder`, which is made first when `newFolder` is set, and opens it. A board starts from
+   * `template`. Returns a message when it cannot be made.
    */
-  async create(kind: 'note' | 'tasks', folder: string, name: string, newFolder: boolean): Promise<string | null> {
+  async create(kind: 'note' | 'tasks' | 'board', folder: string, name: string, newFolder: boolean, template: Template = 'software'): Promise<string | null> {
     let path: string;
     try {
       const target = newFolder ? await createFolder(this.fs, folder) : folder;
-      path = kind === 'note' ? await createNote(this.fs, target, name) : await createTaskList(this.fs, target, name);
+      path =
+        kind === 'note'
+          ? await createNote(this.fs, target, name)
+          : kind === 'tasks'
+            ? await createTaskList(this.fs, target, name)
+            : await createBoard(this.fs, target, name, template);
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }
     await this.refreshTree();
     await this.open(tabOf(path));
     return null;
-  }
-
-  /** Opens the board of `folder`, a placeholder until boards are built. */
-  async openBoard(folder: string) {
-    await this.open(boardOf(folder));
   }
 
   /** Moves a tab to `index`, a gap between the tabs as they are now: 0 is before the first. */
@@ -1027,7 +1058,7 @@ export class Session {
     if (discard) await this.refreshTree();
   }
 
-  /** Moves a note or a task list to the trash. */
+  /** Moves a note, a task list or a board to the trash. */
   async trash(path: string) {
     await this.settle();
     await trashItem(this.fs, path);
@@ -1067,7 +1098,7 @@ export class Session {
     await this.refreshTree();
   }
 
-  /** A note or a task list changed its path: its tab and its editing state follow it. */
+  /** A note, a task list or a board changed its path: its tab and its editing state follow it. */
   private async repath(path: string, target: string) {
     const state = this.states.get(path);
     if (state) {
@@ -1082,8 +1113,9 @@ export class Session {
     if (path.endsWith('.md')) {
       await moveHistory(this.fs, path, target).catch(() => undefined);
       this.versionedAt.delete(path);
-      // Tasks made from the note link to it where it is now.
+      // Tasks and cards made from the note link to it where it is now.
       for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkNote(current, path, target));
+      for (const board of Object.keys(this.snapshot.boards)) this.changeBoard(board, (current) => relinkBoardNote(current, path, target));
     }
     const [from, to] = [tabOf(path), tabOf(target)];
     const { tabs, active } = this.snapshot;
@@ -1092,14 +1124,14 @@ export class Session {
     await this.refreshTree();
   }
 
-  /** Moves a note or a task list into `folder`. */
+  /** Moves a note, a task list or a board into `folder`. */
   async move(path: string, folder: string) {
     if (dirname(path) === folder) return;
     await this.settle();
     await this.repath(path, await moveItem(this.fs, path, folder));
   }
 
-  /** Moves a note or a task list into a folder that is created for it. Returns a message when the name cannot be used. */
+  /** Moves a note, a task list or a board into a folder that is created for it. Returns a message when the name cannot be used. */
   async moveToNewFolder(path: string, name: string): Promise<string | null> {
     try {
       await this.move(path, await createFolder(this.fs, name));
@@ -1109,7 +1141,7 @@ export class Session {
     }
   }
 
-  /** Gives a note or a task list a name. Returns a message when the name cannot be used. */
+  /** Gives a note, a task list or a board a name. Returns a message when the name cannot be used. */
   async rename(path: string, name: string): Promise<string | null> {
     await this.settle();
     try {

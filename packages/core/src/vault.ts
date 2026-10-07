@@ -1,4 +1,5 @@
 import { t } from '@scrawlnotes/i18n';
+import { BOARD_EXT, loadBoard, newBoard, serializeBoard, type Template } from './board';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
 import { loadTasks, serializeTasks, TASK_LIST_EXT } from './tasks';
@@ -16,8 +17,8 @@ const WORKSPACE = `${APP_DIR}/workspace.json`;
 export interface TreeNode {
   name: string;
   path: string;
-  kind: 'note' | 'tasks' | 'folder';
-  /** What a note or a task list is called in the interface. */
+  kind: 'note' | 'tasks' | 'board' | 'folder';
+  /** What a note, a task list or a board is called in the interface. */
   title?: string;
   children?: TreeNode[];
 }
@@ -30,6 +31,7 @@ export interface Workspace {
 
 const isNote = (entry: Entry) => entry.kind === 'file' && entry.name.endsWith('.md');
 const isTaskList = (entry: Entry) => entry.kind === 'file' && entry.name.endsWith(TASK_LIST_EXT);
+const isBoard = (entry: Entry) => entry.kind === 'file' && entry.name.endsWith(BOARD_EXT);
 // Dot and underscore names hold app state and attachments, not notes.
 const isHidden = (name: string) => name.startsWith('.') || name.startsWith('_');
 
@@ -67,6 +69,9 @@ export const isScratchNote = (path: string) => SCRATCH_NAME.test(basename(path))
 export function listName(path: string): string {
   return path === INBOX_TASKS ? t('tasks.defaultList') : basename(path).slice(0, -TASK_LIST_EXT.length);
 }
+
+/** What a board is called: its file name. */
+export const boardName = (path: string) => basename(path).slice(0, -BOARD_EXT.length);
 
 /** Paths of files being written in parts, which no other file may take until they are there. */
 const writing = new Set<string>();
@@ -115,6 +120,17 @@ export async function createTaskList(fs: VaultFs, folder: string, name: string):
   return path;
 }
 
+/**
+ * Creates a board in `folder` from a template, which only sets its start. Without a name it is
+ * called Board, numbered when taken; the keys of its cards start with letters from its name.
+ */
+export async function createBoard(fs: VaultFs, folder: string, name: string, template: Template): Promise<string> {
+  const base = name.trim() ? fileName(name, BOARD_EXT) : t('boards.defaultName');
+  const path = freePath(folder, base, BOARD_EXT, await names(fs, folder));
+  await fs.writeText(path, serializeBoard(newBoard(boardName(path), template)));
+  return path;
+}
+
 export async function createFolder(fs: VaultFs, name: string): Promise<string> {
   const clean = cleanName(name);
   if (!clean || isHidden(clean)) throw new Error(t('error.folderName'));
@@ -122,7 +138,7 @@ export async function createFolder(fs: VaultFs, name: string): Promise<string> {
   return clean;
 }
 
-/** Moves a note or a task list into `folder` and returns its new path. */
+/** Moves a note, a task list or a board into `folder` and returns its new path. */
 export async function moveItem(fs: VaultFs, path: string, folder: string): Promise<string> {
   const [name, ext] = splitName(basename(path));
   const target = freePath(folder, name, ext, await names(fs, folder));
@@ -200,7 +216,7 @@ export interface TrashItem {
   /** Where it is in the trash. */
   path: string;
   /** An attachment is a file that no note linked to any more. */
-  kind: 'note' | 'tasks' | 'folder' | 'attachment';
+  kind: 'note' | 'tasks' | 'board' | 'folder' | 'attachment';
   /** What it was called in the interface. */
   title: string;
   /** The path it had, which it is restored to. */
@@ -208,21 +224,32 @@ export interface TrashItem {
   /** When it was deleted, as an ISO time. */
   deleted: string;
   /** What a folder holds, all the way down. */
-  holds?: { notes: number; lists: number; folders: number };
+  holds?: Holds;
   /** How many tasks a task list has. */
   tasks?: number;
+  /** How many cards a board has. */
+  cards?: number;
   /** An attachment's size in bytes. */
   size?: number;
 }
 
-async function countTree(fs: VaultFs, dir: string): Promise<{ notes: number; lists: number; folders: number }> {
-  const holds = { notes: 0, lists: 0, folders: 0 };
+/** What a folder holds, all the way down. */
+export interface Holds {
+  notes: number;
+  lists: number;
+  boards: number;
+  folders: number;
+}
+
+async function countTree(fs: VaultFs, dir: string): Promise<Holds> {
+  const holds: Holds = { notes: 0, lists: 0, boards: 0, folders: 0 };
   const visit = async (path: string) => {
     for (const entry of await fs.list(path)) {
       if (entry.kind === 'dir') {
         holds.folders++;
         await visit(entry.path);
       } else if (entry.name.endsWith(TASK_LIST_EXT)) holds.lists++;
+      else if (entry.name.endsWith(BOARD_EXT)) holds.boards++;
       else if (entry.name.endsWith('.md')) holds.notes++;
     }
   };
@@ -247,8 +274,9 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
     }
     const isFolder = entry.kind === 'dir';
     const isList = !isFolder && entry.name.endsWith(TASK_LIST_EXT);
+    const isBoardFile = !isFolder && entry.name.endsWith(BOARD_EXT);
     // Anything else was not put there by the app.
-    if (!isFolder && !isList && !entry.name.endsWith('.md')) continue;
+    if (!isFolder && !isList && !isBoardFile && !entry.name.endsWith('.md')) continue;
     // Trash names start with the moment of deleting: `2026-10-05 143207 Plan.md`.
     const stamped = parseStamp(entry.name);
     const name = record ? basename(record.from) : stamped?.rest.startsWith(' ') ? stamped.rest.slice(1) : entry.name;
@@ -257,6 +285,7 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
     const item = { path: entry.path, from, deleted };
     if (isFolder) items.push({ ...item, kind: 'folder', title: name, holds: await countTree(fs, entry.path) });
     else if (isList) items.push({ ...item, kind: 'tasks', title: listName(name), tasks: (await loadTasks(fs, entry.path)).length });
+    else if (isBoardFile) items.push({ ...item, kind: 'board', title: boardName(name), cards: (await loadBoard(fs, entry.path)).cards.length });
     else {
       // Only a note that was never named shows its first line, so only then is it read.
       const text = SCRATCH_NAME.test(name) ? await fs.readText(entry.path) : '';
@@ -305,7 +334,7 @@ export async function emptyTrash(fs: VaultFs, unsaved: string[] = []): Promise<v
   await removeAttachmentsOf(fs, texts, unsaved);
 }
 
-/** Notes and task lists are what can link to attached files. */
+/** Notes, task lists and boards are what can link to attached files. */
 const canLink = (name: string) => name.endsWith('.md') || name.endsWith('.json');
 
 /** The text of every note and task list at `path`: a file, or a folder all the way down. */
@@ -470,22 +499,25 @@ export async function saveFile(fs: VaultFs, file: File, options: PartsOptions = 
 }
 
 /**
- * Reads the folders, task lists and notes of a vault: the inbox first, then task lists, then
- * folders, then notes, each by name.
+ * Reads the folders, task lists, boards and notes of a vault: the inbox first, then task lists,
+ * then boards, then folders, then notes, each by name.
  */
 export async function readTree(fs: VaultFs, dir = ''): Promise<TreeNode[]> {
   const entries = (await fs.list(dir)).filter(
-    (e) => !isHidden(e.name) && (e.kind === 'dir' || isNote(e) || isTaskList(e)),
+    (e) => !isHidden(e.name) && (e.kind === 'dir' || isNote(e) || isTaskList(e) || isBoard(e)),
   );
   const nodes = await Promise.all(
     entries.map(async (e): Promise<TreeNode> => {
       if (e.kind === 'dir') return { name: e.name, path: e.path, kind: 'folder', children: await readTree(fs, e.path) };
       if (isTaskList(e)) return { name: e.name, path: e.path, kind: 'tasks', title: listName(e.path) };
+      if (isBoard(e)) return { name: e.name, path: e.path, kind: 'board', title: boardName(e.path) };
       return { name: e.name, path: e.path, kind: 'note', title: displayTitle(e.path, await fs.readText(e.path)) };
     }),
   );
-  const rank = (n: TreeNode) => (n.path === INBOX ? 0 : n.kind === 'tasks' ? 1 : n.kind === 'folder' ? 2 : 3);
-  return nodes.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const rank = (n: TreeNode) => (n.path === INBOX ? 0 : n.kind === 'tasks' ? 1 : n.kind === 'board' ? 2 : n.kind === 'folder' ? 3 : 4);
+  // Names compare without their extension, so that `Board 2` comes after `Board`.
+  const plain = (n: TreeNode) => (n.kind === 'folder' ? n.name : splitName(n.name)[0]);
+  return nodes.sort((a, b) => rank(a) - rank(b) || plain(a).localeCompare(plain(b), undefined, { numeric: true }));
 }
 
 export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
