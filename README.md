@@ -3,7 +3,7 @@
 Work notes that behave like the tabs you never close: open, type, and it is kept.
 Plain Markdown files, a separate task manager, and sync to your own cloud drive. No server.
 
-Status: phase 1, the desktop editor, is close to done; sync is not built yet. See [PLAN.md](PLAN.md)
+Status: the editor, task lists and boards are in daily use; settings and sync come next. See [PLAN.md](PLAN.md)
 for the roadmap (in Turkish).
 
 ## What it does today
@@ -16,6 +16,11 @@ for the roadmap (in Turkish).
 - **Task lists** live in folders, as many as you want, with sections, subtasks, priorities, due
   dates and descriptions, reordered by dragging. Today, Upcoming and saved filters gather them
   all. A line of a note becomes a task that links back to it.
+- **Boards** are files in folders too: columns with a kind (backlog, active, review, done, dropped),
+  cards with a key like , a description in the same editor, a timeline of moves and
+  comments, and phases: ordered units of scope with a "done when" line. A board starts from a
+  Software or a Simple template and reads as columns or as a list. A card copies as a Markdown brief
+  for a person or an agent; a note's line becomes a card; a card becomes a task for today.
 - **Attached files** are selected with a click and offer Open, Show in folder and Delete. A file
   no note uses any more goes to the trash, and comes back if undo or paste links it again.
 - **Safety nets**: a trash you can restore from, and the history of every note (kept on this
