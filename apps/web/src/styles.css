@@ -207,6 +207,21 @@ input:focus {
   text-overflow: ellipsis;
 }
 
+/* "Show 305 more" under the first items of a long folder: quieter than the items, its words
+   where their names begin */
+.it.more {
+  color: var(--sl-faint);
+}
+
+.it.more:hover {
+  color: var(--sl-fg);
+}
+
+.it.more .it-main span {
+  padding-left: 19px;
+  font-size: 12px;
+}
+
 .it .chev {
   flex: none;
   width: 10px;

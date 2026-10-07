@@ -191,6 +191,8 @@ export const en = {
   'side.open': 'Folders and views',
   'side.more': 'More',
   'side.moveToTrash': 'Move to trash',
+  'side.showMore': 'Show {count} more',
+  'side.showLess': 'Show less',
 
   // menus
   'menu.moveTo': 'Move to…',

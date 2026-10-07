@@ -2,10 +2,34 @@ import { INBOX, INBOX_TASKS, type TaskFilter, type TreeNode } from '@scrawlnotes
 import { t } from '@scrawlnotes/i18n';
 import { type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useState } from 'react';
 import { Icon } from './Icon';
-import { filterTab, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 
 // A note or a task list being dragged onto a folder.
 const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
+
+/** A folder with more than this many items shows only its first `SHOWN`, and how many more there are. */
+const MANY = 20;
+const SHOWN = 15;
+/** The folders shown in full on this device, by path; `''` is the top of the tree. */
+const SHOWN_IN_FULL = 'scrawl.sideShownInFull';
+
+function loadShownInFull(): ReadonlySet<string> {
+  try {
+    const kept = JSON.parse(localStorage.getItem(SHOWN_IN_FULL) ?? '[]') as unknown;
+    return new Set(Array.isArray(kept) ? kept.filter((path): path is string => typeof path === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveShownInFull(paths: ReadonlySet<string>) {
+  try {
+    if (paths.size === 0) localStorage.removeItem(SHOWN_IN_FULL);
+    else localStorage.setItem(SHOWN_IN_FULL, JSON.stringify([...paths]));
+  } catch {
+    // Not kept: it holds until the app closes.
+  }
+}
 
 interface Props {
   tree: TreeNode[];
@@ -49,6 +73,7 @@ export function Sidebar({
   settingsOpen,
 }: Props) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [shownInFull, setShownInFull] = useState(loadShownInFull);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [folderName, setFolderName] = useState<string | null>(null);
   const [folderError, setFolderError] = useState<string | null>(null);
@@ -59,6 +84,53 @@ export function Sidebar({
       if (!next.delete(path)) next.add(path);
       return next;
     });
+
+  const showInFull = (path: string, full: boolean) =>
+    setShownInFull((current) => {
+      const next = new Set(current);
+      if (full) next.add(path);
+      else next.delete(path);
+      saveShownInFull(next);
+      return next;
+    });
+
+  // The file of the tab on screen: never hidden among the items a long folder does not show.
+  const activePath = active === null ? null : pathOf(active);
+  const holdsActive = (node: TreeNode) =>
+    activePath !== null && (node.path === activePath || (node.kind === 'folder' && activePath.startsWith(`${node.path}/`)));
+
+  /**
+   * The rows of a folder's items, or of the top of the tree. A long one shows its first items,
+   * the one on screen if it is further down, and a row with how many more there are; shown in
+   * full, it ends with a row to show less.
+   */
+  const rows = (key: string, nodes: TreeNode[], depth: number): ReactNode => {
+    const row = (node: TreeNode) => (node.kind === 'folder' ? folderRow(node, depth) : itemRow(node, depth));
+    if (nodes.length <= MANY) return nodes.map(row);
+    if (shownInFull.has(key)) {
+      return (
+        <>
+          {nodes.map(row)}
+          <div className={`it more d${depth}`}>
+            <button type="button" className="it-main" onClick={() => showInFull(key, false)}>
+              <span>{t('side.showLess')}</span>
+            </button>
+          </div>
+        </>
+      );
+    }
+    const shown = nodes.filter((node, index) => index < SHOWN || holdsActive(node));
+    return (
+      <>
+        {shown.map(row)}
+        <div className={`it more d${depth}`}>
+          <button type="button" className="it-main" onClick={() => showInFull(key, true)}>
+            <span>{t('side.showMore', { count: nodes.length - shown.length })}</span>
+          </button>
+        </div>
+      </>
+    );
+  };
 
   const submitFolder = async (event: FormEvent) => {
     event.preventDefault();
@@ -127,8 +199,7 @@ export function Sidebar({
     );
   };
 
-  const children = (node: TreeNode, depth: number): ReactNode =>
-    node.children?.map((child) => (child.kind === 'folder' ? folderRow(child, depth) : itemRow(child, depth)));
+  const children = (node: TreeNode, depth: number): ReactNode => rows(node.path, node.children ?? [], depth);
 
   const folderRow = (node: TreeNode, depth: number): ReactNode => {
     const open = !collapsed.has(node.path);
@@ -215,9 +286,11 @@ export function Sidebar({
             {folderError && <p role="alert">{folderError}</p>}
           </form>
         )}
-        {tree
-          .filter((node) => node.path !== INBOX)
-          .map((node) => (node.kind === 'folder' ? folderRow(node, 0) : itemRow(node, 0)))}
+        {rows(
+          '',
+          tree.filter((node) => node.path !== INBOX),
+          0,
+        )}
       </nav>
       {/* The trash stays at the foot of the sidebar, apart from the folders, with the settings beside it. */}
       <div className="side-foot">
