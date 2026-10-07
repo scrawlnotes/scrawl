@@ -1,7 +1,17 @@
 import { type Board, type Card, type CardPatch, dayOf, keyOf, type Priority, type TimelineEntry } from '@scrawlnotes/core';
 import type { ScrawlEditor, ScrawlViewer } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { MenuItem } from './dialogs';
 import { boardLabel } from './items';
 import { clockTime, pastDayLabel } from './text';
@@ -50,6 +60,157 @@ function MarkdownView({ text, viewer }: { text: string; viewer: CardPanelActions
 
 const SAVE_DELAY_MS = 400;
 const PRIORITIES: Priority[] = [1, 2, 3, 4];
+/** How many of the board's labels are offered at once while one is typed. */
+const OFFERED_LABELS = 6;
+
+/** A label's colour, the same every time it is seen: a hue from its letters. */
+export function labelHue(label: string): number {
+  let hash = 0;
+  for (const char of label) hash = (hash * 31 + char.codePointAt(0)!) % 360;
+  return hash;
+}
+
+/** A label as a chip in its colour. */
+function LabelChip({ label, children }: { label: string; children?: ReactNode }) {
+  return (
+    <span className="lbl" style={{ '--lh': labelHue(label) } as CSSProperties}>
+      {label}
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The card's labels as chips, each with an × that takes it off, and a field at their end that
+ * adds one with Enter or a comma. While it has focus the labels used elsewhere on the board are
+ * offered, the most used first; the arrow keys and Enter, or a click, pick one.
+ */
+function LabelField({ board, labels, onChange }: { board: Board; labels: string[]; onChange: (labels: string[]) => void }) {
+  const [text, setText] = useState('');
+  const [open, setOpen] = useState(false);
+  const [at, setAt] = useState(-1);
+  const field = useRef<HTMLInputElement>(null);
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const known = useMemo(() => {
+    const uses = new Map<string, number>();
+    for (const card of board.cards) for (const label of card.labels ?? []) uses.set(label, (uses.get(label) ?? 0) + 1);
+    return [...uses].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([label]) => label);
+  }, [board]);
+  const query = text.trim().toLowerCase();
+  const offered = open
+    ? known.filter((label) => !labels.some((l) => same(l, label)) && label.toLowerCase().includes(query)).slice(0, OFFERED_LABELS)
+    : [];
+
+  const add = (typed: string[]) => {
+    const next = [...labels];
+    for (const raw of typed) {
+      const clean = raw.trim();
+      if (!clean || next.some((l) => same(l, clean))) continue;
+      // A label the board already has keeps the way it is written there.
+      next.push(known.find((l) => same(l, clean)) ?? clean);
+    }
+    if (next.length !== labels.length) onChange(next);
+  };
+  const type = (value: string) => {
+    // A comma ends a label, also in pasted text: what comes before each one is added.
+    const parts = value.split(',');
+    if (parts.length > 1) add(parts.slice(0, -1));
+    setText(parts[parts.length - 1]!);
+    setAt(-1);
+  };
+  const pick = (label: string) => {
+    add([label]);
+    setText('');
+    setAt(-1);
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      const chosen = offered[at];
+      if (chosen) pick(chosen);
+      else if (text.trim()) pick(text);
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (offered.length === 0) return;
+      const last = offered.length - 1;
+      setAt((current) => (event.key === 'ArrowDown' ? (current >= last ? 0 : current + 1) : current <= 0 ? last : current - 1));
+    } else if (event.key === 'Backspace' && text === '' && labels.length > 0) {
+      onChange(labels.slice(0, -1));
+    } else if (event.key === 'Escape') {
+      if (text || at >= 0) {
+        setText('');
+        setAt(-1);
+      } else field.current?.blur();
+    } else return;
+    event.preventDefault();
+  };
+
+  return (
+    <div className="lbl-pick">
+      <div
+        className="lbl-field"
+        onMouseDown={(event) => {
+          // A click beside the chips is a click in the field.
+          if (event.target !== event.currentTarget) return;
+          event.preventDefault();
+          field.current?.focus();
+        }}
+      >
+        {labels.map((label) => (
+          <LabelChip key={label} label={label}>
+            <button
+              type="button"
+              className="lbl-x"
+              title={t('card.removeLabel', { label })}
+              aria-label={t('card.removeLabel', { label })}
+              onClick={() => onChange(labels.filter((l) => l !== label))}
+            >
+              ×
+            </button>
+          </LabelChip>
+        ))}
+        <input
+          ref={field}
+          id="card-labels"
+          aria-label={t('card.labels')}
+          aria-expanded={offered.length > 0}
+          aria-controls="card-labels-offered"
+          aria-autocomplete="list"
+          role="combobox"
+          autoComplete="off"
+          placeholder={labels.length === 0 ? t('card.addLabel') : ''}
+          value={text}
+          onChange={(event) => type(event.target.value)}
+          onFocus={() => setOpen(true)}
+          onBlur={() => {
+            // What was typed and not added yet is kept.
+            add([text]);
+            setText('');
+            setAt(-1);
+            setOpen(false);
+          }}
+          onKeyDown={onKeyDown}
+        />
+      </div>
+      {offered.length > 0 && (
+        <div className="lbl-menu" id="card-labels-offered" role="listbox" aria-label={t('card.boardLabels')}>
+          {offered.map((label, index) => (
+            <button
+              key={label}
+              type="button"
+              role="option"
+              aria-selected={index === at}
+              tabIndex={-1}
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setAt(index)}
+              onClick={() => pick(label)}
+            >
+              <LabelChip label={label} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** A moment on the timeline: the time of day today, else the day. */
 function when(iso: string, today: string): string {
@@ -340,13 +501,7 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
             ))}
           </select>
           <label htmlFor="card-labels">{t('card.labels')}</label>
-          <TextField
-            id="card-labels"
-            label={t('card.labels')}
-            placeholder={t('card.labelsHint')}
-            value={card.labels?.join(', ') ?? ''}
-            onSave={(text) => update({ labels: text.split(',').map((l) => l.trim()).filter(Boolean) })}
-          />
+          <LabelField board={board} labels={card.labels ?? []} onChange={(labels) => update({ labels })} />
           <label htmlFor="card-due">{t('card.due')}</label>
           <input id="card-due" type="date" value={card.due ?? ''} onChange={(event) => update({ due: event.target.value || null })} />
           <label htmlFor="card-assignee">{t('card.assignee')}</label>

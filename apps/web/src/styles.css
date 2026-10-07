@@ -595,6 +595,25 @@ input:focus {
   outline: none;
 }
 
+/* an item that cannot be used now, with the reason under it */
+.menu button.off {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  color: var(--sl-faint);
+  cursor: default;
+}
+
+.menu button.off:hover {
+  background: none;
+}
+
+.menu button.off small {
+  max-width: 200px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .menu kbd {
   margin-left: auto;
   color: var(--sl-faint);
@@ -2450,6 +2469,120 @@ button.cb:hover::after {
 
 .cpanel .fields input::placeholder {
   color: var(--sl-faint);
+}
+
+/* the card's labels: chips in a box like the other fields, with a field at their end and the
+   board's labels offered under it */
+.lbl-pick {
+  position: relative;
+}
+
+.lbl-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  padding: 5px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-side);
+  cursor: text;
+}
+
+.lbl-field:hover,
+.lbl-field:focus-within {
+  border-color: var(--sl-faint);
+}
+
+.cpanel .fields .lbl-field input {
+  flex: 1 0 64px;
+  width: auto;
+  padding: 0 3px;
+  border: 0;
+  background: none;
+  outline: none;
+  line-height: 19px;
+}
+
+.lbl-pick .lbl {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0 7px;
+  border-radius: 10px;
+  background: hsl(var(--lh) 60% 55% / 0.18);
+  color: hsl(var(--lh) 60% 65%);
+  font-size: 11.5px;
+  line-height: 19px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+:root[data-theme='light'] .lbl-pick .lbl {
+  color: hsl(var(--lh) 55% 35%);
+}
+
+/* the × comes up on the chip under the pointer, or with the keyboard on it */
+.lbl-x {
+  display: grid;
+  place-items: center;
+  width: 0;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 50%;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0;
+}
+
+.lbl:hover .lbl-x,
+.lbl-x:focus-visible {
+  width: 14px;
+  margin: 0 -4px 0 3px;
+  opacity: 0.7;
+}
+
+.lbl-x:hover,
+.lbl-x:focus-visible {
+  background: hsl(var(--lh) 60% 55% / 0.3);
+  outline: none;
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .lbl-x {
+    width: 14px;
+    margin: 0 -4px 0 3px;
+    opacity: 0.7;
+  }
+}
+
+.lbl-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-side);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
+}
+
+.lbl-menu button {
+  display: flex;
+  padding: 3px 5px;
+  border-radius: 4px;
+}
+
+.lbl-menu button[aria-selected='true'] {
+  background: var(--sl-sel);
 }
 
 .cp-sec {

@@ -778,6 +778,8 @@ export function ConfirmDialog({ title, message, action, onConfirm, onClose }: {
 export interface MenuItem {
   label: string;
   run: () => void;
+  /** Why the item cannot be used now; it is shown greyed out with this under it. */
+  disabled?: string;
 }
 
 /** A note the phase window can point a phase at. */
@@ -866,7 +868,7 @@ export function ContextMenu({ at, items, onClose }: { at: { x: number; y: number
     });
   }, [at]);
   useEffect(() => {
-    menu.current?.querySelector('button')?.focus();
+    menu.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
     const close = (event: MouseEvent | globalThis.KeyboardEvent) => {
       if (event instanceof MouseEvent ? !menu.current?.contains(event.target as Node) : event.key === 'Escape') onClose();
     };
@@ -881,19 +883,26 @@ export function ContextMenu({ at, items, onClose }: { at: { x: number; y: number
   }, [onClose]);
   return (
     <div ref={menu} className="menu" role="menu" style={{ left: place.x, top: place.y }}>
-      {items.map((item) => (
-        <button
-          key={item.label}
-          type="button"
-          role="menuitem"
-          onClick={() => {
-            onClose();
-            item.run();
-          }}
-        >
-          {item.label}
-        </button>
-      ))}
+      {items.map((item) =>
+        item.disabled ? (
+          <button key={item.label} type="button" role="menuitem" className="off" disabled>
+            {item.label}
+            <small>{item.disabled}</small>
+          </button>
+        ) : (
+          <button
+            key={item.label}
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              item.run();
+            }}
+          >
+            {item.label}
+          </button>
+        ),
+      )}
     </div>
   );
 }

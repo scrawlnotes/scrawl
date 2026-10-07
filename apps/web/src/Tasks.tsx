@@ -67,8 +67,8 @@ export interface TaskActions {
   cardLabel: (ref: string) => string | null;
   /** Opens a card in its board's tab. */
   openCard: (board: string, id: string) => void;
-  /** Moves a card to its board's first done column. */
-  finishCard: (board: string, id: string) => void;
+  /** Moves a card to a done column of its board: the one given, else the first. */
+  finishCard: (board: string, id: string, column?: string) => void;
 }
 
 /** What a task row or a section header does when its grip is dragged. */
@@ -954,7 +954,8 @@ export function FilterView({ filter, lists, boards, today, actions, onEdit }: {
 
 /**
  * A card among tasks, in the views over everything: its key and title, with a square box that
- * moves it to its board's first done column. The board is named unless the rows are grouped by it.
+ * moves it to its board's done column, or asks which one when the board has more than one. The
+ * board is named unless the rows are grouped by it.
  */
 function CardRow({ board, whole, card, today, actions, grouped }: {
   board: string;
@@ -966,6 +967,17 @@ function CardRow({ board, whole, card, today, actions, grouped }: {
 }) {
   const column = whole.columns.find((c) => c.id === card.column);
   const phase = card.phase ? whole.phases.find((p) => p.id === card.phase) : undefined;
+  const doneColumns = whole.columns.filter((c) => c.kind === 'done');
+  const finish = (event: MouseEvent<HTMLButtonElement>) => {
+    if (doneColumns.length < 2) return actions.finishCard(board, card.id);
+    // The menu opens under the box, also when the box is pressed from the keyboard.
+    const box = event.currentTarget.getBoundingClientRect();
+    const under = { clientX: box.left, clientY: box.bottom + 4, preventDefault: () => event.preventDefault() } as MouseEvent;
+    actions.menu(
+      under,
+      doneColumns.map((column) => ({ label: t('board.moveToColumn', { column: column.name }), run: () => actions.finishCard(board, card.id, column.id) })),
+    );
+  };
   return (
     <div className="task card-row" data-row="card">
       <button
@@ -973,8 +985,9 @@ function CardRow({ board, whole, card, today, actions, grouped }: {
         className={`cb sq p${card.priority}`}
         role="checkbox"
         aria-checked={false}
+        aria-haspopup={doneColumns.length > 1 ? 'menu' : undefined}
         aria-label={t('tasks.finishCard', { name: card.title })}
-        onClick={() => actions.finishCard(board, card.id)}
+        onClick={finish}
       />
       <div className="task-body">
         <button type="button" className="tt card-title" onClick={() => actions.openCard(board, card.id)}>

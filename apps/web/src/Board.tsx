@@ -17,7 +17,7 @@ import {
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
-import { CardPanel, type CardPanelActions } from './CardPanel';
+import { CardPanel, type CardPanelActions, labelHue } from './CardPanel';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { dueClass, dueLabel } from './Tasks';
@@ -54,13 +54,6 @@ const COLUMN_DRAG_TYPE = 'application/x-scrawl-column';
 
 /** Which phase's cards the columns show: one phase, or every card. */
 type Shown = { phase: string } | { all: true };
-
-/** A label's colour, the same every time it is seen: a hue from its letters. */
-function labelHue(label: string): number {
-  let hash = 0;
-  for (const char of label) hash = (hash * 31 + char.codePointAt(0)!) % 360;
-  return hash;
-}
 
 /** A single line typed in place: Enter keeps it, Esc or leaving it empty drops it. */
 function LineInput({ className, placeholder, initial = '', onDone, onCancel }: {
@@ -244,7 +237,10 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
       { label: t('board.addColumnAfter'), run: () => actions.addColumn(path, t('board.newColumn'), 'active', column.id) },
       ...(index > 0 ? [{ label: t('board.moveLeft'), run: () => actions.moveColumn(path, column.id, index >= 2 ? board.columns[index - 2]!.id : null) }] : []),
       ...(index < board.columns.length - 1 ? [{ label: t('board.moveRight'), run: () => actions.moveColumn(path, column.id, board.columns[index + 1]!.id) }] : []),
-      ...(lastDone || board.columns.length === 1 ? [] : [{ label: t('board.deleteColumn'), run: () => actions.removeColumn(path, column) }]),
+      // The last done column stays, and its menu says why; a board's only column stays too.
+      ...(board.columns.length === 1 && !lastDone
+        ? []
+        : [{ label: t('board.deleteColumn'), run: () => actions.removeColumn(path, column), ...(lastDone && { disabled: t('board.keepsDone') }) }]),
     ]);
   const phase = inLane ? lane : 'phase' in shown ? shown.phase : undefined;
   const add = (title: string) => actions.addCard(path, { title, column: column.id, ...(phase !== undefined && { phase }) });

@@ -471,7 +471,7 @@ export function App() {
       return whole && card ? keyOf(whole, card) : null;
     },
     openCard: showCard,
-    finishCard: (board, id) => session.finishCard(board, id),
+    finishCard: (board, id, column) => session.finishCard(board, id, column),
   };
   // A card's brief: the card as Markdown, with the note it came from.
   const copyBrief = async (board: string, id: string) => {

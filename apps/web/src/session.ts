@@ -12,6 +12,7 @@ import {
   type CardPatch,
   type CardPlace,
   closePhase,
+  columnCards,
   type ColumnKind,
   createBoard,
   createFolder,
@@ -1086,9 +1087,13 @@ export class Session {
     this.changeBoard(board, (current) => updateCard(current, id, patch));
   }
 
-  /** Moves a card to the end of the first done column: ticked off from Today. */
-  finishCard(board: string, id: string) {
-    this.changeBoard(board, (current) => moveCardToKind(current, id, 'done'));
+  /** Moves a card to the end of a done column, the one given or else the first: ticked off from Today. */
+  finishCard(board: string, id: string, column?: string) {
+    this.changeBoard(board, (current) =>
+      column
+        ? moveCard(current, id, { column, after: columnCards(current, column).filter((c) => c.id !== id).pop()?.id ?? null })
+        : moveCardToKind(current, id, 'done'),
+    );
   }
 
   addComment(board: string, id: string, text: string) {
