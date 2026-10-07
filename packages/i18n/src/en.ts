@@ -192,6 +192,12 @@ export const en = {
   'side.more': 'More',
   'side.moveToTrash': 'Move to trash',
   'side.showMore': 'Show {count} more',
+  'board.closedPhases': '{count} closed',
+  'board.morePhases': '+{count} more',
+  'board.closedList': 'Closed phases',
+  'board.upcomingList': 'Upcoming phases',
+  'board.newPhase': '+ New phase',
+  'board.closedLanes': { one: '{count} closed phase', other: '{count} closed phases' },
   'side.showLess': 'Show less',
 
   // menus

@@ -17,7 +17,9 @@ import {
   reviewCount,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
+import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useNarrow } from './narrow';
 import { CardPanel, type CardPanelActions, labelHue } from './CardPanel';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
@@ -357,7 +359,16 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
   );
 }
 
-/** The strip of phases above the columns: done ones ticked, the current one bold, the rest faint. */
+const STRIP_GAP = 4;
+const STRIP_PADDING = 32;
+
+/**
+ * The strip of phases above the columns, after the Phases views of design/mockups.html. Closed
+ * phases fold into one chip at the start, its list newest first; a closed phase chosen takes the
+ * chip's place. The open ones keep to one line: what does not fit goes into "+N more" at the end,
+ * the chosen phase always in sight. On a phone the lists open as sheets, and New phase is in
+ * the "+N" sheet when the strip has no room for it.
+ */
 function PhaseStrip({ board, path, shown, onShow, actions }: {
   board: Board;
   path: string;
@@ -365,13 +376,74 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
   onShow: (shown: Shown) => void;
   actions: BoardActions;
 }) {
+  const narrow = useNarrow();
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
-  const menu = (event: MouseEvent, phase: Phase) => {
+  const [list, setList] = useState<'closed' | 'more' | null>(null);
+  /** How many open phases fit on the line. */
+  const [fit, setFit] = useState(Number.POSITIVE_INFINITY);
+  const strip = useRef<HTMLDivElement>(null);
+  const ruler = useRef<HTMLDivElement>(null);
+  const closedChip = useRef<HTMLButtonElement>(null);
+  const moreChip = useRef<HTMLButtonElement>(null);
+
+  const closed = board.phases.filter((phase) => phase.state === 'done');
+  const open = board.phases.filter((phase) => phase.state !== 'done');
+  const chosen = 'phase' in shown ? shown.phase : null;
+  const chosenClosed = closed.find((phase) => phase.id === chosen);
+  const progressOf = (phase: Phase) => {
+    const { done, total } = phaseProgress(board, phase.id);
+    return t('board.progress', { done, total });
+  };
+  const closedLabel = chosenClosed ? chosenClosed.name : narrow ? String(closed.length) : t('board.closedPhases', { count: closed.length });
+
+  // Every chip is measured off screen; as many open phases as the line holds are shown.
+  useLayoutEffect(() => {
+    const box = strip.current;
+    const marks = ruler.current;
+    if (!box || !marks) return;
+    const update = () => {
+      const width = (role: string) => [...marks.querySelectorAll<HTMLElement>(`[data-role="${role}"]`)].reduce((sum, el) => sum + el.getBoundingClientRect().width + STRIP_GAP, 0);
+      const phases = [...marks.querySelectorAll<HTMLElement>('[data-role="phase"]')].map((el) => el.getBoundingClientRect().width + STRIP_GAP);
+      const room = box.clientWidth - STRIP_PADDING;
+      const fixed = width('closed') + width('all');
+      const all = phases.reduce((sum, w) => sum + w, 0);
+      if (fixed + width('add') + all <= room) {
+        setFit(phases.length);
+        return;
+      }
+      // Not all fit: "+N more" takes a place, and on a phone New phase goes into its sheet.
+      let left = room - fixed - width('more') - (narrow ? 0 : width('add'));
+      let count = 0;
+      for (const w of phases) {
+        if (w > left) break;
+        left -= w;
+        count++;
+      }
+      setFit(count);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [board.phases, board.cards, narrow, closedLabel, renaming]);
+
+  // The chosen open phase is never folded away: it takes the last place that fits.
+  let shownOpen = open.slice(0, fit);
+  const chosenOpen = open.find((phase) => phase.id === chosen);
+  if (chosenOpen && !shownOpen.includes(chosenOpen)) shownOpen = [...shownOpen.slice(0, Math.max(0, fit - 1)), chosenOpen];
+  const hidden = open.filter((phase) => !shownOpen.includes(phase));
+  const pick = (phase: Phase) => {
+    setList(null);
+    onShow({ phase: phase.id });
+  };
+
+  const menu = (event: MouseEvent, phase: Phase, inList = false) => {
     const at = board.phases.findIndex((p) => p.id === phase.id);
     actions.menu(event, [
       { label: t('phase.edit'), run: () => actions.editPhase(path, phase) },
-      { label: t('menu.rename'), run: () => setRenaming(phase.id) },
+      // A phase in a list has no place to be renamed in: its window has the name.
+      { label: t('menu.rename'), run: () => (inList ? actions.editPhase(path, phase) : setRenaming(phase.id)) },
       ...(at > 0 ? [{ label: t('board.moveUp'), run: () => actions.movePhase(path, phase.id, at >= 2 ? board.phases[at - 2]!.id : null) }] : []),
       ...(at < board.phases.length - 1 ? [{ label: t('board.moveDown'), run: () => actions.movePhase(path, phase.id, board.phases[at + 1]!.id) }] : []),
       ...(phase.state === 'done'
@@ -381,11 +453,29 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
       { label: t('menu.delete'), run: () => actions.removePhase(path, phase) },
     ]);
   };
+  const allLabel = narrow ? t('board.all') : `${t('board.all')} · ${board.cards.length}`;
   return (
-    <div className="phases" role="tablist">
-      {board.phases.map((phase) => {
+    <>
+    <div ref={strip} className="phases" role="tablist">
+      {closed.length > 0 && (
+        <button
+          ref={closedChip}
+          type="button"
+          className={`ph closed${chosenClosed ? ' on' : ''}${list === 'closed' ? ' pressed' : ''}`}
+          aria-haspopup="listbox"
+          aria-expanded={list === 'closed'}
+          onClick={() => setList(list === 'closed' ? null : 'closed')}
+          onContextMenu={chosenClosed ? (event) => menu(event, chosenClosed) : undefined}
+        >
+          <span className="tick">✓</span>
+          <span>{closedLabel}</span>
+          {chosenClosed && <small>{progressOf(chosenClosed)}</small>}
+          <span className="dd">▾</span>
+        </button>
+      )}
+      {shownOpen.map((phase) => {
         const { done, total } = phaseProgress(board, phase.id);
-        const on = 'phase' in shown && shown.phase === phase.id;
+        const on = chosen === phase.id;
         return renaming === phase.id ? (
           <LineInput
             key={phase.id}
@@ -408,13 +498,83 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
             onClick={() => onShow({ phase: phase.id })}
             onContextMenu={(event) => menu(event, phase)}
           >
-            {phase.state === 'done' && <span className="tick">✓</span>}
             <span>{phase.name}</span>
             <small>{t('board.progress', { done, total })}</small>
           </button>
         );
       })}
-      {adding ? (
+      {hidden.length > 0 && (
+        <button
+          ref={moreChip}
+          type="button"
+          className={`ph more${list === 'more' ? ' pressed' : ''}`}
+          aria-haspopup="listbox"
+          aria-expanded={list === 'more'}
+          onClick={() => setList(list === 'more' ? null : 'more')}
+        >
+          <span>{narrow ? `+${hidden.length}` : t('board.morePhases', { count: hidden.length })}</span>
+          <span className="dd">▾</span>
+        </button>
+      )}
+      {!(narrow && hidden.length > 0) && !adding && (
+        <button type="button" className="ph add" onClick={() => setAdding(true)}>
+          {t('board.addPhase')}
+        </button>
+      )}
+      <button type="button" role="tab" aria-selected={'all' in shown} className={`ph all${'all' in shown ? ' on' : ''}`} onClick={() => onShow({ all: true })}>
+        {allLabel}
+      </button>
+      {/* The chips as they would be, off screen, to tell how many fit. */}
+      <div ref={ruler} className="ph-ruler" aria-hidden="true">
+        {closed.length > 0 && (
+          <span data-role="closed" className="ph closed">
+            <span className="tick">✓</span>
+            <span>{closedLabel}</span>
+            {chosenClosed && <small>{progressOf(chosenClosed)}</small>}
+            <span className="dd">▾</span>
+          </span>
+        )}
+        {open.map((phase) => (
+          <span key={phase.id} data-role="phase" className="ph">
+            <span>{phase.name}</span>
+            <small>{progressOf(phase)}</small>
+          </span>
+        ))}
+        <span data-role="more" className="ph more">
+          <span>{narrow ? `+${open.length}` : t('board.morePhases', { count: open.length })}</span>
+          <span className="dd">▾</span>
+        </span>
+        <span data-role="add" className="ph add">
+          {t('board.addPhase')}
+        </span>
+        <span data-role="all" className="ph all">
+          {allLabel}
+        </span>
+      </div>
+      {list && (
+        <PhaseList
+          title={list === 'closed' ? t('board.closedList') : t('board.upcomingList')}
+          phases={list === 'closed' ? [...closed].reverse() : hidden}
+          chosen={chosen}
+          narrow={narrow}
+          anchor={list === 'closed' ? closedChip.current : moreChip.current}
+          progressOf={progressOf}
+          onPick={pick}
+          onMenu={(event, phase) => menu(event, phase, true)}
+          onAdd={
+            list === 'more' && narrow
+              ? () => {
+                  setList(null);
+                  setAdding(true);
+                }
+              : undefined
+          }
+          onClose={() => setList(null)}
+        />
+      )}
+    </div>
+    {adding && (
+      <div className="phases-add">
         <LineInput
           className="ph-edit"
           placeholder={t('board.phaseName')}
@@ -425,15 +585,112 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
           }}
           onCancel={() => setAdding(false)}
         />
-      ) : (
-        <button type="button" className="ph add" onClick={() => setAdding(true)}>
-          {t('board.addPhase')}
+      </div>
+    )}
+    </>
+  );
+}
+
+/**
+ * The phases a chip of the strip folds: the closed ones, or the open ones that do not fit. Under
+ * the chip on a computer, a sheet from the bottom on a phone. A click shows the phase; a right
+ * click has its menu.
+ */
+function PhaseList({ title, phases, chosen, narrow, anchor, progressOf, onPick, onMenu, onAdd, onClose }: {
+  title: string;
+  phases: Phase[];
+  chosen: string | null;
+  narrow: boolean;
+  anchor: HTMLElement | null;
+  progressOf: (phase: Phase) => string;
+  onPick: (phase: Phase) => void;
+  onMenu: (event: MouseEvent, phase: Phase) => void;
+  /** On a phone, the "+N" sheet ends with New phase. */
+  onAdd?: () => void;
+  onClose: () => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const pull = useRef<number | null>(null);
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onClose();
+    };
+    // A click outside closes it; one on its chip toggles it there, and a right-click menu is drawn outside it.
+    const onDown = (event: globalThis.MouseEvent) => {
+      const target = event.target as Element;
+      if (box.current?.contains(target) || anchor?.contains(target) || target.closest?.('.menu, .ctx')) return;
+      onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onDown);
+    };
+  }, [anchor, onClose]);
+
+  const rows = (
+    <div className="ph-rows" role="listbox" aria-label={title}>
+      {phases.map((phase) => (
+        <button
+          key={phase.id}
+          type="button"
+          role="option"
+          aria-selected={phase.id === chosen}
+          className={`ph-row${phase.id === chosen ? ' on' : ''}`}
+          onClick={() => onPick(phase)}
+          onContextMenu={(event) => onMenu(event, phase)}
+        >
+          <span className="tick">{phase.state === 'done' ? '✓' : ''}</span>
+          <span className="nm">{phase.name}</span>
+          <small>{progressOf(phase)}</small>
+        </button>
+      ))}
+      {onAdd && (
+        <button type="button" className="ph-row new" onClick={onAdd}>
+          <span className="tick" />
+          <span className="nm">{t('board.newPhase')}</span>
         </button>
       )}
-      <button type="button" role="tab" aria-selected={'all' in shown} className={`ph all${'all' in shown ? ' on' : ''}`} onClick={() => onShow({ all: true })}>
-        {t('board.all')} · {board.cards.length}
-      </button>
     </div>
+  );
+
+  if (!narrow) {
+    const left = anchor ? Math.max(0, Math.min(anchor.offsetLeft, (anchor.offsetParent?.clientWidth ?? 0) - 286)) : 16;
+    return (
+      <div ref={box} className="ph-list" style={{ left }}>
+        <div className="ph-list-title">{title}</div>
+        {rows}
+      </div>
+    );
+  }
+  return createPortal(
+    <>
+      <div className="sp-backdrop" onMouseDown={onClose} />
+      <div ref={box} className="sp sheet ph-sheet" role="dialog" aria-label={title}>
+        <span
+          className="grab"
+          aria-hidden="true"
+          onPointerDown={(event) => (pull.current = event.clientY)}
+          onPointerUp={(event) => {
+            if (pull.current !== null && event.clientY - pull.current > 48) onClose();
+            pull.current = null;
+          }}
+        />
+        <div className="sp-head">
+          <div className="sp-title">
+            <b>{title}</b>
+            <button type="button" className="x" title={t('panel.close')} aria-label={t('panel.close')} onClick={onClose}>
+              ×
+            </button>
+          </div>
+        </div>
+        {rows}
+      </div>
+    </>,
+    document.body,
   );
 }
 
@@ -631,10 +888,15 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   const open = openCard !== null ? board.cards.find((card) => card.id === openCard) : undefined;
   // Every phase as a lane across the columns, and a lane for cards in none when there are any.
   const unphased = board.cards.filter((card) => !card.phase || !board.phases.some((p) => p.id === card.phase));
+  /** In All: whether the closed phases' lanes are unfolded. */
+  const [closedLanes, setClosedLanes] = useState(false);
+  const closedPhases = board.phases.filter((phase) => phase.state === 'done');
+  const closedCards = board.cards.filter((card) => closedPhases.some((phase) => phase.id === card.phase)).length;
   const lanes =
     'all' in shown && board.phasesOn && board.phases.length > 0
       ? [
-          ...board.phases.map((phase) => {
+          // The closed phases first, folded into one row until it is opened.
+          ...[...closedPhases, ...board.phases.filter((phase) => phase.state !== 'done')].filter((phase) => closedLanes || phase.state !== 'done').map((phase) => {
             const { done, total } = phaseProgress(board, phase.id);
             return { id: phase.id as string | null, name: phase.name, detail: t('board.progress', { done, total }) };
           }),
@@ -773,6 +1035,14 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
       {view === 'list' && <BoardList board={board} path={path} today={today} actions={actions} openCard={openCard} visible={() => true} />}
       {view === 'board' && lanes && (
         <div className="board lanes" onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setDrop(null)}>
+          {closedPhases.length > 0 && (
+            <button type="button" className="lane-fold" aria-expanded={closedLanes} onClick={() => setClosedLanes(!closedLanes)}>
+              <span className="chev">{closedLanes ? '▾' : '▸'}</span>
+              <span className="tick">✓</span>
+              <span>{t('board.closedLanes', { count: closedPhases.length })}</span>
+              <small>· {t('count.cards', { count: closedCards })}</small>
+            </button>
+          )}
           {lanes.map((lane) => (
             <div key={lane.id ?? 'none'} className="lane">
               <div className="lane-head">

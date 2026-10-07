@@ -5,6 +5,7 @@ import { type CSSProperties, type KeyboardEvent, type ReactNode, useCallback, us
 import { createPortal } from 'react-dom';
 import { clientId, DEFAULT_CLIENT_ID, setClientId } from './cloud';
 import { Icon } from './Icon';
+import { useNarrow } from './narrow';
 import type { Connection, SyncPhase, SyncService, SyncSnapshot, TurnView } from './sync';
 import { isDesktop } from './storage';
 
@@ -630,19 +631,6 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onOpenCopy }: SyncStat
   );
 }
 
-const NARROW = '(max-width: 640px)';
-
-/** Whether the window is as narrow as a phone, kept current while it is resized. */
-function useNarrow(): boolean {
-  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW).matches);
-  useEffect(() => {
-    const query = window.matchMedia(NARROW);
-    const update = () => setNarrow(query.matches);
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, []);
-  return narrow;
-}
 
 /** A share as the language writes it, never 100% before the end: `38%`. */
 function percent(share: number): string {

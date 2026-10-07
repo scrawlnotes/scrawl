@@ -2,6 +2,7 @@ import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { chooseLanguage, languageTag, type Mode, shadeOfMode } from './device';
 import { Icon, type IconName } from './Icon';
+import { useNarrow } from './narrow';
 import type { SyncService, SyncSnapshot } from './sync';
 import { SyncRow, ThisDevice } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
@@ -20,19 +21,6 @@ const MODES: { mode: Mode; label: MessageKey }[] = [
   { mode: 'dark', label: 'settings.dark' },
 ];
 
-const NARROW = '(max-width: 640px)';
-
-/** Whether the window is as narrow as a phone, kept current while it is resized. */
-function useNarrow(): boolean {
-  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW).matches);
-  useEffect(() => {
-    const query = window.matchMedia(NARROW);
-    const update = () => setNarrow(query.matches);
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, []);
-  return narrow;
-}
 
 export interface SettingsProps {
   mode: Mode;
