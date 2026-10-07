@@ -77,12 +77,20 @@ export function Sidebar({
     },
   });
 
-  const viewRow = (id: string, label: ReactNode, depth: number) => (
+  // On a touch screen, where there is no right click, a row's menu opens from its ··· button.
+  const more = (onMenu: (event: MouseEvent) => void) => (
+    <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={onMenu}>
+      ···
+    </button>
+  );
+
+  const viewRow = (id: string, label: ReactNode, depth: number, onMenu?: (event: MouseEvent) => void) => (
     <div key={id} className={`it d${depth}${id === active ? ' on' : ''}`}>
       <button type="button" className="it-main" onClick={() => onOpen(id)}>
         {label}
       </button>
       <span className="ct">{counts[id] || ''}</span>
+      {onMenu && more(onMenu)}
     </div>
   );
 
@@ -109,6 +117,7 @@ export function Sidebar({
             ×
           </button>
         )}
+        {node.path !== INBOX_TASKS && more((event) => onItemMenu(event, node.path))}
       </div>
     );
   };
@@ -130,6 +139,7 @@ export function Sidebar({
             <span>{node.name}</span>
           </button>
           {!open && <span className="ct">{countNotes(node) || ''}</span>}
+          {more((event) => onFolderMenu(event, node.path))}
         </div>
         {open && children(node, depth + 1)}
       </div>
@@ -153,6 +163,7 @@ export function Sidebar({
                 <span>{filter.name}</span>
               </>,
               0,
+              (event) => onFilterMenu(event, filter),
             )}
           </div>
         ))}
@@ -165,6 +176,7 @@ export function Sidebar({
             <span>{t('side.inbox')}</span>
           </button>
           <span className="ct">{(inbox && countNotes(inbox)) || ''}</span>
+          {more((event) => onFolderMenu(event, INBOX))}
         </div>
         {inboxOpen &&
           viewRow(

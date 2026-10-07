@@ -58,6 +58,7 @@ export const en = {
   'side.folderName': 'Folder name',
   'side.trash': 'Trash',
   'side.open': 'Folders and views',
+  'side.more': 'More',
   'side.moveToTrash': 'Move to trash',
 
   // menus
@@ -257,6 +258,7 @@ export const en = {
   // editor
   'editor.copyCode': 'Copy code',
   'editor.openHint': '{name} (double-click to open)',
+  'editor.linkHint': '{href}\n{key}+click to open',
   'editor.item.open': 'Open',
   'editor.item.reveal': 'Show in folder',
   'editor.item.delete': 'Delete',

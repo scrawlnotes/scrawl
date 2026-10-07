@@ -328,10 +328,16 @@ export function App() {
       ...(isTaskListPath(path) ? [] : [{ label: t('menu.history'), run: () => void showHistory(path) }]),
       { label: t('menu.delete'), run: () => deleteItem(path) },
     ]);
-  // The inbox is always there; it cannot be deleted.
+  // The inbox is always there; it cannot be deleted. A new note shows at once, out from under the drawer.
   const folderMenu = (event: MouseEvent, path: string) =>
     openMenu(event, [
-      { label: t('menu.newNoteHere'), run: () => void session.newNote(path) },
+      {
+        label: t('menu.newNoteHere'),
+        run: () => {
+          setDrawer(false);
+          void session.newNote(path);
+        },
+      },
       ...(path === INBOX ? [] : [{ label: t('menu.deleteFolder'), run: () => deleteFolder(path) }]),
     ]);
   const closeMenu = useCallback(() => setMenu(null), []);

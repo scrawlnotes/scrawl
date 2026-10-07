@@ -161,6 +161,10 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
       aria-label={t('format.label')}
       onMouseDown={keepEditorFocus}
       onScroll={measure}
+      // A mouse wheel scrolls the bar sideways when it does not fit, as it does the tabs.
+      onWheel={(event) => {
+        if (!event.shiftKey && event.deltaY) event.currentTarget.scrollLeft += event.deltaY;
+      }}
     >
       {groups.map((items, i) => (
         <div className="fmt-group" key={i}>

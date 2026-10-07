@@ -33,6 +33,10 @@ export interface LivePreviewOptions extends MediaOptions {
 
 const openInBrowser = (href: string) => void window.open(href, '_blank', 'noopener');
 
+// Addresses a Ctrl/Cmd+click opens; any other link is only text to edit.
+const FOLLOWABLE = /^(https?:|mailto:)/i;
+const followKey = () => (typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl');
+
 /**
  * An image finished loading, so its line is taller now. The editor measures its lines again only
  * when something in it is drawn anew, or when it grows; a short note does not grow, as it is
@@ -289,7 +293,12 @@ function collect(
       return false;
     }
     if (close.from > open.to) {
-      const deco = Decoration.mark({ class: 'cm-sl-link', attributes: { 'data-href': href, title: href }, kind: 'link' });
+      const follows = FOLLOWABLE.test(href);
+      const deco = Decoration.mark({
+        class: follows ? 'cm-sl-link cm-sl-link-out' : 'cm-sl-link',
+        attributes: { 'data-href': href, title: follows ? t('editor.linkHint', { href, key: followKey() }) : href },
+        kind: 'link',
+      });
       out.push({ from: open.to, to: close.from, deco });
     }
     hidden(node.from, open.to, 'open', node);
@@ -464,12 +473,36 @@ const followLinks = (open: (href: string) => void) =>
     mousedown(event) {
       if (!(event.ctrlKey || event.metaKey) || !(event.target instanceof HTMLElement)) return false;
       const href = event.target.closest<HTMLElement>('.cm-sl-link')?.dataset.href;
-      if (!href || !/^(https?:|mailto:)/i.test(href)) return false;
+      if (!href || !FOLLOWABLE.test(href)) return false;
       open(href);
       event.preventDefault();
       return true;
     },
   });
+
+/**
+ * While Ctrl/Cmd is held, links show the hand they can be followed with. The mark goes on the
+ * scroller, as the editor sets the classes of its own element anew when it is focused.
+ */
+const showFollowable = ViewPlugin.fromClass(
+  class {
+    constructor(readonly view: EditorView) {
+      window.addEventListener('keydown', this.sync, true);
+      window.addEventListener('keyup', this.sync, true);
+      window.addEventListener('blur', this.release);
+      view.scrollDOM.addEventListener('mousemove', this.sync);
+    }
+    sync = (event: KeyboardEvent | MouseEvent) =>
+      this.view.scrollDOM.classList.toggle('cm-sl-following', event.ctrlKey || event.metaKey);
+    release = () => this.view.scrollDOM.classList.remove('cm-sl-following');
+    destroy() {
+      window.removeEventListener('keydown', this.sync, true);
+      window.removeEventListener('keyup', this.sync, true);
+      window.removeEventListener('blur', this.release);
+      this.view.scrollDOM.removeEventListener('mousemove', this.sync);
+    }
+  },
+);
 
 export function livePreview(options: LivePreviewOptions = {}): Extension {
   const plugin = ViewPlugin.fromClass(
@@ -515,5 +548,5 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
     { decorations: (v) => v.decorations },
   );
   const atomicRanges = EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomic ?? RangeSet.empty);
-  return [sourceMode, plugin, atomicRanges, followLinks(options.openLink ?? openInBrowser)];
+  return [sourceMode, plugin, atomicRanges, followLinks(options.openLink ?? openInBrowser), showFollowable];
 }
