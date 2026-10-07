@@ -84,6 +84,8 @@ export interface ScrawlEditorOptions extends LivePreviewOptions {
   onAttachments?: (removed: string[], added: string[]) => void;
 }
 
+export type { EditorView };
+
 export interface ScrawlEditor {
   view: EditorView;
   /** A fresh editing state for a note. Each open tab keeps its own, with its undo history. */

@@ -3,7 +3,9 @@ import {
   basename,
   boardName,
   type Card,
+  cardBrief,
   type Column,
+  columnCards,
   dayOf,
   dirname,
   dueToday,
@@ -143,6 +145,8 @@ export function App() {
   // On a narrow window the sidebar is a drawer, open or not.
   const [drawer, setDrawer] = useState(false);
   const [draggedTab, setDraggedTab] = useState<string | null>(null);
+  /** The card open in a panel beside its board's columns. */
+  const [openCard, setOpenCard] = useState<{ board: string; id: string } | null>(null);
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
   const [tabGap, setTabGap] = useState<number | null>(null);
   const empty = ready && !needsFolder && tabs.length === 0;
@@ -441,11 +445,37 @@ export function App() {
     noteTitle: (path) => titles[path] ?? null,
     openNote: (path) => void session.open(path),
   };
+  // A card's brief: the card as Markdown, with the note it came from.
+  const copyBrief = async (board: string, id: string) => {
+    const whole = boards[board];
+    const card = whole?.cards.find((candidate) => candidate.id === id);
+    if (!whole || !card) return;
+    const notes = card.note ? { [card.note]: await session.readNote(card.note) } : {};
+    try {
+      await navigator.clipboard.writeText(cardBrief(whole, card, notes));
+      setNotice(t('card.briefCopied'));
+    } catch {
+      setNotice(t('error.clipboard'));
+    }
+  };
   const boardActions: BoardActions = {
     addCard: (board, input) => session.addCard(board, input),
     moveCard: (board, id, place) => session.moveCard(board, id, place),
-    removeCard: deleteCard,
-    openCard: () => undefined,
+    moveToColumn: (board, id, column) => {
+      const whole = boards[board];
+      if (whole) session.moveCard(board, id, { column, after: columnCards(whole, column).filter((c) => c.id !== id).pop()?.id ?? null });
+    },
+    removeCard: (board, card) => {
+      if (openCard?.id === card.id) setOpenCard(null);
+      deleteCard(board, card);
+    },
+    updateCard: (board, id, patch) => session.updateCard(board, id, patch),
+    addComment: (board, id, text) => session.addComment(board, id, text),
+    editComment: (board, id, comment, text) => session.editComment(board, id, comment, text),
+    removeComment: (board, id, comment) => session.removeComment(board, id, comment),
+    copyBrief: (board, id) => void copyBrief(board, id),
+    openCard: (board, id) => setOpenCard({ board, id }),
+    editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
     menu: openMenu,
     addColumn: (board, name, kind, after) => session.addColumn(board, name, kind, after),
     renameColumn: (board, id, name) => session.renameColumn(board, id, name),
@@ -585,7 +615,16 @@ export function App() {
         <div className="editor" ref={host} hidden={!showingEditor} />
         {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} />}
         {boardPath !== null && board && (
-          <BoardView key={boardPath} path={boardPath} board={board} name={boardName(boardPath)} today={today} actions={boardActions} />
+          <BoardView
+            key={boardPath}
+            path={boardPath}
+            board={board}
+            name={boardName(boardPath)}
+            today={today}
+            actions={boardActions}
+            openCard={openCard?.board === boardPath ? openCard.id : null}
+            onCloseCard={() => setOpenCard(null)}
+          />
         )}
         {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} today={today} actions={taskActions} />}
         {activeFilter && (

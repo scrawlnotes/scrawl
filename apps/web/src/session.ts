@@ -2,11 +2,13 @@ import { t } from '@scrawlnotes/i18n';
 import {
   addCard,
   addColumn,
+  addComment,
   addPhase,
   addSection,
   addTask,
   ATTACHMENTS,
   type Board,
+  type CardPatch,
   type CardPlace,
   closePhase,
   type ColumnKind,
@@ -18,6 +20,7 @@ import {
   deleteFromTrash,
   dirname,
   displayTitle,
+  editComment,
   foldSection,
   emptyTrash,
   INBOX,
@@ -46,6 +49,7 @@ import {
   readTree,
   removeCard,
   removeColumn,
+  removeComment,
   removePhase,
   removeSection,
   removeTask,
@@ -78,6 +82,7 @@ import {
   trashUnlinked,
   type TrashItem,
   type TreeNode,
+  updateCard,
   updatePhase,
   updateTask,
   type VaultFs,
@@ -95,6 +100,7 @@ import {
   dropCopy,
   type EditorState,
   type EditorStats,
+  type EditorView,
   type FormatState,
   formatState,
   type ItemAction,
@@ -533,11 +539,38 @@ export class Session {
   }
 
   /**
+   * A second editor, for a card's description: wired to the vault's files like the note editor,
+   * but its text belongs to whoever opened it. Destroyed by them too.
+   */
+  openEditor(parent: HTMLElement, doc: string, onChange: (doc: string) => void): ScrawlEditor {
+    const editor: ScrawlEditor = createEditor({
+      parent,
+      doc,
+      onChange,
+      resolveImage: this.resolveImage,
+      addFiles: (files, at) => void this.copyFiles(editor.view, files, at),
+      openFile: (src) => void this.openFile(src),
+      revealFile: isDesktop ? (src) => void revealFileOnDesktop(src).catch(() => undefined) : undefined,
+      openLink: isDesktop ? (href) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
+      showMenu: (at, items) => this.showMenu?.(at, items),
+      onAttachments: (removed, added) => this.attachmentsChanged(removed, added),
+      fileSize: (src) => this.sizes.get(src),
+      resolveAudio: (src) => this.mediaUrl(src),
+    });
+    return editor;
+  }
+
+  /** The text of a note as the vault has it; empty when it cannot be read. */
+  readNote(path: string): Promise<string> {
+    return this.fs.readText(path).catch(() => '');
+  }
+
+  /**
    * Copies files into the attachments one after another. Each shows where it will land, with how
    * far it got and a way to stop it, and goes into the note once it is there. A copy that is
-   * stopped or fails leaves nothing behind.
+   * stopped or fails leaves nothing behind. `target` is a note by its path, or an editor.
    */
-  private async copyFiles(note: string, files: File[], at: number) {
+  private async copyFiles(target: string | EditorView, files: File[], at: number) {
     const jobs = files.map((file) => {
       const stop = new AbortController();
       const copy: Copy = {
@@ -551,17 +584,17 @@ export class Session {
       };
       return { file, copy, stop };
     });
-    this.applyTo(note, { effects: jobs.map(({ copy }) => addCopy.of({ copy, pos: at })) });
+    this.applyTo(target, { effects: jobs.map(({ copy }) => addCopy.of({ copy, pos: at })) });
     this.copying += jobs.length;
     this.set({ saved: false });
     for (const { file, copy, stop } of jobs) {
       // A copy that is over within half a second never shows.
-      const reveal = window.setTimeout(() => this.applyTo(note, { effects: showCopy.of(copy.id) }), 500);
+      const reveal = window.setTimeout(() => this.applyTo(target, { effects: showCopy.of(copy.id) }), 500);
       let told = 0;
       const onProgress = (written: number) => {
         if (Date.now() - told < 100 && written < file.size) return;
         told = Date.now();
-        this.applyTo(note, { effects: copyProgress.of({ id: copy.id, written }) });
+        this.applyTo(target, { effects: copyProgress.of({ id: copy.id, written }) });
       };
       try {
         const options = { onProgress, signal: stop.signal };
@@ -571,7 +604,7 @@ export class Session {
         if (copy.image && !isDesktop) this.images.set(src, Promise.resolve(URL.createObjectURL(file)));
         const markdown = copy.image ? `![](${src})` : `[${linkText(file.name)}](${linkAddress(src)})`;
         this.applyTo(
-          note,
+          target,
           (state) => {
             const pos = copyPosition(state, copy.id);
             if (pos === null) return null;
@@ -582,7 +615,7 @@ export class Session {
           markdown,
         );
       } catch {
-        this.applyTo(note, { effects: dropCopy.of(copy.id) });
+        this.applyTo(target, { effects: dropCopy.of(copy.id) });
       } finally {
         window.clearTimeout(reveal);
         this.copying--;
@@ -594,9 +627,19 @@ export class Session {
   /**
    * Changes a note wherever it is: in the editor when it is on screen, in its kept state when
    * its tab is in the background. A note whose tab was closed gets `appended` at its end, if given.
+   * Another editor is changed directly, as long as it is still there.
    */
-  private applyTo(path: string, change: TransactionSpec | ((state: EditorState) => TransactionSpec | null), appended?: string) {
+  private applyTo(path: string | EditorView, change: TransactionSpec | ((state: EditorState) => TransactionSpec | null), appended?: string) {
     const make = typeof change === 'function' ? change : () => change;
+    if (typeof path !== 'string') {
+      try {
+        const spec = make(path.state);
+        if (spec) path.dispatch(spec);
+      } catch {
+        // The editor was closed while the file was copied; the file stays in the attachments.
+      }
+      return;
+    }
     const view = this.editor?.view;
     if (view && this.snapshot.active === path) {
       const spec = make(view.state);
@@ -836,6 +879,7 @@ export class Session {
       .catch(() => undefined)
       .then(() => {
         this.markSaved();
+        void this.trashUnlinkedFiles();
       });
   }
 
@@ -1017,6 +1061,22 @@ export class Session {
   /** Deletes a card for good; the interface asks first. */
   removeCard(board: string, id: string) {
     this.changeBoard(board, (current) => removeCard(current, id));
+  }
+
+  updateCard(board: string, id: string, patch: CardPatch) {
+    this.changeBoard(board, (current) => updateCard(current, id, patch));
+  }
+
+  addComment(board: string, id: string, text: string) {
+    this.changeBoard(board, (current) => addComment(current, id, text));
+  }
+
+  editComment(board: string, id: string, comment: string, text: string) {
+    this.changeBoard(board, (current) => editComment(current, id, comment, text));
+  }
+
+  removeComment(board: string, id: string, comment: string) {
+    this.changeBoard(board, (current) => removeComment(current, id, comment));
   }
 
   addColumn(board: string, name: string, kind: ColumnKind, after?: string) {

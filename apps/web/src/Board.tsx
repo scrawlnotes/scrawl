@@ -15,20 +15,19 @@ import {
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
+import { CardPanel, type CardPanelActions } from './CardPanel';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { dueClass, dueLabel } from './Tasks';
 
 /** What can be done on a board, at the path given. */
-export interface BoardActions {
+export interface BoardActions extends CardPanelActions {
   addCard: (board: string, input: NewCard) => void;
   moveCard: (board: string, id: string, place: CardPlace) => void;
   /** Asks first, then deletes the card. */
   removeCard: (board: string, card: Card) => void;
   /** Opens the card beside the columns. */
   openCard: (board: string, id: string) => void;
-  /** Opens a menu at the pointer. */
-  menu: (event: MouseEvent, items: MenuItem[]) => void;
   addColumn: (board: string, name: string, kind: ColumnKind, after?: string) => void;
   renameColumn: (board: string, id: string, name: string) => void;
   setColumnKind: (board: string, id: string, kind: ColumnKind) => void;
@@ -43,9 +42,6 @@ export interface BoardActions {
   /** Asks first, then deletes the phase; its cards stay. */
   removePhase: (board: string, phase: Phase) => void;
   setPhasesOn: (board: string, on: boolean) => void;
-  /** What the note at a path is called, or null when it is not there any more. */
-  noteTitle: (path: string) => string | null;
-  openNote: (path: string) => void;
 }
 
 const DRAG_TYPE = 'application/x-scrawl-card';
@@ -123,11 +119,13 @@ function CardComposer({ onAdd, onClose }: { onAdd: (title: string) => void; onCl
   );
 }
 
-function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPhase }: {
+function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPhase, open }: {
   board: Board;
   path: string;
   card: Card;
   today: string;
+  /** Shown in the panel beside the columns. */
+  open: boolean;
   /** In the view over every phase: the card says which one it is in. */
   showPhase: boolean;
   actions: BoardActions;
@@ -149,7 +147,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPh
     ]);
   return (
     <div
-      className="kc"
+      className={open ? 'kc on' : 'kc'}
       data-card={card.id}
       draggable
       onDragStart={(event) => onGrab(event, card)}
@@ -194,10 +192,11 @@ interface Drop {
   index: number;
 }
 
-function ColumnBlock({ board, path, column, cards, shown, today, actions, drop, onGrab, onRelease, onDragOver, onDrop }: {
+function ColumnBlock({ board, path, column, cards, shown, today, actions, drop, onGrab, onRelease, onDragOver, onDrop, openCard }: {
   board: Board;
   path: string;
   column: Column;
+  openCard: string | null;
   /** The cards shown in the column, in order. */
   cards: Card[];
   shown: Shown;
@@ -237,6 +236,7 @@ function ColumnBlock({ board, path, column, cards, shown, today, actions, drop, 
       onGrab={onGrab}
       onRelease={onRelease}
       showPhase={'all' in shown && board.phasesOn}
+      open={card.id === openCard}
     />
   ));
   if (drop?.column === column.id) items.splice(drop.index, 0, <div key="drop" className="kc-drop" />);
@@ -357,14 +357,20 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
   );
 }
 
-/** A board: its columns with their cards, the phase strip above when phases are on. */
-export function BoardView({ path, board, name, today, actions }: {
+/**
+ * A board: its columns with their cards, the phase strip above when phases are on, and the
+ * open card in a panel on the right.
+ */
+export function BoardView({ path, board, name, today, actions, openCard, onCloseCard }: {
   path: string;
   board: Board;
   /** What the board is called. */
   name: string;
   today: string;
   actions: BoardActions;
+  /** The card shown in the panel, by its id. */
+  openCard: string | null;
+  onCloseCard: () => void;
 }) {
   const current = currentPhase(board);
   const [shown, setShown] = useState<Shown>(() => (board.phasesOn && current ? { phase: current.id } : { all: true }));
@@ -380,6 +386,34 @@ export function BoardView({ path, board, name, today, actions }: {
   const waiting = reviewCount(board);
   const shownPhase = 'phase' in shown ? board.phases.find((p) => p.id === shown.phase) : undefined;
   const visible = (card: Card) => ('all' in shown ? true : (card.phase ?? null) === shown.phase);
+  const open = openCard !== null ? board.cards.find((card) => card.id === openCard) : undefined;
+
+  // With a card open: Esc closes it, j and k go to the next or previous card in its column, a
+  // number moves it to that column. Not while something is being typed.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
+        if (event.key === 'Escape' && target.closest('.cm-content')) target.blur();
+        return;
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key === 'Escape') onCloseCard();
+      else if (event.key === 'j' || event.key === 'k') {
+        const cards = columnCards(board, open.column).filter(visible);
+        const at = cards.findIndex((card) => card.id === open.id);
+        const next = cards[at + (event.key === 'j' ? 1 : -1)];
+        if (next) actions.openCard(path, next.id);
+      } else if (/^[1-9]$/.test(event.key)) {
+        const column = board.columns[Number(event.key) - 1];
+        if (column && column.id !== open.column) actions.moveToColumn(path, open.id, column.id);
+      } else return;
+      event.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   const release = () => {
     dragging.current?.element.classList.remove('lifted');
@@ -424,6 +458,7 @@ export function BoardView({ path, board, name, today, actions }: {
     ]);
 
   return (
+    <div className="bwrap">
     <section className="bv">
       <header className="th">
         <b>{name}</b>
@@ -459,6 +494,7 @@ export function BoardView({ path, board, name, today, actions }: {
             onRelease={release}
             onDragOver={onDragOver}
             onDrop={onDrop}
+            openCard={openCard}
           />
         ))}
         <button type="button" className="colm-add" onClick={() => actions.addColumn(path, t('board.newColumn'), 'active')}>
@@ -466,5 +502,7 @@ export function BoardView({ path, board, name, today, actions }: {
         </button>
       </div>
     </section>
+    {open && <CardPanel key={open.id} board={board} path={path} card={open} today={today} actions={actions} onClose={onCloseCard} />}
+    </div>
   );
 }
