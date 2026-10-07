@@ -714,6 +714,59 @@ input:focus {
   text-align: center;
 }
 
+/* Moving a task: lists with their folder, their sections under them, the task's own place ticked. */
+.dialog.move-task {
+  width: min(430px, calc(100vw - 32px));
+}
+
+.dialog p.move-what {
+  margin: -2px 2px 2px;
+  color: var(--sl-fg);
+  font-size: 12.5px;
+}
+
+.move-what small {
+  color: var(--sl-faint);
+  font-size: inherit;
+}
+
+.choices button .icon {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--sl-dim);
+}
+
+.choices button small {
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.choices button.sub {
+  gap: 8px;
+  padding-left: 30px;
+  color: var(--sl-dim);
+}
+
+.choices button.sub::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 1px;
+  background: var(--sl-faint);
+}
+
+.choices button[aria-disabled='true'] {
+  color: var(--sl-faint);
+  cursor: default;
+}
+
+.choices .here {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
 /* a labelled field: the label in a narrow column, the field beside it */
 .field {
   display: grid;

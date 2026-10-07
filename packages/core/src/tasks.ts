@@ -237,6 +237,31 @@ export function moveTask(list: TaskList, id: string, place: TaskPlace, now: Cloc
   };
 }
 
+/**
+ * Moves a task, with its subtasks, from one list to the end of `section` in another, or of the
+ * tasks in no section there, as a top-level task. Its date, priority and description go with it.
+ */
+export function moveTaskToList(
+  from: TaskList,
+  to: TaskList,
+  id: string,
+  section: string | null,
+  now: Clock = () => new Date(),
+): { from: TaskList; to: TaskList } {
+  const task = from.tasks.find((t) => t.id === id);
+  if (!task) return { from, to };
+  const moving = descendants(from.tasks, id).add(id);
+  const target = to.sections.some((s) => s.id === section) ? section : null;
+  const last = sectionTasks(to, target).pop();
+  const { section: _old, ...rest } = task;
+  const moved: Task = { ...rest, parent: null, order: (last?.order ?? -1) + 1, updated: iso(now), ...(target !== null && { section: target }) };
+  const subtasks = from.tasks.filter((t) => moving.has(t.id) && t.id !== id);
+  return {
+    from: { ...from, tasks: from.tasks.filter((t) => !moving.has(t.id)) },
+    to: { ...to, tasks: [...to.tasks, moved, ...subtasks] },
+  };
+}
+
 /** Removes a section with its tasks and their subtasks, as Todoist does. */
 export function removeSection(list: TaskList, id: string): TaskList {
   let tasks = list.tasks;

@@ -61,6 +61,12 @@ const shapes = {
       <path d="M14 3v4h4" />
     </>
   ),
+  move: (
+    <>
+      <path d="M4 12h11M11 7l5 5-5 5" />
+      <path d="M20 5v14" />
+    </>
+  ),
   trash: (
     <>
       <path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7" />

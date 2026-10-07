@@ -20,6 +20,7 @@ import {
   loadList,
   moveSection,
   moveTask,
+  moveTaskToList,
   loadWorkspace,
   moveHistory,
   moveItem,
@@ -36,6 +37,7 @@ import {
   saveAttachment,
   saveFile,
   saveList,
+  sectionTasks,
   saveWorkspace,
   setDone,
   sweepAttachments,
@@ -776,9 +778,13 @@ export class Session {
     };
   }
 
+  private listAt(path: string): TaskList {
+    return { sections: this.snapshot.sections[path] ?? [], tasks: this.snapshot.tasks[path] ?? [] };
+  }
+
   /** Applies a change to a task list, its sections or its tasks, and saves it. */
   private changeList(path: string, change: (list: TaskList) => TaskList) {
-    const current: TaskList = { sections: this.snapshot.sections[path] ?? [], tasks: this.snapshot.tasks[path] ?? [] };
+    const current = this.listAt(path);
     const next = change(current);
     if (next === current) return;
     this.set({
@@ -816,6 +822,27 @@ export class Session {
   /** Moves a task, with its subtasks, where it was dropped. */
   moveTask(list: string, id: string, place: TaskPlace) {
     this.changeList(list, (current) => moveTask(current, id, place));
+  }
+
+  /**
+   * Moves a task, with its subtasks, to the end of a section or of the tasks in no section, in
+   * its own list or in another.
+   */
+  moveTaskTo(list: string, id: string, target: string, section: string | null) {
+    if (target === list) {
+      this.changeList(list, (current) => {
+        const last = sectionTasks(current, section)
+          .filter((t) => t.id !== id)
+          .pop();
+        return moveTask(current, id, { parent: null, section, after: last?.id ?? null });
+      });
+      return;
+    }
+    if (!(target in this.snapshot.tasks)) return;
+    const moved = moveTaskToList(this.listAt(list), this.listAt(target), id, section);
+    if (!moved.to.tasks.some((t) => t.id === id)) return;
+    this.changeList(list, () => moved.from);
+    this.changeList(target, () => moved.to);
   }
 
   moveSection(list: string, id: string, after: string | null) {

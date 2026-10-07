@@ -49,6 +49,8 @@ export interface TaskActions {
   /** Asks first, then deletes the section with its tasks. */
   removeSection: (list: string, section: Section) => void;
   moveTask: (list: string, id: string, place: TaskPlace) => void;
+  /** Asks where to, then moves the task to another list or section. */
+  moveTo: (list: string, id: string) => void;
   moveSection: (list: string, id: string, after: string | null) => void;
 }
 
@@ -262,6 +264,15 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, drag }: I
         data-row="task"
         data-id={task.id}
         data-depth={depthOf(tasks, task.id)}
+        onContextMenu={
+          editing
+            ? undefined
+            : (event) =>
+                actions.menu(event, [
+                  { label: t('tasks.moveTo'), run: () => actions.moveTo(list, task.id) },
+                  { label: t('tasks.delete'), run: () => actions.remove(list, task.id) },
+                ])
+        }
         // Leaving the editor, by a click elsewhere or by Tab, saves it.
         onBlur={editing ? (event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && save() : undefined}
       >
@@ -334,6 +345,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, drag }: I
           )}
           <IconButton icon="calendar" title={t('tasks.date')} onClick={dateMenu} />
           <IconButton icon="flag" title={t('tasks.priority')} onClick={priorityMenu} />
+          <IconButton icon="move" title={t('tasks.moveTo')} onClick={() => actions.moveTo(list, task.id)} />
           <IconButton icon="trash" title={t('tasks.delete')} onClick={() => actions.remove(list, task.id)} />
           <input
             ref={datePicker}
@@ -514,8 +526,13 @@ function taskDrop(container: HTMLElement, d: Dragging, event: DragEvent, list: L
   }
   const header = [...above].reverse().find((row) => row.dataset.row === 'section');
   const section = level === 0 ? (header?.dataset.id ?? null) : null;
-  const top = (next ? next.getBoundingClientRect().top : (prev?.getBoundingClientRect().bottom ?? box.top)) - box.top;
-  return { line: { top, left: margin(container) + level * INDENT }, place: { parent, section, after } };
+  // Before a task the line is at its top. At the end of a section it is right under the section's
+  // last row, above the section's add row, not at the next section's header.
+  const edge =
+    next?.dataset.row === 'task'
+      ? next.getBoundingClientRect().top
+      : (prev?.getBoundingClientRect().bottom ?? next?.getBoundingClientRect().top ?? box.top);
+  return { line: { top: edge - box.top, left: margin(container) + level * INDENT }, place: { parent, section, after } };
 }
 
 /** Where a dragged section would land: before the header under the pointer's half, or at the end. */

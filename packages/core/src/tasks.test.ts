@@ -14,6 +14,7 @@ import {
   loadTasks,
   moveSection,
   moveTask,
+  moveTaskToList,
   MAX_DEPTH,
   openCount,
   parseList,
@@ -236,6 +237,21 @@ describe('sections', () => {
     const list = sample();
     expect(moveTask(list, 'p0b', { parent: null, section: 's0', after: 'p0a' }, now)).toBe(list);
     expect(moveTask(list, 'p0a', { parent: null, section: 's0', after: null }, now)).toBe(list);
+  });
+
+  it('moves a task with its subtasks to another list, at the end of a section there', () => {
+    const other: TaskList = addSection({ sections: [], tasks: addTask([], { title: 'there' }, now, 'there') }, 'Later', 'later');
+    const withDetail = updateTask(sample().tasks, 'p0a', { due: '2026-10-09', priority: 2, description: 'kept' }, now);
+    const { from, to } = moveTaskToList({ ...sample(), tasks: withDetail }, other, 'p0a', 'later', now);
+    expect(titles(sectionTasks(from, 's0'))).toEqual(['p0 second']);
+    expect(from.tasks.some((t) => t.id === 'p0a1')).toBe(false);
+    expect(titles(sectionTasks(to, 'later'))).toEqual(['p0 first']);
+    expect(titles(childrenOf(to.tasks, 'p0a'))).toEqual(['under p0']);
+    expect(to.tasks.find((t) => t.id === 'p0a')).toMatchObject({ due: '2026-10-09', priority: 2, description: 'kept', parent: null });
+    // A subtask becomes a top-level task; a section that is not there means none.
+    const sub = moveTaskToList(sample(), other, 'p0a1', 'gone', now);
+    expect(titles(sectionTasks(sub.to, null))).toEqual(['there', 'under p0']);
+    expect(sub.to.tasks.find((t) => t.id === 'p0a1')!.section).toBeUndefined();
   });
 
   it('moves a section with its tasks', () => {

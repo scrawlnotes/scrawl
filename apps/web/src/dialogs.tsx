@@ -319,6 +319,95 @@ export function MoveDialog({ folders, current, onMove, onCreate, onClose }: {
   );
 }
 
+/** A place a task can be moved to: a task list, at its top level, or a section of it. */
+export interface TaskPlaceChoice {
+  list: string;
+  section: string | null;
+  /** The list's name, or the section's. */
+  label: string;
+  /** For a list: the folder it is in. */
+  folder?: string;
+  /** The task is there now, so it is no place to move it to. */
+  here: boolean;
+}
+
+/**
+ * Moves a task to another list or section, after the Move task view of design/mockups.html
+ * (direction A). Typing narrows the places by the name of a list, its folder or a section.
+ */
+export function MoveTaskDialog({ title, subtasks, places, onMove, onClose }: {
+  title: string;
+  subtasks: number;
+  places: TaskPlaceChoice[];
+  onMove: (place: TaskPlaceChoice) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [index, setIndex] = useState(0);
+  const list = useRef<HTMLDivElement>(null);
+  const typed = query.trim().toLowerCase();
+  const has = (text?: string) => (text ?? '').toLowerCase().includes(typed);
+  const listOf = (place: TaskPlaceChoice) => places.find((p) => p.list === place.list && p.section === null);
+  // A section shows when it or its list matches; a list shows when it or one of its sections does.
+  const matches = (place: TaskPlaceChoice) =>
+    place.section === null
+      ? has(place.label) || has(place.folder) || places.some((p) => p.list === place.list && has(p.label))
+      : has(place.label) || has(listOf(place)?.label) || has(listOf(place)?.folder);
+  const shown = places.filter(matches);
+  const open = shown.filter((place) => !place.here);
+  const selected = open[Math.min(index, open.length - 1)];
+  useEffect(() => {
+    list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [selected]);
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === 'ArrowDown') setIndex(Math.min(open.indexOf(selected!) + 1, open.length - 1));
+    else if (event.key === 'ArrowUp') setIndex(Math.max(open.indexOf(selected!) - 1, 0));
+    else if (event.key === 'Enter' && selected) onMove(selected);
+    else return;
+    event.preventDefault();
+  };
+  return (
+    <Dialog label={t('move.title')} className="move-task" onClose={onClose} onKeyDown={onKey}>
+      <h2>{t('move.title')}</h2>
+      <p className="move-what">
+        {title}
+        {subtasks > 0 && <small> {t('moveTask.withSubtasks', { subtasks: t('count.subtasks', { count: subtasks }) })}</small>}
+      </p>
+      <input
+        aria-label={t('moveTask.search')}
+        placeholder={t('moveTask.search')}
+        autoFocus
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setIndex(0);
+        }}
+      />
+      <div ref={list} className="choices" role="listbox" aria-label={t('moveTask.places')}>
+        {shown.map((place) => (
+          <button
+            key={`${place.list}\n${place.section ?? ''}`}
+            type="button"
+            role="option"
+            className={place.section === null ? undefined : 'sub'}
+            aria-selected={place === selected}
+            aria-disabled={place.here}
+            tabIndex={-1}
+            onMouseDown={keepFocus}
+            onClick={() => !place.here && onMove(place)}
+          >
+            {place.section === null && <Icon name="tasks" />}
+            <span>{place.label}</span>
+            {place.folder && <small>{place.folder}</small>}
+            {place.here && <span className="here">✓ {t('moveTask.here')}</span>}
+          </button>
+        ))}
+        {shown.length === 0 && <p>{t('moveTask.none')}</p>}
+      </div>
+    </Dialog>
+  );
+}
+
 /** Asks for the name of a note or a task list. */
 export function RenameDialog({ name, onRename, onClose }: {
   name: string;

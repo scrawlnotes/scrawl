@@ -16,7 +16,17 @@ import {
 } from '@scrawlnotes/core';
 import type { EditorStats } from '@scrawlnotes/editor';
 import { type DragEvent, type MouseEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ConfirmDialog, ContextMenu, type FolderChoice, type MenuItem, MoveDialog, NewDialog, RenameDialog } from './dialogs';
+import {
+  ConfirmDialog,
+  ContextMenu,
+  type FolderChoice,
+  type MenuItem,
+  MoveDialog,
+  MoveTaskDialog,
+  NewDialog,
+  RenameDialog,
+  type TaskPlaceChoice,
+} from './dialogs';
 import { FormatBar } from './FormatBar';
 import { HistoryDialog } from './History';
 import { Icon } from './Icon';
@@ -46,6 +56,7 @@ type OpenDialog =
   | { kind: 'rename'; path: string }
   | { kind: 'confirm'; title: string; message: string; action: string; run: () => void }
   | { kind: 'history'; path: string }
+  | { kind: 'moveTask'; list: string; id: string }
   | null;
 
 // A tab being dragged to another place in the tab bar.
@@ -199,6 +210,31 @@ export function App() {
         : t('delete.taskText', { name });
     ask(t('delete.task'), message, () => session.removeTask(list, id));
   };
+  /**
+   * Every list and every section of it, as places to move a task to. The one a top-level task is
+   * in is marked; a subtask is in none of them, as moving it makes it a top-level task.
+   */
+  const taskPlaces = (list: string, id: string): TaskPlaceChoice[] => {
+    const task = tasks[list]?.find((candidate) => candidate.id === id);
+    const known = (sections[list] ?? []).some((section) => section.id === task?.section);
+    const here = task?.parent === null ? (known ? task.section! : null) : undefined;
+    return Object.keys(tasks).flatMap((path) => [
+      {
+        list: path,
+        section: null,
+        label: listName(path),
+        folder: path === INBOX_TASKS ? INBOX : basename(dirname(path)),
+        here: path === list && here === null,
+      },
+      ...(sections[path] ?? []).map((section) => ({
+        list: path,
+        section: section.id,
+        label: section.name,
+        here: path === list && here === section.id,
+      })),
+    ]);
+  };
+
   // A section goes together with its tasks, as in Todoist.
   const deleteSection = (list: string, section: Section) => {
     const whole = { sections: sections[list] ?? [], tasks: tasks[list] ?? [] };
@@ -298,6 +334,7 @@ export function App() {
     removeSection: deleteSection,
     moveTask: (list, id, place) => session.moveTask(list, id, place),
     moveSection: (list, id, after) => session.moveSection(list, id, after),
+    moveTo: (list, id) => setDialog({ kind: 'moveTask', list, id }),
   };
   const dueNow = dueToday(tasks, today);
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length, [TRASH]: trash.length };
@@ -488,6 +525,24 @@ export function App() {
           onClose={closeDialog}
         />
       )}
+      {dialog?.kind === 'moveTask' &&
+        (() => {
+          const listTasks = tasks[dialog.list] ?? [];
+          const task = listTasks.find((candidate) => candidate.id === dialog.id);
+          if (!task) return null;
+          return (
+            <MoveTaskDialog
+              title={task.title}
+              subtasks={listTasks.length - removeTask(listTasks, task.id).length - 1}
+              places={taskPlaces(dialog.list, task.id)}
+              onMove={(place) => {
+                session.moveTaskTo(dialog.list, task.id, place.list, place.section);
+                setDialog(null);
+              }}
+              onClose={closeDialog}
+            />
+          );
+        })()}
       {dialog?.kind === 'history' && (
         <HistoryDialog
           path={dialog.path}

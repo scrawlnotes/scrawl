@@ -343,6 +343,23 @@ p { margin: 0; max-width: 68ch; }
 .secmenu { position: absolute; z-index: 3; display: flex; flex-direction: column; min-width: 150px; padding: 4px; background: var(--m-side); border: 1px solid var(--m-line); border-radius: 7px; box-shadow: 0 6px 18px rgb(0 0 0 / .28); font-size: 12.5px; }
 .secmenu span { padding: 4px 8px; border-radius: 4px; color: var(--m-fg); }
 .secmenu span.hot { background: var(--m-sel); }
+/* direction A: moving a task to another list or section. The window is the app's Move to window;
+   lists are listed with their folder, their sections under them. The place the task is in now is
+   ticked and cannot be picked. */
+.mdlg { width: 430px; padding: 14px; background: var(--m-side); border: 1px solid var(--m-line); border-radius: 9px; box-shadow: 0 12px 32px rgb(0 0 0 / .4); }
+.mdlg h3 { margin: 0 0 10px; font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--m-dim); }
+.mdlg .what { margin: -4px 0 10px; font-size: 12.5px; color: var(--m-fg); }
+.mdlg .field { padding: 7px 9px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-bg); color: var(--m-faint); font-size: 13px; }
+.mdlg .choices { display: flex; flex-direction: column; gap: 1px; margin-top: 8px; }
+.mdlg .ch { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; color: var(--m-fg); font-size: 13px; }
+.mdlg .ch svg { width: 13px; height: 13px; color: var(--m-dim); }
+.mdlg .ch small { color: var(--m-faint); font-size: 12px; }
+.mdlg .ch.sub { padding-left: 30px; color: var(--m-dim); }
+.mdlg .ch.sub::before { content: ""; width: 8px; height: 1px; background: var(--m-faint); }
+.mdlg .ch.on { background: var(--m-sel); color: var(--m-fg); }
+.mdlg .ch.here { color: var(--m-faint); }
+.mdlg .ch .tick { margin-left: auto; color: var(--m-faint); font-size: 12px; }
+.ta.show { opacity: 1; }
 .earlier { border-top: 1px solid var(--rule); padding-top: 24px; display: flex; flex-direction: column; gap: 6px; }
 </style>
 
@@ -381,6 +398,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-desc" data-aview="desc">Description</button>
         <button type="button" id="a-sections" data-aview="sections">Sections</button>
         <button type="button" id="a-drag" data-aview="drag">Drag</button>
+        <button type="button" id="a-movetask" data-aview="movetask">Move task</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -812,6 +830,26 @@ p { margin: 0; max-width: 68ch; }
     return '<div class="tasksv" style="position: relative">' + head + '<div class="tl">' + top +
       phase0 + phase1 + later + '<div class="qa add-sec' + (drag ? '' : ' hot') + '">Add section</div></div>' + menu + ghost + '</div>';
   }
+  ICON.move = '<svg viewBox="0 0 24 24"><path d="M4 12h11M11 7l5 5-5 5"/><path d="M20 5v14"/></svg>';
+  function moveTaskView() {
+    var list = sectionsView(false).replace(/<div class="secmenu"[\s\S]*?<\/div>/, '');
+    function ch(cls, icon, name, small, tick) {
+      return '<div class="ch' + (cls ? ' ' + cls : '') + '">' + (icon ? ICON[icon] : '') + '<span>' + name + '</span>' +
+        (small ? '<small>' + small + '</small>' : '') + (tick ? '<span class="tick">' + tick + '</span>' : '') + '</div>';
+    }
+    var dialog = '<div class="ovl"><div class="mdlg"><h3>Move to</h3>' +
+      '<div class="what">Prototype live preview <small style="color: var(--m-faint)">and its 4 subtasks</small></div>' +
+      '<div class="field">Type a list or section</div><div class="choices">' +
+      ch('', 'tasks', 'Tasks', 'Inbox') +
+      ch('', 'tasks', 'Tasks', 'Scrawl') +
+      ch('sub here', '', 'Phase 0', '', '✓ Now here') +
+      ch('sub on', '', 'Phase 1') +
+      ch('sub', '', 'Later') +
+      ch('', 'tasks', 'Sprint 13', 'Scrawl') +
+      ch('', 'tasks', 'Groceries', 'Home') +
+      '</div></div></div>';
+    return { body: list, overlay: dialog };
+  }
   function tab(kind, label, go, on, dot) {
     return '<div class="tab' + (on ? ' on' : '') + '" data-go="' + go + '">' + ICON[kind] + '<span>' + label + '</span>' + (dot ? '<i></i>' : '') + '</div>';
   }
@@ -832,6 +870,7 @@ p { margin: 0; max-width: 68ch; }
     desc: '<span>4 open</span><span>1 due today</span>',
     sections: '<span>13 open</span><span>1 due today</span>',
     drag: '<span>13 open</span><span>1 due today</span>',
+    movetask: '<span>13 open</span><span>1 due today</span>',
     'desc-new': '<span>4 open</span><span>1 due today</span>'
   };
   function renderA(section, view) {
@@ -840,18 +879,18 @@ p { margin: 0; max-width: 68ch; }
       (view.indexOf('item') === 0 ? tab('notes', 'Client call, Oct 6', view, true) : '') +
       tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
-      tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag') +
+      tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag' || view === 'movetask') +
       (view === 'trash' ? tab('trash', 'Trash', 'trash', true) : '');
     var boardTab = tab('board', 'Roadmap · Scrawl', 'board', view === 'board' || view === 'split');
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true) }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + '<span>Synced to OneDrive 12 s ago</span></div></section>' +
-      (view === 'history' ? HISTORY : '');
+      (view === 'history' ? HISTORY : '') + (view === 'movetask' ? moveTaskView().overlay : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });
