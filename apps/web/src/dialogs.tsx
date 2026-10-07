@@ -626,9 +626,14 @@ export function NewTaskDialog({ title, note, places, initial, onAdd, onClose }: 
           </button>
         ))}
       </div>
-      <p className="dialog-hint">
-        <kbd>Enter</kbd> {t('toTask.adds')} · <kbd>Esc</kbd> {t('toTask.cancels')}
-      </p>
+      <div className="dialog-actions">
+        <button type="button" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" disabled={!value.trim()} onClick={add}>
+          {t('tasks.add')}
+        </button>
+      </div>
     </Dialog>
   );
 }
@@ -697,9 +702,14 @@ export function NewCardDialog({ title, note, boards, initial, onAdd, onClose }: 
           ))}
         </div>
       )}
-      <p className="dialog-hint">
-        <kbd>Enter</kbd> {t('toTask.adds')} · <kbd>Esc</kbd> {t('toTask.cancels')}
-      </p>
+      <div className="dialog-actions">
+        <button type="button" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" disabled={!value.trim() || boards.length === 0} onClick={add}>
+          {t('board.addCard')}
+        </button>
+      </div>
     </Dialog>
   );
 }
@@ -804,7 +814,7 @@ export function PhaseDialog({ phase, notes, onSave, onClose }: {
     onSave({ name, goal, doneWhen, note: note || null });
   };
   const onKey = (event: KeyboardEvent) => {
-    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey || event.target instanceof HTMLInputElement)) {
+    if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
       event.preventDefault();
       save();
     }

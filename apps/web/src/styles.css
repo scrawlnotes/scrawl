@@ -1651,6 +1651,7 @@ button.cb:hover::after {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
   margin-top: 8px;
   padding-top: 8px;
@@ -1659,19 +1660,7 @@ button.cb:hover::after {
   font-size: 11.5px;
 }
 
-.edit-foot .hint {
-  margin-right: auto;
-}
-
-.edit-foot kbd {
-  padding: 0 4px;
-  border: 1px solid var(--sl-line);
-  border-radius: 3px;
-  color: var(--sl-dim);
-  font: inherit;
-}
-
-.edit-foot .ghost {
+.edit-foot button {
   padding: 3px 11px;
   border: 1px solid var(--sl-line);
   border-radius: 6px;
@@ -1681,6 +1670,31 @@ button.cb:hover::after {
 
 .edit-foot .ghost:hover {
   color: var(--sl-fg);
+}
+
+.edit-foot .primary {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.edit-foot .primary:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* a new section's name: its buttons on the same line */
+.sec.composing .sec-edit {
+  flex: 1;
+  min-width: 0;
+}
+
+.sec.composing .edit-foot {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-weight: 400;
 }
 
 /* Only there to open the browser's date picker next to the row. */
@@ -2021,6 +2035,28 @@ button.cb:hover::after {
   font-size: 11.5px;
 }
 
+/* a line typed in place with a button beside it that keeps it */
+.line-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.line-ok {
+  padding: 2px 9px;
+  border: 1px solid var(--sl-accent);
+  border-radius: 5px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.line-ok:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .donewhen {
   flex: none;
   margin: 0;
@@ -2282,6 +2318,47 @@ button.cb:hover::after {
   color: var(--sl-fg);
   font: inherit;
   font-size: 13px;
+}
+
+/* a new card: the card being typed, and under it Add card and × */
+.kc-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kc-compose-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kc-compose-actions .primary {
+  padding: 3px 11px;
+  border-radius: 6px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.kc-compose-actions .primary:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.kc-compose-actions .x {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  color: var(--sl-dim);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.kc-compose-actions .x:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
 }
 
 .kc-drop {
@@ -2781,12 +2858,9 @@ button.cb:hover::after {
   font-weight: 600;
 }
 
-.cp-foot {
-  flex: none;
-  padding: 8px 20px;
-  border-top: 1px solid var(--sl-line);
-  color: var(--sl-faint);
-  font-size: 11.5px;
+.cp-actions .primary:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .md-view .cm-editor {

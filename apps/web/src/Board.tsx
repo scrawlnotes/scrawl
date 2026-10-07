@@ -55,11 +55,15 @@ const COLUMN_DRAG_TYPE = 'application/x-scrawl-column';
 /** Which phase's cards the columns show: one phase, or every card. */
 type Shown = { phase: string } | { all: true };
 
-/** A single line typed in place: Enter keeps it, Esc or leaving it empty drops it. */
-function LineInput({ className, placeholder, initial = '', onDone, onCancel }: {
+/**
+ * A single line typed in place: Enter or leaving it keeps it, Esc or leaving it empty drops it.
+ * With `action` it has a button of that name beside it that keeps it too.
+ */
+function LineInput({ className, placeholder, initial = '', action, onDone, onCancel }: {
   className: string;
   placeholder: string;
   initial?: string;
+  action?: string;
   onDone: (text: string) => void;
   onCancel: () => void;
 }) {
@@ -77,7 +81,7 @@ function LineInput({ className, placeholder, initial = '', onDone, onCancel }: {
     else return;
     event.preventDefault();
   };
-  return (
+  const input = (
     <input
       className={className}
       aria-label={placeholder}
@@ -89,31 +93,61 @@ function LineInput({ className, placeholder, initial = '', onDone, onCancel }: {
       onBlur={() => finish(true)}
     />
   );
+  if (!action) return input;
+  return (
+    <span className="line-input">
+      {input}
+      <button
+        type="button"
+        className="line-ok"
+        disabled={!text.trim()}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => finish(true)}
+      >
+        {action}
+      </button>
+    </span>
+  );
 }
 
-/** The row a new card is typed into. Enter adds it and keeps the row for the next one. */
+/** The row a new card is typed into. Add card, or Enter, adds it and keeps the row for the next one. */
 function CardComposer({ onAdd, onClose }: { onAdd: (title: string) => void; onClose: () => void }) {
   const [title, setTitle] = useState('');
+  const add = () => {
+    if (!title.trim()) return;
+    onAdd(title);
+    setTitle('');
+  };
   const onKey = (event: KeyboardEvent) => {
-    if (event.key === 'Enter' && title.trim()) {
-      onAdd(title);
-      setTitle('');
-    } else if (event.key === 'Escape') onClose();
+    if (event.key === 'Enter') add();
+    else if (event.key === 'Escape') onClose();
     else return;
     event.preventDefault();
   };
+  // The buttons keep the focus in the field, so pressing them is not leaving it.
+  const keepTyping = (event: MouseEvent) => event.preventDefault();
   return (
-    <div className="kc composing">
-      <input
-        className="kc-edit"
-        aria-label={t('board.cardName')}
-        placeholder={t('board.cardName')}
-        autoFocus
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-        onKeyDown={onKey}
-        onBlur={() => !title.trim() && onClose()}
-      />
+    <div className="kc-compose">
+      <div className="kc composing">
+        <input
+          className="kc-edit"
+          aria-label={t('board.cardName')}
+          placeholder={t('board.cardName')}
+          autoFocus
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          onKeyDown={onKey}
+          onBlur={() => !title.trim() && onClose()}
+        />
+      </div>
+      <div className="kc-compose-actions">
+        <button type="button" className="primary" disabled={!title.trim()} onMouseDown={keepTyping} onClick={add}>
+          {t('board.addCard')}
+        </button>
+        <button type="button" className="x" title={t('dialog.cancel')} aria-label={t('dialog.cancel')} onMouseDown={keepTyping} onClick={onClose}>
+          ×
+        </button>
+      </div>
     </div>
   );
 }
@@ -383,6 +417,7 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
         <LineInput
           className="ph-edit"
           placeholder={t('board.phaseName')}
+          action={t('board.add')}
           onDone={(name) => {
             actions.addPhase(path, name);
             setAdding(false);

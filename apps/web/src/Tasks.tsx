@@ -30,7 +30,6 @@ import {
 import { locale, t } from '@scrawlnotes/i18n';
 import {
   type DragEvent,
-  Fragment,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
@@ -124,14 +123,20 @@ function nextWeek(today: string): string {
   return addDays(today, (8 - weekday) % 7 || 7);
 }
 
-/** The row a new task is typed into. Enter adds it and keeps the row for the next one. */
+/** The buttons under a row being typed keep the focus in it, so pressing them is not leaving it. */
+const keepTyping = (event: MouseEvent) => event.preventDefault();
+
+/** The row a new task is typed into. Add task, or Enter, adds it and keeps the row for the next one. */
 function Composer({ placeholder, onAdd, onClose }: { placeholder: string; onAdd: (title: string) => void; onClose: () => void }) {
   const [title, setTitle] = useState('');
+  const add = () => {
+    if (!title.trim()) return;
+    onAdd(title);
+    setTitle('');
+  };
   const onKey = (event: KeyboardEvent) => {
-    if (event.key === 'Enter' && title.trim()) {
-      onAdd(title);
-      setTitle('');
-    } else if (event.key === 'Escape') onClose();
+    if (event.key === 'Enter') add();
+    else if (event.key === 'Escape') onClose();
   };
   return (
     <div className="task composing">
@@ -146,6 +151,14 @@ function Composer({ placeholder, onAdd, onClose }: { placeholder: string; onAdd:
         onKeyDown={onKey}
         onBlur={() => !title.trim() && onClose()}
       />
+      <div className="edit-foot">
+        <button type="button" className="ghost" onMouseDown={keepTyping} onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" disabled={!title.trim()} onMouseDown={keepTyping} onClick={add}>
+          {t('tasks.add')}
+        </button>
+      </div>
     </div>
   );
 }
@@ -160,28 +173,6 @@ function GrowingField({ value, ...props }: TextareaHTMLAttributes<HTMLTextAreaEl
     element.style.height = `${element.scrollHeight}px`;
   }, [value]);
   return <textarea ref={field} rows={2} value={value} {...props} />;
-}
-
-const SAVE_KEYS = /Mac|iPhone|iPad/.test(navigator.platform) ? ['⌘', 'Enter'] : ['Ctrl', 'Enter'];
-
-/** "Ctrl + Enter saves · Esc cancels", with the keys drawn as keys in any language. */
-function EditHint() {
-  const keys = (names: string[]) =>
-    names.map((name, i) => (
-      <Fragment key={name}>
-        {i > 0 && ' + '}
-        <kbd>{name}</kbd>
-      </Fragment>
-    ));
-  return (
-    <span className="hint">
-      {t('tasks.editHint')
-        .split(/(\{save\}|\{cancel\})/)
-        .map((part, i) => (
-          <Fragment key={i}>{part === '{save}' ? keys(SAVE_KEYS) : part === '{cancel}' ? keys(['Esc']) : part}</Fragment>
-        ))}
-    </span>
-  );
 }
 
 function IconButton({ icon, title, onClick }: { icon: IconName; title: string; onClick: (event: MouseEvent) => void }) {
@@ -235,7 +226,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
     setEditing(null);
   };
   const cancel = () => setEditing(null);
-  // Cancel keeps the focus in the fields, so pressing it is not leaving the editor, which saves.
+  // Cancel and Save keep the focus in the fields, so pressing them is not leaving the editor, which saves.
   const keepFocus = (event: MouseEvent) => event.preventDefault();
   const setDue = (due: string | null) => actions.update(list, task.id, { due });
 
@@ -374,18 +365,17 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
                 value={editing.description}
                 onChange={(event) => setEditing({ ...editing, description: event.target.value })}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                    event.preventDefault();
-                    save();
-                  } else if (event.key === 'Escape') cancel();
+                  if (event.key === 'Escape') cancel();
                 }}
               />
               {meta}
             </div>
             <div className="edit-foot">
-              <EditHint />
               <button type="button" className="ghost" onMouseDown={keepFocus} onClick={cancel}>
                 {t('dialog.cancel')}
+              </button>
+              <button type="button" className="primary" onMouseDown={keepFocus} onClick={save}>
+                {t('card.save')}
               </button>
             </div>
           </>
@@ -629,7 +619,7 @@ function SectionComposer({ onAdd, onClose }: { onAdd: (name: string) => void; on
     onClose();
   };
   return (
-    <div className="sec fold">
+    <div className="sec fold composing">
       <span className="chev" aria-hidden="true">
         ▾
       </span>
@@ -646,6 +636,14 @@ function SectionComposer({ onAdd, onClose }: { onAdd: (name: string) => void; on
           else if (event.key === 'Escape') onClose();
         }}
       />
+      <div className="edit-foot">
+        <button type="button" className="ghost" onMouseDown={keepTyping} onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" disabled={!name.trim()} onMouseDown={keepTyping} onClick={done}>
+          {t('sections.add')}
+        </button>
+      </div>
     </div>
   );
 }

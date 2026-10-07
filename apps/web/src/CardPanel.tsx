@@ -396,10 +396,9 @@ function Comment({ entry, today, onEdit, onRemove, menu, viewer }: {
             autoFocus
             onChange={setDraft}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) save();
-              else if (event.key === 'Escape') setDraft(null);
-              else return;
+              if (event.key !== 'Escape') return;
               event.preventDefault();
+              setDraft(null);
             }}
           />
           <div className="cp-actions">
@@ -532,20 +531,12 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
               label={t('card.comment')}
               placeholder={t('card.commentHint')}
               onChange={setComment}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                  event.preventDefault();
-                  send();
-                }
-              }}
             />
-            {comment.trim() && (
-              <div className="cp-actions">
-                <button type="button" className="primary" onClick={send}>
-                  {t('card.comment')}
-                </button>
-              </div>
-            )}
+            <div className="cp-actions">
+              <button type="button" className="primary" disabled={!comment.trim()} onClick={send}>
+                {t('card.comment')}
+              </button>
+            </div>
           </div>
         </div>
         </div>
@@ -595,7 +586,6 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
         </div>
         </aside>
       </div>
-      <div className="cp-foot">{t('card.keys', { n: board.columns.length })}</div>
     </section>
     </div>
   );
