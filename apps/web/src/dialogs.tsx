@@ -633,6 +633,77 @@ export function NewTaskDialog({ title, note, places, initial, onAdd, onClose }: 
   );
 }
 
+/** A board a card can be added to, with the folder it is in. */
+export interface BoardChoice {
+  board: string;
+  label: string;
+  folder: string;
+}
+
+/** A card made from a note: its title, and the board it goes to. Its description comes from the note's lines. */
+export function NewCardDialog({ title, note, boards, initial, onAdd, onClose }: {
+  title: string;
+  /** The name of the note it links back to. */
+  note: string;
+  boards: BoardChoice[];
+  /** The board picked at first. */
+  initial: number;
+  onAdd: (title: string, board: BoardChoice) => void;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(title);
+  const [index, setIndex] = useState(initial);
+  const linksBack = t('toTask.linksBack').split('{note}');
+  const add = () => {
+    const board = boards[index];
+    if (value.trim() && board) onAdd(value, board);
+  };
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === 'ArrowDown') setIndex(Math.min(index + 1, boards.length - 1));
+    else if (event.key === 'ArrowUp') setIndex(Math.max(index - 1, 0));
+    else if (event.key === 'Enter') add();
+    else return;
+    event.preventDefault();
+  };
+  return (
+    <Dialog label={t('toCard.title')} className="move-task" onClose={onClose} onKeyDown={onKey}>
+      <h2>{t('toCard.title')}</h2>
+      <input aria-label={t('card.title')} placeholder={t('board.cardName')} autoFocus value={value} onChange={(event) => setValue(event.target.value)} />
+      <p className="links-back">
+        {linksBack[0]}
+        <u>{note}</u>
+        {linksBack[1]}
+      </p>
+      <p className="choices-label">{t('toCard.addTo')}</p>
+      {boards.length === 0 ? (
+        <p>{t('toCard.none')}</p>
+      ) : (
+        <div className="choices" role="listbox" aria-label={t('toCard.addTo')}>
+          {boards.map((board, i) => (
+            <button
+              key={board.board}
+              type="button"
+              role="option"
+              aria-selected={i === index}
+              tabIndex={-1}
+              onMouseDown={keepFocus}
+              onClick={() => setIndex(i)}
+              onDoubleClick={() => value.trim() && onAdd(value, board)}
+            >
+              <Icon name="board" />
+              <span>{board.label}</span>
+              {board.folder && <small>{board.folder}</small>}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="dialog-hint">
+        <kbd>Enter</kbd> {t('toTask.adds')} · <kbd>Esc</kbd> {t('toTask.cancels')}
+      </p>
+    </Dialog>
+  );
+}
+
 /** Asks for the name of a note or a task list. */
 export function RenameDialog({ name, onRename, onClose }: {
   name: string;

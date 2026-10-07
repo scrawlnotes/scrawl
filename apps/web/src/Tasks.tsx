@@ -1,12 +1,18 @@
 import {
   addDays,
   basename,
+  type Board,
+  type Card,
   childrenOf,
+  dueCards,
   depthOf,
   dirname,
   dueToday,
   dueUpcoming,
+  filterCards,
   filterTasks,
+  keyOf,
+  parseCardRef,
   INBOX_TASKS,
   listName,
   MAX_DEPTH,
@@ -35,7 +41,7 @@ import {
 } from 'react';
 import type { MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
-import { listLabel } from './items';
+import { boardLabel, listLabel } from './items';
 
 /** What can be done to a task, in the list at the path given. */
 export interface TaskActions {
@@ -57,6 +63,12 @@ export interface TaskActions {
   noteTitle: (path: string) => string | null;
   openNote: (path: string) => void;
   moveSection: (list: string, id: string, after: string | null) => void;
+  /** The key of the card a task was made from, or null when the card is gone. */
+  cardLabel: (ref: string) => string | null;
+  /** Opens a card in its board's tab. */
+  openCard: (board: string, id: string) => void;
+  /** Moves a card to its board's first done column. */
+  finishCard: (board: string, id: string) => void;
 }
 
 /** What a task row or a section header does when its grip is dragged. */
@@ -277,7 +289,19 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
     ) : (
       <span className="from gone">{t('tasks.from', { note: basename(task.note).replace(/\.md$/, '') })}</span>
     ));
-  const meta = (task.due || progress.total > 0 || (flat && !grouped) || from) && (
+  // The card the task was made from, by its key, or its reference once the card is gone.
+  const cardKey = task.card ? actions.cardLabel(task.card) : null;
+  const ref = task.card ? parseCardRef(task.card) : null;
+  const fromCard =
+    task.card &&
+    (cardKey !== null && ref ? (
+      <button type="button" className="from" onClick={() => actions.openCard(ref.board, ref.id)}>
+        {t('tasks.fromCard', { card: cardKey })}
+      </button>
+    ) : (
+      <span className="from gone">{t('tasks.fromCard', { card: '?' })}</span>
+    ));
+  const meta = (task.due || progress.total > 0 || (flat && !grouped) || from || fromCard) && (
     <div className="meta">
       {task.due && (
         <button type="button" className={dueClass(task.due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
@@ -294,6 +318,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
         ))}
       {flat && !grouped && <span>{listLabel(list)}</span>}
       {from}
+      {fromCard}
     </div>
   );
   const className = ['task', task.done && 'done', editing && 'editing'].filter(Boolean).join(' ');
@@ -860,14 +885,16 @@ export function TaskList({ list, tasks, sections, today, actions }: {
  * A saved filter: the open tasks of every list that match it, by the list they are in, after the
  * Filter view of design/mockups.html (direction A).
  */
-export function FilterView({ filter, lists, today, actions, onEdit }: {
+export function FilterView({ filter, lists, boards, today, actions, onEdit }: {
   filter: TaskFilter;
   lists: Record<string, Task[]>;
+  boards: Record<string, Board>;
   today: string;
   actions: TaskActions;
   onEdit: () => void;
 }) {
   const groups = filterTasks(filter, lists, today);
+  const cardGroups = filterCards(filter, boards, today);
   const chips = [
     filter.due !== 'any' && t(`filter.due.${filter.due}`),
     ...[...filter.priorities].sort().map((p) => (p === 4 ? t('filter.noPriority') : `p${p}`)),
@@ -910,33 +937,107 @@ export function FilterView({ filter, lists, today, actions, onEdit }: {
           ))}
         </div>
       ))}
-      {groups.length === 0 && <p className="task-empty">{t('filter.nothing')}</p>}
+      {cardGroups.map(({ board, cards }) => (
+        <div key={board}>
+          <div className="sec">
+            {boardLabel(board)} <small>{cards.length}</small>
+          </div>
+          {cards.map((card) => (
+            <CardRow key={card.id} board={board} whole={boards[board]!} card={card} today={today} actions={actions} grouped />
+          ))}
+        </div>
+      ))}
+      {groups.length + cardGroups.length === 0 && <p className="task-empty">{t('filter.nothing')}</p>}
     </TaskPage>
   );
 }
 
-/** Today or Upcoming: what is due, from every task list. */
-export function DueView({ kind, lists, today, actions }: {
+/**
+ * A card among tasks, in the views over everything: its key and title, with a square box that
+ * moves it to its board's first done column. The board is named unless the rows are grouped by it.
+ */
+function CardRow({ board, whole, card, today, actions, grouped }: {
+  board: string;
+  whole: Board;
+  card: Card;
+  today: string;
+  actions: TaskActions;
+  grouped?: boolean;
+}) {
+  const column = whole.columns.find((c) => c.id === card.column);
+  const phase = card.phase ? whole.phases.find((p) => p.id === card.phase) : undefined;
+  return (
+    <div className="task card-row" data-row="card">
+      <button
+        type="button"
+        className={`cb sq p${card.priority}`}
+        role="checkbox"
+        aria-checked={false}
+        aria-label={t('tasks.finishCard', { name: card.title })}
+        onClick={() => actions.finishCard(board, card.id)}
+      />
+      <div className="task-body">
+        <button type="button" className="tt card-title" onClick={() => actions.openCard(board, card.id)}>
+          <span className="key">{keyOf(whole, card)}</span>
+          {card.title}
+        </button>
+        <div className="meta">
+          {card.due && <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span>}
+          {!grouped && <span>{boardLabel(board)}</span>}
+          {column && <span>{column.name}</span>}
+          {phase && <span>{phase.name}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The dated cards of every board that are not finished: what is late, due today, and due later by day. */
+function splitDueCards(boards: Record<string, Board>, today: string) {
+  const all = dueCards(boards);
+  const later = new Map<string, typeof all>();
+  for (const due of all) {
+    if (due.card.due! <= today) continue;
+    later.set(due.card.due!, [...(later.get(due.card.due!) ?? []), due]);
+  }
+  return {
+    overdue: all.filter((d) => d.card.due! < today),
+    today: all.filter((d) => d.card.due === today),
+    later,
+  };
+}
+
+/** Today or Upcoming: what is due, from every task list and every board. */
+export function DueView({ kind, lists, boards, today, actions }: {
   kind: 'today' | 'upcoming';
   lists: Record<string, Task[]>;
+  boards: Record<string, Board>;
   today: string;
   actions: TaskActions;
 }) {
   const item = ({ list, task }: { list: string; task: Task }) => (
     <TaskItem key={`${list}/${task.id}`} list={list} task={task} tasks={lists[list] ?? []} today={today} showDone={false} actions={actions} flat />
   );
-  const section = (title: string, tasks: { list: string; task: Task }[]) =>
-    tasks.length > 0 && (
+  const cardItem = ({ board, card }: { board: string; card: Card }, grouped?: boolean) => (
+    <CardRow key={`${board}#${card.id}`} board={board} whole={boards[board]!} card={card} today={today} actions={actions} grouped={grouped} />
+  );
+  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = []) =>
+    tasks.length + cards.length > 0 && (
       <div key={title}>
         <div className="sec">
-          {title} <small>{tasks.length}</small>
+          {title} <small>{tasks.length + cards.length}</small>
         </div>
         {tasks.map(item)}
+        {cards.map((due) => cardItem(due))}
       </div>
     );
+  const cards = splitDueCards(boards, today);
 
   if (kind === 'today') {
     const due = dueToday(lists, today);
+    // Cards come after the tasks, under the board they are on.
+    const byBoard = new Map<string, { board: string; card: Card }[]>();
+    for (const d of [...cards.overdue, ...cards.today]) byBoard.set(d.board, [...(byBoard.get(d.board) ?? []), d]);
     return (
       <TaskPage
         title={t('tasks.today')}
@@ -945,16 +1046,31 @@ export function DueView({ kind, lists, today, actions }: {
       >
         {section(t('tasks.overdue'), due.overdue)}
         {section(t('tasks.today'), due.today)}
-        {due.overdue.length + due.today.length === 0 && <p className="task-empty">{t('tasks.nothingToday')}</p>}
+        {[...byBoard].map(([board, dues]) => (
+          <div key={board}>
+            <div className="sec">
+              {boardLabel(board)} <small>{dues.length}</small>
+            </div>
+            {dues.map((d) => cardItem(d, true))}
+          </div>
+        ))}
+        {due.overdue.length + due.today.length + byBoard.size === 0 && <p className="task-empty">{t('tasks.nothingToday')}</p>}
       </TaskPage>
     );
   }
 
   const days = dueUpcoming(lists, today);
+  const allDays = [...new Set([...days.map((d) => d.day), ...cards.later.keys()])].sort();
   return (
     <TaskPage title={t('tasks.upcoming')}>
-      {days.map(({ day, tasks }) => section(`${dueLabel(day, today)} · ${toDate(day).toLocaleDateString(locale(), SHORT)}`, tasks))}
-      {days.length === 0 && <p className="task-empty">{t('tasks.nothingLater')}</p>}
+      {allDays.map((day) =>
+        section(
+          `${dueLabel(day, today)} · ${toDate(day).toLocaleDateString(locale(), SHORT)}`,
+          days.find((d) => d.day === day)?.tasks ?? [],
+          cards.later.get(day) ?? [],
+        ),
+      )}
+      {allDays.length === 0 && <p className="task-empty">{t('tasks.nothingLater')}</p>}
     </TaskPage>
   );
 }

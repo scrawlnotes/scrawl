@@ -2866,3 +2866,26 @@ button.cb:hover::after {
 .dialog.phase-dialog textarea::placeholder {
   color: var(--sl-faint);
 }
+
+/* a card among tasks, in Today, Upcoming and the filters: a square box, and its key before the title */
+.cb.sq {
+  border-radius: 3px;
+}
+
+.card-row .card-title {
+  display: block;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.card-row .card-title:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.card-row .key {
+  margin-right: 7px;
+  color: var(--sl-faint);
+  font: 10.5px var(--sl-font-mono);
+}

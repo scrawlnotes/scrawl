@@ -30,6 +30,17 @@ export interface Task {
   author?: string | null;
   /** Path of the note the task was made from. */
   note?: string | null;
+  /** The card the task was made from, as `cardRef` writes it. */
+  card?: string | null;
+}
+
+/** A card as a task refers to it: the path of its board and its id. */
+export const cardRef = (board: string, id: string) => `${board}#${id}`;
+
+/** The board and card a task's `card` refers to; null when it is not one. */
+export function parseCardRef(ref: string): { board: string; id: string } | null {
+  const at = ref.lastIndexOf('#');
+  return at > 0 && at < ref.length - 1 ? { board: ref.slice(0, at), id: ref.slice(at + 1) } : null;
 }
 
 /** How deep subtasks may nest below a top-level task. */
@@ -115,6 +126,8 @@ function parseTaskArray(list: unknown): Task[] {
       description: typeof raw.description === 'string' && raw.description.trim() ? raw.description : undefined,
       section: typeof raw.section === 'string' ? raw.section : undefined,
     });
+    const task = tasks[tasks.length - 1]!;
+    if (typeof raw.card !== 'string') delete task.card;
   }
   // A subtask whose parent is gone becomes a top-level task instead of disappearing.
   const ids = new Set(tasks.map((t) => t.id));
@@ -268,6 +281,13 @@ export function relinkNote(list: TaskList, from: string, to: string): TaskList {
   return { ...list, tasks: list.tasks.map((t) => (t.note === from ? { ...t, note: to } : t)) };
 }
 
+/** Points the tasks made from cards of the board at `from` to the board's new path. */
+export function relinkBoard(list: TaskList, from: string, to: string): TaskList {
+  const prefix = `${from}#`;
+  if (!list.tasks.some((t) => t.card?.startsWith(prefix))) return list;
+  return { ...list, tasks: list.tasks.map((t) => (t.card?.startsWith(prefix) ? { ...t, card: `${to}#${t.card.slice(prefix.length)}` } : t)) };
+}
+
 /** Removes a section with its tasks and their subtasks, as Todoist does. */
 export function removeSection(list: TaskList, id: string): TaskList {
   let tasks = list.tasks;
@@ -309,6 +329,8 @@ export interface NewTask {
   description?: string;
   /** The note it was made from. */
   note?: string | null;
+  /** The card it was made from, as `cardRef` writes it. */
+  card?: string | null;
   due?: string | null;
   priority?: Priority;
 }
@@ -339,6 +361,7 @@ export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Da
     ...(section !== null && { section }),
     ...(input.description?.trim() && { description: input.description.trim() }),
     ...(input.note && { note: input.note }),
+    ...(input.card && { card: input.card }),
   };
   return [...tasks, task];
 }

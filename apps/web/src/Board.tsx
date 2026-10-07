@@ -147,6 +147,8 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPh
           label: t('board.moveToColumn', { column: column.name }),
           run: () => actions.moveCard(path, card.id, { column: column.id, after: columnCards(board, column.id).pop()?.id ?? null }),
         })),
+      { label: t('card.copyBrief'), run: () => actions.copyBrief(path, card.id) },
+      { label: t('card.addToToday'), run: () => actions.addToToday(path, card.id) },
       { label: t('menu.delete'), run: () => actions.removeCard(path, card) },
     ]);
   return (

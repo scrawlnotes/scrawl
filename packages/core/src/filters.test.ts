@@ -87,3 +87,25 @@ describe('filters', () => {
     expect(serializeFilters([])).toContain('"filters": []');
   });
 });
+
+import { addCard, moveCardToKind, newBoard, updateCard } from './board';
+import { filterCards } from './filters';
+
+describe('filterCards', () => {
+  it('shows the cards that match, not finished ones, by board', () => {
+    let board = newBoard('Plan', 'software');
+    board = addCard(board, { title: 'Soon', due: '2026-10-08', priority: 1 }, () => new Date('2026-10-07T12:00:00Z'), undefined, 'a');
+    board = addCard(board, { title: 'Later', due: '2026-10-20' }, () => new Date('2026-10-07T12:00:00Z'), undefined, 'b');
+    board = addCard(board, { title: 'Done soon', due: '2026-10-08' }, () => new Date('2026-10-07T12:00:00Z'), undefined, 'c');
+    board = moveCardToKind(board, 'c', 'done');
+    board = updateCard(board, 'b', { description: 'needle here' });
+    const boards = { 'Work/Plan.board.json': board };
+    const base = { due: 'any' as const, priorities: [], folders: [], text: '' };
+    expect(filterCards(base, boards, '2026-10-07').map((g) => g.cards.map((c) => c.id))).toEqual([['a', 'b']]);
+    expect(filterCards({ ...base, due: 'next7' }, boards, '2026-10-07')[0]!.cards.map((c) => c.id)).toEqual(['a']);
+    expect(filterCards({ ...base, priorities: [1] }, boards, '2026-10-07')[0]!.cards.map((c) => c.id)).toEqual(['a']);
+    expect(filterCards({ ...base, folders: ['Work'] }, boards, '2026-10-07')).toHaveLength(1);
+    expect(filterCards({ ...base, folders: ['Home'] }, boards, '2026-10-07')).toHaveLength(0);
+    expect(filterCards({ ...base, text: 'NEEDLE' }, boards, '2026-10-07')[0]!.cards.map((c) => c.id)).toEqual(['b']);
+  });
+});

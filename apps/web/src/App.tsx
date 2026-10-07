@@ -4,6 +4,7 @@ import {
   boardName,
   type Card,
   cardBrief,
+  cardRef,
   type Column,
   columnCards,
   dayOf,
@@ -12,11 +13,15 @@ import {
   filterTasks,
   INBOX,
   INBOX_TASKS,
+  keyOf,
   listName,
   openCardCount,
   openCount,
+  parseCardRef,
   type Phase,
   phaseCards,
+  dueCards,
+  filterCards,
   removeSection,
   removeTask,
   type Section,
@@ -37,6 +42,7 @@ import {
   MoveDialog,
   PhaseDialog,
   MoveTaskDialog,
+  NewCardDialog,
   NewDialog,
   NewTaskDialog,
   RenameDialog,
@@ -47,6 +53,7 @@ import { FormatBar } from './FormatBar';
 import { HistoryDialog } from './History';
 import { Icon } from './Icon';
 import {
+  boardLabel,
   boardOf,
   boardPathOf,
   filterOf,
@@ -82,6 +89,7 @@ type OpenDialog =
   | { kind: 'history'; path: string }
   | { kind: 'moveTask'; list: string; id: string }
   | { kind: 'toTask'; note: string; title: string; description: string }
+  | { kind: 'toCard'; note: string; title: string; description: string }
   | { kind: 'filter'; filter: TaskFilter | null }
   | null;
 
@@ -296,6 +304,16 @@ export function App() {
     const made = session.taskFromNote();
     if (made) setDialog({ kind: 'toTask', ...made });
   }
+  // A card from the note on screen, the same way.
+  function startToCard() {
+    const made = session.taskFromNote();
+    if (made) setDialog({ kind: 'toCard', ...made });
+  }
+  /** Opens a card in its board's tab, in the panel. */
+  const showCard = (board: string, id: string) => {
+    void session.open(boardOf(board));
+    setOpenCard({ board, id });
+  };
 
   // A filter's menu: change it, or delete it; its tasks stay where they are.
   const filterMenu = (event: MouseEvent, filter: TaskFilter) =>
@@ -446,6 +464,14 @@ export function App() {
     moveTo: (list, id) => setDialog({ kind: 'moveTask', list, id }),
     noteTitle: (path) => titles[path] ?? null,
     openNote: (path) => void session.open(path),
+    cardLabel: (ref) => {
+      const at = parseCardRef(ref);
+      const whole = at && boards[at.board];
+      const card = whole?.cards.find((candidate) => candidate.id === at?.id);
+      return whole && card ? keyOf(whole, card) : null;
+    },
+    openCard: showCard,
+    finishCard: (board, id) => session.finishCard(board, id),
   };
   // A card's brief: the card as Markdown, with the note it came from.
   const copyBrief = async (board: string, id: string) => {
@@ -477,6 +503,12 @@ export function App() {
     removeComment: (board, id, comment) => session.removeComment(board, id, comment),
     copyBrief: (board, id) => void copyBrief(board, id),
     openCard: (board, id) => setOpenCard({ board, id }),
+    addToToday: (board, id) => {
+      const card = boards[board]?.cards.find((candidate) => candidate.id === id);
+      if (!card) return;
+      session.addTask(INBOX_TASKS, { title: card.title, due: today, card: cardRef(board, id) });
+      setNotice(t('card.addedToToday'));
+    },
     editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
     menu: openMenu,
     addColumn: (board, name, kind, after) => session.addColumn(board, name, kind, after),
@@ -496,11 +528,14 @@ export function App() {
     openNote: (path) => void session.open(path),
   };
   const dueNow = dueToday(tasks, today);
-  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length, [TRASH]: trash.length };
+  const dueCardsNow = dueCards(boards).filter((d) => d.card.due! <= today).length;
+  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [TRASH]: trash.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const filter of filters) {
-    counts[filterTab(filter.id)] = filterTasks(filter, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0);
+    counts[filterTab(filter.id)] =
+      filterTasks(filter, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0) +
+      filterCards(filter, boards, today).reduce((sum, group) => sum + group.cards.length, 0);
   }
   const list = active ? listOf(active) : null;
   const boardPath = active ? boardPathOf(active) : null;
@@ -613,6 +648,7 @@ export function App() {
             onRecord={() => void session.startRecording()}
             onStop={() => session.stopRecording()}
             onToTask={startToTask}
+            onToCard={startToCard}
             toTaskKeys={keys('T')}
           />
         )}
@@ -630,11 +666,12 @@ export function App() {
             onCloseCard={() => setOpenCard(null)}
           />
         )}
-        {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} today={today} actions={taskActions} />}
+        {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} boards={boards} today={today} actions={taskActions} />}
         {activeFilter && (
           <FilterView
             filter={activeFilter}
             lists={tasks}
+            boards={boards}
             today={today}
             actions={taskActions}
             onEdit={() => setDialog({ kind: 'filter', filter: activeFilter })}
@@ -793,6 +830,28 @@ export function App() {
               onAdd={(title, place) => {
                 session.addTask(place.list, { title, description: dialog.description, section: place.section, note: dialog.note });
                 setNotice(t('toTask.added', { list: listLabel(place.list) }));
+                setDialog(null);
+              }}
+              onClose={closeDialog}
+            />
+          );
+        })()}
+      {dialog?.kind === 'toCard' &&
+        (() => {
+          const choices = Object.keys(boards)
+            .sort()
+            .map((board) => ({ board, label: boardName(board), folder: basename(dirname(board)) }));
+          // A board in the note's own folder first.
+          const near = choices.findIndex((choice) => dirname(choice.board) === dirname(dialog.note));
+          return (
+            <NewCardDialog
+              title={dialog.title}
+              note={titles[dialog.note] ?? basename(dialog.note)}
+              boards={choices}
+              initial={Math.max(near, 0)}
+              onAdd={(title, choice) => {
+                session.addCard(choice.board, { title, description: dialog.description, note: dialog.note });
+                setNotice(t('toCard.added', { board: boardLabel(choice.board) }));
                 setDialog(null);
               }}
               onClose={closeDialog}

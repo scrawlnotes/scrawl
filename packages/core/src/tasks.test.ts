@@ -21,6 +21,7 @@ import {
   parseTasks,
   progressOf,
   relinkNote,
+  relinkBoard,
   removeSection,
   removeTask,
   renameSection,
@@ -32,6 +33,8 @@ import {
   type Task,
   type TaskList,
   updateTask,
+  cardRef,
+  parseCardRef,
 } from './tasks';
 
 const now = () => new Date('2026-10-05T12:00:00.000Z');
@@ -301,5 +304,23 @@ describe('due views', () => {
       ['2026-10-06', ['Home/tomorrow']],
       ['2026-10-09', ['Work/next']],
     ]);
+  });
+});
+
+describe('cards a task was made from', () => {
+  it('are referred to by board and id, and follow the board when it moves', () => {
+    expect(parseCardRef(cardRef('Work/Plan.board.json', 'c1'))).toEqual({ board: 'Work/Plan.board.json', id: 'c1' });
+    expect(parseCardRef('nothing')).toBeNull();
+    expect(parseCardRef('x#')).toBeNull();
+    let tasks = addTask([], { title: 'A', card: cardRef('Work/Plan.board.json', 'c1') }, now, 'A');
+    tasks = addTask(tasks, { title: 'B' }, now, 'B');
+    const list: TaskList = { sections: [], tasks };
+    expect(relinkBoard(list, 'Other.board.json', 'x')).toBe(list);
+    const moved = relinkBoard(list, 'Work/Plan.board.json', 'Done/Plan.board.json');
+    expect(moved.tasks[0]!.card).toBe('Done/Plan.board.json#c1');
+    expect(moved.tasks[1]).not.toHaveProperty('card');
+    // A card reference that is not a string is dropped when the file is read.
+    expect(parseTasks(JSON.stringify({ tasks: [{ id: 'k', title: 'T', card: 3 }] }))[0]).not.toHaveProperty('card');
+    expect(parseTasks(serializeTasks(moved.tasks))).toEqual(moved.tasks);
   });
 });

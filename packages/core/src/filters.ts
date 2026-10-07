@@ -1,5 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import { basename, dirname, type VaultFs } from './fs';
+import { type Board, type Card, isFinished } from './board';
 import { addDays, type Priority, type Task } from './tasks';
 
 /**
@@ -111,6 +112,28 @@ export function filterTasks(filter: FilterChoices, lists: Record<string, Task[]>
   return Object.entries(lists)
     .map(([list, tasks]) => ({ list, tasks: tasks.filter((task) => matchesFilter(filter, list, task, today)).sort(byDue) }))
     .filter((group) => group.tasks.length > 0);
+}
+
+/** Whether a card of the board at `board` is one the filter shows: not finished, and matching as a task would. */
+export function matchesFilterCard(filter: FilterChoices, board: string, whole: Board, card: Card, today: string): boolean {
+  if (isFinished(whole, card) || !dueMatches(filter.due, card.due, today)) return false;
+  if (filter.priorities.length > 0 && !filter.priorities.includes(card.priority)) return false;
+  const folder = dirname(board);
+  if (filter.folders.length > 0 && !filter.folders.some((f) => folder === f || folder.startsWith(`${f}/`))) return false;
+  const text = filter.text.trim().toLowerCase();
+  return !text || `${card.title}\n${card.description ?? ''}`.toLowerCase().includes(text);
+}
+
+/** The cards a filter shows, by the board they are on; in each by due day, the undated last, then priority. */
+export function filterCards(filter: FilterChoices, boards: Record<string, Board>, today: string): { board: string; cards: Card[] }[] {
+  return Object.entries(boards)
+    .map(([board, whole]) => ({
+      board,
+      cards: whole.cards
+        .filter((card) => matchesFilterCard(filter, board, whole, card, today))
+        .sort((a, b) => (a.due ?? '￿').localeCompare(b.due ?? '￿') || a.priority - b.priority || a.order - b.order),
+    }))
+    .filter((group) => group.cards.length > 0);
 }
 
 /** A name made of what a filter picks, for one left unnamed: `This week · p1`. */

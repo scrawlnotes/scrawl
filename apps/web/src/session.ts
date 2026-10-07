@@ -8,6 +8,7 @@ import {
   addTask,
   ATTACHMENTS,
   type Board,
+  BOARD_EXT,
   type CardPatch,
   type CardPlace,
   closePhase,
@@ -32,6 +33,7 @@ import {
   loadFilters,
   loadList,
   moveCard,
+  moveCardToKind,
   moveColumn,
   movePhase,
   moveSection,
@@ -39,6 +41,7 @@ import {
   moveTaskToList,
   type NewCard,
   type PhasePatch,
+  relinkBoard,
   relinkBoardNote,
   relinkNote,
   loadWorkspace,
@@ -1068,6 +1071,11 @@ export class Session {
     this.changeBoard(board, (current) => updateCard(current, id, patch));
   }
 
+  /** Moves a card to the end of the first done column: ticked off from Today. */
+  finishCard(board: string, id: string) {
+    this.changeBoard(board, (current) => moveCardToKind(current, id, 'done'));
+  }
+
   addComment(board: string, id: string, text: string) {
     this.changeBoard(board, (current) => addComment(current, id, text));
   }
@@ -1265,6 +1273,10 @@ export class Session {
       // Tasks and cards made from the note link to it where it is now.
       for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkNote(current, path, target));
       for (const board of Object.keys(this.snapshot.boards)) this.changeBoard(board, (current) => relinkBoardNote(current, path, target));
+    }
+    // Tasks made from cards of a board link to it where it is now.
+    if (path.endsWith(BOARD_EXT)) {
+      for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkBoard(current, path, target));
     }
     const [from, to] = [tabOf(path), tabOf(target)];
     const { tabs, active } = this.snapshot;
