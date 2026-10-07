@@ -81,6 +81,7 @@ Sublime/Notepad'de kapatılmayan sekmelerin yerini alacak bir çalışma notu uy
 - Inbox'ın kendi görev listesi her zaman vardır; Today'den eklenen görevler oraya gider.
 - Görev alanları: başlık, açıklama, öncelik (p1-p4), tarih, tamamlanma.
 - Bölümler: bölümsüz görevler en üstte başlıksız durur, ardından bölümler gelir. Bölüm başlığı katlanır (katlı hali dosyada saklanır), adına tıklayınca yerinde düzenlenir, `···` ve sağ tık menüsünde Rename, Add task, Delete section vardır. Bölüm silinince görevleri de onayla kalıcı olarak silinir (Todoist gibi). Listenin sonunda "Add section" satırı vardır.
+- Sürükleme: görevin üstüne gelince solunda tutamaç çıkar; görev alt görevleriyle birlikte aynı bölümde, başka bölüme ya da en üste sürüklenir. Bırakılacak yeri turuncu bir çizgi gösterir; çizginin başladığı yer seviyedir: imleci sağa kaydırmak görevi üstündekinin alt görevi yapar (en fazla 4 seviye), sola kaydırmak bir seviye çıkarır. Katlı bir bölümün başlığına bırakılan görev o bölümün sonuna girer. Bölüm başlıkları da sürüklenir. Esc iptal eder. Today ve Upcoming tarihe göre sıralıdır, orada sürükleme yoktur.
 - Açıklama düz metindir; listede başlığın altında en fazla iki satır görünür. Başlığa tıklayınca satır, başlık ve açıklamanın birlikte düzenlendiği bir kutuya döner: başlıkta Enter, açıklamada Ctrl+Enter kaydeder, Esc vazgeçer, kutunun dışına tıklamak kaydeder. Yeni görev satırı yalnızca başlık alır.
 - Tüm listeleri kapsayan görünümler: Today, Upcoming, kayıtlı filtreler (ör. "bu hafta ve p1").
 - Klavye öncelikli hızlı ekleme (düz alanlarla).
@@ -164,7 +165,7 @@ vault/
 |---|---|---|
 | 0 | İskelet ve editör denemesi | Monorepo kurulu; live preview prototipi başlık, vurgu, liste, link, resim ve kod bloğuyla tarayıcıda denenebiliyor |
 | 1 | Masaüstü editör | Yerel klasörle günlük kullanımda Notepad'in yerini alıyor. **Bitti:** editör, sekmeler (sürükleyerek sıralama dahil), scratch notlar, kenar çubuğu, resim, biçim çubuğunda çoklu imleç, kod bloğunda kopyala, çöp kutusu ekranı, sürüm geçmişi, dosya bırakma, ses kaydı ve oynatıcı, resim/dosya/kayıt menüsü, kullanılmayan eklerin temizliği, çeviri altyapısı (`packages/i18n`, şimdilik İngilizce), kurulabilir sürüm. **Kalan:** masaüstünde deneme (Show in folder, linki tarayıcıda açma) |
-| 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri, açıklama, bölümler. **Kalan:** sürükleyerek sıralama, taşıma, "göreve çevir", kayıtlı filtreler |
+| 2 | Görevler | **İlk dilim bitti:** klasörde adlı, birden çok görev listesi, dört seviyeye kadar alt görev, öncelik, tarih, Today/Upcoming, Inbox görevleri, açıklama, bölümler, sürükleyerek sıralama. **Kalan:** taşıma, "göreve çevir", kayıtlı filtreler |
 | 3 | Ayarlar | Ayarlar ekranı: tema ve dark mode (sistemle uyumlu, seçim hatırlanır), not klasörü, dil |
 | 4 | Sync + web | OneDrive adaptörü, çakışma çözümü; web sürümü yayında ve telefonda PWA olarak kullanılabilir |
 | 5 | Paylaşım | PDF/HTML/MD dışa aktarma; yayın servisi ve "link olarak paylaş" |

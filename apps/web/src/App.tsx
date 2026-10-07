@@ -296,6 +296,8 @@ export function App() {
     renameSection: (list, id, name) => session.renameSection(list, id, name),
     foldSection: (list, id, collapsed) => session.foldSection(list, id, collapsed),
     removeSection: deleteSection,
+    moveTask: (list, id, place) => session.moveTask(list, id, place),
+    moveSection: (list, id, after) => session.moveSection(list, id, after),
   };
   const dueNow = dueToday(tasks, today);
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length, [TRASH]: trash.length };

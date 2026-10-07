@@ -18,6 +18,8 @@ import {
   keepVersion,
   listVersions,
   loadList,
+  moveSection,
+  moveTask,
   loadWorkspace,
   moveHistory,
   moveItem,
@@ -40,6 +42,7 @@ import {
   type Section,
   type Task,
   type TaskList,
+  type TaskPlace,
   type TaskPatch,
   trashFolder,
   trashItem,
@@ -808,6 +811,15 @@ export class Session {
 
   foldSection(list: string, id: string, collapsed: boolean) {
     this.changeList(list, (current) => foldSection(current, id, collapsed));
+  }
+
+  /** Moves a task, with its subtasks, where it was dropped. */
+  moveTask(list: string, id: string, place: TaskPlace) {
+    this.changeList(list, (current) => moveTask(current, id, place));
+  }
+
+  moveSection(list: string, id: string, after: string | null) {
+    this.changeList(list, (current) => moveSection(current, id, after));
   }
 
   /** Deletes a section with its tasks; the interface asks first. */

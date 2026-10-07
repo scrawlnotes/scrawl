@@ -12,6 +12,8 @@ import {
   foldSection,
   loadList,
   loadTasks,
+  moveSection,
+  moveTask,
   MAX_DEPTH,
   openCount,
   parseList,
@@ -194,6 +196,53 @@ describe('sections', () => {
   it('shows a task whose section is gone among the tasks in none', () => {
     const list = { ...sample(), sections: [] };
     expect(titles(sectionTasks(list, null))).toEqual(['loose', 'p0 first', 'p1 first', 'p0 second']);
+  });
+
+  it('moves a task with its subtasks into another section, at the place given', () => {
+    const list = moveTask(sample(), 'p0a', { parent: null, section: 's1', after: 'p1a' }, now);
+    expect(titles(sectionTasks(list, 's0'))).toEqual(['p0 second']);
+    expect(titles(sectionTasks(list, 's1'))).toEqual(['p1 first', 'p0 first']);
+    expect(titles(childrenOf(list.tasks, 'p0a'))).toEqual(['under p0']);
+    const first = moveTask(list, 'p0b', { parent: null, section: 's1', after: null }, now);
+    expect(titles(sectionTasks(first, 's1'))).toEqual(['p0 second', 'p1 first', 'p0 first']);
+    expect(titles(sectionTasks(moveTask(list, 'p1a', { parent: null, section: null, after: 'loose' }, now), null))).toEqual(['loose', 'p1 first']);
+  });
+
+  it('makes a task a subtask, and a subtask a top-level task without a section of its own', () => {
+    let list = moveTask(sample(), 'loose', { parent: 'p0b', section: 's0', after: null }, now);
+    expect(list.tasks.find((t) => t.id === 'loose')).toMatchObject({ parent: 'p0b' });
+    expect(list.tasks.find((t) => t.id === 'loose')!.section).toBeUndefined();
+    list = moveTask(list, 'p0a1', { parent: null, section: null, after: null }, now);
+    expect(titles(sectionTasks(list, null))).toEqual(['under p0']);
+  });
+
+  it('does not move a task into itself, or its subtasks deeper than allowed', () => {
+    const list = sample();
+    expect(moveTask(list, 'p0a', { parent: 'p0a1', section: null, after: null }, now)).toBe(list);
+    expect(moveTask(list, 'p0a', { parent: 'p0a', section: null, after: null }, now)).toBe(list);
+    // A chain as deep as allowed cannot take a task that has a subtask of its own.
+    let deep: TaskList = { sections: [], tasks: [] };
+    let parent: string | null = null;
+    for (let i = 0; i <= MAX_DEPTH; i++) {
+      deep = { ...deep, tasks: addTask(deep.tasks, { title: `d${i}`, parent }, now, `d${i}`) };
+      parent = `d${i}`;
+    }
+    deep = { ...deep, tasks: addTask(addTask(deep.tasks, { title: 'x' }, now, 'x'), { title: 'x1', parent: 'x' }, now, 'x1') };
+    expect(moveTask(deep, 'x', { parent: `d${MAX_DEPTH - 1}`, section: null, after: null }, now)).toBe(deep);
+    expect(moveTask(deep, 'x1', { parent: `d${MAX_DEPTH - 1}`, section: null, after: null }, now)).not.toBe(deep);
+  });
+
+  it('leaves the list as it is when a task is dropped where it was', () => {
+    const list = sample();
+    expect(moveTask(list, 'p0b', { parent: null, section: 's0', after: 'p0a' }, now)).toBe(list);
+    expect(moveTask(list, 'p0a', { parent: null, section: 's0', after: null }, now)).toBe(list);
+  });
+
+  it('moves a section with its tasks', () => {
+    const list = addSection(sample(), 'Phase 2', 's2');
+    expect(moveSection(list, 's2', null).sections.map((s) => s.id)).toEqual(['s2', 's0', 's1']);
+    expect(moveSection(list, 's0', 's1').sections.map((s) => s.id)).toEqual(['s1', 's0', 's2']);
+    expect(moveSection(list, 's0', 'gone')).toBe(list);
   });
 
   it('skips broken sections', () => {

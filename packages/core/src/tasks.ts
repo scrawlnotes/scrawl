@@ -177,6 +177,66 @@ export function foldSection(list: TaskList, id: string, collapsed: boolean): Tas
   return { ...list, sections: list.sections.map((s) => (s.id === id ? { ...s, collapsed: collapsed || undefined } : s)) };
 }
 
+/** Moves a section, with its tasks, to just after `after`, or to the top with `null`. */
+export function moveSection(list: TaskList, id: string, after: string | null): TaskList {
+  const section = list.sections.find((s) => s.id === id);
+  if (!section || after === id) return list;
+  const rest = list.sections.filter((s) => s.id !== id);
+  const at = after === null ? 0 : rest.findIndex((s) => s.id === after) + 1;
+  if (after !== null && at === 0) return list;
+  return { ...list, sections: [...rest.slice(0, at), section, ...rest.slice(at)] };
+}
+
+/** Where a task goes when it is moved: its new parent or section, and the sibling it follows. */
+export interface TaskPlace {
+  /** The task it becomes a subtask of; null for the top level. */
+  parent: string | null;
+  /** At the top level: the section it goes in, null for none. */
+  section: string | null;
+  /** The sibling it comes right after; null to come first. */
+  after: string | null;
+}
+
+/** How many levels of subtasks a task has under it. */
+function heightOf(tasks: Task[], id: string): number {
+  const children = tasks.filter((t) => t.parent === id);
+  return children.length === 0 ? 0 : 1 + Math.max(...children.map((c) => heightOf(tasks, c.id)));
+}
+
+/**
+ * Moves a task, with its subtasks, to `place`. Nothing moves when the task would go into
+ * itself or one of its subtasks, or its subtasks would go deeper than `MAX_DEPTH`.
+ */
+export function moveTask(list: TaskList, id: string, place: TaskPlace, now: Clock = () => new Date()): TaskList {
+  const { tasks } = list;
+  const task = tasks.find((t) => t.id === id);
+  if (!task) return list;
+  const { parent } = place;
+  if (parent !== null && (parent === id || descendants(tasks, id).has(parent) || !tasks.some((t) => t.id === parent))) return list;
+  const depth = parent === null ? 0 : depthOf(tasks, parent) + 1;
+  if (depth + heightOf(tasks, id) > MAX_DEPTH) return list;
+  const section = parent === null && list.sections.some((s) => s.id === place.section) ? place.section : null;
+  const siblings = (parent === null ? sectionTasks(list, section) : childrenOf(tasks, parent)).filter((t) => t.id !== id);
+  const at = place.after === null ? 0 : siblings.findIndex((t) => t.id === place.after) + 1;
+  const ordered = [...siblings.slice(0, at), task, ...siblings.slice(at)];
+  // Dropped where it already was: the file stays as it is.
+  const before = parent === null ? sectionTasks(list, section) : childrenOf(tasks, parent);
+  if (task.parent === parent && before.length === ordered.length && before.every((t, i) => t.id === ordered[i]!.id)) return list;
+  const orderOf = new Map(ordered.map((t, i) => [t.id, i]));
+  const stamp = iso(now);
+  return {
+    ...list,
+    tasks: tasks.map((t) => {
+      if (t.id === id) {
+        const { section: _old, ...rest } = t;
+        return { ...rest, parent, order: orderOf.get(id)!, updated: stamp, ...(section !== null && { section }) };
+      }
+      const order = orderOf.get(t.id);
+      return order === undefined || order === t.order ? t : { ...t, order };
+    }),
+  };
+}
+
 /** Removes a section with its tasks and their subtasks, as Todoist does. */
 export function removeSection(list: TaskList, id: string): TaskList {
   let tasks = list.tasks;

@@ -17,9 +17,11 @@ import {
   type Task,
   type TaskList as List,
   type TaskPatch,
+  type TaskPlace,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import {
+  type DragEvent,
   Fragment,
   type KeyboardEvent,
   type MouseEvent,
@@ -46,6 +48,34 @@ export interface TaskActions {
   foldSection: (list: string, id: string, collapsed: boolean) => void;
   /** Asks first, then deletes the section with its tasks. */
   removeSection: (list: string, section: Section) => void;
+  moveTask: (list: string, id: string, place: TaskPlace) => void;
+  moveSection: (list: string, id: string, after: string | null) => void;
+}
+
+/** What a task row or a section header does when its grip is dragged. */
+interface DragHandlers {
+  grab: (event: DragEvent<HTMLElement>, what: { task: Task } | { section: Section }) => void;
+  release: () => void;
+}
+
+const GRIP = (
+  <svg viewBox="0 0 10 14" aria-hidden="true">
+    <circle cx="2.5" cy="2.5" r="1.3" />
+    <circle cx="7.5" cy="2.5" r="1.3" />
+    <circle cx="2.5" cy="7" r="1.3" />
+    <circle cx="7.5" cy="7" r="1.3" />
+    <circle cx="2.5" cy="11.5" r="1.3" />
+    <circle cx="7.5" cy="11.5" r="1.3" />
+  </svg>
+);
+
+/** The handle a row is dragged by; it shows when the row is hovered. */
+function Grip({ title, onGrab, onRelease }: { title: string; onGrab: (event: DragEvent<HTMLElement>) => void; onRelease: () => void }) {
+  return (
+    <span className="grip" title={title} draggable onDragStart={onGrab} onDragEnd={onRelease}>
+      {GRIP}
+    </span>
+  );
 }
 
 const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: 'long' };
@@ -154,6 +184,8 @@ interface ItemProps {
   actions: TaskActions;
   /** In the views over all lists: the task alone, with the list it is in. */
   flat?: boolean;
+  /** In a list, where tasks can be dragged to another place. */
+  drag?: DragHandlers;
 }
 
 /** A task's title and description while they are edited. */
@@ -162,7 +194,7 @@ interface Draft {
   description: string;
 }
 
-function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemProps) {
+function TaskItem({ list, task, tasks, today, showDone, actions, flat, drag }: ItemProps) {
   const [editing, setEditing] = useState<Draft | null>(null);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(true);
@@ -227,9 +259,13 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
     <>
       <div
         className={className}
+        data-row="task"
+        data-id={task.id}
+        data-depth={depthOf(tasks, task.id)}
         // Leaving the editor, by a click elsewhere or by Tab, saves it.
         onBlur={editing ? (event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && save() : undefined}
       >
+        {drag && !editing && <Grip title={t('tasks.drag')} onGrab={(event) => drag.grab(event, { task })} onRelease={drag.release} />}
         <button
           type="button"
           className={`cb p${task.priority}`}
@@ -313,7 +349,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
       {(children.length > 0 || adding) && open && (
         <div className="subs">
           {children.map((child) => (
-            <TaskItem key={child.id} list={list} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} />
+            <TaskItem key={child.id} list={list} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} />
           ))}
           {adding && (
             <Composer placeholder={t('tasks.subtaskName')} onAdd={(title) => actions.add(list, { title, parent: task.id })} onClose={() => setAdding(false)} />
@@ -364,6 +400,138 @@ function TaskPage({ title, detail, onAdd, onAddClick, footer, children }: {
   );
 }
 
+const DRAG_TYPE = 'application/x-scrawl-task';
+/** How far a subtask sits to the right of its parent; dragging that far right or left changes the level. */
+const INDENT = 28;
+
+/** A task or a section being dragged by its grip. */
+interface Dragging {
+  kind: 'task' | 'section';
+  id: string;
+  /** A task's level where it was picked up. */
+  depth: number;
+  /** How many levels of subtasks go with it. */
+  height: number;
+  startX: number;
+  /** Its own rows, which are no place to drop it. */
+  lifted: HTMLElement[];
+}
+
+/** Where a drag would land: the line that shows it, or the folded section it would go into. */
+interface Drop {
+  line?: { top: number; left: number };
+  into?: string;
+  /** For a task. */
+  place?: TaskPlace;
+  /** For a section: the one it would follow, null for the top. */
+  after?: string | null;
+}
+
+const sameDrop = (a: Drop | null, b: Drop) =>
+  a !== null &&
+  a.line?.top === b.line?.top &&
+  a.line?.left === b.line?.left &&
+  a.into === b.into &&
+  a.after === b.after &&
+  a.place?.parent === b.place?.parent &&
+  a.place?.section === b.place?.section &&
+  a.place?.after === b.place?.after;
+
+function subtaskLevels(tasks: Task[], id: string): number {
+  const children = tasks.filter((t) => t.parent === id);
+  return children.length === 0 ? 0 : 1 + Math.max(...children.map((child) => subtaskLevels(tasks, child.id)));
+}
+
+/** The picture that follows the pointer: the task's checkbox and title, or the section's name. */
+function dragImage(event: DragEvent<HTMLElement>, label: string, checkbox?: string) {
+  const ghost = document.createElement('div');
+  ghost.className = 'drag-ghost';
+  if (checkbox) ghost.append(Object.assign(document.createElement('span'), { className: `cb ${checkbox}` }));
+  ghost.append(label);
+  document.body.append(ghost);
+  event.dataTransfer.setDragImage(ghost, 14, 16);
+  requestAnimationFrame(() => ghost.remove());
+}
+
+/** The rows a drag can land between, in order: task rows and section headers, not its own. */
+function dropRows(container: HTMLElement, d: Dragging): HTMLElement[] {
+  return [...container.querySelectorAll<HTMLElement>('[data-row]')].filter(
+    (row) => !d.lifted.some((lifted) => lifted === row || lifted.contains(row)),
+  );
+}
+
+const depthOfRow = (row: HTMLElement) => Number(row.dataset.depth ?? 0);
+
+/** Where the rows start inside the drop area, which reaches into the list's margin. */
+const margin = (container: HTMLElement) => parseFloat(getComputedStyle(container).paddingLeft) || 0;
+
+/**
+ * Where a dragged task would land. The pointer's height picks the gap between two rows; how far
+ * it moved right or left since the task was picked up picks the level, from the top level up to
+ * one below the task above. A folded section's header takes the task in at its end.
+ */
+function taskDrop(container: HTMLElement, d: Dragging, event: DragEvent, list: List): Drop {
+  const box = container.getBoundingClientRect();
+  const rows = dropRows(container, d);
+  const y = event.clientY;
+  const folded = rows.find((row) => {
+    if (row.dataset.row !== 'section' || row.dataset.collapsed !== 'true') return false;
+    const r = row.getBoundingClientRect();
+    return y >= r.top && y < r.bottom;
+  });
+  if (folded) {
+    const section = folded.dataset.id!;
+    const last = sectionTasks(list, section).filter((t) => t.id !== d.id).pop();
+    return { into: section, place: { parent: null, section, after: last?.id ?? null } };
+  }
+
+  let index = rows.findIndex((row) => {
+    const r = row.getBoundingClientRect();
+    return y < r.top + r.height / 2;
+  });
+  if (index < 0) index = rows.length;
+  const above = rows.slice(0, index);
+  const prev = above[above.length - 1];
+  const next = rows[index];
+  const prevTask = prev?.dataset.row === 'task' ? prev : null;
+  const max = prevTask ? Math.min(depthOfRow(prevTask) + 1, MAX_DEPTH - d.height) : 0;
+  const min = Math.min(next?.dataset.row === 'task' ? depthOfRow(next) : 0, max);
+  const level = Math.max(min, Math.min(max, d.depth + Math.round((event.clientX - d.startX) / INDENT)));
+
+  // Walking up from the gap: the first row at the level is the task it follows, the first one
+  // above the level is its parent. A section header ends the walk.
+  let parent: string | null = null;
+  let after: string | null = null;
+  for (let i = above.length - 1; i >= 0; i--) {
+    const row = above[i]!;
+    if (row.dataset.row === 'section') break;
+    const depth = depthOfRow(row);
+    if (depth === level && after === null) after = row.dataset.id!;
+    if (depth < level) {
+      parent = row.dataset.id!;
+      break;
+    }
+  }
+  const header = [...above].reverse().find((row) => row.dataset.row === 'section');
+  const section = level === 0 ? (header?.dataset.id ?? null) : null;
+  const top = (next ? next.getBoundingClientRect().top : (prev?.getBoundingClientRect().bottom ?? box.top)) - box.top;
+  return { line: { top, left: margin(container) + level * INDENT }, place: { parent, section, after } };
+}
+
+/** Where a dragged section would land: before the header under the pointer's half, or at the end. */
+function sectionDrop(container: HTMLElement, d: Dragging, event: DragEvent): Drop {
+  const box = container.getBoundingClientRect();
+  const headers = dropRows(container, d).filter((row) => row.dataset.row === 'section');
+  let index = headers.findIndex((row) => {
+    const r = row.getBoundingClientRect();
+    return event.clientY < r.top + r.height / 2;
+  });
+  if (index < 0) index = headers.length;
+  const after = index > 0 ? headers[index - 1]!.dataset.id! : null;
+  const top = index < headers.length ? headers[index]!.getBoundingClientRect().top - box.top : box.height;
+  return { line: { top, left: margin(container) }, after };
+}
+
 /** The row a new section's name is typed into. */
 function SectionComposer({ onAdd, onClose }: { onAdd: (name: string) => void; onClose: () => void }) {
   const [name, setName] = useState('');
@@ -397,13 +565,16 @@ function SectionComposer({ onAdd, onClose }: { onAdd: (name: string) => void; on
  * A section of a list: its header, which folds it and offers its menu, then its tasks and the
  * row that adds one, after the Sections view of design/mockups.html (direction A).
  */
-function SectionBlock({ list, section, top, item, actions }: {
+function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
   list: string;
   section: Section;
   /** Its top-level tasks, as far as they are shown. */
   top: Task[];
   item: (task: Task) => ReactNode;
   actions: TaskActions;
+  drag: DragHandlers;
+  /** A task dragged over the folded section would go in at its end. */
+  dropInto: boolean;
 }) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
@@ -426,7 +597,14 @@ function SectionBlock({ list, section, top, item, actions }: {
     ]);
   return (
     <div className="section">
-      <div className={open ? 'sec fold' : 'sec fold closed'} onContextMenu={menu}>
+      <div
+        className={['sec fold', !open && 'closed', dropInto && 'drop-into'].filter(Boolean).join(' ')}
+        data-row="section"
+        data-id={section.id}
+        data-collapsed={!open}
+        onContextMenu={menu}
+      >
+        {renaming === null && <Grip title={t('sections.drag')} onGrab={(event) => drag.grab(event, { section })} onRelease={drag.release} />}
         <button
           type="button"
           className="chev"
@@ -495,8 +673,67 @@ export function TaskList({ list, tasks, sections, today, actions }: {
   const [addingSection, setAddingSection] = useState(false);
   const whole: List = { sections, tasks };
   const shown = (task: Task) => showDone || !task.done;
+  const rows = useRef<HTMLDivElement>(null);
+  const dragging = useRef<Dragging | null>(null);
+  const [drop, setDrop] = useState<Drop | null>(null);
+
+  const release = () => {
+    dragging.current = null;
+    setDrop(null);
+    for (const lifted of rows.current?.querySelectorAll('.lifted') ?? []) lifted.classList.remove('lifted');
+  };
+  const drag: DragHandlers = {
+    grab(event, what) {
+      const handle = event.currentTarget;
+      if ('task' in what) {
+        const { task } = what;
+        // The row and the subtasks under it are lifted; none of them is a place to drop it.
+        const row = handle.closest<HTMLElement>('[data-row]')!;
+        const subs = row.nextElementSibling?.classList.contains('subs') ? (row.nextElementSibling as HTMLElement) : null;
+        const lifted = [row, ...(subs ? [subs] : [])];
+        dragging.current = {
+          kind: 'task',
+          id: task.id,
+          depth: depthOf(tasks, task.id),
+          height: subtaskLevels(tasks, task.id),
+          startX: event.clientX,
+          lifted,
+        };
+        dragImage(event, task.title, `p${task.priority}`);
+      } else {
+        const block = handle.closest<HTMLElement>('.section')!;
+        dragging.current = { kind: 'section', id: what.section.id, depth: 0, height: 0, startX: event.clientX, lifted: [block] };
+        dragImage(event, what.section.name);
+      }
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData(DRAG_TYPE, dragging.current.id);
+      // Lifted after the browser has taken its picture of the row.
+      requestAnimationFrame(() => {
+        for (const element of dragging.current?.lifted ?? []) element.classList.add('lifted');
+      });
+    },
+    release,
+  };
+
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    const d = dragging.current;
+    if (!d || !rows.current) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const next = d.kind === 'task' ? taskDrop(rows.current, d, event, whole) : sectionDrop(rows.current, d, event);
+    setDrop((current) => (sameDrop(current, next) ? current : next));
+  };
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    const d = dragging.current;
+    if (!d || !drop) return;
+    event.preventDefault();
+    if (d.kind === 'task' && drop.place) actions.moveTask(list, d.id, drop.place);
+    if (d.kind === 'section' && drop.after !== undefined) actions.moveSection(list, d.id, drop.after);
+    release();
+  };
+
   const item = (task: Task) => (
-    <TaskItem key={task.id} list={list} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} />
+    <TaskItem key={task.id} list={list} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} />
   );
   const completed = tasks.filter((task) => task.done).length;
   return (
@@ -512,27 +749,38 @@ export function TaskList({ list, tasks, sections, today, actions }: {
         )
       }
     >
-      {sectionTasks(whole, null).filter(shown).map(item)}
-      {composing ? (
-        <Composer placeholder={t('tasks.name')} onAdd={(title) => actions.add(list, { title })} onClose={() => setComposing(false)} />
-      ) : (
-        // With sections, each has its own add row; the header's button adds above them.
-        sections.length === 0 && (
-          <button type="button" className="qa" onClick={() => setComposing(true)}>
-            {t('tasks.addRow')}
-          </button>
-        )
-      )}
-      {sections.map((section) => (
-        <SectionBlock
-          key={section.id}
-          list={list}
-          section={section}
-          top={sectionTasks(whole, section.id).filter(shown)}
-          item={item}
-          actions={actions}
-        />
-      ))}
+      <div
+        ref={rows}
+        className="rows"
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setDrop(null)}
+      >
+        {sectionTasks(whole, null).filter(shown).map(item)}
+        {composing ? (
+          <Composer placeholder={t('tasks.name')} onAdd={(title) => actions.add(list, { title })} onClose={() => setComposing(false)} />
+        ) : (
+          // With sections, each has its own add row; the header's button adds above them.
+          sections.length === 0 && (
+            <button type="button" className="qa" onClick={() => setComposing(true)}>
+              {t('tasks.addRow')}
+            </button>
+          )
+        )}
+        {sections.map((section) => (
+          <SectionBlock
+            key={section.id}
+            list={list}
+            section={section}
+            top={sectionTasks(whole, section.id).filter(shown)}
+            item={item}
+            actions={actions}
+            drag={drag}
+            dropInto={drop?.into === section.id}
+          />
+        ))}
+        {drop?.line && <div className="drop-line" style={{ top: drop.line.top, left: drop.line.left }} />}
+      </div>
       {addingSection ? (
         <SectionComposer onAdd={(name) => actions.addSection(list, name)} onClose={() => setAddingSection(false)} />
       ) : (
