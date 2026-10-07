@@ -5,13 +5,13 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
-  type ReactNode,
+  type RefObject,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import type { MenuItem } from './dialogs';
 import { boardLabel } from './items';
 import { clockTime, pastDayLabel } from './text';
@@ -60,8 +60,8 @@ function MarkdownView({ text, viewer }: { text: string; viewer: CardPanelActions
 
 const SAVE_DELAY_MS = 400;
 const PRIORITIES: Priority[] = [1, 2, 3, 4];
-/** How many of the board's labels are offered at once while one is typed. */
-const OFFERED_LABELS = 6;
+/** How close to the window's edges the label picker may come. */
+const EDGE = 8;
 
 /** A label's colour, the same every time it is seen: a hue from its letters. */
 export function labelHue(label: string): number {
@@ -71,144 +71,224 @@ export function labelHue(label: string): number {
 }
 
 /** A label as a chip in its colour. */
-function LabelChip({ label, children }: { label: string; children?: ReactNode }) {
+function LabelChip({ label }: { label: string }) {
   return (
     <span className="lbl" style={{ '--lh': labelHue(label) } as CSSProperties}>
       {label}
-      {children}
     </span>
   );
 }
 
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
 /**
- * The card's labels as chips, each with an × that takes it off, and a field at their end that
- * adds one with Enter or a comma. While it has focus the labels used elsewhere on the board are
- * offered, the most used first; the arrow keys and Enter, or a click, pick one.
+ * The card's labels as chips in a field like the others. A click on it, or Enter, opens the
+ * picker under it, where labels are put on and taken off.
  */
 function LabelField({ board, labels, onChange }: { board: Board; labels: string[]; onChange: (labels: string[]) => void }) {
-  const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
+  const field = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <button
+        ref={field}
+        id="card-labels"
+        type="button"
+        className="lbl-field"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        {labels.length > 0 ? labels.map((label) => <LabelChip key={label} label={label} />) : <span className="lbl-empty">{t('card.addLabel')}</span>}
+      </button>
+      {open && (
+        <LabelPicker
+          anchor={field}
+          board={board}
+          labels={labels}
+          onChange={onChange}
+          onClose={(refocus) => {
+            setOpen(false);
+            if (refocus) field.current?.focus();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/** A row of the picker: a label of the board, or a new one made from what is typed. */
+type PickRow = { label: string; create?: true };
+
+/**
+ * The board's labels with a search above them, over everything else, under the field or above
+ * it when there is more room there. The card's labels are ticked; a click or Enter ticks or
+ * unticks one, and what is typed that no label is yet can be made one. The order is the one the
+ * picker opened with, the card's labels first, so nothing moves while it is open.
+ */
+function LabelPicker({ anchor, board, labels, onChange, onClose }: {
+  anchor: RefObject<HTMLButtonElement | null>;
+  board: Board;
+  labels: string[];
+  onChange: (labels: string[]) => void;
+  /** Closes the picker; with `true` the field gets the focus back. */
+  onClose: (refocus: boolean) => void;
+}) {
+  const [query, setQuery] = useState('');
   const [at, setAt] = useState(-1);
-  const field = useRef<HTMLInputElement>(null);
-  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
-  const known = useMemo(() => {
+  const [place, setPlace] = useState<CSSProperties | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
+  /** How tall the picker is with every label in view, measured when it opens. */
+  const natural = useRef(0);
+  const [order, setOrder] = useState(() => {
     const uses = new Map<string, number>();
     for (const card of board.cards) for (const label of card.labels ?? []) uses.set(label, (uses.get(label) ?? 0) + 1);
-    return [...uses].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([label]) => label);
-  }, [board]);
-  const query = text.trim().toLowerCase();
-  const offered = open
-    ? known.filter((label) => !labels.some((l) => same(l, label)) && label.toLowerCase().includes(query)).slice(0, OFFERED_LABELS)
-    : [];
+    const rest = [...uses]
+      .filter(([label]) => !labels.includes(label))
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([label]) => label);
+    return [...labels, ...rest];
+  });
 
-  const add = (typed: string[]) => {
-    const next = [...labels];
-    for (const raw of typed) {
-      const clean = raw.trim();
-      if (!clean || next.some((l) => same(l, clean))) continue;
-      // A label the board already has keeps the way it is written there.
-      next.push(known.find((l) => same(l, clean)) ?? clean);
+  const typed = query.trim();
+  const rows: PickRow[] = order.filter((label) => label.toLowerCase().includes(typed.toLowerCase())).map((label) => ({ label }));
+  if (typed && !order.some((label) => same(label, typed))) rows.push({ label: typed, create: true });
+
+  // Under the field, or above it when there is more room above; never past the window's edges.
+  // Below, it hangs from the field and shrinks as the rows are filtered. Above, it keeps the
+  // height it opened with, so that the search does not move while something is typed.
+  useLayoutEffect(() => {
+    if (!natural.current && box.current && list.current) {
+      natural.current = box.current.offsetHeight - list.current.clientHeight + list.current.scrollHeight;
     }
-    if (next.length !== labels.length) onChange(next);
-  };
-  const type = (value: string) => {
-    // A comma ends a label, also in pasted text: what comes before each one is added.
-    const parts = value.split(',');
-    if (parts.length > 1) add(parts.slice(0, -1));
-    setText(parts[parts.length - 1]!);
-    setAt(-1);
-  };
-  const pick = (label: string) => {
-    add([label]);
-    setText('');
+    const measure = () => {
+      const field = anchor.current?.getBoundingClientRect();
+      if (!field) return;
+      const below = window.innerHeight - field.bottom - EDGE - 4;
+      const above = field.top - EDGE - 4;
+      const width = Math.max(field.width, 220);
+      const left = Math.max(EDGE, Math.min(field.left, window.innerWidth - width - EDGE));
+      setPlace(
+        below >= Math.min(natural.current, 220) || below >= above
+          ? { left, width, top: field.bottom + 4, maxHeight: below }
+          : { left, width, bottom: window.innerHeight - field.top + 4, height: Math.min(natural.current, above) },
+      );
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [anchor, labels]);
+
+  // A press anywhere else closes it; a press on the field is the field's own toggle.
+  useEffect(() => {
+    const away = (event: globalThis.MouseEvent) => {
+      const target = event.target as Node;
+      if (!box.current?.contains(target) && !anchor.current?.contains(target)) onClose(false);
+    };
+    window.addEventListener('mousedown', away);
+    return () => window.removeEventListener('mousedown', away);
+  }, [anchor, onClose]);
+
+  useEffect(() => {
+    search.current?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    list.current?.querySelector('.at')?.scrollIntoView({ block: 'nearest' });
+  }, [at]);
+
+  const choose = (row: PickRow) => {
+    if (row.create) {
+      onChange([...labels, row.label]);
+      setOrder([...order, row.label]);
+    } else {
+      onChange(labels.includes(row.label) ? labels.filter((l) => l !== row.label) : [...labels, row.label]);
+    }
+    setQuery('');
     setAt(-1);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      const chosen = offered[at];
-      if (chosen) pick(chosen);
-      else if (text.trim()) pick(text);
-    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      if (offered.length === 0) return;
-      const last = offered.length - 1;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (rows.length === 0) return;
+      const last = rows.length - 1;
       setAt((current) => (event.key === 'ArrowDown' ? (current >= last ? 0 : current + 1) : current <= 0 ? last : current - 1));
-    } else if (event.key === 'Backspace' && text === '' && labels.length > 0) {
-      onChange(labels.slice(0, -1));
-    } else if (event.key === 'Escape') {
-      if (text || at >= 0) {
-        setText('');
-        setAt(-1);
-      } else field.current?.blur();
+    } else if (event.key === 'Enter') {
+      const row = rows[at];
+      if (row) choose(row);
+    } else if (event.key === 'Escape' || event.key === 'Tab') {
+      onClose(true);
     } else return;
     event.preventDefault();
   };
 
-  return (
-    <div className="lbl-pick">
-      <div
-        className="lbl-field"
-        onMouseDown={(event) => {
-          // A click beside the chips is a click in the field.
-          if (event.target !== event.currentTarget) return;
-          event.preventDefault();
-          field.current?.focus();
+  return createPortal(
+    <div
+      ref={box}
+      className="lbl-picker"
+      role="dialog"
+      aria-label={t('card.labels')}
+      // Before it is placed it is measured where it is, unseen but able to take the focus.
+      style={place ?? { opacity: 0 }}
+    >
+      <input
+        ref={search}
+        className="lbl-search"
+        role="combobox"
+        aria-label={t('card.findLabel')}
+        aria-controls="card-label-rows"
+        aria-expanded
+        aria-activedescendant={at >= 0 ? `card-label-row-${at}` : undefined}
+        autoComplete="off"
+        placeholder={t('card.findLabel')}
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          // What is typed picks the first row, so Enter takes it.
+          setAt(event.target.value.trim() ? 0 : -1);
         }}
-      >
-        {labels.map((label) => (
-          <LabelChip key={label} label={label}>
-            <button
-              type="button"
-              className="lbl-x"
-              title={t('card.removeLabel', { label })}
-              aria-label={t('card.removeLabel', { label })}
-              onClick={() => onChange(labels.filter((l) => l !== label))}
-            >
-              ×
-            </button>
-          </LabelChip>
+        onKeyDown={onKeyDown}
+      />
+      <div ref={list} className="lbl-rows" id="card-label-rows" role="listbox" aria-multiselectable>
+        {rows.map((row, index) => (
+          <button
+            key={row.create ? '\u0000create' : row.label}
+            id={`card-label-row-${index}`}
+            type="button"
+            role="option"
+            aria-selected={!row.create && labels.includes(row.label)}
+            tabIndex={-1}
+            className={index === at ? 'at' : undefined}
+            onMouseDown={(event) => event.preventDefault()}
+            onMouseMove={() => index !== at && setAt(index)}
+            onClick={() => choose(row)}
+          >
+            {row.create ? (
+              <>
+                <span className="tick" aria-hidden="true">
+                  +
+                </span>
+                <span className="lbl-new">{t('card.createLabel', { label: row.label })}</span>
+              </>
+            ) : (
+              <>
+                <span className="tick" aria-hidden="true">
+                  {labels.includes(row.label) ? '✓' : ''}
+                </span>
+                <LabelChip label={row.label} />
+              </>
+            )}
+          </button>
         ))}
-        <input
-          ref={field}
-          id="card-labels"
-          aria-label={t('card.labels')}
-          aria-expanded={offered.length > 0}
-          aria-controls="card-labels-offered"
-          aria-autocomplete="list"
-          role="combobox"
-          autoComplete="off"
-          placeholder={labels.length === 0 ? t('card.addLabel') : ''}
-          value={text}
-          onChange={(event) => type(event.target.value)}
-          onFocus={() => setOpen(true)}
-          onBlur={() => {
-            // What was typed and not added yet is kept.
-            add([text]);
-            setText('');
-            setAt(-1);
-            setOpen(false);
-          }}
-          onKeyDown={onKeyDown}
-        />
+        {rows.length === 0 && <p className="lbl-none">{t('card.noLabels')}</p>}
       </div>
-      {offered.length > 0 && (
-        <div className="lbl-menu" id="card-labels-offered" role="listbox" aria-label={t('card.boardLabels')}>
-          {offered.map((label, index) => (
-            <button
-              key={label}
-              type="button"
-              role="option"
-              aria-selected={index === at}
-              tabIndex={-1}
-              onMouseDown={(event) => event.preventDefault()}
-              onMouseEnter={() => setAt(index)}
-              onClick={() => pick(label)}
-            >
-              <LabelChip label={label} />
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

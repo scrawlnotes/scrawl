@@ -15,6 +15,7 @@
         "title": "Scrawl",
         "width": 1200,
         "height": 800,
+        "maximized": true,
         "minWidth": 480,
         "minHeight": 320,
         "dragDropEnabled": false
