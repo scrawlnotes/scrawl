@@ -510,6 +510,7 @@ export function App() {
       setNotice(t('card.addedToToday'));
     },
     editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
+    viewer: (parent, doc) => session.openViewer(parent, doc),
     menu: openMenu,
     addColumn: (board, name, kind, after) => session.addColumn(board, name, kind, after),
     renameColumn: (board, id, name) => session.renameColumn(board, id, name),

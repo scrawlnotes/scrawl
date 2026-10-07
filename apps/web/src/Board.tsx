@@ -1,4 +1,5 @@
 import {
+  addDays,
   type Board,
   type Card,
   type CardPlace,
@@ -49,6 +50,7 @@ export interface BoardActions extends CardPanelActions {
 }
 
 const DRAG_TYPE = 'application/x-scrawl-card';
+const COLUMN_DRAG_TYPE = 'application/x-scrawl-column';
 
 /** Which phase's cards the columns show: one phase, or every card. */
 type Shown = { phase: string } | { all: true };
@@ -192,13 +194,21 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPh
   );
 }
 
-/** Where a dragged card would land: the gap at `index` among the cards shown in a column. */
+/**
+ * Where a dragged card would land: the gap at `index` among the cards shown in a column, after
+ * the card `after` (none at the top), in the lane of a phase when the lanes are shown.
+ */
 interface Drop {
   column: string;
+  lane: string | null | undefined;
   index: number;
+  after: string | null;
 }
 
-function ColumnBlock({ board, path, column, cards, shown, today, actions, drop, onGrab, onRelease, onDragOver, onDrop, openCard }: {
+/** Finished cards older than this many days fold away under the column's last recent card. */
+const OLD_AFTER_DAYS = 7;
+
+function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, drop, onGrab, onRelease, onDragOver, onDrop, onGrabColumn, openCard }: {
   board: Board;
   path: string;
   column: Column;
@@ -206,16 +216,22 @@ function ColumnBlock({ board, path, column, cards, shown, today, actions, drop, 
   /** The cards shown in the column, in order. */
   cards: Card[];
   shown: Shown;
+  /** In the lanes of the view over every phase: the phase of this lane, null for no phase. */
+  lane?: string | null;
   today: string;
   actions: BoardActions;
   drop: Drop | null;
   onGrab: (event: DragEvent<HTMLElement>, card: Card) => void;
   onRelease: () => void;
-  onDragOver: (event: DragEvent<HTMLDivElement>, column: Column) => void;
+  onDragOver: (event: DragEvent<HTMLDivElement>, column: Column, lane: string | null | undefined) => void;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
+  /** The column's header is dragged to another place; not in the lanes. */
+  onGrabColumn?: (event: DragEvent<HTMLElement>, column: Column) => void;
 }) {
   const [composing, setComposing] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [showOld, setShowOld] = useState(false);
+  const inLane = lane !== undefined;
   const index = board.columns.findIndex((c) => c.id === column.id);
   const lastDone = column.kind === 'done' && board.columns.filter((c) => c.kind === 'done').length === 1;
   const menu = (event: MouseEvent) =>
@@ -230,8 +246,16 @@ function ColumnBlock({ board, path, column, cards, shown, today, actions, drop, 
       ...(index < board.columns.length - 1 ? [{ label: t('board.moveRight'), run: () => actions.moveColumn(path, column.id, board.columns[index + 1]!.id) }] : []),
       ...(lastDone || board.columns.length === 1 ? [] : [{ label: t('board.deleteColumn'), run: () => actions.removeColumn(path, column) }]),
     ]);
-  const add = (title: string) => actions.addCard(path, { title, column: column.id, ...('phase' in shown && { phase: shown.phase }) });
-  const items = cards.map((card) => (
+  const phase = inLane ? lane : 'phase' in shown ? shown.phase : undefined;
+  const add = (title: string) => actions.addCard(path, { title, column: column.id, ...(phase !== undefined && { phase }) });
+  // In a done or dropped column, cards finished a while ago fold away until asked for.
+  const finished = column.kind === 'done' || column.kind === 'dropped';
+  const cutoff = addDays(today, -OLD_AFTER_DAYS);
+  const isOld = (card: Card) => finished && (card.completed ?? card.updated).slice(0, 10) < cutoff;
+  const recent = cards.filter((card) => !isOld(card));
+  const old = cards.filter(isOld);
+  const listed = showOld ? [...recent, ...old] : recent;
+  const items = listed.map((card) => (
     <CardItem
       key={card.id}
       board={board}
@@ -241,20 +265,26 @@ function ColumnBlock({ board, path, column, cards, shown, today, actions, drop, 
       actions={actions}
       onGrab={onGrab}
       onRelease={onRelease}
-      showPhase={'all' in shown && board.phasesOn}
+      showPhase={!inLane && 'all' in shown && board.phasesOn}
       open={card.id === openCard}
     />
   ));
-  if (drop?.column === column.id) items.splice(drop.index, 0, <div key="drop" className="kc-drop" />);
+  if (drop?.column === column.id && drop.lane === lane) items.splice(drop.index, 0, <div key="drop" className="kc-drop" />);
   return (
     <div
-      className={`colm kind-${column.kind}`}
+      className={`colm kind-${column.kind}${inLane ? ' in-lane' : ''}`}
       data-column={column.id}
-      onDragOver={(event) => onDragOver(event, column)}
+      onDragOver={(event) => onDragOver(event, column, lane)}
       onDrop={onDrop}
       onContextMenu={(event) => event.target === event.currentTarget && menu(event)}
     >
-      <h3 onContextMenu={menu}>
+      <h3
+        onContextMenu={menu}
+        draggable={!!onGrabColumn && !renaming}
+        onDragStart={onGrabColumn ? (event) => onGrabColumn(event, column) : undefined}
+        onDragEnd={onRelease}
+        title={onGrabColumn ? t('board.dragColumn') : undefined}
+      >
         <i className="kind" />
         {renaming ? (
           <LineInput
@@ -273,11 +303,18 @@ function ColumnBlock({ board, path, column, cards, shown, today, actions, drop, 
           </button>
         )}
         <small>{cards.length}</small>
-        <button type="button" className="more" title={t('board.columnMenu')} aria-label={t('board.columnMenu')} onClick={menu}>
-          ···
-        </button>
+        {!inLane && (
+          <button type="button" className="more" title={t('board.columnMenu')} aria-label={t('board.columnMenu')} onClick={menu}>
+            ···
+          </button>
+        )}
       </h3>
       <div className="colm-cards">{items}</div>
+      {old.length > 0 && (
+        <button type="button" className="fold" aria-expanded={showOld} onClick={() => setShowOld(!showOld)}>
+          {showOld ? t('board.hideOlder', { count: old.length }) : t('board.olderCards', { count: old.length })}
+        </button>
+      )}
       {composing ? (
         <CardComposer onAdd={add} onClose={() => setComposing(false)} />
       ) : (
@@ -527,12 +564,26 @@ export function BoardView({ path, board, name, today, actions, openCard, onClose
     }
   }, [board, shown, current]);
   const columns = useRef<HTMLDivElement>(null);
-  const dragging = useRef<{ card: Card; element: HTMLElement } | null>(null);
+  const dragging = useRef<{ card: Card; element: HTMLElement } | { column: Column; element: HTMLElement } | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
+  /** Where a dragged column would land: the gap before the column at this index. */
+  const [columnDrop, setColumnDrop] = useState<number | null>(null);
   const waiting = reviewCount(board);
   const shownPhase = 'phase' in shown ? board.phases.find((p) => p.id === shown.phase) : undefined;
   const visible = (card: Card) => ('all' in shown ? true : (card.phase ?? null) === shown.phase);
   const open = openCard !== null ? board.cards.find((card) => card.id === openCard) : undefined;
+  // Every phase as a lane across the columns, and a lane for cards in none when there are any.
+  const unphased = board.cards.filter((card) => !card.phase || !board.phases.some((p) => p.id === card.phase));
+  const lanes =
+    'all' in shown && board.phasesOn && board.phases.length > 0
+      ? [
+          ...board.phases.map((phase) => {
+            const { done, total } = phaseProgress(board, phase.id);
+            return { id: phase.id as string | null, name: phase.name, detail: t('board.progress', { done, total }) };
+          }),
+          ...(unphased.length > 0 ? [{ id: null, name: t('list.noPhase'), detail: '' }] : []),
+        ]
+      : null;
 
   // With a card open: Esc closes it, j and k go to the next or previous card in its column, a
   // number moves it to that column. Not while something is being typed.
@@ -565,6 +616,7 @@ export function BoardView({ path, board, name, today, actions, openCard, onClose
     dragging.current?.element.classList.remove('lifted');
     dragging.current = null;
     setDrop(null);
+    setColumnDrop(null);
   };
   const onGrab = (event: DragEvent<HTMLElement>, card: Card) => {
     const element = event.currentTarget;
@@ -574,27 +626,60 @@ export function BoardView({ path, board, name, today, actions, openCard, onClose
     // Lifted after the browser has taken its picture of the card.
     requestAnimationFrame(() => dragging.current?.element.classList.add('lifted'));
   };
-  const onDragOver = (event: DragEvent<HTMLDivElement>, column: Column) => {
+  const onGrabColumn = (event: DragEvent<HTMLElement>, column: Column) => {
+    const element = event.currentTarget.closest<HTMLElement>('[data-column]')!;
+    dragging.current = { column, element };
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(COLUMN_DRAG_TYPE, column.id);
+    event.stopPropagation();
+    requestAnimationFrame(() => dragging.current?.element.classList.add('lifted'));
+  };
+  const onDragOver = (event: DragEvent<HTMLDivElement>, column: Column, lane: string | null | undefined) => {
     const d = dragging.current;
-    if (!d) return;
+    if (!d || !('card' in d)) return;
     event.preventDefault();
+    event.stopPropagation();
     event.dataTransfer.dropEffect = 'move';
-    // The gap under the pointer: before the first card whose middle is below it.
+    // The gap under the pointer: before the first card shown whose middle is below it.
     const cards = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-card]')].filter((el) => el !== d.element);
     let index = cards.findIndex((el) => {
       const box = el.getBoundingClientRect();
       return event.clientY < box.top + box.height / 2;
     });
     if (index < 0) index = cards.length;
-    setDrop((now) => (now?.column === column.id && now.index === index ? now : { column: column.id, index }));
+    const after = index === 0 ? null : (cards[index - 1]?.dataset.card ?? null);
+    setDrop((now) => (now?.column === column.id && now.lane === lane && now.index === index ? now : { column: column.id, lane, index, after }));
   };
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     const d = dragging.current;
-    if (!d || !drop) return;
+    if (!d || !('card' in d) || !drop) return;
     event.preventDefault();
-    const others = columnCards(board, drop.column).filter((card) => card.id !== d.card.id && visible(card));
-    const after = drop.index === 0 ? null : (others[drop.index - 1]?.id ?? null);
-    actions.moveCard(path, d.card.id, { column: drop.column, after });
+    event.stopPropagation();
+    actions.moveCard(path, d.card.id, { column: drop.column, after: drop.after });
+    // Dropped in another lane: the card changes phase too.
+    if (drop.lane !== undefined && (d.card.phase ?? null) !== drop.lane) actions.updateCard(path, d.card.id, { phase: drop.lane });
+    release();
+  };
+  // A column dragged by its header lands in a gap between columns, picked by the pointer's x.
+  const onColumnDragOver = (event: DragEvent<HTMLDivElement>) => {
+    const d = dragging.current;
+    if (!d || !('column' in d)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const blocks = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-column]')].filter((el) => el !== d.element);
+    let index = blocks.findIndex((el) => {
+      const box = el.getBoundingClientRect();
+      return event.clientX < box.left + box.width / 2;
+    });
+    if (index < 0) index = blocks.length;
+    setColumnDrop((now) => (now === index ? now : index));
+  };
+  const onColumnDrop = (event: DragEvent<HTMLDivElement>) => {
+    const d = dragging.current;
+    if (!d || !('column' in d) || columnDrop === null) return;
+    event.preventDefault();
+    const rest = board.columns.filter((c) => c.id !== d.column.id);
+    actions.moveColumn(path, d.column.id, columnDrop === 0 ? null : (rest[columnDrop - 1]?.id ?? null));
     release();
   };
   const boardMenu = (event: MouseEvent) =>
@@ -629,13 +714,53 @@ export function BoardView({ path, board, name, today, actions, openCard, onClose
         </p>
       )}
       {view === 'list' && <BoardList board={board} path={path} today={today} actions={actions} openCard={openCard} visible={() => true} />}
-      {view === 'board' && (
+      {view === 'board' && lanes && (
+        <div className="board lanes" onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setDrop(null)}>
+          {lanes.map((lane) => (
+            <div key={lane.id ?? 'none'} className="lane">
+              <div className="lane-head">
+                <b>{lane.name}</b>
+                {lane.detail && <small>{lane.detail}</small>}
+              </div>
+              <div className="lane-cols">
+                {board.columns.map((column) => (
+                  <ColumnBlock
+                    key={column.id}
+                    board={board}
+                    path={path}
+                    column={column}
+                    cards={columnCards(board, column.id).filter((card) => (card.phase ?? null) === lane.id || (lane.id === null && !!card.phase && !board.phases.some((p) => p.id === card.phase)))}
+                    shown={shown}
+                    lane={lane.id}
+                    today={today}
+                    actions={actions}
+                    drop={drop}
+                    onGrab={onGrab}
+                    onRelease={release}
+                    onDragOver={onDragOver}
+                    onDrop={onDrop}
+                    openCard={openCard}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {view === 'board' && !lanes && (
       <div
         ref={columns}
         className="board"
-        onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setDrop(null)}
+        onDragOver={onColumnDragOver}
+        onDrop={onColumnDrop}
+        onDragLeave={(event) => {
+          if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+          setDrop(null);
+          setColumnDrop(null);
+        }}
       >
-        {board.columns.map((column) => (
+        {board.columns.flatMap((column, i) => [
+          ...(columnDrop === i ? [<div key="column-drop" className="colm-drop" />] : []),
           <ColumnBlock
             key={column.id}
             board={board}
@@ -650,9 +775,11 @@ export function BoardView({ path, board, name, today, actions, openCard, onClose
             onRelease={release}
             onDragOver={onDragOver}
             onDrop={onDrop}
+            onGrabColumn={onGrabColumn}
             openCard={openCard}
-          />
-        ))}
+          />,
+        ])}
+        {columnDrop === board.columns.length && <div className="colm-drop" />}
         <button type="button" className="colm-add" onClick={() => actions.addColumn(path, t('board.newColumn'), 'active')}>
           {t('board.addColumnRow')}
         </button>

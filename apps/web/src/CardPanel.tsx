@@ -1,5 +1,5 @@
 import { type Board, type Card, type CardPatch, dayOf, keyOf, type Priority, type TimelineEntry } from '@scrawlnotes/core';
-import type { ScrawlEditor } from '@scrawlnotes/editor';
+import type { ScrawlEditor, ScrawlViewer } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MenuItem } from './dialogs';
@@ -25,6 +25,27 @@ export interface CardPanelActions {
   openNote: (path: string) => void;
   /** An editor for the description, in `parent`; the host wires it to the vault's files. */
   editor: (parent: HTMLElement, doc: string, onChange: (doc: string) => void) => ScrawlEditor;
+  /** A read-only view of Markdown, for comments. */
+  viewer: (parent: HTMLElement, doc: string) => ScrawlViewer;
+}
+
+/** Markdown as the editor shows it, without editing. */
+function MarkdownView({ text, viewer }: { text: string; viewer: CardPanelActions['viewer'] }) {
+  const host = useRef<HTMLDivElement>(null);
+  const shown = useRef<ScrawlViewer | null>(null);
+  useEffect(() => {
+    shown.current = viewer(host.current!, text);
+    return () => {
+      shown.current?.destroy();
+      shown.current = null;
+    };
+    // Made once; the text is shown anew below when it changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    shown.current?.show(text);
+  }, [text]);
+  return <div className="md-view" ref={host} />;
 }
 
 const SAVE_DELAY_MS = 400;
@@ -96,12 +117,13 @@ function TextField({ id, label, value, placeholder, onSave }: {
 }
 
 /** One comment on the timeline, with its menu: edit in place, or delete. */
-function Comment({ entry, today, onEdit, onRemove, menu }: {
+function Comment({ entry, today, onEdit, onRemove, menu, viewer }: {
   entry: Extract<TimelineEntry, { kind: 'comment' }>;
   today: string;
   onEdit: (text: string) => void;
   onRemove: () => void;
   menu: (event: MouseEvent, items: MenuItem[]) => void;
+  viewer: CardPanelActions['viewer'];
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const open = (event: MouseEvent) =>
@@ -124,7 +146,7 @@ function Comment({ entry, today, onEdit, onRemove, menu }: {
         </button>
       </div>
       {draft === null ? (
-        <p>{entry.text}</p>
+        <MarkdownView text={entry.text} viewer={viewer} />
       ) : (
         <>
           <GrowingField
@@ -304,6 +326,7 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
                 entry={entry}
                 today={today}
                 menu={actions.menu}
+                viewer={actions.viewer}
                 onEdit={(text) => actions.editComment(path, card.id, entry.id, text)}
                 onRemove={() => actions.removeComment(path, card.id, entry.id)}
               />

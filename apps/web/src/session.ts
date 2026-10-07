@@ -101,6 +101,7 @@ import {
   copyPosition,
   copyProgress,
   createEditor,
+  createViewer,
   dropCopy,
   type EditorState,
   type EditorStats,
@@ -111,6 +112,7 @@ import {
   linkAddress,
   linkText,
   type ScrawlEditor,
+  type ScrawlViewer,
   selectNextOccurrence,
   selectSelectionMatches,
   setLink,
@@ -562,6 +564,19 @@ export class Session {
       resolveAudio: (src) => this.mediaUrl(src),
     });
     return editor;
+  }
+
+  /** A read-only view of Markdown, for a comment: images and files of the vault show in it. */
+  openViewer(parent: HTMLElement, doc: string): ScrawlViewer {
+    return createViewer({
+      parent,
+      doc,
+      resolveImage: this.resolveImage,
+      openFile: (src) => void this.openFile(src),
+      openLink: isDesktop ? (href) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
+      fileSize: (src) => this.sizes.get(src),
+      resolveAudio: (src) => this.mediaUrl(src),
+    });
   }
 
   /** The text of a note as the vault has it; empty when it cannot be read. */
