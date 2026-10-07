@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@scrawlnotes/i18n": "workspace:*"
+    "@scrawlnotes/i18n": "workspace:*",
+    "node-diff3": "^3.2.1"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

@@ -34,7 +34,8 @@ class OpfsFs implements VaultFs {
         continue;
       }
       try {
-        out.push({ name, path, kind: 'file', size: (await (child as FileSystemFileHandle).getFile()).size });
+        const file = await (child as FileSystemFileHandle).getFile();
+        out.push({ name, path, kind: 'file', size: file.size, modified: file.lastModified });
       } catch {
         // Moved or deleted while the folder was read, by a save or the trash: it is not there any more.
       }

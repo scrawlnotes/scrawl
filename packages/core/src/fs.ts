@@ -38,6 +38,8 @@ export interface Entry {
   kind: 'file' | 'dir';
   /** A file's size in bytes, where the storage tells it without reading the file. */
   size?: number;
+  /** When a file was last written, in milliseconds, where the storage tells it without reading the file. */
+  modified?: number;
 }
 
 export const join = (...parts: string[]) => parts.filter(Boolean).join('/');
@@ -48,6 +50,14 @@ export const basename = (path: string) => path.slice(path.lastIndexOf('/') + 1);
 export class MemoryFs implements VaultFs {
   private readonly files = new Map<string, Blob>();
   private readonly dirs = new Set<string>();
+  /** When each file was written: a count rather than a clock, so that two writes never share a moment. */
+  private readonly written = new Map<string, number>();
+  private writes = 0;
+
+  private put(path: string, data: Blob) {
+    this.files.set(path, data);
+    this.written.set(path, ++this.writes);
+  }
 
   async list(dir: string): Promise<Entry[]> {
     const prefix = dir ? `${dir}/` : '';
@@ -58,7 +68,12 @@ export class MemoryFs implements VaultFs {
       const direct = prefix + name === path;
       if (!entries.has(name) || (direct && isFile)) {
         const file = direct && isFile;
-        entries.set(name, { name, path: prefix + name, kind: file ? 'file' : 'dir', ...(file && { size: this.files.get(path)!.size }) });
+        entries.set(name, {
+          name,
+          path: prefix + name,
+          kind: file ? 'file' : 'dir',
+          ...(file && { size: this.files.get(path)!.size, modified: this.written.get(path) }),
+        });
       }
     };
     for (const path of this.files.keys()) add(path, true);
@@ -77,11 +92,11 @@ export class MemoryFs implements VaultFs {
   }
 
   async writeBlob(path: string, data: Blob): Promise<void> {
-    this.files.set(path, data);
+    this.put(path, data);
   }
 
   async writeText(path: string, text: string): Promise<void> {
-    this.files.set(path, new Blob([text], { type: 'text/markdown' }));
+    this.put(path, new Blob([text], { type: 'text/markdown' }));
   }
 
   async writeBlobInParts(path: string, data: Blob, { onProgress, signal }: PartsOptions = {}): Promise<void> {
@@ -94,18 +109,25 @@ export class MemoryFs implements VaultFs {
       onProgress?.(Math.min(offset + PART_SIZE, data.size));
     }
     signal?.throwIfAborted();
-    this.files.set(path, new Blob(parts, { type: data.type }));
+    this.put(path, new Blob(parts, { type: data.type }));
   }
 
   async move(from: string, to: string): Promise<void> {
+    // A move keeps when the file was written, as on a disk.
     this.files.set(to, await this.readBlob(from));
+    this.written.set(to, this.written.get(from) ?? ++this.writes);
     this.files.delete(from);
+    this.written.delete(from);
   }
 
   /** Removes a file, or a directory with everything in it. */
   async remove(path: string): Promise<void> {
     const inside = (p: string) => p === path || p.startsWith(`${path}/`);
-    for (const p of [...this.files.keys()]) if (inside(p)) this.files.delete(p);
+    for (const p of [...this.files.keys()]) {
+      if (!inside(p)) continue;
+      this.files.delete(p);
+      this.written.delete(p);
+    }
     for (const p of [...this.dirs]) if (inside(p)) this.dirs.delete(p);
   }
 
