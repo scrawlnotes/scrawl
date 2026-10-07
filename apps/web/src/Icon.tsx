@@ -62,6 +62,7 @@ const shapes = {
     </>
   ),
   filter: <path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />,
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   move: (
     <>
       <path d="M4 12h11M11 7l5 5-5 5" />

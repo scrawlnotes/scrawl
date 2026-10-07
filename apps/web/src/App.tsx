@@ -127,6 +127,8 @@ export function App() {
   const [declined, setDeclined] = useState(false);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[] } | null>(null);
   const tabBar = useRef<HTMLDivElement>(null);
+  // On a narrow window the sidebar is a drawer, open or not.
+  const [drawer, setDrawer] = useState(false);
   const [draggedTab, setDraggedTab] = useState<string | null>(null);
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
   const [tabGap, setTabGap] = useState<number | null>(null);
@@ -161,6 +163,18 @@ export function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [session, active]);
+
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && setDrawer(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawer]);
+
+  // The tab on screen is never scrolled out of the tab bar.
+  useEffect(() => {
+    tabBar.current?.querySelector('.tab.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [active, tabs.length]);
 
   // Something that happened, shown in the status bar for a moment.
   const [notice, setNotice] = useState<string | null>(null);
@@ -390,7 +404,7 @@ export function App() {
   const topFolders = [INBOX, ...tree.filter((node) => node.kind === 'folder' && node.path !== INBOX).map((node) => node.path)];
 
   return (
-    <div className="app">
+    <div className={drawer ? 'app drawer-open' : 'app'}>
       {needsFolder && (
         <div className="welcome">
           <h1>{t('welcome.title')}</h1>
@@ -405,7 +419,10 @@ export function App() {
         titles={titles}
         active={active}
         counts={counts}
-        onOpen={(id) => void session.open(id)}
+        onOpen={(id) => {
+          setDrawer(false);
+          void session.open(id);
+        }}
         onTrash={deleteItem}
         onMove={(path, target) => void session.move(path, target)}
         onNewFolder={(name) => session.newFolder(name)}
@@ -414,6 +431,7 @@ export function App() {
         filters={filters}
         onFilterMenu={filterMenu}
       />
+      <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
       <main className="main">
         <div
           ref={tabBar}
@@ -422,7 +440,14 @@ export function App() {
           onDragOver={onTabDragOver}
           onDrop={onTabDrop}
           onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setTabGap(null)}
+          // A mouse wheel scrolls the tabs sideways when they do not fit.
+          onWheel={(event) => {
+            if (!event.shiftKey && event.deltaY) event.currentTarget.scrollLeft += event.deltaY;
+          }}
         >
+          <button type="button" className="tab-menu" title={t('side.open')} aria-label={t('side.open')} onClick={() => setDrawer(true)}>
+            <Icon name="menu" />
+          </button>
           {tabs.map((id, i) => (
             <div
               key={id}

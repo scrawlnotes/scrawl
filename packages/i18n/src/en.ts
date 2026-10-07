@@ -57,6 +57,7 @@ export const en = {
   'side.newFolder': 'New folder',
   'side.folderName': 'Folder name',
   'side.trash': 'Trash',
+  'side.open': 'Folders and views',
   'side.moveToTrash': 'Move to trash',
 
   // menus
@@ -197,6 +198,9 @@ export const en = {
   'create.filter': 'Filter',
   'tasks.drag': 'Drag to move',
   'tasks.moveTo': 'Move to…',
+  'tasks.more': 'More',
+  'tasks.dateMenu': 'Date…',
+  'tasks.priorityMenu': 'Priority…',
   'tasks.from': 'from: {note}',
   'moveTask.withSubtasks': 'and its {subtasks}',
   'moveTask.search': 'Type a list or section',

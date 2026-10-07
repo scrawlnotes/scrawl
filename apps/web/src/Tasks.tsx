@@ -235,6 +235,28 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
       { label: t('tasks.pickDate'), run: () => datePicker.current?.showPicker() },
       ...(task.due ? [{ label: t('tasks.noDate'), run: () => setDue(null) }] : []),
     ]);
+  // On a touch screen one button opens everything the row's buttons do. The date and priority
+  // menus it leads to open where it was pressed.
+  const moreMenu = (event: MouseEvent) => {
+    const point = { clientX: event.clientX, clientY: event.clientY, preventDefault: () => undefined } as MouseEvent;
+    actions.menu(event, [
+      ...(canNest
+        ? [
+            {
+              label: t('tasks.addSubtask'),
+              run: () => {
+                setOpen(true);
+                setAdding(true);
+              },
+            },
+          ]
+        : []),
+      { label: t('tasks.dateMenu'), run: () => dateMenu(point) },
+      { label: t('tasks.priorityMenu'), run: () => priorityMenu(point) },
+      { label: t('tasks.moveTo'), run: () => actions.moveTo(list, task.id) },
+      { label: t('tasks.delete'), run: () => actions.remove(list, task.id) },
+    ]);
+  };
   const priorityMenu = (event: MouseEvent) =>
     actions.menu(
       event,
@@ -365,6 +387,9 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
           <IconButton icon="calendar" title={t('tasks.date')} onClick={dateMenu} />
           <IconButton icon="flag" title={t('tasks.priority')} onClick={priorityMenu} />
           <IconButton icon="move" title={t('tasks.moveTo')} onClick={() => actions.moveTo(list, task.id)} />
+          <button type="button" className="task-more" title={t('tasks.more')} aria-label={t('tasks.more')} onClick={moreMenu}>
+            ···
+          </button>
           <IconButton icon="trash" title={t('tasks.delete')} onClick={() => actions.remove(list, task.id)} />
           <input
             ref={datePicker}

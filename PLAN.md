@@ -45,6 +45,7 @@ Sublime/Notepad'de kapatılmayan sekmelerin yerini alacak bir çalışma notu uy
 - **Tek ağaç.** Üstte tüm klasörleri kapsayan görünümler (Today, Upcoming), altlarında Inbox, en altta klasörler. Bir klasör açıldığında görev listeleri, panoları, notları ve alt klasörleri aynı yerde durur.
 - **Her şey sekmedir.** Sekme not, görev listesi veya pano taşır; baştaki simge türünü gösterir. Bölünmüş görünümde farklı türler yan yana açılır.
 - **Yeni modül** = klasörün içinde yeni bir öğe türü + yeni bir sekme türü. İskelet değişmez.
+- **Dar pencere ve telefon:** 640 pikselin altında kenar çubuğu, sekmelerin solundaki ☰ ile açılan bir çekmecedir; bir şey seçince, dışarıya dokununca ya da Esc ile kapanır. Sekmeler okunacak genişlikte kalır ve sığmayınca yana kayar; biçim çubuğu tek satırda kalır ve kayar; satır numaraları gizlenir. Dokunmatik ekranda üstüne gelinince çıkanlar hep görünür; görev satırı, düğmeleri yerine tüm işlemleri açan tek bir `···` gösterir. Dokunmatikte sürükleyerek sıralama 4. aşamaya kalır.
 
 ### 4.2 Not editörü
 

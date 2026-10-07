@@ -29,5 +29,5 @@ async function pull(cursor: string): Promise<Change[]> {
 
 ---
 
-Try it: select some text and use the toolbar that appears above it. Paste or drop an image anywhere. Click an image to select it.
+Try it: select some text and use the format bar above the note. Paste or drop an image anywhere. Click an image to select it.
 `;

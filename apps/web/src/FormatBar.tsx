@@ -89,6 +89,21 @@ const keepEditorFocus = (event: MouseEvent) => {
 /** The formatting controls: a fixed row above the editor that acts on the selection or the word at the cursor. */
 export function FormatBar({ format, onFormat, onLink, recording, recordError, onRecord, onStop, onToTask, toTaskKeys }: Props) {
   const [linking, setLinking] = useState(false);
+  // Whether the bar goes on past the right edge of a narrow window.
+  const bar = useRef<HTMLDivElement>(null);
+  const [moreRight, setMoreRight] = useState(false);
+  const measure = () => {
+    const element = bar.current;
+    if (element) setMoreRight(element.scrollLeft + element.clientWidth < element.scrollWidth - 1);
+  };
+  useEffect(() => {
+    const element = bar.current;
+    if (!element) return;
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [linking, recording]);
   const [url, setUrl] = useState('');
   const input = useRef<HTMLInputElement>(null);
 
@@ -139,7 +154,14 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
   }
 
   return (
-    <div className="fmt" role="toolbar" aria-label={t('format.label')} onMouseDown={keepEditorFocus}>
+    <div
+      ref={bar}
+      className={moreRight ? 'fmt more-right' : 'fmt'}
+      role="toolbar"
+      aria-label={t('format.label')}
+      onMouseDown={keepEditorFocus}
+      onScroll={measure}
+    >
       {groups.map((items, i) => (
         <div className="fmt-group" key={i}>
           {items.map((item) => (
