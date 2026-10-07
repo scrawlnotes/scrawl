@@ -173,6 +173,11 @@ Bellekte çalışan bir `MemoryRemote` (her yazımda etiketi değişen) ve iki a
 15. Bir cihazda silinen klasörün içindeki bir not öbüründe değişir: klasör yalnızca o notla geri gelir, çöpteki kopya durur.
 16. Uzak, özet veren bir sağlayıcıysa zaten aynı olan iki taraf ilk sync'te hiçbir şey indirmeden bağlanır.
 17. Başka bir programın yaptığı bir silme ve aynı turda gelen çöp kopyası: dosya yerelde doğrudan kalkar, çöpte tek kayıt olur.
+18. Tur sürerken bu cihazda kaydedilen not: indirilen sürüm üstüne yazılmaz, sonraki turda ikisi birleşir.
+19. Öbür tarafta silinen bir not tur sürerken burada kaydedilir: çöpe gitmez; değişiklik silmeye üstün gelir.
+20. Uzak, imleçten beri neyin değiştiğini söyleyemeyip her şeyi yeniden listelerse (çok eski imleç): listede olmayanlar gitmiş sayılır, aynı olanlar yeniden inmez.
+21. Uzağın kabul etmediği bir ad: dosya bu cihazda kalır, gönderilmez, raporda gösterilir.
+22. Listelenip okunmadan önce uzakta silinen bir dosya: tur durmaz, dosya sonraki tura kalır.
 
 Hepsi `packages/core/src/sync/engine.test.ts` içinde; birleştirme kuralları ayrıca `merge.test.ts` içinde, her biri iki yönde (yerel ve uzak yer değiştirerek) aynı sonucu verdiği sınanarak.
 

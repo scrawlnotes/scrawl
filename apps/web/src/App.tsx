@@ -74,7 +74,9 @@ import {
 } from './items';
 import { applyTheme, loadMode, loadTheme, type Mode, onSystemShade, saveMode, saveTheme, shadeOfMode, systemShade } from './device';
 import { Session } from './session';
-import { Settings } from './Settings';
+import { type Section as SettingsSection, Settings } from './Settings';
+import { SyncService } from './sync';
+import { SyncStatus } from './SyncViews';
 import { Sidebar } from './Sidebar';
 import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
 import { contentsText, quote } from './text';
@@ -92,7 +94,7 @@ type OpenDialog =
   | { kind: 'toTask'; note: string; title: string; description: string }
   | { kind: 'toCard'; note: string; title: string; description: string }
   | { kind: 'filter'; filter: TaskFilter | null }
-  | { kind: 'settings' }
+  | { kind: 'settings'; section?: SettingsSection }
   | null;
 
 // A tab being dragged to another place in the tab bar.
@@ -143,6 +145,8 @@ function contentsOf(folder: TreeNode): string {
 export function App() {
   const host = useRef<HTMLDivElement>(null);
   const [session] = useState(() => new Session());
+  const [syncService] = useState(() => new SyncService(session));
+  const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
   const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, filters, space, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
@@ -172,6 +176,11 @@ export function App() {
     void session.start(host.current!);
     return () => session.dispose();
   }, [session]);
+
+  useEffect(() => {
+    syncService.start();
+    return () => syncService.dispose();
+  }, [syncService]);
 
   useEffect(() => onSystemShade(() => setSystem(systemShade())), []);
 
@@ -733,6 +742,12 @@ export function App() {
               {t('status.markdown')}
             </button>
           )}
+          <SyncStatus
+            sync={sync}
+            onSyncNow={() => syncService.syncNow()}
+            onSettings={() => setDialog({ kind: 'settings', section: 'spaces' })}
+            onOpenCopy={(path) => void session.open(path)}
+          />
         </footer>
       </main>
 
@@ -762,6 +777,9 @@ export function App() {
           onRenameSpace={(name) => session.renameSpace(name)}
           folder={folder}
           onChangeFolder={isDesktop ? () => void session.chooseFolder() : undefined}
+          sync={sync}
+          syncService={syncService}
+          initial={dialog.section}
           onClose={closeDialog}
         />
       )}

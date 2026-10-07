@@ -1,5 +1,6 @@
 //! The desktop shell: a window around the web app, plus file access to the vault folder,
-//! opening attached files, and reading the titles of web pages.
+//! opening attached files, reading the titles of web pages, and what signing in to a cloud
+//! drive needs (`cloud`).
 //!
 //! The commands mirror the `VaultFs` interface of `packages/core`. Every path is relative to
 //! the vault root that the user chose, and may not leave it.
@@ -7,11 +8,14 @@
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
+use std::time::UNIX_EPOCH;
 
 use serde::{Deserialize, Serialize};
 use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
+
+mod cloud;
 
 #[derive(Serialize)]
 struct Entry {
@@ -20,6 +24,10 @@ struct Entry {
     kind: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     size: Option<u64>,
+    /// When a file was last written, in milliseconds since 1970; sync reads a file again only
+    /// when this or its size changed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    modified: Option<u64>,
 }
 
 fn message(error: std::io::Error) -> String {
@@ -69,25 +77,43 @@ async fn fs_list(root: String, dir: String) -> Result<Vec<Entry>, String> {
         let entry = entry.map_err(message)?;
         let name = entry.file_name().to_string_lossy().into_owned();
         let is_dir = entry.file_type().map_err(message)?.is_dir();
-        let kind = if is_dir { "dir" } else { "file" };
-        let size = if is_dir {
-            None
-        } else {
-            entry.metadata().ok().map(|m| m.len())
-        };
+        let metadata = if is_dir { None } else { entry.metadata().ok() };
         let path = if dir.is_empty() {
             name.clone()
         } else {
             format!("{dir}/{name}")
         };
-        out.push(Entry {
-            name,
-            path,
-            kind,
-            size,
-        });
+        out.push(entry_of(name, path, is_dir, metadata.as_ref()));
     }
     Ok(out)
+}
+
+fn entry_of(name: String, path: String, is_dir: bool, metadata: Option<&fs::Metadata>) -> Entry {
+    let modified = metadata
+        .and_then(|m| m.modified().ok())
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map(|since| since.as_millis() as u64);
+    Entry {
+        name,
+        path,
+        kind: if is_dir { "dir" } else { "file" },
+        size: metadata.map(|m| m.len()),
+        modified,
+    }
+}
+
+/// A file's entry as `fs_list` gives it, or nothing when there is no file there.
+#[tauri::command]
+async fn fs_stat(root: String, path: String) -> Result<Option<Entry>, String> {
+    match fs::metadata(resolve(&root, &path)?) {
+        Ok(metadata) if metadata.is_file() => {
+            let name = path.rsplit('/').next().unwrap_or_default().to_string();
+            Ok(Some(entry_of(name, path, false, Some(&metadata))))
+        }
+        Ok(_) => Ok(None),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(message(error)),
+    }
 }
 
 #[tauri::command]
@@ -273,6 +299,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .manage(cloud::Listeners::default())
         .invoke_handler(tauri::generate_handler![
             fs_list,
             fs_read,
@@ -281,12 +308,20 @@ pub fn run() {
             fs_move,
             fs_remove,
             fs_mkdir,
+            fs_stat,
             settings_load,
             settings_save,
             open_file,
             reveal_file,
             open_url,
-            fs_write_part
+            fs_write_part,
+            cloud::oauth_listen,
+            cloud::oauth_wait,
+            cloud::token_request,
+            cloud::secret_get,
+            cloud::secret_set,
+            cloud::secret_delete,
+            cloud::device_name
         ])
         .run(tauri::generate_context!())
         .expect("error while running Scrawl");

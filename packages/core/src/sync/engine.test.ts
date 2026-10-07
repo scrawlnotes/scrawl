@@ -3,7 +3,7 @@ import { type Card, parseBoard, serializeBoard } from '../board';
 import { MemoryFs, type VaultFs } from '../fs';
 import { parseList, serializeList, type Task } from '../tasks';
 import { readTrash, trashFolder, trashItem } from '../vault';
-import { type SyncDevice, syncOnce } from './engine';
+import { type SyncDevice, type SyncProgress, syncOnce } from './engine';
 import { isSynced } from './paths';
 import { MemoryRemote, type RemoteStore } from './remote';
 
@@ -44,8 +44,8 @@ async function dirs(fs: VaultFs, dir = ''): Promise<string[]> {
   return out.sort();
 }
 
-/** A remote that does something else once, just before one kind of call: another device writing in between. */
-function interrupted(remote: MemoryRemote, before: 'write' | 'remove', meanwhile: () => Promise<unknown>): RemoteStore {
+/** A remote that does something else once, just before one kind of call: another device, or the user, writing in between. */
+function interrupted(remote: MemoryRemote, before: 'read' | 'write' | 'remove', meanwhile: () => Promise<unknown>): RemoteStore {
   let done = false;
   const once = async () => {
     if (done) return;
@@ -54,7 +54,10 @@ function interrupted(remote: MemoryRemote, before: 'write' | 'remove', meanwhile
   };
   return {
     changes: (cursor) => remote.changes(cursor),
-    read: (path) => remote.read(path),
+    read: async (path) => {
+      if (before === 'read') await once();
+      return remote.read(path);
+    },
     mkdir: (path) => remote.mkdir(path),
     write: async (path, data, ifMatch) => {
       if (before === 'write') await once();
@@ -367,6 +370,118 @@ describe('sync', () => {
     expect(remote.calls.read).toBe(0);
     expect(report.downloaded).toEqual([]);
     expect(report.uploaded).toEqual([]);
+  });
+
+  it('18. writes nothing over a note saved here while the turn runs, and merges it next turn', async () => {
+    const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+    await laptop.writeText('Scrawl/Plan.md', 'one\ntwo\nthree');
+    await syncLaptop();
+    await syncPhone();
+    await phone.writeText('Scrawl/Plan.md', 'ONE\ntwo\nthree');
+    await syncPhone();
+    // While the phone's change comes down, the note is saved on the laptop.
+    const report = await syncLaptop(interrupted(remote, 'read', () => laptop.writeText('Scrawl/Plan.md', 'one\ntwo\nTHREE')));
+    expect(report.skipped).toEqual(['Scrawl/Plan.md']);
+    expect(await laptop.readText('Scrawl/Plan.md')).toBe('one\ntwo\nTHREE');
+    await syncLaptop();
+    await syncPhone();
+    for (const fs of [laptop, phone]) expect(await fs.readText('Scrawl/Plan.md')).toBe('ONE\ntwo\nTHREE');
+  });
+
+  it('19. does not take away a note saved here while the turn runs, though it went on the other side', async () => {
+    const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+    await laptop.writeText('Scrawl/a.md', 'a');
+    await laptop.writeText('Scrawl/b.md', 'b');
+    await syncLaptop();
+    await syncPhone();
+    await phone.writeText('Scrawl/b.md', 'b, changed');
+    await syncPhone();
+    // Another program deletes the note there.
+    await remote.remove('Scrawl/a.md', await tagOf(remote, 'Scrawl/a.md'));
+    const report = await syncLaptop(interrupted(remote, 'read', () => laptop.writeText('Scrawl/a.md', 'a, changed')));
+    expect(report.skipped).toEqual(['Scrawl/a.md']);
+    expect(report.removedHere).toEqual([]);
+    await syncLaptop();
+    await syncPhone();
+    for (const fs of [laptop, phone]) expect(await fs.readText('Scrawl/a.md')).toBe('a, changed');
+  });
+
+  it('20. takes what a listing of everything lacks as gone, when the remote could not tell what changed', async () => {
+    const { remote, laptop, syncLaptop } = setup();
+    await laptop.writeText('Scrawl/a.md', 'a');
+    await laptop.writeText('Scrawl/b.md', 'b');
+    await syncLaptop();
+    await remote.remove('Scrawl/b.md', await tagOf(remote, 'Scrawl/b.md'));
+    const forgetful: RemoteStore = { ...interrupted(remote, 'write', async () => undefined), changes: async () => ({ ...(await remote.changes(null)), full: true }) };
+    const report = await syncLaptop(forgetful);
+    expect(report.removedHere).toEqual(['Scrawl/b.md']);
+    expect(report.downloaded).toEqual([]);
+    expect(await laptop.stat('Scrawl/b.md')).toBeNull();
+    expect(await laptop.readText('Scrawl/a.md')).toBe('a');
+  });
+
+  it('21. keeps a name the remote does not take on the device, and tells it', async () => {
+    const { remote, laptop, syncLaptop } = setup();
+    await laptop.writeText('Scrawl/Plan.md', 'plan');
+    await laptop.writeText('Scrawl/What: now?.md', 'x');
+    const picky: RemoteStore = { ...interrupted(remote, 'write', async () => undefined), accepts: (path) => !/[:?]/.test(path) };
+    const report = await syncLaptop(picky);
+    expect(report.refused).toEqual(['Scrawl/What: now?.md']);
+    expect(remote.paths()).toEqual(['Scrawl/Plan.md']);
+    expect(await laptop.readText('Scrawl/What: now?.md')).toBe('x');
+  });
+
+  it('22. leaves a file gone from the remote between its listing and its reading for the next turn', async () => {
+    const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+    await laptop.writeText('Scrawl/a.md', 'a');
+    await syncLaptop();
+    const report = await syncPhone(interrupted(remote, 'read', async () => remote.remove('Scrawl/a.md', await tagOf(remote, 'Scrawl/a.md'))));
+    expect(report.skipped).toEqual(['Scrawl/a.md']);
+    await syncPhone();
+    expect(await contents(phone)).toEqual({});
+  });
+
+  it('23. tells how a turn stands: its jobs in the order they go, how each ended, and a share that only grows', async () => {
+    const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+    await laptop.writeText('a.md', 'a');
+    await laptop.writeText('b.md', 'b');
+    await syncLaptop();
+    await syncPhone();
+    await phone.writeText('a.md', 'a, changed');
+    await phone.writeText('c.md', 'c');
+    await syncPhone();
+    await laptop.writeText('d.md', 'd');
+    await laptop.remove('b.md');
+    await laptop.writeText('What: now?.md', 'x');
+    const seen: SyncProgress[] = [];
+    const picky: RemoteStore = { ...interrupted(remote, 'write', async () => undefined), accepts: (path) => !path.includes(':') };
+    await syncOnce(laptop, picky, LAPTOP, { now, saveEveryMs: 0, onProgress: (p) => seen.push({ ...p, jobs: p.jobs.map((job) => ({ ...job })) }) });
+    const last = seen.at(-1)!;
+    expect(last.jobs.map((job) => [job.kind, job.path, job.state, job.result])).toEqual([
+      ['name', 'What: now?.md', 'refused', undefined],
+      ['down', 'a.md', 'done', 'brought'],
+      ['down', 'c.md', 'done', 'brought'],
+      ['up', 'd.md', 'done', 'sent'],
+      ['removeThere', 'b.md', 'done', 'removedThere'],
+    ]);
+    expect(last.files).toEqual({ done: 4, total: 4 });
+    expect([...new Set(seen.map((p) => p.stage))]).toEqual(['reading', 'checking', 'sending']);
+    const shares = seen.map((p) => p.share);
+    expect(shares.every((share, i) => share < 1 && (i === 0 || share >= shares[i - 1]!))).toBe(true);
+    const planned = seen.find((p) => p.stage === 'sending')!;
+    expect(planned.jobs.filter((job) => job.state === 'waiting')).toHaveLength(4);
+  });
+
+  it('24. tells a job left for the next turn, and where it changed', async () => {
+    const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+    await laptop.writeText('Plan.md', 'one');
+    await syncLaptop();
+    await syncPhone();
+    await phone.writeText('Plan.md', 'two');
+    await syncPhone();
+    let last: SyncProgress | null = null;
+    await syncOnce(laptop, interrupted(remote, 'read', () => laptop.writeText('Plan.md', 'three')), LAPTOP, { now, saveEveryMs: 0, onProgress: (p) => (last = p) });
+    expect(last!.jobs.map((job) => [job.path, job.state, job.reason])).toEqual([['Plan.md', 'skipped', 'here']]);
   });
 
   it('does nothing on a turn when nothing changed', async () => {

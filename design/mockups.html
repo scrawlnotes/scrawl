@@ -180,6 +180,66 @@ p { margin: 0; max-width: 68ch; }
 .status { display: none; }
 .dir-a .status { display: flex; gap: 18px; flex: none; height: 24px; align-items: center; padding: 0 12px; border-top: 1px solid var(--m-line); background: var(--m-side); font-size: 11.5px; color: var(--m-dim); font-variant-numeric: tabular-nums; }
 .dir-a .status span:last-child { margin-left: auto; }
+/* sync in the status bar: how it stands, and Sync now beside it, so that the settings are not needed for that */
+.status .sync-st { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.mock .status .sync-st svg { width: 13px; height: 13px; }
+.status .sync-st + span, .status .sync-st ~ span:last-child { margin-left: 0; }
+.status .sync-now { display: grid; place-items: center; width: 20px; height: 20px; margin-right: -6px; border-radius: 4px; color: var(--m-dim); }
+.status .sync-now.hover { background: var(--m-sel); color: var(--m-fg); }
+/* "Syncing 38%": the share done always beside it; the item is lit while its panel is open */
+.status .sync-st .txt { display: flex; align-items: center; gap: 6px; padding: 0 6px; margin: 0 -6px; height: 20px; border-radius: 4px; }
+.status .sync-st .txt.on { background: var(--m-sel); color: var(--m-fg); }
+.status .sync-st .pct { color: var(--m-fg); font-variant-numeric: tabular-nums; }
+.status .sync-now.turning svg { color: var(--m-accent); }
+/* the sync panel: what this turn does, what it did, and what it could not; above the status bar
+   on a computer, a sheet from the bottom on a phone */
+.sp { position: absolute; right: 8px; bottom: 30px; z-index: 4; display: flex; flex-direction: column; width: 432px; max-height: 486px; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-side); box-shadow: 0 12px 32px rgb(0 0 0 / .45); font-size: 12.5px; }
+.sp-head { display: flex; flex-direction: column; gap: 7px; flex: none; padding: 12px 14px 10px; border-bottom: 1px solid var(--m-line); }
+.sp-title { display: flex; align-items: baseline; gap: 8px; }
+.sp-title b { font-size: 13px; font-weight: 600; }
+.sp-title small { color: var(--m-faint); font-size: 12px; }
+.sp-title .pct { margin-left: auto; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sp-bar { height: 4px; border-radius: 2px; background: var(--m-line); overflow: hidden; }
+.sp-bar i { display: block; height: 100%; border-radius: 2px; background: var(--m-accent); }
+.sp-sub { color: var(--m-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+.sp-now { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 6px; background: var(--m-bg); font-size: 12px; }
+.mock .sp-now svg { width: 13px; height: 13px; color: var(--m-accent); }
+.sp-now .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-now small { color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.sp-now .sp-bar { grid-column: 2 / 4; height: 3px; }
+.sp-tabs { display: flex; gap: 2px; flex: none; padding: 8px 10px 4px; }
+.sp-tabs span { display: flex; align-items: baseline; gap: 6px; padding: 4px 10px; border-radius: 5px; color: var(--m-dim); }
+.sp-tabs span.on { background: var(--m-sel); color: var(--m-fg); }
+.sp-tabs small { color: var(--m-faint); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.sp-tabs span.on small { color: var(--m-dim); }
+.sp-tabs small.warn { padding: 0 6px; border-radius: 8px; background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+.sp-find { display: flex; align-items: center; gap: 7px; flex: none; margin: 8px 10px 4px; padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-faint); }
+.mock .sp-find svg { width: 13px; height: 13px; }
+.sp-list { position: relative; flex: 1; min-height: 0; overflow: hidden; padding: 2px 6px 6px; }
+.sp-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: center; gap: 8px; height: 26px; padding: 0 12px 0 8px; border-radius: 5px; }
+.mock .sp-row svg { width: 13px; height: 13px; color: var(--m-dim); }
+.sp-row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-row .nm small { margin-left: 6px; color: var(--m-faint); font-size: 11.5px; }
+.sp-row .r { color: var(--m-faint); font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sp-row.wait .nm { color: var(--m-dim); }
+.sp-row.bad { height: auto; padding-top: 5px; padding-bottom: 5px; align-items: start; }
+.mock .sp-row.bad svg { margin-top: 2px; color: var(--m-accent); }
+.sp-row.bad .why { display: block; margin-top: 1px; color: var(--m-dim); font-size: 11.5px; white-space: normal; }
+.sp-row .btn { padding: 2px 9px; border: 1px solid var(--m-line); border-radius: 5px; color: var(--m-dim); font-size: 11.5px; }
+.sp-list .thumb { position: absolute; top: 4px; right: 3px; width: 3px; height: 34px; border-radius: 2px; background: var(--m-line); }
+.sp-foot { display: flex; align-items: center; gap: 6px; flex: none; padding: 8px 10px; border-top: 1px solid var(--m-line); }
+.sp-foot .left { margin-right: auto; color: var(--m-faint); font-size: 12px; }
+.phone .sp { left: 0; right: 0; bottom: 0; width: auto; max-height: 76%; border-width: 1px 0 0; border-radius: 14px 14px 0 0; box-shadow: 0 -12px 32px rgb(0 0 0 / .4); }
+.phone .sp .grab { align-self: center; width: 36px; height: 4px; margin: 7px 0 -5px; border-radius: 2px; background: var(--m-line); }
+.phone .sp-title .x { margin-left: 8px; color: var(--m-faint); font-size: 16px; line-height: 1; }
+.phone .sp-tabs span { flex: 1; justify-content: center; }
+.phone .sp-row { height: 34px; }
+.phone .sp-row.bad { height: auto; }
+.phone .sp-foot .left { display: none; }
+.phone .sp-foot .st-btn { display: flex; flex: 1; justify-content: center; padding-block: 7px; }
+.phone .status .sync-st { gap: 6px; margin-left: auto; }
+.phone .status .sync-st + span { margin-left: 0; }
+.status .sync-now .tip { position: absolute; bottom: 28px; right: 6px; padding: 3px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); white-space: nowrap; }
 .dir-a .sync { display: none; }
 
 /* tasks */
@@ -552,7 +612,7 @@ p { margin: 0; max-width: 68ch; }
 .cog { flex: none; display: grid; place-items: center; width: 26px; height: 24px; border-radius: 4px; color: var(--m-dim); }
 .mock .cog svg { width: 14px; height: 14px; }
 .cog.on { background: var(--m-sel); color: var(--m-fg); }
-.st-dlg { display: flex; flex-direction: column; width: 660px; height: 452px; background: var(--m-bg); border: 1px solid var(--m-line); border-radius: 9px; box-shadow: 0 12px 32px rgb(0 0 0 / .4); overflow: hidden; }
+.st-dlg { display: flex; flex-direction: column; width: 660px; height: 540px; background: var(--m-bg); border: 1px solid var(--m-line); border-radius: 9px; box-shadow: 0 12px 32px rgb(0 0 0 / .4); overflow: hidden; }
 .st-head { display: flex; align-items: center; flex: none; padding: 11px 16px; border-bottom: 1px solid var(--m-line); }
 .st-head b { font-size: 14px; font-weight: 600; }
 .st-head .x { margin-left: auto; color: var(--m-faint); font-size: 16px; line-height: 1; }
@@ -604,6 +664,39 @@ p { margin: 0; max-width: 68ch; }
 .st-row .btn { padding: 4px 11px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-dim); font-size: 12px; white-space: nowrap; }
 .st-row .btn.save { border-color: var(--m-accent); background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; opacity: .45; }
 .st-space .hint { margin-left: 66px; font-size: 12px; color: var(--m-faint); }
+/* a space's sync: its cloud, account and folder, how it stands, and what can be done */
+.st-sync { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 6px 8px; padding-top: 10px; border-top: 1px solid var(--m-line); }
+.st-sync .fl { padding-top: 2px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.st-sync .what { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.st-sync .who { display: flex; align-items: center; gap: 6px; }
+.mock .st-sync .who svg { width: 15px; height: 15px; color: var(--m-dim); }
+.st-sync .who small { color: var(--m-dim); font-size: 12px; }
+.st-sync .where { font: 12px var(--m-mono); color: var(--m-dim); }
+.st-sync .state { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--m-dim); }
+.st-sync .state i { width: 7px; height: 7px; border-radius: 50%; background: #5cb87a; }
+.st-sync .acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.st-sync p { margin: 0; font-size: 12px; color: var(--m-dim); }
+.st-btn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-dim); font-size: 12px; white-space: nowrap; }
+.st-btn.go { border-color: var(--m-accent); background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+.mock .st-btn svg { flex: none; width: 13px; height: 13px; }
+.st-device { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.st-device .fl { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.st-device .in { padding: 5px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-side); }
+/* choosing a folder in the cloud: a small window over the settings */
+.fp-ovl { position: absolute; inset: 0; z-index: 4; display: flex; align-items: flex-start; justify-content: center; padding-top: 96px; background: rgb(0 0 0 / .3); }
+.fp { width: 440px; padding: 14px; background: var(--m-side); border: 1px solid var(--m-line); border-radius: 9px; box-shadow: 0 12px 32px rgb(0 0 0 / .45); }
+.fp h3 { display: flex; align-items: baseline; margin: 0 0 10px; font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--m-dim); }
+.fp h3 small { margin-left: auto; font-size: 11.5px; letter-spacing: 0; text-transform: none; color: var(--m-faint); }
+.fp .crumbs { display: flex; gap: 6px; margin-bottom: 6px; font-size: 12.5px; color: var(--m-dim); }
+.fp .crumbs b { color: var(--m-fg); font-weight: 500; }
+.fp .list { display: flex; flex-direction: column; gap: 1px; padding: 4px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-bg); }
+.fp .list span { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 5px; }
+.mock .fp .list svg { width: 14px; height: 14px; color: var(--m-dim); }
+.fp .list span.on { background: var(--m-sel); }
+.fp .list span.up { color: var(--m-dim); }
+.fp .note { margin: 8px 2px 0; font-size: 12px; color: var(--m-faint); }
+.fp .foot { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--m-line); }
+.fp .foot .st-btn:first-child { margin-right: auto; }
 /* settings on a phone: the window fills the screen; its sections are a list with arrows, and a
    section opens as a page of its own with a way back */
 .mock.phones.four { min-width: 1660px; }
@@ -668,6 +761,12 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-phone" data-aview="phone">Phone</button>
         <button type="button" id="a-settings" data-aview="settings">Settings</button>
         <button type="button" id="a-settingsphone" data-aview="settingsphone">Settings phone</button>
+        <button type="button" id="a-sync" data-aview="settings-spaces">Sync</button>
+        <button type="button" id="a-connect" data-aview="settings-connect">Connect</button>
+        <button type="button" id="a-folder" data-aview="settings-folder">Choose folder</button>
+        <button type="button" id="a-syncpanel" data-aview="syncpanel">Sync panel</button>
+        <button type="button" id="a-syncdone" data-aview="syncdone">Sync done</button>
+        <button type="button" id="a-syncphone" data-aview="syncphone">Sync phone</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -1360,23 +1459,52 @@ p { margin: 0; max-width: 68ch; }
       '<span class="st-label">Theme</span><div class="st-themes">' +
       THEMES.map(function (theme, i) { return themeCard(theme, i === 0); }).join('') + '</div>';
   }
-  function settingsSpaces(web) {
+  ICON.cloud = '<svg viewBox="0 0 24 24"><path d="M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.6 9.06 4.5 4.5 0 0 0 7 18z"/></svg>';
+  // The sync of the personal space: connected, with its cloud, account, folder and state; or not
+  // yet, with a sentence and the way to connect.
+  function syncRow(connected) {
+    return '<div class="st-sync"><span class="fl">Sync</span><div class="what">' +
+      (connected
+        ? '<span class="who">' + ICON.cloud + '<b>OneDrive</b><small>kaan@outlook.com</small></span>' +
+          '<span class="where">/Scrawl</span>' +
+          '<span class="state"><i></i>Synced 12 s ago</span>' +
+          '<span class="acts"><span class="st-btn">Sync now</span><span class="st-btn">Disconnect</span></span>'
+        : '<p>Not synced. Keep this space in your own cloud drive to have it on every device.</p>' +
+          '<span class="acts"><span class="st-btn go">' + ICON.cloud + 'Connect OneDrive</span><span class="st-btn">' + ICON.cloud + 'Connect Google Drive</span></span>') +
+      '</div></div>';
+  }
+  function settingsSpaces(web, connected) {
+    if (connected === undefined) connected = true;
     return '<span class="st-label">Spaces</span>' +
       '<p class="st-note">A space is a folder of notes, task lists and boards, with its own trash and history.</p>' +
       '<div class="st-space"><div class="top">' + ICON.folder + '<b>Personal</b><small>On this device</small></div>' +
       '<div class="st-row"><span class="fl">Name</span><span class="in">Personal</span><span class="btn save">Save</span></div>' +
       (web
         ? '<div class="st-row"><span class="fl">Folder</span><span class="path plain">In this browser</span><span></span></div>'
-        : '<div class="st-row"><span class="fl">Folder</span><span class="path">C:\\Users\\me\\OneDrive\\Documents\\Notes</span><span class="btn">Change…</span></div>' +
-          '<p class="hint">Another folder opens the notes in it; nothing is moved.</p>') +
-      '</div><p class="st-note">Spaces from OneDrive, and folders others share with you, come with sync.</p>';
+        : '<div class="st-row"><span class="fl">Folder</span><span class="path">C:\\Users\\me\\Documents\\Notes</span><span class="btn">Change…</span></div>') +
+      syncRow(connected) +
+      '</div>' +
+      '<span class="st-label">This device</span>' +
+      '<div class="st-device"><span class="fl">Name</span><span class="in">' + (web ? 'iPhone' : 'Laptop') + '</span><span class="st-row"><span class="btn save">Save</span></span></div>' +
+      '<p class="st-note">Conflict copies carry the name of the device that made them.</p>';
+  }
+  // After signing in: a folder of the cloud for the space, with a new one a click away.
+  function folderPicker() {
+    function item(name, on) { return '<span' + (on ? ' class="on"' : '') + '>' + ICON.folder + name + '</span>'; }
+    return '<div class="fp-ovl"><div class="fp"><h3>Choose a folder in OneDrive<small>kaan@outlook.com</small></h3>' +
+      '<div class="crumbs"><span>OneDrive</span><span>›</span><b>Documents</b></div>' +
+      '<div class="list"><span class="up">‹ OneDrive</span>' + item('Notes') + item('Scrawl', true) + item('Work') + item('Receipts') + '</div>' +
+      '<p class="note">Notes already in that folder and here are put together; nothing is lost.</p>' +
+      '<div class="foot"><span class="st-btn">New folder</span><span class="st-btn">Cancel</span><span class="st-btn go">Use “Scrawl”</span></div>' +
+      '</div></div>';
   }
   function settingsWindow(section) {
     return '<div class="ovl"><div class="st-dlg"><div class="st-head"><b>Settings</b><span class="x">×</span></div>' +
       '<div class="st-main"><nav class="st-nav">' +
       row({ icon: 'half', label: 'Appearance', go: 'settings', on: section === 'appearance' }) +
-      row({ icon: 'folder', label: 'Spaces', go: 'settings-spaces', on: section === 'spaces' }) +
-      '</nav><div class="st-body">' + (section === 'spaces' ? settingsSpaces(false) : settingsAppearance()) + '</div></div></div></div>';
+      row({ icon: 'folder', label: 'Spaces', go: 'settings-spaces', on: section === 'spaces' || section === 'connect' || section === 'folder' }) +
+      '</nav><div class="st-body">' + (section === 'connect' || section === 'folder' ? settingsSpaces(false, false) : section === 'spaces' ? settingsSpaces(false) : settingsAppearance()) + '</div></div></div>' +
+      (section === 'folder' ? folderPicker() : '') + '</div>';
   }
   function settingsPhones() {
     function item(icon, label, value) {
@@ -1392,6 +1520,99 @@ p { margin: 0; max-width: 68ch; }
     return [drawer, list, page('Appearance', settingsAppearance()), page('Spaces', settingsSpaces(true))].map(function (phone) {
       return '<div style="position: relative">' + phone + '</div>';
     }).join('');
+  }
+  ICON.resync = '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 0 1-13.1 5M4.5 12a7.5 7.5 0 0 1 13.1-5"/><path d="M17.6 3.5V7h-3.5M6.4 20.5V17h3.5"/></svg>';
+  /**
+   * The status bar's sync: how it stands, and Sync now; with the pointer on the button, its name.
+   * While a turn runs the share done is always beside "Syncing". `open` lights the item whose
+   * panel is open.
+   */
+  function syncStatus(hover, mode) {
+    var text = mode === 'syncing' ? 'Syncing <span class="pct">38%</span>' : 'Synced to OneDrive 12 s ago';
+    return '<span class="sync-st"><span class="txt' + (mode ? ' on' : '') + '">' + ICON.cloud + text + '</span>' +
+      '<span class="sync-now' + (hover ? ' hover' : '') + (mode === 'syncing' ? ' turning' : '') + '" style="position: relative">' + ICON.resync + (hover ? '<span class="tip">Sync now</span>' : '') + '</span></span>';
+  }
+  // What a row of the sync panel did or does: sent, brought, merged, moved, to the trash, a
+  // conflict copy, or not synced.
+  ICON.up = '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
+  ICON.down = '<svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>';
+  ICON.merge = '<svg viewBox="0 0 24 24"><path d="M6 4v5a6 6 0 0 0 6 6M18 4v5a6 6 0 0 1-6 6v5"/></svg>';
+  ICON.moved = '<svg viewBox="0 0 24 24"><path d="M4 12h11M11 7l5 5-5 5"/><path d="M20 5v14"/></svg>';
+  ICON.bin = '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7"/></svg>';
+  ICON.copies = '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>';
+  ICON.warn = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.2v.3"/></svg>';
+  ICON.find = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L20 20"/></svg>';
+  function spRow(icon, name, folder, right, cls) {
+    return '<div class="sp-row' + (cls ? ' ' + cls : '') + '">' + ICON[icon] + '<span class="nm">' + name + (folder ? '<small>' + folder + '</small>' : '') + '</span><span class="r">' + right + '</span></div>';
+  }
+  function spBad(name, folder, why) {
+    return '<div class="sp-row bad">' + ICON.warn + '<span class="nm">' + name + '<small>' + folder + '</small><span class="why">' + why + '</span></span><span></span></div>';
+  }
+  /**
+   * The sync panel. While a turn runs: the share done, files and bytes, the time left, the file
+   * going now, and what waits, in the order it goes. After a turn: what it did, and what could
+   * not be synced, and why. It only tells; nothing is done from its rows. A space may hold
+   * thousands of files: the list shows one tab at a time and draws only the rows on screen.
+   */
+  function syncPanel(state, phone) {
+    var head, tabs, list, foot;
+    if (state === 'syncing') {
+      head = '<div class="sp-title"><b>Syncing with OneDrive</b><span class="pct">38%</span>' + (phone ? '<span class="x">×</span>' : '') + '</div>' +
+        '<div class="sp-bar"><i style="width: 38%"></i></div>' +
+        '<div class="sp-sub">1,296 of 3,412 files · 41 MB of 108 MB · about 2 min left</div>' +
+        '<div class="sp-now">' + ICON.down + '<span class="nm">site-visit.mp4</span><small>23 of 51 MB</small><div class="sp-bar"><i style="width: 45%"></i></div></div>';
+      tabs = '<span class="on">Waiting<small>2,116</small></span><span>Done<small>1,296</small></span><span>Not synced<small>0</small></span>';
+      list = spRow('down', 'Brief.md', 'Client portal', '4 KB', 'wait') +
+        spRow('down', 'Meeting notes, Oct 2.md', 'Client portal', '6 KB', 'wait') +
+        spRow('down', 'tasks.json', 'Client portal', '2 KB', 'wait') +
+        spRow('down', 'Renovation.board.json', 'Home', '18 KB', 'wait') +
+        spRow('down', 'Paint colours.md', 'Home', '1 KB', 'wait') +
+        spRow('up', 'Quick capture.md', 'Inbox', '1 KB', 'wait') +
+        spRow('merge', 'tasks.json', 'Inbox', 'merge', 'wait') +
+        spRow('down', 'Designing Data-Intensive Applications.md', 'Reading', '12 KB', 'wait') +
+        spRow('down', 'kitchen-plan.pdf', '_attachments', '2.4 MB', 'wait') +
+        spRow('down', 'Reading list.md', 'Reading', '3 KB', 'wait') +
+        spRow('down', 'Snippets.md', 'Snippets', '9 KB', 'wait') +
+        spRow('down', 'Sync engine: open questions.md', 'Scrawl', '5 KB', 'wait') +
+        (phone ? '' : spRow('down', 'Roadmap.board.json', 'Scrawl', '22 KB', 'wait'));
+      foot = '<span class="left">Started 1 min ago</span><span class="st-btn">Sync settings</span>';
+    } else {
+      head = '<div class="sp-title"><b>Synced to OneDrive</b><small>12 s ago</small>' + (phone ? '<span class="x" style="margin-left: auto">×</span>' : '') + '</div>' +
+        '<div class="sp-sub">Last turn: 3 sent, 2 brought, 1 merged, 1 moved, 1 conflict copy</div>';
+      tabs = phone
+        ? '<span class="on">Done<small>9</small></span><span>Not synced<small class="warn">2</small></span>'
+        : '<span>Done<small>9</small></span><span class="on">Not synced<small class="warn">2</small></span>';
+      list = phone
+        ? spRow('up', 'Quick capture.md', 'Inbox', 'sent') +
+          spRow('up', 'Packing list.md', 'Travel', 'sent') +
+          spRow('up', 'scan-0412.jpg', '_attachments', 'sent') +
+          spRow('down', 'Paint colours.md', 'Home', 'brought') +
+          spRow('down', 'Renovation.board.json', 'Home', 'brought') +
+          spRow('merge', 'tasks.json', 'Inbox', 'merged') +
+          spRow('moved', 'Trip.md', 'Travel', 'from Phone notes') +
+          spRow('copies', 'Trip (conflict, Phone, 2026-10-07 2126).md', 'Travel', 'conflict copy') +
+          spRow('bin', 'Old idea.md', 'Inbox', 'to the trash')
+        : spBad('What: now?.md', 'Inbox', 'OneDrive does not take “:” or “?” in a name. It stays on this device until it is renamed.') +
+          spBad('Plan.md', 'Scrawl', 'Changed here while it was being synced; it goes with the next turn.');
+      foot = '<span class="left">Every 30 s while open, and 5 s after a save</span><span class="st-btn">Sync settings</span><span class="st-btn go">Sync now</span>';
+    }
+    return '<div class="sp">' + (phone ? '<span class="grab"></span>' : '') + '<div class="sp-head">' + head + '</div>' +
+      '<div class="sp-tabs">' + tabs + '</div>' +
+      '<div class="sp-list">' + list + (state === 'syncing' ? '<span class="thumb"></span>' : '') + '</div>' +
+      '<div class="sp-foot">' + foot + '</div></div>';
+  }
+  /** On a phone: the status bar with "Syncing 38%"; a tap opens the panel as a sheet from the bottom, while syncing and after. */
+  function syncPhones() {
+    var status = '<div class="status"><span>Ln 8, Col 52</span><span>Saved</span>' + syncStatus(false, 'syncing').replace('class="txt on"', 'class="txt"') + '</div>';
+    var ed = '<div class="ed"><div class="col">' +
+      '<div class="ln h1">Sync engine: open questions</div><div class="ln">&nbsp;</div>' +
+      '<div class="ln">Delta API returns a <b>cursor</b> per drive. Store it in <span class="ic">sync-state.json</span>, never in the vault.</div>' +
+      '<div class="ln">&nbsp;</div><div class="ln li"><span class="bu">•</span>Notes conflict: 3-way merge, fall back to a copy</div>' +
+      '<div class="ln li"><span class="bu">•</span>Tasks merge per record, last write wins per field</div></div></div>';
+    var plain = '<div class="phone">' + phoneTabs(0) + ed + status + '</div>';
+    var syncing = '<div class="phone">' + phoneTabs(0) + ed + status.replace('class="txt"', 'class="txt on"') + '<div class="pbackdrop"></div>' + syncPanel('syncing', true) + '</div>';
+    var done = '<div class="phone">' + phoneTabs(0) + ed + '<div class="status"><span>Ln 8, Col 52</span><span>Saved</span>' + syncStatus(false, 'open').replace('Synced to OneDrive 12 s ago', 'Synced 12 s ago') + '</div><div class="pbackdrop"></div>' + syncPanel('done', true) + '</div>';
+    return [plain, syncing, done].map(function (phone) { return '<div style="position: relative">' + phone + '</div>'; }).join('');
   }
   function tab(kind, label, go, on, dot) {
     return '<div class="tab' + (on ? ' on' : '') + '" data-go="' + go + '">' + ICON[kind] + '<span>' + label + '</span>' + (dot ? '<i></i>' : '') + '</div>';
@@ -1422,16 +1643,20 @@ p { margin: 0; max-width: 68ch; }
     filteredit: '<span>3 tasks</span><span>1 overdue</span>',
     'desc-new': '<span>4 open</span><span>1 due today</span>',
     settings: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
-    'settings-spaces': '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
+    'settings-spaces': '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
+    'settings-connect': '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
+    'settings-folder': '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
+    syncpanel: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
+    syncdone: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
   };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
-    mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone');
+    mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone');
     mock.classList.toggle('four', view === 'settingsphone');
     mock.classList.toggle('wide', view === 'board' || view === 'list');
     mock.classList.toggle('wider', view === 'card');
-    if (view === 'phone' || view === 'settingsphone') {
-      mock.innerHTML = view === 'phone' ? phoneView() : settingsPhones();
+    if (view === 'phone' || view === 'settingsphone' || view === 'syncphone') {
+      mock.innerHTML = view === 'phone' ? phoneView() : view === 'syncphone' ? syncPhones() : settingsPhones();
       section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
         b.setAttribute('aria-pressed', String(b.dataset.aview === view));
       });
@@ -1440,7 +1665,7 @@ p { margin: 0; max-width: 68ch; }
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
       (view === 'copy' ? tab('notes', 'Site visit, Oct 6', 'copy', true) : '') +
       (view.indexOf('item') === 0 ? tab('notes', 'Client call, Oct 6', view, true) : '') +
-      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask' || view.indexOf('settings') === 0) +
+      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask' || view.indexOf('settings') === 0 || view.indexOf('sync') === 0) +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
       (view.indexOf('filter') === 0 ? tab('filter', 'This week · p1', 'filter', true) : '') +
       tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view === 'newboard' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag' || view === 'movetask') +
@@ -1449,12 +1674,13 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
-      '<div class="status">' + STATUS[view] + '<span>Synced to OneDrive 12 s ago</span></div></section>' +
-      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : 'appearance') : '');
+      '<div class="status">' + STATUS[view] + syncStatus(view === 'note', view === 'syncpanel' ? 'syncing' : view === 'syncdone' ? 'open' : null) + '</div></section>' +
+      (view === 'syncpanel' ? syncPanel('syncing') : view === 'syncdone' ? syncPanel('done') : '') +
+      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });

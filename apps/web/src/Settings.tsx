@@ -2,9 +2,11 @@ import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { chooseLanguage, languageTag, type Mode, shadeOfMode } from './device';
 import { Icon, type IconName } from './Icon';
+import type { SyncService, SyncSnapshot } from './sync';
+import { SyncRow, ThisDevice } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 
-type Section = 'appearance' | 'spaces' | 'language';
+export type Section = 'appearance' | 'spaces' | 'language';
 
 const SECTIONS: { id: Section; label: MessageKey; icon: IconName }[] = [
   { id: 'appearance', label: 'settings.appearance', icon: 'appearance' },
@@ -47,6 +49,11 @@ export interface SettingsProps {
   folder: string | null;
   /** Desktop: asks for another notes folder. */
   onChangeFolder?: () => void;
+  /** How the space's sync stands, and what connects and disconnects it. */
+  sync: SyncSnapshot;
+  syncService: SyncService;
+  /** The section shown first. */
+  initial?: Section;
   onClose: () => void;
 }
 
@@ -128,8 +135,15 @@ function Appearance({ mode, onMode, theme, onTheme, system }: Pick<SettingsProps
   );
 }
 
-/** The personal space: its name, which has its Save, and the folder it is. */
-function Spaces({ spaceName, onRenameSpace, folder, onChangeFolder }: Pick<SettingsProps, 'spaceName' | 'onRenameSpace' | 'folder' | 'onChangeFolder'>) {
+/** The personal space: its name, which has its Save, the folder it is, its sync; and this device's name. */
+function Spaces({
+  spaceName,
+  onRenameSpace,
+  folder,
+  onChangeFolder,
+  sync,
+  syncService,
+}: Pick<SettingsProps, 'spaceName' | 'onRenameSpace' | 'folder' | 'onChangeFolder' | 'sync' | 'syncService'>) {
   const name = spaceName ?? t('settings.personal');
   const [draft, setDraft] = useState(name);
   useEffect(() => setDraft(name), [name]);
@@ -179,9 +193,9 @@ function Spaces({ spaceName, onRenameSpace, folder, onChangeFolder }: Pick<Setti
             <span />
           )}
         </div>
-        {onChangeFolder && <p className="hint">{t('settings.changeHint')}</p>}
+        {sync.available && <SyncRow sync={sync} service={syncService} />}
       </div>
-      <p className="st-note">{t('settings.moreSpaces')}</p>
+      {sync.available && <ThisDevice sync={sync} service={syncService} />}
     </>
   );
 }
@@ -222,9 +236,9 @@ export function Settings(props: SettingsProps) {
   const { mode, theme, onClose } = props;
   const narrow = useNarrow();
   const sections = SECTIONS.filter((section) => section.id !== 'language' || languages.length > 1);
-  const [section, setSection] = useState<Section>('appearance');
+  const [section, setSection] = useState<Section>(props.initial ?? 'appearance');
   /** On a phone: the section open as a page, or none while the list shows. */
-  const [page, setPage] = useState<Section | null>(null);
+  const [page, setPage] = useState<Section | null>(props.initial ?? null);
   const box = useRef<HTMLElement>(null);
 
   useEffect(() => {

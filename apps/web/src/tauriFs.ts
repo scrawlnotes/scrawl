@@ -65,4 +65,8 @@ export class TauriFs implements VaultFs {
   mkdir(path: string): Promise<void> {
     return invoke('fs_mkdir', { root: this.root, path });
   }
+
+  stat(path: string): Promise<Entry | null> {
+    return invoke('fs_stat', { root: this.root, path });
+  }
 }

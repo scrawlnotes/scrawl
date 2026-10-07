@@ -30,10 +30,8 @@ import {
   isScratchNote,
   keepVersion,
   listVersions,
-  loadBoard,
   loadFilters,
   loadSpace,
-  loadList,
   moveCard,
   moveCardToKind,
   moveColumn,
@@ -41,6 +39,8 @@ import {
   moveSection,
   moveTask,
   moveTaskToList,
+  mergeFile,
+  mergeText,
   type NewCard,
   type PhasePatch,
   relinkBoard,
@@ -50,6 +50,8 @@ import {
   moveHistory,
   moveItem,
   type NewTask,
+  parseBoard,
+  parseList,
   pruneHistory,
   readTrash,
   readTree,
@@ -66,13 +68,13 @@ import {
   restoreAttachments,
   restoreFromTrash,
   saveAttachment,
-  saveBoard,
   saveFile,
   saveFilters,
   saveSpace,
-  saveList,
   sectionTasks,
   saveWorkspace,
+  serializeBoard,
+  serializeList,
   setColumnKind,
   setDone,
   setPhasesOn,
@@ -80,6 +82,7 @@ import {
   type Section,
   type Task,
   type SpaceInfo,
+  type SyncReport,
   type TaskFilter,
   type TaskList,
   type TaskPlace,
@@ -163,6 +166,15 @@ const TYPES: Record<string, string> = {
   txt: 'text/plain',
 };
 const typeOf = (path: string) => TYPES[path.slice(path.lastIndexOf('.') + 1).toLowerCase()] ?? '';
+
+/** The one change that turns `from` into `to`: what lies between their common start and end. */
+function changeBetween(from: string, to: string) {
+  let start = 0;
+  while (start < from.length && start < to.length && from[start] === to[start]) start++;
+  let end = 0;
+  while (end < from.length - start && end < to.length - start && from[from.length - 1 - end] === to[to.length - 1 - end]) end++;
+  return { from: start, to: from.length - end, insert: to.slice(start, to.length - end) };
+}
 
 // What the format bar does: formatting, and the commands that make more than one cursor.
 const formatCommands = {
@@ -262,6 +274,8 @@ export class Session {
   showMenu: ((at: { x: number; y: number }, items: ItemAction[]) => void) | null = null;
   /** The text of each open note as it was last read from or written to the vault. */
   private readonly disk = new Map<string, string>();
+  /** What each task list and board file held when it was last read or written here, to tell what changed there since. */
+  private readonly records = new Map<string, string>();
   /** When a version of each note was last kept in this session. */
   private readonly versionedAt = new Map<string, number>();
   /** Set while a change made outside the app is being put into the editor. */
@@ -423,16 +437,52 @@ export class Session {
     this.pending.clear();
     await Promise.all(
       writes.map(async ([path, doc]) => {
-        // What the file held before this save is kept as a version, at most every ten minutes.
         const before = this.disk.get(path);
-        if (before !== undefined && before !== doc) await this.keep(path, before);
-        await this.fs.writeText(path, doc);
-        this.disk.set(path, doc);
+        let text = doc;
+        let held = before;
+        if (before !== undefined) {
+          // Sync, or another program, may have written the file since it was read here: what it
+          // wrote is kept, merged line by line with what was typed.
+          const disk = await this.fs.readText(path).catch(() => undefined);
+          if (disk !== undefined && disk !== before && disk !== doc) {
+            held = disk;
+            const merged = mergeText(before, doc, disk);
+            if (merged.clean) {
+              text = merged.text;
+              this.showMerged(path, doc, text);
+            } else await this.keep(path, disk, true);
+          }
+        }
+        // What the file held before this save is kept as a version, at most every ten minutes.
+        if (held !== undefined && held !== text) await this.keep(path, held);
+        await this.fs.writeText(path, text);
+        this.disk.set(path, text);
       }),
     );
     this.markSaved();
     void this.trashUnlinkedFiles();
   };
+
+  /** Puts text merged in from the file into the open note, the cursor staying where it was. */
+  private showMerged(path: string, saved: string, merged: string) {
+    const view = path === this.snapshot.active ? this.editor?.view : undefined;
+    const state = view?.state ?? this.states.get(path);
+    if (!state) return;
+    const current = state.doc.toString();
+    // Typed on while it was saved: the merge goes on top of that too.
+    const next = current === saved ? merged : mergeText(saved, current, merged).text;
+    if (next === current) return;
+    const changes = changeBetween(current, next);
+    if (view) {
+      this.external = true;
+      try {
+        view.dispatch({ changes });
+      } finally {
+        this.external = false;
+      }
+    } else this.states.set(path, state.update({ changes }).state);
+    if (this.pending.has(path)) this.pending.set(path, next);
+  }
 
   /**
    * The note on screen stopped linking to some attached files, or links to them again. Files
@@ -870,7 +920,62 @@ export class Session {
   private async refreshTree() {
     await this.settle();
     const tree = await readTree(this.fs);
-    this.set({ tree, titles: titlesOf(tree), ...(await this.readLists(tree)), trash: await readTrash(this.fs) });
+    const lists = await this.readLists(tree);
+    this.set({ tree, titles: titlesOf(tree), ...lists, trash: await readTrash(this.fs), filters: await loadFilters(this.fs), space: await loadSpace(this.fs) });
+  }
+
+  /** The open space's files, for sync; null until it is open. */
+  get vault(): VaultFs | null {
+    return this.snapshot.ready ? this.fs : null;
+  }
+
+  /** Before a turn of sync: everything waiting is written, so that the turn takes it along. */
+  beforeSync(): Promise<void> {
+    return this.settle();
+  }
+
+  /**
+   * After a turn of sync: tabs follow what moved on another device and close for what was
+   * deleted there, and everything it changed is read again.
+   */
+  async afterSync(report: SyncReport) {
+    if (!this.snapshot.ready) return;
+    for (const { from, to } of report.followed) await this.follow(from, to);
+    for (const path of report.removedHere) await this.detach(tabOf(path));
+    const changed = [report.downloaded, report.merged, report.conflicts, report.moved, report.removedHere].some((paths) => paths.length > 0);
+    if (changed) await this.rescan();
+  }
+
+  /** A file moved by sync: its tab and editing state go with it; into the trash, its tab closes. */
+  private async follow(from: string, to: string) {
+    if (to.startsWith('.scrawl/trash/')) {
+      await this.detach(tabOf(from));
+      return;
+    }
+    const state = this.states.get(from);
+    if (state) {
+      this.states.delete(from);
+      this.states.set(to, state);
+    }
+    const onDisk = this.disk.get(from);
+    if (onDisk !== undefined) {
+      this.disk.delete(from);
+      this.disk.set(to, onDisk);
+    }
+    const record = this.records.get(from);
+    if (record !== undefined) {
+      this.records.delete(from);
+      this.records.set(to, record);
+    }
+    if (from.endsWith('.md')) {
+      await moveHistory(this.fs, from, to).catch(() => undefined);
+      this.versionedAt.delete(from);
+    }
+    const [tab, target] = [tabOf(from), tabOf(to)];
+    const { tabs, active } = this.snapshot;
+    if (!tabs.includes(tab)) return;
+    this.set({ tabs: tabs.map((each) => (each === tab ? target : each)), active: active === tab ? target : active });
+    this.saveWorkspace();
   }
 
   /** Reads the inbox's task list, every other task list and every board in the vault. */
@@ -885,8 +990,15 @@ export class Session {
       }
     };
     visit(tree);
-    const lists = await Promise.all(paths.map(async (path) => [path, await loadList(this.fs, path)] as const));
-    const boards = await Promise.all(boardPaths.map(async (path) => [path, await loadBoard(this.fs, path)] as const));
+    // The text read is kept, to tell later whether the file changed there since.
+    const read = async (path: string) => {
+      const text = await this.fs.readText(path).catch(() => null);
+      if (text === null) this.records.delete(path);
+      else this.records.set(path, text);
+      return text;
+    };
+    const lists = await Promise.all(paths.map(async (path) => [path, parseList((await read(path)) ?? '')] as const));
+    const boards = await Promise.all(boardPaths.map(async (path) => [path, parseBoard((await read(path)) ?? '')] as const));
     return {
       tasks: Object.fromEntries(lists.map(([path, list]) => [path, list.tasks])),
       sections: Object.fromEntries(lists.map(([path, list]) => [path, list.sections])),
@@ -902,12 +1014,54 @@ export class Session {
     if (next === current) return;
     this.set({ boards: { ...this.snapshot.boards, [path]: next }, saved: false });
     this.taskWrites = this.taskWrites
-      .then(() => saveBoard(this.fs, path, next))
+      .then(() => this.writeBoard(path))
       .catch(() => undefined)
       .then(() => {
         this.markSaved();
         void this.trashUnlinkedFiles();
       });
+  }
+
+  /**
+   * Writes a task list or a board file. What sync or another program wrote to it since it was
+   * read here is merged in, record by record, not written over. Returns what was written.
+   */
+  private async writeRecords(path: string, kind: 'tasks' | 'board', text: string): Promise<string> {
+    const known = this.records.get(path);
+    let written = text;
+    if (known !== undefined) {
+      const disk = await this.fs.readText(path).catch(() => null);
+      if (disk !== null && disk !== known && disk !== text) written = mergeFile(kind, known, text, disk).text;
+    }
+    await this.fs.writeText(path, written);
+    this.records.set(path, written);
+    return written;
+  }
+
+  /** Writes a board as it is shown now; what came in from elsewhere is then shown too, on top of any change made meanwhile. */
+  private async writeBoard(path: string) {
+    const board = this.snapshot.boards[path];
+    if (!board) return;
+    const text = serializeBoard(board);
+    const written = await this.writeRecords(path, 'board', text);
+    if (written === text) return;
+    const now = this.snapshot.boards[path];
+    if (!now) return;
+    const shown = now === board ? written : mergeFile('board', text, serializeBoard(now), written).text;
+    this.set({ boards: { ...this.snapshot.boards, [path]: parseBoard(shown) } });
+  }
+
+  /** Writes a task list as it is shown now, as `writeBoard` does a board. */
+  private async writeList(path: string) {
+    if (!(path in this.snapshot.tasks)) return;
+    const list = this.listAt(path);
+    const text = serializeList(list);
+    const written = await this.writeRecords(path, 'tasks', text);
+    if (written === text) return;
+    const now = this.listAt(path);
+    const same = now.tasks === list.tasks && now.sections === list.sections;
+    const next = parseList(same ? written : mergeFile('tasks', text, serializeList(now), written).text);
+    this.set({ tasks: { ...this.snapshot.tasks, [path]: next.tasks }, sections: { ...this.snapshot.sections, [path]: next.sections } });
   }
 
   private listAt(path: string): TaskList {
@@ -925,7 +1079,7 @@ export class Session {
       saved: false,
     });
     this.taskWrites = this.taskWrites
-      .then(() => saveList(this.fs, path, next))
+      .then(() => this.writeList(path))
       .catch(() => undefined)
       .then(() => {
         this.markSaved();

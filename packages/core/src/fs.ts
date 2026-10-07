@@ -21,6 +21,8 @@ export interface VaultFs {
   move(from: string, to: string): Promise<void>;
   remove(path: string): Promise<void>;
   mkdir(path: string): Promise<void>;
+  /** A file's entry as `list` gives it, or null when there is none; read without listing its folder. */
+  stat?(path: string): Promise<Entry | null>;
 }
 
 export interface PartsOptions {
@@ -133,5 +135,10 @@ export class MemoryFs implements VaultFs {
 
   async mkdir(path: string): Promise<void> {
     this.dirs.add(path);
+  }
+
+  async stat(path: string): Promise<Entry | null> {
+    const data = this.files.get(path);
+    return data ? { name: basename(path), path, kind: 'file', size: data.size, modified: this.written.get(path) } : null;
   }
 }

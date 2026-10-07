@@ -98,6 +98,15 @@ class OpfsFs implements VaultFs {
   async mkdir(path: string): Promise<void> {
     await this.dir(path, true);
   }
+
+  async stat(path: string): Promise<Entry | null> {
+    try {
+      const file = await (await this.file(path, false)).getFile();
+      return { name: basename(path), path, kind: 'file', size: file.size, modified: file.lastModified };
+    } catch {
+      return null;
+    }
+  }
 }
 
 /** Opens the browser vault, or an in-memory one where persistent storage is not available. */

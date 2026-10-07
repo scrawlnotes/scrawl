@@ -28,12 +28,18 @@ export interface RemoteChanges {
   removed: string[];
   /** Where the next listing starts. */
   cursor: string;
+  /**
+   * The listing holds everything there is, though a cursor was given: the provider could not
+   * tell what changed since it (too old, or forgotten). What it lacks is gone.
+   */
+  full?: boolean;
 }
 
 export interface RemoteStore {
-  /** What changed since `cursor`; everything there is when it is null. */
-  changes(cursor: string | null): Promise<RemoteChanges>;
-  read(path: string): Promise<Blob>;
+  /** What changed since `cursor`; everything there is when it is null. Told how many items were read so far, page by page. */
+  changes(cursor: string | null, onListed?: (count: number) => void): Promise<RemoteChanges>;
+  /** A file's content; told how many of its bytes came so far, for a large one. */
+  read(path: string, onBytes?: (done: number) => void): Promise<Blob>;
   /** An empty folder; nothing happens when it is there. */
   mkdir(path: string): Promise<void>;
   /**
@@ -41,20 +47,46 @@ export interface RemoteStore {
    * file there still has that tag; with null only while there is no file there. Otherwise it
    * writes nothing and throws a `RemoteConflict`.
    */
-  write(path: string, data: Blob, ifMatch: string | null): Promise<RemoteFile>;
+  write(path: string, data: Blob, ifMatch: string | null, onBytes?: (done: number) => void): Promise<RemoteFile>;
   /** Moves a file, as `write` checks `ifMatch` against the file at `from`; nothing may be at `to`. */
   move(from: string, to: string, ifMatch: string | null): Promise<RemoteFile>;
   /** Removes a file, checked as `write` does, or a folder with everything in it. */
   remove(path: string, ifMatch: string | null): Promise<void>;
   /** The provider's digest of some content, to compare with `RemoteFile.hash`. */
   hashOf?(data: Blob): Promise<string>;
+  /** Whether the provider takes a path as it is; one it does not is not synced (no name is changed silently). */
+  accepts?(path: string): boolean;
 }
 
-/** The file on the other side is not as the engine last saw it; nothing was written. */
+/** The file on the other side is not as the engine last saw it, or is gone; nothing was written. */
 export class RemoteConflict extends Error {
   constructor(readonly path: string) {
     super(`Changed on the other side: ${path}`);
     this.name = 'RemoteConflict';
+  }
+}
+
+/** The provider cannot be reached: no network, or it does not answer. Nothing more was done; the next turn tries again. */
+export class RemoteOffline extends Error {
+  constructor() {
+    super('The cloud drive cannot be reached');
+    this.name = 'RemoteOffline';
+  }
+}
+
+/** The provider no longer takes the sign-in: the account must be signed in to again. */
+export class RemoteSignedOut extends Error {
+  constructor() {
+    super('Signed out of the cloud drive');
+    this.name = 'RemoteSignedOut';
+  }
+}
+
+/** The space's folder is gone from the cloud drive (deleted, or out of reach). */
+export class RemoteFolderGone extends Error {
+  constructor() {
+    super("The space's folder is gone from the cloud drive");
+    this.name = 'RemoteFolderGone';
   }
 }
 
@@ -98,7 +130,7 @@ export class MemoryRemote implements RemoteStore {
   async read(path: string): Promise<Blob> {
     this.calls.read++;
     const file = this.files.get(keyOf(path));
-    if (!file) throw new Error(`No such file: ${path}`);
+    if (!file) throw new RemoteConflict(path);
     return file.data;
   }
 
