@@ -2,6 +2,8 @@ import {
   addDays,
   type Board,
   type BoardLook,
+  columnStatus,
+  type ColumnStatus,
   type Card,
   type CardPlace,
   type Column,
@@ -20,6 +22,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNarrow } from './narrow';
+import { StatusIcon } from './StatusIcon';
 import { CardPanel, type CardPanelActions, labelHue } from './CardPanel';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
@@ -113,7 +116,7 @@ function LineInput({ className, placeholder, initial = '', action, onDone, onCan
   );
 }
 
-/** The row a new card is typed into. Add card, or Enter, adds it and keeps the row for the next one. */
+/** The row a new card is typed into. Add card, or Enter, adds it and keeps the row for the next one, as Trello does. */
 function CardComposer({ onAdd, onClose }: { onAdd: (title: string) => void; onClose: () => void }) {
   const [title, setTitle] = useState('');
   const add = () => {
@@ -151,6 +154,43 @@ function CardComposer({ onAdd, onClose }: { onAdd: (title: string) => void; onCl
           ×
         </button>
       </div>
+    </div>
+  );
+}
+
+/** The line a card is typed into in the list, under its group's header. Add, or Enter, adds it and keeps the line for the next one, as the board's columns do. */
+function ListComposer({ onAdd, onClose }: { onAdd: (title: string) => void; onClose: () => void }) {
+  const [title, setTitle] = useState('');
+  const add = () => {
+    if (!title.trim()) return;
+    onAdd(title);
+    setTitle('');
+  };
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === 'Enter') add();
+    else if (event.key === 'Escape') onClose();
+    else return;
+    event.preventDefault();
+  };
+  // The buttons keep the focus in the field, so pressing them is not leaving it.
+  const keepTyping = (event: MouseEvent) => event.preventDefault();
+  return (
+    <div className="lcomp">
+      <input
+        aria-label={t('board.cardName')}
+        placeholder={t('board.cardName')}
+        autoFocus
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        onKeyDown={onKey}
+        onBlur={() => !title.trim() && onClose()}
+      />
+      <button type="button" className="primary" disabled={!title.trim()} onMouseDown={keepTyping} onClick={add}>
+        {t('board.add')}
+      </button>
+      <button type="button" onMouseDown={keepTyping} onClick={onClose}>
+        {t('dialog.cancel')}
+      </button>
     </div>
   );
 }
@@ -318,7 +358,7 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
         onDragEnd={onRelease}
         title={onGrabColumn ? t('board.dragColumn') : undefined}
       >
-        <i className="kind" />
+        <StatusIcon status={columnStatus(board, column)} />
         {renaming ? (
           <LineInput
             className="colm-edit"
@@ -732,27 +772,84 @@ function sortCards(board: Board, cards: Card[], sort: Sort | null): Card[] {
 }
 
 /** The same cards as a table, grouped by phase, sorted by a click on a column header. */
-function BoardList({ board, path, today, actions, openCard, visible }: {
+/** A group of the list with more than this many cards shows its first `SHOWN_FIRST`, and a row for the rest. */
+const MANY_ROWS = 20;
+const SHOWN_FIRST = 15;
+
+/** A group of the list: a phase's cards, or a status's when phases are off. */
+interface ListGroup {
+  id: string;
+  label: string;
+  detail?: string;
+  doneWhen?: string;
+  /** For a status: its icon. */
+  status?: ColumnStatus;
+  /** Its cards are finished (a done or dropped status, a closed phase): it starts closed. */
+  finished?: boolean;
+  cards: Card[];
+}
+
+/** A group's chevron: down while it is open. */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg className={`chv${open ? ' open' : ''}`} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9.5 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+/**
+ * The board as a table, after the Issues views of design/mockups.html. With phases on, its cards
+ * are grouped by phase; with them off, by status in the order of the columns. Every group opens
+ * and closes with a click on its header, the finished ones closed at first, and has "+ Add card"
+ * on the right of its header. A long group shows its first cards and a row for the rest. Which
+ * groups are toggled and shown in full is kept with the board's look.
+ */
+function BoardList({ board, path, today, actions, openCard, visible, toggled, inFull, onToggle, onInFull }: {
   board: Board;
   path: string;
   today: string;
   actions: BoardActions;
   openCard: string | null;
   visible: (card: Card) => boolean;
+  toggled: string[];
+  inFull: string[];
+  onToggle: (group: string) => void;
+  onInFull: (group: string, full: boolean) => void;
 }) {
   const [sort, setSort] = useState<Sort | null>(null);
+  /** The group a card is being typed into. */
+  const [adding, setAdding] = useState<string | null>(null);
   const toggle = (field: Sort['field']) =>
     setSort((now) => (now?.field === field ? (now.desc ? null : { field, desc: true }) : { field, desc: false }));
-  const groups: { id: string | null; label: string; detail?: string; cards: Card[] }[] = board.phasesOn
+  const groups: ListGroup[] = board.phasesOn
     ? [
         ...board.phases.map((phase) => {
           const { done, total } = phaseProgress(board, phase.id);
-          return { id: phase.id, label: phase.name, detail: t('board.progress', { done, total }), cards: board.cards.filter((c) => c.phase === phase.id) };
+          return {
+            id: phase.id,
+            label: phase.name,
+            detail: t('board.progress', { done, total }),
+            doneWhen: phase.doneWhen,
+            finished: phase.state === 'done',
+            cards: board.cards.filter((c) => c.phase === phase.id),
+          };
         }),
-        { id: null, label: t('list.noPhase'), cards: board.cards.filter((c) => !c.phase || !board.phases.some((p) => p.id === c.phase)) },
+        { id: 'none', label: t('list.noPhase'), cards: board.cards.filter((c) => !c.phase || !board.phases.some((p) => p.id === c.phase)) },
       ]
-    : [{ id: null, label: '', cards: board.cards }];
-  const shown = groups.map((group) => ({ ...group, cards: sortCards(board, group.cards.filter(visible), sort) })).filter((g) => g.cards.length > 0);
+    : board.columns.map((column) => ({
+        id: column.id,
+        label: column.name,
+        status: columnStatus(board, column),
+        finished: column.kind === 'done' || column.kind === 'dropped',
+        cards: board.cards.filter((c) => c.column === column.id),
+      }));
+  // Every status and every phase shows, with no cards too, so that there is a place to add one;
+  // the cards in no phase only when there are some.
+  const shown = groups.map((group) => ({ ...group, cards: sortCards(board, group.cards.filter(visible), sort) })).filter((g) => g.cards.length > 0 || g.id !== 'none');
+  // A card typed into a status's group goes into that column; into a phase's, into that phase.
+  const addTo = (group: ListGroup, title: string) =>
+    actions.addCard(path, { title, first: true, ...(group.status ? { column: group.id } : { phase: group.id === 'none' ? null : group.id }) });
   const head = (field: Sort['field']) => (
     <button type="button" role="columnheader" className={sort?.field === field ? 'sorted' : ''} onClick={() => toggle(field)}>
       {t(`list.${field}`)}
@@ -778,8 +875,8 @@ function BoardList({ board, path, today, actions, openCard, visible }: {
       >
         <span className="key">{keyOf(board, card)}</span>
         <span className="tt">{card.title}</span>
-        <span className={`st kind-${column?.kind ?? 'active'}`}>
-          <i className="kind" />
+        <span className="st">
+          {column && <StatusIcon status={columnStatus(board, column)} />}
           {column?.name}
         </span>
         <span className="pr">
@@ -809,20 +906,51 @@ function BoardList({ board, path, today, actions, openCard, visible }: {
         {head('assignee')}
         {head('due')}
       </div>
-      {shown.map((group) => (
-        <div key={group.id ?? 'none'}>
-          {group.label && (
+      {shown.map((group) => {
+        const open = toggled.includes(group.id) ? group.finished === true : group.finished !== true;
+        const many = group.cards.length > MANY_ROWS;
+        const full = inFull.includes(group.id);
+        // The open card is never hidden: not in a closed group, not among a long group's rest.
+        const rows = !open
+          ? group.cards.filter((card) => card.id === openCard)
+          : many && !full
+            ? group.cards.filter((card, index) => index < SHOWN_FIRST || card.id === openCard)
+            : group.cards;
+        return (
+          <div key={group.id}>
             <div className="lsec">
-              {group.label}
-              {group.detail && <small>{group.detail}</small>}
-              {group.id !== null && board.phases.find((p) => p.id === group.id)?.doneWhen && (
-                <span className="dw">{board.phases.find((p) => p.id === group.id)!.doneWhen}</span>
+              <button type="button" className="lsec-main" aria-expanded={open} onClick={() => onToggle(group.id)}>
+                <Chevron open={open} />
+                {group.status && <StatusIcon status={group.status} />}
+                <span className="nm">{group.label}</span>
+                <small>{group.status ? group.cards.length : group.detail}</small>
+                {group.doneWhen && <span className="dw">{group.doneWhen}</span>}
+              </button>
+              {/* While a card is typed, the line's own buttons do it. In a closed group, the group opens for it. */}
+              {adding !== group.id && (
+                <button
+                  type="button"
+                  className="ladd"
+                  onClick={() => {
+                    if (!open) onToggle(group.id);
+                    setAdding(group.id);
+                  }}
+                >
+                  {t('board.addCardRow')}
+                </button>
               )}
             </div>
-          )}
-          {group.cards.map(row)}
-        </div>
-      ))}
+            {open && adding === group.id && <ListComposer onAdd={(title) => addTo(group, title)} onClose={() => setAdding(null)} />}
+            {rows.map(row)}
+            {open && group.cards.length === 0 && adding !== group.id && <div className="lnone">{t('list.noCards')}</div>}
+            {open && many && (
+              <button type="button" className="lmore" onClick={() => onInFull(group.id, !full)}>
+                {full ? t('list.showLess') : t('list.showMore', { count: group.cards.length - rows.length })}
+              </button>
+            )}
+          </div>
+        );
+      })}
       {shown.length === 0 && <p className="task-empty">{t('list.empty')}</p>}
     </div>
   );
@@ -856,20 +984,39 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   onCloseCard: () => void;
 }) {
   const current = currentPhase(board);
-  const [view, setView] = useState<'board' | 'list'>(look?.view ?? 'board');
+  const [view, setView] = useState<'board' | 'list'>(look?.view ?? board.view ?? 'board');
   const [shown, setShown] = useState<Shown>(() => firstShown(board, look));
   /** A phase chosen here is remembered; until one is, the board opens on its current phase. */
   const [phaseChosen, setPhaseChosen] = useState(look?.phase !== undefined);
-  const remember = (nextView: 'board' | 'list', nextShown: Shown, chosen: boolean) =>
-    onLook({ view: nextView, ...(chosen && { phase: 'all' in nextShown ? null : nextShown.phase }) });
+  const [toggled, setToggled] = useState<string[]>(look?.toggled ?? []);
+  const [inFull, setInFull] = useState<string[]>(look?.inFull ?? []);
+  // The look as it is now, ahead of the next draw: two changes in a row must not keep a stale one.
+  const latest = useRef({ view, shown, chosen: phaseChosen, toggled, inFull });
+  latest.current = { view, shown, chosen: phaseChosen, toggled, inFull };
+  const remember = (next: Partial<typeof latest.current>) => {
+    latest.current = { ...latest.current, ...next };
+    const { view: v, shown: s, chosen: c, toggled: g, inFull: f } = latest.current;
+    onLook({ view: v, ...(c && { phase: 'all' in s ? null : s.phase }), ...(g.length > 0 && { toggled: g }), ...(f.length > 0 && { inFull: f }) });
+  };
   const chooseView = (next: 'board' | 'list') => {
     setView(next);
-    remember(next, shown, phaseChosen);
+    remember({ view: next });
   };
   const choosePhase = (next: Shown) => {
     setShown(next);
     setPhaseChosen(true);
-    remember(view, next, true);
+    remember({ shown: next, chosen: true });
+  };
+  const toggleIn = (list: string[], id: string, on: boolean) => (on ? [...list.filter((each) => each !== id), id] : list.filter((each) => each !== id));
+  const toggleGroup = (group: string) => {
+    const next = toggleIn(latest.current.toggled, group, !latest.current.toggled.includes(group));
+    setToggled(next);
+    remember({ toggled: next });
+  };
+  const showInFull = (group: string, full: boolean) => {
+    const next = toggleIn(latest.current.inFull, group, full);
+    setInFull(next);
+    remember({ inFull: next });
   };
   // A phase that is gone, or phases turned off, shows everything.
   useEffect(() => {
@@ -1032,7 +1179,20 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
           {shownPhase.doneWhen}
         </p>
       )}
-      {view === 'list' && <BoardList board={board} path={path} today={today} actions={actions} openCard={openCard} visible={() => true} />}
+      {view === 'list' && (
+        <BoardList
+          board={board}
+          path={path}
+          today={today}
+          actions={actions}
+          openCard={openCard}
+          visible={() => true}
+          toggled={toggled}
+          inFull={inFull}
+          onToggle={toggleGroup}
+          onInFull={showInFull}
+        />
+      )}
       {view === 'board' && lanes && (
         <div className="board lanes" onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setDrop(null)}>
           {closedPhases.length > 0 && (

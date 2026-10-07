@@ -8,6 +8,7 @@ import {
   cardBrief,
   closePhase,
   columnCards,
+  columnStatus,
   currentPhase,
   dueCards,
   editComment,
@@ -75,6 +76,28 @@ describe('templates', () => {
     const board = newBoard('Customers', 'simple', ids('c'));
     expect(board.columns.map((c) => c.name)).toEqual(['Todo', 'Doing', 'Done']);
     expect(board.phasesOn).toBe(false);
+  });
+
+  it('issue tracking starts with the statuses Linear has, phases off, opening as a list, a new issue in Backlog', () => {
+    let board = newBoard('Issues', 'issues', ids('c'));
+    expect(board.columns.map((c) => `${c.name}:${c.kind}`)).toEqual(['Backlog:backlog', 'Todo:active', 'In Progress:active', 'Done:done', 'Canceled:dropped', 'Duplicate:dropped']);
+    expect(board.phasesOn).toBe(false);
+    expect(board.view).toBe('list');
+    expect(board.prefix).toBe('ISS');
+    expect(parseBoard(serializeBoard(board)).view).toBe('list');
+    board = addCard(board, { title: 'Card panel loses focus after a comment' }, now, undefined, 'k1');
+    expect(board.cards[0]!.column).toBe(board.columns[0]!.id);
+    expect(newBoard('Plan', 'simple', ids('c')).view).toBeUndefined();
+    // Added from the top of a list, a card goes first in its column.
+    board = addCard(board, { title: 'Crash when a board is renamed', first: true }, now, undefined, 'k2');
+    expect(columnCards(board, board.columns[0]!.id).map((c) => c.id)).toEqual(['k2', 'k1']);
+  });
+
+  it('tells the status of each column: the first active one not started, the later ones started', () => {
+    const software = newBoard('Roadmap', 'software', ids('c'));
+    expect(software.columns.map((c) => columnStatus(software, c))).toEqual(['backlog', 'todo', 'started', 'review', 'done']);
+    const issues = newBoard('Issues', 'issues', ids('c'));
+    expect(issues.columns.map((c) => columnStatus(issues, c))).toEqual(['backlog', 'todo', 'started', 'done', 'dropped', 'dropped']);
   });
 
   it('makes a key prefix from the name', () => {

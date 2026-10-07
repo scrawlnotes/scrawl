@@ -1,4 +1,4 @@
-import { type Board, type Card, type CardPatch, dayOf, keyOf, type Priority, type TimelineEntry } from '@scrawlnotes/core';
+import { type Board, type Card, type CardPatch, columnStatus, dayOf, keyOf, type Priority, type TimelineEntry } from '@scrawlnotes/core';
 import type { ScrawlEditor, ScrawlViewer } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
 import {
@@ -14,6 +14,7 @@ import {
 import { createPortal } from 'react-dom';
 import type { MenuItem } from './dialogs';
 import { boardLabel } from './items';
+import { StatusIcon } from './StatusIcon';
 import { clockTime, pastDayLabel } from './text';
 
 /** What the card panel does, on the board at the path given. */
@@ -114,6 +115,123 @@ function LabelField({ board, labels, onChange }: { board: Board; labels: string[
         />
       )}
     </>
+  );
+}
+
+/** The card's status, its icon beside it; a click opens the picker of every status under it. */
+function StatusField({ board, current, onMove }: { board: Board; current: string; onMove: (column: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const field = useRef<HTMLButtonElement>(null);
+  const column = board.columns.find((c) => c.id === current);
+  return (
+    <>
+      <button ref={field} id="card-status" type="button" className="st-field" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {column && <StatusIcon status={columnStatus(board, column)} />}
+        <span className="nm">{column?.name}</span>
+        <span className="dd" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+      {open && (
+        <StatusPicker
+          anchor={field}
+          board={board}
+          current={current}
+          onPick={(id) => {
+            setOpen(false);
+            field.current?.focus();
+            if (id !== current) onMove(id);
+          }}
+          onClose={(refocus) => {
+            setOpen(false);
+            if (refocus) field.current?.focus();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * Every status of the board, in the order of its columns, with its icon and a tick on the one the
+ * card is in; under the field, or above it when there is more room there. The arrow keys move
+ * through it and Enter picks.
+ */
+function StatusPicker({ anchor, board, current, onPick, onClose }: {
+  anchor: RefObject<HTMLButtonElement | null>;
+  board: Board;
+  current: string;
+  onPick: (column: string) => void;
+  onClose: (refocus: boolean) => void;
+}) {
+  const [at, setAt] = useState(() => Math.max(0, board.columns.findIndex((c) => c.id === current)));
+  const [place, setPlace] = useState<CSSProperties | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const field = anchor.current?.getBoundingClientRect();
+      const height = box.current?.offsetHeight ?? 0;
+      if (!field) return;
+      const below = window.innerHeight - field.bottom - EDGE - 4;
+      const above = field.top - EDGE - 4;
+      const width = Math.max(field.width, 220);
+      const left = Math.max(EDGE, Math.min(field.left, window.innerWidth - width - EDGE));
+      setPlace(below >= height || below >= above ? { left, width, top: field.bottom + 4 } : { left, width, bottom: window.innerHeight - field.top + 4 });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [anchor]);
+
+  useEffect(() => {
+    box.current?.focus({ preventScroll: true });
+    const away = (event: globalThis.MouseEvent) => {
+      const target = event.target as Node;
+      if (!box.current?.contains(target) && !anchor.current?.contains(target)) onClose(false);
+    };
+    window.addEventListener('mousedown', away);
+    return () => window.removeEventListener('mousedown', away);
+  }, [anchor, onClose]);
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const last = board.columns.length - 1;
+    if (event.key === 'ArrowDown') setAt(at >= last ? 0 : at + 1);
+    else if (event.key === 'ArrowUp') setAt(at <= 0 ? last : at - 1);
+    else if (event.key === 'Enter') {
+      const column = board.columns[at];
+      if (column) onPick(column.id);
+    } else if (event.key === 'Escape' || event.key === 'Tab') onClose(true);
+    else return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  return createPortal(
+    <div ref={box} className="lbl-picker st-picker" role="listbox" aria-label={t('card.status')} tabIndex={-1} style={place ?? { opacity: 0 }} onKeyDown={onKeyDown}>
+      {board.columns.map((column, index) => (
+        <button
+          key={column.id}
+          type="button"
+          role="option"
+          aria-selected={column.id === current}
+          tabIndex={-1}
+          className={index === at ? 'at' : undefined}
+          onMouseDown={(event) => event.preventDefault()}
+          onMouseMove={() => index !== at && setAt(index)}
+          onClick={() => onPick(column.id)}
+        >
+          <StatusIcon status={columnStatus(board, column)} />
+          <span className="nm">{column.name}</span>
+          <span className="tick">{column.id === current ? '✓' : ''}</span>
+        </button>
+      ))}
+    </div>,
+    document.body,
   );
 }
 
@@ -543,13 +661,7 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
         <aside className="cp-side">
         <div className="fields">
           <label htmlFor="card-status">{t('card.status')}</label>
-          <select id="card-status" value={card.column} onChange={(event) => actions.moveToColumn(path, card.id, event.target.value)}>
-            {board.columns.map((column) => (
-              <option key={column.id} value={column.id}>
-                {column.name}
-              </option>
-            ))}
-          </select>
+          <StatusField board={board} current={card.column} onMove={(column) => actions.moveToColumn(path, card.id, column)} />
           {board.phasesOn && (
             <>
               <label htmlFor="card-phase">{t('card.phase')}</label>

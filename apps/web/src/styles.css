@@ -1393,8 +1393,19 @@ input:focus {
 
 .templates {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+/* creating a board: wide enough for its three templates side by side */
+.dialog.board-create {
+  width: min(560px, calc(100vw - 32px));
+}
+
+@media (max-width: 640px) {
+  .templates {
+    grid-template-columns: 1fr;
+  }
 }
 
 .templates button {
@@ -1442,6 +1453,10 @@ input:focus {
 
 .templates .cols i.done {
   background: color-mix(in srgb, var(--sl-kind-done) 55%, var(--sl-line));
+}
+
+.templates .cols i.dropped {
+  background: color-mix(in srgb, var(--sl-faint) 45%, var(--sl-line));
 }
 
 .templates small {
@@ -2691,28 +2706,43 @@ button.cb:hover::after {
   line-height: 1.5;
 }
 
-.colm .kind {
+/* a column's status as an icon: waiting dashed, not started empty, started half, in review three
+   quarters, done ticked, dropped crossed */
+.sti {
   flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
-  background: var(--sl-faint);
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.colm.kind-active .kind {
-  background: var(--sl-kind-active);
+.sti .mark {
+  stroke: var(--sl-side);
+  stroke-width: 1.9;
 }
 
-.colm.kind-review .kind {
-  background: var(--sl-kind-review);
+.sti.backlog,
+.sti.todo {
+  color: var(--sl-dim);
 }
 
-.colm.kind-done .kind {
-  background: var(--sl-kind-done);
+.sti.started {
+  color: var(--sl-kind-active);
 }
 
-.colm.kind-dropped .kind {
-  background: var(--sl-kind-dropped);
+.sti.review {
+  color: var(--sl-kind-review);
+}
+
+.sti.done {
+  color: var(--sl-kind-done);
+}
+
+.sti.dropped {
+  color: var(--sl-faint);
 }
 
 .colm-name {
@@ -3148,6 +3178,71 @@ button.cb:hover::after {
   text-align: left;
 }
 
+/* a card's status: a field like the labels', its icon beside its name */
+.st-field {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 31px;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-side);
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.st-field .nm {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-field .dd {
+  color: var(--sl-faint);
+  font-size: 9px;
+}
+
+.st-field:hover,
+.st-field:focus-visible,
+.st-field[aria-expanded='true'] {
+  border-color: var(--sl-faint);
+  outline: none;
+}
+
+.st-picker {
+  outline: none;
+}
+
+.st-picker button {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.st-picker button.at {
+  background: var(--sl-sel);
+}
+
+.st-picker .nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-picker .tick {
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
 .lbl-field:hover,
 .lbl-field:focus-visible,
 .lbl-field[aria-expanded='true'] {
@@ -3567,29 +3662,6 @@ button.cb:hover::after {
   white-space: nowrap;
 }
 
-.lrow .st .kind {
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
-  background: var(--sl-faint);
-}
-
-.lrow .st.kind-active .kind {
-  background: var(--sl-kind-active);
-}
-
-.lrow .st.kind-review .kind {
-  background: var(--sl-kind-review);
-}
-
-.lrow .st.kind-done .kind {
-  background: var(--sl-kind-done);
-}
-
-.lrow .st.kind-dropped .kind {
-  background: var(--sl-kind-dropped);
-}
 
 .lrow .pr .dot {
   width: 7px;
@@ -3665,7 +3737,7 @@ button.cb:hover::after {
 
 .lsec {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   min-width: 640px;
   padding: 14px 8px 4px;
@@ -3678,6 +3750,135 @@ button.cb:hover::after {
   color: var(--sl-faint);
   font-weight: 400;
   font-variant-numeric: tabular-nums;
+}
+
+/* a group's header, the same in every group: chevron, status, name, count; a click opens or closes it */
+.lsec-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+  text-align: left;
+}
+
+.lsec-main:hover {
+  color: var(--sl-fg);
+}
+
+.lsec-main .nm {
+  white-space: nowrap;
+}
+
+.lsec .chv {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-right: -2px;
+  fill: none;
+  stroke: var(--sl-faint);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lsec .chv.open {
+  transform: rotate(90deg);
+}
+
+.lsec .sti {
+  margin-right: -2px;
+}
+
+/* an open group with no cards says so */
+.lnone {
+  min-width: 640px;
+  padding: 6px 8px 7px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+/* "+ Add card" on the right of a group's header */
+.lsec .ladd {
+  align-self: center;
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 5px;
+  color: var(--sl-faint);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.lsec .ladd:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+/* the line a card is typed into, under its group's header */
+.lcomp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 640px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.lcomp input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--sl-accent);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+}
+
+.lcomp button {
+  padding: 3px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.lcomp button:hover:not(:disabled) {
+  color: var(--sl-fg);
+}
+
+.lcomp .primary {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.lcomp .primary:hover:not(:disabled) {
+  color: var(--sl-bg);
+}
+
+.lcomp .primary:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* a long group's first cards, then a row for the rest, where the titles begin */
+.lmore {
+  display: block;
+  width: 100%;
+  min-width: 640px;
+  padding: 6px 8px 7px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-faint);
+  font-size: 12px;
+  text-align: left;
+}
+
+.lmore:hover {
+  color: var(--sl-fg);
 }
 
 .lsec .dw {

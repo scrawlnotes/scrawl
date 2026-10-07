@@ -28,6 +28,10 @@ export interface BoardLook {
   view: 'board' | 'list';
   /** The phase shown: its id, or null for every card; unset until one is chosen. */
   phase?: string | null;
+  /** In the list, the groups opened or closed against their default (finished ones closed, the rest open), by id. */
+  toggled?: string[];
+  /** In the list, the long groups shown in full, by id. */
+  inFull?: string[];
 }
 
 /** Which notes are open on this device, and how its boards were looked at. Not synced. */
@@ -537,8 +541,14 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
     if (data.boards && typeof data.boards === 'object') {
       for (const [path, look] of Object.entries(data.boards as Record<string, unknown>)) {
         if (!look || typeof look !== 'object') continue;
-        const { view, phase } = look as Partial<BoardLook>;
-        boards[path] = { view: view === 'list' ? 'list' : 'board', ...((typeof phase === 'string' || phase === null) && { phase }) };
+        const { view, phase, toggled, inFull } = look as Partial<BoardLook>;
+        const ids = (list: unknown) => (Array.isArray(list) ? list.filter((id): id is string => typeof id === 'string') : []);
+        boards[path] = {
+          view: view === 'list' ? 'list' : 'board',
+          ...((typeof phase === 'string' || phase === null) && { phase }),
+          ...(ids(toggled).length > 0 && { toggled: ids(toggled) }),
+          ...(ids(inFull).length > 0 && { inFull: ids(inFull) }),
+        };
       }
     }
     return { tabs, active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null, boards };

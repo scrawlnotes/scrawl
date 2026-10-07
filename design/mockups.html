@@ -642,6 +642,41 @@ p { margin: 0; max-width: 68ch; }
 .tpl .cols i { flex: 1; height: 18px; border-radius: 3px; background: var(--m-line); }
 .tpl .cols i.active { background: color-mix(in srgb, var(--m-p3) 55%, var(--m-line)); } .tpl .cols i.review { background: color-mix(in srgb, var(--m-accent) 55%, var(--m-line)); } .tpl .cols i.done { background: color-mix(in srgb, #5cb87a 55%, var(--m-line)); }
 .tpl .t small { font-size: 11px; color: var(--m-faint); }
+.tpl.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tpl .cols i.dropped { background: color-mix(in srgb, var(--m-faint) 45%, var(--m-line)); }
+/* a column's status, as an icon: backlog dashed, not started empty, started half, in review three
+   quarters, done ticked, dropped crossed */
+.sti { display: inline-grid; place-items: center; flex: none; width: 14px; height: 14px; }
+.mock .sti svg { width: 14px; height: 14px; stroke-width: 1.6; }
+.sti.backlog, .sti.todo { color: var(--m-dim); }
+.sti.started { color: var(--m-p3); }
+.sti.review { color: var(--m-accent); }
+.sti.done { color: #5cb87a; }
+.sti.dropped { color: var(--m-faint); }
+.lrow .st .sti + span, .colm h3 .sti + span { margin-left: 0; }
+.colm h3 .hn { display: flex; align-items: center; gap: 6px; }
+.lsec .sti { margin-right: -2px; }
+.lsec .chv { display: grid; place-items: center; width: 14px; height: 14px; margin-right: -2px; color: var(--m-faint); }
+.mock .lsec .chv svg { width: 12px; height: 12px; stroke-width: 2; transform: rotate(90deg); }
+.mock .lsec.closed .chv svg { transform: none; }
+.lsec.closed { padding-top: 10px; }
+.lnone { padding: 6px 0 7px 0; border-bottom: 1px solid var(--m-line); color: var(--m-faint); font-size: 12px; }
+/* a long group shows its first cards and a row for the rest, at the list's left edge */
+.lmore { padding: 6px 0 7px 0; border-bottom: 1px solid var(--m-line); color: var(--m-faint); font-size: 12px; }
+/* adding a card in the list: a row at the end of each group, and the row as it is typed in */
+.lsec .ladd { margin-left: auto; padding: 2px 8px; border-radius: 5px; color: var(--m-faint); font-size: 12px; font-weight: 400; }
+.lsec .ladd.hot { background: var(--m-sel); color: var(--m-fg); }
+.lcomp { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--m-line); }
+.lcomp .in { flex: 1; padding: 4px 8px; border: 1px solid var(--m-accent); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); font-size: 12.5px; }
+.lcomp .in .caret { display: inline-block; width: 1px; height: 13px; margin-left: 1px; vertical-align: -2px; background: var(--m-fg); }
+.mock .add.hot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--m-accent) 45%, transparent); }
+/* the status picker of a card: every status with its icon and the number that moves the card there */
+.stmenu { position: absolute; z-index: 6; width: 236px; padding: 4px; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-side); box-shadow: 0 12px 32px rgb(0 0 0 / .45); font-size: 12.5px; }
+.stmenu .r { display: grid; grid-template-columns: 14px minmax(0, 1fr) 14px; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 6px; color: var(--m-fg); }
+.stmenu .r.on { background: var(--m-sel); }
+.stmenu .r .ok { color: var(--m-fg); font-size: 12px; }
+.stmenu .r small { color: var(--m-faint); text-align: right; font-variant-numeric: tabular-nums; }
+.fields .fv.picking { padding: 1px 6px; margin: -1px -6px; border-radius: 5px; background: var(--m-sel); }
 /* a card in Today: under its board, with its key; the box moves it to the first done column */
 .task .key { font: 10.5px/1 var(--m-mono); color: var(--m-faint); margin-right: 6px; }
 .task .cb.sq { border-radius: 3px; }
@@ -811,6 +846,12 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-phmore" data-aview="phmore">Phases more</button>
         <button type="button" id="a-phall" data-aview="phall">Phases all</button>
         <button type="button" id="a-phphone" data-aview="phphone">Phases phone</button>
+        <button type="button" id="a-isnew" data-aview="isnew">Issues new</button>
+        <button type="button" id="a-islist" data-aview="islist">Issues list</button>
+        <button type="button" id="a-isboard" data-aview="isboard">Issues board</button>
+        <button type="button" id="a-isstatus" data-aview="isstatus">Issue status</button>
+        <button type="button" id="a-isadd" data-aview="isadd">Issues add</button>
+        <button type="button" id="a-isempty" data-aview="isempty">Issues empty</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -1262,17 +1303,142 @@ p { margin: 0; max-width: 68ch; }
     lrow({ key: 'SCR-23', title: 'Spaces section, personal space only', kind: 'backlog', status: 'Backlog', labels: ['sync'] }) +
     '</div></div>';
   // The create window on its Board step: name, folder and a template that only sets the start.
-  function newBoard() {
-    return '<div class="ovl"><div class="mdlg"><h3>Create</h3>' +
+  function newBoard(issues) {
+    return '<div class="ovl"><div class="mdlg"' + (issues ? ' style="width: 560px"' : '') + '><h3>Create</h3>' +
       '<div class="steps"><span>Board</span><span class="on">Name and place</span></div>' +
-      '<div class="label">Name</div><div class="field filled">Customers<span class="caret"></span></div>' +
-      '<div class="label" style="margin-top: 10px">Folder</div><div class="field filled">Client portal</div>' +
-      '<div class="label" style="margin-top: 10px">Template</div><div class="tpl">' +
+      '<div class="label">Name</div><div class="field filled">' + (issues ? 'Issues' : 'Customers') + '<span class="caret"></span></div>' +
+      '<div class="label" style="margin-top: 10px">Folder</div><div class="field filled">' + (issues ? 'Scrawl' : 'Client portal') + '</div>' +
+      '<div class="label" style="margin-top: 10px">Template</div><div class="tpl' + (issues ? ' three' : '') + '">' +
         '<div class="t"><b>Software</b><div class="cols"><i></i><i class="active"></i><i class="active"></i><i class="review"></i><i class="done"></i></div><small>Backlog, Todo, Doing, Review, Done · phases on</small></div>' +
-        '<div class="t on"><b>Simple</b><div class="cols"><i class="active"></i><i class="active"></i><i class="done"></i></div><small>Todo, Doing, Done · phases off</small></div>' +
+        '<div class="t' + (issues ? '' : ' on') + '"><b>Simple</b><div class="cols"><i class="active"></i><i class="active"></i><i class="done"></i></div><small>Todo, Doing, Done · phases off</small></div>' +
+        (issues ? '<div class="t on"><b>Issue tracking</b><div class="cols"><i></i><i class="active"></i><i class="active"></i><i class="done"></i><i class="dropped"></i><i class="dropped"></i></div><small>Backlog, Todo, In Progress, Done, Canceled, Duplicate · opens as a list</small></div>' : '') +
       '</div>' +
-      '<div class="foot"><span class="count">Columns and phases can be changed later</span><kbd>Enter</kbd> creates · <kbd>Esc</kbd> back</div></div></div>';
+      '<div class="foot"><span class="count">Columns and phases can be changed later</span>' +
+        (issues ? '<span class="st-btn" style="margin-left: auto">Back</span><span class="st-btn go" style="margin-left: 6px">Create</span>' : '<kbd>Enter</kbd> creates · <kbd>Esc</kbd> back') + '</div></div></div>';
   }
+  // Issue tracking: a board as Linear keeps issues. Its statuses are columns of the kinds there
+  // are: Backlog, Todo and In Progress (active), Done, and Canceled and Duplicate (dropped, finished
+  // like Done). It opens as a list grouped by status in the order of the columns, as Linear has it,
+  // the finished statuses closed; any group opens and closes with a click on its header (In Progress
+  // is closed here). A new issue goes to Backlog, the first column. A group of more than 20 shows
+  // its first 15 and a row for the rest (here only three are drawn for room). Every board shows its
+  // statuses as icons.
+  LC.bug = '#f0706a'; LC.feature = '#6aa5f0'; LC.ui = '#b48ef0'; LC.improvement = '#5cb87a';
+  var STI = {
+    backlog: '<circle cx="12" cy="12" r="8" stroke-dasharray="3.6 2.7"/>',
+    todo: '<circle cx="12" cy="12" r="8"/>',
+    started: '<circle cx="12" cy="12" r="8"/><path d="M12 12V7a5 5 0 0 1 0 10z" fill="currentColor" stroke="none"/>',
+    review: '<circle cx="12" cy="12" r="8"/><path d="M12 12V7a5 5 0 1 1-5 5z" fill="currentColor" stroke="none"/>',
+    done: '<circle cx="12" cy="12" r="8.6" fill="currentColor" stroke="none"/><path d="M8.4 12.3l2.4 2.4 4.8-5" stroke="var(--m-bg)" stroke-width="1.9"/>',
+    dropped: '<circle cx="12" cy="12" r="8.6" fill="currentColor" stroke="none"/><path d="M9.4 9.4l5.2 5.2M14.6 9.4l-5.2 5.2" stroke="var(--m-bg)" stroke-width="1.9"/>'
+  };
+  function sti(status) { return '<span class="sti ' + status + '"><svg viewBox="0 0 24 24">' + STI[status] + '</svg></span>'; }
+  function irow(o) {
+    return '<div class="lrow' + (o.done ? ' done' : '') + '"><span class="key">' + o.key + '</span><span class="tt">' + o.title + '</span>' +
+      '<span class="st">' + sti(o.st) + '<span>' + o.status + '</span></span>' +
+      '<span class="pr ' + (o.p || '') + '"><i class="dot"></i>' + (o.p || '–') + '</span>' +
+      '<span class="lbls">' + (o.labels || []).map(lbl).join('') + '</span>' +
+      '<span>' + (o.who ? who(o.who, o.bot) : '') + '</span>' +
+      '<span class="due' + (o.due === 'Today' ? ' today' : '') + '">' + (o.due || '') + '</span></div>';
+  }
+  function issuesHead(view) {
+    return '<div class="th"><b>Issues</b>' +
+      '<span class="vsw"><span' + (view === 'list' ? '' : ' class="on"') + '>Board</span><span' + (view === 'list' ? ' class="on"' : '') + '>List</span></span></div>';
+  }
+  // A group's header: the same in every group, so that all line up. A chevron (down when open),
+  // the status, its name and count, and "+ Add card" on the right; the whole row opens and closes
+  // the group. An open group with no cards says so.
+  var CHV = '<svg viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></svg>';
+  function lsec(st, name, count, closed) {
+    return '<div class="lsec' + (closed ? ' closed' : '') + '"><span class="chv">' + CHV + '</span>' + sti(st) + name + ' <small>' + count + '</small>' +
+      '<span class="ladd">+ Add card</span></div>' + (!closed && count === 0 ? '<div class="lnone">No cards</div>' : '');
+  }
+  // Adding a card in the list: "+ Add card" on the right of each group's header, however long the
+  // group; a click opens a line under the header to type it in, with Add and Cancel (open here in
+  // Backlog, whose header button is gone while the line is open: the line's own buttons do it).
+  // Every status shows, with none of its cards too (In Progress here), so that an empty board has
+  // its places to add.
+  function issuesAdd() {
+    return '<div class="bv">' + issuesHead('list') + '<div class="blist">' +
+      '<div class="lrow head"><span>Key</span><span>Title</span><span>Status</span><span>Priority</span><span>Labels</span><span>Who</span><span>Due</span></div>' +
+      lsec('backlog', 'Backlog', 3).replace('<span class="ladd">+ Add card</span>', '') +
+      '<div class="lcomp"><span class="in">Crash when a board is renamed<span class="caret"></span></span><span class="st-btn go">Add</span><span class="st-btn">Cancel</span></div>' +
+      irow({ key: 'ISS-39', title: 'Export a board as CSV', st: 'backlog', status: 'Backlog', labels: ['feature'] }) +
+      irow({ key: 'ISS-38', title: 'Show due dates in a week view', st: 'backlog', status: 'Backlog', labels: ['feature'] }) +
+      irow({ key: 'ISS-35', title: 'Move a card to another board', st: 'backlog', status: 'Backlog', labels: ['improvement'] }) +
+      lsec('todo', 'Todo', 2) +
+      irow({ key: 'ISS-47', title: 'Card panel loses focus after a comment', st: 'todo', status: 'Todo', p: 'p1', labels: ['bug'], due: 'Today' }) +
+      irow({ key: 'ISS-45', title: 'Pasting a long table freezes the editor', st: 'todo', status: 'Todo', p: 'p1', labels: ['bug'] }) +
+      lsec('started', 'In Progress', 0) +
+      lsec('done', 'Done', 48, true) + lsec('dropped', 'Canceled', 6, true) + lsec('dropped', 'Duplicate', 3, true) +
+      '</div></div>';
+  }
+  // A new Issue tracking board, no cards yet: every status is there with 0, a place to add under each.
+  function issuesEmpty() {
+    return '<div class="bv">' + issuesHead('list') + '<div class="blist">' +
+      '<div class="lrow head"><span>Key</span><span>Title</span><span>Status</span><span>Priority</span><span>Labels</span><span>Who</span><span>Due</span></div>' +
+      lsec('backlog', 'Backlog', 0) +
+      lsec('todo', 'Todo', 0) +
+      lsec('started', 'In Progress', 0) +
+      lsec('done', 'Done', 0, true) + lsec('dropped', 'Canceled', 0, true) + lsec('dropped', 'Duplicate', 0, true) +
+      '</div></div>';
+  }
+  var ISSUES_LIST = '<div class="bv">' + issuesHead('list') + '<div class="blist">' +
+    '<div class="lrow head"><span>Key</span><span>Title</span><span>Status</span><span>Priority</span><span>Labels</span><span>Who</span><span>Due</span></div>' +
+    lsec('backlog', 'Backlog', 46) +
+    irow({ key: 'ISS-39', title: 'Export a board as CSV', st: 'backlog', status: 'Backlog', labels: ['feature'] }) +
+    irow({ key: 'ISS-38', title: 'Show due dates in a week view', st: 'backlog', status: 'Backlog', labels: ['feature'] }) +
+    irow({ key: 'ISS-35', title: 'Move a card to another board', st: 'backlog', status: 'Backlog', labels: ['improvement'] }) +
+    '<div class="lmore">Show 31 more</div>' +
+    lsec('todo', 'Todo', 4) +
+    irow({ key: 'ISS-47', title: 'Card panel loses focus after a comment', st: 'todo', status: 'Todo', p: 'p1', labels: ['bug'], due: 'Today' }) +
+    irow({ key: 'ISS-45', title: 'Pasting a long table freezes the editor', st: 'todo', status: 'Todo', p: 'p1', labels: ['bug'] }) +
+    irow({ key: 'ISS-46', title: 'Phase list does not close on Escape on iPhone', st: 'todo', status: 'Todo', p: 'p2', labels: ['bug', 'ui'] }) +
+    irow({ key: 'ISS-43', title: 'Dark theme: code block border too faint', st: 'todo', status: 'Todo', labels: ['ui'] }) +
+    lsec('started', 'In Progress', 2, true) +
+    lsec('done', 'Done', 48, true) + lsec('dropped', 'Canceled', 6, true) + lsec('dropped', 'Duplicate', 3, true) +
+    '</div></div>';
+  function icolm(st, name, count, cards) {
+    return '<div class="colm"><h3><span class="hn">' + sti(st) + name + '</span><small>' + count + '</small></h3>' + cards + '<div class="qa">+ Add card</div></div>';
+  }
+  var ISSUES_BOARD = '<div class="bv">' + issuesHead('board') + '<div class="bwrap"><div class="board">' +
+    icolm('backlog', 'Backlog', 46, kc({ key: 'ISS-39', title: 'Export a board as CSV', meta: lbl('feature') }) + kc({ key: 'ISS-38', title: 'Show due dates in a week view', meta: lbl('feature') })) +
+    icolm('todo', 'Todo', 4, kc({ key: 'ISS-47', p: 'p1', title: 'Card panel loses focus after a comment', meta: '<span class="today">Today</span>' + lbl('bug') }) + kc({ key: 'ISS-45', p: 'p1', title: 'Pasting a long table freezes the editor', meta: lbl('bug') })) +
+    icolm('started', 'In Progress', 2, kc({ key: 'ISS-41', p: 'p2', title: 'Sidebar flickers when a folder is renamed', meta: lbl('bug'), who: 'K' }) + kc({ key: 'ISS-44', p: 'p3', title: 'Sync panel: the time left jumps around', meta: lbl('bug'), who: 'C', bot: true })) +
+    icolm('done', 'Done', 48, kc({ key: 'ISS-40', title: 'Trash count is off by one', done: true }) + kc({ key: 'ISS-37', title: 'Settings forget the theme', done: true })) +
+    icolm('dropped', 'Canceled', 6, kc({ key: 'ISS-33', title: 'Drag a note onto a card', done: true })) +
+    icolm('dropped', 'Duplicate', 3, kc({ key: 'ISS-42', title: 'Editor freezes on a big table paste', done: true })) +
+    '</div></div></div>';
+  // A card's status: its field opens a picker of every status, with its icon and a tick on the one
+  // it is in.
+  function statusPicker() {
+    var rows = [['backlog', 'Backlog'], ['todo', 'Todo'], ['started', 'In Progress'], ['done', 'Done'], ['dropped', 'Canceled'], ['dropped', 'Duplicate']];
+    return '<div class="stmenu">' + rows.map(function (r, i) {
+      var on = r[1] === 'Todo';
+      return '<div class="r' + (on ? ' on' : '') + '">' + sti(r[0]) + '<span>' + r[1] + '</span><span class="ok">' + (on ? '✓' : '') + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function issuePanel() {
+    return cardPanel()
+      .replace('<span class="key">SCR-12</span><span>Roadmap · Scrawl</span>', '<span class="key">ISS-47</span><span>Issues · Scrawl</span>')
+      .replace('<div class="cp-title">Phase strip above the columns</div>', '<div class="cp-title">Card panel loses focus after a comment</div>')
+      .replace('<span class="fl">Status</span><span class="fv"><i class="kind review" style="background: var(--m-accent)"></i>Review</span>', '<span class="fl">Status</span><span class="fv picking">' + sti('todo') + 'Todo<span style="color: var(--m-faint); font-size: 9px">▾</span></span>')
+      .replace('<span class="fl">Phase</span><span class="fv">Phase 3: Board</span>', '')
+      .replace(lbl('board'), lbl('bug'))
+      .replace('<span class="fl">Due</span><span class="fv">Oct 9</span>', '<span class="fl">Due</span><span class="fv">Today</span>')
+      .replace(/<div class="cp-desc">[\s\S]*?<div class="cp-sec">Timeline<\/div>/, '<div class="cp-desc">' +
+        '<div class="ln"><b>Steps</b></div>' +
+        '<div class="ln">1. Open a card and write a comment</div>' +
+        '<div class="ln">2. Press Comment, then type again</div>' +
+        '<div class="ln">&nbsp;</div>' +
+        '<div class="ln"><b>Expected</b> the cursor stays in the comment box</div>' +
+        '<div class="ln"><b>Actual</b> it jumps to the board; the next keys move cards</div>' +
+        '</div><div class="cp-sec">Timeline</div>')
+      .replace(/<div class="tlog">[\s\S]*?<div class="cp-new">/, '<div class="tlog"><div class="tl-ev"><b>Ayşe</b>made it in Backlog<span class="t">Oct 6</span></div>' +
+        '<div class="tl-ev"><b>Kaan</b>Backlog → Todo<span class="t">09:12</span></div><div class="cp-new">')
+      .replace(/<div class="cp-foot">[\s\S]*?<\/div>/, '');
+  }
+  var ISSUES_CARD = '<div class="bwrap">' + ISSUES_LIST.replace('<div class="lrow"><span class="key">ISS-47</span>', '<div class="lrow on"><span class="key">ISS-47</span>') + issuePanel() + '</div>';
   function trow(kind, name, meta, hover) {
     return '<div class="trow' + (hover ? ' hover' : '') + '">' + ICON[kind] +
       '<div><div class="tt">' + name + '</div><div class="meta">' + meta + '</div></div>' +
@@ -1787,6 +1953,12 @@ p { margin: 0; max-width: 68ch; }
     'settings-folder': '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     syncpanel: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     phclosed: '<span>Phase 13 · 4/13 done</span><span>142 cards</span>',
+    isnew: '<span>7 open</span><span>2 due today</span>',
+    islist: '<span>52 open</span><span>109 cards</span>',
+    isadd: '<span>5 open</span><span>62 cards</span>',
+    isempty: '<span>0 open</span><span>0 cards</span>',
+    isboard: '<span>52 open</span><span>109 cards</span>',
+    isstatus: '<span>52 open</span><span>ISS-47</span>',
     phmore: '<span>Phase 7 · 8/8 done</span><span>142 cards</span>',
     phall: '<span>35 phases, 12 closed</span><span>142 cards</span>',
     syncdone: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
@@ -1795,7 +1967,8 @@ p { margin: 0; max-width: 68ch; }
     var mock = section.querySelector('.mock');
     mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone');
     mock.classList.toggle('four', view === 'settingsphone');
-    mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall');
+    mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty');
+    mock.classList.toggle('wider', view === 'isstatus');
     mock.classList.toggle('wider', view === 'card');
     if (view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone') {
       mock.innerHTML = view === 'phone' ? phoneView() : view === 'syncphone' ? syncPhones() : view === 'phphone' ? phasesPhones() : settingsPhones();
@@ -1812,19 +1985,28 @@ p { margin: 0; max-width: 68ch; }
       (view.indexOf('filter') === 0 ? tab('filter', 'This week · p1', 'filter', true) : '') +
       tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view === 'newboard' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag' || view === 'movetask') +
       (view === 'trash' ? tab('trash', 'Trash', 'trash', true) : '');
-    var boardTab = tab('board', 'Roadmap · Scrawl', 'board', view === 'board' || view === 'split' || view === 'card' || view === 'list' || view.indexOf('ph') === 0);
+    var boardTab = view === 'islist' || view === 'isboard' || view === 'isstatus' || view === 'isadd' || view === 'isempty' ? tab('board', 'Issues · Scrawl', view, true) : tab('board', 'Roadmap · Scrawl', 'board', view === 'board' || view === 'split' || view === 'card' || view === 'list' || view.indexOf('ph') === 0);
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all') }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty() }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + syncStatus(view === 'note', view === 'syncpanel' ? 'syncing' : view === 'syncdone' ? 'open' : null) + '</div></section>' +
       (view === 'syncpanel' ? syncPanel('syncing') : view === 'syncdone' ? syncPanel('done') : '') +
-      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
+      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
+    });
+    // A card's status picker opens under its field.
+    section.querySelectorAll('.stmenu').forEach(function (menu) {
+      var field = section.querySelector('.fv.picking');
+      if (!field || !menu.offsetParent) return;
+      var base = menu.offsetParent.getBoundingClientRect();
+      var at = field.getBoundingClientRect();
+      menu.style.left = (at.left - base.left) + 'px';
+      menu.style.top = (at.bottom - base.top + 4) + 'px';
     });
     // A phase chip's list opens under the chip.
     section.querySelectorAll('.phmenu[data-under]').forEach(function (menu) {

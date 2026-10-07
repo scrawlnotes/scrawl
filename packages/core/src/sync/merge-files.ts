@@ -91,6 +91,7 @@ function mergeBoard(base: string, local: string, remote: string): string {
     prefix: mergeValue(b.prefix, l.prefix, r.prefix),
     nextKey: keyed.nextKey,
     phasesOn: mergeValue(b.phasesOn, l.phasesOn, r.phasesOn),
+    ...(mergeValue(b.view, l.view, r.view) === 'list' && { view: 'list' as const }),
     columns,
     phases,
     cards: spreadOrder(keyed.cards, (c) => c.column),

@@ -169,10 +169,11 @@ export function NewDialog({ folders, folder, onCreate, onFilter, onClose }: {
 const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard' };
 const NAME_HINTS: Record<ItemKind, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName' };
 
-/** The two ways a board can start: its columns by kind, and whether phases are on. */
+/** The ways a board can start: its columns by kind, and whether phases are on. */
 const TEMPLATES: { template: Template; label: MessageKey; text: MessageKey; columns: string[] }[] = [
   { template: 'software', label: 'create.software', text: 'create.softwareText', columns: ['backlog', 'active', 'active', 'review', 'done'] },
   { template: 'simple', label: 'create.simple', text: 'create.simpleText', columns: ['active', 'active', 'done'] },
+  { template: 'issues', label: 'create.issues', text: 'create.issuesText', columns: ['backlog', 'active', 'active', 'done', 'dropped', 'dropped'] },
 ];
 
 /** Asks what to create: press its number, or choose with the arrow keys or the mouse. */
@@ -247,7 +248,7 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
     }
   };
   return (
-    <Dialog label={title} onClose={onClose} onEscape={onBack} onKeyDown={onKey}>
+    <Dialog label={title} className={kind === 'board' ? 'board-create' : undefined} onClose={onClose} onEscape={onBack} onKeyDown={onKey}>
       <h2>{title}</h2>
       <label className="field">
         <span>{t('create.name')}</span>

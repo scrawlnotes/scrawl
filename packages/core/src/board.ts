@@ -80,6 +80,8 @@ export interface Board {
   nextKey: number;
   /** Whether the phase strip shows and new cards join the current phase. */
   phasesOn: boolean;
+  /** How a device that has not chosen opens it: `'list'` for a list, columns when unset. */
+  view?: 'list';
   /** In the order they are shown. */
   columns: Column[];
   /** In their order. */
@@ -87,7 +89,7 @@ export interface Board {
   cards: Card[];
 }
 
-export type Template = 'software' | 'simple';
+export type Template = 'software' | 'simple' | 'issues';
 
 type Clock = () => Date;
 const iso = (now: Clock) => now().toISOString();
@@ -105,6 +107,16 @@ const SIMPLE: [string, ColumnKind][] = [
   ['Doing', 'active'],
   ['Done', 'done'],
 ];
+/** Issue tracking, as Linear has it: a new issue goes to Backlog, the first column; Done, Canceled and Duplicate are all finished. */
+const ISSUES: [string, ColumnKind][] = [
+  ['Backlog', 'backlog'],
+  ['Todo', 'active'],
+  ['In Progress', 'active'],
+  ['Done', 'done'],
+  ['Canceled', 'dropped'],
+  ['Duplicate', 'dropped'],
+];
+const TEMPLATE_COLUMNS: Record<Template, [string, ColumnKind][]> = { software: SOFTWARE, simple: SIMPLE, issues: ISSUES };
 
 /**
  * The letters a board's keys start with, from its name: the initials of several words
@@ -127,7 +139,8 @@ export function newBoard(name: string, template: Template, ids: () => string = n
     prefix: prefixFor(name),
     nextKey: 1,
     phasesOn: template === 'software',
-    columns: (template === 'software' ? SOFTWARE : SIMPLE).map(([name, kind]) => ({ id: ids(), name, kind })),
+    ...(template === 'issues' && { view: 'list' as const }),
+    columns: TEMPLATE_COLUMNS[template].map(([name, kind]) => ({ id: ids(), name, kind })),
     phases: [],
     cards: [],
   };
@@ -150,6 +163,7 @@ export function parseBoard(text: string): Board {
     prefix: typeof data?.prefix === 'string' && data.prefix.trim() ? data.prefix.trim() : 'BRD',
     nextKey: Math.max(stored, maxKey + 1),
     phasesOn: data?.phasesOn === true,
+    ...(data?.view === 'list' && { view: 'list' as const }),
     columns,
     phases: withOneCurrent(phases),
     cards,
@@ -294,6 +308,15 @@ export function columnCards(board: Board, column: string): Card[] {
 
 /** The first column of a kind, where a card goes when the kind is all that is known. */
 export const firstColumn = (board: Board, kind: ColumnKind): Column | undefined => board.columns.find((c) => c.kind === kind);
+
+/** How far a column's cards are, as its icon shows it: waiting, not started, started, in review, done or dropped. */
+export type ColumnStatus = 'backlog' | 'todo' | 'started' | 'review' | 'done' | 'dropped';
+
+/** A column's status. The first active column is where work is not started yet; the later ones are where it is. */
+export function columnStatus(board: Board, column: Column): ColumnStatus {
+  if (column.kind !== 'active') return column.kind;
+  return board.columns.find((c) => c.kind === 'active')?.id === column.id ? 'todo' : 'started';
+}
 
 export const currentPhase = (board: Board): Phase | undefined => board.phases.find((p) => p.state === 'current');
 
@@ -482,6 +505,8 @@ export interface NewCard {
   assignee?: string | null;
   /** The note it was made from. */
   note?: string | null;
+  /** Put first in its column rather than last. */
+  first?: boolean;
 }
 
 /** Adds a card at the end of its column, with the next key. A title of only spaces adds none. */
@@ -491,7 +516,8 @@ export function addCard(board: Board, input: NewCard, now: Clock = () => new Dat
   if (!title || !column) return board;
   const phase = input.phase === undefined ? (board.phasesOn ? currentPhase(board)?.id : undefined) : input.phase;
   const stamp = iso(now);
-  const last = columnCards(board, column).pop();
+  const inColumn = columnCards(board, column);
+  const last = inColumn.at(-1);
   const card: Card = {
     id,
     key: board.nextKey,
@@ -499,7 +525,7 @@ export function addCard(board: Board, input: NewCard, now: Clock = () => new Dat
     ...(input.description?.trim() && { description: input.description.trim() }),
     column,
     ...(phase && board.phases.some((p) => p.id === phase) && { phase }),
-    order: (last?.order ?? -1) + 1,
+    order: input.first ? (inColumn[0]?.order ?? 1) - 1 : (last?.order ?? -1) + 1,
     priority: input.priority ?? 4,
     due: input.due ?? null,
     ...(input.labels && input.labels.length > 0 && { labels: cleanLabels(input.labels) }),
