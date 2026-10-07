@@ -12,7 +12,10 @@ import {
   type NewTask,
   type Priority,
   progressOf,
+  type Section,
+  sectionTasks,
   type Task,
+  type TaskList as List,
   type TaskPatch,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
@@ -38,6 +41,11 @@ export interface TaskActions {
   remove: (list: string, id: string) => void;
   /** Opens a menu at the pointer. */
   menu: (event: MouseEvent, items: MenuItem[]) => void;
+  addSection: (list: string, name: string) => void;
+  renameSection: (list: string, id: string, name: string) => void;
+  foldSection: (list: string, id: string, collapsed: boolean) => void;
+  /** Asks first, then deletes the section with its tasks. */
+  removeSection: (list: string, section: Section) => void;
 }
 
 const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: 'long' };
@@ -317,11 +325,13 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat }: ItemPro
 }
 
 /** The header and list frame the task views share, with the add row at the end of the list. */
-function TaskPage({ title, detail, onAdd, footer, children }: {
+function TaskPage({ title, detail, onAdd, onAddClick, footer, children }: {
   title: string;
   detail?: string;
   /** Without it the view cannot add tasks. */
   onAdd?: (title: string) => void;
+  /** Instead of `onAdd`: the header's Add task button only says it was pressed; the view adds the row itself. */
+  onAddClick?: () => void;
   /** Shown under the add row. */
   footer?: ReactNode;
   children: ReactNode;
@@ -332,8 +342,8 @@ function TaskPage({ title, detail, onAdd, footer, children }: {
       <header className="th">
         <b>{title}</b>
         {detail && <span>{detail}</span>}
-        {onAdd && (
-          <button type="button" className="add" onClick={() => setComposing(true)}>
+        {(onAdd || onAddClick) && (
+          <button type="button" className="add" onClick={onAddClick ?? (() => setComposing(true))}>
             {t('tasks.add')}
           </button>
         )}
@@ -354,16 +364,146 @@ function TaskPage({ title, detail, onAdd, footer, children }: {
   );
 }
 
-/** One task list, with the folder it is in beside its name. */
-export function TaskList({ list, tasks, today, actions }: { list: string; tasks: Task[]; today: string; actions: TaskActions }) {
+/** The row a new section's name is typed into. */
+function SectionComposer({ onAdd, onClose }: { onAdd: (name: string) => void; onClose: () => void }) {
+  const [name, setName] = useState('');
+  const done = () => {
+    if (name.trim()) onAdd(name);
+    onClose();
+  };
+  return (
+    <div className="sec fold">
+      <span className="chev" aria-hidden="true">
+        ▾
+      </span>
+      <input
+        className="sec-edit"
+        aria-label={t('sections.name')}
+        placeholder={t('sections.name')}
+        autoFocus
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        onBlur={done}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') done();
+          else if (event.key === 'Escape') onClose();
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * A section of a list: its header, which folds it and offers its menu, then its tasks and the
+ * row that adds one, after the Sections view of design/mockups.html (direction A).
+ */
+function SectionBlock({ list, section, top, item, actions }: {
+  list: string;
+  section: Section;
+  /** Its top-level tasks, as far as they are shown. */
+  top: Task[];
+  item: (task: Task) => ReactNode;
+  actions: TaskActions;
+}) {
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
+  const open = !section.collapsed;
+  const rename = () => {
+    if (renaming !== null) actions.renameSection(list, section.id, renaming);
+    setRenaming(null);
+  };
+  const menu = (event: MouseEvent) =>
+    actions.menu(event, [
+      { label: t('menu.rename'), run: () => setRenaming(section.name) },
+      {
+        label: t('tasks.add'),
+        run: () => {
+          if (!open) actions.foldSection(list, section.id, false);
+          setComposing(true);
+        },
+      },
+      { label: t('sections.delete'), run: () => actions.removeSection(list, section) },
+    ]);
+  return (
+    <div className="section">
+      <div className={open ? 'sec fold' : 'sec fold closed'} onContextMenu={menu}>
+        <button
+          type="button"
+          className="chev"
+          aria-expanded={open}
+          aria-label={t(open ? 'sections.fold' : 'sections.unfold', { name: section.name })}
+          onClick={() => actions.foldSection(list, section.id, open)}
+        >
+          {open ? '▾' : '▸'}
+        </button>
+        {renaming === null ? (
+          <button type="button" className="sec-name" onClick={() => setRenaming(section.name)}>
+            {section.name}
+          </button>
+        ) : (
+          <input
+            className="sec-edit"
+            aria-label={t('sections.name')}
+            autoFocus
+            value={renaming}
+            onChange={(event) => setRenaming(event.target.value)}
+            onBlur={rename}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') rename();
+              else if (event.key === 'Escape') setRenaming(null);
+            }}
+          />
+        )}
+        <small>{top.filter((task) => !task.done).length}</small>
+        <button type="button" className="more" title={t('sections.menu')} aria-label={t('sections.menu')} onClick={menu}>
+          ···
+        </button>
+      </div>
+      {open && (
+        <>
+          {top.map(item)}
+          {composing ? (
+            <Composer
+              placeholder={t('tasks.name')}
+              onAdd={(title) => actions.add(list, { title, section: section.id })}
+              onClose={() => setComposing(false)}
+            />
+          ) : (
+            <button type="button" className="qa" onClick={() => setComposing(true)}>
+              {t('tasks.addRow')}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One task list, with the folder it is in beside its name. Tasks in no section come first,
+ * without a header; then each section; then the row that adds a section.
+ */
+export function TaskList({ list, tasks, sections, today, actions }: {
+  list: string;
+  tasks: Task[];
+  sections: Section[];
+  today: string;
+  actions: TaskActions;
+}) {
   const [showDone, setShowDone] = useState(false);
-  const top = childrenOf(tasks, null).filter((task) => showDone || !task.done);
+  const [composing, setComposing] = useState(false);
+  const [addingSection, setAddingSection] = useState(false);
+  const whole: List = { sections, tasks };
+  const shown = (task: Task) => showDone || !task.done;
+  const item = (task: Task) => (
+    <TaskItem key={task.id} list={list} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} />
+  );
   const completed = tasks.filter((task) => task.done).length;
   return (
     <TaskPage
       title={listName(list)}
       detail={basename(dirname(list))}
-      onAdd={(title) => actions.add(list, { title })}
+      onAddClick={() => setComposing(true)}
       footer={
         completed > 0 && (
           <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
@@ -372,9 +512,34 @@ export function TaskList({ list, tasks, today, actions }: { list: string; tasks:
         )
       }
     >
-      {top.map((task) => (
-        <TaskItem key={task.id} list={list} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} />
+      {sectionTasks(whole, null).filter(shown).map(item)}
+      {composing ? (
+        <Composer placeholder={t('tasks.name')} onAdd={(title) => actions.add(list, { title })} onClose={() => setComposing(false)} />
+      ) : (
+        // With sections, each has its own add row; the header's button adds above them.
+        sections.length === 0 && (
+          <button type="button" className="qa" onClick={() => setComposing(true)}>
+            {t('tasks.addRow')}
+          </button>
+        )
+      )}
+      {sections.map((section) => (
+        <SectionBlock
+          key={section.id}
+          list={list}
+          section={section}
+          top={sectionTasks(whole, section.id).filter(shown)}
+          item={item}
+          actions={actions}
+        />
       ))}
+      {addingSection ? (
+        <SectionComposer onAdd={(name) => actions.addSection(list, name)} onClose={() => setAddingSection(false)} />
+      ) : (
+        <button type="button" className="qa add-sec" onClick={() => setAddingSection(true)}>
+          {t('sections.add')}
+        </button>
+      )}
     </TaskPage>
   );
 }

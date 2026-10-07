@@ -938,6 +938,97 @@ input:focus {
   font-weight: 400;
 }
 
+/* A section of a task list: it folds, its name is edited in place, and on hover it shows its
+   menu button. After the Sections view of design/mockups.html (direction A). */
+.sec.fold {
+  align-items: center;
+  margin: 0 -8px;
+  padding: 14px 8px 6px;
+}
+
+.sec.closed {
+  color: var(--sl-faint);
+}
+
+.sec .chev {
+  width: 10px;
+  color: var(--sl-faint);
+  font-size: 10px;
+}
+
+.sec .chev:hover {
+  color: var(--sl-fg);
+}
+
+.sec-name {
+  color: inherit;
+  font: inherit;
+  cursor: text;
+}
+
+.sec-edit {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+}
+
+.sec-edit::placeholder {
+  color: var(--sl-faint);
+  font-weight: 400;
+}
+
+.sec .more {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 18px;
+  margin-left: auto;
+  border-radius: 4px;
+  color: var(--sl-faint);
+  letter-spacing: 1px;
+  opacity: 0;
+}
+
+.sec:hover .more,
+.sec .more:focus-visible {
+  opacity: 1;
+}
+
+.sec .more:hover {
+  background: var(--sl-code);
+  color: var(--sl-fg);
+}
+
+.qa.add-sec {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.qa.add-sec::before,
+.qa.add-sec::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--sl-line);
+}
+
+.qa.add-sec:hover {
+  color: var(--sl-accent);
+}
+
+.qa.add-sec:hover::before,
+.qa.add-sec:hover::after {
+  background: var(--sl-accent);
+}
+
 .task {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;

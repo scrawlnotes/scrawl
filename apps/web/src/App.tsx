@@ -8,7 +8,9 @@ import {
   INBOX_TASKS,
   listName,
   openCount,
+  removeSection,
   removeTask,
+  type Section,
   type TrashItem,
   type TreeNode,
 } from '@scrawlnotes/core';
@@ -94,7 +96,7 @@ function contentsOf(folder: TreeNode): string {
 export function App() {
   const host = useRef<HTMLDivElement>(null);
   const [session] = useState(() => new Session());
-  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, trash, saved, stats, format, source, recording, recordError } =
+  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -197,6 +199,15 @@ export function App() {
         : t('delete.taskText', { name });
     ask(t('delete.task'), message, () => session.removeTask(list, id));
   };
+  // A section goes together with its tasks, as in Todoist.
+  const deleteSection = (list: string, section: Section) => {
+    const whole = { sections: sections[list] ?? [], tasks: tasks[list] ?? [] };
+    const count = whole.tasks.length - removeSection(whole, section.id).tasks.length;
+    const name = quote(section.name);
+    const message =
+      count > 0 ? t('delete.sectionWithTasks', { name, tasks: t('count.tasks', { count }) }) : t('delete.sectionText', { name });
+    ask(t('delete.section'), message, () => session.removeSection(list, section.id));
+  };
 
   const deleteForever = (item: TrashItem) =>
     ask(
@@ -281,6 +292,10 @@ export function App() {
     setDone: (target, id, done) => session.setTaskDone(target, id, done),
     remove: deleteTask,
     menu: openMenu,
+    addSection: (list, name) => session.addSection(list, name),
+    renameSection: (list, id, name) => session.renameSection(list, id, name),
+    foldSection: (list, id, collapsed) => session.foldSection(list, id, collapsed),
+    removeSection: deleteSection,
   };
   const dueNow = dueToday(tasks, today);
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length, [TRASH]: trash.length };
@@ -379,7 +394,7 @@ export function App() {
           />
         )}
         <div className="editor" ref={host} hidden={!showingEditor} />
-        {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} today={today} actions={taskActions} />}
+        {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} />}
         {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} today={today} actions={taskActions} />}
         {active === TRASH && (
           <TrashView

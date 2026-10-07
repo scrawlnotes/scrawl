@@ -19,9 +19,10 @@ export interface Task {
   completed: string | null;
   /** Plain text under the title, line breaks kept. Left out of the file when there is none. */
   description?: string;
-  // Not used by the interface yet. They are part of the format now so that files written today
-  // stay valid when sections, labels, repeating tasks, reminders and sharing arrive.
+  /** The id of the section a top-level task is in; a subtask goes where its parent goes. */
   section?: string | null;
+  // Not used by the interface yet. They are part of the format now so that files written today
+  // stay valid when labels, repeating tasks, reminders and sharing arrive.
   labels?: string[];
   recurrence?: string | null;
   reminder?: string | null;
@@ -52,15 +53,48 @@ export function addDays(day: string, count: number): string {
   return dayOf(new Date(y, m - 1, d + count));
 }
 
-/** Reads a task file. Anything that is not a usable task is left out rather than failing the whole list. */
-export function parseTasks(text: string): Task[] {
-  let data: unknown;
+/** A named part of a task list. A top-level task is in one, or in none and comes first. */
+export interface Section {
+  id: string;
+  name: string;
+  /** Folded: only its header shows. */
+  collapsed?: boolean;
+}
+
+/** What a task list file holds. */
+export interface TaskList {
+  /** In the order they are shown. */
+  sections: Section[];
+  tasks: Task[];
+}
+
+/** Reads a task file. Anything that is not usable is left out rather than failing the whole list. */
+export function parseList(text: string): TaskList {
+  let data: { sections?: unknown; tasks?: unknown } | null;
   try {
-    data = JSON.parse(text);
+    data = JSON.parse(text) as typeof data;
   } catch {
-    return [];
+    return { sections: [], tasks: [] };
   }
-  const list = (data as { tasks?: unknown } | null)?.tasks;
+  return { sections: parseSections(data?.sections), tasks: parseTaskArray(data?.tasks) };
+}
+
+/** The tasks of a task file; see `parseList`. */
+export const parseTasks = (text: string): Task[] => parseList(text).tasks;
+
+function parseSections(list: unknown): Section[] {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  const sections: Section[] = [];
+  for (const raw of list as Partial<Section>[]) {
+    if (!raw || typeof raw.id !== 'string' || typeof raw.name !== 'string' || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    sections.push({ ...raw, id: raw.id, name: raw.name, collapsed: raw.collapsed === true || undefined });
+  }
+  return sections;
+}
+
+function parseTaskArray(list: unknown): Task[] {
   if (!Array.isArray(list)) return [];
   const tasks: Task[] = [];
   for (const raw of list as Partial<Task>[]) {
@@ -79,6 +113,7 @@ export function parseTasks(text: string): Task[] {
       updated: typeof raw.updated === 'string' ? raw.updated : '',
       completed: typeof raw.completed === 'string' ? raw.completed : null,
       description: typeof raw.description === 'string' && raw.description.trim() ? raw.description : undefined,
+      section: typeof raw.section === 'string' ? raw.section : undefined,
     });
   }
   // A subtask whose parent is gone becomes a top-level task instead of disappearing.
@@ -86,9 +121,12 @@ export function parseTasks(text: string): Task[] {
   return tasks.map((t) => (t.parent && !ids.has(t.parent) ? { ...t, parent: null } : t));
 }
 
-export function serializeTasks(tasks: Task[]): string {
-  return `${JSON.stringify({ version: 1, tasks }, null, 2)}\n`;
+/** A task list as its file holds it. A list without sections leaves them out. */
+export function serializeList({ sections, tasks }: TaskList): string {
+  return `${JSON.stringify({ version: 1, ...(sections.length > 0 && { sections }), tasks }, null, 2)}\n`;
 }
+
+export const serializeTasks = (tasks: Task[]): string => serializeList({ sections: [], tasks });
 
 /** Reads the task list at `path`. A list whose file is missing is empty. */
 export async function loadTasks(fs: VaultFs, path: string): Promise<Task[]> {
@@ -99,8 +137,51 @@ export async function loadTasks(fs: VaultFs, path: string): Promise<Task[]> {
   }
 }
 
-export function saveTasks(fs: VaultFs, path: string, tasks: Task[]): Promise<void> {
-  return fs.writeText(path, serializeTasks(tasks));
+/** Reads the task list at `path`, sections included. A list whose file is missing is empty. */
+export async function loadList(fs: VaultFs, path: string): Promise<TaskList> {
+  try {
+    return parseList(await fs.readText(path));
+  } catch {
+    return { sections: [], tasks: [] };
+  }
+}
+
+export function saveList(fs: VaultFs, path: string, list: TaskList): Promise<void> {
+  return fs.writeText(path, serializeList(list));
+}
+
+/**
+ * The top-level tasks of a section, or of no section with `null`, in their order. A task whose
+ * section is gone counts as in none.
+ */
+export function sectionTasks(list: TaskList, section: string | null): Task[] {
+  const known = new Set(list.sections.map((s) => s.id));
+  const of = (t: Task) => (t.section && known.has(t.section) ? t.section : null);
+  return childrenOf(list.tasks, null).filter((t) => of(t) === section);
+}
+
+/** Adds a section at the end of the list. A name of only spaces adds none. */
+export function addSection(list: TaskList, name: string, id: string = newId()): TaskList {
+  const clean = name.trim();
+  return clean ? { ...list, sections: [...list.sections, { id, name: clean }] } : list;
+}
+
+export function renameSection(list: TaskList, id: string, name: string): TaskList {
+  const clean = name.trim();
+  if (!clean) return list;
+  return { ...list, sections: list.sections.map((s) => (s.id === id ? { ...s, name: clean } : s)) };
+}
+
+/** Folds a section, or unfolds it. An unfolded section leaves the flag out of the file. */
+export function foldSection(list: TaskList, id: string, collapsed: boolean): TaskList {
+  return { ...list, sections: list.sections.map((s) => (s.id === id ? { ...s, collapsed: collapsed || undefined } : s)) };
+}
+
+/** Removes a section with its tasks and their subtasks, as Todoist does. */
+export function removeSection(list: TaskList, id: string): TaskList {
+  let tasks = list.tasks;
+  for (const task of sectionTasks(list, id)) tasks = removeTask(tasks, task.id);
+  return { sections: list.sections.filter((s) => s.id !== id), tasks };
 }
 
 /** The subtasks of `parent` (or the top-level tasks), in their order. */
@@ -132,17 +213,23 @@ function descendants(tasks: Task[], id: string): Set<string> {
 export interface NewTask {
   title: string;
   parent?: string | null;
+  /** For a top-level task: the section it goes in. */
+  section?: string | null;
   due?: string | null;
   priority?: Priority;
 }
 
-/** Adds a task at the end of its siblings. A subtask deeper than `MAX_DEPTH` is not added. */
+/**
+ * Adds a task at the end of its siblings: the subtasks of its parent, or the top-level tasks of
+ * its section. A subtask deeper than `MAX_DEPTH` is not added.
+ */
 export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Date(), id: string = newId()): Task[] {
   const title = input.title.trim();
   const parent = input.parent ?? null;
+  const section = parent === null ? (input.section ?? null) : null;
   if (!title) return tasks;
   if (parent && (!tasks.some((t) => t.id === parent) || depthOf(tasks, parent) >= MAX_DEPTH)) return tasks;
-  const siblings = childrenOf(tasks, parent);
+  const siblings = childrenOf(tasks, parent).filter((t) => parent !== null || (t.section ?? null) === section);
   const stamp = iso(now);
   const task: Task = {
     id,
@@ -155,6 +242,7 @@ export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Da
     created: stamp,
     updated: stamp,
     completed: null,
+    ...(section !== null && { section }),
   };
   return [...tasks, task];
 }

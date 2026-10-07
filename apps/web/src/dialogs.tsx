@@ -5,6 +5,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -397,6 +398,17 @@ export interface MenuItem {
 /** The menu of a right click, at the pointer. */
 export function ContextMenu({ at, items, onClose }: { at: { x: number; y: number }; items: MenuItem[]; onClose: () => void }) {
   const menu = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState(at);
+  // Near the right or bottom edge the menu opens to the left of or above the pointer, so it stays in the window.
+  useLayoutEffect(() => {
+    const box = menu.current?.getBoundingClientRect();
+    if (!box) return;
+    const margin = 8;
+    setPlace({
+      x: at.x + box.width + margin > window.innerWidth ? Math.max(margin, at.x - box.width) : at.x,
+      y: at.y + box.height + margin > window.innerHeight ? Math.max(margin, at.y - box.height) : at.y,
+    });
+  }, [at]);
   useEffect(() => {
     menu.current?.querySelector('button')?.focus();
     const close = (event: MouseEvent | globalThis.KeyboardEvent) => {
@@ -412,7 +424,7 @@ export function ContextMenu({ at, items, onClose }: { at: { x: number; y: number
     };
   }, [onClose]);
   return (
-    <div ref={menu} className="menu" role="menu" style={{ left: at.x, top: at.y }}>
+    <div ref={menu} className="menu" role="menu" style={{ left: place.x, top: place.y }}>
       {items.map((item) => (
         <button
           key={item.label}

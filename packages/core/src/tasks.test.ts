@@ -2,22 +2,31 @@ import { describe, expect, it } from 'vitest';
 import { MemoryFs } from './fs';
 import {
   addDays,
+  addSection,
   addTask,
   childrenOf,
   dayOf,
   depthOf,
   dueToday,
   dueUpcoming,
+  foldSection,
+  loadList,
   loadTasks,
   MAX_DEPTH,
   openCount,
+  parseList,
   parseTasks,
   progressOf,
+  removeSection,
   removeTask,
-  saveTasks,
+  renameSection,
+  saveList,
+  sectionTasks,
+  serializeList,
   serializeTasks,
   setDone,
   type Task,
+  type TaskList,
   updateTask,
 } from './tasks';
 
@@ -116,10 +125,11 @@ describe('task file', () => {
   it('round-trips through its file', async () => {
     const fs = new MemoryFs();
     const tasks = list(['a'], ['a1', 'a']);
-    await saveTasks(fs, 'Work/Sprint.tasks.json', tasks);
+    await saveList(fs, 'Work/Sprint.tasks.json', { sections: [], tasks });
     expect(await fs.readText('Work/Sprint.tasks.json')).toBe(serializeTasks(tasks));
     expect(await loadTasks(fs, 'Work/Sprint.tasks.json')).toEqual(tasks);
     expect(await loadTasks(fs, 'Work/Other.tasks.json')).toEqual([]);
+    expect(await loadList(fs, 'Work/Other.tasks.json')).toEqual({ sections: [], tasks: [] });
   });
 
   it('survives a broken file and broken entries', () => {
@@ -135,6 +145,60 @@ describe('task file', () => {
   it('keeps fields it does not know', () => {
     const text = JSON.stringify({ tasks: [{ id: 'a', title: 'x', section: 'Phase 1', future: { any: 1 } }] });
     expect(parseTasks(text)[0]).toMatchObject({ section: 'Phase 1', future: { any: 1 } });
+  });
+});
+
+describe('sections', () => {
+  const titles = (tasks: Task[]) => tasks.map((t) => t.title);
+  /** A list with two sections and tasks in none, in each and under one of them. */
+  function sample(): TaskList {
+    let list: TaskList = addSection(addSection({ sections: [], tasks: [] }, ' Phase 0 ', 's0'), 'Phase 1', 's1');
+    let tasks = addTask(list.tasks, { title: 'loose' }, now, 'loose');
+    tasks = addTask(tasks, { title: 'p0 first', section: 's0' }, now, 'p0a');
+    tasks = addTask(tasks, { title: 'p1 first', section: 's1' }, now, 'p1a');
+    tasks = addTask(tasks, { title: 'p0 second', section: 's0' }, now, 'p0b');
+    tasks = addTask(tasks, { title: 'under p0', parent: 'p0a', section: 's1' }, now, 'p0a1');
+    list = { ...list, tasks };
+    return list;
+  }
+
+  it('puts each task at the end of its own section, and subtasks under their parent only', () => {
+    const list = sample();
+    expect(list.sections.map((s) => s.name)).toEqual(['Phase 0', 'Phase 1']);
+    expect(titles(sectionTasks(list, null))).toEqual(['loose']);
+    expect(titles(sectionTasks(list, 's0'))).toEqual(['p0 first', 'p0 second']);
+    expect(titles(sectionTasks(list, 's1'))).toEqual(['p1 first']);
+    expect(list.tasks.find((t) => t.id === 'p0a1')).toMatchObject({ parent: 'p0a' });
+    expect(list.tasks.find((t) => t.id === 'p0a1')!.section).toBeUndefined();
+  });
+
+  it('round-trips sections through the file, and keeps a list without them as it was', () => {
+    const list = foldSection(sample(), 's1', true);
+    expect(parseList(serializeList(list))).toEqual(list);
+    expect(serializeList({ sections: [], tasks: [] })).not.toContain('sections');
+    expect(JSON.parse(serializeList(foldSection(list, 's1', false))).sections[1]).toEqual({ id: 's1', name: 'Phase 1' });
+  });
+
+  it('renames a section, and keeps the name when the new one is empty', () => {
+    expect(renameSection(sample(), 's0', ' Design ').sections[0]!.name).toBe('Design');
+    expect(renameSection(sample(), 's0', '  ').sections[0]!.name).toBe('Phase 0');
+    expect(addSection(sample(), ' ').sections).toHaveLength(2);
+  });
+
+  it('deletes a section with its tasks and their subtasks', () => {
+    const list = removeSection(sample(), 's0');
+    expect(list.sections.map((s) => s.id)).toEqual(['s1']);
+    expect(titles(list.tasks)).toEqual(['loose', 'p1 first']);
+  });
+
+  it('shows a task whose section is gone among the tasks in none', () => {
+    const list = { ...sample(), sections: [] };
+    expect(titles(sectionTasks(list, null))).toEqual(['loose', 'p0 first', 'p1 first', 'p0 second']);
+  });
+
+  it('skips broken sections', () => {
+    const text = JSON.stringify({ sections: [{ id: 'a', name: 'A' }, { id: 'a', name: 'again' }, { name: 'no id' }, null], tasks: [] });
+    expect(parseList(text).sections).toEqual([{ id: 'a', name: 'A' }]);
   });
 });
 

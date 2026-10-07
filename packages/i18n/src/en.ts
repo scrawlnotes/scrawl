@@ -106,6 +106,9 @@ export const en = {
   'delete.task': 'Delete task',
   'delete.taskText': '{name} will be deleted. This cannot be undone.',
   'delete.taskWithSubtasks': '{name} and its {subtasks} will be deleted. This cannot be undone.',
+  'delete.section': 'Delete section',
+  'delete.sectionText': '{name} will be deleted.',
+  'delete.sectionWithTasks': '{name} and its {tasks} will be deleted. This cannot be undone.',
   'delete.forever': 'Delete forever',
   'delete.foreverText': '{name} will be deleted for good. This cannot be undone.',
   'delete.foreverWithFiles': '{name} will be deleted for good, with the attached files nothing else uses. This cannot be undone.',
@@ -168,6 +171,12 @@ export const en = {
   'tasks.nothingToday': 'Nothing is due today.',
   'tasks.nothingLater': 'Nothing is scheduled after today.',
   'tasks.defaultList': 'Tasks',
+  'sections.add': 'Add section',
+  'sections.name': 'Section name',
+  'sections.menu': 'Section menu',
+  'sections.delete': 'Delete section',
+  'sections.fold': 'Fold {name}',
+  'sections.unfold': 'Unfold {name}',
 
   // format bar
   'format.label': 'Formatting',

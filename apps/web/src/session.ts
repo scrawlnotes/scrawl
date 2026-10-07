@@ -1,5 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import {
+  addSection,
   addTask,
   ATTACHMENTS,
   createFolder,
@@ -9,13 +10,14 @@ import {
   deleteFromTrash,
   dirname,
   displayTitle,
+  foldSection,
   emptyTrash,
   INBOX,
   INBOX_TASKS,
   isScratchNote,
   keepVersion,
   listVersions,
-  loadTasks,
+  loadList,
   loadWorkspace,
   moveHistory,
   moveItem,
@@ -23,17 +25,21 @@ import {
   pruneHistory,
   readTrash,
   readTree,
+  removeSection,
   removeTask,
+  renameSection,
   renameItem,
   restoreAttachments,
   restoreFromTrash,
   saveAttachment,
   saveFile,
-  saveTasks,
+  saveList,
   saveWorkspace,
   setDone,
   sweepAttachments,
+  type Section,
   type Task,
+  type TaskList,
   type TaskPatch,
   trashFolder,
   trashItem,
@@ -137,6 +143,8 @@ export interface Snapshot {
   titles: Record<string, string>;
   /** Every task list, by the path of its file. */
   tasks: Record<string, Task[]>;
+  /** The sections of every task list, by the path of its file. */
+  sections: Record<string, Section[]>;
   /** What is in the trash, the latest deleted first. */
   trash: TrashItem[];
   saved: boolean;
@@ -172,6 +180,7 @@ export class Session {
     active: null,
     titles: {},
     tasks: {},
+    sections: {},
     trash: [],
     saved: true,
     stats: null,
@@ -275,14 +284,14 @@ export class Session {
     window.addEventListener('pagehide', this.flush);
 
     const titles = titlesOf(tree);
-    const tasks = await this.readTasks(tree);
+    const { tasks, sections } = await this.readLists(tree);
     const trash = await readTrash(this.fs);
     if (run !== this.run) return;
     const tabs = workspace.tabs.filter((id) => {
       const list = listOf(id);
       return list !== null ? list in tasks : id in titles || !isNote(id);
     });
-    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, trash });
+    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, trash });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
@@ -744,11 +753,11 @@ export class Session {
   private async refreshTree() {
     await this.settle();
     const tree = await readTree(this.fs);
-    this.set({ tree, titles: titlesOf(tree), tasks: await this.readTasks(tree), trash: await readTrash(this.fs) });
+    this.set({ tree, titles: titlesOf(tree), ...(await this.readLists(tree)), trash: await readTrash(this.fs) });
   }
 
   /** Reads the inbox's task list and every other task list in the vault. */
-  private async readTasks(tree: TreeNode[]): Promise<Record<string, Task[]>> {
+  private async readLists(tree: TreeNode[]): Promise<Pick<Snapshot, 'tasks' | 'sections'>> {
     const paths = [INBOX_TASKS];
     const visit = (nodes: TreeNode[]) => {
       for (const node of nodes) {
@@ -757,22 +766,53 @@ export class Session {
       }
     };
     visit(tree);
-    const lists = await Promise.all(paths.map(async (path) => [path, await loadTasks(this.fs, path)] as const));
-    return Object.fromEntries(lists);
+    const lists = await Promise.all(paths.map(async (path) => [path, await loadList(this.fs, path)] as const));
+    return {
+      tasks: Object.fromEntries(lists.map(([path, list]) => [path, list.tasks])),
+      sections: Object.fromEntries(lists.map(([path, list]) => [path, list.sections])),
+    };
   }
 
-  /** Applies a change to a task list and saves it. */
-  private changeTasks(list: string, change: (tasks: Task[]) => Task[]) {
-    const current = this.snapshot.tasks[list] ?? [];
+  /** Applies a change to a task list, its sections or its tasks, and saves it. */
+  private changeList(path: string, change: (list: TaskList) => TaskList) {
+    const current: TaskList = { sections: this.snapshot.sections[path] ?? [], tasks: this.snapshot.tasks[path] ?? [] };
     const next = change(current);
     if (next === current) return;
-    this.set({ tasks: { ...this.snapshot.tasks, [list]: next }, saved: false });
+    this.set({
+      tasks: { ...this.snapshot.tasks, [path]: next.tasks },
+      sections: { ...this.snapshot.sections, [path]: next.sections },
+      saved: false,
+    });
     this.taskWrites = this.taskWrites
-      .then(() => saveTasks(this.fs, list, next))
+      .then(() => saveList(this.fs, path, next))
       .catch(() => undefined)
       .then(() => {
         this.markSaved();
       });
+  }
+
+  private changeTasks(path: string, change: (tasks: Task[]) => Task[]) {
+    this.changeList(path, (list) => {
+      const tasks = change(list.tasks);
+      return tasks === list.tasks ? list : { ...list, tasks };
+    });
+  }
+
+  addSection(list: string, name: string) {
+    this.changeList(list, (current) => addSection(current, name));
+  }
+
+  renameSection(list: string, id: string, name: string) {
+    this.changeList(list, (current) => renameSection(current, id, name));
+  }
+
+  foldSection(list: string, id: string, collapsed: boolean) {
+    this.changeList(list, (current) => foldSection(current, id, collapsed));
+  }
+
+  /** Deletes a section with its tasks; the interface asks first. */
+  removeSection(list: string, id: string) {
+    this.changeList(list, (current) => removeSection(current, id));
   }
 
   addTask(list: string, input: NewTask) {
