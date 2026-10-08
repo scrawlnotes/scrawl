@@ -248,6 +248,10 @@ describe('a collection in a vault', () => {
     expect(await createCollection(fs, 'Scrawl', 'Companies', 'companies')).toBe('Scrawl/Companies');
     expect(await createCollection(fs, 'Scrawl', 'Companies', 'blank')).toBe('Scrawl/Companies 2');
     expect(await createCollection(fs, 'Scrawl', '', 'blank')).toBe('Scrawl/Collection');
+    // Without a name it is called after its template, which the links of the others look for.
+    expect(await createCollection(fs, 'Scrawl', '', 'activities')).toBe('Scrawl/Activities');
+    expect(await createCollection(fs, 'Scrawl', '', 'activities')).toBe('Scrawl/Activities 2');
+    expect(await createCollection(fs, 'Scrawl', '', 'companies')).toBe('Scrawl/Companies 3');
     const { schema } = await loadCollection(fs, 'Scrawl/Companies');
     expect(schema.template).toBe('companies');
   });
