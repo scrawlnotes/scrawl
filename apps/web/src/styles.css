@@ -2395,10 +2395,10 @@ button.cb:hover::after {
   }
 }
 
-/* A row's ··· button opens its menu: on a folder's row under the pointer, or while its menu is
-   open, where it takes the place of the count. Touch screens have no hovering: what a row shows on
-   hover is there all the time, and a task row offers one menu with everything instead of its row
-   of buttons. */
+/* A row's ··· button opens its menu: on any row that has one, under the pointer or while its menu
+   is open, where it takes the place of the count. Touch screens have no hovering: what a row shows
+   on hover is there all the time, and a task row offers one menu with everything instead of its
+   row of buttons. */
 .task-actions .task-more {
   display: none;
 }
@@ -2418,13 +2418,13 @@ button.cb:hover::after {
 }
 
 @media (hover: hover) {
-  .it.fold:hover .it-more,
-  .it.fold.marked .it-more {
+  .it:hover .it-more,
+  .it.marked .it-more {
     display: grid;
   }
 
-  .it.fold:hover .ct,
-  .it.fold.marked .ct {
+  .it:hover:has(.it-more) .ct,
+  .it.marked:has(.it-more) .ct {
     display: none;
   }
 }
