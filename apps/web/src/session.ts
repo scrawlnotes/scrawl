@@ -18,6 +18,19 @@ import {
   createBoard,
   createFolder,
   createKeys,
+  createCollection,
+  addRecord as addCollectionRecord,
+  updateRecord as updateCollectionRecord,
+  loadCollection,
+  freshenLinks,
+  type Collection,
+  type CollectionLook,
+  type CollectionTemplate,
+  type Schema,
+  saveSchema,
+  type NewRecord,
+  type RecordPatch,
+  type Record as CollectionRecord,
   createNote,
   createScratchNote,
   createTaskList,
@@ -137,7 +150,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardPathOf, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, tabOf } from './items';
+import { boardPathOf, collectionPathOf, collectionTab, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, tabOf } from './items';
 import { sampleDoc } from './sample';
 import {
   chooseVaultFolder,
@@ -220,6 +233,10 @@ export interface Snapshot {
   keys: Record<string, string>;
   /** How each keys file was last looked at on this device, by its path. */
   keysLooks: Record<string, KeysLook>;
+  /** Every collection, by the path of its folder: its schema and its records. */
+  collections: Record<string, Collection>;
+  /** How each collection's table was last looked at on this device, by its folder's path. */
+  collectionLooks: Record<string, CollectionLook>;
   /** The saved filters, in the order they were made. */
   filters: TaskFilter[];
   /** The settings of the open space, its name among them. */
@@ -245,6 +262,23 @@ function titlesOf(nodes: TreeNode[], out: Record<string, string> = {}): Record<s
   return out;
 }
 
+/** Every link in every collection with the name and code its record has now, where that record is loaded. */
+function freshenAll(collections: Record<string, Collection>): Record<string, Collection> {
+  const lookup = (dir: string, id: string) => collections[dir]?.records.find((r) => r.id === id);
+  const out: Record<string, Collection> = {};
+  for (const [dir, collection] of Object.entries(collections)) {
+    let records = collection.records;
+    collection.records.forEach((record, i) => {
+      const values = freshenLinks(record.values, collection.schema, lookup);
+      if (values === record.values) return;
+      if (records === collection.records) records = [...records];
+      records[i] = { ...record, values };
+    });
+    out[dir] = records === collection.records ? collection : { ...collection, records };
+  }
+  return out;
+}
+
 /**
  * The open vault and its editor: which notes are open, what is unsaved, and every action the
  * interface offers. React renders from `getSnapshot` and calls the methods.
@@ -264,6 +298,8 @@ export class Session {
     boardLooks: {},
     keys: {},
     keysLooks: {},
+    collections: {},
+    collectionLooks: {},
     filters: [],
     space: {},
     trash: [],
@@ -374,7 +410,7 @@ export class Session {
     window.addEventListener('pagehide', this.flush);
 
     const titles = titlesOf(tree);
-    const { tasks, sections, boards, keys } = await this.readLists(tree);
+    const { tasks, sections, boards, keys, collections } = await this.readLists(tree);
     const filters = await loadFilters(this.fs);
     const space = await loadSpace(this.fs);
     const trash = await readTrash(this.fs);
@@ -387,11 +423,14 @@ export class Session {
       if (board !== null) return board in boards;
       const keysFile = keysPathOf(id);
       if (keysFile !== null) return keysFile in keys;
+      const collection = collectionPathOf(id);
+      if (collection !== null) return collection in collections;
       return list !== null ? list in tasks : id in titles || !isNote(id);
     });
     const boardLooks = Object.fromEntries(Object.entries(workspace.boards).filter(([path]) => path in boards));
     const keysLooks = Object.fromEntries(Object.entries(workspace.keys).filter(([path]) => path in keys));
-    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, boards, boardLooks, keys, keysLooks, filters, space, trash });
+    const collectionLooks = Object.fromEntries(Object.entries(workspace.collections).filter(([path]) => path in collections));
+    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, boards, boardLooks, keys, keysLooks, collections, collectionLooks, filters, space, trash });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
@@ -477,6 +516,8 @@ export class Session {
         if (held !== undefined && held !== text) await this.keep(path, held);
         await this.fs.writeText(path, text);
         this.disk.set(path, text);
+        // A record edited as a note: its collection shows what was written.
+        if (dirname(path) in this.snapshot.collections) await this.reloadCollection(dirname(path));
       }),
     );
     this.markSaved();
@@ -878,13 +919,14 @@ export class Session {
   }
 
   private saveWorkspace() {
-    const { tabs, active, boards, boardLooks, keys, keysLooks } = this.snapshot;
+    const { tabs, active, boards, boardLooks, keys, keysLooks, collections, collectionLooks } = this.snapshot;
     // Boards and keys files that are gone are forgotten.
     void saveWorkspace(this.fs, {
       tabs,
       active,
       boards: Object.fromEntries(Object.entries(boardLooks).filter(([path]) => path in boards)),
       keys: Object.fromEntries(Object.entries(keysLooks).filter(([path]) => path in keys)),
+      collections: Object.fromEntries(Object.entries(collectionLooks).filter(([path]) => path in collections)),
     });
   }
 
@@ -898,6 +940,27 @@ export class Session {
   lookAtKeys(path: string, look: KeysLook) {
     this.set({ keysLooks: { ...this.snapshot.keysLooks, [path]: look } });
     this.saveWorkspace();
+  }
+
+  /** Remembers how a collection's table is looked at: the view, the sort, the group and the columns. */
+  lookAtCollection(dir: string, look: CollectionLook) {
+    this.set({ collectionLooks: { ...this.snapshot.collectionLooks, [dir]: look } });
+    this.saveWorkspace();
+  }
+
+  /** Changes a collection's schema (its views, for now) and writes its file. Returns a message when it cannot be written. */
+  async changeSchema(dir: string, change: (schema: Schema) => Schema): Promise<string | null> {
+    const collection = this.snapshot.collections[dir];
+    if (!collection) return t('error.record');
+    const schema = change(collection.schema);
+    if (schema === collection.schema) return null;
+    try {
+      await saveSchema(this.fs, dir, schema);
+    } catch (error) {
+      return error instanceof Error ? error.message : t('error.record');
+    }
+    this.setCollection(dir, (current) => ({ ...current, schema }));
+    return null;
   }
 
   /** A board's or a keys file's look goes with it when it moves. */
@@ -1026,16 +1089,18 @@ export class Session {
     this.saveWorkspace();
   }
 
-  /** Reads the inbox's task list, every other task list, every board and every keys file in the vault. */
-  private async readLists(tree: TreeNode[]): Promise<Pick<Snapshot, 'tasks' | 'sections' | 'boards' | 'keys'>> {
+  /** Reads the inbox's task list, every other task list, every board, every keys file and every collection in the vault. */
+  private async readLists(tree: TreeNode[]): Promise<Pick<Snapshot, 'tasks' | 'sections' | 'boards' | 'keys' | 'collections'>> {
     const paths = [INBOX_TASKS];
     const boardPaths: string[] = [];
     const keysPaths: string[] = [];
+    const collectionDirs: string[] = [];
     const visit = (nodes: TreeNode[]) => {
       for (const node of nodes) {
         if (node.kind === 'tasks') paths.push(node.path);
         else if (node.kind === 'board') boardPaths.push(node.path);
         else if (node.kind === 'keys') keysPaths.push(node.path);
+        else if (node.kind === 'collection') collectionDirs.push(node.path);
         else if (node.kind === 'folder') visit(node.children ?? []);
       }
     };
@@ -1050,12 +1115,71 @@ export class Session {
     const lists = await Promise.all(paths.map(async (path) => [path, parseList((await read(path)) ?? '')] as const));
     const boards = await Promise.all(boardPaths.map(async (path) => [path, parseBoard((await read(path)) ?? '')] as const));
     const keys = await Promise.all(keysPaths.map(async (path) => [path, (await read(path)) ?? ''] as const));
+    // A collection that cannot be read (its schema file gone meanwhile) is left out, not shown broken.
+    const collections = await Promise.all(collectionDirs.map(async (dir) => [dir, await loadCollection(this.fs, dir).catch(() => null)] as const));
+    const loaded = Object.fromEntries(collections.filter((entry): entry is readonly [string, Collection] => entry[1] !== null));
     return {
       tasks: Object.fromEntries(lists.map(([path, list]) => [path, list.tasks])),
       sections: Object.fromEntries(lists.map(([path, list]) => [path, list.sections])),
       boards: Object.fromEntries(boards),
       keys: Object.fromEntries(keys),
+      collections: freshenAll(loaded),
     };
+  }
+
+  // ---------- collections ----------
+
+  /** Reads a collection again, after its files changed on disk. */
+  private async reloadCollection(dir: string) {
+    const loaded = await loadCollection(this.fs, dir).catch(() => null);
+    if (!loaded || !(dir in this.snapshot.collections)) return;
+    this.set({ collections: freshenAll({ ...this.snapshot.collections, [dir]: loaded }) });
+  }
+
+  private setCollection(dir: string, change: (collection: Collection) => Collection) {
+    const current = this.snapshot.collections[dir];
+    if (!current) return;
+    this.set({ collections: { ...this.snapshot.collections, [dir]: change(current) } });
+  }
+
+  /** Adds a record to a collection, as its own file. Returns a message when it cannot be made. */
+  async addRecord(dir: string, input: NewRecord): Promise<string | null> {
+    const collection = this.snapshot.collections[dir];
+    if (!collection) return t('error.create');
+    try {
+      const { record, schema } = await addCollectionRecord(this.fs, collection, input);
+      this.setCollection(dir, (current) => ({ ...current, schema, records: [...current.records, record] }));
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : t('error.create');
+    }
+  }
+
+  /** Changes a record and writes its file; a new name renames the file. Returns a message when it cannot be saved. */
+  async updateRecord(dir: string, id: string, patch: RecordPatch): Promise<string | null> {
+    const collection = this.snapshot.collections[dir];
+    const record = collection?.records.find((r) => r.id === id);
+    if (!collection || !record) return t('error.record');
+    try {
+      const next = await updateCollectionRecord(this.fs, collection.schema, record, patch);
+      // Open as a note too: its tab and editing state follow the file.
+      if (next.path !== record.path) await this.follow(record.path, next.path);
+      this.disk.delete(next.path);
+      this.states.delete(next.path);
+      this.setCollection(dir, (current) => ({ ...current, records: current.records.map((r) => (r.id === id ? next : r)) }));
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : t('error.record');
+    }
+  }
+
+  /** Moves a record's file to the trash; the interface asks first. */
+  async trashRecord(dir: string, record: CollectionRecord) {
+    await this.settle();
+    await trashItem(this.fs, record.path);
+    await this.detach(record.path);
+    this.setCollection(dir, (current) => ({ ...current, records: current.records.filter((r) => r.id !== record.id) }));
+    this.set({ trash: await readTrash(this.fs) });
   }
 
   /** Changes the text of a keys file, from its table or as text, and writes it a moment after the last change. */
@@ -1448,11 +1572,12 @@ export class Session {
    * from `template`. Returns a message when it cannot be made.
    */
   async create(
-    kind: 'note' | 'tasks' | 'board' | 'keys',
+    kind: 'note' | 'tasks' | 'board' | 'keys' | 'collection',
     folder: string,
     name: string,
     newFolder: boolean,
     template: Template = 'software',
+    collectionTemplate: CollectionTemplate = 'companies',
   ): Promise<string | null> {
     let path: string;
     try {
@@ -1464,12 +1589,14 @@ export class Session {
             ? await createTaskList(this.fs, target, name)
             : kind === 'keys'
               ? await createKeys(this.fs, target, name)
-              : await createBoard(this.fs, target, name, template);
+              : kind === 'collection'
+                ? await createCollection(this.fs, target, name, collectionTemplate)
+                : await createBoard(this.fs, target, name, template);
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }
     await this.refreshTree();
-    await this.open(tabOf(path));
+    await this.open(kind === 'collection' ? collectionTab(path) : tabOf(path));
     return null;
   }
 
@@ -1534,6 +1661,8 @@ export class Session {
     // The tab on screen goes last, so the one shown after it is from outside the folder.
     for (const tab of tabs.filter(inside)) if (tab !== active) await this.detach(tab);
     if (active && inside(active)) await this.detach(active);
+    // A collection's own tab, when the folder is one.
+    await this.detach(collectionTab(path));
     await trashFolder(this.fs, path);
     await this.refreshTree();
   }

@@ -2,7 +2,7 @@ import { INBOX, INBOX_TASKS, type TaskFilter, type TreeNode } from '@scrawlnotes
 import { t } from '@scrawlnotes/i18n';
 import { type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useState } from 'react';
 import { Icon } from './Icon';
-import { filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { collectionTab, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 
 // A note or a task list being dragged onto a folder.
 const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
@@ -173,13 +173,14 @@ export function Sidebar({
 
   // A task list or a board shows how many of its tasks or cards are open where a note has its trash button.
   const itemRow = (node: TreeNode, depth: number) => {
-    const tab = tabOf(node.path);
-    const counted = node.kind === 'tasks' || node.kind === 'board';
+    const tab = node.kind === 'collection' ? collectionTab(node.path) : tabOf(node.path);
+    const counted = node.kind === 'tasks' || node.kind === 'board' || node.kind === 'collection';
     return (
       <div
         key={node.path}
         className={`it d${depth}${tab === active ? ' on' : ''}`}
-        draggable
+        // A collection is a folder; moving it is not done by dragging yet.
+        draggable={node.kind !== 'collection'}
         onDragStart={(event) => event.dataTransfer.setData(ITEM_DRAG_TYPE, node.path)}
         onContextMenu={(event) => onItemMenu(event, node.path)}
       >

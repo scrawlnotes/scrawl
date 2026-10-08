@@ -830,6 +830,143 @@ p { margin: 0; max-width: 68ch; }
 .phone .st-theme .shot { height: 58px; }
 .phone .st-row { grid-template-columns: 52px minmax(0, 1fr) auto; }
 .phone .st-space .hint { margin-left: 0; }
+/* Collection: a folder with a schema, shown as one table; a record opens beside it like a card. */
+.crow { display: grid; grid-template-columns: minmax(0, 1fr) 136px 88px 40px 80px 118px 112px; align-items: center; gap: 0 12px; padding: 6px 8px; margin: 0 -8px; border-bottom: 1px solid var(--m-line); }
+.th .srch { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; width: 180px; padding: 3px 9px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-faint); font-size: 12px; }
+.mock .th .srch svg { width: 12px; height: 12px; }
+.th .srch + .ghost { margin-left: 0; }
+.phone .th .srch.wide { width: 100%; margin: 6px 0 0; }
+.crow.head { padding: 10px 8px 6px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.crow.head .sorted { color: var(--m-dim); }
+.crow .tt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crow .site, .crow .dt { color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crow .dt { font-variant-numeric: tabular-nums; }
+.crow .dt.today { color: var(--m-accent); }
+.crow .empty { color: var(--m-faint); }
+.crow .lbls { display: flex; gap: 4px; overflow: hidden; }
+.crow .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; white-space: nowrap; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.crow .who { width: 16px; height: 16px; border-radius: 50%; background: var(--m-sel); font: 600 9px/16px var(--m-ui); text-align: center; }
+.crow.on { background: var(--m-sel); border-radius: 5px; border-color: transparent; }
+.ovl.center { align-items: center; padding-top: 0; }
+.rmod { display: flex; flex-direction: column; width: 1000px; height: 92%; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-bg); box-shadow: 0 12px 32px rgb(0 0 0 / .4); font-size: 13px; overflow: hidden; }
+.rmod .cp-head { padding: 12px 20px; }
+.rmod .cp-head svg { width: 13px; height: 13px; color: var(--m-faint); }
+.rmod .cp-head .open { margin-left: auto; display: grid; place-items: center; width: 22px; height: 20px; border-radius: 4px; }
+.rmod .cp-head .open + .more, .rmod .cp-head .open + .more + .x { margin-left: 0; }
+.rm-body { display: grid; flex: 1; grid-template-columns: 300px minmax(0, 1fr); min-height: 0; }
+.rm-det { display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; border-right: 1px solid var(--m-line); overflow: hidden; }
+.rm-title { font: 600 18px/1.3 var(--m-ui); color: var(--m-fg); margin-bottom: 4px; }
+.prop { display: flex; flex-direction: column; gap: 2px; }
+.prop .pl { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.prop .pv { display: flex; align-items: center; gap: 6px; min-height: 22px; margin: 0 -6px; padding: 1px 6px; border-radius: 4px; color: var(--m-fg); }
+.prop .pv.hover { background: var(--m-sel); }
+.prop .pv.hover .pen { margin-left: auto; color: var(--m-faint); }
+.prop .pv .pen svg { width: 12px; height: 12px; }
+.prop .pv.faint, .prop .pv .faint { color: var(--m-faint); }
+.prop .pv u { color: var(--m-dim); text-underline-offset: 2px; }
+.prop .pv .in { flex: 1; padding: 3px 7px; border: 1px solid var(--m-accent); border-radius: 5px; background: var(--m-side); color: var(--m-fg); }
+.prop .bt { display: flex; gap: 4px; margin-top: 4px; }
+.prop .bt .st-btn { padding: 1px 9px; font-size: 11.5px; }
+.prop .pv.picking { outline: 1px solid var(--m-accent); outline-offset: -1px; background: var(--m-side); }
+.prop .pv .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.prop .pv .who { width: 16px; height: 16px; border-radius: 50%; background: var(--m-sel); font: 600 9px/16px var(--m-ui); text-align: center; }
+.rm-det .cp-sec { margin-top: 6px; }
+.rm-det .cp-links { font-size: 12px; }
+.rm-det .more-props { font-size: 12px; color: var(--m-faint); }
+.rm-tl { display: flex; flex-direction: column; gap: 14px; min-height: 0; padding: 16px 20px; overflow: hidden; }
+.rmod.one { width: 540px; height: auto; max-height: 92%; }
+.rm-one { display: flex; flex-direction: column; gap: 14px; padding: 16px 20px 20px; min-height: 0; overflow: hidden; }
+.blk { display: flex; flex-direction: column; gap: 6px; }
+.blk-h { display: flex; align-items: center; gap: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--m-line); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.blk-h small { font-size: 10.5px; color: var(--m-faint); }
+.blk-h .addl { margin-left: auto; font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--m-accent); }
+.blk .cp-desc { min-height: 0; margin: 0; }
+.blk .cp-desc .ph { color: var(--m-faint); }
+.tle { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; padding: 8px 0; border-bottom: 1px solid var(--m-line); }
+.tle .h { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--m-dim); }
+.tle .h .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.tle .h .t { margin-left: auto; color: var(--m-faint); font-size: 11px; white-space: nowrap; }
+.tle p { margin: 3px 0 0; max-width: none; font: 12.5px/1.5 var(--m-ed); color: var(--m-fg); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lrec { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--m-line); font-size: 12.5px; }
+.lrec u { color: var(--m-fg); text-underline-offset: 2px; }
+.lrec small { color: var(--m-faint); font-size: 11.5px; }
+.lrec .key { font: 11px/1 var(--m-mono); color: var(--m-faint); margin-right: 6px; }
+.erow { display: grid; grid-template-columns: minmax(0, 1fr) 120px 60px 90px 80px 92px; align-items: center; gap: 0 12px; padding: 6px 8px; margin: 0 -8px; border-bottom: 1px solid var(--m-line); }
+.erow.head { padding: 10px 8px 6px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.erow .mono { font: 12px var(--m-mono); color: var(--m-dim); }
+.erow .num { text-align: right; font-variant-numeric: tabular-nums; }
+.erow .dt { color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.erow .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.erow .who { width: 16px; height: 16px; border-radius: 50%; background: var(--m-sel); font: 600 9px/16px var(--m-ui); text-align: center; }
+.erow.on { background: var(--m-sel); border-radius: 5px; border-color: transparent; }
+/* Fields window, Layout tab: a palette of unplaced fields and blocks on the left, the columns on the right. */
+.ldlg { width: 780px; }
+.ldlg .ltabs { display: flex; align-items: center; gap: 10px; margin: -4px 0 12px; }
+.ldlg .ltabs .vsw { font-size: 12px; }
+.ldlg .ltabs .hintl { margin-left: auto; font-size: 11.5px; color: var(--m-faint); }
+.lay { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 14px; }
+.lpal { display: flex; flex-direction: column; gap: 4px; }
+.lpal .lh { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); margin: 6px 0 2px; }
+.litem { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 6px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); font-size: 12px; white-space: nowrap; }
+.litem .grip { color: var(--m-faint); }
+.mock .litem .grip svg { width: 9px; height: 12px; fill: currentColor; stroke: none; }
+.litem small { color: var(--m-faint); font-size: 11px; margin-left: auto; padding-left: 8px; white-space: nowrap; }
+.lpal .litem { min-width: 0; }
+.lpal .litem.blk { justify-content: flex-start; }
+.litem.blk { border-style: dashed; color: var(--m-dim); }
+.litem.blk b { font-weight: 500; color: var(--m-fg); }
+.litem.fixed { color: var(--m-dim); }
+.litem.fixed .grip { visibility: hidden; }
+.lcols { display: flex; align-items: flex-start; gap: 10px; }
+.lcol { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 8px; border: 1px dashed var(--m-line); border-radius: 7px; }
+.lcol.w2 { flex: 1.4; }
+.lcol-h { display: flex; align-items: center; gap: 6px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.lcol-h .ratio { display: inline-flex; gap: 1px; margin-left: auto; padding: 1px; border: 1px solid var(--m-line); border-radius: 5px; letter-spacing: 0; }
+.lcol-h .ratio span { padding: 0 6px; border-radius: 3px; color: var(--m-faint); font-size: 10.5px; }
+.lcol-h .ratio span.on { background: var(--m-sel); color: var(--m-fg); }
+.lcol-h .x { color: var(--m-faint); }
+.lsx { display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-side); }
+.lsx .lsx-h { display: flex; align-items: center; gap: 6px; padding: 0 2px 4px; font-size: 12px; color: var(--m-dim); }
+.lsx .lsx-h i { font-style: normal; color: var(--m-faint); }
+.lsx .lsx-h .x { margin-left: auto; color: var(--m-faint); }
+.lsx .ldrop { height: 2px; margin: 1px 2px; border-radius: 1px; background: var(--m-accent); }
+.lcol .addq { padding: 4px 6px; border-radius: 5px; color: var(--m-faint); font-size: 12px; }
+.lcols .addcol { align-self: stretch; display: grid; place-items: center; width: 92px; border: 1px dashed var(--m-line); border-radius: 7px; color: var(--m-faint); font-size: 12px; text-align: center; }
+.lghost { position: absolute; z-index: 4; display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 6px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); box-shadow: 0 8px 22px rgb(0 0 0 / .3); font-size: 12px; transform: rotate(-1.5deg); }
+.mock .lghost .grip svg { width: 9px; height: 12px; fill: currentColor; stroke: none; }
+.ldlg .foot .hint { margin-right: auto; font-size: 11.5px; color: var(--m-faint); }
+.nmod { display: flex; flex-direction: column; width: 440px; max-height: 92%; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-bg); box-shadow: 0 12px 32px rgb(0 0 0 / .4); font-size: 13px; }
+.nmod .cp-head { padding: 12px 18px; }
+.nmod .cp-head svg { width: 13px; height: 13px; color: var(--m-faint); }
+.nmod .cp-head .x { margin-left: auto; }
+.nm-body { display: flex; flex-direction: column; gap: 2px; padding: 14px 18px 4px; min-height: 0; overflow: hidden; }
+.nm-body label { margin-top: 10px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.nm-body label:first-child { margin-top: 0; }
+.nm-body label i { font-style: normal; color: var(--m-accent); }
+.nm-body .in { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-side); color: var(--m-fg); box-sizing: border-box; }
+.nm-body .in.ph { color: var(--m-faint); }
+.nm-body .in.on { border-color: var(--m-accent); }
+.nm-body .in .arr { margin-left: auto; color: var(--m-faint); font-size: 10px; }
+.nm-body .in .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.nm-body .fade { height: 18px; margin-top: -18px; background: linear-gradient(transparent, var(--m-bg)); }
+.rm-foot { display: flex; justify-content: flex-end; gap: 6px; padding: 12px 18px 16px; }
+.rm-foot .st-btn { padding: 3px 12px; }
+.rm-foot .hint { margin-right: auto; align-self: center; font-size: 11.5px; color: var(--m-faint); }
+.phone .rm-det { gap: 8px; padding: 12px 16px 0; border: 0; }
+.phone .rm-title { font-size: 17px; }
+.phone .rm-tl { padding: 8px 16px 0; }
+.phone .nm-body { padding: 12px 16px 0; }
+.phone .rm-foot { margin-top: auto; border-top: 1px solid var(--m-line); padding: 10px 16px; }
+.phone .rm-foot .st-btn { display: flex; flex: 1; justify-content: center; padding: 7px 0; }
+.stmenu .r .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.phone .prow { display: flex; flex-direction: column; gap: 3px; padding: 9px 16px; border-bottom: 1px solid var(--m-line); }
+.phone .prow b { font-weight: 600; font-size: 13.5px; }
+.phone .prow small { display: flex; align-items: center; gap: 8px; color: var(--m-faint); font-size: 11.5px; }
+.phone .prow.on { background: var(--m-sel); }
+.phone .prow .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.tpl .flds { display: flex; flex-wrap: wrap; gap: 3px; }
+.tpl .flds i { font-style: normal; padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: var(--m-sel); color: var(--m-dim); }
+.tpl.five { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 </style>
 
 <main class="page">
@@ -898,6 +1035,14 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-keysadd" data-aview="keysadd">Keys add</button>
         <button type="button" id="a-keystext" data-aview="keystext">Keys text</button>
         <button type="button" id="a-keysphone" data-aview="keysphone">Keys phone</button>
+        <button type="button" id="a-colnew" data-aview="colnew">Collection new</button>
+        <button type="button" id="a-col" data-aview="col">Collection</button>
+        <button type="button" id="a-colrec" data-aview="colrec">Record</button>
+        <button type="button" id="a-colpick" data-aview="colpick">Record select</button>
+        <button type="button" id="a-coleq" data-aview="coleq">Record (Equipment)</button>
+        <button type="button" id="a-collay" data-aview="collay">Layout tab</button>
+        <button type="button" id="a-coladd" data-aview="coladd">New record</button>
+        <button type="button" id="a-colphone" data-aview="colphone">Collection phone</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -1108,6 +1253,7 @@ p { margin: 0; max-width: 68ch; }
       row({ d: 1, icon: 'tasks', label: 'Tasks', ct: 7, go: 'tasks', on: view === 'tasks' }) +
       row({ d: 1, icon: 'board', label: 'Roadmap', ct: 13, go: 'board', on: view === 'board' || view === 'card' || view === 'list' }) +
       (view.indexOf('keys') === 0 ? row({ d: 1, icon: 'key', label: 'Production', go: 'keys', on: view !== 'keysnew' }) : '') +
+      (view === 'coleq' ? row({ d: 1, icon: 'collection', label: 'Equipment', ct: 9, go: 'coleq', on: true }) : view.indexOf('col') === 0 ? row({ d: 1, icon: 'collection', label: 'Companies', ct: 24, go: 'col', on: view !== 'colnew' }) : '') +
       row({ d: 1, icon: 'notes', label: 'Sync engine: open questions', go: 'note', on: note }) +
       row({ d: 1, icon: 'notes', label: 'Live preview spike' }) +
       row({ d: 1, icon: 'notes', label: 'Vault layout' }) +
@@ -1540,6 +1686,238 @@ p { margin: 0; max-width: 68ch; }
       '<div class="kv-add">+ Add group</div></div></div>';
     var text = '<div class="phone">' + head(true) + KEYS_TEXT.slice(KEYS_TEXT.indexOf('<div class="kvtext">'), KEYS_TEXT.lastIndexOf('</div>')) + '</div>';
     return [table, text].map(function (phone) { return '<div style="position: relative">' + phone + '</div>'; }).join('');
+  }
+  // Collection: a folder with a schema (_collection.json) and one .md file per record, shown as one
+  // table. A record's screen is built from blocks, and the schema says which blocks go where:
+  // properties (the fields, in the schema's order, edited in place), the body (free markdown, one
+  // line when empty), linked records (the records of another collection that link to this one,
+  // sorted by a field, as a list or as a timeline), cards and tasks. The default layout is one
+  // column: properties, body, then any linked records there are. A template may bring its own
+  // layout: the CRM one puts Companies' properties and body on the left and the linked Activities
+  // on the right as a timeline, People and cards under them. Equipment, made from Blank, says
+  // nothing and gets the one column. Both screens come from the same code; the layout is data in
+  // the schema, and the Fields window or an agent can change it.
+  ICON.collection = '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M4 14.5h16M10 10v9"/></svg>';
+  LC.active = '#5cb87a'; LC.prospect = '#6aa5f0'; LC.churned = '#f0706a'; LC.design = '#b48ef0'; LC.berlin = '#6aa5f0'; LC.saas = '#5cb87a'; LC.referral = '#e0a040'; LC.agency = '#b48ef0';
+  ICON.phone = '<svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/></svg>';
+  ICON.mail = '<svg viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M4 7l8 6 8-6"/></svg>';
+  ICON.pen = '<svg viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2 2 0 0 0-4-4L4 16z"/><path d="M13 7l4 4"/></svg>';
+  var COMPANIES = [
+    { name: 'Acme Corp', site: 'acme.example.com', seg: 'Mid-market', who: 'K', st: 'active', tags: ['design', 'berlin'], at: 'Today', today: true },
+    { name: 'Globex', site: 'globex.example.com', seg: 'Enterprise', who: 'M', st: 'active', tags: ['saas'], at: 'Oct 6' },
+    { name: 'Initech', site: 'initech.example.com', seg: 'SMB', who: 'K', st: 'prospect', tags: ['referral'], at: 'Oct 3' },
+    { name: 'Hooli', site: 'hooli.example.com', seg: 'Enterprise', who: 'M', st: 'prospect', tags: ['saas'], at: 'Oct 1' },
+    { name: 'Vandelay Industries', site: 'vandelay.example.com', seg: 'SMB', who: 'K', st: 'active', tags: [], at: 'Sep 29' },
+    { name: 'Stark Logistics', site: 'stark.example.com', seg: 'Mid-market', who: '', st: 'prospect', tags: ['referral'], at: 'Sep 24' },
+    { name: 'Wonka Foods', site: 'wonka.example.com', seg: 'SMB', who: 'M', st: 'churned', tags: [], at: 'Sep 18' },
+    { name: 'Pied Piper', site: '', seg: 'SMB', who: 'K', st: 'prospect', tags: ['saas'], at: 'Sep 12' },
+    { name: 'Umbrella Health', site: 'umbrella.example.com', seg: 'Enterprise', who: 'M', st: 'active', tags: [], at: 'Sep 8' },
+    { name: 'Soylent', site: 'soylent.example.com', seg: 'Mid-market', who: '', st: 'churned', tags: [], at: 'Aug 30' },
+    { name: 'Dunder Mifflin', site: 'dunder.example.com', seg: 'SMB', who: 'K', st: 'active', tags: ['agency'], at: 'Aug 27' },
+    { name: 'Tyrell Corp', site: 'tyrell.example.com', seg: 'Enterprise', who: 'M', st: 'prospect', tags: [], at: 'Aug 21' }
+  ];
+  function crow(c, on) {
+    return '<div class="crow' + (on ? ' on' : '') + '"><span class="tt">' + c.name + '</span>' +
+      '<span class="site">' + (c.site || '<span class="empty">–</span>') + '</span>' +
+      '<span>' + c.seg + '</span>' +
+      '<span>' + (c.who ? who(c.who) : '') + '</span>' +
+      '<span>' + lbl(c.st) + '</span>' +
+      '<span class="lbls">' + (c.tags || []).map(lbl).join('') + '</span>' +
+      '<span class="dt' + (c.today ? ' today' : '') + '">' + c.at + '</span></div>';
+  }
+  function colHead() {
+    return '<div class="th"><b>Companies</b><span class="count">24 records</span><span class="srch">' + ICON.find + 'Search…</span><button type="button" class="ghost">Fields</button><button type="button" class="add">Add record</button></div>';
+  }
+  function colView(open) {
+    return '<div class="bv">' + colHead() + '<div class="blist">' +
+      '<div class="crow head"><span>Name</span><span>Website</span><span>Segment</span><span>Owner</span><span>Status</span><span>Tags</span><span class="sorted">Last contact ↓</span></div>' +
+      COMPANIES.map(function (c, i) { return crow(c, open && i === 0); }).join('') +
+      '<div class="lmore">Show 12 more</div>' +
+      '</div></div>';
+  }
+  function prop(label, value, o) {
+    o = o || {};
+    return '<div class="prop"><span class="pl">' + label + '</span>' +
+      (o.editing
+        ? '<span class="pv"><span class="in">' + value + '<span class="caret"></span></span></span><span class="bt"><span class="st-btn go">Save</span><span class="st-btn">Cancel</span></span>'
+        : '<span class="' + (o.picking ? 'fv ' : '') + 'pv' + (o.hover ? ' hover' : '') + (o.picking ? ' picking' : '') + (o.faint ? ' faint' : '') + '">' + value + (o.hover ? '<span class="pen">' + ICON.pen + '</span>' : '') + '</span>') +
+      '</div>';
+  }
+  LC.call = '#6aa5f0'; LC.meeting = '#b48ef0'; LC.email = '#e0a040'; LC.note = '#8b93a1'; LC['in use'] = '#5cb87a'; LC.spare = '#6aa5f0'; LC.broken = '#f0706a';
+  var ACTIVITIES = [
+    { type: 'call', who: 'Kaan', t: 'Today 11:40', text: 'Pilot for one portal; they decide by the 20th. Send the offer with the export add-on.' },
+    { type: 'email', who: 'Kaan', t: 'Oct 2', text: 'Sent the deck and the pricing page.' },
+    { type: 'meeting', who: 'Mina', t: 'Sep 22', text: 'Demo with their ops lead, 40 min. Wants CSV export and a per-client login; the lead is the buyer, the CEO signs.' },
+    { type: 'note', who: 'Mina', t: 'Sep 10', text: 'Met at the summit. Design agency in Berlin, about 40 people; three client portals run on spreadsheets today.' }
+  ];
+  function blockHead(label, count, add) {
+    return '<div class="blk-h">' + label + (count ? ' <small>' + count + '</small>' : '') + (add ? '<span class="addl">+ ' + add + '</span>' : '') + '</div>';
+  }
+  function blockProps(props) { return '<div class="blk">' + props.join('') + '</div>'; }
+  function blockBody(lines) {
+    return '<div class="blk">' + blockHead('Notes') + '<div class="cp-desc">' +
+      (lines.length ? lines.map(function (l) { return '<div class="ln">' + l + '</div>'; }).join('') : '<div class="ln"><span class="ph">Add a note…</span></div>') + '</div></div>';
+  }
+  function blockTimeline(name, items, add) {
+    return '<div class="blk">' + blockHead(name, items.length, add) + items.map(function (e) {
+      return '<div class="tle"><div class="h">' + lbl(e.type) + '<span>' + e.who + '</span><span class="t">' + e.t + '</span></div><p>' + e.text + '</p></div>';
+    }).join('') + '</div>';
+  }
+  function blockList(name, rows, add) {
+    return '<div class="blk">' + blockHead(name, rows.length, add) + rows.map(function (r) {
+      return '<div class="lrec"><span>' + (r.key ? '<span class="key">' + r.key + '</span>' : '') + '<u>' + r.name + '</u></span><small>' + r.meta + '</small></div>';
+    }).join('') + '</div>';
+  }
+  function modalHead(where, isNew) {
+    return '<div class="cp-head">' + ICON.collection + '<span>' + where + '</span>' + (isNew ? '' : '<span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span>') + '<span class="x"' + (isNew ? ' style="margin-left: auto"' : '') + '>×</span></div>';
+  }
+  /** Companies, with the CRM template's layout: two columns, the linked Activities as a timeline. */
+  function companyModal(picking) {
+    return '<div class="ovl center"><div class="rmod">' + modalHead('Companies · Scrawl') +
+      '<div class="rm-body"><div class="rm-det">' +
+        '<div class="rm-title">Acme Corp</div>' +
+        blockProps([
+          prop('Website', 'acme.example.com', { editing: !picking }),
+          prop('Segment', 'Mid-market', { hover: picking }),
+          prop('Owner', '<span class="who">K</span>Kaan'),
+          prop('Status', lbl('active'), { picking: picking }),
+          prop('Tags', lbl('design') + lbl('berlin'))
+        ]) +
+        blockBody(['Design agency in Berlin, about 40 people. Met at the summit; three client portals run on spreadsheets today.']) +
+      '</div><div class="rm-tl">' +
+        blockTimeline('Activities', ACTIVITIES, 'Add activity') +
+        blockList('People', [{ name: 'Lena Hartmann', meta: 'Head of Ops' }, { name: 'Jonas Weber', meta: 'CEO' }], 'Add person') +
+        blockList('Cards', [{ key: 'ACM-3', name: 'Pilot proposal', meta: 'Proposal' }]) +
+      '</div></div></div></div>';
+  }
+  /** Equipment, made from Blank, with the default layout: one column; no linked records, so no such blocks. */
+  function equipmentModal() {
+    return '<div class="ovl center"><div class="rmod one">' + modalHead('Equipment · Scrawl') +
+      '<div class="rm-one"><div class="rm-title">MacBook Pro 14 (M3)</div>' +
+        blockProps([
+          prop('Serial', 'C02XK1A7Q6L5'),
+          prop('With', '<span class="who">M</span>Mina', { hover: true }),
+          prop('Bought', '2025-03-14'),
+          prop('Price', '2,399.00 EUR'),
+          prop('Status', lbl('in use')),
+          prop('Warranty until', '2027-03-14')
+        ]) +
+        blockBody([]) +
+      '</div></div></div>';
+  }
+  var EQUIPMENT = [
+    { name: 'MacBook Pro 14 (M3)', serial: 'C02XK1A7Q6L5', who: 'M', bought: '2025-03-14', price: '2,399.00', st: 'in use' },
+    { name: 'MacBook Air 13', serial: 'FVFH2K9PQ6L7', who: 'K', bought: '2024-09-02', price: '1,299.00', st: 'in use' },
+    { name: 'Dell U2723QE', serial: 'CN0H7M3K', who: 'K', bought: '2024-09-02', price: '589.00', st: 'in use' },
+    { name: 'Dell U2723QE', serial: 'CN0H7M3L', who: '', bought: '2024-09-02', price: '589.00', st: 'spare' },
+    { name: 'iPhone 15', serial: 'DX3P7R2QN7', who: 'M', bought: '2024-11-20', price: '949.00', st: 'in use' },
+    { name: 'ThinkPad X1 Carbon', serial: 'PF3W9K2M', who: '', bought: '2022-04-11', price: '1,650.00', st: 'broken' },
+    { name: 'Logitech MX Keys', serial: '2142LZ0', who: 'K', bought: '2024-09-02', price: '109.00', st: 'in use' },
+    { name: 'Jabra Speak 510', serial: '1832XQ', who: '', bought: '2023-06-30', price: '129.00', st: 'spare' }
+  ];
+  function equipmentTable() {
+    return '<div class="bv"><div class="th"><b>Equipment</b><span class="count">9 records</span><span class="srch">' + ICON.find + 'Search…</span><button type="button" class="ghost">Fields</button><button type="button" class="add">Add record</button></div><div class="blist">' +
+      '<div class="erow head"><span>Name</span><span>Serial</span><span>With</span><span class="sorted">Bought ↓</span><span class="num">Price</span><span>Status</span></div>' +
+      EQUIPMENT.map(function (e, i) {
+        return '<div class="erow' + (i === 0 ? ' on' : '') + '"><span class="tt">' + e.name + '</span><span class="mono">' + e.serial + '</span><span>' + (e.who ? who(e.who) : '') + '</span><span class="dt">' + e.bought + '</span><span class="num">' + e.price + '</span><span>' + lbl(e.st) + '</span></div>';
+      }).join('') + '<div class="lmore">Show 1 more</div></div></div>';
+  }
+  /** Fields window, Layout tab: the Companies layout being edited; "founded" is being dragged from the
+   *  palette into the first section, the drop line shows where it lands. */
+  function layoutWindow() {
+    var grip = '<span class="grip"><svg viewBox="0 0 9 12"><circle cx="2" cy="2" r="1.3"/><circle cx="7" cy="2" r="1.3"/><circle cx="2" cy="6" r="1.3"/><circle cx="7" cy="6" r="1.3"/><circle cx="2" cy="10" r="1.3"/><circle cx="7" cy="10" r="1.3"/></svg></span>';
+    function item(label, meta, cls) { return '<div class="litem' + (cls ? ' ' + cls : '') + '">' + grip + label + (meta ? '<small>' + meta + '</small>' : '') + '</div>'; }
+    function block(label, meta) { return '<div class="litem blk">' + grip + '<b>' + label + '</b>' + (meta ? '<small>' + meta + '</small>' : '') + '</div>'; }
+    function section(title, items) { return '<div class="lsx"><div class="lsx-h">' + (title ? title : '<i>Untitled section</i>') + '<span class="x">×</span></div>' + items.join('') + '</div>'; }
+    return '<div class="ovl"><div class="mdlg ldlg"><h3>Fields · Companies</h3>' +
+      '<div class="ltabs"><span class="vsw"><span>Fields</span><span class="on">Layout</span><span>Text</span></span><span class="hintl">Drag a field or a block into a column; sections are optional</span></div>' +
+      '<div class="lay"><div class="lpal">' +
+        '<div class="lh">Unplaced fields</div>' + item('founded', 'date') + item('notes_internal', 'text') +
+        '<div class="lh">Blocks</div>' + block('Linked records') + block('Cards & tasks') +
+        '<div class="lh">Always there</div>' + item('name', 'title', 'fixed') + item('More fields', 'at the end', 'fixed') +
+      '</div><div class="lcols">' +
+        '<div class="lcol"><div class="lcol-h">Column 1<span class="ratio"><span class="on">1</span><span>2</span><span>3</span></span><span class="x">×</span></div>' +
+          section('', [item('code', 'text'), item('website', 'url'), '<div class="ldrop"></div>', item('segment', 'select'), item('type', 'multi-select'), item('owner', 'person'), item('status', 'select'), item('tags', 'multi-select')]) +
+          section('Notes', [block('Body')]) +
+          '<div class="addq">+ Add section</div></div>' +
+        '<div class="lcol w2"><div class="lcol-h">Column 2<span class="ratio"><span>1</span><span class="on">2</span><span>3</span></span><span class="x">×</span></div>' +
+          section('', [block('Linked: Activities', 'timeline · by date'), block('Linked: People', 'list · by name'), block('Cards & tasks')]) +
+          '<div class="addq">+ Add section</div></div>' +
+        '<div class="addcol">+ Add column</div>' +
+      '</div></div>' +
+      '<div class="lghost" style="left: 440px; top: 204px">' + grip + 'founded<small style="margin-left: 8px; color: var(--m-faint)">date</small></div>' +
+      '<div class="foot"><span class="hint">Saved in Companies/_collection.json · an agent can edit it too</span><button type="button" class="ghost">Cancel</button><button type="button" class="add">Save layout</button></div>' +
+      '</div></div>';
+  }
+  function statusMenu() {
+    return '<div class="stmenu">' + [['active', true], ['prospect'], ['churned']].map(function (r) {
+      return '<div class="r' + (r[1] ? ' on' : '') + '"><i class="dot" style="background: ' + LC[r[0]] + '"></i><span>' + r[0] + '</span><span class="ok">' + (r[1] ? '✓' : '') + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function newRecordModal() {
+    function f(label, value, o) { o = o || {}; return '<label>' + label + (o.req ? ' <i>*</i>' : '') + '</label><span class="in' + (o.ph ? ' ph' : '') + (o.on ? ' on' : '') + '">' + value + (o.on ? '<span class="caret"></span>' : '') + (o.select ? '<span class="arr">▾</span>' : '') + '</span>'; }
+    return '<div class="ovl"><div class="nmod">' +
+      '<div class="cp-head">' + ICON.collection + '<span>New company</span><span class="x">×</span></div>' +
+      '<div class="nm-body">' +
+        f('Name', 'Umbrella Health', { req: true, on: true }) +
+        f('Website', 'example.com', { ph: true }) +
+        f('Segment', 'Choose…', { ph: true, select: true }) +
+        f('Owner', 'Nobody', { ph: true, select: true }) +
+        f('Status', lbl('prospect'), { select: true }) +
+        f('Tags', 'Add a tag…', { ph: true }) +
+      '</div>' +
+      '<div class="rm-foot"><span class="hint">Saved as Companies/Umbrella Health.md</span><span class="st-btn">Cancel</span><span class="st-btn go">Create</span></div>' +
+      '</div></div>';
+  }
+  /** Create: after Keys, before Filter; the template is only the starting schema. */
+  function colCreate() {
+    function t(name, fields, note, on) { return '<div class="t' + (on ? ' on' : '') + '"><b>' + name + '</b><div class="flds">' + fields.map(function (f) { return '<i>' + f + '</i>'; }).join('') + '</div><small>' + note + '</small></div>'; }
+    return '<div class="ovl"><div class="mdlg" style="width: 600px"><h3>Create</h3>' +
+      '<div class="steps"><span>Collection</span><span class="on">Name and place</span></div>' +
+      '<div class="label">Name</div><div class="field filled">Companies<span class="caret"></span></div>' +
+      '<div class="label" style="margin-top: 10px">Folder</div><div class="field filled">Scrawl</div>' +
+      '<div class="label" style="margin-top: 10px">Template</div><div class="tpl five">' +
+        t('Companies', ['name', 'website', 'segment', 'owner', 'status', 'tags', 'last contact'], 'Customers, partners, investors', true) +
+        t('People', ['name', 'company', 'email', 'phone', 'role', 'source', 'status', 'last contact'], 'Contacts at those companies') +
+        t('Feedback', ['title', 'source', 'person', 'area', 'status'], 'What users ask for') +
+        t('Payments', ['direction', 'counterpart', 'amount', 'due', 'status', 'invoice no', 'paid on'], 'Money in and money out') +
+        t('Blank', ['name'], 'Start from one field') +
+      '</div>' +
+      '<div class="foot"><span class="count">Fields can be changed later</span><span class="st-btn" style="margin-left: auto">Back</span><span class="st-btn go" style="margin-left: 6px">Create</span></div></div></div>';
+  }
+  /** On a phone: the table is a list with the name and two fields; a record fills the screen with
+   *  its properties folded to the first three, the timeline under them; the new-record form too. */
+  function colPhones() {
+    function head(label) {
+      return '<div class="ptabs"><span class="burger" title="Folders and views">' + ICON.burger + '</span>' + tab('collection', label, 'phone', true) + '<div class="tab plus">+</div></div>';
+    }
+    var list = '<div class="phone">' + head('Companies') +
+      '<div class="bv" style="flex: none"><div class="th"><b>Companies</b><span class="count">24</span><button type="button" class="add">Add record</button><span class="srch wide">' + ICON.find + 'Search…</span></div></div>' +
+      '<div class="tl" style="padding: 0">' +
+      COMPANIES.slice(0, 7).map(function (c, i) {
+        return '<div class="prow' + (i === 0 ? ' on' : '') + '"><b>' + c.name + '</b><small>' + lbl(c.st) + '<span>' + c.seg + '</span><span style="margin-left: auto">' + c.at + '</span></small></div>';
+      }).join('') + '</div>' +
+      '<div class="status"><span>24 records</span><span>Last contact ↓</span></div></div>';
+    var record = '<div class="phone">' +
+      '<div class="cp-head" style="padding: 12px 16px">' + ICON.collection + '<span>Companies</span><span class="open" style="margin-left: auto">' + ICON.open + '</span><span class="x">×</span></div>' +
+      '<div class="rm-det"><div class="rm-title">Acme Corp</div>' +
+        blockProps([prop('Website', '<u>acme.example.com</u>'), prop('Status', lbl('active')), prop('Owner', '<span class="who">K</span>Kaan')]) +
+        '<div class="more-props">Show all 5 fields</div>' +
+        blockBody(['Design agency in Berlin, about 40 people. Met at the summit.']) +
+        blockTimeline('Activities', ACTIVITIES.slice(0, 2), 'Add') +
+      '</div></div>';
+    var fresh = '<div class="phone">' +
+      '<div class="cp-head" style="padding: 12px 16px">' + ICON.collection + '<span>New company</span><span class="x" style="margin-left: auto">×</span></div>' +
+      '<div class="nm-body">' +
+        '<label>Name <i>*</i></label><span class="in on">Umbrella Health<span class="caret"></span></span>' +
+        '<label>Website</label><span class="in ph">example.com</span>' +
+        '<label>Segment</label><span class="in ph">Choose…<span class="arr">▾</span></span>' +
+        '<label>Owner</label><span class="in ph">Nobody<span class="arr">▾</span></span>' +
+        '<label>Status</label><span class="in">' + lbl('prospect') + '<span class="arr">▾</span></span>' +
+        '<label>Tags</label><span class="in ph">Add a tag…</span>' +
+      '</div>' +
+      '<div class="rm-foot"><span class="st-btn">Cancel</span><span class="st-btn go">Create</span></div></div>';
+    return [list, record, fresh].map(function (phone) { return '<div style="position: relative">' + phone + '</div>'; }).join('');
   }
   function trow(kind, name, meta, hover) {
     return '<div class="trow' + (hover ? ' hover' : '') + '">' + ICON[kind] +
@@ -2063,6 +2441,13 @@ p { margin: 0; max-width: 68ch; }
     keysadd: '<span>3 groups</span><span>7 keys</span>',
     keystext: '<span>Ln 5, Col 25</span><span>.env</span>',
     keysnew: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
+    col: '<span>24 records</span><span>Sorted by last contact</span>',
+    coladd: '<span>24 records</span><span>New record</span>',
+    colrec: '<span>24 records</span><span>Acme Corp</span>',
+    colpick: '<span>24 records</span><span>Acme Corp</span>',
+    coleq: '<span>9 records</span><span>MacBook Pro 14 (M3)</span>',
+    collay: '<span>24 records</span><span>Sorted by last contact</span>',
+    colnew: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     isboard: '<span>52 open</span><span>109 cards</span>',
     isstatus: '<span>52 open</span><span>ISS-47</span>',
     phmore: '<span>Phase 7 · 8/8 done</span><span>142 cards</span>',
@@ -2071,13 +2456,13 @@ p { margin: 0; max-width: 68ch; }
   };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
-    mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone');
+    mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone');
     mock.classList.toggle('four', view === 'settingsphone');
-    mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty');
+    mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty' || view === 'col' || view === 'coladd' || view === 'colrec' || view === 'colpick' || view === 'coleq' || view === 'collay');
     mock.classList.toggle('wider', view === 'isstatus');
     mock.classList.toggle('wider', view === 'card');
-    if (view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone') {
-      mock.innerHTML = view === 'phone' ? phoneView() : view === 'syncphone' ? syncPhones() : view === 'phphone' ? phasesPhones() : view === 'keysphone' ? keysPhones() : settingsPhones();
+    if (view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone') {
+      mock.innerHTML = view === 'phone' ? phoneView() : view === 'syncphone' ? syncPhones() : view === 'phphone' ? phasesPhones() : view === 'keysphone' ? keysPhones() : view === 'colphone' ? colPhones() : settingsPhones();
       section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
         b.setAttribute('aria-pressed', String(b.dataset.aview === view));
       });
@@ -2086,8 +2471,9 @@ p { margin: 0; max-width: 68ch; }
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
       (view === 'copy' ? tab('notes', 'Site visit, Oct 6', 'copy', true) : '') +
       (view.indexOf('item') === 0 ? tab('notes', 'Client call, Oct 6', view, true) : '') +
-      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask' || view.indexOf('settings') === 0 || view.indexOf('sync') === 0 || view === 'keysnew') +
+      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask' || view.indexOf('settings') === 0 || view.indexOf('sync') === 0 || view === 'keysnew' || view === 'colnew') +
       (view.indexOf('keys') === 0 && view !== 'keysnew' ? tab('key', 'Production · Scrawl', 'keys', true) : '') +
+      (view.indexOf('col') === 0 && view !== 'colnew' ? tab('collection', view === 'coleq' ? 'Equipment · Scrawl' : 'Companies · Scrawl', 'col', true) : '') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
       (view.indexOf('filter') === 0 ? tab('filter', 'This week · p1', 'filter', true) : '') +
       tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view === 'newboard' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag' || view === 'movetask') +
@@ -2096,13 +2482,13 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), collay: colView(false), colnew: edFull }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + syncStatus(view === 'note', view === 'syncpanel' ? 'syncing' : view === 'syncdone' ? 'open' : null) + '</div></section>' +
       (view === 'syncpanel' ? syncPanel('syncing') : view === 'syncdone' ? syncPanel('done') : '') +
-      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
+      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'collay' ? layoutWindow() : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });

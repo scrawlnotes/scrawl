@@ -1,5 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import { BOARD_EXT, loadBoard, newBoard, serializeBoard, type Template } from './board';
+import { collectionName, isCollection, RECORD_EXT, type RecordSort } from './collection';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
@@ -18,8 +19,9 @@ const WORKSPACE = `${APP_DIR}/workspace.json`;
 export interface TreeNode {
   name: string;
   path: string;
-  kind: 'note' | 'tasks' | 'board' | 'keys' | 'folder';
-  /** What a note, a task list, a board or a keys file is called in the interface. */
+  /** A collection is a folder with a schema file in it; its records are not listed, they are its table. */
+  kind: 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'folder';
+  /** What a note, a task list, a board, a keys file or a collection is called in the interface. */
   title?: string;
   children?: TreeNode[];
 }
@@ -40,7 +42,16 @@ export interface KeysLook {
   view: 'table' | 'text';
 }
 
-/** Which notes are open on this device, and how its boards and keys files were looked at. Not synced. */
+/** How a collection's table was last looked at on this device: the view chosen, and the sort, group and columns of the plain table. */
+export interface CollectionLook {
+  /** The saved view chosen, by id; null or unset for the plain table. */
+  view?: string | null;
+  sort?: RecordSort;
+  group?: string | null;
+  columns?: string[];
+}
+
+/** Which notes are open on this device, and how its boards, keys files and collections were looked at. Not synced. */
 export interface Workspace {
   tabs: string[];
   active: string | null;
@@ -48,6 +59,8 @@ export interface Workspace {
   boards: Record<string, BoardLook>;
   /** By the path of each keys file. */
   keys: Record<string, KeysLook>;
+  /** By the path of each collection's folder. */
+  collections: Record<string, CollectionLook>;
 }
 
 const isNote = (entry: Entry) => entry.kind === 'file' && entry.name.endsWith('.md');
@@ -246,7 +259,7 @@ export interface TrashItem {
   /** Where it is in the trash. */
   path: string;
   /** An attachment is a file that no note linked to any more. */
-  kind: 'note' | 'tasks' | 'board' | 'keys' | 'folder' | 'attachment';
+  kind: 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'folder' | 'attachment';
   /** What it was called in the interface. */
   title: string;
   /** The path it had, which it is restored to. */
@@ -261,6 +274,8 @@ export interface TrashItem {
   cards?: number;
   /** How many keys a keys file has. */
   keys?: number;
+  /** How many records a collection has. */
+  records?: number;
   /** An attachment's size in bytes. */
   size?: number;
 }
@@ -271,14 +286,23 @@ export interface Holds {
   lists: number;
   boards: number;
   keys: number;
+  collections: number;
   folders: number;
 }
 
+/** The records of a collection folder: its Markdown files, hidden ones apart. */
+const countRecords = (entries: Entry[]) => entries.filter((e) => e.kind === 'file' && e.name.endsWith(RECORD_EXT) && !isHidden(e.name)).length;
+
 async function countTree(fs: VaultFs, dir: string): Promise<Holds> {
-  const holds: Holds = { notes: 0, lists: 0, boards: 0, keys: 0, folders: 0 };
+  const holds: Holds = { notes: 0, lists: 0, boards: 0, keys: 0, collections: 0, folders: 0 };
   const visit = async (path: string) => {
     for (const entry of await fs.list(path)) {
       if (entry.kind === 'dir') {
+        // A collection counts as one thing; its records are not notes.
+        if (isCollection(await fs.list(entry.path))) {
+          holds.collections++;
+          continue;
+        }
         holds.folders++;
         await visit(entry.path);
       } else if (entry.name.endsWith(TASK_LIST_EXT)) holds.lists++;
@@ -318,7 +342,9 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
     const from = record?.from ?? (isFolder ? name : join(INBOX, name));
     const deleted = record?.deleted ?? (stamped?.time ?? new Date(0)).toISOString();
     const item = { path: entry.path, from, deleted };
-    if (isFolder) items.push({ ...item, kind: 'folder', title: name, holds: await countTree(fs, entry.path) });
+    const inside = isFolder ? await fs.list(entry.path) : [];
+    if (isFolder && isCollection(inside)) items.push({ ...item, kind: 'collection', title: name, records: countRecords(inside) });
+    else if (isFolder) items.push({ ...item, kind: 'folder', title: name, holds: await countTree(fs, entry.path) });
     else if (isList) items.push({ ...item, kind: 'tasks', title: listName(name), tasks: (await loadTasks(fs, entry.path)).length });
     else if (isBoardFile) items.push({ ...item, kind: 'board', title: boardName(name), cards: (await loadBoard(fs, entry.path)).cards.length });
     else if (isKeysFile) items.push({ ...item, kind: 'keys', title: keysName(name), keys: keyCount(parseKeys(await fs.readText(entry.path))) });
@@ -338,16 +364,17 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
  */
 export async function restoreFromTrash(fs: VaultFs, item: TrashItem): Promise<string> {
   const folder = dirname(item.from);
-  const [name, ext] = item.kind === 'folder' ? [basename(item.from), ''] : splitName(basename(item.from));
+  const tree = item.kind === 'folder' || item.kind === 'collection';
+  const [name, ext] = tree ? [basename(item.from), ''] : splitName(basename(item.from));
   const target = freePath(folder, name, ext, await names(fs, folder));
-  if (item.kind === 'folder') {
+  if (tree) {
     await moveTree(fs, item.path, target);
     await fs.remove(item.path);
   } else {
     await fs.move(item.path, target);
   }
   await forget(fs, basename(item.path));
-  if (item.kind === 'note' || item.kind === 'folder') await restoreAttachments(fs, await textsOf(fs, target));
+  if (item.kind === 'note' || tree) await restoreAttachments(fs, await textsOf(fs, target));
   return target;
 }
 
@@ -356,7 +383,7 @@ export async function restoreFromTrash(fs: VaultFs, item: TrashItem): Promise<st
  * that only it linked to. `unsaved` is the text of notes not written yet.
  */
 export async function deleteFromTrash(fs: VaultFs, item: TrashItem, unsaved: string[] = []): Promise<void> {
-  const texts = item.kind === 'note' || item.kind === 'folder' ? await textsOf(fs, item.path) : [];
+  const texts = item.kind === 'note' || item.kind === 'folder' || item.kind === 'collection' ? await textsOf(fs, item.path) : [];
   await fs.remove(item.path);
   await forget(fs, basename(item.path));
   await removeAttachmentsOf(fs, texts, unsaved);
@@ -539,22 +566,31 @@ export async function saveFile(fs: VaultFs, file: File, options: PartsOptions = 
  * task lists, then boards, then keys files, then folders, then notes, each by name.
  */
 export async function readTree(fs: VaultFs, dir = ''): Promise<TreeNode[]> {
-  const entries = (await fs.list(dir)).filter(
+  return treeOf(fs, dir, await fs.list(dir));
+}
+
+/** The nodes of a folder, from its entries as listed. */
+async function treeOf(fs: VaultFs, dir: string, listed: Entry[]): Promise<TreeNode[]> {
+  const entries = listed.filter(
     (e) => !isHidden(e.name) && (e.kind === 'dir' || isNote(e) || isTaskList(e) || isBoard(e) || isKeys(e)),
   );
   const nodes = await Promise.all(
     entries.map(async (e): Promise<TreeNode> => {
-      if (e.kind === 'dir') return { name: e.name, path: e.path, kind: 'folder', children: await readTree(fs, e.path) };
+      if (e.kind === 'dir') {
+        const inside = await fs.list(e.path);
+        if (isCollection(inside)) return { name: e.name, path: e.path, kind: 'collection', title: collectionName(e.path) };
+        return { name: e.name, path: e.path, kind: 'folder', children: await treeOf(fs, e.path, inside) };
+      }
       if (isTaskList(e)) return { name: e.name, path: e.path, kind: 'tasks', title: listName(e.path) };
       if (isBoard(e)) return { name: e.name, path: e.path, kind: 'board', title: boardName(e.path) };
       if (isKeys(e)) return { name: e.name, path: e.path, kind: 'keys', title: keysName(e.path) };
       return { name: e.name, path: e.path, kind: 'note', title: displayTitle(e.path, await fs.readText(e.path)) };
     }),
   );
-  const order: Record<TreeNode['kind'], number> = { tasks: 1, board: 2, keys: 3, folder: 4, note: 5 };
+  const order: Record<TreeNode['kind'], number> = { tasks: 1, board: 2, keys: 3, collection: 4, folder: 5, note: 6 };
   const rank = (n: TreeNode) => (n.path === INBOX ? 0 : order[n.kind]);
   // Names compare without their extension, so that `Board 2` comes after `Board`.
-  const plain = (n: TreeNode) => (n.kind === 'folder' ? n.name : splitName(n.name)[0]);
+  const plain = (n: TreeNode) => (n.kind === 'folder' || n.kind === 'collection' ? n.name : splitName(n.name)[0]);
   return nodes.sort((a, b) => rank(a) - rank(b) || plain(a).localeCompare(plain(b), undefined, { numeric: true }));
 }
 
@@ -582,9 +618,22 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
         if (look && typeof look === 'object') keys[path] = { view: (look as Partial<KeysLook>).view === 'text' ? 'text' : 'table' };
       }
     }
-    return { tabs, active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null, boards, keys };
+    const collections: Record<string, CollectionLook> = {};
+    if (data.collections && typeof data.collections === 'object') {
+      for (const [path, look] of Object.entries(data.collections as Record<string, unknown>)) {
+        if (!look || typeof look !== 'object') continue;
+        const { view, sort, group, columns } = look as Partial<CollectionLook>;
+        const read: CollectionLook = {};
+        if (typeof view === 'string' || view === null) read.view = view;
+        if (sort && typeof sort === 'object' && typeof sort.key === 'string' && (sort.dir === 'asc' || sort.dir === 'desc')) read.sort = { key: sort.key, dir: sort.dir };
+        if (typeof group === 'string' || group === null) read.group = group;
+        if (Array.isArray(columns)) read.columns = columns.filter((c): c is string => typeof c === 'string');
+        collections[path] = read;
+      }
+    }
+    return { tabs, active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null, boards, keys, collections };
   } catch {
-    return { tabs: [], active: null, boards: {}, keys: {} };
+    return { tabs: [], active: null, boards: {}, keys: {}, collections: {} };
   }
 }
 

@@ -261,7 +261,7 @@ describe('trash', () => {
         title: 'Old',
         from: 'Old',
         deleted: later.toISOString(),
-        holds: { notes: 2, lists: 0, boards: 0, keys: 0, folders: 2 },
+        holds: { notes: 2, lists: 0, boards: 0, keys: 0, collections: 0, folders: 2 },
       },
       {
         path: '.scrawl/trash/2026-10-05 143207 2026-10-05 101010.md',
@@ -487,15 +487,41 @@ describe('attachments, folders and the workspace', () => {
 
   it('round-trips the workspace and survives a missing or broken file', async () => {
     const fs = new MemoryFs();
-    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {}, keys: {} });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {}, keys: {}, collections: {} });
     const boards = { 'Scrawl/Roadmap.board.json': { view: 'list' as const, phase: null }, 'Home/Renovation.board.json': { view: 'board' as const, phase: 'p2' }, 'Work/Plan.board.json': { view: 'list' as const } };
     const keys = { 'Scrawl/Production.env': { view: 'text' as const } };
-    await saveWorkspace(fs, { tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards, keys });
-    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards, keys });
+    const collections = { 'Work/Companies': { view: null, sort: { key: 'status', dir: 'desc' as const }, group: 'status', columns: ['name', 'status'] } };
+    await saveWorkspace(fs, { tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards, keys, collections });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards, keys, collections });
     // A workspace written before boards and keys files were remembered still opens.
     await fs.writeText('.scrawl/workspace.json', '{"tabs":["Inbox/a.md"],"active":null}');
-    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: null, boards: {}, keys: {} });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: null, boards: {}, keys: {}, collections: {} });
     await fs.writeText('.scrawl/workspace.json', 'not json');
-    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {}, keys: {} });
+    expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {}, keys: {}, collections: {} });
+  });
+});
+
+describe('collections in the vault', () => {
+  it('lists a folder with a schema file as one item, and keeps it whole through the trash', async () => {
+    const { createCollection } = await import('./collection');
+    const fs = new MemoryFs();
+    await fs.writeText('Work/plan.md', 'plan');
+    const dir = await createCollection(fs, 'Work', 'Companies', 'companies');
+    await fs.writeText(`${dir}/Acme.md`, '---\nid: a\nname: Acme\n---\n');
+    await fs.writeText(`${dir}/_draft.md`, 'hidden');
+    const tree = await readTree(fs);
+    const work = tree.find((node) => node.path === 'Work');
+    expect(work?.children?.map((node) => [node.kind, node.title ?? node.name])).toEqual([
+      ['collection', 'Companies'],
+      ['note', 'plan'],
+    ]);
+    expect(work?.children?.[0]?.children).toBeUndefined();
+
+    await trashFolder(fs, dir, at);
+    const [item] = await readTrash(fs);
+    expect(item).toMatchObject({ kind: 'collection', title: 'Companies', from: dir, records: 1 });
+    expect(await restoreFromTrash(fs, item!)).toBe(dir);
+    expect((await fs.list(dir)).map((e) => e.name).sort()).toEqual(['Acme.md', '_collection.json', '_draft.md']);
+    expect((await readTree(fs)).find((node) => node.path === 'Work')?.children?.[0]?.kind).toBe('collection');
   });
 });

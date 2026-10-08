@@ -1,4 +1,5 @@
 export * from './board';
+export * from './collection';
 export * from './filters';
 export * from './fs';
 export * from './history';

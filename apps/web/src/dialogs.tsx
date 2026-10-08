@@ -1,4 +1,4 @@
-import { DUE_RULES, type FilterChoices, filterName, type Phase, type PhasePatch, type Priority, type TaskFilter, type Template } from '@scrawlnotes/core';
+import { type CollectionTemplate, DUE_RULES, type FilterChoices, filterName, newSchema, type Phase, type PhasePatch, type Priority, type TaskFilter, type Template } from '@scrawlnotes/core';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type FormEvent,
@@ -132,7 +132,7 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
   );
 }
 
-export type NewKind = 'note' | 'tasks' | 'board' | 'keys' | 'filter';
+export type NewKind = 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'filter';
 export type ItemKind = Exclude<NewKind, 'filter'>;
 
 // Keys come after Board and before Filter, which is a view rather than a file; what they are for
@@ -142,6 +142,7 @@ const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: MessageK
   { kind: 'tasks', label: 'create.tasks', icon: 'tasks' },
   { kind: 'board', label: 'create.board', icon: 'board' },
   { kind: 'keys', label: 'create.keys', icon: 'keys', text: 'create.keysText' },
+  { kind: 'collection', label: 'create.collection', icon: 'collection', text: 'create.collectionText' },
   { kind: 'filter', label: 'create.filter', icon: 'filter' },
 ];
 
@@ -155,7 +156,7 @@ export function NewDialog({ folders, folder, onCreate, onFilter, onClose }: {
   /** The folder chosen to begin with. */
   folder: string;
   /** Returns a message when the item cannot be made. */
-  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template) => Promise<string | null>;
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate) => Promise<string | null>;
   /** A filter has a window of its own. */
   onFilter: () => void;
   onClose: () => void;
@@ -169,8 +170,18 @@ export function NewDialog({ folders, folder, onCreate, onFilter, onClose }: {
   return <KindChoice onPick={(picked) => (picked === 'filter' ? onFilter() : setKind(picked))} onClose={onClose} />;
 }
 
-const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard', keys: 'create.newKeys' };
-const NAME_HINTS: Record<ItemKind, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName', keys: 'create.keysName' };
+const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard', keys: 'create.newKeys', collection: 'create.newCollection' };
+const NAME_HINTS: Record<ItemKind, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName', keys: 'create.keysName', collection: 'create.collectionName' };
+
+/** The ways a collection can start: its fields, which the Fields window changes later. */
+const COLLECTION_TEMPLATES: { template: CollectionTemplate; label: MessageKey; text: MessageKey }[] = [
+  { template: 'companies', label: 'create.companies', text: 'create.companiesText' },
+  { template: 'people', label: 'create.people', text: 'create.peopleText' },
+  { template: 'activities', label: 'create.activities', text: 'create.activitiesText' },
+  { template: 'feedback', label: 'create.feedback', text: 'create.feedbackText' },
+  { template: 'payments', label: 'create.payments', text: 'create.paymentsText' },
+  { template: 'blank', label: 'create.blank', text: 'create.blankText' },
+];
 
 /** The ways a board can start: its columns by kind, and whether phases are on. */
 const TEMPLATES: { template: Template; label: MessageKey; text: MessageKey; columns: string[] }[] = [
@@ -224,12 +235,13 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
   kind: ItemKind;
   folders: string[];
   folder: string;
-  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template) => Promise<string | null>;
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate) => Promise<string | null>;
   onBack: () => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState('');
   const [template, setTemplate] = useState<Template>('software');
+  const [collectionTemplate, setCollectionTemplate] = useState<CollectionTemplate>('companies');
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
   const picker = useFolderPicker(folders, folder);
@@ -239,7 +251,7 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
     const choice = picker.choiceAt(picker.selected);
     if (!choice || busy.current) return;
     busy.current = true;
-    const failed = await onCreate(kind, choice, name, template);
+    const failed = await onCreate(kind, choice, name, template, collectionTemplate);
     busy.current = false;
     setError(failed);
   };
@@ -252,7 +264,7 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
     }
   };
   return (
-    <Dialog label={title} className={kind === 'board' ? 'board-create' : undefined} onClose={onClose} onEscape={onBack} onKeyDown={onKey}>
+    <Dialog label={title} className={kind === 'board' || kind === 'collection' ? 'board-create' : undefined} onClose={onClose} onEscape={onBack} onKeyDown={onKey}>
       <h2>{title}</h2>
       <label className="field">
         <span>{t('create.name')}</span>
@@ -305,6 +317,31 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
             ))}
           </div>
           <p className="dialog-hint">{t('create.templateHint')}</p>
+        </div>
+      )}
+      {kind === 'collection' && (
+        <div className="field templates-field">
+          <span id="new-ctemplate-label">{t('create.template')}</span>
+          <div className="templates ctemplates" role="radiogroup" aria-labelledby="new-ctemplate-label">
+            {COLLECTION_TEMPLATES.map((item) => (
+              <button
+                key={item.template}
+                type="button"
+                role="radio"
+                aria-checked={collectionTemplate === item.template}
+                onClick={() => setCollectionTemplate(item.template)}
+              >
+                <b>{t(item.label)}</b>
+                <span className="flds">
+                  {newSchema(item.template).fields.map((field) => (
+                    <i key={field.key}>{field.key}</i>
+                  ))}
+                </span>
+                <small>{t(item.text)}</small>
+              </button>
+            ))}
+          </div>
+          <p className="dialog-hint">{t('create.collectionTemplateHint')}</p>
         </div>
       )}
       {error && <p role="alert">{error}</p>}

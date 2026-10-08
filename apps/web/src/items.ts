@@ -1,4 +1,4 @@
-import { basename, BOARD_EXT, boardName, dirname, INBOX_TASKS, KEYS_EXT, keysName, listName, TASK_LIST_EXT, type TaskFilter } from '@scrawlnotes/core';
+import { basename, BOARD_EXT, boardName, collectionName, dirname, INBOX_TASKS, isScratchNote, KEYS_EXT, keysName, listName, TASK_LIST_EXT, type TaskFilter } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import type { IconName } from './Icon';
 
@@ -11,6 +11,7 @@ const TASKS = 'tasks:';
 const BOARD = 'board:';
 const KEYS = 'keys:';
 const FILTER = 'filter:';
+const COLLECTION = 'collection:';
 
 /** The tab of a saved filter, by its id. */
 export const filterTab = (id: string) => `${FILTER}${id}`;
@@ -23,6 +24,10 @@ export const tasksOf = (list: string) => `${TASKS}${list}`;
 export const boardOf = (board: string) => `${BOARD}${board}`;
 /** The tab of a keys file, by its path. */
 export const keysOf = (keys: string) => `${KEYS}${keys}`;
+/** The tab of a collection, by the path of its folder. */
+export const collectionTab = (dir: string) => `${COLLECTION}${dir}`;
+/** The folder of a collection tab, or null for any other tab. */
+export const collectionPathOf = (id: string) => (id.startsWith(COLLECTION) ? id.slice(COLLECTION.length) : null);
 export const isNote = (id: string) => !id.includes(':');
 /** The file of a task list tab, or null for any other tab. */
 export const listOf = (id: string) => (id.startsWith(TASKS) ? id.slice(TASKS.length) : null);
@@ -41,6 +46,8 @@ export const pathOf = (id: string) => (isNote(id) ? id : (listOf(id) ?? boardPat
 
 /** The folder a tab's note, task list or board is in; null for the views over all folders. */
 export function folderOf(id: string): string | null {
+  const collection = collectionPathOf(id);
+  if (collection !== null) return dirname(collection);
   const path = pathOf(id);
   return path === null ? null : dirname(path);
 }
@@ -63,8 +70,15 @@ export function keysLabel(keys: string): string {
   return folder ? t('tab.keys', { keys: keysName(keys), folder }) : keysName(keys);
 }
 
+/** A collection's name and, apart from it, the folder it is in. */
+export function collectionLabel(dir: string): string {
+  const folder = basename(dirname(dir));
+  return folder ? t('tab.collection', { collection: collectionName(dir), folder }) : collectionName(dir);
+}
+
 export function iconOf(id: string): IconName {
   if (id === TRASH) return 'trash';
+  if (id.startsWith(COLLECTION)) return 'collection';
   if (id.startsWith(FILTER)) return 'filter';
   if (id.startsWith(KEYS)) return 'keys';
   return isNote(id) ? 'note' : id.startsWith(BOARD) ? 'board' : 'tasks';
@@ -82,5 +96,8 @@ export function labelOf(id: string, titles: Record<string, string>, filters: Tas
   if (board !== null) return boardLabel(board);
   const keys = keysPathOf(id);
   if (keys !== null) return keysLabel(keys);
-  return titles[id] ?? t('note.untitled');
+  const collection = collectionPathOf(id);
+  if (collection !== null) return collectionLabel(collection);
+  // A record opened as a note is not in the tree's titles; it is named after its file.
+  return titles[id] ?? (isScratchNote(id) ? t('note.untitled') : basename(id).replace(/\.md$/, ''));
 }

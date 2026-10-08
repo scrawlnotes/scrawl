@@ -5311,3 +5311,841 @@ button.cb:hover::after {
     padding-top: 48px;
   }
 }
+
+/* ---------- collections ---------- */
+/* The table of a collection, after the Collection views of design/mockups.html. */
+
+.collection-view .th .search {
+  flex: 1 1 140px;
+  max-width: 220px;
+  min-width: 0;
+  margin-left: auto;
+  padding: 4px 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-side);
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 12px;
+}
+
+.collection-view .th .search:focus {
+  border-color: var(--sl-accent);
+  outline: none;
+}
+
+.collection-view .th .search + .add {
+  margin-left: 0;
+}
+
+.clist .crow {
+  display: grid;
+  gap: 0 12px;
+  align-items: center;
+  width: 100%;
+  min-width: 640px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-fg);
+  font: inherit;
+  text-align: left;
+}
+
+.clist .crow:not(.head) {
+  cursor: pointer;
+}
+
+.clist .crow:not(.head):hover {
+  background: var(--sl-side);
+}
+
+.clist .crow.head {
+  padding: 10px 8px 6px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.clist .crow.head button {
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  text-transform: inherit;
+  white-space: nowrap;
+}
+
+.clist .crow.head button:hover,
+.clist .crow.head .sorted {
+  color: var(--sl-dim);
+}
+
+.clist .crow > span {
+  min-width: 0;
+}
+
+.clist .crow .tt {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clist .crow .name {
+  font-weight: 500;
+}
+
+.clist .crow .empty {
+  color: var(--sl-faint);
+}
+
+.clist .crow .num {
+  display: block;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.clist .crow .dt {
+  color: var(--sl-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.clist .crow .tick {
+  color: var(--sl-accent);
+}
+
+.clist .lbls {
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.clist .lbl,
+.rmod .lbl {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: hsl(var(--lh) 60% 55% / 0.18);
+  color: hsl(var(--lh) 60% 65%);
+  font-size: 10.5px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.clist .who,
+.rmod .pv .who {
+  display: inline-block;
+  box-sizing: border-box;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font: 600 10px/16px var(--sl-font-ui);
+}
+
+.collection-view .lmore {
+  flex: none;
+  margin: 0 16px;
+  padding: 6px 8px 8px;
+  color: var(--sl-faint);
+  font-size: 12px;
+  text-align: left;
+}
+
+.collection-view .lmore:hover {
+  color: var(--sl-dim);
+}
+
+.cv-empty {
+  margin: 0;
+  padding: 8px 26px 16px;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+}
+
+/* On a phone the table is a list: the name, then up to three fields under it. */
+.collection-view .clist:not(.blist) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.prow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-fg);
+  font: inherit;
+  text-align: left;
+}
+
+.prow b {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.prow small {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+/* ---------- a record ---------- */
+/* The record's screen: a modal like a card's, drawn from the schema's layout. */
+
+.rmod {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
+  max-height: 100%;
+  min-height: 0;
+  border: 1px solid var(--sl-line);
+  border-radius: 9px;
+  background: var(--sl-bg);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.4);
+  font-size: 13px;
+}
+
+.rmod .cp-head svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--sl-faint);
+}
+
+.rmod .cp-head .open {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  margin-left: auto;
+  border-radius: 4px;
+}
+
+.rmod .cp-head .open:hover {
+  background: var(--sl-code);
+}
+
+.rmod .cp-head .open:hover svg {
+  color: var(--sl-fg);
+}
+
+.rmod .cp-head .open + .more {
+  margin-left: 0;
+}
+
+.rmod .cp-head .x.push {
+  margin-left: auto;
+}
+
+.rm-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 20px 20px;
+  overflow-y: auto;
+}
+
+.rm-title {
+  margin-bottom: 12px;
+}
+
+.rm-title input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 3px 0;
+  border: 0;
+  border-bottom: 1px solid var(--sl-line);
+  background: none;
+  color: var(--sl-fg);
+  font: 600 19px/1.3 var(--sl-font-ui);
+  outline: none;
+}
+
+.rm-title input:focus {
+  border-bottom-color: var(--sl-accent);
+}
+
+.rm-title .pe input {
+  margin-bottom: 6px;
+}
+
+.rm-name {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  max-width: 100%;
+  margin: 0 -6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--sl-fg);
+  font: 600 19px/1.3 var(--sl-font-ui);
+  text-align: left;
+}
+
+.rm-name:hover {
+  background: var(--sl-side);
+}
+
+.rm-name small {
+  color: var(--sl-faint);
+  font: 12px var(--sl-font-mono);
+}
+
+.rm-cols {
+  display: flex;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+.rm-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.rm-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rm-sec h3 {
+  margin: 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.prop {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.prop .pl {
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.prop .pl i {
+  margin-left: 3px;
+  color: var(--sl-accent);
+  font-style: normal;
+}
+
+.prop .pe {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prop .pe input:not([type='checkbox']),
+.prop .pe select,
+.prop .pe .chips {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-side);
+  color: var(--sl-fg);
+  font: inherit;
+}
+
+.prop .pe input:focus,
+.prop .pe select:focus,
+.prop .pe .chips:focus-within {
+  border-color: var(--sl-accent);
+  outline: none;
+}
+
+.prop .pe select option {
+  background: var(--sl-side);
+}
+
+.prop .pe input::placeholder {
+  color: var(--sl-faint);
+}
+
+.prop .pe .bt {
+  display: flex;
+  gap: 6px;
+}
+
+.prop .pe .bt button,
+.rm-foot button {
+  padding: 2px 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.prop .pe .bt button.primary,
+.rm-foot button.primary {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.prop .pe p[role='alert'],
+.rm-foot p[role='alert'] {
+  margin: 0;
+  color: var(--sl-accent);
+  font-size: 12px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px !important;
+}
+
+.chips .lbl button {
+  margin-left: 4px;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.chips input {
+  flex: 1;
+  min-width: 80px;
+  padding: 2px !important;
+  border: 0 !important;
+  background: none !important;
+  outline: none;
+}
+
+.rm-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 20px 14px;
+  border-top: 1px solid var(--sl-line);
+}
+
+.rm-foot p[role='alert'] {
+  margin-right: auto;
+}
+
+.rm-foot button {
+  padding: 4px 12px;
+}
+
+/* The create window's collection templates show their fields instead of columns. */
+.templates .flds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.templates .flds i {
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--sl-sel);
+  color: var(--sl-dim);
+  font-size: 10.5px;
+  font-style: normal;
+  line-height: 16px;
+}
+
+/* On a phone the record fills the screen and its columns come one under the other. */
+@media (max-width: 640px) {
+  .rmod {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .rm-cols {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .rm-col {
+    width: 100%;
+  }
+
+  .collection-view .th .search {
+    flex-basis: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
+}
+
+.prow small .tt,
+.prow small .num,
+.prow small .dt {
+  display: inline;
+}
+
+/* The form's boxes: every field is one, a choice opens its list under its box. */
+.prop .pe .st-field {
+  min-height: 30px;
+  padding: 4px 8px;
+}
+
+.prop .pe .st-field .none,
+.opt-list .none {
+  color: var(--sl-faint);
+}
+
+.prop .pe .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  cursor: pointer;
+}
+
+.prop .pe .check input {
+  width: auto;
+  margin: 0;
+}
+
+.opt-list button {
+  grid-template-columns: minmax(0, 1fr) 14px;
+}
+
+.opt-list .nm {
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+}
+
+.rm-title small {
+  margin-left: 10px;
+  color: var(--sl-faint);
+  font: 12px var(--sl-font-mono);
+}
+
+/* The body, in a frame like the other boxes, with a hint while it is empty. */
+.rm-notes {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 140px;
+  padding: 6px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-side);
+  cursor: text;
+}
+
+.rm-notes:focus-within {
+  border-color: var(--sl-accent);
+}
+
+.rm-notes.empty::after {
+  content: attr(data-hint);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  color: var(--sl-faint);
+  font: 13.5px/1.6 var(--sl-font-editor, inherit);
+  pointer-events: none;
+}
+
+.rm-notes .cm-editor {
+  height: auto;
+  font-size: 13.5px;
+}
+
+.rm-notes .cm-gutters {
+  display: none !important;
+}
+
+.rm-notes .cm-content {
+  padding: 2px 4px;
+}
+
+.rm-notes .cm-scroller {
+  overflow: visible;
+}
+
+.rm-foot button.primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Links: a record of another collection, by its name and code. */
+.clist .lnks {
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.clist .lnk,
+.rmod .lnk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0 7px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.clist .lnk {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+
+.rmod .lnk button {
+  color: var(--sl-faint);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.rmod .lnk button:hover {
+  color: var(--sl-fg);
+}
+
+.lnk-none {
+  margin: 2px 0 0;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+/* Six collection templates in three columns. */
+.templates.ctemplates {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* The editor paints the app background by its theme; inside the notes box it shows the box. */
+.rm-notes .cm-editor {
+  background: transparent;
+}
+
+.rm-notes .cm-content {
+  min-height: 124px;
+}
+
+/* The views bar under the table's head: All and the saved views, then Filter, Group and Columns. */
+.cbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 0 16px 6px;
+}
+
+.cbar .views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.cbar .views button {
+  padding: 2px 9px;
+  border-radius: 5px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.cbar .views button:hover {
+  color: var(--sl-fg);
+}
+
+.cbar .views button[aria-selected='true'] {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.cbar .tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.cbar .tools .ghost {
+  margin-left: 0;
+  padding: 2px 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.cbar .tools .st-field.ghost {
+  display: inline-flex;
+  width: auto;
+  min-height: 0;
+  background: none;
+}
+
+.cbar .tools .st-field.ghost .nm {
+  flex: none;
+}
+
+.cbar .tools .st-field.ghost .none {
+  color: var(--sl-dim);
+}
+
+.cbar .tools .ghost.on {
+  border-color: var(--sl-accent);
+  color: var(--sl-accent);
+}
+
+.cbar .tools .more {
+  padding: 0 6px;
+  border-radius: 4px;
+  color: var(--sl-faint);
+  letter-spacing: 1px;
+}
+
+.cbar .tools .more:hover {
+  background: var(--sl-code);
+  color: var(--sl-fg);
+}
+
+/* Group heads in the table, and the sum rows. */
+.clist .lsec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 8px 4px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.clist .lsec .chev {
+  width: 10px;
+  color: var(--sl-faint);
+  font-size: 10px;
+}
+
+.clist .lsec small {
+  color: var(--sl-faint);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.clist .lsec.closed {
+  color: var(--sl-faint);
+}
+
+.clist .crow.sum {
+  color: var(--sl-dim);
+  cursor: default;
+}
+
+.clist .crow.sum .tt {
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.clist .crow.sum .num {
+  font-weight: 600;
+}
+
+/* A formula in the form: shown, not typed. */
+.prop .pe .st-field.formula {
+  color: var(--sl-fg);
+  cursor: default;
+}
+
+/* The filter window: conditions as rows of field, condition and value. */
+.dialog.cfilter {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.cond {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr) 24px;
+  gap: 6px;
+  align-items: center;
+}
+
+.cond input {
+  min-width: 0;
+}
+
+.cond .st-field {
+  min-height: 31px;
+}
+
+.cond .st-field.multi .nm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  white-space: normal;
+}
+
+.cond .x {
+  padding: 0 6px;
+  border-radius: 4px;
+  color: var(--sl-faint);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.cond .x:hover {
+  background: var(--sl-code);
+  color: var(--sl-fg);
+}
+
+.cond-add {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 5px;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.cond-add:hover {
+  color: var(--sl-fg);
+}
+
+@media (max-width: 640px) {
+  .cond {
+    grid-template-columns: minmax(0, 1fr) 24px;
+  }
+}
+
+/* On a phone the tools come under the views when they do not fit beside them. */
+.cbar .views {
+  flex: 1 1 auto;
+}
+
+.cbar .tools {
+  flex-wrap: wrap;
+}

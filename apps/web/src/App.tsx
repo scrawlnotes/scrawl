@@ -5,6 +5,8 @@ import {
   type Card,
   cardBrief,
   cardRef,
+  type CollectionTemplate,
+  collectionName,
   type Column,
   columnCards,
   dayOf,
@@ -56,10 +58,13 @@ import { FormatBar } from './FormatBar';
 import { HistoryDialog } from './History';
 import { Icon } from './Icon';
 import { type KeysActions, KeysView } from './Keys';
+import { type CollectionActions, CollectionView, recordDeleteText } from './Collection';
 import {
   boardLabel,
   boardOf,
   boardPathOf,
+  collectionPathOf,
+  collectionTab,
   filterOf,
   filterTab,
   folderOf,
@@ -137,7 +142,7 @@ function findNode(nodes: TreeNode[], path: string): TreeNode | undefined {
 
 /** What a folder holds, all the way down, as "2 notes, 1 task list"; empty when it holds nothing. */
 function contentsOf(folder: TreeNode): string {
-  const totals = { note: 0, tasks: 0, board: 0, keys: 0, folder: 0 };
+  const totals = { note: 0, tasks: 0, board: 0, keys: 0, collection: 0, folder: 0 };
   const visit = (nodes: TreeNode[]) => {
     for (const node of nodes) {
       totals[node.kind]++;
@@ -145,7 +150,7 @@ function contentsOf(folder: TreeNode): string {
     }
   };
   visit(folder.children ?? []);
-  return contentsText({ notes: totals.note, lists: totals.tasks, boards: totals.board, keys: totals.keys, folders: totals.folder });
+  return contentsText({ notes: totals.note, lists: totals.tasks, boards: totals.board, keys: totals.keys, collections: totals.collection, folders: totals.folder });
 }
 
 export function App() {
@@ -153,7 +158,7 @@ export function App() {
   const [session] = useState(() => new Session());
   const [syncService] = useState(() => new SyncService(session));
   const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
-  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
+  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -251,8 +256,8 @@ export function App() {
   };
   // New things go to the folder of the tab on screen, or to the inbox.
   const newFolder = (active && folderOf(active)) || INBOX;
-  const create = async (kind: ItemKind, choice: FolderChoice, name: string, template: Template) => {
-    const error = await session.create(kind, choice.folder, name, choice.create, template);
+  const create = async (kind: ItemKind, choice: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate) => {
+    const error = await session.create(kind, choice.folder, name, choice.create, template, collectionTemplate);
     if (!error) setDialog(null);
     return error;
   };
@@ -261,7 +266,13 @@ export function App() {
   const ask = (title: string, message: string, run: () => void, action = t('delete.action')) =>
     setDialog({ kind: 'confirm', title, message, action, run });
   const deleteItem = (path: string) => {
-    if (isTaskListPath(path)) {
+    if (path in collections) {
+      const name = quote(collectionName(path));
+      const total = collections[path]?.records.length ?? 0;
+      const message =
+        total > 0 ? t('delete.collectionWithRecords', { name, records: t('count.records', { count: total }) }) : t('delete.collectionText', { name });
+      ask(t('delete.collection'), message, () => void session.trashFolder(path));
+    } else if (isTaskListPath(path)) {
       const name = quote(listName(path));
       const total = tasks[path]?.length ?? 0;
       const message =
@@ -424,7 +435,7 @@ export function App() {
   // The menu of a note, a task list or a board; the inbox's own list has none.
   const itemMenu = (event: MouseEvent, path: string) =>
     path !== INBOX_TASKS &&
-    openMenu(event, [
+    openMenu(event, path in collections ? [{ label: t('menu.delete'), run: () => deleteItem(path) }] : [
       { label: t('menu.moveTo'), run: () => setDialog({ kind: 'move', path }) },
       { label: t('menu.rename'), run: () => setDialog({ kind: 'rename', path }) },
       // Only notes keep a history; a keys file keeps none, so that a password changed is gone.
@@ -567,11 +578,23 @@ export function App() {
     menu: openMenu,
     ask: (title, message, run) => ask(title, message, run),
   };
+  const collectionActions: CollectionActions = {
+    addRecord: (dir, input) => session.addRecord(dir, input),
+    updateRecord: (dir, id, patch) => session.updateRecord(dir, id, patch),
+    removeRecord: (dir, record) => ask(t('delete.record'), recordDeleteText(record), () => void session.trashRecord(dir, record)),
+    openNote: (path) => void session.open(path),
+    menu: openMenu,
+    ask: (title, message, run, action) => ask(title, message, run, action),
+    records: (dir) => collections[dir]?.records ?? null,
+    changeSchema: (dir, change) => session.changeSchema(dir, change),
+    editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
+  };
   const dueNow = dueToday(tasks, today);
   const dueCardsNow = dueCards(boards).filter((d) => d.card.due! <= today).length;
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [TRASH]: trash.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
+  for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;
   for (const filter of filters) {
     counts[filterTab(filter.id)] =
       filterTasks(filter, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0) +
@@ -582,6 +605,8 @@ export function App() {
   const board = boardPath !== null ? boards[boardPath] : undefined;
   const keysPath = active ? keysPathOf(active) : null;
   const keysText = keysPath !== null ? keyFiles[keysPath] : undefined;
+  const collectionPath = active ? collectionPathOf(active) : null;
+  const collection = collectionPath !== null ? collections[collectionPath] : undefined;
   const isDueView = active === TODAY || active === UPCOMING;
   const filterId = active ? filterOf(active) : null;
   const activeFilter = filters.find((filter) => filter.id === filterId) ?? null;
@@ -727,6 +752,17 @@ export function App() {
             onStatus={setViewStatus}
           />
         )}
+        {collection && collectionPath !== null && (
+          <CollectionView
+            key={collectionPath}
+            collection={collection}
+            today={today}
+            look={collectionLooks[collectionPath]}
+            onLook={(look) => session.lookAtCollection(collectionPath, look)}
+            actions={collectionActions}
+            onStatus={setViewStatus}
+          />
+        )}
         {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} boards={boards} today={today} actions={taskActions} />}
         {activeFilter && (
           <FilterView
@@ -747,7 +783,7 @@ export function App() {
             onEmpty={askEmptyTrash}
           />
         )}
-        {!showingEditor && list === null && !board && keysText === undefined && !isDueView && !activeFilter && active !== TRASH && (
+        {!showingEditor && list === null && !board && keysText === undefined && !collection && !isDueView && !activeFilter && active !== TRASH && (
           <section className="placeholder">
             {active ? (
               <>
@@ -762,7 +798,7 @@ export function App() {
         <footer className="status">
           {stats && <span>{position(stats)}</span>}
           {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
-          {keysText !== undefined && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
+          {(keysText !== undefined || collection) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
           {notice && (
             <span className="notice" role="status">
               {notice}
