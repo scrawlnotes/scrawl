@@ -55,3 +55,25 @@ export async function openUrlOnDesktop(url: string): Promise<void> {
 
 /** Desktop: an address the web view reads a file of the notes folder from, straight from disk. */
 export const fileUrl = (path: string) => (folder ? convertFileSrc(`${folder}/${path}`) : path);
+
+/**
+ * Saves a text file where the user says: on desktop the system's Save window asks where, in a
+ * browser it is downloaded. Returns false when the Save window was cancelled.
+ */
+export async function saveTextFile(name: string, text: string, type: string, extension: string): Promise<boolean> {
+  if (!isDesktop) {
+    const url = URL.createObjectURL(new Blob([text], { type }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  }
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const chosen = await save({ defaultPath: name, filters: [{ name: extension.toUpperCase(), extensions: [extension] }] });
+  if (typeof chosen !== 'string') return false;
+  const at = Math.max(chosen.lastIndexOf('/'), chosen.lastIndexOf('\\'));
+  await invoke('fs_write_text', { root: chosen.slice(0, at), path: chosen.slice(at + 1), text });
+  return true;
+}

@@ -8,6 +8,8 @@ import {
   type CollectionTemplate,
   recordTitle,
   isLinkable,
+  collectionCsv,
+  parseCsv,
   collectionName,
   type Column,
   columnCards,
@@ -63,6 +65,7 @@ import { HistoryDialog } from './History';
 import { Icon } from './Icon';
 import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
+import { ImportDialog } from './Import';
 import {
   boardLabel,
   boardOf,
@@ -96,7 +99,7 @@ import { Sidebar } from './Sidebar';
 import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
 import { contentsText, quote } from './text';
 import { TrashView } from './Trash';
-import { isDesktop, openUrlOnDesktop } from './storage';
+import { isDesktop, openUrlOnDesktop, saveTextFile } from './storage';
 
 type OpenDialog =
   | { kind: 'new' }
@@ -454,8 +457,44 @@ export function App() {
       ...(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections
         ? []
         : [{ label: t('menu.history'), run: () => void showHistory(path) }]),
+      // A collection goes out to a CSV file and comes in from one.
+      ...(path in collections
+        ? [
+            { label: t('menu.exportCsv'), run: () => void exportCsv(path) },
+            { label: t('menu.importCsv'), run: () => chooseCsv(path) },
+          ]
+        : []),
       { label: t('menu.delete'), run: () => deleteItem(path) },
     ]);
+  // A collection as a CSV file, saved where the user says.
+  const exportCsv = async (dir: string) => {
+    const collection = collections[dir];
+    if (!collection) return;
+    const name = `${collectionName(dir)}.csv`;
+    try {
+      if (await saveTextFile(name, collectionCsv(collection, Object.values(collections), boards, t('collection.body'), today), 'text/csv', 'csv')) setNotice(t('import.exported', { name }));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    }
+  };
+  // A CSV file chosen for a collection opens the import window.
+  const csvInput = useRef<HTMLInputElement>(null);
+  const [csvFor, setCsvFor] = useState<string | null>(null);
+  const [importing, setImporting] = useState<{ dir: string; fileName: string; header: string[]; rows: string[][] } | null>(null);
+  const chooseCsv = (dir: string) => {
+    setCsvFor(dir);
+    if (csvInput.current) {
+      csvInput.current.value = '';
+      csvInput.current.click();
+    }
+  };
+  const readCsv = async (file: File) => {
+    const dir = csvFor;
+    if (!dir) return;
+    const [header, ...rows] = parseCsv(await file.text());
+    if (!header || rows.length === 0) return setNotice(t('import.empty'));
+    setImporting({ dir, fileName: file.name, header, rows });
+  };
   // The inbox is always there; it cannot be deleted. A new note shows at once, out from under the drawer.
   const folderMenu = (event: MouseEvent, path: string) =>
     openMenu(event, [
@@ -872,6 +911,19 @@ export function App() {
           onCreate={create}
           onFilter={() => setDialog({ kind: 'filter', filter: null })}
           onClose={closeDialog}
+        />
+      )}
+      <input ref={csvInput} type="file" accept=".csv,text/csv" hidden onChange={(event) => event.target.files?.[0] && void readCsv(event.target.files[0])} />
+      {importing && collections[importing.dir] && (
+        <ImportDialog
+          collection={collections[importing.dir]!}
+          fileName={importing.fileName}
+          header={importing.header}
+          rows={importing.rows}
+          targets={Object.fromEntries(Object.entries(collections).map(([dir, c]) => [dir, c.records]))}
+          onChooseFile={() => chooseCsv(importing.dir)}
+          onImport={(plan) => session.importRecords(importing.dir, plan)}
+          onClose={() => setImporting(null)}
         />
       )}
       {recordOver && collections[recordOver.dir]?.records.some((r) => r.id === recordOver.id) && (

@@ -32,6 +32,8 @@ import {
   serializeRecord,
   renameChoices,
   type ChoiceRenames,
+  type ImportPlan,
+  serializeSchema,
   type Collection,
   type CollectionLook,
   type CollectionTemplate,
@@ -999,6 +1001,37 @@ export class Session {
         }
       }
     } catch (error) {
+      return error instanceof Error ? error.message : t('error.record');
+    }
+    await this.reloadCollection(dir);
+    return null;
+  }
+
+  /**
+   * Writes an import into a collection: its schema with the fields and choices the import adds,
+   * then the records it adds and the ones it changes. The collection is read again. Returns a
+   * message when it cannot be written.
+   */
+  async importRecords(dir: string, plan: ImportPlan): Promise<string | null> {
+    const collection = this.snapshot.collections[dir];
+    if (!collection) return t('error.record');
+    await this.settle();
+    try {
+      if (serializeSchema(plan.schema) !== serializeSchema(collection.schema)) await saveSchema(this.fs, dir, plan.schema);
+      const target = { ...collection, schema: plan.schema };
+      for (const input of plan.added) {
+        const record = await addCollectionRecord(this.fs, target, input);
+        target.records = [...target.records, record];
+      }
+      for (const change of plan.updated) {
+        const record = collection.records.find((r) => r.id === change.id);
+        if (!record) continue;
+        await updateCollectionRecord(this.fs, plan.schema, record, { values: change.values, ...(change.body !== undefined && { body: change.body }) });
+        this.disk.delete(record.path);
+        this.states.delete(record.path);
+      }
+    } catch (error) {
+      await this.reloadCollection(dir);
       return error instanceof Error ? error.message : t('error.record');
     }
     await this.reloadCollection(dir);
