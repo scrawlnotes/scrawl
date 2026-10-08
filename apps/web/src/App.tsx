@@ -590,6 +590,8 @@ export function App() {
     menu: openMenu,
     ask: (title, message, run, action) => ask(title, message, run, action),
     records: (dir) => collections[dir]?.records ?? null,
+    collection: (dir) => collections[dir] ?? null,
+    collections: () => Object.values(collections),
     changeSchema: (dir, change) => session.changeSchema(dir, change),
     editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
   };

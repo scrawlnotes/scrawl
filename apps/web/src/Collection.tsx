@@ -18,8 +18,14 @@ import {
   isEmpty,
   isLink,
   type Layout,
+  type LayoutItem,
   type Link,
+  type LinkedBlock,
+  linkedRecords,
+  linkedValues,
+  linkFieldsTo,
   linkGone,
+  linkingCollections,
   linkTo,
   makeCode,
   matchesConditions,
@@ -37,6 +43,7 @@ import {
   matchesQuery,
   missingFields,
   NAME_KEY,
+  newRecordPath,
   type NewRecord,
   type Record,
   type RecordPatch,
@@ -64,7 +71,9 @@ import { createPortal } from 'react-dom';
 import { labelHue } from './CardPanel';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
+import { collectionLabel } from './items';
 import { useNarrow } from './narrow';
+import { dueLabel } from './Tasks';
 import { quote } from './text';
 
 // A collection, after the Collection views of design/mockups.html: one table of its records, a
@@ -90,6 +99,10 @@ export interface CollectionActions {
   editor: (parent: HTMLElement, doc: string, onChange: (doc: string) => void) => ScrawlEditor;
   /** The records of the collection at a path, for a link to pick from; null when there is no such collection. */
   records: (collection: string) => Record[] | null;
+  /** The collection at a path, for the records that link to a record; null when there is none. */
+  collection: (dir: string) => Collection | null;
+  /** Every collection in the space. */
+  collections: () => Collection[];
   /** Changes the collection's schema file, for its views. Returns a message when it cannot be written. */
   changeSchema: (dir: string, change: (schema: Schema) => Schema) => Promise<string | null>;
 }
@@ -676,8 +689,8 @@ function NotesBlock({ text, editor, onChange }: { text: string; editor: Collecti
 }
 
 /**
- * Esc closes the window `within` holds wherever the keyboard is, in the window or nowhere after
- * what had it went away; not while a list is open, which Esc closes first, nor from a window over it.
+ * Esc closes the window `within` holds, wherever the keyboard is, in it or nowhere after what had
+ * it went away; only the window on top does, and not while a list is open, which Esc closes first.
  */
 function useEscape(within: RefObject<HTMLElement | null>, onEscape: () => void) {
   const latest = useRef(onEscape);
@@ -685,8 +698,8 @@ function useEscape(within: RefObject<HTMLElement | null>, onEscape: () => void) 
   useEffect(() => {
     const key = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('.opt-list')) return;
-      const over = event.target instanceof Element ? event.target.closest('.backdrop') : null;
-      if (over && over !== within.current) return;
+      const windows = document.querySelectorAll('.backdrop');
+      if (windows[windows.length - 1] !== within.current) return;
       event.preventDefault();
       latest.current();
     };
@@ -703,8 +716,8 @@ interface Draft {
   body: string;
 }
 
-const draftOf = (record: Record | null): Draft =>
-  record ? { name: record.name, code: record.code, values: { ...record.values }, body: record.body } : { name: '', code: '', values: {}, body: '' };
+const draftOf = (record: Record | null, values: Record['values'] = {}): Draft =>
+  record ? { name: record.name, code: record.code, values: { ...record.values }, body: record.body } : { name: '', code: '', values: { ...values }, body: '' };
 
 /** Whether two drafts differ in anything that would be written. */
 function differs(a: Draft, b: Draft): boolean {
@@ -717,11 +730,141 @@ function differs(a: Draft, b: Draft): boolean {
   return false;
 }
 
-/** The screen of one record, or of a new one: one form, drawn from the schema's layout, saved as a whole. */
-function RecordDialog({ collection, record, today, actions, onClose }: {
+/** The first lines of a record's body as plain words, for a timeline: no heading marks, no list marks. */
+function excerpt(body: string): string {
+  return body
+    .split('\n')
+    .map((line) => line.replace(/^\s*(#+|[-*+]|\d+\.|>)\s+/, '').trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' ');
+}
+
+/** What a record of a collection is called, "activity" for Activities; "record" when the schema does not say. */
+const singularOf = (schema: Schema) => schema.singular ?? t('collection.recordSingular');
+
+/**
+ * The records of another collection that link to this one, under a head with how many there are
+ * and a button that adds one already linked. A timeline shows each with its choice as a chip, who
+ * and when, then its name and the first lines of its body, newest first; a list shows each by its
+ * name with a field or two beside it. A row opens its record over this one. With none yet the head
+ * stays, so that the first is added from here.
+ */
+function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
+  block: LinkedBlock;
+  /** The collection of the record on screen. */
+  dir: string;
+  record: Record;
+  today: string;
+  actions: CollectionActions;
+  onOpen: (source: Collection, record: Record) => void;
+  onAdd: (source: Collection) => void;
+}) {
+  const source = actions.collection(block.collection);
+  const name = collectionName(block.collection);
+  const ctx: ValueContext = { records: actions.records, openLink: actions.openLink };
+  const head = (count: number | null) => (
+    <div className="blk-h">
+      <span>{name}</span>
+      {count !== null && <small>{count}</small>}
+      {source && (
+        <button type="button" className="addl" onClick={() => onAdd(source)}>
+          {t('collection.addOne', { singular: singularOf(source.schema) })}
+        </button>
+      )}
+    </div>
+  );
+  if (!source) {
+    return (
+      <div className="blk">
+        {head(null)}
+        <p className="blk-none">{t('collection.noTarget', { name: block.collection })}</p>
+      </div>
+    );
+  }
+  const { schema } = source;
+  const records = linkedRecords(source, dir, record);
+  const byKey = (key: string | undefined) => (key ? schema.fields.find((f) => f.key === key) : undefined);
+  const day = byKey(block.sort)?.type === 'date' ? byKey(block.sort) : schema.fields.find((f) => f.type === 'date');
+  const timeline = block.style ? block.style === 'timeline' : !!day;
+  const rows = timeline
+    ? sortRecords(records, schema, day ? { key: day.key, dir: 'desc' } : { key: NAME_KEY, dir: 'asc' }, today)
+    : sortRecords(records, schema, { key: block.sort ?? NAME_KEY, dir: 'asc' }, today);
+  if (rows.length === 0) {
+    return (
+      <div className="blk">
+        {head(0)}
+        <p className="blk-none">{t('collection.noLinked', { collection: name.toLowerCase() })}</p>
+      </div>
+    );
+  }
+  if (timeline) {
+    const choice = schema.fields.find((f) => f.type === 'select');
+    const who = schema.fields.find((f) => f.type === 'person');
+    return (
+      <div className="blk">
+        {head(rows.length)}
+        {rows.map((r) => {
+          const kind = choice && r.values[choice.key];
+          const when = day && r.values[day.key];
+          const by = who && r.values[who.key];
+          const text = excerpt(r.body);
+          return (
+            <button key={r.id} type="button" className="tle" onClick={() => onOpen(source, r)}>
+              <span className="h">
+                {typeof kind === 'string' && kind && <Chip text={kind} color={optionColor(choice, kind)} />}
+                <b>{r.name}</b>
+                {typeof by === 'string' && by && <span className="by">{by}</span>}
+                <span className="t">{typeof when === 'string' && when ? dueLabel(when, today) : ''}</span>
+              </span>
+              {text && <span className="tx">{text}</span>}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+  // A list row shows the fields the block names, else the first two filled in, leaving out the link back here.
+  const back = new Set(linkFieldsTo(schema, dir).map((f) => f.key));
+  const shown = (r: Record) =>
+    (block.fields ? block.fields.map(byKey).filter((f): f is Field => !!f) : schema.fields.filter((f) => f.key !== NAME_KEY && f.key !== CODE_KEY && !back.has(f.key)))
+      .filter((f) => !isEmpty(fieldValueOf(r, f, schema, today)))
+      .slice(0, 2);
+  return (
+    <div className="blk">
+      {head(rows.length)}
+      {rows.map((r) => (
+        <button key={r.id} type="button" className="lrec" onClick={() => onOpen(source, r)}>
+          <span className="ln">
+            {r.code && <span className="key">{r.code}</span>}
+            {r.name}
+          </span>
+          <span className="meta">
+            {shown(r).map((f) => (
+              <Cell key={f.key} field={f} value={fieldValueOf(r, f, schema, today)} ctx={ctx} />
+            ))}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A record opened over another: one of a collection that links to it, or a new one already linked. */
+type Over = { dir: string; id: string } | { dir: string; values: Record['values'] };
+
+/**
+ * The screen of one record, or of a new one: one form, saved as a whole. A record is drawn from
+ * the schema's layout, with the records that link to it where the layout puts them, or under
+ * its body when the schema has none. A new one is a narrow form of its fields and its body, since
+ * nothing links to it yet.
+ */
+function RecordDialog({ collection, record, values, today, actions, onClose }: {
   collection: Collection;
   /** Null for a new record. */
   record: Record | null;
+  /** What a new record starts with: the links of the record it is added from. */
+  values?: Record['values'];
   today: string;
   actions: CollectionActions;
   onClose: () => void;
@@ -729,17 +872,34 @@ function RecordDialog({ collection, record, today, actions, onClose }: {
   const { dir, schema } = collection;
   const name = collectionName(dir);
   const fields = useMemo(() => new Map(schema.fields.map((f) => [f.key, f])), [schema]);
-  const layout: Layout = layoutOf(schema);
   const unplaced = unplacedFields(schema);
-  const [draft, setDraft] = useState<Draft>(() => draftOf(record));
+  const [draft, setDraft] = useState<Draft>(() => draftOf(record, values));
   const [error, setError] = useState<string | null>(null);
+  const [over, setOver] = useState<Over | null>(null);
   const busy = useRef(false);
   const backdrop = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
   const isNew = record === null;
-  const original = useMemo(() => draftOf(record), [record]);
+  const original = useMemo(() => draftOf(record, values), [record, values]);
   const dirty = differs(draft, original);
   const ctx: ValueContext = { records: actions.records, openLink: actions.openLink };
+
+  // A new record is one column of its fields and body. A record with no layout of its own has,
+  // under its body, the records of every collection that links to its collection.
+  const layout: Layout = useMemo(() => {
+    const own = layoutOf(schema);
+    if (isNew) {
+      const sections = own.columns.flatMap((column) =>
+        column.sections.map((section) => ({ ...section, items: section.items.filter((item) => 'field' in item || item.block === 'body') })),
+      );
+      return { columns: [{ sections: sections.filter((section) => section.items.length > 0) }] };
+    }
+    if (schema.layout) return own;
+    const linked = linkingCollections(actions.collections(), dir).map((c): LinkedBlock => ({ block: 'linked', collection: c.dir }));
+    return linked.length > 0 ? { columns: [{ sections: [...own.columns[0]!.sections, { items: linked }] }] } : own;
+  }, [schema, isNew, dir, actions]);
+  // The name, and the fields the layout does not place, go in the first column that has fields.
+  const fieldColumn = Math.max(0, layout.columns.findIndex((column) => column.sections.some((section) => section.items.some((item) => 'field' in item))));
 
   // The keyboard comes into the window, so that Esc closes it before anything is clicked.
   useEffect(() => {
@@ -778,6 +938,14 @@ function RecordDialog({ collection, record, today, actions, onClose }: {
   const menu = (event: MouseEvent) =>
     record && actions.menu(event, [{ label: t('menu.delete'), run: () => actions.removeRecord(dir, record) }]);
   useEscape(backdrop, () => leave());
+
+  // The record opened over this one, as it is now; it closes when it is gone.
+  const overCollection = over ? actions.collection(over.dir) : null;
+  const overRecord = over && 'id' in over ? (overCollection?.records.find((r) => r.id === over.id) ?? null) : null;
+  const overGone = !!over && (!overCollection || ('id' in over && !overRecord));
+  useEffect(() => {
+    if (overGone) setOver(null);
+  }, [overGone]);
 
   // The name is the first box, as every field is one; the record is named after it, and its file too.
   const nameField = (
@@ -835,16 +1003,37 @@ function RecordDialog({ collection, record, today, actions, onClose }: {
       <NotesBlock text={draft.body} editor={actions.editor} onChange={(text) => set({ body: text })} />
     </div>
   );
+  const entry = (layoutItem: LayoutItem, index: number): ReactNode => {
+    if ('field' in layoutItem) return item(layoutItem.field, index);
+    if (layoutItem.block === 'body') return body(index);
+    if (layoutItem.block === 'linked' && record) {
+      return (
+        <LinkedRecords
+          key={`linked-${layoutItem.collection}-${index}`}
+          block={layoutItem}
+          dir={dir}
+          record={record}
+          today={today}
+          actions={actions}
+          onOpen={(source, linked) => setOver({ dir: source.dir, id: linked.id })}
+          onAdd={(source) => setOver({ dir: source.dir, values: linkedValues(source.schema, dir, record, schema) })}
+        />
+      );
+    }
+    // Cards and tasks come with the cards' own fields.
+    return null;
+  };
   const columns = layout.columns.map((column, c) => (
     <div key={c} className="rm-col" style={{ flex: column.width ?? 1 }}>
+      {c === fieldColumn && nameField}
       {column.sections.map((section, s) => (
         <section key={s} className="rm-sec">
           {section.title && <h3>{section.title}</h3>}
-          {section.items.map((entry, i) => ('field' in entry ? item(entry.field, i) : entry.block === 'body' ? body(i) : null))}
+          {section.items.map(entry)}
         </section>
       ))}
-      {/* Fields the layout does not place are shown after the last column, so that none is lost. */}
-      {c === layout.columns.length - 1 && unplaced.length > 0 && (
+      {/* Fields the layout does not place are shown after the others, so that none is lost. */}
+      {c === fieldColumn && unplaced.length > 0 && (
         <section className="rm-sec">
           <h3>{t('collection.moreFields')}</h3>
           {unplaced.map((field, i) => item(field.key, i))}
@@ -852,20 +1041,17 @@ function RecordDialog({ collection, record, today, actions, onClose }: {
       )}
     </div>
   ));
+  // Where a new record's file goes, as it is named now.
+  const file = isNew ? newRecordPath(collection, draft.name) : null;
+  const title = isNew ? (schema.singular ? t('collection.newOne', { singular: schema.singular }) : t('collection.newRecord', { collection: name })) : collectionLabel(dir);
 
   return (
     <div ref={backdrop} className="backdrop card-backdrop" onMouseDown={(event) => event.target === event.currentTarget && leave()}>
-      <section
-        ref={panel}
-        className={layout.columns.length > 1 ? 'rmod wide' : 'rmod'}
-        role="dialog"
-        aria-label={isNew ? t('collection.newRecord', { collection: name }) : record.name}
-        tabIndex={-1}
-      >
+      <section ref={panel} className={layout.columns.length > 1 ? 'rmod wide' : 'rmod'} role="dialog" aria-label={isNew ? title : record.name} tabIndex={-1}>
         <div className="cp-head">
           <Icon name="collection" />
           {record?.code && <span className="key">{record.code}</span>}
-          <span className="where">{isNew ? t('collection.newRecord', { collection: name }) : name}</span>
+          <span className="where">{title}</span>
           {record && (
             <>
               <button type="button" className="open" title={t('collection.openInTab')} aria-label={t('collection.openInTab')} onClick={() => leave(() => actions.openNote(record.path))}>
@@ -881,11 +1067,18 @@ function RecordDialog({ collection, record, today, actions, onClose }: {
           </button>
         </div>
         <div className="rm-scroll">
-          <div className="rm-name">{nameField}</div>
           <div className="rm-cols">{columns}</div>
         </div>
         <div className="rm-foot">
-          {error && <p role="alert">{error}</p>}
+          {error ? (
+            <p role="alert">{error}</p>
+          ) : (
+            isNew && (
+              <span className="hint">
+                {file ? t('collection.savedAs', { path: `${name}/${file.slice(dir.length + 1)}` }) : t('collection.savedIn', { collection: name })}
+              </span>
+            )
+          )}
           <button type="button" onClick={() => leave()}>
             {t('dialog.cancel')}
           </button>
@@ -894,6 +1087,17 @@ function RecordDialog({ collection, record, today, actions, onClose }: {
           </button>
         </div>
       </section>
+      {over && overCollection && !overGone && (
+        <RecordDialog
+          key={'id' in over ? over.id : `new:${over.dir}`}
+          collection={overCollection}
+          record={overRecord}
+          values={'values' in over ? over.values : undefined}
+          today={today}
+          actions={actions}
+          onClose={() => setOver(null)}
+        />
+      )}
     </div>
   );
 }

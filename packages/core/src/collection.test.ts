@@ -15,9 +15,15 @@ import {
   freshenLinks,
   linkTo,
   createCollection,
+  type Collection,
   fieldHref,
   isComplete,
+  linkFieldsTo,
   linkGone,
+  linkedRecords,
+  linkedValues,
+  linkingCollections,
+  newRecordPath,
   moveCollection,
   optionColor,
   readWidths,
@@ -103,12 +109,32 @@ describe('schema', () => {
   });
 
   it('lays out every field but the name, then the body, when the schema has no layout', () => {
-    const schema = newSchema('companies');
+    const schema = newSchema('feedback');
+    expect(schema.layout).toBeUndefined();
     expect(layoutOf(schema).columns).toHaveLength(1);
     expect(layoutOf(schema).columns[0]!.sections.map((s) => s.items.length)).toEqual([schema.fields.length - 1, 1]);
     expect(unplacedFields(schema)).toEqual([]);
-    const laid = { ...schema, layout: { columns: [{ sections: [{ items: [{ field: 'website' }] }] }] } };
-    expect(unplacedFields(laid).map((f) => f.key)).toEqual(['code', 'segment', 'type', 'owner', 'status', 'tags']);
+    const laid = { ...schema, layout: { columns: [{ sections: [{ items: [{ field: 'source' }] }] }] } };
+    expect(unplacedFields(laid).map((f) => f.key)).toEqual(['code', 'person', 'area', 'status']);
+  });
+
+  it('brings Companies and People their fields on the left and what links to them on the right', () => {
+    const companies = newSchema('companies', 'Work');
+    expect(companies.singular).toBe('company');
+    expect(newSchema('blank').singular).toBeUndefined();
+    expect(companies.layout?.columns.map((c) => c.width)).toEqual([1, 2]);
+    expect(companies.layout?.columns[0]!.sections[0]!.items).toEqual([...companies.fields.slice(1).map((f) => ({ field: f.key })), { block: 'body' }]);
+    expect(companies.layout?.columns[1]!.sections[0]!.items).toEqual([
+      { block: 'linked', collection: 'Work/Activities', sort: 'date', style: 'timeline' },
+      { block: 'linked', collection: 'Work/People', style: 'list', fields: ['title'] },
+    ]);
+    expect(unplacedFields(companies)).toEqual([]);
+    expect(newSchema('people').layout?.columns[1]!.sections[0]!.items).toEqual([{ block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' }]);
+    expect(parseSchema(serializeSchema(companies))).toEqual(companies);
+    expect(parseSchema(JSON.stringify({ singular: '  deal ', layout: { columns: [{ items: [{ block: 'linked', collection: '/Work/Deals/', fields: ['Stage', 7] }] }] } }))).toMatchObject({
+      singular: 'deal',
+      layout: { columns: [{ sections: [{ items: [{ block: 'linked', collection: 'Work/Deals', fields: ['stage'] }] }] }] },
+    });
   });
 });
 
@@ -334,6 +360,35 @@ describe('links and the other templates', () => {
     expect(fieldHref('phone', '+49 (30) 123-45')).toBe('tel:+493012345');
     expect(fieldHref('phone', '-')).toBeNull();
     expect(fieldHref('text', 'acme.example.com')).toBeNull();
+  });
+
+  it('finds the records that link to a record, and fills a new one in from it', () => {
+    const people = newSchema('people', 'Work');
+    const activities = newSchema('activities', 'Work');
+    const make = (name: string, values: Record['values'], path = `Work/X/${name}.md`): Record => ({ id: name, path, name, code: '', values, extra: {}, body: '' });
+    const lena = make('Lena', { company: { id: 'acme', name: 'Acme Corp' } });
+    const log: Collection = {
+      dir: 'Work/Activities',
+      schema: activities,
+      records: [
+        make('Pilot call', { person: { id: 'Lena', name: 'Lena' }, company: { id: 'acme', name: 'Acme Corp' } }),
+        make('Demo', { company: { id: 'acme', name: 'Acme Corp' } }),
+        make('Summit', { person: { id: '', name: 'lena' } }),
+        make('Other', { person: { id: 'jonas', name: 'Jonas' } }),
+      ],
+    };
+    expect(linkFieldsTo(activities, 'Work/People').map((f) => f.key)).toEqual(['person']);
+    expect(linkedRecords(log, 'Work/People', lena).map((r) => r.name)).toEqual(['Pilot call', 'Summit']);
+    expect(linkedRecords(log, 'Work/Companies', { id: 'acme', name: 'Acme Corp' }).map((r) => r.name)).toEqual(['Pilot call', 'Demo']);
+    expect(linkedRecords(log, 'Work/Payments', lena)).toEqual([]);
+    expect(linkingCollections([log, { dir: 'Work/People', schema: people, records: [] }], 'Work/Companies').map((c) => c.dir)).toEqual(['Work/Activities', 'Work/People']);
+    // An activity added to Lena is hers, and her company's.
+    expect(linkedValues(activities, 'Work/People', lena, people)).toEqual({ person: { id: 'Lena', name: 'Lena' }, company: { id: 'acme', name: 'Acme Corp' } });
+    expect(linkedValues(activities, 'Work/Companies', make('Acme Corp', {}), newSchema('companies', 'Work'))).toEqual({ company: { id: 'Acme Corp', name: 'Acme Corp' } });
+    const collection: Collection = { dir: 'Work/People', schema: people, records: [make('Lena', {}, 'Work/People/Lena.md')] };
+    expect(newRecordPath(collection, 'Jonas / Weber')).toBe('Work/People/Jonas Weber.md');
+    expect(newRecordPath(collection, 'lena')).toBe('Work/People/lena 2.md');
+    expect(newRecordPath(collection, '  ')).toBeNull();
   });
 
   it('freshens the names of links from the records they point at', () => {

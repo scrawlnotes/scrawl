@@ -60,12 +60,18 @@ export const linkTo = (record: Pick<Record, 'id' | 'name' | 'code'>): Link => ({
 export const NAME_KEY = 'name';
 export const CODE_KEY = 'code';
 
-/** An element of the record screen: a field, the body, the records of another collection that link here, or cards and tasks. */
+/**
+ * An element of the record screen: a field, the body, the records of another collection that
+ * link here, or cards and tasks. Linked records are a list or a timeline, sorted by a field (a
+ * timeline by its day, newest first), a list's rows showing the fields named.
+ */
 export type LayoutItem =
   | { field: string }
   | { block: 'body' }
-  | { block: 'linked'; collection: string; sort?: string; style?: 'list' | 'timeline' }
+  | { block: 'linked'; collection: string; sort?: string; style?: 'list' | 'timeline'; fields?: string[] }
   | { block: 'cards' };
+
+export type LinkedBlock = Extract<LayoutItem, { block: 'linked' }>;
 
 export interface LayoutSection {
   title?: string;
@@ -144,6 +150,8 @@ export function readWidths(raw: unknown, keys?: ReadonlySet<string>): ColumnWidt
 export interface Schema {
   version: 1;
   template: CollectionTemplate;
+  /** What one record is called, `company` for Companies: "New company", "Add company". Unset says "record". */
+  singular?: string;
   /** The saved views, in the order they were made. */
   views?: View[];
   /** The fields, name and code first; the order is the order of the table's columns. */
@@ -276,6 +284,28 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
 /** The templates whose codes the collection makes itself. */
 const TEMPLATE_CODES: Partial<{ [template in CollectionTemplate]: string }> = { payments: 'PAY' };
 
+/** What one record of each template is called; Blank's are records. */
+const TEMPLATE_SINGULAR: Partial<{ [template in CollectionTemplate]: string }> = {
+  companies: 'company',
+  people: 'person',
+  activities: 'activity',
+  feedback: 'feedback',
+  payments: 'payment',
+};
+
+/**
+ * What links to a record, on the right of the record screens the templates bring: a company's
+ * activities as a timeline and its people as a list, a person's activities. The fields and the
+ * notes are on the left; the other templates keep the default screen, one column.
+ */
+const TEMPLATE_LINKED: Partial<{ [template in CollectionTemplate]: LinkedBlock[] }> = {
+  companies: [
+    { block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' },
+    { block: 'linked', collection: 'People', style: 'list', fields: ['title'] },
+  ],
+  people: [{ block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' }],
+};
+
 /**
  * A fresh schema from a template. Links point at the collection of that name in `folder`, where
  * the collection is made, so that People made beside Companies find it.
@@ -288,7 +318,15 @@ export function newSchema(template: CollectionTemplate, folder = ''): Schema {
     ...(f.collection !== undefined && { collection: join(folder, f.collection) }),
   }));
   const prefix = TEMPLATE_CODES[template];
-  return { version: 1, template, fields, ...(prefix && { code: { prefix, next: 1 } }) };
+  const singular = TEMPLATE_SINGULAR[template];
+  const linked = TEMPLATE_LINKED[template];
+  const layout: Layout | undefined = linked && {
+    columns: [
+      { width: 1, sections: [{ items: [...fields.filter((f) => f.key !== NAME_KEY).map((f) => ({ field: f.key })), { block: 'body' as const }] }] },
+      { width: 2, sections: [{ items: linked.map((block) => ({ ...block, collection: join(folder, block.collection) })) }] },
+    ],
+  };
+  return { version: 1, template, ...(singular && { singular }), fields, ...(prefix && { code: { prefix, next: 1 } }), ...(layout && { layout }) };
 }
 
 // ---------- schema file ----------
@@ -332,11 +370,13 @@ function readItem(raw: unknown): LayoutItem | null {
   if (typeof raw.field === 'string') return { field: cleanFieldKey(raw.field) };
   if (raw.block === 'body' || raw.block === 'cards') return { block: raw.block };
   if (raw.block === 'linked' && typeof raw.collection === 'string') {
+    const fields = strings(raw.fields).map(cleanFieldKey).filter(Boolean);
     return {
       block: 'linked',
-      collection: raw.collection,
-      ...(typeof raw.sort === 'string' && { sort: raw.sort }),
+      collection: raw.collection.replace(/^\/+|\/+$/g, ''),
+      ...(typeof raw.sort === 'string' && { sort: cleanFieldKey(raw.sort) }),
       ...((raw.style === 'list' || raw.style === 'timeline') && { style: raw.style }),
+      ...(fields.length > 0 && { fields }),
     };
   }
   return null;
@@ -386,7 +426,7 @@ export function parseSchema(text: string): Schema {
     fields.push(field);
   }
   const template: CollectionTemplate = COLLECTION_TEMPLATES.includes(data.template as CollectionTemplate) ? (data.template as CollectionTemplate) : 'blank';
-  const schema: Schema = { version: 1, template, fields };
+  const schema: Schema = { version: 1, template, ...(typeof data.singular === 'string' && data.singular.trim() && { singular: data.singular.trim() }), fields };
   if (isRecord(data.code) && typeof data.code.prefix === 'string' && data.code.prefix.trim()) {
     schema.code = { prefix: data.code.prefix.trim(), next: typeof data.code.next === 'number' && data.code.next > 0 ? Math.floor(data.code.next) : 1 };
   }
@@ -1136,6 +1176,56 @@ export function freshenLinks(values: Record['values'], schema: Schema, lookup: (
     }
   }
   return out;
+}
+
+// ---------- linked records ----------
+
+/** The link fields of a schema that point at the collection at `dir`. */
+export const linkFieldsTo = (schema: Schema, dir: string): Field[] => schema.fields.filter((f) => f.type === 'link' && f.collection === dir);
+
+/** Whether a link field's value points at `record`: by its id, or by its name for a link written by hand without one. */
+function pointsAt(value: FieldValue | undefined, record: Pick<Record, 'id' | 'name'>): boolean {
+  const links = (Array.isArray(value) ? (value as unknown[]) : [value]).filter(isLink);
+  const name = record.name.trim().toLowerCase();
+  return links.some((link) => (link.id ? link.id === record.id : link.name.trim().toLowerCase() === name));
+}
+
+/** The records of `source` that link to `record` of the collection at `dir`. */
+export function linkedRecords(source: Collection, dir: string, record: Pick<Record, 'id' | 'name'>): Record[] {
+  const fields = linkFieldsTo(source.schema, dir);
+  return fields.length === 0 ? [] : source.records.filter((r) => fields.some((f) => pointsAt(r.values[f.key], record)));
+}
+
+/** The collections that have a link field pointing at the collection at `dir`. */
+export const linkingCollections = (collections: Collection[], dir: string): Collection[] => collections.filter((c) => linkFieldsTo(c.schema, dir).length > 0);
+
+/**
+ * What a new record of `schema` holds when it is added from `record`, of the collection at `dir`
+ * whose schema is `from`: every link field pointing there holds the record, and one pointing
+ * where a link of the record points holds that link too, so that an activity added to a person
+ * is also the activity of the person's company.
+ */
+export function linkedValues(schema: Schema, dir: string, record: Record, from: Schema): Record['values'] {
+  const values: Record['values'] = {};
+  for (const field of schema.fields) {
+    if (field.type !== 'link' || !field.collection) continue;
+    let link: Link | undefined;
+    if (field.collection === dir) link = linkTo(record);
+    else {
+      const own = from.fields.find((f) => f.type === 'link' && f.collection === field.collection && !isEmpty(record.values[f.key]));
+      const value = own ? record.values[own.key] : undefined;
+      link = (Array.isArray(value) ? (value as unknown[]) : [value]).find(isLink);
+    }
+    if (link) values[field.key] = field.many ? [link] : link;
+  }
+  return values;
+}
+
+/** The file a new record called `name` is written to: its name, numbered when a record has it; null for a name no file can have. */
+export function newRecordPath(collection: Collection, name: string): string | null {
+  const clean = cleanName(name);
+  if (!clean || isHidden(clean)) return null;
+  return freePath(collection.dir, clean, RECORD_EXT, new Set(collection.records.map((r) => r.path.toLowerCase())));
 }
 
 /** The required fields a record leaves empty, by key; the name is required always. */
