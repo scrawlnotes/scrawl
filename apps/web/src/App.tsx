@@ -555,6 +555,11 @@ export function App() {
     collections: () => Object.values(collections),
     changeSchema: (dir, change) => session.changeSchema(dir, change),
     saveFields: (dir, schema, renames) => session.saveFields(dir, schema, renames),
+    boards: () => boards,
+    // Made below, with the board's actions, which open records through these.
+    get cardActions() {
+      return boardActions;
+    },
     editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
   };
   const boardActions: BoardActions = {

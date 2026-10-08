@@ -1,4 +1,8 @@
 import {
+  type Board,
+  boardName,
+  boardsLinkingTo,
+  cardValue,
   type ChoiceRenames,
   type Collection,
   type CollectionLook,
@@ -14,14 +18,19 @@ import {
   fieldValueOf,
   GROUPABLE,
   groupRecords,
+  faceFields,
   isComplete,
   isEmpty,
+  isFinished,
+  keyOf,
   isLink,
   isLinkable,
   type Layout,
+  type LayoutBlock,
   type LayoutItem,
   type Link,
   type LinkedBlock,
+  linkedCards,
   linkedRecords,
   linkedValues,
   linkFieldsTo,
@@ -72,6 +81,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { CardPanel, type CardPanelActions } from './CardPanel';
 import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { FieldsDialog } from './Fields';
 import type { MenuItem } from './dialogs';
@@ -113,6 +123,10 @@ export interface CollectionActions {
   changeSchema: (dir: string, change: (schema: Schema) => Schema) => Promise<string | null>;
   /** Writes what the Fields window changed: the schema, and the records whose choices were renamed. */
   saveFields: (dir: string, schema: Schema, renames: ChoiceRenames) => Promise<string | null>;
+  /** Every board, by path: the cards that link to a record. */
+  boards: () => { [path: string]: Board };
+  /** What a card opened over a record can do. */
+  cardActions: CardPanelActions;
 }
 
 /** A table longer than this shows its first rows and a line for the rest. */
@@ -748,8 +762,47 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
   );
 }
 
-/** A record opened over another: one of a collection that links to it, or a new one already linked. */
-type Over = { dir: string; id: string } | { dir: string; values: Record['values'] };
+/**
+ * The cards of every board whose links point at the record, after the Cards block of the record
+ * screen in design/mockups.html: each by its key and title, with its column (and its board when
+ * more than one board links here) and its value; the finished ones after the open ones. A row
+ * opens its card over the record.
+ */
+function CardsBlock({ dir, record, actions, onOpen }: { dir: string; record: Record; actions: CollectionActions; onOpen: (board: string, id: string) => void }) {
+  const boards = actions.boards();
+  const found = linkedCards(boards, dir, record);
+  const several = boardsLinkingTo(boards, dir).length > 1;
+  return (
+    <div className="blk">
+      <div className="blk-h">
+        <span>{t('collection.cards')}</span>
+        <small>{found.length}</small>
+      </div>
+      {found.length === 0 && <p className="blk-none">{t('collection.noCards')}</p>}
+      {found.map(({ board: path, card }) => {
+        const board = boards[path]!;
+        const column = board.columns.find((c) => c.id === card.column);
+        const value = faceFields(board).find((f) => f.type === 'number');
+        const amount = value ? cardValue(board, card, value) : null;
+        return (
+          <button key={`${path}#${card.id}`} type="button" className={isFinished(board, card) ? 'lrec done' : 'lrec'} onClick={() => onOpen(path, card.id)}>
+            <span className="ln">
+              <span className="key">{keyOf(board, card)}</span>
+              {card.title}
+            </span>
+            <span className="meta">
+              <span>{several && column ? `${column.name} · ${boardName(path)}` : column?.name}</span>
+              {typeof amount === 'number' && <span className="num">{numberText(amount)}</span>}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A record opened over another: one of a collection that links to it, or a new one already linked; or a card that links to it. */
+type Over = { dir: string; id: string } | { dir: string; values: Record['values'] } | { board: string; card: string };
 
 /**
  * The screen of one record, or of a new one: one form, saved as a whole. A record is drawn from
@@ -785,7 +838,8 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
 
   // A new record is one column of its fields and body. A record with no layout of its own has,
-  // under its body, the records of every collection that links to its collection.
+  // under its body, the records of every collection that links to its collection, and the cards
+  // of every board that does.
   const layout: Layout = useMemo(() => {
     const own = layoutOf(schema);
     if (isNew) {
@@ -795,7 +849,10 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
       return { columns: [{ sections: sections.filter((section) => section.items.length > 0) }] };
     }
     if (schema.layout) return own;
-    const linked = linkingCollections(actions.collections(), dir).map((c): LinkedBlock => ({ block: 'linked', collection: c.dir }));
+    const linked: LayoutBlock[] = [
+      ...linkingCollections(actions.collections(), dir).map((c): LinkedBlock => ({ block: 'linked', collection: c.dir })),
+      ...(boardsLinkingTo(actions.boards(), dir).length > 0 ? [{ block: 'cards' } as const] : []),
+    ];
     return linked.length > 0 ? { columns: [{ sections: [...own.columns[0]!.sections, { items: linked }] }] } : own;
   }, [schema, isNew, dir, actions]);
   // The name, and the fields the layout does not place, go in the first column that has fields.
@@ -842,9 +899,11 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   useEscape(backdrop, () => leave());
 
   // The record opened over this one, as it is now; it closes when it is gone.
-  const overCollection = over ? actions.collection(over.dir) : null;
+  const overCollection = over && 'dir' in over ? actions.collection(over.dir) : null;
   const overRecord = over && 'id' in over ? (overCollection?.records.find((r) => r.id === over.id) ?? null) : null;
-  const overGone = !!over && (!overCollection || ('id' in over && !overRecord));
+  const overBoard = over && 'board' in over ? actions.boards()[over.board] : undefined;
+  const overCard = over && 'card' in over ? overBoard?.cards.find((c) => c.id === over.card) : undefined;
+  const overGone = !!over && ('board' in over ? !overCard : !overCollection || ('id' in over && !overRecord));
   useEffect(() => {
     if (overGone) setOver(null);
   }, [overGone]);
@@ -910,7 +969,9 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
         />
       );
     }
-    // Cards and tasks come with the cards' own fields.
+    if (layoutItem.block === 'cards' && record) {
+      return <CardsBlock key={`cards-${index}`} dir={dir} record={record} actions={actions} onOpen={(board, card) => setOver({ board, card })} />;
+    }
     return null;
   };
   const columns = layout.columns.map((column, c) => (
@@ -972,9 +1033,12 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
           </button>
         </div>
       </section>
-      {over && overCollection && !overGone && (
+      {over && 'board' in over && overBoard && overCard && (
+        <CardPanel board={overBoard} path={over.board} card={overCard} today={today} actions={actions.cardActions} escape onClose={() => setOver(null)} />
+      )}
+      {over && !('board' in over) && overCollection && !overGone && (
         <RecordDialog
-          key={'id' in over ? over.id : `new:${over.dir}`}
+          key={'id' in over ? over.id : `new:${'dir' in over ? over.dir : ''}`}
           collection={overCollection}
           record={overRecord}
           values={'values' in over ? over.values : undefined}

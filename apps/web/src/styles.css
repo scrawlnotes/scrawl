@@ -6080,6 +6080,7 @@ button.cb:hover::after {
 }
 
 .lrec .key {
+  display: inline-block;
   margin-right: 6px;
   color: var(--sl-faint);
   font: 11px var(--sl-font-mono);
@@ -6117,14 +6118,27 @@ button.cb:hover::after {
   background: rgb(0 0 0 / 0.25);
 }
 
-.backdrop .backdrop > .rmod {
+.backdrop .backdrop > .rmod,
+.backdrop .backdrop > .cpanel {
   transform: translate(14px, 14px);
 }
 
 @media (max-width: 640px) {
-  .backdrop .backdrop > .rmod {
+  .backdrop .backdrop > .rmod,
+  .backdrop .backdrop > .cpanel {
     transform: none;
   }
+}
+
+/* A card that links to the record, in its Cards block; a finished one faint. */
+.lrec.done .ln {
+  color: var(--sl-faint);
+}
+
+.lrec .meta .num {
+  margin-left: auto;
+  color: var(--sl-dim);
+  font-variant-numeric: tabular-nums;
 }
 
 .prop {

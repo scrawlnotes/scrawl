@@ -287,17 +287,18 @@ export function MultiPicker({ options, picked, label, onChange, className }: {
 /**
  * Esc closes the window `within` holds, wherever the keyboard is, in it or nowhere after what had
  * it went away; only the window on top does, and not while a list is open, which Esc closes first.
+ * With `on` false it does nothing, for a window whose keys something else handles.
  */
-export function useEscape(within: RefObject<HTMLElement | null>, onEscape: () => void) {
-  const latest = useRef(onEscape);
-  latest.current = onEscape;
+export function useEscape(within: RefObject<HTMLElement | null>, onEscape: () => void, on = true) {
+  const latest = useRef({ onEscape, on });
+  latest.current = { onEscape, on };
   useEffect(() => {
     const key = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('.opt-list')) return;
+      if (!latest.current.on || event.key !== 'Escape' || event.defaultPrevented || document.querySelector('.opt-list')) return;
       const windows = document.querySelectorAll('.backdrop');
       if (windows[windows.length - 1] !== within.current) return;
       event.preventDefault();
-      latest.current();
+      latest.current.onEscape();
     };
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);

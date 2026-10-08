@@ -5,6 +5,7 @@ import {
   addComment,
   addPhase,
   type Board,
+  boardsLinkingTo,
   cardBrief,
   cardSum,
   cardValue,
@@ -18,6 +19,7 @@ import {
   firstColumn,
   isFinished,
   keyOf,
+  linkedCards,
   loadBoard,
   moveCard,
   moveCardToKind,
@@ -470,6 +472,19 @@ describe("a board's own fields", () => {
     const cleared = updateCard(read, 'k2', { values: { value: null, next_step: null } }, now);
     expect(cleared.cards.find((c) => c.id === 'k2')!.values).toBeUndefined();
     expect(cardBrief(read, pilot!)).toContain('- Company: Acme Corp · CUS-0012\n- Value: 12000');
+  });
+
+  it('find the cards that link to a record, on every board, the open ones first', () => {
+    let deals = addCard(crm(), { title: 'Old deal', column: 'c5', values: { company: { id: 'a1', name: 'Acme Corp' } } }, now, undefined, 'k1');
+    deals = addCard(deals, { title: 'Pilot', values: { company: { id: 'a1', name: 'Acme Corp' } } }, later, undefined, 'k2');
+    deals = addCard(deals, { title: 'Other', values: { company: { id: 'b2', name: 'Globex' } } }, later, undefined, 'k3');
+    // A link written by hand, by the record's name.
+    deals = addCard(deals, { title: 'By name', values: { contact: { id: '', name: 'Acme Corp' } } }, later, undefined, 'k4');
+    const plan = newBoard('Plan', 'simple', ids('p'));
+    const boards = { 'Scrawl/Deals.board.json': deals, 'Scrawl/Plan.board.json': plan };
+    expect(boardsLinkingTo(boards, 'Scrawl/Companies')).toEqual(['Scrawl/Deals.board.json']);
+    expect(linkedCards(boards, 'Scrawl/Companies', { id: 'a1', name: 'Acme Corp' }).map((d) => d.card.title)).toEqual(['Pilot', 'Old deal']);
+    expect(linkedCards(boards, 'Scrawl/People', { id: 'p9', name: 'acme corp' }).map((d) => d.card.title)).toEqual(['By name']);
   });
 
   it('change in one go: renamed choices follow on the cards, a value whose field is gone stays', () => {

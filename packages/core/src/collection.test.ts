@@ -173,9 +173,10 @@ describe('schema', () => {
     expect(companies.layout?.columns[1]!.sections[0]!.items).toEqual([
       { block: 'linked', collection: 'Work/Activities', sort: 'date', style: 'timeline' },
       { block: 'linked', collection: 'Work/People', style: 'list', fields: ['title'] },
+      { block: 'cards' },
     ]);
     expect(unplacedFields(companies)).toEqual([]);
-    expect(newSchema('people').layout?.columns[1]!.sections[0]!.items).toEqual([{ block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' }]);
+    expect(newSchema('people').layout?.columns[1]!.sections[0]!.items).toEqual([{ block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' }, { block: 'cards' }]);
     expect(parseSchema(serializeSchema(companies))).toEqual(companies);
     expect(parseSchema(JSON.stringify({ version: 2, singular: '  deal ', layout: { columns: [{ items: [{ block: 'linked', collection: '/Work/Deals/', fields: ['Stage', 7] }] }] } }))).toMatchObject({
       singular: 'deal',

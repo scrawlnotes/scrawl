@@ -299,17 +299,22 @@ const TEMPLATE_SINGULAR: Partial<{ [template in CollectionTemplate]: string }> =
   payments: 'payment',
 };
 
+/** An element of the record screen other than a field: the body, linked records, cards. */
+export type LayoutBlock = Exclude<LayoutItem, { field: string }>;
+
 /**
  * What links to a record, on the right of the record screens the templates bring: a company's
- * activities as a timeline and its people as a list, a person's activities. The fields and the
- * notes are on the left; the other templates keep the default screen, one column.
+ * activities as a timeline, its people as a list and the cards that link to it (its deals), a
+ * person's activities and cards. The fields and the notes are on the left; the other templates
+ * keep the default screen, one column.
  */
-const TEMPLATE_LINKED: Partial<{ [template in CollectionTemplate]: LinkedBlock[] }> = {
+const TEMPLATE_LINKED: Partial<{ [template in CollectionTemplate]: LayoutBlock[] }> = {
   companies: [
     { block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' },
     { block: 'linked', collection: 'People', style: 'list', fields: ['title'] },
+    { block: 'cards' },
   ],
-  people: [{ block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' }],
+  people: [{ block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' }, { block: 'cards' }],
 };
 
 /**
@@ -328,7 +333,7 @@ export function newSchema(template: CollectionTemplate, folder = ''): Schema {
   const layout: Layout | undefined = linked && {
     columns: [
       { width: 1, sections: [{ items: [...fields.map((f) => ({ field: f.key })), { block: 'body' as const }] }] },
-      { width: 2, sections: [{ items: linked.map((block) => ({ ...block, collection: join(folder, block.collection) })) }] },
+      { width: 2, sections: [{ items: linked.map((block) => (block.block === 'linked' ? { ...block, collection: join(folder, block.collection) } : block)) }] },
     ],
   };
   return { version: 2, template, ...(singular && { singular }), fields, ...(layout && { layout }) };
@@ -1260,7 +1265,7 @@ export function freshenLinks(values: Record['values'], schema: Schema, lookup: (
 export const linkFieldsTo = (schema: Schema, dir: string): Field[] => schema.fields.filter((f) => f.type === 'link' && f.collection === dir);
 
 /** Whether a link field's value points at `record`: by its id, or by its name for a link written by hand without one. */
-function pointsAt(value: FieldValue | undefined, record: Pick<Record, 'id' | 'name'>): boolean {
+export function pointsAt(value: unknown, record: Pick<Record, 'id' | 'name'>): boolean {
   const links = (Array.isArray(value) ? (value as unknown[]) : [value]).filter(isLink);
   const name = record.name.trim().toLowerCase();
   return links.some((link) => (link.id ? link.id === record.id : link.name.trim().toLowerCase() === name));

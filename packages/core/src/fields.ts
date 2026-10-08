@@ -3,8 +3,8 @@ import {
   type Field,
   type FieldValue,
   type Layout,
+  type LayoutBlock,
   type LayoutItem,
-  type LinkedBlock,
   parseSchema,
   type Record,
   type Schema,
@@ -68,8 +68,8 @@ function readingOrder(layout: Layout): string[] {
   return layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items.flatMap((item) => ('field' in item ? [item.field] : []))));
 }
 
-/** The record screen a schema without a layout opens with: every field, the body, then what links to the collection. */
-export function defaultLayout(fields: Field[], linked: LinkedBlock[] = []): Layout {
+/** The record screen a schema without a layout opens with: every field, the body, then what links to the collection (`linked`). */
+export function defaultLayout(fields: Field[], linked: LayoutBlock[] = []): Layout {
   const sections = [{ items: fields.map((f): LayoutItem => ({ field: f.key })) }, { items: [{ block: 'body' } as LayoutItem] }];
   return { columns: [{ sections: linked.length > 0 ? [...sections, { items: linked }] : sections }] };
 }
@@ -91,7 +91,7 @@ function settleLayout(layout: Layout): Layout {
  * without one opens with (`linked`, the blocks that one shows); choices renamed in its views; and
  * read back, so that what the file can hold is all it holds.
  */
-export function settleSchema(schema: Schema, linked: LinkedBlock[] = [], renames: ChoiceRenames = {}): Schema {
+export function settleSchema(schema: Schema, linked: LayoutBlock[] = [], renames: ChoiceRenames = {}): Schema {
   const layout = settleLayout(schema.layout ?? defaultLayout(schema.fields, linked));
   const order = readingOrder(layout);
   const rank = (f: Field) => (order.includes(f.key) ? order.indexOf(f.key) : order.length);

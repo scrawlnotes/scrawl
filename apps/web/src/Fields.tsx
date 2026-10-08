@@ -2,6 +2,7 @@ import {
   type Board,
   BOARD_EXT,
   boardName,
+  boardsLinkingTo,
   type ChoiceRenames,
   type Collection,
   collectionName,
@@ -14,6 +15,7 @@ import {
   isLinkable,
   keyFor,
   type Layout,
+  type LayoutBlock,
   type LayoutItem,
   type LinkedBlock,
   linkFieldsTo,
@@ -52,6 +54,8 @@ export interface FieldsActions {
   ask: (title: string, message: string, run: () => void, action: string) => void;
   /** Writes the schema, and the records whose choices were renamed. Returns a message when it cannot. */
   saveFields: (dir: string, schema: Schema, renames: ChoiceRenames) => Promise<string | null>;
+  /** Every board, by path: whether any links to the collection. */
+  boards: () => { [path: string]: Board };
 }
 
 /** A choice as the window holds it: its name now, the one it had when the window opened, and its color. */
@@ -113,7 +117,7 @@ const isChoice = (type: FieldType) => type === 'select' || type === 'multi-selec
  * no layout shows under its body). Fields its layout does not place are in a section of their own,
  * "More fields", as the record shows them.
  */
-function toDraft(schema: Schema, linked: LinkedBlock[]): Draft {
+function toDraft(schema: Schema, linked: LayoutBlock[]): Draft {
   const fields = draftFields(schema.fields);
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const placed = new Set<string>();
@@ -666,8 +670,11 @@ function BlockEditor({ block, dir, collections, onChange, onDelete }: {
   );
 }
 
-/** The menu under a section's + Add: a field, the records of a collection that links here, the notes. */
-function AddMenu({ linking, notesPlaced, onAdd }: { linking: boolean; notesPlaced: boolean; onAdd: (what: 'field' | 'linked' | 'body') => void }) {
+/** What + Add puts in a section. */
+type Addition = 'field' | 'linked' | 'body' | 'cards';
+
+/** The menu under a section's + Add: a field, the records of a collection that links here, the notes, the cards that link here. */
+function AddMenu({ linking, notesPlaced, cardsPlaced, onAdd }: { linking: boolean; notesPlaced: boolean; cardsPlaced: boolean; onAdd: (what: Addition) => void }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLButtonElement>(null);
   const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
@@ -675,6 +682,7 @@ function AddMenu({ linking, notesPlaced, onAdd }: { linking: boolean; notesPlace
     { value: 'field', label: t('fields.addField'), hint: t('fields.addFieldHint'), chip: false },
     { value: 'linked', label: t('fields.addLinked'), hint: linking ? t('fields.addLinkedHint') : t('fields.noLinking'), chip: false, disabled: !linking },
     { value: 'body', label: t('fields.addNotes'), hint: notesPlaced ? t('fields.notesPlaced') : t('fields.notesHint'), chip: false, disabled: notesPlaced },
+    { value: 'cards', label: t('fields.cards'), hint: cardsPlaced ? t('fields.notesPlaced') : t('fields.cardsHint'), chip: false, disabled: cardsPlaced },
   ];
   return (
     <>
@@ -700,7 +708,7 @@ function AddMenu({ linking, notesPlaced, onAdd }: { linking: boolean; notesPlace
           className="fmenu"
           onPick={(what) => {
             setOpen(false);
-            if (what) onAdd(what as 'field' | 'linked' | 'body');
+            if (what) onAdd(what as Addition);
           }}
           onClose={() => setOpen(false)}
         />
@@ -731,7 +739,14 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   const narrow = useNarrow();
   const collections = actions.collections();
   // A schema with no layout shows under its body what links to it; the window shows it so too.
-  const [linked] = useState<LinkedBlock[]>(() => (schema.layout ? [] : linkingCollections(collections, dir).map((c) => ({ block: 'linked', collection: c.dir }))));
+  const [linked] = useState<LayoutBlock[]>(() =>
+    schema.layout
+      ? []
+      : [
+          ...linkingCollections(collections, dir).map((c): LayoutBlock => ({ block: 'linked', collection: c.dir })),
+          ...(boardsLinkingTo(actions.boards(), dir).length > 0 ? [{ block: 'cards' } as const] : []),
+        ],
+  );
   const [start] = useState(() => toDraft(schema, linked));
   const [original] = useState(() => serializeSchema(settleSchema(toSchema(start, schema), linked)));
   const [draft, setDraft] = useState(start);
@@ -749,7 +764,9 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
 
   const dirty = view === 'design' ? serializeSchema(settleSchema(toSchema(draft, schema), linked)) !== original : textProblem(text) !== null || serializeSchema(settleSchema(parseSchema(text), linked)) !== original;
   const fieldsById = new Map(draft.fields.map((f) => [f.id, f]));
-  const notesPlaced = draft.columns.some((c) => c.sections.some((s) => s.items.some((i) => 'block' in i && i.block.block === 'body')));
+  const placed = (kind: Block['block']) => draft.columns.some((c) => c.sections.some((s) => s.items.some((i) => 'block' in i && i.block.block === kind)));
+  const notesPlaced = placed('body');
+  const cardsPlaced = placed('cards');
   const linking = linkingCollections(collections, dir);
   const unlinkable = !draft.fields.some((f) => f.type === 'name' || f.type === 'code');
 
@@ -782,7 +799,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   };
   const changeField = (id: string, patch: Partial<DraftField>) => change({ ...draft, fields: draft.fields.map((f) => (f.id === id ? { ...f, ...patch } : f)) });
   const changeBlock = (id: string, block: Block) => change(withSections(draft, (s) => ({ ...s, items: s.items.map((i) => (i.id === id ? { id, block } : i)) })));
-  const add = (sectionId: string, what: 'field' | 'linked' | 'body') => {
+  const add = (sectionId: string, what: Addition) => {
     const id = newId();
     let item: DraftItem;
     let fields = draft.fields;
@@ -794,9 +811,9 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
       const placed = new Set(draft.columns.flatMap((c) => c.sections.flatMap((s) => s.items.flatMap((i) => ('block' in i && i.block.block === 'linked' ? [i.block.collection] : [])))));
       const source = linking.find((c) => !placed.has(c.dir)) ?? linking[0]!;
       item = { id, block: { block: 'linked', collection: source.dir } };
-    } else item = { id, block: { block: 'body' } };
+    } else item = { id, block: { block: what } };
     change({ ...withSections(draft, (s) => (s.id === sectionId ? { ...s, items: [...s.items, item] } : s)), fields });
-    setOpen(what === 'body' ? null : id);
+    setOpen(what === 'field' || what === 'linked' ? id : null);
   };
   const setColumns = (columns: DraftColumn[]) => change({ ...draft, columns });
   const removeColumn = (index: number) => {
@@ -984,7 +1001,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
           )}
           {section.items.map(element)}
           {drop?.section === section.id && <div className="fdrop" style={{ top: drop.y }} />}
-          <AddMenu linking={linking.length > 0} notesPlaced={notesPlaced} onAdd={(what) => add(section.id, what)} />
+          <AddMenu linking={linking.length > 0} notesPlaced={notesPlaced} cardsPlaced={cardsPlaced} onAdd={(what) => add(section.id, what)} />
         </div>
       ))}
       <button type="button" className="fsec-add" onClick={() => setColumns(draft.columns.map((each) => (each.id === column.id ? { ...each, sections: [...each.sections, { id: newId(), items: [] }] } : each)))}>

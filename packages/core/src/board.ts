@@ -1,4 +1,4 @@
-import { evaluateFormula, type Field, type FieldValue, isEmpty, readFields, readValue, type Record as CollectionRecord, valueText } from './collection';
+import { evaluateFormula, type Field, type FieldValue, isEmpty, pointsAt, readFields, readValue, type Record as CollectionRecord, valueText } from './collection';
 import { type ChoiceRenames, renameChoices } from './fields';
 import type { VaultFs } from './fs';
 import type { Priority } from './tasks';
@@ -796,6 +796,25 @@ export function dueCards(boards: Record<string, Board>): DueCard[] {
   return Object.entries(boards)
     .flatMap(([path, board]) => board.cards.filter((c) => c.due && !isFinished(board, c)).map((card) => ({ board: path, card })))
     .sort((a, b) => a.card.due!.localeCompare(b.card.due!) || a.card.priority - b.card.priority);
+}
+
+/** The boards with a link field pointing at the collection at `dir`, by path. */
+export const boardsLinkingTo = (boards: Record<string, Board>, dir: string): string[] =>
+  Object.keys(boards).filter((path) => boards[path]!.fields?.some((f) => f.type === 'link' && f.collection === dir));
+
+/**
+ * The cards whose link fields point at `record` of the collection at `dir`, on every board, with
+ * the path of their board: the open ones first, the newest first among each.
+ */
+export function linkedCards(boards: Record<string, Board>, dir: string, record: Pick<CollectionRecord, 'id' | 'name'>): DueCard[] {
+  const found: DueCard[] = [];
+  for (const [path, board] of Object.entries(boards)) {
+    const fields = (board.fields ?? []).filter((f) => f.type === 'link' && f.collection === dir);
+    if (fields.length === 0) continue;
+    for (const card of board.cards) if (fields.some((f) => pointsAt(card.values?.[f.key], record))) found.push({ board: path, card });
+  }
+  const finished = (d: DueCard) => (isFinished(boards[d.board]!, d.card) ? 1 : 0);
+  return found.sort((a, b) => finished(a) - finished(b) || b.card.created.localeCompare(a.card.created));
 }
 
 // ---------- briefs ----------

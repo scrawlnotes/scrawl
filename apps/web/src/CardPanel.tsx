@@ -28,7 +28,7 @@ import {
 import { createPortal } from 'react-dom';
 import { type CollectionActions, FieldInput, RecordDialog, type ValueContext } from './Collection';
 import type { MenuItem } from './dialogs';
-import { labelHue } from './choices';
+import { labelHue, useEscape } from './choices';
 import { boardLabel } from './items';
 import { StatusIcon } from './StatusIcon';
 import { clockTime, pastDayLabel } from './text';
@@ -588,14 +588,18 @@ function Comment({ entry, today, onEdit, onRemove, menu, viewer }: {
  * A card beside the columns: its title and fields, the description in the note editor, the
  * note it came from, and its timeline of moves and comments with a place to write one.
  */
-export function CardPanel({ board, path, card, today, actions, onClose }: {
+export function CardPanel({ board, path, card, today, actions, escape = false, onClose }: {
   board: Board;
   path: string;
   card: Card;
   today: string;
   actions: CardPanelActions;
+  /** Esc closes it: opened over a record, where no board handles the keys. */
+  escape?: boolean;
   onClose: () => void;
 }) {
+  const backdrop = useRef<HTMLDivElement>(null);
+  useEscape(backdrop, onClose, escape);
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<ScrawlEditor | null>(null);
   const timer = useRef(0);
@@ -656,7 +660,7 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
   const columnName = (id: string | null) => (id === null ? '' : (board.columns.find((c) => c.id === id)?.name ?? t('card.removedColumn')));
 
   return (
-    <div className="backdrop card-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div ref={backdrop} className="backdrop card-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="cpanel" role="dialog" aria-label={keyOf(board, card)}>
       <div className="cp-head">
         <span className="key">{keyOf(board, card)}</span>
