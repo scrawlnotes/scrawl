@@ -2215,6 +2215,11 @@ button.cb:hover::after {
   color: var(--sl-fg);
 }
 
+/* Buttons side by side at the right end of a head, a board's Fields and Board…, keep together. */
+.th .ghost + .ghost {
+  margin-left: 0;
+}
+
 .trow {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
@@ -2410,6 +2415,11 @@ button.cb:hover::after {
 
 .bv .th .ghost {
   margin-left: auto;
+}
+
+/* A board's Fields beside its Board…, at the right end. */
+.bv .th .ghost + .ghost {
+  margin-left: 0;
 }
 
 .phases {

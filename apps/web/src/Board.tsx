@@ -805,6 +805,7 @@ const LIST_WIDTHS: { [type in Field['type']]: number } = {
   person: 90,
   link: 150,
   formula: 90,
+  rollup: 90,
 };
 /** The list's own columns: key, title, status, priority, labels, who, due. */
 const LIST_COLUMNS = '58px minmax(160px, 1fr) 90px 60px 116px 40px 80px';

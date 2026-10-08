@@ -26,7 +26,7 @@ describe('the Fields window', () => {
     const items = layout.columns[0]!.sections[0]!.items.filter((i) => !('field' in i && i.field === 'website'));
     items.splice(items.length - 1, 0, { field: 'website' });
     const moved = settleSchema({ ...schema, layout: { columns: [{ ...layout.columns[0]!, sections: [{ items }] }, layout.columns[1]!] } });
-    expect(moved.fields.map((f) => f.key)).toEqual(['name', 'segment', 'type', 'owner', 'status', 'tags', 'website']);
+    expect(moved.fields.map((f) => f.key)).toEqual(['name', 'segment', 'type', 'owner', 'status', 'tags', 'last_contact', 'website']);
     expect(moved.layout?.columns[0]?.width).toBeUndefined();
     expect(moved.layout?.columns[1]?.width).toBe(2);
 

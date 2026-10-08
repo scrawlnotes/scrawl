@@ -63,6 +63,8 @@ import {
   nameField,
   type NewRecord,
   numberText,
+  rolledValues,
+  withRollups,
   type Record,
   type RecordPatch,
   type RecordSort,
@@ -161,6 +163,7 @@ const WIDTHS: { [type in Field['type']]: [number, number] } = {
   person: [84, 124],
   link: [120, 184],
   formula: [76, 110],
+  rollup: [92, 120],
   name: [160, 240],
   code: [80, 112],
 };
@@ -296,7 +299,7 @@ export function Cell({ field, value, ctx }: { field: Field; value: FieldValue | 
     );
   }
   if (typeof value === 'number') return <span className="num">{numberText(value)}</span>;
-  const kind = field.type === 'name' ? 'ct name' : field.type === 'code' ? 'ct code' : field.type === 'date' ? 'ct dt' : 'ct';
+  const kind = field.type === 'name' ? 'ct name' : field.type === 'code' ? 'ct code' : field.type === 'date' || field.type === 'rollup' ? 'ct dt' : 'ct';
   return <span className={field.type === 'number' || field.type === 'formula' ? 'num' : kind}>{text}</span>;
 }
 
@@ -979,12 +982,30 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
 
   // A new record's first box has the keyboard.
   const firstKey = isNew ? layout.columns.flatMap((c) => c.sections.flatMap((s) => s.items)).find((i): i is { field: string } => 'field' in i)?.field : undefined;
+  // The rollups of a record, worked out from what links to it, for their boxes and the formulas over them.
+  const rollups: Record['values'] = {};
+  if (record) {
+    const rolled = rolledValues(record, collection, actions.collections(), actions.boards(), today);
+    for (const field of schema.fields) if (field.type === 'rollup') rollups[field.key] = rolled[field.key] ?? null;
+  }
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
     if (!field) return null;
+    // A rollup is worked out from what links to the record; it is not typed.
+    if (field.type === 'rollup') {
+      const worked = rollups[field.key];
+      return (
+        <div key={`${key}-${index}`} className="prop">
+          <span className="pl">{field.label}</span>
+          <div className="pe">
+            <span className={isEmpty(worked) ? 'st-field formula none' : 'st-field formula'}>{typeof worked === 'number' ? numberText(worked) : isEmpty(worked) ? '–' : valueText(worked)}</span>
+          </div>
+        </div>
+      );
+    }
     // A formula is worked out from what is typed; it is not typed itself.
     if (field.type === 'formula') {
-      const worked = evaluateFormula(field.formula ?? '', draft.values, schema, today);
+      const worked = evaluateFormula(field.formula ?? '', { ...rollups, ...draft.values }, schema, today);
       return (
         <div key={`${key}-${index}`} className="prop">
           <span className="pl">{field.label}</span>
@@ -1285,7 +1306,10 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   /** What the status bar says: the count and the order. Null once the view closes. */
   onStatus: (parts: string[] | null) => void;
 }) {
-  const { dir, schema, records } = collection;
+  const { dir, schema } = collection;
+  // The records with their rollups worked out, for the table; a record opens as its file has it.
+  const rolled = useMemo(() => withRollups(collection, actions.collections(), actions.boards(), today), [collection, actions, today]);
+  const records = rolled.records;
   const name = collectionName(dir);
   const narrow = useNarrow();
   const [query, setQuery] = useState('');
@@ -1341,7 +1365,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   }, [records.length, shown.length, applied.length, query, sortField, state.sort.key, problems.size]);
   useEffect(() => () => onStatus(null), []);
 
-  const opened = open?.kind === 'record' ? records.find((r) => r.id === open.id) : undefined;
+  const opened = open?.kind === 'record' ? collection.records.find((r) => r.id === open.id) : undefined;
   // The record on screen was deleted, or went with sync: its screen closes.
   useEffect(() => {
     if (open?.kind === 'record' && !opened) setOpen(null);
@@ -1402,7 +1426,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
 
   const openRecord = (id: string) => setOpen({ kind: 'record', id });
   const sortBy = (key: string) => change({ sort: { key, dir: state.sort.key === key && state.sort.dir === 'asc' ? 'desc' : 'asc' } });
-  const isNumeric = (field: Field) => field.type === 'number' || field.type === 'formula';
+  const isNumeric = (field: Field) => field.type === 'number' || field.type === 'formula' || (field.type === 'rollup' && (field.rollup?.fn === 'count' || field.rollup?.fn === 'sum'));
   const cellClass = (field: Field, i: number) => [i === 0 && 'c0', isNumeric(field) && 'r'].filter(Boolean).join(' ') || undefined;
   const head = (field: Field, i: number) => {
     const on = state.sort.key === field.key;

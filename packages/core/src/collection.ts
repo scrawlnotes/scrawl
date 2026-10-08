@@ -15,9 +15,28 @@ import { freePath, moveTree } from './paths';
 export const COLLECTION_FILE = '_collection.json';
 export const RECORD_EXT = '.md';
 
-export type FieldType = 'name' | 'code' | 'text' | 'number' | 'date' | 'select' | 'multi-select' | 'checkbox' | 'url' | 'email' | 'phone' | 'person' | 'link' | 'formula';
+export type FieldType = 'name' | 'code' | 'text' | 'number' | 'date' | 'select' | 'multi-select' | 'checkbox' | 'url' | 'email' | 'phone' | 'person' | 'link' | 'formula' | 'rollup';
 
-export const FIELD_TYPES: readonly FieldType[] = ['name', 'code', 'text', 'number', 'date', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person', 'link', 'formula'];
+export const FIELD_TYPES: readonly FieldType[] = ['name', 'code', 'text', 'number', 'date', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person', 'link', 'formula', 'rollup'];
+
+/** What a rollup does with what links to the record: counts it, adds it up, or takes its most or least. */
+export type RollupFn = 'count' | 'sum' | 'max' | 'min';
+
+export const ROLLUP_FNS: readonly RollupFn[] = ['count', 'sum', 'max', 'min'];
+
+/**
+ * A value worked out from what links to the record: the records of a collection or the cards of
+ * a board (`from`, its path), counted, or a field of theirs added up or taken at its most or
+ * least: a company's last contact, the latest day of its activities. Shown, never written.
+ */
+export interface Rollup {
+  from: string;
+  fn: RollupFn;
+  /** The field of those records or cards; none to count them. */
+  field?: string;
+  /** For a board: its open cards only. */
+  open?: boolean;
+}
 
 /** The types a schema has one field of at most: the record's name, and its code. */
 export const SINGLE_TYPES: readonly FieldType[] = ['name', 'code'];
@@ -43,6 +62,8 @@ export interface Field {
   many?: boolean;
   /** A formula's expression over the record's own fields: `qty * unit_price`, `today() - last_contact`. Not written to the file. */
   formula?: string;
+  /** A rollup's source and what it does. Not written to the record's file. */
+  rollup?: Rollup;
 }
 
 /**
@@ -215,6 +236,9 @@ export function cleanFieldKey(key: string): string {
 // waits gray or blue.
 const NAME: Field = { key: NAME_KEY, label: 'Name', type: 'name' };
 
+/** A company's or a person's last contact: the latest day of the activities that link to it. */
+const LAST_CONTACT: Field = { key: 'last_contact', label: 'Last contact', type: 'rollup', rollup: { from: 'Activities', fn: 'max', field: 'date' } };
+
 const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
   companies: [
     NAME,
@@ -230,6 +254,7 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
     { key: 'owner', label: 'Owner', type: 'person' },
     { key: 'status', label: 'Status', type: 'select', options: ['prospect', 'active', 'churned'], colors: { prospect: 'blue', active: 'green', churned: 'red' } },
     { key: 'tags', label: 'Tags', type: 'multi-select', options: [] },
+    LAST_CONTACT,
   ],
   people: [
     NAME,
@@ -246,6 +271,7 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
     },
     { key: 'status', label: 'Status', type: 'select', options: ['lead', 'active', 'inactive'], colors: { lead: 'blue', active: 'green', inactive: 'gray' } },
     { key: 'tags', label: 'Tags', type: 'multi-select', options: [] },
+    LAST_CONTACT,
   ],
   activities: [
     NAME,
@@ -327,6 +353,7 @@ export function newSchema(template: CollectionTemplate, folder = ''): Schema {
     ...(f.options && { options: [...f.options] }),
     ...(f.colors && { colors: { ...f.colors } }),
     ...(f.collection !== undefined && { collection: join(folder, f.collection) }),
+    ...(f.rollup && { rollup: { ...f.rollup, from: join(folder, f.rollup.from) } }),
   }));
   const singular = TEMPLATE_SINGULAR[template];
   const linked = TEMPLATE_LINKED[template];
@@ -371,6 +398,17 @@ function readField(raw: unknown): Field | null {
     if (raw.many === true) field.many = true;
   }
   if (type === 'formula') field.formula = typeof raw.formula === 'string' ? raw.formula : '';
+  if (type === 'rollup') {
+    const r = isRecord(raw.rollup) ? raw.rollup : {};
+    const fn = ROLLUP_FNS.includes(r.fn as RollupFn) ? (r.fn as RollupFn) : 'count';
+    const key = typeof r.field === 'string' ? cleanFieldKey(r.field) : '';
+    field.rollup = {
+      from: typeof r.from === 'string' ? r.from.replace(/^\/+|\/+$/g, '') : '',
+      fn,
+      ...(key && fn !== 'count' && { field: key }),
+      ...(r.open === true && { open: true }),
+    };
+  }
   // A name is required by being the name; the others say so.
   if (raw.required === true && type !== 'name') field.required = true;
   return field;
@@ -640,6 +678,8 @@ function numberOf(field: Field, values: Record['values'], schema: Pick<Schema, '
       return value === true ? 1 : value === false ? 0 : null;
     case 'formula':
       return depth > 8 ? null : evaluateFormula(field.formula ?? '', values, schema, today, depth + 1);
+    case 'rollup':
+      return typeof value === 'number' ? value : typeof value === 'string' ? dayNumber(value) : null;
     default:
       return null;
   }
@@ -747,7 +787,7 @@ export function evaluateFormula(expr: string, values: Record['values'], schema: 
 }
 
 /** The types a formula can read a number from. */
-const COUNTED: readonly FieldType[] = ['number', 'date', 'checkbox', 'formula'];
+const COUNTED: readonly FieldType[] = ['number', 'date', 'checkbox', 'formula', 'rollup'];
 
 /**
  * What is wrong with a formula, said for the one typing it: it is not one, or it reads a field that
@@ -833,7 +873,8 @@ export function parseRecord(text: string, schema: Schema, path: string): Record 
   for (const [key, raw] of Object.entries(front)) {
     if (key === 'id') continue;
     const field = known.get(key);
-    if (!field) {
+    // A value worked out on screen is not the file's; what the file has there is kept as it was.
+    if (!field || field.type === 'formula' || field.type === 'rollup') {
       extra[key] = raw;
       continue;
     }
@@ -850,6 +891,7 @@ export function parseRecord(text: string, schema: Schema, path: string): Record 
 export function serializeRecord(record: Record, schema: Schema): string {
   const front: { [key: string]: unknown } = { id: record.id };
   for (const field of schema.fields) {
+    if (field.type === 'formula' || field.type === 'rollup') continue;
     const value = record.values[field.key];
     if (!isEmpty(value)) front[field.key] = value;
   }
@@ -1072,6 +1114,8 @@ export function opsFor(type: FieldType): ConditionOp[] {
     case 'number':
     case 'formula':
       return ['is', 'gt', 'lt', 'empty', 'not-empty'];
+    case 'rollup':
+      return ['is', 'gt', 'lt', 'before', 'after', 'empty', 'not-empty'];
     case 'date':
       return ['on', 'before', 'after', 'empty', 'not-empty'];
     case 'checkbox':
@@ -1133,7 +1177,7 @@ export function matchesCondition(record: Pick<Record, 'values'>, schema: Pick<Sc
     case 'contains':
       return !empty && wanted.length > 0 && wanted.some((w) => valueText(value).toLowerCase().includes(lower(w)));
     case 'is':
-      return field.type === 'number' || field.type === 'formula' ? number !== null && number === n : !empty && has();
+      return field.type === 'number' || field.type === 'formula' || typeof value === 'number' ? number !== null && number === n : !empty && has();
     case 'is-not':
       return empty || !has();
     case 'gt':
@@ -1194,7 +1238,7 @@ export function groupRecords(records: Record[], schema: Schema, key: string, tod
 /** The sum of a number or formula column over records; null when the column is not one, or no record has a value. */
 export function columnSum(records: Record[], schema: Schema, key: string, today: string): number | null {
   const field = schema.fields.find((f) => f.key === key);
-  if (!field || (field.type !== 'number' && field.type !== 'formula')) return null;
+  if (!field || (field.type !== 'number' && field.type !== 'formula' && field.type !== 'rollup')) return null;
   let sum = 0;
   let any = false;
   for (const record of records) {
@@ -1219,7 +1263,7 @@ export function sortRecords(records: Record[], schema: Schema, sort: RecordSort,
   const type = field?.type ?? 'text';
   const valueOf = (r: Record): FieldValue | undefined => (field ? fieldValueOf(r, field, schema, today) : r.values[sort.key]);
   const compare = (a: FieldValue, b: FieldValue): number => {
-    if (type === 'number' || type === 'checkbox' || type === 'formula') return Number(a) - Number(b);
+    if (type === 'number' || type === 'checkbox' || type === 'formula' || (typeof a === 'number' && typeof b === 'number')) return Number(a) - Number(b);
     return valueText(a).localeCompare(valueText(b), undefined, { numeric: true, sensitivity: 'base' });
   };
   const byName = (a: Record, b: Record) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
@@ -1324,7 +1368,7 @@ export interface RecordProblem {
 export function recordProblems(record: Pick<Record, 'values' | 'extra'>, schema: Schema): RecordProblem[] {
   const problems: RecordProblem[] = [];
   for (const field of schema.fields) {
-    if (field.type === 'formula') continue;
+    if (field.type === 'formula' || field.type === 'rollup') continue;
     const value = record.values[field.key];
     if (isEmpty(value) && field.key in record.extra) problems.push({ field: field.key, kind: 'mismatch' });
     else if ((field.type === 'name' || field.required) && (typeof value === 'string' ? !value.trim() : isEmpty(value))) problems.push({ field: field.key, kind: 'missing' });
