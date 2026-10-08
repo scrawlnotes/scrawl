@@ -61,9 +61,11 @@ export const en = {
   'side.today': 'Today',
   'side.upcoming': 'Upcoming',
   'side.inbox': 'Inbox',
+  'side.filters': 'Filters',
   'side.tasks': 'Tasks',
   'side.folders': 'Folders',
   'side.newFolder': 'New folder',
+  'side.addFolder': 'Add',
   'side.folderName': 'Folder name',
   'side.trash': 'Trash',
   'side.settings': 'Settings',
@@ -237,6 +239,7 @@ export const en = {
   'import.empty': 'The file has no rows to import.',
   'import.exported': 'Exported {name}',
   'menu.newNoteHere': 'New note here',
+  'menu.newFolderHere': 'New folder here',
   'menu.deleteFolder': 'Delete folder',
 
   // dialogs

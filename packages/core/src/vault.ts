@@ -177,11 +177,13 @@ export async function createKeys(fs: VaultFs, folder: string, name: string): Pro
   return path;
 }
 
-export async function createFolder(fs: VaultFs, name: string): Promise<string> {
+/** Creates a folder called `name` in `parent`, at the top of the space without one. Returns its path. */
+export async function createFolder(fs: VaultFs, name: string, parent = ''): Promise<string> {
   const clean = cleanName(name);
   if (!clean || isHidden(clean)) throw new Error(t('error.folderName'));
-  await fs.mkdir(clean);
-  return clean;
+  const path = join(parent, clean);
+  await fs.mkdir(path);
+  return path;
 }
 
 /** Moves a note, a task list, a board or a keys file into `folder` and returns its new path. */

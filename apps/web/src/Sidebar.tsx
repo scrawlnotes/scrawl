@@ -1,6 +1,6 @@
 import { INBOX, INBOX_TASKS, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useState } from 'react';
+import { type CSSProperties, type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useState } from 'react';
 import { Icon } from './Icon';
 import { collectionTab, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 
@@ -40,17 +40,27 @@ interface Props {
   onOpen: (id: string) => void;
   onTrash: (path: string) => void;
   onMove: (path: string, folder: string) => void;
-  onNewFolder: (name: string) => Promise<string | null>;
+  /** Makes a folder in `parent`, at the top for `''`; returns a message when it cannot. */
+  onNewFolder: (name: string, parent: string) => Promise<string | null>;
   /** A right click on a note, a task list or a folder. */
   onItemMenu: (event: MouseEvent, path: string) => void;
-  onFolderMenu: (event: MouseEvent, path: string) => void;
+  /** A folder's menu; `addFolder` starts naming a folder inside it, under its row. */
+  onFolderMenu: (event: MouseEvent, path: string, addFolder: () => void) => void;
   /** The saved filters, under Today and Upcoming. */
   filters: TaskFilter[];
   onFilterMenu: (event: MouseEvent, filter: TaskFilter) => void;
   /** Opens the settings; `settingsOpen` while they are open. */
   onSettings: () => void;
   settingsOpen: boolean;
+  /** The row whose menu is open, by its path or its tab: it stays marked while the menu is open. */
+  menuTarget: string | null;
 }
+
+/** The key the saved filters are folded under; no path is ever this. */
+const FILTERS = ':filters';
+
+/** How far in a row is: each level of folders one step. */
+const indent = (depth: number) => ({ '--d': depth }) as CSSProperties;
 
 const countNotes = (node: TreeNode): number =>
   node.kind === 'note' ? 1 : (node.children ?? []).reduce((sum, child) => sum + countNotes(child), 0);
@@ -71,11 +81,14 @@ export function Sidebar({
   onFilterMenu,
   onSettings,
   settingsOpen,
+  menuTarget,
 }: Props) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [shownInFull, setShownInFull] = useState(loadShownInFull);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [folderName, setFolderName] = useState<string | null>(null);
+  // The folder a new folder is being named in, `''` for the top; null while none is.
+  const [addingIn, setAddingIn] = useState<string | null>(null);
+  const [folderName, setFolderName] = useState('');
   const [folderError, setFolderError] = useState<string | null>(null);
 
   const toggle = (path: string) =>
@@ -94,6 +107,8 @@ export function Sidebar({
       return next;
     });
 
+  const marked = (key: string) => (key === menuTarget ? ' marked' : '');
+
   // The file of the tab on screen: never hidden among the items a long folder does not show.
   const activePath = active === null ? null : pathOf(active);
   const holdsActive = (node: TreeNode) =>
@@ -102,20 +117,25 @@ export function Sidebar({
   /**
    * The rows of a folder's items, or of the top of the tree. A long one shows its first items,
    * the one on screen if it is further down, and a row with how many more there are; shown in
-   * full, it ends with a row to show less.
+   * full, it ends with a row to show less. Under the folders, an item leaves room for a folder's
+   * arrow, so that its icon lines up with theirs.
    */
-  const rows = (key: string, nodes: TreeNode[], depth: number): ReactNode => {
-    const row = (node: TreeNode) => (node.kind === 'folder' ? folderRow(node, depth) : itemRow(node, depth));
+  const rows = (key: string, nodes: TreeNode[], depth: number, spaced: boolean): ReactNode => {
+    const row = (node: TreeNode) => (node.kind === 'folder' ? folderRow(node, depth) : itemRow(node, depth, spaced));
+    const toggleRow = (full: boolean, label: string) => (
+      <div className="it more" style={indent(depth)}>
+        <button type="button" className="it-main" onClick={() => showInFull(key, full)}>
+          {spaced && <i className="it-pad" />}
+          <span>{label}</span>
+        </button>
+      </div>
+    );
     if (nodes.length <= MANY) return nodes.map(row);
     if (shownInFull.has(key)) {
       return (
         <>
           {nodes.map(row)}
-          <div className={`it more d${depth}`}>
-            <button type="button" className="it-main" onClick={() => showInFull(key, false)}>
-              <span>{t('side.showLess')}</span>
-            </button>
-          </div>
+          {toggleRow(false, t('side.showLess'))}
         </>
       );
     }
@@ -123,21 +143,62 @@ export function Sidebar({
     return (
       <>
         {shown.map(row)}
-        <div className={`it more d${depth}`}>
-          <button type="button" className="it-main" onClick={() => showInFull(key, true)}>
-            <span>{t('side.showMore', { count: nodes.length - shown.length })}</span>
-          </button>
-        </div>
+        {toggleRow(true, t('side.showMore', { count: nodes.length - shown.length }))}
       </>
     );
   };
 
+  /** Starts naming a new folder in `parent`, `''` for the top; a closed folder opens for it. */
+  const startFolder = (parent: string) => {
+    setCollapsed((current) => {
+      if (!current.has(parent)) return current;
+      const next = new Set(current);
+      next.delete(parent);
+      return next;
+    });
+    setAddingIn(parent);
+    setFolderName('');
+    setFolderError(null);
+  };
+
+  const stopFolder = () => {
+    setAddingIn(null);
+    setFolderError(null);
+  };
+
   const submitFolder = async (event: FormEvent) => {
     event.preventDefault();
-    const error = folderName?.trim() ? await onNewFolder(folderName) : null;
-    setFolderError(error);
-    if (!error) setFolderName(null);
+    const error = folderName.trim() && addingIn !== null ? await onNewFolder(folderName, addingIn) : null;
+    if (error) setFolderError(error);
+    else stopFolder();
   };
+
+  /** The row a new folder is named in, where it will be: its icon, the name and the Add button. */
+  const folderForm = (depth: number) => (
+    <form className="it-form" style={indent(depth)} onSubmit={submitFolder}>
+      <i className="it-pad" />
+      <Icon name="folder" />
+      <input
+        id="new-folder-name"
+        aria-label={t('side.folderName')}
+        placeholder={t('side.folderName')}
+        autoFocus
+        value={folderName}
+        onChange={(event) => setFolderName(event.target.value)}
+        onKeyDown={(event) => event.key === 'Escape' && stopFolder()}
+        onBlur={() => !folderName && stopFolder()}
+      />
+      <button type="submit" className="it-add">
+        {t('side.addFolder')}
+      </button>
+      <button type="button" className="it-cancel" title={t('dialog.cancel')} aria-label={t('dialog.cancel')} onClick={stopFolder}>
+        ×
+      </button>
+      {folderError && <p role="alert">{folderError}</p>}
+    </form>
+  );
+
+  const folderMenu = (event: MouseEvent, path: string) => onFolderMenu(event, path, () => startFolder(path));
 
   const dropProps = (folder: string) => ({
     onDragOver: (event: DragEvent) => {
@@ -162,7 +223,7 @@ export function Sidebar({
   );
 
   const viewRow = (id: string, label: ReactNode, depth: number, onMenu?: (event: MouseEvent) => void) => (
-    <div key={id} className={`it d${depth}${id === active ? ' on' : ''}`}>
+    <div key={id} className={`it${id === active ? ' on' : ''}${marked(id)}`} style={indent(depth)} onContextMenu={onMenu}>
       <button type="button" className="it-main" onClick={() => onOpen(id)}>
         {label}
       </button>
@@ -172,18 +233,20 @@ export function Sidebar({
   );
 
   // A task list or a board shows how many of its tasks or cards are open where a note has its trash button.
-  const itemRow = (node: TreeNode, depth: number) => {
+  const itemRow = (node: TreeNode, depth: number, spaced: boolean) => {
     const tab = node.kind === 'collection' ? collectionTab(node.path) : tabOf(node.path);
     const counted = node.kind === 'tasks' || node.kind === 'board' || node.kind === 'collection';
     return (
       <div
         key={node.path}
-        className={`it d${depth}${tab === active ? ' on' : ''}`}
+        className={`it${tab === active ? ' on' : ''}${marked(node.path)}`}
+        style={indent(depth)}
         draggable
         onDragStart={(event) => event.dataTransfer.setData(ITEM_DRAG_TYPE, node.path)}
         onContextMenu={(event) => onItemMenu(event, node.path)}
       >
         <button type="button" className="it-main" onClick={() => onOpen(tab)}>
+          {spaced && <i className="it-pad" />}
           <Icon name={node.kind === 'folder' ? 'folder' : node.kind} />
           <span>{titles[node.path] ?? node.title}</span>
         </button>
@@ -199,97 +262,107 @@ export function Sidebar({
     );
   };
 
-  const children = (node: TreeNode, depth: number): ReactNode => rows(node.path, node.children ?? [], depth);
+  const children = (node: TreeNode, depth: number, spaced: boolean): ReactNode => rows(node.path, node.children ?? [], depth, spaced);
 
+  // A folder reads as one: an arrow big enough to hit, which turns as it opens, and its icon. So do
+  // the inbox and the saved filters, which hold things the same way.
+  const folderHead = (open: boolean, name: string) => (
+    <>
+      <span className={open ? 'chev open' : 'chev'}>
+        <Icon name="chevron" />
+      </span>
+      <Icon name="folder" />
+      <span>{name}</span>
+    </>
+  );
+
+  // A folder being added in a folder is named at the top of what it holds.
   const folderRow = (node: TreeNode, depth: number): ReactNode => {
     const open = !collapsed.has(node.path);
     return (
       <div key={node.path}>
         <div
-          className={`it d${depth}${node.path === dropTarget ? ' drop' : ''}`}
+          className={`it fold${node.path === dropTarget ? ' drop' : ''}${marked(node.path)}`}
+          style={indent(depth)}
           {...dropProps(node.path)}
-          onContextMenu={(event) => onFolderMenu(event, node.path)}
+          onContextMenu={(event) => folderMenu(event, node.path)}
         >
           <button type="button" className="it-main" aria-expanded={open} onClick={() => toggle(node.path)}>
-            <span className="chev">{open ? '▾' : '▸'}</span>
-            <span>{node.name}</span>
+            {folderHead(open, node.name)}
           </button>
           {!open && <span className="ct">{countNotes(node) || ''}</span>}
-          {more((event) => onFolderMenu(event, node.path))}
+          {more((event) => folderMenu(event, node.path))}
         </div>
-        {open && children(node, depth + 1)}
+        {open && addingIn === node.path && folderForm(depth + 1)}
+        {open && children(node, depth + 1, true)}
       </div>
     );
   };
 
   const inbox = tree.find((node) => node.path === INBOX);
   const inboxOpen = !collapsed.has(INBOX);
+  const filtersOpen = !collapsed.has(FILTERS);
 
   return (
     <aside className="side">
       <nav className="tree">
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
-        {filters.map((filter) => (
-          <div key={filter.id} onContextMenu={(event) => onFilterMenu(event, filter)}>
-            {viewRow(
+        {filters.length > 0 && (
+          <div className="it">
+            <button type="button" className="it-main" aria-expanded={filtersOpen} onClick={() => toggle(FILTERS)}>
+              {folderHead(filtersOpen, t('side.filters'))}
+            </button>
+          </div>
+        )}
+        {filtersOpen &&
+          filters.map((filter) =>
+            viewRow(
               filterTab(filter.id),
               <>
+                <i className="it-pad" />
                 <Icon name="filter" />
                 <span>{filter.name}</span>
               </>,
-              0,
+              1,
               (event) => onFilterMenu(event, filter),
-            )}
-          </div>
-        ))}
+            ),
+          )}
         <div
-          className={`it d0${dropTarget === INBOX ? ' drop' : ''}`}
+          className={`it fold${dropTarget === INBOX ? ' drop' : ''}${marked(INBOX)}`}
           {...dropProps(INBOX)}
-          onContextMenu={(event) => onFolderMenu(event, INBOX)}
+          onContextMenu={(event) => folderMenu(event, INBOX)}
         >
           <button type="button" className="it-main" aria-expanded={inboxOpen} onClick={() => toggle(INBOX)}>
-            <span>{t('side.inbox')}</span>
+            {folderHead(inboxOpen, t('side.inbox'))}
           </button>
           <span className="ct">{(inbox && countNotes(inbox)) || ''}</span>
-          {more((event) => onFolderMenu(event, INBOX))}
+          {more((event) => folderMenu(event, INBOX))}
         </div>
         {inboxOpen &&
           viewRow(
             tasksOf(INBOX_TASKS),
             <>
+              <i className="it-pad" />
               <Icon name="tasks" />
               <span>{t('side.tasks')}</span>
             </>,
             1,
           )}
-        {inboxOpen && inbox && children(inbox, 1)}
+        {inboxOpen && inbox && children(inbox, 1, true)}
 
         <div className="grp">
           <span>{t('side.folders')}</span>
-          <button type="button" title={t('side.newFolder')} aria-label={t('side.newFolder')} onClick={() => setFolderName('')}>
+          <button type="button" title={t('side.newFolder')} aria-label={t('side.newFolder')} onClick={() => startFolder('')}>
             +
           </button>
         </div>
-        {folderName !== null && (
-          <form className="it-form" onSubmit={submitFolder}>
-            <input
-              id="new-folder-name"
-              aria-label={t('side.folderName')}
-              placeholder={t('side.folderName')}
-              autoFocus
-              value={folderName}
-              onChange={(event) => setFolderName(event.target.value)}
-              onKeyDown={(event) => event.key === 'Escape' && setFolderName(null)}
-              onBlur={() => !folderName && setFolderName(null)}
-            />
-            {folderError && <p role="alert">{folderError}</p>}
-          </form>
-        )}
+        {addingIn === '' && folderForm(0)}
         {rows(
           '',
           tree.filter((node) => node.path !== INBOX),
           0,
+          true,
         )}
       </nav>
       {/* The trash stays at the foot of the sidebar, apart from the folders, with the settings beside it. */}

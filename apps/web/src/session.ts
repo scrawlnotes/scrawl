@@ -1895,10 +1895,10 @@ export class Session {
     }
   }
 
-  /** Creates a folder; returns a message when the name cannot be used. */
-  async newFolder(name: string): Promise<string | null> {
+  /** Creates a folder in `parent`, at the top without one; returns a message when the name cannot be used. */
+  async newFolder(name: string, parent = ''): Promise<string | null> {
     try {
-      await createFolder(this.fs, name);
+      await createFolder(this.fs, name, parent);
     } catch (error) {
       return error instanceof Error ? error.message : t('error.createFolder');
     }

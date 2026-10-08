@@ -80,6 +80,8 @@ const shapes = {
     </>
   ),
   folder: <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />,
+  /** A folder's arrow in the sidebar; it turns down as the folder opens. */
+  chevron: <path d="M9 6l6 6-6 6" />,
   restore: (
     <>
       <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />

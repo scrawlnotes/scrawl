@@ -167,7 +167,11 @@ input:focus {
   white-space: nowrap;
 }
 
-.it:hover {
+/* The row under the pointer, and the one whose menu is open, stand out with a fuller background,
+   so that it is clear which row a right click is on. */
+.it:hover,
+.it.marked {
+  background: color-mix(in srgb, var(--sl-fg) 9%, transparent);
   color: var(--sl-fg);
 }
 
@@ -180,26 +184,15 @@ input:focus {
   box-shadow: inset 0 0 0 1px var(--sl-accent);
 }
 
+/* Each level of folders one step further in. */
 .it-main {
   display: flex;
   flex: 1;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 2px 8px;
+  padding: 2px 8px 2px calc(8px + var(--d, 0) * 16px);
   text-align: left;
-}
-
-.it.d1 .it-main {
-  padding-left: 20px;
-}
-
-.it.d2 .it-main {
-  padding-left: 32px;
-}
-
-.it.d3 .it-main {
-  padding-left: 44px;
 }
 
 .it-main span {
@@ -222,11 +215,38 @@ input:focus {
   font-size: 12px;
 }
 
+/* A folder's arrow, big enough to hit; it turns down as the folder opens. An item under the
+   folders leaves its room, so that the icons line up. */
 .it .chev {
+  display: grid;
   flex: none;
-  width: 10px;
-  color: var(--sl-faint);
-  font-size: 10px;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: -1px 0;
+  border-radius: 4px;
+  color: var(--sl-dim);
+}
+
+.it .chev .icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.2;
+  transition: transform 0.12s;
+}
+
+.it .chev.open .icon {
+  transform: rotate(90deg);
+}
+
+.it .chev:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.it-pad {
+  flex: none;
+  width: 18px;
 }
 
 .it .ct {
@@ -279,14 +299,21 @@ input:focus {
   color: var(--sl-fg);
 }
 
+/* A new folder named where it will be: its icon, the name, Add, and × to leave it. */
 .it-form {
-  padding: 2px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px calc(8px + var(--d, 0) * 16px);
+  color: var(--sl-dim);
 }
 
 .it-form input {
   box-sizing: border-box;
-  width: 100%;
-  padding: 2px 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 1px 6px;
   border: 1px solid var(--sl-line);
   border-radius: 4px;
   background: var(--sl-bg);
@@ -294,8 +321,36 @@ input:focus {
   font: inherit;
 }
 
+.it-form input:focus {
+  border-color: var(--sl-accent);
+  outline: none;
+}
+
+.it-form .it-add {
+  flex: none;
+  padding: 1px 9px;
+  border-radius: 4px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.it-form .it-cancel {
+  flex: none;
+  width: 16px;
+  color: var(--sl-faint);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.it-form .it-cancel:hover {
+  color: var(--sl-fg);
+}
+
 .it-form p {
-  margin: 4px 8px 0;
+  flex-basis: 100%;
+  margin: 2px 0 0;
   color: var(--sl-accent);
   font-size: 12px;
   white-space: normal;
@@ -2340,11 +2395,38 @@ button.cb:hover::after {
   }
 }
 
-/* Touch screens have no hovering: what a row shows on hover is there all the time, and a task
-   row offers one menu with everything instead of its row of buttons. */
-.task-actions .task-more,
+/* A row's ··· button opens its menu: on a folder's row under the pointer, or while its menu is
+   open, where it takes the place of the count. Touch screens have no hovering: what a row shows on
+   hover is there all the time, and a task row offers one menu with everything instead of its row
+   of buttons. */
+.task-actions .task-more {
+  display: none;
+}
+
 .it-more {
   display: none;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 22px;
+  color: var(--sl-faint);
+  letter-spacing: 1px;
+}
+
+.it-more:hover {
+  color: var(--sl-fg);
+}
+
+@media (hover: hover) {
+  .it.fold:hover .it-more,
+  .it.fold.marked .it-more {
+    display: grid;
+  }
+
+  .it.fold:hover .ct,
+  .it.fold.marked .ct {
+    display: none;
+  }
 }
 
 @media (hover: none) {
@@ -2354,12 +2436,6 @@ button.cb:hover::after {
 
   .it-more {
     display: grid;
-    flex: none;
-    place-items: center;
-    width: 28px;
-    height: 22px;
-    color: var(--sl-faint);
-    letter-spacing: 1px;
   }
 
   .task-actions,

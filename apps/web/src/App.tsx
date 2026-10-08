@@ -183,7 +183,8 @@ export function App() {
   const [dialog, setDialog] = useState<OpenDialog>(null);
   // With nothing open the app asks what to create, until that is declined once.
   const [declined, setDeclined] = useState(false);
-  const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[] } | null>(null);
+  // `target` is the sidebar row the menu was opened on, which stays marked while it is open.
+  const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[]; target?: string } | null>(null);
   const tabBar = useRef<HTMLDivElement>(null);
   // On a narrow window the sidebar is a drawer, open or not.
   const [drawer, setDrawer] = useState(false);
@@ -376,14 +377,18 @@ export function App() {
 
   // A filter's menu: change it, or delete it; its tasks stay where they are.
   const filterMenu = (event: MouseEvent, filter: TaskFilter) =>
-    openMenu(event, [
-      { label: t('filter.edit'), run: () => setDialog({ kind: 'filter', filter }) },
-      {
-        label: t('menu.delete'),
-        run: () =>
-          ask(t('delete.filter'), t('delete.filterText', { name: quote(filter.name) }), () => void session.removeFilter(filter.id)),
-      },
-    ]);
+    openMenu(
+      event,
+      [
+        { label: t('filter.edit'), run: () => setDialog({ kind: 'filter', filter }) },
+        {
+          label: t('menu.delete'),
+          run: () =>
+            ask(t('delete.filter'), t('delete.filterText', { name: quote(filter.name) }), () => void session.removeFilter(filter.id)),
+        },
+      ],
+      filterTab(filter.id),
+    );
 
   // A section goes together with its tasks, as in Todoist.
   const deleteSection = (list: string, section: Section) => {
@@ -443,9 +448,12 @@ export function App() {
     setDialog({ kind: 'history', path });
   };
 
-  const openMenu = (event: MouseEvent, items: MenuItem[]) => {
+  // A menu opened on a row of the sidebar opens under the row, so that it covers nothing of it.
+  const openMenu = (event: MouseEvent, items: MenuItem[], target?: string) => {
     event.preventDefault();
-    setMenu({ at: { x: event.clientX, y: event.clientY }, items });
+    const row = event.currentTarget instanceof Element ? event.currentTarget.closest('.side .it') : null;
+    const at = { x: event.clientX, y: row ? row.getBoundingClientRect().bottom + 2 : event.clientY };
+    setMenu({ at, items, ...(row && target !== undefined && { target }) });
   };
   // The menu of a note, a task list, a board, a keys file or a collection; the inbox's own list has none.
   const itemMenu = (event: MouseEvent, path: string) =>
@@ -465,7 +473,7 @@ export function App() {
           ]
         : []),
       { label: t('menu.delete'), run: () => deleteItem(path) },
-    ]);
+    ], path);
   // A collection as a CSV file, saved where the user says.
   const exportCsv = async (dir: string) => {
     const collection = collections[dir];
@@ -495,18 +503,28 @@ export function App() {
     if (!header || rows.length === 0) return setNotice(t('import.empty'));
     setImporting({ dir, fileName: file.name, header, rows });
   };
-  // The inbox is always there; it cannot be deleted. A new note shows at once, out from under the drawer.
-  const folderMenu = (event: MouseEvent, path: string) =>
-    openMenu(event, [
-      {
-        label: t('menu.newNoteHere'),
-        run: () => {
-          setDrawer(false);
-          void session.newNote(path);
+  // The inbox is always there; it cannot be deleted. A new note shows at once, out from under the
+  // drawer; a new folder is named in the sidebar, under the folder it goes in.
+  const folderMenu = (event: MouseEvent, path: string, addFolder: () => void) =>
+    openMenu(
+      event,
+      [
+        {
+          label: t('menu.newNoteHere'),
+          run: () => {
+            setDrawer(false);
+            void session.newNote(path);
+          },
         },
-      },
-      ...(path === INBOX ? [] : [{ label: t('menu.deleteFolder'), run: () => deleteFolder(path) }]),
-    ]);
+        ...(path === INBOX
+          ? []
+          : [
+              { label: t('menu.newFolderHere'), run: addFolder },
+              { label: t('menu.deleteFolder'), run: () => deleteFolder(path) },
+            ]),
+      ],
+      path,
+    );
   const closeMenu = useCallback(() => setMenu(null), []);
 
   // An image, file or recording in a note has its right-click menu drawn like the others.
@@ -715,11 +733,12 @@ export function App() {
         }}
         onTrash={deleteItem}
         onMove={(path, target) => void session.move(path, target)}
-        onNewFolder={(name) => session.newFolder(name)}
+        onNewFolder={(name, parent) => session.newFolder(name, parent)}
         onItemMenu={itemMenu}
         onFolderMenu={folderMenu}
         filters={filters}
         onFilterMenu={filterMenu}
+        menuTarget={menu?.target ?? null}
         onSettings={() => {
           setDrawer(false);
           setDialog({ kind: 'settings' });

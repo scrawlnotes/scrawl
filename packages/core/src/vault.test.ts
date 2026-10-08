@@ -485,6 +485,16 @@ describe('attachments, folders and the workspace', () => {
     expect(await createFolder(new MemoryFs(), ' Work/Notes ')).toBe('Work Notes');
   });
 
+  it('makes a folder inside another, as deep as wanted', async () => {
+    const fs = new MemoryFs();
+    await createFolder(fs, 'Scrawl');
+    expect(await createFolder(fs, 'Clients', 'Scrawl')).toBe('Scrawl/Clients');
+    expect(await createFolder(fs, 'Acme', 'Scrawl/Clients')).toBe('Scrawl/Clients/Acme');
+    const tree = await readTree(fs);
+    expect(tree[0]!.children![0]).toMatchObject({ path: 'Scrawl/Clients', kind: 'folder', children: [{ path: 'Scrawl/Clients/Acme', kind: 'folder' }] });
+    await expect(createFolder(fs, '_assets', 'Scrawl')).rejects.toThrow();
+  });
+
   it('round-trips the workspace and survives a missing or broken file', async () => {
     const fs = new MemoryFs();
     expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {}, keys: {}, collections: {} });
