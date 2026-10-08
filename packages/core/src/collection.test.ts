@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   addRecord,
+  indexPath,
+  saveSchema,
   columnSum,
   type Condition,
   evaluateFormula,
@@ -53,6 +55,7 @@ import {
   updateRecord,
 } from './collection';
 import { MemoryFs } from './fs';
+import { isSynced } from './sync/paths';
 import { readTrash, trashItem } from './vault';
 
 const ACME = `---
@@ -246,6 +249,39 @@ describe('a collection in a vault', () => {
     expect(await createCollection(fs, 'Scrawl', '', 'blank')).toBe('Scrawl/Collection');
     const { schema } = await loadCollection(fs, 'Scrawl/Companies');
     expect(schema.template).toBe('companies');
+  });
+
+  it('keeps an index on the device, reading again only the files that changed', async () => {
+    const fs = new MemoryFs();
+    const dir = await createCollection(fs, '', 'Companies', 'companies');
+    await fs.writeText(`${dir}/a1.md`, '---\nid: a1\nname: Acme Corp\nstatus: active\n---\nMet at the summit.\n');
+    await fs.writeText(`${dir}/b2.md`, '---\nid: b2\nname: Globex\n---\n');
+    const reads: string[] = [];
+    const readText = fs.readText.bind(fs);
+    fs.readText = async (path: string) => {
+      reads.push(path);
+      return readText(path);
+    };
+    const first = await loadCollection(fs, dir);
+    expect(reads.filter((r) => r.endsWith('.md'))).toEqual([`${dir}/a1.md`, `${dir}/b2.md`]);
+    expect(await fs.stat(indexPath(dir))).not.toBeNull();
+    expect(isSynced(indexPath(dir))).toBe(false);
+    reads.length = 0;
+    const second = await loadCollection(fs, dir);
+    expect(reads.filter((r) => r.endsWith('.md'))).toEqual([]);
+    expect(second.records).toEqual(first.records);
+    // A file written again is read again; a schema changed reads the index anew.
+    await fs.writeText(`${dir}/b2.md`, '---\nid: b2\nname: Globex Inc\n---\n');
+    reads.length = 0;
+    const third = await loadCollection(fs, dir);
+    expect(reads.filter((r) => r.endsWith('.md'))).toEqual([`${dir}/b2.md`]);
+    expect(third.records.map((r) => r.name)).toEqual(['Acme Corp', 'Globex Inc']);
+    const schema = third.schema;
+    await saveSchema(fs, dir, { ...schema, fields: schema.fields.map((f) => (f.key === 'status' ? { ...f, type: 'text' as const } : f)) });
+    expect((await loadCollection(fs, dir)).records[0]!.values.status).toBe('active');
+    // A broken index only means every file is read.
+    await fs.writeText(indexPath(dir), 'not json');
+    expect((await loadCollection(fs, dir)).records).toHaveLength(2);
   });
 
   it('gives a file without an id one, and writes it', async () => {

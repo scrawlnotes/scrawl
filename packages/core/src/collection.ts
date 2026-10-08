@@ -867,6 +867,11 @@ export function splitFrontMatter(text: string): { front: { [key: string]: unknow
  */
 export function parseRecord(text: string, schema: Schema, path: string): Record {
   const { front, body } = splitFrontMatter(text);
+  return recordOf(front, body, schema, path);
+}
+
+/** A record from its file's front matter and body, as `parseRecord` reads them. */
+function recordOf(front: { [key: string]: unknown }, body: string, schema: Schema, path: string): Record {
   const values: Record['values'] = {};
   const extra: Record['extra'] = {};
   const known = new Map(schema.fields.map((f) => [f.key, f]));
@@ -909,26 +914,76 @@ export interface Collection {
   records: Record[];
 }
 
+// ---------- the index ----------
+
+// A collection's records as last read, kept on the device in `.scrawl/index/`, one file per
+// collection: each record file's front matter and body, with when it was written and its size.
+// A file that has not changed since is not read again. It is never synced; a broken or missing
+// index only means every file is read.
+
+export const INDEX_DIR = '.scrawl/index';
+
+interface IndexEntry {
+  modified: number;
+  size: number;
+  front: { [key: string]: unknown };
+  body: string;
+}
+
+type CollectionIndex = { [path: string]: IndexEntry };
+
+/** Where a collection's index is kept. */
+export const indexPath = (dir: string) => join(INDEX_DIR, `${encodeURIComponent(dir || '.')}.json`);
+
+async function readIndex(fs: VaultFs, dir: string): Promise<CollectionIndex> {
+  try {
+    const data: unknown = JSON.parse(await fs.readText(indexPath(dir)));
+    return isRecord(data) && data.version === 1 && isRecord(data.records) ? (data.records as CollectionIndex) : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Reads a collection: its schema and every record. A record file without an id (made by another
  * tool, or a note dropped into the folder) is given one and written back, so that links to it
- * hold; it keeps its file name. With `readOnly` it keeps its path as its id instead.
+ * hold; it keeps its file name. With `readOnly` it keeps its path as its id instead, and the index
+ * is left as it is. A record file that has not changed since the index was written is read from
+ * the index.
  */
 export async function loadCollection(fs: VaultFs, dir: string, ids: () => string = newRecordId, readOnly = false): Promise<Collection> {
   const schema = await loadSchema(fs, dir);
   const entries = (await fs.list(dir)).filter(isRecordFile).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const index = await readIndex(fs, dir);
+  const next: CollectionIndex = {};
+  let changed = Object.keys(index).length !== entries.length;
   const records: Record[] = [];
   for (const entry of entries) {
-    const record = parseRecord(await fs.readText(entry.path), schema, entry.path);
+    const known = index[entry.path];
+    const fresh = known && entry.modified !== undefined && known.modified === entry.modified && known.size === entry.size;
+    let front: { [key: string]: unknown };
+    let body: string;
+    if (fresh) ({ front, body } = known);
+    else {
+      ({ front, body } = splitFrontMatter(await fs.readText(entry.path)));
+      changed = true;
+    }
+    const record = recordOf(front, body, schema, entry.path);
     if (!record.id) {
       if (readOnly) record.id = entry.path;
       else {
         record.id = ids();
+        // Written again, the file is read again next time, with its id.
         await fs.writeText(entry.path, serializeRecord(record, schema));
+        records.push(record);
+        changed = true;
+        continue;
       }
     }
+    if (entry.modified !== undefined && entry.size !== undefined) next[entry.path] = { modified: entry.modified, size: entry.size, front, body };
     records.push(record);
   }
+  if (changed && !readOnly) await fs.writeText(indexPath(dir), JSON.stringify({ version: 1, records: next })).catch(() => undefined);
   return { dir, schema, records };
 }
 

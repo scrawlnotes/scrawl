@@ -3,7 +3,7 @@ import { basename } from '../fs';
 // Which paths of a space are synced, and how two spellings of one path are known to be the same.
 
 /** Device-only state under `.scrawl`; never leaves the device. */
-const DEVICE_ONLY = ['.scrawl/history', '.scrawl/workspace.json', '.scrawl/sync-state.json', '.scrawl/sync-base', '.scrawl/onedrive.json'];
+const DEVICE_ONLY = ['.scrawl/history', '.scrawl/workspace.json', '.scrawl/sync-state.json', '.scrawl/sync-base', '.scrawl/onedrive.json', '.scrawl/index'];
 
 /** What systems leave in folders. */
 const SYSTEM_FILES = new Set(['desktop.ini', 'thumbs.db', '.ds_store']);
