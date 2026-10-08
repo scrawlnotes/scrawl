@@ -1,5 +1,6 @@
 export * from './board';
 export * from './collection';
+export * from './fields';
 export * from './filters';
 export * from './fs';
 export * from './history';

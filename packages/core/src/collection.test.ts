@@ -4,6 +4,7 @@ import {
   columnSum,
   type Condition,
   evaluateFormula,
+  formulaProblem,
   fieldValueOf,
   groupRecords,
   matchesConditions,
@@ -490,6 +491,17 @@ describe('formulas, conditions, groups and sums', () => {
     expect(fieldValueOf(records[0]!, schema.fields.find((f) => f.key === 'total')!, schema, today)).toBe(31.5);
     expect(valueText(31.5)).toBe('31.5');
     expect(valueText(1 / 3)).toBe('0.33');
+  });
+
+  it('says what is wrong with a formula being typed', () => {
+    expect(formulaProblem('qty * unit_price', schema)).toBeNull();
+    expect(formulaProblem('today() - last_contact + paid', schema)).toBeNull();
+    expect(formulaProblem('', schema)).toBe('Type a formula.');
+    expect(formulaProblem('qty *', schema)).toBe('This is not a formula yet.');
+    expect(formulaProblem('now() - 1', schema)).toBe('This is not a formula yet.');
+    expect(formulaProblem('qty * price', schema)).toBe('There is no field with the key price.');
+    expect(formulaProblem('total * 2', schema, 'total')).toBe('A formula cannot use itself.');
+    expect(formulaProblem('status + 1', schema)).toBe('Status holds no number or day.');
   });
 
   it('matches conditions by field type', () => {

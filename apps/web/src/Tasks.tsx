@@ -76,7 +76,7 @@ interface DragHandlers {
   release: () => void;
 }
 
-const GRIP = (
+export const GRIP = (
   <svg viewBox="0 0 10 14" aria-hidden="true">
     <circle cx="2.5" cy="2.5" r="1.3" />
     <circle cx="7.5" cy="2.5" r="1.3" />

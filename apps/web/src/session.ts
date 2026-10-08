@@ -26,6 +26,10 @@ import {
   moveCollection as moveCollectionDir,
   renameCollection as renameCollectionDir,
   retargetLinks,
+  parseRecord,
+  serializeRecord,
+  renameChoices,
+  type ChoiceRenames,
   type Collection,
   type CollectionLook,
   type CollectionTemplate,
@@ -963,6 +967,36 @@ export class Session {
       return error instanceof Error ? error.message : t('error.record');
     }
     this.setCollection(dir, (current) => ({ ...current, schema }));
+    return null;
+  }
+
+  /**
+   * Writes what the Fields window changed: the schema, and the records that have a choice renamed,
+   * each read with the new schema so that a value of a field taken out stays in its file. The
+   * collection is read again, its records as the new schema reads them. Returns a message when it
+   * cannot be written.
+   */
+  async saveFields(dir: string, schema: Schema, renames: ChoiceRenames): Promise<string | null> {
+    const collection = this.snapshot.collections[dir];
+    if (!collection) return t('error.record');
+    await this.settle();
+    try {
+      await saveSchema(this.fs, dir, schema);
+      if (Object.keys(renames).length > 0) {
+        for (const { path } of collection.records) {
+          const record = parseRecord(await this.fs.readText(path), schema, path);
+          const values = renameChoices(record.values, renames);
+          if (values === record.values) continue;
+          await this.fs.writeText(path, serializeRecord({ ...record, values }, schema));
+          // Open as a note too, it is read again when its tab is opened.
+          this.disk.delete(path);
+          this.states.delete(path);
+        }
+      }
+    } catch (error) {
+      return error instanceof Error ? error.message : t('error.record');
+    }
+    await this.reloadCollection(dir);
     return null;
   }
 

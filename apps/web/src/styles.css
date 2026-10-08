@@ -5314,7 +5314,7 @@ button.cb:hover::after {
 
 /* ---------- collections ---------- */
 /* The table of a collection, after the Collection views of design/mockups.html: a head with the
-   name, the count, a search box and Add record; a bar of views and tools; then the table, whose
+   name, the count, a search box, Fields and Add record; a bar of views and tools; then the table, whose
    head row stays on top and whose name column stays at the left while it scrolls. */
 
 .collection-view .th .search {
@@ -5358,7 +5358,8 @@ button.cb:hover::after {
   color: var(--sl-faint);
 }
 
-.collection-view .th .search + .add {
+.collection-view .th .search + .ghost,
+.collection-view .th .ghost + .add {
   margin-left: 0;
 }
 
@@ -6488,9 +6489,6 @@ button.cb:hover::after {
     margin-left: 0;
   }
 
-  .collection-view .th .search + .add {
-    margin-left: auto;
-  }
 
   .collection-view .th .search input {
     padding: 6px 0;
@@ -6525,5 +6523,648 @@ button.cb:hover::after {
   .cond > .x {
     grid-row: 1;
     grid-column: 3;
+  }
+}
+
+/* ---------- the Fields window ---------- */
+/* The record screen fills the window, its columns and sections drawn as boxes; a field or a block
+   opens where it is, ringed in the accent. Lists open under their boxes and over the rest. */
+
+.fdlg {
+  display: flex;
+  flex-direction: column;
+  width: min(1080px, 100%);
+  height: min(796px, 100%);
+  min-height: 0;
+  border: 1px solid var(--sl-line);
+  border-radius: 9px;
+  background: var(--sl-bg);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.4);
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.fdlg:focus {
+  outline: none;
+}
+
+.fdlg .cp-head svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--sl-faint);
+}
+
+.fdlg .cp-head b {
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.fdlg .cp-head .vsw {
+  margin-left: auto;
+}
+
+.fdlg .vsw button.on,
+.fe .vsw button.on {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.fd-canvas {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 14px 18px;
+  background: var(--sl-side);
+  overflow: auto;
+}
+
+.fd-say {
+  margin: 0;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.fd-say.warn {
+  color: var(--sl-accent);
+}
+
+.fcols {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.fcol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 8px;
+}
+
+.fcol-h,
+.fsec-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.fcol-h .ratio {
+  display: inline-flex;
+  gap: 1px;
+  margin-left: auto;
+  padding: 1px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  letter-spacing: 0;
+}
+
+.fcol-h .ratio button {
+  padding: 0 6px;
+  border-radius: 3px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+}
+
+.fcol-h .ratio button.on {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.fcol-h .x,
+.fsec-h .x {
+  padding: 0 4px;
+  border-radius: 4px;
+  color: var(--sl-faint);
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.fsec-h .x {
+  margin-left: auto;
+}
+
+.fcol-h .x:hover,
+.fsec-h .x:hover,
+.fopt .x:hover {
+  background: var(--sl-code);
+  color: var(--sl-fg);
+}
+
+.fsec {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-bg);
+}
+
+.fsec.over {
+  border-color: var(--sl-faint);
+}
+
+.fitem {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.fitem:hover,
+.fitem:focus-visible {
+  border-color: var(--sl-faint);
+  outline: none;
+}
+
+.fitem .grip,
+.fopt .grip {
+  position: static;
+  display: flex;
+  width: auto;
+  height: auto;
+  color: var(--sl-faint);
+  line-height: 0;
+  opacity: 1;
+  cursor: grab;
+}
+
+.fitem .grip svg,
+.fopt .grip svg {
+  width: 9px;
+  height: 12px;
+}
+
+.fitem .fl {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fitem .fl i {
+  margin-left: 3px;
+  color: var(--sl-accent);
+  font-style: normal;
+}
+
+.fitem > small {
+  color: var(--sl-faint);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.fitem.fblk {
+  grid-template-columns: 10px minmax(0, 1fr);
+  border-style: dashed;
+}
+
+.fitem.fblk .bl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.fitem.fblk b {
+  font-weight: 600;
+}
+
+.fitem.fblk small {
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.fitem.edit {
+  grid-template-columns: 10px minmax(0, 1fr);
+  align-items: start;
+  padding: 8px 8px 9px 6px;
+  border-color: var(--sl-accent);
+  border-style: solid;
+  box-shadow: 0 0 0 1px var(--sl-accent);
+  cursor: default;
+}
+
+.fitem.edit .grip {
+  padding-top: 7px;
+}
+
+.fitem.edit.fresh {
+  box-shadow: 0 0 0 1px var(--sl-accent), 0 6px 18px rgb(0 0 0 / 0.3);
+}
+
+.fe {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fe-top,
+.fe-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fe-row {
+  gap: 10px;
+}
+
+.fe-top > .in,
+.fe-row > .in {
+  flex: 1;
+  min-width: 0;
+}
+
+.fe-name {
+  flex: none;
+  color: var(--sl-dim);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fe-meta {
+  flex: 1;
+  min-width: 0;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.fe .in {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  box-sizing: border-box;
+  padding: 3px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-side);
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.fe input.in::placeholder {
+  color: var(--sl-faint);
+}
+
+.fe .in:focus,
+.fe .in:focus-visible,
+.fe .in[aria-expanded='true'] {
+  border-color: var(--sl-accent);
+  outline: none;
+}
+
+.fe .in.mono {
+  font-family: var(--sl-font-mono);
+}
+
+.fe .st-field.in {
+  width: auto;
+}
+
+.fe .in .dd {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 9px;
+}
+
+.ftype {
+  flex: none;
+  width: 116px;
+}
+
+.ftype > .in {
+  width: 100%;
+}
+
+.fdel {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  border-radius: 5px;
+  color: var(--sl-faint);
+}
+
+.fdel:hover {
+  background: var(--sl-code);
+  color: var(--sl-fg);
+}
+
+.fdel svg {
+  width: 13px;
+  height: 13px;
+}
+
+.fkey {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font: 11.5px var(--sl-font-mono);
+}
+
+.fcheck {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.fcheck input {
+  margin: 0;
+  accent-color: var(--sl-accent);
+}
+
+.fe .vsw {
+  flex: none;
+  font-size: 12px;
+}
+
+.fopts {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fopt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-side);
+}
+
+.fopt .dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: hsl(var(--lh) var(--ls, 60%) 60%);
+}
+
+.fopt .dot.picking,
+.fopt .dot:focus-visible {
+  box-shadow: 0 0 0 2px var(--sl-bg), 0 0 0 3px var(--sl-accent);
+  outline: none;
+}
+
+.fopt .on-name {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.fopt .on-name::placeholder {
+  color: var(--sl-faint);
+}
+
+.fopt .x {
+  padding: 0 4px;
+  border-radius: 4px;
+  color: var(--sl-faint);
+  line-height: 1.2;
+}
+
+.fpal {
+  position: fixed;
+  z-index: 41;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  width: 222px;
+  box-sizing: border-box;
+  padding: 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-side);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.4);
+}
+
+.fpal .sw {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: hsl(var(--lh) var(--ls, 60%) 60%);
+}
+
+.fpal .sw.on,
+.fpal .sw:focus-visible {
+  box-shadow: 0 0 0 2px var(--sl-side), 0 0 0 3px var(--sl-fg);
+  outline: none;
+}
+
+.fpal .sw-text {
+  flex-basis: 100%;
+  padding-top: 6px;
+  border-top: 1px solid var(--sl-line);
+  color: var(--sl-dim);
+  font-size: 12px;
+  text-align: left;
+}
+
+.fpal .sw-text:hover,
+.fpal .sw-text.on {
+  color: var(--sl-fg);
+}
+
+.fopt-add,
+.fadd,
+.fsec-add {
+  align-self: flex-start;
+  padding: 2px 6px;
+  border-radius: 5px;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.fopt-add:hover,
+.fadd:hover,
+.fsec-add:hover {
+  background: var(--sl-code);
+  color: var(--sl-fg);
+}
+
+.fadd.open {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.fi-note {
+  margin: 0;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.fi-note.bad {
+  color: var(--sl-accent);
+}
+
+/* Where a dragged element or choice lands. */
+.fdrop {
+  position: absolute;
+  right: 8px;
+  left: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--sl-accent);
+  pointer-events: none;
+}
+
+.fopts .fdrop {
+  right: 0;
+  left: 0;
+}
+
+.fcol-add {
+  display: grid;
+  flex: none;
+  align-self: stretch;
+  place-items: center;
+  width: 84px;
+  min-height: 120px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 8px;
+  color: var(--sl-faint);
+  font-size: 12px;
+  text-align: center;
+}
+
+.fcol-add:hover {
+  border-color: var(--sl-faint);
+  color: var(--sl-fg);
+}
+
+.ftext {
+  flex: 1;
+  min-height: 0;
+  margin: 14px 18px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ftext .cm-editor {
+  height: 100%;
+}
+
+/* The list of types: each with what it is for beside it; one a collection has already is faint. */
+.opt-list.ftypes button {
+  grid-template-columns: 84px minmax(0, 1fr) 14px;
+  gap: 8px;
+  padding: 2px 8px;
+  line-height: 1.55;
+}
+
+.opt-list.ftypes .nm {
+  min-height: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.opt-list .hint {
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.opt-list button.off {
+  cursor: default;
+}
+
+.opt-list button.off .nm {
+  color: var(--sl-faint);
+}
+
+/* The menu under + Add: each line with what it adds under it. */
+.opt-list.fmenu button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 6px 8px;
+}
+
+.opt-list.fmenu .nm {
+  min-height: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.opt-list.fmenu .hint {
+  white-space: normal;
+}
+
+.opt-list.fmenu .tick {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .fdlg {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .fd-canvas {
+    padding: 12px;
+  }
+
+  .fcols {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fcol-add {
+    width: auto;
+    min-height: 44px;
+  }
+
+  .collection-view .th .search + .ghost {
+    margin-left: auto;
   }
 }

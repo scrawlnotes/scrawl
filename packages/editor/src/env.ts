@@ -17,40 +17,53 @@ import { scrawlTheme } from './theme';
 
 // A keys file as text, after the Keys text view of design/mockups.html: line numbers, comments
 // faint, key names dim, values as they are. Plain text otherwise; nothing in it is formatted.
+// A collection's schema file is shown the same way, its keys dim.
 
 const comment = Decoration.mark({ class: 'cm-env-comment' });
 const keyName = Decoration.mark({ class: 'cm-env-key' });
 const ENTRY = /^(\s*(?:export\s+)?)([^\s=#][^\s=]*)\s*=/;
+const JSON_KEY = /"(?:[^"\\]|\\.)*"(?=\s*:)/g;
 
-function decorate(view: EditorView): DecorationSet {
-  const builder = new RangeSetBuilder<Decoration>();
-  for (const { from, to } of view.visibleRanges) {
-    for (let pos = from; pos <= to; ) {
-      const line = view.state.doc.lineAt(pos);
-      const start = line.text.search(/\S/);
-      if (start >= 0 && line.text[start] === '#') builder.add(line.from + start, line.to, comment);
-      else {
-        const m = ENTRY.exec(line.text);
-        if (m) builder.add(line.from + m[1]!.length, line.from + m[1]!.length + m[2]!.length, keyName);
-      }
-      pos = line.to + 1;
-    }
+/** The marks of one line of a keys file: a comment, or the name of a key. */
+function envLine(text: string, at: number, builder: RangeSetBuilder<Decoration>) {
+  const start = text.search(/\S/);
+  if (start >= 0 && text[start] === '#') builder.add(at + start, at + text.length, comment);
+  else {
+    const m = ENTRY.exec(text);
+    if (m) builder.add(at + m[1]!.length, at + m[1]!.length + m[2]!.length, keyName);
   }
-  return builder.finish();
 }
 
-const envHighlight = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
-    constructor(view: EditorView) {
-      this.decorations = decorate(view);
+/** The marks of one line of JSON: the keys. */
+function jsonLine(text: string, at: number, builder: RangeSetBuilder<Decoration>) {
+  for (const m of text.matchAll(JSON_KEY)) builder.add(at + m.index, at + m.index + m[0].length, keyName);
+}
+
+function highlight(mark: typeof envLine) {
+  const decorate = (view: EditorView): DecorationSet => {
+    const builder = new RangeSetBuilder<Decoration>();
+    for (const { from, to } of view.visibleRanges) {
+      for (let pos = from; pos <= to; ) {
+        const line = view.state.doc.lineAt(pos);
+        mark(line.text, line.from, builder);
+        pos = line.to + 1;
+      }
     }
-    update(update: ViewUpdate) {
-      if (update.docChanged || update.viewportChanged) this.decorations = decorate(update.view);
-    }
-  },
-  { decorations: (plugin) => plugin.decorations },
-);
+    return builder.finish();
+  };
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      constructor(view: EditorView) {
+        this.decorations = decorate(view);
+      }
+      update(update: ViewUpdate) {
+        if (update.docChanged || update.viewportChanged) this.decorations = decorate(update.view);
+      }
+    },
+    { decorations: (plugin) => plugin.decorations },
+  );
+}
 
 const envTheme = EditorView.theme({
   '&': { backgroundColor: 'var(--sl-code)' },
@@ -79,10 +92,14 @@ function changeBetween(from: string, to: string) {
   return { from: start, to: from.length - end, insert: to.slice(start, to.length - end) };
 }
 
-/** An editor for the text of a keys file. `onChange` gets each edit typed; `onCursor` where the cursor is. */
+/**
+ * An editor for the text of a keys file, or with `json` of a schema file. `onChange` gets each
+ * edit typed; `onCursor` where the cursor is.
+ */
 export function createEnvEditor(options: {
   parent: HTMLElement;
   doc: string;
+  json?: boolean;
   onChange: (doc: string) => void;
   onCursor?: (at: { line: number; col: number }) => void;
 }): EnvEditor {
@@ -105,7 +122,7 @@ export function createEnvEditor(options: {
         highlightSelectionMatches(),
         search({ top: false, createPanel: findPanel }),
         EditorView.lineWrapping,
-        envHighlight,
+        highlight(options.json ? jsonLine : envLine),
         scrawlTheme,
         envTheme,
         keymap.of([...searchKeymap, ...historyKeymap, ...defaultKeymap, indentWithTab]),

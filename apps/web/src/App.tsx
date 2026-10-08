@@ -600,6 +600,7 @@ export function App() {
     collection: (dir) => collections[dir] ?? null,
     collections: () => Object.values(collections),
     changeSchema: (dir, change) => session.changeSchema(dir, change),
+    saveFields: (dir, schema, renames) => session.saveFields(dir, schema, renames),
     editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
   };
   const dueNow = dueToday(tasks, today);

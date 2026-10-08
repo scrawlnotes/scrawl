@@ -37,8 +37,10 @@ export function Dialog({ label, className, onClose, onEscape = onClose, onKeyDow
         aria-label={label}
         tabIndex={-1}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') onEscape();
-          else onKeyDown?.(event);
+          if (event.key !== 'Escape') return onKeyDown?.(event);
+          // Taken here: the window under this one does not close with it.
+          event.preventDefault();
+          onEscape();
         }}
       >
         {children}

@@ -626,16 +626,19 @@ function numberOf(field: Field, values: Record['values'], schema: Schema, today:
   }
 }
 
-/**
- * Works out a formula over a record's fields: numbers, the four operations, parentheses, field keys,
- * `today()`, and days taken from days. Null when it cannot be worked out: a field it needs is empty,
- * or the expression is not one. A formula is shown, never written to the file.
- */
-export function evaluateFormula(expr: string, values: Record['values'], schema: Schema, today: string, depth = 0): number | null {
+/** A formula read: a number, a field, today, a negation, or two parts joined by an operation. */
+type FormulaNode =
+  | { kind: 'number'; value: number }
+  | { kind: 'field'; key: string }
+  | { kind: 'today' }
+  | { kind: 'neg'; of: FormulaNode }
+  | { kind: 'op'; op: string; left: FormulaNode; right: FormulaNode };
+
+/** Reads a formula: numbers, the four operations, parentheses, field keys and `today()`. Null when it is not one. */
+function parseFormula(expr: string): FormulaNode | null {
   const tokens = tokenize(expr.trim());
   if (!tokens || tokens.length === 0) return null;
   let i = 0;
-  const peek = () => tokens[i];
   const takeOp = (op: string) => {
     const token = tokens[i];
     if (token?.kind === 'op' && token.value === op) {
@@ -644,58 +647,105 @@ export function evaluateFormula(expr: string, values: Record['values'], schema: 
     }
     return false;
   };
-  const fail = Symbol('fail');
-  const factor = (): number | typeof fail => {
+  const factor = (): FormulaNode | null => {
     const token = tokens[i++];
-    if (!token) return fail;
-    if (token.kind === 'number') return token.value;
+    if (!token) return null;
+    if (token.kind === 'number') return { kind: 'number', value: token.value };
     if (token.kind === 'op' && token.value === '-') {
       const inner = factor();
-      return inner === fail ? fail : -inner;
+      return inner && { kind: 'neg', of: inner };
     }
     if (token.kind === 'op' && token.value === '(') {
       const inner = expression();
-      return inner === fail || !takeOp(')') ? fail : inner;
+      return inner && takeOp(')') ? inner : null;
     }
     if (token.kind === 'name') {
-      if (takeOp('(')) {
-        if (token.value !== 'today' || !takeOp(')')) return fail;
-        const day = dayNumber(today);
-        return day === null ? fail : day;
+      if (!takeOp('(')) return { kind: 'field', key: token.value };
+      return token.value === 'today' && takeOp(')') ? { kind: 'today' } : null;
+    }
+    return null;
+  };
+  const joined = (part: () => FormulaNode | null, ops: string[]) => (): FormulaNode | null => {
+    let left = part();
+    while (left) {
+      const next = tokens[i];
+      if (next?.kind !== 'op' || !ops.includes(next.value)) break;
+      i++;
+      const right = part();
+      if (!right) return null;
+      left = { kind: 'op', op: next.value, left, right };
+    }
+    return left;
+  };
+  const term = joined(factor, ['*', '/']);
+  const expression = joined(term, ['+', '-']);
+  const node = expression();
+  return node && i === tokens.length ? node : null;
+}
+
+/** The field keys a formula reads. */
+function formulaKeys(node: FormulaNode): string[] {
+  if (node.kind === 'field') return [node.key];
+  if (node.kind === 'neg') return formulaKeys(node.of);
+  if (node.kind === 'op') return [...formulaKeys(node.left), ...formulaKeys(node.right)];
+  return [];
+}
+
+/**
+ * Works out a formula over a record's fields: numbers, the four operations, parentheses, field keys,
+ * `today()`, and days taken from days. Null when it cannot be worked out: a field it needs is empty,
+ * or the expression is not one. A formula is shown, never written to the file.
+ */
+export function evaluateFormula(expr: string, values: Record['values'], schema: Schema, today: string, depth = 0): number | null {
+  const node = parseFormula(expr);
+  if (!node) return null;
+  const work = (n: FormulaNode): number | null => {
+    switch (n.kind) {
+      case 'number':
+        return n.value;
+      case 'today':
+        return dayNumber(today);
+      case 'field': {
+        const field = schema.fields.find((f) => f.key === n.key);
+        return field ? numberOf(field, values, schema, today, depth) : null;
       }
-      const field = schema.fields.find((f) => f.key === token.value);
-      if (!field) return fail;
-      const n = numberOf(field, values, schema, today, depth);
-      return n === null ? fail : n;
+      case 'neg': {
+        const inner = work(n.of);
+        return inner === null ? null : -inner;
+      }
+      case 'op': {
+        const [left, right] = [work(n.left), work(n.right)];
+        if (left === null || right === null) return null;
+        if (n.op === '+') return left + right;
+        if (n.op === '-') return left - right;
+        if (n.op === '*') return left * right;
+        return right === 0 ? null : left / right;
+      }
     }
-    return fail;
   };
-  const term = (): number | typeof fail => {
-    let left = factor();
-    while (left !== fail) {
-      const next = peek();
-      if (next?.kind !== 'op' || (next.value !== '*' && next.value !== '/')) break;
-      i++;
-      const right = factor();
-      if (right === fail) return fail;
-      left = next.value === '*' ? left * right : right === 0 ? fail : left / right;
-    }
-    return left;
-  };
-  const expression = (): number | typeof fail => {
-    let left = term();
-    while (left !== fail) {
-      const next = peek();
-      if (next?.kind !== 'op' || (next.value !== '+' && next.value !== '-')) break;
-      i++;
-      const right = term();
-      if (right === fail) return fail;
-      left = next.value === '+' ? left + right : left - right;
-    }
-    return left;
-  };
-  const result = expression();
-  return result === fail || i !== tokens.length || !Number.isFinite(result) ? null : result;
+  const result = work(node);
+  return result !== null && Number.isFinite(result) ? result : null;
+}
+
+/** The types a formula can read a number from. */
+const COUNTED: readonly FieldType[] = ['number', 'date', 'checkbox', 'formula'];
+
+/**
+ * What is wrong with a formula, said for the one typing it: it is not one, or it reads a field that
+ * is not there, one that holds no number, or itself (the formula of the field `key`). Null when it
+ * can be worked out.
+ */
+export function formulaProblem(expr: string, schema: Pick<Schema, 'fields'>, key?: string): string | null {
+  if (!expr.trim()) return t('fields.formulaEmpty');
+  const node = parseFormula(expr);
+  if (!node) return t('fields.formulaBroken');
+  for (const name of formulaKeys(node)) {
+    const field = schema.fields.find((f) => f.key === name);
+    if (!field) return t('fields.formulaUnknown', { name });
+    if (name === key) return t('fields.formulaSelf');
+    if (!COUNTED.includes(field.type)) return t('fields.formulaNotNumber', { name: field.label });
+  }
+  return null;
 }
 
 /** A record's value for a field, formulas worked out for `today`. */

@@ -1,4 +1,5 @@
 import {
+  type ChoiceRenames,
   type Collection,
   type CollectionLook,
   type ColumnWidths,
@@ -66,8 +67,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { createPortal } from 'react-dom';
-import { labelHue } from './CardPanel';
+import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
+import { FieldsDialog } from './Fields';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { collectionLabel } from './items';
@@ -76,10 +77,11 @@ import { dueLabel } from './Tasks';
 import { quote } from './text';
 
 // A collection, after the Collection views of design/mockups.html: one table of its records, a
-// search box and Add record in its head. A record is one form in a modal, drawn from the
+// search box, Fields and Add record in its head. A record is one form in a modal, drawn from the
 // schema's layout (columns of sections of fields, the body among them): every field is a box,
 // what is typed is held as a draft, and Save writes it all at once, as one file. A new record is
 // the same form empty, with Create. A choice opens a list under its box, as a card's status does.
+// Fields opens the window that changes the fields and the layout (Fields.tsx).
 
 export interface CollectionActions {
   /** Returns a message when the record cannot be made. */
@@ -104,13 +106,13 @@ export interface CollectionActions {
   collections: () => Collection[];
   /** Changes the collection's schema file, for its views. Returns a message when it cannot be written. */
   changeSchema: (dir: string, change: (schema: Schema) => Schema) => Promise<string | null>;
+  /** Writes what the Fields window changed: the schema, and the records whose choices were renamed. */
+  saveFields: (dir: string, schema: Schema, renames: ChoiceRenames) => Promise<string | null>;
 }
 
 /** A table longer than this shows its first rows and a line for the rest. */
 const MANY_ROWS = 20;
 const SHOWN_FIRST = 15;
-/** How close to the window's edge a list may come. */
-const EDGE = 8;
 
 // ---------- column widths ----------
 
@@ -178,30 +180,6 @@ const tableFields = (collection: Collection): Field[] =>
   collection.schema.fields.length > 0 ? collection.schema.fields : [{ ...TITLE, label: t('collection.recordColumn') }];
 
 // ---------- values ----------
-
-/** Each color of a choice as a hue and a saturation. */
-const HUES: { [color in OptionColor]: [number, number] } = {
-  gray: [220, 8],
-  red: [2, 70],
-  orange: [26, 75],
-  yellow: [44, 75],
-  green: [140, 45],
-  teal: [174, 50],
-  blue: [214, 70],
-  purple: [268, 55],
-  pink: [328, 60],
-};
-
-/** A choice as a chip, in the color the schema gives it, else colored by its text as a card's labels are. */
-function Chip({ text, color, children }: { text: string; color?: OptionColor; children?: ReactNode }) {
-  const [hue, saturation] = color ? HUES[color] : [labelHue(text), 60];
-  return (
-    <span className="lbl" style={{ '--lh': hue, '--ls': `${saturation}%` } as CSSProperties}>
-      {text}
-      {children}
-    </span>
-  );
-}
 
 /** A link as a chip: the record's name and code, struck through with "(deleted)" when the record is gone. */
 function LinkChip({ link, gone, children }: { link: Link; gone: boolean; children?: ReactNode }) {
@@ -272,132 +250,6 @@ function Cell({ field, value, ctx }: { field: Field; value: FieldValue | undefin
 }
 
 // ---------- choices ----------
-
-interface Option {
-  value: string | null;
-  label: string;
-  /** Shown as a chip, colored by its text unless `color` says; the empty choice and "add" are plain. */
-  chip: boolean;
-  color?: OptionColor;
-  /** A line above it, apart from the choices before it. */
-  apart?: boolean;
-}
-
-/** The choices of a field as options, in the colors the schema gives them. */
-const choiceOptions = (field: Field, values: string[]): Option[] => values.map((o) => ({ value: o, label: o, chip: true, color: optionColor(field, o) }));
-
-/** Keys the list handles while a box keeps the keyboard; the box passes them on. */
-const LIST_KEYS = ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'];
-
-/**
- * The choices of a field, under its box, or above it when there is more room there, as a card's
- * status list is. The arrow keys move through it, Enter picks, Esc closes. The box that opened it
- * keeps the keyboard and hands these keys over through `keys`.
- */
-function OptionList({ anchor, options, current, label, keys, onPick, onClose }: {
-  anchor: RefObject<HTMLElement | null>;
-  options: Option[];
-  /** The values chosen now, ticked. */
-  current: string[];
-  label: string;
-  keys: RefObject<((event: KeyboardEvent) => void) | null>;
-  onPick: (value: string | null) => void;
-  onClose: () => void;
-}) {
-  const [at, setAt] = useState(() => Math.max(0, options.findIndex((o) => o.value !== null && current.includes(o.value))));
-  const [place, setPlace] = useState<CSSProperties | null>(null);
-  const box = useRef<HTMLDivElement>(null);
-  const latest = useRef({ options, at, onPick, onClose });
-  latest.current = { options, at, onPick, onClose };
-
-  useLayoutEffect(() => {
-    const measure = () => {
-      const field = anchor.current?.getBoundingClientRect();
-      const height = box.current?.offsetHeight ?? 0;
-      if (!field) return;
-      const below = window.innerHeight - field.bottom - EDGE - 4;
-      const above = field.top - EDGE - 4;
-      const width = Math.max(field.width, 220);
-      const left = Math.max(EDGE, Math.min(field.left, window.innerWidth - width - EDGE));
-      setPlace(below >= height || below >= above ? { left, width, top: field.bottom + 4 } : { left, width, bottom: window.innerHeight - field.top + 4 });
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    window.addEventListener('scroll', measure, true);
-    return () => {
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('scroll', measure, true);
-    };
-  }, [anchor, options.length]);
-
-  useEffect(() => {
-    const away = (event: globalThis.MouseEvent) => {
-      const target = event.target as Node;
-      if (!box.current?.contains(target) && !anchor.current?.contains(target)) latest.current.onClose();
-    };
-    window.addEventListener('mousedown', away);
-    return () => window.removeEventListener('mousedown', away);
-  }, [anchor]);
-
-  useEffect(() => {
-    if (at > options.length - 1) setAt(Math.max(0, options.length - 1));
-  }, [options.length, at]);
-
-  useEffect(() => {
-    keys.current = (event) => {
-      const { options: now, at: here, onPick: pick, onClose: close } = latest.current;
-      const last = now.length - 1;
-      if (event.key === 'ArrowDown') setAt(here >= last ? 0 : here + 1);
-      else if (event.key === 'ArrowUp') setAt(here <= 0 ? last : here - 1);
-      else if (event.key === 'Enter') {
-        const option = now[here];
-        if (option) pick(option.value);
-      } else if (event.key === 'Escape' || event.key === 'Tab') close();
-      else return;
-      event.preventDefault();
-      event.stopPropagation();
-    };
-    return () => {
-      keys.current = null;
-    };
-  }, [keys]);
-
-  return createPortal(
-    <div ref={box} className="lbl-picker st-picker opt-list" role="listbox" aria-label={label} style={place ?? { opacity: 0 }}>
-      {options.map((option, index) => {
-        const on = option.value !== null && current.includes(option.value);
-        return (
-          <button
-            key={option.value ?? '\u0000'}
-            type="button"
-            role="option"
-            aria-selected={on}
-            tabIndex={-1}
-            className={[index === at && 'at', option.apart && 'apart'].filter(Boolean).join(' ') || undefined}
-            onMouseDown={(event) => event.preventDefault()}
-            onMouseMove={() => index !== at && setAt(index)}
-            onClick={() => onPick(option.value)}
-          >
-            <span className="nm">{option.chip ? <Chip text={option.label} color={option.color} /> : <span className={option.value === null ? 'none' : undefined}>{option.label}</span>}</span>
-            <span className="tick">{on ? '✓' : ''}</span>
-          </button>
-        );
-      })}
-    </div>,
-    document.body,
-  );
-}
-
-/** What a box that opens a list does with the keys: the list's while it is open, opening it while it is not. */
-function boxKeys(open: boolean, setOpen: (open: boolean) => void, keys: RefObject<((event: KeyboardEvent) => void) | null>) {
-  return (event: KeyboardEvent) => {
-    if (open && LIST_KEYS.includes(event.key)) keys.current?.(event);
-    else if (!open && (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ')) {
-      event.preventDefault();
-      setOpen(true);
-    }
-  };
-}
 
 /** One choice of a select: the box shows it as a chip; a click opens the list of them. */
 function SelectField({ field, value, onChange }: { field: Field; value: string | null; onChange: (value: string | null) => void }) {
@@ -702,26 +554,6 @@ function NotesBlock({ text, editor, onChange }: { text: string; editor: Collecti
       <div ref={host} />
     </div>
   );
-}
-
-/**
- * Esc closes the window `within` holds, wherever the keyboard is, in it or nowhere after what had
- * it went away; only the window on top does, and not while a list is open, which Esc closes first.
- */
-function useEscape(within: RefObject<HTMLElement | null>, onEscape: () => void) {
-  const latest = useRef(onEscape);
-  latest.current = onEscape;
-  useEffect(() => {
-    const key = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('.opt-list')) return;
-      const windows = document.querySelectorAll('.backdrop');
-      if (windows[windows.length - 1] !== within.current) return;
-      event.preventDefault();
-      latest.current();
-    };
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, [within]);
 }
 
 /** What the form holds: the record as it is being typed. */
@@ -1149,102 +981,6 @@ function ConditionRow({ schema, condition, records, onChange, onRemove }: {
   );
 }
 
-/** One choice from a list, as a box that opens the list under it; the box shows the choice, or `text` when it is given. */
-function Picker({ options, value, label, text, onPick, className }: {
-  options: Option[];
-  value: string | null;
-  label: string;
-  text?: string;
-  /** Null for the empty choice, where the list has one. */
-  onPick: (value: string | null) => void;
-  className?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLButtonElement>(null);
-  const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
-  // Nothing chosen shows the box's own label, not the empty choice's.
-  const current = value === null ? undefined : options.find((o) => o.value === value);
-  return (
-    <>
-      <button
-        ref={box}
-        type="button"
-        className={className ? `st-field ${className}` : 'st-field'}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={label}
-        onClick={() => setOpen(!open)}
-        onKeyDown={boxKeys(open, setOpen, keys)}
-      >
-        <span className="nm">{text ?? (current ? (current.chip ? <Chip text={current.label} color={current.color} /> : current.label) : <span className="none">{label}</span>)}</span>
-        <span className="dd" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-      {open && (
-        <OptionList
-          anchor={box}
-          options={options}
-          current={value ? [value] : []}
-          label={label}
-          keys={keys}
-          onPick={(picked) => {
-            setOpen(false);
-            onPick(picked);
-          }}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </>
-  );
-}
-
-/** Several choices from a list: the ones picked as chips in the box, the list stays open while picking. */
-function MultiPicker({ options, picked, label, onChange }: { options: Option[]; picked: string[]; label: string; onChange: (picked: string[]) => void }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLButtonElement>(null);
-  const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
-  return (
-    <>
-      <button
-        ref={box}
-        type="button"
-        className="st-field multi"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={label}
-        onClick={() => setOpen(!open)}
-        onKeyDown={boxKeys(open, setOpen, keys)}
-      >
-        <span className="nm">
-          {picked.length === 0 ? (
-            <span className="none">{label}</span>
-          ) : (
-            picked.map((p) => {
-              const option = options.find((o) => o.value === p);
-              return option?.chip ? <Chip key={p} text={p} color={option.color} /> : <span key={p} className="lnk">{option?.label ?? p}</span>;
-            })
-          )}
-        </span>
-        <span className="dd" aria-hidden="true">
-          ▾
-        </span>
-      </button>
-      {open && (
-        <OptionList
-          anchor={box}
-          options={options}
-          current={picked}
-          label={label}
-          keys={keys}
-          onPick={(value) => value !== null && onChange(picked.includes(value) ? picked.filter((p) => p !== value) : [...picked, value])}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </>
-  );
-}
-
 /** The conditions of the table, edited in a window; Apply shows them, Save as view keeps them in the schema. */
 function FilterDialog({ schema, first, conditions, count, records, view, onApply, onSave, onClose }: {
   schema: Schema;
@@ -1368,17 +1104,19 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const [full, setFull] = useState(false);
   const [open, setOpen] = useState<{ kind: 'new' } | { kind: 'record'; id: string } | null>(null);
   const [filtering, setFiltering] = useState(false);
+  const [designing, setDesigning] = useState(false);
   const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set());
   // Conditions applied without being saved as a view, until the tab closes.
   const [adHoc, setAdHoc] = useState<Condition[]>([]);
   const views = schema.views ?? [];
   const view = views.find((v) => v.id === look?.view) ?? null;
-  // Records come by their name, else by the first field.
-  const firstSort: RecordSort = { key: nameField(schema)?.key ?? schema.fields[0]?.key ?? '', dir: 'asc' };
-  const state: TableState = view
-    ? { conditions: view.conditions, sort: view.sort ?? firstSort, group: view.group ?? null, columns: view.columns ?? null, widths: view.widths ?? null }
-    : { conditions: adHoc, sort: look?.sort ?? firstSort, group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null };
   const fieldsByKey = useMemo(() => new Map(schema.fields.map((f) => [f.key, f])), [schema]);
+  // Records come by their name, else by the first field; a sort by a field taken out falls back to that too.
+  const firstSort: RecordSort = { key: nameField(schema)?.key ?? schema.fields[0]?.key ?? '', dir: 'asc' };
+  const sortOf = (sort: RecordSort | undefined) => (sort && fieldsByKey.has(sort.key) ? sort : firstSort);
+  const state: TableState = view
+    ? { conditions: view.conditions, sort: sortOf(view.sort), group: view.group ?? null, columns: view.columns ?? null, widths: view.widths ?? null }
+    : { conditions: adHoc, sort: sortOf(look?.sort), group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null };
   const allFields = useMemo(() => tableFields(collection), [collection]);
   const fields = state.columns ? [allFields[0]!, ...state.columns.map((k) => fieldsByKey.get(k)).filter((f): f is Field => !!f && f.key !== allFields[0]!.key)] : allFields;
   const sortField = fieldsByKey.get(state.sort.key);
@@ -1612,6 +1350,9 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
           <Icon name="search" />
           <input type="search" spellCheck={false} aria-label={t('collection.search')} placeholder={t('collection.search')} value={query} onChange={(event) => setQuery(event.target.value)} />
         </label>
+        <button type="button" className="ghost" onClick={() => setDesigning(true)}>
+          {t('collection.fields')}
+        </button>
         <button type="button" className="add" onClick={() => setOpen({ kind: 'new' })}>
           {t('collection.addRecord')}
         </button>
@@ -1659,6 +1400,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
       {table}
       {open?.kind === 'new' && <RecordDialog collection={collection} record={null} today={today} actions={actions} onClose={() => setOpen(null)} />}
       {opened && <RecordDialog key={opened.id} collection={collection} record={opened} today={today} actions={actions} onClose={() => setOpen(null)} />}
+      {designing && <FieldsDialog collection={collection} actions={actions} onClose={() => setDesigning(false)} />}
       {filtering && (
         <FilterDialog
           schema={schema}
