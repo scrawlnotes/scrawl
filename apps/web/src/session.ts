@@ -1229,10 +1229,7 @@ export class Session {
       if (this.snapshot.tabs.includes(record.path)) await this.follow(record.path, target);
       else await moveHistory(this.fs, record.path, target).catch(() => undefined);
     }
-    for (const [dir, collection] of Object.entries(this.snapshot.collections)) {
-      const schema = retargetLinks(collection.schema, from, to);
-      if (schema !== collection.schema) await saveSchema(this.fs, dir === from ? to : dir, schema).catch(() => undefined);
-    }
+    await this.retargetSchemas(from, to);
     // Boards' links and tasks about its records follow it too.
     for (const path of Object.keys(this.snapshot.boards)) this.changeBoard(path, (board) => retargetBoardLinks(board, from, to));
     for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkTaskRecords(current, from, to));
@@ -1246,6 +1243,14 @@ export class Session {
     });
     await this.refreshTree();
     this.saveWorkspace();
+  }
+
+  /** The collection or the board at `from` went to `to`: links, linked-record blocks and rollups in every collection point there now. */
+  private async retargetSchemas(from: string, to: string) {
+    for (const [dir, collection] of Object.entries(this.snapshot.collections)) {
+      const schema = retargetLinks(collection.schema, from, to);
+      if (schema !== collection.schema) await saveSchema(this.fs, dir === from ? to : dir, schema).catch(() => undefined);
+    }
   }
 
   /** Gives a collection a name; its folder is renamed. Returns a message when the name cannot be used. */
@@ -1833,9 +1838,10 @@ export class Session {
       for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkNote(current, path, target));
       for (const board of Object.keys(this.snapshot.boards)) this.changeBoard(board, (current) => relinkBoardNote(current, path, target));
     }
-    // Tasks made from cards of a board link to it where it is now.
+    // Tasks made from cards of a board link to it where it is now, and rollups read from it there.
     if (path.endsWith(BOARD_EXT)) {
       for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkBoard(current, path, target));
+      if (target !== path) await this.retargetSchemas(path, target);
     }
     this.moveLook(path, target);
     const [from, to] = [tabOf(path), tabOf(target)];

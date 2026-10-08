@@ -1054,15 +1054,21 @@ export async function moveCollection(fs: VaultFs, dir: string, folder: string): 
 }
 
 /**
- * A schema whose links and linked-record blocks pointing at the collection at `from` point at
- * `to`, where it went; the same schema when nothing in it points there.
+ * A schema whose links, linked-record blocks and rollups pointing at the collection or the board
+ * at `from` point at `to`, where it went; the same schema when nothing in it points there.
  */
 export function retargetLinks(schema: Schema, from: string, to: string): Schema {
   let changed = false;
   const fields = schema.fields.map((field) => {
-    if (field.type !== 'link' || field.collection !== from) return field;
-    changed = true;
-    return { ...field, collection: to };
+    if (field.type === 'link' && field.collection === from) {
+      changed = true;
+      return { ...field, collection: to };
+    }
+    if (field.type === 'rollup' && field.rollup?.from === from) {
+      changed = true;
+      return { ...field, rollup: { ...field.rollup, from: to } };
+    }
+    return field;
   });
   const layout = schema.layout && {
     columns: schema.layout.columns.map((column) => ({

@@ -6,6 +6,7 @@ import {
   columnSum,
   type Condition,
   evaluateFormula,
+  type Field,
   formulaProblem,
   fieldValueOf,
   groupRecords,
@@ -369,6 +370,18 @@ describe('renaming and moving a collection', () => {
     expect(next.fields.find((f) => f.key === 'company')?.collection).toBe('Work/Companies');
     expect(next.layout?.columns[0]?.sections[0]?.items[0]).toEqual({ block: 'linked', collection: 'Work/Companies' });
     expect(retargetLinks(people, 'Elsewhere/Companies', moved)).toBe(people);
+  });
+
+  it('rollups follow the collection or the board they read from', () => {
+    const companies = newSchema('companies', 'Scrawl');
+    const renamed = retargetLinks(companies, 'Scrawl/Activities', 'Scrawl/Calls');
+    expect(renamed.fields.find((f) => f.key === 'last_contact')?.rollup).toEqual({ from: 'Scrawl/Calls', fn: 'max', field: 'date' });
+    const deals: Field = { key: 'open_deals', label: 'Open deals', type: 'rollup', rollup: { from: 'Scrawl/Deals.board.json', fn: 'count', open: true } };
+    const withBoard = { ...companies, fields: [...companies.fields, deals] };
+    const moved = retargetLinks(withBoard, 'Scrawl/Deals.board.json', 'Sales/Pipeline.board.json');
+    expect(moved.fields.find((f) => f.key === 'open_deals')?.rollup).toEqual({ from: 'Sales/Pipeline.board.json', fn: 'count', open: true });
+    expect(moved.fields.find((f) => f.key === 'last_contact')?.rollup?.from).toBe('Scrawl/Activities');
+    expect(retargetLinks(withBoard, 'Elsewhere/Deals.board.json', 'Sales/Pipeline.board.json')).toBe(withBoard);
   });
 });
 
