@@ -89,7 +89,7 @@ describe('filters', () => {
 });
 
 import { addCard, moveCardToKind, newBoard, updateCard } from './board';
-import { filterCards } from './filters';
+import { filterCards, filterFields } from './filters';
 
 describe('filterCards', () => {
   it('shows the cards that match, not finished ones, by board', () => {
@@ -107,5 +107,30 @@ describe('filterCards', () => {
     expect(filterCards({ ...base, folders: ['Work'] }, boards, '2026-10-07')).toHaveLength(1);
     expect(filterCards({ ...base, folders: ['Home'] }, boards, '2026-10-07')).toHaveLength(0);
     expect(filterCards({ ...base, text: 'NEEDLE' }, boards, '2026-10-07')[0]!.cards.map((c) => c.id)).toEqual(['b']);
+  });
+});
+
+describe("filters on boards' fields", () => {
+  const deals = () => {
+    let board = newBoard('Deals', 'crm', undefined, { company: 'Scrawl/Companies', contact: 'Scrawl/People' });
+    board = addCard(board, { title: 'Pilot', values: { company: { id: 'a1', name: 'Acme Corp' }, value: 12000, next_step: '2026-10-09' } }, now, undefined, 'k1');
+    board = addCard(board, { title: 'Annual plan', values: { company: { id: 'b2', name: 'Globex' }, value: 24000 } }, now, undefined, 'k2');
+    return board;
+  };
+
+  it('show the cards whose fields match, and no tasks', () => {
+    const boards = { 'Scrawl/Deals.board.json': deals(), 'Scrawl/Plan.board.json': newBoard('Plan', 'simple') };
+    const acme: FilterChoices = { ...all, fields: [{ field: 'company', op: 'is', value: ['Acme Corp'] }] };
+    expect(filterCards(acme, boards, today).flatMap((g) => g.cards.map((c) => c.title))).toEqual(['Pilot']);
+    const big: FilterChoices = { ...all, fields: [{ field: 'value', op: 'gt', value: 10000 }, { field: 'next_step', op: 'before', value: '2026-10-15' }] };
+    expect(filterCards(big, boards, today).flatMap((g) => g.cards.map((c) => c.title))).toEqual(['Pilot']);
+    expect(matchesFilter(acme, 'Inbox', task('a'), today)).toBe(false);
+    // A condition still without its value asks nothing.
+    expect(matchesFilter({ ...all, fields: [{ field: 'company', op: 'is' }] }, 'Inbox', task('a'), today)).toBe(true);
+    expect(filterFields({ folders: [] }, boards).map((f) => f.key)).toEqual(['company', 'contact', 'value', 'next_step']);
+    expect(filterFields({ folders: ['Home'] }, boards)).toEqual([]);
+    const read = parseFilters(serializeFilters([{ ...big, id: 'f', name: 'Big' }]))[0]!;
+    expect(read.fields).toEqual(big.fields);
+    expect('fields' in parseFilters(serializeFilters([{ ...all, id: 'g', name: 'All' }]))[0]!).toBe(false);
   });
 });

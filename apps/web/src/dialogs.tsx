@@ -2,7 +2,12 @@ import {
   basename,
   type BoardLinks,
   type CollectionTemplate,
+  type Condition,
   DUE_RULES,
+  type Field,
+  isComplete,
+  opsFor,
+  type Record as CollectionRecord,
   type FilterChoices,
   filterName,
   join,
@@ -25,6 +30,7 @@ import {
   useState,
 } from 'react';
 import { type Option, Picker } from './choices';
+import { ConditionRow } from './Collection';
 import { Icon, type IconName } from './Icon';
 import { collectionLabel } from './items';
 
@@ -475,15 +481,21 @@ function Chips<T>({ label, items, picked, onPick, name }: {
 
 /**
  * Makes a filter or changes one, after the Filter edit view of design/mockups.html (direction
- * A). Every choice narrows what it shows; the count of open tasks follows them.
+ * A). Every choice narrows what it shows; the count of open tasks and cards follows them. When
+ * boards in its folders have fields of their own, it asks about them too, as the Filter fields
+ * view draws it: those conditions are about cards, so with one the filter shows cards only.
  */
-export function FilterDialog({ filter, folders, count, onSave, onClose }: {
+export function FilterDialog({ filter, folders, count, fields, records, onSave, onClose }: {
   /** The filter changed; null for a new one. */
   filter: TaskFilter | null;
   /** The top-level folders, the inbox first. */
   folders: string[];
-  /** How many open tasks the choices would show. */
+  /** How many open tasks and cards the choices would show. */
   count: (choices: FilterChoices) => number;
+  /** The boards' own fields in the folders chosen. */
+  fields: (choices: FilterChoices) => Field[];
+  /** The records of a collection, for a condition on a link. */
+  records: (collection: string) => CollectionRecord[] | null;
   onSave: (filter: TaskFilter) => void;
   onClose: () => void;
 }) {
@@ -492,9 +504,15 @@ export function FilterDialog({ filter, folders, count, onSave, onClose }: {
     filter ?? { due: 'any', priorities: [], folders: [], text: '' },
   );
   const toggle = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
-  const save = () =>
-    onSave({ ...choices, id: filter?.id ?? crypto.randomUUID(), name: name.trim() || filterName(choices), text: choices.text.trim() });
-  const shown = count(choices);
+  const own = fields(choices);
+  const conditions = (choices.fields ?? []).filter((c) => own.some((f) => f.key === c.field));
+  const setConditions = (next: Condition[]) => setChoices({ ...choices, fields: next.length > 0 ? next : undefined });
+  const save = () => {
+    const { fields: _all, ...rest } = choices;
+    const asked = conditions.filter(isComplete);
+    onSave({ ...rest, ...(asked.length > 0 && { fields: asked }), id: filter?.id ?? crypto.randomUUID(), name: name.trim() || filterName(choices), text: choices.text.trim() });
+  };
+  const shown = count({ ...choices, fields: conditions });
   return (
     <Dialog
       label={t('filter.title')}
@@ -531,6 +549,27 @@ export function FilterDialog({ filter, folders, count, onSave, onClose }: {
         picked={(f) => (f === null ? choices.folders.length === 0 : choices.folders.includes(f))}
         onPick={(f) => setChoices({ ...choices, folders: f === null ? [] : toggle(choices.folders, f) })}
       />
+      {own.length > 0 && (
+        <div className="frow frow-top">
+          <span>{t('filter.fields')}</span>
+          <div className="fconds">
+            {conditions.map((condition, i) => (
+              <ConditionRow
+                key={i}
+                schema={{ fields: own }}
+                condition={condition}
+                records={records}
+                onChange={(next) => setConditions(conditions.map((c, j) => (j === i ? next : c)))}
+                onRemove={() => setConditions(conditions.filter((_, j) => j !== i))}
+              />
+            ))}
+            <button type="button" className="cond-add" onClick={() => setConditions([...conditions, { field: own[0]!.key, op: opsFor(own[0]!.type)[0]! }])}>
+              {t('collection.addCondition')}
+            </button>
+            {conditions.length > 0 && <p className="dialog-hint">{t('filter.fieldsNote')}</p>}
+          </div>
+        </div>
+      )}
       <div className="frow">
         <span>{t('filter.contains')}</span>
         <input

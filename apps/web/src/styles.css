@@ -1283,7 +1283,7 @@ input:focus {
    design/mockups.html (direction A). */
 .dialog.filter-dialog {
   gap: 10px;
-  width: min(470px, calc(100vw - 32px));
+  width: min(520px, calc(100vw - 32px));
 }
 
 .frow {
@@ -1918,12 +1918,14 @@ button.cb:hover::after {
   opacity: 1;
 }
 
-.task.done .cb {
+.task.done .cb,
+.rtask.done .cb {
   border-color: var(--sl-faint);
   background: var(--sl-faint);
 }
 
-.task.done .cb::after {
+.task.done .cb::after,
+.rtask.done .cb::after {
   border-color: var(--sl-bg);
   opacity: 1;
 }
@@ -5667,7 +5669,8 @@ button.cb:hover::after {
 .rmod .lbl,
 .cfilter .lbl,
 .cbar .lbl,
-.own-fields .lbl {
+.own-fields .lbl,
+.filter-dialog .lbl {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -5692,7 +5695,8 @@ button.cb:hover::after {
 .clist .lnk,
 .rmod .lnk,
 .cfilter .lnk,
-.own-fields .lnk {
+.own-fields .lnk,
+.filter-dialog .lnk {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -6742,6 +6746,180 @@ button.cb:hover::after {
 
 .dialog.board-create .templates:not(.ctemplates) {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* ---------- tasks and cards with records ---------- */
+/* After the Task record, Record tasks and Filter fields views of design/mockups.html: a task's
+   record in its line and the list it is picked from; the tasks about a record in its block; a
+   filter's conditions on boards' fields. */
+
+.meta .from.rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration-color: var(--sl-faint);
+}
+
+.meta .from.rec .icon {
+  width: 11px;
+  height: 11px;
+  color: var(--sl-faint);
+}
+
+.rpick {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-height: min(380px, 60vh);
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-side);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
+  font-size: 12.5px;
+}
+
+.rpick input {
+  flex: none;
+  margin: 0 0 4px;
+  padding: 5px 8px 7px;
+  border: 0;
+  border-bottom: 1px solid var(--sl-line);
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  outline: none;
+}
+
+.rpick input::placeholder {
+  color: var(--sl-faint);
+}
+
+.rpick .rg {
+  padding: 6px 8px 2px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.rpick .rr {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  border-radius: 5px;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.rpick .rr.at {
+  background: var(--sl-sel);
+}
+
+.rpick .rr b {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rpick .rr small {
+  color: var(--sl-faint);
+  font: 11px var(--sl-font-mono);
+}
+
+.rpick .rr .none,
+.rpick .rnone {
+  color: var(--sl-faint);
+}
+
+.rpick .rnone {
+  margin: 0;
+  padding: 6px 8px;
+}
+
+.rtask {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 30px;
+  border-bottom: 1px solid var(--sl-line);
+  font-size: 12.5px;
+}
+
+.rtask .cb {
+  flex: none;
+  margin: 0;
+}
+
+.rtask .tt {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sl-fg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rtask small {
+  color: var(--sl-dim);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.rtask.done .tt {
+  color: var(--sl-faint);
+  text-decoration: line-through;
+}
+
+.rtask.new input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--sl-accent);
+  border-radius: 5px;
+  background: var(--sl-side);
+  color: var(--sl-fg);
+  font: inherit;
+  outline: none;
+}
+
+.rtask.new .go {
+  padding: 3px 10px;
+  border-radius: 5px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rtask.new .go:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.frow.frow-top {
+  align-items: start;
+}
+
+.frow.frow-top > span {
+  padding-top: 7px;
+}
+
+.fconds {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fconds .dialog-hint {
+  margin: 0;
 }
 
 /* ---------- the Fields window ---------- */

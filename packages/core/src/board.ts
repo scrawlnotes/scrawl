@@ -798,6 +798,12 @@ export function dueCards(boards: Record<string, Board>): DueCard[] {
     .sort((a, b) => a.card.due!.localeCompare(b.card.due!) || a.card.priority - b.card.priority);
 }
 
+/** A board whose link fields point at the collection at `from` point at `to`, where it went; the same board when none does. */
+export function retargetBoardLinks(board: Board, from: string, to: string): Board {
+  if (!board.fields?.some((f) => f.type === 'link' && f.collection === from)) return board;
+  return { ...board, fields: board.fields.map((f) => (f.type === 'link' && f.collection === from ? { ...f, collection: to } : f)) };
+}
+
 /** The boards with a link field pointing at the collection at `dir`, by path. */
 export const boardsLinkingTo = (boards: Record<string, Board>, dir: string): string[] =>
   Object.keys(boards).filter((path) => boards[path]!.fields?.some((f) => f.type === 'link' && f.collection === dir));

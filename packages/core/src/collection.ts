@@ -482,10 +482,11 @@ export function parseSchema(text: string): Schema {
 
 const isSort = (raw: unknown): raw is RecordSort => isRecord(raw) && typeof raw.key === 'string' && (raw.dir === 'asc' || raw.dir === 'desc');
 
-function readCondition(raw: unknown, fields: Field[]): Condition | null {
+/** A condition as a file has it; null when it is not one, or names a field `fields` does not have (any field without `fields`). */
+export function readCondition(raw: unknown, fields?: Field[]): Condition | null {
   if (!isRecord(raw) || typeof raw.field !== 'string' || !CONDITION_OPS.includes(raw.op as ConditionOp)) return null;
   const key = cleanFieldKey(raw.field);
-  if (!fields.some((f) => f.key === key)) return null;
+  if (!key || (fields && !fields.some((f) => f.key === key))) return null;
   const value = typeof raw.value === 'string' || typeof raw.value === 'number' ? raw.value : Array.isArray(raw.value) ? strings(raw.value) : undefined;
   return { field: key, op: raw.op as ConditionOp, ...(value !== undefined && { value }) };
 }
@@ -767,7 +768,7 @@ export function formulaProblem(expr: string, schema: Pick<Schema, 'fields'>, key
 }
 
 /** A record's value for a field, formulas worked out for `today`. */
-export function fieldValueOf(record: Record, field: Field, schema: Schema, today: string): FieldValue | undefined {
+export function fieldValueOf(record: Pick<Record, 'values'>, field: Field, schema: Pick<Schema, 'fields'>, today: string): FieldValue | undefined {
   if (field.type === 'formula') return evaluateFormula(field.formula ?? '', record.values, schema, today);
   return record.values[field.key];
 }
@@ -1105,7 +1106,7 @@ function namesOf(value: FieldValue | undefined): string[] {
 }
 
 /** Whether one condition holds for a record. */
-export function matchesCondition(record: Record, schema: Schema, condition: Condition, today: string): boolean {
+export function matchesCondition(record: Pick<Record, 'values'>, schema: Pick<Schema, 'fields'>, condition: Condition, today: string): boolean {
   const field = schema.fields.find((f) => f.key === condition.field);
   if (!field || !isComplete(condition)) return true;
   const value = fieldValueOf(record, field, schema, today);

@@ -35,6 +35,8 @@ import {
   updateTask,
   cardRef,
   parseCardRef,
+  recordTasks,
+  relinkTaskRecords,
 } from './tasks';
 
 const now = () => new Date('2026-10-05T12:00:00.000Z');
@@ -322,5 +324,33 @@ describe('cards a task was made from', () => {
     // A card reference that is not a string is dropped when the file is read.
     expect(parseTasks(JSON.stringify({ tasks: [{ id: 'k', title: 'T', card: 3 }] }))[0]).not.toHaveProperty('card');
     expect(parseTasks(serializeTasks(moved.tasks))).toEqual(moved.tasks);
+  });
+});
+
+describe('a task about a record', () => {
+  const acme = { collection: 'Scrawl/Companies', id: 'a1', name: 'Acme Corp', code: 'CUS-0012' };
+
+  it('keeps the record through the file, and lets it go', () => {
+    let tasks = addTask([], { title: 'Send the offer', record: acme }, undefined, 't1');
+    tasks = addTask(tasks, { title: 'Renew domain' }, undefined, 't2');
+    const read = parseList(serializeTasks(tasks)).tasks;
+    expect(read[0]!.record).toEqual(acme);
+    expect('record' in read[1]!).toBe(false);
+    // A record written badly is no record.
+    expect(parseTasks(JSON.stringify({ tasks: [{ id: 'x', title: 'x', record: { id: 'a1' } }] }))[0]!.record).toBeUndefined();
+    const unlinked = updateTask(read, 't1', { record: null });
+    expect('record' in unlinked[0]!).toBe(false);
+    expect(updateTask(read, 't2', { record: acme })[1]!.record).toEqual(acme);
+  });
+
+  it('is found from the record, the open ones first, and follows its collection when it moves', () => {
+    let inbox = addTask([], { title: 'Call Lena', record: acme, due: '2026-10-14' }, undefined, 't1');
+    inbox = addTask(inbox, { title: 'Send the offer', record: acme, due: '2026-10-08' }, undefined, 't2');
+    inbox = setDone(addTask(inbox, { title: 'Send the deck', record: acme }, undefined, 't3'), 't3', true);
+    const other = addTask([], { title: 'Book the room', record: { ...acme, id: 'b2', name: 'Globex' } }, undefined, 't4');
+    const found = recordTasks({ Inbox: inbox, 'Scrawl/Tasks': other }, 'Scrawl/Companies', 'a1');
+    expect(found.map((f) => f.task.title)).toEqual(['Send the offer', 'Call Lena', 'Send the deck']);
+    const moved = relinkTaskRecords({ sections: [], tasks: inbox }, 'Scrawl/Companies', 'Work/Companies');
+    expect(moved.tasks.every((t) => t.record?.collection === 'Work/Companies')).toBe(true);
   });
 });

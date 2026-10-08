@@ -1,6 +1,7 @@
 import { t } from '@scrawlnotes/i18n';
 import { basename, dirname, type VaultFs } from './fs';
-import { type Board, type Card, isFinished } from './board';
+import { type Board, type Card, cardValues, isFinished } from './board';
+import { type Condition, type Field, isComplete, matchesCondition, readCondition } from './collection';
 import { addDays, type Priority, type Task } from './tasks';
 
 /**
@@ -22,6 +23,8 @@ export interface TaskFilter {
   folders: string[];
   /** Text the title or the description has, in any case; empty for any. */
   text: string;
+  /** Conditions on the boards' own fields, by key. They are about cards: with any, the filter shows no tasks. */
+  fields?: Condition[];
 }
 
 /** What a filter picks, without its name and id. */
@@ -50,7 +53,10 @@ export function parseFilters(text: string): TaskFilter[] {
       priorities: Array.isArray(raw.priorities) ? raw.priorities.filter((p): p is Priority => [1, 2, 3, 4].includes(p)) : [],
       folders: Array.isArray(raw.folders) ? raw.folders.filter((f): f is string => typeof f === 'string') : [],
       text: typeof raw.text === 'string' ? raw.text : '',
+      fields: Array.isArray(raw.fields) ? raw.fields.map((c) => readCondition(c)).filter((c): c is Condition => c !== null) : undefined,
     });
+    const filter = filters[filters.length - 1]!;
+    if (!filter.fields?.length) delete filter.fields;
   }
   return filters;
 }
@@ -91,8 +97,12 @@ function dueMatches(rule: DueRule, due: string | null, today: string): boolean {
   }
 }
 
-/** Whether an open task of the list at `list` is one the filter shows. */
+/** The conditions on boards' fields that ask anything: the ones with a value where they need one. */
+const fieldConditions = (filter: FilterChoices) => (filter.fields ?? []).filter(isComplete);
+
+/** Whether an open task of the list at `list` is one the filter shows; none is when the filter asks about boards' fields. */
 export function matchesFilter(filter: FilterChoices, list: string, task: Task, today: string): boolean {
+  if (fieldConditions(filter).length > 0) return false;
   if (task.done || !dueMatches(filter.due, task.due, today)) return false;
   if (filter.priorities.length > 0 && !filter.priorities.includes(task.priority)) return false;
   const folder = dirname(list);
@@ -121,7 +131,22 @@ export function matchesFilterCard(filter: FilterChoices, board: string, whole: B
   const folder = dirname(board);
   if (filter.folders.length > 0 && !filter.folders.some((f) => folder === f || folder.startsWith(`${f}/`))) return false;
   const text = filter.text.trim().toLowerCase();
-  return !text || `${card.title}\n${card.description ?? ''}`.toLowerCase().includes(text);
+  if (text && !`${card.title}\n${card.description ?? ''}`.toLowerCase().includes(text)) return false;
+  // A condition on a field the card's board does not have leaves the card out.
+  const fields = whole.fields ?? [];
+  const values = { values: cardValues(whole, card) };
+  return fieldConditions(filter).every((c) => fields.some((f) => f.key === c.field) && matchesCondition(values, { fields }, c, today));
+}
+
+/** The fields the boards in a filter's folders have, by key, the first board's label and type for each: what its conditions can ask about. */
+export function filterFields(filter: Pick<FilterChoices, 'folders'>, boards: Record<string, Board>): Field[] {
+  const out = new Map<string, Field>();
+  for (const [path, board] of Object.entries(boards)) {
+    const folder = dirname(path);
+    if (filter.folders.length > 0 && !filter.folders.some((f) => folder === f || folder.startsWith(`${f}/`))) continue;
+    for (const field of board.fields ?? []) if (!out.has(field.key)) out.set(field.key, field);
+  }
+  return [...out.values()];
 }
 
 /** The cards a filter shows, by the board they are on; in each by due day, the undated last, then priority. */

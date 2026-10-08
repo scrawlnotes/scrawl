@@ -23,6 +23,10 @@ import {
   isEmpty,
   isFinished,
   keyOf,
+  INBOX_TASKS,
+  type NewTask,
+  recordTasks,
+  type Task,
   isLink,
   isLinkable,
   type Layout,
@@ -88,7 +92,7 @@ import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { collectionLabel } from './items';
 import { useNarrow } from './narrow';
-import { dueLabel } from './Tasks';
+import { dueClass, dueLabel } from './Tasks';
 import { quote } from './text';
 
 // A collection, after the Collection views of design/mockups.html: one table of its records, a
@@ -127,6 +131,11 @@ export interface CollectionActions {
   boards: () => { [path: string]: Board };
   /** What a card opened over a record can do. */
   cardActions: CardPanelActions;
+  /** Every task list's tasks, by path: the tasks about a record. */
+  tasks: () => { [list: string]: Task[] };
+  /** Adds a task to a list, as a list's own line does. */
+  addTask: (list: string, input: NewTask) => void;
+  setTaskDone: (list: string, id: string, done: boolean) => void;
 }
 
 /** A table longer than this shows its first rows and a line for the rest. */
@@ -762,23 +771,54 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
   );
 }
 
+/** How many finished tasks the block shows, after the open ones. */
+const DONE_SHOWN = 5;
+
 /**
- * The cards of every board whose links point at the record, after the Cards block of the record
- * screen in design/mockups.html: each by its key and title, with its column (and its board when
- * more than one board links here) and its value; the finished ones after the open ones. A row
- * opens its card over the record.
+ * The cards of every board whose links point at the record, and the tasks about it, after the
+ * Record tasks view of design/mockups.html. A card shows its key and title, with its column (and
+ * its board when more than one board links here) and its value, and opens over the record. A task
+ * shows its title and when it is due, and is ticked off here. The finished ones come after the
+ * open ones. + Add task makes a task about the record in the inbox.
  */
-function CardsBlock({ dir, record, actions, onOpen }: { dir: string; record: Record; actions: CollectionActions; onOpen: (board: string, id: string) => void }) {
+function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; record: Record; today: string; actions: CollectionActions; onOpen: (board: string, id: string) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [typed, setTyped] = useState('');
   const boards = actions.boards();
   const found = linkedCards(boards, dir, record);
   const several = boardsLinkingTo(boards, dir).length > 1;
+  const about = recordTasks(actions.tasks(), dir, record.id);
+  const open = about.filter(({ task }) => !task.done);
+  const done = about.filter(({ task }) => task.done).slice(0, DONE_SHOWN);
+  const add = () => {
+    if (!typed.trim()) return;
+    actions.addTask(INBOX_TASKS, { title: typed.trim(), record: { collection: dir, id: record.id, name: record.name, ...(record.code && { code: record.code }) } });
+    setTyped('');
+  };
+  const taskRow = ({ list, task }: { list: string; task: Task }) => (
+    <div key={`${list}#${task.id}`} className={task.done ? 'rtask done' : 'rtask'}>
+      <button
+        type="button"
+        className={`cb p${task.priority}`}
+        role="checkbox"
+        aria-checked={task.done}
+        aria-label={t(task.done ? 'tasks.reopen' : 'tasks.complete', { name: task.title })}
+        onClick={() => actions.setTaskDone(list, task.id, !task.done)}
+      />
+      <span className="tt">{task.title}</span>
+      {task.due && <small className={dueClass(task.due, today)}>{dueLabel(task.due, today)}</small>}
+    </div>
+  );
   return (
     <div className="blk">
       <div className="blk-h">
         <span>{t('collection.cards')}</span>
-        <small>{found.length}</small>
+        <small>{found.length + about.length}</small>
+        <button type="button" className="addl" onClick={() => setAdding(true)}>
+          {t('collection.addTask')}
+        </button>
       </div>
-      {found.length === 0 && <p className="blk-none">{t('collection.noCards')}</p>}
+      {found.length === 0 && about.length === 0 && !adding && <p className="blk-none">{t('collection.noCards')}</p>}
       {found.map(({ board: path, card }) => {
         const board = boards[path]!;
         const column = board.columns.find((c) => c.id === card.column);
@@ -797,6 +837,35 @@ function CardsBlock({ dir, record, actions, onOpen }: { dir: string; record: Rec
           </button>
         );
       })}
+      {open.map(taskRow)}
+      {adding && (
+        <div className="rtask new">
+          <span className="cb p4" aria-hidden="true" />
+          <input
+            autoFocus
+            aria-label={t('collection.taskName')}
+            placeholder={t('collection.taskName')}
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                add();
+              } else if (event.key === 'Escape') {
+                // The line closes; the record stays.
+                event.preventDefault();
+                event.stopPropagation();
+                setAdding(false);
+                setTyped('');
+              }
+            }}
+          />
+          <button type="button" className="go" disabled={!typed.trim()} onClick={add}>
+            {t('collection.add')}
+          </button>
+        </div>
+      )}
+      {done.map(taskRow)}
     </div>
   );
 }
@@ -970,7 +1039,7 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
       );
     }
     if (layoutItem.block === 'cards' && record) {
-      return <CardsBlock key={`cards-${index}`} dir={dir} record={record} actions={actions} onOpen={(board, card) => setOver({ board, card })} />;
+      return <CardsBlock key={`cards-${index}`} dir={dir} record={record} today={today} actions={actions} onOpen={(board, card) => setOver({ board, card })} />;
     }
     return null;
   };
@@ -1054,8 +1123,8 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
 // ---------- views: filters, groups, columns ----------
 
 /** A condition being typed: the field, what is asked of it, and the value when one is needed. */
-function ConditionRow({ schema, condition, records, onChange, onRemove }: {
-  schema: Schema;
+export function ConditionRow({ schema, condition, records, onChange, onRemove }: {
+  schema: Pick<Schema, 'fields'>;
   condition: Condition;
   records: CollectionActions['records'];
   onChange: (condition: Condition) => void;

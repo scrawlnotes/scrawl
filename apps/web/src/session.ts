@@ -26,6 +26,8 @@ import {
   moveCollection as moveCollectionDir,
   renameCollection as renameCollectionDir,
   retargetLinks,
+  retargetBoardLinks,
+  relinkTaskRecords,
   parseRecord,
   serializeRecord,
   renameChoices,
@@ -1198,6 +1200,9 @@ export class Session {
       const schema = retargetLinks(collection.schema, from, to);
       if (schema !== collection.schema) await saveSchema(this.fs, dir === from ? to : dir, schema).catch(() => undefined);
     }
+    // Boards' links and tasks about its records follow it too.
+    for (const path of Object.keys(this.snapshot.boards)) this.changeBoard(path, (board) => retargetBoardLinks(board, from, to));
+    for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkTaskRecords(current, from, to));
     const { [from]: look, ...looks } = this.snapshot.collectionLooks;
     const [tab, target] = [collectionTab(from), collectionTab(to)];
     const { tabs, active } = this.snapshot;

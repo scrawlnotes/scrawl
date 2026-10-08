@@ -32,6 +32,27 @@ export interface Task {
   note?: string | null;
   /** The card the task was made from, as `cardRef` writes it. */
   card?: string | null;
+  /** The record the task is about. */
+  record?: TaskRecord | null;
+}
+
+/**
+ * A record a task is about: the path of its collection and its id, and its name and code as they
+ * were when it was linked, so that they show without the record's file being read.
+ */
+export interface TaskRecord {
+  collection: string;
+  id: string;
+  name: string;
+  code?: string;
+}
+
+/** A record as a task file has it; null when it is not one. */
+function readTaskRecord(raw: unknown): TaskRecord | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const r = raw as { [key: string]: unknown };
+  if (typeof r.collection !== 'string' || typeof r.id !== 'string' || !r.id || typeof r.name !== 'string') return null;
+  return { collection: r.collection, id: r.id, name: r.name, ...(typeof r.code === 'string' && r.code && { code: r.code }) };
 }
 
 /** A card as a task refers to it: the path of its board and its id. */
@@ -128,6 +149,9 @@ function parseTaskArray(list: unknown): Task[] {
     });
     const task = tasks[tasks.length - 1]!;
     if (typeof raw.card !== 'string') delete task.card;
+    const record = readTaskRecord(raw.record);
+    if (record) task.record = record;
+    else delete task.record;
   }
   // A subtask whose parent is gone becomes a top-level task instead of disappearing.
   const ids = new Set(tasks.map((t) => t.id));
@@ -331,6 +355,8 @@ export interface NewTask {
   note?: string | null;
   /** The card it was made from, as `cardRef` writes it. */
   card?: string | null;
+  /** The record it is about. */
+  record?: TaskRecord | null;
   due?: string | null;
   priority?: Priority;
 }
@@ -362,23 +388,42 @@ export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Da
     ...(input.description?.trim() && { description: input.description.trim() }),
     ...(input.note && { note: input.note }),
     ...(input.card && { card: input.card }),
+    ...(input.record && { record: input.record }),
   };
   return [...tasks, task];
 }
 
-/** What can be changed of a task by editing it. */
-export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'priority'>>;
+/** What can be changed of a task by editing it; a record of null unlinks it. */
+export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'priority' | 'record'>>;
 
 /**
  * Changes a task. An empty title keeps the old one. A description loses the blank lines and
- * spaces around it, and an empty one is removed.
+ * spaces around it, and an empty one is removed; so is a record of null.
  */
 export function updateTask(tasks: Task[], id: string, patch: TaskPatch, now: Clock = () => new Date()): Task[] {
   if (patch.title !== undefined && !patch.title.trim()) return tasks;
   const clean = { ...patch };
   if (clean.title !== undefined) clean.title = clean.title.trim();
   if (clean.description !== undefined) clean.description = clean.description.trim() || undefined;
-  return tasks.map((t) => (t.id === id ? { ...t, ...clean, updated: iso(now) } : t));
+  return tasks.map((t) => {
+    if (t.id !== id) return t;
+    const next: Task = { ...t, ...clean, updated: iso(now) };
+    if (next.record === null || next.record === undefined) delete next.record;
+    return next;
+  });
+}
+
+/** The tasks of every list about the record `id` of the collection at `dir`, with their list's path: the open ones first, then by when they are due. */
+export function recordTasks(lists: Record<string, Task[]>, dir: string, id: string): { list: string; task: Task }[] {
+  const found: { list: string; task: Task }[] = [];
+  for (const [list, tasks] of Object.entries(lists)) for (const task of tasks) if (task.record?.collection === dir && task.record.id === id) found.push({ list, task });
+  return found.sort((a, b) => Number(a.task.done) - Number(b.task.done) || (a.task.due ?? '9999').localeCompare(b.task.due ?? '9999'));
+}
+
+/** Points the tasks about records of the collection at `from` to the collection at `to`, where it went. */
+export function relinkTaskRecords(list: TaskList, from: string, to: string): TaskList {
+  if (!list.tasks.some((t) => t.record?.collection === from)) return list;
+  return { ...list, tasks: list.tasks.map((t) => (t.record?.collection === from ? { ...t, record: { ...t.record, collection: to } } : t)) };
 }
 
 /**

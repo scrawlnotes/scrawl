@@ -7,6 +7,7 @@ import {
   cardRef,
   type CollectionTemplate,
   recordTitle,
+  isLinkable,
   collectionName,
   type Column,
   columnCards,
@@ -14,6 +15,7 @@ import {
   dirname,
   dueToday,
   filterTasks,
+  filterFields,
   INBOX,
   INBOX_TASKS,
   keyCount,
@@ -60,7 +62,7 @@ import { FormatBar } from './FormatBar';
 import { HistoryDialog } from './History';
 import { Icon } from './Icon';
 import { type KeysActions, KeysView } from './Keys';
-import { type CollectionActions, CollectionView, recordDeleteText } from './Collection';
+import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
 import {
   boardLabel,
   boardOf,
@@ -185,6 +187,8 @@ export function App() {
   const [draggedTab, setDraggedTab] = useState<string | null>(null);
   /** The card open in a panel beside its board's columns. */
   const [openCard, setOpenCard] = useState<{ board: string; id: string } | null>(null);
+  // A record opened over whatever is on screen, from a task about it.
+  const [recordOver, setRecordOver] = useState<{ dir: string; id: string } | null>(null);
   /** What the status bar says about a view other than a note's: a keys file's counts, or its cursor. */
   const [viewStatus, setViewStatus] = useState<string[] | null>(null);
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
@@ -527,6 +531,16 @@ export function App() {
     },
     openCard: showCard,
     finishCard: (board, id, column) => session.finishCard(board, id, column),
+    recordChoices: () =>
+      Object.values(collections)
+        .filter((c) => isLinkable(c.schema))
+        .map((c) => ({ dir: c.dir, records: c.records }))
+        .sort((a, b) => a.dir.localeCompare(b.dir)),
+    recordTitle: (record) => {
+      const found = collections[record.collection]?.records.find((r) => r.id === record.id);
+      return found ? recordTitle(found) : record.name || record.code || t('collection.untitled');
+    },
+    openRecord: (collection, id) => setRecordOver({ dir: collection, id }),
   };
   // A card's brief: the card as Markdown, with the note it came from.
   const copyBrief = async (board: string, id: string) => {
@@ -556,6 +570,9 @@ export function App() {
     changeSchema: (dir, change) => session.changeSchema(dir, change),
     saveFields: (dir, schema, renames) => session.saveFields(dir, schema, renames),
     boards: () => boards,
+    tasks: () => tasks,
+    addTask: (list, input) => session.addTask(list, input),
+    setTaskDone: (list, id, done) => session.setTaskDone(list, id, done),
     // Made below, with the board's actions, which open records through these.
     get cardActions() {
       return boardActions;
@@ -857,6 +874,16 @@ export function App() {
           onClose={closeDialog}
         />
       )}
+      {recordOver && collections[recordOver.dir]?.records.some((r) => r.id === recordOver.id) && (
+        <RecordDialog
+          key={recordOver.id}
+          collection={collections[recordOver.dir]!}
+          record={collections[recordOver.dir]!.records.find((r) => r.id === recordOver.id)!}
+          today={today}
+          actions={collectionActions}
+          onClose={() => setRecordOver(null)}
+        />
+      )}
       {dialog?.kind === 'settings' && (
         <Settings
           mode={mode}
@@ -897,7 +924,12 @@ export function App() {
         <FilterDialog
           filter={dialog.filter}
           folders={topFolders}
-          count={(choices) => filterTasks(choices, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0)}
+          count={(choices) =>
+            filterTasks(choices, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0) +
+            filterCards(choices, boards, today).reduce((sum, group) => sum + group.cards.length, 0)
+          }
+          fields={(choices) => filterFields(choices, boards)}
+          records={(dir) => collections[dir]?.records ?? null}
           onSave={(filter) => {
             session.saveFilter(filter);
             setDialog(null);

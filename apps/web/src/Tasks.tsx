@@ -10,7 +10,9 @@ import {
   dueToday,
   dueUpcoming,
   filterCards,
+  filterFields,
   filterTasks,
+  opTakesValue,
   keyOf,
   parseCardRef,
   INBOX_TASKS,
@@ -26,6 +28,9 @@ import {
   type TaskList as List,
   type TaskPatch,
   type TaskPlace,
+  type TaskRecord,
+  type Record as CollectionRecord,
+  recordTitle,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import {
@@ -34,13 +39,15 @@ import {
   type MouseEvent,
   type ReactNode,
   type TextareaHTMLAttributes,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import type { MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
-import { boardLabel, listLabel } from './items';
+import { boardLabel, collectionLabel, listLabel } from './items';
 
 /** What can be done to a task, in the list at the path given. */
 export interface TaskActions {
@@ -68,6 +75,123 @@ export interface TaskActions {
   openCard: (board: string, id: string) => void;
   /** Moves a card to a done column of its board: the one given, else the first. */
   finishCard: (board: string, id: string, column?: string) => void;
+  /** The collections whose records a task can be about, those that show by a name or a code, with their records. */
+  recordChoices: () => { dir: string; records: CollectionRecord[] }[];
+  /** What a task's record is called now: its name or code, else what it was called when linked. */
+  recordTitle: (record: TaskRecord) => string;
+  /** Opens a record over the view. */
+  openRecord: (collection: string, id: string) => void;
+}
+
+/** A row of the record picker: unlinking, or a record of a collection. */
+type PickRow = { none: true } | { dir: string; record: CollectionRecord };
+
+/**
+ * The records a task can be about, under the button that opened it, after the Task record view
+ * of design/mockups.html: found by name or code as it is typed, under the collection each is
+ * in. The arrows move through them, Enter or a click links one, Esc closes. With a record linked,
+ * the first row unlinks it.
+ */
+function RecordPicker({ anchor, current, choices, onPick, onClose }: {
+  anchor: HTMLElement;
+  current: TaskRecord | null;
+  choices: { dir: string; records: CollectionRecord[] }[];
+  onPick: (record: TaskRecord | null) => void;
+  onClose: () => void;
+}) {
+  const [typed, setTyped] = useState('');
+  const [at, setAt] = useState(0);
+  const box = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<React.CSSProperties | null>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  const q = typed.trim().toLowerCase();
+  const groups = choices
+    .map((c) => ({ dir: c.dir, records: c.records.filter((r) => !q || r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q)).slice(0, 8) }))
+    .filter((g) => g.records.length > 0);
+  const rows: PickRow[] = [...(current ? [{ none: true as const }] : []), ...groups.flatMap((g) => g.records.map((record) => ({ dir: g.dir, record })))];
+  const pick = (row: PickRow | undefined) => {
+    if (!row) return;
+    if ('none' in row) return onPick(null);
+    const { record, dir } = row;
+    onPick({ collection: dir, id: record.id, name: record.name, ...(record.code && { code: record.code }) });
+  };
+  useLayoutEffect(() => {
+    const button = anchor.getBoundingClientRect();
+    const width = 300;
+    setPlace({ top: button.bottom + 4, left: Math.max(8, Math.min(button.right - width, window.innerWidth - width - 8)), width });
+  }, [anchor]);
+  useEffect(() => {
+    const away = (event: globalThis.MouseEvent) => {
+      const target = event.target as Node;
+      if (!box.current?.contains(target) && !anchor.contains(target)) close.current();
+    };
+    window.addEventListener('mousedown', away);
+    return () => window.removeEventListener('mousedown', away);
+  }, [anchor]);
+  useEffect(() => {
+    if (at > rows.length - 1) setAt(Math.max(0, rows.length - 1));
+  }, [rows.length, at]);
+  let index = -1;
+  const row = (r: PickRow, label: ReactNode) => {
+    index += 1;
+    const i = index;
+    return (
+      <button
+        key={'none' in r ? 'none' : `${r.dir}#${r.record.id}`}
+        type="button"
+        role="option"
+        aria-selected={i === at}
+        tabIndex={-1}
+        className={i === at ? 'rr at' : 'rr'}
+        onMouseDown={(event) => event.preventDefault()}
+        onMouseMove={() => i !== at && setAt(i)}
+        onClick={() => pick(r)}
+      >
+        {label}
+      </button>
+    );
+  };
+  return createPortal(
+    <div ref={box} className="opt-list rpick" role="listbox" aria-label={t('tasks.record')} style={place ?? { opacity: 0 }}>
+      <input
+        autoFocus
+        aria-label={t('tasks.findRecord')}
+        placeholder={t('tasks.findRecord')}
+        value={typed}
+        onChange={(event) => {
+          setTyped(event.target.value);
+          setAt(0);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown') setAt(at >= rows.length - 1 ? 0 : at + 1);
+          else if (event.key === 'ArrowUp') setAt(at <= 0 ? rows.length - 1 : at - 1);
+          else if (event.key === 'Enter') pick(rows[at]);
+          else if (event.key === 'Escape') onClose();
+          else return;
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      />
+      {current && row({ none: true }, <span className="none">{t('tasks.noRecord')}</span>)}
+      {groups.map((group) => (
+        <div key={group.dir} className="rg-list">
+          <div className="rg">{collectionLabel(group.dir)}</div>
+          {group.records.map((record) =>
+            row(
+              { dir: group.dir, record },
+              <>
+                <b>{recordTitle(record)}</b>
+                {record.name && record.code && <small>{record.code}</small>}
+              </>,
+            ),
+          )}
+        </div>
+      ))}
+      {groups.length === 0 && <p className="rnone">{t('collection.noRecords')}</p>}
+    </div>,
+    document.body,
+  );
 }
 
 /** What a task row or a section header does when its grip is dragged. */
@@ -208,6 +332,8 @@ interface Draft {
 
 function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, drag }: ItemProps) {
   const [editing, setEditing] = useState<Draft | null>(null);
+  // The record button, while its list of records is open under it.
+  const [picking, setPicking] = useState<HTMLElement | null>(null);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(true);
   const datePicker = useRef<HTMLInputElement>(null);
@@ -292,7 +418,14 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
     ) : (
       <span className="from gone">{t('tasks.fromCard', { card: '?' })}</span>
     ));
-  const meta = (task.due || progress.total > 0 || (flat && !grouped) || from || fromCard) && (
+  // The record the task is about, by what it is called now; a click opens it.
+  const about = task.record && (
+    <button type="button" className="from rec" title={t('collection.openRecord')} onClick={() => actions.openRecord(task.record!.collection, task.record!.id)}>
+      <Icon name="collection" />
+      {actions.recordTitle(task.record)}
+    </button>
+  );
+  const meta = (task.due || progress.total > 0 || (flat && !grouped) || from || fromCard || about) && (
     <div className="meta">
       {task.due && (
         <button type="button" className={dueClass(task.due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
@@ -310,6 +443,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
       {flat && !grouped && <span>{listLabel(list)}</span>}
       {from}
       {fromCard}
+      {about}
     </div>
   );
   const className = ['task', task.done && 'done', editing && 'editing'].filter(Boolean).join(' ');
@@ -401,6 +535,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
           )}
           <IconButton icon="calendar" title={t('tasks.date')} onClick={dateMenu} />
           <IconButton icon="flag" title={t('tasks.priority')} onClick={priorityMenu} />
+          <IconButton icon="collection" title={t('tasks.record')} onClick={(event) => setPicking(picking ? null : (event.currentTarget as HTMLElement))} />
           <IconButton icon="move" title={t('tasks.moveTo')} onClick={() => actions.moveTo(list, task.id)} />
           <button type="button" className="task-more" title={t('tasks.more')} aria-label={t('tasks.more')} onClick={moreMenu}>
             ···
@@ -417,6 +552,18 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
           />
         </div>
       </div>
+      {picking && (
+        <RecordPicker
+          anchor={picking}
+          current={task.record ?? null}
+          choices={actions.recordChoices()}
+          onPick={(record) => {
+            setPicking(null);
+            actions.update(list, task.id, { record });
+          }}
+          onClose={() => setPicking(null)}
+        />
+      )}
       {(children.length > 0 || adding) && open && (
         <div className="subs">
           {children.map((child) => (
@@ -893,10 +1040,19 @@ export function FilterView({ filter, lists, boards, today, actions, onEdit }: {
 }) {
   const groups = filterTasks(filter, lists, today);
   const cardGroups = filterCards(filter, boards, today);
+  // A condition on a board's field as it reads: "Company is Acme Corp".
+  const fields = filterFields(filter, boards);
+  const asked = (filter.fields ?? []).flatMap((c) => {
+    const field = fields.find((f) => f.key === c.field);
+    if (!field) return [];
+    const value = Array.isArray(c.value) ? c.value.join(', ') : c.value === undefined ? '' : String(c.value);
+    return [`${field.label} ${t(`collection.op.${c.op}`)}${opTakesValue(c.op) ? ` ${value}` : ''}`];
+  });
   const chips = [
     filter.due !== 'any' && t(`filter.due.${filter.due}`),
     ...[...filter.priorities].sort().map((p) => (p === 4 ? t('filter.noPriority') : `p${p}`)),
     ...(filter.folders.length > 0 ? filter.folders.map((f) => basename(f)) : [t('filter.allLists')]),
+    ...asked,
     filter.text.trim() && `“${filter.text.trim()}”`,
   ].filter(Boolean);
   return (
