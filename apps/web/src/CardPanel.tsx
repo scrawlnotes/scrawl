@@ -1,4 +1,18 @@
-import { type Board, type Card, type CardPatch, columnStatus, dayOf, keyOf, type Priority, type TimelineEntry } from '@scrawlnotes/core';
+import {
+  type Board,
+  type Card,
+  type CardPatch,
+  cardValue,
+  columnStatus,
+  dayOf,
+  type Field,
+  type FieldValue,
+  keyOf,
+  type Link,
+  numberText,
+  type Priority,
+  type TimelineEntry,
+} from '@scrawlnotes/core';
 import type { ScrawlEditor, ScrawlViewer } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
 import {
@@ -12,7 +26,9 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { type CollectionActions, FieldInput, RecordDialog, type ValueContext } from './Collection';
 import type { MenuItem } from './dialogs';
+import { labelHue } from './choices';
 import { boardLabel } from './items';
 import { StatusIcon } from './StatusIcon';
 import { clockTime, pastDayLabel } from './text';
@@ -38,6 +54,48 @@ export interface CardPanelActions {
   editor: (parent: HTMLElement, doc: string, onChange: (doc: string) => void) => ScrawlEditor;
   /** A read-only view of Markdown, for comments. */
   viewer: (parent: HTMLElement, doc: string) => ScrawlViewer;
+  /** The collections the board's link fields point at: their records to pick from, and a record to open over the card. */
+  recordActions: CollectionActions;
+}
+
+/** The types typed as a line: kept when the box is left or Enter is pressed, not at every key. */
+const TYPED: readonly Field['type'][] = ['text', 'number', 'url', 'email', 'phone', 'person'];
+
+/**
+ * A box for one of the board's own fields, as a record's form has it. A choice, a link, a day or
+ * a tick is kept as soon as it is picked; a line of text when the box is left, when Enter is
+ * pressed, or when the card closes.
+ */
+function CardFieldBox({ field, value, ctx, onSave }: { field: Field; value: FieldValue; ctx: ValueContext; onSave: (value: FieldValue) => void }) {
+  const [draft, setDraft] = useState<FieldValue>(value);
+  const pending = useRef<{ value: FieldValue } | null>(null);
+  const latest = useRef({ value, onSave });
+  latest.current = { value, onSave };
+  const commit = () => {
+    const typed = pending.current;
+    pending.current = null;
+    if (typed && JSON.stringify(typed.value) !== JSON.stringify(latest.current.value)) latest.current.onSave(typed.value);
+  };
+  // A value changed elsewhere shows, unless something is being typed over it.
+  useEffect(() => {
+    if (!pending.current) setDraft(value);
+  }, [value]);
+  useEffect(() => () => commit(), []);
+  if (!TYPED.includes(field.type)) return <FieldInput field={field} value={value} ctx={ctx} onChange={onSave} />;
+  return (
+    <div className="cfield" onBlur={commit}>
+      <FieldInput
+        field={field}
+        value={draft}
+        ctx={ctx}
+        onChange={(next) => {
+          pending.current = { value: next };
+          setDraft(next);
+        }}
+        onEnter={commit}
+      />
+    </div>
+  );
 }
 
 /** Markdown as the editor shows it, without editing. */
@@ -63,13 +121,6 @@ const SAVE_DELAY_MS = 400;
 const PRIORITIES: Priority[] = [1, 2, 3, 4];
 /** How close to the window's edges the label picker may come. */
 const EDGE = 8;
-
-/** A label's colour, the same every time it is seen: a hue from its letters. */
-export function labelHue(label: string): number {
-  let hash = 0;
-  for (const char of label) hash = (hash * 31 + char.codePointAt(0)!) % 360;
-  return hash;
-}
 
 /** A label as a chip in its colour. */
 function LabelChip({ label }: { label: string }) {
@@ -550,7 +601,18 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
   const timer = useRef(0);
   const unsaved = useRef<string | null>(null);
   const [comment, setComment] = useState('');
+  // A record a link of the card points at, opened over it.
+  const [over, setOver] = useState<{ dir: string; id: string } | null>(null);
   const noteTitle = card.note ? actions.noteTitle(card.note) : null;
+  const records = actions.recordActions;
+  const ctx: ValueContext = {
+    records: records.records,
+    collection: records.collection,
+    openLink: records.openLink,
+    openRecord: (field: Field, link: Link) => field.collection && setOver({ dir: field.collection, id: link.id }),
+  };
+  const overCollection = over ? records.collection(over.dir) : null;
+  const overRecord = over ? (overCollection?.records.find((r) => r.id === over.id) ?? null) : null;
 
   // The description is saved shortly after it is typed, and when the panel closes or shows another card.
   const latest = useRef({ path, id: card.id, actions });
@@ -696,9 +758,35 @@ export function CardPanel({ board, path, card, today, actions, onClose }: {
             onSave={(text) => update({ assignee: text.trim() || null })}
           />
         </div>
+        {/* The board's own fields, under the card's. */}
+        {(board.fields ?? []).length > 0 && (
+          <div className="own-fields">
+            {board.fields!.map((field) => {
+              const value = cardValue(board, card, field, today);
+              return (
+                <div key={field.key} className="prop">
+                  <label className="pl" htmlFor={`field-${field.key}`}>
+                    {field.label}
+                    {field.required && <i title={t('collection.required')}>*</i>}
+                  </label>
+                  <div className="pe">
+                    {field.type === 'formula' ? (
+                      <span className={typeof value === 'number' ? 'st-field formula' : 'st-field formula none'}>{typeof value === 'number' ? numberText(value) : '–'}</span>
+                    ) : (
+                      <CardFieldBox field={field} value={value} ctx={ctx} onSave={(next) => update({ values: { [field.key]: next } })} />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
         </aside>
       </div>
     </section>
+    {over && overCollection && overRecord && (
+      <RecordDialog key={overRecord.id} collection={overCollection} record={overRecord} today={today} actions={records} onClose={() => setOver(null)} />
+    )}
     </div>
   );
 }

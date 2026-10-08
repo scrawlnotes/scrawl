@@ -430,6 +430,28 @@ function fromVersion1(fields: Field[], layout: Layout | undefined): { fields: Fi
 }
 
 /**
+ * The fields a file lists: a key seen before is left out, a second name or code field reads as
+ * text, as there is one of each at most. With `plain`, for a board, whose cards have a title and
+ * a key of their own, a name or code field reads as text too.
+ */
+export function readFields(raw: unknown, plain = false): Field[] {
+  const read = (Array.isArray(raw) ? raw : []).map(readField).filter((f): f is Field => f !== null);
+  const seen = new Set<string>();
+  const single = new Set<FieldType>();
+  const fields: Field[] = [];
+  for (const field of read) {
+    if (seen.has(field.key)) continue;
+    seen.add(field.key);
+    if (SINGLE_TYPES.includes(field.type) && (plain || single.has(field.type))) fields.push({ ...field, type: 'text' });
+    else {
+      single.add(field.type);
+      fields.push(field);
+    }
+  }
+  return fields;
+}
+
+/**
  * Reads a schema file. A field of an unknown type reads as text; a second name or code field
  * reads as text, as there is one of each at most; a broken file reads as a blank schema, so the
  * records can still be opened. A file of version 1 is read as one of version 2.
@@ -442,19 +464,7 @@ export function parseSchema(text: string): Schema {
     raw = {};
   }
   const data = isRecord(raw) ? raw : {};
-  const read = (Array.isArray(data.fields) ? data.fields : []).map(readField).filter((f): f is Field => f !== null);
-  const seen = new Set<string>();
-  const single = new Set<FieldType>();
-  let fields: Field[] = [];
-  for (const field of read) {
-    if (seen.has(field.key)) continue;
-    seen.add(field.key);
-    if (SINGLE_TYPES.includes(field.type) && single.has(field.type)) fields.push({ ...field, type: 'text' });
-    else {
-      single.add(field.type);
-      fields.push(field);
-    }
-  }
+  let fields = readFields(data.fields);
   let layout = readLayout(data.layout);
   if (data.version !== 2) ({ fields, layout } = fromVersion1(fields, layout));
   const template: CollectionTemplate = COLLECTION_TEMPLATES.includes(data.template as CollectionTemplate) ? (data.template as CollectionTemplate) : 'blank';
@@ -571,6 +581,9 @@ export function readValue(type: FieldType, raw: unknown, many = false): FieldVal
   }
 }
 
+/** A number as the screen shows it: grouped by thousands, two decimals at most. */
+export const numberText = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+
 /** A value as the table and the search read it. */
 export function valueText(value: FieldValue | undefined): string {
   if (value === null || value === undefined) return '';
@@ -610,7 +623,7 @@ function tokenize(expr: string): Token[] | null {
 }
 
 /** A field's value as a number for a formula: numbers as they are, days as day counts, flags as 1 and 0, formulas worked out. */
-function numberOf(field: Field, values: Record['values'], schema: Schema, today: string, depth: number): number | null {
+function numberOf(field: Field, values: Record['values'], schema: Pick<Schema, 'fields'>, today: string, depth: number): number | null {
   const value = values[field.key];
   switch (field.type) {
     case 'number':
@@ -696,7 +709,7 @@ function formulaKeys(node: FormulaNode): string[] {
  * `today()`, and days taken from days. Null when it cannot be worked out: a field it needs is empty,
  * or the expression is not one. A formula is shown, never written to the file.
  */
-export function evaluateFormula(expr: string, values: Record['values'], schema: Schema, today: string, depth = 0): number | null {
+export function evaluateFormula(expr: string, values: Record['values'], schema: Pick<Schema, 'fields'>, today: string, depth = 0): number | null {
   const node = parseFormula(expr);
   if (!node) return null;
   const work = (n: FormulaNode): number | null => {

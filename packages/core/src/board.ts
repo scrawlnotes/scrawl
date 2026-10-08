@@ -1,9 +1,13 @@
+import { evaluateFormula, type Field, type FieldValue, isEmpty, readFields, readValue, type Record as CollectionRecord, valueText } from './collection';
+import { type ChoiceRenames, renameChoices } from './fields';
 import type { VaultFs } from './fs';
 import type { Priority } from './tasks';
 
 // A board is a file of its own in a folder: `<name>.board.json`. It holds its columns, its
-// phases and its cards; a card carries its own timeline of moves and comments. Everything here
-// is a pure function over the board value, as with task lists; the interface saves the result.
+// phases and its cards; a card carries its own timeline of moves and comments. A board may have
+// fields of its own, of a collection's types but name and code (a card has its title and key):
+// a deal's company and value. Everything here is a pure function over the board value, as with
+// task lists; the interface saves the result.
 
 /** A board file: `<name>.board.json`. */
 export const BOARD_EXT = '.board.json';
@@ -71,6 +75,11 @@ export interface Card {
   /** When the card last entered a done column; null while it is not in one. */
   completed: string | null;
   timeline: TimelineEntry[];
+  /**
+   * The values of the board's own fields, by key, as the file has them; `cardValue` reads one as
+   * its field's type holds it. A value whose field was taken out stays. Left out when empty.
+   */
+  values?: { [key: string]: unknown };
 }
 
 export interface Board {
@@ -86,10 +95,12 @@ export interface Board {
   columns: Column[];
   /** In their order. */
   phases: Phase[];
+  /** The board's own fields, in the order a card shows them; left out when it has none. */
+  fields?: Field[];
   cards: Card[];
 }
 
-export type Template = 'software' | 'simple' | 'issues';
+export type Template = 'software' | 'simple' | 'issues' | 'crm';
 
 type Clock = () => Date;
 const iso = (now: Clock) => now().toISOString();
@@ -116,7 +127,30 @@ const ISSUES: [string, ColumnKind][] = [
   ['Canceled', 'dropped'],
   ['Duplicate', 'dropped'],
 ];
-const TEMPLATE_COLUMNS: Record<Template, [string, ColumnKind][]> = { software: SOFTWARE, simple: SIMPLE, issues: ISSUES };
+/** Deals, as a CRM keeps them: Lead waits, Won is done, Lost is dropped. */
+const CRM: [string, ColumnKind][] = [
+  ['Lead', 'backlog'],
+  ['Contacted', 'active'],
+  ['Meeting', 'active'],
+  ['Proposal', 'active'],
+  ['Won', 'done'],
+  ['Lost', 'dropped'],
+];
+const TEMPLATE_COLUMNS: Record<Template, [string, ColumnKind][]> = { software: SOFTWARE, simple: SIMPLE, issues: ISSUES, crm: CRM };
+
+/** The collections a CRM board's links point at: its companies and its people. */
+export interface BoardLinks {
+  company: string;
+  contact: string;
+}
+
+/** A CRM board's fields: the company and the contact a deal is with, its value and its next step. */
+const crmFields = (links: BoardLinks): Field[] => [
+  { key: 'company', label: 'Company', type: 'link', collection: links.company },
+  { key: 'contact', label: 'Contact', type: 'link', collection: links.contact },
+  { key: 'value', label: 'Value', type: 'number' },
+  { key: 'next_step', label: 'Next step', type: 'date' },
+];
 
 /**
  * The letters a board's keys start with, from its name: the initials of several words
@@ -133,8 +167,11 @@ export function prefixFor(name: string): string {
   return prefix.toUpperCase() || 'BRD';
 }
 
-/** A board as a template starts it. The template only sets the start; everything changes later. */
-export function newBoard(name: string, template: Template, ids: () => string = newId): Board {
+/**
+ * A board as a template starts it. The template only sets the start; everything changes later.
+ * A CRM board's links point at the collections in `links`.
+ */
+export function newBoard(name: string, template: Template, ids: () => string = newId, links: BoardLinks = { company: 'Companies', contact: 'People' }): Board {
   return {
     prefix: prefixFor(name),
     nextKey: 1,
@@ -142,6 +179,7 @@ export function newBoard(name: string, template: Template, ids: () => string = n
     ...(template === 'issues' && { view: 'list' as const }),
     columns: TEMPLATE_COLUMNS[template].map(([name, kind]) => ({ id: ids(), name, kind })),
     phases: [],
+    ...(template === 'crm' && { fields: crmFields(links) }),
     cards: [],
   };
 }
@@ -156,6 +194,7 @@ export function parseBoard(text: string): Board {
   }
   const columns = parseColumns(data?.columns);
   const phases = parsePhases(data?.phases);
+  const fields = readFields(data?.fields, true);
   const cards = parseCards(data?.cards, columns);
   const maxKey = cards.reduce((max, c) => Math.max(max, c.key), 0);
   const stored = typeof data?.nextKey === 'number' && Number.isInteger(data.nextKey) ? data.nextKey : 1;
@@ -166,6 +205,7 @@ export function parseBoard(text: string): Board {
     ...(data?.view === 'list' && { view: 'list' as const }),
     columns,
     phases: withOneCurrent(phases),
+    ...(fields.length > 0 && { fields }),
     cards,
   };
 }
@@ -235,12 +275,17 @@ function parseCards(list: unknown, columns: Column[]): Card[] {
       updated: typeof raw.updated === 'string' ? raw.updated : '',
       completed: typeof raw.completed === 'string' ? raw.completed : null,
       timeline: parseTimeline(raw.timeline),
+      values: isValues(raw.values) ? raw.values : undefined,
     });
   }
   // Cards without a key, from a file written by hand, are numbered after the ones that have one.
   let next = out.reduce((max, c) => Math.max(max, c.key), 0) + 1;
   return out.map((c) => (c.key > 0 ? c : { ...c, key: next++ }));
 }
+
+/** Whether a card's values, as the file has them, are a map with something in it. */
+const isValues = (raw: unknown): raw is { [key: string]: unknown } =>
+  typeof raw === 'object' && raw !== null && !Array.isArray(raw) && Object.keys(raw).length > 0;
 
 function parseTimeline(list: unknown): TimelineEntry[] {
   if (!Array.isArray(list)) return [];
@@ -319,6 +364,39 @@ export function columnStatus(board: Board, column: Column): ColumnStatus {
 }
 
 export const currentPhase = (board: Board): Phase | undefined => board.phases.find((p) => p.state === 'current');
+
+/** A card's values for its board's fields, each read as its field's type holds it; one that does not fit is left out. */
+export function cardValues(board: Board, card: Card): CollectionRecord['values'] {
+  const values: CollectionRecord['values'] = {};
+  for (const field of board.fields ?? []) {
+    const value = readValue(field.type, card.values?.[field.key], field.many);
+    if (value !== null) values[field.key] = value;
+  }
+  return values;
+}
+
+/** A card's value for one of its board's fields, a formula worked out for `today`; null with none. */
+export function cardValue(board: Board, card: Card, field: Field, today = ''): FieldValue {
+  if (field.type === 'formula') return evaluateFormula(field.formula ?? '', cardValues(board, card), { fields: board.fields ?? [] }, today);
+  return readValue(field.type, card.values?.[field.key], field.many);
+}
+
+/** The fields a card shows on its face: the board's first link and its first number, a deal's company and value. */
+export function faceFields(board: Board): Field[] {
+  const fields = board.fields ?? [];
+  return [fields.find((f) => f.type === 'link'), fields.find((f) => f.type === 'number')].filter((f): f is Field => !!f);
+}
+
+/** The sum of a number or formula field over cards; null when none of them has a value. */
+export function cardSum(board: Board, cards: Card[], field: Field, today = ''): number | null {
+  if (field.type !== 'number' && field.type !== 'formula') return null;
+  let sum: number | null = null;
+  for (const card of cards) {
+    const value = cardValue(board, card, field, today);
+    if (typeof value === 'number') sum = (sum ?? 0) + value;
+  }
+  return sum;
+}
 
 /**
  * The cards of a phase, or of none with `null`. A card whose phase is gone counts as in none.
@@ -490,6 +568,31 @@ export function reopenPhase(board: Board, id: string): Board {
   return { ...board, phases: board.phases.map((p) => (p.id === id ? { ...p, state: 'current' } : p.state === 'current' ? { ...p, state: 'upcoming' } : p)) };
 }
 
+// ---------- the board's own fields ----------
+
+/**
+ * The board with its own fields as given, in their order, and its cards' choices renamed where a
+ * choice of a field was. A value whose field is taken out stays on its card.
+ */
+export function setBoardFields(board: Board, fields: Field[], renames: ChoiceRenames = {}): Board {
+  const { fields: _old, ...rest } = board;
+  const renamed = Object.keys(renames).length > 0;
+  const cards = renamed
+    ? board.cards.map((c) => {
+        if (!c.values) return c;
+        const values = renameChoices(c.values as CollectionRecord['values'], renames);
+        return values === c.values ? c : { ...c, values };
+      })
+    : board.cards;
+  return { ...rest, ...(fields.length > 0 && { fields }), cards };
+}
+
+/** Values as a card keeps them: the empty ones left out. */
+function filledValues(values: { [key: string]: unknown }): { [key: string]: unknown } | undefined {
+  const out = Object.fromEntries(Object.entries(values).filter(([, v]) => !isEmpty(v as FieldValue)));
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 // ---------- cards ----------
 
 export interface NewCard {
@@ -505,6 +608,8 @@ export interface NewCard {
   assignee?: string | null;
   /** The note it was made from. */
   note?: string | null;
+  /** Values of the board's own fields, by key: a deal added from a company has the company. */
+  values?: { [key: string]: FieldValue };
   /** Put first in its column rather than last. */
   first?: boolean;
   /** Put right after this card of its column, when it is there: cards typed one after another keep their order. */
@@ -538,6 +643,7 @@ export function addCard(board: Board, input: NewCard, now: Clock = () => new Dat
     ...(input.assignee && { assignee: input.assignee }),
     ...(by && { author: by }),
     ...(input.note && { note: input.note }),
+    ...(input.values && filledValues(input.values) && { values: filledValues(input.values) }),
     created: stamp,
     updated: stamp,
     completed: columnOf(board, { column } as Card)?.kind === 'done' ? stamp : null,
@@ -552,8 +658,8 @@ function cleanLabels(labels: string[]): string[] {
   return [...new Set(labels.map((l) => l.trim()).filter(Boolean))];
 }
 
-/** What can be changed of a card by editing it. */
-export type CardPatch = Partial<Pick<Card, 'title' | 'description' | 'priority' | 'due' | 'labels' | 'assignee' | 'phase'>>;
+/** What can be changed of a card by editing it; `values` changes only the board's fields it names. */
+export type CardPatch = Partial<Pick<Card, 'title' | 'description' | 'priority' | 'due' | 'labels' | 'assignee' | 'phase'>> & { values?: { [key: string]: FieldValue } };
 
 /**
  * Changes a card. An empty title keeps the old one; an empty description, label list or
@@ -573,12 +679,13 @@ export function updateCard(board: Board, id: string, patch: CardPatch, now: Cloc
       if (patch.labels !== undefined) setOrDrop(next, 'labels', patch.labels.length ? cleanLabels(patch.labels) : undefined);
       if (patch.assignee !== undefined) setOrDrop(next, 'assignee', patch.assignee || undefined);
       if (patch.phase !== undefined) setOrDrop(next, 'phase', patch.phase && board.phases.some((p) => p.id === patch.phase) ? patch.phase : undefined);
+      if (patch.values !== undefined) setOrDrop(next, 'values', filledValues({ ...c.values, ...patch.values }));
       return next;
     }),
   };
 }
 
-function setOrDrop<K extends 'description' | 'labels' | 'assignee' | 'phase'>(card: Card, field: K, value: Card[K] | undefined): void {
+function setOrDrop<K extends 'description' | 'labels' | 'assignee' | 'phase' | 'values'>(card: Card, field: K, value: Card[K] | undefined): void {
   if (value === undefined) delete card[field];
   else card[field] = value;
 }
@@ -709,6 +816,10 @@ export function cardBrief(board: Board, card: Card, notes: NoteTexts = {}): stri
   if (card.due) fields.push(`Due: ${card.due}`);
   if (card.labels?.length) fields.push(`Labels: ${card.labels.join(', ')}`);
   if (card.assignee) fields.push(`Assignee: ${card.assignee}`);
+  for (const field of board.fields ?? []) {
+    const value = cardValue(board, card, field);
+    if (!isEmpty(value)) fields.push(`${field.label}: ${valueText(value)}`);
+  }
   lines.push(...fields.map((f) => `- ${f}`), '');
   if (card.description) lines.push(card.description.trim(), '');
   const comments = card.timeline.filter((e): e is Extract<TimelineEntry, { kind: 'comment' }> => e.kind === 'comment');

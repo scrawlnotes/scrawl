@@ -33,6 +33,7 @@ import {
   type Section,
   type TaskFilter,
   type Template,
+  type BoardLinks,
   type TrashItem,
   type TreeNode,
 } from '@scrawlnotes/core';
@@ -263,8 +264,8 @@ export function App() {
   };
   // New things go to the folder of the tab on screen, or to the inbox.
   const newFolder = (active && folderOf(active)) || INBOX;
-  const create = async (kind: ItemKind, choice: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate) => {
-    const error = await session.create(kind, choice.folder, name, choice.create, template, collectionTemplate);
+  const create = async (kind: ItemKind, choice: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => {
+    const error = await session.create(kind, choice.folder, name, choice.create, template, collectionTemplate, links);
     if (!error) setDialog(null);
     return error;
   };
@@ -540,6 +541,22 @@ export function App() {
       setNotice(t('error.clipboard'));
     }
   };
+  const collectionActions: CollectionActions = {
+    addRecord: (dir, input) => session.addRecord(dir, input),
+    updateRecord: (dir, id, patch) => session.updateRecord(dir, id, patch),
+    removeRecord: (dir, record) => ask(t('delete.record'), recordDeleteText(record), () => void session.trashRecord(dir, record)),
+    openNote: (path) => void session.open(path),
+    // The desktop app hands an address to the system; in a browser it opens beside the app.
+    openLink: (href) => (isDesktop ? void openUrlOnDesktop(href).catch(() => undefined) : void window.open(href, '_blank', 'noopener')),
+    menu: openMenu,
+    ask: (title, message, run, action) => ask(title, message, run, action),
+    records: (dir) => collections[dir]?.records ?? null,
+    collection: (dir) => collections[dir] ?? null,
+    collections: () => Object.values(collections),
+    changeSchema: (dir, change) => session.changeSchema(dir, change),
+    saveFields: (dir, schema, renames) => session.saveFields(dir, schema, renames),
+    editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
+  };
   const boardActions: BoardActions = {
     addCard: (board, input) => session.addCard(board, input),
     moveCard: (board, id, place) => session.moveCard(board, id, place),
@@ -581,27 +598,14 @@ export function App() {
     setPhasesOn: (board, on) => session.setPhasesOn(board, on),
     noteTitle: (path) => titles[path] ?? null,
     openNote: (path) => void session.open(path),
+    recordActions: collectionActions,
+    ask: (title, message, run, action) => ask(title, message, run, action),
+    saveBoardFields: (board, fields, renames) => session.setBoardFields(board, fields, renames),
   };
   const keysActions: KeysActions = {
     change: (path, text) => session.changeKeys(path, text),
     menu: openMenu,
     ask: (title, message, run) => ask(title, message, run),
-  };
-  const collectionActions: CollectionActions = {
-    addRecord: (dir, input) => session.addRecord(dir, input),
-    updateRecord: (dir, id, patch) => session.updateRecord(dir, id, patch),
-    removeRecord: (dir, record) => ask(t('delete.record'), recordDeleteText(record), () => void session.trashRecord(dir, record)),
-    openNote: (path) => void session.open(path),
-    // The desktop app hands an address to the system; in a browser it opens beside the app.
-    openLink: (href) => (isDesktop ? void openUrlOnDesktop(href).catch(() => undefined) : void window.open(href, '_blank', 'noopener')),
-    menu: openMenu,
-    ask: (title, message, run, action) => ask(title, message, run, action),
-    records: (dir) => collections[dir]?.records ?? null,
-    collection: (dir) => collections[dir] ?? null,
-    collections: () => Object.values(collections),
-    changeSchema: (dir, change) => session.changeSchema(dir, change),
-    saveFields: (dir, schema, renames) => session.saveFields(dir, schema, renames),
-    editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
   };
   const dueNow = dueToday(tasks, today);
   const dueCardsNow = dueCards(boards).filter((d) => d.card.due! <= today).length;
@@ -842,6 +846,7 @@ export function App() {
         <NewDialog
           folders={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
           folder={newFolder}
+          collections={Object.keys(collections)}
           onCreate={create}
           onFilter={() => setDialog({ kind: 'filter', filter: null })}
           onClose={closeDialog}

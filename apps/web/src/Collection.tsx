@@ -49,6 +49,7 @@ import {
   missingFields,
   nameField,
   type NewRecord,
+  numberText,
   type Record,
   type RecordPatch,
   type RecordSort,
@@ -185,28 +186,50 @@ const tableFields = (collection: Collection): Field[] =>
 
 // ---------- values ----------
 
-/** A link as a chip: the record's name and code, struck through with "(deleted)" when the record is gone. */
-function LinkChip({ link, gone, children }: { link: Link; gone: boolean; children?: ReactNode }) {
+/**
+ * A link as a chip: the record's name and code, struck through with "(deleted)" when the record
+ * is gone. With `onOpen` the name is a button that opens the record.
+ */
+function LinkChip({ link, gone, onOpen, children }: { link: Link; gone: boolean; onOpen?: () => void; children?: ReactNode }) {
   return (
     <span className={gone ? 'lnk gone' : 'lnk'} title={gone ? t('collection.goneHint') : undefined}>
-      <span className="ln">{recordLabel(link)}</span>
+      {onOpen && !gone ? (
+        <button
+          type="button"
+          className="ln"
+          title={t('collection.openRecord')}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+        >
+          {recordLabel(link)}
+        </button>
+      ) : (
+        <span className="ln">{recordLabel(link)}</span>
+      )}
       {gone && <small>{t('collection.gone')}</small>}
       {children}
     </span>
   );
 }
 
-/** What a value needs from the collection to be shown: the records links point at, their collections, and a way to open an address. */
-interface ValueContext {
+/**
+ * What a value needs from the collection to be shown: the records links point at, their
+ * collections, a way to open an address, and, where a record can open over the screen, a way to
+ * open the one a link points at.
+ */
+export interface ValueContext {
   records: CollectionActions['records'];
   collection: CollectionActions['collection'];
   openLink: (href: string) => void;
+  openRecord?: (field: Field, link: Link) => void;
 }
 
 const isAddress = (type: Field['type']) => type === 'url' || type === 'email' || type === 'phone';
 
 /** A value as the table shows it: text, a chip for a choice, chips for choices, a tick for a flag, an address to open. */
-function Cell({ field, value, ctx }: { field: Field; value: FieldValue | undefined; ctx: ValueContext }) {
+export function Cell({ field, value, ctx }: { field: Field; value: FieldValue | undefined; ctx: ValueContext }) {
   if (isEmpty(value)) return <span className="empty">–</span>;
   if (field.type === 'select') return <Chip text={valueText(value)} color={optionColor(field, valueText(value))} />;
   if (field.type === 'multi-select') {
@@ -249,6 +272,7 @@ function Cell({ field, value, ctx }: { field: Field; value: FieldValue | undefin
       </a>
     );
   }
+  if (typeof value === 'number') return <span className="num">{numberText(value)}</span>;
   const kind = field.type === 'name' ? 'ct name' : field.type === 'code' ? 'ct code' : field.type === 'date' ? 'ct dt' : 'ct';
   return <span className={field.type === 'number' || field.type === 'formula' ? 'num' : kind}>{text}</span>;
 }
@@ -441,7 +465,7 @@ function LinkField({ field, value, ctx, onChange }: {
     <>
       <div ref={box} className="chips lnkbox" onClick={() => input.current?.focus()}>
         {links.map((link) => (
-          <LinkChip key={link.id || link.name} link={link} gone={linkGone(link, target)}>
+          <LinkChip key={link.id || link.name} link={link} gone={linkGone(link, target)} onOpen={ctx.openRecord && link.id ? () => ctx.openRecord!(field, link) : undefined}>
             <button type="button" aria-label={t('collection.removeChoice', { name: link.name })} onClick={() => remove(link)}>
               ×
             </button>
@@ -489,7 +513,7 @@ function LinkField({ field, value, ctx, onChange }: {
 const OPEN_LABEL = { url: 'collection.openUrl', email: 'collection.writeEmail', phone: 'collection.call' } as const;
 
 /** The box a field is typed in, by its type. The value typed is held by the form. */
-function FieldInput({ field, value, autoFocus, ctx, onChange, onEnter }: {
+export function FieldInput({ field, value, autoFocus, ctx, onChange, onEnter }: {
   field: Field;
   value: FieldValue;
   /** The keyboard comes to the box when the form opens. */
@@ -524,6 +548,7 @@ function FieldInput({ field, value, autoFocus, ctx, onChange, onEnter }: {
           aria-label={field.label}
           value={typeof value === 'number' ? value : ''}
           onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))}
+          onKeyDown={(event) => onEnter && event.key === 'Enter' && (event.preventDefault(), onEnter())}
         />
       );
     case 'date':
@@ -732,7 +757,7 @@ type Over = { dir: string; id: string } | { dir: string; values: Record['values'
  * its body when the schema has none. A new one is a narrow form of its fields and its body, since
  * nothing links to it yet.
  */
-function RecordDialog({ collection, record, values, today, actions, onClose }: {
+export function RecordDialog({ collection, record, values, today, actions, onClose }: {
   collection: Collection;
   /** Null for a new record. */
   record: Record | null;
@@ -836,7 +861,7 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
         <div key={`${key}-${index}`} className="prop">
           <span className="pl">{field.label}</span>
           <div className="pe">
-            <span className={worked === null ? 'st-field formula none' : 'st-field formula'}>{worked === null ? '–' : valueText(worked)}</span>
+            <span className={worked === null ? 'st-field formula none' : 'st-field formula'}>{worked === null ? '–' : numberText(worked)}</span>
           </div>
         </div>
       );
@@ -1299,7 +1324,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
     <div key={key} className="crow sum" role="row">
       {fields.map((field, i) => (
         <div key={field.key} role="cell" className={cellClass(field, i)}>
-          {i === 0 ? <span className="ct">{label}</span> : sums[i] !== null ? <span className="num">{valueText(columnSum(of, schema, field.key, today))}</span> : null}
+          {i === 0 ? <span className="ct">{label}</span> : sums[i] !== null ? <span className="num">{numberText(columnSum(of, schema, field.key, today) ?? 0)}</span> : null}
         </div>
       ))}
     </div>

@@ -1,10 +1,16 @@
 import { type Field, type OptionColor, optionColor } from '@scrawlnotes/core';
 import { type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { labelHue } from './CardPanel';
 
 // Choices as chips and the lists they are picked from, for a collection's records and its Fields
 // window: a list opens under its box, as a card's status list does, and Esc closes it first.
+
+/** A label's colour, the same every time it is seen: a hue from its letters. */
+export function labelHue(label: string): number {
+  let hash = 0;
+  for (const char of label) hash = (hash * 31 + char.codePointAt(0)!) % 360;
+  return hash;
+}
 
 /** How close to the window's edge a list may come. */
 const EDGE = 8;

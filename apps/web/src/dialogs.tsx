@@ -1,4 +1,18 @@
-import { type CollectionTemplate, DUE_RULES, type FilterChoices, filterName, newSchema, type Phase, type PhasePatch, type Priority, type TaskFilter, type Template } from '@scrawlnotes/core';
+import {
+  basename,
+  type BoardLinks,
+  type CollectionTemplate,
+  DUE_RULES,
+  type FilterChoices,
+  filterName,
+  join,
+  newSchema,
+  type Phase,
+  type PhasePatch,
+  type Priority,
+  type TaskFilter,
+  type Template,
+} from '@scrawlnotes/core';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type FormEvent,
@@ -10,7 +24,9 @@ import {
   useRef,
   useState,
 } from 'react';
+import { type Option, Picker } from './choices';
 import { Icon, type IconName } from './Icon';
+import { collectionLabel } from './items';
 
 /** A small window in the middle of the app. Esc or a click beside it closes it. */
 export function Dialog({ label, className, onClose, onEscape = onClose, onKeyDown, children }: {
@@ -152,13 +168,15 @@ const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: MessageK
  * Creates a note, a task list, a board or a keys file. The kind is chosen first; the item then
  * gets a name, which may be left empty, and a folder; a board also starts from a template.
  */
-export function NewDialog({ folders, folder, onCreate, onFilter, onClose }: {
+export function NewDialog({ folders, folder, collections, onCreate, onFilter, onClose }: {
   /** Every folder, the inbox first. */
   folders: string[];
   /** The folder chosen to begin with. */
   folder: string;
+  /** Every collection, by its folder's path: what a CRM board's links can point at. */
+  collections: string[];
   /** Returns a message when the item cannot be made. */
-  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate) => Promise<string | null>;
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => Promise<string | null>;
   /** A filter has a window of its own. */
   onFilter: () => void;
   onClose: () => void;
@@ -166,7 +184,7 @@ export function NewDialog({ folders, folder, onCreate, onFilter, onClose }: {
   const [kind, setKind] = useState<ItemKind | null>(null);
   if (kind) {
     return (
-      <NewItemForm kind={kind} folders={folders} folder={folder} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
+      <NewItemForm kind={kind} folders={folders} folder={folder} collections={collections} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
     );
   }
   return <KindChoice onPick={(picked) => (picked === 'filter' ? onFilter() : setKind(picked))} onClose={onClose} />;
@@ -190,6 +208,7 @@ const TEMPLATES: { template: Template; label: MessageKey; text: MessageKey; colu
   { template: 'software', label: 'create.software', text: 'create.softwareText', columns: ['backlog', 'active', 'active', 'review', 'done'] },
   { template: 'simple', label: 'create.simple', text: 'create.simpleText', columns: ['active', 'active', 'done'] },
   { template: 'issues', label: 'create.issues', text: 'create.issuesText', columns: ['backlog', 'active', 'active', 'done', 'dropped', 'dropped'] },
+  { template: 'crm', label: 'create.crm', text: 'create.crmText', columns: ['backlog', 'active', 'active', 'active', 'done', 'dropped'] },
 ];
 
 /** Asks what to create: press its number, or choose with the arrow keys or the mouse. */
@@ -233,31 +252,41 @@ function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onCl
  * The second step of Create: a name, which may be left empty, the folder to put the item in,
  * and for a board the template it starts from.
  */
-function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
+function NewItemForm({ kind, folders, folder, collections, onCreate, onBack, onClose }: {
   kind: ItemKind;
   folders: string[];
   folder: string;
-  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate) => Promise<string | null>;
+  collections: string[];
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => Promise<string | null>;
   onBack: () => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState('');
   const [template, setTemplate] = useState<Template>('software');
   const [collectionTemplate, setCollectionTemplate] = useState<CollectionTemplate>('companies');
+  // A CRM board's links, as chosen; until then they point at Companies and People beside the board.
+  const [chosen, setChosen] = useState<Partial<BoardLinks>>({});
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
   const picker = useFolderPicker(folders, folder);
   const title = t(TITLES[kind]);
+  const place = picker.choiceAt(picker.selected)?.folder ?? folder;
+  const beside = (named: string) => collections.find((dir) => dir === join(place, named)) ?? collections.find((dir) => basename(dir) === named) ?? join(place, named);
+  const links: BoardLinks = { company: chosen.company ?? beside('Companies'), contact: chosen.contact ?? beside('People') };
+  const linkOptions = (current: string): Option[] =>
+    [...new Set([...collections, current])].sort((a, b) => a.localeCompare(b)).map((dir) => ({ value: dir, label: collectionLabel(dir), chip: false }));
 
   const create = async () => {
     const choice = picker.choiceAt(picker.selected);
     if (!choice || busy.current) return;
     busy.current = true;
-    const failed = await onCreate(kind, choice, name, template, collectionTemplate);
+    const failed = await onCreate(kind, choice, name, template, collectionTemplate, template === 'crm' ? links : undefined);
     busy.current = false;
     setError(failed);
   };
   const onKey = (event: KeyboardEvent) => {
+    // A list opened from a box here has the keys first.
+    if (event.defaultPrevented) return;
     if (picker.step(event.key)) event.preventDefault();
     // Enter on Back or Create is that button's own click.
     else if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
@@ -319,6 +348,17 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
             ))}
           </div>
           <p className="dialog-hint">{t('create.templateHint')}</p>
+        </div>
+      )}
+      {kind === 'board' && template === 'crm' && (
+        <div className="field links-field">
+          <span>{t('create.links')}</span>
+          <div className="links">
+            <span>{t('create.linkCompany')}</span>
+            <Picker options={linkOptions(links.company)} value={links.company} label={t('create.linkCompany')} onPick={(dir) => dir && setChosen({ ...chosen, company: dir })} />
+            <span>{t('create.linkContact')}</span>
+            <Picker options={linkOptions(links.contact)} value={links.contact} label={t('create.linkContact')} onPick={(dir) => dir && setChosen({ ...chosen, contact: dir })} />
+          </div>
         </div>
       )}
       {kind === 'collection' && (

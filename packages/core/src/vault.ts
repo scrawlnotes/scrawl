@@ -1,5 +1,5 @@
 import { t } from '@scrawlnotes/i18n';
-import { BOARD_EXT, loadBoard, newBoard, serializeBoard, type Template } from './board';
+import { BOARD_EXT, type BoardLinks, loadBoard, newBoard, serializeBoard, type Template } from './board';
 import { type ColumnWidths, collectionName, isCollection, loadSchema, namedById, parseRecord, parseSchema, RECORD_EXT, readWidths, recordTitle, type RecordSort } from './collection';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
@@ -158,12 +158,14 @@ export async function createTaskList(fs: VaultFs, folder: string, name: string):
 
 /**
  * Creates a board in `folder` from a template, which only sets its start. Without a name it is
- * called Board, numbered when taken; the keys of its cards start with letters from its name.
+ * called Board, numbered when taken; the keys of its cards start with letters from its name. A
+ * CRM board's links point at `links`, else at Companies and People in the same folder.
  */
-export async function createBoard(fs: VaultFs, folder: string, name: string, template: Template): Promise<string> {
+export async function createBoard(fs: VaultFs, folder: string, name: string, template: Template, links?: BoardLinks): Promise<string> {
   const base = name.trim() ? fileName(name, BOARD_EXT) : t('boards.defaultName');
   const path = freePath(folder, base, BOARD_EXT, await names(fs, folder));
-  await fs.writeText(path, serializeBoard(newBoard(boardName(path), template)));
+  const to = links ?? { company: join(folder, 'Companies'), contact: join(folder, 'People') };
+  await fs.writeText(path, serializeBoard(newBoard(boardName(path), template, undefined, to)));
   return path;
 }
 

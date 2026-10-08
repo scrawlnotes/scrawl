@@ -3597,12 +3597,13 @@ button.cb:hover::after {
   font-size: 12.5px;
 }
 
+/* The card's own columns, then the board's fields, set on the list by --lcols and --lmin. */
 .lrow {
   display: grid;
-  grid-template-columns: 58px minmax(160px, 1fr) 90px 60px 116px 40px 80px;
+  grid-template-columns: var(--lcols, 58px minmax(160px, 1fr) 90px 60px 116px 40px 80px);
   gap: 0 12px;
   align-items: center;
-  min-width: 640px;
+  min-width: var(--lmin, 640px);
   padding: 6px 8px;
   border-bottom: 1px solid var(--sl-line);
   text-align: left;
@@ -5665,7 +5666,8 @@ button.cb:hover::after {
 .clist .lbl,
 .rmod .lbl,
 .cfilter .lbl,
-.cbar .lbl {
+.cbar .lbl,
+.own-fields .lbl {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -5681,14 +5683,16 @@ button.cb:hover::after {
 :root[data-theme='light'] .clist .lbl,
 :root[data-theme='light'] .rmod .lbl,
 :root[data-theme='light'] .cfilter .lbl,
-:root[data-theme='light'] .cbar .lbl {
+:root[data-theme='light'] .cbar .lbl,
+:root[data-theme='light'] .own-fields .lbl {
   color: hsl(var(--lh) var(--ls, 55%) 35%);
 }
 
 /* A link to a record of another collection, by its name and code; struck through when the record is gone. */
 .clist .lnk,
 .rmod .lnk,
-.cfilter .lnk {
+.cfilter .lnk,
+.own-fields .lnk {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -5708,6 +5712,19 @@ button.cb:hover::after {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* A link's name that opens its record, over the window it is in. */
+.lnk button.ln {
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.lnk button.ln:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .lnk.gone .ln {
@@ -6227,7 +6244,7 @@ button.cb:hover::after {
 }
 
 .chips .lbl button,
-.chips .lnk button {
+.chips .lnk button:not(.ln) {
   margin-left: 4px;
   color: inherit;
   font-size: 12px;
@@ -6236,14 +6253,14 @@ button.cb:hover::after {
 }
 
 .chips .lbl button:hover,
-.chips .lnk button:hover,
+.chips .lnk button:not(.ln):hover,
 .chips .lbl button:focus-visible,
-.chips .lnk button:focus-visible {
+.chips .lnk button:not(.ln):focus-visible {
   opacity: 1;
 }
 
 .chips .lbl button:focus-visible,
-.chips .lnk button:focus-visible {
+.chips .lnk button:not(.ln):focus-visible {
   border-radius: 3px;
   outline: 1px solid var(--sl-accent);
   outline-offset: 1px;
@@ -6576,6 +6593,143 @@ button.cb:hover::after {
   line-height: 1.45;
 }
 
+/* ---------- a board's own fields ---------- */
+/* After the Deals views of design/mockups.html: a card's face shows the company it links to and
+   its value, a column's head adds up the values in it, the card's window has the board's fields
+   under its own, and the list has them as columns with a sum under the numbers. */
+
+.kc .meta .co {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sl-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kc .meta .val {
+  margin-left: auto;
+  color: var(--sl-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.kc .meta .val + .who {
+  margin-left: 0;
+}
+
+.colm h3 .sum {
+  color: var(--sl-dim);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.colm h3 small + .sum {
+  margin-left: -2px;
+}
+
+.own-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--sl-line);
+}
+
+.own-fields .prop .pe .chips {
+  min-height: 30px;
+}
+
+.lrow .own {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.lrow .own .ct,
+.lrow .own .lnks,
+.lrow .own .lbls {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lrow .own .lnk {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--sl-dim);
+}
+
+.lrow .own .lnk small {
+  display: none;
+}
+
+.lrow .own .empty {
+  color: var(--sl-faint);
+}
+
+.lrow .own .num {
+  font-variant-numeric: tabular-nums;
+}
+
+.lrow .own.r,
+.lrow.head .r {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.lrow .own .lbl {
+  padding: 0 6px;
+  border-radius: 9px;
+  background: hsl(var(--lh) var(--ls, 60%) 55% / 0.18);
+  color: hsl(var(--lh) var(--ls, 60%) 65%);
+  font-size: 10.5px;
+  line-height: 16px;
+}
+
+:root[data-theme='light'] .lrow .own .lbl {
+  color: hsl(var(--lh) var(--ls, 55%) 35%);
+}
+
+.lrow.sum {
+  border-bottom: 0;
+  color: var(--sl-dim);
+  font-weight: 500;
+  cursor: default;
+}
+
+.lrow.sum:hover {
+  background: none;
+}
+
+/* Creating a CRM board: the collections its company and contact links point at. */
+.links-field {
+  align-items: start;
+}
+
+.links-field > span {
+  padding-top: 8px;
+}
+
+.links-field .links {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 6px 10px;
+  align-items: center;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.dialog .links .st-field {
+  min-height: 30px;
+}
+
+.dialog.board-create .templates:not(.ctemplates) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 /* ---------- the Fields window ---------- */
 /* The record screen fills the window, its columns and sections drawn as boxes; a field or a block
    opens where it is, ringed in the accent. Lists open under their boxes and over the rest. */
@@ -6639,6 +6793,46 @@ button.cb:hover::after {
 
 .fd-say.warn {
   color: var(--sl-accent);
+}
+
+.fdlg .cp-head .x.push {
+  margin-left: auto;
+}
+
+/* A board's Fields window: one narrow list, what every card has above it. */
+.fdlg.narrow {
+  width: min(560px, 100%);
+  height: auto;
+  max-height: 100%;
+}
+
+.fdlg.narrow .fd-canvas {
+  flex: 0 1 auto;
+}
+
+.fbox-h {
+  margin: 0;
+  padding: 0 2px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.fbuilt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 6px;
+  margin-top: -4px;
+}
+
+.fbuilt span {
+  padding: 2px 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-faint);
+  font-size: 12px;
 }
 
 .fcols {

@@ -6,12 +6,15 @@ import {
   addPhase,
   type Board,
   cardBrief,
+  cardSum,
+  cardValue,
   closePhase,
   columnCards,
   columnStatus,
   currentPhase,
   dueCards,
   editComment,
+  faceFields,
   firstColumn,
   isFinished,
   keyOf,
@@ -38,6 +41,7 @@ import {
   reviewCount,
   saveBoard,
   serializeBoard,
+  setBoardFields,
   setColumnKind,
   setPhasesOn,
   updateCard,
@@ -436,5 +440,46 @@ describe('briefs', () => {
     expect(phaseBrief(board, board.phases[0]!)).toBe(
       ['# Phase 3', '', 'A board.', '', 'Done when: It runs Scrawl.', '', '## Cards (1/2 done)', '', '### Backlog', '', '- ROA-1 One (p2)', '', '### Done', '', '- ROA-2 Two', ''].join('\n'),
     );
+  });
+});
+
+describe("a board's own fields", () => {
+  const crm = () => newBoard('Deals', 'crm', ids('c'), { company: 'Scrawl/Companies', contact: 'Scrawl/People' });
+
+  it('come with the CRM template, its columns as a CRM keeps deals', () => {
+    const board = crm();
+    expect(board.columns.map((c) => `${c.name}:${c.kind}`)).toEqual(['Lead:backlog', 'Contacted:active', 'Meeting:active', 'Proposal:active', 'Won:done', 'Lost:dropped']);
+    expect(board.phasesOn).toBe(false);
+    expect(board.fields?.map((f) => `${f.key}:${f.type}:${f.collection ?? ''}`)).toEqual(['company:link:Scrawl/Companies', 'contact:link:Scrawl/People', 'value:number:', 'next_step:date:']);
+    expect(newBoard('Plan', 'simple', ids('c')).fields).toBeUndefined();
+  });
+
+  it('keep their values on the card, read as their types hold them, through the file', () => {
+    let board = addCard(crm(), { title: 'Pilot', values: { company: { id: 'a1', name: 'Acme Corp', code: 'CUS-0012' }, value: 12000, contact: null } }, now, undefined, 'k1');
+    board = addCard(board, { title: 'Annual plan' }, now, undefined, 'k2');
+    board = updateCard(board, 'k2', { values: { value: 24000, next_step: '2026-10-14' } }, now);
+    const read = parseBoard(serializeBoard(board));
+    const [pilot, plan] = read.cards;
+    expect(pilot!.values).toEqual({ company: { id: 'a1', name: 'Acme Corp', code: 'CUS-0012' }, value: 12000 });
+    const field = (key: string) => read.fields!.find((f) => f.key === key)!;
+    expect(cardValue(read, pilot!, field('company'))).toEqual({ id: 'a1', name: 'Acme Corp', code: 'CUS-0012' });
+    expect(cardValue(read, plan!, field('next_step'))).toBe('2026-10-14');
+    expect(cardSum(read, read.cards, field('value'))).toBe(36000);
+    expect(faceFields(read).map((f) => f.key)).toEqual(['company', 'value']);
+    // Emptied, a value goes; with none left, so do the card's values.
+    const cleared = updateCard(read, 'k2', { values: { value: null, next_step: null } }, now);
+    expect(cleared.cards.find((c) => c.id === 'k2')!.values).toBeUndefined();
+    expect(cardBrief(read, pilot!)).toContain('- Company: Acme Corp · CUS-0012\n- Value: 12000');
+  });
+
+  it('change in one go: renamed choices follow on the cards, a value whose field is gone stays', () => {
+    let board = setBoardFields(crm(), [...crm().fields!, { key: 'stage', label: 'Stage', type: 'select', options: ['warm', 'cold'] }]);
+    board = addCard(board, { title: 'Pilot', values: { stage: 'warm', value: 5 } }, now, undefined, 'k1');
+    const next = setBoardFields(board, [{ key: 'stage', label: 'Stage', type: 'select', options: ['hot', 'cold'] }], { stage: { warm: 'hot' } });
+    expect(next.fields!.map((f) => f.key)).toEqual(['stage']);
+    expect(next.cards[0]!.values).toEqual({ stage: 'hot', value: 5 });
+    expect(setBoardFields(next, []).fields).toBeUndefined();
+    // A name or code field written by hand reads as text: a card has its own title and key.
+    expect(parseBoard(JSON.stringify({ fields: [{ key: 'name', label: 'Name', type: 'name' }] })).fields![0]!.type).toBe('text');
   });
 });

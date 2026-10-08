@@ -6,24 +6,37 @@ import {
   type ColumnStatus,
   type Card,
   type CardPlace,
+  cardSum,
+  cardValue,
+  type ChoiceRenames,
   type Column,
   type ColumnKind,
   COLUMN_KINDS,
   columnCards,
   currentPhase,
+  faceFields,
+  type Field,
+  type FieldValue,
+  isEmpty,
+  isLink,
   keyOf,
   isFinished,
   type NewCard,
   type Phase,
   phaseProgress,
+  numberText,
   reviewCount,
+  valueText,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNarrow } from './narrow';
 import { StatusIcon } from './StatusIcon';
-import { CardPanel, type CardPanelActions, labelHue } from './CardPanel';
+import { CardPanel, type CardPanelActions } from './CardPanel';
+import { labelHue } from './choices';
+import { Cell, type ValueContext } from './Collection';
+import { BoardFieldsDialog } from './Fields';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { dueClass, dueLabel } from './Tasks';
@@ -54,6 +67,10 @@ export interface BoardActions extends CardPanelActions {
   /** Asks first, then deletes the phase; its cards stay. */
   removePhase: (board: string, phase: Phase) => void;
   setPhasesOn: (board: string, on: boolean) => void;
+  /** Asks before something is lost; `action` is what the confirming button says. */
+  ask: (title: string, message: string, run: () => void, action: string) => void;
+  /** Writes the board's own fields, its cards' choices renamed with them. */
+  saveBoardFields: (board: string, fields: Field[], renames: ChoiceRenames) => void;
 }
 
 const DRAG_TYPE = 'application/x-scrawl-card';
@@ -196,6 +213,14 @@ function ListComposer({ onAdd, onClose }: { onAdd: (title: string) => void; onCl
   );
 }
 
+/** A value as a card's face shows it: a link by its record's name alone (its code when it has no name), several by the first and how many more. */
+function faceText(value: FieldValue): string {
+  const links = (Array.isArray(value) ? value : [value]).filter(isLink);
+  if (links.length === 0) return valueText(value);
+  const first = links[0]!.name || links[0]!.code || '';
+  return links.length > 1 ? `${first} +${links.length - 1}` : first;
+}
+
 function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPhase, open }: {
   board: Board;
   path: string;
@@ -212,6 +237,10 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPh
   const comments = card.timeline.filter((entry) => entry.kind === 'comment').length;
   const noteTitle = card.note ? actions.noteTitle(card.note) : null;
   const phase = showPhase && card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
+  // The board's first link and first number, a deal's company and value, as they are filled in.
+  const face = faceFields(board)
+    .map((field) => ({ field, value: cardValue(board, card, field, today) }))
+    .filter(({ value }) => !isEmpty(value));
   const menu = (event: MouseEvent) =>
     actions.menu(event, [
       ...board.columns
@@ -239,7 +268,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPh
           <i className={`dot p${card.priority}`} />
           <span>{card.title}</span>
         </span>
-        {(card.due || card.labels?.length || comments > 0 || noteTitle !== null || phase || card.assignee) && (
+        {(card.due || card.labels?.length || comments > 0 || noteTitle !== null || phase || face.length > 0 || card.assignee) && (
           <span className="meta">
             {card.due && <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span>}
             {card.labels?.map((label) => (
@@ -257,6 +286,17 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPh
               <span className={noteTitle === null ? 'from gone' : 'from'}>{t('tasks.from', { note: noteTitle ?? '?' })}</span>
             )}
             {phase && <span className="phase">{phase.name}</span>}
+            {face.map(({ field, value }) =>
+              typeof value === 'number' ? (
+                <span key={field.key} className="val" title={field.label}>
+                  {numberText(value)}
+                </span>
+              ) : (
+                <span key={field.key} className="co" title={field.label}>
+                  {faceText(value)}
+                </span>
+              ),
+            )}
             {card.assignee && <span className="who" title={card.assignee}>{card.assignee.slice(0, 1).toUpperCase()}</span>}
           </span>
         )}
@@ -321,6 +361,8 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
         : [{ label: t('board.deleteColumn'), run: () => actions.removeColumn(path, column), ...(lastDone && { disabled: t('board.keepsDone') }) }]),
     ]);
   const phase = inLane ? lane : 'phase' in shown ? shown.phase : undefined;
+  const sumField = faceFields(board).find((field) => field.type === 'number');
+  const sum = sumField ? cardSum(board, cards, sumField, today) : null;
   const add = (title: string) => actions.addCard(path, { title, column: column.id, ...(phase !== undefined && { phase }) });
   // In a done or dropped column, cards finished a while ago fold away until asked for.
   const finished = column.kind === 'done' || column.kind === 'dropped';
@@ -377,6 +419,11 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
           </button>
         )}
         <small>{cards.length}</small>
+        {sum !== null && (
+          <span className="sum" title={sumField!.label}>
+            {numberText(sum)}
+          </span>
+        )}
         {!inLane && (
           <button type="button" className="more" title={t('board.columnMenu')} aria-label={t('board.columnMenu')} onClick={menu}>
             ···
@@ -737,15 +784,44 @@ function PhaseList({ title, phases, chosen, narrow, anchor, progressOf, onPick, 
 
 /** What the list is sorted by, and which way. */
 interface Sort {
-  field: 'key' | 'title' | 'status' | 'priority' | 'due' | 'assignee';
+  /** A card's own field, or one of the board's by `f:` and its key. */
+  field: 'key' | 'title' | 'status' | 'priority' | 'due' | 'assignee' | `f:${string}`;
   desc: boolean;
 }
+
+/** How wide a column of the list is for a field of the board, by its type. */
+const LIST_WIDTHS: { [type in Field['type']]: number } = {
+  name: 140,
+  code: 90,
+  text: 140,
+  number: 90,
+  date: 96,
+  select: 110,
+  'multi-select': 140,
+  checkbox: 50,
+  url: 150,
+  email: 160,
+  phone: 120,
+  person: 90,
+  link: 150,
+  formula: 90,
+};
+/** The list's own columns: key, title, status, priority, labels, who, due. */
+const LIST_COLUMNS = '58px minmax(160px, 1fr) 90px 60px 116px 40px 80px';
+const LIST_LEAST = 640;
 
 /** Cards in a list's order: by the field asked, else by column then place; finished cards last. */
 function sortCards(board: Board, cards: Card[], sort: Sort | null): Card[] {
   const columnAt = new Map(board.columns.map((c, i) => [c.id, i]));
   const rank = (card: Card) => (isFinished(board, card) ? 1 : 0);
+  const own = sort?.field.startsWith('f:') ? board.fields?.find((f) => `f:${f.key}` === sort.field) : undefined;
   const value = (card: Card): string | number => {
+    // A board's field: numbers as numbers, the rest by their text; the empty ones last.
+    if (own) {
+      const v = cardValue(board, card, own);
+      if (isEmpty(v)) return own.type === 'number' || own.type === 'formula' ? Number.MAX_SAFE_INTEGER : '\uffff';
+      return typeof v === 'number' ? v : valueText(v).toLowerCase();
+    }
     switch (sort?.field) {
       case 'key':
         return card.key;
@@ -863,12 +939,22 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
     });
     setAdding({ group: group.id, after: id });
   };
-  const head = (field: Sort['field']) => (
-    <button type="button" role="columnheader" className={sort?.field === field ? 'sorted' : ''} onClick={() => toggle(field)}>
-      {t(`list.${field}`)}
+  const head = (field: Sort['field'], label = t(`list.${field as 'key'}`), className = '') => (
+    <button key={field} type="button" role="columnheader" className={[sort?.field === field && 'sorted', className].filter(Boolean).join(' ')} onClick={() => toggle(field)}>
+      {label}
       {sort?.field === field && <span>{sort.desc ? ' ↑' : ' ↓'}</span>}
     </button>
   );
+  // The board's own fields as columns after the card's, wider than the window when they need to be.
+  const own = board.fields ?? [];
+  const isNumber = (field: Field) => field.type === 'number' || field.type === 'formula';
+  const grid = {
+    '--lcols': [LIST_COLUMNS, ...own.map((f) => `${LIST_WIDTHS[f.type]}px`)].join(' '),
+    '--lmin': `${LIST_LEAST + own.reduce((sum, f) => sum + LIST_WIDTHS[f.type] + 12, 0)}px`,
+  } as React.CSSProperties;
+  const ctx: ValueContext = { records: actions.recordActions.records, collection: actions.recordActions.collection, openLink: actions.recordActions.openLink };
+  const listed = shown.flatMap((group) => group.cards);
+  const sums = own.map((field) => (isNumber(field) ? cardSum(board, listed, field, today) : null));
   const row = (card: Card) => {
     const column = board.columns.find((c) => c.id === card.column);
     const menu = (event: MouseEvent) =>
@@ -905,11 +991,16 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
         </span>
         <span>{card.assignee && <span className="who" title={card.assignee}>{card.assignee.slice(0, 1).toUpperCase()}</span>}</span>
         <span className={card.due ? dueClass(card.due, today) : 'due'}>{card.due ? dueLabel(card.due, today) : ''}</span>
+        {own.map((field) => (
+          <span key={field.key} className={isNumber(field) ? 'own r' : 'own'}>
+            <Cell field={field} value={cardValue(board, card, field, today)} ctx={ctx} />
+          </span>
+        ))}
       </div>
     );
   };
   return (
-    <div className="blist" role="table">
+    <div className="blist" role="table" style={own.length > 0 ? grid : undefined}>
       <div className="lrow head" role="row">
         {head('key')}
         {head('title')}
@@ -918,6 +1009,7 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
         <span role="columnheader">{t('list.labels')}</span>
         {head('assignee')}
         {head('due')}
+        {own.map((field) => head(`f:${field.key}`, field.label, isNumber(field) ? 'r' : ''))}
       </div>
       {shown.map((group) => {
         const open = toggled.includes(group.id) ? group.finished === true : group.finished !== true;
@@ -971,6 +1063,23 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
           </div>
         );
       })}
+      {/* The board's numbers added up over the cards listed. */}
+      {sums.some((sum) => sum !== null) && (
+        <div className="lrow sum" role="row">
+          <span />
+          <span className="tt">{t('collection.sum')}</span>
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+          {own.map((field, i) => (
+            <span key={field.key} className="own r">
+              {sums[i] !== null && sums[i] !== undefined ? <span className="num">{numberText(sums[i]!)}</span> : null}
+            </span>
+          ))}
+        </div>
+      )}
       {shown.length === 0 && <p className="task-empty">{t('list.empty')}</p>}
     </div>
   );
@@ -1005,6 +1114,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
 }) {
   const current = currentPhase(board);
   const [view, setView] = useState<'board' | 'list'>(look?.view ?? board.view ?? 'board');
+  const [designing, setDesigning] = useState(false);
   const [shown, setShown] = useState<Shown>(() => firstShown(board, look));
   /** A phase chosen here is remembered; until one is, the board opens on its current phase. */
   const [phaseChosen, setPhaseChosen] = useState(look?.phase !== undefined);
@@ -1076,6 +1186,8 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   useEffect(() => {
     if (!open) return;
     const onKey = (event: globalThis.KeyboardEvent) => {
+      // A window over the card (a record a link opens, a question) has the keys.
+      if (event.defaultPrevented || document.querySelectorAll('.backdrop').length > 1) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
         if (event.key === 'Escape' && target.closest('.cm-content')) target.blur();
@@ -1188,10 +1300,16 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
           </button>
         </span>
         {waiting > 0 && <span className="wait">{t('board.toReview', { count: waiting })}</span>}
+        <button type="button" className="ghost" onClick={() => setDesigning(true)}>
+          {t('collection.fields')}
+        </button>
         <button type="button" className="ghost" onClick={boardMenu}>
           {t('board.more')}
         </button>
       </header>
+      {designing && (
+        <BoardFieldsDialog board={board} path={path} collections={actions.recordActions.collections()} actions={actions} onClose={() => setDesigning(false)} />
+      )}
       {board.phasesOn && view === 'board' && <PhaseStrip board={board} path={path} shown={shown} onShow={choosePhase} actions={actions} />}
       {shownPhase?.doneWhen && view === 'board' && (
         <p className="donewhen">

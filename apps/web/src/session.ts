@@ -33,6 +33,7 @@ import {
   type Collection,
   type CollectionLook,
   type CollectionTemplate,
+  type BoardLinks,
   type Schema,
   saveSchema,
   type NewRecord,
@@ -117,6 +118,8 @@ import {
   type TrashItem,
   type TreeNode,
   updateCard,
+  setBoardFields,
+  type Field,
   updatePhase,
   updateTask,
   type VaultFs,
@@ -1562,6 +1565,11 @@ export class Session {
     this.changeBoard(board, (current) => removeCard(current, id));
   }
 
+  /** Gives a board its own fields, its cards' choices renamed with them. */
+  setBoardFields(board: string, fields: Field[], renames: ChoiceRenames) {
+    this.changeBoard(board, (current) => setBoardFields(current, fields, renames));
+  }
+
   updateCard(board: string, id: string, patch: CardPatch) {
     this.changeBoard(board, (current) => updateCard(current, id, patch));
   }
@@ -1661,6 +1669,7 @@ export class Session {
     newFolder: boolean,
     template: Template = 'software',
     collectionTemplate: CollectionTemplate = 'companies',
+    links?: BoardLinks,
   ): Promise<string | null> {
     let path: string;
     try {
@@ -1674,7 +1683,7 @@ export class Session {
               ? await createKeys(this.fs, target, name)
               : kind === 'collection'
                 ? await createCollection(this.fs, target, name, collectionTemplate)
-                : await createBoard(this.fs, target, name, template);
+                : await createBoard(this.fs, target, name, template, links);
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }

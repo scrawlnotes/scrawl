@@ -1,4 +1,7 @@
 import {
+  type Board,
+  BOARD_EXT,
+  boardName,
   type ChoiceRenames,
   type Collection,
   collectionName,
@@ -30,7 +33,7 @@ import { type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent
 import { createPortal } from 'react-dom';
 import { boxKeys, hueStyle, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { Icon } from './Icon';
-import { collectionLabel } from './items';
+import { boardLabel, collectionLabel } from './items';
 import { useNarrow } from './narrow';
 import { GRIP } from './Tasks';
 import { quote } from './text';
@@ -111,20 +114,7 @@ const isChoice = (type: FieldType) => type === 'select' || type === 'multi-selec
  * "More fields", as the record shows them.
  */
 function toDraft(schema: Schema, linked: LinkedBlock[]): Draft {
-  const fields = schema.fields.map(
-    (f): DraftField => ({
-      id: newId(),
-      key: f.key,
-      label: f.label,
-      type: f.type,
-      required: !!f.required,
-      choices: (f.options ?? []).map((name) => ({ id: newId(), name, was: name, color: f.colors?.[name] })),
-      collection: f.collection ?? '',
-      many: !!f.many,
-      formula: f.formula ?? '',
-      fresh: false,
-    }),
-  );
+  const fields = draftFields(schema.fields);
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const placed = new Set<string>();
   const layout = schema.layout ?? defaultLayout(schema.fields, linked);
@@ -153,6 +143,38 @@ function toDraft(schema: Schema, linked: LinkedBlock[]): Draft {
   }
   return { fields, columns };
 }
+
+/** Fields as the window holds them, each with an id of its own and its choices with the names they had. */
+function draftFields(fields: Field[]): DraftField[] {
+  return fields.map(
+    (f): DraftField => ({
+      id: newId(),
+      key: f.key,
+      label: f.label,
+      type: f.type,
+      required: !!f.required,
+      choices: (f.options ?? []).map((name) => ({ id: newId(), name, was: name, color: f.colors?.[name] })),
+      collection: f.collection ?? '',
+      many: !!f.many,
+      formula: f.formula ?? '',
+      fresh: false,
+    }),
+  );
+}
+
+/** A field just made in the window: a line of text with no name yet, its key following its name. */
+const freshField = (fields: DraftField[]): DraftField => ({
+  id: newId(),
+  key: keyFor('', new Set(fields.map((f) => f.key))),
+  label: '',
+  type: 'text',
+  required: false,
+  choices: [],
+  collection: '',
+  many: false,
+  formula: '',
+  fresh: true,
+});
 
 /** A field of the draft as the schema holds it. */
 function toField(f: DraftField): Field {
@@ -190,9 +212,9 @@ function toSchema(draft: Draft, base: Schema): Schema {
 }
 
 /** The choices renamed in the draft, by field: what each was called when the window opened, and what it is called now. */
-function renamesOf(draft: Draft): ChoiceRenames {
+function renamesOf(fields: DraftField[]): ChoiceRenames {
   const renames: ChoiceRenames = {};
-  for (const field of draft.fields) {
+  for (const field of fields) {
     if (field.fresh || !isChoice(field.type)) continue;
     for (const choice of field.choices) {
       const name = choice.name.trim();
@@ -287,11 +309,17 @@ function linkedStyle(block: LinkedBlock, source: Collection | undefined): 'list'
  * The type of a field as a box that opens the list of types under it, each saying what it is for;
  * Name and Code, which a collection has one of, are faint when another field is one.
  */
-function TypeBox({ field, fields, onPick }: { field: DraftField; fields: DraftField[]; onPick: (type: FieldType) => void }) {
+function TypeBox({ field, fields, types = FIELD_TYPES, onPick }: {
+  field: DraftField;
+  fields: DraftField[];
+  /** The types to choose from. */
+  types?: readonly FieldType[];
+  onPick: (type: FieldType) => void;
+}) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLButtonElement>(null);
   const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
-  const options: Option[] = FIELD_TYPES.map((type) => {
+  const options: Option[] = types.map((type) => {
     const taken = SINGLE_TYPES.includes(type) && fields.some((f) => f.id !== field.id && f.type === type);
     return { value: type, label: t(`fields.type.${type}`), hint: taken ? t('fields.taken') : t(`fields.about.${type}`), chip: false, disabled: taken, apart: type === 'text' };
   });
@@ -491,10 +519,11 @@ function Choices({ field, onChange }: { field: DraftField; onChange: (choices: C
 }
 
 /** A field opened where it is: its name, type and key, whether it is required, then what its type needs. */
-function FieldEditor({ field, fields, collections, onChange, onDelete }: {
+function FieldEditor({ field, fields, collections, types, onChange, onDelete }: {
   field: DraftField;
   fields: DraftField[];
   collections: Collection[];
+  types?: readonly FieldType[];
   onChange: (patch: Partial<DraftField>) => void;
   onDelete: () => void;
 }) {
@@ -511,7 +540,7 @@ function FieldEditor({ field, fields, collections, onChange, onDelete }: {
     <div className="fe">
       <div className="fe-top">
         <input className="in" aria-label={t('fields.fieldName')} placeholder={t('fields.fieldName')} autoFocus={field.fresh && !field.label} value={field.label} onChange={(event) => rename(event.target.value)} />
-        <TypeBox field={field} fields={fields} onPick={retype} />
+        <TypeBox field={field} fields={fields} types={types} onPick={retype} />
         <button type="button" className="fdel" title={t('fields.deleteField')} aria-label={t('fields.deleteField')} onClick={onDelete}>
           <Icon name="trash" />
         </button>
@@ -535,6 +564,7 @@ function FieldEditor({ field, fields, collections, onChange, onDelete }: {
       )}
       {field.type === 'link' && (
         <div className="fe-row">
+          <span className="fe-name">{t('fields.linkTo')}</span>
           <Picker className="in" options={targets} value={field.collection || null} label={t('fields.pickCollection')} onPick={(dir) => dir && onChange({ collection: dir })} />
           <label className="fcheck">
             <input type="checkbox" checked={field.many} onChange={(event) => onChange({ many: event.target.checked })} />
@@ -757,7 +787,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
     let item: DraftItem;
     let fields = draft.fields;
     if (what === 'field') {
-      const field: DraftField = { id: newId(), key: keyFor('', new Set(fields.map((f) => f.key))), label: '', type: 'text', required: false, choices: [], collection: '', many: false, formula: '', fresh: true };
+      const field = freshField(fields);
       fields = [...fields, field];
       item = { id, field: field.id };
     } else if (what === 'linked') {
@@ -814,7 +844,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
     if (next === view) return;
     if (next === 'text') {
       close();
-      setCarried(compose(carried, renamesOf(draft)));
+      setCarried(compose(carried, renamesOf(draft.fields)));
       setText(serializeSchema(settleSchema(toSchema(draft, schema), linked)));
       setView('text');
       return;
@@ -848,7 +878,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
         return setError(t('fields.linkNeeded', { field: unlinked.label.trim() }));
       }
       next = toSchema(draft, schema);
-      renames = compose(carried, renamesOf(draft));
+      renames = compose(carried, renamesOf(draft.fields));
     }
     const settled = settleSchema(next, linked, renames);
     // Only the fields that still have choices have them renamed in the records.
@@ -1017,6 +1047,222 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
             {t('dialog.cancel')}
           </button>
           <button type="button" className="primary" disabled={!dirty} onClick={() => void save()}>
+            {t('collection.save')}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ---------- a board's fields ----------
+
+export interface BoardFieldsActions {
+  /** Asks before something is lost; `action` is what the confirming button says. */
+  ask: (title: string, message: string, run: () => void, action: string) => void;
+  /** Writes the board's fields, its cards' choices renamed with them. */
+  saveBoardFields: (board: string, fields: Field[], renames: ChoiceRenames) => void;
+}
+
+/** The types a board's field can be: a collection's but name and code, since a card has its own title and key. */
+const BOARD_TYPES = FIELD_TYPES.filter((type) => !SINGLE_TYPES.includes(type));
+
+/**
+ * A board's Fields window, after the Deals fields view of design/mockups.html: what every card
+ * has, then the board's own fields in the order a card shows them, each opened where it is with
+ * the same parts as a collection's field. Dragged to order; + Add field puts a new one at the end.
+ * Everything changes one draft; Save writes it.
+ */
+export function BoardFieldsDialog({ board, path, collections, actions, onClose }: {
+  board: Board;
+  path: string;
+  /** The collections a link can point at. */
+  collections: Collection[];
+  actions: BoardFieldsActions;
+  onClose: () => void;
+}) {
+  const [start] = useState(() => draftFields(board.fields ?? []));
+  const [original] = useState(() => JSON.stringify(start.map(toField)));
+  const [fields, setFields] = useState(start);
+  const [open, setOpen] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [drop, setDrop] = useState<{ index: number; y: number } | null>(null);
+  const dragging = useRef<{ id: string; element: HTMLElement } | null>(null);
+  const backdrop = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const dirty = JSON.stringify(fields.map(toField)) !== original;
+  const name = boardName(path);
+  const own = [t('card.status'), ...(board.phasesOn ? [t('card.phase')] : []), t('card.priority'), t('card.labels'), t('card.due'), t('card.assignee')];
+
+  useEffect(() => {
+    if (!panel.current?.contains(document.activeElement)) panel.current?.focus({ preventScroll: true });
+  }, []);
+
+  const change = (next: DraftField[]) => {
+    setError(null);
+    setFields(next);
+  };
+  // A field just made and closed without a name goes away again.
+  const close = (then: string | null = null) => {
+    const field = fields.find((f) => f.id === open);
+    if (field?.fresh && !field.label.trim()) change(fields.filter((f) => f.id !== field.id));
+    setOpen(then);
+  };
+  const add = () => {
+    const field = freshField(fields);
+    change([...fields.filter((f) => !(f.id === open && f.fresh && !f.label.trim())), field]);
+    setOpen(field.id);
+  };
+
+  const grab = (event: DragEvent<HTMLElement>, id: string) => {
+    const element = event.currentTarget.closest<HTMLElement>('[data-item]')!;
+    dragging.current = { id, element };
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(DRAG_TYPE, id);
+    requestAnimationFrame(() => dragging.current?.element.classList.add('lifted'));
+  };
+  const release = () => {
+    dragging.current?.element.classList.remove('lifted');
+    dragging.current = null;
+    setDrop(null);
+  };
+  const over = (event: DragEvent<HTMLDivElement>) => {
+    if (!dragging.current) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const items = [...(list.current?.querySelectorAll<HTMLElement>(':scope > [data-item]') ?? [])];
+    let index = items.findIndex((el) => event.clientY < el.getBoundingClientRect().top + el.offsetHeight / 2);
+    if (index < 0) index = items.length;
+    const last = items[items.length - 1];
+    const y = index < items.length ? items[index]!.offsetTop - 3 : last ? last.offsetTop + last.offsetHeight + 2 : 8;
+    setDrop((now) => (now?.index === index ? now : { index, y }));
+  };
+  const dropped = (event: DragEvent<HTMLDivElement>) => {
+    const d = dragging.current;
+    if (!d || !drop) return;
+    event.preventDefault();
+    const from = fields.findIndex((f) => f.id === d.id);
+    const to = from < drop.index ? drop.index - 1 : drop.index;
+    if (from >= 0 && from !== to) {
+      const next = fields.filter((f) => f.id !== d.id);
+      next.splice(to, 0, fields[from]!);
+      change(next);
+    }
+    release();
+  };
+
+  const save = () => {
+    const unnamed = fields.find((f) => !f.label.trim());
+    if (unnamed) {
+      setOpen(unnamed.id);
+      return setError(t('fields.nameNeeded'));
+    }
+    const unlinked = fields.find((f) => f.type === 'link' && !f.collection);
+    if (unlinked) {
+      setOpen(unlinked.id);
+      return setError(t('fields.linkNeeded', { field: unlinked.label.trim() }));
+    }
+    const renames = Object.fromEntries(Object.entries(renamesOf(fields)).filter(([key]) => fields.some((f) => f.key === key && isChoice(f.type))));
+    actions.saveBoardFields(path, fields.map(toField), renames);
+    onClose();
+  };
+  const leave = () => {
+    if (!dirty) return onClose();
+    actions.ask(t('collection.discardTitle'), t('fields.discardText', { name: quote(name) }), onClose, t('collection.discard'));
+  };
+  useEscape(backdrop, () => (open ? close() : leave()));
+
+  const item = (field: DraftField) => {
+    if (field.id === open) {
+      return (
+        <div key={field.id} data-item={field.id} className={field.fresh ? 'fitem edit fresh' : 'fitem edit'}>
+          <span className="grip" draggable onDragStart={(event) => grab(event, field.id)} onDragEnd={release}>
+            {GRIP}
+          </span>
+          <FieldEditor
+            field={field}
+            fields={fields}
+            collections={collections}
+            types={BOARD_TYPES}
+            onChange={(patch) => change(fields.map((f) => (f.id === field.id ? { ...f, ...patch } : f)))}
+            onDelete={() => {
+              change(fields.filter((f) => f.id !== field.id));
+              setOpen(null);
+            }}
+          />
+        </div>
+      );
+    }
+    const pick = () => close(field.id);
+    return (
+      <div
+        key={field.id}
+        data-item={field.id}
+        className="fitem"
+        role="button"
+        tabIndex={0}
+        draggable
+        onDragStart={(event) => grab(event, field.id)}
+        onDragEnd={release}
+        onClick={pick}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          pick();
+        }}
+      >
+        <span className="grip">{GRIP}</span>
+        <span className="fl">
+          {field.label || t('fields.fieldName')}
+          {field.required && <i title={t('collection.required')}>*</i>}
+        </span>
+        <small>{typeWords(field)}</small>
+      </div>
+    );
+  };
+
+  return (
+    <div ref={backdrop} className="backdrop card-backdrop" onMouseDown={(event) => event.target === event.currentTarget && leave()}>
+      <section ref={panel} className="fdlg narrow" role="dialog" aria-label={t('fields.title')} tabIndex={-1}>
+        <div className="cp-head">
+          <Icon name="board" />
+          <b>{t('fields.title')}</b>
+          <span className="where">{boardLabel(path)}</span>
+          <button type="button" className="x push" title={t('dialog.close')} aria-label={t('dialog.close')} onClick={leave}>
+            ×
+          </button>
+        </div>
+        <div
+          className="fd-canvas"
+          onMouseDown={(event: MouseEvent<HTMLDivElement>) => {
+            const target = event.target as HTMLElement;
+            if (open && !target.closest('.fitem.edit, .opt-list, [data-item]')) close();
+          }}
+        >
+          <p className="fd-say">{t('fields.boardSay')}</p>
+          <p className="fbox-h">{t('fields.onEveryCard')}</p>
+          <div className="fbuilt">
+            {own.map((label) => (
+              <span key={label}>{label}</span>
+            ))}
+          </div>
+          <p className="fbox-h">{t('fields.thisBoard')}</p>
+          <div ref={list} className={drop ? 'fsec over' : 'fsec'} onDragOver={over} onDrop={dropped} onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node) && setDrop(null)}>
+            {fields.map(item)}
+            {fields.length === 0 && <p className="fi-note">{t('fields.noBoardFields')}</p>}
+            {drop && <div className="fdrop" style={{ top: drop.y }} />}
+            <button type="button" className="fadd" onClick={add}>
+              {t('fields.addFieldRow')}
+            </button>
+          </div>
+        </div>
+        <div className="rm-foot">
+          {error ? <p role="alert">{error}</p> : <span className="hint">{t('fields.savedIn', { file: `${name}${BOARD_EXT}` })}</span>}
+          <button type="button" onClick={leave}>
+            {t('dialog.cancel')}
+          </button>
+          <button type="button" className="primary" disabled={!dirty} onClick={save}>
             {t('collection.save')}
           </button>
         </div>
