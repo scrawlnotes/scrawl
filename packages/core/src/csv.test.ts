@@ -41,6 +41,8 @@ describe('CSV', () => {
     ];
     const targets = guessTargets(header, rows, companies.schema, 'Notes');
     expect(targets).toEqual([{ add: 'text' }, { field: 'status' }, { add: 'number' }, { add: 'date' }, { body: true }, { skip: true }, { field: 'name' }]);
+    // Something's name goes to the name field when no column is called Name; another system's id goes nowhere.
+    expect(guessTargets(['Company name', 'Internal id'], [], companies.schema, 'Notes')).toEqual([{ field: 'name' }, { skip: true }]);
     expect(guessType(['yes', 'No'])).toBe('checkbox');
 
     const plan = planImport(companies, header, rows, targets, 'update', {});

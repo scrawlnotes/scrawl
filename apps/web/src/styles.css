@@ -7102,6 +7102,19 @@ button.cb:hover::after {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   }
 
+  /* The file's name keeps its line; the button goes under it. */
+  .csv-file {
+    flex-wrap: wrap;
+  }
+
+  .csv-file .fname {
+    flex: 1 1 auto;
+  }
+
+  .csv-file .ghost {
+    margin-left: 0;
+  }
+
   .csv-row .cf,
   .csv-row.head > :nth-child(2) {
     display: none;
@@ -7387,7 +7400,7 @@ button.cb:hover::after {
   cursor: default;
 }
 
-.fitem.edit .grip {
+.fitem.edit > .grip {
   padding-top: 7px;
 }
 
@@ -7765,11 +7778,16 @@ button.cb:hover::after {
 }
 
 @media (max-width: 640px) {
-  .fdlg {
+  .fdlg,
+  .fdlg.narrow {
     width: 100%;
     height: 100%;
     border: 0;
     border-radius: 0;
+  }
+
+  .fdlg.narrow .fd-canvas {
+    flex: 1;
   }
 
   .fd-canvas {

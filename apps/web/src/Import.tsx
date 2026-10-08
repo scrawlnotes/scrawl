@@ -86,7 +86,7 @@ export function ImportDialog({ collection, fileName, header, rows, targets, onCh
           <div className="csv-file">
             <Icon name="file" />
             <span className="fname">{fileName}</span>
-            <small>{t('import.size', { rows: rows.length, columns: header.length })}</small>
+            <small>{t('import.size', { count: rows.length, columns: header.length })}</small>
             <button type="button" className="ghost" onClick={onChooseFile}>
               {t('import.another')}
             </button>

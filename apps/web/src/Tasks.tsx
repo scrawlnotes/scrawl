@@ -368,6 +368,8 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
   // menus it leads to open where it was pressed.
   const moreMenu = (event: MouseEvent) => {
     const point = { clientX: event.clientX, clientY: event.clientY, preventDefault: () => undefined } as MouseEvent;
+    // Where a touch screen shows only this button, the record is picked from here too, under it.
+    const button = event.currentTarget as HTMLElement;
     actions.menu(event, [
       ...(canNest
         ? [
@@ -382,6 +384,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
         : []),
       { label: t('tasks.dateMenu'), run: () => dateMenu(point) },
       { label: t('tasks.priorityMenu'), run: () => priorityMenu(point) },
+      { label: t('tasks.recordMenu'), run: () => setPicking(button) },
       { label: t('tasks.moveTo'), run: () => actions.moveTo(list, task.id) },
       { label: t('tasks.delete'), run: () => actions.remove(list, task.id) },
     ]);

@@ -144,20 +144,27 @@ const simple = (text: string) => text.trim().toLowerCase().replace(/[\s_-]+/g, '
 
 /**
  * Where each column of the file goes, as the import window starts: to the field whose label or
- * key is the column's name, to the notes for Notes, Body or Description, nowhere for an id (a
- * record's own), and to a new field of the type its values have otherwise.
+ * key is the column's name; to the name field for a column called something's name ("Company
+ * name"), when none has the name itself; to the notes for Notes, Body or Description; nowhere for
+ * an id ("Internal id"), which is another system's; and to a new field of the type its values
+ * have otherwise.
  */
 export function guessTargets(header: string[], rows: string[][], schema: Schema, notesLabel: string): ColumnTarget[] {
   const taken = new Set<string>();
+  const usable = schema.fields.filter((f) => f.type !== 'formula' && f.type !== 'rollup');
+  const exact = (n: string) => usable.find((f) => !taken.has(f.key) && (simple(f.label) === n || simple(f.key) === n));
+  const names = header.map(simple);
+  const named = nameField(schema);
+  const nameTaken = !named || names.some((n) => n === simple(named.label) || n === simple(named.key));
   return header.map((name, i): ColumnTarget => {
-    const n = simple(name);
-    const field = schema.fields.find((f) => !taken.has(f.key) && f.type !== 'formula' && f.type !== 'rollup' && (simple(f.label) === n || simple(f.key) === n));
+    const n = names[i]!;
+    const field = exact(n) ?? (named && !nameTaken && !taken.has(named.key) && n.endsWith(' name') ? named : undefined);
     if (field) {
       taken.add(field.key);
       return { field: field.key };
     }
     if ([simple(notesLabel), 'notes', 'note', 'body', 'description'].includes(n)) return { body: true };
-    if (n === 'id' || !n) return { skip: true };
+    if (!n || n === 'id' || n.endsWith(' id')) return { skip: true };
     return { add: guessType(rows.map((r) => r[i] ?? '')) };
   });
 }
