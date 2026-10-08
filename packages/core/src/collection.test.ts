@@ -18,6 +18,7 @@ import {
   freshenLinks,
   linkTo,
   createCollection,
+  createLinkedCollection,
   type Collection,
   fieldHref,
   isComplete,
@@ -50,6 +51,7 @@ import {
   serializeSchema,
   sortRecords,
   splitFrontMatter,
+  templateNamed,
   unplacedFields,
   valueText,
   updateRecord,
@@ -249,6 +251,27 @@ describe('a collection in a vault', () => {
     expect(await createCollection(fs, 'Scrawl', '', 'blank')).toBe('Scrawl/Collection');
     const { schema } = await loadCollection(fs, 'Scrawl/Companies');
     expect(schema.template).toBe('companies');
+  });
+
+  it('makes the collections an old one shows beside it, linked to it whatever it is called', async () => {
+    const fs = new MemoryFs();
+    // Made on its own from the Companies template, under another name: its blocks look for Activities and People.
+    const dir = await createCollection(fs, 'Scrawl', '', 'companies');
+    const from = await loadCollection(fs, dir);
+    expect(await createLinkedCollection(fs, from, 'Scrawl/Activities')).toBe('Scrawl/Activities');
+    const activities = (await loadCollection(fs, 'Scrawl/Activities')).schema;
+    expect(activities.template).toBe('activities');
+    expect(activities.fields.filter((f) => f.type === 'link').map((f) => [f.key, f.collection])).toEqual([
+      ['company', 'Scrawl/Collection'],
+      ['person', 'Scrawl/People'],
+    ]);
+    await fs.mkdir('Scrawl/People');
+    expect(await createLinkedCollection(fs, from, 'Scrawl/People')).toBe('Scrawl/People 2');
+    const people = (await loadCollection(fs, 'Scrawl/People 2')).schema;
+    expect(people.fields.find((f) => f.key === 'company')!.collection).toBe('Scrawl/Collection');
+    expect(layoutOf(people).columns[1]!.sections[0]!.items[0]).toMatchObject({ block: 'linked', collection: 'Scrawl/Activities' });
+    expect(await createLinkedCollection(fs, from, 'Scrawl/Calls')).toBeNull();
+    expect(templateNamed('people')).toBe('people');
   });
 
   it('keeps an index on the device, reading again only the files that changed', async () => {

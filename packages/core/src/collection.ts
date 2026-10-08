@@ -316,6 +316,22 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
   blank: [],
 };
 
+/** What the collection each template makes is called, the name the other templates' links and blocks look for beside them. */
+const TEMPLATE_NAMES: Partial<{ [template in CollectionTemplate]: string }> = {
+  companies: 'Companies',
+  people: 'People',
+  activities: 'Activities',
+  feedback: 'Feedback',
+  payments: 'Payments',
+};
+
+/** The template a collection of this name is made from, Activities' for Activities; null for a name no template goes by. */
+export function templateNamed(name: string): CollectionTemplate | null {
+  const wanted = name.toLowerCase();
+  const found = Object.entries(TEMPLATE_NAMES).find(([, each]) => each.toLowerCase() === wanted);
+  return found ? (found[0] as CollectionTemplate) : null;
+}
+
 /** What one record of each template is called; Blank's are records. */
 const TEMPLATE_SINGULAR: Partial<{ [template in CollectionTemplate]: string }> = {
   companies: 'company',
@@ -1012,6 +1028,28 @@ export async function createCollection(fs: VaultFs, folder: string, name: string
   const dir = freePath(folder, clean || t('collection.defaultName'), '', await taken(fs, folder));
   await fs.mkdir(dir);
   await saveSchema(fs, dir, newSchema(template, folder));
+  return dir;
+}
+
+/**
+ * Makes the collection a block of `from`'s record screen looks for, at `target`, when it is not
+ * there: a collection made on its own shows the ones its template keeps beside it, and those were
+ * never made. It is made from the template its name goes by, and its links to records of the kind
+ * `from` holds point at `from`, whatever it is called: Activities made for an old
+ * Scrawl/Collection of companies link their company there. Numbered when the name is taken by a
+ * folder that is not a collection. Returns its path; null when no template goes by its name.
+ */
+export async function createLinkedCollection(fs: VaultFs, from: Pick<Collection, 'dir' | 'schema'>, target: string): Promise<string | null> {
+  const name = collectionName(target);
+  const template = templateNamed(name);
+  if (!template) return null;
+  const folder = collectionOf(target);
+  const own = TEMPLATE_NAMES[from.schema.template];
+  const fresh = newSchema(template, folder);
+  const schema = own ? retargetLinks(fresh, join(folder, own), from.dir) : fresh;
+  const dir = freePath(folder, name, '', await taken(fs, folder));
+  await fs.mkdir(dir);
+  await saveSchema(fs, dir, schema);
   return dir;
 }
 

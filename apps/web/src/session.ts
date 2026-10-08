@@ -19,6 +19,7 @@ import {
   createFolder,
   createKeys,
   createCollection,
+  createLinkedCollection,
   addRecord as addCollectionRecord,
   updateRecord as updateCollectionRecord,
   loadCollection,
@@ -1035,6 +1036,25 @@ export class Session {
       return error instanceof Error ? error.message : t('error.record');
     }
     await this.reloadCollection(dir);
+    return null;
+  }
+
+  /**
+   * Makes the collection a block of `dir`'s record screen looks for, which is not there, from the
+   * template of its name and linked to `dir`. Numbered when its name is taken, the block points at
+   * it. Returns a message when it cannot be made.
+   */
+  async createLinked(dir: string, target: string): Promise<string | null> {
+    const collection = this.snapshot.collections[dir];
+    if (!collection) return t('error.create');
+    try {
+      const made = await createLinkedCollection(this.fs, collection, target);
+      if (!made) return t('error.create');
+      if (made !== target) await saveSchema(this.fs, dir, retargetLinks(collection.schema, target, made));
+    } catch (error) {
+      return error instanceof Error ? error.message : t('error.create');
+    }
+    await this.refreshTree();
     return null;
   }
 

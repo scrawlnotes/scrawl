@@ -608,6 +608,7 @@ export function App() {
     collections: () => Object.values(collections),
     changeSchema: (dir, change) => session.changeSchema(dir, change),
     saveFields: (dir, schema, renames) => session.saveFields(dir, schema, renames),
+    createLinked: (dir, target) => session.createLinked(dir, target),
     boards: () => boards,
     tasks: () => tasks,
     addTask: (list, input) => session.addTask(list, input),

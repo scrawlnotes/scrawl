@@ -6,6 +6,7 @@ import {
   type ChoiceRenames,
   type Collection,
   type CollectionLook,
+  collectionOf,
   type ColumnWidths,
   evaluateFormula,
   collectionName,
@@ -27,6 +28,7 @@ import {
   type NewTask,
   recordTasks,
   type Task,
+  templateNamed,
   isLink,
   isLinkable,
   type Layout,
@@ -129,6 +131,8 @@ export interface CollectionActions {
   changeSchema: (dir: string, change: (schema: Schema) => Schema) => Promise<string | null>;
   /** Writes what the Fields window changed: the schema, and the records whose choices were renamed. */
   saveFields: (dir: string, schema: Schema, renames: ChoiceRenames) => Promise<string | null>;
+  /** Makes the collection a block of `dir`'s record screen looks for, which is not there, linked to `dir`. Returns a message when it cannot. */
+  createLinked: (dir: string, target: string) => Promise<string | null>;
   /** Every board, by path: the cards that link to a record. */
   boards: () => { [path: string]: Board };
   /** What a card opened over a record can do. */
@@ -672,7 +676,8 @@ const singularOf = (schema: Schema) => schema.singular ?? t('collection.recordSi
  * and a button that adds one already linked. A timeline shows each with its choice as a chip, who
  * and when, then its name and the first lines of its body, newest first; a list shows each by its
  * name with a field or two beside it. A row opens its record over this one. With none yet the head
- * stays, so that the first is added from here.
+ * stays, so that the first is added from here. A collection made on its own looks for the ones its
+ * template keeps beside it; one that is not there is made from here, from the template of its name.
  */
 function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
   block: LinkedBlock;
@@ -684,6 +689,8 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
   onOpen: (source: Collection, record: Record) => void;
   onAdd: (source: Collection) => void;
 }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const making = useRef(false);
   const source = actions.collection(block.collection);
   const name = collectionName(block.collection);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
@@ -699,10 +706,32 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
     </div>
   );
   if (!source) {
+    const makeable = templateNamed(name) !== null;
+    const folder = collectionOf(block.collection);
+    const make = async () => {
+      if (making.current) return;
+      making.current = true;
+      setFailed(await actions.createLinked(dir, block.collection));
+      making.current = false;
+    };
     return (
       <div className="blk">
-        {head(null)}
-        <p className="blk-none">{t('collection.noTarget', { name: block.collection })}</p>
+        <div className="blk-h">
+          <span>{name}</span>
+          {makeable && (
+            <button type="button" className="addl" onClick={() => void make()}>
+              {t('collection.createLinked', { name })}
+            </button>
+          )}
+        </div>
+        <p className="blk-none" role={failed ? 'alert' : undefined}>
+          {failed ??
+            (!makeable
+              ? t('collection.noTarget', { name: block.collection })
+              : folder
+                ? t('collection.missing', { name, folder: collectionName(folder) })
+                : t('collection.missingHere', { name }))}
+        </p>
       </div>
     );
   }
