@@ -5403,6 +5403,10 @@ button.cb:hover::after {
   margin-left: auto;
 }
 
+.cbar .tools[hidden] {
+  display: none;
+}
+
 .cbar .tools .ghost {
   margin-left: 0;
   padding: 2px 9px;
@@ -5612,6 +5616,11 @@ button.cb:hover::after {
 .clist .dt {
   color: var(--sl-dim);
   font-variant-numeric: tabular-nums;
+}
+
+.clist .code {
+  color: var(--sl-dim);
+  font: 12px var(--sl-font-mono);
 }
 
 .clist .tick {

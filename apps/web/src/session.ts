@@ -1192,28 +1192,27 @@ export class Session {
     if (target !== dir) await this.recollect(dir, target);
   }
 
-  /** Adds a record to a collection, as its own file. Returns a message when it cannot be made. */
+  /** Adds a record to a collection, as a file of its own named after its id. Returns a message when it cannot be made. */
   async addRecord(dir: string, input: NewRecord): Promise<string | null> {
     const collection = this.snapshot.collections[dir];
     if (!collection) return t('error.create');
     try {
-      const { record, schema } = await addCollectionRecord(this.fs, collection, input);
-      this.setCollection(dir, (current) => ({ ...current, schema, records: [...current.records, record] }));
+      const record = await addCollectionRecord(this.fs, collection, input);
+      this.setCollection(dir, (current) => ({ ...current, records: [...current.records, record] }));
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }
   }
 
-  /** Changes a record and writes its file; a new name renames the file. Returns a message when it cannot be saved. */
+  /** Changes a record and writes its file, which stays where it is. Returns a message when it cannot be saved. */
   async updateRecord(dir: string, id: string, patch: RecordPatch): Promise<string | null> {
     const collection = this.snapshot.collections[dir];
     const record = collection?.records.find((r) => r.id === id);
     if (!collection || !record) return t('error.record');
     try {
       const next = await updateCollectionRecord(this.fs, collection.schema, record, patch);
-      // Open as a note too: its tab and editing state follow the file.
-      if (next.path !== record.path) await this.follow(record.path, next.path);
+      // Open as a note too, it is read again when its tab is opened.
       this.disk.delete(next.path);
       this.states.delete(next.path);
       this.setCollection(dir, (current) => ({ ...current, records: current.records.map((r) => (r.id === id ? next : r)) }));

@@ -899,42 +899,95 @@ p { margin: 0; max-width: 68ch; }
 .erow .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
 .erow .who { width: 16px; height: 16px; border-radius: 50%; background: var(--m-sel); font: 600 9px/16px var(--m-ui); text-align: center; }
 .erow.on { background: var(--m-sel); border-radius: 5px; border-color: transparent; }
-/* Fields window, Layout tab: a palette of unplaced fields and blocks on the left, the columns on the right. */
-.ldlg { width: 780px; }
-.ldlg .ltabs { display: flex; align-items: center; gap: 10px; margin: -4px 0 12px; }
-.ldlg .ltabs .vsw { font-size: 12px; }
-.ldlg .ltabs .hintl { margin-left: auto; font-size: 11.5px; color: var(--m-faint); }
-.lay { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 14px; }
-.lpal { display: flex; flex-direction: column; gap: 4px; }
-.lpal .lh { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); margin: 6px 0 2px; }
-.litem { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 6px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); font-size: 12px; white-space: nowrap; }
-.litem .grip { color: var(--m-faint); }
-.mock .litem .grip svg { width: 9px; height: 12px; fill: currentColor; stroke: none; }
-.litem small { color: var(--m-faint); font-size: 11px; margin-left: auto; padding-left: 8px; white-space: nowrap; }
-.lpal .litem { min-width: 0; }
-.lpal .litem.blk { justify-content: flex-start; }
-.litem.blk { border-style: dashed; color: var(--m-dim); }
-.litem.blk b { font-weight: 500; color: var(--m-fg); }
-.litem.fixed { color: var(--m-dim); }
-.litem.fixed .grip { visibility: hidden; }
-.lcols { display: flex; align-items: flex-start; gap: 10px; }
-.lcol { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 8px; border: 1px dashed var(--m-line); border-radius: 7px; }
-.lcol.w2 { flex: 1.4; }
-.lcol-h { display: flex; align-items: center; gap: 6px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
-.lcol-h .ratio { display: inline-flex; gap: 1px; margin-left: auto; padding: 1px; border: 1px solid var(--m-line); border-radius: 5px; letter-spacing: 0; }
-.lcol-h .ratio span { padding: 0 6px; border-radius: 3px; color: var(--m-faint); font-size: 10.5px; }
-.lcol-h .ratio span.on { background: var(--m-sel); color: var(--m-fg); }
-.lcol-h .x { color: var(--m-faint); }
-.lsx { display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-side); }
-.lsx .lsx-h { display: flex; align-items: center; gap: 6px; padding: 0 2px 4px; font-size: 12px; color: var(--m-dim); }
-.lsx .lsx-h i { font-style: normal; color: var(--m-faint); }
-.lsx .lsx-h .x { margin-left: auto; color: var(--m-faint); }
-.lsx .ldrop { height: 2px; margin: 1px 2px; border-radius: 1px; background: var(--m-accent); }
-.lcol .addq { padding: 4px 6px; border-radius: 5px; color: var(--m-faint); font-size: 12px; }
-.lcols .addcol { align-self: stretch; display: grid; place-items: center; width: 92px; border: 1px dashed var(--m-line); border-radius: 7px; color: var(--m-faint); font-size: 12px; text-align: center; }
-.lghost { position: absolute; z-index: 4; display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 6px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); box-shadow: 0 8px 22px rgb(0 0 0 / .3); font-size: 12px; transform: rotate(-1.5deg); }
-.mock .lghost .grip svg { width: 9px; height: 12px; fill: currentColor; stroke: none; }
-.ldlg .foot .hint { margin-right: auto; font-size: 11.5px; color: var(--m-faint); }
+/* Fields: one window for a collection's fields and its record screen; a field or a block opens where it is to be changed. */
+.fdlg { display: flex; flex-direction: column; width: 1080px; height: 796px; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-bg); box-shadow: 0 12px 32px rgb(0 0 0 / .4); font-size: 13px; overflow: hidden; }
+.fdlg .cp-head { padding: 12px 20px; }
+.fdlg .cp-head svg { width: 13px; height: 13px; color: var(--m-faint); }
+.fdlg .cp-head b { color: var(--m-fg); font-weight: 600; }
+.fdlg .cp-head .vsw { margin-left: auto; }
+.fdlg .cp-head .x { margin-left: 4px; }
+.fd-canvas { display: flex; flex: 1; flex-direction: column; gap: 10px; min-height: 0; padding: 14px 18px; background: var(--m-side); }
+.fd-say { font-size: 11.5px; color: var(--m-faint); }
+.fcols { display: flex; align-items: flex-start; gap: 12px; }
+.fcol { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 8px; border: 1px dashed var(--m-line); border-radius: 8px; }
+.fcol-h { display: flex; align-items: center; gap: 6px; padding: 0 2px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.fcol-h .ratio { display: inline-flex; gap: 1px; margin-left: auto; padding: 1px; border: 1px solid var(--m-line); border-radius: 5px; letter-spacing: 0; }
+.fcol-h .ratio span { padding: 0 6px; border-radius: 3px; font-size: 10.5px; }
+.fcol-h .ratio span.on { background: var(--m-sel); color: var(--m-fg); }
+.fsec { display: flex; flex-direction: column; gap: 5px; padding: 8px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-bg); }
+.fitem { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 4px 8px 4px 6px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-bg); color: var(--m-fg); font-size: 12.5px; }
+.fitem .grip, .fopt .grip { position: static; width: auto; height: auto; color: var(--m-faint); line-height: 0; }
+.mock .fitem .grip svg, .mock .fopt .grip svg { width: 9px; height: 12px; fill: currentColor; stroke: none; }
+.fitem .fl { overflow: hidden; color: var(--m-fg); white-space: nowrap; text-overflow: ellipsis; }
+.fitem .fl i { margin-left: 3px; font-style: normal; color: var(--m-accent); }
+.fitem > small { color: var(--m-faint); font-size: 11px; white-space: nowrap; }
+.fitem.fixed .grip { visibility: hidden; }
+.fitem.blk { grid-template-columns: 10px minmax(0, 1fr); border-style: dashed; }
+.fitem.blk .bl { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.fitem.blk b { font-weight: 600; color: var(--m-fg); }
+.fitem.blk small { color: var(--m-faint); font-size: 11px; }
+.fchips { display: flex; flex-wrap: wrap; gap: 4px; }
+/* A field or a block opened where it is: name and type, required and its key, then what its type needs. */
+.fitem.edit { grid-template-columns: 10px minmax(0, 1fr); align-items: start; padding: 8px 8px 9px 6px; border-color: var(--m-accent); border-style: solid; box-shadow: 0 0 0 1px var(--m-accent); }
+.fitem.edit .grip { padding-top: 6px; }
+.fitem.edit.fresh { box-shadow: 0 0 0 1px var(--m-accent), 0 6px 18px rgb(0 0 0 / .3); }
+.fe { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fe-top { display: flex; align-items: center; gap: 6px; }
+.fe-top > .in { flex: 1; min-width: 0; }
+.fe-name { flex: none; color: var(--m-dim); font-size: 10.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.fe-top .fe-name + .in { flex: 1; }
+.fe .in { display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 3px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-side); color: var(--m-fg); font-size: 12.5px; box-sizing: border-box; white-space: nowrap; }
+.fe .in.on { border-color: var(--m-accent); }
+.fe .in .dd { margin-left: auto; color: var(--m-faint); font-size: 10px; }
+.ftype { position: relative; flex: none; width: 108px; }
+.ftype > .in { width: 100%; }
+.fdel { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 5px; color: var(--m-faint); }
+.mock .fdel svg { width: 13px; height: 13px; }
+.fe-row { display: flex; align-items: center; gap: 10px; }
+.fe-row .vsw { font-size: 12px; }
+.fe-row > .in { flex: 1; min-width: 0; }
+.fkey { margin-left: auto; font: 11.5px var(--m-mono); color: var(--m-faint); }
+.fcheck { display: flex; align-items: center; gap: 7px; color: var(--m-dim); font-size: 12px; }
+.fcheck .cb { width: 12px; height: 12px; border: 1px solid var(--m-faint); border-radius: 3px; }
+.fopts { display: flex; flex-direction: column; gap: 3px; }
+.fopt { position: relative; display: flex; align-items: center; gap: 8px; padding: 3px 6px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-side); }
+.fopt .grip { color: var(--m-faint); }
+.fopt .dot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+.fopt .dot.picking { box-shadow: 0 0 0 2px var(--m-bg), 0 0 0 3px var(--m-accent); }
+.fopt .on-name { flex: 1; color: var(--m-fg); font-size: 12.5px; }
+.fopt .x { color: var(--m-faint); }
+.fpal { position: absolute; top: calc(100% + 4px); left: 18px; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; width: 210px; padding: 9px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .4); }
+.fpal .sw { width: 16px; height: 16px; border-radius: 50%; }
+.fpal .sw.on { box-shadow: 0 0 0 2px var(--m-side), 0 0 0 3px var(--m-fg); }
+.fpal .sw-text { flex-basis: 100%; padding-top: 6px; border-top: 1px solid var(--m-line); color: var(--m-dim); font-size: 12px; }
+.fopt-add { padding: 2px 6px; color: var(--m-faint); font-size: 12px; }
+.fi-note { margin: 0; color: var(--m-faint); font-size: 11.5px; line-height: 1.5; }
+.fi-note u { color: var(--m-dim); text-underline-offset: 2px; }
+/* The list a type is picked from, under the type's box, each type with what it is for. */
+.ftype.open > .in { border-color: var(--m-accent); }
+.ftypes { position: absolute; top: calc(100% + 4px); right: 0; z-index: 3; display: flex; flex-direction: column; gap: 1px; width: 300px; padding: 4px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .4); }
+.ftypes .ft { display: flex; align-items: baseline; gap: 8px; padding: 1px 8px; border-radius: 4px; line-height: 1.55; }
+.ftypes .ft b { width: 84px; font-weight: 500; font-size: 12.5px; color: var(--m-fg); }
+.ftypes .ft small { color: var(--m-faint); font-size: 11px; }
+.ftypes .ft .tick { margin-left: auto; color: var(--m-dim); font-size: 12px; }
+.ftypes .ft.on { background: var(--m-sel); }
+.ftypes .ft.taken b, .ftypes .ft.taken small { color: var(--m-faint); }
+.ftypes .ft.apart { margin-top: 3px; padding-top: 4px; border-top: 1px solid var(--m-line); border-radius: 0 0 4px 4px; }
+.fadd { position: relative; align-self: flex-start; padding: 3px 6px; border-radius: 5px; color: var(--m-faint); font-size: 12px; }
+.fadd.open { background: var(--m-sel); color: var(--m-fg); }
+.fmenu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 3; display: flex; flex-direction: column; gap: 1px; width: 270px; padding: 4px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .4); }
+.fmenu .r { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border-radius: 5px; }
+.fmenu .r b { font-weight: 500; font-size: 12.5px; color: var(--m-fg); }
+.fmenu .r small { font-size: 11px; color: var(--m-faint); }
+.fmenu .r.on { background: var(--m-sel); }
+.fmenu .r.off b { color: var(--m-faint); }
+.fsec-add { padding: 2px 4px; color: var(--m-faint); font-size: 12px; }
+.fcol-add { align-self: stretch; display: grid; place-items: center; width: 84px; min-height: 120px; border: 1px dashed var(--m-line); border-radius: 8px; color: var(--m-faint); font-size: 12px; text-align: center; }
+.ftext { flex: 1; min-height: 0; margin: 14px 18px; padding: 10px 0; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-code); font: 12.5px/1.75 var(--m-mono); color: var(--m-fg); overflow: hidden; }
+.ftext div { display: grid; grid-template-columns: 40px 1fr; white-space: pre; }
+.ftext i { padding-right: 12px; font-style: normal; color: var(--m-faint); text-align: right; }
+.ftext .k { color: var(--m-dim); }
+.fdlg .rm-foot { border-top: 1px solid var(--m-line); }
 .nmod { display: flex; flex-direction: column; width: 440px; max-height: 92%; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-bg); box-shadow: 0 12px 32px rgb(0 0 0 / .4); font-size: 13px; }
 .nmod .cp-head { padding: 12px 18px; }
 .nmod .cp-head svg { width: 13px; height: 13px; color: var(--m-faint); }
@@ -1040,7 +1093,12 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-colrec" data-aview="colrec">Record</button>
         <button type="button" id="a-colpick" data-aview="colpick">Record select</button>
         <button type="button" id="a-coleq" data-aview="coleq">Record (Equipment)</button>
-        <button type="button" id="a-collay" data-aview="collay">Layout tab</button>
+        <button type="button" id="a-colfields" data-aview="colfields">Fields</button>
+        <button type="button" id="a-colfadd" data-aview="colfadd">Fields add</button>
+        <button type="button" id="a-colfnew" data-aview="colfnew">Fields new field</button>
+        <button type="button" id="a-colffield" data-aview="colffield">Fields field</button>
+        <button type="button" id="a-colfblock" data-aview="colfblock">Fields block</button>
+        <button type="button" id="a-colftext" data-aview="colftext">Fields text</button>
         <button type="button" id="a-coladd" data-aview="coladd">New record</button>
         <button type="button" id="a-colphone" data-aview="colphone">Collection phone</button>
       </span>
@@ -1200,11 +1258,12 @@ p { margin: 0; max-width: 68ch; }
       '</div>' +
     '</section>';
 
+  // The page opens dark, whatever the system says; Dark and Light switch the whole page with the mocks.
   var root = document.documentElement;
-  var startMode = root.dataset.theme ||
-    (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  var startMode = root.dataset.theme || 'dark';
 
   function setMode(mode) {
+    root.dataset.theme = mode;
     document.querySelectorAll('.mock').forEach(function (m) { m.dataset.mode = mode; });
     document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
@@ -1822,31 +1881,100 @@ p { margin: 0; max-width: 68ch; }
         return '<div class="erow' + (i === 0 ? ' on' : '') + '"><span class="tt">' + e.name + '</span><span class="mono">' + e.serial + '</span><span>' + (e.who ? who(e.who) : '') + '</span><span class="dt">' + e.bought + '</span><span class="num">' + e.price + '</span><span>' + lbl(e.st) + '</span></div>';
       }).join('') + '<div class="lmore">Show 1 more</div></div></div>';
   }
-  /** Fields window, Layout tab: the Companies layout being edited; "founded" is being dragged from the
-   *  palette into the first section, the drop line shows where it lands. */
-  function layoutWindow() {
+  /** Fields: one window for a collection's fields and its record screen, which fills it: the
+   *  columns and sections as the record opens, every field and block where it sits. A field or a
+   *  block is changed where it is: a click opens it in place, its name, its type, whether it is
+   *  required, its choices and their colors (a link's collection, a block's collection and how it
+   *  shows), and closes it again; there is no other place for it. Dragged to move; + Add in a
+   *  section puts a new one there, open to be named. Text shows the same thing as the file,
+   *  _collection.json. Everything changes one draft; Save at the foot writes it.
+   *  States: the screen; + Add open; a field just added in column 2, its type being chosen; a field opened with
+   *  a color being picked; a block opened; the Text view. */
+  function fieldsWindow(state) {
     var grip = '<span class="grip"><svg viewBox="0 0 9 12"><circle cx="2" cy="2" r="1.3"/><circle cx="7" cy="2" r="1.3"/><circle cx="2" cy="6" r="1.3"/><circle cx="7" cy="6" r="1.3"/><circle cx="2" cy="10" r="1.3"/><circle cx="7" cy="10" r="1.3"/></svg></span>';
-    function item(label, meta, cls) { return '<div class="litem' + (cls ? ' ' + cls : '') + '">' + grip + label + (meta ? '<small>' + meta + '</small>' : '') + '</div>'; }
-    function block(label, meta) { return '<div class="litem blk">' + grip + '<b>' + label + '</b>' + (meta ? '<small>' + meta + '</small>' : '') + '</div>'; }
-    function section(title, items) { return '<div class="lsx"><div class="lsx-h">' + (title ? title : '<i>Untitled section</i>') + '<span class="x">×</span></div>' + items.join('') + '</div>'; }
-    return '<div class="ovl"><div class="mdlg ldlg"><h3>Fields · Companies</h3>' +
-      '<div class="ltabs"><span class="vsw"><span>Fields</span><span class="on">Layout</span><span>Text</span></span><span class="hintl">Drag a field or a block into a column; sections are optional</span></div>' +
-      '<div class="lay"><div class="lpal">' +
-        '<div class="lh">Unplaced fields</div>' + item('founded', 'date') + item('notes_internal', 'text') +
-        '<div class="lh">Blocks</div>' + block('Linked records') + block('Cards & tasks') +
-        '<div class="lh">Always there</div>' + item('name', 'title', 'fixed') + item('More fields', 'at the end', 'fixed') +
-      '</div><div class="lcols">' +
-        '<div class="lcol"><div class="lcol-h">Column 1<span class="ratio"><span class="on">1</span><span>2</span><span>3</span></span><span class="x">×</span></div>' +
-          section('', [item('code', 'text'), item('website', 'url'), '<div class="ldrop"></div>', item('segment', 'select'), item('type', 'multi-select'), item('owner', 'person'), item('status', 'select'), item('tags', 'multi-select')]) +
-          section('Notes', [block('Body')]) +
-          '<div class="addq">+ Add section</div></div>' +
-        '<div class="lcol w2"><div class="lcol-h">Column 2<span class="ratio"><span>1</span><span class="on">2</span><span>3</span></span><span class="x">×</span></div>' +
-          section('', [block('Linked: Activities', 'timeline · by date'), block('Linked: People', 'list · by name'), block('Cards & tasks')]) +
-          '<div class="addq">+ Add section</div></div>' +
-        '<div class="addcol">+ Add column</div>' +
-      '</div></div>' +
-      '<div class="lghost" style="left: 440px; top: 204px">' + grip + 'founded<small style="margin-left: 8px; color: var(--m-faint)">date</small></div>' +
-      '<div class="foot"><span class="hint">Saved in Companies/_collection.json · an agent can edit it too</span><button type="button" class="ghost">Cancel</button><button type="button" class="add">Save layout</button></div>' +
+    var CC = { gray: '#8b93a1', red: '#f0706a', orange: '#f0a54a', yellow: '#e0c04a', green: '#5cb87a', teal: '#4ac0b0', blue: '#6aa5f0', purple: '#b48ef0', pink: '#f07ab4' };
+    var trash = '<span class="fdel" title="Delete">' + ICON.trash + '</span>';
+    function fld(label, type, o) {
+      o = o || {};
+      return '<div class="fitem' + (o.fixed ? ' fixed' : '') + '">' + grip +
+        '<span class="fl">' + label + (o.req ? '<i>*</i>' : '') + '</span><small>' + type + '</small></div>';
+    }
+    function blk(label, meta) {
+      return '<div class="fitem blk">' + grip + '<span class="bl"><b>' + label + '</b><small>' + meta + '</small></span></div>';
+    }
+    function box(text, o) { o = o || {}; return '<span class="in' + (o.on ? ' on' : '') + (o.dd ? ' sel' : '') + '">' + text + (o.on ? '<span class="caret"></span>' : '') + (o.dd ? '<span class="dd">▾</span>' : '') + '</span>'; }
+    function opt(name, color, picking) {
+      return '<div class="fopt">' + grip + '<span class="dot' + (picking ? ' picking' : '') + '" style="background: ' + CC[color] + '"></span><span class="on-name">' + name + '</span><span class="x">×</span>' +
+        (picking ? '<div class="fpal">' + Object.keys(CC).map(function (c) { return '<span class="sw' + (c === color ? ' on' : '') + '" title="' + c + '" style="background: ' + CC[c] + '"></span>'; }).join('') + '<span class="sw-text">By its text</span></div>' : '') + '</div>';
+    }
+    // A field opened where it is: its name and type on top, required and its key under them, then what its type needs.
+    function open(name, type, key, more, o) {
+      o = o || {};
+      return '<div class="fitem edit' + (o.fresh ? ' fresh' : '') + '">' + grip + '<div class="fe">' +
+        '<div class="fe-top">' + box(name, { on: o.typing }) + '<span class="ftype' + (o.types ? ' open' : '') + '">' + box(type, { dd: true }) + (o.types || '') + '</span>' + trash + '</div>' +
+        '<div class="fe-row"><label class="fcheck"><span class="cb"></span>Required</label><span class="fkey">' + key + '</span></div>' +
+        (more || '') + '</div></div>';
+    }
+    function add(menu) {
+      return '<div class="fadd' + (menu ? ' open' : '') + '">+ Add' + (menu
+        ? '<div class="fmenu"><div class="r on"><b>Field</b><small>A box of the record: text, a choice, a date, a link…</small></div>' +
+          '<div class="r"><b>Linked records</b><small>The records of another collection that link here</small></div>' +
+          '<div class="r off"><b>Notes</b><small>Already on the screen</small></div></div>'
+        : '') + '</div>';
+    }
+    function col(n, ratio, flex, body) {
+      return '<div class="fcol" style="flex: ' + flex + '"><div class="fcol-h">Column ' + n +
+        '<span class="ratio"><span' + (ratio === 1 ? ' class="on"' : '') + '>1</span><span' + (ratio === 2 ? ' class="on"' : '') + '>2</span><span' + (ratio === 3 ? ' class="on"' : '') + '>3</span></span><span class="x" title="Remove column">×</span></div>' +
+        body + '<div class="fsec-add">+ Add section</div></div>';
+    }
+    // The types, a list under the type's box, each with what it is for; it opens over the empty room beside, not over the fields.
+    var TYPES = [['Name', 'What the record is called; shows wherever it is linked', false, 'Already in this collection'], ['Code', 'A short code you type, CUS-0012; shows beside the name', false, 'Already in this collection'], ['Text', 'A line of text'], ['Number', 'Sums under the table'], ['Date', 'A day', true], ['Select', 'One of a few choices'], ['Multi-select', 'Several choices, tags'], ['Checkbox', 'Yes or no'], ['URL', 'A web address, opens in the browser'], ['Email', 'Opens a new mail'], ['Phone', 'Calls the number'], ['Person', 'Who it is with'], ['Link', 'A record of another collection'], ['Formula', 'Worked out from other fields']];
+    var typeList = '<div class="ftypes">' + TYPES.map(function (t, i) {
+      return '<div class="ft' + (t[2] ? ' on' : '') + (t[3] ? ' taken' : '') + (i === 2 ? ' apart' : '') + '"><b>' + t[0] + '</b><small>' + (t[3] || t[1]) + '</small>' + (t[2] ? '<span class="tick">✓</span>' : '') + '</div>';
+    }).join('') + '</div>';
+
+    var status = state === 'field'
+      ? open('Status', 'Select', 'status',
+          '<div class="fopts">' + opt('prospect', 'blue') + opt('active', 'green') + opt('churned', 'red', true) + '<div class="fopt-add">+ Add choice</div></div>' +
+          '<p class="fi-note">Renaming a choice renames it in the records that have it.</p>')
+      : fld('Status', 'select', { value: lbl('active') });
+    var activities = state === 'block'
+      ? '<div class="fitem blk edit">' + grip + '<div class="fe">' +
+          '<div class="fe-top"><b class="fe-name">Linked records</b>' + box('Activities · Scrawl', { dd: true }) + trash + '</div>' +
+          '<div class="fe-row"><span class="vsw"><span class="on">Timeline</span><span>List</span></span>' + box('Date · newest first', { dd: true }) + '</div>' +
+          '<p class="fi-note">The activities whose <u>company</u> is this record, each with its type, who, when and the first lines of its notes.</p>' +
+        '</div></div>'
+      : blk('Activities', 'linked · timeline · newest first');
+    var screen =
+      col(1, 1, 1, '<div class="fsec">' +
+        fld('Name', 'name', { req: true, value: 'Acme Corp' }) +
+        fld('Code', 'code') + fld('Website', 'url', { value: 'acme.example.com' }) + fld('Segment', 'select', { value: lbl('Mid-market') }) +
+        fld('Type', 'multi-select') + fld('Owner', 'person', { value: '<span class="who">K</span>' }) +
+        status + fld('Tags', 'multi-select', { value: lbl('design') + lbl('berlin') }) +
+        blk('Notes', 'the body: free text, meeting notes') +
+        add(state === 'add') + '</div>') +
+      col(2, 2, 2, '<div class="fsec">' + activities + blk('People', 'linked · list · title') +
+        (state === 'new' ? open('Next step', 'Date', 'next_step', '', { fresh: true, typing: true, types: typeList }) : '') +
+        add(false) + '</div>') +
+      '<div class="fcol-add">+ Add column</div>';
+
+    var TEXT = [
+      '{', '  "version": 1,', '  "template": "companies",', '  "singular": "company",', '  "fields": [',
+      '    { "key": "name", "label": "Name", "type": "name" },', '    { "key": "code", "label": "Code", "type": "code" },',
+      '    { "key": "website", "label": "Website", "type": "url" },',
+      '    { "key": "status", "label": "Status", "type": "select",', '      "options": ["prospect", "active", "churned"],',
+      '      "colors": { "prospect": "blue", "active": "green", "churned": "red" } },', '    { "key": "tags", "label": "Tags", "type": "multi-select", "options": [] }', '  ],',
+      '  "layout": { "columns": [', '    { "width": 1, "sections": [{ "items": [{ "field": "code" }, { "field": "website" }, …, { "block": "body" }] }] },',
+      '    { "width": 2, "sections": [{ "items": [', '      { "block": "linked", "collection": "Scrawl/Activities", "sort": "date", "style": "timeline" },',
+      '      { "block": "linked", "collection": "Scrawl/People", "style": "list", "fields": ["title"] }', '    ] }] }', '  ] }', '}'
+    ];
+    var body = state === 'text'
+      ? '<div class="ftext">' + TEXT.map(function (l, i) { return '<div><i>' + (i + 1) + '</i><span>' + l.replace(/"([a-z_]+)":/g, '<span class="k">"$1"</span>:') + '</span></div>'; }).join('') + '</div>'
+      : '<div class="fd-canvas"><div class="fd-say">The record window as it opens. Click a field or a block to change it there; drag it to move it; + Add puts a new one where it is.</div><div class="fcols">' + screen + '</div></div>';
+    return '<div class="ovl center"><div class="fdlg">' +
+      '<div class="cp-head">' + ICON.collection + '<b>Fields</b><span>Companies · Scrawl</span><span class="vsw"><span' + (state !== 'text' ? ' class="on"' : '') + '>Design</span><span' + (state === 'text' ? ' class="on"' : '') + '>Text</span></span><span class="x">×</span></div>' +
+      body +
+      '<div class="rm-foot"><span class="hint">Saved in Companies/_collection.json · an agent can edit it too</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span></div>' +
       '</div></div>';
   }
   function statusMenu() {
@@ -1881,7 +2009,7 @@ p { margin: 0; max-width: 68ch; }
         t('People', ['name', 'company', 'email', 'phone', 'role', 'source', 'status', 'last contact'], 'Contacts at those companies') +
         t('Feedback', ['title', 'source', 'person', 'area', 'status'], 'What users ask for') +
         t('Payments', ['direction', 'counterpart', 'amount', 'due', 'status', 'invoice no', 'paid on'], 'Money in and money out') +
-        t('Blank', ['name'], 'Start from one field') +
+        t('Blank', [], 'No fields; add your own') +
       '</div>' +
       '<div class="foot"><span class="count">Fields can be changed later</span><span class="st-btn" style="margin-left: auto">Back</span><span class="st-btn go" style="margin-left: 6px">Create</span></div></div></div>';
   }
@@ -2446,7 +2574,12 @@ p { margin: 0; max-width: 68ch; }
     colrec: '<span>24 records</span><span>Acme Corp</span>',
     colpick: '<span>24 records</span><span>Acme Corp</span>',
     coleq: '<span>9 records</span><span>MacBook Pro 14 (M3)</span>',
-    collay: '<span>24 records</span><span>Sorted by last contact</span>',
+    colfields: '<span>24 records</span><span>Sorted by last contact</span>',
+    colfadd: '<span>24 records</span><span>Sorted by last contact</span>',
+    colfnew: '<span>24 records</span><span>Sorted by last contact</span>',
+    colffield: '<span>24 records</span><span>Sorted by last contact</span>',
+    colfblock: '<span>24 records</span><span>Sorted by last contact</span>',
+    colftext: '<span>24 records</span><span>Sorted by last contact</span>',
     colnew: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     isboard: '<span>52 open</span><span>109 cards</span>',
     isstatus: '<span>52 open</span><span>ISS-47</span>',
@@ -2458,9 +2591,9 @@ p { margin: 0; max-width: 68ch; }
     var mock = section.querySelector('.mock');
     mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone');
     mock.classList.toggle('four', view === 'settingsphone');
-    mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty' || view === 'col' || view === 'coladd' || view === 'colrec' || view === 'colpick' || view === 'coleq' || view === 'collay');
+    mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty' || view === 'col' || view === 'coladd' || view === 'colrec' || view === 'colpick' || view === 'coleq');
     mock.classList.toggle('wider', view === 'isstatus');
-    mock.classList.toggle('wider', view === 'card');
+    mock.classList.toggle('wider', view === 'card' || view.indexOf('colf') === 0);
     if (view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone') {
       mock.innerHTML = view === 'phone' ? phoneView() : view === 'syncphone' ? syncPhones() : view === 'phphone' ? phasesPhones() : view === 'keysphone' ? keysPhones() : view === 'colphone' ? colPhones() : settingsPhones();
       section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
@@ -2482,13 +2615,13 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), collay: colView(false), colnew: edFull }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + syncStatus(view === 'note', view === 'syncpanel' ? 'syncing' : view === 'syncdone' ? 'open' : null) + '</div></section>' +
       (view === 'syncpanel' ? syncPanel('syncing') : view === 'syncdone' ? syncPanel('done') : '') +
-      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'collay' ? layoutWindow() : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
+      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });

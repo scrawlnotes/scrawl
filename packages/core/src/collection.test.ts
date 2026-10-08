@@ -23,7 +23,7 @@ import {
   linkedRecords,
   linkedValues,
   linkingCollections,
-  newRecordPath,
+  newRecordId,
   moveCollection,
   optionColor,
   readWidths,
@@ -31,7 +31,6 @@ import {
   retargetLinks,
   layoutOf,
   loadCollection,
-  makeCode,
   matchesQuery,
   missingFields,
   newSchema,
@@ -40,6 +39,8 @@ import {
   readValue,
   type Record,
   recordLabel,
+  recordTitle,
+  type Schema,
   serializeRecord,
   serializeSchema,
   sortRecords,
@@ -49,6 +50,7 @@ import {
   updateRecord,
 } from './collection';
 import { MemoryFs } from './fs';
+import { readTrash, trashItem } from './vault';
 
 const ACME = `---
 id: rec-1
@@ -69,21 +71,30 @@ Design agency in Berlin.
 - 2026-10-08 call
 `;
 
+/** A schema with a code field after its name, as a person may add one. */
+const withCode = (schema: Schema): Schema => ({ ...schema, fields: [schema.fields[0]!, { key: 'code', label: 'Code', type: 'code' }, ...schema.fields.slice(1)] });
+
 describe('schema', () => {
-  it('starts from a template with name and code first', () => {
+  it('starts from a template with a name field first and no code; Blank with no fields', () => {
     const schema = newSchema('companies');
-    expect(schema.fields.slice(0, 2).map((f) => f.key)).toEqual(['name', 'code']);
+    expect(schema.version).toBe(2);
+    expect(schema.fields[0]).toEqual({ key: 'name', label: 'Name', type: 'name' });
+    expect(schema.fields.some((f) => f.type === 'code')).toBe(false);
     expect(schema.fields.find((f) => f.key === 'status')?.options).toEqual(['prospect', 'active', 'churned']);
-    expect(newSchema('blank').fields.map((f) => f.key)).toEqual(['name', 'code']);
+    expect(newSchema('payments').fields.some((f) => f.type === 'code')).toBe(false);
+    expect(newSchema('blank').fields).toEqual([]);
   });
 
-  it('reads a schema file, mending what it can', () => {
+  it('reads a schema file, mending what it can, with one name and one code at most', () => {
     const schema = parseSchema(
       JSON.stringify({
+        version: 2,
         template: 'companies',
         fields: [
+          { key: 'name', label: 'Company', type: 'name', required: true },
           { key: 'Website URL', type: 'url' },
-          { key: 'name', label: 'Company' },
+          { key: 'title', label: 'Title', type: 'name' },
+          { key: 'ref', label: 'Ref', type: 'code', required: true },
           { key: 'score', type: 'rating' },
           { key: '', type: 'text' },
         ],
@@ -91,31 +102,63 @@ describe('schema', () => {
         layout: { columns: [{ items: [{ field: 'website_url' }, { block: 'body' }] }, { width: 2, sections: [{ title: 'Links', items: [{ block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' }] }] }] },
       }),
     );
-    expect(schema.fields.map((f) => [f.key, f.type, f.label])).toEqual([
-      ['name', 'text', 'Company'],
-      ['code', 'text', 'Code'],
-      ['website_url', 'url', 'website_url'],
-      ['score', 'text', 'score'],
+    expect(schema.fields).toEqual([
+      { key: 'name', label: 'Company', type: 'name' },
+      { key: 'website_url', label: 'website_url', type: 'url' },
+      { key: 'title', label: 'Title', type: 'text' },
+      { key: 'ref', label: 'Ref', type: 'code', required: true },
+      { key: 'score', label: 'score', type: 'text' },
     ]);
-    expect(schema.code).toEqual({ prefix: 'CUS', next: 13 });
+    // A rule that made codes is gone; codes are typed.
+    expect(schema).not.toHaveProperty('code');
     expect(schema.layout).toEqual({
       columns: [
         { sections: [{ items: [{ field: 'website_url' }, { block: 'body' }] }] },
         { width: 2, sections: [{ title: 'Links', items: [{ block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' }] }] },
       ],
     });
-    expect(parseSchema('not json').fields.map((f) => f.key)).toEqual(['name', 'code']);
     expect(parseSchema(serializeSchema(schema))).toEqual(schema);
+    expect(parseSchema(JSON.stringify({ version: 2, fields: [] })).fields).toEqual([]);
   });
 
-  it('lays out every field but the name, then the body, when the schema has no layout', () => {
+  it('reads a schema file of version 1, when every schema had a name and a code, as one of version 2', () => {
+    const old = parseSchema(
+      JSON.stringify({
+        version: 1,
+        template: 'companies',
+        fields: [
+          { key: 'name', label: 'Name', type: 'text', required: true },
+          { key: 'code', label: 'Code', type: 'text' },
+          { key: 'website', label: 'Website', type: 'url' },
+        ],
+        code: { prefix: 'CUS', next: 4 },
+        layout: { columns: [{ width: 1, sections: [{ items: [{ field: 'code' }, { field: 'website' }, { block: 'body' }] }] }] },
+        views: [{ id: 'v1', name: 'By name', conditions: [{ field: 'name', op: 'contains', value: 'a' }], sort: { key: 'name', dir: 'asc' } }],
+      }),
+    );
+    expect(old.version).toBe(2);
+    expect(old.fields).toEqual([
+      { key: 'name', label: 'Name', type: 'name' },
+      { key: 'code', label: 'Code', type: 'code' },
+      { key: 'website', label: 'Website', type: 'url' },
+    ]);
+    expect(old).not.toHaveProperty('code');
+    // The screen drew the name apart: the layout has it at its start now.
+    expect(old.layout?.columns[0]?.sections[0]?.items).toEqual([{ field: 'name' }, { field: 'code' }, { field: 'website' }, { block: 'body' }]);
+    expect(old.views?.[0]?.conditions).toEqual([{ field: 'name', op: 'contains', value: 'a' }]);
+    // Without a version, or broken, a file is of version 1: it has a name, as every schema had.
+    expect(parseSchema(JSON.stringify({ fields: [{ key: 'email', type: 'email' }] })).fields.map((f) => [f.key, f.type])).toEqual([['name', 'name'], ['email', 'email']]);
+    expect(parseSchema('not json').fields).toEqual([{ key: 'name', label: 'Name', type: 'name' }]);
+  });
+
+  it('lays out every field, then the body, when the schema has no layout', () => {
     const schema = newSchema('feedback');
     expect(schema.layout).toBeUndefined();
     expect(layoutOf(schema).columns).toHaveLength(1);
-    expect(layoutOf(schema).columns[0]!.sections.map((s) => s.items.length)).toEqual([schema.fields.length - 1, 1]);
+    expect(layoutOf(schema).columns[0]!.sections.map((s) => s.items.length)).toEqual([schema.fields.length, 1]);
     expect(unplacedFields(schema)).toEqual([]);
     const laid = { ...schema, layout: { columns: [{ sections: [{ items: [{ field: 'source' }] }] }] } };
-    expect(unplacedFields(laid).map((f) => f.key)).toEqual(['code', 'person', 'area', 'status']);
+    expect(unplacedFields(laid).map((f) => f.key)).toEqual(['name', 'person', 'area', 'status']);
   });
 
   it('brings Companies and People their fields on the left and what links to them on the right', () => {
@@ -123,7 +166,7 @@ describe('schema', () => {
     expect(companies.singular).toBe('company');
     expect(newSchema('blank').singular).toBeUndefined();
     expect(companies.layout?.columns.map((c) => c.width)).toEqual([1, 2]);
-    expect(companies.layout?.columns[0]!.sections[0]!.items).toEqual([...companies.fields.slice(1).map((f) => ({ field: f.key })), { block: 'body' }]);
+    expect(companies.layout?.columns[0]!.sections[0]!.items).toEqual([...companies.fields.map((f) => ({ field: f.key })), { block: 'body' }]);
     expect(companies.layout?.columns[1]!.sections[0]!.items).toEqual([
       { block: 'linked', collection: 'Work/Activities', sort: 'date', style: 'timeline' },
       { block: 'linked', collection: 'Work/People', style: 'list', fields: ['title'] },
@@ -131,7 +174,7 @@ describe('schema', () => {
     expect(unplacedFields(companies)).toEqual([]);
     expect(newSchema('people').layout?.columns[1]!.sections[0]!.items).toEqual([{ block: 'linked', collection: 'Activities', sort: 'date', style: 'timeline' }]);
     expect(parseSchema(serializeSchema(companies))).toEqual(companies);
-    expect(parseSchema(JSON.stringify({ singular: '  deal ', layout: { columns: [{ items: [{ block: 'linked', collection: '/Work/Deals/', fields: ['Stage', 7] }] }] } }))).toMatchObject({
+    expect(parseSchema(JSON.stringify({ version: 2, singular: '  deal ', layout: { columns: [{ items: [{ block: 'linked', collection: '/Work/Deals/', fields: ['Stage', 7] }] }] } }))).toMatchObject({
       singular: 'deal',
       layout: { columns: [{ sections: [{ items: [{ block: 'linked', collection: 'Work/Deals', fields: ['stage'] }] }] }] },
     });
@@ -139,7 +182,7 @@ describe('schema', () => {
 });
 
 describe('record files', () => {
-  const schema = newSchema('companies');
+  const schema = withCode(newSchema('companies'));
 
   it('splits front matter from the body', () => {
     expect(splitFrontMatter('plain note')).toEqual({ front: {}, body: 'plain note', hadFront: false });
@@ -150,7 +193,9 @@ describe('record files', () => {
   it('reads a record, keeping what the schema does not know', () => {
     const record = parseRecord(ACME, schema, 'Companies/Acme Corp.md');
     expect(record).toMatchObject({ id: 'rec-1', name: 'Acme Corp', code: 'CUS-0012' });
-    expect(record.values).toEqual({ website: 'acme.example.com', segment: 'Mid-market', type: ['customer', 'partner'], owner: 'Kaan', status: 'active' });
+    expect(record.values).toEqual({ name: 'Acme Corp', code: 'CUS-0012', website: 'acme.example.com', segment: 'Mid-market', type: ['customer', 'partner'], owner: 'Kaan', status: 'active' });
+    // Without a code field the code is front matter the schema does not know.
+    expect(parseRecord(ACME, newSchema('companies'), 'Companies/Acme Corp.md')).toMatchObject({ code: '', extra: { code: 'CUS-0012', founded: 2019 } });
     expect(record.extra).toEqual({ founded: 2019 });
     expect(record.body).toBe('Design agency in Berlin.\n\n## Log\n- 2026-10-08 call\n');
   });
@@ -162,13 +207,19 @@ describe('record files', () => {
     expect(text).toContain('\nfounded: 2019\n---\nDesign agency');
     expect(parseRecord(text, schema, record.path)).toEqual(record);
     // Empty values are left out of the file.
-    const bare = serializeRecord({ ...record, code: '', values: { website: '', type: [] }, extra: {}, body: '' }, schema);
+    const bare = serializeRecord({ ...record, code: '', values: { name: 'Acme Corp', website: '', type: [] }, extra: {}, body: '' }, schema);
     expect(bare).toBe('---\nid: rec-1\nname: Acme Corp\n---\n');
   });
 
-  it('takes a plain note as a record named after its file', () => {
+  it('takes a plain note as a record named after its file, but not a file named by an id', () => {
     const record = parseRecord('Just a note.\n', schema, 'Companies/Globex.md');
-    expect(record).toMatchObject({ id: '', name: 'Globex', code: '', values: {}, body: 'Just a note.\n' });
+    expect(record).toMatchObject({ id: '', name: 'Globex', code: '', values: { name: 'Globex' }, body: 'Just a note.\n' });
+    const unnamed = parseRecord('---\nid: k7f3m2qa01\n---\n', schema, 'Companies/k7f3m2qa01.md');
+    expect(unnamed).toMatchObject({ name: '', code: '', values: {} });
+    expect(recordTitle(unnamed)).toBe('Untitled');
+    expect(recordTitle({ name: '', code: 'CUS-1' })).toBe('CUS-1');
+    // Without a name field nothing is named after the file.
+    expect(parseRecord('A line.\n', newSchema('blank'), 'Log/Monday.md')).toMatchObject({ name: '', values: {} });
   });
 
   it('reads values by their field type', () => {
@@ -210,37 +261,41 @@ describe('a collection in a vault', () => {
     expect(readOnly).toBeNull();
   });
 
-  it('adds records as files, codes made by the rule', async () => {
+  it('adds records as files named after their ids, and gives none a code', async () => {
     const fs = new MemoryFs();
-    const dir = await createCollection(fs, '', 'Payments', 'blank');
-    let collection = await loadCollection(fs, dir);
-    collection = { ...collection, schema: { ...collection.schema, code: { prefix: 'PAY', next: 12 } } };
-    const first = await addRecord(fs, collection, { name: 'Hosting / October', values: { amount: 120 } }, 'a');
-    expect(first.record).toMatchObject({ id: 'a', path: 'Payments/Hosting October.md', code: 'PAY-0012', name: 'Hosting / October' });
-    expect(first.schema.code).toEqual({ prefix: 'PAY', next: 13 });
-    collection = { ...collection, schema: first.schema };
-    const second = await addRecord(fs, collection, { name: 'Hosting / October', code: 'X-1' }, 'b');
-    expect(second.record.path).toBe('Payments/Hosting October 2.md');
-    expect(second.record.code).toBe('X-1');
-    expect(second.schema.code?.next).toBe(13);
-    expect((await loadCollection(fs, dir)).schema.code?.next).toBe(13);
-    await expect(addRecord(fs, collection, { name: '  ' })).rejects.toThrow();
-    expect(makeCode({ prefix: 'CUS', next: 7 })).toBe('CUS-0007');
+    const dir = await createCollection(fs, '', 'Payments', 'payments');
+    const collection = await loadCollection(fs, dir);
+    const first = await addRecord(fs, collection, { values: { name: 'Hosting / October', amount: 120, currency: '' } }, 'a1b2c3d4e5');
+    expect(first).toMatchObject({ id: 'a1b2c3d4e5', path: 'Payments/a1b2c3d4e5.md', name: 'Hosting / October', code: '', values: { name: 'Hosting / October', amount: 120 } });
+    expect(await fs.readText(first.path)).toBe('---\nid: a1b2c3d4e5\nname: Hosting / October\namount: 120\n---\n');
+    // An id whose file is there already: the record gets another.
+    const second = await addRecord(fs, collection, { values: { name: 'Hosting / October' } }, 'a1b2c3d4e5');
+    expect(second.id).not.toBe('a1b2c3d4e5');
+    expect(second.path).toBe(`Payments/${second.id}.md`);
+    expect(newRecordId()).toMatch(/^[0-9a-z]{10}$/);
+    expect((await loadCollection(fs, dir)).records.map((r) => [r.name, r.code])).toEqual([
+      ['Hosting / October', ''],
+      ['Hosting / October', ''],
+    ]);
   });
 
-  it('changes a record, renaming its file with its name', async () => {
+  it('shows a record in the trash by its name, not by the id its file is named after', async () => {
+    const fs = new MemoryFs();
+    const dir = await createCollection(fs, '', 'Companies', 'companies');
+    const record = await addRecord(fs, await loadCollection(fs, dir), { values: { name: 'Globex' } }, 'globex0001');
+    await trashItem(fs, record.path, new Date(2026, 9, 8, 22, 0, 0));
+    expect((await readTrash(fs))[0]).toMatchObject({ kind: 'note', title: 'Globex', from: 'Companies/globex0001.md' });
+  });
+
+  it('changes a record where its file is, whatever its name becomes', async () => {
     const fs = new MemoryFs();
     const dir = await createCollection(fs, '', 'Companies', 'companies');
     const collection = await loadCollection(fs, dir);
-    const { record } = await addRecord(fs, collection, { name: 'Acme', values: { status: 'prospect', website: 'acme.example.com' } }, 'a');
-    const changed = await updateRecord(fs, collection.schema, record, { name: 'Acme Corp', values: { website: '', status: 'active' }, body: 'Met at the summit.' });
-    expect(changed).toMatchObject({ path: 'Companies/Acme Corp.md', name: 'Acme Corp', values: { status: 'active' }, body: 'Met at the summit.\n' });
-    expect((await fs.list(dir)).map((e) => e.name).sort()).toEqual(['Acme Corp.md', '_collection.json']);
+    const record = await addRecord(fs, collection, { values: { name: 'Acme', status: 'prospect', website: 'acme.example.com' } }, 'acme000001');
+    const changed = await updateRecord(fs, collection.schema, record, { values: { name: 'Acme Corp', website: '', status: 'active' }, body: 'Met at the summit.' });
+    expect(changed).toMatchObject({ path: 'Companies/acme000001.md', name: 'Acme Corp', values: { name: 'Acme Corp', status: 'active' }, body: 'Met at the summit.\n' });
+    expect((await fs.list(dir)).map((e) => e.name).sort()).toEqual(['_collection.json', 'acme000001.md']);
     expect(parseRecord(await fs.readText(changed.path), collection.schema, changed.path)).toEqual(changed);
-    // Only the case of the name changed: the file keeps its place.
-    const cased = await updateRecord(fs, collection.schema, changed, { name: 'ACME Corp' });
-    expect(cased.path).toBe('Companies/ACME Corp.md');
-    expect((await fs.list(dir)).map((e) => e.name).sort()).toEqual(['ACME Corp.md', '_collection.json']);
   });
 });
 
@@ -248,11 +303,11 @@ describe('renaming and moving a collection', () => {
   it('renames the folder with every file in it, numbered when the name is taken', async () => {
     const fs = new MemoryFs();
     const dir = await createCollection(fs, 'Scrawl', '', 'companies');
-    await addRecord(fs, await loadCollection(fs, dir), { name: 'Acme' }, 'a');
+    await addRecord(fs, await loadCollection(fs, dir), { values: { name: 'Acme' } }, 'acme000001');
     await fs.mkdir('Scrawl/Taken');
     expect(await renameCollection(fs, dir, 'Taken')).toBe('Scrawl/Taken 2');
     expect((await fs.list('Scrawl')).map((e) => e.name).sort()).toEqual(['Taken', 'Taken 2']);
-    expect((await fs.list('Scrawl/Taken 2')).map((e) => e.name).sort()).toEqual(['Acme.md', '_collection.json']);
+    expect((await fs.list('Scrawl/Taken 2')).map((e) => e.name).sort()).toEqual(['_collection.json', 'acme000001.md']);
     // Only the case of the name changed: it goes through a hidden name and keeps its files.
     expect(await renameCollection(fs, 'Scrawl/Taken 2', 'TAKEN 2')).toBe('Scrawl/TAKEN 2');
     expect((await fs.list('Scrawl')).map((e) => e.name).sort()).toEqual(['TAKEN 2', 'Taken']);
@@ -278,13 +333,15 @@ describe('renaming and moving a collection', () => {
 });
 
 describe('looking at records', () => {
-  const schema = newSchema('companies');
-  const make = (name: string, values: Record['values'], code = ''): Record => ({ id: name, path: `C/${name}.md`, name, code, values, extra: {}, body: '' });
+  const schema = withCode(newSchema('companies'));
+  const make = (name: string, values: Record['values'], code = ''): Record => ({ id: name, path: `C/${name}.md`, name, code, values: { name, ...(code && { code }), ...values }, extra: {}, body: '' });
   const records = [make('Globex', { status: 'active', website: 'globex.example.com' }), make('Acme', { status: 'prospect' }, 'CUS-1'), make('Initech', {})];
 
   it('labels a record by its name and code', () => {
     expect(recordLabel(records[1]!)).toBe('Acme · CUS-1');
     expect(recordLabel(records[0]!)).toBe('Globex');
+    expect(recordLabel({ name: '', code: 'CUS-1' })).toBe('CUS-1');
+    expect(recordLabel({ name: '', code: '' })).toBe('Untitled');
   });
 
   it('finds records by name, code or a text field', () => {
@@ -303,20 +360,20 @@ describe('looking at records', () => {
 
   it('tells which required fields are empty', () => {
     const strict = { ...schema, fields: schema.fields.map((f) => (f.key === 'status' ? { ...f, required: true } : f)) };
-    expect(missingFields({ name: ' ', values: {} }, strict)).toEqual(['name', 'status']);
-    expect(missingFields({ name: 'Acme', values: { status: 'active' } }, strict)).toEqual([]);
+    expect(missingFields({ name: ' ' }, strict)).toEqual(['name', 'status']);
+    expect(missingFields({ name: 'Acme', status: 'active' }, strict)).toEqual([]);
+    expect(missingFields({}, newSchema('blank'))).toEqual([]);
   });
 });
 
 describe('links and the other templates', () => {
-  it('starts every template with name and code, links pointing beside the collection', () => {
+  it('starts every template but Blank with a name, links pointing beside the collection', () => {
     const people = newSchema('people', 'Work');
     expect(people.fields.find((f) => f.key === 'company')).toEqual({ key: 'company', label: 'Company', type: 'link', collection: 'Work/Companies' });
-    expect(newSchema('payments').code).toEqual({ prefix: 'PAY', next: 1 });
-    expect(newSchema('activities').fields.map((f) => f.key)).toEqual(['name', 'code', 'type', 'date', 'company', 'person', 'by']);
+    expect(newSchema('activities').fields.map((f) => f.key)).toEqual(['name', 'type', 'date', 'company', 'person', 'by']);
     const schema = parseSchema(serializeSchema(people));
     expect(schema).toEqual(people);
-    expect(parseSchema(JSON.stringify({ template: 'feedback', fields: [{ key: 'person', type: 'link', collection: '/Work/People/', many: true }] })).fields[2]).toEqual({
+    expect(parseSchema(JSON.stringify({ version: 2, template: 'feedback', fields: [{ key: 'person', type: 'link', collection: '/Work/People/', many: true }] })).fields[0]).toEqual({
       key: 'person',
       label: 'person',
       type: 'link',
@@ -385,10 +442,6 @@ describe('links and the other templates', () => {
     // An activity added to Lena is hers, and her company's.
     expect(linkedValues(activities, 'Work/People', lena, people)).toEqual({ person: { id: 'Lena', name: 'Lena' }, company: { id: 'acme', name: 'Acme Corp' } });
     expect(linkedValues(activities, 'Work/Companies', make('Acme Corp', {}), newSchema('companies', 'Work'))).toEqual({ company: { id: 'Acme Corp', name: 'Acme Corp' } });
-    const collection: Collection = { dir: 'Work/People', schema: people, records: [make('Lena', {}, 'Work/People/Lena.md')] };
-    expect(newRecordPath(collection, 'Jonas / Weber')).toBe('Work/People/Jonas Weber.md');
-    expect(newRecordPath(collection, 'lena')).toBe('Work/People/lena 2.md');
-    expect(newRecordPath(collection, '  ')).toBeNull();
   });
 
   it('freshens the names of links from the records they point at', () => {
@@ -406,7 +459,7 @@ describe('formulas, conditions, groups and sums', () => {
   const schema = {
     ...newSchema('blank'),
     fields: [
-      ...newSchema('blank').fields,
+      { key: 'name', label: 'Name', type: 'name' as const },
       { key: 'qty', label: 'Qty', type: 'number' as const },
       { key: 'unit_price', label: 'Unit price', type: 'number' as const },
       { key: 'total', label: 'Total', type: 'formula' as const, formula: 'qty * unit_price' },
@@ -417,7 +470,7 @@ describe('formulas, conditions, groups and sums', () => {
       { key: 'paid', label: 'Paid', type: 'checkbox' as const },
     ],
   };
-  const make = (name: string, values: Record['values']): Record => ({ id: name, path: `C/${name}.md`, name, code: '', values, extra: {}, body: '' });
+  const make = (name: string, values: Record['values']): Record => ({ id: name, path: `C/${name}.md`, name, code: '', values: { name, ...values }, extra: {}, body: '' });
   const today = '2026-10-08';
   const records = [
     make('Acme', { qty: 3, unit_price: 10.5, last_contact: '2026-10-01', status: 'active', tags: ['design', 'berlin'], paid: true }),
@@ -507,8 +560,8 @@ describe('formulas, conditions, groups and sums', () => {
     expect(optionColor(status, 'churned')).toBe('red');
     expect(optionColor(companies.fields.find((f) => f.key === 'tags'), 'design')).toBeUndefined();
     expect(parseSchema(serializeSchema(companies))).toEqual(companies);
-    const read = parseSchema(JSON.stringify({ fields: [{ key: 'stage', type: 'select', options: ['a', 'b'], colors: { a: 'green', b: 'magenta' } }, { key: 'note', type: 'text', colors: { a: 'red' } }] }));
-    expect(read.fields[2]).toEqual({ key: 'stage', label: 'stage', type: 'select', options: ['a', 'b'], colors: { a: 'green' } });
-    expect(read.fields[3]).toEqual({ key: 'note', label: 'note', type: 'text' });
+    const read = parseSchema(JSON.stringify({ version: 2, fields: [{ key: 'stage', type: 'select', options: ['a', 'b'], colors: { a: 'green', b: 'magenta' } }, { key: 'note', type: 'text', colors: { a: 'red' } }] }));
+    expect(read.fields[0]).toEqual({ key: 'stage', label: 'stage', type: 'select', options: ['a', 'b'], colors: { a: 'green' } });
+    expect(read.fields[1]).toEqual({ key: 'note', label: 'note', type: 'text' });
   });
 });

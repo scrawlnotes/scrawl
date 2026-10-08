@@ -1,6 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import { BOARD_EXT, loadBoard, newBoard, serializeBoard, type Template } from './board';
-import { type ColumnWidths, collectionName, isCollection, RECORD_EXT, readWidths, type RecordSort } from './collection';
+import { type ColumnWidths, collectionName, isCollection, loadSchema, namedById, parseRecord, parseSchema, RECORD_EXT, readWidths, recordTitle, type RecordSort } from './collection';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
@@ -349,7 +349,11 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
     else if (isList) items.push({ ...item, kind: 'tasks', title: listName(name), tasks: (await loadTasks(fs, entry.path)).length });
     else if (isBoardFile) items.push({ ...item, kind: 'board', title: boardName(name), cards: (await loadBoard(fs, entry.path)).cards.length });
     else if (isKeysFile) items.push({ ...item, kind: 'keys', title: keysName(name), keys: keyCount(parseKeys(await fs.readText(entry.path))) });
-    else {
+    else if (namedById(name)) {
+      // A record's file is named after its id; it shows by what the record is called, read with its collection's schema while that is there.
+      const schema = await loadSchema(fs, dirname(from)).catch(() => parseSchema(''));
+      items.push({ ...item, kind: 'note', title: recordTitle(parseRecord(await fs.readText(entry.path), schema, from)) });
+    } else {
       // Only a note that was never named shows its first line, so only then is it read.
       const text = SCRATCH_NAME.test(name) ? await fs.readText(entry.path) : '';
       items.push({ ...item, kind: 'note', title: displayTitle(name, text) });

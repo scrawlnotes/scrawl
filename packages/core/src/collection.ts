@@ -4,18 +4,23 @@ import { basename, type Entry, join, type VaultFs } from './fs';
 import { freePath, moveTree } from './paths';
 
 // A collection is a folder with a schema file in it, `_collection.json`, and one Markdown file
-// per record: the record's fields in YAML front matter, free text under it. A record is a note,
-// so everything made for notes (the editor, history, the trash, line merging in sync) works on
-// it, and an agent reads and writes it without learning a new format. The schema also holds the
-// layout of the record screen: columns of sections of elements, which a template brings and the
-// Fields window changes. See the Collection views of design/mockups.html and PLAN.md 4.6.
+// per record, named after the record's id: the record's fields in YAML front matter, free text
+// under it. A record is a note, so everything made for notes (the editor, history, the trash,
+// line merging in sync) works on it. A record's name and code are fields of their own types,
+// one of each at most; what shows of a record elsewhere, in a link, comes from them. The schema
+// also holds the layout of the record screen: columns of sections of elements, which a template
+// brings and the Fields window changes. See the Collection views of design/mockups.html and
+// PLAN.md 4.6.
 
 export const COLLECTION_FILE = '_collection.json';
 export const RECORD_EXT = '.md';
 
-export type FieldType = 'text' | 'number' | 'date' | 'select' | 'multi-select' | 'checkbox' | 'url' | 'email' | 'phone' | 'person' | 'link' | 'formula';
+export type FieldType = 'name' | 'code' | 'text' | 'number' | 'date' | 'select' | 'multi-select' | 'checkbox' | 'url' | 'email' | 'phone' | 'person' | 'link' | 'formula';
 
-export const FIELD_TYPES: readonly FieldType[] = ['text', 'number', 'date', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person', 'link', 'formula'];
+export const FIELD_TYPES: readonly FieldType[] = ['name', 'code', 'text', 'number', 'date', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person', 'link', 'formula'];
+
+/** The types a schema has one field of at most: the record's name, and its code. */
+export const SINGLE_TYPES: readonly FieldType[] = ['name', 'code'];
 
 /** The colors a choice can be shown in, by name, so that a person or an agent writes them as words. */
 export const OPTION_COLORS = ['gray', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink'] as const;
@@ -56,9 +61,8 @@ export const isLink = (value: unknown): value is Link => isRecord(value) && type
 /** A record as a link to it. */
 export const linkTo = (record: Pick<Record, 'id' | 'name' | 'code'>): Link => ({ id: record.id, name: record.name, ...(record.code && { code: record.code }) });
 
-/** Every schema has these two: the record's name, which is its title and its file name, and a code to find it by. */
+/** The key the templates give their name field. */
 export const NAME_KEY = 'name';
-export const CODE_KEY = 'code';
 
 /**
  * An element of the record screen: a field, the body, the records of another collection that
@@ -88,18 +92,11 @@ export interface Layout {
   columns: LayoutColumn[];
 }
 
-/** How a code is made for a record that has none: `PAY-0012`. */
-export interface CodeRule {
-  prefix: string;
-  /** The number the next code gets. */
-  next: number;
-}
-
 export type CollectionTemplate = 'companies' | 'people' | 'activities' | 'feedback' | 'payments' | 'blank';
 
 export const COLLECTION_TEMPLATES: readonly CollectionTemplate[] = ['companies', 'people', 'activities', 'feedback', 'payments', 'blank'];
 
-/** How records are sorted in the table: by a field key, `name` or `code`, up or down. */
+/** How records are sorted in the table: by a field key, up or down. */
 export interface RecordSort {
   key: string;
   dir: 'asc' | 'desc';
@@ -148,16 +145,15 @@ export function readWidths(raw: unknown, keys?: ReadonlySet<string>): ColumnWidt
 }
 
 export interface Schema {
-  version: 1;
+  /** 2 since a record's name and code are fields of their own types; a file of version 1 is read as one of 2. */
+  version: 2;
   template: CollectionTemplate;
   /** What one record is called, `company` for Companies: "New company", "Add company". Unset says "record". */
   singular?: string;
   /** The saved views, in the order they were made. */
   views?: View[];
-  /** The fields, name and code first; the order is the order of the table's columns. */
+  /** The fields; their order is the order of the table's columns. */
   fields: Field[];
-  /** Set when codes are made by the collection rather than typed. */
-  code?: CodeRule;
   /** The record screen; unset means one column of every field, then the body. */
   layout?: Layout;
 }
@@ -166,11 +162,13 @@ export interface Schema {
 export type FieldValue = string | number | boolean | string[] | Link | Link[] | null;
 
 export interface Record {
-  /** Stable, from the front matter; links from elsewhere use it. */
+  /** Stable, from the front matter; links from elsewhere use it, and a new record's file is named after it. */
   id: string;
   /** The record's file. */
   path: string;
+  /** The value of the schema's name field, empty without one; kept beside the values for what shows the record elsewhere. */
   name: string;
+  /** The value of the schema's code field, empty without one. */
   code: string;
   /** By field key; a field the file does not have is absent. */
   values: { [key: string]: FieldValue };
@@ -191,10 +189,14 @@ export const isCollection = (entries: Entry[]) => entries.some((e) => e.kind ===
 /** The schema file of a collection. */
 export const schemaPath = (dir: string) => join(dir, COLLECTION_FILE);
 
-const FIXED: Field[] = [
-  { key: NAME_KEY, label: 'Name', type: 'text', required: true },
-  { key: CODE_KEY, label: 'Code', type: 'text' },
-];
+/** The schema's name field, when it has one. */
+export const nameField = (schema: Pick<Schema, 'fields'>): Field | undefined => schema.fields.find((f) => f.type === 'name');
+
+/** The schema's code field, when it has one. */
+export const codeField = (schema: Pick<Schema, 'fields'>): Field | undefined => schema.fields.find((f) => f.type === 'code');
+
+/** Whether another collection can link to this one's records: they show by their name or their code, so it needs one of them. */
+export const isLinkable = (schema: Pick<Schema, 'fields'>) => !!nameField(schema) || !!codeField(schema);
 
 /** A key typed for a field, as a front matter key can be: lower case, words joined by underscores. */
 export function cleanFieldKey(key: string): string {
@@ -211,8 +213,11 @@ export function cleanFieldKey(key: string): string {
 // name beside it, made from its own template, whether it is there yet or not.
 // Their choices come colored by what they mean: what goes well is green, what is lost red, what
 // waits gray or blue.
+const NAME: Field = { key: NAME_KEY, label: 'Name', type: 'name' };
+
 const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
   companies: [
+    NAME,
     { key: 'website', label: 'Website', type: 'url' },
     { key: 'segment', label: 'Segment', type: 'select', options: ['SMB', 'Mid-market', 'Enterprise'], colors: { SMB: 'teal', 'Mid-market': 'blue', Enterprise: 'purple' } },
     {
@@ -227,6 +232,7 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
     { key: 'tags', label: 'Tags', type: 'multi-select', options: [] },
   ],
   people: [
+    NAME,
     { key: 'company', label: 'Company', type: 'link', collection: 'Companies' },
     { key: 'email', label: 'Email', type: 'email' },
     { key: 'phone', label: 'Phone', type: 'phone' },
@@ -242,6 +248,7 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
     { key: 'tags', label: 'Tags', type: 'multi-select', options: [] },
   ],
   activities: [
+    NAME,
     {
       key: 'type',
       label: 'Type',
@@ -256,6 +263,7 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
     { key: 'by', label: 'By', type: 'person' },
   ],
   feedback: [
+    NAME,
     {
       key: 'source',
       label: 'Source',
@@ -268,6 +276,7 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
     { key: 'status', label: 'Status', type: 'select', options: ['new', 'planned', 'done', 'declined'], colors: { new: 'blue', planned: 'yellow', done: 'green', declined: 'gray' } },
   ],
   payments: [
+    NAME,
     { key: 'direction', label: 'Direction', type: 'select', options: ['incoming', 'outgoing'], colors: { incoming: 'green', outgoing: 'red' }, required: true },
     { key: 'company', label: 'Company', type: 'link', collection: 'Companies' },
     { key: 'person', label: 'Person', type: 'link', collection: 'People' },
@@ -280,9 +289,6 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
   ],
   blank: [],
 };
-
-/** The templates whose codes the collection makes itself. */
-const TEMPLATE_CODES: Partial<{ [template in CollectionTemplate]: string }> = { payments: 'PAY' };
 
 /** What one record of each template is called; Blank's are records. */
 const TEMPLATE_SINGULAR: Partial<{ [template in CollectionTemplate]: string }> = {
@@ -311,22 +317,21 @@ const TEMPLATE_LINKED: Partial<{ [template in CollectionTemplate]: LinkedBlock[]
  * the collection is made, so that People made beside Companies find it.
  */
 export function newSchema(template: CollectionTemplate, folder = ''): Schema {
-  const fields = [...FIXED, ...TEMPLATE_FIELDS[template]].map((f) => ({
+  const fields = TEMPLATE_FIELDS[template].map((f) => ({
     ...f,
     ...(f.options && { options: [...f.options] }),
     ...(f.colors && { colors: { ...f.colors } }),
     ...(f.collection !== undefined && { collection: join(folder, f.collection) }),
   }));
-  const prefix = TEMPLATE_CODES[template];
   const singular = TEMPLATE_SINGULAR[template];
   const linked = TEMPLATE_LINKED[template];
   const layout: Layout | undefined = linked && {
     columns: [
-      { width: 1, sections: [{ items: [...fields.filter((f) => f.key !== NAME_KEY).map((f) => ({ field: f.key })), { block: 'body' as const }] }] },
+      { width: 1, sections: [{ items: [...fields.map((f) => ({ field: f.key })), { block: 'body' as const }] }] },
       { width: 2, sections: [{ items: linked.map((block) => ({ ...block, collection: join(folder, block.collection) })) }] },
     ],
   };
-  return { version: 1, template, ...(singular && { singular }), fields, ...(prefix && { code: { prefix, next: 1 } }), ...(layout && { layout }) };
+  return { version: 2, template, ...(singular && { singular }), fields, ...(layout && { layout }) };
 }
 
 // ---------- schema file ----------
@@ -361,7 +366,8 @@ function readField(raw: unknown): Field | null {
     if (raw.many === true) field.many = true;
   }
   if (type === 'formula') field.formula = typeof raw.formula === 'string' ? raw.formula : '';
-  if (raw.required === true) field.required = true;
+  // A name is required by being the name; the others say so.
+  if (raw.required === true && type !== 'name') field.required = true;
   return field;
 }
 
@@ -402,9 +408,31 @@ function readLayout(raw: unknown): Layout | undefined {
 }
 
 /**
- * Reads a schema file. Name and code are always there, first, whatever the file says; a field
- * of an unknown type reads as text; a broken file reads as a blank schema, so the records can
- * still be opened.
+ * The fields of a schema file of version 1, when every schema had a name and a code as text
+ * fields: those two are the name and code fields, and a schema without a name field gets one, as
+ * it had; a layout that left the name out, since the screen drew it apart, has it at its start.
+ */
+function fromVersion1(fields: Field[], layout: Layout | undefined): { fields: Field[]; layout: Layout | undefined } {
+  const typed = fields.map((f): Field => {
+    if (f.key === NAME_KEY && f.type === 'text') {
+      const { required: _required, ...rest } = f;
+      return { ...rest, type: 'name' };
+    }
+    return f.key === 'code' && f.type === 'text' ? { ...f, type: 'code' } : f;
+  });
+  const named = nameField({ fields: typed }) ? typed : [{ ...NAME }, ...typed];
+  const name = nameField({ fields: named })!;
+  const placed = layout?.columns.some((c) => c.sections.some((s) => s.items.some((i) => 'field' in i && i.field === name.key)));
+  if (!layout || placed) return { fields: named, layout };
+  const [first, ...rest] = layout.columns;
+  const [section, ...others] = first!.sections.length > 0 ? first!.sections : [{ items: [] }];
+  return { fields: named, layout: { columns: [{ ...first!, sections: [{ ...section!, items: [{ field: name.key }, ...section!.items] }, ...others] }, ...rest] } };
+}
+
+/**
+ * Reads a schema file. A field of an unknown type reads as text; a second name or code field
+ * reads as text, as there is one of each at most; a broken file reads as a blank schema, so the
+ * records can still be opened. A file of version 1 is read as one of version 2.
  */
 export function parseSchema(text: string): Schema {
   let raw: unknown;
@@ -415,22 +443,22 @@ export function parseSchema(text: string): Schema {
   }
   const data = isRecord(raw) ? raw : {};
   const read = (Array.isArray(data.fields) ? data.fields : []).map(readField).filter((f): f is Field => f !== null);
-  const fields: Field[] = FIXED.map((fixed) => {
-    const own = read.find((f) => f.key === fixed.key);
-    return { ...fixed, ...(own && { label: own.label }) };
-  });
-  const seen = new Set(fields.map((f) => f.key));
+  const seen = new Set<string>();
+  const single = new Set<FieldType>();
+  let fields: Field[] = [];
   for (const field of read) {
     if (seen.has(field.key)) continue;
     seen.add(field.key);
-    fields.push(field);
+    if (SINGLE_TYPES.includes(field.type) && single.has(field.type)) fields.push({ ...field, type: 'text' });
+    else {
+      single.add(field.type);
+      fields.push(field);
+    }
   }
+  let layout = readLayout(data.layout);
+  if (data.version !== 2) ({ fields, layout } = fromVersion1(fields, layout));
   const template: CollectionTemplate = COLLECTION_TEMPLATES.includes(data.template as CollectionTemplate) ? (data.template as CollectionTemplate) : 'blank';
-  const schema: Schema = { version: 1, template, ...(typeof data.singular === 'string' && data.singular.trim() && { singular: data.singular.trim() }), fields };
-  if (isRecord(data.code) && typeof data.code.prefix === 'string' && data.code.prefix.trim()) {
-    schema.code = { prefix: data.code.prefix.trim(), next: typeof data.code.next === 'number' && data.code.next > 0 ? Math.floor(data.code.next) : 1 };
-  }
-  const layout = readLayout(data.layout);
+  const schema: Schema = { version: 2, template, ...(typeof data.singular === 'string' && data.singular.trim() && { singular: data.singular.trim() }), fields };
   if (layout) schema.layout = layout;
   const views = readViews(data.views, fields);
   if (views.length > 0) schema.views = views;
@@ -490,16 +518,16 @@ export function saveSchema(fs: VaultFs, dir: string, schema: Schema): Promise<vo
   return fs.writeText(schemaPath(dir), serializeSchema(schema));
 }
 
-/** The layout a schema shows with: its own, or one column of every field but the name, then the body. */
+/** The layout a schema shows with: its own, or one column of every field, then the body. */
 export function layoutOf(schema: Schema): Layout {
   if (schema.layout) return schema.layout;
-  const items: LayoutItem[] = schema.fields.filter((f) => f.key !== NAME_KEY).map((f) => ({ field: f.key }));
+  const items: LayoutItem[] = schema.fields.map((f) => ({ field: f.key }));
   return { columns: [{ sections: [{ items }, { items: [{ block: 'body' }] }] }] };
 }
 
 /** The fields the layout does not place, which the screen shows at its end so that none is lost. */
 export function unplacedFields(schema: Schema): Field[] {
-  const placed = new Set<string>([NAME_KEY]);
+  const placed = new Set<string>();
   for (const column of layoutOf(schema).columns) for (const section of column.sections) for (const item of section.items) if ('field' in item) placed.add(item.field);
   return schema.fields.filter((f) => !placed.has(f.key));
 }
@@ -672,8 +700,6 @@ export function evaluateFormula(expr: string, values: Record['values'], schema: 
 
 /** A record's value for a field, formulas worked out for `today`. */
 export function fieldValueOf(record: Record, field: Field, schema: Schema, today: string): FieldValue | undefined {
-  if (field.key === NAME_KEY) return record.name;
-  if (field.key === CODE_KEY) return record.code;
   if (field.type === 'formula') return evaluateFormula(field.formula ?? '', record.values, schema, today);
   return record.values[field.key];
 }
@@ -684,8 +710,29 @@ export const isEmpty = (value: FieldValue | undefined) =>
 
 // ---------- record files ----------
 
-/** What a record is called when its file has no name in it: its file name. */
+/** A record's file name without its extension. */
 export const recordName = (path: string) => basename(path).slice(0, -RECORD_EXT.length);
+
+/** A record id as the app makes them, which is also the file name of a record made since: ten letters and digits. */
+const ID_NAME = /^[0-9a-z]{10}$/;
+
+/** Whether a record's file is named after an id rather than by a person. */
+export const namedById = (path: string) => ID_NAME.test(recordName(path));
+
+/** A new record's id: ten random letters and digits, which no two devices make alike. */
+export function newRecordId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  return Array.from(bytes, (b) => (b % 36).toString(36)).join('');
+}
+
+/** A record's name and code: the values of the schema's name and code fields, or empty. */
+function identity(values: Record['values'], schema: Schema): Pick<Record, 'name' | 'code'> {
+  const text = (field: Field | undefined) => {
+    const value = field ? values[field.key] : undefined;
+    return typeof value === 'string' ? value.trim() : '';
+  };
+  return { name: text(nameField(schema)), code: text(codeField(schema)) };
+}
 
 const FRONT = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 
@@ -704,7 +751,11 @@ export function splitFrontMatter(text: string): { front: { [key: string]: unknow
   return { front, body: text.slice(m[0].length), hadFront: true };
 }
 
-/** Reads a record's file. A file without an id gets none here; `loadRecords` gives it one and writes it. */
+/**
+ * Reads a record's file. A file without an id gets none here; `loadCollection` gives it one and
+ * writes it. A file named by a person rather than by an id (made before records were named by
+ * their ids, or a note dropped into the folder) that has no name in it is named after its file.
+ */
 export function parseRecord(text: string, schema: Schema, path: string): Record {
   const { front, body } = splitFrontMatter(text);
   const values: Record['values'] = {};
@@ -721,19 +772,15 @@ export function parseRecord(text: string, schema: Schema, path: string): Record 
     if (value !== null) values[key] = value;
     else if (raw !== null && raw !== undefined) extra[key] = raw;
   }
-  const name = typeof values[NAME_KEY] === 'string' && values[NAME_KEY].trim() ? values[NAME_KEY].trim() : recordName(path);
-  const code = typeof values[CODE_KEY] === 'string' ? values[CODE_KEY].trim() : '';
-  delete values[NAME_KEY];
-  delete values[CODE_KEY];
-  return { id: typeof front.id === 'string' ? front.id : '', path, name, code, values, extra, body };
+  const named = nameField(schema);
+  if (named && isEmpty(values[named.key]) && !namedById(path)) values[named.key] = recordName(path);
+  return { id: typeof front.id === 'string' ? front.id : '', path, ...identity(values, schema), values, extra, body };
 }
 
-/** The file of a record: its id, name and code, then its fields in the schema's order, then what the schema does not know, then the body. */
+/** The file of a record: its id, then its fields in the schema's order, then what the schema does not know, then the body. */
 export function serializeRecord(record: Record, schema: Schema): string {
-  const front: { [key: string]: unknown } = { id: record.id, [NAME_KEY]: record.name };
-  if (record.code) front[CODE_KEY] = record.code;
+  const front: { [key: string]: unknown } = { id: record.id };
   for (const field of schema.fields) {
-    if (field.key === NAME_KEY || field.key === CODE_KEY) continue;
     const value = record.values[field.key];
     if (!isEmpty(value)) front[field.key] = value;
   }
@@ -752,11 +799,11 @@ export interface Collection {
 }
 
 /**
- * Reads a collection: its schema and every record, by name. A record file without an id (made
- * by another tool, or a note dropped into the folder) is given one and written back, so that
- * links to it hold; with `readOnly` it keeps its path as its id instead.
+ * Reads a collection: its schema and every record. A record file without an id (made by another
+ * tool, or a note dropped into the folder) is given one and written back, so that links to it
+ * hold; it keeps its file name. With `readOnly` it keeps its path as its id instead.
  */
-export async function loadCollection(fs: VaultFs, dir: string, ids: () => string = () => crypto.randomUUID(), readOnly = false): Promise<Collection> {
+export async function loadCollection(fs: VaultFs, dir: string, ids: () => string = newRecordId, readOnly = false): Promise<Collection> {
   const schema = await loadSchema(fs, dir);
   const entries = (await fs.list(dir)).filter(isRecordFile).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   const records: Record[] = [];
@@ -867,83 +914,50 @@ export function retargetLinks(schema: Schema, from: string, to: string): Schema 
   return changed ? { ...schema, fields, ...(layout && { layout }) } : schema;
 }
 
-/** What a new record is given: its name, its code when typed, its fields and its body. */
+/** What a new record is given: its fields, its name and code among them, and its body. */
 export interface NewRecord {
-  name: string;
-  code?: string;
   values?: Record['values'];
   body?: string;
 }
 
-/** A code from the collection's rule, padded to four digits: `PAY-0012`. */
-export const makeCode = (rule: CodeRule) => `${rule.prefix}-${String(rule.next).padStart(4, '0')}`;
-
-/** A record's file name: its name, which is what the file is called. */
-function fileFor(name: string): string {
-  const clean = cleanName(name);
-  if (!clean || isHidden(clean)) throw new Error(t('error.name'));
-  return clean;
+/** The values as a file keeps them: the empty ones left out. */
+function filled(values: Record['values']): Record['values'] {
+  return Object.fromEntries(Object.entries(values).filter(([, value]) => !isEmpty(value)));
 }
 
 /**
- * Adds a record to a collection: a file named after it, numbered when a record of that name is
- * there already. A code is made from the collection's rule when there is one and none was typed,
- * and the rule's count moves on. Returns the record and the schema as it is now.
+ * Adds a record to a collection, as a file named after its id, which never changes: renaming the
+ * record changes what is in the file, not where it is, and two records made on two devices never
+ * meet in one file. Returns the record.
  */
-export async function addRecord(
-  fs: VaultFs,
-  collection: Collection,
-  input: NewRecord,
-  id: string = crypto.randomUUID(),
-): Promise<{ record: Record; schema: Schema }> {
-  const name = fileFor(input.name);
-  let schema = collection.schema;
-  let code = input.code?.trim() ?? '';
-  if (!code && schema.code) {
-    code = makeCode(schema.code);
-    schema = { ...schema, code: { ...schema.code, next: schema.code.next + 1 } };
-    await saveSchema(fs, collection.dir, schema);
+export async function addRecord(fs: VaultFs, collection: Collection, input: NewRecord, id: string = newRecordId()): Promise<Record> {
+  const names = await taken(fs, collection.dir);
+  let path = join(collection.dir, `${id}${RECORD_EXT}`);
+  while (names.has(path.toLowerCase())) {
+    id = newRecordId();
+    path = join(collection.dir, `${id}${RECORD_EXT}`);
   }
-  const path = freePath(collection.dir, name, RECORD_EXT, await taken(fs, collection.dir));
-  const record: Record = { id, path, name: input.name.trim(), code, values: { ...(input.values ?? {}) }, extra: {}, body: normalBody(input.body ?? '') };
-  await fs.writeText(path, serializeRecord(record, schema));
-  return { record, schema };
+  const values = filled(input.values ?? {});
+  const record: Record = { id, path, ...identity(values, collection.schema), values, extra: {}, body: normalBody(input.body ?? '') };
+  await fs.writeText(path, serializeRecord(record, collection.schema));
+  return record;
 }
 
-export type RecordPatch = Partial<Pick<Record, 'name' | 'code' | 'body'>> & { values?: Record['values'] };
+export type RecordPatch = Partial<Pick<Record, 'body'>> & { values?: Record['values'] };
 
-/**
- * Changes a record and writes its file. A new name renames the file too, numbered when that
- * name is taken, so the record keeps being found by its name on disk. Returns the record as
- * written, at the path it has now.
- */
+/** Changes a record and writes its file, where it is. Returns the record as written. */
 export async function updateRecord(fs: VaultFs, schema: Schema, record: Record, patch: RecordPatch): Promise<Record> {
-  const next: Record = {
-    ...record,
-    ...(patch.name !== undefined && { name: patch.name.trim() }),
-    ...(patch.code !== undefined && { code: patch.code.trim() }),
-    ...(patch.body !== undefined && { body: normalBody(patch.body) }),
-    values: patch.values ? { ...record.values, ...patch.values } : record.values,
-  };
-  for (const [key, value] of Object.entries(next.values)) if (isEmpty(value)) delete next.values[key];
-  if (next.name !== record.name) {
-    const dir = collectionOf(record.path);
-    const wanted = join(dir, `${fileFor(next.name)}${RECORD_EXT}`);
-    if (wanted.toLowerCase() !== record.path.toLowerCase()) {
-      const names = await taken(fs, dir);
-      names.delete(record.path.toLowerCase());
-      next.path = freePath(dir, fileFor(next.name), RECORD_EXT, names);
-    } else next.path = wanted;
-  }
+  const values = filled(patch.values ? { ...record.values, ...patch.values } : record.values);
+  const next: Record = { ...record, ...(patch.body !== undefined && { body: normalBody(patch.body) }), values, ...identity(values, schema) };
   await fs.writeText(next.path, serializeRecord(next, schema));
-  if (next.path !== record.path) await fs.remove(record.path);
   return next;
 }
 
 // ---------- looking at records ----------
 
-/** A record as a picker or a link shows it: its name, and its code when it has one. */
-export const recordLabel = (record: { name: string; code?: string }) => (record.code ? `${record.name} · ${record.code}` : record.name);
+/** A record as a picker or a link shows it: its name and code, either alone when it has only one, "Untitled" with neither. */
+export const recordLabel = (record: { name: string; code?: string }) =>
+  (record.name && record.code ? `${record.name} · ${record.code}` : record.name || record.code) || t('collection.untitled');
 
 /**
  * Whether the record a link points at is gone: its collection is at hand (`records`) and has no
@@ -979,7 +993,7 @@ export function fieldHref(type: FieldType, value: string): string | null {
   return null;
 }
 
-const SEARCHED: readonly FieldType[] = ['text', 'select', 'multi-select', 'url', 'email', 'phone', 'person', 'link'];
+const SEARCHED: readonly FieldType[] = ['name', 'code', 'text', 'select', 'multi-select', 'url', 'email', 'phone', 'person', 'link'];
 
 // ---------- views: conditions, groups and sums ----------
 
@@ -1123,11 +1137,10 @@ export function columnSum(records: Record[], schema: Schema, key: string, today:
   return any ? sum : null;
 }
 
-/** Whether a record matches what was typed in the search box: in its name, its code or a text-like field, case apart. */
+/** Whether a record matches what was typed in the search box: in its name, its code or another text-like field, case apart. */
 export function matchesQuery(record: Record, schema: Schema, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  if (record.name.toLowerCase().includes(q) || record.code.toLowerCase().includes(q)) return true;
   return schema.fields.some((f) => SEARCHED.includes(f.type) && valueText(record.values[f.key]).toLowerCase().includes(q));
 }
 
@@ -1135,7 +1148,7 @@ export function matchesQuery(record: Record, schema: Schema, query: string): boo
 export function sortRecords(records: Record[], schema: Schema, sort: RecordSort, today = ''): Record[] {
   const field = schema.fields.find((f) => f.key === sort.key);
   const type = field?.type ?? 'text';
-  const valueOf = (r: Record): FieldValue | undefined => (field ? fieldValueOf(r, field, schema, today) : sort.key === NAME_KEY ? r.name : sort.key === CODE_KEY ? r.code : r.values[sort.key]);
+  const valueOf = (r: Record): FieldValue | undefined => (field ? fieldValueOf(r, field, schema, today) : r.values[sort.key]);
   const compare = (a: FieldValue, b: FieldValue): number => {
     if (type === 'number' || type === 'checkbox' || type === 'formula') return Number(a) - Number(b);
     return valueText(a).localeCompare(valueText(b), undefined, { numeric: true, sensitivity: 'base' });
@@ -1221,20 +1234,12 @@ export function linkedValues(schema: Schema, dir: string, record: Record, from: 
   return values;
 }
 
-/** The file a new record called `name` is written to: its name, numbered when a record has it; null for a name no file can have. */
-export function newRecordPath(collection: Collection, name: string): string | null {
-  const clean = cleanName(name);
-  if (!clean || isHidden(clean)) return null;
-  return freePath(collection.dir, clean, RECORD_EXT, new Set(collection.records.map((r) => r.path.toLowerCase())));
+/** The fields a record leaves empty that it cannot, by key: the name, when the schema has one, and the fields that are required. */
+export function missingFields(values: Record['values'], schema: Schema): string[] {
+  return schema.fields
+    .filter((f) => (f.type === 'name' || f.required) && (typeof values[f.key] === 'string' ? !(values[f.key] as string).trim() : isEmpty(values[f.key])))
+    .map((f) => f.key);
 }
 
-/** The required fields a record leaves empty, by key; the name is required always. */
-export function missingFields(record: Pick<Record, 'name' | 'values'>, schema: Schema): string[] {
-  const missing: string[] = [];
-  if (!record.name.trim()) missing.push(NAME_KEY);
-  for (const field of schema.fields) {
-    if (field.key === NAME_KEY || field.key === CODE_KEY || !field.required) continue;
-    if (isEmpty(record.values[field.key])) missing.push(field.key);
-  }
-  return missing;
-}
+/** What a record is called on its screen and in a question about it: its name, else its code, else "Untitled". */
+export const recordTitle = (record: Pick<Record, 'name' | 'code'>) => record.name || record.code || t('collection.untitled');

@@ -1,5 +1,4 @@
 import {
-  CODE_KEY,
   type Collection,
   type CollectionLook,
   type ColumnWidths,
@@ -17,6 +16,7 @@ import {
   isComplete,
   isEmpty,
   isLink,
+  isLinkable,
   type Layout,
   type LayoutItem,
   type Link,
@@ -27,7 +27,6 @@ import {
   linkGone,
   linkingCollections,
   linkTo,
-  makeCode,
   matchesConditions,
   type OptionColor,
   optionColor,
@@ -35,6 +34,7 @@ import {
   opTakesValue,
   putView,
   recordLabel,
+  recordTitle,
   type RecordGroup,
   removeView,
   type Schema,
@@ -42,8 +42,7 @@ import {
   layoutOf,
   matchesQuery,
   missingFields,
-  NAME_KEY,
-  newRecordPath,
+  nameField,
   type NewRecord,
   type Record,
   type RecordPatch,
@@ -132,24 +131,24 @@ const WIDTHS: { [type in Field['type']]: [number, number] } = {
   person: [84, 124],
   link: [120, 184],
   formula: [76, 110],
+  name: [160, 240],
+  code: [80, 112],
 };
-const NAME_WIDTHS: [number, number] = [160, 240];
-const CODE_WIDTHS: [number, number] = [80, 112];
 /** A column dragged narrower than this stops there. */
 const MIN_WIDTH = 56;
 /** The room between two columns. */
 const GAP = 12;
 /** The room left and right of the rows, inside the table's scrolling box; the first and last cells pad their text by as much again. */
 const SIDES = 8;
-/** How much a column other than the name grows to fill a wide window: half its width again at most. */
+/** How much a column other than the first grows to fill a wide window: half its width again at most. */
 const GROW = 0.5;
 
-const widthsOf = (field: Field) => (field.key === NAME_KEY ? NAME_WIDTHS : field.key === CODE_KEY ? CODE_WIDTHS : WIDTHS[field.type]);
+const widthsOf = (field: Field) => WIDTHS[field.type];
 
 /**
  * The widths of the columns. Ones dragged keep the width they were left at, the others have
  * theirs. With none dragged they fill `room`: in a wide window every other column grows by up to
- * half again and the name takes what is left; in a narrow one they all give up the same share of
+ * half again and the first takes what is left; in a narrow one they all give up the same share of
  * what they can give, down to the narrowest each is made; only below that does the table scroll.
  */
 function columnWidths(fields: Field[], saved: ColumnWidths | undefined, room: number): number[] {
@@ -166,17 +165,17 @@ function columnWidths(fields: Field[], saved: ColumnWidths | undefined, room: nu
     const share = (room - total(least)) / (total(base) - total(least));
     widths = base.map((w, i) => Math.floor(least[i]! + (w - least[i]!) * share));
   } else return least;
-  // The name takes what is left, the rounding of the others too.
+  // The first column takes what is left, the rounding of the others too.
   widths[0] = room - total(widths, 1);
   return widths;
 }
 
-/** The fields of the table: name first, code when any record has one, then the rest in the schema's order. */
-function tableFields(collection: Collection): Field[] {
-  const { fields } = collection.schema;
-  const withCode = !!collection.schema.code || collection.records.some((r) => r.code);
-  return fields.filter((f) => f.key !== CODE_KEY || withCode);
-}
+/** The column of a collection with no fields yet: the records by what they are called, "Untitled". */
+const TITLE: Field = { key: '\u0000title', label: '', type: 'name' };
+
+/** The fields of the table, in the schema's order; the first stays at the left. A schema with none shows its records by title. */
+const tableFields = (collection: Collection): Field[] =>
+  collection.schema.fields.length > 0 ? collection.schema.fields : [{ ...TITLE, label: t('collection.recordColumn') }];
 
 // ---------- values ----------
 
@@ -215,9 +214,10 @@ function LinkChip({ link, gone, children }: { link: Link; gone: boolean; childre
   );
 }
 
-/** What a value needs from the collection to be shown: the records links point at, and a way to open an address. */
+/** What a value needs from the collection to be shown: the records links point at, their collections, and a way to open an address. */
 interface ValueContext {
   records: CollectionActions['records'];
+  collection: CollectionActions['collection'];
   openLink: (href: string) => void;
 }
 
@@ -267,7 +267,8 @@ function Cell({ field, value, ctx }: { field: Field; value: FieldValue | undefin
       </a>
     );
   }
-  return <span className={field.type === 'number' || field.type === 'formula' ? 'num' : field.type === 'date' ? 'ct dt' : 'ct'}>{text}</span>;
+  const kind = field.type === 'name' ? 'ct name' : field.type === 'code' ? 'ct code' : field.type === 'date' ? 'ct dt' : 'ct';
+  return <span className={field.type === 'number' || field.type === 'formula' ? 'num' : kind}>{text}</span>;
 }
 
 // ---------- choices ----------
@@ -520,10 +521,10 @@ function ChipsField({ field, value, onChange }: { field: Field; value: string[];
  * to find another by name or code in the collection the field points at; the list under it shows
  * what matches. A link whose record is gone keeps showing the name it had, marked as deleted.
  */
-function LinkField({ field, value, records, onChange }: {
+function LinkField({ field, value, ctx, onChange }: {
   field: Field;
   value: Link | Link[] | null;
-  records: CollectionActions['records'];
+  ctx: ValueContext;
   onChange: (value: Link | Link[] | null) => void;
 }) {
   const [typed, setTyped] = useState('');
@@ -532,7 +533,10 @@ function LinkField({ field, value, records, onChange }: {
   const input = useRef<HTMLInputElement>(null);
   const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
   const links = (Array.isArray(value) ? value : value ? [value] : []).filter(isLink);
-  const target = field.collection ? records(field.collection) : null;
+  // Its records show by their name or code; a collection with neither has nothing to pick by.
+  const into = field.collection ? ctx.collection(field.collection) : null;
+  const linkable = !into || isLinkable(into.schema);
+  const target = field.collection && linkable ? ctx.records(field.collection) : null;
   const q = typed.trim().toLowerCase();
   const chosen = new Set(links.map((l) => l.id));
   const found = (target ?? [])
@@ -588,7 +592,13 @@ function LinkField({ field, value, records, onChange }: {
         )}
       </div>
       {open && !full && (target === null || options.length === 0) && (
-        <p className="lnk-none">{target === null ? t('collection.noTarget', { name: field.collection ?? '' }) : t('collection.noRecords')}</p>
+        <p className="lnk-none">
+          {!linkable
+            ? t('collection.cannotLink', { name: collectionName(field.collection ?? '') })
+            : target === null
+              ? t('collection.noTarget', { name: field.collection ?? '' })
+              : t('collection.noRecords')}
+        </p>
       )}
       {open && !full && options.length > 0 && (
         <OptionList anchor={box} options={options} current={[]} label={field.label} keys={keys} onPick={pick} onClose={() => setOpen(false)} />
@@ -601,17 +611,20 @@ function LinkField({ field, value, records, onChange }: {
 const OPEN_LABEL = { url: 'collection.openUrl', email: 'collection.writeEmail', phone: 'collection.call' } as const;
 
 /** The box a field is typed in, by its type. The value typed is held by the form. */
-function FieldInput({ field, value, placeholder, ctx, onChange }: {
+function FieldInput({ field, value, autoFocus, ctx, onChange, onEnter }: {
   field: Field;
   value: FieldValue;
-  placeholder?: string;
+  /** The keyboard comes to the box when the form opens. */
+  autoFocus?: boolean;
   ctx: ValueContext;
   onChange: (value: FieldValue) => void;
+  /** Enter in a line of text: the name's saves the form. */
+  onEnter?: () => void;
 }) {
   const id = `field-${field.key}`;
   switch (field.type) {
     case 'link':
-      return <LinkField field={field} value={isLink(value) || Array.isArray(value) ? (value as Link | Link[]) : null} records={ctx.records} onChange={onChange} />;
+      return <LinkField field={field} value={isLink(value) || Array.isArray(value) ? (value as Link | Link[]) : null} ctx={ctx} onChange={onChange} />;
     case 'select':
       return <SelectField field={field} value={typeof value === 'string' && value ? value : null} onChange={onChange} />;
     case 'multi-select':
@@ -629,24 +642,27 @@ function FieldInput({ field, value, placeholder, ctx, onChange }: {
           id={id}
           type="number"
           step="any"
+          autoFocus={autoFocus}
           aria-label={field.label}
           value={typeof value === 'number' ? value : ''}
           onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))}
         />
       );
     case 'date':
-      return <input id={id} type="date" aria-label={field.label} value={valueText(value)} onChange={(event) => onChange(event.target.value || null)} />;
+      return <input id={id} type="date" autoFocus={autoFocus} aria-label={field.label} value={valueText(value)} onChange={(event) => onChange(event.target.value || null)} />;
     default: {
       const text = valueText(value);
       const input = (
         <input
           id={id}
           type={field.type === 'url' ? 'url' : field.type === 'email' ? 'email' : field.type === 'phone' ? 'tel' : 'text'}
+          autoFocus={autoFocus}
+          autoComplete="off"
           aria-label={field.label}
-          spellCheck={field.type === 'text'}
-          placeholder={placeholder}
+          spellCheck={field.type === 'text' || field.type === 'name'}
           value={text}
           onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => onEnter && event.key === 'Enter' && (event.preventDefault(), onEnter())}
         />
       );
       if (field.type !== 'url' && field.type !== 'email' && field.type !== 'phone') return input;
@@ -710,18 +726,17 @@ function useEscape(within: RefObject<HTMLElement | null>, onEscape: () => void) 
 
 /** What the form holds: the record as it is being typed. */
 interface Draft {
-  name: string;
-  code: string;
+  /** By field key, the name and the code among them. */
   values: Record['values'];
   body: string;
 }
 
 const draftOf = (record: Record | null, values: Record['values'] = {}): Draft =>
-  record ? { name: record.name, code: record.code, values: { ...record.values }, body: record.body } : { name: '', code: '', values: { ...values }, body: '' };
+  record ? { values: { ...record.values }, body: record.body } : { values: { ...values }, body: '' };
 
 /** Whether two drafts differ in anything that would be written. */
 function differs(a: Draft, b: Draft): boolean {
-  if (a.name !== b.name || a.code !== b.code || a.body !== b.body) return true;
+  if (a.body !== b.body) return true;
   for (const key of new Set([...Object.keys(a.values), ...Object.keys(b.values)])) {
     const [x, y] = [a.values[key], b.values[key]];
     if (isEmpty(x) && isEmpty(y)) continue;
@@ -762,7 +777,7 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
 }) {
   const source = actions.collection(block.collection);
   const name = collectionName(block.collection);
-  const ctx: ValueContext = { records: actions.records, openLink: actions.openLink };
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
   const head = (count: number | null) => (
     <div className="blk-h">
       <span>{name}</span>
@@ -788,8 +803,8 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
   const day = byKey(block.sort)?.type === 'date' ? byKey(block.sort) : schema.fields.find((f) => f.type === 'date');
   const timeline = block.style ? block.style === 'timeline' : !!day;
   const rows = timeline
-    ? sortRecords(records, schema, day ? { key: day.key, dir: 'desc' } : { key: NAME_KEY, dir: 'asc' }, today)
-    : sortRecords(records, schema, { key: block.sort ?? NAME_KEY, dir: 'asc' }, today);
+    ? sortRecords(records, schema, day ? { key: day.key, dir: 'desc' } : { key: nameField(schema)?.key ?? '', dir: 'asc' }, today)
+    : sortRecords(records, schema, { key: block.sort ?? nameField(schema)?.key ?? '', dir: 'asc' }, today);
   if (rows.length === 0) {
     return (
       <div className="blk">
@@ -813,7 +828,7 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
             <button key={r.id} type="button" className="tle" onClick={() => onOpen(source, r)}>
               <span className="h">
                 {typeof kind === 'string' && kind && <Chip text={kind} color={optionColor(choice, kind)} />}
-                <b>{r.name}</b>
+                <b>{recordTitle(r)}</b>
                 {typeof by === 'string' && by && <span className="by">{by}</span>}
                 <span className="t">{typeof when === 'string' && when ? dueLabel(when, today) : ''}</span>
               </span>
@@ -827,7 +842,7 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
   // A list row shows the fields the block names, else the first two filled in, leaving out the link back here.
   const back = new Set(linkFieldsTo(schema, dir).map((f) => f.key));
   const shown = (r: Record) =>
-    (block.fields ? block.fields.map(byKey).filter((f): f is Field => !!f) : schema.fields.filter((f) => f.key !== NAME_KEY && f.key !== CODE_KEY && !back.has(f.key)))
+    (block.fields ? block.fields.map(byKey).filter((f): f is Field => !!f) : schema.fields.filter((f) => f.type !== 'name' && f.type !== 'code' && !back.has(f.key)))
       .filter((f) => !isEmpty(fieldValueOf(r, f, schema, today)))
       .slice(0, 2);
   return (
@@ -836,8 +851,8 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
       {rows.map((r) => (
         <button key={r.id} type="button" className="lrec" onClick={() => onOpen(source, r)}>
           <span className="ln">
-            {r.code && <span className="key">{r.code}</span>}
-            {r.name}
+            {r.name && r.code && <span className="key">{r.code}</span>}
+            {recordTitle(r)}
           </span>
           <span className="meta">
             {shown(r).map((f) => (
@@ -882,7 +897,7 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
   const isNew = record === null;
   const original = useMemo(() => draftOf(record, values), [record, values]);
   const dirty = differs(draft, original);
-  const ctx: ValueContext = { records: actions.records, openLink: actions.openLink };
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
 
   // A new record is one column of its fields and body. A record with no layout of its own has,
   // under its body, the records of every collection that links to its collection.
@@ -915,16 +930,17 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
     setDraft((d) => ({ ...d, values: { ...d.values, [key]: value } }));
   };
 
+  const named = nameField(schema);
   const save = async () => {
     if (busy.current) return;
-    const missing = missingFields(draft, schema);
+    const missing = missingFields(draft.values, schema);
     if (missing.length > 0) {
-      const labels = missing.filter((k) => k !== NAME_KEY).map((k) => fields.get(k)?.label ?? k);
-      setError(missing.includes(NAME_KEY) ? t('collection.nameNeeded') : t('collection.requiredMissing', { fields: labels.join(t('list.separator')) }));
+      const labels = missing.filter((k) => k !== named?.key).map((k) => fields.get(k)?.label ?? k);
+      setError(named && missing.includes(named.key) ? t('collection.nameNeeded') : t('collection.requiredMissing', { fields: labels.join(t('list.separator')) }));
       return;
     }
     busy.current = true;
-    const patch = { name: draft.name, code: draft.code, values: draft.values, body: draft.body };
+    const patch = { values: draft.values, body: draft.body };
     const failed = isNew ? await actions.addRecord(dir, patch) : await actions.updateRecord(dir, record.id, patch);
     busy.current = false;
     if (failed) setError(failed);
@@ -933,7 +949,8 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
   // Nothing typed is lost without asking.
   const leave = (then: () => void = onClose) => {
     if (!dirty) return then();
-    actions.ask(t('collection.discardTitle'), t('collection.discardText', { name: quote(draft.name || t('collection.newRecordShort')) }), then, t('collection.discard'));
+    const typed = named && draft.values[named.key];
+    actions.ask(t('collection.discardTitle'), t('collection.discardText', { name: quote(typeof typed === 'string' && typed.trim() ? typed.trim() : record ? recordTitle(record) : t('collection.newRecordShort')) }), then, t('collection.discard'));
   };
   const menu = (event: MouseEvent) =>
     record && actions.menu(event, [{ label: t('menu.delete'), run: () => actions.removeRecord(dir, record) }]);
@@ -947,28 +964,11 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
     if (overGone) setOver(null);
   }, [overGone]);
 
-  // The name is the first box, as every field is one; the record is named after it, and its file too.
-  const nameField = (
-    <div className="prop">
-      <label className="pl" htmlFor="record-name">
-        {fields.get(NAME_KEY)?.label ?? t('collection.name')}
-        <i title={t('collection.required')}>*</i>
-      </label>
-      <div className="pe">
-        <input
-          id="record-name"
-          autoFocus={isNew}
-          autoComplete="off"
-          value={draft.name}
-          onChange={(event) => set({ name: event.target.value })}
-          onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), void save())}
-        />
-      </div>
-    </div>
-  );
+  // A new record's first box has the keyboard.
+  const firstKey = isNew ? layout.columns.flatMap((c) => c.sections.flatMap((s) => s.items)).find((i): i is { field: string } => 'field' in i)?.field : undefined;
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
-    if (!field || field.key === NAME_KEY) return null;
+    if (!field) return null;
     // A formula is worked out from what is typed; it is not typed itself.
     if (field.type === 'formula') {
       const worked = evaluateFormula(field.formula ?? '', draft.values, schema, today);
@@ -981,18 +981,21 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
         </div>
       );
     }
-    const isCode = field.key === CODE_KEY;
-    const value = isCode ? draft.code : (draft.values[field.key] ?? null);
-    // A code the collection makes shows the one a new record will get.
-    const placeholder = isCode && isNew && schema.code ? t('collection.codeAuto', { code: makeCode(schema.code) }) : undefined;
     return (
       <div key={`${key}-${index}`} className="prop">
         <label className="pl" htmlFor={`field-${field.key}`}>
           {field.label}
-          {field.required && <i title={t('collection.required')}>*</i>}
+          {(field.required || field.type === 'name') && <i title={t('collection.required')}>*</i>}
         </label>
         <div className="pe">
-          <FieldInput field={field} value={value} placeholder={placeholder} ctx={ctx} onChange={(next) => (isCode ? set({ code: valueText(next) }) : setValue(field.key, next))} />
+          <FieldInput
+            field={field}
+            value={draft.values[field.key] ?? null}
+            autoFocus={field.key === firstKey}
+            ctx={ctx}
+            onChange={(next) => setValue(field.key, next)}
+            onEnter={field.type === 'name' ? () => void save() : undefined}
+          />
         </div>
       </div>
     );
@@ -1025,7 +1028,6 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
   };
   const columns = layout.columns.map((column, c) => (
     <div key={c} className="rm-col" style={{ flex: column.width ?? 1 }}>
-      {c === fieldColumn && nameField}
       {column.sections.map((section, s) => (
         <section key={s} className="rm-sec">
           {section.title && <h3>{section.title}</h3>}
@@ -1041,13 +1043,11 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
       )}
     </div>
   ));
-  // Where a new record's file goes, as it is named now.
-  const file = isNew ? newRecordPath(collection, draft.name) : null;
   const title = isNew ? (schema.singular ? t('collection.newOne', { singular: schema.singular }) : t('collection.newRecord', { collection: name })) : collectionLabel(dir);
 
   return (
     <div ref={backdrop} className="backdrop card-backdrop" onMouseDown={(event) => event.target === event.currentTarget && leave()}>
-      <section ref={panel} className={layout.columns.length > 1 ? 'rmod wide' : 'rmod'} role="dialog" aria-label={isNew ? title : record.name} tabIndex={-1}>
+      <section ref={panel} className={layout.columns.length > 1 ? 'rmod wide' : 'rmod'} role="dialog" aria-label={isNew ? title : recordTitle(record)} tabIndex={-1}>
         <div className="cp-head">
           <Icon name="collection" />
           {record?.code && <span className="key">{record.code}</span>}
@@ -1074,9 +1074,7 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
             <p role="alert">{error}</p>
           ) : (
             isNew && (
-              <span className="hint">
-                {file ? t('collection.savedAs', { path: `${name}/${file.slice(dir.length + 1)}` }) : t('collection.savedIn', { collection: name })}
-              </span>
+              <span className="hint">{t('collection.savedIn', { collection: name })}</span>
             )
           )}
           <button type="button" onClick={() => leave()}>
@@ -1121,7 +1119,7 @@ function ConditionRow({ schema, condition, records, onChange, onRemove }: {
   const choices = field.type === 'select' || field.type === 'multi-select' ? (field.options ?? []) : null;
   // A choice field compares with any of the choices picked; a link with any of the records picked, by name.
   const picked = Array.isArray(value) ? value : typeof value === 'string' && value ? [value] : [];
-  const linkOptions: Option[] = field.type === 'link' && field.collection ? (records(field.collection) ?? []).map((r) => ({ value: r.name, label: recordLabel(r), chip: false })) : [];
+  const linkOptions: Option[] = field.type === 'link' && field.collection ? (records(field.collection) ?? []).map((r) => ({ value: r.name || r.code, label: recordLabel(r), chip: false })) : [];
   return (
     <div className="cond">
       <Picker options={fieldOptions} value={condition.field} label={t('collection.field')} onPick={(key) => {
@@ -1375,15 +1373,18 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const [adHoc, setAdHoc] = useState<Condition[]>([]);
   const views = schema.views ?? [];
   const view = views.find((v) => v.id === look?.view) ?? null;
+  // Records come by their name, else by the first field.
+  const firstSort: RecordSort = { key: nameField(schema)?.key ?? schema.fields[0]?.key ?? '', dir: 'asc' };
   const state: TableState = view
-    ? { conditions: view.conditions, sort: view.sort ?? { key: NAME_KEY, dir: 'asc' }, group: view.group ?? null, columns: view.columns ?? null, widths: view.widths ?? null }
-    : { conditions: adHoc, sort: look?.sort ?? { key: NAME_KEY, dir: 'asc' }, group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null };
+    ? { conditions: view.conditions, sort: view.sort ?? firstSort, group: view.group ?? null, columns: view.columns ?? null, widths: view.widths ?? null }
+    : { conditions: adHoc, sort: look?.sort ?? firstSort, group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null };
   const fieldsByKey = useMemo(() => new Map(schema.fields.map((f) => [f.key, f])), [schema]);
   const allFields = useMemo(() => tableFields(collection), [collection]);
-  const fields = state.columns ? [schema.fields[0]!, ...state.columns.map((k) => fieldsByKey.get(k)).filter((f): f is Field => !!f && f.key !== NAME_KEY)] : allFields;
+  const fields = state.columns ? [allFields[0]!, ...state.columns.map((k) => fieldsByKey.get(k)).filter((f): f is Field => !!f && f.key !== allFields[0]!.key)] : allFields;
   const sortField = fieldsByKey.get(state.sort.key);
   const applied = state.conditions.filter(isComplete);
-  const ctx: ValueContext = { records: actions.records, openLink: actions.openLink };
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
+  const noFields = schema.fields.length === 0;
 
   // What the view says is changed on the view itself; the plain table's look is kept on this device.
   const change = (patch: TablePatch) => {
@@ -1487,7 +1488,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
     );
   };
   const cellOf = (record: Record, field: Field) =>
-    field.key === NAME_KEY ? <span className="ct name">{record.name}</span> : <Cell field={field} value={fieldValueOf(record, field, schema, today)} ctx={ctx} />;
+    field.key === TITLE.key ? <span className="ct name">{recordTitle(record)}</span> : <Cell field={field} value={fieldValueOf(record, field, schema, today)} ctx={ctx} />;
   // A record with several choices is in several groups: its row's key tells them apart.
   const row = (record: Record, group = '') => (
     <div
@@ -1532,10 +1533,10 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
 
   const phoneRow = (record: Record, group = '') => (
     <button key={`${group}\u0000${record.id}`} type="button" className="prow" onClick={() => openRecord(record.id)}>
-      <b>{record.name}</b>
+      <b>{recordTitle(record)}</b>
       <small>
         {fields
-          .filter((f) => f.key !== NAME_KEY && !isEmpty(fieldValueOf(record, f, schema, today)))
+          .filter((f) => f.type !== 'name' && f.key !== TITLE.key && !isEmpty(fieldValueOf(record, f, schema, today)))
           .slice(0, 3)
           .map((f) => (
             <Cell key={f.key} field={f} value={fieldValueOf(record, f, schema, today)} ctx={ctx} />
@@ -1556,8 +1557,9 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
       <small>{group.records.length}</small>
     </button>
   );
-  const empty =
-    records.length === 0 ? <p className="cv-empty">{t('collection.empty')}</p> : shown.length === 0 ? <p className="cv-empty">{t('collection.noMatch')}</p> : null;
+  const empty = noFields ? (
+    <p className="cv-empty">{t('collection.noFields')}</p>
+  ) : records.length === 0 ? <p className="cv-empty">{t('collection.empty')}</p> : shown.length === 0 ? <p className="cv-empty">{t('collection.noMatch')}</p> : null;
   const more = rows.length < shown.length && (
     <button type="button" className="lmore" onClick={() => setFull(true)}>
       {t('collection.showMore', { count: shown.length - rows.length })}
@@ -1590,8 +1592,8 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   );
 
   const groupOptions: Option[] = [{ value: null, label: t('collection.noGroup'), chip: false }, ...schema.fields.filter((f) => GROUPABLE.includes(f.type)).map((f) => ({ value: f.key, label: f.label, chip: false }))];
-  const columnOptions: Option[] = allFields.filter((f) => f.key !== NAME_KEY).map((f) => ({ value: f.key, label: f.label, chip: false }));
-  const columnsPicked = fields.filter((f) => f.key !== NAME_KEY).map((f) => f.key);
+  const columnOptions: Option[] = allFields.slice(1).map((f) => ({ value: f.key, label: f.label, chip: false }));
+  const columnsPicked = fields.slice(1).map((f) => f.key);
   const viewMenu = (event: MouseEvent, v: View) =>
     actions.menu(event, [
       { label: t('collection.edit'), run: () => setFiltering(true) },
@@ -1625,7 +1627,8 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
             </button>
           ))}
         </span>
-        <span className="tools">
+        {/* With no fields there is nothing to filter, group or show as a column. */}
+        <span className="tools" hidden={noFields}>
           <button type="button" className={applied.length > 0 ? 'ghost on' : 'ghost'} onClick={() => setFiltering(true)}>
             {applied.length > 0 ? t('collection.filterCount', { count: applied.length }) : t('collection.filter')}
           </button>
@@ -1726,4 +1729,4 @@ function ColumnsPicker({ options, picked, sized, onChange, onFit }: {
 }
 
 /** What the delete question says about a record. */
-export const recordDeleteText = (record: Record) => t('delete.recordText', { name: quote(record.name) });
+export const recordDeleteText = (record: Record) => t('delete.recordText', { name: quote(recordTitle(record)) });

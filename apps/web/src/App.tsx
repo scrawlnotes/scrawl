@@ -6,6 +6,7 @@ import {
   cardBrief,
   cardRef,
   type CollectionTemplate,
+  recordTitle,
   collectionName,
   type Column,
   columnCards,
@@ -36,7 +37,7 @@ import {
   type TreeNode,
 } from '@scrawlnotes/core';
 import type { EditorStats } from '@scrawlnotes/editor';
-import { type DragEvent, type MouseEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { type DragEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   ConfirmDialog,
   ContextMenu,
@@ -163,6 +164,12 @@ export function App() {
     session.subscribe,
     session.getSnapshot,
   );
+  // A record open as a note is named in its tab by what the record is called; its file is named by its id.
+  const tabTitles = useMemo(() => {
+    const out = { ...titles };
+    for (const collection of Object.values(collections)) for (const record of collection.records) out[record.path] = recordTitle(record);
+    return out;
+  }, [titles, collections]);
   // The mode and the theme chosen on this device, and the shade the device itself is in, for System.
   const [mode, setMode] = useState<Mode>(loadMode);
   const [theme, setTheme] = useState(loadTheme);
@@ -693,7 +700,7 @@ export function App() {
             >
               <button type="button" className="tab-title" onClick={() => void session.open(id)}>
                 <Icon name={iconOf(id)} />
-                <span>{labelOf(id, titles, filters)}</span>
+                <span>{labelOf(id, tabTitles, filters)}</span>
               </button>
               {/* The dot marks a note that has not been filed yet; it gives way to the close button on hover. */}
               <button
@@ -793,7 +800,7 @@ export function App() {
           <section className="placeholder">
             {active ? (
               <>
-                <h1>{labelOf(active, titles, filters)}</h1>
+                <h1>{labelOf(active, tabTitles, filters)}</h1>
                 <p>{t('board.placeholder')}</p>
               </>
             ) : (

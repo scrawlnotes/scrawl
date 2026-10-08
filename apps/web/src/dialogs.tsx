@@ -1,4 +1,4 @@
-import { CODE_KEY, type CollectionTemplate, DUE_RULES, type FilterChoices, filterName, newSchema, type Phase, type PhasePatch, type Priority, type TaskFilter, type Template } from '@scrawlnotes/core';
+import { type CollectionTemplate, DUE_RULES, type FilterChoices, filterName, newSchema, type Phase, type PhasePatch, type Priority, type TaskFilter, type Template } from '@scrawlnotes/core';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type FormEvent,
@@ -332,13 +332,10 @@ function NewItemForm({ kind, folders, folder, onCreate, onBack, onClose }: {
                 onClick={() => setCollectionTemplate(item.template)}
               >
                 <b>{t(item.label)}</b>
-                {/* Every collection has a code; the card shows what sets the template apart. */}
                 <span className="flds">
-                  {newSchema(item.template)
-                    .fields.filter((field) => field.key !== CODE_KEY)
-                    .map((field) => (
-                      <i key={field.key}>{field.label.toLowerCase()}</i>
-                    ))}
+                  {newSchema(item.template).fields.map((field) => (
+                    <i key={field.key}>{field.label.toLowerCase()}</i>
+                  ))}
                 </span>
                 <small>{t(item.text)}</small>
               </button>
