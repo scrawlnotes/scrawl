@@ -109,6 +109,22 @@ p { margin: 0; max-width: 68ch; }
 .it.d1 { padding-left: 20px; } .it.d2 { padding-left: 32px; }
 .it.on { background: var(--m-sel); color: var(--m-fg); }
 .it .hash { color: var(--m-accent); }
+.it.fx { gap: 4px; min-height: 22px; padding-left: calc(4px + var(--d) * 16px); }
+.it .fchev { flex: none; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; color: var(--m-dim); }
+.it .fchev svg { width: 14px; height: 14px; stroke-width: 2.2; }
+.it .fchev.open svg { transform: rotate(90deg); }
+.it .fchev:hover { background: var(--m-sel); color: var(--m-fg); }
+.it .fpad, .it-new .fpad { flex: none; width: 18px; }
+.it.fx > svg { margin-right: 3px; }
+.tree.fxt .it:hover, .it.fx.menu { background: color-mix(in srgb, var(--m-fg) 10%, transparent); color: var(--m-fg); }
+.it.fx .more { display: none; margin-left: auto; padding: 0 4px; border-radius: 4px; color: var(--m-dim); letter-spacing: 1px; }
+.it.fx.fdir:hover .more, .it.fx.fdir.menu .more { display: block; }
+.it.fx.fdir:hover .ct, .it.fx.fdir.menu .ct { display: none; }
+.it-new { display: flex; align-items: center; gap: 4px; padding: 2px 8px 2px calc(4px + var(--d) * 16px); color: var(--m-dim); }
+.it-new svg { width: 13px; height: 13px; flex: none; margin-right: 3px; }
+.it-new .in { flex: 1; min-width: 0; padding: 1px 6px; border: 1px solid var(--m-accent); border-radius: 4px; background: var(--m-bg); color: var(--m-fg); }
+.it-new .st-btn { padding: 1px 8px; font-size: 12px; }
+.it-new .x { color: var(--m-faint); font-size: 15px; line-height: 1; padding: 0 2px; }
 .cards, .cards-head { display: none; }
 .dir-c .side { width: 268px; padding: 12px 10px; }
 .dir-c .seg, .dir-c .tree { display: none; }
@@ -1215,6 +1231,8 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-colcsvmenu" data-aview="colcsvmenu">CSV menu</button>
         <button type="button" id="a-colcsv" data-aview="colcsv">CSV import</button>
         <button type="button" id="a-colmissing" data-aview="colmissing">Record missing</button>
+        <button type="button" id="a-folders" data-aview="folders">Folder menu</button>
+        <button type="button" id="a-subfolder" data-aview="subfolder">Subfolder</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -1439,6 +1457,45 @@ p { margin: 0; max-width: 68ch; }
       '<div class="side-foot"><div class="foot-row">' + row({ icon: 'trash', label: 'Trash', ct: 8, go: 'trash', on: view === 'trash' }) +
       '<span class="cog' + (view.indexOf('settings') === 0 ? ' on' : '') + '" data-go="settings" title="Settings">' + ICON.settings + '</span></div></div>';
   }
+  // The tree with folders that read as folders: a chevron big enough to hit, which turns as the
+  // folder opens, and a folder icon, so that a folder and a file never look alike; each level one
+  // step further in. Every row gets a fuller background under the pointer, as in Claude Code, and
+  // a folder's row its ··· button for its menu; the row a menu was opened on keeps them while the
+  // menu is open, and the menu opens under it, so the row is never covered. A
+  // folder's menu makes a folder inside it: a name row under it, with its Add button.
+  ICON.chevr = '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
+  function folderTree(view) {
+    function frow(o) {
+      return '<div class="it fx' + (o.folder ? ' fdir' : '') + (o.on ? ' on' : '') + (o.menu ? ' menu' : '') + '" style="--d: ' + (o.d || 0) + '">' +
+        (o.folder ? '<span class="fchev' + (o.open ? ' open' : '') + '">' + ICON.chevr + '</span>' + ICON.folder : '<span class="fpad"></span>' + ICON[o.icon]) +
+        '<span>' + o.label + '</span>' + (o.ct ? '<span class="ct">' + o.ct + '</span>' : '') + (o.folder ? '<span class="more">···</span>' : '') + '</div>';
+    }
+    var adding = view === 'subfolder';
+    return '<div class="tree fxt">' +
+      row({ label: 'Today', ct: 3 }) +
+      row({ label: 'Upcoming', ct: 9 }) +
+      row({ label: 'Inbox', ct: 4 }) +
+      row({ d: 1, icon: 'tasks', label: 'Tasks', ct: 2 }) +
+      '<div class="grp">Folders</div>' +
+      frow({ folder: true, open: true, label: 'Scrawl', menu: !adding }) +
+      (adding ? '<div class="it-new" style="--d: 1"><span class="fpad"></span>' + ICON.folder + '<span class="in">Clients<span class="caret"></span></span><span class="st-btn go">Add</span><span class="x" title="Cancel">×</span></div>' : '') +
+      frow({ d: 1, icon: 'tasks', label: 'Tasks', ct: 7 }) +
+      frow({ d: 1, icon: 'board', label: 'Roadmap', ct: 13 }) +
+      frow({ d: 1, icon: 'collection', label: 'Companies', ct: 24 }) +
+      frow({ d: 1, folder: true, open: adding, label: 'meetings', ct: adding ? 0 : 3 }) +
+      (adding ? frow({ d: 2, icon: 'notes', label: 'Standup 10-04' }) + frow({ d: 2, icon: 'notes', label: 'Retro 10-01' }) + frow({ d: 2, icon: 'notes', label: 'Planning 09-28' }) : '') +
+      frow({ d: 1, icon: 'notes', label: 'Sync engine: open questions', on: true }) +
+      frow({ d: 1, icon: 'notes', label: 'Live preview spike' }) +
+      frow({ d: 1, icon: 'notes', label: 'Vault layout' }) +
+      frow({ folder: true, label: 'Client portal', ct: 11 }) +
+      frow({ folder: true, label: 'Home', ct: 4 }) +
+      frow({ folder: true, label: 'Snippets', ct: 23 }) +
+      frow({ folder: true, label: 'Reading', ct: 8 }) +
+      '</div>' +
+      '<div class="side-foot"><div class="foot-row">' + row({ icon: 'trash', label: 'Trash', ct: 8 }) +
+      '<span class="cog" title="Settings">' + ICON.settings + '</span></div></div>';
+  }
+  var FOLDER_MENU = '<div class="cmenu under"><span>New note here</span><span class="hot">New folder here</span><i></i><span>Delete folder</span></div>';
   function task(p, title, meta) {
     return '<div class="task"><span class="cb ' + p + '"></span><div><div class="tt">' + title + '</div><div class="meta">' + meta + '</div></div></div>';
   }
@@ -2945,7 +3002,9 @@ p { margin: 0; max-width: 68ch; }
     filterfields: '<span>2 cards</span>',
     colcsvmenu: '<span>24 records</span><span>Sorted by last contact</span>',
     colcsv: '<span>24 records</span><span>Sorted by last contact</span>',
-    colmissing: '<span>24 records</span><span>Acme Corp</span>'
+    colmissing: '<span>24 records</span><span>Acme Corp</span>',
+    folders: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
+    subfolder: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
   };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
@@ -2964,7 +3023,7 @@ p { margin: 0; max-width: 68ch; }
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
       (view === 'copy' ? tab('notes', 'Site visit, Oct 6', 'copy', true) : '') +
       (view.indexOf('item') === 0 ? tab('notes', 'Client call, Oct 6', view, true) : '') +
-      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask' || view.indexOf('settings') === 0 || view.indexOf('sync') === 0 || view === 'keysnew' || view === 'colnew') +
+      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask' || view.indexOf('settings') === 0 || view.indexOf('sync') === 0 || view === 'keysnew' || view === 'colnew' || view === 'folders' || view === 'subfolder') +
       (view.indexOf('keys') === 0 && view !== 'keysnew' ? tab('key', 'Production · Scrawl', 'keys', true) : '') +
       (view.indexOf('col') === 0 && view !== 'colnew' ? tab('collection', view === 'coleq' ? 'Equipment · Scrawl' : 'Companies · Scrawl', 'col', true) : '') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
@@ -2975,13 +3034,13 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull, crm: dealsBoard(), crmcard: dealsBoard('DEA-12'), crmlist: dealsList(), crmfields: dealsBoard(), crmnew: TASKS, trec: taskRecordView(), colrectasks: colView(true), filterfields: filterView(), colcsvmenu: colView(false), colcsv: colView(false), colmissing: colView(true) }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull, crm: dealsBoard(), crmcard: dealsBoard('DEA-12'), crmlist: dealsList(), crmfields: dealsBoard(), crmnew: TASKS, trec: taskRecordView(), colrectasks: colView(true), filterfields: filterView(), colcsvmenu: colView(false), colcsv: colView(false), colmissing: colView(true), folders: edFull, subfolder: edFull }[view]);
     section.querySelector('.mock').innerHTML =
-      '<aside class="side">' + projectTree(view) + '</aside>' +
+      '<aside class="side">' + (view === 'folders' || view === 'subfolder' ? folderTree(view) : projectTree(view)) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + syncStatus(view === 'note', view === 'syncpanel' ? 'syncing' : view === 'syncdone' ? 'open' : null) + '</div></section>' +
       (view === 'syncpanel' ? syncPanel('syncing') : view === 'syncdone' ? syncPanel('done') : '') +
-      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'crmcard' ? dealCardModal() : '') + (view === 'crmfields' ? boardFields() : '') + (view === 'crmnew' ? newDealsBoard() : '') + (view === 'colrectasks' ? recordTasksModal() : '') + (view === 'filterfields' ? filterFields() : '') + (view === 'colcsvmenu' ? csvMenu() : '') + (view === 'colcsv' ? csvImport() : '') + (view === 'colmissing' ? missingModal() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
+      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'crmcard' ? dealCardModal() : '') + (view === 'crmfields' ? boardFields() : '') + (view === 'crmnew' ? newDealsBoard() : '') + (view === 'colrectasks' ? recordTasksModal() : '') + (view === 'filterfields' ? filterFields() : '') + (view === 'colcsvmenu' ? csvMenu() : '') + (view === 'colcsv' ? csvImport() : '') + (view === 'colmissing' ? missingModal() : '') + (view === 'folders' ? FOLDER_MENU : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });
@@ -2993,6 +3052,15 @@ p { margin: 0; max-width: 68ch; }
       var at = field.getBoundingClientRect();
       menu.style.left = (at.left - base.left) + 'px';
       menu.style.top = (at.bottom - base.top + 4) + 'px';
+    });
+    // A row's menu opens under the row it was opened on, beside where it was clicked, so the row stays in sight.
+    section.querySelectorAll('.cmenu.under').forEach(function (menu) {
+      var marked = section.querySelector('.it.menu');
+      if (!marked || !menu.offsetParent) return;
+      var base = menu.offsetParent.getBoundingClientRect();
+      var at = marked.getBoundingClientRect();
+      menu.style.left = (at.left - base.left + 56) + 'px';
+      menu.style.top = (at.bottom - base.top + 2) + 'px';
     });
     // A phase chip's list opens under the chip.
     section.querySelectorAll('.phmenu[data-under]').forEach(function (menu) {
