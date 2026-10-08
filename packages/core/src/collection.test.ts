@@ -36,6 +36,8 @@ import {
   missingFields,
   newSchema,
   parseRecord,
+  problemText,
+  recordProblems,
   parseSchema,
   readValue,
   type Record,
@@ -491,6 +493,29 @@ describe('formulas, conditions, groups and sums', () => {
     expect(fieldValueOf(records[0]!, schema.fields.find((f) => f.key === 'total')!, schema, today)).toBe(31.5);
     expect(valueText(31.5)).toBe('31.5');
     expect(valueText(1 / 3)).toBe('0.33');
+  });
+
+  it('marks what does not fit the schema, and keeps it in the file', () => {
+    const strict: Schema = { ...schema, fields: schema.fields.map((f) => (f.key === 'qty' || f.key === 'last_contact' ? { ...f, required: true } : f)) };
+    const text = '---\nid: abcdefghij\nname: Acme\nqty: lots\nstatus: archived\npaid: maybe\n---\n';
+    const record = parseRecord(text, strict, 'C/abcdefghij.md');
+    expect(recordProblems(record, strict)).toEqual([
+      { field: 'qty', kind: 'mismatch' },
+      { field: 'last_contact', kind: 'missing' },
+      { field: 'status', kind: 'choice' },
+      { field: 'paid', kind: 'mismatch' },
+    ]);
+    const field = (key: string) => strict.fields.find((f) => f.key === key)!;
+    expect(problemText({ field: 'qty', kind: 'mismatch' }, field('qty'), record)).toBe('The file has “lots” here, which a number field cannot hold.');
+    expect(problemText({ field: 'last_contact', kind: 'missing' }, field('last_contact'), record)).toBe('Last contact is required.');
+    expect(problemText({ field: 'status', kind: 'choice' }, field('status'), record)).toBe('“archived” is not one of the choices of Status.');
+    // What the file had stays in it until the field is filled in.
+    expect(serializeRecord(record, strict)).toContain('qty: lots');
+    expect(serializeRecord({ ...record, values: { ...record.values, qty: 4 } }, strict)).toContain('qty: 4');
+    expect(recordProblems({ values: { ...record.values, qty: 4 }, extra: record.extra }, strict)[0]).toEqual({ field: 'last_contact', kind: 'missing' });
+    // A record with no name, made by an agent, is missing it; a file named by a person is named after it.
+    expect(recordProblems(parseRecord('---\nid: x\n---\n', schema, 'C/abcdefghij.md'), schema)).toEqual([{ field: 'name', kind: 'missing' }]);
+    expect(recordProblems(parseRecord('---\nid: x\n---\n', schema, 'C/Acme.md'), schema)).toEqual([]);
   });
 
   it('says what is wrong with a formula being typed', () => {

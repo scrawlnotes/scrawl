@@ -33,8 +33,12 @@ import {
   optionColor,
   opsFor,
   opTakesValue,
+  problemText,
   putView,
+  rawText,
   recordLabel,
+  type RecordProblem,
+  recordProblems,
   recordTitle,
   type RecordGroup,
   removeView,
@@ -247,6 +251,28 @@ function Cell({ field, value, ctx }: { field: Field; value: FieldValue | undefin
   }
   const kind = field.type === 'name' ? 'ct name' : field.type === 'code' ? 'ct code' : field.type === 'date' ? 'ct dt' : 'ct';
   return <span className={field.type === 'number' || field.type === 'formula' ? 'num' : kind}>{text}</span>;
+}
+
+/**
+ * A value that does not fit its field, as the table shows it, in the accent, saying why when
+ * pointed at: "required" where a required field is empty, the text the file has where it holds
+ * what the field cannot, a choice that is not one of the field's with a ring.
+ */
+function Flagged({ problem, field, record }: { problem: RecordProblem; field: Field; record: Record }) {
+  const why = problemText(problem, field, record);
+  if (problem.kind === 'choice') {
+    const value = String(record.values[field.key]);
+    return (
+      <span className="flagged" title={why}>
+        <Chip text={value} color={optionColor(field, value)} />
+      </span>
+    );
+  }
+  return (
+    <span className="ct bad" title={why}>
+      {problem.kind === 'missing' ? t('collection.required').toLowerCase() : rawText(record.extra[field.key])}
+    </span>
+  );
 }
 
 // ---------- choices ----------
@@ -728,6 +754,8 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
   const panel = useRef<HTMLElement>(null);
   const isNew = record === null;
   const original = useMemo(() => draftOf(record, values), [record, values]);
+  // What does not fit the schema, as the form holds it now: a record's, not a new one's, which is checked on Create.
+  const problems = record ? recordProblems({ values: draft.values, extra: record.extra }, schema) : [];
   const dirty = differs(draft, original);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
 
@@ -813,8 +841,9 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
         </div>
       );
     }
+    const problem = problems.find((p) => p.field === field.key);
     return (
-      <div key={`${key}-${index}`} className="prop">
+      <div key={`${key}-${index}`} className={problem ? 'prop bad' : 'prop'}>
         <label className="pl" htmlFor={`field-${field.key}`}>
           {field.label}
           {(field.required || field.type === 'name') && <i title={t('collection.required')}>*</i>}
@@ -828,6 +857,7 @@ function RecordDialog({ collection, record, values, today, actions, onClose }: {
             onChange={(next) => setValue(field.key, next)}
             onEnter={field.type === 'name' ? () => void save() : undefined}
           />
+          {problem && record && <p className="pbad">{problemText(problem, field, { values: draft.values, extra: record.extra })}</p>}
         </div>
       </div>
     );
@@ -1123,6 +1153,8 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const applied = state.conditions.filter(isComplete);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
   const noFields = schema.fields.length === 0;
+  // What does not fit the schema in each record, by its id; a record with none is not in it.
+  const problems = useMemo(() => new Map(records.map((r) => [r.id, recordProblems(r, schema)] as const).filter(([, found]) => found.length > 0)), [records, schema]);
 
   // What the view says is changed on the view itself; the plain table's look is kept on this device.
   const change = (patch: TablePatch) => {
@@ -1145,9 +1177,10 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   useEffect(() => {
     onStatus([
       applied.length > 0 || query ? t('collection.matching', { count: shown.length }) : t('count.records', { count: records.length }),
+      ...(problems.size > 0 ? [t('collection.toCheck', { count: problems.size })] : []),
       t('collection.sortedBy', { field: sortField?.label ?? state.sort.key }),
     ]);
-  }, [records.length, shown.length, applied.length, query, sortField, state.sort.key]);
+  }, [records.length, shown.length, applied.length, query, sortField, state.sort.key, problems.size]);
   useEffect(() => () => onStatus(null), []);
 
   const opened = open?.kind === 'record' ? records.find((r) => r.id === open.id) : undefined;
@@ -1225,8 +1258,18 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
       </div>
     );
   };
-  const cellOf = (record: Record, field: Field) =>
-    field.key === TITLE.key ? <span className="ct name">{recordTitle(record)}</span> : <Cell field={field} value={fieldValueOf(record, field, schema, today)} ctx={ctx} />;
+  const cellOf = (record: Record, field: Field) => {
+    if (field.key === TITLE.key) return <span className="ct name">{recordTitle(record)}</span>;
+    const problem = problems.get(record.id)?.find((p) => p.field === field.key);
+    return problem ? <Flagged problem={problem} field={field} record={record} /> : <Cell field={field} value={fieldValueOf(record, field, schema, today)} ctx={ctx} />;
+  };
+  // A record with something to check has a dot at the start of its row, which stays when the table scrolls.
+  const flag = (record: Record) => {
+    const found = problems.get(record.id);
+    if (!found) return null;
+    const why = found.map((p) => problemText(p, fieldsByKey.get(p.field)!, record)).join(' ');
+    return <span className="flag" title={t('collection.problems', { problems: why })} aria-label={t('collection.problems', { problems: why })} />;
+  };
   // A record with several choices is in several groups: its row's key tells them apart.
   const row = (record: Record, group = '') => (
     <div
@@ -1244,6 +1287,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
     >
       {fields.map((field, i) => (
         <div key={field.key} role="cell" className={cellClass(field, i)}>
+          {i === 0 && flag(record)}
           {cellOf(record, field)}
         </div>
       ))}
@@ -1271,7 +1315,10 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
 
   const phoneRow = (record: Record, group = '') => (
     <button key={`${group}\u0000${record.id}`} type="button" className="prow" onClick={() => openRecord(record.id)}>
-      <b>{recordTitle(record)}</b>
+      <b>
+        {recordTitle(record)}
+        {flag(record)}
+      </b>
       <small>
         {fields
           .filter((f) => f.type !== 'name' && f.key !== TITLE.key && !isEmpty(fieldValueOf(record, f, schema, today)))

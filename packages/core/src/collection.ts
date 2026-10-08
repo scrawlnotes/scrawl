@@ -1291,5 +1291,43 @@ export function missingFields(values: Record['values'], schema: Schema): string[
     .map((f) => f.key);
 }
 
+/**
+ * What does not fit the schema in a record, by field: a name or a required field left empty
+ * (`missing`), a value in the file its field cannot hold, kept in the file as it was (`mismatch`),
+ * a select's value that is not one of its choices (`choice`). Such a record is not refused, since
+ * its file may have come from elsewhere; it is marked.
+ */
+export interface RecordProblem {
+  field: string;
+  kind: 'missing' | 'mismatch' | 'choice';
+}
+
+export function recordProblems(record: Pick<Record, 'values' | 'extra'>, schema: Schema): RecordProblem[] {
+  const problems: RecordProblem[] = [];
+  for (const field of schema.fields) {
+    if (field.type === 'formula') continue;
+    const value = record.values[field.key];
+    if (isEmpty(value) && field.key in record.extra) problems.push({ field: field.key, kind: 'mismatch' });
+    else if ((field.type === 'name' || field.required) && (typeof value === 'string' ? !value.trim() : isEmpty(value))) problems.push({ field: field.key, kind: 'missing' });
+    else if (field.type === 'select' && typeof value === 'string' && value && !(field.options ?? []).includes(value)) problems.push({ field: field.key, kind: 'choice' });
+  }
+  return problems;
+}
+
+/** What is wrong with a field of a record, said for the one looking at it. */
+export function problemText(problem: RecordProblem, field: Field, record: Pick<Record, 'values' | 'extra'>): string {
+  if (problem.kind === 'missing') return field.type === 'name' ? t('collection.nameNeeded') : t('collection.problem.missing', { field: field.label });
+  if (problem.kind === 'choice') return t('collection.problem.choice', { value: String(record.values[field.key]), field: field.label });
+  return t('collection.problem.mismatch', { value: rawText(record.extra[field.key]), type: t(`fields.type.${field.type}`).toLowerCase() });
+}
+
+/** A value of the file as it was written, as text: a list joined with commas, anything else as YAML would show it. */
+export function rawText(raw: unknown): string {
+  if (Array.isArray(raw)) return raw.map(rawText).join(', ');
+  if (raw instanceof Date) return raw.toISOString().slice(0, 10);
+  if (isRecord(raw)) return JSON.stringify(raw);
+  return String(raw);
+}
+
 /** What a record is called on its screen and in a question about it: its name, else its code, else "Untitled". */
 export const recordTitle = (record: Pick<Record, 'name' | 'code'>) => record.name || record.code || t('collection.untitled');

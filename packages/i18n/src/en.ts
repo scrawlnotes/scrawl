@@ -493,6 +493,11 @@ export const en = {
   'delete.viewText': '{name} will be deleted. The records stay.',
   'collection.no': 'no',
   'collection.fields': 'Fields',
+  'collection.problem.missing': '{field} is required.',
+  'collection.problem.choice': '“{value}” is not one of the choices of {field}.',
+  'collection.problem.mismatch': 'The file has “{value}” here, which a {type} field cannot hold.',
+  'collection.problems': 'To check: {problems}',
+  'collection.toCheck': { one: '{count} to check', other: '{count} to check' },
 
   // a collection's Fields window
   'fields.title': 'Fields',
