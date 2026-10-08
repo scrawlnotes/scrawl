@@ -988,6 +988,50 @@ p { margin: 0; max-width: 68ch; }
 .ftext i { padding-right: 12px; font-style: normal; color: var(--m-faint); text-align: right; }
 .ftext .k { color: var(--m-dim); }
 .fdlg .rm-foot { border-top: 1px solid var(--m-line); }
+/* A board's own fields: a deal card's company and value on its face, a column's sum in its head. */
+.board.deals .colm h3 .sum { margin-left: 2px; font-weight: 400; color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.board.deals .colm h3 small { margin-left: 0; }
+.board.deals .colm h3 .kind + * { margin-right: auto; }
+.board.deals .colm h3 { gap: 6px; }
+.board.deals .kc .meta { flex-wrap: nowrap; }
+.kc .co { min-width: 0; color: var(--m-dim); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.kc .val { margin-left: auto; color: var(--m-fg); font-variant-numeric: tabular-nums; }
+.kc .val + .who { margin-left: 6px; }
+.kc.done .co, .kc.done .val { color: var(--m-faint); }
+.cmod { display: flex; flex-direction: column; width: 880px; height: 94%; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-bg); box-shadow: 0 12px 32px rgb(0 0 0 / .4); font-size: 13px; overflow: hidden; }
+.cmod .cp-head { padding: 12px 20px; }
+.cm-body { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 24px; flex: 1; min-height: 0; padding: 16px 20px 16px; overflow: hidden; }
+.cm-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cm-main .cp-title { font-size: 17px; }
+.cm-side { display: flex; flex-direction: column; gap: 3px; }
+.cm-side .fl { margin-top: 6px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.cm-side .fl:first-child { margin-top: 0; }
+.cm-side .in { display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 2px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-side); color: var(--m-fg); font-size: 12.5px; box-sizing: border-box; }
+.cm-side .in.ph { color: var(--m-faint); }
+.cm-side .in.num { font-variant-numeric: tabular-nums; }
+.cm-side .in .dd { margin-left: auto; color: var(--m-faint); font-size: 9px; }
+.cm-side .in .kind { width: 7px; height: 7px; border-radius: 2px; background: var(--m-p3); }
+.cm-side .in .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pc, var(--m-faint)); }
+.cm-side .in .who { width: 16px; height: 16px; border-radius: 50%; background: var(--m-sel); font: 600 9px/16px var(--m-ui); text-align: center; }
+.cm-side .sep { margin: 10px 0 0; border-top: 1px solid var(--m-line); }
+.cm-side .lnkc { display: inline-flex; align-items: baseline; gap: 6px; padding: 0 8px; border-radius: 10px; background: var(--m-sel); font-size: 12px; line-height: 19px; }
+.cm-side .lnkc small { color: var(--m-dim); font: 10.5px var(--m-mono); }
+.lrow.deal { grid-template-columns: 58px minmax(0, 1fr) 96px 132px 76px 74px 30px; }
+.lrow .co { color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrow .num { text-align: right; font-variant-numeric: tabular-nums; }
+.lrow.done .co, .lrow.done .num { color: var(--m-faint); }
+.lrow.sum { border-bottom: 0; color: var(--m-dim); font-weight: 500; }
+.lrow .st .kind.active { background: var(--m-p3); } .lrow .st .kind.done { background: #5cb87a; } .lrow .st .kind.dropped { background: var(--m-p1); }
+.fdlg.narrow { width: 560px; height: auto; max-height: 92%; }
+.fdlg.narrow .fd-canvas { flex: none; }
+.fbox-h { padding: 0 2px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.fbuilt { display: flex; flex-wrap: wrap; gap: 5px 6px; margin-top: -4px; }
+.fbuilt span { padding: 2px 9px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-faint); font-size: 12px; }
+.fe-row > .in.sel { flex: 1; min-width: 0; }
+.mdlg .links { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 6px 10px; align-items: center; font-size: 12.5px; color: var(--m-dim); }
+.mdlg .links .field { display: flex; align-items: center; padding: 5px 9px; }
+.mdlg .field .dd { margin-left: auto; color: var(--m-faint); font-size: 10px; }
+.tpl .t.on .cols i:not([class]) { background: color-mix(in srgb, var(--m-faint) 35%, var(--m-line)); }
 .nmod { display: flex; flex-direction: column; width: 440px; max-height: 92%; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-bg); box-shadow: 0 12px 32px rgb(0 0 0 / .4); font-size: 13px; }
 .nmod .cp-head { padding: 12px 18px; }
 .nmod .cp-head svg { width: 13px; height: 13px; color: var(--m-faint); }
@@ -1101,6 +1145,11 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-colftext" data-aview="colftext">Fields text</button>
         <button type="button" id="a-coladd" data-aview="coladd">New record</button>
         <button type="button" id="a-colphone" data-aview="colphone">Collection phone</button>
+        <button type="button" id="a-crm" data-aview="crm">Deals</button>
+        <button type="button" id="a-crmcard" data-aview="crmcard">Deals card</button>
+        <button type="button" id="a-crmlist" data-aview="crmlist">Deals list</button>
+        <button type="button" id="a-crmfields" data-aview="crmfields">Deals fields</button>
+        <button type="button" id="a-crmnew" data-aview="crmnew">Deals new</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -1977,6 +2026,126 @@ p { margin: 0; max-width: 68ch; }
       '<div class="rm-foot"><span class="hint">Saved in Companies/_collection.json · an agent can edit it too</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span></div>' +
       '</div></div>';
   }
+  // ---------- a board's own fields: Deals, made from the CRM template ----------
+  // A board can have fields of its own, of the same types as a collection's but Name and Code
+  // (a card has its title and key): a deal's company and contact link to records, its value is a
+  // number, its next step a day. They come with the CRM template and are changed in the board's
+  // Fields window. A card shows them under its own fields; its face shows the company it links to
+  // and its value; a column's head adds up the values in it; the list has them as columns, the
+  // values summed under it.
+  var DEALS = [
+    { key: 'DEA-17', title: 'Intro via Mina', co: 'Pied Piper', col: 'Lead' },
+    { key: 'DEA-16', title: 'Logistics portal', co: 'Stark Logistics', col: 'Lead' },
+    { key: 'DEA-15', title: 'Second team', co: 'Hooli', val: '9,600', col: 'Contacted', who: 'M', next: 'Oct 12' },
+    { key: 'DEA-14', title: 'Ops dashboard', co: 'Initech', val: '4,800', col: 'Meeting', who: 'K', next: 'Today', today: true },
+    { key: 'DEA-13', title: 'Agency bundle', co: 'Dunder Mifflin', val: '6,000', col: 'Meeting', who: 'K', next: 'Oct 15' },
+    { key: 'DEA-12', title: 'Pilot for one portal', co: 'Acme Corp', val: '12,000', col: 'Proposal', p: 'p2', who: 'K', next: 'Oct 14' },
+    { key: 'DEA-9', title: 'Annual plan, 40 seats', co: 'Globex', val: '24,000', col: 'Proposal', who: 'M', next: 'Oct 10' },
+    { key: 'DEA-8', title: 'Client logins', co: 'Umbrella Health', val: '18,000', col: 'Won', done: true },
+    { key: 'DEA-6', title: 'Spreadsheet export', co: 'Wonka Foods', val: '3,000', col: 'Lost', done: true }
+  ];
+  var DEAL_COLUMNS = [['backlog', 'Lead', ''], ['active', 'Contacted', '9,600'], ['active', 'Meeting', '10,800'], ['active', 'Proposal', '36,000'], ['done', 'Won', '18,000'], ['dropped', 'Lost', '3,000']];
+  function dealsHead(view) {
+    return '<div class="th"><b>Deals</b>' +
+      '<span class="vsw"><span' + (view === 'list' ? '' : ' class="on"') + '>Board</span><span' + (view === 'list' ? ' class="on"' : '') + '>List</span></span>' +
+      '<button type="button" class="ghost">Fields</button><button type="button" class="ghost">Board…</button><button type="button" class="add">Add card</button></div>';
+  }
+  function dealCard(d, sel) {
+    return kc({ key: d.key, p: d.p, title: d.title, done: d.done, on: sel === d.key,
+      meta: '<span class="co">' + d.co + '</span>' + (d.val ? '<span class="val">' + d.val + '</span>' : ''), who: d.who });
+  }
+  function dealsBoard(sel) {
+    return '<div class="bv">' + dealsHead('board') + '<div class="bwrap"><div class="board deals">' +
+      DEAL_COLUMNS.map(function (c) {
+        var cards = DEALS.filter(function (d) { return d.col === c[1]; });
+        return '<div class="colm"><h3><i class="kind ' + c[0] + '"></i>' + c[1] + '<small>' + cards.length + '</small>' + (c[2] ? '<span class="sum">' + c[2] + '</span>' : '') + '<span class="more">···</span></h3>' +
+          cards.map(function (d) { return dealCard(d, sel); }).join('') + '<div class="qa">+ Add card</div></div>';
+      }).join('') + '</div></div></div>';
+  }
+  /** The card as it opens, over the board: its own fields at the right, the board's under them, each a box that saves as it changes. A link opens its record over the card. */
+  function dealCardModal() {
+    function f(label, value, o) { o = o || {}; return '<span class="fl">' + label + '</span><span class="in' + (o.ph ? ' ph' : '') + (o.num ? ' num' : '') + '">' + value + (o.dd ? '<span class="dd">▾</span>' : '') + '</span>'; }
+    function ev(actor, what, t) { return '<div class="tl-ev"><b>' + actor + '</b>' + what + '<span class="t">' + t + '</span></div>'; }
+    return '<div class="ovl center"><div class="cmod">' +
+      '<div class="cp-head"><span class="key">DEA-12</span><span>Deals · Scrawl</span><span class="more" style="margin-left: auto">···</span><span class="x" style="margin-left: 4px">×</span></div>' +
+      '<div class="cm-body"><div class="cm-main">' +
+        '<div class="cp-title">Pilot for one portal</div>' +
+        '<div class="cp-sec">Description</div>' +
+        '<div class="cp-desc"><div class="ln">One client portal for three months, then the other two. They want the CSV export and a login per client.</div><div class="ln">&nbsp;</div>' +
+          '<div class="ln"><span class="chk on"></span><span class="done">Send the offer with the export add-on</span></div><div class="ln"><span class="chk"></span>Call Lena after they read it</div></div>' +
+        '<div class="cp-sec">Timeline</div><div class="tlog">' + ev('Kaan', 'Lead → Contacted', 'Sep 12') + ev('Kaan', 'Meeting → Proposal', 'Oct 2') + '<div class="cp-new">Write a comment…</div></div>' +
+      '</div><div class="cm-side">' +
+        f('Status', '<i class="kind active"></i>Proposal', { dd: true }) +
+        f('Priority', '<i class="dot p2"></i>p2', { dd: true }) +
+        f('Labels', 'Add…', { ph: true }) +
+        f('Due', 'mm/dd/yyyy', { ph: true }) +
+        f('Assignee', '<span class="who">K</span>Kaan') +
+        '<span class="sep"></span>' +
+        f('Company', '<span class="lnkc">Acme Corp<small>CUS-0012</small></span>') +
+        f('Contact', '<span class="lnkc">Lena Hartmann</span>') +
+        f('Value', '12,000', { num: true }) +
+        f('Next step', 'Oct 14') +
+      '</div></div></div></div>';
+  }
+  function dealRow(d) {
+    return '<div class="lrow deal' + (d.done ? ' done' : '') + '"><span class="key">' + d.key + '</span><span class="tt">' + d.title + '</span>' +
+      '<span class="st"><i class="kind ' + (d.col === 'Lead' ? 'backlog' : d.col === 'Won' ? 'done' : d.col === 'Lost' ? 'dropped' : 'active') + '"></i>' + d.col + '</span>' +
+      '<span class="co">' + d.co + '</span><span class="num">' + (d.val || '') + '</span>' +
+      '<span class="due' + (d.today ? ' today' : '') + '">' + (d.next || '') + '</span>' +
+      '<span>' + (d.who ? who(d.who) : '') + '</span></div>';
+  }
+  function dealsList() {
+    return '<div class="bv">' + dealsHead('list') + '<div class="blist">' +
+      '<div class="lrow deal head"><span>Key</span><span>Title</span><span>Status</span><span>Company</span><span class="num sorted">Value ↓</span><span>Next step</span><span>Who</span></div>' +
+      DEALS.slice().sort(function (a, b) { return Number((b.val || '0').replace(',', '')) - Number((a.val || '0').replace(',', '')); }).map(dealRow).join('') +
+      '<div class="lrow deal sum"><span></span><span>Sum</span><span></span><span></span><span class="num">77,400</span><span></span><span></span></div>' +
+      '</div></div>';
+  }
+  /**
+   * The board's Fields window: what every card has, then the board's own fields, one opened where
+   * it is with the same parts as a collection's field. There is no layout to draw, so it is one
+   * narrow list; no Text view either, since the board's file holds its cards too.
+   */
+  function boardFields() {
+    var grip = '<span class="grip"><svg viewBox="0 0 9 12"><circle cx="2" cy="2" r="1.3"/><circle cx="7" cy="2" r="1.3"/><circle cx="2" cy="6" r="1.3"/><circle cx="7" cy="6" r="1.3"/><circle cx="2" cy="10" r="1.3"/><circle cx="7" cy="10" r="1.3"/></svg></span>';
+    function fld(label, type) { return '<div class="fitem">' + grip + '<span class="fl">' + label + '</span><small>' + type + '</small></div>'; }
+    return '<div class="ovl center"><div class="fdlg narrow">' +
+      '<div class="cp-head">' + ICON.board + '<b>Fields</b><span>Deals · Scrawl</span><span class="x" style="margin-left: auto">×</span></div>' +
+      '<div class="fd-canvas">' +
+        '<div class="fd-say">A card\'s own fields, then this board\'s. Click one to change it; drag it to order; + Add field puts a new one at the end.</div>' +
+        '<div class="fbox-h">On every card</div>' +
+        '<div class="fbuilt"><span>Status</span><span>Priority</span><span>Labels</span><span>Due</span><span>Assignee</span></div>' +
+        '<div class="fbox-h">This board</div>' +
+        '<div class="fsec">' +
+          '<div class="fitem edit">' + grip + '<div class="fe">' +
+            '<div class="fe-top"><span class="in">Company</span><span class="ftype"><span class="in sel">Link<span class="dd">▾</span></span></span><span class="fdel">' + ICON.trash + '</span></div>' +
+            '<div class="fe-row"><label class="fcheck"><span class="cb"></span>Required</label><span class="fkey">company</span></div>' +
+            '<div class="fe-row"><span class="fe-name">Links to</span><span class="in sel">Companies · Scrawl<span class="dd">▾</span></span><label class="fcheck"><span class="cb"></span>Holds several</label></div>' +
+          '</div></div>' +
+          fld('Contact', 'link · People') + fld('Value', 'number') + fld('Next step', 'date') +
+          '<div class="fadd">+ Add field</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="rm-foot"><span class="hint">Saved in Deals.board.json · an agent can edit it too</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span></div>' +
+      '</div></div>';
+  }
+  /** The create window with the CRM template: its columns and fields, and the collections its links point at, those of the folder by default. */
+  function newDealsBoard() {
+    function t(name, cols, note, on) { return '<div class="t' + (on ? ' on' : '') + '"><b>' + name + '</b><div class="cols">' + cols.map(function (c) { return '<i' + (c ? ' class="' + c + '"' : '') + '></i>'; }).join('') + '</div><small>' + note + '</small></div>'; }
+    return '<div class="ovl"><div class="mdlg" style="width: 600px"><h3>Create</h3>' +
+      '<div class="steps"><span>Board</span><span class="on">Name and place</span></div>' +
+      '<div class="label">Name</div><div class="field filled">Deals<span class="caret"></span></div>' +
+      '<div class="label" style="margin-top: 10px">Folder</div><div class="field filled">Scrawl</div>' +
+      '<div class="label" style="margin-top: 10px">Template</div><div class="tpl">' +
+        t('Software', ['', 'active', 'active', 'review', 'done'], 'Backlog, Todo, Doing, Review, Done · phases on') +
+        t('Simple', ['active', 'active', 'done'], 'Todo, Doing, Done · phases off') +
+        t('Issue tracking', ['', 'active', 'active', 'done', 'dropped', 'dropped'], 'Backlog, Todo, In Progress, Done, Canceled, Duplicate · opens as a list') +
+        t('CRM', ['', 'active', 'active', 'active', 'done', 'dropped'], 'Lead, Contacted, Meeting, Proposal, Won, Lost · company, contact, value, next step', true) +
+      '</div>' +
+      '<div class="label" style="margin-top: 12px">Links</div>' +
+      '<div class="links"><span>Company</span><div class="field filled">Companies · Scrawl<span class="dd">▾</span></div><span>Contact</span><div class="field filled">People · Scrawl<span class="dd">▾</span></div></div>' +
+      '<div class="foot"><span class="count">Columns, phases and fields can be changed later</span><span class="st-btn" style="margin-left: auto">Back</span><span class="st-btn go" style="margin-left: 6px">Create</span></div></div></div>';
+  }
   function statusMenu() {
     return '<div class="stmenu">' + [['active', true], ['prospect'], ['churned']].map(function (r) {
       return '<div class="r' + (r[1] ? ' on' : '') + '"><i class="dot" style="background: ' + LC[r[0]] + '"></i><span>' + r[0] + '</span><span class="ok">' + (r[1] ? '✓' : '') + '</span></div>';
@@ -2585,7 +2754,12 @@ p { margin: 0; max-width: 68ch; }
     isstatus: '<span>52 open</span><span>ISS-47</span>',
     phmore: '<span>Phase 7 · 8/8 done</span><span>142 cards</span>',
     phall: '<span>35 phases, 12 closed</span><span>142 cards</span>',
-    syncdone: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
+    syncdone: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
+    crm: '<span>9 cards</span><span>77,400 in all</span>',
+    crmcard: '<span>9 cards</span><span>DEA-12</span>',
+    crmlist: '<span>9 cards</span><span>Sorted by value</span>',
+    crmfields: '<span>9 cards</span><span>77,400 in all</span>',
+    crmnew: '<span>7 open</span><span>2 due today</span>'
   };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
@@ -2593,7 +2767,7 @@ p { margin: 0; max-width: 68ch; }
     mock.classList.toggle('four', view === 'settingsphone');
     mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty' || view === 'col' || view === 'coladd' || view === 'colrec' || view === 'colpick' || view === 'coleq');
     mock.classList.toggle('wider', view === 'isstatus');
-    mock.classList.toggle('wider', view === 'card' || view.indexOf('colf') === 0);
+    mock.classList.toggle('wider', view === 'card' || view.indexOf('colf') === 0 || (view.indexOf('crm') === 0 && view !== 'crmnew'));
     if (view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone') {
       mock.innerHTML = view === 'phone' ? phoneView() : view === 'syncphone' ? syncPhones() : view === 'phphone' ? phasesPhones() : view === 'keysphone' ? keysPhones() : view === 'colphone' ? colPhones() : settingsPhones();
       section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
@@ -2609,19 +2783,19 @@ p { margin: 0; max-width: 68ch; }
       (view.indexOf('col') === 0 && view !== 'colnew' ? tab('collection', view === 'coleq' ? 'Equipment · Scrawl' : 'Companies · Scrawl', 'col', true) : '') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
       (view.indexOf('filter') === 0 ? tab('filter', 'This week · p1', 'filter', true) : '') +
-      tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view === 'newboard' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag' || view === 'movetask') +
+      tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view === 'newboard' || view === 'crmnew' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag' || view === 'movetask') +
       (view === 'trash' ? tab('trash', 'Trash', 'trash', true) : '');
-    var boardTab = view === 'islist' || view === 'isboard' || view === 'isstatus' || view === 'isadd' || view === 'isempty' ? tab('board', 'Issues · Scrawl', view, true) : tab('board', 'Roadmap · Scrawl', 'board', view === 'board' || view === 'split' || view === 'card' || view === 'list' || view.indexOf('ph') === 0);
+    var boardTab = view.indexOf('crm') === 0 && view !== 'crmnew' ? tab('board', 'Roadmap · Scrawl', 'board', false) + tab('board', 'Deals · Scrawl', view, true) : view === 'islist' || view === 'isboard' || view === 'isstatus' || view === 'isadd' || view === 'isempty' ? tab('board', 'Issues · Scrawl', view, true) : tab('board', 'Roadmap · Scrawl', 'board', view === 'board' || view === 'split' || view === 'card' || view === 'list' || view.indexOf('ph') === 0);
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull, crm: dealsBoard(), crmcard: dealsBoard('DEA-12'), crmlist: dealsList(), crmfields: dealsBoard(), crmnew: TASKS }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + syncStatus(view === 'note', view === 'syncpanel' ? 'syncing' : view === 'syncdone' ? 'open' : null) + '</div></section>' +
       (view === 'syncpanel' ? syncPanel('syncing') : view === 'syncdone' ? syncPanel('done') : '') +
-      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
+      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'crmcard' ? dealCardModal() : '') + (view === 'crmfields' ? boardFields() : '') + (view === 'crmnew' ? newDealsBoard() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });
