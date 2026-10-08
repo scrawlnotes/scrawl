@@ -881,6 +881,7 @@ p { margin: 0; max-width: 68ch; }
 .blk-h small { font-size: 10.5px; color: var(--m-faint); }
 .blk-h .addl { margin-left: auto; font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--m-accent); }
 .blk .cp-desc { min-height: 0; margin: 0; }
+.blk-none { margin: 2px 0 0; max-width: none; font-size: 12.5px; color: var(--m-faint); }
 .blk .cp-desc .ph { color: var(--m-faint); }
 .tle { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; padding: 8px 0; border-bottom: 1px solid var(--m-line); }
 .tle .h { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--m-dim); }
@@ -1213,6 +1214,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-filterfields" data-aview="filterfields">Filter fields</button>
         <button type="button" id="a-colcsvmenu" data-aview="colcsvmenu">CSV menu</button>
         <button type="button" id="a-colcsv" data-aview="colcsv">CSV import</button>
+        <button type="button" id="a-colmissing" data-aview="colmissing">Record missing</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -2255,6 +2257,22 @@ p { margin: 0; max-width: 68ch; }
         '</div>' +
       '</div></div></div></div>';
   }
+  // A record of a collection made before the collections its screen shows: its blocks point at
+  // Activities and People beside it, which are not there. Each block says so, and where the
+  // add button would be, offers to make that collection from its template, its link to a company
+  // pointing at this collection. Made, the block shows its records and + Add activity as usual.
+  function missingModal() {
+    function missing(name) {
+      return '<div class="blk">' + blockHead(name, 0, 'Create ' + name) + '<p class="blk-none">There is no ' + name + ' collection in Scrawl yet.</p></div>';
+    }
+    return '<div class="ovl center"><div class="rmod">' + modalHead('Companies · Scrawl') +
+      '<div class="rm-body"><div class="rm-det">' +
+        '<div class="rm-title">Acme Corp</div>' +
+        blockProps([prop('Website', 'acme.example.com'), prop('Segment', 'Mid-market'), prop('Owner', '<span class="who">K</span>Kaan'), prop('Status', lbl('active')), prop('Tags', lbl('design') + lbl('berlin'))]) +
+        blockBody(['Design agency in Berlin, about 40 people. Met at the summit; three client portals run on spreadsheets today.']) +
+      '</div><div class="rm-tl">' + missing('Activities') + missing('People') +
+      '</div></div></div></div>';
+  }
   /** The filter window with conditions on the boards' own fields: they are about cards, so the filter shows cards only. */
   function filterFields() {
     function chips(items) {
@@ -2926,13 +2944,14 @@ p { margin: 0; max-width: 68ch; }
     colrectasks: '<span>24 records</span><span>Acme Corp</span>',
     filterfields: '<span>2 cards</span>',
     colcsvmenu: '<span>24 records</span><span>Sorted by last contact</span>',
-    colcsv: '<span>24 records</span><span>Sorted by last contact</span>'
+    colcsv: '<span>24 records</span><span>Sorted by last contact</span>',
+    colmissing: '<span>24 records</span><span>Acme Corp</span>'
   };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone');
     mock.classList.toggle('four', view === 'settingsphone');
-    mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty' || view === 'col' || view === 'coladd' || view === 'colrec' || view === 'colpick' || view === 'coleq' || view === 'colrectasks' || view === 'colcsvmenu' || view === 'colcsv');
+    mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty' || view === 'col' || view === 'coladd' || view === 'colrec' || view === 'colpick' || view === 'coleq' || view === 'colrectasks' || view === 'colcsvmenu' || view === 'colcsv' || view === 'colmissing');
     mock.classList.toggle('wider', view === 'isstatus');
     mock.classList.toggle('wider', view === 'card' || view.indexOf('colf') === 0 || (view.indexOf('crm') === 0 && view !== 'crmnew'));
     if (view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone') {
@@ -2956,13 +2975,13 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull, crm: dealsBoard(), crmcard: dealsBoard('DEA-12'), crmlist: dealsList(), crmfields: dealsBoard(), crmnew: TASKS, trec: taskRecordView(), colrectasks: colView(true), filterfields: filterView(), colcsvmenu: colView(false), colcsv: colView(false) }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull, crm: dealsBoard(), crmcard: dealsBoard('DEA-12'), crmlist: dealsList(), crmfields: dealsBoard(), crmnew: TASKS, trec: taskRecordView(), colrectasks: colView(true), filterfields: filterView(), colcsvmenu: colView(false), colcsv: colView(false), colmissing: colView(true) }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + projectTree(view) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + syncStatus(view === 'note', view === 'syncpanel' ? 'syncing' : view === 'syncdone' ? 'open' : null) + '</div></section>' +
       (view === 'syncpanel' ? syncPanel('syncing') : view === 'syncdone' ? syncPanel('done') : '') +
-      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'crmcard' ? dealCardModal() : '') + (view === 'crmfields' ? boardFields() : '') + (view === 'crmnew' ? newDealsBoard() : '') + (view === 'colrectasks' ? recordTasksModal() : '') + (view === 'filterfields' ? filterFields() : '') + (view === 'colcsvmenu' ? csvMenu() : '') + (view === 'colcsv' ? csvImport() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
+      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'crmcard' ? dealCardModal() : '') + (view === 'crmfields' ? boardFields() : '') + (view === 'crmnew' ? newDealsBoard() : '') + (view === 'colrectasks' ? recordTasksModal() : '') + (view === 'filterfields' ? filterFields() : '') + (view === 'colcsvmenu' ? csvMenu() : '') + (view === 'colcsv' ? csvImport() : '') + (view === 'colmissing' ? missingModal() : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });
