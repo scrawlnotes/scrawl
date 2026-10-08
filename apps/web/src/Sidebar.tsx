@@ -179,8 +179,7 @@ export function Sidebar({
       <div
         key={node.path}
         className={`it d${depth}${tab === active ? ' on' : ''}`}
-        // A collection is a folder; moving it is not done by dragging yet.
-        draggable={node.kind !== 'collection'}
+        draggable
         onDragStart={(event) => event.dataTransfer.setData(ITEM_DRAG_TYPE, node.path)}
         onContextMenu={(event) => onItemMenu(event, node.path)}
       >

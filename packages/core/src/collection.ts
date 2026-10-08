@@ -1,7 +1,7 @@
 import { t } from '@scrawlnotes/i18n';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { basename, type Entry, join, type VaultFs } from './fs';
-import { freePath } from './paths';
+import { freePath, moveTree } from './paths';
 
 // A collection is a folder with a schema file in it, `_collection.json`, and one Markdown file
 // per record: the record's fields in YAML front matter, free text under it. A record is a note,
@@ -17,6 +17,11 @@ export type FieldType = 'text' | 'number' | 'date' | 'select' | 'multi-select' |
 
 export const FIELD_TYPES: readonly FieldType[] = ['text', 'number', 'date', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person', 'link', 'formula'];
 
+/** The colors a choice can be shown in, by name, so that a person or an agent writes them as words. */
+export const OPTION_COLORS = ['gray', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink'] as const;
+
+export type OptionColor = (typeof OPTION_COLORS)[number];
+
 export interface Field {
   /** The key in the front matter: letters, digits and underscores. */
   key: string;
@@ -24,6 +29,8 @@ export interface Field {
   type: FieldType;
   /** The choices of a select or a multi-select. */
   options?: string[];
+  /** The color of each choice that has one, by the choice; the others are colored by their text. */
+  colors?: { [option: string]: OptionColor };
   required?: boolean;
   /** A link's target: the path of the collection its records come from. */
   collection?: string;
@@ -114,6 +121,24 @@ export interface View {
   group?: string | null;
   /** The fields shown as columns, in order; unset for every field. */
   columns?: string[];
+  /** The columns' widths in pixels, by field key, once one was dragged; unset for widths that fit the window. */
+  widths?: ColumnWidths;
+}
+
+/** Column widths in pixels, by field key. */
+export interface ColumnWidths {
+  [key: string]: number;
+}
+
+/** Reads column widths as a file wrote them: whole pixels, by known field keys. */
+export function readWidths(raw: unknown, keys?: ReadonlySet<string>): ColumnWidths | undefined {
+  if (!isRecord(raw)) return undefined;
+  const widths: ColumnWidths = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || (keys && !keys.has(key))) continue;
+    widths[key] = Math.round(value);
+  }
+  return Object.keys(widths).length > 0 ? widths : undefined;
 }
 
 export interface Schema {
@@ -176,13 +201,21 @@ export function cleanFieldKey(key: string): string {
 
 // The templates are the lists a startup keeps; a link in one points at the collection of that
 // name beside it, made from its own template, whether it is there yet or not.
+// Their choices come colored by what they mean: what goes well is green, what is lost red, what
+// waits gray or blue.
 const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
   companies: [
     { key: 'website', label: 'Website', type: 'url' },
-    { key: 'segment', label: 'Segment', type: 'select', options: ['SMB', 'Mid-market', 'Enterprise'] },
-    { key: 'type', label: 'Type', type: 'multi-select', options: ['customer', 'supplier', 'partner', 'investor'] },
+    { key: 'segment', label: 'Segment', type: 'select', options: ['SMB', 'Mid-market', 'Enterprise'], colors: { SMB: 'teal', 'Mid-market': 'blue', Enterprise: 'purple' } },
+    {
+      key: 'type',
+      label: 'Type',
+      type: 'multi-select',
+      options: ['customer', 'supplier', 'partner', 'investor'],
+      colors: { customer: 'green', supplier: 'orange', partner: 'purple', investor: 'blue' },
+    },
     { key: 'owner', label: 'Owner', type: 'person' },
-    { key: 'status', label: 'Status', type: 'select', options: ['prospect', 'active', 'churned'] },
+    { key: 'status', label: 'Status', type: 'select', options: ['prospect', 'active', 'churned'], colors: { prospect: 'blue', active: 'green', churned: 'red' } },
     { key: 'tags', label: 'Tags', type: 'multi-select', options: [] },
   ],
   people: [
@@ -190,31 +223,50 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
     { key: 'email', label: 'Email', type: 'email' },
     { key: 'phone', label: 'Phone', type: 'phone' },
     { key: 'title', label: 'Title', type: 'text' },
-    { key: 'source', label: 'Source', type: 'select', options: ['referral', 'event', 'inbound', 'outbound'] },
-    { key: 'status', label: 'Status', type: 'select', options: ['lead', 'active', 'inactive'] },
+    {
+      key: 'source',
+      label: 'Source',
+      type: 'select',
+      options: ['referral', 'event', 'inbound', 'outbound'],
+      colors: { referral: 'purple', event: 'orange', inbound: 'green', outbound: 'blue' },
+    },
+    { key: 'status', label: 'Status', type: 'select', options: ['lead', 'active', 'inactive'], colors: { lead: 'blue', active: 'green', inactive: 'gray' } },
     { key: 'tags', label: 'Tags', type: 'multi-select', options: [] },
   ],
   activities: [
-    { key: 'type', label: 'Type', type: 'select', options: ['note', 'call', 'meeting', 'email'], required: true },
+    {
+      key: 'type',
+      label: 'Type',
+      type: 'select',
+      options: ['note', 'call', 'meeting', 'email'],
+      colors: { note: 'gray', call: 'blue', meeting: 'purple', email: 'yellow' },
+      required: true,
+    },
     { key: 'date', label: 'Date', type: 'date', required: true },
     { key: 'company', label: 'Company', type: 'link', collection: 'Companies' },
     { key: 'person', label: 'Person', type: 'link', collection: 'People' },
     { key: 'by', label: 'By', type: 'person' },
   ],
   feedback: [
-    { key: 'source', label: 'Source', type: 'select', options: ['email', 'call', 'interview', 'social', 'support'] },
+    {
+      key: 'source',
+      label: 'Source',
+      type: 'select',
+      options: ['email', 'call', 'interview', 'social', 'support'],
+      colors: { email: 'yellow', call: 'blue', interview: 'purple', social: 'pink', support: 'orange' },
+    },
     { key: 'person', label: 'Person', type: 'link', collection: 'People' },
     { key: 'area', label: 'Area', type: 'text' },
-    { key: 'status', label: 'Status', type: 'select', options: ['new', 'planned', 'done', 'declined'] },
+    { key: 'status', label: 'Status', type: 'select', options: ['new', 'planned', 'done', 'declined'], colors: { new: 'blue', planned: 'yellow', done: 'green', declined: 'gray' } },
   ],
   payments: [
-    { key: 'direction', label: 'Direction', type: 'select', options: ['incoming', 'outgoing'], required: true },
+    { key: 'direction', label: 'Direction', type: 'select', options: ['incoming', 'outgoing'], colors: { incoming: 'green', outgoing: 'red' }, required: true },
     { key: 'company', label: 'Company', type: 'link', collection: 'Companies' },
     { key: 'person', label: 'Person', type: 'link', collection: 'People' },
     { key: 'amount', label: 'Amount', type: 'number', required: true },
-    { key: 'currency', label: 'Currency', type: 'select', options: ['USD', 'EUR', 'TRY', 'GBP'] },
+    { key: 'currency', label: 'Currency', type: 'select', options: ['USD', 'EUR', 'TRY', 'GBP'], colors: { USD: 'gray', EUR: 'gray', TRY: 'gray', GBP: 'gray' } },
     { key: 'due', label: 'Due', type: 'date' },
-    { key: 'status', label: 'Status', type: 'select', options: ['planned', 'invoiced', 'paid'] },
+    { key: 'status', label: 'Status', type: 'select', options: ['planned', 'invoiced', 'paid'], colors: { planned: 'gray', invoiced: 'yellow', paid: 'green' } },
     { key: 'invoice_no', label: 'Invoice no', type: 'text' },
     { key: 'paid_on', label: 'Paid on', type: 'date' },
   ],
@@ -232,6 +284,7 @@ export function newSchema(template: CollectionTemplate, folder = ''): Schema {
   const fields = [...FIXED, ...TEMPLATE_FIELDS[template]].map((f) => ({
     ...f,
     ...(f.options && { options: [...f.options] }),
+    ...(f.colors && { colors: { ...f.colors } }),
     ...(f.collection !== undefined && { collection: join(folder, f.collection) }),
   }));
   const prefix = TEMPLATE_CODES[template];
@@ -243,13 +296,28 @@ export function newSchema(template: CollectionTemplate, folder = ''): Schema {
 const isRecord = (value: unknown): value is { [key: string]: unknown } => typeof value === 'object' && value !== null && !Array.isArray(value);
 const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
 
+/** The colors of a field's choices as the file has them; a color by another name is left out. */
+function readColors(raw: unknown): Field['colors'] {
+  if (!isRecord(raw)) return undefined;
+  const colors: NonNullable<Field['colors']> = {};
+  for (const [option, color] of Object.entries(raw)) if (OPTION_COLORS.includes(color as OptionColor)) colors[option] = color as OptionColor;
+  return Object.keys(colors).length > 0 ? colors : undefined;
+}
+
+/** The color a choice of a field is given, if the schema gives it one. */
+export const optionColor = (field: Pick<Field, 'colors'> | undefined, option: string): OptionColor | undefined => field?.colors?.[option];
+
 function readField(raw: unknown): Field | null {
   if (!isRecord(raw) || typeof raw.key !== 'string') return null;
   const key = cleanFieldKey(raw.key);
   if (!key) return null;
   const type = FIELD_TYPES.includes(raw.type as FieldType) ? (raw.type as FieldType) : 'text';
   const field: Field = { key, label: typeof raw.label === 'string' && raw.label.trim() ? raw.label : key, type };
-  if (type === 'select' || type === 'multi-select') field.options = strings(raw.options);
+  if (type === 'select' || type === 'multi-select') {
+    field.options = strings(raw.options);
+    const colors = readColors(raw.colors);
+    if (colors) field.colors = colors;
+  }
   if (type === 'link') {
     field.collection = typeof raw.collection === 'string' ? raw.collection.replace(/^\/+|\/+$/g, '') : '';
     if (raw.many === true) field.many = true;
@@ -350,6 +418,8 @@ function readViews(raw: unknown, fields: Field[]): View[] {
     if (isSort(item.sort)) view.sort = { key: item.sort.key, dir: item.sort.dir };
     if (typeof item.group === 'string' && item.group) view.group = cleanFieldKey(item.group);
     if (Array.isArray(item.columns)) view.columns = strings(item.columns).map(cleanFieldKey).filter((k) => fields.some((f) => f.key === k));
+    const widths = readWidths(item.widths, new Set(fields.map((f) => f.key)));
+    if (widths) view.widths = widths;
     views.push(view);
   }
   return views;
@@ -692,6 +762,71 @@ export async function createCollection(fs: VaultFs, folder: string, name: string
   return dir;
 }
 
+/**
+ * Moves a collection's folder to `target`, a path nothing else has, with every file in it. A
+ * change in the case of the name alone goes by a hidden name first, since a folder cannot be
+ * moved onto itself where names do not tell case apart.
+ */
+async function moveCollectionDir(fs: VaultFs, dir: string, target: string): Promise<void> {
+  if (target === dir) return;
+  let from = dir;
+  if (target.toLowerCase() === dir.toLowerCase()) {
+    from = freePath(collectionOf(dir), `.${basename(dir)}`, '', await taken(fs, collectionOf(dir)));
+    await moveTree(fs, dir, from);
+    await fs.remove(dir);
+  }
+  await moveTree(fs, from, target);
+  await fs.remove(from);
+}
+
+/** Gives a collection a name of the user's choosing, in the folder it is in; numbered when the name is taken. Returns its new path. */
+export async function renameCollection(fs: VaultFs, dir: string, name: string): Promise<string> {
+  const clean = cleanName(name);
+  if (!clean || isHidden(clean)) throw new Error(t('error.name'));
+  const folder = collectionOf(dir);
+  const names = await taken(fs, folder);
+  // Changing only the case of the name is not a clash with itself.
+  names.delete(dir.toLowerCase());
+  const target = freePath(folder, clean, '', names);
+  await moveCollectionDir(fs, dir, target);
+  return target;
+}
+
+/** Moves a collection into `folder`, numbered when a folder there has its name. Returns its new path. */
+export async function moveCollection(fs: VaultFs, dir: string, folder: string): Promise<string> {
+  if (collectionOf(dir) === folder) return dir;
+  const target = freePath(folder, basename(dir), '', await taken(fs, folder));
+  await moveCollectionDir(fs, dir, target);
+  return target;
+}
+
+/**
+ * A schema whose links and linked-record blocks pointing at the collection at `from` point at
+ * `to`, where it went; the same schema when nothing in it points there.
+ */
+export function retargetLinks(schema: Schema, from: string, to: string): Schema {
+  let changed = false;
+  const fields = schema.fields.map((field) => {
+    if (field.type !== 'link' || field.collection !== from) return field;
+    changed = true;
+    return { ...field, collection: to };
+  });
+  const layout = schema.layout && {
+    columns: schema.layout.columns.map((column) => ({
+      ...column,
+      sections: column.sections.map((section) => ({
+        ...section,
+        items: section.items.map((item) => {
+          if (!('block' in item) || item.block !== 'linked' || item.collection !== from) return item;
+          changed = true;
+          return { ...item, collection: to };
+        }),
+      })),
+    })),
+  };
+  return changed ? { ...schema, fields, ...(layout && { layout }) } : schema;
+}
+
 /** What a new record is given: its name, its code when typed, its fields and its body. */
 export interface NewRecord {
   name: string;
@@ -770,6 +905,40 @@ export async function updateRecord(fs: VaultFs, schema: Schema, record: Record, 
 /** A record as a picker or a link shows it: its name, and its code when it has one. */
 export const recordLabel = (record: { name: string; code?: string }) => (record.code ? `${record.name} · ${record.code}` : record.name);
 
+/**
+ * Whether the record a link points at is gone: its collection is at hand (`records`) and has no
+ * record of its id, or, for a link written by hand without one, of its name. A link into a
+ * collection that is not here is not said to be gone; nothing is known of it.
+ */
+export function linkGone(link: Link, records: readonly Pick<Record, 'id' | 'name'>[] | null): boolean {
+  if (records === null) return false;
+  if (link.id) return !records.some((r) => r.id === link.id);
+  const name = link.name.trim().toLowerCase();
+  return !records.some((r) => r.name.trim().toLowerCase() === name);
+}
+
+/**
+ * Where a web address, an email address or a phone number goes when it is opened: a web page, a
+ * new mail, a call. A web address typed without its `https://` gets it; null for a value that is
+ * none of these, or an address of another kind.
+ */
+export function fieldHref(type: FieldType, value: string): string | null {
+  const text = value.trim();
+  if (!text) return null;
+  if (type === 'url') {
+    if (/^https?:\/\/\S+$/i.test(text)) return text;
+    // Something else before a colon is another kind of address, not a web page.
+    if (/^[a-z][a-z0-9+.-]*:/i.test(text) || /\s/.test(text) || !text.includes('.')) return null;
+    return `https://${text}`;
+  }
+  if (type === 'email') return /^[^\s@]+@[^\s@]+$/.test(text) ? `mailto:${text}` : null;
+  if (type === 'phone') {
+    const digits = text.replace(/[^\d+]/g, '');
+    return digits.replace(/\D/g, '').length >= 3 ? `tel:${digits}` : null;
+  }
+  return null;
+}
+
 const SEARCHED: readonly FieldType[] = ['text', 'select', 'multi-select', 'url', 'email', 'phone', 'person', 'link'];
 
 // ---------- views: conditions, groups and sums ----------
@@ -796,6 +965,15 @@ export function opsFor(type: FieldType): ConditionOp[] {
 /** Whether a value needs to be typed or chosen for a condition. */
 export const opTakesValue = (op: ConditionOp) => !['empty', 'not-empty', 'true', 'false'].includes(op);
 
+/** Whether a condition says enough to ask anything: one that needs a value and has none yet asks nothing. */
+export function isComplete(condition: Condition): boolean {
+  if (!opTakesValue(condition.op)) return true;
+  const { value } = condition;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'string') return value.trim() !== '';
+  return Array.isArray(value) && value.length > 0;
+}
+
 /** The names a value answers to in a condition: a choice, the choices, a link's name and code. */
 function namesOf(value: FieldValue | undefined): string[] {
   if (value === null || value === undefined) return [];
@@ -807,7 +985,7 @@ function namesOf(value: FieldValue | undefined): string[] {
 /** Whether one condition holds for a record. */
 export function matchesCondition(record: Record, schema: Schema, condition: Condition, today: string): boolean {
   const field = schema.fields.find((f) => f.key === condition.field);
-  if (!field) return true;
+  if (!field || !isComplete(condition)) return true;
   const value = fieldValueOf(record, field, schema, today);
   const empty = isEmpty(value);
   const wanted = Array.isArray(condition.value) ? condition.value : condition.value === undefined ? [] : [String(condition.value)];

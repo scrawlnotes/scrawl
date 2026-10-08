@@ -92,7 +92,7 @@ import { Sidebar } from './Sidebar';
 import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
 import { contentsText, quote } from './text';
 import { TrashView } from './Trash';
-import { isDesktop } from './storage';
+import { isDesktop, openUrlOnDesktop } from './storage';
 
 type OpenDialog =
   | { kind: 'new' }
@@ -432,14 +432,16 @@ export function App() {
     event.preventDefault();
     setMenu({ at: { x: event.clientX, y: event.clientY }, items });
   };
-  // The menu of a note, a task list or a board; the inbox's own list has none.
+  // The menu of a note, a task list, a board, a keys file or a collection; the inbox's own list has none.
   const itemMenu = (event: MouseEvent, path: string) =>
     path !== INBOX_TASKS &&
-    openMenu(event, path in collections ? [{ label: t('menu.delete'), run: () => deleteItem(path) }] : [
+    openMenu(event, [
       { label: t('menu.moveTo'), run: () => setDialog({ kind: 'move', path }) },
       { label: t('menu.rename'), run: () => setDialog({ kind: 'rename', path }) },
       // Only notes keep a history; a keys file keeps none, so that a password changed is gone.
-      ...(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) ? [] : [{ label: t('menu.history'), run: () => void showHistory(path) }]),
+      ...(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections
+        ? []
+        : [{ label: t('menu.history'), run: () => void showHistory(path) }]),
       { label: t('menu.delete'), run: () => deleteItem(path) },
     ]);
   // The inbox is always there; it cannot be deleted. A new note shows at once, out from under the drawer.
@@ -583,6 +585,8 @@ export function App() {
     updateRecord: (dir, id, patch) => session.updateRecord(dir, id, patch),
     removeRecord: (dir, record) => ask(t('delete.record'), recordDeleteText(record), () => void session.trashRecord(dir, record)),
     openNote: (path) => void session.open(path),
+    // The desktop app hands an address to the system; in a browser it opens beside the app.
+    openLink: (href) => (isDesktop ? void openUrlOnDesktop(href).catch(() => undefined) : void window.open(href, '_blank', 'noopener')),
     menu: openMenu,
     ask: (title, message, run, action) => ask(title, message, run, action),
     records: (dir) => collections[dir]?.records ?? null,
@@ -906,7 +910,9 @@ export function App() {
                 ? boardName(dialog.path)
                 : isKeysPath(dialog.path)
                   ? keysName(dialog.path)
-                  : (titles[dialog.path] ?? '')
+                  : dialog.path in collections
+                    ? collectionName(dialog.path)
+                    : (titles[dialog.path] ?? '')
           }
           onRename={(name) => session.rename(dialog.path, name)}
           onClose={closeDialog}

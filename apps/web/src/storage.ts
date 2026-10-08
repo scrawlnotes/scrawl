@@ -48,7 +48,7 @@ export async function revealFileOnDesktop(path: string): Promise<void> {
   if (folder) await invoke('reveal_file', { root: folder, path });
 }
 
-/** Desktop: opens a web or mail address in the default browser or mail program. */
+/** Desktop: opens a web or mail address or a phone number in the default browser, mail program or phone program. */
 export async function openUrlOnDesktop(url: string): Promise<void> {
   await invoke('open_url', { url });
 }

@@ -23,6 +23,9 @@ import {
   updateRecord as updateCollectionRecord,
   loadCollection,
   freshenLinks,
+  moveCollection as moveCollectionDir,
+  renameCollection as renameCollectionDir,
+  retargetLinks,
   type Collection,
   type CollectionLook,
   type CollectionTemplate,
@@ -1136,10 +1139,57 @@ export class Session {
     this.set({ collections: freshenAll({ ...this.snapshot.collections, [dir]: loaded }) });
   }
 
+  /** Changes a collection as it is held; every link to its records shows their names as they are now. */
   private setCollection(dir: string, change: (collection: Collection) => Collection) {
     const current = this.snapshot.collections[dir];
     if (!current) return;
-    this.set({ collections: { ...this.snapshot.collections, [dir]: change(current) } });
+    this.set({ collections: freshenAll({ ...this.snapshot.collections, [dir]: change(current) }) });
+  }
+
+  /**
+   * A collection's folder went from `from` to `to`: links in every collection point there now, its
+   * records open as notes follow their files with their history, and its tab and look go along.
+   */
+  private async recollect(from: string, to: string) {
+    const records = this.snapshot.collections[from]?.records ?? [];
+    for (const record of records) {
+      const target = `${to}${record.path.slice(from.length)}`;
+      if (this.snapshot.tabs.includes(record.path)) await this.follow(record.path, target);
+      else await moveHistory(this.fs, record.path, target).catch(() => undefined);
+    }
+    for (const [dir, collection] of Object.entries(this.snapshot.collections)) {
+      const schema = retargetLinks(collection.schema, from, to);
+      if (schema !== collection.schema) await saveSchema(this.fs, dir === from ? to : dir, schema).catch(() => undefined);
+    }
+    const { [from]: look, ...looks } = this.snapshot.collectionLooks;
+    const [tab, target] = [collectionTab(from), collectionTab(to)];
+    const { tabs, active } = this.snapshot;
+    this.set({
+      collectionLooks: look ? { ...looks, [to]: look } : looks,
+      tabs: tabs.map((each) => (each === tab ? target : each)),
+      active: active === tab ? target : active,
+    });
+    await this.refreshTree();
+    this.saveWorkspace();
+  }
+
+  /** Gives a collection a name; its folder is renamed. Returns a message when the name cannot be used. */
+  async renameCollection(dir: string, name: string): Promise<string | null> {
+    await this.settle();
+    try {
+      const target = await renameCollectionDir(this.fs, dir, name);
+      if (target !== dir) await this.recollect(dir, target);
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : t('error.rename');
+    }
+  }
+
+  /** Moves a collection's folder into `folder`. */
+  async moveCollection(dir: string, folder: string) {
+    await this.settle();
+    const target = await moveCollectionDir(this.fs, dir, folder);
+    if (target !== dir) await this.recollect(dir, target);
   }
 
   /** Adds a record to a collection, as its own file. Returns a message when it cannot be made. */
@@ -1715,9 +1765,10 @@ export class Session {
     this.saveWorkspace();
   }
 
-  /** Moves a note, a task list or a board into `folder`. */
+  /** Moves a note, a task list, a board, a keys file or a collection into `folder`. */
   async move(path: string, folder: string) {
     if (dirname(path) === folder) return;
+    if (path in this.snapshot.collections) return this.moveCollection(path, folder);
     await this.settle();
     await this.repath(path, await moveItem(this.fs, path, folder));
   }
@@ -1732,8 +1783,9 @@ export class Session {
     }
   }
 
-  /** Gives a note, a task list or a board a name. Returns a message when the name cannot be used. */
+  /** Gives a note, a task list, a board, a keys file or a collection a name. Returns a message when the name cannot be used. */
   async rename(path: string, name: string): Promise<string | null> {
+    if (path in this.snapshot.collections) return this.renameCollection(path, name);
     await this.settle();
     try {
       await this.repath(path, await renameItem(this.fs, path, name));

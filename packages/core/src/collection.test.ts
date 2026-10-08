@@ -15,6 +15,14 @@ import {
   freshenLinks,
   linkTo,
   createCollection,
+  fieldHref,
+  isComplete,
+  linkGone,
+  moveCollection,
+  optionColor,
+  readWidths,
+  renameCollection,
+  retargetLinks,
   layoutOf,
   loadCollection,
   makeCode,
@@ -210,6 +218,39 @@ describe('a collection in a vault', () => {
   });
 });
 
+describe('renaming and moving a collection', () => {
+  it('renames the folder with every file in it, numbered when the name is taken', async () => {
+    const fs = new MemoryFs();
+    const dir = await createCollection(fs, 'Scrawl', '', 'companies');
+    await addRecord(fs, await loadCollection(fs, dir), { name: 'Acme' }, 'a');
+    await fs.mkdir('Scrawl/Taken');
+    expect(await renameCollection(fs, dir, 'Taken')).toBe('Scrawl/Taken 2');
+    expect((await fs.list('Scrawl')).map((e) => e.name).sort()).toEqual(['Taken', 'Taken 2']);
+    expect((await fs.list('Scrawl/Taken 2')).map((e) => e.name).sort()).toEqual(['Acme.md', '_collection.json']);
+    // Only the case of the name changed: it goes through a hidden name and keeps its files.
+    expect(await renameCollection(fs, 'Scrawl/Taken 2', 'TAKEN 2')).toBe('Scrawl/TAKEN 2');
+    expect((await fs.list('Scrawl')).map((e) => e.name).sort()).toEqual(['TAKEN 2', 'Taken']);
+    expect((await loadCollection(fs, 'Scrawl/TAKEN 2')).records.map((r) => r.name)).toEqual(['Acme']);
+    await expect(renameCollection(fs, 'Scrawl/TAKEN 2', ' / ')).rejects.toThrow();
+  });
+
+  it('moves the folder into another, and links follow it', async () => {
+    const fs = new MemoryFs();
+    const dir = await createCollection(fs, 'Scrawl', 'Companies', 'companies');
+    expect(await moveCollection(fs, dir, 'Scrawl')).toBe(dir);
+    const moved = await moveCollection(fs, dir, 'Work');
+    expect(moved).toBe('Work/Companies');
+    expect(await fs.list('Scrawl')).toEqual([]);
+    expect((await loadCollection(fs, moved)).schema.template).toBe('companies');
+    const people = newSchema('people', 'Scrawl');
+    const withBlock = { ...people, layout: { columns: [{ sections: [{ items: [{ block: 'linked' as const, collection: 'Scrawl/Companies' }, { field: 'email' }] }] }] } };
+    const next = retargetLinks(withBlock, 'Scrawl/Companies', moved);
+    expect(next.fields.find((f) => f.key === 'company')?.collection).toBe('Work/Companies');
+    expect(next.layout?.columns[0]?.sections[0]?.items[0]).toEqual({ block: 'linked', collection: 'Work/Companies' });
+    expect(retargetLinks(people, 'Elsewhere/Companies', moved)).toBe(people);
+  });
+});
+
 describe('looking at records', () => {
   const schema = newSchema('companies');
   const make = (name: string, values: Record['values'], code = ''): Record => ({ id: name, path: `C/${name}.md`, name, code, values, extra: {}, body: '' });
@@ -271,6 +312,28 @@ describe('links and the other templates', () => {
     const many = { ...schema, fields: schema.fields.map((f) => (f.key === 'company' ? { ...f, many: true } : f)) };
     expect(parseRecord(text, many, 'Work/People/Lena Hartmann.md').values.company).toEqual([{ id: 'c1', name: 'Acme Corp', code: 'CUS-0012' }]);
     expect(linkTo({ id: 'c1', name: 'Acme', code: '' })).toEqual({ id: 'c1', name: 'Acme' });
+  });
+
+  it('tells a link whose record is gone', () => {
+    const records = [{ id: 'c1', name: 'Acme Corp' }];
+    expect(linkGone({ id: 'c1', name: 'Acme' }, records)).toBe(false);
+    expect(linkGone({ id: 'c2', name: 'Globex' }, records)).toBe(true);
+    expect(linkGone({ id: '', name: 'acme corp ' }, records)).toBe(false);
+    expect(linkGone({ id: '', name: 'Globex' }, records)).toBe(true);
+    // The collection it points into is not here: nothing is known of it.
+    expect(linkGone({ id: 'c2', name: 'Globex' }, null)).toBe(false);
+  });
+
+  it('opens web addresses, mail addresses and phone numbers', () => {
+    expect(fieldHref('url', 'acme.example.com')).toBe('https://acme.example.com');
+    expect(fieldHref('url', ' https://acme.example.com/a?b=1 ')).toBe('https://acme.example.com/a?b=1');
+    expect(fieldHref('url', 'javascript:alert(1)')).toBeNull();
+    expect(fieldHref('url', 'not a site')).toBeNull();
+    expect(fieldHref('email', 'lena@acme.example.com')).toBe('mailto:lena@acme.example.com');
+    expect(fieldHref('email', 'lena')).toBeNull();
+    expect(fieldHref('phone', '+49 (30) 123-45')).toBe('tel:+493012345');
+    expect(fieldHref('phone', '-')).toBeNull();
+    expect(fieldHref('text', 'acme.example.com')).toBeNull();
   });
 
   it('freshens the names of links from the records they point at', () => {
@@ -335,6 +398,11 @@ describe('formulas, conditions, groups and sums', () => {
     expect(names([{ field: 'paid', op: 'false' }])).toEqual(['Globex', 'Initech']);
     expect(names([{ field: 'name', op: 'contains', value: 'ni' }])).toEqual(['Initech']);
     expect(names([{ field: 'gone', op: 'is', value: 'x' }])).toHaveLength(3);
+    // A condition still waiting for its value asks nothing.
+    expect(names([{ field: 'name', op: 'contains' }, { field: 'status', op: 'is', value: [] }, { field: 'qty', op: 'gt', value: '' }])).toHaveLength(3);
+    expect(isComplete({ field: 'name', op: 'contains', value: '  ' })).toBe(false);
+    expect(isComplete({ field: 'qty', op: 'gt', value: 0 })).toBe(true);
+    expect(isComplete({ field: 'qty', op: 'empty' })).toBe(true);
     expect(opsFor('date')).toEqual(['on', 'before', 'after', 'empty', 'not-empty']);
     expect(opTakesValue('empty')).toBe(false);
   });
@@ -355,7 +423,15 @@ describe('formulas, conditions, groups and sums', () => {
   });
 
   it('keeps views in the schema file', () => {
-    const view: View = { id: 'v1', name: 'Berlin, active', conditions: [{ field: 'tags', op: 'is', value: ['berlin'] }, { field: 'status', op: 'is', value: 'active' }], sort: { key: 'total', dir: 'desc' }, group: 'status', columns: ['name', 'total'] };
+    const view: View = {
+      id: 'v1',
+      name: 'Berlin, active',
+      conditions: [{ field: 'tags', op: 'is', value: ['berlin'] }, { field: 'status', op: 'is', value: 'active' }],
+      sort: { key: 'total', dir: 'desc' },
+      group: 'status',
+      columns: ['name', 'total'],
+      widths: { name: 260, total: 120 },
+    };
     const withView = putView(schema, view);
     const read = parseSchema(serializeSchema(withView));
     expect(read.views).toEqual([view]);
@@ -365,5 +441,19 @@ describe('formulas, conditions, groups and sums', () => {
     // A view with a condition on a field that is gone keeps its other conditions.
     const broken = parseSchema(JSON.stringify({ fields: schema.fields, views: [{ id: 'v2', name: 'x', conditions: [{ field: 'gone', op: 'is', value: 'a' }, { field: 'status', op: 'is', value: 'active' }] }] }));
     expect(broken.views?.[0]?.conditions).toEqual([{ field: 'status', op: 'is', value: 'active' }]);
+    expect(readWidths({ name: 240.4, total: 'wide', gone: 90, qty: -4 }, new Set(['name', 'total', 'qty']))).toEqual({ name: 240 });
+    expect(readWidths({ qty: 0 })).toBeUndefined();
+  });
+
+  it('colors choices as the schema says, and leaves the rest to their text', () => {
+    const companies = newSchema('companies');
+    const status = companies.fields.find((f) => f.key === 'status');
+    expect(optionColor(status, 'active')).toBe('green');
+    expect(optionColor(status, 'churned')).toBe('red');
+    expect(optionColor(companies.fields.find((f) => f.key === 'tags'), 'design')).toBeUndefined();
+    expect(parseSchema(serializeSchema(companies))).toEqual(companies);
+    const read = parseSchema(JSON.stringify({ fields: [{ key: 'stage', type: 'select', options: ['a', 'b'], colors: { a: 'green', b: 'magenta' } }, { key: 'note', type: 'text', colors: { a: 'red' } }] }));
+    expect(read.fields[2]).toEqual({ key: 'stage', label: 'stage', type: 'select', options: ['a', 'b'], colors: { a: 'green' } });
+    expect(read.fields[3]).toEqual({ key: 'note', label: 'note', type: 'text' });
   });
 });

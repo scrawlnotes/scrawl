@@ -1,6 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import { BOARD_EXT, loadBoard, newBoard, serializeBoard, type Template } from './board';
-import { collectionName, isCollection, RECORD_EXT, type RecordSort } from './collection';
+import { type ColumnWidths, collectionName, isCollection, RECORD_EXT, readWidths, type RecordSort } from './collection';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
@@ -42,13 +42,14 @@ export interface KeysLook {
   view: 'table' | 'text';
 }
 
-/** How a collection's table was last looked at on this device: the view chosen, and the sort, group and columns of the plain table. */
+/** How a collection's table was last looked at on this device: the view chosen, and the sort, group, columns and column widths of the plain table. */
 export interface CollectionLook {
   /** The saved view chosen, by id; null or unset for the plain table. */
   view?: string | null;
   sort?: RecordSort;
   group?: string | null;
   columns?: string[];
+  widths?: ColumnWidths;
 }
 
 /** Which notes are open on this device, and how its boards, keys files and collections were looked at. Not synced. */
@@ -622,12 +623,14 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
     if (data.collections && typeof data.collections === 'object') {
       for (const [path, look] of Object.entries(data.collections as Record<string, unknown>)) {
         if (!look || typeof look !== 'object') continue;
-        const { view, sort, group, columns } = look as Partial<CollectionLook>;
+        const { view, sort, group, columns, widths } = look as Partial<CollectionLook>;
         const read: CollectionLook = {};
         if (typeof view === 'string' || view === null) read.view = view;
         if (sort && typeof sort === 'object' && typeof sort.key === 'string' && (sort.dir === 'asc' || sort.dir === 'desc')) read.sort = { key: sort.key, dir: sort.dir };
         if (typeof group === 'string' || group === null) read.group = group;
         if (Array.isArray(columns)) read.columns = columns.filter((c): c is string => typeof c === 'string');
+        const sized = readWidths(widths);
+        if (sized) read.widths = sized;
         collections[path] = read;
       }
     }

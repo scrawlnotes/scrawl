@@ -213,12 +213,13 @@ async fn reveal_file(app: tauri::AppHandle, root: String, path: String) -> Resul
         .map_err(|e| e.to_string())
 }
 
-/// Opens a link of a note in the default browser, or a mail address in the mail program.
+/// Opens a link of a note in the default browser, a mail address in the mail program, or a
+/// phone number in what the system calls with.
 /// The web view itself ignores links that would open a new window.
 #[tauri::command]
 async fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
     if !is_openable(&url) {
-        return Err("Only web and mail addresses can be opened.".into());
+        return Err("Only web and mail addresses and phone numbers can be opened.".into());
     }
     app.opener()
         .open_url(url, None::<&str>)
@@ -227,7 +228,7 @@ async fn open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
 
 fn is_openable(url: &str) -> bool {
     let lower = url.to_ascii_lowercase();
-    ["http://", "https://", "mailto:"]
+    ["http://", "https://", "mailto:", "tel:"]
         .iter()
         .any(|scheme| lower.starts_with(scheme))
 }
@@ -351,10 +352,11 @@ mod tests {
     }
 
     #[test]
-    fn only_web_and_mail_addresses_open() {
+    fn only_web_and_mail_addresses_and_phone_numbers_open() {
         assert!(is_openable("https://github.com/tauri-apps/tauri"));
         assert!(is_openable("HTTP://example.com"));
         assert!(is_openable("mailto:someone@example.com"));
+        assert!(is_openable("tel:+493012345"));
         assert!(!is_openable("file:///C:/Windows/system32/calc.exe"));
         assert!(!is_openable("C:/Windows/notepad.exe"));
         assert!(!is_openable("javascript:alert(1)"));
