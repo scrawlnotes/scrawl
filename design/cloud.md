@@ -129,8 +129,25 @@ Kartın altında **This device** bölümü: cihaz adı alanı ve Save. Klasör s
 - **Bağlanmak temiz başlar.** Bir klasöre bağlanırken (yeniden bağlanırken de) önceki sync durumu silinir ve ilk eşitleme kuralları uygulanır. Aynı dosyalar özetten tanınır, hiçbiri yeniden yüklenmez.
 - **Anahtar deposu:** Windows bir kimlik bilgisinde en fazla 2560 bayt tutar, Microsoft'un yenileme anahtarı bundan uzun olabilir. Anahtar parçalara bölünerek saklanır, parçaların sayısı kendi adı altında durur.
 - **Büyük dosyanın yarıda kesilmesi:** bir parça yolda kaybolursa yükleme oturumuna nerede kaldığı sorulur ve oradan sürer. Uygulama kapanırsa sonraki tur dosyayı baştan yükler; oturumlar cihazda saklanmaz.
-- **Tarayıcıda:** web sürümünde sync 6. aşamadadır, Settings'te Sync satırı görünmez. Geliştirirken tarayıcı, gerçek adaptör ve gerçek ekranlarla, Graph'ın bellekteki bir taklidine (`FakeGraph`) bağlanır. Sayfa yenilenince her şeyi unutur ve üretim paketine girmez.
+- **Tarayıcıda:** 8b. Geliştirirken tarayıcı, gerçek adaptör ve gerçek ekranlarla, Graph'ın bellekteki bir taklidine (`FakeGraph`) bağlanır. Sayfa yenilenince her şeyi unutur ve üretim paketine girmez.
 - **Motor:** sağlayıcı "her şeyi yeniden listeledim" diyebilir (`full`); listede olmayan gitmiş sayılır. Sağlayıcının kabul etmediği adlar raporda `refused` olarak döner. Listelenip okunmadan önce uzakta silinen dosya turu durdurmaz. Başka cihazda taşınanlar `followed` olarak döner.
+
+## 8b. Tarayıcıda (6. aşama)
+
+Adaptör, sync servisi ve ekranlar aynıdır. Değişen giriştir: tarayıcıda dinleyici, Rust ve anahtar deposu yoktur.
+
+- **Kayıt:** Scrawl'ın Microsoft kaydına "Single-page application" platformu eklenir. Geri dönüş adresleri web'in adresleridir: yayın adresi, geliştirirken `http://localhost:5173/`, derlenmiş sürümü denerken `http://localhost:4173/`. Masaüstünün "Mobile and desktop" platformu olduğu gibi kalır.
+- **Gidiş dönüş:** yetki kodu + PKCE, aynı izinler. Sayfa Microsoft'a gider, giriş bitince web'in adresine `?code=…&state=…` ile döner.
+  - Gitmeden önce yazılan kaydedilir. Doğrulayıcı, `state` ve girişin ne için yapıldığı (bağlanma ya da yeniden giriş) `sessionStorage`'da bekler.
+  - Dönünce kod tarayıcıdan token adresine gönderilir; Microsoft buna yalnızca "Single-page application" adreslerinde izin verir. Adres çubuğu temizlenir ve kalınan yerden sürülür: bağlanırken Settings'te klasör penceresi açılır, yeniden girişte sync sürer.
+  - Açılır pencere kullanılmaz: ana ekrana eklenmiş uygulamada açılır pencereler iyi çalışmaz.
+- **24 saat:** Microsoft tarayıcı uygulamalarına verdiği yenileme anahtarını 24 saatte bitirir; kullanıldıkça uzamaz.
+  - Uygulama açılırken giriş 20 saatten eskiyse, daha bir şey gösterilmeden sayfa Microsoft'a gidip döner (`prompt=none`, hesabın e-postasıyla). Microsoft'un kendi oturumu sürdükçe bir şey yazmak gerekmez; bir iki saniyelik bir gidiş dönüştür. Oturum bittiyse Microsoft bir şey sormadan hata döner, sayfa döngüye girmez, durum "Sign in to OneDrive again" olur.
+  - Uygulama açıkken 24 saat dolarsa sayfa kendiliğinden gitmez, yazılan kesilmesin: durum çubuğunda ve sync panelinde "Sign in to OneDrive again" çıkar. Basınca önce yazılan kaydedilir, sonra aynı gidiş dönüş yapılır.
+- **Saklama:** yenileme anahtarı ve alındığı zaman `localStorage`'da durur, erişim anahtarı yalnızca bellektedir. Anahtarın ömrü 24 saattir ve uygulama başka bir kaynaktan betik yüklemez.
+- **Graph istekleri** masaüstünde de web tarafından gider; tarayıcıda değişmez.
+- **Kendi kaydını kullanma** web'de de vardır; kendi kaydına aynı platform eklenmelidir.
+- **Geliştirirken** tarayıcı yine `FakeGraph`'a bağlanır. `VITE_ONEDRIVE=real` ile gerçek OneDrive'a bağlanır.
 
 ## 9. Güvenlik ve gizlilik
 

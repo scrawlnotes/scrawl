@@ -102,6 +102,8 @@ export const en = {
   'sync.ownApp': 'Use your own app registration',
   'sync.ownAppAbout':
     'The application (client) ID of your own registration in Microsoft Entra: a mobile and desktop app that comes back to http://localhost. Left empty, Scrawl’s is used.',
+  'sync.ownAppAboutWeb':
+    'The application (client) ID of your own registration in Microsoft Entra: a single-page application that comes back to {address}. Left empty, Scrawl’s is used.',
   'sync.clientId': 'Application (client) ID',
   'sync.waitingForBrowser': 'Sign in to OneDrive in your browser; Scrawl goes on once you have.',
   'sync.signInTimeout': 'The sign-in took too long and was stopped. Try again.',

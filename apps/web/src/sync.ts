@@ -11,7 +11,7 @@ import {
   type VaultFs,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type Cloud, oneDrive } from './cloud';
+import { type Cloud, oneDrive, type SignInIntent, type SignInResult, takeSignInResult } from './cloud';
 import type { Session } from './session';
 import { isDesktop, vaultFolder } from './storage';
 
@@ -76,6 +76,10 @@ export interface SyncSnapshot {
   /** The last conflict copy made, with when, to point it out for a moment. */
   conflict: { path: string; at: number } | null;
   device: SyncDevice;
+  /** Signed in in the browser to connect, the page back from Microsoft: the account to choose a folder in. */
+  picking: Connection['account'] | null;
+  /** Signing in in the browser went wrong, as the page came back. */
+  signInError: string | null;
 }
 
 function read<T>(key: string): T | null {
@@ -133,9 +137,15 @@ const FRESH = { syncedAt: null, error: null, turn: null, lastDone: null, conflic
 /** The space's key, which a connection is kept for: another notes folder is not connected with it. */
 const vaultKey = () => (isDesktop ? (vaultFolder() ?? '') : 'browser');
 
+/** The connection kept for the space here, before anything opens; null when there is none. */
+export function keptConnection(): Connection | null {
+  const kept = read<Connection>(CONNECTION);
+  return kept && kept.vault === vaultKey() ? kept : null;
+}
+
 export class SyncService {
   private snapshot: SyncSnapshot = {
-    available: oneDrive() !== null,
+    available: true,
     connection: null,
     phase: 'off',
     syncedAt: null,
@@ -144,6 +154,8 @@ export class SyncService {
     lastDone: null,
     conflict: null,
     device: { id: '', name: '' },
+    picking: null,
+    signInError: null,
   };
   private versions = 0;
   private readonly listeners = new Set<() => void>();
@@ -155,6 +167,8 @@ export class SyncService {
   private every = 0;
   private stops: (() => void)[] = [];
   private vault: VaultFs | null = null;
+  /** How a sign-in that left the page ended, dealt with once the space is open. */
+  private signedIn: SignInResult | null = takeSignInResult();
 
   constructor(private readonly session: Session) {}
 
@@ -205,9 +219,45 @@ export class SyncService {
     this.vault = vault;
     this.remote = null;
     const kept = vault ? read<Connection>(CONNECTION) : null;
-    const connection = kept && kept.vault === vaultKey() && oneDrive() && !oneDrive()!.fake ? kept : null;
+    const connection = kept && kept.vault === vaultKey() && !oneDrive().fake ? kept : null;
     this.set({ connection, phase: connection ? 'idle' : 'off', ...FRESH });
     if (connection) this.syncNow();
+    if (vault) this.afterSignIn();
+  }
+
+  /**
+   * The page came back from Microsoft: signed in to connect, the folder is chosen next; signed in
+   * again, turns go on by themselves. What went wrong is told, but for a renewal on opening, which
+   * the next turn tells if it matters.
+   */
+  private afterSignIn() {
+    const done = this.signedIn;
+    this.signedIn = null;
+    if (!done) return;
+    if (done.error) {
+      if (done.intent !== 'renew') this.set({ signInError: t('sync.signInFailed', { error: done.error }) });
+      return;
+    }
+    if (done.intent !== 'connect') return;
+    this.account().then(
+      (account) => this.set({ picking: account }),
+      (error: unknown) => this.set({ signInError: t('sync.signInFailed', { error: error instanceof Error ? error.message : String(error) }) }),
+    );
+  }
+
+  /** The folder window took the account it was opened for. */
+  donePicking() {
+    this.set({ picking: null });
+  }
+
+  clearSignInError() {
+    if (this.snapshot.signInError) this.set({ signInError: null });
+  }
+
+  /** In the browser: what is being typed is written, then the page goes to Microsoft to sign in, and comes back. */
+  async leaveToSignIn(intent: SignInIntent) {
+    await this.session.beforeSync();
+    oneDrive().signIn(intent, this.snapshot.connection?.account.email);
   }
 
   private soon() {
@@ -227,7 +277,7 @@ export class SyncService {
 
   private storeFor(connection: Connection, vault: VaultFs): RemoteStore {
     if (this.remote?.connection !== connection || this.remote.vault !== vault) {
-      this.remote = { connection, vault, store: oneDrive()!.remote(connection.folder.id, vault) };
+      this.remote = { connection, vault, store: oneDrive().remote(connection.folder.id, vault) };
     }
     return this.remote.store;
   }
@@ -292,22 +342,22 @@ export class SyncService {
   // ---------- connecting ----------
 
   /** The cloud drive, for signing in and choosing a folder. */
-  cloud(): Cloud | null {
+  cloud(): Cloud {
     return oneDrive();
   }
 
   /** The folders in a folder of the drive, its root for null. */
   folders(parent: string | null): Promise<OneDriveFolder[]> {
-    return oneDrive()!.account().folders(parent);
+    return oneDrive().account().folders(parent);
   }
 
   createFolder(parent: string | null, name: string): Promise<OneDriveFolder> {
-    return oneDrive()!.account().createFolder(parent, name);
+    return oneDrive().account().createFolder(parent, name);
   }
 
   /** Who is signed in. */
   account(): Promise<{ name: string; email: string }> {
-    return oneDrive()!.account().me();
+    return oneDrive().account().me();
   }
 
   /**
@@ -320,7 +370,7 @@ export class SyncService {
     await this.forgetState(vault);
     const connection: Connection = { provider: 'onedrive', vault: vaultKey(), account, folder };
     // The stand-in drive forgets everything on reload, so its connection is not kept either.
-    if (!oneDrive()!.fake) write(CONNECTION, connection);
+    if (!oneDrive().fake) write(CONNECTION, connection);
     this.remote = null;
     this.set({ connection, phase: 'idle', ...FRESH });
     this.syncNow();
@@ -333,7 +383,7 @@ export class SyncService {
     this.remote = null;
     this.set({ connection: null, phase: 'off', ...FRESH });
     await oneDrive()
-      ?.signOut()
+      .signOut()
       .catch(() => undefined);
     if (vault) await this.forgetState(vault);
   }

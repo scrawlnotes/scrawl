@@ -65,12 +65,24 @@ export function SyncRow({ sync, service }: SyncRowProps) {
 
   useEffect(() => () => signing?.cancel(), [signing]);
 
-  // Signs in, then asks for the folder, unless the key that is kept still works.
+  // Back from Microsoft in the browser, signed in to connect: the folder is chosen now.
+  useEffect(() => {
+    if (!sync.picking) return;
+    setPicking(sync.picking);
+    service.donePicking();
+  }, [sync.picking, service]);
+
+  // Signs in, then asks for the folder, unless the key that is kept still works. In the browser
+  // the page goes to Microsoft and comes back, and the folder is asked for then.
   const signIn = async (then: 'pick' | 'resume') => {
     const cloud = service.cloud();
-    if (!cloud) return;
     setError(null);
-    const attempt = cloud.signIn();
+    service.clearSignInError();
+    if (cloud.redirects) {
+      await service.leaveToSignIn(then === 'pick' ? 'connect' : 'again');
+      return;
+    }
+    const attempt = cloud.signIn(then === 'pick' ? 'connect' : 'again');
     setSigning(attempt);
     try {
       await attempt.done;
@@ -104,7 +116,7 @@ export function SyncRow({ sync, service }: SyncRowProps) {
       onCancel={() => {
         setPicking(null);
         // Not connected after all: the key kept for it goes.
-        if (!sync.connection) void service.cloud()?.signOut();
+        if (!sync.connection) void service.cloud().signOut();
       }}
     />
   );
@@ -135,6 +147,8 @@ export function SyncRow({ sync, service }: SyncRowProps) {
     );
   }
 
+  const failed = error ?? sync.signInError;
+
   if (!connection) {
     return (
       <div className="st-sync">
@@ -147,18 +161,18 @@ export function SyncRow({ sync, service }: SyncRowProps) {
               {t('sync.connectOneDrive')}
             </button>
           </span>
-          {error && (
+          {failed && (
             <p className="err" role="alert">
-              {error}
+              {failed}
             </p>
           )}
           <p className="small">{t('sync.access')}</p>
-          {isDesktop && !ownApp && (
+          {!ownApp && (
             <button type="button" className="st-link" onClick={() => setOwnApp(true)}>
               {t('sync.ownApp')}
             </button>
           )}
-          {isDesktop && ownApp && <OwnApp onDone={() => setOwnApp(false)} />}
+          {ownApp && <OwnApp onDone={() => setOwnApp(false)} />}
         </div>
         {picker}
       </div>
@@ -199,9 +213,9 @@ export function SyncRow({ sync, service }: SyncRowProps) {
             {t('sync.disconnect')}
           </button>
         </span>
-        {error && (
+        {failed && (
           <p className="err" role="alert">
-            {error}
+            {failed}
           </p>
         )}
         {notSynced > 0 && <p className="small">{t('sync.notSyncedCount', { count: notSynced })}</p>}
@@ -221,7 +235,7 @@ function OwnApp({ onDone }: { onDone: () => void }) {
   };
   return (
     <div className="own-app">
-      <p className="small">{t('sync.ownAppAbout')}</p>
+      <p className="small">{isDesktop ? t('sync.ownAppAbout') : t('sync.ownAppAboutWeb', { address: `${window.location.origin}/` })}</p>
       <div className="st-row bare">
         <input
           value={draft}
@@ -527,6 +541,8 @@ export interface SyncStatusProps {
   onSyncNow: () => void;
   /** Opens Settings at the space's sync. */
   onSettings: () => void;
+  /** Signs in again after the key stopped working. */
+  onSignIn: () => void;
   onOpenCopy: (path: string) => void;
 }
 
@@ -535,7 +551,7 @@ export interface SyncStatusProps {
  * it, and a new conflict copy for a moment. Resting the pointer on it opens the sync panel, a
  * click keeps it open; on a phone a tap opens it as a sheet. Nothing while not connected.
  */
-export function SyncStatus({ sync, onSyncNow, onSettings, onOpenCopy }: SyncStatusProps) {
+export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }: SyncStatusProps) {
   useTicking(sync.connection !== null);
   const narrow = useNarrow();
   const [copy, setCopy] = useState<string | null>(null);
@@ -623,6 +639,10 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onOpenCopy }: SyncStat
             onSettings={() => {
               close();
               onSettings();
+            }}
+            onSignIn={() => {
+              close();
+              onSignIn();
             }}
           />,
           document.body,
@@ -806,6 +826,7 @@ interface PanelProps {
   onClose: () => void;
   onSyncNow: () => void;
   onSettings: () => void;
+  onSignIn: () => void;
 }
 
 /**
@@ -815,7 +836,7 @@ interface PanelProps {
  * and why. It only tells. A space may hold thousands of files: one tab shows at a time, and
  * only the rows in sight are drawn.
  */
-function SyncPanel({ sync, narrow, anchor, kept, onEnter, onLeave, onClose, onSyncNow, onSettings }: PanelProps) {
+function SyncPanel({ sync, narrow, anchor, kept, onEnter, onLeave, onClose, onSyncNow, onSettings, onSignIn }: PanelProps) {
   const box = useRef<HTMLElement>(null);
   const { phase, turn, lastDone } = sync;
   const running = phase === 'syncing' && turn !== null && turn.endedAt === null;
@@ -1000,10 +1021,16 @@ function SyncPanel({ sync, narrow, anchor, kept, onEnter, onLeave, onClose, onSy
         <button type="button" className="st-btn" onClick={onSettings}>
           {t('panel.settings')}
         </button>
-        {!running && (
-          <button type="button" className="st-btn go" onClick={onSyncNow}>
-            {t('sync.syncNow')}
+        {phase === 'signedOut' ? (
+          <button type="button" className="st-btn go" onClick={onSignIn}>
+            {t('sync.signInAgain')}
           </button>
+        ) : (
+          !running && (
+            <button type="button" className="st-btn go" onClick={onSyncNow}>
+              {t('sync.syncNow')}
+            </button>
+          )
         )}
       </div>
     </section>

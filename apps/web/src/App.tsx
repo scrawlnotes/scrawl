@@ -166,6 +166,10 @@ export function App() {
   const [session] = useState(() => new Session());
   const [syncService] = useState(() => new SyncService(session));
   const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
+  // Back from signing in in the browser: Settings opens at the space's sync, for its folder or what went wrong.
+  useEffect(() => {
+    if (sync.picking || sync.signInError) setDialog({ kind: 'settings', section: 'spaces' });
+  }, [sync.picking, sync.signInError]);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
@@ -929,6 +933,8 @@ export function App() {
             sync={sync}
             onSyncNow={() => syncService.syncNow()}
             onSettings={() => setDialog({ kind: 'settings', section: 'spaces' })}
+            // In the browser the page goes to Microsoft and back; on the desktop it is done in Settings, which waits for the system browser.
+            onSignIn={() => (syncService.cloud().redirects ? void syncService.leaveToSignIn('again') : setDialog({ kind: 'settings', section: 'spaces' }))}
             onOpenCopy={(path) => void session.open(path)}
           />
         </footer>
