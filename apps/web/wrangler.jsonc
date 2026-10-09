@@ -1,0 +1,16 @@
+// The web app on Cloudflare, at app.scrawlnotes.com: its built files only, no Worker code. Every
+// address that is not a file opens the app. Published with `pnpm --filter @scrawlnotes/web run release`.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "scrawl-web",
+  "compatibility_date": "2026-10-09",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [{ "pattern": "app.scrawlnotes.com", "custom_domain": true }],
+  // One address only: the sign-in comes back to it, and the browser keeps the notes for it.
+  "workers_dev": false,
+  // Wrangler tells Cloudflare nothing about how it is used.
+  "send_metrics": false
+}

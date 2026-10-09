@@ -26,7 +26,8 @@ function serviceWorker(): Plugin {
     apply: 'build',
     generateBundle(_, bundle) {
       const publicDir = here('./public');
-      const names = [...Object.keys(bundle).filter((name) => !name.endsWith('.map')), ...filesIn(publicDir)].sort();
+      // `_headers` is read by the host, not served: nothing to keep.
+      const names = [...Object.keys(bundle).filter((name) => !name.endsWith('.map')), ...filesIn(publicDir).filter((name) => name !== '_headers')].sort();
       const hash = createHash('sha256');
       for (const name of names) {
         hash.update(name);
