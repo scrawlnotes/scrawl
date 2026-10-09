@@ -37,6 +37,7 @@ import {
   type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type TextareaHTMLAttributes,
   useEffect,
@@ -48,6 +49,7 @@ import { createPortal } from 'react-dom';
 import type { MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { boardLabel, collectionLabel, listLabel } from './items';
+import { holdToDrag, pressOnField } from './touchDrag';
 
 /** What can be done to a task, in the list at the path given. */
 export interface TaskActions {
@@ -198,6 +200,8 @@ function RecordPicker({ anchor, current, choices, onPick, onClose }: {
 interface DragHandlers {
   grab: (event: DragEvent<HTMLElement>, what: { task: Task } | { section: Section }) => void;
   release: () => void;
+  /** A finger held on the row, which lifts it after a moment. */
+  hold: (event: ReactPointerEvent<HTMLElement>, what: { task: Task } | { section: Section }) => void;
 }
 
 export const GRIP = (
@@ -458,6 +462,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
         data-row="task"
         data-id={task.id}
         data-depth={depthOf(tasks, task.id)}
+        onPointerDown={drag && !editing ? (event) => !pressOnField(event) && drag.hold(event, { task }) : undefined}
         onContextMenu={
           editing
             ? undefined
@@ -694,7 +699,7 @@ const margin = (container: HTMLElement) => parseFloat(getComputedStyle(container
  * it moved right or left since the task was picked up picks the level, from the top level up to
  * one below the task above. A folded section's header takes the task in at its end.
  */
-function taskDrop(container: HTMLElement, d: Dragging, event: DragEvent, list: List): Drop {
+function taskDrop(container: HTMLElement, d: Dragging, event: { clientX: number; clientY: number }, list: List): Drop {
   const box = container.getBoundingClientRect();
   const rows = dropRows(container, d);
   const y = event.clientY;
@@ -748,7 +753,7 @@ function taskDrop(container: HTMLElement, d: Dragging, event: DragEvent, list: L
 }
 
 /** Where a dragged section would land: before the header under the pointer's half, or at the end. */
-function sectionDrop(container: HTMLElement, d: Dragging, event: DragEvent): Drop {
+function sectionDrop(container: HTMLElement, d: Dragging, event: { clientX: number; clientY: number }): Drop {
   const box = container.getBoundingClientRect();
   const headers = dropRows(container, d).filter((row) => row.dataset.row === 'section');
   let index = headers.findIndex((row) => {
@@ -839,6 +844,7 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
         data-row="section"
         data-id={section.id}
         data-collapsed={!open}
+        onPointerDown={renaming === null ? (event) => !pressOnField(event) && drag.hold(event, { section }) : undefined}
         onContextMenu={menu}
       >
         {renaming === null && <Grip title={t('sections.drag')} onGrab={(event) => drag.grab(event, { section })} onRelease={drag.release} />}
@@ -913,60 +919,86 @@ export function TaskList({ list, tasks, sections, today, actions }: {
   const rows = useRef<HTMLDivElement>(null);
   const dragging = useRef<Dragging | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
+  // The same, for a finger letting go, which comes before the state is drawn.
+  const dropping = useRef<Drop | null>(null);
 
   const release = () => {
     dragging.current = null;
+    dropping.current = null;
     setDrop(null);
     for (const lifted of rows.current?.querySelectorAll('.lifted') ?? []) lifted.classList.remove('lifted');
   };
+  /** Picks up a task or a section from an element of its row, the pointer or the finger at `x`. */
+  const pickUp = (handle: HTMLElement, x: number, what: { task: Task } | { section: Section }) => {
+    if ('task' in what) {
+      const { task } = what;
+      // The row and the subtasks under it are lifted; none of them is a place to drop it.
+      const row = handle.closest<HTMLElement>('[data-row]')!;
+      const subs = row.nextElementSibling?.classList.contains('subs') ? (row.nextElementSibling as HTMLElement) : null;
+      const lifted = [row, ...(subs ? [subs] : [])];
+      dragging.current = { kind: 'task', id: task.id, depth: depthOf(tasks, task.id), height: subtaskLevels(tasks, task.id), startX: x, lifted };
+    } else {
+      const block = handle.closest<HTMLElement>('.section')!;
+      dragging.current = { kind: 'section', id: what.section.id, depth: 0, height: 0, startX: x, lifted: [block] };
+    }
+  };
+  const lift = () => {
+    for (const element of dragging.current?.lifted ?? []) element.classList.add('lifted');
+  };
+  /** Where it would land, the pointer or the finger here. */
+  const over = (point: { clientX: number; clientY: number }) => {
+    const d = dragging.current;
+    if (!d || !rows.current) return;
+    const next = d.kind === 'task' ? taskDrop(rows.current, d, point, whole) : sectionDrop(rows.current, d, point);
+    dropping.current = next;
+    setDrop((current) => (sameDrop(current, next) ? current : next));
+  };
+  const land = () => {
+    const d = dragging.current;
+    const at = dropping.current;
+    if (d && at) {
+      if (d.kind === 'task' && at.place) actions.moveTask(list, d.id, at.place);
+      if (d.kind === 'section' && at.after !== undefined) actions.moveSection(list, d.id, at.after);
+    }
+    release();
+  };
   const drag: DragHandlers = {
     grab(event, what) {
-      const handle = event.currentTarget;
-      if ('task' in what) {
-        const { task } = what;
-        // The row and the subtasks under it are lifted; none of them is a place to drop it.
-        const row = handle.closest<HTMLElement>('[data-row]')!;
-        const subs = row.nextElementSibling?.classList.contains('subs') ? (row.nextElementSibling as HTMLElement) : null;
-        const lifted = [row, ...(subs ? [subs] : [])];
-        dragging.current = {
-          kind: 'task',
-          id: task.id,
-          depth: depthOf(tasks, task.id),
-          height: subtaskLevels(tasks, task.id),
-          startX: event.clientX,
-          lifted,
-        };
-        dragImage(event, task.title, `p${task.priority}`);
-      } else {
-        const block = handle.closest<HTMLElement>('.section')!;
-        dragging.current = { kind: 'section', id: what.section.id, depth: 0, height: 0, startX: event.clientX, lifted: [block] };
-        dragImage(event, what.section.name);
-      }
+      pickUp(event.currentTarget, event.clientX, what);
+      if ('task' in what) dragImage(event, what.task.title, `p${what.task.priority}`);
+      else dragImage(event, what.section.name);
       event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData(DRAG_TYPE, dragging.current.id);
+      event.dataTransfer.setData(DRAG_TYPE, dragging.current!.id);
       // Lifted after the browser has taken its picture of the row.
-      requestAnimationFrame(() => {
-        for (const element of dragging.current?.lifted ?? []) element.classList.add('lifted');
-      });
+      requestAnimationFrame(lift);
     },
     release,
+    hold(event, what) {
+      const row = event.currentTarget;
+      holdToDrag(event, {
+        element: row,
+        onLift: (x, y) => {
+          pickUp(row, x, what);
+          lift();
+          over({ clientX: x, clientY: y });
+        },
+        onMove: (x, y) => over({ clientX: x, clientY: y }),
+        onDrop: land,
+        onCancel: release,
+      });
+    },
   };
 
   const onDragOver = (event: DragEvent<HTMLDivElement>) => {
-    const d = dragging.current;
-    if (!d || !rows.current) return;
+    if (!dragging.current) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-    const next = d.kind === 'task' ? taskDrop(rows.current, d, event, whole) : sectionDrop(rows.current, d, event);
-    setDrop((current) => (sameDrop(current, next) ? current : next));
+    over(event);
   };
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
-    const d = dragging.current;
-    if (!d || !drop) return;
+    if (!dragging.current || !dropping.current) return;
     event.preventDefault();
-    if (d.kind === 'task' && drop.place) actions.moveTask(list, d.id, drop.place);
-    if (d.kind === 'section' && drop.after !== undefined) actions.moveSection(list, d.id, drop.after);
-    release();
+    land();
   };
 
   const item = (task: Task) => (

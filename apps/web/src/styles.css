@@ -1872,6 +1872,21 @@ input:focus {
   opacity: 0.35;
 }
 
+/* A task, a section or a card carried by a finger: a copy of it under the finger, above the
+   row's or the card's own rules. */
+body > .touch-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  margin: 0;
+  border-radius: 6px;
+  background: var(--sl-bg);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.35);
+  opacity: 0.96;
+  pointer-events: none;
+}
+
 .drop-line {
   position: absolute;
   right: 26px;
@@ -2479,6 +2494,23 @@ button.cb:hover::after {
 
   .grip {
     display: none;
+  }
+
+  /* Holding a task, a section or a card lifts it: it selects no text and opens no callout. What is
+     typed into stays as it is. */
+  .task,
+  .sec,
+  .kc {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .task input,
+  .task textarea,
+  .sec input {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   .tab.on .tab-close span {

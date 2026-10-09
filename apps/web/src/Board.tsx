@@ -29,7 +29,7 @@ import {
   valueText,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type DragEvent, type KeyboardEvent, type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNarrow } from './narrow';
 import { StatusIcon } from './StatusIcon';
@@ -40,6 +40,7 @@ import { BoardFieldsDialog } from './Fields';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { dueClass, dueLabel } from './Tasks';
+import { holdToDrag } from './touchDrag';
 
 /** What can be done on a board, at the path given. */
 export interface BoardActions extends CardPanelActions {
@@ -221,7 +222,7 @@ function faceText(value: FieldValue): string {
   return links.length > 1 ? `${first} +${links.length - 1}` : first;
 }
 
-function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPhase, open }: {
+function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold, showPhase, open }: {
   board: Board;
   path: string;
   card: Card;
@@ -233,6 +234,8 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPh
   actions: BoardActions;
   onGrab: (event: DragEvent<HTMLElement>, card: Card) => void;
   onRelease: () => void;
+  /** A finger held on the card, which lifts it after a moment. */
+  onHold: (event: ReactPointerEvent<HTMLElement>, card: Card) => void;
 }) {
   const comments = card.timeline.filter((entry) => entry.kind === 'comment').length;
   const noteTitle = card.note ? actions.noteTitle(card.note) : null;
@@ -260,6 +263,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, showPh
       draggable
       onDragStart={(event) => onGrab(event, card)}
       onDragEnd={onRelease}
+      onPointerDown={(event) => onHold(event, card)}
       onContextMenu={menu}
     >
       <button type="button" className="kc-main" onClick={() => actions.openCard(path, card.id)}>
@@ -319,7 +323,7 @@ interface Drop {
 /** Finished cards older than this many days fold away under the column's last recent card. */
 const OLD_AFTER_DAYS = 7;
 
-function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, drop, onGrab, onRelease, onDragOver, onDrop, onGrabColumn, openCard }: {
+function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, drop, onGrab, onRelease, onHold, onDragOver, onDrop, onGrabColumn, openCard }: {
   board: Board;
   path: string;
   column: Column;
@@ -334,6 +338,7 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
   drop: Drop | null;
   onGrab: (event: DragEvent<HTMLElement>, card: Card) => void;
   onRelease: () => void;
+  onHold: (event: ReactPointerEvent<HTMLElement>, card: Card) => void;
   onDragOver: (event: DragEvent<HTMLDivElement>, column: Column, lane: string | null | undefined) => void;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   /** The column's header is dragged to another place; not in the lanes. */
@@ -381,6 +386,7 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
       actions={actions}
       onGrab={onGrab}
       onRelease={onRelease}
+      onHold={onHold}
       showPhase={!inLane && 'all' in shown && board.phasesOn}
       open={card.id === openCard}
     />
@@ -390,6 +396,8 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
     <div
       className={`colm kind-${column.kind}${inLane ? ' in-lane' : ''}`}
       data-column={column.id}
+      // A finger finds the lane it is over here: none without lanes, empty for the cards in no phase.
+      data-lane={lane === undefined ? undefined : (lane ?? '')}
       onDragOver={(event) => onDragOver(event, column, lane)}
       onDrop={onDrop}
       onContextMenu={(event) => event.target === event.currentTarget && menu(event)}
@@ -1158,6 +1166,9 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   const columns = useRef<HTMLDivElement>(null);
   const dragging = useRef<{ card: Card; element: HTMLElement } | { column: Column; element: HTMLElement } | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
+  // The same, for a finger letting go, which comes before the state is drawn.
+  const dropping = useRef<Drop | null>(null);
+  const root = useRef<HTMLElement>(null);
   /** Where a dragged column would land: the gap before the column at this index. */
   const [columnDrop, setColumnDrop] = useState<number | null>(null);
   const waiting = reviewCount(board);
@@ -1214,6 +1225,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   const release = () => {
     dragging.current?.element.classList.remove('lifted');
     dragging.current = null;
+    dropping.current = null;
     setDrop(null);
     setColumnDrop(null);
   };
@@ -1233,31 +1245,81 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
     event.stopPropagation();
     requestAnimationFrame(() => dragging.current?.element.classList.add('lifted'));
   };
+  /** The gap in a column at height `y`: before the first card shown whose middle is below it. */
+  const dropIn = (block: HTMLElement, y: number, column: string, lane: string | null | undefined) => {
+    const d = dragging.current;
+    if (!d || !('card' in d)) return;
+    const cards = [...block.querySelectorAll<HTMLElement>('[data-card]')].filter((el) => el !== d.element);
+    let index = cards.findIndex((el) => {
+      const box = el.getBoundingClientRect();
+      return y < box.top + box.height / 2;
+    });
+    if (index < 0) index = cards.length;
+    const after = index === 0 ? null : (cards[index - 1]?.dataset.card ?? null);
+    const next = { column, lane, index, after };
+    dropping.current = next;
+    setDrop((now) => (now?.column === column && now.lane === lane && now.index === index ? now : next));
+  };
   const onDragOver = (event: DragEvent<HTMLDivElement>, column: Column, lane: string | null | undefined) => {
     const d = dragging.current;
     if (!d || !('card' in d)) return;
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = 'move';
-    // The gap under the pointer: before the first card shown whose middle is below it.
-    const cards = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-card]')].filter((el) => el !== d.element);
-    let index = cards.findIndex((el) => {
-      const box = el.getBoundingClientRect();
-      return event.clientY < box.top + box.height / 2;
-    });
-    if (index < 0) index = cards.length;
-    const after = index === 0 ? null : (cards[index - 1]?.dataset.card ?? null);
-    setDrop((now) => (now?.column === column.id && now.lane === lane && now.index === index ? now : { column: column.id, lane, index, after }));
+    dropIn(event.currentTarget, event.clientY, column.id, lane);
+  };
+  /**
+   * A finger carrying a card: the column under it, or else the one it is level with, the nearest
+   * by height; a column with few cards ends well above a finger that comes from a long one.
+   */
+  const overAt = (x: number, y: number) => {
+    const under = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-column]');
+    const level = (box: DOMRect) => (y < box.top ? box.top - y : y > box.bottom ? y - box.bottom : 0);
+    const block =
+      under && root.current?.contains(under)
+        ? under
+        : [...(root.current?.querySelectorAll<HTMLElement>('[data-column]') ?? [])]
+            .map((el) => ({ el, box: el.getBoundingClientRect() }))
+            .filter(({ box }) => x >= box.left && x <= box.right)
+            .sort((a, b) => level(a.box) - level(b.box))[0]?.el;
+    if (!block) {
+      dropping.current = null;
+      setDrop(null);
+      return;
+    }
+    const lane = block.dataset.lane;
+    dropIn(block, y, block.dataset.column!, lane === undefined ? undefined : lane || null);
+  };
+  const land = () => {
+    const d = dragging.current;
+    const at = dropping.current;
+    if (d && 'card' in d && at) {
+      actions.moveCard(path, d.card.id, { column: at.column, after: at.after });
+      // Dropped in another lane: the card changes phase too.
+      if (at.lane !== undefined && (d.card.phase ?? null) !== at.lane) actions.updateCard(path, d.card.id, { phase: at.lane });
+    }
+    release();
   };
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     const d = dragging.current;
-    if (!d || !('card' in d) || !drop) return;
+    if (!d || !('card' in d) || !dropping.current) return;
     event.preventDefault();
     event.stopPropagation();
-    actions.moveCard(path, d.card.id, { column: drop.column, after: drop.after });
-    // Dropped in another lane: the card changes phase too.
-    if (drop.lane !== undefined && (d.card.phase ?? null) !== drop.lane) actions.updateCard(path, d.card.id, { phase: drop.lane });
-    release();
+    land();
+  };
+  const onHold = (event: ReactPointerEvent<HTMLElement>, card: Card) => {
+    const element = event.currentTarget;
+    holdToDrag(event, {
+      element,
+      onLift: (x, y) => {
+        dragging.current = { card, element };
+        element.classList.add('lifted');
+        overAt(x, y);
+      },
+      onMove: overAt,
+      onDrop: land,
+      onCancel: release,
+    });
   };
   // A column dragged by its header lands in a gap between columns, picked by the pointer's x.
   const onColumnDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -1289,7 +1351,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
 
   return (
     <div className="bwrap">
-    <section className="bv">
+    <section ref={root} className="bv">
       <header className="th">
         <b>{name}</b>
         <span className="vsw" role="tablist">
@@ -1363,6 +1425,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
                     drop={drop}
                     onGrab={onGrab}
                     onRelease={release}
+                    onHold={onHold}
                     onDragOver={onDragOver}
                     onDrop={onDrop}
                     openCard={openCard}
@@ -1399,6 +1462,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
             drop={drop}
             onGrab={onGrab}
             onRelease={release}
+            onHold={onHold}
             onDragOver={onDragOver}
             onDrop={onDrop}
             onGrabColumn={onGrabColumn}
