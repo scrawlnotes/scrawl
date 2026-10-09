@@ -420,6 +420,14 @@ p { margin: 0; max-width: 68ch; }
 .drop.in1 { margin-left: 28px; }
 .ghost-row { position: absolute; z-index: 3; display: flex; align-items: center; gap: 10px; width: 300px; padding: 8px 12px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-bg); box-shadow: 0 8px 22px rgb(0 0 0 / .3); font-size: 13.5px; transform: rotate(-1deg); }
 .ghost-row .cb { flex: none; margin: 0; }
+/* dragging on a touch screen: the finger, the card it carries, the board scrolling to the side */
+.finger { position: absolute; z-index: 4; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%; background: color-mix(in srgb, var(--m-fg) 20%, transparent); border: 1px solid color-mix(in srgb, var(--m-fg) 35%, transparent); pointer-events: none; }
+.tboard { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.tcols { display: flex; gap: 12px; padding: 4px 12px; transform: translateX(-196px); }
+.tcols .pcol { flex: none; width: 290px; padding: 0; }
+.kc.lifted { opacity: .35; }
+.ghost-card { position: absolute; z-index: 3; width: 250px; transform: rotate(1.5deg) scale(1.03); box-shadow: 0 10px 26px rgb(0 0 0 / .35); border-radius: 5px; }
+.edge-scroll { position: absolute; top: 0; right: 0; bottom: 0; width: 30px; background: linear-gradient(to left, color-mix(in srgb, var(--m-accent) 28%, transparent), transparent); }
 .secmenu { position: absolute; z-index: 3; display: flex; flex-direction: column; min-width: 150px; padding: 4px; background: var(--m-side); border: 1px solid var(--m-line); border-radius: 7px; box-shadow: 0 6px 18px rgb(0 0 0 / .28); font-size: 12.5px; }
 .secmenu span { padding: 4px 8px; border-radius: 4px; color: var(--m-fg); }
 .secmenu span.hot { background: var(--m-sel); }
@@ -1233,6 +1241,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-colmissing" data-aview="colmissing">Record missing</button>
         <button type="button" id="a-folders" data-aview="folders">Folder menu</button>
         <button type="button" id="a-subfolder" data-aview="subfolder">Subfolder</button>
+        <button type="button" id="a-touchdrag" data-aview="touchdrag">Touch drag</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -1515,7 +1524,7 @@ p { margin: 0; max-width: 68ch; }
   function lbl(name) { return '<span class="lbl" style="--lc:' + (LC[name] || 'var(--m-dim)') + '">' + name + '</span>'; }
   function who(ini, bot) { return '<span class="who' + (bot ? ' bot' : '') + '">' + ini + '</span>'; }
   function kc(o) {
-    return '<div class="kc' + (o.done ? ' done' : '') + (o.on ? ' on' : '') + (o.old ? ' old' : '') + '">' +
+    return '<div class="kc' + (o.done ? ' done' : '') + (o.on ? ' on' : '') + (o.old ? ' old' : '') + (o.lifted ? ' lifted' : '') + '">' +
       '<span class="key">' + o.key + '</span>' +
       '<div class="kt"><i class="dot ' + (o.p || '') + '"></i><span>' + o.title + '</span></div>' +
       (o.meta || o.who ? '<div class="meta">' + (o.meta || '') + (o.who ? who(o.who, o.bot) : '') + '</div>' : '') + '</div>';
@@ -2747,6 +2756,44 @@ p { margin: 0; max-width: 68ch; }
       '<div class="pbackdrop"></div><div class="pdrawer">' + projectTree('tasks') + '</div></div>';
     return '<div class="phone-wrap" style="position: relative">' + note + '</div><div style="position: relative">' + list + '</div><div style="position: relative">' + drawer + '</div>';
   }
+  // Dragging on a touch screen. A task or a card is held for a moment, then it lifts: its place
+  // fades, a copy follows the finger, and the line shows where it would land, as with a mouse. A
+  // task goes a level in or out as the finger moves right or left; near the top or the bottom the
+  // list scrolls. A card carried to the side of the board scrolls it to the next column. A short
+  // tap still opens it; a finger that moves before the moment is up scrolls.
+  function touchDragPhones() {
+    var tasks = '<div class="phone">' + phoneTabs(1) + '<div class="tasksv" style="position: relative"><div class="th"><b>Tasks</b><span class="chip">Scrawl</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      stask('p2', 'Register scrawlnotes on GitHub and npm', '<span>Tomorrow</span>') +
+      sec('Phase 0', 1) +
+      stask('p1', 'Prototype live preview', '<span class="today">Today</span><span>2 of 4</span>') +
+      stask('p3', 'Decide retry budget for sync', '<span>Oct 9</span>', { lifted: true }) +
+      '<div class="qa">+ Add task</div>' +
+      sec('Phase 1', 3) +
+      stask('p2', 'Hot exit: restore tabs after a crash', '<span>Oct 14</span>') +
+      '<div class="drop" style="margin-left: 36px"></div>' +
+      stask('', 'Full-text search index', '') +
+      '<div class="qa">+ Add task</div>' +
+      '</div>' +
+      '<div class="ghost-row" style="left: 52px; top: 386px; width: 270px"><span class="cb p3"></span>Decide retry budget for sync</div>' +
+      '<span class="finger" style="left: 236px; top: 380px"></span>' +
+      '</div><div class="status"><span>7 open</span><span>Saved</span></div></div>';
+    var board = '<div class="phone">' +
+      '<div class="ptabs"><span class="burger" title="Folders and views">' + ICON.burger + '</span>' + tab('board', 'Roadmap · Scrawl', 'phone', true) + '<div class="tab plus">+</div></div>' +
+      '<div class="bv" style="flex: none"><div class="th"><b>Roadmap</b><span class="vsw"><span class="on">Board</span><span>List</span></span></div></div>' +
+      '<div class="tboard"><div class="tcols">' +
+        '<div class="pcol"><h3>Doing<small>2</small></h3>' +
+          kc({ key: 'SCR-14', p: 'p2', title: 'Hot exit: restore tabs after a crash', meta: '<span class="today">Today</span>' + lbl('editor'), who: 'K', lifted: true }) +
+          kc({ key: 'SCR-15', p: 'p1', title: 'Card panel: description with the live preview editor', meta: lbl('board'), who: 'C', bot: true }) + '</div>' +
+        '<div class="pcol"><h3>Review<small>2</small></h3>' +
+          kc({ key: 'SCR-12', p: 'p1', title: 'Phase strip above the columns', meta: '<span>Oct 9</span>' + lbl('board'), who: 'C', bot: true }) +
+          '<div class="drop"></div>' +
+          kc({ key: 'SCR-13', p: 'p3', title: 'Column kinds in the file format', meta: lbl('board'), who: 'C', bot: true }) + '</div>' +
+      '</div><span class="edge-scroll"></span>' +
+      '<div class="ghost-card" style="left: 118px; top: 188px">' + kc({ key: 'SCR-14', p: 'p2', title: 'Hot exit: restore tabs after a crash', meta: '<span class="today">Today</span>' + lbl('editor'), who: 'K' }) + '</div>' +
+      '<span class="finger" style="left: 300px; top: 206px"></span>' +
+      '</div><div class="status"><span>142 cards</span><span>Saved</span></div></div>';
+    return '<div style="position: relative">' + tasks + '</div><div style="position: relative">' + board + '</div>';
+  }
   // Settings: a window in the middle, its sections on the left. Appearance has the theme; Spaces
   // has the personal space, its name and where it is. On a phone it fills the screen.
   ICON.half = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg>';
@@ -3008,13 +3055,13 @@ p { margin: 0; max-width: 68ch; }
   };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
-    mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone');
+    mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone' || view === 'touchdrag');
     mock.classList.toggle('four', view === 'settingsphone');
     mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty' || view === 'col' || view === 'coladd' || view === 'colrec' || view === 'colpick' || view === 'coleq' || view === 'colrectasks' || view === 'colcsvmenu' || view === 'colcsv' || view === 'colmissing');
     mock.classList.toggle('wider', view === 'isstatus');
     mock.classList.toggle('wider', view === 'card' || view.indexOf('colf') === 0 || (view.indexOf('crm') === 0 && view !== 'crmnew'));
-    if (view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone') {
-      mock.innerHTML = view === 'phone' ? phoneView() : view === 'syncphone' ? syncPhones() : view === 'phphone' ? phasesPhones() : view === 'keysphone' ? keysPhones() : view === 'colphone' ? colPhones() : settingsPhones();
+    if (view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone' || view === 'touchdrag') {
+      mock.innerHTML = view === 'phone' ? phoneView() : view === 'syncphone' ? syncPhones() : view === 'phphone' ? phasesPhones() : view === 'keysphone' ? keysPhones() : view === 'colphone' ? colPhones() : view === 'touchdrag' ? touchDragPhones() : settingsPhones();
       section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
         b.setAttribute('aria-pressed', String(b.dataset.aview === view));
       });
