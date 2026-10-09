@@ -4774,6 +4774,30 @@ button.cb:hover::after {
   color: var(--sl-fg);
 }
 
+/* The size on a phone and on a computer: the one this device uses is said beside it. */
+.st-size {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.st-size .st-label small {
+  margin-left: 6px;
+  color: var(--sl-accent);
+  font-size: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.st-size .st-modes {
+  flex-wrap: wrap;
+}
+
+.st-size .st-modes button {
+  padding: 2px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
 .st-themes {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

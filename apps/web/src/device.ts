@@ -1,9 +1,9 @@
 import { languages, setLanguage } from '@scrawlnotes/i18n';
 import { paletteOf, type Shade, shadeOf, themeById } from './themes';
 
-// What this device remembers about the app, apart from any space: the mode, the theme and the
-// language. Storage can be missing or refuse (a private window); the app then starts with what is
-// usual.
+// What this device remembers about the app, apart from any space: the mode, the theme, the size
+// and the language. Storage can be missing or refuse (a private window); the app then starts with
+// what is usual.
 
 /** Light or dark as chosen: the device's own setting, or one of them whatever the device uses. */
 export type Mode = 'system' | 'light' | 'dark';
@@ -11,6 +11,7 @@ export type Mode = 'system' | 'light' | 'dark';
 const MODE = 'scrawl.mode';
 const THEME = 'scrawl.theme';
 const LANGUAGE = 'scrawl.language';
+const SIZE = { phone: 'scrawl.sizePhone', computer: 'scrawl.sizeComputer' } as const;
 
 function read(key: string): string | null {
   try {
@@ -51,6 +52,53 @@ export const shadeOfMode = (mode: Mode, system: Shade): Shade => (mode === 'syst
 /** Calls back each time the device turns light or dark. */
 export function onSystemShade(listener: () => void): () => void {
   const query = darkQuery();
+  query.addEventListener('change', listener);
+  return () => query.removeEventListener('change', listener);
+}
+
+/** Where the size comes from: a phone's, or a computer's (a browser, the desktop app, a tablet). */
+export type SizeKind = keyof typeof SIZE;
+
+/** The sizes to choose from, in percent of the computer's own. */
+export const SIZES = [90, 100, 110, 125, 140, 160] as const;
+
+/** A phone's screen is small and touched: what is drawn for a computer is too small on it. */
+const DEFAULT_SIZE: Record<SizeKind, number> = { phone: 125, computer: 100 };
+
+/** A touch screen that is narrow either way it is held. */
+export const isPhone = () => window.matchMedia('(pointer: coarse)').matches && Math.min(window.screen.width, window.screen.height) < 600;
+
+export const thisSizeKind = (): SizeKind => (isPhone() ? 'phone' : 'computer');
+
+export function loadSize(kind: SizeKind): number {
+  const value = Number(read(SIZE[kind]));
+  return (SIZES as readonly number[]).includes(value) ? value : DEFAULT_SIZE[kind];
+}
+
+export const saveSize = (kind: SizeKind, size: number) => write(SIZE[kind], size === DEFAULT_SIZE[kind] ? null : String(size));
+
+/**
+ * Draws the whole app larger or smaller, everything in step. A phone is told it is narrower than
+ * it is, so that its browser scales everything up to fill it, the way it does any page; turned
+ * sideways it is told again. A computer zooms the page.
+ */
+export function applySize() {
+  const scale = loadSize(thisSizeKind()) / 100;
+  const viewport = document.querySelector('meta[name="viewport"]');
+  if (isPhone()) {
+    document.documentElement.style.zoom = '';
+    const sideways = window.matchMedia('(orientation: landscape)').matches;
+    const across = sideways ? Math.max(window.screen.width, window.screen.height) : Math.min(window.screen.width, window.screen.height);
+    viewport?.setAttribute('content', scale === 1 ? 'width=device-width, initial-scale=1.0, viewport-fit=cover' : `width=${Math.round(across / scale)}, viewport-fit=cover`);
+    return;
+  }
+  viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover');
+  document.documentElement.style.zoom = scale === 1 ? '' : String(scale);
+}
+
+/** Sizes the app again each time a phone is turned. */
+export function onTurn(listener: () => void): () => void {
+  const query = window.matchMedia('(orientation: landscape)');
   query.addEventListener('change', listener);
   return () => query.removeEventListener('change', listener);
 }

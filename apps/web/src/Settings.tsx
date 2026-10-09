@@ -1,6 +1,6 @@
 import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from 'react';
-import { chooseLanguage, languageTag, type Mode, shadeOfMode } from './device';
+import { chooseLanguage, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
 import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
 import type { SyncService, SyncSnapshot } from './sync';
@@ -30,6 +30,9 @@ export interface SettingsProps {
   onTheme: (id: string) => void;
   /** Light or dark, as the device is right now: what System gives. */
   system: Shade;
+  /** How large the app is drawn on a phone and on a computer, in percent. */
+  sizes: Record<SizeKind, number>;
+  onSize: (kind: SizeKind, size: number) => void;
   /** The name the personal space was given; none until it is named. */
   spaceName: string | undefined;
   onRenameSpace: (name: string) => void;
@@ -69,12 +72,19 @@ function Mini({ theme, shade }: { theme: Theme; shade: Shade }) {
   );
 }
 
+const SIZE_KINDS: { kind: SizeKind; label: MessageKey }[] = [
+  { kind: 'phone', label: 'settings.sizePhone' },
+  { kind: 'computer', label: 'settings.sizeComputer' },
+];
+
 /**
- * The mode, light or dark or the device's own, and the theme. Each theme shows itself in the
- * shade the mode gives; one without a light side says so. What is chosen applies at once.
+ * The mode, light or dark or the device's own, the theme, and the size the app is drawn at on a
+ * phone and on a computer, the one this device uses said so. Each theme shows itself in the shade
+ * the mode gives; one without a light side says so. What is chosen applies at once.
  */
-function Appearance({ mode, onMode, theme, onTheme, system }: Pick<SettingsProps, 'mode' | 'onMode' | 'theme' | 'onTheme' | 'system'>) {
+function Appearance({ mode, onMode, theme, onTheme, system, sizes, onSize }: Pick<SettingsProps, 'mode' | 'onMode' | 'theme' | 'onTheme' | 'system' | 'sizes' | 'onSize'>) {
   const shade = shadeOfMode(mode, system);
+  const here = thisSizeKind();
   return (
     <>
       <span className="st-label" id="st-mode">
@@ -119,6 +129,29 @@ function Appearance({ mode, onMode, theme, onTheme, system }: Pick<SettingsProps
           </button>
         ))}
       </div>
+      {SIZE_KINDS.map(({ kind, label }) => (
+        <div key={kind} className="st-size">
+          <span className="st-label" id={`st-size-${kind}`}>
+            {t(label)}
+            {kind === here && <small>{t('settings.thisDevice')}</small>}
+          </span>
+          <div className="st-modes" role="radiogroup" aria-labelledby={`st-size-${kind}`}>
+            {SIZES.map((size) => (
+              <button
+                key={size}
+                type="button"
+                role="radio"
+                aria-checked={size === sizes[kind]}
+                className={size === sizes[kind] ? 'on' : undefined}
+                onClick={() => onSize(kind, size)}
+              >
+                {t('settings.percent', { size })}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <p className="st-note">{t('settings.sizeNote')}</p>
     </>
   );
 }

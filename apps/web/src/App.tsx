@@ -90,7 +90,7 @@ import {
   TRASH,
   UPCOMING,
 } from './items';
-import { applyTheme, loadMode, loadTheme, type Mode, onSystemShade, saveMode, saveTheme, shadeOfMode, systemShade } from './device';
+import { applySize, applyTheme, loadMode, loadSize, loadTheme, type Mode, onSystemShade, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
 import { Session } from './session';
 import { type Section as SettingsSection, Settings } from './Settings';
 import { SyncService } from './sync';
@@ -185,6 +185,7 @@ export function App() {
   // The mode and the theme chosen on this device, and the shade the device itself is in, for System.
   const [mode, setMode] = useState<Mode>(loadMode);
   const [theme, setTheme] = useState(loadTheme);
+  const [sizes, setSizes] = useState(() => ({ phone: loadSize('phone'), computer: loadSize('computer') }));
   const [system, setSystem] = useState(systemShade);
   const [dialog, setDialog] = useState<OpenDialog>(null);
   // With nothing open the app asks what to create, until that is declined once.
@@ -993,6 +994,12 @@ export function App() {
             saveTheme(id);
           }}
           system={system}
+          sizes={sizes}
+          onSize={(kind, size) => {
+            setSizes({ ...sizes, [kind]: size });
+            saveSize(kind, size);
+            applySize();
+          }}
           spaceName={space.name}
           onRenameSpace={(name) => session.renameSpace(name)}
           folder={folder}
