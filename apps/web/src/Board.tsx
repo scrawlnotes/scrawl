@@ -29,7 +29,7 @@ import {
   valueText,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type DragEvent, Fragment, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNarrow } from './narrow';
 import { StatusIcon } from './StatusIcon';
@@ -415,6 +415,7 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
             className="colm-edit"
             placeholder={t('board.columnName')}
             initial={column.name}
+            action={t('phase.save')}
             onDone={(name) => {
               actions.renameColumn(path, column.id, name);
               setRenaming(false);
@@ -502,7 +503,7 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
       const width = (role: string) => [...marks.querySelectorAll<HTMLElement>(`[data-role="${role}"]`)].reduce((sum, el) => sum + el.getBoundingClientRect().width + STRIP_GAP, 0);
       const phases = [...marks.querySelectorAll<HTMLElement>('[data-role="phase"]')].map((el) => el.getBoundingClientRect().width + STRIP_GAP);
       const room = box.clientWidth - STRIP_PADDING;
-      const fixed = width('closed') + width('all');
+      const fixed = width('closed') + width('all') + (chosen ? width('pmore') : 0);
       const all = phases.reduce((sum, w) => sum + w, 0);
       if (fixed + width('add') + all <= room) {
         setFit(phases.length);
@@ -522,7 +523,7 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
     const observer = new ResizeObserver(update);
     observer.observe(box);
     return () => observer.disconnect();
-  }, [board.phases, board.cards, narrow, closedLabel, renaming]);
+  }, [board.phases, board.cards, narrow, closedLabel, renaming, chosen]);
 
   // The chosen open phase is never folded away: it takes the last place that fits.
   let shownOpen = open.slice(0, fit);
@@ -569,6 +570,7 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
           <span className="dd">▾</span>
         </button>
       )}
+      {chosenClosed && <PhaseMore phase={chosenClosed} onMenu={menu} />}
       {shownOpen.map((phase) => {
         const { done, total } = phaseProgress(board, phase.id);
         const on = chosen === phase.id;
@@ -578,6 +580,7 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
             className="ph-edit"
             placeholder={t('board.phaseName')}
             initial={phase.name}
+            action={t('phase.save')}
             onDone={(name) => {
               actions.renamePhase(path, phase.id, name);
               setRenaming(null);
@@ -585,18 +588,20 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
             onCancel={() => setRenaming(null)}
           />
         ) : (
-          <button
-            key={phase.id}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            className={`ph ${phase.state}${on ? ' on' : ''}`}
-            onClick={() => onShow({ phase: phase.id })}
-            onContextMenu={(event) => menu(event, phase)}
-          >
-            <span>{phase.name}</span>
-            <small>{t('board.progress', { done, total })}</small>
-          </button>
+          <Fragment key={phase.id}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={on}
+              className={`ph ${phase.state}${on ? ' on' : ''}`}
+              onClick={() => onShow({ phase: phase.id })}
+              onContextMenu={(event) => menu(event, phase)}
+            >
+              <span>{phase.name}</span>
+              <small>{t('board.progress', { done, total })}</small>
+            </button>
+            {on && <PhaseMore phase={phase} onMenu={menu} />}
+          </Fragment>
         );
       })}
       {hidden.length > 0 && (
@@ -643,6 +648,9 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
         <span data-role="add" className="ph add">
           {t('board.addPhase')}
         </span>
+        <span data-role="pmore" className="ph-more">
+          ···
+        </span>
         <span data-role="all" className="ph all">
           {allLabel}
         </span>
@@ -687,10 +695,19 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
   );
 }
 
+/** The chosen phase's menu, beside its chip: what a right click on the chip opens, for a touch too. */
+function PhaseMore({ phase, onMenu }: { phase: Phase; onMenu: (event: MouseEvent, phase: Phase) => void }) {
+  return (
+    <button type="button" className="ph-more" title={t('board.phaseMenu')} aria-label={t('board.phaseMenu')} onClick={(event) => onMenu(event, phase)}>
+      ···
+    </button>
+  );
+}
+
 /**
  * The phases a chip of the strip folds: the closed ones, or the open ones that do not fit. Under
- * the chip on a computer, a sheet from the bottom on a phone. A click shows the phase; a right
- * click has its menu.
+ * the chip on a computer, a sheet from the bottom on a phone. A click shows the phase; its menu
+ * opens from the row's ··· or a right click.
  */
 function PhaseList({ title, phases, chosen, narrow, anchor, progressOf, onPick, onMenu, onAdd, onClose }: {
   title: string;
@@ -730,19 +747,23 @@ function PhaseList({ title, phases, chosen, narrow, anchor, progressOf, onPick, 
   const rows = (
     <div className="ph-rows" role="listbox" aria-label={title}>
       {phases.map((phase) => (
-        <button
-          key={phase.id}
-          type="button"
-          role="option"
-          aria-selected={phase.id === chosen}
-          className={`ph-row${phase.id === chosen ? ' on' : ''}`}
-          onClick={() => onPick(phase)}
-          onContextMenu={(event) => onMenu(event, phase)}
-        >
-          <span className="tick">{phase.state === 'done' ? '✓' : ''}</span>
-          <span className="nm">{phase.name}</span>
-          <small>{progressOf(phase)}</small>
-        </button>
+        <div key={phase.id} className="ph-item">
+          <button
+            type="button"
+            role="option"
+            aria-selected={phase.id === chosen}
+            className={`ph-row${phase.id === chosen ? ' on' : ''}`}
+            onClick={() => onPick(phase)}
+            onContextMenu={(event) => onMenu(event, phase)}
+          >
+            <span className="tick">{phase.state === 'done' ? '✓' : ''}</span>
+            <span className="nm">{phase.name}</span>
+            <small>{progressOf(phase)}</small>
+          </button>
+          <button type="button" className="ph-row-more" title={t('board.phaseMenu')} aria-label={t('board.phaseMenu')} onClick={(event) => onMenu(event, phase)}>
+            ···
+          </button>
+        </div>
       ))}
       {onAdd && (
         <button type="button" className="ph-row new" onClick={onAdd}>

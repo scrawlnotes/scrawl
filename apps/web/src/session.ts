@@ -153,6 +153,8 @@ import {
   type ScrawlViewer,
   selectNextOccurrence,
   selectSelectionMatches,
+  redo,
+  undo,
   setLink,
   visibleText,
   showCopy,
@@ -222,6 +224,8 @@ const formatCommands = {
   nextMatch: selectNextOccurrence,
   allMatches: selectSelectionMatches,
   cursorBelow: addCursorBelow,
+  undo,
+  redo,
 };
 export type FormatAction = keyof typeof formatCommands;
 

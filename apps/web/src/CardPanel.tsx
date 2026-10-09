@@ -69,11 +69,14 @@ const TYPED: readonly Field['type'][] = ['text', 'number', 'url', 'email', 'phon
 function CardFieldBox({ field, value, ctx, onSave }: { field: Field; value: FieldValue; ctx: ValueContext; onSave: (value: FieldValue) => void }) {
   const [draft, setDraft] = useState<FieldValue>(value);
   const pending = useRef<{ value: FieldValue } | null>(null);
+  // Something typed and not saved yet: the field shows its Save.
+  const [typing, setTyping] = useState(false);
   const latest = useRef({ value, onSave });
   latest.current = { value, onSave };
   const commit = () => {
     const typed = pending.current;
     pending.current = null;
+    setTyping(false);
     if (typed && JSON.stringify(typed.value) !== JSON.stringify(latest.current.value)) latest.current.onSave(typed.value);
   };
   // A value changed elsewhere shows, unless something is being typed over it.
@@ -91,9 +94,11 @@ function CardFieldBox({ field, value, ctx, onSave }: { field: Field; value: Fiel
         onChange={(next) => {
           pending.current = { value: next };
           setDraft(next);
+          setTyping(true);
         }}
         onEnter={commit}
       />
+      {typing && <SaveButton onSave={commit} />}
     </div>
   );
 }
@@ -497,7 +502,7 @@ function GrowingField({ value, onChange, onKeyDown, placeholder, autoFocus, labe
   );
 }
 
-/** A line of text saved when it is left or Enter is pressed. */
+/** A line of text saved by its Save button while it is changed, and when it is left or Enter is pressed. */
 function TextField({ id, label, value, placeholder, onSave }: {
   id: string;
   label: string;
@@ -511,18 +516,30 @@ function TextField({ id, label, value, placeholder, onSave }: {
     if (text !== value) onSave(text);
   };
   return (
-    <input
-      id={id}
-      aria-label={label}
-      placeholder={placeholder}
-      value={text}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={save}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
-        else if (event.key === 'Escape') setText(value);
-      }}
-    />
+    <span className="tfield">
+      <input
+        id={id}
+        aria-label={label}
+        placeholder={placeholder}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={save}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
+          else if (event.key === 'Escape') setText(value);
+        }}
+      />
+      {text !== value && <SaveButton onSave={save} />}
+    </span>
+  );
+}
+
+/** The Save beside a field being typed in; it does not take the field's focus first. */
+function SaveButton({ onSave }: { onSave: () => void }) {
+  return (
+    <button type="button" className="line-ok" onMouseDown={(event) => event.preventDefault()} onClick={onSave}>
+      {t('card.save')}
+    </button>
   );
 }
 

@@ -167,6 +167,15 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
         if (!event.shiftKey && event.deltaY) event.currentTarget.scrollLeft += event.deltaY;
       }}
     >
+      {/* A phone has no keys for them: undo and redo come first on a touch screen. */}
+      <div className="fmt-group fmt-history">
+        <button type="button" disabled={!format} onClick={() => onFormat('undo')}>
+          {t('format.undo')}
+        </button>
+        <button type="button" disabled={!format} onClick={() => onFormat('redo')}>
+          {t('format.redo')}
+        </button>
+      </div>
       {groups.map((items, i) => (
         <div className="fmt-group" key={i}>
           {items.map((item) => (

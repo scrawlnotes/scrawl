@@ -840,7 +840,7 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
   return (
     <div className="section">
       <div
-        className={['sec fold', !open && 'closed', dropInto && 'drop-into'].filter(Boolean).join(' ')}
+        className={['sec fold', !open && 'closed', dropInto && 'drop-into', renaming !== null && 'composing'].filter(Boolean).join(' ')}
         data-row="section"
         data-id={section.id}
         data-collapsed={!open}
@@ -862,23 +862,37 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
             {section.name}
           </button>
         ) : (
-          <input
-            className="sec-edit"
-            aria-label={t('sections.name')}
-            autoFocus
-            value={renaming}
-            onChange={(event) => setRenaming(event.target.value)}
-            onBlur={rename}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') rename();
-              else if (event.key === 'Escape') setRenaming(null);
-            }}
-          />
+          <>
+            <input
+              className="sec-edit"
+              aria-label={t('sections.name')}
+              autoFocus
+              value={renaming}
+              onChange={(event) => setRenaming(event.target.value)}
+              onBlur={rename}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') rename();
+                else if (event.key === 'Escape') setRenaming(null);
+              }}
+            />
+            <div className="edit-foot">
+              <button type="button" className="ghost" onMouseDown={keepTyping} onClick={() => setRenaming(null)}>
+                {t('dialog.cancel')}
+              </button>
+              <button type="button" className="primary" disabled={!renaming.trim()} onMouseDown={keepTyping} onClick={rename}>
+                {t('sections.save')}
+              </button>
+            </div>
+          </>
         )}
-        <small>{top.filter((task) => !task.done).length}</small>
-        <button type="button" className="more" title={t('sections.menu')} aria-label={t('sections.menu')} onClick={menu}>
-          ···
-        </button>
+        {renaming === null && (
+          <>
+            <small>{top.filter((task) => !task.done).length}</small>
+            <button type="button" className="more" title={t('sections.menu')} aria-label={t('sections.menu')} onClick={menu}>
+              ···
+            </button>
+          </>
+        )}
       </div>
       {open && (
         <>

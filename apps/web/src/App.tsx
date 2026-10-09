@@ -896,7 +896,14 @@ export function App() {
                 <p>{t('board.placeholder')}</p>
               </>
             ) : (
-              empty && <p>{t('empty.nothingOpen', { keys: keys('N') })}</p>
+              empty && (
+                <>
+                  <p>{t('empty.nothingOpen')}</p>
+                  <button type="button" className="primary" onClick={() => setDialog({ kind: 'new' })}>
+                    {t('empty.create')}
+                  </button>
+                </>
+              )
             )}
           </section>
         )}

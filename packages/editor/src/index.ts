@@ -1,4 +1,4 @@
-import { addCursorBelow, defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { addCursorBelow, defaultKeymap, history, historyKeymap, indentWithTab, redo, undo } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import {
@@ -42,7 +42,7 @@ import { scrawlTheme } from './theme';
 
 export { clipboard, markdownSlice, visibleText } from './clipboard';
 export * from './commands';
-export { addCursorBelow, selectNextOccurrence, selectSelectionMatches };
+export { addCursorBelow, redo, selectNextOccurrence, selectSelectionMatches, undo };
 export { createEnvEditor, type EnvEditor } from './env';
 export { literalPattern } from './find';
 export { addCopy, type Copy, copyFollows, copyPosition, copyProgress, dropCopy, progressText, showCopy } from './copies';

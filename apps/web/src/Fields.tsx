@@ -33,7 +33,8 @@ import {
 } from '@scrawlnotes/core';
 import { createEnvEditor } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
-import { type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { holdToDrag } from './touchDrag';
 import { createPortal } from 'react-dom';
 import { boxKeys, hueStyle, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { Icon } from './Icon';
@@ -453,31 +454,64 @@ function Choices({ field, onChange }: { field: DraftField; onChange: (choices: C
     setFresh(choice.id);
     onChange([...field.choices, choice]);
   };
+  // The same as `drop`, for a finger letting go, which comes before the state is drawn.
+  const dropping = useRef<{ index: number; y: number } | null>(null);
+  /** The gap at height `y`, a pointer's or a finger's. */
+  const overAt = (y: number) => {
+    const rows = [...(list.current?.querySelectorAll<HTMLElement>('[data-choice]') ?? [])];
+    let index = rows.findIndex((row) => y < row.getBoundingClientRect().top + row.offsetHeight / 2);
+    if (index < 0) index = rows.length;
+    const row = rows[Math.min(index, rows.length - 1)];
+    const next = { index, y: !row ? 0 : index < rows.length ? row.offsetTop - 2 : row.offsetTop + row.offsetHeight + 1 };
+    dropping.current = next;
+    setDrop((now) => (now?.index === index ? now : next));
+  };
   const over = (event: DragEvent<HTMLDivElement>) => {
     if (!dragging.current) return;
     event.preventDefault();
     event.stopPropagation();
-    const rows = [...(list.current?.querySelectorAll<HTMLElement>('[data-choice]') ?? [])];
-    let index = rows.findIndex((row) => event.clientY < row.getBoundingClientRect().top + row.offsetHeight / 2);
-    if (index < 0) index = rows.length;
-    const row = rows[Math.min(index, rows.length - 1)];
-    const y = !row ? 0 : index < rows.length ? row.offsetTop - 2 : row.offsetTop + row.offsetHeight + 1;
-    setDrop((now) => (now?.index === index ? now : { index, y }));
+    overAt(event.clientY);
+  };
+  const release = () => {
+    dragging.current = null;
+    dropping.current = null;
+    setDrop(null);
+    list.current?.querySelector('.lifted')?.classList.remove('lifted');
+  };
+  const land = () => {
+    const id = dragging.current;
+    const at = dropping.current;
+    if (id && at) {
+      const from = field.choices.findIndex((c) => c.id === id);
+      const to = from < at.index ? at.index - 1 : at.index;
+      if (from >= 0 && from !== to) {
+        const next = field.choices.filter((c) => c.id !== id);
+        next.splice(to, 0, field.choices[from]!);
+        onChange(next);
+      }
+    }
+    release();
   };
   const dropped = (event: DragEvent<HTMLDivElement>) => {
-    const id = dragging.current;
-    if (!id || !drop) return;
+    if (!dragging.current || !dropping.current) return;
     event.preventDefault();
     event.stopPropagation();
-    const from = field.choices.findIndex((c) => c.id === id);
-    const to = from < drop.index ? drop.index - 1 : drop.index;
-    if (from >= 0 && from !== to) {
-      const next = field.choices.filter((c) => c.id !== id);
-      next.splice(to, 0, field.choices[from]!);
-      onChange(next);
-    }
-    dragging.current = null;
-    setDrop(null);
+    land();
+  };
+  // A finger held on a choice's grip lifts it.
+  const hold = (event: ReactPointerEvent<HTMLElement>, id: string) => {
+    const row = event.currentTarget.closest<HTMLElement>('[data-choice]')!;
+    holdToDrag(event, {
+      element: row,
+      onLift: (_x, y) => {
+        dragging.current = id;
+        row.classList.add('lifted');
+        overAt(y);
+      },
+      onMove: (_x, y) => overAt(y),
+      onDrop: land,
+      onCancel: release,
+    });
   };
   const colored = coloring ? field.choices.find((c) => c.id === coloring.id) : undefined;
   return (
@@ -493,10 +527,8 @@ function Choices({ field, onChange }: { field: DraftField; onChange: (choices: C
               event.dataTransfer.setData(DRAG_TYPE, choice.id);
               event.stopPropagation();
             }}
-            onDragEnd={() => {
-              dragging.current = null;
-              setDrop(null);
-            }}
+            onDragEnd={release}
+            onPointerDown={(event) => hold(event, choice.id)}
           >
             {GRIP}
           </span>
@@ -820,6 +852,8 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   const [error, setError] = useState<string | null>(null);
   const [drop, setDrop] = useState<{ section: string; index: number; y: number } | null>(null);
   const dragging = useRef<{ id: string; element: HTMLElement } | null>(null);
+  // The same as `drop`, for a finger letting go, which comes before the state is drawn.
+  const dropping = useRef<{ section: string; index: number; y: number } | null>(null);
   const busy = useRef(false);
   const backdrop = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
@@ -902,26 +936,59 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   const release = () => {
     dragging.current?.element.classList.remove('lifted');
     dragging.current = null;
+    dropping.current = null;
     setDrop(null);
   };
-  const over = (event: DragEvent<HTMLDivElement>, sectionId: string) => {
-    const d = dragging.current;
-    if (!d) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-    const items = [...event.currentTarget.querySelectorAll<HTMLElement>(':scope > [data-item]')];
-    let index = items.findIndex((el) => event.clientY < el.getBoundingClientRect().top + el.offsetHeight / 2);
+  /** The gap in a section at height `y`, a pointer's or a finger's. */
+  const overAt = (block: HTMLElement, y: number, sectionId: string) => {
+    const items = [...block.querySelectorAll<HTMLElement>(':scope > [data-item]')];
+    let index = items.findIndex((el) => y < el.getBoundingClientRect().top + el.offsetHeight / 2);
     if (index < 0) index = items.length;
     const last = items[items.length - 1];
-    const y = index < items.length ? items[index]!.offsetTop - 3 : last ? last.offsetTop + last.offsetHeight + 2 : 8;
-    setDrop((now) => (now?.section === sectionId && now.index === index ? now : { section: sectionId, index, y }));
+    const next = { section: sectionId, index, y: index < items.length ? items[index]!.offsetTop - 3 : last ? last.offsetTop + last.offsetHeight + 2 : 8 };
+    dropping.current = next;
+    setDrop((now) => (now?.section === sectionId && now.index === index ? now : next));
+  };
+  const over = (event: DragEvent<HTMLDivElement>, sectionId: string) => {
+    if (!dragging.current) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    overAt(event.currentTarget, event.clientY, sectionId);
+  };
+  const land = () => {
+    const d = dragging.current;
+    const at = dropping.current;
+    if (d && at) change(moveItem(draft, d.id, at.section, at.index));
+    release();
   };
   const dropped = (event: DragEvent<HTMLDivElement>) => {
-    const d = dragging.current;
-    if (!d || !drop) return;
+    if (!dragging.current || !dropping.current) return;
     event.preventDefault();
-    change(moveItem(draft, d.id, drop.section, drop.index));
-    release();
+    land();
+  };
+  /** A finger carrying an element: the section under it. */
+  const find = (x: number, y: number) => {
+    const block = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-section]');
+    if (!block || !panel.current?.contains(block)) {
+      dropping.current = null;
+      setDrop(null);
+      return;
+    }
+    overAt(block, y, block.dataset.section!);
+  };
+  const hold = (event: ReactPointerEvent<HTMLElement>, id: string) => {
+    const element = event.currentTarget.closest<HTMLElement>('[data-item]')!;
+    holdToDrag(event, {
+      element,
+      onLift: (x, y) => {
+        dragging.current = { id, element };
+        element.classList.add('lifted');
+        find(x, y);
+      },
+      onMove: find,
+      onDrop: land,
+      onCancel: release,
+    });
   };
 
   const switchTo = (next: 'design' | 'text') => {
@@ -992,7 +1059,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
     if (isOpen) {
       return (
         <div key={item.id} data-item={item.id} className={field?.fresh ? 'fitem edit fresh' : 'block' in item ? 'fitem fblk edit' : 'fitem edit'}>
-          <span className="grip" draggable onDragStart={(event) => grab(event, item.id)} onDragEnd={release}>
+          <span className="grip" draggable onDragStart={(event) => grab(event, item.id)} onDragEnd={release} onPointerDown={(event) => hold(event, item.id)}>
             {GRIP}
           </span>
           {field ? (
@@ -1011,6 +1078,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
       draggable: true,
       onDragStart: (event: DragEvent<HTMLDivElement>) => grab(event, item.id),
       onDragEnd: release,
+      onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => hold(event, item.id),
       onClick: pick,
       onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -1060,7 +1128,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
         )}
       </div>
       {column.sections.map((section) => (
-        <div key={section.id} className={drop?.section === section.id ? 'fsec over' : 'fsec'} onDragOver={(event) => over(event, section.id)} onDrop={dropped} onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node) && setDrop(null)}>
+        <div key={section.id} data-section={section.id} className={drop?.section === section.id ? 'fsec over' : 'fsec'} onDragOver={(event) => over(event, section.id)} onDrop={dropped} onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node) && setDrop(null)}>
           {(section.title || (section.items.length === 0 && column.sections.length > 1)) && (
             <div className="fsec-h">
               {section.title && <span>{section.title}</span>}
@@ -1177,6 +1245,8 @@ export function BoardFieldsDialog({ board, path, collections, actions, onClose }
   const [error, setError] = useState<string | null>(null);
   const [drop, setDrop] = useState<{ index: number; y: number } | null>(null);
   const dragging = useRef<{ id: string; element: HTMLElement } | null>(null);
+  // The same as `drop`, for a finger letting go, which comes before the state is drawn.
+  const dropping = useRef<{ index: number; y: number } | null>(null);
   const backdrop = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -1214,31 +1284,57 @@ export function BoardFieldsDialog({ board, path, collections, actions, onClose }
   const release = () => {
     dragging.current?.element.classList.remove('lifted');
     dragging.current = null;
+    dropping.current = null;
     setDrop(null);
+  };
+  /** The gap at height `y`, a pointer's or a finger's. */
+  const overAt = (y: number) => {
+    const items = [...(list.current?.querySelectorAll<HTMLElement>(':scope > [data-item]') ?? [])];
+    let index = items.findIndex((el) => y < el.getBoundingClientRect().top + el.offsetHeight / 2);
+    if (index < 0) index = items.length;
+    const last = items[items.length - 1];
+    const next = { index, y: index < items.length ? items[index]!.offsetTop - 3 : last ? last.offsetTop + last.offsetHeight + 2 : 8 };
+    dropping.current = next;
+    setDrop((now) => (now?.index === index ? now : next));
   };
   const over = (event: DragEvent<HTMLDivElement>) => {
     if (!dragging.current) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-    const items = [...(list.current?.querySelectorAll<HTMLElement>(':scope > [data-item]') ?? [])];
-    let index = items.findIndex((el) => event.clientY < el.getBoundingClientRect().top + el.offsetHeight / 2);
-    if (index < 0) index = items.length;
-    const last = items[items.length - 1];
-    const y = index < items.length ? items[index]!.offsetTop - 3 : last ? last.offsetTop + last.offsetHeight + 2 : 8;
-    setDrop((now) => (now?.index === index ? now : { index, y }));
+    overAt(event.clientY);
   };
-  const dropped = (event: DragEvent<HTMLDivElement>) => {
+  const land = () => {
     const d = dragging.current;
-    if (!d || !drop) return;
-    event.preventDefault();
-    const from = fields.findIndex((f) => f.id === d.id);
-    const to = from < drop.index ? drop.index - 1 : drop.index;
-    if (from >= 0 && from !== to) {
-      const next = fields.filter((f) => f.id !== d.id);
-      next.splice(to, 0, fields[from]!);
-      change(next);
+    const at = dropping.current;
+    if (d && at) {
+      const from = fields.findIndex((f) => f.id === d.id);
+      const to = from < at.index ? at.index - 1 : at.index;
+      if (from >= 0 && from !== to) {
+        const next = fields.filter((f) => f.id !== d.id);
+        next.splice(to, 0, fields[from]!);
+        change(next);
+      }
     }
     release();
+  };
+  const dropped = (event: DragEvent<HTMLDivElement>) => {
+    if (!dragging.current || !dropping.current) return;
+    event.preventDefault();
+    land();
+  };
+  const hold = (event: ReactPointerEvent<HTMLElement>, id: string) => {
+    const element = event.currentTarget.closest<HTMLElement>('[data-item]')!;
+    holdToDrag(event, {
+      element,
+      onLift: (_x, y) => {
+        dragging.current = { id, element };
+        element.classList.add('lifted');
+        overAt(y);
+      },
+      onMove: (_x, y) => overAt(y),
+      onDrop: land,
+      onCancel: release,
+    });
   };
 
   const save = () => {
@@ -1266,7 +1362,7 @@ export function BoardFieldsDialog({ board, path, collections, actions, onClose }
     if (field.id === open) {
       return (
         <div key={field.id} data-item={field.id} className={field.fresh ? 'fitem edit fresh' : 'fitem edit'}>
-          <span className="grip" draggable onDragStart={(event) => grab(event, field.id)} onDragEnd={release}>
+          <span className="grip" draggable onDragStart={(event) => grab(event, field.id)} onDragEnd={release} onPointerDown={(event) => hold(event, field.id)}>
             {GRIP}
           </span>
           <FieldEditor
@@ -1294,6 +1390,7 @@ export function BoardFieldsDialog({ board, path, collections, actions, onClose }
         draggable
         onDragStart={(event) => grab(event, field.id)}
         onDragEnd={release}
+        onPointerDown={(event) => hold(event, field.id)}
         onClick={pick}
         onKeyDown={(event) => {
           if (event.key !== 'Enter' && event.key !== ' ') return;
