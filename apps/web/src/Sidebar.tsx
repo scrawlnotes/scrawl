@@ -12,20 +12,22 @@ const MANY = 20;
 const SHOWN = 15;
 /** The folders shown in full on this device, by path; `''` is the top of the tree. */
 const SHOWN_IN_FULL = 'scrawl.sideShownInFull';
+/** The folders open on this device, by path, with the inbox and the filters; every other one is closed. */
+const OPENED = 'scrawl.sideOpen';
 
-function loadShownInFull(): ReadonlySet<string> {
+function loadPaths(key: string): ReadonlySet<string> {
   try {
-    const kept = JSON.parse(localStorage.getItem(SHOWN_IN_FULL) ?? '[]') as unknown;
+    const kept = JSON.parse(localStorage.getItem(key) ?? '[]') as unknown;
     return new Set(Array.isArray(kept) ? kept.filter((path): path is string => typeof path === 'string') : []);
   } catch {
     return new Set();
   }
 }
 
-function saveShownInFull(paths: ReadonlySet<string>) {
+function savePaths(key: string, paths: ReadonlySet<string>) {
   try {
-    if (paths.size === 0) localStorage.removeItem(SHOWN_IN_FULL);
-    else localStorage.setItem(SHOWN_IN_FULL, JSON.stringify([...paths]));
+    if (paths.size === 0) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify([...paths]));
   } catch {
     // Not kept: it holds until the app closes.
   }
@@ -56,11 +58,18 @@ interface Props {
   menuTarget: string | null;
 }
 
-/** The key the saved filters are folded under; no path is ever this. */
-const FILTERS = ':filters';
-
 /** How far in a row is: each level of folders one step. */
 const indent = (depth: number) => ({ '--d': depth }) as CSSProperties;
+
+/** Every folder of the tree, by path. */
+function folderPathsOf(nodes: TreeNode[], into = new Set<string>()): Set<string> {
+  for (const node of nodes) {
+    if (node.kind !== 'folder') continue;
+    into.add(node.path);
+    folderPathsOf(node.children ?? [], into);
+  }
+  return into;
+}
 
 const countNotes = (node: TreeNode): number =>
   node.kind === 'note' ? 1 : (node.children ?? []).reduce((sum, child) => sum + countNotes(child), 0);
@@ -83,8 +92,9 @@ export function Sidebar({
   settingsOpen,
   menuTarget,
 }: Props) {
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-  const [shownInFull, setShownInFull] = useState(loadShownInFull);
+  // A folder starts closed; one opened stays open, on this device, until it is closed.
+  const [opened, setOpened] = useState(() => loadPaths(OPENED));
+  const [shownInFull, setShownInFull] = useState(() => loadPaths(SHOWN_IN_FULL));
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   // The folder a new folder is being named in, `''` for the top; null while none is.
   const [addingIn, setAddingIn] = useState<string | null>(null);
@@ -92,9 +102,10 @@ export function Sidebar({
   const [folderError, setFolderError] = useState<string | null>(null);
 
   const toggle = (path: string) =>
-    setCollapsed((current) => {
+    setOpened((current) => {
       const next = new Set(current);
       if (!next.delete(path)) next.add(path);
+      savePaths(OPENED, next);
       return next;
     });
 
@@ -103,7 +114,7 @@ export function Sidebar({
       const next = new Set(current);
       if (full) next.add(path);
       else next.delete(path);
-      saveShownInFull(next);
+      savePaths(SHOWN_IN_FULL, next);
       return next;
     });
 
@@ -150,12 +161,7 @@ export function Sidebar({
 
   /** Starts naming a new folder in `parent`, `''` for the top; a closed folder opens for it. */
   const startFolder = (parent: string) => {
-    setCollapsed((current) => {
-      if (!current.has(parent)) return current;
-      const next = new Set(current);
-      next.delete(parent);
-      return next;
-    });
+    if (parent && !opened.has(parent)) toggle(parent);
     setAddingIn(parent);
     setFolderName('');
     setFolderError(null);
@@ -264,8 +270,8 @@ export function Sidebar({
 
   const children = (node: TreeNode, depth: number, spaced: boolean): ReactNode => rows(node.path, node.children ?? [], depth, spaced);
 
-  // A folder reads as one: an arrow big enough to hit, which turns as it opens, and its icon. So do
-  // the inbox and the saved filters, which hold things the same way.
+  // A folder reads as one: an arrow big enough to hit, which turns as it opens, and its icon. So does
+  // the inbox, which holds things the same way.
   const folderHead = (open: boolean, name: string) => (
     <>
       <span className={open ? 'chev open' : 'chev'}>
@@ -276,9 +282,28 @@ export function Sidebar({
     </>
   );
 
-  // A folder being added in a folder is named at the top of what it holds.
+  // The saved filters sit in their folders; one in none, or in a folder that is gone, in the inbox.
+  const folderPaths = folderPathsOf(tree);
+  const placeOf = (filter: TaskFilter) => (filter.folder && folderPaths.has(filter.folder) && filter.folder !== INBOX ? filter.folder : INBOX);
+  const filterRows = (folder: string, depth: number) =>
+    filters
+      .filter((filter) => placeOf(filter) === folder)
+      .map((filter) =>
+        viewRow(
+          filterTab(filter.id),
+          <>
+            <i className="it-pad" />
+            <Icon name="filter" />
+            <span>{filter.name}</span>
+          </>,
+          depth,
+          (event) => onFilterMenu(event, filter),
+        ),
+      );
+
+  // A folder being added in a folder is named at the top of what it holds; its filters come first.
   const folderRow = (node: TreeNode, depth: number): ReactNode => {
-    const open = !collapsed.has(node.path);
+    const open = opened.has(node.path);
     return (
       <div key={node.path}>
         <div
@@ -294,40 +319,20 @@ export function Sidebar({
           {more((event) => folderMenu(event, node.path))}
         </div>
         {open && addingIn === node.path && folderForm(depth + 1)}
+        {open && filterRows(node.path, depth + 1)}
         {open && children(node, depth + 1, true)}
       </div>
     );
   };
 
   const inbox = tree.find((node) => node.path === INBOX);
-  const inboxOpen = !collapsed.has(INBOX);
-  const filtersOpen = !collapsed.has(FILTERS);
+  const inboxOpen = opened.has(INBOX);
 
   return (
     <aside className="side">
       <nav className="tree">
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
-        {filters.length > 0 && (
-          <div className="it">
-            <button type="button" className="it-main" aria-expanded={filtersOpen} onClick={() => toggle(FILTERS)}>
-              {folderHead(filtersOpen, t('side.filters'))}
-            </button>
-          </div>
-        )}
-        {filtersOpen &&
-          filters.map((filter) =>
-            viewRow(
-              filterTab(filter.id),
-              <>
-                <i className="it-pad" />
-                <Icon name="filter" />
-                <span>{filter.name}</span>
-              </>,
-              1,
-              (event) => onFilterMenu(event, filter),
-            ),
-          )}
         <div
           className={`it fold${dropTarget === INBOX ? ' drop' : ''}${marked(INBOX)}`}
           {...dropProps(INBOX)}
@@ -349,6 +354,7 @@ export function Sidebar({
             </>,
             1,
           )}
+        {inboxOpen && filterRows(INBOX, 1)}
         {inboxOpen && inbox && children(inbox, 1, true)}
 
         <div className="grp">

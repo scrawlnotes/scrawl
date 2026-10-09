@@ -25,10 +25,12 @@ export interface TaskFilter {
   text: string;
   /** Conditions on the boards' own fields, by key. They are about cards: with any, the filter shows no tasks. */
   fields?: Condition[];
+  /** The folder it sits in, in the sidebar; none for the inbox. Not what it looks in: that is `folders`. */
+  folder?: string;
 }
 
-/** What a filter picks, without its name and id. */
-export type FilterChoices = Omit<TaskFilter, 'id' | 'name'>;
+/** What a filter picks, without its name, its id and where it sits. */
+export type FilterChoices = Omit<TaskFilter, 'id' | 'name' | 'folder'>;
 
 const FILE = '.scrawl/filters.json';
 
@@ -54,9 +56,11 @@ export function parseFilters(text: string): TaskFilter[] {
       folders: Array.isArray(raw.folders) ? raw.folders.filter((f): f is string => typeof f === 'string') : [],
       text: typeof raw.text === 'string' ? raw.text : '',
       fields: Array.isArray(raw.fields) ? raw.fields.map((c) => readCondition(c)).filter((c): c is Condition => c !== null) : undefined,
+      folder: typeof raw.folder === 'string' ? raw.folder : undefined,
     });
     const filter = filters[filters.length - 1]!;
     if (!filter.fields?.length) delete filter.fields;
+    if (!filter.folder) delete filter.folder;
   }
   return filters;
 }

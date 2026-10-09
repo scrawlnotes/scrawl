@@ -11,6 +11,7 @@ import {
   type Record as CollectionRecord,
   type FilterChoices,
   filterName,
+  INBOX,
   join,
   newSchema,
   type Phase,
@@ -487,11 +488,15 @@ function Chips<T>({ label, items, picked, onPick, name }: {
  * boards in its folders have fields of their own, it asks about them too, as the Filter fields
  * view draws it: those conditions are about cards, so with one the filter shows cards only.
  */
-export function FilterDialog({ filter, folders, count, fields, records, onSave, onClose }: {
+export function FilterDialog({ filter, folders, places, place, count, fields, records, onSave, onClose }: {
   /** The filter changed; null for a new one. */
   filter: TaskFilter | null;
   /** The top-level folders, the inbox first. */
   folders: string[];
+  /** Every folder the filter can sit in, the inbox first. */
+  places: string[];
+  /** Where a new filter sits: the folder of the tab on screen, or the inbox. */
+  place: string;
   /** How many open tasks and cards the choices would show. */
   count: (choices: FilterChoices) => number;
   /** The boards' own fields in the folders chosen. */
@@ -502,6 +507,11 @@ export function FilterDialog({ filter, folders, count, fields, records, onSave, 
   onClose: () => void;
 }) {
   const [name, setName] = useState(filter?.name ?? '');
+  // Where it sits in the sidebar; one whose folder is gone sits in the inbox.
+  const [where, setWhere] = useState(() => {
+    const kept = filter ? (filter.folder ?? INBOX) : place;
+    return places.includes(kept) ? kept : INBOX;
+  });
   const [choices, setChoices] = useState<FilterChoices>(
     filter ?? { due: 'any', priorities: [], folders: [], text: '' },
   );
@@ -510,9 +520,16 @@ export function FilterDialog({ filter, folders, count, fields, records, onSave, 
   const conditions = (choices.fields ?? []).filter((c) => own.some((f) => f.key === c.field));
   const setConditions = (next: Condition[]) => setChoices({ ...choices, fields: next.length > 0 ? next : undefined });
   const save = () => {
-    const { fields: _all, ...rest } = choices;
+    const { fields: _all, folder: _was, ...rest } = choices as FilterChoices & { folder?: string };
     const asked = conditions.filter(isComplete);
-    onSave({ ...rest, ...(asked.length > 0 && { fields: asked }), id: filter?.id ?? crypto.randomUUID(), name: name.trim() || filterName(choices), text: choices.text.trim() });
+    onSave({
+      ...rest,
+      ...(asked.length > 0 && { fields: asked }),
+      id: filter?.id ?? crypto.randomUUID(),
+      name: name.trim() || filterName(choices),
+      text: choices.text.trim(),
+      ...(where !== INBOX && { folder: where }),
+    });
   };
   const shown = count({ ...choices, fields: conditions });
   return (
@@ -531,6 +548,10 @@ export function FilterDialog({ filter, folders, count, fields, records, onSave, 
       <div className="frow">
         <span>{t('filter.name')}</span>
         <input aria-label={t('filter.name')} placeholder={filterName(choices)} autoFocus value={name} onChange={(event) => setName(event.target.value)} />
+      </div>
+      <div className="frow">
+        <span>{t('filter.folder')}</span>
+        <Picker options={places.map((path) => ({ value: path, label: path, chip: false }))} value={where} label={t('filter.folder')} onPick={(path) => path && setWhere(path)} />
       </div>
       <Chips
         label={t('filter.due')}

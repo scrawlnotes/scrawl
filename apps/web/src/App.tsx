@@ -1027,6 +1027,8 @@ export function App() {
         <FilterDialog
           filter={dialog.filter}
           folders={topFolders}
+          places={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
+          place={newFolder}
           count={(choices) =>
             filterTasks(choices, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0) +
             filterCards(choices, boards, today).reduce((sum, group) => sum + group.cards.length, 0)

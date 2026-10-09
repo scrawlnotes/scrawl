@@ -82,8 +82,12 @@ describe('filters', () => {
     await saveFilters(fs, filters);
     expect(await loadFilters(fs)).toEqual(filters);
     expect(await loadFilters(new MemoryFs())).toEqual([]);
-    const broken = JSON.stringify({ filters: [null, { id: 'x' }, { id: 'y', name: 'Y', due: 'someday', priorities: [1, 9], folders: [3, 'Work'] }] });
+    const broken = JSON.stringify({ filters: [null, { id: 'x' }, { id: 'y', name: 'Y', due: 'someday', priorities: [1, 9], folders: [3, 'Work'], folder: 7 }] });
     expect(parseFilters(broken)).toEqual([{ id: 'y', name: 'Y', due: 'any', priorities: [1], folders: ['Work'], text: '' }]);
+    // Where a filter sits goes with it; one in no folder sits in the inbox.
+    const placed = [{ ...filters[0]!, folder: 'Work/Client' }];
+    await saveFilters(fs, placed);
+    expect(await loadFilters(fs)).toEqual(placed);
     expect(serializeFilters([])).toContain('"filters": []');
   });
 });
