@@ -1,6 +1,6 @@
 # Bulut bağlantısı: tasarım
 
-Faz 5'in ikinci adımı: kişisel space'in, kullanıcının kendi bulut hesabındaki bir klasörle eşitlenmesi. Önce masaüstünde OneDrive; Google Drive aynı çerçeveye sonra eklenir (10. bölüm). Sync motoru hazırdır (`design/sync.md`); bu adım ona bir uzak depo, bir giriş ve bir yüz verir. Birden çok space 7. aşamadadır.
+Faz 5'in ikinci adımı: kişisel space'in, kullanıcının kendi bulut hesabındaki bir klasörle eşitlenmesi. Önce masaüstünde OneDrive; Google Drive aynı çerçeveye space'lerden sonra, 10. aşamada eklenir (10. bölüm). Sync motoru hazırdır (`design/sync.md`); bu adım ona bir uzak depo, bir giriş ve bir yüz verir. Birden çok space 9. aşamadadır.
 
 ## 1. Parçalar
 
@@ -8,6 +8,7 @@ Faz 5'in ikinci adımı: kişisel space'in, kullanıcının kendi bulut hesabın
 |---|---|---|
 | Giriş | `apps/web` (akış) + Rust (dinleyici, token isteği, anahtar deposu) | Hesaba izin aldırır, anahtarları saklar ve yeniler |
 | OneDrive adaptörü | `packages/core/src/sync/onedrive.ts` | Motorun `RemoteStore` arayüzünü Microsoft Graph ile doldurur |
+| Google Drive adaptörü | `packages/core/src/sync/gdrive.ts` | Aynı arayüzü Drive API ile doldurur (10. bölüm) |
 | Sync servisi | `apps/web` | Motoru doğru anlarda çalıştırır, uygulamayı tazeler, durumu gösterir |
 | Arayüz | Settings → Spaces, durum çubuğu | Bağlanma, klasör seçme, durum, cihaz adı |
 
@@ -137,13 +138,85 @@ Kartın altında **This device** bölümü: cihaz adı alanı ve Save. Klasör s
 - `Files.ReadWrite` bütün OneDrive'a erişim izni verir (paylaşılan klasörler 7. aşamada `Files.ReadWrite.All` ister). Uygulama yalnızca seçilen klasörde çalışır; izin ekranından önce Settings'te bu bir cümleyle söylenir.
 - Anahtarlar yalnızca işletim sisteminin anahtar deposundadır; günlüklere ve hata mesajlarına yazılmaz.
 
-## 10. Google Drive (sonraki adım)
+## 10. Google Drive (10. aşama, space'lerden sonra)
 
-Aynı çerçeve; farklar adaptördedir:
-- Drive yolla değil kimlikle çalışır ve aynı klasörde aynı adlı iki dosyaya izin verir; adaptör eşlemesinde bunu çözer.
-- Değişiklik listesi `changes` API'si (`startPageToken`); özet `md5Checksum`.
-- Koşullu yazma yoktur; yazmadan hemen önce dosyanın sürümüne (`headRevisionId`) bakılır.
-- Giriş aynı Rust komutlarıyla, "Desktop app" türünde bir OAuth istemcisiyle yapılır. Kapsam (`drive` ya da `drive.file`) o adımda seçilir.
+Motor, sync servisi, durum ve panel aynıdır. Farklar girişte, adaptörde ve birkaç yazıdadır.
+
+### 10.1 Erişim: `drive.file`
+
+Google iki yol verir:
+- **`drive.file`:** Scrawl yalnızca kendi açtığı dosya ve klasörleri görür; Google bunu hassas saymaz. Scrawl'ın kaydı, marka doğrulamasıyla yayına çıkar; güvenlik denetimi istenmez.
+- **`drive`:** bütün Drive'a erişir. Google bunu "kısıtlı" sayar: yayına çıkmak için ayrı bir inceleme gerekir, o bitene kadar en fazla 100 kullanıcı girebilir ve giriş ekranında "doğrulanmamış uygulama" uyarısı çıkar.
+
+Scrawl `drive.file` kullanır. Sonuçları:
+- Scrawl'ın bir cihazda açtığı dosyayı aynı kayıtla giren her cihaz görür.
+- Scrawl'ın açtığı bir dosya başka bir programda değiştirilirse (ör. Drive for desktop ile başka bir editörde) değişiklik görülür; dosya aynı dosyadır.
+- **Klasöre Drive'ın sitesinden ya da başka bir programdan konan yeni dosyalar görülmez.** Klasör penceresi bunu bir cümleyle söyler (10.5).
+- Klasör seçerken yalnızca Scrawl'ın açtığı klasörler listelenir. İlk cihaz kökte `Scrawl` klasörünü açar, sonrakiler onu orada bulur.
+
+Bütün Drive'a erişim istenirse sonra "kendi kaydını kullan" yolunun arkasına konabilir; ilk sürümde yoktur.
+
+**Paylaşılan space'te durum belirsizdir.** `drive.file` erişimi kişiye bağlıdır: A'nın Scrawl'ının açtığı dosyayı B'nin Scrawl'ı kendiliğinden görmez, B'nin onu Scrawl'la açmış olması gerekir. Google bunun için Picker'ı verir; masaüstünde girişle birlikte tarayıcıda açılır, seçilenlerin kimlikleri geri döner. Klasör seçilince içindekilere ve A'nın sonradan eklediklerine erişim gelip gelmediği belgelerde yazmaz. Uygulamadan önce iki hesapla denenir: A bir klasör paylaşır, B Picker'la seçer, A sonra bir dosya ekler, B onu görür mü. Görmüyorsa paylaşılan space için `drive` erişimi ek izin olarak istenir; Google sonradan ek izin istemeye izin verir, ama kısıtlı izin olduğundan Google'ın incelemesi gerekir.
+
+### 10.2 Giriş
+
+- Aynı akış ve aynı Rust komutları (2. bölüm): yetki kodu + PKCE (S256), sistem tarayıcısı, bilgisayarın kendi içinde dinleyici.
+- Yetki adresi `https://accounts.google.com/o/oauth2/v2/auth`, token adresi `https://oauth2.googleapis.com/token`, kapsam `https://www.googleapis.com/auth/drive.file`.
+- Geri dönüş adresi `http://127.0.0.1:<port>`; Google `localhost` yerine bunu önerir.
+- Kalıcı anahtar için `access_type=offline` ve `prompt=consent` istenir; Google yenileme anahtarını yalnızca ilk onayda verir, bu yüzden her girişte onay sorulur.
+- Google'ın "Desktop app" kayıtlarına verdiği istemci gizli anahtarı gizli değildir (Google da öyle sayar). Belgelerde isteğe bağlıdır; Google isterse kimlikle birlikte koda girer. Bu, uygulanırken denenir.
+- Yenileme anahtarı Kimlik Bilgisi Yöneticisi'nde `google` adıyla durur; erişim anahtarı yalnızca bellektedir.
+- Hesabın adı ve e-postası Drive'ın `about` adresinden alınır; ayrıca izin istenmez.
+- **Kayıt deneme aşamasındayken** (Google'da "Testing") yenileme anahtarı 7 günde biter, her hafta yeniden giriş gerekir. Kayıt yayına alınınca bu kalkar (10.7).
+
+### 10.3 Adaptör (`packages/core/src/sync/gdrive.ts`)
+
+- **Kimlikle izleme:** Drive de yol vermez, öğeleri kimlikle tanır. OneDrive'daki gibi `{ kimlik → ad, üst kimlik, tür, etiket, boyut, özet, oluşma zamanı }` eşlemesi cihaza özel `.scrawl/gdrive.json` dosyasında tutulur, yollar üst klasörlere çıkılarak kurulur. Adı ya da yeri değişen klasörün altındakiler motora taşıma olarak bildirilir.
+- **İlk listeleme:** Drive'ın değişiklik listesi geçmişi vermez, yalnızca bir andan sonrasını verir. Önce o anın imleci alınır (`changes.getStartPageToken`), sonra klasör ağacı `files.list` ile sayfa sayfa gezilir. İmleç gezintiden önce alındığı için gezinti sırasında değişen bir şey kaçmaz.
+- **Sonraki listelemeler:** `changes.list` ile imleçten bu yana değişenler okunur. Liste bütün Drive içindir (`drive.file` ile yalnızca Scrawl'ın dosyaları); klasörün altında olmayanlar üst kimliklerden ayıklanır. Yeni imleç `newStartPageToken`'dır. İmleç geçersizse ağaç baştan gezilir ve motora tam liste verilir.
+- **Gidenler:** çöpe atılan (`trashed`) ya da silinen (`removed`) öğe gitmiş sayılır.
+- **Etiket ve özet:** etiket `headRevisionId`'dir; yalnızca içerik değişince değişir, ad değişince değişmez. Özet `md5Checksum`'dır. Tarayıcının şifreleme arayüzü MD5 vermez; `hashOf` için MD5 TypeScript'te yazılır (QuickXorHash gibi küçük bir modül). Aynı olan dosyalar böylece indirilmeden bağlanır.
+- **Space'e girmeyenler:** Google Dokümanlar, E-Tablolar gibi Drive'a özgü dosyaların indirilecek içeriği yoktur; kısayollar da dosya değildir. İkisi de atlanır (OneDrive'daki OneNote gibi).
+- **Aynı adlı iki dosya:** Drive aynı klasörde aynı adlı (ya da yalnızca büyük-küçük harfi farklı) iki dosyaya izin verir; bilgisayar buna izin vermez. Önce oluşan dosya yolu alır, öbürü eşitlenmez ve panelin Not synced sekmesinde yazar: "Google Drive has two files called “Plan.md” here. The older one is synced." Adında `/` olan bir Drive dosyası da yola çevrilemez, aynı yerde yazar. Bunun için motor, uzaktan gelen eşitlenmeyen yolları da Not synced'e alacak şekilde biraz genişler.
+- **Koşullu yazma yoktur.** Drive v3 `If-Match` almaz. Var olan dosyanın üstüne yazmadan, taşımadan ya da silmeden hemen önce `headRevisionId`'ine bakılır; motorun bildiğinden farklıysa `RemoteConflict` olur. Yeni dosyada önce klasörde o adla dosya var mı diye bakılır. Bakmayla yazma arasında kısa bir aralık kalır; o aralıkta başka cihaz yazarsa üstüne yazılan sürüm kaybolmaz, Drive onu dosyanın sürüm geçmişinde tutar.
+- **Okuma:** `files/{id}?alt=media`, yetki başlığıyla. Yönlendirme yoktur.
+- **Yazma:** 5 MiB'a kadar tek istek (yeni dosyada ad ve üst klasörle birlikte, var olanda yalnızca içerik). Daha büyükler yeniden başlatılabilir yükleme oturumuyla, 256 KiB'ın katı parçalarla gider; kesilen parça, oturuma nerede kaldığı sorularak oradan sürer. Drive yola yazmaz; eksik üst klasörler eşlemeden bulunur ya da açılır.
+- **Taşıma:** `files.update` ile yeni ad ve `addParents`/`removeParents`.
+- **Silme:** dosya ya da klasör Drive'ın çöpüne atılır, kalıcı silinmez (OneDrive'da da silinen çöp kutusuna gider).
+- **Adlar:** Drive Scrawl'ın verdiği her adı alır; `accepts` yalnızca çok uzun yolları geri çevirir.
+- **Yük ve hata:** `429`, `403` (`rateLimitExceeded`, `userRateLimitExceeded`) ve `5xx`'te bekleyip yeniden denenir. `401`'de bir kez yeni anahtar alınır, yine olmazsa "Sign in again". Klasör `404` ya da çöpteyse "The Google Drive folder is gone". OneDrive'daki istek döngüsü (anahtar, yeniden deneme, bekleme) iki adaptörün ortak parçası olur.
+
+### 10.4 Bağlantı ve sync servisi
+
+- Bağlantının ayarı aynıdır, yalnız `provider` `'onedrive'` ya da `'gdrive'` olur. Sync servisi bulutu bağlantının sağlayıcısına göre seçer.
+- Bağlantıyı kesmek `.scrawl/gdrive.json`'u da siler.
+- `.scrawl/gdrive.json` motorun eşitlemediği yollara eklenir.
+- Masaüstünde vault, Drive for desktop'ın eşitlediği bir klasördeyse çift eşitleme uyarısı (sync.md) Google Drive için de gösterilir.
+
+### 10.5 Arayüz
+
+- Settings → Spaces'te, bağlı değilken "Connect OneDrive"ın yanında "Connect Google Drive" durur. Altındaki cümle sağlayıcıya göre değişir: "Scrawl works only in the folder you choose, and sees only the files it puts there."
+- Klasör penceresi: "Choose a folder in Google Drive". Yalnızca Scrawl'ın açtığı klasörler listelenir, kökte `Scrawl` önerilir. Altta bir cümle: "Files put in this folder from elsewhere are not seen by Scrawl."
+- OneDrive'ın adını taşıyan yazılar (durum çubuğu, panel, giriş sayfası, hatalar) sağlayıcının adını alır.
+- Ekran değişiklikleri küçüktür; onaydan sonra `design/mockups.html`'deki Settings ve klasör penceresi görünümlerine Google Drive hâlleri eklenir.
+
+### 10.6 Tarayıcıda (6. aşama)
+
+Adaptör çekirdektedir, web sürümü de onu kullanır. `drive.file` erişimi kayda bağlı olduğundan web'in kaydı masaüstününkiyle aynı Google Cloud projesinde olmalıdır; masaüstünde açılan dosyaları web'in gördüğü o aşamada denenir. Geliştirirken tarayıcı, OneDrive'daki gibi, Drive'ın bellekteki bir taklidine (`FakeDrive`) bağlanır.
+
+### 10.7 Hazırlık (Scrawl'ın Google kaydı)
+
+1. Google Cloud'da bir proje, içinde Drive API açık.
+2. OAuth onay ekranı: dış kullanıcılar, kapsam yalnızca `drive.file`.
+3. "Desktop app" türünde bir OAuth istemcisi. Kimliği (ve gizli olmayan gizli anahtarı) OneDrive'ınki gibi koda girer.
+4. Kayıt yayına alınır. `drive.file` için yalnızca marka doğrulaması gerekir; yayına alınana kadar giriş haftada bir yenilenir.
+
+Adaptör ve ekranlar bu kayıt olmadan, taklit Drive'la yazılıp sınanır.
+
+### 10.8 Sınanması
+
+- **Adaptör,** sahte bir Drive (`fetch` taklidi) ile sınanır: ağacın gezilmesi ve imleç, değişiklik sayfaları, geçersiz imleçle baştan okuma, kimlikten yol kurma, adı değişen klasörün taşıma olarak bildirilmesi, çöp ve silinme, Drive'a özgü dosyaların atlanması, aynı adlı iki dosya, sürüme bakarak yazmada `RemoteConflict`, parça parça yükleme ve kesilip sürme, MD5'in bilinen örneklerle doğruluğu.
+- **Giriş ve gerçek Drive** kayıt hazır olunca elle denenir: bağlanma, ilk eşitleme, iki cihaz, kesip yeniden bağlanma.
 
 ## 11. Sınanması
 
