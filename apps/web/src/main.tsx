@@ -8,6 +8,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { applyLanguage, applyTheme, loadMode, loadTheme, shadeOfMode, systemShade } from './device';
+import { startWebApp } from './pwa';
 
 // The theme and the language this device keeps are set before anything is drawn, so that the
 // first frame is already right.
@@ -19,3 +20,5 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+
+startWebApp();

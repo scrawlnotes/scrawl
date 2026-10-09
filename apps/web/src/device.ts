@@ -61,7 +61,10 @@ export function applyTheme(id: string, shade: Shade) {
   const root = document.documentElement;
   // Some things are drawn differently on light and on dark, apart from their colours.
   root.dataset.theme = shadeOf(theme, shade);
-  for (const [name, colour] of Object.entries(paletteOf(theme, shade))) root.style.setProperty(`--sl-${name}`, colour);
+  const palette = paletteOf(theme, shade);
+  for (const [name, colour] of Object.entries(palette)) root.style.setProperty(`--sl-${name}`, colour);
+  // On a phone the bar above the app takes the colour of the tab bar under it.
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.side);
 }
 
 /** The language the interface is shown in, as kept on this device. */

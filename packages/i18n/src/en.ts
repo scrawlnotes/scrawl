@@ -39,6 +39,8 @@ export const en = {
   'status.opening': 'Opening…',
   'status.saved': 'Saved',
   'status.saving': 'Saving…',
+  'status.updateReady': 'New version ready',
+  'status.reload': 'Reload',
   'status.markdown': 'Markdown',
   'status.markdownTitle': 'Show the note as plain Markdown',
 

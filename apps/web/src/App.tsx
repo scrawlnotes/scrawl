@@ -94,6 +94,7 @@ import { applyTheme, loadMode, loadTheme, type Mode, onSystemShade, saveMode, sa
 import { Session } from './session';
 import { type Section as SettingsSection, Settings } from './Settings';
 import { SyncService } from './sync';
+import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { SyncStatus } from './SyncViews';
 import { Sidebar } from './Sidebar';
 import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
@@ -165,6 +166,7 @@ export function App() {
   const [session] = useState(() => new Session());
   const [syncService] = useState(() => new SyncService(session));
   const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
+  const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
@@ -901,6 +903,15 @@ export function App() {
           {notice && (
             <span className="notice" role="status">
               {notice}
+            </span>
+          )}
+          {update && (
+            <span className="update" role="status">
+              {t('status.updateReady')}
+              {/* What is being typed is written first, then the page reloads into the new version. */}
+              <button type="button" onClick={() => void session.beforeSync().then(reloadIntoUpdate)}>
+                {t('status.reload')}
+              </button>
             </span>
           )}
           <span className="push">{!ready ? t('status.opening') : saved ? t('status.saved') : t('status.saving')}</span>
