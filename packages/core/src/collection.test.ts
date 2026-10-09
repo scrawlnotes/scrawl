@@ -6,6 +6,7 @@ import {
   columnSum,
   type Condition,
   evaluateFormula,
+  type Field,
   formulaProblem,
   fieldValueOf,
   groupRecords,
@@ -249,6 +250,10 @@ describe('a collection in a vault', () => {
     expect(await createCollection(fs, 'Scrawl', 'Companies', 'companies')).toBe('Scrawl/Companies');
     expect(await createCollection(fs, 'Scrawl', 'Companies', 'blank')).toBe('Scrawl/Companies 2');
     expect(await createCollection(fs, 'Scrawl', '', 'blank')).toBe('Scrawl/Collection');
+    // Without a name it is called after its template, which the links of the others look for.
+    expect(await createCollection(fs, 'Scrawl', '', 'activities')).toBe('Scrawl/Activities');
+    expect(await createCollection(fs, 'Scrawl', '', 'activities')).toBe('Scrawl/Activities 2');
+    expect(await createCollection(fs, 'Scrawl', '', 'companies')).toBe('Scrawl/Companies 3');
     const { schema } = await loadCollection(fs, 'Scrawl/Companies');
     expect(schema.template).toBe('companies');
   });
@@ -256,7 +261,7 @@ describe('a collection in a vault', () => {
   it('makes the collections an old one shows beside it, linked to it whatever it is called', async () => {
     const fs = new MemoryFs();
     // Made on its own from the Companies template, under another name: its blocks look for Activities and People.
-    const dir = await createCollection(fs, 'Scrawl', '', 'companies');
+    const dir = await createCollection(fs, 'Scrawl', 'Collection', 'companies');
     const from = await loadCollection(fs, dir);
     expect(await createLinkedCollection(fs, from, 'Scrawl/Activities')).toBe('Scrawl/Activities');
     const activities = (await loadCollection(fs, 'Scrawl/Activities')).schema;
@@ -392,6 +397,18 @@ describe('renaming and moving a collection', () => {
     expect(next.fields.find((f) => f.key === 'company')?.collection).toBe('Work/Companies');
     expect(next.layout?.columns[0]?.sections[0]?.items[0]).toEqual({ block: 'linked', collection: 'Work/Companies' });
     expect(retargetLinks(people, 'Elsewhere/Companies', moved)).toBe(people);
+  });
+
+  it('rollups follow the collection or the board they read from', () => {
+    const companies = newSchema('companies', 'Scrawl');
+    const renamed = retargetLinks(companies, 'Scrawl/Activities', 'Scrawl/Calls');
+    expect(renamed.fields.find((f) => f.key === 'last_contact')?.rollup).toEqual({ from: 'Scrawl/Calls', fn: 'max', field: 'date' });
+    const deals: Field = { key: 'open_deals', label: 'Open deals', type: 'rollup', rollup: { from: 'Scrawl/Deals.board.json', fn: 'count', open: true } };
+    const withBoard = { ...companies, fields: [...companies.fields, deals] };
+    const moved = retargetLinks(withBoard, 'Scrawl/Deals.board.json', 'Sales/Pipeline.board.json');
+    expect(moved.fields.find((f) => f.key === 'open_deals')?.rollup).toEqual({ from: 'Sales/Pipeline.board.json', fn: 'count', open: true });
+    expect(moved.fields.find((f) => f.key === 'last_contact')?.rollup?.from).toBe('Scrawl/Activities');
+    expect(retargetLinks(withBoard, 'Elsewhere/Deals.board.json', 'Sales/Pipeline.board.json')).toBe(withBoard);
   });
 });
 

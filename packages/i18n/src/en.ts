@@ -255,7 +255,6 @@ export const en = {
   'create.collection': 'Collection',
   'create.collectionText': 'Companies, people, payments…',
   'create.newCollection': 'New collection',
-  'create.collectionName': 'Collection',
   'create.companies': 'Companies',
   'create.companiesText': 'Customers, partners, investors',
   'create.people': 'People',

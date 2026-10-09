@@ -3,6 +3,7 @@ import {
   type BoardLinks,
   type CollectionTemplate,
   type Condition,
+  defaultCollectionName,
   DUE_RULES,
   type Field,
   isComplete,
@@ -197,7 +198,8 @@ export function NewDialog({ folders, folder, collections, onCreate, onFilter, on
 }
 
 const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard', keys: 'create.newKeys', collection: 'create.newCollection' };
-const NAME_HINTS: Record<ItemKind, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName', keys: 'create.keysName', collection: 'create.collectionName' };
+// A collection's is the name its template gives it.
+const NAME_HINTS: Record<Exclude<ItemKind, 'collection'>, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName', keys: 'create.keysName' };
 
 /** The ways a collection can start: its fields, which the Fields window changes later. */
 const COLLECTION_TEMPLATES: { template: CollectionTemplate; label: MessageKey; text: MessageKey }[] = [
@@ -308,7 +310,7 @@ function NewItemForm({ kind, folders, folder, collections, onCreate, onBack, onC
         <input
           id="new-name"
           autoFocus
-          placeholder={t(NAME_HINTS[kind])}
+          placeholder={kind === 'collection' ? defaultCollectionName(collectionTemplate) : t(NAME_HINTS[kind])}
           value={name}
           onChange={(event) => {
             setName(event.target.value);

@@ -316,7 +316,10 @@ const TEMPLATE_FIELDS: { [template in CollectionTemplate]: Field[] } = {
   blank: [],
 };
 
-/** What the collection each template makes is called, the name the other templates' links and blocks look for beside them. */
+/**
+ * What a collection made from each template is called when it is given no name: the name the
+ * other templates' links and blocks look for beside them.
+ */
 const TEMPLATE_NAMES: Partial<{ [template in CollectionTemplate]: string }> = {
   companies: 'Companies',
   people: 'People',
@@ -324,6 +327,9 @@ const TEMPLATE_NAMES: Partial<{ [template in CollectionTemplate]: string }> = {
   feedback: 'Feedback',
   payments: 'Payments',
 };
+
+/** The name a new collection of `template` gets when it is given none; Blank's is Collection. */
+export const defaultCollectionName = (template: CollectionTemplate): string => TEMPLATE_NAMES[template] ?? t('collection.defaultName');
 
 /** The template a collection of this name is made from, Activities' for Activities; null for a name no template goes by. */
 export function templateNamed(name: string): CollectionTemplate | null {
@@ -1020,12 +1026,12 @@ async function taken(fs: VaultFs, dir: string): Promise<Set<string>> {
 
 /**
  * Makes a collection folder called `name` in `folder`, numbered when the name is taken, with
- * the schema of `template`; without a name it is called Collection. Returns its path.
+ * the schema of `template`; without a name it is called after its template. Returns its path.
  */
 export async function createCollection(fs: VaultFs, folder: string, name: string, template: CollectionTemplate): Promise<string> {
   const clean = cleanName(name);
   if (clean && isHidden(clean)) throw new Error(t('error.name'));
-  const dir = freePath(folder, clean || t('collection.defaultName'), '', await taken(fs, folder));
+  const dir = freePath(folder, clean || defaultCollectionName(template), '', await taken(fs, folder));
   await fs.mkdir(dir);
   await saveSchema(fs, dir, newSchema(template, folder));
   return dir;
@@ -1092,15 +1098,21 @@ export async function moveCollection(fs: VaultFs, dir: string, folder: string): 
 }
 
 /**
- * A schema whose links and linked-record blocks pointing at the collection at `from` point at
- * `to`, where it went; the same schema when nothing in it points there.
+ * A schema whose links, linked-record blocks and rollups pointing at the collection or the board
+ * at `from` point at `to`, where it went; the same schema when nothing in it points there.
  */
 export function retargetLinks(schema: Schema, from: string, to: string): Schema {
   let changed = false;
   const fields = schema.fields.map((field) => {
-    if (field.type !== 'link' || field.collection !== from) return field;
-    changed = true;
-    return { ...field, collection: to };
+    if (field.type === 'link' && field.collection === from) {
+      changed = true;
+      return { ...field, collection: to };
+    }
+    if (field.type === 'rollup' && field.rollup?.from === from) {
+      changed = true;
+      return { ...field, rollup: { ...field.rollup, from: to } };
+    }
+    return field;
   });
   const layout = schema.layout && {
     columns: schema.layout.columns.map((column) => ({
