@@ -198,6 +198,7 @@ import { sampleDoc } from './sample';
 import {
   addSpaceEntry,
   chooseVaultFolder,
+  moveSpaceEntry,
   defaultVaultFolder,
   newSpaceFolder,
   openSpaceVault,
@@ -317,8 +318,6 @@ export interface SpaceView {
   id: string;
   /** From its own `space.json`; the folder's name until it is named. */
   name: string;
-  /** Shared through a cloud drive, so it carries a cloud in the sidebar. */
-  shared: boolean;
   /** Desktop: the folder of its copy on disk. */
   folder: string | null;
   /** Where it lives in the cloud, which its sync follows. */
@@ -571,7 +570,6 @@ export class Session {
       [...this.opened].map(async ([id, space]) => ({
         id,
         name: space.name,
-        shared: !!space.entry.source,
         folder: space.entry.folder ?? null,
         source: space.entry.source ?? null,
         tree: prefixTree(await readTree(space.fs).catch(() => []), id),
@@ -636,6 +634,20 @@ export class Session {
     for (const tab of this.snapshot.tabs.filter((each) => spaceOfTab(each) === id)) await this.detach(tab);
     await removeSpaceEntry(id, deleteFiles);
     await this.reloadSpaces();
+  }
+
+  /**
+   * Desktop: moves a space's copy on this device into a folder chosen for it. What is unsaved is
+   * saved first; the tabs stay open, their paths the same, and read the files where they are now.
+   */
+  async moveSpaceCopy(id: string, to: string) {
+    await this.settle();
+    try {
+      await moveSpaceEntry(id, to);
+    } finally {
+      // Opened again either way, so that its sync starts again where its files are.
+      await this.reloadSpaces();
+    }
   }
 
   /** Moves a space up or down in the sidebar's order. */

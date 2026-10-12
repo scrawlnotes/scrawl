@@ -4421,7 +4421,10 @@ p { margin: 0; max-width: 68ch; }
       '<span class="st-label">This device</span>' +
       '<div class="st-device"><span class="fl">Name</span><span class="in">Laptop</span><span class="st-row"><span class="btn save">Save</span></span></div>';
   }
-  /** A space's page: its name, the folder of its copy on this device, its sync, the people in it, and the way out. */
+  /**
+   * A space's page: its name, the folder of its copy on this device, its sync, the people in it,
+   * and the way out. Its sync has no Disconnect: a space lives in its cloud, leaving it is Remove.
+   */
   function spSpacePage(quiet) {
     return '<span class="st-back">' + ICON.chevl + 'Spaces</span>' +
       '<div class="st-space tight"><div class="top">' + ICON.space + '<b>Acme</b><small>In OneDrive</small></div>' +
@@ -4429,7 +4432,7 @@ p { margin: 0; max-width: 68ch; }
       '<div class="st-row"><span class="fl">Folder</span><span class="path">' + SP_DEFAULT + 'Acme</span><span class="btn">Change…</span></div>' +
       '<div class="st-sync"><span class="fl">Sync</span><div class="what">' +
         '<span class="who">' + ICON.cloud + '<b>OneDrive</b><small>kaan@outlook.com · Shared › Acme</small></span>' +
-        '<span class="state"><i></i>Synced 12 s ago · Lena Hartmann’s folder, you can edit</span><span class="acts"><span class="st-btn">Sync now</span><span class="st-btn">Disconnect</span></span></div></div>' +
+        '<span class="state"><i></i>Synced 12 s ago · Lena Hartmann’s folder, you can edit</span><span class="acts"><span class="st-btn">Sync now</span></span></div></div>' +
       '</div>' +
       '<span class="st-label">People</span>' +
       '<p class="st-note">Everyone who has opened this space; a task or a card is given to one of them. One can be made inactive; opening the space again makes them active.</p>' +

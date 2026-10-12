@@ -325,16 +325,23 @@ async fn space_folder_new(app: tauri::AppHandle, name: String) -> Result<String,
     Ok(dir.to_string_lossy().into_owned())
 }
 
-/// Whether a folder is one the app made for a space's copy: right inside the app's data folder,
-/// and not the personal space's.
-fn space_copy_folder(folder: &Path, data: &Path, vault: Option<&str>) -> bool {
-    let same = |a: &Path, b: &Path| match (a.canonicalize(), b.canonicalize()) {
-        (Ok(a), Ok(b)) => a == b,
-        _ => false,
+/// The id a folder's `.scrawl/space.json` gives it, if it has one.
+fn space_id_in(folder: &Path) -> Option<String> {
+    let text = fs::read_to_string(folder.join(".scrawl").join("space.json")).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    value.get("id")?.as_str().map(str::to_owned)
+}
+
+/// Whether a folder is the copy of space `id` that the app made: right inside the app's data
+/// folder, or moved by the app into a folder chosen for it, and so holding that space's id. Never
+/// the personal space's folder, nor one around it.
+fn space_copy_folder(folder: &Path, data: &Path, vault: Option<&str>, id: &str) -> bool {
+    let (Ok(folder), Ok(data)) = (folder.canonicalize(), data.canonicalize()) else {
+        return false;
     };
-    let inside = folder.parent().is_some_and(|parent| same(parent, data));
-    let personal = vault.is_some_and(|vault| same(folder, Path::new(vault)));
-    inside && !personal
+    let inside = folder.parent().is_some_and(|parent| parent == data);
+    let around_personal = vault.and_then(|vault| Path::new(vault).canonicalize().ok()).is_some_and(|vault| vault.starts_with(&folder));
+    (inside || space_id_in(&folder).as_deref() == Some(id)) && !around_personal
 }
 
 /// Deletes the copy of a space on this device with everything in it: only a folder the settings
@@ -343,18 +350,73 @@ fn space_copy_folder(folder: &Path, data: &Path, vault: Option<&str>) -> bool {
 async fn space_folder_delete(app: tauri::AppHandle, folder: String) -> Result<(), String> {
     let text = fs::read_to_string(settings_file(&app)?).unwrap_or_default();
     let settings: Settings = serde_json::from_str(&text).unwrap_or_default();
-    if !settings.spaces.iter().any(|s| s.folder.as_deref() == Some(folder.as_str())) {
+    let Some(space) = settings.spaces.iter().find(|s| s.folder.as_deref() == Some(folder.as_str())) else {
         return Err("Not a space of this device".into());
-    }
+    };
     let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let path = Path::new(&folder);
     if !path.is_dir() {
         return Ok(());
     }
-    if !space_copy_folder(path, &data, settings.vault.as_deref()) {
+    if !space_copy_folder(path, &data, settings.vault.as_deref(), &space.id) {
         return Err("Only a space's copy that Scrawl made can be deleted".into());
     }
     fs::remove_dir_all(path).map_err(message)
+}
+
+fn copy_folder(from: &Path, to: &Path) -> Result<(), String> {
+    fs::create_dir_all(to).map_err(message)?;
+    for entry in fs::read_dir(from).map_err(message)? {
+        let entry = entry.map_err(message)?;
+        let target = to.join(entry.file_name());
+        if entry.file_type().map_err(message)?.is_dir() {
+            copy_folder(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), &target).map_err(message)?;
+        }
+    }
+    Ok(())
+}
+
+/// Moves a folder whole into an empty one, or to where none is yet: renamed on the same drive,
+/// copied and then deleted across drives. A copy that fails halfway is taken back, the chosen
+/// folder left empty as it was.
+fn move_folder(from: &Path, to: &Path) -> Result<(), String> {
+    if !from.is_dir() {
+        return Err("The space's folder is not there".into());
+    }
+    let (Ok(source), Some(parent)) = (from.canonicalize(), to.parent()) else {
+        return Err("The space's folder is not there".into());
+    };
+    let target = parent.canonicalize().map_err(message)?.join(to.file_name().ok_or("Choose a folder")?);
+    if target.starts_with(&source) || source.starts_with(&target) {
+        return Err("A space's folder cannot move into itself".into());
+    }
+    if to.exists() {
+        if fs::read_dir(to).map_err(message)?.next().is_some() {
+            return Err("Choose an empty folder".into());
+        }
+        fs::remove_dir(to).map_err(message)?;
+    }
+    if fs::rename(from, to).is_ok() {
+        return Ok(());
+    }
+    if let Err(error) = copy_folder(from, to) {
+        let _ = fs::remove_dir_all(to);
+        let _ = fs::create_dir_all(to);
+        return Err(error);
+    }
+    fs::remove_dir_all(from).map_err(message)
+}
+
+/// Moves the copy of space `id` on this device into a folder chosen for it, which is empty: what
+/// the settings list as its folder, and nothing else. The settings are saved by the app after.
+#[tauri::command]
+async fn space_folder_move(app: tauri::AppHandle, id: String, to: String) -> Result<(), String> {
+    let text = fs::read_to_string(settings_file(&app)?).unwrap_or_default();
+    let settings: Settings = serde_json::from_str(&text).unwrap_or_default();
+    let from = settings.spaces.iter().find(|s| s.id == id).and_then(|s| s.folder.clone()).ok_or("Not a space of this device")?;
+    move_folder(Path::new(&from), Path::new(&to))
 }
 
 /// Whether a folder is there: a space whose folder is gone is skipped, not made again.
@@ -419,6 +481,7 @@ pub fn run() {
             default_vault_folder,
             space_folder_new,
             space_folder_delete,
+            space_folder_move,
             folder_exists,
             open_file,
             reveal_file,
@@ -465,15 +528,40 @@ mod tests {
         let copy = data.join("Acme");
         let personal = data.join("Personal");
         let elsewhere = data.join("Clients").join("Northwind");
-        for dir in [&copy, &personal, &elsewhere] {
+        let moved = data.join("Clients").join("Globex");
+        for dir in [&copy, &personal, &elsewhere, &moved.join(".scrawl")] {
             fs::create_dir_all(dir).unwrap();
         }
+        fs::write(moved.join(".scrawl").join("space.json"), r#"{"id":"sp-k7f3m2qa","name":"Globex"}"#).unwrap();
         let vault = personal.to_string_lossy().into_owned();
-        assert!(space_copy_folder(&copy, &data, Some(&vault)));
-        assert!(!space_copy_folder(&personal, &data, Some(&vault)));
-        assert!(!space_copy_folder(&elsewhere, &data, Some(&vault)));
-        assert!(!space_copy_folder(&data, &data, Some(&vault)));
+        assert!(space_copy_folder(&copy, &data, Some(&vault), "sp-aaaaaaaa"));
+        assert!(!space_copy_folder(&personal, &data, Some(&vault), "sp-aaaaaaaa"));
+        assert!(!space_copy_folder(&elsewhere, &data, Some(&vault), "sp-aaaaaaaa"));
+        assert!(!space_copy_folder(&data, &data, Some(&vault), "sp-aaaaaaaa"));
+        // Moved by the app out of its data folder: it holds the space's id.
+        assert!(space_copy_folder(&moved, &data, Some(&vault), "sp-k7f3m2qa"));
+        assert!(!space_copy_folder(&moved, &data, Some(&vault), "sp-aaaaaaaa"));
         fs::remove_dir_all(&data).unwrap();
+    }
+
+    #[test]
+    fn a_space_copy_moves_whole_into_an_empty_folder() {
+        let base = std::env::temp_dir().join(format!("scrawl-space-move-{}", std::process::id()));
+        let from = base.join("Acme");
+        fs::create_dir_all(from.join("Sales")).unwrap();
+        fs::write(from.join("Sales").join("Plan.md"), "# Plan").unwrap();
+        let full = base.join("Full");
+        fs::create_dir_all(&full).unwrap();
+        fs::write(full.join("keep.txt"), "mine").unwrap();
+        assert!(move_folder(&from, &full).is_err());
+        assert!(move_folder(&from, &from.join("Sales")).is_err());
+        assert!(full.join("keep.txt").is_file());
+        let empty = base.join("Elsewhere");
+        fs::create_dir_all(&empty).unwrap();
+        move_folder(&from, &empty).unwrap();
+        assert!(!from.exists());
+        assert_eq!(fs::read_to_string(empty.join("Sales").join("Plan.md")).unwrap(), "# Plan");
+        fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]

@@ -8107,30 +8107,13 @@ button.cb:hover::after {
 /* ---------- spaces: a heading in the sidebar for each, and their list in the settings ---------- */
 
 .it.space {
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--sl-fg);
   font-weight: 600;
 }
 
 .it.space .it-main > .icon {
   color: var(--sl-dim);
-}
-
-.it-cloud {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  color: var(--sl-faint);
-}
-
-.it-cloud .icon {
-  width: 12px;
-  height: 12px;
-}
-
-.it.space:hover .it-cloud,
-.it.space.marked .it-cloud {
-  display: none;
 }
 
 .st-list {
@@ -8251,6 +8234,18 @@ button.st-li:hover,
 
 .st-acts .primary:hover {
   color: var(--sl-bg);
+}
+
+.st-acts button:has(> .icon) {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 9px;
+}
+
+.st-acts button > .icon {
+  width: 13px;
+  height: 13px;
 }
 
 .st-back {
@@ -8400,6 +8395,12 @@ button.st-li:hover,
   width: 13px;
   height: 13px;
   color: var(--sl-dim);
+}
+.fp.space-add .pick .path small {
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
 }
 
 .fp.space-add .connect {

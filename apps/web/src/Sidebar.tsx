@@ -352,7 +352,8 @@ export function Sidebar({
   const inbox = tree.find((node) => node.path === INBOX);
   const inboxOpen = opened.has(INBOX);
 
-  // The personal space: the inbox, then the folders; a step in when it has a heading of its own.
+  // The personal space: the inbox, then the folders. With a heading of its own it is a step in,
+  // and its folders follow the inbox as a space's do, a new one named under the heading.
   const personal = (depth: number) => (
     <>
       <div
@@ -380,13 +381,15 @@ export function Sidebar({
       {inboxOpen && filterRows(INBOX, depth + 1)}
       {inboxOpen && inbox && children(inbox, depth + 1, true)}
 
-      <div className="grp" style={indent(depth)}>
-        <span>{t('side.folders')}</span>
-        <button type="button" title={t('side.newFolder')} aria-label={t('side.newFolder')} onClick={() => startFolder('')}>
-          +
-        </button>
-      </div>
-      {addingIn === '' && folderForm(depth)}
+      {depth === 0 && (
+        <div className="grp" style={indent(depth)}>
+          <span>{t('side.folders')}</span>
+          <button type="button" title={t('side.newFolder')} aria-label={t('side.newFolder')} onClick={() => startFolder('')}>
+            +
+          </button>
+        </div>
+      )}
+      {depth === 0 && addingIn === '' && folderForm(depth)}
       {rows(
         '',
         tree.filter((node) => node.path !== INBOX),
@@ -396,8 +399,8 @@ export function Sidebar({
     </>
   );
 
-  // A space's heading: its name, a cloud when it is shared, and its menu; it folds like a folder.
-  const spaceRow = (id: string | null, name: string, shared: boolean) => {
+  // A space's heading: its name and its menu; it folds like a folder.
+  const spaceRow = (id: string | null, name: string) => {
     const key = spaceKey(id);
     const open = !folded.has(key);
     const menu = (event: MouseEvent) => onSpaceMenu(event, id, () => startFolder(id ? key : ''));
@@ -410,11 +413,6 @@ export function Sidebar({
           <Icon name="space" />
           <span>{name}</span>
         </button>
-        {shared && (
-          <span className="it-cloud" title={t('sync.shared')}>
-            <Icon name="cloud" />
-          </span>
-        )}
         {more(menu)}
       </div>
     );
@@ -429,11 +427,12 @@ export function Sidebar({
           personal(0)
         ) : (
           <>
-            {spaceRow(null, personalName, false)}
+            {spaceRow(null, personalName)}
+            {!folded.has(spaceKey(null)) && addingIn === '' && folderForm(1)}
             {!folded.has(spaceKey(null)) && personal(1)}
             {spaces.map((space) => (
               <Fragment key={space.id}>
-                {spaceRow(space.id, space.name, space.shared)}
+                {spaceRow(space.id, space.name)}
                 {!folded.has(spaceKey(space.id)) && addingIn === spaceKey(space.id) && folderForm(1)}
                 {!folded.has(spaceKey(space.id)) && rows(spaceKey(space.id), space.tree, 1, true)}
               </Fragment>

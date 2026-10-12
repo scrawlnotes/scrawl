@@ -776,7 +776,8 @@ export function NewTaskDialog({ title, note, places, initial, onAdd, onClose }: 
         {linksBack[1]}
       </p>
       <p className="choices-label">{t('toTask.addTo')}</p>
-      <div ref={list} className="choices" role="listbox" aria-label={t('moveTask.places')}>
+      {places.length === 0 && <p>{t('toTask.none')}</p>}
+      <div ref={list} className="choices" role="listbox" aria-label={t('moveTask.places')} hidden={places.length === 0}>
         {places.map((place, i) => (
           <button
             key={`${place.list}\n${place.section ?? ''}`}
@@ -799,7 +800,7 @@ export function NewTaskDialog({ title, note, places, initial, onAdd, onClose }: 
         <button type="button" onClick={onClose}>
           {t('dialog.cancel')}
         </button>
-        <button type="button" className="primary" disabled={!value.trim()} onClick={add}>
+        <button type="button" className="primary" disabled={!value.trim() || places.length === 0} onClick={add}>
           {t('tasks.add')}
         </button>
       </div>

@@ -35,13 +35,19 @@ export function useTicking(on: boolean) {
   }, [on]);
 }
 
-/** Where a phase stands, in the settings: words, and the colour of its dot. */
-function stateOf(sync: SpaceSync): { text: string; tone: 'ok' | 'busy' | 'off' | 'bad' } {
+/**
+ * Why a folder in the cloud is gone, and what to do: the personal space chooses another; a space
+ * lives in its folder, so it is gone with it, or no longer open to you, and its copy stays here.
+ */
+const goneLong = (space: string | null) => t(space ? 'sync.spaceGoneLong' : 'sync.folderGoneLong');
+
+/** Where a phase stands, in the settings: words, and the colour of its dot; `space` null for the personal one. */
+function stateOf(sync: SpaceSync, space: string | null = null): { text: string; tone: 'ok' | 'busy' | 'off' | 'bad' } {
   const { phase, syncedAt, error } = sync;
   if (phase === 'syncing') return { text: t('sync.syncingPct', { pct: percent(sync.turn?.progress.share ?? 0) }), tone: 'busy' };
   if (phase === 'offline') return { text: t('sync.offlineLong'), tone: 'off' };
   if (phase === 'signedOut') return { text: t('sync.signedOutLong'), tone: 'bad' };
-  if (phase === 'folderGone') return { text: t('sync.folderGoneLong'), tone: 'bad' };
+  if (phase === 'folderGone') return { text: goneLong(space), tone: 'bad' };
   if (phase === 'failed') return { text: t('sync.failedLong', { error: error ?? '' }), tone: 'bad' };
   return { text: syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(syncedAt) }), tone: 'ok' };
 }
@@ -264,7 +270,7 @@ export function SpaceSyncRow({ view, service }: { view: SpaceSyncView | undefine
       </div>
     );
   }
-  const state = stateOf(view);
+  const state = stateOf(view, view.space);
   const { connection } = view;
   return (
     <div className="st-sync">
@@ -273,9 +279,10 @@ export function SpaceSyncRow({ view, service }: { view: SpaceSyncView | undefine
         <span className="who">
           <CloudIcon />
           <b>{t('sync.oneDrive')}</b>
-          <small>{connection.account.email || connection.account.name}</small>
+          <small>
+            {connection.account.email || connection.account.name} · {placeWords(connection.folder.path)}
+          </small>
         </span>
-        <span className="where">{connection.folder.path}</span>
         <span className={`state ${state.tone}`} role="status">
           <i />
           {state.text}
@@ -304,6 +311,16 @@ export function SpaceSyncRow({ view, service }: { view: SpaceSyncView | undefine
       </div>
     </div>
   );
+}
+
+/** A cloud's name, by the provider a space's source names: OneDrive now, more as they come. */
+export function providerName(provider: string): string {
+  return provider === 'onedrive' ? t('sync.oneDrive') : provider;
+}
+
+/** A folder of a cloud drive in words, as its folder window shows the way to it: "My files › Clients". */
+export function placeWords(path: string): string {
+  return [t('sync.myFiles'), ...path.split('/').filter(Boolean)].join(' › ');
 }
 
 /** The user's own app registration, for those who would rather not sign in through Scrawl's. */
@@ -1088,7 +1105,7 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
         : phase === 'signedOut'
           ? t('sync.signedOutLong')
           : phase === 'folderGone'
-            ? t('sync.folderGoneLong')
+            ? goneLong(sync.space)
             : t('sync.failedLong', { error: sync.error ?? '' });
   }
 

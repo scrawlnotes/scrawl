@@ -130,6 +130,26 @@ export async function removeSpaceEntry(id: string, deleteFiles: boolean): Promis
   await saveSpaceEntries(spaceEntries().filter((each) => each.id !== id));
 }
 
+/**
+ * Desktop: asks for the folder a space's copy on this device moves to. It has to be empty, and
+ * neither hold the personal space or another space nor be inside one. Null when the dialog was
+ * cancelled.
+ */
+export async function chooseSpaceFolder(): Promise<string | null> {
+  const chosen = await chooseFolder(t('settings.spaceFolderDialog'));
+  if (!chosen) return null;
+  const taken = [folder, ...settings.spaces.map((space) => space.folder)].filter((each): each is string => !!each);
+  if (taken.some((each) => foldersNest(each, chosen))) throw new Error(t('error.spaceNests'));
+  if ((await new TauriFs(chosen).list('')).length > 0) throw new Error(t('error.folderNotEmpty'));
+  return chosen;
+}
+
+/** Desktop: moves a space's copy on this device into the folder chosen for it, and remembers it there. */
+export async function moveSpaceEntry(id: string, to: string): Promise<void> {
+  await invoke('space_folder_move', { id, to });
+  await saveSpaceEntries(spaceEntries().map((each) => (each.id === id ? { ...each, folder: to } : each)));
+}
+
 /** Puts the spaces in this order. */
 export async function orderSpaceEntries(ids: string[]): Promise<void> {
   const entries = spaceEntries();

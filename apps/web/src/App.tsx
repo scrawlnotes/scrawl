@@ -113,7 +113,7 @@ import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
 import { contentsText, quote } from './text';
 import { TrashView } from './Trash';
 import { Welcome } from './Welcome';
-import { isDesktop, openUrlOnDesktop, saveTextFile } from './storage';
+import { chooseSpaceFolder, isDesktop, openUrlOnDesktop, saveTextFile } from './storage';
 
 type OpenDialog =
   // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen.
@@ -404,7 +404,8 @@ export function App() {
     const task = tasks[list]?.find((candidate) => candidate.id === id);
     const known = (sections[list] ?? []).some((section) => section.id === task?.section);
     const here = task?.parent === null ? (known ? task.section! : null) : undefined;
-    return allPlaces((path, section) => path === list && here === section);
+    // A task stays in its space: its links do not reach another one.
+    return allPlaces((path, section) => path === list && here === section).filter((place) => spaceOf(place.list) === spaceOf(list));
   };
   /** Every list, at its top level and in each of its sections. */
   const allPlaces = (isHere: (list: string, section: string | null) => boolean = () => false): TaskPlaceChoice[] =>
@@ -519,18 +520,19 @@ export function App() {
   };
   // The spaces' names, for the places a path is shown as words.
   useEffect(() => setSpaceNames(new Map(spaces.map((space) => [space.id, space.name]))), [spaces]);
-  // A space's heading: its settings, a folder at its top, its place among the spaces, and the way out of this device.
+  // A space's heading: a folder at its top, its settings, its place among the spaces, and the way
+  // out of this device. The personal space stays first and stays, so it only has the first two.
   const spaceMenu = (event: MouseEvent, id: string | null, addFolder: () => void) => {
     const at = id ? spaces.findIndex((space) => space.id === id) : -1;
     const items: MenuItem[] = [
-      { label: t('side.spaceSettings'), icon: 'settings', run: () => setDialog({ kind: 'settings', section: 'spaces', space: id }) },
       { label: t('side.newFolder'), icon: 'folder', run: addFolder },
+      { label: t('side.spaceSettings'), icon: 'settings', run: () => setDialog({ kind: 'settings', section: 'spaces', space: id }) },
     ];
     if (id) {
       items.push(
         { label: t('side.moveUp'), apart: true, run: () => void session.moveSpace(id, -1), ...(at === 0 && { disabled: t('side.first') }) },
         { label: t('side.moveDown'), run: () => void session.moveSpace(id, 1), ...(at === spaces.length - 1 && { disabled: t('side.last') }) },
-        { label: t('side.removeSpace'), apart: true, danger: true, run: () => askRemoveSpace(id) },
+        { label: t('side.removeSpace'), apart: true, run: () => askRemoveSpace(id) },
       );
     }
     openMenu(event, items, id ? `@${id}` : '@personal');
@@ -543,6 +545,21 @@ export function App() {
   const removeSpace = async (id: string, deleteFiles: boolean) => {
     await syncService.forgetSpace(id);
     await session.removeSpace(id, deleteFiles);
+  };
+  /**
+   * Desktop: a space's copy moves to another folder, an empty one. Its sync stops first, a turn
+   * running ending before, so that no turn reads its files as they go; it starts again once the
+   * space is opened where it is now. A folder that cannot take it is refused with a word why.
+   */
+  const changeSpaceFolder = async (id: string) => {
+    try {
+      const to = await chooseSpaceFolder();
+      if (!to) return;
+      await syncService.forgetSpace(id);
+      await session.moveSpaceCopy(id, to);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    }
   };
   // The menu of a note, a task list, a board, a keys file or a collection; the inbox's own list has none.
   const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
@@ -1056,6 +1073,7 @@ export function App() {
     onAddSpace: (name, source, id) => session.addSpace(name, source, id),
     onRemoveSpace: (id, deleteFiles) => void removeSpace(id, deleteFiles),
     onMoveSpace: (id, by) => void session.moveSpace(id, by),
+    onChangeSpaceFolder: isDesktop ? (id) => void changeSpaceFolder(id) : undefined,
     initialSpace: dialog?.kind === 'settings' ? dialog.space : undefined,
     addingAs: sync.adding,
     folder,
@@ -1590,7 +1608,8 @@ export function App() {
         })()}
       {dialog?.kind === 'toTask' &&
         (() => {
-          const places = allPlaces();
+          // The lists of the note's own space: a task links back to its note, and a link stays in its space.
+          const places = allPlaces().filter((place) => spaceOf(place.list) === spaceOf(dialog.note));
           // A list in the note's own folder first, else the inbox's.
           const near = places.findIndex((place) => place.section === null && dirname(place.list) === dirname(dialog.note));
           const inbox = places.findIndex((place) => place.list === INBOX_TASKS && place.section === null);
@@ -1611,7 +1630,9 @@ export function App() {
         })()}
       {dialog?.kind === 'toCard' &&
         (() => {
+          // The boards of the note's own space, as for a task.
           const choices = Object.keys(boards)
+            .filter((board) => spaceOf(board) === spaceOf(dialog.note))
             .sort()
             .map((board) => ({ board, label: boardName(board), folder: folderLabel(dirname(board)) }));
           // A board in the note's own folder first.

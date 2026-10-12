@@ -3,11 +3,11 @@ import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
 import type { SpaceView } from './session';
-import { chooseLanguage, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
+import { chooseLanguage, isPhone, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
 import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SyncService, SyncSnapshot } from './sync';
-import { CloudIcon, FolderPicker, SpaceSyncRow, SyncRow, ThisDevice } from './SyncViews';
+import { CloudIcon, FolderPicker, placeWords, providerName, SpaceSyncRow, SyncRow, ThisDevice } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 
 export type Section = 'profile' | 'appearance' | 'spaces' | 'language';
@@ -15,7 +15,7 @@ export type Section = 'profile' | 'appearance' | 'spaces' | 'language';
 const SECTIONS: { id: Section; label: MessageKey; icon: IconName }[] = [
   { id: 'profile', label: 'settings.profile', icon: 'person' },
   { id: 'appearance', label: 'settings.appearance', icon: 'appearance' },
-  { id: 'spaces', label: 'settings.spaces', icon: 'folder' },
+  { id: 'spaces', label: 'settings.spaces', icon: 'space' },
   { id: 'language', label: 'settings.language', icon: 'language' },
 ];
 
@@ -52,6 +52,8 @@ export interface SettingsValues {
   /** Takes a space off this device; with `deleteFiles`, its copy here goes too. */
   onRemoveSpace: (id: string, deleteFiles: boolean) => void;
   onMoveSpace: (id: string, by: -1 | 1) => void;
+  /** Desktop: asks for another folder for a space's copy on this device, and moves it there. */
+  onChangeSpaceFolder?: (id: string) => void;
   /** The space whose page Spaces opens on: an id, null for the personal space, undefined for the list. */
   initialSpace?: string | null;
   /** Back from signing in to add a space: Spaces opens with Add space, its folder to be chosen in this account. */
@@ -246,7 +248,7 @@ function Profile({ me, onSaveProfile }: Pick<SettingsValues, 'me' | 'onSaveProfi
  * The spaces: a list in the sidebar's order, each row opening the space's page, and Add space
  * under it. A space's page has its name, its folder, its sync, and the way out of this device.
  */
-function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'initialSpace' | 'addingAs' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
+function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'onChangeSpaceFolder' | 'initialSpace' | 'addingAs' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
   const { spaces, onMoveSpace, onRemoveSpace, initialSpace, addingAs, sync, syncService } = values;
   // The page open: a space by its id, null for the personal space, undefined for the list.
   const [page, setPage] = useState<string | null | undefined>(initialSpace);
@@ -279,6 +281,7 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
         sync={sync}
         service={syncService}
         onRename={(name) => values.onRenameSpaceById(shown.id, name)}
+        {...(values.onChangeSpaceFolder && { onChangeFolder: () => values.onChangeSpaceFolder!(shown.id) })}
         onBack={() => setPage(undefined)}
         onRemove={() => setRemoving(shown)}
         removing={removing}
@@ -297,7 +300,7 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
       { label: t('side.spaceSettings'), icon: 'settings', run: () => setPage(id) },
       { label: t('side.moveUp'), apart: true, run: () => onMoveSpace(id, -1), ...(at === 0 && { disabled: t('side.first') }) },
       { label: t('side.moveDown'), run: () => onMoveSpace(id, 1), ...(at === spaces.length - 1 && { disabled: t('side.last') }) },
-      { label: t('side.removeSpace'), apart: true, danger: true, run: () => setRemoving(spaces[at] ?? null) },
+      { label: t('side.removeSpace'), apart: true, run: () => setRemoving(spaces[at] ?? null) },
     ];
   };
   return (
@@ -311,7 +314,6 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
             <b>{personalName}</b>
             <small>{values.folder ? `${t('settings.yours')} · ${values.folder}` : `${t('settings.yours')} · ${t('settings.inBrowser')}`}</small>
           </span>
-          <Icon name="chevron" />
         </button>
         {spaces.map((space) => (
           <div key={space.id} className={`st-li${menu?.id === space.id ? ' menu' : ''}`} onContextMenu={(event) => spaceMenu(event, space.id)}>
@@ -319,14 +321,9 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
               <Icon name="space" />
               <span className="nm">
                 <b>{space.name}</b>
-                <small>{space.source ? t('settings.inCloud', { provider: t('sync.oneDrive'), path: space.source.place.path ?? '' }) : space.folder ?? t('settings.inBrowser')}</small>
+                <small>{space.source ? t('settings.inCloud', { provider: providerName(space.source.provider), path: placeWords(space.source.place.path ?? '') }) : (space.folder ?? t('settings.inBrowser'))}</small>
               </span>
             </button>
-            {space.shared && (
-              <span className="r" title={t('sync.shared')}>
-                <Icon name="cloud" />
-              </span>
-            )}
             <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => spaceMenu(event, space.id)}>
               ···
             </button>
@@ -335,10 +332,13 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
       </div>
       <div className="st-acts">
         <button type="button" className="primary" onClick={() => setAdding(true)}>
+          <Icon name="plus" />
           {t('settings.addSpace')}
         </button>
         <small>{t('settings.addSpaceAbout')}</small>
       </div>
+      {/* The device's name goes with every space's sync; on a phone it is on the personal space's page. */}
+      {sync.available && !isPhone() && <ThisDevice sync={sync} service={syncService} />}
       {add}
       {menu && <ContextMenu at={menu.at} items={menuItems(menu.id)} onClose={() => setMenu(null)} />}
       {removing && <RemoveSpaceDialog space={removing} onRemove={(deleteFiles) => onRemoveSpace(removing.id, deleteFiles)} onClose={() => setRemoving(null)} />}
@@ -537,7 +537,8 @@ function AddSpaceDialog({ sync, service, account: given, onAdd, onDone }: {
                 {folder ? (
                   <>
                     <CloudIcon />
-                    {folder.folder.path}
+                    {placeWords(folder.folder.path)}
+                    {account && <small>{account.email || account.name}</small>}
                   </>
                 ) : (
                   t('space.noFolder')
@@ -651,17 +652,22 @@ function PersonalPage({
         </div>
         {sync.available && <SyncRow sync={sync} service={syncService} />}
       </div>
-      {sync.available && <ThisDevice sync={sync} service={syncService} />}
+      {sync.available && isPhone() && <ThisDevice sync={sync} service={syncService} />}
     </>
   );
 }
 
-/** A space beside the personal one: its name, where its copy is on this device, its sync, and the way out of this device. */
-function SpacePage({ space, sync, service, onRename, onBack, onRemove, removing, onRemoved, onRemoveSpace }: {
+/**
+ * A space beside the personal one, after the Space view of design/mockups.html: its name, where
+ * its copy is on this device (on desktop a folder, which can move), its sync, and the way out of
+ * this device.
+ */
+function SpacePage({ space, sync, service, onRename, onChangeFolder, onBack, onRemove, removing, onRemoved, onRemoveSpace }: {
   space: SpaceView;
   sync: SyncSnapshot;
   service: SyncService;
   onRename: (name: string) => void;
+  onChangeFolder?: () => void;
   onBack: () => void;
   onRemove: () => void;
   removing: SpaceView | null;
@@ -675,7 +681,7 @@ function SpacePage({ space, sync, service, onRename, onBack, onRemove, removing,
         <div className="top">
           <Icon name="space" />
           <b>{space.name}</b>
-          {space.shared && <small>{t('sync.shared')}</small>}
+          {space.source && <small>{t('settings.inProvider', { provider: providerName(space.source.provider) })}</small>}
         </div>
         <NameRow id="space-name" name={space.name} fallback={space.name} onRename={onRename} />
         <div className="st-row">
@@ -687,7 +693,13 @@ function SpacePage({ space, sync, service, onRename, onBack, onRemove, removing,
           ) : (
             <span className="path plain">{t('settings.inBrowser')}</span>
           )}
-          <span />
+          {space.folder && onChangeFolder ? (
+            <button type="button" onClick={onChangeFolder}>
+              {t('settings.change')}
+            </button>
+          ) : (
+            <span />
+          )}
         </div>
         <SpaceSyncRow view={sync.all.find((unit) => unit.space === space.id)} service={service} />
       </div>
