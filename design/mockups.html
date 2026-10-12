@@ -1612,6 +1612,30 @@ p { margin: 0; max-width: 68ch; }
 .mb-sw.on { background: var(--m-accent); }
 .mb-sw.on::after { left: 21px; }
 .mb-fr .val.faint { color: var(--m-faint); }
+/* Keys on a phone (Oct 12). A group is a rounded block of keys, each name over its value; a
+   secret shows dots until its eye is tapped; every value has its copy button, and Copied shows
+   at the foot for a moment. A tap opens the key in a sheet to change it; the group's ··· has Add
+   key, Copy as .env, Rename and Delete. Text shows the file as it is. */
+.mb-kgh { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 12px 6px 0 30px; }
+.mb-kgh b { font-size: 15px; font-weight: 600; }
+.mb-kgh small { color: var(--m-faint); font-size: 14px; }
+.mb-kgh .more { display: grid; place-items: center; width: 40px; height: 40px; margin-left: auto; color: var(--m-faint); }
+.mock .mb-kgh .more svg { width: 22px; height: 22px; }
+.mb-kv { position: relative; display: flex; align-items: center; gap: 2px; min-height: 62px; padding: 8px 6px 8px 14px; }
+.mb-kv + .mb-kv::before { content: ''; position: absolute; top: 0; left: 14px; right: 0; border-top: 1px solid var(--m-line); }
+.mb-kv .kx { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.mb-kv .kn { overflow: hidden; color: var(--m-dim); font: 13px var(--m-mono); text-overflow: ellipsis; white-space: nowrap; }
+.mb-kv .kvv { overflow: hidden; color: var(--m-fg); font: 16px var(--m-mono); text-overflow: ellipsis; white-space: nowrap; }
+.mb-kv .kvv.hid { color: var(--m-dim); letter-spacing: 2px; }
+.mb-kv .kb { display: grid; flex: none; place-items: center; width: 42px; height: 42px; border-radius: 10px; color: var(--m-dim); }
+.mb-kv .kb.on { color: var(--m-accent); }
+.mock .mb-kv .kb svg { width: 21px; height: 21px; }
+.mb-toast { position: absolute; left: 50%; bottom: 104px; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 22px; background: var(--m-fg); color: var(--m-bg); font-size: 14.5px; font-weight: 600; box-shadow: 0 8px 24px rgb(0 0 0 / .35); transform: translateX(-50%); white-space: nowrap; }
+.mock .mb-toast svg { width: 18px; height: 18px; stroke-width: 2.2; }
+.mb-envtext { padding: 4px 16px; font: 14.5px/1.75 var(--m-mono); overflow-wrap: anywhere; }
+.mb-envtext .hc { color: var(--m-faint); }
+.mb-envtext .hk { color: var(--m-dim); }
+.mb-fr .val.mono { color: var(--m-fg); font-family: var(--m-mono); }
 </style>
 
 <main class="page">
@@ -1722,6 +1746,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pcol" data-aview="pcol">Phone collection</button>
         <button type="button" id="a-pcolmore" data-aview="pcolmore">Phone collection more</button>
         <button type="button" id="a-pcolviews" data-aview="pcolviews">Phone collection views</button>
+        <button type="button" id="a-pkeys" data-aview="pkeys">Phone keys</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -4304,7 +4329,60 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Koleksiyonun ··· menüsü', mbCompanies(), mbTabs('browse') + MB_DIM + menu)
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews };
+  // Keys on a phone (Oct 12). A group is a rounded block of keys, each name over its value; a
+  // secret shows dots until its eye is tapped; every value has its copy button, and Copied shows
+  // at the foot for a moment. A tap opens the key in a sheet: its name, value and group, Delete
+  // key under them; + opens the same sheet for a new key. The group's ··· has Add key, Copy as
+  // .env, Rename and Delete; Add group ends the list. Text shows the file as it is.
+  function mbKv(name, value, o) {
+    o = o || {};
+    var hid = o.secret && !o.shown;
+    return '<div class="mb-kv"><span class="kx"><span class="kn">' + name + '</span><span class="kvv' + (hid ? ' hid' : '') + '">' + (hid ? '••••••••••' : value) + '</span></span>' +
+      (o.secret ? '<span class="kb' + (o.shown ? ' on' : '') + '">' + (o.shown ? ICON.eyeoff : ICON.eye) + '</span>' : '') +
+      '<span class="kb' + (o.copied ? ' on' : '') + '">' + (o.copied ? ICON.check : ICON.copies) + '</span></div>';
+  }
+  function mbKgroup(name, n, rows) {
+    return '<div class="mb-kgh"><b>' + name + '</b><small>' + n + '</small><span class="more">' + ICON.dots3 + '</span></div>' +
+      '<div class="mb-form" style="padding-top: 4px; padding-bottom: 0"><div class="mb-group">' + rows + '</div></div>';
+  }
+  function mbKeysHead(text) {
+    return mbNav('Scrawl', ['dots']) + '<div class="mb-head split"><div><h2>Production</h2></div>' +
+      '<div class="mb-seg"><span' + (text ? '' : ' class="on"') + '>Table</span><span' + (text ? ' class="on"' : '') + '>Text</span></div></div>';
+  }
+  function mbKeys(o) {
+    o = o || {};
+    return mbPage(mbKeysHead(false),
+      mbKgroup('Production DB', 4, mbKv('DB_HOST', 'db.prod.example.com') + mbKv('DB_PORT', '5432') + mbKv('DB_USER', 'scrawl_app', { copied: o.copied }) + mbKv('DB_PASSWORD', '', { secret: true })) +
+      mbKgroup('OpenAI', 1, mbKv('OPENAI_API_KEY', 'sk-proj-4f9aT1c8Qw2LmN7r', { secret: true, shown: o.shown })) +
+      mbKgroup('Stripe (test)', 2, mbKv('STRIPE_SECRET_KEY', '', { secret: true }) + mbKv('STRIPE_WEBHOOK_SECRET', '', { secret: true })) +
+      '<div class="mb-form" style="padding-top: 16px"><div class="mb-group"><div class="mb-fr plusrow" style="border-top: 0">' + ICON.plus + 'Add group</div></div></div>');
+  }
+  function phoneKeys() {
+    var edit = MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>Key</b><span class="ok">Save</span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        mbVal('Name', 'DB_PASSWORD', { text: true, cls: 'mono' }) +
+        mbVal('Value', 'c4mp-f1re-77', { go: 'eyeoff', cls: 'mono' }) +
+        mbVal('Group', 'Production DB') +
+      '</div><div class="mb-group" style="margin-top: 14px"><div class="mb-fr red">Delete key</div></div></div></div>';
+    var menu = mbActions('key', 'Production DB', 'Group · 4 keys', [
+      [{ icon: 'plus', label: 'Add key' }, { icon: 'copies', label: 'Copy as .env' }],
+      [{ icon: 'pen', label: 'Rename' }],
+      [{ icon: 'bin', label: 'Delete', red: true }]
+    ]);
+    var lines = ['<span class="hc"># Production DB</span>', '<span class="hk">DB_HOST</span>=db.prod.example.com', '<span class="hk">DB_PORT</span>=5432',
+      '<span class="hk">DB_USER</span>=scrawl_app', '<span class="hk">DB_PASSWORD</span>=c4mp-f1re-77', '&nbsp;', '<span class="hc"># OpenAI</span>',
+      '<span class="hk">OPENAI_API_KEY</span>=sk-proj-4f9aT1c8Qw2LmN7r', '&nbsp;', '<span class="hc"># Stripe (test)</span>',
+      '<span class="hk">STRIPE_SECRET_KEY</span>=sk_test_51Hq8d2', '<span class="hk">STRIPE_WEBHOOK_SECRET</span>=whsec_9Lk2'];
+    var text = mbPage(mbKeysHead(true), '<div class="mb-envtext">' + lines.map(function (l) { return '<div>' + l + '</div>'; }).join('') + '</div>');
+    return [
+      mbPhone('Gruplar; sır noktalı, göz açar; kopyalayınca Copied', mbKeys({ copied: true, shown: true }), mbTabs('browse') + MB_FAB + '<span class="mb-toast">' + ICON.check + 'Copied</span>'),
+      mbPhone('Anahtara dokununca sheet; + ile yenisi aynı sheet’te', mbKeys(), mbTabs('browse') + edit),
+      mbPhone('Grubun ··· menüsü', mbKeys(), mbTabs('browse') + MB_DIM + menu),
+      mbPhone('Text: dosya olduğu gibi', text, mbTabs('browse'))
+    ].join('');
+  }
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {
