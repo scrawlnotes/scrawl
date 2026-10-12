@@ -3,7 +3,7 @@ import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
-import { collectionTab, filterOf, filterTab, folderOf, iconOf, isNote, nameOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardOf, collectionTab, filterOf, filterTab, folderOf, iconOf, isNote, nameOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { Empty, useViewport } from './sheets';
 
@@ -28,7 +28,8 @@ type PageKind =
   | { kind: 'settings' }
   | { kind: 'section'; section: Section }
   | { kind: 'history'; path: string }
-  | { kind: 'version'; path: string; version: Version };
+  | { kind: 'version'; path: string; version: Version }
+  | { kind: 'card'; board: string; id: string };
 /** A page, with the key it is drawn by. */
 type Page = PageKind & { key: number };
 
@@ -92,6 +93,17 @@ export interface PhoneProps {
   };
   /** Done, while typing: closes Find, and the keyboard goes away. */
   onDone: () => void;
+  /**
+   * A card of a board, opened as a page over its board's: `open` is the card asked for, `view`
+   * draws it, `label` names it, `onMenu` opens its menu, `onClosed` says its page went.
+   */
+  card: {
+    open: { board: string; id: string } | null;
+    view: (board: string, id: string) => ReactNode;
+    label: (board: string, id: string) => string;
+    onMenu: (board: string, id: string) => void;
+    onClosed: () => void;
+  };
 }
 
 // Started from the clock, so that a page made after the module is loaded again never takes the key of one still on screen.
@@ -395,6 +407,8 @@ export function Phone(props: PhoneProps) {
   };
   const pop = () => {
     if (stack.length < 2) return;
+    // A card's page going is the card closing.
+    if (top.kind === 'card') props.card.onClosed();
     setLeaving({ place, page: top });
     setStacks((current) => ({ ...current, [place]: current[place].slice(0, -1) }));
     window.setTimeout(() => setLeaving(null), SLIDE_MS);
@@ -532,7 +546,9 @@ export function Phone(props: PhoneProps) {
   // Typing in what is open, in a note, a find field or a list, shows Done at the top.
   const checkTyping = () => {
     const focused = document.activeElement;
-    setTyping(!!focused && item.contains(focused) && focused.matches('input, textarea, select, [contenteditable="true"]'));
+    // In what is open, or in a page of its own, as a card's.
+    const within = !!focused && (item.contains(focused) || !!stage.current?.contains(focused));
+    setTyping(within && focused!.matches('input, textarea, select, [contenteditable="true"]'));
   };
   useEffect(() => {
     const later = () => window.setTimeout(checkTyping);
@@ -550,6 +566,37 @@ export function Phone(props: PhoneProps) {
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, top.key]);
+
+  // A card opens as a page over its board's: once the board's page is on top, as it is when the
+  // card was opened from elsewhere and the board opens first. A card closed elsewhere, or
+  // deleted, takes its page with it.
+  const cardOpen = props.card.open;
+  const cardBefore = useRef(cardOpen);
+  useEffect(() => {
+    const changed = cardBefore.current?.board !== cardOpen?.board || cardBefore.current?.id !== cardOpen?.id;
+    cardBefore.current = cardOpen;
+    const pages = stacksNow.current[place];
+    const shown = pages[pages.length - 1]!;
+    if (!cardOpen) {
+      const at = pages.findIndex((page) => page.kind === 'card');
+      if (!changed || at < 0) return;
+      if (shown.kind === 'card') {
+        setLeaving({ place, page: shown });
+        window.setTimeout(() => setLeaving(null), SLIDE_MS);
+      }
+      setStacks((current) => ({ ...current, [place]: current[place].slice(0, at) }));
+      return;
+    }
+    if (shown.kind === 'card') {
+      // Another card asked for takes the page's place; one on screen in the other place stays.
+      if (changed && (shown.board !== cardOpen.board || shown.id !== cardOpen.id)) {
+        setStacks((current) => ({ ...current, [place]: [...current[place].slice(0, -1), { kind: 'card', board: cardOpen.board, id: cardOpen.id, key: ++pageKeys }] }));
+      }
+      return;
+    }
+    if (shown.kind === 'item' && shown.id === boardOf(cardOpen.board)) push({ kind: 'card', board: cardOpen.board, id: cardOpen.id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardOpen?.board, cardOpen?.id, top.key]);
 
   // A note's history opens as a page over the note's.
   const { open: historyAsked, onShown: historyShown } = props.history;
@@ -570,6 +617,7 @@ export function Phone(props: PhoneProps) {
 
   /** A tap on the place on screen goes back to its first page. */
   const choose = (next: Place) => {
+    if (next === place && stack.some((page) => page.kind === 'card')) props.card.onClosed();
     if (next !== place) return setPlace(next);
     if (stack.length > 1) setStacks((current) => ({ ...current, [place]: [current[place][0]!] }));
   };
@@ -607,6 +655,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'settings') return t('settings.title');
     if (page.kind === 'section') return t(settingsSections().find((each) => each.id === page.section)?.label ?? 'settings.title');
     if (page.kind === 'history') return t('history.title');
+    if (page.kind === 'card') return props.card.label(page.board, page.id);
     if (page.kind === 'version') return props.history.label(page.version);
     return nameOf(page.id, titles, filters);
   };
@@ -832,6 +881,14 @@ export function Phone(props: PhoneProps) {
         </PageFrame>
       );
     }
+    if (page.kind === 'card') {
+      return (
+        <>
+          <NavBar {...nav} scrolled={false} onMenu={() => props.card.onMenu(page.board, page.id)} onDone={typing ? props.onDone : undefined} />
+          <div className="mb-holder mb-card-holder">{props.card.view(page.board, page.id)}</div>
+        </>
+      );
+    }
     if (page.kind === 'version') {
       return (
         <>
@@ -883,7 +940,8 @@ export function Phone(props: PhoneProps) {
 
   return (
     // The phone's own layout fills what the phone shows: with the keyboard up it ends on the keyboard.
-    <div className={keyboard ? 'mb keyboard' : 'mb'} style={{ top: view.top, height: view.height }}>
+    // A card's page has its comment box where the tab bar is.
+    <div className={['mb', keyboard ? 'keyboard' : '', top.kind === 'card' ? 'card-page' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
       <div ref={stage} className="mb-stage" onTouchStartCapture={edgeStart} onTouchMoveCapture={edgeMove} onTouchEndCapture={edgeEnd} onTouchCancelCapture={edgeEnd}>
         {shownPages.map((page, index) => {
           const isLeaving = leaving?.page.key === page.key;

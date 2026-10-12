@@ -119,9 +119,16 @@ export function Sheet({ label, className, onClose, onEscape = onClose, onKeyDown
  * A page of a phone with nothing in it yet: its icon in a circle, what will be there, and the
  * button that adds the first thing, where there is one.
  */
-export function Empty({ icon, title, text, action }: { icon: IconName; title: string; text?: string; action?: { label: string; run: () => void } }) {
+export function Empty({ icon, title, text, action, small }: {
+  icon: IconName;
+  title: string;
+  text?: string;
+  action?: { label: string; run: () => void };
+  /** Within part of a page, as a column of a board. */
+  small?: boolean;
+}) {
   return (
-    <div className="mb-empty-state">
+    <div className={small ? 'mb-empty-state small' : 'mb-empty-state'}>
       <span className="ic">
         <Icon name={icon} />
       </span>

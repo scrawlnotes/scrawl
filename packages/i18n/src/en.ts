@@ -232,6 +232,7 @@ export const en = {
   'phone.copied': 'Copied',
   // what an empty note shows until something is written in it
   'phone.notePlaceholder': 'Note',
+  'phone.addDescription': 'Add a description',
   // pages with nothing in them yet
   'phone.emptyFolder': 'Nothing here yet',
   'phone.emptyFolderText': 'Notes, lists, boards and folders made here show up here.',
@@ -263,6 +264,18 @@ export const en = {
   'phone.subtasks': 'Subtasks',
   'phone.subtasksDone': 'Subtasks · {done} of {total}',
   'phone.add': 'Add',
+  // a board on a phone
+  'phone.statusMenu': 'Status…',
+  'phone.columnIn': 'Column in {board}',
+  'phone.cardIn': 'Card in {board}',
+  'phone.newLabel': 'New label',
+  'phone.emptyColumn': 'No cards here',
+  'phone.emptyBoard': 'No cards yet',
+  'phone.emptyBoardText': 'Cards added to this board show up here, one a row.',
+  'phone.sortBy': 'Sort by',
+  'phone.emptyColumnText': 'Cards added to this column, or moved to it, show up here.',
+  'phone.fieldsMenu': 'Fields…',
+  'phone.phases': 'Phases',
   'phone.previousMonth': 'Previous month',
   'phone.nextMonth': 'Next month',
   'phone.now': 'now',

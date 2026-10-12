@@ -711,11 +711,19 @@ export class Session {
    * A second editor, for a card's description: wired to the vault's files like the note editor,
    * but its text belongs to whoever opened it. Destroyed by them too.
    */
-  openEditor(parent: HTMLElement, doc: string, onChange: (doc: string) => void): ScrawlEditor {
+  openEditor(parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string): ScrawlEditor {
     const editor: ScrawlEditor = createEditor({
       parent,
       doc,
       onChange,
+      // What shows while it is empty.
+      placeholder: hint
+        ? () => {
+            const shown = document.createElement('span');
+            shown.textContent = hint;
+            return shown;
+          }
+        : undefined,
       resolveImage: this.resolveImage,
       addFiles: (files, at) => void this.copyFiles(editor.view, files, at),
       openFile: (src) => void this.openFile(src),

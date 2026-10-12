@@ -123,6 +123,37 @@ const shapes = {
   close: <path d="M7 7l10 10M17 7L7 17" />,
   /** What is chosen in a list on a phone. */
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  up: <path d="M12 19V5M6 11l6-6 6 6" />,
+  down: <path d="M12 5v14M6 13l6 6 6-6" />,
+  /** A card's labels. */
+  tag: (
+    <>
+      <path d="M3.5 12V4.5H11l9 9-7.5 7.5z" />
+      <circle cx="7.5" cy="8.5" r="1.3" />
+    </>
+  ),
+  /** Who a card is on. */
+  hash: <path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16" />,
+  mail: (
+    <>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+    </>
+  ),
+  person: (
+    <>
+      <circle cx="12" cy="8.5" r="3.5" />
+      <path d="M5 20a7 7 0 0 1 14 0" />
+    </>
+  ),
+  /** A phase of a board. */
+  phase: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+    </>
+  ),
   // The quick dates of a phone's date sheet.
   sun: (
     <>

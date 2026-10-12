@@ -7,18 +7,25 @@ import {
   dayOf,
   type Field,
   type FieldValue,
+  isEmpty,
+  isLink,
   keyOf,
   type Link,
+  linkTo,
   numberText,
   type Priority,
   type TimelineEntry,
+  valueText,
 } from '@scrawlnotes/core';
 import type { ScrawlEditor, ScrawlViewer } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
 import {
   type CSSProperties,
+  type FormEvent,
+  Fragment,
   type KeyboardEvent,
   type MouseEvent,
+  type ReactNode,
   type RefObject,
   useEffect,
   useLayoutEffect,
@@ -27,11 +34,16 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { type CollectionActions, FieldInput, RecordDialog, type ValueContext } from './Collection';
-import { pageBox, pageWindow } from './device';
-import type { MenuItem } from './dialogs';
+import { isPhone, pageBox, pageWindow } from './device';
+import type { MenuHead, MenuItem } from './dialogs';
 import { labelHue, useEscape } from './choices';
+import { Icon, type IconName } from './Icon';
 import { boardLabel } from './items';
+import { AssigneeSheet, KindMark, Label, LabelSheet, PhaseSheet, StatusSheet } from './PhoneBoard';
+import { DateSheet, priorityItems, RecordSheet } from './PhoneTasks';
+import { Sheet } from './sheets';
 import { StatusIcon } from './StatusIcon';
+import { dueClass, dueLabel } from './Tasks';
 import { clockTime, pastDayLabel } from './text';
 
 /** What the card panel does, on the board at the path given. */
@@ -47,12 +59,13 @@ export interface CardPanelActions {
   copyBrief: (board: string, id: string) => void;
   /** Makes a task due today in the inbox that links back to the card. */
   addToToday: (board: string, id: string) => void;
-  menu: (event: MouseEvent, items: MenuItem[]) => void;
+  /** Opens a menu at the pointer; on a phone an action sheet, `head` saying what it is about. */
+  menu: (event: MouseEvent, items: MenuItem[], head?: MenuHead) => void;
   /** What the note at a path is called, or null when it is not there any more. */
   noteTitle: (path: string) => string | null;
   openNote: (path: string) => void;
   /** An editor for the description, in `parent`; the host wires it to the vault's files. */
-  editor: (parent: HTMLElement, doc: string, onChange: (doc: string) => void) => ScrawlEditor;
+  editor: (parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string) => ScrawlEditor;
   /** A read-only view of Markdown, for comments. */
   viewer: (parent: HTMLElement, doc: string) => ScrawlViewer;
   /** The collections the board's link fields point at: their records to pick from, and a record to open over the card. */
@@ -552,15 +565,20 @@ function Comment({ entry, today, onEdit, onRemove, menu, viewer }: {
   today: string;
   onEdit: (text: string) => void;
   onRemove: () => void;
-  menu: (event: MouseEvent, items: MenuItem[]) => void;
+  menu: CardPanelActions['menu'];
   viewer: CardPanelActions['viewer'];
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  // On a phone, an action sheet with who wrote it and when.
   const open = (event: MouseEvent) =>
-    menu(event, [
-      { label: t('card.editComment'), run: () => setDraft(entry.text) },
-      { label: t('menu.delete'), run: onRemove },
-    ]);
+    menu(
+      event,
+      [
+        { label: t('card.editComment'), icon: 'pen', run: () => setDraft(entry.text) },
+        { label: t('menu.delete'), icon: 'trash', danger: true, run: onRemove },
+      ],
+      { icon: 'comment', title: entry.by ?? t('card.someone'), sub: when(entry.at, today) },
+    );
   const save = () => {
     if (draft?.trim()) onEdit(draft);
     setDraft(null);
@@ -812,5 +830,345 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
       <RecordDialog key={overRecord.id} collection={overCollection} record={overRecord} today={today} actions={records} onClose={() => setOver(null)} />
     )}
     </div>
+  );
+}
+
+/** On a phone, a menu opens from the bottom wherever it was asked for. */
+const NO_POINTER = { preventDefault: () => undefined, clientX: 0, clientY: 0 } as unknown as MouseEvent;
+
+/**
+ * A card on a phone, as a page, after the Phone board views of design/mockups.html: its key and
+ * board, its title written in place with Cancel and Save while it is changed, its fields as rows
+ * whose values are picked in sheets, the board's own fields, its description in the note editor,
+ * its timeline, and a comment box at the foot.
+ */
+export function PhoneCardPage({ board, path, card, today, actions }: {
+  board: Board;
+  path: string;
+  card: Card;
+  today: string;
+  actions: CardPanelActions;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const editor = useRef<ScrawlEditor | null>(null);
+  const timer = useRef(0);
+  const unsaved = useRef<string | null>(null);
+  const [title, setTitle] = useState(card.title);
+  useEffect(() => setTitle(card.title), [card.title]);
+  const [comment, setComment] = useState('');
+  const [picking, setPicking] = useState<'status' | 'phase' | 'labels' | 'due' | 'assignee' | null>(null);
+  /** A field of the board's typed in a sheet, or a link picked from its collection's records. */
+  const [editing, setEditing] = useState<Field | null>(null);
+  const [linking, setLinking] = useState<Field | null>(null);
+  const [over, setOver] = useState<{ dir: string; id: string } | null>(null);
+  const records = actions.recordActions;
+  const ctx: ValueContext = {
+    records: records.records,
+    collection: records.collection,
+    openLink: records.openLink,
+    openRecord: (field: Field, link: Link) => field.collection && setOver({ dir: field.collection, id: link.id }),
+  };
+  const overCollection = over ? records.collection(over.dir) : null;
+  const overRecord = over ? (overCollection?.records.find((r) => r.id === over.id) ?? null) : null;
+
+  // The description is saved shortly after it is typed, and when the page goes.
+  const latest = useRef({ path, id: card.id, actions });
+  latest.current = { path, id: card.id, actions };
+  useEffect(() => {
+    const parent = host.current!;
+    const { path: at, id, actions: act } = latest.current;
+    const flush = () => {
+      window.clearTimeout(timer.current);
+      if (unsaved.current === null) return;
+      const text = unsaved.current;
+      unsaved.current = null;
+      act.updateCard(at, id, { description: text });
+    };
+    editor.current = act.editor(
+      parent,
+      card.description ?? '',
+      (doc) => {
+        unsaved.current = doc;
+        window.clearTimeout(timer.current);
+        timer.current = window.setTimeout(flush, SAVE_DELAY_MS);
+      },
+      t('phone.addDescription'),
+    );
+    return () => {
+      flush();
+      editor.current?.destroy();
+      editor.current = null;
+    };
+    // The editor is made once per card; what is typed in it is saved as it goes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card.id]);
+
+  const update = (patch: CardPatch) => actions.updateCard(path, card.id, patch);
+  const column = board.columns.find((c) => c.id === card.column);
+  const phase = card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
+  const noteTitle = card.note ? actions.noteTitle(card.note) : null;
+  const columnName = (id: string | null) => (id === null ? '' : (board.columns.find((c) => c.id === id)?.name ?? t('card.removedColumn')));
+  const send = () => {
+    if (!comment.trim()) return;
+    actions.addComment(path, card.id, comment);
+    setComment('');
+  };
+  const none = <span className="none">{t('phone.none')}</span>;
+  const setValue = (field: Field, value: FieldValue) => update({ values: { [field.key]: value } });
+  // A board's field as a row: what is worked out only shows; a tick turns over; a choice is picked
+  // from an action sheet, a record from its collection's; the rest is typed in a sheet.
+  const fieldRow = (field: Field) => {
+    const value = cardValue(board, card, field, today);
+    const links = (Array.isArray(value) ? value : [value]).filter(isLink);
+    const shown = isEmpty(value) ? (
+      none
+    ) : field.type === 'checkbox' ? (
+      <Icon name="check" />
+    ) : (
+      <span className={field.type === 'link' ? 'tx lnk' : 'tx'}>
+        {typeof value === 'number'
+          ? numberText(value)
+          : links.length > 0
+            ? links.map((link) => link.name || link.code).join(', ')
+            : field.type === 'date'
+              ? dueLabel(valueText(value), today)
+              : valueText(value)}
+      </span>
+    );
+    const label = (
+      <>
+        {field.label}
+        {field.required && <i className="req">*</i>}
+      </>
+    );
+    if (field.type === 'formula' || field.type === 'rollup') {
+      return (
+        <div key={field.key} className="mb-fr">
+          <Icon name={FIELD_ICONS[field.type]} />
+          <span className="fl">{label}</span>
+          <span className="val">{shown}</span>
+        </div>
+      );
+    }
+    const open = () => {
+      if (field.type === 'checkbox') return setValue(field, value !== true);
+      if (field.type === 'link' && !field.many && field.collection) return setLinking(field);
+      if (field.type === 'select') {
+        return actions.menu(
+          NO_POINTER,
+          [
+            { label: t('collection.none'), icon: 'close', value: isEmpty(value) ? '✓' : undefined, run: () => setValue(field, null) },
+            ...(field.options ?? []).map((option) => ({ label: option, icon: 'tag' as const, value: value === option ? '✓' : undefined, run: () => setValue(field, option) })),
+          ],
+          { icon: 'tag', title: field.label, sub: keyOf(board, card) },
+        );
+      }
+      setEditing(field);
+    };
+    return <Fragment key={field.key}>{row(FIELD_ICONS[field.type], label, shown, open)}</Fragment>;
+  };
+  // A row that opens a list has its arrow, as the mockup has them: Status and Phase.
+  const row = (icon: IconName, label: ReactNode, value: ReactNode, run: () => void, list = false) => (
+    <button type="button" className="mb-fr" onClick={run}>
+      <Icon name={icon} />
+      <span className="fl">{label}</span>
+      <span className="val">
+        {value}
+        {list && <Icon name="chevron" />}
+      </span>
+    </button>
+  );
+
+  return (
+    <div className="mb-cpage">
+      <div className="mb-cbody">
+        <div className="mb-ckey">
+          {keyOf(board, card)} · {path.slice(path.lastIndexOf('/') + 1).replace(/\.board\.json$/, '')}
+        </div>
+        <div className="mb-ctitle">
+          <GrowingField value={title} label={t('card.title')} onChange={setTitle} />
+        </div>
+        {title !== card.title && (
+          <div className="mb-cedit">
+            <button type="button" onClick={() => setTitle(card.title)}>
+              {t('dialog.cancel')}
+            </button>
+            <button type="button" className="primary" disabled={!title.trim()} onClick={() => update({ title })}>
+              {t('card.save')}
+            </button>
+          </div>
+        )}
+        <div className="mb-form">
+          <div className="mb-group">
+            {row(
+              'board',
+              t('card.status'),
+              column ? (
+                <>
+                  <KindMark kind={column.kind} />
+                  <span className="tx">{column.name}</span>
+                </>
+              ) : (
+                none
+              ),
+              () => setPicking('status'),
+              true,
+            )}
+            {board.phasesOn && row('phase', t('card.phase'), phase ? <span className="tx">{phase.name}</span> : none, () => setPicking('phase'), true)}
+            {row(
+              'flag',
+              t('card.priority'),
+              card.priority === 4 ? (
+                none
+              ) : (
+                <span className={`prio p${card.priority}`}>
+                  <Icon name="flag" />p{card.priority}
+                </span>
+              ),
+              () => actions.menu(NO_POINTER, priorityItems(card.priority, (priority) => update({ priority })), { icon: 'flag', title: t('card.priority') }),
+            )}
+            {row(
+              'tag',
+              t('card.labels'),
+              card.labels?.length ? (
+                <span className="lbls">
+                  {card.labels.map((label) => (
+                    <Label key={label} label={label} />
+                  ))}
+                </span>
+              ) : (
+                none
+              ),
+              () => setPicking('labels'),
+            )}
+            {row('calendar', t('card.due'), card.due ? <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span> : none, () => setPicking('due'))}
+            {row(
+              'person',
+              t('card.assignee'),
+              card.assignee ? (
+                <>
+                  <span className="mb-who">{card.assignee.slice(0, 1).toUpperCase()}</span>
+                  <span className="tx">{card.assignee}</span>
+                </>
+              ) : (
+                <span className="none">{t('card.unassigned')}</span>
+              ),
+              () => setPicking('assignee'),
+            )}
+            {card.note &&
+              row('note', t('phone.from'), <span className="lnk">{noteTitle ?? '?'}</span>, () => {
+                if (noteTitle !== null) actions.openNote(card.note!);
+              })}
+            {(board.fields ?? []).map(fieldRow)}
+          </div>
+        </div>
+        <div className="mb-cap mb-cpad">{t('card.description')}</div>
+        <div className="mb-cdesc" ref={host} />
+        {card.timeline.length > 0 && <div className="mb-cap mb-cpad">{t('card.timeline')}</div>}
+        <div className="mb-ctl tlog">
+          {card.timeline.map((entry) =>
+            entry.kind === 'move' ? (
+              <div key={entry.id} className="tl-ev">
+                <b>{entry.by ?? t('card.someone')}</b>
+                <span>{entry.from === null ? t('card.movedIn', { to: columnName(entry.to) }) : t('card.moved', { from: columnName(entry.from), to: columnName(entry.to) })}</span>
+                <span className="t">{when(entry.at, today)}</span>
+              </div>
+            ) : (
+              <Comment
+                key={entry.id}
+                entry={entry}
+                today={today}
+                menu={actions.menu}
+                viewer={actions.viewer}
+                onEdit={(text) => actions.editComment(path, card.id, entry.id, text)}
+                onRemove={() => actions.removeComment(path, card.id, entry.id)}
+              />
+            ),
+          )}
+        </div>
+      </div>
+      <div className="mb-compose">
+        <GrowingField value={comment} label={t('card.comment')} placeholder={t('card.commentHint')} onChange={setComment} />
+        <button type="button" className="go" disabled={!comment.trim()} onMouseDown={(event) => event.preventDefault()} onClick={send}>
+          {t('card.comment')}
+        </button>
+      </div>
+      {picking === 'status' && (
+        <StatusSheet board={board} title={keyOf(board, card)} current={card.column} onPick={(id) => actions.moveToColumn(path, card.id, id)} onClose={() => setPicking(null)} />
+      )}
+      {picking === 'phase' && <PhaseSheet board={board} current={card.phase ?? null} onPick={(id) => update({ phase: id })} onClose={() => setPicking(null)} />}
+      {picking === 'labels' && <LabelSheet board={board} labels={card.labels ?? []} onChange={(labels) => update({ labels })} onClose={() => setPicking(null)} />}
+      {picking === 'due' && <DateSheet title={card.title} current={card.due} today={today} onPick={(due) => update({ due })} onClose={() => setPicking(null)} />}
+      {picking === 'assignee' && <AssigneeSheet value={card.assignee ?? ''} onSave={(assignee) => update({ assignee })} onClose={() => setPicking(null)} />}
+      {editing && <FieldSheet field={editing} value={cardValue(board, card, editing, today)} ctx={ctx} onSave={(next) => setValue(editing, next)} onClose={() => setEditing(null)} />}
+      {linking?.collection && (
+        <RecordSheet
+          title={linking.label}
+          current={(() => {
+            const link = cardValue(board, card, linking, today);
+            return isLink(link) ? { collection: linking.collection, id: link.id, name: link.name } : null;
+          })()}
+          choices={[{ dir: linking.collection, records: records.records(linking.collection) ?? [] }]}
+          onPick={(record) => setValue(linking, record ? linkTo({ id: record.id, name: record.name ?? '', code: record.code ?? '' }) : null)}
+          onClose={() => setLinking(null)}
+        />
+      )}
+      {over && overCollection && overRecord && (
+        <RecordDialog key={overRecord.id} collection={overCollection} record={overRecord} today={today} actions={records} onClose={() => setOver(null)} />
+      )}
+    </div>
+  );
+}
+
+/** A field's icon on a phone, by its type. */
+const FIELD_ICONS: { [type in Field['type']]: IconName } = {
+  name: 'pen',
+  code: 'hash',
+  text: 'pen',
+  number: 'hash',
+  date: 'calendar',
+  select: 'tag',
+  'multi-select': 'tag',
+  checkbox: 'check',
+  url: 'link',
+  email: 'mail',
+  phone: 'person',
+  person: 'person',
+  link: 'collection',
+  formula: 'hash',
+  rollup: 'hash',
+};
+
+/** A field's value typed or picked in a sheet, with Cancel and Save at its top. */
+function FieldSheet({ field, value, ctx, onSave, onClose }: {
+  field: Field;
+  value: FieldValue;
+  ctx: ValueContext;
+  onSave: (value: FieldValue) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState<FieldValue>(value);
+  const save = (event?: FormEvent) => {
+    event?.preventDefault();
+    onSave(draft);
+    onClose();
+  };
+  return (
+    <Sheet label={field.label} className="mb-create" onClose={onClose}>
+      <div className="mb-sh three">
+        <button type="button" className="cancel" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <b>{field.label}</b>
+        <button type="button" className="ok" onClick={() => save()}>
+          {t('card.save')}
+        </button>
+      </div>
+      <form className="mb-form" onSubmit={save}>
+        <div className="mb-group mb-fieldin">
+          <FieldInput field={field} value={draft} ctx={ctx} autoFocus onChange={setDraft} onEnter={() => save()} />
+        </div>
+      </form>
+    </Sheet>
   );
 }

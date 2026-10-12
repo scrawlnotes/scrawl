@@ -147,8 +147,9 @@ export function DateSheet({ title, current, today, onPick, onClose }: {
   );
 }
 
-/** The record a task is about, found by name or code in a sheet; No record takes it away. */
-export function RecordSheet({ current, choices, onPick, onClose }: {
+/** The record a task is about, found by name or code in a sheet; No record takes it away. A link field's names it by its own name. */
+export function RecordSheet({ title = t('tasks.record'), current, choices, onPick, onClose }: {
+  title?: string;
   current: TaskRecord | null;
   choices: { dir: string; records: CollectionRecord[] }[];
   onPick: (record: TaskRecord | null) => void;
@@ -164,9 +165,9 @@ export function RecordSheet({ current, choices, onPick, onClose }: {
     onClose();
   };
   return (
-    <Sheet label={t('tasks.record')} className="mb-create" onClose={onClose}>
+    <Sheet label={title} className="mb-create" onClose={onClose}>
       <div className="mb-sh">
-        <b>{t('tasks.record')}</b>
+        <b>{title}</b>
         <SheetClose onClose={onClose} />
       </div>
       <div className="mb-form">

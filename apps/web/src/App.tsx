@@ -65,6 +65,7 @@ import {
 import { type BoardActions, BoardView } from './Board';
 import { FormatBar } from './FormatBar';
 import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History';
+import { PhoneCardPage } from './CardPanel';
 import { LinkActions, LinkSheet, PhoneFormatBar } from './PhoneNote';
 import { DateSheet, QuickAdd, RecordSheet, TaskSheet } from './PhoneTasks';
 import { Icon } from './Icon';
@@ -533,6 +534,14 @@ export function App() {
         ]
       : [];
     const items = path === null || path === INBOX_TASKS ? [] : itemMenuItems(path, setPhoneHistory);
+    const board = path !== null && page ? boards[path] : undefined;
+    if (board && path !== null) {
+      markdown.push(
+        { label: t('phone.fieldsMenu'), icon: 'settings', run: () => setBoardFields((n) => n + 1) },
+        { label: t('phone.phases'), icon: 'phase', value: board.phasesOn ? t('phone.on') : t('phone.off'), run: () => session.setPhasesOn(path, !board.phasesOn) },
+        { label: t('board.addColumn'), icon: 'plus', run: () => session.addColumn(path, t('board.newColumn'), 'active') },
+      );
+    }
     if (markdown.length + items.length === 0) return;
     // History and what follows it are apart from Markdown.
     showSheet([...markdown, ...items.map((item, i) => (i === 0 && markdown.length > 0 ? { ...item, apart: true } : item))], head);
@@ -677,7 +686,11 @@ export function App() {
   const [taskSheet, setTaskSheet] = useState<{ list: string; id: string; subtask: boolean } | null>(null);
   const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record'; list: string; id: string } | null>(null);
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
+  // On a phone + on a board types a card for the column on screen; the page's menu opens its Fields.
+  const [boardAdding, setBoardAdding] = useState(0);
+  const [boardFields, setBoardFields] = useState(0);
   const phoneAdd = (id: string) => {
+    if (boardPathOf(id) !== null) return setBoardAdding((n) => n + 1);
     if (id === TODAY) return setQuickAdd({ list: INBOX_TASKS, section: null, due: today });
     if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: addDays(today, 1) });
     const list = listOf(id);
@@ -784,9 +797,9 @@ export function App() {
       session.addTask(INBOX_TASKS, { title: card.title, due: today, card: cardRef(board, id) });
       setNotice(t('card.addedToToday'));
     },
-    editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
+    editor: (parent, doc, onChange, hint) => session.openEditor(parent, doc, onChange, hint),
     viewer: (parent, doc) => session.openViewer(parent, doc),
-    menu: openMenu,
+    menu: (event, items, head) => (phone ? showSheet(items, head) : openMenu(event, items)),
     addColumn: (board, name, kind, after) => session.addColumn(board, name, kind, after),
     renameColumn: (board, id, name) => session.renameColumn(board, id, name),
     setColumnKind: (board, id, kind) => session.setColumnKind(board, id, kind),
@@ -883,6 +896,8 @@ export function App() {
         onLook={(look) => session.lookAtBoard(boardPath, look)}
         openCard={openCard?.board === boardPath ? openCard.id : null}
         onCloseCard={() => setOpenCard(null)}
+        adding={boardAdding}
+        fieldsAsked={boardFields}
       />
     )}
     {keysPath !== null && keysText !== undefined && (
@@ -999,7 +1014,7 @@ export function App() {
             counts={counts}
             item={itemLayer}
             dueView={(kind) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare />}
-            canAdd={(id) => listOf(id) !== null}
+            canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null}
             onAdd={phoneAdd}
             trashView={<TrashView items={trash} today={today} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
             syncWord={syncWord(sync)}
@@ -1051,6 +1066,43 @@ export function App() {
             onDone={() => {
               session.closeFind();
               if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            }}
+            card={{
+              open: openCard,
+              view: (board, id) => {
+                const whole = boards[board];
+                const card = whole?.cards.find((each) => each.id === id);
+                return whole && card ? <PhoneCardPage key={id} board={whole} path={board} card={card} today={today} actions={boardActions} /> : null;
+              },
+              label: (board, id) => {
+                const whole = boards[board];
+                const card = whole?.cards.find((each) => each.id === id);
+                return whole && card ? keyOf(whole, card) : '';
+              },
+              onMenu: (board, id) => {
+                const whole = boards[board];
+                const card = whole?.cards.find((each) => each.id === id);
+                if (!whole || !card) return;
+                showSheet(
+                  [
+                    { label: t('card.copyBrief'), icon: 'copy', run: () => void copyBrief(board, id) },
+                    { label: t('card.addToToday'), icon: 'sun', run: () => boardActions.addToToday(board, id) },
+                    {
+                      label: t('menu.delete'),
+                      icon: 'trash',
+                      danger: true,
+                      // The page goes once the card is deleted, not when it is asked.
+                      run: () =>
+                        ask(t('delete.card'), t('delete.cardText', { name: quote(card.title) }), () => {
+                          setOpenCard(null);
+                          void session.removeCard(board, id);
+                        }),
+                    },
+                  ],
+                  { icon: 'board', title: `${keyOf(whole, card)} ${card.title}`, sub: t('phone.cardIn', { board: boardName(board) }) },
+                );
+              },
+              onClosed: () => setOpenCard(null),
             }}
           />
           {createPortal(itemContent, itemLayer)}

@@ -37,11 +37,19 @@ import { CardPanel, type CardPanelActions } from './CardPanel';
 import { labelHue } from './choices';
 import { Cell, type ValueContext } from './Collection';
 import { BoardFieldsDialog } from './Fields';
-import { pageBox } from './device';
+import { isPhone, pageBox } from './device';
 import type { MenuItem } from './dialogs';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
+import { CardQuickAdd, cardHead, ColumnTabs, KindMark, Label, StatusSheet } from './PhoneBoard';
+import { Empty, liftUntilTouch, Sheet, SheetClose } from './sheets';
 import { dueClass, dueLabel } from './Tasks';
 import { holdToDrag } from './touchDrag';
+
+/** What a board is called, from its path: its file's name without the extension. */
+const titleOfBoard = (path: string) => path.slice(path.lastIndexOf('/') + 1).replace(/\.board\.json$/, '');
+
+/** On a phone, a menu opens from the bottom wherever it was asked for. */
+const NO_POINTER = { preventDefault: () => undefined, clientX: 0, clientY: 0 } as unknown as MouseEvent;
 
 /** What can be done on a board, at the path given. */
 export interface BoardActions extends CardPanelActions {
@@ -223,7 +231,7 @@ function faceText(value: FieldValue): string {
   return links.length > 1 ? `${first} +${links.length - 1}` : first;
 }
 
-function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold, showPhase, open }: {
+function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold, onStatus, showPhase, open }: {
   board: Board;
   path: string;
   card: Card;
@@ -235,8 +243,10 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
   actions: BoardActions;
   onGrab: (event: DragEvent<HTMLElement>, card: Card) => void;
   onRelease: () => void;
-  /** A finger held on the card, which lifts it after a moment. */
-  onHold: (event: ReactPointerEvent<HTMLElement>, card: Card) => void;
+  /** A finger held on the card, which lifts it after a moment; let go there, `still` is called. */
+  onHold: (event: ReactPointerEvent<HTMLElement>, card: Card, still?: () => void) => void;
+  /** On a phone: the card's column, picked in a sheet. */
+  onStatus?: (card: Card) => void;
 }) {
   const comments = card.timeline.filter((entry) => entry.kind === 'comment').length;
   const noteTitle = card.note ? actions.noteTitle(card.note) : null;
@@ -257,6 +267,72 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
       { label: t('card.addToToday'), run: () => actions.addToToday(path, card.id) },
       { label: t('menu.delete'), run: () => actions.removeCard(path, card) },
     ]);
+  if (isPhone()) {
+    // Held and let go where it lifted: it stays lifted over the dim, with its actions.
+    const held = (element: HTMLElement) => {
+      liftUntilTouch(element);
+      actions.menu(
+        NO_POINTER,
+        [
+          { label: t('phone.statusMenu'), icon: 'board', run: () => onStatus?.(card) },
+          { label: t('card.copyBrief'), icon: 'copy', run: () => actions.copyBrief(path, card.id) },
+          { label: t('card.addToToday'), icon: 'sun', run: () => actions.addToToday(path, card.id) },
+          { label: t('menu.delete'), icon: 'trash', danger: true, run: () => actions.removeCard(path, card) },
+        ],
+        cardHead(board, card, keyOf(board, card), titleOfBoard(path)),
+      );
+    };
+    return (
+      <div
+        className="mb-kc"
+        data-card={card.id}
+        onPointerDown={(event) => {
+          const element = event.currentTarget;
+          onHold(event, card, () => held(element));
+        }}
+        onContextMenu={(event) => event.preventDefault()}
+      >
+        <button type="button" className="kc-main" onClick={() => actions.openCard(path, card.id)}>
+          <span className="top">
+            <i className={`p${card.priority}`} />
+            {keyOf(board, card)}
+            {card.assignee && <span className="mb-who">{card.assignee.slice(0, 1).toUpperCase()}</span>}
+          </span>
+          <b>{card.title}</b>
+          {(card.due || card.labels?.length || comments > 0 || phase || face.length > 0) && (
+            <span className="meta">
+              {card.due && (
+                <span className={dueClass(card.due, today)}>
+                  <Icon name="calendar" />
+                  {dueLabel(card.due, today)}
+                </span>
+              )}
+              {card.labels?.map((label) => <Label key={label} label={label} />)}
+              {comments > 0 && (
+                <span>
+                  <Icon name="comment" />
+                  {comments}
+                </span>
+              )}
+              {phase && <span>{phase.name}</span>}
+              {face.map(({ field, value }) =>
+                typeof value === 'number' ? (
+                  <span key={field.key} className="val">
+                    {numberText(value)}
+                  </span>
+                ) : (
+                  <span key={field.key} className="co">
+                    <Icon name="collection" />
+                    {faceText(value)}
+                  </span>
+                ),
+              )}
+            </span>
+          )}
+        </button>
+      </div>
+    );
+  }
   return (
     <div
       className={open ? 'kc on' : 'kc'}
@@ -324,7 +400,7 @@ interface Drop {
 /** Finished cards older than this many days fold away under the column's last recent card. */
 const OLD_AFTER_DAYS = 7;
 
-function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, drop, onGrab, onRelease, onHold, onDragOver, onDrop, onGrabColumn, openCard }: {
+function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, drop, onGrab, onRelease, onHold, onStatus, onAddHere, peek, onDragOver, onDrop, onGrabColumn, openCard }: {
   board: Board;
   path: string;
   column: Column;
@@ -339,7 +415,13 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
   drop: Drop | null;
   onGrab: (event: DragEvent<HTMLElement>, card: Card) => void;
   onRelease: () => void;
-  onHold: (event: ReactPointerEvent<HTMLElement>, card: Card) => void;
+  onHold: (event: ReactPointerEvent<HTMLElement>, card: Card, still?: () => void) => void;
+  /** On a phone: a card's column, picked in a sheet. */
+  onStatus?: (card: Card) => void;
+  /** On a phone: a column beside the one on screen, its edge peeking in. */
+  peek?: boolean;
+  /** On a phone: + for this column, from its empty state. */
+  onAddHere?: () => void;
   onDragOver: (event: DragEvent<HTMLDivElement>, column: Column, lane: string | null | undefined) => void;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   /** The column's header is dragged to another place; not in the lanes. */
@@ -351,21 +433,29 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
   const inLane = lane !== undefined;
   const index = board.columns.findIndex((c) => c.id === column.id);
   const lastDone = column.kind === 'done' && board.columns.filter((c) => c.kind === 'done').length === 1;
+  const phone = isPhone();
   const menu = (event: MouseEvent) =>
-    actions.menu(event, [
-      { label: t('menu.rename'), run: () => setRenaming(true) },
-      ...COLUMN_KINDS.map((kind) => ({
-        label: `${kind === column.kind ? '● ' : '○ '}${t('board.kindOf', { kind: t(`board.kind.${kind}`) })}`,
-        run: () => actions.setColumnKind(path, column.id, kind),
-      })),
-      { label: t('board.addColumnAfter'), run: () => actions.addColumn(path, t('board.newColumn'), 'active', column.id) },
-      ...(index > 0 ? [{ label: t('board.moveLeft'), run: () => actions.moveColumn(path, column.id, index >= 2 ? board.columns[index - 2]!.id : null) }] : []),
-      ...(index < board.columns.length - 1 ? [{ label: t('board.moveRight'), run: () => actions.moveColumn(path, column.id, board.columns[index + 1]!.id) }] : []),
-      // The last done column stays, and its menu says why; a board's only column stays too.
-      ...(board.columns.length === 1 && !lastDone
-        ? []
-        : [{ label: t('board.deleteColumn'), run: () => actions.removeColumn(path, column), ...(lastDone && { disabled: t('board.keepsDone') }) }]),
-    ]);
+    actions.menu(
+      event,
+      [
+        { label: t('menu.rename'), icon: 'pen', run: () => setRenaming(true) },
+        ...COLUMN_KINDS.map((kind, i) => ({
+          // On a phone the kind set is ticked; on a computer it has a dot.
+          label: phone ? t('board.kindOf', { kind: t(`board.kind.${kind}`) }) : `${kind === column.kind ? '● ' : '○ '}${t('board.kindOf', { kind: t(`board.kind.${kind}`) })}`,
+          value: phone && kind === column.kind ? '✓' : undefined,
+          apart: i === 0,
+          run: () => actions.setColumnKind(path, column.id, kind),
+        })),
+        { label: t('board.addColumnAfter'), icon: 'plus' as const, apart: true, run: () => actions.addColumn(path, t('board.newColumn'), 'active', column.id) },
+        ...(index > 0 ? [{ label: t('board.moveLeft'), icon: 'back' as const, run: () => actions.moveColumn(path, column.id, index >= 2 ? board.columns[index - 2]!.id : null) }] : []),
+        ...(index < board.columns.length - 1 ? [{ label: t('board.moveRight'), icon: 'chevron' as const, run: () => actions.moveColumn(path, column.id, board.columns[index + 1]!.id) }] : []),
+        // The last done column stays, and its menu says why; a board's only column stays too.
+        ...(board.columns.length === 1 && !lastDone
+          ? []
+          : [{ label: t('board.deleteColumn'), icon: 'trash' as const, danger: true, run: () => actions.removeColumn(path, column), ...(lastDone && { disabled: t('board.keepsDone') }) }]),
+      ],
+      { icon: 'board', title: column.name, sub: t('phone.columnIn', { board: titleOfBoard(path) }) },
+    );
   const phase = inLane ? lane : 'phase' in shown ? shown.phase : undefined;
   const sumField = faceFields(board).find((field) => field.type === 'number');
   const sum = sumField ? cardSum(board, cards, sumField, today) : null;
@@ -390,12 +480,13 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
       onHold={onHold}
       showPhase={!inLane && 'all' in shown && board.phasesOn}
       open={card.id === openCard}
+      onStatus={onStatus}
     />
   ));
   if (drop?.column === column.id && drop.lane === lane) items.splice(drop.index, 0, <div key="drop" className="kc-drop" />);
   return (
     <div
-      className={`colm kind-${column.kind}${inLane ? ' in-lane' : ''}`}
+      className={`colm kind-${column.kind}${inLane ? ' in-lane' : ''}${peek ? ' peek' : ''}`}
       data-column={column.id}
       // A finger finds the lane it is over here: none without lanes, empty for the cards in no phase.
       data-lane={lane === undefined ? undefined : (lane ?? '')}
@@ -410,7 +501,7 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
         onDragEnd={onRelease}
         title={onGrabColumn ? t('board.dragColumn') : undefined}
       >
-        <StatusIcon status={columnStatus(board, column)} />
+        {phone ? <KindMark kind={column.kind} /> : <StatusIcon status={columnStatus(board, column)} />}
         {renaming ? (
           <LineInput
             className="colm-edit"
@@ -440,7 +531,12 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
           </button>
         )}
       </h3>
-      <div className="colm-cards">{items}</div>
+      <div className="colm-cards">
+        {phone && cards.length === 0 && (
+          <Empty small icon="board" title={t('phone.emptyColumn')} text={t('phone.emptyColumnText')} action={onAddHere && { label: t('board.addCard'), run: onAddHere }} />
+        )}
+        {items}
+      </div>
       {old.length > 0 && (
         <button type="button" className="fold" aria-expanded={showOld} onClick={() => setShowOld(!showOld)}>
           {showOld ? t('board.hideOlder', { count: old.length }) : t('board.olderCards', { count: old.length })}
@@ -449,9 +545,11 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
       {composing ? (
         <CardComposer onAdd={add} onClose={() => setComposing(false)} />
       ) : (
-        <button type="button" className="qa" onClick={() => setComposing(true)}>
-          {t('board.addCardRow')}
-        </button>
+        !phone && (
+          <button type="button" className="qa" onClick={() => setComposing(true)}>
+            {t('board.addCardRow')}
+          </button>
+        )
       )}
     </div>
   );
@@ -536,20 +634,26 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
     onShow({ phase: phase.id });
   };
 
+  const phone = isPhone();
   const menu = (event: MouseEvent, phase: Phase, inList = false) => {
     const at = board.phases.findIndex((p) => p.id === phase.id);
-    actions.menu(event, [
-      { label: t('phase.edit'), run: () => actions.editPhase(path, phase) },
-      // A phase in a list has no place to be renamed in: its window has the name.
-      { label: t('menu.rename'), run: () => (inList ? actions.editPhase(path, phase) : setRenaming(phase.id)) },
-      ...(at > 0 ? [{ label: t('board.moveUp'), run: () => actions.movePhase(path, phase.id, at >= 2 ? board.phases[at - 2]!.id : null) }] : []),
-      ...(at < board.phases.length - 1 ? [{ label: t('board.moveDown'), run: () => actions.movePhase(path, phase.id, board.phases[at + 1]!.id) }] : []),
-      ...(phase.state === 'done'
-        ? [{ label: t('board.reopenPhase'), run: () => actions.reopenPhase(path, phase.id) }]
-        : [{ label: t('board.closePhase'), run: () => actions.closePhase(path, phase) }]),
-      ...(phase.state === 'upcoming' ? [{ label: t('board.makeCurrent'), run: () => actions.reopenPhase(path, phase.id) }] : []),
-      { label: t('menu.delete'), run: () => actions.removePhase(path, phase) },
-    ]);
+    actions.menu(
+      event,
+      [
+        { label: t('phase.edit'), icon: 'pen', run: () => actions.editPhase(path, phase) },
+        // A phase in a list has no place to be renamed in: its window has the name. On a phone the
+        // window is where it is renamed, always.
+        ...(phone ? [] : [{ label: t('menu.rename'), run: () => (inList ? actions.editPhase(path, phase) : setRenaming(phase.id)) }]),
+        ...(at > 0 ? [{ label: t('board.moveUp'), icon: 'up' as const, apart: true, run: () => actions.movePhase(path, phase.id, at >= 2 ? board.phases[at - 2]!.id : null) }] : []),
+        ...(at < board.phases.length - 1 ? [{ label: t('board.moveDown'), icon: 'down' as const, apart: at === 0, run: () => actions.movePhase(path, phase.id, board.phases[at + 1]!.id) }] : []),
+        ...(phase.state === 'done'
+          ? [{ label: t('board.reopenPhase'), icon: 'restore' as const, apart: true, run: () => actions.reopenPhase(path, phase.id) }]
+          : [{ label: t('board.closePhase'), icon: 'check' as const, apart: true, run: () => actions.closePhase(path, phase) }]),
+        ...(phase.state === 'upcoming' ? [{ label: t('board.makeCurrent'), icon: 'phase' as const, run: () => actions.reopenPhase(path, phase.id) }] : []),
+        { label: t('menu.delete'), icon: 'trash', danger: true, run: () => actions.removePhase(path, phase) },
+      ],
+      { icon: 'phase', title: phase.name, sub: progressOf(phase) },
+    );
   };
   const allLabel = narrow ? t('board.all') : `${t('board.all')} · ${board.cards.length}`;
   return (
@@ -623,9 +727,12 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
           {t('board.addPhase')}
         </button>
       )}
-      <button type="button" role="tab" aria-selected={'all' in shown} className={`ph all${'all' in shown ? ' on' : ''}`} onClick={() => onShow({ all: true })}>
-        {allLabel}
-      </button>
+      {/* On a phone, All shows only when there are phases to choose from. */}
+      {!(phone && board.phases.length === 0) && (
+        <button type="button" role="tab" aria-selected={'all' in shown} className={`ph all${'all' in shown ? ' on' : ''}`} onClick={() => onShow({ all: true })}>
+          {allLabel}
+        </button>
+      )}
       {/* The chips as they would be, off screen, to tell how many fit. */}
       <div ref={ruler} className="ph-ruler" aria-hidden="true">
         {closed.length > 0 && (
@@ -775,6 +882,39 @@ function PhaseList({ title, phases, chosen, narrow, anchor, progressOf, onPick, 
     </div>
   );
 
+  // On a phone: a sheet of the phase's rows, each with its ··· where it has a menu.
+  if (isPhone()) {
+    return (
+      <Sheet label={title} className="mb-create" onClose={onClose}>
+        <div className="mb-sh">
+          <b>{title}</b>
+          <SheetClose onClose={onClose} />
+        </div>
+        <div className="mb-form">
+          <div className="mb-group">
+            {phases.map((phase) => (
+              <div key={phase.id} className="mb-fr pick phase-row">
+                <button type="button" className="in" onClick={() => onPick(phase)}>
+                  {phase.state === 'done' && <span className="tk">✓</span>}
+                  {phase.name}
+                </button>
+                <span className="val">{progressOf(phase)}</span>
+                <button type="button" className="rm" aria-label={t('board.phaseMenu')} title={t('board.phaseMenu')} onClick={(event) => onMenu(event, phase)}>
+                  <Icon name="more" />
+                </button>
+              </div>
+            ))}
+            {onAdd && (
+              <button type="button" className="mb-fr pick add" onClick={onAdd}>
+                <Icon name="plus" />
+                <span className="in">{t('board.newPhase')}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </Sheet>
+    );
+  }
   if (!narrow) {
     const left = anchor ? Math.max(0, Math.min(anchor.offsetLeft, (anchor.offsetParent?.clientWidth ?? 0) - 286)) : 16;
     return (
@@ -1116,6 +1256,155 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
   );
 }
 
+/** How long a finger rests on a row of the list on a phone before its actions open. */
+const ROW_HOLD_MS = 450;
+
+/**
+ * The list on a phone, after the Phone board views of design/mockups.html: a card a row, its title
+ * over its key, its status and what it is linked to, and on the right the board's number or the
+ * day it is due. The bar above sorts it by a field picked from an action sheet, the one sorted by
+ * picked again turning it around, and adds up the board's number, or counts the cards. A row
+ * tapped opens its card; held, its actions.
+ */
+function PhoneBoardList({ board, path, today, actions, onStatus, onAdd }: {
+  board: Board;
+  path: string;
+  today: string;
+  actions: BoardActions;
+  onStatus: (card: Card) => void;
+  onAdd: () => void;
+}) {
+  const [sort, setSort] = useState<Sort | null>(null);
+  const pressed = useRef<{ x: number; y: number; timer: number; fired: boolean } | null>(null);
+  const own = board.fields ?? [];
+  const isNumber = (field: Field) => field.type === 'number' || field.type === 'formula';
+  const current = sort?.field ?? 'status';
+  const sortedBy = current.startsWith('f:') ? own.find((field) => `f:${field.key}` === current) : undefined;
+  // The number on the right: the one sorted by, else the board's first.
+  const number = sortedBy && isNumber(sortedBy) ? sortedBy : own.find(isNumber);
+  const link = own.find((field) => field.type === 'link');
+  const cards = sortCards(board, board.cards, sort);
+  const total = number ? cardSum(board, board.cards, number, today) : null;
+  const fields: { field: Sort['field']; label: string; icon: IconName }[] = [
+    { field: 'status', label: t('list.status'), icon: 'board' },
+    { field: 'title', label: t('list.title'), icon: 'pen' },
+    { field: 'priority', label: t('list.priority'), icon: 'flag' },
+    { field: 'due', label: t('list.due'), icon: 'calendar' },
+    { field: 'assignee', label: t('card.assignee'), icon: 'person' },
+    ...own.map((field) => ({ field: `f:${field.key}` as const, label: field.label, icon: (isNumber(field) ? 'list' : 'collection') as IconName })),
+  ];
+  const label = fields.find((each) => each.field === current)?.label ?? t('list.status');
+  // A number is sorted largest first; the rest from the start.
+  const firstWay = (field: Sort['field']) => {
+    const of = field.startsWith('f:') ? own.find((each) => `f:${each.key}` === field) : undefined;
+    return of ? isNumber(of) : false;
+  };
+  const chooseSort = () =>
+    actions.menu(
+      NO_POINTER,
+      fields.map(({ field, label: name, icon }) => ({
+        label: name,
+        icon,
+        value: field === current ? '✓' : undefined,
+        run: () => setSort(field === current ? { field, desc: !(sort?.desc ?? false) } : { field, desc: firstWay(field) }),
+      })),
+      { icon: 'list', title: t('phone.sortBy'), sub: t('count.cards', { count: board.cards.length }) },
+    );
+  const held = (element: HTMLElement, card: Card) => {
+    liftUntilTouch(element);
+    actions.menu(
+      NO_POINTER,
+      [
+        { label: t('phone.statusMenu'), icon: 'board', run: () => onStatus(card) },
+        { label: t('card.copyBrief'), icon: 'copy', run: () => actions.copyBrief(path, card.id) },
+        { label: t('card.addToToday'), icon: 'sun', run: () => actions.addToToday(path, card.id) },
+        { label: t('menu.delete'), icon: 'trash', danger: true, run: () => actions.removeCard(path, card) },
+      ],
+      cardHead(board, card, keyOf(board, card), titleOfBoard(path)),
+    );
+  };
+  // A finger resting on a row: after a moment its actions open, and the tap that ends it opens nothing.
+  const press = (event: ReactPointerEvent<HTMLElement>, card: Card) => {
+    if (event.pointerType !== 'touch' || !event.isPrimary) return;
+    const element = event.currentTarget;
+    const at = { x: event.clientX, y: event.clientY, fired: false, timer: 0 };
+    at.timer = window.setTimeout(() => {
+      at.fired = true;
+      held(element, card);
+    }, ROW_HOLD_MS);
+    pressed.current = at;
+  };
+  const letGo = () => {
+    const at = pressed.current;
+    if (at && !at.fired) {
+      window.clearTimeout(at.timer);
+      pressed.current = null;
+    }
+  };
+  if (board.cards.length === 0) {
+    return <Empty icon="board" title={t('phone.emptyBoard')} text={t('phone.emptyBoardText')} action={board.columns.length > 0 ? { label: t('board.addCard'), run: onAdd } : undefined} />;
+  }
+  return (
+    <div className="mb-dlist">
+      <div className="mb-sortbar">
+        <button type="button" className="sb" onClick={chooseSort}>
+          <Icon name={sort === null ? 'list' : sort.desc ? 'down' : 'up'} />
+          {label}
+        </button>
+        <span className="tot">{total !== null ? numberText(total) : t('count.cards', { count: board.cards.length })}</span>
+      </div>
+      {cards.map((card) => {
+        const column = board.columns.find((each) => each.id === card.column);
+        const linked = link ? cardValue(board, card, link, today) : null;
+        const value = number ? cardValue(board, card, number, today) : null;
+        return (
+          <button
+            key={card.id}
+            type="button"
+            className={isFinished(board, card) ? 'mb-drow done' : 'mb-drow'}
+            onClick={() => actions.openCard(path, card.id)}
+            onPointerDown={(event) => press(event, card)}
+            onPointerMove={(event) => {
+              const at = pressed.current;
+              if (at && !at.fired && Math.hypot(event.clientX - at.x, event.clientY - at.y) > 8) letGo();
+            }}
+            onPointerUp={letGo}
+            onPointerCancel={letGo}
+            onClickCapture={(event) => {
+              if (pressed.current?.fired) {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+              pressed.current = null;
+            }}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              if (!pressed.current?.fired) held(event.currentTarget, card);
+            }}
+          >
+            <span className="tx">
+              <b>{card.title}</b>
+              <small>
+                <span className="key">{keyOf(board, card)}</span>
+                {column && <KindMark kind={column.kind} />}
+                <span className="in">
+                  {column?.name}
+                  {linked !== null && !isEmpty(linked) && ` · ${faceText(linked)}`}
+                </span>
+              </small>
+            </span>
+            {typeof value === 'number' ? (
+              <span className="num">{numberText(value)}</span>
+            ) : (
+              card.due && <span className={`num ${dueClass(card.due, today)}`}>{dueLabel(card.due, today)}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** The phase a board shows at first: the one chosen last on this device while it is there, otherwise the current one. */
 function firstShown(board: Board, look: BoardLook | undefined): Shown {
   if (look?.phase === null) return { all: true };
@@ -1129,7 +1418,7 @@ function firstShown(board: Board, look: BoardLook | undefined): Shown {
  * open card in a panel on the right. The same cards read as a list too. Columns or list, and
  * the phase chosen, are remembered on the device for each board.
  */
-export function BoardView({ path, board, name, today, actions, look, onLook, openCard, onCloseCard }: {
+export function BoardView({ path, board, name, today, actions, look, onLook, openCard, onCloseCard, adding, fieldsAsked }: {
   path: string;
   board: Board;
   /** What the board is called. */
@@ -1142,7 +1431,12 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   /** The card shown in the panel, by its id. */
   openCard: string | null;
   onCloseCard: () => void;
+  /** On a phone: counts the presses of +, each of which types a card for the column on screen. */
+  adding?: number;
+  /** On a phone: counts the times the page's menu asked for the Fields window. */
+  fieldsAsked?: number;
 }) {
+  const phone = isPhone();
   const current = currentPhase(board);
   const [view, setView] = useState<'board' | 'list'>(look?.view ?? board.view ?? 'board');
   const [designing, setDesigning] = useState(false);
@@ -1186,6 +1480,25 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
     }
   }, [board, shown, current]);
   const columns = useRef<HTMLDivElement>(null);
+  // On a phone: the column on screen, the card whose column is being picked, and + typing a card.
+  const [onScreen, setOnScreen] = useState(0);
+  const [statusFor, setStatusFor] = useState<Card | null>(null);
+  /** + typing a card: the column it goes in. */
+  const [quickAdding, setQuickAdding] = useState<string | null>(null);
+  useEffect(() => {
+    if (adding) setQuickAdding(board.columns[Math.min(onScreen, board.columns.length - 1)]?.id ?? null);
+    // Only a press of + opens it, for the column on screen then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adding]);
+  useEffect(() => {
+    if (fieldsAsked) setDesigning(true);
+  }, [fieldsAsked]);
+  /** A column's place in the row of columns: its width and the gap after it. */
+  const step = () => {
+    const first = columns.current?.querySelector<HTMLElement>('[data-column]');
+    return first ? first.offsetWidth + 10 : 1;
+  };
+  const goToColumn = (index: number) => columns.current?.scrollTo({ left: index * step(), behavior: 'smooth' });
   const dragging = useRef<{ card: Card; element: HTMLElement } | { column: Column; element: HTMLElement } | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
   // The same, for a finger letting go, which comes before the state is drawn.
@@ -1203,8 +1516,9 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   const [closedLanes, setClosedLanes] = useState(false);
   const closedPhases = board.phases.filter((phase) => phase.state === 'done');
   const closedCards = board.cards.filter((card) => closedPhases.some((phase) => phase.id === card.phase)).length;
+  // On a phone the lanes are not drawn: All shows every card in its column, saying its phase.
   const lanes =
-    'all' in shown && board.phasesOn && board.phases.length > 0
+    !phone && 'all' in shown && board.phasesOn && board.phases.length > 0
       ? [
           // The closed phases first, folded into one row until it is opened.
           ...[...closedPhases, ...board.phases.filter((phase) => phase.state !== 'done')].filter((phase) => closedLanes || phase.state !== 'done').map((phase) => {
@@ -1329,7 +1643,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
     event.stopPropagation();
     land();
   };
-  const onHold = (event: ReactPointerEvent<HTMLElement>, card: Card) => {
+  const onHold = (event: ReactPointerEvent<HTMLElement>, card: Card, still?: () => void) => {
     const element = event.currentTarget;
     holdToDrag(event, {
       element,
@@ -1341,6 +1655,13 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
       onMove: overAt,
       onDrop: land,
       onCancel: release,
+      // Let go where it lifted: its actions open instead.
+      onStill: still
+        ? () => {
+            release();
+            still();
+          }
+        : undefined,
     });
   };
   // A column dragged by its header lands in a gap between columns, picked by the pointer's x.
@@ -1371,9 +1692,26 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
       { label: t('board.addColumn'), run: () => actions.addColumn(path, t('board.newColumn'), 'active') },
     ]);
 
+  const counts = Object.fromEntries(board.columns.map((column) => [column.id, columnCards(board, column.id).filter(visible).length]));
   return (
     <div className="bwrap">
-    <section ref={root} className="bv">
+    <section ref={root} className={phone ? 'bv mb-bv' : 'bv'}>
+      {phone ? (
+        <header className="mb-head split">
+          <div>
+            <h1>{name}</h1>
+            {waiting > 0 && <small className="wait">{t('board.toReview', { count: waiting })}</small>}
+          </div>
+          <div className="mb-seg" role="tablist">
+            <button type="button" role="tab" aria-selected={view === 'board'} onClick={() => chooseView('board')}>
+              {t('board.viewBoard')}
+            </button>
+            <button type="button" role="tab" aria-selected={view === 'list'} onClick={() => chooseView('list')}>
+              {t('board.viewList')}
+            </button>
+          </div>
+        </header>
+      ) : (
       <header className="th">
         <b>{name}</b>
         <span className="vsw" role="tablist">
@@ -1392,6 +1730,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
           {t('board.more')}
         </button>
       </header>
+      )}
       {designing && (
         <BoardFieldsDialog board={board} path={path} collections={actions.recordActions.collections()} actions={actions} onClose={() => setDesigning(false)} />
       )}
@@ -1402,7 +1741,18 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
           {shownPhase.doneWhen}
         </p>
       )}
-      {view === 'list' && (
+      {phone && view === 'board' && <ColumnTabs columns={board.columns} counts={counts} current={onScreen} onPick={goToColumn} />}
+      {view === 'list' && phone && (
+        <PhoneBoardList
+          board={board}
+          path={path}
+          today={today}
+          actions={actions}
+          onStatus={setStatusFor}
+          onAdd={() => setQuickAdding(board.columns[Math.min(onScreen, board.columns.length - 1)]?.id ?? null)}
+        />
+      )}
+      {view === 'list' && !phone && (
         <BoardList
           board={board}
           path={path}
@@ -1462,6 +1812,8 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
       <div
         ref={columns}
         className="board"
+        // On a phone the column on screen is the one scrolled to.
+        onScroll={phone ? (event) => setOnScreen(Math.round(event.currentTarget.scrollLeft / step())) : undefined}
         onDragOver={onColumnDragOver}
         onDrop={onColumnDrop}
         onDragLeave={(event) => {
@@ -1487,18 +1839,43 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
             onHold={onHold}
             onDragOver={onDragOver}
             onDrop={onDrop}
-            onGrabColumn={onGrabColumn}
+            onGrabColumn={phone ? undefined : onGrabColumn}
             openCard={openCard}
+            onStatus={setStatusFor}
+            onAddHere={() => setQuickAdding(column.id)}
+            peek={phone && i !== onScreen}
           />,
         ])}
         {columnDrop === board.columns.length && <div className="colm-drop" />}
-        <button type="button" className="colm-add" onClick={() => actions.addColumn(path, t('board.newColumn'), 'active')}>
-          {t('board.addColumnRow')}
-        </button>
+        {!phone && (
+          <button type="button" className="colm-add" onClick={() => actions.addColumn(path, t('board.newColumn'), 'active')}>
+            {t('board.addColumnRow')}
+          </button>
+        )}
       </div>
       )}
     </section>
-    {open && <CardPanel key={open.id} board={board} path={path} card={open} today={today} actions={actions} onClose={onCloseCard} />}
+    {statusFor && (
+      <StatusSheet
+        board={board}
+        title={keyOf(board, statusFor)}
+        current={statusFor.column}
+        onPick={(column) => actions.moveToColumn(path, statusFor.id, column)}
+        onClose={() => setStatusFor(null)}
+      />
+    )}
+    {quickAdding && board.columns.length > 0 && (
+      <CardQuickAdd
+        board={board}
+        column={quickAdding}
+        phase={'phase' in shown ? shown.phase : undefined}
+        today={today}
+        onAdd={(input) => actions.addCard(path, input)}
+        onClose={() => setQuickAdding(null)}
+      />
+    )}
+    {/* On a phone a card opens as a page of its own. */}
+    {open && !phone && <CardPanel key={open.id} board={board} path={path} card={open} today={today} actions={actions} onClose={onCloseCard} />}
     </div>
   );
 }

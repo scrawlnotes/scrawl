@@ -2774,6 +2774,10 @@ body > .mb-lifted {
   margin-top: 10px;
 }
 
+.mb-empty-state.small {
+  padding: 32px 16px 16px;
+}
+
 /* the trash's large title, with how many things are in it and Empty trash beside them */
 .mb-trash-head {
   display: flex;
@@ -2795,4 +2799,893 @@ body > .mb-lifted {
   margin-left: auto;
   color: var(--sl-accent);
   font-size: 15px;
+}
+
+/* ---------- a board: its phases, its columns as tabs, one column at a time ---------- */
+
+.mb .mb-bv {
+  padding-bottom: 0;
+}
+
+.mb-head.split {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mb-head.split > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.mb-head.split h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-head .wait {
+  color: var(--sl-accent);
+}
+
+.mb-head.split .mb-seg {
+  flex: none;
+  width: 132px;
+  margin: 0;
+}
+
+/* the phases: chips on one line that scrolls, the current one lit with its ··· */
+.mb .phases {
+  gap: 6px;
+  padding: 4px 16px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  font-size: 14px;
+}
+
+.mb .phases::-webkit-scrollbar {
+  display: none;
+}
+
+.mb .phases .ph {
+  flex: none;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 16px;
+  font-size: 14px;
+}
+
+.mb .phases .ph small {
+  font-size: 13px;
+}
+
+.mb .phases .ph.on {
+  border-color: var(--sl-sel);
+}
+
+.mb .phases .ph-more {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: -4px;
+  padding: 0;
+  color: var(--sl-dim);
+  font-size: 16px;
+}
+
+.mb .phases-add {
+  padding: 8px 16px 0;
+}
+
+.mb .donewhen {
+  margin: 8px 16px 0;
+  color: var(--sl-dim);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.mb .donewhen b {
+  margin-right: 6px;
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+/* a column's kind: a small square in its colour */
+.mb-k {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--sl-faint);
+}
+
+.mb-k.active {
+  background: var(--sl-p3);
+}
+
+.mb-k.review {
+  background: var(--sl-accent);
+}
+
+.mb-k.done {
+  background: #5cb87a;
+}
+
+.mb-k.dropped {
+  background: var(--sl-p1);
+}
+
+/* the columns as tabs */
+.mb-ctabs {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  margin-top: 8px;
+  padding: 0 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--sl-line);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mb-ctabs::-webkit-scrollbar {
+  display: none;
+}
+
+.mb-ct {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  height: 44px;
+  margin-bottom: -1px;
+  padding: 0 10px;
+  border-bottom: 2px solid transparent;
+  color: var(--sl-dim);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.mb-ct small {
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}
+
+.mb-ct.on {
+  border-bottom-color: var(--sl-accent);
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+/* one column at a time, the next one's edge peeking in; a swipe goes to it */
+.mb .mb-bv .board {
+  gap: 10px;
+  padding: 8px 12px 0;
+  scroll-padding-left: 12px;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.mb .mb-bv .board::-webkit-scrollbar {
+  display: none;
+}
+
+.mb .mb-bv .colm {
+  flex: 0 0 calc(100% - 46px);
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  scroll-snap-align: start;
+  transition: opacity 200ms ease;
+}
+
+.mb .mb-bv .colm.peek {
+  opacity: 0.5;
+}
+
+.mb .mb-bv .colm h3 {
+  height: 40px;
+  margin: 0;
+  padding: 0 0 0 4px;
+  color: var(--sl-fg);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mb .mb-bv .colm h3 small {
+  margin-left: 0;
+  font-size: 15px;
+}
+
+.mb .mb-bv .colm h3 .sum {
+  margin-left: auto;
+  color: var(--sl-dim);
+  font-weight: 400;
+}
+
+.mb .mb-bv .colm h3 .more {
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  font-size: 20px;
+  opacity: 1;
+}
+
+.mb .mb-bv .colm h3 .sum + .more {
+  margin-left: 0;
+}
+
+.mb .mb-bv .colm-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 110px;
+}
+
+/* a card: its priority and key, who it is on, its title, and what it has */
+.mb-kc {
+  position: relative;
+  border: 1px solid var(--sl-line);
+  border-radius: 12px;
+  background: var(--sl-side);
+  touch-action: pan-x pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mb-kc .kc-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 11px 13px 12px;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.mb-kc .top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--sl-faint);
+  font: 13px/1 var(--sl-font-mono);
+}
+
+.mb-kc .top i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pc, transparent);
+}
+
+.mb-kc .top i.p1 {
+  --pc: var(--sl-p1);
+}
+
+.mb-kc .top i.p2 {
+  --pc: var(--sl-p2);
+}
+
+.mb-kc .top i.p3 {
+  --pc: var(--sl-p3);
+}
+
+.mb-who {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font: 600 11px/1 var(--sl-font-ui);
+}
+
+.mb-kc b {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.mb-kc .meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}
+
+.mb-kc .meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.mb .mb-kc .meta .icon,
+.mb-lifted .meta .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.mb-kc .meta .today {
+  color: var(--sl-accent);
+}
+
+.mb-kc .meta .late {
+  color: var(--sl-p1);
+}
+
+.mb-kc .meta .co {
+  color: var(--sl-dim);
+}
+
+.mb-kc .meta .val {
+  margin-left: auto;
+  color: var(--sl-fg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-lbl {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: hsl(var(--lh) 60% 55% / 0.18);
+  color: hsl(var(--lh) 60% 65%);
+  font-size: 12.5px;
+  line-height: 20px;
+}
+
+:root[data-theme='light'] .mb-lbl {
+  color: hsl(var(--lh) 55% 35%);
+}
+
+/* a phase's row in a sheet: its name, how far it is, its menu */
+.mb-fr.phase-row .in {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.mb-fr.phase-row .tk {
+  color: var(--sl-faint);
+}
+
+.mb-fr.phase-row .val {
+  margin-left: 0;
+  color: var(--sl-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-fr.phase-row .rm {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 44px;
+  margin-right: -8px;
+  color: var(--sl-faint);
+}
+
+.mb-sheet .mb-fr.phase-row .rm .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.mb-search .go {
+  flex: none;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mb-search .go:disabled {
+  opacity: 0.45;
+}
+
+/* ---------- a card as a page: its fields, description and timeline, a comment box at the foot ---------- */
+
+.mb.card-page {
+  --ph-bar: 0px;
+}
+
+.mb.card-page .mb-tabbar {
+  display: none;
+}
+
+.mb-cpage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mb-cbody {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mb-ckey {
+  padding: 2px 16px 0;
+  color: var(--sl-faint);
+  font: 13.5px/1.4 var(--sl-font-mono);
+}
+
+.mb-ctitle {
+  padding: 2px 16px 10px;
+}
+
+.mb-ctitle textarea {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: 700 22px/1.3 var(--sl-font-ui);
+  outline: none;
+  resize: none;
+}
+
+.mb-cedit {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+
+.mb-cedit button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--sl-line);
+  border-radius: 9px;
+  color: var(--sl-dim);
+  font-size: 15px;
+}
+
+.mb-cedit .primary {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.mb-cedit .primary:disabled {
+  opacity: 0.45;
+}
+
+.mb-cbody .mb-form {
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.mb-cbody .mb-group {
+  border-radius: 0;
+}
+
+.mb-cbody .mb-fr {
+  padding: 0 2px;
+}
+
+.mb-cbody .mb-fr + .mb-fr::before {
+  left: 34px;
+}
+
+.mb-cbody .mb-fr > .icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--sl-dim);
+}
+
+.mb-cbody .mb-fr .val .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.mb-cbody .mb-fr .val > .icon:last-child {
+  width: 15px;
+  height: 15px;
+  color: var(--sl-faint);
+  stroke-width: 2.2;
+}
+
+.mb-cbody .mb-fr .val .prio .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.mb-cbody .mb-fr .val .mb-k {
+  margin-right: 1px;
+}
+
+.mb-cbody .mb-fr .val .lbls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.mb-cbody .mb-fr .val .mb-lbl {
+  font-size: 13px;
+}
+
+.mb-cbody .mb-fr .val .mb-who {
+  margin-left: 0;
+}
+
+.mb-cbody .mb-fr .val .lnk {
+  color: var(--sl-fg);
+}
+
+.mb-cbody .mb-fr .fl .req {
+  margin-left: 2px;
+  color: var(--sl-p1);
+  font-style: normal;
+}
+
+/* a field typed in a sheet: its box fills the row */
+.mb-fieldin {
+  padding: 0 14px;
+}
+
+.mb-fieldin input:not([type='checkbox']) {
+  width: 100%;
+  min-height: 48px;
+  padding: 0;
+  box-sizing: border-box;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font-size: 16px;
+  outline: none;
+}
+
+.mb-fieldin input::placeholder {
+  color: var(--sl-faint);
+}
+
+.mb-fieldin .chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 6px 0;
+  box-sizing: border-box;
+  border: 0;
+  background: none;
+}
+
+.mb-fieldin .chips input:not([type='checkbox']) {
+  flex: 1;
+  width: auto;
+  min-width: 120px;
+  min-height: 34px;
+}
+
+.mb-fieldin .addr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mb-fieldin .addr .go {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: var(--sl-accent);
+}
+
+.mb-cpad {
+  padding-left: 16px;
+}
+
+/* the description, in the note editor */
+.mb-cdesc {
+  min-height: 72px;
+  padding: 0 8px;
+}
+
+.mb-cdesc .cm-editor {
+  height: auto;
+  font-size: 16px;
+}
+
+.mb-cdesc .cm-gutters {
+  display: none !important;
+}
+
+.mb-cdesc .cm-scroller {
+  overflow: visible;
+}
+
+.mb-cdesc .cm-content {
+  padding: 2px 0 8px;
+}
+
+/* the timeline: moves as lines, comments in boxes */
+.mb-ctl {
+  gap: 0;
+  padding: 0 16px;
+  font-size: 14.5px;
+}
+
+.mb-ctl .tl-ev {
+  gap: 6px;
+  padding: 8px 0;
+  color: var(--sl-dim);
+}
+
+.mb-ctl .tl-ev b {
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.mb-ctl .tl-ev .t,
+.mb-ctl .tl-cm .t {
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.mb-ctl .tl-cm {
+  gap: 5px;
+  margin: 4px 0 10px;
+  padding: 10px 6px 11px 12px;
+  border: 0;
+  border-radius: 12px;
+}
+
+.mb-ctl .tl-cm .h {
+  align-items: center;
+  font-size: 14.5px;
+}
+
+.mb-ctl .tl-cm .h small {
+  font-size: 13px;
+}
+
+.mb-ctl .tl-cm .more {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 28px;
+  margin: -4px 0;
+  padding: 0;
+  font-size: 16px;
+  opacity: 1;
+}
+
+.mb-ctl .tl-cm p,
+.mb-ctl .tl-cm .cm-editor {
+  font-size: 15.5px;
+  line-height: 1.45;
+}
+
+.mb-ctl .tl-cm textarea {
+  font-size: 16px;
+}
+
+.mb-ctl .tl-cm .cp-actions {
+  gap: 8px;
+  padding-right: 6px;
+}
+
+.mb-ctl .tl-cm .cp-actions button {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 14.5px;
+}
+
+/* the comment box, where the tab bar is */
+.mb-compose {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 10px max(env(safe-area-inset-bottom), 8px) 12px;
+  border-top: 1px solid var(--sl-line);
+  background: var(--sl-side);
+}
+
+.mb.keyboard .mb-compose {
+  padding-bottom: 8px;
+}
+
+.mb-compose textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 140px;
+  min-height: 40px;
+  padding: 9px 14px;
+  box-sizing: border-box;
+  border: 1px solid var(--sl-line);
+  border-radius: 20px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: 15.5px/1.4 var(--sl-font-ui);
+  outline: none;
+  resize: none;
+  scrollbar-width: none;
+}
+
+.mb-compose textarea::-webkit-scrollbar {
+  display: none;
+}
+
+.mb-compose textarea:focus {
+  border-color: var(--sl-accent);
+}
+
+.mb-compose textarea::placeholder {
+  color: var(--sl-faint);
+}
+
+.mb-compose .go {
+  flex: none;
+  min-height: 40px;
+  padding: 0 15px;
+  border-radius: 20px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mb-compose .go:disabled {
+  opacity: 0.4;
+}
+
+/* ---------- a board as a list: sorted by a field, its number on the right, a card a row ---------- */
+
+.mb-dlist {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: 110px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mb-sortbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 16px 8px;
+  color: var(--sl-dim);
+  font-size: 14px;
+}
+
+.mb-sortbar .sb {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 9px;
+  color: var(--sl-fg);
+  font-size: 14px;
+}
+
+.mb .mb-sortbar .sb .icon {
+  width: 15px;
+  height: 15px;
+  color: var(--sl-dim);
+}
+
+.mb-sortbar .tot {
+  margin-left: auto;
+  color: var(--sl-fg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-drow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 9px 16px;
+  box-sizing: border-box;
+  color: var(--sl-fg);
+  text-align: left;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mb-drow:active {
+  background: color-mix(in srgb, var(--sl-fg) 6%, var(--sl-bg));
+}
+
+.mb-drow + .mb-drow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-drow .tx {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mb-drow .tx b {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-drow .tx small {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.mb-drow .tx small .key {
+  flex: none;
+  font: 13px var(--sl-font-mono);
+}
+
+.mb-drow .tx small .in {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mb-drow .num {
+  flex: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-drow .num.today {
+  color: var(--sl-accent);
+}
+
+.mb-drow .num.late {
+  color: var(--sl-p1);
+}
+
+.mb-drow.done .tx b,
+.mb-drow.done .num {
+  color: var(--sl-faint);
 }
