@@ -1066,7 +1066,7 @@ p { margin: 0; max-width: 68ch; }
 .tpl .flds i { font-style: normal; padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: var(--m-sel); color: var(--m-dim); }
 .tpl.five { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 /* The phone shell (Oct 12). A phone has a layout of its own instead of the desktop squeezed: a
-   tab bar with Open, Today and Browse; each screen opens as a page with a back button, and a swipe
+   tab bar with Browse and Today; each screen opens as a page with a back button, and a swipe
    from the left edge goes back; + at the bottom right is the screen's main way to add; windows are
    sheets from the bottom and menus are action sheets, opened by a ··· button or by holding a row.
    Text is 16 px and up, rows and buttons at least 44 px; the phone's own bars are drawn too. */
@@ -1133,7 +1133,7 @@ p { margin: 0; max-width: 68ch; }
 .mb-task .meta .today { color: var(--m-accent); }
 .mb-task .meta .late { color: var(--m-p1); }
 /* the tab bar: three places, always there; + floats above it, on the right */
-.mb-tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; grid-template-columns: repeat(3, 1fr); height: 84px; padding-bottom: 34px; border-top: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-side) 84%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.mb-tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; grid-template-columns: repeat(2, 1fr); height: 84px; padding-bottom: 34px; border-top: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-side) 84%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 .mb-tabbar span { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--m-faint); font-size: 10.5px; font-weight: 500; }
 .mock .mb-tabbar svg { width: 26px; height: 26px; stroke-width: 1.6; }
 .mb-tabbar span.on { color: var(--m-accent); }
@@ -3291,9 +3291,10 @@ p { margin: 0; max-width: 68ch; }
     subfolder: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
   };
   // The phone shell (Oct 12). A phone has a layout of its own instead of the desktop squeezed. Its
-  // tab bar has three places: Open, what is open (the desktop's tabs), the one looked at last on
-  // top; Today, with Upcoming beside it; Browse, the inbox and the folders, with the trash, sync
-  // and settings under them. A screen opens as a page over the one it came from, with a back
+  // tab bar has two places: Browse, the five things opened last on top as Recent, then the inbox
+  // and the folders, with the trash, sync and settings under them; and Today, with Upcoming beside
+  // it. Nothing is opened or closed as a tab: what is opened goes to Recent by itself; Search will
+  // be a third place. A screen opens as a page over the one it came from, with a back
   // button that names where it goes, and a swipe from the left edge goes back. + at the bottom
   // right is the screen's main way to add. Windows are sheets from the bottom; menus are action
   // sheets, opened by the page's ··· button or by holding a row.
@@ -3332,7 +3333,7 @@ p { margin: 0; max-width: 68ch; }
   }
   function mbTabs(on) {
     function t(id, icon, label) { return '<span' + (id === on ? ' class="on"' : '') + '>' + ICON[icon] + label + '</span>'; }
-    return '<nav class="mb-tabbar">' + t('open', 'stack', 'Open') + t('today', 'day', 'Today') + t('browse', 'folder', 'Browse') + '</nav>';
+    return '<nav class="mb-tabbar">' + t('browse', 'folder', 'Browse') + t('today', 'day', 'Today') + '</nav>';
   }
   function mbNav(back, acts, mid, cls) {
     return '<div class="mb-nav' + (cls ? ' ' + cls : '') + '">' + (back ? '<span class="back">' + ICON.chevl + back + '</span>' : '') +
@@ -3352,23 +3353,6 @@ p { margin: 0; max-width: 68ch; }
     return '<div class="mb-row' + (o.fold ? ' fold' : '') + (o.cls ? ' ' + o.cls : '') + '">' + ICON[o.icon] +
       '<span class="tx"><b>' + o.label + '</b>' + (o.sub ? '<small>' + o.sub + '</small>' : '') + '</span>' +
       (o.ct !== undefined ? '<span class="ct">' + o.ct + '</span>' : '') + (o.chev === false ? '' : MB_CHEV) + '</div>';
-  }
-  // Open: what is open, the one looked at last on top; a row swiped to the left closes it.
-  var MB_OPEN = [
-    { icon: 'notes', label: 'Sync engine: open questions', sub: 'Scrawl', ct: 'now' },
-    { icon: 'board', label: 'Roadmap', sub: 'Scrawl', ct: '12 min' },
-    { icon: 'collection', label: 'Companies', sub: 'Scrawl', ct: '1 h' },
-    { icon: 'tasks', label: 'Tasks', sub: 'Scrawl', ct: '3 h' },
-    { icon: 'notes', label: 'Pricing call notes', sub: '<span class="dot"></span>Inbox, not filed yet', ct: 'Fri' },
-    { icon: 'key', label: 'Production', sub: 'Scrawl', ct: 'Thu' },
-    { icon: 'filter', label: 'This week · p1', sub: 'Scrawl', ct: 'Thu' }
-  ];
-  function mbOpen(swiped) {
-    return mbPage(mbHead('Open', null, true), MB_OPEN.map(function (r, i) {
-      if (!swiped || i !== 2) return mbRow(r);
-      return '<div class="mb-row sw"><span class="swipe">' + ICON.x + 'Close</span><div class="slide">' + ICON[r.icon] +
-        '<span class="tx"><b>' + r.label + '</b><small>' + r.sub + '</small></span><span class="ct">' + r.ct + '</span>' + MB_CHEV + '</div></div>';
-    }).join(''));
   }
   // Today: the tasks and cards of the day, late ones first; a card keeps its key.
   /** A piece of a task's line under its name: a date, its list, its subtasks, its record. */
@@ -3395,9 +3379,19 @@ p { margin: 0; max-width: 68ch; }
       '<div class="mb-sec">Roadmap · Scrawl <small>1</small></div>' +
       mbT({ p: 'p2', key: 'SCR-14', title: 'Hot exit: restore tabs after a crash', meta: mi('board', 'Doing') + mi('', 'Phase 3') }));
   }
-  // Browse: the inbox, the folders, and under them the trash, sync and settings.
+  // Browse: the five things opened last, the inbox, the folders, and under them the trash, sync
+  // and settings. Recent fills by itself as things are opened; nothing in it is closed.
+  var MB_RECENT = [
+    { icon: 'notes', label: 'Sync engine: open questions', sub: 'Scrawl', ct: 'now' },
+    { icon: 'board', label: 'Roadmap', sub: 'Scrawl', ct: '12 min' },
+    { icon: 'collection', label: 'Companies', sub: 'Scrawl', ct: '1 h' },
+    { icon: 'tasks', label: 'Tasks', sub: 'Scrawl', ct: '3 h' },
+    { icon: 'notes', label: 'Pricing call notes', sub: '<span class="dot"></span>Inbox, not filed yet', ct: 'Fri' }
+  ];
   function mbBrowse() {
     return mbPage(mbHead('Browse', null, true),
+      '<div class="mb-sec">Recent</div>' + MB_RECENT.map(mbRow).join('') +
+      '<div class="mb-gap"></div>' +
       mbRow({ icon: 'folder', fold: true, label: 'Inbox', ct: 4 }) +
       '<div class="mb-sec">Folders</div>' +
       mbRow({ icon: 'folder', fold: true, label: 'Scrawl', ct: 9 }) +
@@ -3444,18 +3438,16 @@ p { margin: 0; max-width: 68ch; }
   function mbNote(cls) { return mbPage(mbNav('Scrawl', ['dots']), MB_NOTE, cls); }
   function phoneShell() {
     return [
-      mbPhone('Open: açık olanlar, en son bakılan üstte', mbOpen(), mbTabs('open') + MB_FAB),
-      mbPhone('Today: yanında Upcoming', mbToday(), mbTabs('today') + MB_FAB),
-      mbPhone('Browse: Inbox, klasörler; altta Trash, Sync, Settings', mbBrowse(), mbTabs('browse') + MB_FAB),
-      mbPhone('Bir klasör: Browse › Scrawl', mbFolder(), mbTabs('browse') + MB_FAB)
+      mbPhone('Browse: üstte Recent, sonra Inbox ve klasörler', mbBrowse(), mbTabs('browse') + MB_FAB),
+      mbPhone('Bir klasör: Browse › Scrawl', mbFolder(), mbTabs('browse') + MB_FAB),
+      mbPhone('Today: yanında Upcoming', mbToday(), mbTabs('today') + MB_FAB)
     ].join('');
   }
   function phonePages() {
     return [
       mbPhone('Not, Scrawl’dan açılmış bir sayfa', mbNote(), mbTabs('browse')),
       mbPhone('Sol kenardan kaydırınca geri', mbFolder({ cls: 'under' }) + mbNote('going'), mbTabs('browse') + '<span class="finger" style="left: 170px; top: 330px"></span>'),
-      mbPhone('Aşağı kaydırınca başlık üst bara geçer', mbFolder({ scrolled: true }), mbTabs('browse') + MB_FAB),
-      mbPhone('Open’da satırı sola kaydırınca Close', mbOpen(true), mbTabs('open') + MB_FAB + '<span class="finger" style="left: 236px; top: 252px"></span>')
+      mbPhone('Aşağı kaydırınca başlık üst bara geçer', mbFolder({ scrolled: true }), mbTabs('browse') + MB_FAB)
     ].join('');
   }
   // Create: + opens the kinds as a sheet, for the folder on screen; one picked asks its name and
