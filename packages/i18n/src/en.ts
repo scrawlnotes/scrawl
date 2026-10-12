@@ -302,6 +302,8 @@ export const en = {
   'phone.openAsNote': 'Open as note',
   'phone.createNamed': 'Create {name}',
   'phone.newKey': 'New key',
+  'phone.noRecent': 'Nothing opened yet',
+  'phone.noRecentText': 'What you open shows up here, the latest first.',
   'phone.keyName': 'Name',
   'phone.group': 'Group',
   'phone.deleteKey': 'Delete key',

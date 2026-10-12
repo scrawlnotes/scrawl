@@ -1133,7 +1133,7 @@ p { margin: 0; max-width: 68ch; }
 .mb-task .meta .today { color: var(--m-accent); }
 .mb-task .meta .late { color: var(--m-p1); }
 /* the tab bar: three places, always there; + floats above it, on the right */
-.mb-tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; grid-template-columns: repeat(2, 1fr); height: 72px; padding-bottom: 20px; background: color-mix(in srgb, var(--m-bg) 88%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.mb-tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; grid-template-columns: repeat(3, 1fr); height: 72px; padding-bottom: 20px; background: color-mix(in srgb, var(--m-bg) 88%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 .mb-tabbar span { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; padding-top: 7px; color: var(--m-faint); font-size: 10.5px; font-weight: 500; }
 .mock .mb-tabbar svg { width: 26px; height: 26px; stroke-width: 1.6; }
 .mb-tabbar span.on { color: var(--m-accent); }
@@ -3301,10 +3301,10 @@ p { margin: 0; max-width: 68ch; }
     subfolder: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
   };
   // The phone shell (Oct 12). A phone has a layout of its own instead of the desktop squeezed. Its
-  // tab bar has two places: Browse, the five things opened last on top as Recent, then the inbox
-  // and the folders, with the trash, sync and settings under them; and Today, with Upcoming beside
-  // it. Nothing is opened or closed as a tab: what is opened goes to Recent by itself; Search will
-  // be a third place. A screen opens as a page over the one it came from, with a back
+  // tab bar has three places: Recent, the five things opened last; Browse, the inbox and the
+  // folders, with the trash, sync and settings under them; and Today, with Upcoming beside it.
+  // Nothing is opened or closed as a tab: what is opened goes to Recent by itself; Search will be
+  // a fourth place. A screen opens as a page over the one it came from, with a back
   // button that names where it goes, and a swipe from the left edge goes back. + at the bottom
   // right is the screen's main way to add. Windows are sheets from the bottom; menus are action
   // sheets, opened by the page's ··· button or by holding a row.
@@ -3343,7 +3343,7 @@ p { margin: 0; max-width: 68ch; }
   }
   function mbTabs(on) {
     function t(id, icon, label) { return '<span' + (id === on ? ' class="on"' : '') + '>' + ICON[icon] + label + '</span>'; }
-    return '<nav class="mb-tabbar">' + t('browse', 'folder', 'Browse') + t('today', 'day', 'Today') + '</nav>';
+    return '<nav class="mb-tabbar">' + t('recent', 'clock', 'Recent') + t('browse', 'folder', 'Browse') + t('today', 'day', 'Today') + '</nav>';
   }
   function mbNav(back, acts, mid, cls) {
     return '<div class="mb-nav' + (cls ? ' ' + cls : '') + '">' + (back ? '<span class="back">' + ICON.chevl + back + '</span>' : '') +
@@ -3389,8 +3389,9 @@ p { margin: 0; max-width: 68ch; }
       '<div class="mb-sec">Roadmap · Scrawl <small>1</small></div>' +
       mbT({ p: 'p2', key: 'SCR-14', title: 'Hot exit: restore tabs after a crash', meta: mi('board', 'Doing') + mi('', 'Phase 3') }));
   }
-  // Browse: the five things opened last, the inbox, the folders, and under them the trash, sync
-  // and settings. Recent fills by itself as things are opened; nothing in it is closed.
+  // Recent: the five things opened last, the latest first, each with where it is and when it was
+  // looked at. It fills by itself as things are opened. Browse: the inbox, the folders, and under
+  // them the trash, sync and settings.
   var MB_RECENT = [
     { icon: 'notes', label: 'Sync engine: open questions', sub: 'Scrawl', ct: 'now' },
     { icon: 'board', label: 'Roadmap', sub: 'Scrawl', ct: '12 min' },
@@ -3398,10 +3399,11 @@ p { margin: 0; max-width: 68ch; }
     { icon: 'tasks', label: 'Tasks', sub: 'Scrawl', ct: '3 h' },
     { icon: 'notes', label: 'Pricing call notes', sub: '<span class="dot"></span>Inbox, not filed yet', ct: 'Fri' }
   ];
+  function mbRecent() {
+    return mbPage(mbHead('Recent', null, true), MB_RECENT.map(mbRow).join(''));
+  }
   function mbBrowse() {
     return mbPage(mbHead('Browse', null, true),
-      '<div class="mb-sec">Recent</div>' + MB_RECENT.map(mbRow).join('') +
-      '<div class="mb-gap"></div>' +
       mbRow({ icon: 'folder', fold: true, label: 'Inbox', ct: 4 }) +
       '<div class="mb-sec">Folders</div>' +
       mbRow({ icon: 'folder', fold: true, label: 'Scrawl', ct: 9 }) +
@@ -3448,7 +3450,8 @@ p { margin: 0; max-width: 68ch; }
   function mbNote(cls) { return mbPage(mbNav('Scrawl', ['dots']) + mbFbar(), MB_NOTE, cls); }
   function phoneShell() {
     return [
-      mbPhone('Browse: üstte Recent, sonra Inbox ve klasörler', mbBrowse(), mbTabs('browse') + MB_FAB),
+      mbPhone('Recent: en son açılan beş şey, ilk sekme', mbRecent(), mbTabs('recent') + MB_FAB),
+      mbPhone('Browse: Inbox ve klasörler', mbBrowse(), mbTabs('browse') + MB_FAB),
       mbPhone('Bir klasör: Browse › Scrawl', mbFolder(), mbTabs('browse') + MB_FAB),
       mbPhone('Today: yanında Upcoming', mbToday(), mbTabs('today') + MB_FAB)
     ].join('');

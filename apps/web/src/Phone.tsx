@@ -8,7 +8,7 @@ import { type Section, sectionValue, SettingsSection, settingsSections, type Set
 import { Empty, useViewport } from './sheets';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
-// Browse and Today at its foot, and in each of them a stack of pages. A page slides in from the
+// Recent, Browse and Today at its foot, and in each of them a stack of pages. A page slides in from the
 // right over the one it was opened from, and goes back by the button at its top, which says where
 // it goes, or by a swipe from the left edge. What is open (a note, a list, a board, a keys file, a
 // collection, a filter) is drawn once, by the app, and moved into the page that shows it. Nothing
@@ -16,8 +16,8 @@ import { Empty, useViewport } from './sheets';
 // rest of the tabs by itself.
 
 /** The places of the tab bar. */
-export type Place = 'browse' | 'today';
-const PLACES: Place[] = ['browse', 'today'];
+export type Place = 'recent' | 'browse' | 'today';
+const PLACES: Place[] = ['recent', 'browse', 'today'];
 
 /** What a page of a place shows: its first page, a folder, something open, the trash, the settings or a section of them. */
 type PageKind =
@@ -382,8 +382,9 @@ function DayIcon() {
 
 export function Phone(props: PhoneProps) {
   const { ready, tabs, active, titles, tree, filters, counts, item } = props;
-  const [place, setPlace] = useState<Place>('browse');
-  const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ browse: [root()], today: [root()] }));
+  // The app opens on its first place, Recent, with what was open last over it.
+  const [place, setPlace] = useState<Place>('recent');
+  const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ recent: [root()], browse: [root()], today: [root()] }));
   /** A page sliding in, by its key: it starts at the right edge. */
   const [entering, setEntering] = useState<number | null>(null);
   /** A page sliding out, still drawn until it is gone. */
@@ -706,7 +707,7 @@ export function Phone(props: PhoneProps) {
   // ---------- the pages ----------
 
   const titleOf = (page: Page, of: Place): string => {
-    if (page.kind === 'root') return of === 'today' ? t('side.today') : t('phone.browse');
+    if (page.kind === 'root') return of === 'today' ? t('side.today') : of === 'recent' ? t('phone.recent') : t('phone.browse');
     if (page.kind === 'folder') return folderName(page.path);
     if (page.kind === 'trash') return t('side.trash');
     if (page.kind === 'settings') return t('settings.title');
@@ -741,32 +742,32 @@ export function Phone(props: PhoneProps) {
     return folder ? folderName(folder) : '';
   };
 
+  /** Recent: the things opened last, the latest first, with where each is and when it was looked at. */
+  const recentPage = () => {
+    const recent = recentOf(tabs, seen);
+    if (recent.length === 0) return <Empty icon="clock" title={t('phone.noRecent')} text={t('phone.noRecentText')} />;
+    return (
+      <div className="mb-list">
+        {recent.map((id) => (
+          <Row
+            key={id}
+            icon={iconOf(id)}
+            label={nameOf(id, titles, filters)}
+            sub={whereOf(id)}
+            right={seen[id] ? seenText(seen[id]!, now) : ''}
+            onClick={() => openItem(id)}
+            onHold={itemHold(id)}
+          />
+        ))}
+      </div>
+    );
+  };
+
   const browsePage = () => {
     const inbox = tree.find((node) => node.path === INBOX);
-    const recent = recentOf(tabs, seen);
     return (
       <>
-        {recent.length > 0 && (
-          <>
-            <div className="mb-sec">
-              <span>{t('phone.recent')}</span>
-            </div>
-            <div className="mb-list">
-              {recent.map((id) => (
-                <Row
-                  key={id}
-                  icon={iconOf(id)}
-                  label={nameOf(id, titles, filters)}
-                  sub={whereOf(id)}
-                  right={seen[id] ? seenText(seen[id]!, now) : ''}
-                  onClick={() => openItem(id)}
-                  onHold={itemHold(id)}
-                />
-              ))}
-            </div>
-          </>
-        )}
-        <div className={recent.length > 0 ? 'mb-list apart' : 'mb-list'}>
+        <div className="mb-list">
           <Row
             icon="folder"
             folder
@@ -874,6 +875,7 @@ export function Phone(props: PhoneProps) {
     const below = pages[index - 1];
     const back = below ? titleOf(below, of) : undefined;
     const nav = below ? { back, onBack: pop } : undefined;
+    if (page.kind === 'root' && of === 'recent') return <PageFrame title={titleOf(page, of)}>{recentPage()}</PageFrame>;
     if (page.kind === 'root' && of === 'browse') return <PageFrame title={titleOf(page, of)}>{browsePage()}</PageFrame>;
     if (page.kind === 'root') {
       const day = new Date().toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric' });
@@ -1055,8 +1057,8 @@ export function Phone(props: PhoneProps) {
       <nav className="mb-tabbar" aria-label={t('phone.places')}>
         {PLACES.map((each) => (
           <button key={each} type="button" aria-current={each === place ? 'page' : undefined} onClick={() => choose(each)}>
-            {each === 'today' ? <DayIcon /> : <Icon name="folder" />}
-            <span>{each === 'today' ? t('side.today') : t('phone.browse')}</span>
+            {each === 'today' ? <DayIcon /> : <Icon name={each === 'recent' ? 'clock' : 'folder'} />}
+            <span>{each === 'today' ? t('side.today') : each === 'recent' ? t('phone.recent') : t('phone.browse')}</span>
           </button>
         ))}
       </nav>
