@@ -2037,21 +2037,11 @@ export class Session {
     if (this.focusOnOpen) this.editor?.view.focus();
   }
 
-  /**
-   * On a phone, what an empty note shows: its name, faint, where its first line will be, or Title
-   * for a note named by its first line; and that it is waiting to be written in.
-   */
+  /** On a phone, what an empty note shows until something is written in it: Note, faint, as a notes app has it. */
   private emptyNote(): HTMLElement {
-    const box = document.createElement('span');
-    box.className = 'cm-sl-empty';
-    const name = document.createElement('b');
-    const { active, titles } = this.snapshot;
-    name.textContent =
-      active && isNote(active) && !isScratchNote(active) ? titles[active] || active.slice(active.lastIndexOf('/') + 1).replace(/\.md$/, '') : t('phone.titleHint');
     const hint = document.createElement('span');
-    hint.textContent = t('phone.startWriting');
-    box.append(name, hint);
-    return box;
+    hint.textContent = t('phone.notePlaceholder');
+    return hint;
   }
 
   /** Puts the cursor at `pos` in the note on screen, without bringing up the keyboard: a link tapped, to edit it. */

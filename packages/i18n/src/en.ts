@@ -230,9 +230,8 @@ export const en = {
   'phone.editLink': 'Edit',
   'phone.copyLink': 'Copy',
   'phone.copied': 'Copied',
-  // an empty note: its name, or Title for one named by its first line, then the hint
-  'phone.titleHint': 'Title',
-  'phone.startWriting': 'Start writing',
+  // what an empty note shows until something is written in it
+  'phone.notePlaceholder': 'Note',
   // pages with nothing in them yet
   'phone.emptyFolder': 'Nothing here yet',
   'phone.emptyFolderText': 'Notes, lists, boards and folders made here show up here.',

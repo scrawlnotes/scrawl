@@ -1321,7 +1321,7 @@ p { margin: 0; max-width: 68ch; }
 .mb-empty-st b { font-size: 17px; font-weight: 600; }
 .mb-empty-st p { max-width: 260px; margin: 0; color: var(--m-faint); font-size: 15px; line-height: 1.4; }
 .mb-empty-st .mb-btn { margin-top: 10px; padding: 0 22px; }
-/* an empty note: its name and the hint, faint */
+/* an empty note: Note, faint */
 .mb-ed .ph { color: var(--m-faint); }
 /* typing: the page ends at the keyboard; a note scrolled to its end sits on it */
 .mb-body.typing { margin-bottom: 300px; }
@@ -3692,17 +3692,17 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Link’in Edit’i: adres, Apply, Remove link', mbPage(mbNav('Scrawl', MB_TYPING) + mbFbar(), mbNoteText({ link: 'on' }), '', 'typing'), link)
     ].join('');
   }
-  // Empty pages on a phone (Oct 12). An empty note shows its name faint where its first line will
-  // be, and Start writing under it; opened, it takes the cursor and the keyboard. A page with
+  // Empty pages on a phone (Oct 12). An empty note shows Note, faint, as a notes app has it;
+  // opened, it takes the cursor and the keyboard. A page with
   // nothing in it yet has its icon in a circle, what will be there, and the button that adds the
   // first thing.
   function mbEmpty(icon, title, text, action) {
     return '<div class="mb-empty-st"><span class="ic">' + ICON[icon] + '</span><b>' + title + '</b><p>' + text + '</p>' + (action ? '<span class="mb-btn">' + action + '</span>' : '') + '</div>';
   }
   function phoneEmpty() {
-    var note = '<div class="mb-ed"><div class="h1 ph"><span class="caret"></span>Standup Monday</div><p class="ph">Start writing</p></div>';
+    var note = '<div class="mb-ed"><p class="ph"><span class="caret"></span>Note</p></div>';
     return [
-      mbPhone('Boş not: adı soluk, altında Start writing; imleç ve klavye gelir', mbPage(mbNav('meetings', MB_TYPING) + mbFbar(), note, '', 'typing'), MB_KB),
+      mbPhone('Boş not: soluk Note; imleç ve klavye gelir', mbPage(mbNav('meetings', MB_TYPING) + mbFbar(), note, '', 'typing'), MB_KB),
       mbPhone('Boş klasör: ne olacağı ve Create', mbPage(mbNav('Browse', ['dots']) + mbHead('Archive'), mbEmpty('folder', 'Nothing here yet', 'Notes, lists, boards and folders made here show up here.', 'Create')), mbTabs('browse') + MB_FAB),
       mbPhone('Boş liste: Add task, altında Add section', mbPage(mbNav('Archive', ['dots']) + mbHead('Errands'), mbEmpty('tasks', 'No tasks yet', 'Add the first one, or a section to sort them into.', 'Add task') + '<div class="mb-tadd">' + ICON.plus + 'Add section</div>'), mbTabs('browse') + MB_FAB),
       mbPhone('Boş Today: Add task', mbPage(mbHead('Today', 'Monday, Oct 12', true) + '<div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>', mbEmpty('sun', 'Nothing due today', 'Tasks and cards due today, or late, show up here.', 'Add task')), mbTabs('today') + MB_FAB)

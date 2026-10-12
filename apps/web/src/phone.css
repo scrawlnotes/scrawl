@@ -2724,22 +2724,9 @@ body > .mb-lifted {
   padding-right: 18px;
 }
 
-/* An empty note: its name where the first line will be, and that it waits to be written in. */
+/* An empty note: Note, faint, until something is written in it. */
 .phone-app .cm-placeholder {
   color: var(--sl-faint);
-}
-
-.cm-sl-empty {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 10px;
-  color: var(--sl-faint);
-}
-
-.cm-sl-empty b {
-  font-size: 21px;
-  font-weight: 600;
-  line-height: 1.35;
 }
 
 /* a page with nothing in it yet */
