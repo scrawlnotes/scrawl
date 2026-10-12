@@ -1225,8 +1225,8 @@ p { margin: 0; max-width: 68ch; }
 .mb-ed { padding: 6px 18px; font: 16px/1.6 var(--m-ed); }
 .mb-ed .h1 { margin-bottom: 12px; font-size: 21px; font-weight: 600; line-height: 1.35; }
 .mb-ed p { margin: 0 0 12px; max-width: none; }
-.mb-ed .li { display: flex; gap: 10px; }
-.mb-ed .li::before { content: '•'; color: var(--m-faint); }
+.mb-ed .li { position: relative; padding-left: 22px; }
+.mb-ed .li::before { content: "•"; position: absolute; left: 5px; color: var(--m-faint); }
 .mb-ed .ic { padding: 0 4px; border-radius: 4px; background: var(--m-code); font-size: 14.5px; }
 .mb-ed .lnk { color: var(--m-accent); text-decoration: underline; text-underline-offset: 3px; }
 /* the edge swipe back: the page follows the finger, the one under it slides in from the left */
@@ -1320,6 +1320,86 @@ p { margin: 0; max-width: 68ch; }
 .mb-acts .ask b { display: block; font-size: 15px; font-weight: 600; }
 .mb-acts .ask small { display: block; margin-top: 3px; color: var(--m-faint); font-size: 13.5px; }
 .mb-wrap .finger { z-index: 8; }
+/* The note on a phone (Oct 12). Typing brings up the keyboard with the format bar on it, Undo
+   and Redo first, and Done in the bar above to put the keyboard away; the tab bar is under the
+   keyboard. The bar scrolls sideways; what a phone lacks keys for is on it, and the rest is in the
+   note's ··· menu. Text is 16 px, so the phone never zooms in on it. */
+.mb-nav .tb { display: flex; align-items: center; height: 44px; padding: 0 10px; color: var(--m-accent); font-weight: 600; }
+.mb-ed p { position: relative; }
+.mb-fbar { position: absolute; left: 0; right: 0; bottom: 300px; z-index: 8; display: flex; align-items: center; height: 48px; padding: 0 6px; overflow: hidden; border-top: 1px solid var(--m-line); background: var(--m-side); -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent); mask-image: linear-gradient(90deg, #000 86%, transparent); }
+.mb-fbar.mid { -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 86%, transparent); mask-image: linear-gradient(90deg, transparent, #000 9%, #000 86%, transparent); }
+.mb-fbar .g { display: flex; flex: none; align-items: center; gap: 2px; }
+.mb-fbar .g + .g { margin-left: 5px; padding-left: 5px; border-left: 1px solid var(--m-line); }
+.mb-fbar .b { display: grid; place-items: center; min-width: 42px; height: 40px; padding: 0 7px; border-radius: 8px; color: var(--m-fg); font-size: 16px; }
+.mock .mb-fbar .b svg { width: 23px; height: 23px; }
+.mb-fbar .b.word { font-size: 15px; font-weight: 500; }
+.mb-fbar .b.on { background: var(--m-sel); color: var(--m-accent); }
+/* recording: its time and Stop stay at the start of the bar, the formatting goes on beside it */
+.mb-fbar .rec { display: flex; flex: none; align-items: center; gap: 9px; height: 38px; margin-right: 6px; padding: 0 4px 0 12px; border-radius: 19px; background: color-mix(in srgb, var(--m-p1) 15%, var(--m-bg)); color: var(--m-fg); font-variant-numeric: tabular-nums; }
+.mb-fbar .rec i { width: 9px; height: 9px; border-radius: 50%; background: var(--m-p1); animation: rec 1.4s ease-in-out infinite; }
+.mb-fbar .rec b { padding: 6px 13px; border-radius: 15px; background: var(--m-p1); color: #fff; font-size: 14px; font-weight: 600; }
+/* a selection: the phone's own handles and its Cut, Copy, Paste over it */
+.mb-ed .sel { background: color-mix(in srgb, var(--m-accent) 28%, transparent); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.mb-ed .hs, .mb-ed .he { position: relative; display: inline-block; width: 0; height: 1.3em; vertical-align: -.28em; }
+.mb-ed .hs::before, .mb-ed .he::before { content: ''; position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; background: var(--m-accent); }
+.mb-ed .hs::after, .mb-ed .he::after { content: ''; position: absolute; left: -5px; width: 10px; height: 10px; border-radius: 50%; background: var(--m-accent); }
+.mb-ed .hs::after { top: -9px; }
+.mb-ed .he::after { bottom: -9px; }
+.mb-callout { position: absolute; bottom: calc(100% + 16px); left: 34px; z-index: 3; display: flex; align-items: center; height: 40px; padding: 0 4px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-side); box-shadow: 0 8px 24px rgb(0 0 0 / .4); font: 15px system-ui, sans-serif; white-space: nowrap; }
+.mb-callout span { padding: 0 11px; }
+.mb-callout i { align-self: stretch; width: 1px; margin: 9px 0; background: var(--m-line); }
+/* / at the start of a line: what can be put in, above the format bar, filtered as it is typed */
+.mb-slash { position: absolute; left: 10px; right: 10px; bottom: 388px; z-index: 8; height: 192px; overflow: hidden; padding: 4px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-side); box-shadow: 0 10px 30px rgb(0 0 0 / .4); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
+.mb-slash .r { display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 10px; border-radius: 8px; }
+.mb-slash .r.on { background: var(--m-sel); }
+.mock .mb-slash .r svg { width: 22px; height: 22px; color: var(--m-dim); }
+.mb-slash .r .hx { width: 22px; color: var(--m-dim); font-size: 14px; font-weight: 700; text-align: center; }
+.mb-slash .r small { margin-left: auto; color: var(--m-faint); font-size: 13.5px; }
+/* a link, tapped: what can be done with it, over it */
+.mb-ed .lnk.hot { border-radius: 3px; background: color-mix(in srgb, var(--m-accent) 20%, transparent); }
+.mb-pop { position: absolute; bottom: calc(100% + 8px); left: 10px; z-index: 3; display: flex; align-items: center; height: 46px; padding: 0 4px; border: 1px solid var(--m-line); border-radius: 11px; background: var(--m-side); box-shadow: 0 8px 24px rgb(0 0 0 / .4); font: 15px/1 var(--m-ui); white-space: nowrap; }
+.mb-pop span { display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border-radius: 8px; color: var(--m-fg); }
+.mock .mb-pop svg { width: 19px; height: 19px; color: var(--m-dim); }
+.mb-pop i { align-self: stretch; width: 1px; margin: 9px 0; background: var(--m-line); }
+/* find and replace: above the keyboard, where the format bar was; the matches marked in the note */
+.mb-find { position: absolute; left: 0; right: 0; bottom: 300px; z-index: 8; display: flex; flex-direction: column; gap: 7px; padding: 8px; border-top: 1px solid var(--m-line); background: var(--m-side); }
+.mb-find .r { display: flex; align-items: center; gap: 4px; }
+.mb-find .f { display: flex; flex: 1; align-items: center; gap: 7px; min-width: 0; height: 38px; padding: 0 10px; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-bg); color: var(--m-fg); }
+.mb-find .f.on { border-color: var(--m-accent); }
+.mb-find .f.none { color: var(--m-faint); }
+.mb-find .f small { margin-left: auto; color: var(--m-faint); font-size: 13.5px; white-space: nowrap; }
+.mock .mb-find .f svg { flex: none; width: 17px; height: 17px; color: var(--m-faint); }
+.mb-find .b { display: grid; place-items: center; min-width: 38px; height: 38px; padding: 0 9px; border-radius: 8px; color: var(--m-accent); font-size: 15px; white-space: nowrap; }
+.mock .mb-find .b svg { width: 22px; height: 22px; stroke-width: 2; }
+.mb-find .b.t { color: var(--m-dim); font-size: 14px; font-weight: 600; }
+.mb-find .b.t.on { background: var(--m-sel); color: var(--m-fg); }
+.mb-ed .hit { border-radius: 3px; background: color-mix(in srgb, var(--m-accent) 22%, transparent); }
+.mb-ed .hit.cur { background: color-mix(in srgb, var(--m-accent) 58%, transparent); }
+/* a recording and an image in the note, sized for a finger */
+.mb-ed .aud { gap: 12px; margin: 2px 0 12px; padding: 6px 18px 6px 6px; border-radius: 26px; font: 14px/1 var(--m-ui); }
+.mb-ed .aud .play { width: 34px; height: 34px; }
+.mb-ed .aud .play::after { border-left-width: 10px; border-block-width: 6px; margin-left: 3px; }
+.mb-ed .aud .wv { height: 22px; }
+.mb-ed .pic { display: block; margin: 2px 0 12px; }
+.mock .mb-ed .pic svg.wb { width: 100%; height: auto; }
+.mb-ed .pic.lift { position: relative; z-index: 6; outline: 2px solid var(--m-accent); outline-offset: 2px; }
+/* a task from the note: its name, where it goes, and the link back */
+.mb-fr.multi { align-items: flex-start; padding-top: 12px; padding-bottom: 12px; line-height: 1.4; }
+.mb-fr.pick > svg { flex: none; width: 21px; height: 21px; color: var(--m-dim); }
+.mb-fr.pick .in small { margin-left: 7px; color: var(--m-faint); font-size: 14px; }
+.mb-fr.pick.sub { padding-left: 48px; }
+.mb-fr.pick.sub::before { left: 48px; }
+.mb-fr .tick { flex: none; width: 22px; height: 22px; color: var(--m-accent); stroke-width: 2.2; }
+.mb-hint u { color: var(--m-dim); text-underline-offset: 3px; }
+.mb-fr.red { justify-content: center; color: var(--m-p1); }
+/* a page with one thing to do at its foot, in place of the tab bar */
+.mb-foot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: 9px; padding: 10px 16px 42px; border-top: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-side) 88%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.mb-foot small { color: var(--m-faint); font-size: 13.5px; text-align: center; }
+.mb-btn { display: grid; place-items: center; height: 48px; border-radius: 12px; background: var(--m-accent); color: var(--m-on-accent); font-size: 16px; font-weight: 600; }
+/* typing: the page ends at the format bar; a note scrolled to its end sits on it */
+.mb-body.typing { margin-bottom: 348px; }
+.mb-ed.bottom { position: absolute; left: 0; right: 0; bottom: 0; }
+.mb-ed.bottom > :last-child { margin-bottom: 0; }
 </style>
 
 <main class="page">
@@ -1419,6 +1499,9 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-ppages" data-aview="ppages">Phone pages</button>
         <button type="button" id="a-pcreate" data-aview="pcreate">Phone create</button>
         <button type="button" id="a-pmenus" data-aview="pmenus">Phone menus</button>
+        <button type="button" id="a-pnote" data-aview="pnote">Phone note</button>
+        <button type="button" id="a-pnotetools" data-aview="pnotetools">Phone note tools</button>
+        <button type="button" id="a-pnotemore" data-aview="pnotemore">Phone note more</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -3276,7 +3359,10 @@ p { margin: 0; max-width: 68ch; }
   function mbNav(back, acts, mid, cls) {
     return '<div class="mb-nav' + (cls ? ' ' + cls : '') + '">' + (back ? '<span class="back">' + ICON.chevl + back + '</span>' : '') +
       (mid ? '<span class="mid">' + mid + '</span>' : '') +
-      '<span class="acts">' + (acts || []).map(function (a) { return '<span class="ib">' + ICON[a] + '</span>'; }).join('') + '</span></div>';
+      '<span class="acts">' + (acts || []).map(function (a) {
+        // A word is a button of its own, Done; anything else is an icon.
+        return ICON[a] ? '<span class="ib">' + ICON[a] + '</span>' : '<span class="tb">' + a + '</span>';
+      }).join('') + '</span></div>';
   }
   function mbHead(title, sub, root) {
     return '<div class="mb-head' + (root ? ' root' : '') + '"><h2>' + title + '</h2>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>';
@@ -3472,7 +3558,7 @@ p { margin: 0; max-width: 68ch; }
       [{ icon: 'bin', label: 'Delete', red: true }]
     ]);
     var note = mbActions('notes', 'Sync engine: open questions', 'Note in Scrawl', [
-      [{ icon: 'md', label: 'Markdown', on: 'Off' }],
+      [{ icon: 'find', label: 'Find' }, { icon: 'md', label: 'Markdown', on: 'Off' }],
       [{ icon: 'clock', label: 'History…' }, { icon: 'move', label: 'Move to…' }, { icon: 'pen', label: 'Rename' }],
       [{ icon: 'bin', label: 'Delete', red: true }]
     ]);
@@ -3485,7 +3571,139 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Seçiciler de sheet: bir görevin tarihi', mbToday(), mbTabs('today') + mbDateSheet())
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus };
+  // The note on a phone (Oct 12). Typing brings up the keyboard with the format bar on it: Undo
+  // and Redo first, then the marks, headings, blocks, To task and To card, an image and a
+  // recording; it scrolls sideways. Done in the bar above puts the keyboard away. A selection has
+  // the phone's own handles and menu; / at the start of a line lists what can be put in, above
+  // the line; a link tapped says what can be done with it. Find, Markdown and History are in the
+  // note's ··· menu; find and replace sit above the keyboard, where the format bar was.
+  ICON.undo = '<svg viewBox="0 0 24 24"><path d="M9 6.5L4.5 11 9 15.5"/><path d="M5 11h9.5a5 5 0 0 1 0 10H12"/></svg>';
+  ICON.redo = '<svg viewBox="0 0 24 24"><path d="M15 6.5l4.5 4.5-4.5 4.5"/><path d="M19 11H9.5a5 5 0 0 0 0 10H12"/></svg>';
+  ICON.link = '<svg viewBox="0 0 24 24"><path d="M10.5 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M13.5 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>';
+  ICON.bullets = '<svg viewBox="0 0 24 24"><path d="M10 6.5h10M10 12h10M10 17.5h10"/><circle cx="5" cy="6.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="5" cy="17.5" r="1.3" fill="currentColor" stroke="none"/></svg>';
+  ICON.quote = '<svg viewBox="0 0 24 24"><path d="M5.5 5v14"/><path d="M10 8h9M10 12h9M10 16h6"/></svg>';
+  ICON.cblock = '<svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 9.5L7 12l2.5 2.5M14.5 9.5L17 12l-2.5 2.5"/></svg>';
+  ICON.table = '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="1.5"/><path d="M3.5 10h17M3.5 14.5h17M9.5 5v14M15 5v14"/></svg>';
+  ICON.rule = '<svg viewBox="0 0 24 24"><path d="M4 12h16"/></svg>';
+  ICON.chevu = '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>';
+  ICON.chevd = '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
+  var MB_TICK = ICON.check.replace('<svg', '<svg class="tick"');
+  /** The format bar on the keyboard; `from` starts it scrolled to a later group. */
+  function mbFbar(o) {
+    o = o || {};
+    function b(face, cls) { return '<span class="b' + (cls ? ' ' + cls : '') + '">' + (ICON[face] || face) + '</span>'; }
+    var groups = [
+      b('undo') + b('redo'),
+      b('<b>B</b>') + b('<em>I</em>') + b('<s>S</s>') + b('&lt;/&gt;', 'word') + b('link'),
+      b('H1', 'word') + b('H2', 'word') + b('H3', 'word'),
+      b('bullets') + b('quote') + b('cblock'),
+      b('To task', 'word') + b('To card', 'word'),
+      b('image') + (o.recording ? '' : b('audio'))
+    ].slice(o.from || 0);
+    return '<div class="mb-fbar' + (o.from ? ' mid' : '') + '">' + (o.recording ? '<span class="rec"><i></i>0:12<b>Stop</b></span>' : '') +
+      groups.map(function (g) { return '<span class="g">' + g + '</span>'; }).join('') + '</div>';
+  }
+  /** The note of the shell, with a caret, a selection, the matches of a find or a link tapped. */
+  function mbNoteText(o) {
+    o = o || {};
+    function per(n) { return o.find ? '<span class="hit' + (n === 2 ? ' cur' : '') + '">per</span>' : 'per'; }
+    var tasks = o.select
+      ? '<i class="hs"></i><span class="sel">Tasks merge per record, last write wins per field</span><i class="he"></i>' +
+        (o.callout ? '<span class="mb-callout"><span>Cut</span><i></i><span>Copy</span><i></i><span>Paste</span><i></i><span>›</span></span>' : '')
+      : 'Tasks merge ' + per(2) + ' record, last write wins ' + per(3) + ' field';
+    return '<div class="mb-ed">' +
+      '<div class="h1">Sync engine: open questions</div>' +
+      '<p>Delta API returns a <b>cursor</b> ' + per(1) + ' drive. Store it in <span class="ic">sync-state.json</span>, never in the vault.</p>' +
+      '<div class="li">Notes conflict: 3-way merge, fall back to a copy</div>' +
+      '<div class="li">' + tasks + '</div>' +
+      '<div class="li">Deletes go to trash first' + (o.caret ? '<span class="caret"></span>' : '') + '</div>' +
+      '<p style="margin-top: 12px">Token refresh for SPAs: <span class="lnk' + (o.link ? ' hot' : '') + '">MSAL browser docs</span>, 24 h refresh window.' +
+        (o.link === 'pop' ? '<span class="mb-pop"><span>' + ICON.open + 'Open</span><i></i><span>' + ICON.pen + 'Edit</span><i></i><span>' + ICON.copies + 'Copy</span></span>' : '') +
+      '</p></div>';
+  }
+  var MB_TYPING = ['dots', 'Done'];
+  function phoneNote() {
+    function s(face, label, small, on) {
+      return '<div class="r' + (on ? ' on' : '') + '">' + (ICON[face] || '<span class="hx">' + face + '</span>') + '<span>' + label + '</span>' + (small ? '<small>' + small + '</small>' : '') + '</div>';
+    }
+    var slash = '<div class="mb-slash">' + s('H1', 'Heading 1', '', true) + s('H2', 'Heading 2') + s('H3', 'Heading 3') + s('bullets', 'Bullet list') +
+      s('quote', 'Quote') + s('cblock', 'Code block') + s('table', 'Table') + s('rule', 'Divider') +
+      s('audio', 'Audio recording', 'from the microphone') + s('image', 'Image', 'from a file') + '</div>';
+    var pricing = '<div class="mb-ed bottom"><div class="h1">Pricing call notes</div>' +
+      '<p>Two seats now, five in spring. They want a yearly plan and an invoice in euros.</p>' +
+      '<p>Their finance team signs off on anything over 5,000.</p>' +
+      '<p>Next: send the draft on Monday.</p>' +
+      '<p>/<span class="caret"></span></p></div>';
+    return [
+      mbPhone('Yazarken: format bar klavyenin üstünde, Done klavyeyi kapatır', mbPage(mbNav('Scrawl', MB_TYPING), mbNoteText({ caret: true }), '', 'typing'), mbFbar() + MB_KB),
+      mbPhone('Seçince: telefonun kendi menüsü; bar kayınca To task, To card', mbPage(mbNav('Scrawl', MB_TYPING), mbNoteText({ select: true, callout: true }), '', 'typing'), mbFbar({ from: 3 }) + MB_KB),
+      mbPhone('/ yazınca eklenebilecekler satırın üstünde, yazdıkça süzülür', mbPage(mbNav('Inbox', MB_TYPING), pricing, '', 'typing'), slash + mbFbar() + MB_KB),
+      mbPhone('Linke dokununca: Open, Edit, Copy', mbPage(mbNav('Scrawl', ['dots']), mbNoteText({ link: 'pop' })), mbTabs('browse'))
+    ].join('');
+  }
+  function phoneNoteTools() {
+    var find = '<div class="mb-find">' +
+      '<div class="r"><span class="b">' + ICON.chevu + '</span><span class="b">' + ICON.chevd + '</span>' +
+        '<span class="f on">' + ICON.find + 'per<span class="caret"></span><small>2 of 3</small></span><span class="b t">Aa</span><span class="b t">Word</span></div>' +
+      '<div class="r"><span class="f none">Replace with</span><span class="b">Replace</span><span class="b">Replace all</span></div></div>';
+    function pick(icon, name, where, on, sub) {
+      return '<div class="mb-fr pick' + (sub ? ' sub' : '') + '">' + (icon ? ICON[icon] : '') + '<span class="in">' + name + (where ? '<small>' + where + '</small>' : '') + '</span>' + (on ? MB_TICK : '') + '</div>';
+    }
+    var toTask = MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>New task</b><span class="ok">Add task</span></div>' +
+      '<div class="mb-form"><div class="mb-group"><div class="mb-fr multi"><span class="in">Tasks merge per record, last write wins per field</span></div></div>' +
+      '<div class="mb-hint">Links back to <u>Sync engine: open questions</u></div>' +
+      '<div class="mb-cap">Add to</div><div class="mb-group">' +
+        pick('tasks', 'Tasks', 'Scrawl', true) + pick('', 'Phase 0', '', false, true) + pick('', 'Phase 1', '', false, true) +
+        pick('tasks', 'Tasks', 'Inbox') + pick('tasks', 'Groceries', 'Home') + pick('tasks', 'Tasks', 'Client portal') +
+      '</div></div></div>';
+    var call = '<div class="mb-ed"><div class="h1">Client call, Oct 12</div>' +
+      '<p>Their notes on the budget, from the call:</p>' +
+      '<div><span class="aud"><span class="play"></span><span class="wv">' + waveOf(0) + '</span>Voice memo · 0:42</span></div>' +
+      '<p>They want the estimate by Thursday. Two seats now, five in spring.<span class="caret"></span></p></div>';
+    var photo = '<div class="mb-ed"><div class="h1">Client call, Oct 6</div>' +
+      '<p>The whiteboard after the call:</p>' +
+      '<span class="pic lift">' + BOARD_PHOTO + '</span>' +
+      '<p>Next: send the estimate by Thursday.</p></div>';
+    var photoActs = mbActions('image', 'whiteboard-1002.png', 'Image · 1.2 MB', [[{ icon: 'open', label: 'Open' }], [{ icon: 'bin', label: 'Delete', red: true }]]);
+    return [
+      mbPhone('Find, ··· menüsünden; klavyenin üstünde, Replace ile', mbPage(mbNav('Scrawl', ['Done']), mbNoteText({ find: true }), '', 'typing'), find + MB_KB),
+      mbPhone('To task: seçimden görev, yeri sheet’te seçilir', mbPage(mbNav('Scrawl', MB_TYPING), mbNoteText({ select: true })), toTask),
+      mbPhone('Kayıt: süre ve Stop barın başında, yazmak sürer', mbPage(mbNav('Inbox', MB_TYPING), call, '', 'typing'), mbFbar({ recording: true }) + MB_KB),
+      mbPhone('Resmi basılı tutunca; dokununca açılır', mbPage(mbNav('Inbox', ['dots']), photo), mbTabs('browse') + MB_DIM + photoActs)
+    ].join('');
+  }
+  function phoneNoteMore() {
+    var menu = mbActions('notes', 'Sync engine: open questions', 'Note in Scrawl', [
+      [{ icon: 'find', label: 'Find' }, { icon: 'md', label: 'Markdown', on: 'Off' }],
+      [{ icon: 'clock', label: 'History…' }, { icon: 'move', label: 'Move to…' }, { icon: 'pen', label: 'Rename' }],
+      [{ icon: 'bin', label: 'Delete', red: true }]
+    ]);
+    function v(time, ago) { return mbRow({ icon: 'clock', label: time, ct: ago || '' }); }
+    var history = mbPage(mbNav('Back') + mbHead('History', 'Sync engine: open questions'),
+      mbRow({ icon: 'notes', label: 'Current version' }) +
+      '<div class="mb-sec">Today</div>' + v('14:41', '12 min ago') + v('14:12') + v('13:30') + v('10:05') +
+      '<div class="mb-sec">Yesterday</div>' + v('18:02') +
+      '<div class="mb-sec">Oct 3</div>' + v('11:15'));
+    var version = mbPage(mbNav('History', [], 'Today, 14:12'),
+      '<div class="mb-ed"><div class="h1">Sync engine: open questions</div>' +
+      '<p>Delta API returns a <b>cursor</b> per drive. Store it in <span class="ic">sync-state.json</span>, never in the vault.</p>' +
+      '<div class="li">Notes conflict: 3-way merge, fall back to a copy</div>' +
+      '<div class="li">Tasks merge per record, last write wins per field</div>' +
+      '<div class="li">Ask before deleting anything on the remote</div>' +
+      '<p style="margin-top: 12px">Token refresh for SPAs: <span class="lnk">MSAL browser docs</span>, 24 h refresh window.</p></div>');
+    var link = MB_DIM + '<div class="mb-sheet overkb"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>Link</b><span class="ok">Apply</span></div>' +
+      '<div class="mb-form"><div class="mb-group"><div class="mb-fr"><span class="in">…entra/identity-platform/msal-overview<span class="caret"></span></span></div></div>' +
+      '<div class="mb-group" style="margin-top: 12px"><div class="mb-fr red">Remove link</div></div></div></div>' + MB_KB;
+    return [
+      mbPhone('Notun ··· menüsü: Find, Markdown, History', mbPage(mbNav('Scrawl', ['dots']), mbNoteText()), mbTabs('browse') + MB_DIM + menu),
+      mbPhone('History: sürümler, en yeni üstte', history, mbTabs('browse')),
+      mbPhone('Bir sürüm: Restore altta', version, '<div class="mb-foot"><small>Restoring keeps the current text as a version too.</small><span class="mb-btn">Restore this version</span></div>'),
+      mbPhone('Link’in Edit’i: adres, Apply, Remove link', mbPage(mbNav('Scrawl', MB_TYPING), mbNoteText({ link: 'on' }), '', 'typing'), link)
+    ].join('');
+  }
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {
