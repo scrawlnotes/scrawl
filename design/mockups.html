@@ -1563,6 +1563,62 @@ p { margin: 0; max-width: 68ch; }
 .mb-envtext .hc { color: var(--m-faint); }
 .mb-envtext .hk { color: var(--m-dim); }
 .mb-fr .val.mono { color: var(--m-fg); font-family: var(--m-mono); }
+/* Profile, spaces and people: a space's heading in the tree, the lists of Settings, the warning, the people picker. */
+.it.fx.fsp { margin-top: 8px; color: var(--m-fg); font-weight: 600; }
+.it.fx.fsp > svg { color: var(--m-dim); }
+.it.fx.fsp .ro { flex: none; display: grid; margin-left: auto; color: var(--m-faint); }
+.it.fx.fsp .ro svg { width: 12px; height: 12px; }
+.it.fx.fsp:hover .ro { display: none; }
+.it.fx.fsp:hover .more { display: block; }
+.it.fx.fsp.menu .more { display: block; }
+.it.fx.fsp.menu .ro { display: none; }
+.cmenu.sp-menu { left: 150px; top: 282px; }
+.st-li.off { opacity: .55; }
+.rpick .rr.dim b { color: var(--m-dim); }
+.mb-row.off { opacity: .55; }
+.sp-empty { flex: 1; display: grid; place-items: center; }
+.st-space.tight { gap: 7px; padding: 10px 14px; }
+.st-space.tight .st-sync { padding-top: 7px; }
+.st-acts { display: flex; align-items: center; gap: 10px; }
+.st-acts small { color: var(--m-faint); font-size: 12px; }
+.st-acts .right { margin-left: auto; }
+.st-back { display: inline-flex; align-items: center; gap: 2px; align-self: flex-start; margin: -6px 0 -4px -6px; padding: 2px 6px 2px 2px; border-radius: 4px; color: var(--m-dim); font-size: 12.5px; }
+.st-back svg { width: 13px; height: 13px; }
+.st-list { display: flex; flex-direction: column; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-side); }
+.st-li { position: relative; display: flex; align-items: center; gap: 9px; padding: 8px 10px; }
+.st-li + .st-li { border-top: 1px solid var(--m-line); }
+.st-li > svg { flex: none; width: 14px; height: 14px; color: var(--m-dim); }
+.st-li .grip { display: grid; color: var(--m-faint); }
+.st-li .grip svg { width: 13px; height: 13px; }
+.st-li .who { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--m-sel); color: var(--m-fg); font: 600 10.5px/22px var(--m-ui); text-align: center; }
+.st-li .nm { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.st-li .nm b { font-weight: 500; }
+.st-li .nm b small { margin-left: 4px; color: var(--m-faint); font-size: 11.5px; font-weight: 400; }
+.st-li .nm small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--m-faint); font-size: 11.5px; }
+.st-li .r { display: flex; align-items: center; gap: 4px; color: var(--m-faint); font-size: 11.5px; white-space: nowrap; }
+.st-li .r svg { width: 12px; height: 12px; }
+.st-li .more { padding: 0 4px; border-radius: 4px; color: var(--m-dim); letter-spacing: 1px; }
+.st-li.menu .more { background: var(--m-sel); color: var(--m-fg); }
+.st-li .cmenu { right: 10px; top: calc(100% - 4px); }
+.st-li.one { padding: 5px 10px; }
+.st-li.one .nm { flex-direction: row; align-items: baseline; gap: 10px; }
+.st-li.one .who { width: 18px; height: 18px; font-size: 9.5px; line-height: 18px; }
+.st-warn { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 10px; border: 1px solid color-mix(in srgb, #e0a84a 55%, transparent); border-radius: 7px; background: color-mix(in srgb, #e0a84a 12%, transparent); color: var(--m-fg); font-size: 12px; }
+.st-warn svg { flex: none; width: 14px; height: 14px; color: #e0a84a; }
+.st-warn .st-btn { margin-left: auto; }
+.fp .list span small { margin-left: auto; color: var(--m-faint); font-size: 11.5px; }
+.rpick .rr { align-items: center; }
+.rpick .rr .fpad { width: 18px; }
+.rpick .who { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--m-sel); color: var(--m-fg); font: 600 9.5px/18px var(--m-ui); text-align: center; }
+.rpick .rn { margin-top: 4px; padding: 7px 8px 4px; border-top: 1px solid var(--m-line); font-size: 11.5px; line-height: 1.4; color: var(--m-faint); }
+.task .meta .who { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--m-sel); color: var(--m-fg); font: 600 8.5px/14px var(--m-ui); text-align: center; vertical-align: -3px; }
+.mb-p { margin: 0; padding: 10px 16px; color: var(--m-faint); font-size: 14px; line-height: 1.4; }
+.mb-row .who { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--m-sel); color: var(--m-fg); font: 600 13px/30px var(--m-ui); text-align: center; }
+.mb-row.red > svg, .mb-row.red b { color: #f0706a; }
+.mb-warn { display: flex; align-items: flex-start; gap: 10px; margin: 10px 16px 0; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #e0a84a 14%, transparent); color: var(--m-fg); font-size: 14px; line-height: 1.35; }
+.mb-warn svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: #e0a84a; }
+.mb-warn b { display: block; margin-top: 4px; color: var(--m-accent); font-weight: 600; }
+.mb-sheet .mb-sec { padding-top: 10px; }
 </style>
 
 <main class="page">
@@ -1651,6 +1707,13 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-colmissing" data-aview="colmissing">Record missing</button>
         <button type="button" id="a-folders" data-aview="folders">Folder menu</button>
         <button type="button" id="a-subfolder" data-aview="subfolder">Subfolder</button>
+        <button type="button" id="a-welcome" data-aview="welcome">Welcome</button>
+        <button type="button" id="a-profile" data-aview="profile">Profile</button>
+        <button type="button" id="a-spaceslist" data-aview="spaceslist">Spaces list</button>
+        <button type="button" id="a-spacepage" data-aview="spacepage">Space</button>
+        <button type="button" id="a-addspace" data-aview="addspace">Add space</button>
+        <button type="button" id="a-sptree" data-aview="sptree">Spaces tree</button>
+        <button type="button" id="a-assign" data-aview="assign">Assign</button>
         <button type="button" id="a-pshell" data-aview="pshell">Phone shell</button>
         <button type="button" id="a-ppages" data-aview="ppages">Phone pages</button>
         <button type="button" id="a-pcreate" data-aview="pcreate">Phone create</button>
@@ -1668,6 +1731,8 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pcolviews" data-aview="pcolviews">Phone collection views</button>
         <button type="button" id="a-pkeys" data-aview="pkeys">Phone keys</button>
         <button type="button" id="a-pempty" data-aview="pempty">Phone empty</button>
+        <button type="button" id="a-pwelcome" data-aview="pwelcome">Phone welcome</button>
+        <button type="button" id="a-pspaces" data-aview="pspaces">Phone spaces</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -4135,12 +4200,311 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Text: dosya olduğu gibi', text, mbTabs('browse'))
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys, pempty: phoneEmpty };
+  // ---- Profile, spaces and people (Oct 12) ----
+  // Who the user is lives on the device: a name and an email, asked once when the app first
+  // opens and changed in Settings › Profile. A space keeps the people who opened it with a
+  // name in `.scrawl/people.json`, keyed by email, so that a task or a card can be given to one
+  // of them; the file syncs with the space. With more than one space, each is a heading in the
+  // sidebar that folds like a folder, so that many spaces stay short; the order is the device's,
+  // Move up and Move down in the heading's menu and in Settings › Spaces.
+  // Everyone has an id made once, kept in the personal space, the same in every space and on
+  // every device; a name can be empty, and such a person shows as Unnamed until it is set.
+  ICON.person = '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5a7 7 0 0 1 14 0"/></svg>';
+  ICON.space = '<svg viewBox="0 0 24 24"><path d="M4 7.5 12 4l8 3.5-8 3.5z"/><path d="M4 12l8 3.5 8-3.5M4 16.5 12 20l8-3.5"/></svg>';
+  ICON.grip = '<svg viewBox="0 0 24 24"><path d="M6 8h12M6 12h12M6 16h12"/></svg>';
+  var SP_PEOPLE = [
+    { ini: 'K', name: 'Kaan Arslan', mail: 'kaan@outlook.com', seen: 'now', you: true },
+    { ini: 'L', name: 'Lena Hartmann', mail: 'lena@acme.example', seen: '2 h' },
+    { ini: '?', name: 'Unnamed', mail: '', seen: 'Fri', unnamed: true },
+    { ini: 'J', name: 'Jonas Weber', mail: 'jonas@acme.example', seen: 'Sep 30', off: true }
+  ];
+  var SP_DEFAULT = 'C:\\Users\\kaan\\AppData\\Roaming\\app.scrawlnotes.desktop\\';
+  var SP_STATUS = '<div class="status"><span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>' + syncStatus(false, null) + '</div>';
+  function spFoot(on) {
+    return '<div class="side-foot"><div class="foot-row">' + row({ icon: 'trash', label: 'Trash', ct: 8 }) +
+      '<span class="cog' + (on ? ' on' : '') + '" title="Settings">' + ICON.settings + '</span></div></div>';
+  }
+  /** A row of the tree: a space's heading, a folder, or an item; each level one step in. */
+  function spRowT(x) {
+    var head = x.sp || x.folder;
+    return '<div class="it fx' + (x.sp ? ' fsp' : x.folder ? ' fdir' : '') + (x.on ? ' on' : '') + (x.menu ? ' menu' : '') + '" style="--d: ' + (x.d || 0) + '">' +
+      (head ? '<span class="fchev' + (x.open ? ' open' : '') + '">' + ICON.chevr + '</span>' + (x.sp ? ICON.space : ICON.folder) : '<span class="fpad"></span>' + ICON[x.icon]) +
+      '<span>' + x.label + '</span>' + (x.ro ? '<span class="ro">' + x.ro + '</span>' : '') + (x.ct ? '<span class="ct">' + x.ct + '</span>' : '') + (head ? '<span class="more">···</span>' : '') + '</div>';
+  }
+  /** The sidebar with three spaces: Today and Upcoming over all of them, then each space folded like a folder. */
+  function spaceTree(view) {
+    var assign = view === 'assign';
+    return '<div class="tree fxt">' +
+      row({ label: 'Today', ct: 5, on: view === 'sptree' }) + row({ label: 'Upcoming', ct: 12 }) +
+      spRowT({ sp: true, open: true, label: 'Personal' }) +
+      spRowT({ d: 1, folder: true, label: 'Inbox', ct: 4 }) +
+      spRowT({ d: 1, folder: true, open: !assign, label: 'Scrawl', ct: 9 }) +
+      (assign ? '' : spRowT({ d: 2, icon: 'tasks', label: 'Tasks', ct: 7 }) + spRowT({ d: 2, icon: 'board', label: 'Roadmap', ct: 13 }) + spRowT({ d: 2, icon: 'notes', label: 'Sync engine: open questions' })) +
+      spRowT({ d: 1, folder: true, label: 'Home', ct: 4 }) +
+      spRowT({ d: 1, folder: true, label: 'Reading', ct: 8 }) +
+      spRowT({ sp: true, open: true, label: 'Acme', ro: ICON.cloud, menu: view === 'sptree' }) +
+      (view === 'sptree' ? '<div class="cmenu sp-menu"><span>Settings…</span><i></i><span>Move up</span><span>Move down</span><i></i><span>Remove from this device</span></div>' : '') +
+      spRowT({ d: 1, folder: true, open: true, label: 'Sales', ct: 5 }) +
+      spRowT({ d: 2, icon: 'tasks', label: 'Tasks', ct: 5, on: assign }) +
+      spRowT({ d: 2, icon: 'board', label: 'Deals', ct: 8 }) +
+      spRowT({ d: 2, icon: 'collection', label: 'Companies', ct: 24 }) +
+      spRowT({ d: 1, folder: true, label: 'Support', ct: 3 }) +
+      spRowT({ d: 1, folder: true, label: 'meetings', ct: 6 }) +
+      spRowT({ sp: true, label: 'Side projects' }) +
+      '</div>' + spFoot(view === 'profile' || view === 'spaceslist' || view === 'spacepage' || view === 'addspace');
+  }
+  /** The sidebar of a first start: one space, so no heading; nothing in it yet. */
+  function freshTree() {
+    return '<div class="tree fxt">' + row({ label: 'Today' }) + row({ label: 'Upcoming' }) +
+      spRowT({ folder: true, label: 'Inbox' }) + '</div>' + spFoot(false);
+  }
+  /** Today over every space: the line under a task names the space and the folder. */
+  var SP_TODAY = '<div class="tasksv"><div class="th"><b>Today</b><span class="chip">All spaces</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+    '<div class="sec">Overdue <small>1</small></div>' +
+    task('p3', 'Renew the domain', '<span class="today">Oct 9</span><span>Personal · Home</span>') +
+    '<div class="sec">Mon, Oct 12 <small>3</small></div>' +
+    task('p1', 'Prototype live preview', '<span>Personal · Scrawl</span><span>2 of 4</span>') +
+    task('p2', 'Send the revised estimate', '<span>Acme · Sales</span>' + who('K') + '<span>Kaan</span>') +
+    task('', 'Call Acme about the yearly plan', '<span>Personal · Inbox</span>' + recChip('Acme Corp')) +
+    '<div class="sec">Deals · Acme <small>1</small></div>' +
+    '<div class="task"><span class="cb sq p2"></span><div><div class="tt"><span class="key">DEA-12</span>Pilot for one portal</div><div class="meta"><span class="today">Today</span><span>Proposal</span>' + who('L') + '<span>Lena</span></div></div></div>' +
+    '<div class="qa">+ Add task</div></div></div>';
+  /** A task with its row of buttons under the pointer, Assign among them and lit. */
+  function spTask(p, title, meta, o) {
+    o = o || {};
+    return '<div class="task' + (o.hover ? ' rhover' : '') + '"><span class="cb ' + p + '"></span><div><div class="tt">' + title + '</div>' +
+      (meta ? '<div class="meta">' + meta + '</div>' : '') + '</div>' +
+      (o.hover ? '<span class="racts"><span title="Date">' + ICON.cal + '</span><span title="Priority">' + ICON.flag + '</span><span class="on" title="Assign">' + ICON.person + '</span><span title="Record">' + ICON.collection + '</span><span title="Move to">' + ICON.move + '</span><span class="more">···</span></span>' : '') + '</div>';
+  }
+  function spWho(p) { return who(p.ini) + '<span>' + p.name.split(' ')[0] + '</span>'; }
+  /** The Tasks of Acme › Sales, a task's Assign open: the people of the space, from its people file. */
+  function spAssignView() {
+    return '<div class="tasksv" style="position: relative"><div class="th"><b>Tasks</b><span class="chip">Acme · Sales</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      spTask('p2', 'Send the revised estimate', '<span class="today">Today</span>' + spWho(SP_PEOPLE[0]) + recChip('Acme Corp')) +
+      spTask('p1', 'Call Lena after she reads the offer', '<span>Oct 14</span>', { hover: true }) +
+      spTask('', 'Book the demo room', '<span>Oct 16</span>' + spWho(SP_PEOPLE[3])) +
+      spTask('', 'Draft the pilot agreement', '<span>Oct 20</span>') +
+      '<div class="qa">+ Add task</div></div>' +
+      '<div class="rpick"><div class="rq">le<span class="caret"></span></div>' +
+        '<div class="rr"><span class="fpad"></span><b>Nobody</b></div>' +
+        '<div class="rg">People in Acme</div>' +
+        SP_PEOPLE.filter(function (p) { return !p.off; }).map(function (p, i) {
+          return '<div class="rr' + (i === 1 ? ' on' : '') + (p.unnamed ? ' dim' : '') + '">' + who(p.ini) + '<b>' + p.name + '</b><small>' + (p.you ? 'you' : p.mail) + '</small></div>';
+        }).join('') +
+        '<div class="rn">Everyone who has opened Acme. Jonas Weber is inactive and not offered.</div>' +
+      '</div></div>';
+  }
+  /** The first start: who you are, over an empty app. Both fields can wait. */
+  function spWelcome() {
+    return '<div class="ovl center"><div class="mdlg" style="width: 400px"><h3>Welcome to Scrawl</h3>' +
+      '<p class="what">Who you are, for the people you will share a space with. Both can be changed in Settings, and both can wait.</p>' +
+      '<div class="label">Name</div><div class="field filled">Kaan Arslan<span class="caret"></span></div>' +
+      '<div class="label" style="margin-top: 10px">Email</div><div class="field">name@example.com</div>' +
+      '<div class="foot"><span class="count">Nothing is sent anywhere.</span><span class="st-btn go">Continue</span></div></div></div>';
+  }
+  function spProfile() {
+    return '<span class="st-label">You</span>' +
+      '<p class="st-note">Your name goes on what you do where others see it: a comment, a change on a card, a task given to you. The email says which person you are in a shared space; nothing is sent to it.</p>' +
+      '<div class="st-space">' +
+      '<div class="st-row"><span class="fl">Name</span><span class="in">Kaan Arslan<span class="caret"></span></span><span></span></div>' +
+      '<div class="st-row"><span class="fl">Email</span><span class="in">kaan@outlook.com</span><span></span></div>' +
+      '<div class="st-acts"><span class="st-btn go right">Save</span></div>' +
+      '</div>';
+  }
+  function spLi(o) {
+    return '<div class="st-li' + (o.cls ? ' ' + o.cls : '') + '">' + (o.grip ? '<span class="grip">' + ICON.grip + '</span>' : '') + (o.who ? who(o.who) : ICON[o.icon]) +
+      '<span class="nm"><b>' + o.name + '</b>' + (o.sub ? '<small>' + o.sub + '</small>' : '') + '</span>' +
+      (o.r ? '<span class="r">' + o.r + '</span>' : '') + (o.more ? '<span class="more">···</span>' : '') + (o.menu || '') + '</div>';
+  }
+  /** Settings › Spaces: the spaces in the sidebar's order, each with its menu; a space opens its page. */
+  function spSpacesList(menu) {
+    return '<span class="st-label">Spaces</span>' +
+      '<p class="st-note">A space is a folder of notes, task lists, boards and collections, with its own trash and history. Each one after the first is a heading in the sidebar, in this order.</p>' +
+      '<div class="st-list">' +
+      spLi({ grip: true, icon: 'space', name: 'Personal', sub: 'Yours · ' + SP_DEFAULT + 'Personal', more: true }) +
+      spLi({ grip: true, icon: 'space', name: 'Acme', sub: 'OneDrive · shared by Lena Hartmann · 3 people', r: ICON.cloud, more: true, cls: menu ? 'menu' : '',
+        menu: menu ? '<div class="cmenu"><span>Settings…</span><i></i><span>Move up</span><span>Move down</span><i></i><span>Remove from this device</span></div>' : '' }) +
+      spLi({ grip: true, icon: 'space', name: 'Side projects', sub: 'Folder · D:\\Notes\\Side projects', more: true }) +
+      '</div>' +
+      '<div class="st-acts"><span class="st-btn go">' + ICON.plus + 'Add space…</span><small>A space of your own, a folder on this computer, or one shared with you.</small></div>' +
+      '<span class="st-label">This device</span>' +
+      '<div class="st-device"><span class="fl">Name</span><span class="in">Laptop</span><span class="st-row"><span class="btn save">Save</span></span></div>';
+  }
+  /** A space's page: its name, folder and sync, the people in it, and the way out. */
+  function spSpacePage() {
+    return '<span class="st-back">' + ICON.chevl + 'Spaces</span>' +
+      '<div class="st-space tight"><div class="top">' + ICON.space + '<b>Acme</b><small>Shared with you</small></div>' +
+      '<div class="st-row"><span class="fl">Name</span><span class="in">Acme</span><span class="btn save">Save</span></div>' +
+      '<div class="st-row"><span class="fl">Folder</span><span class="path">' + SP_DEFAULT + 'Acme</span><span class="btn">Change…</span></div>' +
+      '<div class="st-sync"><span class="fl">Sync</span><div class="what">' +
+        '<span class="who">' + ICON.cloud + '<b>OneDrive</b><small>kaan@outlook.com · /Acme</small></span>' +
+        '<span class="state"><i></i>Synced 12 s ago · shared by Lena Hartmann, you can edit</span><span class="acts"><span class="st-btn">Sync now</span><span class="st-btn">Disconnect</span></span></div></div>' +
+      '</div>' +
+      '<span class="st-label">People</span>' +
+      '<p class="st-note">Everyone who has opened this space; a task or a card is given to one of them. One can be made inactive; opening the space again makes them active.</p>' +
+      '<div class="st-list">' +
+      SP_PEOPLE.map(function (p, i) {
+        return spLi({ who: p.ini, name: p.name + (p.you ? ' <small>you</small>' : ''), sub: p.mail || 'no email', r: p.off ? 'Inactive' : p.seen, more: !p.you, cls: 'one' + (p.off ? ' off' : '') + (i === 1 ? ' menu' : ''),
+          menu: i === 1 ? '<div class="cmenu"><span>Make inactive</span></div>' : '' });
+      }).join('') +
+      '</div>' +
+      '<div class="st-acts"><span class="st-btn">Remove from this device</span><small>The folder and its files stay where they are.</small></div>';
+  }
+  /** Add space, Shared with me chosen; the name is empty, so the warning and the way to set it. */
+  function spAddSpace() {
+    function item(icon, name, sub, on) { return '<span' + (on ? ' class="on"' : '') + '>' + ICON[icon] + name + (sub ? '<small>' + sub + '</small>' : '') + '</span>'; }
+    return '<div class="fp-ovl"><div class="fp"><h3>Add space</h3>' +
+      '<div class="list">' + item('plus', 'New space', 'a folder of its own on this computer') + item('folder', 'Existing folder', 'notes already on this computer') + item('cloud', 'Shared with me', 'OneDrive', true) + '</div>' +
+      '<div class="crumbs" style="margin-top: 10px"><span>Shared with kaan@outlook.com</span></div>' +
+      '<div class="list">' + item('space', 'Acme', 'Lena Hartmann', true) + item('space', 'Design team', 'Mert Kaya') + '</div>' +
+      '<div class="st-warn">' + ICON.warn + '<span>Your name is empty. You will show as Unnamed in this space until you set it.</span><span class="st-btn">Set name</span></div>' +
+      '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go" style="margin-left: auto">Add “Acme”</span></div>' +
+      '</div></div>';
+  }
+  function spSettingsWindow(section, extra) {
+    var body = section === 'profile' ? spProfile() : section === 'spacepage' ? spSpacePage() : spSpacesList(section === 'spaceslist');
+    return '<div class="ovl"><div class="st-dlg"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
+      row({ icon: 'person', label: 'Profile', on: section === 'profile' }) + row({ icon: 'half', label: 'Appearance' }) + row({ icon: 'space', label: 'Spaces', on: section !== 'profile' }) +
+      '</nav><div class="st-body">' + body + '</div></div></div>' + (extra || '') + '</div>';
+  }
+  var SP_VIEWS = {
+    welcome: function () {
+      return '<aside class="side">' + freshTree() + '</aside><section class="main"><div class="panes">' + pane('<div class="tab plus">+</div>', '<div class="sp-empty"><span class="st-btn">Create…</span></div>') + '</div>' + SP_STATUS + '</section>' + spWelcome();
+    },
+    profile: function () {
+      return '<aside class="side">' + spaceTree('profile') + '</aside><section class="main"><div class="panes">' + pane(tab('notes', 'Sync engine: open questions', 'note', true) + '<div class="tab plus">+</div>', edFull) + '</div>' + SP_STATUS + '</section>' + spSettingsWindow('profile');
+    },
+    spaceslist: function () {
+      return '<aside class="side">' + spaceTree('spaceslist') + '</aside><section class="main"><div class="panes">' + pane(tab('notes', 'Sync engine: open questions', 'note', true) + '<div class="tab plus">+</div>', edFull) + '</div>' + SP_STATUS + '</section>' + spSettingsWindow('spaceslist');
+    },
+    spacepage: function () {
+      return '<aside class="side">' + spaceTree('spacepage') + '</aside><section class="main"><div class="panes">' + pane(tab('notes', 'Sync engine: open questions', 'note', true) + '<div class="tab plus">+</div>', edFull) + '</div>' + SP_STATUS + '</section>' + spSettingsWindow('spacepage');
+    },
+    addspace: function () {
+      return '<aside class="side">' + spaceTree('addspace') + '</aside><section class="main"><div class="panes">' + pane(tab('notes', 'Sync engine: open questions', 'note', true) + '<div class="tab plus">+</div>', edFull) + '</div>' + SP_STATUS + '</section>' + spSettingsWindow('addspace', spAddSpace());
+    },
+    sptree: function () {
+      return '<aside class="side">' + spaceTree('sptree') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'today', true) + tab('notes', 'Sync engine: open questions', 'note', false) + '<div class="tab plus">+</div>', SP_TODAY) + '</div>' + SP_STATUS + '</section>';
+    },
+    assign: function () {
+      return '<aside class="side">' + spaceTree('assign') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Tasks · Sales · Acme', 'assign', true) + tab('notes', 'Sync engine: open questions', 'note', false) + '<div class="tab plus">+</div>', spAssignView()) + '</div>' + SP_STATUS + '</section>';
+    }
+  };
+  // Phone: the welcome as a page, Profile in Settings, the people of a space in a sheet.
+  function mbPerson(p, on) {
+    return '<div class="mb-row' + (p.off ? ' off' : '') + '">' + who(p.ini) + '<span class="tx"><b>' + p.name + (p.you ? ' <small style="display:inline">· you</small>' : '') + '</b><small>' + (p.off ? 'Inactive · ' : '') + (p.mail || 'no email') + '</small></span>' + (on ? ICON.check.replace('<svg', '<svg class="tick"') : '') + '</div>';
+  }
+  function mbWelcome() {
+    return mbPage(mbHead('Welcome', 'For the people you share a space with', true),
+      '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">Kaan Arslan<span class="caret"></span></span></div>' +
+      '<div class="mb-fr"><span class="fl">Email</span><span class="in none">name@example.com</span></div></div>' +
+      '<p class="mb-p">Both can be changed in Settings, and both can wait. Nothing is sent anywhere.</p>' +
+      '<div class="mb-form"><div class="mb-btn">Continue</div></div>');
+  }
+  function mbSettingsList() {
+    return mbPage(mbNav('Browse') + mbHead('Settings'),
+      mbRow({ icon: 'person', label: 'Profile', ct: 'Kaan Arslan' }) +
+      mbRow({ icon: 'half', label: 'Appearance', ct: 'Frost · System' }) +
+      mbRow({ icon: 'space', label: 'Spaces', ct: 3 }));
+  }
+  function mbProfile() {
+    return mbPage(mbNav('Settings', ['Save']) + mbHead('Profile'),
+      '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">Kaan Arslan</span></div>' +
+      '<div class="mb-fr"><span class="fl">Email</span><span class="in">kaan@outlook.com</span></div></div>' +
+      '<p class="mb-p">Your name goes on what you do where others see it: a comment, a change on a card, a task given to you. The email says which person you are in a shared space; nothing is sent to it.</p>');
+  }
+  function mbAcmeTasks() {
+    return mbPage(mbNav('Sales', ['dots']) + mbHead('Tasks', 'Acme · Sales'),
+      mbT({ p: 'p2', title: 'Send the revised estimate', meta: mi('cal', 'Today', 'late') + mi('person', 'Kaan') }) +
+      mbT({ p: 'p1', title: 'Call Lena after she reads the offer', meta: mi('cal', 'Oct 14') }) +
+      mbT({ title: 'Book the demo room', meta: mi('cal', 'Oct 16') + mi('person', 'Unnamed') }) +
+      mbT({ title: 'Draft the pilot agreement', meta: mi('cal', 'Oct 20') }));
+  }
+  function mbAssignSheet() {
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Assign to</b><small>Call Lena after she reads the offer</small><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-row">' + ICON.person + '<span class="tx"><b>Nobody</b></span></div>' +
+      '<div class="mb-sec">People in Acme</div>' +
+      SP_PEOPLE.filter(function (p) { return !p.off; }).map(function (p, i) { return mbPerson(p, i === 1); }).join('') +
+      '<p class="mb-p">Everyone who has opened Acme.</p></div>';
+  }
+  function phoneWelcome() {
+    return [
+      mbPhone('İlk açılış: ad ve e-posta, ikisi de bekleyebilir', mbWelcome()),
+      mbPhone('Settings: Profile listenin başında', mbSettingsList(), mbTabs('browse')),
+      mbPhone('Profile: Save navigasyonda', mbProfile(), mbTabs('browse')),
+      mbPhone('Göreve kişi: space’in insanları bir sheet’te', mbAcmeTasks(), mbTabs('browse') + mbAssignSheet())
+    ].join('');
+  }
+  function mbBrowseSpaces() {
+    return mbPage(mbHead('Browse', null, true),
+      '<div class="mb-sec">Personal</div>' +
+      mbRow({ icon: 'folder', fold: true, label: 'Inbox', ct: 4 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Scrawl', ct: 9 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Home', ct: 4 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Reading', ct: 8 }) +
+      '<div class="mb-sec">Acme <small>shared</small></div>' +
+      mbRow({ icon: 'folder', fold: true, label: 'Sales', ct: 5 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Support', ct: 3 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'meetings', ct: 6 }) +
+      '<div class="mb-sec">Side projects</div>' +
+      mbRow({ icon: 'folder', fold: true, label: 'Ideas', ct: 11 }) +
+      '<div class="mb-gap"></div>' +
+      mbRow({ icon: 'trash', label: 'Trash', ct: 8 }) +
+      mbRow({ icon: 'cloud', label: 'Sync', ct: '12 s ago' }) +
+      mbRow({ icon: 'settings', label: 'Settings' }));
+  }
+  function mbSpacesList() {
+    return mbPage(mbNav('Settings', ['Reorder']) + mbHead('Spaces'),
+      mbRow({ icon: 'space', label: 'Personal', sub: 'Yours · on this phone' }) +
+      mbRow({ icon: 'space', label: 'Acme', sub: 'OneDrive · shared by Lena Hartmann · 3 people' }) +
+      mbRow({ icon: 'space', label: 'Side projects', sub: 'OneDrive · /Side projects' }) +
+      '<div class="mb-gap"></div>' +
+      mbRow({ icon: 'plus', label: 'Add space', chev: false }) +
+      '<p class="mb-p">A space is a folder of notes, task lists, boards and collections, with its own trash and history. Each one after the first is a section in Browse, in this order.</p>');
+  }
+  function mbSpacePage() {
+    return mbPage(mbNav('Spaces', ['dots']) + mbHead('Acme', 'Shared with you by Lena Hartmann'),
+      '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">Acme</span></div>' +
+      '<div class="mb-fr"><span class="fl">Folder</span><span class="in">On this phone</span></div>' +
+      '<div class="mb-fr"><span class="fl">Sync</span><span class="in">OneDrive</span><span class="val">12 s ago' + MB_CHEV + '</span></div></div>' +
+      '<div class="mb-sec">People</div>' +
+      SP_PEOPLE.map(function (p) { return mbPerson(p); }).join('') +
+      '<p class="mb-p">Holding a person gives Make inactive. Remove from this phone is in ···; the space stays in OneDrive and on your other devices.</p>');
+  }
+  function mbAddSpaceSheet() {
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Add space</b><span class="x">' + ICON.x + '</span></div>' +
+      mbRow({ icon: 'plus', label: 'New space', sub: 'A space of your own', chev: false }) +
+      mbRow({ icon: 'cloud', label: 'Shared with me', sub: 'OneDrive', chev: false }) +
+      '<div class="mb-sec">Shared with kaan@outlook.com</div>' +
+      '<div class="mb-row">' + ICON.space + '<span class="tx"><b>Acme</b><small>Lena Hartmann</small></span>' + ICON.check.replace('<svg', '<svg class="tick"') + '</div>' +
+      '<div class="mb-row">' + ICON.space + '<span class="tx"><b>Design team</b><small>Mert Kaya</small></span></div>' +
+      '<div class="mb-warn">' + ICON.warn + '<span>Your name is empty. You will show as Unnamed in this space until you set it.<b>Set name</b></span></div>' +
+      '<div class="mb-form" style="padding-top: 12px"><div class="mb-btn">Add “Acme”</div></div></div>';
+  }
+  function phoneSpaces() {
+    return [
+      mbPhone('Browse: her space bir bölüm', mbBrowseSpaces(), mbTabs('browse') + MB_FAB),
+      mbPhone('Settings › Spaces: sıra Reorder ile', mbSpacesList(), mbTabs('browse')),
+      mbPhone('Bir space: adı, klasörü, sync’i ve insanları; basılı tutunca Make inactive', mbSpacePage(), mbTabs('browse')),
+      mbPhone('Add space: ad boşsa uyarı', mbSpacesList(), mbTabs('browse') + mbAddSpaceSheet())
+    ].join('');
+  }
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys, pempty: phoneEmpty, pwelcome: phoneWelcome, pspaces: phoneSpaces };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {
       mock.className = 'mock dir-a phones four mbs';
       mock.innerHTML = MB_VIEWS[view]();
+      section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.dataset.aview === view));
+      });
+      return;
+    }
+    if (SP_VIEWS[view]) {
+      mock.className = 'mock dir-a';
+      mock.innerHTML = SP_VIEWS[view]();
       section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
         b.setAttribute('aria-pressed', String(b.dataset.aview === view));
       });
