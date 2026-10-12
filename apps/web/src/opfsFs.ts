@@ -5,6 +5,14 @@ interface Movable {
   move(parent: FileSystemDirectoryHandle, name: string): Promise<void>;
 }
 
+/** Files up to this size are read whole when asked for; larger ones as they are used. */
+const READ_AT_ONCE = 8 * 1024 * 1024;
+const READ_TRIES = 5;
+
+/** Whether a read failed because the file changed after it was looked up: written, or put in place anew by a write. */
+const changedMeanwhile = (error: unknown) =>
+  error instanceof DOMException && (error.name === 'InvalidStateError' || error.name === 'NotReadableError' || error.name === 'NotFoundError');
+
 /** A vault in the browser's origin private file system. */
 class OpfsFs implements VaultFs {
   constructor(private readonly root: FileSystemDirectoryHandle) {}
@@ -43,8 +51,21 @@ class OpfsFs implements VaultFs {
     return out;
   }
 
+  /**
+   * A file as it is now. The browser refuses to read a file that was written after it was looked
+   * up (by this tab, or by the app open in another one), so a file is read at once, and looked
+   * up again when it changed meanwhile. A large one is left to be read as it is used.
+   */
   async readBlob(path: string): Promise<Blob> {
-    return (await this.file(path, false)).getFile();
+    for (let attempt = 1; ; attempt++) {
+      const file = await (await this.file(path, false)).getFile();
+      if (file.size > READ_AT_ONCE) return file;
+      try {
+        return new Blob([await file.arrayBuffer()], { type: file.type });
+      } catch (error) {
+        if (attempt >= READ_TRIES || !changedMeanwhile(error)) throw error;
+      }
+    }
   }
 
   async readText(path: string): Promise<string> {

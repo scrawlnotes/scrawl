@@ -262,8 +262,10 @@ export function App() {
   const showNew = dialog?.kind === 'new' || (!phone && empty && !declined && !dialog);
   const showingEditor = active !== null && isNote(active);
 
+  // Opening that failed says why, with a way to try again, rather than opening for ever.
+  const [openFailed, setOpenFailed] = useState<string | null>(null);
   useEffect(() => {
-    void session.start(host.current!);
+    session.start(host.current!).catch((error: unknown) => setOpenFailed(error instanceof Error ? error.message : String(error)));
     return () => session.dispose();
   }, [session]);
 
@@ -1441,7 +1443,16 @@ export function App() {
                 </button>
               </span>
             )}
-            <span className="push">{!ready ? t('status.opening') : saved ? t('status.saved') : t('status.saving')}</span>
+            {openFailed && !ready ? (
+              <span className="push update" role="alert">
+                {t('status.openFailed', { error: openFailed })}
+                <button type="button" onClick={() => window.location.reload()}>
+                  {t('status.reload')}
+                </button>
+              </span>
+            ) : (
+              <span className="push">{!ready ? t('status.opening') : saved ? t('status.saved') : t('status.saving')}</span>
+            )}
             {showingEditor && (
               <button
                 type="button"

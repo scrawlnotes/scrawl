@@ -38,6 +38,7 @@ export const en = {
   'status.selectedLines': '{lines}, {characters} selected',
   'status.selections': '{selections}, {characters} selected',
   'status.opening': 'Opening…',
+  'status.openFailed': 'Could not open: {error}',
   'status.saved': 'Saved',
   'status.saving': 'Saving…',
   'status.updateReady': 'New version ready',
