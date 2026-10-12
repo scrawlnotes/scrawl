@@ -60,7 +60,6 @@ import {
   type KeysLook,
   listVersions,
   loadFilters,
-  foldersNest,
   fromSpace,
   isSpaceId,
   inSpace,
@@ -77,6 +76,7 @@ import {
   rebaseTasks,
   type SpaceAt,
   type SpaceEntry,
+  type SpaceSource,
   spaceOf,
   toSpace,
   withinSpace,
@@ -197,7 +197,6 @@ import { boardPathOf, collectionPathOf, collectionTab, filterOf, filterTab, fold
 import { sampleDoc } from './sample';
 import {
   addSpaceEntry,
-  chooseFolder,
   chooseVaultFolder,
   defaultVaultFolder,
   newSpaceFolder,
@@ -320,8 +319,10 @@ export interface SpaceView {
   name: string;
   /** Shared through a cloud drive, so it carries a cloud in the sidebar. */
   shared: boolean;
-  /** Desktop: its folder on disk. */
+  /** Desktop: the folder of its copy on disk. */
   folder: string | null;
+  /** Where it lives in the cloud, which its sync follows. */
+  source: SpaceSource | null;
   /** Its folders and files, their paths carrying the space. */
   tree: TreeNode[];
 }
@@ -572,6 +573,7 @@ export class Session {
         name: space.name,
         shared: !!space.entry.source,
         folder: space.entry.folder ?? null,
+        source: space.entry.source ?? null,
         tree: prefixTree(await readTree(space.fs).catch(() => []), id),
       })),
     );
@@ -605,31 +607,27 @@ export class Session {
     return [this.at(item.from).fs, { ...item, path: localPath(item.path), from: localPath(item.from) }];
   }
 
-  /** Adds a space: a new folder named after it, or a folder that is already there (desktop). Returns its id, or null when the folder window was cancelled. */
-  async addSpace(how: 'new' | 'existing', name: string): Promise<string | null> {
-    let entry: SpaceEntry;
-    if (how === 'new') {
-      const id = newSpaceId();
-      entry = await newSpaceFolder(id, name.trim());
-      const fs = await openSpaceVault(entry);
-      if (!fs) throw new Error(t('error.create'));
-      await saveSpace(fs, { id, name: name.trim() });
-    } else {
-      const folder = await chooseFolder(t('settings.existingDialog'));
-      if (!folder) return null;
-      const taken = [this.snapshot.folder, ...spaceEntries().map((each) => each.folder)].filter((each): each is string => !!each);
-      if (taken.some((each) => foldersNest(each, folder))) throw new Error(t('error.spaceNests'));
-      const fs = await openSpaceVault({ id: newSpaceId(), folder });
-      if (!fs) throw new Error(t('error.create'));
-      // A folder that was a space before keeps its id, so that links to it from elsewhere still work.
-      const info = await loadSpace(fs);
-      const kept = isSpaceId(info.id) ? info.id : null;
-      entry = { id: kept ?? newSpaceId(), folder, ...(info.name && { name: info.name }) };
-      if (!kept) await saveSpace(fs, { ...info, id: entry.id });
-    }
-    await addSpaceEntry(entry);
+  /**
+   * Adds a space that lives in a cloud folder: its copy on this device is made (on desktop a
+   * folder named after it in the app's data folder), and its sync brings what the folder holds.
+   * A folder that is a space already keeps the id it has, so that the same space is the same on
+   * every device; `id` is that one, read from the folder. Returns the space's id.
+   */
+  async addSpace(name: string, source: SpaceSource, id?: string): Promise<string> {
+    const entries = spaceEntries();
+    const kept = isSpaceId(id) && !entries.some((each) => each.id === id) ? id : newSpaceId();
+    const made = await newSpaceFolder(kept, name.trim());
+    const fs = await openSpaceVault(made);
+    if (!fs) throw new Error(t('error.create'));
+    await saveSpace(fs, { id: kept, name: name.trim() });
+    await addSpaceEntry({ ...made, source });
     await this.reloadSpaces();
-    return entry.id;
+    return kept;
+  }
+
+  /** The files of a space's copy on this device, for its sync; null when it is not open. */
+  spaceVault(id: string): VaultFs | null {
+    return this.opened.get(id)?.fs ?? null;
   }
 
   /** Forgets a space on this device; with `deleteFiles`, its copy here goes too. Its tabs close. */
@@ -1435,20 +1433,21 @@ export class Session {
    * After a turn of sync: tabs follow what moved on another device and close for what was
    * deleted there, and everything it changed is read again.
    */
-  async afterSync(report: SyncReport) {
+  async afterSync(report: SyncReport, space: string | null = null) {
     if (!this.snapshot.ready) return;
-    for (const { from, to } of report.followed) await this.follow(from, to);
-    for (const path of report.removedHere) await this.detach(tabOf(path));
+    // The report has the space's own paths; the tabs have the app's.
+    const app = fromSpace(space);
+    for (const { from, to } of report.followed) {
+      if (to.startsWith('.scrawl/trash/')) await this.detach(tabOf(app(from)));
+      else await this.follow(app(from), app(to));
+    }
+    for (const path of report.removedHere) await this.detach(tabOf(app(path)));
     const changed = [report.downloaded, report.merged, report.conflicts, report.moved, report.removedHere].some((paths) => paths.length > 0);
     if (changed) await this.rescan();
   }
 
-  /** A file moved by sync: its tab and editing state go with it; into the trash, its tab closes. */
+  /** A file moved by sync: its tab and editing state go with it. */
   private async follow(from: string, to: string) {
-    if (to.startsWith('.scrawl/trash/')) {
-      await this.detach(tabOf(from));
-      return;
-    }
     const state = this.states.get(from);
     if (state) {
       this.states.delete(from);

@@ -1,14 +1,13 @@
-import type { Me } from '@scrawlnotes/core';
+import type { Me, SpaceSource } from '@scrawlnotes/core';
 import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
-import { ConfirmDialog, ContextMenu, type MenuItem } from './dialogs';
+import { ContextMenu, Dialog, type MenuItem } from './dialogs';
 import type { SpaceView } from './session';
-import { isDesktop } from './storage';
 import { chooseLanguage, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
 import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
-import type { SyncService, SyncSnapshot } from './sync';
-import { SyncRow, ThisDevice } from './SyncViews';
+import type { Connection, SyncService, SyncSnapshot } from './sync';
+import { CloudIcon, FolderPicker, SpaceSyncRow, SyncRow, ThisDevice } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 
 export type Section = 'profile' | 'appearance' | 'spaces' | 'language';
@@ -48,12 +47,15 @@ export interface SettingsValues {
   /** The spaces beside the personal one, in the sidebar's order. */
   spaces: SpaceView[];
   onRenameSpaceById: (id: string, name: string) => void;
-  /** Adds a space; resolves to its id, or null when the folder window was cancelled. */
-  onAddSpace: (how: 'new' | 'existing', name: string) => Promise<string | null>;
+  /** Adds a space living in a cloud folder, `id` the one the folder has when it is a space already; resolves to its id. */
+  onAddSpace: (name: string, source: SpaceSource, id?: string) => Promise<string>;
+  /** Takes a space off this device; with `deleteFiles`, its copy here goes too. */
   onRemoveSpace: (id: string, deleteFiles: boolean) => void;
   onMoveSpace: (id: string, by: -1 | 1) => void;
   /** The space whose page Spaces opens on: an id, null for the personal space, undefined for the list. */
   initialSpace?: string | null;
+  /** Back from signing in to add a space: Spaces opens with Add space, its folder to be chosen in this account. */
+  addingAs?: Connection['account'] | null;
   /** Desktop: the folder the notes are in. Null in the browser. */
   folder: string | null;
   /** Desktop: the folder the notes go to unless another is chosen. */
@@ -244,17 +246,47 @@ function Profile({ me, onSaveProfile }: Pick<SettingsValues, 'me' | 'onSaveProfi
  * The spaces: a list in the sidebar's order, each row opening the space's page, and Add space
  * under it. A space's page has its name, its folder, its sync, and the way out of this device.
  */
-function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'initialSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
-  const { spaces, onMoveSpace, onRemoveSpace, initialSpace } = values;
+function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'initialSpace' | 'addingAs' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
+  const { spaces, onMoveSpace, onRemoveSpace, initialSpace, addingAs, sync, syncService } = values;
   // The page open: a space by its id, null for the personal space, undefined for the list.
   const [page, setPage] = useState<string | null | undefined>(initialSpace);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(!!addingAs);
   const [removing, setRemoving] = useState<SpaceView | null>(null);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; id: string } | null>(null);
+  // The account the page came back from Microsoft with is taken once.
+  useEffect(() => {
+    if (addingAs) syncService.donePicking();
+  }, [addingAs, syncService]);
   const personalName = values.spaceName ?? t('settings.personal');
+  const add =
+    adding &&
+    <AddSpaceDialog
+      sync={sync}
+      service={syncService}
+      account={addingAs ?? null}
+      onAdd={values.onAddSpace}
+      onDone={(id) => {
+        setAdding(false);
+        if (id) setPage(id);
+      }}
+    />;
   if (page === null) return <PersonalPage {...values} onBack={() => setPage(undefined)} />;
   const shown = page === undefined ? null : spaces.find((space) => space.id === page);
-  if (shown) return <SpacePage space={shown} onRename={(name) => values.onRenameSpaceById(shown.id, name)} onBack={() => setPage(undefined)} onRemove={() => setRemoving(shown)} removing={removing} onRemoved={() => setRemoving(null)} onRemoveSpace={onRemoveSpace} />;
+  if (shown) {
+    return (
+      <SpacePage
+        space={shown}
+        sync={sync}
+        service={syncService}
+        onRename={(name) => values.onRenameSpaceById(shown.id, name)}
+        onBack={() => setPage(undefined)}
+        onRemove={() => setRemoving(shown)}
+        removing={removing}
+        onRemoved={() => setRemoving(null)}
+        onRemoveSpace={onRemoveSpace}
+      />
+    );
+  }
   const spaceMenu = (event: MouseEvent, id: string) => {
     event.preventDefault();
     setMenu({ at: { x: event.clientX, y: event.clientY }, id });
@@ -287,7 +319,7 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
               <Icon name="space" />
               <span className="nm">
                 <b>{space.name}</b>
-                <small>{space.folder ? `${t('settings.onComputer')} · ${space.folder}` : t('settings.inBrowser')}</small>
+                <small>{space.source ? t('settings.inCloud', { provider: t('sync.oneDrive'), path: space.source.place.path ?? '' }) : space.folder ?? t('settings.inBrowser')}</small>
               </span>
             </button>
             {space.shared && (
@@ -301,115 +333,237 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
           </div>
         ))}
       </div>
-      {adding ? (
-        <AddSpace onAdd={values.onAddSpace} onDone={(id) => {
-          setAdding(false);
-          if (id) setPage(id);
-        }} />
-      ) : (
-        <div className="st-acts">
-          <button type="button" className="primary" onClick={() => setAdding(true)}>
-            {t('settings.addSpace')}
-          </button>
-          <small>{t('settings.addSpaceAbout')}</small>
-        </div>
-      )}
+      <div className="st-acts">
+        <button type="button" className="primary" onClick={() => setAdding(true)}>
+          {t('settings.addSpace')}
+        </button>
+        <small>{t('settings.addSpaceAbout')}</small>
+      </div>
+      {add}
       {menu && <ContextMenu at={menu.at} items={menuItems(menu.id)} onClose={() => setMenu(null)} />}
-      {removing && <RemoveSpaceAsk space={removing} onRemoveSpace={onRemoveSpace} onClose={() => setRemoving(null)} />}
+      {removing && <RemoveSpaceDialog space={removing} onRemove={(deleteFiles) => onRemoveSpace(removing.id, deleteFiles)} onClose={() => setRemoving(null)} />}
     </>
   );
 }
 
-/** The question before a space leaves this device: its folder stays, or goes too. */
-function RemoveSpaceAsk({ space, onRemoveSpace, onClose }: { space: SpaceView; onRemoveSpace: SettingsValues['onRemoveSpace']; onClose: () => void }) {
+/**
+ * The question before a space leaves this device: it stays in its cloud and on the other
+ * devices; ticked, its copy here is deleted too, which cannot be undone, and Remove turns red.
+ */
+export function RemoveSpaceDialog({ space, onRemove, onClose }: { space: Pick<SpaceView, 'name'>; onRemove: (deleteFiles: boolean) => void; onClose: () => void }) {
+  const [deleteFiles, setDeleteFiles] = useState(false);
+  const title = t('settings.removeTitle', { name: space.name });
+  const remove = () => {
+    onClose();
+    onRemove(deleteFiles);
+  };
   return (
-    <ConfirmDialog
-      title={t('settings.removeTitle', { name: space.name })}
-      message={t('settings.removeMessage')}
-      action={t('settings.removeKeep')}
-      danger={false}
-      second={{
-        action: t('settings.removeDelete'),
-        run: () => {
-          onClose();
-          onRemoveSpace(space.id, true);
-        },
-      }}
-      onConfirm={() => {
-        onClose();
-        onRemoveSpace(space.id, false);
-      }}
-      onClose={onClose}
-    />
+    <Dialog label={title} className="space-remove" onClose={onClose}>
+      <h2>{title}</h2>
+      <p className="confirm">{t('settings.removeMessage', { name: space.name })}</p>
+      <label className="check">
+        <input type="checkbox" checked={deleteFiles} onChange={(event) => setDeleteFiles(event.target.checked)} />
+        <span>{t('settings.removeFiles')}</span>
+      </label>
+      {deleteFiles && (
+        <p className="gone" role="alert">
+          <Icon name="warn" />
+          {t('settings.removeGone')}
+        </p>
+      )}
+      <div className="dialog-actions">
+        <button type="button" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className={deleteFiles ? 'danger' : 'primary'} onClick={remove}>
+          {t('settings.removeAction')}
+        </button>
+      </div>
+    </Dialog>
   );
 }
 
-/** Adding a space: a new one, named here, or on desktop a folder that is already there. */
-function AddSpace({ onAdd, onDone }: { onAdd: SettingsValues['onAddSpace']; onDone: (id: string | null) => void }) {
+/**
+ * Add space, after the Add space views of design/mockups.html: a name, where the space lives (a
+ * row for each place, with the account it is connected to: OneDrive now, more later) and the
+ * folder there, chosen in the drive's own window. Without a connection, connecting comes first.
+ * A folder that is a space already keeps its id and gives its name; one that is the personal
+ * space's, another space's, or inside one, is refused with a word why.
+ */
+function AddSpaceDialog({ sync, service, account: given, onAdd, onDone }: {
+  sync: SyncSnapshot;
+  service: SyncService;
+  /** Signed in already, the page back from Microsoft: the account to choose the folder in. */
+  account: Connection['account'] | null;
+  onAdd: SettingsValues['onAddSpace'];
+  onDone: (id: string | null) => void;
+}) {
   const [name, setName] = useState('');
+  // Undefined while it is being asked whether a key is kept.
+  const [account, setAccount] = useState<Connection['account'] | null | undefined>(given ?? undefined);
+  const [folder, setFolder] = useState<{ folder: Connection['folder']; id?: string } | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const add = async (how: 'new' | 'existing') => {
-    if (how === 'new' && !name.trim()) {
-      setError(t('error.spaceName'));
+
+  useEffect(() => {
+    if (given) return;
+    let live = true;
+    void service.signedInAs().then((who) => live && setAccount(who));
+    return () => {
+      live = false;
+    };
+  }, [given, service]);
+  useEffect(() => () => signing?.cancel(), [signing]);
+
+  const connect = async () => {
+    const cloud = service.cloud();
+    setError(null);
+    if (cloud.redirects) {
+      // The page goes to Microsoft and comes back with this window open again.
+      await service.leaveToSignIn('space');
+      return;
+    }
+    const attempt = cloud.signIn('space');
+    setSigning(attempt);
+    try {
+      await attempt.done;
+      setAccount(await service.account());
+      setPicking(true);
+    } catch (failure) {
+      if (!(failure instanceof DOMException && failure.name === 'AbortError')) setError(t('sync.signInFailed', { error: failure instanceof Error ? failure.message : String(failure) }));
+    } finally {
+      setSigning(null);
+    }
+  };
+
+  const choose = async (chosen: Connection['folder']) => {
+    setPicking(false);
+    setError(null);
+    const refused = service.refusal(chosen);
+    if (refused) {
+      setError(refused);
       return;
     }
     setBusy(true);
     try {
-      onDone(await onAdd(how, name));
+      // A folder that is a space already says what it is called; its id goes with it.
+      const info = await service.spaceAt(chosen);
+      setFolder({ folder: chosen, ...(info.id && { id: info.id }) });
+      if (info.name && !name.trim()) setName(info.name);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const add = async () => {
+    if (busy || !account || !folder) return;
+    if (!name.trim()) {
+      setError(t('error.spaceName'));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      onDone(await onAdd(name, { provider: 'onedrive', account: account.email || account.name, place: { item: folder.folder.id, path: folder.folder.path } }, folder.id));
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : t('error.create'));
       setBusy(false);
     }
   };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape' || picking) return;
+    // The settings behind close on Escape too; this window takes it first.
+    event.preventDefault();
+    event.stopPropagation();
+    onDone(null);
+  };
+
+  const ready = !!account && !!folder && !busy;
   return (
-    <div className="st-space st-add">
-      <div className="top">
-        <Icon name="plus" />
-        <b>{t('settings.newSpace')}</b>
-        <small>{t('settings.newSpaceAbout')}</small>
-      </div>
-      <div className="st-row">
-        <label className="fl" htmlFor="space-new-name">
+    <div className="fp-ovl" onMouseDown={(event) => event.target === event.currentTarget && onDone(null)}>
+      <div className="fp space-add" role="dialog" aria-modal="true" aria-label={t('space.addTitle')} tabIndex={-1} onKeyDown={onKeyDown}>
+        <h3>{t('space.addTitle')}</h3>
+        <label className="label" htmlFor="space-add-name">
           {t('settings.name')}
         </label>
         <input
-          id="space-new-name"
+          id="space-add-name"
+          className="field"
           value={name}
           autoFocus
           autoComplete="off"
-          disabled={busy}
           onChange={(event) => {
             setName(event.target.value);
             setError(null);
           }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') void add('new');
-            else if (event.key === 'Escape') onDone(null);
-            else return;
+            if (event.key !== 'Enter') return;
             event.preventDefault();
+            void add();
           }}
         />
-        <button type="button" className="primary" disabled={busy} onClick={() => void add('new')}>
-          {t('settings.add')}
-        </button>
-      </div>
-      {error && (
-        <p className="st-note error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="st-acts">
-        {isDesktop && (
-          <button type="button" disabled={busy} onClick={() => void add('existing')}>
-            {t('settings.existingFolder')}
+        <span className="label">{t('space.location')}</span>
+        <div className="list" role="radiogroup" aria-label={t('space.location')}>
+          <button type="button" role="radio" aria-checked="true" className="row on">
+            <CloudIcon />
+            <span className="name">{t('sync.oneDrive')}</span>
+            <small>{account === undefined ? t('sync.loading') : account ? account.email || account.name : t('space.notConnected')}</small>
           </button>
+        </div>
+        {account === null || signing ? (
+          <div className="connect">
+            <CloudIcon />
+            <span>{signing ? t('sync.waitingForBrowser') : t('space.connectFirst')}</span>
+            {signing ? (
+              <button type="button" className="st-btn" onClick={() => signing.cancel()}>
+                {t('sync.cancel')}
+              </button>
+            ) : (
+              <button type="button" className="st-btn go" onClick={() => void connect()}>
+                {t('sync.connectOneDrive')}
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <span className="label">{t('settings.folder')}</span>
+            <div className="pick">
+              <span className={folder ? 'path' : 'path none'}>
+                {folder ? (
+                  <>
+                    <CloudIcon />
+                    {folder.folder.path}
+                  </>
+                ) : (
+                  t('space.noFolder')
+                )}
+              </span>
+              <button type="button" className="st-btn" disabled={!account || busy} onClick={() => setPicking(true)}>
+                {t('space.chooseFolder')}
+              </button>
+            </div>
+          </>
         )}
-        {isDesktop && <small>{t('settings.existingAbout')}</small>}
-        <button type="button" className="right" disabled={busy} onClick={() => onDone(null)}>
-          {t('dialog.cancel')}
-        </button>
+        {error && (
+          <p className="note err" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="foot">
+          <button type="button" className="st-btn" onClick={() => onDone(null)}>
+            {t('dialog.cancel')}
+          </button>
+          <button type="button" className="st-btn go" disabled={!ready} onClick={() => void add()}>
+            {name.trim() ? t('space.add', { name: name.trim() }) : t('settings.add')}
+          </button>
+        </div>
       </div>
+      {picking && account && <FolderPicker account={account} service={service} suggested={name} onUse={(chosen) => void choose(chosen)} onCancel={() => setPicking(false)} />}
     </div>
   );
 }
@@ -502,9 +656,11 @@ function PersonalPage({
   );
 }
 
-/** A space beside the personal one: its name, where its files are, and the way out of this device. */
-function SpacePage({ space, onRename, onBack, onRemove, removing, onRemoved, onRemoveSpace }: {
+/** A space beside the personal one: its name, where its copy is on this device, its sync, and the way out of this device. */
+function SpacePage({ space, sync, service, onRename, onBack, onRemove, removing, onRemoved, onRemoveSpace }: {
   space: SpaceView;
+  sync: SyncSnapshot;
+  service: SyncService;
   onRename: (name: string) => void;
   onBack: () => void;
   onRemove: () => void;
@@ -533,14 +689,14 @@ function SpacePage({ space, onRename, onBack, onRemove, removing, onRemoved, onR
           )}
           <span />
         </div>
+        <SpaceSyncRow view={sync.all.find((unit) => unit.space === space.id)} service={service} />
       </div>
       <div className="st-acts">
         <button type="button" onClick={onRemove}>
           {t('settings.removeSpace')}
         </button>
-        <small>{t('settings.removeAbout')}</small>
       </div>
-      {removing && <RemoveSpaceAsk space={removing} onRemoveSpace={onRemoveSpace} onClose={onRemoved} />}
+      {removing && <RemoveSpaceDialog space={removing} onRemove={(deleteFiles) => onRemoveSpace(removing.id, deleteFiles)} onClose={onRemoved} />}
     </>
   );
 }

@@ -578,6 +578,24 @@ export class OneDriveAccount {
     return out.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
   }
 
+  /**
+   * A text file in a folder, by its path there; null when there is none. What a folder's own
+   * settings say before it is added as a space: whether it is one already, and what it is called.
+   */
+  async readText(folder: string, path: string): Promise<string | null> {
+    const response = await this.graph.request(`${GRAPH}/me/drive/items/${folder}:/${path.split('/').map(encodeURIComponent).join('/')}`);
+    if (response.status === 404) return null;
+    if (!response.ok) throw await failure(response);
+    const item = (await response.json()) as DriveItem;
+    // The content comes from the item's download address, as the adapter reads it.
+    const url = item['@microsoft.graph.downloadUrl'];
+    if (!url || !item.file) return null;
+    const content = await this.graph.request(url, {}, false);
+    if (content.status === 404) return null;
+    if (!content.ok) throw await failure(content);
+    return content.text();
+  }
+
   /** Makes a folder; one of that name already there is used as it is. */
   async createFolder(parent: string | null, name: string): Promise<OneDriveFolder> {
     const from = parent === null ? 'root' : `items/${parent}`;

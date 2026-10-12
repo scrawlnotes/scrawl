@@ -104,7 +104,7 @@ import { applySize, applyTheme, isPhone, loadMode, loadSize, loadTheme, type Mod
 import { Phone } from './Phone';
 import { PhoneCreate } from './PhoneCreate';
 import { Session, type SpaceView } from './session';
-import { type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
+import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { SyncSheet, SyncStatus, syncWord } from './SyncViews';
@@ -121,7 +121,8 @@ type OpenDialog =
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
-  | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void; second?: { action: string; run: () => void } }
+  | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void }
+  | { kind: 'removeSpace'; id: string }
   | { kind: 'history'; path: string }
   | { kind: 'moveTask'; list: string; id: string }
   | { kind: 'toTask'; note: string; title: string; description: string }
@@ -209,10 +210,11 @@ export function App() {
   const [syncSheet, setSyncSheet] = useState(false);
   const [syncService] = useState(() => new SyncService(session));
   const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
-  // Back from signing in in the browser: Settings opens at the space's sync, for its folder or what went wrong.
+  // Back from signing in in the browser: Settings opens at the space's sync, for its folder or what
+  // went wrong; or at Spaces with Add space, to choose the new space's folder.
   useEffect(() => {
-    if (sync.picking || sync.signInError) setDialog({ kind: 'settings', section: 'spaces' });
-  }, [sync.picking, sync.signInError]);
+    if (sync.picking || sync.adding || sync.signInError) setDialog({ kind: 'settings', section: 'spaces' });
+  }, [sync.picking, sync.adding, sync.signInError]);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
@@ -533,18 +535,14 @@ export function App() {
     }
     openMenu(event, items, id ? `@${id}` : '@personal');
   };
-  const askRemoveSpace = (id: string) => {
-    const space = spaces.find((each) => each.id === id);
-    if (!space) return;
-    setDialog({
-      kind: 'confirm',
-      title: t('settings.removeTitle', { name: space.name }),
-      message: t('settings.removeMessage'),
-      action: t('settings.removeKeep'),
-      danger: false,
-      run: () => void session.removeSpace(id, false),
-      second: { action: t('settings.removeDelete'), run: () => void session.removeSpace(id, true) },
-    });
+  const askRemoveSpace = (id: string) => setDialog({ kind: 'removeSpace', id });
+  /**
+   * A space leaves this device: its sync stops first, a turn running ending before, so that no
+   * turn sees its files go and takes that to the cloud; then its copy here may be deleted.
+   */
+  const removeSpace = async (id: string, deleteFiles: boolean) => {
+    await syncService.forgetSpace(id);
+    await session.removeSpace(id, deleteFiles);
   };
   // The menu of a note, a task list, a board, a keys file or a collection; the inbox's own list has none.
   const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
@@ -1055,10 +1053,11 @@ export function App() {
     onRenameSpace: (name) => session.renameSpace(name),
     spaces,
     onRenameSpaceById: (id, name) => session.renameSpaceById(id, name),
-    onAddSpace: (how, name) => session.addSpace(how, name),
-    onRemoveSpace: (id, deleteFiles) => void session.removeSpace(id, deleteFiles),
+    onAddSpace: (name, source, id) => session.addSpace(name, source, id),
+    onRemoveSpace: (id, deleteFiles) => void removeSpace(id, deleteFiles),
     onMoveSpace: (id, by) => void session.moveSpace(id, by),
     initialSpace: dialog?.kind === 'settings' ? dialog.space : undefined,
+    addingAs: sync.adding,
     folder,
     defaultFolder,
     // A folder that holds a space, or is inside one, is refused with a word why.
@@ -1297,8 +1296,8 @@ export function App() {
             <SyncSheet
               sync={sync}
               onClose={() => setSyncSheet(false)}
-              onSyncNow={() => syncService.syncNow()}
-              onSettings={() => setDialog({ kind: 'settings', section: 'spaces' })}
+              onSyncNow={(space) => syncService.syncNow(space)}
+              onSettings={(space) => setDialog({ kind: 'settings', section: 'spaces', space })}
               onSignIn={() => (syncService.cloud().redirects ? void syncService.leaveToSignIn('again') : setDialog({ kind: 'settings', section: 'spaces' }))}
             />
           )}
@@ -1427,8 +1426,8 @@ export function App() {
             )}
             <SyncStatus
               sync={sync}
-              onSyncNow={() => syncService.syncNow()}
-              onSettings={() => setDialog({ kind: 'settings', section: 'spaces' })}
+              onSyncNow={(space) => syncService.syncNow(space)}
+              onSettings={(space) => setDialog({ kind: 'settings', section: 'spaces', space })}
               // In the browser the page goes to Microsoft and back; on the desktop it is done in Settings, which waits for the system browser.
               onSignIn={() => (syncService.cloud().redirects ? void syncService.leaveToSignIn('again') : setDialog({ kind: 'settings', section: 'spaces' }))}
               onOpenCopy={(path) => void session.open(path)}
@@ -1488,6 +1487,11 @@ export function App() {
       )}
       {/* On a phone the settings are pages in Browse. */}
       {dialog?.kind === 'settings' && !phone && <Settings {...settingsValues} initial={dialog.section} onClose={closeDialog} />}
+      {dialog?.kind === 'removeSpace' &&
+        (() => {
+          const space = spaces.find((each) => each.id === dialog.id);
+          return space && <RemoveSpaceDialog space={space} onRemove={(deleteFiles) => void removeSpace(space.id, deleteFiles)} onClose={closeDialog} />;
+        })()}
       {dialog?.kind === 'phase' && (
         <PhaseDialog
           phase={dialog.phase}
@@ -1559,15 +1563,6 @@ export function App() {
           message={dialog.message}
           action={dialog.action}
           danger={dialog.danger}
-          second={
-            dialog.second && {
-              action: dialog.second.action,
-              run: () => {
-                setDialog(null);
-                dialog.second!.run();
-              },
-            }
-          }
           onConfirm={() => {
             setDialog(null);
             dialog.run();

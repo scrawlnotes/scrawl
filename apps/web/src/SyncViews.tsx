@@ -7,7 +7,7 @@ import { clientId, DEFAULT_CLIENT_ID, setClientId } from './cloud';
 import { pageBox, pageWindow } from './device';
 import { Icon } from './Icon';
 import { useNarrow } from './narrow';
-import type { Connection, SyncPhase, SyncService, SyncSnapshot, TurnView } from './sync';
+import type { Connection, SpaceSync, SpaceSyncView, SyncPhase, SyncService, SyncSnapshot, TurnView } from './sync';
 import { isDesktop } from './storage';
 
 // What sync shows: its row in a space's settings, this device's name, the window to choose a
@@ -36,7 +36,7 @@ export function useTicking(on: boolean) {
 }
 
 /** Where a phase stands, in the settings: words, and the colour of its dot. */
-function stateOf(sync: SyncSnapshot): { text: string; tone: 'ok' | 'busy' | 'off' | 'bad' } {
+function stateOf(sync: SpaceSync): { text: string; tone: 'ok' | 'busy' | 'off' | 'bad' } {
   const { phase, syncedAt, error } = sync;
   if (phase === 'syncing') return { text: t('sync.syncingPct', { pct: percent(sync.turn?.progress.share ?? 0) }), tone: 'busy' };
   if (phase === 'offline') return { text: t('sync.offlineLong'), tone: 'off' };
@@ -116,8 +116,8 @@ export function SyncRow({ sync, service }: SyncRowProps) {
       }}
       onCancel={() => {
         setPicking(null);
-        // Not connected after all: the key kept for it goes.
-        if (!sync.connection) void service.cloud().signOut();
+        // Not connected after all: the key kept for it goes, unless a space syncs with it.
+        if (!sync.connection && sync.all.length === 0) void service.cloud().signOut();
       }}
     />
   );
@@ -226,6 +226,86 @@ export function SyncRow({ sync, service }: SyncRowProps) {
   );
 }
 
+/**
+ * The sync of a space beside the personal one, on its page: its cloud, account and folder, how it
+ * stands, and Sync now; Sign in again once the key stopped working. A space lives in its cloud
+ * folder, so there is no disconnecting it: it is removed from the device instead.
+ */
+export function SpaceSyncRow({ view, service }: { view: SpaceSyncView | undefined; service: SyncService }) {
+  const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useTicking(true);
+  useEffect(() => () => signing?.cancel(), [signing]);
+  const signIn = async () => {
+    const cloud = service.cloud();
+    setError(null);
+    if (cloud.redirects) {
+      await service.leaveToSignIn('again');
+      return;
+    }
+    const attempt = cloud.signIn('again');
+    setSigning(attempt);
+    try {
+      await attempt.done;
+      service.signedInAgain();
+    } catch (failure) {
+      if (!(failure instanceof DOMException && failure.name === 'AbortError')) setError(t('sync.signInFailed', { error: failure instanceof Error ? failure.message : String(failure) }));
+    } finally {
+      setSigning(null);
+    }
+  };
+  if (!view?.connection) {
+    return (
+      <div className="st-sync">
+        <span className="fl">{t('sync.label')}</span>
+        <div className="what">
+          <p>{t('sync.notSynced')}</p>
+        </div>
+      </div>
+    );
+  }
+  const state = stateOf(view);
+  const { connection } = view;
+  return (
+    <div className="st-sync">
+      <span className="fl">{t('sync.label')}</span>
+      <div className="what">
+        <span className="who">
+          <CloudIcon />
+          <b>{t('sync.oneDrive')}</b>
+          <small>{connection.account.email || connection.account.name}</small>
+        </span>
+        <span className="where">{connection.folder.path}</span>
+        <span className={`state ${state.tone}`} role="status">
+          <i />
+          {state.text}
+        </span>
+        <span className="acts">
+          {signing ? (
+            <button type="button" className="st-btn" onClick={() => signing.cancel()}>
+              {t('sync.cancel')}
+            </button>
+          ) : view.phase === 'signedOut' ? (
+            <button type="button" className="st-btn go" onClick={() => void signIn()}>
+              {t('sync.signInAgain')}
+            </button>
+          ) : (
+            <button type="button" className="st-btn" disabled={view.phase === 'syncing'} onClick={() => service.syncNow(view.space)}>
+              {t('sync.syncNow')}
+            </button>
+          )}
+        </span>
+        {signing && <p className="small">{t('sync.waitingForBrowser')}</p>}
+        {error && (
+          <p className="err" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** The user's own app registration, for those who would rather not sign in through Scrawl's. */
 function OwnApp({ onDone }: { onDone: () => void }) {
   const kept = clientId();
@@ -308,12 +388,14 @@ function ResyncIcon() {
   );
 }
 
-/** The folder suggested for a space, at the top of the drive. */
-const SUGGESTED = 'Scrawl';
+/** The folder suggested for the personal space, at the top of the drive. */
+const DEFAULT_FOLDER = 'Scrawl';
 
 interface PickerProps {
   account: Connection['account'];
   service: SyncService;
+  /** The folder offered at the top of the drive, made with one click if it is not there: `Scrawl` for the personal space, a space's name for it. */
+  suggested?: string;
   onUse: (folder: Connection['folder']) => void;
   onCancel: () => void;
 }
@@ -323,7 +405,8 @@ interface PickerProps {
  * one chosen, a new one made in place. At the top of the drive `Scrawl` is offered, made with
  * one click if it is not there.
  */
-export function FolderPicker({ account, service, onUse, onCancel }: PickerProps) {
+export function FolderPicker({ account, service, suggested, onUse, onCancel }: PickerProps) {
+  const SUGGESTED = suggested?.trim() || DEFAULT_FOLDER;
   /** The folders gone into, from the top of the drive (id null). */
   const [trail, setTrail] = useState<{ id: string | null; name: string }[]>([{ id: null, name: t('sync.oneDrive') }]);
   const [folders, setFolders] = useState<OneDriveFolder[] | null>(null);
@@ -537,11 +620,25 @@ const CONFLICT_SHOWN_MS = 10_000;
 const HOVER_OPEN_MS = 350;
 const HOVER_CLOSE_MS = 300;
 
+/** Which of the spaces that sync the status bar speaks of: one in a turn, else one kept from going on, else the one synced longest ago. */
+function standing(all: readonly SpaceSyncView[]): SpaceSyncView | null {
+  const worst: SyncPhase[] = ['syncing', 'signedOut', 'folderGone', 'failed', 'offline'];
+  for (const phase of worst) {
+    const found = all.find((unit) => unit.phase === phase);
+    if (found) return found;
+  }
+  return [...all].sort((a, b) => (a.syncedAt ?? 0) - (b.syncedAt ?? 0))[0] ?? null;
+}
+
+/** A space's key among those that sync: its id, or the personal one's. */
+const keyOf = (unit: SpaceSyncView) => unit.space ?? '';
+
 export interface SyncStatusProps {
   sync: SyncSnapshot;
-  onSyncNow: () => void;
-  /** Opens Settings at the space's sync. */
-  onSettings: () => void;
+  /** A turn of one space, or of every one. */
+  onSyncNow: (space?: string | null) => void;
+  /** Opens Settings at a space's sync: the personal space's for null. */
+  onSettings: (space: string | null) => void;
   /** Signs in again after the key stopped working. */
   onSignIn: () => void;
   onOpenCopy: (path: string) => void;
@@ -553,7 +650,7 @@ export interface SyncStatusProps {
  * click keeps it open; on a phone a tap opens it as a sheet. Nothing while not connected.
  */
 export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }: SyncStatusProps) {
-  useTicking(sync.connection !== null);
+  useTicking(sync.all.length > 0);
   const narrow = useNarrow();
   const [copy, setCopy] = useState<string | null>(null);
   /** The panel: shown while the pointer is on it, kept open by a click, or closed. */
@@ -561,16 +658,19 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
   const item = useRef<HTMLSpanElement>(null);
   const timers = useRef({ open: 0, close: 0 });
 
+  // The latest conflict copy of any space.
+  const conflict = sync.all.reduce<SpaceSyncView['conflict']>((latest, unit) => (unit.conflict && (!latest || unit.conflict.at > latest.at) ? unit.conflict : latest), null);
   useEffect(() => {
-    if (!sync.conflict || Date.now() - sync.conflict.at > CONFLICT_SHOWN_MS) return;
-    setCopy(sync.conflict.path);
+    if (!conflict || Date.now() - conflict.at > CONFLICT_SHOWN_MS) return;
+    setCopy(conflict.path);
     const timer = window.setTimeout(() => setCopy(null), CONFLICT_SHOWN_MS);
     return () => window.clearTimeout(timer);
-  }, [sync.conflict]);
+  }, [conflict]);
 
+  const syncing = sync.all.length > 0;
   useEffect(() => {
-    if (!sync.connection) setOpen(null);
-  }, [sync.connection]);
+    if (!syncing) setOpen(null);
+  }, [syncing]);
 
   useEffect(() => () => window.clearTimeout(timers.current.open), []);
 
@@ -587,13 +687,16 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
   };
   const close = useCallback(() => setOpen(null), []);
 
-  if (!sync.connection) return null;
-  const { phase, syncedAt, turn } = sync;
+  const shown = standing(sync.all);
+  if (!shown) return null;
+  const { phase, syncedAt, turn } = shown;
+  // With more than one space, the one in a turn is named.
+  const many = sync.all.length > 1;
   let text: ReactNode;
   if (phase === 'syncing') {
     text = (
       <>
-        {t('sync.syncingShort')} <span className="pct">{percent(turn?.progress.share ?? 0)}</span>
+        {many ? t('sync.syncingIn', { name: shown.name }) : t('sync.syncingShort')} <span className="pct">{percent(turn?.progress.share ?? 0)}</span>
       </>
     );
   } else if (phase === 'off' || phase === 'idle') text = syncedAt === null ? t('sync.notYet') : t('sync.syncedTo', { ago: ago(syncedAt) });
@@ -622,7 +725,7 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
           <CloudIcon />
           {text}
         </button>
-        <button type="button" className="sync-now" title={t('sync.syncNow')} aria-label={t('sync.syncNow')} disabled={phase === 'syncing'} onClick={onSyncNow}>
+        <button type="button" className="sync-now" title={t('sync.syncNow')} aria-label={t('sync.syncNow')} disabled={!many && phase === 'syncing'} onClick={() => onSyncNow()}>
           <ResyncIcon />
         </button>
       </span>
@@ -637,9 +740,9 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
             onLeave={leave}
             onClose={close}
             onSyncNow={onSyncNow}
-            onSettings={() => {
+            onSettings={(space) => {
               close();
-              onSettings();
+              onSettings(space);
             }}
             onSignIn={() => {
               close();
@@ -815,21 +918,32 @@ function JobRows({ jobs, height }: { jobs: readonly SyncJob[]; height: number })
   );
 }
 
-/** How sync stands in a word or two, beside the Sync row of a phone's Browse; Off when not connected. */
-export function syncWord(sync: SyncSnapshot): string {
-  const { phase, syncedAt, turn } = sync;
-  if (!sync.connection) return t('phone.off');
+/** How a space's sync stands in a word or two. */
+function wordOf({ phase, syncedAt, turn }: SpaceSync): string {
   if (phase === 'syncing') return percent(turn?.progress.share ?? 0);
   if (phase === 'off' || phase === 'idle') return syncedAt === null ? t('sync.notYet') : ago(syncedAt);
   return t(STATUS[phase]);
+}
+
+/** How a space's sync stands, on its row of the panel: `Synced 12 s ago`, `Syncing 38%`. */
+function standingOf(unit: SpaceSync): string {
+  if (unit.phase === 'syncing') return t('sync.syncingPct', { pct: percent(unit.turn?.progress.share ?? 0) });
+  if (unit.phase === 'idle' || unit.phase === 'off') return unit.syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(unit.syncedAt) });
+  return t(STATUS[unit.phase]);
+}
+
+/** How sync stands in a word or two, beside the Sync row of a phone's Browse; Off when nothing syncs. */
+export function syncWord(sync: SyncSnapshot): string {
+  const shown = standing(sync.all);
+  return shown ? wordOf(shown) : t('phone.off');
 }
 
 /** The sync panel as a sheet from the bottom, opened from the Sync row of a phone's Browse. */
 export function SyncSheet({ sync, onClose, onSyncNow, onSettings, onSignIn }: {
   sync: SyncSnapshot;
   onClose: () => void;
-  onSyncNow: () => void;
-  onSettings: () => void;
+  onSyncNow: (space?: string | null) => void;
+  onSettings: (space: string | null) => void;
   onSignIn: () => void;
 }) {
   const nothing = useCallback(() => undefined, []);
@@ -843,9 +957,9 @@ export function SyncSheet({ sync, onClose, onSyncNow, onSettings, onSignIn }: {
       onLeave={nothing}
       onClose={onClose}
       onSyncNow={onSyncNow}
-      onSettings={() => {
+      onSettings={(space) => {
         onClose();
-        onSettings();
+        onSettings(space);
       }}
       onSignIn={() => {
         onClose();
@@ -866,8 +980,8 @@ interface PanelProps {
   onEnter: (event: PointerEvent) => void;
   onLeave: (event: PointerEvent) => void;
   onClose: () => void;
-  onSyncNow: () => void;
-  onSettings: () => void;
+  onSyncNow: (space?: string | null) => void;
+  onSettings: (space: string | null) => void;
   onSignIn: () => void;
 }
 
@@ -878,8 +992,13 @@ interface PanelProps {
  * and why. It only tells. A space may hold thousands of files: one tab shows at a time, and
  * only the rows in sight are drawn.
  */
-function SyncPanel({ sync, narrow, anchor, kept, onEnter, onLeave, onClose, onSyncNow, onSettings, onSignIn }: PanelProps) {
+function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClose, onSyncNow, onSettings, onSignIn }: PanelProps) {
   const box = useRef<HTMLElement>(null);
+  // With more than one space, each is a row on top, and the one chosen is told under them.
+  const [picked, setPicked] = useState<string | null>(null);
+  const units = whole.all;
+  const many = units.length > 1;
+  const sync: SpaceSyncView = units.find((unit) => keyOf(unit) === picked) ?? standing(units) ?? { ...whole, space: null, name: '' };
   const { phase, turn, lastDone } = sync;
   const running = phase === 'syncing' && turn !== null && turn.endedAt === null;
   const progress = turn?.progress;
@@ -937,7 +1056,7 @@ function SyncPanel({ sync, narrow, anchor, kept, onEnter, onLeave, onClose, onSy
   if (running && progress) {
     title = (
       <>
-        <b>{t('panel.syncing')}</b>
+        <b>{many ? t('panel.syncingIn', { name: sync.name }) : t('panel.syncing')}</b>
         <span className="pct">{percent(progress.share)}</span>
       </>
     );
@@ -1005,6 +1124,24 @@ function SyncPanel({ sync, narrow, anchor, kept, onEnter, onLeave, onClose, onSy
           }}
         />
       )}
+      {many && (
+        <div className="sp-spaces" role="listbox" aria-label={t('panel.spaces')}>
+          {units.map((unit) => (
+            <button
+              key={keyOf(unit)}
+              type="button"
+              role="option"
+              aria-selected={unit === sync}
+              className={unit === sync ? 'sp-sp on' : 'sp-sp'}
+              onClick={() => setPicked(keyOf(unit))}
+            >
+              <Icon name="space" />
+              <span className="nm">{unit.name}</span>
+              <span className="r">{standingOf(unit)}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="sp-head">
         <div className="sp-title">
           {title}
@@ -1061,7 +1198,7 @@ function SyncPanel({ sync, narrow, anchor, kept, onEnter, onLeave, onClose, onSy
       )}
       <div className="sp-foot">
         {!narrow && <span className="left">{running ? t('panel.started', { ago: ago(turn!.startedAt) }) : t('panel.when')}</span>}
-        <button type="button" className="st-btn" onClick={onSettings}>
+        <button type="button" className="st-btn" onClick={() => onSettings(sync.space)}>
           {t('panel.settings')}
         </button>
         {phase === 'signedOut' ? (
@@ -1070,7 +1207,7 @@ function SyncPanel({ sync, narrow, anchor, kept, onEnter, onLeave, onClose, onSy
           </button>
         ) : (
           !running && (
-            <button type="button" className="st-btn go" onClick={onSyncNow}>
+            <button type="button" className="st-btn go" onClick={() => onSyncNow(many ? sync.space : undefined)}>
               {t('sync.syncNow')}
             </button>
           )

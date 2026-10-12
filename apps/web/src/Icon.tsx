@@ -269,6 +269,12 @@ const shapes = {
       <path d="M10.5 10.5v5.5M13.5 10.5v5.5" />
     </>
   ),
+  warn: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5v5.5M12 16.2v.3" />
+    </>
+  ),
   settings: (
     <>
       <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />

@@ -318,6 +318,15 @@ describe('OneDrive adapter', () => {
     const made = await account.createFolder(null, 'New');
     expect((await account.createFolder(null, 'new')).id).toBe(made.id);
   });
+
+  it('reads a text file of a folder, and nothing where there is none', async () => {
+    const { graph, folder } = setup();
+    await graph.put('Scrawl/.scrawl/space.json', '{"version":1,"id":"sp-k7f3m2qa","name":"Acme"}\n');
+    const account = new OneDriveAccount({ fetch: graph.fetch, token: async () => graph.token });
+    expect(await account.readText(folder, '.scrawl/space.json')).toContain('"sp-k7f3m2qa"');
+    expect(await account.readText(folder, '.scrawl/people.json')).toBeNull();
+    expect(await account.readText(folder, '.scrawl')).toBeNull();
+  });
 });
 
 describe('sync through OneDrive', () => {

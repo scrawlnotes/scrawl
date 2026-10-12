@@ -111,8 +111,8 @@ export interface SignIn {
   cancel(): void;
 }
 
-/** What a sign-in is for: connecting a space, or signing in again after the key stopped working. */
-export type SignInIntent = 'connect' | 'again';
+/** What a sign-in is for: connecting the personal space, adding a space, or signing in again after the key stopped working. */
+export type SignInIntent = 'connect' | 'space' | 'again';
 
 /** The account signed in to, its tokens on demand, and what can be done in its drive. */
 export interface Cloud {
@@ -329,8 +329,8 @@ class BrowserCloud extends SignedCloud implements Cloud {
       state,
       code_challenge: challenge,
       code_challenge_method: 'S256',
-      ...(intent === 'renew' ? { prompt: 'none' } : intent === 'connect' ? { prompt: 'select_account' } : {}),
-      ...(email && intent !== 'connect' && { login_hint: email }),
+      ...(intent === 'renew' ? { prompt: 'none' } : intent === 'connect' || intent === 'space' ? { prompt: 'select_account' } : {}),
+      ...(email && intent !== 'connect' && intent !== 'space' && { login_hint: email }),
     });
     window.location.assign(`${AUTHORITY}/authorize?${query}`);
     return true;
