@@ -1,25 +1,10 @@
-import { basename, boardName, collectionName, INBOX, INBOX_TASKS, keysName, listName, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { basename, INBOX, INBOX_TASKS, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
-import {
-  boardPathOf,
-  collectionPathOf,
-  collectionTab,
-  filterOf,
-  filterTab,
-  folderOf,
-  iconOf,
-  isNote,
-  keysPathOf,
-  labelOf,
-  listOf,
-  tabOf,
-  tasksOf,
-  TODAY,
-  TRASH,
-  UPCOMING,
-} from './items';
+import { collectionTab, filterOf, filterTab, folderOf, iconOf, isNote, nameOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
 // Browse and Today at its foot, and in each of them a stack of pages. A page slides in from the
@@ -33,8 +18,14 @@ import {
 export type Place = 'browse' | 'today';
 const PLACES: Place[] = ['browse', 'today'];
 
-/** What a page of a place shows: its first page, a folder, something open, or the trash. */
-type PageKind = { kind: 'root' } | { kind: 'folder'; path: string } | { kind: 'item'; id: string } | { kind: 'trash' };
+/** What a page of a place shows: its first page, a folder, something open, the trash, the settings or a section of them. */
+type PageKind =
+  | { kind: 'root' }
+  | { kind: 'folder'; path: string }
+  | { kind: 'item'; id: string }
+  | { kind: 'trash' }
+  | { kind: 'settings' }
+  | { kind: 'section'; section: Section };
 /** A page, with the key it is drawn by. */
 type Page = PageKind & { key: number };
 
@@ -48,6 +39,8 @@ const SLOP = 8;
 const KEYBOARD = 120;
 /** How many of the things opened last Browse shows; the app keeps no more of them open. */
 const RECENT = 5;
+/** How long a finger rests on a row before its menu opens. */
+const HOLD_MS = 450;
 
 export interface PhoneProps {
   ready: boolean;
@@ -72,10 +65,15 @@ export interface PhoneProps {
   onClose: (id: string) => void;
   onCreate: (folder: string) => void;
   onSync: () => void;
-  onSettings: () => void;
+  /** What the settings show and change; `open` asks for their page, at a section if one is given. */
+  settings: { values: SettingsValues; open: { section?: Section } | null; onShown: () => void };
   onNewFolder: (name: string, parent: string) => Promise<string | null>;
-  onItemMenu: (event: MouseEvent, id: string) => void;
-  onFolderMenu: (event: MouseEvent, path: string, addFolder: () => void) => void;
+  /** The menu of something open, or of a filter, as an action sheet; `page` when it comes from its page's ···. */
+  onItemMenu: (id: string, page?: boolean) => void;
+  /** A folder's menu; `addFolder` names a new folder in it. */
+  onFolderMenu: (path: string, addFolder: () => void) => void;
+  /** Whether a menu is open: a row held for it stays lifted until it closes. */
+  menuOpen: boolean;
 }
 
 // Started from the clock, so that a page made after the module is loaded again never takes the key of one still on screen.
@@ -138,19 +136,6 @@ function folderPaths(nodes: TreeNode[], into = new Set<string>()): Set<string> {
 
 const folderName = (path: string) => (path === INBOX ? t('side.inbox') : basename(path));
 
-/** What something opened is called on a phone: its name alone, the folder it is in being under it. */
-function nameOf(id: string, titles: Record<string, string>, filters: TaskFilter[]): string {
-  const list = listOf(id);
-  if (list !== null) return listName(list);
-  const board = boardPathOf(id);
-  if (board !== null) return boardName(board);
-  const keys = keysPathOf(id);
-  if (keys !== null) return keysName(keys);
-  const collection = collectionPathOf(id);
-  if (collection !== null) return collectionName(collection);
-  return labelOf(id, titles, filters);
-}
-
 /** The things opened last, the latest first; what was never seen keeps the order it was opened in. */
 const recentOf = (tabs: string[], seen: Record<string, number>): string[] =>
   tabs
@@ -160,17 +145,78 @@ const recentOf = (tabs: string[], seen: Record<string, number>): string[] =>
     .slice(0, RECENT)
     .map((each) => each.id);
 
-/** A row of a list: an icon, a name and a line under it, a count or a time, and an arrow. */
-function Row({ icon, label, sub, right, folder, onClick }: {
+/**
+ * A finger resting on a row: after a moment its menu opens, and the tap that ends it opens
+ * nothing. A finger that moves is scrolling. A right click, or a long press where the phone
+ * sends one, opens the menu too.
+ */
+function useHold(onHold?: (row: HTMLElement) => void) {
+  const at = useRef<{ x: number; y: number; timer: number; fired: boolean } | null>(null);
+  if (!onHold) return {};
+  const stop = () => {
+    if (at.current) window.clearTimeout(at.current.timer);
+  };
+  return {
+    onTouchStart: (event: TouchEvent<HTMLElement>) => {
+      const point = event.touches[0]!;
+      const row = event.currentTarget;
+      stop();
+      at.current = {
+        x: point.clientX,
+        y: point.clientY,
+        fired: false,
+        timer: window.setTimeout(() => {
+          if (at.current) at.current.fired = true;
+          onHold(row);
+        }, HOLD_MS),
+      };
+    },
+    onTouchMove: (event: TouchEvent<HTMLElement>) => {
+      const now = at.current;
+      if (!now || now.fired) return;
+      const point = event.touches[0]!;
+      if (Math.hypot(point.clientX - now.x, point.clientY - now.y) > SLOP) {
+        stop();
+        at.current = null;
+      }
+    },
+    onTouchEnd: (event: TouchEvent<HTMLElement>) => {
+      stop();
+      // The menu is open: the tap ends here.
+      if (at.current?.fired) event.preventDefault();
+      else at.current = null;
+    },
+    onTouchCancel: () => {
+      stop();
+      at.current = null;
+    },
+    onClickCapture: (event: MouseEvent) => {
+      if (at.current?.fired) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      at.current = null;
+    },
+    onContextMenu: (event: MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      if (!at.current?.fired) onHold(event.currentTarget);
+    },
+  };
+}
+
+/** A row of a list: an icon, a name and a line under it, a count or a time, and an arrow. Held, it opens its menu. */
+function Row({ icon, label, sub, right, folder, onClick, onHold }: {
   icon: IconName;
   label: string;
   sub?: ReactNode;
   right?: ReactNode;
   folder?: boolean;
   onClick: () => void;
+  onHold?: (row: HTMLElement) => void;
 }) {
+  const hold = useHold(onHold);
   return (
-    <button type="button" className={folder ? 'mb-row fold' : 'mb-row'} onClick={onClick}>
+    <button type="button" className={folder ? 'mb-row fold' : 'mb-row'} onClick={onClick} {...hold}>
       <Icon name={icon} />
       <span className="tx">
         <b>{label}</b>
@@ -298,6 +344,8 @@ export function Phone(props: PhoneProps) {
   const [keyboard, setKeyboard] = useState(false);
   const [seen, setSeen] = useState(loadSeen);
   const [now, setNow] = useState(Date.now);
+  /** A row held for its menu, lifted over the dimmed page while the menu is open: where it is and what it shows. */
+  const [held, setHeld] = useState<{ box: DOMRect; html: string; className: string } | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   const holders = useRef(new Map<number, HTMLDivElement>());
   const lastActive = useRef<string | null>(null);
@@ -410,6 +458,44 @@ export function Phone(props: PhoneProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, tabs, active, seen, stacks]);
 
+  // The settings open as a page in Browse, at a section if one was asked for, over what Browse
+  // shows; one already open is gone back to.
+  const { open: settingsAsked, onShown } = props.settings;
+  useEffect(() => {
+    if (!settingsAsked) return;
+    onShown();
+    const current = stacksNow.current.browse;
+    const at = current.findIndex((page) => page.kind === 'settings');
+    const base: Page[] = at >= 0 ? current.slice(0, at + 1) : [...current, { kind: 'settings', key: ++pageKeys }];
+    const next: Page[] = settingsAsked.section ? [...base, { kind: 'section', section: settingsAsked.section, key: ++pageKeys }] : base;
+    setStacks((stacks) => ({ ...stacks, browse: next }));
+    setPlace('browse');
+    if (next[next.length - 1] !== current[current.length - 1]) slideIn(next[next.length - 1]!.key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsAsked]);
+
+  // A row held for its menu comes down when the menu closes, or at once when it has none.
+  const menuOpen = useRef(props.menuOpen);
+  menuOpen.current = props.menuOpen;
+  useEffect(() => {
+    if (!props.menuOpen) setHeld(null);
+  }, [props.menuOpen]);
+  /** Lifts a row held for its menu and opens the menu. */
+  const holdFor = (open: () => void) => (row: HTMLElement) => {
+    setHeld({ box: row.getBoundingClientRect(), html: row.innerHTML, className: row.className });
+    open();
+    window.setTimeout(() => !menuOpen.current && setHeld(null), 50);
+  };
+  // The inbox's own task list has no menu.
+  const itemHold = (id: string) => (id === tasksOf(INBOX_TASKS) ? undefined : holdFor(() => props.onItemMenu(id)));
+  const folderHold = (path: string) =>
+    holdFor(() =>
+      props.onFolderMenu(path, () => {
+        if (!(top.kind === 'folder' && top.path === path)) push({ kind: 'folder', path });
+        setNewFolderIn(path);
+      }),
+    );
+
   // Recent's times keep up.
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -461,6 +547,8 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'root') return of === 'today' ? t('side.today') : t('phone.browse');
     if (page.kind === 'folder') return folderName(page.path);
     if (page.kind === 'trash') return t('side.trash');
+    if (page.kind === 'settings') return t('settings.title');
+    if (page.kind === 'section') return t(settingsSections().find((each) => each.id === page.section)?.label ?? 'settings.title');
     return nameOf(page.id, titles, filters);
   };
 
@@ -499,13 +587,28 @@ export function Phone(props: PhoneProps) {
             </div>
             <div className="mb-list">
               {recent.map((id) => (
-                <Row key={id} icon={iconOf(id)} label={nameOf(id, titles, filters)} sub={whereOf(id)} right={seen[id] ? seenText(seen[id]!, now) : ''} onClick={() => openItem(id)} />
+                <Row
+                  key={id}
+                  icon={iconOf(id)}
+                  label={nameOf(id, titles, filters)}
+                  sub={whereOf(id)}
+                  right={seen[id] ? seenText(seen[id]!, now) : ''}
+                  onClick={() => openItem(id)}
+                  onHold={itemHold(id)}
+                />
               ))}
             </div>
           </>
         )}
         <div className={recent.length > 0 ? 'mb-list apart' : 'mb-list'}>
-          <Row icon="folder" folder label={t('side.inbox')} right={(inbox && countNotes(inbox)) || ''} onClick={() => push({ kind: 'folder', path: INBOX })} />
+          <Row
+            icon="folder"
+            folder
+            label={t('side.inbox')}
+            right={(inbox && countNotes(inbox)) || ''}
+            onClick={() => push({ kind: 'folder', path: INBOX })}
+            onHold={folderHold(INBOX)}
+          />
         </div>
         <div className="mb-sec">
           <span>{t('side.folders')}</span>
@@ -518,13 +621,21 @@ export function Phone(props: PhoneProps) {
           {tree
             .filter((node) => node.kind === 'folder' && node.path !== INBOX)
             .map((node) => (
-              <Row key={node.path} icon="folder" folder label={node.name} right={countNotes(node) || ''} onClick={() => push({ kind: 'folder', path: node.path })} />
+              <Row
+                key={node.path}
+                icon="folder"
+                folder
+                label={node.name}
+                right={countNotes(node) || ''}
+                onClick={() => push({ kind: 'folder', path: node.path })}
+                onHold={folderHold(node.path)}
+              />
             ))}
         </div>
         <div className="mb-list apart">
           <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
           <Row icon="cloud" label={t('phone.sync')} right={props.syncWord} onClick={props.onSync} />
-          <Row icon="settings" label={t('side.settings')} onClick={props.onSettings} />
+          <Row icon="settings" label={t('side.settings')} onClick={() => push({ kind: 'settings' })} />
         </div>
       </>
     );
@@ -540,13 +651,30 @@ export function Phone(props: PhoneProps) {
           <Row icon="tasks" label={t('side.tasks')} right={counts[tasksOf(INBOX_TASKS)] || ''} onClick={() => openItem(tasksOf(INBOX_TASKS))} />
         )}
         {placed.map((filter) => (
-          <Row key={filter.id} icon="filter" label={filter.name} right={counts[filterTab(filter.id)] || ''} onClick={() => openItem(filterTab(filter.id))} />
+          <Row
+            key={filter.id}
+            icon="filter"
+            label={filter.name}
+            right={counts[filterTab(filter.id)] || ''}
+            onClick={() => openItem(filterTab(filter.id))}
+            onHold={itemHold(filterTab(filter.id))}
+          />
         ))}
         {children
           .filter((child) => child.path !== INBOX_TASKS)
           .map((child) => {
             if (child.kind === 'folder') {
-              return <Row key={child.path} icon="folder" folder label={child.name} right={countNotes(child) || ''} onClick={() => push({ kind: 'folder', path: child.path })} />;
+              return (
+                <Row
+                  key={child.path}
+                  icon="folder"
+                  folder
+                  label={child.name}
+                  right={countNotes(child) || ''}
+                  onClick={() => push({ kind: 'folder', path: child.path })}
+                  onHold={folderHold(child.path)}
+                />
+              );
             }
             const id = child.kind === 'collection' ? collectionTab(child.path) : tabOf(child.path);
             const counted = child.kind === 'tasks' || child.kind === 'board' || child.kind === 'collection';
@@ -557,6 +685,7 @@ export function Phone(props: PhoneProps) {
                 label={titles[child.path] ?? child.title ?? child.name}
                 right={counted ? counts[id] || '' : undefined}
                 onClick={() => openItem(id)}
+                onHold={itemHold(id)}
               />
             );
           })}
@@ -607,7 +736,7 @@ export function Phone(props: PhoneProps) {
     }
     if (page.kind === 'folder') {
       return (
-        <PageFrame title={titleOf(page, of)} nav={{ ...nav, onMenu: (event) => props.onFolderMenu(event, page.path, () => setNewFolderIn(page.path)) }}>
+        <PageFrame title={titleOf(page, of)} nav={{ ...nav, onMenu: () => props.onFolderMenu(page.path, () => setNewFolderIn(page.path)) }}>
           {folderPage(page.path)}
         </PageFrame>
       );
@@ -619,10 +748,36 @@ export function Phone(props: PhoneProps) {
         </PageFrame>
       );
     }
+    if (page.kind === 'settings') {
+      return (
+        <PageFrame title={titleOf(page, of)} nav={nav}>
+          <div className="mb-list">
+            {settingsSections().map((each) => (
+              <Row
+                key={each.id}
+                icon={each.icon}
+                label={t(each.label)}
+                right={sectionValue(each.id, props.settings.values)}
+                onClick={() => push({ kind: 'section', section: each.id })}
+              />
+            ))}
+          </div>
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'section') {
+      return (
+        <PageFrame title={titleOf(page, of)} nav={nav}>
+          <div className="mb-settings">
+            <SettingsSection section={page.section} {...props.settings.values} />
+          </div>
+        </PageFrame>
+      );
+    }
     // Something open: the app's drawing of it is moved in here while this page is on top.
     return (
       <>
-        <NavBar {...nav} scrolled={false} onMenu={(event) => props.onItemMenu(event, page.id)} />
+        <NavBar {...nav} scrolled={false} onMenu={page.id === tasksOf(INBOX_TASKS) ? undefined : () => props.onItemMenu(page.id, true)} />
         <div
           className="mb-holder"
           ref={(element) => {
@@ -681,6 +836,16 @@ export function Phone(props: PhoneProps) {
           )}
         </div>
       )}
+      {held &&
+        createPortal(
+          <div
+            className={`mb-lifted ${held.className}`}
+            style={{ top: held.box.top, left: held.box.left, width: held.box.width, height: held.box.height }}
+            aria-hidden="true"
+            dangerouslySetInnerHTML={{ __html: held.html }}
+          />,
+          document.body,
+        )}
       <nav className="mb-tabbar" aria-label={t('phone.places')}>
         {PLACES.map((each) => (
           <button key={each} type="button" aria-current={each === place ? 'page' : undefined} onClick={() => choose(each)}>

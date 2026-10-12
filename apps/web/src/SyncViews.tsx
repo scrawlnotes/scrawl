@@ -818,7 +818,7 @@ function JobRows({ jobs, height }: { jobs: readonly SyncJob[]; height: number })
 /** How sync stands in a word or two, beside the Sync row of a phone's Browse; Off when not connected. */
 export function syncWord(sync: SyncSnapshot): string {
   const { phase, syncedAt, turn } = sync;
-  if (!sync.connection) return t('phone.syncOff');
+  if (!sync.connection) return t('phone.off');
   if (phase === 'syncing') return percent(turn?.progress.share ?? 0);
   if (phase === 'off' || phase === 'idle') return syncedAt === null ? t('sync.notYet') : ago(syncedAt);
   return t(STATUS[phase]);

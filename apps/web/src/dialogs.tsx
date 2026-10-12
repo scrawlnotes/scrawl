@@ -34,12 +34,12 @@ import {
 } from 'react';
 import { type Option, Picker } from './choices';
 import { ConditionRow } from './Collection';
-import { onPage, pageBox, pageWindow } from './device';
+import { isPhone, onPage, pageBox, pageWindow } from './device';
 import { Icon, type IconName } from './Icon';
 import { collectionLabel } from './items';
+import { ActionSheet, AskSheet, Sheet, SheetClose } from './sheets';
 
-/** A small window in the middle of the app. Esc or a click beside it closes it. */
-export function Dialog({ label, className, onClose, onEscape = onClose, onKeyDown, children }: {
+interface DialogProps {
   label: string;
   /** Added to the window's own class, for a window that is laid out differently. */
   className?: string;
@@ -48,7 +48,24 @@ export function Dialog({ label, className, onClose, onEscape = onClose, onKeyDow
   onEscape?: () => void;
   onKeyDown?: (event: KeyboardEvent) => void;
   children: ReactNode;
-}) {
+}
+
+/**
+ * A small window in the middle of the app. Esc or a click beside it closes it. On a phone it is a
+ * sheet from the bottom, its title and buttons at its top; one without Cancel has × there.
+ */
+export function Dialog(props: DialogProps) {
+  if (!isPhone()) return <WindowDialog {...props} />;
+  const { label, className, onClose, onEscape = onClose, onKeyDown, children } = props;
+  return (
+    <Sheet label={label} className={className ? `dialog ${className}` : 'dialog'} onClose={onClose} onEscape={onEscape} onKeyDown={onKeyDown}>
+      <SheetClose onClose={onClose} />
+      {children}
+    </Sheet>
+  );
+}
+
+function WindowDialog({ label, className, onClose, onEscape = onClose, onKeyDown, children }: DialogProps) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // Take the keyboard away from the editor, unless a field inside asked for it itself.
@@ -87,7 +104,7 @@ type FolderPicker = ReturnType<typeof useFolderPicker>;
  * The folder list of Move to and Create: typing filters it, the arrow keys move through it, and
  * a name no folder has can be picked to create that folder.
  */
-function useFolderPicker(folders: string[], initial?: string) {
+export function useFolderPicker(folders: string[], initial?: string) {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(() => Math.max(0, initial === undefined ? 0 : folders.indexOf(initial)));
   const typed = query.trim();
@@ -165,7 +182,7 @@ export type ItemKind = Exclude<NewKind, 'filter'>;
 
 // Keys come after Board and before Filter, which is a view rather than a file; what they are for
 // is said beside them, as the kind least known.
-const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: MessageKey }[] = [
+export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: MessageKey }[] = [
   { kind: 'note', label: 'create.note', icon: 'note' },
   { kind: 'tasks', label: 'create.tasks', icon: 'tasks' },
   { kind: 'board', label: 'create.board', icon: 'board' },
@@ -203,12 +220,12 @@ export function NewDialog({ start = null, folders, folder, collections, onCreate
   return <KindChoice onPick={(picked) => (picked === 'filter' ? onFilter() : setKind(picked))} onClose={onClose} />;
 }
 
-const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard', keys: 'create.newKeys', collection: 'create.newCollection' };
+export const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard', keys: 'create.newKeys', collection: 'create.newCollection' };
 // A collection's is the name its template gives it.
-const NAME_HINTS: Record<Exclude<ItemKind, 'collection'>, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName', keys: 'create.keysName' };
+export const NAME_HINTS: Record<Exclude<ItemKind, 'collection'>, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName', keys: 'create.keysName' };
 
 /** The ways a collection can start: its fields, which the Fields window changes later. */
-const COLLECTION_TEMPLATES: { template: CollectionTemplate; label: MessageKey; text: MessageKey }[] = [
+export const COLLECTION_TEMPLATES: { template: CollectionTemplate; label: MessageKey; text: MessageKey }[] = [
   { template: 'companies', label: 'create.companies', text: 'create.companiesText' },
   { template: 'people', label: 'create.people', text: 'create.peopleText' },
   { template: 'activities', label: 'create.activities', text: 'create.activitiesText' },
@@ -218,7 +235,7 @@ const COLLECTION_TEMPLATES: { template: CollectionTemplate; label: MessageKey; t
 ];
 
 /** The ways a board can start: its columns by kind, and whether phases are on. */
-const TEMPLATES: { template: Template; label: MessageKey; text: MessageKey; columns: string[] }[] = [
+export const TEMPLATES: { template: Template; label: MessageKey; text: MessageKey; columns: string[] }[] = [
   { template: 'software', label: 'create.software', text: 'create.softwareText', columns: ['backlog', 'active', 'active', 'review', 'done'] },
   { template: 'simple', label: 'create.simple', text: 'create.simpleText', columns: ['active', 'active', 'done'] },
   { template: 'issues', label: 'create.issues', text: 'create.issuesText', columns: ['backlog', 'active', 'active', 'done', 'dropped', 'dropped'] },
@@ -905,15 +922,18 @@ export function RenameDialog({ name, onRename, onClose }: {
   );
 }
 
-/** Asks before something is deleted. Enter confirms, Esc or Cancel leaves it be. */
-export function ConfirmDialog({ title, message, action, onConfirm, onClose }: {
+/** Asks before something is deleted. Enter confirms, Esc or Cancel leaves it be. On a phone it is an action sheet. */
+export function ConfirmDialog({ title, message, action, danger, onConfirm, onClose }: {
   title: string;
   message: string;
   /** The label of the confirming button. */
   action: string;
+  /** Whether it takes something away: on a phone its button is red. */
+  danger?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  if (isPhone()) return <AskSheet title={title} message={message} action={action} danger={danger} onConfirm={onConfirm} onClose={onClose} />;
   const onKey = (event: KeyboardEvent) => {
     // Enter on Cancel is that button's own click.
     if (event.key !== 'Enter' || event.target instanceof HTMLButtonElement) return;
@@ -943,6 +963,19 @@ export interface MenuItem {
   disabled?: string;
   /** A line above it sets it apart from the items before. */
   apart?: boolean;
+  /** On a phone: the icon before it. */
+  icon?: IconName;
+  /** On a phone: what it is set to, on its right. */
+  value?: string;
+  /** It takes something away: on a phone it comes last, red. */
+  danger?: boolean;
+}
+
+/** On a phone: what a menu is about, at its top. */
+export interface MenuHead {
+  icon: IconName;
+  title: string;
+  sub?: string;
 }
 
 /** A note the phase window can point a phase at. */
@@ -1016,8 +1049,20 @@ export function PhaseDialog({ phase, notes, onSave, onClose }: {
   );
 }
 
-/** The menu of a right click, at the pointer. */
-export function ContextMenu({ at, items, onClose }: { at: { x: number; y: number }; items: MenuItem[]; onClose: () => void }) {
+interface MenuProps {
+  at: { x: number; y: number };
+  items: MenuItem[];
+  /** What the menu is about, said at its top on a phone. */
+  head?: MenuHead;
+  onClose: () => void;
+}
+
+/** The menu of a right click, at the pointer; on a phone an action sheet from the bottom. */
+export function ContextMenu(props: MenuProps) {
+  return isPhone() ? <ActionSheet head={props.head} items={props.items} onClose={props.onClose} /> : <PointerMenu {...props} />;
+}
+
+function PointerMenu({ at, items, onClose }: MenuProps) {
   const menu = useRef<HTMLDivElement>(null);
   // The pointer is where the screen says; the menu is placed in the page's own pixels.
   const [place, setPlace] = useState(() => ({ x: onPage(at.x), y: onPage(at.y) }));

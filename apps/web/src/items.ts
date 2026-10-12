@@ -101,3 +101,16 @@ export function labelOf(id: string, titles: Record<string, string>, filters: Tas
   // A record opened as a note is not in the tree's titles; it is named after its file.
   return titles[id] ?? (isScratchNote(id) ? t('note.untitled') : basename(id).replace(/\.md$/, ''));
 }
+
+/** What something opened is called on a phone: its name alone, the folder it is in being said under it. */
+export function nameOf(id: string, titles: Record<string, string>, filters: TaskFilter[] = []): string {
+  const list = listOf(id);
+  if (list !== null) return listName(list);
+  const board = boardPathOf(id);
+  if (board !== null) return boardName(board);
+  const keys = keysPathOf(id);
+  if (keys !== null) return keysName(keys);
+  const collection = collectionPathOf(id);
+  if (collection !== null) return collectionName(collection);
+  return labelOf(id, titles, filters);
+}

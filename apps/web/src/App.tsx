@@ -50,6 +50,7 @@ import {
   FilterDialog,
   type FolderChoice,
   type ItemKind,
+  type MenuHead,
   type MenuItem,
   MoveDialog,
   PhaseDialog,
@@ -85,6 +86,7 @@ import {
   labelOf,
   listLabel,
   listOf,
+  nameOf,
   pathOf,
   tasksOf,
   TODAY,
@@ -93,8 +95,9 @@ import {
 } from './items';
 import { applySize, applyTheme, isPhone, loadMode, loadSize, loadTheme, type Mode, onSystemShade, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
 import { Phone } from './Phone';
+import { PhoneCreate } from './PhoneCreate';
 import { Session } from './session';
-import { type Section as SettingsSection, Settings } from './Settings';
+import { type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { SyncSheet, SyncStatus, syncWord } from './SyncViews';
@@ -110,7 +113,7 @@ type OpenDialog =
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
-  | { kind: 'confirm'; title: string; message: string; action: string; run: () => void }
+  | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void }
   | { kind: 'history'; path: string }
   | { kind: 'moveTask'; list: string; id: string }
   | { kind: 'toTask'; note: string; title: string; description: string }
@@ -210,7 +213,7 @@ export function App() {
   // With nothing open the app asks what to create, until that is declined once.
   const [declined, setDeclined] = useState(false);
   // `target` is the sidebar row the menu was opened on, which stays marked while it is open.
-  const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[]; target?: string } | null>(null);
+  const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[]; target?: string; head?: MenuHead } | null>(null);
   const tabBar = useRef<HTMLDivElement>(null);
   // On a narrow window the sidebar is a drawer, open or not.
   const [drawer, setDrawer] = useState(false);
@@ -308,8 +311,8 @@ export function App() {
   };
 
   // Nothing is deleted without asking first.
-  const ask = (title: string, message: string, run: () => void, action = t('delete.action')) =>
-    setDialog({ kind: 'confirm', title, message, action, run });
+  const ask = (title: string, message: string, run: () => void, action = t('delete.action'), danger = true) =>
+    setDialog({ kind: 'confirm', title, message, action, danger, run });
   const deleteItem = (path: string) => {
     if (path in collections) {
       const name = quote(collectionName(path));
@@ -407,9 +410,11 @@ export function App() {
   // A filter's menu: change it, or delete it; its tasks stay where they are.
   const filterMenu = (event: MouseEvent, filter: TaskFilter) => openMenu(event, filterMenuItems(filter), filterTab(filter.id));
   const filterMenuItems = (filter: TaskFilter): MenuItem[] => [
-    { label: t('filter.edit'), run: () => setDialog({ kind: 'filter', filter }) },
+    { label: t('filter.edit'), icon: 'filter', run: () => setDialog({ kind: 'filter', filter }) },
     {
       label: t('menu.delete'),
+      icon: 'trash',
+      danger: true,
       run: () => ask(t('delete.filter'), t('delete.filterText', { name: quote(filter.name) }), () => void session.removeFilter(filter.id)),
     },
   ];
@@ -451,7 +456,7 @@ export function App() {
         : next
           ? t('phase.closeLeftovers', { name, cards: t('count.cards', { count: left }), next: quote(next.name) })
           : t('phase.closeToBacklog', { name, cards: t('count.cards', { count: left }) });
-    ask(t('phase.close'), message, () => session.closePhase(board, phase.id), t('phase.closeAction'));
+    ask(t('phase.close'), message, () => session.closePhase(board, phase.id), t('phase.closeAction'), false);
   };
 
   const deleteForever = (item: TrashItem) =>
@@ -482,31 +487,50 @@ export function App() {
   // The menu of a note, a task list, a board, a keys file or a collection; the inbox's own list has none.
   const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
   const itemMenuItems = (path: string): MenuItem[] => [
-      { label: t('menu.moveTo'), run: () => setDialog({ kind: 'move', path }) },
-      { label: t('menu.rename'), run: () => setDialog({ kind: 'rename', path }) },
+      { label: t('menu.moveTo'), icon: 'move', run: () => setDialog({ kind: 'move', path }) },
+      { label: t('menu.rename'), icon: 'pen', run: () => setDialog({ kind: 'rename', path }) },
       // Only notes keep a history; a keys file keeps none, so that a password changed is gone.
       ...(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections
         ? []
-        : [{ label: t('menu.history'), run: () => void showHistory(path) }]),
+        : [{ label: t('menu.history'), icon: 'clock' as const, run: () => void showHistory(path) }]),
       // A collection goes out to a CSV file and comes in from one.
       ...(path in collections
         ? [
-            { label: t('menu.exportCsv'), run: () => void exportCsv(path) },
-            { label: t('menu.importCsv'), run: () => chooseCsv(path) },
+            { label: t('menu.exportCsv'), icon: 'export' as const, run: () => void exportCsv(path) },
+            { label: t('menu.importCsv'), icon: 'import' as const, run: () => chooseCsv(path) },
           ]
         : []),
-      { label: t('menu.delete'), run: () => deleteItem(path) },
+      { label: t('menu.delete'), icon: 'trash', danger: true, run: () => deleteItem(path) },
     ];
+  /** On a phone a menu is an action sheet, with what it is about at its top. */
+  const showSheet = (items: MenuItem[], head?: MenuHead) => setMenu({ at: { x: 0, y: 0 }, items, head });
+  const folderLabel = (path: string) => (path === INBOX ? t('side.inbox') : basename(path));
   /**
-   * The menu of a page on a phone, where what is open has no tab and no status bar: what the
-   * sidebar's menu has, and Markdown for a note.
+   * The menu of something open on a phone, from its page's ··· or from its row held, where it has
+   * no tab and no status bar: what the sidebar's menu has, and on a note's page Markdown.
    */
-  const phoneItemMenu = (event: MouseEvent, id: string) => {
+  const phoneItemMenu = (id: string, page = false) => {
     const filter = filters.find((each) => each.id === filterOf(id));
-    if (filter) return openMenu(event, filterMenuItems(filter));
+    const icon = iconOf(id);
+    const kinds = { note: 'create.note', tasks: 'create.tasks', board: 'create.board', keys: 'create.keys', collection: 'create.collection', filter: 'create.filter' } as const;
+    const kind = t(kinds[icon as keyof typeof kinds] ?? 'create.note');
+    const where = filter ? (filter.folder ?? INBOX) : (folderOf(id) ?? INBOX);
+    const head: MenuHead = { icon, title: nameOf(id, tabTitles, filters), sub: t('phone.kindIn', { kind, folder: folderLabel(where) }) };
+    if (filter) return showSheet(filterMenuItems(filter), head);
     const path = collectionPathOf(id) ?? pathOf(id);
-    const markdown: MenuItem[] = isNote(id) ? [{ label: `${source ? '● ' : '○ '}${t('status.markdown')}`, run: () => session.setSource(!source) }] : [];
-    openMenu(event, [...markdown, ...(path === null || path === INBOX_TASKS ? [] : itemMenuItems(path))]);
+    const markdown: MenuItem[] = page && isNote(id)
+      ? [{ label: t('status.markdown'), icon: 'markdown', value: source ? t('phone.on') : t('phone.off'), run: () => session.setSource(!source) }]
+      : [];
+    const items = path === null || path === INBOX_TASKS ? [] : itemMenuItems(path);
+    if (markdown.length + items.length === 0) return;
+    // History and what follows it are apart from Markdown.
+    showSheet([...markdown, ...items.map((item, i) => (i === 0 && markdown.length > 0 ? { ...item, apart: true } : item))], head);
+  };
+  /** A folder's menu on a phone, from its page's ··· or from its row held. */
+  const phoneFolderMenu = (path: string, addFolder: () => void) => {
+    const parent = dirname(path);
+    const sub = path === INBOX ? undefined : parent ? t('phone.kindIn', { kind: t('create.folder'), folder: folderLabel(parent) }) : t('create.folder');
+    showSheet(folderMenuItems(path, addFolder), { icon: 'folder', title: folderLabel(path), sub });
   };
   // A collection as a CSV file, saved where the user says.
   const exportCsv = async (dir: string) => {
@@ -540,41 +564,40 @@ export function App() {
   // The inbox is always there; it cannot be deleted. A new note shows at once, out from under the
   // drawer; anything else opens its Create or Filter window with the folder chosen, the drawer
   // closed so that what is made shows; a new folder is named in the sidebar, under the folder it goes in.
-  const folderMenu = (event: MouseEvent, path: string, addFolder: () => void) => {
+  const folderMenu = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, folderMenuItems(path, addFolder), path);
+  const folderMenuItems = (path: string, addFolder: () => void): MenuItem[] => {
     const createHere = (start: ItemKind) => () => {
       setDrawer(false);
       setDialog({ kind: 'new', start, folder: path });
     };
-    openMenu(
-      event,
-      [
-        {
-          label: t('menu.newNoteHere'),
-          run: () => {
-            setDrawer(false);
-            void session.newNote(path);
-          },
+    return [
+      {
+        label: t('menu.newNoteHere'),
+        icon: 'note',
+        run: () => {
+          setDrawer(false);
+          void session.newNote(path);
         },
-        { label: t('menu.newListHere'), run: createHere('tasks') },
-        { label: t('menu.newBoardHere'), run: createHere('board') },
-        { label: t('menu.newKeysHere'), run: createHere('keys') },
-        { label: t('menu.newCollectionHere'), run: createHere('collection') },
-        {
-          label: t('menu.newFilterHere'),
-          run: () => {
-            setDrawer(false);
-            setDialog({ kind: 'filter', filter: null, place: path });
-          },
+      },
+      { label: t('menu.newListHere'), icon: 'tasks', run: createHere('tasks') },
+      { label: t('menu.newBoardHere'), icon: 'board', run: createHere('board') },
+      { label: t('menu.newKeysHere'), icon: 'keys', run: createHere('keys') },
+      { label: t('menu.newCollectionHere'), icon: 'collection', run: createHere('collection') },
+      {
+        label: t('menu.newFilterHere'),
+        icon: 'filter',
+        run: () => {
+          setDrawer(false);
+          setDialog({ kind: 'filter', filter: null, place: path });
         },
-        ...(path === INBOX
-          ? []
-          : [
-              { label: t('menu.newFolderHere'), run: addFolder, apart: true },
-              { label: t('menu.deleteFolder'), run: () => deleteFolder(path), apart: true },
-            ]),
-      ],
-      path,
-    );
+      },
+      ...(path === INBOX
+        ? []
+        : [
+            { label: t('menu.newFolderHere'), icon: 'folder' as const, run: addFolder, apart: true },
+            { label: t('menu.deleteFolder'), icon: 'trash' as const, danger: true, run: () => deleteFolder(path), apart: true },
+          ]),
+    ];
   };
   const closeMenu = useCallback(() => setMenu(null), []);
 
@@ -862,6 +885,32 @@ export function App() {
     </>
   );
 
+  const settingsValues: SettingsValues = {
+    mode,
+    onMode: (choice) => {
+      setMode(choice);
+      saveMode(choice);
+    },
+    theme,
+    onTheme: (id) => {
+      setTheme(id);
+      saveTheme(id);
+    },
+    system,
+    sizes,
+    onSize: (kind, size) => {
+      setSizes({ ...sizes, [kind]: size });
+      saveSize(kind, size);
+      applySize();
+    },
+    spaceName: space.name,
+    onRenameSpace: (name) => session.renameSpace(name),
+    folder,
+    onChangeFolder: isDesktop ? () => void session.chooseFolder() : undefined,
+    sync,
+    syncService,
+  };
+
   return (
     <div className={phone ? 'app phone-app' : drawer ? 'app drawer-open' : 'app'}>
       {needsFolder && (
@@ -903,10 +952,15 @@ export function App() {
             onClose={(id) => void session.close(id)}
             onCreate={(folder) => setDialog({ kind: 'new', folder })}
             onSync={() => (sync.connection ? setSyncSheet(true) : setDialog({ kind: 'settings', section: 'spaces' }))}
-            onSettings={() => setDialog({ kind: 'settings' })}
+            settings={{
+              values: settingsValues,
+              open: dialog?.kind === 'settings' ? { section: dialog.section } : null,
+              onShown: () => setDialog(null),
+            }}
             onNewFolder={(name, parent) => session.newFolder(name, parent)}
             onItemMenu={phoneItemMenu}
-            onFolderMenu={folderMenu}
+            onFolderMenu={phoneFolderMenu}
+            menuOpen={menu !== null}
           />
           {createPortal(itemContent, itemLayer)}
           {syncSheet && (
@@ -1051,7 +1105,19 @@ export function App() {
         </>
       )}
 
-      {showNew && (
+      {showNew && phone && (
+        <PhoneCreate
+          key={dialog?.kind === 'new' ? `${dialog.start ?? ''}:${dialog.folder ?? ''}` : ''}
+          start={(dialog?.kind === 'new' && dialog.start) || null}
+          folders={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
+          folder={createIn}
+          collections={Object.keys(collections)}
+          onCreate={create}
+          onFilter={() => setDialog({ kind: 'filter', filter: null, place: createIn })}
+          onClose={closeDialog}
+        />
+      )}
+      {showNew && !phone && (
         <NewDialog
           // Open already, as it is in an empty space, it starts again with what a folder's menu chose.
           key={dialog?.kind === 'new' ? `${dialog.start ?? ''}:${dialog.folder ?? ''}` : ''}
@@ -1087,35 +1153,8 @@ export function App() {
           onClose={() => setRecordOver(null)}
         />
       )}
-      {dialog?.kind === 'settings' && (
-        <Settings
-          mode={mode}
-          onMode={(choice) => {
-            setMode(choice);
-            saveMode(choice);
-          }}
-          theme={theme}
-          onTheme={(id) => {
-            setTheme(id);
-            saveTheme(id);
-          }}
-          system={system}
-          sizes={sizes}
-          onSize={(kind, size) => {
-            setSizes({ ...sizes, [kind]: size });
-            saveSize(kind, size);
-            applySize();
-          }}
-          spaceName={space.name}
-          onRenameSpace={(name) => session.renameSpace(name)}
-          folder={folder}
-          onChangeFolder={isDesktop ? () => void session.chooseFolder() : undefined}
-          sync={sync}
-          syncService={syncService}
-          initial={dialog.section}
-          onClose={closeDialog}
-        />
-      )}
+      {/* On a phone the settings are pages in Browse. */}
+      {dialog?.kind === 'settings' && !phone && <Settings {...settingsValues} initial={dialog.section} onClose={closeDialog} />}
       {dialog?.kind === 'phase' && (
         <PhaseDialog
           phase={dialog.phase}
@@ -1186,6 +1225,7 @@ export function App() {
           title={dialog.title}
           message={dialog.message}
           action={dialog.action}
+          danger={dialog.danger}
           onConfirm={() => {
             setDialog(null);
             dialog.run();
@@ -1268,7 +1308,7 @@ export function App() {
           onClose={closeDialog}
         />
       )}
-      {menu && <ContextMenu at={menu.at} items={menu.items} onClose={closeMenu} />}
+      {menu && <ContextMenu at={menu.at} items={menu.items} head={menu.head} onClose={closeMenu} />}
     </div>
   );
 }

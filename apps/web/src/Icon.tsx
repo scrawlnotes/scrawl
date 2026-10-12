@@ -121,6 +121,38 @@ const shapes = {
     </>
   ),
   close: <path d="M7 7l10 10M17 7L7 17" />,
+  /** What is chosen in a list on a phone. */
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  /** Renaming. */
+  pen: <path d="M5 19l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L9 17.5z M13.5 7l3 3" />,
+  /** A note's history. */
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
+  /** A note shown as its Markdown. */
+  markdown: (
+    <>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M6.5 15V9l2.5 3 2.5-3v6M16 9v6M14 13l2 2 2-2" />
+    </>
+  ),
+  /** Out to a file. */
+  export: (
+    <>
+      <path d="M12 15V4M8 8l4-4 4 4" />
+      <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+    </>
+  ),
+  /** In from a file. */
+  import: (
+    <>
+      <path d="M12 4v11M8 11l4 4 4-4" />
+      <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+    </>
+  ),
   cloud: <path d="M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.6 9.06 4.5 4.5 0 0 0 7 18z" />,
   move: (
     <>
@@ -133,7 +165,8 @@ const shapes = {
       <path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7" />
       <path d="M10.5 10.5v5.5M13.5 10.5v5.5" />
     </>
-  ),  settings: (
+  ),
+  settings: (
     <>
       <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
       <circle cx="16" cy="7" r="2" />

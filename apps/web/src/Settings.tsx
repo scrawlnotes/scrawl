@@ -22,7 +22,8 @@ const MODES: { mode: Mode; label: MessageKey }[] = [
 ];
 
 
-export interface SettingsProps {
+/** What the settings show and change, in the window or on a phone's pages. */
+export interface SettingsValues {
   mode: Mode;
   onMode: (mode: Mode) => void;
   /** The id of the theme chosen. */
@@ -43,9 +44,27 @@ export interface SettingsProps {
   /** How the space's sync stands, and what connects and disconnects it. */
   sync: SyncSnapshot;
   syncService: SyncService;
+}
+
+export interface SettingsProps extends SettingsValues {
   /** The section shown first. */
   initial?: Section;
   onClose: () => void;
+}
+
+/** The sections, Language once there is more than one language. */
+export const settingsSections = () => SECTIONS.filter((section) => section.id !== 'language' || languages.length > 1);
+
+/** What a section is set to, beside it in the list of a phone. */
+export function sectionValue(id: Section, { mode, theme, spaceName }: Pick<SettingsValues, 'mode' | 'theme' | 'spaceName'>): string {
+  if (id === 'appearance') return `${themeById(theme).name} · ${t(MODES.find((choice) => choice.mode === mode)!.label)}`;
+  if (id === 'spaces') return spaceName ?? t('settings.personal');
+  return languages.find((language) => language.tag === languageTag())?.name ?? '';
+}
+
+/** What a section has, in the window or on a phone's page. */
+export function SettingsSection({ section, ...values }: SettingsValues & { section: Section }) {
+  return section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : <Language />;
 }
 
 /** A little window in a theme's colours, in the shade the interface is in. */
@@ -82,7 +101,7 @@ const SIZE_KINDS: { kind: SizeKind; label: MessageKey }[] = [
  * phone and on a computer, the one this device uses said so. Each theme shows itself in the shade
  * the mode gives; one without a light side says so. What is chosen applies at once.
  */
-function Appearance({ mode, onMode, theme, onTheme, system, sizes, onSize }: Pick<SettingsProps, 'mode' | 'onMode' | 'theme' | 'onTheme' | 'system' | 'sizes' | 'onSize'>) {
+function Appearance({ mode, onMode, theme, onTheme, system, sizes, onSize }: Pick<SettingsValues, 'mode' | 'onMode' | 'theme' | 'onTheme' | 'system' | 'sizes' | 'onSize'>) {
   const shade = shadeOfMode(mode, system);
   const here = thisSizeKind();
   return (
@@ -164,7 +183,7 @@ function Spaces({
   onChangeFolder,
   sync,
   syncService,
-}: Pick<SettingsProps, 'spaceName' | 'onRenameSpace' | 'folder' | 'onChangeFolder' | 'sync' | 'syncService'>) {
+}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'onChangeFolder' | 'sync' | 'syncService'>) {
   const name = spaceName ?? t('settings.personal');
   const [draft, setDraft] = useState(name);
   useEffect(() => setDraft(name), [name]);
@@ -254,9 +273,9 @@ function Language() {
  * with arrows, and each one opens as a page with a way back. What is chosen applies at once.
  */
 export function Settings(props: SettingsProps) {
-  const { mode, theme, onClose } = props;
+  const { onClose } = props;
   const narrow = useNarrow();
-  const sections = SECTIONS.filter((section) => section.id !== 'language' || languages.length > 1);
+  const sections = settingsSections();
   const [section, setSection] = useState<Section>(props.initial ?? 'appearance');
   /** On a phone: the section open as a page, or none while the list shows. */
   const [page, setPage] = useState<Section | null>(props.initial ?? null);
@@ -279,15 +298,9 @@ export function Settings(props: SettingsProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [narrow, page, onClose]);
 
-  const body = (id: Section) =>
-    id === 'appearance' ? <Appearance {...props} /> : id === 'spaces' ? <Spaces {...props} /> : <Language />;
-  // What each section is set to, beside it in the phone's list.
-  const value = (id: Section) =>
-    id === 'appearance'
-      ? `${themeById(theme).name} · ${t(MODES.find((choice) => choice.mode === mode)!.label)}`
-      : id === 'spaces'
-        ? (props.spaceName ?? t('settings.personal'))
-        : (languages.find((language) => language.tag === languageTag())?.name ?? '');
+  const body = (id: Section) => <SettingsSection section={id} {...props} />;
+  // What each section is set to, beside it in a narrow window's list.
+  const value = (id: Section) => sectionValue(id, props);
   const close = (
     <button type="button" className="x" title={t('settings.close')} aria-label={t('settings.close')} onClick={onClose}>
       ×

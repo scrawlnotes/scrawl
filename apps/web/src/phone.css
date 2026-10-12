@@ -555,3 +555,847 @@ html:has(.phone-app) body {
 .mb-tabbar button[aria-current='page'] {
   color: var(--sl-accent);
 }
+
+/* ---------- Settings, a page in Browse ---------- */
+
+.mb-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 16px 0;
+}
+
+.mb-settings .st-label {
+  font-size: 12.5px;
+}
+
+.mb-settings .st-note {
+  font-size: 13.5px;
+}
+
+.mb-settings .st-modes button {
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 15px;
+}
+
+.mb-settings .st-size .st-modes button {
+  padding: 0 11px;
+}
+
+.mb-settings .st-themes {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 12px;
+}
+
+.mb-settings .st-theme .shot {
+  height: 84px;
+}
+
+.mb-settings .st-theme .name,
+.mb-settings .st-choices button {
+  min-height: 28px;
+  font-size: 15px;
+}
+
+.mb-settings .st-theme .name small {
+  font-size: 12.5px;
+}
+
+.mb-settings .st-choices button {
+  min-height: 44px;
+}
+
+.mb-settings .st-row input,
+.mb-settings .st-row button {
+  min-height: 40px;
+}
+
+/* ---------- sheets: a window comes up from the bottom, its buttons at its top ---------- */
+
+@keyframes mb-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes mb-dim {
+  from {
+    background-color: rgb(0 0 0 / 0);
+  }
+}
+
+.mb-sheet-back {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: rgb(0 0 0 / 0.45);
+  animation: mb-dim 220ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mb-sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100% - env(safe-area-inset-top) - 12px);
+  box-sizing: border-box;
+  padding-bottom: env(safe-area-inset-bottom);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 14px 14px 0 0;
+  background: var(--sl-side);
+  color: var(--sl-fg);
+  box-shadow: 0 -10px 30px rgb(0 0 0 / 0.35);
+  font-size: 16px;
+  line-height: 1.35;
+  outline: none;
+  transition: transform 220ms ease;
+  animation: mb-up 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* With the keyboard up the sheet sits right on it. */
+.mb-sheet-back.kb .mb-sheet {
+  padding-bottom: 0;
+}
+
+.mb-sheet .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.mb-grab {
+  flex: none;
+  align-self: center;
+  width: 36px;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 3px;
+  background: var(--sl-line);
+}
+
+/* the head of a sheet: its name with × beside it, or Cancel, the name and Create */
+.mb-sh {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 50px;
+  padding: 0 16px;
+  background: var(--sl-side);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mb-sh b {
+  overflow: hidden;
+  font-size: 17px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-sh small {
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+.mb-sh.three {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.mb-sh.three b {
+  max-width: 50vw;
+}
+
+.mb-sh .cancel,
+.mb-sh .ok {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 44px;
+  color: var(--sl-accent);
+  font-size: 17px;
+}
+
+.mb-sh .cancel {
+  justify-self: start;
+}
+
+.mb-sh .cancel span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-sh .back .icon {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-left: -6px;
+  stroke-width: 2;
+}
+
+.mb-sh .ok {
+  justify-self: end;
+  font-weight: 600;
+}
+
+.mb-x {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-dim);
+}
+
+.mb-sheet .mb-x .icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.2;
+}
+
+/* Create's kinds */
+.mb-kinds {
+  padding-bottom: 8px;
+}
+
+.mb-kinds > * {
+  position: relative;
+}
+
+.mb-kinds > * + *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 51px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-sheet .mb-row {
+  background: none;
+}
+
+.mb-sheet .mb-row .tx small {
+  white-space: normal;
+}
+
+/* a form in a sheet: rounded groups of rows, each a name on the left and its value */
+.mb-form {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 16px 16px;
+}
+
+.mb-cap {
+  padding: 16px 14px 6px;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mb-group {
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--sl-bg);
+}
+
+.mb-fr {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 0 14px;
+  box-sizing: border-box;
+  color: var(--sl-fg);
+  font-size: 16px;
+  text-align: left;
+}
+
+button.mb-fr:active {
+  background: color-mix(in srgb, var(--sl-fg) 7%, var(--sl-bg));
+}
+
+.mb-fr + .mb-fr::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-fr .fl {
+  flex: none;
+  width: 78px;
+  color: var(--sl-dim);
+}
+
+.mb-fr .in {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-fr input.in {
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  outline: none;
+}
+
+.mb-fr input.in::placeholder {
+  color: var(--sl-faint);
+}
+
+.mb-fr .val {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin-left: auto;
+  color: var(--sl-dim);
+}
+
+.mb-fr .val .tx {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-sheet .mb-fr .val .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.mb-sheet .mb-fr .val .icon:last-child {
+  width: 15px;
+  height: 15px;
+  color: var(--sl-faint);
+  stroke-width: 2.2;
+}
+
+.mb-sheet .mb-fr.pick > .icon {
+  flex: none;
+  width: 21px;
+  height: 21px;
+  color: var(--sl-dim);
+}
+
+.mb-sheet .mb-fr.add,
+.mb-sheet .mb-fr.add > .icon {
+  color: var(--sl-accent);
+}
+
+.mb-fr.none {
+  color: var(--sl-faint);
+}
+
+.mb-fr .tick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: var(--sl-accent);
+}
+
+.mb-sheet .mb-fr .tick .icon {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2.2;
+}
+
+.mb-fr.tp {
+  align-items: flex-start;
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+.mb-fr.tp .tn {
+  flex: 1;
+  min-width: 0;
+}
+
+.mb-fr.tp .tn small {
+  display: block;
+  margin-top: 2px;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}
+
+.mb-fr.tp .tn small.flds {
+  margin-top: 4px;
+  color: var(--sl-dim);
+}
+
+.mb-fr.tp .mb-cols {
+  margin-top: 8px;
+}
+
+/* a board's columns by kind */
+.mb-cols {
+  display: flex;
+  gap: 3px;
+}
+
+.mb-cols i {
+  flex: 1;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--sl-line);
+}
+
+.mb-fr .val .mb-cols {
+  width: 54px;
+}
+
+.mb-fr .val .mb-cols i {
+  height: 12px;
+}
+
+.mb-cols i.active {
+  background: color-mix(in srgb, var(--sl-kind-active) 55%, var(--sl-line));
+}
+
+.mb-cols i.review {
+  background: color-mix(in srgb, var(--sl-kind-review) 55%, var(--sl-line));
+}
+
+.mb-cols i.done {
+  background: color-mix(in srgb, var(--sl-kind-done) 55%, var(--sl-line));
+}
+
+.mb-cols i.dropped {
+  background: color-mix(in srgb, var(--sl-faint) 45%, var(--sl-line));
+}
+
+.mb-hint {
+  margin: 0;
+  padding: 8px 14px 0;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}
+
+.mb-hint.err {
+  color: var(--sl-accent);
+}
+
+.mb-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  margin: 4px 0 12px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--sl-bg);
+  color: var(--sl-faint);
+}
+
+.mb-sheet .mb-search .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.mb-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  outline: none;
+}
+
+/* Any other window, as a sheet: its title in the middle of its head, Cancel on the left and the
+   button that does it on the right; × when it has no Cancel. The head stays as its sheet scrolls. */
+.mb-sheet.dialog {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-content: start;
+  gap: 10px 8px;
+  width: auto;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 14px 14px 0 0;
+}
+
+.mb-sheet-back.kb .mb-sheet.dialog {
+  padding-bottom: 12px;
+}
+
+.mb-sheet.dialog > *,
+.mb-sheet.dialog form > * {
+  grid-column: 1 / -1;
+}
+
+.mb-sheet.dialog form,
+.mb-sheet.dialog .dialog-actions {
+  display: contents;
+}
+
+.mb-sheet.dialog::before {
+  content: '';
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  grid-row: 2;
+  grid-column: 1 / -1;
+  margin: 0 -16px;
+  background: var(--sl-side);
+}
+
+.mb-sheet.dialog > .mb-grab {
+  grid-row: 1;
+  justify-self: center;
+}
+
+.mb-sheet.dialog > h2,
+.mb-sheet.dialog > .history-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  grid-row: 2;
+  grid-column: 2;
+  align-self: center;
+  max-width: 50vw;
+  margin: 0;
+  overflow: hidden;
+  color: var(--sl-fg);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 50px;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.mb-sheet.dialog > .history-head h2 {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mb-sheet.dialog > .history-head span {
+  display: none;
+}
+
+.mb-sheet.dialog .dialog-actions > button {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  grid-row: 2;
+  grid-column: 1;
+  justify-self: start;
+  align-self: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-accent);
+  font-size: 17px;
+  font-weight: 400;
+}
+
+.mb-sheet.dialog .dialog-actions > .primary {
+  grid-column: 3;
+  justify-self: end;
+  background: none;
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+.mb-sheet.dialog .dialog-actions > .primary:disabled {
+  opacity: 0.4;
+}
+
+/* What a window says beside its buttons, as how many tasks a filter finds, comes last. */
+.mb-sheet.dialog .dialog-actions > :not(button) {
+  color: var(--sl-faint);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.mb-sheet.dialog > .mb-x {
+  position: sticky;
+  top: 10px;
+  z-index: 2;
+  grid-row: 2;
+  grid-column: 3;
+  justify-self: end;
+  align-self: center;
+}
+
+.mb-sheet.dialog:has(.dialog-actions) > .mb-x {
+  display: none;
+}
+
+.mb-sheet.dialog input:not([type="checkbox"], [type="radio"]),
+.mb-sheet.dialog select {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+}
+
+.mb-sheet.dialog textarea {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.mb-sheet.dialog p {
+  font-size: 14px;
+}
+
+.mb-sheet.dialog .choices {
+  max-height: none;
+}
+
+.mb-sheet.dialog .choices button {
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: 16px;
+}
+
+.mb-sheet.dialog .field {
+  grid-template-columns: 70px minmax(0, 1fr);
+}
+
+.mb-sheet.dialog .field > span {
+  font-size: 15px;
+}
+
+.mb-sheet.dialog .field-list {
+  margin-left: 0;
+}
+
+.mb-sheet.dialog.history {
+  height: calc(100% - env(safe-area-inset-top) - 12px);
+}
+
+/* ---------- action sheets: the menus of a phone ---------- */
+
+.mb-acts-back {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+  background: rgb(0 0 0 / 0.45);
+  animation: mb-dim 220ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mb-acts {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  z-index: 46;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100% - 60px - env(safe-area-inset-top));
+  overflow-y: auto;
+  color: var(--sl-fg);
+  font-size: 17px;
+  line-height: 1.3;
+  animation: mb-up 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mb-acts .mb-card {
+  flex: none;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--sl-side);
+}
+
+.mb-acts .hd {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.mb-acts .icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--sl-dim);
+}
+
+.mb-acts .hd span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mb-acts .hd b {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-acts .hd small {
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.mb-acts .a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  color: var(--sl-fg);
+  font-size: 17px;
+  text-align: left;
+}
+
+.mb-acts .a:active {
+  background: color-mix(in srgb, var(--sl-fg) 8%, var(--sl-side));
+}
+
+.mb-acts .a:disabled {
+  color: var(--sl-faint);
+}
+
+.mb-acts .a + .a::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 52px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-acts .a + .a:not(:has(> .icon))::before {
+  left: 16px;
+}
+
+.mb-acts .a .lb {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mb-acts .a .lb small {
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.mb-acts .a .on {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 15px;
+}
+
+.mb-acts .sep {
+  height: 8px;
+  background: color-mix(in srgb, var(--sl-bg) 55%, var(--sl-side));
+}
+
+.mb-acts .a.red,
+.mb-acts .a.red .icon {
+  color: var(--sl-p1);
+}
+
+.mb-acts .a.center {
+  justify-content: center;
+}
+
+.mb-acts .a.cancel {
+  justify-content: center;
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+.mb-acts .ask {
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--sl-line);
+  text-align: center;
+}
+
+.mb-acts .ask b {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mb-acts .ask small {
+  display: block;
+  margin-top: 3px;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}
+
+/* a row held for its menu: lifted over the dim, where it was */
+@keyframes mb-lift {
+  from {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+.mb-lifted {
+  position: fixed;
+  z-index: 45;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: var(--sl-side);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+  font-size: 16px;
+  line-height: 1.35;
+  transform: scale(1.02);
+  pointer-events: none;
+  animation: mb-lift 160ms ease;
+}
+
+.mb-lifted .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.mb-lifted > .icon:last-child {
+  width: 16px;
+  height: 16px;
+  margin-right: -4px;
+  color: var(--sl-faint);
+  stroke-width: 2.2;
+}

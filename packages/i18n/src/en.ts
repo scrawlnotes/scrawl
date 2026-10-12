@@ -218,7 +218,12 @@ export const en = {
   'phone.notFiled': 'Inbox, not filed yet',
   'phone.nothingHere': 'Nothing here yet.',
   'phone.sync': 'Sync',
-  'phone.syncOff': 'Off',
+  'phone.on': 'On',
+  'phone.off': 'Off',
+  // what a menu is about, and the folder Create makes something in
+  'phone.kindIn': '{kind} in {folder}',
+  'phone.in': 'in {folder}',
+  'phone.newFolder': 'New folder “{name}”',
   'phone.now': 'now',
   'phone.minutes': '{count} min',
   'phone.hours': '{count} h',
