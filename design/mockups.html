@@ -1400,6 +1400,81 @@ p { margin: 0; max-width: 68ch; }
 .mb-body.typing { margin-bottom: 348px; }
 .mb-ed.bottom { position: absolute; left: 0; right: 0; bottom: 0; }
 .mb-ed.bottom > :last-child { margin-bottom: 0; }
+/* Tasks on a phone (Oct 12). A tap opens the task as a sheet with everything about it; a swipe
+   to the right finishes it, to the left gives Date and More; held, it lifts, and let go without
+   moving it shows its actions, moved it is dragged. + adds a task above the keyboard. */
+.mb-task .desc { display: block; margin-top: 2px; overflow: hidden; color: var(--m-dim); font-size: 14.5px; text-overflow: ellipsis; white-space: nowrap; }
+.mb-task .meta svg { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
+.mb-task .meta .p1 { color: var(--m-p1); } .mb-task .meta .p2 { color: var(--m-p2); } .mb-task .meta .p3 { color: var(--m-p3); }
+.mb-task.d1 { padding-left: 51px; }
+.mb-task.d1::before { left: 86px; }
+.mb-tsec { display: flex; align-items: center; gap: 7px; min-height: 46px; margin-top: 8px; padding: 0 4px 0 13px; border-bottom: 1px solid var(--m-line); }
+.mock .mb-tsec > svg { width: 18px; height: 18px; color: var(--m-faint); stroke-width: 2.2; }
+.mb-tsec b { font-size: 16px; font-weight: 600; }
+.mb-tsec small { color: var(--m-faint); font-size: 14px; }
+.mb-tsec .more { display: grid; place-items: center; width: 44px; height: 44px; margin-left: auto; color: var(--m-faint); }
+.mock .mb-tsec .more svg { width: 22px; height: 22px; }
+.mb-tsec + .mb-task::before { display: none; }
+.mb-tadd { display: flex; align-items: center; gap: 13px; min-height: 50px; margin-top: 6px; padding: 0 16px; color: var(--m-faint); }
+.mock .mb-tadd svg { width: 22px; height: 22px; }
+/* swiped: what the swipe does shows under the row */
+.mb-task.sw { padding: 0; overflow: hidden; }
+.mb-task.sw .slide { position: relative; z-index: 1; display: flex; flex: none; gap: 13px; width: 100%; padding: 12px 16px; background: var(--m-bg); }
+.mb-task.sw.left .slide { transform: translateX(-152px); }
+.mb-task.sw.right .slide { transform: translateX(96px); }
+.mb-swa { position: absolute; top: 0; bottom: 0; display: flex; }
+.mb-swa.r { right: 0; }
+.mb-swa.l { left: 0; }
+.mb-swa span { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 76px; font-size: 13px; font-weight: 600; }
+.mock .mb-swa svg { width: 22px; height: 22px; stroke-width: 2; }
+.mb-swa .date { background: var(--m-accent); color: var(--m-on-accent); }
+.mb-swa .more { background: var(--m-dim); color: var(--m-bg); }
+.mb-swa .done { width: 96px; background: #4fa36c; color: #fff; }
+.mb-task.lift { z-index: 6; margin: 0 8px; padding: 12px 8px; border-radius: 12px; background: var(--m-side); box-shadow: 0 10px 30px rgb(0 0 0 / .45); transform: scale(1.02); }
+.mb-task.lift::before, .mb-task.lift + .mb-task::before { display: none; }
+/* + in a list: a name, a description, the date, priority and record as chips, where it goes, Add */
+.mb-qa { position: absolute; left: 0; right: 0; bottom: 300px; z-index: 7; display: flex; flex-direction: column; padding: 14px 16px 8px; border-radius: 14px 14px 0 0; background: var(--m-side); box-shadow: 0 -10px 30px rgb(0 0 0 / .35); }
+.mb-qa .tt { font-size: 17px; }
+.mb-qa .ds { margin-top: 5px; color: var(--m-faint); font-size: 15px; }
+.mb-chips { display: flex; gap: 8px; margin-top: 13px; overflow: hidden; }
+.mb-chip { display: flex; flex: none; align-items: center; gap: 6px; height: 34px; padding: 0 11px; border: 1px solid var(--m-line); border-radius: 9px; color: var(--m-dim); font-size: 14.5px; }
+.mock .mb-chip svg { width: 17px; height: 17px; }
+.mb-chip.set { border-color: color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); color: var(--m-fg); }
+.mock .mb-chip.set svg { color: var(--m-accent); }
+.mock .mb-chip.p2 svg { color: var(--m-p2); }
+.mb-qa .foot { display: flex; align-items: center; gap: 8px; margin: 10px -16px 0; padding: 8px 10px 0 16px; border-top: 1px solid var(--m-line); }
+.mb-qa .where { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--m-dim); font-size: 14.5px; white-space: nowrap; }
+.mock .mb-qa .where svg { width: 18px; height: 18px; }
+.mock .mb-qa .where svg.chev { width: 14px; height: 14px; color: var(--m-faint); stroke-width: 2.2; }
+.mb-qa .addb { margin-left: auto; padding: 8px 18px; border-radius: 10px; background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+/* a task as a sheet: where it is, its name and description, its fields, its subtasks */
+.mb-crumb { display: flex; align-items: center; gap: 5px; min-width: 0; color: var(--m-dim); font-size: 14px; }
+.mock .mb-crumb svg { width: 16px; height: 16px; }
+.mock .mb-crumb svg.chev { width: 13px; height: 13px; color: var(--m-faint); stroke-width: 2.2; }
+.mb-sh .x.dots { margin-left: auto; }
+.mb-sh .x.dots + .x { margin-left: 0; }
+.mb-task.big { padding: 6px 16px 14px; }
+.mb-task.big .cb { width: 24px; height: 24px; margin-top: 2px; }
+.mb-task.big .tx b { font-size: 20px; font-weight: 600; line-height: 1.3; }
+.mb-task.big .desc { margin-top: 6px; font-size: 15px; line-height: 1.45; white-space: normal; }
+.mock .mb-fr > svg { flex: none; width: 21px; height: 21px; color: var(--m-dim); }
+.mb-fr .val.date { color: var(--m-accent); }
+.mock .mb-fr .val.p1 svg { color: var(--m-p1); }
+.mb-fr .val.lnk { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--m-fg); text-decoration: underline; text-decoration-color: var(--m-faint); text-underline-offset: 3px; }
+.mb-group .mb-task { padding-left: 14px; }
+.mb-group .mb-task + .mb-task::before { left: 49px; }
+.mb-fr.plusrow { border-top: 1px solid var(--m-line); color: var(--m-accent); }
+.mb-fr.cur, .mb-fr.cur .in { color: var(--m-faint); }
+.mb-fr.cur .in small { margin-left: 7px; }
+.mb-search { display: flex; align-items: center; gap: 8px; height: 38px; margin-top: 10px; padding: 0 10px; border-radius: 10px; background: var(--m-bg); color: var(--m-faint); }
+.mock .mb-search svg { width: 17px; height: 17px; }
+/* Upcoming: the week on top, a day marked when it has something; under it the days */
+.mb-week { display: grid; grid-template-columns: repeat(7, 1fr); flex: none; margin: 4px 10px 2px; text-align: center; }
+.mb-week span { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 2px 0 6px; color: var(--m-faint); font-size: 12px; font-weight: 500; }
+.mb-week b { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--m-fg); font-size: 16px; font-weight: 500; }
+.mb-week span.on b { background: var(--m-accent); color: var(--m-on-accent); font-weight: 700; }
+.mb-week i { width: 5px; height: 5px; border-radius: 50%; background: var(--m-faint); }
+.mb-week i.no { visibility: hidden; }
 </style>
 
 <main class="page">
@@ -1502,6 +1577,8 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pnote" data-aview="pnote">Phone note</button>
         <button type="button" id="a-pnotetools" data-aview="pnotetools">Phone note tools</button>
         <button type="button" id="a-pnotemore" data-aview="pnotemore">Phone note more</button>
+        <button type="button" id="a-ptasks" data-aview="ptasks">Phone tasks</button>
+        <button type="button" id="a-ptasksmore" data-aview="ptasksmore">Phone tasks more</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -3325,6 +3402,7 @@ p { margin: 0; max-width: 68ch; }
   ICON.x = '<svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg>';
   ICON.check = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   ICON.dots = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg>';
+  ICON.dots3 = '<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>';
   ICON.stack = '<svg viewBox="0 0 24 24"><rect x="4" y="8" width="12.5" height="12" rx="2"/><path d="M8 4.5h9.5a2 2 0 0 1 2 2V16"/></svg>';
   ICON.day = '<svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/><text x="12" y="17.9" text-anchor="middle" font-size="7.6" font-weight="700" fill="currentColor" stroke="none" font-family="IBM Plex Sans, sans-serif">12</text></svg>';
   ICON.clock = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
@@ -3393,20 +3471,29 @@ p { margin: 0; max-width: 68ch; }
     }).join(''));
   }
   // Today: the tasks and cards of the day, late ones first; a card keeps its key.
-  function mbTask(p, title, meta, key) {
-    return '<div class="mb-task"><span class="cb ' + p + (key ? ' sq' : '') + '"></span><span class="tx"><b>' + (key ? '<span class="key">' + key + '</span>' : '') + title + '</b>' +
-      '<span class="meta">' + meta + '</span></span></div>';
+  /** A piece of a task's line under its name: a date, its list, its subtasks, its record. */
+  function mi(icon, text, cls) { return '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + (icon ? ICON[icon] : '') + text + '</span>'; }
+  /**
+   * A task, or a card by its key, with its description and line under it; a subtask a step in.
+   * Swiped to the left it shows Date and More under it, to the right Done.
+   */
+  function mbT(o) {
+    var inner = '<span class="cb ' + (o.p || '') + (o.key ? ' sq' : '') + '"></span><span class="tx"><b>' + (o.key ? '<span class="key">' + o.key + '</span>' : '') + o.title + '</b>' +
+      (o.desc ? '<span class="desc">' + o.desc + '</span>' : '') + (o.meta ? '<span class="meta">' + o.meta + '</span>' : '') + '</span>';
+    if (o.swipe === 'left') return '<div class="mb-task sw left"><span class="mb-swa r"><span class="date">' + ICON.cal + 'Date</span><span class="more">' + ICON.dots3 + 'More</span></span><div class="slide">' + inner + '</div></div>';
+    if (o.swipe === 'right') return '<div class="mb-task sw right"><span class="mb-swa l"><span class="done">' + ICON.check + 'Done</span></span><div class="slide">' + inner + '</div></div>';
+    return '<div class="mb-task' + (o.d ? ' d1' : '') + (o.cls ? ' ' + o.cls : '') + '">' + inner + '</div>';
   }
   function mbToday() {
     return mbPage(mbHead('Today', 'Monday, Oct 12', true) + '<div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>',
       '<div class="mb-sec">Overdue <small>1</small></div>' +
-      mbTask('p3', 'Renew the domain', '<span class="late">Oct 9</span><span>Tasks · Home</span>') +
+      mbT({ p: 'p3', title: 'Renew the domain', meta: mi('cal', 'Oct 9', 'late') + mi('tasks', 'Tasks · Home') }) +
       '<div class="mb-sec">Today <small>3</small></div>' +
-      mbTask('p1', 'Prototype live preview', '<span>Tasks · Scrawl</span><span>2 of 4</span>') +
-      mbTask('p2', 'Send the revised estimate', '<span>Tasks · Client portal</span>') +
-      mbTask('', 'Call Acme about the yearly plan', '<span>Inbox</span><span>Acme Corp</span>') +
+      mbT({ p: 'p1', title: 'Prototype live preview', meta: mi('tasks', 'Tasks · Scrawl') + mi('', '2 of 4') }) +
+      mbT({ p: 'p2', title: 'Send the revised estimate', meta: mi('tasks', 'Tasks · Client portal') }) +
+      mbT({ title: 'Call Acme about the yearly plan', meta: mi('tasks', 'Inbox') + mi('collection', 'Acme Corp') }) +
       '<div class="mb-sec">Roadmap · Scrawl <small>1</small></div>' +
-      mbTask('p2', 'Hot exit: restore tabs after a crash', '<span>Doing</span><span>Phase 3</span>', 'SCR-14'));
+      mbT({ p: 'p2', key: 'SCR-14', title: 'Hot exit: restore tabs after a crash', meta: mi('board', 'Doing') + mi('', 'Phase 3') }));
   }
   // Browse: the inbox, the folders, and under them the trash, sync and settings.
   function mbBrowse() {
@@ -3703,7 +3790,92 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Link’in Edit’i: adres, Apply, Remove link', mbPage(mbNav('Scrawl', MB_TYPING), mbNoteText({ link: 'on' }), '', 'typing'), link)
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore };
+  // Tasks on a phone (Oct 12). A list is a page: its tasks, its sections with their ···, Add
+  // section at the end. A tap on a task opens it as a sheet with everything about it. A swipe to
+  // the right finishes it; to the left gives Date and More. Held, a task lifts: let go without
+  // moving, its actions open; moved, it is dragged as before. + adds a task above the keyboard,
+  // with the date, priority and record as chips and the list it goes in at the foot.
+  function mbTsec(name, n) {
+    return '<div class="mb-tsec">' + ICON.chevd + '<b>' + name + '</b><small>' + n + '</small><span class="more">' + ICON.dots3 + '</span></div>';
+  }
+  function mbTaskList(o) {
+    o = o || {};
+    return mbT({ p: 'p2', title: 'Register scrawlnotes on GitHub and npm', meta: mi('cal', 'Tomorrow'), swipe: o.right ? 'right' : '', cls: o.lift ? 'lift' : '' }) +
+      mbTsec('Phase 0', 2) +
+      mbT({ p: 'p1', title: 'Prototype live preview', desc: 'Headings, bold and lists first; tables after', meta: mi('cal', 'Today', 'today') + mi('tasks', '2 of 4') }) +
+      mbT({ d: 1, title: 'Tables: edit cells in place' }) +
+      mbT({ d: 1, title: 'Copy button on code blocks' }) +
+      mbT({ p: 'p3', title: 'Decide retry budget for sync', meta: mi('cal', 'Oct 9', 'late'), swipe: o.left ? 'left' : '' }) +
+      mbTsec('Phase 1', 3) +
+      mbT({ p: 'p2', title: 'Hot exit: restore tabs after a crash', meta: mi('cal', 'Oct 14') }) +
+      mbT({ title: 'Full-text search index' }) +
+      mbT({ title: 'Call Acme about the yearly plan', meta: mi('collection', 'Acme Corp') + mi('notes', 'Pricing call notes') }) +
+      '<div class="mb-tadd">' + ICON.plus + 'Add section</div>';
+  }
+  function mbListPage(o) { return mbPage(mbNav('Scrawl', ['dots']) + mbHead('Tasks'), mbTaskList(o)); }
+  /** A list or a section to put a task in; the one it is in is marked and cannot be chosen. */
+  function mbPick(icon, name, where, o) {
+    o = o || {};
+    return '<div class="mb-fr pick' + (o.sub ? ' sub' : '') + (o.cur ? ' cur' : '') + '">' + (icon ? ICON[icon] : '') +
+      '<span class="in">' + name + (where ? '<small>' + where + '</small>' : '') + '</span>' + (o.on ? MB_TICK : '') + '</div>';
+  }
+  function phoneTasks() {
+    var acts = mbActions('tasks', 'Register scrawlnotes on GitHub and npm', 'Task in Tasks · Scrawl', [
+      [{ icon: 'plus', label: 'Add subtask' }, { icon: 'cal', label: 'Date…' }, { icon: 'flag', label: 'Priority…' }, { icon: 'collection', label: 'Record…' }, { icon: 'move', label: 'Move to…' }],
+      [{ icon: 'bin', label: 'Delete', red: true }]
+    ]);
+    return [
+      mbPhone('Liste bir sayfa: bölümler, alt görevler, sonda Add section', mbListPage(), mbTabs('browse') + MB_FAB),
+      mbPhone('Sola kaydırınca Date ve More', mbListPage({ left: true }), mbTabs('browse') + MB_FAB + '<span class="finger" style="left: 150px; top: 466px"></span>'),
+      mbPhone('Sağa kaydırınca Done', mbListPage({ right: true }), mbTabs('browse') + MB_FAB + '<span class="finger" style="left: 200px; top: 166px"></span>'),
+      mbPhone('Basılı tutup bırakınca işlemleri; sürükleyince taşınır', mbListPage({ lift: true }), mbTabs('browse') + MB_DIM + acts)
+    ].join('');
+  }
+  function phoneTasksMore() {
+    var add = MB_DIM + '<div class="mb-qa"><span class="tt">Write the release notes<span class="caret"></span></span><span class="ds">Description</span>' +
+      '<div class="mb-chips"><span class="mb-chip set">' + ICON.cal + 'Tomorrow</span><span class="mb-chip set p2">' + ICON.flag + 'p2</span><span class="mb-chip">' + ICON.collection + 'Record</span></div>' +
+      '<div class="foot"><span class="where">' + ICON.tasks + 'Tasks · Phase 1' + MB_CHEV + '</span><span class="addb">Add</span></div></div>' + MB_KB;
+    var task = MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh"><span class="mb-crumb">' + ICON.tasks + 'Tasks · Scrawl' + MB_CHEV + 'Phase 0</span><span class="x dots">' + ICON.dots3 + '</span><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-task big"><span class="cb p1"></span><span class="tx"><b>Prototype live preview</b><span class="desc">Headings, bold and lists first; tables after. The marks hide off the caret line.</span></span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr">' + ICON.cal + '<span class="fl">Date</span><span class="val date">Today</span></div>' +
+        '<div class="mb-fr">' + ICON.flag + '<span class="fl">Priority</span><span class="val p1">' + ICON.flag + 'p1</span></div>' +
+        '<div class="mb-fr">' + ICON.collection + '<span class="fl">Record</span><span class="val">None</span></div>' +
+        '<div class="mb-fr">' + ICON.notes + '<span class="fl">From</span><span class="val lnk">Sync engine: open questions</span></div>' +
+      '</div>' +
+      '<div class="mb-cap">Subtasks · 2 of 4</div><div class="mb-group">' +
+        mbT({ title: 'Tables: edit cells in place' }) + mbT({ title: 'Copy button on code blocks' }) +
+        '<div class="mb-fr plusrow">' + ICON.plus + 'Add subtask</div>' +
+      '</div></div></div>';
+    function day(n, wd, on, dot) { return '<span' + (on ? ' class="on"' : '') + '>' + wd + '<b>' + n + '</b><i' + (dot ? '' : ' class="no"') + '></i></span>'; }
+    var upcoming = mbPage(mbHead('Upcoming', 'October 2026', true) + '<div class="mb-seg"><span>Today</span><span class="on">Upcoming</span></div>' +
+      '<div class="mb-week">' + day(12, 'Mon', true, true) + day(13, 'Tue', false, true) + day(14, 'Wed', false, true) + day(15, 'Thu') + day(16, 'Fri', false, true) + day(17, 'Sat') + day(18, 'Sun') + '</div>',
+      '<div class="mb-sec">Tomorrow · Tue, Oct 13 <small>2</small></div>' +
+      mbT({ p: 'p2', title: 'Register scrawlnotes on GitHub and npm', meta: mi('tasks', 'Tasks · Scrawl') }) +
+      mbT({ title: 'Book the passport photos', meta: mi('tasks', 'Tasks · Home') }) +
+      '<div class="mb-sec">Wed, Oct 14 <small>2</small></div>' +
+      mbT({ p: 'p2', title: 'Hot exit: restore tabs after a crash', meta: mi('tasks', 'Tasks · Scrawl') }) +
+      mbT({ p: 'p1', key: 'DEA-12', title: 'Acme renewal', meta: mi('board', 'Proposal') + mi('collection', 'Acme Corp') }) +
+      '<div class="mb-sec">Fri, Oct 16 <small>1</small></div>' +
+      mbT({ p: 'p3', title: 'Send the invoice for September', meta: mi('tasks', 'Tasks · Client portal') }));
+    var move = MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>Move to</b><span></span></div>' +
+      '<div class="mb-form"><div class="mb-hint" style="padding-top: 0; color: var(--m-fg)">Decide retry budget for sync</div>' +
+      '<div class="mb-search">' + ICON.find + 'Type a list or section</div>' +
+      '<div class="mb-group" style="margin-top: 10px">' +
+        mbPick('tasks', 'Tasks', 'Inbox') +
+        mbPick('tasks', 'Tasks', 'Scrawl') + mbPick('', 'Phase 0', '✓ Now here', { sub: true, cur: true }) + mbPick('', 'Phase 1', '', { sub: true }) +
+        mbPick('tasks', 'Groceries', 'Home') + mbPick('tasks', 'Tasks', 'Client portal') +
+      '</div></div></div>';
+    return [
+      mbPhone('+ ile görev: chip’ler ve nereye gideceği, Add', mbListPage(), add),
+      mbPhone('Göreve dokununca sheet: alanları ve alt görevleri', mbListPage(), mbTabs('browse') + task),
+      mbPhone('Upcoming: üstte hafta, altında günler', upcoming, mbTabs('today') + MB_FAB),
+      mbPhone('Move to: listeler ve bölümleri; dokununca taşır', mbListPage({ lift: false }), mbTabs('browse') + move)
+    ].join('');
+  }
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {
