@@ -67,7 +67,9 @@ function Growing({ value, className, placeholder, label, onChange }: { value: st
  * A due date in a sheet: Today, Tomorrow, Next week and No date, each with its day, then the month
  * to pick any other. What is set is ticked.
  */
-export function DateSheet({ title, current, today, onPick, onClose }: {
+export function DateSheet({ label = t('tasks.date'), title, current, today, onPick, onClose }: {
+  /** The sheet's name: Date, or the field's. */
+  label?: string;
   /** What the date is for, under the sheet's name. */
   title: string;
   current: string | null;
@@ -99,9 +101,9 @@ export function DateSheet({ title, current, today, onPick, onClose }: {
   const shift = (by: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + by, 1));
   const initials = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'narrow' }));
   return (
-    <Sheet label={t('tasks.date')} className="mb-create mb-date" onClose={onClose}>
+    <Sheet label={label} className="mb-create mb-date" onClose={onClose}>
       <div className="mb-sh">
-        <b>{t('tasks.date')}</b>
+        <b>{label}</b>
         <small>{title}</small>
         <SheetClose onClose={onClose} />
       </div>

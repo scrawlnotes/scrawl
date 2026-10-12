@@ -92,11 +92,12 @@ import {
 import { CardPanel, type CardPanelActions } from './CardPanel';
 import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { FieldsDialog } from './Fields';
-import { onPage } from './device';
-import type { MenuItem } from './dialogs';
+import { isPhone, onPage } from './device';
+import type { MenuHead, MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { collectionLabel } from './items';
 import { useNarrow } from './narrow';
+import { FilterSheet, PhoneCollectionList, ViewSheet } from './PhoneCollection';
 import { dueClass, dueLabel } from './Tasks';
 import { quote } from './text';
 
@@ -117,7 +118,12 @@ export interface CollectionActions {
   openNote: (path: string) => void;
   /** Opens a web page, a new mail or a call, outside the app. */
   openLink: (href: string) => void;
-  menu: (event: MouseEvent, items: MenuItem[]) => void;
+  /** On a phone an action sheet, with what it is about on top. */
+  menu: (event: MouseEvent, items: MenuItem[], head?: MenuHead) => void;
+  /** On a phone, opens a record as a page of its own. */
+  show?: (dir: string, id: string) => void;
+  /** On a phone, opens a new record's form, starting with `values`. */
+  create?: (dir: string, values?: Record['values']) => void;
   /** Asks before something is lost; `action` is what the confirming button says. */
   ask: (title: string, message: string, run: () => void, action: string) => void;
   /** An editor for the body, in `parent`; the host wires it to the vault's files. */
@@ -617,7 +623,7 @@ export function FieldInput({ field, value, autoFocus, ctx, onChange, onEnter }: 
 }
 
 /** The body of a record, in the live preview editor, as part of the form: what is typed goes to the draft. */
-function NotesBlock({ text, editor, onChange }: { text: string; editor: CollectionActions['editor']; onChange: (text: string) => void }) {
+export function NotesBlock({ text, editor, onChange }: { text: string; editor: CollectionActions['editor']; onChange: (text: string) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const made = useRef<ScrawlEditor | null>(null);
   const changed = useRef(onChange);
@@ -639,17 +645,17 @@ function NotesBlock({ text, editor, onChange }: { text: string; editor: Collecti
 }
 
 /** What the form holds: the record as it is being typed. */
-interface Draft {
+export interface Draft {
   /** By field key, the name and the code among them. */
   values: Record['values'];
   body: string;
 }
 
-const draftOf = (record: Record | null, values: Record['values'] = {}): Draft =>
+export const draftOf = (record: Record | null, values: Record['values'] = {}): Draft =>
   record ? { values: { ...record.values }, body: record.body } : { values: { ...values }, body: '' };
 
 /** Whether two drafts differ in anything that would be written. */
-function differs(a: Draft, b: Draft): boolean {
+export function differs(a: Draft, b: Draft): boolean {
   if (a.body !== b.body) return true;
   for (const key of new Set([...Object.keys(a.values), ...Object.keys(b.values)])) {
     const [x, y] = [a.values[key], b.values[key]];
@@ -660,7 +666,7 @@ function differs(a: Draft, b: Draft): boolean {
 }
 
 /** The first lines of a record's body as plain words, for a timeline: no heading marks, no list marks. */
-function excerpt(body: string): string {
+export function excerpt(body: string): string {
   return body
     .split('\n')
     .map((line) => line.replace(/^\s*(#+|[-*+]|\d+\.|>)\s+/, '').trim())
@@ -670,7 +676,7 @@ function excerpt(body: string): string {
 }
 
 /** What a record of a collection is called, "activity" for Activities; "record" when the schema does not say. */
-const singularOf = (schema: Schema) => schema.singular ?? t('collection.recordSingular');
+export const singularOf = (schema: Schema) => schema.singular ?? t('collection.recordSingular');
 
 /**
  * The records of another collection that link to this one, under a head with how many there are
@@ -903,6 +909,27 @@ function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; reco
   );
 }
 
+/**
+ * The layout of a record's screen. A new record is one column of its fields and body. A record
+ * with no layout of its own has, under its body, the records of every collection that links to its
+ * collection, and the cards of every board that does.
+ */
+export function recordLayout(schema: Schema, dir: string, isNew: boolean, actions: Pick<CollectionActions, 'collections' | 'boards'>): Layout {
+  const own = layoutOf(schema);
+  if (isNew) {
+    const sections = own.columns.flatMap((column) =>
+      column.sections.map((section) => ({ ...section, items: section.items.filter((item) => 'field' in item || item.block === 'body') })),
+    );
+    return { columns: [{ sections: sections.filter((section) => section.items.length > 0) }] };
+  }
+  if (schema.layout) return own;
+  const linked: LayoutBlock[] = [
+    ...linkingCollections(actions.collections(), dir).map((c): LinkedBlock => ({ block: 'linked', collection: c.dir })),
+    ...(boardsLinkingTo(actions.boards(), dir).length > 0 ? [{ block: 'cards' } as const] : []),
+  ];
+  return linked.length > 0 ? { columns: [{ sections: [...own.columns[0]!.sections, { items: linked }] }] } : own;
+}
+
 /** A record opened over another: one of a collection that links to it, or a new one already linked; or a card that links to it. */
 type Over = { dir: string; id: string } | { dir: string; values: Record['values'] } | { board: string; card: string };
 
@@ -939,24 +966,7 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const dirty = differs(draft, original);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
 
-  // A new record is one column of its fields and body. A record with no layout of its own has,
-  // under its body, the records of every collection that links to its collection, and the cards
-  // of every board that does.
-  const layout: Layout = useMemo(() => {
-    const own = layoutOf(schema);
-    if (isNew) {
-      const sections = own.columns.flatMap((column) =>
-        column.sections.map((section) => ({ ...section, items: section.items.filter((item) => 'field' in item || item.block === 'body') })),
-      );
-      return { columns: [{ sections: sections.filter((section) => section.items.length > 0) }] };
-    }
-    if (schema.layout) return own;
-    const linked: LayoutBlock[] = [
-      ...linkingCollections(actions.collections(), dir).map((c): LinkedBlock => ({ block: 'linked', collection: c.dir })),
-      ...(boardsLinkingTo(actions.boards(), dir).length > 0 ? [{ block: 'cards' } as const] : []),
-    ];
-    return linked.length > 0 ? { columns: [{ sections: [...own.columns[0]!.sections, { items: linked }] }] } : own;
-  }, [schema, isNew, dir, actions]);
+  const layout: Layout = useMemo(() => recordLayout(schema, dir, isNew, actions), [schema, isNew, dir, actions]);
   // The name, and the fields the layout does not place, go in the first column that has fields.
   const fieldColumn = Math.max(0, layout.columns.findIndex((column) => column.sections.some((section) => section.items.some((item) => 'field' in item))));
 
@@ -1327,7 +1337,10 @@ function patched<T extends { sort?: RecordSort; group?: string | null; columns?:
 /** The value the Columns list gives to fitting the columns to the window again. */
 const FIT = '\u0000fit';
 
-export function CollectionView({ collection, today, look, onLook, actions, onStatus }: {
+/** On a phone, a menu opens from the bottom wherever it was asked for. */
+const NO_POINTER = { preventDefault: () => undefined, clientX: 0, clientY: 0 } as unknown as MouseEvent;
+
+export function CollectionView({ collection, today, look, onLook, actions, onStatus, fieldsAsked }: {
   collection: Collection;
   today: string;
   look: CollectionLook | undefined;
@@ -1335,6 +1348,8 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   actions: CollectionActions;
   /** What the status bar says: the count and the order. Null once the view closes. */
   onStatus: (parts: string[] | null) => void;
+  /** On a phone, counts the times the page's menu asked for the Fields window. */
+  fieldsAsked?: number;
 }) {
   const { dir, schema } = collection;
   // The records with their rollups worked out, for the table; a record opens as its file has it.
@@ -1347,6 +1362,11 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const [open, setOpen] = useState<{ kind: 'new' } | { kind: 'record'; id: string } | null>(null);
   const [filtering, setFiltering] = useState(false);
   const [designing, setDesigning] = useState(false);
+  /** On a phone, the view's sheet: its sort, grouping, filter and the fields the list shows. */
+  const [viewing, setViewing] = useState(false);
+  useEffect(() => {
+    if (fieldsAsked) setDesigning(true);
+  }, [fieldsAsked]);
   const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set());
   // Conditions applied without being saved as a view, until the tab closes.
   const [adHoc, setAdHoc] = useState<Condition[]>([]);
@@ -1600,6 +1620,113 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
       }, t('delete.action')) },
     ]);
 
+  // The conditions applied: to the view, or to the plain table until it closes; or kept as a new view.
+  const applyFilter = (conditions: Condition[]) => {
+    if (view) void actions.changeSchema(dir, (s) => putView(s, { ...view, conditions }));
+    else setAdHoc(conditions);
+    setFiltering(false);
+  };
+  const saveFilter = (conditions: Condition[], viewName: string) => {
+    const saved: View = view
+      ? { ...view, name: viewName, conditions }
+      : { id: crypto.randomUUID(), name: viewName, conditions, sort: state.sort, ...(state.group && { group: state.group }), ...(state.columns && { columns: state.columns }), ...(state.widths && { widths: state.widths }) };
+    void actions.changeSchema(dir, (s) => putView(s, saved)).then((failed) => !failed && pickView(saved.id));
+    setAdHoc([]);
+    setFiltering(false);
+  };
+  const countFor = (conditions: Condition[]) => records.filter((r) => matchesConditions(r, schema, conditions, today)).length;
+
+  if (isPhone()) {
+    // A view held: its filter, or Delete.
+    const phoneViewMenu = (v: View) =>
+      actions.menu(
+        NO_POINTER,
+        [
+          {
+            label: t('phone.editFilter'),
+            icon: 'filter',
+            run: () => {
+              pickView(v.id);
+              setFiltering(true);
+            },
+          },
+          {
+            label: t('menu.delete'),
+            icon: 'trash',
+            danger: true,
+            run: () =>
+              actions.ask(t('delete.view'), t('delete.viewText', { name: quote(v.name) }), () => {
+                void actions.changeSchema(dir, (s) => removeView(s, v.id));
+                if (look?.view === v.id) pickView(null);
+              }, t('delete.action')),
+          },
+        ],
+        { icon: 'filter', title: v.name, sub: t('phone.viewOf', { collection: name }) },
+      );
+    return (
+      <section className="bv collection-view mb-cv">
+        <PhoneCollectionList
+          name={name}
+          count={applied.length > 0 || query ? t('phone.matchOf', { count: shown.length, total: records.length }) : t('count.records', { count: records.length })}
+          schema={schema}
+          today={today}
+          fields={fields.slice(1)}
+          records={records}
+          shown={shown}
+          groups={groups}
+          groupField={groupField}
+          closed={closed}
+          filtered={applied.length > 0}
+          problems={problems}
+          query={query}
+          views={views}
+          view={view}
+          onToggle={toggle}
+          onQuery={setQuery}
+          onPickView={pickView}
+          onViewMenu={phoneViewMenu}
+          onViewSheet={() => setViewing(true)}
+          onOpen={(record) => (actions.show ? actions.show(dir, record.id) : openRecord(record.id))}
+          onAdd={() => (actions.create ? actions.create(dir) : setOpen({ kind: 'new' }))}
+          onFields={() => setDesigning(true)}
+        />
+        {open?.kind === 'new' && <RecordDialog collection={collection} record={null} today={today} actions={actions} onClose={() => setOpen(null)} />}
+        {opened && <RecordDialog key={opened.id} collection={collection} record={opened} today={today} actions={actions} onClose={() => setOpen(null)} />}
+        {designing && <FieldsDialog collection={collection} actions={actions} onClose={() => setDesigning(false)} />}
+        {viewing && !filtering && (
+          <ViewSheet
+            viewName={view ? view.name : t('collection.all')}
+            all={schema.fields}
+            optional={allFields.slice(1)}
+            sort={state.sort}
+            group={state.group}
+            shown={columnsPicked}
+            conditions={applied.length}
+            onSort={(sort) => change({ sort })}
+            onGroup={(key) => change({ group: key })}
+            onShown={(keys) => change({ columns: keys.length === columnOptions.length ? null : keys })}
+            onFilter={() => setFiltering(true)}
+            onClose={() => setViewing(false)}
+          />
+        )}
+        {filtering && (
+          <FilterSheet
+            schema={schema}
+            first={fields[1] ?? fields[0]!}
+            conditions={state.conditions}
+            total={records.length}
+            count={countFor}
+            records={actions.records}
+            view={view}
+            onApply={applyFilter}
+            onSave={saveFilter}
+            onClose={() => setFiltering(false)}
+          />
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="bv collection-view">
       <header className="th">
@@ -1665,22 +1792,11 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
           schema={schema}
           first={fields[1] ?? fields[0]!}
           conditions={state.conditions}
-          count={(conditions) => records.filter((r) => matchesConditions(r, schema, conditions, today)).length}
+          count={countFor}
           records={actions.records}
           view={view}
-          onApply={(conditions) => {
-            if (view) void actions.changeSchema(dir, (s) => putView(s, { ...view, conditions }));
-            else setAdHoc(conditions);
-            setFiltering(false);
-          }}
-          onSave={(conditions, viewName) => {
-            const saved: View = view
-              ? { ...view, name: viewName, conditions }
-              : { id: crypto.randomUUID(), name: viewName, conditions, sort: state.sort, ...(state.group && { group: state.group }), ...(state.columns && { columns: state.columns }), ...(state.widths && { widths: state.widths }) };
-            void actions.changeSchema(dir, (s) => putView(s, saved)).then((failed) => !failed && pickView(saved.id));
-            setAdHoc([]);
-            setFiltering(false);
-          }}
+          onApply={applyFilter}
+          onSave={saveFilter}
           onClose={() => setFiltering(false)}
         />
       )}

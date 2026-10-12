@@ -11,7 +11,6 @@ import {
   isLink,
   keyOf,
   type Link,
-  linkTo,
   numberText,
   type Priority,
   type TimelineEntry,
@@ -40,7 +39,8 @@ import { labelHue, useEscape } from './choices';
 import { Icon, type IconName } from './Icon';
 import { boardLabel } from './items';
 import { AssigneeSheet, KindMark, Label, LabelSheet, PhaseSheet, StatusSheet } from './PhoneBoard';
-import { DateSheet, priorityItems, RecordSheet } from './PhoneTasks';
+import { LinkSheet } from './PhoneCollection';
+import { DateSheet, priorityItems } from './PhoneTasks';
 import { Sheet } from './sheets';
 import { StatusIcon } from './StatusIcon';
 import { dueClass, dueLabel } from './Tasks';
@@ -866,7 +866,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
     records: records.records,
     collection: records.collection,
     openLink: records.openLink,
-    openRecord: (field: Field, link: Link) => field.collection && setOver({ dir: field.collection, id: link.id }),
+    openRecord: (field: Field, link: Link) => field.collection && (records.show ? records.show(field.collection, link.id) : setOver({ dir: field.collection, id: link.id })),
   };
   const overCollection = over ? records.collection(over.dir) : null;
   const overRecord = over ? (overCollection?.records.find((r) => r.id === over.id) ?? null) : null;
@@ -952,7 +952,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
     }
     const open = () => {
       if (field.type === 'checkbox') return setValue(field, value !== true);
-      if (field.type === 'link' && !field.many && field.collection) return setLinking(field);
+      if (field.type === 'link' && field.collection) return setLinking(field);
       if (field.type === 'select') {
         return actions.menu(
           NO_POINTER,
@@ -1102,14 +1102,19 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
       {picking === 'assignee' && <AssigneeSheet value={card.assignee ?? ''} onSave={(assignee) => update({ assignee })} onClose={() => setPicking(null)} />}
       {editing && <FieldSheet field={editing} value={cardValue(board, card, editing, today)} ctx={ctx} onSave={(next) => setValue(editing, next)} onClose={() => setEditing(null)} />}
       {linking?.collection && (
-        <RecordSheet
-          title={linking.label}
-          current={(() => {
-            const link = cardValue(board, card, linking, today);
-            return isLink(link) ? { collection: linking.collection, id: link.id, name: link.name } : null;
-          })()}
-          choices={[{ dir: linking.collection, records: records.records(linking.collection) ?? [] }]}
-          onPick={(record) => setValue(linking, record ? linkTo({ id: record.id, name: record.name ?? '', code: record.code ?? '' }) : null)}
+        <LinkSheet
+          field={linking}
+          value={cardValue(board, card, linking, today)}
+          records={records.records(linking.collection)}
+          onChange={(value) => setValue(linking, value)}
+          onOpen={
+            records.show
+              ? (link) => {
+                  setLinking(null);
+                  records.show!(linking.collection!, link.id);
+                }
+              : undefined
+          }
           onClose={() => setLinking(null)}
         />
       )}

@@ -3689,3 +3689,723 @@ body > .mb-lifted {
 .mb-drow.done .num {
   color: var(--sl-faint);
 }
+
+/* ---------- a collection: its list, a record as a page, its sheets ---------- */
+
+/* a choice as its chip, in its colour */
+.mb-cr .lbl,
+.mb-fr .lbl,
+.mb-act .lbl {
+  display: inline-block;
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: hsl(var(--lh) var(--ls, 60%) 55% / 0.18);
+  color: hsl(var(--lh) var(--ls, 60%) 65%);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 21px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme='light'] .mb-cr .lbl,
+:root[data-theme='light'] .mb-fr .lbl,
+:root[data-theme='light'] .mb-act .lbl {
+  color: hsl(var(--lh) var(--ls, 60%) 35%);
+}
+
+.mb-fr .val .lbls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mb .mb-cv {
+  padding-bottom: 0;
+}
+
+/* the search box and the views */
+.mb-searchbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  margin: 2px 16px 10px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: var(--sl-side);
+  color: var(--sl-faint);
+}
+
+.mb .mb-searchbar .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.mb-searchbar input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font-size: 16px;
+  outline: none;
+}
+
+.mb-searchbar input::placeholder {
+  color: var(--sl-faint);
+}
+
+.mb-views {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 8px 16px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.mb-views .ch {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.mb-views .ch::-webkit-scrollbar {
+  display: none;
+}
+
+.mb-view {
+  flex: none;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 16px;
+  color: var(--sl-dim);
+  font-size: 14px;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mb-view.on {
+  border-color: var(--sl-sel);
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.mb-views .opt {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 36px;
+  color: var(--sl-accent);
+}
+
+.mb .mb-views .opt .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.mb-views .opt.on::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sl-accent);
+}
+
+.mb-clist {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: 110px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* a record a row: its name, two or three of its fields under it, a number or a day on the right */
+.mb-cr {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 16px;
+  box-sizing: border-box;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.mb-cr:active {
+  background: color-mix(in srgb, var(--sl-fg) 6%, var(--sl-bg));
+}
+
+.mb-cr + .mb-cr::before,
+.mb-rlist > * + *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-cr .tx {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mb-cr .tx b {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-cr .tx small {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.mb-cr .tx small > span:not(.lbl) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mb-cr .tx small .key {
+  flex: none;
+  font: 13px var(--sl-font-mono);
+}
+
+.mb-cr .rt {
+  flex: none;
+  color: var(--sl-faint);
+  font-size: 14px;
+  text-align: right;
+}
+
+.mb-cr .rt.today {
+  color: var(--sl-accent);
+}
+
+.mb-cr .rt.num {
+  color: var(--sl-fg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-cr.done .tx b,
+.mb-cr.done .rt {
+  color: var(--sl-faint);
+}
+
+.mb-cr .flag {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 7px;
+  border-radius: 50%;
+  background: var(--sl-accent);
+  vertical-align: 2px;
+}
+
+/* a group of the list: its name, how many, the number added up */
+.mb-gsec {
+  gap: 8px;
+  width: 100%;
+  padding-right: 16px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.mb-gsec small {
+  color: var(--sl-faint);
+  font-size: 12.5px;
+}
+
+.mb-sec .sum {
+  margin-left: auto;
+  color: var(--sl-dim);
+  font-size: 13.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-gsec.closed {
+  opacity: 0.6;
+}
+
+/* a record as a page: its name and code, its buttons, its tabs, then the tab's rows */
+.mb-rpage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mb-rbody {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: 96px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* changes held: Cancel and Save over the page's bar */
+.mb-editbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  justify-content: space-between;
+  background: var(--sl-bg);
+}
+
+.mb-editbar .mb-tb {
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--sl-accent);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.mb-editbar .mb-tb.plain {
+  font-weight: 400;
+}
+
+.mb-rhead {
+  padding: 0 16px 12px;
+}
+
+.mb-rhead h2,
+.mb-rhead .mb-rname {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: 700 26px/1.2 var(--sl-font-ui);
+  outline: none;
+  resize: none;
+}
+
+.mb-rname::placeholder {
+  color: var(--sl-faint);
+}
+
+.mb-rhead .code {
+  display: block;
+  margin-top: 3px;
+  padding: 0;
+  color: var(--sl-faint);
+  font: 13.5px/1.6 var(--sl-font-mono);
+  text-align: left;
+}
+
+.mb-rhead .code.none {
+  opacity: 0.6;
+}
+
+.mb-qacts {
+  display: flex;
+  gap: 10px;
+  padding: 0 16px 12px;
+}
+
+.mb-qact {
+  display: flex;
+  flex: 0 1 104px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 0 8px;
+  border-radius: 12px;
+  background: var(--sl-side);
+  color: var(--sl-accent);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.mb .mb-qact .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.mb-rtabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin-top: 0;
+  background: var(--sl-bg);
+}
+
+.mb-rform {
+  padding-top: 12px;
+}
+
+.mb-group.wide .fl {
+  width: 104px;
+}
+
+.mb-fr .fl .req {
+  margin-left: 2px;
+  color: var(--sl-p1);
+  font-style: normal;
+}
+
+.mb-fr.bad .fl {
+  color: var(--sl-accent);
+}
+
+.mb-fr input.in.r {
+  text-align: right;
+}
+
+/* a value of a record's page shows dim, and as it is written while it is */
+.mb-rform .mb-fr input.in.r {
+  color: var(--sl-dim);
+}
+
+.mb-rform .mb-fr input.in.r:focus {
+  color: var(--sl-fg);
+}
+
+.mb-fr .val.ro {
+  color: var(--sl-faint);
+}
+
+.mb-fr .val .mb-who {
+  margin-left: 0;
+}
+
+.mb-rform .mb-fr .val > .icon:last-child,
+.mb-newrec .mb-fr .val > .icon:last-child {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--sl-faint);
+  stroke-width: 2.2;
+}
+
+.mb-fr .go2 {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-right: -6px;
+  color: var(--sl-accent);
+}
+
+.mb .mb-fr .go2 .icon,
+.mb-sheet .mb-fr .go2 .icon {
+  width: 19px;
+  height: 19px;
+}
+
+/* a value changed and not saved yet */
+.mb-fr.changed::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--sl-accent);
+}
+
+/* a tick as a switch */
+.mb-sw {
+  position: relative;
+  flex: none;
+  width: 48px;
+  height: 29px;
+  margin-left: auto;
+  border-radius: 15px;
+  background: var(--sl-line);
+  transition: background 160ms ease;
+}
+
+.mb-sw::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  transition: left 160ms ease;
+}
+
+.mb-sw.on {
+  background: var(--sl-accent);
+}
+
+.mb-sw.on::after {
+  left: 21px;
+}
+
+/* the notes, in the note editor */
+.mb-notes {
+  margin: 0 16px;
+}
+
+.mb-notes.in-sheet {
+  margin: 0;
+}
+
+.mb-notes .rm-notes {
+  min-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 12px;
+  background: var(--sl-bg);
+}
+
+.mb-notes .rm-notes .cm-editor {
+  font-size: 16px;
+}
+
+.mb-notes .rm-notes .cm-content {
+  min-height: 72px;
+  padding: 0;
+}
+
+.mb-notes .rm-notes.empty::after {
+  top: 10px;
+  left: 12px;
+  font-size: 16px;
+}
+
+/* what links to the record, as a tab */
+.mb-rlist > * {
+  position: relative;
+}
+
+.mb-rnone {
+  padding: 16px;
+}
+
+.mb-act {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.mb-act .h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--sl-dim);
+  font-size: 14px;
+}
+
+.mb-act .h b {
+  overflow: hidden;
+  color: var(--sl-fg);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-act .h span {
+  flex: none;
+}
+
+.mb-act .h .t {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.mb-act .p {
+  display: -webkit-box;
+  margin-top: 5px;
+  overflow: hidden;
+  font-size: 15.5px;
+  line-height: 1.45;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* a task about the record, ticked off here; the line that adds one */
+.mb-crtask {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 16px;
+}
+
+.mb-crtask .cb {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+}
+
+.mb-crtask .cb::after {
+  left: 6px;
+  top: 2.5px;
+  width: 5px;
+  height: 10px;
+  border-width: 0 2px 2px 0;
+}
+
+.mb-crtask .cb[aria-checked='true']::after {
+  opacity: 1;
+}
+
+.mb-crtask .tt {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-crtask small {
+  flex: none;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}
+
+.mb-crtask small.today {
+  color: var(--sl-accent);
+}
+
+.mb-crtask small.late {
+  color: var(--sl-p1);
+}
+
+.mb-crtask.done .tt {
+  color: var(--sl-faint);
+  text-decoration: line-through;
+}
+
+.mb-crtask.new {
+  gap: 10px;
+  padding-right: 10px;
+}
+
+.mb-crtask.new .cb {
+  opacity: 0.5;
+}
+
+.mb-crtask.new input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font-size: 16px;
+  outline: none;
+}
+
+.mb-crtask.new input::placeholder {
+  color: var(--sl-faint);
+}
+
+.mb-crtask.new .go {
+  flex: none;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 9px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.mb-crtask.new .go:disabled {
+  opacity: 0.45;
+}
+
+/* a link's records: the one picked ticked, with Open */
+.mb-fr.pick.lk {
+  gap: 10px;
+}
+
+.mb-fr.pick.lk .in {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0;
+  color: var(--sl-fg);
+  font-size: 16px;
+  line-height: 46px;
+  text-align: left;
+}
+
+.mb-fr.pick .in small {
+  overflow: hidden;
+  color: var(--sl-faint);
+  font: 13px var(--sl-font-mono);
+  text-overflow: ellipsis;
+}
+
+.mb-fr.pick.lk .open {
+  flex: none;
+  min-height: 44px;
+  padding-left: 4px;
+  color: var(--sl-accent);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.mb-sheet .mb-fr.none {
+  color: var(--sl-dim);
+}
+
+/* a condition's Remove, at the end of its caption */
+.mb-cap .rmv {
+  float: right;
+  padding: 0;
+  color: var(--sl-p1);
+  font-size: 13.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}

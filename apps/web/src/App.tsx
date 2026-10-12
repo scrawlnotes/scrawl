@@ -71,6 +71,7 @@ import { DateSheet, QuickAdd, RecordSheet, TaskSheet } from './PhoneTasks';
 import { Icon } from './Icon';
 import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
+import { PhoneNewRecord, PhoneRecordPage } from './PhoneCollection';
 import { ImportDialog } from './Import';
 import {
   boardLabel,
@@ -227,6 +228,12 @@ export function App() {
   const [openCard, setOpenCard] = useState<{ board: string; id: string } | null>(null);
   // A record opened over whatever is on screen, from a task about it.
   const [recordOver, setRecordOver] = useState<{ dir: string; id: string } | null>(null);
+  // On a phone a record opens as a page, asked for here; a new one is a form in a sheet; the
+  // collection's page menu asks for its Fields. A record's page asks before its changes are lost.
+  const [recordAsked, setRecordAsked] = useState<{ dir: string; id: string } | null>(null);
+  const [newRecord, setNewRecord] = useState<{ dir: string; values?: Parameters<NonNullable<CollectionActions['create']>>[1] } | null>(null);
+  const [collectionFields, setCollectionFields] = useState(0);
+  const recordGuards = useRef(new Map<string, (then: () => void) => void>());
   /** What the status bar says about a view other than a note's: a keys file's counts, or its cursor. */
   const [viewStatus, setViewStatus] = useState<string[] | null>(null);
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
@@ -533,8 +540,14 @@ export function App() {
           { label: t('status.markdown'), icon: 'markdown', value: source ? t('phone.on') : t('phone.off'), run: () => session.setSource(!source) },
         ]
       : [];
-    const items = path === null || path === INBOX_TASKS ? [] : itemMenuItems(path, setPhoneHistory);
+    let items = path === null || path === INBOX_TASKS ? [] : itemMenuItems(path, setPhoneHistory);
     const board = path !== null && page ? boards[path] : undefined;
+    // A collection's own page has its Fields first, with its CSV, then where it is and its name.
+    if (page && path !== null && path in collections) {
+      const csv = items.filter((item) => item.icon === 'export' || item.icon === 'import');
+      markdown.push({ label: t('collection.fields'), icon: 'settings', run: () => setCollectionFields((n) => n + 1) }, ...csv);
+      items = items.filter((item) => !csv.includes(item));
+    }
     if (board && path !== null) {
       markdown.push(
         { label: t('phone.fieldsMenu'), icon: 'settings', run: () => setBoardFields((n) => n + 1) },
@@ -691,6 +704,8 @@ export function App() {
   const [boardFields, setBoardFields] = useState(0);
   const phoneAdd = (id: string) => {
     if (boardPathOf(id) !== null) return setBoardAdding((n) => n + 1);
+    const collectionDir = collectionPathOf(id);
+    if (collectionDir !== null) return setNewRecord({ dir: collectionDir });
     if (id === TODAY) return setQuickAdd({ list: INBOX_TASKS, section: null, due: today });
     if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: addDays(today, 1) });
     const list = listOf(id);
@@ -734,7 +749,7 @@ export function App() {
       const found = collections[record.collection]?.records.find((r) => r.id === record.id);
       return found ? recordTitle(found) : record.name || record.code || t('collection.untitled');
     },
-    openRecord: (collection, id) => setRecordOver({ dir: collection, id }),
+    openRecord: (collection, id) => (phone ? setRecordAsked({ dir: collection, id }) : setRecordOver({ dir: collection, id })),
   };
   // A card's brief: the card as Markdown, with the note it came from.
   const copyBrief = async (board: string, id: string) => {
@@ -756,7 +771,11 @@ export function App() {
     openNote: (path) => void session.open(path),
     // The desktop app hands an address to the system; in a browser it opens beside the app.
     openLink: (href) => (isDesktop ? void openUrlOnDesktop(href).catch(() => undefined) : void window.open(href, '_blank', 'noopener')),
-    menu: openMenu,
+    menu: (event, items, head) => (phone ? showSheet(items, head) : openMenu(event, items)),
+    ...(phone && {
+      show: (dir: string, id: string) => setRecordAsked({ dir, id }),
+      create: (dir: string, values?: Parameters<NonNullable<CollectionActions['create']>>[1]) => setNewRecord({ dir, values }),
+    }),
     ask: (title, message, run, action) => ask(title, message, run, action),
     records: (dir) => collections[dir]?.records ?? null,
     collection: (dir) => collections[dir] ?? null,
@@ -921,6 +940,7 @@ export function App() {
         onLook={(look) => session.lookAtCollection(collectionPath, look)}
         actions={collectionActions}
         onStatus={setViewStatus}
+        fieldsAsked={collectionFields}
       />
     )}
     {!phone && isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} boards={boards} today={today} actions={taskActions} />}
@@ -1014,7 +1034,7 @@ export function App() {
             counts={counts}
             item={itemLayer}
             dueView={(kind) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare />}
-            canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null}
+            canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null || (collectionPathOf(id) !== null && (collections[collectionPathOf(id)!]?.schema.fields.length ?? 0) > 0)}
             onAdd={phoneAdd}
             trashView={<TrashView items={trash} today={today} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
             syncWord={syncWord(sync)}
@@ -1104,7 +1124,57 @@ export function App() {
               },
               onClosed: () => setOpenCard(null),
             }}
+            record={{
+              open: recordAsked,
+              onShown: () => setRecordAsked(null),
+              exists: (dir, id) => !!collections[dir]?.records.some((r) => r.id === id),
+              view: (dir, id) => {
+                const collection = collections[dir];
+                const record = collection?.records.find((r) => r.id === id);
+                return collection && record ? (
+                  <PhoneRecordPage
+                    key={id}
+                    collection={collection}
+                    record={record}
+                    today={today}
+                    actions={collectionActions}
+                    guards={recordGuards.current}
+                    onOpenCard={(board, card) => setOpenCard({ board, id: card })}
+                  />
+                ) : null;
+              },
+              label: (dir, id) => {
+                const record = collections[dir]?.records.find((r) => r.id === id);
+                return record ? recordTitle(record) : '';
+              },
+              onMenu: (dir, id) => {
+                const record = collections[dir]?.records.find((r) => r.id === id);
+                if (!record) return;
+                showSheet(
+                  [
+                    { label: t('phone.openAsNote'), icon: 'note', run: () => void session.open(record.path) },
+                    { label: t('menu.delete'), icon: 'trash', danger: true, run: () => collectionActions.removeRecord(dir, record) },
+                  ],
+                  { icon: 'collection', title: recordTitle(record), sub: t('phone.recordIn', { collection: collectionName(dir) }) },
+                );
+              },
+              leave: (dir, id, then) => {
+                const guard = recordGuards.current.get(`${dir}\u0000${id}`);
+                if (guard) guard(then);
+                else then();
+              },
+            }}
           />
+          {newRecord && collections[newRecord.dir] && (
+            <PhoneNewRecord
+              key={newRecord.dir}
+              collection={collections[newRecord.dir]!}
+              values={newRecord.values}
+              today={today}
+              actions={collectionActions}
+              onClose={() => setNewRecord(null)}
+            />
+          )}
           {createPortal(itemContent, itemLayer)}
           {linkTap && (
             <LinkActions
