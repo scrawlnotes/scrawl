@@ -44,7 +44,8 @@ export interface Connection {
   /** The space it is for: the desktop's notes folder, or the browser's own vault; `space:` and its id for a space beside it. */
   vault: string;
   account: { name: string; email: string };
-  folder: { id: string; path: string };
+  /** The folder: in the user's drive, or in `drive`, someone else's who shared it, `owner` being who. */
+  folder: { id: string; path: string; drive?: string; owner?: string };
 }
 
 /**
@@ -101,6 +102,8 @@ export interface SyncSnapshot extends SpaceSync {
   picking: Connection['account'] | null;
   /** Signed in in the browser to add a space, the page back from Microsoft: the account to choose its folder in. */
   adding: Connection['account'] | null;
+  /** Back from allowing the wider permission: the folder is chosen among those shared with the user. */
+  addingShared: boolean;
   /** Signing in in the browser went wrong, as the page came back. */
   signInError: string | null;
   /** Every space that syncs, the personal one first, the others in the sidebar's order. */
@@ -172,7 +175,8 @@ export function keptConnection(): Connection | null {
 function connectionOf(space: SpaceView): Connection | null {
   const { source } = space;
   if (source?.provider !== 'onedrive' || !source.place.item) return null;
-  return { provider: 'onedrive', vault: `space:${space.id}`, account: { name: '', email: source.account ?? '' }, folder: { id: source.place.item, path: source.place.path ?? '' } };
+  const { item, path = '', drive, owner } = source.place;
+  return { provider: 'onedrive', vault: `space:${space.id}`, account: { name: '', email: source.account ?? '' }, folder: { id: item, path, ...(drive && { drive }), ...(owner && { owner }) } };
 }
 
 /** One space's turns: its files, its folder there, and how they stand. */
@@ -198,6 +202,7 @@ export class SyncService {
     device: { id: '', name: '' },
     picking: null,
     adding: null,
+    addingShared: false,
     signInError: null,
     all: [],
   };
@@ -364,16 +369,16 @@ export class SyncService {
       if (done.intent !== 'renew') this.set({ signInError: t('sync.signInFailed', { error: done.error }) });
       return;
     }
-    if (done.intent !== 'connect' && done.intent !== 'space') return;
+    if (done.intent !== 'connect' && done.intent !== 'space' && done.intent !== 'shared') return;
     this.account().then(
-      (account) => this.set(done.intent === 'space' ? { adding: account } : { picking: account }),
+      (account) => this.set(done.intent === 'connect' ? { picking: account } : { adding: account, addingShared: done.intent === 'shared' }),
       (error: unknown) => this.set({ signInError: t('sync.signInFailed', { error: error instanceof Error ? error.message : String(error) }) }),
     );
   }
 
   /** The folder window took the account it was opened for. */
   donePicking() {
-    this.set({ picking: null, adding: null });
+    this.set({ picking: null, adding: null, addingShared: false });
   }
 
   clearSignInError() {
@@ -403,7 +408,8 @@ export class SyncService {
   }
 
   private storeFor(unit: Unit): RemoteStore {
-    unit.store ??= oneDrive().remote(unit.connection!.folder.id, unit.vault);
+    const { id, drive } = unit.connection!.folder;
+    unit.store ??= oneDrive().remote(id, unit.vault, drive);
     return unit.store;
   }
 
@@ -495,14 +501,26 @@ export class SyncService {
    */
   refusal(folder: Connection['folder']): string | null {
     const taken = [this.units.get(PERSONAL)?.connection, ...this.spaces.map(connectionOf)].filter((each): each is Connection => !!each);
-    if (taken.some((each) => each.folder.id === folder.id)) return t('error.spaceThere');
-    if (taken.some((each) => foldersNest(drivePath(each.folder.path), drivePath(folder.path)))) return t('error.spaceNests');
+    if (taken.some((each) => each.folder.id === folder.id && each.folder.drive === folder.drive)) return t('error.spaceThere');
+    // Paths only nest in one drive: the user's own, or the same one someone shared from.
+    if (taken.some((each) => each.folder.drive === folder.drive && foldersNest(drivePath(each.folder.path), drivePath(folder.path)))) return t('error.spaceNests');
     return null;
+  }
+
+  /** Whether the sign-in reaches folders shared with the user; without it such a folder asks to allow it first. */
+  wide(): boolean {
+    return oneDrive().wide();
+  }
+
+  /** The folder a sharing link leads to, as a folder of a space: in its owner's drive. Null when the link is not to a folder. */
+  async sharedFolder(link: string): Promise<Connection['folder'] | null> {
+    const found = await oneDrive().account().shared(link);
+    return found && { id: found.id, path: `/${found.name}`, drive: found.drive, ...(found.owner && { owner: found.owner }) };
   }
 
   /** What a folder of the drive says of itself as a space, from its own `.scrawl/space.json`: its id and its name; nothing when it is not one yet. */
   async spaceAt(folder: Connection['folder']): Promise<SpaceInfo> {
-    const text = await oneDrive().account().readText(folder.id, '.scrawl/space.json');
+    const text = await oneDrive().account().readText(folder.id, '.scrawl/space.json', folder.drive);
     return text === null ? {} : parseSpace(text);
   }
 

@@ -280,12 +280,13 @@ export function SpaceSyncRow({ view, service }: { view: SpaceSyncView | undefine
           <CloudIcon />
           <b>{t('sync.oneDrive')}</b>
           <small>
-            {connection.account.email || connection.account.name} · {placeWords(connection.folder.path)}
+            {connection.account.email || connection.account.name} · {placeWords(connection.folder.path, connection.folder.drive)}
           </small>
         </span>
         <span className={`state ${state.tone}`} role="status">
           <i />
           {state.text}
+          {connection.folder.owner && ` · ${t('settings.ownersFolder', { owner: connection.folder.owner })}`}
         </span>
         <span className="acts">
           {signing ? (
@@ -318,9 +319,9 @@ export function providerName(provider: string): string {
   return provider === 'onedrive' ? t('sync.oneDrive') : provider;
 }
 
-/** A folder of a cloud drive in words, as its folder window shows the way to it: "My files › Clients". */
-export function placeWords(path: string): string {
-  return [t('sync.myFiles'), ...path.split('/').filter(Boolean)].join(' › ');
+/** A folder of a cloud drive in words, as its folder window shows the way to it: "My files › Clients", or "Shared › Northwind" in someone else's drive. */
+export function placeWords(path: string, drive?: string): string {
+  return [t(drive ? 'sync.sharedTab' : 'sync.myFiles'), ...path.split('/').filter(Boolean)].join(' › ');
 }
 
 /** The user's own app registration, for those who would rather not sign in through Scrawl's. */
@@ -405,6 +406,135 @@ function ResyncIcon() {
   );
 }
 
+/**
+ * Under Shared in the folder window, after its OneDrive folder and Shared, allow views of
+ * design/mockups.html: a folder someone shared, found by the link they sent, which its owner gets
+ * in OneDrive with Share › Copy link. OneDrive no longer lists what is shared with someone, so the
+ * link is the way. Reaching a folder of someone else needs the wider permission, allowed here
+ * once; in the browser the page goes to Microsoft for it and comes back to this window.
+ */
+function SharedFolderPane({ account, service, found, onFound }: {
+  account: Connection['account'];
+  service: SyncService;
+  found: Connection['folder'] | null;
+  onFound: (folder: Connection['folder'] | null) => void;
+}) {
+  const [allowed, setAllowed] = useState(() => service.wide());
+  const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
+  const [link, setLink] = useState('');
+  const [finding, setFinding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => () => signing?.cancel(), [signing]);
+
+  // A link is looked up as soon as it is pasted or typed out, a moment after the last key.
+  useEffect(() => {
+    const typed = link.trim();
+    onFound(null);
+    setError(null);
+    if (!allowed || !/^https?:\/\/\S+$/i.test(typed)) return;
+    let live = true;
+    const timer = window.setTimeout(() => {
+      setFinding(true);
+      service.sharedFolder(typed).then(
+        (folder) => {
+          if (!live) return;
+          setFinding(false);
+          if (folder) onFound(folder);
+          else setError(t('sync.linkNotFolder'));
+        },
+        () => {
+          if (!live) return;
+          setFinding(false);
+          setError(t('sync.linkNotFound'));
+        },
+      );
+    }, 400);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [link, allowed]);
+
+  const allow = async () => {
+    const cloud = service.cloud();
+    setError(null);
+    if (cloud.redirects) {
+      await service.leaveToSignIn('shared');
+      return;
+    }
+    const attempt = cloud.signIn('shared', account.email);
+    setSigning(attempt);
+    try {
+      await attempt.done;
+      setAllowed(service.wide());
+    } catch (failure) {
+      if (!(failure instanceof DOMException && failure.name === 'AbortError')) setError(t('sync.signInFailed', { error: failure instanceof Error ? failure.message : String(failure) }));
+    } finally {
+      setSigning(null);
+    }
+  };
+
+  if (!allowed) {
+    return (
+      <div className="fp-allow">
+        <CloudIcon />
+        <span>{signing ? t('sync.waitingForBrowser') : t('sync.allowShared')}</span>
+        {signing ? (
+          <button type="button" className="st-btn" onClick={() => signing.cancel()}>
+            {t('sync.cancel')}
+          </button>
+        ) : (
+          <button type="button" className="st-btn go" onClick={() => void allow()}>
+            {t('sync.allowInOneDrive')}
+          </button>
+        )}
+        {error && (
+          <p className="note err" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="fp-shared">
+      <label className="label" htmlFor="shared-link">
+        {t('sync.link')}
+      </label>
+      <input
+        id="shared-link"
+        className="field link"
+        autoFocus
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={t('sync.linkHint')}
+        value={link}
+        onChange={(event) => setLink(event.target.value)}
+      />
+      {(found || finding) && (
+        <div className="list">
+          {found ? (
+            <div className="row on">
+              <Icon name="folder" />
+              <span className="name">{found.path.slice(1)}</span>
+              {found.owner && <small>{t('settings.ownersFolder', { owner: found.owner })}</small>}
+            </div>
+          ) : (
+            <p className="empty">{t('sync.loading')}</p>
+          )}
+        </div>
+      )}
+      {error ? (
+        <p className="note err" role="alert">
+          {error}
+        </p>
+      ) : (
+        <p className="note">{t('sync.linkAbout')}</p>
+      )}
+    </div>
+  );
+}
+
 /** The folder suggested for the personal space, at the top of the drive. */
 const DEFAULT_FOLDER = 'Scrawl';
 
@@ -413,6 +543,9 @@ interface PickerProps {
   service: SyncService;
   /** The folder offered at the top of the drive, made with one click if it is not there: `Scrawl` for the personal space, a space's name for it. */
   suggested?: string;
+  /** For a space: a folder someone shared can be chosen too, under Shared; `startShared` opens there. */
+  withShared?: boolean;
+  startShared?: boolean;
   onUse: (folder: Connection['folder']) => void;
   onCancel: () => void;
 }
@@ -422,8 +555,10 @@ interface PickerProps {
  * one chosen, a new one made in place. At the top of the drive `Scrawl` is offered, made with
  * one click if it is not there.
  */
-export function FolderPicker({ account, service, suggested, onUse, onCancel }: PickerProps) {
+export function FolderPicker({ account, service, suggested, withShared = false, startShared = false, onUse, onCancel }: PickerProps) {
   const SUGGESTED = suggested?.trim() || DEFAULT_FOLDER;
+  const [tab, setTab] = useState<'mine' | 'shared'>(withShared && startShared ? 'shared' : 'mine');
+  const [shared, setShared] = useState<Connection['folder'] | null>(null);
   /** The folders gone into, from the top of the drive (id null). */
   const [trail, setTrail] = useState<{ id: string | null; name: string }[]>([{ id: null, name: t('sync.oneDrive') }]);
   const [folders, setFolders] = useState<OneDriveFolder[] | null>(null);
@@ -511,6 +646,7 @@ export function FolderPicker({ account, service, suggested, onUse, onCancel }: P
     if (making !== null) setMaking(null);
     else onCancel();
   };
+  const onShared = tab === 'shared';
 
   return (
     <div className="fp-ovl" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
@@ -519,6 +655,19 @@ export function FolderPicker({ account, service, suggested, onUse, onCancel }: P
           {t('sync.chooseTitle')}
           <small>{account.email || account.name}</small>
         </h3>
+        {withShared && (
+          <div className="st-modes fp-tabs" role="tablist" aria-label={t('sync.chooseTitle')}>
+            {(['mine', 'shared'] as const).map((each) => (
+              <button key={each} type="button" role="tab" aria-selected={tab === each} className={tab === each ? 'on' : undefined} onClick={() => setTab(each)}>
+                {t(each === 'mine' ? 'sync.myFiles' : 'sync.sharedTab')}
+              </button>
+            ))}
+          </div>
+        )}
+        {onShared ? (
+          <SharedFolderPane account={account} service={service} found={shared} onFound={setShared} />
+        ) : (
+          <>
         <div className="crumbs">
           {trail.map((step, index) =>
             index === trail.length - 1 ? (
@@ -608,16 +757,26 @@ export function FolderPicker({ account, service, suggested, onUse, onCancel }: P
         ) : (
           <p className="note">{t('sync.putTogether')}</p>
         )}
+          </>
+        )}
         <div className="foot">
-          <button type="button" className="st-btn" disabled={making !== null} onClick={() => setMaking('')}>
-            {t('sync.newFolder')}
-          </button>
+          {!onShared && (
+            <button type="button" className="st-btn" disabled={making !== null} onClick={() => setMaking('')}>
+              {t('sync.newFolder')}
+            </button>
+          )}
           <button type="button" className="st-btn" onClick={onCancel}>
             {t('sync.cancel')}
           </button>
-          <button type="button" className="st-btn go" disabled={!target || busy} onClick={() => void use()}>
-            {target ? t('sync.use', { name: target }) : t('sync.useNone')}
-          </button>
+          {onShared ? (
+            <button type="button" className="st-btn go" disabled={!shared} onClick={() => shared && onUse(shared)}>
+              {shared ? t('sync.use', { name: shared.path.slice(1) }) : t('sync.useNone')}
+            </button>
+          ) : (
+            <button type="button" className="st-btn go" disabled={!target || busy} onClick={() => void use()}>
+              {target ? t('sync.use', { name: target }) : t('sync.useNone')}
+            </button>
+          )}
         </div>
       </div>
     </div>

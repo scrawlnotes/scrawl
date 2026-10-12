@@ -118,13 +118,18 @@ interface DriveItem {
   name?: string;
   size?: number;
   cTag?: string;
-  parentReference?: { id?: string };
+  parentReference?: { id?: string; driveId?: string };
   file?: { hashes?: { quickXorHash?: string } };
   folder?: object;
   deleted?: object;
   root?: object;
+  shared?: { owner?: { user?: { displayName?: string } } };
+  createdBy?: { user?: { displayName?: string } };
   '@microsoft.graph.downloadUrl'?: string;
 }
+
+/** Where a drive's items are reached: the user's own drive, or another one by its id, as a folder shared with them is. */
+const driveAt = (drive?: string) => (drive ? `${GRAPH}/drives/${encodeURIComponent(drive)}` : `${GRAPH}/me/drive`);
 
 /** What is known of one item: enough to tell its path and whether it changed. */
 interface Known {
@@ -193,6 +198,8 @@ export function oneDriveTakes(name: string): boolean {
 export interface OneDriveOptions extends GraphOptions {
   /** The id of the space's folder in the drive. */
   folder: string;
+  /** The drive the folder is in, when it is someone else's, shared with the user; theirs otherwise. */
+  drive?: string;
   /** The space, where the adapter keeps what it knows of the folder. */
   fs: VaultFs;
 }
@@ -239,15 +246,19 @@ export class OneDriveRemote implements RemoteStore {
     return { ...differences(base!, listing.items, folder), cursor: listing.cursor };
   }
 
-  /** Personal drives list a folder's changes; work drives only the root's. */
+  /**
+   * Personal drives list a folder's changes; work drives only the root's. A folder shared from
+   * someone else's drive has a list of its own, as Microsoft asks for each shared folder.
+   */
   private async modeOfDrive(): Promise<MapFile['mode']> {
+    if (this.options.drive) return 'folder';
     const drive = await this.graph.json<{ driveType?: string }>(`${GRAPH}/me/drive?$select=driveType`);
     return drive.driveType === 'personal' ? 'folder' : 'drive';
   }
 
   private listingStart(mode: MapFile['mode']): string {
     const from = mode === 'folder' ? `items/${this.options.folder}` : 'root';
-    return `${GRAPH}/me/drive/${from}/delta?$select=${SELECT}`;
+    return `${driveAt(this.options.drive)}/${from}/delta?$select=${SELECT}`;
   }
 
   /** Reads Graph's list of changes to its end, from `cursor` onto `start`; from the beginning when the cursor is null or too old. */
@@ -320,7 +331,7 @@ export class OneDriveRemote implements RemoteStore {
 
   /** The address of an item of the space by its path, and of one of its actions (`content`, `children`). */
   private at(path: string, action?: string): string {
-    const item = `${GRAPH}/me/drive/items/${this.options.folder}`;
+    const item = `${driveAt(this.options.drive)}/items/${this.options.folder}`;
     if (!path) return action ? `${item}/${action}` : item;
     const encoded = path.split('/').map(encodeURIComponent).join('/');
     return action ? `${item}:/${encoded}:/${action}` : `${item}:/${encoded}`;
@@ -551,6 +562,21 @@ export interface OneDriveFolder {
   name: string;
 }
 
+/** A folder someone shared with the user: in their drive, by its id there, and whose it is. */
+export interface SharedFolder extends OneDriveFolder {
+  drive: string;
+  /** The owner's name, as OneDrive gives it. */
+  owner?: string;
+}
+
+/** A sharing link as Graph takes it in its address: `u!` and the link in unpadded base64url. */
+export function shareToken(link: string): string {
+  const bytes = new TextEncoder().encode(link.trim());
+  let text = '';
+  for (const byte of bytes) text += String.fromCharCode(byte);
+  return `u!${btoa(text).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-')}`;
+}
+
 /** The account behind a token: who it is, and its folders, to choose the space's from. */
 export class OneDriveAccount {
   private readonly graph: Graph;
@@ -582,8 +608,8 @@ export class OneDriveAccount {
    * A text file in a folder, by its path there; null when there is none. What a folder's own
    * settings say before it is added as a space: whether it is one already, and what it is called.
    */
-  async readText(folder: string, path: string): Promise<string | null> {
-    const response = await this.graph.request(`${GRAPH}/me/drive/items/${folder}:/${path.split('/').map(encodeURIComponent).join('/')}`);
+  async readText(folder: string, path: string, drive?: string): Promise<string | null> {
+    const response = await this.graph.request(`${driveAt(drive)}/items/${folder}:/${path.split('/').map(encodeURIComponent).join('/')}`);
     if (response.status === 404) return null;
     if (!response.ok) throw await failure(response);
     const item = (await response.json()) as DriveItem;
@@ -594,6 +620,21 @@ export class OneDriveAccount {
     if (content.status === 404) return null;
     if (!content.ok) throw await failure(content);
     return content.text();
+  }
+
+  /**
+   * The folder a sharing link leads to, which its owner gets in OneDrive with Share › Copy link.
+   * The link is taken as following it in a browser would: the user keeps access to the folder.
+   * Null when the link is not to a folder.
+   */
+  async shared(link: string): Promise<SharedFolder | null> {
+    const item = await this.graph.json<DriveItem>(`${GRAPH}/shares/${shareToken(link)}/driveItem?$select=id,name,folder,parentReference,shared,createdBy`, {
+      headers: { Prefer: 'redeemSharingLink' },
+    });
+    const drive = item.parentReference?.driveId;
+    if (!item.folder || !drive) return null;
+    const owner = item.shared?.owner?.user?.displayName ?? item.createdBy?.user?.displayName;
+    return { id: item.id, name: item.name ?? '', drive, ...(owner && { owner }) };
   }
 
   /** Makes a folder; one of that name already there is used as it is. */

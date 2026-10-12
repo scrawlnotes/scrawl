@@ -329,6 +329,43 @@ describe('OneDrive adapter', () => {
   });
 });
 
+describe('a folder someone shared', () => {
+  it('is found by its link, with its owner, and needs the wider permission to be reached', async () => {
+    const graph = new FakeGraph();
+    const { id, link } = graph.shareFolder('Northwind', 'Ben Cole');
+    await graph.putIn(id, '.scrawl/space.json', '{"version":1,"id":"sp-n0rthw1d","name":"Northwind"}');
+    await graph.putIn(id, 'Kickoff.md', 'from Ben');
+    const account = new OneDriveAccount({ fetch: graph.fetch, token: async () => graph.token });
+    const found = await account.shared(link);
+    expect(found).toEqual({ id, name: 'Northwind', drive: 'drive-2', owner: 'Ben Cole' });
+    expect(await account.readText(id, '.scrawl/space.json', 'drive-2')).toContain('sp-n0rthw1d');
+    // A link to a file is not a folder to add.
+    const file = (await graph.fetch(`https://graph.microsoft.com/v1.0/drives/drive-2/items/${id}:/Kickoff.md`, { headers: { Authorization: `Bearer ${graph.token}` } }).then((r) => r.json())) as { id: string };
+    expect(await account.shared(`https://1drv.ms/f/fake/${file.id}`)).toBeNull();
+    await expect(account.shared('https://1drv.ms/f/fake/nothing')).rejects.toThrow(/404/);
+    graph.wide = false;
+    await expect(account.readText(id, '.scrawl/space.json', 'drive-2')).rejects.toThrow(/403/);
+  });
+
+  it('syncs two devices through it, in its own drive', async () => {
+    const graph = new FakeGraph();
+    const { id } = graph.shareFolder('Northwind', 'Ben Cole');
+    await graph.putIn(id, 'Kickoff.md', 'from Ben');
+    const remoteOf = (fs: VaultFs) => new OneDriveRemote({ folder: id, drive: 'drive-2', fs, fetch: graph.fetch, token: async () => graph.token, sleep: async () => undefined });
+    const laptop = new MemoryFs();
+    const phone = new MemoryFs();
+    const [laptopRemote, phoneRemote] = [remoteOf(laptop), remoteOf(phone)];
+    await syncOnce(laptop, laptopRemote, LAPTOP, { now, saveEveryMs: 0 });
+    expect(await laptop.readText('Kickoff.md')).toBe('from Ben');
+    await laptop.writeText('Sales/Plan.md', 'plan');
+    await syncOnce(laptop, laptopRemote, LAPTOP, { now, saveEveryMs: 0 });
+    await syncOnce(phone, phoneRemote, PHONE, { now, saveEveryMs: 0 });
+    expect(await phone.readText('Sales/Plan.md')).toBe('plan');
+    // Nothing went into the user's own drive.
+    expect(await new OneDriveAccount({ fetch: graph.fetch, token: async () => graph.token }).folders(null)).toEqual([]);
+  });
+});
+
 describe('sync through OneDrive', () => {
   it('brings two devices together, merges, moves without reading again, and deletes', async () => {
     const { graph, laptop, phone, syncLaptop, syncPhone } = setup();

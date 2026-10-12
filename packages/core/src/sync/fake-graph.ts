@@ -58,8 +58,14 @@ export class FakeGraph {
   loseNextPartAnswer = false;
   /** How long each answer takes, in milliseconds: a network's pace, for watching a turn go. */
   latency = 0;
+  /** Whether the token reaches files shared with the user (`Files.ReadWrite.All`): another drive is refused without it. */
+  wide = true;
 
   private readonly items = new Map<string, Item>();
+  /** The root of each drive by the drive's id: the user's own, and those of people who shared a folder with them. */
+  private readonly roots = new Map<string, string>([['drive-1', 'root']]);
+  /** Who owns the folders shared with the user, by the folder's id. */
+  private readonly owners = new Map<string, string>();
   private readonly sessions = new Map<string, Session>();
   private seq = 0;
   private ids = 0;
@@ -144,6 +150,30 @@ export class FakeGraph {
     return out.sort();
   }
 
+  /**
+   * A folder in someone else's drive, shared with the user: made at the top of their drive, with
+   * the link they would send. Its id and the link.
+   */
+  shareFolder(name: string, owner: string, drive = 'drive-2'): { id: string; link: string } {
+    let root = this.roots.get(drive);
+    if (!root) {
+      root = `root-${drive}`;
+      this.items.set(root, { id: root, name: 'root', parent: null, dir: true, eTag: 'e0', seq: 0 });
+      this.roots.set(drive, root);
+    }
+    const folder = this.child(root, name) ?? this.create(root, name, true);
+    this.owners.set(folder.id, owner);
+    return { id: folder.id, link: `https://1drv.ms/f/fake/${folder.id}` };
+  }
+
+  /** A file in a folder by the folder's id, as its owner writes it. */
+  async putIn(folder: string, path: string, content: string): Promise<void> {
+    const names = path.split('/');
+    let parent = folder;
+    for (const name of names.slice(0, -1)) parent = (this.child(parent, name) ?? this.create(parent, name, true)).id;
+    await this.store(parent, names.at(-1)!, new Blob([content]));
+  }
+
   /** Every list of changes begun so far is too old from now on. */
   expireListings(): void {
     this.oldest = this.seq + 1;
@@ -217,8 +247,16 @@ export class FakeGraph {
     return false;
   }
 
+  /** The drive an item is in, by the root it hangs from. */
+  private driveOf(item: Item): string {
+    let top = item;
+    while (top.parent) top = this.items.get(top.parent) ?? top;
+    for (const [drive, root] of this.roots) if (root === top.id) return drive;
+    return 'drive-1';
+  }
+
   private shape(item: Item): Record<string, unknown> {
-    const parentReference = item.parent ? { parentReference: { id: item.parent, driveId: 'drive-1' } } : {};
+    const parentReference = item.parent ? { parentReference: { id: item.parent, driveId: this.driveOf(item) } } : {};
     if (item.deleted) return { id: item.id, ...parentReference, deleted: { state: 'deleted' } };
     const common = { id: item.id, name: item.name, eTag: item.eTag, ...parentReference };
     if (item.id === 'root') return { ...common, root: {}, folder: { childCount: this.children(item.id).length } };
@@ -239,15 +277,30 @@ export class FakeGraph {
     let rest = address.pathname.replace(/^\/v1\.0/, '');
     if (rest === '/me') return json({ ...this.account, id: 'me' });
     if (rest === '/me/drive') return json({ id: 'drive-1', driveType: this.driveType });
+    const share = /^\/shares\/u!([^/]+)\/driveItem$/.exec(rest);
+    if (share) return this.shared(share[1]!);
+    // Another drive by its id, as a folder shared with the user is reached; the user's own the same.
+    const other = /^\/drives\/([^/]+)(.*)$/.exec(rest);
+    // An item is reached in its own drive only: ids are a drive's own.
+    let drive = 'drive-1';
+    if (other) {
+      drive = decodeURIComponent(other[1]!);
+      if (!this.roots.has(drive)) return error(404, 'itemNotFound');
+      if (drive !== 'drive-1' && !this.wide) return error(403, 'accessDenied', 'Access denied');
+      if (!other[2]) return json({ id: drive, driveType: 'personal' });
+      rest = other[2].startsWith('/root') ? `/me/drive/root${other[2].slice('/root'.length)}` : `/me/drive${other[2]}`;
+    }
     let base: string;
     if (rest.startsWith('/me/drive/root')) {
-      base = 'root';
+      base = this.roots.get(drive) ?? 'root';
       rest = rest.slice('/me/drive/root'.length);
     } else {
       const match = /^\/me\/drive\/items\/([^/:]+)(.*)$/.exec(rest);
       if (!match) return error(400, 'invalidRequest');
       base = match[1]!;
       rest = match[2]!;
+      const item = this.items.get(base);
+      if (item && this.driveOf(item) !== drive) return error(404, 'itemNotFound');
     }
     let path = '';
     let action = '';
@@ -323,6 +376,22 @@ export class FakeGraph {
       return empty(204);
     }
     return error(400, 'invalidRequest', `${method} ${url}`);
+  }
+
+  /** The item a sharing link leads to, with its owner, as `/shares/{token}/driveItem` answers. */
+  private shared(token: string): Response {
+    this.count('share');
+    let link = '';
+    try {
+      link = atob(token.replace(/-/g, '+').replace(/_/g, '/'));
+    } catch {
+      return error(400, 'invalidRequest');
+    }
+    const id = /\/f\/fake\/([^/?#]+)/.exec(link)?.[1];
+    const item = id ? this.items.get(id) : undefined;
+    if (!item || item.deleted) return error(404, 'itemNotFound');
+    const owner = this.owners.get(item.id);
+    return json({ ...this.shape(item), ...(owner && { shared: { owner: { user: { displayName: owner } } } }) });
   }
 
   /** The folder a path's last name goes in, made as needed, as Graph does when writing to a path. */

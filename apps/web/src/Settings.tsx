@@ -363,11 +363,12 @@ function peopleWords(people: Person[], me: Me | null): string | null {
   return t('count.people', { count: active.length });
 }
 
-/** A space's row in the list: where it lives, and who is in it. */
+/** A space's row in the list: where it lives, whose folder it is when someone shared it, and who is in it. */
 function spaceWords(space: SpaceView, me: Me | null): string {
   if (!space.source) return space.folder ?? t('settings.inBrowser');
+  const owner = space.source.place.owner;
   const who = peopleWords(space.people, me);
-  return [providerName(space.source.provider), ...(who ? [who] : [])].join(' · ');
+  return [providerName(space.source.provider), ...(owner ? [t('settings.ownersFolder', { owner })] : []), ...(who ? [who] : [])].join(' · ');
 }
 
 /**
@@ -483,7 +484,8 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
   // Undefined while it is being asked whether a key is kept.
   const [account, setAccount] = useState<Connection['account'] | null | undefined>(given ?? undefined);
   const [folder, setFolder] = useState<{ folder: Connection['folder']; id?: string } | null>(null);
-  const [picking, setPicking] = useState(false);
+  // Back from signing in for it, the folder window opens at once.
+  const [picking, setPicking] = useState(!!given);
   const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -532,7 +534,9 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
       // A folder that is a space already says what it is called; its id goes with it.
       const info = await service.spaceAt(chosen);
       setFolder({ folder: chosen, ...(info.id && { id: info.id }) });
-      if (info.name && !name.trim()) setName(info.name);
+      // With no name typed yet, the space is called what it calls itself, else what its folder is called.
+      const named = info.name ?? chosen.path.split('/').filter(Boolean).pop();
+      if (named && !name.trim()) setName(named);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -549,7 +553,8 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
     setBusy(true);
     setError(null);
     try {
-      onDone(await onAdd(name, { provider: 'onedrive', account: account.email || account.name, place: { item: folder.folder.id, path: folder.folder.path } }, folder.id));
+      const { id: item, path, drive, owner } = folder.folder;
+      onDone(await onAdd(name, { provider: 'onedrive', account: account.email || account.name, place: { item, path, ...(drive && { drive }), ...(owner && { owner }) } }, folder.id));
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : t('error.create'));
       setBusy(false);
@@ -618,7 +623,7 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
                 {folder ? (
                   <>
                     <CloudIcon />
-                    {placeWords(folder.folder.path)}
+                    {placeWords(folder.folder.path, folder.folder.drive)}
                     {account && <small>{account.email || account.name}</small>}
                   </>
                 ) : (
@@ -656,7 +661,17 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
           </button>
         </div>
       </div>
-      {picking && account && <FolderPicker account={account} service={service} suggested={name} onUse={(chosen) => void choose(chosen)} onCancel={() => setPicking(false)} />}
+      {picking && account && (
+        <FolderPicker
+          account={account}
+          service={service}
+          suggested={name}
+          withShared
+          startShared={sync.addingShared}
+          onUse={(chosen) => void choose(chosen)}
+          onCancel={() => setPicking(false)}
+        />
+      )}
     </div>
   );
 }

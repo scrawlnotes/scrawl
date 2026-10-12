@@ -14,6 +14,34 @@ import { isDesktop } from './storage';
 export const DEFAULT_CLIENT_ID = 'fb9dd1e9-b9b0-40ad-ace0-f47a28240fe4';
 const AUTHORITY = 'https://login.microsoftonline.com/common/oauth2/v2.0';
 const SCOPES = 'Files.ReadWrite offline_access User.Read';
+/**
+ * With a folder someone shared: the files the user can reach, not only their own. Asked only
+ * when such a folder is added, and from then on for this account.
+ */
+const WIDE_SCOPES = 'Files.ReadWrite.All offline_access User.Read';
+/** On this device: the account allowed the wider permission. */
+const WIDE = 'scrawl.onedriveWide';
+
+/** Whether the kept sign-in reaches folders shared with the user. */
+function isWide(): boolean {
+  try {
+    return localStorage.getItem(WIDE) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function setWide(on: boolean) {
+  try {
+    if (on) localStorage.setItem(WIDE, '1');
+    else localStorage.removeItem(WIDE);
+  } catch {
+    // Not kept: the next renewal asks for the narrower permission, and a shared folder says so.
+  }
+}
+
+/** The permission a sign-in or a renewal asks for: the wider one once it was given. */
+const scopesFor = (intent?: SignInIntent | 'renew') => (intent === 'shared' || isWide() ? WIDE_SCOPES : SCOPES);
 /** The name the key is kept under in the credential store. */
 const SECRET = 'onedrive';
 const CLIENT = 'scrawl.onedriveClient';
@@ -92,7 +120,7 @@ const postFromPage: TokenPost = async (form) => {
 
 /** Asks for tokens; a key that is refused means signing in again. */
 async function tokenRequest(post: TokenPost, form: Record<string, string>): Promise<TokenAnswer & { access_token: string }> {
-  const answer = await post({ client_id: clientId(), scope: SCOPES, ...form });
+  const answer = await post({ client_id: clientId(), scope: scopesFor(), ...form });
   let body: TokenAnswer = {};
   try {
     body = JSON.parse(answer.body) as TokenAnswer;
@@ -111,8 +139,11 @@ export interface SignIn {
   cancel(): void;
 }
 
-/** What a sign-in is for: connecting the personal space, adding a space, or signing in again after the key stopped working. */
-export type SignInIntent = 'connect' | 'space' | 'again';
+/**
+ * What a sign-in is for: connecting the personal space, adding a space, allowing the wider
+ * permission a folder someone shared needs, or signing in again after the key stopped working.
+ */
+export type SignInIntent = 'connect' | 'space' | 'shared' | 'again';
 
 /** The account signed in to, its tokens on demand, and what can be done in its drive. */
 export interface Cloud {
@@ -124,9 +155,12 @@ export interface Cloud {
   signIn(intent: SignInIntent, email?: string): SignIn;
   /** Whether a key is kept, so that no sign-in is needed. */
   signedIn(): Promise<boolean>;
+  /** Whether the sign-in reaches folders shared with the user. */
+  wide(): boolean;
   signOut(): Promise<void>;
   account(): OneDriveAccount;
-  remote(folder: string, fs: VaultFs): RemoteStore;
+  /** The store of a space's folder; `drive` is the drive it is in when someone else shared it. */
+  remote(folder: string, fs: VaultFs, drive?: string): RemoteStore;
 }
 
 /** The access token in memory and its renewal from the kept key, wherever that key is kept. */
@@ -160,11 +194,16 @@ abstract class SignedCloud {
     return answer.access_token;
   }
 
-  /** Takes the tokens a sign-in brought. */
-  protected async signedInWith(answer: TokenAnswer & { access_token: string }) {
+  /** Takes the tokens a sign-in brought; one for a folder someone shared brought the wider permission. */
+  protected async signedInWith(answer: TokenAnswer & { access_token: string }, intent?: SignInIntent | 'renew') {
     if (!answer.refresh_token) throw new Error(t('cloud.noKey'));
     await this.keepKey(answer.refresh_token, true);
+    if (intent === 'shared') setWide(true);
     this.keepAccess(answer);
+  }
+
+  wide(): boolean {
+    return isWide();
   }
 
   private keepAccess(answer: TokenAnswer & { access_token: string }) {
@@ -184,8 +223,8 @@ abstract class SignedCloud {
     return new OneDriveAccount(this.options());
   }
 
-  remote(folder: string, fs: VaultFs) {
-    return new OneDriveRemote({ ...this.options(), folder, fs });
+  remote(folder: string, fs: VaultFs, drive?: string) {
+    return new OneDriveRemote({ ...this.options(), folder, fs, ...(drive && { drive }) });
   }
 }
 
@@ -205,7 +244,7 @@ class DesktopCloud extends SignedCloud implements Cloud {
     await invoke('secret_set', { name: SECRET, value: key });
   }
 
-  signIn(): SignIn {
+  signIn(intent: SignInIntent, email?: string): SignIn {
     let cancelled = false;
     const done = (async () => {
       const { verifier, challenge } = await pkce();
@@ -217,16 +256,17 @@ class DesktopCloud extends SignedCloud implements Cloud {
         response_type: 'code',
         redirect_uri: redirect,
         response_mode: 'query',
-        scope: SCOPES,
+        scope: scopesFor(intent),
         state,
         code_challenge: challenge,
         code_challenge_method: 'S256',
-        prompt: 'select_account',
+        // Allowing more is for the account connected already; any other sign-in chooses one.
+        ...(intent === 'shared' && email ? { login_hint: email } : { prompt: 'select_account' }),
       });
       await invoke('open_url', { url: `${AUTHORITY}/authorize?${query}` });
       const code = await invoke<string>('oauth_wait', { port, state, pages: { done: t('cloud.browserDone'), failed: t('cloud.browserFailed') } });
       if (cancelled) return;
-      await this.signedInWith(await tokenRequest(this.post, { grant_type: 'authorization_code', code, redirect_uri: redirect, code_verifier: verifier }));
+      await this.signedInWith(await tokenRequest(this.post, { grant_type: 'authorization_code', code, redirect_uri: redirect, code_verifier: verifier, scope: scopesFor(intent) }), intent);
     })();
     return {
       done: done.then(() => {
@@ -244,6 +284,7 @@ class DesktopCloud extends SignedCloud implements Cloud {
 
   async signOut(): Promise<void> {
     this.forgetAccess();
+    setWide(false);
     await invoke('secret_delete', { name: SECRET });
   }
 }
@@ -325,7 +366,7 @@ class BrowserCloud extends SignedCloud implements Cloud {
       response_type: 'code',
       redirect_uri: redirect,
       response_mode: 'query',
-      scope: SCOPES,
+      scope: scopesFor(intent),
       state,
       code_challenge: challenge,
       code_challenge_method: 'S256',
@@ -349,7 +390,10 @@ class BrowserCloud extends SignedCloud implements Cloud {
     if (!pending || pending.state !== params.get('state')) return null;
     if (error) return { intent: pending.intent, error: params.get('error_description')?.split('\n')[0] || error };
     try {
-      await this.signedInWith(await tokenRequest(this.post, { grant_type: 'authorization_code', code: code!, redirect_uri: pending.redirect, code_verifier: pending.verifier }));
+      await this.signedInWith(
+        await tokenRequest(this.post, { grant_type: 'authorization_code', code: code!, redirect_uri: pending.redirect, code_verifier: pending.verifier, scope: scopesFor(pending.intent) }),
+        pending.intent,
+      );
     } catch (failure) {
       return { intent: pending.intent, error: failure instanceof Error ? failure.message : String(failure) };
     }
@@ -362,6 +406,7 @@ class BrowserCloud extends SignedCloud implements Cloud {
 
   async signOut(): Promise<void> {
     this.forgetAccess();
+    setWide(false);
     localStorage.removeItem(BROWSER_KEY);
   }
 }
@@ -381,20 +426,27 @@ class FakeCloud implements Cloud {
     this.graph.folder('Documents/Receipts');
     this.graph.folder('Notes');
     this.graph.folder('Work');
+    // Someone else's folder needs the wider permission, as with the real one.
+    this.graph.wide = false;
   }
 
-  signIn(): SignIn {
+  signIn(intent: SignInIntent): SignIn {
     let cancelled = false;
     const done = new Promise<void>((resolve, reject) =>
       window.setTimeout(() => {
         if (cancelled) reject(new DOMException('Cancelled', 'AbortError'));
         else {
           this.signed = true;
+          if (intent === 'shared') this.graph.wide = true;
           resolve();
         }
       }, 1200),
     );
     return { done, cancel: () => (cancelled = true) };
+  }
+
+  wide() {
+    return this.graph.wide;
   }
 
   async signedIn() {
@@ -403,6 +455,7 @@ class FakeCloud implements Cloud {
 
   async signOut() {
     this.signed = false;
+    this.graph.wide = false;
   }
 
   private options(): GraphOptions {
@@ -413,8 +466,8 @@ class FakeCloud implements Cloud {
     return new OneDriveAccount(this.options());
   }
 
-  remote(folder: string, fs: VaultFs) {
-    return new OneDriveRemote({ ...this.options(), folder, fs });
+  remote(folder: string, fs: VaultFs, drive?: string) {
+    return new OneDriveRemote({ ...this.options(), folder, fs, ...(drive && { drive }) });
   }
 }
 

@@ -1640,6 +1640,8 @@ p { margin: 0; max-width: 68ch; }
 .fp .sp-pick .path small { margin-left: auto; color: var(--m-faint); font-size: 11.5px; }
 .fp .sp-places { margin-bottom: 8px; }
 .fp .list span.dim { color: var(--m-faint); }
+.fp .sp-link { overflow: hidden; color: var(--m-dim); font: 12px var(--m-mono); white-space: nowrap; text-overflow: ellipsis; }
+.fp .sp-link + .list { margin-top: 8px; }
 .st-btn.red.fill { background: #f0706a; color: #fff; font-weight: 600; }
 .mdlg .sp-check { display: flex; align-items: center; gap: 8px; margin: 2px 2px 0; color: var(--m-fg); font-size: 12.5px; }
 .mdlg .sp-check i { display: grid; place-items: center; flex: none; width: 15px; height: 15px; border: 1.5px solid var(--m-faint); border-radius: 4px; box-sizing: border-box; }
@@ -1759,6 +1761,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-spremove" data-aview="spremove">Remove space</button>
         <button type="button" id="a-addspace" data-aview="addspace">Add space</button>
         <button type="button" id="a-addpicker" data-aview="addpicker">OneDrive folder</button>
+        <button type="button" id="a-addallow" data-aview="addallow">Shared, allow</button>
         <button type="button" id="a-addsignin" data-aview="addsignin">Add, not connected</button>
         <button type="button" id="a-sptree" data-aview="sptree">Spaces tree</button>
         <button type="button" id="a-spfolder" data-aview="spfolder">Space new folder</button>
@@ -4275,7 +4278,7 @@ p { margin: 0; max-width: 68ch; }
   var SP_DEFAULT = 'C:\\Users\\kaan\\AppData\\Roaming\\app.scrawlnotes.desktop\\';
   var SP_STATUS = '<div class="status"><span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>' + syncStatus(false, null) + '</div>';
   // The views that show the Settings window, whose button at the foot of the sidebar is lit.
-  var SP_SETTINGS = ['profile', 'spaceslist', 'spacepage', 'spremove', 'addspace', 'addpicker', 'addsignin'];
+  var SP_SETTINGS = ['profile', 'spaceslist', 'spacepage', 'spremove', 'addspace', 'addpicker', 'addallow', 'addsignin'];
   function spFoot(on, trash) {
     return '<div class="side-foot"><div class="foot-row">' + row({ icon: 'trash', label: 'Trash', ct: 8, on: trash }) +
       '<span class="cog' + (on ? ' on' : '') + '" title="Settings">' + ICON.settings + '</span></div></div>';
@@ -4457,13 +4460,22 @@ p { margin: 0; max-width: 68ch; }
       '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go' + (how === 'signin' ? ' off' : '') + '">Add “Northwind”</span></div>' +
       '</div></div>';
   }
-  /** OneDrive's folders for a space: your own, with New folder there, and those shared with you; one already a space is marked. */
-  function spOneDrivePicker() {
+  /**
+   * OneDrive's folders for a space: your own under My files, with New folder there; or, under
+   * Shared, a folder someone shared with you, found by the link they sent, which its owner gets in
+   * OneDrive with Share › Copy link. OneDrive lists no folders shared with you any more, so the
+   * link is the way. Reaching a folder of someone else needs a wider permission, asked once, here.
+   */
+  function spOneDrivePicker(allow) {
     function item(name, sub, o) { o = o || {}; return '<span class="' + (o.on ? 'on' : '') + (o.dim ? ' dim' : '') + '">' + ICON.folder + name + '<small>' + sub + '</small></span>'; }
+    var shared = allow
+      ? '<div class="sp-signin">' + ICON.cloud + '<span>To add a folder someone shared with you, allow Scrawl once to reach the files shared with you in OneDrive.</span><span class="st-btn go">Allow in OneDrive</span></div>'
+      : '<div class="label">Link</div><div class="field filled sp-link">https://1drv.ms/f/c/4be1a7c2/EkQ2nVb8xQ1Ftc0Ow</div>' +
+        '<div class="list">' + item('Northwind', 'Ben Cole’s folder', { on: true }) + '</div>' +
+        '<p class="note">The folder’s owner gets its link in OneDrive with Share › Copy link.</p>';
     return '<div class="fp-ovl"><div class="fp"><h3>Choose a folder in OneDrive<small>kaan@outlook.com</small></h3>' +
-      '<div class="st-modes sp-places"><span>My files</span><span class="on">Shared</span></div>' +
-      '<div class="list">' + item('Acme', 'Lena Hartmann · added', { dim: true }) + item('Design team', 'Mert Kaya') + item('Northwind', 'Ben Cole', { on: true }) + '</div>' +
-      '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go">Use “Northwind”</span></div>' +
+      '<div class="st-modes sp-places"><span>My files</span><span class="on">Shared</span></div>' + shared +
+      '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go' + (allow ? ' off' : '') + '">' + (allow ? 'Use' : 'Use “Northwind”') + '</span></div>' +
       '</div></div>';
   }
   function spSettingsWindow(section, extra) {
@@ -4565,9 +4577,9 @@ p { margin: 0; max-width: 68ch; }
     return '<aside class="side">' + spaceTree(view) + '</aside><section class="main"><div class="panes">' + pane(tab('notes', 'Sync engine: open questions', 'note', true) + '<div class="tab plus">+</div>', edFull) + '</div>' + SP_STATUS + '</section>';
   }
   SP_SETTINGS.forEach(function (view) {
-    var add = { addspace: 'onedrive', addpicker: 'onedrive', addsignin: 'signin' }[view];
+    var add = { addspace: 'onedrive', addpicker: 'onedrive', addallow: 'onedrive', addsignin: 'signin' }[view];
     SP_VIEWS[view] = function () {
-      return spNoteView(view) + spSettingsWindow(view, add ? spAddSpace(add) + (view === 'addpicker' ? spOneDrivePicker() : '') : view === 'spremove' ? spRemoveAsk() : '');
+      return spNoteView(view) + spSettingsWindow(view, add ? spAddSpace(add) + (view === 'addpicker' || view === 'addallow' ? spOneDrivePicker(view === 'addallow') : '') : view === 'spremove' ? spRemoveAsk() : '');
     };
   });
   // Phone: the welcome as a page, Profile in Settings, the people of a space in a sheet.
