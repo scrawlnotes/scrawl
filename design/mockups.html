@@ -1147,6 +1147,179 @@ p { margin: 0; max-width: 68ch; }
 .tpl .flds { display: flex; flex-wrap: wrap; gap: 3px; }
 .tpl .flds i { font-style: normal; padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: var(--m-sel); color: var(--m-dim); }
 .tpl.five { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* The phone shell (Oct 12). A phone has a layout of its own instead of the desktop squeezed: a
+   tab bar with Open, Today and Browse; each screen opens as a page with a back button, and a swipe
+   from the left edge goes back; + at the bottom right is the screen's main way to add; windows are
+   sheets from the bottom and menus are action sheets, opened by a ··· button or by holding a row.
+   Text is 16 px and up, rows and buttons at least 44 px; the phone's own bars are drawn too. */
+.mock.phones.mbs { padding-top: 38px; }
+.mb-wrap { position: relative; flex: none; }
+.mb-label { position: absolute; top: -22px; left: 6px; font-size: 11.5px; color: var(--m-faint); white-space: nowrap; }
+.phone.mb { width: 375px; height: 740px; border-radius: 30px; font-size: 16px; line-height: 1.35; }
+.mb-status { display: flex; align-items: center; justify-content: space-between; flex: none; height: 44px; padding: 2px 24px 0 32px; font-size: 15px; font-weight: 600; color: var(--m-fg); }
+.mb-status .icons { display: flex; align-items: center; gap: 6px; }
+.mb-home { position: absolute; left: 50%; bottom: 8px; z-index: 9; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: var(--m-fg); opacity: .55; }
+.mb-screen { position: relative; flex: 1; min-height: 0; }
+.mb-page { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--m-bg); }
+.mb-body { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+/* the bar at the top of a page: back on the left with where it goes, buttons on the right */
+.mb-nav { position: relative; z-index: 2; display: flex; align-items: center; flex: none; height: 44px; padding: 0 6px; }
+.mb-nav .back { display: flex; align-items: center; height: 44px; padding-right: 8px; color: var(--m-accent); font-size: 16px; }
+.mock .mb-nav .back svg { width: 26px; height: 26px; stroke-width: 2; margin-right: -2px; }
+.mb-nav .acts { display: flex; margin-left: auto; }
+.mb-nav .ib { display: grid; place-items: center; width: 44px; height: 44px; color: var(--m-accent); }
+.mock .mb-nav .ib svg { width: 24px; height: 24px; }
+.mb-nav .mid { position: absolute; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 600; }
+.mb-nav.bar { background: color-mix(in srgb, var(--m-bg) 78%, transparent); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border-bottom: 1px solid var(--m-line); }
+/* a large title, which shrinks into the bar above as the page scrolls */
+.mb-head { flex: none; padding: 2px 16px 8px; }
+.mb-head.root { padding-top: 10px; }
+.mb-head h2 { margin: 0; font: 700 30px/1.15 var(--m-ui); letter-spacing: -.01em; color: var(--m-fg); }
+.mb-head small { display: block; margin-top: 2px; color: var(--m-faint); font-size: 14px; }
+/* lists: a row is a tap target from edge to edge; the line between rows starts at the text */
+.mb-sec { display: flex; align-items: baseline; gap: 8px; padding: 18px 16px 6px; color: var(--m-faint); font-size: 12.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.mb-sec small { font-size: 12.5px; letter-spacing: 0; }
+.mb-gap { height: 26px; }
+.mb-row { position: relative; display: flex; align-items: center; gap: 13px; min-height: 48px; padding: 0 16px; background: var(--m-bg); }
+.mb-row + .mb-row::before, .mb-task + .mb-task::before { content: ''; position: absolute; top: 0; left: 51px; right: 0; border-top: 1px solid var(--m-line); }
+.mock .mb-row > svg { flex: none; width: 22px; height: 22px; color: var(--m-dim); }
+.mock .mb-row.fold > svg:first-child { color: var(--m-accent); }
+.mb-row .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 12px 0; }
+.mb-row .tx b { overflow: hidden; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.mb-row .tx small { overflow: hidden; color: var(--m-faint); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.mb-row .tx small em { margin-right: 7px; font-style: normal; color: var(--m-dim); }
+.mb-row .tx small .dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--m-accent); vertical-align: 1px; }
+.mb-row .ct { flex: none; color: var(--m-faint); font-size: 15px; font-variant-numeric: tabular-nums; }
+.mock .mb-row .chev { flex: none; width: 16px; height: 16px; margin-right: -4px; color: var(--m-faint); stroke-width: 2.2; }
+/* held: the row lifts above the dimmed page while its actions are open */
+.mb-row.lift { z-index: 6; margin: 0 8px; padding: 0 8px; border-radius: 12px; background: var(--m-side); box-shadow: 0 10px 30px rgb(0 0 0 / .45); transform: scale(1.02); }
+.mb-row.lift::before, .mb-row.lift + .mb-row::before { display: none; }
+/* a row swiped to the left shows what it does under it */
+.mb-row.sw { padding: 0; overflow: hidden; }
+.mb-row.sw .slide { position: relative; z-index: 1; display: flex; flex: none; align-items: center; gap: 13px; width: 100%; min-height: 60px; padding: 0 16px; background: var(--m-bg); transform: translateX(-88px); }
+.mock .mb-row.sw .slide > svg { flex: none; width: 22px; height: 22px; color: var(--m-dim); }
+.mb-row .swipe { position: absolute; top: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 88px; background: var(--m-dim); color: var(--m-bg); font-size: 13px; font-weight: 600; }
+.mock .mb-row .swipe svg { width: 20px; height: 20px; stroke-width: 2; }
+/* tasks in Today: the circle carries the priority */
+.mb-seg { display: grid; grid-template-columns: 1fr 1fr; flex: none; margin: 2px 16px 4px; padding: 2px; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-side); }
+.mb-seg span { padding: 5px 0; border-radius: 7px; color: var(--m-dim); font-size: 14px; font-weight: 500; text-align: center; }
+.mb-seg span.on { background: var(--m-sel); color: var(--m-fg); }
+.mb-task { position: relative; display: flex; gap: 13px; padding: 12px 16px; }
+.mb-task .cb { flex: none; width: 22px; height: 22px; margin-top: 0; border: 2px solid var(--pc, var(--m-faint)); border-radius: 50%; background: color-mix(in srgb, var(--pc, transparent) 14%, transparent); }
+.mb-task .cb.sq { border-radius: 6px; }
+.mb-task .cb.p1 { --pc: var(--m-p1); } .mb-task .cb.p2 { --pc: var(--m-p2); } .mb-task .cb.p3 { --pc: var(--m-p3); }
+.mb-task .tx { flex: 1; min-width: 0; }
+.mb-task .tx b { font-weight: 400; }
+.mb-task .key { margin-right: 7px; color: var(--m-faint); font: 13.5px var(--m-mono); }
+.mb-task .meta { display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 3px; color: var(--m-faint); font-size: 13.5px; }
+.mb-task .meta .today { color: var(--m-accent); }
+.mb-task .meta .late { color: var(--m-p1); }
+/* the tab bar: three places, always there; + floats above it, on the right */
+.mb-tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; grid-template-columns: repeat(3, 1fr); height: 84px; padding-bottom: 34px; border-top: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-side) 84%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.mb-tabbar span { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--m-faint); font-size: 10.5px; font-weight: 500; }
+.mock .mb-tabbar svg { width: 26px; height: 26px; stroke-width: 1.6; }
+.mb-tabbar span.on { color: var(--m-accent); }
+.mb-fab { position: absolute; right: 16px; bottom: 100px; z-index: 3; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--m-accent); color: var(--m-on-accent); box-shadow: 0 6px 18px rgb(0 0 0 / .35); }
+.mock .mb-fab svg { width: 26px; height: 26px; stroke-width: 2.2; }
+/* a note as a page: no format bar and no status bar until it is typed in */
+.mb-ed { padding: 6px 18px; font: 16px/1.6 var(--m-ed); }
+.mb-ed .h1 { margin-bottom: 12px; font-size: 21px; font-weight: 600; line-height: 1.35; }
+.mb-ed p { margin: 0 0 12px; max-width: none; }
+.mb-ed .li { display: flex; gap: 10px; }
+.mb-ed .li::before { content: '•'; color: var(--m-faint); }
+.mb-ed .ic { padding: 0 4px; border-radius: 4px; background: var(--m-code); font-size: 14.5px; }
+.mb-ed .lnk { color: var(--m-accent); text-decoration: underline; text-underline-offset: 3px; }
+/* the edge swipe back: the page follows the finger, the one under it slides in from the left */
+.mb-page.under { transform: translateX(-30%); }
+.mb-page.under::after { content: ''; position: absolute; inset: 0; z-index: 5; background: rgb(0 0 0 / .22); }
+.mb-page.going { transform: translateX(150px); box-shadow: -12px 0 30px rgb(0 0 0 / .35); }
+.mb-body.scrolled { margin-top: -22px; }
+/* sheets: from the bottom, a grabber to drag them down, the page dimmed under them */
+.mb-dim { position: absolute; inset: 0; z-index: 4; background: rgb(0 0 0 / .45); }
+.mb-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; display: flex; flex-direction: column; padding-bottom: 34px; border-radius: 14px 14px 0 0; background: var(--m-side); box-shadow: 0 -10px 30px rgb(0 0 0 / .35); }
+.mb-sheet.large { top: 54px; }
+.mb-sheet.overkb { bottom: 300px; padding-bottom: 12px; border-radius: 14px 14px 0 0; }
+.mb-sheet .grab { flex: none; align-self: center; width: 36px; height: 5px; margin: 6px 0 0; border-radius: 3px; background: var(--m-line); }
+.mb-sh { display: flex; align-items: center; gap: 8px; flex: none; min-height: 50px; padding: 0 16px; }
+.mb-sh b { font-size: 17px; font-weight: 600; }
+.mb-sh small { color: var(--m-faint); font-size: 14px; }
+.mb-sh .x { display: grid; place-items: center; width: 30px; height: 30px; margin-left: auto; border-radius: 50%; background: var(--m-sel); color: var(--m-dim); }
+.mock .mb-sh .x svg { width: 16px; height: 16px; stroke-width: 2.2; }
+.mb-sh.three { display: grid; grid-template-columns: 1fr auto 1fr; }
+.mb-sh.three .cancel { display: flex; align-items: center; color: var(--m-accent); }
+.mock .mb-sh .back svg { width: 24px; height: 24px; margin-left: -6px; stroke-width: 2; }
+.mb-sh.three .ok { justify-self: end; color: var(--m-accent); font-weight: 600; }
+.mb-sh.three .ok.off { opacity: .4; }
+.mb-sheet .mb-row { background: none; }
+.mb-sheet .mb-row .tx small { white-space: normal; }
+/* forms in a sheet: rows in rounded groups, a caption over each group */
+.mb-form { display: flex; flex-direction: column; padding: 2px 16px 12px; overflow: hidden; }
+.mb-cap { padding: 16px 14px 6px; color: var(--m-faint); font-size: 12.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.mb-group { overflow: hidden; border-radius: 12px; background: var(--m-bg); }
+.mb-fr { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; }
+.mb-fr + .mb-fr::before { content: ''; position: absolute; top: 0; left: 14px; right: 0; border-top: 1px solid var(--m-line); }
+.mb-fr .fl { flex: none; width: 78px; color: var(--m-dim); }
+.mb-fr .in { flex: 1; min-width: 0; color: var(--m-fg); }
+.mb-fr .in.none { color: var(--m-faint); }
+.mb-fr .caret { display: inline-block; width: 2px; height: 20px; margin: 0 1px -4px; background: var(--m-accent); }
+.mb-fr .val { display: flex; align-items: center; gap: 7px; margin-left: auto; color: var(--m-dim); }
+.mock .mb-fr .val svg { width: 18px; height: 18px; }
+.mock .mb-fr .val svg.chev { width: 15px; height: 15px; color: var(--m-faint); stroke-width: 2.2; }
+.mb-fr.tp { align-items: flex-start; padding-top: 11px; padding-bottom: 11px; }
+.mb-fr.tp .tn { flex: 1; min-width: 0; }
+.mb-fr.tp .tn small { display: block; margin-top: 2px; color: var(--m-faint); font-size: 13.5px; }
+.mb-fr.tp .tick { width: 22px; color: var(--m-accent); }
+.mock .mb-fr.tp .tick svg { width: 22px; height: 22px; stroke-width: 2.2; }
+.mb-cols { display: flex; gap: 3px; width: 100%; margin-top: 7px; }
+.mb-cols i { flex: 1; height: 6px; border-radius: 2px; background: var(--m-line); }
+.mb-cols.small { width: 66px; margin: 0 3px 0 0; }
+.mb-cols.small i { height: 8px; }
+.mb-cols i.active { background: var(--m-p3); } .mb-cols i.review { background: var(--m-accent); } .mb-cols i.done { background: #5cb87a; } .mb-cols i.dropped { background: var(--m-p1); }
+.mb-hint { padding: 7px 14px 0; color: var(--m-faint); font-size: 13.5px; }
+/* the keyboard of the phone, which a sheet stays above */
+.mb-kb { position: absolute; left: 0; right: 0; bottom: 0; z-index: 8; display: flex; flex-direction: column; gap: 11px; height: 300px; padding: 9px 3px 0; background: #2c2c30; }
+.mock[data-mode="light"] .mb-kb { background: #d2d5db; }
+.mb-kb .r { display: flex; justify-content: center; gap: 6px; }
+.mb-kb .k { display: grid; place-items: center; width: 31.5px; height: 42px; border-radius: 5px; background: #6c6c71; box-shadow: 0 1px 0 rgb(0 0 0 / .4); color: #fff; font: 22px/1 system-ui, sans-serif; }
+.mb-kb .k.fn { width: 43px; background: #46464b; font-size: 15px; }
+.mb-kb .k.spc { flex: 1; max-width: 186px; font-size: 15px; }
+.mb-kb .k.ret { width: 88px; background: #46464b; font-size: 15px; }
+.mock[data-mode="light"] .mb-kb .k { background: #fff; color: #111; box-shadow: 0 1px 0 rgb(0 0 0 / .3); }
+.mock[data-mode="light"] .mb-kb .k.fn, .mock[data-mode="light"] .mb-kb .k.ret { background: #abb0ba; }
+/* a day: the quick ones first, then the month */
+.mb-cal { flex: none; margin: 4px 16px 0; }
+.mb-cal .mh { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px 6px; font-weight: 600; }
+.mb-cal .mh span { display: flex; gap: 6px; color: var(--m-accent); }
+.mock .mb-cal .mh svg { width: 22px; height: 22px; stroke-width: 2; }
+.mb-cal .g { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+.mb-cal .g span.w { height: 22px; color: var(--m-faint); font-size: 12px; font-weight: 500; }
+.mb-cal .g span { display: grid; place-items: center; height: 40px; font-size: 16px; font-variant-numeric: tabular-nums; }
+.mb-cal .g span.past { color: var(--m-faint); }
+.mb-cal .g span b { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+.mb-row .wd { flex: none; color: var(--m-faint); font-size: 15px; }
+.mock .mb-row .tick { flex: none; width: 20px; height: 20px; color: var(--m-accent); stroke-width: 2.2; }
+/* action sheets: the thing they are about on top, its actions in groups, Delete last and red,
+   Cancel apart */
+.mb-acts { position: absolute; left: 8px; right: 8px; bottom: 34px; z-index: 7; display: flex; flex-direction: column; gap: 8px; }
+.mb-acts .mb-card { overflow: hidden; border-radius: 14px; background: var(--m-side); }
+.mb-acts .hd { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--m-line); }
+.mock .mb-acts .hd svg { flex: none; width: 22px; height: 22px; color: var(--m-dim); }
+.mb-acts .hd span { display: flex; flex-direction: column; min-width: 0; }
+.mb-acts .hd b { overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.mb-acts .hd small { color: var(--m-faint); font-size: 13px; }
+.mb-acts .a { position: relative; display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 16px; font-size: 17px; }
+.mb-acts .a + .a::before { content: ''; position: absolute; top: 0; left: 52px; right: 0; border-top: 1px solid var(--m-line); }
+.mock .mb-acts .a svg { flex: none; width: 22px; height: 22px; color: var(--m-dim); }
+.mb-acts .a .on { margin-left: auto; color: var(--m-faint); font-size: 15px; }
+.mb-acts .sep { height: 8px; background: color-mix(in srgb, var(--m-bg) 55%, var(--m-side)); }
+.mb-acts .a.red, .mock .mb-acts .a.red svg { color: var(--m-p1); }
+.mb-acts .a.center { justify-content: center; }
+.mb-acts .a.center::before { left: 0; }
+.mb-acts .cancel { justify-content: center; color: var(--m-accent); font-weight: 600; }
+.mb-acts .ask { padding: 16px 20px 14px; text-align: center; border-bottom: 1px solid var(--m-line); }
+.mb-acts .ask b { display: block; font-size: 15px; font-weight: 600; }
+.mb-acts .ask small { display: block; margin-top: 3px; color: var(--m-faint); font-size: 13.5px; }
+.mb-wrap .finger { z-index: 8; }
 </style>
 
 <main class="page">
@@ -1242,6 +1415,10 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-folders" data-aview="folders">Folder menu</button>
         <button type="button" id="a-subfolder" data-aview="subfolder">Subfolder</button>
         <button type="button" id="a-touchdrag" data-aview="touchdrag">Touch drag</button>
+        <button type="button" id="a-pshell" data-aview="pshell">Phone shell</button>
+        <button type="button" id="a-ppages" data-aview="ppages">Phone pages</button>
+        <button type="button" id="a-pcreate" data-aview="pcreate">Phone create</button>
+        <button type="button" id="a-pmenus" data-aview="pmenus">Phone menus</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -3053,8 +3230,273 @@ p { margin: 0; max-width: 68ch; }
     folders: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     subfolder: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
   };
+  // The phone shell (Oct 12). A phone has a layout of its own instead of the desktop squeezed. Its
+  // tab bar has three places: Open, what is open (the desktop's tabs), the one looked at last on
+  // top; Today, with Upcoming beside it; Browse, the inbox and the folders, with the trash, sync
+  // and settings under them. A screen opens as a page over the one it came from, with a back
+  // button that names where it goes, and a swipe from the left edge goes back. + at the bottom
+  // right is the screen's main way to add. Windows are sheets from the bottom; menus are action
+  // sheets, opened by the page's ··· button or by holding a row.
+  ICON.chevl = '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>';
+  ICON.plus = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
+  ICON.x = '<svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+  ICON.check = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  ICON.dots = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg>';
+  ICON.stack = '<svg viewBox="0 0 24 24"><rect x="4" y="8" width="12.5" height="12" rx="2"/><path d="M8 4.5h9.5a2 2 0 0 1 2 2V16"/></svg>';
+  ICON.day = '<svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/><text x="12" y="17.9" text-anchor="middle" font-size="7.6" font-weight="700" fill="currentColor" stroke="none" font-family="IBM Plex Sans, sans-serif">12</text></svg>';
+  ICON.clock = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+  ICON.md = '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M6.5 15V9l2.5 3 2.5-3v6M16 9v6M14 13l2 2 2-2"/></svg>';
+  ICON.sun = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></svg>';
+  ICON.rise = '<svg viewBox="0 0 24 24"><path d="M3.5 18h17M7 18a5 5 0 0 1 10 0M12 5.5v3.5M5.2 10.6l1.6 1.2M18.8 10.6l-1.6 1.2"/></svg>';
+  ICON.week = '<svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4M8 15h8M13.5 12.8L16 15l-2.5 2.2"/></svg>';
+  ICON.nodate = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg>';
+  var MB_STATUS = '<div class="mb-status"><span>9:41</span><span class="icons">' +
+    '<svg viewBox="0 0 18 12" style="width: 18px; height: 12px"><rect x="0" y="8" width="3" height="4" rx="1" fill="currentColor" stroke="none"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="currentColor" stroke="none"/><rect x="10" y="3" width="3" height="9" rx="1" fill="currentColor" stroke="none"/><rect x="15" y="0" width="3" height="12" rx="1" fill="currentColor" stroke="none"/></svg>' +
+    '<svg viewBox="0 0 16 12" style="width: 16px; height: 12px"><path d="M1.2 4.6a10 10 0 0 1 13.6 0M3.7 7.3a6.4 6.4 0 0 1 8.6 0" stroke-width="1.9"/><circle cx="8" cy="10.2" r="1.5" fill="currentColor" stroke="none"/></svg>' +
+    '<svg viewBox="0 0 27 13" style="width: 27px; height: 13px"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke-width="1" opacity=".45"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor" stroke="none"/><path d="M25.2 4.6v3.8" stroke-width="1.6" opacity=".45"/></svg>' +
+    '</span></div>';
+  var MB_CHEV = ICON.chevr.replace('<svg', '<svg class="chev"');
+  var MB_FAB = '<span class="mb-fab" title="Create">' + ICON.plus + '</span>';
+  var MB_DIM = '<div class="mb-dim"></div>';
+  function mbKey(c) { return '<span class="k">' + c + '</span>'; }
+  var MB_KB = '<div class="mb-kb">' +
+    '<div class="r">' + 'qwertyuiop'.split('').map(mbKey).join('') + '</div>' +
+    '<div class="r">' + 'asdfghjkl'.split('').map(mbKey).join('') + '</div>' +
+    '<div class="r"><span class="k fn">⇧</span>' + 'zxcvbnm'.split('').map(mbKey).join('') + '<span class="k fn">⌫</span></div>' +
+    '<div class="r"><span class="k fn">123</span><span class="k spc">space</span><span class="k ret">done</span></div></div>';
+  /** A phone with a caption over it: the phone's own bar, a screen, then what floats over it. */
+  function mbPhone(label, screen, over) {
+    return '<div class="mb-wrap"><span class="mb-label">' + label + '</span><div class="phone mb">' + MB_STATUS +
+      '<div class="mb-screen">' + screen + '</div>' + (over || '') + '<span class="mb-home"></span></div></div>';
+  }
+  function mbTabs(on) {
+    function t(id, icon, label) { return '<span' + (id === on ? ' class="on"' : '') + '>' + ICON[icon] + label + '</span>'; }
+    return '<nav class="mb-tabbar">' + t('open', 'stack', 'Open') + t('today', 'day', 'Today') + t('browse', 'folder', 'Browse') + '</nav>';
+  }
+  function mbNav(back, acts, mid, cls) {
+    return '<div class="mb-nav' + (cls ? ' ' + cls : '') + '">' + (back ? '<span class="back">' + ICON.chevl + back + '</span>' : '') +
+      (mid ? '<span class="mid">' + mid + '</span>' : '') +
+      '<span class="acts">' + (acts || []).map(function (a) { return '<span class="ib">' + ICON[a] + '</span>'; }).join('') + '</span></div>';
+  }
+  function mbHead(title, sub, root) {
+    return '<div class="mb-head' + (root ? ' root' : '') + '"><h2>' + title + '</h2>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>';
+  }
+  function mbPage(top, body, cls, bodyCls) {
+    return '<div class="mb-page' + (cls ? ' ' + cls : '') + '">' + top + '<div class="mb-body' + (bodyCls ? ' ' + bodyCls : '') + '">' + body + '</div></div>';
+  }
+  function mbRow(o) {
+    return '<div class="mb-row' + (o.fold ? ' fold' : '') + (o.cls ? ' ' + o.cls : '') + '">' + ICON[o.icon] +
+      '<span class="tx"><b>' + o.label + '</b>' + (o.sub ? '<small>' + o.sub + '</small>' : '') + '</span>' +
+      (o.ct !== undefined ? '<span class="ct">' + o.ct + '</span>' : '') + (o.chev === false ? '' : MB_CHEV) + '</div>';
+  }
+  // Open: what is open, the one looked at last on top; a row swiped to the left closes it.
+  var MB_OPEN = [
+    { icon: 'notes', label: 'Sync engine: open questions', sub: 'Scrawl', ct: 'now' },
+    { icon: 'board', label: 'Roadmap', sub: 'Scrawl', ct: '12 min' },
+    { icon: 'collection', label: 'Companies', sub: 'Scrawl', ct: '1 h' },
+    { icon: 'tasks', label: 'Tasks', sub: 'Scrawl', ct: '3 h' },
+    { icon: 'notes', label: 'Pricing call notes', sub: '<span class="dot"></span>Inbox, not filed yet', ct: 'Fri' },
+    { icon: 'key', label: 'Production', sub: 'Scrawl', ct: 'Thu' },
+    { icon: 'filter', label: 'This week · p1', sub: 'Scrawl', ct: 'Thu' }
+  ];
+  function mbOpen(swiped) {
+    return mbPage(mbHead('Open', null, true), MB_OPEN.map(function (r, i) {
+      if (!swiped || i !== 2) return mbRow(r);
+      return '<div class="mb-row sw"><span class="swipe">' + ICON.x + 'Close</span><div class="slide">' + ICON[r.icon] +
+        '<span class="tx"><b>' + r.label + '</b><small>' + r.sub + '</small></span><span class="ct">' + r.ct + '</span>' + MB_CHEV + '</div></div>';
+    }).join(''));
+  }
+  // Today: the tasks and cards of the day, late ones first; a card keeps its key.
+  function mbTask(p, title, meta, key) {
+    return '<div class="mb-task"><span class="cb ' + p + (key ? ' sq' : '') + '"></span><span class="tx"><b>' + (key ? '<span class="key">' + key + '</span>' : '') + title + '</b>' +
+      '<span class="meta">' + meta + '</span></span></div>';
+  }
+  function mbToday() {
+    return mbPage(mbHead('Today', 'Monday, Oct 12', true) + '<div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>',
+      '<div class="mb-sec">Overdue <small>1</small></div>' +
+      mbTask('p3', 'Renew the domain', '<span class="late">Oct 9</span><span>Tasks · Home</span>') +
+      '<div class="mb-sec">Today <small>3</small></div>' +
+      mbTask('p1', 'Prototype live preview', '<span>Tasks · Scrawl</span><span>2 of 4</span>') +
+      mbTask('p2', 'Send the revised estimate', '<span>Tasks · Client portal</span>') +
+      mbTask('', 'Call Acme about the yearly plan', '<span>Inbox</span><span>Acme Corp</span>') +
+      '<div class="mb-sec">Roadmap · Scrawl <small>1</small></div>' +
+      mbTask('p2', 'Hot exit: restore tabs after a crash', '<span>Doing</span><span>Phase 3</span>', 'SCR-14'));
+  }
+  // Browse: the inbox, the folders, and under them the trash, sync and settings.
+  function mbBrowse() {
+    return mbPage(mbHead('Browse', null, true),
+      mbRow({ icon: 'folder', fold: true, label: 'Inbox', ct: 4 }) +
+      '<div class="mb-sec">Folders</div>' +
+      mbRow({ icon: 'folder', fold: true, label: 'Scrawl', ct: 9 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Client portal', ct: 11 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Home', ct: 4 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Snippets', ct: 23 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Reading', ct: 8 }) +
+      '<div class="mb-gap"></div>' +
+      mbRow({ icon: 'trash', label: 'Trash', ct: 8 }) +
+      mbRow({ icon: 'cloud', label: 'Sync', ct: '12 s ago' }) +
+      mbRow({ icon: 'settings', label: 'Settings' }));
+  }
+  // A folder: its filters, lists, boards, keys and collections, then its folders, then its notes
+  // with when they were written and their first words.
+  function mbFolderRows(o) {
+    o = o || {};
+    return (o.scrolled ? '' : mbRow({ icon: 'filter', label: 'This week · p1', ct: 3 }) + mbRow({ icon: 'tasks', label: 'Tasks', ct: 7 })) +
+      mbRow({ icon: 'board', label: 'Roadmap', ct: 13, cls: o.lift ? 'lift' : '' }) +
+      mbRow({ icon: 'key', label: 'Production' }) +
+      mbRow({ icon: 'collection', label: 'Companies', ct: 24 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'meetings', ct: 3 }) +
+      mbRow({ icon: 'notes', label: 'Sync engine: open questions', sub: '<em>9:12</em>Delta API returns a cursor per drive' }) +
+      mbRow({ icon: 'notes', label: 'Live preview spike', sub: '<em>Fri</em>Hide the marks, keep the caret still' }) +
+      mbRow({ icon: 'notes', label: 'Vault layout', sub: '<em>Oct 2</em>Folders, attachments and the trash' }) +
+      (o.scrolled
+        ? mbRow({ icon: 'notes', label: 'Release checklist', sub: '<em>Sep 29</em>Build, sign, upload, tell the list' }) +
+          mbRow({ icon: 'notes', label: 'Pricing page copy', sub: '<em>Sep 24</em>Free for three, then one price' })
+        : '');
+  }
+  function mbFolder(o) {
+    o = o || {};
+    if (o.scrolled) return mbPage(mbNav('Browse', ['dots'], 'Scrawl', 'bar'), mbFolderRows(o), o.cls, 'scrolled');
+    return mbPage(mbNav('Browse', ['dots']) + mbHead('Scrawl'), mbFolderRows(o), o.cls);
+  }
+  // A note as a page: the bar has back and ···; the format bar comes with the keyboard.
+  var MB_NOTE = '<div class="mb-ed">' +
+    '<div class="h1">Sync engine: open questions</div>' +
+    '<p>Delta API returns a <b>cursor</b> per drive. Store it in <span class="ic">sync-state.json</span>, never in the vault.</p>' +
+    '<div class="li">Notes conflict: 3-way merge, fall back to a copy</div>' +
+    '<div class="li">Tasks merge per record, last write wins per field</div>' +
+    '<div class="li">Deletes go to trash first</div>' +
+    '<p style="margin-top: 12px">Token refresh for SPAs: <span class="lnk">MSAL browser docs</span>, 24 h refresh window.</p>' +
+    '</div>';
+  function mbNote(cls) { return mbPage(mbNav('Scrawl', ['dots']), MB_NOTE, cls); }
+  function phoneShell() {
+    return [
+      mbPhone('Open: açık olanlar, en son bakılan üstte', mbOpen(), mbTabs('open') + MB_FAB),
+      mbPhone('Today: yanında Upcoming', mbToday(), mbTabs('today') + MB_FAB),
+      mbPhone('Browse: Inbox, klasörler; altta Trash, Sync, Settings', mbBrowse(), mbTabs('browse') + MB_FAB),
+      mbPhone('Bir klasör: Browse › Scrawl', mbFolder(), mbTabs('browse') + MB_FAB)
+    ].join('');
+  }
+  function phonePages() {
+    return [
+      mbPhone('Not, Scrawl’dan açılmış bir sayfa', mbNote(), mbTabs('browse')),
+      mbPhone('Sol kenardan kaydırınca geri', mbFolder({ cls: 'under' }) + mbNote('going'), mbTabs('browse') + '<span class="finger" style="left: 170px; top: 330px"></span>'),
+      mbPhone('Aşağı kaydırınca başlık üst bara geçer', mbFolder({ scrolled: true }), mbTabs('browse') + MB_FAB),
+      mbPhone('Open’da satırı sola kaydırınca Close', mbOpen(true), mbTabs('open') + MB_FAB + '<span class="finger" style="left: 236px; top: 252px"></span>')
+    ].join('');
+  }
+  // Create: + opens the kinds as a sheet, for the folder on screen; one picked asks its name and
+  // folder in the same sheet. Create sits at the top, where the keyboard never covers it.
+  function mbCreateSheet() {
+    function r(icon, label, sub) { return mbRow({ icon: icon, label: label, sub: sub, chev: false }); }
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Create</b><small>in Scrawl</small><span class="x">' + ICON.x + '</span></div>' +
+      r('notes', 'Note') + r('tasks', 'Task list') + r('board', 'Board') + r('key', 'Keys', 'API keys, passwords, settings') +
+      r('collection', 'Collection', 'Companies, people, payments…') + r('filter', 'Filter') + '</div>';
+  }
+  function mbCols(cols, cls) {
+    return '<span class="mb-cols' + (cls ? ' ' + cls : '') + '">' + cols.map(function (c) { return '<i class="' + c + '"></i>'; }).join('') + '</span>';
+  }
+  var MB_CRM = ['', 'active', 'active', 'active', 'done', 'dropped'];
+  function mbFolderValue(name) { return '<span class="val">' + ICON.folder + name + MB_CHEV + '</span>'; }
+  function mbNewBoard() {
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>New board</b><span class="ok">Create</span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr"><span class="fl">Name</span><span class="in">Deals</span></div>' +
+        '<div class="mb-fr"><span class="fl">Folder</span>' + mbFolderValue('Scrawl') + '</div>' +
+        '<div class="mb-fr"><span class="fl">Template</span><span class="val">' + mbCols(MB_CRM, 'small') + 'CRM' + MB_CHEV + '</span></div>' +
+      '</div>' +
+      '<div class="mb-cap">Links</div><div class="mb-group">' +
+        '<div class="mb-fr"><span class="fl">Company</span><span class="val">Companies · Scrawl' + MB_CHEV + '</span></div>' +
+        '<div class="mb-fr"><span class="fl">Contact</span><span class="val">People · Scrawl' + MB_CHEV + '</span></div>' +
+      '</div>' +
+      '<div class="mb-hint">Columns, phases and fields can be changed later.</div></div></div>';
+  }
+  function mbTemplates() {
+    function t(name, cols, sub, on) {
+      return '<div class="mb-fr tp"><span class="tn">' + name + '<small>' + sub + '</small>' + mbCols(cols) + '</span><span class="tick">' + (on ? ICON.check : '') + '</span></div>';
+    }
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel back">' + ICON.chevl + 'New board</span><b>Template</b><span></span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        t('Software', ['', 'active', 'active', 'review', 'done'], 'Backlog, Todo, Doing, Review, Done · phases on') +
+        t('Simple', ['active', 'active', 'done'], 'Todo, Doing, Done · phases off') +
+        t('Issue tracking', ['', 'active', 'active', 'done', 'dropped', 'dropped'], 'Backlog, Todo, In Progress, Done, Canceled, Duplicate · opens as a list') +
+        t('CRM', MB_CRM, 'Lead, Contacted, Meeting, Proposal, Won, Lost · company, contact, value, next step', true) +
+      '</div></div></div>';
+  }
+  function mbNewNote() {
+    return MB_DIM + '<div class="mb-sheet overkb"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>New note</b><span class="ok">Create</span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr"><span class="fl">Name</span><span class="in none"><span class="caret"></span>Named by its first line</span></div>' +
+        '<div class="mb-fr"><span class="fl">Folder</span>' + mbFolderValue('Scrawl') + '</div>' +
+      '</div></div></div>' + MB_KB;
+  }
+  function phoneCreate() {
+    return [
+      mbPhone('+ ile Create, bulunduğun klasöre', mbFolder(), mbTabs('browse') + MB_FAB + mbCreateSheet()),
+      mbPhone('Board seçilince adı ve yeri aynı sheet’te', mbFolder(), mbTabs('browse') + mbNewBoard()),
+      mbPhone('Template’e dokununca liste sheet’in içinde açılır', mbFolder(), mbTabs('browse') + mbTemplates()),
+      mbPhone('Klavye açıkken sheet klavyenin üstünde', mbFolder(), mbTabs('browse') + mbNewNote())
+    ].join('');
+  }
+  // Menus: an action sheet with what it is about on top, Delete last and red, Cancel apart. Holding
+  // a row opens it and lifts the row; the page's ··· opens the same for what is on screen.
+  function mbActions(icon, title, sub, groups) {
+    return '<div class="mb-acts"><div class="mb-card"><div class="hd">' + ICON[icon] + '<span><b>' + title + '</b><small>' + sub + '</small></span></div>' +
+      groups.map(function (group) {
+        return group.map(function (a) {
+          return '<div class="a' + (a.red ? ' red' : '') + '">' + ICON[a.icon] + a.label + (a.on ? '<span class="on">' + a.on + '</span>' : '') + '</div>';
+        }).join('');
+      }).join('<div class="sep"></div>') +
+      '</div><div class="mb-card"><div class="a cancel">Cancel</div></div></div>';
+  }
+  function mbDateSheet() {
+    function q(icon, label, day, on) {
+      return '<div class="mb-row">' + ICON[icon] + '<span class="tx"><b>' + label + '</b></span><span class="wd">' + day + '</span>' + (on ? ICON.check.replace('<svg', '<svg class="tick"') : '') + '</div>';
+    }
+    // October 2026 starts on a Thursday; a week starts on Monday.
+    var cells = '<span></span><span></span><span></span>';
+    for (var d = 1; d <= 31; d++) cells += '<span' + (d < 12 ? ' class="past"' : '') + '>' + (d === 12 ? '<b>12</b>' : d) + '</span>';
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Date</b><small>Send the revised estimate</small><span class="x">' + ICON.x + '</span></div>' +
+      q('sun', 'Today', 'Mon', true) + q('rise', 'Tomorrow', 'Tue') + q('week', 'Next week', 'Mon, Oct 19') + q('nodate', 'No date', '') +
+      '<div class="mb-cal"><div class="mh">October 2026<span>' + ICON.chevl + ICON.chevr + '</span></div><div class="g">' +
+      ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(function (w) { return '<span class="w">' + w + '</span>'; }).join('') + cells + '</div></div></div>';
+  }
+  function phoneMenus() {
+    var board = mbActions('board', 'Roadmap', 'Board in Scrawl', [
+      [{ icon: 'pen', label: 'Rename' }, { icon: 'move', label: 'Move to…' }],
+      [{ icon: 'bin', label: 'Delete', red: true }]
+    ]);
+    var note = mbActions('notes', 'Sync engine: open questions', 'Note in Scrawl', [
+      [{ icon: 'md', label: 'Markdown', on: 'Off' }],
+      [{ icon: 'clock', label: 'History…' }, { icon: 'move', label: 'Move to…' }, { icon: 'pen', label: 'Rename' }],
+      [{ icon: 'bin', label: 'Delete', red: true }]
+    ]);
+    var ask = '<div class="mb-acts"><div class="mb-card"><div class="ask"><b>Delete note</b><small>Vault layout will be moved to the trash.</small></div>' +
+      '<div class="a red center">Delete</div></div><div class="mb-card"><div class="a cancel">Cancel</div></div></div>';
+    return [
+      mbPhone('Satırı basılı tutunca', mbFolder({ lift: true }), mbTabs('browse') + MB_DIM + board),
+      mbPhone('Sayfanın ··· butonu aynı menüyü açar', mbNote(), mbTabs('browse') + MB_DIM + note),
+      mbPhone('Silmeden önce sorar', mbFolder(), mbTabs('browse') + MB_DIM + ask),
+      mbPhone('Seçiciler de sheet: bir görevin tarihi', mbToday(), mbTabs('today') + mbDateSheet())
+    ].join('');
+  }
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
+    if (MB_VIEWS[view]) {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = MB_VIEWS[view]();
+      section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.dataset.aview === view));
+      });
+      return;
+    }
+    mock.classList.remove('mbs');
     mock.classList.toggle('phones', view === 'phone' || view === 'settingsphone' || view === 'syncphone' || view === 'phphone' || view === 'keysphone' || view === 'colphone' || view === 'touchdrag');
     mock.classList.toggle('four', view === 'settingsphone');
     mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty' || view === 'col' || view === 'coladd' || view === 'colrec' || view === 'colpick' || view === 'coleq' || view === 'colrectasks' || view === 'colcsvmenu' || view === 'colcsv' || view === 'colmissing');
