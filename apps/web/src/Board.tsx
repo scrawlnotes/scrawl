@@ -1,6 +1,7 @@
 import {
   addDays,
   type Board,
+  type Person,
   type BoardLook,
   columnStatus,
   type ColumnStatus,
@@ -34,6 +35,7 @@ import { createPortal } from 'react-dom';
 import { useNarrow } from './narrow';
 import { StatusIcon } from './StatusIcon';
 import { CardPanel, type CardPanelActions } from './CardPanel';
+import { assigneeLabel, initialOf } from './People';
 import { labelHue } from './choices';
 import { Cell, type ValueContext } from './Collection';
 import { BoardFieldsDialog } from './Fields';
@@ -250,6 +252,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
 }) {
   const comments = card.timeline.filter((entry) => entry.kind === 'comment').length;
   const noteTitle = card.note ? actions.noteTitle(card.note) : null;
+  const people = actions.people?.(path)?.people;
   const phase = showPhase && card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
   // The board's first link and first number, a deal's company and value, as they are filled in.
   const face = faceFields(board)
@@ -294,7 +297,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
           <span className="top">
             <i className={`p${card.priority}`} />
             {keyOf(board, card)}
-            {card.assignee && <span className="mb-who">{card.assignee.slice(0, 1).toUpperCase()}</span>}
+            {card.assignee && <span className="mb-who">{initialOf(card.assignee, people)}</span>}
           </span>
           <b>{card.title}</b>
           {(card.due || card.labels?.length || comments > 0 || phase || face.length > 0) && (
@@ -376,7 +379,11 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
                 </span>
               ),
             )}
-            {card.assignee && <span className="who" title={card.assignee}>{card.assignee.slice(0, 1).toUpperCase()}</span>}
+            {card.assignee && (
+              <span className="who" title={assigneeLabel(card.assignee, people)}>
+                {initialOf(card.assignee, people)}
+              </span>
+            )}
           </span>
         )}
       </button>
@@ -979,8 +986,8 @@ const LIST_WIDTHS: { [type in Field['type']]: number } = {
 const LIST_COLUMNS = '58px minmax(160px, 1fr) 90px 60px 116px 40px 80px';
 const LIST_LEAST = 640;
 
-/** Cards in a list's order: by the field asked, else by column then place; finished cards last. */
-function sortCards(board: Board, cards: Card[], sort: Sort | null): Card[] {
+/** Cards in a list's order: by the field asked, else by column then place; finished cards last. Who has a card goes by their name among `people`. */
+function sortCards(board: Board, cards: Card[], sort: Sort | null, people?: Person[]): Card[] {
   const columnAt = new Map(board.columns.map((c, i) => [c.id, i]));
   const rank = (card: Card) => (isFinished(board, card) ? 1 : 0);
   const own = sort?.field.startsWith('f:') ? board.fields?.find((f) => `f:${f.key}` === sort.field) : undefined;
@@ -1001,7 +1008,7 @@ function sortCards(board: Board, cards: Card[], sort: Sort | null): Card[] {
       case 'due':
         return card.due ?? '9999';
       case 'assignee':
-        return (card.assignee ?? '\uffff').toLowerCase();
+        return card.assignee ? assigneeLabel(card.assignee, people).toLowerCase() : '\uffff';
       default:
         return (columnAt.get(card.column) ?? 0) * 100000 + card.order;
     }
@@ -1064,6 +1071,7 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
   onInFull: (group: string, full: boolean) => void;
 }) {
   const [sort, setSort] = useState<Sort | null>(null);
+  const people = actions.people?.(path)?.people;
   /**
    * The group a card is being typed into, and the card added last from its line: the next goes
    * after it, and the line stays right under it.
@@ -1095,7 +1103,7 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
       }));
   // Every status and every phase shows, with no cards too, so that there is a place to add one;
   // the cards in no phase only when there are some.
-  const shown = groups.map((group) => ({ ...group, cards: sortCards(board, group.cards.filter(visible), sort) })).filter((g) => g.cards.length > 0 || g.id !== 'none');
+  const shown = groups.map((group) => ({ ...group, cards: sortCards(board, group.cards.filter(visible), sort, people) })).filter((g) => g.cards.length > 0 || g.id !== 'none');
   // A card typed into a status's group goes into that column; into a phase's, into that phase.
   // The first goes first in the group, each next one after the one before.
   const addTo = (group: ListGroup, title: string) => {
@@ -1158,7 +1166,13 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
             </span>
           ))}
         </span>
-        <span>{card.assignee && <span className="who" title={card.assignee}>{card.assignee.slice(0, 1).toUpperCase()}</span>}</span>
+        <span>
+          {card.assignee && (
+            <span className="who" title={assigneeLabel(card.assignee, people)}>
+              {initialOf(card.assignee, people)}
+            </span>
+          )}
+        </span>
         <span className={card.due ? dueClass(card.due, today) : 'due'}>{card.due ? dueLabel(card.due, today) : ''}</span>
         {own.map((field) => (
           <span key={field.key} className={isNumber(field) ? 'own r' : 'own'}>

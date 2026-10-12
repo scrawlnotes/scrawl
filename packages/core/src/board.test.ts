@@ -168,6 +168,22 @@ describe('file format', () => {
     expect(board.nextKey).toBe(9);
   });
 
+  it('reads who a card is given to by id and name, and a name alone as files had it', () => {
+    const text = JSON.stringify({
+      columns: [{ id: 'a', name: 'A' }],
+      cards: [
+        { id: 'k1', title: 'Person', column: 'a', assignee: { id: 'p1', name: 'Lena', extra: 1 }, author: { id: 'p2' } },
+        { id: 'k2', title: 'Old', column: 'a', assignee: ' claude ', author: 'kaan' },
+        { id: 'k3', title: 'Nobody', column: 'a', assignee: { id: ' ' }, author: 4 },
+      ],
+    });
+    const board = parseBoard(text);
+    expect(card(board, 'k1')).toMatchObject({ assignee: { id: 'p1', name: 'Lena' }, author: { id: 'p2' } });
+    expect(card(board, 'k2')).toMatchObject({ assignee: { name: 'claude' }, author: { name: 'kaan' } });
+    expect(card(board, 'k3')).not.toHaveProperty('assignee');
+    expect(card(board, 'k3')).not.toHaveProperty('author');
+  });
+
   it('is empty when the file is missing or broken', () => {
     expect(parseBoard('not json')).toEqual({ prefix: 'BRD', nextKey: 1, phasesOn: false, columns: [], phases: [], cards: [] });
   });
@@ -186,7 +202,7 @@ describe('cards', () => {
     const board = software('One', 'Two');
     expect(board.cards.map((c) => [keyOf(board, c), c.column, c.order])).toEqual([['ROA-1', 'c1', 0], ['ROA-2', 'c1', 1]]);
     expect(board.nextKey).toBe(3);
-    expect(card(board, 'One')).toMatchObject({ author: 'kaan', priority: 4, due: null, completed: null, timeline: [] });
+    expect(card(board, 'One')).toMatchObject({ author: { name: 'kaan' }, priority: 4, due: null, completed: null, timeline: [] });
   });
 
   it('join the current phase when phases are on', () => {
@@ -210,8 +226,8 @@ describe('cards', () => {
 
   it('are edited field by field', () => {
     let board = software('One');
-    board = updateCard(board, 'One', { title: ' New ', description: ' text ', labels: [' a ', 'a', 'b'], assignee: 'claude', priority: 1, due: '2026-10-09' }, later);
-    expect(card(board, 'One')).toMatchObject({ title: 'New', description: 'text', labels: ['a', 'b'], assignee: 'claude', priority: 1, due: '2026-10-09', updated: later().toISOString() });
+    board = updateCard(board, 'One', { title: ' New ', description: ' text ', labels: [' a ', 'a', 'b'], assignee: { name: 'claude' }, priority: 1, due: '2026-10-09' }, later);
+    expect(card(board, 'One')).toMatchObject({ title: 'New', description: 'text', labels: ['a', 'b'], assignee: { name: 'claude' }, priority: 1, due: '2026-10-09', updated: later().toISOString() });
     board = updateCard(board, 'One', { description: '', labels: [], assignee: null, due: null });
     expect(card(board, 'One')).not.toHaveProperty('description');
     expect(card(board, 'One')).not.toHaveProperty('labels');
@@ -405,7 +421,7 @@ describe('across boards', () => {
 describe('briefs', () => {
   it('write a card for a person or an agent', () => {
     let board = addPhase(software(), { name: 'Phase 3: Board' }, 'p1');
-    board = addCard(board, { title: 'Phase strip', description: 'Ticks and bold.\n', priority: 1, due: '2026-10-09', labels: ['board'], assignee: 'claude', note: 'Work/Board notes.md' }, now, 'kaan', 'A');
+    board = addCard(board, { title: 'Phase strip', description: 'Ticks and bold.\n', priority: 1, due: '2026-10-09', labels: ['board'], assignee: { name: 'claude' }, note: 'Work/Board notes.md' }, now, 'kaan', 'A');
     board = moveCard(board, 'A', { column: 'c4', after: null }, now, 'claude');
     board = addComment(board, 'A', 'Strip is in.', later, 'claude');
     expect(cardBrief(board, card(board, 'A'), { 'Work/Board notes.md': 'The note.\n' })).toBe(

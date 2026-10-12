@@ -1,6 +1,7 @@
 import { evaluateFormula, type Field, type FieldValue, isEmpty, pointsAt, readFields, readValue, type Record as CollectionRecord, valueText } from './collection';
 import { type ChoiceRenames, renameChoices } from './fields';
 import type { VaultFs } from './fs';
+import { type PersonRef, readPersonRef } from './people';
 import type { Priority } from './tasks';
 
 // A board is a file of its own in a folder: `<name>.board.json`. It holds its columns, its
@@ -66,8 +67,10 @@ export interface Card {
   /** Free words; a board colours them. Left out when empty. */
   labels?: string[];
   /** Who the card is on: a person's or an agent's name. */
-  assignee?: string | null;
-  author?: string | null;
+  /** Who it is given to: a person of the space, or in the personal space a name as it was typed. */
+  assignee?: PersonRef | null;
+  /** Who made it. */
+  author?: PersonRef | null;
   /** Path of the note the card was made from. */
   note?: string | null;
   created: string;
@@ -277,6 +280,12 @@ function parseCards(list: unknown, columns: Column[]): Card[] {
       timeline: parseTimeline(raw.timeline),
       values: isValues(raw.values) ? raw.values : undefined,
     });
+    const card = out[out.length - 1]!;
+    for (const key of ['assignee', 'author'] as const) {
+      const ref = readPersonRef(raw[key]);
+      if (ref) card[key] = ref;
+      else delete card[key];
+    }
   }
   // Cards without a key, from a file written by hand, are numbered after the ones that have one.
   let next = out.reduce((max, c) => Math.max(max, c.key), 0) + 1;
@@ -605,7 +614,9 @@ export interface NewCard {
   priority?: Priority;
   due?: string | null;
   labels?: string[];
-  assignee?: string | null;
+  assignee?: PersonRef | null;
+  /** Who makes it; without one, the name its timeline is written with. */
+  author?: PersonRef | null;
   /** The note it was made from. */
   note?: string | null;
   /** Values of the board's own fields, by key: a deal added from a company has the company. */
@@ -641,7 +652,7 @@ export function addCard(board: Board, input: NewCard, now: Clock = () => new Dat
     due: input.due ?? null,
     ...(input.labels && input.labels.length > 0 && { labels: cleanLabels(input.labels) }),
     ...(input.assignee && { assignee: input.assignee }),
-    ...(by && { author: by }),
+    ...(input.author ? { author: input.author } : by && { author: { name: by } }),
     ...(input.note && { note: input.note }),
     ...(input.values && filledValues(input.values) && { values: filledValues(input.values) }),
     created: stamp,
@@ -840,7 +851,7 @@ export function cardBrief(board: Board, card: Card, notes: NoteTexts = {}): stri
   if (card.priority < 4) fields.push(`Priority: p${card.priority}`);
   if (card.due) fields.push(`Due: ${card.due}`);
   if (card.labels?.length) fields.push(`Labels: ${card.labels.join(', ')}`);
-  if (card.assignee) fields.push(`Assignee: ${card.assignee}`);
+  if (card.assignee?.name) fields.push(`Assignee: ${card.assignee.name}`);
   for (const field of board.fields ?? []) {
     const value = cardValue(board, card, field);
     if (!isEmpty(value)) fields.push(`${field.label}: ${valueText(value)}`);

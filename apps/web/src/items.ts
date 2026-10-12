@@ -88,26 +88,29 @@ export function folderOf(id: string): string | null {
 }
 
 /** A task list's name and, apart from it, the folder it is in. */
+/** The folder something is in, as its label names it: a space's name at its top, none at the personal space's top. */
+const folderNamed = (path: string) => (dirname(path) ? folderLabel(dirname(path)) : '');
+
 export function listLabel(list: string): string {
-  const folder = basename(dirname(list));
+  const folder = folderNamed(list);
   return folder ? t('tab.list', { list: listName(list), folder }) : listName(list);
 }
 
 /** A board's name and, apart from it, the folder it is in. */
 export function boardLabel(board: string): string {
-  const folder = basename(dirname(board));
+  const folder = folderNamed(board);
   return folder ? t('tab.board', { board: boardName(board), folder }) : boardName(board);
 }
 
 /** A keys file's name and, apart from it, the folder it is in. */
 export function keysLabel(keys: string): string {
-  const folder = basename(dirname(keys));
+  const folder = folderNamed(keys);
   return folder ? t('tab.keys', { keys: keysName(keys), folder }) : keysName(keys);
 }
 
 /** A collection's name and, apart from it, the folder it is in. */
 export function collectionLabel(dir: string): string {
-  const folder = basename(dirname(dir));
+  const folder = folderNamed(dir);
   return folder ? t('tab.collection', { collection: collectionName(dir), folder }) : collectionName(dir);
 }
 

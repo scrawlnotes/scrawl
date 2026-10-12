@@ -12,6 +12,7 @@ import {
   keyOf,
   type Link,
   numberText,
+  type PersonRef,
   type Priority,
   type TimelineEntry,
   valueText,
@@ -38,6 +39,7 @@ import type { MenuHead, MenuItem } from './dialogs';
 import { labelHue, useEscape } from './choices';
 import { Icon, type IconName } from './Icon';
 import { boardLabel } from './items';
+import { assigneeLabel, PersonPicker, type SpacePeople, Who } from './People';
 import { AssigneeSheet, KindMark, Label, LabelSheet, PhaseSheet, StatusSheet } from './PhoneBoard';
 import { LinkSheet } from './PhoneCollection';
 import { DateSheet, priorityItems } from './PhoneTasks';
@@ -68,6 +70,45 @@ export interface CardPanelActions {
   viewer: (home: string, parent: HTMLElement, doc: string) => ScrawlViewer;
   /** The collections the board's link fields point at: their records to pick from, and a record to open over the card. */
   recordActions: CollectionActions;
+  /** The people of the space a board is in, to give its cards to; null in the personal space, where a name is typed. */
+  people?: (board: string) => SpacePeople | null;
+}
+
+/**
+ * Who a card is given to in a space with people, after the Card assign view of
+ * design/mockups.html: the person, or Nobody, in a field that opens the people of the space.
+ */
+function AssigneeField({ team, current, onPick }: { team: SpacePeople; current: PersonRef | null; onPick: (assignee: PersonRef | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const field = useRef<HTMLButtonElement>(null);
+  const name = current ? assigneeLabel(current, team.people) : null;
+  return (
+    <>
+      <button ref={field} id="card-assignee" type="button" className={`st-field who-field${open ? ' open' : ''}`} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {current ? (
+          <>
+            <Who name={name ?? undefined} />
+            <span className="nm">{name}</span>
+          </>
+        ) : (
+          <span className="nm none">{t('people.nobody')}</span>
+        )}
+      </button>
+      {open && field.current && (
+        <PersonPicker
+          anchor={field.current}
+          team={team}
+          current={current}
+          onPick={(assignee) => {
+            setOpen(false);
+            field.current?.focus();
+            onPick(assignee);
+          }}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
 }
 
 /** The types typed as a line: kept when the box is left or Enter is pressed, not at every key. */
@@ -648,6 +689,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
   const [over, setOver] = useState<{ dir: string; id: string } | null>(null);
   const noteTitle = card.note ? actions.noteTitle(card.note) : null;
   const records = actions.recordActions;
+  const team = actions.people?.(path) ?? null;
   const ctx: ValueContext = {
     records: records.records,
     collection: records.collection,
@@ -792,13 +834,17 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
           <label htmlFor="card-due">{t('card.due')}</label>
           <input id="card-due" type="date" value={card.due ?? ''} onChange={(event) => update({ due: event.target.value || null })} />
           <label htmlFor="card-assignee">{t('card.assignee')}</label>
-          <TextField
-            id="card-assignee"
-            label={t('card.assignee')}
-            placeholder={t('card.unassigned')}
-            value={card.assignee ?? ''}
-            onSave={(text) => update({ assignee: text.trim() || null })}
-          />
+          {team ? (
+            <AssigneeField team={team} current={card.assignee ?? null} onPick={(assignee) => update({ assignee })} />
+          ) : (
+            <TextField
+              id="card-assignee"
+              label={t('card.assignee')}
+              placeholder={t('card.unassigned')}
+              value={card.assignee?.name ?? ''}
+              onSave={(text) => update({ assignee: text.trim() ? { name: text.trim() } : null })}
+            />
+          )}
         </div>
         {/* The board's own fields, under the card's. */}
         {(board.fields ?? []).length > 0 && (
@@ -1048,8 +1094,8 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
               t('card.assignee'),
               card.assignee ? (
                 <>
-                  <span className="mb-who">{card.assignee.slice(0, 1).toUpperCase()}</span>
-                  <span className="tx">{card.assignee}</span>
+                  <span className="mb-who">{(card.assignee.name ?? '?').slice(0, 1).toUpperCase()}</span>
+                  <span className="tx">{assigneeLabel(card.assignee, actions.people?.(path)?.people)}</span>
                 </>
               ) : (
                 <span className="none">{t('card.unassigned')}</span>
@@ -1100,7 +1146,9 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
       {picking === 'phase' && <PhaseSheet board={board} current={card.phase ?? null} onPick={(id) => update({ phase: id })} onClose={() => setPicking(null)} />}
       {picking === 'labels' && <LabelSheet board={board} labels={card.labels ?? []} onChange={(labels) => update({ labels })} onClose={() => setPicking(null)} />}
       {picking === 'due' && <DateSheet title={card.title} current={card.due} today={today} onPick={(due) => update({ due })} onClose={() => setPicking(null)} />}
-      {picking === 'assignee' && <AssigneeSheet value={card.assignee ?? ''} onSave={(assignee) => update({ assignee })} onClose={() => setPicking(null)} />}
+      {picking === 'assignee' && (
+        <AssigneeSheet value={card.assignee?.name ?? ''} onSave={(name) => update({ assignee: name ? { name } : null })} onClose={() => setPicking(null)} />
+      )}
       {editing && <FieldSheet field={editing} value={cardValue(board, card, editing, today)} ctx={ctx} onSave={(next) => setValue(editing, next)} onClose={() => setEditing(null)} />}
       {linking?.collection && (
         <LinkSheet

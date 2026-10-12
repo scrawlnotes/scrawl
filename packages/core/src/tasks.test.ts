@@ -151,6 +151,14 @@ describe('task file', () => {
     expect(tasks[0]).toMatchObject({ id: 'b', title: 'ok', priority: 4, due: null, parent: null, done: false });
   });
 
+  it('gives a task to someone by id and name, and to nobody again', () => {
+    let tasks = addTask([], { title: 'Call Lena', assignee: { id: 'p1', name: 'Lena' }, author: { id: 'p2', name: 'Kaan' } }, () => new Date(), 'a');
+    expect(parseTasks(serializeTasks(tasks))[0]).toMatchObject({ assignee: { id: 'p1', name: 'Lena' }, author: { id: 'p2', name: 'Kaan' } });
+    tasks = updateTask(tasks, 'a', { assignee: null });
+    expect(tasks[0]).not.toHaveProperty('assignee');
+    expect(parseTasks(JSON.stringify({ tasks: [{ id: 'b', title: 'Old', assignee: 'Kaan' }] }))[0]?.assignee).toEqual({ name: 'Kaan' });
+  });
+
   it('keeps fields it does not know', () => {
     const text = JSON.stringify({ tasks: [{ id: 'a', title: 'x', section: 'Phase 1', future: { any: 1 } }] });
     expect(parseTasks(text)[0]).toMatchObject({ section: 'Phase 1', future: { any: 1 } });

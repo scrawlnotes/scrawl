@@ -110,6 +110,7 @@ import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { SyncSheet, SyncStatus, syncWord } from './SyncViews';
 import { Sidebar } from './Sidebar';
 import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
+import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
 import { TrashView } from './Trash';
 import { Welcome } from './Welcome';
@@ -776,6 +777,11 @@ export function App() {
     const list = listOf(id);
     if (list !== null) setQuickAdd({ list, section: null, due: null });
   };
+  /** The people of the space a path is in, to give a task or a card to; none in the personal space, which is only you. */
+  const peopleOf = (path: string): SpacePeople | null => {
+    const space = spaces.find((each) => each.id === spaceOf(path));
+    return space ? { name: space.name, people: space.people, ...(me && { me: me.id }) } : null;
+  };
   const taskActions: TaskActions = {
     add: (target, input) => session.addTask(target, input),
     update: (target, id, change) => session.updateTask(target, id, change),
@@ -815,6 +821,7 @@ export function App() {
       return found ? recordTitle(found) : record.name || record.code || t('collection.untitled');
     },
     openRecord: (collection, id) => (phone ? setRecordAsked({ dir: collection, id }) : setRecordOver({ dir: collection, id })),
+    people: peopleOf,
   };
   // A card's brief: the card as Markdown, with the note it came from.
   const copyBrief = async (board: string, id: string) => {
@@ -894,6 +901,7 @@ export function App() {
     noteTitle: (path) => titles[path] ?? null,
     openNote: (path) => void session.open(path),
     recordActions: collectionActions,
+    people: peopleOf,
     ask: (title, message, run, action) => ask(title, message, run, action),
     saveBoardFields: (board, fields, renames) => session.setBoardFields(board, fields, renames),
   };
@@ -911,8 +919,8 @@ export function App() {
   for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;
   for (const filter of filters) {
     counts[filterTab(filter.id)] =
-      filterTasks(filter, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0) +
-      filterCards(filter, boards, today).reduce((sum, group) => sum + group.cards.length, 0);
+      filterTasks(filter, tasks, today, me?.id).reduce((sum, group) => sum + group.tasks.length, 0) +
+      filterCards(filter, boards, today, me?.id).reduce((sum, group) => sum + group.cards.length, 0);
   }
   const list = active ? listOf(active) : null;
   const boardPath = active ? boardPathOf(active) : null;
@@ -1011,6 +1019,7 @@ export function App() {
         lists={tasks}
         boards={boards}
         today={today}
+        {...(me && { me: me.id })}
         actions={taskActions}
         onEdit={() => setDialog({ kind: 'filter', filter: activeFilter })}
       />
@@ -1531,9 +1540,10 @@ export function App() {
           places={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
           place={dialog.place ?? newFolder}
           count={(choices) =>
-            filterTasks(choices, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0) +
-            filterCards(choices, boards, today).reduce((sum, group) => sum + group.cards.length, 0)
+            filterTasks(choices, tasks, today, me?.id).reduce((sum, group) => sum + group.tasks.length, 0) +
+            filterCards(choices, boards, today, me?.id).reduce((sum, group) => sum + group.cards.length, 0)
           }
+          withPeople={spaces.length > 0}
           fields={(choices) => filterFields(choices, boards)}
           records={(dir) => collections[dir]?.records ?? null}
           onSave={(filter) => {

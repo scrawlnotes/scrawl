@@ -1,7 +1,6 @@
 import type { VaultFs } from './fs';
 import type { Me } from './me';
 import { mergeFields, mergeRecords } from './sync/merge-records';
-import { dayOf } from './tasks';
 
 // The people of a space: everyone who has opened it, by the id of their `me.json`, with the
 // name and the email they had then and when they were last seen. A task or a card is given to
@@ -75,13 +74,44 @@ export function withPerson(people: Person[], me: Me, now = new Date()): Person[]
 export function samePerson(people: Person[], me: Me, now = new Date()): boolean {
   const found = people.find((p) => p.id === me.id);
   const seen = found?.seen ? new Date(found.seen) : null;
-  const today = !!seen && !Number.isNaN(seen.getTime()) && dayOf(seen) === dayOf(now);
+  const today = !!seen && !Number.isNaN(seen.getTime()) && seen.toDateString() === now.toDateString();
   return !!found && found.active && (found.name ?? '') === (me.name ?? '') && (found.email ?? '') === (me.email ?? '') && today;
 }
 
 export function setActive(people: Person[], id: string, active: boolean): Person[] {
   return people.map((p) => (p.id === id ? { ...p, active } : p));
 }
+
+/**
+ * Someone a task or a card is given to, or who made it: a person of the space by the id of their
+ * `me.json`, with the name they had then, so that it shows without the people being read. A name
+ * alone is from before a space had people, or an agent's.
+ */
+export interface PersonRef {
+  id?: string;
+  name?: string;
+}
+
+/** A person as a task or a card has them; a name alone, as files had it before, is read as one. Undefined when it is no one. */
+export function readPersonRef(raw: unknown): PersonRef | undefined {
+  if (typeof raw === 'string') return clean(raw) ? { name: clean(raw)! } : undefined;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const { id, name } = raw as Record<string, unknown>;
+  const ref: PersonRef = { ...(clean(id) && { id: clean(id) }), ...(clean(name) && { name: clean(name) }) };
+  return ref.id || ref.name ? ref : undefined;
+}
+
+/** A person of the space as a task or a card is given to them. */
+export const refOf = (person: Pick<Person, 'id' | 'name'>): PersonRef => ({ id: person.id, ...(person.name && { name: person.name }) });
+
+/** What someone given a task is called now: their name among the people, else the name they were given with; none for Unnamed. */
+export function refName(ref: PersonRef, people: Person[]): string | undefined {
+  const found = ref.id ? people.find((person) => person.id === ref.id) : undefined;
+  return found ? found.name : ref.name;
+}
+
+/** Whether a task or a card is given to the person with this id. */
+export const isMine = (ref: PersonRef | null | undefined, me: string | undefined) => !!me && ref?.id === me;
 
 /** The name a person is shown under; one without a name is Unnamed, which the interface words. */
 export const personName = (person: Pick<Person, 'name'>, unnamed: string) => person.name ?? unnamed;

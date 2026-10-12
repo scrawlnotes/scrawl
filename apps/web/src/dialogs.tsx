@@ -108,8 +108,10 @@ export function useFolderPicker(folders: string[], initial?: string) {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(() => Math.max(0, initial === undefined ? 0 : folders.indexOf(initial)));
   const typed = query.trim();
-  const matches = folders.filter((f) => f.toLowerCase().includes(typed.toLowerCase()));
-  const canCreate = typed !== '' && !folders.some((f) => f.toLowerCase() === typed.toLowerCase());
+  // Found by the words the list shows: a space's folder by the space's name in front.
+  const shown = (folder: string) => shownPath(folder).toLowerCase();
+  const matches = folders.filter((f) => shown(f).includes(typed.toLowerCase()));
+  const canCreate = typed !== '' && !folders.some((f) => shown(f) === typed.toLowerCase());
   const count = matches.length + (canCreate ? 1 : 0);
   const selected = Math.min(index, count - 1);
   const choiceAt = (i: number): FolderChoice | null =>
@@ -510,7 +512,7 @@ function Chips<T>({ label, items, picked, onPick, name }: {
  * boards in its folders have fields of their own, it asks about them too, as the Filter fields
  * view draws it: those conditions are about cards, so with one the filter shows cards only.
  */
-export function FilterDialog({ filter, folders, places, place, count, fields, records, onSave, onClose }: {
+export function FilterDialog({ filter, folders, places, place, count, withPeople = false, fields, records, onSave, onClose }: {
   /** The filter changed; null for a new one. */
   filter: TaskFilter | null;
   /** The top-level folders, the inbox first. */
@@ -521,6 +523,8 @@ export function FilterDialog({ filter, folders, places, place, count, fields, re
   place: string;
   /** How many open tasks and cards the choices would show. */
   count: (choices: FilterChoices) => number;
+  /** There are spaces with people, where a task or a card is given to someone: the filter can show the user's only. */
+  withPeople?: boolean;
   /** The boards' own fields in the folders chosen. */
   fields: (choices: FilterChoices) => Field[];
   /** The records of a collection, for a condition on a link. */
@@ -594,6 +598,21 @@ export function FilterDialog({ filter, folders, places, place, count, fields, re
         picked={(f) => (f === null ? choices.folders.length === 0 : choices.folders.includes(f))}
         onPick={(f) => setChoices({ ...choices, folders: f === null ? [] : toggle(choices.folders, f) })}
       />
+      {(withPeople || choices.mine) && (
+        <Chips<boolean>
+          label={t('filter.assignee')}
+          name="assignee"
+          items={[
+            { value: false, label: t('filter.anyone') },
+            { value: true, label: t('filter.me') },
+          ]}
+          picked={(mine) => !!choices.mine === mine}
+          onPick={(mine) => {
+            const { mine: _was, ...rest } = choices;
+            setChoices(mine ? { ...rest, mine: true } : rest);
+          }}
+        />
+      )}
       {own.length > 0 && (
         <div className="frow frow-top">
           <span>{t('filter.fields')}</span>

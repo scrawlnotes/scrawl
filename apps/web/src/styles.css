@@ -8546,3 +8546,83 @@ button.st-li:hover,
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* ---------- people: who a task or a card is given to, and the picker of a space's people ---------- */
+
+.meta .assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.meta .assignee .who {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-size: 8.5px;
+  font-weight: 600;
+  line-height: 14px;
+  text-align: center;
+}
+
+.rpick.ppick .rr {
+  align-items: center;
+}
+
+.rpick.ppick .who {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.rpick.ppick .rr.at .who {
+  background: color-mix(in srgb, var(--sl-fg) 16%, transparent);
+}
+
+.rpick.ppick .who.none,
+.rpick.ppick .rr.at .who.none {
+  background: none;
+}
+
+.rpick.ppick .rr.dim b {
+  color: var(--sl-dim);
+}
+
+.rpick.ppick .pnote {
+  margin: 4px 0 0;
+  padding: 7px 8px 4px;
+  border-top: 1px solid var(--sl-line);
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.st-field.who-field .who {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+.st-field.who-field .nm.none {
+  color: var(--sl-faint);
+}
+
+.st-field.who-field.open {
+  border-color: var(--sl-accent);
+}

@@ -1,4 +1,5 @@
 import type { VaultFs } from './fs';
+import { type PersonRef, readPersonRef } from './people';
 
 /** Priority 1 is the highest; 4 means no priority was set. */
 export type Priority = 1 | 2 | 3 | 4;
@@ -21,13 +22,15 @@ export interface Task {
   description?: string;
   /** The id of the section a top-level task is in; a subtask goes where its parent goes. */
   section?: string | null;
+  /** Who it is given to, in a space with people; the personal space has none. */
+  assignee?: PersonRef | null;
+  /** Who made it, in a space with people. */
+  author?: PersonRef | null;
   // Not used by the interface yet. They are part of the format now so that files written today
-  // stay valid when labels, repeating tasks, reminders and sharing arrive.
+  // stay valid when labels, repeating tasks and reminders arrive.
   labels?: string[];
   recurrence?: string | null;
   reminder?: string | null;
-  assignee?: string | null;
-  author?: string | null;
   /** Path of the note the task was made from. */
   note?: string | null;
   /** The card the task was made from, as `cardRef` writes it. */
@@ -152,6 +155,11 @@ function parseTaskArray(list: unknown): Task[] {
     const record = readTaskRecord(raw.record);
     if (record) task.record = record;
     else delete task.record;
+    for (const key of ['assignee', 'author'] as const) {
+      const ref = readPersonRef(raw[key]);
+      if (ref) task[key] = ref;
+      else delete task[key];
+    }
   }
   // A subtask whose parent is gone becomes a top-level task instead of disappearing.
   const ids = new Set(tasks.map((t) => t.id));
@@ -359,6 +367,8 @@ export interface NewTask {
   record?: TaskRecord | null;
   due?: string | null;
   priority?: Priority;
+  assignee?: PersonRef | null;
+  author?: PersonRef | null;
 }
 
 /**
@@ -389,12 +399,14 @@ export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Da
     ...(input.note && { note: input.note }),
     ...(input.card && { card: input.card }),
     ...(input.record && { record: input.record }),
+    ...(input.assignee && { assignee: input.assignee }),
+    ...(input.author && { author: input.author }),
   };
   return [...tasks, task];
 }
 
-/** What can be changed of a task by editing it; a record of null unlinks it. */
-export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'priority' | 'record'>>;
+/** What can be changed of a task by editing it; a record of null unlinks it, an assignee of null gives it to nobody. */
+export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'priority' | 'record' | 'assignee'>>;
 
 /**
  * Changes a task. An empty title keeps the old one. A description loses the blank lines and
@@ -409,6 +421,7 @@ export function updateTask(tasks: Task[], id: string, patch: TaskPatch, now: Clo
     if (t.id !== id) return t;
     const next: Task = { ...t, ...clean, updated: iso(now) };
     if (next.record === null || next.record === undefined) delete next.record;
+    if (next.assignee === null || next.assignee === undefined) delete next.assignee;
     return next;
   });
 }

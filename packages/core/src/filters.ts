@@ -2,6 +2,7 @@ import { t } from '@scrawlnotes/i18n';
 import { basename, dirname, type VaultFs } from './fs';
 import { type Board, type Card, cardValues, isFinished } from './board';
 import { type Condition, type Field, isComplete, matchesCondition, readCondition } from './collection';
+import { isMine } from './people';
 import { addDays, type Priority, type Task } from './tasks';
 
 /**
@@ -23,6 +24,8 @@ export interface TaskFilter {
   folders: string[];
   /** Text the title or the description has, in any case; empty for any. */
   text: string;
+  /** Only what is given to the user: in spaces with people, by the id of their `me.json`. */
+  mine?: true;
   /** Conditions on the boards' own fields, by key. They are about cards: with any, the filter shows no tasks. */
   fields?: Condition[];
   /** The folder it sits in, in the sidebar; none for the inbox. Not what it looks in: that is `folders`. */
@@ -55,11 +58,13 @@ export function parseFilters(text: string): TaskFilter[] {
       priorities: Array.isArray(raw.priorities) ? raw.priorities.filter((p): p is Priority => [1, 2, 3, 4].includes(p)) : [],
       folders: Array.isArray(raw.folders) ? raw.folders.filter((f): f is string => typeof f === 'string') : [],
       text: typeof raw.text === 'string' ? raw.text : '',
+      mine: raw.mine === true ? true : undefined,
       fields: Array.isArray(raw.fields) ? raw.fields.map((c) => readCondition(c)).filter((c): c is Condition => c !== null) : undefined,
       folder: typeof raw.folder === 'string' ? raw.folder : undefined,
     });
     const filter = filters[filters.length - 1]!;
     if (!filter.fields?.length) delete filter.fields;
+    if (!filter.mine) delete filter.mine;
     if (!filter.folder) delete filter.folder;
   }
   return filters;
@@ -104,10 +109,14 @@ function dueMatches(rule: DueRule, due: string | null, today: string): boolean {
 /** The conditions on boards' fields that ask anything: the ones with a value where they need one. */
 const fieldConditions = (filter: FilterChoices) => (filter.fields ?? []).filter(isComplete);
 
-/** Whether an open task of the list at `list` is one the filter shows; none is when the filter asks about boards' fields. */
-export function matchesFilter(filter: FilterChoices, list: string, task: Task, today: string): boolean {
+/**
+ * Whether an open task of the list at `list` is one the filter shows; none is when the filter
+ * asks about boards' fields. `me` is the user's id, for a filter of what is given to them.
+ */
+export function matchesFilter(filter: FilterChoices, list: string, task: Task, today: string, me?: string): boolean {
   if (fieldConditions(filter).length > 0) return false;
   if (task.done || !dueMatches(filter.due, task.due, today)) return false;
+  if (filter.mine && !isMine(task.assignee, me)) return false;
   if (filter.priorities.length > 0 && !filter.priorities.includes(task.priority)) return false;
   const folder = dirname(list);
   if (filter.folders.length > 0 && !filter.folders.some((f) => folder === f || folder.startsWith(`${f}/`))) return false;
@@ -122,15 +131,16 @@ const byDue = (a: Task, b: Task) =>
  * The tasks a filter shows, by the list they are in, in the order the lists come. In each list
  * they go by due day, the undated last, then by priority.
  */
-export function filterTasks(filter: FilterChoices, lists: Record<string, Task[]>, today: string): { list: string; tasks: Task[] }[] {
+export function filterTasks(filter: FilterChoices, lists: Record<string, Task[]>, today: string, me?: string): { list: string; tasks: Task[] }[] {
   return Object.entries(lists)
-    .map(([list, tasks]) => ({ list, tasks: tasks.filter((task) => matchesFilter(filter, list, task, today)).sort(byDue) }))
+    .map(([list, tasks]) => ({ list, tasks: tasks.filter((task) => matchesFilter(filter, list, task, today, me)).sort(byDue) }))
     .filter((group) => group.tasks.length > 0);
 }
 
 /** Whether a card of the board at `board` is one the filter shows: not finished, and matching as a task would. */
-export function matchesFilterCard(filter: FilterChoices, board: string, whole: Board, card: Card, today: string): boolean {
+export function matchesFilterCard(filter: FilterChoices, board: string, whole: Board, card: Card, today: string, me?: string): boolean {
   if (isFinished(whole, card) || !dueMatches(filter.due, card.due, today)) return false;
+  if (filter.mine && !isMine(card.assignee, me)) return false;
   if (filter.priorities.length > 0 && !filter.priorities.includes(card.priority)) return false;
   const folder = dirname(board);
   if (filter.folders.length > 0 && !filter.folders.some((f) => folder === f || folder.startsWith(`${f}/`))) return false;
@@ -154,12 +164,12 @@ export function filterFields(filter: Pick<FilterChoices, 'folders'>, boards: Rec
 }
 
 /** The cards a filter shows, by the board they are on; in each by due day, the undated last, then priority. */
-export function filterCards(filter: FilterChoices, boards: Record<string, Board>, today: string): { board: string; cards: Card[] }[] {
+export function filterCards(filter: FilterChoices, boards: Record<string, Board>, today: string, me?: string): { board: string; cards: Card[] }[] {
   return Object.entries(boards)
     .map(([board, whole]) => ({
       board,
       cards: whole.cards
-        .filter((card) => matchesFilterCard(filter, board, whole, card, today))
+        .filter((card) => matchesFilterCard(filter, board, whole, card, today, me))
         .sort((a, b) => (a.due ?? '￿').localeCompare(b.due ?? '￿') || a.priority - b.priority || a.order - b.order),
     }))
     .filter((group) => group.cards.length > 0);
@@ -173,6 +183,7 @@ export function filterName(filter: FilterChoices): string {
     parts.push([...filter.priorities].sort().map((p) => (p === 4 ? t('filter.noPriority') : `p${p}`)).join(', '));
   }
   if (filter.folders.length > 0) parts.push(filter.folders.map((f) => basename(f)).join(', '));
+  if (filter.mine) parts.push(t('filter.mine'));
   if (filter.text.trim()) parts.push(`“${filter.text.trim()}”`);
   return parts.join(' · ') || t('filter.everything');
 }

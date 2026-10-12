@@ -69,6 +69,8 @@ import {
   localPath,
   type Me,
   type Person,
+  type PersonRef,
+  refOf,
   samePerson,
   savePeople,
   setActive,
@@ -1969,7 +1971,14 @@ export class Session {
   }
 
   addTask(list: string, input: NewTask) {
-    this.changeTasks(list, (tasks) => addTask(tasks, input));
+    const author = this.authorIn(list);
+    this.changeTasks(list, (tasks) => addTask(tasks, { ...(author && { author }), ...input }));
+  }
+
+  /** Who makes a task or a card in a space with people: the user, by id and name. The personal space has only them. */
+  private authorIn(path: string): PersonRef | undefined {
+    const me = this.snapshot.me;
+    return me && spaceOf(path) ? refOf(me) : undefined;
   }
 
   updateTask(list: string, id: string, patch: TaskPatch) {
@@ -2092,7 +2101,8 @@ export class Session {
   /** Adds a card; returns its id, so that the next card typed can go after it. */
   addCard(board: string, input: NewCard): string {
     const id = crypto.randomUUID();
-    this.changeBoard(board, (current) => addCard(current, input, undefined, this.by, id));
+    const author = this.authorIn(board);
+    this.changeBoard(board, (current) => addCard(current, { ...(author && { author }), ...input }, undefined, this.by, id));
     return id;
   }
 

@@ -112,6 +112,22 @@ describe('filterCards', () => {
     expect(filterCards({ ...base, folders: ['Home'] }, boards, '2026-10-07')).toHaveLength(0);
     expect(filterCards({ ...base, text: 'NEEDLE' }, boards, '2026-10-07')[0]!.cards.map((c) => c.id)).toEqual(['b']);
   });
+
+  it('shows only what is given to the user, tasks and cards, by their id', () => {
+    let board = newBoard('Plan', 'software');
+    const at = () => new Date('2026-10-07T12:00:00Z');
+    board = addCard(board, { title: 'Mine', assignee: { id: 'me', name: 'Kaan' } }, at, undefined, 'a');
+    board = addCard(board, { title: 'Lena’s', assignee: { id: 'lena', name: 'Lena' } }, at, undefined, 'b');
+    board = addCard(board, { title: 'By name', assignee: { name: 'Kaan' } }, at, undefined, 'c');
+    const base = { due: 'any' as const, priorities: [], folders: [], text: '', mine: true as const };
+    expect(filterCards(base, { 'Acme/Plan.board.json': board }, '2026-10-07', 'me')[0]!.cards.map((c) => c.id)).toEqual(['a']);
+    expect(filterCards(base, { 'Acme/Plan.board.json': board }, '2026-10-07')).toHaveLength(0);
+    const lists = { 'Acme/T.tasks.json': [task('mine', { assignee: { id: 'me' } }), task('theirs', { assignee: { id: 'lena' } }), task('nobody')] };
+    expect(filterTasks(base, lists, '2026-10-07', 'me')[0]!.tasks.map((t) => t.id)).toEqual(['mine']);
+    expect(filterName(base)).toBe('Mine');
+    expect(parseFilters(serializeFilters([{ ...base, id: 'f', name: 'Mine' }]))[0]?.mine).toBe(true);
+    expect(parseFilters(serializeFilters([{ ...all, id: 'g', name: 'All' }]))[0]).not.toHaveProperty('mine');
+  });
 });
 
 describe("filters on boards' fields", () => {

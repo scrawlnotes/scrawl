@@ -51,6 +51,7 @@ import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { boardLabel, collectionLabel, folderLabel, listLabel } from './items';
+import { AssigneeChip, PersonPicker, type SpacePeople } from './People';
 import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
@@ -86,6 +87,8 @@ export interface TaskActions {
   recordTitle: (record: TaskRecord) => string;
   /** Opens a record over the view. */
   openRecord: (collection: string, id: string) => void;
+  /** The people of the space a list is in, to give its tasks to; null in the personal space, which is only you. */
+  people?: (list: string) => SpacePeople | null;
   /** On a phone: opens a task as a sheet; `subtask` starts a new subtask in it. */
   open?: (list: string, id: string, subtask?: boolean) => void;
   /** On a phone: the date of a task, picked in a sheet. */
@@ -603,6 +606,9 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
   const progress = progressOf(tasks, task.id);
   const canNest = !flat && depthOf(tasks, task.id) < MAX_DEPTH;
 
+  // In a space with people a task is given to one of them, from the button that opened the list.
+  const team = actions.people?.(list) ?? null;
+  const [assigning, setAssigning] = useState<HTMLElement | null>(null);
   const startEditing = () => setEditing({ title: task.title, description: task.description ?? '' });
   const save = () => {
     if (!editing) return;
@@ -645,6 +651,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
         : []),
       { label: t('tasks.dateMenu'), run: () => dateMenu(point) },
       { label: t('tasks.priorityMenu'), run: () => priorityMenu(point) },
+      ...(team ? [{ label: t('tasks.assignMenu'), run: () => setAssigning(button) }] : []),
       { label: t('tasks.recordMenu'), run: () => setPicking(button) },
       { label: t('tasks.moveTo'), run: () => actions.moveTo(list, task.id) },
       { label: t('tasks.delete'), run: () => actions.remove(list, task.id) },
@@ -689,7 +696,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
       {actions.recordTitle(task.record)}
     </button>
   );
-  const meta = (task.due || progress.total > 0 || (flat && !grouped) || from || fromCard || about) && (
+  const meta = (task.due || progress.total > 0 || (flat && !grouped) || task.assignee || from || fromCard || about) && (
     <div className="meta">
       {task.due && (
         <button type="button" className={dueClass(task.due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
@@ -705,6 +712,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
           </button>
         ))}
       {flat && !grouped && <span>{listLabel(list)}</span>}
+      {task.assignee && <AssigneeChip assignee={task.assignee} people={team?.people} />}
       {from}
       {fromCard}
       {about}
@@ -800,6 +808,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
           )}
           <IconButton icon="calendar" title={t('tasks.date')} onClick={dateMenu} />
           <IconButton icon="flag" title={t('tasks.priority')} onClick={priorityMenu} />
+          {team && <IconButton icon="person" title={t('tasks.assignee')} onClick={(event) => setAssigning(assigning ? null : (event.currentTarget as HTMLElement))} />}
           <IconButton icon="collection" title={t('tasks.record')} onClick={(event) => setPicking(picking ? null : (event.currentTarget as HTMLElement))} />
           <IconButton icon="move" title={t('tasks.moveTo')} onClick={() => actions.moveTo(list, task.id)} />
           <button type="button" className="task-more" title={t('tasks.more')} aria-label={t('tasks.more')} onClick={moreMenu}>
@@ -827,6 +836,18 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
             actions.update(list, task.id, { record });
           }}
           onClose={() => setPicking(null)}
+        />
+      )}
+      {assigning && team && (
+        <PersonPicker
+          anchor={assigning}
+          team={team}
+          current={task.assignee ?? null}
+          onPick={(assignee) => {
+            setAssigning(null);
+            actions.update(list, task.id, { assignee });
+          }}
+          onClose={() => setAssigning(null)}
         />
       )}
       {(children.length > 0 || adding) && open && (
@@ -1391,16 +1412,18 @@ export function TaskList({ list, tasks, sections, today, actions }: {
  * A saved filter: the open tasks of every list that match it, by the list they are in, after the
  * Filter view of design/mockups.html (direction A).
  */
-export function FilterView({ filter, lists, boards, today, actions, onEdit }: {
+export function FilterView({ filter, lists, boards, today, me, actions, onEdit }: {
   filter: TaskFilter;
   lists: Record<string, Task[]>;
   boards: Record<string, Board>;
   today: string;
+  /** The user's id, for a filter of what is given to them. */
+  me?: string;
   actions: TaskActions;
   onEdit: () => void;
 }) {
-  const groups = filterTasks(filter, lists, today);
-  const cardGroups = filterCards(filter, boards, today);
+  const groups = filterTasks(filter, lists, today, me);
+  const cardGroups = filterCards(filter, boards, today, me);
   // A condition on a board's field as it reads: "Company is Acme Corp".
   const fields = filterFields(filter, boards);
   const asked = (filter.fields ?? []).flatMap((c) => {
@@ -1554,6 +1577,7 @@ function CardRow({ board, whole, card, today, actions, grouped }: {
           {!grouped && <span>{boardLabel(board)}</span>}
           {column && <span>{column.name}</span>}
           {phase && <span>{phase.name}</span>}
+          {card.assignee && <AssigneeChip assignee={card.assignee} people={actions.people?.(board)?.people} />}
         </div>
       </div>
     </div>
