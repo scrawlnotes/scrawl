@@ -57,8 +57,6 @@ export interface CardPanelActions {
   removeComment: (board: string, id: string, comment: string) => void;
   /** Puts the card as a Markdown brief on the clipboard. */
   copyBrief: (board: string, id: string) => void;
-  /** Makes a task due today in the inbox that links back to the card. */
-  addToToday: (board: string, id: string) => void;
   /** Opens a menu at the pointer; on a phone an action sheet, `head` saying what it is about. */
   menu: (event: MouseEvent, items: MenuItem[], head?: MenuHead) => void;
   /** What the note at a path is called, or null when it is not there any more. */
@@ -690,7 +688,6 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
   const menu = (event: MouseEvent) =>
     actions.menu(event, [
       { label: t('card.copyBrief'), run: () => actions.copyBrief(path, card.id) },
-      { label: t('card.addToToday'), run: () => actions.addToToday(path, card.id) },
       { label: t('menu.delete'), run: () => actions.removeCard(path, card) },
     ]);
   const send = () => {

@@ -884,8 +884,6 @@ export const en = {
   'card.edited': 'edited',
   'card.save': 'Save',
   'card.copyBrief': 'Copy as brief',
-  'card.addToToday': 'Add to Today',
-  'card.addedToToday': 'Task added to Today, in the inbox',
   'card.briefCopied': 'Brief copied',
   'card.menu': 'Card menu',
   'card.close': 'Close (Esc)',

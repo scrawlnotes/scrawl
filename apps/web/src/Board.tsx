@@ -264,7 +264,6 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
           run: () => actions.moveCard(path, card.id, { column: column.id, after: columnCards(board, column.id).pop()?.id ?? null }),
         })),
       { label: t('card.copyBrief'), run: () => actions.copyBrief(path, card.id) },
-      { label: t('card.addToToday'), run: () => actions.addToToday(path, card.id) },
       { label: t('menu.delete'), run: () => actions.removeCard(path, card) },
     ]);
   if (isPhone()) {
@@ -276,7 +275,6 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
         [
           { label: t('phone.statusMenu'), icon: 'board', run: () => onStatus?.(card) },
           { label: t('card.copyBrief'), icon: 'copy', run: () => actions.copyBrief(path, card.id) },
-          { label: t('card.addToToday'), icon: 'sun', run: () => actions.addToToday(path, card.id) },
           { label: t('menu.delete'), icon: 'trash', danger: true, run: () => actions.removeCard(path, card) },
         ],
         cardHead(board, card, keyOf(board, card), titleOfBoard(path)),
@@ -1317,7 +1315,6 @@ function PhoneBoardList({ board, path, today, actions, onStatus, onAdd }: {
       [
         { label: t('phone.statusMenu'), icon: 'board', run: () => onStatus(card) },
         { label: t('card.copyBrief'), icon: 'copy', run: () => actions.copyBrief(path, card.id) },
-        { label: t('card.addToToday'), icon: 'sun', run: () => actions.addToToday(path, card.id) },
         { label: t('menu.delete'), icon: 'trash', danger: true, run: () => actions.removeCard(path, card) },
       ],
       cardHead(board, card, keyOf(board, card), titleOfBoard(path)),

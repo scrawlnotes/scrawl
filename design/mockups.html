@@ -2229,7 +2229,7 @@ p { margin: 0; max-width: 68ch; }
   }
   var CARD = '<div class="bwrap"><div class="bv">' + boardHead('board') + phaseStrip() + '<div class="bwrap">' + boardColumns('SCR-12') + '</div></div>' + cardPanel() + '</div>';
   var CARD_MENU = '<div class="cmenu" style="right: 40px; top: 78px">' +
-    '<span class="hot">Copy as brief<kbd>Ctrl+Shift+C</kbd></span><span>Add to Today</span><span>Move to phase…</span><i></i><span>Delete card…</span></div>';
+    '<span class="hot">Copy as brief<kbd>Ctrl+Shift+C</kbd></span><span>Move to phase…</span><i></i><span>Delete card…</span></div>';
   // The list view: the same cards as a table, grouped by phase, sorted by a click on a header.
   function lrow(o) {
     return '<div class="lrow' + (o.done ? ' done' : '') + (o.on ? ' on' : '') + '"><span class="key">' + o.key + '</span><span class="tt">' + o.title + '</span>' +
@@ -3994,7 +3994,7 @@ p { margin: 0; max-width: 68ch; }
   }
   function phoneBoard() {
     var acts = mbActions('board', 'SCR-14 Hot exit: restore tabs after a crash', 'Card in Roadmap', [
-      [{ icon: 'board', label: 'Status…' }, { icon: 'copies', label: 'Copy as brief' }, { icon: 'sun', label: 'Add to Today' }],
+      [{ icon: 'board', label: 'Status…' }, { icon: 'copies', label: 'Copy as brief' }],
       [{ icon: 'bin', label: 'Delete', red: true }]
     ]);
     return [

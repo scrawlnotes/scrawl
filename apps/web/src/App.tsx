@@ -860,12 +860,6 @@ export function App() {
     removeComment: (board, id, comment) => session.removeComment(board, id, comment),
     copyBrief: (board, id) => void copyBrief(board, id),
     openCard: (board, id) => setOpenCard({ board, id }),
-    addToToday: (board, id) => {
-      const card = boards[board]?.cards.find((candidate) => candidate.id === id);
-      if (!card) return;
-      session.addTask(INBOX_TASKS, { title: card.title, due: today, card: cardRef(board, id) });
-      setNotice(t('card.addedToToday'));
-    },
     editor: (home, parent, doc, onChange, hint) => session.openEditor(home, parent, doc, onChange, hint),
     viewer: (home, parent, doc) => session.openViewer(home, parent, doc),
     menu: (event, items, head) => (phone ? showSheet(items, head) : openMenu(event, items)),
@@ -1161,7 +1155,6 @@ export function App() {
                 showSheet(
                   [
                     { label: t('card.copyBrief'), icon: 'copy', run: () => void copyBrief(board, id) },
-                    { label: t('card.addToToday'), icon: 'sun', run: () => boardActions.addToToday(board, id) },
                     {
                       label: t('menu.delete'),
                       icon: 'trash',
