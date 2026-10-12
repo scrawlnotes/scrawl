@@ -2,13 +2,14 @@ import { diff3Merge } from 'node-diff3';
 import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from '../board';
 import { parseFilters, serializeFilters, type TaskFilter } from '../filters';
 import { KEYS_EXT } from '../keys';
+import { mergeMe, parseMe, serializeMe } from '../me';
 import { parseSpace, serializeSpace } from '../space';
 import { parseList, serializeList, type Task, type Section, TASK_LIST_EXT } from '../tasks';
 import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrder } from './merge-records';
 
 // Merging a file changed on both sides, by what kind of file it is. See design/sync.md, section 5.
 
-export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'space' | 'trash';
+export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'space' | 'me' | 'trash';
 
 const INBOX_TASKS = 'Inbox/tasks.json';
 const TRASH_INDEX = '.scrawl/trash/index.json';
@@ -22,6 +23,7 @@ export function mergeKindOf(path: string): MergeKind | null {
   if (lower.endsWith(BOARD_EXT)) return 'board';
   if (lower === '.scrawl/filters.json') return 'filters';
   if (lower === '.scrawl/space.json') return 'space';
+  if (lower === '.scrawl/me.json') return 'me';
   if (lower === TRASH_INDEX) return 'trash';
   return null;
 }
@@ -133,6 +135,10 @@ const MERGERS: Record<Exclude<MergeKind, 'text'>, (base: string, local: string, 
   board: mergeBoard,
   filters: mergeFilterFile,
   space: (base, local, remote) => serializeSpace(mergeFields(parseSpace(base), parseSpace(local), parseSpace(remote))),
+  me: (base, local, remote) => {
+    const me = mergeMe(parseMe(base), parseMe(local), parseMe(remote), mergeFields);
+    return me ? serializeMe(me) : local;
+  },
   trash: mergeTrash,
 };
 
@@ -142,6 +148,7 @@ const READERS: Record<Exclude<MergeKind, 'text'>, (text: string) => unknown> = {
   board: parseBoard,
   filters: parseFilters,
   space: parseSpace,
+  me: parseMe,
   trash: parseTrashIndex,
 };
 

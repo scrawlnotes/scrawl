@@ -60,7 +60,9 @@ import {
   type KeysLook,
   listVersions,
   loadFilters,
+  loadMe,
   loadSpace,
+  type Me,
   moveCard,
   moveCardToKind,
   moveColumn,
@@ -99,7 +101,9 @@ import {
   saveAttachment,
   saveFile,
   saveFilters,
+  saveMe,
   saveSpace,
+  newMe,
   sectionTasks,
   saveWorkspace,
   serializeBoard,
@@ -176,12 +180,14 @@ import { boardPathOf, collectionPathOf, collectionTab, filterOf, filterTab, fold
 import { sampleDoc } from './sample';
 import {
   chooseVaultFolder,
+  defaultVaultFolder,
   fileUrl,
   isDesktop,
   openFileOnDesktop,
   openUrlOnDesktop,
   openVault,
   revealFileOnDesktop,
+  useDefaultVaultFolder,
   vaultFolder,
 } from './storage';
 
@@ -236,10 +242,12 @@ export type FormatAction = keyof typeof formatCommands;
 
 export interface Snapshot {
   ready: boolean;
-  /** Desktop only: no notes folder has been chosen yet. */
-  needsFolder: boolean;
   /** Desktop only: the folder the notes are in. */
   folder: string | null;
+  /** Desktop only: the folder the notes go to unless another is chosen. */
+  defaultFolder: string | null;
+  /** Who the user is, from the personal space; null until the first start has asked. */
+  me: Me | null;
   tree: TreeNode[];
   tabs: string[];
   active: string | null;
@@ -310,8 +318,9 @@ function freshenAll(collections: Record<string, Collection>): Record<string, Col
 export class Session {
   private snapshot: Snapshot = {
     ready: false,
-    needsFolder: false,
     folder: null,
+    defaultFolder: null,
+    me: null,
     tree: [],
     tabs: [],
     active: null,
@@ -402,12 +411,7 @@ export class Session {
   async start(parent: HTMLElement) {
     const run = ++this.run;
     this.parent = parent;
-    const fs = await openVault();
-    if (!fs) {
-      if (run === this.run) this.set({ needsFolder: true });
-      return;
-    }
-    this.fs = fs;
+    this.fs = await openVault();
     for (const entry of await this.fs.list(ATTACHMENTS)) {
       // A copy that was cut off when the app closed leaves its hidden part behind.
       if (entry.name.startsWith('.') && entry.name.endsWith('.part')) {
@@ -457,6 +461,7 @@ export class Session {
     const { tasks, sections, boards, keys, collections } = await this.readLists(tree);
     const filters = await loadFilters(this.fs);
     const space = await loadSpace(this.fs);
+    const me = await loadMe(this.fs);
     const trash = await readTrash(this.fs);
     if (run !== this.run) return;
     const tabs = workspace.tabs.filter((id) => {
@@ -474,7 +479,7 @@ export class Session {
     const boardLooks = Object.fromEntries(Object.entries(workspace.boards).filter(([path]) => path in boards));
     const keysLooks = Object.fromEntries(Object.entries(workspace.keys).filter(([path]) => path in keys));
     const collectionLooks = Object.fromEntries(Object.entries(workspace.collections).filter(([path]) => path in collections));
-    this.set({ ready: true, needsFolder: false, folder: vaultFolder(), tree, titles, tabs, tasks, sections, boards, boardLooks, keys, keysLooks, collections, collectionLooks, filters, space, trash });
+    this.set({ ready: true, folder: vaultFolder(), defaultFolder: defaultVaultFolder(), me, tree, titles, tabs, tasks, sections, boards, boardLooks, keys, keysLooks, collections, collectionLooks, filters, space, trash });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
@@ -1108,11 +1113,41 @@ export class Session {
   /** Desktop: asks for the notes folder and opens it. Open notes are saved and closed first. */
   async chooseFolder() {
     if (!this.parent || !(await chooseVaultFolder())) return;
-    const parent = this.parent;
+    await this.reopen();
+  }
+
+  /** Desktop: goes back to the default folder and opens it. */
+  async useDefaultFolder() {
+    if (!this.parent) return;
+    await useDefaultVaultFolder();
+    await this.reopen();
+  }
+
+  private async reopen() {
+    const parent = this.parent!;
     await this.flush();
     this.dispose();
     this.set({ tabs: [], tree: [], titles: {} });
     await this.start(parent);
+  }
+
+  /**
+   * Who the user is: a name and an email, either free to be empty; the id is made with the
+   * first saving and never changes. Kept in the personal space, so that every device has it.
+   */
+  saveProfile(name: string, email: string) {
+    const { name: _n, email: _e, ...rest } = this.snapshot.me ?? newMe();
+    const me: Me = { ...rest, ...(name.trim() && { name: name.trim() }), ...(email.trim() && { email: email.trim() }) };
+    this.set({ me, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(() => saveMe(this.fs, me))
+      .catch(() => undefined)
+      .then(() => this.markSaved());
+  }
+
+  /** The name a card's timeline records for what is done here; none while the name is empty. */
+  private get by(): string | undefined {
+    return this.snapshot.me?.name;
   }
 
   /**
@@ -1727,12 +1762,12 @@ export class Session {
   /** Adds a card; returns its id, so that the next card typed can go after it. */
   addCard(board: string, input: NewCard): string {
     const id = crypto.randomUUID();
-    this.changeBoard(board, (current) => addCard(current, input, undefined, undefined, id));
+    this.changeBoard(board, (current) => addCard(current, input, undefined, this.by, id));
     return id;
   }
 
   moveCard(board: string, id: string, place: CardPlace) {
-    this.changeBoard(board, (current) => moveCard(current, id, place));
+    this.changeBoard(board, (current) => moveCard(current, id, place, undefined, this.by));
   }
 
   /** Deletes a card for good; the interface asks first. */
@@ -1753,13 +1788,13 @@ export class Session {
   finishCard(board: string, id: string, column?: string) {
     this.changeBoard(board, (current) =>
       column
-        ? moveCard(current, id, { column, after: columnCards(current, column).filter((c) => c.id !== id).pop()?.id ?? null })
-        : moveCardToKind(current, id, 'done'),
+        ? moveCard(current, id, { column, after: columnCards(current, column).filter((c) => c.id !== id).pop()?.id ?? null }, undefined, this.by)
+        : moveCardToKind(current, id, 'done', undefined, this.by),
     );
   }
 
   addComment(board: string, id: string, text: string) {
-    this.changeBoard(board, (current) => addComment(current, id, text));
+    this.changeBoard(board, (current) => addComment(current, id, text, undefined, this.by));
   }
 
   editComment(board: string, id: string, comment: string, text: string) {
@@ -1788,7 +1823,7 @@ export class Session {
 
   /** Deletes a column; its cards go to the first column. The interface asks first when it has cards. */
   removeColumn(board: string, id: string) {
-    this.changeBoard(board, (current) => removeColumn(current, id));
+    this.changeBoard(board, (current) => removeColumn(current, id, undefined, this.by));
   }
 
   addPhase(board: string, name: string) {

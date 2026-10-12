@@ -110,6 +110,7 @@ import { Sidebar } from './Sidebar';
 import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
 import { contentsText, quote } from './text';
 import { TrashView } from './Trash';
+import { Welcome } from './Welcome';
 import { isDesktop, openUrlOnDesktop, saveTextFile } from './storage';
 
 type OpenDialog =
@@ -199,7 +200,7 @@ export function App() {
     if (sync.picking || sync.signInError) setDialog({ kind: 'settings', section: 'spaces' });
   }, [sync.picking, sync.signInError]);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
-  const { ready, needsFolder, folder, tree, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
+  const { ready, folder, defaultFolder, me, tree, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -238,7 +239,8 @@ export function App() {
   const [viewStatus, setViewStatus] = useState<string[] | null>(null);
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
   const [tabGap, setTabGap] = useState<number | null>(null);
-  const empty = ready && !needsFolder && tabs.length === 0;
+  // Not before the first start has asked who the user is: nothing opens over that.
+  const empty = ready && me !== null && tabs.length === 0;
   // A phone's Open says that nothing is open and offers Create itself.
   const showNew = dialog?.kind === 'new' || (!phone && empty && !declined && !dialog);
   const showingEditor = active !== null && isNote(active);
@@ -1008,25 +1010,21 @@ export function App() {
       saveSize(kind, size);
       applySize();
     },
+    me,
+    onSaveProfile: (name, email) => session.saveProfile(name, email),
     spaceName: space.name,
     onRenameSpace: (name) => session.renameSpace(name),
     folder,
+    defaultFolder,
     onChangeFolder: isDesktop ? () => void session.chooseFolder() : undefined,
+    onUseDefaultFolder: isDesktop ? () => void session.useDefaultFolder() : undefined,
     sync,
     syncService,
   };
 
   return (
     <div className={phone ? 'app phone-app' : drawer ? 'app drawer-open' : 'app'}>
-      {needsFolder && (
-        <div className="welcome">
-          <h1>{t('welcome.title')}</h1>
-          <p>{t('welcome.text')}</p>
-          <button type="button" onClick={() => void session.chooseFolder()}>
-            {t('welcome.choose')}
-          </button>
-        </div>
-      )}
+      {ready && !me && <Welcome onDone={(name, email) => session.saveProfile(name, email)} />}
       {phone ? (
         <>
           <Phone

@@ -781,6 +781,39 @@ input:focus {
   color: var(--sl-dim);
 }
 
+.welcome .wl-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 320px);
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome .wl-row label {
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.welcome .wl-row input {
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+}
+
+.welcome .wl-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
 .welcome button {
   padding: 5px 14px;
   border-radius: 6px;
@@ -5072,6 +5105,11 @@ button.cb:hover::after {
 .st-row .primary:disabled {
   cursor: default;
   opacity: 0.45;
+}
+
+.st-row .btns {
+  display: flex;
+  gap: 6px;
 }
 
 .st-space .hint {

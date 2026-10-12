@@ -1,3 +1,4 @@
+import type { Me } from '@scrawlnotes/core';
 import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { chooseLanguage, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
@@ -7,9 +8,10 @@ import type { SyncService, SyncSnapshot } from './sync';
 import { SyncRow, ThisDevice } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 
-export type Section = 'appearance' | 'spaces' | 'language';
+export type Section = 'profile' | 'appearance' | 'spaces' | 'language';
 
 const SECTIONS: { id: Section; label: MessageKey; icon: IconName }[] = [
+  { id: 'profile', label: 'settings.profile', icon: 'person' },
   { id: 'appearance', label: 'settings.appearance', icon: 'appearance' },
   { id: 'spaces', label: 'settings.spaces', icon: 'folder' },
   { id: 'language', label: 'settings.language', icon: 'language' },
@@ -34,13 +36,20 @@ export interface SettingsValues {
   /** How large the app is drawn on a phone and on a computer, in percent. */
   sizes: Record<SizeKind, number>;
   onSize: (kind: SizeKind, size: number) => void;
+  /** Who the user is; null until the first start has asked. */
+  me: Me | null;
+  onSaveProfile: (name: string, email: string) => void;
   /** The name the personal space was given; none until it is named. */
   spaceName: string | undefined;
   onRenameSpace: (name: string) => void;
   /** Desktop: the folder the notes are in. Null in the browser. */
   folder: string | null;
+  /** Desktop: the folder the notes go to unless another is chosen. */
+  defaultFolder: string | null;
   /** Desktop: asks for another notes folder. */
   onChangeFolder?: () => void;
+  /** Desktop: goes back to the default folder. */
+  onUseDefaultFolder?: () => void;
   /** How the space's sync stands, and what connects and disconnects it. */
   sync: SyncSnapshot;
   syncService: SyncService;
@@ -56,7 +65,8 @@ export interface SettingsProps extends SettingsValues {
 export const settingsSections = () => SECTIONS.filter((section) => section.id !== 'language' || languages.length > 1);
 
 /** What a section is set to, beside it in the list of a phone. */
-export function sectionValue(id: Section, { mode, theme, spaceName }: Pick<SettingsValues, 'mode' | 'theme' | 'spaceName'>): string {
+export function sectionValue(id: Section, { mode, theme, spaceName, me }: Pick<SettingsValues, 'mode' | 'theme' | 'spaceName' | 'me'>): string {
+  if (id === 'profile') return me?.name ?? t('settings.unnamed');
   if (id === 'appearance') return `${themeById(theme).name} · ${t(MODES.find((choice) => choice.mode === mode)!.label)}`;
   if (id === 'spaces') return spaceName ?? t('settings.personal');
   return languages.find((language) => language.tag === languageTag())?.name ?? '';
@@ -64,7 +74,7 @@ export function sectionValue(id: Section, { mode, theme, spaceName }: Pick<Setti
 
 /** What a section has, in the window or on a phone's page. */
 export function SettingsSection({ section, ...values }: SettingsValues & { section: Section }) {
-  return section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : <Language />;
+  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : <Language />;
 }
 
 /** A little window in a theme's colours, in the shade the interface is in. */
@@ -176,14 +186,58 @@ function Appearance({ mode, onMode, theme, onTheme, system, sizes, onSize }: Pic
 }
 
 /** The personal space: its name, which has its Save, the folder it is, its sync; and this device's name. */
+/** Who the user is: a name and an email, saved together; either may stay empty. */
+function Profile({ me, onSaveProfile }: Pick<SettingsValues, 'me' | 'onSaveProfile'>) {
+  const name = me?.name ?? '';
+  const email = me?.email ?? '';
+  const [draft, setDraft] = useState({ name, email });
+  useEffect(() => setDraft({ name, email }), [name, email]);
+  const changed = draft.name.trim() !== name || draft.email.trim() !== email;
+  const save = () => {
+    if (changed) onSaveProfile(draft.name, draft.email);
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') save();
+    else if (event.key === 'Escape' && changed) setDraft({ name, email });
+    else return;
+    event.preventDefault();
+  };
+  return (
+    <>
+      <span className="st-label">{t('settings.you')}</span>
+      <p className="st-note">{t('settings.profileAbout')}</p>
+      <div className="st-space">
+        <div className="st-row">
+          <label className="fl" htmlFor="me-name">
+            {t('settings.name')}
+          </label>
+          <input id="me-name" value={draft.name} autoComplete="name" onChange={(event) => setDraft({ ...draft, name: event.target.value })} onKeyDown={onKeyDown} />
+          <span />
+        </div>
+        <div className="st-row">
+          <label className="fl" htmlFor="me-email">
+            {t('settings.email')}
+          </label>
+          <input id="me-email" type="email" value={draft.email} autoComplete="email" placeholder={t('welcome.emailHint')} onChange={(event) => setDraft({ ...draft, email: event.target.value })} onKeyDown={onKeyDown} />
+          <button type="button" className="primary" disabled={!changed} onClick={save}>
+            {t('settings.save')}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function Spaces({
   spaceName,
   onRenameSpace,
   folder,
+  defaultFolder,
   onChangeFolder,
+  onUseDefaultFolder,
   sync,
   syncService,
-}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'onChangeFolder' | 'sync' | 'syncService'>) {
+}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
   const name = spaceName ?? t('settings.personal');
   const [draft, setDraft] = useState(name);
   useEffect(() => setDraft(name), [name]);
@@ -226,9 +280,16 @@ function Spaces({
             <span className="path plain">{t('settings.inBrowser')}</span>
           )}
           {onChangeFolder ? (
-            <button type="button" onClick={onChangeFolder}>
-              {t('settings.change')}
-            </button>
+            <span className="btns">
+              <button type="button" onClick={onChangeFolder}>
+                {t('settings.change')}
+              </button>
+              {onUseDefaultFolder && defaultFolder && folder !== defaultFolder && (
+                <button type="button" onClick={onUseDefaultFolder}>
+                  {t('settings.useDefault')}
+                </button>
+              )}
+            </span>
           ) : (
             <span />
           )}

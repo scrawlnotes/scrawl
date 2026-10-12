@@ -279,11 +279,31 @@ fn allow_vault(app: &tauri::AppHandle, settings: &Settings) -> Result<(), String
     }
 }
 
-/// A missing or unreadable settings file means nothing has been chosen yet.
+/// Where the notes go unless another folder is chosen: `Personal` in the app's own data folder
+/// (`AppDataRoaming` on Windows, `Library/Application Support` on macOS, `.local/share` on Linux).
+fn default_vault(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(dir.join("Personal"))
+}
+
+#[tauri::command]
+async fn default_vault_folder(app: tauri::AppHandle) -> Result<String, String> {
+    Ok(default_vault(&app)?.to_string_lossy().into_owned())
+}
+
+/// A missing or unreadable settings file, or one without a folder, means the default folder: it
+/// is made and remembered, so that nothing is asked at the first start.
 #[tauri::command]
 async fn settings_load(app: tauri::AppHandle) -> Result<Settings, String> {
     let text = fs::read_to_string(settings_file(&app)?).unwrap_or_default();
-    let settings: Settings = serde_json::from_str(&text).unwrap_or_default();
+    let mut settings: Settings = serde_json::from_str(&text).unwrap_or_default();
+    if settings.vault.is_none() {
+        let dir = default_vault(&app)?;
+        fs::create_dir_all(&dir).map_err(message)?;
+        settings.vault = Some(dir.to_string_lossy().into_owned());
+        let text = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+        write_atomic(&settings_file(&app)?, text.as_bytes())?;
+    }
     allow_vault(&app, &settings)?;
     Ok(settings)
 }
@@ -312,6 +332,7 @@ pub fn run() {
             fs_stat,
             settings_load,
             settings_save,
+            default_vault_folder,
             open_file,
             reveal_file,
             open_url,

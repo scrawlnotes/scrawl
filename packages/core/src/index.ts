@@ -8,6 +8,7 @@ export * from './history';
 export * from './keys';
 export * from './rollup';
 export * from './space';
+export * from './me';
 export * from './sync';
 export * from './tasks';
 export * from './vault';

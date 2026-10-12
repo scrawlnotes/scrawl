@@ -4,7 +4,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { openBrowserVault } from './opfsFs';
 import { TauriFs } from './tauriFs';
 
-/** True inside the desktop app, where notes are files in a folder the user chose. */
+/** True inside the desktop app, where notes are files in a folder on disk. */
 export const isDesktop = '__TAURI_INTERNALS__' in window;
 
 interface Settings {
@@ -18,15 +18,26 @@ async function invoke<T>(command: string, args?: Record<string, unknown>): Promi
 }
 
 let folder: string | null = null;
+let defaultFolder: string | null = null;
 
 /** The folder the desktop app keeps its notes in, as of the last `openVault`. */
 export const vaultFolder = () => folder;
 
-/** Opens the vault. On desktop this is null until a folder has been chosen. */
-export async function openVault(): Promise<VaultFs | null> {
+/** Desktop: where the notes go unless another folder is chosen, `Personal` in the app's data folder. */
+export const defaultVaultFolder = () => defaultFolder;
+
+/** Opens the vault: the browser's own storage, or on desktop the folder chosen or the default one, made by the shell. */
+export async function openVault(): Promise<VaultFs> {
   if (!isDesktop) return openBrowserVault();
-  folder = (await invoke<Settings>('settings_load')).vault ?? null;
-  return folder ? new TauriFs(folder) : null;
+  const [settings, fallback] = await Promise.all([invoke<Settings>('settings_load'), invoke<string>('default_vault_folder')]);
+  defaultFolder = fallback;
+  folder = settings.vault ?? fallback;
+  return new TauriFs(folder);
+}
+
+/** Goes back to the default folder; the shell makes it if it is gone. */
+export async function useDefaultVaultFolder(): Promise<void> {
+  await invoke('settings_save', { settings: { vault: null } });
 }
 
 /** Asks for the notes folder and remembers it. Returns false when the dialog was cancelled. */

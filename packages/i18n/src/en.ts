@@ -45,9 +45,13 @@ export const en = {
   'status.markdownTitle': 'Show the note as plain Markdown',
 
   // the window
-  'welcome.title': 'Choose a folder for your notes',
-  'welcome.text': 'Notes are kept as plain Markdown files in a folder on this computer. Pick an empty folder, or one that already holds .md files.',
-  'welcome.choose': 'Choose folder',
+  'welcome.title': 'Welcome to Scrawl',
+  'welcome.text': 'Who you are, for the people you will share a space with. Both can be changed in Settings, and both can wait.',
+  'welcome.name': 'Name',
+  'welcome.email': 'Email',
+  'welcome.emailHint': 'name@example.com',
+  'welcome.nothingSent': 'Nothing is sent anywhere.',
+  'welcome.continue': 'Continue',
   'welcome.dialog': 'Choose the folder for your notes',
   'empty.nothingOpen': 'Nothing is open.',
   'empty.create': 'Create…',
@@ -74,6 +78,11 @@ export const en = {
   'settings.title': 'Settings',
   'settings.close': 'Close',
   'settings.back': 'Back to Settings',
+  'settings.profile': 'Profile',
+  'settings.you': 'You',
+  'settings.profileAbout': 'Your name goes on what you do where others see it: a comment or a change on a card, a task given to you. The email says which person you are in a shared space; nothing is sent to it.',
+  'settings.email': 'Email',
+  'settings.unnamed': 'Unnamed',
   'settings.appearance': 'Appearance',
   'settings.mode': 'Mode',
   'settings.theme': 'Theme',
@@ -97,6 +106,7 @@ export const en = {
   'settings.folder': 'Folder',
   'settings.inBrowser': 'In this browser',
   'settings.change': 'Change…',
+  'settings.useDefault': 'Use default',
 
   // sync: a space's row in the settings, choosing a folder, the status bar
   'sync.label': 'Sync',
