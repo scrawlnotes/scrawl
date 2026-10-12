@@ -209,14 +209,12 @@ export const en = {
   'side.open': 'Folders and views',
   'side.more': 'More',
   'side.moveToTrash': 'Move to trash',
-  // the phone: a tab bar with Open, Today and Browse, and a page for each thing opened
+  // the phone: a tab bar with Browse and Today, and a page for each thing opened
   'phone.places': 'Places',
-  'phone.open': 'Open',
   'phone.browse': 'Browse',
+  'phone.recent': 'Recent',
   'phone.back': 'Back to {page}',
   'phone.create': 'Create',
-  'phone.close': 'Close',
-  'phone.closeTab': 'Close {name}',
   'phone.notFiled': 'Inbox, not filed yet',
   'phone.nothingHere': 'Nothing here yet.',
   'phone.sync': 'Sync',

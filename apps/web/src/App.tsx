@@ -499,15 +499,14 @@ export function App() {
     ];
   /**
    * The menu of a page on a phone, where what is open has no tab and no status bar: what the
-   * sidebar's menu has, Markdown for a note, and Close.
+   * sidebar's menu has, and Markdown for a note.
    */
   const phoneItemMenu = (event: MouseEvent, id: string) => {
-    const close: MenuItem = { label: t('phone.close'), run: () => void session.close(id), apart: true };
     const filter = filters.find((each) => each.id === filterOf(id));
-    if (filter) return openMenu(event, [...filterMenuItems(filter), close]);
+    if (filter) return openMenu(event, filterMenuItems(filter));
     const path = collectionPathOf(id) ?? pathOf(id);
     const markdown: MenuItem[] = isNote(id) ? [{ label: `${source ? '● ' : '○ '}${t('status.markdown')}`, run: () => session.setSource(!source) }] : [];
-    openMenu(event, [...markdown, ...(path === null || path === INBOX_TASKS ? [] : itemMenuItems(path)), close]);
+    openMenu(event, [...markdown, ...(path === null || path === INBOX_TASKS ? [] : itemMenuItems(path))]);
   };
   // A collection as a CSV file, saved where the user says.
   const exportCsv = async (dir: string) => {

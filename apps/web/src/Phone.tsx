@@ -1,18 +1,37 @@
-import { basename, INBOX, INBOX_TASKS, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { basename, boardName, collectionName, INBOX, INBOX_TASKS, keysName, listName, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from './Icon';
-import { collectionTab, filterOf, filterTab, folderOf, iconOf, isNote, labelOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import {
+  boardPathOf,
+  collectionPathOf,
+  collectionTab,
+  filterOf,
+  filterTab,
+  folderOf,
+  iconOf,
+  isNote,
+  keysPathOf,
+  labelOf,
+  listOf,
+  tabOf,
+  tasksOf,
+  TODAY,
+  TRASH,
+  UPCOMING,
+} from './items';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
-// Open, Today and Browse at its foot, and in each of them a stack of pages. A page slides in from
-// the right over the one it was opened from, and goes back by the button at its top, which says
-// where it goes, or by a swipe from the left edge. What is open (a note, a list, a board, a keys
-// file, a collection, a filter) is drawn once, by the app, and moved into the page that shows it.
+// Browse and Today at its foot, and in each of them a stack of pages. A page slides in from the
+// right over the one it was opened from, and goes back by the button at its top, which says where
+// it goes, or by a swipe from the left edge. What is open (a note, a list, a board, a keys file, a
+// collection, a filter) is drawn once, by the app, and moved into the page that shows it. Nothing
+// is opened or closed as a tab: what was opened last is Browse's Recent, and the app closes the
+// rest of the tabs by itself.
 
 /** The places of the tab bar. */
-export type Place = 'open' | 'today' | 'browse';
-const PLACES: Place[] = ['open', 'today', 'browse'];
+export type Place = 'browse' | 'today';
+const PLACES: Place[] = ['browse', 'today'];
 
 /** What a page of a place shows: its first page, a folder, something open, or the trash. */
 type PageKind = { kind: 'root' } | { kind: 'folder'; path: string } | { kind: 'item'; id: string } | { kind: 'trash' };
@@ -27,6 +46,8 @@ const EDGE = 24;
 const SLOP = 8;
 /** When the keyboard is up the window loses at least this much of its height. */
 const KEYBOARD = 120;
+/** How many of the things opened last Browse shows; the app keeps no more of them open. */
+const RECENT = 5;
 
 export interface PhoneProps {
   ready: boolean;
@@ -66,7 +87,7 @@ const isItem = (id: string | null): id is string => id !== null && !views.has(id
 
 const SEEN = 'scrawl.phoneSeen';
 
-/** When each thing open was last on screen, on this device: Open lists the latest first. */
+/** When each thing open was last on screen, on this device: Recent lists the latest first. */
 function loadSeen(): Record<string, number> {
   try {
     return JSON.parse(localStorage.getItem(SEEN) ?? '{}') as Record<string, number>;
@@ -79,7 +100,7 @@ function saveSeen(seen: Record<string, number>) {
   try {
     localStorage.setItem(SEEN, JSON.stringify(seen));
   } catch {
-    // Not kept; Open falls back to the order things were opened in.
+    // Not kept; Recent falls back to the order things were opened in.
   }
 }
 
@@ -117,6 +138,28 @@ function folderPaths(nodes: TreeNode[], into = new Set<string>()): Set<string> {
 
 const folderName = (path: string) => (path === INBOX ? t('side.inbox') : basename(path));
 
+/** What something opened is called on a phone: its name alone, the folder it is in being under it. */
+function nameOf(id: string, titles: Record<string, string>, filters: TaskFilter[]): string {
+  const list = listOf(id);
+  if (list !== null) return listName(list);
+  const board = boardPathOf(id);
+  if (board !== null) return boardName(board);
+  const keys = keysPathOf(id);
+  if (keys !== null) return keysName(keys);
+  const collection = collectionPathOf(id);
+  if (collection !== null) return collectionName(collection);
+  return labelOf(id, titles, filters);
+}
+
+/** The things opened last, the latest first; what was never seen keeps the order it was opened in. */
+const recentOf = (tabs: string[], seen: Record<string, number>): string[] =>
+  tabs
+    .filter(isItem)
+    .map((id, index) => ({ id, at: seen[id] ?? 0, index }))
+    .sort((a, b) => b.at - a.at || b.index - a.index)
+    .slice(0, RECENT)
+    .map((each) => each.id);
+
 /** A row of a list: an icon, a name and a line under it, a count or a time, and an arrow. */
 function Row({ icon, label, sub, right, folder, onClick }: {
   icon: IconName;
@@ -136,71 +179,6 @@ function Row({ icon, label, sub, right, folder, onClick }: {
       {right !== undefined && right !== '' && <span className="ct">{right}</span>}
       <Icon name="chevron" />
     </button>
-  );
-}
-
-/**
- * A row of Open that a swipe to the left opens on its Close button. A tap on a row that is open
- * closes it again instead of opening what it shows.
- */
-function SwipeRow({ open, onSwipe, onClose, children }: {
-  open: boolean;
-  onSwipe: (open: boolean) => void;
-  onClose: () => void;
-  children: ReactNode;
-}) {
-  const WIDTH = 88;
-  const [dx, setDx] = useState<number | null>(null);
-  const touch = useRef<{ x: number; y: number; from: number; way: 'across' | 'down' | null } | null>(null);
-  const swiped = useRef(false);
-  const start = (event: TouchEvent) => {
-    const point = event.touches[0]!;
-    touch.current = { x: point.clientX, y: point.clientY, from: open ? -WIDTH : 0, way: null };
-    swiped.current = false;
-  };
-  const move = (event: TouchEvent) => {
-    const at = touch.current;
-    if (!at) return;
-    const point = event.touches[0]!;
-    const x = point.clientX - at.x;
-    const y = point.clientY - at.y;
-    if (!at.way && Math.max(Math.abs(x), Math.abs(y)) > SLOP) at.way = Math.abs(x) > Math.abs(y) ? 'across' : 'down';
-    if (at.way !== 'across') return;
-    swiped.current = true;
-    setDx(Math.min(0, Math.max(-WIDTH * 1.6, at.from + x)));
-  };
-  const end = () => {
-    if (touch.current?.way === 'across' && dx !== null) onSwipe(dx < -WIDTH / 2);
-    touch.current = null;
-    setDx(null);
-  };
-  const offset = dx ?? (open ? -WIDTH : 0);
-  return (
-    <div className={open || dx !== null ? 'mb-swipe on' : 'mb-swipe'}>
-      <button type="button" className="mb-swipe-act" tabIndex={open ? 0 : -1} onClick={onClose}>
-        <Icon name="close" />
-        {t('phone.close')}
-      </button>
-      <div
-        className={dx === null ? 'mb-swipe-row' : 'mb-swipe-row moving'}
-        style={{ transform: offset ? `translateX(${offset}px)` : undefined }}
-        onTouchStart={start}
-        onTouchMove={move}
-        onTouchEnd={end}
-        onTouchCancel={end}
-        onClickCapture={(event) => {
-          // A swipe ends in a click on the row; it only moved the row. An open row closes on a tap.
-          if (swiped.current || open) {
-            event.stopPropagation();
-            event.preventDefault();
-            swiped.current = false;
-            if (open) onSwipe(false);
-          }
-        }}
-      >
-        {children}
-      </div>
-    </div>
   );
 }
 
@@ -306,8 +284,8 @@ function DayIcon() {
 
 export function Phone(props: PhoneProps) {
   const { ready, tabs, active, titles, tree, filters, counts, item } = props;
-  const [place, setPlace] = useState<Place>('open');
-  const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ open: [root()], today: [root()], browse: [root()] }));
+  const [place, setPlace] = useState<Place>('browse');
+  const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ browse: [root()], today: [root()] }));
   /** A page sliding in, by its key: it starts at the right edge. */
   const [entering, setEntering] = useState<number | null>(null);
   /** A page sliding out, still drawn until it is gone. */
@@ -316,7 +294,6 @@ export function Phone(props: PhoneProps) {
   const [pull, setPull] = useState<number | null>(null);
   const [due, setDue] = useState<'today' | 'upcoming'>('today');
   const [adding, setAdding] = useState(0);
-  const [swiped, setSwiped] = useState<string | null>(null);
   const [newFolderIn, setNewFolderIn] = useState<string | null>(null);
   const [keyboard, setKeyboard] = useState(false);
   const [seen, setSeen] = useState(loadSeen);
@@ -403,7 +380,7 @@ export function Phone(props: PhoneProps) {
     if (holder && item.parentElement !== holder) holder.appendChild(item);
   });
 
-  // What is on screen was seen now: Open lists it first.
+  // What is on screen was seen now: Recent lists it first.
   useEffect(() => {
     if (top.kind !== 'item' || active !== top.id) return;
     const at = Date.now();
@@ -416,7 +393,24 @@ export function Phone(props: PhoneProps) {
     });
   }, [top.key, active, tabs]);
 
-  // Open's times keep up.
+  // What is open beside the pages and the five things opened last is closed: on a phone there are
+  // no tabs to close it by. A view (Today, Upcoming, the trash) is not open on a phone.
+  const closing = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ready) return;
+    const kept = new Set(recentOf(tabs, seen));
+    if (active) kept.add(active);
+    for (const each of PLACES) for (const page of stacks[each]) if (page.kind === 'item') kept.add(page.id);
+    for (const id of closing.current) if (!tabs.includes(id)) closing.current.delete(id);
+    for (const id of tabs) {
+      if (kept.has(id) || closing.current.has(id)) continue;
+      closing.current.add(id);
+      props.onClose(id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, tabs, active, seen, stacks]);
+
+  // Recent's times keep up.
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
@@ -433,7 +427,6 @@ export function Phone(props: PhoneProps) {
 
   /** A tap on the place on screen goes back to its first page. */
   const choose = (next: Place) => {
-    setSwiped(null);
     if (next !== place) return setPlace(next);
     if (stack.length > 1) setStacks((current) => ({ ...current, [place]: [current[place][0]!] }));
   };
@@ -465,17 +458,17 @@ export function Phone(props: PhoneProps) {
   // ---------- the pages ----------
 
   const titleOf = (page: Page, of: Place): string => {
-    if (page.kind === 'root') return of === 'open' ? t('phone.open') : of === 'today' ? t('side.today') : t('phone.browse');
+    if (page.kind === 'root') return of === 'today' ? t('side.today') : t('phone.browse');
     if (page.kind === 'folder') return folderName(page.path);
     if (page.kind === 'trash') return t('side.trash');
-    return labelOf(page.id, titles, filters);
+    return nameOf(page.id, titles, filters);
   };
 
   const folders = folderPaths(tree);
   // The saved filters sit in their folders; one in none, or in a folder that is gone, in the inbox.
   const placeOf = (filter: TaskFilter) => (filter.folder && folders.has(filter.folder) && filter.folder !== INBOX ? filter.folder : INBOX);
 
-  /** Where something open is: its folder, or that a scratch note is not filed yet. */
+  /** Where something opened is: its folder, or that a scratch note is not filed yet. */
   const whereOf = (id: string): ReactNode => {
     const filter = filterOf(id);
     if (filter !== null) {
@@ -494,38 +487,24 @@ export function Phone(props: PhoneProps) {
     return folder ? folderName(folder) : '';
   };
 
-  const openPage = () => {
-    const open = tabs.filter(isItem);
-    const order = [...open].sort((a, b) => (seen[b] ?? 0) - (seen[a] ?? 0));
-    if (open.length === 0) {
-      return (
-        <div className="mb-empty">
-          <p>{t('empty.nothingOpen')}</p>
-          <button type="button" className="mb-btn" onClick={() => props.onCreate(INBOX)}>
-            {t('empty.create')}
-          </button>
-        </div>
-      );
-    }
-    return (
-      <div className="mb-list">
-        {order.map((id) => (
-          <SwipeRow key={id} open={swiped === id} onSwipe={(open) => setSwiped(open ? id : null)} onClose={() => {
-            setSwiped(null);
-            props.onClose(id);
-          }}>
-            <Row icon={iconOf(id)} label={labelOf(id, titles, filters)} sub={whereOf(id)} right={seen[id] ? seenText(seen[id]!, now) : ''} onClick={() => openItem(id)} />
-          </SwipeRow>
-        ))}
-      </div>
-    );
-  };
-
   const browsePage = () => {
     const inbox = tree.find((node) => node.path === INBOX);
+    const recent = recentOf(tabs, seen);
     return (
       <>
-        <div className="mb-list">
+        {recent.length > 0 && (
+          <>
+            <div className="mb-sec">
+              <span>{t('phone.recent')}</span>
+            </div>
+            <div className="mb-list">
+              {recent.map((id) => (
+                <Row key={id} icon={iconOf(id)} label={nameOf(id, titles, filters)} sub={whereOf(id)} right={seen[id] ? seenText(seen[id]!, now) : ''} onClick={() => openItem(id)} />
+              ))}
+            </div>
+          </>
+        )}
+        <div className={recent.length > 0 ? 'mb-list apart' : 'mb-list'}>
           <Row icon="folder" folder label={t('side.inbox')} right={(inbox && countNotes(inbox)) || ''} onClick={() => push({ kind: 'folder', path: INBOX })} />
         </div>
         <div className="mb-sec">
@@ -596,7 +575,6 @@ export function Phone(props: PhoneProps) {
     const below = pages[index - 1];
     const back = below ? titleOf(below, of) : undefined;
     const nav = below ? { back, onBack: pop } : undefined;
-    if (page.kind === 'root' && of === 'open') return <PageFrame title={titleOf(page, of)}>{openPage()}</PageFrame>;
     if (page.kind === 'root' && of === 'browse') return <PageFrame title={titleOf(page, of)}>{browsePage()}</PageFrame>;
     if (page.kind === 'root') {
       const day = new Date().toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric' });
@@ -706,8 +684,8 @@ export function Phone(props: PhoneProps) {
       <nav className="mb-tabbar" aria-label={t('phone.places')}>
         {PLACES.map((each) => (
           <button key={each} type="button" aria-current={each === place ? 'page' : undefined} onClick={() => choose(each)}>
-            {each === 'today' ? <DayIcon /> : <Icon name={each === 'open' ? 'stack' : 'folder'} />}
-            <span>{each === 'open' ? t('phone.open') : each === 'today' ? t('side.today') : t('phone.browse')}</span>
+            {each === 'today' ? <DayIcon /> : <Icon name="folder" />}
+            <span>{each === 'today' ? t('side.today') : t('phone.browse')}</span>
           </button>
         ))}
       </nav>

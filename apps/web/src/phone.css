@@ -33,8 +33,7 @@ html:has(.phone-app) body {
 .mb-sec,
 .mb-seg,
 .mb-fab,
-.mb-tabbar,
-.mb-swipe-act {
+.mb-tabbar {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -397,51 +396,6 @@ html:has(.phone-app) body {
   padding-left: 35px;
   color: var(--sl-accent);
   font-size: 13.5px;
-}
-
-/* a row of Open swiped to the left shows Close under it */
-.mb-swipe {
-  overflow: hidden;
-  touch-action: pan-y;
-}
-
-.mb-swipe-act {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  width: 88px;
-  background: var(--sl-dim);
-  color: var(--sl-bg);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.mb .mb-swipe-act .icon {
-  width: 20px;
-  height: 20px;
-  stroke-width: 2;
-}
-
-/* Hidden until a swipe shows it, so that its edges never show around the row. */
-.mb-swipe:not(.on) .mb-swipe-act {
-  visibility: hidden;
-}
-
-.mb-swipe-row {
-  position: relative;
-  z-index: 1;
-  background: var(--sl-bg);
-  transition: transform 220ms ease;
-}
-
-.mb-swipe-row.moving {
-  transition: none;
 }
 
 /* Today and Upcoming, one beside the other */

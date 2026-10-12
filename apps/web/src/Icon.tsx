@@ -109,13 +109,6 @@ const shapes = {
   ),
   filter: <path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
-  /** What is open on a phone: one page over another. */
-  stack: (
-    <>
-      <rect x="4" y="8" width="12.5" height="12" rx="2" />
-      <path d="M8 4.5h9.5a2 2 0 0 1 2 2V16" />
-    </>
-  ),
   plus: <path d="M12 5v14M5 12h14" />,
   back: <path d="M15 5l-7 7 7 7" />,
   /** The menu of a page on a phone. */
