@@ -1,6 +1,7 @@
 import type { VaultFs } from './fs';
 import type { Me } from './me';
 import { mergeFields, mergeRecords } from './sync/merge-records';
+import { dayOf } from './tasks';
 
 // The people of a space: everyone who has opened it, by the id of their `me.json`, with the
 // name and the email they had then and when they were last seen. A task or a card is given to
@@ -66,10 +67,16 @@ export function withPerson(people: Person[], me: Me, now = new Date()): Person[]
   return [...rest, next].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '') || a.id.localeCompare(b.id));
 }
 
-/** Whether the list already says this about the person, so that opening a space again writes nothing new. */
-export function samePerson(people: Person[], me: Me): boolean {
+/**
+ * Whether the list already says this about the person, so that opening a space again writes
+ * nothing new: the same name and email, active, and seen today. Being seen is written once a day
+ * at most, so that opening the app does not change the space every time.
+ */
+export function samePerson(people: Person[], me: Me, now = new Date()): boolean {
   const found = people.find((p) => p.id === me.id);
-  return !!found && found.active && (found.name ?? '') === (me.name ?? '') && (found.email ?? '') === (me.email ?? '');
+  const seen = found?.seen ? new Date(found.seen) : null;
+  const today = !!seen && !Number.isNaN(seen.getTime()) && dayOf(seen) === dayOf(now);
+  return !!found && found.active && (found.name ?? '') === (me.name ?? '') && (found.email ?? '') === (me.email ?? '') && today;
 }
 
 export function setActive(people: Person[], id: string, active: boolean): Person[] {

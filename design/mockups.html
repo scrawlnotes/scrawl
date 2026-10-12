@@ -1566,12 +1566,8 @@ p { margin: 0; max-width: 68ch; }
 /* Profile, spaces and people: a space's heading in the tree, the lists of Settings, the warning, the people picker. */
 .it.fx.fsp { margin-top: 8px; color: var(--m-fg); font-weight: 600; }
 .it.fx.fsp > svg { color: var(--m-dim); }
-.it.fx.fsp .ro { flex: none; display: flex; align-items: center; gap: 4px; margin-left: auto; color: var(--m-faint); }
-.it.fx.fsp .ro svg { width: 12px; height: 12px; }
-.it.fx.fsp:hover .ro { display: none; }
 .it.fx.fsp:hover .more { display: block; }
 .it.fx.fsp.menu .more { display: block; }
-.it.fx.fsp.menu .ro { display: none; }
 .cmenu.sp-menu { left: 150px; top: 282px; }
 .st-li.off { opacity: .55; }
 .rpick .rr.dim b { color: var(--m-dim); }
@@ -1617,7 +1613,7 @@ p { margin: 0; max-width: 68ch; }
 .mb-warn svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: #e0a84a; }
 .mb-warn b { display: block; margin-top: 4px; color: var(--m-accent); font-weight: 600; }
 .mb-sheet .mb-sec { padding-top: 10px; }
-/* Spaces, Oct 12 review: a menu item that cannot be used now, a tab's path under the pointer, the red way out, Add space's parts, the trash by space, Create's folders, the sync of each space, a space read only, a card given to someone, and the phone's. */
+/* Spaces, Oct 12 review: a menu item that cannot be used now, a tab's path under the pointer, the red way out, Add space's parts, the trash by space, Create's folders, the sync of each space, a card given to someone, and the phone's. */
 .cmenu span.off { color: var(--m-faint); }
 .tab.tipped { position: relative; overflow: visible; }
 .tab .ttip { position: absolute; left: 10px; top: calc(100% + 4px); z-index: 5; padding: 3px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); font-size: 11.5px; box-shadow: 0 4px 12px rgb(0 0 0 / .25); }
@@ -1662,10 +1658,6 @@ p { margin: 0; max-width: 68ch; }
 .sp-sp .r { color: var(--m-faint); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .sp-sp .r b { color: var(--m-fg); font-weight: 600; }
 .sp-sp.on { background: var(--m-sel); }
-.th .sp-ro, .status .sp-ro-st { display: inline-flex; align-items: center; gap: 5px; color: var(--m-dim); font-size: 12px; }
-.th .sp-ro { margin-left: auto; padding: 2px 9px; border: 1px solid var(--m-line); border-radius: 10px; }
-.mock .sp-ro svg, .mock .sp-ro-st svg { width: 13px; height: 13px; }
-.tasksv.ro .cb { opacity: .45; }
 .rpick.sp-who { top: 322px; right: 20px; z-index: 5; }
 .rpick .rq .ph { color: var(--m-faint); }
 .cm-side .in.sp-on { border-color: var(--m-accent); }
@@ -1775,7 +1767,6 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-spsync" data-aview="spsync">Spaces sync</button>
         <button type="button" id="a-assign" data-aview="assign">Assign</button>
         <button type="button" id="a-spcard" data-aview="spcard">Card assign</button>
-        <button type="button" id="a-spreadonly" data-aview="spreadonly">Read only</button>
         <button type="button" id="a-pshell" data-aview="pshell">Phone shell</button>
         <button type="button" id="a-ppages" data-aview="ppages">Phone pages</button>
         <button type="button" id="a-pcreate" data-aview="pcreate">Phone create</button>
@@ -4294,19 +4285,18 @@ p { margin: 0; max-width: 68ch; }
     var head = x.sp || x.folder;
     return '<div class="it fx' + (x.sp ? ' fsp' : x.folder ? ' fdir' : '') + (x.on ? ' on' : '') + (x.menu ? ' menu' : '') + '" style="--d: ' + (x.d || 0) + '">' +
       (head ? '<span class="fchev' + (x.open ? ' open' : '') + '">' + ICON.chevr + '</span>' + (x.sp ? ICON.space : ICON.folder) : '<span class="fpad"></span>' + ICON[x.icon]) +
-      '<span>' + x.label + '</span>' + (x.ro ? '<span class="ro">' + x.ro + '</span>' : '') + (x.ct ? '<span class="ct">' + x.ct + '</span>' : '') + (head ? '<span class="more">···</span>' : '') + '</div>';
+      '<span>' + x.label + '</span>' + (x.ct ? '<span class="ct">' + x.ct + '</span>' : '') + (head ? '<span class="more">···</span>' : '') + '</div>';
   }
   // A space's heading has New folder first; Move up is off for the space right under the
   // personal one, which never moves.
   var SP_MENU = '<div class="cmenu sp-menu"><span>New folder</span><span>Settings…</span><i></i><span class="off">Move up</span><span>Move down</span><i></i><span>Remove from this device</span></div>';
   /**
    * The sidebar with three spaces: Today and Upcoming over all of them, then each space folded
-   * like a folder. A new folder's name row opens under its space's heading; a space shared to
-   * be read only carries an eye beside its cloud.
+   * like a folder. A new folder's name row opens under its space's heading.
    */
   function spaceTree(view) {
-    var assign = view === 'assign', adding = view === 'spfolder', ro = view === 'spreadonly', card = view === 'spcard';
-    var personal = !ro && !card;
+    var assign = view === 'assign', adding = view === 'spfolder', card = view === 'spcard';
+    var personal = !card;
     return '<div class="tree fxt">' +
       row({ label: 'Today', ct: 5, on: view === 'sptree' }) + row({ label: 'Upcoming', ct: 12 }) +
       spRowT({ sp: true, open: personal, label: 'Personal' }) +
@@ -4317,25 +4307,16 @@ p { margin: 0; max-width: 68ch; }
           spRowT({ d: 1, folder: true, label: 'Home', ct: 4 }) +
           spRowT({ d: 1, folder: true, label: 'Reading', ct: 8 })
         : '') +
-      spRowT({ sp: true, open: !ro, label: 'Acme', menu: view === 'sptree' }) +
+      spRowT({ sp: true, open: true, label: 'Acme', menu: view === 'sptree' }) +
       (view === 'sptree' ? SP_MENU : '') +
       (adding ? '<div class="it-new" style="--d: 1"><span class="fpad"></span>' + ICON.folder + '<span class="in">Contracts<span class="caret"></span></span><span class="st-btn go">Add</span><span class="x" title="Cancel">×</span></div>' : '') +
-      (ro
-        ? ''
-        : spRowT({ d: 1, folder: true, open: true, label: 'Sales', ct: 5 }) +
-          spRowT({ d: 2, icon: 'tasks', label: 'Tasks', ct: 5, on: assign }) +
-          spRowT({ d: 2, icon: 'board', label: 'Deals', ct: 8, on: card }) +
-          spRowT({ d: 2, icon: 'collection', label: 'Companies', ct: 24 }) +
-          spRowT({ d: 1, folder: true, label: 'Support', ct: 3 }) +
-          spRowT({ d: 1, folder: true, label: 'meetings', ct: 6 })) +
+      spRowT({ d: 1, folder: true, open: true, label: 'Sales', ct: 5 }) +
+      spRowT({ d: 2, icon: 'tasks', label: 'Tasks', ct: 5, on: assign }) +
+      spRowT({ d: 2, icon: 'board', label: 'Deals', ct: 8, on: card }) +
+      spRowT({ d: 2, icon: 'collection', label: 'Companies', ct: 24 }) +
+      spRowT({ d: 1, folder: true, label: 'Support', ct: 3 }) +
+      spRowT({ d: 1, folder: true, label: 'meetings', ct: 6 }) +
       spRowT({ sp: true, label: 'Side projects' }) +
-      (ro
-        ? spRowT({ sp: true, open: true, label: 'Design team', ro: '<span title="View only">' + ICON.eye + '</span>' }) +
-          spRowT({ d: 1, folder: true, open: true, label: 'Brand', ct: 4 }) +
-          spRowT({ d: 2, icon: 'tasks', label: 'Tasks', ct: 4, on: true }) +
-          spRowT({ d: 2, icon: 'notes', label: 'Logo usage' }) +
-          spRowT({ d: 1, folder: true, label: 'Assets', ct: 12 })
-        : '') +
       '</div>' + spFoot(SP_SETTINGS.indexOf(view) >= 0, view === 'sptrash');
   }
   /** The sidebar of a first start: one space, so no heading; nothing in it yet. */
@@ -4543,17 +4524,6 @@ p { margin: 0; max-width: 68ch; }
       '<span class="thumb"></span></div>' +
       '<div class="sp-foot"><span class="left">Started 40 s ago</span><span class="st-btn">Sync settings</span></div></div>';
   }
-  /** A space shared to be read only: an eye on its heading and over its views; nothing in it can be changed. */
-  function spReadOnly() {
-    return '<div class="tasksv ro"><div class="th"><b>Tasks</b><span class="chip">Design team · Brand</span><span class="sp-ro">' + ICON.eye + 'View only</span></div><div class="tl">' +
-      task('p2', 'New logo files for the portal', '<span class="today">Today</span>' + who('M') + '<span>Mert</span>') +
-      task('', 'Colours for dark mode', '<span>Oct 15</span>' + who('M') + '<span>Mert</span>') +
-      task('', 'Icon set, second round', '<span>Oct 20</span>') +
-      task('p3', 'Brand guide PDF', '<span>Oct 28</span>' + who('A') + '<span>Ayşe</span>') +
-      '<p class="trash-note">Shared by Mert Kaya to be read only. What is here can be opened and copied, not changed.</p>' +
-      '</div></div>';
-  }
-  var SP_STATUS_RO = '<div class="status"><span>4 open</span><span class="sp-ro-st">' + ICON.eye + 'View only · shared by Mert Kaya</span>' + syncStatus(false, null) + '</div>';
   /** A card of Acme given to someone: Assignee opens the people of the space; the card's face shows who has it. */
   function spCardAssign() {
     var picker = '<div class="rpick sp-who"><div class="rq"><span class="ph">Find a person</span></div>' +
@@ -4585,9 +4555,6 @@ p { margin: 0; max-width: 68ch; }
     spcreate: function () { return spNoteView('spcreate') + spCreate(); },
     spsync: function () {
       return '<aside class="side">' + spaceTree('spsync') + '</aside><section class="main"><div class="panes">' + pane(tab('notes', 'Sync engine: open questions', 'note', true) + '<div class="tab plus">+</div>', edFull) + '</div>' + SP_STATUS_SYNC + '</section>' + spSyncPanel();
-    },
-    spreadonly: function () {
-      return '<aside class="side">' + spaceTree('spreadonly') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Tasks · Brand', 'spreadonly', true) + '<div class="tab plus">+</div>', spReadOnly()) + '</div>' + SP_STATUS_RO + '</section>';
     },
     spcard: function () {
       return '<aside class="side">' + spaceTree('spcard') + '</aside><section class="main"><div class="panes">' + pane(tab('board', 'Deals · Sales', 'spcard', true) + '<div class="tab plus">+</div>', dealsBoard('DEA-12')) + '</div><div class="status"><span>8 cards</span>' + syncStatus(false, null) + '</div></section>' + spCardAssign();

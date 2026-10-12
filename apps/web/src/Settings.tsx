@@ -1,4 +1,4 @@
-import type { Me, SpaceSource } from '@scrawlnotes/core';
+import { dayOf, type Me, type Person, type SpaceSource } from '@scrawlnotes/core';
 import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
@@ -7,6 +7,7 @@ import { chooseLanguage, isPhone, languageTag, type Mode, shadeOfMode, SIZES, ty
 import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SyncService, SyncSnapshot } from './sync';
+import { dueLabel } from './Tasks';
 import { CloudIcon, FolderPicker, placeWords, providerName, SpaceSyncRow, SyncRow, ThisDevice } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 
@@ -52,6 +53,10 @@ export interface SettingsValues {
   /** Takes a space off this device; with `deleteFiles`, its copy here goes too. */
   onRemoveSpace: (id: string, deleteFiles: boolean) => void;
   onMoveSpace: (id: string, by: -1 | 1) => void;
+  /** Makes a person of a space inactive, or active again. */
+  onPersonActive: (space: string, person: string, active: boolean) => void;
+  /** Opens another section of the settings: Profile, from where a name is asked for. */
+  onSection?: (section: Section) => void;
   /** Desktop: asks for another folder for a space's copy on this device, and moves it there. */
   onChangeSpaceFolder?: (id: string) => void;
   /** The space whose page Spaces opens on: an id, null for the personal space, undefined for the list. */
@@ -248,7 +253,7 @@ function Profile({ me, onSaveProfile }: Pick<SettingsValues, 'me' | 'onSaveProfi
  * The spaces: a list in the sidebar's order, each row opening the space's page, and Add space
  * under it. A space's page has its name, its folder, its sync, and the way out of this device.
  */
-function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'onChangeSpaceFolder' | 'initialSpace' | 'addingAs' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
+function Spaces(values: Pick<SettingsValues, 'me' | 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'onPersonActive' | 'onSection' | 'onChangeSpaceFolder' | 'initialSpace' | 'addingAs' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
   const { spaces, onMoveSpace, onRemoveSpace, initialSpace, addingAs, sync, syncService } = values;
   // The page open: a space by its id, null for the personal space, undefined for the list.
   const [page, setPage] = useState<string | null | undefined>(initialSpace);
@@ -266,6 +271,8 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
       sync={sync}
       service={syncService}
       account={addingAs ?? null}
+      unnamed={!values.me?.name}
+      {...(values.onSection && { onSetName: () => values.onSection!('profile') })}
       onAdd={values.onAddSpace}
       onDone={(id) => {
         setAdding(false);
@@ -278,6 +285,8 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
     return (
       <SpacePage
         space={shown}
+        me={values.me}
+        onPersonActive={(person, active) => values.onPersonActive(shown.id, person, active)}
         sync={sync}
         service={syncService}
         onRename={(name) => values.onRenameSpaceById(shown.id, name)}
@@ -321,7 +330,7 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
               <Icon name="space" />
               <span className="nm">
                 <b>{space.name}</b>
-                <small>{space.source ? t('settings.inCloud', { provider: providerName(space.source.provider), path: placeWords(space.source.place.path ?? '') }) : (space.folder ?? t('settings.inBrowser'))}</small>
+                <small>{spaceWords(space, values.me)}</small>
               </span>
             </button>
             <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => spaceMenu(event, space.id)}>
@@ -342,6 +351,74 @@ function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'sp
       {add}
       {menu && <ContextMenu at={menu.at} items={menuItems(menu.id)} onClose={() => setMenu(null)} />}
       {removing && <RemoveSpaceDialog space={removing} onRemove={(deleteFiles) => onRemoveSpace(removing.id, deleteFiles)} onClose={() => setRemoving(null)} />}
+    </>
+  );
+}
+
+/** Who is in a space, as its row in the list says it: just you, or how many people are active. */
+function peopleWords(people: Person[], me: Me | null): string | null {
+  const active = people.filter((person) => person.active);
+  if (active.length === 0) return null;
+  if (active.length === 1 && active[0]!.id === me?.id) return t('settings.justYou');
+  return t('count.people', { count: active.length });
+}
+
+/** A space's row in the list: where it lives, and who is in it. */
+function spaceWords(space: SpaceView, me: Me | null): string {
+  if (!space.source) return space.folder ?? t('settings.inBrowser');
+  const who = peopleWords(space.people, me);
+  return [providerName(space.source.provider), ...(who ? [who] : [])].join(' · ');
+}
+
+/**
+ * The people of a space, after the Space view of design/mockups.html: you first, then the
+ * others by name, those without one as Unnamed, the inactive last. Another active person's menu
+ * makes them inactive; they are active again once they open the space.
+ */
+function People({ people, me, onActive }: { people: Person[]; me: Me | null; onActive: (person: string, active: boolean) => void }) {
+  const [menu, setMenu] = useState<{ at: { x: number; y: number }; id: string } | null>(null);
+  const today = dayOf(new Date());
+  const rank = (person: Person) => (person.id === me?.id ? 0 : !person.active ? 3 : person.name ? 1 : 2);
+  const shown = [...people].sort((a, b) => rank(a) - rank(b) || (a.name ?? '').localeCompare(b.name ?? ''));
+  const open = (event: MouseEvent, id: string) => {
+    event.preventDefault();
+    setMenu({ at: { x: event.clientX, y: event.clientY }, id });
+  };
+  return (
+    <>
+      <span className="st-label">{t('settings.people')}</span>
+      <p className="st-note">{t('settings.peopleAbout')}</p>
+      <div className="st-list">
+        {shown.map((person) => {
+          const you = person.id === me?.id;
+          const offered = !you && person.active;
+          return (
+            <div
+              key={person.id}
+              className={`st-li one${person.active ? '' : ' off'}${menu?.id === person.id ? ' menu' : ''}`}
+              {...(offered && { onContextMenu: (event: MouseEvent) => open(event, person.id) })}
+            >
+              <span className="who" aria-hidden="true">
+                {person.name ? person.name.slice(0, 1).toUpperCase() : '?'}
+              </span>
+              <span className="nm">
+                <b>
+                  {person.name ?? t('settings.unnamed')}
+                  {you && <small>{t('settings.itsYou')}</small>}
+                </b>
+                <small>{person.email ?? t('settings.noEmail')}</small>
+              </span>
+              <span className="r">{person.active ? (person.seen ? dueLabel(dayOf(new Date(person.seen)), today) : '') : t('settings.inactive')}</span>
+              {offered && (
+                <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => open(event, person.id)}>
+                  ···
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {menu && <ContextMenu at={menu.at} items={[{ label: t('settings.makeInactive'), run: () => onActive(menu.id, false) }]} onClose={() => setMenu(null)} />}
     </>
   );
 }
@@ -390,11 +467,15 @@ export function RemoveSpaceDialog({ space, onRemove, onClose }: { space: Pick<Sp
  * A folder that is a space already keeps its id and gives its name; one that is the personal
  * space's, another space's, or inside one, is refused with a word why.
  */
-function AddSpaceDialog({ sync, service, account: given, onAdd, onDone }: {
+function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onAdd, onDone }: {
   sync: SyncSnapshot;
   service: SyncService;
   /** Signed in already, the page back from Microsoft: the account to choose the folder in. */
   account: Connection['account'] | null;
+  /** The profile has no name: the others of the space would see Unnamed. */
+  unnamed: boolean;
+  /** Goes to Profile, to set the name. */
+  onSetName?: () => void;
   onAdd: SettingsValues['onAddSpace'];
   onDone: (id: string | null) => void;
 }) {
@@ -555,6 +636,17 @@ function AddSpaceDialog({ sync, service, account: given, onAdd, onDone }: {
             {error}
           </p>
         )}
+        {unnamed && account && !signing && (
+          <div className="st-warn">
+            <Icon name="warn" />
+            <span>{t('space.unnamedWarning')}</span>
+            {onSetName && (
+              <button type="button" className="st-btn" onClick={onSetName}>
+                {t('space.setName')}
+              </button>
+            )}
+          </div>
+        )}
         <div className="foot">
           <button type="button" className="st-btn" onClick={() => onDone(null)}>
             {t('dialog.cancel')}
@@ -662,8 +754,10 @@ function PersonalPage({
  * its copy is on this device (on desktop a folder, which can move), its sync, and the way out of
  * this device.
  */
-function SpacePage({ space, sync, service, onRename, onChangeFolder, onBack, onRemove, removing, onRemoved, onRemoveSpace }: {
+function SpacePage({ space, me, onPersonActive, sync, service, onRename, onChangeFolder, onBack, onRemove, removing, onRemoved, onRemoveSpace }: {
   space: SpaceView;
+  me: Me | null;
+  onPersonActive: (person: string, active: boolean) => void;
   sync: SyncSnapshot;
   service: SyncService;
   onRename: (name: string) => void;
@@ -703,6 +797,7 @@ function SpacePage({ space, sync, service, onRename, onChangeFolder, onBack, onR
         </div>
         <SpaceSyncRow view={sync.all.find((unit) => unit.space === space.id)} service={service} />
       </div>
+      {space.people.length > 0 && <People people={space.people} me={me} onActive={onPersonActive} />}
       <div className="st-acts">
         <button type="button" onClick={onRemove}>
           {t('settings.removeSpace')}
@@ -771,7 +866,7 @@ export function Settings(props: SettingsProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [narrow, page, onClose]);
 
-  const body = (id: Section) => <SettingsSection section={id} {...props} />;
+  const body = (id: Section) => <SettingsSection section={id} {...props} onSection={(next) => (narrow ? setPage(next) : setSection(next))} />;
   // What each section is set to, beside it in a narrow window's list.
   const value = (id: Section) => sectionValue(id, props);
   const close = (

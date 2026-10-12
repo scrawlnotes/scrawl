@@ -64,9 +64,15 @@ import {
   isSpaceId,
   inSpace,
   loadMe,
+  loadPeople,
   loadSpace,
   localPath,
   type Me,
+  type Person,
+  samePerson,
+  savePeople,
+  setActive,
+  withPerson,
   MultiFs,
   newSpaceId,
   prefixTree,
@@ -322,6 +328,8 @@ export interface SpaceView {
   folder: string | null;
   /** Where it lives in the cloud, which its sync follows. */
   source: SpaceSource | null;
+  /** Everyone who has opened it, from its `.scrawl/people.json`. */
+  people: Person[];
   /** Its folders and files, their paths carrying the space. */
   tree: TreeNode[];
 }
@@ -539,6 +547,46 @@ export class Session {
     // Versions past their keeping time go, also those of notes deleted long ago.
     for (const [, fs] of this.fs.all()) void pruneHistory(fs).catch(() => undefined);
     void this.sweepAttachments(run);
+    this.meetSpaces();
+  }
+
+  /**
+   * The user's row among the people of every space beside the personal one: written as a space is
+   * opened, when the row says something else than the profile, or was not seen today. Opening
+   * it again the same day writes nothing. The personal space has no people: it is only you.
+   */
+  private meetSpaces() {
+    const me = this.snapshot.me;
+    if (!me) return;
+    this.taskWrites = this.taskWrites
+      .then(async () => {
+        const met = new Map<string, Person[]>();
+        for (const [id, space] of this.opened) {
+          try {
+            const people = await loadPeople(space.fs);
+            if (samePerson(people, me)) continue;
+            const next = withPerson(people, me);
+            await savePeople(space.fs, next);
+            met.set(id, next);
+          } catch {
+            // Written the next time the space is opened.
+          }
+        }
+        if (met.size > 0) this.set({ spaces: this.snapshot.spaces.map((space) => ({ ...space, people: met.get(space.id) ?? space.people })), saved: false });
+      })
+      .catch(() => undefined)
+      .then(() => this.markSaved());
+  }
+
+  /** Makes a person of a space inactive, or active again: an inactive one is not offered when a task or a card is given. */
+  setPersonActive(space: string, person: string, active: boolean) {
+    const opened = this.opened.get(space);
+    if (!opened) return;
+    this.set({ spaces: this.snapshot.spaces.map((each) => (each.id === space ? { ...each, people: setActive(each.people, person, active) } : each)), saved: false });
+    this.taskWrites = this.taskWrites
+      .then(async () => savePeople(opened.fs, setActive(await loadPeople(opened.fs), person, active)))
+      .catch(() => undefined)
+      .then(() => this.markSaved());
   }
 
   // ---------- the other spaces ----------
@@ -572,6 +620,7 @@ export class Session {
         name: space.name,
         folder: space.entry.folder ?? null,
         source: space.entry.source ?? null,
+        people: await loadPeople(space.fs),
         tree: prefixTree(await readTree(space.fs).catch(() => []), id),
       })),
     );
@@ -674,11 +723,12 @@ export class Session {
       .then(() => this.markSaved());
   }
 
-  /** Opens the spaces again after the device's list changed, and reads everything of them. */
+  /** Opens the spaces again after the device's list changed, and reads everything of them; a space added has the user among its people. */
   private async reloadSpaces() {
     await this.flush();
     await this.openSpaces();
     await this.refreshTree();
+    this.meetSpaces();
   }
 
   /** The text of every open note of a space, saved or not: the notes that may link to its attached files. */
@@ -1369,6 +1419,8 @@ export class Session {
       .then(() => saveMe(this.personal, me))
       .catch(() => undefined)
       .then(() => this.markSaved());
+    // The spaces have the name and the email as they are now.
+    this.meetSpaces();
   }
 
   /** The name a card's timeline records for what is done here; none while the name is empty. */

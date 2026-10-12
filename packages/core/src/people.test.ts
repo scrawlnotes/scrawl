@@ -30,11 +30,13 @@ describe('people', () => {
     let people = withPerson([], { id: 'j', name: 'Jonas' }, at('01'));
     people = setActive(people, 'j', false);
     expect(people[0]?.active).toBe(false);
-    expect(samePerson(people, { id: 'j', name: 'Jonas' })).toBe(false);
+    expect(samePerson(people, { id: 'j', name: 'Jonas' }, at('01'))).toBe(false);
     people = withPerson(people, { id: 'j', name: 'Jonas' }, at('12'));
     expect(people[0]?.active).toBe(true);
-    expect(samePerson(people, { id: 'j', name: 'Jonas' })).toBe(true);
-    expect(samePerson(people, { id: 'j', name: 'Jonas W.' })).toBe(false);
+    expect(samePerson(people, { id: 'j', name: 'Jonas' }, at('12'))).toBe(true);
+    expect(samePerson(people, { id: 'j', name: 'Jonas W.' }, at('12'))).toBe(false);
+    // Seen once a day: the next day's opening writes again.
+    expect(samePerson(people, { id: 'j', name: 'Jonas' }, at('13'))).toBe(false);
   });
 
   it('merges two devices by id, the later opening winning', () => {

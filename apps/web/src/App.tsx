@@ -1073,6 +1073,7 @@ export function App() {
     onAddSpace: (name, source, id) => session.addSpace(name, source, id),
     onRemoveSpace: (id, deleteFiles) => void removeSpace(id, deleteFiles),
     onMoveSpace: (id, by) => void session.moveSpace(id, by),
+    onPersonActive: (space, person, active) => session.setPersonActive(space, person, active),
     onChangeSpaceFolder: isDesktop ? (id) => void changeSpaceFolder(id) : undefined,
     initialSpace: dialog?.kind === 'settings' ? dialog.space : undefined,
     addingAs: sync.adding,
