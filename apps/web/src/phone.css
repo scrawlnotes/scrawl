@@ -1,5 +1,5 @@
 /* The phone's own layout (Phone.tsx), after the Phone views of design/mockups.html: a tab bar with
-   Open, Today and Browse, pages that slide in over each other, + at the bottom right. Text is
+   Browse and Today, pages that slide in over each other, + at the bottom right. Text is
    16 px and up and every row and button at least 44 px, so that a finger hits it and the phone
    never zooms in on a field; nothing flashes grey under a finger and the page does not bounce. */
 
@@ -521,7 +521,7 @@ html:has(.phone-app) body {
   bottom: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   height: var(--ph-bar);
   padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box;
