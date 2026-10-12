@@ -248,6 +248,11 @@ export const en = {
   'import.empty': 'The file has no rows to import.',
   'import.exported': 'Exported {name}',
   'menu.newNoteHere': 'New note here',
+  'menu.newListHere': 'New task list here…',
+  'menu.newBoardHere': 'New board here…',
+  'menu.newKeysHere': 'New keys file here…',
+  'menu.newCollectionHere': 'New collection here…',
+  'menu.newFilterHere': 'New filter here…',
   'menu.newFolderHere': 'New folder here',
   'menu.deleteFolder': 'Delete folder',
 

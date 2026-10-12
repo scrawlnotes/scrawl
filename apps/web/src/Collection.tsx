@@ -92,6 +92,7 @@ import {
 import { CardPanel, type CardPanelActions } from './CardPanel';
 import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { FieldsDialog } from './Fields';
+import { onPage } from './device';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { collectionLabel } from './items';
@@ -1431,7 +1432,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
     let latest = start;
     handle.setPointerCapture(event.pointerId);
     const move = (e: globalThis.PointerEvent) => {
-      const width = Math.max(MIN_WIDTH, Math.round(start[index]! + e.clientX - x));
+      const width = Math.max(MIN_WIDTH, Math.round(start[index]! + onPage(e.clientX - x)));
       latest = start.map((w, i) => (i === index ? width : w));
       setDragged(latest);
     };

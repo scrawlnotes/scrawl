@@ -96,6 +96,26 @@ export function applySize() {
   document.documentElement.style.zoom = scale === 1 ? '' : String(scale);
 }
 
+/** How much a computer's page is zoomed by its size; a phone's is not, it scales in its own way. */
+export const pageZoom = () => Number(document.documentElement.style.zoom) || 1;
+
+/**
+ * A zoomed page is drawn larger than its own pixels: what the screen gives (a pointer, a box, the
+ * window) is that much larger than what the page sets with CSS. These turn the screen's into the
+ * page's, so that what is placed by them lands where it is meant to.
+ */
+export const onPage = (screen: number) => screen / pageZoom();
+
+/** The box of an element in the page's own pixels. */
+export function pageBox(element: Element) {
+  const box = element.getBoundingClientRect();
+  const zoom = pageZoom();
+  return { left: box.left / zoom, top: box.top / zoom, right: box.right / zoom, bottom: box.bottom / zoom, width: box.width / zoom, height: box.height / zoom };
+}
+
+/** The window's width and height in the page's own pixels. */
+export const pageWindow = () => ({ width: onPage(window.innerWidth), height: onPage(window.innerHeight) });
+
 /** Sizes the app again each time a phone is turned. */
 export function onTurn(listener: () => void): () => void {
   const query = window.matchMedia('(orientation: landscape)');

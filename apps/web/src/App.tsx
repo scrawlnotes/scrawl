@@ -103,7 +103,8 @@ import { TrashView } from './Trash';
 import { isDesktop, openUrlOnDesktop, saveTextFile } from './storage';
 
 type OpenDialog =
-  | { kind: 'new' }
+  // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen.
+  | { kind: 'new'; start?: ItemKind; folder?: string }
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
@@ -112,7 +113,7 @@ type OpenDialog =
   | { kind: 'moveTask'; list: string; id: string }
   | { kind: 'toTask'; note: string; title: string; description: string }
   | { kind: 'toCard'; note: string; title: string; description: string }
-  | { kind: 'filter'; filter: TaskFilter | null }
+  | { kind: 'filter'; filter: TaskFilter | null; place?: string }
   | { kind: 'settings'; section?: SettingsSection }
   | null;
 
@@ -279,6 +280,8 @@ export function App() {
   };
   // New things go to the folder of the tab on screen, or to the inbox.
   const newFolder = (active && folderOf(active)) || INBOX;
+  // Or to the folder whose menu Create was opened from.
+  const createIn = (dialog?.kind === 'new' && dialog.folder) || newFolder;
   const create = async (kind: ItemKind, choice: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => {
     const error = await session.create(kind, choice.folder, name, choice.create, template, collectionTemplate, links);
     if (!error) setDialog(null);
@@ -511,8 +514,13 @@ export function App() {
     setImporting({ dir, fileName: file.name, header, rows });
   };
   // The inbox is always there; it cannot be deleted. A new note shows at once, out from under the
-  // drawer; a new folder is named in the sidebar, under the folder it goes in.
-  const folderMenu = (event: MouseEvent, path: string, addFolder: () => void) =>
+  // drawer; anything else opens its Create or Filter window with the folder chosen, the drawer
+  // closed so that what is made shows; a new folder is named in the sidebar, under the folder it goes in.
+  const folderMenu = (event: MouseEvent, path: string, addFolder: () => void) => {
+    const createHere = (start: ItemKind) => () => {
+      setDrawer(false);
+      setDialog({ kind: 'new', start, folder: path });
+    };
     openMenu(
       event,
       [
@@ -523,15 +531,27 @@ export function App() {
             void session.newNote(path);
           },
         },
+        { label: t('menu.newListHere'), run: createHere('tasks') },
+        { label: t('menu.newBoardHere'), run: createHere('board') },
+        { label: t('menu.newKeysHere'), run: createHere('keys') },
+        { label: t('menu.newCollectionHere'), run: createHere('collection') },
+        {
+          label: t('menu.newFilterHere'),
+          run: () => {
+            setDrawer(false);
+            setDialog({ kind: 'filter', filter: null, place: path });
+          },
+        },
         ...(path === INBOX
           ? []
           : [
-              { label: t('menu.newFolderHere'), run: addFolder },
-              { label: t('menu.deleteFolder'), run: () => deleteFolder(path) },
+              { label: t('menu.newFolderHere'), run: addFolder, apart: true },
+              { label: t('menu.deleteFolder'), run: () => deleteFolder(path), apart: true },
             ]),
       ],
       path,
     );
+  };
   const closeMenu = useCallback(() => setMenu(null), []);
 
   // An image, file or recording in a note has its right-click menu drawn like the others.
@@ -950,11 +970,14 @@ export function App() {
 
       {showNew && (
         <NewDialog
+          // Open already, as it is in an empty space, it starts again with what a folder's menu chose.
+          key={dialog?.kind === 'new' ? `${dialog.start ?? ''}:${dialog.folder ?? ''}` : ''}
+          start={(dialog?.kind === 'new' && dialog.start) || null}
           folders={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
-          folder={newFolder}
+          folder={createIn}
           collections={Object.keys(collections)}
           onCreate={create}
-          onFilter={() => setDialog({ kind: 'filter', filter: null })}
+          onFilter={() => setDialog({ kind: 'filter', filter: null, place: createIn })}
           onClose={closeDialog}
         />
       )}
@@ -1028,7 +1051,7 @@ export function App() {
           filter={dialog.filter}
           folders={topFolders}
           places={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
-          place={newFolder}
+          place={dialog.place ?? newFolder}
           count={(choices) =>
             filterTasks(choices, tasks, today).reduce((sum, group) => sum + group.tasks.length, 0) +
             filterCards(choices, boards, today).reduce((sum, group) => sum + group.cards.length, 0)

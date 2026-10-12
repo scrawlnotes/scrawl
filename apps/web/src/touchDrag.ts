@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { onPage } from './device';
 
 // Dragging with a finger, for task rows, section headers and cards, where the browser's own
 // dragging does not reach: held still for a moment, the thing lifts and a copy of it follows the
@@ -57,8 +58,9 @@ export function holdToDrag(event: ReactPointerEvent | PointerEvent, drag: HoldTo
   let grip = { x: 0, y: 0 };
   let frame = 0;
 
+  // The finger is where the screen says; the copy is moved in the page's own pixels.
   const place = () => {
-    if (ghost) ghost.style.transform = `translate(${point.x - grip.x}px, ${point.y - grip.y}px) rotate(1.5deg) scale(1.02)`;
+    if (ghost) ghost.style.transform = `translate(${onPage(point.x - grip.x)}px, ${onPage(point.y - grip.y)}px) rotate(1.5deg) scale(1.02)`;
   };
 
   // Near an edge of the nearest box that scrolls each way, under the finger, that box scrolls, and
@@ -91,7 +93,7 @@ export function holdToDrag(event: ReactPointerEvent | PointerEvent, drag: HoldTo
     ghost = drag.element.cloneNode(true) as HTMLElement;
     ghost.classList.remove('lifted', 'on');
     ghost.classList.add('touch-ghost');
-    ghost.style.width = `${box.width}px`;
+    ghost.style.width = `${onPage(box.width)}px`;
     ghost.setAttribute('aria-hidden', 'true');
     document.body.append(ghost);
     place();

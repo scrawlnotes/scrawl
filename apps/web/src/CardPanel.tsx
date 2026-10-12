@@ -27,6 +27,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { type CollectionActions, FieldInput, RecordDialog, type ValueContext } from './Collection';
+import { pageBox, pageWindow } from './device';
 import type { MenuItem } from './dialogs';
 import { labelHue, useEscape } from './choices';
 import { boardLabel } from './items';
@@ -226,14 +227,15 @@ function StatusPicker({ anchor, board, current, onPick, onClose }: {
 
   useLayoutEffect(() => {
     const measure = () => {
-      const field = anchor.current?.getBoundingClientRect();
+      const field = anchor.current && pageBox(anchor.current);
       const height = box.current?.offsetHeight ?? 0;
       if (!field) return;
-      const below = window.innerHeight - field.bottom - EDGE - 4;
+      const page = pageWindow();
+      const below = page.height - field.bottom - EDGE - 4;
       const above = field.top - EDGE - 4;
       const width = Math.max(field.width, 220);
-      const left = Math.max(EDGE, Math.min(field.left, window.innerWidth - width - EDGE));
-      setPlace(below >= height || below >= above ? { left, width, top: field.bottom + 4 } : { left, width, bottom: window.innerHeight - field.top + 4 });
+      const left = Math.max(EDGE, Math.min(field.left, page.width - width - EDGE));
+      setPlace(below >= height || below >= above ? { left, width, top: field.bottom + 4 } : { left, width, bottom: page.height - field.top + 4 });
     };
     measure();
     window.addEventListener('resize', measure);
@@ -338,16 +340,17 @@ function LabelPicker({ anchor, board, labels, onChange, onClose }: {
       natural.current = box.current.offsetHeight - list.current.clientHeight + list.current.scrollHeight;
     }
     const measure = () => {
-      const field = anchor.current?.getBoundingClientRect();
+      const field = anchor.current && pageBox(anchor.current);
       if (!field) return;
-      const below = window.innerHeight - field.bottom - EDGE - 4;
+      const page = pageWindow();
+      const below = page.height - field.bottom - EDGE - 4;
       const above = field.top - EDGE - 4;
       const width = Math.max(field.width, 220);
-      const left = Math.max(EDGE, Math.min(field.left, window.innerWidth - width - EDGE));
+      const left = Math.max(EDGE, Math.min(field.left, page.width - width - EDGE));
       setPlace(
         below >= Math.min(natural.current, 220) || below >= above
           ? { left, width, top: field.bottom + 4, maxHeight: below }
-          : { left, width, bottom: window.innerHeight - field.top + 4, height: Math.min(natural.current, above) },
+          : { left, width, bottom: page.height - field.top + 4, height: Math.min(natural.current, above) },
       );
     };
     measure();

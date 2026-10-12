@@ -46,6 +46,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { onPage, pageBox, pageWindow } from './device';
 import type { MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { boardLabel, collectionLabel, listLabel } from './items';
@@ -119,9 +120,9 @@ function RecordPicker({ anchor, current, choices, onPick, onClose }: {
     onPick({ collection: dir, id: record.id, name: record.name, ...(record.code && { code: record.code }) });
   };
   useLayoutEffect(() => {
-    const button = anchor.getBoundingClientRect();
+    const button = pageBox(anchor);
     const width = 300;
-    setPlace({ top: button.bottom + 4, left: Math.max(8, Math.min(button.right - width, window.innerWidth - width - 8)), width });
+    setPlace({ top: button.bottom + 4, left: Math.max(8, Math.min(button.right - width, pageWindow().width - width - 8)), width });
   }, [anchor]);
   useEffect(() => {
     const away = (event: globalThis.MouseEvent) => {
@@ -725,7 +726,7 @@ function taskDrop(container: HTMLElement, d: Dragging, event: { clientX: number;
   const prevTask = prev?.dataset.row === 'task' ? prev : null;
   const max = prevTask ? Math.min(depthOfRow(prevTask) + 1, MAX_DEPTH - d.height) : 0;
   const min = Math.min(next?.dataset.row === 'task' ? depthOfRow(next) : 0, max);
-  const level = Math.max(min, Math.min(max, d.depth + Math.round((event.clientX - d.startX) / INDENT)));
+  const level = Math.max(min, Math.min(max, d.depth + Math.round(onPage(event.clientX - d.startX) / INDENT)));
 
   // Walking up from the gap: the first row at the level is the task it follows, the first one
   // above the level is its parent. A section header ends the walk.
@@ -749,7 +750,7 @@ function taskDrop(container: HTMLElement, d: Dragging, event: { clientX: number;
     next?.dataset.row === 'task'
       ? next.getBoundingClientRect().top
       : (prev?.getBoundingClientRect().bottom ?? next?.getBoundingClientRect().top ?? box.top);
-  return { line: { top: edge - box.top, left: margin(container) + level * INDENT }, place: { parent, section, after } };
+  return { line: { top: onPage(edge - box.top), left: margin(container) + level * INDENT }, place: { parent, section, after } };
 }
 
 /** Where a dragged section would land: before the header under the pointer's half, or at the end. */
@@ -762,7 +763,7 @@ function sectionDrop(container: HTMLElement, d: Dragging, event: { clientX: numb
   });
   if (index < 0) index = headers.length;
   const after = index > 0 ? headers[index - 1]!.dataset.id! : null;
-  const top = index < headers.length ? headers[index]!.getBoundingClientRect().top - box.top : box.height;
+  const top = onPage(index < headers.length ? headers[index]!.getBoundingClientRect().top - box.top : box.height);
   return { line: { top, left: margin(container) }, after };
 }
 

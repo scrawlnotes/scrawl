@@ -37,6 +37,7 @@ import { CardPanel, type CardPanelActions } from './CardPanel';
 import { labelHue } from './choices';
 import { Cell, type ValueContext } from './Collection';
 import { BoardFieldsDialog } from './Fields';
+import { pageBox } from './device';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { dueClass, dueLabel } from './Tasks';
@@ -500,8 +501,8 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
     const marks = ruler.current;
     if (!box || !marks) return;
     const update = () => {
-      const width = (role: string) => [...marks.querySelectorAll<HTMLElement>(`[data-role="${role}"]`)].reduce((sum, el) => sum + el.getBoundingClientRect().width + STRIP_GAP, 0);
-      const phases = [...marks.querySelectorAll<HTMLElement>('[data-role="phase"]')].map((el) => el.getBoundingClientRect().width + STRIP_GAP);
+      const width = (role: string) => [...marks.querySelectorAll<HTMLElement>(`[data-role="${role}"]`)].reduce((sum, el) => sum + pageBox(el).width + STRIP_GAP, 0);
+      const phases = [...marks.querySelectorAll<HTMLElement>('[data-role="phase"]')].map((el) => pageBox(el).width + STRIP_GAP);
       const room = box.clientWidth - STRIP_PADDING;
       const fixed = width('closed') + width('all') + (chosen ? width('pmore') : 0);
       const all = phases.reduce((sum, w) => sum + w, 0);

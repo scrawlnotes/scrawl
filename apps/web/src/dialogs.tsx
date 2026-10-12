@@ -23,6 +23,7 @@ import {
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type FormEvent,
+  Fragment,
   type KeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
@@ -33,6 +34,7 @@ import {
 } from 'react';
 import { type Option, Picker } from './choices';
 import { ConditionRow } from './Collection';
+import { onPage, pageBox, pageWindow } from './device';
 import { Icon, type IconName } from './Icon';
 import { collectionLabel } from './items';
 
@@ -174,9 +176,12 @@ const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: MessageK
 
 /**
  * Creates a note, a task list, a board or a keys file. The kind is chosen first; the item then
- * gets a name, which may be left empty, and a folder; a board also starts from a template.
+ * gets a name, which may be left empty, and a folder; a board also starts from a template. A
+ * folder's menu has the kind chosen already, and Back goes to the choice.
  */
-export function NewDialog({ folders, folder, collections, onCreate, onFilter, onClose }: {
+export function NewDialog({ start = null, folders, folder, collections, onCreate, onFilter, onClose }: {
+  /** The kind chosen already, if any. */
+  start?: ItemKind | null;
   /** Every folder, the inbox first. */
   folders: string[];
   /** The folder chosen to begin with. */
@@ -189,7 +194,7 @@ export function NewDialog({ folders, folder, collections, onCreate, onFilter, on
   onFilter: () => void;
   onClose: () => void;
 }) {
-  const [kind, setKind] = useState<ItemKind | null>(null);
+  const [kind, setKind] = useState<ItemKind | null>(start);
   if (kind) {
     return (
       <NewItemForm kind={kind} folders={folders} folder={folder} collections={collections} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
@@ -936,6 +941,8 @@ export interface MenuItem {
   run: () => void;
   /** Why the item cannot be used now; it is shown greyed out with this under it. */
   disabled?: string;
+  /** A line above it sets it apart from the items before. */
+  apart?: boolean;
 }
 
 /** A note the phase window can point a phase at. */
@@ -1012,15 +1019,19 @@ export function PhaseDialog({ phase, notes, onSave, onClose }: {
 /** The menu of a right click, at the pointer. */
 export function ContextMenu({ at, items, onClose }: { at: { x: number; y: number }; items: MenuItem[]; onClose: () => void }) {
   const menu = useRef<HTMLDivElement>(null);
-  const [place, setPlace] = useState(at);
+  // The pointer is where the screen says; the menu is placed in the page's own pixels.
+  const [place, setPlace] = useState(() => ({ x: onPage(at.x), y: onPage(at.y) }));
   // Near the right or bottom edge the menu opens to the left of or above the pointer, so it stays in the window.
   useLayoutEffect(() => {
-    const box = menu.current?.getBoundingClientRect();
-    if (!box) return;
+    if (!menu.current) return;
+    const box = pageBox(menu.current);
+    const page = pageWindow();
+    const x = onPage(at.x);
+    const y = onPage(at.y);
     const margin = 8;
     setPlace({
-      x: at.x + box.width + margin > window.innerWidth ? Math.max(margin, at.x - box.width) : at.x,
-      y: at.y + box.height + margin > window.innerHeight ? Math.max(margin, at.y - box.height) : at.y,
+      x: x + box.width + margin > page.width ? Math.max(margin, x - box.width) : x,
+      y: y + box.height + margin > page.height ? Math.max(margin, y - box.height) : y,
     });
   }, [at]);
   useEffect(() => {
@@ -1039,26 +1050,28 @@ export function ContextMenu({ at, items, onClose }: { at: { x: number; y: number
   }, [onClose]);
   return (
     <div ref={menu} className="menu" role="menu" style={{ left: place.x, top: place.y }}>
-      {items.map((item) =>
-        item.disabled ? (
-          <button key={item.label} type="button" role="menuitem" className="off" disabled>
-            {item.label}
-            <small>{item.disabled}</small>
-          </button>
-        ) : (
-          <button
-            key={item.label}
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onClose();
-              item.run();
-            }}
-          >
-            {item.label}
-          </button>
-        ),
-      )}
+      {items.map((item) => (
+        <Fragment key={item.label}>
+          {item.apart && <hr />}
+          {item.disabled ? (
+            <button type="button" role="menuitem" className="off" disabled>
+              {item.label}
+              <small>{item.disabled}</small>
+            </button>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onClose();
+                item.run();
+              }}
+            >
+              {item.label}
+            </button>
+          )}
+        </Fragment>
+      ))}
     </div>
   );
 }

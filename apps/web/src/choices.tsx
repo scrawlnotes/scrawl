@@ -1,6 +1,7 @@
 import { type Field, type OptionColor, optionColor } from '@scrawlnotes/core';
 import { type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { pageBox, pageWindow } from './device';
 
 // Choices as chips and the lists they are picked from, for a collection's records and its Fields
 // window: a list opens under its box, as a card's status list does, and Esc closes it first.
@@ -86,14 +87,15 @@ export function OptionList({ anchor, options, current, label, keys, onPick, onCl
 
   useLayoutEffect(() => {
     const measure = () => {
-      const field = anchor.current?.getBoundingClientRect();
+      const field = anchor.current && pageBox(anchor.current);
       const height = box.current?.offsetHeight ?? 0;
       if (!field) return;
-      const below = window.innerHeight - field.bottom - EDGE - 4;
+      const page = pageWindow();
+      const below = page.height - field.bottom - EDGE - 4;
       const above = field.top - EDGE - 4;
       const wide = Math.max(field.width, width);
-      const left = Math.max(EDGE, Math.min(end ? field.right - wide : field.left, window.innerWidth - wide - EDGE));
-      setPlace(below >= height || below >= above ? { left, width: wide, top: field.bottom + 4 } : { left, width: wide, bottom: window.innerHeight - field.top + 4 });
+      const left = Math.max(EDGE, Math.min(end ? field.right - wide : field.left, page.width - wide - EDGE));
+      setPlace(below >= height || below >= above ? { left, width: wide, top: field.bottom + 4 } : { left, width: wide, bottom: page.height - field.top + 4 });
     };
     measure();
     window.addEventListener('resize', measure);

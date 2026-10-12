@@ -4,6 +4,7 @@ import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clientId, DEFAULT_CLIENT_ID, setClientId } from './cloud';
+import { pageBox, pageWindow } from './device';
 import { Icon } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SyncPhase, SyncService, SyncSnapshot, TurnView } from './sync';
@@ -885,8 +886,9 @@ function SyncPanel({ sync, narrow, anchor, kept, onEnter, onLeave, onClose, onSy
 
   let place: CSSProperties = {};
   if (!narrow && anchor) {
-    const rect = anchor.getBoundingClientRect();
-    place = { right: Math.max(8, window.innerWidth - rect.right - 6), bottom: window.innerHeight - rect.top + 6, maxHeight: Math.min(486, rect.top - 16) };
+    const rect = pageBox(anchor);
+    const page = pageWindow();
+    place = { right: Math.max(8, page.width - rect.right - 6), bottom: page.height - rect.top + 6, maxHeight: Math.min(486, rect.top - 16) };
   }
 
   let title: ReactNode;

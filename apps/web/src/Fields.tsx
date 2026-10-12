@@ -37,6 +37,7 @@ import { type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent
 import { holdToDrag } from './touchDrag';
 import { createPortal } from 'react-dom';
 import { boxKeys, hueStyle, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
+import { pageBox, pageWindow } from './device';
 import { Icon } from './Icon';
 import { boardLabel, collectionLabel } from './items';
 import { useNarrow } from './narrow';
@@ -125,6 +126,12 @@ const DRAG_TYPE = 'application/x-scrawl-field';
 const newId = () => crypto.randomUUID();
 
 const isChoice = (type: FieldType) => type === 'select' || type === 'multi-select';
+
+/** The height of a row's middle on screen, where a dragged row goes before it or after. */
+const middle = (row: HTMLElement) => {
+  const box = row.getBoundingClientRect();
+  return box.top + box.height / 2;
+};
 
 /**
  * The draft of a schema: its fields, and its screen as it opens, with `linked` (what a schema with
@@ -404,9 +411,9 @@ function Palette({ anchor, current, name, onPick, onClose }: {
   const close = useRef(onClose);
   close.current = onClose;
   useLayoutEffect(() => {
-    const dot = anchor.getBoundingClientRect();
+    const dot = pageBox(anchor);
     const width = box.current?.offsetWidth ?? 220;
-    setPlace({ top: dot.bottom + 6, left: Math.max(8, Math.min(dot.left - 8, window.innerWidth - width - 8)) });
+    setPlace({ top: dot.bottom + 6, left: Math.max(8, Math.min(dot.left - 8, pageWindow().width - width - 8)) });
   }, [anchor]);
   useEffect(() => {
     const away = (event: globalThis.MouseEvent) => {
@@ -459,7 +466,7 @@ function Choices({ field, onChange }: { field: DraftField; onChange: (choices: C
   /** The gap at height `y`, a pointer's or a finger's. */
   const overAt = (y: number) => {
     const rows = [...(list.current?.querySelectorAll<HTMLElement>('[data-choice]') ?? [])];
-    let index = rows.findIndex((row) => y < row.getBoundingClientRect().top + row.offsetHeight / 2);
+    let index = rows.findIndex((row) => y < middle(row));
     if (index < 0) index = rows.length;
     const row = rows[Math.min(index, rows.length - 1)];
     const next = { index, y: !row ? 0 : index < rows.length ? row.offsetTop - 2 : row.offsetTop + row.offsetHeight + 1 };
@@ -942,7 +949,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   /** The gap in a section at height `y`, a pointer's or a finger's. */
   const overAt = (block: HTMLElement, y: number, sectionId: string) => {
     const items = [...block.querySelectorAll<HTMLElement>(':scope > [data-item]')];
-    let index = items.findIndex((el) => y < el.getBoundingClientRect().top + el.offsetHeight / 2);
+    let index = items.findIndex((el) => y < middle(el));
     if (index < 0) index = items.length;
     const last = items[items.length - 1];
     const next = { section: sectionId, index, y: index < items.length ? items[index]!.offsetTop - 3 : last ? last.offsetTop + last.offsetHeight + 2 : 8 };
@@ -1290,7 +1297,7 @@ export function BoardFieldsDialog({ board, path, collections, actions, onClose }
   /** The gap at height `y`, a pointer's or a finger's. */
   const overAt = (y: number) => {
     const items = [...(list.current?.querySelectorAll<HTMLElement>(':scope > [data-item]') ?? [])];
-    let index = items.findIndex((el) => y < el.getBoundingClientRect().top + el.offsetHeight / 2);
+    let index = items.findIndex((el) => y < middle(el));
     if (index < 0) index = items.length;
     const last = items[items.length - 1];
     const next = { index, y: index < items.length ? items[index]!.offsetTop - 3 : last ? last.offsetTop + last.offsetHeight + 2 : 8 };
