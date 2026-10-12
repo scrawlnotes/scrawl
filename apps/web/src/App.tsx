@@ -13,6 +13,7 @@ import {
   collectionName,
   type Column,
   columnCards,
+  addDays,
   dayOf,
   dirname,
   dueToday,
@@ -65,6 +66,7 @@ import { type BoardActions, BoardView } from './Board';
 import { FormatBar } from './FormatBar';
 import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History';
 import { LinkActions, LinkSheet, PhoneFormatBar } from './PhoneNote';
+import { DateSheet, QuickAdd, RecordSheet, TaskSheet } from './PhoneTasks';
 import { Icon } from './Icon';
 import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
@@ -666,12 +668,29 @@ export function App() {
       .join(' ');
 
   const today = dayOf(new Date());
+  // On a phone a task opens as a sheet; its date and record are picked in sheets; + types a new
+  // task above the keyboard.
+  const [taskSheet, setTaskSheet] = useState<{ list: string; id: string; subtask: boolean } | null>(null);
+  const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record'; list: string; id: string } | null>(null);
+  const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
+  const phoneAdd = (id: string) => {
+    if (id === TODAY) return setQuickAdd({ list: INBOX_TASKS, section: null, due: today });
+    if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: addDays(today, 1) });
+    const list = listOf(id);
+    if (list !== null) setQuickAdd({ list, section: null, due: null });
+  };
   const taskActions: TaskActions = {
     add: (target, input) => session.addTask(target, input),
     update: (target, id, change) => session.updateTask(target, id, change),
     setDone: (target, id, done) => session.setTaskDone(target, id, done),
     remove: deleteTask,
-    menu: openMenu,
+    menu: (event, items, head) => (phone ? showSheet(items, head) : openMenu(event, items)),
+    ...(phone && {
+      open: (list: string, id: string, subtask = false) => setTaskSheet({ list, id, subtask }),
+      pickDate: (list: string, id: string) => setTaskPicker({ kind: 'date', list, id }),
+      pickRecord: (list: string, id: string) => setTaskPicker({ kind: 'record', list, id }),
+      quickAdd: (list: string, section: string | null) => setQuickAdd({ list, section, due: null }),
+    }),
     addSection: (list, name) => session.addSection(list, name),
     renameSection: (list, id, name) => session.renameSection(list, id, name),
     foldSection: (list, id, collapsed) => session.foldSection(list, id, collapsed),
@@ -975,7 +994,9 @@ export function App() {
             filters={filters}
             counts={counts}
             item={itemLayer}
-            dueView={(kind, adding) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare adding={adding} />}
+            dueView={(kind) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare />}
+            canAdd={(id) => listOf(id) !== null}
+            onAdd={phoneAdd}
             trashView={<TrashView items={trash} today={today} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
             syncWord={syncWord(sync)}
             notice={notice}
@@ -1035,6 +1056,52 @@ export function App() {
               }}
               onCopy={() => void navigator.clipboard.writeText(linkTap.href).then(() => setNotice(t('phone.copied')), () => undefined)}
               onClose={closeLinkTap}
+            />
+          )}
+          {taskSheet &&
+            (() => {
+              const task = tasks[taskSheet.list]?.find((each) => each.id === taskSheet.id);
+              if (!task) return null;
+              return (
+                <TaskSheet
+                  key={`${taskSheet.list}#${taskSheet.id}`}
+                  list={taskSheet.list}
+                  task={task}
+                  tasks={tasks[taskSheet.list] ?? []}
+                  sections={sections[taskSheet.list] ?? []}
+                  today={today}
+                  actions={taskActions}
+                  subtask={taskSheet.subtask}
+                  onOpen={(id) => setTaskSheet({ list: taskSheet.list, id, subtask: false })}
+                  onClose={() => setTaskSheet(null)}
+                />
+              );
+            })()}
+          {taskPicker &&
+            (() => {
+              const task = tasks[taskPicker.list]?.find((each) => each.id === taskPicker.id);
+              if (!task) return null;
+              const close = () => setTaskPicker(null);
+              return taskPicker.kind === 'date' ? (
+                <DateSheet title={task.title} current={task.due ?? null} today={today} onPick={(due) => session.updateTask(taskPicker.list, task.id, { due })} onClose={close} />
+              ) : (
+                <RecordSheet
+                  current={task.record ?? null}
+                  choices={taskActions.recordChoices()}
+                  onPick={(record) => session.updateTask(taskPicker.list, task.id, { record })}
+                  onClose={close}
+                />
+              );
+            })()}
+          {quickAdd && (
+            <QuickAdd
+              initial={quickAdd}
+              places={allPlaces()}
+              today={today}
+              recordChoices={taskActions.recordChoices}
+              recordName={taskActions.recordTitle}
+              onAdd={(list, task) => session.addTask(list, task)}
+              onClose={() => setQuickAdd(null)}
             />
           )}
           {linkEdit && (

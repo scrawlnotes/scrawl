@@ -40,16 +40,18 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type TextareaHTMLAttributes,
+  type TouchEvent as ReactTouchEvent,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { onPage, pageBox, pageWindow } from './device';
-import type { MenuItem } from './dialogs';
+import { isPhone, onPage, pageBox, pageWindow } from './device';
+import type { MenuHead, MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { boardLabel, collectionLabel, listLabel } from './items';
+import { liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
 /** What can be done to a task, in the list at the path given. */
@@ -58,8 +60,8 @@ export interface TaskActions {
   update: (list: string, id: string, patch: TaskPatch) => void;
   setDone: (list: string, id: string, done: boolean) => void;
   remove: (list: string, id: string) => void;
-  /** Opens a menu at the pointer. */
-  menu: (event: MouseEvent, items: MenuItem[]) => void;
+  /** Opens a menu at the pointer; on a phone an action sheet, `head` saying what it is about. */
+  menu: (event: MouseEvent, items: MenuItem[], head?: MenuHead) => void;
   addSection: (list: string, name: string) => void;
   renameSection: (list: string, id: string, name: string) => void;
   foldSection: (list: string, id: string, collapsed: boolean) => void;
@@ -84,6 +86,14 @@ export interface TaskActions {
   recordTitle: (record: TaskRecord) => string;
   /** Opens a record over the view. */
   openRecord: (collection: string, id: string) => void;
+  /** On a phone: opens a task as a sheet; `subtask` starts a new subtask in it. */
+  open?: (list: string, id: string, subtask?: boolean) => void;
+  /** On a phone: the date of a task, picked in a sheet. */
+  pickDate?: (list: string, id: string) => void;
+  /** On a phone: the record a task is about, picked in a sheet. */
+  pickRecord?: (list: string, id: string) => void;
+  /** On a phone: a new task, typed above the keyboard, for a list or a section of it. */
+  quickAdd?: (list: string, section: string | null) => void;
 }
 
 /** A row of the record picker: unlinking, or a record of a collection. */
@@ -201,8 +211,8 @@ function RecordPicker({ anchor, current, choices, onPick, onClose }: {
 interface DragHandlers {
   grab: (event: DragEvent<HTMLElement>, what: { task: Task } | { section: Section }) => void;
   release: () => void;
-  /** A finger held on the row, which lifts it after a moment. */
-  hold: (event: ReactPointerEvent<HTMLElement>, what: { task: Task } | { section: Section }) => void;
+  /** A finger held on the row, which lifts it after a moment; let go there without carrying it, `still` is called. */
+  hold: (event: ReactPointerEvent<HTMLElement>, what: { task: Task } | { section: Section }, still?: () => void) => void;
 }
 
 export const GRIP = (
@@ -335,7 +345,253 @@ interface Draft {
   description: string;
 }
 
-function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, drag }: ItemProps) {
+/** A task: on a phone a row of its own, else the desktop's. */
+function TaskItem(props: ItemProps) {
+  return isPhone() ? <PhoneTaskItem {...props} /> : <DesktopTaskItem {...props} />;
+}
+
+/** On a phone, a menu opens from the bottom wherever it was asked for. */
+const NO_POINTER = { preventDefault: () => undefined, clientX: 0, clientY: 0 } as unknown as MouseEvent;
+/** How far a row is pulled right before letting go finishes the task. */
+const DONE_PULL = 96;
+/** How wide Date and More are, behind a row pulled left. */
+const ACTIONS_WIDTH = 152;
+/** How far a finger moves before it is scrolling or pulling a row rather than holding it. */
+const TOUCH_SLOP = 8;
+/** How long a finger rests on a row, where it cannot be dragged, before its actions open. */
+const HOLD_MS = 450;
+
+/**
+ * A task on a phone, after the Phone tasks views of design/mockups.html: its box, its name, its
+ * description and a line of what it has; its subtasks a step in. A tap opens it as a sheet.
+ * Pulled right it is done; pulled left it shows Date and More. Held, it lifts: let go where it is,
+ * its actions open; carried, it moves.
+ */
+function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, drag }: ItemProps) {
+  const row = useRef<HTMLDivElement>(null);
+  /** How far a finger has pulled the row, while it does. */
+  const [pull, setPull] = useState<number | null>(null);
+  /** Pulled left and let go: Date and More stay out. */
+  const [opened, setOpened] = useState(false);
+  const touch = useRef<{ x: number; y: number; way: 'across' | 'down' | null; from: number; timer: number; held: boolean } | null>(null);
+  /** The tap that ends a pull or a hold is not a tap on the row. */
+  const swallow = useRef(false);
+
+  const children = flat ? [] : childrenOf(tasks, task.id).filter((child) => showDone || !child.done);
+  const progress = progressOf(tasks, task.id);
+  const canNest = !flat && depthOf(tasks, task.id) < MAX_DEPTH;
+  const head: MenuHead = { icon: 'tasks', title: task.title, sub: t('phone.taskIn', { list: listLabel(list) }) };
+
+  const priorityMenu = () =>
+    actions.menu(
+      NO_POINTER,
+      ([1, 2, 3, 4] as Priority[]).map((priority) => ({
+        label: priority === 4 ? t('tasks.noPriority') : t('tasks.priorityN', { n: priority }),
+        icon: 'flag' as const,
+        className: `p${priority}`,
+        value: priority === task.priority ? '✓' : undefined,
+        run: () => actions.update(list, task.id, { priority }),
+      })),
+      head,
+    );
+  const more = () =>
+    actions.menu(
+      NO_POINTER,
+      [
+        ...(canNest ? [{ label: t('tasks.addSubtask'), icon: 'plus' as const, run: () => actions.open?.(list, task.id, true) }] : []),
+        { label: t('tasks.dateMenu'), icon: 'calendar', run: () => actions.pickDate?.(list, task.id) },
+        { label: t('tasks.priorityMenu'), icon: 'flag', run: priorityMenu },
+        { label: t('tasks.recordMenu'), icon: 'collection', run: () => actions.pickRecord?.(list, task.id) },
+        { label: t('tasks.moveTo'), icon: 'move', run: () => actions.moveTo(list, task.id) },
+        { label: t('tasks.delete'), icon: 'trash', danger: true, run: () => actions.remove(list, task.id) },
+      ],
+      head,
+    );
+  /** Held and let go: the row lifts over the dim and its actions open. */
+  const held = () => {
+    if (row.current) liftUntilTouch(row.current);
+    more();
+  };
+
+  // Out, Date and More go back in at a touch anywhere else.
+  useEffect(() => {
+    if (!opened) return;
+    const away = (event: PointerEvent) => !row.current?.contains(event.target as Node) && setOpened(false);
+    window.addEventListener('pointerdown', away, true);
+    return () => window.removeEventListener('pointerdown', away, true);
+  }, [opened]);
+
+  const start = (event: ReactTouchEvent) => {
+    if (event.touches.length > 1) return;
+    const point = event.touches[0]!;
+    swallow.current = false;
+    // Where the row cannot be dragged, a finger resting on it opens its actions.
+    const timer = drag
+      ? 0
+      : window.setTimeout(() => {
+          if (!touch.current || touch.current.way) return;
+          touch.current.held = true;
+          swallow.current = true;
+          held();
+        }, HOLD_MS);
+    touch.current = { x: point.clientX, y: point.clientY, way: null, from: opened ? -ACTIONS_WIDTH : 0, timer, held: false };
+  };
+  const move = (event: ReactTouchEvent) => {
+    const at = touch.current;
+    if (!at || at.held || row.current?.classList.contains('lifted')) return;
+    const point = event.touches[0]!;
+    const x = point.clientX - at.x;
+    const y = point.clientY - at.y;
+    if (!at.way && Math.max(Math.abs(x), Math.abs(y)) > TOUCH_SLOP) {
+      at.way = Math.abs(x) > Math.abs(y) ? 'across' : 'down';
+      window.clearTimeout(at.timer);
+    }
+    if (at.way !== 'across') return;
+    swallow.current = true;
+    setPull(Math.max(-ACTIONS_WIDTH * 1.4, Math.min(DONE_PULL * 1.6, at.from + x)));
+  };
+  const end = (event: ReactTouchEvent) => {
+    const at = touch.current;
+    touch.current = null;
+    if (!at) return;
+    window.clearTimeout(at.timer);
+    if (at.held) event.preventDefault();
+    if (at.way === 'across' && pull !== null) {
+      if (pull > DONE_PULL) {
+        setOpened(false);
+        actions.setDone(list, task.id, !task.done);
+      } else setOpened(pull < -ACTIONS_WIDTH / 2);
+    }
+    setPull(null);
+  };
+  const offset = pull ?? (opened ? -ACTIONS_WIDTH : 0);
+
+  // What the task has, on a line under it: its date, its list in the views over all lists, how
+  // many subtasks are done, its record, the note or card it came from.
+  const noteName = task.note ? actions.noteTitle(task.note) : null;
+  const cardKey = task.card ? actions.cardLabel(task.card) : null;
+  const meta = [
+    task.due && (
+      <span key="due" className={dueClass(task.due, today)}>
+        <Icon name="calendar" />
+        {dueLabel(task.due, today)}
+      </span>
+    ),
+    flat && !grouped && (
+      <span key="list">
+        <Icon name="tasks" />
+        {listLabel(list)}
+      </span>
+    ),
+    progress.total > 0 && <span key="progress">{t('tasks.progress', { done: progress.done, total: progress.total })}</span>,
+    task.record && (
+      <span key="record">
+        <Icon name="collection" />
+        {actions.recordTitle(task.record)}
+      </span>
+    ),
+    noteName && (
+      <span key="note">
+        <Icon name="note" />
+        {noteName}
+      </span>
+    ),
+    cardKey && (
+      <span key="card">
+        <Icon name="board" />
+        {cardKey}
+      </span>
+    ),
+  ].filter(Boolean);
+
+  return (
+    <>
+      <div
+        ref={row}
+        className={['mb-task', task.done && 'done', opened && 'opened', pull !== null && 'pulling'].filter(Boolean).join(' ')}
+        data-row="task"
+        data-id={task.id}
+        data-depth={depthOf(tasks, task.id)}
+        onPointerDown={drag ? (event) => !pressOnField(event) && drag.hold(event, { task }, held) : undefined}
+        onContextMenu={(event) => {
+          // A long press where the phone sends one; while it is dragged, the drag has it.
+          event.preventDefault();
+          if (!drag && !touch.current?.held) held();
+        }}
+        onTouchStart={start}
+        onTouchMove={move}
+        onTouchEnd={end}
+        onTouchCancel={end}
+        onClickCapture={(event) => {
+          if ((event.target as HTMLElement).closest('.mb-swa')) return;
+          if (swallow.current || opened) {
+            event.preventDefault();
+            event.stopPropagation();
+            swallow.current = false;
+            setOpened(false);
+          }
+        }}
+      >
+        <span className="mb-swa l" aria-hidden="true" style={{ width: Math.max(0, offset) }}>
+          <span className={offset > DONE_PULL ? 'done on' : 'done'}>
+            <Icon name="check" />
+            {t(task.done ? 'phone.reopen' : 'phone.done')}
+          </span>
+        </span>
+        <span className="mb-swa r" aria-hidden={!opened}>
+          <button
+            type="button"
+            className="date"
+            tabIndex={opened ? 0 : -1}
+            onClick={() => {
+              setOpened(false);
+              actions.pickDate?.(list, task.id);
+            }}
+          >
+            <Icon name="calendar" />
+            {t('tasks.date')}
+          </button>
+          <button
+            type="button"
+            className="more"
+            tabIndex={opened ? 0 : -1}
+            onClick={() => {
+              setOpened(false);
+              more();
+            }}
+          >
+            <Icon name="more" />
+            {t('tasks.more')}
+          </button>
+        </span>
+        <div className={pull === null ? 'slide' : 'slide moving'} style={offset ? { transform: `translateX(${offset}px)` } : undefined}>
+          <button
+            type="button"
+            className={`cb p${task.priority}`}
+            role="checkbox"
+            aria-checked={task.done}
+            aria-label={t(task.done ? 'tasks.reopen' : 'tasks.complete', { name: task.title })}
+            onClick={() => actions.setDone(list, task.id, !task.done)}
+          />
+          <button type="button" className="tx" onClick={() => actions.open?.(list, task.id)}>
+            <b>{task.title}</b>
+            {task.description && <span className="desc">{task.description}</span>}
+            {meta.length > 0 && <span className="meta">{meta}</span>}
+          </button>
+        </div>
+      </div>
+      {children.length > 0 && (
+        <div className="subs">
+          {children.map((child) => (
+            <TaskItem key={child.id} list={list} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, drag }: ItemProps) {
   const [editing, setEditing] = useState<Draft | null>(null);
   // The record button, while its list of records is open under it.
   const [picking, setPicking] = useState<HTMLElement | null>(null);
@@ -609,6 +865,22 @@ function TaskPage({ title, detail, extra, onAdd, onAddClick, footer, bare, addin
   useEffect(() => {
     if (adding) setComposing(true);
   }, [adding]);
+  if (isPhone()) {
+    return (
+      <section className="tasks mb-tasks">
+        {!bare && (
+          <header className="mb-head">
+            <h1>{title}</h1>
+            {extra && <div className="mb-chips">{extra}</div>}
+          </header>
+        )}
+        <div className="tl">
+          {children}
+          {footer}
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="tasks">
       {!bare && (
@@ -835,22 +1107,29 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
     if (renaming !== null) actions.renameSection(list, section.id, renaming);
     setRenaming(null);
   };
+  const phone = isPhone();
   const menu = (event: MouseEvent) =>
-    actions.menu(event, [
-      { label: t('menu.rename'), run: () => setRenaming(section.name) },
-      {
-        label: t('tasks.add'),
-        run: () => {
-          if (!open) actions.foldSection(list, section.id, false);
-          setComposing(true);
+    actions.menu(
+      event,
+      [
+        { label: t('menu.rename'), icon: 'pen', run: () => setRenaming(section.name) },
+        {
+          label: t('tasks.add'),
+          icon: 'plus',
+          run: () => {
+            if (!open) actions.foldSection(list, section.id, false);
+            if (phone && actions.quickAdd) actions.quickAdd(list, section.id);
+            else setComposing(true);
+          },
         },
-      },
-      { label: t('sections.delete'), run: () => actions.removeSection(list, section) },
-    ]);
+        { label: t('sections.delete'), icon: 'trash', danger: true, run: () => actions.removeSection(list, section) },
+      ],
+      { icon: 'tasks', title: section.name, sub: t('phone.sectionIn', { list: listLabel(list) }) },
+    );
   return (
     <div className="section">
       <div
-        className={['sec fold', !open && 'closed', dropInto && 'drop-into', renaming !== null && 'composing'].filter(Boolean).join(' ')}
+        className={['sec fold', phone && 'mb-tsec', !open && 'closed', dropInto && 'drop-into', renaming !== null && 'composing'].filter(Boolean).join(' ')}
         data-row="section"
         data-id={section.id}
         data-collapsed={!open}
@@ -865,7 +1144,7 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
           aria-label={t(open ? 'sections.fold' : 'sections.unfold', { name: section.name })}
           onClick={() => actions.foldSection(list, section.id, open)}
         >
-          {open ? '▾' : '▸'}
+          {phone ? <Icon name="chevron" /> : open ? '▾' : '▸'}
         </button>
         {renaming === null ? (
           <button type="button" className="sec-name" onClick={() => setRenaming(section.name)}>
@@ -914,9 +1193,11 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
               onClose={() => setComposing(false)}
             />
           ) : (
-            <button type="button" className="qa" onClick={() => setComposing(true)}>
-              {t('tasks.addRow')}
-            </button>
+            !phone && (
+              <button type="button" className="qa" onClick={() => setComposing(true)}>
+                {t('tasks.addRow')}
+              </button>
+            )
           )}
         </>
       )}
@@ -997,7 +1278,7 @@ export function TaskList({ list, tasks, sections, today, actions }: {
       requestAnimationFrame(lift);
     },
     release,
-    hold(event, what) {
+    hold(event, what, still) {
       const row = event.currentTarget;
       holdToDrag(event, {
         element: row,
@@ -1009,6 +1290,12 @@ export function TaskList({ list, tasks, sections, today, actions }: {
         onMove: (x, y) => over({ clientX: x, clientY: y }),
         onDrop: land,
         onCancel: release,
+        onStill: still
+          ? () => {
+              release();
+              still();
+            }
+          : undefined,
       });
     },
   };
@@ -1053,8 +1340,10 @@ export function TaskList({ list, tasks, sections, today, actions }: {
         {composing ? (
           <Composer placeholder={t('tasks.name')} onAdd={(title) => actions.add(list, { title })} onClose={() => setComposing(false)} />
         ) : (
-          // With sections, each has its own add row; the header's button adds above them.
-          sections.length === 0 && (
+          // With sections, each has its own add row; the header's button adds above them. On a
+          // phone + adds.
+          sections.length === 0 &&
+          !isPhone() && (
             <button type="button" className="qa" onClick={() => setComposing(true)}>
               {t('tasks.addRow')}
             </button>
@@ -1076,6 +1365,11 @@ export function TaskList({ list, tasks, sections, today, actions }: {
       </div>
       {addingSection ? (
         <SectionComposer onAdd={(name) => actions.addSection(list, name)} onClose={() => setAddingSection(false)} />
+      ) : isPhone() ? (
+        <button type="button" className="mb-tadd" onClick={() => setAddingSection(true)}>
+          <Icon name="plus" />
+          {t('sections.add')}
+        </button>
       ) : (
         <button type="button" className="qa add-sec" onClick={() => setAddingSection(true)}>
           {t('sections.add')}
@@ -1181,6 +1475,45 @@ function CardRow({ board, whole, card, today, actions, grouped }: {
   const column = whole.columns.find((c) => c.id === card.column);
   const phase = card.phase ? whole.phases.find((p) => p.id === card.phase) : undefined;
   const doneColumns = whole.columns.filter((c) => c.kind === 'done');
+  if (isPhone()) {
+    const finishCard = () =>
+      doneColumns.length < 2
+        ? actions.finishCard(board, card.id)
+        : actions.menu(
+            NO_POINTER,
+            doneColumns.map((done) => ({ label: t('board.moveToColumn', { column: done.name }), run: () => actions.finishCard(board, card.id, done.id) })),
+            { icon: 'board', title: card.title, sub: boardLabel(board) },
+          );
+    return (
+      <div className="mb-task card-row" data-row="card">
+        <div className="slide">
+          <button type="button" className={`cb sq p${card.priority}`} role="checkbox" aria-checked={false} aria-label={t('tasks.finishCard', { name: card.title })} onClick={finishCard} />
+          <button type="button" className="tx" onClick={() => actions.openCard(board, card.id)}>
+            <b>
+              <span className="key">{keyOf(whole, card)}</span>
+              {card.title}
+            </b>
+            <span className="meta">
+              {card.due && (
+                <span className={dueClass(card.due, today)}>
+                  <Icon name="calendar" />
+                  {dueLabel(card.due, today)}
+                </span>
+              )}
+              {!grouped && (
+                <span>
+                  <Icon name="board" />
+                  {boardLabel(board)}
+                </span>
+              )}
+              {column && <span>{column.name}</span>}
+              {phase && <span>{phase.name}</span>}
+            </span>
+          </button>
+        </div>
+      </div>
+    );
+  }
   const finish = (event: MouseEvent<HTMLButtonElement>) => {
     if (doneColumns.length < 2) return actions.finishCard(board, card.id);
     // The menu opens under the box, also when the box is pressed from the keyboard.
@@ -1251,9 +1584,9 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
   const cardItem = ({ board, card }: { board: string; card: Card }, grouped?: boolean) => (
     <CardRow key={`${board}#${card.id}`} board={board} whole={boards[board]!} card={card} today={today} actions={actions} grouped={grouped} />
   );
-  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = []) =>
+  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = [], day?: string) =>
     tasks.length + cards.length > 0 && (
-      <div key={title}>
+      <div key={title} data-day={day}>
         <div className="sec">
           {title} <small>{tasks.length + cards.length}</small>
         </div>
@@ -1295,14 +1628,40 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
   const allDays = [...new Set([...days.map((d) => d.day), ...cards.later.keys()])].sort();
   return (
     <TaskPage title={t('tasks.upcoming')} bare={bare}>
+      {isPhone() && <WeekStrip today={today} busy={new Set(allDays)} />}
       {allDays.map((day) =>
         section(
           `${dueLabel(day, today)} · ${toDate(day).toLocaleDateString(locale(), SHORT)}`,
           days.find((d) => d.day === day)?.tasks ?? [],
           cards.later.get(day) ?? [],
+          day,
         ),
       )}
       {allDays.length === 0 && <p className="task-empty">{t('tasks.nothingLater')}</p>}
     </TaskPage>
+  );
+}
+
+/**
+ * The week on top of Upcoming on a phone: seven days from today, a dot under each that has
+ * something due; a tap goes to that day's tasks.
+ */
+function WeekStrip({ today, busy }: { today: string; busy: Set<string> }) {
+  const strip = useRef<HTMLDivElement>(null);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
+  const go = (day: string) => {
+    const found = strip.current?.parentElement?.querySelector<HTMLElement>(`[data-day="${day}"]`);
+    found?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+  return (
+    <div ref={strip} className="mb-week">
+      {days.map((day) => (
+        <button key={day} type="button" className={day === today ? 'on' : undefined} disabled={!busy.has(day) && day !== today} onClick={() => go(day)}>
+          {toDate(day).toLocaleDateString(locale(), { weekday: 'short' })}
+          <b>{toDate(day).getDate()}</b>
+          <i className={busy.has(day) ? undefined : 'no'} />
+        </button>
+      ))}
+    </div>
   );
 }

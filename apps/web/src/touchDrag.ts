@@ -27,6 +27,11 @@ export interface HoldToDrag {
   onDrop: () => void;
   /** It ended without a drop. */
   onCancel: () => void;
+  /**
+   * The finger let go where it lifted the thing, without carrying it: instead of a drop. On a
+   * phone this opens what can be done with it. Without it, letting go there is a drop.
+   */
+  onStill?: () => void;
 }
 
 /** A box that scrolls along `axis`. */
@@ -54,6 +59,9 @@ export function holdToDrag(event: ReactPointerEvent | PointerEvent, drag: HoldTo
   const start = { x: event.clientX, y: event.clientY };
   let point = start;
   let lifted = false;
+  /** Where it lifted, and whether the finger carried it away from there since. */
+  let liftedAt = start;
+  let carriedAway = false;
   let ghost: HTMLElement | null = null;
   let grip = { x: 0, y: 0 };
   let frame = 0;
@@ -88,6 +96,7 @@ export function holdToDrag(event: ReactPointerEvent | PointerEvent, drag: HoldTo
 
   const lift = () => {
     lifted = true;
+    liftedAt = point;
     const box = drag.element.getBoundingClientRect();
     grip = { x: point.x - box.left, y: point.y - box.top };
     ghost = drag.element.cloneNode(true) as HTMLElement;
@@ -111,6 +120,7 @@ export function holdToDrag(event: ReactPointerEvent | PointerEvent, drag: HoldTo
       if (Math.hypot(point.x - start.x, point.y - start.y) > SLOP) end();
       return;
     }
+    if (Math.hypot(point.x - liftedAt.x, point.y - liftedAt.y) > SLOP) carriedAway = true;
     place();
     drag.onMove(point.x, point.y);
   };
@@ -119,7 +129,8 @@ export function holdToDrag(event: ReactPointerEvent | PointerEvent, drag: HoldTo
     const carried = lifted;
     end();
     if (!carried) return;
-    drag.onDrop();
+    if (!carriedAway && drag.onStill) drag.onStill();
+    else drag.onDrop();
     // The touch that let go is not also a tap on what it ends on.
     const swallow = (click: Event) => {
       click.preventDefault();

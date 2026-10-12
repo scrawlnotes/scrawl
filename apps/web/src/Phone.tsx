@@ -53,8 +53,12 @@ export interface PhoneProps {
   counts: Record<string, number>;
   /** Where the app draws what is open; moved into the page that shows it. */
   item: HTMLElement;
-  /** Today or Upcoming; `adding` counts the presses of +, which open the add row. */
-  dueView: (kind: 'today' | 'upcoming', adding: number) => ReactNode;
+  /** Today or Upcoming. */
+  dueView: (kind: 'today' | 'upcoming') => ReactNode;
+  /** Whether + adds to what is open: a task to a list. */
+  canAdd: (id: string) => boolean;
+  /** + on what is open, or on Today or Upcoming: a task, typed above the keyboard. */
+  onAdd: (id: string) => void;
   trashView: ReactNode;
   /** How sync stands in a word or two. */
   syncWord: string;
@@ -360,7 +364,6 @@ export function Phone(props: PhoneProps) {
   /** How far a finger has pulled the page on top to the right, going back. */
   const [pull, setPull] = useState<number | null>(null);
   const [due, setDue] = useState<'today' | 'upcoming'>('today');
-  const [adding, setAdding] = useState(0);
   const [newFolderIn, setNewFolderIn] = useState<string | null>(null);
   const view = useViewport();
   const keyboard = view.keyboard;
@@ -768,10 +771,7 @@ export function Phone(props: PhoneProps) {
                   type="button"
                   role="tab"
                   aria-selected={due === kind}
-                  onClick={() => {
-                    setDue(kind);
-                    setAdding(0);
-                  }}
+                  onClick={() => setDue(kind)}
                 >
                   {kind === 'today' ? t('side.today') : t('side.upcoming')}
                 </button>
@@ -779,7 +779,7 @@ export function Phone(props: PhoneProps) {
             </div>
           }
         >
-          <div className="mb-due">{props.dueView(due, adding)}</div>
+          <div className="mb-due">{props.dueView(due)}</div>
         </PageFrame>
       );
     }
@@ -859,15 +859,16 @@ export function Phone(props: PhoneProps) {
   };
 
   const shownPages = leaving?.place === place ? [...stack, leaving.page] : stack;
+  // + adds what the page is for: on Today a task due today, on Upcoming one due tomorrow; in
+  // Browse and a folder Create for that folder; in a list a task.
   const fab =
-    top.kind === 'root' || top.kind === 'folder'
-      ? () => {
-          if (place === 'today') {
-            setDue('today');
-            setAdding((n) => n + 1);
-          } else props.onCreate(top.kind === 'folder' ? top.path : INBOX);
-        }
-      : null;
+    top.kind === 'root' && place === 'today'
+      ? () => props.onAdd(due === 'today' ? TODAY : UPCOMING)
+      : top.kind === 'root' || top.kind === 'folder'
+        ? () => props.onCreate(top.kind === 'folder' ? top.path : INBOX)
+        : top.kind === 'item' && props.canAdd(top.id)
+          ? () => props.onAdd(top.id)
+          : null;
 
   return (
     // The phone's own layout fills what the phone shows: with the keyboard up it ends on the keyboard.

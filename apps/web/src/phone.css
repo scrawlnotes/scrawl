@@ -1422,7 +1422,7 @@ button.mb-fr:active {
   }
 }
 
-.mb-lifted {
+body > .mb-lifted {
   position: fixed;
   z-index: 45;
   box-sizing: border-box;
@@ -1846,4 +1846,873 @@ button.mb-fr:active {
 
 .mb-foot .mb-btn:disabled {
   opacity: 0.5;
+}
+
+/* ---------- tasks: rows that are pulled and held, sections, the week, + and a task's sheet ---------- */
+
+.mb-tasks .tl {
+  padding: 0 0 110px;
+}
+
+.mb-tasks .rows {
+  margin: 0;
+  padding: 0;
+}
+
+.mb-tasks .mb-head {
+  padding-bottom: 4px;
+}
+
+.mb-tasks .mb-head .mb-chips {
+  flex-wrap: wrap;
+}
+
+/* a task: its box, its name, its description and what it has; pulled, Done or Date and More */
+.mb-task {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mb-task::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 51px;
+  right: 0;
+  z-index: 2;
+  border-top: 1px solid var(--sl-line);
+}
+
+.rows > .mb-task:first-child::before,
+.mb-tsec + .mb-task::before,
+.sec + .mb-task::before,
+.mb-task.pulling::before,
+.mb-task.opened::before {
+  display: none;
+}
+
+.mb-task .slide {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 13px;
+  padding: 12px 16px;
+  background: var(--sl-bg);
+  transition: transform 220ms ease;
+}
+
+.mb-task .slide.moving {
+  transition: none;
+}
+
+.mb-task .cb,
+.mb-tbig .cb,
+.mb-fr .cb {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+}
+
+.mb-task .cb::after,
+.mb-tbig .cb::after,
+.mb-fr .cb::after {
+  left: 6px;
+  top: 2.5px;
+  width: 5px;
+  height: 10px;
+  border-width: 0 2px 2px 0;
+}
+
+.mb-task .cb.sq {
+  border-radius: 6px;
+}
+
+.mb-task.done .cb::after,
+.mb-tbig .cb[aria-checked='true']::after,
+.mb-fr .cb[aria-checked='true']::after {
+  opacity: 1;
+}
+
+.mb-task .tx {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0;
+  color: var(--sl-fg);
+  font-size: 16px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.mb-task .tx b {
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.mb-task.done .tx b {
+  color: var(--sl-faint);
+  text-decoration: line-through;
+}
+
+.mb-task .key {
+  margin-right: 7px;
+  color: var(--sl-faint);
+  font: 13.5px var(--sl-font-mono);
+}
+
+.mb-task .desc {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--sl-dim);
+  font-size: 14.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-task .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  margin-top: 3px;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}
+
+.mb-task .meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mb .mb-task .meta .icon,
+.mb-lifted .meta .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.mb-task .meta .today {
+  color: var(--sl-accent);
+}
+
+.mb-task .meta .late {
+  color: var(--sl-p1);
+}
+
+.mb-tasks .subs {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.mb-swa {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+}
+
+.mb-swa.l {
+  left: 0;
+  overflow: hidden;
+  background: #4fa36c;
+}
+
+.mb-swa.l .done {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 96px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.mb-swa.l .done.on {
+  opacity: 1;
+}
+
+.mb-swa.r {
+  right: 0;
+  visibility: hidden;
+}
+
+.mb-task.pulling .mb-swa.r,
+.mb-task.opened .mb-swa.r {
+  visibility: visible;
+}
+
+.mb-swa.r button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 76px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mb .mb-swa .icon {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2;
+}
+
+.mb-swa .date {
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+}
+
+.mb-swa .more {
+  background: var(--sl-dim);
+  color: var(--sl-bg);
+}
+
+/* a section: folds by its arrow, its menu by ··· */
+.mb-tasks .sec.mb-tsec {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 46px;
+  margin: 8px 0 0;
+  padding: 0 4px 0 10px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-fg);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mb-tsec > .grip {
+  display: none;
+}
+
+.mb-tsec .chev {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 44px;
+  color: var(--sl-faint);
+}
+
+.mb .mb-tsec .chev .icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
+  transform: rotate(90deg);
+  transition: transform 150ms ease;
+}
+
+.mb .mb-tsec.closed .chev .icon {
+  transform: none;
+}
+
+.mb-tsec .sec-name,
+.mb-tsec .sec-edit {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mb-tsec small {
+  color: var(--sl-faint);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.mb-tasks .mb-tsec .more {
+  width: 44px;
+  height: 44px;
+  color: var(--sl-faint);
+  font-size: 20px;
+  opacity: 1;
+}
+
+.mb-tadd {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 6px;
+  padding: 0 16px;
+  color: var(--sl-faint);
+  font-size: 16px;
+}
+
+.mb-tasks .qa {
+  display: block;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--sl-faint);
+  font-size: 15px;
+}
+
+/* Today, Upcoming and a filter: a heading for each group */
+.mb-tasks .sec:not(.mb-tsec, .composing) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 10px 16px 2px;
+  border: 0;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mb-tasks .task-empty {
+  margin: 0;
+  padding: 16px;
+  color: var(--sl-faint);
+}
+
+/* the week on top of Upcoming */
+.mb-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin: 4px 10px 2px;
+}
+
+.mb-week button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 0 6px;
+  color: var(--sl-faint);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.mb-week button:disabled {
+  cursor: default;
+}
+
+.mb-week b {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--sl-fg);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.mb-week .on b {
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 700;
+}
+
+.mb-week i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sl-faint);
+}
+
+.mb-week i.no {
+  visibility: hidden;
+}
+
+/* + : a new task above the keyboard */
+.mb-sheet.mb-qa form {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 16px 8px;
+}
+
+.mb-qa .tt,
+.mb-qa .ds {
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  outline: none;
+}
+
+.mb-qa .tt {
+  font-size: 17px;
+}
+
+.mb-qa .ds {
+  padding-top: 2px;
+  font-size: 15px;
+}
+
+.mb-qa .tt::placeholder,
+.mb-qa .ds::placeholder {
+  color: var(--sl-faint);
+}
+
+.mb-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.mb-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.mb-chip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 9px;
+  color: var(--sl-dim);
+  font-size: 14.5px;
+}
+
+.mb-sheet .mb-chip .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.mb-chip.set {
+  border-color: color-mix(in srgb, var(--sl-accent) 45%, var(--sl-line));
+  color: var(--sl-fg);
+}
+
+.mb-sheet .mb-chip.set .icon {
+  color: var(--sl-accent);
+}
+
+.mb-sheet .mb-chip.set.late .icon,
+.mb-sheet .mb-chip.set.p1 .icon {
+  color: var(--sl-p1);
+}
+
+.mb-sheet .mb-chip.set.p2 .icon {
+  color: var(--sl-p2);
+}
+
+.mb-sheet .mb-chip.set.p3 .icon {
+  color: var(--sl-p3);
+}
+
+.mb-qa .foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px -16px 0;
+  padding: 8px 10px 0 16px;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-qa .where {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 40px;
+  color: var(--sl-dim);
+  font-size: 14.5px;
+  white-space: nowrap;
+}
+
+.mb-qa .where span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mb-sheet .mb-qa .where .icon,
+.mb-qa .where .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.mb-qa .where .icon:last-child {
+  width: 14px;
+  height: 14px;
+  color: var(--sl-faint);
+  stroke-width: 2.2;
+}
+
+.mb-qa .addb {
+  flex: none;
+  margin-left: auto;
+  padding: 9px 18px;
+  border-radius: 10px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mb-qa .addb:disabled {
+  opacity: 0.45;
+}
+
+/* the date sheet: the quick days, then the month */
+.mb-sheet .mb-row .wd {
+  color: var(--sl-faint);
+  font-size: 15px;
+}
+
+.mb-sheet .mb-row .tick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  color: var(--sl-accent);
+}
+
+.mb-sheet .mb-row .tick .icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+}
+
+.mb-cal {
+  margin-top: 2px;
+  padding: 2px 16px 16px;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-cal .mh {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  font-weight: 600;
+}
+
+.mb-cal .mh span {
+  display: flex;
+  gap: 2px;
+}
+
+.mb-cal .mh button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: var(--sl-accent);
+}
+
+.mb-sheet .mb-cal .mh .icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+}
+
+.mb-cal .g {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+
+.mb-cal .w {
+  padding: 4px 0;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.mb-cal .g button {
+  justify-self: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--sl-fg);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-cal .g button.past {
+  color: var(--sl-faint);
+}
+
+.mb-cal .g button.today {
+  color: var(--sl-accent);
+  font-weight: 700;
+}
+
+.mb-cal .g button.on {
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 700;
+}
+
+/* a sheet's rows of picks: a section a step in */
+.mb-fr.pick .in small {
+  margin-left: 7px;
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+.mb-fr.pick.sub {
+  padding-left: 48px;
+}
+
+.mb-fr.pick.sub::before {
+  left: 48px;
+}
+
+/* a task as a sheet */
+.mb-sheet.mb-tsheet {
+  min-height: 72%;
+}
+
+.mb-crumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 44px;
+  color: var(--sl-dim);
+  font-size: 15px;
+}
+
+.mb-crumb span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-sheet .mb-crumb .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.mb-sheet .mb-crumb .icon:nth-of-type(2) {
+  width: 14px;
+  height: 14px;
+  color: var(--sl-faint);
+  stroke-width: 2.2;
+}
+
+.mb-x.dots + .mb-x {
+  margin-left: 8px;
+}
+
+.mb-sheet .mb-x.dots .icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.8;
+}
+
+.mb-tbig {
+  display: flex;
+  gap: 13px;
+  padding: 6px 16px 14px;
+}
+
+.mb-tbig .cb {
+  width: 24px;
+  height: 24px;
+  margin-top: 3px;
+}
+
+.mb-tbig .tx {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mb-tbig textarea {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font-family: inherit;
+  outline: none;
+  resize: none;
+}
+
+.mb-tbig .tt {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.mb-tbig .ds {
+  margin-top: 6px;
+  color: var(--sl-dim);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.mb-tbig .ds::placeholder {
+  color: var(--sl-faint);
+}
+
+.mb-sheet .mb-fr > .icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--sl-dim);
+}
+
+.mb-tsheet .mb-fr .fl {
+  width: 70px;
+}
+
+.mb-fr .val .none {
+  color: var(--sl-faint);
+}
+
+.mb-fr .val .lnk {
+  overflow: hidden;
+  color: var(--sl-accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-fr .val .today {
+  color: var(--sl-accent);
+}
+
+.mb-fr .val .late {
+  color: var(--sl-p1);
+}
+
+.mb-fr .val .prio {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mb-sheet .mb-fr .val .prio .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.mb-fr .val .prio.p1 {
+  color: var(--sl-p1);
+}
+
+.mb-fr .val .prio.p2 {
+  color: var(--sl-p2);
+}
+
+.mb-fr .val .prio.p3 {
+  color: var(--sl-p3);
+}
+
+.mb-fr.sub {
+  gap: 12px;
+}
+
+.mb-fr.sub .in {
+  padding: 13px 0;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.mb-fr.sub.done .in {
+  color: var(--sl-faint);
+  text-decoration: line-through;
+}
+
+.mb-fr.add-sub {
+  gap: 8px;
+  padding-right: 8px;
+}
+
+.mb-fr.add-sub input.in {
+  font-size: 16px;
+}
+
+.mb-fr.add-sub .go {
+  flex: none;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 9px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.mb-fr.add-sub .go:disabled {
+  opacity: 0.45;
+}
+
+/* an action sheet's priorities, each in its colour */
+.mb-acts .a.p1 .icon {
+  color: var(--sl-p1);
+}
+
+.mb-acts .a.p2 .icon {
+  color: var(--sl-p2);
+}
+
+.mb-acts .a.p3 .icon {
+  color: var(--sl-p3);
+}
+
+/* Move to: the list it is in is marked and cannot be chosen; the lists picked from a note are ticked */
+.mb-sheet.dialog.move-task:not(.pick-place) .choices button[aria-selected='true']::after {
+  display: none;
+}
+
+.mb-sheet.dialog.move-task .choices button[aria-disabled='true'] {
+  color: var(--sl-faint);
+}
+
+.mb-sheet.dialog.move-task .choices .here {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+/* A section named in place, new or renamed: its name, Cancel and the button that saves it. */
+.mb-tasks .sec.composing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 8px 10px 8px 16px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-fg);
+  font-size: 16px;
+}
+
+.mb-tasks .sec.composing .chev,
+.mb-tasks .sec.composing > .grip {
+  display: none;
+}
+
+.mb-tasks .sec.composing .sec-edit {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mb-tasks .sec.composing .edit-foot {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mb-tasks .sec.composing .edit-foot button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 15px;
 }

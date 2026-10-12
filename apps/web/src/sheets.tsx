@@ -124,6 +124,26 @@ export function SheetClose({ onClose }: { onClose: () => void }) {
   );
 }
 
+/**
+ * Lifts a copy of a row over the dim of the menu its hold opened, where the row is, until the next
+ * touch: the menu's own choice, or Cancel.
+ */
+export function liftUntilTouch(row: HTMLElement) {
+  const box = row.getBoundingClientRect();
+  const copy = row.cloneNode(true) as HTMLElement;
+  copy.classList.remove('lifted', 'opened');
+  copy.classList.add('mb-lifted');
+  copy.setAttribute('aria-hidden', 'true');
+  Object.assign(copy.style, { top: `${box.top}px`, left: `${box.left}px`, width: `${box.width}px`, height: `${box.height}px` });
+  document.body.append(copy);
+  const drop = () => {
+    copy.remove();
+    window.removeEventListener('pointerdown', drop, true);
+  };
+  // After the touch that held it has ended.
+  window.setTimeout(() => window.addEventListener('pointerdown', drop, true), 0);
+}
+
 /** A menu on a phone. A Delete, or anything else that takes something away, comes last and red. */
 export function ActionSheet({ head, items, onClose }: { head?: MenuHead; items: MenuItem[]; onClose: () => void }) {
   const groups: MenuItem[][] = [];
@@ -160,7 +180,7 @@ export function ActionSheet({ head, items, onClose }: { head?: MenuHead; items: 
                   key={item.label}
                   type="button"
                   role="menuitem"
-                  className={item.danger ? 'a red' : 'a'}
+                  className={['a', item.danger && 'red', item.className].filter(Boolean).join(' ')}
                   disabled={item.disabled !== undefined}
                   onClick={() => {
                     onClose();

@@ -123,6 +123,26 @@ const shapes = {
   close: <path d="M7 7l10 10M17 7L7 17" />,
   /** What is chosen in a list on a phone. */
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  // The quick dates of a phone's date sheet.
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" />
+    </>
+  ),
+  rise: <path d="M3.5 18h17M7 18a5 5 0 0 1 10 0M12 5.5v3.5M5.2 10.6l1.6 1.2M18.8 10.6l-1.6 1.2" />,
+  week: (
+    <>
+      <rect x="4" y="5.5" width="16" height="14.5" rx="2" />
+      <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4M8 15h8M13.5 12.8L16 15l-2.5 2.2" />
+    </>
+  ),
+  noDate: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M6 6l12 12" />
+    </>
+  ),
   // The format bar of a phone.
   undo: (
     <>

@@ -694,7 +694,8 @@ export function MoveTaskDialog({ title, subtasks, places, onMove, onClose }: {
       <input
         aria-label={t('moveTask.search')}
         placeholder={t('moveTask.search')}
-        autoFocus
+        // On a phone the keyboard comes when the field is tapped.
+        autoFocus={!isPhone()}
         value={query}
         onChange={(event) => {
           setQuery(event.target.value);
@@ -760,7 +761,7 @@ export function NewTaskDialog({ title, note, places, initial, onAdd, onClose }: 
     event.preventDefault();
   };
   return (
-    <Dialog label={t('toTask.title')} className="move-task" onClose={onClose} onKeyDown={onKey}>
+    <Dialog label={t('toTask.title')} className="move-task pick-place" onClose={onClose} onKeyDown={onKey}>
       <h2>{t('toTask.title')}</h2>
       <input
         aria-label={t('tasks.title')}
@@ -839,7 +840,7 @@ export function NewCardDialog({ title, note, boards, initial, onAdd, onClose }: 
     event.preventDefault();
   };
   return (
-    <Dialog label={t('toCard.title')} className="move-task" onClose={onClose} onKeyDown={onKey}>
+    <Dialog label={t('toCard.title')} className="move-task pick-place" onClose={onClose} onKeyDown={onKey}>
       <h2>{t('toCard.title')}</h2>
       <input aria-label={t('card.title')} placeholder={t('board.cardName')} autoFocus value={value} onChange={(event) => setValue(event.target.value)} />
       <p className="links-back">
@@ -969,6 +970,8 @@ export interface MenuItem {
   value?: string;
   /** It takes something away: on a phone it comes last, red. */
   danger?: boolean;
+  /** On a phone: a class for its row, as a priority's colour. */
+  className?: string;
 }
 
 /** On a phone: what a menu is about, at its top. */
