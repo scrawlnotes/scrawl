@@ -1564,6 +1564,54 @@ p { margin: 0; max-width: 68ch; }
 .mb-fr .rm { display: grid; place-items: center; width: 36px; height: 36px; margin-right: -8px; color: var(--m-faint); }
 .mock .mb-fr .rm svg { width: 20px; height: 20px; }
 .mb-fr .tk { flex: none; width: 18px; color: var(--m-faint); }
+/* A collection on a phone (Oct 12). The table is a list: a record's name and two or three of its
+   fields a row, under a search box and the views as chips. A record is a page: its name, buttons
+   for its site, mail and phone, then its fields as rows and the records that link to it in tabs.
+   Changing a value puts Cancel and Save in the bar above; the form is still saved as one. */
+.mb-searchbar { display: flex; flex: none; align-items: center; gap: 8px; height: 38px; margin: 2px 16px 10px; padding: 0 10px; border-radius: 10px; background: var(--m-side); color: var(--m-faint); }
+.mock .mb-searchbar svg { width: 18px; height: 18px; }
+.mb-views { display: flex; flex: none; align-items: center; gap: 6px; padding: 0 10px 8px 16px; overflow: hidden; border-bottom: 1px solid var(--m-line); }
+.mb-view { flex: none; padding: 6px 12px; border: 1px solid var(--m-line); border-radius: 16px; color: var(--m-dim); font-size: 14px; }
+.mb-view.on { border-color: var(--m-sel); background: var(--m-sel); color: var(--m-fg); font-weight: 600; }
+.mb-views .opt { display: grid; flex: none; place-items: center; width: 38px; height: 34px; margin-left: auto; color: var(--m-accent); }
+.mock .mb-views .opt svg { width: 22px; height: 22px; }
+.mb-rec { position: relative; display: flex; align-items: center; gap: 10px; min-height: 64px; padding: 10px 16px; }
+.mb-rec + .mb-rec::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; border-top: 1px solid var(--m-line); }
+.mb-rec .tx { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+.mb-rec .tx b { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.mb-rec .tx small { display: flex; align-items: center; gap: 8px; overflow: hidden; color: var(--m-faint); font-size: 13.5px; white-space: nowrap; }
+.mb-rec .rt { flex: none; color: var(--m-faint); font-size: 14px; text-align: right; }
+.mb-rec .rt.today { color: var(--m-accent); }
+.mb-rec .rt.num { color: var(--m-fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.mb-sec .sum { margin-left: auto; color: var(--m-dim); font-size: 13.5px; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+/* the record as a page */
+.mb-rhead { flex: none; padding: 0 16px 12px; }
+.mb-rhead h2 { margin: 0; font: 700 26px/1.2 var(--m-ui); }
+.mb-rhead small { display: block; margin-top: 3px; color: var(--m-faint); font: 13.5px var(--m-mono); }
+.mb-qacts { display: flex; flex: none; gap: 10px; padding: 0 16px 12px; }
+.mb-qact { display: flex; flex: 0 1 104px; flex-direction: column; align-items: center; gap: 4px; padding: 9px 0 8px; border-radius: 12px; background: var(--m-side); color: var(--m-accent); font-size: 12.5px; font-weight: 500; }
+.mock .mb-qact svg { width: 22px; height: 22px; }
+.mb-group.wide .fl { width: 104px; }
+.mb-fr .val.ro { color: var(--m-faint); }
+.mb-fr .val .go2 { display: grid; place-items: center; width: 30px; height: 30px; margin-right: -6px; color: var(--m-accent); }
+.mock .mb-fr .val .go2 svg { width: 19px; height: 19px; }
+.mb-fr.changed::after { content: ''; position: absolute; top: 12px; bottom: 12px; left: 0; width: 3px; border-radius: 2px; background: var(--m-accent); }
+.mb-fr .val.typing { color: var(--m-fg); }
+.mb-notes { margin: 0 16px; padding: 10px 12px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-bg); font: 15.5px/1.55 var(--m-ed); }
+.mb-act { position: relative; padding: 12px 16px; }
+.mb-act + .mb-act::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; border-top: 1px solid var(--m-line); }
+.mb-act .h { display: flex; align-items: center; gap: 8px; color: var(--m-dim); font-size: 14px; }
+.mb-act .h b { color: var(--m-fg); font-weight: 600; }
+.mb-act .h .t { margin-left: auto; color: var(--m-faint); font-size: 13px; }
+.mb-act p { display: -webkit-box; margin: 5px 0 0; max-width: none; overflow: hidden; font-size: 15.5px; line-height: 1.45; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.mb-nav .tb.plain { font-weight: 400; }
+/* the filter: a group of rows for each condition, how many records match at the foot */
+.mb-cap .rmv { float: right; color: var(--m-p1); font-size: 13.5px; letter-spacing: 0; text-transform: none; }
+.mb-sw { position: relative; flex: none; width: 48px; height: 29px; margin-left: auto; border-radius: 15px; background: var(--m-line); }
+.mb-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 25px; height: 25px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .35); }
+.mb-sw.on { background: var(--m-accent); }
+.mb-sw.on::after { left: 21px; }
+.mb-fr .val.faint { color: var(--m-faint); }
 </style>
 
 <main class="page">
@@ -1671,6 +1719,9 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pboard" data-aview="pboard">Phone board</button>
         <button type="button" id="a-pboardmore" data-aview="pboardmore">Phone board more</button>
         <button type="button" id="a-pphases" data-aview="pphases">Phone phases</button>
+        <button type="button" id="a-pcol" data-aview="pcol">Phone collection</button>
+        <button type="button" id="a-pcolmore" data-aview="pcolmore">Phone collection more</button>
+        <button type="button" id="a-pcolviews" data-aview="pcolviews">Phone collection views</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -4112,7 +4163,148 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Close phase sorar, kalan kartlar sonraki faza', mbRoadmap(), mbTabs('browse') + MB_DIM + ask)
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases };
+  // A collection on a phone (Oct 12). The table is a list: a record's name and two or three of its
+  // fields a row, under a search box and the views as chips; the slider button opens the view's
+  // sort, grouping and the fields it shows. A record is a page: its name and code, buttons for its
+  // site, mail and phone, then its fields as rows and the records that link to it in tabs (Details,
+  // then a tab for each block of linked records). A value is changed where it is: a text in place,
+  // a choice, a link or a day in a sheet; once something has changed the bar above has Cancel and
+  // Save, and the record is saved as one, as on the computer. + adds a record, or on a tab of
+  // linked records one linked to this record.
+  ICON.globe = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.5 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.5-3.5-8.5s1-5.9 3.5-8.5z"/></svg>';
+  LC.planned = '#8b93a1'; LC.invoiced = '#6aa5f0'; LC.paid = '#5cb87a'; LC.overdue = '#f0706a';
+  function mbRec(name, sub, right, rcls) {
+    return '<div class="mb-rec"><span class="tx"><b>' + name + '</b><small>' + sub + '</small></span>' + (right ? '<span class="rt' + (rcls ? ' ' + rcls : '') + '">' + right + '</span>' : '') + '</div>';
+  }
+  function mbViews(views) {
+    return '<div class="mb-searchbar">' + ICON.find + 'Search</div><div class="mb-views">' +
+      views.map(function (v, i) { return '<span class="mb-view' + (i === 0 ? ' on' : '') + '">' + v + '</span>'; }).join('') + '<span class="opt">' + ICON.settings + '</span></div>';
+  }
+  function mbCompanies() {
+    return mbPage(mbNav('Scrawl', ['dots']) + mbHead('Companies', '24 records') + mbViews(['All', 'Customers', 'Prospects']),
+      COMPANIES.slice(0, 8).map(function (c) { return mbRec(c.name, mbLbl(c.st) + '<span>' + c.seg + '</span>', c.at, c.today ? 'today' : ''); }).join(''));
+  }
+  /** A field as a row: a choice, a link or a day opens a sheet (the arrow); a text is typed in place; a site, mail or phone has its button. */
+  function mbVal(label, val, o) {
+    o = o || {};
+    return '<div class="mb-fr' + (o.changed ? ' changed' : '') + '"><span class="fl">' + label + '</span><span class="val' + (o.cls ? ' ' + o.cls : '') + '">' + val +
+      (o.go ? '<span class="go2">' + ICON[o.go] + '</span>' : o.text ? '' : MB_CHEV) + '</span></div>';
+  }
+  function mbRecordTop(back, name, code, acts, tabs, on, nav) {
+    return (nav || mbNav(back, ['dots'])) + '<div class="mb-rhead"><h2>' + name + '</h2>' + (code ? '<small>' + code + '</small>' : '') + '</div>' +
+      (acts.length ? '<div class="mb-qacts">' + acts.map(function (a) { return '<span class="mb-qact">' + ICON[a[0]] + a[1] + '</span>'; }).join('') + '</div>' : '') +
+      '<div class="mb-ctabs">' + tabs.map(function (t) { return '<span class="mb-ct' + (t[0] === on ? ' on' : '') + '">' + t[0] + (t[1] ? '<small>' + t[1] + '</small>' : '') + '</span>'; }).join('') + '</div>';
+  }
+  var MB_ACME_TABS = [['Details'], ['Activities', 4], ['People', 2], ['Cards', 1]];
+  function mbAcme(o) {
+    o = o || {};
+    var nav = o.editing ? '<div class="mb-nav"><span class="tb plain">Cancel</span><span class="mid">Acme Corp</span><span class="acts"><span class="tb">Save</span></span></div>' : null;
+    var top = mbRecordTop('Companies', 'Acme Corp', 'CUS-0012', [['globe', 'Website']], MB_ACME_TABS, o.tab || 'Details', nav);
+    if (o.tab === 'Activities') {
+      var names = ['Pilot call', 'Deck and pricing', 'Demo with their ops', 'Met at the summit'];
+      return mbPage(top, ACTIVITIES.map(function (e, i) {
+        return '<div class="mb-act"><div class="h">' + mbLbl(e.type) + '<b>' + names[i] + '</b><span>· ' + e.who + '</span><span class="t">' + e.t + '</span></div><p>' + e.text + '</p></div>';
+      }).join(''));
+    }
+    return mbPage(top, '<div class="mb-form" style="padding-top: 12px"><div class="mb-group wide">' +
+        mbVal('Website', o.editing ? 'acme.com<span class="caret"></span>' : 'acme.example.com', o.editing ? { text: true, cls: 'typing', changed: true } : { go: 'open' }) +
+        mbVal('Segment', o.editing ? 'Enterprise' : 'Mid-market', { changed: o.editing }) +
+        mbVal('Owner', mbWho('K') + 'Kaan') +
+        mbVal('Status', mbLbl('active')) +
+        mbVal('Tags', mbLbl('design') + mbLbl('berlin')) +
+        mbVal('Last contact', 'Today', { cls: 'ro', text: true }) +
+      '</div></div>' +
+      '<div class="mb-cap" style="padding-left: 30px">Notes</div><div class="mb-notes">Design agency in Berlin, about 40 people. Met at the summit; three client portals run on spreadsheets today.</div>');
+  }
+  function phoneCollection() {
+    return [
+      mbPhone('Liste: arama, görünümler, satırda ad ve iki üç alan', mbCompanies(), mbTabs('browse') + MB_FAB),
+      mbPhone('Kayıt bir sayfa: site butonu, alanlar satır satır, notlar', mbAcme(), mbTabs('browse')),
+      mbPhone('Bağlı kayıtlar sekmelerde; + bu kayda bağlı ekler', mbAcme({ tab: 'Activities' }), mbTabs('browse') + MB_FAB),
+      mbPhone('Bir değer değişince üstte Cancel ve Save', mbAcme({ editing: true }), MB_KB)
+    ].join('');
+  }
+  function phoneCollectionMore() {
+    function choice(name, on) { return '<div class="mb-fr pick"><span class="in">' + mbLbl(name) + '</span>' + (on ? MB_TICK : '') + '</div>'; }
+    var status = MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Status</b><small>Acme Corp</small><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-form"><div class="mb-group">' + choice('prospect') + choice('active', true) + choice('churned') + '</div></div></div>';
+    var lena = mbPage(mbRecordTop('People', 'Lena Hartmann', '', [['phone', 'Call'], ['mail', 'Mail']], [['Details'], ['Activities', 2], ['Cards', 1]], 'Details'),
+      '<div class="mb-form" style="padding-top: 12px"><div class="mb-group wide">' +
+        mbVal('Company', 'Acme Corp') +
+        mbVal('Email', 'lena@acme.example.com', { go: 'mail' }) +
+        mbVal('Phone', '+49 30 5550 1234', { go: 'phone' }) +
+        mbVal('Title', 'Head of Ops', { text: true }) +
+        mbVal('Source', 'Referral') +
+        mbVal('Status', mbLbl('active')) +
+        mbVal('Last contact', 'Today', { cls: 'ro', text: true }) +
+      '</div></div>');
+    function hit(name, code, o) {
+      o = o || {};
+      return '<div class="mb-fr pick"><span class="in">' + name + (code ? '<small>' + code + '</small>' : '') + '</span>' +
+        (o.on ? MB_TICK : '') + (o.open ? '<span class="val" style="margin-left: 10px; color: var(--m-accent)">Open</span>' : '') + '</div>';
+    }
+    var link = MB_DIM + '<div class="mb-sheet overkb"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>Company</b><span></span></div>' +
+      '<div class="mb-form"><div class="mb-search" style="margin-top: 0; color: var(--m-fg)">' + ICON.find + 'ac<span class="caret"></span></div>' +
+      '<div class="mb-group" style="margin-top: 10px">' + hit('Acme Corp', 'CUS-0012', { on: true, open: true }) + hit('Acme Labs', 'CUS-0027') + hit('Acmeo GmbH', 'CUS-0031') + '</div>' +
+      '<div class="mb-group" style="margin-top: 10px"><div class="mb-fr" style="color: var(--m-dim)">None</div></div></div></div>' + MB_KB;
+    var fresh = MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>New company</b><span class="ok">Create</span></div>' +
+      '<div class="mb-form"><div class="mb-group wide">' +
+        mbVal('Name *', 'Umbrella Health', { text: true, cls: 'typing' }) +
+        mbVal('Website', 'example.com', { text: true, cls: 'faint' }) +
+        mbVal('Segment', 'Choose', { cls: 'faint' }) +
+        mbVal('Owner', 'Nobody', { cls: 'faint' }) +
+        mbVal('Status', mbLbl('prospect')) +
+        mbVal('Tags', 'Add', { cls: 'faint' }) +
+      '</div>' +
+      '<div class="mb-cap">Notes</div><div class="mb-notes" style="margin: 0; color: var(--m-faint)">Add a note…</div>' +
+      '<div class="mb-hint">Saved in Companies</div></div></div>';
+    return [
+      mbPhone('Seçenekli alan: renkli seçenekler bir sheet’te', mbAcme(), mbTabs('browse') + status),
+      mbPhone('Kişi: Call ve Mail, alanında da butonu', lena, mbTabs('browse')),
+      mbPhone('Link alanı: ad ya da kodla arar, seçili olan Open', lena, link),
+      mbPhone('+ ile yeni kayıt: tek form, Create', mbCompanies(), mbTabs('browse') + fresh)
+    ].join('');
+  }
+  function phoneCollectionViews() {
+    function cond(label, field, how, value) {
+      return '<div class="mb-cap">' + label + '<span class="rmv">Remove</span></div><div class="mb-group">' +
+        mbVal('Field', field) + mbVal('Condition', how) + mbVal('Value', value) + '</div>';
+    }
+    var filter = MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>Filter</b><span class="ok">Apply</span></div>' +
+      '<div class="mb-form">' + cond('Where', 'Status', 'is', mbLbl('active')) + cond('And', 'Last contact', 'before', 'Oct 1') +
+      '<div class="mb-group" style="margin-top: 14px"><div class="mb-fr plusrow" style="border-top: 0">' + ICON.plus + 'Add condition</div></div>' +
+      '<div class="mb-hint">3 of 24 records match.</div></div></div>';
+    function shown(name, on) { return '<div class="mb-fr"><span class="in">' + name + '</span><span class="mb-sw' + (on ? ' on' : '') + '"></span></div>'; }
+    var view = MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>View</b><small>All</small><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-form"><div class="mb-group">' + mbVal('Sort', 'Last contact ↓') + mbVal('Group', 'None', { cls: 'faint' }) + '</div>' +
+      '<div class="mb-cap">Shown in the list</div><div class="mb-group">' +
+        shown('Status', true) + shown('Segment', true) + shown('Last contact', true) + shown('Owner') + shown('Website') + shown('Tags') +
+      '</div></div></div>';
+    var PAY_IN = [['Globex annual plan', 'invoiced', 'Globex', 'Oct 14', '24,000'], ['Umbrella logins', 'paid', 'Umbrella Health', 'Sep 30', '18,000'], ['Acme pilot, first half', 'invoiced', 'Acme Corp', 'Oct 20', '6,000'],
+      ['Hooli second team', 'planned', 'Hooli', 'Nov 3', '4,800'], ['Agency bundle', 'overdue', 'Dunder Mifflin', 'Oct 1', '1,500']];
+    var PAY_OUT = [['Design contractor', 'invoiced', 'Mina Ito', 'Oct 15', '3,600'], ['Cloud hosting, October', 'planned', 'Hetzner', 'Oct 31', '320'], ['Domain renewals', 'paid', 'Namecheap', 'Oct 9', '200']];
+    function pay(p) { return mbRec(p[0], mbLbl(p[1]) + '<span>' + p[2] + '</span><span>' + p[3] + '</span>', p[4], 'num'); }
+    var payments = mbPage(mbNav('Scrawl', ['dots']) + mbHead('Payments', '8 records') + mbViews(['All', 'Overdue']),
+      '<div class="mb-sec">Incoming <small>5</small><span class="sum">54,300 EUR</span></div>' + PAY_IN.map(pay).join('') +
+      '<div class="mb-sec">Outgoing <small>3</small><span class="sum">4,120 EUR</span></div>' + PAY_OUT.map(pay).join(''));
+    var menu = mbActions('collection', 'Companies', 'Collection in Scrawl · 24 records', [
+      [{ icon: 'settings', label: 'Fields' }, { icon: 'down', label: 'Export as CSV' }, { icon: 'up', label: 'Import CSV…' }],
+      [{ icon: 'move', label: 'Move to…' }, { icon: 'pen', label: 'Rename' }],
+      [{ icon: 'bin', label: 'Delete', red: true }]
+    ]);
+    return [
+      mbPhone('Filter: her koşul bir grup, altta kaç kayıt uyduğu', mbCompanies(), mbTabs('browse') + filter),
+      mbPhone('Görünüm: sıralama, gruplama, listede görünen alanlar', mbCompanies(), mbTabs('browse') + view),
+      mbPhone('Payments: yöne göre gruplu, grup başında toplam', payments, mbTabs('browse') + MB_FAB),
+      mbPhone('Koleksiyonun ··· menüsü', mbCompanies(), mbTabs('browse') + MB_DIM + menu)
+    ].join('');
+  }
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {
