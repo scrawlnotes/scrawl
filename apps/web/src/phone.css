@@ -42,7 +42,8 @@ html:has(.phone-app) body {
 /* Fixed to what the phone shows (Phone.tsx sets its top and height): with the keyboard up it ends
    on the keyboard, and the format bar, Find and the sheets sit on it. */
 .mb {
-  --ph-bar: calc(50px + env(safe-area-inset-bottom));
+  /* The tab bar: its row, and under it the home indicator's room less what its labels can share. */
+  --ph-bar: calc(52px + max(env(safe-area-inset-bottom) - 14px, 0px));
   position: fixed;
   left: 0;
   right: 0;
@@ -528,10 +529,9 @@ html:has(.phone-app) body {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   height: var(--ph-bar);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: max(env(safe-area-inset-bottom) - 14px, 0px);
   box-sizing: border-box;
-  border-top: 1px solid var(--sl-line);
-  background: color-mix(in srgb, var(--sl-side) 86%, transparent);
+  background: color-mix(in srgb, var(--sl-bg) 88%, transparent);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
 }
@@ -544,8 +544,9 @@ html:has(.phone-app) body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
+  justify-content: flex-start;
+  gap: 3px;
+  padding-top: 7px;
   color: var(--sl-faint);
   font-size: 10.5px;
   font-weight: 500;
@@ -1469,12 +1470,12 @@ body > .mb-lifted {
   display: flex;
   flex: none;
   align-items: center;
-  height: 48px;
+  height: 40px;
   padding: 0 6px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
-  border-top: 1px solid var(--sl-line);
+  border-bottom: 1px solid var(--sl-line);
   background: var(--sl-side);
   -webkit-user-select: none;
   user-select: none;
@@ -1482,10 +1483,6 @@ body > .mb-lifted {
 }
 
 .mb-fbar::-webkit-scrollbar {
-  display: none;
-}
-
-.mb-fbar.off {
   display: none;
 }
 
@@ -1523,22 +1520,22 @@ body > .mb-lifted {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 42px;
-  height: 40px;
-  padding: 0 7px;
-  border-radius: 8px;
+  min-width: 36px;
+  height: 34px;
+  padding: 0 6px;
+  border-radius: 7px;
   color: var(--sl-fg);
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .mb-fbar button.word {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .mb-fbar button.text {
-  padding: 0 10px;
-  font-size: 15px;
+  padding: 0 9px;
+  font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -1561,8 +1558,8 @@ body > .mb-lifted {
 }
 
 .mb .mb-fbar .icon {
-  width: 23px;
-  height: 23px;
+  width: 20px;
+  height: 20px;
 }
 
 .mb .mb-fbar button.text .icon {
@@ -1583,7 +1580,7 @@ body > .mb-lifted {
   flex: none;
   align-items: center;
   gap: 9px;
-  height: 38px;
+  height: 32px;
   margin-right: 6px;
   padding: 0 4px 0 12px;
   border-radius: 19px;
@@ -1603,7 +1600,7 @@ body > .mb-lifted {
 
 .mb-fbar .mb-rec button {
   min-width: 0;
-  height: 30px;
+  height: 26px;
   padding: 0 13px;
   border-radius: 15px;
   background: var(--sl-p1);
@@ -2714,5 +2711,101 @@ body > .mb-lifted {
   min-height: 36px;
   padding: 0 12px;
   border-radius: 9px;
+  font-size: 15px;
+}
+
+/* A note's text keeps off the edges, as the mockups have it, and the page under its last line can
+   be tapped to write on. */
+.phone-app .mb .editor .cm-content {
+  padding: 14px 0 40vh 6px;
+}
+
+.phone-app .mb .editor .cm-line {
+  padding-right: 18px;
+}
+
+/* An empty note: its name where the first line will be, and that it waits to be written in. */
+.phone-app .cm-placeholder {
+  color: var(--sl-faint);
+}
+
+.cm-sl-empty {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--sl-faint);
+}
+
+.cm-sl-empty b {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* a page with nothing in it yet */
+.mb-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 56px 32px 24px;
+  text-align: center;
+}
+
+.mb-empty-state .ic {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--sl-side);
+  color: var(--sl-faint);
+}
+
+.mb .mb-empty-state .ic .icon {
+  width: 30px;
+  height: 30px;
+  stroke-width: 1.5;
+}
+
+.mb-empty-state b {
+  color: var(--sl-fg);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.mb-empty-state p {
+  max-width: 280px;
+  margin: 0;
+  color: var(--sl-faint);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.mb-empty-state .mb-btn {
+  margin-top: 10px;
+}
+
+/* the trash's large title, with how many things are in it and Empty trash beside them */
+.mb-trash-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.mb-trash-head h1 {
+  flex-basis: 100%;
+}
+
+.mb-trash-head span {
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+.mb-trash-head button {
+  margin-left: auto;
+  color: var(--sl-accent);
   font-size: 15px;
 }

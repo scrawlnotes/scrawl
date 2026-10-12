@@ -309,8 +309,11 @@ export function App() {
   // Or to the folder whose menu Create was opened from.
   const createIn = (dialog?.kind === 'new' && dialog.folder) || newFolder;
   const create = async (kind: ItemKind, choice: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => {
+    // A new note is made to be written in: on a phone the keyboard stays for it.
+    if (kind === 'note') session.holdKeyboard();
     const error = await session.create(kind, choice.folder, name, choice.create, template, collectionTemplate, links);
     if (!error) setDialog(null);
+    else session.releaseKeyboard(false);
     return error;
   };
 
@@ -584,6 +587,7 @@ export function App() {
         icon: 'note',
         run: () => {
           setDrawer(false);
+          session.holdKeyboard();
           void session.newNote(path);
         },
       },
@@ -689,7 +693,7 @@ export function App() {
       open: (list: string, id: string, subtask = false) => setTaskSheet({ list, id, subtask }),
       pickDate: (list: string, id: string) => setTaskPicker({ kind: 'date', list, id }),
       pickRecord: (list: string, id: string) => setTaskPicker({ kind: 'record', list, id }),
-      quickAdd: (list: string, section: string | null) => setQuickAdd({ list, section, due: null }),
+      quickAdd: (list: string, section: string | null, due?: string) => setQuickAdd({ list, section, due: due ?? null }),
     }),
     addSection: (list, name) => session.addSection(list, name),
     renameSection: (list, id, name) => session.renameSection(list, id, name),
@@ -836,6 +840,21 @@ export function App() {
   // drawn into a layer that the page on top shows.
   const itemContent = (
     <>
+    {/* On a phone the format bar is a row of icons at the top of the note. */}
+    {showingEditor && phone && (
+      <PhoneFormatBar
+        format={format}
+        recording={recording}
+        recordError={recordError}
+        onFormat={(action) => session.format(action)}
+        onLink={() => setLinkEdit({ url: format?.link?.url ?? '', linked: !!format?.link })}
+        onImage={() => session.pickImage()}
+        onRecord={() => void session.startRecording()}
+        onStop={() => session.stopRecording()}
+        onToTask={startToTask}
+        onToCard={startToCard}
+      />
+    )}
     {showingEditor && !phone && (
       <FormatBar
         format={format}
@@ -851,21 +870,6 @@ export function App() {
       />
     )}
     <div className="editor" ref={host} hidden={!showingEditor} />
-    {/* On a phone the format bar is on the keyboard, under the note. */}
-    {showingEditor && phone && (
-      <PhoneFormatBar
-        format={format}
-        recording={recording}
-        recordError={recordError}
-        onFormat={(action) => session.format(action)}
-        onLink={() => setLinkEdit({ url: format?.link?.url ?? '', linked: !!format?.link })}
-        onImage={() => session.pickImage()}
-        onRecord={() => void session.startRecording()}
-        onStop={() => session.stopRecording()}
-        onToTask={startToTask}
-        onToCard={startToCard}
-      />
-    )}
     {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} />}
     {boardPath !== null && board && (
       <BoardView
@@ -1011,7 +1015,11 @@ export function App() {
                 </>
               )
             }
-            onOpen={(id) => void session.open(id)}
+            onOpen={(id) => {
+              // An empty note opens to be written in, with the keyboard up.
+              if (session.opensToWrite(id)) session.holdKeyboard();
+              void session.open(id);
+            }}
             onClose={(id) => void session.close(id)}
             onCreate={(folder) => setDialog({ kind: 'new', folder })}
             onSync={() => (sync.connection ? setSyncSheet(true) : setDialog({ kind: 'settings', section: 'spaces' }))}

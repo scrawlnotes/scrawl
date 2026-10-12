@@ -51,7 +51,7 @@ import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { boardLabel, collectionLabel, listLabel } from './items';
-import { liftUntilTouch } from './sheets';
+import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
 /** What can be done to a task, in the list at the path given. */
@@ -92,8 +92,8 @@ export interface TaskActions {
   pickDate?: (list: string, id: string) => void;
   /** On a phone: the record a task is about, picked in a sheet. */
   pickRecord?: (list: string, id: string) => void;
-  /** On a phone: a new task, typed above the keyboard, for a list or a section of it. */
-  quickAdd?: (list: string, section: string | null) => void;
+  /** On a phone: a new task, typed above the keyboard, for a list or a section of it, due on `due` if given. */
+  quickAdd?: (list: string, section: string | null, due?: string) => void;
 }
 
 /** A row of the record picker: unlinking, or a record of a collection. */
@@ -1329,6 +1329,14 @@ export function TaskList({ list, tasks, sections, today, actions }: {
         )
       }
     >
+      {isPhone() && sections.length === 0 && !tasks.some(shown) && (
+        <Empty
+          icon="tasks"
+          title={t(completed > 0 ? 'phone.allDone' : 'phone.emptyList')}
+          text={t(completed > 0 ? 'phone.allDoneText' : 'phone.emptyListText')}
+          action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(list, null) }}
+        />
+      )}
       <div
         ref={rows}
         className="rows"
@@ -1454,7 +1462,8 @@ export function FilterView({ filter, lists, boards, today, actions, onEdit }: {
           ))}
         </div>
       ))}
-      {groups.length + cardGroups.length === 0 && <p className="task-empty">{t('filter.nothing')}</p>}
+      {groups.length + cardGroups.length === 0 &&
+        (isPhone() ? <Empty icon="filter" title={t('phone.emptyFilter')} text={t('filter.nothing')} /> : <p className="task-empty">{t('filter.nothing')}</p>)}
     </TaskPage>
   );
 }
@@ -1619,7 +1628,17 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
             {dues.map((d) => cardItem(d, true))}
           </div>
         ))}
-        {due.overdue.length + due.today.length + byBoard.size === 0 && <p className="task-empty">{t('tasks.nothingToday')}</p>}
+        {due.overdue.length + due.today.length + byBoard.size === 0 &&
+          (isPhone() ? (
+            <Empty
+              icon="sun"
+              title={t('phone.emptyToday')}
+              text={t('phone.emptyTodayText')}
+              action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, today) }}
+            />
+          ) : (
+            <p className="task-empty">{t('tasks.nothingToday')}</p>
+          ))}
       </TaskPage>
     );
   }
@@ -1637,7 +1656,17 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
           day,
         ),
       )}
-      {allDays.length === 0 && <p className="task-empty">{t('tasks.nothingLater')}</p>}
+      {allDays.length === 0 &&
+        (isPhone() ? (
+          <Empty
+            icon="week"
+            title={t('phone.emptyUpcoming')}
+            text={t('phone.emptyUpcomingText')}
+            action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, addDays(today, 1)) }}
+          />
+        ) : (
+          <p className="task-empty">{t('tasks.nothingLater')}</p>
+        ))}
     </TaskPage>
   );
 }

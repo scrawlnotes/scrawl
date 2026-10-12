@@ -445,6 +445,7 @@ export class Session {
       showMenu: (at, items, about) => this.showMenu?.(at, items, about),
       touch: this.touch,
       onLinkTap: this.touch ? (link) => this.linkTap?.(link) : undefined,
+      placeholder: this.touch ? () => this.emptyNote() : undefined,
       onAttachments: (removed, added) => this.attachmentsChanged(removed, added),
       fileSize: (src) => this.sizes.get(src),
       resolveAudio: (src) => this.mediaUrl(src),
@@ -1638,6 +1639,79 @@ export class Session {
     }
     // Deferred: the editor is still hidden when it replaces a view, and a hidden element cannot take focus.
     if (isNote(id) && this.focusOnOpen) window.setTimeout(() => this.editor?.view.focus());
+    // On a phone a note with nothing in it opens to be written in: the keyboard held since the tap
+    // goes to it. Anything else lets the keyboard go.
+    else if (this.keeper) {
+      const write = isNote(id) && editor.view.state.doc.toString().trim() === '';
+      window.setTimeout(() => this.releaseKeyboard(write));
+    }
+  }
+
+  /** The hidden field that holds the keyboard on a phone from a tap until the note it opens is shown. */
+  private keeper: HTMLInputElement | null = null;
+  private keeperTimer = 0;
+
+  /** On a phone, whether opening `id` is to write in it: a note with nothing in it yet. */
+  opensToWrite(id: string): boolean {
+    if (!this.touch || !isNote(id)) return false;
+    const empty = (text: string) => text.trim() === '';
+    if (id === this.snapshot.active && this.editor) return empty(this.editor.view.state.doc.toString());
+    const state = this.states.get(id);
+    if (state) return empty(state.doc.toString());
+    const text = this.disk.get(id);
+    if (text !== undefined) return empty(text);
+    const find = (nodes: TreeNode[]): TreeNode | undefined => {
+      for (const node of nodes) {
+        if (node.path === id) return node;
+        const found = find(node.children ?? []);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    return find(this.snapshot.tree)?.empty === true;
+  }
+
+  /**
+   * A phone brings up the keyboard only for a field focused during a tap. Called in the tap that
+   * opens or makes a note to write in: a hidden field takes the keyboard now and hands it to the
+   * note once the note is shown; if nothing takes it in a moment, it goes away.
+   */
+  holdKeyboard() {
+    if (!this.touch) return;
+    if (!this.keeper) {
+      const keeper = document.createElement('input');
+      keeper.setAttribute('aria-hidden', 'true');
+      keeper.tabIndex = -1;
+      // 16 px, so that the phone does not zoom in on it.
+      Object.assign(keeper.style, { position: 'fixed', top: '0', left: '0', width: '1px', height: '1px', padding: '0', border: '0', opacity: '0', fontSize: '16px' });
+      document.body.append(keeper);
+      this.keeper = keeper;
+      this.keeperTimer = window.setTimeout(() => this.releaseKeyboard(false), 4000);
+    }
+    this.keeper.focus({ preventScroll: true });
+  }
+
+  /**
+   * Hands the held keyboard to the note on screen, or lets it go. The note may still be hidden for
+   * a moment, as it is when a list was on screen before it: it is waited for, a few frames at most.
+   */
+  releaseKeyboard(toNote: boolean) {
+    const keeper = this.keeper;
+    if (!keeper) return;
+    this.keeper = null;
+    window.clearTimeout(this.keeperTimer);
+    const done = () => {
+      if (document.activeElement === keeper) keeper.blur();
+      keeper.remove();
+    };
+    const focus = (tries: number) => {
+      const view = this.editor?.view;
+      if (view && view.dom.getClientRects().length === 0 && tries > 0) return void requestAnimationFrame(() => focus(tries - 1));
+      view?.focus();
+      done();
+    };
+    if (toNote) focus(30);
+    else done();
   }
 
   // ---------- boards ----------
@@ -1961,6 +2035,23 @@ export class Session {
     this.set({ source });
     this.editor?.setSourceMode(source);
     if (this.focusOnOpen) this.editor?.view.focus();
+  }
+
+  /**
+   * On a phone, what an empty note shows: its name, faint, where its first line will be, or Title
+   * for a note named by its first line; and that it is waiting to be written in.
+   */
+  private emptyNote(): HTMLElement {
+    const box = document.createElement('span');
+    box.className = 'cm-sl-empty';
+    const name = document.createElement('b');
+    const { active, titles } = this.snapshot;
+    name.textContent =
+      active && isNote(active) && !isScratchNote(active) ? titles[active] || active.slice(active.lastIndexOf('/') + 1).replace(/\.md$/, '') : t('phone.titleHint');
+    const hint = document.createElement('span');
+    hint.textContent = t('phone.startWriting');
+    box.append(name, hint);
+    return box;
   }
 
   /** Puts the cursor at `pos` in the note on screen, without bringing up the keyboard: a link tapped, to edit it. */

@@ -1133,8 +1133,8 @@ p { margin: 0; max-width: 68ch; }
 .mb-task .meta .today { color: var(--m-accent); }
 .mb-task .meta .late { color: var(--m-p1); }
 /* the tab bar: three places, always there; + floats above it, on the right */
-.mb-tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; grid-template-columns: repeat(2, 1fr); height: 84px; padding-bottom: 34px; border-top: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-side) 84%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
-.mb-tabbar span { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--m-faint); font-size: 10.5px; font-weight: 500; }
+.mb-tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: grid; grid-template-columns: repeat(2, 1fr); height: 72px; padding-bottom: 20px; background: color-mix(in srgb, var(--m-bg) 88%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.mb-tabbar span { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; padding-top: 7px; color: var(--m-faint); font-size: 10.5px; font-weight: 500; }
 .mock .mb-tabbar svg { width: 26px; height: 26px; stroke-width: 1.6; }
 .mb-tabbar span.on { color: var(--m-accent); }
 .mb-fab { position: absolute; right: 16px; bottom: 100px; z-index: 3; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--m-accent); color: var(--m-on-accent); box-shadow: 0 6px 18px rgb(0 0 0 / .35); }
@@ -1244,18 +1244,18 @@ p { margin: 0; max-width: 68ch; }
    note's ··· menu. Text is 16 px, so the phone never zooms in on it. */
 .mb-nav .tb { display: flex; align-items: center; height: 44px; padding: 0 10px; color: var(--m-accent); font-weight: 600; }
 .mb-ed p { position: relative; }
-.mb-fbar { position: absolute; left: 0; right: 0; bottom: 300px; z-index: 8; display: flex; align-items: center; height: 48px; padding: 0 6px; overflow: hidden; border-top: 1px solid var(--m-line); background: var(--m-side); -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent); mask-image: linear-gradient(90deg, #000 86%, transparent); }
+.mb-fbar { position: relative; z-index: 2; display: flex; flex: none; align-items: center; height: 40px; padding: 0 6px; overflow: hidden; border-bottom: 1px solid var(--m-line); background: var(--m-side); -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent); mask-image: linear-gradient(90deg, #000 86%, transparent); }
 .mb-fbar.mid { -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 86%, transparent); mask-image: linear-gradient(90deg, transparent, #000 9%, #000 86%, transparent); }
 .mb-fbar .g { display: flex; flex: none; align-items: center; gap: 2px; }
 .mb-fbar .g + .g { margin-left: 5px; padding-left: 5px; border-left: 1px solid var(--m-line); }
-.mb-fbar .b { display: grid; place-items: center; min-width: 42px; height: 40px; padding: 0 7px; border-radius: 8px; color: var(--m-fg); font-size: 16px; }
-.mock .mb-fbar .b svg { width: 23px; height: 23px; }
-.mb-fbar .b.word { font-size: 15px; font-weight: 500; }
+.mb-fbar .b { display: grid; place-items: center; min-width: 36px; height: 34px; padding: 0 6px; border-radius: 7px; color: var(--m-fg); font-size: 15px; }
+.mock .mb-fbar .b svg { width: 20px; height: 20px; }
+.mb-fbar .b.word { font-size: 14px; font-weight: 500; }
 .mb-fbar .b.on { background: var(--m-sel); color: var(--m-accent); }
 /* recording: its time and Stop stay at the start of the bar, the formatting goes on beside it */
-.mb-fbar .rec { display: flex; flex: none; align-items: center; gap: 9px; height: 38px; margin-right: 6px; padding: 0 4px 0 12px; border-radius: 19px; background: color-mix(in srgb, var(--m-p1) 15%, var(--m-bg)); color: var(--m-fg); font-variant-numeric: tabular-nums; }
+.mb-fbar .rec { display: flex; flex: none; align-items: center; gap: 9px; height: 32px; margin-right: 6px; padding: 0 4px 0 12px; border-radius: 19px; background: color-mix(in srgb, var(--m-p1) 15%, var(--m-bg)); color: var(--m-fg); font-variant-numeric: tabular-nums; }
 .mb-fbar .rec i { width: 9px; height: 9px; border-radius: 50%; background: var(--m-p1); animation: rec 1.4s ease-in-out infinite; }
-.mb-fbar .rec b { padding: 6px 13px; border-radius: 15px; background: var(--m-p1); color: #fff; font-size: 14px; font-weight: 600; }
+.mb-fbar .rec b { padding: 4px 12px; border-radius: 15px; background: var(--m-p1); color: #fff; font-size: 14px; font-weight: 600; }
 /* a selection: the phone's own handles and its Cut, Copy, Paste over it */
 .mb-ed .sel { background: color-mix(in srgb, var(--m-accent) 28%, transparent); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .mb-ed .hs, .mb-ed .he { position: relative; display: inline-block; width: 0; height: 1.3em; vertical-align: -.28em; }
@@ -1267,7 +1267,7 @@ p { margin: 0; max-width: 68ch; }
 .mb-callout span { padding: 0 11px; }
 .mb-callout i { align-self: stretch; width: 1px; margin: 9px 0; background: var(--m-line); }
 /* / at the start of a line: what can be put in, above the format bar, filtered as it is typed */
-.mb-slash { position: absolute; left: 10px; right: 10px; bottom: 388px; z-index: 8; height: 192px; overflow: hidden; padding: 4px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-side); box-shadow: 0 10px 30px rgb(0 0 0 / .4); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
+.mb-slash { position: absolute; left: 10px; right: 10px; bottom: 340px; z-index: 8; height: 192px; overflow: hidden; padding: 4px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-side); box-shadow: 0 10px 30px rgb(0 0 0 / .4); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
 .mb-slash .r { display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 10px; border-radius: 8px; }
 .mb-slash .r.on { background: var(--m-sel); }
 .mock .mb-slash .r svg { width: 22px; height: 22px; color: var(--m-dim); }
@@ -1314,8 +1314,17 @@ p { margin: 0; max-width: 68ch; }
 .mb-foot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: 9px; padding: 10px 16px 42px; border-top: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-side) 88%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 .mb-foot small { color: var(--m-faint); font-size: 13.5px; text-align: center; }
 .mb-btn { display: grid; place-items: center; height: 48px; border-radius: 12px; background: var(--m-accent); color: var(--m-on-accent); font-size: 16px; font-weight: 600; }
-/* typing: the page ends at the format bar; a note scrolled to its end sits on it */
-.mb-body.typing { margin-bottom: 348px; }
+/* an empty page: its icon in a circle, what will be there, the button that adds the first thing */
+.mb-empty-st { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 56px 32px 24px; text-align: center; }
+.mb-empty-st .ic { display: grid; place-items: center; width: 64px; height: 64px; margin-bottom: 6px; border-radius: 50%; background: var(--m-side); color: var(--m-faint); }
+.mock .mb-empty-st .ic svg { width: 30px; height: 30px; stroke-width: 1.5; }
+.mb-empty-st b { font-size: 17px; font-weight: 600; }
+.mb-empty-st p { max-width: 260px; margin: 0; color: var(--m-faint); font-size: 15px; line-height: 1.4; }
+.mb-empty-st .mb-btn { margin-top: 10px; padding: 0 22px; }
+/* an empty note: its name and the hint, faint */
+.mb-ed .ph { color: var(--m-faint); }
+/* typing: the page ends at the keyboard; a note scrolled to its end sits on it */
+.mb-body.typing { margin-bottom: 300px; }
 .mb-ed.bottom { position: absolute; left: 0; right: 0; bottom: 0; }
 .mb-ed.bottom > :last-child { margin-bottom: 0; }
 /* Tasks on a phone (Oct 12). A tap opens the task as a sheet with everything about it; a swipe
@@ -1658,6 +1667,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pcolmore" data-aview="pcolmore">Phone collection more</button>
         <button type="button" id="a-pcolviews" data-aview="pcolviews">Phone collection views</button>
         <button type="button" id="a-pkeys" data-aview="pkeys">Phone keys</button>
+        <button type="button" id="a-pempty" data-aview="pempty">Phone empty</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -3435,7 +3445,7 @@ p { margin: 0; max-width: 68ch; }
     '<div class="li">Deletes go to trash first</div>' +
     '<p style="margin-top: 12px">Token refresh for SPAs: <span class="lnk">MSAL browser docs</span>, 24 h refresh window.</p>' +
     '</div>';
-  function mbNote(cls) { return mbPage(mbNav('Scrawl', ['dots']), MB_NOTE, cls); }
+  function mbNote(cls) { return mbPage(mbNav('Scrawl', ['dots']) + mbFbar(), MB_NOTE, cls); }
   function phoneShell() {
     return [
       mbPhone('Browse: üstte Recent, sonra Inbox ve klasörler', mbBrowse(), mbTabs('browse') + MB_FAB),
@@ -3550,12 +3560,12 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Seçiciler de sheet: bir görevin tarihi', mbToday(), mbTabs('today') + mbDateSheet())
     ].join('');
   }
-  // The note on a phone (Oct 12). Typing brings up the keyboard with the format bar on it: Undo
-  // and Redo first, then the marks, headings, blocks, To task and To card, an image and a
-  // recording; it scrolls sideways. Done in the bar above puts the keyboard away. A selection has
-  // the phone's own handles and menu; / at the start of a line lists what can be put in, above
-  // the line; a link tapped says what can be done with it. Find, Markdown and History are in the
-  // note's ··· menu; find and replace sit above the keyboard, where the format bar was.
+  // The note on a phone (Oct 12). The format bar stays at the top of the note, small: Undo and
+  // Redo first, then the marks, headings, blocks, To task and To card, an image and a recording;
+  // it scrolls sideways. Done in the bar above puts the keyboard away. A selection has the
+  // phone's own handles and menu; / at the start of a line lists what can be put in, above the
+  // line; a link tapped says what can be done with it. Find, Markdown and History are in the
+  // note's ··· menu; find and replace sit above the keyboard.
   ICON.undo = '<svg viewBox="0 0 24 24"><path d="M9 6.5L4.5 11 9 15.5"/><path d="M5 11h9.5a5 5 0 0 1 0 10H12"/></svg>';
   ICON.redo = '<svg viewBox="0 0 24 24"><path d="M15 6.5l4.5 4.5-4.5 4.5"/><path d="M19 11H9.5a5 5 0 0 0 0 10H12"/></svg>';
   ICON.link = '<svg viewBox="0 0 24 24"><path d="M10.5 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M13.5 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>';
@@ -3614,10 +3624,10 @@ p { margin: 0; max-width: 68ch; }
       '<p>Next: send the draft on Monday.</p>' +
       '<p>/<span class="caret"></span></p></div>';
     return [
-      mbPhone('Yazarken: format bar klavyenin üstünde, Done klavyeyi kapatır', mbPage(mbNav('Scrawl', MB_TYPING), mbNoteText({ caret: true }), '', 'typing'), mbFbar() + MB_KB),
-      mbPhone('Seçince: telefonun kendi menüsü; bar kayınca To task, To card', mbPage(mbNav('Scrawl', MB_TYPING), mbNoteText({ select: true, callout: true }), '', 'typing'), mbFbar({ from: 3 }) + MB_KB),
-      mbPhone('/ yazınca eklenebilecekler satırın üstünde, yazdıkça süzülür', mbPage(mbNav('Inbox', MB_TYPING), pricing, '', 'typing'), slash + mbFbar() + MB_KB),
-      mbPhone('Linke dokununca: Open, Edit, Copy', mbPage(mbNav('Scrawl', ['dots']), mbNoteText({ link: 'pop' })), mbTabs('browse'))
+      mbPhone('Yazarken: format bar notun üstünde, Done klavyeyi kapatır', mbPage(mbNav('Scrawl', MB_TYPING) + mbFbar(), mbNoteText({ caret: true }), '', 'typing'), MB_KB),
+      mbPhone('Seçince: telefonun kendi menüsü; bar kayınca To task, To card', mbPage(mbNav('Scrawl', MB_TYPING) + mbFbar({ from: 3 }), mbNoteText({ select: true, callout: true }), '', 'typing'), MB_KB),
+      mbPhone('/ yazınca eklenebilecekler satırın üstünde, yazdıkça süzülür', mbPage(mbNav('Inbox', MB_TYPING) + mbFbar(), pricing, '', 'typing'), slash + MB_KB),
+      mbPhone('Linke dokununca: Open, Edit, Copy', mbPage(mbNav('Scrawl', ['dots']) + mbFbar(), mbNoteText({ link: 'pop' })), mbTabs('browse'))
     ].join('');
   }
   function phoneNoteTools() {
@@ -3646,10 +3656,10 @@ p { margin: 0; max-width: 68ch; }
       '<p>Next: send the estimate by Thursday.</p></div>';
     var photoActs = mbActions('image', 'whiteboard-1002.png', 'Image · 1.2 MB', [[{ icon: 'open', label: 'Open' }], [{ icon: 'bin', label: 'Delete', red: true }]]);
     return [
-      mbPhone('Find, ··· menüsünden; klavyenin üstünde, Replace ile', mbPage(mbNav('Scrawl', ['Done']), mbNoteText({ find: true }), '', 'typing'), find + MB_KB),
+      mbPhone('Find, ··· menüsünden; klavyenin üstünde, Replace ile', mbPage(mbNav('Scrawl', ['Done']) + mbFbar(), mbNoteText({ find: true }), '', 'typing'), find + MB_KB),
       mbPhone('To task: seçimden görev, yeri sheet’te seçilir', mbPage(mbNav('Scrawl', MB_TYPING), mbNoteText({ select: true })), toTask),
-      mbPhone('Kayıt: süre ve Stop barın başında, yazmak sürer', mbPage(mbNav('Inbox', MB_TYPING), call, '', 'typing'), mbFbar({ recording: true }) + MB_KB),
-      mbPhone('Resmi basılı tutunca; dokununca açılır', mbPage(mbNav('Inbox', ['dots']), photo), mbTabs('browse') + MB_DIM + photoActs)
+      mbPhone('Kayıt: süre ve Stop barın başında, yazmak sürer', mbPage(mbNav('Inbox', MB_TYPING) + mbFbar({ recording: true }), call, '', 'typing'), MB_KB),
+      mbPhone('Resmi basılı tutunca; dokununca açılır', mbPage(mbNav('Inbox', ['dots']) + mbFbar(), photo), mbTabs('browse') + MB_DIM + photoActs)
     ].join('');
   }
   function phoneNoteMore() {
@@ -3676,10 +3686,26 @@ p { margin: 0; max-width: 68ch; }
       '<div class="mb-form"><div class="mb-group"><div class="mb-fr"><span class="in">…entra/identity-platform/msal-overview<span class="caret"></span></span></div></div>' +
       '<div class="mb-group" style="margin-top: 12px"><div class="mb-fr red">Remove link</div></div></div></div>' + MB_KB;
     return [
-      mbPhone('Notun ··· menüsü: Find, Markdown, History', mbPage(mbNav('Scrawl', ['dots']), mbNoteText()), mbTabs('browse') + MB_DIM + menu),
+      mbPhone('Notun ··· menüsü: Find, Markdown, History', mbPage(mbNav('Scrawl', ['dots']) + mbFbar(), mbNoteText()), mbTabs('browse') + MB_DIM + menu),
       mbPhone('History: sürümler, en yeni üstte', history, mbTabs('browse')),
       mbPhone('Bir sürüm: Restore altta', version, '<div class="mb-foot"><small>Restoring keeps the current text as a version too.</small><span class="mb-btn">Restore this version</span></div>'),
-      mbPhone('Link’in Edit’i: adres, Apply, Remove link', mbPage(mbNav('Scrawl', MB_TYPING), mbNoteText({ link: 'on' }), '', 'typing'), link)
+      mbPhone('Link’in Edit’i: adres, Apply, Remove link', mbPage(mbNav('Scrawl', MB_TYPING) + mbFbar(), mbNoteText({ link: 'on' }), '', 'typing'), link)
+    ].join('');
+  }
+  // Empty pages on a phone (Oct 12). An empty note shows its name faint where its first line will
+  // be, and Start writing under it; opened, it takes the cursor and the keyboard. A page with
+  // nothing in it yet has its icon in a circle, what will be there, and the button that adds the
+  // first thing.
+  function mbEmpty(icon, title, text, action) {
+    return '<div class="mb-empty-st"><span class="ic">' + ICON[icon] + '</span><b>' + title + '</b><p>' + text + '</p>' + (action ? '<span class="mb-btn">' + action + '</span>' : '') + '</div>';
+  }
+  function phoneEmpty() {
+    var note = '<div class="mb-ed"><div class="h1 ph"><span class="caret"></span>Standup Monday</div><p class="ph">Start writing</p></div>';
+    return [
+      mbPhone('Boş not: adı soluk, altında Start writing; imleç ve klavye gelir', mbPage(mbNav('meetings', MB_TYPING) + mbFbar(), note, '', 'typing'), MB_KB),
+      mbPhone('Boş klasör: ne olacağı ve Create', mbPage(mbNav('Browse', ['dots']) + mbHead('Archive'), mbEmpty('folder', 'Nothing here yet', 'Notes, lists, boards and folders made here show up here.', 'Create')), mbTabs('browse') + MB_FAB),
+      mbPhone('Boş liste: Add task, altında Add section', mbPage(mbNav('Archive', ['dots']) + mbHead('Errands'), mbEmpty('tasks', 'No tasks yet', 'Add the first one, or a section to sort them into.', 'Add task') + '<div class="mb-tadd">' + ICON.plus + 'Add section</div>'), mbTabs('browse') + MB_FAB),
+      mbPhone('Boş Today: Add task', mbPage(mbHead('Today', 'Monday, Oct 12', true) + '<div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>', mbEmpty('sun', 'Nothing due today', 'Tasks and cards due today, or late, show up here.', 'Add task')), mbTabs('today') + MB_FAB)
     ].join('');
   }
   // Tasks on a phone (Oct 12). A list is a page: its tasks, its sections with their ···, Add
@@ -4106,7 +4132,7 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Text: dosya olduğu gibi', text, mbTabs('browse'))
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys };
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys, pempty: phoneEmpty };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {

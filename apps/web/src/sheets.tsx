@@ -1,7 +1,7 @@
 import { t } from '@scrawlnotes/i18n';
 import { Fragment, type KeyboardEvent, type ReactNode, type TouchEvent, useEffect, useRef, useState } from 'react';
 import type { MenuHead, MenuItem } from './dialogs';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 
 // The windows and menus of a phone, after the Phone create and Phone menus views of
 // design/mockups.html. A window is a sheet that comes up from the bottom, its buttons at its top,
@@ -111,6 +111,27 @@ export function Sheet({ label, className, onClose, onEscape = onClose, onKeyDown
         <span className="mb-grab" aria-hidden="true" />
         {children}
       </div>
+    </div>
+  );
+}
+
+/**
+ * A page of a phone with nothing in it yet: its icon in a circle, what will be there, and the
+ * button that adds the first thing, where there is one.
+ */
+export function Empty({ icon, title, text, action }: { icon: IconName; title: string; text?: string; action?: { label: string; run: () => void } }) {
+  return (
+    <div className="mb-empty-state">
+      <span className="ic">
+        <Icon name={icon} />
+      </span>
+      <b>{title}</b>
+      {text && <p>{text}</p>}
+      {action && (
+        <button type="button" className="mb-btn" onClick={action.run}>
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }

@@ -1,12 +1,12 @@
 import type { FormatState, LinkTap } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
-import { type FormEvent, type MouseEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type FormEvent, type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from './Icon';
 import type { FormatAction } from './session';
 import { Sheet } from './sheets';
 
-// A note on a phone, after the Phone note views of design/mockups.html. Typing brings up the
-// format bar on the keyboard: Undo and Redo first, then the marks and the link, the headings, the
+// A note on a phone, after the Phone note views of design/mockups.html. The format bar stays at
+// the top of the note: Undo and Redo first, then the marks and the link, the headings, the
 // blocks, To task and To card, an image and a recording; it scrolls sideways. A recording going
 // on shows its time and Stop at the bar's start, and writing goes on. A link tapped shows Open,
 // Edit and Copy above it; Edit opens its address in a sheet.
@@ -18,28 +18,6 @@ const clock = (ms: number) => {
 
 // The bar must not take the focus, and with it the keyboard, away from the note.
 const keepFocus = (event: MouseEvent) => event.preventDefault();
-
-/** Whether the note in `holder` is being typed in: its text has the focus. */
-function useTyping(bar: RefObject<HTMLElement | null>) {
-  const [typing, setTyping] = useState(false);
-  useEffect(() => {
-    const check = () => {
-      const active = document.activeElement;
-      const holder = bar.current?.parentElement;
-      setTyping(!!active && !!holder?.contains(active) && !!active.closest('.cm-content'));
-    };
-    // Focus moves after `focusout`; it is looked at once it has landed.
-    const later = () => window.setTimeout(check);
-    document.addEventListener('focusin', check);
-    document.addEventListener('focusout', later);
-    check();
-    return () => {
-      document.removeEventListener('focusin', check);
-      document.removeEventListener('focusout', later);
-    };
-  }, [bar]);
-  return typing;
-}
 
 /** A recording going on: its dot, how long it has run and Stop. */
 function Recording({ since, onStop }: { since: number; onStop: () => void }) {
@@ -71,7 +49,7 @@ interface Button {
 
 const FACES: ReadonlySet<string> = new Set(['B', 'I', 'S', '</>', 'H1', 'H2', 'H3']);
 
-/** The format bar of a phone: on the keyboard while the note is typed in, or while a recording goes on. */
+/** The format bar of a phone, at the top of the note. */
 export function PhoneFormatBar({ format, recording, recordError, onFormat, onLink, onImage, onRecord, onStop, onToTask, onToCard }: {
   format: FormatState | null;
   recording: { since: number } | null;
@@ -85,7 +63,6 @@ export function PhoneFormatBar({ format, recording, recordError, onFormat, onLin
   onToCard: () => void;
 }) {
   const bar = useRef<HTMLDivElement>(null);
-  const typing = useTyping(bar);
   const [more, setMore] = useState({ left: false, right: false });
   const measure = () => {
     const element = bar.current;
@@ -137,14 +114,12 @@ export function PhoneFormatBar({ format, recording, recordError, onFormat, onLin
     else if (action === 'record') onRecord();
     else onFormat(action);
   };
-  const shown = typing || !!recording;
   return (
     <div
       ref={bar}
-      className={['mb-fbar', shown ? '' : 'off', more.left ? 'more-left' : '', more.right ? 'more-right' : ''].filter(Boolean).join(' ')}
+      className={['mb-fbar', more.left ? 'more-left' : '', more.right ? 'more-right' : ''].filter(Boolean).join(' ')}
       role="toolbar"
       aria-label={t('format.label')}
-      aria-hidden={!shown}
       onMouseDown={keepFocus}
       onScroll={measure}
     >
@@ -165,7 +140,6 @@ export function PhoneFormatBar({ format, recording, recordError, onFormat, onLin
               title={button.label}
               disabled={!format}
               aria-pressed={button.on ? ((format && button.on(format)) ?? false) : undefined}
-              tabIndex={shown ? 0 : -1}
               onClick={() => run(button.action)}
             >
               {button.className === 'text' ? button.label : FACES.has(button.face) ? button.face : <Icon name={button.face as IconName} />}

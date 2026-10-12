@@ -1,7 +1,9 @@
 import { dayOf, dirname, type TrashItem } from '@scrawlnotes/core';
 import { sizeText } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
+import { isPhone } from './device';
 import { Icon, type IconName } from './Icon';
+import { Empty } from './sheets';
 import { clockTime, contentsText, pastDayLabel } from './text';
 
 const ICONS: Record<Exclude<TrashItem['kind'], 'attachment'>, IconName> = { note: 'note', tasks: 'tasks', board: 'board', keys: 'keys', collection: 'collection', folder: 'folder' };
@@ -69,10 +71,12 @@ export function TrashView({ items, today, onRestore, onDelete, onEmpty }: {
     if (last?.day === day) last.items.push(item);
     else days.push({ day, items: [item] });
   }
+  const phone = isPhone();
   return (
-    <section className="tasks">
-      <header className="th">
-        <b>{t('trash.title')}</b>
+    <section className={phone ? 'tasks mb-tasks' : 'tasks'}>
+      {/* On a phone the page's large title. */}
+      <header className={phone ? 'mb-head mb-trash-head' : 'th'}>
+        {phone ? <h1>{t('trash.title')}</h1> : <b>{t('trash.title')}</b>}
         {items.length > 0 && <span>{t('count.items', { count: items.length })}</span>}
         {items.length > 0 && (
           <button type="button" className="ghost" onClick={onEmpty}>
@@ -93,6 +97,8 @@ export function TrashView({ items, today, onRestore, onDelete, onEmpty }: {
         ))}
         {items.length > 0 ? (
           <p className="trash-note">{t('trash.note')}</p>
+        ) : isPhone() ? (
+          <Empty icon="trash" title={t('phone.emptyTrash')} text={t('phone.emptyTrashText')} />
         ) : (
           <p className="task-empty">{t('trash.nothing')}</p>
         )}

@@ -23,6 +23,8 @@ export interface TreeNode {
   kind: 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'folder';
   /** What a note, a task list, a board, a keys file or a collection is called in the interface. */
   title?: string;
+  /** A note with nothing written in it yet, when the tree was read: a phone opens it to be written in. */
+  empty?: boolean;
   children?: TreeNode[];
 }
 
@@ -593,7 +595,8 @@ async function treeOf(fs: VaultFs, dir: string, listed: Entry[]): Promise<TreeNo
       if (isTaskList(e)) return { name: e.name, path: e.path, kind: 'tasks', title: listName(e.path) };
       if (isBoard(e)) return { name: e.name, path: e.path, kind: 'board', title: boardName(e.path) };
       if (isKeys(e)) return { name: e.name, path: e.path, kind: 'keys', title: keysName(e.path) };
-      return { name: e.name, path: e.path, kind: 'note', title: displayTitle(e.path, await fs.readText(e.path)) };
+      const text = await fs.readText(e.path);
+      return { name: e.name, path: e.path, kind: 'note', title: displayTitle(e.path, text), ...(text.trim() === '' && { empty: true }) };
     }),
   );
   const order: Record<TreeNode['kind'], number> = { tasks: 1, board: 2, keys: 3, collection: 4, folder: 5, note: 6 };

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
 import { collectionTab, filterOf, filterTab, folderOf, iconOf, isNote, nameOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
-import { useViewport } from './sheets';
+import { Empty, useViewport } from './sheets';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
 // Browse and Today at its foot, and in each of them a stack of pages. A page slides in from the
@@ -530,19 +530,26 @@ export function Phone(props: PhoneProps) {
   }, []);
 
   // Typing in what is open, in a note, a find field or a list, shows Done at the top.
+  const checkTyping = () => {
+    const focused = document.activeElement;
+    setTyping(!!focused && item.contains(focused) && focused.matches('input, textarea, select, [contenteditable="true"]'));
+  };
   useEffect(() => {
-    const check = () => {
-      const active = document.activeElement;
-      setTyping(!!active && item.contains(active) && active.matches('input, textarea, select, [contenteditable="true"]'));
-    };
-    const later = () => window.setTimeout(check);
-    document.addEventListener('focusin', check);
+    const later = () => window.setTimeout(checkTyping);
+    document.addEventListener('focusin', checkTyping);
     document.addEventListener('focusout', later);
     return () => {
-      document.removeEventListener('focusin', check);
+      document.removeEventListener('focusin', checkTyping);
       document.removeEventListener('focusout', later);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item]);
+  // An empty note opened takes the typing cursor a moment after it shows; looked at again then.
+  useEffect(() => {
+    const timer = window.setTimeout(checkTyping, 150);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, top.key]);
 
   // A note's history opens as a page over the note's.
   const { open: historyAsked, onShown: historyShown } = props.history;
@@ -670,6 +677,7 @@ export function Phone(props: PhoneProps) {
         </div>
         <div className="mb-list">
           {newFolderIn === '' && <FolderForm onAdd={(name) => props.onNewFolder(name, '')} onCancel={() => setNewFolderIn(null)} />}
+          {newFolderIn !== '' && !tree.some((node) => node.kind === 'folder' && node.path !== INBOX) && <p className="mb-none">{t('phone.noFolders')}</p>}
           {tree
             .filter((node) => node.kind === 'folder' && node.path !== INBOX)
             .map((node) => (
@@ -744,10 +752,13 @@ export function Phone(props: PhoneProps) {
       </>
     );
     const empty = path !== INBOX && placed.length === 0 && children.length === 0;
+    if (empty && newFolderIn !== path) {
+      return <Empty icon="folder" title={t('phone.emptyFolder')} text={t('phone.emptyFolderText')} action={{ label: t('create.title'), run: () => props.onCreate(path) }} />;
+    }
     return (
       <div className="mb-list">
         {newFolderIn === path && <FolderForm onAdd={(name) => props.onNewFolder(name, path)} onCancel={() => setNewFolderIn(null)} />}
-        {empty && newFolderIn !== path ? <p className="mb-none">{t('phone.nothingHere')}</p> : rows}
+        {rows}
       </div>
     );
   };

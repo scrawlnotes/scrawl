@@ -19,6 +19,7 @@ import {
   EditorView,
   keymap,
   lineNumbers,
+  placeholder,
   rectangularSelection,
 } from '@codemirror/view';
 import { t } from '@scrawlnotes/i18n';
@@ -86,6 +87,8 @@ export interface ScrawlEditorOptions extends LivePreviewOptions {
   record?: () => void;
   /** The note stopped linking to some attached files, or started linking to them, as an edit or undo did. */
   onAttachments?: (removed: string[], added: string[]) => void;
+  /** What an empty note shows until something is written in it. */
+  placeholder?: (view: EditorView) => HTMLElement;
 }
 
 export type { EditorView };
@@ -245,6 +248,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         markdownSupport,
         livePreview(options),
         tableGrid,
+        options.placeholder ? placeholder(options.placeholder) : [],
         slashMenu(slashItems, options.touch),
         cursorBehavior,
         clipboard,

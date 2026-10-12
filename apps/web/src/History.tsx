@@ -4,6 +4,7 @@ import { t } from '@scrawlnotes/i18n';
 import { Fragment, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { Dialog } from './dialogs';
 import { Icon } from './Icon';
+import { Empty } from './sheets';
 import { clockTime, pastDayLabel } from './text';
 
 const MINUTE = 60_000;
@@ -79,7 +80,7 @@ export function HistoryList({ path, today, source, onPick }: {
           </div>
         </Fragment>
       ))}
-      {versions?.length === 0 && <p className="mb-none">{t('history.none')}</p>}
+      {versions?.length === 0 && <Empty icon="clock" title={t('phone.noVersions')} text={t('phone.noVersionsText')} />}
     </>
   );
 }
