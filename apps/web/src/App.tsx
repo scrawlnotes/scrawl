@@ -702,8 +702,11 @@ export function App() {
   // On a phone + on a board types a card for the column on screen; the page's menu opens its Fields.
   const [boardAdding, setBoardAdding] = useState(0);
   const [boardFields, setBoardFields] = useState(0);
+  // On a phone + in a keys file opens a new key's sheet.
+  const [keysAdding, setKeysAdding] = useState(0);
   const phoneAdd = (id: string) => {
     if (boardPathOf(id) !== null) return setBoardAdding((n) => n + 1);
+    if (keysPathOf(id) !== null) return setKeysAdding((n) => n + 1);
     const collectionDir = collectionPathOf(id);
     if (collectionDir !== null) return setNewRecord({ dir: collectionDir });
     if (id === TODAY) return setQuickAdd({ list: INBOX_TASKS, section: null, due: today });
@@ -840,7 +843,8 @@ export function App() {
   };
   const keysActions: KeysActions = {
     change: (path, text) => session.changeKeys(path, text),
-    menu: openMenu,
+    menu: (event, items, head) => (phone ? showSheet(items, head) : openMenu(event, items)),
+    notice: setNotice,
     ask: (title, message, run) => ask(title, message, run),
   };
   const dueNow = dueToday(tasks, today);
@@ -929,6 +933,7 @@ export function App() {
         onLook={(look) => session.lookAtKeys(keysPath, look)}
         actions={keysActions}
         onStatus={setViewStatus}
+        adding={keysAdding}
       />
     )}
     {collection && collectionPath !== null && (
@@ -1034,7 +1039,7 @@ export function App() {
             counts={counts}
             item={itemLayer}
             dueView={(kind) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare />}
-            canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null || (collectionPathOf(id) !== null && (collections[collectionPathOf(id)!]?.schema.fields.length ?? 0) > 0)}
+            canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null || (keysPathOf(id) !== null && keysLooks[keysPathOf(id)!]?.view !== 'text') || (collectionPathOf(id) !== null && (collections[collectionPathOf(id)!]?.schema.fields.length ?? 0) > 0)}
             onAdd={phoneAdd}
             trashView={<TrashView items={trash} today={today} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
             syncWord={syncWord(sync)}

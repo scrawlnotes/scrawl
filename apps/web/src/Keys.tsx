@@ -18,9 +18,11 @@ import {
 import { createEnvEditor } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
 import { type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import type { MenuItem } from './dialogs';
+import { isPhone } from './device';
+import type { MenuHead, MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { useNarrow } from './narrow';
+import { PhoneKeysTable } from './PhoneKeys';
 import { quote } from './text';
 
 // A keys file, after the Keys views of design/mockups.html (direction A): its groups as a table,
@@ -29,9 +31,12 @@ import { quote } from './text';
 export interface KeysActions {
   /** The file's new text, after a change made in its table or its text. */
   change: (path: string, text: string) => void;
-  menu: (event: MouseEvent, items: MenuItem[]) => void;
+  /** On a phone an action sheet, with what it is about on top. */
+  menu: (event: MouseEvent, items: MenuItem[], head?: MenuHead) => void;
   /** Asks before something is deleted. */
   ask: (title: string, message: string, run: () => void) => void;
+  /** On a phone, says something for a moment at the foot: Copied. */
+  notice?: (text: string) => void;
 }
 
 /** A group as the table points at it: its heading's line, checked by its name. */
@@ -54,7 +59,7 @@ const COPIED_MS = 1500;
  * Puts text on the clipboard. Where the clipboard is not given to the page (some web views), the
  * text is copied the older way, from a field that is there only for that. Returns whether it went.
  */
-async function writeClipboard(text: string): Promise<boolean> {
+export async function writeClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;
@@ -251,11 +256,12 @@ function KeyRow({ entry, secret, shown, copied, onReveal, onCopy, onEdit, onMenu
   );
 }
 
-/** The file as text, with line numbers; what is typed goes to the file as it is. */
-function KeysText({ text, onChange, onCursor }: {
+/** The file as text, with line numbers; what is typed goes to the file as it is. On a phone it opens to be read, without the keyboard. */
+function KeysText({ text, onChange, onCursor, focus = true }: {
   text: string;
   onChange: (text: string) => void;
   onCursor: (at: { line: number; col: number }) => void;
+  focus?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<ReturnType<typeof createEnvEditor> | null>(null);
@@ -264,7 +270,7 @@ function KeysText({ text, onChange, onCursor }: {
   useEffect(() => {
     const made = createEnvEditor({ parent: host.current!, doc: text, onChange: (doc) => changed.current(doc), onCursor });
     editor.current = made;
-    made.view.focus();
+    if (focus) made.view.focus();
     return () => {
       made.destroy();
       editor.current = null;
@@ -276,7 +282,7 @@ function KeysText({ text, onChange, onCursor }: {
   return <div className="kvtext" ref={host} />;
 }
 
-export function KeysView({ path, name, text, look, onLook, actions, onStatus }: {
+export function KeysView({ path, name, text, look, onLook, actions, onStatus, adding }: {
   path: string;
   name: string;
   text: string;
@@ -285,6 +291,8 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus }: 
   actions: KeysActions;
   /** What the status bar says about the file: its counts, or where the cursor is in its text. Null once it is closed. */
   onStatus: (parts: string[] | null) => void;
+  /** On a phone, counts the presses of +, each opening a new key's sheet. */
+  adding?: number;
 }) {
   const view = look?.view ?? 'table';
   const narrow = useNarrow();
@@ -313,6 +321,32 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus }: 
     );
   }, [view, groups, cursor]);
   useEffect(() => () => onStatus(null), []);
+
+  // On a phone: the name and Table or Text on top, then the groups as blocks, or the text.
+  if (isPhone()) {
+    return (
+      <section className="bv keys-view mb-keys">
+        <header className="mb-head split">
+          <div>
+            <h1>{name}</h1>
+          </div>
+          <div className="mb-seg" role="tablist">
+            <button type="button" role="tab" aria-selected={view === 'table'} onClick={() => onLook({ view: 'table' })}>
+              {t('keys.viewTable')}
+            </button>
+            <button type="button" role="tab" aria-selected={view === 'text'} onClick={() => onLook({ view: 'text' })}>
+              {t('keys.viewText')}
+            </button>
+          </div>
+        </header>
+        {view === 'table' ? (
+          <PhoneKeysTable text={text} latest={latest} change={change} actions={actions} adding={adding} />
+        ) : (
+          <KeysText text={text} onChange={change} onCursor={setCursor} focus={false} />
+        )}
+      </section>
+    );
+  }
 
   const copy = async (id: string, value: string) => setCopied({ id, ok: await writeClipboard(value) });
   const copiedText = (id: string) => (copied?.id === id ? (copied.ok ? t('keys.copied') : t('keys.notCopied')) : null);
