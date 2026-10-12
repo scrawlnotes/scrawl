@@ -41,7 +41,7 @@ import {
   type TrashItem,
   type TreeNode,
 } from '@scrawlnotes/core';
-import type { EditorStats } from '@scrawlnotes/editor';
+import { type EditorStats, type LinkTap, sizeText } from '@scrawlnotes/editor';
 import { type DragEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -63,7 +63,8 @@ import {
 } from './dialogs';
 import { type BoardActions, BoardView } from './Board';
 import { FormatBar } from './FormatBar';
-import { HistoryDialog } from './History';
+import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History';
+import { LinkActions, LinkSheet, PhoneFormatBar } from './PhoneNote';
 import { Icon } from './Icon';
 import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
@@ -176,6 +177,7 @@ export function App() {
     if (phone) {
       made.focusOnOpen = false;
       made.neighborOnClose = false;
+      made.touch = true;
     }
     return made;
   });
@@ -486,13 +488,13 @@ export function App() {
   };
   // The menu of a note, a task list, a board, a keys file or a collection; the inbox's own list has none.
   const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
-  const itemMenuItems = (path: string): MenuItem[] => [
+  const itemMenuItems = (path: string, history: (path: string) => void = (path) => void showHistory(path)): MenuItem[] => [
       { label: t('menu.moveTo'), icon: 'move', run: () => setDialog({ kind: 'move', path }) },
       { label: t('menu.rename'), icon: 'pen', run: () => setDialog({ kind: 'rename', path }) },
       // Only notes keep a history; a keys file keeps none, so that a password changed is gone.
       ...(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections
         ? []
-        : [{ label: t('menu.history'), icon: 'clock' as const, run: () => void showHistory(path) }]),
+        : [{ label: t('menu.history'), icon: 'clock' as const, run: () => history(path) }]),
       // A collection goes out to a CSV file and comes in from one.
       ...(path in collections
         ? [
@@ -518,10 +520,14 @@ export function App() {
     const head: MenuHead = { icon, title: nameOf(id, tabTitles, filters), sub: t('phone.kindIn', { kind, folder: folderLabel(where) }) };
     if (filter) return showSheet(filterMenuItems(filter), head);
     const path = collectionPathOf(id) ?? pathOf(id);
+    // A note's own page has Find and Markdown; its history opens as pages over it.
     const markdown: MenuItem[] = page && isNote(id)
-      ? [{ label: t('status.markdown'), icon: 'markdown', value: source ? t('phone.on') : t('phone.off'), run: () => session.setSource(!source) }]
+      ? [
+          { label: t('find.find'), icon: 'search', run: () => session.openFind() },
+          { label: t('status.markdown'), icon: 'markdown', value: source ? t('phone.on') : t('phone.off'), run: () => session.setSource(!source) },
+        ]
       : [];
-    const items = path === null || path === INBOX_TASKS ? [] : itemMenuItems(path);
+    const items = path === null || path === INBOX_TASKS ? [] : itemMenuItems(path, setPhoneHistory);
     if (markdown.length + items.length === 0) return;
     // History and what follows it are apart from Markdown.
     showSheet([...markdown, ...items.map((item, i) => (i === 0 && markdown.length > 0 ? { ...item, apart: true } : item))], head);
@@ -601,13 +607,34 @@ export function App() {
   };
   const closeMenu = useCallback(() => setMenu(null), []);
 
-  // An image, file or recording in a note has its right-click menu drawn like the others.
+  // An image, file or recording in a note has its right-click menu drawn like the others; on a
+  // phone, where holding it opens it, it says what it is and how large.
   useEffect(() => {
-    session.showMenu = (at, items) => setMenu({ at, items });
+    const icons = { open: 'open', reveal: 'folder', delete: 'trash' } as const;
+    const kinds = { image: ['image', 'phone.image'], file: ['file', 'phone.file'], audio: ['audio', 'phone.recording'] } as const;
+    session.showMenu = (at, actions, about) => {
+      const items: MenuItem[] = actions.map((action) => ({ label: action.label, run: action.run, icon: icons[action.kind], danger: action.kind === 'delete' }));
+      const head: MenuHead | undefined = about && {
+        icon: kinds[about.kind][0],
+        title: about.name,
+        sub: [t(kinds[about.kind][1]), about.size === undefined ? '' : sizeText(about.size)].filter(Boolean).join(' · '),
+      };
+      setMenu({ at, items, head });
+    };
+    // A link tapped in a note, on a phone.
+    session.linkTap = setLinkTap;
     return () => {
       session.showMenu = null;
+      session.linkTap = null;
     };
   }, [session]);
+  const [linkTap, setLinkTap] = useState<LinkTap | null>(null);
+  const closeLinkTap = useCallback(() => setLinkTap(null), []);
+  /** A link's address being changed, or a link being made, on a phone. */
+  const [linkEdit, setLinkEdit] = useState<{ url: string; linked: boolean } | null>(null);
+  /** The note whose history a phone is asked to show. */
+  const [phoneHistory, setPhoneHistory] = useState<string | null>(null);
+  const openHref = (href: string) => (isDesktop ? void openUrlOnDesktop(href).catch(() => undefined) : void window.open(href, '_blank', 'noopener'));
 
   const onTabDragOver = (event: DragEvent) => {
     if (!event.dataTransfer.types.includes(TAB_DRAG_TYPE)) return;
@@ -790,7 +817,7 @@ export function App() {
   // drawn into a layer that the page on top shows.
   const itemContent = (
     <>
-    {showingEditor && (
+    {showingEditor && !phone && (
       <FormatBar
         format={format}
         onFormat={(action) => session.format(action)}
@@ -805,6 +832,21 @@ export function App() {
       />
     )}
     <div className="editor" ref={host} hidden={!showingEditor} />
+    {/* On a phone the format bar is on the keyboard, under the note. */}
+    {showingEditor && phone && (
+      <PhoneFormatBar
+        format={format}
+        recording={recording}
+        recordError={recordError}
+        onFormat={(action) => session.format(action)}
+        onLink={() => setLinkEdit({ url: format?.link?.url ?? '', linked: !!format?.link })}
+        onImage={() => session.pickImage()}
+        onRecord={() => void session.startRecording()}
+        onStop={() => session.stopRecording()}
+        onToTask={startToTask}
+        onToCard={startToCard}
+      />
+    )}
     {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} />}
     {boardPath !== null && board && (
       <BoardView
@@ -961,8 +1003,51 @@ export function App() {
             onItemMenu={phoneItemMenu}
             onFolderMenu={phoneFolderMenu}
             menuOpen={menu !== null}
+            history={{
+              open: phoneHistory,
+              onShown: () => setPhoneHistory(null),
+              list: (path, pick) => <HistoryList path={path} today={today} source={session} onPick={pick} />,
+              version: (path, version, done) => (
+                <VersionView
+                  version={version}
+                  source={session}
+                  onRestore={(text) => {
+                    done();
+                    void session.restoreVersion(path, text);
+                  }}
+                />
+              ),
+              label: (version) => versionLabel(version, today),
+            }}
+            onDone={() => {
+              session.closeFind();
+              if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            }}
           />
           {createPortal(itemContent, itemLayer)}
+          {linkTap && (
+            <LinkActions
+              link={linkTap}
+              onOpen={() => openHref(linkTap.href)}
+              onEdit={() => {
+                session.placeCursor(linkTap.pos);
+                setLinkEdit({ url: linkTap.href, linked: true });
+              }}
+              onCopy={() => void navigator.clipboard.writeText(linkTap.href).then(() => setNotice(t('phone.copied')), () => undefined)}
+              onClose={closeLinkTap}
+            />
+          )}
+          {linkEdit && (
+            <LinkSheet
+              url={linkEdit.url}
+              linked={linkEdit.linked}
+              onApply={(url) => {
+                setLinkEdit(null);
+                session.setLink(url);
+              }}
+              onClose={() => setLinkEdit(null)}
+            />
+          )}
           {syncSheet && (
             <SyncSheet
               sync={sync}

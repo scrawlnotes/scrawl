@@ -1,8 +1,9 @@
 import { dayOf, type Version } from '@scrawlnotes/core';
 import { createViewer, type ScrawlViewer } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { Fragment, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { Dialog } from './dialogs';
+import { Icon } from './Icon';
 import { clockTime, pastDayLabel } from './text';
 
 const MINUTE = 60_000;
@@ -20,6 +21,97 @@ export interface HistorySource {
   versions(path: string): Promise<Version[]>;
   readVersion(version: Version): Promise<string>;
   resolveImage(src: string): string | Promise<string>;
+}
+
+/** Versions by day, the latest first, each with its place in the list. */
+function byDay(versions: Version[] | null) {
+  const days: { day: string; items: { version: Version; index: number }[] }[] = [];
+  versions?.forEach((version, index) => {
+    const day = dayOf(new Date(version.time));
+    const last = days[days.length - 1];
+    if (last?.day === day) last.items.push({ version, index });
+    else days.push({ day, items: [{ version, index }] });
+  });
+  return days;
+}
+
+/** When a version was written, as a phone's page names it: `Today, 14:12`. */
+export const versionLabel = (version: Version, today: string) => `${pastDayLabel(dayOf(new Date(version.time)), today)}, ${clockTime(version.time)}`;
+
+/**
+ * A note's versions on a phone, as a page, after the Phone note more view of design/mockups.html:
+ * the note as it is now, then each day's versions, the latest first and how long ago it was.
+ * `onPick` gets a version, or null for the note as it is.
+ */
+export function HistoryList({ path, today, source, onPick }: {
+  path: string;
+  today: string;
+  source: HistorySource;
+  onPick: (version: Version | null) => void;
+}) {
+  const [versions, setVersions] = useState<Version[] | null>(null);
+  useEffect(() => {
+    void source.versions(path).then(setVersions);
+  }, [source, path]);
+  const now = Date.now();
+  const row = (key: string, icon: 'note' | 'clock', label: string, detail: string | null, pick: () => void) => (
+    <button key={key} type="button" className="mb-row" onClick={pick}>
+      <Icon name={icon} />
+      <span className="tx">
+        <b>{label}</b>
+      </span>
+      {detail && <span className="ct">{detail}</span>}
+      <Icon name="chevron" />
+    </button>
+  );
+  return (
+    <>
+      <div className="mb-list">{row('now', 'note', t('history.current'), null, () => onPick(null))}</div>
+      {byDay(versions).map(({ day, items }) => (
+        <Fragment key={day}>
+          <div className="mb-sec">
+            <span>{pastDayLabel(day, today)}</span>
+          </div>
+          <div className="mb-list">
+            {items.map(({ version, index }) =>
+              row(version.time, 'clock', clockTime(version.time), index === 0 ? ago(version.time, now) : null, () => onPick(version)),
+            )}
+          </div>
+        </Fragment>
+      ))}
+      {versions?.length === 0 && <p className="mb-none">{t('history.none')}</p>}
+    </>
+  );
+}
+
+/** One earlier version of a note on a phone, as a page: the note as it was, and Restore at the foot. */
+export function VersionView({ version, source, onRestore }: { version: Version; source: HistorySource; onRestore: (text: string) => void }) {
+  const host = useRef<HTMLDivElement>(null);
+  const [text, setText] = useState<string | null>(null);
+  useEffect(() => {
+    const viewer = createViewer({ parent: host.current!, doc: '', resolveImage: (src) => source.resolveImage(src) });
+    let stale = false;
+    void source.readVersion(version).then((read) => {
+      if (stale) return;
+      setText(read);
+      viewer.show(read);
+    });
+    return () => {
+      stale = true;
+      viewer.destroy();
+    };
+  }, [version, source]);
+  return (
+    <>
+      <div ref={host} className="mb-version" />
+      <div className="mb-foot">
+        <small>{t('history.hint')}</small>
+        <button type="button" className="mb-btn" disabled={text === null} onClick={() => text !== null && onRestore(text)}>
+          {t('history.restore')}
+        </button>
+      </div>
+    </>
+  );
 }
 
 /**
@@ -90,13 +182,7 @@ export function HistoryDialog({ path, title, current, today, source, onRestore, 
   };
 
   // Latest first, so each day's group comes out in order.
-  const days: { day: string; items: { version: Version; index: number }[] }[] = [];
-  versions?.forEach((version, index) => {
-    const day = dayOf(new Date(version.time));
-    const last = days[days.length - 1];
-    if (last?.day === day) last.items.push({ version, index });
-    else days.push({ day, items: [{ version, index }] });
-  });
+  const days = byDay(versions);
   const now = Date.now();
   const row = (index: number, label: string, detail: string | null) => (
     <button

@@ -123,6 +123,45 @@ const shapes = {
   close: <path d="M7 7l10 10M17 7L7 17" />,
   /** What is chosen in a list on a phone. */
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  // The format bar of a phone.
+  undo: (
+    <>
+      <path d="M9 6.5L4.5 11 9 15.5" />
+      <path d="M5 11h9.5a5 5 0 0 1 0 10H12" />
+    </>
+  ),
+  redo: (
+    <>
+      <path d="M15 6.5l4.5 4.5-4.5 4.5" />
+      <path d="M19 11H9.5a5 5 0 0 0 0 10H12" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M10.5 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+      <path d="M13.5 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </>
+  ),
+  list: (
+    <>
+      <path d="M10 6.5h10M10 12h10M10 17.5h10" />
+      <circle cx="5" cy="6.5" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="5" cy="17.5" r="1.3" fill="currentColor" stroke="none" />
+    </>
+  ),
+  quote: (
+    <>
+      <path d="M5.5 5v14" />
+      <path d="M10 8h9M10 12h9M10 16h6" />
+    </>
+  ),
+  codeBlock: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M9.5 9.5L7 12l2.5 2.5M14.5 9.5L17 12l-2.5 2.5" />
+    </>
+  ),
   /** Renaming. */
   pen: <path d="M5 19l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L9 17.5z M13.5 7l3 3" />,
   /** A note's history. */

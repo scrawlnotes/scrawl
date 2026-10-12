@@ -12,9 +12,28 @@ export interface MediaOptions {
   fileSize?: (src: string) => number | undefined;
   /** An address the browser can play an attached recording from. */
   resolveAudio?: (src: string) => Promise<string>;
-  /** Shows the menu of a right click at the pointer, drawn like the host's other menus. */
-  showMenu?: (at: { x: number; y: number }, items: ItemAction[]) => void;
+  /** Shows the menu of a right click at the pointer, drawn like the host's other menus; `about` says what it is the menu of. */
+  showMenu?: (at: { x: number; y: number }, items: ItemAction[], about?: ItemAbout) => void;
+  /**
+   * A touch screen. A tap on an image or a file opens it instead of selecting it, and holding an
+   * image, a file or a recording opens its menu; neither brings up the keyboard.
+   */
+  touch?: boolean;
 }
+
+/** What an image, file or recording is, for the head of its menu. */
+export interface ItemAbout {
+  kind: 'image' | 'file' | 'audio';
+  /** Its file's name. */
+  name: string;
+  /** Its size in bytes, when it is known. */
+  size?: number;
+}
+
+/** How long a finger rests on an item before its menu opens. */
+const HOLD_MS = 450;
+/** How far a finger moves before it is scrolling rather than holding. */
+const SLOP = 8;
 
 /** Something that can be done with an image, file or recording in a note. */
 export interface ItemAction {
@@ -151,11 +170,11 @@ export function selectWidget(view: EditorView, dom: HTMLElement, length: number)
   view.focus();
 }
 
-/** Takes the Markdown a widget stands for out of the note, as one step that undo takes back. */
-function removeWidget(view: EditorView, dom: HTMLElement, length: number) {
+/** Takes the Markdown a widget stands for out of the note, as one step that undo takes back. On a touch screen it brings up no keyboard. */
+function removeWidget(view: EditorView, dom: HTMLElement, length: number, focus: boolean) {
   const from = view.posAtDOM(dom);
   view.dispatch({ changes: { from, to: from + length }, selection: { anchor: from }, scrollIntoView: true, userEvent: 'delete' });
-  view.focus();
+  if (focus) view.focus();
 }
 
 const ACTION_ICONS: Record<ItemAction['kind'], string> = {
@@ -198,6 +217,8 @@ export abstract class ItemWidget extends WidgetType {
   protected rootClass = 'cm-sl-item';
   /** The class the item has while it is selected. */
   protected abstract readonly selectedClass: string;
+  /** What kind of item it is, for the head of its menu. */
+  protected abstract readonly kind: ItemAbout['kind'];
 
   constructor(
     readonly src: string,
@@ -238,8 +259,61 @@ export abstract class ItemWidget extends WidgetType {
     const actions: ItemAction[] = [];
     if (open) actions.push({ kind: 'open', label: t('editor.item.open'), run: open });
     if (file && reveal) actions.push({ kind: 'reveal', label: t('editor.item.reveal'), run: () => reveal(file) });
-    actions.push({ kind: 'delete', label: t('editor.item.delete'), run: () => removeWidget(view, root, this.length) });
+    actions.push({ kind: 'delete', label: t('editor.item.delete'), run: () => removeWidget(view, root, this.length, !this.options.touch) });
     return actions;
+  }
+
+  /** What the item is, for the head of its menu: its kind, its file's name and its size. */
+  private about(): ItemAbout {
+    let name = this.src.slice(this.src.lastIndexOf('/') + 1);
+    try {
+      name = decodeURIComponent(name);
+    } catch {
+      // Shown as it is written.
+    }
+    const file = this.file();
+    return { kind: this.kind, name, size: file ? this.options.fileSize?.(file) : undefined };
+  }
+
+  /**
+   * On a touch screen a finger resting on the item opens its menu, as a right click does; the tap
+   * that ends it does nothing else.
+   */
+  private holdForMenu(view: EditorView, body: HTMLElement, show: () => void) {
+    let at: { x: number; y: number; timer: number; fired: boolean } | null = null;
+    const stop = () => {
+      if (at) window.clearTimeout(at.timer);
+    };
+    body.addEventListener(
+      'touchstart',
+      (event) => {
+        if (view.state.readOnly || event.touches.length > 1) return;
+        const point = event.touches[0]!;
+        stop();
+        at = { x: point.clientX, y: point.clientY, fired: false, timer: window.setTimeout(() => at && ((at.fired = true), show()), HOLD_MS) };
+      },
+      { passive: true },
+    );
+    body.addEventListener(
+      'touchmove',
+      (event) => {
+        const point = event.touches[0]!;
+        if (at && !at.fired && Math.hypot(point.clientX - at.x, point.clientY - at.y) > SLOP) {
+          stop();
+          at = null;
+        }
+      },
+      { passive: true },
+    );
+    body.addEventListener('touchend', (event) => {
+      stop();
+      if (at?.fired) event.preventDefault();
+      at = null;
+    });
+    body.addEventListener('touchcancel', () => {
+      stop();
+      at = null;
+    });
   }
 
   toDOM(view: EditorView) {
@@ -256,9 +330,12 @@ export abstract class ItemWidget extends WidgetType {
       const show = this.options.showMenu;
       if (!show || view.state.readOnly) return;
       event.preventDefault();
-      selectWidget(view, root, this.length);
-      show({ x: event.clientX, y: event.clientY }, this.actions(view, root));
+      // On a touch screen the item is not selected: that would bring up the keyboard.
+      if (!this.options.touch) selectWidget(view, root, this.length);
+      show({ x: event.clientX, y: event.clientY }, this.actions(view, root), this.about());
     });
+    const show = this.options.showMenu;
+    if (this.options.touch && show) this.holdForMenu(view, body, () => show({ x: 0, y: 0 }, this.actions(view, root), this.about()));
     this.showSelection(view, root);
     return root;
   }
@@ -291,6 +368,7 @@ export abstract class ItemWidget extends WidgetType {
 /** An attached file: its name and size. A click selects it, a double click opens it. */
 export class FileWidget extends ItemWidget {
   protected readonly selectedClass = 'cm-sl-file-selected';
+  protected readonly kind = 'file';
 
   constructor(
     src: string,
@@ -320,7 +398,8 @@ export class FileWidget extends ItemWidget {
     chip.append(this.name);
     const bytes = this.options.fileSize?.(this.src);
     if (bytes !== undefined) chip.append(Object.assign(el('small', ''), { textContent: sizeText(bytes) }));
-    chip.addEventListener('click', () => selectWidget(view, root, this.length));
+    // On a touch screen a tap opens it.
+    chip.addEventListener('click', () => (this.options.touch ? this.opener()?.() : selectWidget(view, root, this.length)));
     chip.addEventListener('dblclick', () => this.opener()?.());
     return chip;
   }
@@ -369,6 +448,7 @@ let playing: HTMLAudioElement | null = null;
  */
 export class AudioWidget extends ItemWidget {
   protected readonly selectedClass = 'cm-sl-audio-selected';
+  protected readonly kind = 'audio';
 
   constructor(
     src: string,
@@ -457,7 +537,7 @@ export class AudioWidget extends ItemWidget {
           const total = duration || audio!.duration;
           if (Number.isFinite(total)) audio!.currentTime = at * total;
         });
-      } else {
+      } else if (!this.options.touch) {
         selectWidget(view, root, this.length);
       }
     });

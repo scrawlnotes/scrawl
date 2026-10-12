@@ -224,6 +224,16 @@ export const en = {
   'phone.kindIn': '{kind} in {folder}',
   'phone.in': 'in {folder}',
   'phone.newFolder': 'New folder “{name}”',
+  // a note on a phone: Done puts the keyboard away; a link tapped can be opened, edited or copied
+  'phone.done': 'Done',
+  'phone.openLink': 'Open',
+  'phone.editLink': 'Edit',
+  'phone.copyLink': 'Copy',
+  'phone.copied': 'Copied',
+  // what an image, a file or a recording is, at the top of its menu
+  'phone.image': 'Image',
+  'phone.file': 'File',
+  'phone.recording': 'Recording',
   'phone.now': 'now',
   'phone.minutes': '{count} min',
   'phone.hours': '{count} h',

@@ -29,6 +29,18 @@ export interface LivePreviewOptions extends MediaOptions {
   resolveImage?: (src: string) => string | Promise<string>;
   /** Opens a web or mail address of the note. Without it, the browser opens it in a new tab. */
   openLink?: (href: string) => void;
+  /**
+   * A tap on a link on a touch screen: the host shows what can be done with it. The tap moves no
+   * cursor and brings up no keyboard.
+   */
+  onLinkTap?: (link: LinkTap) => void;
+}
+
+/** A link tapped: where it points, where it is on screen, and where in the note. */
+export interface LinkTap {
+  href: string;
+  box: DOMRect;
+  pos: number;
 }
 
 const openInBrowser = (href: string) => void window.open(href, '_blank', 'noopener');
@@ -110,6 +122,7 @@ class RuleWidget extends WidgetType {
 class ImageWidget extends ItemWidget {
   protected override rootClass = 'cm-sl-img-wrap';
   protected readonly selectedClass = 'cm-sl-img-selected';
+  protected readonly kind = 'image';
 
   constructor(
     /** The source as the note has it. */
@@ -165,7 +178,8 @@ class ImageWidget extends ItemWidget {
     img.addEventListener('load', () => {
       if (img.isConnected) view.dispatch({ effects: imageLoaded.of(null) });
     });
-    img.addEventListener('click', () => selectWidget(view, root, this.length));
+    // On a touch screen a tap opens it.
+    img.addEventListener('click', () => (this.preview.touch ? this.opener()?.() : selectWidget(view, root, this.length)));
     img.addEventListener('dblclick', () => this.opener()?.());
     return img;
   }
@@ -481,6 +495,45 @@ const followLinks = (open: (href: string) => void) =>
   });
 
 /**
+ * A tap on a rendered link, on a touch screen, goes to `onLinkTap` instead of the note: no cursor
+ * moves and no keyboard comes up. A finger that moves is scrolling.
+ */
+function linkTaps(onLinkTap: (link: LinkTap) => void): Extension {
+  let start: { link: HTMLElement; x: number; y: number } | null = null;
+  const linkOf = (target: EventTarget | null) => (target instanceof Element ? target.closest<HTMLElement>('.cm-sl-link') : null);
+  const tap = (view: EditorView, link: HTMLElement) => {
+    const href = link.dataset.href;
+    if (!href) return false;
+    onLinkTap({ href, box: link.getBoundingClientRect(), pos: view.posAtDOM(link) });
+    return true;
+  };
+  return EditorView.domEventHandlers({
+    touchstart(event) {
+      const link = linkOf(event.target);
+      const point = event.touches[0];
+      start = link && point && event.touches.length === 1 ? { link, x: point.clientX, y: point.clientY } : null;
+      return false;
+    },
+    touchend(event, view) {
+      const began = start;
+      start = null;
+      const point = event.changedTouches[0];
+      if (!began || !point || Math.hypot(point.clientX - began.x, point.clientY - began.y) > 10) return false;
+      if (!tap(view, began.link)) return false;
+      event.preventDefault();
+      return true;
+    },
+    // A mouse on a touch screen, or a pen.
+    mousedown(event, view) {
+      const link = linkOf(event.target);
+      if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || !tap(view, link)) return false;
+      event.preventDefault();
+      return true;
+    },
+  });
+}
+
+/**
  * While Ctrl/Cmd is held, links show the hand they can be followed with. The mark goes on the
  * scroller, as the editor sets the classes of its own element anew when it is focused.
  */
@@ -548,5 +601,12 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
     { decorations: (v) => v.decorations },
   );
   const atomicRanges = EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomic ?? RangeSet.empty);
-  return [sourceMode, plugin, atomicRanges, followLinks(options.openLink ?? openInBrowser), showFollowable];
+  return [
+    sourceMode,
+    plugin,
+    atomicRanges,
+    options.onLinkTap ? linkTaps(options.onLinkTap) : [],
+    followLinks(options.openLink ?? openInBrowser),
+    showFollowable,
+  ];
 }

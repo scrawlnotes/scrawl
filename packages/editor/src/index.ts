@@ -2,9 +2,12 @@ import { addCursorBelow, defaultKeymap, history, historyKeymap, indentWithTab, r
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import {
+  closeSearchPanel,
   highlightSelectionMatches,
+  openSearchPanel,
   search,
   searchKeymap,
+  searchPanelOpen,
   selectNextOccurrence,
   selectSelectionMatches,
 } from '@codemirror/search';
@@ -42,14 +45,14 @@ import { scrawlTheme } from './theme';
 
 export { clipboard, markdownSlice, visibleText } from './clipboard';
 export * from './commands';
-export { addCursorBelow, redo, selectNextOccurrence, selectSelectionMatches, undo };
+export { addCursorBelow, closeSearchPanel, openSearchPanel, redo, searchPanelOpen, selectNextOccurrence, selectSelectionMatches, undo };
 export { createEnvEditor, type EnvEditor } from './env';
 export { literalPattern } from './find';
 export { addCopy, type Copy, copyFollows, copyPosition, copyProgress, dropCopy, progressText, showCopy } from './copies';
 export { linkAddress, linkText, pastedLink, pastedUrl } from './links';
 export { cursorBehavior, restingPosition } from './cursor';
-export { attachmentChanges, attachmentsIn, type ItemAction, sizeText } from './media';
-export { buildDecorations, livePreview, type LivePreviewOptions, setSourceMode, sourceMode } from './livePreview';
+export { attachmentChanges, attachmentsIn, type ItemAbout, type ItemAction, sizeText } from './media';
+export { buildDecorations, type LinkTap, livePreview, type LivePreviewOptions, setSourceMode, sourceMode } from './livePreview';
 export { literalInput, positionsToEscape } from './literal';
 export { textSelection } from './selection';
 export { cellMarkdown, parseTable, serializeTable, tableGrid } from './table';
@@ -99,6 +102,17 @@ export interface ScrawlEditor {
   refreshMedia(): void;
   destroy(): void;
 }
+
+/** The icons of the `/` menu on a touch screen. */
+const SLASH_ICONS = {
+  list: '<path d="M10 6.5h10M10 12h10M10 17.5h10"/><circle cx="5" cy="6.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="5" cy="17.5" r="1.3" fill="currentColor" stroke="none"/>',
+  quote: '<path d="M5.5 5v14"/><path d="M10 8h9M10 12h9M10 16h6"/>',
+  codeBlock: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 9.5L7 12l2.5 2.5M14.5 9.5L17 12l-2.5 2.5"/>',
+  table: '<rect x="3.5" y="5" width="17" height="14" rx="1.5"/><path d="M3.5 10h17M3.5 14.5h17M9.5 5v14M15 5v14"/>',
+  divider: '<path d="M4 12h16"/>',
+  audio: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
+  image: '<rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L20 18"/>',
+};
 
 function statsOf(state: EditorState, chars: number): EditorStats {
   const main = state.selection.main;
@@ -184,20 +198,21 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
   const addFiles = options.addFiles;
   const record = options.record;
   const slashItems: SlashItem[] = [
-    { label: t('slash.heading1'), run: toggleHeading(1) },
-    { label: t('slash.heading2'), run: toggleHeading(2) },
-    { label: t('slash.heading3'), run: toggleHeading(3) },
-    { label: t('slash.list'), run: toggleLinePrefix('list') },
-    { label: t('slash.quote'), run: toggleLinePrefix('quote') },
-    { label: t('slash.codeBlock'), run: toggleCodeBlock },
-    { label: t('slash.table'), run: addTable },
-    { label: t('slash.divider'), run: insertDivider },
+    { label: t('slash.heading1'), icon: 'H1', run: toggleHeading(1) },
+    { label: t('slash.heading2'), icon: 'H2', run: toggleHeading(2) },
+    { label: t('slash.heading3'), icon: 'H3', run: toggleHeading(3) },
+    { label: t('slash.list'), icon: SLASH_ICONS.list, run: toggleLinePrefix('list') },
+    { label: t('slash.quote'), icon: SLASH_ICONS.quote, run: toggleLinePrefix('quote') },
+    { label: t('slash.codeBlock'), icon: SLASH_ICONS.codeBlock, run: toggleCodeBlock },
+    { label: t('slash.table'), icon: SLASH_ICONS.table, run: addTable },
+    { label: t('slash.divider'), icon: SLASH_ICONS.divider, run: insertDivider },
   ];
-  if (record) slashItems.push({ label: t('slash.recording'), detail: t('slash.fromMicrophone'), run: () => record() });
+  if (record) slashItems.push({ label: t('slash.recording'), detail: t('slash.fromMicrophone'), icon: SLASH_ICONS.audio, run: () => record() });
   if (addFiles) {
     slashItems.push({
       label: t('slash.image'),
       detail: t('slash.fromFile'),
+      icon: SLASH_ICONS.image,
       run(view) {
         const input = document.createElement('input');
         input.type = 'file';
@@ -230,7 +245,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         markdownSupport,
         livePreview(options),
         tableGrid,
-        slashMenu(slashItems),
+        slashMenu(slashItems, options.touch),
         cursorBehavior,
         clipboard,
         linkPaste(),

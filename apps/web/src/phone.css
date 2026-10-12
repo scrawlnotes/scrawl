@@ -39,9 +39,14 @@ html:has(.phone-app) body {
   -webkit-touch-callout: none;
 }
 
+/* Fixed to what the phone shows (Phone.tsx sets its top and height): with the keyboard up it ends
+   on the keyboard, and the format bar, Find and the sheets sit on it. */
 .mb {
   --ph-bar: calc(50px + env(safe-area-inset-bottom));
-  position: relative;
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
   height: 100%;
   overflow: hidden;
   padding-top: env(safe-area-inset-top);
@@ -1197,6 +1202,50 @@ button.mb-fr:active {
   margin-left: 0;
 }
 
+/* Where a task or a card goes: a rounded group of lists, the one chosen ticked. */
+.mb-sheet.dialog.move-task .choices {
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--sl-bg);
+}
+
+.mb-sheet.dialog.move-task .choices button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  color: var(--sl-fg);
+}
+
+.mb-sheet.dialog.move-task .choices button + button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-sheet.dialog.move-task .choices button[aria-selected='true'] {
+  background: none;
+}
+
+.mb-sheet.dialog.move-task .choices button[aria-selected='true']::after {
+  content: '';
+  width: 14px;
+  height: 7px;
+  margin: -4px 4px 0 auto;
+  border-bottom: 2.2px solid var(--sl-accent);
+  border-left: 2.2px solid var(--sl-accent);
+  transform: rotate(-45deg);
+}
+
+.mb-sheet.dialog.move-task .choices button small {
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
 .mb-sheet.dialog.history {
   height: calc(100% - env(safe-area-inset-top) - 12px);
 }
@@ -1398,4 +1447,403 @@ button.mb-fr:active {
   margin-right: -4px;
   color: var(--sl-faint);
   stroke-width: 2.2;
+}
+
+/* ---------- a note: the format bar on the keyboard, Done, Find, links, images, its history ---------- */
+
+/* Done, while typing: the keyboard goes away. */
+.mb-done {
+  height: 44px;
+  margin-left: auto;
+  padding: 0 10px 0 6px;
+  color: var(--sl-accent);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.mb-ib + .mb-done {
+  margin-left: 0;
+}
+
+.mb-fbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 48px;
+  padding: 0 6px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  border-top: 1px solid var(--sl-line);
+  background: var(--sl-side);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mb-fbar::-webkit-scrollbar {
+  display: none;
+}
+
+.mb-fbar.off {
+  display: none;
+}
+
+/* It fades at the edge it goes on past. */
+.mb-fbar.more-right {
+  -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent);
+  mask-image: linear-gradient(90deg, #000 86%, transparent);
+}
+
+.mb-fbar.more-left {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%);
+  mask-image: linear-gradient(90deg, transparent, #000 9%);
+}
+
+.mb-fbar.more-left.more-right {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 86%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 86%, transparent);
+}
+
+.mb-fbar .g {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.mb-fbar .g + .g {
+  margin-left: 5px;
+  padding-left: 5px;
+  border-left: 1px solid var(--sl-line);
+}
+
+.mb-fbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 42px;
+  height: 40px;
+  padding: 0 7px;
+  border-radius: 8px;
+  color: var(--sl-fg);
+  font-size: 16px;
+}
+
+.mb-fbar button.word {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mb-fbar button.text {
+  padding: 0 10px;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mb-fbar .italic {
+  font-style: italic;
+}
+
+.mb-fbar .strike {
+  text-decoration: line-through;
+}
+
+.mb-fbar button[aria-pressed='true'] {
+  background: var(--sl-sel);
+  color: var(--sl-accent);
+}
+
+.mb-fbar button:disabled {
+  opacity: 0.4;
+}
+
+.mb .mb-fbar .icon {
+  width: 23px;
+  height: 23px;
+}
+
+.mb .mb-fbar button.text .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--sl-dim);
+}
+
+/* a recording going on, at the bar's start: its time and Stop */
+@keyframes mb-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.mb-rec {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 9px;
+  height: 38px;
+  margin-right: 6px;
+  padding: 0 4px 0 12px;
+  border-radius: 19px;
+  background: color-mix(in srgb, var(--sl-p1) 15%, var(--sl-bg));
+  color: var(--sl-fg);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rec i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--sl-p1);
+  animation: mb-blink 1.4s ease-in-out infinite;
+}
+
+.mb-fbar .mb-rec button {
+  min-width: 0;
+  height: 30px;
+  padding: 0 13px;
+  border-radius: 15px;
+  background: var(--sl-p1);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mb-rec-error {
+  flex: none;
+  padding: 0 8px;
+  color: var(--sl-accent);
+  font-size: 13.5px;
+}
+
+/* Find and replace sit on the keyboard, where the format bar was. */
+.phone-app .mb .cm-panels-bottom {
+  border-top: 1px solid var(--sl-line);
+  background: var(--sl-side);
+}
+
+.phone-app .mb .cm-panels .cm-sl-find {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px;
+  border: 0;
+  background: var(--sl-side);
+}
+
+.phone-app .mb .cm-sl-find .cm-sl-find-row {
+  gap: 4px;
+}
+
+.phone-app .mb .cm-sl-find input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 16px;
+}
+
+.phone-app .mb .cm-sl-find button {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: var(--sl-accent);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.phone-app .mb .cm-sl-find .cm-sl-find-row:first-child > button:nth-of-type(1),
+.phone-app .mb .cm-sl-find .cm-sl-find-row:first-child > button:nth-of-type(2) {
+  order: -1;
+  font-size: 18px;
+}
+
+.phone-app .mb .cm-sl-find button[aria-pressed] {
+  color: var(--sl-dim);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.phone-app .mb .cm-sl-find button[aria-pressed='true'] {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+/* Done closes it. */
+.phone-app .mb .cm-sl-find .cm-sl-find-close {
+  display: none;
+}
+
+.phone-app .mb .cm-sl-find-count {
+  min-width: 0;
+  padding: 0 4px;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+/* The / menu opens above the line, a row for each thing it can put in. */
+.phone-app .cm-tooltip.cm-tooltip-autocomplete {
+  left: 10px !important;
+  width: calc(100vw - 20px);
+  max-width: none;
+  padding: 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 12px;
+  background: var(--sl-side);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
+}
+
+.phone-app .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul {
+  max-height: 220px;
+  font-size: 16px;
+}
+
+.phone-app .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 8px;
+}
+
+.phone-app .cm-sl-slash-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  color: var(--sl-dim);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.phone-app .cm-sl-slash-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.phone-app .cm-editor .cm-completionDetail {
+  margin-left: auto;
+  font-size: 13.5px;
+}
+
+/* An image is opened by a tap and has its menu when held: the phone's own callout stays away. */
+.phone-app .cm-sl-img,
+.phone-app .cm-sl-file,
+.phone-app .cm-sl-audio {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* what can be done with a link tapped: Open, Edit, Copy */
+.mb-pop-back {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.mb-pop {
+  position: fixed;
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  height: 46px;
+  padding: 0 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 11px;
+  background: var(--sl-side);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mb-pop button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--sl-fg);
+  font-size: 15px;
+}
+
+.mb-pop button:active {
+  background: var(--sl-sel);
+}
+
+.mb-pop .icon {
+  width: 19px;
+  height: 19px;
+  color: var(--sl-dim);
+}
+
+.mb-pop i {
+  align-self: stretch;
+  width: 1px;
+  margin: 9px 0;
+  background: var(--sl-line);
+}
+
+/* a link's sheet: Remove link apart, in red */
+.mb-group.apart {
+  margin-top: 12px;
+}
+
+.mb-fr.red {
+  color: var(--sl-p1);
+}
+
+/* one version of a note: the note as it was, Restore at the foot */
+.mb-version-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.mb-version {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.mb-version .cm-editor {
+  min-height: 100%;
+}
+
+.mb-version .cm-content {
+  padding: 6px 4px 24px;
+  font-size: 16px;
+}
+
+.mb-foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--sl-line);
+  background: var(--sl-side);
+}
+
+.mb-foot small {
+  color: var(--sl-faint);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.mb-foot .mb-btn:disabled {
+  opacity: 0.5;
 }

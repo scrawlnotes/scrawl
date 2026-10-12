@@ -14,7 +14,7 @@ const PULL = 90;
 const KEYBOARD = 120;
 
 /** The part of the page the phone shows: the keyboard, when up, is not in it. */
-function useViewport() {
+export function useViewport() {
   const read = () => {
     const view = window.visualViewport;
     return view ? { top: view.offsetTop, height: view.height } : { top: 0, height: window.innerHeight };

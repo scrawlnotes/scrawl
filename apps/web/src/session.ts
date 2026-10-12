@@ -134,6 +134,7 @@ import {
 import {
   addCopy,
   addCursorBelow,
+  closeSearchPanel,
   type Copy,
   copyFollows,
   copyPosition,
@@ -146,11 +147,15 @@ import {
   type EditorView,
   type FormatState,
   formatState,
+  type ItemAbout,
   type ItemAction,
   linkAddress,
+  type LinkTap,
+  openSearchPanel,
   linkText,
   type ScrawlEditor,
   type ScrawlViewer,
+  searchPanelOpen,
   selectNextOccurrence,
   selectSelectionMatches,
   redo,
@@ -338,7 +343,14 @@ export class Session {
   /** Attached files the note on screen stopped linking to, to go to the trash once it is saved. */
   private readonly unlinked = new Set<string>();
   /** Shows the menu of a right click in a note; the interface sets it, to draw it like its other menus. */
-  showMenu: ((at: { x: number; y: number }, items: ItemAction[]) => void) | null = null;
+  showMenu: ((at: { x: number; y: number }, items: ItemAction[], about?: ItemAbout) => void) | null = null;
+  /** A link tapped in a note on a touch screen; the interface sets it, to show what can be done with it. */
+  linkTap: ((link: LinkTap) => void) | null = null;
+  /**
+   * A phone: a tap on an image opens it, holding one opens its menu, and a tap on a link asks what
+   * to do with it; none of them brings up the keyboard.
+   */
+  touch = false;
   /**
    * Whether a note opened takes the typing cursor. On a phone it does not: a note is opened to be
    * read as often as to be written in, and a tap in it brings the keyboard when it is wanted.
@@ -430,7 +442,9 @@ export class Session {
       revealFile: isDesktop ? (src) => void revealFileOnDesktop(src).catch(() => undefined) : undefined,
       // The desktop web view does not open new windows; links go to the default browser.
       openLink: isDesktop ? (href) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
-      showMenu: (at, items) => this.showMenu?.(at, items),
+      showMenu: (at, items, about) => this.showMenu?.(at, items, about),
+      touch: this.touch,
+      onLinkTap: this.touch ? (link) => this.linkTap?.(link) : undefined,
       onAttachments: (removed, added) => this.attachmentsChanged(removed, added),
       fileSize: (src) => this.sizes.get(src),
       resolveAudio: (src) => this.mediaUrl(src),
@@ -706,7 +720,9 @@ export class Session {
       openFile: (src) => void this.openFile(src),
       revealFile: isDesktop ? (src) => void revealFileOnDesktop(src).catch(() => undefined) : undefined,
       openLink: isDesktop ? (href) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
-      showMenu: (at, items) => this.showMenu?.(at, items),
+      showMenu: (at, items, about) => this.showMenu?.(at, items, about),
+      touch: this.touch,
+      onLinkTap: this.touch ? (link) => this.linkTap?.(link) : undefined,
       onAttachments: (removed, added) => this.attachmentsChanged(removed, added),
       fileSize: (src) => this.sizes.get(src),
       resolveAudio: (src) => this.mediaUrl(src),
@@ -1933,16 +1949,50 @@ export class Session {
     view.focus();
   }
 
+  /** Links what is selected, or changes or takes away the link at the cursor. On a phone the keyboard stays as it was. */
   setLink(url: string) {
     const view = this.editor?.view;
     if (!view || !this.snapshot.format) return;
     setLink(url)(view);
-    view.focus();
+    if (this.focusOnOpen) view.focus();
   }
 
   setSource(source: boolean) {
     this.set({ source });
     this.editor?.setSourceMode(source);
-    this.editor?.view.focus();
+    if (this.focusOnOpen) this.editor?.view.focus();
+  }
+
+  /** Puts the cursor at `pos` in the note on screen, without bringing up the keyboard: a link tapped, to edit it. */
+  placeCursor(pos: number) {
+    const view = this.editor?.view;
+    if (!view) return;
+    view.dispatch({ selection: { anchor: Math.min(pos + 1, view.state.doc.length) } });
+  }
+
+  /** Find and replace in the note on screen. */
+  openFind() {
+    const view = this.editor?.view;
+    if (view && this.snapshot.format) openSearchPanel(view);
+  }
+
+  closeFind() {
+    const view = this.editor?.view;
+    if (view && searchPanelOpen(view.state)) closeSearchPanel(view);
+  }
+
+  /** An image from the device, put in the note on screen at the cursor. */
+  pickImage() {
+    const view = this.editor?.view;
+    if (!view || !this.snapshot.format) return;
+    const at = view.state.selection.main.head;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (file) this.addFiles([file], at);
+    });
+    input.click();
   }
 }

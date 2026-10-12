@@ -1,10 +1,11 @@
-import { basename, INBOX, INBOX_TASKS, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { basename, INBOX, INBOX_TASKS, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
 import { collectionTab, filterOf, filterTab, folderOf, iconOf, isNote, nameOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
+import { useViewport } from './sheets';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
 // Browse and Today at its foot, and in each of them a stack of pages. A page slides in from the
@@ -25,7 +26,9 @@ type PageKind =
   | { kind: 'item'; id: string }
   | { kind: 'trash' }
   | { kind: 'settings' }
-  | { kind: 'section'; section: Section };
+  | { kind: 'section'; section: Section }
+  | { kind: 'history'; path: string }
+  | { kind: 'version'; path: string; version: Version };
 /** A page, with the key it is drawn by. */
 type Page = PageKind & { key: number };
 
@@ -35,8 +38,6 @@ const SLIDE_MS = 320;
 const EDGE = 24;
 /** How far a page moves before a finger's move counts as a swipe, either way. */
 const SLOP = 8;
-/** When the keyboard is up the window loses at least this much of its height. */
-const KEYBOARD = 120;
 /** How many of the things opened last Browse shows; the app keeps no more of them open. */
 const RECENT = 5;
 /** How long a finger rests on a row before its menu opens. */
@@ -74,6 +75,19 @@ export interface PhoneProps {
   onFolderMenu: (path: string, addFolder: () => void) => void;
   /** Whether a menu is open: a row held for it stays lifted until it closes. */
   menuOpen: boolean;
+  /**
+   * A note's history: `open` asks for its page over the note's; `list` draws the versions, `version`
+   * one of them with Restore, which calls `done` once it is restored; `label` names a version.
+   */
+  history: {
+    open: string | null;
+    onShown: () => void;
+    list: (path: string, pick: (version: Version | null) => void) => ReactNode;
+    version: (path: string, version: Version, done: () => void) => ReactNode;
+    label: (version: Version) => string;
+  };
+  /** Done, while typing: closes Find, and the keyboard goes away. */
+  onDone: () => void;
 }
 
 // Started from the clock, so that a page made after the module is loaded again never takes the key of one still on screen.
@@ -228,13 +242,14 @@ function Row({ icon, label, sub, right, folder, onClick, onHold }: {
   );
 }
 
-/** The bar at the top of a page: the way back, and the page's menu; scrolled, the page's name. */
-function NavBar({ back, onBack, title, scrolled, onMenu }: {
+/** The bar at the top of a page: the way back, and the page's menu, with Done while typing; scrolled, the page's name. */
+function NavBar({ back, onBack, title, scrolled, onMenu, onDone }: {
   back?: string;
   onBack?: () => void;
   title?: string;
   scrolled: boolean;
   onMenu?: (event: MouseEvent) => void;
+  onDone?: () => void;
 }) {
   if (!back && !onMenu) return null;
   return (
@@ -249,6 +264,12 @@ function NavBar({ back, onBack, title, scrolled, onMenu }: {
       {onMenu && (
         <button type="button" className="mb-ib" aria-label={t('side.more')} title={t('side.more')} onClick={onMenu}>
           <Icon name="more" />
+        </button>
+      )}
+      {onDone && (
+        // Pressed, it keeps the focus where it is until Done takes it away.
+        <button type="button" className="mb-done" onMouseDown={(event) => event.preventDefault()} onClick={onDone}>
+          {t('phone.done')}
         </button>
       )}
     </div>
@@ -341,7 +362,10 @@ export function Phone(props: PhoneProps) {
   const [due, setDue] = useState<'today' | 'upcoming'>('today');
   const [adding, setAdding] = useState(0);
   const [newFolderIn, setNewFolderIn] = useState<string | null>(null);
-  const [keyboard, setKeyboard] = useState(false);
+  const view = useViewport();
+  const keyboard = view.keyboard;
+  /** Whether what is open is being typed in: Done shows. */
+  const [typing, setTyping] = useState(false);
   const [seen, setSeen] = useState(loadSeen);
   const [now, setNow] = useState(Date.now);
   /** A row held for its menu, lifted over the dimmed page while the menu is open: where it is and what it shows. */
@@ -502,14 +526,37 @@ export function Phone(props: PhoneProps) {
     return () => window.clearInterval(timer);
   }, []);
 
-  // With the keyboard up the tab bar and + are under it; the pages take the room.
+  // Typing in what is open, in a note, a find field or a list, shows Done at the top.
   useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const measure = () => setKeyboard(window.innerHeight - viewport.height > KEYBOARD);
-    viewport.addEventListener('resize', measure);
-    return () => viewport.removeEventListener('resize', measure);
-  }, []);
+    const check = () => {
+      const active = document.activeElement;
+      setTyping(!!active && item.contains(active) && active.matches('input, textarea, select, [contenteditable="true"]'));
+    };
+    const later = () => window.setTimeout(check);
+    document.addEventListener('focusin', check);
+    document.addEventListener('focusout', later);
+    return () => {
+      document.removeEventListener('focusin', check);
+      document.removeEventListener('focusout', later);
+    };
+  }, [item]);
+
+  // A note's history opens as a page over the note's.
+  const { open: historyAsked, onShown: historyShown } = props.history;
+  useEffect(() => {
+    if (!historyAsked) return;
+    historyShown();
+    push({ kind: 'history', path: historyAsked });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyAsked]);
+  /** Back from a version restored to the note, past the history. */
+  const backToNote = () => {
+    setStacks((current) => {
+      const pages = current[place];
+      const at = pages.findIndex((page) => page.kind === 'history');
+      return at < 0 ? current : { ...current, [place]: pages.slice(0, at) };
+    });
+  };
 
   /** A tap on the place on screen goes back to its first page. */
   const choose = (next: Place) => {
@@ -549,6 +596,8 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'trash') return t('side.trash');
     if (page.kind === 'settings') return t('settings.title');
     if (page.kind === 'section') return t(settingsSections().find((each) => each.id === page.section)?.label ?? 'settings.title');
+    if (page.kind === 'history') return t('history.title');
+    if (page.kind === 'version') return props.history.label(page.version);
     return nameOf(page.id, titles, filters);
   };
 
@@ -765,6 +814,21 @@ export function Phone(props: PhoneProps) {
         </PageFrame>
       );
     }
+    if (page.kind === 'history') {
+      return (
+        <PageFrame title={titleOf(page, of)} sub={titles[page.path]} nav={nav}>
+          {props.history.list(page.path, (version) => (version ? push({ kind: 'version', path: page.path, version }) : pop()))}
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'version') {
+      return (
+        <>
+          <NavBar {...nav} title={titleOf(page, of)} scrolled />
+          <div className="mb-holder mb-version-page">{props.history.version(page.path, page.version, backToNote)}</div>
+        </>
+      );
+    }
     if (page.kind === 'section') {
       return (
         <PageFrame title={titleOf(page, of)} nav={nav}>
@@ -777,7 +841,12 @@ export function Phone(props: PhoneProps) {
     // Something open: the app's drawing of it is moved in here while this page is on top.
     return (
       <>
-        <NavBar {...nav} scrolled={false} onMenu={page.id === tasksOf(INBOX_TASKS) ? undefined : () => props.onItemMenu(page.id, true)} />
+        <NavBar
+          {...nav}
+          scrolled={false}
+          onMenu={page.id === tasksOf(INBOX_TASKS) ? undefined : () => props.onItemMenu(page.id, true)}
+          onDone={typing ? props.onDone : undefined}
+        />
         <div
           className="mb-holder"
           ref={(element) => {
@@ -801,7 +870,8 @@ export function Phone(props: PhoneProps) {
       : null;
 
   return (
-    <div className={keyboard ? 'mb keyboard' : 'mb'}>
+    // The phone's own layout fills what the phone shows: with the keyboard up it ends on the keyboard.
+    <div className={keyboard ? 'mb keyboard' : 'mb'} style={{ top: view.top, height: view.height }}>
       <div ref={stage} className="mb-stage" onTouchStartCapture={edgeStart} onTouchMoveCapture={edgeMove} onTouchEndCapture={edgeEnd} onTouchCancelCapture={edgeEnd}>
         {shownPages.map((page, index) => {
           const isLeaving = leaving?.page.key === page.key;

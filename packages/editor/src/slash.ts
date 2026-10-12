@@ -6,14 +6,26 @@ export interface SlashItem {
   label: string;
   /** Shown dimmed next to the label. */
   detail?: string;
+  /** On a touch screen, before the label: the inside of an SVG drawn on a 24 × 24 grid, or a short text such as `H1`. */
+  icon?: string;
   run: (view: EditorView) => void;
+}
+
+/** An item's icon, or its short text. */
+function iconOf(item: SlashItem | undefined): Node {
+  const span = document.createElement('span');
+  span.className = 'cm-sl-slash-icon';
+  if (item?.icon?.startsWith('<')) span.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${item.icon}</svg>`;
+  else span.textContent = item?.icon ?? '';
+  return span;
 }
 
 /**
  * The insert menu: typing `/` at the start of a line or after a space lists what can be added
- * here. Typing on filters the list, Enter picks, Esc closes.
+ * here. Typing on filters the list, Enter picks, Esc closes. On a touch screen it opens above the
+ * line, where the keyboard does not cover it, with an icon before each item.
  */
-export function slashMenu(items: readonly SlashItem[]): Extension {
+export function slashMenu(items: readonly SlashItem[], touch = false): Extension {
   const options = items.map((item, index) => ({
     label: item.label,
     detail: item.detail,
@@ -35,5 +47,12 @@ export function slashMenu(items: readonly SlashItem[]): Extension {
     return { from: typed.from + 1, options, validFor: /^\w*$/ };
   };
 
-  return autocompletion({ override: [source], icons: false, selectOnOpen: true });
+  const byLabel = new Map(items.map((item) => [item.label, item]));
+  return autocompletion({
+    override: [source],
+    icons: false,
+    selectOnOpen: true,
+    aboveCursor: touch,
+    addToOptions: touch ? [{ render: (completion) => iconOf(byLabel.get(completion.label)), position: 20 }] : [],
+  });
 }
