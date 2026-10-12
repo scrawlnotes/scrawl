@@ -4,6 +4,7 @@ import '@fontsource/jetbrains-mono/400.css';
 import '@fontsource/jetbrains-mono/400-italic.css';
 import '@fontsource/jetbrains-mono/700.css';
 import './styles.css';
+import './phone.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';

@@ -339,6 +339,16 @@ export class Session {
   private readonly unlinked = new Set<string>();
   /** Shows the menu of a right click in a note; the interface sets it, to draw it like its other menus. */
   showMenu: ((at: { x: number; y: number }, items: ItemAction[]) => void) | null = null;
+  /**
+   * Whether a note opened takes the typing cursor. On a phone it does not: a note is opened to be
+   * read as often as to be written in, and a tap in it brings the keyboard when it is wanted.
+   */
+  focusOnOpen = true;
+  /**
+   * Whether closing the tab on screen shows its neighbor. On a phone it does not: there is no tab
+   * bar to fall back on, and what was open before is a page away.
+   */
+  neighborOnClose = true;
   /** The text of each open note as it was last read from or written to the vault. */
   private readonly disk = new Map<string, string>();
   /** What each task list, board and keys file held when it was last read or written here, to tell what changed there since. */
@@ -1611,7 +1621,7 @@ export class Session {
       this.saveWorkspace();
     }
     // Deferred: the editor is still hidden when it replaces a view, and a hidden element cannot take focus.
-    if (isNote(id)) window.setTimeout(() => this.editor?.view.focus());
+    if (isNote(id) && this.focusOnOpen) window.setTimeout(() => this.editor?.view.focus());
   }
 
   // ---------- boards ----------
@@ -1783,7 +1793,7 @@ export class Session {
       return;
     }
     this.set({ tabs: rest, active: null });
-    const next = rest[index] ?? rest[index - 1];
+    const next = this.neighborOnClose ? (rest[index] ?? rest[index - 1]) : undefined;
     if (next) await this.open(next);
     else {
       this.set({ stats: null, format: null });

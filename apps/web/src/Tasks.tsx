@@ -588,7 +588,7 @@ function TaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, 
 }
 
 /** The header and list frame the task views share, with the add row at the end of the list. */
-function TaskPage({ title, detail, extra, onAdd, onAddClick, footer, children }: {
+function TaskPage({ title, detail, extra, onAdd, onAddClick, footer, bare, adding, children }: {
   title: string;
   detail?: string;
   /** More in the header, after the detail. */
@@ -599,21 +599,30 @@ function TaskPage({ title, detail, extra, onAdd, onAddClick, footer, children }:
   onAddClick?: () => void;
   /** Shown under the add row. */
   footer?: ReactNode;
+  /** Without the header: a phone's page has its own title, and its + adds. */
+  bare?: boolean;
+  /** Counts the times something outside asked for the add row, a phone's + button. */
+  adding?: number;
   children: ReactNode;
 }) {
   const [composing, setComposing] = useState(false);
+  useEffect(() => {
+    if (adding) setComposing(true);
+  }, [adding]);
   return (
     <section className="tasks">
-      <header className="th">
-        <b>{title}</b>
-        {detail && <span>{detail}</span>}
-        {extra}
-        {(onAdd || onAddClick) && (
-          <button type="button" className="add" onClick={onAddClick ?? (() => setComposing(true))}>
-            {t('tasks.add')}
-          </button>
-        )}
-      </header>
+      {!bare && (
+        <header className="th">
+          <b>{title}</b>
+          {detail && <span>{detail}</span>}
+          {extra}
+          {(onAdd || onAddClick) && (
+            <button type="button" className="add" onClick={onAddClick ?? (() => setComposing(true))}>
+              {t('tasks.add')}
+            </button>
+          )}
+        </header>
+      )}
       <div className="tl">
         {children}
         {onAdd &&
@@ -1225,12 +1234,16 @@ function splitDueCards(boards: Record<string, Board>, today: string) {
 }
 
 /** Today or Upcoming: what is due, from every task list and every board. */
-export function DueView({ kind, lists, boards, today, actions }: {
+export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
   kind: 'today' | 'upcoming';
   lists: Record<string, Task[]>;
   boards: Record<string, Board>;
   today: string;
   actions: TaskActions;
+  /** On a phone's page, which has its own title. */
+  bare?: boolean;
+  /** Counts the presses of a phone's + button, which open the add row. */
+  adding?: number;
 }) {
   const item = ({ list, task }: { list: string; task: Task }) => (
     <TaskItem key={`${list}/${task.id}`} list={list} task={task} tasks={lists[list] ?? []} today={today} showDone={false} actions={actions} flat />
@@ -1260,6 +1273,8 @@ export function DueView({ kind, lists, boards, today, actions }: {
         title={t('tasks.today')}
         detail={toDate(today).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' })}
         onAdd={(title) => actions.add(INBOX_TASKS, { title, due: today })}
+        bare={bare}
+        adding={adding}
       >
         {section(t('tasks.overdue'), due.overdue)}
         {section(t('tasks.today'), due.today)}
@@ -1279,7 +1294,7 @@ export function DueView({ kind, lists, boards, today, actions }: {
   const days = dueUpcoming(lists, today);
   const allDays = [...new Set([...days.map((d) => d.day), ...cards.later.keys()])].sort();
   return (
-    <TaskPage title={t('tasks.upcoming')}>
+    <TaskPage title={t('tasks.upcoming')} bare={bare}>
       {allDays.map((day) =>
         section(
           `${dueLabel(day, today)} · ${toDate(day).toLocaleDateString(locale(), SHORT)}`,

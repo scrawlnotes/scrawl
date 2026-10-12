@@ -43,6 +43,7 @@ import {
 } from '@scrawlnotes/core';
 import type { EditorStats } from '@scrawlnotes/editor';
 import { type DragEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ConfirmDialog,
   ContextMenu,
@@ -90,12 +91,13 @@ import {
   TRASH,
   UPCOMING,
 } from './items';
-import { applySize, applyTheme, loadMode, loadSize, loadTheme, type Mode, onSystemShade, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
+import { applySize, applyTheme, isPhone, loadMode, loadSize, loadTheme, type Mode, onSystemShade, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
+import { Phone } from './Phone';
 import { Session } from './session';
 import { type Section as SettingsSection, Settings } from './Settings';
 import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
-import { SyncStatus } from './SyncViews';
+import { SyncSheet, SyncStatus, syncWord } from './SyncViews';
 import { Sidebar } from './Sidebar';
 import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
 import { contentsText, quote } from './text';
@@ -164,7 +166,23 @@ function contentsOf(folder: TreeNode): string {
 
 export function App() {
   const host = useRef<HTMLDivElement>(null);
-  const [session] = useState(() => new Session());
+  // A phone has a layout of its own (Phone.tsx); a computer, a tablet and a narrow window keep this one.
+  const [phone] = useState(isPhone);
+  const [session] = useState(() => {
+    const made = new Session();
+    if (phone) {
+      made.focusOnOpen = false;
+      made.neighborOnClose = false;
+    }
+    return made;
+  });
+  /** On a phone, where what is open is drawn: moved into the page that shows it. */
+  const [itemLayer] = useState(() => {
+    const layer = document.createElement('div');
+    layer.className = 'mb-item';
+    return layer;
+  });
+  const [syncSheet, setSyncSheet] = useState(false);
   const [syncService] = useState(() => new SyncService(session));
   const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
   // Back from signing in in the browser: Settings opens at the space's sync, for its folder or what went wrong.
@@ -206,7 +224,8 @@ export function App() {
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
   const [tabGap, setTabGap] = useState<number | null>(null);
   const empty = ready && !needsFolder && tabs.length === 0;
-  const showNew = dialog?.kind === 'new' || (empty && !declined && !dialog);
+  // A phone's Open says that nothing is open and offers Create itself.
+  const showNew = dialog?.kind === 'new' || (!phone && empty && !declined && !dialog);
   const showingEditor = active !== null && isNote(active);
 
   useEffect(() => {
@@ -386,19 +405,14 @@ export function App() {
   };
 
   // A filter's menu: change it, or delete it; its tasks stay where they are.
-  const filterMenu = (event: MouseEvent, filter: TaskFilter) =>
-    openMenu(
-      event,
-      [
-        { label: t('filter.edit'), run: () => setDialog({ kind: 'filter', filter }) },
-        {
-          label: t('menu.delete'),
-          run: () =>
-            ask(t('delete.filter'), t('delete.filterText', { name: quote(filter.name) }), () => void session.removeFilter(filter.id)),
-        },
-      ],
-      filterTab(filter.id),
-    );
+  const filterMenu = (event: MouseEvent, filter: TaskFilter) => openMenu(event, filterMenuItems(filter), filterTab(filter.id));
+  const filterMenuItems = (filter: TaskFilter): MenuItem[] => [
+    { label: t('filter.edit'), run: () => setDialog({ kind: 'filter', filter }) },
+    {
+      label: t('menu.delete'),
+      run: () => ask(t('delete.filter'), t('delete.filterText', { name: quote(filter.name) }), () => void session.removeFilter(filter.id)),
+    },
+  ];
 
   // A section goes together with its tasks, as in Todoist.
   const deleteSection = (list: string, section: Section) => {
@@ -466,9 +480,8 @@ export function App() {
     setMenu({ at, items, ...(row && target !== undefined && { target }) });
   };
   // The menu of a note, a task list, a board, a keys file or a collection; the inbox's own list has none.
-  const itemMenu = (event: MouseEvent, path: string) =>
-    path !== INBOX_TASKS &&
-    openMenu(event, [
+  const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
+  const itemMenuItems = (path: string): MenuItem[] => [
       { label: t('menu.moveTo'), run: () => setDialog({ kind: 'move', path }) },
       { label: t('menu.rename'), run: () => setDialog({ kind: 'rename', path }) },
       // Only notes keep a history; a keys file keeps none, so that a password changed is gone.
@@ -483,7 +496,19 @@ export function App() {
           ]
         : []),
       { label: t('menu.delete'), run: () => deleteItem(path) },
-    ], path);
+    ];
+  /**
+   * The menu of a page on a phone, where what is open has no tab and no status bar: what the
+   * sidebar's menu has, Markdown for a note, and Close.
+   */
+  const phoneItemMenu = (event: MouseEvent, id: string) => {
+    const close: MenuItem = { label: t('phone.close'), run: () => void session.close(id), apart: true };
+    const filter = filters.find((each) => each.id === filterOf(id));
+    if (filter) return openMenu(event, [...filterMenuItems(filter), close]);
+    const path = collectionPathOf(id) ?? pathOf(id);
+    const markdown: MenuItem[] = isNote(id) ? [{ label: `${source ? '● ' : '○ '}${t('status.markdown')}`, run: () => session.setSource(!source) }] : [];
+    openMenu(event, [...markdown, ...(path === null || path === INBOX_TASKS ? [] : itemMenuItems(path)), close]);
+  };
   // A collection as a CSV file, saved where the user says.
   const exportCsv = async (dir: string) => {
     const collection = collections[dir];
@@ -738,8 +763,108 @@ export function App() {
   // Filters look in the top-level folders, with everything inside them; the inbox comes first.
   const topFolders = [INBOX, ...tree.filter((node) => node.kind === 'folder' && node.path !== INBOX).map((node) => node.path)];
 
+  // What is open: a note in the editor, or the view of a list, a board, a keys file, a collection,
+  // a filter or the trash. On a computer it fills the main area under the tabs; on a phone it is
+  // drawn into a layer that the page on top shows.
+  const itemContent = (
+    <>
+    {showingEditor && (
+      <FormatBar
+        format={format}
+        onFormat={(action) => session.format(action)}
+        onLink={(url) => session.setLink(url)}
+        recording={recording}
+        recordError={recordError}
+        onRecord={() => void session.startRecording()}
+        onStop={() => session.stopRecording()}
+        onToTask={startToTask}
+        onToCard={startToCard}
+        toTaskKeys={keys('T')}
+      />
+    )}
+    <div className="editor" ref={host} hidden={!showingEditor} />
+    {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} />}
+    {boardPath !== null && board && (
+      <BoardView
+        key={boardPath}
+        path={boardPath}
+        board={board}
+        name={boardName(boardPath)}
+        today={today}
+        actions={boardActions}
+        look={boardLooks[boardPath]}
+        onLook={(look) => session.lookAtBoard(boardPath, look)}
+        openCard={openCard?.board === boardPath ? openCard.id : null}
+        onCloseCard={() => setOpenCard(null)}
+      />
+    )}
+    {keysPath !== null && keysText !== undefined && (
+      <KeysView
+        key={keysPath}
+        path={keysPath}
+        name={keysName(keysPath)}
+        text={keysText}
+        look={keysLooks[keysPath]}
+        onLook={(look) => session.lookAtKeys(keysPath, look)}
+        actions={keysActions}
+        onStatus={setViewStatus}
+      />
+    )}
+    {collection && collectionPath !== null && (
+      <CollectionView
+        key={collectionPath}
+        collection={collection}
+        today={today}
+        look={collectionLooks[collectionPath]}
+        onLook={(look) => session.lookAtCollection(collectionPath, look)}
+        actions={collectionActions}
+        onStatus={setViewStatus}
+      />
+    )}
+    {!phone && isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} boards={boards} today={today} actions={taskActions} />}
+    {activeFilter && (
+      <FilterView
+        filter={activeFilter}
+        lists={tasks}
+        boards={boards}
+        today={today}
+        actions={taskActions}
+        onEdit={() => setDialog({ kind: 'filter', filter: activeFilter })}
+      />
+    )}
+    {!phone && active === TRASH && (
+      <TrashView
+        items={trash}
+        today={today}
+        onRestore={(item) => void session.restore(item)}
+        onDelete={deleteForever}
+        onEmpty={askEmptyTrash}
+      />
+    )}
+    {!phone && !showingEditor && list === null && !board && keysText === undefined && !collection && !isDueView && !activeFilter && active !== TRASH && (
+      <section className="placeholder">
+        {active ? (
+          <>
+            <h1>{labelOf(active, tabTitles, filters)}</h1>
+            <p>{t('board.placeholder')}</p>
+          </>
+        ) : (
+          empty && (
+            <>
+              <p>{t('empty.nothingOpen')}</p>
+              <button type="button" className="primary" onClick={() => setDialog({ kind: 'new' })}>
+                {t('empty.create')}
+              </button>
+            </>
+          )
+        )}
+      </section>
+    )}
+    </>
+  );
+
   return (
-    <div className={drawer ? 'app drawer-open' : 'app'}>
+    <div className={phone ? 'app phone-app' : drawer ? 'app drawer-open' : 'app'}>
       {needsFolder && (
         <div className="welcome">
           <h1>{t('welcome.title')}</h1>
@@ -749,224 +874,183 @@ export function App() {
           </button>
         </div>
       )}
-      <Sidebar
-        tree={tree}
-        titles={titles}
-        active={active}
-        counts={counts}
-        onOpen={(id) => {
-          setDrawer(false);
-          void session.open(id);
-        }}
-        onTrash={deleteItem}
-        onMove={(path, target) => void session.move(path, target)}
-        onNewFolder={(name, parent) => session.newFolder(name, parent)}
-        onItemMenu={itemMenu}
-        onFolderMenu={folderMenu}
-        filters={filters}
-        onFilterMenu={filterMenu}
-        menuTarget={menu?.target ?? null}
-        onSettings={() => {
-          setDrawer(false);
-          setDialog({ kind: 'settings' });
-        }}
-        settingsOpen={dialog?.kind === 'settings'}
-      />
-      <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
-      <main className="main">
-        <div
-          ref={tabBar}
-          className="tabs"
-          role="tablist"
-          onDragOver={onTabDragOver}
-          onDrop={onTabDrop}
-          onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setTabGap(null)}
-          // A mouse wheel scrolls the tabs sideways when they do not fit.
-          onWheel={(event) => {
-            if (!event.shiftKey && event.deltaY) event.currentTarget.scrollLeft += event.deltaY;
-          }}
-        >
-          <button type="button" className="tab-menu" title={t('side.open')} aria-label={t('side.open')} onClick={() => setDrawer(true)}>
-            <Icon name="menu" />
-          </button>
-          {tabs.map((id, i) => (
-            <div
-              key={id}
-              className={tabClass(id, i)}
-              role="tab"
-              aria-selected={id === active}
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.setData(TAB_DRAG_TYPE, id);
-                event.dataTransfer.effectAllowed = 'move';
-                setDraggedTab(id);
-              }}
-              onDragEnd={() => {
-                setDraggedTab(null);
-                setTabGap(null);
-              }}
-              onMouseDown={(event) => event.button === 1 && void session.close(id)}
-              onContextMenu={(event) => {
-                const path = pathOf(id);
-                if (path) itemMenu(event, path);
-              }}
-            >
-              <button type="button" className="tab-title" onClick={() => void session.open(id)}>
-                <Icon name={iconOf(id)} />
-                <span>{labelOf(id, tabTitles, filters)}</span>
-              </button>
-              {/* The dot marks a note that has not been filed yet; it gives way to the close button on hover. */}
-              <button
-                type="button"
-                className="tab-close"
-                title={t('tab.close', { keys: keys('W') })}
-                onClick={() => void session.close(id)}
-              >
-                {isNote(id) && dirname(id) === INBOX && <i className="tab-dot" />}
-                <span>×</span>
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            className="tab-new"
-            title={t('tab.new', { keys: keys('N') })}
-            onClick={() => setDialog({ kind: 'new' })}
-          >
-            +
-          </button>
-        </div>
-        {showingEditor && (
-          <FormatBar
-            format={format}
-            onFormat={(action) => session.format(action)}
-            onLink={(url) => session.setLink(url)}
-            recording={recording}
-            recordError={recordError}
-            onRecord={() => void session.startRecording()}
-            onStop={() => session.stopRecording()}
-            onToTask={startToTask}
-            onToCard={startToCard}
-            toTaskKeys={keys('T')}
-          />
-        )}
-        <div className="editor" ref={host} hidden={!showingEditor} />
-        {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} />}
-        {boardPath !== null && board && (
-          <BoardView
-            key={boardPath}
-            path={boardPath}
-            board={board}
-            name={boardName(boardPath)}
-            today={today}
-            actions={boardActions}
-            look={boardLooks[boardPath]}
-            onLook={(look) => session.lookAtBoard(boardPath, look)}
-            openCard={openCard?.board === boardPath ? openCard.id : null}
-            onCloseCard={() => setOpenCard(null)}
-          />
-        )}
-        {keysPath !== null && keysText !== undefined && (
-          <KeysView
-            key={keysPath}
-            path={keysPath}
-            name={keysName(keysPath)}
-            text={keysText}
-            look={keysLooks[keysPath]}
-            onLook={(look) => session.lookAtKeys(keysPath, look)}
-            actions={keysActions}
-            onStatus={setViewStatus}
-          />
-        )}
-        {collection && collectionPath !== null && (
-          <CollectionView
-            key={collectionPath}
-            collection={collection}
-            today={today}
-            look={collectionLooks[collectionPath]}
-            onLook={(look) => session.lookAtCollection(collectionPath, look)}
-            actions={collectionActions}
-            onStatus={setViewStatus}
-          />
-        )}
-        {isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} boards={boards} today={today} actions={taskActions} />}
-        {activeFilter && (
-          <FilterView
-            filter={activeFilter}
-            lists={tasks}
-            boards={boards}
-            today={today}
-            actions={taskActions}
-            onEdit={() => setDialog({ kind: 'filter', filter: activeFilter })}
-          />
-        )}
-        {active === TRASH && (
-          <TrashView
-            items={trash}
-            today={today}
-            onRestore={(item) => void session.restore(item)}
-            onDelete={deleteForever}
-            onEmpty={askEmptyTrash}
-          />
-        )}
-        {!showingEditor && list === null && !board && keysText === undefined && !collection && !isDueView && !activeFilter && active !== TRASH && (
-          <section className="placeholder">
-            {active ? (
-              <>
-                <h1>{labelOf(active, tabTitles, filters)}</h1>
-                <p>{t('board.placeholder')}</p>
-              </>
-            ) : (
-              empty && (
+      {phone ? (
+        <>
+          <Phone
+            ready={ready}
+            tabs={tabs}
+            active={active}
+            titles={tabTitles}
+            tree={tree}
+            filters={filters}
+            counts={counts}
+            item={itemLayer}
+            dueView={(kind, adding) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare adding={adding} />}
+            trashView={<TrashView items={trash} today={today} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
+            syncWord={syncWord(sync)}
+            notice={notice}
+            update={
+              update && (
                 <>
-                  <p>{t('empty.nothingOpen')}</p>
-                  <button type="button" className="primary" onClick={() => setDialog({ kind: 'new' })}>
-                    {t('empty.create')}
+                  <span>{t('status.updateReady')}</span>
+                  {/* What is being typed is written first, then the page reloads into the new version. */}
+                  <button type="button" onClick={() => void session.beforeSync().then(reloadIntoUpdate)}>
+                    {t('status.reload')}
                   </button>
                 </>
               )
-            )}
-          </section>
-        )}
-        <footer className="status">
-          {stats && <span>{position(stats)}</span>}
-          {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
-          {(keysText !== undefined || collection) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
-          {notice && (
-            <span className="notice" role="status">
-              {notice}
-            </span>
+            }
+            onOpen={(id) => void session.open(id)}
+            onClose={(id) => void session.close(id)}
+            onCreate={(folder) => setDialog({ kind: 'new', folder })}
+            onSync={() => (sync.connection ? setSyncSheet(true) : setDialog({ kind: 'settings', section: 'spaces' }))}
+            onSettings={() => setDialog({ kind: 'settings' })}
+            onNewFolder={(name, parent) => session.newFolder(name, parent)}
+            onItemMenu={phoneItemMenu}
+            onFolderMenu={folderMenu}
+          />
+          {createPortal(itemContent, itemLayer)}
+          {syncSheet && (
+            <SyncSheet
+              sync={sync}
+              onClose={() => setSyncSheet(false)}
+              onSyncNow={() => syncService.syncNow()}
+              onSettings={() => setDialog({ kind: 'settings', section: 'spaces' })}
+              onSignIn={() => (syncService.cloud().redirects ? void syncService.leaveToSignIn('again') : setDialog({ kind: 'settings', section: 'spaces' }))}
+            />
           )}
-          {update && (
-            <span className="update" role="status">
-              {t('status.updateReady')}
-              {/* What is being typed is written first, then the page reloads into the new version. */}
-              <button type="button" onClick={() => void session.beforeSync().then(reloadIntoUpdate)}>
-                {t('status.reload')}
-              </button>
-            </span>
-          )}
-          <span className="push">{!ready ? t('status.opening') : saved ? t('status.saved') : t('status.saving')}</span>
-          {showingEditor && (
+        </>
+      ) : (
+        <>
+        <Sidebar
+          tree={tree}
+          titles={titles}
+          active={active}
+          counts={counts}
+          onOpen={(id) => {
+            setDrawer(false);
+            void session.open(id);
+          }}
+          onTrash={deleteItem}
+          onMove={(path, target) => void session.move(path, target)}
+          onNewFolder={(name, parent) => session.newFolder(name, parent)}
+          onItemMenu={itemMenu}
+          onFolderMenu={folderMenu}
+          filters={filters}
+          onFilterMenu={filterMenu}
+          menuTarget={menu?.target ?? null}
+          onSettings={() => {
+            setDrawer(false);
+            setDialog({ kind: 'settings' });
+          }}
+          settingsOpen={dialog?.kind === 'settings'}
+        />
+        <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
+        <main className="main">
+          <div
+            ref={tabBar}
+            className="tabs"
+            role="tablist"
+            onDragOver={onTabDragOver}
+            onDrop={onTabDrop}
+            onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setTabGap(null)}
+            // A mouse wheel scrolls the tabs sideways when they do not fit.
+            onWheel={(event) => {
+              if (!event.shiftKey && event.deltaY) event.currentTarget.scrollLeft += event.deltaY;
+            }}
+          >
+            <button type="button" className="tab-menu" title={t('side.open')} aria-label={t('side.open')} onClick={() => setDrawer(true)}>
+              <Icon name="menu" />
+            </button>
+            {tabs.map((id, i) => (
+              <div
+                key={id}
+                className={tabClass(id, i)}
+                role="tab"
+                aria-selected={id === active}
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.setData(TAB_DRAG_TYPE, id);
+                  event.dataTransfer.effectAllowed = 'move';
+                  setDraggedTab(id);
+                }}
+                onDragEnd={() => {
+                  setDraggedTab(null);
+                  setTabGap(null);
+                }}
+                onMouseDown={(event) => event.button === 1 && void session.close(id)}
+                onContextMenu={(event) => {
+                  const path = pathOf(id);
+                  if (path) itemMenu(event, path);
+                }}
+              >
+                <button type="button" className="tab-title" onClick={() => void session.open(id)}>
+                  <Icon name={iconOf(id)} />
+                  <span>{labelOf(id, tabTitles, filters)}</span>
+                </button>
+                {/* The dot marks a note that has not been filed yet; it gives way to the close button on hover. */}
+                <button
+                  type="button"
+                  className="tab-close"
+                  title={t('tab.close', { keys: keys('W') })}
+                  onClick={() => void session.close(id)}
+                >
+                  {isNote(id) && dirname(id) === INBOX && <i className="tab-dot" />}
+                  <span>×</span>
+                </button>
+              </div>
+            ))}
             <button
               type="button"
-              aria-pressed={source}
-              title={t('status.markdownTitle')}
-              onClick={() => session.setSource(!source)}
+              className="tab-new"
+              title={t('tab.new', { keys: keys('N') })}
+              onClick={() => setDialog({ kind: 'new' })}
             >
-              {t('status.markdown')}
+              +
             </button>
-          )}
-          <SyncStatus
-            sync={sync}
-            onSyncNow={() => syncService.syncNow()}
-            onSettings={() => setDialog({ kind: 'settings', section: 'spaces' })}
-            // In the browser the page goes to Microsoft and back; on the desktop it is done in Settings, which waits for the system browser.
-            onSignIn={() => (syncService.cloud().redirects ? void syncService.leaveToSignIn('again') : setDialog({ kind: 'settings', section: 'spaces' }))}
-            onOpenCopy={(path) => void session.open(path)}
-          />
-        </footer>
-      </main>
+          </div>
+          {itemContent}
+          <footer className="status">
+            {stats && <span>{position(stats)}</span>}
+            {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
+            {(keysText !== undefined || collection) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
+            {notice && (
+              <span className="notice" role="status">
+                {notice}
+              </span>
+            )}
+            {update && (
+              <span className="update" role="status">
+                {t('status.updateReady')}
+                {/* What is being typed is written first, then the page reloads into the new version. */}
+                <button type="button" onClick={() => void session.beforeSync().then(reloadIntoUpdate)}>
+                  {t('status.reload')}
+                </button>
+              </span>
+            )}
+            <span className="push">{!ready ? t('status.opening') : saved ? t('status.saved') : t('status.saving')}</span>
+            {showingEditor && (
+              <button
+                type="button"
+                aria-pressed={source}
+                title={t('status.markdownTitle')}
+                onClick={() => session.setSource(!source)}
+              >
+                {t('status.markdown')}
+              </button>
+            )}
+            <SyncStatus
+              sync={sync}
+              onSyncNow={() => syncService.syncNow()}
+              onSettings={() => setDialog({ kind: 'settings', section: 'spaces' })}
+              // In the browser the page goes to Microsoft and back; on the desktop it is done in Settings, which waits for the system browser.
+              onSignIn={() => (syncService.cloud().redirects ? void syncService.leaveToSignIn('again') : setDialog({ kind: 'settings', section: 'spaces' }))}
+              onOpenCopy={(path) => void session.open(path)}
+            />
+          </footer>
+        </main>
+        </>
+      )}
 
       {showNew && (
         <NewDialog

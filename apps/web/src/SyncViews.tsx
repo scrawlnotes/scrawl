@@ -26,7 +26,7 @@ export function ago(at: number, now = Date.now()): string {
 }
 
 /** Draws again every few seconds, so that "12 s ago" keeps up. */
-function useTicking(on: boolean) {
+export function useTicking(on: boolean) {
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!on) return;
@@ -812,6 +812,47 @@ function JobRows({ jobs, height }: { jobs: readonly SyncJob[]; height: number })
         ))}
       </div>
     </div>
+  );
+}
+
+/** How sync stands in a word or two, beside the Sync row of a phone's Browse; Off when not connected. */
+export function syncWord(sync: SyncSnapshot): string {
+  const { phase, syncedAt, turn } = sync;
+  if (!sync.connection) return t('phone.syncOff');
+  if (phase === 'syncing') return percent(turn?.progress.share ?? 0);
+  if (phase === 'off' || phase === 'idle') return syncedAt === null ? t('sync.notYet') : ago(syncedAt);
+  return t(STATUS[phase]);
+}
+
+/** The sync panel as a sheet from the bottom, opened from the Sync row of a phone's Browse. */
+export function SyncSheet({ sync, onClose, onSyncNow, onSettings, onSignIn }: {
+  sync: SyncSnapshot;
+  onClose: () => void;
+  onSyncNow: () => void;
+  onSettings: () => void;
+  onSignIn: () => void;
+}) {
+  const nothing = useCallback(() => undefined, []);
+  return createPortal(
+    <SyncPanel
+      sync={sync}
+      narrow
+      anchor={null}
+      kept
+      onEnter={nothing}
+      onLeave={nothing}
+      onClose={onClose}
+      onSyncNow={onSyncNow}
+      onSettings={() => {
+        onClose();
+        onSettings();
+      }}
+      onSignIn={() => {
+        onClose();
+        onSignIn();
+      }}
+    />,
+    document.body,
   );
 }
 

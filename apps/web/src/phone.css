@@ -1,0 +1,603 @@
+/* The phone's own layout (Phone.tsx), after the Phone views of design/mockups.html: a tab bar with
+   Open, Today and Browse, pages that slide in over each other, + at the bottom right. Text is
+   16 px and up and every row and button at least 44 px, so that a finger hits it and the phone
+   never zooms in on a field; nothing flashes grey under a finger and the page does not bounce. */
+
+.app.phone-app {
+  display: block;
+  --sl-editor-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html:has(.phone-app),
+html:has(.phone-app) body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* A field under 16 px makes the phone zoom in on it. */
+.phone-app input,
+.phone-app textarea,
+.phone-app select {
+  font-size: 16px;
+}
+
+.phone-app button {
+  touch-action: manipulation;
+}
+
+/* The app's own words are not selected or called out by a long press; what is written is. */
+.mb-nav,
+.mb-head,
+.mb-row,
+.mb-sec,
+.mb-seg,
+.mb-fab,
+.mb-tabbar,
+.mb-swipe-act {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mb {
+  --ph-bar: calc(50px + env(safe-area-inset-bottom));
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top);
+  box-sizing: border-box;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.mb.keyboard {
+  --ph-bar: 0px;
+}
+
+.mb .icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---------- pages ---------- */
+
+.mb-stage {
+  position: absolute;
+  inset: env(safe-area-inset-top) 0 0;
+  overflow: hidden;
+}
+
+.mb-page {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--sl-bg);
+  transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.mb-page.enter,
+.mb-page.leave {
+  transform: translateX(100%);
+}
+
+.mb-page.enter {
+  transition: none;
+}
+
+.mb-page.top,
+.mb-page.leave {
+  box-shadow: -12px 0 30px rgb(0 0 0 / 0.22);
+}
+
+.mb-page.under,
+.mb-page.deep {
+  transform: translateX(-30%);
+}
+
+.mb-page.deep {
+  visibility: hidden;
+}
+
+.mb-page.under::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.18);
+  pointer-events: none;
+}
+
+/* the bar at the top: back on the left with where it goes, the menu on the right */
+.mb-nav {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 44px;
+  padding: 0 6px;
+}
+
+.mb-nav.bar {
+  border-bottom: 1px solid var(--sl-line);
+  background: color-mix(in srgb, var(--sl-bg) 82%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.mb-back {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 62%;
+  height: 44px;
+  padding-right: 8px;
+  color: var(--sl-accent);
+  font-size: 16px;
+}
+
+.mb-back span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb .mb-back .icon {
+  width: 26px;
+  height: 26px;
+  margin-right: -2px;
+  stroke-width: 2;
+}
+
+.mb-mid {
+  position: absolute;
+  left: 50%;
+  max-width: 46%;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.mb-ib {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  color: var(--sl-accent);
+}
+
+.mb .mb-ib .icon {
+  width: 24px;
+  height: 24px;
+}
+
+.mb-body {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: calc(var(--ph-bar) + 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* a large title, which moves into the bar above as the page scrolls */
+.mb-head {
+  padding: 2px 16px 8px;
+}
+
+.mb-head.root {
+  padding-top: 12px;
+}
+
+.mb-head h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.mb-head small {
+  display: block;
+  margin-top: 2px;
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+/* ---------- lists ---------- */
+
+.mb-list > * {
+  position: relative;
+}
+
+.mb-list > * + *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 51px;
+  right: 0;
+  z-index: 2;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-list.apart {
+  margin-top: 26px;
+}
+
+.mb-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font-size: 16px;
+  text-align: left;
+}
+
+.mb-row:active {
+  background: color-mix(in srgb, var(--sl-fg) 7%, var(--sl-bg));
+}
+
+.mb-row > .icon {
+  color: var(--sl-dim);
+}
+
+.mb-row.fold > .icon:first-child {
+  color: var(--sl-accent);
+}
+
+.mb .mb-row > .icon:last-child {
+  width: 16px;
+  height: 16px;
+  margin-right: -4px;
+  color: var(--sl-faint);
+  stroke-width: 2.2;
+}
+
+.mb-row .tx {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 12px 0;
+}
+
+.mb-row .tx b {
+  overflow: hidden;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-row .tx small {
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-row .tx small .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--sl-accent);
+  vertical-align: 1px;
+}
+
+.mb-row .ct {
+  flex: none;
+  color: var(--sl-faint);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-sec {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 4px 0 16px;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mb-sec button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 40px;
+  margin-left: auto;
+  color: var(--sl-accent);
+}
+
+.mb-none {
+  margin: 0;
+  padding: 14px 16px;
+  color: var(--sl-faint);
+}
+
+.mb-empty {
+  padding: 28px 16px;
+  color: var(--sl-dim);
+}
+
+.mb-empty p {
+  margin: 0 0 14px;
+}
+
+.mb-btn {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+/* a folder named where it will be */
+.mb-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 16px;
+  background: var(--sl-bg);
+}
+
+.mb-form-row > .icon {
+  color: var(--sl-accent);
+}
+
+.mb-form-row input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--sl-accent);
+  border-radius: 9px;
+  background: var(--sl-side);
+  color: var(--sl-fg);
+}
+
+.mb-form-row .go {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 9px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.mb-form-row .x {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: var(--sl-faint);
+}
+
+.mb-form-row p {
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: 35px;
+  color: var(--sl-accent);
+  font-size: 13.5px;
+}
+
+/* a row of Open swiped to the left shows Close under it */
+.mb-swipe {
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.mb-swipe-act {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 88px;
+  background: var(--sl-dim);
+  color: var(--sl-bg);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mb .mb-swipe-act .icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+
+/* Hidden until a swipe shows it, so that its edges never show around the row. */
+.mb-swipe:not(.on) .mb-swipe-act {
+  visibility: hidden;
+}
+
+.mb-swipe-row {
+  position: relative;
+  z-index: 1;
+  background: var(--sl-bg);
+  transition: transform 220ms ease;
+}
+
+.mb-swipe-row.moving {
+  transition: none;
+}
+
+/* Today and Upcoming, one beside the other */
+.mb-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 2px 16px 6px;
+  padding: 2px;
+  border: 1px solid var(--sl-line);
+  border-radius: 9px;
+  background: var(--sl-side);
+}
+
+.mb-seg button {
+  min-height: 32px;
+  border-radius: 7px;
+  color: var(--sl-dim);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.mb-seg button[aria-selected='true'] {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+/* ---------- what is open, drawn by the app ---------- */
+
+.mb-holder {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: var(--ph-bar);
+}
+
+.mb-item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---------- +, the messages and the tab bar ---------- */
+
+.mb-fab {
+  position: absolute;
+  right: 16px;
+  bottom: calc(var(--ph-bar) + 16px);
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+}
+
+.mb .mb-fab .icon {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2.2;
+}
+
+.mb.keyboard .mb-fab {
+  display: none;
+}
+
+.mb-toasts {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--ph-bar) + 86px);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.mb-toast,
+.mb-update {
+  max-width: 100%;
+  padding: 10px 18px;
+  border-radius: 22px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  font-size: 14.5px;
+  font-weight: 600;
+  pointer-events: auto;
+}
+
+.mb-toast {
+  background: var(--sl-fg);
+  color: var(--sl-bg);
+}
+
+.mb-update {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 6px;
+  border: 1px solid var(--sl-line);
+  background: var(--sl-side);
+}
+
+.mb-update button {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.mb-tabbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  height: var(--ph-bar);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: border-box;
+  border-top: 1px solid var(--sl-line);
+  background: color-mix(in srgb, var(--sl-side) 86%, transparent);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.mb.keyboard .mb-tabbar {
+  display: none;
+}
+
+.mb-tabbar button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.mb .mb-tabbar .icon {
+  width: 26px;
+  height: 26px;
+  stroke-width: 1.6;
+}
+
+.mb-tabbar button[aria-current='page'] {
+  color: var(--sl-accent);
+}

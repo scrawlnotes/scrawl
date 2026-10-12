@@ -62,8 +62,8 @@ export type SizeKind = keyof typeof SIZE;
 /** The sizes to choose from, in percent of the computer's own. */
 export const SIZES = [90, 100, 110, 125, 140, 160] as const;
 
-/** A phone's screen is small and touched: what is drawn for a computer is too small on it. */
-const DEFAULT_SIZE: Record<SizeKind, number> = { phone: 125, computer: 100 };
+/** A phone has a layout of its own, drawn for a finger, so it starts at its own size too. */
+const DEFAULT_SIZE: Record<SizeKind, number> = { phone: 100, computer: 100 };
 
 /** A touch screen that is narrow either way it is held. */
 export const isPhone = () => window.matchMedia('(pointer: coarse)').matches && Math.min(window.screen.width, window.screen.height) < 600;
