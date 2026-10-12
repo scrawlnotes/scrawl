@@ -1,8 +1,9 @@
-import { INBOX, INBOX_TASKS, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { INBOX, INBOX_TASKS, inSpace, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type CSSProperties, type DragEvent, type FormEvent, type MouseEvent, type ReactNode, useState } from 'react';
+import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useState } from 'react';
 import { Icon } from './Icon';
 import { collectionTab, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import type { SpaceView } from './session';
 
 // A note or a task list being dragged onto a folder.
 const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
@@ -56,7 +57,17 @@ interface Props {
   settingsOpen: boolean;
   /** The row whose menu is open, by its path or its tab: it stays marked while the menu is open. */
   menuTarget: string | null;
+  /** The spaces beside the personal one, each a heading with its tree under it. */
+  spaces: SpaceView[];
+  /** What the personal space is called, for its heading when there are other spaces. */
+  personalName: string;
+  /** A space heading's menu; null is the personal space. `addFolder` starts naming a folder at the space's top. */
+  onSpaceMenu: (event: MouseEvent, id: string | null, addFolder: () => void) => void;
 }
+
+/** The key a space's heading folds and marks under; the personal space's is `@personal`. */
+const spaceKey = (id: string | null) => (id ? inSpace(id, '') : '@personal');
+const FOLDED = 'scrawl.side.folded';
 
 /** How far in a row is: each level of folders one step. */
 const indent = (depth: number) => ({ '--d': depth }) as CSSProperties;
@@ -91,9 +102,21 @@ export function Sidebar({
   onSettings,
   settingsOpen,
   menuTarget,
+  spaces,
+  personalName,
+  onSpaceMenu,
 }: Props) {
   // A folder starts closed; one opened stays open, on this device, until it is closed.
   const [opened, setOpened] = useState(() => loadPaths(OPENED));
+  // A space's heading starts open; one folded stays folded, on this device, until it is opened.
+  const [folded, setFolded] = useState(() => loadPaths(FOLDED));
+  const toggleSpace = (key: string) =>
+    setFolded((current) => {
+      const next = new Set(current);
+      if (!next.delete(key)) next.add(key);
+      savePaths(FOLDED, next);
+      return next;
+    });
   const [shownInFull, setShownInFull] = useState(() => loadPaths(SHOWN_IN_FULL));
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   // The folder a new folder is being named in, `''` for the top; null while none is.
@@ -161,7 +184,8 @@ export function Sidebar({
 
   /** Starts naming a new folder in `parent`, `''` for the top; a closed folder opens for it. */
   const startFolder = (parent: string) => {
-    if (parent && !opened.has(parent)) toggle(parent);
+    if (parent === '' || parent === spaceKey(null) ? folded.has(spaceKey(null)) : spaceOf(parent) && parent === spaceKey(spaceOf(parent)) && folded.has(parent)) toggleSpace(parent === '' ? spaceKey(null) : parent);
+    if (parent && !opened.has(parent) && parent !== spaceKey(spaceOf(parent))) toggle(parent);
     setAddingIn(parent);
     setFolderName('');
     setFolderError(null);
@@ -328,47 +352,93 @@ export function Sidebar({
   const inbox = tree.find((node) => node.path === INBOX);
   const inboxOpen = opened.has(INBOX);
 
+  // The personal space: the inbox, then the folders; a step in when it has a heading of its own.
+  const personal = (depth: number) => (
+    <>
+      <div
+        className={`it fold${dropTarget === INBOX ? ' drop' : ''}${marked(INBOX)}`}
+        style={indent(depth)}
+        {...dropProps(INBOX)}
+        onContextMenu={(event) => folderMenu(event, INBOX)}
+      >
+        <button type="button" className="it-main" aria-expanded={inboxOpen} onClick={() => toggle(INBOX)}>
+          {folderHead(inboxOpen, t('side.inbox'))}
+        </button>
+        <span className="ct">{(inbox && countNotes(inbox)) || ''}</span>
+        {more((event) => folderMenu(event, INBOX))}
+      </div>
+      {inboxOpen &&
+        viewRow(
+          tasksOf(INBOX_TASKS),
+          <>
+            <i className="it-pad" />
+            <Icon name="tasks" />
+            <span>{t('side.tasks')}</span>
+          </>,
+          depth + 1,
+        )}
+      {inboxOpen && filterRows(INBOX, depth + 1)}
+      {inboxOpen && inbox && children(inbox, depth + 1, true)}
+
+      <div className="grp" style={indent(depth)}>
+        <span>{t('side.folders')}</span>
+        <button type="button" title={t('side.newFolder')} aria-label={t('side.newFolder')} onClick={() => startFolder('')}>
+          +
+        </button>
+      </div>
+      {addingIn === '' && folderForm(depth)}
+      {rows(
+        '',
+        tree.filter((node) => node.path !== INBOX),
+        depth,
+        true,
+      )}
+    </>
+  );
+
+  // A space's heading: its name, a cloud when it is shared, and its menu; it folds like a folder.
+  const spaceRow = (id: string | null, name: string, shared: boolean) => {
+    const key = spaceKey(id);
+    const open = !folded.has(key);
+    const menu = (event: MouseEvent) => onSpaceMenu(event, id, () => startFolder(id ? key : ''));
+    return (
+      <div key={key} className={`it fold space${marked(key)}`} style={indent(0)} onContextMenu={menu}>
+        <button type="button" className="it-main" aria-expanded={open} onClick={() => toggleSpace(key)}>
+          <span className={open ? 'chev open' : 'chev'}>
+            <Icon name="chevron" />
+          </span>
+          <Icon name="space" />
+          <span>{name}</span>
+        </button>
+        {shared && (
+          <span className="it-cloud" title={t('sync.shared')}>
+            <Icon name="cloud" />
+          </span>
+        )}
+        {more(menu)}
+      </div>
+    );
+  };
+
   return (
     <aside className="side">
       <nav className="tree">
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
-        <div
-          className={`it fold${dropTarget === INBOX ? ' drop' : ''}${marked(INBOX)}`}
-          {...dropProps(INBOX)}
-          onContextMenu={(event) => folderMenu(event, INBOX)}
-        >
-          <button type="button" className="it-main" aria-expanded={inboxOpen} onClick={() => toggle(INBOX)}>
-            {folderHead(inboxOpen, t('side.inbox'))}
-          </button>
-          <span className="ct">{(inbox && countNotes(inbox)) || ''}</span>
-          {more((event) => folderMenu(event, INBOX))}
-        </div>
-        {inboxOpen &&
-          viewRow(
-            tasksOf(INBOX_TASKS),
-            <>
-              <i className="it-pad" />
-              <Icon name="tasks" />
-              <span>{t('side.tasks')}</span>
-            </>,
-            1,
-          )}
-        {inboxOpen && filterRows(INBOX, 1)}
-        {inboxOpen && inbox && children(inbox, 1, true)}
-
-        <div className="grp">
-          <span>{t('side.folders')}</span>
-          <button type="button" title={t('side.newFolder')} aria-label={t('side.newFolder')} onClick={() => startFolder('')}>
-            +
-          </button>
-        </div>
-        {addingIn === '' && folderForm(0)}
-        {rows(
-          '',
-          tree.filter((node) => node.path !== INBOX),
-          0,
-          true,
+        {spaces.length === 0 ? (
+          personal(0)
+        ) : (
+          <>
+            {spaceRow(null, personalName, false)}
+            {!folded.has(spaceKey(null)) && personal(1)}
+            {spaces.map((space) => (
+              <Fragment key={space.id}>
+                {spaceRow(space.id, space.name, space.shared)}
+                {!folded.has(spaceKey(space.id)) && addingIn === spaceKey(space.id) && folderForm(1)}
+                {!folded.has(spaceKey(space.id)) && rows(spaceKey(space.id), space.tree, 1, true)}
+              </Fragment>
+            ))}
+          </>
         )}
       </nav>
       {/* The trash stays at the foot of the sidebar, apart from the folders, with the settings beside it. */}

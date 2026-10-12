@@ -738,7 +738,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
             </div>
             <div className="mb-cap mb-cpad">{t('collection.body')}</div>
             <div className="mb-notes">
-              <NotesBlock key={resets} text={draft.body} editor={actions.editor} onChange={(body) => setDraft((d) => ({ ...d, body }))} />
+              <NotesBlock key={resets} home={collection.dir} text={draft.body} editor={actions.editor} onChange={(body) => setDraft((d) => ({ ...d, body }))} />
             </div>
           </>
         )}
@@ -1017,7 +1017,7 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
           )}
           <div className="mb-cap">{t('collection.body')}</div>
           <div className="mb-notes in-sheet">
-            <NotesBlock text={draft.body} editor={actions.editor} onChange={(body) => setDraft((d) => ({ ...d, body }))} />
+            <NotesBlock home={collection.dir} text={draft.body} editor={actions.editor} onChange={(body) => setDraft((d) => ({ ...d, body }))} />
           </div>
           <p className={error ? 'mb-hint err' : 'mb-hint'} role={error ? 'alert' : undefined}>
             {error ?? t('collection.savedIn', { collection: collectionName(dir) })}

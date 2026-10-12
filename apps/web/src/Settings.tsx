@@ -1,6 +1,9 @@
 import type { Me } from '@scrawlnotes/core';
 import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
-import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
+import { ConfirmDialog, ContextMenu, type MenuItem } from './dialogs';
+import type { SpaceView } from './session';
+import { isDesktop } from './storage';
 import { chooseLanguage, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
 import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
@@ -42,6 +45,15 @@ export interface SettingsValues {
   /** The name the personal space was given; none until it is named. */
   spaceName: string | undefined;
   onRenameSpace: (name: string) => void;
+  /** The spaces beside the personal one, in the sidebar's order. */
+  spaces: SpaceView[];
+  onRenameSpaceById: (id: string, name: string) => void;
+  /** Adds a space; resolves to its id, or null when the folder window was cancelled. */
+  onAddSpace: (how: 'new' | 'existing', name: string) => Promise<string | null>;
+  onRemoveSpace: (id: string, deleteFiles: boolean) => void;
+  onMoveSpace: (id: string, by: -1 | 1) => void;
+  /** The space whose page Spaces opens on: an id, null for the personal space, undefined for the list. */
+  initialSpace?: string | null;
   /** Desktop: the folder the notes are in. Null in the browser. */
   folder: string | null;
   /** Desktop: the folder the notes go to unless another is chosen. */
@@ -228,22 +240,187 @@ function Profile({ me, onSaveProfile }: Pick<SettingsValues, 'me' | 'onSaveProfi
   );
 }
 
-function Spaces({
-  spaceName,
-  onRenameSpace,
-  folder,
-  defaultFolder,
-  onChangeFolder,
-  onUseDefaultFolder,
-  sync,
-  syncService,
-}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
-  const name = spaceName ?? t('settings.personal');
+/**
+ * The spaces: a list in the sidebar's order, each row opening the space's page, and Add space
+ * under it. A space's page has its name, its folder, its sync, and the way out of this device.
+ */
+function Spaces(values: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'initialSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
+  const { spaces, onMoveSpace, onRemoveSpace, initialSpace } = values;
+  // The page open: a space by its id, null for the personal space, undefined for the list.
+  const [page, setPage] = useState<string | null | undefined>(initialSpace);
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<SpaceView | null>(null);
+  const [menu, setMenu] = useState<{ at: { x: number; y: number }; id: string } | null>(null);
+  const personalName = values.spaceName ?? t('settings.personal');
+  if (page === null) return <PersonalPage {...values} onBack={() => setPage(undefined)} />;
+  const shown = page === undefined ? null : spaces.find((space) => space.id === page);
+  if (shown) return <SpacePage space={shown} onRename={(name) => values.onRenameSpaceById(shown.id, name)} onBack={() => setPage(undefined)} onRemove={() => setRemoving(shown)} removing={removing} onRemoved={() => setRemoving(null)} onRemoveSpace={onRemoveSpace} />;
+  const spaceMenu = (event: MouseEvent, id: string) => {
+    event.preventDefault();
+    setMenu({ at: { x: event.clientX, y: event.clientY }, id });
+  };
+  const menuItems = (id: string): MenuItem[] => {
+    const at = spaces.findIndex((space) => space.id === id);
+    return [
+      { label: t('side.spaceSettings'), icon: 'settings', run: () => setPage(id) },
+      { label: t('side.moveUp'), apart: true, run: () => onMoveSpace(id, -1), ...(at === 0 && { disabled: t('side.first') }) },
+      { label: t('side.moveDown'), run: () => onMoveSpace(id, 1), ...(at === spaces.length - 1 && { disabled: t('side.last') }) },
+      { label: t('side.removeSpace'), apart: true, danger: true, run: () => setRemoving(spaces[at] ?? null) },
+    ];
+  };
+  return (
+    <>
+      <span className="st-label">{t('settings.spaces')}</span>
+      <p className="st-note">{t('settings.spacesAbout')}</p>
+      <div className="st-list">
+        <button type="button" className="st-li" onClick={() => setPage(null)}>
+          <Icon name="space" />
+          <span className="nm">
+            <b>{personalName}</b>
+            <small>{values.folder ? `${t('settings.yours')} · ${values.folder}` : `${t('settings.yours')} · ${t('settings.inBrowser')}`}</small>
+          </span>
+          <Icon name="chevron" />
+        </button>
+        {spaces.map((space) => (
+          <div key={space.id} className={`st-li${menu?.id === space.id ? ' menu' : ''}`} onContextMenu={(event) => spaceMenu(event, space.id)}>
+            <button type="button" className="st-li-main" onClick={() => setPage(space.id)}>
+              <Icon name="space" />
+              <span className="nm">
+                <b>{space.name}</b>
+                <small>{space.folder ? `${t('settings.onComputer')} · ${space.folder}` : t('settings.inBrowser')}</small>
+              </span>
+            </button>
+            {space.shared && (
+              <span className="r" title={t('sync.shared')}>
+                <Icon name="cloud" />
+              </span>
+            )}
+            <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => spaceMenu(event, space.id)}>
+              ···
+            </button>
+          </div>
+        ))}
+      </div>
+      {adding ? (
+        <AddSpace onAdd={values.onAddSpace} onDone={(id) => {
+          setAdding(false);
+          if (id) setPage(id);
+        }} />
+      ) : (
+        <div className="st-acts">
+          <button type="button" className="primary" onClick={() => setAdding(true)}>
+            {t('settings.addSpace')}
+          </button>
+          <small>{t('settings.addSpaceAbout')}</small>
+        </div>
+      )}
+      {menu && <ContextMenu at={menu.at} items={menuItems(menu.id)} onClose={() => setMenu(null)} />}
+      {removing && <RemoveSpaceAsk space={removing} onRemoveSpace={onRemoveSpace} onClose={() => setRemoving(null)} />}
+    </>
+  );
+}
+
+/** The question before a space leaves this device: its folder stays, or goes too. */
+function RemoveSpaceAsk({ space, onRemoveSpace, onClose }: { space: SpaceView; onRemoveSpace: SettingsValues['onRemoveSpace']; onClose: () => void }) {
+  return (
+    <ConfirmDialog
+      title={t('settings.removeTitle', { name: space.name })}
+      message={t('settings.removeMessage')}
+      action={t('settings.removeKeep')}
+      danger={false}
+      second={{
+        action: t('settings.removeDelete'),
+        run: () => {
+          onClose();
+          onRemoveSpace(space.id, true);
+        },
+      }}
+      onConfirm={() => {
+        onClose();
+        onRemoveSpace(space.id, false);
+      }}
+      onClose={onClose}
+    />
+  );
+}
+
+/** Adding a space: a new one, named here, or on desktop a folder that is already there. */
+function AddSpace({ onAdd, onDone }: { onAdd: SettingsValues['onAddSpace']; onDone: (id: string | null) => void }) {
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const add = async (how: 'new' | 'existing') => {
+    if (how === 'new' && !name.trim()) {
+      setError(t('error.spaceName'));
+      return;
+    }
+    setBusy(true);
+    try {
+      onDone(await onAdd(how, name));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : t('error.create'));
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="st-space st-add">
+      <div className="top">
+        <Icon name="plus" />
+        <b>{t('settings.newSpace')}</b>
+        <small>{t('settings.newSpaceAbout')}</small>
+      </div>
+      <div className="st-row">
+        <label className="fl" htmlFor="space-new-name">
+          {t('settings.name')}
+        </label>
+        <input
+          id="space-new-name"
+          value={name}
+          autoFocus
+          autoComplete="off"
+          disabled={busy}
+          onChange={(event) => {
+            setName(event.target.value);
+            setError(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') void add('new');
+            else if (event.key === 'Escape') onDone(null);
+            else return;
+            event.preventDefault();
+          }}
+        />
+        <button type="button" className="primary" disabled={busy} onClick={() => void add('new')}>
+          {t('settings.add')}
+        </button>
+      </div>
+      {error && (
+        <p className="st-note error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="st-acts">
+        {isDesktop && (
+          <button type="button" disabled={busy} onClick={() => void add('existing')}>
+            {t('settings.existingFolder')}
+          </button>
+        )}
+        {isDesktop && <small>{t('settings.existingAbout')}</small>}
+        <button type="button" className="right" disabled={busy} onClick={() => onDone(null)}>
+          {t('dialog.cancel')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** The name of a space, saved with its button; Escape puts the one it has back. */
+function NameRow({ id, name, fallback, onRename }: { id: string; name: string; fallback: string; onRename: (name: string) => void }) {
   const [draft, setDraft] = useState(name);
   useEffect(() => setDraft(name), [name]);
-  const changed = (draft.trim() || t('settings.personal')) !== name;
+  const changed = (draft.trim() || fallback) !== name;
   const save = () => {
-    if (changed) onRenameSpace(draft);
+    if (changed) onRename(draft);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') save();
@@ -252,24 +429,48 @@ function Spaces({
     event.preventDefault();
   };
   return (
+    <div className="st-row">
+      <label className="fl" htmlFor={id}>
+        {t('settings.name')}
+      </label>
+      <input id={id} value={draft} autoComplete="off" onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} />
+      <button type="button" className="primary" disabled={!changed} onClick={save}>
+        {t('settings.save')}
+      </button>
+    </div>
+  );
+}
+
+const BackRow = ({ onBack }: { onBack: () => void }) => (
+  <button type="button" className="st-back" onClick={onBack}>
+    <Icon name="chevron" />
+    <span>{t('settings.backToSpaces')}</span>
+  </button>
+);
+
+/** The personal space: its name, its folder and its sync, as before; and this device's name. */
+function PersonalPage({
+  spaceName,
+  onRenameSpace,
+  folder,
+  defaultFolder,
+  onChangeFolder,
+  onUseDefaultFolder,
+  sync,
+  syncService,
+  onBack,
+}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'> & { onBack: () => void }) {
+  const name = spaceName ?? t('settings.personal');
+  return (
     <>
-      <span className="st-label">{t('settings.spaces')}</span>
-      <p className="st-note">{t('settings.spacesAbout')}</p>
+      <BackRow onBack={onBack} />
       <div className="st-space">
         <div className="top">
-          <Icon name="folder" />
+          <Icon name="space" />
           <b>{name}</b>
-          <small>{t('settings.onDevice')}</small>
+          <small>{t('settings.yours')}</small>
         </div>
-        <div className="st-row">
-          <label className="fl" htmlFor="space-name">
-            {t('settings.name')}
-          </label>
-          <input id="space-name" value={draft} autoComplete="off" onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} />
-          <button type="button" className="primary" disabled={!changed} onClick={save}>
-            {t('settings.save')}
-          </button>
-        </div>
+        <NameRow id="space-name" name={name} fallback={t('settings.personal')} onRename={onRenameSpace} />
         <div className="st-row">
           <span className="fl">{t('settings.folder')}</span>
           {folder ? (
@@ -297,6 +498,49 @@ function Spaces({
         {sync.available && <SyncRow sync={sync} service={syncService} />}
       </div>
       {sync.available && <ThisDevice sync={sync} service={syncService} />}
+    </>
+  );
+}
+
+/** A space beside the personal one: its name, where its files are, and the way out of this device. */
+function SpacePage({ space, onRename, onBack, onRemove, removing, onRemoved, onRemoveSpace }: {
+  space: SpaceView;
+  onRename: (name: string) => void;
+  onBack: () => void;
+  onRemove: () => void;
+  removing: SpaceView | null;
+  onRemoved: () => void;
+  onRemoveSpace: SettingsValues['onRemoveSpace'];
+}) {
+  return (
+    <>
+      <BackRow onBack={onBack} />
+      <div className="st-space">
+        <div className="top">
+          <Icon name="space" />
+          <b>{space.name}</b>
+          {space.shared && <small>{t('sync.shared')}</small>}
+        </div>
+        <NameRow id="space-name" name={space.name} fallback={space.name} onRename={onRename} />
+        <div className="st-row">
+          <span className="fl">{t('settings.folder')}</span>
+          {space.folder ? (
+            <span className="path" title={space.folder}>
+              {space.folder}
+            </span>
+          ) : (
+            <span className="path plain">{t('settings.inBrowser')}</span>
+          )}
+          <span />
+        </div>
+      </div>
+      <div className="st-acts">
+        <button type="button" onClick={onRemove}>
+          {t('settings.removeSpace')}
+        </button>
+        <small>{t('settings.removeAbout')}</small>
+      </div>
+      {removing && <RemoveSpaceAsk space={removing} onRemoveSpace={onRemoveSpace} onClose={onRemoved} />}
     </>
   );
 }

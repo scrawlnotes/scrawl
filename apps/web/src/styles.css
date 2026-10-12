@@ -283,7 +283,7 @@ input:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 8px 3px;
+  padding: 10px 8px 3px calc(8px + var(--d, 0) * 16px);
   color: var(--sl-faint);
   font-size: 10.5px;
   letter-spacing: 0.07em;
@@ -8102,4 +8102,184 @@ button.cb:hover::after {
   .collection-view .th .search + .ghost {
     margin-left: auto;
   }
+}
+
+/* ---------- spaces: a heading in the sidebar for each, and their list in the settings ---------- */
+
+.it.space {
+  margin-top: 6px;
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.it.space .it-main > .icon {
+  color: var(--sl-dim);
+}
+
+.it-cloud {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  color: var(--sl-faint);
+}
+
+.it-cloud .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.it.space:hover .it-cloud,
+.it.space.marked .it-cloud {
+  display: none;
+}
+
+.st-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  background: var(--sl-side);
+}
+
+.st-li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.st-li + .st-li {
+  border-top: 1px solid var(--sl-line);
+}
+
+button.st-li:hover,
+.st-li.menu {
+  background: color-mix(in srgb, var(--sl-fg) 6%, transparent);
+}
+
+.st-li-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: inherit;
+  text-align: left;
+}
+
+.st-li > .icon,
+.st-li-main > .icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--sl-dim);
+}
+
+.st-li .nm {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.st-li .nm b {
+  font-weight: 500;
+}
+
+.st-li .nm small {
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-li .r {
+  display: flex;
+  align-items: center;
+  color: var(--sl-faint);
+}
+
+.st-li .r .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.st-li .it-more {
+  display: grid;
+}
+
+.st-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.st-acts small {
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.st-acts .right {
+  margin-left: auto;
+}
+
+.st-acts button {
+  padding: 4px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.st-acts button:hover {
+  color: var(--sl-fg);
+}
+
+.st-acts .primary {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.st-acts .primary:hover {
+  color: var(--sl-bg);
+}
+
+.st-back {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 2px;
+  margin: -6px 0 -4px -6px;
+  padding: 2px 6px 2px 2px;
+  border-radius: 4px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.st-back:hover {
+  color: var(--sl-fg);
+}
+
+.st-back .icon {
+  width: 13px;
+  height: 13px;
+  transform: rotate(180deg);
+}
+
+.st-note.error {
+  color: var(--sl-danger, #e5484d);
+}
+
+.dialog-actions .danger {
+  border-color: color-mix(in srgb, #e5484d 60%, transparent);
+  color: #e5484d;
 }

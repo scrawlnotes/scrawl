@@ -126,8 +126,8 @@ export interface CollectionActions {
   create?: (dir: string, values?: Record['values']) => void;
   /** Asks before something is lost; `action` is what the confirming button says. */
   ask: (title: string, message: string, run: () => void, action: string) => void;
-  /** An editor for the body, in `parent`; the host wires it to the vault's files. */
-  editor: (parent: HTMLElement, doc: string, onChange: (doc: string) => void) => ScrawlEditor;
+  /** An editor for the body of a record of the collection at `home`, in `parent`; the host wires it to the files of its space. */
+  editor: (home: string, parent: HTMLElement, doc: string, onChange: (doc: string) => void) => ScrawlEditor;
   /** The records of the collection at a path, for a link to pick from; null when there is no such collection. */
   records: (collection: string) => Record[] | null;
   /** The collection at a path, for the records that link to a record; null when there is none. */
@@ -623,13 +623,13 @@ export function FieldInput({ field, value, autoFocus, ctx, onChange, onEnter }: 
 }
 
 /** The body of a record, in the live preview editor, as part of the form: what is typed goes to the draft. */
-export function NotesBlock({ text, editor, onChange }: { text: string; editor: CollectionActions['editor']; onChange: (text: string) => void }) {
+export function NotesBlock({ home, text, editor, onChange }: { home: string; text: string; editor: CollectionActions['editor']; onChange: (text: string) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const made = useRef<ScrawlEditor | null>(null);
   const changed = useRef(onChange);
   changed.current = onChange;
   useEffect(() => {
-    made.current = editor(host.current!, text, (doc) => changed.current(doc));
+    made.current = editor(home, host.current!, text, (doc) => changed.current(doc));
     return () => {
       made.current?.destroy();
       made.current = null;
@@ -1079,7 +1079,7 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const body = (index: number): ReactNode => (
     <div key={`body-${index}`} className="prop prop-body">
       <span className="pl">{t('collection.body')}</span>
-      <NotesBlock text={draft.body} editor={actions.editor} onChange={(text) => set({ body: text })} />
+      <NotesBlock home={collection.dir} text={draft.body} editor={actions.editor} onChange={(text) => set({ body: text })} />
     </div>
   );
   const entry = (layoutItem: LayoutItem, index: number): ReactNode => {

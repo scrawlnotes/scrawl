@@ -117,3 +117,24 @@ export async function openBrowserVault(): Promise<VaultFs> {
     return new MemoryFs();
   }
 }
+
+/** The files of a space beside the personal one, in a folder of the browser's storage; made if it is not there. */
+export async function openBrowserVaultAt(dir: string): Promise<VaultFs> {
+  try {
+    let handle = await navigator.storage.getDirectory();
+    for (const part of dir.split('/').filter(Boolean)) handle = await handle.getDirectoryHandle(part, { create: true });
+    return new OpfsFs(handle);
+  } catch {
+    return new MemoryFs();
+  }
+}
+
+/** Deletes a space's folder of the browser's storage with everything in it. */
+export async function removeBrowserVaultAt(dir: string): Promise<void> {
+  const parts = dir.split('/').filter(Boolean);
+  const name = parts.pop();
+  if (!name) return;
+  let handle = await navigator.storage.getDirectory();
+  for (const part of parts) handle = await handle.getDirectoryHandle(part, { create: true });
+  await handle.removeEntry(name, { recursive: true }).catch(() => undefined);
+}

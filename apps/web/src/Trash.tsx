@@ -1,6 +1,7 @@
 import { dayOf, dirname, type TrashItem } from '@scrawlnotes/core';
 import { sizeText } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
+import { placeLabel } from './items';
 import { isPhone } from './device';
 import { Icon, type IconName } from './Icon';
 import { Empty } from './sheets';
@@ -14,7 +15,7 @@ const iconOf = (item: TrashItem): IconName =>
   item.kind !== 'attachment' ? ICONS[item.kind] : IMAGE.test(item.title) ? 'image' : AUDIO.test(item.title) ? 'audio' : 'file';
 
 /** The folder an item goes back to, as a path to read: `Scrawl / meetings`; empty for the top level. */
-const placeOf = (from: string) => dirname(from).split('/').filter(Boolean).join(' / ');
+const placeOf = (from: string) => placeLabel(from);
 
 function TrashRow({ item, onRestore, onDelete }: { item: TrashItem; onRestore: () => void; onDelete: () => void }) {
   // An attached file goes back to the attachments, which is no place to name.

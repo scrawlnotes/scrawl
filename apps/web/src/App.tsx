@@ -20,6 +20,8 @@ import {
   filterTasks,
   filterFields,
   INBOX,
+  inSpace,
+  spaceOf,
   INBOX_TASKS,
   keyCount,
   keyOf,
@@ -73,7 +75,7 @@ import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
 import { PhoneNewRecord, PhoneRecordPage } from './PhoneCollection';
 import { ImportDialog } from './Import';
-import {
+import { folderLabel as folderLabelOf, setSpaceNames,
   boardLabel,
   boardOf,
   boardPathOf,
@@ -101,7 +103,7 @@ import {
 import { applySize, applyTheme, isPhone, loadMode, loadSize, loadTheme, type Mode, onSystemShade, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
 import { Phone } from './Phone';
 import { PhoneCreate } from './PhoneCreate';
-import { Session } from './session';
+import { Session, type SpaceView } from './session';
 import { type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
@@ -119,13 +121,13 @@ type OpenDialog =
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
-  | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void }
+  | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void; second?: { action: string; run: () => void } }
   | { kind: 'history'; path: string }
   | { kind: 'moveTask'; list: string; id: string }
   | { kind: 'toTask'; note: string; title: string; description: string }
   | { kind: 'toCard'; note: string; title: string; description: string }
   | { kind: 'filter'; filter: TaskFilter | null; place?: string }
-  | { kind: 'settings'; section?: SettingsSection }
+  | { kind: 'settings'; section?: SettingsSection; space?: string | null }
   | null;
 
 // A tab being dragged to another place in the tab bar.
@@ -149,6 +151,18 @@ function folderPaths(nodes: TreeNode[], out: string[] = []): string[] {
     folderPaths(node.children ?? [], out);
   }
   return out;
+}
+
+/** The folders things can be made in: the inbox, the personal space's folders, then each space and its folders. */
+function everyFolder(tree: TreeNode[], spaces: SpaceView[]): string[] {
+  return [INBOX, ...folderPaths(tree).filter((path) => path !== INBOX), ...spaces.flatMap((space) => [inSpace(space.id, ''), ...folderPaths(space.tree)])];
+}
+
+/** The folders of one space, where something of it can be moved: a move to another space is not made by Move. */
+function spaceFolders(space: string | null, tree: TreeNode[], spaces: SpaceView[]): string[] {
+  if (!space) return folderPaths(tree);
+  const nodes = spaces.find((each) => each.id === space)?.tree ?? [];
+  return [inSpace(space, ''), ...folderPaths(nodes)];
 }
 
 function findNode(nodes: TreeNode[], path: string): TreeNode | undefined {
@@ -200,7 +214,7 @@ export function App() {
     if (sync.picking || sync.signInError) setDialog({ kind: 'settings', section: 'spaces' });
   }, [sync.picking, sync.signInError]);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
-  const { ready, folder, defaultFolder, me, tree, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
+  const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -397,7 +411,7 @@ export function App() {
         list: path,
         section: null,
         label: listName(path),
-        folder: path === INBOX_TASKS ? INBOX : basename(dirname(path)),
+        folder: path === INBOX_TASKS ? INBOX : folderLabel(dirname(path)),
         here: isHere(path, null),
       },
       ...(sections[path] ?? []).map((section) => ({
@@ -501,6 +515,37 @@ export function App() {
     const at = { x: event.clientX, y: row ? row.getBoundingClientRect().bottom + 2 : event.clientY };
     setMenu({ at, items, ...(row && target !== undefined && { target }) });
   };
+  // The spaces' names, for the places a path is shown as words.
+  useEffect(() => setSpaceNames(new Map(spaces.map((space) => [space.id, space.name]))), [spaces]);
+  // A space's heading: its settings, a folder at its top, its place among the spaces, and the way out of this device.
+  const spaceMenu = (event: MouseEvent, id: string | null, addFolder: () => void) => {
+    const at = id ? spaces.findIndex((space) => space.id === id) : -1;
+    const items: MenuItem[] = [
+      { label: t('side.spaceSettings'), icon: 'settings', run: () => setDialog({ kind: 'settings', section: 'spaces', space: id }) },
+      { label: t('side.newFolder'), icon: 'folder', run: addFolder },
+    ];
+    if (id) {
+      items.push(
+        { label: t('side.moveUp'), apart: true, run: () => void session.moveSpace(id, -1), ...(at === 0 && { disabled: t('side.first') }) },
+        { label: t('side.moveDown'), run: () => void session.moveSpace(id, 1), ...(at === spaces.length - 1 && { disabled: t('side.last') }) },
+        { label: t('side.removeSpace'), apart: true, danger: true, run: () => askRemoveSpace(id) },
+      );
+    }
+    openMenu(event, items, id ? `@${id}` : '@personal');
+  };
+  const askRemoveSpace = (id: string) => {
+    const space = spaces.find((each) => each.id === id);
+    if (!space) return;
+    setDialog({
+      kind: 'confirm',
+      title: t('settings.removeTitle', { name: space.name }),
+      message: t('settings.removeMessage'),
+      action: t('settings.removeKeep'),
+      danger: false,
+      run: () => void session.removeSpace(id, false),
+      second: { action: t('settings.removeDelete'), run: () => void session.removeSpace(id, true) },
+    });
+  };
   // The menu of a note, a task list, a board, a keys file or a collection; the inbox's own list has none.
   const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
   const itemMenuItems = (path: string, history: (path: string) => void = (path) => void showHistory(path)): MenuItem[] => [
@@ -521,7 +566,7 @@ export function App() {
     ];
   /** On a phone a menu is an action sheet, with what it is about at its top. */
   const showSheet = (items: MenuItem[], head?: MenuHead) => setMenu({ at: { x: 0, y: 0 }, items, head });
-  const folderLabel = (path: string) => (path === INBOX ? t('side.inbox') : basename(path));
+  const folderLabel = (path: string) => (path === INBOX ? t('side.inbox') : folderLabelOf(path));
   /**
    * The menu of something open on a phone, from its page's ··· or from its row held, where it has
    * no tab and no status bar: what the sidebar's menu has, and on a note's page Markdown.
@@ -796,7 +841,7 @@ export function App() {
     get cardActions() {
       return boardActions;
     },
-    editor: (parent, doc, onChange) => session.openEditor(parent, doc, onChange),
+    editor: (home, parent, doc, onChange) => session.openEditor(home, parent, doc, onChange),
   };
   const boardActions: BoardActions = {
     addCard: (board, input) => session.addCard(board, input),
@@ -821,8 +866,8 @@ export function App() {
       session.addTask(INBOX_TASKS, { title: card.title, due: today, card: cardRef(board, id) });
       setNotice(t('card.addedToToday'));
     },
-    editor: (parent, doc, onChange, hint) => session.openEditor(parent, doc, onChange, hint),
-    viewer: (parent, doc) => session.openViewer(parent, doc),
+    editor: (home, parent, doc, onChange, hint) => session.openEditor(home, parent, doc, onChange, hint),
+    viewer: (home, parent, doc) => session.openViewer(home, parent, doc),
     menu: (event, items, head) => (phone ? showSheet(items, head) : openMenu(event, items)),
     addColumn: (board, name, kind, after) => session.addColumn(board, name, kind, after),
     renameColumn: (board, id, name) => session.renameColumn(board, id, name),
@@ -1014,9 +1059,16 @@ export function App() {
     onSaveProfile: (name, email) => session.saveProfile(name, email),
     spaceName: space.name,
     onRenameSpace: (name) => session.renameSpace(name),
+    spaces,
+    onRenameSpaceById: (id, name) => session.renameSpaceById(id, name),
+    onAddSpace: (how, name) => session.addSpace(how, name),
+    onRemoveSpace: (id, deleteFiles) => void session.removeSpace(id, deleteFiles),
+    onMoveSpace: (id, by) => void session.moveSpace(id, by),
+    initialSpace: dialog?.kind === 'settings' ? dialog.space : undefined,
     folder,
     defaultFolder,
-    onChangeFolder: isDesktop ? () => void session.chooseFolder() : undefined,
+    // A folder that holds a space, or is inside one, is refused with a word why.
+    onChangeFolder: isDesktop ? () => void session.chooseFolder().catch((error: unknown) => setNotice(error instanceof Error ? error.message : t('error.spaceNests'))) : undefined,
     onUseDefaultFolder: isDesktop ? () => void session.useDefaultFolder() : undefined,
     sync,
     syncService,
@@ -1277,6 +1329,9 @@ export function App() {
           filters={filters}
           onFilterMenu={filterMenu}
           menuTarget={menu?.target ?? null}
+          spaces={spaces}
+          personalName={space.name ?? t('settings.personal')}
+          onSpaceMenu={spaceMenu}
           onSettings={() => {
             setDrawer(false);
             setDialog({ kind: 'settings' });
@@ -1394,7 +1449,7 @@ export function App() {
         <PhoneCreate
           key={dialog?.kind === 'new' ? `${dialog.start ?? ''}:${dialog.folder ?? ''}` : ''}
           start={(dialog?.kind === 'new' && dialog.start) || null}
-          folders={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
+          folders={everyFolder(tree, spaces)}
           folder={createIn}
           collections={Object.keys(collections)}
           onCreate={create}
@@ -1407,7 +1462,7 @@ export function App() {
           // Open already, as it is in an empty space, it starts again with what a folder's menu chose.
           key={dialog?.kind === 'new' ? `${dialog.start ?? ''}:${dialog.folder ?? ''}` : ''}
           start={(dialog?.kind === 'new' && dialog.start) || null}
-          folders={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
+          folders={everyFolder(tree, spaces)}
           folder={createIn}
           collections={Object.keys(collections)}
           onCreate={create}
@@ -1474,7 +1529,7 @@ export function App() {
       )}
       {dialog?.kind === 'move' && (
         <MoveDialog
-          folders={folderPaths(tree)}
+          folders={spaceFolders(spaceOf(dialog.path), tree, spaces)}
           current={dirname(dialog.path)}
           onMove={(target) => {
             void session.move(dialog.path, target);
@@ -1511,6 +1566,15 @@ export function App() {
           message={dialog.message}
           action={dialog.action}
           danger={dialog.danger}
+          second={
+            dialog.second && {
+              action: dialog.second.action,
+              run: () => {
+                setDialog(null);
+                dialog.second!.run();
+              },
+            }
+          }
           onConfirm={() => {
             setDialog(null);
             dialog.run();
@@ -1561,7 +1625,7 @@ export function App() {
         (() => {
           const choices = Object.keys(boards)
             .sort()
-            .map((board) => ({ board, label: boardName(board), folder: basename(dirname(board)) }));
+            .map((board) => ({ board, label: boardName(board), folder: folderLabel(dirname(board)) }));
           // A board in the note's own folder first.
           const near = choices.findIndex((choice) => dirname(choice.board) === dirname(dialog.note));
           return (

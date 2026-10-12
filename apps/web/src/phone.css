@@ -4648,3 +4648,18 @@ body > .mb-lifted {
   font-size: 14.5px;
   line-height: 1.75;
 }
+
+/* The spaces in Settings on a phone: rows a finger can hit. */
+.mb-settings .st-li {
+  min-height: 48px;
+  padding: 6px 12px;
+}
+
+.mb-settings .st-li .nm small {
+  font-size: 13px;
+}
+
+.mb-settings .st-acts button {
+  min-height: 40px;
+  font-size: 15px;
+}

@@ -8,6 +8,8 @@ const FILE = '.scrawl/space.json';
 
 /** A space's own settings. Without a name it is shown under the name of its kind, "Personal". */
 export interface SpaceInfo {
+  /** Made once when the space is added beside the personal one; in front of its paths in the app. */
+  id?: string;
   name?: string;
 }
 
@@ -19,9 +21,9 @@ export function parseSpace(text: string): SpaceInfo {
     return {};
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
-  const { name, version: _version, ...rest } = data as Record<string, unknown>;
+  const { name, id, version: _version, ...rest } = data as Record<string, unknown>;
   // Unknown fields are kept, so a newer version's settings survive an older one saving.
-  return { ...rest, ...(typeof name === 'string' && name.trim() && { name: name.trim() }) };
+  return { ...rest, ...(typeof id === 'string' && id.trim() && { id: id.trim() }), ...(typeof name === 'string' && name.trim() && { name: name.trim() }) };
 }
 
 export const serializeSpace = (space: SpaceInfo) => `${JSON.stringify({ version: 1, ...space }, null, 2)}\n`;

@@ -36,7 +36,7 @@ import { type Option, Picker } from './choices';
 import { ConditionRow } from './Collection';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import { Icon, type IconName } from './Icon';
-import { collectionLabel } from './items';
+import { collectionLabel, shownPath } from './items';
 import { ActionSheet, AskSheet, Sheet, SheetClose } from './sheets';
 
 interface DialogProps {
@@ -157,7 +157,7 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
           onMouseDown={keepFocus}
           onClick={() => onPick(i)}
         >
-          <span>{folder}</span>
+          <span>{shownPath(folder)}</span>
         </button>
       ))}
       {picker.canCreate && (
@@ -924,17 +924,19 @@ export function RenameDialog({ name, onRename, onClose }: {
 }
 
 /** Asks before something is deleted. Enter confirms, Esc or Cancel leaves it be. On a phone it is an action sheet. */
-export function ConfirmDialog({ title, message, action, danger, onConfirm, onClose }: {
+export function ConfirmDialog({ title, message, action, danger, second, onConfirm, onClose }: {
   title: string;
   message: string;
   /** The label of the confirming button. */
   action: string;
   /** Whether it takes something away: on a phone its button is red. */
   danger?: boolean;
+  /** A second way to go on, beside the first: taking more away, it is red. */
+  second?: { action: string; run: () => void };
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  if (isPhone()) return <AskSheet title={title} message={message} action={action} danger={danger} onConfirm={onConfirm} onClose={onClose} />;
+  if (isPhone()) return <AskSheet title={title} message={message} action={action} danger={danger} second={second} onConfirm={onConfirm} onClose={onClose} />;
   const onKey = (event: KeyboardEvent) => {
     // Enter on Cancel is that button's own click.
     if (event.key !== 'Enter' || event.target instanceof HTMLButtonElement) return;
@@ -949,6 +951,11 @@ export function ConfirmDialog({ title, message, action, danger, onConfirm, onClo
         <button type="button" onClick={onClose}>
           {t('dialog.cancel')}
         </button>
+        {second && (
+          <button type="button" className="danger" onClick={second.run}>
+            {second.action}
+          </button>
+        )}
         <button type="button" className="primary" onClick={onConfirm}>
           {action}
         </button>

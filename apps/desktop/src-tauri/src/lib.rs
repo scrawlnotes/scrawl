@@ -255,11 +255,25 @@ async fn fs_mkdir(root: String, path: String) -> Result<(), String> {
     fs::create_dir_all(resolve(&root, &path)?).map_err(message)
 }
 
+/// A space beside the personal one: its id, the folder of its copy on this device, and what the
+/// web app keeps beside them (its name, where it lives in the cloud), passed through as it is.
+#[derive(Clone, Serialize, Deserialize)]
+struct SpaceEntry {
+    id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    folder: Option<String>,
+    #[serde(flatten)]
+    rest: serde_json::Map<String, serde_json::Value>,
+}
+
 /// What the app remembers between runs. Kept in the app's own config folder, not in the vault.
 #[derive(Default, Serialize, Deserialize)]
 struct Settings {
     /// The folder the notes are in.
     vault: Option<String>,
+    /// The other spaces, in the order the sidebar shows them.
+    #[serde(default)]
+    spaces: Vec<SpaceEntry>,
 }
 
 fn settings_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -270,13 +284,83 @@ fn settings_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// Lets the web view show files of the notes folder straight from disk (images, without
 /// reading them into the page first). Nothing outside the folder is allowed.
 fn allow_vault(app: &tauri::AppHandle, settings: &Settings) -> Result<(), String> {
-    match &settings.vault {
-        Some(vault) => app
-            .asset_protocol_scope()
-            .allow_directory(vault, true)
-            .map_err(|e| e.to_string()),
-        None => Ok(()),
+    let scope = app.asset_protocol_scope();
+    for folder in settings.vault.iter().chain(settings.spaces.iter().filter_map(|s| s.folder.as_ref())) {
+        scope.allow_directory(folder, true).map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+/// A folder's name made of a space's name: letters, digits, spaces, `-` and `_`, and never one
+/// of the names Windows keeps for devices.
+fn space_folder_name(name: &str) -> Option<String> {
+    let clean: String = name
+        .trim()
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' { c } else { '-' })
+        .collect();
+    let clean = clean.trim().to_string();
+    if clean.is_empty() {
+        return None;
+    }
+    let upper = clean.to_uppercase();
+    let reserved = ["CON", "PRN", "AUX", "NUL"].contains(&upper.as_str())
+        || ((upper.starts_with("COM") || upper.starts_with("LPT")) && upper.len() == 4 && upper.as_bytes()[3].is_ascii_digit());
+    Some(if reserved { format!("{clean} space") } else { clean })
+}
+
+/// A folder of its own for a new space, named after it in the app's data folder; a name already
+/// taken there gets a number.
+#[tauri::command]
+async fn space_folder_new(app: tauri::AppHandle, name: String) -> Result<String, String> {
+    let base = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let clean = space_folder_name(&name).ok_or("A space needs a name")?;
+    let mut dir = base.join(&clean);
+    let mut n = 2;
+    while dir.exists() {
+        dir = base.join(format!("{clean} {n}"));
+        n += 1;
+    }
+    fs::create_dir_all(&dir).map_err(message)?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+/// Whether a folder is one the app made for a space's copy: right inside the app's data folder,
+/// and not the personal space's.
+fn space_copy_folder(folder: &Path, data: &Path, vault: Option<&str>) -> bool {
+    let same = |a: &Path, b: &Path| match (a.canonicalize(), b.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    };
+    let inside = folder.parent().is_some_and(|parent| same(parent, data));
+    let personal = vault.is_some_and(|vault| same(folder, Path::new(vault)));
+    inside && !personal
+}
+
+/// Deletes the copy of a space on this device with everything in it: only a folder the settings
+/// list as a space and the app made for it, never another folder of the computer.
+#[tauri::command]
+async fn space_folder_delete(app: tauri::AppHandle, folder: String) -> Result<(), String> {
+    let text = fs::read_to_string(settings_file(&app)?).unwrap_or_default();
+    let settings: Settings = serde_json::from_str(&text).unwrap_or_default();
+    if !settings.spaces.iter().any(|s| s.folder.as_deref() == Some(folder.as_str())) {
+        return Err("Not a space of this device".into());
+    }
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let path = Path::new(&folder);
+    if !path.is_dir() {
+        return Ok(());
+    }
+    if !space_copy_folder(path, &data, settings.vault.as_deref()) {
+        return Err("Only a space's copy that Scrawl made can be deleted".into());
+    }
+    fs::remove_dir_all(path).map_err(message)
+}
+
+/// Whether a folder is there: a space whose folder is gone is skipped, not made again.
+#[tauri::command]
+async fn folder_exists(folder: String) -> bool {
+    Path::new(&folder).is_dir()
 }
 
 /// Where the notes go unless another folder is chosen: `Personal` in the app's own data folder
@@ -333,6 +417,9 @@ pub fn run() {
             settings_load,
             settings_save,
             default_vault_folder,
+            space_folder_new,
+            space_folder_delete,
+            folder_exists,
             open_file,
             reveal_file,
             open_url,
@@ -361,6 +448,42 @@ mod tests {
         assert!(resolve("C:/vault", "Inbox/../../outside.md").is_err());
         assert!(resolve("C:/vault", "/etc/passwd").is_err());
         assert!(resolve("C:/vault", "C:/Windows/system.ini").is_err());
+    }
+
+    #[test]
+    fn a_space_folder_is_named_after_the_space_and_never_a_device() {
+        assert_eq!(space_folder_name(" Acme / Sales ").as_deref(), Some("Acme - Sales"));
+        assert_eq!(space_folder_name("con").as_deref(), Some("con space"));
+        assert_eq!(space_folder_name("COM3").as_deref(), Some("COM3 space"));
+        assert_eq!(space_folder_name("Comet").as_deref(), Some("Comet"));
+        assert_eq!(space_folder_name("  "), None);
+    }
+
+    #[test]
+    fn only_a_space_copy_the_app_made_is_deleted() {
+        let data = std::env::temp_dir().join(format!("scrawl-space-test-{}", std::process::id()));
+        let copy = data.join("Acme");
+        let personal = data.join("Personal");
+        let elsewhere = data.join("Clients").join("Northwind");
+        for dir in [&copy, &personal, &elsewhere] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        let vault = personal.to_string_lossy().into_owned();
+        assert!(space_copy_folder(&copy, &data, Some(&vault)));
+        assert!(!space_copy_folder(&personal, &data, Some(&vault)));
+        assert!(!space_copy_folder(&elsewhere, &data, Some(&vault)));
+        assert!(!space_copy_folder(&data, &data, Some(&vault)));
+        fs::remove_dir_all(&data).unwrap();
+    }
+
+    #[test]
+    fn a_space_keeps_what_the_web_app_wrote_beside_it() {
+        let text = r#"{"vault":"C:/v","spaces":[{"id":"sp-k7f3m2qa","folder":"C:/d/Acme","name":"Acme","source":{"provider":"onedrive","place":{"item":"i1"}}}]}"#;
+        let settings: Settings = serde_json::from_str(text).unwrap();
+        let back: serde_json::Value = serde_json::to_value(&settings).unwrap();
+        assert_eq!(back["spaces"][0]["name"], "Acme");
+        assert_eq!(back["spaces"][0]["source"]["place"]["item"], "i1");
+        assert_eq!(back["spaces"][0]["folder"], "C:/d/Acme");
     }
 
     #[test]

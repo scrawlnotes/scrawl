@@ -3,13 +3,14 @@ import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type Time
 import { parseFilters, serializeFilters, type TaskFilter } from '../filters';
 import { KEYS_EXT } from '../keys';
 import { mergeMe, parseMe, serializeMe } from '../me';
+import { mergePeople, parsePeople } from '../people';
 import { parseSpace, serializeSpace } from '../space';
 import { parseList, serializeList, type Task, type Section, TASK_LIST_EXT } from '../tasks';
 import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrder } from './merge-records';
 
 // Merging a file changed on both sides, by what kind of file it is. See design/sync.md, section 5.
 
-export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'space' | 'me' | 'trash';
+export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'space' | 'me' | 'people' | 'trash';
 
 const INBOX_TASKS = 'Inbox/tasks.json';
 const TRASH_INDEX = '.scrawl/trash/index.json';
@@ -24,6 +25,7 @@ export function mergeKindOf(path: string): MergeKind | null {
   if (lower === '.scrawl/filters.json') return 'filters';
   if (lower === '.scrawl/space.json') return 'space';
   if (lower === '.scrawl/me.json') return 'me';
+  if (lower === '.scrawl/people.json') return 'people';
   if (lower === TRASH_INDEX) return 'trash';
   return null;
 }
@@ -139,6 +141,7 @@ const MERGERS: Record<Exclude<MergeKind, 'text'>, (base: string, local: string, 
     const me = mergeMe(parseMe(base), parseMe(local), parseMe(remote), mergeFields);
     return me ? serializeMe(me) : local;
   },
+  people: mergePeople,
   trash: mergeTrash,
 };
 
@@ -149,6 +152,7 @@ const READERS: Record<Exclude<MergeKind, 'text'>, (text: string) => unknown> = {
   filters: parseFilters,
   space: parseSpace,
   me: parseMe,
+  people: parsePeople,
   trash: parseTrashIndex,
 };
 

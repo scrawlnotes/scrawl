@@ -1,4 +1,4 @@
-import { basename, BOARD_EXT, boardName, collectionName, dirname, INBOX_TASKS, isScratchNote, KEYS_EXT, keysName, listName, TASK_LIST_EXT, type TaskFilter } from '@scrawlnotes/core';
+import { basename, BOARD_EXT, boardName, collectionName, dirname, INBOX_TASKS, isScratchNote, KEYS_EXT, keysName, listName, localPath, spaceOf, TASK_LIST_EXT, type TaskFilter } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import type { IconName } from './Icon';
 
@@ -43,6 +43,41 @@ export const tabOf = (path: string) =>
   isTaskListPath(path) ? tasksOf(path) : isBoardPath(path) ? boardOf(path) : isKeysPath(path) ? keysOf(path) : path;
 /** The file a tab shows: a note, a task list, a board or a keys file; null for a view. */
 export const pathOf = (id: string) => (isNote(id) ? id : (listOf(id) ?? boardPathOf(id) ?? keysPathOf(id)));
+
+/** The space a tab's note, list, board, keys file or collection is in; null in the personal space and for the views over all of them. */
+export const spaceOfTab = (id: string) => spaceOf(pathOf(id) ?? collectionPathOf(id) ?? '');
+
+// The names of the spaces beside the personal one, by id, for the places paths are shown as words.
+let spaceNames = new Map<string, string>();
+
+/** Tells the interface what the spaces are called, so that a path shows its space by name. */
+export function setSpaceNames(names: Map<string, string>) {
+  spaceNames = names;
+}
+
+/** A folder's name for the interface: a space's own name where the path is the space itself. */
+export function folderLabel(folder: string): string {
+  const space = spaceOf(folder);
+  if (space && localPath(folder) === '') return spaceNames.get(space) ?? basename(folder);
+  return basename(folder);
+}
+
+/** A folder's path as a list of folders shows it: a space's own name in front of its path. */
+export function shownPath(path: string): string {
+  const space = spaceOf(path);
+  if (!space) return path;
+  const name = spaceNames.get(space) ?? space;
+  const local = localPath(path);
+  return local ? `${name}/${local}` : name;
+}
+
+/** The folder a path is in, shown as words: the space's name, then the folders, apart. */
+export function placeLabel(path: string): string {
+  const space = spaceOf(path);
+  const parts = dirname(localPath(path)).split('/').filter(Boolean);
+  if (space) parts.unshift(spaceNames.get(space) ?? space);
+  return parts.join(' / ');
+}
 
 /** The folder a tab's note, task list or board is in; null for the views over all folders. */
 export function folderOf(id: string): string | null {

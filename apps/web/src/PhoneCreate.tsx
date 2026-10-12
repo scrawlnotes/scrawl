@@ -3,7 +3,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { COLLECTION_TEMPLATES, type FolderChoice, type ItemKind, KINDS, NAME_HINTS, TEMPLATES, TITLES, useFolderPicker } from './dialogs';
 import { Icon } from './Icon';
-import { collectionLabel } from './items';
+import { collectionLabel, shownPath } from './items';
 import { Sheet, SheetClose } from './sheets';
 
 // Create on a phone, after the Phone create view of design/mockups.html: + opens the kinds as a
@@ -15,7 +15,7 @@ import { Sheet, SheetClose } from './sheets';
 /** What the sheet shows: the form, or one of the lists a row of it opens. */
 type Step = 'form' | 'folder' | 'template' | 'company' | 'contact';
 
-const folderLabel = (path: string) => (path === INBOX ? t('side.inbox') : path);
+const folderLabel = (path: string) => (path === INBOX ? t('side.inbox') : shownPath(path));
 
 /** A board's columns drawn by kind, small. */
 function Columns({ columns }: { columns: string[] }) {

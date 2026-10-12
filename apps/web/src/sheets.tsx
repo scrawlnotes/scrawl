@@ -237,11 +237,13 @@ export function ActionSheet({ head, items, onClose }: { head?: MenuHead; items: 
 }
 
 /** Asks before something is taken away, as an action sheet: what will happen, the action, Cancel. */
-export function AskSheet({ title, message, action, danger = true, onConfirm, onClose }: {
+export function AskSheet({ title, message, action, danger = true, second, onConfirm, onClose }: {
   title: string;
   message: string;
   action: string;
   danger?: boolean;
+  /** A second way to go on, red: it takes more away. */
+  second?: { action: string; run: () => void };
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -262,6 +264,11 @@ export function AskSheet({ title, message, action, danger = true, onConfirm, onC
           <button type="button" className={danger ? 'a red center' : 'a center'} onClick={onConfirm}>
             {action}
           </button>
+          {second && (
+            <button type="button" className="a red center" onClick={second.run}>
+              {second.action}
+            </button>
+          )}
         </div>
         <div className="mb-card">
           <button type="button" className="a cancel" onClick={onClose}>

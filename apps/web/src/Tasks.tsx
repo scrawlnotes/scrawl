@@ -50,7 +50,7 @@ import { createPortal } from 'react-dom';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
-import { boardLabel, collectionLabel, listLabel } from './items';
+import { boardLabel, collectionLabel, folderLabel, listLabel } from './items';
 import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
@@ -1319,7 +1319,7 @@ export function TaskList({ list, tasks, sections, today, actions }: {
   return (
     <TaskPage
       title={listName(list)}
-      detail={basename(dirname(list))}
+      detail={folderLabel(dirname(list))}
       onAddClick={() => setComposing(true)}
       footer={
         completed > 0 && (

@@ -64,10 +64,10 @@ export interface CardPanelActions {
   /** What the note at a path is called, or null when it is not there any more. */
   noteTitle: (path: string) => string | null;
   openNote: (path: string) => void;
-  /** An editor for the description, in `parent`; the host wires it to the vault's files. */
-  editor: (parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string) => ScrawlEditor;
-  /** A read-only view of Markdown, for comments. */
-  viewer: (parent: HTMLElement, doc: string) => ScrawlViewer;
+  /** An editor for the description of a card of the board at `home`, in `parent`; the host wires it to the files of the board's space. */
+  editor: (home: string, parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string) => ScrawlEditor;
+  /** A read-only view of Markdown, for comments on a card of the board at `home`. */
+  viewer: (home: string, parent: HTMLElement, doc: string) => ScrawlViewer;
   /** The collections the board's link fields point at: their records to pick from, and a record to open over the card. */
   recordActions: CollectionActions;
 }
@@ -117,8 +117,11 @@ function CardFieldBox({ field, value, ctx, onSave }: { field: Field; value: Fiel
   );
 }
 
+/** Shows Markdown in `parent`, read only. */
+type Viewer = (parent: HTMLElement, doc: string) => ScrawlViewer;
+
 /** Markdown as the editor shows it, without editing. */
-function MarkdownView({ text, viewer }: { text: string; viewer: CardPanelActions['viewer'] }) {
+function MarkdownView({ text, viewer }: { text: string; viewer: Viewer }) {
   const host = useRef<HTMLDivElement>(null);
   const shown = useRef<ScrawlViewer | null>(null);
   useEffect(() => {
@@ -566,7 +569,7 @@ function Comment({ entry, today, onEdit, onRemove, menu, viewer }: {
   onEdit: (text: string) => void;
   onRemove: () => void;
   menu: CardPanelActions['menu'];
-  viewer: CardPanelActions['viewer'];
+  viewer: Viewer;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   // On a phone, an action sheet with who wrote it and when.
@@ -669,7 +672,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
       unsaved.current = null;
       act.updateCard(at, id, { description: text });
     };
-    editor.current = act.editor(parent, card.description ?? '', (doc) => {
+    editor.current = act.editor(at, parent, card.description ?? '', (doc) => {
       unsaved.current = doc;
       window.clearTimeout(timer.current);
       timer.current = window.setTimeout(flush, SAVE_DELAY_MS);
@@ -741,7 +744,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
                 entry={entry}
                 today={today}
                 menu={actions.menu}
-                viewer={actions.viewer}
+                viewer={(parent, doc) => actions.viewer(path, parent, doc)}
                 onEdit={(text) => actions.editComment(path, card.id, entry.id, text)}
                 onRemove={() => actions.removeComment(path, card.id, entry.id)}
               />
@@ -885,6 +888,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
       act.updateCard(at, id, { description: text });
     };
     editor.current = act.editor(
+      at,
       parent,
       card.description ?? '',
       (doc) => {
@@ -1079,7 +1083,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
                 entry={entry}
                 today={today}
                 menu={actions.menu}
-                viewer={actions.viewer}
+                viewer={(parent, doc) => actions.viewer(path, parent, doc)}
                 onEdit={(text) => actions.editComment(path, card.id, entry.id, text)}
                 onRemove={() => actions.removeComment(path, card.id, entry.id)}
               />

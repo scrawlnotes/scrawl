@@ -60,9 +60,26 @@ import {
   type KeysLook,
   listVersions,
   loadFilters,
+  foldersNest,
+  fromSpace,
+  isSpaceId,
+  inSpace,
   loadMe,
   loadSpace,
+  localPath,
   type Me,
+  MultiFs,
+  newSpaceId,
+  prefixTree,
+  rebaseBoard,
+  rebaseCollection,
+  rebaseSchema,
+  rebaseTasks,
+  type SpaceAt,
+  type SpaceEntry,
+  spaceOf,
+  toSpace,
+  withinSpace,
   moveCard,
   moveCardToKind,
   moveColumn,
@@ -176,11 +193,18 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardPathOf, collectionPathOf, collectionTab, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, tabOf } from './items';
+import { boardPathOf, collectionPathOf, collectionTab, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, spaceOfTab, tabOf } from './items';
 import { sampleDoc } from './sample';
 import {
+  addSpaceEntry,
+  chooseFolder,
   chooseVaultFolder,
   defaultVaultFolder,
+  newSpaceFolder,
+  openSpaceVault,
+  orderSpaceEntries,
+  removeSpaceEntry,
+  spaceEntries,
   fileUrl,
   isDesktop,
   openFileOnDesktop,
@@ -248,7 +272,10 @@ export interface Snapshot {
   defaultFolder: string | null;
   /** Who the user is, from the personal space; null until the first start has asked. */
   me: Me | null;
+  /** The personal space's tree. */
   tree: TreeNode[];
+  /** The spaces beside the personal one, in the sidebar's order, each with its tree. */
+  spaces: SpaceView[];
   tabs: string[];
   active: string | null;
   /** Display name of every note, kept current while a note is being typed. */
@@ -284,6 +311,19 @@ export interface Snapshot {
   recordError: string | null;
   format: FormatState | null;
   source: boolean;
+}
+
+/** A space beside the personal one, as the interface shows it. */
+export interface SpaceView {
+  id: string;
+  /** From its own `space.json`; the folder's name until it is named. */
+  name: string;
+  /** Shared through a cloud drive, so it carries a cloud in the sidebar. */
+  shared: boolean;
+  /** Desktop: its folder on disk. */
+  folder: string | null;
+  /** Its folders and files, their paths carrying the space. */
+  tree: TreeNode[];
 }
 
 function titlesOf(nodes: TreeNode[], out: Record<string, string> = {}): Record<string, string> {
@@ -322,6 +362,7 @@ export class Session {
     defaultFolder: null,
     me: null,
     tree: [],
+    spaces: [],
     tabs: [],
     active: null,
     titles: {},
@@ -344,7 +385,16 @@ export class Session {
     recordError: null,
   };
   private readonly listeners = new Set<() => void>();
-  private fs!: VaultFs;
+  /** The personal space's files. */
+  private personal!: VaultFs;
+  /**
+   * The files of every space as one; a path says which. A file is read and written by its path
+   * here. Whatever works on a space's files as a whole, or writes paths into a file, goes through
+   * `at` and works in that space's own files and paths (see `spaces.ts` in core).
+   */
+  private fs!: MultiFs;
+  /** The other spaces as opened: their files and what the device knows of them. */
+  private opened = new Map<string, { entry: SpaceEntry; fs: VaultFs; name: string }>();
   private editor: ScrawlEditor | null = null;
   /** Editing state of each open note that is not on screen, undo history included. */
   private readonly states = new Map<string, EditorState>();
@@ -381,6 +431,8 @@ export class Session {
   private readonly versionedAt = new Map<string, number>();
   /** Set while a change made outside the app is being put into the editor. */
   private external = false;
+  // Attached files are known by their path in the app, their space in front: two spaces may
+  // each have an `_attachments/` file of the same name.
   /** Browser only: addresses of attached images read so far, by their path. */
   private readonly images = new Map<string, Promise<string>>();
   /** The size of each attached file, by its path. */
@@ -411,29 +463,35 @@ export class Session {
   async start(parent: HTMLElement) {
     const run = ++this.run;
     this.parent = parent;
-    this.fs = await openVault();
-    for (const entry of await this.fs.list(ATTACHMENTS)) {
-      // A copy that was cut off when the app closed leaves its hidden part behind.
-      if (entry.name.startsWith('.') && entry.name.endsWith('.part')) {
-        await this.fs.remove(entry.path).catch(() => undefined);
-        continue;
+    this.personal = await openVault();
+    await this.openSpaces();
+    for (const [space, fs] of this.fs.all()) {
+      for (const entry of await fs.list(ATTACHMENTS).catch(() => [])) {
+        // A copy that was cut off when the app closed leaves its hidden part behind.
+        if (entry.name.startsWith('.') && entry.name.endsWith('.part')) {
+          await fs.remove(entry.path).catch(() => undefined);
+          continue;
+        }
+        // Nothing is read here: images are read when a note shows them, other files when they are opened.
+        if (entry.size !== undefined) this.sizes.set(inSpace(space, entry.path), entry.size);
       }
-      // Nothing is read here: images are read when a note shows them, other files when they are opened.
-      if (entry.size !== undefined) this.sizes.set(entry.path, entry.size);
     }
-    let tree = await readTree(this.fs);
+    let tree = await readTree(this.personal);
     // The browser vault starts with a sample note. A folder on disk is the user's own; nothing is put there unasked.
     if (!tree.length && !isDesktop) {
-      await this.fs.mkdir(INBOX);
-      await this.fs.writeText('Scrawl/Sync engine open questions.md', sampleDoc);
-      tree = await readTree(this.fs);
+      await this.personal.mkdir(INBOX);
+      await this.personal.writeText('Scrawl/Sync engine open questions.md', sampleDoc);
+      tree = await readTree(this.personal);
     }
-    const workspace = await loadWorkspace(this.fs);
+    const spaces = await this.spaceViews();
+    const workspace = await loadWorkspace(this.personal);
     if (run !== this.run) return;
 
     this.editor = createEditor({
       parent,
-      resolveImage: this.resolveImage,
+      // The note on screen is where its files are; the desktop web view does not open new
+      // windows, so links go to the default browser.
+      ...this.filesOf(() => this.onScreen),
       addFiles: (files, at) => this.addFiles(files, at),
       onStats: (stats) => {
         // The editor reports as soon as it exists, before any note is in it.
@@ -442,27 +500,22 @@ export class Session {
         this.set({ stats, format: this.editor ? formatState(this.editor.view.state) : null });
       },
       onChange: (doc) => this.changed(doc),
-      openFile: (src) => void this.openFile(src),
-      revealFile: isDesktop ? (src) => void revealFileOnDesktop(src).catch(() => undefined) : undefined,
-      // The desktop web view does not open new windows; links go to the default browser.
-      openLink: isDesktop ? (href) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
       showMenu: (at, items, about) => this.showMenu?.(at, items, about),
       touch: this.touch,
       onLinkTap: this.touch ? (link) => this.linkTap?.(link) : undefined,
       placeholder: this.touch ? () => this.emptyNote() : undefined,
-      onAttachments: (removed, added) => this.attachmentsChanged(removed, added),
-      fileSize: (src) => this.sizes.get(src),
-      resolveAudio: (src) => this.mediaUrl(src),
+      onAttachments: (removed, added) => this.attachmentsChanged(this.onScreen, removed, added),
       record: () => void this.startRecording(),
     });
     window.addEventListener('pagehide', this.flush);
 
-    const titles = titlesOf(tree);
-    const { tasks, sections, boards, keys, collections } = await this.readLists(tree);
-    const filters = await loadFilters(this.fs);
-    const space = await loadSpace(this.fs);
-    const me = await loadMe(this.fs);
-    const trash = await readTrash(this.fs);
+    const everything = [...tree, ...spaces.flatMap((space) => space.tree)];
+    const titles = titlesOf(everything);
+    const { tasks, sections, boards, keys, collections } = await this.readLists(everything);
+    const filters = await loadFilters(this.personal);
+    const space = await loadSpace(this.personal);
+    const me = await loadMe(this.personal);
+    const trash = await this.readTrash();
     if (run !== this.run) return;
     const tabs = workspace.tabs.filter((id) => {
       const list = listOf(id);
@@ -479,21 +532,154 @@ export class Session {
     const boardLooks = Object.fromEntries(Object.entries(workspace.boards).filter(([path]) => path in boards));
     const keysLooks = Object.fromEntries(Object.entries(workspace.keys).filter(([path]) => path in keys));
     const collectionLooks = Object.fromEntries(Object.entries(workspace.collections).filter(([path]) => path in collections));
-    this.set({ ready: true, folder: vaultFolder(), defaultFolder: defaultVaultFolder(), me, tree, titles, tabs, tasks, sections, boards, boardLooks, keys, keysLooks, collections, collectionLooks, filters, space, trash });
+    this.set({ ready: true, folder: vaultFolder(), defaultFolder: defaultVaultFolder(), me, tree, spaces, titles, tabs, tasks, sections, boards, boardLooks, keys, keysLooks, collections, collectionLooks, filters, space, trash });
     // With no tabs from last time nothing is opened: the interface asks what to create.
     const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
     if (first) await this.open(first);
     // Versions past their keeping time go, also those of notes deleted long ago.
-    void pruneHistory(this.fs).catch(() => undefined);
+    for (const [, fs] of this.fs.all()) void pruneHistory(fs).catch(() => undefined);
     void this.sweepAttachments(run);
   }
 
-  /** The text of every open note, saved or not. */
-  private openTexts = () => [
-    ...this.pending.values(),
-    ...[...this.states.values()].map((state) => state.doc.toString()),
-    ...(this.editor ? [this.editor.view.state.doc.toString()] : []),
-  ];
+  // ---------- the other spaces ----------
+
+  /**
+   * Opens the spaces the device lists beside the personal one, in its order. A space whose copy
+   * is not there to open is skipped, not forgotten: it may be on a drive that is not plugged in.
+   * Nothing is written to a space by opening it.
+   */
+  private async openSpaces() {
+    this.opened = new Map();
+    for (const entry of spaceEntries()) {
+      try {
+        const fs = await openSpaceVault(entry);
+        if (!fs) continue;
+        const info = await loadSpace(fs);
+        const name = info.name ?? entry.name ?? entry.folder?.split(/[\\/]/).pop() ?? t('settings.space');
+        this.opened.set(entry.id, { entry, fs, name });
+      } catch {
+        // Unreadable now; it is tried again the next time the app opens.
+      }
+    }
+    this.fs = new MultiFs(this.personal, new Map([...this.opened].map(([id, space]) => [id, space.fs])));
+  }
+
+  /** The spaces as the interface shows them, each with its tree read now. */
+  private async spaceViews(): Promise<SpaceView[]> {
+    return Promise.all(
+      [...this.opened].map(async ([id, space]) => ({
+        id,
+        name: space.name,
+        shared: !!space.entry.source,
+        folder: space.entry.folder ?? null,
+        tree: prefixTree(await readTree(space.fs).catch(() => []), id),
+      })),
+    );
+  }
+
+  /** Where a path of the app is: its space's files, the space, and the path as those files have it. */
+  private at(path: string): SpaceAt {
+    return this.fs.at(path);
+  }
+
+  /** An attached file's path in the app: `src` as a note, a card or a record at `home` has it, in the space `home` is in. */
+  private attached(home: string, src: string): string {
+    return inSpace(spaceOfTab(home), src);
+  }
+
+  /** The note in the editor, whose attached files the editor shows. */
+  private get onScreen(): string {
+    return this.snapshot.active ?? '';
+  }
+
+  /** The trash of every space as one list, each item's paths carrying its space. */
+  private async readTrash(): Promise<TrashItem[]> {
+    const lists = await Promise.all(
+      this.fs.all().map(async ([space, fs]) => (await readTrash(fs).catch(() => [])).map((item) => ({ ...item, path: inSpace(space, item.path), from: inSpace(space, item.from) }))),
+    );
+    return lists.flat().sort((a, b) => b.deleted.localeCompare(a.deleted));
+  }
+
+  /** A trash item as its space's files have it, with the files. */
+  private trashAt(item: TrashItem): [VaultFs, TrashItem] {
+    return [this.at(item.from).fs, { ...item, path: localPath(item.path), from: localPath(item.from) }];
+  }
+
+  /** Adds a space: a new folder named after it, or a folder that is already there (desktop). Returns its id, or null when the folder window was cancelled. */
+  async addSpace(how: 'new' | 'existing', name: string): Promise<string | null> {
+    let entry: SpaceEntry;
+    if (how === 'new') {
+      const id = newSpaceId();
+      entry = await newSpaceFolder(id, name.trim());
+      const fs = await openSpaceVault(entry);
+      if (!fs) throw new Error(t('error.create'));
+      await saveSpace(fs, { id, name: name.trim() });
+    } else {
+      const folder = await chooseFolder(t('settings.existingDialog'));
+      if (!folder) return null;
+      const taken = [this.snapshot.folder, ...spaceEntries().map((each) => each.folder)].filter((each): each is string => !!each);
+      if (taken.some((each) => foldersNest(each, folder))) throw new Error(t('error.spaceNests'));
+      const fs = await openSpaceVault({ id: newSpaceId(), folder });
+      if (!fs) throw new Error(t('error.create'));
+      // A folder that was a space before keeps its id, so that links to it from elsewhere still work.
+      const info = await loadSpace(fs);
+      const kept = isSpaceId(info.id) ? info.id : null;
+      entry = { id: kept ?? newSpaceId(), folder, ...(info.name && { name: info.name }) };
+      if (!kept) await saveSpace(fs, { ...info, id: entry.id });
+    }
+    await addSpaceEntry(entry);
+    await this.reloadSpaces();
+    return entry.id;
+  }
+
+  /** Forgets a space on this device; with `deleteFiles`, its copy here goes too. Its tabs close. */
+  async removeSpace(id: string, deleteFiles: boolean) {
+    await this.settle();
+    for (const tab of this.snapshot.tabs.filter((each) => spaceOfTab(each) === id)) await this.detach(tab);
+    await removeSpaceEntry(id, deleteFiles);
+    await this.reloadSpaces();
+  }
+
+  /** Moves a space up or down in the sidebar's order. */
+  async moveSpace(id: string, by: -1 | 1) {
+    const ids = this.snapshot.spaces.map((space) => space.id);
+    const at = ids.indexOf(id);
+    const to = at + by;
+    if (at < 0 || to < 0 || to >= ids.length) return;
+    ids.splice(at, 1);
+    ids.splice(to, 0, id);
+    await orderSpaceEntries(ids);
+    await this.reloadSpaces();
+  }
+
+  /** Names a space beside the personal one; the name is kept in the space. */
+  renameSpaceById(id: string, name: string) {
+    const space = this.opened.get(id);
+    if (!space) return;
+    space.name = name.trim() || space.name;
+    this.set({ spaces: this.snapshot.spaces.map((each) => (each.id === id ? { ...each, name: space.name } : each)), saved: false });
+    this.taskWrites = this.taskWrites
+      .then(async () => saveSpace(space.fs, { ...(await loadSpace(space.fs)), id, name: name.trim() }))
+      .catch(() => undefined)
+      .then(() => this.markSaved());
+  }
+
+  /** Opens the spaces again after the device's list changed, and reads everything of them. */
+  private async reloadSpaces() {
+    await this.flush();
+    await this.openSpaces();
+    await this.refreshTree();
+  }
+
+  /** The text of every open note of a space, saved or not: the notes that may link to its attached files. */
+  private openTexts(space: string | null): string[] {
+    const mine = (path: string) => spaceOf(path) === space;
+    return [
+      ...[...this.pending].filter(([path]) => mine(path)).map(([, text]) => text),
+      ...[...this.states].filter(([path]) => mine(path)).map(([, state]) => state.doc.toString()),
+      ...(this.editor && mine(this.onScreen) ? [this.editor.view.state.doc.toString()] : []),
+    ];
+  }
 
   /**
    * Attached files that no note links to any more go to the trash as the app opens too: those
@@ -501,8 +687,9 @@ export class Session {
    */
   private async sweepAttachments(run: number) {
     try {
-      const moved = await sweepAttachments(this.fs, this.openTexts);
-      if (moved > 0 && run === this.run) this.set({ trash: await readTrash(this.fs) });
+      let moved = 0;
+      for (const [space, fs] of this.fs.all()) moved += await sweepAttachments(fs, () => this.openTexts(space));
+      if (moved > 0 && run === this.run) this.set({ trash: await this.readTrash() });
     } catch {
       // It is tried again the next time the app opens.
     }
@@ -595,13 +782,14 @@ export class Session {
   }
 
   /**
-   * The note on screen stopped linking to some attached files, or links to them again. Files
-   * linked again come back from the trash at once, as undo, paste or a restored version expect.
+   * A note, a card or a record at `home` stopped linking to some attached files, or links to them
+   * again. Files linked again come back from the trash at once, as undo, paste or a restored
+   * version expect.
    */
-  private attachmentsChanged(removed: string[], added: string[]) {
-    for (const src of added) this.unlinked.delete(src);
-    for (const src of removed) this.unlinked.add(src);
-    if (added.length) void this.bringBack(added);
+  private attachmentsChanged(home: string, removed: string[], added: string[]) {
+    for (const src of added) this.unlinked.delete(this.attached(home, src));
+    for (const src of removed) this.unlinked.add(this.attached(home, src));
+    if (added.length) void this.bringBack(spaceOfTab(home), added);
   }
 
   /**
@@ -618,15 +806,15 @@ export class Session {
     }
   }
 
-  /** Brings attached files back from the trash that the notes in `texts` link to. */
-  private async bringBack(texts: string[]) {
+  /** Brings attached files of a space back from the trash that the texts link to. */
+  private async bringBack(space: string | null, texts: string[]) {
     try {
-      const restored = await restoreAttachments(this.fs, texts);
+      const restored = await restoreAttachments(this.fs.of(space), texts);
       if (restored.length === 0) return;
       // An image may have been read while its file was coming back; it is read again in full.
-      this.forgetMedia(restored);
+      this.forgetMedia(restored.map((path) => inSpace(space, path)));
       this.editor?.refreshMedia();
-      this.set({ trash: await readTrash(this.fs) });
+      this.set({ trash: await this.readTrash() });
     } catch {
       // A file that cannot come back shows as missing; the trash still has it.
     }
@@ -634,21 +822,25 @@ export class Session {
 
   /**
    * Attached files that no note links to any more go to the trash as soon as the note that let
-   * go of them is saved, unless another note, saved or not, still links to them.
+   * go of them is saved, unless another note of their space, saved or not, still links to them.
    */
   private async trashUnlinkedFiles() {
     if (this.unlinked.size === 0) return;
     const paths = [...this.unlinked];
     this.unlinked.clear();
-    try {
-      const moved = await trashUnlinked(this.fs, paths, this.openTexts);
-      if (moved.length === 0) return;
-      this.forgetMedia(moved);
-      this.set({ trash: await readTrash(this.fs) });
-      // An undo or a paste in the moment it took brings them straight back.
-      await this.bringBack(this.openTexts());
-    } catch {
-      // The next start moves them, as it does any file nothing links to.
+    for (const [space, fs] of this.fs.all()) {
+      const mine = paths.filter((path) => spaceOf(path) === space).map(localPath);
+      if (mine.length === 0) continue;
+      try {
+        const moved = await trashUnlinked(fs, mine, () => this.openTexts(space));
+        if (moved.length === 0) continue;
+        this.forgetMedia(moved.map((path) => inSpace(space, path)));
+        this.set({ trash: await this.readTrash() });
+        // An undo or a paste in the moment it took brings them straight back.
+        await this.bringBack(space, this.openTexts(space));
+      } catch {
+        // The next start moves them, as it does any file nothing links to.
+      }
     }
   }
 
@@ -657,13 +849,14 @@ export class Session {
     if (!this.pending.size && !this.keysPending.size && this.copying === 0 && !this.snapshot.saved) this.set({ saved: true });
   }
 
-  /** Keeps `text` as an earlier version of the note at `path`, as `keepVersion` decides. */
+  /** Keeps `text` as an earlier version of the note at `path`, as `keepVersion` decides; in its own space's history. */
   private async keep(path: string, text: string, always = false) {
     const now = Date.now();
     // While the version kept last in this session is recent, the vault is not even asked.
     if (!always && now - (this.versionedAt.get(path) ?? 0) < VERSION_EVERY_MS) return;
     try {
-      await keepVersion(this.fs, path, text, { now: new Date(now), always });
+      const { fs, local } = this.at(path);
+      await keepVersion(fs, local, text, { now: new Date(now), always });
     } catch {
       // The history is a safety net: failing to keep a version must not keep the note from saving.
     }
@@ -671,12 +864,21 @@ export class Session {
   }
 
   /** The earlier versions of a note, the latest first. */
-  versions(path: string): Promise<Version[]> {
-    return listVersions(this.fs, path);
+  async versions(path: string): Promise<Version[]> {
+    const { fs, space, local } = this.at(path);
+    return (await listVersions(fs, local)).map((version) => ({ ...version, path: inSpace(space, version.path) }));
   }
 
   readVersion(version: Version): Promise<string> {
     return this.fs.readText(version.path);
+  }
+
+  /** A note's history goes with it when it moves in its space. */
+  private moveHistory(from: string, to: string): Promise<void> {
+    const source = this.at(from);
+    const target = this.at(to);
+    if (source.space !== target.space) return Promise.resolve();
+    return moveHistory(source.fs, source.local, target.local).catch(() => undefined);
   }
 
   /** The text of an open note as it is now, saved or not. */
@@ -685,22 +887,23 @@ export class Session {
     return state?.doc.toString() ?? this.disk.get(path) ?? '';
   }
 
-  /** An address the browser can play or show an attached file from. */
-  private async mediaUrl(src: string): Promise<string> {
-    let url = this.media.get(src);
+  /** An address the browser can play or show a file attached at `home` from. */
+  private async mediaUrl(home: string, src: string): Promise<string> {
+    const path = this.attached(home, src);
+    let url = this.media.get(path);
     if (!url) {
-      const blob = await this.fs.readBlob(src);
+      const blob = await this.fs.readBlob(path);
       url = URL.createObjectURL(new Blob([blob], { type: typeOf(src) }));
-      this.media.set(src, url);
+      this.media.set(path, url);
     }
     return url;
   }
 
-  /** Opens an attached file: on desktop with the program the system uses for it, in the browser in a new tab. */
-  async openFile(src: string) {
+  /** Opens a file attached at `home`: on desktop with the program the system uses for it, in the browser in a new tab. */
+  private async openFile(home: string, src: string) {
     try {
-      if (isDesktop) await openFileOnDesktop(src);
-      else window.open(await this.mediaUrl(src), '_blank', 'noopener');
+      if (isDesktop) await openFileOnDesktop(this.attached(home, src));
+      else window.open(await this.mediaUrl(home, src), '_blank', 'noopener');
     } catch {
       // A file that is gone or cannot be opened simply does not open.
     }
@@ -709,14 +912,30 @@ export class Session {
   /** Files were pasted, dropped or picked in the note on screen, to go at `at`. */
   private addFiles(files: File[], at: number) {
     const note = this.snapshot.active;
-    if (note && isNote(note)) void this.copyFiles(note, files, at);
+    if (note && isNote(note)) void this.copyFiles(note, note, files, at);
   }
 
   /**
-   * A second editor, for a card's description: wired to the vault's files like the note editor,
-   * but its text belongs to whoever opened it. Destroyed by them too.
+   * What an editor or a viewer of something at `home` (a note, a board, a collection) needs of
+   * the vault's files: its images, its other files and their sizes, all in the space `home` is in.
    */
-  openEditor(parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string): ScrawlEditor {
+  private filesOf(home: () => string) {
+    return {
+      resolveImage: (src: string) => this.resolveImageAt(home(), src),
+      openFile: (src: string) => void this.openFile(home(), src),
+      revealFile: isDesktop ? (src: string) => void revealFileOnDesktop(this.attached(home(), src)).catch(() => undefined) : undefined,
+      openLink: isDesktop ? (href: string) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
+      fileSize: (src: string) => this.sizes.get(this.attached(home(), src)),
+      resolveAudio: (src: string) => this.mediaUrl(home(), src),
+    };
+  }
+
+  /**
+   * A second editor, for a card's description or a record's notes at `home` (its board or its
+   * collection): wired to the files of that space like the note editor, but its text belongs to
+   * whoever opened it. Destroyed by them too.
+   */
+  openEditor(home: string, parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string): ScrawlEditor {
     const editor: ScrawlEditor = createEditor({
       parent,
       doc,
@@ -729,32 +948,19 @@ export class Session {
             return shown;
           }
         : undefined,
-      resolveImage: this.resolveImage,
-      addFiles: (files, at) => void this.copyFiles(editor.view, files, at),
-      openFile: (src) => void this.openFile(src),
-      revealFile: isDesktop ? (src) => void revealFileOnDesktop(src).catch(() => undefined) : undefined,
-      openLink: isDesktop ? (href) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
+      ...this.filesOf(() => home),
+      addFiles: (files, at) => void this.copyFiles(editor.view, home, files, at),
       showMenu: (at, items, about) => this.showMenu?.(at, items, about),
       touch: this.touch,
       onLinkTap: this.touch ? (link) => this.linkTap?.(link) : undefined,
-      onAttachments: (removed, added) => this.attachmentsChanged(removed, added),
-      fileSize: (src) => this.sizes.get(src),
-      resolveAudio: (src) => this.mediaUrl(src),
+      onAttachments: (removed, added) => this.attachmentsChanged(home, removed, added),
     });
     return editor;
   }
 
-  /** A read-only view of Markdown, for a comment: images and files of the vault show in it. */
-  openViewer(parent: HTMLElement, doc: string): ScrawlViewer {
-    return createViewer({
-      parent,
-      doc,
-      resolveImage: this.resolveImage,
-      openFile: (src) => void this.openFile(src),
-      openLink: isDesktop ? (href) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
-      fileSize: (src) => this.sizes.get(src),
-      resolveAudio: (src) => this.mediaUrl(src),
-    });
+  /** A read-only view of Markdown, for a comment on a card of the board at `home`: images and files of its space show in it. */
+  openViewer(home: string, parent: HTMLElement, doc: string): ScrawlViewer {
+    return createViewer({ parent, doc, ...this.filesOf(() => home) });
   }
 
   /** The text of a note as the vault has it; empty when it cannot be read. */
@@ -765,9 +971,11 @@ export class Session {
   /**
    * Copies files into the attachments one after another. Each shows where it will land, with how
    * far it got and a way to stop it, and goes into the note once it is there. A copy that is
-   * stopped or fails leaves nothing behind. `target` is a note by its path, or an editor.
+   * stopped or fails leaves nothing behind. `target` is a note by its path, or an editor; the
+   * files go to the attachments of the space `home` is in.
    */
-  private async copyFiles(target: string | EditorView, files: File[], at: number) {
+  private async copyFiles(target: string | EditorView, home: string, files: File[], at: number) {
+    const { fs } = this.at(home);
     const jobs = files.map((file) => {
       const stop = new AbortController();
       const copy: Copy = {
@@ -795,10 +1003,10 @@ export class Session {
       };
       try {
         const options = { onProgress, signal: stop.signal };
-        const src = copy.image ? await saveAttachment(this.fs, file, new Date(), options) : await saveFile(this.fs, file, options);
-        this.sizes.set(src, file.size);
+        const src = copy.image ? await saveAttachment(fs, file, new Date(), options) : await saveFile(fs, file, options);
+        this.sizes.set(this.attached(home, src), file.size);
         // In the browser the copied file is at hand, so the image need not be read back.
-        if (copy.image && !isDesktop) this.images.set(src, Promise.resolve(URL.createObjectURL(file)));
+        if (copy.image && !isDesktop) this.images.set(this.attached(home, src), Promise.resolve(URL.createObjectURL(file)));
         const markdown = copy.image ? `![](${src})` : `[${linkText(file.name)}](${linkAddress(src)})`;
         this.applyTo(
           target,
@@ -900,8 +1108,8 @@ export class Session {
 
   private async saveRecording(note: string, blob: Blob) {
     if (blob.size === 0) return;
-    const path = await saveAttachment(this.fs, blob);
-    this.sizes.set(path, blob.size);
+    const path = await saveAttachment(this.at(note).fs, blob);
+    this.sizes.set(this.attached(note, path), blob.size);
     await this.insertInto(note, `[${linkText(t('editor.voiceMemo'))}](${linkAddress(path)})`);
   }
 
@@ -934,23 +1142,26 @@ export class Session {
     await this.appendToFile(path, markdown);
   }
 
-  /** The address an image in a note loads from. */
+  /** The address an image of the note on screen loads from: what its history shows of it. */
+  resolveImage = (src: string): string | Promise<string> => this.resolveImageAt(this.onScreen, src);
+
   /**
-   * The address an image in a note loads from. On desktop the web view reads it from the notes
-   * folder itself; in the browser it is read from storage the first time a note shows it.
+   * The address an image of something at `home` loads from. On desktop the web view reads it from
+   * its space's folder itself; in the browser it is read from storage the first time it shows.
    */
-  resolveImage = (src: string): string | Promise<string> => {
+  private resolveImageAt(home: string, src: string): string | Promise<string> {
     if (!src.startsWith(`${ATTACHMENTS}/`)) return src;
-    if (isDesktop) return fileUrl(src);
-    let url = this.images.get(src);
+    const path = this.attached(home, src);
+    if (isDesktop) return fileUrl(path);
+    let url = this.images.get(path);
     if (!url) {
-      url = this.fs.readBlob(src).then((blob) => URL.createObjectURL(blob));
+      url = this.fs.readBlob(path).then((blob) => URL.createObjectURL(blob));
       // An image that could not be read is tried again the next time.
-      url.catch(() => this.images.delete(src));
-      this.images.set(src, url);
+      url.catch(() => this.images.delete(path));
+      this.images.set(path, url);
     }
     return url;
-  };
+  }
 
   /**
    * Puts an earlier version's text into the note, as an edit that undo takes back. The text the
@@ -962,10 +1173,11 @@ export class Session {
     if (!view || this.snapshot.active !== path) return;
     await this.keep(path, view.state.doc.toString(), true);
     // Files the version links to that went to the trash meanwhile come back with it, before it shows them.
-    const restored = await restoreAttachments(this.fs, [text]).catch(() => []);
+    const { fs, space } = this.at(path);
+    const restored = await restoreAttachments(fs, [text]).catch(() => []);
     if (restored.length) {
-      this.forgetMedia(restored);
-      this.set({ trash: await readTrash(this.fs) });
+      this.forgetMedia(restored.map((each) => inSpace(space, each)));
+      this.set({ trash: await this.readTrash() });
     }
     if (this.snapshot.active !== path) return;
     view.dispatch({
@@ -980,7 +1192,7 @@ export class Session {
   private saveWorkspace() {
     const { tabs, active, boards, boardLooks, keys, keysLooks, collections, collectionLooks } = this.snapshot;
     // Boards and keys files that are gone are forgotten.
-    void saveWorkspace(this.fs, {
+    void saveWorkspace(this.personal, {
       tabs,
       active,
       boards: Object.fromEntries(Object.entries(boardLooks).filter(([path]) => path in boards)),
@@ -1014,7 +1226,7 @@ export class Session {
     const schema = change(collection.schema);
     if (schema === collection.schema) return null;
     try {
-      await saveSchema(this.fs, dir, schema);
+      await this.saveSchemaAt(dir, schema);
     } catch (error) {
       return error instanceof Error ? error.message : t('error.record');
     }
@@ -1033,7 +1245,7 @@ export class Session {
     if (!collection) return t('error.record');
     await this.settle();
     try {
-      await saveSchema(this.fs, dir, schema);
+      await this.saveSchemaAt(dir, schema);
       if (Object.keys(renames).length > 0) {
         for (const { path } of collection.records) {
           const record = parseRecord(await this.fs.readText(path), schema, path);
@@ -1062,16 +1274,17 @@ export class Session {
     if (!collection) return t('error.record');
     await this.settle();
     try {
-      if (serializeSchema(plan.schema) !== serializeSchema(collection.schema)) await saveSchema(this.fs, dir, plan.schema);
-      const target = { ...collection, schema: plan.schema };
+      if (serializeSchema(plan.schema) !== serializeSchema(collection.schema)) await this.saveSchemaAt(dir, plan.schema);
+      const { fs } = this.at(dir);
+      const target = this.own({ ...collection, schema: plan.schema });
       for (const input of plan.added) {
-        const record = await addCollectionRecord(this.fs, target, input);
+        const record = await addCollectionRecord(fs, target, input);
         target.records = [...target.records, record];
       }
       for (const change of plan.updated) {
         const record = collection.records.find((r) => r.id === change.id);
         if (!record) continue;
-        await updateCollectionRecord(this.fs, plan.schema, record, { values: change.values, ...(change.body !== undefined && { body: change.body }) });
+        await updateCollectionRecord(fs, target.schema, { ...record, path: localPath(record.path) }, { values: change.values, ...(change.body !== undefined && { body: change.body }) });
         this.disk.delete(record.path);
         this.states.delete(record.path);
       }
@@ -1092,9 +1305,12 @@ export class Session {
     const collection = this.snapshot.collections[dir];
     if (!collection) return t('error.create');
     try {
-      const made = await createLinkedCollection(this.fs, collection, target);
+      const { fs, space } = this.at(dir);
+      const own = toSpace(space)(target);
+      const made = own === null ? null : await createLinkedCollection(fs, this.own(collection), own);
       if (!made) return t('error.create');
-      if (made !== target) await saveSchema(this.fs, dir, retargetLinks(collection.schema, target, made));
+      const shown = inSpace(space, made);
+      if (shown !== target) await this.saveSchemaAt(dir, retargetLinks(collection.schema, target, shown));
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }
@@ -1140,7 +1356,7 @@ export class Session {
     const me: Me = { ...rest, ...(name.trim() && { name: name.trim() }), ...(email.trim() && { email: email.trim() }) };
     this.set({ me, saved: false });
     this.taskWrites = this.taskWrites
-      .then(() => saveMe(this.fs, me))
+      .then(() => saveMe(this.personal, me))
       .catch(() => undefined)
       .then(() => this.markSaved());
   }
@@ -1198,14 +1414,16 @@ export class Session {
 
   private async refreshTree() {
     await this.settle();
-    const tree = await readTree(this.fs);
-    const lists = await this.readLists(tree);
-    this.set({ tree, titles: titlesOf(tree), ...lists, trash: await readTrash(this.fs), filters: await loadFilters(this.fs), space: await loadSpace(this.fs) });
+    const tree = await readTree(this.personal);
+    const spaces = await this.spaceViews();
+    const everything = [...tree, ...spaces.flatMap((space) => space.tree)];
+    const lists = await this.readLists(everything);
+    this.set({ tree, spaces, titles: titlesOf(everything), ...lists, trash: await this.readTrash(), filters: await loadFilters(this.personal), space: await loadSpace(this.personal) });
   }
 
-  /** The open space's files, for sync; null until it is open. */
+  /** The personal space's files, for sync; null until it is open. */
   get vault(): VaultFs | null {
-    return this.snapshot.ready ? this.fs : null;
+    return this.snapshot.ready ? this.personal : null;
   }
 
   /** Before a turn of sync: everything waiting is written, so that the turn takes it along. */
@@ -1247,7 +1465,7 @@ export class Session {
       this.records.set(to, record);
     }
     if (from.endsWith('.md')) {
-      await moveHistory(this.fs, from, to).catch(() => undefined);
+      await this.moveHistory(from, to);
       this.versionedAt.delete(from);
     }
     this.moveLook(from, to);
@@ -1281,11 +1499,11 @@ export class Session {
       else this.records.set(path, text);
       return text;
     };
-    const lists = await Promise.all(paths.map(async (path) => [path, parseList((await read(path)) ?? '')] as const));
-    const boards = await Promise.all(boardPaths.map(async (path) => [path, parseBoard((await read(path)) ?? '')] as const));
+    const lists = await Promise.all(paths.map(async (path) => [path, this.parseListAt(path, (await read(path)) ?? '')] as const));
+    const boards = await Promise.all(boardPaths.map(async (path) => [path, this.parseBoardAt(path, (await read(path)) ?? '')] as const));
     const keys = await Promise.all(keysPaths.map(async (path) => [path, (await read(path)) ?? ''] as const));
     // A collection that cannot be read (its schema file gone meanwhile) is left out, not shown broken.
-    const collections = await Promise.all(collectionDirs.map(async (dir) => [dir, await loadCollection(this.fs, dir).catch(() => null)] as const));
+    const collections = await Promise.all(collectionDirs.map(async (dir) => [dir, await this.loadCollectionAt(dir).catch(() => null)] as const));
     const loaded = Object.fromEntries(collections.filter((entry): entry is readonly [string, Collection] => entry[1] !== null));
     return {
       tasks: Object.fromEntries(lists.map(([path, list]) => [path, list.tasks])),
@@ -1298,9 +1516,45 @@ export class Session {
 
   // ---------- collections ----------
 
+  // A task list, a board or a collection holds the paths of its notes, cards and collections as
+  // its space's own; in the app they carry the space. A link to another space is left out as it
+  // is written, having no place in the file (see `spaces.ts` in core).
+
+  private parseListAt(path: string, text: string): ReturnType<typeof parseList> {
+    const list = parseList(text);
+    return { ...list, tasks: rebaseTasks(list.tasks, fromSpace(spaceOf(path))) };
+  }
+
+  private serializeListAt(path: string, list: Parameters<typeof serializeList>[0]): string {
+    return serializeList({ ...list, tasks: rebaseTasks(list.tasks, toSpace(spaceOf(path))) });
+  }
+
+  private parseBoardAt(path: string, text: string): Board {
+    return rebaseBoard(parseBoard(text), fromSpace(spaceOf(path)));
+  }
+
+  private serializeBoardAt(path: string, board: Board): string {
+    return serializeBoard(rebaseBoard(board, toSpace(spaceOf(path))));
+  }
+
+  /** A collection as its space's files have it: its own paths, its links to another space left out. */
+  private own(collection: Collection): Collection {
+    return rebaseCollection(collection, toSpace(spaceOf(collection.dir)));
+  }
+
+  private async loadCollectionAt(dir: string): Promise<Collection> {
+    const { fs, space, local } = this.at(dir);
+    return rebaseCollection(await loadCollection(fs, local), fromSpace(space));
+  }
+
+  private saveSchemaAt(dir: string, schema: Schema): Promise<void> {
+    const { fs, space, local } = this.at(dir);
+    return saveSchema(fs, local, rebaseSchema(schema, toSpace(space)));
+  }
+
   /** Reads a collection again, after its files changed on disk. */
   private async reloadCollection(dir: string) {
-    const loaded = await loadCollection(this.fs, dir).catch(() => null);
+    const loaded = await this.loadCollectionAt(dir).catch(() => null);
     if (!loaded || !(dir in this.snapshot.collections)) return;
     this.set({ collections: freshenAll({ ...this.snapshot.collections, [dir]: loaded }) });
   }
@@ -1321,7 +1575,7 @@ export class Session {
     for (const record of records) {
       const target = `${to}${record.path.slice(from.length)}`;
       if (this.snapshot.tabs.includes(record.path)) await this.follow(record.path, target);
-      else await moveHistory(this.fs, record.path, target).catch(() => undefined);
+      else await this.moveHistory(record.path, target);
     }
     await this.retargetSchemas(from, to);
     // Boards' links and tasks about its records follow it too.
@@ -1343,7 +1597,7 @@ export class Session {
   private async retargetSchemas(from: string, to: string) {
     for (const [dir, collection] of Object.entries(this.snapshot.collections)) {
       const schema = retargetLinks(collection.schema, from, to);
-      if (schema !== collection.schema) await saveSchema(this.fs, dir === from ? to : dir, schema).catch(() => undefined);
+      if (schema !== collection.schema) await this.saveSchemaAt(dir === from ? to : dir, schema).catch(() => undefined);
     }
   }
 
@@ -1351,7 +1605,8 @@ export class Session {
   async renameCollection(dir: string, name: string): Promise<string | null> {
     await this.settle();
     try {
-      const target = await renameCollectionDir(this.fs, dir, name);
+      const { fs, space, local } = this.at(dir);
+      const target = inSpace(space, await renameCollectionDir(fs, local, name));
       if (target !== dir) await this.recollect(dir, target);
       return null;
     } catch (error) {
@@ -1359,10 +1614,13 @@ export class Session {
     }
   }
 
-  /** Moves a collection's folder into `folder`. */
+  /** Moves a collection's folder into `folder` of its space; a move to another space is not made here. */
   async moveCollection(dir: string, folder: string) {
+    const source = this.at(dir);
+    const into = this.at(folder);
+    if (source.space !== into.space) return;
     await this.settle();
-    const target = await moveCollectionDir(this.fs, dir, folder);
+    const target = inSpace(source.space, await moveCollectionDir(source.fs, source.local, into.local));
     if (target !== dir) await this.recollect(dir, target);
   }
 
@@ -1371,7 +1629,9 @@ export class Session {
     const collection = this.snapshot.collections[dir];
     if (!collection) return t('error.create');
     try {
-      const record = await addCollectionRecord(this.fs, collection, input);
+      const { fs, space } = this.at(dir);
+      const made = await addCollectionRecord(fs, this.own(collection), input);
+      const record = { ...made, path: inSpace(space, made.path) };
       this.setCollection(dir, (current) => ({ ...current, records: [...current.records, record] }));
       return null;
     } catch (error) {
@@ -1385,7 +1645,9 @@ export class Session {
     const record = collection?.records.find((r) => r.id === id);
     if (!collection || !record) return t('error.record');
     try {
-      const next = await updateCollectionRecord(this.fs, collection.schema, record, patch);
+      const { fs, space } = this.at(dir);
+      const written = await updateCollectionRecord(fs, this.own(collection).schema, { ...record, path: localPath(record.path) }, patch);
+      const next = { ...written, path: inSpace(space, written.path) };
       // Open as a note too, it is read again when its tab is opened.
       this.disk.delete(next.path);
       this.states.delete(next.path);
@@ -1399,10 +1661,11 @@ export class Session {
   /** Moves a record's file to the trash; the interface asks first. */
   async trashRecord(dir: string, record: CollectionRecord) {
     await this.settle();
-    await trashItem(this.fs, record.path);
+    const { fs, local } = this.at(record.path);
+    await trashItem(fs, local);
     await this.detach(record.path);
     this.setCollection(dir, (current) => ({ ...current, records: current.records.filter((r) => r.id !== record.id) }));
-    this.set({ trash: await readTrash(this.fs) });
+    this.set({ trash: await this.readTrash() });
   }
 
   /** Changes the text of a keys file, from its table or as text, and writes it a moment after the last change. */
@@ -1454,7 +1717,8 @@ export class Session {
   private changeBoard(path: string, change: (board: Board) => Board) {
     const current = this.snapshot.boards[path];
     if (!current) return;
-    const next = change(current);
+    // A link to another space has no place in the board's file; it is left out here already.
+    const next = rebaseBoard(change(current), withinSpace(spaceOf(path)));
     if (next === current) return;
     this.set({ boards: { ...this.snapshot.boards, [path]: next }, saved: false });
     this.taskWrites = this.taskWrites
@@ -1486,25 +1750,25 @@ export class Session {
   private async writeBoard(path: string) {
     const board = this.snapshot.boards[path];
     if (!board) return;
-    const text = serializeBoard(board);
+    const text = this.serializeBoardAt(path, board);
     const written = await this.writeRecords(path, 'board', text);
     if (written === text) return;
     const now = this.snapshot.boards[path];
     if (!now) return;
-    const shown = now === board ? written : mergeFile('board', text, serializeBoard(now), written).text;
-    this.set({ boards: { ...this.snapshot.boards, [path]: parseBoard(shown) } });
+    const shown = now === board ? written : mergeFile('board', text, this.serializeBoardAt(path, now), written).text;
+    this.set({ boards: { ...this.snapshot.boards, [path]: this.parseBoardAt(path, shown) } });
   }
 
   /** Writes a task list as it is shown now, as `writeBoard` does a board. */
   private async writeList(path: string) {
     if (!(path in this.snapshot.tasks)) return;
     const list = this.listAt(path);
-    const text = serializeList(list);
+    const text = this.serializeListAt(path, list);
     const written = await this.writeRecords(path, 'tasks', text);
     if (written === text) return;
     const now = this.listAt(path);
     const same = now.tasks === list.tasks && now.sections === list.sections;
-    const next = parseList(same ? written : mergeFile('tasks', text, serializeList(now), written).text);
+    const next = this.parseListAt(path, same ? written : mergeFile('tasks', text, this.serializeListAt(path, now), written).text);
     this.set({ tasks: { ...this.snapshot.tasks, [path]: next.tasks }, sections: { ...this.snapshot.sections, [path]: next.sections } });
   }
 
@@ -1515,7 +1779,10 @@ export class Session {
   /** Applies a change to a task list, its sections or its tasks, and saves it. */
   private changeList(path: string, change: (list: TaskList) => TaskList) {
     const current = this.listAt(path);
-    const next = change(current);
+    const changed = change(current);
+    // A link to another space has no place in the list's file; it is left out here already.
+    const tasks = rebaseTasks(changed.tasks, withinSpace(spaceOf(path)));
+    const next = tasks === changed.tasks ? changed : { ...changed, tasks };
     if (next === current) return;
     this.set({
       tasks: { ...this.snapshot.tasks, [path]: next.tasks },
@@ -1620,7 +1887,7 @@ export class Session {
     const space: SpaceInfo = name.trim() ? { ...rest, name: name.trim() } : rest;
     this.set({ space, saved: false });
     this.taskWrites = this.taskWrites
-      .then(() => saveSpace(this.fs, space))
+      .then(() => saveSpace(this.personal, space))
       .catch(() => undefined)
       .then(() => this.markSaved());
   }
@@ -1628,7 +1895,7 @@ export class Session {
   private writeFilters(filters: TaskFilter[]) {
     this.set({ filters, saved: false });
     this.taskWrites = this.taskWrites
-      .then(() => saveFilters(this.fs, filters))
+      .then(() => saveFilters(this.personal, filters))
       .catch(() => undefined)
       .then(() => this.markSaved());
   }
@@ -1861,8 +2128,9 @@ export class Session {
   }
 
   /** Creates an empty scratch note in `folder`, or in the inbox, and opens it. */
-  async newNote(folder?: string) {
-    const path = await createScratchNote(this.fs, new Date(), folder);
+  async newNote(folder = INBOX) {
+    const { fs, space, local } = this.at(folder);
+    const path = inSpace(space, await createScratchNote(fs, new Date(), local));
     await this.refreshTree();
     await this.open(path);
   }
@@ -1883,17 +2151,24 @@ export class Session {
   ): Promise<string | null> {
     let path: string;
     try {
-      const target = newFolder ? await createFolder(this.fs, folder) : folder;
-      path =
+      // Made in the files of the folder's space, with its own paths: a board's links, a
+      // collection's linked blocks are written as the space has them.
+      const { fs, space, local } = this.at(folder);
+      const target = newFolder ? await createFolder(fs, local) : local;
+      const own = toSpace(space);
+      const company = links && own(links.company);
+      const contact = links && own(links.contact);
+      const made =
         kind === 'note'
-          ? await createNote(this.fs, target, name)
+          ? await createNote(fs, target, name)
           : kind === 'tasks'
-            ? await createTaskList(this.fs, target, name)
+            ? await createTaskList(fs, target, name)
             : kind === 'keys'
-              ? await createKeys(this.fs, target, name)
+              ? await createKeys(fs, target, name)
               : kind === 'collection'
-                ? await createCollection(this.fs, target, name, collectionTemplate)
-                : await createBoard(this.fs, target, name, template, links);
+                ? await createCollection(fs, target, name, collectionTemplate)
+                : await createBoard(fs, target, name, template, company && contact ? { company, contact } : undefined);
+      path = inSpace(space, made);
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }
@@ -1947,7 +2222,8 @@ export class Session {
   /** Moves a note, a task list or a board to the trash. */
   async trash(path: string) {
     await this.settle();
-    await trashItem(this.fs, path);
+    const { fs, local } = this.at(path);
+    await trashItem(fs, local);
     await this.detach(tabOf(path));
     await this.refreshTree();
   }
@@ -1965,24 +2241,26 @@ export class Session {
     if (active && inside(active)) await this.detach(active);
     // A collection's own tab, when the folder is one.
     await this.detach(collectionTab(path));
-    await trashFolder(this.fs, path);
+    const { fs, local } = this.at(path);
+    await trashFolder(fs, local);
     await this.refreshTree();
   }
 
   /** Puts an item from the trash back where it was. */
   async restore(item: TrashItem) {
-    await restoreFromTrash(this.fs, item);
+    await restoreFromTrash(...this.trashAt(item));
     await this.refreshTree();
   }
 
   /** Deletes an item in the trash for good. */
   async deleteForever(item: TrashItem) {
-    await deleteFromTrash(this.fs, item, this.openTexts());
+    const [fs, local] = this.trashAt(item);
+    await deleteFromTrash(fs, local, this.openTexts(spaceOf(item.from)));
     await this.refreshTree();
   }
 
   async emptyTrash() {
-    await emptyTrash(this.fs, this.openTexts());
+    for (const [space, fs] of this.fs.all()) await emptyTrash(fs, this.openTexts(space));
     await this.refreshTree();
   }
 
@@ -1999,7 +2277,7 @@ export class Session {
       this.disk.set(target, onDisk);
     }
     if (path.endsWith('.md')) {
-      await moveHistory(this.fs, path, target).catch(() => undefined);
+      await this.moveHistory(path, target);
       this.versionedAt.delete(path);
       // Tasks and cards made from the note link to it where it is now.
       for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkNote(current, path, target));
@@ -2018,18 +2296,25 @@ export class Session {
     this.saveWorkspace();
   }
 
-  /** Moves a note, a task list, a board, a keys file or a collection into `folder`. */
+  /**
+   * Moves a note, a task list, a board, a keys file or a collection into `folder` of its space.
+   * A move to another space is not made here: it is a copy and a delete, with its own question.
+   */
   async move(path: string, folder: string) {
     if (dirname(path) === folder) return;
     if (path in this.snapshot.collections) return this.moveCollection(path, folder);
+    const source = this.at(path);
+    const into = this.at(folder);
+    if (source.space !== into.space) return;
     await this.settle();
-    await this.repath(path, await moveItem(this.fs, path, folder));
+    await this.repath(path, inSpace(source.space, await moveItem(source.fs, source.local, into.local)));
   }
 
-  /** Moves a note, a task list or a board into a folder that is created for it. Returns a message when the name cannot be used. */
+  /** Moves a note, a task list or a board into a folder that is created for it, at the top of its space. Returns a message when the name cannot be used. */
   async moveToNewFolder(path: string, name: string): Promise<string | null> {
     try {
-      await this.move(path, await createFolder(this.fs, name));
+      const { fs, space } = this.at(path);
+      await this.move(path, inSpace(space, await createFolder(fs, name)));
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : t('error.createFolder');
@@ -2041,17 +2326,19 @@ export class Session {
     if (path in this.snapshot.collections) return this.renameCollection(path, name);
     await this.settle();
     try {
-      await this.repath(path, await renameItem(this.fs, path, name));
+      const { fs, space, local } = this.at(path);
+      await this.repath(path, inSpace(space, await renameItem(fs, local, name)));
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : t('error.rename');
     }
   }
 
-  /** Creates a folder in `parent`, at the top without one; returns a message when the name cannot be used. */
+  /** Creates a folder in `parent`, at the top of its space when it is one, of the personal space without one; returns a message when the name cannot be used. */
   async newFolder(name: string, parent = ''): Promise<string | null> {
     try {
-      await createFolder(this.fs, name, parent);
+      const { fs, local } = this.at(parent);
+      await createFolder(fs, name, local);
     } catch (error) {
       return error instanceof Error ? error.message : t('error.createFolder');
     }
