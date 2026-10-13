@@ -535,3 +535,59 @@ describe('collections in the vault', () => {
     expect((await readTree(fs)).find((node) => node.path === 'Work')?.children?.[0]?.kind).toBe('collection');
   });
 });
+
+describe('between spaces', () => {
+  it('copies a note with the files it links to, under a free name, relinked where a name was taken', async () => {
+    const { copyToSpace } = await import('./vault');
+    const from = new MemoryFs();
+    const to = new MemoryFs();
+    await from.writeText('_attachments/2026-10-13-101500.png', 'picture');
+    await from.writeText('_attachments/Scope v3.pdf', 'scope');
+    await from.writeText('_attachments/unused.png', 'other');
+    await from.writeText('Sales/Pilot plan.md', '# Pilot\n\n![](_attachments/2026-10-13-101500.png)\n[Scope](_attachments/Scope%20v3.pdf)\n');
+    await to.writeText('_attachments/Scope v3.pdf', 'someone else’s scope');
+    await to.writeText('Clients/Pilot plan.md', 'there already');
+    const path = await copyToSpace(from, 'Sales/Pilot plan.md', to, 'Clients');
+    expect(path).toBe('Clients/Pilot plan 2.md');
+    expect(await to.readText('_attachments/2026-10-13-101500.png')).toBe('picture');
+    expect(await to.readText('_attachments/Scope v3 2.pdf')).toBe('scope');
+    expect(await to.readText('_attachments/Scope v3.pdf')).toBe('someone else’s scope');
+    expect(await to.stat('_attachments/unused.png')).toBeNull();
+    expect(await to.readText(path)).toBe('# Pilot\n\n![](_attachments/2026-10-13-101500.png)\n[Scope](_attachments/Scope%20v3%202.pdf)\n');
+    // The original stays, for the move to put in its own trash.
+    expect(await from.readText('Sales/Pilot plan.md')).toContain('# Pilot');
+  });
+
+  it('leaves out what a task list or a board says about items of the space it came from', async () => {
+    const { copyToSpace } = await import('./vault');
+    const from = new MemoryFs();
+    const to = new MemoryFs();
+    const tasks = addTask([], { title: 'Call', note: 'Sales/Pilot plan.md', record: { collection: 'Companies', id: 'a', name: 'Acme' }, assignee: { id: 'p1', name: 'Lena' } }, () => at, 't');
+    await from.writeText('Sales/Tasks.tasks.json', serializeTasks(tasks));
+    let board = (await import('./board')).newBoard('Deals', 'crm');
+    board = addCard(board, { title: 'Pilot', note: 'Sales/Pilot plan.md' }, () => at, 'Kaan', 'c');
+    await saveBoard(from, 'Sales/Deals.board.json', board);
+    await copyToSpace(from, 'Sales/Tasks.tasks.json', to, '');
+    await copyToSpace(from, 'Sales/Deals.board.json', to, 'Pipeline');
+    const [task] = await loadTasks(to, 'Tasks.tasks.json');
+    expect(task).toMatchObject({ title: 'Call', assignee: { id: 'p1', name: 'Lena' } });
+    expect(task).not.toHaveProperty('note');
+    expect(task).not.toHaveProperty('record');
+    const copied = await loadBoard(to, 'Pipeline/Deals.board.json');
+    expect(copied.cards[0]).not.toHaveProperty('note');
+    // A field still reads the collection it did, a folder of whichever space the board is in.
+    expect(copied.fields?.find((field) => field.type === 'link')?.collection).toBe(board.fields?.find((field) => field.type === 'link')?.collection);
+  });
+
+  it('copies a collection whole, its schema and its records', async () => {
+    const { copyToSpace } = await import('./vault');
+    const { createCollection } = await import('./collection');
+    const from = new MemoryFs();
+    const to = new MemoryFs();
+    const dir = await createCollection(from, 'Sales', 'Companies', 'companies');
+    await from.writeText(`${dir}/a1.md`, '---\nid: a1\nname: Acme\n---\n');
+    expect(await copyToSpace(from, dir, to, 'CRM')).toBe('CRM/Companies');
+    expect((await to.list('CRM/Companies')).map((e) => e.name).sort()).toEqual(['_collection.json', 'a1.md']);
+    expect(await to.readText('CRM/Companies/_collection.json')).toBe(await from.readText(`${dir}/_collection.json`));
+  });
+});

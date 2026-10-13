@@ -1,10 +1,10 @@
 import { t } from '@scrawlnotes/i18n';
-import { BOARD_EXT, type BoardLinks, loadBoard, newBoard, serializeBoard, type Template } from './board';
+import { BOARD_EXT, type BoardLinks, loadBoard, newBoard, parseBoard, serializeBoard, type Template } from './board';
 import { type ColumnWidths, collectionName, isCollection, loadSchema, namedById, parseRecord, parseSchema, RECORD_EXT, readWidths, recordTitle, type RecordSort } from './collection';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
-import { loadTasks, serializeTasks, TASK_LIST_EXT } from './tasks';
+import { loadTasks, parseList, serializeList, serializeTasks, TASK_LIST_EXT } from './tasks';
 
 export const INBOX = 'Inbox';
 /** The inbox's own task list, where tasks that belong to no list of their own go. */
@@ -193,6 +193,83 @@ export async function moveItem(fs: VaultFs, path: string, folder: string): Promi
   const [name, ext] = splitName(basename(path));
   const target = freePath(folder, name, ext, await names(fs, folder));
   await fs.move(path, target);
+  return target;
+}
+
+// ---------- between spaces ----------
+
+/**
+ * What a file says about other items of its space, left out as it goes to another space, where
+ * the same path would be some other item: a task's note, card and record, a card's or a phase's
+ * note. A field keeps the collection it reads, a folder of whichever space it is in.
+ */
+function withoutLinks(path: string, text: string): string {
+  if (path.endsWith(TASK_LIST_EXT) || basename(path) === basename(INBOX_TASKS)) {
+    const list = parseList(text);
+    return serializeList({ ...list, tasks: list.tasks.map(({ note: _n, card: _c, record: _r, ...task }) => task) });
+  }
+  if (path.endsWith(BOARD_EXT)) {
+    const board = parseBoard(text);
+    return serializeBoard({ ...board, cards: board.cards.map(({ note: _n, ...card }) => card), phases: board.phases.map(({ note: _n, ...phase }) => phase) });
+  }
+  return text;
+}
+
+/** The ways a path of an attached file is written in a note: as it is, and as a link's address has it. */
+const writtenAs = (path: string) => [path, path.replace(/[() <>]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)];
+
+/**
+ * Copies a note, a task list, a board, a keys file or a collection into `folder` of another
+ * space, as a move between spaces does before the original goes to its own trash: under a free
+ * name there, with the attached files its text links to, and without what it says about items of
+ * the space it came from. Returns its path in the other space.
+ */
+export async function copyToSpace(from: VaultFs, path: string, to: VaultFs, folder: string): Promise<string> {
+  const isDir = isCollection(await from.list(path));
+  // The files that go, by their path under the item.
+  const files: string[] = [];
+  const visit = async (dir: string) => {
+    for (const entry of await from.list(dir)) {
+      if (entry.kind === 'dir') await visit(entry.path);
+      else files.push(entry.path);
+    }
+  };
+  if (isDir) await visit(path);
+  else files.push(path);
+  const texts = new Map<string, string>();
+  for (const file of files) if (canLink(file) || file.endsWith(KEYS_EXT)) texts.set(file, await from.readText(file));
+
+  // The attached files the texts link to go along, under a free name where theirs is taken.
+  const linked = linkedIn([...texts.values()]);
+  const renamed = new Map<string, string>();
+  const taken = await names(to, ATTACHMENTS);
+  for (const file of await attachedFiles(from)) {
+    if (!linked.includes(file.path.toLowerCase())) continue;
+    const [name, ext] = splitName(file.name);
+    const target = freePath(ATTACHMENTS, name, ext, taken);
+    taken.add(target.toLowerCase());
+    await to.writeBlob(target, await from.readBlob(file.path));
+    if (target !== file.path) renamed.set(file.path, target);
+  }
+  const relinked = (text: string) => {
+    let out = text;
+    for (const [was, now] of renamed) {
+      const [plain, address] = writtenAs(was);
+      const [plainNow, addressNow] = writtenAs(now);
+      out = out.split(address!).join(addressNow!).split(plain!).join(plainNow!);
+    }
+    return out;
+  };
+
+  const [name, ext] = isDir ? [basename(path), ''] : splitName(basename(path));
+  const target = freePath(folder, name, ext, await names(to, folder));
+  for (const file of files) {
+    const into = isDir ? join(target, file.slice(path.length + 1)) : target;
+    const text = texts.get(file);
+    if (text === undefined) await to.writeBlob(into, await from.readBlob(file));
+    else await to.writeText(into, relinked(withoutLinks(file, text)));
+  }
+  if (isDir) await to.mkdir(target);
   return target;
 }
 

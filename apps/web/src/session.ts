@@ -105,6 +105,7 @@ import {
   loadWorkspace,
   moveHistory,
   moveItem,
+  copyToSpace,
   type NewTask,
   parseBoard,
   parseList,
@@ -2370,17 +2371,44 @@ export class Session {
   }
 
   /**
-   * Moves a note, a task list, a board, a keys file or a collection into `folder` of its space.
-   * A move to another space is not made here: it is a copy and a delete, with its own question.
+   * Moves a note, a task list, a board, a keys file or a collection into `folder`: of its own
+   * space, or of another one, which is a copy there and the original in its own trash.
    */
   async move(path: string, folder: string) {
     if (dirname(path) === folder) return;
-    if (path in this.snapshot.collections) return this.moveCollection(path, folder);
     const source = this.at(path);
     const into = this.at(folder);
-    if (source.space !== into.space) return;
+    if (source.space !== into.space) return this.moveAcross(path, folder);
+    if (path in this.snapshot.collections) return this.moveCollection(path, folder);
     await this.settle();
     await this.repath(path, inSpace(source.space, await moveItem(source.fs, source.local, into.local)));
+  }
+
+  /**
+   * Moves a note, a task list, a board, a keys file or a collection to another space: it is
+   * copied there with the files it links to, and goes to the trash of its own space, where it can
+   * be restored. What it said about items of its old space is left out there; what in its old
+   * space linked to it links to it in the trash, as to anything deleted. Its tab stays where it
+   * is, showing it in its new place. Returns its path there.
+   */
+  private async moveAcross(path: string, folder: string): Promise<string> {
+    await this.settle();
+    const source = this.at(path);
+    const into = this.at(folder);
+    const collection = path in this.snapshot.collections;
+    const copied = inSpace(into.space, await copyToSpace(source.fs, source.local, into.fs, into.local));
+    if (collection) await trashFolder(source.fs, source.local);
+    else await trashItem(source.fs, source.local);
+    const [from, to] = collection ? [collectionTab(path), collectionTab(copied)] : [tabOf(path), tabOf(copied)];
+    this.states.delete(path);
+    this.disk.delete(path);
+    this.moveLook(path, copied);
+    const { tabs, active } = this.snapshot;
+    this.set({ tabs: tabs.map((tab) => (tab === from ? to : tab)), ...(active === from && { active: null }) });
+    await this.refreshTree();
+    if (active === from) await this.open(to);
+    this.saveWorkspace();
+    return copied;
   }
 
   /** Moves a note, a task list or a board into a folder that is created for it, at the top of its space. Returns a message when the name cannot be used. */

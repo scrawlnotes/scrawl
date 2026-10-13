@@ -47,13 +47,19 @@ export const pathOf = (id: string) => (isNote(id) ? id : (listOf(id) ?? boardPat
 /** The space a tab's note, list, board, keys file or collection is in; null in the personal space and for the views over all of them. */
 export const spaceOfTab = (id: string) => spaceOf(pathOf(id) ?? collectionPathOf(id) ?? '');
 
-// The names of the spaces beside the personal one, by id, for the places paths are shown as words.
+// The names of the spaces beside the personal one, by id, for the places paths are shown as words;
+// and the personal space's own.
 let spaceNames = new Map<string, string>();
+let personalName = '';
 
 /** Tells the interface what the spaces are called, so that a path shows its space by name. */
-export function setSpaceNames(names: Map<string, string>) {
+export function setSpaceNames(names: Map<string, string>, personal = '') {
   spaceNames = names;
+  personalName = personal;
 }
+
+/** What a space is called, by its id; null is the personal space. */
+export const spaceLabel = (space: string | null) => (space ? (spaceNames.get(space) ?? space) : personalName || t('settings.personal'));
 
 /** A folder's name for the interface: a space's own name where the path is the space itself. */
 export function folderLabel(folder: string): string {

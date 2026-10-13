@@ -8727,3 +8727,28 @@ button.st-li:hover,
   height: 13px;
   color: var(--sl-dim);
 }
+
+/* Create's and Move to's folders with more than one space: each space's under its name, a folder
+   inside another a step in; a space's name picks its top. */
+.choices.folder-groups .group,
+.choices.folder-groups button.group {
+  padding: 8px 8px 3px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.choices.folder-groups button.group:hover {
+  color: var(--sl-dim);
+}
+
+.choices.folder-groups button.group[aria-selected='true'] {
+  color: var(--sl-fg);
+}
+
+.choices.folder-groups button.folder {
+  gap: 8px;
+  padding: 5px 8px 5px calc(8px + var(--d, 0) * 18px);
+}

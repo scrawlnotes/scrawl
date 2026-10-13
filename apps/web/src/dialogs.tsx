@@ -13,19 +13,23 @@ import {
   filterName,
   INBOX,
   join,
+  localPath,
   newSchema,
   type Phase,
   type PhasePatch,
   type Priority,
+  spaceOf,
   type TaskFilter,
   type Template,
 } from '@scrawlnotes/core';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import {
+  type CSSProperties,
   type FormEvent,
   Fragment,
   type KeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type ReactElement,
   type ReactNode,
   useEffect,
   useLayoutEffect,
@@ -36,7 +40,7 @@ import { type Option, Picker } from './choices';
 import { ConditionRow } from './Collection';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import { Icon, type IconName } from './Icon';
-import { collectionLabel, folderLabel, shownPath } from './items';
+import { collectionLabel, folderLabel, shownPath, spaceLabel } from './items';
 import { ActionSheet, AskSheet, Sheet, SheetClose } from './sheets';
 
 interface DialogProps {
@@ -142,26 +146,67 @@ export function useFolderPicker(folders: string[], initial?: string) {
 // A click on the list must not take the keyboard away from the field typed into.
 const keepFocus = (event: ReactMouseEvent) => event.preventDefault();
 
+/**
+ * The folders of the Create and Move to windows. With more than one space, after the Spaces
+ * create view of design/mockups.html: each space's folders under the space's name, a folder
+ * inside another a step in; a space's name picks its top. While a name is typed, a folder says
+ * the folders it is in.
+ */
 function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: string; onPick: (index: number) => void }) {
   const list = useRef<HTMLDivElement>(null);
   useEffect(() => {
     list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [picker.selected, picker.query]);
+  const grouped = picker.matches.some((folder) => spaceOf(folder) !== null);
+  let group: string | null | undefined;
+  const option = (folder: string, i: number, className: string | undefined, label: ReactNode, depth = 0) => (
+    <button
+      key={folder}
+      type="button"
+      role="option"
+      className={className}
+      style={depth > 0 ? ({ '--d': depth } as CSSProperties) : undefined}
+      aria-selected={i === picker.selected}
+      tabIndex={-1}
+      onMouseDown={keepFocus}
+      onClick={() => onPick(i)}
+    >
+      {label}
+    </button>
+  );
   return (
-    <div ref={list} className="choices" role="listbox" aria-label={t('folders.label')}>
-      {picker.matches.map((folder, i) => (
-        <button
-          key={folder}
-          type="button"
-          role="option"
-          aria-selected={i === picker.selected}
-          tabIndex={-1}
-          onMouseDown={keepFocus}
-          onClick={() => onPick(i)}
-        >
-          <span>{shownPath(folder)}</span>
-        </button>
-      ))}
+    <div ref={list} className={grouped ? 'choices folder-groups' : 'choices'} role="listbox" aria-label={t('folders.label')}>
+      {grouped
+        ? picker.matches.flatMap((folder, i) => {
+            const space = spaceOf(folder);
+            const local = localPath(folder);
+            const rows: ReactElement[] = [];
+            // A space's top is its heading, and picks it; the personal space's heading only names it.
+            if (space !== group) {
+              group = space;
+              if (local === '') return [option(folder, i, 'group', spaceLabel(space))];
+              rows.push(
+                <div key={`group:${space ?? ''}`} className="group" role="presentation">
+                  {spaceLabel(space)}
+                </div>,
+              );
+            }
+            const name = picker.typed ? local.split('/').join(' › ') : basename(local);
+            rows.push(
+              option(
+                folder,
+                i,
+                'folder',
+                <>
+                  <Icon name="folder" />
+                  <span>{name}</span>
+                </>,
+                picker.typed ? 0 : local.split('/').length - 1,
+              ),
+            );
+            return rows;
+          })
+        : picker.matches.map((folder, i) => option(folder, i, undefined, <span>{shownPath(folder)}</span>))}
       {picker.canCreate && (
         <button
           type="button"

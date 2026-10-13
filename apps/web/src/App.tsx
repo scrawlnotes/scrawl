@@ -158,16 +158,9 @@ function folderPaths(nodes: TreeNode[], out: string[] = []): string[] {
   return out;
 }
 
-/** The folders things can be made in: the inbox, the personal space's folders, then each space and its folders. */
+/** The folders things can be made in or moved to: the inbox, the personal space's folders, then each space and its folders. */
 function everyFolder(tree: TreeNode[], spaces: SpaceView[]): string[] {
   return [INBOX, ...folderPaths(tree).filter((path) => path !== INBOX), ...spaces.flatMap((space) => [inSpace(space.id, ''), ...folderPaths(space.tree)])];
-}
-
-/** The folders of one space, where something of it can be moved: a move to another space is not made by Move. */
-function spaceFolders(space: string | null, tree: TreeNode[], spaces: SpaceView[]): string[] {
-  if (!space) return folderPaths(tree);
-  const nodes = spaces.find((each) => each.id === space)?.tree ?? [];
-  return [inSpace(space, ''), ...folderPaths(nodes)];
 }
 
 function findNode(nodes: TreeNode[], path: string): TreeNode | undefined {
@@ -525,7 +518,7 @@ export function App() {
     setMenu({ at, items, ...(row && target !== undefined && { target }) });
   };
   // The spaces' names, for the places a path is shown as words.
-  useEffect(() => setSpaceNames(new Map(spaces.map((space) => [space.id, space.name]))), [spaces]);
+  useEffect(() => setSpaceNames(new Map(spaces.map((each) => [each.id, each.name])), space.name ?? ''), [spaces, space.name]);
   // A space's heading: a folder at its top, its settings, its place among the spaces, and the way
   // out of this device. The personal space stays first and stays, so it only has the first two.
   const spaceMenu = (event: MouseEvent, id: string | null, addFolder: () => void) => {
@@ -544,6 +537,14 @@ export function App() {
     openMenu(event, items, id ? `@${id}` : '@personal');
   };
   const askRemoveSpace = (id: string) => setDialog({ kind: 'removeSpace', id });
+  /** Moves something into a folder; to another space it is a copy there, the original in its own trash, which is said. */
+  const moveTo = async (path: string, folder: string) => {
+    const [from, to] = [spaceOf(path), spaceOf(folder)];
+    await session.move(path, folder);
+    if (from === to) return;
+    const named = (id: string | null) => (id ? (spaces.find((each) => each.id === id)?.name ?? '') : (space.name ?? t('settings.personal')));
+    setNotice(t('move.across', { space: named(to), from: named(from) }));
+  };
   /**
    * A space leaves this device: its sync stops first, a turn running ending before, so that no
    * turn sees its files go and takes that to the cloud; then its copy here may be deleted.
@@ -1366,7 +1367,7 @@ export function App() {
             void session.open(id);
           }}
           onTrash={deleteItem}
-          onMove={(path, target) => void session.move(path, target)}
+          onMove={(path, target) => void moveTo(path, target)}
           onNewFolder={(name, parent) => session.newFolder(name, parent)}
           onItemMenu={itemMenu}
           onFolderMenu={folderMenu}
@@ -1602,10 +1603,10 @@ export function App() {
       )}
       {dialog?.kind === 'move' && (
         <MoveDialog
-          folders={spaceFolders(spaceOf(dialog.path), tree, spaces)}
+          folders={everyFolder(tree, spaces)}
           current={dirname(dialog.path)}
           onMove={(target) => {
-            void session.move(dialog.path, target);
+            void moveTo(dialog.path, target);
             setDialog(null);
           }}
           onCreate={async (name) => {
