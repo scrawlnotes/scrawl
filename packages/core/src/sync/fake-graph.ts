@@ -68,6 +68,11 @@ export class FakeGraph {
   private readonly owners = new Map<string, string>();
   private readonly sessions = new Map<string, Session>();
   private seq = 0;
+  /**
+   * Begins every id this one gives, as Graph's ids are never given twice: an id kept from a stand-in
+   * the page forgot when it reloaded names nothing here.
+   */
+  private readonly run = Math.random().toString(36).slice(2, 8);
   private ids = 0;
   private tags = 0;
   /** Lists of changes from before this are too old. */
@@ -210,7 +215,7 @@ export class FakeGraph {
   }
 
   private create(parent: string, name: string, dir: boolean): Item {
-    const item: Item = { id: `i${++this.ids}`, name, parent, dir, eTag: '', seq: 0 };
+    const item: Item = { id: `i${this.run}-${++this.ids}`, name, parent, dir, eTag: '', seq: 0 };
     this.touch(item);
     this.items.set(item.id, item);
     return item;
@@ -339,7 +344,7 @@ export class FakeGraph {
       const body = JSON.parse(String(init.body)) as { item?: Record<string, string> };
       const checked = this.check(parent, names.at(-1)!, body.item?.['@microsoft.graph.conflictBehavior'] === 'fail', ifMatch);
       if (checked) return checked;
-      const id = `s${++this.ids}`;
+      const id = `s${this.run}-${++this.ids}`;
       this.sessions.set(id, { parent: parent.id, names, size: -1, parts: [], offset: 0, fail: body.item?.['@microsoft.graph.conflictBehavior'] === 'fail', ifMatch });
       return json({ uploadUrl: `${UPLOAD}${id}`, expirationDateTime: '2026-10-08T00:00:00Z' });
     }
