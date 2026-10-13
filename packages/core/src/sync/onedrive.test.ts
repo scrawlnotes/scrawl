@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { addCard, addComment, newBoard, parseBoard, serializeBoard } from '../board';
 import { MemoryFs, type VaultFs } from '../fs';
 import { type SyncDevice, syncOnce } from './engine';
 import { FakeGraph } from './fake-graph';
@@ -363,6 +364,44 @@ describe('a folder someone shared', () => {
     expect(await phone.readText('Sales/Plan.md')).toBe('plan');
     // Nothing went into the user's own drive.
     expect(await new OneDriveAccount({ fetch: graph.fetch, token: async () => graph.token }).folders(null)).toEqual([]);
+  });
+
+  it('keeps what two people did on one board at once: both comments in order, and a key each', async () => {
+    const graph = new FakeGraph();
+    const { id } = graph.shareFolder('Northwind', 'Ben Cole');
+    const remoteOf = (fs: VaultFs) => new OneDriveRemote({ folder: id, drive: 'drive-2', fs, fetch: graph.fetch, token: async () => graph.token, sleep: async () => undefined });
+    const ben = new MemoryFs();
+    const kaan = new MemoryFs();
+    const [benRemote, kaanRemote] = [remoteOf(ben), remoteOf(kaan)];
+    const BEN: SyncDevice = { id: 'ben-id', name: 'Ben’s laptop' };
+    const sync = (fs: VaultFs, remote: OneDriveRemote, device: SyncDevice) => syncOnce(fs, remote, device, { now, saveEveryMs: 0 });
+    const at = (minute: number) => () => new Date(2026, 9, 13, 10, minute);
+    const path = 'Deals.board.json';
+    let made = 0;
+    const ids = () => `col-${++made}`;
+
+    await ben.writeText(path, serializeBoard(addCard(newBoard('Deals', 'crm', ids), { title: 'Pilot' }, at(0), 'Ben', 'pilot')));
+    await sync(ben, benRemote, BEN);
+    await sync(kaan, kaanRemote, LAPTOP);
+
+    // At the same time: each comments on the pilot and adds a card, which takes the same next key.
+    const benBoard = addCard(addComment(parseBoard(await ben.readText(path)), 'pilot', 'Sent the offer', at(5), 'Ben', 'b1'), { title: 'Renewal' }, at(6), 'Ben', 'renewal');
+    const kaanBoard = addCard(addComment(parseBoard(await kaan.readText(path)), 'pilot', 'They want CSV', at(4), 'Kaan', 'k1'), { title: 'Portal' }, at(7), 'Kaan', 'portal');
+    await ben.writeText(path, serializeBoard(benBoard));
+    await kaan.writeText(path, serializeBoard(kaanBoard));
+    await sync(ben, benRemote, BEN);
+    await sync(kaan, kaanRemote, LAPTOP);
+    await sync(ben, benRemote, BEN);
+
+    for (const fs of [ben, kaan]) {
+      const board = parseBoard(await fs.readText(path));
+      const pilot = board.cards.find((card) => card.id === 'pilot')!;
+      expect(pilot.timeline.filter((entry) => entry.kind === 'comment').map((entry) => [entry.by, entry.id])).toEqual([['Kaan', 'k1'], ['Ben', 'b1']]);
+      // Renewal was made first and keeps its key; Portal takes the next.
+      expect(board.cards.map((card) => [card.id, card.key]).sort()).toEqual([['pilot', 1], ['portal', 3], ['renewal', 2]]);
+      expect(board.nextKey).toBe(4);
+    }
+    expect(await ben.readText(path)).toBe(await kaan.readText(path));
   });
 });
 
