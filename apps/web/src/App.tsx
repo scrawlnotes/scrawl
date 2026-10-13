@@ -1131,6 +1131,7 @@ export function App() {
             active={active}
             titles={tabTitles}
             tree={tree}
+            spaces={spaces}
             filters={filters}
             counts={counts}
             item={itemLayer}

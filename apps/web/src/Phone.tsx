@@ -1,9 +1,10 @@
-import { basename, INBOX, INBOX_TASKS, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
+import { INBOX, INBOX_TASKS, inSpace, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type FormEvent, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
-import { boardOf, collectionTab, filterOf, filterTab, folderOf, iconOf, isNote, nameOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardOf, collectionPathOf, collectionTab, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { Empty, useViewport } from './sheets';
 
@@ -51,6 +52,8 @@ export interface PhoneProps {
   active: string | null;
   titles: Record<string, string>;
   tree: TreeNode[];
+  /** The spaces beside the personal one, each a section of Browse. */
+  spaces: SpaceView[];
   filters: TaskFilter[];
   counts: Record<string, number>;
   /** Where the app draws what is open; moved into the page that shows it. */
@@ -179,7 +182,7 @@ function folderPaths(nodes: TreeNode[], into = new Set<string>()): Set<string> {
   return into;
 }
 
-const folderName = (path: string) => (path === INBOX ? t('side.inbox') : basename(path));
+const folderName = (path: string) => (path === INBOX ? t('side.inbox') : folderLabel(path));
 
 /** The things opened last, the latest first; what was never seen keeps the order it was opened in. */
 const recentOf = (tabs: string[], seen: Record<string, number>): string[] =>
@@ -335,7 +338,7 @@ function PageFrame({ nav, title, sub, head, children }: {
 }
 
 /** A folder named where it will be, as in the sidebar: its icon, the name, Add and ×. */
-function FolderForm({ onAdd, onCancel }: { onAdd: (name: string) => Promise<string | null>; onCancel: () => void }) {
+export function FolderForm({ onAdd, onCancel }: { onAdd: (name: string) => Promise<string | null>; onCancel: () => void }) {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const submit = async (event: FormEvent) => {
@@ -738,6 +741,9 @@ export function Phone(props: PhoneProps) {
         </>
       );
     }
+    // Something of another space says the space before its folder: `Acme · Sales`.
+    const where = spaceWhere(pathOf(id) ?? collectionPathOf(id) ?? '');
+    if (where) return where;
     const folder = folderOf(id);
     return folder ? folderName(folder) : '';
   };
@@ -763,8 +769,88 @@ export function Phone(props: PhoneProps) {
     );
   };
 
+  /** A row of Browse for a folder, or for something at a space's top. */
+  const browseRow = (node: TreeNode) => {
+    if (node.kind === 'folder') {
+      return (
+        <Row
+          key={node.path}
+          icon="folder"
+          folder
+          label={node.name}
+          right={countNotes(node) || ''}
+          onClick={() => push({ kind: 'folder', path: node.path })}
+          onHold={folderHold(node.path)}
+        />
+      );
+    }
+    const id = node.kind === 'collection' ? collectionTab(node.path) : tabOf(node.path);
+    const counted = node.kind === 'tasks' || node.kind === 'board' || node.kind === 'collection';
+    return (
+      <Row
+        key={node.path}
+        icon={node.kind}
+        label={titles[node.path] ?? node.title ?? node.name}
+        right={counted ? counts[id] || '' : undefined}
+        onClick={() => openItem(id)}
+        onHold={itemHold(id)}
+      />
+    );
+  };
+
+  /** A space's section of Browse: its name with a new folder's +, and what is at its top. */
+  const spaceSection = (key: string, name: string, parent: string, nodes: TreeNode[], first?: ReactNode) => (
+    <Fragment key={key}>
+      <div className="mb-sec">
+        <span>{name}</span>
+        <button type="button" aria-label={t('side.newFolder')} title={t('side.newFolder')} onClick={() => setNewFolderIn(parent)}>
+          <Icon name="plus" />
+        </button>
+      </div>
+      <div className="mb-list">
+        {newFolderIn === parent && <FolderForm onAdd={(folder) => props.onNewFolder(folder, parent)} onCancel={() => setNewFolderIn(null)} />}
+        {first}
+        {nodes.map(browseRow)}
+      </div>
+    </Fragment>
+  );
+
   const browsePage = () => {
     const inbox = tree.find((node) => node.path === INBOX);
+    const inboxRow = (
+      <Row
+        icon="folder"
+        folder
+        label={t('side.inbox')}
+        right={(inbox && countNotes(inbox)) || ''}
+        onClick={() => push({ kind: 'folder', path: INBOX })}
+        onHold={folderHold(INBOX)}
+      />
+    );
+    const foot = (
+      <div className="mb-list apart">
+        <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
+        <Row icon="cloud" label={t('phone.sync')} right={props.syncWord} onClick={props.onSync} />
+        <Row icon="settings" label={t('side.settings')} onClick={() => push({ kind: 'settings' })} />
+      </div>
+    );
+    // With more than one space, after the Phone spaces view of design/mockups.html: each space is
+    // a section, the personal one first with its inbox, the others in the sidebar's order.
+    if (props.spaces.length > 0) {
+      return (
+        <>
+          {spaceSection(
+            'personal',
+            spaceLabel(null),
+            '',
+            tree.filter((node) => node.kind === 'folder' && node.path !== INBOX),
+            inboxRow,
+          )}
+          {props.spaces.map((space) => spaceSection(space.id, space.name, inSpace(space.id, ''), space.tree))}
+          {foot}
+        </>
+      );
+    }
     return (
       <>
         <div className="mb-list">
@@ -810,7 +896,7 @@ export function Phone(props: PhoneProps) {
   };
 
   const folderPage = (path: string) => {
-    const node = path === INBOX ? tree.find((each) => each.path === INBOX) : findFolder(tree, path);
+    const node = path === INBOX ? tree.find((each) => each.path === INBOX) : findFolder([...tree, ...props.spaces.flatMap((space) => space.tree)], path);
     const children = node?.children ?? [];
     const placed = filters.filter((filter) => placeOf(filter) === path);
     const rows = (

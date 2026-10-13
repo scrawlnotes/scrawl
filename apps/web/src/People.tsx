@@ -32,6 +32,9 @@ export function Who({ name }: { name: string | undefined }) {
   );
 }
 
+/** The first name of someone given a task, as a row shows them; Unnamed for one without a name. */
+export const firstName = (ref: PersonRef, people: Person[] = []) => refName(ref, people)?.split(/\s+/)[0] ?? t('settings.unnamed');
+
 /** Who a task or a card is given to, on its row: their initial and first name. */
 export function AssigneeChip({ assignee, people }: { assignee: PersonRef; people?: Person[] }) {
   const name = refName(assignee, people ?? []);

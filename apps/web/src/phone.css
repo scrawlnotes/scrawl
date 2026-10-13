@@ -4663,3 +4663,13 @@ body > .mb-lifted {
   min-height: 40px;
   font-size: 15px;
 }
+
+/* Create's folders with more than one space: a folder inside another a step in. */
+.mb-create .mb-fr.pick[style*='--d'] {
+  padding-left: calc(14px + var(--d, 0) * 22px);
+}
+
+/* A space's own row in Create, which picks its top. */
+.mb-create .mb-fr.pick > .icon {
+  flex: none;
+}

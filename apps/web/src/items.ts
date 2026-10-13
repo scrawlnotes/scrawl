@@ -91,7 +91,7 @@ export function trailOf(path: string): string {
 }
 
 /** The space and the folder something of another space is in, as the views over every space say it: `Acme · Sales`; null in the personal space. */
-function spaceWhere(path: string): string | null {
+export function spaceWhere(path: string): string | null {
   const space = spaceOf(path);
   if (!space) return null;
   const folder = dirname(localPath(path));

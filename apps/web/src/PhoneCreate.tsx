@@ -1,9 +1,10 @@
-import { basename, type BoardLinks, type CollectionTemplate, defaultCollectionName, INBOX, join, newSchema, type Template } from '@scrawlnotes/core';
+import { basename, type BoardLinks, type CollectionTemplate, defaultCollectionName, INBOX, inSpace, join, localPath, newSchema, spaceOf, type Template } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
 import { COLLECTION_TEMPLATES, type FolderChoice, type ItemKind, KINDS, NAME_HINTS, TEMPLATES, TITLES, useFolderPicker } from './dialogs';
 import { Icon } from './Icon';
-import { collectionLabel, shownPath } from './items';
+import { collectionLabel, shownPath, spaceLabel } from './items';
+import { FolderForm } from './Phone';
 import { Sheet, SheetClose } from './sheets';
 
 // Create on a phone, after the Phone create view of design/mockups.html: + opens the kinds as a
@@ -54,6 +55,8 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
   // A CRM board's links, as chosen; until then they point at Companies and People beside the board.
   const [chosen, setChosen] = useState<Partial<BoardLinks>>({});
   const [error, setError] = useState<string | null>(null);
+  // The space a new folder is being named in, by its key: `''` for the personal one.
+  const [addingIn, setAddingIn] = useState<string | null>(null);
   const busy = useRef(false);
   const picker = useFolderPicker(folders, folder);
   // The name is typed into first; coming back from a list leaves the keyboard down.
@@ -139,7 +142,53 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
             onChange={(event) => picker.filter(event.target.value)}
           />
         </label>
-        <div className="mb-group">
+        {/* With more than one space and nothing typed, after the Phone spaces view of
+            design/mockups.html: each space's folders under its name, with a new folder's + beside
+            it; a space's own row picks its top. */}
+        {!picker.typed && folders.some((path) => spaceOf(path) !== null)
+          ? [...new Set(folders.map(spaceOf))].map((space) => {
+              const key = space ?? '';
+              const inside = folders.filter((path) => spaceOf(path) === space);
+              return (
+                <Fragment key={key}>
+                  <div className="mb-sec">
+                    <span>{spaceLabel(space)}</span>
+                    <button type="button" aria-label={t('side.newFolder')} title={t('side.newFolder')} onClick={() => setAddingIn(key)}>
+                      <Icon name="plus" />
+                    </button>
+                  </div>
+                  {addingIn === key && (
+                    <FolderForm
+                      onAdd={async (name) => {
+                        pick({ folder: space ? inSpace(space, name.trim()) : name.trim(), create: true });
+                        return null;
+                      }}
+                      onCancel={() => setAddingIn(null)}
+                    />
+                  )}
+                  <div className="mb-group">
+                    {inside.map((path) => {
+                      const local = localPath(path);
+                      return (
+                        <button
+                          key={path}
+                          type="button"
+                          className="mb-fr pick"
+                          style={{ '--d': local ? local.split('/').length - 1 : 0 } as CSSProperties}
+                          onClick={() => pick({ folder: path, create: false })}
+                        >
+                          <Icon name={local ? 'folder' : 'space'} />
+                          <span className="in">{local ? (path === INBOX ? t('side.inbox') : basename(local)) : spaceLabel(space)}</span>
+                          <Tick on={!place.create && place.folder === path} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Fragment>
+              );
+            })
+          : null}
+        <div className="mb-group" hidden={!picker.typed && folders.some((path) => spaceOf(path) !== null)}>
           {picker.matches.map((path) => (
             <button key={path} type="button" className="mb-fr pick" onClick={() => pick({ folder: path, create: false })}>
               <Icon name="folder" />
@@ -282,7 +331,7 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
             t('create.folder'),
             <>
               <Icon name="folder" />
-              <span className="tx">{place.create ? t('phone.newFolder', { name: place.folder }) : folderLabel(place.folder)}</span>
+              <span className="tx">{place.create ? t('phone.newFolder', { name: folderLabel(place.folder) }) : folderLabel(place.folder)}</span>
             </>,
             'folder',
           )}

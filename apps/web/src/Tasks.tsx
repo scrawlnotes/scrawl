@@ -51,7 +51,7 @@ import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { boardHeading, boardLabel, boardWhere, collectionLabel, folderLabel, listHeading, listLabel, listWhere } from './items';
-import { AssigneeChip, PersonPicker, type SpacePeople } from './People';
+import { AssigneeChip, firstName, PersonPicker, type SpacePeople } from './People';
 import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
@@ -487,6 +487,12 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
       </span>
     ),
     progress.total > 0 && <span key="progress">{t('tasks.progress', { done: progress.done, total: progress.total })}</span>,
+    task.assignee && (
+      <span key="who">
+        <Icon name="person" />
+        {firstName(task.assignee, actions.people?.(list)?.people)}
+      </span>
+    ),
     task.record && (
       <span key="record">
         <Icon name="collection" />
@@ -1540,6 +1546,12 @@ function CardRow({ board, whole, card, today, actions, grouped }: {
               )}
               {column && <span>{column.name}</span>}
               {phase && <span>{phase.name}</span>}
+              {card.assignee && (
+                <span>
+                  <Icon name="person" />
+                  {firstName(card.assignee, actions.people?.(board)?.people)}
+                </span>
+              )}
             </span>
           </button>
         </div>
