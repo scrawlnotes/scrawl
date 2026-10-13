@@ -95,6 +95,8 @@ export interface TaskActions {
   pickDate?: (list: string, id: string) => void;
   /** On a phone: the record a task is about, picked in a sheet. */
   pickRecord?: (list: string, id: string) => void;
+  /** On a phone: who a task is given to, picked among the people of its space in a sheet. */
+  pickAssignee?: (list: string, id: string) => void;
   /** On a phone: a new task, typed above the keyboard, for a list or a section of it, due on `due` if given. */
   quickAdd?: (list: string, section: string | null, due?: string) => void;
 }

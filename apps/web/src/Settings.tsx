@@ -86,10 +86,11 @@ export interface SettingsProps extends SettingsValues {
 export const settingsSections = () => SECTIONS.filter((section) => section.id !== 'language' || languages.length > 1);
 
 /** What a section is set to, beside it in the list of a phone. */
-export function sectionValue(id: Section, { mode, theme, spaceName, me }: Pick<SettingsValues, 'mode' | 'theme' | 'spaceName' | 'me'>): string {
+export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }: Pick<SettingsValues, 'mode' | 'theme' | 'spaceName' | 'me' | 'spaces'>): string {
   if (id === 'profile') return me?.name ?? t('settings.unnamed');
   if (id === 'appearance') return `${themeById(theme).name} · ${t(MODES.find((choice) => choice.mode === mode)!.label)}`;
-  if (id === 'spaces') return spaceName ?? t('settings.personal');
+  // With more than one space, how many there are; with one, what it is called.
+  if (id === 'spaces') return spaces.length > 0 ? String(spaces.length + 1) : (spaceName ?? t('settings.personal'));
   return languages.find((language) => language.tag === languageTag())?.name ?? '';
 }
 
@@ -364,7 +365,7 @@ function peopleWords(people: Person[], me: Me | null): string | null {
 }
 
 /** A space's row in the list: where it lives, whose folder it is when someone shared it, and who is in it. */
-function spaceWords(space: SpaceView, me: Me | null): string {
+export function spaceWords(space: SpaceView, me: Me | null): string {
   if (!space.source) return space.folder ?? t('settings.inBrowser');
   const owner = space.source.place.owner;
   const who = peopleWords(space.people, me);
@@ -468,15 +469,16 @@ export function RemoveSpaceDialog({ space, onRemove, onClose }: { space: Pick<Sp
  * A folder that is a space already keeps its id and gives its name; one that is the personal
  * space's, another space's, or inside one, is refused with a word why.
  */
-function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onAdd, onDone }: {
-  sync: SyncSnapshot;
+/**
+ * What adding a space goes through, in the window on a computer and in the sheet on a phone: a
+ * name; the account, asked for, connected first when there is none; the folder there, chosen in
+ * the drive's window, which a folder that is a space already, or one that cannot be one, answers;
+ * and adding it.
+ */
+export function useAddSpace({ service, account: given, onAdd, onDone }: {
   service: SyncService;
   /** Signed in already, the page back from Microsoft: the account to choose the folder in. */
   account: Connection['account'] | null;
-  /** The profile has no name: the others of the space would see Unnamed. */
-  unnamed: boolean;
-  /** Goes to Profile, to set the name. */
-  onSetName?: () => void;
   onAdd: SettingsValues['onAddSpace'];
   onDone: (id: string | null) => void;
 }) {
@@ -561,6 +563,24 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
     }
   };
 
+  const ready = !!account && !!folder && !busy;
+  return { name, setName, account, folder, picking, setPicking, signing, error, setError, busy, ready, connect, choose, add };
+}
+
+function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onAdd, onDone }: {
+  sync: SyncSnapshot;
+  service: SyncService;
+  /** Signed in already, the page back from Microsoft: the account to choose the folder in. */
+  account: Connection['account'] | null;
+  /** The profile has no name: the others of the space would see Unnamed. */
+  unnamed: boolean;
+  /** Goes to Profile, to set the name. */
+  onSetName?: () => void;
+  onAdd: SettingsValues['onAddSpace'];
+  onDone: (id: string | null) => void;
+}) {
+  const { name, setName, account, folder, picking, setPicking, signing, error, setError, busy, ready, connect, choose, add } = useAddSpace({ service, account: given, onAdd, onDone });
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Escape' || picking) return;
     // The settings behind close on Escape too; this window takes it first.
@@ -569,7 +589,6 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
     onDone(null);
   };
 
-  const ready = !!account && !!folder && !busy;
   return (
     <div className="fp-ovl" onMouseDown={(event) => event.target === event.currentTarget && onDone(null)}>
       <div className="fp space-add" role="dialog" aria-modal="true" aria-label={t('space.addTitle')} tabIndex={-1} onKeyDown={onKeyDown}>
@@ -711,7 +730,7 @@ const BackRow = ({ onBack }: { onBack: () => void }) => (
 );
 
 /** The personal space: its name, its folder and its sync, as before; and this device's name. */
-function PersonalPage({
+export function PersonalPage({
   spaceName,
   onRenameSpace,
   folder,
@@ -721,11 +740,11 @@ function PersonalPage({
   sync,
   syncService,
   onBack,
-}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'> & { onBack: () => void }) {
+}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'> & { onBack?: () => void }) {
   const name = spaceName ?? t('settings.personal');
   return (
     <>
-      <BackRow onBack={onBack} />
+      {onBack && <BackRow onBack={onBack} />}
       <div className="st-space">
         <div className="top">
           <Icon name="space" />

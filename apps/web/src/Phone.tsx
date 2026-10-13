@@ -5,8 +5,9 @@ import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
 import { boardOf, collectionPathOf, collectionTab, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
-import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
-import { Empty, useViewport } from './sheets';
+import { PersonalPage, type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
+import { PhoneAddSpaceSheet, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
+import { ActionSheet, Empty, useViewport } from './sheets';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
 // Recent, Browse and Today at its foot, and in each of them a stack of pages. A page slides in from the
@@ -28,6 +29,7 @@ type PageKind =
   | { kind: 'trash' }
   | { kind: 'settings' }
   | { kind: 'section'; section: Section }
+  | { kind: 'space'; id: string | null }
   | { kind: 'history'; path: string }
   | { kind: 'version'; path: string; version: Version }
   | { kind: 'card'; board: string; id: string }
@@ -276,14 +278,18 @@ function Row({ icon, label, sub, right, folder, onClick, onHold }: {
   );
 }
 
-/** The bar at the top of a page: the way back, and the page's menu, with Done while typing; scrolled, the page's name. */
-function NavBar({ back, onBack, title, scrolled, onMenu, onDone }: {
+/**
+ * The bar at the top of a page: the way back, and the page's menu, with Done while typing; or a
+ * word that does what the page offers, Reorder; scrolled, the page's name.
+ */
+function NavBar({ back, onBack, title, scrolled, onMenu, onDone, action }: {
   back?: string;
   onBack?: () => void;
   title?: string;
   scrolled: boolean;
   onMenu?: (event: MouseEvent) => void;
   onDone?: () => void;
+  action?: { label: string; run: () => void };
 }) {
   if (!back && !onMenu) return null;
   return (
@@ -304,6 +310,11 @@ function NavBar({ back, onBack, title, scrolled, onMenu, onDone }: {
         // Pressed, it keeps the focus where it is until Done takes it away.
         <button type="button" className="mb-done" onMouseDown={(event) => event.preventDefault()} onClick={onDone}>
           {t('phone.done')}
+        </button>
+      )}
+      {action && (
+        <button type="button" className="mb-done" onClick={action.run}>
+          {action.label}
         </button>
       )}
     </div>
@@ -396,6 +407,11 @@ export function Phone(props: PhoneProps) {
   const [pull, setPull] = useState<number | null>(null);
   const [due, setDue] = useState<'today' | 'upcoming'>('today');
   const [newFolderIn, setNewFolderIn] = useState<string | null>(null);
+  // Settings › Spaces: reordering the spaces, adding one, a space's menu and the question before it leaves this phone.
+  const [reordering, setReordering] = useState(false);
+  const [addingSpace, setAddingSpace] = useState(false);
+  const [spaceMenu, setSpaceMenu] = useState<string | null>(null);
+  const [removingSpace, setRemovingSpace] = useState<string | null>(null);
   const view = useViewport();
   const keyboard = view.keyboard;
   /** Whether what is open is being typed in: Done shows. */
@@ -715,6 +731,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'trash') return t('side.trash');
     if (page.kind === 'settings') return t('settings.title');
     if (page.kind === 'section') return t(settingsSections().find((each) => each.id === page.section)?.label ?? 'settings.title');
+    if (page.kind === 'space') return page.id ? (props.spaces.find((space) => space.id === page.id)?.name ?? '') : (props.settings.values.spaceName ?? t('settings.personal'));
     if (page.kind === 'history') return t('history.title');
     if (page.kind === 'card') return props.card.label(page.board, page.id);
     if (page.kind === 'record') return props.record.label(page.dir, page.id);
@@ -1051,12 +1068,38 @@ export function Phone(props: PhoneProps) {
         </>
       );
     }
+    if (page.kind === 'section' && page.section === 'spaces') {
+      return (
+        <PageFrame title={titleOf(page, of)} nav={{ ...nav, action: { label: reordering ? t('phone.done') : t('phone.reorder'), run: () => setReordering(!reordering) } }}>
+          <PhoneSpacesList values={props.settings.values} reordering={reordering} onOpen={(id) => push({ kind: 'space', id })} onAdd={() => setAddingSpace(true)} />
+        </PageFrame>
+      );
+    }
     if (page.kind === 'section') {
       return (
         <PageFrame title={titleOf(page, of)} nav={nav}>
           <div className="mb-settings">
-            <SettingsSection section={page.section} {...props.settings.values} />
+            <SettingsSection section={page.section} {...props.settings.values} onSection={(section) => push({ kind: 'section', section })} />
           </div>
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'space') {
+      const space = page.id ? props.spaces.find((each) => each.id === page.id) : undefined;
+      // The personal space is the device's own: its folder and its sync as the settings have them.
+      if (!page.id) {
+        return (
+          <PageFrame title={titleOf(page, of)} sub={t('phone.yoursHere')} nav={nav}>
+            <div className="mb-settings">
+              <PersonalPage {...props.settings.values} />
+            </div>
+          </PageFrame>
+        );
+      }
+      if (!space) return <PageFrame title={titleOf(page, of)} nav={nav}>{null}</PageFrame>;
+      return (
+        <PageFrame title={space.name} sub={spacePlace(space)} nav={{ ...nav, onMenu: () => setSpaceMenu(space.id) }}>
+          <PhoneSpacePage space={space} values={props.settings.values} onSync={props.onSync} />
         </PageFrame>
       );
     }
@@ -1129,6 +1172,40 @@ export function Phone(props: PhoneProps) {
             </div>
           )}
         </div>
+      )}
+      {spaceMenu && (
+        <ActionSheet
+          head={{ icon: 'space', title: props.spaces.find((space) => space.id === spaceMenu)?.name ?? '' }}
+          items={[{ label: t('phone.removeFromPhone'), danger: true, run: () => setRemovingSpace(spaceMenu) }]}
+          onClose={() => setSpaceMenu(null)}
+        />
+      )}
+      {removingSpace &&
+        (() => {
+          const space = props.spaces.find((each) => each.id === removingSpace);
+          return (
+            space && (
+              <RemoveSpaceSheet
+                space={space}
+                onRemove={(deleteFiles) => {
+                  pop();
+                  props.settings.values.onRemoveSpace(space.id, deleteFiles);
+                }}
+                onClose={() => setRemovingSpace(null)}
+              />
+            )
+          );
+        })()}
+      {/* Add space, also when the page came back from Microsoft to choose the new space's folder. */}
+      {(addingSpace || !!props.settings.values.addingAs) && (
+        <PhoneAddSpaceSheet
+          values={props.settings.values}
+          onSetName={() => {
+            setAddingSpace(false);
+            push({ kind: 'section', section: 'profile' });
+          }}
+          onClose={() => setAddingSpace(false)}
+        />
       )}
       {held &&
         createPortal(

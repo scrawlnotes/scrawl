@@ -40,6 +40,7 @@ import { labelHue, useEscape } from './choices';
 import { Icon, type IconName } from './Icon';
 import { boardLabel } from './items';
 import { assigneeLabel, PersonPicker, type SpacePeople, Who } from './People';
+import { PeopleSheet } from './PhoneSpaces';
 import { AssigneeSheet, KindMark, Label, LabelSheet, PhaseSheet, StatusSheet } from './PhoneBoard';
 import { LinkSheet } from './PhoneCollection';
 import { DateSheet, priorityItems } from './PhoneTasks';
@@ -908,6 +909,8 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
   const [linking, setLinking] = useState<Field | null>(null);
   const [over, setOver] = useState<{ dir: string; id: string } | null>(null);
   const records = actions.recordActions;
+  // In a space with people a card is given to one of them; in the personal space a name is typed.
+  const team = actions.people?.(path) ?? null;
   const ctx: ValueContext = {
     records: records.records,
     collection: records.collection,
@@ -1146,9 +1149,12 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
       {picking === 'phase' && <PhaseSheet board={board} current={card.phase ?? null} onPick={(id) => update({ phase: id })} onClose={() => setPicking(null)} />}
       {picking === 'labels' && <LabelSheet board={board} labels={card.labels ?? []} onChange={(labels) => update({ labels })} onClose={() => setPicking(null)} />}
       {picking === 'due' && <DateSheet title={card.title} current={card.due} today={today} onPick={(due) => update({ due })} onClose={() => setPicking(null)} />}
-      {picking === 'assignee' && (
-        <AssigneeSheet value={card.assignee?.name ?? ''} onSave={(name) => update({ assignee: name ? { name } : null })} onClose={() => setPicking(null)} />
-      )}
+      {picking === 'assignee' &&
+        (team ? (
+          <PeopleSheet about={card.title} team={team} current={card.assignee ?? null} onPick={(assignee) => update({ assignee })} onClose={() => setPicking(null)} />
+        ) : (
+          <AssigneeSheet value={card.assignee?.name ?? ''} onSave={(name) => update({ assignee: name ? { name } : null })} onClose={() => setPicking(null)} />
+        ))}
       {editing && <FieldSheet field={editing} value={cardValue(board, card, editing, today)} ctx={ctx} onSave={(next) => setValue(editing, next)} onClose={() => setEditing(null)} />}
       {linking?.collection && (
         <LinkSheet

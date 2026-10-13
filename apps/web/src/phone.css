@@ -4673,3 +4673,139 @@ body > .mb-lifted {
 .mb-create .mb-fr.pick > .icon {
   flex: none;
 }
+
+/* ---------- spaces on a phone: Settings › Spaces, a space's page, Add space, giving to someone ---------- */
+
+.mb-p {
+  margin: 0;
+  padding: 10px 16px;
+  color: var(--sl-faint);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.mb-row:disabled {
+  opacity: 1;
+}
+
+.mb-row .mb-ib {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin-left: 0;
+}
+
+.mb-row .mb-ib + .mb-ib {
+  margin-right: -8px;
+}
+
+.mb-row .mb-ib:first-of-type {
+  margin-left: auto;
+}
+
+.mb-row .mb-ib:disabled {
+  color: var(--sl-faint);
+  opacity: 0.4;
+}
+
+/* A person: a round initial, the name with "you", the email; an inactive one dim. */
+.mb-row.person .who {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 30px;
+  text-align: center;
+}
+
+.mb-row.person .tx b .you {
+  display: inline;
+  color: var(--sl-faint);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.mb-row.person.off,
+.mb-row.person.dim b {
+  color: var(--sl-faint);
+}
+
+.mb-row.person.off .who {
+  opacity: 0.6;
+}
+
+.mb-row .tick {
+  margin-left: auto;
+}
+
+/* Add space: where it lives, with the cloud's mark. */
+.mb-fr .val.place {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mb-fr .val.place .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.mb-fr .val.place small {
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+.mb-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 14px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, #e0a84a 14%, transparent);
+  color: var(--sl-fg);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.mb-warn > .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: #e0a84a;
+}
+
+.mb-warn button {
+  display: block;
+  margin-top: 4px;
+  padding: 0;
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+/* Remove from this phone: the switch for the files here, red, and what it means. */
+.mb-acts .a.tog {
+  justify-content: space-between;
+  font-size: 16px;
+}
+
+.mb-acts .a.tog .mb-sw.on.red {
+  background: var(--sl-p1);
+}
+
+.mb-acts .gone {
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--sl-line);
+  color: var(--sl-p1);
+  font-size: 13px;
+  text-align: center;
+}
+
+.mb-acts .gone + .a::before {
+  display: none;
+}

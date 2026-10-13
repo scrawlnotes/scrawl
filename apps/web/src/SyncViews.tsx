@@ -1095,7 +1095,7 @@ function JobRows({ jobs, height }: { jobs: readonly SyncJob[]; height: number })
 }
 
 /** How a space's sync stands in a word or two. */
-function wordOf({ phase, syncedAt, turn }: SpaceSync): string {
+export function wordOf({ phase, syncedAt, turn }: SpaceSync): string {
   if (phase === 'syncing') return percent(turn?.progress.share ?? 0);
   if (phase === 'off' || phase === 'idle') return syncedAt === null ? t('sync.notYet') : ago(syncedAt);
   return t(STATUS[phase]);

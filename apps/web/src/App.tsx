@@ -104,6 +104,7 @@ import { folderLabel as folderLabelOf, setSpaceNames,
 import { applySize, applyTheme, isPhone, loadMode, loadSize, loadTheme, type Mode, onSystemShade, pageBox, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
 import { Phone } from './Phone';
 import { PhoneCreate } from './PhoneCreate';
+import { PeopleSheet } from './PhoneSpaces';
 import { Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { SyncService } from './sync';
@@ -782,7 +783,7 @@ export function App() {
   // On a phone a task opens as a sheet; its date and record are picked in sheets; + types a new
   // task above the keyboard.
   const [taskSheet, setTaskSheet] = useState<{ list: string; id: string; subtask: boolean } | null>(null);
-  const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record'; list: string; id: string } | null>(null);
+  const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record' | 'assignee'; list: string; id: string } | null>(null);
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
   // On a phone + on a board types a card for the column on screen; the page's menu opens its Fields.
   const [boardAdding, setBoardAdding] = useState(0);
@@ -814,6 +815,7 @@ export function App() {
       open: (list: string, id: string, subtask = false) => setTaskSheet({ list, id, subtask }),
       pickDate: (list: string, id: string) => setTaskPicker({ kind: 'date', list, id }),
       pickRecord: (list: string, id: string) => setTaskPicker({ kind: 'record', list, id }),
+      pickAssignee: (list: string, id: string) => setTaskPicker({ kind: 'assignee', list, id }),
       quickAdd: (list: string, section: string | null, due?: string) => setQuickAdd({ list, section, due: due ?? null }),
     }),
     addSection: (list, name) => session.addSection(list, name),
@@ -1313,6 +1315,12 @@ export function App() {
               const task = tasks[taskPicker.list]?.find((each) => each.id === taskPicker.id);
               if (!task) return null;
               const close = () => setTaskPicker(null);
+              const team = peopleOf(taskPicker.list);
+              if (taskPicker.kind === 'assignee') {
+                return (
+                  team && <PeopleSheet about={task.title} team={team} current={task.assignee ?? null} onPick={(assignee) => session.updateTask(taskPicker.list, task.id, { assignee })} onClose={close} />
+                );
+              }
               return taskPicker.kind === 'date' ? (
                 <DateSheet title={task.title} current={task.due ?? null} today={today} onPick={(due) => session.updateTask(taskPicker.list, task.id, { due })} onClose={close} />
               ) : (

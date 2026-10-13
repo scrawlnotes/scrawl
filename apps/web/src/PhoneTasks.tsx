@@ -17,6 +17,7 @@ import { type FormEvent, type MouseEvent, type ReactNode, useLayoutEffect, useRe
 import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { collectionLabel, listLabel } from './items';
+import { firstName } from './People';
 import { ActionSheet, Sheet, SheetClose } from './sheets';
 import { dueClass, dueLabel, type TaskActions } from './Tasks';
 
@@ -397,6 +398,8 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
     setDescription(task.description ?? '');
   };
   const priorityMenu = () => actions.menu(NO_POINTER, priorityItems(task.priority, (priority) => actions.update(list, task.id, { priority })), head);
+  // In a space with people a task is given to one of them; the personal space has only the user.
+  const team = actions.people?.(list) ?? null;
   const more = () =>
     actions.menu(
       NO_POINTER,
@@ -404,6 +407,7 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
         ...(canNest ? [{ label: t('tasks.addSubtask'), icon: 'plus' as const, run: () => setAdding(true) }] : []),
         { label: t('tasks.dateMenu'), icon: 'calendar', run: () => actions.pickDate?.(list, task.id) },
         { label: t('tasks.priorityMenu'), icon: 'flag', run: priorityMenu },
+        ...(team ? [{ label: t('tasks.assignMenu'), icon: 'person' as const, run: () => actions.pickAssignee?.(list, task.id) }] : []),
         { label: t('tasks.recordMenu'), icon: 'collection', run: () => actions.pickRecord?.(list, task.id) },
         { label: t('tasks.moveTo'), icon: 'move', run: () => actions.moveTo(list, task.id) },
         { label: t('tasks.delete'), icon: 'trash', danger: true, run: () => actions.remove(list, task.id) },
@@ -491,6 +495,13 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
             ),
             priorityMenu,
           )}
+          {team &&
+            field(
+              'person',
+              t('tasks.assignee'),
+              task.assignee ? firstName(task.assignee, team.people) : <span className="none">{t('people.nobody')}</span>,
+              () => actions.pickAssignee?.(list, task.id),
+            )}
           {field(
             'collection',
             t('tasks.record'),
