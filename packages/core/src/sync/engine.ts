@@ -572,7 +572,9 @@ class Turn {
 
   /**
    * Empty folders are synced too. A folder goes on the other side only when nothing synced is
-   * left in it; one that still holds something stays, or comes back.
+   * left in it; one that still holds something stays, or comes back. One deleted here while the
+   * turn ran is still known by what was in it: it is kept until a later turn takes that away
+   * there, and then goes there too, rather than staying there empty and coming back.
    */
   private async folders(): Promise<void> {
     const now = await walk(this.fs);
@@ -600,7 +602,8 @@ class Turn {
         await this.fs.mkdir(path);
         this.state.dirs[key] = path;
       } else if (!here && known !== undefined) {
-        if (there && !holds(key)) await this.remote.remove(known, null).catch(() => undefined);
+        if (holds(key)) continue;
+        if (there) await this.remote.remove(known, null).catch(() => undefined);
         delete this.state.dirs[key];
       }
     }

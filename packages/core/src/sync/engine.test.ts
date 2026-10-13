@@ -359,6 +359,29 @@ describe('sync', () => {
     }
   });
 
+  it('25. takes a folder deleted here while a turn runs away there and on the other device, and never brings it back', async () => {
+    const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+    await laptop.writeText('Client/Brief.md', 'brief');
+    await laptop.writeText('Plan.md', 'plan');
+    await syncLaptop();
+    await syncPhone();
+    // On a disk a folder stays when what was in it goes, as it does not in memory.
+    await phone.mkdir('Client');
+    await phone.writeText('Plan.md', 'plan, changed');
+    await syncPhone();
+    // While the laptop brings the plan, the folder is deleted there.
+    await syncLaptop(interrupted(remote, 'read', () => trashFolder(laptop, 'Client', now())));
+    await syncLaptop();
+    await syncPhone();
+    await syncLaptop();
+    expect(remote.dirPaths()).not.toContain('Client');
+    expect((await remote.changes(null)).changed.some((entry) => entry.path === 'Client')).toBe(false);
+    for (const fs of [laptop, phone]) {
+      expect(await dirs(fs)).not.toContain('Client');
+      expect(await readTrash(fs)).toHaveLength(1);
+    }
+  });
+
   it('16. links two sides that are alike without reading anything, where the remote gives digests', async () => {
     const { remote, laptop, phone, syncLaptop, syncPhone } = setup(true);
     for (const fs of [laptop, phone]) {
