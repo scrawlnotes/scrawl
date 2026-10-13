@@ -8695,3 +8695,35 @@ button.st-li:hover,
   color: var(--sl-faint);
   font-size: 11.5px;
 }
+
+/* A tab's way to what it shows, under it once the pointer rests on it: `Acme › Sales`. */
+.tab-tip {
+  position: fixed;
+  z-index: 60;
+  padding: 3px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font-size: 11.5px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.25);
+  pointer-events: none;
+}
+
+/* The trash with more than one space: each space's deleted items under its own heading. */
+.sec.spc {
+  align-items: center;
+  gap: 6px;
+  padding-top: 18px;
+  color: var(--sl-fg);
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sec.spc > .icon {
+  width: 13px;
+  height: 13px;
+  color: var(--sl-dim);
+}

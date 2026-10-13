@@ -50,7 +50,7 @@ import { createPortal } from 'react-dom';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
-import { boardLabel, collectionLabel, folderLabel, listLabel } from './items';
+import { boardHeading, boardLabel, boardWhere, collectionLabel, folderLabel, listHeading, listLabel, listWhere } from './items';
 import { AssigneeChip, PersonPicker, type SpacePeople } from './People';
 import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
@@ -483,7 +483,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
     flat && !grouped && (
       <span key="list">
         <Icon name="tasks" />
-        {listLabel(list)}
+        {listWhere(list)}
       </span>
     ),
     progress.total > 0 && <span key="progress">{t('tasks.progress', { done: progress.done, total: progress.total })}</span>,
@@ -711,7 +711,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
             {open ? '▾' : '▸'} {t('tasks.progress', { done: progress.done, total: progress.total })}
           </button>
         ))}
-      {flat && !grouped && <span>{listLabel(list)}</span>}
+      {flat && !grouped && <span>{listWhere(list)}</span>}
       {task.assignee && <AssigneeChip assignee={task.assignee} people={team?.people} />}
       {from}
       {fromCard}
@@ -1435,7 +1435,7 @@ export function FilterView({ filter, lists, boards, today, me, actions, onEdit }
   const chips = [
     filter.due !== 'any' && t(`filter.due.${filter.due}`),
     ...[...filter.priorities].sort().map((p) => (p === 4 ? t('filter.noPriority') : `p${p}`)),
-    ...(filter.folders.length > 0 ? filter.folders.map((f) => basename(f)) : [t('filter.allLists')]),
+    ...(filter.folders.length > 0 ? filter.folders.map((f) => folderLabel(f)) : [t('filter.allLists')]),
     ...asked,
     filter.text.trim() && `“${filter.text.trim()}”`,
   ].filter(Boolean);
@@ -1458,7 +1458,7 @@ export function FilterView({ filter, lists, boards, today, me, actions, onEdit }
       {groups.map(({ list, tasks }) => (
         <div key={list}>
           <div className="sec">
-            {listLabel(list)} <small>{tasks.length}</small>
+            {listHeading(list)} <small>{tasks.length}</small>
           </div>
           {tasks.map((task) => (
             <TaskItem
@@ -1478,7 +1478,7 @@ export function FilterView({ filter, lists, boards, today, me, actions, onEdit }
       {cardGroups.map(({ board, cards }) => (
         <div key={board}>
           <div className="sec">
-            {boardLabel(board)} <small>{cards.length}</small>
+            {boardHeading(board)} <small>{cards.length}</small>
           </div>
           {cards.map((card) => (
             <CardRow key={card.id} board={board} whole={boards[board]!} card={card} today={today} actions={actions} grouped />
@@ -1535,7 +1535,7 @@ function CardRow({ board, whole, card, today, actions, grouped }: {
               {!grouped && (
                 <span>
                   <Icon name="board" />
-                  {boardLabel(board)}
+                  {boardWhere(board)}
                 </span>
               )}
               {column && <span>{column.name}</span>}
@@ -1574,7 +1574,7 @@ function CardRow({ board, whole, card, today, actions, grouped }: {
         </button>
         <div className="meta">
           {card.due && <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span>}
-          {!grouped && <span>{boardLabel(board)}</span>}
+          {!grouped && <span>{boardWhere(board)}</span>}
           {column && <span>{column.name}</span>}
           {phase && <span>{phase.name}</span>}
           {card.assignee && <AssigneeChip assignee={card.assignee} people={actions.people?.(board)?.people} />}
@@ -1647,7 +1647,7 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
         {[...byBoard].map(([board, dues]) => (
           <div key={board}>
             <div className="sec">
-              {boardLabel(board)} <small>{dues.length}</small>
+              {boardHeading(board)} <small>{dues.length}</small>
             </div>
             {dues.map((d) => cardItem(d, true))}
           </div>

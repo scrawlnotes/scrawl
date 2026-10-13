@@ -175,14 +175,14 @@ export function filterCards(filter: FilterChoices, boards: Record<string, Board>
     .filter((group) => group.cards.length > 0);
 }
 
-/** A name made of what a filter picks, for one left unnamed: `This week · p1`. */
-export function filterName(filter: FilterChoices): string {
+/** A name made of what a filter picks, for one left unnamed: `This week · p1`. `folderName` words a folder it looks in. */
+export function filterName(filter: FilterChoices, folderName: (folder: string) => string = basename): string {
   const parts: string[] = [];
   if (filter.due !== 'any') parts.push(t(`filter.due.${filter.due}`));
   if (filter.priorities.length > 0) {
     parts.push([...filter.priorities].sort().map((p) => (p === 4 ? t('filter.noPriority') : `p${p}`)).join(', '));
   }
-  if (filter.folders.length > 0) parts.push(filter.folders.map((f) => basename(f)).join(', '));
+  if (filter.folders.length > 0) parts.push(filter.folders.map((f) => folderName(f)).join(', '));
   if (filter.mine) parts.push(t('filter.mine'));
   if (filter.text.trim()) parts.push(`“${filter.text.trim()}”`);
   return parts.join(' · ') || t('filter.everything');

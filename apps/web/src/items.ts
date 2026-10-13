@@ -79,6 +79,46 @@ export function placeLabel(path: string): string {
   return parts.join(' / ');
 }
 
+/** The folders a path is in, inside its space, as words: `Scrawl / meetings`; empty at the top. */
+export function trailOf(path: string): string {
+  return dirname(localPath(path)).split('/').filter(Boolean).join(' / ');
+}
+
+/** The space and the folder something of another space is in, as the views over every space say it: `Acme · Sales`; null in the personal space. */
+function spaceWhere(path: string): string | null {
+  const space = spaceOf(path);
+  if (!space) return null;
+  const folder = dirname(localPath(path));
+  return [spaceNames.get(space) ?? space, ...(folder ? [basename(folder)] : [])].join(' · ');
+}
+
+/** Where a task list is, under a row of Today, Upcoming or a filter: as its tab says, or `Acme · Sales` in another space. */
+export const listWhere = (list: string) => spaceWhere(list) ?? listLabel(list);
+/** Where a board is, under a card's row in those views. */
+export const boardWhere = (board: string) => spaceWhere(board) ?? boardLabel(board);
+/** A task list heading its group in those views: as its tab says, or `Tasks · Acme · Sales` in another space. */
+export const listHeading = (list: string) => {
+  const where = spaceWhere(list);
+  return where ? `${listName(list)} · ${where}` : listLabel(list);
+};
+/** A board heading its group of cards in those views: `Deals · Acme · Sales` in another space. */
+export const boardHeading = (board: string) => {
+  const where = spaceWhere(board);
+  return where ? `${boardName(board)} · ${where}` : boardLabel(board);
+};
+
+/**
+ * The way to what a tab shows, said when the pointer rests on the tab: the space, then its
+ * folders, `Acme › Sales`; `personal` names the personal space. Null for the views over all.
+ */
+export function pathTip(id: string, personal: string): string | null {
+  const path = pathOf(id) ?? collectionPathOf(id);
+  if (path === null) return null;
+  const space = spaceOf(path);
+  const folders = dirname(localPath(path)).split('/').filter(Boolean);
+  return [space ? (spaceNames.get(space) ?? space) : personal, ...folders].join(' › ');
+}
+
 /** The folder a tab's note, task list or board is in; null for the views over all folders. */
 export function folderOf(id: string): string | null {
   const collection = collectionPathOf(id);

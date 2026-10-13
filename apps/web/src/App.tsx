@@ -95,12 +95,13 @@ import { folderLabel as folderLabelOf, setSpaceNames,
   listOf,
   nameOf,
   pathOf,
+  pathTip,
   tasksOf,
   TODAY,
   TRASH,
   UPCOMING,
 } from './items';
-import { applySize, applyTheme, isPhone, loadMode, loadSize, loadTheme, type Mode, onSystemShade, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
+import { applySize, applyTheme, isPhone, loadMode, loadSize, loadTheme, type Mode, onSystemShade, pageBox, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
 import { Phone } from './Phone';
 import { PhoneCreate } from './PhoneCreate';
 import { Session, type SpaceView } from './session';
@@ -112,7 +113,7 @@ import { Sidebar } from './Sidebar';
 import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
 import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
-import { TrashView } from './Trash';
+import { type TrashSpace, TrashView } from './Trash';
 import { Welcome } from './Welcome';
 import { chooseSpaceFolder, isDesktop, openUrlOnDesktop, saveTextFile } from './storage';
 
@@ -134,6 +135,8 @@ type OpenDialog =
 
 // A tab being dragged to another place in the tab bar.
 const TAB_DRAG_TYPE = 'application/x-scrawl-tab';
+/** How long the pointer rests on a tab before it says the way to what it shows. */
+const TAB_TIP_MS = 500;
 
 // Ctrl+N and Ctrl+W belong to the browser on the web, so Alt is used there.
 const keys = (key: string) => `${isDesktop ? 'Ctrl' : 'Alt'}+${key}`;
@@ -747,6 +750,22 @@ export function App() {
   // No mark where the tab would not move: right before or after itself.
   const draggedFrom = draggedTab ? tabs.indexOf(draggedTab) : -1;
   const shownGap = tabGap !== null && tabGap !== draggedFrom && tabGap !== draggedFrom + 1 ? tabGap : null;
+  // With more than one space, a tab says the way to what it shows once the pointer rests on it:
+  // `Acme › Sales`. Its name stays as it is.
+  const [tabTip, setTabTip] = useState<{ text: string; left: number; top: number } | null>(null);
+  const tipTimer = useRef(0);
+  const showTabTip = (event: MouseEvent<HTMLElement>, id: string) => {
+    const text = spaces.length > 0 ? pathTip(id, space.name ?? t('settings.personal')) : null;
+    if (!text) return;
+    const box = pageBox(event.currentTarget);
+    window.clearTimeout(tipTimer.current);
+    tipTimer.current = window.setTimeout(() => setTabTip({ text, left: box.left + 10, top: box.bottom + 4 }), TAB_TIP_MS);
+  };
+  const hideTabTip = () => {
+    window.clearTimeout(tipTimer.current);
+    setTabTip(null);
+  };
+  useEffect(() => () => window.clearTimeout(tipTimer.current), []);
   const tabClass = (id: string, i: number) =>
     [
       'tab',
@@ -913,6 +932,8 @@ export function App() {
     notice: setNotice,
     ask: (title, message, run) => ask(title, message, run),
   };
+  // The trash goes by space when there is more than one, the personal space first.
+  const trashSpaces: TrashSpace[] = [{ id: null, name: space.name ?? t('settings.personal') }, ...spaces.map((each) => ({ id: each.id, name: each.name }))];
   const dueNow = dueToday(tasks, today);
   const dueCardsNow = dueCards(boards).filter((d) => d.card.due! <= today).length;
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [TRASH]: trash.length };
@@ -1030,6 +1051,7 @@ export function App() {
       <TrashView
         items={trash}
         today={today}
+        spaces={trashSpaces}
         onRestore={(item) => void session.restore(item)}
         onDelete={deleteForever}
         onEmpty={askEmptyTrash}
@@ -1114,7 +1136,7 @@ export function App() {
             dueView={(kind) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare />}
             canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null || (keysPathOf(id) !== null && keysLooks[keysPathOf(id)!]?.view !== 'text') || (collectionPathOf(id) !== null && (collections[collectionPathOf(id)!]?.schema.fields.length ?? 0) > 0)}
             onAdd={phoneAdd}
-            trashView={<TrashView items={trash} today={today} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
+            trashView={<TrashView items={trash} today={today} spaces={trashSpaces} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
             syncWord={syncWord(sync)}
             notice={notice}
             update={
@@ -1384,7 +1406,10 @@ export function App() {
                 role="tab"
                 aria-selected={id === active}
                 draggable
+                onMouseEnter={(event) => showTabTip(event, id)}
+                onMouseLeave={hideTabTip}
                 onDragStart={(event) => {
+                  hideTabTip();
                   event.dataTransfer.setData(TAB_DRAG_TYPE, id);
                   event.dataTransfer.effectAllowed = 'move';
                   setDraggedTab(id);
@@ -1393,7 +1418,10 @@ export function App() {
                   setDraggedTab(null);
                   setTabGap(null);
                 }}
-                onMouseDown={(event) => event.button === 1 && void session.close(id)}
+                onMouseDown={(event) => {
+                  hideTabTip();
+                  if (event.button === 1) void session.close(id);
+                }}
                 onContextMenu={(event) => {
                   const path = pathOf(id);
                   if (path) itemMenu(event, path);
@@ -1425,6 +1453,13 @@ export function App() {
             </button>
           </div>
           {itemContent}
+          {tabTip &&
+            createPortal(
+              <div className="tab-tip" role="tooltip" style={{ left: tabTip.left, top: tabTip.top }}>
+                {tabTip.text}
+              </div>,
+              document.body,
+            )}
           <footer className="status">
             {stats && <span>{position(stats)}</span>}
             {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
@@ -1547,7 +1582,8 @@ export function App() {
       {dialog?.kind === 'filter' && (
         <FilterDialog
           filter={dialog.filter}
-          folders={topFolders}
+          // The personal space's top folders, then every other space as a whole.
+          folders={[...topFolders, ...spaces.map((each) => inSpace(each.id, ''))]}
           places={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
           place={dialog.place ?? newFolder}
           count={(choices) =>

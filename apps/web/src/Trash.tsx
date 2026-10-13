@@ -1,7 +1,7 @@
-import { dayOf, dirname, type TrashItem } from '@scrawlnotes/core';
+import { addDays, dayOf, spaceOf, type TrashItem } from '@scrawlnotes/core';
 import { sizeText } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
-import { placeLabel } from './items';
+import { placeLabel, trailOf } from './items';
 import { isPhone } from './device';
 import { Icon, type IconName } from './Icon';
 import { Empty } from './sheets';
@@ -14,13 +14,30 @@ const AUDIO = /\.(webm|ogg|oga|opus|mp3|m4a|aac|wav|flac)$/i;
 const iconOf = (item: TrashItem): IconName =>
   item.kind !== 'attachment' ? ICONS[item.kind] : IMAGE.test(item.title) ? 'image' : AUDIO.test(item.title) ? 'audio' : 'file';
 
-/** The folder an item goes back to, as a path to read: `Scrawl / meetings`; empty for the top level. */
-const placeOf = (from: string) => placeLabel(from);
+/** A space whose deleted items are a group of the trash; `id` null is the personal space. */
+export interface TrashSpace {
+  id: string | null;
+  name: string;
+}
 
-function TrashRow({ item, onRestore, onDelete }: { item: TrashItem; onRestore: () => void; onDelete: () => void }) {
+/**
+ * When an item was deleted, under a space's heading where no day heads the rows: the day, and
+ * the time when it was today or yesterday: `Today, 11:35`, `Oct 1`.
+ */
+function whenOf(item: TrashItem, today: string): string {
+  const day = dayOf(new Date(item.deleted));
+  const label = pastDayLabel(day, today);
+  return day >= addDays(today, -1) ? `${label}, ${clockTime(item.deleted)}` : label;
+}
+
+/**
+ * A row of the trash. Under a day's heading it tells the folder with its space and the time; under
+ * a space's heading the folder in the space and when.
+ */
+function TrashRow({ item, today, bySpace, onRestore, onDelete }: { item: TrashItem; today: string; bySpace: boolean; onRestore: () => void; onDelete: () => void }) {
   // An attached file goes back to the attachments, which is no place to name.
   const file = item.kind === 'attachment';
-  const place = file ? '' : placeOf(item.from);
+  const place = file ? '' : bySpace ? trailOf(item.from) : placeLabel(item.from);
   const meta = [
     place,
     file && t('trash.unused'),
@@ -30,7 +47,7 @@ function TrashRow({ item, onRestore, onDelete }: { item: TrashItem; onRestore: (
     item.cards !== undefined && item.cards > 0 && t('count.cards', { count: item.cards }),
     item.keys !== undefined && item.keys > 0 && t('count.keys', { count: item.keys }),
     item.records !== undefined && item.records > 0 && t('count.records', { count: item.records }),
-    clockTime(item.deleted),
+    bySpace ? whenOf(item, today) : clockTime(item.deleted),
   ].filter(Boolean);
   const restore = file ? t('trash.restore') : t('trash.restoreTo', { place: place || t('trash.topLevel') });
   return (
@@ -56,14 +73,24 @@ function TrashRow({ item, onRestore, onDelete }: { item: TrashItem; onRestore: (
   );
 }
 
-/** The trash: what was deleted, by the day it was, with a way back for each item. */
-export function TrashView({ items, today, onRestore, onDelete, onEmpty }: {
+/**
+ * The trash: what was deleted, by the day it was, with a way back for each item. With more than
+ * one space, after the Spaces trash view of design/mockups.html: one screen still, each space's
+ * deleted items under its own heading, in the sidebar's order.
+ */
+export function TrashView({ items, today, spaces = [], onRestore, onDelete, onEmpty }: {
   items: TrashItem[];
   today: string;
+  /** Every space, the personal one first; with more than one the trash goes by space. */
+  spaces?: TrashSpace[];
   onRestore: (item: TrashItem) => void;
   onDelete: (item: TrashItem) => void;
   onEmpty: () => void;
 }) {
+  const bySpace = spaces.length > 1;
+  const spaceGroups = bySpace
+    ? spaces.map((space) => ({ space, items: items.filter((item) => spaceOf(item.path) === space.id) })).filter((group) => group.items.length > 0)
+    : [];
   // The items come latest first, so each day's group comes out in order too.
   const days: { day: string; items: TrashItem[] }[] = [];
   for (const item of items) {
@@ -86,16 +113,28 @@ export function TrashView({ items, today, onRestore, onDelete, onEmpty }: {
         )}
       </header>
       <div className="tl">
-        {days.map(({ day, items: dayItems }) => (
-          <div key={day}>
-            <div className="sec">
-              {pastDayLabel(day, today)} <small>{dayItems.length}</small>
-            </div>
-            {dayItems.map((item) => (
-              <TrashRow key={item.path} item={item} onRestore={() => onRestore(item)} onDelete={() => onDelete(item)} />
+        {bySpace
+          ? spaceGroups.map(({ space, items: spaceItems }) => (
+              <div key={space.id ?? ''}>
+                <div className="sec spc">
+                  <Icon name="space" />
+                  {space.name} <small>{spaceItems.length}</small>
+                </div>
+                {spaceItems.map((item) => (
+                  <TrashRow key={item.path} item={item} today={today} bySpace onRestore={() => onRestore(item)} onDelete={() => onDelete(item)} />
+                ))}
+              </div>
+            ))
+          : days.map(({ day, items: dayItems }) => (
+              <div key={day}>
+                <div className="sec">
+                  {pastDayLabel(day, today)} <small>{dayItems.length}</small>
+                </div>
+                {dayItems.map((item) => (
+                  <TrashRow key={item.path} item={item} today={today} bySpace={false} onRestore={() => onRestore(item)} onDelete={() => onDelete(item)} />
+                ))}
+              </div>
             ))}
-          </div>
-        ))}
         {items.length > 0 ? (
           <p className="trash-note">{t('trash.note')}</p>
         ) : isPhone() ? (

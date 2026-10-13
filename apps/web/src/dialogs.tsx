@@ -36,7 +36,7 @@ import { type Option, Picker } from './choices';
 import { ConditionRow } from './Collection';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import { Icon, type IconName } from './Icon';
-import { collectionLabel, shownPath } from './items';
+import { collectionLabel, folderLabel, shownPath } from './items';
 import { ActionSheet, AskSheet, Sheet, SheetClose } from './sheets';
 
 interface DialogProps {
@@ -515,7 +515,7 @@ function Chips<T>({ label, items, picked, onPick, name }: {
 export function FilterDialog({ filter, folders, places, place, count, withPeople = false, fields, records, onSave, onClose }: {
   /** The filter changed; null for a new one. */
   filter: TaskFilter | null;
-  /** The top-level folders, the inbox first. */
+  /** The top-level folders, the inbox first, then every other space as a whole. */
   folders: string[];
   /** Every folder the filter can sit in, the inbox first. */
   places: string[];
@@ -552,7 +552,7 @@ export function FilterDialog({ filter, folders, places, place, count, withPeople
       ...rest,
       ...(asked.length > 0 && { fields: asked }),
       id: filter?.id ?? crypto.randomUUID(),
-      name: name.trim() || filterName(choices),
+      name: name.trim() || filterName(choices, folderLabel),
       text: choices.text.trim(),
       ...(where !== INBOX && { folder: where }),
     });
@@ -573,7 +573,7 @@ export function FilterDialog({ filter, folders, places, place, count, withPeople
       <h2>{t('filter.title')}</h2>
       <div className="frow">
         <span>{t('filter.name')}</span>
-        <input aria-label={t('filter.name')} placeholder={filterName(choices)} autoFocus value={name} onChange={(event) => setName(event.target.value)} />
+        <input aria-label={t('filter.name')} placeholder={filterName(choices, folderLabel)} autoFocus value={name} onChange={(event) => setName(event.target.value)} />
       </div>
       <div className="frow">
         <span>{t('filter.folder')}</span>
@@ -594,7 +594,7 @@ export function FilterDialog({ filter, folders, places, place, count, withPeople
       />
       <Chips<string | null>
         label={t('filter.in')}
-        items={[{ value: null, label: t('filter.allLists') }, ...folders.map((f) => ({ value: f, label: f }))]}
+        items={[{ value: null, label: t('filter.allLists') }, ...folders.map((f) => ({ value: f, label: folderLabel(f) }))]}
         picked={(f) => (f === null ? choices.folders.length === 0 : choices.folders.includes(f))}
         onPick={(f) => setChoices({ ...choices, folders: f === null ? [] : toggle(choices.folders, f) })}
       />
