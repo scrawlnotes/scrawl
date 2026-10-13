@@ -39,6 +39,17 @@ const STATE_FILES = ['.scrawl/sync-state.json', '.scrawl/sync-base'];
 /** The key of the personal space among the spaces that sync. */
 const PERSONAL = '';
 
+/**
+ * Runs a turn of one space alone among the tabs and windows of the app in this browser: they
+ * share the space's files and its sync state, and two turns of one space must not run at once.
+ * One asked for while another tab's runs waits for it, and then finds what that one brought.
+ * Where the browser has no locks, it runs at once.
+ */
+function alone<T>(space: string | null, turn: () => Promise<T>): Promise<T> {
+  if (!('locks' in navigator)) return turn();
+  return navigator.locks.request(`scrawl.sync:${space ?? PERSONAL}`, turn);
+}
+
 export interface Connection {
   provider: 'onedrive';
   /** The space it is for: the desktop's notes folder, or the browser's own vault; `space:` and its id for a space beside it. */
@@ -434,11 +445,15 @@ export class SyncService {
     };
     this.change(unit, { phase: 'syncing', turn: view(null, false) });
     try {
-      await this.session.beforeSync();
-      const report = await syncOnce(unit.vault, this.storeFor(unit), device, { onProgress });
+      const report = await alone(unit.space, async () => {
+        // The space may have been closed, removed or disconnected while another tab's turn ran.
+        if (unit.gone || unit.connection !== connection) return null;
+        await this.session.beforeSync();
+        return syncOnce(unit.vault, this.storeFor(unit), device, { onProgress });
+      });
       window.clearTimeout(timer);
       // The space may have been closed, removed or disconnected while the turn ran.
-      if (unit.gone || unit.connection !== connection) return;
+      if (!report || unit.gone || unit.connection !== connection) return;
       await this.session.afterSync(report, unit.space);
       const copy = report.conflicts.at(-1);
       const turn = view(Date.now(), false);
