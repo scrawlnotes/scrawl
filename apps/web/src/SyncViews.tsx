@@ -39,7 +39,7 @@ export function useTicking(on: boolean) {
  * Why a folder in the cloud is gone, and what to do: the personal space chooses another; a space
  * lives in its folder, so it is gone with it, or no longer open to you, and its copy stays here.
  */
-const goneLong = (space: string | null) => t(space ? 'sync.spaceGoneLong' : 'sync.folderGoneLong');
+export const goneLong = (space: string | null) => t(space ? 'sync.spaceGoneLong' : 'sync.folderGoneLong');
 
 /** Where a phase stands, in the settings: words, and the colour of its dot; `space` null for the personal one. */
 function stateOf(sync: SpaceSync, space: string | null = null): { text: string; tone: 'ok' | 'busy' | 'off' | 'bad' } {
@@ -419,61 +419,7 @@ function SharedFolderPane({ account, service, found, onFound }: {
   found: Connection['folder'] | null;
   onFound: (folder: Connection['folder'] | null) => void;
 }) {
-  const [allowed, setAllowed] = useState(() => service.wide());
-  const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
-  const [link, setLink] = useState('');
-  const [finding, setFinding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => () => signing?.cancel(), [signing]);
-
-  // A link is looked up as soon as it is pasted or typed out, a moment after the last key.
-  useEffect(() => {
-    const typed = link.trim();
-    onFound(null);
-    setError(null);
-    if (!allowed || !/^https?:\/\/\S+$/i.test(typed)) return;
-    let live = true;
-    const timer = window.setTimeout(() => {
-      setFinding(true);
-      service.sharedFolder(typed).then(
-        (folder) => {
-          if (!live) return;
-          setFinding(false);
-          if (folder) onFound(folder);
-          else setError(t('sync.linkNotFolder'));
-        },
-        () => {
-          if (!live) return;
-          setFinding(false);
-          setError(t('sync.linkNotFound'));
-        },
-      );
-    }, 400);
-    return () => {
-      live = false;
-      window.clearTimeout(timer);
-    };
-  }, [link, allowed]);
-
-  const allow = async () => {
-    const cloud = service.cloud();
-    setError(null);
-    if (cloud.redirects) {
-      await service.leaveToSignIn('shared');
-      return;
-    }
-    const attempt = cloud.signIn('shared', account.email);
-    setSigning(attempt);
-    try {
-      await attempt.done;
-      setAllowed(service.wide());
-    } catch (failure) {
-      if (!(failure instanceof DOMException && failure.name === 'AbortError')) setError(t('sync.signInFailed', { error: failure instanceof Error ? failure.message : String(failure) }));
-    } finally {
-      setSigning(null);
-    }
-  };
-
+  const { allowed, signing, link, setLink, finding, error, allow } = useSharedFolder({ account, service, onFound });
   if (!allowed) {
     return (
       <div className="fp-allow">
@@ -535,6 +481,73 @@ function SharedFolderPane({ account, service, found, onFound }: {
   );
 }
 
+/**
+ * Finding a folder someone shared by its link, as the folder window and a phone's sheet do it:
+ * the wider permission first, allowed once; then the link, looked up a moment after it is typed.
+ */
+export function useSharedFolder({ account, service, onFound }: {
+  account: Connection['account'];
+  service: SyncService;
+  onFound: (folder: Connection['folder'] | null) => void;
+}) {
+  const [allowed, setAllowed] = useState(() => service.wide());
+  const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
+  const [link, setLink] = useState('');
+  const [finding, setFinding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => () => signing?.cancel(), [signing]);
+
+  // A link is looked up as soon as it is pasted or typed out, a moment after the last key.
+  useEffect(() => {
+    const typed = link.trim();
+    onFound(null);
+    setError(null);
+    if (!allowed || !/^https?:\/\/\S+$/i.test(typed)) return;
+    let live = true;
+    const timer = window.setTimeout(() => {
+      setFinding(true);
+      service.sharedFolder(typed).then(
+        (folder) => {
+          if (!live) return;
+          setFinding(false);
+          if (folder) onFound(folder);
+          else setError(t('sync.linkNotFolder'));
+        },
+        () => {
+          if (!live) return;
+          setFinding(false);
+          setError(t('sync.linkNotFound'));
+        },
+      );
+    }, 400);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [link, allowed]);
+
+  const allow = async () => {
+    const cloud = service.cloud();
+    setError(null);
+    if (cloud.redirects) {
+      await service.leaveToSignIn('shared');
+      return;
+    }
+    const attempt = cloud.signIn('shared', account.email);
+    setSigning(attempt);
+    try {
+      await attempt.done;
+      setAllowed(service.wide());
+    } catch (failure) {
+      if (!(failure instanceof DOMException && failure.name === 'AbortError')) setError(t('sync.signInFailed', { error: failure instanceof Error ? failure.message : String(failure) }));
+    } finally {
+      setSigning(null);
+    }
+  };
+
+  return { allowed, signing, link, setLink, finding, error, allow };
+}
+
 /** The folder suggested for the personal space, at the top of the drive. */
 const DEFAULT_FOLDER = 'Scrawl';
 
@@ -556,87 +569,14 @@ interface PickerProps {
  * one click if it is not there.
  */
 export function FolderPicker({ account, service, suggested, withShared = false, startShared = false, onUse, onCancel }: PickerProps) {
-  const SUGGESTED = suggested?.trim() || DEFAULT_FOLDER;
   const [tab, setTab] = useState<'mine' | 'shared'>(withShared && startShared ? 'shared' : 'mine');
   const [shared, setShared] = useState<Connection['folder'] | null>(null);
-  /** The folders gone into, from the top of the drive (id null). */
-  const [trail, setTrail] = useState<{ id: string | null; name: string }[]>([{ id: null, name: t('sync.oneDrive') }]);
-  const [folders, setFolders] = useState<OneDriveFolder[] | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
-  /** The folder chosen: an id, or `new:` and a name for the suggested one not made yet. */
-  const [chosen, setChosen] = useState<string | null>(null);
-  const [making, setMaking] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { suggested: SUGGESTED, trail, setTrail, here, atTop, folders, failed, chosen, setChosen, making, setMaking, busy, load, enter, up, suggestedNew, target, use, make } = useFolderChoice({ service, suggested, onUse });
   const box = useRef<HTMLDivElement>(null);
-  const here = trail.at(-1)!;
-  const atTop = trail.length === 1;
 
   useEffect(() => {
     box.current?.focus();
   }, []);
-
-  const load = async (id: string | null, choose?: string) => {
-    setFolders(null);
-    setFailed(null);
-    try {
-      const list = await service.folders(id);
-      setFolders(list);
-      const suggested = id === null ? list.find((f) => f.name.toLowerCase() === SUGGESTED.toLowerCase()) : undefined;
-      setChosen(choose ?? suggested?.id ?? (id === null ? `new:${SUGGESTED}` : null));
-    } catch (error) {
-      setFailed(error instanceof Error ? error.message : String(error));
-    }
-  };
-
-  useEffect(() => {
-    void load(here.id);
-  }, [here.id]);
-
-  const enter = (folder: OneDriveFolder) => {
-    setMaking(null);
-    setTrail([...trail, { id: folder.id, name: folder.name }]);
-  };
-  const up = () => {
-    setMaking(null);
-    setTrail(trail.slice(0, -1));
-  };
-  const pathOf = (name: string) => `/${[...trail.slice(1).map((step) => step.name), name].join('/')}`;
-
-  const suggestedNew = atTop && folders !== null && !folders.some((f) => f.name.toLowerCase() === SUGGESTED.toLowerCase());
-  const chosenFolder = folders?.find((f) => f.id === chosen) ?? null;
-  // Nothing chosen inside a folder: that folder itself.
-  const target = chosenFolder ? chosenFolder.name : chosen?.startsWith('new:') ? SUGGESTED : atTop ? null : here.name;
-
-  const use = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      if (chosen?.startsWith('new:')) {
-        const made = await service.createFolder(here.id, SUGGESTED);
-        onUse({ id: made.id, path: pathOf(made.name) });
-      } else if (chosenFolder) onUse({ id: chosenFolder.id, path: pathOf(chosenFolder.name) });
-      else if (here.id) onUse({ id: here.id, path: `/${trail.slice(1).map((step) => step.name).join('/')}` });
-    } catch (error) {
-      setFailed(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const make = async () => {
-    const name = making?.trim();
-    if (!name || busy) return;
-    setBusy(true);
-    try {
-      const made = await service.createFolder(here.id, name);
-      setMaking(null);
-      await load(here.id, made.id);
-    } catch (error) {
-      setFailed(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Escape') return;
@@ -783,7 +723,91 @@ export function FolderPicker({ account, service, suggested, withShared = false, 
   );
 }
 
-const STATUS: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, MessageKey> = {
+/**
+ * Going through the folders of the cloud drive to choose one, as the folder window and a phone's
+ * sheet do it: the folders gone into and out of, one chosen, a new one made in place, and at the
+ * top of the drive the suggested folder, made when it is used if it is not there.
+ */
+export function useFolderChoice({ service, suggested, onUse }: { service: SyncService; suggested?: string; onUse: (folder: Connection['folder']) => void }) {
+  const SUGGESTED = suggested?.trim() || DEFAULT_FOLDER;
+  /** The folders gone into, from the top of the drive (id null). */
+  const [trail, setTrail] = useState<{ id: string | null; name: string }[]>([{ id: null, name: t('sync.oneDrive') }]);
+  const [folders, setFolders] = useState<OneDriveFolder[] | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  /** The folder chosen: an id, or `new:` and a name for the suggested one not made yet. */
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [making, setMaking] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const here = trail.at(-1)!;
+  const atTop = trail.length === 1;
+
+  const load = async (id: string | null, choose?: string) => {
+    setFolders(null);
+    setFailed(null);
+    try {
+      const list = await service.folders(id);
+      setFolders(list);
+      const suggested = id === null ? list.find((f) => f.name.toLowerCase() === SUGGESTED.toLowerCase()) : undefined;
+      setChosen(choose ?? suggested?.id ?? (id === null ? `new:${SUGGESTED}` : null));
+    } catch (error) {
+      setFailed(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  useEffect(() => {
+    void load(here.id);
+  }, [here.id]);
+
+  const enter = (folder: OneDriveFolder) => {
+    setMaking(null);
+    setTrail([...trail, { id: folder.id, name: folder.name }]);
+  };
+  const up = () => {
+    setMaking(null);
+    setTrail(trail.slice(0, -1));
+  };
+  const pathOf = (name: string) => `/${[...trail.slice(1).map((step) => step.name), name].join('/')}`;
+
+  const suggestedNew = atTop && folders !== null && !folders.some((f) => f.name.toLowerCase() === SUGGESTED.toLowerCase());
+  const chosenFolder = folders?.find((f) => f.id === chosen) ?? null;
+  // Nothing chosen inside a folder: that folder itself.
+  const target = chosenFolder ? chosenFolder.name : chosen?.startsWith('new:') ? SUGGESTED : atTop ? null : here.name;
+
+  const use = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (chosen?.startsWith('new:')) {
+        const made = await service.createFolder(here.id, SUGGESTED);
+        onUse({ id: made.id, path: pathOf(made.name) });
+      } else if (chosenFolder) onUse({ id: chosenFolder.id, path: pathOf(chosenFolder.name) });
+      else if (here.id) onUse({ id: here.id, path: `/${trail.slice(1).map((step) => step.name).join('/')}` });
+    } catch (error) {
+      setFailed(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const make = async () => {
+    const name = making?.trim();
+    if (!name || busy) return;
+    setBusy(true);
+    try {
+      const made = await service.createFolder(here.id, name);
+      setMaking(null);
+      await load(here.id, made.id);
+    } catch (error) {
+      setFailed(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return { suggested: SUGGESTED, trail, setTrail, here, atTop, folders, failed, chosen, setChosen, making, setMaking, busy, load, enter, up, suggestedNew, target, use, make };
+}
+
+export const STATUS: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, MessageKey> = {
   offline: 'sync.offline',
   signedOut: 'sync.signedOut',
   folderGone: 'sync.folderGone',
@@ -807,7 +831,7 @@ function standing(all: readonly SpaceSyncView[]): SpaceSyncView | null {
 }
 
 /** A space's key among those that sync: its id, or the personal one's. */
-const keyOf = (unit: SpaceSyncView) => unit.space ?? '';
+export const keyOf = (unit: SpaceSyncView) => unit.space ?? '';
 
 export interface SyncStatusProps {
   sync: SyncSnapshot;
@@ -933,14 +957,14 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
 
 
 /** A share as the language writes it, never 100% before the end: `38%`. */
-function percent(share: number): string {
+export function percent(share: number): string {
   return new Intl.NumberFormat(locale(), { style: 'percent', maximumFractionDigits: 0 }).format(Math.min(0.99, Math.floor(share * 100) / 100));
 }
 
 const UNITS = ['B', 'KB', 'MB', 'GB'];
 
 /** How much of how many bytes, both in the unit of the whole, so that the part moves visibly: `12.4 MB of 42.9 MB`. */
-function bytesOf(done: number, total: number): string {
+export function bytesOf(done: number, total: number): string {
   let unit = 0;
   while (unit < UNITS.length - 1 && total >= 1024 ** (unit + 1)) unit++;
   const show = (bytes: number) => {
@@ -964,9 +988,9 @@ function timeLeft(turn: TurnView): string | null {
   return t('panel.leftHours', { count: Math.round(left / 3600) });
 }
 
-type PanelTab = 'waiting' | 'done' | 'notSynced';
+export type PanelTab = 'waiting' | 'done' | 'notSynced';
 
-const TAB_LABEL: Record<PanelTab, MessageKey> = { waiting: 'panel.waiting', done: 'panel.done', notSynced: 'panel.notSynced' };
+export const TAB_LABEL: Record<PanelTab, MessageKey> = { waiting: 'panel.waiting', done: 'panel.done', notSynced: 'panel.notSynced' };
 
 /** What a turn did, counted: `3 sent, 2 brought, 1 merged`. */
 function summary(jobs: readonly SyncJob[]): string {
@@ -986,7 +1010,7 @@ function summary(jobs: readonly SyncJob[]): string {
 }
 
 /** The icon of a job: what it did, or what it will do. */
-function JobIcon({ job }: { job: SyncJob }) {
+export function JobIcon({ job }: { job: SyncJob }) {
   const what = job.state === 'done' ? job.result : job.state === 'waiting' ? job.kind : 'warn';
   const shapes: Record<string, ReactNode> = {
     up: <path d="M12 19V5M6 11l6-6 6 6" />,
@@ -1024,7 +1048,7 @@ function JobIcon({ job }: { job: SyncJob }) {
 }
 
 /** What a row says on its right: a waiting job's size or what it will do, a done one's outcome. */
-function rowEnd(job: SyncJob): string {
+export function rowEnd(job: SyncJob): string {
   if (job.state === 'waiting') {
     if (job.kind === 'trash') return t('panel.willTrash');
     if (job.kind === 'removeThere') return t('panel.willRemoveThere');
@@ -1055,7 +1079,7 @@ function rowEnd(job: SyncJob): string {
 }
 
 /** Why a file was not synced, in a sentence. */
-function reasonOf(job: SyncJob): string {
+export function reasonOf(job: SyncJob): string {
   if (job.state === 'skipped') return t(job.reason === 'here' ? 'panel.changedHere' : 'panel.changedThere');
   const bad = [...new Set([...job.path].filter((c) => '"*:<>?\\|'.includes(c)))].map((c) => t('quote', { name: c }));
   if (bad.length === 0 || job.path.split('/').some((name) => !oneDriveTakes(name.replace(/["*:<>?\\|]/g, '')))) return t('panel.badName');
@@ -1094,56 +1118,93 @@ function JobRows({ jobs, height }: { jobs: readonly SyncJob[]; height: number })
   );
 }
 
-/** How a space's sync stands in a word or two. */
-export function wordOf({ phase, syncedAt, turn }: SpaceSync): string {
-  if (phase === 'syncing') return percent(turn?.progress.share ?? 0);
-  if (phase === 'off' || phase === 'idle') return syncedAt === null ? t('sync.notYet') : ago(syncedAt);
-  return t(STATUS[phase]);
+/** A space's sync in a word on a phone: `12 s ago`, `38%`, or what keeps it from going on. */
+const SHORT: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, MessageKey> = {
+  offline: 'sync.offline',
+  signedOut: 'phone.signedOut',
+  folderGone: 'phone.folderGone',
+  failed: 'phone.syncFailed',
+};
+
+/** How a space's sync stands in a word, and whether something keeps it from going on. */
+export function shortOf({ phase, syncedAt, turn }: SpaceSync): { text: string; bad: boolean } {
+  if (phase === 'syncing') return { text: percent(turn?.progress.share ?? 0), bad: false };
+  if (phase === 'off' || phase === 'idle') return { text: syncedAt === null ? t('sync.notYet') : ago(syncedAt), bad: false };
+  return { text: t(SHORT[phase]), bad: true };
 }
 
 /** How a space's sync stands, on its row of the panel: `Synced 12 s ago`, `Syncing 38%`. */
-function standingOf(unit: SpaceSync): string {
+export function standingOf(unit: SpaceSync): string {
   if (unit.phase === 'syncing') return t('sync.syncingPct', { pct: percent(unit.turn?.progress.share ?? 0) });
   if (unit.phase === 'idle' || unit.phase === 'off') return unit.syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(unit.syncedAt) });
   return t(STATUS[unit.phase]);
 }
 
-/** How sync stands in a word or two, beside the Sync row of a phone's Browse; Off when nothing syncs. */
-export function syncWord(sync: SyncSnapshot): string {
-  const shown = standing(sync.all);
-  return shown ? wordOf(shown) : t('phone.off');
+/**
+ * How sync stands in a word, beside the Sync row of a phone's Browse: a space kept from going on
+ * first, then one in a turn, else the one synced longest ago; Off when nothing syncs.
+ */
+export function syncWord(sync: SyncSnapshot): { text: string; bad: boolean } {
+  const shown = sync.all.find((unit) => shortOf(unit).bad) ?? standing(sync.all);
+  return shown ? shortOf(shown) : { text: t('phone.off'), bad: false };
 }
 
-/** The sync panel as a sheet from the bottom, opened from the Sync row of a phone's Browse. */
-export function SyncSheet({ sync, onClose, onSyncNow, onSettings, onSignIn }: {
-  sync: SyncSnapshot;
-  onClose: () => void;
-  onSyncNow: (space?: string | null) => void;
-  onSettings: (space: string | null) => void;
-  onSignIn: () => void;
-}) {
-  const nothing = useCallback(() => undefined, []);
-  return createPortal(
-    <SyncPanel
-      sync={sync}
-      narrow
-      anchor={null}
-      kept
-      onEnter={nothing}
-      onLeave={nothing}
-      onClose={onClose}
-      onSyncNow={onSyncNow}
-      onSettings={(space) => {
-        onClose();
-        onSettings(space);
-      }}
-      onSignIn={() => {
-        onClose();
-        onSignIn();
-      }}
-    />,
-    document.body,
-  );
+/** What a space's turn shows: whether one runs, how far it is, the file going now, its files by tab, and the tab shown first. */
+export function useTurnLists(sync: SpaceSync) {
+  const { phase, turn, lastDone } = sync;
+  const running = phase === 'syncing' && turn !== null && turn.endedAt === null;
+  const progress = turn?.progress;
+  const current = running ? (progress?.current ?? null) : null;
+  const doneFrom = running ? turn : (lastDone ?? turn);
+
+  const lists = useMemo(() => {
+    const jobs = progress?.jobs ?? [];
+    return {
+      waiting: jobs.filter((job) => job.state === 'waiting' && job.path !== current?.path),
+      done: (doneFrom?.progress.jobs ?? []).filter((job) => job.state === 'done'),
+      notSynced: jobs.filter((job) => job.state === 'skipped' || job.state === 'refused'),
+    };
+    // The jobs change in place; the versions tell when.
+  }, [turn?.version, lastDone?.version, current?.path, running]);
+
+  const stoppedWithWaiting = !running && turn?.stopped === true && lists.waiting.length > 0;
+  const tabs: PanelTab[] = running || stoppedWithWaiting ? ['waiting', 'done', 'notSynced'] : ['done', 'notSynced'];
+  const fallback: PanelTab = running || stoppedWithWaiting ? 'waiting' : lists.notSynced.length > 0 ? 'notSynced' : 'done';
+  return { running, progress, current, doneFrom, lists, tabs, fallback };
+}
+
+/**
+ * A space's turn in a line: while it runs what it is at, its files, bytes and time left; after it
+ * what the last turn did; kept from going on, what is wrong and what to do.
+ */
+export function turnLine(sync: SpaceSyncView, running: boolean, doneFrom: TurnView | null): string {
+  const { phase, turn } = sync;
+  const progress = turn?.progress;
+  if (running && progress) {
+    if (progress.stage === 'reading') return progress.looked > 0 ? t('panel.readingCount', { count: progress.looked }) : t('panel.reading');
+    if (progress.stage === 'checking') return t('panel.checking', { count: progress.looked });
+    const parts = [t('panel.files', { done: progress.files.done, count: progress.files.total })];
+    if (progress.bytes.total > 0) parts.push(bytesOf(progress.bytes.done, progress.bytes.total));
+    const left = timeLeft(turn!);
+    if (left) parts.push(left);
+    return parts.join(' · ');
+  }
+  if (phase === 'idle' || phase === 'off' || phase === 'syncing') {
+    const said = doneFrom ? summary(doneFrom.progress.jobs) : '';
+    if (!said) return t('panel.nothing');
+    if (doneFrom === turn) return t('panel.lastTurn', { summary: said });
+    return t('panel.lastChanges', { ago: ago(doneFrom!.endedAt ?? doneFrom!.startedAt), summary: said });
+  }
+  if (phase === 'offline') return t('sync.offlineLong');
+  if (phase === 'signedOut') return t('sync.signedOutLong');
+  if (phase === 'folderGone') return goneLong(sync.space);
+  return t('sync.failedLong', { error: sync.error ?? '' });
+}
+
+/** What a tab with nothing in it says. */
+export function emptyOf(tab: PanelTab, running: boolean, stage: string | undefined): string {
+  if (tab === 'waiting') return running && stage !== 'sending' ? t('panel.planComing') : t('panel.nothingWaits');
+  return tab === 'done' ? t('panel.nothingDone') : t('panel.allSynced');
 }
 
 interface PanelProps {
@@ -1175,25 +1236,8 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
   const units = whole.all;
   const many = units.length > 1;
   const sync: SpaceSyncView = units.find((unit) => keyOf(unit) === picked) ?? standing(units) ?? { ...whole, space: null, name: '' };
-  const { phase, turn, lastDone } = sync;
-  const running = phase === 'syncing' && turn !== null && turn.endedAt === null;
-  const progress = turn?.progress;
-  const current = running ? (progress?.current ?? null) : null;
-  const doneFrom = running ? turn : (lastDone ?? turn);
-
-  const lists = useMemo(() => {
-    const jobs = progress?.jobs ?? [];
-    return {
-      waiting: jobs.filter((job) => job.state === 'waiting' && job.path !== current?.path),
-      done: (doneFrom?.progress.jobs ?? []).filter((job) => job.state === 'done'),
-      notSynced: jobs.filter((job) => job.state === 'skipped' || job.state === 'refused'),
-    };
-    // The jobs change in place; the versions tell when.
-  }, [turn?.version, lastDone?.version, current?.path, running]);
-
-  const stoppedWithWaiting = !running && turn?.stopped === true && lists.waiting.length > 0;
-  const tabs: PanelTab[] = running || stoppedWithWaiting ? ['waiting', 'done', 'notSynced'] : ['done', 'notSynced'];
-  const fallback: PanelTab = running || stoppedWithWaiting ? 'waiting' : lists.notSynced.length > 0 ? 'notSynced' : 'done';
+  const { phase, turn } = sync;
+  const { running, progress, current, lists, tabs, fallback, doneFrom } = useTurnLists(sync);
   const [chosen, setChosen] = useState<PanelTab | null>(null);
   const tab = chosen && tabs.includes(chosen) ? chosen : fallback;
 
@@ -1228,7 +1272,6 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
   }
 
   let title: ReactNode;
-  let sub: ReactNode = null;
   if (running && progress) {
     title = (
       <>
@@ -1236,15 +1279,6 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
         <span className="pct">{percent(progress.share)}</span>
       </>
     );
-    if (progress.stage === 'reading') sub = progress.looked > 0 ? t('panel.readingCount', { count: progress.looked }) : t('panel.reading');
-    else if (progress.stage === 'checking') sub = t('panel.checking', { count: progress.looked });
-    else {
-      const parts = [t('panel.files', { done: progress.files.done, count: progress.files.total })];
-      if (progress.bytes.total > 0) parts.push(bytesOf(progress.bytes.done, progress.bytes.total));
-      const left = timeLeft(turn!);
-      if (left) parts.push(left);
-      sub = parts.join(' · ');
-    }
   } else if (phase === 'idle' || phase === 'off' || phase === 'syncing') {
     title = (
       <>
@@ -1252,32 +1286,12 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
         {sync.syncedAt !== null && <small>{ago(sync.syncedAt)}</small>}
       </>
     );
-    const said = doneFrom ? summary(doneFrom.progress.jobs) : '';
-    if (!said) sub = t('panel.nothing');
-    else if (doneFrom === turn) sub = t('panel.lastTurn', { summary: said });
-    else sub = t('panel.lastChanges', { ago: ago(doneFrom!.endedAt ?? doneFrom!.startedAt), summary: said });
-  } else {
-    title = <b>{t(STATUS[phase])}</b>;
-    sub =
-      phase === 'offline'
-        ? t('sync.offlineLong')
-        : phase === 'signedOut'
-          ? t('sync.signedOutLong')
-          : phase === 'folderGone'
-            ? goneLong(sync.space)
-            : t('sync.failedLong', { error: sync.error ?? '' });
-  }
+  } else title = <b>{t(STATUS[phase])}</b>;
+  const sub = turnLine(sync, running, doneFrom);
 
   const count = (which: PanelTab) => lists[which].length;
   const shown = lists[tab];
-  const empty =
-    tab === 'waiting'
-      ? running && progress?.stage !== 'sending'
-        ? t('panel.planComing')
-        : t('panel.nothingWaits')
-      : tab === 'done'
-        ? t('panel.nothingDone')
-        : t('panel.allSynced');
+  const empty = emptyOf(tab, running, progress?.stage);
 
   const panel = (
     <section

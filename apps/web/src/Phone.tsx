@@ -5,8 +5,9 @@ import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
 import { boardOf, collectionPathOf, collectionTab, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
-import { PersonalPage, type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
-import { PhoneAddSpaceSheet, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
+import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
+import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
+import { PhoneSyncList, PhoneSyncPage } from './PhoneSync';
 import { ActionSheet, Empty, useViewport } from './sheets';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
@@ -21,7 +22,11 @@ import { ActionSheet, Empty, useViewport } from './sheets';
 export type Place = 'recent' | 'browse' | 'today';
 const PLACES: Place[] = ['recent', 'browse', 'today'];
 
-/** What a page of a place shows: its first page, a folder, something open, the trash, the settings or a section of them. */
+/**
+ * What a page of a place shows: its first page, a folder, something open, the trash, the settings
+ * or a section of them, a space, sync: with no `space` every space's, else one's, `named` by the
+ * space when opened from every space's.
+ */
 type PageKind =
   | { kind: 'root' }
   | { kind: 'folder'; path: string }
@@ -30,6 +35,7 @@ type PageKind =
   | { kind: 'settings' }
   | { kind: 'section'; section: Section }
   | { kind: 'space'; id: string | null }
+  | { kind: 'sync'; space?: string | null; named?: boolean }
   | { kind: 'history'; path: string }
   | { kind: 'version'; path: string; version: Version }
   | { kind: 'card'; board: string; id: string }
@@ -67,8 +73,11 @@ export interface PhoneProps {
   /** + on what is open, or on Today or Upcoming: a task, typed above the keyboard. */
   onAdd: (id: string) => void;
   trashView: ReactNode;
-  /** How sync stands in a word or two. */
-  syncWord: string;
+  /** How sync stands in a word, and whether something keeps it from going on. */
+  syncWord: { text: string; bad: boolean };
+  /** Asks for the personal space's sync page: back from signing in to connect it, its folder is chosen there. */
+  syncAsked: boolean;
+  onSyncShown: () => void;
   /** Something that happened, for a moment. */
   notice: string | null;
   /** A new version waiting, with its Reload button. */
@@ -76,7 +85,6 @@ export interface PhoneProps {
   onOpen: (id: string) => void;
   onClose: (id: string) => void;
   onCreate: (folder: string) => void;
-  onSync: () => void;
   /** What the settings show and change; `open` asks for their page, at a section if one is given. */
   settings: { values: SettingsValues; open: { section?: Section } | null; onShown: () => void };
   onNewFolder: (name: string, parent: string) => Promise<string | null>;
@@ -560,6 +568,22 @@ export function Phone(props: PhoneProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsAsked]);
 
+  // Back from signing in to connect the personal space: its sync page opens in Browse, where its
+  // folder is chosen; one already on top stays.
+  const { syncAsked, onSyncShown } = props;
+  useEffect(() => {
+    if (!syncAsked) return;
+    onSyncShown();
+    const current = stacksNow.current.browse;
+    const shown = current[current.length - 1]!;
+    setPlace('browse');
+    if (shown.kind === 'sync' && (shown.space === null || (shown.space === undefined && props.spaces.length === 0))) return;
+    const added: Page = { kind: 'sync', space: null, key: ++pageKeys };
+    setStacks((stacks) => ({ ...stacks, browse: [...stacks.browse, added] }));
+    slideIn(added.key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncAsked]);
+
   // A row held for its menu comes down when the menu closes, or at once when it has none.
   const menuOpen = useRef(props.menuOpen);
   menuOpen.current = props.menuOpen;
@@ -732,6 +756,10 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'settings') return t('settings.title');
     if (page.kind === 'section') return t(settingsSections().find((each) => each.id === page.section)?.label ?? 'settings.title');
     if (page.kind === 'space') return page.id ? (props.spaces.find((space) => space.id === page.id)?.name ?? '') : (props.settings.values.spaceName ?? t('settings.personal'));
+    if (page.kind === 'sync') {
+      if (!page.named) return t('phone.sync');
+      return page.space ? (props.spaces.find((space) => space.id === page.space)?.name ?? '') : (props.settings.values.spaceName ?? t('settings.personal'));
+    }
     if (page.kind === 'history') return t('history.title');
     if (page.kind === 'card') return props.card.label(page.board, page.id);
     if (page.kind === 'record') return props.record.label(page.dir, page.id);
@@ -832,6 +860,15 @@ export function Phone(props: PhoneProps) {
     </Fragment>
   );
 
+  const syncRight = props.syncWord.bad ? (
+    <span className="wn">
+      <Icon name="warn" />
+      {props.syncWord.text}
+    </span>
+  ) : (
+    props.syncWord.text
+  );
+
   const browsePage = () => {
     const inbox = tree.find((node) => node.path === INBOX);
     const inboxRow = (
@@ -847,7 +884,7 @@ export function Phone(props: PhoneProps) {
     const foot = (
       <div className="mb-list apart">
         <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
-        <Row icon="cloud" label={t('phone.sync')} right={props.syncWord} onClick={props.onSync} />
+        <Row icon="cloud" label={t('phone.sync')} right={syncRight} onClick={() => push({ kind: 'sync' })} />
         <Row icon="settings" label={t('side.settings')} onClick={() => push({ kind: 'settings' })} />
       </div>
     );
@@ -905,7 +942,7 @@ export function Phone(props: PhoneProps) {
         </div>
         <div className="mb-list apart">
           <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
-          <Row icon="cloud" label={t('phone.sync')} right={props.syncWord} onClick={props.onSync} />
+          <Row icon="cloud" label={t('phone.sync')} right={syncRight} onClick={() => push({ kind: 'sync' })} />
           <Row icon="settings" label={t('side.settings')} onClick={() => push({ kind: 'settings' })} />
         </div>
       </>
@@ -1086,21 +1123,41 @@ export function Phone(props: PhoneProps) {
     }
     if (page.kind === 'space') {
       const space = page.id ? props.spaces.find((each) => each.id === page.id) : undefined;
-      // The personal space is the device's own: its folder and its sync as the settings have them.
+      // The personal space is the device's own: its folder, its sync and this device's name.
       if (!page.id) {
         return (
           <PageFrame title={titleOf(page, of)} sub={t('phone.yoursHere')} nav={nav}>
-            <div className="mb-settings">
-              <PersonalPage {...props.settings.values} />
-            </div>
+            <PhonePersonalPage values={props.settings.values} onSync={() => push({ kind: 'sync', space: null })} />
           </PageFrame>
         );
       }
       if (!space) return <PageFrame title={titleOf(page, of)} nav={nav}>{null}</PageFrame>;
       return (
         <PageFrame title={space.name} sub={spacePlace(space)} nav={{ ...nav, onMenu: () => setSpaceMenu(space.id) }}>
-          <PhoneSpacePage space={space} values={props.settings.values} onSync={props.onSync} />
+          <PhoneSpacePage space={space} values={props.settings.values} onSync={() => push({ kind: 'sync', space: space.id })} />
         </PageFrame>
+      );
+    }
+    if (page.kind === 'sync') {
+      const values = props.settings.values;
+      // With more than one space, a row for each, Sync now turning every one; with one, its page.
+      if (page.space === undefined && props.spaces.length > 0) {
+        return (
+          <PageFrame title={titleOf(page, of)} nav={{ ...nav, ...(values.sync.all.length > 0 && { action: { label: t('sync.syncNow'), run: () => values.syncService.syncNow() } }) }}>
+            <PhoneSyncList sync={values.sync} spaces={props.spaces} personalName={values.spaceName ?? t('settings.personal')} onOpen={(space) => push({ kind: 'sync', space, named: true })} />
+          </PageFrame>
+        );
+      }
+      return (
+        <PhoneSyncPage
+          space={page.space ?? null}
+          values={values}
+          frame={(head, body) => (
+            <PageFrame title={titleOf(page, of)} sub={head.sub} nav={{ ...nav, ...(head.action && { action: head.action }), ...(head.onMenu && { onMenu: head.onMenu }) }}>
+              {body}
+            </PageFrame>
+          )}
+        />
       );
     }
     // Something open: the app's drawing of it is moved in here while this page is on top.

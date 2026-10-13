@@ -3,7 +3,7 @@ import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
 import type { SpaceView } from './session';
-import { chooseLanguage, isPhone, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
+import { chooseLanguage, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
 import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SyncService, SyncSnapshot } from './sync';
@@ -348,7 +348,7 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'spaceName' | 'onRenameSpace
         <small>{t('settings.addSpaceAbout')}</small>
       </div>
       {/* The device's name goes with every space's sync; on a phone it is on the personal space's page. */}
-      {sync.available && !isPhone() && <ThisDevice sync={sync} service={syncService} />}
+      {sync.available && <ThisDevice sync={sync} service={syncService} />}
       {add}
       {menu && <ContextMenu at={menu.at} items={menuItems(menu.id)} onClose={() => setMenu(null)} />}
       {removing && <RemoveSpaceDialog space={removing} onRemove={(deleteFiles) => onRemoveSpace(removing.id, deleteFiles)} onClose={() => setRemoving(null)} />}
@@ -730,7 +730,7 @@ const BackRow = ({ onBack }: { onBack: () => void }) => (
 );
 
 /** The personal space: its name, its folder and its sync, as before; and this device's name. */
-export function PersonalPage({
+function PersonalPage({
   spaceName,
   onRenameSpace,
   folder,
@@ -778,7 +778,6 @@ export function PersonalPage({
         </div>
         {sync.available && <SyncRow sync={sync} service={syncService} />}
       </div>
-      {sync.available && isPhone() && <ThisDevice sync={sync} service={syncService} />}
     </>
   );
 }

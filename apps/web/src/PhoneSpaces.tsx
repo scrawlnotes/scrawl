@@ -6,13 +6,15 @@ import { Icon } from './Icon';
 import { type SpacePeople, Who } from './People';
 import type { SpaceView } from './session';
 import { type SettingsValues, spaceWords, useAddSpace } from './Settings';
+import { PhoneFolderSheet } from './PhoneSync';
 import { ActionSheet, Sheet, SheetClose } from './sheets';
-import { CloudIcon, FolderPicker, placeWords, providerName, wordOf } from './SyncViews';
+import { CloudIcon, placeWords, providerName, shortOf } from './SyncViews';
 
 // The spaces on a phone, after the Phone spaces views of design/mockups.html: Settings › Spaces as
-// a list with Reorder, a space's page with its name, its sync and its people, Remove from this
-// phone with a switch for the files here, Add space as a sheet, and giving a task or a card to one
-// of the people of its space.
+// a list with Reorder, a space's page with its name, its sync and its people, the personal space's
+// with its name, folder and sync and this device's name, Remove from this phone with a switch for
+// the files here, Add space as a sheet, and giving a task or a card to one of the people of its
+// space.
 
 /** How long a finger rests on a person before their menu opens. */
 const HOLD_MS = 450;
@@ -159,8 +161,72 @@ function NameSheet({ name, onSave, onClose }: { name: string; onSave: (name: str
   );
 }
 
+/** A space's Sync row: its cloud, how it stands in a word, a sign when something needs the user; it opens the space's sync. */
+function SyncField({ provider, word, onSync }: { provider: string | undefined; word: { text: string; bad: boolean } | undefined; onSync: () => void }) {
+  return (
+    <button type="button" className="mb-fr" onClick={onSync}>
+      <span className="fl">{t('sync.label')}</span>
+      <span className={provider ? 'in' : 'in none'}>{provider ? providerName(provider) : t('phone.notSynced')}</span>
+      {word && (
+        <span className={word.bad ? 'val bad' : 'val'}>
+          {word.bad && <Icon name="warn" />}
+          {word.text}
+        </span>
+      )}
+      <Icon name="chevron" />
+    </button>
+  );
+}
+
 /**
- * A space's page: its name, its sync, which opens how every space syncs, and the people who have
+ * The personal space's page, after the Phone sync more view of design/mockups.html: its name,
+ * changed in a sheet, where it is kept, and its sync, which opens its sync page; this device's
+ * name apart, which conflict copies made here carry.
+ */
+export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; onSync: () => void }) {
+  const [naming, setNaming] = useState<'space' | 'device' | null>(null);
+  const { sync, syncService } = values;
+  const name = values.spaceName ?? t('settings.personal');
+  const unit = sync.all.find((each) => each.space === null);
+  return (
+    <>
+      <div className="mb-form">
+        <div className="mb-group">
+          <button type="button" className="mb-fr" onClick={() => setNaming('space')}>
+            <span className="fl">{t('settings.name')}</span>
+            <span className="in">{name}</span>
+          </button>
+          <div className="mb-fr">
+            <span className="fl">{t('settings.folder')}</span>
+            <span className="in">{values.folder ?? t('phone.onThisPhone')}</span>
+          </div>
+          {sync.available && <SyncField provider={sync.connection?.provider} word={unit && shortOf(unit)} onSync={onSync} />}
+        </div>
+      </div>
+      {sync.available && (
+        <>
+          <div className="mb-sec">
+            <span>{t('sync.thisDevice')}</span>
+          </div>
+          <div className="mb-form">
+            <div className="mb-group">
+              <button type="button" className="mb-fr" onClick={() => setNaming('device')}>
+                <span className="fl">{t('settings.name')}</span>
+                <span className="in">{sync.device.name}</span>
+              </button>
+            </div>
+          </div>
+          <p className="mb-p">{t('sync.deviceAbout')}</p>
+        </>
+      )}
+      {naming === 'space' && <NameSheet name={name} onSave={values.onRenameSpace} onClose={() => setNaming(null)} />}
+      {naming === 'device' && <NameSheet name={sync.device.name} onSave={(device) => syncService.renameDevice(device)} onClose={() => setNaming(null)} />}
+    </>
+  );
+}
+
+/**
+ * A space's page: its name, its sync, which opens the space's sync page, and the people who have
  * opened it, the user first and the inactive last. Its menu, with Remove from this phone, is on
  * the page's ···.
  */
@@ -179,12 +245,7 @@ export function PhoneSpacePage({ space, values, onSync }: { space: SpaceView; va
             <span className="fl">{t('settings.name')}</span>
             <span className="in">{space.name}</span>
           </button>
-          <button type="button" className="mb-fr" onClick={onSync}>
-            <span className="fl">{t('sync.label')}</span>
-            <span className="in">{space.source ? providerName(space.source.provider) : t('sync.notSynced')}</span>
-            <span className="val">{unit ? wordOf(unit) : ''}</span>
-            <Icon name="chevron" />
-          </button>
+          <SyncField provider={space.source?.provider} word={unit && shortOf(unit)} onSync={onSync} />
         </div>
       </div>
       {people.length > 0 && (
@@ -341,7 +402,7 @@ export function PhoneAddSpaceSheet({ values, onSetName, onClose }: { values: Set
         </div>
       )}
       {picking && account && (
-        <FolderPicker
+        <PhoneFolderSheet
           account={account}
           service={service}
           suggested={name}

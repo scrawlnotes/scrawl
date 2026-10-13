@@ -287,6 +287,18 @@ export const en = {
   'phone.sync': 'Sync',
   'phone.on': 'On',
   'phone.off': 'Off',
+  // sync on a phone: a word for how it stands, a space not synced, the files a turn moves
+  'phone.signedOut': 'Signed out',
+  'phone.folderGone': 'Folder gone',
+  'phone.syncFailed': 'Failed',
+  'phone.notSynced': 'Not synced',
+  'phone.notSyncedText': 'Keep this space in your own cloud drive to have it on every device.',
+  'phone.spaceNotSynced': 'This space is not synced on this phone.',
+  'phone.onThisPhone': 'On this phone',
+  'phone.ownFiles': 'Scrawl’s own files',
+  'phone.use': 'Use',
+  'phone.synced': 'Synced',
+  'phone.appRegistration': 'App registration',
   // what a menu is about, and the folder Create makes something in
   'phone.kindIn': '{kind} in {folder}',
   'phone.in': 'in {folder}',

@@ -370,6 +370,7 @@ html:has(.phone-app) body {
 
 .mb-form-row input {
   flex: 1;
+  font-family: inherit;
   min-width: 0;
   height: 36px;
   padding: 0 10px;
@@ -918,6 +919,7 @@ button.mb-fr:active {
   border: 0;
   background: none;
   color: var(--sl-fg);
+  font-family: inherit;
   outline: none;
 }
 
@@ -4808,4 +4810,422 @@ body > .mb-lifted {
 
 .mb-acts .gone + .a::before {
   display: none;
+}
+
+/* ---------- sync on a phone, after the Phone sync views of design/mockups.html: Browse's row, the
+   Sync page, a space's sync, the personal space's page and OneDrive's folders ---------- */
+
+/* Browse's Sync row and a space's: a sign and a word when something keeps sync from going on. */
+.mb-row .ct .wn,
+.mb-fr .val.bad {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--sl-p2);
+}
+
+.mb .mb-row .ct .wn .icon,
+.mb .mb-fr .val.bad .icon {
+  flex: none;
+  width: 17px;
+  height: 17px;
+}
+
+.mb-fr .in.none {
+  color: var(--sl-faint);
+}
+
+/* the Sync page: each space with how it stands, a bar while it syncs */
+.mb-bar {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--sl-line);
+}
+
+.mb-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--sl-accent);
+  transition: width 0.15s linear;
+}
+
+.mb-spsync .mb-bar {
+  margin: 6px 0 2px;
+}
+
+.mb-row .tx small.bad {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--sl-p2);
+}
+
+.mb .mb-row .tx small.bad .icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.mb-spsync .ct {
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+/* a space's sync: how its turn stands, in a large word */
+.mb-sync {
+  padding: 4px 16px 14px;
+}
+
+.mb-sync .st {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.mb-sync .st b {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.mb-sync .st small {
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+.mb-sync .st .pct {
+  margin-left: auto;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-sync > .mb-bar {
+  height: 6px;
+  margin-top: 10px;
+  border-radius: 3px;
+}
+
+.mb-sync .sub {
+  margin-top: 8px;
+  color: var(--sl-dim);
+  font-size: 14px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+/* the file going now, with how much of it */
+.mb-sync .now {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--sl-side);
+  font-size: 15px;
+}
+
+.mb .mb-sync .now > .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--sl-dim);
+}
+
+.mb-sync .now .nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-sync .now small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--sl-dim);
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mb .mb-sync .now small .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--sl-accent);
+}
+
+.mb-sync .now .mb-bar {
+  grid-column: 2 / 4;
+  margin-top: 8px;
+}
+
+.mb-sync.bad .st {
+  align-items: center;
+}
+
+.mb .mb-sync.bad .st .icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--sl-p2);
+}
+
+.mb-sync .mb-btn {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  font-size: 16px;
+}
+
+.mb-sync .mb-hint {
+  padding: 8px 0 0;
+}
+
+/* Waiting, Done and Not synced, each with its count */
+.mb-seg.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.mb-seg button small {
+  margin-left: 5px;
+  color: var(--sl-faint);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-seg button[aria-selected='true'] small {
+  color: var(--sl-dim);
+}
+
+.mb-seg button small.warn,
+.mb-seg button[aria-selected='true'] small.warn {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.mb-sync + .mb-seg {
+  margin-bottom: 6px;
+}
+
+/* a file of a turn: its kind, its name and its folder, and what it does or did; only those in sight drawn */
+.mb-files {
+  position: relative;
+}
+
+.mb-files > .mb-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+}
+
+.mb-files > .mb-row + .mb-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 51px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-row.mb-file:active {
+  background: var(--sl-bg);
+}
+
+.mb-file .ct {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.mb .mb-file .ct .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--sl-faint);
+}
+
+.mb-file.bad {
+  align-items: flex-start;
+}
+
+.mb .mb-file.bad > .icon {
+  margin-top: 12px;
+}
+
+.mb-file .tx .why {
+  margin-top: 3px;
+  color: var(--sl-dim);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* waiting for the sign-in in the browser, with Cancel */
+.mb-wait {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 16px 0;
+  color: var(--sl-dim);
+  font-size: 14px;
+}
+
+.mb-sync .mb-wait {
+  padding: 8px 0 0;
+}
+
+.mb-wait .spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--sl-line);
+  border-top-color: var(--sl-accent);
+  border-radius: 50%;
+  animation: turning 0.9s linear infinite;
+}
+
+.mb-wait button {
+  min-height: 44px;
+  margin-left: auto;
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+.mb-p.center {
+  text-align: center;
+}
+
+/* a quieter way, as the own app registration */
+.mb-link {
+  display: block;
+  min-height: 44px;
+  margin: 0 auto;
+  padding: 0 16px;
+  color: var(--sl-dim);
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mb-link.inline {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  color: var(--sl-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* OneDrive's folders: a tap picks one, its › goes into it */
+.mb-hint.top {
+  margin-top: -4px;
+  padding: 0 16px 10px;
+  text-align: center;
+}
+
+.mb-folders .mb-seg {
+  margin: 0 16px 8px;
+}
+
+.mb-row.mb-pickf {
+  padding: 0;
+}
+
+.mb-pickf .pick {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 16px;
+  color: inherit;
+  text-align: left;
+}
+
+.mb .mb-pickf .pick > .icon {
+  flex: none;
+  color: var(--sl-dim);
+}
+
+.mb-sheet .mb-row.mb-pickf.on,
+.mb-row.mb-pickf.on {
+  background: color-mix(in srgb, var(--sl-sel) 55%, transparent);
+}
+
+.mb-pickf .tag {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: var(--sl-sel);
+  color: var(--sl-dim);
+  font-size: 12.5px;
+  vertical-align: 1px;
+}
+
+.mb-pickf .tick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  color: var(--sl-accent);
+}
+
+.mb .mb-pickf .tick .icon {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2.2;
+}
+
+.mb-pickf .go {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  color: var(--sl-faint);
+}
+
+.mb .mb-pickf .go .icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.2;
+}
+
+.mb-pickf .pick:active,
+.mb-pickf .go:active {
+  background: color-mix(in srgb, var(--sl-fg) 7%, transparent);
+}
+
+.mb-row.plus,
+.mb .mb-row.plus > .icon {
+  color: var(--sl-accent);
+}
+
+.mb-sheet .mb-form-row {
+  background: none;
+}
+
+/* Shared: Scrawl allowed once to reach what is shared with the user */
+.mb-allow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px 20px;
+  text-align: center;
+}
+
+.mb-allow p {
+  margin: 0;
+  color: var(--sl-dim);
+  font-size: 15px;
+  line-height: 1.4;
 }

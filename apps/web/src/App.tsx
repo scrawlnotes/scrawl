@@ -109,7 +109,7 @@ import { Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
-import { SyncSheet, SyncStatus, syncWord } from './SyncViews';
+import { SyncStatus, syncWord } from './SyncViews';
 import { Sidebar } from './Sidebar';
 import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
 import type { SpacePeople } from './People';
@@ -205,13 +205,16 @@ export function App() {
     layer.className = 'mb-item';
     return layer;
   });
-  const [syncSheet, setSyncSheet] = useState(false);
   const [syncService] = useState(() => new SyncService(session));
   const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
+  /** On a phone: the personal space's sync page is asked for. */
+  const [syncAsked, setSyncAsked] = useState(false);
   // Back from signing in in the browser: Settings opens at the space's sync, for its folder or what
-  // went wrong; or at Spaces with Add space, to choose the new space's folder.
+  // went wrong, on a phone the personal space's sync page; or at Spaces with Add space, to choose
+  // the new space's folder.
   useEffect(() => {
-    if (sync.picking || sync.adding || sync.signInError) setDialog({ kind: 'settings', section: 'spaces' });
+    if (phone && (sync.picking || sync.signInError)) setSyncAsked(true);
+    else if (sync.picking || sync.adding || sync.signInError) setDialog({ kind: 'settings', section: 'spaces' });
   }, [sync.picking, sync.adding, sync.signInError]);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
@@ -1142,6 +1145,8 @@ export function App() {
             onAdd={phoneAdd}
             trashView={<TrashView items={trash} today={today} spaces={trashSpaces} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
             syncWord={syncWord(sync)}
+            syncAsked={syncAsked}
+            onSyncShown={() => setSyncAsked(false)}
             notice={notice}
             update={
               update && (
@@ -1161,7 +1166,6 @@ export function App() {
             }}
             onClose={(id) => void session.close(id)}
             onCreate={(folder) => setDialog({ kind: 'new', folder })}
-            onSync={() => (sync.connection ? setSyncSheet(true) : setDialog({ kind: 'settings', section: 'spaces' }))}
             settings={{
               values: settingsValues,
               open: dialog?.kind === 'settings' ? { section: dialog.section } : null,
@@ -1352,15 +1356,6 @@ export function App() {
                 session.setLink(url);
               }}
               onClose={() => setLinkEdit(null)}
-            />
-          )}
-          {syncSheet && (
-            <SyncSheet
-              sync={sync}
-              onClose={() => setSyncSheet(false)}
-              onSyncNow={(space) => syncService.syncNow(space)}
-              onSettings={(space) => setDialog({ kind: 'settings', section: 'spaces', space })}
-              onSignIn={() => (syncService.cloud().redirects ? void syncService.leaveToSignIn('again') : setDialog({ kind: 'settings', section: 'spaces' }))}
             />
           )}
         </>

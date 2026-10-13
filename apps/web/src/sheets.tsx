@@ -58,7 +58,9 @@ export function Sheet({ label, className, onClose, onEscape = onClose, onKeyDown
   }, []);
 
   // Pulled down by its top, or anywhere while its content is at the top and nothing is typed into.
+  // A sheet over another, as a folder chosen for Add space, moves alone: its touches stay with it.
   const start = (event: TouchEvent) => {
+    event.stopPropagation();
     const sheet = panel.current;
     if (!sheet) return;
     const point = event.touches[0]!;
@@ -69,6 +71,7 @@ export function Sheet({ label, className, onClose, onEscape = onClose, onKeyDown
     touch.current = { y: point.clientY };
   };
   const move = (event: TouchEvent) => {
+    event.stopPropagation();
     if (!touch.current) return;
     const dy = event.touches[0]!.clientY - touch.current.y;
     if (pull === null && dy < 6) {
@@ -78,7 +81,8 @@ export function Sheet({ label, className, onClose, onEscape = onClose, onKeyDown
     }
     setPull(Math.max(0, dy));
   };
-  const end = () => {
+  const end = (event: TouchEvent) => {
+    event.stopPropagation();
     if (pull !== null && pull > PULL) onClose();
     touch.current = null;
     setPull(null);
@@ -105,6 +109,7 @@ export function Sheet({ label, className, onClose, onEscape = onClose, onKeyDown
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return onKeyDown?.(event);
           event.preventDefault();
+          event.stopPropagation();
           onEscape();
         }}
       >
