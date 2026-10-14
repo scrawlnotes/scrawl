@@ -52,6 +52,26 @@ const PENDING = 'scrawl.signIn';
 const RENEWED = 'scrawl.signInRenewed';
 /** Microsoft ends a browser's key a day after it was given; it is renewed on opening after this long. */
 const RENEW_AFTER_MS = 20 * 60 * 60 * 1000;
+/** In the browser: why the last renewal on opening did not go through, and when; kept until a sign-in does. */
+const RENEW_FAILED = 'scrawl.signInRenewFailed';
+
+/** Why renewing the sign-in on opening did not go through, as Microsoft said it; null when it did, or was not tried. */
+export function renewFailure(): { at: number; reason: string } | null {
+  try {
+    return readJson<{ at: number; reason: string }>(localStorage, RENEW_FAILED);
+  } catch {
+    return null;
+  }
+}
+
+function keepRenewFailure(reason: string | null) {
+  try {
+    if (reason === null) localStorage.removeItem(RENEW_FAILED);
+    else localStorage.setItem(RENEW_FAILED, JSON.stringify({ at: Date.now(), reason }));
+  } catch {
+    // Not kept: the reason is not shown.
+  }
+}
 
 async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   return (await import('@tauri-apps/api/core')).invoke<T>(command, args);
@@ -198,6 +218,7 @@ abstract class SignedCloud {
   protected async signedInWith(answer: TokenAnswer & { access_token: string }, intent?: SignInIntent | 'renew') {
     if (!answer.refresh_token) throw new Error(t('cloud.noKey'));
     await this.keepKey(answer.refresh_token, true);
+    keepRenewFailure(null);
     if (intent === 'shared') setWide(true);
     this.keepAccess(answer);
   }
@@ -388,14 +409,19 @@ class BrowserCloud extends SignedCloud implements Cloud {
     window.history.replaceState(null, '', window.location.pathname + window.location.hash);
     // A return this page did not begin is left alone.
     if (!pending || pending.state !== params.get('state')) return null;
-    if (error) return { intent: pending.intent, error: params.get('error_description')?.split('\n')[0] || error };
+    // A renewal on opening that did not go through is kept with its reason, for the sync panel to say.
+    const failed = (reason: string): SignInResult => {
+      if (pending.intent === 'renew') keepRenewFailure(reason);
+      return { intent: pending.intent, error: reason };
+    };
+    if (error) return failed(params.get('error_description')?.split('\n')[0] || error);
     try {
       await this.signedInWith(
         await tokenRequest(this.post, { grant_type: 'authorization_code', code: code!, redirect_uri: pending.redirect, code_verifier: pending.verifier, scope: scopesFor(pending.intent) }),
         pending.intent,
       );
     } catch (failure) {
-      return { intent: pending.intent, error: failure instanceof Error ? failure.message : String(failure) };
+      return failed(failure instanceof Error ? failure.message : String(failure));
     }
     return { intent: pending.intent };
   }

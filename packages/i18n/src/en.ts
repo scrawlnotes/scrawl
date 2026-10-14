@@ -193,6 +193,7 @@ export const en = {
   'sync.offlineLong': 'Offline: OneDrive cannot be reached. Sync goes on when it can.',
   'sync.signedOut': 'Sign in to OneDrive again',
   'sync.signedOutLong': 'OneDrive no longer takes the sign-in. Sign in again to go on.',
+  'sync.renewFailed': 'Renewing it on opening, without asking, did not work: {reason}',
   'sync.folderGone': 'The OneDrive folder is gone',
   'sync.folderGoneLong': 'The folder is gone from OneDrive. Choose a folder to go on.',
   'sync.spaceGoneLong': 'The folder of this space is gone from OneDrive, or is no longer open to you. Its copy stays on this device.',

@@ -3,7 +3,7 @@ import { sizeText } from '@scrawlnotes/editor';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { clientId, DEFAULT_CLIENT_ID, setClientId } from './cloud';
+import { clientId, DEFAULT_CLIENT_ID, renewFailure, setClientId } from './cloud';
 import { DOWNLOAD_LIMITS, loadDownloadLimit, pageBox, pageWindow, saveDownloadLimit } from './device';
 import { Icon } from './Icon';
 import { useNarrow } from './narrow';
@@ -41,12 +41,18 @@ export function useTicking(on: boolean) {
  */
 export const goneLong = (space: string | null) => t(space ? 'sync.spaceGoneLong' : 'sync.folderGoneLong');
 
+/** Signed out, and in the browser why renewing on opening did not go through, as Microsoft said it. */
+export const signedOutLong = () => {
+  const failure = renewFailure();
+  return failure ? `${t('sync.signedOutLong')} ${t('sync.renewFailed', { reason: failure.reason })}` : t('sync.signedOutLong');
+};
+
 /** Where a phase stands, in the settings: words, and the colour of its dot; `space` null for the personal one. */
 function stateOf(sync: SpaceSync, space: string | null = null): { text: string; tone: 'ok' | 'busy' | 'off' | 'bad' } {
   const { phase, syncedAt, error } = sync;
   if (phase === 'syncing') return { text: t('sync.syncingPct', { pct: percent(sync.turn?.progress.share ?? 0) }), tone: 'busy' };
   if (phase === 'offline') return { text: t('sync.offlineLong'), tone: 'off' };
-  if (phase === 'signedOut') return { text: t('sync.signedOutLong'), tone: 'bad' };
+  if (phase === 'signedOut') return { text: signedOutLong(), tone: 'bad' };
   if (phase === 'folderGone') return { text: goneLong(space), tone: 'bad' };
   if (phase === 'failed') return { text: t('sync.failedLong', { error: error ?? '' }), tone: 'bad' };
   return { text: syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(syncedAt) }), tone: 'ok' };
@@ -1223,7 +1229,7 @@ export function turnLine(sync: SpaceSyncView, running: boolean, doneFrom: TurnVi
     return t('panel.lastChanges', { ago: ago(doneFrom!.endedAt ?? doneFrom!.startedAt), summary: said });
   }
   if (phase === 'offline') return t('sync.offlineLong');
-  if (phase === 'signedOut') return t('sync.signedOutLong');
+  if (phase === 'signedOut') return signedOutLong();
   if (phase === 'folderGone') return goneLong(sync.space);
   return t('sync.failedLong', { error: sync.error ?? '' });
 }
