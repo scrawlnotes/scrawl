@@ -1,6 +1,6 @@
-import { INBOX, INBOX_TASKS, inSpace, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { INBOX, INBOX_TASKS, inSpace, localPath, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useState } from 'react';
+import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { collectionTab, countItems, FILES, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
@@ -63,6 +63,15 @@ interface Props {
   personalName: string;
   /** A space heading's menu; null is the personal space. `addFolder` starts naming a folder at the space's top. */
   onSpaceMenu: (event: MouseEvent, id: string | null, addFolder: () => void) => void;
+  /** Opens the search window; `searchOpen` while it is open. */
+  onSearch: () => void;
+  searchOpen: boolean;
+  /**
+   * A folder or a space found by the search window, by its path or a space's key: the folders it
+   * is in open, so does it, and its row is brought into sight and marked for a moment. `at` tells
+   * one ask from the next.
+   */
+  reveal: { path: string; at: number } | null;
 }
 
 /** The key a space's heading folds and marks under; the personal space's is `@personal`. */
@@ -102,6 +111,9 @@ export function Sidebar({
   spaces,
   personalName,
   onSpaceMenu,
+  onSearch,
+  searchOpen,
+  reveal,
 }: Props) {
   // A folder starts closed; one opened stays open, on this device, until it is closed.
   const [opened, setOpened] = useState(() => loadPaths(OPENED));
@@ -115,6 +127,9 @@ export function Sidebar({
       return next;
     });
   const [shownInFull, setShownInFull] = useState(() => loadPaths(SHOWN_IN_FULL));
+  // The row found, marked for a moment once it is in sight.
+  const [flash, setFlash] = useState<string | null>(null);
+  const nav = useRef<HTMLElement>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   // The folder a new folder is being named in, `''` for the top; null while none is.
   const [addingIn, setAddingIn] = useState<string | null>(null);
@@ -138,7 +153,33 @@ export function Sidebar({
       return next;
     });
 
-  const marked = (key: string) => (key === menuTarget ? ' marked' : '');
+  const marked = (key: string) => (key === menuTarget ? ' marked' : '') + (key === flash ? ' found' : '');
+
+  // A folder or a space found by the search window: its space unfolds, the folders it is in open
+  // and so does it, and its row is marked for a moment once it is in sight.
+  useEffect(() => {
+    if (!reveal) return;
+    const space = spaceOf(reveal.path);
+    const key = spaceKey(space);
+    if (space && folded.has(key)) toggleSpace(key);
+    const parts = localPath(reveal.path).split('/').filter(Boolean);
+    if (parts.length > 0) {
+      setOpened((current) => {
+        const next = new Set(current);
+        parts.forEach((_, index) => next.add(inSpace(space, parts.slice(0, index + 1).join('/'))));
+        savePaths(OPENED, next);
+        return next;
+      });
+    }
+    setFlash(parts.length > 0 ? reveal.path : key);
+    const timer = window.setTimeout(() => setFlash(null), 1800);
+    return () => window.clearTimeout(timer);
+    // Each ask once; the folds are read as they are then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal?.at]);
+  useEffect(() => {
+    if (flash) nav.current?.querySelector(`[data-path="${CSS.escape(flash)}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [flash]);
 
   // The file of the tab on screen: never hidden among the items a long folder does not show.
   const activePath = active === null ? null : pathOf(active);
@@ -170,7 +211,8 @@ export function Sidebar({
         </>
       );
     }
-    const shown = nodes.filter((node, index) => index < SHOWN || holdsActive(node));
+    const found = (node: TreeNode) => flash !== null && (node.path === flash || flash.startsWith(`${node.path}/`));
+    const shown = nodes.filter((node, index) => index < SHOWN || holdsActive(node) || found(node));
     return (
       <>
         {shown.map(row)}
@@ -330,6 +372,7 @@ export function Sidebar({
         <div
           className={`it fold${node.path === dropTarget ? ' drop' : ''}${marked(node.path)}`}
           style={indent(depth)}
+          data-path={node.path}
           {...dropProps(node.path)}
           onContextMenu={(event) => folderMenu(event, node.path)}
         >
@@ -402,7 +445,7 @@ export function Sidebar({
     const open = !folded.has(key);
     const menu = (event: MouseEvent) => onSpaceMenu(event, id, () => startFolder(id ? key : ''));
     return (
-      <div key={key} className={`it fold space${marked(key)}`} style={indent(0)} onContextMenu={menu}>
+      <div key={key} className={`it fold space${marked(key)}`} style={indent(0)} data-path={key} onContextMenu={menu}>
         <button type="button" className="it-main" aria-expanded={open} onClick={() => toggleSpace(key)}>
           <span className={open ? 'chev open' : 'chev'}>
             <Icon name="chevron" />
@@ -417,7 +460,13 @@ export function Sidebar({
 
   return (
     <aside className="side">
-      <nav className="tree">
+      <nav ref={nav} className="tree">
+        <div className={`it side-search${searchOpen ? ' on' : ''}`} style={indent(0)}>
+          <button type="button" className="it-main" onClick={onSearch}>
+            <Icon name="search" />
+            <span>{t('side.search')}</span>
+          </button>
+        </div>
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
         {spaces.length === 0 ? (

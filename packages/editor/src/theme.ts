@@ -115,6 +115,8 @@ const editorTheme = EditorView.theme({
   '.cm-sl-find-close': { marginLeft: 'auto' },
   '.cm-searchMatch': { backgroundColor: 'var(--sl-match)', outline: '1px solid var(--sl-line)' },
   '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'var(--sl-sel)', outline: '1px solid var(--sl-accent)' },
+  // The words the search window found, where it opened the note.
+  '.cm-sl-found': { backgroundColor: 'color-mix(in srgb, var(--sl-accent) 28%, transparent)', borderRadius: '2px' },
 
   '.cm-tooltip.cm-tooltip-autocomplete': {
     padding: '4px',

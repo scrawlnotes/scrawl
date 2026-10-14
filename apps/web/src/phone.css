@@ -557,7 +557,7 @@ html:has(.phone-app) body {
   bottom: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   height: var(--ph-bar);
   padding-bottom: max(env(safe-area-inset-bottom) - 14px, 0px);
   box-sizing: border-box;
@@ -5627,4 +5627,135 @@ body > .mb-lifted {
   color: var(--sl-dim);
   font-size: 15px;
   line-height: 1.4;
+}
+
+/* ---------- Search, the fourth tab: the box under the title, and one list under it ---------- */
+
+.mb-sxbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 16px 10px;
+}
+
+.mb-sxbar .mb-searchbar {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.mb-searchbar input[type='search'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.mb-searchbar input[type='search']::-webkit-search-cancel-button,
+.mb-searchbar input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.mb-sxbar .clr {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sl-faint);
+  color: var(--sl-side);
+}
+
+.mb .mb-sxbar .clr .icon {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2.6;
+}
+
+.mb-sxbar .cancel {
+  flex: none;
+  color: var(--sl-accent);
+  font-size: 16px;
+}
+
+.mb-sx .mb-p.say {
+  padding-top: 4px;
+}
+
+.mb-sx-list {
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-sxr {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 58px;
+  padding: 0 16px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font-size: 16px;
+  text-align: left;
+}
+
+.mb-sxr + .mb-sxr::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 51px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-sxr:active {
+  background: color-mix(in srgb, var(--sl-fg) 7%, var(--sl-bg));
+}
+
+.mb-sxr > .icon {
+  flex: none;
+  color: var(--sl-dim);
+}
+
+.mb-sxr > .cb {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0 1px;
+}
+
+.mb-sxr .tx {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 9px 0;
+}
+
+.mb-sxr .tx b {
+  overflow: hidden;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-sxr .tx b .key {
+  margin-right: 7px;
+  color: var(--sl-dim);
+  font-family: var(--sl-font-mono);
+  font-size: 13.5px;
+}
+
+.mb-sxr .tx small {
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-sxr .tx small.snip {
+  color: var(--sl-dim);
 }

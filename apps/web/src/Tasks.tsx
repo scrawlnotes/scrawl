@@ -1248,12 +1248,14 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
  * One task list, with the folder it is in beside its name. Tasks in no section come first,
  * without a header; then each section; then the row that adds a section.
  */
-export function TaskList({ list, tasks, sections, today, actions }: {
+export function TaskList({ list, tasks, sections, today, actions, reveal = null }: {
   list: string;
   tasks: Task[];
   sections: Section[];
   today: string;
   actions: TaskActions;
+  /** A task found by the search window: shown, done or in a folded section as it may be, brought into sight and marked for a moment. `at` tells one ask from the next. */
+  reveal?: { id: string; at: number } | null;
 }) {
   const [showDone, setShowDone] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -1261,6 +1263,31 @@ export function TaskList({ list, tasks, sections, today, actions }: {
   const whole: List = { sections, tasks };
   const shown = (task: Task) => showDone || !task.done;
   const rows = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!reveal) return;
+    const task = tasks.find((each) => each.id === reveal.id);
+    if (!task) return;
+    if (task.done) setShowDone(true);
+    // A subtask is in its top task's section.
+    let top = task;
+    for (let parent = tasks.find((each) => each.id === top.parent); parent; parent = tasks.find((each) => each.id === top.parent)) top = parent;
+    const section = sections.find((each) => each.id === top.section);
+    if (section?.collapsed) actions.foldSection(list, section.id, false);
+    let row: Element | null = null;
+    const timer = window.setTimeout(() => {
+      row = rows.current?.querySelector(`[data-row="task"][data-id="${CSS.escape(reveal.id)}"]`) ?? null;
+      row?.scrollIntoView({ block: 'center' });
+      row?.classList.add('found');
+    }, 50);
+    const unmark = window.setTimeout(() => row?.classList.remove('found'), 1850);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(unmark);
+      row?.classList.remove('found');
+    };
+    // Each ask once; the list is read as it is then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal?.at]);
   const dragging = useRef<Dragging | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
   // The same, for a finger letting go, which comes before the state is drawn.

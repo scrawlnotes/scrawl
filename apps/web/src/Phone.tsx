@@ -1,4 +1,4 @@
-import { INBOX, INBOX_TASKS, inSpace, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
+import { type Found, INBOX, INBOX_TASKS, inSpace, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -9,10 +9,11 @@ import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
 import { PhoneSyncList, PhoneSyncPage } from './PhoneSync';
+import { PhoneSearch, type Thing } from './Search';
 import { ActionSheet, Empty, useViewport } from './sheets';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
-// Recent, Browse and Today at its foot, and in each of them a stack of pages. A page slides in from the
+// Recent, Browse, Today and Search at its foot, and in each of them a stack of pages. A page slides in from the
 // right over the one it was opened from, and goes back by the button at its top, which says where
 // it goes, or by a swipe from the left edge. What is open (a note, a list, a board, a keys file, a
 // collection, a filter) is drawn once, by the app, and moved into the page that shows it. Nothing
@@ -20,8 +21,8 @@ import { ActionSheet, Empty, useViewport } from './sheets';
 // rest of the tabs by itself.
 
 /** The places of the tab bar. */
-export type Place = 'recent' | 'browse' | 'today';
-const PLACES: Place[] = ['recent', 'browse', 'today'];
+export type Place = 'recent' | 'browse' | 'today' | 'search';
+const PLACES: Place[] = ['recent', 'browse', 'today', 'search'];
 
 /**
  * What a page of a place shows: its first page, a folder, something open, the trash, the settings
@@ -102,6 +103,11 @@ export interface PhoneProps {
   filesChoice: PhoneChoice;
   /** Whether Files is on screen: what it lists is read only then. */
   onFilesShown: (shown: boolean) => void;
+  /**
+   * Search, the fourth tab: what it finds, read while it is on screen (`onShown`); `onPick` opens
+   * what was found, but a folder, which opens as a page here, and a space, which Browse shows.
+   */
+  search: { things: Thing[] | null; onShown: (shown: boolean) => void; onPick: (found: Found<Thing>) => void };
   /** How sync stands in a word, and whether something keeps it from going on. */
   syncWord: { text: string; bad: boolean };
   /** Asks for the personal space's sync page: back from signing in to connect it, its folder is chosen there. */
@@ -443,7 +449,9 @@ export function Phone(props: PhoneProps) {
   const { ready, tabs, active, titles, tree, filters, counts, item } = props;
   // The app opens on its first place, Recent, with what was open last over it.
   const [place, setPlace] = useState<Place>('recent');
-  const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ recent: [root()], browse: [root()], today: [root()] }));
+  const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ recent: [root()], browse: [root()], today: [root()], search: [root()] }));
+  // What was typed in Search, kept while another tab is on screen.
+  const [query, setQuery] = useState('');
   /** A page sliding in, by its key: it starts at the right edge. */
   const [entering, setEntering] = useState<number | null>(null);
   /** A page sliding out, still drawn until it is gone. */
@@ -481,6 +489,19 @@ export function Phone(props: PhoneProps) {
     if (top.kind !== 'files' && props.filesChoice.choosing) props.filesChoice.onDone();
     props.onFilesShown(top.kind === 'files');
   }, [top.kind]);
+  // Search reads what it finds each time it comes on screen.
+  const searchOnScreen = place === 'search' && top.kind === 'root';
+  useEffect(() => {
+    props.search.onShown(searchOnScreen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchOnScreen]);
+  /** Opens what Search found: a folder as a page over Search, a space where Browse shows it; the rest as the app opens it. */
+  const pickFound = (found: Found<Thing>) => {
+    const target = found.item.target;
+    if (target.kind === 'folder') return push({ kind: 'folder', path: target.path });
+    if (target.kind === 'space') return setPlace('browse');
+    props.search.onPick(found);
+  };
 
   const slideIn = (key: number) => {
     setEntering(key);
@@ -784,7 +805,7 @@ export function Phone(props: PhoneProps) {
   // ---------- the pages ----------
 
   const titleOf = (page: Page, of: Place): string => {
-    if (page.kind === 'root') return of === 'today' ? t('side.today') : of === 'recent' ? t('phone.recent') : t('phone.browse');
+    if (page.kind === 'root') return of === 'today' ? t('side.today') : of === 'recent' ? t('phone.recent') : of === 'search' ? t('phone.search') : t('phone.browse');
     if (page.kind === 'folder') return folderName(page.path);
     if (page.kind === 'trash') return t('side.trash');
     if (page.kind === 'files') return t('side.files');
@@ -1054,6 +1075,13 @@ export function Phone(props: PhoneProps) {
     const nav = below ? { back, onBack: pop } : undefined;
     if (page.kind === 'root' && of === 'recent') return <PageFrame title={titleOf(page, of)}>{recentPage()}</PageFrame>;
     if (page.kind === 'root' && of === 'browse') return <PageFrame title={titleOf(page, of)}>{browsePage()}</PageFrame>;
+    if (page.kind === 'root' && of === 'search') {
+      return (
+        <PageFrame title={titleOf(page, of)}>
+          <PhoneSearch things={props.search.things} query={query} onQuery={setQuery} onPick={pickFound} />
+        </PageFrame>
+      );
+    }
     if (page.kind === 'root') {
       const day = new Date().toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric' });
       return (
@@ -1243,7 +1271,7 @@ export function Phone(props: PhoneProps) {
   const fab =
     top.kind === 'root' && place === 'today'
       ? () => props.onAdd(due === 'today' ? TODAY : UPCOMING)
-      : top.kind === 'root' || top.kind === 'folder'
+      : (top.kind === 'root' && place !== 'search') || top.kind === 'folder'
         ? () => props.onCreate(top.kind === 'folder' ? top.path : INBOX)
         : top.kind === 'item' && props.canAdd(top.id)
           ? () => props.onAdd(top.id)
@@ -1349,8 +1377,8 @@ export function Phone(props: PhoneProps) {
       <nav className="mb-tabbar" aria-label={t('phone.places')}>
         {PLACES.map((each) => (
           <button key={each} type="button" aria-current={each === place ? 'page' : undefined} onClick={() => choose(each)}>
-            {each === 'today' ? <DayIcon /> : <Icon name={each === 'recent' ? 'clock' : 'folder'} />}
-            <span>{each === 'today' ? t('side.today') : each === 'recent' ? t('phone.recent') : t('phone.browse')}</span>
+            {each === 'today' ? <DayIcon /> : <Icon name={each === 'recent' ? 'clock' : each === 'search' ? 'search' : 'folder'} />}
+            <span>{each === 'today' ? t('side.today') : each === 'recent' ? t('phone.recent') : each === 'search' ? t('phone.search') : t('phone.browse')}</span>
           </button>
         ))}
       </nav>

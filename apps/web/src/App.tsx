@@ -17,6 +17,7 @@ import {
   dayOf,
   dirname,
   type FileUse,
+  type Found,
   dueToday,
   filterTasks,
   filterFields,
@@ -115,6 +116,7 @@ import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { SyncStatus, syncWord } from './SyncViews';
 import { Sidebar } from './Sidebar';
+import { SearchWindow, type Thing, thingsOf } from './Search';
 import { DueView, dueLabel, FilterView, type TaskActions, TaskList } from './Tasks';
 import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
@@ -290,8 +292,14 @@ export function App() {
   }, [empty]);
 
   useEffect(() => {
-    // Ctrl+N and Ctrl+W belong to the browser on the web, so Alt is used there.
+    // Ctrl+N and Ctrl+W belong to the browser on the web, so Alt is used there. Ctrl+K opens the
+    // search window in both, besides Search at the top of the sidebar.
     const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyK' && !isPhone()) {
+        event.preventDefault();
+        setSearching(true);
+        return;
+      }
       const modifier = isDesktop ? (event.ctrlKey || event.metaKey) && !event.altKey : event.altKey && !event.ctrlKey;
       if (!modifier || event.shiftKey) return;
       if (event.code === 'KeyN') setDialog({ kind: 'new' });
@@ -973,6 +981,56 @@ export function App() {
   const [dayPicker, setDayPicker] = useState<{ title: string; onPick: (due: string | null) => void } | null>(null);
   // On a phone a section is named in a sheet: a new one from the list's menu, or one renamed.
   const [sectionSheet, setSectionSheet] = useState<{ list: string; section: Section | null } | null>(null);
+
+  // Searching everywhere (PLAN 4.2): the window on a computer, the Search tab on a phone. The
+  // notes' texts and the attached files are read each time it opens; the rest is what the app has.
+  const [searching, setSearching] = useState(false);
+  const [searchRead, setSearchRead] = useState<{ texts: Map<string, string>; files: FileRow[] } | null>(null);
+  const [searchShown, setSearchShown] = useState(false);
+  const searchOn = phone ? searchShown : searching;
+  useEffect(() => {
+    if (!searchOn || !ready) return;
+    let current = true;
+    void Promise.all([session.noteTexts(), session.files()]).then(([texts, files]) => current && setSearchRead({ texts, files }));
+    return () => {
+      current = false;
+    };
+  }, [searchOn, ready]);
+  const searchThings = useMemo<Thing[] | null>(
+    () => (searchRead ? thingsOf({ tree, spaces, titles: tabTitles, tasks, boards, collections, filters, texts: searchRead.texts, files: searchRead.files, today }) : null),
+    [searchRead, tree, spaces, tabTitles, tasks, boards, collections, filters, today],
+  );
+  // A task, a folder or a space found: brought into sight where it is, and marked.
+  const [revealTask, setRevealTask] = useState<{ list: string; id: string; at: number } | null>(null);
+  const [revealFolder, setRevealFolder] = useState<{ path: string; at: number } | null>(null);
+  /** Opens what was found: a note at the words found in it, a task in its list, a card, a record, a file, a folder in the sidebar. */
+  const openFound = (found: Found<Thing>) => {
+    const target = found.item.target;
+    setSearching(false);
+    switch (target.kind) {
+      case 'note':
+        void (found.line ? session.openAt(target.path, found.line.spans) : session.open(target.path));
+        return;
+      case 'task':
+        if (phone) return setTaskSheet({ list: target.list, id: target.id, subtask: target.subtask });
+        void session.open(tasksOf(target.list));
+        return setRevealTask({ list: target.list, id: target.id, at: Date.now() });
+      case 'card':
+        return showCard(target.board, target.id);
+      case 'record':
+        return phone ? setRecordAsked({ dir: target.dir, id: target.id }) : setRecordOver({ dir: target.dir, id: target.id });
+      case 'file':
+        return void session.openAttached(target.file.path);
+      case 'tab':
+        return void session.open(target.id);
+      case 'folder':
+        setDrawer(true);
+        return setRevealFolder({ path: target.path, at: Date.now() });
+      case 'space':
+        setDrawer(true);
+        return setRevealFolder({ path: inSpace(target.id, ''), at: Date.now() });
+    }
+  };
   // On a phone + on a board types a card for the column on screen; the page's menu opens its Fields.
   const [boardAdding, setBoardAdding] = useState(0);
   const [boardFields, setBoardFields] = useState(0);
@@ -1225,7 +1283,9 @@ export function App() {
       />
     )}
     <div className="editor" ref={host} hidden={!showingEditor} />
-    {list !== null && <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} />}
+    {list !== null && (
+      <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} reveal={revealTask?.list === list ? revealTask : null} />
+    )}
     {boardPath !== null && board && (
       <BoardView
         key={boardPath}
@@ -1400,6 +1460,7 @@ export function App() {
               ],
             }}
             onFilesShown={setFilesShown}
+            search={{ things: searchThings, onShown: setSearchShown, onPick: openFound }}
             syncWord={syncWord(sync)}
             syncAsked={syncAsked}
             onSyncShown={() => setSyncAsked(false)}
@@ -1648,6 +1709,9 @@ export function App() {
             setDialog({ kind: 'settings' });
           }}
           settingsOpen={dialog?.kind === 'settings'}
+          onSearch={() => setSearching(true)}
+          searchOpen={searching}
+          reveal={revealFolder}
         />
         <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
         <main className="main">
@@ -1833,6 +1897,7 @@ export function App() {
       )}
       {/* On a phone the settings are pages in Browse. */}
       {dialog?.kind === 'settings' && !phone && <Settings {...settingsValues} initial={dialog.section} onClose={closeDialog} />}
+      {searching && !phone && <SearchWindow things={searchThings} onPick={openFound} onClose={() => setSearching(false)} />}
       {dialog?.kind === 'removeSpace' &&
         (() => {
           const space = spaces.find((each) => each.id === dialog.id);

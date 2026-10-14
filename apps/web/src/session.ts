@@ -202,6 +202,7 @@ import {
   setLink,
   visibleText,
   showCopy,
+  showFound,
   toggleBold,
   toggleCode,
   toggleCodeBlock,
@@ -2579,6 +2580,33 @@ export class Session {
   /** An attached file's content, to download or share. */
   attachedBlob(path: string): Promise<Blob> {
     return this.fs.readBlob(path);
+  }
+
+  /** Every note's text now, here and in every space, for the search window; the trash's are not among them. */
+  async noteTexts(): Promise<Map<string, string>> {
+    const paths: string[] = [];
+    const visit = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (node.kind === 'note') paths.push(node.path);
+        else if (node.kind === 'folder') visit(node.children ?? []);
+      }
+    };
+    visit(this.snapshot.tree);
+    for (const space of this.snapshot.spaces) visit(space.tree);
+    return new Map(await Promise.all(paths.map(async (path) => [path, await this.currentText(path).catch(() => '')] as const)));
+  }
+
+  /**
+   * Opens a note at the words the search window found in it: marked there, brought to the middle
+   * of the screen, the cursor before them. Once the note is drawn where it is shown, which on a
+   * phone is a page sliding in.
+   */
+  async openAt(path: string, spans: [number, number][]) {
+    await this.open(path);
+    window.setTimeout(() => {
+      const view = this.editor?.view;
+      if (view && this.snapshot.active === path) showFound(view, spans);
+    }, 60);
   }
 
   /** The text of a note or a record now: on screen, open behind, waiting to be written, or in its file. */

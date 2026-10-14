@@ -34,6 +34,7 @@ import {
   toggleLinePrefix,
 } from './commands';
 import { findPanel } from './find';
+import { foundField } from './found';
 import { attachmentChanges, widgetMoves } from './media';
 import { linkPaste } from './links';
 import { cursorBehavior } from './cursor';
@@ -49,6 +50,7 @@ export * from './commands';
 export { addCursorBelow, closeSearchPanel, openSearchPanel, redo, searchPanelOpen, selectNextOccurrence, selectSelectionMatches, undo };
 export { createEnvEditor, type EnvEditor } from './env';
 export { literalPattern } from './find';
+export { showFound } from './found';
 export { addCopy, type Copy, copyFollows, copyPosition, copyProgress, dropCopy, progressText, showCopy } from './copies';
 export { linkAddress, linkText, pastedLink, pastedUrl } from './links';
 export { cursorBehavior, restingPosition } from './cursor';
@@ -272,6 +274,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         widgetMoves,
         addFiles ? fileInput(addFiles) : [],
         copiesField,
+        foundField,
         scrawlTheme,
         keymap.of([...formatKeymap, ...searchKeymap, ...historyKeymap, ...defaultKeymap, indentWithTab]),
         EditorView.updateListener.of((update) => {

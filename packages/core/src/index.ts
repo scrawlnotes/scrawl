@@ -15,3 +15,4 @@ export * from './spaces';
 export * from './sync';
 export * from './tasks';
 export * from './vault';
+export * from './search';
