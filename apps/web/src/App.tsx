@@ -111,7 +111,7 @@ import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { SyncStatus, syncWord } from './SyncViews';
 import { Sidebar } from './Sidebar';
-import { DueView, FilterView, type TaskActions, TaskList } from './Tasks';
+import { DueView, dueLabel, FilterView, type TaskActions, TaskList } from './Tasks';
 import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
 import { type TrashSpace, TrashView } from './Trash';
@@ -797,6 +797,12 @@ export function App() {
   const [taskSheet, setTaskSheet] = useState<{ list: string; id: string; subtask: boolean } | null>(null);
   const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record' | 'assignee'; list: string; id: string } | null>(null);
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
+  // On a phone's Upcoming the day chosen in the week, which + adds to; tomorrow until one is chosen.
+  const [upcomingDay, setUpcomingDay] = useState<string | null>(null);
+  // A day chosen before midnight that is past now is chosen no more.
+  const upDay = upcomingDay && upcomingDay >= today ? upcomingDay : addDays(today, 1);
+  // On a phone a day for some tasks at once is chosen in a sheet: what is overdue, rescheduled.
+  const [dayPicker, setDayPicker] = useState<{ title: string; onPick: (due: string | null) => void } | null>(null);
   // On a phone a section is named in a sheet: a new one from the list's menu, or one renamed.
   const [sectionSheet, setSectionSheet] = useState<{ list: string; section: Section | null } | null>(null);
   // On a phone + on a board types a card for the column on screen; the page's menu opens its Fields.
@@ -810,7 +816,7 @@ export function App() {
     const collectionDir = collectionPathOf(id);
     if (collectionDir !== null) return setNewRecord({ dir: collectionDir });
     if (id === TODAY) return setQuickAdd({ list: INBOX_TASKS, section: null, due: today });
-    if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: addDays(today, 1) });
+    if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: upDay });
     const list = listOf(id);
     if (list !== null) setQuickAdd({ list, section: null, due: null });
   };
@@ -822,8 +828,8 @@ export function App() {
   const taskActions: TaskActions = {
     add: (target, input) => session.addTask(target, input),
     update: (target, id, change) => session.updateTask(target, id, change),
-    setDone: (target, id, done) => {
-      if (!done) return session.setTaskDone(target, id, false);
+    setDone: (target, id, done, quiet) => {
+      if (!done || quiet) return session.setTaskDone(target, id, done);
       undoable(t('tasks.completedNotice'), session.completeTask(target, id));
     },
     remove: deleteTask,
@@ -835,7 +841,15 @@ export function App() {
       pickAssignee: (list: string, id: string) => setTaskPicker({ kind: 'assignee', list, id }),
       quickAdd: (list: string, section: string | null, due?: string) => setQuickAdd({ list, section, due: due ?? null }),
       nameSection: (list: string, section: Section | null) => setSectionSheet({ list, section }),
+      pickDay: (title: string, onPick: (due: string | null) => void) => setDayPicker({ title, onPick }),
     }),
+    reschedule: (items, due) => {
+      const before = items.map(({ list, id }) => ({ list, id, due: tasks[list]?.find((task) => task.id === id)?.due ?? null }));
+      for (const { list, id } of items) session.updateTask(list, id, { due });
+      undoable(t('tasks.rescheduledNotice', { count: items.length, day: due ? dueLabel(due, today) : t('tasks.noDate') }), () => {
+        for (const was of before) session.updateTask(was.list, was.id, { due: was.due });
+      });
+    },
     addSection: (list, name) => session.addSection(list, name),
     renameSection: (list, id, name) => session.renameSection(list, id, name),
     foldSection: (list, id, collapsed) => session.foldSection(list, id, collapsed),
@@ -1159,7 +1173,7 @@ export function App() {
             filters={filters}
             counts={counts}
             item={itemLayer}
-            dueView={(kind) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare />}
+            dueView={(kind) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare day={upDay} onDay={setUpcomingDay} />}
             canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null || (keysPathOf(id) !== null && keysLooks[keysPathOf(id)!]?.view !== 'text') || (collectionPathOf(id) !== null && (collections[collectionPathOf(id)!]?.schema.fields.length ?? 0) > 0)}
             onAdd={phoneAdd}
             trashView={<TrashView items={trash} today={today} spaces={trashSpaces} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
@@ -1352,6 +1366,7 @@ export function App() {
                 />
               );
             })()}
+          {dayPicker && <DateSheet title={dayPicker.title} current={null} today={today} onPick={dayPicker.onPick} onClose={() => setDayPicker(null)} />}
           {sectionSheet && (
             <SectionSheet
               list={sectionSheet.list}

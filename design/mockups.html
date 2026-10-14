@@ -1097,6 +1097,7 @@ p { margin: 0; max-width: 68ch; }
 /* lists: a row is a tap target from edge to edge; the line between rows starts at the text */
 .mb-sec { display: flex; align-items: baseline; gap: 8px; padding: 18px 16px 6px; color: var(--m-faint); font-size: 12.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
 .mb-sec small { font-size: 12.5px; letter-spacing: 0; }
+.mb-sec .resch { margin-left: auto; color: var(--m-accent); font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none; }
 .mb-gap { height: 26px; }
 .mb-row { position: relative; display: flex; align-items: center; gap: 13px; min-height: 48px; padding: 0 16px; background: var(--m-bg); }
 .mb-row + .mb-row::before, .mb-task + .mb-task::before { content: ''; position: absolute; top: 0; left: 51px; right: 0; border-top: 1px solid var(--m-line); }
@@ -1404,6 +1405,7 @@ p { margin: 0; max-width: 68ch; }
 .mb-week { display: grid; grid-template-columns: repeat(7, 1fr); flex: none; margin: 4px 10px 2px; text-align: center; }
 .mb-week span { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 2px 0 6px; color: var(--m-faint); font-size: 12px; font-weight: 500; }
 .mb-week b { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--m-fg); font-size: 16px; font-weight: 500; }
+.mb-week span.today b { color: var(--m-accent); font-weight: 700; }
 .mb-week span.on b { background: var(--m-accent); color: var(--m-on-accent); font-weight: 700; }
 .mb-week i { width: 5px; height: 5px; border-radius: 50%; background: var(--m-faint); }
 .mb-week i.no { visibility: hidden; }
@@ -3554,7 +3556,7 @@ p { margin: 0; max-width: 68ch; }
   }
   function mbToday() {
     return mbPage(mbHead('Today', 'Monday, Oct 12', true) + '<div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>',
-      '<div class="mb-sec">Overdue <small>1</small></div>' +
+      '<div class="mb-sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' +
       mbT({ p: 'p3', title: 'Renew the domain', meta: mi('cal', 'Oct 9', 'late') + mi('tasks', 'Tasks · Home') }) +
       '<div class="mb-sec">Today <small>3</small></div>' +
       mbT({ p: 'p1', title: 'Prototype live preview', meta: mi('tasks', 'Tasks · Scrawl') + mi('', '2 of 4') }) +
@@ -3943,9 +3945,10 @@ p { margin: 0; max-width: 68ch; }
         mbT({ title: 'Tables: edit cells in place' }) + mbT({ title: 'Copy button on code blocks' }) +
         '<div class="mb-fr plusrow">' + ICON.plus + 'Add subtask</div>' +
       '</div></div></div>';
-    function day(n, wd, on, dot) { return '<span' + (on ? ' class="on"' : '') + '>' + wd + '<b>' + n + '</b><i' + (dot ? '' : ' class="no"') + '></i></span>'; }
+    // Today in the accent; the day chosen, which + adds to, filled: tomorrow at first.
+    function day(n, wd, cls, dot) { return '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + wd + '<b>' + n + '</b><i' + (dot ? '' : ' class="no"') + '></i></span>'; }
     var upcoming = mbPage(mbHead('Upcoming', 'October 2026', true) + '<div class="mb-seg"><span>Today</span><span class="on">Upcoming</span></div>' +
-      '<div class="mb-week">' + day(12, 'Mon', true, true) + day(13, 'Tue', false, true) + day(14, 'Wed', false, true) + day(15, 'Thu') + day(16, 'Fri', false, true) + day(17, 'Sat') + day(18, 'Sun') + '</div>',
+      '<div class="mb-week">' + day(12, 'Mon', 'today', true) + day(13, 'Tue', 'on', true) + day(14, 'Wed', '', true) + day(15, 'Thu') + day(16, 'Fri', '', true) + day(17, 'Sat') + day(18, 'Sun') + '</div>',
       '<div class="mb-sec">Tomorrow · Tue, Oct 13 <small>2</small></div>' +
       mbT({ p: 'p2', title: 'Register scrawlnotes on GitHub and npm', meta: mi('tasks', 'Tasks · Scrawl') }) +
       mbT({ title: 'Book the passport photos', meta: mi('tasks', 'Tasks · Home') }) +
@@ -3966,7 +3969,7 @@ p { margin: 0; max-width: 68ch; }
     return [
       mbPhone('+ ile görev: chip’ler ve nereye gideceği, Add', mbListPage(), add),
       mbPhone('Göreve dokununca sheet: alanları ve alt görevleri', mbListPage(), mbTabs('browse') + task),
-      mbPhone('Upcoming: üstte hafta, altında günler', upcoming, mbTabs('today') + MB_FAB),
+      mbPhone('Upcoming: üstte hafta, + seçilen güne ekler', upcoming, mbTabs('today') + MB_FAB),
       mbPhone('Move to: listeler ve bölümleri; dokununca taşır', mbListPage({ lift: false }), mbTabs('browse') + move)
     ].join('');
   }
@@ -4769,7 +4772,7 @@ p { margin: 0; max-width: 68ch; }
   // a space leaves the phone with the same question as on the computer.
   function mbTodaySpaces() {
     return mbPage(mbHead('Today', 'Monday, Oct 12', true) + '<div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>',
-      '<div class="mb-sec">Overdue <small>1</small></div>' +
+      '<div class="mb-sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' +
       mbT({ p: 'p3', title: 'Renew the domain', meta: mi('cal', 'Oct 9', 'late') + mi('tasks', 'Tasks · Home') }) +
       '<div class="mb-sec">Today <small>3</small></div>' +
       mbT({ p: 'p1', title: 'Prototype live preview', meta: mi('tasks', 'Tasks · Scrawl') + mi('', '2 of 4') }) +

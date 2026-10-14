@@ -13,12 +13,12 @@ import {
   type TaskRecord,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type FormEvent, type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type FormEvent, type MouseEvent, type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { collectionLabel, listLabel } from './items';
 import { firstName } from './People';
-import { ActionSheet, Sheet, SheetClose } from './sheets';
+import { ActionSheet, Sheet, SheetClose, useAdded } from './sheets';
 import { dueClass, dueLabel, type TaskActions } from './Tasks';
 
 // Tasks on a phone, after the Phone tasks views of design/mockups.html: a task opens as a sheet
@@ -314,9 +314,6 @@ export function SectionSheet({ list, start, onSave, onClose }: { list: string; s
   );
 }
 
-/** How long the task added last is said in the quick add sheet. */
-const ADDED_MS = 4000;
-
 export function QuickAdd({ initial, places, today, recordChoices, recordName, onAdd, onClose }: {
   initial: { list: string; section: string | null; due: string | null };
   places: TaskPlaceChoice[];
@@ -333,19 +330,13 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, on
   const [record, setRecord] = useState<TaskRecord | null>(null);
   const [place, setPlace] = useState({ list: initial.list, section: initial.section });
   const [picking, setPicking] = useState<'date' | 'priority' | 'record' | 'place' | null>(null);
-  /** The task added last, said at the top of the sheet a moment, which stays open for the next one. */
-  const [added, setAdded] = useState<{ title: string; where: string; key: number } | null>(null);
+  const added = useAdded();
   const titleField = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (!added) return;
-    const timer = window.setTimeout(() => setAdded(null), ADDED_MS);
-    return () => window.clearTimeout(timer);
-  }, [added]);
   const add = (event?: FormEvent) => {
     event?.preventDefault();
     if (!title.trim()) return;
     onAdd(place.list, { title, description: description.trim() || undefined, section: place.section, due, priority, record });
-    setAdded({ title: title.trim(), where: placeLabel(places, place.list, place.section), key: Date.now() });
+    added.say(t('phone.addedTo', { name: title.trim(), place: placeLabel(places, place.list, place.section) }));
     setTitle('');
     setDescription('');
     titleField.current?.focus();
@@ -360,12 +351,7 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, on
     <>
       <Sheet label={t('tasks.add')} className="mb-qa" onClose={onClose}>
         <form onSubmit={add}>
-          {added && (
-            <p key={added.key} className="added" role="status">
-              <Icon name="check" />
-              <span>{t('phone.taskAdded', { name: added.title, place: added.where })}</span>
-            </p>
-          )}
+          {added.line}
           <input
             ref={titleField}
             className="tt"
@@ -520,7 +506,11 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
           role="checkbox"
           aria-checked={task.done}
           aria-label={t(task.done ? 'tasks.reopen' : 'tasks.complete', { name: task.title })}
-          onClick={() => actions.setDone(list, task.id, !task.done)}
+          onClick={() => {
+            actions.setDone(list, task.id, !task.done);
+            // Completed, it goes, as in a list: Task completed and Undo show over the page.
+            if (!task.done) onClose();
+          }}
         />
         <div className="tx">
           <Growing className="tt" label={t('tasks.title')} value={title} onChange={setTitle} />
@@ -587,7 +577,8 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
                     role="checkbox"
                     aria-checked={child.done}
                     aria-label={t(child.done ? 'tasks.reopen' : 'tasks.complete', { name: child.title })}
-                    onClick={() => actions.setDone(list, child.id, !child.done)}
+                    // A subtask is ticked where it is, in sight: no Undo over the sheet.
+                    onClick={() => actions.setDone(list, child.id, !child.done, true)}
                   />
                   <button type="button" className="in" onClick={() => onOpen(child.id)}>
                     {child.title}

@@ -357,7 +357,7 @@ export const en = {
   'phone.subtasks': 'Subtasks',
   'phone.subtasksDone': 'Subtasks · {done} of {total}',
   'phone.add': 'Add',
-  'phone.taskAdded': '{name} added to {place}',
+  'phone.addedTo': '{name} added to {place}',
   // a board on a phone
   'phone.statusMenu': 'Status…',
   'phone.columnIn': 'Column in {board}',
@@ -609,6 +609,9 @@ export const en = {
   'tasks.description': 'Description',
   'tasks.complete': 'Complete {name}',
   'tasks.completedNotice': 'Task completed',
+  'tasks.reschedule': 'Reschedule',
+  'tasks.rescheduleTitle': { one: 'Reschedule {count} task', other: 'Reschedule {count} tasks' },
+  'tasks.rescheduledNotice': { one: '{count} task moved to {day}', other: '{count} tasks moved to {day}' },
   'tasks.reopen': 'Reopen {name}',
   'tasks.changeDate': 'Change the date',
   'tasks.progress': '{done} of {total}',

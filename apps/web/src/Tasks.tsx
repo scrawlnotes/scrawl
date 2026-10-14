@@ -60,7 +60,8 @@ import { holdToDrag, pressOnField } from './touchDrag';
 export interface TaskActions {
   add: (list: string, input: NewTask) => void;
   update: (list: string, id: string, patch: TaskPatch) => void;
-  setDone: (list: string, id: string, done: boolean) => void;
+  /** Completes or reopens a task; a completion says so with Undo, unless it is `quiet`. */
+  setDone: (list: string, id: string, done: boolean, quiet?: boolean) => void;
   remove: (list: string, id: string) => void;
   /** Opens a menu at the pointer; on a phone an action sheet, `head` saying what it is about. */
   menu: (event: MouseEvent, items: MenuItem[], head?: MenuHead) => void;
@@ -102,6 +103,10 @@ export interface TaskActions {
   quickAdd?: (list: string, section: string | null, due?: string) => void;
   /** On a phone: a section's name in a sheet, a new section's for null. */
   nameSection?: (list: string, section: Section | null) => void;
+  /** Gives the tasks one new day, all at once, with Undo: what is overdue, moved on. */
+  reschedule: (tasks: { list: string; id: string }[], due: string | null) => void;
+  /** On a phone: a day chosen in a sheet, about `title`. */
+  pickDay?: (title: string, onPick: (due: string | null) => void) => void;
 }
 
 /** A row of the record picker: unlinking, or a record of a collection. */
@@ -1617,7 +1622,7 @@ function splitDueCards(boards: Record<string, Board>, today: string) {
 }
 
 /** Today or Upcoming: what is due, from every task list and every board. */
-export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
+export function DueView({ kind, lists, boards, today, actions, bare, adding, day, onDay }: {
   kind: 'today' | 'upcoming';
   lists: Record<string, Task[]>;
   boards: Record<string, Board>;
@@ -1627,6 +1632,9 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
   bare?: boolean;
   /** Counts the presses of a phone's + button, which open the add row. */
   adding?: number;
+  /** On a phone's Upcoming: the day chosen in the week, which + adds to. */
+  day?: string;
+  onDay?: (day: string) => void;
 }) {
   const [showDone, setShowDone] = useState(false);
   const item = ({ list, task }: { list: string; task: Task }) => (
@@ -1635,11 +1643,12 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
   const cardItem = ({ board, card }: { board: string; card: Card }, grouped?: boolean) => (
     <CardRow key={`${board}#${card.id}`} board={board} whole={boards[board]!} card={card} today={today} actions={actions} grouped={grouped} />
   );
-  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = [], day?: string) =>
+  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = [], day?: string, action?: ReactNode) =>
     tasks.length + cards.length > 0 && (
       <div key={title} data-day={day}>
         <div className="sec">
           {title} <small>{tasks.length + cards.length}</small>
+          {action}
         </div>
         {tasks.map(item)}
         {cards.map((due) => cardItem(due))}
@@ -1657,6 +1666,17 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
       .flatMap(([list, tasks]) => tasks.filter((task) => task.done && task.completed && dayOf(new Date(task.completed)) === today).map((task) => ({ list, task })))
       .sort((a, b) => (a.task.completed! < b.task.completed! ? 1 : -1));
     const nothingDue = due.overdue.length + due.today.length + byBoard.size === 0;
+    // What is overdue moves on to one day, all at once, as Todoist's Reschedule does.
+    const late = due.overdue.map(({ list, task }) => ({ list, id: task.id }));
+    const reschedule = (event: MouseEvent) => {
+      const to = (day: string | null) => actions.reschedule(late, day);
+      if (actions.pickDay) return actions.pickDay(t('tasks.rescheduleTitle', { count: late.length }), to);
+      actions.menu(event, [
+        { label: t('day.today'), run: () => to(today) },
+        { label: t('day.tomorrow'), run: () => to(addDays(today, 1)) },
+        { label: t('tasks.nextWeek'), run: () => to(nextWeek(today)) },
+      ]);
+    };
     return (
       <TaskPage
         title={t('tasks.today')}
@@ -1675,7 +1695,15 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
           )
         }
       >
-        {section(t('tasks.overdue'), due.overdue)}
+        {section(
+          t('tasks.overdue'),
+          due.overdue,
+          [],
+          undefined,
+          <button type="button" className="resch" onClick={reschedule}>
+            {t('tasks.reschedule')}
+          </button>,
+        )}
         {section(t('tasks.today'), due.today)}
         {[...byBoard].map(([board, dues]) => (
           <div key={board}>
@@ -1704,7 +1732,7 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
   const allDays = [...new Set([...days.map((d) => d.day), ...cards.later.keys()])].sort();
   return (
     <TaskPage title={t('tasks.upcoming')} bare={bare}>
-      {isPhone() && <WeekStrip today={today} busy={new Set(allDays)} />}
+      {isPhone() && <WeekStrip today={today} busy={new Set(allDays)} chosen={day ?? addDays(today, 1)} onChoose={onDay} />}
       {allDays.map((day) =>
         section(
           `${dueLabel(day, today)} · ${toDate(day).toLocaleDateString(locale(), SHORT)}`,
@@ -1719,7 +1747,7 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
             icon="week"
             title={t('phone.emptyUpcoming')}
             text={t('phone.emptyUpcomingText')}
-            action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, addDays(today, 1)) }}
+            action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, day ?? addDays(today, 1)) }}
           />
         ) : (
           <p className="task-empty">{t('tasks.nothingLater')}</p>
@@ -1729,20 +1757,28 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
 }
 
 /**
- * The week on top of Upcoming on a phone: seven days from today, a dot under each that has
- * something due; a tap goes to that day's tasks.
+ * The week on top of Upcoming on a phone: seven days from today, today's number in the accent, a
+ * dot under each that has something due. A tap chooses the day, which + adds to, and goes to its
+ * tasks; tomorrow is chosen at first.
  */
-function WeekStrip({ today, busy }: { today: string; busy: Set<string> }) {
+function WeekStrip({ today, busy, chosen, onChoose }: { today: string; busy: Set<string>; chosen: string; onChoose?: (day: string) => void }) {
   const strip = useRef<HTMLDivElement>(null);
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const go = (day: string) => {
+    onChoose?.(day);
     const found = strip.current?.parentElement?.querySelector<HTMLElement>(`[data-day="${day}"]`);
     found?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
   return (
     <div ref={strip} className="mb-week">
       {days.map((day) => (
-        <button key={day} type="button" className={day === today ? 'on' : undefined} disabled={!busy.has(day) && day !== today} onClick={() => go(day)}>
+        <button
+          key={day}
+          type="button"
+          className={[day === today && 'today', day === chosen && 'on'].filter(Boolean).join(' ') || undefined}
+          aria-pressed={day === chosen}
+          onClick={() => go(day)}
+        >
           {toDate(day).toLocaleDateString(locale(), { weekday: 'short' })}
           <b>{toDate(day).getDate()}</b>
           <i className={busy.has(day) ? undefined : 'no'} />

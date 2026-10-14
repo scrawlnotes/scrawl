@@ -2010,6 +2010,27 @@ body > .mb-lifted {
   border-radius: 6px;
 }
 
+/* Bigger than they look: the box takes a touch from the row's edge to halfway to the name, the
+   name the rest of the row, its padding too. */
+.mb-task .cb::before,
+.mb-task .tx::before {
+  content: '';
+  position: absolute;
+}
+
+.mb-task .cb::before {
+  /* From inside its 2 px border. */
+  inset: -14px -8px -14px -18px;
+}
+
+.mb-task .tx {
+  position: relative;
+}
+
+.mb-task .tx::before {
+  inset: -12px -16px -12px -7px;
+}
+
 .mb-task.done .cb::after,
 .mb-tbig .cb[aria-checked='true']::after,
 .mb-fr .cb[aria-checked='true']::after {
@@ -2176,8 +2197,10 @@ body > .mb-lifted {
 .mb-tsec .chev {
   display: grid;
   place-items: center;
-  width: 26px;
+  /* A finger's width, the arrow where it was. */
+  width: 44px;
   height: 44px;
+  margin: 0 -9px;
   color: var(--sl-faint);
 }
 
@@ -2197,6 +2220,10 @@ body > .mb-lifted {
 .mb-tsec .sec-edit {
   font-size: 16px;
   font-weight: 600;
+}
+
+.mb-tsec .sec-name {
+  min-height: 44px;
 }
 
 .mb-tsec small {
@@ -2236,6 +2263,18 @@ body > .mb-lifted {
   text-transform: uppercase;
 }
 
+/* Reschedule, beside Overdue: a word that does it, not a heading's */
+.mb-tasks .sec .resch {
+  min-height: 40px;
+  margin: -10px -8px -2px auto;
+  padding: 0 8px;
+  color: var(--sl-accent);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .mb-tasks .task-empty {
   margin: 0;
   padding: 16px;
@@ -2260,10 +2299,6 @@ body > .mb-lifted {
   font-weight: 500;
 }
 
-.mb-week button:disabled {
-  cursor: default;
-}
-
 .mb-week b {
   display: grid;
   place-items: center;
@@ -2273,6 +2308,12 @@ body > .mb-lifted {
   color: var(--sl-fg);
   font-size: 16px;
   font-weight: 500;
+}
+
+/* today in the accent; the day chosen, which + adds to, filled */
+.mb-week .today b {
+  color: var(--sl-accent);
+  font-weight: 700;
 }
 
 .mb-week .on b {
@@ -2350,7 +2391,8 @@ body > .mb-lifted {
 
 .mb-qa .ds {
   padding-top: 2px;
-  font-size: 15px;
+  /* Under 16 px a phone zooms in on the field. */
+  font-size: 16px;
 }
 
 .mb-qa .tt::placeholder,
@@ -2652,7 +2694,7 @@ body > .mb-lifted {
 .mb-tbig .ds {
   margin-top: 6px;
   color: var(--sl-dim);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.45;
 }
 
@@ -3096,12 +3138,16 @@ body > .mb-lifted {
 }
 
 .mb .mb-bv .colm h3 {
-  height: 40px;
+  height: 44px;
   margin: 0;
   padding: 0 0 0 4px;
   color: var(--sl-fg);
   font-size: 16px;
   font-weight: 600;
+}
+
+.mb .mb-bv .colm h3 .colm-name {
+  min-height: 44px;
 }
 
 .mb .mb-bv .colm h3 small {
@@ -3116,8 +3162,8 @@ body > .mb-lifted {
 }
 
 .mb .mb-bv .colm h3 .more {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   margin-left: auto;
   font-size: 20px;
   opacity: 1;

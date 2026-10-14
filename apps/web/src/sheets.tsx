@@ -13,6 +13,29 @@ const PULL = 90;
 /** When the keyboard is up the window loses at least this much of its height. */
 const KEYBOARD = 120;
 
+/** How long a quick add sheet says what it added last. */
+const ADDED_MS = 4000;
+
+/**
+ * What a quick add sheet added last, said at its top for a moment while the sheet stays open for
+ * the next one: `say` tells it, `line` shows it.
+ */
+export function useAdded() {
+  const [added, setAdded] = useState<{ text: string; key: number } | null>(null);
+  useEffect(() => {
+    if (!added) return;
+    const timer = window.setTimeout(() => setAdded(null), ADDED_MS);
+    return () => window.clearTimeout(timer);
+  }, [added]);
+  const line = added && (
+    <p key={added.key} className="added" role="status">
+      <Icon name="check" />
+      <span>{added.text}</span>
+    </p>
+  );
+  return { say: (text: string) => setAdded({ text, key: Date.now() }), line };
+}
+
 /** The part of the page the phone shows: the keyboard, when up, is not in it. */
 export function useViewport() {
   const read = () => {

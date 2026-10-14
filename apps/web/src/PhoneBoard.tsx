@@ -4,7 +4,7 @@ import { type CSSProperties, type FormEvent, useRef, useState } from 'react';
 import { labelHue } from './choices';
 import { Icon, type IconName } from './Icon';
 import { DateSheet, priorityItems } from './PhoneTasks';
-import { ActionSheet, Sheet, SheetClose } from './sheets';
+import { ActionSheet, Sheet, SheetClose, useAdded } from './sheets';
 import { dueClass, dueLabel } from './Tasks';
 
 // A board on a phone, after the Phone board views of design/mockups.html: its columns as tabs
@@ -223,6 +223,7 @@ export function CardQuickAdd({ board, column, phase, today, onAdd, onClose }: {
   const [where, setWhere] = useState(column);
   const [picking, setPicking] = useState<'priority' | 'labels' | 'due' | 'phase' | 'column' | null>(null);
   const titleField = useRef<HTMLInputElement>(null);
+  const added = useAdded();
   const shownColumn = board.columns.find((c) => c.id === where) ?? board.columns[0]!;
   const phaseName = cardPhase ? board.phases.find((p) => p.id === cardPhase)?.name : undefined;
   const add = (event?: FormEvent) => {
@@ -237,6 +238,7 @@ export function CardQuickAdd({ board, column, phase, today, onAdd, onClose }: {
       ...(labels.length > 0 && { labels }),
       ...(due && { due }),
     });
+    added.say(t('phone.addedTo', { name: title.trim(), place: shownColumn.name }));
     setTitle('');
     setDescription('');
     titleField.current?.focus();
@@ -251,6 +253,7 @@ export function CardQuickAdd({ board, column, phase, today, onAdd, onClose }: {
     <>
       <Sheet label={t('board.addCard')} className="mb-qa" onClose={onClose}>
         <form onSubmit={add}>
+          {added.line}
           <input
             ref={titleField}
             className="tt"
