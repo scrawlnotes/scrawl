@@ -1,4 +1,4 @@
-import { t } from '@scrawlnotes/i18n';
+import { locale, t } from '@scrawlnotes/i18n';
 import {
   basename,
   boardName,
@@ -16,6 +16,7 @@ import {
   addDays,
   dayOf,
   dirname,
+  type FileUse,
   dueToday,
   filterTasks,
   filterFields,
@@ -49,6 +50,7 @@ import { type DragEvent, type MouseEvent, useCallback, useEffect, useMemo, useRe
 import { createPortal } from 'react-dom';
 import {
   ConfirmDialog,
+  type ConfirmPlace,
   ContextMenu,
   FilterDialog,
   type FolderChoice,
@@ -70,7 +72,7 @@ import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History
 import { PhoneCardPage } from './CardPanel';
 import { LinkActions, LinkSheet, PhoneFormatBar } from './PhoneNote';
 import { DateSheet, QuickAdd, RecordSheet, SectionSheet, TaskSheet } from './PhoneTasks';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
 import { PhoneNewRecord, PhoneRecordPage } from './PhoneCollection';
@@ -91,6 +93,7 @@ import { folderLabel as folderLabelOf, setSpaceNames,
   isTaskListPath,
   keysPathOf,
   labelOf,
+  placeLabel,
   listLabel,
   listOf,
   nameOf,
@@ -99,13 +102,14 @@ import { folderLabel as folderLabelOf, setSpaceNames,
   tasksOf,
   TODAY,
   TRASH,
+  FILES,
   UPCOMING,
 } from './items';
 import { applySize, applyTheme, isPhone, loadMode, loadSize, loadTheme, type Mode, onSystemShade, pageBox, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
 import { type Notice, Phone } from './Phone';
 import { PhoneCreate } from './PhoneCreate';
 import { PeopleSheet } from './PhoneSpaces';
-import { Session, type SpaceView } from './session';
+import { type FileRow, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
@@ -115,8 +119,9 @@ import { DueView, dueLabel, FilterView, type TaskActions, TaskList } from './Tas
 import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
+import { type FileActions, type FileSort, FilesView, fileTitle, Thumb, useIcon, useTitle, useWord } from './Files';
 import { Welcome } from './Welcome';
-import { chooseSpaceFolder, isDesktop, openUrlOnDesktop, saveTextFile } from './storage';
+import { chooseSpaceFolder, downloadBlob, isDesktop, openUrlOnDesktop, saveTextFile } from './storage';
 
 type OpenDialog =
   // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen.
@@ -124,7 +129,7 @@ type OpenDialog =
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
-  | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void }
+  | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void; places?: ConfirmPlace[]; after?: string; brief?: string }
   | { kind: 'removeSpace'; id: string }
   | { kind: 'history'; path: string }
   | { kind: 'moveTask'; list: string; id: string }
@@ -217,7 +222,7 @@ export function App() {
     else if (sync.picking || sync.adding || sync.signInError) setDialog({ kind: 'settings', section: 'spaces' });
   }, [sync.picking, sync.adding, sync.signInError]);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
-  const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, saved, stats, format, source, recording, recordError } =
+  const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -340,6 +345,30 @@ export function App() {
   useEffect(() => {
     if (!phone && active !== TRASH) letGoOfTrash();
   }, [phone, active]);
+
+  // Files: what it lists, read only while it is shown; its rows chosen together as the trash's.
+  const [files, setFiles] = useState<FileRow[] | null>(null);
+  const [filesShown, setFilesShown] = useState(false);
+  const [filesChosen, setFilesChosen] = useState<ReadonlySet<string>>(() => new Set());
+  const [filesChoosing, setFilesChoosing] = useState(false);
+  const letGoOfFiles = () => {
+    setFilesChosen(new Set());
+    setFilesChoosing(false);
+  };
+  const filesOnScreen = phone ? filesShown : active === FILES;
+  useEffect(() => {
+    if (!phone && active !== FILES) letGoOfFiles();
+  }, [phone, active]);
+  const [filesRead, setFilesRead] = useState(0);
+  const readFilesAgain = () => setFilesRead((n) => n + 1);
+  useEffect(() => {
+    if (!filesOnScreen) return;
+    let live = true;
+    void session.files().then((list) => live && setFiles(list));
+    return () => {
+      live = false;
+    };
+  }, [filesOnScreen, fileCount, trash, tree, filesRead]);
 
   useEffect(() => {
     // Coming back to the window: another program may have changed the notes in the meantime.
@@ -524,6 +553,94 @@ export function App() {
       () => void session.deleteForever(item),
       t('delete.forever'),
     );
+  /** Where a file is used, opened: a note in its tab, a card on its board, a record over what is open. */
+  const openUse = (use: FileUse) => {
+    if (use.kind === 'card' && use.card) return showCard(use.path, use.card.id);
+    if (use.kind === 'record') {
+      const dir = dirname(use.path);
+      const record = collections[dir]?.records.find((each) => each.path === use.path);
+      if (!record) return;
+      return phone ? setRecordAsked({ dir, id: record.id }) : setRecordOver({ dir, id: record.id });
+    }
+    void session.open(use.path);
+  };
+  const spaceName = (id: string | null) => trashSpaces.find((each) => each.id === id)?.name ?? '';
+  /** Asks before deleting files, saying where they are taken out of; then deletes them with Undo. */
+  const askDeleteFiles = (rows: FileRow[]) => {
+    if (rows.length === 0) return;
+    const seen = new Set<string>();
+    const places = rows
+      .flatMap((file) => file.uses)
+      .filter((use) => !use.inTrash && !seen.has(`${use.path} ${use.card?.id ?? ''}`) && seen.add(`${use.path} ${use.card?.id ?? ''}`));
+    const one = rows.length === 1;
+    const count = rows.length;
+    const title = one ? t('files.deleteOne', { name: quote(fileTitle(rows[0]!)) }) : t('files.deleteMany', { count });
+    const names = new Intl.ListFormat(locale(), { type: 'conjunction' }).format(places.map(useTitle));
+    setDialog({
+      kind: 'confirm',
+      title,
+      message: places.length > 0 ? t(one ? 'files.oneUsed' : 'files.manyUsed', { count: places.length }) : t('files.unusedGoes', { count }),
+      places: places.map((use) => ({
+        icon: useIcon(use),
+        name: useTitle(use),
+        sub: [useWord(use), use.kind === 'card' ? boardName(use.path) : use.kind === 'record' ? collectionName(dirname(use.path)) : placeLabel(use.path)].filter(Boolean).join(' · '),
+      })),
+      after: places.length > 0 ? t('files.goesToTrash', { count }) : undefined,
+      brief: places.length > 0 ? t('files.takenOut', { count, places: names }) : t('files.unusedGoes', { count }),
+      action: t('files.deleteAction', { count }),
+      danger: true,
+      run: () => {
+        letGoOfFiles();
+        void session.deleteFiles(rows).then((undo) => {
+          readFilesAgain();
+          undoable(t('files.deletedNotice', { count }), () => void undo().then(readFilesAgain));
+        });
+      },
+    });
+  };
+  const shareFiles = async (rows: FileRow[]) => {
+    try {
+      const shared = await Promise.all(rows.map(async (file) => new File([await session.attachedBlob(file.path)], file.name, { type: (await session.attachedBlob(file.path)).type })));
+      if (navigator.canShare?.({ files: shared })) await navigator.share({ files: shared });
+      else for (const file of shared) downloadBlob(file.name, file);
+    } catch {
+      // Shared nowhere: the share sheet was closed.
+    }
+  };
+  const fileActions: FileActions = {
+    open: (file) => void session.openAttached(file.path),
+    ...(isDesktop
+      ? { reveal: (file) => session.revealAttached(file.path) }
+      : { download: (file) => void session.attachedBlob(file.path).then((blob) => downloadBlob(file.name, blob), () => undefined) }),
+    remove: askDeleteFiles,
+    openUse,
+    image: session.imageOf,
+    menu: (file) =>
+      showSheet(
+        [
+          ...file.uses.map(
+            (use): MenuItem => ({ label: useTitle(use), icon: useIcon(use), value: use.inTrash ? t('files.inTrash') : useWord(use), run: () => !use.inTrash && openUse(use) }),
+          ),
+          { label: t('files.open'), icon: 'open', run: () => void session.openAttached(file.path), apart: file.uses.length > 0 },
+          { label: t('files.share'), icon: 'share', run: () => void shareFiles([file]) },
+          { label: t('menu.delete'), icon: 'trash', danger: true, run: () => askDeleteFiles([file]) },
+        ],
+        { icon: 'file', title: fileTitle(file), sub: `${sizeText(file.size)}${trashSpaces.length > 1 ? ` · ${spaceName(file.space)}` : ''}`, picture: <Thumb file={file} image={session.imageOf} className="mb-thumb" /> },
+      ),
+    chooseSort: (sort, onPick) => {
+      const pick = (next: FileSort, label: string, icon: IconName): MenuItem => ({
+        label,
+        icon,
+        ...(sort.key === next.key && { value: '✓' }),
+        run: () => onPick(next),
+      });
+      showSheet([pick({ key: 'added', dir: 'desc' }, t('files.newest'), 'clock'), pick({ key: 'size', dir: 'desc' }, t('files.largest'), 'sort'), pick({ key: 'name', dir: 'asc' }, t('files.byName'), 'list')], {
+        icon: 'sort',
+        title: t('files.sort'),
+        sub: t('files.title'),
+      });
+    },
+  };
   const askEmptyTrash = () =>
     ask(t('delete.empty'), t('delete.emptyText', { count: trash.length }), () => void session.emptyTrash(), t('delete.empty'));
   const chosenTrash = trash.filter((item) => trashChosen.has(item.path));
@@ -1017,9 +1134,33 @@ export function App() {
   };
   // The trash goes by space when there is more than one, the personal space first.
   const trashSpaces: TrashSpace[] = [{ id: null, name: space.name ?? t('settings.personal') }, ...spaces.map((each) => ({ id: each.id, name: each.name }))];
+  const allFiles = files ?? [];
+  const chosenFiles = allFiles.filter((file) => filesChosen.has(file.path));
+  const filesView = (
+    <FilesView
+      files={files}
+      today={today}
+      spaces={trashSpaces}
+      choice={{
+        chosen: filesChosen,
+        choosing: filesChoosing,
+        onChoose: (paths, on) =>
+          setFilesChosen((was) => {
+            const next = new Set(was);
+            for (const path of paths) {
+              if (on) next.add(path);
+              else next.delete(path);
+            }
+            return next;
+          }),
+        onDelete: () => askDeleteFiles(chosenFiles),
+      }}
+      actions={fileActions}
+    />
+  );
   const dueNow = dueToday(tasks, today);
   const dueCardsNow = dueCards(boards).filter((d) => d.card.due! <= today).length;
-  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [TRASH]: trash.length };
+  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [TRASH]: trash.length, [FILES]: fileCount };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;
@@ -1141,7 +1282,8 @@ export function App() {
         onEmpty={askEmptyTrash}
       />
     )}
-    {!phone && !showingEditor && list === null && !board && keysText === undefined && !collection && !isDueView && !activeFilter && active !== TRASH && (
+    {!phone && active === FILES && filesView}
+    {!phone && !showingEditor && list === null && !board && keysText === undefined && !collection && !isDueView && !activeFilter && active !== TRASH && active !== FILES && (
       <section className="placeholder">
         {active ? (
           <>
@@ -1230,9 +1372,26 @@ export function App() {
               onStart: () => setTrashChoosing(true),
               onAll: () => setTrashChosen(chosenTrash.length === trash.length ? new Set() : new Set(trash.map((item) => item.path))),
               onDone: letGoOfTrash,
-              onRestore: trashChoice.onRestore,
-              onDelete: trashChoice.onDelete,
+              actions: [
+                { icon: 'restore', label: t('trash.restore'), run: trashChoice.onRestore },
+                { icon: 'trash', label: t('menu.delete'), danger: true, run: trashChoice.onDelete },
+              ],
             }}
+            filesView={filesView}
+            filesChoice={{
+              choosing: filesChoosing,
+              count: chosenFiles.length,
+              all: allFiles.length > 0 && chosenFiles.length === allFiles.length,
+              any: allFiles.length > 0,
+              onStart: () => setFilesChoosing(true),
+              onAll: () => setFilesChosen(chosenFiles.length === allFiles.length ? new Set() : new Set(allFiles.map((file) => file.path))),
+              onDone: letGoOfFiles,
+              actions: [
+                { icon: 'share', label: t('files.share'), run: () => void shareFiles(chosenFiles) },
+                { icon: 'trash', label: t('menu.delete'), danger: true, run: () => askDeleteFiles(chosenFiles) },
+              ],
+            }}
+            onFilesShown={setFilesShown}
             syncWord={syncWord(sync)}
             syncAsked={syncAsked}
             onSyncShown={() => setSyncAsked(false)}
@@ -1742,6 +1901,9 @@ export function App() {
         <ConfirmDialog
           title={dialog.title}
           message={dialog.message}
+          places={dialog.places}
+          after={dialog.after}
+          brief={dialog.brief}
           action={dialog.action}
           danger={dialog.danger}
           onConfirm={() => {

@@ -2,7 +2,7 @@ import { INBOX, INBOX_TASKS, inSpace, spaceOf, type TaskFilter, type TreeNode } 
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useState } from 'react';
 import { Icon } from './Icon';
-import { collectionTab, countItems, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { collectionTab, countItems, FILES, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 
 // A note or a task list being dragged onto a folder.
@@ -437,8 +437,16 @@ export function Sidebar({
           </>
         )}
       </nav>
-      {/* The trash stays at the foot of the sidebar, apart from the folders, with the settings beside it. */}
+      {/* Files and the trash stay at the foot of the sidebar, apart from the folders, with the settings beside them. */}
       <div className="side-foot">
+        {viewRow(
+          FILES,
+          <>
+            <Icon name="clip" />
+            <span>{t('side.files')}</span>
+          </>,
+          0,
+        )}
         {viewRow(
           TRASH,
           <>

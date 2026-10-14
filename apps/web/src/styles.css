@@ -2425,6 +2425,372 @@ button.cb:hover::after {
   font-size: 12px;
 }
 
+/* Files, after the Files view of design/mockups.html (direction A): every attached file with where
+   it is used, its size and when it came, sorted by the column headings, each space's under its
+   heading. A row's name opens the file, a place it is used opens that. */
+.files-view .th .search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 200px;
+  margin-left: auto;
+  padding: 3px 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-faint);
+}
+
+.files-view .th .search:focus-within {
+  border-color: var(--sl-dim);
+}
+
+.files-view .th .search .icon {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+
+.files-view .th .search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 12px;
+}
+
+.fv-kinds {
+  display: flex;
+  flex: none;
+  gap: 5px;
+  padding: 0 26px 10px;
+}
+
+.fv-kinds button {
+  padding: 2px 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 12px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.fv-kinds button:hover {
+  color: var(--sl-fg);
+}
+
+.fv-kinds button.on {
+  border-color: transparent;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.fv-kinds small {
+  margin-left: 5px;
+  color: var(--sl-faint);
+}
+
+.flhead,
+.flrow {
+  display: grid;
+  grid-template-columns: 14px 46px minmax(0, 1.15fr) minmax(0, 1.3fr) 64px 64px 80px;
+  align-items: center;
+  gap: 0 10px;
+  margin: 0 -8px;
+  padding: 0 8px;
+}
+
+.flhead {
+  padding-top: 2px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.flhead button {
+  justify-self: start;
+  color: inherit;
+  font-size: inherit;
+}
+
+.flhead button:hover,
+.flhead .sorted {
+  color: var(--sl-fg);
+}
+
+.flhead button.r {
+  justify-self: end;
+}
+
+.flrow {
+  min-height: 46px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.flrow:hover {
+  border-radius: 5px;
+  background: var(--sl-side);
+}
+
+.flrow.chosen,
+.flrow.chosen:hover {
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--sl-sel) 70%, transparent);
+}
+
+.flrow .choose {
+  opacity: 0;
+}
+
+.flrow:hover .choose,
+.flrow .choose:focus-visible,
+.tl.choosing .flrow .choose {
+  opacity: 1;
+}
+
+.tl.choosing .flrow {
+  cursor: pointer;
+}
+
+.flrow .nm {
+  overflow: hidden;
+  color: var(--sl-fg);
+  font-size: 13.5px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl:not(.choosing) .flrow .nm:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--sl-faint);
+  text-underline-offset: 3px;
+}
+
+.flrow .used {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sl-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.flrow .use {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  text-decoration: underline;
+  text-decoration-color: var(--sl-line);
+  text-underline-offset: 3px;
+}
+
+.flrow button.use:hover {
+  color: var(--sl-fg);
+  text-decoration-color: var(--sl-faint);
+}
+
+.flrow .use .icon {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--sl-faint);
+}
+
+.flrow .use.gone {
+  color: var(--sl-faint);
+  text-decoration: none;
+}
+
+.flrow .use.gone small {
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--sl-code);
+  font-size: 10.5px;
+}
+
+.flrow .unused {
+  color: var(--sl-faint);
+}
+
+.flrow .r {
+  color: var(--sl-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.flrow .task-actions {
+  justify-content: flex-end;
+}
+
+.flrow:hover .task-actions {
+  opacity: 1;
+}
+
+.fthumb {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 32px;
+  overflow: hidden;
+  border: 1px solid var(--sl-line);
+  border-radius: 4px;
+  background: var(--sl-side);
+  color: var(--sl-dim);
+}
+
+.fthumb img,
+.mb-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fthumb.doc,
+.mb-thumb.doc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.fthumb .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.fthumb i,
+.mb-thumb i {
+  color: var(--sl-faint);
+  font: 600 8px/1 var(--sl-font-ui);
+  font-style: normal;
+  letter-spacing: 0.05em;
+}
+
+.files-view .task-empty b {
+  color: var(--sl-fg);
+}
+
+/* On a touch screen the boxes are there to tap. */
+@media (hover: none) {
+  .flrow .choose,
+  .trow.choosable .choose {
+    opacity: 1;
+  }
+}
+
+/* A narrow window: where a file is used goes under its name, when it came under its size, and
+   the headings that sort are a line of their own. */
+@media (max-width: 720px) {
+  .files-view .th .search {
+    width: 150px;
+  }
+
+  .flhead {
+    display: flex;
+    gap: 16px;
+  }
+
+  .flhead > span {
+    display: none;
+  }
+
+  .flhead > button:first-of-type {
+    margin-right: auto;
+  }
+
+  .flrow {
+    grid-template-columns: 14px 40px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'box thumb name size act'
+      'box thumb used day act';
+    gap: 2px 10px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .flrow .choose {
+    grid-area: box;
+  }
+
+  .flrow .fthumb {
+    grid-area: thumb;
+    width: 40px;
+  }
+
+  .flrow .nm {
+    grid-area: name;
+  }
+
+  .flrow .used {
+    grid-area: used;
+  }
+
+  .flrow .size {
+    grid-area: size;
+  }
+
+  .flrow .day {
+    grid-area: day;
+  }
+
+  .flrow .task-actions {
+    grid-area: act;
+  }
+}
+
+/* What a question says is taken out of, in a box under it: the notes and cards a file leaves. */
+.confirm-places {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 12px;
+  padding: 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-bg);
+  list-style: none;
+}
+
+.confirm-places li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 12.5px;
+}
+
+.confirm-places .icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--sl-dim);
+}
+
+.confirm-places span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.confirm-places small {
+  flex: none;
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
 /* Rows chosen together, after the Trash select view of design/mockups.html: a row's box comes on
    hover, and once one is chosen every row has one and the bar over them takes the heading's place. */
 .choose {

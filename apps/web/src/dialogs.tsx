@@ -989,9 +989,15 @@ export function RenameDialog({ name, onRename, onClose }: {
 }
 
 /** Asks before something is deleted. Enter confirms, Esc or Cancel leaves it be. On a phone it is an action sheet. */
-export function ConfirmDialog({ title, message, action, danger, onConfirm, onClose }: {
+export function ConfirmDialog({ title, message, places, after, brief, action, danger, onConfirm, onClose }: {
   title: string;
   message: string;
+  /** Named in a box under the message: where what is deleted is taken out of. */
+  places?: ConfirmPlace[];
+  /** Said under the places. */
+  after?: string;
+  /** On a phone, said instead of the message, the places and what comes after them: one sentence. */
+  brief?: string;
   /** The label of the confirming button. */
   action: string;
   /** Whether it takes something away: on a phone its button is red. */
@@ -999,7 +1005,7 @@ export function ConfirmDialog({ title, message, action, danger, onConfirm, onClo
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  if (isPhone()) return <AskSheet title={title} message={message} action={action} danger={danger} onConfirm={onConfirm} onClose={onClose} />;
+  if (isPhone()) return <AskSheet title={title} message={brief ?? message} action={action} danger={danger} onConfirm={onConfirm} onClose={onClose} />;
   const onKey = (event: KeyboardEvent) => {
     // Enter on Cancel is that button's own click.
     if (event.key !== 'Enter' || event.target instanceof HTMLButtonElement) return;
@@ -1010,6 +1016,18 @@ export function ConfirmDialog({ title, message, action, danger, onConfirm, onClo
     <Dialog label={title} onClose={onClose} onKeyDown={onKey}>
       <h2>{title}</h2>
       <p className="confirm">{message}</p>
+      {places && places.length > 0 && (
+        <ul className="confirm-places">
+          {places.map((place, i) => (
+            <li key={i}>
+              <Icon name={place.icon} />
+              <span>{place.name}</span>
+              <small>{place.sub}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+      {after && <p className="confirm">{after}</p>}
       <div className="dialog-actions">
         <button type="button" onClick={onClose}>
           {t('dialog.cancel')}
@@ -1044,6 +1062,15 @@ export interface MenuHead {
   icon: IconName;
   title: string;
   sub?: string;
+  /** Shown in the icon's place: an image's own picture. */
+  picture?: ReactNode;
+}
+
+/** A place a confirming question names, in a box under its message: a note a file is taken out of. */
+export interface ConfirmPlace {
+  icon: IconName;
+  name: string;
+  sub: string;
 }
 
 /** A note the phase window can point a phase at. */

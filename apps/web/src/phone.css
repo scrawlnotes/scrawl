@@ -3042,6 +3042,125 @@ body > .mb-lifted {
   stroke-width: 1.6;
 }
 
+/* Files, after the Phone files views of design/mockups.html: a page from Browse beside the trash,
+   with a search, the kinds and Sort, and a row for each file: its picture, name, where it is used
+   and its size, and when it came. A tap opens it, held its actions open. */
+.mb-frow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 0 16px;
+  text-align: left;
+}
+
+.mb-frow + .mb-frow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 72px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-frow.chosen,
+.mb-frow.held {
+  background: color-mix(in srgb, var(--sl-sel) 45%, transparent);
+}
+
+.mb-thumb {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--sl-side);
+  color: var(--sl-dim);
+}
+
+.mb .mb-thumb .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.mb-thumb i {
+  font-size: 9.5px;
+}
+
+.mb-acts .hd .mb-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
+}
+
+.mb-frow .tx {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mb-frow .tx b {
+  overflow: hidden;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-frow .tx small {
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-frow .rt {
+  flex: none;
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+.mb-pick {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--sl-faint);
+  border-radius: 50%;
+}
+
+.mb-pick.on {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+}
+
+.mb-pick.on::after {
+  content: '';
+  width: 10px;
+  height: 5px;
+  margin-top: -3px;
+  border: solid var(--sl-bg);
+  border-width: 0 0 2.2px 2.2px;
+  transform: rotate(-45deg);
+}
+
+.mb-files .mb-sec .sum {
+  margin-left: auto;
+  color: var(--sl-dim);
+  font-size: 13.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- a board: its phases, its columns as tabs, one column at a time ---------- */
 
 .mb .mb-bv {

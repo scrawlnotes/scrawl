@@ -192,6 +192,16 @@ export const fileUrl = (path: string) => {
  * Saves a text file where the user says: on desktop the system's Save window asks where, in a
  * browser it is downloaded. Returns false when the Save window was cancelled.
  */
+/** Downloads a file in the browser, where downloads go. */
+export function downloadBlob(name: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export async function saveTextFile(name: string, text: string, type: string, extension: string): Promise<boolean> {
   if (!isDesktop) {
     const url = URL.createObjectURL(new Blob([text], { type }));

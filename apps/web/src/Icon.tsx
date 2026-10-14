@@ -288,6 +288,22 @@ const shapes = {
       <path d="M4 12h16M12 4c2.5 2.5 3.5 5.2 3.5 8s-1 5.5-3.5 8c-2.5-2.5-3.5-5.2-3.5-8s1-5.5 3.5-8z" />
     </>
   ),
+  /** A paperclip: the files attached to notes, cards and records. */
+  clip: <path d="M19.5 11.5l-7.6 7.6a4.8 4.8 0 0 1-6.8-6.8l8.2-8.2a3.2 3.2 0 0 1 4.5 4.5l-8.1 8.1a1.6 1.6 0 0 1-2.3-2.3l7.4-7.4" />,
+  share: (
+    <>
+      <path d="M12 14.5v-11M8 7l4-4 4 4" />
+      <path d="M8.5 10H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1.5" />
+    </>
+  ),
+  sort: <path d="M7.5 4.5v15M4 16l3.5 3.5L11 16M16.5 19.5v-15M13 8l3.5-3.5L20 8" />,
+  /** Down from the cloud: a file that is not on this device yet. */
+  download: (
+    <>
+      <path d="M7 18.5h-.5a4 4 0 0 1-.4-8A6 6 0 0 1 17.7 9a4.5 4.5 0 0 1-.2 9.5H17" />
+      <path d="M12 11.5v9M9 17.5l3 3 3-3" />
+    </>
+  ),
   /** Half dark: the look of the app. */
   appearance: (
     <>

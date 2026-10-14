@@ -7,6 +7,7 @@ import type { IconName } from './Icon';
 export const TODAY = 'view:today';
 export const UPCOMING = 'view:upcoming';
 export const TRASH = 'view:trash';
+export const FILES = 'view:files';
 const TASKS = 'tasks:';
 const BOARD = 'board:';
 const KEYS = 'keys:';
@@ -170,6 +171,7 @@ export function collectionLabel(dir: string): string {
 
 export function iconOf(id: string): IconName {
   if (id === TRASH) return 'trash';
+  if (id === FILES) return 'clip';
   if (id.startsWith(COLLECTION)) return 'collection';
   if (id.startsWith(FILTER)) return 'filter';
   if (id.startsWith(KEYS)) return 'keys';
@@ -182,6 +184,7 @@ export function labelOf(id: string, titles: Record<string, string>, filters: Tas
   if (filter !== null) return filters.find((f) => f.id === filter)?.name ?? t('filter.title');
   if (id === UPCOMING) return t('side.upcoming');
   if (id === TRASH) return t('side.trash');
+  if (id === FILES) return t('side.files');
   const list = listOf(id);
   if (list !== null) return listLabel(list);
   const board = boardPathOf(id);

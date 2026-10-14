@@ -4,7 +4,7 @@ import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
-import { boardOf, collectionPathOf, collectionTab, countItems, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
@@ -33,6 +33,7 @@ type PageKind =
   | { kind: 'folder'; path: string }
   | { kind: 'item'; id: string }
   | { kind: 'trash' }
+  | { kind: 'files' }
   | { kind: 'settings' }
   | { kind: 'section'; section: Section }
   | { kind: 'space'; id: string | null }
@@ -43,6 +44,20 @@ type PageKind =
   | { kind: 'record'; dir: string; id: string };
 /** A page, with the key it is drawn by. */
 type Page = PageKind & { key: number };
+
+/** A page's Select: its rows chosen together, and what the bar in the tab bar's place does with them. */
+export interface PhoneChoice {
+  choosing: boolean;
+  count: number;
+  /** Every row is chosen. */
+  all: boolean;
+  /** The page has anything to choose. */
+  any: boolean;
+  onStart: () => void;
+  onAll: () => void;
+  onDone: () => void;
+  actions: { icon: IconName; label: string; danger?: boolean; run: () => void }[];
+}
 
 /** How long a page takes to slide in or out, as the stylesheet has it. */
 const SLIDE_MS = 320;
@@ -81,19 +96,12 @@ export interface PhoneProps {
   onAdd: (id: string) => void;
   trashView: ReactNode;
   /** The trash's Select: its rows chosen together, and what is done with them. */
-  trashChoice: {
-    choosing: boolean;
-    count: number;
-    /** Every item is chosen. */
-    all: boolean;
-    /** The trash has anything to choose. */
-    any: boolean;
-    onStart: () => void;
-    onAll: () => void;
-    onDone: () => void;
-    onRestore: () => void;
-    onDelete: () => void;
-  };
+  trashChoice: PhoneChoice;
+  /** Files, a page from Browse beside the trash. */
+  filesView: ReactNode;
+  filesChoice: PhoneChoice;
+  /** Whether Files is on screen: what it lists is read only then. */
+  onFilesShown: (shown: boolean) => void;
   /** How sync stands in a word, and whether something keeps it from going on. */
   syncWord: { text: string; bad: boolean };
   /** Asks for the personal space's sync page: back from signing in to connect it, its folder is chosen there. */
@@ -157,7 +165,7 @@ export interface PhoneProps {
 // Started from the clock, so that a page made after the module is loaded again never takes the key of one still on screen.
 let pageKeys = Date.now();
 const root = (): Page => ({ kind: 'root', key: ++pageKeys });
-const views = new Set([TODAY, UPCOMING, TRASH]);
+const views = new Set([TODAY, UPCOMING, TRASH, FILES]);
 /** Whether a tab is something open, as opposed to a view the tab bar shows. */
 const isItem = (id: string | null): id is string => id !== null && !views.has(id);
 
@@ -225,7 +233,7 @@ const recentOf = (tabs: string[], seen: Record<string, number>): string[] =>
  * nothing. A finger that moves is scrolling. A right click, or a long press where the phone
  * sends one, opens the menu too.
  */
-function useHold(onHold?: (row: HTMLElement) => void) {
+export function useHold(onHold?: (row: HTMLElement) => void) {
   const at = useRef<{ x: number; y: number; timer: number; fired: boolean } | null>(null);
   if (!onHold) return {};
   const stop = () => {
@@ -322,9 +330,9 @@ function NavBar({ back, onBack, title, scrolled, onMenu, action, choose }: {
     return (
       <div className={scrolled ? 'mb-nav bar' : 'mb-nav'}>
         <button type="button" className="mb-back plain" onClick={choose.onAll}>
-          <span>{choose.all ? t('trash.deselectAll') : t('trash.selectAll')}</span>
+          <span>{choose.all ? t('choose.deselectAll') : t('choose.selectAll')}</span>
         </button>
-        <span className="mb-mid">{t('trash.selected', { count: choose.count })}</span>
+        <span className="mb-mid">{t('choose.selected', { count: choose.count })}</span>
         <button type="button" className="mb-done" onClick={choose.onDone}>
           {t('phone.done')}
         </button>
@@ -464,10 +472,14 @@ export function Phone(props: PhoneProps) {
 
   const stack = stacks[place];
   const top = stack[stack.length - 1]!;
-  // While the trash's rows are chosen, its Restore and Delete take the tab bar's place; leaving it lets go of them.
-  const choosingTrash = top.kind === 'trash' && props.trashChoice.choosing;
+  // While the rows of the trash or of Files are chosen, what is done with them takes the tab bar's
+  // place; leaving the page lets go of them. Files reads what it lists only while it is shown.
+  const choice = top.kind === 'trash' ? props.trashChoice : top.kind === 'files' ? props.filesChoice : null;
+  const choosing = !!choice?.choosing;
   useEffect(() => {
     if (top.kind !== 'trash' && props.trashChoice.choosing) props.trashChoice.onDone();
+    if (top.kind !== 'files' && props.filesChoice.choosing) props.filesChoice.onDone();
+    props.onFilesShown(top.kind === 'files');
   }, [top.kind]);
 
   const slideIn = (key: number) => {
@@ -775,6 +787,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'root') return of === 'today' ? t('side.today') : of === 'recent' ? t('phone.recent') : t('phone.browse');
     if (page.kind === 'folder') return folderName(page.path);
     if (page.kind === 'trash') return t('side.trash');
+    if (page.kind === 'files') return t('side.files');
     if (page.kind === 'settings') return t('settings.title');
     if (page.kind === 'section') return t(settingsSections().find((each) => each.id === page.section)?.label ?? 'settings.title');
     if (page.kind === 'space') return page.id ? (props.spaces.find((space) => space.id === page.id)?.name ?? '') : (props.settings.values.spaceName ?? t('settings.personal'));
@@ -905,6 +918,7 @@ export function Phone(props: PhoneProps) {
     );
     const foot = (
       <div className="mb-list apart">
+        <Row icon="clip" label={t('side.files')} right={counts[FILES] || ''} onClick={() => push({ kind: 'files' })} />
         <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
         <Row icon="cloud" label={t('phone.sync')} right={syncRight} onClick={() => push({ kind: 'sync' })} />
         <Row icon="settings" label={t('side.settings')} onClick={() => push({ kind: 'settings' })} />
@@ -963,6 +977,7 @@ export function Phone(props: PhoneProps) {
             ))}
         </div>
         <div className="mb-list apart">
+          <Row icon="clip" label={t('side.files')} right={counts[FILES] || ''} onClick={() => push({ kind: 'files' })} />
           <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
           <Row icon="cloud" label={t('phone.sync')} right={syncRight} onClick={() => push({ kind: 'sync' })} />
           <Row icon="settings" label={t('side.settings')} onClick={() => push({ kind: 'settings' })} />
@@ -1072,14 +1087,28 @@ export function Phone(props: PhoneProps) {
         </PageFrame>
       );
     }
-    if (page.kind === 'trash') {
-      const choice = props.trashChoice;
+    if (page.kind === 'files') {
+      const own = props.filesChoice;
       return (
         <PageFrame
           nav={
-            choice.choosing
-              ? { choose: { count: choice.count, all: choice.all, onAll: choice.onAll, onDone: choice.onDone } }
-              : { ...nav, ...(choice.any && { action: { label: t('trash.select'), run: choice.onStart } }) }
+            own.choosing
+              ? { choose: { count: own.count, all: own.all, onAll: own.onAll, onDone: own.onDone } }
+              : { ...nav, ...(own.any && { action: { label: t('choose.select'), run: own.onStart } }) }
+          }
+        >
+          {props.filesView}
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'trash') {
+      const own = props.trashChoice;
+      return (
+        <PageFrame
+          nav={
+            own.choosing
+              ? { choose: { count: own.count, all: own.all, onAll: own.onAll, onDone: own.onDone } }
+              : { ...nav, ...(own.any && { action: { label: t('choose.select'), run: own.onStart } }) }
           }
         >
           <div className="mb-legacy">{props.trashView}</div>
@@ -1223,7 +1252,7 @@ export function Phone(props: PhoneProps) {
   return (
     // The phone's own layout fills what the phone shows: with the keyboard up it ends on the keyboard.
     // A card's page has its comment box where the tab bar is.
-    <div className={['mb', keyboard ? 'keyboard' : '', top.kind === 'card' ? 'card-page' : '', choosingTrash ? 'choosing' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
+    <div className={['mb', keyboard ? 'keyboard' : '', top.kind === 'card' ? 'card-page' : '', choosing ? 'choosing' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
       <div ref={stage} className="mb-stage" onTouchStartCapture={edgeStart} onTouchMoveCapture={edgeMove} onTouchEndCapture={edgeEnd} onTouchCancelCapture={edgeEnd}>
         {shownPages.map((page, index) => {
           const isLeaving = leaving?.page.key === page.key;
@@ -1307,16 +1336,14 @@ export function Phone(props: PhoneProps) {
           />,
           document.body,
         )}
-      {choosingTrash && (
-        <nav className="mb-selbar" aria-label={t('trash.title')}>
-          <button type="button" disabled={props.trashChoice.count === 0} onClick={props.trashChoice.onRestore}>
-            <Icon name="restore" />
-            <span>{t('trash.restore')}</span>
-          </button>
-          <button type="button" className="danger" disabled={props.trashChoice.count === 0} onClick={props.trashChoice.onDelete}>
-            <Icon name="trash" />
-            <span>{t('menu.delete')}</span>
-          </button>
+      {choice?.choosing && (
+        <nav className="mb-selbar" aria-label={t('choose.selected', { count: choice.count })}>
+          {choice.actions.map((action) => (
+            <button key={action.label} type="button" className={action.danger ? 'danger' : undefined} disabled={choice.count === 0} onClick={action.run}>
+              <Icon name={action.icon} />
+              <span>{action.label}</span>
+            </button>
+          ))}
         </nav>
       )}
       <nav className="mb-tabbar" aria-label={t('phone.places')}>

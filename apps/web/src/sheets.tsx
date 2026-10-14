@@ -221,7 +221,7 @@ export function ActionSheet({ head, items, onClose }: { head?: MenuHead; items: 
         <div className="mb-card">
           {head && (
             <div className="hd">
-              <Icon name={head.icon} />
+              {head.picture ?? <Icon name={head.icon} />}
               <span>
                 <b>{head.title}</b>
                 {head.sub && <small>{head.sub}</small>}

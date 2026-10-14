@@ -77,7 +77,7 @@ function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onRestore,
   const restore = file ? t('trash.restore') : t('trash.restoreTo', { place: place || t('trash.topLevel') });
   return (
     <div className={`trow choosable${chosen ? ' chosen' : ''}`} onClick={choosing ? () => onChoose(!chosen) : undefined}>
-      <ChooseBox state={chosen} label={t('trash.choose', { name: item.title })} onChange={onChoose} />
+      <ChooseBox state={chosen} label={t('choose.row', { name: item.title })} onChange={onChoose} />
       <Icon name={iconOf(item)} />
       <div className="task-body">
         <span className="trow-title">{item.title}</span>
@@ -158,7 +158,7 @@ export function TrashView({ items, today, spaces = [], choice, onRestore, onDele
           group.map((item) => item.path),
           chosen,
         )}
-        label={t('trash.chooseGroup', { name })}
+        label={t('choose.group', { name })}
         onChange={(on) =>
           choice.onChoose(
             group.map((item) => item.path),
@@ -173,12 +173,12 @@ export function TrashView({ items, today, spaces = [], choice, onRestore, onDele
       {/* On a phone the page's large title; Select and its bars are the page's own. */}
       {!phone && count > 0 ? (
         <header className="th chosen-bar">
-          <button type="button" className="let-go" title={t('trash.letGo')} aria-label={t('trash.letGo')} onClick={() => choice.onChoose(every, false)}>
+          <button type="button" className="let-go" title={t('choose.letGo')} aria-label={t('choose.letGo')} onClick={() => choice.onChoose(every, false)}>
             <Icon name="close" />
           </button>
-          <b>{t('trash.selected', { count })}</b>
+          <b>{t('choose.selected', { count })}</b>
           <button type="button" className="ghost push" onClick={() => choice.onChoose(every, !allChosen)}>
-            {allChosen ? t('trash.deselectAll') : t('trash.selectAll')}
+            {allChosen ? t('choose.deselectAll') : t('choose.selectAll')}
           </button>
           <button type="button" className="ghost" onClick={choice.onRestore}>
             <Icon name="restore" />

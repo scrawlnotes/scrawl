@@ -162,6 +162,11 @@ import {
   type VaultFs,
   type Version,
   VERSION_EVERY_MS,
+  type AttachedFile,
+  dropFileFrom,
+  dropFileFromBoard,
+  listFiles,
+  readAway,
 } from '@scrawlnotes/core';
 import {
   addCopy,
@@ -313,6 +318,8 @@ export interface Snapshot {
   space: SpaceInfo;
   /** What is in the trash, the latest deleted first. */
   trash: TrashItem[];
+  /** How many attached files every space has, here or left in the cloud. */
+  fileCount: number;
   saved: boolean;
   /** Cursor and formatting of the note on screen; null while a view is shown instead. */
   stats: EditorStats | null;
@@ -322,6 +329,11 @@ export interface Snapshot {
   recordError: string | null;
   format: FormatState | null;
   source: boolean;
+}
+
+/** An attached file as Files shows it: its path and the paths of what uses it as the app has them, in its space. */
+export interface FileRow extends AttachedFile {
+  space: string | null;
 }
 
 /** A space beside the personal one, as the interface shows it. */
@@ -390,6 +402,7 @@ export class Session {
     filters: [],
     space: {},
     trash: [],
+    fileCount: 0,
     saved: true,
     stats: null,
     format: null,
@@ -559,6 +572,7 @@ export class Session {
     // Versions past their keeping time go, also those of notes deleted long ago.
     for (const [, fs] of this.fs.all()) void pruneHistory(fs).catch(() => undefined);
     void this.sweepAttachments(run);
+    void this.recountFiles();
     this.meetSpaces();
   }
 
@@ -651,6 +665,24 @@ export class Session {
   /** The note in the editor, whose attached files the editor shows. */
   private get onScreen(): string {
     return this.snapshot.active ?? '';
+  }
+
+  /** The trash read again, and how many attached files there are with it: one going to the trash or coming back changes both. */
+  private async freshTrash() {
+    this.set({ trash: await this.readTrash() });
+    await this.recountFiles();
+  }
+
+  /** Counts the attached files of every space, those left in the cloud too, for the sidebar. */
+  private async recountFiles() {
+    let count = 0;
+    for (const [, fs] of this.fs.all()) {
+      const here = (await fs.list(ATTACHMENTS).catch(() => [])).filter((e) => e.kind === 'file' && !e.name.startsWith('.') && !e.name.startsWith('_'));
+      const known = new Set(here.map((e) => e.path.toLowerCase()));
+      const away = (await readAway(fs).catch(() => [])).filter((file) => dirname(file.path) === ATTACHMENTS && !known.has(file.path.toLowerCase()));
+      count += here.length + away.length;
+    }
+    if (count !== this.snapshot.fileCount) this.set({ fileCount: count });
   }
 
   /** The trash of every space as one list, each item's paths carrying its space. */
@@ -761,7 +793,7 @@ export class Session {
     try {
       let moved = 0;
       for (const [space, fs] of this.fs.all()) moved += await sweepAttachments(fs, () => this.openTexts(space));
-      if (moved > 0 && run === this.run) this.set({ trash: await this.readTrash() });
+      if (moved > 0 && run === this.run) await this.freshTrash();
     } catch {
       // It is tried again the next time the app opens.
     }
@@ -898,7 +930,7 @@ export class Session {
       // An image may have been read while its file was coming back; it is read again in full.
       this.forgetMedia(restored.map((path) => inSpace(space, path)));
       this.editor?.refreshMedia();
-      this.set({ trash: await this.readTrash() });
+      await this.freshTrash();
     } catch {
       // A file that cannot come back shows as missing; the trash still has it.
     }
@@ -919,7 +951,7 @@ export class Session {
         const moved = await trashUnlinked(fs, mine, () => this.openTexts(space));
         if (moved.length === 0) continue;
         this.forgetMedia(moved.map((path) => inSpace(space, path)));
-        this.set({ trash: await this.readTrash() });
+        await this.freshTrash();
         // An undo or a paste in the moment it took brings them straight back.
         await this.bringBack(space, this.openTexts(space));
       } catch {
@@ -972,12 +1004,16 @@ export class Session {
   }
 
   /** An address the browser can play or show a file attached at `home` from. */
-  private async mediaUrl(home: string, src: string): Promise<string> {
-    const path = this.attached(home, src);
+  private mediaUrl(home: string, src: string): Promise<string> {
+    return this.mediaUrlOf(this.attached(home, src));
+  }
+
+  /** An address the browser can play or show an attached file from, by its path in the app. */
+  private async mediaUrlOf(path: string): Promise<string> {
     let url = this.media.get(path);
     if (!url) {
       const blob = await this.fs.readBlob(path);
-      url = URL.createObjectURL(new Blob([blob], { type: typeOf(src) }));
+      url = URL.createObjectURL(new Blob([blob], { type: typeOf(path) }));
       this.media.set(path, url);
     }
     return url;
@@ -1109,6 +1145,7 @@ export class Session {
         window.clearTimeout(reveal);
         this.copying--;
         this.markSaved();
+        void this.recountFiles();
       }
     }
   }
@@ -1235,7 +1272,11 @@ export class Session {
    */
   private resolveImageAt(home: string, src: string): string | Promise<string> {
     if (!src.startsWith(`${ATTACHMENTS}/`)) return src;
-    const path = this.attached(home, src);
+    return this.imageOf(this.attached(home, src));
+  }
+
+  /** The address an attached image loads from, by its path in the app: Files shows it small. */
+  imageOf = (path: string): string | Promise<string> => {
     if (isDesktop) return fileUrl(path);
     let url = this.images.get(path);
     if (!url) {
@@ -1261,7 +1302,7 @@ export class Session {
     const restored = await restoreAttachments(fs, [text]).catch(() => []);
     if (restored.length) {
       this.forgetMedia(restored.map((each) => inSpace(space, each)));
-      this.set({ trash: await this.readTrash() });
+      await this.freshTrash();
     }
     if (this.snapshot.active !== path) return;
     view.dispatch({
@@ -1526,6 +1567,7 @@ export class Session {
       filters,
       space,
     });
+    await this.recountFiles();
   }
 
   /** A task list, a board or a keys file was changed here. */
@@ -1790,7 +1832,7 @@ export class Session {
     await trashItem(fs, local);
     await this.detach(record.path);
     this.setCollection(dir, (current) => ({ ...current, records: current.records.filter((r) => r.id !== record.id) }));
-    this.set({ trash: await this.readTrash() });
+    await this.freshTrash();
   }
 
   /** Changes the text of a keys file, from its table or as text, and writes it a moment after the last change. */
@@ -2413,6 +2455,132 @@ export class Session {
   async emptyTrash() {
     for (const [space, fs] of this.fs.all()) await emptyTrash(fs, this.openTexts(space));
     await this.refreshTree();
+  }
+
+  /**
+   * Every attached file of every space with where it is used, the latest first: paths as the app
+   * has them, what was typed and not yet written counted.
+   */
+  async files(): Promise<FileRow[]> {
+    await this.settle();
+    const lists = await Promise.all(
+      this.fs.all().map(async ([space, fs]) =>
+        (await listFiles(fs).catch(() => [])).map(
+          (file): FileRow => ({ ...file, path: inSpace(space, file.path), space, uses: file.uses.map((use) => ({ ...use, path: inSpace(space, use.path) })) }),
+        ),
+      ),
+    );
+    return lists.flat().sort((a, b) => (b.added ?? 0) - (a.added ?? 0) || a.name.localeCompare(b.name));
+  }
+
+  /** Opens an attached file: on desktop with the program the system uses for it, in the browser in a new tab. */
+  async openAttached(path: string) {
+    try {
+      if (isDesktop) await openFileOnDesktop(path);
+      else window.open(await this.mediaUrlOf(path), '_blank', 'noopener');
+    } catch {
+      // A file that is gone or cannot be opened simply does not open.
+    }
+  }
+
+  /** Shows an attached file in its folder; on desktop only. */
+  revealAttached(path: string) {
+    if (isDesktop) void revealFileOnDesktop(path).catch(() => undefined);
+  }
+
+  /** An attached file's content, to download or share. */
+  attachedBlob(path: string): Promise<Blob> {
+    return this.fs.readBlob(path);
+  }
+
+  /** The text of a note or a record now: on screen, open behind, waiting to be written, or in its file. */
+  private async currentText(path: string): Promise<string> {
+    if (path === this.snapshot.active && this.editor) return this.editor.view.state.doc.toString();
+    const state = this.states.get(path);
+    if (state) return state.doc.toString();
+    return this.pending.get(path) ?? (await this.fs.readText(path));
+  }
+
+  /** Puts `text` in a note or a record wherever it is: on screen, open behind, waiting, or only in its file. */
+  private async putText(path: string, text: string) {
+    const view = this.editor?.view;
+    if (view && this.snapshot.active === path) {
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, userEvent: 'input.files' });
+      return;
+    }
+    const state = this.states.get(path);
+    if (state) {
+      this.states.set(path, state.update({ changes: { from: 0, to: state.doc.length, insert: text } }).state);
+      this.queueSave(path, text);
+      return;
+    }
+    if (this.pending.has(path)) return this.queueSave(path, text);
+    await this.fs.writeText(path, text);
+    if (this.disk.has(path)) this.disk.set(path, text);
+  }
+
+  /**
+   * Deletes attached files: each is taken out of the notes, cards and records that use it and goes
+   * to its space's trash. What is in the trash keeps its links, to bring the file back with it. A
+   * note keeps its text from before as a version, whose restoring brings the file back too.
+   * Returns what undoes it all.
+   */
+  async deleteFiles(files: FileRow[]): Promise<() => Promise<void>> {
+    await this.settle();
+    const texts = new Map<string, string>();
+    const boards = new Map<string, Board>();
+    const collections = new Set<string>();
+    for (const file of files) {
+      const src = localPath(file.path);
+      for (const use of file.uses) {
+        if (use.inTrash) continue;
+        if (use.kind === 'card') {
+          const board = this.snapshot.boards[use.path];
+          if (!board) continue;
+          if (!boards.has(use.path)) boards.set(use.path, board);
+          this.changeBoard(use.path, (current) => {
+            const text = serializeBoard(current);
+            const dropped = dropFileFromBoard(text, src);
+            return dropped === text ? current : parseBoard(dropped);
+          });
+          continue;
+        }
+        try {
+          const before = await this.currentText(use.path);
+          const after = dropFileFrom(use.path, before, src);
+          if (after === before) continue;
+          if (!texts.has(use.path)) {
+            texts.set(use.path, before);
+            if (use.kind === 'note') await this.keep(use.path, before, true);
+          }
+          await this.putText(use.path, after);
+          if (use.kind === 'record') collections.add(dirname(use.path));
+        } catch {
+          // Gone meanwhile: nothing of it to change.
+        }
+      }
+    }
+    for (const file of files) {
+      const { fs, local } = this.at(file.path);
+      await trashItem(fs, local).catch(() => undefined);
+    }
+    this.forgetMedia(files.map((file) => file.path));
+    this.editor?.refreshMedia();
+    for (const dir of collections) await this.reloadCollection(dir);
+    await this.freshTrash();
+    return async () => {
+      for (const [path, text] of texts) await this.putText(path, text).catch(() => undefined);
+      for (const [path, board] of boards) this.changeBoard(path, () => board);
+      // The files come back from the trash, as a text linking to them again brings them.
+      for (const [space, fs] of this.fs.all()) {
+        const mine = files.filter((file) => file.space === space).map((file) => localPath(file.path));
+        if (mine.length > 0) await restoreAttachments(fs, mine).catch(() => []);
+      }
+      this.forgetMedia(files.map((file) => file.path));
+      this.editor?.refreshMedia();
+      for (const dir of collections) await this.reloadCollection(dir);
+      await this.freshTrash();
+    };
   }
 
   /**
