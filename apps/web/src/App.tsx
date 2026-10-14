@@ -79,6 +79,7 @@ import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
 import { PhoneNewRecord, PhoneRecordPage } from './PhoneCollection';
 import { ImportDialog } from './Import';
+import { isSpreadsheet, readSheets, type Sheet } from './spreadsheet';
 import { folderLabel as folderLabelOf, setSpaceNames,
   boardLabel,
   boardOf,
@@ -148,6 +149,8 @@ type OpenDialog =
 const TAB_DRAG_TYPE = 'application/x-scrawl-tab';
 /** How long the pointer rests on a tab before it says the way to what it shows. */
 const TAB_TIP_MS = 500;
+/** The files a collection imports: CSV and Excel. */
+const IMPORTABLE = '.csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
 
 // Ctrl+N and Ctrl+W belong to the browser on the web, so Alt is used there.
 const keys = (key: string) => `${isDesktop ? 'Ctrl' : 'Alt'}+${key}`;
@@ -773,7 +776,7 @@ export function App() {
       ...(path in collections
         ? [
             { label: t('menu.exportCsv'), icon: 'export' as const, run: () => void exportCsv(path) },
-            { label: t('menu.importCsv'), icon: 'import' as const, run: () => chooseCsv(path) },
+            { label: t('menu.import'), icon: 'import' as const, run: () => chooseImport(path) },
           ]
         : []),
       { label: t('menu.delete'), icon: 'trash', danger: true, run: () => deleteItem(path) },
@@ -839,20 +842,32 @@ export function App() {
       setNotice(error instanceof Error ? error.message : String(error));
     }
   };
-  // A CSV file chosen for a collection opens the import window.
-  const csvInput = useRef<HTMLInputElement>(null);
-  const [csvFor, setCsvFor] = useState<string | null>(null);
-  const [importing, setImporting] = useState<{ dir: string; fileName: string; header: string[]; rows: string[][] } | null>(null);
-  const chooseCsv = (dir: string) => {
-    setCsvFor(dir);
-    if (csvInput.current) {
-      csvInput.current.value = '';
-      csvInput.current.click();
+  // A CSV or Excel file chosen for a collection opens the import window. An Excel file's sheets
+  // come along, and the import starts at the first with rows in it.
+  const importInput = useRef<HTMLInputElement>(null);
+  const [importFor, setImportFor] = useState<string | null>(null);
+  const [importing, setImporting] = useState<{ dir: string; fileName: string; header: string[]; rows: string[][]; sheets?: Sheet[]; sheet?: number } | null>(null);
+  const chooseImport = (dir: string) => {
+    setImportFor(dir);
+    if (importInput.current) {
+      importInput.current.value = '';
+      importInput.current.click();
     }
   };
-  const readCsv = async (file: File) => {
-    const dir = csvFor;
+  const readImport = async (file: File) => {
+    const dir = importFor;
     if (!dir) return;
+    if (isSpreadsheet(file.name)) {
+      let sheets: Sheet[];
+      try {
+        sheets = await readSheets(file);
+      } catch {
+        return setNotice(t('import.unreadable', { name: file.name }));
+      }
+      const sheet = sheets.findIndex((s) => s.rows.length > 0);
+      if (sheet < 0) return setNotice(t('import.empty'));
+      return setImporting({ dir, fileName: file.name, header: sheets[sheet]!.header, rows: sheets[sheet]!.rows, sheets, sheet });
+    }
     const [header, ...rows] = parseCsv(await file.text());
     if (!header || rows.length === 0) return setNotice(t('import.empty'));
     setImporting({ dir, fileName: file.name, header, rows });
@@ -1927,15 +1942,21 @@ export function App() {
           onClose={closeDialog}
         />
       )}
-      <input ref={csvInput} type="file" accept=".csv,text/csv" hidden onChange={(event) => event.target.files?.[0] && void readCsv(event.target.files[0])} />
+      <input ref={importInput} type="file" accept={IMPORTABLE} hidden onChange={(event) => event.target.files?.[0] && void readImport(event.target.files[0])} />
       {importing && collections[importing.dir] && (
         <ImportDialog
           collection={collections[importing.dir]!}
           fileName={importing.fileName}
           header={importing.header}
           rows={importing.rows}
+          sheets={importing.sheets?.map((s) => ({ name: s.name, rows: s.rows.length }))}
+          sheet={importing.sheet}
+          onPickSheet={(i) => {
+            const picked = importing.sheets?.[i];
+            if (picked) setImporting({ ...importing, sheet: i, header: picked.header, rows: picked.rows });
+          }}
           targets={Object.fromEntries(Object.entries(collections).map(([dir, c]) => [dir, c.records]))}
-          onChooseFile={() => chooseCsv(importing.dir)}
+          onChooseFile={() => chooseImport(importing.dir)}
           onImport={(plan) => session.importRecords(importing.dir, plan)}
           onClose={() => setImporting(null)}
         />

@@ -73,6 +73,50 @@ export function toCsv(rows: string[][]): string {
   return `﻿${rows.map((r) => r.map(cell).join(',')).join('\r\n')}\r\n`;
 }
 
+// ---------- an Excel file ----------
+// Its cells are read by the app with a library loaded only for it; here is what they become.
+
+/** A number from a spreadsheet to as many digits as Excel keeps, 15: a sum that is 0.3 there is not 0.30000000000000004 here. */
+export function sheetNumber(value: number): string {
+  return String(Number(value.toPrecision(15)));
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * A day or a time from a spreadsheet, which keeps it as days since its start with the time of day
+ * as the fraction: `2026-03-12`, `2026-03-12 14:30`, or `14:30` for a time alone. A workbook counts
+ * from 1900, whose made-up 29 February is day 60, or with `date1904` from 1904.
+ */
+export function sheetDate(serial: number, date1904 = false): string {
+  let days = Math.floor(serial);
+  let seconds = Math.round((serial - days) * 86400);
+  if (seconds === 86400) {
+    days++;
+    seconds = 0;
+  }
+  const time = `${pad2(Math.floor(seconds / 3600))}:${pad2(Math.floor(seconds / 60) % 60)}${seconds % 60 ? `:${pad2(seconds % 60)}` : ''}`;
+  if (days === 0) return time;
+  const start = date1904 ? Date.UTC(1904, 0, 1) : days < 61 ? Date.UTC(1899, 11, 31) : Date.UTC(1899, 11, 30);
+  const day = new Date(start + days * 86_400_000);
+  const date = `${day.getUTCFullYear()}-${pad2(day.getUTCMonth() + 1)}-${pad2(day.getUTCDate())}`;
+  return seconds ? `${date} ${time}` : date;
+}
+
+/**
+ * A sheet's rows as an import takes them: the rows with nothing in them left out, so that the
+ * first one with anything in it is the heading, and the empty columns at either side taken off.
+ */
+export function sheetRows(rows: string[][]): string[][] {
+  const filled = rows.filter((r) => r.some((cell) => cell.trim() !== ''));
+  const used = (col: number) => filled.some((r) => (r[col] ?? '').trim() !== '');
+  let start = 0;
+  let end = Math.max(0, ...filled.map((r) => r.length));
+  while (start < end && !used(start)) start++;
+  while (end > start && !used(end - 1)) end--;
+  return filled.map((r) => Array.from({ length: end - start }, (_, i) => r[start + i] ?? ''));
+}
+
 // ---------- out ----------
 
 /** A value as a CSV cell: a link by its record's name and code, choices joined with commas, a flag as yes or no, numbers as they are. */

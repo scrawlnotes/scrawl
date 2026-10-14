@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type Collection, newSchema, type Record } from './collection';
-import { collectionCsv, guessTargets, guessType, parseCsv, planImport, toCsv } from './csv';
+import { collectionCsv, guessTargets, guessType, parseCsv, planImport, sheetDate, sheetNumber, sheetRows, toCsv } from './csv';
 
 function record(id: string, values: Record['values'], body = ''): Record {
   const name = typeof values.name === 'string' ? values.name : '';
@@ -65,5 +65,41 @@ describe('CSV', () => {
     expect(plan.added[1]!.values!.company).toEqual({ id: '', name: 'Nobody Inc' });
     const odd = planImport(companies, ['Name', 'Last contact', 'Status'], [['Acme Corp', '2026-01-01', 'active']], [{ field: 'name' }, { skip: true }, { field: 'status' }], 'update', {});
     expect(odd.updated[0]!.values).toEqual({ name: 'Acme Corp', status: 'active' });
+  });
+});
+
+describe('Excel cells', () => {
+  it('keeps a number to the digits Excel keeps, without its format', () => {
+    expect(sheetNumber(0.1 + 0.2)).toBe('0.3');
+    expect(sheetNumber(48000)).toBe('48000');
+    expect(sheetNumber(0.15)).toBe('0.15');
+    expect(sheetNumber(-1234567.891)).toBe('-1234567.891');
+  });
+
+  it('reads a day, a moment and a time of day from the days a workbook counts', () => {
+    expect(sheetDate(46093)).toBe('2026-03-12');
+    expect(sheetDate(46093 + 14.5 / 24)).toBe('2026-03-12 14:30');
+    expect(sheetDate(46093 + (14.5 * 3600 + 5) / 86400)).toBe('2026-03-12 14:30:05');
+    expect(sheetDate(0.75)).toBe('18:00');
+    expect(sheetDate(46092.99999999)).toBe('2026-03-12');
+    expect(sheetDate(1)).toBe('1900-01-01');
+    expect(sheetDate(61)).toBe('1900-03-01');
+    expect(sheetDate(46093 - 1462, true)).toBe('2026-03-12');
+  });
+
+  it('starts at the first row with anything in it, leaving out empty rows and the empty columns at either side', () => {
+    const rows = [
+      ['', '', '', ''],
+      ['', 'Name', 'ARR', ''],
+      ['', 'Acme', '48000', ''],
+      ['', ' ', '', ''],
+      ['', 'Globex'],
+    ];
+    expect(sheetRows(rows)).toEqual([
+      ['Name', 'ARR'],
+      ['Acme', '48000'],
+      ['Globex', ''],
+    ]);
+    expect(sheetRows([['', ''], []])).toEqual([]);
   });
 });

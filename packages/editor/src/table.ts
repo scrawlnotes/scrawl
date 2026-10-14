@@ -1,6 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
-import { EditorSelection, type EditorState, type Extension, type Range, StateField } from '@codemirror/state';
+import { EditorSelection, type EditorState, type Extension, type Range, StateField, type TransactionSpec } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view';
+import type { SyntaxNode } from '@lezer/common';
 import { t } from '@scrawlnotes/i18n';
 import { sourceMode } from './livePreview';
 import { renderInline } from './render';
@@ -55,6 +56,127 @@ export function cellMarkdown(text: string): string {
     .replace(/\s*\n\s*/g, ' ')
     .trim()
     .replace(/[\\*_`[\]<|~]/g, '\\$&');
+}
+
+/**
+ * Tab-separated text as rows of cells. A cell that starts with a quote runs to the closing quote,
+ * a doubled one being a quote, so it can hold a tab or a line break; a quote anywhere else is
+ * text. The line break a spreadsheet ends the copy with is not one more row.
+ */
+function parseTsv(text: string): string[][] {
+  const body = text.replace(/\r?\n$/, '');
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i]!;
+    if (quoted) {
+      const next = body[i + 1];
+      if (c === '"' && next === '"') {
+        field += '"';
+        i++;
+      } else if (c === '"' && (next === undefined || next === '\t' || next === '\n' || next === '\r')) quoted = false;
+      else field += c;
+    } else if (c === '"' && field === '') quoted = true;
+    else if (c === '\t') {
+      row.push(field);
+      field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && body[i + 1] === '\n') i++;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else field += c;
+  }
+  // A quote that never closed was text: read again without quotes.
+  if (quoted) return body.split(/\r?\n/).map((line) => line.split('\t'));
+  row.push(field);
+  rows.push(row);
+  return rows;
+}
+
+/**
+ * The cells of a range copied from a spreadsheet (Excel, Google Sheets, Numbers) or of a table on
+ * a web page, from the plain text that comes with it: a line a row, a tab between cells. Null when
+ * the text is not that: without a tab; with rows of different lengths, unless a table came with it
+ * as HTML (a web page's rows can be shorter); or with an empty first cell in every row, which is
+ * text indented with tabs.
+ */
+export function copiedCells(plain: string, html = ''): string[][] | null {
+  if (!plain.includes('\t')) return null;
+  const rows = parseTsv(plain);
+  const width = Math.max(...rows.map((r) => r.length));
+  if (!/<table[\s>]/i.test(html) && (rows.some((r) => r.length !== width) || rows.every((r) => r[0] === ''))) return null;
+  return rows.map((r) => [...r, ...Array<string>(width - r.length).fill('')]);
+}
+
+/** Copied cells as a table's Markdown, the first row its header. */
+export function tableOfCells(cells: string[][]): string {
+  const [header = [], ...rows] = cells.map((row) => row.map(cellMarkdown));
+  return serializeTable({ header, align: header.map(() => ''), rows });
+}
+
+// Where pasted cells stay text: code shows what was written.
+const CODE = new Set(['FencedCode', 'CodeBlock', 'InlineCode']);
+
+function inCode(state: EditorState, pos: number): boolean {
+  const tree = syntaxTree(state);
+  for (const side of [-1, 1] as const) {
+    for (let node: SyntaxNode | null = tree.resolveInner(pos, side); node; node = node.parent) {
+      if (CODE.has(node.name) && node.from < pos && pos < node.to) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Cells copied from a spreadsheet, pasted into the note as a table in place of the selection: on
+ * lines of its own with a blank line around it, the text before and after it on the line kept on
+ * either side, and the cursor on the line after it. One step, which Undo takes back whole. Null in
+ * code, where the text stays as it is, and with more than one cursor.
+ */
+export function pasteTable(state: EditorState, cells: string[][]): TransactionSpec | null {
+  if (state.selection.ranges.length > 1) return null;
+  const { from, to } = state.selection.main;
+  if (inCode(state, from)) return null;
+  const doc = state.doc;
+  const first = doc.lineAt(from);
+  const last = doc.lineAt(to);
+  const head = doc.sliceString(first.from, from);
+  const tail = doc.sliceString(to, last.to);
+  const blankAbove = first.number === 1 || doc.line(first.number - 1).text.trim() === '';
+  const isLast = last.number === doc.lines;
+  const blankBelow = isLast || doc.line(last.number + 1).text.trim() === '';
+  const table = tableOfCells(cells);
+  const before = head.trim() ? `${head.trimEnd()}\n\n` : blankAbove ? '' : '\n';
+  // As with a table from the menu: the line break after this line, and one more for the blank line.
+  const after = tail.trim() ? `\n\n${tail.trimStart()}` : isLast || !blankBelow ? '\n' : '';
+  const end = first.from + before.length + table.length;
+  return {
+    changes: { from: first.from, to: last.to, insert: before + table + after },
+    selection: { anchor: end + (tail.trim() ? 2 : 1) },
+    scrollIntoView: true,
+    // Not `input.paste`: the cells are already Markdown, and typed-text escaping would mark them again.
+    userEvent: 'input.table',
+  };
+}
+
+/** Writes copied cells into a table from the cell `at` on, adding the rows and columns they run past. */
+export function fillCells(table: TableModel, at: { row: number; col: number }, cells: string[][]) {
+  const width = at.col + Math.max(...cells.map((r) => r.length));
+  while (table.header.length < width) {
+    table.header.push('');
+    table.align.push('');
+    for (const row of table.rows) row.push('');
+  }
+  cells.forEach((values, i) => {
+    const row = at.row + i;
+    while (row >= table.rows.length) table.rows.push(table.header.map(() => ''));
+    const target = row < 0 ? table.header : table.rows[row]!;
+    values.forEach((value, j) => (target[at.col + j] = cellMarkdown(value)));
+  });
 }
 
 /** Starts editing a cell; the cell reacts to the click as it would to the user's. */
@@ -187,6 +309,14 @@ class TableWidget extends WidgetType {
         input.focus();
       });
       input.addEventListener('input', () => (input.size = Math.max(3, input.value.length + 1)));
+      // Cells copied from a spreadsheet fill the table from this cell on; a single one is text for this cell.
+      input.addEventListener('paste', (event) => {
+        const data = event.clipboardData;
+        const cells = data && copiedCells(data.getData('text/plain'), data.getData('text/html'));
+        if (!cells || (cells.length === 1 && cells[0]!.length === 1)) return;
+        event.preventDefault();
+        reshape((t) => fillCells(t, { row, col }, cells), { row, col });
+      });
       input.addEventListener('blur', () => {
         if (editing?.box === box) finish();
       });

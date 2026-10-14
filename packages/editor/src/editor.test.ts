@@ -23,7 +23,7 @@ import { addCopy, type Copy, copiesField, copyFollows, copyPosition, copyProgres
 import { positionsToEscape } from './literal';
 import { buildDecorations, setSourceMode, sourceMode } from './livePreview';
 import { attachmentChanges } from './media';
-import { cellMarkdown, parseTable, serializeTable, tableDecorations, tableGrid } from './table';
+import { cellMarkdown, copiedCells, fillCells, parseTable, pasteTable, serializeTable, tableDecorations, tableGrid, tableOfCells } from './table';
 
 const extensions = [markdown({ base: markdownLanguage }), sourceMode, EditorState.allowMultipleSelections.of(true)];
 
@@ -400,6 +400,94 @@ describe('inserting blocks', () => {
   it('draws an inserted table as a grid', () => {
     const doc = insert('text', 4).doc;
     expect(tableDecorations(EditorState.create({ doc, extensions: [...extensions, tableGrid] })).size).toBe(1);
+  });
+});
+
+describe('cells pasted from a spreadsheet', () => {
+  const HTML = '<table><tr><td>Name</td></tr></table>';
+
+  it('reads the rows and cells Excel puts on the clipboard', () => {
+    expect(copiedCells('Name\tARR\r\nAcme\t48,000 €\r\nGlobex\t\r\n', HTML)).toEqual([
+      ['Name', 'ARR'],
+      ['Acme', '48,000 €'],
+      ['Globex', ''],
+    ]);
+  });
+
+  it('reads a quoted cell with a line break and quotes in it', () => {
+    expect(copiedCells('Name\tNote\nAcme\t"Met at the ""summit""\nthen called"\n', HTML)).toEqual([
+      ['Name', 'Note'],
+      ['Acme', 'Met at the "summit"\nthen called'],
+    ]);
+    expect(copiedCells('a\t"b\nc\td', HTML)).toEqual([
+      ['a', '"b'],
+      ['c', 'd'],
+    ]);
+  });
+
+  it('is not cells without a tab, with ragged rows and no table, or indented with tabs', () => {
+    expect(copiedCells('just text\nmore', HTML)).toBeNull();
+    expect(copiedCells('a\tb\nc')).toBeNull();
+    expect(copiedCells('\tone\n\ttwo')).toBeNull();
+    expect(copiedCells('a\tb\nc\td')).toEqual([
+      ['a', 'b'],
+      ['c', 'd'],
+    ]);
+  });
+
+  it('gives the short rows of a web page table the missing cells', () => {
+    expect(copiedCells('a\tb\nc', HTML)).toEqual([
+      ['a', 'b'],
+      ['c', ''],
+    ]);
+  });
+
+  const paste = (text: string, cells: string[][]) => {
+    let state = stateOf(text);
+    const spec = pasteTable(state, cells);
+    if (!spec) return null;
+    state = state.update(spec).state;
+    const at = state.selection.main.head;
+    const doc = state.doc.toString();
+    return `${doc.slice(0, at)}|${doc.slice(at)}`;
+  };
+  const cells = [
+    ['Name', 'Stage'],
+    ['Acme *Corp*', 'active'],
+  ];
+  const table = '| Name          | Stage  |\n| ------------- | ------ |\n| Acme \\*Corp\\* | active |';
+
+  it('makes the first row the header and keeps the text of the cells as it is', () => {
+    expect(tableOfCells(cells)).toBe(table);
+  });
+
+  it('puts the table on lines of its own with a blank line around it, the cursor after it', () => {
+    expect(paste('|', cells)).toBe(`${table}\n|`);
+    expect(paste('before |after', cells)).toBe(`before\n\n${table}\n\n|after`);
+    expect(paste('one\n|\nthree', cells)).toBe(`one\n\n${table}\n|\nthree`);
+    expect(paste('one\n\n|\n\nthree', cells)).toBe(`one\n\n${table}\n|\nthree`);
+    expect(paste('take |this| out', cells)).toBe(`take\n\n${table}\n\n|out`);
+  });
+
+  it('leaves code as it is', () => {
+    expect(paste('```\n|\n```', cells)).toBeNull();
+    expect(paste('a `co|de` b', cells)).toBeNull();
+  });
+
+  it('fills a table from a cell on, adding the rows and columns the cells run past', () => {
+    const model = parseTable('| a | b |\n| - | - |\n| 1 | 2 |');
+    fillCells(model, { row: 0, col: 1 }, [
+      ['x', 'y|z'],
+      ['w', ''],
+    ]);
+    expect(model).toEqual({
+      header: ['a', 'b', ''],
+      align: ['', '', ''],
+      rows: [
+        ['1', 'x', 'y\\|z'],
+        ['', 'w', ''],
+      ],
+    });
   });
 });
 

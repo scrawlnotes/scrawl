@@ -2,6 +2,7 @@ import type { EditorState, Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { previewItems, roleRanges, sourceMode } from './livePreview';
 import { renderHtml } from './render';
+import { copiedCells, pasteTable } from './table';
 
 /** Carries the Markdown of a copied piece from one note to another. */
 export const MARKDOWN_TYPE = 'application/x-scrawl-markdown';
@@ -108,11 +109,32 @@ export const clipboard: Extension = EditorView.domEventHandlers({
     return true;
   },
   paste(event, view) {
-    const markdown = event.clipboardData?.getData(MARKDOWN_TYPE);
-    if (!markdown || view.state.field(sourceMode, false)) return false;
-    event.preventDefault();
-    // Not `input.paste`: this is already Markdown from a note and must keep its formatting.
-    view.dispatch(view.state.replaceSelection(markdown), { scrollIntoView: true, userEvent: 'input.scrawl' });
-    return true;
+    const data = event.clipboardData;
+    if (!data || view.state.field(sourceMode, false)) return false;
+    const markdown = data.getData(MARKDOWN_TYPE);
+    if (markdown) {
+      event.preventDefault();
+      // Not `input.paste`: this is already Markdown from a note and must keep its formatting.
+      view.dispatch(view.state.replaceSelection(markdown), { scrollIntoView: true, userEvent: 'input.scrawl' });
+      return true;
+    }
+    // Cells copied from a spreadsheet, two rows and two columns at least, come in as a table.
+    const plain = data.getData('text/plain');
+    const html = data.getData('text/html');
+    const cells = copiedCells(plain, html);
+    const table = cells && cells.length > 1 && cells[0]!.length > 1 ? pasteTable(view.state, cells) : null;
+    if (table) {
+      event.preventDefault();
+      view.dispatch(table);
+      return true;
+    }
+    // A spreadsheet can put a picture of the cells on the clipboard too; a cell or a row comes in
+    // as its text, not as that picture.
+    if (data.files.length > 0 && /<table[\s>]/i.test(html) && plain.trim()) {
+      event.preventDefault();
+      view.dispatch(view.state.replaceSelection(plain.replace(/\r?\n$/, '')), { scrollIntoView: true, userEvent: 'input.paste' });
+      return true;
+    }
+    return false;
   },
 });

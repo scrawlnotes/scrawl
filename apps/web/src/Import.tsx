@@ -15,9 +15,10 @@ import { type Option, Picker, useEscape } from './choices';
 import { Icon } from './Icon';
 import { collectionLabel } from './items';
 
-// A CSV file coming into a collection, after the CSV import view of design/mockups.html: each
-// column of the file goes to a field, found by its name where one matches, or to a new field, the
-// notes or nowhere; rows whose name matches a record update it, the others are added.
+// A CSV or Excel file coming into a collection, after the CSV and Excel import views of
+// design/mockups.html: each column of the file goes to a field, found by its name where one
+// matches, or to a new field, the notes or nowhere; rows whose name matches a record update it,
+// the others are added. An Excel file of more than one sheet shows its sheets as chips.
 
 /** Where a column goes, as its box writes it: a field's key, `add:` and a type, the notes, or nowhere. */
 const SKIP = '\u0000skip';
@@ -26,11 +27,16 @@ const valueOfTarget = (target: ColumnTarget) => ('field' in target ? target.fiel
 const targetOfValue = (value: string): ColumnTarget =>
   value === SKIP ? { skip: true } : value === BODY ? { body: true } : value.startsWith('add:') ? { add: value.slice(4) as never } : { field: value };
 
-export function ImportDialog({ collection, fileName, header, rows, targets, onChooseFile, onImport, onClose }: {
+export function ImportDialog({ collection, fileName, header, rows, sheets, sheet, onPickSheet, targets, onChooseFile, onImport, onClose }: {
   collection: Collection;
   fileName: string;
   header: string[];
   rows: string[][];
+  /** An Excel file's sheets, with the rows each has; with more than one they are chips to choose from. */
+  sheets?: { name: string; rows: number }[];
+  /** The sheet whose rows these are. */
+  sheet?: number;
+  onPickSheet?: (sheet: number) => void;
   /** The records of every collection, by path: what a link column finds its records in. */
   targets: { [dir: string]: Record[] };
   /** Opens the file picker again, for another file. */
@@ -40,14 +46,17 @@ export function ImportDialog({ collection, fileName, header, rows, targets, onCh
   onClose: () => void;
 }) {
   const { schema } = collection;
-  const [columns, setColumns] = useState<ColumnTarget[]>(() => guessTargets(header, rows, schema, t('collection.body')));
+  // Where the columns go belongs to the rows it was chosen for: another file or sheet starts its
+  // columns afresh, in the same drawing that shows it, never with another file's choices.
+  const guessed = useMemo(() => guessTargets(header, rows, schema, t('collection.body')), [header, rows, schema]);
+  const [chosen, setChosen] = useState<{ rows: string[][]; schema: typeof schema; columns: ColumnTarget[] } | null>(null);
+  const columns = chosen?.rows === rows && chosen.schema === schema ? chosen.columns : guessed;
+  const setColumns = (next: ColumnTarget[]) => setChosen({ rows, schema, columns: next });
   const [mode, setMode] = useState<ImportMode>('update');
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
   const backdrop = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
-  // Another file chosen starts its columns afresh.
-  useEffect(() => setColumns(guessTargets(header, rows, schema, t('collection.body'))), [header, rows, schema]);
   useEffect(() => {
     if (!panel.current?.contains(document.activeElement)) panel.current?.focus({ preventScroll: true });
   }, []);
@@ -86,11 +95,33 @@ export function ImportDialog({ collection, fileName, header, rows, targets, onCh
           <div className="csv-file">
             <Icon name="file" />
             <span className="fname">{fileName}</span>
-            <small>{t('import.size', { count: rows.length, columns: header.length })}</small>
+            <small>{sheets && sheets.length > 1 ? t('import.sheets', { count: sheets.length }) : t('import.size', { count: rows.length, columns: header.length })}</small>
             <button type="button" className="ghost" onClick={onChooseFile}>
               {t('import.another')}
             </button>
           </div>
+          {sheets && sheets.length > 1 && (
+            <>
+              <p className="csv-h">{t('import.sheet')}</p>
+              {/* Another sheet starts its columns afresh; an empty one has nothing to bring. */}
+              <div className="csv-sheets" role="radiogroup" aria-label={t('import.sheet')}>
+                {sheets.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    role="radio"
+                    aria-checked={i === sheet}
+                    className={i === sheet ? 'on' : s.rows === 0 ? 'empty' : undefined}
+                    disabled={s.rows === 0}
+                    onClick={() => i !== sheet && onPickSheet?.(i)}
+                  >
+                    {s.name}
+                    <small>{s.rows === 0 ? t('import.sheetEmpty') : s.rows}</small>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           <p className="csv-h">{t('import.columns')}</p>
           <div className="csv-row head">
             <span>{t('import.inFile')}</span>

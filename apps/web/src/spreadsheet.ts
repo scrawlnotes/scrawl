@@ -1,0 +1,55 @@
+import { sheetDate, sheetNumber, sheetRows } from '@scrawlnotes/core';
+import type { CellObject } from 'xlsx';
+
+// An Excel file (.xlsx, .xls) coming into a collection: its sheets, each as the heading and the
+// rows the import window takes, as a CSV file's are. A cell brings its value, not what it shows: a
+// formula its result, a number without its format, a day as a day. This module and the library
+// that reads the file are loaded only when one is chosen.
+
+export interface Sheet {
+  name: string;
+  header: string[];
+  rows: string[][];
+}
+
+/** Whether the file is one that `readSheets` reads, by its name. */
+export const isSpreadsheet = (name: string) => /\.xlsx?$/i.test(name);
+
+export async function readSheets(file: File): Promise<Sheet[]> {
+  const XLSX = await import('xlsx');
+  // The number formats come along: a number is a day or a time only by its format.
+  const book = XLSX.read(await file.arrayBuffer(), { type: 'array', cellNF: true, cellHTML: false });
+  const date1904 = !!book.Workbook?.WBProps?.date1904;
+  const text = (cell: CellObject | undefined): string => {
+    if (!cell || cell.v === undefined || cell.v === null) return '';
+    switch (cell.t) {
+      case 'n':
+        return typeof cell.z === 'string' && XLSX.SSF.is_date(cell.z) ? sheetDate(cell.v as number, date1904) : sheetNumber(cell.v as number);
+      case 'b':
+        return cell.v ? 'yes' : 'no';
+      case 'd': {
+        const d = cell.v as Date;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+      // An error (#N/A, #DIV/0!) is no value.
+      case 'e':
+        return '';
+      default:
+        return String(cell.v);
+    }
+  };
+  return book.SheetNames.map((name) => {
+    const sheet = book.Sheets[name];
+    const ref = sheet?.['!ref'];
+    if (!sheet || !ref) return { name, header: [], rows: [] };
+    const range = XLSX.utils.decode_range(ref);
+    const rows: string[][] = [];
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      const row: string[] = [];
+      for (let c = range.s.c; c <= range.e.c; c++) row.push(text(sheet[XLSX.utils.encode_cell({ r, c })] as CellObject | undefined));
+      rows.push(row);
+    }
+    const [header = [], ...rest] = sheetRows(rows);
+    return { name, header, rows: rest };
+  });
+}
