@@ -1,4 +1,5 @@
 import { INBOX, INBOX_TASKS, inSpace, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
+import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -409,6 +410,9 @@ function DayIcon() {
   );
 }
 
+/** How long after the last change of the phone's height the keyboard is taken to have settled. */
+const KEYBOARD_SETTLES_MS = 120;
+
 export function Phone(props: PhoneProps) {
   const { ready, tabs, active, titles, tree, filters, counts, item } = props;
   // The app opens on its first place, Recent, with what was open last over it.
@@ -636,6 +640,19 @@ export function Phone(props: PhoneProps) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item]);
+  // The keyboard came up, or grew, over what is typed in: the cursor is brought above it, once the
+  // keyboard has settled and the editor has taken its new height, which keeps its first line where
+  // it was.
+  useEffect(() => {
+    if (!keyboard) return;
+    const timer = window.setTimeout(() => {
+      const focused = document.activeElement;
+      if (!(focused instanceof HTMLElement) || !(item.contains(focused) || stage.current?.contains(focused))) return;
+      if (!revealCursor(focused) && focused.matches('input, textarea')) focused.scrollIntoView({ block: 'nearest' });
+    }, KEYBOARD_SETTLES_MS);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyboard, view.height]);
   // An empty note opened takes the typing cursor a moment after it shows; looked at again then.
   useEffect(() => {
     const timer = window.setTimeout(checkTyping, 150);

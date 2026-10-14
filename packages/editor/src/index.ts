@@ -93,6 +93,18 @@ export interface ScrawlEditorOptions extends LivePreviewOptions {
 
 export type { EditorView };
 
+/**
+ * Brings the cursor of the editor `dom` is in into what is in sight, a little away from the edge:
+ * on a phone, after the keyboard came up over it. False when `dom` is in no editor.
+ */
+export function revealCursor(dom: Element): boolean {
+  const editor = dom.closest<HTMLElement>('.cm-editor');
+  const view = editor && EditorView.findFromDOM(editor);
+  if (!view) return false;
+  view.dispatch({ effects: EditorView.scrollIntoView(view.state.selection.main.head, { y: 'nearest', yMargin: 56 }) });
+  return true;
+}
+
 export interface ScrawlEditor {
   view: EditorView;
   /** A fresh editing state for a note. Each open tab keeps its own, with its undo history. */
