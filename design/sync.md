@@ -5,7 +5,7 @@ Faz 5'in ilk adımı. Motor `packages/core/src/sync/` altında, arayüzden ve sa
 ## 1. Kavramlar
 
 - **Yerel:** space'in bu cihazdaki kopyası; bugünkü `VaultFs` (masaüstünde klasör, web'de OPFS).
-- **Uzak:** space'in kaynağı (OneDrive, sonra Google Drive, WebDAV). Motor onu yalnızca aşağıdaki `RemoteStore` arayüzüyle tanır.
+- **Uzak:** space'in kaynağı (OneDrive; sonra sunucu, Dropbox, S3 uyumlu depolama, GitHub, Google Drive). Motor onu yalnızca aşağıdaki `RemoteStore` arayüzüyle tanır.
 - **Taban:** her dosyanın son eşitlendiği haldeki kaydı. Yerel ve uzak, tabana göre "değişti" ya da "değişmedi" diye okunur; ikisi birden değiştiyse birleştirilir.
 
 ```ts

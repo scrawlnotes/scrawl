@@ -1819,6 +1819,52 @@ p { margin: 0; max-width: 68ch; }
 .mb-ed .aud.away { min-height: 44px; padding: 4px 4px 4px 14px; border-radius: 22px; font-size: 14.5px; }
 .mb-ed .aud.away .dl { align-self: stretch; padding: 0 14px; border-radius: 18px; }
 .mock .mb-ed .aud.away .dl svg { width: 17px; height: 17px; }
+/* Search everywhere: one window that finds anything by its name or by its text, and opens it.
+   One list, the best match first; each row says what it is and where. Search at the top of the
+   sidebar opens it. */
+.it.sx-side { gap: 7px; margin-bottom: 4px; padding-top: 3px; padding-bottom: 3px; }
+.mock .it.sx-side svg { width: 13px; height: 13px; }
+.ovl.sx-ovl { padding-top: 64px; background: rgb(0 0 0 / .3); }
+.sx { display: flex; flex-direction: column; width: 620px; max-height: calc(100% - 24px); border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-side); box-shadow: 0 18px 44px rgb(0 0 0 / .45); font-size: 13px; overflow: hidden; }
+.sx-q { display: flex; flex: none; align-items: center; gap: 10px; height: 50px; padding: 0 12px 0 16px; color: var(--m-fg); font-size: 15px; }
+.mock .sx-q > svg { flex: none; width: 17px; height: 17px; color: var(--m-dim); }
+.sx-q .tx { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+.sx-q .ph { flex: 1; color: var(--m-faint); }
+.sx-q .n { flex: none; color: var(--m-faint); font-size: 12px; }
+.sx-q .x { flex: none; padding: 0 4px; color: var(--m-faint); font-size: 17px; }
+.sx-list { flex: 1; min-height: 0; padding: 5px 6px 6px; border-top: 1px solid var(--m-line); overflow: hidden; }
+.sx-r { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; column-gap: 11px; row-gap: 2px; min-height: 34px; padding: 5px 10px; border-radius: 6px; color: var(--m-fg); }
+.mock .sx-r > svg { width: 15px; height: 15px; color: var(--m-dim); }
+.sx-r > .cb { width: 14px; height: 14px; margin: 0; border-width: 1.5px; }
+.sx-r .l1 { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.sx-r .key { flex: none; color: var(--m-dim); font: 11px var(--m-mono); }
+.sx-r .nm { flex: none; max-width: 65%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sx-r .wh { flex: 1; min-width: 0; overflow: hidden; color: var(--m-faint); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.sx-r .kd { color: var(--m-faint); font-size: 11.5px; }
+.sx-r .snip { grid-column: 2 / 4; overflow: hidden; color: var(--m-dim); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.sx-r.on { background: var(--m-sel); }
+.sx-r.on .wh, .sx-r.on .kd { color: var(--m-dim); }
+.sx mark, .mb-sx mark { border-radius: 2px; background: color-mix(in srgb, var(--m-accent) 26%, transparent); color: inherit; }
+.sx-none { padding: 18px 16px 20px; border-top: 1px solid var(--m-line); color: var(--m-faint); font-size: 13px; }
+/* On a phone: Search is the fourth tab, the same list as a page */
+.mb-tabbar.four { grid-template-columns: repeat(4, 1fr); }
+.mb-sxbar { display: flex; flex: none; align-items: center; gap: 12px; margin: 2px 16px 8px; }
+.mb-sxbar .mb-searchbar { flex: 1; min-width: 0; margin: 0; color: var(--m-fg); }
+.mb-sxbar .mb-searchbar .tx { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+.mb-sxbar .mb-searchbar .clr { display: grid; flex: none; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--m-faint); color: var(--m-side); font-size: 12px; line-height: 1; }
+.mb-sxbar .cancel { flex: none; color: var(--m-accent); font-size: 16px; }
+.mb-sx .mb-body { border-top: 1px solid var(--m-line); }
+.mb-sx .mb-p.say { padding-top: 14px; }
+.mb-sxr { position: relative; display: flex; align-items: center; gap: 13px; min-height: 58px; padding: 0 16px; }
+.mb-sxr + .mb-sxr::before { content: ''; position: absolute; top: 0; left: 51px; right: 0; border-top: 1px solid var(--m-line); }
+.mock .mb-sxr > svg { flex: none; width: 22px; height: 22px; color: var(--m-dim); }
+.mb-sxr > .cb { flex: none; width: 20px; height: 20px; margin: 0 1px; border-width: 2px; }
+.mb-sxr .tx { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; padding: 9px 0; }
+.mb-sxr .tx b { overflow: hidden; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.mb-sxr .tx b .key { margin-right: 7px; color: var(--m-dim); font: 13.5px var(--m-mono); }
+.mb-sxr .tx small { overflow: hidden; color: var(--m-faint); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.mb-sxr .tx small.snip { color: var(--m-dim); }
+.mb-sx .mb-ed mark { padding: 0 1px; }
 </style>
 
 <main class="page">
@@ -1929,6 +1975,9 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-trashsel" data-aview="trashsel">Trash select</button>
         <button type="button" id="a-bigfile" data-aview="bigfile">Large files</button>
         <button type="button" id="a-bigset" data-aview="bigset">Download setting</button>
+        <button type="button" id="a-search" data-aview="search">Search</button>
+        <button type="button" id="a-searchfind" data-aview="searchfind">Search find</button>
+        <button type="button" id="a-searchnone" data-aview="searchnone">Search nothing found</button>
         <button type="button" id="a-pshell" data-aview="pshell">Phone shell</button>
         <button type="button" id="a-ppages" data-aview="ppages">Phone pages</button>
         <button type="button" id="a-pcreate" data-aview="pcreate">Phone create</button>
@@ -1955,6 +2004,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pfiles" data-aview="pfiles">Phone files</button>
         <button type="button" id="a-pfiles2" data-aview="pfiles2">Phone files more</button>
         <button type="button" id="a-pbig" data-aview="pbig">Phone large files</button>
+        <button type="button" id="a-psearch" data-aview="psearch">Phone search</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -5192,6 +5242,49 @@ p { margin: 0; max-width: 68ch; }
     return filesMain('bigfile', tab('notes', 'Site visit, Oct 6', 'note', true) + '<div class="tab plus">+</div>', BIG_NOTE, '<span>Ln 14, Col 29</span><span>38 words</span><span>Markdown</span>');
   };
   SP_VIEWS.bigset = function () { return spNoteView('bigset') + bigSetting(); };
+  // Search everywhere (Oct 14). One window, opened by Search at the top of the sidebar, that finds
+  // anything by its name or by its text and opens it. The results are one list, the best match
+  // first; each row says what it is and where, and a thing found by its text shows the line.
+  /** The box: what was typed, or what it is for; with results, how many. */
+  function sxQuery(text, n) {
+    return '<div class="sx-q">' + ICON.find +
+      (text ? '<span class="tx">' + text + '<span class="caret"></span></span>' : '<span class="ph"><span class="caret"></span>Search notes, tasks, cards, records and files</span>') +
+      (n ? '<span class="n">' + n + '</span>' : '') + '<span class="x" title="Close">×</span></div>';
+  }
+  /** A thing found: what it is by its icon and its word at the end, where it is, and the line it was found in. */
+  function sxRow(o) {
+    var lead = o.cb !== undefined ? '<span class="cb ' + o.cb + '"></span>' : ICON[o.icon];
+    return '<div class="sx-r' + (o.on ? ' on' : '') + '">' + lead +
+      '<span class="l1">' + (o.key ? '<span class="key">' + o.key + '</span>' : '') + '<span class="nm">' + o.name + '</span><span class="wh">' + o.where + '</span></span>' +
+      '<span class="kd">' + o.kind + '</span>' + (o.snip ? '<span class="snip">' + o.snip + '</span>' : '') + '</div>';
+  }
+  var SX_ACME = [
+    { icon: 'collection', name: '<mark>Acme</mark> Corp', where: 'Companies · Acme › Sales', kind: 'Record' },
+    { icon: 'notes', name: '<mark>Acme</mark> pilot kickoff', where: 'Acme › Sales · Oct 9', kind: 'Note' },
+    { cb: 'p3', name: 'Call <mark>Acme</mark> about the yearly plan', where: 'Inbox · Today', kind: 'Task' },
+    { icon: 'file', name: '<mark>acme</mark>-msa.pdf', where: 'in Pilot offer · 1.1 MB', kind: 'File' },
+    { icon: 'board', key: 'DEA-12', name: 'Pilot for one portal', where: 'Deals · Proposal', kind: 'Card', snip: 'Company: <mark>Acme</mark> Corp' },
+    { icon: 'notes', name: 'Client call, Oct 6', where: 'Personal › Inbox · Oct 6', kind: 'Note', snip: '…they asked whether <mark>Acme</mark> can start the pilot in November, before the rollout…' },
+    { icon: 'notes', name: 'Standup 10-09', where: 'Acme › meetings · Oct 9', kind: 'Note', snip: '…<mark>Acme</mark> wants the CSV export first, logins can wait…' }
+  ];
+  /** The sidebar with Search at its top, lit while the window is open. */
+  function sxTree(view) {
+    return spaceTree(view).replace('<div class="tree fxt">', '<div class="tree fxt"><div class="it sx-side on">' + ICON.find + '<span>Search</span></div>');
+  }
+  function sxNote(view, over) {
+    return '<aside class="side fit">' + sxTree(view) + '</aside><section class="main fit"><div class="panes">' + pane(tab('notes', 'Sync engine: open questions', 'note', true) + tab('board', 'Deals · Sales', 'board', false) + '<div class="tab plus">+</div>', edFull) + '</div>' +
+      SP_STATUS + '</section><div class="ovl sx-ovl"><div class="sx">' + over + '</div></div>';
+  }
+  // Opened: the box alone.
+  SP_VIEWS.search = function () { return sxNote('search', sxQuery('')); };
+  // Typing: one list, the best match first, whatever it is; a thing found by its text shows the line.
+  SP_VIEWS.searchfind = function () {
+    return sxNote('searchfind', sxQuery('acme', '7 results') + '<div class="sx-list">' + SX_ACME.map(function (r, i) { return sxRow(Object.assign({ on: i === 0 }, r)); }).join('') + '</div>');
+  };
+  // Nothing found.
+  SP_VIEWS.searchnone = function () {
+    return sxNote('searchnone', sxQuery('invoice 2024') + '<div class="sx-none">Nothing found for “invoice 2024”.</div>');
+  };
   // Files on a phone: a page from Browse, beside the trash. A row's line says where the file is
   // used and how large it is; a file left in OneDrive has Download in its place. Held, a row
   // opens what can be done, with the places it is used in first.
@@ -5314,7 +5407,38 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Sınır telefonun kendi ayarı; varsayılan 10 MB', mbSyncLimit(), mbTabs('browse') + mbLimitSheet())
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, ptasksdone: phoneTasksDone, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys, pempty: phoneEmpty, pwelcome: phoneWelcome, pspaces: phoneSpaces, pspaces2: phoneSpacesMore, psync: phoneSync, psync2: phoneSyncMore, pfiles: phoneFiles, pfiles2: phoneFilesMore, pbig: phoneBigFiles };
+  // Search on a phone (Oct 14): the fourth tab, the same list as a page. A thing found opens as a
+  // page over it, at the line it was found in; back is the list again.
+  function mbTabsSx(on) {
+    function t(id, icon, label) { return '<span' + (id === on ? ' class="on"' : '') + '>' + ICON[icon] + label + '</span>'; }
+    return '<nav class="mb-tabbar four">' + t('recent', 'clock', 'Recent') + t('browse', 'folder', 'Browse') + t('today', 'day', 'Today') + t('search', 'find', 'Search') + '</nav>';
+  }
+  function mbSxBar(text) {
+    if (!text) return '<div class="mb-searchbar">' + ICON.find + 'Search</div>';
+    return '<div class="mb-sxbar"><span class="mb-searchbar">' + ICON.find + '<span class="tx">' + text + '<span class="caret"></span></span><span class="clr">×</span></span><span class="cancel">Cancel</span></div>';
+  }
+  /** A thing found on a phone: its name, then what it is and where, or the line it was found in. */
+  function mbSxRow(r) {
+    var lead = r.cb !== undefined ? '<span class="cb ' + r.cb + '"></span>' : ICON[r.icon];
+    return '<div class="mb-sxr">' + lead + '<span class="tx"><b>' + (r.key ? '<span class="key">' + r.key + '</span>' : '') + r.name + '</b>' +
+      '<small>' + r.kind + ' · ' + r.where + '</small>' + (r.snip ? '<small class="snip">' + r.snip + '</small>' : '') + '</span></div>';
+  }
+  function mbSearch(top, body) { return mbPage(mbHead('Search', null, true) + top, body, 'mb-sx'); }
+  function phoneSearch() {
+    var list = SX_ACME.map(mbSxRow).join('');
+    var found = mbPage(mbNav('Search', ['dots']),
+      '<div class="mb-ed"><div class="h1">Client call, Oct 6</div>' +
+      '<p>Lena, Mina and two people from their IT. They liked the portal demo.</p>' +
+      '<p>About the start: they asked whether <mark>Acme</mark> can start the pilot in November, before the rollout of their new ERP.</p>' +
+      '<div class="li">CSV export is a must</div><div class="li">One login per client</div><div class="li">Send the offer by Friday</div></div>', 'mb-sx');
+    return [
+      mbPhone('Search dördüncü sekme; açılınca yalnız arama kutusu', mbSearch(mbSxBar(''), '<p class="mb-p say">Notes, tasks, cards, records and files, by their names and by their text.</p>'), mbTabsSx('search')),
+      mbPhone('Yazdıkça tek liste: en iyi eşleşen üstte, her satırda ne olduğu', mbSearch(mbSxBar('acme'), list), mbTabsSx('search') + MB_KB),
+      mbPhone('Klavye inince bütün sonuçlar', mbSearch(mbSxBar('acme'), list), mbTabsSx('search')),
+      mbPhone('Dokununca açılır, bulunduğu satırda; geri sonuçlara döner', found, mbTabsSx('search'))
+    ].join('');
+  }
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, ptasksdone: phoneTasksDone, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys, pempty: phoneEmpty, pwelcome: phoneWelcome, pspaces: phoneSpaces, pspaces2: phoneSpacesMore, psync: phoneSync, psync2: phoneSyncMore, pfiles: phoneFiles, pfiles2: phoneFilesMore, pbig: phoneBigFiles, psearch: phoneSearch };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {
