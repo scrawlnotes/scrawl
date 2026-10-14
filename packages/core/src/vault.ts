@@ -4,6 +4,7 @@ import { type ColumnWidths, collectionName, isCollection, loadSchema, namedById,
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
+import { awayAt, moveAway, readAway, removeAway } from './sync/away';
 import { loadTasks, parseList, serializeList, serializeTasks, TASK_LIST_EXT } from './tasks';
 
 export const INBOX = 'Inbox';
@@ -117,6 +118,8 @@ const writing = new Set<string>();
 /** The paths in `dir`, lowercased for `freePath`. */
 async function names(fs: VaultFs, dir: string): Promise<Set<string>> {
   const taken = new Set((await fs.list(dir)).map((e) => e.path.toLowerCase()));
+  // A file left on the other side keeps its name, though it is not here.
+  if (dir === ATTACHMENTS || dir === TRASH) for (const file of await readAway(fs)) if (dirname(file.path) === dir) taken.add(file.path.toLowerCase());
   // The inbox's own list is called Tasks, so no other list there may take that name.
   if (dir === INBOX) taken.add(join(INBOX, `${t('tasks.defaultList')}${TASK_LIST_EXT}`).toLowerCase());
   return taken;
@@ -241,6 +244,8 @@ export async function copyToSpace(from: VaultFs, path: string, to: VaultFs, fold
 
   // The attached files the texts link to go along, under a free name where theirs is taken.
   const linked = linkedIn([...texts.values()]);
+  const away = (await readAway(from)).filter((file) => dirname(file.path) === ATTACHMENTS && linked.includes(file.path.toLowerCase()));
+  if (away.length > 0) throw new AwayFilesError(away.map((file) => file.path));
   const renamed = new Map<string, string>();
   const taken = await names(to, ATTACHMENTS);
   for (const file of await attachedFiles(from)) {
@@ -271,6 +276,14 @@ export async function copyToSpace(from: VaultFs, path: string, to: VaultFs, fold
   }
   if (isDir) await to.mkdir(target);
   return target;
+}
+
+/** What is asked needs attached files that are on the other side and not here: they must be brought first. */
+export class AwayFilesError extends Error {
+  constructor(readonly paths: string[]) {
+    super(`Not on this device: ${paths.join(', ')}`);
+    this.name = 'AwayFilesError';
+  }
 }
 
 /** Gives a note or a task list a name of the user's choosing, in the folder it is in. Returns its new path. */
@@ -326,7 +339,9 @@ async function trashPath(fs: VaultFs, name: string, ext: string, now: Date): Pro
 export async function trashItem(fs: VaultFs, path: string, now = new Date()): Promise<void> {
   const [name, ext] = splitName(basename(path));
   const target = await trashPath(fs, name, ext, now);
-  await fs.move(path, target);
+  // A file left on the other side goes to the trash there, with the next turn of syncing.
+  if (await awayAt(fs, path)) await moveAway(fs, path, target);
+  else await fs.move(path, target);
   await changeTrashIndex(fs, (records) => [...records, { name: basename(target), from: path, deleted: now.toISOString() }]);
 }
 
@@ -362,6 +377,8 @@ export interface TrashItem {
   records?: number;
   /** An attachment's size in bytes. */
   size?: number;
+  /** An attachment left on the other side: in the trash there, not here. */
+  away?: boolean;
 }
 
 /** What a folder holds, all the way down. */
@@ -442,6 +459,13 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
       items.push({ ...item, kind: 'note', title: displayTitle(name, text) });
     }
   }
+  // Attached files deleted while they were on the other side are in the trash there.
+  for (const file of await readAway(fs)) {
+    if (dirname(file.path) !== TRASH) continue;
+    const record = records.get(basename(file.path));
+    if (!record?.from.startsWith(`${ATTACHMENTS}/`)) continue;
+    items.push({ path: file.path, kind: 'attachment', title: basename(record.from), from: record.from, deleted: record.deleted, size: file.size, away: true });
+  }
   return items.sort((a, b) => b.deleted.localeCompare(a.deleted));
 }
 
@@ -458,6 +482,8 @@ export async function restoreFromTrash(fs: VaultFs, item: TrashItem): Promise<st
   if (tree) {
     await moveTree(fs, item.path, target);
     await fs.remove(item.path);
+  } else if (item.away) {
+    await moveAway(fs, item.path, target);
   } else {
     await fs.move(item.path, target);
   }
@@ -472,16 +498,19 @@ export async function restoreFromTrash(fs: VaultFs, item: TrashItem): Promise<st
  */
 export async function deleteFromTrash(fs: VaultFs, item: TrashItem, unsaved: string[] = []): Promise<void> {
   const texts = item.kind === 'note' || item.kind === 'folder' || item.kind === 'collection' ? await textsOf(fs, item.path) : [];
-  await fs.remove(item.path);
+  if (item.away) await removeAway(fs, item.path);
+  else await fs.remove(item.path);
   await forget(fs, basename(item.path));
   await removeAttachmentsOf(fs, texts, unsaved);
 }
 
 /** Deletes everything in the trash for good, with the attached files that only its notes linked to. */
 export async function emptyTrash(fs: VaultFs, unsaved: string[] = []): Promise<void> {
-  if ((await fs.list(TRASH)).length === 0) return;
+  const away = (await readAway(fs)).filter((file) => dirname(file.path) === TRASH);
+  if ((await fs.list(TRASH)).length === 0 && away.length === 0) return;
   const texts = await textsOf(fs, TRASH);
   await fs.remove(TRASH);
+  for (const file of away) await removeAway(fs, file.path);
   await removeAttachmentsOf(fs, texts, unsaved);
 }
 
@@ -533,6 +562,16 @@ async function attachedFiles(fs: VaultFs): Promise<Entry[]> {
   );
 }
 
+/** The attached files here and those left on the other side, which are the space's too. */
+async function everyAttached(fs: VaultFs): Promise<Entry[]> {
+  const here = await attachedFiles(fs);
+  const known = new Set(here.map((e) => e.path.toLowerCase()));
+  const away = (await readAway(fs))
+    .filter((file) => dirname(file.path) === ATTACHMENTS && !known.has(file.path.toLowerCase()))
+    .map((file): Entry => ({ name: basename(file.path), path: file.path, kind: 'file', size: file.size }));
+  return [...here, ...away];
+}
+
 /** Moves those of `files` that nothing links to into the trash. Returns their paths. */
 async function trashIfUnlinked(fs: VaultFs, files: Entry[], unsaved: () => string[], now: Date): Promise<string[]> {
   if (files.length === 0) return [];
@@ -554,7 +593,7 @@ async function trashIfUnlinked(fs: VaultFs, files: Entry[], unsaved: () => strin
  * the text of notes not written yet. Returns how many files were moved.
  */
 export async function sweepAttachments(fs: VaultFs, unsaved: () => string[] = () => [], now = new Date()): Promise<number> {
-  return (await trashIfUnlinked(fs, await attachedFiles(fs), unsaved, now)).length;
+  return (await trashIfUnlinked(fs, await everyAttached(fs), unsaved, now)).length;
 }
 
 /**
@@ -568,7 +607,7 @@ export async function trashUnlinked(
   now = new Date(),
 ): Promise<string[]> {
   const wanted = new Set(paths.map((path) => path.toLowerCase()));
-  const files = (await attachedFiles(fs)).filter((file) => wanted.has(file.path.toLowerCase()));
+  const files = (await everyAttached(fs)).filter((file) => wanted.has(file.path.toLowerCase()));
   return trashIfUnlinked(fs, files, unsaved, now);
 }
 
@@ -595,10 +634,15 @@ export async function restoreAttachments(fs: VaultFs, texts: string[]): Promise<
 async function removeAttachmentsOf(fs: VaultFs, texts: string[], unsaved: string[]): Promise<void> {
   if (texts.length === 0) return;
   const gone = linkedIn(texts);
-  const files = (await attachedFiles(fs)).filter((file) => gone.includes(file.path.toLowerCase()));
+  const files = (await everyAttached(fs)).filter((file) => gone.includes(file.path.toLowerCase()));
   if (files.length === 0) return;
   const linked = linkedIn([...(await allTexts(fs)), ...unsaved]);
-  for (const file of files) if (!linked.includes(file.path.toLowerCase())) await fs.remove(file.path);
+  const away = new Set((await readAway(fs)).map((file) => file.path.toLowerCase()));
+  for (const file of files) {
+    if (linked.includes(file.path.toLowerCase())) continue;
+    if (away.has(file.path.toLowerCase())) await removeAway(fs, file.path);
+    else await fs.remove(file.path);
+  }
 }
 
 /**

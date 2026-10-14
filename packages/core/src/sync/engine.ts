@@ -1,6 +1,7 @@
 import { basename, dirname, type Entry, type VaultFs } from '../fs';
 import { freePath, splitName } from '../paths';
 import { trashItem } from '../vault';
+import { finishAwayOps, mayStayAway, readAwayOps } from './away';
 import { sha256 } from './hash';
 import { mergeFile, mergeKindOf } from './merge-files';
 import { isSynced, keyOf } from './paths';
@@ -39,6 +40,8 @@ export interface SyncReport {
   skipped: string[];
   /** Here, but named as the other side does not take: not synced. */
   refused: string[];
+  /** Over this device's limit: left on the other side until they are asked for. */
+  left: string[];
 }
 
 /**
@@ -85,9 +88,15 @@ export interface SyncOptions {
   saveEveryMs?: number;
   /** Told how the turn stands, often: a caller showing it draws at its own pace. */
   onProgress?: (progress: SyncProgress) => void;
+  /**
+   * An attached file larger than this many bytes that is not here stays on the other side until
+   * it is asked for (`fetchAway`); unset, every file comes.
+   */
+  leaveOver?: number;
 }
 
-type LocalStatus = 'same' | 'changed' | 'new' | 'deleted' | 'none';
+/** `away`: on the other side only, left there over this device's limit; not here, and not deleted here. */
+type LocalStatus = 'same' | 'changed' | 'new' | 'deleted' | 'none' | 'away';
 type RemoteStatus = 'same' | 'changed' | 'new' | 'deleted' | 'none';
 
 const TRASH = '.scrawl/trash';
@@ -126,7 +135,7 @@ export function conflictPath(path: string, device: string, at: Date, taken: Read
 }
 
 class Turn {
-  readonly report: SyncReport = { uploaded: [], downloaded: [], merged: [], conflicts: [], moved: [], followed: [], removedHere: [], removedThere: [], skipped: [], refused: [] };
+  readonly report: SyncReport = { uploaded: [], downloaded: [], merged: [], conflicts: [], moved: [], followed: [], removedHere: [], removedThere: [], skipped: [], refused: [], left: [] };
   private local = { files: new Map<string, Entry>(), dirs: new Map<string, string>() };
   private readonly remoteFiles = new Map<string, RemoteFile>();
   private readonly remoteDirs = new Map<string, string>();
@@ -155,11 +164,14 @@ class Turn {
     private readonly now: () => Date,
     private readonly saveEveryMs: number,
     private readonly onProgress?: (progress: SyncProgress) => void,
+    private readonly leaveOver?: number,
   ) {}
 
   async run(): Promise<void> {
     const startCursor = this.state.cursor;
     this.tell();
+    // What was asked of files away goes first, so that the listing already has them where they went.
+    await this.awayOps();
     const listing = await this.remote.changes(startCursor, (count) => {
       this.looked = count;
       this.tell();
@@ -201,11 +213,25 @@ class Turn {
     for (const [key, [here, there]] of status) {
       if (there !== 'new' && there !== 'changed') continue;
       const file = this.remoteFiles.get(key)!;
+      if ((here === 'none' || here === 'away') && this.leaves(file.path, file.size)) {
+        plan.push({ job: null, run: () => this.leave(key) });
+        continue;
+      }
       const both = here === 'new' || here === 'changed';
       // A file gone from there since the listing is left for the next turn, which lists it gone.
       plan.push({ job: this.planned(file.path, both ? 'both' : 'down', file.size), run: () => this.attempt(file.path, () => (both ? this.both(key) : this.download(key))) });
     }
+    // A file away that this device takes now, its limit raised.
     for (const [key, [here, there]] of status) {
+      const record = this.state.files[key];
+      if (here !== 'away' || there !== 'same' || !record || this.leaves(record.path, record.size)) continue;
+      plan.push({ job: this.planned(record.path, 'down', record.size), run: () => this.attempt(record.path, () => this.bring(key)) });
+    }
+    for (const [key, [here, there]] of status) {
+      if (here === 'changed' && there === 'same' && this.state.files[key]?.away) {
+        plan.push({ job: null, run: () => this.adopt(key) });
+        continue;
+      }
       if ((here === 'new' || here === 'changed') && (there === 'same' || there === 'none' || there === 'deleted')) {
         const entry = this.local.files.get(key)!;
         plan.push({ job: this.planned(entry.path, 'up', entry.size ?? 0), run: () => this.upload(key, there === 'same' ? this.state.files[key]!.tag : null) });
@@ -214,7 +240,7 @@ class Turn {
     for (const [key, [here, there]] of status) {
       if (there !== 'deleted') continue;
       if (here === 'same') plan.push({ job: this.planned(this.local.files.get(key)!.path, 'trash', 0), run: () => this.removeHere(key) });
-      else if (here === 'deleted' || here === 'none') plan.push({ job: null, run: () => this.drop(key) });
+      else if (here === 'deleted' || here === 'none' || here === 'away') plan.push({ job: null, run: () => this.drop(key) });
     }
     for (const [key, [here, there]] of status) {
       if (here === 'deleted' && there === 'same') plan.push({ job: this.planned(this.state.files[key]!.path, 'removeThere', 0), run: () => this.removeThere(key) });
@@ -341,6 +367,8 @@ class Turn {
   private async localStatus(key: string): Promise<LocalStatus> {
     const record = this.state.files[key];
     const entry = this.local.files.get(key);
+    // A file here where one is away came here otherwise than by syncing: `adopt` tells which it is.
+    if (record?.away) return entry ? 'changed' : 'away';
     if (!entry) return record ? 'deleted' : 'none';
     if (!record) return 'new';
     if (entry.path === record.path && entry.size === record.size && entry.modified !== undefined && entry.modified === record.modified) return 'same';
@@ -364,7 +392,7 @@ class Turn {
   private async moves(): Promise<void> {
     const records = this.state.files;
     // Moved here: a record whose file is gone, and a new file with its digest.
-    const goneHere = Object.keys(records).filter((key) => !this.local.files.has(key) && this.remoteStatus(key) === 'same');
+    const goneHere = Object.keys(records).filter((key) => !records[key]!.away && !this.local.files.has(key) && this.remoteStatus(key) === 'same');
     for (const key of [...this.local.files.keys()].sort()) {
       if (records[key] || this.remoteStatus(key) !== 'none' || goneHere.length === 0) continue;
       const entry = this.local.files.get(key)!;
@@ -406,7 +434,7 @@ class Turn {
     // Renamed in case or Unicode form only: the key is the same, the spelling not.
     for (const [key, entry] of [...this.local.files]) {
       const record = records[key];
-      if (!record) continue;
+      if (!record || record.away) continue;
       const there = this.remoteFiles.get(key);
       const renamedHere = entry.path !== record.path;
       const renamedThere = there !== undefined && there.tag === record.tag && there.path !== record.path;
@@ -537,6 +565,85 @@ class Turn {
       sent = true;
     });
     return sent;
+  }
+
+  // ---------- files away ----------
+
+  /** Whether a file that is not here stays on the other side: an attached file over the limit. */
+  private leaves(path: string, size: number): boolean {
+    return this.leaveOver !== undefined && size > this.leaveOver && mayStayAway(path);
+  }
+
+  /** Left on the other side: known by its tag and size there, not brought here. */
+  private async leave(key: string): Promise<void> {
+    const file = this.remoteFiles.get(key)!;
+    this.state.files[key] = { path: file.path, tag: file.tag, size: file.size, hash: '', away: true, ...(file.hash !== undefined && { remoteHash: file.hash }) };
+    for (let dir = dirname(file.path); dir; dir = dirname(dir)) this.state.dirs[keyOf(dir)] ??= dir;
+    this.report.left.push(file.path);
+    await this.saveNowAndThen();
+  }
+
+  /** Brings a file away here, as it is on the other side. */
+  private async bring(key: string): Promise<void> {
+    const record = this.state.files[key]!;
+    const data = await this.remote.read(record.path, this.sent);
+    if (!(await this.untouched(key, record.path))) return;
+    await this.fs.writeBlob(record.path, data);
+    await this.keep(key, record.path, record.tag, data);
+    this.report.downloaded.push(record.path);
+    this.result = 'brought';
+  }
+
+  /**
+   * A file came here where one is away, otherwise than by syncing it. With the same content as
+   * the other side's it is that file, now here; otherwise it goes beside it as another version,
+   * and the one away stays away.
+   */
+  private async adopt(key: string): Promise<void> {
+    const entry = this.local.files.get(key)!;
+    const record = this.state.files[key]!;
+    const data = await this.fs.readBlob(entry.path);
+    if (record.remoteHash !== undefined && this.remote.hashOf && (await this.remote.hashOf(data)) === record.remoteHash) {
+      await this.keep(key, entry.path, record.tag, data, entry.modified);
+      return;
+    }
+    if (!(await this.untouched(key, entry.path))) return;
+    if (await this.conflictCopy(entry.path, data)) await this.fs.remove(entry.path);
+  }
+
+  /**
+   * Does what was asked of files away: moves them (to the trash, and back) and deletes them on
+   * the other side. One that came here meanwhile, or is gone, needs nothing; one the other side
+   * refuses (changed there) waits for a turn whose listing has it as it is.
+   */
+  private async awayOps(): Promise<void> {
+    const ops = await readAwayOps(this.fs);
+    if (ops.length === 0) return;
+    const done = new Set<string>();
+    for (const op of ops) {
+      const key = keyOf(op.kind === 'move' ? op.from : op.path);
+      const record = this.state.files[key];
+      if (!record?.away) {
+        done.add(op.id);
+        continue;
+      }
+      try {
+        if (op.kind === 'move') {
+          const moved = await this.remote.move(record.path, op.to, record.tag);
+          await this.refile(key, keyOf(op.to), { ...record, path: op.to, tag: moved.tag });
+          for (let dir = dirname(op.to); dir; dir = dirname(dir)) this.state.dirs[keyOf(dir)] ??= dir;
+          this.report.moved.push(op.to);
+        } else {
+          await this.remote.remove(record.path, record.tag);
+          this.report.removedThere.push(record.path);
+          await this.drop(key);
+        }
+        done.add(op.id);
+      } catch (error) {
+        if (!(error instanceof RemoteConflict)) throw error;
+      }
+    }
+    await finishAwayOps(this.fs, done);
   }
 
   /**
@@ -687,7 +794,25 @@ class Turn {
 /** One turn of syncing the space in `fs` with `remote`. Two turns of one space must not run at once. */
 export async function syncOnce(fs: VaultFs, remote: RemoteStore, device: SyncDevice, options: SyncOptions = {}): Promise<SyncReport> {
   const state = await loadSyncState(fs, device.id);
-  const turn = new Turn(fs, remote, device, state, options.now ?? (() => new Date()), options.saveEveryMs ?? 2000, options.onProgress);
+  const turn = new Turn(fs, remote, device, state, options.now ?? (() => new Date()), options.saveEveryMs ?? 2000, options.onProgress, options.leaveOver);
   await turn.run();
   return turn.report;
+}
+
+/**
+ * Brings here a file left on the other side, told how many of its bytes came so far. Returns
+ * false when it is not away (here already, or gone). Not while a turn of the same space runs:
+ * both write the sync state.
+ */
+export async function fetchAway(fs: VaultFs, remote: RemoteStore, device: SyncDevice, path: string, onBytes?: (done: number) => void): Promise<boolean> {
+  const state = await loadSyncState(fs, device.id);
+  const key = keyOf(path);
+  const record = state.files[key];
+  if (!record?.away) return false;
+  const data = await remote.read(record.path, onBytes);
+  await fs.writeBlob(record.path, data);
+  const written = fs.stat ? await fs.stat(record.path) : null;
+  state.files[key] = { path: record.path, tag: record.tag, size: data.size, ...(written?.modified !== undefined && { modified: written.modified }), hash: await sha256(data) };
+  await saveSyncState(fs, state);
+  return true;
 }

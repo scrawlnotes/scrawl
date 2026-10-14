@@ -3,6 +3,7 @@ export * from './collection';
 export * from './csv';
 export * from './fields';
 export * from './filters';
+export * from './files';
 export * from './fs';
 export * from './history';
 export * from './keys';

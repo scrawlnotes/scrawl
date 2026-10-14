@@ -16,6 +16,13 @@ export interface FileRecord {
   size: number;
   modified?: number;
   hash: string;
+  /**
+   * On the other side and not here: an attached file over this device's limit, left there until
+   * it is asked for. Its size and tag are the other side's; it has no digest here.
+   */
+  away?: true;
+  /** For a file away, the provider's own digest of it, where the provider gives one. */
+  remoteHash?: string;
 }
 
 export interface SyncState {

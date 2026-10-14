@@ -187,3 +187,17 @@ Hepsi `packages/core/src/sync/engine.test.ts` içinde; birleştirme kuralları a
 ## 9. Bu adımda olmayanlar
 
 Arayüz (durum çubuğundaki "Synced…", hata ve çakışma bildirimleri, Settings'te cihaz adı, sağlayıcı istemcisinin altındaki klasör için uyarı), birden çok space, OneDrive adaptörü ve girişi sonraki adımlardır. Motor bitince uygulama onu henüz çağırmaz; yalnızca testlerle doğrulanır.
+
+## 10. Bu cihaza inmeyen büyük ekler
+
+Telefonda ve tarayıcıda bir ek sınırın üstündeyse (varsayılan 10 MB, cihazın ayarı; masaüstünde sınır yok) kendiliğinden inmez, bulutta bekler (PLAN 4.2 Büyük dosyalar).
+
+- Yalnız ekler bekler: `_attachments/` altındaki dosyalar ve çöpte uygulamanın metni olmayan (`.md`, `.json`, `.env` dışındaki) dosyalar. Notlar, listeler ve panolar ne kadar büyük olursa olsun iner.
+- Böyle bir dosya durum dosyasında `away: true` ile tutulur: uzaktaki etiketi ve boyutu bilinir, yerelde özeti yoktur; sağlayıcı veriyorsa kendi özeti (`remoteHash`) saklanır. Yerelde olmaması silinmiş sayılmaz, uzaktan hiç silinmez; sonraki turlar ona dokunmaz.
+- Uzakta silinirse kaydı düşer. Uzakta taşınırsa (öbür cihaz çöpe attı) yeni yerinde yine bekler; çöpte görünür.
+- Sınır büyütülünce sınırın altına düşenler sonraki turda iner. Dosya istenince (`fetchAway`) iner ve sıradan bir dosya olur; aynı space'in turuyla aynı anda çalışmaz, ikisi de durum dosyasını yazar.
+- Bekleyen bir dosya cihazda olmadığı için taşınamaz ve silinemez: çöpe atma, çöpten geri alma ve kalıcı silme `.scrawl/sync-away.json`'a (cihaza özel) yazılır, sonraki tur bunları listeyi okumadan önce uzakta yapar (taşıma ya da silme). O zamana kadar çöp, Files ve yeni ad seçimi bu işleri yapılmış sayar.
+- Yeni bir ek bekleyen bir dosyanın adını almaz. Yine de o yolda yerelde bir dosya belirirse içeriği uzaktakiyle aynıysa (sağlayıcının özetiyle) o dosya sayılır; değilse çakışma kopyası olarak yanına konur, bekleyen dosya bekler.
+- Başka bir space'e taşınan bir şeyin bekleyen ekleri önce iner (`copyToSpace` onları bulursa durur).
+
+Testler `packages/core/src/sync/away.test.ts` içinde.

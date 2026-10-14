@@ -6,7 +6,7 @@ import { basename } from '../fs';
  * Device-only state under `.scrawl`, and in the browser the copies of the other spaces under
  * `.spaces`, beside the personal one's files; none of it leaves the device with the personal space.
  */
-const DEVICE_ONLY = ['.scrawl/history', '.scrawl/workspace.json', '.scrawl/sync-state.json', '.scrawl/sync-base', '.scrawl/onedrive.json', '.scrawl/index', '.spaces'];
+const DEVICE_ONLY = ['.scrawl/history', '.scrawl/workspace.json', '.scrawl/sync-state.json', '.scrawl/sync-away.json', '.scrawl/sync-base', '.scrawl/onedrive.json', '.scrawl/index', '.spaces'];
 
 /** What systems leave in folders. */
 const SYSTEM_FILES = new Set(['desktop.ini', 'thumbs.db', '.ds_store']);
