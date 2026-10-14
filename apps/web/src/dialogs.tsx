@@ -231,12 +231,12 @@ export type ItemKind = Exclude<NewKind, 'filter'>;
 // Keys come after Board and before Filter, which is a view rather than a file; what they are for
 // is said beside them, as the kind least known.
 export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: MessageKey }[] = [
-  { kind: 'note', label: 'create.note', icon: 'note' },
-  { kind: 'tasks', label: 'create.tasks', icon: 'tasks' },
-  { kind: 'board', label: 'create.board', icon: 'board' },
+  { kind: 'note', label: 'create.note', icon: 'note', text: 'create.noteText' },
+  { kind: 'tasks', label: 'create.tasks', icon: 'tasks', text: 'create.tasksText' },
+  { kind: 'board', label: 'create.board', icon: 'board', text: 'create.boardText' },
   { kind: 'keys', label: 'create.keys', icon: 'keys', text: 'create.keysText' },
   { kind: 'collection', label: 'create.collection', icon: 'collection', text: 'create.collectionText' },
-  { kind: 'filter', label: 'create.filter', icon: 'filter' },
+  { kind: 'filter', label: 'create.filter', icon: 'filter', text: 'create.filterText' },
 ];
 
 /**
