@@ -1342,8 +1342,13 @@ p { margin: 0; max-width: 68ch; }
 .mb-tsec .more { display: grid; place-items: center; width: 44px; height: 44px; margin-left: auto; color: var(--m-faint); }
 .mock .mb-tsec .more svg { width: 22px; height: 22px; }
 .mb-tsec + .mb-task::before { display: none; }
-.mb-tadd { display: flex; align-items: center; gap: 13px; min-height: 50px; margin-top: 6px; padding: 0 16px; color: var(--m-faint); }
-.mock .mb-tadd svg { width: 22px; height: 22px; }
+/* a task done today, at the end of Today, and the row that shows them */
+.mb-task.done .cb { border-color: var(--m-faint); background: var(--m-faint); }
+.mb-task.done b { color: var(--m-faint); text-decoration: line-through; font-weight: 400; }
+.mb-showdone { display: block; min-height: 44px; padding: 12px 16px 0; color: var(--m-faint); font-size: 15px; }
+/* what was done, with Undo beside it */
+.mb-toast.undo { left: 16px; right: 16px; bottom: 166px; justify-content: space-between; padding: 0 6px 0 18px; border-radius: 14px; min-height: 44px; transform: none; }
+.mb-toast.undo .u { padding: 0 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 /* swiped: what the swipe does shows under the row */
 .mb-task.sw { padding: 0; overflow: hidden; }
 .mb-task.sw .slide { position: relative; z-index: 1; display: flex; flex: none; gap: 13px; width: 100%; padding: 12px 16px; background: var(--m-bg); }
@@ -1823,6 +1828,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pnotemore" data-aview="pnotemore">Phone note more</button>
         <button type="button" id="a-ptasks" data-aview="ptasks">Phone tasks</button>
         <button type="button" id="a-ptasksmore" data-aview="ptasksmore">Phone tasks more</button>
+        <button type="button" id="a-ptasksdone" data-aview="ptasksdone">Phone tasks done</button>
         <button type="button" id="a-pboard" data-aview="pboard">Phone board</button>
         <button type="button" id="a-pboardmore" data-aview="pboardmore">Phone board more</button>
         <button type="button" id="a-pphases" data-aview="pphases">Phone phases</button>
@@ -3875,7 +3881,7 @@ p { margin: 0; max-width: 68ch; }
     return [
       mbPhone('Boş not: soluk Note; imleç ve klavye gelir', mbPage(mbNav('meetings', MB_TYPING) + mbFbar(), note, '', 'typing'), MB_KB),
       mbPhone('Boş klasör: ne olacağı ve Create', mbPage(mbNav('Browse', ['dots']) + mbHead('Archive'), mbEmpty('folder', 'Nothing here yet', 'Notes, lists, boards and folders made here show up here.', 'Create')), mbTabs('browse') + MB_FAB),
-      mbPhone('Boş liste: Add task, altında Add section', mbPage(mbNav('Archive', ['dots']) + mbHead('Errands'), mbEmpty('tasks', 'No tasks yet', 'Add the first one, or a section to sort them into.', 'Add task') + '<div class="mb-tadd">' + ICON.plus + 'Add section</div>'), mbTabs('browse') + MB_FAB),
+      mbPhone('Boş liste: Add task; bölüm ··· menüsünden', mbPage(mbNav('Archive', ['dots']) + mbHead('Errands'), mbEmpty('tasks', 'No tasks yet', 'Add the first one, or a section to sort them into.', 'Add task')), mbTabs('browse') + MB_FAB),
       mbPhone('Boş Today: Add task', mbPage(mbHead('Today', 'Monday, Oct 12', true) + '<div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>', mbEmpty('sun', 'Nothing due today', 'Tasks and cards due today, or late, show up here.', 'Add task')), mbTabs('today') + MB_FAB)
     ].join('');
   }
@@ -3898,8 +3904,7 @@ p { margin: 0; max-width: 68ch; }
       mbTsec('Phase 1', 3) +
       mbT({ p: 'p2', title: 'Hot exit: restore tabs after a crash', meta: mi('cal', 'Oct 14') }) +
       mbT({ title: 'Full-text search index' }) +
-      mbT({ title: 'Call Acme about the yearly plan', meta: mi('collection', 'Acme Corp') + mi('notes', 'Pricing call notes') }) +
-      '<div class="mb-tadd">' + ICON.plus + 'Add section</div>';
+      mbT({ title: 'Call Acme about the yearly plan', meta: mi('collection', 'Acme Corp') + mi('notes', 'Pricing call notes') });
   }
   function mbListPage(o) { return mbPage(mbNav('Scrawl', ['dots']) + mbHead('Tasks'), mbTaskList(o)); }
   /** A list or a section to put a task in; the one it is in is marked and cannot be chosen. */
@@ -3914,7 +3919,7 @@ p { margin: 0; max-width: 68ch; }
       [{ icon: 'bin', label: 'Delete', red: true }]
     ]);
     return [
-      mbPhone('Liste bir sayfa: bölümler, alt görevler, sonda Add section', mbListPage(), mbTabs('browse') + MB_FAB),
+      mbPhone('Liste bir sayfa: bölümler, alt görevler; + görev ekler', mbListPage(), mbTabs('browse') + MB_FAB),
       mbPhone('Sola kaydırınca Date ve More', mbListPage({ left: true }), mbTabs('browse') + MB_FAB + '<span class="finger" style="left: 150px; top: 466px"></span>'),
       mbPhone('Sağa kaydırınca Done', mbListPage({ right: true }), mbTabs('browse') + MB_FAB + '<span class="finger" style="left: 200px; top: 166px"></span>'),
       mbPhone('Basılı tutup bırakınca işlemleri; sürükleyince taşınır', mbListPage({ lift: true }), mbTabs('browse') + MB_DIM + acts)
@@ -3962,6 +3967,37 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Göreve dokununca sheet: alanları ve alt görevleri', mbListPage(), mbTabs('browse') + task),
       mbPhone('Upcoming: üstte hafta, altında günler', upcoming, mbTabs('today') + MB_FAB),
       mbPhone('Move to: listeler ve bölümleri; dokununca taşır', mbListPage({ lift: false }), mbTabs('browse') + move)
+    ].join('');
+  }
+  // Tasks done and sections on a phone (Oct 14). The list's ··· menu adds a section, + adds a task;
+  // a section is named in a sheet, the name the whole width. A task done says so at the foot with
+  // Undo for a moment; Today ends with what was completed today, shown at a tap, where a task is
+  // opened again with its box.
+  function phoneTasksDone() {
+    var menu = MB_DIM + mbActions('tasks', 'Tasks', 'Task list in Scrawl', [
+      [{ icon: 'plus', label: 'Add section' }],
+      [{ icon: 'move', label: 'Move to…' }, { icon: 'pen', label: 'Rename' }],
+      [{ icon: 'bin', label: 'Delete', red: true }]
+    ]);
+    var sheet = MB_DIM + '<div class="mb-sheet overkb"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>New section</b><span class="ok">Add</span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr"><span class="in">Later this week<span class="caret"></span></span></div>' +
+      '</div><div class="mb-hint">Section in Tasks · Scrawl</div></div></div>' + MB_KB;
+    function today(o) {
+      o = o || {};
+      return mbPage(mbHead('Today', 'Monday, Oct 12', true) + '<div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>',
+        '<div class="mb-sec">Today <small>2</small></div>' +
+        mbT({ p: 'p2', title: 'Send the revised estimate', meta: mi('tasks', 'Tasks · Client portal') }) +
+        mbT({ title: 'Call Acme about the yearly plan', meta: mi('tasks', 'Inbox') + mi('collection', 'Acme Corp') }) +
+        '<div class="mb-showdone">' + (o.open ? 'Hide 2 completed today' : 'Show 2 completed today') + '</div>' +
+        (o.open ? mbT({ p: 'p1', title: 'Prototype live preview', meta: mi('tasks', 'Tasks · Scrawl'), cls: 'done' }) + mbT({ p: 'p3', title: 'Renew the domain', meta: mi('tasks', 'Tasks · Home'), cls: 'done' }) : ''));
+    }
+    return [
+      mbPhone('Listenin ··· menüsünde Add section; + görev ekler', mbListPage(), mbTabs('browse') + menu),
+      mbPhone('Bölümün adı bir sheet’te, tam genişlikte', mbListPage(), sheet),
+      mbPhone('Done olunca altta Task completed ve Undo', today(), mbTabs('today') + MB_FAB + '<span class="mb-toast undo"><span>Task completed</span><span class="u">Undo</span></span>'),
+      mbPhone('Today’in sonunda bugün bitenler; kutusu yeniden açar', today({ open: true }), mbTabs('today') + MB_FAB)
     ].join('');
   }
   // A board on a phone (Oct 12). One column at a time, the next one peeking in at the right; the
@@ -4902,7 +4938,7 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('OneDrive’da klasör: dokununca seçer, › içine girer', mbPersonalConnect(), mbTabs('browse') + mbOneDriveSheet())
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys, pempty: phoneEmpty, pwelcome: phoneWelcome, pspaces: phoneSpaces, pspaces2: phoneSpacesMore, psync: phoneSync, psync2: phoneSyncMore };
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, ptasksdone: phoneTasksDone, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys, pempty: phoneEmpty, pwelcome: phoneWelcome, pspaces: phoneSpaces, pspaces2: phoneSpacesMore, psync: phoneSync, psync2: phoneSyncMore };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {

@@ -278,6 +278,42 @@ function placeLabel(places: TaskPlaceChoice[], list: string, section: string | n
  * + on a phone: a new task typed above the keyboard, its description under it, its date,
  * priority and record as chips, and at the foot where it goes and Add. It stays for the next one.
  */
+/**
+ * A section's name on a phone, new or to rename, in a sheet of its own: the name the whole width,
+ * Cancel on the left and Add or Save on the right, over the keyboard.
+ */
+export function SectionSheet({ list, start, onSave, onClose }: { list: string; start: string | null; onSave: (name: string) => void; onClose: () => void }) {
+  const [name, setName] = useState(start ?? '');
+  const title = start === null ? t('sections.new') : t('sections.rename');
+  const save = (event?: FormEvent) => {
+    event?.preventDefault();
+    if (!name.trim()) return;
+    onSave(name.trim());
+    onClose();
+  };
+  return (
+    <Sheet label={title} className="mb-create" onClose={onClose}>
+      <div className="mb-sh three">
+        <button type="button" className="cancel" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <b>{title}</b>
+        <button type="button" className="ok" disabled={!name.trim() || name.trim() === start} onMouseDown={(event) => event.preventDefault()} onClick={() => save()}>
+          {start === null ? t('phone.add') : t('sections.save')}
+        </button>
+      </div>
+      <form className="mb-form" onSubmit={save}>
+        <div className="mb-group">
+          <label className="mb-fr">
+            <input className="in" autoFocus enterKeyHint="done" aria-label={t('sections.name')} placeholder={t('sections.name')} value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+        </div>
+        <p className="mb-hint">{t('phone.sectionIn', { list: listLabel(list) })}</p>
+      </form>
+    </Sheet>
+  );
+}
+
 export function QuickAdd({ initial, places, today, recordChoices, recordName, onAdd, onClose }: {
   initial: { list: string; section: string | null; due: string | null };
   places: TaskPlaceChoice[];

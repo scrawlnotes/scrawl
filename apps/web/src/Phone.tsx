@@ -1190,7 +1190,7 @@ export function Phone(props: PhoneProps) {
         <NavBar
           {...nav}
           scrolled={false}
-          onMenu={page.id === tasksOf(INBOX_TASKS) ? undefined : () => props.onItemMenu(page.id, true)}
+          onMenu={() => props.onItemMenu(page.id, true)}
           onDone={typing ? props.onDone : undefined}
         />
         <div

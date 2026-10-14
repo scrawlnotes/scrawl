@@ -2213,18 +2213,6 @@ body > .mb-lifted {
   opacity: 1;
 }
 
-.mb-tadd {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  width: 100%;
-  min-height: 50px;
-  margin-top: 6px;
-  padding: 0 16px;
-  color: var(--sl-faint);
-  font-size: 16px;
-}
-
 .mb-tasks .qa {
   display: block;
   min-height: 44px;

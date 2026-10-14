@@ -1023,6 +1023,8 @@ export const en = {
   'moveTask.here': 'Now here',
   'moveTask.none': 'No list or section by that name.',
   'sections.add': 'Add section',
+  'sections.new': 'New section',
+  'sections.rename': 'Rename section',
   'sections.drag': 'Drag to move the section',
   'sections.name': 'Section name',
   'sections.menu': 'Section menu',

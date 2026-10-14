@@ -69,7 +69,7 @@ import { FormatBar } from './FormatBar';
 import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History';
 import { PhoneCardPage } from './CardPanel';
 import { LinkActions, LinkSheet, PhoneFormatBar } from './PhoneNote';
-import { DateSheet, QuickAdd, RecordSheet, TaskSheet } from './PhoneTasks';
+import { DateSheet, QuickAdd, RecordSheet, SectionSheet, TaskSheet } from './PhoneTasks';
 import { Icon } from './Icon';
 import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
@@ -621,6 +621,8 @@ export function App() {
         ]
       : [];
     let items = path === null || path === INBOX_TASKS ? [] : itemMenuItems(path, setPhoneHistory);
+    // A list's own page adds a section; + adds a task.
+    if (page && path !== null && isTaskListPath(path)) markdown.push({ label: t('sections.add'), icon: 'plus', run: () => setSectionSheet({ list: path, section: null }) });
     const board = path !== null && page ? boards[path] : undefined;
     // A collection's own page has its Fields first, with its CSV, then where it is and its name.
     if (page && path !== null && path in collections) {
@@ -795,6 +797,8 @@ export function App() {
   const [taskSheet, setTaskSheet] = useState<{ list: string; id: string; subtask: boolean } | null>(null);
   const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record' | 'assignee'; list: string; id: string } | null>(null);
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
+  // On a phone a section is named in a sheet: a new one from the list's menu, or one renamed.
+  const [sectionSheet, setSectionSheet] = useState<{ list: string; section: Section | null } | null>(null);
   // On a phone + on a board types a card for the column on screen; the page's menu opens its Fields.
   const [boardAdding, setBoardAdding] = useState(0);
   const [boardFields, setBoardFields] = useState(0);
@@ -830,6 +834,7 @@ export function App() {
       pickRecord: (list: string, id: string) => setTaskPicker({ kind: 'record', list, id }),
       pickAssignee: (list: string, id: string) => setTaskPicker({ kind: 'assignee', list, id }),
       quickAdd: (list: string, section: string | null, due?: string) => setQuickAdd({ list, section, due: due ?? null }),
+      nameSection: (list: string, section: Section | null) => setSectionSheet({ list, section }),
     }),
     addSection: (list, name) => session.addSection(list, name),
     renameSection: (list, id, name) => session.renameSection(list, id, name),
@@ -1351,6 +1356,14 @@ export function App() {
                 />
               );
             })()}
+          {sectionSheet && (
+            <SectionSheet
+              list={sectionSheet.list}
+              start={sectionSheet.section?.name ?? null}
+              onSave={(name) => (sectionSheet.section ? session.renameSection(sectionSheet.list, sectionSheet.section.id, name) : session.addSection(sectionSheet.list, name))}
+              onClose={() => setSectionSheet(null)}
+            />
+          )}
           {quickAdd && (
             <QuickAdd
               initial={quickAdd}

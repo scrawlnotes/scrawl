@@ -100,6 +100,8 @@ export interface TaskActions {
   pickAssignee?: (list: string, id: string) => void;
   /** On a phone: a new task, typed above the keyboard, for a list or a section of it, due on `due` if given. */
   quickAdd?: (list: string, section: string | null, due?: string) => void;
+  /** On a phone: a section's name in a sheet, a new section's for null. */
+  nameSection?: (list: string, section: Section | null) => void;
 }
 
 /** A row of the record picker: unlinking, or a record of a collection. */
@@ -1138,11 +1140,13 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
     setRenaming(null);
   };
   const phone = isPhone();
+  // On a phone the name is changed in a sheet.
+  const startRenaming = () => (phone && actions.nameSection ? actions.nameSection(list, section) : setRenaming(section.name));
   const menu = (event: MouseEvent) =>
     actions.menu(
       event,
       [
-        { label: t('menu.rename'), icon: 'pen', run: () => setRenaming(section.name) },
+        { label: t('menu.rename'), icon: 'pen', run: startRenaming },
         {
           label: t('tasks.add'),
           icon: 'plus',
@@ -1177,7 +1181,7 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
           {phone ? <Icon name="chevron" /> : open ? '▾' : '▸'}
         </button>
         {renaming === null ? (
-          <button type="button" className="sec-name" onClick={() => setRenaming(section.name)}>
+          <button type="button" className="sec-name" onClick={startRenaming}>
             {section.name}
           </button>
         ) : (
@@ -1401,17 +1405,15 @@ export function TaskList({ list, tasks, sections, today, actions }: {
         ))}
         {drop?.line && <div className="drop-line" style={{ top: drop.line.top, left: drop.line.left }} />}
       </div>
+      {/* On a phone + adds a task, and a section comes from the list's menu. */}
       {addingSection ? (
         <SectionComposer onAdd={(name) => actions.addSection(list, name)} onClose={() => setAddingSection(false)} />
-      ) : isPhone() ? (
-        <button type="button" className="mb-tadd" onClick={() => setAddingSection(true)}>
-          <Icon name="plus" />
-          {t('sections.add')}
-        </button>
       ) : (
-        <button type="button" className="qa add-sec" onClick={() => setAddingSection(true)}>
-          {t('sections.add')}
-        </button>
+        !isPhone() && (
+          <button type="button" className="qa add-sec" onClick={() => setAddingSection(true)}>
+            {t('sections.add')}
+          </button>
+        )
       )}
     </TaskPage>
   );
