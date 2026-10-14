@@ -2,6 +2,7 @@ import { type Board } from './board';
 import {
   type Collection,
   type Field,
+  fieldHref,
   type FieldType,
   type FieldValue,
   fieldValueOf,
@@ -103,6 +104,14 @@ export function sheetDate(serial: number, date1904 = false): string {
   return seconds ? `${date} ${time}` : date;
 }
 
+/** A day as the days a workbook counts from 1900, for `sheetDate` to read back. */
+export function sheetSerial(day: string): number {
+  const [y, m, d] = day.split('-').map(Number);
+  const days = (Date.UTC(y!, m! - 1, d!) - Date.UTC(1899, 11, 30)) / 86_400_000;
+  // Before the made-up 29 February 1900, a day less.
+  return days < 61 ? days - 1 : days;
+}
+
 /**
  * A sheet's rows as an import takes them: the rows with nothing in them left out, so that the
  * first one with anything in it is the heading, and the empty columns at either side taken off.
@@ -135,6 +144,32 @@ export function collectionCsv(collection: Collection, collections: Collection[],
   const header = [...schema.fields.map((f) => f.label), notesLabel];
   const rows = records.map((r) => [...schema.fields.map((f) => cellOf(fieldValueOf(r, f, schema, today))), r.body.trim()]);
   return toCsv([header, ...rows]);
+}
+
+/** A cell of an Excel sheet: text, a number, a flag, a day (`2026-03-12`), or text that opens an address. */
+export type SheetCell = string | number | boolean | { day: string } | { text: string; href: string };
+
+/** A value as an Excel cell: numbers, flags and days as themselves, a web or mail address that opens, the rest as the CSV file writes it. */
+function sheetCellOf(field: Field, value: FieldValue | undefined): SheetCell {
+  if (isEmpty(value)) return '';
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    // A formula or a rollup can come out as a day: the last contact.
+    if ((field.type === 'date' || field.type === 'formula' || field.type === 'rollup') && DAY.test(value)) return { day: value };
+    if (field.type === 'url' || field.type === 'email') {
+      const href = fieldHref(field.type, value);
+      if (href) return { text: value, href };
+    }
+  }
+  return cellOf(value);
+}
+
+/** A collection as an Excel sheet's rows: what its CSV file has, each value a cell of its kind. */
+export function collectionSheet(collection: Collection, collections: Collection[], boards: { [path: string]: Board }, notesLabel: string, today: string): SheetCell[][] {
+  const { schema, records } = withRollups(collection, collections, boards, today);
+  const header: SheetCell[] = [...schema.fields.map((f) => f.label), notesLabel];
+  const rows = records.map((r) => [...schema.fields.map((f) => sheetCellOf(f, fieldValueOf(r, f, schema, today))), r.body.trim()]);
+  return [header, ...rows];
 }
 
 // ---------- in ----------

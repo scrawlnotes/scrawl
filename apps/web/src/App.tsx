@@ -9,6 +9,7 @@ import {
   recordTitle,
   isLinkable,
   collectionCsv,
+  collectionSheet,
   parseCsv,
   collectionName,
   type Column,
@@ -79,7 +80,7 @@ import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
 import { PhoneNewRecord, PhoneRecordPage } from './PhoneCollection';
 import { ImportDialog } from './Import';
-import { isSpreadsheet, readSheets, type Sheet } from './spreadsheet';
+import { isSpreadsheet, readSheets, type Sheet, writeSheet } from './spreadsheet';
 import { folderLabel as folderLabelOf, setSpaceNames,
   boardLabel,
   boardOf,
@@ -763,18 +764,19 @@ export function App() {
   };
   // The menu of a note, a task list, a board, a keys file or a collection; the inbox's own list has none.
   const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
+  /** Whether the item is a note (a record is one too): not a task list, a board, a keys file or a collection. */
+  const isNoteFile = (path: string) => !(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections);
   const itemMenuItems = (path: string, history: (path: string) => void = (path) => void showHistory(path)): MenuItem[] => [
       { label: t('menu.moveTo'), icon: 'move', run: () => setDialog({ kind: 'move', path }) },
       { label: t('menu.rename'), icon: 'pen', run: () => setDialog({ kind: 'rename', path }) },
       // Only notes keep a history; a keys file keeps none, so that a password changed is gone.
-      ...(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections
-        ? []
-        : [{ label: t('menu.history'), icon: 'clock' as const, run: () => history(path) }]),
-      // A note goes out as a PDF, an HTML file or its Markdown.
-      ...(isNote(path) && !(dirname(path) in collections) ? [{ label: t('menu.export'), icon: 'export' as const, run: () => setDialog({ kind: 'export', path }) }] : []),
-      // A collection goes out to a CSV file and comes in from one.
+      ...(isNoteFile(path) ? [{ label: t('menu.history'), icon: 'clock' as const, run: () => history(path) }] : []),
+      // A note goes out as a PDF, an HTML file or its Markdown; a record does not.
+      ...(isNoteFile(path) && !(dirname(path) in collections) ? [{ label: t('menu.export'), icon: 'export' as const, run: () => setDialog({ kind: 'export', path }) }] : []),
+      // A collection goes out to an Excel or a CSV file and comes in from either.
       ...(path in collections
         ? [
+            { label: t('menu.exportExcel'), icon: 'export' as const, run: () => void exportExcel(path) },
             { label: t('menu.exportCsv'), icon: 'export' as const, run: () => void exportCsv(path) },
             { label: t('menu.import'), icon: 'import' as const, run: () => chooseImport(path) },
           ]
@@ -838,6 +840,18 @@ export function App() {
     const name = `${collectionName(dir)}.csv`;
     try {
       if (await saveTextFile(name, collectionCsv(collection, Object.values(collections), boards, t('collection.body'), today), 'text/csv', 'csv')) setNotice(t('import.exported', { name }));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    }
+  };
+  // The same as an Excel file, each value a cell of its kind.
+  const exportExcel = async (dir: string) => {
+    const collection = collections[dir];
+    if (!collection) return;
+    const name = `${collectionName(dir)}.xlsx`;
+    try {
+      const blob = await writeSheet(collectionName(dir), collectionSheet(collection, Object.values(collections), boards, t('collection.body'), today));
+      if (await saveFile(name, blob, 'xlsx')) setNotice(t('import.exported', { name }));
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
     }

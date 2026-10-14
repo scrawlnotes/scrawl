@@ -3164,6 +3164,10 @@ p { margin: 0; max-width: 68ch; }
   // column of the file goes to a field, found by its name where one matches, or to a new field,
   // to the notes, or nowhere; rows whose name matches a record update it, the others are added.
   //
+  // Export as Excel (Oct 15) writes the same as a sheet named after the collection: numbers as
+  // numbers, days as days, flags as TRUE/FALSE, a site and an address that open, columns as wide
+  // as what is in them and a filter on the heading.
+  //
   // An Excel file (.xlsx, .xls; Oct 14) comes in through the same window, so the menu says Import….
   // With more than one sheet the sheets are chips under the file, each with its rows; the first
   // with rows is chosen, an empty one cannot be, and another chosen starts its columns afresh. The
@@ -3171,7 +3175,7 @@ p { margin: 0; max-width: 68ch; }
   // number without its format (48000, not 48,000 €), a date as a date. One sheet: no chips.
   function csvMenu() {
     return '<div class="cmenu" style="left: 236px; top: 232px">' +
-      '<span>Rename</span><span>Move to…</span><i></i><span>Export as CSV</span><span class="hot">Import…</span><i></i><span>Delete…</span></div>';
+      '<span>Rename</span><span>Move to…</span><i></i><span>Export as Excel</span><span>Export as CSV</span><span class="hot">Import…</span><i></i><span>Delete…</span></div>';
   }
   function csvImport(xlsx) {
     function row(column, first, target, o) {
@@ -4543,7 +4547,7 @@ p { margin: 0; max-width: 68ch; }
       '<div class="mb-sec">Incoming <small>5</small><span class="sum">54,300 EUR</span></div>' + PAY_IN.map(pay).join('') +
       '<div class="mb-sec">Outgoing <small>3</small><span class="sum">4,120 EUR</span></div>' + PAY_OUT.map(pay).join(''));
     var menu = mbActions('collection', 'Companies', 'Collection in Scrawl · 24 records', [
-      [{ icon: 'settings', label: 'Fields' }, { icon: 'down', label: 'Export as CSV' }, { icon: 'up', label: 'Import…' }],
+      [{ icon: 'settings', label: 'Fields' }, { icon: 'down', label: 'Export as Excel' }, { icon: 'down', label: 'Export as CSV' }, { icon: 'up', label: 'Import…' }],
       [{ icon: 'move', label: 'Move to…' }, { icon: 'pen', label: 'Rename' }],
       [{ icon: 'bin', label: 'Delete', red: true }]
     ]);

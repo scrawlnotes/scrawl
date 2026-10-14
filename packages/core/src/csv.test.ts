@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type Collection, newSchema, type Record } from './collection';
-import { collectionCsv, guessTargets, guessType, parseCsv, planImport, sheetDate, sheetNumber, sheetRows, toCsv } from './csv';
+import { collectionCsv, collectionSheet, guessTargets, guessType, parseCsv, planImport, sheetDate, sheetNumber, sheetRows, sheetSerial, toCsv } from './csv';
 
 function record(id: string, values: Record['values'], body = ''): Record {
   const name = typeof values.name === 'string' ? values.name : '';
@@ -101,5 +101,44 @@ describe('Excel cells', () => {
       ['Globex', ''],
     ]);
     expect(sheetRows([['', ''], []])).toEqual([]);
+  });
+});
+
+describe('Excel out', () => {
+  it('writes a collection as a CSV file has it, each value a cell of its kind', () => {
+    const schema = newSchema('companies', 'S');
+    schema.fields.push(
+      { key: 'arr', label: 'ARR', type: 'number' },
+      { key: 'since', label: 'Since', type: 'date' },
+      { key: 'paying', label: 'Paying', type: 'checkbox' },
+      { key: 'mail', label: 'Mail', type: 'email' },
+    );
+    const values = { name: 'Acme Corp', website: 'acme.example.com', tags: ['design', 'berlin'], arr: 48000, since: '2026-03-12', paying: true, mail: 'ops@acme.example.com' };
+    const collection: Collection = { dir: 'S/Companies', schema, records: [record('a1', values, 'Met at the summit.\n'), record('b2', { name: 'Globex', website: 'not a site', since: 'soon' })] };
+    const rows = collectionSheet(collection, [collection], {}, 'Notes', '2026-10-15');
+    expect(rows[0]).toEqual(['Name', 'Website', 'Segment', 'Type', 'Owner', 'Status', 'Tags', 'Last contact', 'ARR', 'Since', 'Paying', 'Mail', 'Notes']);
+    expect(rows[1]).toEqual([
+      'Acme Corp',
+      { text: 'acme.example.com', href: 'https://acme.example.com' },
+      '',
+      '',
+      '',
+      '',
+      'design, berlin',
+      '',
+      48000,
+      { day: '2026-03-12' },
+      true,
+      { text: 'ops@acme.example.com', href: 'mailto:ops@acme.example.com' },
+      'Met at the summit.',
+    ]);
+    // What is not a site or a day stays the text it is.
+    expect(rows[2]!.slice(0, 2)).toEqual(['Globex', 'not a site']);
+    expect(rows[2]![9]).toBe('soon');
+  });
+
+  it('counts a day as a workbook does, which reads it back', () => {
+    for (const day of ['2026-03-12', '1900-01-01', '1900-02-28', '1900-03-01', '1999-12-31']) expect(sheetDate(sheetSerial(day))).toBe(day);
+    expect(sheetSerial('2026-03-12')).toBe(46093);
   });
 });

@@ -437,6 +437,7 @@ export const en = {
   'menu.history': 'History…',
   'menu.export': 'Export…',
   'menu.delete': 'Delete',
+  'menu.exportExcel': 'Export as Excel',
   'menu.exportCsv': 'Export as CSV',
   'menu.import': 'Import…',
   'import.title': 'Import',
