@@ -435,6 +435,11 @@ export class Session {
   private readonly disk = new Map<string, string>();
   /** What each task list, board and keys file held when it was last read or written here, to tell what changed there since. */
   private readonly records = new Map<string, string>();
+  /**
+   * How many times each task list, board and keys file was changed here: what was read before a
+   * change does not take the place of what it changed.
+   */
+  private readonly edits = new Map<string, number>();
   /** Keys files changed here and not written yet; like notes, they are written a moment after the last change. */
   private readonly keysPending = new Set<string>();
   private keysTimer = 0;
@@ -1479,11 +1484,37 @@ export class Session {
 
   private async refreshTree() {
     await this.settle();
+    const edits = new Map(this.edits);
     const tree = await readTree(this.personal);
     const spaces = await this.spaceViews();
     const everything = [...tree, ...spaces.flatMap((space) => space.tree)];
-    const lists = await this.readLists(everything);
-    this.set({ tree, spaces, titles: titlesOf(everything), ...lists, trash: await this.readTrash(), filters: await loadFilters(this.personal), space: await loadSpace(this.personal) });
+    const { tasks, sections, boards, keys, collections } = await this.readLists(everything);
+    const trash = await this.readTrash();
+    const filters = await loadFilters(this.personal);
+    const space = await loadSpace(this.personal);
+    // A list, a board or a keys file changed here while it was read stays as it is shown: it is
+    // being written, and what was read is older.
+    const fresh = <T>(read: Record<string, T>, shown: Record<string, T>) =>
+      Object.fromEntries(Object.entries(read).map(([path, value]) => [path, path in shown && this.edits.get(path) !== edits.get(path) ? shown[path]! : value]));
+    const now = this.snapshot;
+    this.set({
+      tree,
+      spaces,
+      titles: titlesOf(everything),
+      tasks: fresh(tasks, now.tasks),
+      sections: fresh(sections, now.sections),
+      boards: fresh(boards, now.boards),
+      keys: fresh(keys, now.keys),
+      collections,
+      trash,
+      filters,
+      space,
+    });
+  }
+
+  /** A task list, a board or a keys file was changed here. */
+  private edited(path: string) {
+    this.edits.set(path, (this.edits.get(path) ?? 0) + 1);
   }
 
   /** The personal space's files, for sync; null until it is open. */
@@ -1558,16 +1589,28 @@ export class Session {
       }
     };
     visit(tree);
-    // The text read is kept, to tell later whether the file changed there since.
+    // The text read is kept, to tell later whether the file changed there since. A file that
+    // cannot be read now, as it is being written, keeps what is shown of it: shown empty, it
+    // would be written empty with the next change. One not shown yet is empty until it is read.
     const read = async (path: string) => {
       const text = await this.fs.readText(path).catch(() => null);
-      if (text === null) this.records.delete(path);
-      else this.records.set(path, text);
+      if (text !== null) this.records.set(path, text);
       return text;
     };
-    const lists = await Promise.all(paths.map(async (path) => [path, this.parseListAt(path, (await read(path)) ?? '')] as const));
-    const boards = await Promise.all(boardPaths.map(async (path) => [path, this.parseBoardAt(path, (await read(path)) ?? '')] as const));
-    const keys = await Promise.all(keysPaths.map(async (path) => [path, (await read(path)) ?? ''] as const));
+    const { tasks, sections, boards: shownBoards, keys: shownKeys } = this.snapshot;
+    const lists = await Promise.all(
+      paths.map(async (path) => {
+        const text = await read(path);
+        return [path, text === null && path in tasks ? { tasks: tasks[path]!, sections: sections[path] ?? [] } : this.parseListAt(path, text ?? '')] as const;
+      }),
+    );
+    const boards = await Promise.all(
+      boardPaths.map(async (path) => {
+        const text = await read(path);
+        return [path, text === null && path in shownBoards ? shownBoards[path]! : this.parseBoardAt(path, text ?? '')] as const;
+      }),
+    );
+    const keys = await Promise.all(keysPaths.map(async (path) => [path, (await read(path)) ?? shownKeys[path] ?? ''] as const));
     // A collection that cannot be read (its schema file gone meanwhile) is left out, not shown broken.
     const collections = await Promise.all(collectionDirs.map(async (dir) => [dir, await this.loadCollectionAt(dir).catch(() => null)] as const));
     const loaded = Object.fromEntries(collections.filter((entry): entry is readonly [string, Collection] => entry[1] !== null));
@@ -1739,6 +1782,7 @@ export class Session {
     const current = this.snapshot.keys[path];
     if (current === undefined || current === text) return;
     this.set({ keys: { ...this.snapshot.keys, [path]: text }, saved: false });
+    this.edited(path);
     this.keysPending.add(path);
     window.clearTimeout(this.keysTimer);
     this.keysTimer = window.setTimeout(() => this.flushKeys(), SAVE_DELAY_MS);
@@ -1787,6 +1831,7 @@ export class Session {
     const next = rebaseBoard(change(current), withinSpace(spaceOf(path)));
     if (next === current) return;
     this.set({ boards: { ...this.snapshot.boards, [path]: next }, saved: false });
+    this.edited(path);
     this.taskWrites = this.taskWrites
       .then(() => this.writeBoard(path))
       .catch(() => undefined)
@@ -1803,10 +1848,10 @@ export class Session {
   private async writeRecords(path: string, kind: 'tasks' | 'board', text: string): Promise<string> {
     const known = this.records.get(path);
     let written = text;
-    if (known !== undefined) {
-      const disk = await this.fs.readText(path).catch(() => null);
-      if (disk !== null && disk !== known && disk !== text) written = mergeFile(kind, known, text, disk).text;
-    }
+    // A file never read here, as one that could not be read, is merged with nothing in common:
+    // what is in it stays, beside what is written.
+    const disk = await this.fs.readText(path).catch(() => null);
+    if (disk !== null && disk !== known && disk !== text) written = mergeFile(kind, known ?? '', text, disk).text;
     await this.fs.writeText(path, written);
     this.records.set(path, written);
     return written;
@@ -1855,6 +1900,7 @@ export class Session {
       sections: { ...this.snapshot.sections, [path]: next.sections },
       saved: false,
     });
+    this.edited(path);
     this.taskWrites = this.taskWrites
       .then(() => this.writeList(path))
       .catch(() => undefined)

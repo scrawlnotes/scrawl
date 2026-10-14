@@ -44,8 +44,10 @@ class OpfsFs implements VaultFs {
       try {
         const file = await (child as FileSystemFileHandle).getFile();
         out.push({ name, path, kind: 'file', size: file.size, modified: file.lastModified });
-      } catch {
-        // Moved or deleted while the folder was read, by a save or the trash: it is not there any more.
+      } catch (error) {
+        // Moved or deleted while the folder was read, by the trash: it is not there any more. Being
+        // written at that moment, by a save, it is still there, only its size is not known.
+        if (!(error instanceof DOMException && error.name === 'NotFoundError')) out.push({ name, path, kind: 'file' });
       }
     }
     return out;
@@ -58,12 +60,16 @@ class OpfsFs implements VaultFs {
    */
   async readBlob(path: string): Promise<Blob> {
     for (let attempt = 1; ; attempt++) {
-      const file = await (await this.file(path, false)).getFile();
-      if (file.size > READ_AT_ONCE) return file;
+      // A file that is not there is not looked for again.
+      const handle = await this.file(path, false);
       try {
+        const file = await handle.getFile();
+        if (file.size > READ_AT_ONCE) return file;
         return new Blob([await file.arrayBuffer()], { type: file.type });
       } catch (error) {
         if (attempt >= READ_TRIES || !changedMeanwhile(error)) throw error;
+        // A write may still be going on: given a moment to end.
+        await new Promise((resolve) => setTimeout(resolve, attempt * 15));
       }
     }
   }
