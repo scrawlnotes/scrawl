@@ -21,6 +21,30 @@ describe('search', () => {
     expect(find(items, 'acme zebra')).toEqual([]);
   });
 
+  it('finds what was typed where a word starts, not inside one', () => {
+    const items: Findable[] = [
+      { kind: 'note', name: 'Status report', text: 'All good' },
+      { kind: 'note', name: 'Call notes', text: 'Ask Tulin about the order' },
+      { kind: 'card', name: 'Pilot', key: 'DEA-12' },
+    ];
+    expect(names(find(items, 'tu'))).toEqual(['Call notes']);
+    expect(find(items, 'tu')[0]!.line).toMatchObject({ text: 'Ask Tulin about the order', marks: [[4, 6]] });
+    expect(names(find(items, 'atus'))).toEqual([]);
+    expect(names(find(items, '12'))).toEqual(['Pilot']);
+  });
+
+  it('finds a field by its value, never by its label, and shows it with its label', () => {
+    const items: Findable[] = [
+      { kind: 'record', name: 'Hooli', fields: [['Status', 'prospect'], ['Owner', 'Tulin Kaya']], text: 'Met at the fair' },
+      { kind: 'record', name: 'Initech', fields: [['Status', 'lost']] },
+    ];
+    expect(names(find(items, 'status'))).toEqual([]);
+    expect(find(items, 'tul')[0]!.line).toEqual({ text: 'Owner: Tulin Kaya', marks: [[7, 10]], spans: [] });
+    expect(find(items, 'hooli pros')[0]).toMatchObject({ inName: [[0, 5]], line: { text: 'Status: prospect', marks: [[8, 12]] } });
+    // The text comes before a field with as many of the words.
+    expect(find(items, 'fair')[0]!.line).toMatchObject({ text: 'Met at the fair', spans: [[11, 15]] });
+  });
+
   it('needs every word, each in the name or else in the text; partly in the name comes before only in the text', () => {
     const items: Findable[] = [
       { kind: 'note', name: 'Standup 10-09', text: 'Acme wants the export first' },

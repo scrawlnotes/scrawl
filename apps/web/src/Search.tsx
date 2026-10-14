@@ -133,15 +133,16 @@ export function thingsOf(data: SearchData): Thing[] {
       const column = columns.get(card.column);
       const fields = (board.fields ?? [])
         .filter((field) => !UNREAD.has(field.type))
-        .map((field) => [field.label, valueText(cardValue(board, card, field))] as const)
-        .filter(([, value]) => value !== '')
-        .map(([label, value]) => `${label}: ${value}`);
+        .map((field): [string, string] => [field.label, valueText(cardValue(board, card, field))])
+        .filter(([, value]) => value !== '');
+      if (card.labels?.length) fields.push([t('card.labels'), card.labels.join(', ')]);
       const comments = card.timeline.flatMap((entry) => (entry.kind === 'comment' ? [entry.text] : []));
       things.push({
         kind: 'card',
         name: card.title,
         key: `${board.prefix}-${card.key}`,
-        text: [card.description ?? '', ...comments, ...fields, ...(card.labels ?? [])].filter(Boolean).join('\n'),
+        text: [card.description ?? '', ...comments].filter(Boolean).join('\n'),
+        fields,
         done: column?.kind === 'done' || column?.kind === 'dropped',
         target: { kind: 'card', board: path, id: card.id },
         icon: 'board',
@@ -154,14 +155,14 @@ export function thingsOf(data: SearchData): Thing[] {
     for (const record of collection.records) {
       const fields = collection.schema.fields
         .filter((field) => !UNREAD.has(field.type))
-        .map((field) => [field.label, valueText(record.values[field.key])] as const)
-        .filter(([, value]) => value !== '')
-        .map(([label, value]) => `${label}: ${value}`);
+        .map((field): [string, string] => [field.label, valueText(record.values[field.key])])
+        .filter(([, value]) => value !== '');
       things.push({
         kind: 'record',
         name: recordTitle(record),
         key: record.name ? record.code : '',
-        text: [...fields, record.body].filter(Boolean).join('\n'),
+        text: record.body,
+        fields,
         target: { kind: 'record', dir, id: record.id },
         icon: 'collection',
         where,
