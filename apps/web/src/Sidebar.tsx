@@ -461,12 +461,11 @@ export function Sidebar({
   return (
     <aside className="side">
       <nav ref={nav} className="tree">
-        <div className={`it side-search${searchOpen ? ' on' : ''}`} style={indent(0)}>
-          <button type="button" className="it-main" onClick={onSearch}>
-            <Icon name="search" />
-            <span>{t('side.search')}</span>
-          </button>
-        </div>
+        {/* Search reads as a search box, over the rows: it opens the search window. */}
+        <button type="button" className={`side-search${searchOpen ? ' on' : ''}`} title={t('side.searchTitle', { keys: 'Ctrl+K' })} onClick={onSearch}>
+          <Icon name="search" />
+          <span>{t('side.search')}</span>
+        </button>
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
         {spaces.length === 0 ? (

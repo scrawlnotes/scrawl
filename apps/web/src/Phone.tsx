@@ -9,7 +9,7 @@ import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
 import { PhoneSyncList, PhoneSyncPage } from './PhoneSync';
-import { PhoneSearch, type Thing } from './Search';
+import { PhoneSearch, type SearchAction, type Thing } from './Search';
 import { ActionSheet, Empty, useViewport } from './sheets';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
@@ -108,7 +108,7 @@ export interface PhoneProps {
    * Search, the fourth tab: what it finds, read while it is on screen (`onShown`); `onPick` opens
    * what was found, but a folder, which opens as a page here, and a space, which Browse shows.
    */
-  search: { things: Thing[] | null; onShown: (shown: boolean) => void; onPick: (found: Found<Thing>) => void };
+  search: { things: Thing[] | null; actions: SearchAction[]; onShown: (shown: boolean) => void; onPick: (found: Found<Thing>) => void };
   /** How sync stands in a word, and whether something keeps it from going on. */
   syncWord: { text: string; bad: boolean };
   /** Asks for the personal space's sync page: back from signing in to connect it, its folder is chosen there. */
@@ -501,8 +501,25 @@ export function Phone(props: PhoneProps) {
     const target = found.item.target;
     if (target.kind === 'folder') return push({ kind: 'folder', path: target.path });
     if (target.kind === 'space') return setPlace('browse');
+    // A page opens over Search here and now: what is open already would not open one by itself,
+    // and a card opens over its board's page.
+    if (target.kind === 'note') push({ kind: 'item', id: target.path });
+    else if (target.kind === 'tab') push({ kind: 'item', id: target.id });
+    else if (target.kind === 'card') push({ kind: 'item', id: boardOf(target.board) });
     props.search.onPick(found);
   };
+  // Search's actions go where a phone has those places: Today and Upcoming are a tab, Files and the trash pages of Browse.
+  const searchActions = props.search.actions.map((action): SearchAction => {
+    if (action.id === 'today' || action.id === 'upcoming') {
+      const kind = action.id;
+      return { ...action, run: () => (setDue(kind), setPlace('today')) };
+    }
+    if (action.id === 'files' || action.id === 'trash') {
+      const kind = action.id;
+      return { ...action, run: () => (setPlace('browse'), setStacks((current) => ({ ...current, browse: [current.browse[0]!, { kind, key: ++pageKeys }] }))) };
+    }
+    return action;
+  });
 
   const slideIn = (key: number) => {
     setEntering(key);
@@ -1079,7 +1096,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'root' && of === 'search') {
       return (
         <PageFrame title={titleOf(page, of)}>
-          <PhoneSearch things={props.search.things} query={query} onQuery={setQuery} onPick={pickFound} />
+          <PhoneSearch things={props.search.things} actions={searchActions} query={query} onQuery={setQuery} onPick={pickFound} />
         </PageFrame>
       );
     }

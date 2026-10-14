@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fold, type Findable, search, searchIndex } from './search';
+import { fold, type Findable, nameMatch, search, searchIndex } from './search';
 
 const names = (found: { item: Findable }[]) => found.map((f) => f.item.name);
 const find = (items: Findable[], query: string) => search(searchIndex(items), query);
@@ -31,6 +31,13 @@ describe('search', () => {
     expect(find(items, 'tu')[0]!.line).toMatchObject({ text: 'Ask Tulin about the order', marks: [[4, 6]] });
     expect(names(find(items, 'atus'))).toEqual([]);
     expect(names(find(items, '12'))).toEqual(['Pilot']);
+  });
+
+  it('tells whether a name has every word typed, each where a word starts', () => {
+    expect(nameMatch('Sync now', 'sync')).toEqual([[0, 4]]);
+    expect(nameMatch('New task list', 'new li')).toEqual([[0, 3], [9, 11]]);
+    expect(nameMatch('Settings', 'tings')).toBeNull();
+    expect(nameMatch('Trash', '')).toBeNull();
   });
 
   it('finds a field by its value, never by its label, and shows it with its label', () => {

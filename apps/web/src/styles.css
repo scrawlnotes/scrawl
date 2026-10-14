@@ -9403,15 +9403,30 @@ button.st-li:hover,
 
 /* ---------- Search everywhere (PLAN 4.2, the Search views of design/mockups.html) ---------- */
 
-/* Search at the top of the sidebar, over Today */
-.it.side-search {
-  margin-bottom: 4px;
+/* Search at the top of the sidebar, over Today: a box, as a search field looks */
+.side-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-bg);
+  color: var(--sl-faint);
+  text-align: left;
 }
 
-.it.side-search .it-main {
-  gap: 7px;
-  padding-top: 3px;
-  padding-bottom: 3px;
+.side-search .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.side-search:hover,
+.side-search.on {
+  border-color: color-mix(in srgb, var(--sl-fg) 22%, var(--sl-line));
+  color: var(--sl-dim);
 }
 
 /* A folder, a space or a task found, marked for a moment once it is in sight */
@@ -9678,8 +9693,8 @@ button.st-li:hover,
   color: var(--sl-dim);
 }
 
-/* The searches made last, under the empty box: one opens again, × forgets it, Clear forgets them all */
-.sx-recent-head {
+/* The headings in the list: the searches made last, with Clear, and the actions */
+.sx-head {
   display: flex;
   align-items: center;
   padding: 6px 10px 4px;
@@ -9689,7 +9704,7 @@ button.st-li:hover,
   text-transform: uppercase;
 }
 
-.sx-recent-head button {
+.sx-head button {
   margin-left: auto;
   padding: 2px 6px;
   border-radius: 4px;
@@ -9699,7 +9714,7 @@ button.st-li:hover,
   text-transform: none;
 }
 
-.sx-recent-head button:hover {
+.sx-head button:hover {
   background: var(--sl-sel);
   color: var(--sl-fg);
 }
@@ -9757,4 +9772,56 @@ button.st-li:hover,
 .sx-past .forget:hover {
   background: color-mix(in srgb, var(--sl-fg) 10%, transparent);
   color: var(--sl-fg);
+}
+
+/* The tabs under the box: everything, or one kind */
+.sx-tabs {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 0 10px 8px;
+}
+
+.sx-tabs button {
+  padding: 3px 10px;
+  border-radius: 6px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.sx-tabs button:hover {
+  color: var(--sl-fg);
+}
+
+.sx-tabs button[aria-selected='true'] {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.sx-none.in {
+  border-top: 0;
+  padding: 12px 10px;
+}
+
+/* An action at the foot of the list: its icon and its name */
+.sx-act {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.sx-act .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--sl-dim);
+}
+
+.sx-act.on {
+  background: var(--sl-sel);
 }

@@ -5884,3 +5884,67 @@ body > .mb-lifted {
 .mb-sx-past .forget:active {
   background: color-mix(in srgb, var(--sl-fg) 7%, var(--sl-bg));
 }
+
+/* Search's tabs, under the box, as Files' kinds are; and an action at the foot */
+.mb-sx-tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.mb-sx-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.mb-sx-tabs button {
+  flex: none;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 16px;
+  color: var(--sl-dim);
+  font-size: 14px;
+}
+
+.mb-sx-tabs button[aria-selected='true'] {
+  border-color: var(--sl-sel);
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.mb-sx .mb-sx-tabs + .mb-sx-list,
+.mb-sx .mb-sx-tabs + .mb-sec {
+  border-top: 0;
+}
+
+.mb-sx-act {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font-size: 16px;
+  text-align: left;
+}
+
+.mb-sx-act + .mb-sx-act::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 51px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-sx-act .icon {
+  flex: none;
+  color: var(--sl-dim);
+}
+
+.mb-sx-act:active {
+  background: color-mix(in srgb, var(--sl-fg) 7%, var(--sl-bg));
+}

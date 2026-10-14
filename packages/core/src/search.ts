@@ -139,6 +139,14 @@ export function queryWords(query: string): string[] {
   return [...new Set(fold(query).split(/\s+/).filter(Boolean))];
 }
 
+/** Where a name has every word of what was typed, each where a word starts; null when it has not all of them. */
+export function nameMatch(name: string, query: string): Span[] | null {
+  const words = queryWords(query);
+  const folded = fold(name);
+  if (words.length === 0 || !words.every((word) => hasWord(folded, word))) return null;
+  return spansOf(name, words);
+}
+
 // The Markdown marks a line of text is read without: a heading's #, a list's bullet or number and
 // its box, a quote's >, bold, italic, struck and code marks, and where a link goes.
 const LEAD = /^\s*(?:(?:#{1,6}|[-*+]|\d+[.)]|>)\s+)*(?:\[[ xX]\]\s+)?/;

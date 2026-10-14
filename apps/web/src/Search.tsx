@@ -14,6 +14,7 @@ import {
   keysName,
   listName,
   localPath,
+  nameMatch,
   recordTitle,
   search,
   searchIndex,
@@ -297,24 +298,90 @@ function Name({ found }: { found: Found<Thing> }) {
   );
 }
 
+/** What the tabs over the list narrow it to: everything, or one kind. */
+export type SearchTab = 'all' | 'note' | 'task' | 'card' | 'record' | 'file';
+const TABS: { tab: SearchTab; label: MessageKey }[] = [
+  { tab: 'all', label: 'search.all' },
+  { tab: 'note', label: 'search.notes' },
+  { tab: 'task', label: 'search.tasks' },
+  { tab: 'card', label: 'search.cards' },
+  { tab: 'record', label: 'search.records' },
+  { tab: 'file', label: 'search.files' },
+];
+const inTab = (tab: SearchTab) => (found: Found<Thing>) => tab === 'all' || found.item.kind === tab;
+
+/** Something the app does, offered at the foot of the list: Create, New note, Settings, Sync now. */
+export interface SearchAction {
+  id: string;
+  label: string;
+  icon: IconName;
+  /** Offered with the box empty too, under the searches made last. */
+  first?: boolean;
+  run: () => void;
+}
+
+/** The actions whose names have the words typed, with where; with nothing typed, the ones offered first. */
+function actionsFor(actions: SearchAction[], query: string): { action: SearchAction; marks: Span[] }[] {
+  if (query.trim() === '') return actions.filter((action) => action.first).map((action) => ({ action, marks: [] }));
+  return actions.flatMap((action) => {
+    const marks = nameMatch(action.label, query);
+    return marks ? [{ action, marks }] : [];
+  });
+}
+
+/** The tabs over the list; a click on one, or the arrow keys at an end of what is typed, choose it. */
+function Tabs({ tab, onTab, className }: { tab: SearchTab; onTab: (tab: SearchTab) => void; className: string }) {
+  return (
+    <div className={className} role="tablist" aria-label={t('search.title')}>
+      {TABS.map((each) => (
+        <button
+          key={each.tab}
+          type="button"
+          role="tab"
+          aria-selected={each.tab === tab}
+          tabIndex={-1}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onTab(each.tab)}
+        >
+          {t(each.label)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type Row = { kind: 'found'; found: Found<Thing> } | { kind: 'past'; search: string } | { kind: 'action'; action: SearchAction; marks: Span[] };
+
 /**
- * The search window on a computer, near the top of the app: the box alone until something is
- * typed, then what was found under it. The arrow keys move through it, Enter opens, Esc closes;
- * a click opens too.
+ * The search window on a computer, near the top of the app: the box, the tabs, and under them
+ * what was found, or with nothing typed the searches made last; the actions at the foot. The
+ * arrow keys move through it, and left and right at an end of what is typed change the tab; Enter
+ * opens, Esc closes; a click opens too.
  */
-export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | null; onPick: (found: Found<Thing>) => void; onClose: () => void }) {
+export function SearchWindow({ things, actions, onPick, onClose }: {
+  things: Thing[] | null;
+  actions: SearchAction[];
+  onPick: (found: Found<Thing>) => void;
+  onClose: () => void;
+}) {
   const [query, setQuery] = useState('');
+  const [tab, setTab] = useState<SearchTab>('all');
   const [selected, setSelected] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
-  const found = useSearch(things, query);
+  const all = useSearch(things, query);
+  const found = all.filter(inTab(tab));
   const shown = found.slice(0, SHOWN);
   const typed = query.trim() !== '';
   const recent = useRecentSearches();
-  // With the box empty the arrow keys move through the searches made last.
-  const count = typed ? shown.length : recent.searches.length;
-  useEffect(() => setSelected(0), [query]);
+  const offered = tab === 'all' ? actionsFor(actions, query) : [];
+  // One list for the arrow keys: what was found or the searches made last, then the actions.
+  const rows: Row[] = [
+    ...(typed ? shown.map((each): Row => ({ kind: 'found', found: each })) : recent.searches.map((search): Row => ({ kind: 'past', search }))),
+    ...offered.map(({ action, marks }): Row => ({ kind: 'action', action, marks })),
+  ];
+  useEffect(() => setSelected(0), [query, tab]);
   /** Opens what was found, and keeps what was typed among the searches made last. */
   const pick = (each: Found<Thing>) => {
     recent.add(query);
@@ -324,6 +391,11 @@ export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | nu
     setQuery(search);
     input.current?.focus();
   };
+  const act = (action: SearchAction) => {
+    onClose();
+    action.run();
+  };
+  const run = (row: Row) => (row.kind === 'found' ? pick(row.found) : row.kind === 'past' ? searchAgain(row.search) : act(row.action));
   // The keyboard stays in the box while the window is open: a note opened just before it would
   // otherwise take it back, and the arrow keys would move in the note.
   useEffect(() => {
@@ -336,15 +408,50 @@ export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | nu
   useEffect(() => {
     list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [selected]);
+  const step = (by: number) => setTab((current) => TABS[Math.min(TABS.length - 1, Math.max(0, TABS.findIndex((each) => each.tab === current) + by))]!.tab);
   const onKey = (event: KeyboardEvent) => {
+    const field = input.current;
+    const atStart = !field || (field.selectionStart === 0 && field.selectionEnd === 0);
+    const atEnd = !field || (field.selectionStart === field.value.length && field.selectionEnd === field.value.length);
     if (event.key === 'Escape') onClose();
-    else if (event.key === 'ArrowDown') setSelected((at) => Math.min(at + 1, count - 1));
+    else if (event.key === 'ArrowDown') setSelected((at) => Math.min(at + 1, rows.length - 1));
     else if (event.key === 'ArrowUp') setSelected((at) => Math.max(at - 1, 0));
-    else if (event.key === 'Enter' && typed && shown[selected]) pick(shown[selected]!);
-    else if (event.key === 'Enter' && !typed && recent.searches[selected]) searchAgain(recent.searches[selected]!);
+    // An arrow that would not move in what is typed changes the tab instead.
+    else if (event.key === 'ArrowLeft' && atStart && !event.shiftKey) step(-1);
+    else if (event.key === 'ArrowRight' && atEnd && !event.shiftKey) step(1);
+    else if (event.key === 'Enter' && rows[selected]) run(rows[selected]!);
     else return;
     event.preventDefault();
   };
+  const actionRows = offered.map(({ action, marks }, index) => {
+    const at = rows.length - offered.length + index;
+    return (
+      <button
+        key={action.id}
+        type="button"
+        role="option"
+        aria-selected={at === selected}
+        className={at === selected ? 'sx-act on' : 'sx-act'}
+        tabIndex={-1}
+        onMouseMove={() => at !== selected && setSelected(at)}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => act(action)}
+      >
+        <Icon name={action.icon} />
+        <span>
+          <Marked text={action.label} spans={marks} />
+        </span>
+      </button>
+    );
+  });
+  const actionsPart = offered.length > 0 && (
+    <>
+      <div className="sx-head">
+        <span>{t('search.actions')}</span>
+      </div>
+      {actionRows}
+    </>
+  );
   return (
     <div className="backdrop sx-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div ref={box} className="sx" role="dialog" aria-label={t('search.title')} onKeyDown={onKey}>
@@ -354,7 +461,7 @@ export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | nu
             ref={input}
             autoFocus
             role="combobox"
-            aria-expanded={typed}
+            aria-expanded={rows.length > 0}
             aria-controls="sx-list"
             aria-label={t('search.title')}
             placeholder={t('search.placeholder')}
@@ -366,13 +473,13 @@ export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | nu
             <Icon name="close" />
           </button>
         </div>
-        {typed &&
-          (!things ? (
+        <Tabs tab={tab} onTab={setTab} className="sx-tabs" />
+        {typed ? (
+          !things ? (
             <p className="sx-none">{t('search.reading')}</p>
-          ) : shown.length === 0 ? (
-            <p className="sx-none">{t('search.nothing', { query: query.trim() })}</p>
           ) : (
             <div ref={list} id="sx-list" className="sx-list" role="listbox" aria-label={t('search.title')}>
+              {shown.length === 0 && <p className="sx-none in">{t('search.nothing', { query: query.trim() })}</p>}
               {shown.map((each, index) => (
                 <button
                   key={index}
@@ -399,42 +506,48 @@ export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | nu
                 </button>
               ))}
               {found.length > SHOWN && <p className="sx-more">{t('search.narrow', { count: SHOWN })}</p>}
+              {actionsPart}
             </div>
-          ))}
-        {!typed && recent.searches.length > 0 && (
-          <div ref={list} className="sx-list sx-recent" role="listbox" aria-label={t('search.recent')}>
-            <div className="sx-recent-head">
-              <span>{t('search.recent')}</span>
-              <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={recent.clear}>
-                {t('search.clearRecent')}
-              </button>
-            </div>
-            {recent.searches.map((search, index) => (
-              <div
-                key={search}
-                role="option"
-                aria-selected={index === selected}
-                className={index === selected ? 'sx-past on' : 'sx-past'}
-                onMouseMove={() => index !== selected && setSelected(index)}
-              >
-                <button type="button" className="q" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => searchAgain(search)}>
-                  <Icon name="clock" />
-                  <span>{search}</span>
-                </button>
-                <button
-                  type="button"
-                  className="forget"
-                  tabIndex={-1}
-                  title={t('search.forget', { query: search })}
-                  aria-label={t('search.forget', { query: search })}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => recent.remove(search)}
+          )
+        ) : (
+          (recent.searches.length > 0 || offered.length > 0) && (
+            <div ref={list} id="sx-list" className="sx-list" role="listbox" aria-label={t('search.recent')}>
+              {recent.searches.length > 0 && (
+                <div className="sx-head">
+                  <span>{t('search.recent')}</span>
+                  <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={recent.clear}>
+                    {t('search.clearRecent')}
+                  </button>
+                </div>
+              )}
+              {recent.searches.map((search, index) => (
+                <div
+                  key={search}
+                  role="option"
+                  aria-selected={index === selected}
+                  className={index === selected ? 'sx-past on' : 'sx-past'}
+                  onMouseMove={() => index !== selected && setSelected(index)}
                 >
-                  <Icon name="close" />
-                </button>
-              </div>
-            ))}
-          </div>
+                  <button type="button" className="q" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => searchAgain(search)}>
+                    <Icon name="clock" />
+                    <span>{search}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="forget"
+                    tabIndex={-1}
+                    title={t('search.forget', { query: search })}
+                    aria-label={t('search.forget', { query: search })}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => recent.remove(search)}
+                  >
+                    <Icon name="close" />
+                  </button>
+                </div>
+              ))}
+              {actionsPart}
+            </div>
+          )
         )}
       </div>
     </div>
@@ -442,25 +555,47 @@ export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | nu
 }
 
 /**
- * The Search tab on a phone: the box under the title, and what was found under it, a row each
- * with what it is and where under its name. Cancel takes back what was typed and the keyboard.
+ * The Search tab on a phone: the box under the title, the tabs under it, and what was found under
+ * them, a row each with what it is and where under its name; with nothing typed the searches made
+ * last. The actions come at the foot. Cancel takes back what was typed and the keyboard.
  */
-export function PhoneSearch({ things, query, onQuery, onPick }: {
+export function PhoneSearch({ things, actions, query, onQuery, onPick }: {
   things: Thing[] | null;
+  actions: SearchAction[];
   query: string;
   onQuery: (query: string) => void;
   onPick: (found: Found<Thing>) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
-  const found = useSearch(things, query);
+  const [tab, setTab] = useState<SearchTab>('all');
+  const all = useSearch(things, query);
+  const found = all.filter(inTab(tab));
   const shown = found.slice(0, SHOWN);
   const typed = query.trim() !== '';
   const recent = useRecentSearches();
+  const offered = tab === 'all' ? actionsFor(actions, query) : [];
   const pick = (each: Found<Thing>) => {
     recent.add(query);
     onPick(each);
   };
+  const actionsPart = offered.length > 0 && (
+    <>
+      <div className="mb-sec">
+        <span>{t('search.actions')}</span>
+      </div>
+      <div className="mb-sx-list">
+        {offered.map(({ action, marks }) => (
+          <button key={action.id} type="button" className="mb-sx-act" onClick={action.run}>
+            <Icon name={action.icon} />
+            <span>
+              <Marked text={action.label} spans={marks} />
+            </span>
+          </button>
+        ))}
+      </div>
+    </>
+  );
   return (
     <div className="mb-sx">
       <form
@@ -504,54 +639,64 @@ export function PhoneSearch({ things, query, onQuery, onPick }: {
           </button>
         )}
       </form>
-      {!typed && recent.searches.length > 0 ? (
+      <Tabs tab={tab} onTab={setTab} className="mb-views mb-sx-tabs" />
+      {!typed ? (
         <>
-          <div className="mb-sec mb-sx-recent">
-            <span>{t('search.recent')}</span>
-            <button type="button" className="clear" onClick={recent.clear}>
-              {t('search.clearRecent')}
-            </button>
-          </div>
-          <div className="mb-sx-list">
-            {recent.searches.map((search) => (
-              <div key={search} className="mb-sx-past">
-                <button type="button" className="q" onClick={() => onQuery(search)}>
-                  <Icon name="clock" />
-                  <span>{search}</span>
-                </button>
-                <button type="button" className="forget" aria-label={t('search.forget', { query: search })} onClick={() => recent.remove(search)}>
-                  <Icon name="close" />
+          {recent.searches.length > 0 ? (
+            <>
+              <div className="mb-sec mb-sx-recent">
+                <span>{t('search.recent')}</span>
+                <button type="button" className="clear" onClick={recent.clear}>
+                  {t('search.clearRecent')}
                 </button>
               </div>
-            ))}
-          </div>
+              <div className="mb-sx-list">
+                {recent.searches.map((search) => (
+                  <div key={search} className="mb-sx-past">
+                    <button type="button" className="q" onClick={() => onQuery(search)}>
+                      <Icon name="clock" />
+                      <span>{search}</span>
+                    </button>
+                    <button type="button" className="forget" aria-label={t('search.forget', { query: search })} onClick={() => recent.remove(search)}>
+                      <Icon name="close" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="mb-p say">{t('search.about')}</p>
+          )}
+          {actionsPart}
         </>
-      ) : !typed ? (
-        <p className="mb-p say">{t('search.about')}</p>
       ) : !things ? (
         <p className="mb-p say">{t('search.reading')}</p>
-      ) : shown.length === 0 ? (
-        <p className="mb-p say">{t('search.nothing', { query: query.trim() })}</p>
       ) : (
-        <div className="mb-sx-list">
-          {shown.map((each, index) => (
-            <button key={index} type="button" className="mb-sxr" onClick={() => pick(each)}>
-              <Lead thing={each.item} />
-              <span className="tx">
-                <b>
-                  <Name found={each} />
-                </b>
-                <small>{joined(kindWord(each.item), each.item.where)}</small>
-                {each.line && (
-                  <small className="snip">
-                    <Marked text={each.line.text} spans={each.line.marks} />
-                  </small>
-                )}
-              </span>
-            </button>
-          ))}
-          {found.length > SHOWN && <p className="mb-p">{t('search.narrow', { count: SHOWN })}</p>}
-        </div>
+        <>
+          {shown.length === 0 && <p className="mb-p say">{t('search.nothing', { query: query.trim() })}</p>}
+          {shown.length > 0 && (
+            <div className="mb-sx-list">
+              {shown.map((each, index) => (
+                <button key={index} type="button" className="mb-sxr" onClick={() => pick(each)}>
+                  <Lead thing={each.item} />
+                  <span className="tx">
+                    <b>
+                      <Name found={each} />
+                    </b>
+                    <small>{joined(kindWord(each.item), each.item.where)}</small>
+                    {each.line && (
+                      <small className="snip">
+                        <Marked text={each.line.text} spans={each.line.marks} />
+                      </small>
+                    )}
+                  </span>
+                </button>
+              ))}
+              {found.length > SHOWN && <p className="mb-p">{t('search.narrow', { count: SHOWN })}</p>}
+            </div>
+          )}
+          {actionsPart}
+        </>
       )}
     </div>
   );

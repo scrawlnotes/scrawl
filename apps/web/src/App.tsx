@@ -120,7 +120,7 @@ import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { SyncStatus, syncWord } from './SyncViews';
 import { Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
-import { SearchWindow, type Thing, thingsOf } from './Search';
+import { type SearchAction, SearchWindow, type Thing, thingsOf } from './Search';
 import { DueView, dueLabel, FilterView, type TaskActions, TaskList } from './Tasks';
 import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
@@ -1077,6 +1077,20 @@ export function App() {
     () => (searchRead ? thingsOf({ tree, spaces, titles: tabTitles, tasks, boards, collections, filters, texts: searchRead.texts, files: searchRead.files, today }) : null),
     [searchRead, tree, spaces, tabTitles, tasks, boards, collections, filters, today],
   );
+  // What the search offers at its foot: making something, the views, the settings, sync.
+  const searchActions: SearchAction[] = [
+    { id: 'note', label: t('create.newNote'), icon: 'note', first: true, run: () => setDialog({ kind: 'new', start: 'note' }) },
+    { id: 'create', label: t('search.create'), icon: 'plus', first: true, run: () => setDialog({ kind: 'new' }) },
+    { id: 'tasks', label: t('create.newList'), icon: 'tasks', run: () => setDialog({ kind: 'new', start: 'tasks' }) },
+    { id: 'board', label: t('create.newBoard'), icon: 'board', run: () => setDialog({ kind: 'new', start: 'board' }) },
+    { id: 'collection', label: t('create.newCollection'), icon: 'collection', run: () => setDialog({ kind: 'new', start: 'collection' }) },
+    { id: 'today', label: t('side.today'), icon: 'calendar', run: () => void session.open(TODAY) },
+    { id: 'upcoming', label: t('side.upcoming'), icon: 'calendar', run: () => void session.open(UPCOMING) },
+    { id: 'files', label: t('side.files'), icon: 'clip', run: () => void session.open(FILES) },
+    { id: 'trash', label: t('side.trash'), icon: 'trash', run: () => void session.open(TRASH) },
+    { id: 'settings', label: t('side.settings'), icon: 'settings', run: () => setDialog({ kind: 'settings' }) },
+    { id: 'sync', label: t('sync.syncNow'), icon: 'cloud', run: () => void syncService.syncNow() },
+  ];
   // A task, a folder or a space found: brought into sight where it is, and marked.
   const [revealTask, setRevealTask] = useState<{ list: string; id: string; at: number } | null>(null);
   const [revealFolder, setRevealFolder] = useState<{ path: string; at: number } | null>(null);
@@ -1539,7 +1553,7 @@ export function App() {
               ],
             }}
             onFilesShown={setFilesShown}
-            search={{ things: searchThings, onShown: setSearchShown, onPick: openFound }}
+            search={{ things: searchThings, actions: searchActions, onShown: setSearchShown, onPick: openFound }}
             syncWord={syncWord(sync)}
             syncAsked={syncAsked}
             onSyncShown={() => setSyncAsked(false)}
@@ -1987,7 +2001,7 @@ export function App() {
       )}
       {/* On a phone the settings are pages in Browse. */}
       {dialog?.kind === 'settings' && !phone && <Settings {...settingsValues} initial={dialog.section} onClose={closeDialog} />}
-      {searching && !phone && <SearchWindow things={searchThings} onPick={openFound} onClose={() => setSearching(false)} />}
+      {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onClose={() => setSearching(false)} />}
       {dialog?.kind === 'removeSpace' &&
         (() => {
           const space = spaces.find((each) => each.id === dialog.id);
