@@ -9598,3 +9598,84 @@ button.st-li:hover,
 .dialog.export .choices button[aria-selected='true'] small {
   color: var(--sl-dim);
 }
+
+/* The searches made last, under the empty box: one opens again, × forgets it, Clear forgets them all */
+.sx-recent-head {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px 4px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.sx-recent-head button {
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sx-recent-head button:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.sx-past {
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+}
+
+.sx-past.on {
+  background: var(--sl-sel);
+}
+
+.sx-past .q {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 10px;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.sx-past .q .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--sl-faint);
+}
+
+.sx-past .q span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sx-past .forget {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 4px;
+  border-radius: 5px;
+  color: var(--sl-faint);
+}
+
+.sx-past .forget .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.sx-past .forget:hover {
+  background: color-mix(in srgb, var(--sl-fg) 10%, transparent);
+  color: var(--sl-fg);
+}

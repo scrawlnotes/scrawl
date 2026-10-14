@@ -6,6 +6,7 @@ import {
   collectionName,
   dirname,
   type Findable,
+  fold,
   type FindKind,
   type Found,
   INBOX,
@@ -189,6 +190,53 @@ export function thingsOf(data: SearchData): Thing[] {
 /** The most rows the list shows; more words find fewer. */
 const SHOWN = 50;
 
+// The searches made last on this device: what was typed when something found was opened, the
+// latest first, each once. They stay on this device, as Recent does on a phone.
+const RECENT = 'scrawl.recentSearches';
+/** How many searches are kept. */
+const KEPT = 10;
+
+function loadRecent(): string[] {
+  try {
+    const kept = JSON.parse(localStorage.getItem(RECENT) ?? '[]') as unknown;
+    return Array.isArray(kept) ? kept.filter((each): each is string => typeof each === 'string').slice(0, KEPT) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecent(searches: string[]) {
+  try {
+    if (searches.length === 0) localStorage.removeItem(RECENT);
+    else localStorage.setItem(RECENT, JSON.stringify(searches));
+  } catch {
+    // Not kept: they hold while the app is open.
+  }
+}
+
+/** The searches made last, with a search added on top, one taken away, and all of them forgotten. */
+function useRecentSearches() {
+  const [searches, setSearches] = useState(loadRecent);
+  const latest = useRef(searches);
+  // Kept at once: the window closes as something found opens, before it would be drawn again.
+  const change = (next: (current: string[]) => string[]) => {
+    const changed = next(latest.current);
+    latest.current = changed;
+    saveRecent(changed);
+    setSearches(changed);
+  };
+  return {
+    searches,
+    /** The same search typed again, whatever its case or accents, moves to the top. */
+    add: (query: string) => {
+      const search = query.trim();
+      if (search) change((current) => [search, ...current.filter((each) => fold(each) !== fold(search))].slice(0, KEPT));
+    },
+    remove: (search: string) => change((current) => current.filter((each) => each !== search)),
+    clear: () => change(() => []),
+  };
+}
+
 /** What was typed, searched; the same words searched again as more is typed. */
 export function useSearch(things: Thing[] | null, query: string): Found<Thing>[] {
   const index = useMemo(() => (things ? searchIndex(things) : null), [things]);
@@ -263,7 +311,19 @@ export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | nu
   const found = useSearch(things, query);
   const shown = found.slice(0, SHOWN);
   const typed = query.trim() !== '';
+  const recent = useRecentSearches();
+  // With the box empty the arrow keys move through the searches made last.
+  const count = typed ? shown.length : recent.searches.length;
   useEffect(() => setSelected(0), [query]);
+  /** Opens what was found, and keeps what was typed among the searches made last. */
+  const pick = (each: Found<Thing>) => {
+    recent.add(query);
+    onPick(each);
+  };
+  const searchAgain = (search: string) => {
+    setQuery(search);
+    input.current?.focus();
+  };
   // The keyboard stays in the box while the window is open: a note opened just before it would
   // otherwise take it back, and the arrow keys would move in the note.
   useEffect(() => {
@@ -278,9 +338,10 @@ export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | nu
   }, [selected]);
   const onKey = (event: KeyboardEvent) => {
     if (event.key === 'Escape') onClose();
-    else if (event.key === 'ArrowDown') setSelected((at) => Math.min(at + 1, shown.length - 1));
+    else if (event.key === 'ArrowDown') setSelected((at) => Math.min(at + 1, count - 1));
     else if (event.key === 'ArrowUp') setSelected((at) => Math.max(at - 1, 0));
-    else if (event.key === 'Enter' && shown[selected]) onPick(shown[selected]!);
+    else if (event.key === 'Enter' && typed && shown[selected]) pick(shown[selected]!);
+    else if (event.key === 'Enter' && !typed && recent.searches[selected]) searchAgain(recent.searches[selected]!);
     else return;
     event.preventDefault();
   };
@@ -322,7 +383,7 @@ export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | nu
                   tabIndex={-1}
                   onMouseMove={() => index !== selected && setSelected(index)}
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => onPick(each)}
+                  onClick={() => pick(each)}
                 >
                   <Lead thing={each.item} />
                   <span className="l1">
@@ -340,6 +401,41 @@ export function SearchWindow({ things, onPick, onClose }: { things: Thing[] | nu
               {found.length > SHOWN && <p className="sx-more">{t('search.narrow', { count: SHOWN })}</p>}
             </div>
           ))}
+        {!typed && recent.searches.length > 0 && (
+          <div ref={list} className="sx-list sx-recent" role="listbox" aria-label={t('search.recent')}>
+            <div className="sx-recent-head">
+              <span>{t('search.recent')}</span>
+              <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={recent.clear}>
+                {t('search.clearRecent')}
+              </button>
+            </div>
+            {recent.searches.map((search, index) => (
+              <div
+                key={search}
+                role="option"
+                aria-selected={index === selected}
+                className={index === selected ? 'sx-past on' : 'sx-past'}
+                onMouseMove={() => index !== selected && setSelected(index)}
+              >
+                <button type="button" className="q" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => searchAgain(search)}>
+                  <Icon name="clock" />
+                  <span>{search}</span>
+                </button>
+                <button
+                  type="button"
+                  className="forget"
+                  tabIndex={-1}
+                  title={t('search.forget', { query: search })}
+                  aria-label={t('search.forget', { query: search })}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => recent.remove(search)}
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -360,6 +456,11 @@ export function PhoneSearch({ things, query, onQuery, onPick }: {
   const found = useSearch(things, query);
   const shown = found.slice(0, SHOWN);
   const typed = query.trim() !== '';
+  const recent = useRecentSearches();
+  const pick = (each: Found<Thing>) => {
+    recent.add(query);
+    onPick(each);
+  };
   return (
     <div className="mb-sx">
       <form
@@ -403,7 +504,29 @@ export function PhoneSearch({ things, query, onQuery, onPick }: {
           </button>
         )}
       </form>
-      {!typed ? (
+      {!typed && recent.searches.length > 0 ? (
+        <>
+          <div className="mb-sec mb-sx-recent">
+            <span>{t('search.recent')}</span>
+            <button type="button" className="clear" onClick={recent.clear}>
+              {t('search.clearRecent')}
+            </button>
+          </div>
+          <div className="mb-sx-list">
+            {recent.searches.map((search) => (
+              <div key={search} className="mb-sx-past">
+                <button type="button" className="q" onClick={() => onQuery(search)}>
+                  <Icon name="clock" />
+                  <span>{search}</span>
+                </button>
+                <button type="button" className="forget" aria-label={t('search.forget', { query: search })} onClick={() => recent.remove(search)}>
+                  <Icon name="close" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : !typed ? (
         <p className="mb-p say">{t('search.about')}</p>
       ) : !things ? (
         <p className="mb-p say">{t('search.reading')}</p>
@@ -412,7 +535,7 @@ export function PhoneSearch({ things, query, onQuery, onPick }: {
       ) : (
         <div className="mb-sx-list">
           {shown.map((each, index) => (
-            <button key={index} type="button" className="mb-sxr" onClick={() => onPick(each)}>
+            <button key={index} type="button" className="mb-sxr" onClick={() => pick(each)}>
               <Lead thing={each.item} />
               <span className="tx">
                 <b>
