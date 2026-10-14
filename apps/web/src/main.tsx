@@ -9,7 +9,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { prepareSignIn } from './cloud';
-import { applyLanguage, applySize, applyTheme, loadMode, loadTheme, onTurn, shadeOfMode, systemShade } from './device';
+import { applyLanguage, applySize, applyTheme, keepTyping, loadMode, loadTheme, onTurn, shadeOfMode, systemShade } from './device';
 import { startWebApp } from './pwa';
 import { keptConnection } from './sync';
 
@@ -19,6 +19,8 @@ applyLanguage();
 applyTheme(loadTheme(), shadeOfMode(loadMode(), systemShade()));
 applySize();
 onTurn(applySize);
+// No field corrects what is typed, on any device.
+keepTyping();
 
 // In the browser, a sign-in that went to Microsoft is finished first, or an old one renewed, in
 // which case the page leaves before anything is drawn.

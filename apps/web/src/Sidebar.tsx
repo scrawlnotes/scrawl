@@ -2,7 +2,7 @@ import { INBOX, INBOX_TASKS, inSpace, spaceOf, type TaskFilter, type TreeNode } 
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useState } from 'react';
 import { Icon } from './Icon';
-import { collectionTab, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { collectionTab, countItems, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 
 // A note or a task list being dragged onto a folder.
@@ -81,9 +81,6 @@ function folderPathsOf(nodes: TreeNode[], into = new Set<string>()): Set<string>
   }
   return into;
 }
-
-const countNotes = (node: TreeNode): number =>
-  node.kind === 'note' ? 1 : (node.children ?? []).reduce((sum, child) => sum + countNotes(child), 0);
 
 /** One tree: views over everything on top, then the inbox, then the folders with their task lists and notes. */
 export function Sidebar({
@@ -339,7 +336,7 @@ export function Sidebar({
           <button type="button" className="it-main" aria-expanded={open} onClick={() => toggle(node.path)}>
             {folderHead(open, node.name)}
           </button>
-          {!open && <span className="ct">{countNotes(node) || ''}</span>}
+          {!open && <span className="ct">{countItems(node) || ''}</span>}
           {more((event) => folderMenu(event, node.path))}
         </div>
         {open && addingIn === node.path && folderForm(depth + 1)}
@@ -365,7 +362,7 @@ export function Sidebar({
         <button type="button" className="it-main" aria-expanded={inboxOpen} onClick={() => toggle(INBOX)}>
           {folderHead(inboxOpen, t('side.inbox'))}
         </button>
-        <span className="ct">{(inbox && countNotes(inbox)) || ''}</span>
+        <span className="ct">{(inbox && countItems(inbox)) || ''}</span>
         {more((event) => folderMenu(event, INBOX))}
       </div>
       {inboxOpen &&

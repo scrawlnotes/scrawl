@@ -116,6 +116,30 @@ export function pageBox(element: Element) {
 /** The window's width and height in the page's own pixels. */
 export const pageWindow = () => ({ width: onPage(window.innerWidth), height: onPage(window.innerHeight) });
 
+const FIELDS = 'input, textarea, [contenteditable]';
+
+/**
+ * What is typed stays as it is typed, in every field as in a note, whose editor sees to it
+ * itself: the keyboard does not correct a word, does not finish one, and does not underline one.
+ * Each field is set as it comes into the page.
+ */
+export function keepTyping() {
+  const set = (field: Element) => {
+    field.setAttribute('autocorrect', 'off');
+    field.setAttribute('spellcheck', 'false');
+    field.setAttribute('writingsuggestions', 'false');
+  };
+  const visit = (node: Node) => {
+    if (!(node instanceof Element)) return;
+    if (node.matches(FIELDS)) set(node);
+    node.querySelectorAll(FIELDS).forEach(set);
+  };
+  visit(document.body);
+  new MutationObserver((changes) => {
+    for (const change of changes) change.addedNodes.forEach(visit);
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
 /** Sizes the app again each time a phone is turned. */
 export function onTurn(listener: () => void): () => void {
   const query = window.matchMedia('(orientation: landscape)');

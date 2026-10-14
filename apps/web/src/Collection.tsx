@@ -599,7 +599,6 @@ export function FieldInput({ field, value, autoFocus, ctx, onChange, onEnter }: 
           autoFocus={autoFocus}
           autoComplete="off"
           aria-label={field.label}
-          spellCheck={field.type === 'text' || field.type === 'name'}
           value={text}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => onEnter && event.key === 'Enter' && (event.preventDefault(), onEnter())}

@@ -4,7 +4,7 @@ import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
-import { boardOf, collectionPathOf, collectionTab, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardOf, collectionPathOf, collectionTab, countItems, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
@@ -51,7 +51,7 @@ const EDGE = 24;
 /** How far a page moves before a finger's move counts as a swipe, either way. */
 const SLOP = 8;
 /** How many of the things opened last Browse shows; the app keeps no more of them open. */
-const RECENT = 5;
+const RECENT = 10;
 /** How long a finger rests on a row before its menu opens. */
 const HOLD_MS = 450;
 
@@ -176,9 +176,6 @@ function seenText(at: number, now: number): string {
   if (now - at < 6 * 86_400_000) return then.toLocaleDateString(locale(), { weekday: 'short' });
   return then.toLocaleDateString(locale(), { month: 'short', day: 'numeric' });
 }
-
-const countNotes = (node: TreeNode): number =>
-  node.kind === 'note' ? 1 : (node.children ?? []).reduce((sum, child) => sum + countNotes(child), 0);
 
 function findFolder(nodes: TreeNode[], path: string): TreeNode | undefined {
   for (const node of nodes) {
@@ -536,7 +533,7 @@ export function Phone(props: PhoneProps) {
     });
   }, [top.key, active, tabs]);
 
-  // What is open beside the pages and the five things opened last is closed: on a phone there are
+  // What is open beside the pages and the ten things opened last is closed: on a phone there are
   // no tabs to close it by. A view (Today, Upcoming, the trash) is not open on a phone.
   const closing = useRef(new Set<string>());
   useEffect(() => {
@@ -814,7 +811,7 @@ export function Phone(props: PhoneProps) {
           icon="folder"
           folder
           label={node.name}
-          right={countNotes(node) || ''}
+          right={countItems(node) || ''}
           onClick={() => push({ kind: 'folder', path: node.path })}
           onHold={folderHold(node.path)}
         />
@@ -867,7 +864,7 @@ export function Phone(props: PhoneProps) {
         icon="folder"
         folder
         label={t('side.inbox')}
-        right={(inbox && countNotes(inbox)) || ''}
+        right={(inbox && countItems(inbox)) || ''}
         onClick={() => push({ kind: 'folder', path: INBOX })}
         onHold={folderHold(INBOX)}
       />
@@ -903,7 +900,7 @@ export function Phone(props: PhoneProps) {
             icon="folder"
             folder
             label={t('side.inbox')}
-            right={(inbox && countNotes(inbox)) || ''}
+            right={(inbox && countItems(inbox)) || ''}
             onClick={() => push({ kind: 'folder', path: INBOX })}
             onHold={folderHold(INBOX)}
           />
@@ -925,7 +922,7 @@ export function Phone(props: PhoneProps) {
                 icon="folder"
                 folder
                 label={node.name}
-                right={countNotes(node) || ''}
+                right={countItems(node) || ''}
                 onClick={() => push({ kind: 'folder', path: node.path })}
                 onHold={folderHold(node.path)}
               />
@@ -969,7 +966,7 @@ export function Phone(props: PhoneProps) {
                   icon="folder"
                   folder
                   label={child.name}
-                  right={countNotes(child) || ''}
+                  right={countItems(child) || ''}
                   onClick={() => push({ kind: 'folder', path: child.path })}
                   onHold={folderHold(child.path)}
                 />

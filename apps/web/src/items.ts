@@ -1,4 +1,4 @@
-import { basename, BOARD_EXT, boardName, collectionName, dirname, INBOX_TASKS, isScratchNote, KEYS_EXT, keysName, listName, localPath, spaceOf, TASK_LIST_EXT, type TaskFilter } from '@scrawlnotes/core';
+import { basename, BOARD_EXT, boardName, collectionName, dirname, INBOX_TASKS, isScratchNote, KEYS_EXT, keysName, listName, localPath, spaceOf, TASK_LIST_EXT, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import type { IconName } from './Icon';
 
@@ -46,6 +46,14 @@ export const pathOf = (id: string) => (isNote(id) ? id : (listOf(id) ?? boardPat
 
 /** The space a tab's note, list, board, keys file or collection is in; null in the personal space and for the views over all of them. */
 export const spaceOfTab = (id: string) => spaceOf(pathOf(id) ?? collectionPathOf(id) ?? '');
+
+/**
+ * What a folder holds, all the way down: its notes, task lists, boards, keys files and
+ * collections; folders hold them and are not counted. The inbox's own task list is always there
+ * and is not counted either.
+ */
+export const countItems = (node: TreeNode): number =>
+  node.kind !== 'folder' ? 1 : (node.children ?? []).reduce((sum, child) => sum + (child.path === INBOX_TASKS ? 0 : countItems(child)), 0);
 
 // The names of the spaces beside the personal one, by id, for the places paths are shown as words;
 // and the personal space's own.

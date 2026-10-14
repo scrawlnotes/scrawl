@@ -3477,7 +3477,7 @@ p { margin: 0; max-width: 68ch; }
     subfolder: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
   };
   // The phone shell (Oct 12). A phone has a layout of its own instead of the desktop squeezed. Its
-  // tab bar has three places: Recent, the five things opened last; Browse, the inbox and the
+  // tab bar has three places: Recent, the ten things opened last; Browse, the inbox and the
   // folders, with the trash, sync and settings under them; and Today, with Upcoming beside it.
   // Nothing is opened or closed as a tab: what is opened goes to Recent by itself; Search will be
   // a fourth place. A screen opens as a page over the one it came from, with a back
@@ -3565,7 +3565,7 @@ p { margin: 0; max-width: 68ch; }
       '<div class="mb-sec">Roadmap · Scrawl <small>1</small></div>' +
       mbT({ p: 'p2', key: 'SCR-14', title: 'Hot exit: restore tabs after a crash', meta: mi('board', 'Doing') + mi('', 'Phase 3') }));
   }
-  // Recent: the five things opened last, the latest first, each with where it is and when it was
+  // Recent: the ten things opened last, the latest first, each with where it is and when it was
   // looked at. It fills by itself as things are opened. Browse: the inbox, the folders, and under
   // them the trash, sync and settings.
   var MB_RECENT = [
@@ -3626,7 +3626,7 @@ p { margin: 0; max-width: 68ch; }
   function mbNote(cls) { return mbPage(mbNav('Scrawl', ['dots']) + mbFbar(), MB_NOTE, cls); }
   function phoneShell() {
     return [
-      mbPhone('Recent: en son açılan beş şey, ilk sekme', mbRecent(), mbTabs('recent') + MB_FAB),
+      mbPhone('Recent: en son açılan on şey, ilk sekme', mbRecent(), mbTabs('recent') + MB_FAB),
       mbPhone('Browse: Inbox ve klasörler', mbBrowse(), mbTabs('browse') + MB_FAB),
       mbPhone('Bir klasör: Browse › Scrawl', mbFolder(), mbTabs('browse') + MB_FAB),
       mbPhone('Today: yanında Upcoming', mbToday(), mbTabs('today') + MB_FAB)
