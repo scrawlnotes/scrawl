@@ -13,7 +13,7 @@ import {
   type TaskRecord,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type FormEvent, type MouseEvent, type ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { type FormEvent, type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { collectionLabel, listLabel } from './items';
@@ -314,6 +314,9 @@ export function SectionSheet({ list, start, onSave, onClose }: { list: string; s
   );
 }
 
+/** How long the task added last is said in the quick add sheet. */
+const ADDED_MS = 4000;
+
 export function QuickAdd({ initial, places, today, recordChoices, recordName, onAdd, onClose }: {
   initial: { list: string; section: string | null; due: string | null };
   places: TaskPlaceChoice[];
@@ -330,11 +333,19 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, on
   const [record, setRecord] = useState<TaskRecord | null>(null);
   const [place, setPlace] = useState({ list: initial.list, section: initial.section });
   const [picking, setPicking] = useState<'date' | 'priority' | 'record' | 'place' | null>(null);
+  /** The task added last, said at the top of the sheet a moment, which stays open for the next one. */
+  const [added, setAdded] = useState<{ title: string; where: string; key: number } | null>(null);
   const titleField = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!added) return;
+    const timer = window.setTimeout(() => setAdded(null), ADDED_MS);
+    return () => window.clearTimeout(timer);
+  }, [added]);
   const add = (event?: FormEvent) => {
     event?.preventDefault();
     if (!title.trim()) return;
     onAdd(place.list, { title, description: description.trim() || undefined, section: place.section, due, priority, record });
+    setAdded({ title: title.trim(), where: placeLabel(places, place.list, place.section), key: Date.now() });
     setTitle('');
     setDescription('');
     titleField.current?.focus();
@@ -349,6 +360,12 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, on
     <>
       <Sheet label={t('tasks.add')} className="mb-qa" onClose={onClose}>
         <form onSubmit={add}>
+          {added && (
+            <p key={added.key} className="added" role="status">
+              <Icon name="check" />
+              <span>{t('phone.taskAdded', { name: added.title, place: added.where })}</span>
+            </p>
+          )}
           <input
             ref={titleField}
             className="tt"

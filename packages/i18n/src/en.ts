@@ -357,6 +357,7 @@ export const en = {
   'phone.subtasks': 'Subtasks',
   'phone.subtasksDone': 'Subtasks · {done} of {total}',
   'phone.add': 'Add',
+  'phone.taskAdded': '{name} added to {place}',
   // a board on a phone
   'phone.statusMenu': 'Status…',
   'phone.columnIn': 'Column in {board}',
