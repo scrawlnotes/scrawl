@@ -1044,6 +1044,37 @@ p { margin: 0; max-width: 68ch; }
 .csv-pick .rb { width: 12px; height: 12px; border: 1.5px solid var(--m-faint); border-radius: 50%; box-sizing: border-box; }
 .csv-pick .rb.on { border-color: var(--m-accent); box-shadow: inset 0 0 0 2.5px var(--m-bg); background: var(--m-accent); }
 .csvdlg .rm-foot { border-top: 1px solid var(--m-line); }
+/* Excel: a file of more than one sheet; the sheet whose rows come in is a chip with its rows, an empty one dashed. */
+.csv-sheets { display: flex; flex-wrap: wrap; gap: 5px; }
+.csv-sheets span { padding: 2px 10px; border: 1px solid var(--m-line); border-radius: 12px; font-size: 12px; color: var(--m-dim); }
+.csv-sheets span.on { border-color: transparent; background: var(--m-sel); color: var(--m-fg); }
+.csv-sheets span.empty { border-style: dashed; color: var(--m-faint); }
+.csv-sheets small { margin-left: 5px; color: var(--m-faint); }
+/* The import window on a phone: the whole screen, as in the app; the sheets scroll sideways. */
+.mb-imp { padding-bottom: 0; }
+.mb-imp-head { display: flex; align-items: center; gap: 8px; flex: none; height: 48px; padding: 0 4px 0 16px; border-bottom: 1px solid var(--m-line); color: var(--m-faint); font-size: 15px; }
+.mb-imp-head svg { width: 16px; height: 16px; }
+.mb-imp-head b { color: var(--m-fg); font-weight: 600; }
+.mb-imp-head .x { display: grid; place-items: center; width: 44px; height: 44px; margin-left: auto; color: var(--m-dim); font-size: 22px; }
+.mb-imp-file { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 14px 16px 0; padding: 10px 12px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-side); }
+.mb-imp-file svg { width: 16px; height: 16px; color: var(--m-dim); }
+.mb-imp-file .fname { flex: 1; min-width: 0; color: var(--m-fg); font-weight: 500; }
+.mb-imp-file small { color: var(--m-faint); font-size: 14px; }
+.mb-imp-file .st { flex-basis: 100%; padding-top: 2px; color: var(--m-accent); font-size: 15px; }
+.mb-imp-sheets { display: flex; gap: 6px; padding: 0 16px; overflow: hidden; }
+.mb-imp-sheets .mb-view small { margin-left: 6px; color: var(--m-faint); font-weight: 400; }
+.mb-imp-sheets .mb-view.empty { border-style: dashed; color: var(--m-faint); }
+.mb-imp-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 10px; align-items: center; min-height: 48px; padding: 0 16px; }
+.mb-imp-row.head { min-height: 0; padding-bottom: 4px; color: var(--m-faint); font-size: 13px; }
+.mb-imp-row .cn { overflow: hidden; color: var(--m-fg); white-space: nowrap; text-overflow: ellipsis; }
+.mb-imp-row .in { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-side); color: var(--m-fg); font-size: 15px; }
+.mb-imp-row .in .dd { margin-left: auto; color: var(--m-faint); font-size: 10px; }
+.mb-imp-row .in.added { border-color: color-mix(in srgb, var(--m-accent) 60%, var(--m-line)); }
+.mb-imp-row.skip .cn, .mb-imp-row.skip .in { color: var(--m-faint); }
+.mb-imp-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: none; padding: 8px 16px 30px; border-top: 1px solid var(--m-line); background: var(--m-bg); }
+.mb-imp-foot .hint { flex-basis: 100%; color: var(--m-faint); font-size: 14px; text-align: center; }
+.mb-imp-foot .st-btn { flex: 1; justify-content: center; min-height: 44px; padding: 0 14px; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+.mb-imp-foot .st-btn.go { flex: 2; }
 .nmod { display: flex; flex-direction: column; width: 440px; max-height: 92%; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-bg); box-shadow: 0 12px 32px rgb(0 0 0 / .4); font-size: 13px; }
 .nmod .cp-head { padding: 12px 18px; }
 .nmod .cp-head svg { width: 13px; height: 13px; color: var(--m-faint); }
@@ -1865,6 +1896,53 @@ p { margin: 0; max-width: 68ch; }
 .mb-sxr .tx small { overflow: hidden; color: var(--m-faint); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
 .mb-sxr .tx small.snip { color: var(--m-dim); }
 .mb-sx .mb-ed mark { padding: 0 1px; }
+/* Export: a note as PDF, HTML or Markdown, from its menu. The window has the three, each saying
+   what comes out; a click on one exports it. */
+.mdlg.xp { width: 440px; }
+.xp .from { margin: -4px 2px 10px; font-size: 12.5px; color: var(--m-fg); }
+.xp-r { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 7px; }
+.xp-r + .xp-r { margin-top: 2px; }
+.xp-r.hot { background: var(--m-sel); }
+.xp-r.hot small { color: var(--m-dim); }
+.xp-r .fthumb { flex: none; width: 34px; height: 40px; background: var(--m-bg); }
+.xp-r b { display: block; color: var(--m-fg); font-size: 13px; font-weight: 600; }
+.xp-r small { display: block; margin-top: 2px; color: var(--m-faint); font-size: 12px; line-height: 1.35; }
+.xp .foot { justify-content: flex-end; }
+.status .xp-notice { display: inline-flex; align-items: center; gap: 10px; color: var(--m-accent); }
+.status .xp-notice u { color: var(--m-fg); font-weight: 600; text-underline-offset: 2px; }
+/* What a PDF looks like: pages on white, the app's look left behind, its own type */
+.xp-view { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 22px 0; background: #52565e; overflow: hidden; }
+.xp-view .cap { color: #e4e6ea; font-size: 12px; }
+.xp-page { width: 440px; min-height: 560px; padding: 44px 46px 28px; background: #fff; box-shadow: 0 6px 22px rgb(0 0 0 / .35); color: #1d2026; font: 11.5px/1.6 "IBM Plex Sans", "Segoe UI", sans-serif; }
+.xp-page h1 { margin: 0 0 4px; font-size: 19px; line-height: 1.3; }
+.xp-page .meta { margin-bottom: 14px; color: #8a8f99; font-size: 10px; }
+.xp-page p { margin: 0 0 8px; }
+.xp-page code { padding: 1px 4px; border-radius: 3px; background: #eef0f3; font: 10.5px "IBM Plex Mono", monospace; }
+.xp-page ul { margin: 0 0 8px; padding-left: 18px; }
+.xp-page a { color: #a8690c; }
+.xp-page .pic { display: block; margin: 6px 0 10px; border: 1px solid #e3e5e9; border-radius: 4px; }
+.xp-page .pic svg { display: block; width: 100%; height: auto; padding: 10px 0; fill: none; stroke: #5a5f69; stroke-width: 1.4; }
+.xp-page .pic svg * { fill: none; stroke: #5a5f69; }
+.xp-page .att { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 3px 9px; border: 1px solid #e3e5e9; border-radius: 4px; color: #4b505a; font-size: 10.5px; }
+.xp-page .att svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.xp-page .att small { color: #8a8f99; }
+.xp-page .pn { margin-top: 26px; color: #a3a7b0; font-size: 9.5px; text-align: center; }
+/* On a phone: the three in a sheet, and what the phone does with a file: its share sheet */
+.mb-xp .mb-row .fthumb { flex: none; width: 34px; height: 40px; border-radius: 5px; background: var(--m-bg); }
+.mb-xp .mb-row .tx small { white-space: normal; line-height: 1.3; }
+.mb-share { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; padding: 10px 0 34px; border-radius: 14px 14px 0 0; background: #2c2c30; color: #f2f2f4; }
+.mb-share .grab { display: block; width: 36px; height: 5px; margin: 0 auto 10px; border-radius: 3px; background: #5a5a60; }
+.mb-share .what { display: flex; align-items: center; gap: 12px; padding: 4px 16px 14px; border-bottom: 1px solid #3c3c42; }
+.mb-share .what .doc { display: grid; flex: none; place-items: center; width: 40px; height: 50px; border-radius: 6px; background: #fff; color: #c33; font: 700 10px/1 var(--m-ui); }
+.mb-share .what b { display: block; font-size: 15px; font-weight: 600; }
+.mb-share .what small { color: #9a9aa2; font-size: 13px; }
+.mb-share .apps { display: flex; gap: 18px; padding: 14px 16px; border-bottom: 1px solid #3c3c42; }
+.mb-share .apps span { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11.5px; color: #d0d0d6; }
+.mb-share .apps i { width: 56px; height: 56px; border-radius: 13px; }
+.mb-share .acts { margin: 12px 16px 0; border-radius: 12px; background: #3a3a40; }
+.mb-share .acts span { display: flex; align-items: center; justify-content: space-between; height: 46px; padding: 0 16px; font-size: 16px; }
+.mb-share .acts span + span { border-top: 1px solid #4a4a50; }
+.mock .mb-share .acts svg { width: 20px; height: 20px; color: #f2f2f4; }
 </style>
 
 <main class="page">
@@ -1950,6 +2028,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-filterfields" data-aview="filterfields">Filter fields</button>
         <button type="button" id="a-colcsvmenu" data-aview="colcsvmenu">CSV menu</button>
         <button type="button" id="a-colcsv" data-aview="colcsv">CSV import</button>
+        <button type="button" id="a-colxlsx" data-aview="colxlsx">Excel import</button>
         <button type="button" id="a-colmissing" data-aview="colmissing">Record missing</button>
         <button type="button" id="a-folders" data-aview="folders">Folder menu</button>
         <button type="button" id="a-subfolder" data-aview="subfolder">Subfolder</button>
@@ -1978,6 +2057,10 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-search" data-aview="search">Search</button>
         <button type="button" id="a-searchfind" data-aview="searchfind">Search find</button>
         <button type="button" id="a-searchnone" data-aview="searchnone">Search nothing found</button>
+        <button type="button" id="a-exportmenu" data-aview="exportmenu">Export menu</button>
+        <button type="button" id="a-exportwin" data-aview="exportwin">Export</button>
+        <button type="button" id="a-exportdone" data-aview="exportdone">Exported</button>
+        <button type="button" id="a-exportpdf" data-aview="exportpdf">Export PDF</button>
         <button type="button" id="a-pshell" data-aview="pshell">Phone shell</button>
         <button type="button" id="a-ppages" data-aview="ppages">Phone pages</button>
         <button type="button" id="a-pcreate" data-aview="pcreate">Phone create</button>
@@ -1994,6 +2077,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pcol" data-aview="pcol">Phone collection</button>
         <button type="button" id="a-pcolmore" data-aview="pcolmore">Phone collection more</button>
         <button type="button" id="a-pcolviews" data-aview="pcolviews">Phone collection views</button>
+        <button type="button" id="a-pimport" data-aview="pimport">Phone import</button>
         <button type="button" id="a-pkeys" data-aview="pkeys">Phone keys</button>
         <button type="button" id="a-pempty" data-aview="pempty">Phone empty</button>
         <button type="button" id="a-pwelcome" data-aview="pwelcome">Phone welcome</button>
@@ -2005,6 +2089,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pfiles2" data-aview="pfiles2">Phone files more</button>
         <button type="button" id="a-pbig" data-aview="pbig">Phone large files</button>
         <button type="button" id="a-psearch" data-aview="psearch">Phone search</button>
+        <button type="button" id="a-pexport" data-aview="pexport">Phone export</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -3078,29 +3163,46 @@ p { margin: 0; max-width: 68ch; }
   // Export writes every record, a column per field, the notes last. Import opens a window: each
   // column of the file goes to a field, found by its name where one matches, or to a new field,
   // to the notes, or nowhere; rows whose name matches a record update it, the others are added.
+  //
+  // An Excel file (.xlsx, .xls; Oct 14) comes in through the same window, so the menu says Import….
+  // With more than one sheet the sheets are chips under the file, each with its rows; the first
+  // with rows is chosen, an empty one cannot be, and another chosen starts its columns afresh. The
+  // first row with anything in it is the heading. A cell brings its value: a formula its result, a
+  // number without its format (48000, not 48,000 €), a date as a date. One sheet: no chips.
   function csvMenu() {
     return '<div class="cmenu" style="left: 236px; top: 232px">' +
-      '<span>Rename</span><span>Move to…</span><i></i><span>Export as CSV</span><span class="hot">Import CSV…</span><i></i><span>Delete…</span></div>';
+      '<span>Rename</span><span>Move to…</span><i></i><span>Export as CSV</span><span class="hot">Import…</span><i></i><span>Delete…</span></div>';
   }
-  function csvImport() {
+  function csvImport(xlsx) {
     function row(column, first, target, o) {
       o = o || {};
       return '<div class="csv-row' + (o.skip ? ' skip' : '') + '"><span class="cn">' + column + '</span><span class="cf">' + first + '</span>' +
         '<span class="in sel' + (o.added ? ' added' : '') + '">' + target + '<span class="dd">▾</span></span></div>';
     }
-    return '<div class="ovl center"><div class="csvdlg">' +
-      '<div class="cp-head">' + ICON.collection + '<b>Import</b><span>into Companies · Scrawl</span><span class="x" style="margin-left: auto">×</span></div>' +
-      '<div class="csv-body">' +
-        '<div class="csv-file">' + ICON.file + '<span class="fname">leads-october.csv</span><small>128 rows · 7 columns</small><span class="st-btn">Choose another file</span></div>' +
-        '<div class="csv-h">Columns</div>' +
-        '<div class="csv-row head"><span>In the file</span><span>First row</span><span>Goes to</span></div>' +
-        row('Company name', 'Acme Corp', 'Name') +
+    var file = xlsx
+      ? '<div class="csv-file">' + ICON.file + '<span class="fname">pipeline-2026.xlsx</span><small>4 sheets</small><span class="st-btn">Choose another file</span></div>' +
+        '<div class="csv-h">Sheet</div>' +
+        '<div class="csv-sheets"><span class="on">Companies<small>128</small></span><span>Contacts<small>342</small></span><span>Q3 summary<small>12</small></span><span class="empty">Archive<small>empty</small></span></div>'
+      : '<div class="csv-file">' + ICON.file + '<span class="fname">leads-october.csv</span><small>128 rows · 7 columns</small><span class="st-btn">Choose another file</span></div>';
+    var columns = xlsx
+      ? row('Company name', 'Acme Corp', 'Name') +
+        row('Stage', 'active', 'Status') +
+        row('ARR', '48000', 'New field · Number', { added: true }) +
+        row('First contact', '2026-03-12', 'New field · Date', { added: true }) +
+        row('Internal id', '7731', 'Nowhere', { skip: true })
+      : row('Company name', 'Acme Corp', 'Name') +
         row('Website', 'acme.example.com', 'Website') +
         row('Stage', 'active', 'Status') +
         row('Owner', 'Kaan', 'Owner') +
         row('Employees', '40', 'New field · Number', { added: true }) +
         row('Notes', 'Met at the summit; three portals on…', 'Notes') +
-        row('Internal id', '7731', 'Nowhere', { skip: true }) +
+        row('Internal id', '7731', 'Nowhere', { skip: true });
+    return '<div class="ovl center"><div class="csvdlg">' +
+      '<div class="cp-head">' + ICON.collection + '<b>Import</b><span>into Companies · Scrawl</span><span class="x" style="margin-left: auto">×</span></div>' +
+      '<div class="csv-body">' + file +
+        '<div class="csv-h">Columns</div>' +
+        '<div class="csv-row head"><span>In the file</span><span>First row</span><span>Goes to</span></div>' +
+        columns +
         '<div class="csv-h">Records already here</div>' +
         '<div class="csv-pick"><span class="rb on"></span>Update the ones whose name matches, add the rest</div>' +
         '<div class="csv-pick"><span class="rb"></span>Add every row as a new record</div>' +
@@ -3633,6 +3735,7 @@ p { margin: 0; max-width: 68ch; }
     filterfields: '<span>2 cards</span>',
     colcsvmenu: '<span>24 records</span><span>Sorted by last contact</span>',
     colcsv: '<span>24 records</span><span>Sorted by last contact</span>',
+    colxlsx: '<span>24 records</span><span>Sorted by last contact</span>',
     colmissing: '<span>24 records</span><span>Acme Corp</span>',
     folders: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     subfolder: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>'
@@ -4440,7 +4543,7 @@ p { margin: 0; max-width: 68ch; }
       '<div class="mb-sec">Incoming <small>5</small><span class="sum">54,300 EUR</span></div>' + PAY_IN.map(pay).join('') +
       '<div class="mb-sec">Outgoing <small>3</small><span class="sum">4,120 EUR</span></div>' + PAY_OUT.map(pay).join(''));
     var menu = mbActions('collection', 'Companies', 'Collection in Scrawl · 24 records', [
-      [{ icon: 'settings', label: 'Fields' }, { icon: 'down', label: 'Export as CSV' }, { icon: 'up', label: 'Import CSV…' }],
+      [{ icon: 'settings', label: 'Fields' }, { icon: 'down', label: 'Export as CSV' }, { icon: 'up', label: 'Import…' }],
       [{ icon: 'move', label: 'Move to…' }, { icon: 'pen', label: 'Rename' }],
       [{ icon: 'bin', label: 'Delete', red: true }]
     ]);
@@ -4449,6 +4552,43 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Görünüm: sıralama, gruplama, listede görünen alanlar', mbCompanies(), mbTabs('browse') + view),
       mbPhone('Payments: yöne göre gruplu, grup başında toplam', payments, mbTabs('browse') + MB_FAB),
       mbPhone('Koleksiyonun ··· menüsü', mbCompanies(), mbTabs('browse') + MB_DIM + menu)
+    ].join('');
+  }
+  // Import on a phone (Oct 14): the window fills the screen, as it does in the app; each column
+  // is its name and where it goes, the first row being left out for room. An Excel file of more
+  // than one sheet shows its sheets as chips that scroll sideways; a CSV file, or an Excel file of
+  // one sheet, has none, and says its rows and columns instead.
+  function phoneImport() {
+    function row(column, target, o) {
+      o = o || {};
+      return '<div class="mb-imp-row' + (o.skip ? ' skip' : '') + '"><span class="cn">' + column + '</span>' +
+        '<span class="in' + (o.added ? ' added' : '') + '">' + target + '<span class="dd">▾</span></span></div>';
+    }
+    function screen(xlsx) {
+      var file = xlsx
+        ? '<div class="mb-imp-file">' + ICON.file + '<span class="fname">pipeline-2026.xlsx</span><small>4 sheets</small><span class="st">Choose another file</span></div>' +
+          '<div class="mb-sec">Sheet</div>' +
+          '<div class="mb-imp-sheets"><span class="mb-view on">Companies<small>128</small></span><span class="mb-view">Contacts<small>342</small></span>' +
+          '<span class="mb-view">Q3 summary<small>12</small></span><span class="mb-view empty">Archive<small>empty</small></span></div>'
+        : '<div class="mb-imp-file">' + ICON.file + '<span class="fname">leads-october.csv</span><small>128 rows · 7 columns</small><span class="st">Choose another file</span></div>';
+      var columns = xlsx
+        ? row('Company name', 'Name') + row('Website', 'Website') + row('Stage', 'Status') + row('Owner', 'Owner') +
+          row('ARR', 'New field · Number', { added: true }) + row('First contact', 'New field · Date', { added: true }) + row('Internal id', 'Nowhere', { skip: true })
+        : row('Company name', 'Name') + row('Website', 'Website') + row('Stage', 'Status') + row('Owner', 'Owner') +
+          row('Employees', 'New field · Number', { added: true }) + row('Notes', 'Notes') + row('Internal id', 'Nowhere', { skip: true });
+      return '<div class="mb-page mb-imp">' +
+        '<div class="mb-imp-head">' + ICON.collection + '<b>Import</b><span>into Companies</span><span class="x">×</span></div>' +
+        '<div class="mb-body">' + file +
+          '<div class="mb-sec">Columns</div>' +
+          '<div class="mb-imp-row head"><span>In the file</span><span>Goes to</span></div>' + columns +
+          '<div class="mb-sec">Records already here</div>' +
+        '</div>' +
+        '<div class="mb-imp-foot"><span class="hint">96 new · 32 updated</span><span class="st-btn">Cancel</span><span class="st-btn go">Import 128 rows</span></div>' +
+      '</div>';
+    }
+    return [
+      mbPhone('Excel: sayfalar çip, yana kayar; ilk dolu sayfa seçili', screen(true)),
+      mbPhone('CSV ya da tek sayfalı Excel: çip yok', screen(false))
     ].join('');
   }
   // Keys on a phone (Oct 12). A group is a rounded block of keys, each name over its value; a
@@ -5285,6 +5425,53 @@ p { margin: 0; max-width: 68ch; }
   SP_VIEWS.searchnone = function () {
     return sxNote('searchnone', sxQuery('invoice 2024') + '<div class="sx-none">Nothing found for “invoice 2024”.</div>');
   };
+  // Export (Oct 14). A note goes out as PDF, HTML or Markdown from Export… in its menu, beside
+  // History…. The window has the three, each saying what comes out; a click on one exports it: on
+  // the desktop app to where it is saved, in a browser to the downloads, on a phone to its share
+  // sheet. The note keeps its own name.
+  var XP_NOTE = 'Sync engine: open questions';
+  function xpThumb(ext) { return '<span class="fthumb doc">' + ICON.file + '<i>' + ext + '</i></span>'; }
+  function xpTree(view) {
+    return spaceTree(view).replace('<div class="it fx" style="--d: 2"><span class="fpad"></span>' + ICON.notes + '<span>' + XP_NOTE + '</span>',
+      '<div class="it fx menu" style="--d: 2"><span class="fpad"></span>' + ICON.notes + '<span>' + XP_NOTE + '</span>');
+  }
+  function xpNote(view, over, status) {
+    return '<aside class="side fit">' + (view === 'exportmenu' ? xpTree(view) : spaceTree(view)) + '</aside><section class="main fit"><div class="panes">' +
+      pane(tab('notes', XP_NOTE, 'note', true) + tab('board', 'Deals · Sales', 'board', false) + '<div class="tab plus">+</div>', edPlain) + '</div>' +
+      (status || SP_STATUS) + '</section>' + (over || '');
+  }
+  var XP_CHOICES = [
+    ['PDF', 'PDF', 'A page to print or send. Its images are in it; a recording shows its name.'],
+    ['HTML', 'HTML', 'One file that opens in any browser, with its images and recordings in it.'],
+    ['MD', 'Markdown', 'The note as it is written; with its two files, a .zip.']
+  ];
+  // The note's menu, from its row in the sidebar or its tab: Export… after History….
+  SP_VIEWS.exportmenu = function () {
+    return xpNote('exportmenu', '<div class="cmenu under"><span>Move to…</span><span>Rename</span><span>History…</span><span class="hot">Export…</span><i></i><span>Delete</span></div>');
+  };
+  SP_VIEWS.exportwin = function () {
+    return xpNote('exportwin', '<div class="ovl center"><div class="mdlg xp"><h3>Export</h3><div class="from">' + XP_NOTE + '</div>' +
+      XP_CHOICES.map(function (c, i) { return '<div class="xp-r' + (i === 0 ? ' hot' : '') + '">' + xpThumb(c[0]) + '<span><b>' + c[1] + '</b><small>' + c[2] + '</small></span></div>'; }).join('') +
+      '<div class="foot"><span class="st-btn">Cancel</span></div></div></div>');
+  };
+  // Exported in a browser: it is in the downloads, and the status bar says so for a moment.
+  SP_VIEWS.exportdone = function () {
+    var status = '<div class="status"><span class="xp-notice">Exported Sync engine open questions.pdf</span><span>Ln 12, Col 20</span><span>74 words</span>' + syncStatus(false, null) + '</div>';
+    return xpNote('exportdone', '', status);
+  };
+  // What the PDF looks like: the note on white pages, in the app's type but none of its colours;
+  // its tags and links as text, its image, its recording and its files by their names.
+  SP_VIEWS.exportpdf = function () {
+    var page = '<div class="xp-page"><h1>' + XP_NOTE + '</h1><div class="meta">#sync #phase-3</div>' +
+      '<p>Delta API returns a <b>cursor</b> per drive. Store it in <code>sync-state.json</code>, never in the vault.</p>' +
+      '<ul><li>Notes conflict: 3-way merge, fall back to a copy</li><li>Tasks merge per record, last write wins per field</li><li>Deletes go to trash first</li></ul>' +
+      '<p>Token refresh for SPAs: <a>MSAL browser docs</a>, 24 h refresh window.</p>' +
+      '<span class="pic">' + (edPlain.match(/<span class="img">(<svg[\s\S]*?<\/svg>)/) || ['', ''])[1] + '</span>' +
+      '<span class="att">' + ICON.audio + 'Voice memo<small>0:42</small></span>' +
+      '<p>The <b>retry budget</b> is still undecided.</p>' +
+      '<div class="pn">1 / 1</div></div>';
+    return xpNote('exportpdf', '<div class="xp-view"><span class="cap">Sync engine open questions.pdf</span>' + page + '</div>');
+  };
   // Files on a phone: a page from Browse, beside the trash. A row's line says where the file is
   // used and how large it is; a file left in OneDrive has Download in its place. Held, a row
   // opens what can be done, with the places it is used in first.
@@ -5438,7 +5625,31 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Dokununca açılır, bulunduğu satırda; geri sonuçlara döner', found, mbTabsSx('search'))
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, ptasksdone: phoneTasksDone, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys, pempty: phoneEmpty, pwelcome: phoneWelcome, pspaces: phoneSpaces, pspaces2: phoneSpacesMore, psync: phoneSync, psync2: phoneSyncMore, pfiles: phoneFiles, pfiles2: phoneFilesMore, pbig: phoneBigFiles, psearch: phoneSearch };
+  // Export on a phone (Oct 14): Export… in the note's ···, the three in a sheet, then the phone's
+  // own share sheet with the file, to save it to Files, mail it or print it.
+  function phoneExport() {
+    var menu = mbActions('notes', 'Sync engine: open questions', 'Note in Scrawl', [
+      [{ icon: 'find', label: 'Find' }, { icon: 'md', label: 'Markdown', on: 'Off' }],
+      [{ icon: 'clock', label: 'History…' }, { icon: 'down', label: 'Export…' }, { icon: 'move', label: 'Move to…' }, { icon: 'pen', label: 'Rename' }],
+      [{ icon: 'bin', label: 'Delete', red: true }]
+    ]);
+    function choice(c) {
+      return '<div class="mb-row"><span class="fthumb doc">' + ICON.file + '<i>' + c[0] + '</i></span><span class="tx"><b>' + c[1] + '</b><small>' + c[2] + '</small></span></div>';
+    }
+    var sheet = MB_DIM + '<div class="mb-sheet mb-xp"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Export</b><small>Sync engine: open questions</small><span class="x">' + ICON.x + '</span></div>' +
+      XP_CHOICES.map(choice).join('') + '</div>';
+    var share = MB_DIM + '<div class="mb-share"><span class="grab"></span>' +
+      '<div class="what"><span class="doc">PDF</span><span><b>Sync engine open questions.pdf</b><small>PDF document · 412 KB</small></span></div>' +
+      '<div class="apps"><span><i style="background:#2f7cf6"></i>Mail</span><span><i style="background:#34c759"></i>Messages</span><span><i style="background:#25d366"></i>WhatsApp</span><span><i style="background:#0a84ff"></i>OneDrive</span></div>' +
+      '<div class="acts"><span>Save to Files' + ICON.folder + '</span><span>Print' + ICON.file + '</span></div></div>';
+    return [
+      mbPhone('Notun ···: History’nin altında Export…', mbNote(), mbTabs('browse') + MB_DIM + menu),
+      mbPhone('Üçü bir sheet’te, her biri ne çıktığını söyler', mbNote(), mbTabs('browse') + sheet),
+      mbPhone('Seçince telefonun paylaşma sheet’i: Files’a kaydet, gönder', mbNote(), mbTabs('browse') + share)
+    ].join('');
+  }
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, ptasksdone: phoneTasksDone, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pimport: phoneImport, pkeys: phoneKeys, pempty: phoneEmpty, pwelcome: phoneWelcome, pspaces: phoneSpaces, pspaces2: phoneSpacesMore, psync: phoneSync, psync2: phoneSyncMore, pfiles: phoneFiles, pfiles2: phoneFilesMore, pbig: phoneBigFiles, psearch: phoneSearch, pexport: phoneExport };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {
@@ -5452,13 +5663,22 @@ p { margin: 0; max-width: 68ch; }
     if (SP_VIEWS[view]) {
       mock.className = 'mock dir-a';
       mock.innerHTML = SP_VIEWS[view]();
+      // A row's menu opens under the row it was opened on.
+      mock.querySelectorAll('.cmenu.under').forEach(function (menu) {
+        var marked = mock.querySelector('.it.menu');
+        if (!marked || !menu.offsetParent) return;
+        var base = menu.offsetParent.getBoundingClientRect();
+        var at = marked.getBoundingClientRect();
+        menu.style.left = (at.left - base.left + 56) + 'px';
+        menu.style.top = (at.bottom - base.top + 2) + 'px';
+      });
       section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
         b.setAttribute('aria-pressed', String(b.dataset.aview === view));
       });
       return;
     }
     mock.classList.remove('phones', 'four', 'mbs');
-    mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty' || view === 'col' || view === 'coladd' || view === 'colrec' || view === 'colpick' || view === 'coleq' || view === 'colrectasks' || view === 'colcsvmenu' || view === 'colcsv' || view === 'colmissing');
+    mock.classList.toggle('wide', view === 'board' || view === 'list' || view === 'phclosed' || view === 'phmore' || view === 'phall' || view === 'islist' || view === 'isboard' || view === 'isadd' || view === 'isempty' || view === 'col' || view === 'coladd' || view === 'colrec' || view === 'colpick' || view === 'coleq' || view === 'colrectasks' || view === 'colcsvmenu' || view === 'colcsv' || view === 'colxlsx' || view === 'colmissing');
     mock.classList.toggle('wider', view === 'isstatus');
     mock.classList.toggle('wider', view === 'card' || view.indexOf('colf') === 0 || (view.indexOf('crm') === 0 && view !== 'crmnew'));
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
@@ -5475,13 +5695,13 @@ p { margin: 0; max-width: 68ch; }
     var plus = '<div class="tab plus">+</div>';
     var panes = view === 'split'
       ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull, crm: dealsBoard(), crmcard: dealsBoard('DEA-12'), crmlist: dealsList(), crmfields: dealsBoard(), crmnew: TASKS, trec: taskRecordView(), colrectasks: colView(true), filterfields: filterView(), colcsvmenu: colView(false), colcsv: colView(false), colmissing: colView(true), folders: edFull, subfolder: edFull }[view]);
+      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull, crm: dealsBoard(), crmcard: dealsBoard('DEA-12'), crmlist: dealsList(), crmfields: dealsBoard(), crmnew: TASKS, trec: taskRecordView(), colrectasks: colView(true), filterfields: filterView(), colcsvmenu: colView(false), colcsv: colView(false), colxlsx: colView(false), colmissing: colView(true), folders: edFull, subfolder: edFull }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + (view === 'folders' || view === 'subfolder' ? folderTree(view) : projectTree(view)) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + syncStatus(view === 'note', view === 'syncpanel' ? 'syncing' : view === 'syncdone' ? 'open' : null) + '</div></section>' +
       (view === 'syncpanel' ? syncPanel('syncing') : view === 'syncdone' ? syncPanel('done') : '') +
-      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'crmcard' ? dealCardModal() : '') + (view === 'crmfields' ? boardFields() : '') + (view === 'crmnew' ? newDealsBoard() : '') + (view === 'colrectasks' ? recordTasksModal() : '') + (view === 'filterfields' ? filterFields() : '') + (view === 'colcsvmenu' ? csvMenu() : '') + (view === 'colcsv' ? csvImport() : '') + (view === 'colmissing' ? missingModal() : '') + (view === 'folders' ? FOLDER_MENU : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
+      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'crmcard' ? dealCardModal() : '') + (view === 'crmfields' ? boardFields() : '') + (view === 'crmnew' ? newDealsBoard() : '') + (view === 'colrectasks' ? recordTasksModal() : '') + (view === 'filterfields' ? filterFields() : '') + (view === 'colcsvmenu' ? csvMenu() : '') + (view === 'colcsv' ? csvImport() : '') + (view === 'colxlsx' ? csvImport(true) : '') + (view === 'colmissing' ? missingModal() : '') + (view === 'folders' ? FOLDER_MENU : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });

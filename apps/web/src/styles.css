@@ -521,11 +521,6 @@ input:focus {
   gap: 1px;
 }
 
-/* Undo and redo have their keys on a computer; the buttons are for a touch screen. */
-.fmt-group.fmt-history {
-  display: none;
-}
-
 .fmt-group + .fmt-group {
   margin-left: 6px;
   padding-left: 7px;
@@ -3132,10 +3127,6 @@ button.cb:hover::after {
   /* Shown on hover with a mouse: always there on a touch screen. */
   .grp button {
     opacity: 1;
-  }
-
-  .fmt-group.fmt-history {
-    display: flex;
   }
 
   /* Holding a task, a section or a card lifts it: it selects no text and opens no callout. What is
@@ -9557,4 +9548,53 @@ button.st-li:hover,
   margin: 6px 10px 4px;
   color: var(--sl-faint);
   font-size: 12px;
+}
+
+/* ---------- Export (PLAN 4.7, the Export views of design/mockups.html) ---------- */
+
+.dialog.export {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.dialog .export-of {
+  margin: -4px 2px 2px;
+  overflow: hidden;
+  color: var(--sl-fg);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dialog.export .choices button {
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 7px;
+}
+
+.dialog.export .fthumb {
+  flex: none;
+  width: 34px;
+  height: 40px;
+  background: var(--sl-bg);
+}
+
+.export-tx {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.export-tx b {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dialog.export .choices button small {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dialog.export .choices button[aria-selected='true'] small {
+  color: var(--sl-dim);
 }

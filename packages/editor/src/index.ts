@@ -32,6 +32,7 @@ import {
   toggleCodeBlock,
   toggleHeading,
   toggleLinePrefix,
+  toggleList,
 } from './commands';
 import { findPanel } from './find';
 import { foundField } from './found';
@@ -51,6 +52,7 @@ export { addCursorBelow, closeSearchPanel, openSearchPanel, redo, searchPanelOpe
 export { createEnvEditor, type EnvEditor } from './env';
 export { literalPattern } from './find';
 export { showFound } from './found';
+export { exportHtml, fontRuns, type OutFile, type OutFiles, PDF_WIDTH, pdfContent, type PdfFonts, type PdfNode, titled } from './export';
 export { addCopy, type Copy, copyFollows, copyPosition, copyProgress, dropCopy, progressText, showCopy } from './copies';
 export { linkAddress, linkText, pastedLink, pastedUrl } from './links';
 export { cursorBehavior, restingPosition } from './cursor';
@@ -123,6 +125,7 @@ export interface ScrawlEditor {
 /** The icons of the `/` menu on a touch screen. */
 const SLASH_ICONS = {
   list: '<path d="M10 6.5h10M10 12h10M10 17.5h10"/><circle cx="5" cy="6.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="5" cy="17.5" r="1.3" fill="currentColor" stroke="none"/>',
+  ordered: '<path d="M10.5 6.5h9.5M10.5 12h9.5M10.5 17.5h9.5"/><path d="M4.4 5.2 5.6 4.4v4.2"/><path d="M4.2 10.9c.3-.6 2.1-.8 2.1.4 0 .9-2.1 1.7-2.1 2.9h2.3"/><path d="M4.3 16h2l-1 1.3c.7 0 1.2.4 1.2 1s-.6 1.2-1.3 1.2c-.4 0-.8-.2-1-.4"/>',
   quote: '<path d="M5.5 5v14"/><path d="M10 8h9M10 12h9M10 16h6"/>',
   codeBlock: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 9.5L7 12l2.5 2.5M14.5 9.5L17 12l-2.5 2.5"/>',
   table: '<rect x="3.5" y="5" width="17" height="14" rx="1.5"/><path d="M3.5 10h17M3.5 14.5h17M9.5 5v14M15 5v14"/>',
@@ -195,6 +198,15 @@ export function createViewer(options: LivePreviewOptions & { parent: HTMLElement
   };
 }
 
+/** Inserts a table and starts typing in its first cell. */
+export const addTable = (view: EditorView): boolean => {
+  insertTable(view);
+  const end = view.state.selection.main.head;
+  const table = tableRanges(view.state).find((t) => t.to === end);
+  if (table) enterTable(view, table.from);
+  return true;
+};
+
 export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
   // The note's length is recounted only when its text or the view mode changes, not on every cursor move.
   let counted: { doc: unknown; source: boolean; chars: number } | null = null;
@@ -205,20 +217,14 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
     }
     return statsOf(state, counted.chars);
   };
-  /** Inserts a table and starts typing in its first cell. */
-  const addTable = (view: EditorView) => {
-    insertTable(view);
-    const end = view.state.selection.main.head;
-    const table = tableRanges(view.state).find((t) => t.to === end);
-    if (table) enterTable(view, table.from);
-  };
   const addFiles = options.addFiles;
   const record = options.record;
   const slashItems: SlashItem[] = [
     { label: t('slash.heading1'), icon: 'H1', run: toggleHeading(1) },
     { label: t('slash.heading2'), icon: 'H2', run: toggleHeading(2) },
     { label: t('slash.heading3'), icon: 'H3', run: toggleHeading(3) },
-    { label: t('slash.list'), icon: SLASH_ICONS.list, run: toggleLinePrefix('list') },
+    { label: t('slash.list'), icon: SLASH_ICONS.list, run: toggleList('bullet') },
+    { label: t('slash.ordered'), icon: SLASH_ICONS.ordered, run: toggleList('ordered') },
     { label: t('slash.quote'), icon: SLASH_ICONS.quote, run: toggleLinePrefix('quote') },
     { label: t('slash.codeBlock'), icon: SLASH_ICONS.codeBlock, run: toggleCodeBlock },
     { label: t('slash.table'), icon: SLASH_ICONS.table, run: addTable },

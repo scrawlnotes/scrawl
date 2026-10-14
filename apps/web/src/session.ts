@@ -173,6 +173,8 @@ import {
 import {
   addCopy,
   addCursorBelow,
+  addTable,
+  attachmentsIn,
   closeSearchPanel,
   type Copy,
   copyFollows,
@@ -186,6 +188,8 @@ import {
   type EditorView,
   type FormatState,
   formatState,
+  indentLines,
+  insertDivider,
   type ItemAbout,
   type ItemAction,
   linkAddress,
@@ -209,6 +213,7 @@ import {
   toggleHeading,
   toggleItalic,
   toggleLinePrefix,
+  toggleList,
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
@@ -272,9 +277,14 @@ const formatCommands = {
   h1: toggleHeading(1),
   h2: toggleHeading(2),
   h3: toggleHeading(3),
-  list: toggleLinePrefix('list'),
+  list: toggleList('bullet'),
+  ordered: toggleList('ordered'),
+  indent: indentLines(true),
+  outdent: indentLines(false),
   quote: toggleLinePrefix('quote'),
   codeBlock: toggleCodeBlock,
+  table: addTable,
+  divider: insertDivider,
   nextMatch: selectNextOccurrence,
   allMatches: selectSelectionMatches,
   cursorBelow: addCursorBelow,
@@ -2594,6 +2604,30 @@ export class Session {
     visit(this.snapshot.tree);
     for (const space of this.snapshot.spaces) visit(space.tree);
     return new Map(await Promise.all(paths.map(async (path) => [path, await this.currentText(path).catch(() => '')] as const)));
+  }
+
+  /** How many attached files a note links to now. */
+  async noteFileCount(path: string): Promise<number> {
+    return attachmentsIn(await this.currentText(path).catch(() => '')).size;
+  }
+
+  /**
+   * A note's text now and the attached files it links to, by their address as the note has it,
+   * for exporting it. A file left in the cloud is brought first; one that cannot be is left out.
+   */
+  async exportSource(path: string): Promise<{ text: string; files: Map<string, Blob> }> {
+    const text = await this.currentText(path);
+    const files = new Map<string, Blob>();
+    for (const src of attachmentsIn(text)) {
+      const at = this.attached(path, src);
+      try {
+        if (this.awayAt(at) && !(await this.download(at))) continue;
+        files.set(src, await this.fs.readBlob(at));
+      } catch {
+        // Gone: it goes out by its name only.
+      }
+    }
+    return { text, files };
   }
 
   /**

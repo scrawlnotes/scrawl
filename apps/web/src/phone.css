@@ -5759,3 +5759,57 @@ body > .mb-lifted {
 .mb-sxr .tx small.snip {
   color: var(--sl-dim);
 }
+
+/* ---------- Export, a sheet from a note's ··· ---------- */
+
+.mb-sheet.dialog .export-of {
+  margin: -8px 0 0;
+  color: var(--sl-faint);
+  font-size: 14px;
+  text-align: center;
+}
+
+.mb-sheet.dialog.export .choices {
+  max-height: none;
+  margin: 0 -16px;
+}
+
+.mb-sheet.dialog.export .choices button {
+  position: relative;
+  gap: 13px;
+  min-height: 68px;
+  padding: 8px 16px;
+  border-radius: 0;
+}
+
+.mb-sheet.dialog.export .choices button + button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 63px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb-sheet.dialog.export .choices button[aria-selected='true'] {
+  background: none;
+}
+
+.mb-sheet.dialog.export .choices button:active {
+  background: color-mix(in srgb, var(--sl-fg) 7%, var(--sl-side));
+}
+
+.mb-sheet.dialog.export .export-tx b {
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.mb-sheet.dialog.export .export-tx small {
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}
+
+.mb .mb-sheet.dialog.export .fthumb .icon {
+  width: 15px;
+  height: 15px;
+}

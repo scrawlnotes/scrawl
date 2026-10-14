@@ -19,6 +19,8 @@
     "@scrawlnotes/i18n": "workspace:*",
     "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-dialog": "^2.8.1",
+    "fflate": "^0.8.3",
+    "pdfmake": "0.3.11",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

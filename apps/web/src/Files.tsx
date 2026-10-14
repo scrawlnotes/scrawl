@@ -22,7 +22,7 @@ export type FileKind = 'image' | 'audio' | 'file';
 export const kindOf = (file: { name: string }): FileKind => (IMAGE.test(file.name) ? 'image' : AUDIO.test(file.name) ? 'audio' : 'file');
 
 /** How a file is called: its own name, or for one the app named by the moment it came, what it is and that moment: `Image · Oct 6, 14:32`. */
-export function fileTitle(file: FileRow): string {
+export function fileTitle(file: Pick<FileRow, 'name' | 'named' | 'added'>): string {
   if (!file.named || file.added === null) return file.name;
   const word = { image: t('files.image'), audio: t('files.recording'), file: t('files.file') }[kindOf(file)];
   const when = new Date(file.added);

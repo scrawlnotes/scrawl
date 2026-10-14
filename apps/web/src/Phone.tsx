@@ -71,10 +71,11 @@ const RECENT = 10;
 /** How long a finger rests on a row before its menu opens. */
 const HOLD_MS = 450;
 
-/** Something that happened, shown for a moment; `undo` takes it back. */
+/** Something that happened, shown for a moment; `undo` takes it back; `action` is a button of its own, Share. */
 export interface Notice {
   text: string;
   undo?: () => void;
+  action?: { label: string; run: () => void };
 }
 
 export interface PhoneProps {
@@ -1309,11 +1310,16 @@ export function Phone(props: PhoneProps) {
         <div className="mb-toasts">
           {props.update && <div className="mb-update">{props.update}</div>}
           {props.notice && (
-            <div className={props.notice.undo ? 'mb-toast undo' : 'mb-toast'} role="status">
+            <div className={props.notice.undo || props.notice.action ? 'mb-toast undo' : 'mb-toast'} role="status">
               <span>{props.notice.text}</span>
               {props.notice.undo && (
                 <button type="button" onClick={props.onUndo}>
                   {t('notice.undo')}
+                </button>
+              )}
+              {props.notice.action && (
+                <button type="button" onClick={props.notice.action.run}>
+                  {props.notice.action.label}
                 </button>
               )}
             </div>

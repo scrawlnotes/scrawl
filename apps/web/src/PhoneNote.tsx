@@ -94,16 +94,22 @@ export function PhoneFormatBar({ format, recording, recordError, onFormat, onLin
     ],
     [
       { action: 'list', face: 'list', label: t('format.listTitle'), on: (f) => f.list },
+      { action: 'ordered', face: 'listNumbers', label: t('format.orderedTitle'), on: (f) => f.ordered },
+      { action: 'outdent', face: 'outdent', label: t('format.outdent') },
+      { action: 'indent', face: 'indent', label: t('format.indent') },
       { action: 'quote', face: 'quote', label: t('format.quote'), on: (f) => f.quote },
       { action: 'codeBlock', face: 'codeBlock', label: t('format.codeBlock'), on: (f) => f.codeBlock },
     ],
     [
+      { action: 'image', face: 'image', label: t('slash.image') },
+      { action: 'table', face: 'table', label: t('format.table') },
+      { action: 'divider', face: 'divider', label: t('format.divider') },
+      ...(recording ? [] : [{ action: 'record', face: 'audio', label: t('format.record') } as Button]),
+    ],
+    // Last: they take the text elsewhere, rather than shape it.
+    [
       { action: 'toTask', face: 'tasks', label: t('format.toTask'), className: 'text' },
       { action: 'toCard', face: 'board', label: t('format.toCard'), className: 'text' },
-    ],
-    [
-      { action: 'image', face: 'image', label: t('slash.image') },
-      ...(recording ? [] : [{ action: 'record', face: 'audio', label: t('format.record') } as Button]),
     ],
   ];
   const run = (action: Button['action']) => {

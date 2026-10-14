@@ -15,8 +15,8 @@ interface Settings {
 
 // Desktop settings live in a file the shell owns, so they survive whatever the web view does
 // with its own storage.
-async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  return (await import('@tauri-apps/api/core')).invoke<T>(command, args);
+async function invoke<T>(command: string, args?: Record<string, unknown> | Uint8Array, options?: { headers: Record<string, string> }): Promise<T> {
+  return (await import('@tauri-apps/api/core')).invoke<T>(command, args, options);
 }
 
 let folder: string | null = null;
@@ -200,6 +200,25 @@ export function downloadBlob(name: string, blob: Blob) {
   link.download = name;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Saves a file where the user says: on desktop the system's Save window asks where, in a browser
+ * it is downloaded. Returns false when the Save window was cancelled.
+ */
+export async function saveFile(name: string, blob: Blob, extension: string): Promise<boolean> {
+  if (!isDesktop) {
+    downloadBlob(name, blob);
+    return true;
+  }
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const chosen = await save({ defaultPath: name, filters: [{ name: extension.toUpperCase(), extensions: [extension] }] });
+  if (typeof chosen !== 'string') return false;
+  const at = Math.max(chosen.lastIndexOf('/'), chosen.lastIndexOf('\\'));
+  await invoke('fs_write_bytes', new Uint8Array(await blob.arrayBuffer()), {
+    headers: { 'x-root': encodeURIComponent(chosen.slice(0, at)), 'x-path': encodeURIComponent(chosen.slice(at + 1)) },
+  });
+  return true;
 }
 
 export async function saveTextFile(name: string, text: string, type: string, extension: string): Promise<boolean> {

@@ -41,7 +41,8 @@ export interface AttachedFile {
 /** A pasted image's or a recording's name: `2026-10-06-143207.png`, maybe numbered. */
 const MOMENT = /^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})(\d{2})(?:-\d+)?\.[^.]+$/;
 
-function momentOf(name: string): number | null {
+/** When a file the app named by the moment it came came: a pasted image's, a recording's; null for a name of its own. */
+export function momentOf(name: string): number | null {
   const m = MOMENT.exec(name);
   return m ? new Date(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!, +m[6]!).getTime() : null;
 }

@@ -40,6 +40,7 @@ import { type Option, Picker } from './choices';
 import { ConditionRow } from './Collection';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import { Icon, type IconName } from './Icon';
+import type { ExportFormat } from './exporting';
 import { collectionLabel, folderLabel, shownPath, spaceLabel } from './items';
 import { ActionSheet, AskSheet, Sheet, SheetClose } from './sheets';
 
@@ -984,6 +985,70 @@ export function RenameDialog({ name, onRename, onClose }: {
           </button>
         </div>
       </form>
+    </Dialog>
+  );
+}
+
+/** The ways a note goes out, each with what comes out of it. */
+const EXPORTS = [
+  { format: 'pdf', ext: 'PDF', label: 'export.pdf', text: 'export.pdfText' },
+  { format: 'html', ext: 'HTML', label: 'export.html', text: 'export.htmlText' },
+  { format: 'md', ext: 'MD', label: 'export.md', text: 'export.mdText' },
+] as const;
+
+/**
+ * Export, from a note's menu, after the Export views of design/mockups.html: PDF, HTML or
+ * Markdown, each saying what comes out of it; a click on one exports it. On a phone a sheet.
+ */
+export function ExportDialog({ name, files, onPick, onClose }: {
+  name: string;
+  /** How many attached files the note links to, once known: its Markdown goes in a .zip with them. */
+  files: number | null;
+  onPick: (format: ExportFormat) => void;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === 'ArrowDown') setIndex((i) => (i + 1) % EXPORTS.length);
+    else if (event.key === 'ArrowUp') setIndex((i) => (i + EXPORTS.length - 1) % EXPORTS.length);
+    else if (event.key === 'Enter') onPick(EXPORTS[index]!.format);
+    else return;
+    event.preventDefault();
+  };
+  const textOf = (item: (typeof EXPORTS)[number]) => (item.format !== 'md' ? t(item.text) : files ? t('export.mdText', { count: files }) : t('export.mdAlone'));
+  return (
+    <Dialog label={t('export.title')} className="export" onClose={onClose} onKeyDown={onKey}>
+      <h2>{t('export.title')}</h2>
+      <p className="export-of">{name}</p>
+      <div className="choices" role="listbox" aria-label={t('export.title')}>
+        {EXPORTS.map((item, i) => (
+          <button
+            key={item.format}
+            type="button"
+            role="option"
+            aria-selected={i === index}
+            tabIndex={-1}
+            onMouseEnter={() => setIndex(i)}
+            onClick={() => onPick(item.format)}
+          >
+            <span className="fthumb doc" aria-hidden="true">
+              <Icon name="file" />
+              <i>{item.ext}</i>
+            </span>
+            <span className="export-tx">
+              <b>{t(item.label)}</b>
+              <small>{textOf(item)}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+      {!isPhone() && (
+        <div className="dialog-actions">
+          <button type="button" onClick={onClose}>
+            {t('dialog.cancel')}
+          </button>
+        </div>
+      )}
     </Dialog>
   );
 }

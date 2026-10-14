@@ -12,6 +12,8 @@ import {
   toggleHeading,
   toggleItalic,
   toggleLinePrefix,
+  toggleList,
+  indentLines,
 } from './commands';
 import { literalPattern } from './find';
 import { pastedLink, pastedUrl } from './links';
@@ -229,6 +231,26 @@ describe('formatting commands', () => {
   it('toggles a list prefix on every selected line', () => {
     expect(run(toggleLinePrefix('list'), 'o|ne\ntw|o')).toBe('- o|ne\n- tw|o');
     expect(run(toggleLinePrefix('list'), '- o|ne\n- tw|o')).toBe('o|ne\ntw|o');
+  });
+
+  it('makes a numbered list, numbers it on from the list above, and changes one kind into the other', () => {
+    expect(run(toggleList('ordered'), 'o|ne\ntw|o')).toBe('1. o|ne\n2. tw|o');
+    expect(run(toggleList('ordered'), '1. o|ne\n2. tw|o')).toBe('o|ne\ntw|o');
+    expect(run(toggleList('ordered'), '- o|ne\n- tw|o')).toBe('1. o|ne\n2. tw|o');
+    expect(run(toggleList('bullet'), '1. o|ne\n2. two')).toBe('- o|ne\n1. two');
+    expect(run(toggleList('ordered'), '1. a\n2. b\nc|')).toBe('1. a\n2. b\n3. c|');
+    expect(run(toggleList('ordered'), '  sub|')).toBe('  1. sub|');
+  });
+
+  it('moves a list item under the item above, as far in as its text, and back; numbered lists are numbered again', () => {
+    expect(run(indentLines(true), '1. a\n2. b|\n3. c')).toBe('1. a\n   1. b|\n2. c');
+    expect(run(indentLines(false), '1. a\n   1. b|\n2. c')).toBe('1. a\n2. b|\n3. c');
+    expect(run(indentLines(true), '- a\n- b|')).toBe('- a\n  - b|');
+    expect(run(indentLines(true), '- a\n  - b\n- c|')).toBe('- a\n  - b\n  - c|');
+    // The first item has nothing to go under.
+    expect(run(indentLines(true), '- a|')).toBe('- a|');
+    expect(run(indentLines(true), 'a|')).toBe('  a|');
+    expect(run(indentLines(false), '  a|')).toBe('a|');
   });
 });
 

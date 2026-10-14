@@ -1,11 +1,14 @@
 import { syntaxTree } from '@codemirror/language';
 import {
+  ChangeSet,
   type ChangeSpec,
   EditorSelection,
   type EditorState,
   type Line,
   type SelectionRange,
   type StateCommand,
+  type Text,
+  type Transaction,
 } from '@codemirror/state';
 import type { KeyBinding } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
@@ -242,6 +245,149 @@ export function toggleLinePrefix(kind: LinePrefix): StateCommand {
   };
 }
 
+// ---------- lists ----------
+
+/** A list item's start: its indentation, its bullet or number, and the space after it. */
+const ITEM = /^([ \t]*)([-*+]|\d{1,9}[.)])[ \t]+/;
+const BULLET_ITEM = /^[ \t]*[-*+][ \t]+/;
+const ORDERED_ITEM = /^[ \t]*\d{1,9}[.)][ \t]+/;
+
+/** How wide an indentation is, a tab as four spaces. */
+const widthOf = (indent: string) => indent.replace(/\t/g, '    ').length;
+
+/**
+ * The numbers of the numbered lists the given lines are in, counted again from 1 at each level of
+ * each list: the changes that fix them. A list is the run of items and their indented lines around
+ * a line; a bullet between numbered items at a level starts a new count after it.
+ */
+function renumbered(doc: Text, lines: number[]): ChangeSpec[] {
+  const part = (n: number) => {
+    const text = doc.line(n).text;
+    return ITEM.test(text) || /^[ \t]+\S/.test(text);
+  };
+  const seen = new Set<number>();
+  const changes: ChangeSpec[] = [];
+  for (const around of lines) {
+    if (!part(around)) continue;
+    let first = around;
+    while (first > 1 && part(first - 1)) first--;
+    if (seen.has(first)) continue;
+    seen.add(first);
+    let last = around;
+    while (last < doc.lines && part(last + 1)) last++;
+    const levels: { indent: number; next: number | null }[] = [];
+    for (let n = first; n <= last; n++) {
+      const line = doc.line(n);
+      const item = ITEM.exec(line.text);
+      if (!item) continue;
+      const indent = widthOf(item[1]!);
+      while (levels.length > 0 && levels[levels.length - 1]!.indent > indent) levels.pop();
+      let level = levels[levels.length - 1];
+      if (!level || level.indent !== indent) {
+        level = { indent, next: null };
+        levels.push(level);
+      }
+      const number = /^\d+/.exec(item[2]!);
+      if (!number) {
+        level.next = null;
+        continue;
+      }
+      const want = level.next ?? 1;
+      level.next = want + 1;
+      const at = line.from + item[1]!.length;
+      if (Number(number[0]) !== want) changes.push({ from: at, to: at + number[0].length, insert: String(want) });
+    }
+  }
+  return changes;
+}
+
+/** Makes the changes, numbers again the numbered lists they touched, and keeps the cursor with the text. */
+function changeLines(state: EditorState, dispatch: (tr: Transaction) => void, specs: ChangeSpec[]): boolean {
+  const first = state.changes(specs);
+  const doc = first.apply(state.doc);
+  const touched = new Set<number>();
+  first.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+    touched.add(doc.lineAt(fromB).number);
+    touched.add(doc.lineAt(toB).number);
+  });
+  const changes = first.compose(ChangeSet.of(renumbered(doc, [...touched]), doc.length));
+  // A cursor at the start of the line ends up behind the inserted prefix, where the text goes.
+  dispatch(state.update({ changes, selection: state.selection.map(changes, 1), scrollIntoView: true, userEvent: 'input.format' }));
+  return true;
+}
+
+/**
+ * Makes the selected lines a bulleted or a numbered list. A line of the other kind changes its
+ * bullet or number; when every line is of this kind already, they go back to plain lines.
+ */
+export function toggleList(kind: 'bullet' | 'ordered'): StateCommand {
+  const own = kind === 'bullet' ? BULLET_ITEM : ORDERED_ITEM;
+  return ({ state, dispatch }) => {
+    const lines = selectedLines(state).filter((line, _, all) => all.length === 1 || line.text.trim() !== '');
+    const remove = lines.every((line) => own.test(line.text));
+    const marker = kind === 'bullet' ? '- ' : '1. ';
+    const specs = lines.flatMap((line): ChangeSpec[] => {
+      const item = ITEM.exec(line.text);
+      if (remove) return [{ from: line.from, to: line.from + item![0].length }];
+      if (own.test(line.text)) return [];
+      if (item) return [{ from: line.from + item[1]!.length, to: line.from + item[0].length, insert: marker }];
+      return [{ from: line.from + /^[ \t]*/.exec(line.text)![0].length, insert: marker }];
+    });
+    return changeLines(state, dispatch, specs);
+  };
+}
+
+/** The nearest list item above a line whose indentation `fits`: where it starts and where its text starts. */
+function itemAbove(doc: Text, number: number, fits: (indent: number) => boolean): { indent: number; content: number } | null {
+  for (let n = number - 1; n >= 1; n--) {
+    const text = doc.line(n).text;
+    const item = ITEM.exec(text);
+    if (item) {
+      const indent = widthOf(item[1]!);
+      if (fits(indent)) return { indent, content: indent + item[0].length - item[1]!.length };
+      continue;
+    }
+    // A blank line or an item's indented line goes on; any other line ends the list.
+    if (text.trim() !== '' && !/^[ \t]/.test(text)) return null;
+  }
+  return null;
+}
+
+/**
+ * Moves the selected lines a level in or out. A list item goes under the item above it, as far in
+ * as that item's text, or back to its parent's level; the first item of a list stays where it is.
+ * Any other line moves by two spaces. Numbered lists are numbered again.
+ */
+export function indentLines(more: boolean): StateCommand {
+  return ({ state, dispatch }) => {
+    const specs: ChangeSpec[] = [];
+    for (const line of selectedLines(state)) {
+      const indent = /^[ \t]*/.exec(line.text)![0];
+      const width = widthOf(indent);
+      const isItem = ITEM.test(line.text);
+      let target: number;
+      if (more) {
+        const above = isItem ? itemAbove(state.doc, line.number, (each) => each <= width) : null;
+        if (isItem && (!above || above.content <= width)) continue;
+        target = above ? above.content : width + 2;
+      } else {
+        if (width === 0) continue;
+        const parent = isItem ? itemAbove(state.doc, line.number, (each) => each < width) : null;
+        target = parent ? parent.indent : Math.max(0, width - 2);
+      }
+      specs.push({ from: line.from, to: line.from + indent.length, insert: ' '.repeat(target) });
+    }
+    if (specs.length === 0) return false;
+    return changeLines(state, dispatch, specs);
+  };
+}
+
+/** Tab and Shift+Tab on list items: a level in or out, as the bar's buttons do; elsewhere they do what they always did. */
+const onItems =
+  (more: boolean): StateCommand =>
+  (target) =>
+    selectedLines(target.state).every((line) => ITEM.test(line.text)) && indentLines(more)(target);
+
 const FENCE = /^\s*(`{3,}|~{3,})/;
 
 /** Turns the selected lines into a code block, or a code block back into plain lines. */
@@ -351,6 +497,7 @@ export interface FormatState {
   link: LinkInfo | null;
   heading: number;
   list: boolean;
+  ordered: boolean;
   quote: boolean;
   codeBlock: boolean;
 }
@@ -364,6 +511,7 @@ export function formatState(state: EditorState): FormatState {
     link: linkAt(state),
     heading: headingLevel(state),
     list: hasLinePrefix(state, 'list'),
+    ordered: ORDERED_ITEM.test(state.doc.lineAt(state.selection.main.head).text),
     quote: hasLinePrefix(state, 'quote'),
     codeBlock: enclosing(state, state.selection.main, 'FencedCode') !== null,
   };
@@ -376,4 +524,6 @@ export const formatKeymap: readonly KeyBinding[] = [
   { key: 'Mod-Shift-x', run: toggleStrike },
   // Listed before the search keymap, which uses the same keys for something else.
   { key: 'Mod-Shift-l', run: splitSelectionIntoLines },
+  { key: 'Tab', run: onItems(true) },
+  { key: 'Shift-Tab', run: onItems(false) },
 ];

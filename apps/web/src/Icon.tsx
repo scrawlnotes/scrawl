@@ -208,6 +208,38 @@ const shapes = {
       <circle cx="5" cy="17.5" r="1.3" fill="currentColor" stroke="none" />
     </>
   ),
+  listNumbers: (
+    <>
+      <path d="M10.5 6.5h9.5M10.5 12h9.5M10.5 17.5h9.5" />
+      <path d="M4.4 5.2 5.6 4.4v4.2" />
+      <path d="M4.2 10.9c.3-.6 2.1-.8 2.1.4 0 .9-2.1 1.7-2.1 2.9h2.3" />
+      <path d="M4.3 16h2l-1 1.3c.7 0 1.2.4 1.2 1s-.6 1.2-1.3 1.2c-.4 0-.8-.2-1-.4" />
+    </>
+  ),
+  indent: (
+    <>
+      <path d="M11 6.5h9M11 12h9M11 17.5h9" />
+      <path d="M4 9l3 3-3 3" />
+    </>
+  ),
+  outdent: (
+    <>
+      <path d="M11 6.5h9M11 12h9M11 17.5h9" />
+      <path d="M7 9l-3 3 3 3" />
+    </>
+  ),
+  table: (
+    <>
+      <rect x="3.5" y="5" width="17" height="14" rx="1.5" />
+      <path d="M3.5 10h17M3.5 14.5h17M9.5 5v14M15 5v14" />
+    </>
+  ),
+  divider: (
+    <>
+      <path d="M4 12h16" />
+      <path d="M7 7.5h10M7 16.5h10" opacity=".35" />
+    </>
+  ),
   quote: (
     <>
       <path d="M5.5 5v14" />

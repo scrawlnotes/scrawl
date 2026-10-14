@@ -19,6 +19,10 @@ interface Props {
   onToCard: () => void;
   /** The keys that do the same, to show in the button's tooltip. */
   toTaskKeys: string;
+  /** An image from a file, into the note at the cursor. */
+  onImage: () => void;
+  /** Find and replace in the note. */
+  onFind: () => void;
 }
 
 const clock = (ms: number) => {
@@ -72,6 +76,9 @@ const groups: Item[][] = [
   ],
   [
     { action: 'list', label: 'format.list', title: 'format.listTitle', active: (f) => f.list },
+    { action: 'ordered', label: 'format.ordered', title: 'format.orderedTitle', active: (f) => f.ordered },
+    { action: 'indent', label: 'format.indent', title: 'format.indentTitle' },
+    { action: 'outdent', label: 'format.outdent', title: 'format.outdentTitle' },
     { action: 'quote', label: 'format.quote', title: 'format.quote', active: (f) => f.quote },
     { action: 'codeBlock', label: 'format.codeBlock', title: 'format.codeBlock', active: (f) => f.codeBlock },
   ],
@@ -88,7 +95,7 @@ const keepEditorFocus = (event: MouseEvent) => {
 };
 
 /** The formatting controls: a fixed row above the editor that acts on the selection or the word at the cursor. */
-export function FormatBar({ format, onFormat, onLink, recording, recordError, onRecord, onStop, onToTask, onToCard, toTaskKeys }: Props) {
+export function FormatBar({ format, onFormat, onLink, recording, recordError, onRecord, onStop, onToTask, onToCard, toTaskKeys, onImage, onFind }: Props) {
   const [linking, setLinking] = useState(false);
   // Whether the bar goes on past the right edge of a narrow window.
   const bar = useRef<HTMLDivElement>(null);
@@ -167,8 +174,7 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
         if (!event.shiftKey && event.deltaY) event.currentTarget.scrollLeft += event.deltaY;
       }}
     >
-      {/* A phone has no keys for them: undo and redo come first on a touch screen. */}
-      <div className="fmt-group fmt-history">
+      <div className="fmt-group">
         <button type="button" disabled={!format} onClick={() => onFormat('undo')}>
           {t('format.undo')}
         </button>
@@ -178,6 +184,11 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
       </div>
       {groups.map((items, i) => (
         <div className="fmt-group" key={i}>
+          {items[0]?.action === 'nextMatch' && (
+            <button type="button" title={t('format.findTitle')} disabled={!format} onClick={onFind}>
+              {t('format.find')}
+            </button>
+          )}
           {items.map((item) => (
             <button
               key={item.action}
@@ -196,14 +207,19 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
               {t('format.link')}
             </button>
           )}
+
         </div>
       ))}
+      {/* What goes into the note, beside the recording. */}
       <div className="fmt-group">
-        <button type="button" title={t('format.toTaskTitle', { keys: toTaskKeys })} disabled={!format} onClick={onToTask}>
-          {t('format.toTask')}
+        <button type="button" title={t('format.imageTitle')} disabled={!format} onClick={onImage}>
+          {t('format.image')}
         </button>
-        <button type="button" title={t('format.toCardTitle')} disabled={!format} onClick={onToCard}>
-          {t('format.toCard')}
+        <button type="button" title={t('format.table')} disabled={!format} onClick={() => onFormat('table')}>
+          {t('format.table')}
+        </button>
+        <button type="button" title={t('format.divider')} disabled={!format} onClick={() => onFormat('divider')}>
+          {t('format.divider')}
         </button>
       </div>
       {!recording && (
@@ -214,6 +230,15 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
         </div>
       )}
       {recording && <Recording since={recording.since} onStop={onStop} />}
+      {/* Last: they take the text elsewhere, rather than shape it. */}
+      <div className="fmt-group">
+        <button type="button" title={t('format.toTaskTitle', { keys: toTaskKeys })} disabled={!format} onClick={onToTask}>
+          {t('format.toTask')}
+        </button>
+        <button type="button" title={t('format.toCardTitle')} disabled={!format} onClick={onToCard}>
+          {t('format.toCard')}
+        </button>
+      </div>
       {recordError && !recording && (
         <span className="fmt-error" role="alert">
           {recordError}

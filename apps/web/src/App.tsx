@@ -64,6 +64,7 @@ import {
   NewCardDialog,
   NewDialog,
   NewTaskDialog,
+  ExportDialog,
   RenameDialog,
   type TaskPlaceChoice,
 } from './dialogs';
@@ -116,6 +117,7 @@ import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { SyncStatus, syncWord } from './SyncViews';
 import { Sidebar } from './Sidebar';
+import type { Exported, ExportFormat } from './exporting';
 import { SearchWindow, type Thing, thingsOf } from './Search';
 import { DueView, dueLabel, FilterView, type TaskActions, TaskList } from './Tasks';
 import type { SpacePeople } from './People';
@@ -123,7 +125,7 @@ import { contentsText, quote } from './text';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { type FileActions, type FileSort, FilesView, fileTitle, Thumb, useIcon, useTitle, useWord } from './Files';
 import { Welcome } from './Welcome';
-import { chooseSpaceFolder, downloadBlob, isDesktop, openUrlOnDesktop, saveTextFile } from './storage';
+import { chooseSpaceFolder, downloadBlob, isDesktop, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
 
 type OpenDialog =
   // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen.
@@ -131,6 +133,7 @@ type OpenDialog =
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
+  | { kind: 'export'; path: string }
   | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void; places?: ConfirmPlace[]; after?: string; brief?: string }
   | { kind: 'removeSpace'; id: string }
   | { kind: 'history'; path: string }
@@ -334,7 +337,7 @@ export function App() {
   const undoable = (text: string, undo: () => void) => setShown({ text, undo });
   useEffect(() => {
     if (!notice) return;
-    const timer = window.setTimeout(() => setShown(null), notice.undo ? 6000 : 4000);
+    const timer = window.setTimeout(() => setShown(null), notice.action ? 10000 : notice.undo ? 6000 : 4000);
     return () => window.clearTimeout(timer);
   }, [notice]);
   const undoNotice = () => {
@@ -764,6 +767,8 @@ export function App() {
       ...(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections
         ? []
         : [{ label: t('menu.history'), icon: 'clock' as const, run: () => history(path) }]),
+      // A note goes out as a PDF, an HTML file or its Markdown.
+      ...(isNote(path) && !(dirname(path) in collections) ? [{ label: t('menu.export'), icon: 'export' as const, run: () => setDialog({ kind: 'export', path }) }] : []),
       // A collection goes out to a CSV file and comes in from one.
       ...(path in collections
         ? [
@@ -981,6 +986,49 @@ export function App() {
   const [dayPicker, setDayPicker] = useState<{ title: string; onPick: (due: string | null) => void } | null>(null);
   // On a phone a section is named in a sheet: a new one from the list's menu, or one renamed.
   const [sectionSheet, setSectionSheet] = useState<{ list: string; section: Section | null } | null>(null);
+
+  // Export (PLAN 4.7): how many files the note links to, for the window's Markdown, once read.
+  const [exportFiles, setExportFiles] = useState<number | null>(null);
+  const exportPath = dialog?.kind === 'export' ? dialog.path : null;
+  useEffect(() => {
+    setExportFiles(null);
+    if (!exportPath) return;
+    let live = true;
+    void session.noteFileCount(exportPath).then((count) => live && setExportFiles(count));
+    return () => {
+      live = false;
+    };
+  }, [exportPath]);
+  /** Makes the file and hands it over: on the desktop app to where it is saved, in a browser to the downloads, on a phone to its share sheet. */
+  const runExport = async (path: string, format: ExportFormat) => {
+    const name = tabTitles[path] ?? basename(path).replace(/\.md$/, '');
+    setDialog(null);
+    setNotice(t('export.making', { name }));
+    try {
+      const { exportNote } = await import('./exporting');
+      const out = await exportNote(await session.exportSource(path), name, format);
+      if (phone) return await shareExported(out);
+      if (await saveFile(out.name, out.blob, out.extension)) setNotice(t('import.exported', { name: out.name }));
+      else setNotice(null);
+    } catch {
+      setNotice(t('export.failed', { name }));
+    }
+  };
+  const shareExported = async (out: Exported) => {
+    const file = new File([out.blob], out.name, { type: out.blob.type });
+    if (!navigator.canShare?.({ files: [file] })) {
+      downloadBlob(out.name, out.blob);
+      return setNotice(t('import.exported', { name: out.name }));
+    }
+    setNotice(null);
+    const share = () => void navigator.share({ files: [file] }).catch(() => undefined);
+    try {
+      await navigator.share({ files: [file] });
+    } catch (error) {
+      // A phone opens its share sheet only right after a tap: a file that took a while to make is offered with Share.
+      if (error instanceof DOMException && error.name === 'NotAllowedError') setShown({ text: t('export.ready', { name: out.name }), action: { label: t('export.share'), run: share } });
+    }
+  };
 
   // Searching everywhere (PLAN 4.2): the window on a computer, the Search tab on a phone. The
   // notes' texts and the attached files are read each time it opens; the rest is what the app has.
@@ -1280,6 +1328,8 @@ export function App() {
         onToTask={startToTask}
         onToCard={startToCard}
         toTaskKeys={keys('T')}
+        onImage={() => session.pickImage()}
+        onFind={() => session.openFind()}
       />
     )}
     <div className="editor" ref={host} hidden={!showingEditor} />
@@ -1803,6 +1853,11 @@ export function App() {
                     {t('notice.undo')}
                   </button>
                 )}
+                {notice.action && (
+                  <button type="button" onClick={notice.action.run}>
+                    {notice.action.label}
+                  </button>
+                )}
               </span>
             )}
             {update && (
@@ -1952,6 +2007,9 @@ export function App() {
           }}
           onClose={closeDialog}
         />
+      )}
+      {dialog?.kind === 'export' && (
+        <ExportDialog name={tabTitles[dialog.path] ?? basename(dialog.path).replace(/\.md$/, '')} files={exportFiles} onPick={(format) => void runExport(dialog.path, format)} onClose={closeDialog} />
       )}
       {dialog?.kind === 'rename' && (
         <RenameDialog
