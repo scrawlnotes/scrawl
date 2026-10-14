@@ -4,6 +4,7 @@ import {
   type Board,
   type Card,
   childrenOf,
+  dayOf,
   dueCards,
   depthOf,
   dirname,
@@ -1625,6 +1626,7 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
   /** Counts the presses of a phone's + button, which open the add row. */
   adding?: number;
 }) {
+  const [showDone, setShowDone] = useState(false);
   const item = ({ list, task }: { list: string; task: Task }) => (
     <TaskItem key={`${list}/${task.id}`} list={list} task={task} tasks={lists[list] ?? []} today={today} showDone={false} actions={actions} flat />
   );
@@ -1648,6 +1650,11 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
     // Cards come after the tasks, under the board they are on.
     const byBoard = new Map<string, { board: string; card: Card }[]>();
     for (const d of [...cards.overdue, ...cards.today]) byBoard.set(d.board, [...(byBoard.get(d.board) ?? []), d]);
+    // What was completed today, from every list, the latest first: found again, and opened again with its box.
+    const finished = Object.entries(lists)
+      .flatMap(([list, tasks]) => tasks.filter((task) => task.done && task.completed && dayOf(new Date(task.completed)) === today).map((task) => ({ list, task })))
+      .sort((a, b) => (a.task.completed! < b.task.completed! ? 1 : -1));
+    const nothingDue = due.overdue.length + due.today.length + byBoard.size === 0;
     return (
       <TaskPage
         title={t('tasks.today')}
@@ -1655,6 +1662,16 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
         onAdd={(title) => actions.add(INBOX_TASKS, { title, due: today })}
         bare={bare}
         adding={adding}
+        footer={
+          finished.length > 0 && (
+            <>
+              <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
+                {t(showDone ? 'tasks.hideCompletedToday' : 'tasks.showCompletedToday', { count: finished.length })}
+              </button>
+              {showDone && finished.map(item)}
+            </>
+          )
+        }
       >
         {section(t('tasks.overdue'), due.overdue)}
         {section(t('tasks.today'), due.today)}
@@ -1666,12 +1683,12 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding }: {
             {dues.map((d) => cardItem(d, true))}
           </div>
         ))}
-        {due.overdue.length + due.today.length + byBoard.size === 0 &&
+        {nothingDue &&
           (isPhone() ? (
             <Empty
               icon="sun"
-              title={t('phone.emptyToday')}
-              text={t('phone.emptyTodayText')}
+              title={t(finished.length > 0 ? 'phone.allDoneToday' : 'phone.emptyToday')}
+              text={t(finished.length > 0 ? 'phone.allDoneTodayText' : 'phone.emptyTodayText')}
               action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, today) }}
             />
           ) : (

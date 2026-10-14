@@ -454,6 +454,13 @@ export function setDone(tasks: Task[], id: string, done: boolean, now: Clock = (
   );
 }
 
+/** Opens again the tasks `ids` names, done ones only: completing them is undone. */
+export function reopenTasks(tasks: Task[], ids: readonly string[], now: Clock = () => new Date()): Task[] {
+  const open = new Set(ids);
+  const stamp = iso(now);
+  return tasks.map((t) => (open.has(t.id) && t.done ? { ...t, done: false, completed: null, updated: stamp } : t));
+}
+
 /** Removes a task together with its subtasks. */
 export function removeTask(tasks: Task[], id: string): Task[] {
   const gone = descendants(tasks, id).add(id);

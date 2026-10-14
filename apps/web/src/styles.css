@@ -1019,7 +1019,17 @@ input:focus {
 }
 
 .status .notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--sl-accent);
+}
+
+.status .notice button {
+  color: var(--sl-fg);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* A new version of the web app is ready: it says so until the user reloads into it. */

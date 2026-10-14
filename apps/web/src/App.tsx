@@ -102,7 +102,7 @@ import { folderLabel as folderLabelOf, setSpaceNames,
   UPCOMING,
 } from './items';
 import { applySize, applyTheme, isPhone, loadMode, loadSize, loadTheme, type Mode, onSystemShade, pageBox, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
-import { Phone } from './Phone';
+import { type Notice, Phone } from './Phone';
 import { PhoneCreate } from './PhoneCreate';
 import { PeopleSheet } from './PhoneSpaces';
 import { Session, type SpaceView } from './session';
@@ -314,13 +314,20 @@ export function App() {
     tabBar.current?.querySelector('.tab.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [active, tabs.length]);
 
-  // Something that happened, shown in the status bar for a moment.
-  const [notice, setNotice] = useState<string | null>(null);
+  // Something that happened, shown in the status bar for a moment, on a phone over the page; with
+  // Undo a little longer.
+  const [notice, setShown] = useState<Notice | null>(null);
+  const setNotice = (text: string | null) => setShown(text === null ? null : { text });
+  const undoable = (text: string, undo: () => void) => setShown({ text, undo });
   useEffect(() => {
     if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 4000);
+    const timer = window.setTimeout(() => setShown(null), notice.undo ? 6000 : 4000);
     return () => window.clearTimeout(timer);
   }, [notice]);
+  const undoNotice = () => {
+    notice?.undo?.();
+    setShown(null);
+  };
 
   useEffect(() => {
     // Coming back to the window: another program may have changed the notes in the meantime.
@@ -811,7 +818,10 @@ export function App() {
   const taskActions: TaskActions = {
     add: (target, input) => session.addTask(target, input),
     update: (target, id, change) => session.updateTask(target, id, change),
-    setDone: (target, id, done) => session.setTaskDone(target, id, done),
+    setDone: (target, id, done) => {
+      if (!done) return session.setTaskDone(target, id, false);
+      undoable(t('tasks.completedNotice'), session.completeTask(target, id));
+    },
     remove: deleteTask,
     menu: (event, items, head) => (phone ? showSheet(items, head) : openMenu(event, items)),
     ...(phone && {
@@ -837,7 +847,11 @@ export function App() {
       return whole && card ? keyOf(whole, card) : null;
     },
     openCard: showCard,
-    finishCard: (board, id, column) => session.finishCard(board, id, column),
+    finishCard: (board, id, column) => {
+      const whole = boards[board];
+      const to = column ?? whole?.columns.find((c) => c.kind === 'done')?.id;
+      undoable(t('board.finishedNotice', { column: whole?.columns.find((c) => c.id === to)?.name ?? '' }), session.finishCard(board, id, column));
+    },
     recordChoices: () =>
       Object.values(collections)
         .filter((c) => isLinkable(c.schema))
@@ -885,7 +899,7 @@ export function App() {
     boards: () => boards,
     tasks: () => tasks,
     addTask: (list, input) => session.addTask(list, input),
-    setTaskDone: (list, id, done) => session.setTaskDone(list, id, done),
+    setTaskDone: (list, id, done) => taskActions.setDone(list, id, done),
     // Made below, with the board's actions, which open records through these.
     get cardActions() {
       return boardActions;
@@ -1148,6 +1162,7 @@ export function App() {
             syncAsked={syncAsked}
             onSyncShown={() => setSyncAsked(false)}
             notice={notice}
+            onUndo={undoNotice}
             update={
               update && (
                 <>
@@ -1471,7 +1486,12 @@ export function App() {
             {(keysText !== undefined || collection) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
             {notice && (
               <span className="notice" role="status">
-                {notice}
+                {notice.text}
+                {notice.undo && (
+                  <button type="button" onClick={undoNotice}>
+                    {t('notice.undo')}
+                  </button>
+                )}
               </span>
             )}
             {update && (

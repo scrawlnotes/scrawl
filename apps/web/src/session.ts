@@ -119,6 +119,7 @@ import {
   removePhase,
   removeSection,
   removeTask,
+  reopenTasks,
   renameColumn,
   renameSection,
   renameItem,
@@ -2051,6 +2052,14 @@ export class Session {
     this.changeTasks(list, (tasks) => setDone(tasks, id, done));
   }
 
+  /** Completes a task with its subtasks; returns what reopens just the ones it completed. */
+  completeTask(list: string, id: string): () => void {
+    const before = new Set((this.snapshot.tasks[list] ?? []).filter((task) => !task.done).map((task) => task.id));
+    this.setTaskDone(list, id, true);
+    const closed = (this.snapshot.tasks[list] ?? []).filter((task) => task.done && before.has(task.id)).map((task) => task.id);
+    return () => this.changeTasks(list, (tasks) => reopenTasks(tasks, closed));
+  }
+
   removeTask(list: string, id: string) {
     this.changeTasks(list, (tasks) => removeTask(tasks, id));
   }
@@ -2186,13 +2195,20 @@ export class Session {
     this.changeBoard(board, (current) => updateCard(current, id, patch));
   }
 
-  /** Moves a card to the end of a done column, the one given or else the first: ticked off from Today. */
-  finishCard(board: string, id: string, column?: string) {
+  /**
+   * Moves a card to the end of a done column, the one given or else the first: ticked off from
+   * Today. Returns what puts it back where it was.
+   */
+  finishCard(board: string, id: string, column?: string): () => void {
+    const whole = this.snapshot.boards[board];
+    const card = whole?.cards.find((c) => c.id === id);
+    const back = card && { column: card.column, after: columnCards(whole!, card.column).filter((c) => c.order < card.order).pop()?.id ?? null };
     this.changeBoard(board, (current) =>
       column
         ? moveCard(current, id, { column, after: columnCards(current, column).filter((c) => c.id !== id).pop()?.id ?? null }, undefined, this.by)
         : moveCardToKind(current, id, 'done', undefined, this.by),
     );
+    return () => back && this.moveCard(board, id, back);
   }
 
   addComment(board: string, id: string, text: string) {

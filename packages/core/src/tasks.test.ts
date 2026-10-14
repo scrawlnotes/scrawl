@@ -29,6 +29,7 @@ import {
   sectionTasks,
   serializeList,
   serializeTasks,
+  reopenTasks,
   setDone,
   type Task,
   type TaskList,
@@ -117,6 +118,15 @@ describe('completing', () => {
   it('reopening a subtask reopens the tasks above it', () => {
     const done = setDone(tree(), 'a', true, now);
     expect(doneIds(setDone(done, 'a1x', false, now))).toEqual(['a2']);
+  });
+
+  it('undoes a completion: the ones it completed open again, one done before stays done', () => {
+    const before = setDone(tree(), 'a2', true, now);
+    const done = setDone(before, 'a', true, now);
+    const closed = done.filter((t) => t.done && !before.find((b) => b.id === t.id)!.done).map((t) => t.id);
+    const undone = reopenTasks(done, closed, now);
+    expect(doneIds(undone)).toEqual(['a2']);
+    expect(undone.find((t) => t.id === 'a')!.completed).toBeNull();
   });
 
   it('counts direct subtasks and open tasks', () => {

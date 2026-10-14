@@ -54,6 +54,12 @@ const RECENT = 5;
 /** How long a finger rests on a row before its menu opens. */
 const HOLD_MS = 450;
 
+/** Something that happened, shown for a moment; `undo` takes it back. */
+export interface Notice {
+  text: string;
+  undo?: () => void;
+}
+
 export interface PhoneProps {
   ready: boolean;
   tabs: string[];
@@ -78,8 +84,9 @@ export interface PhoneProps {
   /** Asks for the personal space's sync page: back from signing in to connect it, its folder is chosen there. */
   syncAsked: boolean;
   onSyncShown: () => void;
-  /** Something that happened, for a moment. */
-  notice: string | null;
+  /** Something that happened, for a moment; with Undo, which `onUndo` does. */
+  notice: Notice | null;
+  onUndo: () => void;
   /** A new version waiting, with its Reload button. */
   update: ReactNode;
   onOpen: (id: string) => void;
@@ -1224,8 +1231,13 @@ export function Phone(props: PhoneProps) {
         <div className="mb-toasts">
           {props.update && <div className="mb-update">{props.update}</div>}
           {props.notice && (
-            <div className="mb-toast" role="status">
-              {props.notice}
+            <div className={props.notice.undo ? 'mb-toast undo' : 'mb-toast'} role="status">
+              <span>{props.notice.text}</span>
+              {props.notice.undo && (
+                <button type="button" onClick={props.onUndo}>
+                  {t('notice.undo')}
+                </button>
+              )}
             </div>
           )}
         </div>

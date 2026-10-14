@@ -503,6 +503,35 @@ html:has(.phone-app) body {
   color: var(--sl-bg);
 }
 
+/* what was done, and Undo beside it */
+.mb-toast.undo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 6px 0 18px;
+  border-radius: 14px;
+}
+
+.mb-toast.undo span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-toast.undo button {
+  min-height: 44px;
+  padding: 0 12px;
+  color: var(--sl-bg);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .mb-update {
   display: flex;
   align-items: center;
