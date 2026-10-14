@@ -573,6 +573,11 @@ export const en = {
   'delete.forever': 'Delete forever',
   'delete.foreverText': '{name} will be deleted for good. This cannot be undone.',
   'delete.foreverWithFiles': '{name} will be deleted for good, with the attached files nothing else uses. This cannot be undone.',
+  'delete.foreverMany': { one: 'Delete {count} item forever?', other: 'Delete {count} items forever?' },
+  'delete.foreverManyText': {
+    one: 'It will be deleted for good, with the attached files nothing else uses. This cannot be undone.',
+    other: 'They will be deleted for good, with the attached files nothing else uses. This cannot be undone.',
+  },
   'delete.empty': 'Empty trash',
   'delete.emptyText': {
     one: 'The item in the trash will be deleted for good, with the attached files nothing else uses. This cannot be undone.',
@@ -590,6 +595,14 @@ export const en = {
   'trash.note':
     'Restore puts an item back where it was. Attached files that no note uses any more are moved here. Nothing here is deleted until you delete it.',
   'trash.nothing': 'The trash is empty.',
+  'trash.select': 'Select',
+  'trash.choose': 'Choose {name}',
+  'trash.chooseGroup': 'Choose all of {name}',
+  'trash.selected': '{count} selected',
+  'trash.selectAll': 'Select all',
+  'trash.deselectAll': 'Deselect all',
+  'trash.letGo': 'Clear the choice',
+  'trash.restoredNotice': { one: '{count} item restored', other: '{count} items restored' },
 
   // history
   'history.title': 'History',

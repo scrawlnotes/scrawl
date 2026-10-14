@@ -114,7 +114,7 @@ import { Sidebar } from './Sidebar';
 import { DueView, dueLabel, FilterView, type TaskActions, TaskList } from './Tasks';
 import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
-import { type TrashSpace, TrashView } from './Trash';
+import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { Welcome } from './Welcome';
 import { chooseSpaceFolder, isDesktop, openUrlOnDesktop, saveTextFile } from './storage';
 
@@ -329,6 +329,18 @@ export function App() {
     setShown(null);
   };
 
+  // Items of the trash chosen together, by path; on a phone while its Select is on. Leaving the
+  // trash lets go of them.
+  const [trashChosen, setTrashChosen] = useState<ReadonlySet<string>>(() => new Set());
+  const [trashChoosing, setTrashChoosing] = useState(false);
+  const letGoOfTrash = () => {
+    setTrashChosen(new Set());
+    setTrashChoosing(false);
+  };
+  useEffect(() => {
+    if (!phone && active !== TRASH) letGoOfTrash();
+  }, [phone, active]);
+
   useEffect(() => {
     // Coming back to the window: another program may have changed the notes in the meantime.
     const onFocus = () => void session.rescan();
@@ -514,6 +526,38 @@ export function App() {
     );
   const askEmptyTrash = () =>
     ask(t('delete.empty'), t('delete.emptyText', { count: trash.length }), () => void session.emptyTrash(), t('delete.empty'));
+  const chosenTrash = trash.filter((item) => trashChosen.has(item.path));
+  const trashChoice: TrashChoice = {
+    chosen: trashChosen,
+    choosing: trashChoosing,
+    onChoose: (paths, on) =>
+      setTrashChosen((was) => {
+        const next = new Set(was);
+        for (const path of paths) {
+          if (on) next.add(path);
+          else next.delete(path);
+        }
+        return next;
+      }),
+    onRestore: () => {
+      if (chosenTrash.length === 0) return;
+      letGoOfTrash();
+      void session.restoreMany(chosenTrash).then((count) => count > 0 && setNotice(t('trash.restoredNotice', { count })));
+    },
+    onDelete: () => {
+      const count = chosenTrash.length;
+      if (count === 0) return;
+      ask(
+        t('delete.foreverMany', { count }),
+        t('delete.foreverManyText', { count }),
+        () => {
+          letGoOfTrash();
+          void session.deleteForeverMany(chosenTrash);
+        },
+        t('delete.forever'),
+      );
+    },
+  };
 
   // The history window restores into the editor, so the note is opened first.
   const showHistory = async (path: string) => {
@@ -1091,6 +1135,7 @@ export function App() {
         items={trash}
         today={today}
         spaces={trashSpaces}
+        choice={trashChoice}
         onRestore={(item) => void session.restore(item)}
         onDelete={deleteForever}
         onEmpty={askEmptyTrash}
@@ -1176,7 +1221,18 @@ export function App() {
             dueView={(kind) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare day={upDay} onDay={setUpcomingDay} />}
             canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null || (keysPathOf(id) !== null && keysLooks[keysPathOf(id)!]?.view !== 'text') || (collectionPathOf(id) !== null && (collections[collectionPathOf(id)!]?.schema.fields.length ?? 0) > 0)}
             onAdd={phoneAdd}
-            trashView={<TrashView items={trash} today={today} spaces={trashSpaces} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
+            trashView={<TrashView items={trash} today={today} spaces={trashSpaces} choice={trashChoice} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
+            trashChoice={{
+              choosing: trashChoosing,
+              count: chosenTrash.length,
+              all: trash.length > 0 && chosenTrash.length === trash.length,
+              any: trash.length > 0,
+              onStart: () => setTrashChoosing(true),
+              onAll: () => setTrashChosen(chosenTrash.length === trash.length ? new Set() : new Set(trash.map((item) => item.path))),
+              onDone: letGoOfTrash,
+              onRestore: trashChoice.onRestore,
+              onDelete: trashChoice.onDelete,
+            }}
             syncWord={syncWord(sync)}
             syncAsked={syncAsked}
             onSyncShown={() => setSyncAsked(false)}

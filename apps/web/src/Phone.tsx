@@ -80,6 +80,20 @@ export interface PhoneProps {
   /** + on what is open, or on Today or Upcoming: a task, typed above the keyboard. */
   onAdd: (id: string) => void;
   trashView: ReactNode;
+  /** The trash's Select: its rows chosen together, and what is done with them. */
+  trashChoice: {
+    choosing: boolean;
+    count: number;
+    /** Every item is chosen. */
+    all: boolean;
+    /** The trash has anything to choose. */
+    any: boolean;
+    onStart: () => void;
+    onAll: () => void;
+    onDone: () => void;
+    onRestore: () => void;
+    onDelete: () => void;
+  };
   /** How sync stands in a word, and whether something keeps it from going on. */
   syncWord: { text: string; bad: boolean };
   /** Asks for the personal space's sync page: back from signing in to connect it, its folder is chosen there. */
@@ -294,15 +308,30 @@ function Row({ icon, label, sub, right, folder, onClick, onHold }: {
  * page offers, Reorder; scrolled, the page's name. The phone's own ✓ above the keyboard puts the
  * keyboard away.
  */
-function NavBar({ back, onBack, title, scrolled, onMenu, action }: {
+function NavBar({ back, onBack, title, scrolled, onMenu, action, choose }: {
   back?: string;
   onBack?: () => void;
   title?: string;
   scrolled: boolean;
   onMenu?: (event: MouseEvent) => void;
   action?: { label: string; run: () => void };
+  /** Rows being chosen: Select all on the left, how many in the middle, Done on the right. */
+  choose?: { count: number; all: boolean; onAll: () => void; onDone: () => void };
 }) {
-  if (!back && !onMenu) return null;
+  if (choose) {
+    return (
+      <div className={scrolled ? 'mb-nav bar' : 'mb-nav'}>
+        <button type="button" className="mb-back plain" onClick={choose.onAll}>
+          <span>{choose.all ? t('trash.deselectAll') : t('trash.selectAll')}</span>
+        </button>
+        <span className="mb-mid">{t('trash.selected', { count: choose.count })}</span>
+        <button type="button" className="mb-done" onClick={choose.onDone}>
+          {t('phone.done')}
+        </button>
+      </div>
+    );
+  }
+  if (!back && !onMenu && !action) return null;
   return (
     <div className={scrolled ? 'mb-nav bar' : 'mb-nav'}>
       {back && (
@@ -435,6 +464,11 @@ export function Phone(props: PhoneProps) {
 
   const stack = stacks[place];
   const top = stack[stack.length - 1]!;
+  // While the trash's rows are chosen, its Restore and Delete take the tab bar's place; leaving it lets go of them.
+  const choosingTrash = top.kind === 'trash' && props.trashChoice.choosing;
+  useEffect(() => {
+    if (top.kind !== 'trash' && props.trashChoice.choosing) props.trashChoice.onDone();
+  }, [top.kind]);
 
   const slideIn = (key: number) => {
     setEntering(key);
@@ -1039,8 +1073,15 @@ export function Phone(props: PhoneProps) {
       );
     }
     if (page.kind === 'trash') {
+      const choice = props.trashChoice;
       return (
-        <PageFrame nav={nav}>
+        <PageFrame
+          nav={
+            choice.choosing
+              ? { choose: { count: choice.count, all: choice.all, onAll: choice.onAll, onDone: choice.onDone } }
+              : { ...nav, ...(choice.any && { action: { label: t('trash.select'), run: choice.onStart } }) }
+          }
+        >
           <div className="mb-legacy">{props.trashView}</div>
         </PageFrame>
       );
@@ -1182,7 +1223,7 @@ export function Phone(props: PhoneProps) {
   return (
     // The phone's own layout fills what the phone shows: with the keyboard up it ends on the keyboard.
     // A card's page has its comment box where the tab bar is.
-    <div className={['mb', keyboard ? 'keyboard' : '', top.kind === 'card' ? 'card-page' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
+    <div className={['mb', keyboard ? 'keyboard' : '', top.kind === 'card' ? 'card-page' : '', choosingTrash ? 'choosing' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
       <div ref={stage} className="mb-stage" onTouchStartCapture={edgeStart} onTouchMoveCapture={edgeMove} onTouchEndCapture={edgeEnd} onTouchCancelCapture={edgeEnd}>
         {shownPages.map((page, index) => {
           const isLeaving = leaving?.page.key === page.key;
@@ -1266,6 +1307,18 @@ export function Phone(props: PhoneProps) {
           />,
           document.body,
         )}
+      {choosingTrash && (
+        <nav className="mb-selbar" aria-label={t('trash.title')}>
+          <button type="button" disabled={props.trashChoice.count === 0} onClick={props.trashChoice.onRestore}>
+            <Icon name="restore" />
+            <span>{t('trash.restore')}</span>
+          </button>
+          <button type="button" className="danger" disabled={props.trashChoice.count === 0} onClick={props.trashChoice.onDelete}>
+            <Icon name="trash" />
+            <span>{t('menu.delete')}</span>
+          </button>
+        </nav>
+      )}
       <nav className="mb-tabbar" aria-label={t('phone.places')}>
         {PLACES.map((each) => (
           <button key={each} type="button" aria-current={each === place ? 'page' : undefined} onClick={() => choose(each)}>

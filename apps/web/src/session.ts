@@ -2415,6 +2415,33 @@ export class Session {
     await this.refreshTree();
   }
 
+  /**
+   * Puts items of the trash back where they were, one after another. One already gone (a note
+   * restored before it took its files along) is passed over. Returns how many came back.
+   */
+  async restoreMany(items: TrashItem[]): Promise<number> {
+    let restored = 0;
+    for (const item of items) {
+      try {
+        await restoreFromTrash(...this.trashAt(item));
+        restored++;
+      } catch {
+        // Gone from the trash meanwhile.
+      }
+    }
+    await this.refreshTree();
+    return restored;
+  }
+
+  /** Deletes items of the trash for good, one after another; one already gone is passed over. */
+  async deleteForeverMany(items: TrashItem[]) {
+    for (const item of items) {
+      const [fs, local] = this.trashAt(item);
+      await deleteFromTrash(fs, local, this.openTexts(spaceOf(item.from))).catch(() => undefined);
+    }
+    await this.refreshTree();
+  }
+
   /** A note, a task list or a board changed its path: its tab and its editing state follow it. */
   private async repath(path: string, target: string) {
     const state = this.states.get(path);

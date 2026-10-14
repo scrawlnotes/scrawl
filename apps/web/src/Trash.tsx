@@ -1,6 +1,7 @@
 import { addDays, dayOf, spaceOf, type TrashItem } from '@scrawlnotes/core';
 import { sizeText } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
+import { ChooseBox, groupState, useLetGo } from './choose';
 import { placeLabel, trailOf } from './items';
 import { isPhone } from './device';
 import { Icon, type IconName } from './Icon';
@@ -21,6 +22,19 @@ export interface TrashSpace {
 }
 
 /**
+ * The items of the trash chosen together, by path, and what is done with them. On a computer
+ * rows are chosen while any is; on a phone while Select is on.
+ */
+export interface TrashChoice {
+  chosen: ReadonlySet<string>;
+  /** A phone's Select is on: a tap on a row chooses it. */
+  choosing: boolean;
+  onChoose: (paths: string[], on: boolean) => void;
+  onRestore: () => void;
+  onDelete: () => void;
+}
+
+/**
  * When an item was deleted, under a space's heading where no day heads the rows: the day, and
  * the time when it was today or yesterday: `Today, 11:35`, `Oct 1`.
  */
@@ -32,9 +46,20 @@ function whenOf(item: TrashItem, today: string): string {
 
 /**
  * A row of the trash. Under a day's heading it tells the folder with its space and the time; under
- * a space's heading the folder in the space and when.
+ * a space's heading the folder in the space and when. Its box at the left chooses it; while rows
+ * are chosen, a click anywhere on it does.
  */
-function TrashRow({ item, today, bySpace, onRestore, onDelete }: { item: TrashItem; today: string; bySpace: boolean; onRestore: () => void; onDelete: () => void }) {
+function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onRestore, onDelete }: {
+  item: TrashItem;
+  today: string;
+  bySpace: boolean;
+  chosen: boolean;
+  /** Rows are being chosen: each shows its box, and a click on one chooses it. */
+  choosing: boolean;
+  onChoose: (on: boolean) => void;
+  onRestore: () => void;
+  onDelete: () => void;
+}) {
   // An attached file goes back to the attachments, which is no place to name.
   const file = item.kind === 'attachment';
   const place = file ? '' : bySpace ? trailOf(item.from) : placeLabel(item.from);
@@ -51,7 +76,8 @@ function TrashRow({ item, today, bySpace, onRestore, onDelete }: { item: TrashIt
   ].filter(Boolean);
   const restore = file ? t('trash.restore') : t('trash.restoreTo', { place: place || t('trash.topLevel') });
   return (
-    <div className="trow">
+    <div className={`trow choosable${chosen ? ' chosen' : ''}`} onClick={choosing ? () => onChoose(!chosen) : undefined}>
+      <ChooseBox state={chosen} label={t('trash.choose', { name: item.title })} onChange={onChoose} />
       <Icon name={iconOf(item)} />
       <div className="task-body">
         <span className="trow-title">{item.title}</span>
@@ -61,14 +87,16 @@ function TrashRow({ item, today, bySpace, onRestore, onDelete }: { item: TrashIt
           ))}
         </div>
       </div>
-      <div className="task-actions">
-        <button type="button" title={restore} aria-label={restore} onClick={onRestore}>
-          <Icon name="restore" />
-        </button>
-        <button type="button" title={t('delete.forever')} aria-label={t('delete.forever')} onClick={onDelete}>
-          <Icon name="trash" />
-        </button>
-      </div>
+      {!choosing && (
+        <div className="task-actions">
+          <button type="button" title={restore} aria-label={restore} onClick={onRestore}>
+            <Icon name="restore" />
+          </button>
+          <button type="button" title={t('delete.forever')} aria-label={t('delete.forever')} onClick={onDelete}>
+            <Icon name="trash" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -76,17 +104,26 @@ function TrashRow({ item, today, bySpace, onRestore, onDelete }: { item: TrashIt
 /**
  * The trash: what was deleted, by the day it was, with a way back for each item. With more than
  * one space, after the Spaces trash view of design/mockups.html: one screen still, each space's
- * deleted items under its own heading, in the sidebar's order.
+ * deleted items under its own heading, in the sidebar's order. Rows are chosen together after the
+ * Trash select view: on a computer the bar over them takes the heading's place.
  */
-export function TrashView({ items, today, spaces = [], onRestore, onDelete, onEmpty }: {
+export function TrashView({ items, today, spaces = [], choice, onRestore, onDelete, onEmpty }: {
   items: TrashItem[];
   today: string;
   /** Every space, the personal one first; with more than one the trash goes by space. */
   spaces?: TrashSpace[];
+  choice: TrashChoice;
   onRestore: (item: TrashItem) => void;
   onDelete: (item: TrashItem) => void;
   onEmpty: () => void;
 }) {
+  const phone = isPhone();
+  const { chosen } = choice;
+  const count = items.filter((item) => chosen.has(item.path)).length;
+  // On a computer, choosing one row is choosing: every row shows its box.
+  const choosing = phone ? choice.choosing : count > 0;
+  const every = items.map((item) => item.path);
+  useLetGo(!phone && count > 0, () => choice.onChoose(every, false));
   const bySpace = spaces.length > 1;
   const spaceGroups = bySpace
     ? spaces.map((space) => ({ space, items: items.filter((item) => spaceOf(item.path) === space.id) })).filter((group) => group.items.length > 0)
@@ -99,44 +136,93 @@ export function TrashView({ items, today, spaces = [], onRestore, onDelete, onEm
     if (last?.day === day) last.items.push(item);
     else days.push({ day, items: [item] });
   }
-  const phone = isPhone();
+  const rows = (group: TrashItem[], bySpaceRows: boolean) =>
+    group.map((item) => (
+      <TrashRow
+        key={item.path}
+        item={item}
+        today={today}
+        bySpace={bySpaceRows}
+        chosen={chosen.has(item.path)}
+        choosing={choosing}
+        onChoose={(on) => choice.onChoose([item.path], on)}
+        onRestore={() => onRestore(item)}
+        onDelete={() => onDelete(item)}
+      />
+    ));
+  // A group's heading has a box for all of its rows while rows are chosen on a computer.
+  const groupBox = (group: TrashItem[], name: string) =>
+    choosing && !phone ? (
+      <ChooseBox
+        state={groupState(
+          group.map((item) => item.path),
+          chosen,
+        )}
+        label={t('trash.chooseGroup', { name })}
+        onChange={(on) =>
+          choice.onChoose(
+            group.map((item) => item.path),
+            on,
+          )
+        }
+      />
+    ) : null;
+  const allChosen = count === items.length;
   return (
     <section className={phone ? 'tasks mb-tasks' : 'tasks'}>
-      {/* On a phone the page's large title. */}
-      <header className={phone ? 'mb-head mb-trash-head' : 'th'}>
-        {phone ? <h1>{t('trash.title')}</h1> : <b>{t('trash.title')}</b>}
-        {items.length > 0 && <span>{t('count.items', { count: items.length })}</span>}
-        {items.length > 0 && (
-          <button type="button" className="ghost" onClick={onEmpty}>
-            {t('trash.empty')}
+      {/* On a phone the page's large title; Select and its bars are the page's own. */}
+      {!phone && count > 0 ? (
+        <header className="th chosen-bar">
+          <button type="button" className="let-go" title={t('trash.letGo')} aria-label={t('trash.letGo')} onClick={() => choice.onChoose(every, false)}>
+            <Icon name="close" />
           </button>
-        )}
-      </header>
-      <div className="tl">
+          <b>{t('trash.selected', { count })}</b>
+          <button type="button" className="ghost push" onClick={() => choice.onChoose(every, !allChosen)}>
+            {allChosen ? t('trash.deselectAll') : t('trash.selectAll')}
+          </button>
+          <button type="button" className="ghost" onClick={choice.onRestore}>
+            <Icon name="restore" />
+            {t('trash.restore')}
+          </button>
+          <button type="button" className="ghost danger" onClick={choice.onDelete}>
+            <Icon name="trash" />
+            {t('delete.forever')}
+          </button>
+        </header>
+      ) : (
+        <header className={phone ? 'mb-head mb-trash-head' : 'th'}>
+          {phone ? <h1>{t('trash.title')}</h1> : <b>{t('trash.title')}</b>}
+          {items.length > 0 && <span>{t('count.items', { count: items.length })}</span>}
+          {items.length > 0 && !choosing && (
+            <button type="button" className="ghost" onClick={onEmpty}>
+              {t('trash.empty')}
+            </button>
+          )}
+        </header>
+      )}
+      <div className={`tl${choosing ? ' choosing' : ''}`}>
         {bySpace
           ? spaceGroups.map(({ space, items: spaceItems }) => (
               <div key={space.id ?? ''}>
                 <div className="sec spc">
+                  {groupBox(spaceItems, space.name)}
                   <Icon name="space" />
                   {space.name} <small>{spaceItems.length}</small>
                 </div>
-                {spaceItems.map((item) => (
-                  <TrashRow key={item.path} item={item} today={today} bySpace onRestore={() => onRestore(item)} onDelete={() => onDelete(item)} />
-                ))}
+                {rows(spaceItems, true)}
               </div>
             ))
           : days.map(({ day, items: dayItems }) => (
               <div key={day}>
                 <div className="sec">
+                  {groupBox(dayItems, pastDayLabel(day, today))}
                   {pastDayLabel(day, today)} <small>{dayItems.length}</small>
                 </div>
-                {dayItems.map((item) => (
-                  <TrashRow key={item.path} item={item} today={today} bySpace={false} onRestore={() => onRestore(item)} onDelete={() => onDelete(item)} />
-                ))}
+                {rows(dayItems, false)}
               </div>
             ))}
         {items.length > 0 ? (
-          <p className="trash-note">{t('trash.note')}</p>
+          !choosing && <p className="trash-note">{t('trash.note')}</p>
         ) : isPhone() ? (
           <Empty icon="trash" title={t('phone.emptyTrash')} text={t('phone.emptyTrashText')} />
         ) : (

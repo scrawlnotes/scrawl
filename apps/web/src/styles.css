@@ -2425,6 +2425,125 @@ button.cb:hover::after {
   font-size: 12px;
 }
 
+/* Rows chosen together, after the Trash select view of design/mockups.html: a row's box comes on
+   hover, and once one is chosen every row has one and the bar over them takes the heading's place. */
+.choose {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1.5px solid var(--sl-faint);
+  border-radius: 3.5px;
+  background: none;
+  cursor: pointer;
+}
+
+.choose:hover {
+  border-color: var(--sl-dim);
+}
+
+.choose.on,
+.choose.some {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+}
+
+.choose.on::after {
+  content: '';
+  width: 7px;
+  height: 3.5px;
+  margin-top: -2px;
+  border: solid var(--sl-bg);
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg);
+}
+
+.choose.some::after {
+  content: '';
+  width: 7px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--sl-bg);
+}
+
+.trow.choosable {
+  grid-template-columns: 14px 18px minmax(0, 1fr) auto;
+}
+
+.trow.choosable .choose {
+  opacity: 0;
+}
+
+.trow.choosable:hover .choose,
+.trow.choosable .choose:focus-visible,
+.tl.choosing .trow .choose {
+  opacity: 1;
+}
+
+.tl.choosing .trow {
+  cursor: pointer;
+}
+
+.trow.chosen,
+.trow.chosen:hover {
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--sl-sel) 70%, transparent);
+}
+
+.sec .choose {
+  align-self: center;
+  margin-right: 2px;
+}
+
+.th.chosen-bar {
+  padding-top: 14px;
+  padding-bottom: 10px;
+}
+
+.th.chosen-bar b {
+  margin-right: 0;
+  font-size: 15px;
+}
+
+.th.chosen-bar .ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.th.chosen-bar .ghost .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.th.chosen-bar .ghost.danger {
+  border-color: color-mix(in srgb, var(--sl-danger, #e5484d) 60%, transparent);
+  color: var(--sl-danger, #e5484d);
+}
+
+.th .let-go {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: -6px;
+  border-radius: 4px;
+  color: var(--sl-dim);
+}
+
+.th .let-go:hover {
+  background: var(--sl-side);
+  color: var(--sl-fg);
+}
+
+.th .let-go .icon {
+  width: 14px;
+  height: 14px;
+}
+
 /* A narrow window or a phone, after the Phone view of design/mockups.html (direction A): the
    sidebar becomes a drawer, opened by the button left of the tabs; the line numbers make room
    for the text; the lists have narrower margins. */

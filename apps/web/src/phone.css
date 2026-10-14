@@ -2947,6 +2947,101 @@ body > .mb-lifted {
   font-size: 15px;
 }
 
+/* Select in the trash, after the Phone files more view of design/mockups.html: a circle on each
+   row, a tap chooses it; Select all, how many and Done in the bar; Restore and Delete in the tab
+   bar's place. */
+/* The trash's rows line up with its title, 16 px in. */
+.mb .trow {
+  margin: 0;
+  padding: 8px 16px;
+}
+
+.mb .trow .choose {
+  display: none;
+}
+
+.mb .tl:not(.choosing) .trow.choosable {
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+}
+
+.mb .tl.choosing .trow {
+  grid-template-columns: 24px 18px minmax(0, 1fr);
+  gap: 0 12px;
+  min-height: 56px;
+}
+
+.mb .tl.choosing .trow .choose {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  opacity: 1;
+}
+
+.mb .tl.choosing .trow .choose.on::after {
+  width: 10px;
+  height: 5px;
+  margin-top: -3px;
+  border-width: 0 0 2.2px 2.2px;
+}
+
+.mb .trow.chosen {
+  border-radius: 0;
+  background: color-mix(in srgb, var(--sl-sel) 45%, transparent);
+}
+
+.mb-back.plain {
+  padding-left: 10px;
+}
+
+.mb.choosing .mb-tabbar {
+  display: none;
+}
+
+.mb-selbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-around;
+  height: var(--ph-bar);
+  padding-bottom: max(env(safe-area-inset-bottom) - 14px, 0px);
+  box-sizing: border-box;
+  border-top: 1px solid var(--sl-line);
+  background: color-mix(in srgb, var(--sl-bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.mb-selbar button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  min-width: 96px;
+  padding-top: 7px;
+  color: var(--sl-accent);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.mb-selbar button.danger {
+  color: var(--sl-danger, #e5484d);
+}
+
+.mb-selbar button:disabled {
+  opacity: 0.4;
+}
+
+.mb .mb-selbar .icon {
+  width: 26px;
+  height: 26px;
+  stroke-width: 1.6;
+}
+
 /* ---------- a board: its phases, its columns as tabs, one column at a time ---------- */
 
 .mb .mb-bv {
