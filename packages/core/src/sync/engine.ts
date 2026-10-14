@@ -116,6 +116,15 @@ const moment = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d
 const safeName = (name: string) => name.replace(/[\\/:*?"<>|]/g, '-').trim() || 'another device';
 const isUnder = (key: string, dir: string) => key.startsWith(`${dir}/`);
 
+/**
+ * Where another version of a file goes beside it, made on `device` at `at`: `Plan (conflict,
+ * Kaan's laptop, 2026-10-07 1432).md`, or with a number after it when `taken` has that path.
+ */
+export function conflictPath(path: string, device: string, at: Date, taken: ReadonlySet<string>): string {
+  const [name, ext] = splitName(basename(path));
+  return freePath(dirname(path), `${name} (conflict, ${safeName(device)}, ${moment(at)})`, ext, taken);
+}
+
 class Turn {
   readonly report: SyncReport = { uploaded: [], downloaded: [], merged: [], conflicts: [], moved: [], followed: [], removedHere: [], removedThere: [], skipped: [], refused: [] };
   private local = { files: new Map<string, Entry>(), dirs: new Map<string, string>() };
@@ -509,7 +518,7 @@ class Turn {
    */
   private async conflictCopy(path: string, data: Blob): Promise<boolean> {
     const dir = dirname(path);
-    const [name, ext] = splitName(basename(path));
+    const [name] = splitName(basename(path));
     const hash = await sha256(data);
     const siblings = await this.fs.list(dir);
     for (const sibling of siblings) {
@@ -517,7 +526,7 @@ class Turn {
       if ((await sha256(await this.fs.readBlob(sibling.path))) === hash) return true;
     }
     const taken = new Set(siblings.map((s) => s.path.toLowerCase()));
-    const copy = freePath(dir, `${name} (conflict, ${safeName(this.device.name)}, ${moment(this.now())})`, ext, taken);
+    const copy = conflictPath(path, this.device.name, this.now(), taken);
     let sent = false;
     await this.attempt(copy, async () => {
       const file = await this.remote.write(copy, data, null);

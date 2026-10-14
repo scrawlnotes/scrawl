@@ -1,4 +1,4 @@
-import { diff3Merge } from 'node-diff3';
+import { diffIndices } from 'node-diff3';
 import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from '../board';
 import { parseFilters, serializeFilters, type TaskFilter } from '../filters';
 import { KEYS_EXT } from '../keys';
@@ -36,13 +36,108 @@ export interface Merged {
   clean: boolean;
 }
 
-/** Lines of a note from three versions; where both sides changed the same lines, the merge is not clean. */
+/**
+ * Lines of a note from three versions. Changes on different lines are both taken, also on lines
+ * next to each other. Where both sides changed the same lines, the words are merged; lines both
+ * sides added at the same place are all kept, what came from the other side first. Where both
+ * changed the same words, the merge is not clean.
+ */
 export function mergeText(base: string, local: string, remote: string): Merged {
   if (local === remote || remote === base) return { text: local, clean: true };
   if (local === base) return { text: remote, clean: true };
-  const regions = diff3Merge(local.split('\n'), base.split('\n'), remote.split('\n'), { excludeFalseConflicts: true });
-  if (regions.some((region) => region.conflict)) return { text: local, clean: false };
-  return { text: regions.flatMap((region) => region.ok ?? []).join('\n'), clean: true };
+  // Without a base to go on, as on a first sync, two whole notes would be put one after the other.
+  const lines = mergeSequence(base.split('\n'), local.split('\n'), remote.split('\n'), {
+    bothAdded: base.trim() === '' ? undefined : keepBoth,
+    clash: (was, mine, theirs) => {
+      const words = mergeSequence(wordsOf(was.join('\n')), wordsOf(mine.join('\n')), wordsOf(theirs.join('\n')), {});
+      return words && words.join('').split('\n');
+    },
+  });
+  return lines ? { text: lines.join('\n'), clean: true } : { text: local, clean: false };
+}
+
+/** A text as words and the spaces between them, which joined make the text again. */
+const wordsOf = (text: string) => text.split(/(\s+)/).filter((part) => part !== '');
+
+const sameItems = <T>(a: readonly T[], b: readonly T[], at = 0) => b.every((item, i) => a[at + i] === item);
+
+/**
+ * Lines both sides added at the same place: one side's alone when it has the other's in it, at
+ * its start or its end (the other side has what was sent from here, and more); else the other
+ * side's first, then this one's.
+ */
+function keepBoth<T>(mine: T[], theirs: T[]): T[] {
+  if (mine.length >= theirs.length && (sameItems(mine, theirs) || sameItems(mine, theirs, mine.length - theirs.length))) return mine;
+  if (theirs.length > mine.length && (sameItems(theirs, mine) || sameItems(theirs, mine, theirs.length - mine.length))) return theirs;
+  return [...theirs, ...mine];
+}
+
+/** A change one side made to a base: what is from `start` up to `end` there becomes `items`. */
+interface Hunk<T> {
+  start: number;
+  end: number;
+  items: T[];
+  mine: boolean;
+}
+
+/**
+ * Three versions of a sequence merged: the changes of both sides from the base, where they do not
+ * touch the same items. Two changes clash when they change the same items of the base, or when
+ * both add at the same place; `bothAdded` settles the second, `clash` either; null when one is
+ * not settled.
+ */
+function mergeSequence<T>(
+  base: T[],
+  mine: T[],
+  theirs: T[],
+  settle: { bothAdded?: (mine: T[], theirs: T[]) => T[]; clash?: (base: T[], mine: T[], theirs: T[]) => T[] | null },
+): T[] | null {
+  const hunks = (to: T[], isMine: boolean): Hunk<T>[] =>
+    diffIndices(base, to).map((d) => ({ start: d.buffer1[0], end: d.buffer1[0] + d.buffer1[1], items: d.buffer2Content, mine: isMine }));
+  const all = [...hunks(mine, true), ...hunks(theirs, false)].sort((a, b) => a.start - b.start || a.end - b.end);
+  // A change that added at a place clashes with one that added there too, or that changed items around it.
+  const clash = (a: Hunk<T>, b: Hunk<T>) => (a.start === a.end && b.start === b.end ? a.start === b.start : a.start < b.end && b.start < a.end);
+  const out: T[] = [];
+  let at = 0;
+  for (let i = 0; i < all.length; ) {
+    // The changes that clash with one another, one after the other.
+    const group = [all[i]!];
+    let end = all[i]!.end;
+    for (i++; i < all.length && group.some((h) => clash(h, all[i]!)); i++) {
+      group.push(all[i]!);
+      end = Math.max(end, all[i]!.end);
+    }
+    const start = group[0]!.start;
+    out.push(...base.slice(at, start));
+    at = end;
+    const mineOnes = group.filter((h) => h.mine);
+    const theirOnes = group.filter((h) => !h.mine);
+    // One side's alone, or the same change on both.
+    const applied = (side: Hunk<T>[]) => {
+      const items: T[] = [];
+      let from = start;
+      for (const h of side) {
+        items.push(...base.slice(from, h.start), ...h.items);
+        from = h.end;
+      }
+      return [...items, ...base.slice(from, end)];
+    };
+    if (mineOnes.length === 0 || theirOnes.length === 0) {
+      out.push(...applied(group));
+      continue;
+    }
+    const [ours, others] = [applied(mineOnes), applied(theirOnes)];
+    if (sameItems(ours, others) && ours.length === others.length) {
+      out.push(...ours);
+      continue;
+    }
+    const added = start === end && settle.bothAdded;
+    const settled = added ? settle.bothAdded!(ours, others) : (settle.clash?.(base.slice(start, end), ours, others) ?? null);
+    if (!settled) return null;
+    out.push(...settled);
+  }
+  out.push(...base.slice(at));
+  return out;
 }
 
 const byId = <T extends { id: string }>(record: T) => record.id;

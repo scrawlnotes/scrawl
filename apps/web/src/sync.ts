@@ -17,6 +17,7 @@ import {
 import { t } from '@scrawlnotes/i18n';
 import { type Cloud, oneDrive, type SignInIntent, type SignInResult, takeSignInResult } from './cloud';
 import type { Session, SpaceView } from './session';
+import { isPhone } from './device';
 import { isDesktop, vaultFolder } from './storage';
 
 // Sync of the spaces with folders of the user's cloud drive: when a turn runs, what the app shows
@@ -26,8 +27,11 @@ import { isDesktop, vaultFolder } from './storage';
 // folder from the moment it is added, which the device's list of spaces says. See
 // design/cloud.md, sections 3, 6 and 7.
 
-/** A turn after a save comes this long after it, so that typing on does not start one each time. */
-const AFTER_SAVE_MS = 5000;
+/**
+ * A turn after a save comes this long after it, so that typing on does not start one each time.
+ * Sooner on a phone, which is put away soon after something is jotted down.
+ */
+const afterSaveMs = () => (isPhone() ? 1500 : 5000);
 /** While the app is open and on screen, a turn this often. */
 const EVERY_MS = 30_000;
 /** How often a turn's progress is shown at most; the engine tells it far more often. */
@@ -274,6 +278,7 @@ export class SyncService {
     // Turns wait for this device's id; the spaces opened meanwhile begin once it is known.
     void loadDevice().then((device) => {
       this.set({ device });
+      this.session.deviceName = device.name;
       this.syncNow();
     });
     let wasSaved = true;
@@ -290,9 +295,21 @@ export class SyncService {
     onSession();
     const onFocus = () => this.syncNow();
     const onOnline = () => this.syncNow();
+    // Put away, what was typed goes at once: a phone stops the page soon after, and what is left
+    // here would meet what is typed meanwhile on another device. Back on screen, what came from
+    // there comes before more is typed. A phone tells neither with focus.
+    const onVisibility = () => this.syncNow();
+    const onShow = (event: PageTransitionEvent) => event.persisted && this.syncNow();
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
-    this.stops.push(() => window.removeEventListener('focus', onFocus), () => window.removeEventListener('online', onOnline));
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pageshow', onShow);
+    this.stops.push(
+      () => window.removeEventListener('focus', onFocus),
+      () => window.removeEventListener('online', onOnline),
+      () => document.removeEventListener('visibilitychange', onVisibility),
+      () => window.removeEventListener('pageshow', onShow),
+    );
     this.every = window.setInterval(() => {
       if (document.visibilityState === 'visible') this.syncNow();
     }, EVERY_MS);
@@ -404,7 +421,7 @@ export class SyncService {
 
   private soon() {
     window.clearTimeout(this.afterSave);
-    this.afterSave = window.setTimeout(() => this.syncNow(), AFTER_SAVE_MS);
+    this.afterSave = window.setTimeout(() => this.syncNow(), afterSaveMs());
   }
 
   /** A turn now, of one space or of every one; while one runs, another right after it. */

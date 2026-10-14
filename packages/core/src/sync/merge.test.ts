@@ -46,6 +46,40 @@ describe('merging a note', () => {
   it('takes a change both sides made alike as one', () => {
     expect(mergeText(base, 'one\nTWO\nthree\nfour\nfive', 'one\nTWO\nthree\nfour\nfive').clean).toBe(true);
   });
+
+  it('takes changes made on lines next to each other from both sides', () => {
+    expect(mergeText(base, 'one\nTWO\nthree\nfour\nfive', 'one\ntwo\nTHREE\nfour\nfive')).toEqual({ text: 'one\nTWO\nTHREE\nfour\nfive', clean: true });
+    expect(mergeText(base, 'one\nTWO\nthree\nfour\nfive', 'one\ntwo\nadded\nthree\nfour\nfive')).toEqual({ text: 'one\nTWO\nadded\nthree\nfour\nfive', clean: true });
+  });
+
+  it('keeps the lines both sides added at the same place, the other side’s first', () => {
+    const notes = 'groceries\nmilk\n';
+    expect(mergeText(notes, 'groceries\nmilk\nbread\n', 'groceries\nmilk\neggs\n')).toEqual({ text: 'groceries\nmilk\neggs\nbread\n', clean: true });
+    expect(mergeText(notes, 'top\ngroceries\nmilk\n', 'call Lena\ngroceries\nmilk\n')).toEqual({ text: 'call Lena\ntop\ngroceries\nmilk\n', clean: true });
+  });
+
+  it('adds nothing twice when the other side has what was added here, and more', () => {
+    const notes = 'groceries\nmilk\n';
+    // What was sent from here got there, and more was typed here since.
+    expect(mergeText(notes, 'groceries\nmilk\nbread\neggs\n', 'groceries\nmilk\nbread\n')).toEqual({ text: 'groceries\nmilk\nbread\neggs\n', clean: true });
+    expect(mergeText(notes, 'groceries\nmilk\nbread\n', 'groceries\nmilk\nbread\neggs\n')).toEqual({ text: 'groceries\nmilk\nbread\neggs\n', clean: true });
+  });
+
+  it('merges the words of a line both sides changed in different places', () => {
+    const line = 'Call the bank about the card on Monday';
+    expect(mergeText(line, 'Call the bank about the new card on Monday', 'Call the bank about the card on Tuesday')).toEqual({
+      text: 'Call the bank about the new card on Tuesday',
+      clean: true,
+    });
+  });
+
+  it('is not clean when both sides changed the same words', () => {
+    expect(mergeText('Meet at five', 'Meet at six', 'Meet at seven').clean).toBe(false);
+  });
+
+  it('puts two whole notes side by side only as a conflict, with no base to go on', () => {
+    expect(mergeText('', 'from the laptop\nmore', 'from the phone\nmore').clean).toBe(false);
+  });
 });
 
 describe('merging a task list', () => {

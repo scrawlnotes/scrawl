@@ -105,8 +105,10 @@ Bunun için `VaultFs`'in listesine dosyaların değişme zamanı eklenir (`Entry
 ## 5. İkisi birden değiştiyse
 
 **Notlar (`.md`):** satır bazında 3-yollu birleştirme.
-- Değişiklikler farklı yerlerdeyse birleşir; sonuç iki tarafa da yazılır.
-- Aynı yerde farklı değişiklik varsa not **bu cihazdaki haliyle kalır** (editördeki yazı kaymaz), diğer cihazın hali yanına bir çakışma kopyası olarak konur: `Plan (conflict, Kaan's laptop, 2026-10-07 1432).md`. Addaki cihaz, çakışmayı bulan ve kopyayı yapan bu cihazdır; kopyanın içindeki metin öbür taraftan gelendir (bir not, onu hangi cihazın yazdığını taşımaz). Notun içine `<<<<<<<` gibi işaretler yazılmaz.
+- Değişiklikler farklı satırlardaysa birleşir, satırlar yan yana olsa da; sonuç iki tarafa da yazılır.
+- İki taraf da aynı yere satır eklediyse ikisi de kalır: önce öbür taraftan gelen, sonra bu cihazınki. Bir tarafın eklediği öbürünün eklediğinin başında ya da sonunda zaten varsa (buradan gönderilen gitmiş, yanıtı gelmemiş, üstüne yazılmış) yalnız uzun olan kalır, hiçbir satır iki kez yazılmaz. Taban boşsa (ilk sync) bu kural uygulanmaz; iki bütün not alt alta konmaz.
+- İki taraf aynı satırları değiştirdiyse o satırlarda kelime kelime birleştirilir; farklı kelimelerdeki değişiklikler ikisi de alınır.
+- Aynı kelimelerde farklı değişiklik varsa not **bu cihazdaki haliyle kalır** (editördeki yazı kaymaz), diğer cihazın hali yanına bir çakışma kopyası olarak konur: `Plan (conflict, Kaan's laptop, 2026-10-07 1432).md`. Addaki cihaz, çakışmayı bulan ve kopyayı yapan bu cihazdır; kopyanın içindeki metin öbür taraftan gelendir (bir not, onu hangi cihazın yazdığını taşımaz). Notun içine `<<<<<<<` gibi işaretler yazılmaz.
 - Bu, yalnızca çakışmayı ilk çözen cihaz için geçerlidir: öbür cihaz bir sonraki turda ana dosyanın yeni halini indirir ve kendi metnini çakışma kopyasında bulur. Tek kullanıcı için makul, çünkü başında oturulan cihaz odaklanınca ve 30 saniyede bir eşitlendiğinden çakışmayı çözen genellikle odur.
 
 **İşlem sırası.** Birleştirmenin sonucu önce uzağa yüklenir (`ifMatch` ile); yükleme başarılıysa yerele yazılır ve çakışma kopyası oluşturulur. Yükleme araya giren bir değişikliğe takılırsa bu turda yerelde hiçbir şey değişmez, dosya sonraki turda yeni uzak hale göre yeniden değerlendirilir. Tersi sırada iki cihaz aynı çakışmayı aynı anda çözerdi, biri yüklemeyi kaybeder, sonraki turda aynı çakışmayı yeniden görür ve ikinci bir çakışma kopyası daha üretirdi. Yine de özeti var olan bir çakışma kopyasına eşit olan yeni bir kopya hiç oluşturulmaz.
@@ -147,9 +149,10 @@ PLAN'daki güvenlik ağı: sync'in sildiği her şey önce çöpe gider.
 ## 7. Ne zaman çalışır
 
 - Uygulama açılınca.
-- Bir kayıttan 5 saniye sonra.
+- Bir kayıttan 5 saniye sonra; telefonda 1,5 saniye sonra, çünkü telefon bir şey yazıldıktan hemen sonra kapatılır.
 - Açıkken 30 saniyede bir (OneDrive'ın değişiklik listesi ucuzdur).
 - Pencereye dönülünce.
+- Uygulama arka plana geçince (yazılan beklemeden gönderilir; telefon sayfayı az sonra durdurur) ve geri gelince (öbür cihazdan gelen, üstüne yazılmadan önce gelir). Telefon bunları focus ile söylemez.
 - Aynı space için aynı anda tek tur çalışır.
 
 ## 8. Testler (sahte uzak depoyla)

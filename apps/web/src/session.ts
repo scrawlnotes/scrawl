@@ -97,6 +97,7 @@ import {
   moveTaskToList,
   mergeFile,
   mergeText,
+  conflictPath,
   type NewCard,
   type PhasePatch,
   relinkBoard,
@@ -431,6 +432,8 @@ export class Session {
    * bar to fall back on, and what was open before is a page away.
    */
   neighborOnClose = true;
+  /** This device's name, which a conflict copy made here carries; sync tells it. */
+  deviceName = '';
   /** The text of each open note as it was last read from or written to the vault. */
   private readonly disk = new Map<string, string>();
   /** What each task list, board and keys file held when it was last read or written here, to tell what changed there since. */
@@ -813,7 +816,12 @@ export class Session {
             if (merged.clean) {
               text = merged.text;
               this.showMerged(path, doc, text);
-            } else await this.keep(path, disk, true);
+            } else {
+              await this.keep(path, disk, true);
+              // What was typed is written; what came from elsewhere goes beside it, as sync puts
+              // it, for every device to find.
+              await this.conflictCopy(path, disk);
+            }
           }
         }
         // What the file held before this save is kept as a version, at most every ten minutes.
@@ -827,6 +835,13 @@ export class Session {
     this.markSaved();
     void this.trashUnlinkedFiles();
   };
+
+  /** Another version of a note, beside it: `Plan (conflict, iPhone, 2026-10-14 0932).md`. */
+  private async conflictCopy(path: string, text: string) {
+    const siblings = await this.fs.list(dirname(path)).catch(() => []);
+    const copy = conflictPath(path, this.deviceName, new Date(), new Set(siblings.map((s) => s.path.toLowerCase())));
+    await this.fs.writeText(copy, text).catch(() => undefined);
+  }
 
   /** Puts text merged in from the file into the open note, the cursor staying where it was. */
   private showMerged(path: string, saved: string, merged: string) {

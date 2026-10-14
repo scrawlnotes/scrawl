@@ -507,6 +507,22 @@ describe('sync', () => {
     expect(last!.jobs.map((job) => [job.path, job.state, job.reason])).toEqual([['Plan.md', 'skipped', 'here']]);
   });
 
+  it('25. keeps the lines two devices added at the end of a note, with no copy beside it', async () => {
+    const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+    await laptop.writeText('Scrawl/Scribbles.md', 'call the bank\n');
+    await syncLaptop();
+    await syncPhone();
+    await phone.writeText('Scrawl/Scribbles.md', 'call the bank\nbuy milk\n');
+    await syncPhone();
+    await laptop.writeText('Scrawl/Scribbles.md', 'call the bank\nbook the dinner\n');
+    const report = await syncLaptop();
+    expect(report.conflicts).toEqual([]);
+    expect(await laptop.readText('Scrawl/Scribbles.md')).toBe('call the bank\nbuy milk\nbook the dinner\n');
+    await syncPhone();
+    expect(await contents(phone)).toEqual(await contents(laptop));
+    expect(remote.paths()).toEqual(['Scrawl/Scribbles.md']);
+  });
+
   it('does nothing on a turn when nothing changed', async () => {
     const { remote, laptop, syncLaptop } = setup();
     await laptop.writeText('Scrawl/Plan.md', 'plan');
