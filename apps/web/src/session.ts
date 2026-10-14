@@ -167,6 +167,8 @@ import {
   dropFileFromBoard,
   listFiles,
   readAway,
+  type AwayFile,
+  AwayFilesError,
 } from '@scrawlnotes/core';
 import {
   addCopy,
@@ -320,6 +322,10 @@ export interface Snapshot {
   trash: TrashItem[];
   /** How many attached files every space has, here or left in the cloud. */
   fileCount: number;
+  /** The attached files coming from the cloud now, by their path: how many of their bytes came. */
+  downloads: Record<string, { done: number; size: number }>;
+  /** Counts the times a file came from the cloud: what lists the files reads them again. */
+  fileVersion: number;
   saved: boolean;
   /** Cursor and formatting of the note on screen; null while a view is shown instead. */
   stats: EditorStats | null;
@@ -403,6 +409,8 @@ export class Session {
     space: {},
     trash: [],
     fileCount: 0,
+    downloads: {},
+    fileVersion: 0,
     saved: true,
     stats: null,
     format: null,
@@ -673,16 +681,92 @@ export class Session {
     await this.recountFiles();
   }
 
-  /** Counts the attached files of every space, those left in the cloud too, for the sidebar. */
+  /**
+   * Counts the attached files of every space, those left in the cloud too, for the sidebar; and
+   * learns which are left there, for the notes to show them in their place. A note shows them
+   * anew when that changed.
+   */
   private async recountFiles() {
     let count = 0;
-    for (const [, fs] of this.fs.all()) {
+    const away = new Map<string, AwayFile>();
+    for (const [space, fs] of this.fs.all()) {
       const here = (await fs.list(ATTACHMENTS).catch(() => [])).filter((e) => e.kind === 'file' && !e.name.startsWith('.') && !e.name.startsWith('_'));
       const known = new Set(here.map((e) => e.path.toLowerCase()));
-      const away = (await readAway(fs).catch(() => [])).filter((file) => dirname(file.path) === ATTACHMENTS && !known.has(file.path.toLowerCase()));
-      count += here.length + away.length;
+      const there = (await readAway(fs).catch(() => [])).filter((file) => dirname(file.path) === ATTACHMENTS && !known.has(file.path.toLowerCase()));
+      for (const file of there) away.set(inSpace(space, file.path).toLowerCase(), { ...file, path: inSpace(space, file.path) });
+      count += here.length + there.length;
     }
+    const changed = away.size !== this.awayFiles.size || [...away.keys()].some((key) => !this.awayFiles.has(key));
+    this.awayFiles = away;
     if (count !== this.snapshot.fileCount) this.set({ fileCount: count });
+    if (changed) this.editor?.refreshMedia();
+  }
+
+  /** The attached files left in the cloud, by their path in the app, lowercased. */
+  private awayFiles = new Map<string, AwayFile>();
+  /** Brings a file left in the cloud here, told how much of it came; set by sync. */
+  fetcher: ((path: string, onBytes: (done: number) => void) => Promise<boolean>) | null = null;
+  private fetching = new Map<string, Promise<boolean>>();
+  private watchers = new Map<string, Set<(done: number | null) => void>>();
+
+  /** The attached file at `path` when it is left in the cloud; null when it is here. */
+  awayAt(path: string): AwayFile | null {
+    return this.awayFiles.get(path.toLowerCase()) ?? null;
+  }
+
+  /**
+   * Brings an attached file left in the cloud here, once however often it is asked for, telling
+   * those watching how far it got. True once it is here.
+   */
+  download(path: string): Promise<boolean> {
+    const running = this.fetching.get(path);
+    if (running) return running;
+    const size = this.awayAt(path)?.size ?? 0;
+    const tell = (done: number | null) => {
+      for (const watcher of this.watchers.get(path) ?? []) watcher(done);
+    };
+    let shownAt = 0;
+    const onBytes = (done: number) => {
+      tell(done);
+      // The lists show how far it got a few times a second.
+      if (Date.now() - shownAt < 250) return;
+      shownAt = Date.now();
+      this.set({ downloads: { ...this.snapshot.downloads, [path]: { done, size } } });
+    };
+    this.set({ downloads: { ...this.snapshot.downloads, [path]: { done: 0, size } } });
+    tell(0);
+    const job = (async () => {
+      let here = false;
+      try {
+        here = (await this.fetcher?.(path, onBytes)) ?? false;
+      } catch {
+        // Offline, or gone from the cloud: it can be asked for again.
+      }
+      this.fetching.delete(path);
+      if (here) {
+        this.forgetMedia([path]);
+        await this.recountFiles();
+      }
+      const { [path]: _done, ...downloads } = this.snapshot.downloads;
+      this.set({ downloads, fileVersion: this.snapshot.fileVersion + 1 });
+      tell(null);
+      return here;
+    })();
+    this.fetching.set(path, job);
+    return job;
+  }
+
+  /** Tells how a download of the file at `path` goes, at once when it is on its way; returns what stops telling. */
+  watchDownload(path: string, tell: (done: number | null) => void): () => void {
+    let watchers = this.watchers.get(path);
+    if (!watchers) this.watchers.set(path, (watchers = new Set()));
+    watchers.add(tell);
+    const going = this.snapshot.downloads[path];
+    if (going) tell(going.done);
+    return () => {
+      watchers.delete(tell);
+      if (watchers.size === 0) this.watchers.delete(path);
+    };
   }
 
   /** The trash of every space as one list, each item's paths carrying its space. */
@@ -1045,8 +1129,11 @@ export class Session {
       openFile: (src: string) => void this.openFile(home(), src),
       revealFile: isDesktop ? (src: string) => void revealFileOnDesktop(this.attached(home(), src)).catch(() => undefined) : undefined,
       openLink: isDesktop ? (href: string) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
-      fileSize: (src: string) => this.sizes.get(this.attached(home(), src)),
+      fileSize: (src: string) => this.sizes.get(this.attached(home(), src)) ?? this.awayAt(this.attached(home(), src))?.size,
       resolveAudio: (src: string) => this.mediaUrl(home(), src),
+      away: (src: string) => this.awayAt(this.attached(home(), src)),
+      download: (src: string) => this.download(this.attached(home(), src)),
+      watchDownload: (src: string, tell: (done: number | null) => void) => this.watchDownload(this.attached(home(), src), tell),
     };
   }
 
@@ -2476,6 +2563,7 @@ export class Session {
   /** Opens an attached file: on desktop with the program the system uses for it, in the browser in a new tab. */
   async openAttached(path: string) {
     try {
+      if (this.awayAt(path) && !(await this.download(path))) return;
       if (isDesktop) await openFileOnDesktop(path);
       else window.open(await this.mediaUrlOf(path), '_blank', 'noopener');
     } catch {
@@ -2668,7 +2756,16 @@ export class Session {
     const source = this.at(path);
     const into = this.at(folder);
     const collection = path in this.snapshot.collections;
-    const copied = inSpace(into.space, await copyToSpace(source.fs, source.local, into.fs, into.local));
+    let local: string;
+    try {
+      local = await copyToSpace(source.fs, source.local, into.fs, into.local);
+    } catch (error) {
+      if (!(error instanceof AwayFilesError)) throw error;
+      // Its files left in the cloud come first; without them it does not move.
+      for (const file of error.paths) if (!(await this.download(inSpace(source.space, file)))) throw new Error(t('files.notHere'));
+      local = await copyToSpace(source.fs, source.local, into.fs, into.local);
+    }
+    const copied = inSpace(into.space, local);
     if (collection) await trashFolder(source.fs, source.local);
     else await trashItem(source.fs, source.local);
     const [from, to] = collection ? [collectionTab(path), collectionTab(copied)] : [tabOf(path), tabOf(copied)];

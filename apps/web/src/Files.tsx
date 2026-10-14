@@ -48,7 +48,10 @@ export interface FilesChoice {
 }
 
 export interface FileActions {
+  /** Opens a file; one left in the cloud is brought first. */
   open: (file: FileRow) => void;
+  /** Brings a file left in the cloud here. */
+  fetch: (file: FileRow) => void;
   /** On the desktop app: the file in its folder. */
   reveal?: (file: FileRow) => void;
   /** In a browser: the file saved where downloads go. */
@@ -140,28 +143,43 @@ function Uses({ file, onOpen }: { file: FileRow; onOpen: (use: FileUse) => void 
 }
 
 /** A row on a computer: box, picture, name, where it is used, size, when it came, and on hover what can be done. */
-function FileLine({ file, today, chosen, choosing, actions, onChoose }: {
+function FileLine({ file, today, chosen, choosing, going, actions, onChoose }: {
   file: FileRow;
   today: string;
   chosen: boolean;
   choosing: boolean;
+  /** How much of it came, while it comes from the cloud. */
+  going?: { done: number; size: number };
   actions: FileActions;
   onChoose: (on: boolean) => void;
 }) {
   const title = fileTitle(file);
+  const share = going && going.size > 0 ? Math.min(1, going.done / going.size) : 0;
   return (
-    <div className={`flrow${chosen ? ' chosen' : ''}`} onClick={choosing ? () => onChoose(!chosen) : undefined}>
+    <div className={`flrow${chosen ? ' chosen' : ''}${file.away ? ' away' : ''}`} onClick={choosing ? () => onChoose(!chosen) : undefined}>
       <ChooseBox state={chosen} label={t('choose.row', { name: title })} onChange={onChoose} />
       <Thumb file={file} image={actions.image} className="fthumb" />
       <button type="button" className="nm" title={title} onClick={(event) => (choosing ? undefined : (event.stopPropagation(), actions.open(file)))}>
         {title}
+        {file.away && <small className="in-cloud">{going ? t('files.downloading', { done: sizeText(going.done), size: sizeText(going.size) }) : t('files.inCloud')}</small>}
       </button>
       <span className="used">
         <Uses file={file} onOpen={actions.openUse} />
       </span>
       <span className="r size">{sizeText(file.size)}</span>
       <span className="r day">{file.added === null ? '' : pastDayLabel(dayOf(new Date(file.added)), today)}</span>
-      {!choosing ? (
+      {!choosing && file.away ? (
+        <span className="task-actions">
+          {!going && (
+            <button type="button" className="hot" title={t('files.download')} aria-label={t('files.download')} onClick={() => actions.fetch(file)}>
+              <Icon name="download" />
+            </button>
+          )}
+          <button type="button" title={t('menu.delete')} aria-label={t('menu.delete')} onClick={() => actions.remove([file])}>
+            <Icon name="trash" />
+          </button>
+        </span>
+      ) : !choosing ? (
         <span className="task-actions">
           <button type="button" title={t('files.open')} aria-label={t('files.open')} onClick={() => actions.open(file)}>
             <Icon name="open" />
@@ -184,15 +202,21 @@ function FileLine({ file, today, chosen, choosing, actions, onChoose }: {
       ) : (
         <span className="task-actions" />
       )}
+      {going && (
+        <span className="fl-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)}>
+          <i style={{ width: `${share * 100}%` }} />
+        </span>
+      )}
     </div>
   );
 }
 
 /** A row on a phone: picture, name, where it is used and its size, when it came. A tap opens it; held, its actions open. */
-function PhoneFileRow({ file, chosen, choosing, actions, onChoose }: {
+function PhoneFileRow({ file, chosen, choosing, going, actions, onChoose }: {
   file: FileRow;
   chosen: boolean;
   choosing: boolean;
+  going?: { done: number; size: number };
   actions: FileActions;
   onChoose: (on: boolean) => void;
 }) {
@@ -209,22 +233,40 @@ function PhoneFileRow({ file, chosen, choosing, actions, onChoose }: {
   const places = file.uses.filter((use) => !use.inTrash);
   const where = file.uses.length === 0 ? t('files.unused') : `${useTitle(places[0] ?? file.uses[0]!)}${file.uses.length > 1 ? ` +${file.uses.length - 1}` : ''}`;
   const today = dayOf(new Date());
+  const share = going && going.size > 0 ? Math.min(1, going.done / going.size) : 0;
+  // A file left in the cloud says so, and a tap brings it; coming, it says how far it got.
+  const line = going
+    ? t('files.downloading', { done: sizeText(going.done), size: sizeText(going.size) })
+    : file.away
+      ? `${t('files.notDownloaded')} · ${sizeText(file.size)}`
+      : `${where} · ${sizeText(file.size)}`;
   return (
     <button
       type="button"
       className={`mb-frow${chosen ? ' chosen' : ''}${held ? ' held' : ''}`}
-      onClick={() => (choosing ? onChoose(!chosen) : actions.open(file))}
+      onClick={() => (choosing ? onChoose(!chosen) : file.away ? actions.fetch(file) : actions.open(file))}
       {...hold}
     >
       {choosing && <span className={`mb-pick${chosen ? ' on' : ''}`} aria-hidden="true" />}
       <Thumb file={file} image={actions.image} className="mb-thumb" />
       <span className="tx">
         <b>{fileTitle(file)}</b>
-        <small>
-          {where} · {sizeText(file.size)}
-        </small>
+        <small>{line}</small>
+        {going && (
+          <span className="mb-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)}>
+            <i style={{ width: `${share * 100}%` }} />
+          </span>
+        )}
       </span>
-      <span className="rt">{file.added === null ? '' : pastDayLabel(dayOf(new Date(file.added)), today)}</span>
+      {file.away ? (
+        !going && (
+          <span className="dl" aria-label={t('files.download')}>
+            <Icon name="download" />
+          </span>
+        )
+      ) : (
+        <span className="rt">{file.added === null ? '' : pastDayLabel(dayOf(new Date(file.added)), today)}</span>
+      )}
     </button>
   );
 }
@@ -234,9 +276,11 @@ function PhoneFileRow({ file, chosen, choosing, actions, onChoose }: {
  * chips, and the files, each space's under its heading when there is more than one. Rows are
  * chosen together as in the trash.
  */
-export function FilesView({ files, today, spaces, choice, actions }: {
+export function FilesView({ files, today, spaces, choice, actions, downloads }: {
   /** Null while they are read. */
   files: FileRow[] | null;
+  /** The files coming from the cloud now, by path: how much of each came. */
+  downloads: Record<string, { done: number; size: number }>;
   today: string;
   /** Every space, the personal one first; with more than one Files goes by space. */
   spaces: TrashSpace[];
@@ -363,6 +407,7 @@ export function FilesView({ files, today, spaces, choice, actions }: {
                 file={file}
                 chosen={chosen.has(file.path)}
                 choosing={choosing}
+                going={downloads[file.path]}
                 actions={actions}
                 onChoose={(on) => choice.onChoose([file.path], on)}
               />
@@ -434,6 +479,7 @@ export function FilesView({ files, today, spaces, choice, actions }: {
                 today={today}
                 chosen={chosen.has(file.path)}
                 choosing={choosing}
+                going={downloads[file.path]}
                 actions={actions}
                 onChoose={(on) => choice.onChoose([file.path], on)}
               />

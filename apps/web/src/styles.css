@@ -2681,6 +2681,79 @@ button.cb:hover::after {
   color: var(--sl-fg);
 }
 
+/* A file left in the cloud, in Files: it says so beside its name, and Download brings it, with a
+   bar along the row while it comes. */
+.flrow {
+  position: relative;
+}
+
+.flrow .nm .in-cloud {
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: var(--sl-code);
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.flrow .task-actions .hot {
+  color: var(--sl-accent);
+}
+
+.fl-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  overflow: hidden;
+  background: var(--sl-line);
+}
+
+.fl-bar i {
+  display: block;
+  height: 100%;
+  background: var(--sl-accent);
+  transition: width 0.2s;
+}
+
+/* This device's rows in Settings, its download limit with them: a wider label. */
+.st-row.wide {
+  grid-template-columns: 78px minmax(0, 1fr) auto;
+}
+
+.st-row select {
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+}
+
+/* A narrow window: a file or a recording left in the cloud takes its line in a note, its name giving way first. */
+@media (max-width: 640px) {
+  .cm-sl-away:not(.cm-sl-away-image) {
+    display: flex;
+    width: 100%;
+  }
+
+  .cm-sl-away:not(.cm-sl-away-image) b {
+    flex: 1 1 0;
+    width: 0;
+  }
+
+  .cm-sl-away:not(.cm-sl-away-image) small {
+    flex: none;
+  }
+
+  .cm-sl-away:not(.cm-sl-away-image) .cm-sl-away-where {
+    display: none;
+  }
+}
+
 /* On a touch screen the boxes are there to tap. */
 @media (hover: none) {
   .flrow .choose,

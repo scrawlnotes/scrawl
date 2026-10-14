@@ -1824,6 +1824,72 @@ body > .mb-lifted {
   user-select: none;
 }
 
+/* A file left in the cloud, in a note on a phone: a finger's size, after the Phone large files
+   view of design/mockups.html. */
+.phone-app .cm-sl-away {
+  min-height: 44px;
+  padding: 4px 4px 4px 14px;
+  border-radius: 22px;
+  font-size: 14px;
+  -webkit-touch-callout: none;
+}
+
+.phone-app .cm-sl-away small {
+  font-size: 13px;
+}
+
+.phone-app .cm-sl-away-get {
+  align-self: stretch;
+  padding: 0 14px;
+  border-radius: 18px;
+  font-size: 14px;
+}
+
+.phone-app .cm-sl-away-image {
+  width: 100%;
+  min-height: 190px;
+  padding: 20px;
+  border-radius: 10px;
+  font-size: 14.5px;
+}
+
+.phone-app .cm-sl-away-image small {
+  font-size: 13.5px;
+}
+
+.phone-app .cm-sl-away-image .cm-sl-away-get {
+  align-self: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.phone-app .cm-sl-away-image > svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* Where the note is narrow, a file or a recording left in the cloud takes its line: its name
+   gives way first, so that nothing makes the note wider than the screen. */
+.phone-app .cm-sl-away:not(.cm-sl-away-image) {
+  display: flex;
+  width: 100%;
+}
+
+.phone-app .cm-sl-away:not(.cm-sl-away-image) b {
+  flex: 1 1 0;
+  width: 0;
+}
+
+.phone-app .cm-sl-away:not(.cm-sl-away-image) small {
+  flex: none;
+}
+
+.phone-app .cm-sl-away:not(.cm-sl-away-image) .cm-sl-away-where {
+  display: none;
+}
+
 /* what can be done with a link tapped: Open, Edit, Copy */
 .mb-pop-back {
   position: fixed;
@@ -3150,6 +3216,26 @@ body > .mb-lifted {
   border: solid var(--sl-bg);
   border-width: 0 0 2.2px 2.2px;
   transform: rotate(-45deg);
+}
+
+/* A file left in the cloud, in Files on a phone: Download in its day's place; coming, a bar under its line. */
+.mb-frow .dl {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-right: -8px;
+  color: var(--sl-accent);
+}
+
+.mb .mb-frow .dl .icon {
+  width: 25px;
+  height: 25px;
+}
+
+.mb-frow .tx .mb-bar {
+  margin-top: 5px;
 }
 
 .mb-files .mb-sec .sum {

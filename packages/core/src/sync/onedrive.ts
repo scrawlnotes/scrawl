@@ -25,7 +25,7 @@ export const UPLOAD_PART = 16 * 320 * 1024;
 /** What the adapter knows of the folder's items; kept on the device only (see `isSynced`). */
 const MAP = '.scrawl/onedrive.json';
 /** What a listing asks of each item. */
-const SELECT = 'id,name,parentReference,file,folder,deleted,root,cTag,size';
+const SELECT = 'id,name,parentReference,file,folder,deleted,root,cTag,size,image';
 /** Answers worth waiting out and asking again. */
 const BUSY = new Set([429, 500, 502, 503, 504]);
 const TRIES = 5;
@@ -120,6 +120,7 @@ interface DriveItem {
   cTag?: string;
   parentReference?: { id?: string; driveId?: string };
   file?: { hashes?: { quickXorHash?: string } };
+  image?: { width?: number; height?: number };
   folder?: object;
   deleted?: object;
   root?: object;
@@ -141,6 +142,9 @@ interface Known {
   tag?: string;
   size?: number;
   hash?: string;
+  /** An image's width and height. */
+  width?: number;
+  height?: number;
 }
 
 type Items = Record<string, Known>;
@@ -306,9 +310,10 @@ export class OneDriveRemote implements RemoteStore {
       return;
     }
     const hash = item.file?.hashes?.quickXorHash;
+    const { width, height } = item.image ?? {};
     items[item.id] = item.folder
       ? { name: item.name, parent, dir: true }
-      : { name: item.name, parent, tag: item.cTag ?? '', size: item.size ?? 0, ...(hash && { hash }) };
+      : { name: item.name, parent, tag: item.cTag ?? '', size: item.size ?? 0, ...(hash && { hash }), ...(width && height && { width, height }) };
   }
 
   private async loadMap(): Promise<MapFile | null> {
@@ -533,7 +538,9 @@ function pathsIn(items: Items, folder: string): Map<string, string> {
 }
 
 const entryOf = (path: string, item: Known): RemoteEntry =>
-  item.dir ? { path, kind: 'dir' } : { path, kind: 'file', tag: item.tag ?? '', size: item.size ?? 0, ...(item.hash && { hash: item.hash }) };
+  item.dir
+    ? { path, kind: 'dir' }
+    : { path, kind: 'file', tag: item.tag ?? '', size: item.size ?? 0, ...(item.hash && { hash: item.hash }), ...(item.width && item.height && { width: item.width, height: item.height }) };
 
 /**
  * What changed between two states of the folder, as the engine reads it. An item whose path

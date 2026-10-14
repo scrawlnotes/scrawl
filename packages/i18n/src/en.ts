@@ -585,6 +585,13 @@ export const en = {
     other: 'All {count} items in the trash will be deleted for good, with the attached files nothing else uses. This cannot be undone.',
   },
 
+  // a file left in the cloud, in a note
+  'editor.away.where': 'in OneDrive',
+  'editor.away.download': 'Download',
+  'editor.away.downloading': 'Downloading · {done} of {size}',
+  'editor.away.offline': 'Offline',
+  'editor.away.failed': 'Could not download',
+
   // trash
   'trash.title': 'Trash',
   'trash.empty': 'Empty trash',
@@ -647,6 +654,18 @@ export const en = {
   'files.takenOut': { one: 'It is taken out of {places} and goes to the trash.', other: 'They are taken out of {places} and go to the trash.' },
   'files.deleteAction': { one: 'Delete', other: 'Delete {count} files' },
   'files.deletedNotice': { one: 'File deleted', other: '{count} files deleted' },
+  'files.notDownloaded': 'Not downloaded',
+  'files.inCloud': 'in OneDrive',
+  'files.downloading': 'Downloading · {done} of {size}',
+  'files.notHere': 'Its files in OneDrive could not be downloaded, so it was not moved.',
+  'settings.download': 'Download',
+  'settings.downloadBy': 'Download by itself',
+  'settings.upTo': 'Files up to {size}',
+  'settings.upToShort': 'Up to {size}',
+  'settings.everyFile': 'Every file',
+  'settings.downloadAbout': 'Larger files stay in OneDrive until you open them; notes, lists and boards always come.',
+  'settings.downloadAboutPhone': 'A larger file waits in OneDrive, in its place in the note, until you tap it. Once here, it stays.',
+  'phone.thisPhone': 'This phone',
   'count.files': { one: '{count} file', other: '{count} files' },
 
   // history

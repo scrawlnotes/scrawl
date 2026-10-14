@@ -13,6 +13,9 @@ export interface RemoteFile {
   size: number;
   /** The provider's own digest of the content, where it gives one; compared with `RemoteStore.hashOf`. */
   hash?: string;
+  /** An image's width and height, where the provider tells them: what is left there shows that large. */
+  width?: number;
+  height?: number;
 }
 
 export interface RemoteDir {

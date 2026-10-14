@@ -23,6 +23,9 @@ export interface FileRecord {
   away?: true;
   /** For a file away, the provider's own digest of it, where the provider gives one. */
   remoteHash?: string;
+  /** For an image away, its width and height there, where the provider tells them. */
+  width?: number;
+  height?: number;
 }
 
 export interface SyncState {

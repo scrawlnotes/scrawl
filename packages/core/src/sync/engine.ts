@@ -577,7 +577,15 @@ class Turn {
   /** Left on the other side: known by its tag and size there, not brought here. */
   private async leave(key: string): Promise<void> {
     const file = this.remoteFiles.get(key)!;
-    this.state.files[key] = { path: file.path, tag: file.tag, size: file.size, hash: '', away: true, ...(file.hash !== undefined && { remoteHash: file.hash }) };
+    this.state.files[key] = {
+      path: file.path,
+      tag: file.tag,
+      size: file.size,
+      hash: '',
+      away: true,
+      ...(file.hash !== undefined && { remoteHash: file.hash }),
+      ...(file.width && file.height && { width: file.width, height: file.height }),
+    };
     for (let dir = dirname(file.path); dir; dir = dirname(dir)) this.state.dirs[keyOf(dir)] ??= dir;
     this.report.left.push(file.path);
     await this.saveNowAndThen();

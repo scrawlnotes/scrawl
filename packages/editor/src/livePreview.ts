@@ -19,7 +19,7 @@ import {
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { t } from '@scrawlnotes/i18n';
 import { linkUrl } from './commands';
-import { attachmentOf, AudioWidget, FileWidget, isAudio, ItemWidget, type MediaOptions, selectWidget } from './media';
+import { attachmentOf, AudioWidget, type AwayFileInfo, FileWidget, isAudio, ItemWidget, type MediaOptions, selectWidget, sizeText } from './media';
 
 export interface LivePreviewOptions extends MediaOptions {
   /**
@@ -186,6 +186,123 @@ class ImageWidget extends ItemWidget {
 }
 
 const icon = (paths: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
+const AWAY_ICONS = {
+  image: icon('<rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L20 18"/>'),
+  audio: icon('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>'),
+  file: icon('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>'),
+};
+const DOWNLOAD_ICON = icon('<path d="M7 18.5h-.5a4 4 0 0 1-.4-8A6 6 0 0 1 17.7 9a4.5 4.5 0 0 1-.2 9.5H17"/><path d="M12 11.5v9M9 17.5l3 3 3-3"/>');
+
+/**
+ * An attached file left in the cloud, over this device's limit, in its place in the note: what it
+ * is, its size and Download; an image as a box as large as it will be, where its size is known.
+ * Downloading, it shows how far it got; once the file is here the note draws it as itself.
+ */
+class AwayWidget extends ItemWidget {
+  protected readonly selectedClass = 'cm-sl-away-selected';
+
+  constructor(
+    src: string,
+    readonly name: string,
+    readonly there: AwayFileInfo,
+    protected readonly kind: 'image' | 'file' | 'audio',
+    length: number,
+    selected: boolean,
+    active: boolean,
+    options: MediaOptions,
+    version: number,
+  ) {
+    super(src, length, selected, active, options, version);
+    if (kind === 'image') this.rootClass = 'cm-sl-img-wrap';
+  }
+  protected key() {
+    return `away\n${this.src}\n${this.name}\n${this.length}\n${this.there.size}`;
+  }
+  // Not here: nothing to show in its folder.
+  protected file() {
+    return null;
+  }
+  // Opening it brings it first.
+  protected opener() {
+    const download = this.options.download;
+    return download ? () => void download(this.src) : null;
+  }
+  protected body(view: EditorView, root: HTMLElement) {
+    const image = this.kind === 'image';
+    const box = document.createElement('span');
+    box.className = image ? 'cm-sl-away cm-sl-away-image' : 'cm-sl-away';
+    const { width, height } = this.there;
+    if (image && width && height) {
+      box.style.aspectRatio = `${width} / ${height}`;
+      box.style.width = `min(100%, ${width}px)`;
+    }
+    box.innerHTML = AWAY_ICONS[this.kind];
+    const name = document.createElement('b');
+    name.textContent = this.name;
+    const line = document.createElement('small');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'cm-sl-away-get';
+    button.innerHTML = DOWNLOAD_ICON;
+    button.append(t('editor.away.download'));
+    const bar = document.createElement('span');
+    bar.className = 'cm-sl-away-bar';
+    const fill = document.createElement('i');
+    bar.append(fill);
+    box.append(name, line, button, bar);
+    const total = sizeText(this.there.size);
+    const show = (done: number | null, failed = false) => {
+      const going = done !== null;
+      const offline = !going && !navigator.onLine;
+      box.classList.toggle('cm-sl-away-going', going);
+      line.textContent = going
+        ? t('editor.away.downloading', { done: sizeText(done), size: total })
+        : failed
+          ? t('editor.away.failed')
+          : offline
+            ? `${total} · ${t('editor.away.offline')}`
+            : total;
+      // Where it is, which a narrow note leaves out beside a file's name.
+      if (!going && !failed && !offline) {
+        const where = document.createElement('span');
+        where.className = 'cm-sl-away-where';
+        where.textContent = ` · ${t('editor.away.where')}`;
+        line.append(where);
+      }
+      button.hidden = going;
+      button.disabled = offline;
+      fill.style.width = going && this.there.size > 0 ? `${Math.min(100, (done / this.there.size) * 100)}%` : '0';
+    };
+    show(null);
+    const fetch = () => {
+      const download = this.options.download;
+      if (!download || !navigator.onLine) return;
+      show(0);
+      void download(this.src).then((here) => {
+        // Here now: the note draws it as itself. Otherwise it says so, and offers it again.
+        if (here) view.dispatch({ effects: mediaChanged.of(null) });
+        else if (box.isConnected) show(null, true);
+      });
+    };
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      fetch();
+    });
+    // On a touch screen a tap anywhere on it brings it; with a mouse a click selects it.
+    box.addEventListener('click', () => (this.options.touch ? fetch() : selectWidget(view, root, this.length)));
+    const stop = this.options.watchDownload?.(this.src, (done) => {
+      if (done !== null) return show(done);
+      if (!this.options.away?.(this.src)) view.dispatch({ effects: mediaChanged.of(null) });
+      else if (box.isConnected) show(null);
+    });
+    (root as HTMLElement & { stopWatching?: () => void }).stopWatching = stop;
+    return box;
+  }
+  destroy(dom: HTMLElement) {
+    (dom as HTMLElement & { stopWatching?: () => void }).stopWatching?.();
+  }
+}
 const COPY_ICON = icon('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>');
 const COPIED_ICON = icon('<path d="m5 12.5 4.5 4.5L19 7.5"/>');
 
@@ -300,7 +417,10 @@ function collect(
       // The link text as it reads: escapes are typed characters.
       const label = doc.sliceString(open.to, close.from).replace(/\\([!-/:-@[-`{-~])/g, '$1') || src.slice(src.lastIndexOf('/') + 1);
       const length = node.to - node.from;
-      const widget = isAudio(src)
+      const there = options.away?.(src);
+      const widget = there
+        ? new AwayWidget(src, label, there, isAudio(src) ? 'audio' : 'file', length, selected(node), active(node), options, drawn.version)
+        : isAudio(src)
         ? new AudioWidget(src, label, length, selected(node), active(node), options, drawn.version)
         : new FileWidget(src, label, length, selected(node), active(node), options, drawn.version);
       out.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget, kind: 'attachment', label }), role: 'unit' });
@@ -325,7 +445,11 @@ function collect(
     if (!open || !close || !url) return;
     const src = doc.sliceString(url.from, url.to);
     const alt = doc.sliceString(open.to, close.from);
-    const widget = new ImageWidget(src, alt, node.to - node.from, selected(node), active(node), options, drawn.version, drawn.loads);
+    const file = attachmentOf(src);
+    const there = file && options.away?.(file);
+    const widget = there
+      ? new AwayWidget(file, alt || file.slice(file.lastIndexOf('/') + 1), there, isAudio(file) ? 'audio' : 'image', node.to - node.from, selected(node), active(node), options, drawn.version)
+      : new ImageWidget(src, alt, node.to - node.from, selected(node), active(node), options, drawn.version, drawn.loads);
     out.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget, kind: 'image', alt }), role: 'unit' });
   };
 

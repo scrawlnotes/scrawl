@@ -222,7 +222,7 @@ export function App() {
     else if (sync.picking || sync.adding || sync.signInError) setDialog({ kind: 'settings', section: 'spaces' });
   }, [sync.picking, sync.adding, sync.signInError]);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
-  const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, saved, stats, format, source, recording, recordError } =
+  const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -368,7 +368,7 @@ export function App() {
     return () => {
       live = false;
     };
-  }, [filesOnScreen, fileCount, trash, tree, filesRead]);
+  }, [filesOnScreen, fileCount, trash, tree, filesRead, fileVersion]);
 
   useEffect(() => {
     // Coming back to the window: another program may have changed the notes in the meantime.
@@ -599,6 +599,12 @@ export function App() {
     });
   };
   const shareFiles = async (rows: FileRow[]) => {
+    // A file left in the cloud is brought first; sharing it is then one more tap, as a phone shares only on a tap.
+    const away = rows.filter((file) => file.away);
+    if (away.length > 0) {
+      for (const file of away) void session.download(file.path);
+      return;
+    }
     try {
       const shared = await Promise.all(rows.map(async (file) => new File([await session.attachedBlob(file.path)], file.name, { type: (await session.attachedBlob(file.path)).type })));
       if (navigator.canShare?.({ files: shared })) await navigator.share({ files: shared });
@@ -609,6 +615,7 @@ export function App() {
   };
   const fileActions: FileActions = {
     open: (file) => void session.openAttached(file.path),
+    fetch: (file) => void session.download(file.path),
     ...(isDesktop
       ? { reveal: (file) => session.revealAttached(file.path) }
       : { download: (file) => void session.attachedBlob(file.path).then((blob) => downloadBlob(file.name, blob), () => undefined) }),
@@ -1156,6 +1163,7 @@ export function App() {
         onDelete: () => askDeleteFiles(chosenFiles),
       }}
       actions={fileActions}
+      downloads={downloads}
     />
   );
   const dueNow = dueToday(tasks, today);

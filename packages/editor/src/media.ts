@@ -19,6 +19,25 @@ export interface MediaOptions {
    * image, a file or a recording opens its menu; neither brings up the keyboard.
    */
   touch?: boolean;
+  /**
+   * An attached file left in the cloud, over this device's limit: its size there, and an image's
+   * width and height where they are known. Null when the file is here.
+   */
+  away?: (src: string) => AwayFileInfo | null;
+  /** Brings an attached file left in the cloud here; true once it is. */
+  download?: (src: string) => Promise<boolean>;
+  /**
+   * Tells how a download of an attached file goes: how many of its bytes came, at once if it is
+   * already on its way, and null when it ends. Returns what stops telling.
+   */
+  watchDownload?: (src: string, tell: (done: number | null) => void) => () => void;
+}
+
+/** What is known of an attached file left in the cloud. */
+export interface AwayFileInfo {
+  size: number;
+  width?: number;
+  height?: number;
 }
 
 /** What an image, file or recording is, for the head of its menu. */

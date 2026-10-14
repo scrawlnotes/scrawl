@@ -1,6 +1,7 @@
 import {
   foldersNest,
   inSpace,
+  localPath,
   type OneDriveFolder,
   OneDriveRemote,
   parseSpace,
@@ -9,15 +10,17 @@ import {
   RemoteSignedOut,
   type RemoteStore,
   type SpaceInfo,
+  spaceOf,
   type SyncDevice,
   type SyncProgress,
   syncOnce,
+  fetchAway,
   type VaultFs,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type Cloud, oneDrive, type SignInIntent, type SignInResult, takeSignInResult } from './cloud';
 import type { Session, SpaceView } from './session';
-import { isPhone } from './device';
+import { isPhone, leaveOver } from './device';
 import { isDesktop, vaultFolder } from './storage';
 
 // Sync of the spaces with folders of the user's cloud drive: when a turn runs, what the app shows
@@ -275,6 +278,8 @@ export class SyncService {
 
   /** Follows the session: once the spaces are open, their connections are looked up and turns begin. */
   start() {
+    // A file left in the cloud comes when it is asked for.
+    this.session.fetcher = (path, onBytes) => this.fetch(path, onBytes);
     // Turns wait for this device's id; the spaces opened meanwhile begin once it is known.
     void loadDevice().then((device) => {
       this.set({ device });
@@ -466,7 +471,7 @@ export class SyncService {
         // The space may have been closed, removed or disconnected while another tab's turn ran.
         if (unit.gone || unit.connection !== connection) return null;
         await this.session.beforeSync();
-        return syncOnce(unit.vault, this.storeFor(unit), device, { onProgress });
+        return syncOnce(unit.vault, this.storeFor(unit), device, { onProgress, leaveOver: leaveOver() });
       });
       window.clearTimeout(timer);
       // The space may have been closed, removed or disconnected while the turn ran.
@@ -498,6 +503,18 @@ export class SyncService {
         this.syncNow(unit.space);
       }
     }
+  }
+
+  /**
+   * Brings here an attached file its space's sync left in the cloud, told how many of its bytes
+   * came so far. False when the space does not sync here, or the file is not away. It waits for
+   * a turn of its space, as a turn waits for it.
+   */
+  async fetch(path: string, onBytes?: (done: number) => void): Promise<boolean> {
+    const unit = this.units.get(spaceOf(path) ?? PERSONAL);
+    if (!unit || unit.gone || !unit.connection) return false;
+    const { device } = this.snapshot;
+    return alone(unit.space, () => fetchAway(unit.vault, this.storeFor(unit), device, localPath(path), onBytes));
   }
 
   // ---------- connecting ----------

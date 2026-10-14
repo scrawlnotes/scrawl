@@ -27,6 +27,9 @@ export interface AwayFile {
   path: string;
   /** Its size there, in bytes. */
   size: number;
+  /** An image's width and height there, where the provider tells them. */
+  width?: number;
+  height?: number;
 }
 
 /** A move or a delete of a file away, asked for here and done by the next turn. */
@@ -72,10 +75,16 @@ export async function finishAwayOps(fs: VaultFs, done: ReadonlySet<string>): Pro
 async function awayInState(fs: VaultFs): Promise<Map<string, AwayFile>> {
   const away = new Map<string, AwayFile>();
   try {
-    const files = (JSON.parse(await fs.readText(STATE)) as { files?: Record<string, { path?: unknown; size?: unknown; away?: unknown }> }).files;
+    type Kept = { path?: unknown; size?: unknown; away?: unknown; width?: unknown; height?: unknown };
+    const files = (JSON.parse(await fs.readText(STATE)) as { files?: Record<string, Kept> }).files;
     for (const record of Object.values(files ?? {})) {
       if (record?.away !== true || typeof record.path !== 'string') continue;
-      away.set(keyOf(record.path), { path: record.path, size: typeof record.size === 'number' ? record.size : 0 });
+      const { width, height } = record;
+      away.set(keyOf(record.path), {
+        path: record.path,
+        size: typeof record.size === 'number' ? record.size : 0,
+        ...(typeof width === 'number' && typeof height === 'number' && { width, height }),
+      });
     }
   } catch {
     // No sync, or not yet: nothing is away.
@@ -94,7 +103,7 @@ export async function readAway(fs: VaultFs): Promise<AwayFile[]> {
     const file = away.get(keyOf(op.from));
     if (!file) continue;
     away.delete(keyOf(op.from));
-    away.set(keyOf(op.to), { path: op.to, size: file.size });
+    away.set(keyOf(op.to), { ...file, path: op.to });
   }
   return [...away.values()];
 }

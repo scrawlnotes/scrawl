@@ -4,7 +4,7 @@ import { MemoryFs, type VaultFs } from '../fs';
 import { AwayFilesError, copyToSpace, deleteFromTrash, emptyTrash, readTrash, restoreFromTrash, saveFile, sweepAttachments, trashItem } from '../vault';
 import { readAway } from './away';
 import { fetchAway, type SyncDevice, syncOnce } from './engine';
-import { MemoryRemote } from './remote';
+import { MemoryRemote, type RemoteStore } from './remote';
 
 // Large attached files left on the other side on a device with a limit: the phone, while the
 // laptop takes every file. See design/sync.md, section 10.
@@ -51,6 +51,27 @@ describe('files away', () => {
     expect(await readAway(phone)).toEqual([{ path: '_attachments/roof.png', size: 4000 }]);
     expect((await listFiles(phone)).find((f) => f.name === 'roof.png')).toMatchObject({ away: true, size: 4000 });
     expect(remote.paths()).toContain('_attachments/roof.png');
+  });
+
+  it('keeps the width and height of an image left there, where the provider tells them', async () => {
+    const { laptop, phone, remote, syncLaptop } = setup();
+    await laptop.writeBlob('_attachments/roof.png', blob(4000));
+    await syncLaptop();
+    // A provider that tells images' sizes, as OneDrive does.
+    const telling: RemoteStore = {
+      ...remote,
+      changes: async (cursor) => {
+        const listing = await remote.changes(cursor);
+        return { ...listing, changed: listing.changed.map((entry) => (entry.kind === 'file' && entry.path.endsWith('.png') ? { ...entry, width: 1400, height: 1000 } : entry)) };
+      },
+      read: (path) => remote.read(path),
+      mkdir: (path) => remote.mkdir(path),
+      write: (path, data, ifMatch) => remote.write(path, data, ifMatch),
+      move: (from, to, ifMatch) => remote.move(from, to, ifMatch),
+      remove: (path, ifMatch) => remote.remove(path, ifMatch),
+    };
+    await syncOnce(phone, telling, PHONE, { now, saveEveryMs: 0, leaveOver: LIMIT });
+    expect(await readAway(phone)).toEqual([{ path: '_attachments/roof.png', size: 4000, width: 1400, height: 1000 }]);
   });
 
   it('never takes a file away for deleted: the next turns leave it on the other side', async () => {
