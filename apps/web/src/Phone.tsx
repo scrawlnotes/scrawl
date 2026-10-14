@@ -113,8 +113,6 @@ export interface PhoneProps {
     version: (path: string, version: Version, done: () => void) => ReactNode;
     label: (version: Version) => string;
   };
-  /** Done, while typing: closes Find, and the keyboard goes away. */
-  onDone: () => void;
   /**
    * A card of a board, opened as a page over its board's: `open` is the card asked for, `view`
    * draws it, `label` names it, `onMenu` opens its menu, `onClosed` says its page went.
@@ -295,16 +293,16 @@ function Row({ icon, label, sub, right, folder, onClick, onHold }: {
 }
 
 /**
- * The bar at the top of a page: the way back, and the page's menu, with Done while typing; or a
- * word that does what the page offers, Reorder; scrolled, the page's name.
+ * The bar at the top of a page: the way back, and the page's menu; or a word that does what the
+ * page offers, Reorder; scrolled, the page's name. The phone's own ✓ above the keyboard puts the
+ * keyboard away.
  */
-function NavBar({ back, onBack, title, scrolled, onMenu, onDone, action }: {
+function NavBar({ back, onBack, title, scrolled, onMenu, action }: {
   back?: string;
   onBack?: () => void;
   title?: string;
   scrolled: boolean;
   onMenu?: (event: MouseEvent) => void;
-  onDone?: () => void;
   action?: { label: string; run: () => void };
 }) {
   if (!back && !onMenu) return null;
@@ -320,12 +318,6 @@ function NavBar({ back, onBack, title, scrolled, onMenu, onDone, action }: {
       {onMenu && (
         <button type="button" className="mb-ib" aria-label={t('side.more')} title={t('side.more')} onClick={onMenu}>
           <Icon name="more" />
-        </button>
-      )}
-      {onDone && (
-        // Pressed, it keeps the focus where it is until Done takes it away.
-        <button type="button" className="mb-done" onMouseDown={(event) => event.preventDefault()} onClick={onDone}>
-          {t('phone.done')}
         </button>
       )}
       {action && (
@@ -433,8 +425,6 @@ export function Phone(props: PhoneProps) {
   const [removingSpace, setRemovingSpace] = useState<string | null>(null);
   const view = useViewport();
   const keyboard = view.keyboard;
-  /** Whether what is open is being typed in: Done shows. */
-  const [typing, setTyping] = useState(false);
   const [seen, setSeen] = useState(loadSeen);
   const [now, setNow] = useState(Date.now);
   /** A row held for its menu, lifted over the dimmed page while the menu is open: where it is and what it shows. */
@@ -623,23 +613,6 @@ export function Phone(props: PhoneProps) {
     return () => window.clearInterval(timer);
   }, []);
 
-  // Typing in what is open, in a note, a find field or a list, shows Done at the top.
-  const checkTyping = () => {
-    const focused = document.activeElement;
-    // In what is open, or in a page of its own, as a card's.
-    const within = !!focused && (item.contains(focused) || !!stage.current?.contains(focused));
-    setTyping(within && focused!.matches('input, textarea, select, [contenteditable="true"]'));
-  };
-  useEffect(() => {
-    const later = () => window.setTimeout(checkTyping);
-    document.addEventListener('focusin', checkTyping);
-    document.addEventListener('focusout', later);
-    return () => {
-      document.removeEventListener('focusin', checkTyping);
-      document.removeEventListener('focusout', later);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item]);
   // The keyboard came up, or grew, over what is typed in: the cursor is brought above it, once the
   // keyboard has settled and the editor has taken its new height, which keeps its first line where
   // it was.
@@ -653,12 +626,6 @@ export function Phone(props: PhoneProps) {
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyboard, view.height]);
-  // An empty note opened takes the typing cursor a moment after it shows; looked at again then.
-  useEffect(() => {
-    const timer = window.setTimeout(checkTyping, 150);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, top.key]);
 
   // A card opens as a page over its board's: once the board's page is on top, as it is when the
   // card was opened from elsewhere and the board opens first. A card closed elsewhere, or
@@ -1108,7 +1075,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'record') {
       return (
         <>
-          <NavBar {...nav} scrolled={false} onMenu={() => props.record.onMenu(page.dir, page.id)} onDone={typing ? props.onDone : undefined} />
+          <NavBar {...nav} scrolled={false} onMenu={() => props.record.onMenu(page.dir, page.id)} />
           <div className="mb-holder mb-record-holder">{props.record.view(page.dir, page.id)}</div>
         </>
       );
@@ -1116,7 +1083,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'card') {
       return (
         <>
-          <NavBar {...nav} scrolled={false} onMenu={() => props.card.onMenu(page.board, page.id)} onDone={typing ? props.onDone : undefined} />
+          <NavBar {...nav} scrolled={false} onMenu={() => props.card.onMenu(page.board, page.id)} />
           <div className="mb-holder mb-card-holder">{props.card.view(page.board, page.id)}</div>
         </>
       );
@@ -1191,7 +1158,6 @@ export function Phone(props: PhoneProps) {
           {...nav}
           scrolled={false}
           onMenu={() => props.onItemMenu(page.id, true)}
-          onDone={typing ? props.onDone : undefined}
         />
         <div
           className="mb-holder"

@@ -3787,7 +3787,8 @@ p { margin: 0; max-width: 68ch; }
         (o.link === 'pop' ? '<span class="mb-pop"><span>' + ICON.open + 'Open</span><i></i><span>' + ICON.pen + 'Edit</span><i></i><span>' + ICON.copies + 'Copy</span></span>' : '') +
       '</p></div>';
   }
-  var MB_TYPING = ['dots', 'Done'];
+  // While typing the page keeps its menu; the phone's own ✓ above the keyboard puts it away.
+  var MB_TYPING = ['dots'];
   function phoneNote() {
     function s(face, label, small, on) {
       return '<div class="r' + (on ? ' on' : '') + '">' + (ICON[face] || '<span class="hx">' + face + '</span>') + '<span>' + label + '</span>' + (small ? '<small>' + small + '</small>' : '') + '</div>';
@@ -3801,7 +3802,7 @@ p { margin: 0; max-width: 68ch; }
       '<p>Next: send the draft on Monday.</p>' +
       '<p>/<span class="caret"></span></p></div>';
     return [
-      mbPhone('Yazarken: format bar notun üstünde, Done klavyeyi kapatır', mbPage(mbNav('Scrawl', MB_TYPING) + mbFbar(), mbNoteText({ caret: true }), '', 'typing'), MB_KB),
+      mbPhone('Yazarken: format bar notun üstünde; klavyeyi telefonun ✓’i kapatır', mbPage(mbNav('Scrawl', MB_TYPING) + mbFbar(), mbNoteText({ caret: true }), '', 'typing'), MB_KB),
       mbPhone('Seçince: telefonun kendi menüsü; bar kayınca To task, To card', mbPage(mbNav('Scrawl', MB_TYPING) + mbFbar({ from: 3 }), mbNoteText({ select: true, callout: true }), '', 'typing'), MB_KB),
       mbPhone('/ yazınca eklenebilecekler satırın üstünde, yazdıkça süzülür', mbPage(mbNav('Inbox', MB_TYPING) + mbFbar(), pricing, '', 'typing'), slash + MB_KB),
       mbPhone('Linke dokununca: Open, Edit, Copy', mbPage(mbNav('Scrawl', ['dots']) + mbFbar(), mbNoteText({ link: 'pop' })), mbTabs('browse'))
@@ -3833,7 +3834,7 @@ p { margin: 0; max-width: 68ch; }
       '<p>Next: send the estimate by Thursday.</p></div>';
     var photoActs = mbActions('image', 'whiteboard-1002.png', 'Image · 1.2 MB', [[{ icon: 'open', label: 'Open' }], [{ icon: 'bin', label: 'Delete', red: true }]]);
     return [
-      mbPhone('Find, ··· menüsünden; klavyenin üstünde, Replace ile', mbPage(mbNav('Scrawl', ['Done']) + mbFbar(), mbNoteText({ find: true }), '', 'typing'), find + MB_KB),
+      mbPhone('Find, ··· menüsünden; klavyenin üstünde, Replace ile', mbPage(mbNav('Scrawl', MB_TYPING) + mbFbar(), mbNoteText({ find: true }), '', 'typing'), find + MB_KB),
       mbPhone('To task: seçimden görev, yeri sheet’te seçilir', mbPage(mbNav('Scrawl', MB_TYPING), mbNoteText({ select: true })), toTask),
       mbPhone('Kayıt: süre ve Stop barın başında, yazmak sürer', mbPage(mbNav('Inbox', MB_TYPING) + mbFbar({ recording: true }), call, '', 'typing'), MB_KB),
       mbPhone('Resmi basılı tutunca; dokununca açılır', mbPage(mbNav('Inbox', ['dots']) + mbFbar(), photo), mbTabs('browse') + MB_DIM + photoActs)

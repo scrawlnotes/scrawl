@@ -1211,10 +1211,6 @@ export function App() {
               ),
               label: (version) => versionLabel(version, today),
             }}
-            onDone={() => {
-              session.closeFind();
-              if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-            }}
             card={{
               open: openCard,
               view: (board, id) => {
