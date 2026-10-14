@@ -1717,6 +1717,108 @@ p { margin: 0; max-width: 68ch; }
 .mb-pickf .go { display: grid; place-items: center; flex: none; width: 44px; height: 48px; margin-right: -14px; color: var(--m-faint); }
 .mock .mb-pickf .go svg { width: 16px; height: 16px; stroke-width: 2.2; }
 .mock .mb-row.plus > svg, .mb-row.plus b { color: var(--m-accent); }
+/* Files (Oct 14): every attached file of a space with where it is used, its size and when it
+   came. A row's box comes on hover; once one is chosen every row has one, and the bar over the
+   list says how many and what can be done. The trash is chosen the same way. */
+.cbx { position: relative; flex: none; display: inline-grid; place-items: center; width: 14px; height: 14px; border: 1.5px solid var(--m-faint); border-radius: 3.5px; }
+.cbx.on, .cbx.part { border-color: var(--m-accent); background: var(--m-accent); }
+.cbx.on::after { content: ''; width: 7px; height: 3.5px; margin-top: -2px; border: solid var(--m-on-accent); border-width: 0 0 2px 2px; transform: rotate(-45deg); }
+.cbx.part::after { content: ''; width: 7px; height: 2px; border-radius: 1px; background: var(--m-on-accent); }
+.fv-chips { display: flex; flex: none; gap: 5px; padding: 0 26px 10px; }
+.fv-chips span { padding: 2px 10px; border: 1px solid var(--m-line); border-radius: 12px; font-size: 12px; color: var(--m-dim); }
+.fv-chips span.on { border-color: transparent; background: var(--m-sel); color: var(--m-fg); }
+.fv-chips small { margin-left: 5px; color: var(--m-faint); }
+/* a long list is cut inside its pane, so that the foot of the sidebar and the status bar show */
+.mock .side.fit, .mock .main.fit { max-height: 618px; }
+.flhead, .flrow { display: grid; grid-template-columns: 14px 46px minmax(0, 1.15fr) minmax(0, 1.3fr) 58px 52px 80px; align-items: center; gap: 0 10px; margin: 0 -8px; padding: 0 8px; }
+.flhead { padding-top: 2px; padding-bottom: 5px; border-bottom: 1px solid var(--m-line); font-size: 11.5px; color: var(--m-faint); }
+.flhead .sorted { color: var(--m-fg); }
+.flhead .r, .flrow .r { text-align: right; font-variant-numeric: tabular-nums; }
+.flrow { min-height: 46px; border-bottom: 1px solid var(--m-line); }
+.flrow .cbx { opacity: 0; }
+.flrow.hover { border-radius: 5px; background: var(--m-side); }
+.flrow.on { border-radius: 5px; background: color-mix(in srgb, var(--m-sel) 70%, transparent); }
+.flrow.hover .cbx, .fsel-on .flrow .cbx { opacity: 1; }
+.flrow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flrow .used { display: flex; gap: 12px; overflow: hidden; font-size: 12px; color: var(--m-dim); white-space: nowrap; }
+.flrow .used span { display: inline-flex; align-items: center; gap: 5px; text-decoration: underline; text-decoration-color: var(--m-line); text-underline-offset: 3px; }
+.mock .flrow .used svg { flex: none; width: 12px; height: 12px; color: var(--m-faint); }
+.flrow .used .tr { color: var(--m-faint); }
+.flrow .used .tr small { margin-left: 2px; padding: 0 5px; border-radius: 3px; background: var(--m-code); font-size: 10.5px; text-decoration: none; display: inline-block; }
+.flrow .r { font-size: 12px; color: var(--m-dim); }
+.flrow .ta { display: flex; justify-content: flex-end; gap: 2px; opacity: 0; }
+.flrow.hover .ta { opacity: 1; }
+.fthumb { display: grid; place-items: center; width: 46px; height: 32px; overflow: hidden; border: 1px solid var(--m-line); border-radius: 4px; background: var(--m-side); color: var(--m-dim); }
+.mock .fthumb svg.wb, .mock .fthumb svg.fpic { display: block; width: 100%; height: 100%; border-radius: 0; }
+.fthumb.doc { display: flex; flex-direction: column; justify-content: center; gap: 1px; }
+.mock .fthumb.doc svg { width: 13px; height: 13px; }
+.fthumb.doc i { font: 600 8px/1 var(--m-ui); font-style: normal; letter-spacing: .05em; color: var(--m-faint); }
+.sec .cbx { align-self: center; margin-right: 2px; }
+.th.fsel { padding-top: 14px; padding-bottom: 10px; }
+.th.fsel b { font-size: 15px; margin-right: 0; }
+.th.fsel .count { margin-right: auto; }
+.th.fsel .push { margin-left: auto; }
+.th.fsel .st-btn svg { width: 13px; height: 13px; }
+.th .xx { display: grid; place-items: center; width: 24px; height: 24px; margin-left: -6px; border-radius: 4px; color: var(--m-dim); font-size: 17px; line-height: 1; }
+.trow.sel { grid-template-columns: 14px 18px minmax(0, 1fr) auto; }
+.trow.sel.on { border-radius: 5px; background: color-mix(in srgb, var(--m-sel) 70%, transparent); }
+.fgone { display: flex; flex-direction: column; gap: 2px; margin: 0 0 12px; padding: 6px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-bg); }
+.fgone span { display: flex; align-items: center; gap: 8px; padding: 4px 6px; font-size: 12.5px; }
+.mock .fgone svg { width: 14px; height: 14px; color: var(--m-dim); }
+.fgone small { margin-left: auto; color: var(--m-faint); font-size: 11.5px; }
+/* a large file left in the cloud, in its place in a note: as large as the image will be */
+.dlph { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 360px; height: 176px; margin: 6px 0 2px; border: 1px dashed color-mix(in srgb, var(--m-faint) 60%, transparent); border-radius: 6px; background: var(--m-side); font: 12px/1.4 var(--m-ui); color: var(--m-dim); vertical-align: top; }
+.mock .dlph > svg { width: 24px; height: 24px; color: var(--m-faint); }
+.dlph b { color: var(--m-fg); font-weight: 500; }
+.dlph small { color: var(--m-faint); }
+.dlph .st-btn { margin-top: 6px; }
+.mock .dlph .st-btn svg { width: 14px; height: 14px; }
+.aud.away { gap: 8px; padding: 5px 8px 5px 12px; }
+.mock .aud.away > svg { width: 15px; height: 15px; color: var(--m-dim); }
+.aud.away small { color: var(--m-faint); }
+.aud.away .dl { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; padding: 3px 9px; border-radius: 12px; background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+.mock .aud.away .dl svg { width: 13px; height: 13px; }
+.st-device.wide { grid-template-columns: 78px minmax(0, 1fr) auto; }
+.st-device .in.choose { display: flex; justify-content: space-between; }
+.st-device .in.choose .dd { color: var(--m-faint); font-size: 10px; }
+/* Files on a phone */
+.mb-frow { position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 16px; }
+.mb-frow + .mb-frow::before { content: ''; position: absolute; top: 0; left: 72px; right: 0; border-top: 1px solid var(--m-line); }
+.mb-frow.on { background: color-mix(in srgb, var(--m-sel) 45%, transparent); }
+.mb-thumb { display: grid; flex: none; place-items: center; width: 44px; height: 44px; overflow: hidden; border-radius: 8px; background: var(--m-side); color: var(--m-dim); }
+.mock .mb-thumb svg { width: 22px; height: 22px; }
+.mock .mb-thumb svg.wb, .mock .mb-thumb svg.fpic { display: block; width: 100%; height: 100%; border-radius: 0; }
+.mb-thumb.doc { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.mock .mb-thumb.doc svg { width: 18px; height: 18px; }
+.mb-thumb.doc i { font: 600 9.5px/1 var(--m-ui); font-style: normal; letter-spacing: .05em; color: var(--m-faint); }
+.mb-acts .hd .mb-thumb { display: grid; width: 36px; height: 36px; border-radius: 7px; }
+.mock .mb-acts .hd .mb-thumb svg.fpic { width: 100%; height: 100%; }
+.mb-frow .tx { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.mb-frow .tx b { overflow: hidden; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.mb-frow .tx small { overflow: hidden; color: var(--m-faint); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.mb-frow .tx .mb-bar { margin-top: 5px; }
+.mb-frow .rt { flex: none; color: var(--m-faint); font-size: 14px; }
+.mb-frow .dl { display: grid; flex: none; place-items: center; width: 40px; height: 40px; margin-right: -8px; color: var(--m-accent); }
+.mock .mb-frow .dl svg { width: 25px; height: 25px; }
+.mb-sel { position: relative; display: grid; flex: none; place-items: center; width: 24px; height: 24px; border: 1.5px solid var(--m-faint); border-radius: 50%; }
+.mb-sel.on { border-color: var(--m-accent); background: var(--m-accent); }
+.mb-sel.on::after { content: ''; width: 10px; height: 5px; margin-top: -3px; border: solid var(--m-on-accent); border-width: 0 0 2.2px 2.2px; transform: rotate(-45deg); }
+.mb-row.mb-chooses { gap: 12px; }
+.mb-row.mb-chooses.on { background: color-mix(in srgb, var(--m-sel) 45%, transparent); }
+.mb-selbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; justify-content: space-around; height: 72px; padding-bottom: 20px; border-top: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-bg) 88%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.mb-selbar span { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 88px; color: var(--m-accent); font-size: 11.5px; font-weight: 500; }
+.mock .mb-selbar svg { width: 24px; height: 24px; }
+.mb-selbar span.red { color: var(--m-p1); }
+.mb-dlph { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 196px; margin: 2px 0 14px; padding: 0 30px; border: 1px dashed color-mix(in srgb, var(--m-faint) 60%, transparent); border-radius: 10px; background: var(--m-side); font: 14.5px/1.4 var(--m-ui); color: var(--m-dim); }
+.mock .mb-dlph > svg { width: 30px; height: 30px; color: var(--m-faint); }
+.mb-dlph b { color: var(--m-fg); font-weight: 500; }
+.mb-dlph small { color: var(--m-faint); font-size: 13.5px; }
+.mb-dlph .go { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 8px 16px; border-radius: 10px; background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+.mock .mb-dlph .go svg { width: 18px; height: 18px; }
+.mb-dlph .mb-bar { align-self: stretch; margin-top: 8px; }
+.mb-ed .aud.away { min-height: 44px; padding: 4px 4px 4px 14px; border-radius: 22px; font-size: 14.5px; }
+.mb-ed .aud.away .dl { align-self: stretch; padding: 0 14px; border-radius: 18px; }
+.mock .mb-ed .aud.away .dl svg { width: 17px; height: 17px; }
 </style>
 
 <main class="page">
@@ -1821,6 +1923,12 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-spsync" data-aview="spsync">Spaces sync</button>
         <button type="button" id="a-assign" data-aview="assign">Assign</button>
         <button type="button" id="a-spcard" data-aview="spcard">Card assign</button>
+        <button type="button" id="a-files" data-aview="files">Files</button>
+        <button type="button" id="a-filessel" data-aview="filessel">Files select</button>
+        <button type="button" id="a-filesdel" data-aview="filesdel">Files delete</button>
+        <button type="button" id="a-trashsel" data-aview="trashsel">Trash select</button>
+        <button type="button" id="a-bigfile" data-aview="bigfile">Large files</button>
+        <button type="button" id="a-bigset" data-aview="bigset">Download setting</button>
         <button type="button" id="a-pshell" data-aview="pshell">Phone shell</button>
         <button type="button" id="a-ppages" data-aview="ppages">Phone pages</button>
         <button type="button" id="a-pcreate" data-aview="pcreate">Phone create</button>
@@ -1844,6 +1952,9 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pspaces2" data-aview="pspaces2">Phone spaces more</button>
         <button type="button" id="a-psync" data-aview="psync">Phone sync</button>
         <button type="button" id="a-psync2" data-aview="psync2">Phone sync more</button>
+        <button type="button" id="a-pfiles" data-aview="pfiles">Phone files</button>
+        <button type="button" id="a-pfiles2" data-aview="pfiles2">Phone files more</button>
+        <button type="button" id="a-pbig" data-aview="pbig">Phone large files</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -4365,8 +4476,8 @@ p { margin: 0; max-width: 68ch; }
   var SP_STATUS = '<div class="status"><span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>' + syncStatus(false, null) + '</div>';
   // The views that show the Settings window, whose button at the foot of the sidebar is lit.
   var SP_SETTINGS = ['profile', 'spaceslist', 'spacepage', 'spremove', 'addspace', 'addpicker', 'addallow', 'addsignin'];
-  function spFoot(on, trash) {
-    return '<div class="side-foot"><div class="foot-row">' + row({ icon: 'trash', label: 'Trash', ct: 8, on: trash }) +
+  function spFoot(on, trash, files) {
+    return '<div class="side-foot"><div class="foot-row">' + row({ icon: 'clip', label: 'Files', ct: 9, on: files }) + row({ icon: 'trash', label: 'Trash', ct: 8, on: trash }) +
       '<span class="cog' + (on ? ' on' : '') + '" title="Settings">' + ICON.settings + '</span></div></div>';
   }
   /** A row of the tree: a space's heading, a folder, or an item; each level one step in. */
@@ -4386,13 +4497,15 @@ p { margin: 0; max-width: 68ch; }
   function spaceTree(view) {
     var assign = view === 'assign', adding = view === 'spfolder', card = view === 'spcard';
     var personal = !card;
+    // Files and the large files keep Scrawl closed, so that the foot of the sidebar shows.
+    var closed = assign || adding || /^(files|trashsel|big)/.test(view);
     return '<div class="tree fxt">' +
       row({ label: 'Today', ct: 5, on: view === 'sptree' }) + row({ label: 'Upcoming', ct: 12 }) +
       spRowT({ sp: true, open: personal, label: 'Personal' }) +
       (personal
         ? spRowT({ d: 1, folder: true, label: 'Inbox', ct: 4 }) +
-          spRowT({ d: 1, folder: true, open: !assign && !adding, label: 'Scrawl', ct: 9 }) +
-          (assign || adding ? '' : spRowT({ d: 2, icon: 'tasks', label: 'Tasks', ct: 7 }) + spRowT({ d: 2, icon: 'board', label: 'Roadmap', ct: 13 }) + spRowT({ d: 2, icon: 'notes', label: 'Sync engine: open questions' })) +
+          spRowT({ d: 1, folder: true, open: !closed, label: 'Scrawl', ct: 9 }) +
+          (closed ? '' : spRowT({ d: 2, icon: 'tasks', label: 'Tasks', ct: 7 }) + spRowT({ d: 2, icon: 'board', label: 'Roadmap', ct: 13 }) + spRowT({ d: 2, icon: 'notes', label: 'Sync engine: open questions' })) +
           spRowT({ d: 1, folder: true, label: 'Home', ct: 4 }) +
           spRowT({ d: 1, folder: true, label: 'Reading', ct: 8 })
         : '') +
@@ -4406,7 +4519,7 @@ p { margin: 0; max-width: 68ch; }
       spRowT({ d: 1, folder: true, label: 'Support', ct: 3 }) +
       spRowT({ d: 1, folder: true, label: 'meetings', ct: 6 }) +
       spRowT({ sp: true, label: 'Side projects' }) +
-      '</div>' + spFoot(SP_SETTINGS.indexOf(view) >= 0, view === 'sptrash');
+      '</div>' + spFoot(SP_SETTINGS.indexOf(view) >= 0 || view === 'bigset', view === 'sptrash' || view === 'trashsel', view.indexOf('files') === 0);
   }
   /** The sidebar of a first start: one space, so no heading; nothing in it yet. */
   function freshTree() {
@@ -4942,7 +5055,266 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('OneDrive’da klasör: dokununca seçer, › içine girer', mbPersonalConnect(), mbTabs('browse') + mbOneDriveSheet())
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, ptasksdone: phoneTasksDone, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys, pempty: phoneEmpty, pwelcome: phoneWelcome, pspaces: phoneSpaces, pspaces2: phoneSpacesMore, psync: phoneSync, psync2: phoneSyncMore };
+  // Files (Oct 14). Every image, recording and file attached in a space, with where it is used,
+  // how large it is and when it came, each space's under its own heading. A row opens the file;
+  // the name of a note, card or record in it opens that. Rows are chosen as in the trash: a row's
+  // box comes on hover, and once one is chosen every row has one and the bar above says what can
+  // be done with them. An image or a recording the app named by the moment it came is shown as
+  // Image or Recording and that moment; a file dropped in keeps its own name.
+  ICON.clip = '<svg viewBox="0 0 24 24"><path d="M19.5 11.5l-7.6 7.6a4.8 4.8 0 0 1-6.8-6.8l8.2-8.2a3.2 3.2 0 0 1 4.5 4.5l-8.1 8.1a1.6 1.6 0 0 1-2.3-2.3l7.4-7.4"/></svg>';
+  ICON.share = '<svg viewBox="0 0 24 24"><path d="M12 14.5v-11M8 7l4-4 4 4"/><path d="M8.5 10H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1.5"/></svg>';
+  ICON.sort = '<svg viewBox="0 0 24 24"><path d="M7.5 4.5v15M4 16l3.5 3.5L11 16M16.5 19.5v-15M13 8l3.5-3.5L20 8"/></svg>';
+  ICON.cdown = '<svg viewBox="0 0 24 24"><path d="M7 18.5h-.5a4 4 0 0 1-.4-8A6 6 0 0 1 17.7 9a4.5 4.5 0 0 1-.2 9.5H17"/><path d="M12 11.5v9M9 17.5l3 3 3-3"/></svg>';
+  /** Small pictures for the images: the whiteboard, a roof under the sky, a screen captured. */
+  var PIC = {
+    board: BOARD_PHOTO.replace('<svg class="wb"', '<svg class="wb" preserveAspectRatio="xMidYMid slice"'),
+    roof: '<svg class="fpic" viewBox="0 0 120 80" preserveAspectRatio="xMidYMid slice" style="stroke:none">' +
+      '<rect width="120" height="80" fill="color-mix(in srgb, var(--m-hl-function, #7ab0f5) 35%, var(--m-code))"/>' +
+      '<path d="M0 54L44 26l44 28v26H0z" fill="color-mix(in srgb, var(--m-accent) 45%, var(--m-code))"/>' +
+      '<path d="M70 80V48l26-16 24 15v33z" fill="color-mix(in srgb, var(--m-faint) 40%, var(--m-code))"/>' +
+      '<circle cx="98" cy="16" r="7" fill="color-mix(in srgb, #f0c060 70%, var(--m-code))"/></svg>',
+    shot: '<svg class="fpic" viewBox="0 0 120 80" preserveAspectRatio="xMidYMid slice" style="stroke:none">' +
+      '<rect width="120" height="80" fill="var(--m-bg)"/><rect width="30" height="80" fill="var(--m-side)"/>' +
+      '<rect x="6" y="10" width="18" height="4" rx="2" fill="var(--m-faint)"/><rect x="6" y="19" width="14" height="4" rx="2" fill="var(--m-line)"/><rect x="6" y="28" width="16" height="4" rx="2" fill="var(--m-line)"/>' +
+      '<rect x="38" y="10" width="50" height="6" rx="2" fill="var(--m-faint)"/><rect x="38" y="24" width="72" height="4" rx="2" fill="var(--m-line)"/>' +
+      '<rect x="38" y="33" width="64" height="4" rx="2" fill="var(--m-line)"/><rect x="38" y="42" width="70" height="4" rx="2" fill="var(--m-line)"/></svg>'
+  };
+  // What uses a file: a note, a card or a record; a note in the trash says so.
+  var FILES = [
+    { kind: 'image', pic: 'shot', name: 'Image · Oct 12, 09:14', used: [['board', 'ROA-12'], ['notes', 'Sync engine: open questions']], size: '640 KB', day: 'Oct 12' },
+    { kind: 'image', pic: 'roof', name: 'M24-stelora.png', used: [['notes', 'Site visit, Oct 6']], size: '42.9 MB', day: 'Oct 6', big: true },
+    { kind: 'file', ext: 'ZIP', name: 'drawings.zip', used: [['notes', 'Site visit, Oct 6']], size: '8.0 MB', day: 'Oct 6' },
+    { kind: 'image', pic: 'board', name: 'Image · Oct 6, 14:32', used: [['notes', 'Client call, Oct 6']], size: '1.2 MB', day: 'Oct 6' },
+    { kind: 'audio', name: 'Recording · Oct 6, 14:40', used: [['notes', 'Client call, Oct 6']], size: '310 KB', day: 'Oct 6' },
+    { kind: 'file', ext: 'PDF', name: 'scope-v3.pdf', used: [['notes', 'Client call, Oct 6']], size: '2.4 MB', day: 'Oct 6' },
+    { kind: 'image', pic: 'board', name: 'Image · Sep 28, 17:05', used: [['notes', 'Meeting notes', true]], size: '880 KB', day: 'Sep 28' },
+    { kind: 'file', ext: 'PDF', name: 'pilot-offer.pdf', used: [['notes', 'Pilot offer'], ['board', 'DEA-12']], size: '2.6 MB', day: 'Oct 9' },
+    { kind: 'image', pic: 'shot', name: 'Image · Oct 9, 11:20', used: [['collection', 'Acme Corp']], size: '1.4 MB', day: 'Oct 9' }
+  ];
+  var FILES_PERSONAL = FILES.slice(0, 7), FILES_ACME = FILES.slice(7);
+  /** A file's small picture: the image itself, or the kind of file with its extension. */
+  function fThumb(f, cls) {
+    if (f.kind === 'image') return '<span class="' + cls + '">' + PIC[f.pic] + '</span>';
+    return '<span class="' + cls + ' doc">' + ICON[f.kind] + (f.ext ? '<i>' + f.ext + '</i>' : '') + '</span>';
+  }
+  function fUsed(f) {
+    return f.used.map(function (u) { return '<span' + (u[2] ? ' class="tr"' : '') + '>' + ICON[u[0]] + u[1] + (u[2] ? '<small>in Trash</small>' : '') + '</span>'; }).join('');
+  }
+  /** A row of Files on a computer: box, picture, name, where it is used, size, when it came, and on hover what can be done. */
+  function frow(f, o) {
+    o = o || {};
+    return '<div class="flrow' + (o.hover ? ' hover' : '') + (o.on ? ' on' : '') + '"><span class="cbx' + (o.on ? ' on' : '') + '"></span>' + fThumb(f, 'fthumb') +
+      '<span class="nm">' + f.name + '</span><span class="used">' + fUsed(f) + '</span><span class="r">' + f.size + '</span><span class="r">' + f.day + '</span>' +
+      '<span class="ta"><span' + (o.hover ? ' class="hot tip" data-tip="Open"' : ' title="Open"') + '>' + ICON.open + '</span><span title="Show in folder">' + ICON.folder + '</span><span title="Delete">' + ICON.trash + '</span></span></div>';
+  }
+  /** Files on a computer; `chosen` are the rows chosen, by name, and with any the bar takes the heading's place. */
+  function filesView(o) {
+    o = o || {};
+    var chosen = o.chosen || [];
+    var sel = chosen.length > 0;
+    function rows(list) { return list.map(function (f) { return frow(f, { hover: f.name === o.hover, on: chosen.indexOf(f.name) >= 0 }); }).join(''); }
+    function group(name, list, sum) {
+      var n = list.filter(function (f) { return chosen.indexOf(f.name) >= 0; }).length;
+      return '<div class="sec spc">' + (sel ? '<span class="cbx' + (n === list.length ? ' on' : n > 0 ? ' part' : '') + '"></span>' : '') + ICON.space + name + ' <small>' + list.length + ' · ' + sum + '</small></div>' + rows(list);
+    }
+    var head = sel
+      ? '<div class="th fsel"><span class="xx" title="Clear the choice">×</span><b>' + chosen.length + ' selected</b><span class="count">' + o.chosenSize + '</span><span class="st-btn">Select all</span><span class="st-btn red">' + ICON.trash + 'Delete</span></div>'
+      : '<div class="th"><b>Files</b><span class="count">9 files · 60.3 MB</span><span class="srch">' + ICON.find + 'Search…</span></div>';
+    return '<div class="tasksv' + (sel ? ' fsel-on' : '') + '">' + head +
+      '<div class="fv-chips"><span class="on">All<small>9</small></span><span>Images<small>5</small></span><span>Recordings<small>1</small></span><span>Files<small>3</small></span></div>' +
+      '<div class="tl"><div class="flhead"><span></span><span></span><span>Name</span><span>Used in</span><span class="r">Size</span><span class="r sorted">Added ↓</span><span></span></div>' +
+      group('Personal', FILES_PERSONAL, '56.3 MB') + group('Acme', FILES_ACME, '4.0 MB') +
+      '<p class="trash-note">Files come in with notes, cards and records. One that nothing uses any more goes to the trash by itself.</p></div></div>';
+  }
+  /** Deleting a file that is used: the question says where, and that it is taken out of there. */
+  function filesDeleteAsk() {
+    return '<div class="ovl center"><div class="mdlg" style="width: 440px"><h3>Delete “pilot-offer.pdf”?</h3>' +
+      '<p class="what">It is used in 2 places and will be removed from them:</p>' +
+      '<div class="fgone"><span>' + ICON.notes + 'Pilot offer<small>Note · Acme › Sales</small></span><span>' + ICON.board + 'DEA-12 Acme pilot<small>Card · Deals</small></span></div>' +
+      '<p class="what">The file goes to the trash. Undo, or the note’s history, brings it back.</p>' +
+      '<div class="foot"><span class="st-btn" style="margin-right: auto">Cancel</span><span class="st-btn red fill">Delete</span></div></div></div>';
+  }
+  /** A row of the trash with its box; chosen, it is marked. */
+  function trowSel(kind, name, meta, on) {
+    return '<div class="trow sel' + (on ? ' on' : '') + '"><span class="cbx' + (on ? ' on' : '') + '"></span>' + ICON[kind] + '<div><div class="tt">' + name + '</div><div class="meta">' + meta + '</div></div><div class="ta"></div></div>';
+  }
+  var TRASH_SEL = '<div class="tasksv fsel-on"><div class="th fsel"><span class="xx" title="Clear the choice">×</span><b>3 selected</b><span class="st-btn push">Select all</span><span class="st-btn">' + ICON.restore + 'Restore</span><span class="st-btn red">' + ICON.trash + 'Delete forever</span></div><div class="tl">' +
+    '<div class="sec spc"><span class="cbx part"></span>' + ICON.space + 'Personal <small>5</small></div>' +
+    trowSel('notes', 'Meeting notes', '<span>Work</span><span>Today, 11:35</span>') +
+    trowSel('folder', 'Old drafts', '<span>2 notes, 1 task list</span><span>Today, 11:20</span>', true) +
+    trowSel('tasks', 'Sprint 12', '<span>Scrawl</span><span>3 tasks</span><span>Today, 10:02</span>') +
+    trowSel('image', 'M24-stelora.png', '<span>Not used in any note</span><span>42.9 MB</span><span>Today, 09:30</span>', true) +
+    trowSel('notes', 'Grocery list', '<span>Home</span><span>Oct 1</span>', true) +
+    '<div class="sec spc"><span class="cbx"></span>' + ICON.space + 'Acme <small>3</small></div>' +
+    trowSel('notes', 'Old pricing', '<span>Sales</span><span>Today, 10:40</span>') +
+    trowSel('collection', 'Leads 2025', '<span>Sales</span><span>12 records</span><span>Yesterday</span>') +
+    trowSel('notes', 'Standup 10-04', '<span>meetings</span><span>Oct 4</span>') +
+    '</div></div>';
+  // Large files (Oct 14). Sync leaves an attached file over a limit in the cloud until it is
+  // asked for: in its place in the note a box as large as the image will be, with its name, its
+  // size and Download. The limit is the device's own: 10 MB on a phone and in a browser, every
+  // file on the desktop app.
+  var BIG_NOTE = FBAR.replace(/<div class="rec">[\s\S]*?<\/div>/, '<div class="g"><span>Record</span></div>') + '<div class="ed"><div class="col">' +
+    '<div class="ln h1">Site visit, Oct 6</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">Photos from the roof, the full-size one first:</div>' +
+    '<div class="ln"><span class="dlph">' + ICON.image + '<b>M24-stelora.png</b><small>42.9 MB · in OneDrive</small><span class="st-btn go">' + ICON.cdown + 'Download</span></span></div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">The walk-through, recorded on the roof:</div>' +
+    '<div class="ln"><span class="aud away">' + ICON.audio + 'Recording<small>18.4 MB · in OneDrive</small><span class="dl">' + ICON.cdown + 'Download</span></span></div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">The survey they sent, and the drawings:</div>' +
+    '<div class="ln"><span class="file">' + ICON.file + 'survey-2026.pdf<small>1.8 MB</small></span></div>' +
+    '<div class="ln"><span class="copy">' + ICON.file + 'drawings-full.zip<small>Downloading · 31 of 48 MB</small><span class="bar"><i style="width: 65%"></i></span></span></div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">Next: ask about the drainage<span class="caret"></span></div>' +
+    '</div></div>';
+  /** This device in Settings › Spaces, in a browser: how large a file comes by itself. */
+  function bigSetting() {
+    var list = spSpacesList(false).replace(/<div class="st-device">/g, '<div class="st-device wide">').replace('Yours · ' + SP_DEFAULT + 'Personal', 'Yours · In this browser') +
+      '<div class="st-device wide"><span class="fl">Download</span><span class="in choose">Files up to 10 MB<span class="dd">▾</span></span></div>' +
+      '<p class="st-note">Larger files stay in OneDrive until you open them; notes, lists and boards always come. The desktop app takes every file.</p>';
+    return spSettingsWindow('spaceslist').replace(spSpacesList(true), list);
+  }
+  function filesTabs(on) {
+    return tab('notes', 'Client call, Oct 6', 'note', false) + tab(on === 'trash' ? 'trash' : 'clip', on === 'trash' ? 'Trash' : 'Files', on, true) + '<div class="tab plus">+</div>';
+  }
+  function filesMain(view, tabs, body, status) {
+    return '<aside class="side fit">' + spaceTree(view) + '</aside><section class="main fit"><div class="panes">' + pane(tabs, body) + '</div><div class="status">' + status + syncStatus(false, null) + '</div></section>';
+  }
+  SP_VIEWS.files = function () { return filesMain('files', filesTabs('files'), filesView({ hover: 'drawings.zip' }), '<span>9 files</span><span>60.3 MB</span>'); };
+  SP_VIEWS.filessel = function () {
+    return filesMain('filessel', filesTabs('files'), filesView({ chosen: ['M24-stelora.png', 'drawings.zip', 'Image · Sep 28, 17:05'], chosenSize: '51.8 MB' }), '<span>3 of 9 selected</span>');
+  };
+  SP_VIEWS.filesdel = function () { return filesMain('filesdel', filesTabs('files'), filesView({ hover: 'pilot-offer.pdf' }), '<span>9 files</span><span>60.3 MB</span>') + filesDeleteAsk(); };
+  SP_VIEWS.trashsel = function () { return filesMain('trashsel', filesTabs('trash'), TRASH_SEL, '<span>3 of 8 selected</span>'); };
+  SP_VIEWS.bigfile = function () {
+    return filesMain('bigfile', tab('notes', 'Site visit, Oct 6', 'note', true) + '<div class="tab plus">+</div>', BIG_NOTE, '<span>Ln 14, Col 29</span><span>38 words</span><span>Markdown</span>');
+  };
+  SP_VIEWS.bigset = function () { return spNoteView('bigset') + bigSetting(); };
+  // Files on a phone: a page from Browse, beside the trash. A row's line says where the file is
+  // used and how large it is; a file left in OneDrive has Download in its place. Held, a row
+  // opens what can be done, with the places it is used in first.
+  /** A row of Files on a phone: picture, name, where it is used and its size; when it came, or Download. */
+  function mbFRow(f, o) {
+    o = o || {};
+    var places = f.used.map(function (u) { return u[1] + (u[2] ? ' (in Trash)' : ''); });
+    var sub = o.sub || (places[0] + (places.length > 1 ? ' +' + (places.length - 1) : '') + ' · ' + f.size);
+    return '<div class="mb-frow' + (o.sel ? ' on' : '') + '">' + (o.sel !== undefined ? '<span class="mb-sel' + (o.sel ? ' on' : '') + '"></span>' : '') + fThumb(f, 'mb-thumb') +
+      '<span class="tx"><b>' + f.name + '</b><small>' + sub + '</small>' + (o.bar ? '<span class="mb-bar"><i style="width: ' + o.bar + '%"></i></span>' : '') + '</span>' +
+      (o.dl ? '<span class="dl">' + ICON.cdown + '</span>' : o.bar ? '' : '<span class="rt">' + f.day + '</span>') + '</div>';
+  }
+  function mbFilesChips() {
+    return '<div class="mb-searchbar">' + ICON.find + 'Search</div><div class="mb-views"><span class="mb-view on">All</span><span class="mb-view">Images</span><span class="mb-view">Recordings</span><span class="mb-view">Files</span><span class="opt">' + ICON.sort + '</span></div>';
+  }
+  /** The rows of Files on a phone; a file over this phone's limit is not downloaded. */
+  function mbFilesRows(o) {
+    o = o || {};
+    function r(f) {
+      var chosen = o.chosen ? o.chosen.indexOf(f.name) >= 0 : undefined;
+      if (f.big) return mbFRow(f, { sel: chosen, sub: 'Not downloaded · ' + f.size, dl: !o.chosen });
+      return mbFRow(f, { sel: chosen });
+    }
+    return '<div class="mb-sec">Personal<span class="sum">56.3 MB</span></div>' + FILES_PERSONAL.map(r).join('') +
+      '<div class="mb-sec">Acme<span class="sum">4.0 MB</span></div>' + FILES_ACME.map(r).join('');
+  }
+  function mbFiles(o) {
+    o = o || {};
+    var top = o.chosen
+      ? '<div class="mb-nav"><span class="back">Select all</span><span class="mid">' + o.chosen.length + ' selected</span><span class="acts"><span class="tb">Done</span></span></div>' + mbHead('Files', '9 files · 60.3 MB')
+      : mbNav('Browse', ['Select']) + mbHead('Files', '9 files · 60.3 MB');
+    return mbPage(top + mbFilesChips(), mbFilesRows(o));
+  }
+  /** The bar that takes the tab bar's place while rows are chosen. */
+  function mbSelBar(acts) {
+    return '<nav class="mb-selbar">' + acts.map(function (a) { return '<span' + (a[2] ? ' class="red"' : '') + '>' + ICON[a[0]] + a[1] + '</span>'; }).join('') + '</nav>';
+  }
+  function mbBrowseFiles() {
+    return mbBrowse().replace(mbRow({ icon: 'trash', label: 'Trash', ct: 8 }), mbRow({ icon: 'clip', label: 'Files', ct: 9 }) + mbRow({ icon: 'trash', label: 'Trash', ct: 8 }));
+  }
+  function mbFileActs() {
+    return '<div class="mb-acts"><div class="mb-card"><div class="hd">' + fThumb(FILES[0], 'mb-thumb sm') + '<span><b>Image · Oct 12, 09:14</b><small>640 KB · Personal</small></span></div>' +
+      '<div class="a">' + ICON.board + 'ROA-12<span class="on">Card</span></div>' +
+      '<div class="a">' + ICON.notes + 'Sync engine: open questions<span class="on">Note</span></div>' +
+      '<div class="sep"></div><div class="a">' + ICON.open + 'Open</div><div class="a">' + ICON.share + 'Share</div>' +
+      '<div class="sep"></div><div class="a red">' + ICON.bin + 'Delete</div></div>' +
+      '<div class="mb-card"><div class="a cancel">Cancel</div></div></div>';
+  }
+  function mbFilesSort() {
+    return mbActions('sort', 'Sort', 'Files', [[
+      { icon: 'clock', label: 'Newest', on: MB_TICK }, { icon: 'stack', label: 'Largest' }, { icon: 'bullets', label: 'Name' }
+    ]]);
+  }
+  function mbFilesDeleteAsk() {
+    return MB_DIM + '<div class="mb-acts"><div class="mb-card"><div class="ask"><b>Delete 2 files?</b><small>They are taken out of Site visit, Oct 6 and go to the trash.</small></div>' +
+      '<div class="a red center">Delete 2 files</div></div>' +
+      '<div class="mb-card"><div class="a cancel">Cancel</div></div></div>';
+  }
+  function mbTrashSel() {
+    function r(icon, name, sub, on) {
+      return '<div class="mb-row mb-chooses' + (on ? ' on' : '') + '"><span class="mb-sel' + (on ? ' on' : '') + '"></span>' + ICON[icon] + '<span class="tx"><b>' + name + '</b><small>' + sub + '</small></span></div>';
+    }
+    return mbPage('<div class="mb-nav"><span class="back">Select all</span><span class="mid">3 selected</span><span class="acts"><span class="tb">Done</span></span></div>' + mbHead('Trash'),
+      '<div class="mb-sec">Personal <small>5</small></div>' +
+      r('notes', 'Meeting notes', 'Work · today, 11:35') + r('folder', 'Old drafts', '2 notes, 1 task list · today', true) + r('tasks', 'Sprint 12', 'Scrawl · today') +
+      r('image', 'M24-stelora.png', 'Not used in any note · 42.9 MB', true) + r('notes', 'Grocery list', 'Home · Oct 1', true) +
+      '<div class="mb-sec">Acme <small>3</small></div>' +
+      r('notes', 'Old pricing', 'Sales · today, 10:40') + r('collection', 'Leads 2025', 'Sales · 12 records · yesterday'));
+  }
+  function phoneFiles() {
+    return [
+      mbPhone('Browse: Files, Trash’ın yanında', mbBrowseFiles(), mbTabs('browse') + MB_FAB),
+      mbPhone('Files: nerede kullanıldığı ve boyutu; inmeyen büyük dosyada Download', mbFiles(), mbTabs('browse')),
+      mbPhone('Basılı tutunca: kullanıldığı yerler, Open, Share, Delete', mbFiles(), mbTabs('browse') + MB_DIM + mbFileActs()),
+      mbPhone('Sıralama: Newest, Largest, Name', mbFiles(), mbTabs('browse') + MB_DIM + mbFilesSort())
+    ].join('');
+  }
+  function phoneFilesMore() {
+    var chosen = { chosen: ['M24-stelora.png', 'drawings.zip'] };
+    return [
+      mbPhone('Select: daireler; altta Share ve Delete', mbFiles(chosen), mbSelBar([['share', 'Share'], ['bin', 'Delete', true]])),
+      mbPhone('Kullanılan dosyayı silmek: nereden çıkacağını söyler', mbFiles(chosen), mbSelBar([['share', 'Share'], ['bin', 'Delete', true]]) + mbFilesDeleteAsk()),
+      mbPhone('Sonra altta Undo', mbPage(mbNav('Browse', ['Select']) + mbHead('Files', '7 files · 9.4 MB') + mbFilesChips(),
+        '<div class="mb-sec">Personal<span class="sum">5.4 MB</span></div>' + [0, 3, 4, 5, 6].map(function (i) { return mbFRow(FILES[i]); }).join('') +
+        '<div class="mb-sec">Acme<span class="sum">4.0 MB</span></div>' + FILES_ACME.map(function (f) { return mbFRow(f); }).join('')),
+        mbTabs('browse') + '<span class="mb-toast undo"><span>2 files deleted</span><span class="u">Undo</span></span>'),
+      mbPhone('Trash’te Select: Restore ve Delete', mbTrashSel(), mbSelBar([['restore', 'Restore'], ['bin', 'Delete', true]]))
+    ].join('');
+  }
+  // A large file on a phone: its place in the note until it is tapped, then its download.
+  function mbBigNote(going) {
+    return mbPage(mbNav('Scrawl', ['dots']) + mbFbar(),
+      '<div class="mb-ed"><div class="h1">Site visit, Oct 6</div>' +
+      '<p>Photos from the roof, the full-size one first:</p>' +
+      (going
+        ? '<span class="mb-dlph">' + ICON.image + '<b>M24-stelora.png</b><small>Downloading · 18.2 of 42.9 MB</small><span class="mb-bar"><i style="width: 42%"></i></span></span>'
+        : '<span class="mb-dlph">' + ICON.image + '<b>M24-stelora.png</b><small>42.9 MB · in OneDrive</small><span class="go">' + ICON.cdown + 'Download</span></span>') +
+      '<p>The walk-through, recorded on the roof:</p>' +
+      '<div><span class="aud away">' + ICON.audio + 'Recording<small>18.4 MB</small><span class="dl">' + ICON.cdown + 'Download</span></span></div>' +
+      '<p>Next: ask about the drainage.</p></div>');
+  }
+  function mbSyncLimit() {
+    return mbSyncSpaces().replace('<p class="mb-p">Every 30 s while open, and 5 s after a save.</p>',
+      '<div class="mb-sec">This phone</div>' +
+      '<div class="mb-form"><div class="mb-group"><div class="mb-fr"><span class="in">Download by itself</span><span class="val">Up to 10 MB' + MB_CHEV + '</span></div></div></div>' +
+      '<p class="mb-p">Larger files stay in OneDrive until you tap them. Notes, lists and boards always come. Every 30 s while open, and 5 s after a save.</p>');
+  }
+  function mbLimitSheet() {
+    function o(label, on) { return '<div class="mb-row"><span class="tx"><b>' + label + '</b></span>' + (on ? MB_TICK : '') + '</div>'; }
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Download by itself</b><small>This phone</small><span class="x">' + ICON.x + '</span></div>' +
+      o('Up to 1 MB') + o('Up to 5 MB') + o('Up to 10 MB', true) + o('Up to 25 MB') + o('Up to 100 MB') + o('Every file') +
+      '<p class="mb-p">A larger file waits in OneDrive, in its place in the note, until you tap it. Once here, it stays.</p></div>';
+  }
+  function phoneBigFiles() {
+    return [
+      mbPhone('İnmemiş büyük dosya: notta yerinde, boyutu ve Download', mbBigNote(false), mbTabs('browse')),
+      mbPhone('Dokununca iner; bitince resim yerine gelir', mbBigNote(true), mbTabs('browse')),
+      mbPhone('Sync sayfasında: bu telefonda kendiliğinden inen boyut', mbSyncLimit(), mbTabs('browse')),
+      mbPhone('Sınır telefonun kendi ayarı; varsayılan 10 MB', mbSyncLimit(), mbTabs('browse') + mbLimitSheet())
+    ].join('');
+  }
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, ptasksdone: phoneTasksDone, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pkeys: phoneKeys, pempty: phoneEmpty, pwelcome: phoneWelcome, pspaces: phoneSpaces, pspaces2: phoneSpacesMore, psync: phoneSync, psync2: phoneSyncMore, pfiles: phoneFiles, pfiles2: phoneFilesMore, pbig: phoneBigFiles };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {
