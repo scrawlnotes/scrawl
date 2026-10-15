@@ -28,6 +28,9 @@ LABEL org.opencontainers.image.source=https://github.com/scrawlnotes/scrawl \
   org.opencontainers.image.licenses=AGPL-3.0-only
 ENV NODE_ENV=production SCRAWL_DATA=/data PORT=8080
 COPY --from=build /repo/apps/server/dist/ /app/
+# wget is for the health checks of hosting panels: Coolify's runs curl or wget inside the container.
+RUN apt-get update && apt-get install --yes --no-install-recommends wget \
+  && rm -rf /var/lib/apt/lists/*
 RUN printf '#!/bin/sh\nexec node --disable-warning=ExperimentalWarning --enable-source-maps /app/server.mjs "$@"\n' > /usr/local/bin/scrawl-server \
   && chmod +x /usr/local/bin/scrawl-server \
   && mkdir /data && chown node:node /data
