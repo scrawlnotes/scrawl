@@ -86,6 +86,9 @@ export function shownPath(path: string): string {
   return local ? `${name}/${local}` : name;
 }
 
+/** Where a folder is, the whole way down to it: the space's name, then its folders: `Personal › Klinitra › Tasks`. */
+export const placeWords = (folder: string) => [spaceLabel(spaceOf(folder)), ...localPath(folder).split('/').filter(Boolean)].join(' › ');
+
 /** The folder a path is in, shown as words: the space's name, then the folders, apart. */
 export function placeLabel(path: string): string {
   const space = spaceOf(path);

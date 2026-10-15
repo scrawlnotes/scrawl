@@ -647,6 +647,7 @@ export const en = {
   'create.create': 'Create',
   'folders.label': 'Folders',
   'folders.create': 'Create folder “{name}”',
+  'folders.new': 'New folder “{name}”',
   'move.across': 'Moved to {space}. The original is in the trash of {from}, where it can be restored.',
   'move.title': 'Move to',
   'move.folder': 'Folder',

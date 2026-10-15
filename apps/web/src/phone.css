@@ -6041,3 +6041,10 @@ body > .mb-lifted {
   border-radius: 10px;
   font-size: 16px;
 }
+
+/* The folders a folder is in, faint beside its name, so that two of the same name are told apart. */
+.mb-fr .in .crumb {
+  margin-left: 7px;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}

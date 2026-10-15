@@ -4,6 +4,7 @@ import {
   type CollectionTemplate,
   type Condition,
   defaultCollectionName,
+  dirname,
   DUE_RULES,
   type Field,
   isComplete,
@@ -30,17 +31,19 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactElement,
   type ReactNode,
+  type RefObject,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { type Option, Picker } from './choices';
 import { ConditionRow } from './Collection';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import { Icon, type IconName } from './Icon';
 import type { ExportFormat } from './exporting';
-import { collectionLabel, folderLabel, shownPath, spaceLabel } from './items';
+import { collectionLabel, folderLabel, placeWords, shownPath, spaceLabel } from './items';
 import { ActionSheet, AskSheet, Sheet, SheetClose } from './sheets';
 
 interface DialogProps {
@@ -147,25 +150,22 @@ export function useFolderPicker(folders: string[], initial?: string) {
 const keepFocus = (event: ReactMouseEvent) => event.preventDefault();
 
 /**
- * The folders of the Create and Move to windows. With more than one space, after the Spaces
- * create view of design/mockups.html: each space's folders under the space's name, a folder
- * inside another a step in; a space's name picks its top. While a name is typed, a folder says
- * the folders it is in.
+ * The folders of the Create and Move to windows, after the Spaces create view of
+ * design/mockups.html: each space's folders under the space's name, which picks its top. A folder
+ * shows its name and, beside it, the folders it is in, so that two of the same name are told apart.
  */
 function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: string; onPick: (index: number) => void }) {
   const list = useRef<HTMLDivElement>(null);
   useEffect(() => {
     list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [picker.selected, picker.query]);
-  const grouped = picker.matches.some((folder) => spaceOf(folder) !== null);
   let group: string | null | undefined;
-  const option = (folder: string, i: number, className: string | undefined, label: ReactNode, depth = 0) => (
+  const option = (folder: string, i: number, className: string, label: ReactNode) => (
     <button
       key={folder}
       type="button"
       role="option"
       className={className}
-      style={depth > 0 ? ({ '--d': depth } as CSSProperties) : undefined}
       aria-selected={i === picker.selected}
       tabIndex={-1}
       onMouseDown={keepFocus}
@@ -175,38 +175,36 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
     </button>
   );
   return (
-    <div ref={list} className={grouped ? 'choices folder-groups' : 'choices'} role="listbox" aria-label={t('folders.label')}>
-      {grouped
-        ? picker.matches.flatMap((folder, i) => {
-            const space = spaceOf(folder);
-            const local = localPath(folder);
-            const rows: ReactElement[] = [];
-            // A space's top is its heading, and picks it; the personal space's heading only names it.
-            if (space !== group) {
-              group = space;
-              if (local === '') return [option(folder, i, 'group', spaceLabel(space))];
-              rows.push(
-                <div key={`group:${space ?? ''}`} className="group" role="presentation">
-                  {spaceLabel(space)}
-                </div>,
-              );
-            }
-            const name = picker.typed ? local.split('/').join(' › ') : basename(local);
-            rows.push(
-              option(
-                folder,
-                i,
-                'folder',
-                <>
-                  <Icon name="folder" />
-                  <span>{name}</span>
-                </>,
-                picker.typed ? 0 : local.split('/').length - 1,
-              ),
-            );
-            return rows;
-          })
-        : picker.matches.map((folder, i) => option(folder, i, undefined, <span>{shownPath(folder)}</span>))}
+    <div ref={list} className="choices folder-groups" role="listbox" aria-label={t('folders.label')}>
+      {picker.matches.flatMap((folder, i) => {
+        const space = spaceOf(folder);
+        const local = localPath(folder);
+        const rows: ReactElement[] = [];
+        // A space's top is its heading, and picks it; a heading without its top only names the space.
+        if (space !== group) {
+          group = space;
+          if (local === '') return [option(folder, i, 'group', spaceLabel(space))];
+          rows.push(
+            <div key={`group:${space ?? ''}`} className="group" role="presentation">
+              {spaceLabel(space)}
+            </div>,
+          );
+        }
+        const crumb = dirname(local).split('/').filter(Boolean).join(' › ');
+        rows.push(
+          option(
+            folder,
+            i,
+            'folder',
+            <>
+              <Icon name="folder" />
+              <span className="nm">{basename(local)}</span>
+              {crumb && <small className="crumb">{crumb}</small>}
+            </>,
+          ),
+        );
+        return rows;
+      })}
       {picker.canCreate && (
         <button
           type="button"
@@ -221,6 +219,131 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
       )}
       {picker.count === 0 && <p>{empty}</p>}
     </div>
+  );
+}
+
+/**
+ * Where a new item goes, in the Create window: a box that shows the place the whole way down to
+ * it. A click opens the folders over the window, under the box, with a box to find one and a name
+ * no folder has to create it; however many there are, the list scrolls inside and the window
+ * stays as it is.
+ */
+function FolderField({ folders, value, onChange }: { folders: string[]; value: FolderChoice; onChange: (choice: FolderChoice) => void }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLButtonElement>(null);
+  const close = () => {
+    setOpen(false);
+    box.current?.focus();
+  };
+  const top = !value.create && localPath(value.folder) === '';
+  return (
+    <>
+      <button
+        ref={box}
+        type="button"
+        className="folder-field"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={t('create.folder')}
+        onClick={() => setOpen(!open)}
+        onKeyDown={(event) => {
+          if (open || !['ArrowDown', 'Enter', ' '].includes(event.key)) return;
+          // Enter here opens the folders; it does not create the item.
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        <Icon name={top ? 'space' : 'folder'} />
+        <span>{value.create ? t('folders.new', { name: value.folder }) : placeWords(value.folder)}</span>
+        <span className="chev">
+          <Icon name="chevron" />
+        </span>
+      </button>
+      {open && (
+        <FolderPop
+          anchor={box}
+          folders={folders}
+          value={value}
+          onPick={(choice) => {
+            onChange(choice);
+            close();
+          }}
+          onClose={close}
+        />
+      )}
+    </>
+  );
+}
+
+/** The folders of a FolderField, over the window: below its box, or above it where there is more room. */
+function FolderPop({ anchor, folders, value, onPick, onClose }: {
+  anchor: RefObject<HTMLElement | null>;
+  folders: string[];
+  value: FolderChoice;
+  onPick: (choice: FolderChoice) => void;
+  onClose: () => void;
+}) {
+  const picker = useFolderPicker(folders, value.create ? undefined : value.folder);
+  const pop = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<CSSProperties | null>(null);
+  const latest = useRef(onClose);
+  latest.current = onClose;
+  useLayoutEffect(() => {
+    const measure = () => {
+      const field = anchor.current && pageBox(anchor.current);
+      if (!field) return;
+      const page = pageWindow();
+      const below = page.height - field.bottom - 12;
+      const above = field.top - 12;
+      const up = below < 240 && above > below;
+      const room = Math.min(360, up ? above : below);
+      setPlace({ left: field.left, width: field.width, maxHeight: room, ...(up ? { bottom: page.height - field.top + 4 } : { top: field.bottom + 4 }) });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [anchor]);
+  useEffect(() => {
+    const away = (event: globalThis.MouseEvent) => {
+      const target = event.target as Node;
+      if (!pop.current?.contains(target) && !anchor.current?.contains(target)) latest.current();
+    };
+    window.addEventListener('mousedown', away);
+    return () => window.removeEventListener('mousedown', away);
+  }, [anchor]);
+  const pick = (index: number) => {
+    const choice = picker.choiceAt(index);
+    if (choice) onPick(choice);
+  };
+  // The keys are the list's while it is open: the window behind does not create or close with them.
+  const onKey = (event: KeyboardEvent) => {
+    if (picker.step(event.key)) {
+      // Moved through the list.
+    } else if (event.key === 'Enter') pick(picker.selected);
+    else if (event.key === 'Escape' || event.key === 'Tab') onClose();
+    else return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  return createPortal(
+    <div ref={pop} className="lbl-picker folder-pop" style={place ?? { opacity: 0 }}>
+      <input
+        className="lbl-search"
+        autoFocus
+        placeholder={t('create.findFolder')}
+        aria-label={t('create.findFolder')}
+        value={picker.query}
+        onChange={(event) => picker.filter(event.target.value)}
+        onKeyDown={onKey}
+      />
+      <FolderList picker={picker} empty={t('create.typeToCreate')} onPick={pick} />
+    </div>,
+    document.body,
   );
 }
 
@@ -346,17 +469,17 @@ function NewItemForm({ kind, folders, folder, collections, onCreate, onBack, onC
   const [chosen, setChosen] = useState<Partial<BoardLinks>>({});
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
-  const picker = useFolderPicker(folders, folder);
+  // Where it goes: the folder Create was opened for, or a folder typed to be made.
+  const [choice, setChoice] = useState<FolderChoice>(() => ({ folder: folders.includes(folder) ? folder : (folders[0] ?? ''), create: false }));
   const title = t(TITLES[kind]);
-  const place = picker.choiceAt(picker.selected)?.folder ?? folder;
+  const place = choice.folder;
   const beside = (named: string) => collections.find((dir) => dir === join(place, named)) ?? collections.find((dir) => basename(dir) === named) ?? join(place, named);
   const links: BoardLinks = { company: chosen.company ?? beside('Companies'), contact: chosen.contact ?? beside('People') };
   const linkOptions = (current: string): Option[] =>
     [...new Set([...collections, current])].sort((a, b) => a.localeCompare(b)).map((dir) => ({ value: dir, label: collectionLabel(dir), chip: false }));
 
   const create = async () => {
-    const choice = picker.choiceAt(picker.selected);
-    if (!choice || busy.current) return;
+    if (busy.current) return;
     busy.current = true;
     const failed = await onCreate(kind, choice, name, template, collectionTemplate, template === 'crm' ? links : undefined);
     busy.current = false;
@@ -365,106 +488,104 @@ function NewItemForm({ kind, folders, folder, collections, onCreate, onBack, onC
   const onKey = (event: KeyboardEvent) => {
     // A list opened from a box here has the keys first.
     if (event.defaultPrevented) return;
-    if (picker.step(event.key)) event.preventDefault();
-    // Enter on Back or Create is that button's own click.
-    else if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
+    // Enter on Back, Create or the folder's box is that button's own.
+    if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement)) {
       event.preventDefault();
       void create();
     }
   };
   return (
-    <Dialog label={title} className={kind === 'board' || kind === 'collection' ? 'board-create' : undefined} onClose={onClose} onEscape={onBack} onKeyDown={onKey}>
+    <Dialog label={title} className={kind === 'board' || kind === 'collection' ? 'new-item board-create' : 'new-item'} onClose={onClose} onEscape={onBack} onKeyDown={onKey}>
       <h2>{title}</h2>
-      <label className="field">
-        <span>{t('create.name')}</span>
-        <input
-          id="new-name"
-          autoFocus
-          placeholder={kind === 'collection' ? defaultCollectionName(collectionTemplate) : t(NAME_HINTS[kind])}
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            setError(null);
-          }}
-        />
-      </label>
-      <label className="field">
-        <span>{t('create.folder')}</span>
-        <input
-          id="new-folder"
-          placeholder={t('create.findFolder')}
-          value={picker.query}
-          onChange={(event) => {
-            picker.filter(event.target.value);
-            setError(null);
-          }}
-        />
-      </label>
-      <div className="field-list">
-        <FolderList picker={picker} empty={t('create.typeToCreate')} onPick={picker.select} />
+      {/* The title and the buttons stay; what is between them scrolls on a short screen. */}
+      <div className="dialog-body">
+        <label className="field">
+          <span>{t('create.name')}</span>
+          <input
+            id="new-name"
+            autoFocus
+            placeholder={kind === 'collection' ? defaultCollectionName(collectionTemplate) : t(NAME_HINTS[kind])}
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              setError(null);
+            }}
+          />
+        </label>
+        <div className="field">
+          <span>{t('create.folder')}</span>
+          <FolderField
+            folders={folders}
+            value={choice}
+            onChange={(picked) => {
+              setChoice(picked);
+              setError(null);
+            }}
+          />
+        </div>
+        {kind === 'board' && (
+          <div className="field templates-field">
+            <span id="new-template-label">{t('create.template')}</span>
+            <div className="templates" role="radiogroup" aria-labelledby="new-template-label">
+              {TEMPLATES.map((item) => (
+                <button
+                  key={item.template}
+                  type="button"
+                  role="radio"
+                  aria-checked={template === item.template}
+                  onClick={() => setTemplate(item.template)}
+                >
+                  <b>{t(item.label)}</b>
+                  <span className="cols">
+                    {item.columns.map((column, i) => (
+                      <i key={i} className={column} />
+                    ))}
+                  </span>
+                  <small>{t(item.text)}</small>
+                </button>
+              ))}
+            </div>
+            <p className="dialog-hint">{t('create.templateHint')}</p>
+          </div>
+        )}
+        {kind === 'board' && template === 'crm' && (
+          <div className="field links-field">
+            <span>{t('create.links')}</span>
+            <div className="links">
+              <span>{t('create.linkCompany')}</span>
+              <Picker options={linkOptions(links.company)} value={links.company} label={t('create.linkCompany')} onPick={(dir) => dir && setChosen({ ...chosen, company: dir })} />
+              <span>{t('create.linkContact')}</span>
+              <Picker options={linkOptions(links.contact)} value={links.contact} label={t('create.linkContact')} onPick={(dir) => dir && setChosen({ ...chosen, contact: dir })} />
+            </div>
+          </div>
+        )}
+        {kind === 'collection' && (
+          <div className="field templates-field">
+            <span id="new-ctemplate-label">{t('create.template')}</span>
+            <div className="templates ctemplates" role="radiogroup" aria-labelledby="new-ctemplate-label">
+              {COLLECTION_TEMPLATES.map((item) => (
+                <button
+                  key={item.template}
+                  type="button"
+                  role="radio"
+                  aria-checked={collectionTemplate === item.template}
+                  onClick={() => setCollectionTemplate(item.template)}
+                >
+                  <b>{t(item.label)}</b>
+                  <span className="flds">
+                    {newSchema(item.template).fields.map((field) => (
+                      <i key={field.key}>{field.label.toLowerCase()}</i>
+                    ))}
+                  </span>
+                  <small>{t(item.text)}</small>
+                </button>
+              ))}
+            </div>
+            <p className="dialog-hint">{t('create.collectionTemplateHint')}</p>
+          </div>
+        )}
+        {error && <p role="alert">{error}</p>}
       </div>
-      {kind === 'board' && (
-        <div className="field templates-field">
-          <span id="new-template-label">{t('create.template')}</span>
-          <div className="templates" role="radiogroup" aria-labelledby="new-template-label">
-            {TEMPLATES.map((item) => (
-              <button
-                key={item.template}
-                type="button"
-                role="radio"
-                aria-checked={template === item.template}
-                onClick={() => setTemplate(item.template)}
-              >
-                <b>{t(item.label)}</b>
-                <span className="cols">
-                  {item.columns.map((column, i) => (
-                    <i key={i} className={column} />
-                  ))}
-                </span>
-                <small>{t(item.text)}</small>
-              </button>
-            ))}
-          </div>
-          <p className="dialog-hint">{t('create.templateHint')}</p>
-        </div>
-      )}
-      {kind === 'board' && template === 'crm' && (
-        <div className="field links-field">
-          <span>{t('create.links')}</span>
-          <div className="links">
-            <span>{t('create.linkCompany')}</span>
-            <Picker options={linkOptions(links.company)} value={links.company} label={t('create.linkCompany')} onPick={(dir) => dir && setChosen({ ...chosen, company: dir })} />
-            <span>{t('create.linkContact')}</span>
-            <Picker options={linkOptions(links.contact)} value={links.contact} label={t('create.linkContact')} onPick={(dir) => dir && setChosen({ ...chosen, contact: dir })} />
-          </div>
-        </div>
-      )}
-      {kind === 'collection' && (
-        <div className="field templates-field">
-          <span id="new-ctemplate-label">{t('create.template')}</span>
-          <div className="templates ctemplates" role="radiogroup" aria-labelledby="new-ctemplate-label">
-            {COLLECTION_TEMPLATES.map((item) => (
-              <button
-                key={item.template}
-                type="button"
-                role="radio"
-                aria-checked={collectionTemplate === item.template}
-                onClick={() => setCollectionTemplate(item.template)}
-              >
-                <b>{t(item.label)}</b>
-                <span className="flds">
-                  {newSchema(item.template).fields.map((field) => (
-                    <i key={field.key}>{field.label.toLowerCase()}</i>
-                  ))}
-                </span>
-                <small>{t(item.text)}</small>
-              </button>
-            ))}
-          </div>
-          <p className="dialog-hint">{t('create.collectionTemplateHint')}</p>
-        </div>
-      )}
-      {error && <p role="alert">{error}</p>}
       <div className="dialog-actions">
         <button type="button" onClick={onBack}>
           {t('dialog.back')}

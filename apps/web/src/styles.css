@@ -810,6 +810,35 @@ input:focus {
   box-sizing: border-box;
   max-height: 100%;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sl-line) transparent;
+}
+
+/* What a window holds keeps its size; on a short screen a list in it gives way first, and the
+   window itself scrolls only when even that is not enough. */
+.backdrop > .dialog:not(.history) > * {
+  flex-shrink: 0;
+}
+
+/* A window with a body of its own keeps its title and its buttons in place; the body scrolls. */
+.backdrop > .dialog.new-item {
+  overflow: hidden;
+}
+
+.backdrop > .dialog:not(.history) > .dialog-body {
+  flex-shrink: 1;
+}
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  margin: 0 -12px;
+  padding: 2px 12px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sl-line) transparent;
 }
 
 .backdrop > .dialog:not(.history) .dialog-actions {
@@ -1487,13 +1516,61 @@ input:focus {
   font-size: 12px;
 }
 
-/* a list that belongs to the field above it lines up with that field */
-.field-list {
-  margin-left: 54px;
+/* Where a new item goes: a box showing the place the whole way down, which opens the folders. */
+.folder-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  text-align: left;
 }
 
-.field-list .choices {
-  max-height: min(30vh, 260px);
+.folder-field:focus-visible,
+.folder-field[aria-expanded='true'] {
+  border-color: var(--sl-accent);
+  outline: none;
+}
+
+.folder-field > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-field > .icon,
+.folder-field .chev .icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--sl-dim);
+}
+
+.folder-field > .chev {
+  display: flex;
+  flex: none;
+  transform: rotate(90deg);
+  transition: transform 0.12s;
+}
+
+.folder-field[aria-expanded='true'] > .chev {
+  transform: rotate(-90deg);
+}
+
+/* The folders, over the window: a box to find one, then the list, which scrolls inside. */
+.folder-pop .choices {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sl-line) transparent;
 }
 
 /* The Board step of Create: a template is a card with its columns drawn by kind. */
@@ -9413,7 +9490,23 @@ button.st-li:hover,
 
 .choices.folder-groups button.folder {
   gap: 8px;
-  padding: 5px 8px 5px calc(8px + var(--d, 0) * 18px);
+  padding: 5px 8px;
+}
+
+.choices.folder-groups button.folder .nm {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The folders a folder is in, beside its name. */
+.choices.folder-groups button.folder .crumb {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---------- Search everywhere (PLAN 4.2, the Search views of design/mockups.html) ---------- */

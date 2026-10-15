@@ -1,9 +1,9 @@
-import { basename, type BoardLinks, type CollectionTemplate, defaultCollectionName, inSpace, join, localPath, newSchema, spaceOf, type Template } from '@scrawlnotes/core';
+import { basename, type BoardLinks, type CollectionTemplate, defaultCollectionName, dirname, inSpace, join, localPath, newSchema, spaceOf, type Template } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
 import { COLLECTION_TEMPLATES, type FolderChoice, type ItemKind, KINDS, NAME_HINTS, TEMPLATES, TITLES, useFolderPicker } from './dialogs';
 import { Icon } from './Icon';
-import { collectionLabel, shownPath, spaceLabel } from './items';
+import { collectionLabel, placeWords, spaceLabel } from './items';
 import { FolderForm } from './Phone';
 import { Sheet, SheetClose } from './sheets';
 
@@ -16,7 +16,7 @@ import { Sheet, SheetClose } from './sheets';
 /** What the sheet shows: the form, or one of the lists a row of it opens. */
 type Step = 'form' | 'folder' | 'template' | 'company' | 'contact';
 
-const folderLabel = shownPath;
+const folderLabel = placeWords;
 
 /** A board's columns drawn by kind, small. */
 function Columns({ columns }: { columns: string[] }) {
@@ -30,6 +30,21 @@ function Columns({ columns }: { columns: string[] }) {
 }
 
 const Tick = ({ on }: { on: boolean }) => <span className="tick">{on && <Icon name="check" />}</span>;
+
+/**
+ * A folder by its name, and faint beside it the folders it is in, so that two of the same name are
+ * told apart; `space` puts the space's name first, where the list is not under it.
+ */
+function FolderName({ path, space = false }: { path: string; space?: boolean }) {
+  const local = localPath(path);
+  const crumb = [...(space && local ? [spaceLabel(spaceOf(path))] : []), ...dirname(local).split('/').filter(Boolean)].join(' › ');
+  return (
+    <span className="in">
+      {local ? basename(local) : spaceLabel(spaceOf(path))}
+      {crumb && <small className="crumb">{crumb}</small>}
+    </span>
+  );
+}
 
 export function PhoneCreate({ start = null, folders, folder, collections, onCreate, onFilter, onClose }: {
   /** The kind chosen already, if any. */
@@ -170,15 +185,9 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
                     {inside.map((path) => {
                       const local = localPath(path);
                       return (
-                        <button
-                          key={path}
-                          type="button"
-                          className="mb-fr pick"
-                          style={{ '--d': local ? local.split('/').length - 1 : 0 } as CSSProperties}
-                          onClick={() => pick({ folder: path, create: false })}
-                        >
+                        <button key={path} type="button" className="mb-fr pick" onClick={() => pick({ folder: path, create: false })}>
                           <Icon name={local ? 'folder' : 'space'} />
-                          <span className="in">{local ? basename(local) : spaceLabel(space)}</span>
+                          <FolderName path={path} />
                           <Tick on={!place.create && place.folder === path} />
                         </button>
                       );
@@ -191,8 +200,8 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
         <div className="mb-group" hidden={!picker.typed && folders.some((path) => spaceOf(path) !== null)}>
           {picker.matches.map((path) => (
             <button key={path} type="button" className="mb-fr pick" onClick={() => pick({ folder: path, create: false })}>
-              <Icon name="folder" />
-              <span className="in">{folderLabel(path)}</span>
+              <Icon name={localPath(path) ? 'folder' : 'space'} />
+              <FolderName path={path} space />
               <Tick on={!place.create && place.folder === path} />
             </button>
           ))}
