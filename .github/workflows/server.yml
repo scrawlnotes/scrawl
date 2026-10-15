@@ -1,0 +1,73 @@
+# The Scrawl server: its tests on every change to it, and its image on ghcr.io.
+# A push to main publishes ghcr.io/scrawlnotes/server:edge; a tag like server-v0.1.0 publishes
+# 0.1.0, 0.1 and latest. The image is built for amd64 and arm64.
+name: Server
+
+on:
+  push:
+    branches: [main]
+    tags: ['server-v*']
+    paths:
+      - apps/server/**
+      - packages/core/**
+      - pnpm-lock.yaml
+      - .github/workflows/server.yml
+  pull_request:
+    paths:
+      - apps/server/**
+      - packages/core/**
+      - pnpm-lock.yaml
+      - .github/workflows/server.yml
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.9.1
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter "@scrawlnotes/server..."
+      - run: pnpm --filter @scrawlnotes/core --filter @scrawlnotes/server typecheck
+      - run: pnpm --filter @scrawlnotes/core --filter @scrawlnotes/server test
+
+  image:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/scrawlnotes/server
+          tags: |
+            type=edge,branch=main
+            type=match,pattern=server-v(\d+\.\d+\.\d+),group=1
+            type=match,pattern=server-v(\d+\.\d+),group=1
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/server-v') }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

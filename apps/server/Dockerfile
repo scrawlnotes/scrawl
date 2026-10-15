@@ -2,8 +2,10 @@
 # on Node 24. Build it from the repository's root:
 #   docker build -f apps/server/Dockerfile -t ghcr.io/scrawlnotes/server .
 # Everything it keeps is in /data; give it a volume. See design/server.md, section 8.
+# The bundle is plain JavaScript, so it is built once on the machine that builds the image, and
+# only the last stage is made for each platform (amd64, arm64).
 
-FROM node:24-slim AS build
+FROM --platform=$BUILDPLATFORM node:24-slim AS build
 WORKDIR /repo
 RUN npm install --global pnpm@12.9.1
 # Every workspace package's manifest, so that the lockfile matches; only the server's are installed.
@@ -21,6 +23,9 @@ COPY apps/server apps/server
 RUN pnpm --filter @scrawlnotes/server build
 
 FROM node:24-slim
+LABEL org.opencontainers.image.source=https://github.com/scrawlnotes/scrawl \
+  org.opencontainers.image.description="The Scrawl server: spaces a team keeps on its own machine" \
+  org.opencontainers.image.licenses=AGPL-3.0-only
 ENV NODE_ENV=production SCRAWL_DATA=/data PORT=8080
 COPY --from=build /repo/apps/server/dist/ /app/
 RUN printf '#!/bin/sh\nexec node --disable-warning=ExperimentalWarning --enable-source-maps /app/server.mjs "$@"\n' > /usr/local/bin/scrawl-server \
@@ -29,4 +34,6 @@ RUN printf '#!/bin/sh\nexec node --disable-warning=ExperimentalWarning --enable-
 USER node
 VOLUME /data
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+  CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 8080) + '/api/v1/server').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
 CMD ["scrawl-server", "serve"]

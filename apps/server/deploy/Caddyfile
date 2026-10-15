@@ -1,0 +1,3 @@
+{$SCRAWL_DOMAIN} {
+	reverse_proxy scrawl:8080
+}

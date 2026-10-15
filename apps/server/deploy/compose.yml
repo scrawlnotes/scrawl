@@ -1,0 +1,28 @@
+# The Scrawl server behind Caddy, which gets the HTTPS certificate itself.
+# Needs a domain pointing at this machine and ports 80 and 443 open.
+# Put SCRAWL_DOMAIN in .env beside this file (see .env.example), then: docker compose up -d
+services:
+  scrawl:
+    image: ghcr.io/scrawlnotes/server:latest
+    restart: unless-stopped
+    environment:
+      SCRAWL_URL: https://${SCRAWL_DOMAIN}
+    volumes:
+      - scrawl-data:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SCRAWL_DOMAIN: ${SCRAWL_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  scrawl-data:
+  caddy-data:

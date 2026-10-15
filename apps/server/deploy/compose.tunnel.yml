@@ -1,0 +1,21 @@
+# The Scrawl server through a Cloudflare Tunnel: no ports to open, for a machine at home or behind
+# a router. The domain must be on Cloudflare. Put SCRAWL_DOMAIN and TUNNEL_TOKEN in .env beside
+# this file (see .env.example), then: docker compose -f compose.tunnel.yml up -d
+services:
+  scrawl:
+    image: ghcr.io/scrawlnotes/server:latest
+    restart: unless-stopped
+    environment:
+      SCRAWL_URL: https://${SCRAWL_DOMAIN}
+    volumes:
+      - scrawl-data:/data
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+
+volumes:
+  scrawl-data:

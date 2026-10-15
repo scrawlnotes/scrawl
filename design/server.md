@@ -178,40 +178,19 @@ Hepsi `https://<sunucu>/api/v1` altında, JSON; her istek `Authorization: Bearer
 
 ## 8. Kurulum ve işletme
 
-```yaml
-# docker-compose.yml
-services:
-  scrawl:
-    image: ghcr.io/scrawlnotes/server:1
-    restart: unless-stopped
-    environment:
-      SCRAWL_URL: https://scrawl.example.com
-    volumes:
-      - ./data:/data
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    ports: ["80:80", "443:443"]
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy:/data
-volumes:
-  caddy:
-```
+Kurulum dosyaları `apps/server/deploy/`'da, rehberi `apps/server/README.md`'de:
 
-```
-# Caddyfile
-scrawl.example.com {
-  reverse_proxy scrawl:8080
-}
-```
-
-- **Ayarlar:** `SCRAWL_URL` (linklerde geçen adres), `PORT` (8080), `SCRAWL_MAX_FILE_MB`, isteğe bağlı `SCRAWL_OWNER_EMAIL` (sunucuyu yalnız bu e-posta kurar).
+- `compose.yml`: sunucu ve önünde sertifikayı kendisi alan Caddy; alan adı makineyi gösterir, 80 ve 443 açıktır.
+- `compose.tunnel.yml`: sunucu ve Cloudflare Tunnel (`cloudflared`); port açılmaz.
+- `Caddyfile` ve `.env.example`: alan adı tek yerde, `.env`'deki `SCRAWL_DOMAIN`'de; tünelin anahtarı `TUNNEL_TOKEN`.
+- `/data` adlandırılmış bir volume'dür, klasör bağlama değil: imaj `node` kullanıcısıyla çalışır, Docker'ın kök olarak açtığı bir klasöre yazamaz; adlandırılmış volume imajdaki `/data`'nın sahibini alır.
+- İmaj: `ghcr.io/scrawlnotes/server`, amd64 ve arm64. `main`'e her push `edge`'i, `server-v0.1.0` gibi bir etiket `0.1.0`, `0.1` ve `latest`'i yayınlar (`.github/workflows/server.yml`, önce sunucunun ve core'un testleri). Paket JavaScript olduğu için derleme bir kez, derleyen makinede yapılır; yalnız son aşama her mimari için kurulur. İmajda sağlık denetimi `GET /api/v1/server`'dır.
+- **Ayarlar:** `SCRAWL_URL` (linklerde geçen adres), `PORT` (8080), `SCRAWL_MAX_FILE_MB`, isteğe bağlı `SCRAWL_OWNER_EMAIL` (sunucuyu yalnız bu e-posta kurar), `SCRAWL_APP_URL` (tarayıcıda açılan linkin gönderdiği web uygulaması).
 - **Deneme (yerelde):** bu bilgisayarda Docker'la `http://localhost:8080`. `localhost` tarayıcıya göre güvenli sayıldığı için geliştirme sunucusundaki web uygulaması ve masaüstü uygulaması HTTPS'siz bağlanır. iPhone denemesi Coolify'daki sunucuyla yapılır.
 - **Bizim kullanımımız (Coolify):** ilkbyte Cloud I (2 çekirdek x86, 2 GB RAM, 20 GB SSD, Denizli), var olan Coolify'a sunucu olarak eklenir; Scrawl sunucusu orada "Docker Image" kaynağıdır (ya da Coolify GitHub'daki repodan kendisi derler). 20 GB başlangıç için yeter; her sürüm saklandığı ve yedekler aynı diske yazıldığı için son 7 yedek tutulur, makinenin dışına kopya sonra. HTTPS'i ve WebSocket'i Coolify'ın kendi proxy'si taşır, compose'daki Caddy orada gerekmez; alan adı kişisel bir alt alan adıdır (`scrawl.kaanarslan.dev`), Coolify'da verilir, `SCRAWL_URL` ona eşitlenir; Cloudflare'deki kaydı DNS only (gri bulut) olur, çünkü proxy'de bedava planın tek yüklemesi 100 MB'la sınırlı; `/data` kalıcı bir volume'dur. Yedek Coolify'ın Scheduled Tasks'ıyla her gece container'da `scrawl-server backup` çalıştırır.
-- **HTTPS'in iki yolu (rehber):** alan adın varsa ve 80/443 açabiliyorsan Caddy sertifikayı kendisi alır. Port açamıyorsan ya da evdeki bir makinedeyse Cloudflare Tunnel: `cloudflared` compose'a üçüncü servis olarak eklenir, port açılmaz, bedavadır, kuranın kendi Cloudflare hesabındadır (alan adı Cloudflare'de olmalı). İkisi de WebSocket'i taşır.
-- **Yedek:** `docker compose exec scrawl scrawl-server backup` → `/data/backups/<tarih>/`: SQLite'ın canlı yedek API'siyle tutarlı bir kopya ve `blobs/`. Geri yükleme: sunucuyu durdur, `/data`'yı yedekle değiştir, başlat.
-- **Dışa aktarma:** `scrawl-server export <space>` space'in son halini normal bir klasör ağacı olarak zip'ler; OneDrive'a dönmek için.
+- **HTTPS'in iki yolu (rehber):** alan adın varsa ve 80/443 açabiliyorsan Caddy sertifikayı kendisi alır. Port açamıyorsan ya da evdeki bir makinedeyse Cloudflare Tunnel: `compose.tunnel.yml`'de Caddy'nin yerinde `cloudflared` vardır, port açılmaz, bedavadır, kuranın kendi Cloudflare hesabındadır (alan adı Cloudflare'de olmalı); trafik Cloudflare'den geçtiği için bedava planda 100 MB'tan büyük dosya gitmez, rehber bunu söyler. İkisi de WebSocket'i taşır.
+- **Yedek:** `docker compose exec scrawl scrawl-server backup` → `/data/backups/<tarih>/`: SQLite'ın canlı yedek API'siyle tutarlı bir kopya ve `blobs/`. Geri yükleme: sunucu durdurulur, `scrawl-server restore <yedek>` yedeğin veritabanını yerine koyar ve eksik içerikleri getirir (yedekteki içerikler canlılara hard link olduğu için kopyalamak yerine), sunucu başlatılır; adsız çalışırsa yedekleri listeler.
+- **Dışa aktarma:** `scrawl-server export <space> [dosya]` space'i adından ya da kimliğinden bulur ve son halini normal bir klasör ağacı olarak zip'ler (varsayılan `/data/exports/<ad>-<gün>.zip`); OneDrive'a dönmek için. Zip okundukça yazılır, büyük bir space bellekte durmaz; sıkıştırılmış dosyalar (resim, ses, pdf) olduğu gibi konur. Yanlış adda space'leri listeler.
 - **Güncelleme:** `docker compose pull && docker compose up -d`. Şema değişiklikleri açılışta sırayla uygulanır (veritabanında şema sürümü durur).
 
 ## 9. Testler

@@ -1,57 +1,48 @@
 # Scrawl
 
-Work notes that behave like the tabs you never close: open, type, and it is kept.
-Plain Markdown files, a separate task manager, and sync to your own cloud drive. No server.
+Notes, task lists, boards and collections, kept as plain files in a folder. Spaces you share with
+others sync through a OneDrive folder or a Scrawl server you run yourself.
 
-Status: the editor, task lists and boards are in daily use, and settings have arrived; sync comes next. See [PLAN.md](PLAN.md)
-for the roadmap (in Turkish).
+It runs as a desktop app (Windows, Tauri), in the browser at https://app.scrawlnotes.com, and on a
+phone as a web app added to the home screen. There is no release yet. The roadmap is
+[PLAN.md](PLAN.md) and the designs are in [design/](design/), both in Turkish.
 
-## What it does today
+## What is in it
 
-- **Notes** are `.md` files in a folder you choose. The editor shows Markdown formatted in place
-  and hides its syntax; what you type stays as typed. Tables, code blocks with a copy button,
-  images, attached files and voice memos, a `/` menu, find and replace, multiple cursors.
-- **Tabs** for notes, task lists and views, reordered by dragging. New notes need no name or
-  place: unnamed notes are called by their first line and land in the Inbox.
-- **Task lists** live in folders, as many as you want, with sections, subtasks, priorities, due
-  dates and descriptions, reordered by dragging. Today, Upcoming and saved filters gather them
-  all. A line of a note becomes a task that links back to it.
-- **Boards** are files in folders too: columns with a kind (backlog, active, review, done, dropped),
-  cards with a key like `ROA-12`, a description in the same editor, a timeline of moves and
-  comments, and phases: ordered units of scope with a "done when" line. A board starts from a
-  Software or a Simple template and reads as columns or as a list. A card copies as a Markdown brief
-  for a person or an agent; a note's line becomes a card; a card becomes a task for today.
-- **Attached files** are selected with a click and offer Open, Show in folder and Delete. A file
-  no note uses any more goes to the trash, and comes back if undo or paste links it again.
-- **Safety nets**: a trash you can restore from, and the history of every note (kept on this
-  device) with a window to look back and restore.
-- **Settings**, from the button beside Trash: light, dark or as the device is, eight themes that
-  colour everything down to code blocks and board columns, and the name and folder of your space.
-- Pasted web addresses become links; Ctrl+click opens them in the browser.
+- **Notes**: Markdown files, formatted as you type, with tables, images, attached files and voice
+  memos. Unnamed notes are called by their first line and go to the Inbox.
+- **Task lists** with sections, subtasks, priorities and due dates; Today, Upcoming and saved
+  filters gather them.
+- **Boards** with columns, cards, comments and phases.
+- **Collections**: records with typed fields, links between them, views and formulas; CSV and Excel
+  in and out.
+- **Keys**: `.env`-style files, shown as a table.
+- **Spaces**: folders shared with others, on OneDrive or on a Scrawl server, with tasks and cards
+  given to people in them.
+- Search across everything, export to PDF, HTML or Markdown, the history of every note, a trash.
 
-## Development
+## Develop
 
-Requires Node 22+ and pnpm. The desktop app also needs Rust (https://rustup.rs).
+Needs Node 24 and pnpm; the desktop app also needs Rust.
 
 ```bash
 pnpm install
-pnpm desktop        # desktop app; notes are .md files in a folder you choose
-pnpm desktop:build  # Windows installer
-pnpm dev            # web version at http://localhost:5173; notes are kept in the browser
+pnpm dev            # the web app at http://localhost:5173
+pnpm desktop        # the desktop app
+pnpm desktop:build  # the Windows installer
 pnpm test
 pnpm typecheck
 ```
 
 ## Layout
 
-- `packages/core`: vault model and storage interface, task lists, trash and history, independent of any UI
-- `packages/editor`: CodeMirror 6 editor with Markdown live preview
-- `packages/i18n`: the words of the interface; English for now, other languages as further dictionaries
-- `apps/web`: the interface (sidebar, tabs, format bar, task views, dialogs) and browser storage
-- `apps/desktop`: Tauri shell around the interface, with file access to the notes folder
-- `apps/server`: the Scrawl server a team runs on its own machine, as a Docker image; spaces on it sync like a cloud folder (`design/server.md`)
-- `design/`: interface mockups
+- `packages/core`: files, task lists, boards, collections, spaces and sync, without any interface
+- `packages/editor`: the CodeMirror 6 editor
+- `packages/i18n`: the interface's words
+- `apps/web`: the interface, for the browser and inside the desktop app
+- `apps/desktop`: the Tauri shell
+- `apps/server`: the Scrawl server, a Docker image; see its [README](apps/server/README.md)
 
 ## License
 
-The app and the packages are MIT. The server, `apps/server`, is AGPL-3.0 (its own `LICENSE`).
+MIT, except `apps/server`, which is AGPL-3.0.
