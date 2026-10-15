@@ -1,5 +1,7 @@
 // What an agent reads once: how a Scrawl space is laid out, what each file holds, and how to behave
-// in it. The tools are shortcuts that know the rules; with this, read and write do the rest.
+// in it. The tools are shortcuts that know the rules; with this, read and write do the rest. It
+// reaches the model with `spaces`, the one call every client makes and shows; the brief, its first
+// part, goes as the server's instructions to clients that hand those to the model.
 
 export const GUIDE = `# Scrawl for agents
 
@@ -78,4 +80,12 @@ To add a field, change its options or its type: \`read\` the \`_collection.json\
 ## Who did what
 
 Every change you make is written with your name and the person's ("Claude Code · Kaan") on card timelines and in the server's history. Assign a card or a task to a person by their name as the space knows them.
+`;
+
+/** The guide up to how a space is laid out: how to behave, what each tool is for, a call cut off. Sent as the server's instructions. */
+export const BRIEF = `${GUIDE.slice(0, GUIDE.indexOf('\n## A space')).trimEnd()}
+
+## The rest of the guide
+
+\`spaces\` returns the whole guide, with how each file is laid out: a collection's schema, a board, a task list. Call it first.
 `;

@@ -3,6 +3,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { createBoard, createCollection, createFolder, createNote, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, saveMe } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { cardsTool, commentTool, saveCardTool } from './cards';
+import { BRIEF, GUIDE } from './guide';
 import { Refusal } from './paths';
 import { readTool, searchTool, spacesTool, treeTool } from './read';
 import { recordsTool, saveRecordTool } from './records';
@@ -52,9 +53,20 @@ const refusal = async (promise: Promise<unknown>): Promise<Refusal> => {
 };
 
 describe('looking around', () => {
-  it('tells the spaces, today and the person', async () => {
+  it('tells the spaces, today and the person, and gives the model the whole guide after them', async () => {
     const { agent } = await sample();
-    expect((await spacesTool(agent)).data).toEqual({ today: '2026-10-15', person: 'Kaan', spaces: [{ id: 'personal', name: 'Personal', where: 'this computer', personal: true }] });
+    const spaces = await spacesTool(agent);
+    expect(spaces.data).toEqual({ today: '2026-10-15', person: 'Kaan', spaces: [{ id: 'personal', name: 'Personal', where: 'this computer', personal: true }] });
+    expect(spaces.text.startsWith(JSON.stringify(spaces.data))).toBe(true);
+    expect(spaces.text).toContain(GUIDE);
+  });
+
+  it('briefs with the guide up to how a space is laid out, and points to the rest', () => {
+    expect(GUIDE.startsWith(BRIEF.slice(0, BRIEF.indexOf('\n## The rest of the guide')))).toBe(true);
+    expect(BRIEF).toContain('## What each tool is for');
+    expect(BRIEF).toContain('## When a call is cut off');
+    expect(BRIEF).not.toContain('## Collections');
+    expect(BRIEF).toContain('`spaces` returns the whole guide');
   });
 
   it('lists the tree, and every board at once with a kind', async () => {
@@ -335,8 +347,11 @@ describe('over MCP', () => {
     expect(tools.tools.map((t) => t.name).sort()).toEqual(['cards', 'comment', 'create', 'move', 'read', 'records', 'save_card', 'save_record', 'save_task', 'search', 'spaces', 'tasks', 'trash', 'tree', 'write']);
     const guide = await client.readResource({ uri: 'scrawl://guide' });
     expect((guide.contents[0] as { text: string }).text).toContain('# Scrawl for agents');
+    expect(client.getInstructions()).toBe(BRIEF);
     const spaces = await client.callTool({ name: 'spaces', arguments: {} });
     expect(spaces.structuredContent).toMatchObject({ today: '2026-10-15', person: 'Kaan' });
+    expect(spaces.structuredContent).not.toHaveProperty('guide');
+    expect((spaces.content as { text: string }[])[0]!.text).toContain('## Collections');
     const card = await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', title: 'From a client' } });
     expect(card.isError).toBeFalsy();
     expect((await loadBoard(fs, board)).cards[0]!.author).toEqual({ name: 'test-client · Kaan' });

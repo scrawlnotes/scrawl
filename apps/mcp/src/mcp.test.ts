@@ -122,6 +122,8 @@ describe('the built command', () => {
     expect((await client.listTools()).tools.length).toBe(15);
     const spaces = await client.callTool({ name: 'spaces', arguments: {} });
     expect(spaces.structuredContent).toMatchObject({ person: null, spaces: [{ id: 'personal', name: 'Personal', where: 'this computer', personal: true }] });
+    expect((spaces.content as { text: string }[])[0]!.text).toContain('# Scrawl for agents');
+    expect(client.getInstructions()).toContain('## What each tool is for');
     const added = await client.callTool({ name: 'save_task', arguments: { title: 'Try the command', due: '2026-10-16' } });
     expect(added.isError).toBeFalsy();
     const list = await loadList(new NodeFs(vault), 'Inbox.tasks.json');

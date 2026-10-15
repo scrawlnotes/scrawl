@@ -16,6 +16,7 @@ import {
   type TreeNode,
   valueText,
 } from '@scrawlnotes/core';
+import { GUIDE } from './guide';
 import { checkOpen, cleanPath, fileKind, Refusal } from './paths';
 import { type Agent, type AgentSpace, type ElementKind, elementsOf, exists, pickSpace, todayOf } from './space';
 
@@ -28,15 +29,15 @@ export const MAX_TEXT = 1024 * 1024;
 /** The digest of a text, as the server tags a file's content. */
 export const hashOf = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
 
+/** The spaces, today and the person, and for the model the guide after them: many clients show it nothing else of the server. */
 export async function spacesTool(agent: Agent) {
   const [spaces, person] = await Promise.all([agent.spaces(), agent.person()]);
-  return {
-    data: {
-      today: todayOf(agent),
-      person: person?.name ?? null,
-      spaces: spaces.map(({ id, name, where, personal }) => ({ id, name, where, personal })),
-    },
+  const data = {
+    today: todayOf(agent),
+    person: person?.name ?? null,
+    spaces: spaces.map(({ id, name, where, personal }) => ({ id, name, where, personal })),
   };
+  return { data, text: `${JSON.stringify(data)}\n\n${GUIDE}` };
 }
 
 /** A node as the tree tool gives it: without what only the app's screen needs. */

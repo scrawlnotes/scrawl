@@ -1,7 +1,7 @@
 import { McpServer, type ServerContext } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { cardsTool, commentTool, saveCardTool } from './cards';
-import { GUIDE } from './guide';
+import { BRIEF, GUIDE } from './guide';
 import { readTool, searchTool, spacesTool, treeTool } from './read';
 import { recordsTool, saveRecordTool } from './records';
 import { answer } from './results';
@@ -38,10 +38,10 @@ const another = z.boolean().optional().describe('true to add it even though one 
 
 /** The MCP server over the spaces `agent` gives, with every tool and the guide. */
 export function buildServer(agent: Agent): McpServer {
-  const server = new McpServer({ name: 'scrawl', version: VERSION }, { capabilities: { tools: {}, resources: {} } });
+  const server = new McpServer({ name: 'scrawl', version: VERSION }, { capabilities: { tools: {}, resources: {} }, instructions: BRIEF });
   const client = (ctx: ServerContext) => clientOf(server, agent, ctx);
 
-  server.registerResource('guide', 'scrawl://guide', { title: 'Scrawl guide', description: 'How a Scrawl space is laid out, what each file holds, and how an agent behaves in it. Read it once.', mimeType: 'text/markdown' }, async (uri) => ({
+  server.registerResource('guide', 'scrawl://guide', { title: 'Scrawl guide', description: 'How a Scrawl space is laid out, what each file holds, and how an agent behaves in it. The spaces tool returns it too.', mimeType: 'text/markdown' }, async (uri) => ({
     contents: [{ uri: uri.href, mimeType: 'text/markdown', text: GUIDE }],
   }));
 
@@ -49,7 +49,7 @@ export function buildServer(agent: Agent): McpServer {
     'spaces',
     {
       title: 'Spaces',
-      description: 'Start here, once. Lists the spaces you can reach (id, name, where it lives, whether it is the personal one), with today’s date and the person’s name. When there is more than one space, pass its id as `space` to the other tools.',
+      description: 'Start here, once. Lists the spaces you can reach (id, name, where it lives, whether it is the personal one), with today’s date and the person’s name, and then the guide: how to work in Scrawl and how each file is laid out (a collection’s schema, a board, a task list). Read the guide before anything else. When there is more than one space, pass its id as `space` to the other tools.',
       annotations: { readOnlyHint: true },
     },
     () => answer(() => spacesTool(agent)),
