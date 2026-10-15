@@ -1854,7 +1854,12 @@ export function App() {
             setDrawer(false);
             setDialog({ kind: 'settings' });
           }}
-          settingsOpen={dialog?.kind === 'settings'}
+          onSync={() => {
+            setDrawer(false);
+            setDialog({ kind: 'settings', section: 'spaces' });
+          }}
+          settingsOpen={dialog?.kind === 'settings' && dialog.section !== 'spaces'}
+          syncOpen={dialog?.kind === 'settings' && dialog.section === 'spaces'}
           onSearch={() => setSearching(true)}
           searchOpen={searching}
           reveal={revealFolder}
@@ -2059,7 +2064,14 @@ export function App() {
         />
       )}
       {/* On a phone the settings are pages in Browse. */}
-      {dialog?.kind === 'settings' && !phone && <Settings {...settingsValues} initial={dialog.section} onClose={closeDialog} />}
+      {dialog?.kind === 'settings' && !phone && (
+        <Settings
+          {...settingsValues}
+          initial={dialog.section}
+          onShown={(section) => setDialog((current) => (current?.kind === 'settings' ? { ...current, section } : current))}
+          onClose={closeDialog}
+        />
+      )}
       {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onClose={() => setSearching(false)} />}
       {dialog?.kind === 'removeSpace' &&
         (() => {

@@ -4779,11 +4779,12 @@ p { margin: 0; max-width: 68ch; }
   ];
   var SP_DEFAULT = 'C:\\Users\\kaan\\AppData\\Roaming\\app.scrawlnotes.desktop\\';
   var SP_STATUS = '<div class="status"><span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>' + syncStatus(false, null) + '</div>';
-  // The views that show the Settings window, whose button at the foot of the sidebar is lit.
+  // The views that show the Settings window. Profile lights Settings at the foot of the sidebar; the others
+  // show Spaces, where each space's sync is, and light Sync (Oct 15: a row of its own, as on a phone).
   var SP_SETTINGS = ['profile', 'spaceslist', 'spacepage', 'spremove', 'addspace', 'addpicker', 'addallow', 'addsignin'];
-  function spFoot(on, trash, files) {
+  function spFoot(shown, trash, files) {
     return '<div class="side-foot">' + row({ icon: 'clip', label: 'Files', ct: 9, on: files }) + row({ icon: 'trash', label: 'Trash', ct: 8, on: trash }) +
-      row({ icon: 'cog', label: 'Settings', on: on }) + '</div>';
+      row({ icon: 'cloud', label: 'Sync', on: shown === 'sync' }) + row({ icon: 'cog', label: 'Settings', on: shown === 'settings' }) + '</div>';
   }
   /** A row of the tree: a space's heading, a folder, or an item; each level one step in. */
   function spRowT(x) {
@@ -4824,7 +4825,7 @@ p { margin: 0; max-width: 68ch; }
       spRowT({ d: 1, folder: true, label: 'Support', ct: 3 }) +
       spRowT({ d: 1, folder: true, label: 'meetings', ct: 6 }) +
       spRowT({ sp: true, label: 'Side projects' }) +
-      '</div>' + spFoot(SP_SETTINGS.indexOf(view) >= 0 || view === 'bigset', view === 'sptrash' || view === 'trashsel', view.indexOf('files') === 0);
+      '</div>' + spFoot(view === 'profile' ? 'settings' : SP_SETTINGS.indexOf(view) >= 0 || view === 'bigset' ? 'sync' : null, view === 'sptrash' || view === 'trashsel', view.indexOf('files') === 0);
   }
   /** The sidebar of a first start: one space, so no heading; nothing in it yet. */
   function freshTree() {

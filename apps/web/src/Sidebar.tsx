@@ -1,7 +1,7 @@
 import { INBOX_TASKS, inSpace, listName, localPath, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 import { collectionTab, countItems, FILES, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 
@@ -52,9 +52,12 @@ interface Props {
   /** The saved filters, under Today and Upcoming. */
   filters: TaskFilter[];
   onFilterMenu: (event: MouseEvent, filter: TaskFilter) => void;
-  /** Opens the settings; `settingsOpen` while they are open. */
+  /** Opens the settings; `settingsOpen` while they are open on any section but Spaces. */
   onSettings: () => void;
   settingsOpen: boolean;
+  /** Opens the settings at Spaces, where each space's sync is; `syncOpen` while Spaces is on screen. */
+  onSync: () => void;
+  syncOpen: boolean;
   /** The row whose menu is open, by its path or its tab: it stays marked while the menu is open. */
   menuTarget: string | null;
   /** The spaces beside the personal one, each a heading with its tree under it. */
@@ -107,6 +110,8 @@ export function Sidebar({
   onFilterMenu,
   onSettings,
   settingsOpen,
+  onSync,
+  syncOpen,
   menuTarget,
   spaces,
   personalName,
@@ -301,6 +306,16 @@ export function Sidebar({
     </div>
   );
 
+  // Sync and Settings open the settings window; the one whose section is on screen is marked.
+  const windowRow = (on: boolean, onClick: () => void, icon: IconName, label: string) => (
+    <div className={`it${on ? ' on' : ''}`}>
+      <button type="button" className="it-main" onClick={onClick}>
+        <Icon name={icon} />
+        <span>{label}</span>
+      </button>
+    </div>
+  );
+
   // A task list or a board shows how many of its tasks or cards are open where a note has its trash button.
   const itemRow = (node: TreeNode, depth: number, spaced: boolean) => {
     const tab = node.kind === 'collection' ? collectionTab(node.path) : tabOf(node.path);
@@ -459,7 +474,7 @@ export function Sidebar({
           </Fragment>
         ))}
       </nav>
-      {/* Files, the trash and the settings stay at the foot of the sidebar, apart from the folders: a row each, named. */}
+      {/* Files, the trash, sync and the settings stay at the foot of the sidebar, apart from the folders: a row each, named, as on a phone. */}
       <div className="side-foot">
         {viewRow(
           FILES,
@@ -477,12 +492,8 @@ export function Sidebar({
           </>,
           0,
         )}
-        <div className={`it${settingsOpen ? ' on' : ''}`}>
-          <button type="button" className="it-main" onClick={onSettings}>
-            <Icon name="cog" />
-            <span>{t('side.settings')}</span>
-          </button>
-        </div>
+        {windowRow(syncOpen, onSync, 'cloud', t('phone.sync'))}
+        {windowRow(settingsOpen, onSettings, 'cog', t('side.settings'))}
       </div>
     </aside>
   );
