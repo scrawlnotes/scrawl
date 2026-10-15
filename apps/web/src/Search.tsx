@@ -9,7 +9,6 @@ import {
   fold,
   type FindKind,
   type Found,
-  INBOX,
   INBOX_TASKS,
   keysName,
   listName,
@@ -80,10 +79,7 @@ const UNREAD = new Set(['number', 'date', 'checkbox', 'formula', 'name', 'code']
 /** Where a path is: its space, when there are spaces, and its folders: `Acme › Sales`. */
 function trailOf(path: string, named: boolean): string {
   const space = spaceOf(path);
-  const folders = dirname(localPath(path))
-    .split('/')
-    .filter(Boolean)
-    .map((folder, index) => (index === 0 && folder === INBOX ? t('side.inbox') : folder));
+  const folders = dirname(localPath(path)).split('/').filter(Boolean);
   const head = space ? spaceLabel(space) : named ? spaceLabel(null) : null;
   return [head, ...folders].filter(Boolean).join(' › ');
 }
@@ -104,7 +100,7 @@ export function thingsOf(data: SearchData): Thing[] {
       else if (node.kind === 'keys') things.push({ kind: 'keys', name: keysName(node.path), target: { kind: 'tab', id: keysOf(node.path) }, icon: 'keys', where });
       else if (node.kind === 'collection') things.push({ kind: 'collection', name: collectionName(node.path), target: { kind: 'tab', id: collectionTab(node.path) }, icon: 'collection', where });
       else if (node.kind === 'folder') {
-        if (node.path !== INBOX) things.push({ kind: 'folder', name: node.name, target: { kind: 'folder', path: node.path }, icon: 'folder', where });
+        things.push({ kind: 'folder', name: node.name, target: { kind: 'folder', path: node.path }, icon: 'folder', where });
         visit(node.children ?? []);
       }
     }
@@ -115,7 +111,7 @@ export function thingsOf(data: SearchData): Thing[] {
     visit(space.tree);
   }
   for (const [list, tasks] of Object.entries(data.tasks)) {
-    const heading = list === INBOX_TASKS ? t('side.inbox') : listHeading(list);
+    const heading = listHeading(list);
     for (const task of tasks) {
       things.push({
         kind: 'task',
@@ -172,7 +168,7 @@ export function thingsOf(data: SearchData): Thing[] {
     }
   }
   for (const filter of data.filters) {
-    things.push({ kind: 'filter', name: filter.name, target: { kind: 'tab', id: filterTab(filter.id) }, icon: 'filter', where: filter.folder ? trailOf(`${filter.folder}/x`, named) : t('side.inbox') });
+    things.push({ kind: 'filter', name: filter.name, target: { kind: 'tab', id: filterTab(filter.id) }, icon: 'filter', where: trailOf(filter.folder ? `${filter.folder}/x` : 'x', named) });
   }
   for (const file of data.files) {
     const use = file.uses.find((each) => !each.inTrash);

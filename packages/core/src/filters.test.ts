@@ -52,7 +52,11 @@ describe('filters', () => {
     expect(matchesFilter({ ...all, priorities: [4] }, list, t1, today)).toBe(false);
     expect(matchesFilter({ ...all, folders: ['Work'] }, list, t1, today)).toBe(true);
     expect(matchesFilter({ ...all, folders: ['Home', 'Inbox'] }, list, t1, today)).toBe(false);
-    expect(matchesFilter({ ...all, folders: ['Inbox'] }, 'Inbox/tasks.json', t1, today)).toBe(true);
+    // The personal space as a whole: its top and every folder in it, but no other space.
+    expect(matchesFilter({ ...all, folders: [''] }, 'Inbox.tasks.json', t1, today)).toBe(true);
+    expect(matchesFilter({ ...all, folders: [''] }, list, t1, today)).toBe(true);
+    expect(matchesFilter({ ...all, folders: [''] }, '@sp-acmeacme/Sales/Leads.tasks.json', t1, today)).toBe(false);
+    expect(matchesFilter({ ...all, folders: ['@sp-acmeacme'] }, '@sp-acmeacme/Sales/Leads.tasks.json', t1, today)).toBe(true);
     expect(matchesFilter({ ...all, text: 'loan' }, list, t1, today)).toBe(true);
     expect(matchesFilter({ ...all, text: 'bank' }, list, t1, today)).toBe(true);
     expect(matchesFilter({ ...all, text: 'groceries' }, list, t1, today)).toBe(false);
@@ -62,11 +66,11 @@ describe('filters', () => {
     const lists = {
       'Work/A.tasks.json': [task('later', { due: '2026-10-09' }), task('undated', { priority: 1 }), task('soon-p2', { due: today, priority: 2 }), task('soon-p1', { due: today, priority: 1 })],
       'Home/B.tasks.json': [task('done', { done: true })],
-      'Inbox/tasks.json': [task('inbox')],
+      'Inbox.tasks.json': [task('inbox')],
     };
     expect(filterTasks(all, lists, today).map((g) => [g.list, g.tasks.map((t) => t.id)])).toEqual([
       ['Work/A.tasks.json', ['soon-p1', 'soon-p2', 'later', 'undated']],
-      ['Inbox/tasks.json', ['inbox']],
+      ['Inbox.tasks.json', ['inbox']],
     ]);
   });
 

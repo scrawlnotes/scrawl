@@ -53,9 +53,9 @@ import {
   editComment,
   foldSection,
   emptyTrash,
-  INBOX,
   INBOX_TASKS,
   isScratchNote,
+  listName,
   keepVersion,
   type KeysLook,
   listVersions,
@@ -531,7 +531,7 @@ export class Session {
     let tree = await readTree(this.personal);
     // The browser vault starts with a sample note. A folder on disk is the user's own; nothing is put there unasked.
     if (!tree.length && !isDesktop) {
-      await this.personal.mkdir(INBOX);
+      await createTaskList(this.personal, '', listName(INBOX_TASKS));
       await this.personal.writeText('Scrawl/Sync engine open questions.md', sampleDoc);
       tree = await readTree(this.personal);
     }
@@ -1753,7 +1753,7 @@ export class Session {
     this.saveWorkspace();
   }
 
-  /** Reads the inbox's task list, every other task list, every board, every keys file and every collection in the vault. */
+  /** Reads Inbox and every other task list, every board, every keys file and every collection in the vault. */
   private async readLists(tree: TreeNode[]): Promise<Pick<Snapshot, 'tasks' | 'sections' | 'boards' | 'keys' | 'collections'>> {
     const paths = [INBOX_TASKS];
     const boardPaths: string[] = [];
@@ -2442,8 +2442,8 @@ export class Session {
     this.changeBoard(board, (current) => setPhasesOn(current, on));
   }
 
-  /** Creates an empty scratch note in `folder`, or in the inbox, and opens it. */
-  async newNote(folder = INBOX) {
+  /** Creates an empty scratch note in `folder`, at the top of the personal space without one, and opens it. */
+  async newNote(folder = '') {
     const { fs, space, local } = this.at(folder);
     const path = inSpace(space, await createScratchNote(fs, new Date(), local));
     await this.refreshTree();

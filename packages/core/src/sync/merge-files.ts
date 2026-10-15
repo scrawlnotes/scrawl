@@ -12,7 +12,6 @@ import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrd
 
 export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'space' | 'me' | 'people' | 'trash';
 
-const INBOX_TASKS = 'Inbox/tasks.json';
 const TRASH_INDEX = '.scrawl/trash/index.json';
 
 /** How a file is merged; null for a file that cannot be (an attachment). */
@@ -20,7 +19,7 @@ export function mergeKindOf(path: string): MergeKind | null {
   const lower = path.toLowerCase();
   // A keys file is lines of text too: two devices that changed different keys keep both.
   if (lower.endsWith('.md') || lower.endsWith(KEYS_EXT)) return 'text';
-  if (lower.endsWith(TASK_LIST_EXT) || lower === INBOX_TASKS.toLowerCase()) return 'tasks';
+  if (lower.endsWith(TASK_LIST_EXT)) return 'tasks';
   if (lower.endsWith(BOARD_EXT)) return 'board';
   if (lower === '.scrawl/filters.json') return 'filters';
   if (lower === '.scrawl/space.json') return 'space';

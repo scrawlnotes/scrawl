@@ -80,10 +80,10 @@ describe('sync', () => {
   it('1. sends everything to an empty remote, and brings everything to an empty device', async () => {
     const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
     await laptop.writeText('Scrawl/Plan.md', '# Plan');
-    await laptop.writeText('Inbox/tasks.json', serializeList({ sections: [], tasks: [task('a')] }));
+    await laptop.writeText('Inbox.tasks.json', serializeList({ sections: [], tasks: [task('a')] }));
     await laptop.writeBlob('_attachments/photo.png', new Blob([new Uint8Array([1, 2, 3])]));
     await syncLaptop();
-    expect(remote.paths()).toEqual(['Inbox/tasks.json', 'Scrawl/Plan.md', '_attachments/photo.png']);
+    expect(remote.paths()).toEqual(['Inbox.tasks.json', 'Scrawl/Plan.md', '_attachments/photo.png']);
     await syncPhone();
     expect(await contents(phone)).toEqual(await contents(laptop));
   });
@@ -93,8 +93,8 @@ describe('sync', () => {
     for (const fs of [laptop, phone]) await fs.writeText('Scrawl/Same.md', 'alike');
     await laptop.writeText('Scrawl/Plan.md', 'from the laptop');
     await phone.writeText('Scrawl/Plan.md', 'from the phone');
-    await laptop.writeText('Inbox/tasks.json', serializeList({ sections: [], tasks: [task('a')] }));
-    await phone.writeText('Inbox/tasks.json', serializeList({ sections: [], tasks: [task('b')] }));
+    await laptop.writeText('Inbox.tasks.json', serializeList({ sections: [], tasks: [task('a')] }));
+    await phone.writeText('Inbox.tasks.json', serializeList({ sections: [], tasks: [task('b')] }));
     await syncLaptop();
     const writes = remote.calls.write;
     const report = await syncPhone();
@@ -102,7 +102,7 @@ describe('sync', () => {
     expect(await phone.readText('Scrawl/Plan.md')).toBe('from the phone');
     expect(report.conflicts).toEqual(['Scrawl/Plan (conflict, Phone, 2026-10-07 1432).md']);
     expect(await phone.readText(report.conflicts[0]!)).toBe('from the laptop');
-    expect(parseList(await phone.readText('Inbox/tasks.json')).tasks.map((t) => t.id).sort()).toEqual(['a', 'b']);
+    expect(parseList(await phone.readText('Inbox.tasks.json')).tasks.map((t) => t.id).sort()).toEqual(['a', 'b']);
     // The same file was not sent again: only the merged ones and the copy.
     expect(remote.calls.write - writes).toBe(3);
     await syncLaptop();

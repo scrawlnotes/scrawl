@@ -428,21 +428,9 @@ input:focus {
   opacity: 0;
 }
 
-.tab-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--sl-faint);
-}
-
 .tab:hover .tab-close span,
 .tab-close:focus-visible span {
   opacity: 1;
-}
-
-.tab:hover .tab-dot,
-.tab-close:focus-visible .tab-dot {
-  opacity: 0;
 }
 
 .tab-close:hover,
@@ -3116,10 +3104,6 @@ button.cb:hover::after {
 
   .tab.on .tab-close span {
     opacity: 1;
-  }
-
-  .tab.on .tab-dot {
-    opacity: 0;
   }
 }
 

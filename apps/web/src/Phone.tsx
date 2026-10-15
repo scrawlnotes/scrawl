@@ -1,4 +1,4 @@
-import { type Found, INBOX, INBOX_TASKS, inSpace, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
+import { type Found, INBOX_TASKS, inSpace, listName, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -227,7 +227,7 @@ function folderPaths(nodes: TreeNode[], into = new Set<string>()): Set<string> {
   return into;
 }
 
-const folderName = (path: string) => (path === INBOX ? t('side.inbox') : folderLabel(path));
+const folderName = folderLabel;
 
 /** The things opened last, the latest first; what was never seen keeps the order it was opened in. */
 const recentOf = (tabs: string[], seen: Record<string, number>): string[] =>
@@ -683,7 +683,7 @@ export function Phone(props: PhoneProps) {
     open();
     window.setTimeout(() => !menuOpen.current && setHeld(null), 50);
   };
-  // The inbox's own task list has no menu.
+  // The personal space's own list, Inbox, has no menu.
   const itemHold = (id: string) => (id === tasksOf(INBOX_TASKS) ? undefined : holdFor(() => props.onItemMenu(id)));
   const folderHold = (path: string) =>
     holdFor(() =>
@@ -847,23 +847,15 @@ export function Phone(props: PhoneProps) {
   };
 
   const folders = folderPaths(tree);
-  // The saved filters sit in their folders; one in none, or in a folder that is gone, in the inbox.
-  const placeOf = (filter: TaskFilter) => (filter.folder && folders.has(filter.folder) && filter.folder !== INBOX ? filter.folder : INBOX);
+  // The saved filters sit in their folders; one in none, or in a folder that is gone, at the personal space's top.
+  const placeOf = (filter: TaskFilter) => (filter.folder && folders.has(filter.folder) ? filter.folder : '');
 
-  /** Where something opened is: its folder, or that a scratch note is not filed yet. */
+  /** Where something opened is: its folder, or its space's name at the top of one. */
   const whereOf = (id: string): ReactNode => {
     const filter = filterOf(id);
     if (filter !== null) {
       const found = filters.find((each) => each.id === filter);
       return found ? folderName(placeOf(found)) : '';
-    }
-    if (isNote(id) && folderOf(id) === INBOX) {
-      return (
-        <>
-          <i className="dot" />
-          {t('phone.notFiled')}
-        </>
-      );
     }
     // Something of another space says the space before its folder: `Acme · Sales`.
     const where = spaceWhere(pathOf(id) ?? collectionPathOf(id) ?? '');
@@ -922,12 +914,12 @@ export function Phone(props: PhoneProps) {
     );
   };
 
-  /** A space's section of Browse: its name with a new folder's +, and what is at its top. */
+  /** A space's section of Browse: its name with a + for what can be made at its top, and what is there. */
   const spaceSection = (key: string, name: string, parent: string, nodes: TreeNode[], first?: ReactNode) => (
     <Fragment key={key}>
       <div className="mb-sec">
         <span>{name}</span>
-        <button type="button" aria-label={t('side.newFolder')} title={t('side.newFolder')} onClick={() => setNewFolderIn(parent)}>
+        <button type="button" aria-label={t('create.title')} title={t('create.title')} onClick={() => props.onFolderMenu(parent, () => setNewFolderIn(parent))}>
           <Icon name="plus" />
         </button>
       </div>
@@ -949,77 +941,36 @@ export function Phone(props: PhoneProps) {
   );
 
   const browsePage = () => {
-    const inbox = tree.find((node) => node.path === INBOX);
-    const inboxRow = (
-      <Row
-        icon="folder"
-        folder
-        label={t('side.inbox')}
-        right={(inbox && countItems(inbox)) || ''}
-        onClick={() => push({ kind: 'folder', path: INBOX })}
-        onHold={folderHold(INBOX)}
-      />
+    // The personal space's own list, Inbox, first, then its filters; it has no menu.
+    const personalFirst = (
+      <>
+        <Row icon="tasks" label={listName(INBOX_TASKS)} right={counts[tasksOf(INBOX_TASKS)] || ''} onClick={() => openItem(tasksOf(INBOX_TASKS))} />
+        {filters
+          .filter((filter) => placeOf(filter) === '')
+          .map((filter) => (
+            <Row
+              key={filter.id}
+              icon="filter"
+              label={filter.name}
+              right={counts[filterTab(filter.id)] || ''}
+              onClick={() => openItem(filterTab(filter.id))}
+              onHold={itemHold(filterTab(filter.id))}
+            />
+          ))}
+      </>
     );
-    const foot = (
-      <div className="mb-list apart">
-        <Row icon="clip" label={t('side.files')} right={counts[FILES] || ''} onClick={() => push({ kind: 'files' })} />
-        <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
-        <Row icon="cloud" label={t('phone.sync')} right={syncRight} onClick={() => push({ kind: 'sync' })} />
-        <Row icon="settings" label={t('side.settings')} onClick={() => push({ kind: 'settings' })} />
-      </div>
-    );
-    // With more than one space, after the Phone spaces view of design/mockups.html: each space is
-    // a section, the personal one first with its inbox, the others in the sidebar's order.
-    if (props.spaces.length > 0) {
-      return (
-        <>
-          {spaceSection(
-            'personal',
-            spaceLabel(null),
-            '',
-            tree.filter((node) => node.kind === 'folder' && node.path !== INBOX),
-            inboxRow,
-          )}
-          {props.spaces.map((space) => spaceSection(space.id, space.name, inSpace(space.id, ''), space.tree))}
-          {foot}
-        </>
-      );
-    }
+    // After the Phone spaces view of design/mockups.html: each space is a section, the personal one
+    // first, the others in the sidebar's order, each with what is at its top.
     return (
       <>
-        <div className="mb-list">
-          <Row
-            icon="folder"
-            folder
-            label={t('side.inbox')}
-            right={(inbox && countItems(inbox)) || ''}
-            onClick={() => push({ kind: 'folder', path: INBOX })}
-            onHold={folderHold(INBOX)}
-          />
-        </div>
-        <div className="mb-sec">
-          <span>{t('side.folders')}</span>
-          <button type="button" aria-label={t('side.newFolder')} title={t('side.newFolder')} onClick={() => setNewFolderIn('')}>
-            <Icon name="plus" />
-          </button>
-        </div>
-        <div className="mb-list">
-          {newFolderIn === '' && <FolderForm onAdd={(name) => props.onNewFolder(name, '')} onCancel={() => setNewFolderIn(null)} />}
-          {newFolderIn !== '' && !tree.some((node) => node.kind === 'folder' && node.path !== INBOX) && <p className="mb-none">{t('phone.noFolders')}</p>}
-          {tree
-            .filter((node) => node.kind === 'folder' && node.path !== INBOX)
-            .map((node) => (
-              <Row
-                key={node.path}
-                icon="folder"
-                folder
-                label={node.name}
-                right={countItems(node) || ''}
-                onClick={() => push({ kind: 'folder', path: node.path })}
-                onHold={folderHold(node.path)}
-              />
-            ))}
-        </div>
+        {spaceSection(
+          'personal',
+          spaceLabel(null),
+          '',
+          tree.filter((node) => node.path !== INBOX_TASKS),
+          personalFirst,
+        )}
+        {props.spaces.map((space) => spaceSection(space.id, space.name, inSpace(space.id, ''), space.tree))}
         <div className="mb-list apart">
           <Row icon="clip" label={t('side.files')} right={counts[FILES] || ''} onClick={() => push({ kind: 'files' })} />
           <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
@@ -1031,14 +982,11 @@ export function Phone(props: PhoneProps) {
   };
 
   const folderPage = (path: string) => {
-    const node = path === INBOX ? tree.find((each) => each.path === INBOX) : findFolder([...tree, ...props.spaces.flatMap((space) => space.tree)], path);
+    const node = findFolder([...tree, ...props.spaces.flatMap((space) => space.tree)], path);
     const children = node?.children ?? [];
     const placed = filters.filter((filter) => placeOf(filter) === path);
     const rows = (
       <>
-        {path === INBOX && (
-          <Row icon="tasks" label={t('side.tasks')} right={counts[tasksOf(INBOX_TASKS)] || ''} onClick={() => openItem(tasksOf(INBOX_TASKS))} />
-        )}
         {placed.map((filter) => (
           <Row
             key={filter.id}
@@ -1049,9 +997,7 @@ export function Phone(props: PhoneProps) {
             onHold={itemHold(filterTab(filter.id))}
           />
         ))}
-        {children
-          .filter((child) => child.path !== INBOX_TASKS)
-          .map((child) => {
+        {children.map((child) => {
             if (child.kind === 'folder') {
               return (
                 <Row
@@ -1080,7 +1026,7 @@ export function Phone(props: PhoneProps) {
           })}
       </>
     );
-    const empty = path !== INBOX && placed.length === 0 && children.length === 0;
+    const empty = placed.length === 0 && children.length === 0;
     if (empty && newFolderIn !== path) {
       return <Empty icon="folder" title={t('phone.emptyFolder')} text={t('phone.emptyFolderText')} action={{ label: t('create.title'), run: () => props.onCreate(path) }} />;
     }
@@ -1317,7 +1263,7 @@ export function Phone(props: PhoneProps) {
     top.kind === 'root' && place === 'today'
       ? () => props.onAdd(due === 'today' ? TODAY : UPCOMING)
       : (top.kind === 'root' && place !== 'search') || top.kind === 'folder'
-        ? () => props.onCreate(top.kind === 'folder' ? top.path : INBOX)
+        ? () => props.onCreate(top.kind === 'folder' ? top.path : '')
         : top.kind === 'item' && props.canAdd(top.id)
           ? () => props.onAdd(top.id)
           : null;

@@ -23,7 +23,7 @@ describe('which files merge', () => {
     expect(mergeKindOf('Scrawl/Plan.md')).toBe('text');
     expect(mergeKindOf('Scrawl/Production.env')).toBe('text');
     expect(mergeKindOf('Scrawl/Work.tasks.json')).toBe('tasks');
-    expect(mergeKindOf('Inbox/tasks.json')).toBe('tasks');
+    expect(mergeKindOf('Inbox.tasks.json')).toBe('tasks');
     expect(mergeKindOf('Scrawl/Roadmap.board.json')).toBe('board');
     expect(mergeKindOf('.scrawl/filters.json')).toBe('filters');
     expect(mergeKindOf('.scrawl/space.json')).toBe('space');

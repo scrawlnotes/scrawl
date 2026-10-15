@@ -70,9 +70,6 @@ export const en = {
   // sidebar
   'side.today': 'Today',
   'side.upcoming': 'Upcoming',
-  'side.inbox': 'Inbox',
-  'side.tasks': 'Tasks',
-  'side.folders': 'Folders',
   'side.newFolder': 'New folder',
   'side.addFolder': 'Add',
   'side.folderName': 'Folder name',
@@ -406,7 +403,6 @@ export const en = {
   'phone.search': 'Search',
   'phone.back': 'Back to {page}',
   'phone.create': 'Create',
-  'phone.notFiled': 'Inbox, not filed yet',
   'phone.nothingHere': 'Nothing here yet.',
   'phone.sync': 'Sync',
   'phone.on': 'On',
@@ -452,7 +448,6 @@ export const en = {
   // pages with nothing in them yet
   'phone.emptyFolder': 'Nothing here yet',
   'phone.emptyFolderText': 'Notes, lists, boards and folders made here show up here.',
-  'phone.noFolders': 'No folders yet',
   'phone.emptyList': 'No tasks yet',
   'phone.emptyListText': 'Add the first one, or a section to sort them into.',
   'phone.allDone': 'All done',

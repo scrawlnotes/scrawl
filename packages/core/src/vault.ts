@@ -7,9 +7,11 @@ import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
 import { awayAt, moveAway, readAway, removeAway } from './sync/away';
 import { loadTasks, parseList, serializeList, serializeTasks, TASK_LIST_EXT } from './tasks';
 
-export const INBOX = 'Inbox';
-/** The inbox's own task list, where tasks that belong to no list of their own go. */
-export const INBOX_TASKS = `${INBOX}/tasks.json`;
+/**
+ * The personal space's own task list, Inbox, at its top: where a task goes that is given no list,
+ * as Todoist's Inbox. Everything else can sit at the top of a space too; there is no inbox folder.
+ */
+export const INBOX_TASKS = 'Inbox.tasks.json';
 export const ATTACHMENTS = '_attachments';
 const APP_DIR = '.scrawl';
 const TRASH = `${APP_DIR}/trash`;
@@ -104,9 +106,9 @@ export function displayTitle(path: string, text: string): string {
 /** A note that was never given a name, and is shown under its first line. */
 export const isScratchNote = (path: string) => SCRATCH_NAME.test(basename(path));
 
-/** What a task list is called: its file name, or Tasks for the inbox's own list. */
+/** What a task list is called: its file name. */
 export function listName(path: string): string {
-  return path === INBOX_TASKS ? t('tasks.defaultList') : basename(path).slice(0, -TASK_LIST_EXT.length);
+  return basename(path).slice(0, -TASK_LIST_EXT.length);
 }
 
 /** What a board is called: its file name. */
@@ -120,8 +122,6 @@ async function names(fs: VaultFs, dir: string): Promise<Set<string>> {
   const taken = new Set((await fs.list(dir)).map((e) => e.path.toLowerCase()));
   // A file left on the other side keeps its name, though it is not here.
   if (dir === ATTACHMENTS || dir === TRASH) for (const file of await readAway(fs)) if (dirname(file.path) === dir) taken.add(file.path.toLowerCase());
-  // The inbox's own list is called Tasks, so no other list there may take that name.
-  if (dir === INBOX) taken.add(join(INBOX, `${t('tasks.defaultList')}${TASK_LIST_EXT}`).toLowerCase());
   return taken;
 }
 
@@ -136,10 +136,10 @@ function fileName(name: string, ext: string): string {
 }
 
 /**
- * Creates an empty note in the inbox. The file is named after the moment it was created, so
- * nothing has to be asked; the note shows under its first line.
+ * Creates an empty note in `folder`, at the top of the space without one. The file is named after
+ * the moment it was created, so nothing has to be asked; the note shows under its first line.
  */
-export async function createScratchNote(fs: VaultFs, now = new Date(), folder = INBOX): Promise<string> {
+export async function createScratchNote(fs: VaultFs, now = new Date(), folder = ''): Promise<string> {
   const path = freePath(folder, stamp(now), '.md', await names(fs, folder));
   await fs.writeText(path, '');
   return path;
@@ -207,7 +207,7 @@ export async function moveItem(fs: VaultFs, path: string, folder: string): Promi
  * note. A field keeps the collection it reads, a folder of whichever space it is in.
  */
 function withoutLinks(path: string, text: string): string {
-  if (path.endsWith(TASK_LIST_EXT) || basename(path) === basename(INBOX_TASKS)) {
+  if (path.endsWith(TASK_LIST_EXT)) {
     const list = parseList(text);
     return serializeList({ ...list, tasks: list.tasks.map(({ note: _n, card: _c, record: _r, ...task }) => task) });
   }
@@ -418,7 +418,7 @@ async function countTree(fs: VaultFs, dir: string): Promise<Holds> {
 
 /**
  * Lists the trash, the latest deleted first. An item deleted before the trash kept an index has
- * no recorded place; a note or a list goes back to the inbox then, a folder to the top level.
+ * no recorded place; it goes back to the top of the space then.
  */
 export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
   const records = new Map((await readTrashIndex(fs)).map((r) => [r.name, r]));
@@ -440,7 +440,7 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
     // Trash names start with the moment of deleting: `2026-10-05 143207 Plan.md`.
     const stamped = parseStamp(entry.name);
     const name = record ? basename(record.from) : stamped?.rest.startsWith(' ') ? stamped.rest.slice(1) : entry.name;
-    const from = record?.from ?? (isFolder ? name : join(INBOX, name));
+    const from = record?.from ?? name;
     const deleted = record?.deleted ?? (stamped?.time ?? new Date(0)).toISOString();
     const item = { path: entry.path, from, deleted };
     const inside = isFolder ? await fs.list(entry.path) : [];
@@ -694,8 +694,8 @@ export async function saveFile(fs: VaultFs, file: File, options: PartsOptions = 
 }
 
 /**
- * Reads the folders, task lists, boards, keys files and notes of a vault: the inbox first, then
- * task lists, then boards, then keys files, then folders, then notes, each by name.
+ * Reads the folders, task lists, boards, keys files and notes of a vault: task lists first, then
+ * boards, then keys files, then collections, then folders, then notes, each by name.
  */
 export async function readTree(fs: VaultFs, dir = ''): Promise<TreeNode[]> {
   return treeOf(fs, dir, await fs.list(dir));
@@ -721,7 +721,7 @@ async function treeOf(fs: VaultFs, dir: string, listed: Entry[]): Promise<TreeNo
     }),
   );
   const order: Record<TreeNode['kind'], number> = { tasks: 1, board: 2, keys: 3, collection: 4, folder: 5, note: 6 };
-  const rank = (n: TreeNode) => (n.path === INBOX ? 0 : order[n.kind]);
+  const rank = (n: TreeNode) => order[n.kind];
   // Names compare without their extension, so that `Board 2` comes after `Board`.
   const plain = (n: TreeNode) => (n.kind === 'folder' || n.kind === 'collection' ? n.name : splitName(n.name)[0]);
   return nodes.sort((a, b) => rank(a) - rank(b) || plain(a).localeCompare(plain(b), undefined, { numeric: true }));

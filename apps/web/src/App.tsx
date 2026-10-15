@@ -22,7 +22,6 @@ import {
   dueToday,
   filterTasks,
   filterFields,
-  INBOX,
   inSpace,
   spaceOf,
   INBOX_TASKS,
@@ -30,6 +29,7 @@ import {
   keyOf,
   keysName,
   listName,
+  localPath,
   openCardCount,
   openCount,
   parseCardRef,
@@ -81,7 +81,7 @@ import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText 
 import { PhoneNewRecord, PhoneRecordPage } from './PhoneCollection';
 import { ImportDialog } from './Import';
 import { isSpreadsheet, readSheets, type Sheet, writeSheet } from './spreadsheet';
-import { folderLabel as folderLabelOf, setSpaceNames,
+import { folderLabel, setSpaceNames,
   boardLabel,
   boardOf,
   boardPathOf,
@@ -175,9 +175,9 @@ function folderPaths(nodes: TreeNode[], out: string[] = []): string[] {
   return out;
 }
 
-/** The folders things can be made in or moved to: the inbox, the personal space's folders, then each space and its folders. */
+/** The places things can be made in or moved to: the personal space's top and its folders, then each space's top and its folders. */
 function everyFolder(tree: TreeNode[], spaces: SpaceView[]): string[] {
-  return [INBOX, ...folderPaths(tree).filter((path) => path !== INBOX), ...spaces.flatMap((space) => [inSpace(space.id, ''), ...folderPaths(space.tree)])];
+  return ['', ...folderPaths(tree), ...spaces.flatMap((space) => [inSpace(space.id, ''), ...folderPaths(space.tree)])];
 }
 
 function findNode(nodes: TreeNode[], path: string): TreeNode | undefined {
@@ -403,10 +403,10 @@ export function App() {
     if (empty) setDeclined(true);
     setDialog(null);
   };
-  // New things go to the folder of the tab on screen, or to the inbox.
-  const newFolder = (active && folderOf(active)) || INBOX;
-  // Or to the folder whose menu Create was opened from.
-  const createIn = (dialog?.kind === 'new' && dialog.folder) || newFolder;
+  // New things go to the folder of the tab on screen, or to the top of the personal space.
+  const newFolder = (active && folderOf(active)) ?? '';
+  // Or to the folder or the space whose menu Create was opened from.
+  const createIn = dialog?.kind === 'new' && dialog.folder !== undefined ? dialog.folder : newFolder;
   const create = async (kind: ItemKind, choice: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => {
     // A new note is made to be written in: on a phone the keyboard stays for it.
     if (kind === 'note') session.holdKeyboard();
@@ -487,7 +487,7 @@ export function App() {
         list: path,
         section: null,
         label: listName(path),
-        folder: path === INBOX_TASKS ? INBOX : folderLabel(dirname(path)),
+        folder: folderLabel(dirname(path)),
         here: isHere(path, null),
       },
       ...(sections[path] ?? []).map((section) => ({
@@ -720,13 +720,14 @@ export function App() {
   };
   // The spaces' names, for the places a path is shown as words.
   useEffect(() => setSpaceNames(new Map(spaces.map((each) => [each.id, each.name])), space.name ?? ''), [spaces, space.name]);
-  // A space's heading: a folder at its top, its settings, its place among the spaces, and the way
-  // out of this device. The personal space stays first and stays, so it only has the first two.
+  // A space's heading: what can be made at its top, as in a folder, its settings, its place among
+  // the spaces, and the way out of this device. The personal space stays first and stays, so it
+  // has no more than its settings.
   const spaceMenu = (event: MouseEvent, id: string | null, addFolder: () => void) => {
     const at = id ? spaces.findIndex((space) => space.id === id) : -1;
     const items: MenuItem[] = [
-      { label: t('side.newFolder'), icon: 'folder', run: addFolder },
-      { label: t('side.spaceSettings'), icon: 'settings', run: () => setDialog({ kind: 'settings', section: 'spaces', space: id }) },
+      ...folderMenuItems(inSpace(id, ''), addFolder),
+      { label: t('side.spaceSettings'), icon: 'settings', apart: true, run: () => setDialog({ kind: 'settings', section: 'spaces', space: id }) },
     ];
     if (id) {
       items.push(
@@ -769,7 +770,7 @@ export function App() {
       setNotice(error instanceof Error ? error.message : String(error));
     }
   };
-  // The menu of a note, a task list, a board, a keys file or a collection; the inbox's own list has none.
+  // The menu of a note, a task list, a board, a keys file or a collection; Inbox, the personal space's own list, has none.
   const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
   /** Whether the item is a note (a record is one too): not a task list, a board, a keys file or a collection. */
   const isNoteFile = (path: string) => !(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections);
@@ -792,7 +793,6 @@ export function App() {
     ];
   /** On a phone a menu is an action sheet, with what it is about at its top. */
   const showSheet = (items: MenuItem[], head?: MenuHead) => setMenu({ at: { x: 0, y: 0 }, items, head });
-  const folderLabel = (path: string) => (path === INBOX ? t('side.inbox') : folderLabelOf(path));
   /**
    * The menu of something open on a phone, from its page's ··· or from its row held, where it has
    * no tab and no status bar: what the sidebar's menu has, and on a note's page Markdown.
@@ -802,7 +802,7 @@ export function App() {
     const icon = iconOf(id);
     const kinds = { note: 'create.note', tasks: 'create.tasks', board: 'create.board', keys: 'create.keys', collection: 'create.collection', filter: 'create.filter' } as const;
     const kind = t(kinds[icon as keyof typeof kinds] ?? 'create.note');
-    const where = filter ? (filter.folder ?? INBOX) : (folderOf(id) ?? INBOX);
+    const where = filter ? (filter.folder ?? '') : (folderOf(id) ?? '');
     const head: MenuHead = { icon, title: nameOf(id, tabTitles, filters), sub: t('phone.kindIn', { kind, folder: folderLabel(where) }) };
     if (filter) return showSheet(filterMenuItems(filter), head);
     const path = collectionPathOf(id) ?? pathOf(id);
@@ -837,8 +837,9 @@ export function App() {
   /** A folder's menu on a phone, from its page's ··· or from its row held. */
   const phoneFolderMenu = (path: string, addFolder: () => void) => {
     const parent = dirname(path);
-    const sub = path === INBOX ? undefined : parent ? t('phone.kindIn', { kind: t('create.folder'), folder: folderLabel(parent) }) : t('create.folder');
-    showSheet(folderMenuItems(path, addFolder), { icon: 'folder', title: folderLabel(path), sub });
+    const top = localPath(path) === '';
+    const sub = top ? undefined : parent ? t('phone.kindIn', { kind: t('create.folder'), folder: folderLabel(parent) }) : t('create.folder');
+    showSheet(folderMenuItems(path, addFolder), { icon: top ? 'space' : 'folder', title: folderLabel(path), sub });
   };
   // A collection as a CSV file, saved where the user says.
   const exportCsv = async (dir: string) => {
@@ -893,9 +894,10 @@ export function App() {
     if (!header || rows.length === 0) return setNotice(t('import.empty'));
     setImporting({ dir, fileName: file.name, header, rows });
   };
-  // The inbox is always there; it cannot be deleted. A new note shows at once, out from under the
-  // drawer; anything else opens its Create or Filter window with the folder chosen, the drawer
-  // closed so that what is made shows; a new folder is named in the sidebar, under the folder it goes in.
+  // What can be made in a folder, or at the top of a space. A new note shows at once, out from
+  // under the drawer; anything else opens its Create or Filter window with the folder chosen, the
+  // drawer closed so that what is made shows; a new folder is named in the sidebar, under the
+  // folder it goes in. A space's top is no folder: it is not deleted from here.
   const folderMenu = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, folderMenuItems(path, addFolder), path);
   const folderMenuItems = (path: string, addFolder: () => void): MenuItem[] => {
     const createHere = (start: ItemKind) => () => {
@@ -924,12 +926,8 @@ export function App() {
           setDialog({ kind: 'filter', filter: null, place: path });
         },
       },
-      ...(path === INBOX
-        ? []
-        : [
-            { label: t('menu.newFolderHere'), icon: 'folder' as const, run: addFolder, apart: true },
-            { label: t('menu.deleteFolder'), icon: 'trash' as const, danger: true, run: () => deleteFolder(path), apart: true },
-          ]),
+      { label: t('menu.newFolderHere'), icon: 'folder', run: addFolder, apart: true },
+      ...(localPath(path) === '' ? [] : [{ label: t('menu.deleteFolder'), icon: 'trash' as const, danger: true, run: () => deleteFolder(path), apart: true }]),
     ];
   };
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -1343,8 +1341,8 @@ export function App() {
   const isDueView = active === TODAY || active === UPCOMING;
   const filterId = active ? filterOf(active) : null;
   const activeFilter = filters.find((filter) => filter.id === filterId) ?? null;
-  // Filters look in the top-level folders, with everything inside them; the inbox comes first.
-  const topFolders = [INBOX, ...tree.filter((node) => node.kind === 'folder' && node.path !== INBOX).map((node) => node.path)];
+  // Filters look in the whole personal space, or in its top-level folders, with everything inside them.
+  const topFolders = ['', ...tree.filter((node) => node.kind === 'folder').map((node) => node.path)];
 
   // What is open: a note in the editor, or the view of a list, a board, a keys file, a collection,
   // a filter or the trash. On a computer it fills the main area under the tabs; on a phone it is
@@ -1869,7 +1867,6 @@ export function App() {
                   title={t('tab.close', { keys: keys('W') })}
                   onClick={() => void session.close(id)}
                 >
-                  {isNote(id) && dirname(id) === INBOX && <i className="tab-dot" />}
                   <span>×</span>
                 </button>
               </div>
@@ -2039,7 +2036,7 @@ export function App() {
           filter={dialog.filter}
           // The personal space's top folders, then every other space as a whole.
           folders={[...topFolders, ...spaces.map((each) => inSpace(each.id, ''))]}
-          places={[INBOX, ...folderPaths(tree).filter((path) => path !== INBOX)]}
+          places={['', ...folderPaths(tree)]}
           place={dialog.place ?? newFolder}
           count={(choices) =>
             filterTasks(choices, tasks, today, me?.id).reduce((sum, group) => sum + group.tasks.length, 0) +
@@ -2129,7 +2126,7 @@ export function App() {
         (() => {
           // The lists of the note's own space: a task links back to its note, and a link stays in its space.
           const places = allPlaces().filter((place) => spaceOf(place.list) === spaceOf(dialog.note));
-          // A list in the note's own folder first, else the inbox's.
+          // A list in the note's own folder first, else Inbox.
           const near = places.findIndex((place) => place.section === null && dirname(place.list) === dirname(dialog.note));
           const inbox = places.findIndex((place) => place.list === INBOX_TASKS && place.section === null);
           return (

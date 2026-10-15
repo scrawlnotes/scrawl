@@ -69,7 +69,7 @@ export function parseCardRef(ref: string): { board: string; id: string } | null 
 
 /** How deep subtasks may nest below a top-level task. */
 export const MAX_DEPTH = 4;
-/** A task list is a file of its own: `<name>.tasks.json`. The inbox keeps its tasks in `tasks.json`. */
+/** A task list is a file of its own: `<name>.tasks.json`; the personal space's own list is `Inbox.tasks.json` at its top. */
 export const TASK_LIST_EXT = '.tasks.json';
 
 type Clock = () => Date;

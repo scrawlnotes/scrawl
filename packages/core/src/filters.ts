@@ -3,6 +3,7 @@ import { basename, dirname, type VaultFs } from './fs';
 import { type Board, type Card, cardValues, isFinished } from './board';
 import { type Condition, type Field, isComplete, matchesCondition, readCondition } from './collection';
 import { isMine } from './people';
+import { spaceOf } from './spaces';
 import { addDays, type Priority, type Task } from './tasks';
 
 /**
@@ -20,7 +21,7 @@ export interface TaskFilter {
   due: DueRule;
   /** The priorities shown, 4 being none; empty shows every one. */
   priorities: Priority[];
-  /** The folders looked in, with the folders inside them, the inbox as `Inbox`; empty looks everywhere. */
+  /** The folders looked in, with the folders inside them; `''` is the whole personal space, a space's top the whole space. Empty looks everywhere. */
   folders: string[];
   /** Text the title or the description has, in any case; empty for any. */
   text: string;
@@ -28,7 +29,7 @@ export interface TaskFilter {
   mine?: true;
   /** Conditions on the boards' own fields, by key. They are about cards: with any, the filter shows no tasks. */
   fields?: Condition[];
-  /** The folder it sits in, in the sidebar; none for the inbox. Not what it looks in: that is `folders`. */
+  /** The folder it sits in, in the sidebar; none for the top of the personal space. Not what it looks in: that is `folders`. */
   folder?: string;
 }
 
@@ -109,6 +110,11 @@ function dueMatches(rule: DueRule, due: string | null, today: string): boolean {
 /** The conditions on boards' fields that ask anything: the ones with a value where they need one. */
 const fieldConditions = (filter: FilterChoices) => (filter.fields ?? []).filter(isComplete);
 
+/** Whether something in `folder` is in one of the folders a filter looks in; `''` takes the whole personal space. */
+function inFolders(folders: string[], folder: string): boolean {
+  return folders.length === 0 || folders.some((f) => (f === '' ? spaceOf(folder) === null : folder === f || folder.startsWith(`${f}/`)));
+}
+
 /**
  * Whether an open task of the list at `list` is one the filter shows; none is when the filter
  * asks about boards' fields. `me` is the user's id, for a filter of what is given to them.
@@ -119,7 +125,7 @@ export function matchesFilter(filter: FilterChoices, list: string, task: Task, t
   if (filter.mine && !isMine(task.assignee, me)) return false;
   if (filter.priorities.length > 0 && !filter.priorities.includes(task.priority)) return false;
   const folder = dirname(list);
-  if (filter.folders.length > 0 && !filter.folders.some((f) => folder === f || folder.startsWith(`${f}/`))) return false;
+  if (!inFolders(filter.folders, folder)) return false;
   const text = filter.text.trim().toLowerCase();
   return !text || `${task.title}\n${task.description ?? ''}`.toLowerCase().includes(text);
 }
@@ -143,7 +149,7 @@ export function matchesFilterCard(filter: FilterChoices, board: string, whole: B
   if (filter.mine && !isMine(card.assignee, me)) return false;
   if (filter.priorities.length > 0 && !filter.priorities.includes(card.priority)) return false;
   const folder = dirname(board);
-  if (filter.folders.length > 0 && !filter.folders.some((f) => folder === f || folder.startsWith(`${f}/`))) return false;
+  if (!inFolders(filter.folders, folder)) return false;
   const text = filter.text.trim().toLowerCase();
   if (text && !`${card.title}\n${card.description ?? ''}`.toLowerCase().includes(text)) return false;
   // A condition on a field the card's board does not have leaves the card out.
@@ -157,7 +163,7 @@ export function filterFields(filter: Pick<FilterChoices, 'folders'>, boards: Rec
   const out = new Map<string, Field>();
   for (const [path, board] of Object.entries(boards)) {
     const folder = dirname(path);
-    if (filter.folders.length > 0 && !filter.folders.some((f) => folder === f || folder.startsWith(`${f}/`))) continue;
+    if (!inFolders(filter.folders, folder)) continue;
     for (const field of board.fields ?? []) if (!out.has(field.key)) out.set(field.key, field);
   }
   return [...out.values()];

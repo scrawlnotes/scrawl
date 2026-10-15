@@ -1,4 +1,4 @@
-import { INBOX, INBOX_TASKS, inSpace, localPath, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { INBOX_TASKS, inSpace, listName, localPath, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
@@ -13,7 +13,7 @@ const MANY = 20;
 const SHOWN = 15;
 /** The folders shown in full on this device, by path; `''` is the top of the tree. */
 const SHOWN_IN_FULL = 'scrawl.sideShownInFull';
-/** The folders open on this device, by path, with the inbox and the filters; every other one is closed. */
+/** The folders open on this device, by path; every other one is closed. */
 const OPENED = 'scrawl.sideOpen';
 
 function loadPaths(key: string): ReadonlySet<string> {
@@ -59,7 +59,7 @@ interface Props {
   menuTarget: string | null;
   /** The spaces beside the personal one, each a heading with its tree under it. */
   spaces: SpaceView[];
-  /** What the personal space is called, for its heading when there are other spaces. */
+  /** What the personal space is called, for its heading. */
   personalName: string;
   /** A space heading's menu; null is the personal space. `addFolder` starts naming a folder at the space's top. */
   onSpaceMenu: (event: MouseEvent, id: string | null, addFolder: () => void) => void;
@@ -91,7 +91,7 @@ function folderPathsOf(nodes: TreeNode[], into = new Set<string>()): Set<string>
   return into;
 }
 
-/** One tree: views over everything on top, then the inbox, then the folders with their task lists and notes. */
+/** One tree: views over everything on top, then each space under its heading, the personal one first with its Inbox. */
 export function Sidebar({
   tree,
   titles,
@@ -333,8 +333,7 @@ export function Sidebar({
 
   const children = (node: TreeNode, depth: number, spaced: boolean): ReactNode => rows(node.path, node.children ?? [], depth, spaced);
 
-  // A folder reads as one: an arrow big enough to hit, which turns as it opens, and its icon. So does
-  // the inbox, which holds things the same way.
+  // A folder reads as one: an arrow big enough to hit, which turns as it opens, and its icon.
   const folderHead = (open: boolean, name: string) => (
     <>
       <span className={open ? 'chev open' : 'chev'}>
@@ -345,9 +344,9 @@ export function Sidebar({
     </>
   );
 
-  // The saved filters sit in their folders; one in none, or in a folder that is gone, in the inbox.
+  // The saved filters sit in their folders; one in none, or in a folder that is gone, at the personal space's top.
   const folderPaths = folderPathsOf(tree);
-  const placeOf = (filter: TaskFilter) => (filter.folder && folderPaths.has(filter.folder) && filter.folder !== INBOX ? filter.folder : INBOX);
+  const placeOf = (filter: TaskFilter) => (filter.folder && folderPaths.has(filter.folder) ? filter.folder : '');
   const filterRows = (folder: string, depth: number) =>
     filters
       .filter((filter) => placeOf(filter) === folder)
@@ -389,63 +388,44 @@ export function Sidebar({
     );
   };
 
-  const inbox = tree.find((node) => node.path === INBOX);
-  const inboxOpen = opened.has(INBOX);
-
-  // The personal space: the inbox, then the folders. With a heading of its own it is a step in,
-  // and its folders follow the inbox as a space's do, a new one named under the heading.
+  // The personal space: its own task list, Inbox, first, as Todoist's; then its filters and what is
+  // at its top, folders and the rest.
   const personal = (depth: number) => (
     <>
-      <div
-        className={`it fold${dropTarget === INBOX ? ' drop' : ''}${marked(INBOX)}`}
-        style={indent(depth)}
-        {...dropProps(INBOX)}
-        onContextMenu={(event) => folderMenu(event, INBOX)}
-      >
-        <button type="button" className="it-main" aria-expanded={inboxOpen} onClick={() => toggle(INBOX)}>
-          {folderHead(inboxOpen, t('side.inbox'))}
-        </button>
-        <span className="ct">{(inbox && countItems(inbox)) || ''}</span>
-        {more((event) => folderMenu(event, INBOX))}
-      </div>
-      {inboxOpen &&
-        viewRow(
-          tasksOf(INBOX_TASKS),
-          <>
-            <i className="it-pad" />
-            <Icon name="tasks" />
-            <span>{t('side.tasks')}</span>
-          </>,
-          depth + 1,
-        )}
-      {inboxOpen && filterRows(INBOX, depth + 1)}
-      {inboxOpen && inbox && children(inbox, depth + 1, true)}
-
-      {depth === 0 && (
-        <div className="grp" style={indent(depth)}>
-          <span>{t('side.folders')}</span>
-          <button type="button" title={t('side.newFolder')} aria-label={t('side.newFolder')} onClick={() => startFolder('')}>
-            +
-          </button>
-        </div>
+      {viewRow(
+        tasksOf(INBOX_TASKS),
+        <>
+          <i className="it-pad" />
+          <Icon name="tasks" />
+          <span>{listName(INBOX_TASKS)}</span>
+        </>,
+        depth,
       )}
-      {depth === 0 && addingIn === '' && folderForm(depth)}
+      {filterRows('', depth)}
       {rows(
         '',
-        tree.filter((node) => node.path !== INBOX),
+        tree.filter((node) => node.path !== INBOX_TASKS),
         depth,
         true,
       )}
     </>
   );
 
-  // A space's heading: its name and its menu; it folds like a folder.
+  // A space's heading: its name and its menu; it folds like a folder, and takes what is dropped on it to its top.
   const spaceRow = (id: string | null, name: string) => {
     const key = spaceKey(id);
+    const top = id ? key : '';
     const open = !folded.has(key);
-    const menu = (event: MouseEvent) => onSpaceMenu(event, id, () => startFolder(id ? key : ''));
+    const menu = (event: MouseEvent) => onSpaceMenu(event, id, () => startFolder(top));
     return (
-      <div key={key} className={`it fold space${marked(key)}`} style={indent(0)} data-path={key} onContextMenu={menu}>
+      <div
+        key={key}
+        className={`it fold space${dropTarget === top ? ' drop' : ''}${marked(key)}`}
+        style={indent(0)}
+        data-path={key}
+        {...dropProps(top)}
+        onContextMenu={menu}
+      >
         <button type="button" className="it-main" aria-expanded={open} onClick={() => toggleSpace(key)}>
           <span className={open ? 'chev open' : 'chev'}>
             <Icon name="chevron" />
@@ -468,22 +448,16 @@ export function Sidebar({
         </button>
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
-        {spaces.length === 0 ? (
-          personal(0)
-        ) : (
-          <>
-            {spaceRow(null, personalName)}
-            {!folded.has(spaceKey(null)) && addingIn === '' && folderForm(1)}
-            {!folded.has(spaceKey(null)) && personal(1)}
-            {spaces.map((space) => (
-              <Fragment key={space.id}>
-                {spaceRow(space.id, space.name)}
-                {!folded.has(spaceKey(space.id)) && addingIn === spaceKey(space.id) && folderForm(1)}
-                {!folded.has(spaceKey(space.id)) && rows(spaceKey(space.id), space.tree, 1, true)}
-              </Fragment>
-            ))}
-          </>
-        )}
+        {spaceRow(null, personalName)}
+        {!folded.has(spaceKey(null)) && addingIn === '' && folderForm(1)}
+        {!folded.has(spaceKey(null)) && personal(1)}
+        {spaces.map((space) => (
+          <Fragment key={space.id}>
+            {spaceRow(space.id, space.name)}
+            {!folded.has(spaceKey(space.id)) && addingIn === spaceKey(space.id) && folderForm(1)}
+            {!folded.has(spaceKey(space.id)) && rows(spaceKey(space.id), space.tree, 1, true)}
+          </Fragment>
+        ))}
       </nav>
       {/* Files, the trash and the settings stay at the foot of the sidebar, apart from the folders: a row each, named. */}
       <div className="side-foot">

@@ -1,4 +1,4 @@
-import { basename, BOARD_EXT, boardName, collectionName, dirname, INBOX_TASKS, isScratchNote, KEYS_EXT, keysName, listName, localPath, spaceOf, TASK_LIST_EXT, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { basename, BOARD_EXT, boardName, collectionName, dirname, isScratchNote, KEYS_EXT, keysName, listName, localPath, spaceOf, TASK_LIST_EXT, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import type { IconName } from './Icon';
 
@@ -36,7 +36,7 @@ export const listOf = (id: string) => (id.startsWith(TASKS) ? id.slice(TASKS.len
 export const boardPathOf = (id: string) => (id.startsWith(BOARD) ? id.slice(BOARD.length) : null);
 /** The file of a keys tab, or null for any other tab. */
 export const keysPathOf = (id: string) => (id.startsWith(KEYS) ? id.slice(KEYS.length) : null);
-export const isTaskListPath = (path: string) => path.endsWith(TASK_LIST_EXT) || path === INBOX_TASKS;
+export const isTaskListPath = (path: string) => path.endsWith(TASK_LIST_EXT);
 export const isBoardPath = (path: string) => path.endsWith(BOARD_EXT);
 export const isKeysPath = (path: string) => path.endsWith(KEYS_EXT);
 /** The tab that shows the note, task list, board or keys file at `path`. */
@@ -50,11 +50,10 @@ export const spaceOfTab = (id: string) => spaceOf(pathOf(id) ?? collectionPathOf
 
 /**
  * What a folder holds, all the way down: its notes, task lists, boards, keys files and
- * collections; folders hold them and are not counted. The inbox's own task list is always there
- * and is not counted either.
+ * collections; folders hold them and are not counted.
  */
 export const countItems = (node: TreeNode): number =>
-  node.kind !== 'folder' ? 1 : (node.children ?? []).reduce((sum, child) => sum + (child.path === INBOX_TASKS ? 0 : countItems(child)), 0);
+  node.kind !== 'folder' ? 1 : (node.children ?? []).reduce((sum, child) => sum + countItems(child), 0);
 
 // The names of the spaces beside the personal one, by id, for the places paths are shown as words;
 // and the personal space's own.
@@ -72,6 +71,7 @@ export const spaceLabel = (space: string | null) => (space ? (spaceNames.get(spa
 
 /** A folder's name for the interface: a space's own name where the path is the space itself. */
 export function folderLabel(folder: string): string {
+  if (folder === '') return spaceLabel(null);
   const space = spaceOf(folder);
   if (space && localPath(folder) === '') return spaceNames.get(space) ?? basename(folder);
   return basename(folder);
@@ -80,7 +80,7 @@ export function folderLabel(folder: string): string {
 /** A folder's path as a list of folders shows it: a space's own name in front of its path. */
 export function shownPath(path: string): string {
   const space = spaceOf(path);
-  if (!space) return path;
+  if (!space) return path || spaceLabel(null);
   const name = spaceNames.get(space) ?? space;
   const local = localPath(path);
   return local ? `${name}/${local}` : name;

@@ -11,7 +11,6 @@ import {
   type Record as CollectionRecord,
   type FilterChoices,
   filterName,
-  INBOX,
   join,
   localPath,
   newSchema,
@@ -247,7 +246,7 @@ export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: M
 export function NewDialog({ start = null, folders, folder, collections, onCreate, onFilter, onClose }: {
   /** The kind chosen already, if any. */
   start?: ItemKind | null;
-  /** Every folder, the inbox first. */
+  /** Every place, the personal space's top first. */
   folders: string[];
   /** The folder chosen to begin with. */
   folder: string;
@@ -561,11 +560,11 @@ function Chips<T>({ label, items, picked, onPick, name }: {
 export function FilterDialog({ filter, folders, places, place, count, withPeople = false, fields, records, onSave, onClose }: {
   /** The filter changed; null for a new one. */
   filter: TaskFilter | null;
-  /** The top-level folders, the inbox first, then every other space as a whole. */
+  /** The personal space as a whole, its top-level folders, then every other space as a whole. */
   folders: string[];
-  /** Every folder the filter can sit in, the inbox first. */
+  /** Every place the filter can sit in, the personal space's top first. */
   places: string[];
-  /** Where a new filter sits: the folder of the tab on screen, or the inbox. */
+  /** Where a new filter sits: the folder of the tab on screen, or the personal space's top. */
   place: string;
   /** How many open tasks and cards the choices would show. */
   count: (choices: FilterChoices) => number;
@@ -579,10 +578,10 @@ export function FilterDialog({ filter, folders, places, place, count, withPeople
   onClose: () => void;
 }) {
   const [name, setName] = useState(filter?.name ?? '');
-  // Where it sits in the sidebar; one whose folder is gone sits in the inbox.
+  // Where it sits in the sidebar; one whose folder is gone sits at the personal space's top.
   const [where, setWhere] = useState(() => {
-    const kept = filter ? (filter.folder ?? INBOX) : place;
-    return places.includes(kept) ? kept : INBOX;
+    const kept = filter ? (filter.folder ?? '') : place;
+    return places.includes(kept) ? kept : '';
   });
   const [choices, setChoices] = useState<FilterChoices>(
     filter ?? { due: 'any', priorities: [], folders: [], text: '' },
@@ -600,7 +599,7 @@ export function FilterDialog({ filter, folders, places, place, count, withPeople
       id: filter?.id ?? crypto.randomUUID(),
       name: name.trim() || filterName(choices, folderLabel),
       text: choices.text.trim(),
-      ...(where !== INBOX && { folder: where }),
+      ...(where !== '' && { folder: where }),
     });
   };
   const shown = count({ ...choices, fields: conditions });

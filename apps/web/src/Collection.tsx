@@ -817,7 +817,7 @@ const DONE_SHOWN = 5;
  * Record tasks view of design/mockups.html. A card shows its key and title, with its column (and
  * its board when more than one board links here) and its value, and opens over the record. A task
  * shows its title and when it is due, and is ticked off here. The finished ones come after the
- * open ones. + Add task makes a task about the record in the inbox.
+ * open ones. + Add task makes a task about the record in Inbox.
  */
 function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; record: Record; today: string; actions: CollectionActions; onOpen: (board: string, id: string) => void }) {
   const [adding, setAdding] = useState(false);

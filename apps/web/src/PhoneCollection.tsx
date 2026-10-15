@@ -875,7 +875,7 @@ function LinkedTab({ block, dir, schema: own, record, today, actions }: { block:
  * The cards of every board whose links point at the record, and the tasks about it, as a tab. A
  * card shows its title, its key and column (and board when more than one links here) and its
  * value, and opens as a page; a task is ticked off here. A line at the end adds a task about the
- * record to the inbox.
+ * record to Inbox.
  */
 function CardsTab({ dir, record, today, actions, onOpenCard }: { dir: string; record: Entry; today: string; actions: CollectionActions; onOpenCard: (board: string, id: string) => void }) {
   const [typed, setTyped] = useState('');

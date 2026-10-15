@@ -56,16 +56,17 @@ describe('titleOf', () => {
 });
 
 describe('vault', () => {
-  it('creates scratch notes in the inbox without name clashes', async () => {
+  it('creates scratch notes at the top of the space without name clashes', async () => {
     const fs = new MemoryFs();
-    expect(await createScratchNote(fs, at)).toBe('Inbox/2026-10-05 143207.md');
-    expect(await createScratchNote(fs, at)).toBe('Inbox/2026-10-05 143207 2.md');
+    expect(await createScratchNote(fs, at)).toBe('2026-10-05 143207.md');
+    expect(await createScratchNote(fs, at)).toBe('2026-10-05 143207 2.md');
   });
 
-  it('lists the inbox first, then task lists, folders and notes, and skips app folders', async () => {
+  it('lists task lists first, then folders and notes, and skips app folders', async () => {
     const fs = new MemoryFs();
+    await fs.writeText('Inbox.tasks.json', '{}');
+    // A folder called Inbox, from before there was none, is a folder like any other.
     await fs.writeText('Inbox/a.md', 'first idea');
-    await fs.writeText('Inbox/tasks.json', '{}');
     await fs.writeText('Work/plan.md', '# Plan');
     await fs.writeText('Work/Sprint.tasks.json', '{}');
     await fs.writeText('loose.md', 'loose note');
@@ -75,10 +76,10 @@ describe('vault', () => {
     await fs.mkdir('Empty');
 
     const tree = await readTree(fs);
-    expect(tree.map((n) => n.path)).toEqual(['Inbox', 'Empty', 'Work', 'loose.md']);
-    // The inbox's own list is not an item of the tree; the interface always shows it.
-    expect(tree[0]!.children!.map((n) => n.path)).toEqual(['Inbox/a.md']);
-    expect(tree[2]!.children).toEqual([
+    expect(tree.map((n) => n.path)).toEqual(['Inbox.tasks.json', 'Empty', 'Inbox', 'Work', 'loose.md']);
+    expect(tree[0]).toMatchObject({ kind: 'tasks', title: 'Inbox' });
+    expect(tree[2]!.children!.map((n) => n.path)).toEqual(['Inbox/a.md']);
+    expect(tree[3]!.children).toEqual([
       { name: 'Sprint.tasks.json', path: 'Work/Sprint.tasks.json', kind: 'tasks', title: 'Sprint' },
       { name: 'plan.md', path: 'Work/plan.md', kind: 'note', title: 'plan' },
     ]);
@@ -118,11 +119,13 @@ describe('vault', () => {
     expect(await createTaskList(fs, 'Work', 'Sprint')).toBe('Work/Sprint 2.tasks.json');
   });
 
-  it("keeps the name Tasks for the inbox's own list", async () => {
+  it("keeps the personal space's own list, Inbox, at its top", async () => {
     const fs = new MemoryFs();
-    expect(listName(INBOX_TASKS)).toBe('Tasks');
-    expect(await createTaskList(fs, 'Inbox', '')).toBe('Inbox/Tasks 2.tasks.json');
-    expect(listName('Inbox/Tasks 2.tasks.json')).toBe('Tasks 2');
+    expect(INBOX_TASKS).toBe('Inbox.tasks.json');
+    expect(listName(INBOX_TASKS)).toBe('Inbox');
+    // Made as any list is: a list called Inbox at the top is that list, a second one is another.
+    expect(await createTaskList(fs, '', 'Inbox')).toBe(INBOX_TASKS);
+    expect(await createTaskList(fs, '', 'Inbox')).toBe('Inbox 2.tasks.json');
   });
 
   it('creates boards from a template, called Board without a name, with keys after the name', async () => {
@@ -208,8 +211,9 @@ describe('vault', () => {
     const fs = new MemoryFs();
     await fs.writeText('Home/Tasks.tasks.json', 'home');
     await fs.writeText('Work/Tasks.tasks.json', 'work');
+    await fs.writeText('Tasks.tasks.json', 'top');
     expect(await moveItem(fs, 'Home/Tasks.tasks.json', 'Work')).toBe('Work/Tasks 2.tasks.json');
-    expect(await moveItem(fs, 'Work/Tasks.tasks.json', 'Inbox')).toBe('Inbox/Tasks 2.tasks.json');
+    expect(await moveItem(fs, 'Work/Tasks.tasks.json', '')).toBe('Tasks 2.tasks.json');
   });
 
   it('keeps deleted notes and task lists in the trash', async () => {
@@ -329,13 +333,13 @@ describe('trash', () => {
     expect((await fs.list('Work/Old')).map((e) => e.name).sort()).toEqual(['Empty', 'one.md']);
   });
 
-  it('sends items deleted before the trash kept an index to the inbox', async () => {
+  it('sends items deleted before the trash kept an index back to the top of the space', async () => {
     const fs = new MemoryFs();
     await fs.writeText('.scrawl/trash/2026-10-01 090000 Grocery list.md', 'milk');
     const [item] = await readTrash(fs);
-    expect(item).toMatchObject({ title: 'Grocery list', from: 'Inbox/Grocery list.md' });
+    expect(item).toMatchObject({ title: 'Grocery list', from: 'Grocery list.md' });
     expect(item!.deleted).toBe(new Date(2026, 9, 1, 9, 0, 0).toISOString());
-    expect(await restoreFromTrash(fs, item!)).toBe('Inbox/Grocery list.md');
+    expect(await restoreFromTrash(fs, item!)).toBe('Grocery list.md');
   });
 
   it('deletes one item or everything for good', async () => {

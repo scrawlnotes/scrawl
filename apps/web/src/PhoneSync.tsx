@@ -62,7 +62,6 @@ export function fileLook(path: string, top: string): { icon: IconName; name: str
     const low = file.toLowerCase();
     if (low.endsWith(BOARD_EXT)) return { icon: 'board', name: file.slice(0, -BOARD_EXT.length) };
     if (low.endsWith(TASK_LIST_EXT)) return { icon: 'tasks', name: file.slice(0, -TASK_LIST_EXT.length) };
-    if (low === 'tasks.json') return { icon: 'tasks', name: t('side.tasks') };
     if (low.endsWith(KEYS_EXT)) return { icon: 'keys', name: file.slice(0, -KEYS_EXT.length) };
     if (low.endsWith('.md')) return { icon: 'note', name: file.slice(0, -3) };
     if (IMAGES.test(file)) return { icon: 'image', name: file };

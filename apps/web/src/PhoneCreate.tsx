@@ -1,4 +1,4 @@
-import { basename, type BoardLinks, type CollectionTemplate, defaultCollectionName, INBOX, inSpace, join, localPath, newSchema, spaceOf, type Template } from '@scrawlnotes/core';
+import { basename, type BoardLinks, type CollectionTemplate, defaultCollectionName, inSpace, join, localPath, newSchema, spaceOf, type Template } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
 import { COLLECTION_TEMPLATES, type FolderChoice, type ItemKind, KINDS, NAME_HINTS, TEMPLATES, TITLES, useFolderPicker } from './dialogs';
@@ -16,7 +16,7 @@ import { Sheet, SheetClose } from './sheets';
 /** What the sheet shows: the form, or one of the lists a row of it opens. */
 type Step = 'form' | 'folder' | 'template' | 'company' | 'contact';
 
-const folderLabel = (path: string) => (path === INBOX ? t('side.inbox') : shownPath(path));
+const folderLabel = shownPath;
 
 /** A board's columns drawn by kind, small. */
 function Columns({ columns }: { columns: string[] }) {
@@ -34,7 +34,7 @@ const Tick = ({ on }: { on: boolean }) => <span className="tick">{on && <Icon na
 export function PhoneCreate({ start = null, folders, folder, collections, onCreate, onFilter, onClose }: {
   /** The kind chosen already, if any. */
   start?: ItemKind | null;
-  /** Every folder, the inbox first. */
+  /** Every place, the personal space's top first. */
   folders: string[];
   /** The folder on screen. */
   folder: string;
@@ -178,7 +178,7 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
                           onClick={() => pick({ folder: path, create: false })}
                         >
                           <Icon name={local ? 'folder' : 'space'} />
-                          <span className="in">{local ? (path === INBOX ? t('side.inbox') : basename(local)) : spaceLabel(space)}</span>
+                          <span className="in">{local ? basename(local) : spaceLabel(space)}</span>
                           <Tick on={!place.create && place.folder === path} />
                         </button>
                       );
