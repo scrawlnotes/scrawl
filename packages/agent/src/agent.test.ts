@@ -7,7 +7,7 @@ import { Refusal } from './paths';
 import { readTool, searchTool, spacesTool, treeTool } from './read';
 import { recordsTool, saveRecordTool } from './records';
 import { buildServer } from './server';
-import { type Agent, type AgentSpace, pickElement } from './space';
+import { type Agent, type AgentSpace, exists, pickElement } from './space';
 import { saveTaskTool, tasksTool } from './tasks';
 import { moveTool } from './move';
 import { createTool, trashTool, writeTool } from './write';
@@ -118,6 +118,38 @@ describe('writing files', () => {
     expect(await fs.readText(note)).toContain('November');
   });
 
+  it('reads and writes a collection’s schema, and a blank collection gets its fields', async () => {
+    const { agent, fs, companies } = await sample();
+    const path = `${companies}/_collection.json`;
+    const read = await readTool(agent, { path });
+    expect(read.data.kind).toBe('schema');
+    const schema = JSON.parse(read.text) as { fields: object[] };
+    schema.fields.push({ key: 'segment', label: 'Segment', type: 'select', options: ['SMB', 'Enterprise'] });
+    await writeTool(agent, { path, text: JSON.stringify(schema), ifMatch: read.data.hash });
+    expect((await loadSchema(fs, companies)).fields.map((f) => f.key)).toContain('segment');
+    const blank = await createTool(agent, { folder: 'CRM', kind: 'collection', name: 'Investors', template: 'blank' });
+    const empty = await readTool(agent, { path: `${blank.data.path}/_collection.json` });
+    const fields = [{ key: 'name', label: 'Name', type: 'name' }];
+    await writeTool(agent, { path: `${blank.data.path}/_collection.json`, text: JSON.stringify({ ...JSON.parse(empty.text), fields }), ifMatch: empty.data.hash });
+    expect((await loadSchema(fs, blank.data.path)).fields.map((f) => f.type)).toEqual(['name']);
+    expect((await refusal(readTool(agent, { path: `${companies}/_attachments/logo.png` }))).message).toContain('attachment');
+    expect((await refusal(readTool(agent, { path: '.scrawl/_collection.json' }))).message).toContain('Scrawl’s own folder');
+    expect((await refusal(writeTool(agent, { path: '_attachments/_collection.json', text: '{ "fields": [] }' }))).message).toContain('attachment');
+  });
+
+  it('refuses a schema, a board or a task list that is not JSON or lacks its lists, and leaves the file as it was', async () => {
+    const { agent, fs, companies, board } = await sample();
+    const path = `${companies}/_collection.json`;
+    const before = await fs.readText(path);
+    expect((await refusal(writeTool(agent, { path, text: '{ "fields": [' }))).message).toContain('not JSON');
+    expect((await refusal(writeTool(agent, { path, text: '[]' }))).message).toContain('JSON object');
+    expect((await refusal(writeTool(agent, { path, text: '{ "version": 2 }' }))).details.missing).toEqual(['fields']);
+    expect(await fs.readText(path)).toBe(before);
+    expect((await refusal(writeTool(agent, { path: board, text: '{ "columns": [] }' }))).details.missing).toEqual(['cards']);
+    expect((await refusal(writeTool(agent, { path: 'Plans/Launch.tasks.json', text: '' }))).message).toContain('not JSON');
+    expect(await exists(fs, 'Plans/Launch.tasks.json')).toBeNull();
+  });
+
   it('creates elements where they are asked for, and trashes to the trash', async () => {
     const { agent, fs } = await sample();
     const crm = await createTool(agent, { folder: 'CRM', kind: 'board', name: 'Deals', template: 'crm' });
@@ -129,6 +161,10 @@ describe('writing files', () => {
     expect((await refusal(createTool(agent, { kind: 'board', name: 'x', template: 'kanban' }))).details.templates).toContain('crm');
     await trashTool(agent, { path: 'Plans/Roadmap.md' });
     expect((await readTrash(fs)).map((t) => t.from)).toEqual(['Plans/Roadmap.md']);
+    const schema = await refusal(trashTool(agent, { path: 'CRM/People/_collection.json' }));
+    expect(schema.message).toContain('trash its folder');
+    expect(schema.details.folder).toBe('CRM/People');
+    expect((await loadSchema(fs, 'CRM/People')).template).toBe('people');
   });
 });
 
@@ -307,6 +343,9 @@ describe('over MCP', () => {
     const refused = await client.callTool({ name: 'read', arguments: { path: 'Secrets.env' } });
     expect(refused.isError).toBe(true);
     expect(refused.structuredContent).toMatchObject({ error: expect.stringContaining('Keys files') });
+    const schema = await client.callTool({ name: 'read', arguments: { path: 'CRM/Companies/_collection.json' } });
+    expect(schema.isError).toBeFalsy();
+    expect(schema.structuredContent).toMatchObject({ kind: 'schema' });
     await client.close();
   });
 });

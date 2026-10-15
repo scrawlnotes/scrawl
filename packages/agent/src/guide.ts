@@ -33,7 +33,7 @@ Not yours: restoring from the trash, seeing a note's versions, attached files, s
 
 ## When a call is cut off
 
-Call it again; nothing is added twice. \`save_record\` does not add a record whose name or code is already there, \`save_card\` does not add an open card whose title is already on the board: each returns the one that exists with \`exists: true\`, and you give its \`id\` to change it. When you mean a second one with the same name, pass \`another: true\`. \`comment\` does not write the same text twice in a row. \`write\` with \`ifMatch\` refuses when the file changed since you read it: read it again, then write.
+Call it again; nothing is added twice. No idempotency key is needed, and none is taken. \`save_record\` does not add a record whose name or code is already there, \`save_card\` does not add an open card whose title is already on the board: each returns the one that exists with \`exists: true\`, and you give its \`id\` to change it. When you mean a second one with the same name, pass \`another: true\`. \`comment\` does not write the same text twice in a row. \`write\` with \`ifMatch\` refuses when the file changed since you read it: read it again, then write.
 
 ## A space
 

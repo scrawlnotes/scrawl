@@ -13,7 +13,7 @@ import {
   trashFolder,
   trashItem,
 } from '@scrawlnotes/core';
-import { checkOpen, cleanPath, fileKind, Refusal } from './paths';
+import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
 import { hashOf, MAX_TEXT } from './read';
 import { type Agent, elementsOf, exists, nowOf, pickSpace } from './space';
 
@@ -22,11 +22,31 @@ import { type Agent, elementsOf, exists, nowOf, pickSpace } from './space';
 
 export const BOARD_TEMPLATES: readonly Template[] = ['software', 'simple', 'issues', 'crm'];
 
+/** The lists a schema, a board and a task list must have. The app reads a file without them as empty, and its next save loses what was there. */
+const LISTS: Partial<Record<FileKind, string[]>> = { schema: ['fields'], board: ['columns', 'cards'], tasks: ['tasks'] };
+
+/** Refuses a schema, a board or a task list that is not JSON or lacks its lists, saying what is wrong. */
+function checkJson(path: string, kind: FileKind, text: string) {
+  const lists = LISTS[kind];
+  if (!lists) return;
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch (error) {
+    throw new Refusal(`${path} is not JSON (${(error as Error).message}); nothing was written. Scrawl would read it as empty`, { path });
+  }
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) throw new Refusal(`${path} must be a JSON object; nothing was written`, { path });
+  const missing = lists.filter((key) => !Array.isArray((data as { [key: string]: unknown })[key]));
+  if (missing.length) throw new Refusal(`${path} needs ${missing.map((key) => `"${key}"`).join(' and ')} as a list; nothing was written. Read the file, change it and write all of it back`, { path, missing });
+}
+
 export async function writeTool(agent: Agent, args: { space?: string; path: string; text: string; ifMatch?: string }) {
   const space = await pickSpace(agent, args.space);
   const path = checkOpen(cleanPath(args.path));
   if (!path) throw new Refusal('Which file? Give a path');
   if (args.text.length > MAX_TEXT) throw new Refusal('The text is larger than agents write (1 MB)', { path });
+  const kind = fileKind(path);
+  checkJson(path, kind, args.text);
   const entry = await exists(space.fs, path);
   if (entry?.kind === 'dir') throw new Refusal(`${path} is a folder`, { path });
   const previous = entry ? await space.fs.readText(path) : null;
@@ -34,7 +54,6 @@ export async function writeTool(agent: Agent, args: { space?: string; path: stri
     const now = hashOf(previous ?? '');
     if (now !== args.ifMatch) throw new Refusal(`${path} changed since it was read; read it again`, { path, hash: now });
   }
-  const kind = fileKind(path);
   // A server versions every write itself; its history folder is a device's own, and it refuses it.
   if (kind === 'note' && !space.versioned && previous?.trim() && previous !== args.text) await keepVersion(space.fs, path, previous, { now: nowOf(agent), always: true });
   await space.fs.writeText(path, args.text);
@@ -84,6 +103,11 @@ export async function trashTool(agent: Agent, args: { space?: string; path: stri
   const space = await pickSpace(agent, args.space);
   const path = checkOpen(cleanPath(args.path));
   if (!path) throw new Refusal('What to trash? Give a path');
+  // Without its schema a collection's records are loose notes; the collection goes to the trash whole.
+  if (fileKind(path) === 'schema') {
+    const folder = path.split('/').slice(0, -1).join('/');
+    throw new Refusal(`${path} is a collection’s schema; to remove the collection, trash its folder${folder ? ` (${folder})` : ''}`, { path, ...(folder && { folder }) });
+  }
   const entry = await exists(space.fs, path);
   if (!entry) throw new Refusal(`Nothing is at ${path}`, { path });
   const now = nowOf(agent);

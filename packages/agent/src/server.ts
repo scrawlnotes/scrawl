@@ -85,7 +85,7 @@ export function buildServer(agent: Agent): McpServer {
     'write',
     {
       title: 'Write a file',
-      description: 'Writes one file as it is, replacing what was there, making folders as needed. Use it for notes, and for what no other tool changes: a collection’s fields (its _collection.json) and a board’s columns and phases (its .board.json). Read the file first and pass its hash as `ifMatch`, so nothing is lost when it changed since. A note’s earlier text is kept. For tasks, cards and records use save_task, save_card and save_record instead: they keep ids and order.',
+      description: 'Writes one file as it is, replacing what was there, making folders as needed. Use it for notes, and for what no other tool changes: a collection’s fields (its _collection.json) and a board’s columns and phases (its .board.json). Read the file first and pass its hash as `ifMatch`, so nothing is lost when it changed since. A schema, a board or a task list is written whole, as JSON: one that is not is refused. A note’s earlier text is kept. For tasks, cards and records use save_task, save_card and save_record instead: they keep ids and order.',
       inputSchema: z.object({ space, path: z.string(), text: z.string(), ifMatch: z.string().optional().describe('The hash the file had when read; the write is refused when it changed.') }),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     },
@@ -125,7 +125,7 @@ export function buildServer(agent: Agent): McpServer {
     'trash',
     {
       title: 'Trash',
-      description: 'Sends a note, a task list, a board, a folder or a collection to the trash, where the person can restore it; nothing is deleted for good. This is the only way to remove a file. One task or one card is not trashed: close a task with save_task done: true, drop a card with save_card column: "dropped".',
+      description: 'Sends a note, a task list, a board, a folder or a collection to the trash, where the person can restore it; nothing is deleted for good. This is the only way to remove a file. A collection goes by its folder, not by its _collection.json. One task or one card is not trashed: close a task with save_task done: true, drop a card with save_card column: "dropped".',
       inputSchema: z.object({ space, path: z.string() }),
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
