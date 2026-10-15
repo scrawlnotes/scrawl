@@ -32,6 +32,9 @@ docker compose -f compose.tunnel.yml up -d
 On Cloudflare's free plan a request through the tunnel can carry at most 100 MB, so larger files
 do not go through it.
 
+Both keep the data in a named volume. To keep it in a folder of the machine instead, give that
+folder to the user the server runs as first: `chown -R 1000:1000 ./data`.
+
 **Coolify**: a new resource from the Docker image `ghcr.io/scrawlnotes/server:latest`, port 8080,
 your domain, the environment variable `SCRAWL_URL` set to that domain with `https://`, and a
 volume at `/data`. If the domain is on Cloudflare, keep its record DNS only, for the same 100 MB

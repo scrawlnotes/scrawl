@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 import { WebSocketServer } from 'ws';
 import { backup, backups, NoSuchBackup, restore } from './backup';
-import { addressProblem, configFromEnv, VERSION } from './config';
+import { addressProblem, configFromEnv, dataProblem, VERSION } from './config';
 import { exportSpace, NoSuchSpace } from './export';
 import { makeServer } from './server';
 
@@ -11,6 +11,11 @@ import { makeServer } from './server';
 
 const config = configFromEnv();
 const [command = 'serve', ...rest] = process.argv.slice(2);
+const cannotWrite = dataProblem(config.data);
+if (cannotWrite) {
+  console.error(cannotWrite);
+  process.exit(1);
+}
 
 if (command === 'backup') {
   const at = await backup(config);

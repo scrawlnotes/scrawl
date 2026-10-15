@@ -1,3 +1,4 @@
+import { accessSync, constants, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** How the server is run, from its environment. See design/server.md, section 8. */
@@ -15,7 +16,7 @@ export interface Config {
   appUrl: string;
 }
 
-export const VERSION = '0.1.1';
+export const VERSION = '0.1.2';
 
 /** How long a new server can be set up after it started, without an account. */
 export const SETUP_MS = 60 * 60 * 1000;
@@ -49,4 +50,20 @@ export function addressProblem(url: string): string | null {
   if (parsed.protocol === 'https:') return null;
   if (parsed.protocol === 'http:' && LOCAL.has(parsed.hostname)) return null;
   return `SCRAWL_URL must start with https:// (Scrawl on the web and on a phone cannot reach plain http). For trying it on this computer, use http://localhost.`;
+}
+
+/**
+ * Why the server cannot keep its data in this folder, or null. The image runs as its own user;
+ * a folder of the machine mounted into the container belongs to someone else until it is given
+ * to that user, where a named volume needs nothing.
+ */
+export function dataProblem(data: string): string | null {
+  try {
+    mkdirSync(data, { recursive: true });
+    accessSync(data, constants.W_OK);
+    return null;
+  } catch {
+    const uid = process.getuid?.() ?? 1000;
+    return `Cannot write to ${data}. If it is a folder of this machine mounted into the container, give it to the user the server runs as: chown -R ${uid}:${uid} <that folder>. A named Docker volume needs nothing.`;
+  }
 }
