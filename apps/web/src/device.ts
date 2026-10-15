@@ -13,6 +13,7 @@ const THEME = 'scrawl.theme';
 const LANGUAGE = 'scrawl.language';
 const SIZE = { phone: 'scrawl.sizePhone', computer: 'scrawl.sizeComputer' } as const;
 const DOWNLOAD = 'scrawl.downloadLimit';
+const UPCOMING = 'scrawl.upcoming';
 
 function read(key: string): string | null {
   try {
@@ -163,6 +164,13 @@ export function leaveOver(): number | undefined {
   const limit = loadDownloadLimit();
   return limit === null ? undefined : limit * 1024 * 1024;
 }
+
+/** How Upcoming shows: the days that have something, one under the other, or the month. */
+export type UpcomingView = 'list' | 'calendar';
+
+export const loadUpcomingView = (): UpcomingView => (read(UPCOMING) === 'calendar' ? 'calendar' : 'list');
+
+export const saveUpcomingView = (view: UpcomingView) => write(UPCOMING, view === 'list' ? null : view);
 
 /** Sizes the app again each time a phone is turned. */
 export function onTurn(listener: () => void): () => void {

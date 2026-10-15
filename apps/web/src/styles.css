@@ -2471,6 +2471,282 @@ button.cb:hover::after {
   height: 12px;
 }
 
+/* Upcoming's Calendar, after the Calendar views of the Upcoming mockups: the month in the header
+   with ‹ and ›; under it six weeks, a day with as many lines as fit and +N more, a free day faint,
+   today filled; + on a day the pointer is on, and the day a task is dragged over dashed. */
+.up-month {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.up-month .mn {
+  min-width: 112px;
+  color: var(--sl-fg);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.up-month button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  color: var(--sl-dim);
+}
+
+.up-month button:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.up-month .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.up-cal {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  padding-top: 2px;
+}
+
+.up-cal .wd {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  padding-bottom: 6px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.up-cal .wd span {
+  padding-left: 7px;
+}
+
+/* As tall as the view, whatever a day holds; a short window scrolls it rather than squeezing a week
+   below a line. */
+.up-cal .grid {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: repeat(6, minmax(72px, 1fr));
+  min-height: calc(6 * 72px);
+  border-top: 1px solid var(--sl-line);
+  border-left: 1px solid var(--sl-line);
+}
+
+.cd {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  min-height: 0;
+  padding: 4px 5px;
+  overflow: hidden;
+  border-right: 1px solid var(--sl-line);
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.cd .n {
+  flex: none;
+  align-self: flex-start;
+  min-width: 22px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 9px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  line-height: 17px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.cd.busy .n {
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.cd.out {
+  background: color-mix(in srgb, var(--sl-side) 70%, transparent);
+}
+
+.cd.out .n {
+  opacity: 0.6;
+}
+
+.cd.today .n {
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 700;
+  opacity: 1;
+}
+
+.cd.on {
+  background: color-mix(in srgb, var(--sl-sel) 60%, transparent);
+}
+
+.cd.drop-on {
+  outline: 2px dashed var(--sl-accent);
+  outline-offset: -3px;
+  background: color-mix(in srgb, var(--sl-accent) 8%, transparent);
+}
+
+.cd .plus {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  opacity: 0;
+}
+
+.cd:hover .plus,
+.cd .plus:focus-visible {
+  opacity: 1;
+}
+
+.cd .plus .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.cal-t {
+  --pc: var(--sl-faint);
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--pc) 14%, transparent);
+  color: var(--sl-fg);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: grab;
+}
+
+.cal-t:hover {
+  background: color-mix(in srgb, var(--pc) 24%, transparent);
+}
+
+.cal-t i {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pc);
+}
+
+.cal-t i.sq {
+  border-radius: 1.5px;
+}
+
+.cal-t span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-t .key {
+  flex: none;
+  color: var(--sl-faint);
+  font: 10px/1 var(--sl-font-mono);
+}
+
+.cal-t.late span:not(.key) {
+  color: var(--sl-p1);
+}
+
+.cal-t.ghost {
+  opacity: 0.3;
+}
+
+.cal-more {
+  flex: none;
+  align-self: flex-start;
+  padding: 0 5px;
+  color: var(--sl-faint);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.cal-more:hover {
+  color: var(--sl-fg);
+}
+
+/* A day in its window beside it: its date and how many, its rows as in the list, and Add task. */
+.day-window {
+  padding: 10px 12px 6px;
+  outline: none;
+}
+
+.day-window h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 2px;
+  color: var(--sl-fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.day-window h4 small,
+.day-window .when {
+  color: var(--sl-faint);
+  font-weight: 400;
+}
+
+.day-window h4 .x {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: -3px -5px 0 auto;
+  border-radius: 5px;
+  color: var(--sl-faint);
+}
+
+.day-window h4 .x:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.day-window h4 .x .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.day-window .task {
+  padding: 7px 0;
+}
+
+.day-window .qa {
+  padding: 6px 0 4px;
+}
+
+.day-window .task-composer {
+  margin: 6px 0;
+}
+
 /* Adding a task: its name, its description, chips for its date, priority and record, and at the
    foot the list it goes in, Cancel and Add task. */
 .task-composer {

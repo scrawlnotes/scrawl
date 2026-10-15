@@ -1442,6 +1442,7 @@ export function App() {
           session.addTask(target, task);
           setNotice(t('phone.addedTo', { name: task.title.trim(), place: listLabel(target) }));
         }}
+        onStatus={setViewStatus}
       />
     )}
     {activeFilter && (
@@ -1909,7 +1910,7 @@ export function App() {
           <footer className="status">
             {stats && <span>{position(stats)}</span>}
             {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
-            {(keysText !== undefined || collection) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
+            {(keysText !== undefined || collection || active === UPCOMING) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
             {notice && (
               <span className="notice" role="status">
                 {notice.text}

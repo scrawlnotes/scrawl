@@ -18,6 +18,7 @@ import {
   moveTask,
   moveTaskToList,
   MAX_DEPTH,
+  monthDays,
   openCount,
   parseList,
   parseTasks,
@@ -352,6 +353,17 @@ describe('the days of Upcoming', () => {
 
   it('starts the first run today when today is free, across the end of a month', () => {
     expect(dayRuns(['2026-11-02'], '2026-10-30')).toEqual([{ free: { from: '2026-10-30', to: '2026-11-01', count: 3 } }, { day: '2026-11-02' }]);
+  });
+
+  it('shows a month as six weeks from the Monday on or before its first day', () => {
+    const october = monthDays('2026-10');
+    expect(october).toHaveLength(42);
+    expect([october[0], october[3], october[41]]).toEqual(['2026-09-28', '2026-10-01', '2026-11-08']);
+    // A month that starts on a Monday starts on its first day; February 2027 does.
+    expect(monthDays('2027-02')[0]).toBe('2027-02-01');
+    expect(monthDays('2027-02')[41]).toBe('2027-03-14');
+    // December runs into the next year.
+    expect([monthDays('2026-12')[0], monthDays('2026-12')[41]]).toEqual(['2026-11-30', '2027-01-10']);
   });
 
   it('leaves out what is late, a day twice, and anything after the last day', () => {

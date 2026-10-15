@@ -512,6 +512,17 @@ export function daysApart(from: string, to: string): number {
   return Math.round((utc(to) - utc(from)) / 86_400_000);
 }
 
+/**
+ * The 42 days a month shows as a calendar of six weeks starting on Monday: from the Monday on or
+ * before its first day, with the end of the month before and the start of the one after. `month`
+ * is `YYYY-MM`.
+ */
+export function monthDays(month: string): string[] {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  const start = addDays(`${month}-01`, -((new Date(y, m - 1, 1).getDay() + 6) % 7));
+  return Array.from({ length: 42 }, (_, i) => addDays(start, i));
+}
+
 /** A day of Upcoming that has something, or the free days that come before the next such day. */
 export type DayRun = { day: string } | { free: { from: string; to: string; count: number } };
 
