@@ -1,7 +1,7 @@
-<title>Scrawl Design Directions</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<title>Scrawl Mockups</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: a plain reading column of three stacked directions; each one is a short brief above a full-width app window. */
+/* Layout: a plain reading column; each part is a short brief above a full-width app window. */
 :root {
   --bg: #f2f3f6;
   --panel: #ffffff;
@@ -38,9 +38,9 @@ p { margin: 0; max-width: 68ch; }
 .pick button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
 .pick button:focus-visible, .mock button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* direction A has many views: its buttons wrap onto more lines instead of running off the edge */
-.dir[data-dir="a"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
-.dir[data-dir="a"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
-.dir[data-dir="a"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.dir[data-dir="a"] .brief .pick, .dir[data-dir="server"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="a"] .brief .pick button, .dir[data-dir="server"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="a"] .brief .pick button[aria-pressed="true"], .dir[data-dir="server"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
 
 .dir { display: flex; flex-direction: column; gap: 16px; }
 .brief { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 32px; }
@@ -66,42 +66,13 @@ p { margin: 0; max-width: 68ch; }
   --m-bg: #fbfbfc; --m-side: #eff0f3; --m-rail: #e6e8ec; --m-line: #d9dce3; --m-fg: #22262e; --m-dim: #5f6775;
   --m-faint: #9aa1ad; --m-accent: #a8690c; --m-on-accent: #ffffff; --m-sel: #d6e3f6; --m-code: #eceef2;
 }
-.mock.dir-b {
-  --m-bg: #1a1b20; --m-side: #1a1b20; --m-rail: #1a1b20; --m-line: #2b2d36; --m-fg: #dedfe6; --m-dim: #8f92a2;
-  --m-faint: #5e6172; --m-accent: #8f9eff; --m-on-accent: #11132a; --m-sel: #2e3458; --m-code: #23252d;
-  --m-ui: "Atkinson Hyperlegible", "Segoe UI", sans-serif; --m-ed: "Atkinson Hyperlegible", "Segoe UI", sans-serif;
-}
-.mock.dir-b[data-mode="light"] {
-  --m-bg: #fdfdfd; --m-side: #fdfdfd; --m-rail: #fdfdfd; --m-line: #e4e5eb; --m-fg: #1d1e25; --m-dim: #666a7a;
-  --m-faint: #a3a6b3; --m-accent: #4050c4; --m-on-accent: #ffffff; --m-sel: #dfe3ff; --m-code: #f1f2f6;
-}
-.mock.dir-c {
-  --m-bg: #161c1a; --m-side: #121716; --m-rail: #0d1110; --m-line: #26302d; --m-fg: #d8e0dc; --m-dim: #86958f;
-  --m-faint: #56635e; --m-accent: #4cc38a; --m-on-accent: #07170f; --m-sel: #1f3d30; --m-code: #101514;
-  --m-ui: "Hanken Grotesk", "Segoe UI", sans-serif; --m-ed: "Hanken Grotesk", "Segoe UI", sans-serif;
-}
-.mock.dir-c[data-mode="light"] {
-  --m-bg: #ffffff; --m-side: #f3f6f4; --m-rail: #e8edea; --m-line: #d8e0dc; --m-fg: #1a2420; --m-dim: #5a6963;
-  --m-faint: #98a59f; --m-accent: #1b7d53; --m-on-accent: #ffffff; --m-sel: #d2eee0; --m-code: #eff3f1;
-}
 
 .mock button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .mock svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.mock[data-view="notes"] .v-tasks, .mock[data-view="notes"] .side-tasks,
-.mock[data-view="tasks"] .v-notes, .mock[data-view="tasks"] .side-notes { display: none; }
 
-/* rail (direction C only) */
-.rail { display: none; }
-.dir-c .rail { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 60px; padding: 12px 0; background: var(--m-rail); border-right: 1px solid var(--m-line); }
-.rail button { width: 46px; padding: 6px 0 4px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: var(--m-dim); }
-.rail .push { margin-top: auto; }
-.mock[data-view="notes"] .rail [data-go="notes"], .mock[data-view="tasks"] .rail [data-go="tasks"] { background: var(--m-sel); color: var(--m-accent); }
 
 /* sidebar */
 .side { width: 222px; background: var(--m-side); border-right: 1px solid var(--m-line); padding: 10px 8px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
-.seg { display: flex; gap: 2px; background: var(--m-code); padding: 2px; border-radius: 6px; }
-.seg button { flex: 1; padding: 3px 0; border-radius: 4px; color: var(--m-dim); }
-.mock[data-view="notes"] .seg [data-go="notes"], .mock[data-view="tasks"] .seg [data-go="tasks"] { background: var(--m-bg); color: var(--m-fg); }
 .grp { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); padding: 10px 8px 3px; }
 .it { display: flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 4px; color: var(--m-dim); white-space: nowrap; }
 .it span:first-child { overflow: hidden; text-overflow: ellipsis; }
@@ -126,22 +97,11 @@ p { margin: 0; max-width: 68ch; }
 .it-new .st-btn { padding: 1px 8px; font-size: 12px; }
 .it-new .x { color: var(--m-faint); font-size: 15px; line-height: 1; padding: 0 2px; }
 .cards, .cards-head { display: none; }
-.dir-c .side { width: 268px; padding: 12px 10px; }
-.dir-c .seg, .dir-c .tree { display: none; }
-.dir-c .cards-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 6px 8px; font-weight: 600; }
-.dir-c .cards-head small { font-weight: 400; color: var(--m-faint); }
-.dir-c .cards { display: flex; flex-direction: column; gap: 4px; }
 .card { padding: 8px 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 1px; }
 .card.on { background: var(--m-sel); }
 .card b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card span { color: var(--m-dim); font-size: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card small { color: var(--m-faint); font-size: 11px; }
-.dir-c .side-tasks .it { padding: 5px 10px; border-radius: 8px; }
-.dir-b .side { width: 196px; border-right: 0; padding: 16px 6px 10px 14px; }
-.dir-b .seg { background: none; padding: 0 8px; gap: 16px; }
-.dir-b .seg button { flex: none; padding: 0 0 2px; border-radius: 0; font-weight: 700; }
-.mock.dir-b[data-view="notes"] .seg [data-go="notes"], .mock.dir-b[data-view="tasks"] .seg [data-go="tasks"] { background: none; box-shadow: inset 0 -2px 0 var(--m-accent); }
-.dir-b .grp { text-transform: none; letter-spacing: 0; font-size: 12px; }
 
 /* main */
 .main { display: flex; flex-direction: column; min-width: 0; }
@@ -154,23 +114,13 @@ p { margin: 0; max-width: 68ch; }
 .tab.plus { border: 0; color: var(--m-faint); font-size: 16px; }
 .sync { margin-left: auto; display: flex; align-items: center; gap: 6px; padding: 0 12px; font-size: 11.5px; color: var(--m-faint); white-space: nowrap; }
 .sync i { width: 6px; height: 6px; border-radius: 50%; background: var(--m-accent); }
-.dir-b .tabs { background: var(--m-bg); border-bottom: 0; height: 44px; padding: 8px 22px 0; gap: 20px; }
-.dir-b .tab { border: 0; padding: 0; }
-.dir-b .tab.on { box-shadow: inset 0 -2px 0 var(--m-accent); }
-.dir-c .tabs { padding: 6px 0 0 8px; gap: 2px; height: 38px; }
-.dir-c .tab { border: 0; border-radius: 8px 8px 0 0; }
-.dir-c .tab.on { box-shadow: none; }
 
 /* editor */
 .ed { flex: 1; min-height: 0; overflow: hidden; padding: 16px 28px; font: 13px/1.65 var(--m-ed); }
 .ln { position: relative; min-height: 1.65em; }
 .dir-a .ed { padding-left: 62px; counter-reset: ln; }
 .dir-a .ln::before { counter-increment: ln; content: counter(ln); position: absolute; left: -50px; width: 32px; text-align: right; color: var(--m-faint); font: 12px/1.8 var(--m-mono); font-variant-numeric: tabular-nums; }
-.dir-b .ed { font-size: 16px; padding: 22px 28px; }
-.dir-b .col { max-width: 60ch; margin: 0 auto; }
-.dir-c .ed { font-size: 14.5px; padding: 22px 36px; }
 .h1 { font-size: 1.3em; font-weight: 700; line-height: 1.4; }
-.dir-b .h1, .dir-c .h1 { font-size: 1.55em; }
 .ed b { font-weight: 700; }
 .tag { color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 15%, transparent); padding: 0 7px; border-radius: 10px; font-size: .86em; margin-right: 4px; }
 .ic { font-family: var(--m-mono); font-size: .9em; background: var(--m-code); border: 1px solid var(--m-line); padding: 0 5px; border-radius: 4px; }
@@ -254,7 +204,6 @@ p { margin: 0; max-width: 68ch; }
 .chip { border: 1px solid var(--m-line); border-radius: 12px; padding: 1px 10px; font-size: 11.5px; color: var(--m-dim); }
 .mock .add { margin-left: auto; background: var(--m-accent); color: var(--m-on-accent); padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 12px; }
 .tl { flex: 1; min-height: 0; overflow: hidden; padding: 0 26px 16px; }
-.dir-b .th, .dir-b .tl { width: 100%; max-width: 660px; margin: 0 auto; }
 .sec { display: flex; gap: 8px; padding: 14px 0 6px; border-bottom: 1px solid var(--m-line); font-weight: 600; font-size: 12px; color: var(--m-dim); }
 .sec small { font-weight: 400; color: var(--m-faint); }
 .task { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 2px 10px; padding: 8px 0; border-bottom: 1px solid var(--m-line); }
@@ -1943,12 +1892,65 @@ p { margin: 0; max-width: 68ch; }
 .mb-share .acts span { display: flex; align-items: center; justify-content: space-between; height: 46px; padding: 0 16px; font-size: 16px; }
 .mb-share .acts span + span { border-top: 1px solid #4a4a50; }
 .mock .mb-share .acts svg { width: 20px; height: 20px; color: #f2f2f4; }
+/* Server (stage 11): a server is a place beside OneDrive; a link pasted says who invited you to
+   what; the server's own page only sends the link on to Scrawl. */
+.dir[data-dir="server"] { margin-top: 56px; }
+.cmenu span.red { color: #f0706a; }
+.st-sync .state i.live { box-shadow: 0 0 0 3px color-mix(in srgb, #5cb87a 28%, transparent); }
+.fp .list span > svg { flex: none; width: 14px; height: 14px; color: var(--m-dim); }
+.fp .list span.srv-new, .fp .list span.srv-new > svg { color: var(--m-accent); }
+.fp .srv-found { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 9px 11px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-bg); }
+.fp .srv-found > svg { flex: none; width: 16px; height: 16px; color: var(--m-accent); }
+.fp .srv-found span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fp .srv-found b { font-weight: 500; }
+.fp .srv-found small { color: var(--m-faint); font-size: 11.5px; }
+.fp .srv-found.late { border-color: color-mix(in srgb, #e0a84a 55%, transparent); background: color-mix(in srgb, #e0a84a 10%, transparent); }
+.fp .srv-found.late > svg { color: #e0a84a; }
+.fp .srv-err { display: flex; align-items: flex-start; gap: 7px; margin: 8px 2px 0; color: #f0706a; font-size: 12px; line-height: 1.4; }
+.fp .srv-err svg { flex: none; width: 14px; height: 14px; margin-top: 1px; }
+.fp .srv-what { margin: -2px 2px 12px; color: var(--m-fg); font-size: 12.5px; line-height: 1.45; }
+.fp .srv-pw { letter-spacing: 2px; }
+.fp .srv-pw .caret { margin-left: 2px; }
+.st-acts.srv-people { margin-bottom: -4px; }
+.st-acts.srv-people .st-btn { padding: 2px 10px; }
+.st-li .nm b .srv-role { margin-left: 7px; padding: 0 6px; border: 1px solid var(--m-line); border-radius: 8px; color: var(--m-dim); font-size: 10.5px; font-weight: 400; }
+.st-space.srv .st-note { margin-left: 66px; }
+.mdlg .srv-copy { display: flex; align-items: center; gap: 6px; }
+.mdlg .srv-copy .field { flex: 1; min-width: 0; overflow: hidden; color: var(--m-dim); font: 12px var(--m-mono); white-space: nowrap; text-overflow: ellipsis; }
+.mock.srv-web { display: block; padding: 34px 28px; background: var(--m-rail); }
+.br { width: 860px; margin: 0 auto; overflow: hidden; border: 1px solid var(--m-line); border-radius: 9px; box-shadow: 0 12px 32px rgb(0 0 0 / .3); }
+.br-bar { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 12px; border-bottom: 1px solid var(--m-line); background: var(--m-side); }
+.br-bar .dots { display: flex; gap: 6px; }
+.br-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--m-line); }
+.br-bar .url { flex: 1; max-width: 480px; margin: 0 auto; padding: 4px 12px; border-radius: 6px; background: var(--m-bg); color: var(--m-dim); font: 12px var(--m-mono); text-align: center; }
+.br-page { display: flex; flex-direction: column; align-items: center; min-height: 470px; padding: 64px 24px 18px; background: var(--m-bg); }
+.jn { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 440px; text-align: center; }
+.jn-mark { display: flex; align-items: center; gap: 8px; color: var(--m-dim); font-size: 13px; }
+.jn-mark svg { width: 16px; height: 16px; color: var(--m-accent); }
+.jn h1 { margin: 4px 0 0; color: var(--m-fg); font-size: 22px; font-weight: 600; line-height: 1.3; }
+.jn p { margin: 0; color: var(--m-dim); font-size: 13.5px; line-height: 1.5; }
+.jn-btn { margin-top: 6px; padding: 9px 24px; border-radius: 8px; background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+.jn .jn-small { margin-top: 14px; color: var(--m-faint); font-size: 12.5px; }
+.jn-copy { padding: 5px 14px; border: 1px solid var(--m-line); border-radius: 7px; color: var(--m-dim); font-size: 12.5px; }
+.jn-foot { margin-top: auto; padding-top: 40px; color: var(--m-faint); font-size: 11.5px; }
+.mb-row.srv-new, .mb-row.srv-new > svg { color: var(--m-accent); }
+.mb-srvfound { display: flex; align-items: center; gap: 12px; margin: 2px 16px 0; padding: 12px 14px; border-radius: 12px; background: var(--m-bg); }
+.mb-srvfound > svg { flex: none; width: 22px; height: 22px; color: var(--m-accent); }
+.mb-srvfound span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mb-srvfound b { font-weight: 600; }
+.mb-srvfound small { color: var(--m-faint); font-size: 13.5px; }
+.mb-fr .in.srv-l { overflow: hidden; color: var(--m-dim); font: 13.5px var(--m-mono); white-space: nowrap; text-overflow: ellipsis; }
+.mb-fr .in.pw { letter-spacing: 2px; }
+.mb-fr .val > svg { width: 18px; height: 18px; }
+.mb-share .what .doc.lnk { background: #3a3a40; color: #f2f2f4; }
+.mock .mb-share .what .doc.lnk svg { width: 22px; height: 22px; color: #f2f2f4; }
+.mock .mb-share .acts svg.cp { width: 20px; height: 20px; }
 </style>
 
 <main class="page">
   <header class="intro">
-    <h1>Scrawl: üç tasarım yönü</h1>
-    <p class="lead">En üstte seçtiğin A yönünün güncel hali var: tek ağaçlı kenar çubuğu, türlü sekmeler ve bir Kanban panosu. Pencerenin içindeki kenar çubuğu satırlarına ve sekmelere tıklayarak da geçebilirsin; geri kalan her şey sabit bir taslaktır. Editördeki son satırda imleç kalın bir kelimenin içinde duruyor, bu yüzden <code>**</code> işaretleri orada görünür, başka yerde gizlidir.</p>
+    <h1>Scrawl: taslaklar</h1>
+    <p class="lead">Uygulamanın onaylı taslakları. Düğmelerle ekranlar arasında geçilir; pencerenin içindeki kenar çubuğu satırlarına ve sekmelere tıklayarak da geçebilirsin. Geri kalan her şey sabit bir taslaktır.</p>
     <div class="controls">
       <span>Taslak teması</span>
       <span class="pick" role="group" aria-label="Taslak teması">
@@ -1961,10 +1963,10 @@ p { margin: 0; max-width: 68ch; }
   <section class="dir" data-dir="a">
     <div class="brief">
       <div>
-        <span class="letter">A · BUFFER, GÜNCEL</span>
+        <span class="letter">UYGULAMA</span>
         <h2>Tek ağaçlı kenar çubuğu</h2>
         <p>Kenar çubuğu tek bir klasör ağacı; proje ayrı bir kavram değil, içinde görev listesi veya pano olan klasör. Bir klasör açıldığında görev listesi, panosu ve notları aynı yerde durur. Üstteki Inbox, Today ve Upcoming tüm klasörlerin görevlerini bir arada gösterir. Etiket bölümü yok. Açılan her şey sekmedir; baştaki simge türünü gösterir.</p>
-        <ul class="traits"><li>klasör = kapsayıcı</li><li>Today tüm klasörlerden</li><li>not, görev ve pano sekmeleri</li><li>pano: fazlar, türlü sütunlar, sağ panel</li><li>bölünmüş görünüm</li></ul>
+        <ul class="traits"><li>klasör = kapsayıcı</li><li>Today tüm klasörlerden</li><li>not, görev ve pano sekmeleri</li><li>pano: fazlar, türlü sütunlar, sağ panel</li></ul>
       </div>
       <span class="pick" role="group" aria-label="A görünümü">
         <button type="button" id="a-today" data-aview="today">Today</button>
@@ -1974,7 +1976,6 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-card" data-aview="card">Card</button>
         <button type="button" id="a-list" data-aview="list">List</button>
         <button type="button" id="a-newboard" data-aview="newboard">New board</button>
-        <button type="button" id="a-split" data-aview="split">Split</button>
         <button type="button" id="a-trash" data-aview="trash">Trash</button>
         <button type="button" id="a-history" data-aview="history">History</button>
         <button type="button" id="a-media" data-aview="media">Media</button>
@@ -1988,9 +1989,6 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-filter" data-aview="filter">Filter</button>
         <button type="button" id="a-filteredit" data-aview="filteredit">Filter edit</button>
         <button type="button" id="a-settings" data-aview="settings">Settings</button>
-        <button type="button" id="a-sync" data-aview="settings-spaces">Sync</button>
-        <button type="button" id="a-connect" data-aview="settings-connect">Connect</button>
-        <button type="button" id="a-folder" data-aview="settings-folder">Choose folder</button>
         <button type="button" id="a-syncpanel" data-aview="syncpanel">Sync panel</button>
         <button type="button" id="a-syncdone" data-aview="syncdone">Sync done</button>
         <button type="button" id="a-phclosed" data-aview="phclosed">Phases closed</button>
@@ -2095,47 +2093,40 @@ p { margin: 0; max-width: 68ch; }
     <div class="scroller"><div class="mock dir-a"></div></div>
   </section>
 
-  <div class="earlier">
-    <h2>Önceki diğer yönler</h2>
-    <p class="lead">Karşılaştırma için duruyorlar; ilk halleriyle aynı.</p>
-  </div>
-
-  <section class="dir" data-dir="b">
+  <section class="dir" data-dir="server">
     <div class="brief">
       <div>
-        <span class="letter">B · PAGE</span>
-        <h2>Yazıya odaklı olan</h2>
-        <p>Arayüz geri çekilir. Kenar çubuğu çizgisiz ve sessiz, sekmeler yalnızca metin, yazı ortalanmış dar bir sütunda ve orantılı fontla durur. Uzun notlar için en rahat okunan düzen.</p>
-        <ul class="traits"><li>orantılı font</li><li>ortalanmış sütun</li><li>çizgisiz kenar çubuğu</li><li>durum çubuğu yok</li></ul>
+        <span class="letter">SUNUCU · 11. AŞAMA</span>
+        <h2>Kendi sunucunda bir space</h2>
+        <p>Ekip kendi Docker sunucusunu kurar; space orada durur ve bir kişinin değişikliği diğerine bir iki saniyede geçer. Uygulamada sunucu OneDrive'ın yanında bir konumdur: Add space'te bir satır, Connect a server… ile bağlanma, davet linkiyle katılma, space'in sayfasında üyeler, Manager'lar ve Invite… düğmesi; sunucunun sayfasında hesaplar ve rolleri. Connect a server… tek bir alandır, sunucunun adresi ya da davet linki; yeni bir sunucuya ilk bağlanan sahibi olur. Sunucunun ayrı bir yönetim ekranı yoktur; tarayıcıda yalnız linki ya da adresi Scrawl'a yönlendiren küçük bir sayfası vardır. Teknik tasarım <code>design/server.md</code>.</p>
+        <ul class="traits"><li>sunucu bir konum</li><li>adres ya da davet linki, tek alan</li><li>ilk bağlanan sahibi olur</li><li>roller: Owner, Admin, Member; space'te Manager</li><li>davet linkle, e-posta gönderilmez</li><li>masaüstü, web ve telefon</li></ul>
       </div>
-      <span class="pick" role="group" aria-label="B görünümü">
-        <button type="button" id="b-notes" data-view="notes">Notes</button>
-        <button type="button" id="b-tasks" data-view="tasks">Tasks</button>
+      <span class="pick" role="group" aria-label="Sunucu görünümü">
+        <button type="button" data-sview="srvadd">Add space</button>
+        <button type="button" data-sview="srvconnect">Connect, invite</button>
+        <button type="button" data-sview="srvjoin">Join</button>
+        <button type="button" data-sview="srvnew">Connect, new server</button>
+        <button type="button" data-sview="srvsetup">Set up</button>
+        <button type="button" data-sview="srvclosed">Setup closed</button>
+        <button type="button" data-sview="srvsignin">Sign in</button>
+        <button type="button" data-sview="srvnoacct">No account</button>
+        <button type="button" data-sview="srvspace">Space</button>
+        <button type="button" data-sview="srvmember">Space, member menu</button>
+        <button type="button" data-sview="srvasmember">Space, as a member</button>
+        <button type="button" data-sview="srvinvite">Invite</button>
+        <button type="button" data-sview="srvlist">Spaces list</button>
+        <button type="button" data-sview="srvserver">Server</button>
+        <button type="button" data-sview="srvaccount">Server, account menu</button>
+        <button type="button" data-sview="srvready">Ready page</button>
+        <button type="button" data-sview="srvweb">Join page</button>
+        <button type="button" data-sview="psrv">Phone</button>
+        <button type="button" data-sview="psrv2">Phone space</button>
+        <button type="button" data-sview="psrv3">Phone server</button>
       </span>
     </div>
-    <div class="scroller"><div class="mock dir-b"></div></div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
   </section>
 
-  <section class="dir" data-dir="c">
-    <div class="brief">
-      <div>
-        <span class="letter">C · DESK</span>
-        <h2>Üç panelli olan</h2>
-        <p>Solda mod çubuğu (Notes, Tasks, Search), ortada önizlemeli not kartları, sağda editör. Modüller arası geçiş en belirgin burada; ileride Kanban gibi yeni bir modül çubuğa bir simge olarak eklenir.</p>
-        <ul class="traits"><li>mod çubuğu</li><li>not kartları</li><li>yuvarlak hatlar</li><li>Todoist'e en yakın his</li></ul>
-      </div>
-      <span class="pick" role="group" aria-label="C görünümü">
-        <button type="button" id="c-notes" data-view="notes">Notes</button>
-        <button type="button" id="c-tasks" data-view="tasks">Tasks</button>
-      </span>
-    </div>
-    <div class="scroller"><div class="mock dir-c"></div></div>
-  </section>
-
-  <footer class="outro">
-    <h2>Yeni bir modül nasıl eklenir</h2>
-    <p>Klasörün içine yeni bir öğe türü ve yeni bir sekme türü olarak. İskelet, kenar çubuğu, sekme çubuğu ve bölünmüş görünüm değişmez. Editörün fontu, sütun genişliği ve satır numaraları ayar olarak sunulur; yani bu iskelette B'nin yazı alanı da kullanılabilir.</p>
-  </footer>
 </main>
 
 <script>
@@ -2258,12 +2249,6 @@ p { margin: 0; max-width: 68ch; }
       b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
     });
   }
-  function setView(section, view) {
-    section.querySelector('.mock').dataset.view = view;
-    section.querySelectorAll('.brief [data-view]').forEach(function (b) {
-      b.setAttribute('aria-pressed', String(b.dataset.view === view));
-    });
-  }
 
   // Direction A (revised) is composed from the same content pieces, plus a board.
   ICON.board = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.5 4v16M14.5 4v10"/></svg>';
@@ -2287,7 +2272,7 @@ p { margin: 0; max-width: 68ch; }
       '<span>' + o.label + '</span>' + (o.ct ? '<span class="ct">' + o.ct + '</span>' : '') + '</div>';
   }
   function projectTree(view) {
-    var note = view === 'note' || view === 'split';
+    var note = view === 'note';
     return '<div class="tree">' +
       row({ label: 'Today', ct: 3, go: 'today', on: view === 'today' }) +
       row({ label: 'Upcoming', ct: 9 }) +
@@ -3544,52 +3529,6 @@ p { margin: 0; max-width: 68ch; }
       THEMES.map(function (theme, i) { return themeCard(theme, i === 0); }).join('') + '</div>';
   }
   ICON.cloud = '<svg viewBox="0 0 24 24"><path d="M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.6 9.06 4.5 4.5 0 0 0 7 18z"/></svg>';
-  // The sync of the personal space: connected, with its cloud, account, folder and state; or not
-  // yet, with a sentence and the way to connect.
-  function syncRow(connected) {
-    return '<div class="st-sync"><span class="fl">Sync</span><div class="what">' +
-      (connected
-        ? '<span class="who">' + ICON.cloud + '<b>OneDrive</b><small>kaan@outlook.com</small></span>' +
-          '<span class="where">/Scrawl</span>' +
-          '<span class="state"><i></i>Synced 12 s ago</span>' +
-          '<span class="acts"><span class="st-btn">Sync now</span><span class="st-btn">Disconnect</span></span>'
-        : '<p>Not synced. Keep this space in your own cloud drive to have it on every device.</p>' +
-          '<span class="acts"><span class="st-btn go">' + ICON.cloud + 'Connect OneDrive</span><span class="st-btn">' + ICON.cloud + 'Connect Google Drive</span></span>') +
-      '</div></div>';
-  }
-  function settingsSpaces(web, connected) {
-    if (connected === undefined) connected = true;
-    return '<span class="st-label">Spaces</span>' +
-      '<p class="st-note">A space is a folder of notes, task lists and boards, with its own trash and history.</p>' +
-      '<div class="st-space"><div class="top">' + ICON.folder + '<b>Personal</b><small>On this device</small></div>' +
-      '<div class="st-row"><span class="fl">Name</span><span class="in">Personal</span><span class="btn save">Save</span></div>' +
-      (web
-        ? '<div class="st-row"><span class="fl">Folder</span><span class="path plain">In this browser</span><span></span></div>'
-        : '<div class="st-row"><span class="fl">Folder</span><span class="path">C:\\Users\\me\\Documents\\Notes</span><span class="btn">Change…</span></div>') +
-      syncRow(connected) +
-      '</div>' +
-      '<span class="st-label">This device</span>' +
-      '<div class="st-device"><span class="fl">Name</span><span class="in">' + (web ? 'iPhone' : 'Laptop') + '</span><span class="st-row"><span class="btn save">Save</span></span></div>' +
-      '<p class="st-note">Conflict copies carry the name of the device that made them.</p>';
-  }
-  // After signing in: a folder of the cloud for the space, with a new one a click away.
-  function folderPicker() {
-    function item(name, on) { return '<span' + (on ? ' class="on"' : '') + '>' + ICON.folder + name + '</span>'; }
-    return '<div class="fp-ovl"><div class="fp"><h3>Choose a folder in OneDrive<small>kaan@outlook.com</small></h3>' +
-      '<div class="crumbs"><span>OneDrive</span><span>›</span><b>Documents</b></div>' +
-      '<div class="list"><span class="up">‹ OneDrive</span>' + item('Notes') + item('Scrawl', true) + item('Work') + item('Receipts') + '</div>' +
-      '<p class="note">Notes already in that folder and here are put together; nothing is lost.</p>' +
-      '<div class="foot"><span class="st-btn">New folder</span><span class="st-btn">Cancel</span><span class="st-btn go">Use “Scrawl”</span></div>' +
-      '</div></div>';
-  }
-  function settingsWindow(section) {
-    return '<div class="ovl"><div class="st-dlg"><div class="st-head"><b>Settings</b><span class="x">×</span></div>' +
-      '<div class="st-main"><nav class="st-nav">' +
-      row({ icon: 'half', label: 'Appearance', go: 'settings', on: section === 'appearance' }) +
-      row({ icon: 'folder', label: 'Spaces', go: 'settings-spaces', on: section === 'spaces' || section === 'connect' || section === 'folder' }) +
-      '</nav><div class="st-body">' + (section === 'connect' || section === 'folder' ? settingsSpaces(false, false) : section === 'spaces' ? settingsSpaces(false) : settingsAppearance()) + '</div></div></div>' +
-      (section === 'folder' ? folderPicker() : '') + '</div>';
-  }
   ICON.resync = '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 0 1-13.1 5M4.5 12a7.5 7.5 0 0 1 13.1-5"/><path d="M17.6 3.5V7h-3.5M6.4 20.5V17h3.5"/></svg>';
   /**
    * The status bar's sync: how it stands, and Sync now; with the pointer on the button, its name.
@@ -3676,7 +3615,6 @@ p { margin: 0; max-width: 68ch; }
   function pane(tabs, body) { return '<div class="pane"><div class="tabs">' + tabs + '</div>' + body + '</div>'; }
   var STATUS = {
     note: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
-    split: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     tasks: '<span>7 open</span><span>2 due today</span>',
     board: '<span>Phase 3 · 4/13 done</span><span>13 cards</span>',
     card: '<span>Phase 3 · 4/13 done</span><span>SCR-12</span>',
@@ -3699,9 +3637,6 @@ p { margin: 0; max-width: 68ch; }
     filteredit: '<span>3 tasks</span><span>1 overdue</span>',
     'desc-new': '<span>4 open</span><span>1 due today</span>',
     settings: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
-    'settings-spaces': '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
-    'settings-connect': '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
-    'settings-folder': '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     syncpanel: '<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>',
     phclosed: '<span>Phase 13 · 4/13 done</span><span>142 cards</span>',
     isnew: '<span>7 open</span><span>2 due today</span>',
@@ -4835,7 +4770,7 @@ p { margin: 0; max-width: 68ch; }
   /**
    * Add space: a name, and where it lives. A space is where people work together, so it lives
    * in a cloud: every place is a row with the account it is connected to, OneDrive now, Google
-   * Drive, WebDAV and our own server as more rows later. A folder is chosen in that place, one of
+   * Drive and our own server as more rows later. A folder is chosen in that place, one of
    * yours or one shared with you; with no connection yet, connecting comes first. With your name
    * empty it warns, since the others see you in a space.
    */
@@ -4872,9 +4807,9 @@ p { margin: 0; max-width: 68ch; }
       '</div></div>';
   }
   function spSettingsWindow(section, extra) {
-    var body = section === 'profile' ? spProfile() : section === 'spacepage' || section === 'spremove' ? spSpacePage(section === 'spremove') : spSpacesList(section === 'spaceslist');
+    var body = section === 'appearance' ? settingsAppearance() : section === 'profile' ? spProfile() : section === 'spacepage' || section === 'spremove' ? spSpacePage(section === 'spremove') : spSpacesList(section === 'spaceslist');
     return '<div class="ovl"><div class="st-dlg"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
-      row({ icon: 'person', label: 'Profile', on: section === 'profile' }) + row({ icon: 'half', label: 'Appearance' }) + row({ icon: 'space', label: 'Spaces', on: section !== 'profile' }) +
+      row({ icon: 'person', label: 'Profile', on: section === 'profile' }) + row({ icon: 'half', label: 'Appearance', on: section === 'appearance' }) + row({ icon: 'space', label: 'Spaces', on: section !== 'profile' && section !== 'appearance' }) +
       '</nav><div class="st-body">' + body + '</div></div></div>' + (extra || '') + '</div>';
   }
   /** The trash of every space in one place, each space's under its own heading. */
@@ -5688,24 +5623,22 @@ p { margin: 0; max-width: 68ch; }
     var noteTabs = (view === 'media' ? tab('notes', 'Client call, Oct 6', 'media', true) : '') +
       (view === 'copy' ? tab('notes', 'Site visit, Oct 6', 'copy', true) : '') +
       (view.indexOf('item') === 0 ? tab('notes', 'Client call, Oct 6', view, true) : '') +
-      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'split' || view === 'history' || view === 'totask' || view.indexOf('settings') === 0 || view.indexOf('sync') === 0 || view === 'keysnew' || view === 'colnew' || view === 'folders' || view === 'subfolder') +
+      tab('notes', 'Sync engine: open questions', 'note', view === 'note' || view === 'history' || view === 'totask' || view.indexOf('settings') === 0 || view.indexOf('sync') === 0 || view === 'keysnew' || view === 'colnew' || view === 'folders' || view === 'subfolder') +
       (view.indexOf('keys') === 0 && view !== 'keysnew' ? tab('key', 'Production · Scrawl', 'keys', true) : '') +
       (view.indexOf('col') === 0 && view !== 'colnew' ? tab('collection', view === 'coleq' ? 'Equipment · Scrawl' : 'Companies · Scrawl', 'col', true) : '') +
       (view === 'today' ? tab('tasks', 'Today', 'today', true) : tab('notes', 'untitled', 'note', false, true)) +
       (view.indexOf('filter') === 0 ? tab('filter', 'This week · p1', 'filter', true) : '') +
       tab('tasks', 'Tasks · Scrawl', 'tasks', view === 'tasks' || view === 'newboard' || view === 'crmnew' || view === 'trec' || view.indexOf('desc') === 0 || view === 'sections' || view === 'drag' || view === 'movetask') +
       (view === 'trash' ? tab('trash', 'Trash', 'trash', true) : '');
-    var boardTab = view.indexOf('crm') === 0 && view !== 'crmnew' ? tab('board', 'Roadmap · Scrawl', 'board', false) + tab('board', 'Deals · Scrawl', view, true) : view === 'islist' || view === 'isboard' || view === 'isstatus' || view === 'isadd' || view === 'isempty' ? tab('board', 'Issues · Scrawl', view, true) : tab('board', 'Roadmap · Scrawl', 'board', view === 'board' || view === 'split' || view === 'card' || view === 'list' || view.indexOf('ph') === 0);
+    var boardTab = view.indexOf('crm') === 0 && view !== 'crmnew' ? tab('board', 'Roadmap · Scrawl', 'board', false) + tab('board', 'Deals · Scrawl', view, true) : view === 'islist' || view === 'isboard' || view === 'isstatus' || view === 'isadd' || view === 'isempty' ? tab('board', 'Issues · Scrawl', view, true) : tab('board', 'Roadmap · Scrawl', 'board', view === 'board' || view === 'card' || view === 'list' || view.indexOf('ph') === 0);
     var plus = '<div class="tab plus">+</div>';
-    var panes = view === 'split'
-      ? pane(noteTabs + plus, edPlain) + pane(boardTab + plus, BOARD)
-      : pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, 'settings-spaces': edFull, 'settings-connect': edFull, 'settings-folder': edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull, crm: dealsBoard(), crmcard: dealsBoard('DEA-12'), crmlist: dealsList(), crmfields: dealsBoard(), crmnew: TASKS, trec: taskRecordView(), colrectasks: colView(true), filterfields: filterView(), colcsvmenu: colView(false), colcsv: colView(false), colxlsx: colView(false), colmissing: colView(true), folders: edFull, subfolder: edFull }[view]);
+    var panes = pane(noteTabs + boardTab + plus, { note: edFull, tasks: TASKS, board: BOARD, card: CARD, list: LIST, newboard: TASKS, today: TODAY, trash: TRASH, history: edPlain, media: MEDIA, copy: COPY, item: itemView('image'), 'item-file': itemView('file'), 'item-audio': itemView('audio'), desc: descView(false), 'desc-new': descView(true), sections: sectionsView(false), drag: sectionsView(true), movetask: moveTaskView().body, totask: toTaskView().body, filter: filterView(), filteredit: filterView(), settings: edFull, syncpanel: edFull, syncdone: edFull, phclosed: phasesBoard('closed'), phmore: phasesBoard('more'), phall: phasesBoard('all'), isnew: TASKS, islist: ISSUES_LIST, isboard: ISSUES_BOARD, isstatus: ISSUES_CARD, isadd: issuesAdd(), isempty: issuesEmpty(), keys: keysView(false), keysadd: keysView(true), keystext: KEYS_TEXT, keysnew: edFull, col: colView(false), coladd: colView(false), colrec: colView(true), colpick: colView(true), coleq: equipmentTable(), colfields: colView(false), colfadd: colView(false), colfnew: colView(false), colffield: colView(false), colfblock: colView(false), colftext: colView(false), colnew: edFull, crm: dealsBoard(), crmcard: dealsBoard('DEA-12'), crmlist: dealsList(), crmfields: dealsBoard(), crmnew: TASKS, trec: taskRecordView(), colrectasks: colView(true), filterfields: filterView(), colcsvmenu: colView(false), colcsv: colView(false), colxlsx: colView(false), colmissing: colView(true), folders: edFull, subfolder: edFull }[view]);
     section.querySelector('.mock').innerHTML =
       '<aside class="side">' + (view === 'folders' || view === 'subfolder' ? folderTree(view) : projectTree(view)) + '</aside>' +
       '<section class="main"><div class="panes">' + panes + '</div>' +
       '<div class="status">' + STATUS[view] + syncStatus(view === 'note', view === 'syncpanel' ? 'syncing' : view === 'syncdone' ? 'open' : null) + '</div></section>' +
       (view === 'syncpanel' ? syncPanel('syncing') : view === 'syncdone' ? syncPanel('done') : '') +
-      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'crmcard' ? dealCardModal() : '') + (view === 'crmfields' ? boardFields() : '') + (view === 'crmnew' ? newDealsBoard() : '') + (view === 'colrectasks' ? recordTasksModal() : '') + (view === 'filterfields' ? filterFields() : '') + (view === 'colcsvmenu' ? csvMenu() : '') + (view === 'colcsv' ? csvImport() : '') + (view === 'colxlsx' ? csvImport(true) : '') + (view === 'colmissing' ? missingModal() : '') + (view === 'folders' ? FOLDER_MENU : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view.indexOf('settings') === 0 ? settingsWindow(view === 'settings-spaces' ? 'spaces' : view === 'settings-connect' ? 'connect' : view === 'settings-folder' ? 'folder' : 'appearance') : '');
+      (view === 'history' ? HISTORY : '') + (view === 'card' ? CARD_MENU : '') + (view === 'newboard' ? newBoard() : '') + (view === 'isnew' ? newBoard(true) : '') + (view === 'isstatus' ? statusPicker() : '') + (view === 'keysnew' ? keysCreate() : '') + (view === 'colnew' ? colCreate() : '') + (view === 'colrec' ? companyModal(false) : '') + (view === 'colpick' ? companyModal(true) + statusMenu() : '') + (view === 'coleq' ? equipmentModal() : '') + (view === 'colfields' ? fieldsWindow('design') : '') + (view === 'colfadd' ? fieldsWindow('add') : '') + (view === 'colfnew' ? fieldsWindow('new') : '') + (view === 'colffield' ? fieldsWindow('field') : '') + (view === 'colfblock' ? fieldsWindow('block') : '') + (view === 'colftext' ? fieldsWindow('text') : '') + (view === 'coladd' ? newRecordModal() : '') + (view === 'crmcard' ? dealCardModal() : '') + (view === 'crmfields' ? boardFields() : '') + (view === 'crmnew' ? newDealsBoard() : '') + (view === 'colrectasks' ? recordTasksModal() : '') + (view === 'filterfields' ? filterFields() : '') + (view === 'colcsvmenu' ? csvMenu() : '') + (view === 'colcsv' ? csvImport() : '') + (view === 'colxlsx' ? csvImport(true) : '') + (view === 'colmissing' ? missingModal() : '') + (view === 'folders' ? FOLDER_MENU : '') + (view === 'movetask' ? moveTaskView().overlay : '') + (view === 'totask' ? toTaskView().overlay : '') + (view === 'filteredit' ? filterEdit() : '') + (view === 'settings' ? spSettingsWindow('appearance') : '');
     section.querySelectorAll('.brief [data-aview]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.aview === view.split('-')[0]));
     });
@@ -5733,21 +5666,339 @@ p { margin: 0; max-width: 68ch; }
       if (chip) menu.style.left = Math.min(chip.offsetLeft, menu.parentElement.clientWidth - menu.offsetWidth - 16) + 'px';
     });
   }
+
+  // Server (stage 11, design/server.md). A server is a place beside OneDrive: a row in Add space
+  // with the account signed in to it, and Connect a server…: one field, the server's address or an
+  // invite link, and the app opens setting it up, signing in or joining. Joining makes your account
+  // there with the name and email of Profile and a password you choose. The first to connect to a
+  // new server becomes its owner; setting it up stays open an hour. The owner and admins open
+  // spaces and see the server's accounts; a space's managers invite and remove. A space on a server lists who
+  // can open it, gives a link for one person with Invite…, and takes someone out with Remove; its
+  // owner can give anyone a link for a new password. No mail is sent: links go by hand.
+  ICON.server = '<svg viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="6" rx="1.5"/><rect x="4" y="13.5" width="16" height="6" rx="1.5"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></svg>';
+  var SRV_HOST = 'kaan.scrawlnotes.com';
+  var SRV_LINK = 'https://kaan.scrawlnotes.com/join/K8t4wQ2mZr7pXc';
+  // Acme on the server: Kaan opened it and Lena manages it with him; Mert and Deniz are members.
+  var SRV_PEOPLE = [
+    { ini: 'K', name: 'Kaan Arslan', mail: 'kaan@outlook.com', seen: 'now', you: true, manager: true },
+    { ini: 'L', name: 'Lena Hartmann', mail: 'lena@acme.example', seen: '2 min', manager: true },
+    { ini: 'M', name: 'Mert Kaya', mail: 'mert@acme.example', seen: 'Yesterday' },
+    { ini: 'D', name: 'Deniz Ak', mail: 'deniz@acme.example', seen: 'Oct 9' }
+  ];
+  // Everyone with an account on the server, with their role there and how many of its spaces they are in.
+  var SRV_ACCOUNTS = [
+    { ini: 'K', name: 'Kaan Arslan', mail: 'kaan@outlook.com', role: 'Owner', spaces: '3 spaces', you: true },
+    { ini: 'L', name: 'Lena Hartmann', mail: 'lena@acme.example', role: 'Admin', spaces: '1 space' },
+    { ini: 'M', name: 'Mert Kaya', mail: 'mert@acme.example', role: 'Member', spaces: '2 spaces' },
+    { ini: 'D', name: 'Deniz Ak', mail: 'deniz@acme.example', role: 'Member', spaces: '1 space' },
+    { ini: 'B', name: 'Ben Cole', mail: 'ben@northwind.example', role: 'Member', spaces: '1 space' }
+  ];
+  function srvRole(role) { return '<span class="srv-role">' + role + '</span>'; }
+  function srvSettings(body, extra) {
+    return '<div class="ovl"><div class="st-dlg"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
+      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + row({ icon: 'space', label: 'Spaces', on: true }) +
+      '</nav><div class="st-body">' + body + '</div></div></div>' + (extra || '') + '</div>';
+  }
+  /** Settings › Spaces with a space on a server, and under them the servers this device is signed in to. */
+  function srvSpacesList() {
+    return '<span class="st-label">Spaces</span>' +
+      '<p class="st-note">Each space is a place to work with others, kept in a cloud folder or on a Scrawl server. The sidebar shows them in this order.</p>' +
+      '<div class="st-list">' +
+      spLi({ icon: 'space', name: 'Personal', sub: 'Yours · ' + SP_DEFAULT + 'Personal' }) +
+      spLi({ icon: 'space', name: 'Acme', sub: SRV_HOST + ' · 4 people', more: true }) +
+      spLi({ icon: 'space', name: 'Side projects', sub: 'OneDrive · just you', more: true }) +
+      '</div>' +
+      '<div class="st-acts"><span class="st-btn go">' + ICON.plus + 'Add space…</span><small>A folder in OneDrive, or a space on a Scrawl server.</small></div>' +
+      '<span class="st-label">Servers</span>' +
+      '<div class="st-list">' + spLi({ icon: 'server', name: SRV_HOST, sub: 'kaan@outlook.com · Owner', r: '1 space here' }) + '</div>' +
+      '<p class="st-note">A server opens its page: the account you are signed in with, and for its owner and admins the people on it.</p>' +
+      '<span class="st-label">This device</span>' +
+      '<div class="st-device"><span class="fl">Name</span><span class="in">Laptop</span><span class="st-row"><span class="btn save">Save</span></span></div>';
+  }
+  /**
+   * A space on a server: its sync says the server and that changes come in as they are made.
+   * People are who can open it, its managers marked; a manager sees Invite… and each row's menu
+   * (Make manager, Remove), a member sees neither. `as` is 'menu' with Mert's menu open, or
+   * 'member' as Mert sees it.
+   */
+  function srvSpacePage(as) {
+    var member = as === 'member';
+    return '<span class="st-back">' + ICON.chevl + 'Spaces</span>' +
+      '<div class="st-space tight"><div class="top">' + ICON.space + '<b>Acme</b><small>On a Scrawl server</small></div>' +
+      '<div class="st-row"><span class="fl">Name</span><span class="in">Acme</span><span class="btn save">Save</span></div>' +
+      '<div class="st-row"><span class="fl">Folder</span><span class="path">' + SP_DEFAULT + 'Acme</span><span class="btn">Change…</span></div>' +
+      '<div class="st-sync"><span class="fl">Sync</span><div class="what">' +
+        '<span class="who">' + ICON.server + '<b>' + SRV_HOST + '</b><small>' + (member ? 'mert@acme.example' : 'kaan@outlook.com') + '</small></span>' +
+        '<span class="state"><i class="live"></i>Synced just now · changes come in as they are made</span><span class="acts"><span class="st-btn">Sync now</span></span></div></div>' +
+      '</div>' +
+      '<div class="st-acts srv-people"><span class="st-label">People</span>' + (member ? '' : '<span class="st-btn go right">' + ICON.plus + 'Invite…</span>') + '</div>' +
+      '<p class="st-note">' + (member
+        ? 'Who can open this space on the server. Its managers invite people and can remove them.'
+        : 'Who can open this space on the server. Invite… gives a link for one person, for 7 days. Someone removed can no longer reach it; what they did stays.') + '</p>' +
+      '<div class="st-list">' +
+      SRV_PEOPLE.map(function (p) {
+        var you = member ? p.ini === 'M' : p.you;
+        var open = as === 'menu' && p.ini === 'M';
+        return spLi({ who: p.ini, name: p.name + (you ? ' <small>you</small>' : '') + (p.manager ? srvRole('Manager') : ''), sub: p.mail, r: p.seen,
+          more: !member && !you, cls: 'one' + (open ? ' menu' : ''),
+          menu: open ? '<div class="cmenu"><span>Make manager</span><i></i><span class="red">Remove from Acme</span></div>' : '' });
+      }).join('') +
+      '</div>' +
+      '<div class="st-acts"><span class="st-btn">Remove from this device</span></div>';
+  }
+  /**
+   * A server's page, from Settings › Spaces › Servers: the account signed in with and Sign out.
+   * Its owner and admins also see everyone with an account there, their role and how many of its
+   * spaces they are in; the menu makes an admin or a member (the owner only), gives a link for a
+   * new password, and takes someone off the server.
+   */
+  function srvServerPage(menu) {
+    return '<span class="st-back">' + ICON.chevl + 'Spaces</span>' +
+      '<div class="st-space tight srv"><div class="top">' + ICON.server + '<b>' + SRV_HOST + '</b><small>You are its owner</small></div>' +
+      '<div class="st-row"><span class="fl">Account</span><span class="path plain">kaan@outlook.com</span><span class="btn">Sign out on this device</span></div>' +
+      '<p class="st-note">Signing out keeps its spaces on this device; they sync again once you sign in.</p>' +
+      '</div>' +
+      '<span class="st-label">People on this server</span>' +
+      '<p class="st-note">Everyone with an account here. Admins open spaces and give a link for a new password; members see only the spaces they are invited to.</p>' +
+      '<div class="st-list">' +
+      SRV_ACCOUNTS.map(function (a) {
+        var open = menu && a.ini === 'M';
+        return spLi({ who: a.ini, name: a.name + (a.you ? ' <small>you</small>' : '') + srvRole(a.role), sub: a.mail, r: a.spaces,
+          more: !a.you, cls: 'one' + (open ? ' menu' : ''),
+          menu: open ? '<div class="cmenu"><span>Make admin</span><span>New password link…</span><i></i><span class="red">Remove from server</span></div>' : '' });
+      }).join('') +
+      '</div>' +
+      '<p class="st-note">Removing someone from the server takes them out of every space; what they did stays.</p>';
+  }
+  /** Add space with a server chosen: a new space there named as typed, or one of its spaces you were invited to. */
+  function srvAddSpace() {
+    function li(icon, name, sub, cls) { return '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + ICON[icon] + name + (sub ? '<small>' + sub + '</small>' : '') + '</span>'; }
+    return '<div class="fp-ovl"><div class="fp"><h3>Add space</h3>' +
+      '<div class="label">Name</div><div class="field filled">Northwind</div>' +
+      '<div class="label" style="margin-top: 10px">Location</div>' +
+      '<div class="list">' + li('cloud', 'OneDrive', 'kaan@outlook.com') + li('server', SRV_HOST, 'kaan@outlook.com', 'on') + li('plus', 'Connect a server…', '', 'srv-new') + '</div>' +
+      '<div class="label" style="margin-top: 10px">Space</div>' +
+      '<div class="list">' + li('plus', 'New space “Northwind”', '', 'on') + li('space', 'Design team', '3 people · not on this device') + '</div>' +
+      '<p class="note">The spaces on the server you were invited to are listed until they are on this device.</p>' +
+      '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go">Add “Northwind”</span></div>' +
+      '</div></div>';
+  }
+  /**
+   * Connect a server: one field, the server's address or an invite link. Pasted, the app asks the
+   * server and says what Continue opens: joining a space, setting up a new server, or signing in.
+   * A new server's setting up closes an hour after it started; restarting it opens it again.
+   */
+  function srvConnect(kind) {
+    var invite = kind === 'invite', closed = kind === 'closed';
+    var found = invite
+      ? '<div class="srv-found">' + ICON.server + '<span><b>Lena Hartmann invited you to Acme</b><small>' + SRV_HOST + ' · the link works until Oct 22</small></span></div>'
+      : closed
+        ? '<div class="srv-found late">' + ICON.warn + '<span><b>The time to set up ' + SRV_HOST + ' ran out</b><small>Restart the server in your hosting panel, then connect again.</small></span></div>'
+        : '<div class="srv-found">' + ICON.server + '<span><b>' + SRV_HOST + ' is new</b><small>Set it up and you become its owner.</small></span></div>';
+    return '<div class="fp-ovl"><div class="fp"><h3>Connect a server</h3>' +
+      '<div class="label">Server address or invite link</div><div class="field filled' + (invite ? ' sp-link' : '') + '">' + (invite ? SRV_LINK : SRV_HOST) + '</div>' + found +
+      '<p class="note">Your server’s address, or the invite link someone sent you.</p>' +
+      '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go' + (closed ? ' off' : '') + '">Continue</span></div>' +
+      '</div></div>';
+  }
+  /** Signing in to a server that is set up already; with no account for that email, it says what to do. */
+  function srvSignIn(none) {
+    return '<div class="fp-ovl"><div class="fp"><h3>Sign in<small>' + SRV_HOST + '</small></h3>' +
+      '<div class="label">Email</div><div class="field filled">' + (none ? 'kaan@gmail.com' : 'kaan@outlook.com') + '</div>' +
+      '<div class="label" style="margin-top: 10px">Password</div><div class="field filled srv-pw">••••••••••<span class="caret"></span></div>' +
+      (none
+        ? '<p class="srv-err">' + ICON.warn + '<span>No account with this email on ' + SRV_HOST + '. Enter your own server’s address, or ask its owner for a link.</span></p>'
+        : '<p class="note">Forgot it? The server’s owner can give you a link for a new one.</p>') +
+      '<div class="foot"><span class="st-btn">Back</span><span class="st-btn go">Sign in</span></div>' +
+      '</div></div>';
+  }
+  /** After the link: joining makes your account on the server, or the setup link makes you its owner. Name and email come from Profile. */
+  function srvJoin(setup) {
+    return '<div class="fp-ovl"><div class="fp"><h3>' + (setup ? 'Set up the server' : 'Join Acme') + '<small>' + SRV_HOST + '</small></h3>' +
+      '<p class="srv-what">' + (setup
+        ? SRV_HOST + ' is new, and you are the first to connect. You become its owner: you open its first space, invite the others, and can give anyone a link for a new password.'
+        : 'Lena Hartmann invited you to Acme. Your account on the server takes your name and email from Profile; choose a password for it.') + '</p>' +
+      '<div class="label">Name</div><div class="field filled">Kaan Arslan</div>' +
+      '<div class="label" style="margin-top: 10px">Email</div><div class="field filled">kaan@outlook.com</div>' +
+      '<div class="label" style="margin-top: 10px">Password</div><div class="field filled srv-pw">••••••••••<span class="caret"></span></div>' +
+      '<p class="note">At least 8 characters. You sign in with this email and password on your other devices.</p>' +
+      '<div class="foot"><span class="st-btn">Back</span><span class="st-btn go">' + (setup ? 'Set up' : 'Join Acme') + '</span></div>' +
+      '</div></div>';
+  }
+  /** Invite…: a link for one person, to send in a message; it works once, for a week. */
+  function srvInvite() {
+    return '<div class="ovl center"><div class="mdlg" style="width: 470px"><h3>Invite to Acme</h3>' +
+      '<p class="what">Send this link to one person, in a message or a mail. It works once, until Oct 22.</p>' +
+      '<div class="srv-copy"><span class="field filled">' + SRV_LINK + '</span><span class="st-btn go">Copy</span></div>' +
+      '<div class="foot"><span class="count">Each person needs a link of their own.</span><span class="st-btn">New link</span><span class="st-btn">Done</span></div>' +
+      '</div></div>';
+  }
+  /**
+   * The server's page in a browser. For an invite link: who invited you to what, and the way into
+   * Scrawl. For its own address before it is set up: that it is ready, and where to connect to it.
+   */
+  function srvWebPage(ready) {
+    var path = ready ? '' : '/join/K8t4wQ2mZr7pXc';
+    var body = ready
+      ? '<h1>This Scrawl server is ready</h1>' +
+        '<p>Open Scrawl and connect to ' + SRV_HOST + ' to set it up: in Settings › Spaces choose Add space…, then Connect a server…, and type this address. The first to connect becomes its owner.</p>' +
+        '<span class="jn-copy">Copy address</span>'
+      : '<h1>Lena Hartmann invited you to Acme</h1>' +
+        '<p>Acme is a space on ' + SRV_HOST + '. Open this link in Scrawl to join it; the link works once, until Oct 22.</p>' +
+        '<span class="jn-btn">Open in Scrawl</span>' +
+        '<p class="jn-small">Using the desktop app? Copy this link, then in Scrawl choose Add space › Connect a server… and paste it.</p>' +
+        '<span class="jn-copy">Copy link</span>';
+    return '<div class="br"><div class="br-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">' + SRV_HOST + path + '</span></div>' +
+      '<div class="br-page"><div class="jn"><span class="jn-mark">' + ICON.server + 'Scrawl server</span>' + body + '</div>' +
+      '<div class="jn-foot">' + SRV_HOST + ' · Scrawl server 1.0</div></div></div>';
+  }
+  // Phone: the same places as sheets and pages.
+  function mbSrvAddSheet() {
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>Add space</b><span class="ok">Add</span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr"><span class="fl">Name</span><span class="in">Northwind</span></div>' +
+        '<div class="mb-fr"><span class="fl">Location</span><span class="val">' + ICON.server + SRV_HOST + MB_CHEV + '</span></div>' +
+        '<div class="mb-fr"><span class="fl">Space</span><span class="val">New space' + MB_CHEV + '</span></div>' +
+      '</div></div>' +
+      '<div style="height: 16px"></div></div>';
+  }
+  function mbSrvWhereSheet() {
+    function r(icon, name, sub, on) { return '<div class="mb-row">' + ICON[icon] + '<span class="tx"><b>' + name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' + (on ? ICON.check.replace('<svg', '<svg class="tick"') : '') + '</div>'; }
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel back">' + ICON.chevl + 'Add space</span><b>Location</b><span></span></div>' +
+      r('cloud', 'OneDrive', 'kaan@outlook.com') + r('server', SRV_HOST, 'kaan@outlook.com', true) +
+      '<div class="mb-row srv-new">' + ICON.plus + '<span class="tx"><b>Connect a server…</b></span></div>' +
+      '<div style="height: 12px"></div></div>';
+  }
+  function mbSrvConnectSheet() {
+    return MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel back">' + ICON.chevl + 'Location</span><b>Connect a server</b><span class="ok">Continue</span></div>' +
+      '<div class="mb-sec">Server address or invite link</div>' +
+      '<div class="mb-form"><div class="mb-group"><div class="mb-fr"><span class="in srv-l">' + SRV_LINK + '</span></div></div></div>' +
+      '<div class="mb-srvfound">' + ICON.server + '<span><b>Lena Hartmann invited you to Acme</b><small>' + SRV_HOST + ' · until Oct 22</small></span></div>' +
+      '<p class="mb-p">Your server’s address, or the invite link someone sent you. A new server is set up by the first to connect.</p></div>';
+  }
+  function mbSrvJoinSheet() {
+    return MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel back">' + ICON.chevl + 'Back</span><b>Join Acme</b><span class="ok">Join</span></div>' +
+      '<p class="mb-p">Lena Hartmann invited you to Acme on ' + SRV_HOST + '. Your account there takes your name and email from Profile; choose a password for it.</p>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr"><span class="fl">Name</span><span class="in">Kaan Arslan</span></div>' +
+        '<div class="mb-fr"><span class="fl">Email</span><span class="in">kaan@outlook.com</span></div>' +
+        '<div class="mb-fr"><span class="fl">Password</span><span class="in pw">••••••••<span class="caret"></span></span></div>' +
+      '</div></div>' +
+      '<p class="mb-p">At least 8 characters. You sign in with this email and password on your other devices.</p></div>';
+  }
+  function mbSrvSpaces() {
+    return mbPage(mbNav('Settings', ['Reorder']) + mbHead('Spaces'),
+      mbRow({ icon: 'space', label: 'Personal', sub: 'Yours · on this phone' }) +
+      mbRow({ icon: 'space', label: 'Acme', sub: SRV_HOST + ' · 4 people' }) +
+      mbRow({ icon: 'space', label: 'Side projects', sub: 'OneDrive · just you' }) +
+      '<div class="mb-gap"></div>' +
+      mbRow({ icon: 'plus', label: 'Add space', chev: false }) +
+      '<div class="mb-sec">Servers</div>' +
+      mbRow({ icon: 'server', label: SRV_HOST, sub: 'kaan@outlook.com · Owner' }) +
+      '<p class="mb-p">A server opens its page: the account you are signed in with, and for its owner and admins the people on it.</p>');
+  }
+  function mbSrvPerson(p, right, you) {
+    return '<div class="mb-row">' + who(p.ini) + '<span class="tx"><b>' + p.name + (you ? ' <small style="display:inline">· you</small>' : '') + '</b><small>' + p.mail + '</small></span>' +
+      (right ? '<span class="ct">' + right + '</span>' : '') + '</div>';
+  }
+  function mbSrvSpacePage(member) {
+    return mbPage(mbNav('Spaces', ['dots']) + mbHead('Acme', 'On ' + SRV_HOST),
+      '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">Acme</span></div>' +
+      '<div class="mb-fr"><span class="fl">Sync</span><span class="in">Scrawl server</span><span class="val">Just now' + MB_CHEV + '</span></div></div>' +
+      '<div class="mb-sec">People</div>' +
+      SRV_PEOPLE.map(function (p) { return mbSrvPerson(p, p.manager ? 'Manager' : '', member ? p.ini === 'M' : p.you); }).join('') +
+      (member ? '' : '<div class="mb-row srv-new">' + ICON.plus + '<span class="tx"><b>Invite…</b></span></div>') +
+      '<p class="mb-p">' + (member ? 'Who can open this space on the server. Its managers invite people and can remove them.' : 'Who can open this space on the server. A link from Invite… works for one person, for 7 days.') + '</p>');
+  }
+  function mbSrvServerPage() {
+    return mbPage(mbNav('Spaces') + mbHead(SRV_HOST, 'You are its owner'),
+      '<div class="mb-form"><div class="mb-fr"><span class="fl">Account</span><span class="in">kaan@outlook.com</span></div></div>' +
+      '<div class="mb-sec">People on this server</div>' +
+      SRV_ACCOUNTS.map(function (a) { return mbSrvPerson(a, a.role, a.you); }).join('') +
+      '<p class="mb-p">Admins open spaces and give a link for a new password; members see only the spaces they are invited to.</p>' +
+      '<div class="mb-form"><div class="mb-group"><div class="mb-fr red">Sign out on this phone</div></div></div>');
+  }
+  function phoneServer() {
+    return [
+      mbPhone('Add space: konum sunucu, space yeni ya da sunucudaki', mbSrvSpaces(), mbTabsSx('browse') + mbSrvAddSheet()),
+      mbPhone('Location: OneDrive, bağlı sunucu, Connect a server…', mbSrvSpaces(), mbTabsSx('browse') + mbSrvWhereSheet()),
+      mbPhone('Connect a server: tek alan, adres ya da link', mbSrvSpaces(), mbTabsSx('browse') + mbSrvConnectSheet()),
+      mbPhone('Join: ad ve e-posta Profile’dan, şifre seçilir', mbSrvSpaces(), mbTabsSx('browse') + mbSrvJoinSheet())
+    ].join('');
+  }
+  function phoneServerMore() {
+    var share = MB_DIM + '<div class="mb-share"><span class="grab"></span>' +
+      '<div class="what"><span class="doc lnk">' + ICON.link + '</span><span><b>Join Acme on Scrawl</b><small>' + SRV_HOST + '/join/K8t4…</small></span></div>' +
+      '<div class="apps"><span><i style="background:#34c759"></i>Messages</span><span><i style="background:#25d366"></i>WhatsApp</span><span><i style="background:#2f7cf6"></i>Mail</span><span><i style="background:#611f69"></i>Slack</span></div>' +
+      '<div class="acts"><span>Copy' + ICON.copies.replace('<svg', '<svg class="cp"') + '</span></div></div>';
+    var member = mbActions('person', 'Mert Kaya', 'mert@acme.example · Member of Acme', [
+      [{ icon: 'person', label: 'Make manager' }],
+      [{ icon: 'x', label: 'Remove from Acme', red: true }]
+    ]);
+    return [
+      mbPhone('Sunucudaki space: Manager’lar etiketli, Invite…', mbSrvSpacePage(false), mbTabsSx('browse')),
+      mbPhone('Invite…: link telefonun paylaşma sheet’inde', mbSrvSpacePage(false), mbTabsSx('browse') + share),
+      mbPhone('Manager bir üyeye dokununca: Make manager, çıkarma', mbSrvSpacePage(false), mbTabsSx('browse') + MB_DIM + member),
+      mbPhone('Member’ın gördüğü: Invite… ve menü yok', mbSrvSpacePage(true), mbTabsSx('browse'))
+    ].join('');
+  }
+  function phoneServerPage() {
+    var account = mbActions('person', 'Mert Kaya', 'mert@acme.example · Member · 2 spaces', [
+      [{ icon: 'person', label: 'Make admin' }, { icon: 'key', label: 'New password link…' }],
+      [{ icon: 'x', label: 'Remove from server', red: true }]
+    ]);
+    return [
+      mbPhone('Settings › Spaces: Servers, satır sunucunun sayfasını açar', mbSrvSpaces(), mbTabsSx('browse')),
+      mbPhone('Sunucunun sayfası: hesaplar, rolleri, Sign out', mbSrvServerPage(), mbTabsSx('browse')),
+      mbPhone('Owner bir hesaba dokununca: rol, şifre linki, çıkarma', mbSrvServerPage(), mbTabsSx('browse') + MB_DIM + account)
+    ].join('');
+  }
+  var SRV_VIEWS = {
+    srvadd: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace()); },
+    srvconnect: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvConnect('invite')); },
+    srvjoin: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvJoin(false)); },
+    srvnew: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvConnect('new')); },
+    srvsetup: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvJoin(true)); },
+    srvclosed: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvConnect('closed')); },
+    srvsignin: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvSignIn(false)); },
+    srvnoacct: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvSignIn(true)); },
+    srvspace: function () { return spNoteView('spaceslist') + srvSettings(srvSpacePage()); },
+    srvmember: function () { return spNoteView('spaceslist') + srvSettings(srvSpacePage('menu')); },
+    srvasmember: function () { return spNoteView('spaceslist') + srvSettings(srvSpacePage('member')); },
+    srvinvite: function () { return spNoteView('spaceslist') + srvSettings(srvSpacePage(), srvInvite()); },
+    srvlist: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList()); },
+    srvserver: function () { return spNoteView('spaceslist') + srvSettings(srvServerPage(false)); },
+    srvaccount: function () { return spNoteView('spaceslist') + srvSettings(srvServerPage(true)); },
+    srvready: function () { return srvWebPage(true); },
+    srvweb: function () { return srvWebPage(false); }
+  };
+  var SRV_PHONES = { psrv: phoneServer, psrv2: phoneServerMore, psrv3: phoneServerPage };
+  function renderServer(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.className = SRV_PHONES[view] ? 'mock dir-a phones four mbs' : view === 'srvweb' || view === 'srvready' ? 'mock dir-a srv-web' : 'mock dir-a';
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = (SRV_PHONES[view] || SRV_VIEWS[view])();
+    section.querySelectorAll('.brief [data-sview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.sview === view));
+    });
+  }
   var sectionA = document.querySelector('.dir[data-dir="a"]');
   sectionA.addEventListener('click', function (e) {
     var b = e.target.closest('[data-aview], [data-go]');
     if (b) renderA(sectionA, b.dataset.aview || b.dataset.go);
   });
   renderA(sectionA, 'board');
-
-  document.querySelectorAll('.dir:not([data-dir="a"])').forEach(function (section) {
-    section.querySelector('.mock').innerHTML = TEMPLATE;
-    setView(section, 'notes');
-    section.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-view], [data-go]');
-      if (b) setView(section, b.dataset.view || b.dataset.go);
-    });
+  var sectionServer = document.querySelector('.dir[data-dir="server"]');
+  sectionServer.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-sview]');
+    if (b) renderServer(sectionServer, b.dataset.sview);
   });
+  renderServer(sectionServer, 'srvadd');
+
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
   });
