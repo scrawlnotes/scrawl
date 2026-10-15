@@ -10802,7 +10802,7 @@ button.st-li:hover,
 }
 
 .dialog.ag-add {
-  width: min(440px, calc(100vw - 32px));
+  width: min(520px, calc(100vw - 32px));
 }
 
 .dialog .ag-steps {
@@ -10820,8 +10820,48 @@ button.st-li:hover,
   color: var(--sl-faint);
 }
 
-.dialog .ag-steps .srv-copy {
+/* The other app's fields, each with what goes in it and Copy; on a phone the name sits over the field. */
+.dialog .ag-fields {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px 8px;
+  align-items: center;
   margin-top: 6px;
+}
+
+.dialog .ag-fields .srv-copy {
+  display: contents;
+}
+
+.dialog .ag-fields .fl {
+  color: var(--sl-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Copy beside each field is quiet; the one just copied lights up. */
+.dialog .ag-fields .go {
+  border-color: var(--sl-line);
+  background: transparent;
+  color: var(--sl-fg);
+  font-weight: 500;
+}
+
+.dialog .ag-fields .go.on {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+}
+
+@media (max-width: 640px) {
+  .dialog .ag-fields {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .dialog .ag-fields .fl {
+    grid-column: 1 / -1;
+    margin: 4px 0 -2px;
+  }
 }
 
 .mb-fr .in.mono {

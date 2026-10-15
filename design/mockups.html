@@ -1909,6 +1909,10 @@ p { margin: 0; max-width: 68ch; }
 .ag-steps li::marker { color: var(--m-faint); }
 .ag-steps b { font-weight: 600; }
 .ag-steps .srv-copy { margin-top: 6px; }
+.fp.ag-add { width: 520px; }
+.ag-fields { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 8px; align-items: center; margin-top: 6px; }
+.ag-fields .fl { color: var(--m-dim); font-size: 12px; white-space: nowrap; }
+.ag-fields .field { min-width: 0; overflow: hidden; padding: 5px 8px; color: var(--m-dim); font: 12px var(--m-mono); white-space: nowrap; text-overflow: ellipsis; }
 .jn-form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; margin-top: 6px; text-align: left; }
 .jn-form label { display: flex; flex-direction: column; gap: 4px; color: var(--m-dim); font-size: 12.5px; }
 .jn-form .field { display: flex; padding: 7px 9px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-side); color: var(--m-fg); font-size: 13px; }
@@ -2260,7 +2264,7 @@ p { margin: 0; max-width: 68ch; }
       <div>
         <span class="letter">AJAN · 12. AŞAMA</span>
         <h2>Ajanlar: bilgisayarda ve sunucuda</h2>
-        <p>Ajan, notlara senin ulaştığın yerden ulaşır. Bilgisayardaki ajan (Claude Code, Claude Desktop, Cursor) uygulamanın gördüğü klasörleri görür: kişisel space ve space'lerin bu cihazdaki kopyaları, hangi sağlayıcıda olurlarsa olsunlar. Dışarıdaki ajan (claude.ai web ve telefon, ChatGPT) yalnız bir Scrawl sunucusunu görebilir; bizim barındırdığımız bir köprü yoktur. Settings › Agents iki bloktur: bu bilgisayar için komut ve tek tıkla kurulumlar; bağlı her sunucu için adres, Claude, ChatGPT ve Claude Code düğmeleri ve altında hesaba bağlı ajanlar, Disconnect ile. Add to Claude küçük bir pencerede adımları ve adresi verir; connector eklenirken sunucunun kendi giriş sayfası açılır. Sunucunun sayfası aynı listeyi gösterir. Telefonda yalnız sunucu kısmı vardır. Teknik tasarım <code>design/agent.md</code>.</p>
+        <p>Ajan, notlara senin ulaştığın yerden ulaşır. Bilgisayardaki ajan (Claude Code, Claude Desktop, Cursor) uygulamanın gördüğü klasörleri görür: kişisel space ve space'lerin bu cihazdaki kopyaları, hangi sağlayıcıda olurlarsa olsunlar. Dışarıdaki ajan (claude.ai web ve telefon, ChatGPT, Gemini) yalnız bir Scrawl sunucusunu görebilir; bizim barındırdığımız bir köprü yoktur. Settings › Agents iki bloktur: bu bilgisayar için komut ve tek tıkla kurulumlar; bağlı her sunucu için adres, Claude, ChatGPT, Gemini ve Claude Code düğmeleri ve altında hesaba bağlı ajanlar, Disconnect ile. Add to Claude, ChatGPT ve Gemini küçük bir pencerede adımları ve o uygulamanın her alanına ne yazılacağını Copy ile verir; connector eklenirken sunucunun kendi giriş sayfası açılır. Sunucunun sayfası aynı listeyi gösterir. Telefonda yalnız sunucu kısmı vardır. Teknik tasarım <code>design/agent.md</code>.</p>
         <ul class="traits"><li>ajan notlara senin ulaştığın yerden ulaşır</li><li>bilgisayarda komut, sunucuda adres</li><li>giriş sunucunun sayfasında</li><li>bağlantı hesabın, Disconnect</li><li>telefonda yalnız sunucu</li><li>on dört araç, bir rehber</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Ajan görünümü">
@@ -6197,7 +6201,7 @@ p { margin: 0; max-width: 68ch; }
     o = o || {};
     return '<div class="st-space tight srv"><div class="top">' + ICON.server + '<b>' + SRV_HOST + '</b><small>kaan@outlook.com</small></div>' +
       '<div class="st-row"><span class="fl">Address</span><span class="path">' + AG_ADDRESS + '</span><span class="btn">Copy</span></div>' +
-      '<div class="st-acts"><span class="lab">Add to</span><span class="st-btn">Claude</span><span class="st-btn">ChatGPT</span><span class="st-btn">Claude Code</span></div>' +
+      '<div class="st-acts"><span class="lab">Add to</span><span class="st-btn">Claude</span><span class="st-btn">ChatGPT</span><span class="st-btn">Gemini</span><span class="st-btn">Claude Code</span></div>' +
       '<p class="st-note">Each one signs in with your account on this server.</p>' +
       '<div class="st-list">' + AG_AGENTS.map(function (a, i) { return agLi(a, o.menu && i === 0); }).join('') + '</div>' +
       '<p class="st-note">Connected to your account; what they do carries their name and yours. Disconnect ends one’s access until it signs in again.</p></div>';
@@ -6205,8 +6209,8 @@ p { margin: 0; max-width: 68ch; }
   /** Settings › Agents: this computer, each server, and the agents connected to the account; or, with no server, where to get one. */
   function agPage(o) {
     o = o || {};
-    var head = '<p class="st-note">An agent reaches your notes the way you do. On this computer, Claude Desktop, Claude Code and Cursor see the folders here. On the web and your phone, Claude and ChatGPT reach a Scrawl server.</p>';
-    var none = '<div class="ag-none">' + ICON.server + '<span>Claude and ChatGPT on the web and on your phone can’t reach this computer. Connect them to a Scrawl server.</span><span class="st-btn go">Connect a server…</span></div>';
+    var head = '<p class="st-note">An agent reaches your notes the way you do. On this computer, Claude Desktop, Claude Code and Cursor see the folders here. On the web and your phone, Claude, ChatGPT and Gemini reach a Scrawl server.</p>';
+    var none = '<div class="ag-none">' + ICON.server + '<span>Claude, ChatGPT and Gemini on the web and on your phone can’t reach this computer. Connect them to a Scrawl server.</span><span class="st-btn go">Connect a server…</span></div>';
     return head + agComputer() + (o.none ? none : agServer(o));
   }
   /** The Settings window with Agents lit, or Spaces for the server's page. */
@@ -6216,14 +6220,18 @@ p { margin: 0; max-width: 68ch; }
       row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + row({ icon: 'space', label: 'Spaces', on: o.on === 'spaces' }) + row({ icon: 'agent', label: 'Agents', on: o.on !== 'spaces' }) +
       '</nav><div class="st-body">' + body + '</div></div></div>' + (extra || '') + '</div>';
   }
-  /** Add to Claude: the steps, since claude.ai takes a connector from its own settings, and the address to paste. */
+  /** Add to Claude: the steps, since claude.ai takes a connector in its own settings, and each of its fields with what goes in it and Copy. ChatGPT and Gemini are the same window with their own steps and fields. */
   function agAddClaude() {
-    return '<div class="fp-ovl"><div class="fp"><h3>Add to Claude<small>' + SRV_HOST + '</small></h3>' +
+    return '<div class="fp-ovl"><div class="fp ag-add"><h3>Add to Claude<small>' + SRV_HOST + '</small></h3>' +
       '<ol class="ag-steps">' +
-      '<li>On <b>claude.ai</b>, open Settings › Connectors and choose <b>Add custom connector</b>.</li>' +
-      '<li>Paste this address:<div class="srv-copy"><span class="field filled">' + AG_ADDRESS + '</span><span class="st-btn go">Copy</span></div></li>' +
+      '<li>On <b>claude.ai</b>, open Customize › Connectors, choose <b>+ Add</b>, then <b>Add custom connector</b>.</li>' +
+      '<li>Fill in its fields:<div class="ag-fields">' +
+      '<span class="fl">Name</span><span class="field filled">Scrawl</span><span class="st-btn">Copy</span>' +
+      '<span class="fl">Remote MCP server URL</span><span class="field filled">' + AG_ADDRESS + '</span><span class="st-btn go">Copied</span>' +
+      '</div></li>' +
+      '<li>Choose <b>Continue</b> twice. Under Authentication pick <b>Sign in now</b>, under OAuth client <b>Use Claude’s published identity</b>, then choose <b>Add</b>.</li>' +
       '<li>Sign in with your account on ' + SRV_HOST + ' on the page that opens.</li></ol>' +
-      '<p class="note">Added on the web, it works on your phone and in Claude Desktop too.</p>' +
+      '<p class="note">Added on the web, it works on your phone and in Claude Desktop too. On a Team or Enterprise plan, an owner adds it in Organization settings › Connectors.</p>' +
       '<div class="foot"><span class="st-btn">Done</span></div>' +
       '</div></div>';
   }
@@ -6254,15 +6262,16 @@ p { margin: 0; max-width: 68ch; }
   function mbAgPage(none) {
     if (none) {
       return mbPage(mbNav('Settings') + mbHead('Agents'),
-        '<p class="mb-p">Claude on your phone and ChatGPT reach your notes through a Scrawl server; they cannot reach a computer or a cloud folder. Connect a server, then add it to Claude on the web: it works here too. Claude Desktop, Claude Code and Cursor work on a computer, from its Settings › Agents.</p>' +
+        '<p class="mb-p">Claude, ChatGPT and Gemini reach your notes through a Scrawl server; they cannot reach a computer or a cloud folder. Connect a server, then add it to them on the web: Claude and Gemini work on this phone too. Claude Desktop, Claude Code and Cursor work on a computer, from its Settings › Agents.</p>' +
         '<div class="mb-form"><div class="mb-btn">Connect a server…</div></div>');
     }
-    return mbPage(mbNav('Settings') + mbHead('Agents', 'Claude here and ChatGPT reach a server; Claude Desktop, Claude Code and Cursor work on a computer'),
+    return mbPage(mbNav('Settings') + mbHead('Agents', 'Claude, ChatGPT and Gemini reach a server; Claude Desktop, Claude Code and Cursor work on a computer'),
       '<div class="mb-sec">' + SRV_HOST + '</div>' +
       '<div class="mb-form"><div class="mb-group"><div class="mb-fr"><span class="fl">Address</span><span class="in srv-l">' + AG_ADDRESS + '</span><span class="val">' + ICON.copies + '</span></div></div></div>' +
-      mbRow({ icon: 'plus', label: 'Add to Claude', sub: 'claude.ai › Settings › Connectors' }) +
-      mbRow({ icon: 'plus', label: 'Add to ChatGPT', sub: 'Settings › Apps & Connectors › Developer mode' }) +
-      '<p class="mb-p">Added on the web, it works on this phone too. Each one signs in with your account on the server.</p>' +
+      mbRow({ icon: 'plus', label: 'Add to Claude', sub: 'claude.ai › Customize › Connectors' }) +
+      mbRow({ icon: 'plus', label: 'Add to ChatGPT', sub: 'chatgpt.com › Plugins' }) +
+      mbRow({ icon: 'plus', label: 'Add to Gemini', sub: 'gemini.google.com › Connected Apps' }) +
+      '<p class="mb-p">Added on the web, Claude and Gemini work on this phone too. Each one signs in with your account on the server.</p>' +
       '<div class="mb-sec">Connected to your account</div>' +
       AG_AGENTS.map(function (a) { return mbRow({ icon: 'agent', label: a.name, sub: a.sub, ct: a.r }); }).join('') +
       '<p class="mb-p">Tap one to disconnect it; it signs in again the next time you use it.</p>');
@@ -6271,7 +6280,7 @@ p { margin: 0; max-width: 68ch; }
     var sheet = mbActions('agent', 'Claude', SRV_HOST + ' · connected Oct 15', [[{ icon: 'x', label: 'Disconnect', red: true }]]);
     return [
       mbPhone('Settings: Agents satırı', mbAgSettingsList(), mbTabsSx('browse')),
-      mbPhone('Agents: sunucunun adresi, Claude ve ChatGPT, bağlı ajanlar', mbAgPage(false), mbTabsSx('browse')),
+      mbPhone('Agents: sunucunun adresi, Claude, ChatGPT ve Gemini, bağlı ajanlar', mbAgPage(false), mbTabsSx('browse')),
       mbPhone('Bir ajana dokununca: Disconnect', mbAgPage(false), mbTabsSx('browse') + MB_DIM + sheet),
       mbPhone('Sunucu yokken: telefondaki Claude ancak sunucuya ulaşır', mbAgPage(true), mbTabsSx('browse'))
     ].join('');

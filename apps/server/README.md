@@ -59,13 +59,14 @@ up. The owner then opens spaces and invites people with links; no mail is sent.
 
 ## Agents
 
-Claude, ChatGPT and Claude Code reach a space on this server at `https://<your server>/mcp` (MCP, Streamable HTTP). Each person signs in with their own account on the server's own page; the agent then sees and changes the spaces that person is in, as they would, and every change carries the agent's and the person's names.
+Claude, ChatGPT, Gemini and Claude Code reach a space on this server at `https://<your server>/mcp` (MCP, Streamable HTTP). Each person signs in with their own account on the server's own page; the agent then sees and changes the spaces that person is in, as they would, and every change carries the agent's and the person's names. The app's Settings › Agents gives each of these steps with the values to copy.
 
-- **Claude on the web and on your phone:** on claude.ai, Settings › Connectors › Add custom connector, paste `https://<your server>/mcp`, sign in on the page that opens. Added on the web, it works on your phone and in Claude Desktop too.
-- **ChatGPT:** Settings › Apps & Connectors › Advanced › Developer mode, create a connector with the same address, sign in.
+- **Claude on the web and on your phone:** on claude.ai, Customize › Connectors, + Add, Add custom connector. Name it Scrawl, give `https://<your server>/mcp` as the Remote MCP server URL, choose Continue twice, pick Sign in now and Use Claude’s published identity, then Add, and sign in on the page that opens. Added on the web, it works on your phone and in Claude Desktop too.
+- **ChatGPT:** on chatgpt.com, Plugins, +, Add custom MCP server. Name it Scrawl, give the same address under Connection, leave OAuth as it is, tick I understand and want to continue, choose Create as a plugin and sign in. ChatGPT lets it write on Business, Enterprise and Edu; on other plans it may only read.
+- **Gemini:** on gemini.google.com, Settings › Personal Intelligence › Connected Apps, + Custom. Give the same address as the MCP Server URL, leave Additional settings empty, choose Next and sign in. Added on the web, it works in the Gemini phone app too.
 - **Claude Code:** `claude mcp add --transport http scrawl https://<your server>/mcp`, then `/mcp` to sign in.
 
-The server needs HTTPS for this, as for the app. A connection shows under the account (`GET /api/v1/agents`) and is ended with `DELETE /api/v1/agents/<id>`; the app's Agents screen is coming.
+The server needs HTTPS for this, as for the app. A connection shows under the account (`GET /api/v1/agents`) and is ended with `DELETE /api/v1/agents/<id>`; the app's Settings › Agents lists them, with Disconnect.
 
 ## Backups
 

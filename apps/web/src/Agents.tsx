@@ -1,5 +1,5 @@
 import { dayOf, RemoteSignedOut, type ServerAgent } from '@scrawlnotes/core';
-import { locale, t } from '@scrawlnotes/i18n';
+import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import { ContextMenu, Dialog } from './dialogs';
 import { Icon } from './Icon';
@@ -15,7 +15,7 @@ import { dueLabel } from './Tasks';
 // Settings › Agents, after the Agents part of design/mockups.html (design/agent.md, 8): an agent
 // reaches the notes the way the person does. On this computer, the command the clients start and
 // where to add it: Claude Desktop, Claude Code, Cursor. For each server this device is signed in
-// to, the address, where to add it: Claude, ChatGPT, Claude Code; and the agents connected to the
+// to, the address, where to add it: Claude, ChatGPT, Gemini, Claude Code; and the agents connected to the
 // account, each to be disconnected. On a phone only the server part, since the phone's Claude
 // reaches only a server.
 
@@ -145,7 +145,7 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
   );
 }
 
-type AddTo = 'claude' | 'chatgpt';
+type AddTo = 'claude' | 'chatgpt' | 'gemini';
 
 /** A server this device is signed in to: its address, where to add it, and the agents connected to the account. */
 function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; copied: string | null; onCopy: (key: string, text: string) => void; onAdd: (to: AddTo) => void }) {
@@ -180,6 +180,9 @@ function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; c
         </button>
         <button type="button" onClick={() => onAdd('chatgpt')}>
           {t('agents.chatgpt')}
+        </button>
+        <button type="button" onClick={() => onAdd('gemini')}>
+          {t('agents.gemini')}
         </button>
         <button type="button" onClick={() => onCopy(code, code)}>
           {copied === code ? t('agents.copied') : t('agents.claudeCode')}
@@ -217,29 +220,70 @@ function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; c
   );
 }
 
-/** Add to Claude, or to ChatGPT: the steps, since each takes a connector from its own settings, and the address to paste. */
+/**
+ * How each takes a server, in the words of its own window: where to open it, its fields with what
+ * goes in each, what to choose after them, and what to know.
+ */
+const ADD_TO: Record<AddTo, { title: MessageKey; open: MessageKey; fields: [label: MessageKey, value: 'name' | 'description' | 'address'][]; then: MessageKey; note: MessageKey }> = {
+  claude: {
+    title: 'agents.addClaudeTitle',
+    open: 'agents.claudeStep1',
+    fields: [
+      ['agents.fieldName', 'name'],
+      ['agents.fieldClaudeUrl', 'address'],
+    ],
+    then: 'agents.claudeStep3',
+    note: 'agents.claudeNote',
+  },
+  chatgpt: {
+    title: 'agents.addChatgptTitle',
+    open: 'agents.chatgptStep1',
+    fields: [
+      ['agents.fieldName', 'name'],
+      ['agents.fieldDescription', 'description'],
+      ['agents.fieldConnection', 'address'],
+    ],
+    then: 'agents.chatgptStep3',
+    note: 'agents.chatgptNote',
+  },
+  gemini: {
+    title: 'agents.addGeminiTitle',
+    open: 'agents.geminiStep1',
+    fields: [['agents.fieldGeminiUrl', 'address']],
+    then: 'agents.geminiStep3',
+    note: 'agents.geminiNote',
+  },
+};
+
+/** Add to Claude, ChatGPT or Gemini: the steps, since each takes a server in its own settings, and what to write in each field, to copy. */
 function AddToDialog({ to, server, onClose }: { to: AddTo; server: KnownServer; onClose: () => void }) {
   const [copied, copy] = useCopy();
-  const address = mcpAddress(server.url);
-  const host = hostOf(server.url);
-  const title = t(to === 'claude' ? 'agents.addClaudeTitle' : 'agents.addChatgptTitle');
+  const how = ADD_TO[to];
+  const values = { name: 'Scrawl', description: t('agents.description'), address: mcpAddress(server.url) };
+  const title = t(how.title);
   return (
     <Dialog label={title} className="ag-add" onClose={onClose}>
       <h2>{title}</h2>
       <ol className="ag-steps">
-        <li>{t(to === 'claude' ? 'agents.claudeStep1' : 'agents.chatgptStep1')}</li>
+        <li>{t(how.open)}</li>
         <li>
-          {t('agents.step2')}
-          <div className="srv-copy">
-            <input readOnly value={address} aria-label={t('agents.address')} onFocus={(event) => event.target.select()} />
-            <button type="button" className="go" onClick={() => copy('address', address)}>
-              {copied ? t('agents.copied') : t('agents.copy')}
-            </button>
+          {t('agents.fillIn', { count: how.fields.length })}
+          <div className="ag-fields">
+            {how.fields.map(([label, value]) => (
+              <div key={value} className="srv-copy">
+                <span className="fl">{t(label)}</span>
+                <input readOnly value={values[value]} aria-label={t(label)} onFocus={(event) => event.target.select()} />
+                <button type="button" className={`go${copied === value ? ' on' : ''}`} onClick={() => copy(value, values[value])}>
+                  {copied === value ? t('agents.copied') : t('agents.copy')}
+                </button>
+              </div>
+            ))}
           </div>
         </li>
-        <li>{t('agents.step3', { host })}</li>
+        <li>{t(how.then)}</li>
+        <li>{t('agents.signIn', { host: hostOf(server.url) })}</li>
       </ol>
-      <p className="confirm">{t(to === 'claude' ? 'agents.claudeNote' : 'agents.chatgptNote')}</p>
+      <p className="confirm">{t(how.note)}</p>
       <div className="dialog-actions">
         <button type="button" className="done" onClick={onClose}>
           {t('agents.done')}
@@ -310,6 +354,14 @@ function PhoneServerAgents({ server }: { server: KnownServer }) {
           <span className="tx">
             <b>{t('agents.addChatgptTitle')}</b>
             <small>{t('agents.chatgptSub')}</small>
+          </span>
+          <Icon name="chevron" />
+        </button>
+        <button type="button" className="mb-row" onClick={() => setAdding('gemini')}>
+          <Icon name="plus" />
+          <span className="tx">
+            <b>{t('agents.addGeminiTitle')}</b>
+            <small>{t('agents.geminiSub')}</small>
           </span>
           <Icon name="chevron" />
         </button>
