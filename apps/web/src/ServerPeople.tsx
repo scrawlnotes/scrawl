@@ -1,4 +1,4 @@
-import { dayOf, type Me, RemoteSignedOut, type ServerAccountInfo, type ServerLink, type ServerMember, type ServerPerson } from '@scrawlnotes/core';
+import { dayOf, type Me, RemoteSignedOut, type ServerAccountInfo, type ServerAgent, type ServerLink, type ServerMember, type ServerPerson } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ConfirmDialog, ContextMenu, Dialog, type MenuItem } from './dialogs';
@@ -363,6 +363,7 @@ function useServerPage(server: KnownServer) {
   const host = hostOf(server.url);
   const [me, setMe] = useState<ServerAccountInfo | null>(null);
   const [people, setPeople] = useState<ServerPerson[] | null>(null);
+  const [agents, setAgents] = useState<ServerAgent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
@@ -370,6 +371,7 @@ function useServerPage(server: KnownServer) {
       const mine = await account.me();
       setMe(mine);
       noteRole(server.url, mine.role);
+      setAgents(await account.agents().catch(() => []));
       setPeople(mine.role === 'member' ? [] : await account.people());
       setError(null);
     } catch (failure) {
@@ -394,6 +396,7 @@ function useServerPage(server: KnownServer) {
     me,
     role,
     people,
+    agents,
     error,
     setRole: (person: ServerPerson, to: 'admin' | 'member') => act(() => serverAccount(server.url).setRole(person.id, to)),
     remove: (person: ServerPerson) => act(() => serverAccount(server.url).removePerson(person.id)),
@@ -420,7 +423,10 @@ function personItems(p: ReturnType<typeof useServerPage>, person: ServerPerson, 
 }
 
 /** The server's page in Settings on a computer. */
-export function ServerPage({ server, onBack, onSignOut }: { server: KnownServer; onBack: () => void; onSignOut: () => void }) {
+/** What the agents row says: who is connected, by name. */
+const agentNames = (agents: ServerAgent[] | null) => (agents === null ? '' : agents.length === 0 ? t('agents.noneConnected') : agents.map((agent) => agent.client || t('agents.unnamedAgent')).join(', '));
+
+export function ServerPage({ server, onBack, onSignOut, onAgents }: { server: KnownServer; onBack: () => void; onSignOut: () => void; onAgents?: () => void }) {
   const p = useServerPage(server);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; person: ServerPerson } | null>(null);
   const [removing, setRemoving] = useState<ServerPerson | null>(null);
@@ -447,6 +453,17 @@ export function ServerPage({ server, onBack, onSignOut }: { server: KnownServer;
           <button type="button" onClick={onSignOut}>
             {t('server.signOut')}
           </button>
+        </div>
+        <div className="st-row">
+          <span className="fl">{t('agents.row')}</span>
+          <span className="path plain">{agentNames(p.agents)}</span>
+          {onAgents ? (
+            <button type="button" onClick={onAgents}>
+              {t('agents.manage')}
+            </button>
+          ) : (
+            <span />
+          )}
         </div>
         <p className="st-note">{t('server.signOutText')}</p>
       </div>
@@ -522,7 +539,7 @@ export function ServerPage({ server, onBack, onSignOut }: { server: KnownServer;
 }
 
 /** The server's page on a phone: the account and Sign out, and for its owner and admins the people, each with a sheet. */
-export function PhoneServerPage({ server, onSignOut }: { server: KnownServer; onSignOut: () => void }) {
+export function PhoneServerPage({ server, onSignOut, onAgents }: { server: KnownServer; onSignOut: () => void; onAgents?: () => void }) {
   const p = useServerPage(server);
   const [held, setHeld] = useState<ServerPerson | null>(null);
   const [removing, setRemoving] = useState<ServerPerson | null>(null);
@@ -535,6 +552,13 @@ export function PhoneServerPage({ server, onSignOut }: { server: KnownServer; on
             <span className="fl">{t('server.account')}</span>
             <span className="in">{server.email}</span>
           </div>
+          {onAgents && (
+            <button type="button" className="mb-fr" onClick={onAgents}>
+              <span className="fl">{t('agents.row')}</span>
+              <span className="in">{agentNames(p.agents)}</span>
+              <Icon name="chevron" />
+            </button>
+          )}
         </div>
       </div>
       {p.error && <p className="mb-p err">{p.error}</p>}

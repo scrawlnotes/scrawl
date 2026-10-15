@@ -8,6 +8,7 @@ import { Icon, type IconName } from './Icon';
 import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
+import { PhoneAgents } from './Agents';
 import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
 import { PhoneSyncList, PhoneSyncPage } from './PhoneSync';
 import { PhoneServerPage, YouAre } from './ServerPeople';
@@ -1202,6 +1203,13 @@ export function Phone(props: PhoneProps) {
         </PageFrame>
       );
     }
+    if (page.kind === 'section' && page.section === 'agents') {
+      return (
+        <PageFrame title={titleOf(page, of)} sub={t('agents.phoneAbout')} nav={nav}>
+          <PhoneAgents onConnect={() => setAddingSpace(true)} />
+        </PageFrame>
+      );
+    }
     if (page.kind === 'section') {
       return (
         <PageFrame title={titleOf(page, of)} nav={nav}>
@@ -1236,6 +1244,7 @@ export function Phone(props: PhoneProps) {
         <PageFrame title={titleOf(page, of)} sub={<YouAre url={server.url} />} nav={nav}>
           <PhoneServerPage
             server={server}
+            onAgents={() => push({ kind: 'section', section: 'agents' })}
             onSignOut={() => {
               pop();
               void syncService.signOutOfServer(server.url);

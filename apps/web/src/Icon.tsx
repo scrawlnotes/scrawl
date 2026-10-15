@@ -343,6 +343,20 @@ const shapes = {
       <path d="M12 11.5v9M9 17.5l3 3 3-3" />
     </>
   ),
+  agent: (
+    <>
+      <rect x="5" y="8" width="14" height="11" rx="2.5" />
+      <path d="M12 8V5M9.5 5h5" />
+      <circle cx="9.5" cy="13.5" r="1" />
+      <circle cx="14.5" cy="13.5" r="1" />
+    </>
+  ),
+  laptop: (
+    <>
+      <rect x="5" y="5.5" width="14" height="10" rx="1.5" />
+      <path d="M3 18.5h18" />
+    </>
+  ),
   /** Half dark: the look of the app. */
   appearance: (
     <>

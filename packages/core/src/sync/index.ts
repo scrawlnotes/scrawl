@@ -10,6 +10,7 @@ export {
   readServerInput,
   ServerAccount,
   type ServerAccountInfo,
+  type ServerAgent,
   ServerError,
   type ServerInvitation,
   type ServerLink,

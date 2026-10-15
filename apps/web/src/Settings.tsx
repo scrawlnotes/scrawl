@@ -13,13 +13,15 @@ import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 import { ConnectServerDialog, serverFailure } from './ServerConnect';
 import { ROLE_WORD, ServerMembers, ServerPage } from './ServerPeople';
 import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, tookJoin, useKnownServers } from './servers';
+import { Agents } from './Agents';
 
-export type Section = 'profile' | 'appearance' | 'spaces' | 'language';
+export type Section = 'profile' | 'appearance' | 'spaces' | 'agents' | 'language';
 
 const SECTIONS: { id: Section; label: MessageKey; icon: IconName }[] = [
   { id: 'profile', label: 'settings.profile', icon: 'person' },
   { id: 'appearance', label: 'settings.appearance', icon: 'appearance' },
   { id: 'spaces', label: 'settings.spaces', icon: 'space' },
+  { id: 'agents', label: 'settings.agents', icon: 'agent' },
   { id: 'language', label: 'settings.language', icon: 'language' },
 ];
 
@@ -58,8 +60,10 @@ export interface SettingsValues {
   onMoveSpace: (id: string, by: -1 | 1) => void;
   /** Makes a person of a space inactive, or active again. */
   onPersonActive: (space: string, person: string, active: boolean) => void;
-  /** Opens another section of the settings: Profile, from where a name is asked for. */
-  onSection?: (section: Section) => void;
+  /** Opens another section of the settings: Profile, from where a name is asked for; Spaces with Add space open, from Agents. */
+  onSection?: (section: Section, options?: { adding?: boolean }) => void;
+  /** Spaces opens with Add space open: asked for from Agents, to connect a server. */
+  initialAdding?: boolean;
   /** Desktop: asks for another folder for a space's copy on this device, and moves it there. */
   onChangeSpaceFolder?: (id: string) => void;
   /** The space whose page Spaces opens on: an id, null for the personal space, undefined for the list. */
@@ -82,6 +86,8 @@ export interface SettingsValues {
 export interface SettingsProps extends SettingsValues {
   /** The section shown first. */
   initial?: Section;
+  /** Each section shown after it: the sidebar marks Sync while Spaces is on screen, Settings otherwise. */
+  onShown?: (section: Section) => void;
   onClose: () => void;
 }
 
@@ -94,12 +100,13 @@ export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }
   if (id === 'appearance') return `${themeById(theme).name} · ${t(MODES.find((choice) => choice.mode === mode)!.label)}`;
   // With more than one space, how many there are; with one, what it is called.
   if (id === 'spaces') return spaces.length > 0 ? String(spaces.length + 1) : (spaceName ?? t('settings.personal'));
+  if (id === 'agents') return knownServers().length > 0 ? t('agents.viaServers', { count: knownServers().length }) : '';
   return languages.find((language) => language.tag === languageTag())?.name ?? '';
 }
 
 /** What a section has, in the window or on a phone's page. */
 export function SettingsSection({ section, ...values }: SettingsValues & { section: Section }) {
-  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : <Language />;
+  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : section === 'agents' ? <Agents {...values} /> : <Language />;
 }
 
 /** A little window in a theme's colours, in the shade the interface is in. */
@@ -257,12 +264,12 @@ function Profile({ me, onSaveProfile }: Pick<SettingsValues, 'me' | 'onSaveProfi
  * The spaces: a list in the sidebar's order, each row opening the space's page, and Add space
  * under it. A space's page has its name, its folder, its sync, and the way out of this device.
  */
-function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'onPersonActive' | 'onSection' | 'onChangeSpaceFolder' | 'initialSpace' | 'addingAs' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
+function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'onPersonActive' | 'onSection' | 'onChangeSpaceFolder' | 'initialSpace' | 'addingAs' | 'initialAdding' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
   const { spaces, onMoveSpace, onRemoveSpace, initialSpace, addingAs, sync, syncService } = values;
   // The page open: a space by its id, null for the personal space, undefined for the list.
   const [page, setPage] = useState<string | null | undefined>(initialSpace);
-  // Opened with an invite link, Add space opens with it.
-  const [adding, setAdding] = useState(() => !!addingAs || !!pendingJoin());
+  // Opened with an invite link, Add space opens with it; asked for from Agents, it opens too.
+  const [adding, setAdding] = useState(() => !!addingAs || !!pendingJoin() || !!values.initialAdding);
   // A server's page, by its address.
   const [serverPage, setServerPage] = useState<string | null>(null);
   const servers = useKnownServers();
@@ -297,6 +304,7 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
       <ServerPage
         server={onServer}
         onBack={() => setServerPage(null)}
+        {...(values.onSection && { onAgents: () => values.onSection!('agents') })}
         onSignOut={() => {
           setServerPage(null);
           void syncService.signOutOfServer(onServer.url);
@@ -1120,6 +1128,8 @@ export function Settings(props: SettingsProps) {
   const [section, setSection] = useState<Section>(props.initial ?? 'appearance');
   /** On a phone: the section open as a page, or none while the list shows. */
   const [page, setPage] = useState<Section | null>(props.initial ?? null);
+  /** Spaces opens with Add space open, when Agents asked for a server. */
+  const [adding, setAdding] = useState(false);
   const box = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -1139,7 +1149,13 @@ export function Settings(props: SettingsProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [narrow, page, onClose]);
 
-  const body = (id: Section) => <SettingsSection section={id} {...props} onSection={(next) => (narrow ? setPage(next) : setSection(next))} />;
+  const go = (next: Section, options?: { adding?: boolean }) => {
+    setAdding(!!options?.adding);
+    if (narrow) setPage(next);
+    else setSection(next);
+    props.onShown?.(next);
+  };
+  const body = (id: Section) => <SettingsSection section={id} {...props} initialAdding={adding} onSection={go} />;
   // What each section is set to, beside it in a narrow window's list.
   const value = (id: Section) => sectionValue(id, props);
   const close = (
@@ -1168,7 +1184,7 @@ export function Settings(props: SettingsProps) {
           ) : (
             <div className="st-list">
               {sections.map((s) => (
-                <button key={s.id} type="button" className="st-item" onClick={() => setPage(s.id)}>
+                <button key={s.id} type="button" className="st-item" onClick={() => go(s.id)}>
                   <Icon name={s.icon} />
                   <span>{t(s.label)}</span>
                   <span className="v">{value(s.id)}</span>
@@ -1188,7 +1204,7 @@ export function Settings(props: SettingsProps) {
                   type="button"
                   className={s.id === section ? 'on' : undefined}
                   aria-current={s.id === section ? 'page' : undefined}
-                  onClick={() => setSection(s.id)}
+                  onClick={() => go(s.id)}
                 >
                   <Icon name={s.icon} />
                   <span>{t(s.label)}</span>

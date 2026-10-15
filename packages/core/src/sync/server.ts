@@ -249,6 +249,15 @@ export type ServerInvitation =
   | { kind: 'reset'; email: string; name: string; expires: number };
 
 /** The server itself: how it stands, setting it up, signing in and out, and its spaces. */
+/** An agent connected to the account on the server: a client that signed in through the server's own sign-in (design/agent.md, 7). */
+export interface ServerAgent {
+  id: string;
+  /** What the client called itself: "Claude", "ChatGPT". */
+  client: string;
+  connected: number;
+  seen: number;
+}
+
 export class ServerAccount {
   private readonly client: Client;
 
@@ -344,6 +353,17 @@ export class ServerAccount {
   /** An invite into a space, for one person, for a week. */
   invite(space: string): Promise<ServerLink> {
     return this.client.json(`/spaces/${encodeURIComponent(space)}/invites`, { method: 'POST' });
+  }
+
+  /** The agents connected to this account on the server, the newest first. */
+  agents(): Promise<ServerAgent[]> {
+    return this.client.json('/agents');
+  }
+
+  /** Ends an agent's connection: its tokens stop, and it signs in again the next time it is used. */
+  async disconnectAgent(id: string): Promise<void> {
+    const response = await this.client.request(`/agents/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!response.ok) throw await errorOf(response);
   }
 }
 

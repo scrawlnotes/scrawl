@@ -179,8 +179,9 @@ describe('signing in', () => {
     const s = start();
     const key = await owner(s);
     const { access, refresh } = await connect(s);
-    const listed = (await (await s.fetch(`${URL_}/api/v1/agents`, { headers: { Authorization: `Bearer ${key}` } })).json()) as { id: string; client: string }[];
+    const listed = await s.account(key).agents();
     expect(listed.map((a) => a.client)).toEqual(['Test agent']);
+    expect(listed[0]!.connected).toBeGreaterThan(0);
     // An agent's key opens /mcp and nothing else.
     expect((await s.fetch(`${URL_}/api/v1/me`, { headers: { Authorization: `Bearer ${access}` } })).status).toBe(401);
     s.later(60 * 60 * 1000 + 1);
@@ -193,7 +194,8 @@ describe('signing in', () => {
     const client = await mcp(s, turned.access_token);
     expect((await client.callTool({ name: 'spaces', arguments: {} })).structuredContent).toMatchObject({ person: 'Kaan Arslan', spaces: [{ id: SPACE, name: 'Acme', where: 'kaan.scrawlnotes.com' }] });
     await client.close();
-    expect((await s.fetch(`${URL_}/api/v1/agents/${listed[0]!.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${key}` } })).status).toBe(204);
+    await s.account(key).disconnectAgent(listed[0]!.id);
+    expect(await s.account(key).agents()).toEqual([]);
     const gone = await s.fetch(`${URL_}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', Authorization: `Bearer ${turned.access_token}` }, body: '{}' });
     expect(gone.status).toBe(401);
     expect(((await (await s.fetch(`${URL_}/oauth/token`, form({ grant_type: 'refresh_token', refresh_token: turned.refresh_token }))).json()) as { error: string }).error).toBe('invalid_grant');
