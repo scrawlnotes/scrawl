@@ -237,6 +237,7 @@ html:has(.phone-app) body {
 
 .mb-row {
   display: flex;
+  box-sizing: border-box;
   align-items: center;
   gap: 13px;
   width: 100%;

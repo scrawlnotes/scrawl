@@ -95,7 +95,8 @@ Bunun için `VaultFs`'in listesine dosyaların değişme zamanı eklenir (`Entry
 | yeni | yeni | aynıysa yalnızca bağlanır; farklıysa boş tabanla birleştirilir |
 
 3. İşlemler bu sırayla yapılır: önce taşımalar ve ad değiştirmeler, sonra uzaktan gelen eklemeler ve değişiklikler (çöpe düşenler dahil), sonra yereldeki değişikliklerin yüklenmesi, en son silmeler (önce uzaktan gelenler, sonra yerelden gidenler). Silmeler sona kalır ki 6. bölümdeki "zaten çöpte mi?" sorusu, aynı turda gelen çöp dosyaları yerine yazıldıktan sonra sorulsun.
-4. Yükleme sırasında uzaktaki dosya araya girip değişmişse (`ifMatch` tutmaz), o dosya bu turda bırakılır ve bir sonraki turda yeniden değerlendirilir; hiçbir şeyin üstüne körlemesine yazılmaz.
+4. Yükleme sırasında uzaktaki dosya araya girip değişmişse (`ifMatch` tutmaz), o dosya bu turda bırakılır ve bir sonraki turda yeniden değerlendirilir; hiçbir şeyin üstüne körlemesine yazılmaz. Bırakılan dosya sonraki turun listesinde yeniden görünsün diye imleç ilerlemez.
+   - Uzak, listenin hiç söz etmediği bir dosyayı reddederse cihazın kaydı uzaktakine uymuyordur: dosya orada yoktur ya da başka bir sürümü vardır. İmleçten okunan hiçbir liste bunu söylemez; bekleyen tur her seferinde aynı retle biterdi. Bu yüzden imleç boşaltılır ve sonraki tur her şeyi baştan listeler. Dosya gerçek haline göre değerlendirilir: burada silinmiş ve orada yoksa kaydı düşer; burada değişmiş ve orada yoksa yüklenir; orada başka sürümü varsa birleşir. Bekleyen bir ekin taşınması ya da silinmesi reddedilir ve liste de ondan söz etmezse aynısı yapılır.
 5. İndirilen dosya, açık bir notsa uygulama onu bugünkü "dışarıda değişti" yoluyla editöre alır; kaydedilmemiş yazı varsa önce kaydedilir, sonra sync o dosyaya bakar.
 
 **Taşıma ve ad değiştirme** bir silme ve bir ekleme olarak görünür. Eklenen dosyanın özeti silinenin tabandaki özetine eşitse bu bir taşımadır ve uzakta da taşıma yapılır; özellikle büyük eklerin yeniden yüklenmesi böyle önlenir.
@@ -181,6 +182,7 @@ Bellekte çalışan bir `MemoryRemote` (her yazımda etiketi değişen) ve iki a
 20. Uzak, imleçten beri neyin değiştiğini söyleyemeyip her şeyi yeniden listelerse (çok eski imleç): listede olmayanlar gitmiş sayılır, aynı olanlar yeniden inmez.
 21. Uzağın kabul etmediği bir ad: dosya bu cihazda kalır, gönderilmez, raporda gösterilir.
 22. Listelenip okunmadan önce uzakta silinen bir dosya: tur durmaz, dosya sonraki tura kalır.
+26. Cihazın kaydı uzaktakine uymaz ve liste ondan söz etmez (dosya orada yok ya da başka sürümü var): uzak dosyayı bir kez reddeder, sonraki tur her şeyi baştan listeler. Burada silinen unutulur, burada değişen yüklenir, iki tarafta değişen birleşir; dosya her turda yeniden reddedilmez.
 
 Hepsi `packages/core/src/sync/engine.test.ts` içinde; birleştirme kuralları ayrıca `merge.test.ts` içinde, her biri iki yönde (yerel ve uzak yer değiştirerek) aynı sonucu verdiği sınanarak.
 

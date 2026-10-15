@@ -155,6 +155,15 @@ class Turn {
   private result: SyncJobResult | null = null;
   /** Where each file left for the next turn changed, by key. */
   private readonly skipReasons = new Map<string, 'here' | 'there'>();
+  /** The files the listing told of, changed or gone, by key. */
+  private readonly listed = new Set<string>();
+  /** Files away the other side refused to move or delete, by key, before the listing was read. */
+  private readonly refusedAway: string[] = [];
+  /**
+   * The other side refused a file the listing told nothing of: this device's record of it is not
+   * as it is there, and no listing from the cursor will tell otherwise.
+   */
+  private stale = false;
 
   constructor(
     private readonly fs: VaultFs,
@@ -190,6 +199,8 @@ class Turn {
       for (const key of Object.keys(this.state.files)) if (!this.remoteFiles.has(key)) this.removed.add(key);
       for (const key of Object.keys(this.state.dirs)) if (!this.remoteDirs.has(key)) this.removed.add(key);
     }
+    for (const key of [...this.remoteFiles.keys(), ...this.removed]) this.listed.add(key);
+    if (this.refusedAway.some((key) => !this.listed.has(key))) this.stale = true;
     this.stage = 'checking';
     this.looked = 0;
     this.local = await walk(this.fs);
@@ -266,8 +277,9 @@ class Turn {
       const entry = this.local.files.get(key);
       if (here === 'same' && record && entry?.modified !== undefined && entry.path === record.path) record.modified = entry.modified;
     }
-    // A change of the other side left for later is listed again next turn: the cursor stays.
-    this.state.cursor = this.report.skipped.length > 0 ? startCursor : listing.cursor;
+    // A change of the other side left for later is listed again next turn: the cursor stays. A
+    // record the other side does not bear out is told right by a listing of everything there is.
+    this.state.cursor = this.stale ? null : this.report.skipped.length > 0 ? startCursor : listing.cursor;
     await saveSyncState(this.fs, this.state);
   }
 
@@ -351,6 +363,7 @@ class Turn {
   private skip(path: string, reason: 'here' | 'there'): void {
     this.report.skipped.push(path);
     this.skipReasons.set(keyOf(path), reason);
+    if (reason === 'there' && !this.listed.has(keyOf(path))) this.stale = true;
   }
 
   // ---------- telling what changed ----------
@@ -649,6 +662,7 @@ class Turn {
         done.add(op.id);
       } catch (error) {
         if (!(error instanceof RemoteConflict)) throw error;
+        this.refusedAway.push(key);
       }
     }
     await finishAwayOps(this.fs, done);

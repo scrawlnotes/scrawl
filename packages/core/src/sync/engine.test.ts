@@ -523,6 +523,61 @@ describe('sync', () => {
     expect(remote.paths()).toEqual(['Scrawl/Scribbles.md']);
   });
 
+  describe('26. reads everything again when the other side refuses a file its listing told nothing of', () => {
+    /**
+     * The phone's record of a note is behind what is there: after `there` is done to the remote,
+     * the phone's cursor is moved past it while its record stays as it was.
+     */
+    async function behind(there: (sides: ReturnType<typeof setup>) => Promise<unknown>) {
+      const sides = setup();
+      const { remote, laptop, phone, syncLaptop, syncPhone } = sides;
+      await laptop.writeText('Inbox/Note.md', 'one\ntwo\nthree\n');
+      await syncLaptop();
+      await syncPhone();
+      await there(sides);
+      const state = JSON.parse(await phone.readText('.scrawl/sync-state.json'));
+      state.cursor = (await remote.changes(null)).cursor;
+      await phone.writeText('.scrawl/sync-state.json', JSON.stringify(state));
+      return sides;
+    }
+    const gone = ({ remote }: ReturnType<typeof setup>) => tagOf(remote, 'Inbox/Note.md').then((tag) => remote.remove('Inbox/Note.md', tag));
+
+    it('deleted here and gone there: refused once, then forgotten', async () => {
+      const { remote, phone, syncPhone } = await behind(gone);
+      await trashItem(phone, 'Inbox/Note.md', now());
+      expect((await syncPhone()).skipped).toContain('Inbox/Note.md');
+      expect((await syncPhone()).skipped).toEqual([]);
+      expect(remote.paths().filter((path) => path.startsWith('Inbox/'))).toEqual([]);
+      expect((await readTrash(phone)).map((item) => item.title)).toEqual(['Note']);
+      const calls = { ...remote.calls };
+      expect(Object.values(await syncPhone()).every((list: unknown[]) => list.length === 0)).toBe(true);
+      expect(remote.calls).toEqual(calls);
+    });
+
+    it('changed here and gone there: the change goes up', async () => {
+      const { remote, phone, syncPhone } = await behind(gone);
+      await phone.writeText('Inbox/Note.md', 'one\ntwo\nthree\nfour\n');
+      expect((await syncPhone()).skipped).toEqual(['Inbox/Note.md']);
+      const report = await syncPhone();
+      expect(report.skipped).toEqual([]);
+      expect(report.uploaded).toEqual(['Inbox/Note.md']);
+      expect(await remote.text('Inbox/Note.md')).toBe('one\ntwo\nthree\nfour\n');
+    });
+
+    it('changed on both sides: merged', async () => {
+      const { remote, laptop, phone, syncLaptop, syncPhone } = await behind(async (sides) => {
+        await sides.laptop.writeText('Inbox/Note.md', 'ONE\ntwo\nthree\n');
+        await sides.syncLaptop();
+      });
+      await phone.writeText('Inbox/Note.md', 'one\ntwo\nTHREE\n');
+      expect((await syncPhone()).skipped).toEqual(['Inbox/Note.md']);
+      expect((await syncPhone()).merged).toEqual(['Inbox/Note.md']);
+      expect(await remote.text('Inbox/Note.md')).toBe('ONE\ntwo\nTHREE\n');
+      await syncLaptop();
+      expect(await contents(laptop)).toEqual(await contents(phone));
+    });
+  });
+
   it('does nothing on a turn when nothing changed', async () => {
     const { remote, laptop, syncLaptop } = setup();
     await laptop.writeText('Scrawl/Plan.md', 'plan');
