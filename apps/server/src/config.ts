@@ -16,7 +16,7 @@ export interface Config {
   appUrl: string;
 }
 
-export const VERSION = '0.2.4';
+export const VERSION = '0.2.5';
 
 /** How long a new server can be set up after it started, without an account. */
 export const SETUP_MS = 60 * 60 * 1000;
