@@ -14,7 +14,7 @@ macOS and Linux apps, and native iOS and Android apps, are on the way. There is 
 - **Task lists**: sections, subtasks, priorities and due dates; Today, Upcoming and filters.
 - **Boards**: columns, cards, comments and phases. A card copies as a brief for a person or an agent.
 - **Collections**: lists of records that link to each other, like people, companies and deals,
-  with views, formulas and CSV or Excel in and out.
+  with their own form designer, views, formulas and CSV or Excel in and out.
 - **Templates**: People, Companies, Activities, Feedback and Payments collections; Software,
   Issue tracking, CRM and Simple boards. Ready for running a startup.
 - **Keys**: `.env` files as a table.
