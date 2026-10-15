@@ -8,27 +8,18 @@ macOS and Linux apps, and native iOS and Android apps, are on the way. There is 
 
 ## Features
 
-- **Agent first**: every note, task list, board and record is a plain file your agent, Claude Code
-  or another, can read and write, and what it writes shows up in the app as if you had. No
-  assistant is built in; your own agent works from outside, with your tools. MCP, to reach your
-  spaces from your phone and the web, comes next.
-- **Notes**: Markdown, formatted as you type, with tables, images, files and voice memos. Open and
-  type; a note needs no name or folder, and is called by its first line until you give it one.
-- **Task lists**: sections, subtasks, priorities and due dates, with Today, Upcoming and saved
-  filters across every list. A line of a note becomes a task that links back to it.
-- **Boards**: columns and cards with comments, phases and a key for each card, from a software,
-  issues, sales or simple template. A card copies as a Markdown brief to hand to a person or an
-  agent.
-- **Collections**: the lists a company keeps, such as people, companies, activities, feedback and
-  payments, each a folder with a record per file. Records link to each other: a person to their
-  company, a call to the person. A record's page shows what links to it, its activities as a
-  timeline and its cards, and lays out its fields the way the template or you arranged them.
-  Formulas and rollups work out the rest, like the last contact with a company or what a customer
-  has paid. Views filter, sort, group and total; CSV and Excel come in and go out.
-- **Keys**: `.env` files, as a table or as text, with groups.
-- **Spaces**: places to work with others, in a OneDrive folder or on your own Scrawl server, where
-  tasks and cards are given to the people in them. On a server, changes arrive in a second or two.
-- Search across everything, export to PDF, HTML or Markdown, the history of every note, a trash.
+- **Agent first**: every note, task, board and record is a plain file your agent (Claude Code or
+  another) can read and write. No assistant inside; MCP comes next.
+- **Notes**: Markdown, formatted as you type. No name or folder needed to start.
+- **Task lists**: sections, subtasks, priorities and due dates; Today, Upcoming and filters.
+- **Boards**: columns, cards, comments and phases. A card copies as a brief for a person or an agent.
+- **Collections**: lists of records that link to each other, like people, companies and deals,
+  with views, formulas and CSV or Excel in and out.
+- **Templates**: People, Companies, Activities, Feedback and Payments collections; Software,
+  Issue tracking, CRM and Simple boards. Ready for running a startup.
+- **Keys**: `.env` files as a table.
+- **Spaces**: work with others in a OneDrive folder or on your own Scrawl server.
+- Search, export to PDF, HTML or Markdown, note history and a trash.
 
 ## How it is different
 
