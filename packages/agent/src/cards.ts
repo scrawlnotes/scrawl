@@ -202,6 +202,8 @@ export interface CardArgs {
   labels?: string[];
   assignee?: string | null;
   values?: { [key: string]: unknown };
+  /** Add the card even though an open one has its title already. */
+  another?: boolean;
 }
 
 export async function saveCardTool(agent: Agent, client: Client, args: CardArgs) {
@@ -247,6 +249,22 @@ export async function saveCardTool(agent: Agent, client: Client, args: CardArgs)
   } else {
     const title = args.title?.trim();
     if (!title) throw new Refusal('A new card needs a title');
+    // A cut-off call sent again must not add the card twice; a board rarely means to hold two open cards of one title.
+    const twins = args.another ? [] : board.cards.filter((c) => !isFinished(board, c) && same(c.title, title));
+    if (twins.length > 1) throw new Refusal(`More than one open card is already called ${title}; nothing was added. Give id to change one of them, or another: true to add one more`, { candidates: twins.map((c) => ({ key: keyOf(board, c), id: c.id, title: c.title })) });
+    if (twins.length === 1) {
+      const found = twins[0]!;
+      return {
+        data: {
+          space: space.id,
+          board: element.path,
+          created: false,
+          exists: true,
+          message: `An open card called ${title} is already on this board (${keyOf(board, found)}); nothing was added. To change it, give its id ${keyOf(board, found)}; to add a second one with this title on purpose, pass another: true.`,
+          card: cardOut(board, found, todayOf(agent)),
+        },
+      };
+    }
     const input: NewCard = {
       title,
       ...(column && { column: column.id }),
@@ -274,11 +292,18 @@ export async function commentTool(agent: Agent, client: Client, args: { space?: 
   const element = await pickElement(space.fs, args.board, ['board'], 'board');
   let board = await loadBoard(space.fs, element.path);
   const card = pickCard(board, args.card);
-  if (!args.text.trim()) throw new Refusal('A comment needs text');
+  const text = args.text.trim();
+  if (!text) throw new Refusal('A comment needs text');
   const now = nowOf(agent);
-  board = addComment(board, card.id, args.text, () => now, actorOf(client, await agent.person()));
+  const by = actorOf(client, await agent.person());
+  // A cut-off call sent again must not say the same thing twice.
+  const last = [...card.timeline].reverse().find((entry) => entry.kind === 'comment');
+  if (last && last.kind === 'comment' && last.text === text && (last.by ?? null) === (by ?? null)) {
+    return { data: { space: space.id, board: element.path, written: false, message: 'This is already the last comment on the card, by you; it was not written again.', card: cardOut(board, card, todayOf(agent)) } };
+  }
+  board = addComment(board, card.id, text, () => now, by);
   await saveBoard(space.fs, element.path, board);
-  return { data: { space: space.id, board: element.path, card: cardOut(board, board.cards.find((c) => c.id === card.id)!, todayOf(agent)) } };
+  return { data: { space: space.id, board: element.path, written: true, card: cardOut(board, board.cards.find((c) => c.id === card.id)!, todayOf(agent)) } };
 }
 
 /** A path inside a space that must exist, for tools that take one. */

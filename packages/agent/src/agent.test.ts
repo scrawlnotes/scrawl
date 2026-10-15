@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
-import { createBoard, createCollection, createFolder, createNote, listVersions, loadBoard, loadList, loadCollection, MemoryFs, readTrash, saveMe } from '@scrawlnotes/core';
+import { createBoard, createCollection, createFolder, createNote, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, saveMe } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { cardsTool, commentTool, saveCardTool } from './cards';
 import { Refusal } from './paths';
@@ -9,6 +9,7 @@ import { recordsTool, saveRecordTool } from './records';
 import { buildServer } from './server';
 import { type Agent, type AgentSpace, pickElement } from './space';
 import { saveTaskTool, tasksTool } from './tasks';
+import { moveTool } from './move';
 import { createTool, trashTool, writeTool } from './write';
 
 // The tools over a space in memory: what an agent does with a board, a collection, a task list
@@ -189,7 +190,7 @@ describe('collections', () => {
   it('refuses an unknown field, an unknown op, and a link that fits more than one record', async () => {
     const { agent } = await sample();
     await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Acme' } });
-    await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Acme' } });
+    await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Acme' }, another: true });
     expect((await refusal(saveRecordTool(agent, { collection: 'Companies', values: { Revenue: 1 } }))).message).toContain('No field called Revenue');
     expect((await refusal(recordsTool(agent, { collection: 'Companies', where: [{ field: 'name', op: 'like', value: 'A' }] }))).details.ops).toContain('contains');
     const twice = await refusal(saveRecordTool(agent, { collection: 'Activities', values: { name: 'Call', type: 'call', date: '2026-10-15', company: 'Acme' } }));
@@ -216,6 +217,76 @@ describe('tasks', () => {
   });
 });
 
+describe('not twice', () => {
+  it('returns the record, the card or the comment that is already there instead of adding it again, unless told another', async () => {
+    const { agent, fs, board } = await sample();
+    const acme = await saveRecordTool(agent, { collection: 'Companies', values: { Name: 'Acme Corp', Segment: 'SMB' } });
+    const again = await saveRecordTool(agent, { collection: 'Companies', values: { Name: 'acme corp', Segment: 'Mid' } });
+    expect(again.data).toMatchObject({ created: false, exists: true, message: expect.stringContaining(acme.data.record.id) });
+    expect(again.data.record.values.segment).toBe('SMB');
+    expect((await loadCollection(fs, 'CRM/Companies')).records.length).toBe(1);
+    const second = await saveRecordTool(agent, { collection: 'Companies', values: { Name: 'Acme Corp' }, another: true });
+    expect(second.data.created).toBe(true);
+    const third = await refusal(saveRecordTool(agent, { collection: 'Companies', values: { Name: 'Acme Corp' } }));
+    expect(third.message).toContain('More than one record is already called Acme Corp');
+
+    const card = await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Write the tools' });
+    const cardAgain = await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'write the tools', priority: 1 });
+    expect(cardAgain.data).toMatchObject({ created: false, exists: true, card: { key: card.data.card.key, priority: 4 } });
+    expect((await loadBoard(fs, board)).cards.length).toBe(1);
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', id: card.data.card.key, column: 'done' });
+    const afterDone = await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Write the tools' });
+    expect(afterDone.data.created).toBe(true);
+    expect((await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Write the tools', another: true })).data.created).toBe(true);
+
+    const once = await commentTool(agent, CLIENT, { board: 'Scrawl', card: card.data.card.key, text: 'Done, left the tests.' });
+    expect(once.data.written).toBe(true);
+    const twice = await commentTool(agent, CLIENT, { board: 'Scrawl', card: card.data.card.key, text: 'Done, left the tests. ' });
+    expect(twice.data.written).toBe(false);
+    expect(twice.data.card.comments.length).toBe(1);
+    const other = await commentTool(agent, { name: 'ChatGPT' }, { board: 'Scrawl', card: card.data.card.key, text: 'Done, left the tests.' });
+    expect(other.data.written).toBe(true);
+    expect(other.data.card.comments.length).toBe(2);
+  });
+});
+
+describe('moving', () => {
+  it('moves and renames a note, a board and a collection, and what points at them follows', async () => {
+    const { agent, fs, note } = await sample();
+    await writeTool(agent, { path: note, text: '# Roadmap\n\nShip in November.\n' });
+    const acme = await saveRecordTool(agent, { collection: 'Companies', values: { Name: 'Acme Corp' } });
+    await saveRecordTool(agent, { collection: 'Activities', values: { Name: 'Kickoff', type: 'meeting', date: '2026-10-14', company: 'Acme Corp' } });
+    await saveTaskTool(agent, CLIENT, { title: 'Call Acme', record: 'Acme Corp' });
+    const before = await loadSchema(fs, 'CRM/Companies');
+    const pointing = before.fields.filter((f) => f.rollup?.from === 'CRM/Activities').map((f) => f.key);
+    expect(pointing.length).toBeGreaterThan(0);
+
+    const moved = await moveTool(agent, { path: 'Roadmap', folder: '' });
+    expect(moved.data).toMatchObject({ kind: 'note', from: 'Plans/Roadmap.md', to: 'Roadmap.md', moved: true });
+    expect((await listVersions(fs, 'Roadmap.md')).length).toBe(1);
+    expect(await fs.readText('Roadmap.md')).toContain('November');
+
+    const renamed = await moveTool(agent, { path: 'Scrawl', name: 'Scrawl v2' });
+    expect(renamed.data.to).toBe('Plans/Scrawl v2.board.json');
+
+    const customers = await moveTool(agent, { path: 'Companies', name: 'Customers' });
+    expect(customers.data.to).toBe('CRM/Customers');
+    expect((await loadSchema(fs, 'CRM/Activities')).fields.find((f) => f.key === 'company')!.collection).toBe('CRM/Customers');
+    expect((await loadList(fs, 'Inbox.tasks.json')).tasks[0]!.record).toMatchObject({ collection: 'CRM/Customers', id: acme.data.record.id });
+
+    const activities = await moveTool(agent, { path: 'Activities', folder: '' });
+    expect(activities.data.to).toBe('Activities');
+    const after = await loadSchema(fs, 'CRM/Customers');
+    for (const key of pointing) expect(after.fields.find((f) => f.key === key)!.rollup!.from).toBe('Activities');
+    expect((await recordsTool(agent, { collection: 'Customers' })).data.records[0]!.values.last_contact).toBe('2026-10-14');
+
+    expect((await refusal(moveTool(agent, { path: 'Roadmap' }))).message).toContain('folder');
+    expect((await refusal(moveTool(agent, { path: 'Roadmap', folder: 'Nowhere' }))).details.folders).toEqual(['CRM', 'Plans']);
+    expect((await refusal(moveTool(agent, { path: 'Roadmap', folder: 'CRM/Customers' }))).message).toContain('collection');
+    expect((await refusal(moveTool(agent, { path: 'Plans', name: 'Roadmaps' }))).message).toContain('No note, task list, board or collection');
+  });
+});
+
 describe('over MCP', () => {
   it('serves the tools and the guide to a client, and writes with the client’s name', async () => {
     const { agent, fs, board } = await sample();
@@ -225,7 +296,7 @@ describe('over MCP', () => {
     const client = new Client({ name: 'test-client', version: '1.0.0' });
     await client.connect(clientSide);
     const tools = await client.listTools();
-    expect(tools.tools.map((t) => t.name).sort()).toEqual(['cards', 'comment', 'create', 'read', 'records', 'save_card', 'save_record', 'save_task', 'search', 'spaces', 'tasks', 'trash', 'tree', 'write']);
+    expect(tools.tools.map((t) => t.name).sort()).toEqual(['cards', 'comment', 'create', 'move', 'read', 'records', 'save_card', 'save_record', 'save_task', 'search', 'spaces', 'tasks', 'trash', 'tree', 'write']);
     const guide = await client.readResource({ uri: 'scrawl://guide' });
     expect((guide.contents[0] as { text: string }).text).toContain('# Scrawl for agents');
     const spaces = await client.callTool({ name: 'spaces', arguments: {} });

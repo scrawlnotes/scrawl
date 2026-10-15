@@ -25,7 +25,7 @@ Add a server with `command: npx`, `args: ["-y", "@scrawlnotes/mcp"]`, or use the
 
 ## What the agent can do
 
-Fourteen tools: `spaces`, `tree`, `read`, `write`, `search`, `create`, `trash`; `records`, `save_record`; `cards`, `save_card`, `comment`; `tasks`, `save_task`; and a guide, `scrawl://guide`, that tells it how a space is laid out and how to behave. It finds things by name, asks when more than one fits, writes every change with its name and yours, keeps a note's earlier text as a version, never touches keys files and never deletes for good.
+Fifteen tools: `spaces`, `tree`, `read`, `write`, `search`, `create`, `trash`, `move`; `records`, `save_record`; `cards`, `save_card`, `comment`; `tasks`, `save_task`; and a guide, `scrawl://guide`, that tells it how a space is laid out and how to behave. It finds things by name, asks when more than one fits, never adds the same record, card or comment twice when a cut-off call is sent again, writes every change with its name and yours, keeps a note's earlier text as a version, never touches keys files and never deletes for good.
 
 Claude on the web and on your phone, and ChatGPT, cannot reach this computer: connect them to a Scrawl server instead.
 

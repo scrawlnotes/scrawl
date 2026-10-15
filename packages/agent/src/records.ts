@@ -176,14 +176,48 @@ export async function parseValues(fs: VaultFs, fields: Field[], given: { [key: s
   return { values, extra };
 }
 
-export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string }) {
+const same = (a: string, b: string) => fold(a.trim()) === fold(b.trim());
+
+/**
+ * The records already called what a new one would be called, by name or by code: a cut-off call
+ * sent again must not add a second Acme Corp, and a person's list rarely means to hold two.
+ */
+function twinsOf(collection: Collection, values: { [key: string]: FieldValue }): { what: string; records: CollectionRecord[] } | null {
+  for (const type of ['name', 'code'] as const) {
+    const field = collection.schema.fields.find((f) => f.type === type);
+    const wanted = field ? values[field.key] : undefined;
+    if (typeof wanted !== 'string' || !wanted.trim()) continue;
+    const records = collection.records.filter((r) => (type === 'name' ? r.name && same(r.name, wanted) : r.code && same(r.code, wanted)));
+    if (records.length > 0) return { what: wanted.trim(), records };
+  }
+  return null;
+}
+
+export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string; another?: boolean }) {
   const space = await pickSpace(agent, args.space);
   const element = await pickElement(space.fs, args.collection, ['collection'], 'collection');
   const collection = await loadCollection(space.fs, element.path);
   const { schema } = collection;
   const { values, extra } = await parseValues(space.fs, schema.fields, args.values ?? {});
+  const today = todayOf(agent);
   let record: CollectionRecord;
   let created = false;
+  const twins = args.id || args.another ? null : twinsOf(collection, values);
+  if (twins) {
+    const shown = (r: CollectionRecord) => ({ id: r.id, name: r.name, ...(r.code && { code: r.code }), path: r.path });
+    if (twins.records.length > 1) throw new Refusal(`More than one record is already called ${twins.what}; nothing was added. Give id to change one of them, or another: true to add one more`, { candidates: twins.records.map(shown) });
+    const found = (await rolled(space.fs, { ...collection, records: [twins.records[0]!] }, today)).records[0]!;
+    return {
+      data: {
+        space: space.id,
+        collection: element.path,
+        created: false,
+        exists: true,
+        message: `A record called ${twins.what} is already there; nothing was added. To change it, give its id ${found.id}; to add a second one with this name on purpose, pass another: true.`,
+        record: recordOut(found, schema, today),
+      },
+    };
+  }
   if (args.id) {
     const found = pickRecord(collection, args.id);
     const kept = { ...found.extra };
@@ -194,7 +228,6 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     if (Object.keys(extra).length > 0) record = await updateRecord(space.fs, schema, { ...record, extra }, {});
     created = true;
   }
-  const today = todayOf(agent);
   const shown = await rolled(space.fs, { ...collection, records: [record] }, today);
   return { data: { space: space.id, collection: element.path, created, record: recordOut(shown.records[0]!, schema, today) } };
 }

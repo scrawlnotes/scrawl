@@ -14,6 +14,27 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 - \`spaces\` tells today's date and the person's name; use them for days like "next week" and when something is yours.
 - Keys files, the \`.scrawl/\` folder and \`_attachments/\` are closed to you. Nothing is deleted for good: \`trash\` sends to the trash, where the person restores.
 
+## What each tool is for
+
+| To | Use |
+|---|---|
+| Know where you are | \`spaces\`, then \`tree\` or \`search\` |
+| Read or write a note | \`read\`, \`write\` (with \`ifMatch\`) |
+| Make a new note, list, board, collection or folder | \`create\` |
+| Add or change a task, a card, a record | \`save_task\`, \`save_card\`, \`save_record\` (with \`id\` to change) |
+| See tasks, cards, records | \`tasks\`, \`cards\`, \`records\` |
+| Finish or drop | a task: \`save_task\` with \`done: true\`; a card: \`save_card\` with \`column: "done"\` or \`"dropped"\` |
+| Change a collection's fields, a board's columns or phases | \`read\` the file, change the JSON, \`write\` it back with \`ifMatch\`; there is no other tool for it |
+| Move or rename a note, list, board or collection | \`move\`; what points at it follows |
+| Remove a note, list, board, folder or collection | \`trash\` |
+| Say what you did on a card | \`comment\` |
+
+Not yours: restoring from the trash, seeing a note's versions, attached files, settings and people. Ask the person for those.
+
+## When a call is cut off
+
+Call it again; nothing is added twice. \`save_record\` does not add a record whose name or code is already there, \`save_card\` does not add an open card whose title is already on the board: each returns the one that exists with \`exists: true\`, and you give its \`id\` to change it. When you mean a second one with the same name, pass \`another: true\`. \`comment\` does not write the same text twice in a row. \`write\` with \`ifMatch\` refuses when the file changed since you read it: read it again, then write.
+
 ## A space
 
 A space is a folder tree. Folders group things; a folder with a \`_collection.json\` in it is a collection. The personal space has a task list \`Inbox.tasks.json\` at its top, where a task without a list goes. Paths are inside the space, with \`/\`.
@@ -26,7 +47,7 @@ A space is a folder tree. Folders group things; a folder with a \`_collection.js
 | Collection | folder with \`_collection.json\`; each record a \`.md\` file | \`records\`, \`save_record\` |
 | Keys | \`Name.env\` | closed |
 
-\`create\` makes any of them (and folders) with the right file and name; \`write\` writes any open file as it is.
+\`create\` makes any of them (and folders) with the right file and name; \`write\` writes any open file as it is; \`move\` moves or renames any of them; \`trash\` removes any of them.
 
 ## Notes
 
@@ -34,7 +55,7 @@ A note is markdown. A note that was never named is called after its first line. 
 
 ## Task lists
 
-\`{ "sections": [{ "id", "name" }], "tasks": [Task] }\`. A task: \`id\`, \`title\`, \`done\`, \`priority\` (1 highest, 4 none), \`due\` (\`YYYY-MM-DD\` or null), \`parent\` (a subtask's parent id or null), \`order\`, \`created\`, \`updated\`, \`completed\`; optional \`description\`, \`section\` (a section id), \`assignee\` ({ id?, name? }), \`author\`, \`note\` (a note's path), \`card\` (\`board path#card id\`), \`record\` ({ collection, id, name, code? }). Prefer \`save_task\`: it makes ids and keeps the order.
+\`{ "sections": [{ "id", "name" }], "tasks": [Task] }\`. A task: \`id\`, \`title\`, \`done\`, \`priority\` (1 highest, 4 none), \`due\` (\`YYYY-MM-DD\` or null), \`parent\` (a subtask's parent id or null), \`order\`, \`created\`, \`updated\`, \`completed\`; optional \`description\`, \`section\` (a section id), \`assignee\` ({ id?, name? }), \`author\`, \`note\` (a note's path), \`card\` (\`board path#card id\`), \`record\` ({ collection, id, name, code? }). Prefer \`save_task\`: it makes ids and keeps the order. To add, rename or reorder sections, \`read\` the list, change \`sections\`, \`write\` it back.
 
 ## Boards
 
@@ -44,12 +65,15 @@ A note is markdown. A note that was never named is called after its first line. 
 - Phases are ordered units of scope; exactly one is current while any is open. Work in the current phase: \`cards\` shows it by default (\`phase: "all"\` for every card), \`save_card\` adds to it. Leave other phases alone.
 - A card: \`id\`, \`key\` (its number; shown as \`PREFIX-12\`), \`title\`, \`description\` (markdown; a checklist is \`- [ ]\` lines in it), \`column\`, \`phase\`, \`order\`, \`priority\`, \`due\`, \`labels\`, \`assignee\`, \`note\`, \`values\` (the board's own fields), \`timeline\` (moves and comments, with who did them). A card is a brief: \`cards\` with one card and \`brief: true\` gives it as one text, its linked note and phase included.
 - Boards may have fields of their own (a deal's company, value, next step), given as \`values\` by key or label; a link field takes a record's name or code.
+- To add, rename or reorder columns or phases, or to add a field: \`read\` the board, change \`columns\`, \`phases\` or \`fields\`, \`write\` it back with \`ifMatch\`. Keep every \`id\` as it is and keep at least one \`done\` column. A column: \`{ "id", "name", "kind" }\`; a phase: \`{ "id", "name", "state": "upcoming" | "current" | "done", "goal"?, "doneWhen"?, "note"? }\`, one of them current.
 
 ## Collections
 
 A collection is a folder with \`_collection.json\`: \`{ "version": 2, "template", "singular"?, "fields": [...], "layout"?, "views"? }\`. A field: \`key\`, \`label\`, \`type\` (name, code, text, number, date, select, multi-select, checkbox, person, url, email, phone, link, formula, rollup), \`options\` and \`colors\` for selects, \`required\`, \`collection\` and \`many\` for links, \`formula\` (over the record's own fields: \`qty * unit_price\`, \`today() - last_contact\`), \`rollup\` ({ from, field, fn: count|sum|max|min, open? }). At most one \`name\` and one \`code\` field; nothing is added by itself.
 
-A record is a \`.md\` file named after its id: YAML front matter with \`id\` and the fields by key, then the body (notes about it). A link is \`{ id, name, code? }\` of the record it points at; links never break when records are renamed. Formulas and rollups are worked out on screen and never written to the file. \`records\` returns them worked out; \`save_record\` takes links by name or code and writes a value that does not fit as it is, marked in \`problems\` (the app marks it too). Templates: companies, people, activities, feedback, payments, blank. To set up a new kind of list, \`create\` a blank collection and \`write\` its \`_collection.json\`; the person's rules for a process live in a note next to it (an SOP): read it, then apply it.
+A record is a \`.md\` file named after its id: YAML front matter with \`id\` and the fields by key, then the body (notes about it). A link is \`{ id, name, code? }\` of the record it points at; links never break when records are renamed. Formulas and rollups are worked out on screen and never written to the file. \`records\` returns them worked out; \`save_record\` takes links by name or code and writes a value that does not fit as it is, marked in \`problems\` (the app marks it too). Templates: companies, people, activities, feedback, payments, blank.
+
+To add a field, change its options or its type: \`read\` the \`_collection.json\`, add to or change \`fields\` (a new field: \`{ "key": "segment", "label": "Segment", "type": "select", "options": ["SMB", "Mid", "Enterprise"] }\`; keys are short, lowercase, unique and never change), \`write\` it back with \`ifMatch\`. Values of a removed field stay in the record files. To set up a new kind of list, \`create\` a blank collection and \`write\` its \`_collection.json\`; the person's rules for a process live in a note next to it (an SOP): read it, then apply it.
 
 ## Who did what
 

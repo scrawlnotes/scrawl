@@ -225,7 +225,7 @@ describe('working through /mcp', () => {
     const socket: LiveSocket = { account: PERSON, device: 'laptop', send: (text) => heard.push(text), close: () => undefined };
     s.server.live.add(socket);
     const client = await mcp(s, access);
-    expect((await client.listTools()).tools.length).toBe(14);
+    expect((await client.listTools()).tools.length).toBe(15);
     const made = await client.callTool({ name: 'create', arguments: { kind: 'board', name: 'Scrawl', template: 'software' } });
     expect(made.structuredContent).toMatchObject({ space: SPACE, path: 'Scrawl.board.json' });
     const card = await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', title: 'Write the server door', column: 'Todo' } });

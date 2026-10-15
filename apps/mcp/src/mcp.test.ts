@@ -119,7 +119,7 @@ describe('the built command', () => {
     const transport = new StdioClientTransport({ command: process.execPath, args: [join(import.meta.dirname, '..', 'dist', 'scrawl-mcp.mjs'), vault, '--client', 'Tester'], stderr: 'pipe' });
     const client = new Client({ name: 'test-client', version: '1.0.0' });
     await client.connect(transport);
-    expect((await client.listTools()).tools.length).toBe(14);
+    expect((await client.listTools()).tools.length).toBe(15);
     const spaces = await client.callTool({ name: 'spaces', arguments: {} });
     expect(spaces.structuredContent).toMatchObject({ person: null, spaces: [{ id: 'personal', name: 'Personal', where: 'this computer', personal: true }] });
     const added = await client.callTool({ name: 'save_task', arguments: { title: 'Try the command', due: '2026-10-16' } });
