@@ -52,10 +52,12 @@ On dört araç; hepsi `packages/agent`'ta. Büyük araç listesi her istemciyi k
 
 Her araç bir `space` alır (kimlik ya da ad); ajan tek space görüyorsa boş bırakılır. Yollar space içinde, `/` ile, uygulamanın sekmede gösterdiği gibi.
 
+**Ada göre çözme:** pano, koleksiyon ya da liste isteyen her araç (`cards`, `save_card`, `comment`, `records`, `save_record`, `tasks`, `save_task`) yol da ad da kabul eder; `space` de öyle. Ad büyük-küçük harfe bakmadan tek bir şeye uyuyorsa araç onu kullanır ve cevabında yolunu söyler. Birden fazlasına uyuyorsa ("Scrawl" ve "Scrawl v2") araç hiçbir şey yazmaz, adayları yollarıyla döndürür; ajan kişiye sorar. Hiçbirine uymuyorsa en yakın adları döndürür. Aynı kural kayıtlar için de geçerlidir: `save_record` ve `save_card`'da link alanının değeri ile `save_task`'in `record`'u ad ya da kodla verilir; birden fazla kayıt uyuyorsa araç yazmaz, adayları döndürür. Kural araçta olduğu için ajanın tahmin etme şansı kalmaz; Scrawl "şu anki proje" diye bir şey uydurmaz, bağlam istemciden gelir (Claude Code çalıştığı klasörü, claude.ai konuşmayı bilir).
+
 | Araç | Girdi | Ne yapar, ne döner | Core |
 |---|---|---|---|
-| `spaces` | — | Ajanın gördüğü space'ler: kimlik, ad, nerede ("this computer", "OneDrive", sunucu adresi), kişisel mi | `readSpaceEntries`, `loadSpace` |
-| `tree` | `space`, `folder?` | Klasör ağacı; her düğümün türü: note, tasks, board, keys, collection, filter, folder | `readTree` |
+| `spaces` | — | Ajanın gördüğü space'ler: kimlik, ad, nerede ("this computer", "OneDrive", sunucu adresi), kişisel mi. Yanında bugünün tarihi ve kişinin adı: istemciler bugünü her zaman vermez, "haftaya ara" gibi bir tarih ve aktör buradan bilinir | `readSpaceEntries`, `loadSpace`, `loadMe` |
+| `tree` | `space`, `folder?`, `kind?` | Klasör ağacı; her düğümün türü: note, tasks, board, keys, collection, filter, folder. `kind` verilince yalnız o türdekiler, yollarıyla: bütün panolar tek çağrıda | `readTree` |
 | `read` | `space`, `path` | Dosyanın metni: not, kayıt (frontmatter + gövde), görev listesi, pano, şema. Keys, `.scrawl/` ve `_attachments/` reddedilir | `fs.readText` |
 | `write` | `space`, `path`, `text`, `ifMatch?` | Dosyayı olduğu gibi yazar, klasörlerini açar; `ifMatch` verilmişse ve dosya değişmişse yazmaz, şimdiki özeti döner. Notun önceki hali her zaman sürüm olarak kalır. Keys, `.scrawl/` ve `_attachments/` reddedilir; 1 MB'tan büyük metin reddedilir | `fs.writeText`, `keepVersion({ always: true })` |
 | `search` | `query`, `space?`, `limit?` | Arama penceresinin bulduğu gibi: ad ve metinden; her satırda space, yol, tür, başlık, parça | `searchIndex`, `search` |
@@ -71,7 +73,7 @@ Her araç bir `space` alır (kimlik ya da ad); ajan tek space görüyorsa boş b
 
 Araç açıklamaları (`description`) ve `annotations` doğru doldurulur: okuyanlar `readOnlyHint: true`, `write`, `trash` ve `save_*` `destructiveHint`'i doğru söyler; ChatGPT yazan her aracı kullanıcıya onaylatır, Claude da ipuçlarına bakar. Dönen her şey hem metin hem `structuredContent` olur.
 
-**Kaynak:** `scrawl://guide`, markdown. Klasör düzeni, her elementin dosya biçimi (not, `.tasks.json`, `.board.json`, `_collection.json` ve kayıt dosyası, kimlikler, sütun türleri, fazlar, link ve önbelleklenmiş ad, formül ve rollup yazımı, şablonlar), `.scrawl/`'ın ne olduğu ve dokunulmayacağı, SOP notu alışkanlığı ("Won olunca kapanış tarihini yaz" gibi kuralı not söyler, ajan uygular). Ajan bunu bir kez okur, sonra "bana bir CRM kur" dediğinde `create` ve `write` ile şemayı ve düzeni kendisi yazar. Araç açıklamaları bu kaynağa işaret eder.
+**Kaynak:** `scrawl://guide`, markdown. Klasör düzeni, her elementin dosya biçimi (not, `.tasks.json`, `.board.json`, `_collection.json` ve kayıt dosyası, kimlikler, sütun türleri, fazlar, link ve önbelleklenmiş ad, formül ve rollup yazımı, şablonlar), `.scrawl/`'ın ne olduğu ve dokunulmayacağı, SOP notu alışkanlığı ("Won olunca kapanış tarihini yaz" gibi kuralı not söyler, ajan uygular). Rehber ajanın tavrını da söyler: önce etrafına bak (`spaces`, `tree`, `search`), eklemeden önce var olana bak ve varsa onu güncelle, birden fazla şey uyuyorsa sor, emin olmadığın şeyi yazma. Ajan bunu bir kez okur, sonra "bana bir CRM kur" dediğinde `create` ve `write` ile şemayı ve düzeni kendisi yazar. Araç açıklamaları bu kaynağa işaret eder ve aynı kuralı kısaca tekrar eder.
 
 **Kapalı olanlar:** Keys dosyaları (sırlar), `.scrawl/` (geçmiş, dizin, kişiler, ben), `_attachments/` (ekler; v1'de ne okunur ne yazılır). Ajan hiçbir şeyi kalıcı silmez. Space ekleme, kişi çıkarma, sunucu ayarları gibi şeyler araç değildir.
 
@@ -154,7 +156,7 @@ Aynı `packages/agent`; fabrikaya hesap, `ServerFs` üreticisi, aktör ("Claude 
 
 ## 10. Testler
 
-- **Araçlar (`packages/agent`, `MemoryFs`):** pano kurma, kart ekleme, türle sütuna taşıma, yorum, brief; geçerli faz dışına çıkmama; koleksiyon kurma ve `records`'ta koşul, sıralama, formül ve rollup; `save_record`'da ad ve kodla link çözme, uymayan değerin yazılıp `problems`'ta dönmesi; görev ekleme ve kapatma, Inbox varsayılanı; `write`'ın notun önceki halini sürüm olarak bırakması ve `ifMatch`; Keys, `.scrawl/` ve eklerin reddi; aktör metni; `scrawl://guide`'ın okunması.
+- **Araçlar (`packages/agent`, `MemoryFs`):** pano kurma, kart ekleme, türle sütuna taşıma, yorum, brief; geçerli faz dışına çıkmama; koleksiyon kurma ve `records`'ta koşul, sıralama, formül ve rollup; `save_record`'da ad ve kodla link çözme, uymayan değerin yazılıp `problems`'ta dönmesi; görev ekleme ve kapatma, Inbox varsayılanı; `write`'ın notun önceki halini sürüm olarak bırakması ve `ifMatch`; Keys, `.scrawl/` ve eklerin reddi; aktör metni; `scrawl://guide`'ın okunması; ada göre çözme (tek eşleşme yolunu söyler, iki eşleşme yazmaz ve adayları döndürür, eşleşme yoksa en yakınlar; link ve görevin `record`'u için de), `tree`'nin tür süzgeci, `spaces`'in bugünü ve kişiyi söylemesi.
 - **Sözleşme:** aynı araç testleri `ServerFs` üstünde, test içinde açılan bir sunucuya karşı da koşar; iki kapı aynı davranmalı.
 - **Sunucu:** metadata belgeleri; DCR; CIMD (sahte belge sunucusuyla; `http`, özel adres ve büyük belge reddi); PKCE yanlış verifier → `invalid_grant`; kodun ikinci kullanımı; refresh döndürme ve eskisinin geçersizliği; süresi dolmuş token → 401 ve `WWW-Authenticate`; yanlış `resource`; üyesi olunmayan space'in görünmemesi; `/mcp` ile `tools/list` ve bir çağrı; yazmanın `changes`'ta ve canlı kanalda görünmesi; Disconnect sonrası 401; eski (2025) protokolle gelen istemcinin cevap alması.
 - **Bilgisayar:** ayar dosyasının üç işletim sisteminde bulunması, `--vault`, `space.json`'u olmayan klasörün Personal sayılması, iki space'in `spaces`'ta görünmesi, stdout'a protokol dışında hiçbir şey yazılmaması.
@@ -178,3 +180,5 @@ Sonra: komut satırı yüzü (aynı paketin ikinci yüzü, ihtiyaç çıkarsa), 
 6. Sunucu kendi yetki sunucusu: CIMD ve DCR, PKCE, giriş sayfası sunucunun; her bağlantı bir cihaz, hesabın sayfasından kesilir.
 7. Bilgisayardaki kapı uygulamanın ayarlarını okur, uygulama açık olmak zorunda değil; `npx -y @scrawlnotes/mcp` ve `.mcpb`.
 8. CLI şimdilik yok.
+9. (Eklendi, onaylı.) Araçlar pano, koleksiyon ve listeyi ad ile de alır; ad birden fazlasına uyuyorsa yazmaz, adayları döndürür. `tree`'de tür süzgeci. Rehber "önce bak, varsa güncelle, belirsizse sor" der. Belli bir projeye ya da senaryoya bağlı hiçbir şey yok.
+10. (Eklendi, onaylı.) Belirsizlik kuralı kayıtlara da uygulanır: link ve görevin `record`'u adla verilip birden fazla kayıt uyuyorsa araç yazmaz, adayları döndürür. `spaces` bugünün tarihini ve kişinin adını döner.
