@@ -239,6 +239,13 @@ describe('working through /mcp', () => {
     expect(written.author_id).toBe(PERSON);
     expect(s.server.oauth.isAgent(written.device_id)).toBe(true);
     expect(heard.filter((text) => text.includes('"changed"')).length).toBeGreaterThanOrEqual(2);
+    // A note written, then written over with the hash read gave: the server keeps the versions, not a history folder.
+    const note = await client.callTool({ name: 'write', arguments: { path: 'Plans/Roadmap.md', text: '# Roadmap\n\nOctober.\n' } });
+    expect(note.isError).toBeFalsy();
+    const again = await client.callTool({ name: 'write', arguments: { path: 'Plans/Roadmap.md', text: '# Roadmap\n\nNovember.\n', ifMatch: (note.structuredContent as { hash: string }).hash } });
+    expect(again.isError).toBeFalsy();
+    expect((again.structuredContent as { created: boolean }).created).toBe(false);
+    expect(s.server.db.prepare('SELECT COUNT(*) AS n FROM versions WHERE space_id = ? AND path = ?').get(SPACE, 'Plans/Roadmap.md')).toEqual({ n: 2 });
     const text = await client.callTool({ name: 'read', arguments: { path: 'Scrawl.board.json' } });
     expect((text.content[0] as { text: string }).text).toContain('"prefix": "SCR"');
     const board = JSON.parse((text.content[0] as { text: string }).text) as { cards: { author: { name: string } }[] };

@@ -29,6 +29,12 @@ export interface AgentSpace {
   where: string;
   personal: boolean;
   fs: VaultFs;
+  /**
+   * The store keeps every version of every file itself, as a server does: nothing is written
+   * beside a note when it is written over. Without it, a note's earlier text is kept in the
+   * space's history, as the app keeps it on a device.
+   */
+  versioned?: boolean;
 }
 
 /** The person the agent works for: the one signed in, or the owner of the vault. */

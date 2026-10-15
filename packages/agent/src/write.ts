@@ -35,7 +35,8 @@ export async function writeTool(agent: Agent, args: { space?: string; path: stri
     if (now !== args.ifMatch) throw new Refusal(`${path} changed since it was read; read it again`, { path, hash: now });
   }
   const kind = fileKind(path);
-  if (kind === 'note' && previous?.trim() && previous !== args.text) await keepVersion(space.fs, path, previous, { now: nowOf(agent), always: true });
+  // A server versions every write itself; its history folder is a device's own, and it refuses it.
+  if (kind === 'note' && !space.versioned && previous?.trim() && previous !== args.text) await keepVersion(space.fs, path, previous, { now: nowOf(agent), always: true });
   await space.fs.writeText(path, args.text);
   return { data: { space: space.id, path, kind, hash: hashOf(args.text), created: !entry } };
 }

@@ -30,7 +30,7 @@ A space is a folder tree. Folders group things; a folder with a \`_collection.js
 
 ## Notes
 
-A note is markdown. A note that was never named is called after its first line. Links to other notes are markdown links to their paths. When you write over a note, its earlier text is kept as a version the person can go back to.
+A note is markdown. A note that was never named is called after its first line. Links to other notes are markdown links to their paths. When you write over a note, its earlier text is kept: as a version beside the note on a computer, in the server's history on a server.
 
 ## Task lists
 

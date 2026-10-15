@@ -138,6 +138,8 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
         where: host,
         personal: false,
         fs: new ServerFs(files, blobs, space.id, { account: account.id, device }, config.maxFileBytes),
+        // The store keeps every version: nothing goes to a history folder, which the server does not take.
+        versioned: true,
       })),
     person: async () => ({ id: account.id, name: account.name }),
     // The protocol does not carry the client's name with every request; the sign-in does.

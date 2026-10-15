@@ -109,6 +109,14 @@ describe('writing files', () => {
     expect((await refusal(writeTool(agent, { path: '_attachments/x.png', text: '' }))).message).toContain('attachment');
   });
 
+  it('keeps no version beside a note in a space whose store versions everything itself', async () => {
+    const { fs, note } = await sample();
+    const agent = agentOf({ ...spaceOf(fs), versioned: true });
+    await writeTool(agent, { path: note, text: '# Roadmap\n\nShip the agent in November.\n' });
+    expect(await listVersions(fs, note)).toEqual([]);
+    expect(await fs.readText(note)).toContain('November');
+  });
+
   it('creates elements where they are asked for, and trashes to the trash', async () => {
     const { agent, fs } = await sample();
     const crm = await createTool(agent, { folder: 'CRM', kind: 'board', name: 'Deals', template: 'crm' });
