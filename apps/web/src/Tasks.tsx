@@ -1472,8 +1472,16 @@ export function TaskList({ list, tasks, sections, today, actions, reveal = null 
         })}
         {drop?.line && <div className="drop-line" style={{ top: drop.line.top, left: drop.line.left }} />}
       </div>
-      {/* Add section in the header opens this; on a phone it comes from the list's menu. */}
-      {addingSection && addingSection.after === undefined && <SectionComposer onAdd={(name) => actions.addSection(list, name)} onClose={() => setAddingSection(null)} />}
+      {/* At the end, from the header's Add section or the line under the list, which shows as the one
+          between two sections does; on a phone a section comes from the list's menu. */}
+      {addingSection && addingSection.after === undefined && (
+        <SectionComposer onAdd={(name) => actions.addSection(list, name)} onClose={() => setAddingSection(null)} />
+      )}
+      {!addingSection && !isPhone() && (
+        <button type="button" className="sec-gap end" onClick={() => setAddingSection({})}>
+          {t('sections.add')}
+        </button>
+      )}
     </TaskPage>
   );
 }
