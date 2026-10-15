@@ -1890,7 +1890,32 @@ p { margin: 0; max-width: 68ch; }
 .mock .mb-share .acts svg { width: 20px; height: 20px; color: #f2f2f4; }
 /* Server (stage 11): a server is a place beside OneDrive; a link pasted says who invited you to
    what; the server's own page only sends the link on to Scrawl. */
-.dir[data-dir="server"] { margin-top: 56px; }
+.dir[data-dir="server"], .dir[data-dir="agents"] { margin-top: 56px; }
+.dir[data-dir="agents"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="agents"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="agents"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+/* agents (Oct 15, design/agent.md 8): Settings › Agents is two blocks, this computer and each server; a taller
+   window, since the real one scrolls what is between its title and its buttons. The server's sign-in page
+   in a browser; the phone's page. */
+.st-dlg.tall { height: 576px; }
+.st-space .st-list { background: var(--m-bg); }
+.st-acts .lab { margin-right: 2px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.st-space .st-note { margin: 0; }
+.st-space .st-acts { flex-wrap: wrap; gap: 6px; }
+.ag-none { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 12px; border: 1px dashed var(--m-line); border-radius: 7px; color: var(--m-dim); font-size: 12.5px; text-align: center; }
+.mock .ag-none > svg { width: 22px; height: 22px; color: var(--m-faint); }
+.st-li .who.bot { background: color-mix(in srgb, var(--m-accent) 22%, transparent); color: var(--m-fg); }
+.ag-steps { margin: 0 0 4px; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--m-fg); font-size: 12.5px; line-height: 1.4; }
+.ag-steps li::marker { color: var(--m-faint); }
+.ag-steps b { font-weight: 600; }
+.ag-steps .srv-copy { margin-top: 6px; }
+.jn-form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; margin-top: 6px; text-align: left; }
+.jn-form label { display: flex; flex-direction: column; gap: 4px; color: var(--m-dim); font-size: 12.5px; }
+.jn-form .field { display: flex; padding: 7px 9px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-side); color: var(--m-fg); font-size: 13px; }
+.jn-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.jn-acts .jn-btn { margin-top: 0; padding: 7px 22px; }
+.jn-acts .jn-copy { padding: 6px 14px; }
+.mb-row .who.bot { background: color-mix(in srgb, var(--m-accent) 22%, transparent); }
 .cmenu span.red { color: #f0706a; }
 .st-sync .state i.live { box-shadow: 0 0 0 3px color-mix(in srgb, #5cb87a 28%, transparent); }
 .fp .list span > svg { flex: none; width: 14px; height: 14px; color: var(--m-dim); }
@@ -2230,6 +2255,27 @@ p { margin: 0; max-width: 68ch; }
     <div class="scroller"><div class="mock dir-a"></div></div>
   </section>
 
+  <section class="dir" data-dir="agents">
+    <div class="brief">
+      <div>
+        <span class="letter">AJAN · 12. AŞAMA</span>
+        <h2>Ajanlar: bilgisayarda ve sunucuda</h2>
+        <p>Ajan, notlara senin ulaştığın yerden ulaşır. Bilgisayardaki ajan (Claude Code, Claude Desktop, Cursor) uygulamanın gördüğü klasörleri görür: kişisel space ve space'lerin bu cihazdaki kopyaları, hangi sağlayıcıda olurlarsa olsunlar. Dışarıdaki ajan (claude.ai web ve telefon, ChatGPT) yalnız bir Scrawl sunucusunu görebilir; bizim barındırdığımız bir köprü yoktur. Settings › Agents iki bloktur: bu bilgisayar için komut ve tek tıkla kurulumlar; bağlı her sunucu için adres, Claude, ChatGPT ve Claude Code düğmeleri ve altında hesaba bağlı ajanlar, Disconnect ile. Add to Claude küçük bir pencerede adımları ve adresi verir; connector eklenirken sunucunun kendi giriş sayfası açılır. Sunucunun sayfası aynı listeyi gösterir. Telefonda yalnız sunucu kısmı vardır. Teknik tasarım <code>design/agent.md</code>.</p>
+        <ul class="traits"><li>ajan notlara senin ulaştığın yerden ulaşır</li><li>bilgisayarda komut, sunucuda adres</li><li>giriş sunucunun sayfasında</li><li>bağlantı hesabın, Disconnect</li><li>telefonda yalnız sunucu</li><li>on dört araç, bir rehber</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Ajan görünümü">
+        <button type="button" data-gview="ag">Agents</button>
+        <button type="button" data-gview="agnone">No server</button>
+        <button type="button" data-gview="agclaude">Add to Claude</button>
+        <button type="button" data-gview="agmenu">Disconnect</button>
+        <button type="button" data-gview="agserver">Server page</button>
+        <button type="button" data-gview="agsignin">Sign-in page</button>
+        <button type="button" data-gview="pag">Phone</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
   <section class="dir" data-dir="upcoming">
     <div class="brief">
       <div>
@@ -2384,6 +2430,8 @@ p { margin: 0; max-width: 68ch; }
   ICON.trash = '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/></svg>';
   ICON.folder = '<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>';
   ICON.open = '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
+  ICON.agent = '<svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2.5"/><path d="M12 8V5M9.5 5h5"/><circle cx="9.5" cy="13.5" r="1"/><circle cx="14.5" cy="13.5" r="1"/></svg>';
+  ICON.laptop = '<svg viewBox="0 0 24 24"><rect x="5" y="5.5" width="14" height="10" rx="1.5"/><path d="M3 18.5h18"/></svg>';
   ICON.audio = '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
   ICON.image = '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L20 18"/></svg>';
   ICON.file = '<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';
@@ -4937,7 +4985,7 @@ p { margin: 0; max-width: 68ch; }
   function spSettingsWindow(section, extra) {
     var body = section === 'appearance' ? settingsAppearance() : section === 'profile' ? spProfile() : section === 'spacepage' || section === 'spremove' ? spSpacePage(section === 'spremove') : spSpacesList(section === 'spaceslist');
     return '<div class="ovl"><div class="st-dlg"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
-      row({ icon: 'person', label: 'Profile', on: section === 'profile' }) + row({ icon: 'half', label: 'Appearance', on: section === 'appearance' }) + row({ icon: 'space', label: 'Spaces', on: section !== 'profile' && section !== 'appearance' }) +
+      row({ icon: 'person', label: 'Profile', on: section === 'profile' }) + row({ icon: 'half', label: 'Appearance', on: section === 'appearance' }) + row({ icon: 'space', label: 'Spaces', on: section !== 'profile' && section !== 'appearance' }) + row({ icon: 'agent', label: 'Agents' }) +
       '</nav><div class="st-body">' + body + '</div></div></div>' + (extra || '') + '</div>';
   }
   /** The trash of every space in one place, each space's under its own heading. */
@@ -5824,7 +5872,7 @@ p { margin: 0; max-width: 68ch; }
   function srvRole(role) { return '<span class="srv-role">' + role + '</span>'; }
   function srvSettings(body, extra) {
     return '<div class="ovl"><div class="st-dlg"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
-      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + row({ icon: 'space', label: 'Spaces', on: true }) +
+      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + row({ icon: 'space', label: 'Spaces', on: true }) + row({ icon: 'agent', label: 'Agents' }) +
       '</nav><div class="st-body">' + body + '</div></div></div>' + (extra || '') + '</div>';
   }
   /** Settings › Spaces with a space on a server, and under them the servers this device is signed in to. */
@@ -6126,6 +6174,131 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderServer(sectionServer, b.dataset.sview);
   });
   renderServer(sectionServer, 'srvadd');
+  // Agents (Oct 15, design/agent.md 8): an agent reaches the notes the way the person does. On this
+  // computer, a command the clients start; on a server, an address they connect to and sign in at.
+  var AG_ADDRESS = 'https://' + SRV_HOST + '/mcp';
+  var AG_AGENTS = [
+    { ini: 'C', name: 'Claude', sub: 'connected Oct 15', r: '2 min ago' },
+    { ini: 'G', name: 'ChatGPT', sub: 'connected Oct 14', r: 'yesterday' },
+    { ini: 'C', name: 'Claude Code', sub: 'connected Oct 15', r: 'just now' }
+  ];
+  /** An agent connected to the account: what it is, where, since when, and when it was last here. */
+  function agLi(a, menu) {
+    return spLi({ who: a.ini, name: a.name, sub: a.sub, r: a.r, more: true, cls: 'one' + (menu ? ' menu' : ''),
+      menu: menu ? '<div class="cmenu"><span class="red">Disconnect</span></div>' : '' }).replace('<span class="who">', '<span class="who bot">');
+  }
+  function agComputer() {
+    return '<div class="st-space tight"><div class="top">' + ICON.laptop + '<b>Laptop</b><small>Personal · Acme · Side projects</small></div>' +
+      '<div class="st-row"><span class="fl">Command</span><span class="path">npx -y @scrawlnotes/mcp</span><span class="btn">Copy</span></div>' +
+      '<div class="st-acts"><span class="lab">Add to</span><span class="st-btn">Claude Desktop</span><span class="st-btn">Claude Code</span><span class="st-btn">Cursor</span></div></div>';
+  }
+  function agServer(o) {
+    o = o || {};
+    return '<div class="st-space tight srv"><div class="top">' + ICON.server + '<b>' + SRV_HOST + '</b><small>kaan@outlook.com</small></div>' +
+      '<div class="st-row"><span class="fl">Address</span><span class="path">' + AG_ADDRESS + '</span><span class="btn">Copy</span></div>' +
+      '<div class="st-acts"><span class="lab">Add to</span><span class="st-btn">Claude</span><span class="st-btn">ChatGPT</span><span class="st-btn">Claude Code</span></div>' +
+      '<p class="st-note">Claude on the web and your phone, ChatGPT, a Claude Code elsewhere. Each signs in with your account here.</p>' +
+      '<div class="st-list">' + AG_AGENTS.map(function (a, i) { return agLi(a, o.menu && i === 0); }).join('') + '</div>' +
+      '<p class="st-note">Connected to your account; what they do carries their name and yours. Disconnect ends one’s access until it signs in again.</p></div>';
+  }
+  /** Settings › Agents: this computer, each server, and the agents connected to the account; or, with no server, where to get one. */
+  function agPage(o) {
+    o = o || {};
+    var head = '<p class="st-note">An agent reaches your notes the way you do: here, the folders on this computer; on the web and your phone, a Scrawl server.</p>';
+    var none = '<div class="ag-none">' + ICON.server + '<span>Claude and ChatGPT on the web and on your phone can’t reach this computer. Connect them to a Scrawl server.</span><span class="st-btn go">Connect a server…</span></div>';
+    return head + agComputer() + (o.none ? none : agServer(o));
+  }
+  /** The Settings window with Agents lit, or Spaces for the server's page. */
+  function agSettings(body, extra, o) {
+    o = o || {};
+    return '<div class="ovl"><div class="st-dlg' + (o.tall ? ' tall' : '') + '"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
+      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + row({ icon: 'space', label: 'Spaces', on: o.on === 'spaces' }) + row({ icon: 'agent', label: 'Agents', on: o.on !== 'spaces' }) +
+      '</nav><div class="st-body">' + body + '</div></div></div>' + (extra || '') + '</div>';
+  }
+  /** Add to Claude: the steps, since claude.ai takes a connector from its own settings, and the address to paste. */
+  function agAddClaude() {
+    return '<div class="fp-ovl"><div class="fp"><h3>Add to Claude<small>' + SRV_HOST + '</small></h3>' +
+      '<ol class="ag-steps">' +
+      '<li>On <b>claude.ai</b>, open Settings › Connectors and choose <b>Add custom connector</b>.</li>' +
+      '<li>Paste this address:<div class="srv-copy"><span class="field filled">' + AG_ADDRESS + '</span><span class="st-btn go">Copy</span></div></li>' +
+      '<li>Sign in with your account on ' + SRV_HOST + ' on the page that opens.</li></ol>' +
+      '<p class="note">Added on the web, it works on your phone and in Claude Desktop too.</p>' +
+      '<div class="foot"><span class="st-btn">Done</span></div>' +
+      '</div></div>';
+  }
+  /** The server's page, with the agents connected to the account above the people on it. */
+  function agServerPage() {
+    var rowOf = '<div class="st-row"><span class="fl">Agents</span><span class="path plain">Claude, ChatGPT, Claude Code</span><span class="btn">Manage…</span></div>';
+    return srvServerPage(false).replace('<p class="st-note">Signing out keeps', rowOf + '<p class="st-note">Signing out keeps');
+  }
+  /** The sign-in a connector opens, in a browser: the server’s own page asks the person to let the client in. */
+  function agSignInPage() {
+    return '<div class="br"><div class="br-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">' + SRV_HOST + '/oauth/authorize?client_id=https://claude.ai/…</span></div>' +
+      '<div class="br-page"><div class="jn"><span class="jn-mark">' + ICON.server + 'Scrawl server</span>' +
+      '<h1>Let Claude use your Scrawl account?</h1>' +
+      '<p>Claude will see and change the spaces you are in on ' + SRV_HOST + ', as you would. Sign in to allow it.</p>' +
+      '<div class="jn-form"><label>Email<span class="field filled">kaan@outlook.com</span></label>' +
+      '<label>Password<span class="field filled srv-pw">••••••••••<span class="caret"></span></span></label>' +
+      '<div class="jn-acts"><span class="jn-copy">Cancel</span><span class="jn-btn">Allow</span></div></div>' +
+      '</div><div class="jn-foot">' + SRV_HOST + ' · Scrawl server 0.2</div></div></div>';
+  }
+  // Phone: Agents in Settings; only the server part, since the phone's Claude reaches only a server.
+  function mbAgSettingsList() {
+    return mbPage(mbNav('Browse') + mbHead('Settings'),
+      mbRow({ icon: 'person', label: 'Profile', ct: 'Kaan Arslan' }) +
+      mbRow({ icon: 'half', label: 'Appearance', ct: 'Frost · System' }) +
+      mbRow({ icon: 'space', label: 'Spaces', ct: 3 }) +
+      mbRow({ icon: 'agent', label: 'Agents', ct: 3 }));
+  }
+  function mbAgPage(none) {
+    if (none) {
+      return mbPage(mbNav('Settings') + mbHead('Agents'),
+        '<p class="mb-p">Claude on your phone reaches your notes through a Scrawl server; it cannot reach a computer or a cloud folder. Connect a server, then add it to Claude on the web: it works here too.</p>' +
+        '<div class="mb-form"><div class="mb-btn">Connect a server…</div></div>');
+    }
+    return mbPage(mbNav('Settings') + mbHead('Agents'),
+      '<div class="mb-sec">' + SRV_HOST + '</div>' +
+      '<div class="mb-form"><div class="mb-group"><div class="mb-fr"><span class="fl">Address</span><span class="in srv-l">' + AG_ADDRESS + '</span><span class="val">' + ICON.copies + '</span></div></div></div>' +
+      mbRow({ icon: 'plus', label: 'Add to Claude', sub: 'claude.ai › Settings › Connectors' }) +
+      mbRow({ icon: 'plus', label: 'Add to ChatGPT', sub: 'Settings › Apps & Connectors › Developer mode' }) +
+      '<p class="mb-p">Added on the web, it works on this phone too. Each one signs in with your account on the server.</p>' +
+      '<div class="mb-sec">Connected to your account</div>' +
+      AG_AGENTS.map(function (a) { return mbRow({ icon: 'agent', label: a.name, sub: a.sub, ct: a.r }); }).join('') +
+      '<p class="mb-p">Tap one to disconnect it; it signs in again the next time you use it.</p>');
+  }
+  function phoneAgents() {
+    var sheet = mbActions('agent', 'Claude', SRV_HOST + ' · connected Oct 15', [[{ icon: 'x', label: 'Disconnect', red: true }]]);
+    return [
+      mbPhone('Settings: Agents satırı', mbAgSettingsList(), mbTabsSx('browse')),
+      mbPhone('Agents: sunucunun adresi, Claude ve ChatGPT, bağlı ajanlar', mbAgPage(false), mbTabsSx('browse')),
+      mbPhone('Bir ajana dokununca: Disconnect', mbAgPage(false), mbTabsSx('browse') + MB_DIM + sheet),
+      mbPhone('Sunucu yokken: telefondaki Claude ancak sunucuya ulaşır', mbAgPage(true), mbTabsSx('browse'))
+    ].join('');
+  }
+  var AG_VIEWS = {
+    ag: function () { return spNoteView('spaceslist') + agSettings(agPage()); },
+    agnone: function () { return spNoteView('spaceslist') + agSettings(agPage({ none: true })); },
+    agclaude: function () { return spNoteView('spaceslist') + agSettings(agPage(), agAddClaude()); },
+    agmenu: function () { return spNoteView('spaceslist') + agSettings(agPage({ menu: true })); },
+    agserver: function () { return spNoteView('spaceslist') + agSettings(agServerPage(), '', { tall: true, on: 'spaces' }); },
+    agsignin: function () { return agSignInPage(); }
+  };
+  var AG_PHONES = { pag: phoneAgents };
+  function renderAgents(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.className = AG_PHONES[view] ? 'mock dir-a phones four mbs' : view === 'agsignin' ? 'mock dir-a srv-web' : 'mock dir-a';
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = (AG_PHONES[view] || AG_VIEWS[view])();
+    section.querySelectorAll('.brief [data-gview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.gview === view));
+    });
+  }
+  var sectionAgents = document.querySelector('.dir[data-dir="agents"]');
+  sectionAgents.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-gview]');
+    if (b) renderAgents(sectionAgents, b.dataset.gview);
+  });
+  renderAgents(sectionAgents, 'ag');
   // Upcoming (Oct 15, a draft): List and Calendar. Today is Thursday, Oct 15; October 2026 begins
   // on a Thursday, so its month shows from Monday, Sep 28 to Sunday, Nov 8.
   var UP_DAYS = {
