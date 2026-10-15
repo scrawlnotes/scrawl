@@ -1941,6 +1941,113 @@ p { margin: 0; max-width: 68ch; }
 .mb-share .what .doc.lnk { background: #3a3a40; color: #f2f2f4; }
 .mock .mb-share .what .doc.lnk svg { width: 22px; height: 22px; color: #f2f2f4; }
 .mock .mb-share .acts svg.cp { width: 20px; height: 20px; }
+/* Upcoming (Oct 15, a draft). Two views, List and Calendar, chosen in the header. List has the
+   days that have something, and between them the free days told in one faint line. Calendar is the
+   month: as many tasks a day as fit and +N more, the free days faint, today filled; a day opens in a small
+   window over it, and a task dragged to another day takes that date. */
+.dir[data-dir="upcoming"] .mock.dir-a:not(.phones) { height: 830px; min-width: 1180px; }
+.dir[data-dir="upcoming"] .mock .side.fit, .dir[data-dir="upcoming"] .mock .main.fit { max-height: 828px; }
+.up-seg { display: inline-flex; padding: 2px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); }
+.up-seg span { padding: 2px 12px; border-radius: 5px; color: var(--m-dim); font-size: 12px; }
+.up-seg span.on { background: var(--m-sel); color: var(--m-fg); font-weight: 500; }
+.sec .when { color: var(--m-faint); font-weight: 400; }
+.sec .resch { margin-left: auto; color: var(--m-accent); font-weight: 600; }
+.meta .late { color: var(--m-p1); font-weight: 600; }
+.up-gap { display: flex; align-items: center; gap: 10px; padding: 14px 0 0; color: var(--m-faint); font-size: 11.5px; }
+.up-gap::before, .up-gap::after { content: ''; flex: 1; border-top: 1px dashed var(--m-line); }
+.up-month { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }
+.th .up-month b { margin: 0 4px; font-size: 14px; font-weight: 600; }
+.up-month .nav { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--m-line); border-radius: 5px; color: var(--m-dim); }
+.mock .up-month .nav svg { width: 12px; height: 12px; }
+.up-cal { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 2px 26px 16px; }
+.up-cal .wd { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); padding-bottom: 6px; color: var(--m-faint); font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.up-cal .wd span { padding-left: 7px; }
+.up-cal .grid { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); border-top: 1px solid var(--m-line); border-left: 1px solid var(--m-line); }
+.cd { display: flex; flex-direction: column; gap: 3px; min-width: 0; min-height: 0; padding: 4px 5px; border-right: 1px solid var(--m-line); border-bottom: 1px solid var(--m-line); overflow: hidden; }
+.cd .n { align-self: flex-start; min-width: 12px; padding: 0 5px; border-radius: 9px; color: var(--m-faint); font-size: 11.5px; font-variant-numeric: tabular-nums; text-align: center; }
+.cd.busy .n { color: var(--m-fg); font-weight: 600; }
+.cd.out { background: color-mix(in srgb, var(--m-side) 70%, transparent); }
+.cd.out .n { opacity: .6; }
+.cd.today .n { background: var(--m-accent); color: var(--m-on-accent); font-weight: 700; }
+.cd.on { background: color-mix(in srgb, var(--m-sel) 60%, transparent); }
+.cd.drop-on { outline: 2px dashed var(--m-accent); outline-offset: -3px; background: color-mix(in srgb, var(--m-accent) 8%, transparent); }
+.cal-t { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--pc, var(--m-faint)) 14%, transparent); color: var(--m-fg); font-size: 11px; line-height: 1.5; white-space: nowrap; }
+.cal-t i { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--pc, var(--m-faint)); }
+.cal-t i.sq { border-radius: 1.5px; }
+.cal-t span { overflow: hidden; text-overflow: ellipsis; }
+.cal-t .key { flex: none; color: var(--m-faint); font: 10px/1 var(--m-mono); }
+.cal-t.late span { color: var(--m-p1); }
+.cal-t.ghost { opacity: .3; }
+.cal-t.lift { position: absolute; z-index: 4; grid-column: 4; grid-row: 4; align-self: start; justify-self: start; margin: 50px 0 0 18px; width: 150px; background: var(--m-bg); box-shadow: 0 8px 22px rgb(0 0 0 / .4); outline: 1px solid var(--m-line); transform: rotate(-2deg); }
+.cal-more { padding-left: 5px; color: var(--m-faint); font-size: 11px; }
+.up-pop { position: absolute; z-index: 5; grid-column: 2 / 4; grid-row: 4 / 7; align-self: start; margin: 6px 0 0 6px; width: 300px; padding: 10px 12px 6px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-side); box-shadow: 0 12px 30px rgb(0 0 0 / .4); }
+.up-pop h4 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 2px; font-size: 13px; font-weight: 600; }
+.up-pop h4 small { color: var(--m-faint); font-weight: 400; }
+.up-pop h4 .x { margin-left: auto; color: var(--m-faint); }
+.up-pop .task { padding: 7px 0; }
+.up-pop .task:last-of-type { border-bottom: 0; }
+.up-pop .qa { padding: 6px 0 4px; }
+/* Adding in Upcoming: the name, then chips with the day set, a list to put it in, Cancel and Add task. */
+.up-qa { margin: 6px 0 4px; padding: 8px 10px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-side); }
+.up-qa .r1 { display: flex; align-items: center; gap: 10px; }
+.up-qa .r1 .cb { margin-top: 0; }
+.up-qa .in { color: var(--m-fg); font-size: 13.5px; }
+.up-qa .ds { padding: 2px 0 7px 26px; color: var(--m-faint); font-size: 12px; }
+.up-qa .chips { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 26px; }
+.up-qa .chips span { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-dim); font-size: 11.5px; }
+.up-qa .chips span.on { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); color: var(--m-accent); }
+.mock .up-qa svg { width: 12px; height: 12px; }
+.up-qa .foot { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--m-line); }
+.up-qa .where { display: inline-flex; align-items: center; gap: 5px; margin-right: auto; padding: 2px 6px; border-radius: 5px; color: var(--m-dim); font-size: 12px; }
+.mock .up-qa .foot .add, .mock .up-qa .foot .ghost { margin-left: 0; }
+/* The date chip and the list, open: the day is any day, the list any list of any space. */
+.up-qa { position: relative; }
+.up-dd { position: absolute; z-index: 6; width: 270px; padding: 6px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-bg); box-shadow: 0 12px 30px rgb(0 0 0 / .45); font-size: 12.5px; }
+.up-dd.date { top: calc(100% - 40px); left: 36px; }
+.up-dd.list { top: calc(100% - 6px); left: 10px; width: 300px; }
+.up-dd .opt { display: flex; align-items: center; gap: 8px; padding: 5px 7px; border-radius: 5px; color: var(--m-fg); }
+.up-dd .opt.on { background: var(--m-sel); }
+.up-dd .opt small { margin-left: auto; color: var(--m-faint); font-size: 11.5px; }
+.up-dd .opt.sub { padding-left: 26px; color: var(--m-dim); }
+.up-dd .opt .crumb { margin-left: 0; color: var(--m-faint); }
+.mock .up-dd svg { width: 13px; height: 13px; flex: none; color: var(--m-dim); }
+.up-dd .find { margin: 0 0 4px; padding: 4px 7px 7px; border-bottom: 1px solid var(--m-line); color: var(--m-faint); }
+.up-dd .grp { padding: 6px 7px 2px; color: var(--m-faint); font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.up-mini { margin-top: 4px; padding: 6px 4px 2px; border-top: 1px solid var(--m-line); }
+.up-mini .mh { display: flex; align-items: center; justify-content: space-between; padding: 0 3px 4px; font-weight: 600; }
+.up-mini .mh span { display: flex; gap: 8px; color: var(--m-dim); }
+.up-mini .g { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11.5px; }
+.up-mini .g .w { color: var(--m-faint); font-size: 10.5px; font-weight: 600; }
+.up-mini .g span { padding: 3px 0; border-radius: 5px; color: var(--m-fg); }
+.up-mini .g span.past { color: var(--m-faint); }
+.up-mini .g span.today { color: var(--m-accent); font-weight: 700; }
+.up-mini .g span.on { background: var(--m-accent); color: var(--m-on-accent); font-weight: 700; }
+.up-gap.hover { color: var(--m-dim); }
+.up-gap .plus { display: inline-flex; align-items: center; gap: 4px; color: var(--m-accent); font-weight: 600; }
+.mock .up-gap .plus svg { width: 12px; height: 12px; }
+.cd { position: relative; }
+.cd .plus { position: absolute; top: 3px; right: 4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; background: var(--m-accent); color: var(--m-on-accent); }
+.mock .cd .plus svg { width: 12px; height: 12px; }
+.up-pop.add { grid-column: 3 / 6; grid-row: 4 / 7; justify-self: end; margin: 6px 6px 0 0; width: 360px; padding: 0; border: 0; background: none; box-shadow: none; }
+.up-pop.add .up-qa { margin: 0; box-shadow: 0 12px 30px rgb(0 0 0 / .45); }
+.mb-gap { display: flex; align-items: center; gap: 10px; padding: 16px 16px 2px; color: var(--m-faint); font-size: 13px; }
+.mb-gap::before, .mb-gap::after { content: ''; flex: 1; border-top: 1px dashed var(--m-line); }
+.mb-cal { flex: none; padding: 2px 12px 8px; border-bottom: 1px solid var(--m-line); }
+.mb-cal .mh { display: flex; align-items: center; justify-content: space-between; padding: 2px 6px 8px; color: var(--m-fg); font-size: 16px; font-weight: 600; }
+.mb-cal .mh .nav { display: flex; gap: 22px; color: var(--m-accent); }
+.mock .mb-cal .mh .nav svg { width: 20px; height: 20px; }
+.mb-cal .wd, .mb-cal .days { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+.mb-cal .wd span { padding-bottom: 4px; color: var(--m-faint); font-size: 11.5px; font-weight: 600; }
+.mb-cal .days span { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 1px 0; }
+.mb-cal .days b { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: var(--m-faint); font-size: 15px; font-weight: 500; }
+.mb-cal .days span.busy b { color: var(--m-fg); }
+.mb-cal .days span.out b { opacity: .45; }
+.mb-cal .days span.today b { color: var(--m-accent); font-weight: 700; }
+.mb-cal .days span.on b { background: var(--m-accent); color: var(--m-on-accent); font-weight: 700; }
+.mb-cal .days i { width: 5px; height: 5px; border-radius: 50%; background: var(--m-faint); }
+.mb-cal .days i.no { visibility: hidden; }
+.mb-addday { display: flex; align-items: center; gap: 10px; margin: 6px 16px; color: var(--m-accent); font-size: 16px; }
+.mock .mb-addday svg { width: 20px; height: 20px; }
 </style>
 
 <main class="page">
@@ -2118,6 +2225,31 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-sview="psrv">Phone</button>
         <button type="button" data-sview="psrv2">Phone space</button>
         <button type="button" data-sview="psrv3">Phone server</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="upcoming">
+    <div class="brief">
+      <div>
+        <span class="letter">UPCOMING · TASLAK</span>
+        <h2>Upcoming: List ve Calendar</h2>
+        <p>Upcoming iki görünümde; seçim başlıkta, List | Calendar, ve cihaz hatırlar. List ne yapacağını söyler: yalnız işi olan günler, aralarındaki boş günler soluk tek bir satır ("2 free days · Sat 17 – Sun 18"); geciken iş en üstte Reschedule'la, bugün ondan sonra. Calendar genel bakıştır: ay ızgarası, her günde sığdığı kadar iş (burada iki), fazlası +N more; boş günler soluk, bugün dolu. Bir güne tıklamak o günün listesini küçük bir pencerede açar; bir işi başka bir güne sürüklemek tarihini değiştirir. Ay seçici, hafta şeridi ve boş gün başlıkları yok. Telefonda Calendar'da günlerde nokta, dokunulan günün işleri takvimin altında. Ekleme: List'te her günün altındaki + Add task o güne ekler, boş günler satırının üstüne gelince çıkan + Add task ilk boş güne; Calendar'da bir günün üstüne gelince köşesinde + çıkar ve ekleme o günle açılır; başlıktaki Add task yarına ekler; telefonda + seçili güne, List'te yarına. Eklerken tarih çipi o günle dolu gelir; çipe tıklayınca Today, Tomorrow, Next week, No date ve ay takvimi açılır, yani ekranda olmayan herhangi bir gün de seçilir. İş varsayılan olarak Inbox'a gider, çünkü Upcoming bir listenin içinde değil; soldaki seçici her space'in bütün listelerini ve bölümlerini açar, arayarak bulunur.</p>
+        <ul class="traits"><li>List | Calendar, başlıkta</li><li>boş günler tek satır</li><li>ay ızgarası, sığdığı kadar iş</li><li>sürükleyince tarih değişir</li><li>telefonda nokta ve gün listesi</li><li>board yok</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Upcoming görünümü">
+        <button type="button" data-uview="uplist">List</button>
+        <button type="button" data-uview="upcal">Calendar</button>
+        <button type="button" data-uview="upday">Calendar, a day</button>
+        <button type="button" data-uview="updrag">Calendar, drag</button>
+        <button type="button" data-uview="upadd">List, add</button>
+        <button type="button" data-uview="upaddfree">List, add on a free day</button>
+        <button type="button" data-uview="upadddate">Add, date</button>
+        <button type="button" data-uview="upaddlist">Add, list</button>
+        <button type="button" data-uview="upcaladd">Calendar, add</button>
+        <button type="button" data-uview="pup">Phone</button>
+        <button type="button" data-uview="pupadd">Phone, add</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -5994,6 +6126,215 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderServer(sectionServer, b.dataset.sview);
   });
   renderServer(sectionServer, 'srvadd');
+  // Upcoming (Oct 15, a draft): List and Calendar. Today is Thursday, Oct 15; October 2026 begins
+  // on a Thursday, so its month shows from Monday, Sep 28 to Sunday, Nov 8.
+  var UP_DAYS = {
+    '10-13': [{ p: 'p3', t: 'Renew the domain', w: 'Home', late: true }],
+    '10-15': [{ p: 'p1', t: 'Prototype live preview', w: 'Scrawl' }, { p: 'p2', t: 'Send the revised estimate', w: 'Acme · Sales' }],
+    '10-16': [{ t: 'Call Acme about the yearly plan', w: 'Inbox', rec: 'Acme Corp' }],
+    '10-19': [{ p: 'p1', t: 'Quarterly plan review', w: 'Scrawl' }, { p: 'p2', key: 'DEA-12', t: 'Pilot for one portal', w: 'Deals · Acme', col: 'Proposal' }, { t: 'Renew the car insurance', w: 'Home' }, { p: 'p3', t: 'Write the release notes', w: 'Scrawl' }],
+    '10-20': [{ t: 'Book the passport photos', w: 'Home' }],
+    '10-22': [{ p: 'p2', key: 'SCR-14', t: 'Hot exit: restore tabs after a crash', w: 'Roadmap · Scrawl', col: 'Doing' }],
+    '10-28': [{ p: 'p3', t: 'Send the invoice for September', w: 'Client portal' }],
+    '11-02': [{ p: 'p1', t: 'Quarterly taxes', w: 'Home' }]
+  };
+  function upKey(date) { return String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0'); }
+  function upWords(date, o) { return date.toLocaleDateString('en', o); }
+  /** A task of the list, or a card with its key; a late one says its day in red. */
+  function upTask(o, day) {
+    var meta = (o.late ? '<span class="late">' + day + '</span>' : '') + (o.col ? '<span>' + o.col + '</span>' : '') + '<span>' + o.w + '</span>' + (o.rec ? recChip(o.rec) : '');
+    return '<div class="task"><span class="cb' + (o.key ? ' sq' : '') + ' ' + (o.p || '') + '"></span><div><div class="tt">' + (o.key ? '<span class="key">' + o.key + '</span>' : '') + o.t + '</div><div class="meta">' + meta + '</div></div></div>';
+  }
+  /** The sidebar as it is now: the personal space's heading, Inbox its own list first, and Upcoming lit. */
+  function upTree() {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 3 }) + row({ label: 'Upcoming', ct: 12, on: true }) +
+      spRowT({ sp: true, open: true, label: 'Personal' }) +
+      spRowT({ d: 1, icon: 'tasks', label: 'Inbox', ct: 2 }) +
+      spRowT({ d: 1, folder: true, label: 'Scrawl', ct: 9 }) +
+      spRowT({ d: 1, folder: true, label: 'Home', ct: 4 }) +
+      spRowT({ d: 1, folder: true, label: 'Client portal', ct: 3 }) +
+      spRowT({ sp: true, open: true, label: 'Acme' }) +
+      spRowT({ d: 1, folder: true, label: 'Sales', ct: 5 }) +
+      spRowT({ d: 1, folder: true, label: 'Deals', ct: 8 }) +
+      '</div>' + spFoot(false);
+  }
+  function upFrame(body, status) {
+    return '<aside class="side fit">' + upTree() + '</aside><section class="main fit"><div class="panes">' +
+      pane(tab('tasks', 'Upcoming', 'up', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>' + status + '</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  function upHead(calendar) {
+    return '<div class="th"><b>Upcoming</b><span class="up-seg"><span' + (calendar ? '' : ' class="on"') + '>List</span><span' + (calendar ? ' class="on"' : '') + '>Calendar</span></span>' +
+      (calendar ? '<span class="up-month"><span class="nav">' + ICON.chevl + '</span><b>October 2026</b><span class="nav">' + ICON.chevr + '</span></span>' : '') +
+      '<button type="button" class="add">Add task</button></div>';
+  }
+  /**
+   * Adding in Upcoming: the name typed, a description, chips with the day already set, the list it
+   * goes to (Inbox unless chosen), Cancel and Add task.
+   */
+  function upComposer(day, name, open) {
+    return '<div class="up-qa"><div class="r1"><span class="cb"></span><span class="in">' + name + '<span class="caret"></span></span></div>' +
+      '<div class="ds">Description</div>' +
+      '<div class="chips"><span class="on">' + ICON.cal + day + '</span><span>' + ICON.flag + 'Priority</span><span>' + ICON.collection + 'Record</span></div>' +
+      '<div class="foot"><span class="where"' + (open === 'list' ? ' style="background: var(--m-sel); color: var(--m-fg)"' : '') + '>' + ICON.tasks + 'Inbox ▾</span><span class="ghost">Cancel</span><span class="add">Add task</span></div>' +
+      (open === 'date' ? upDatePick() : open === 'list' ? upListPick() : '') + '</div>';
+  }
+  /** The date chip, open: the quick days, then the month to pick any day; Mon, Oct 19 is the one set. */
+  function upDatePick() {
+    function q(icon, label, day, on) { return '<div class="opt' + (on ? ' on' : '') + '">' + ICON[icon] + label + '<small>' + day + '</small></div>'; }
+    var cells = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(function (w) { return '<span class="w">' + w + '</span>'; }).join('') + '<span></span><span></span><span></span>';
+    for (var d = 1; d <= 31; d++) cells += '<span class="' + (d < 15 ? 'past' : d === 15 ? 'today' : d === 19 ? 'on' : '') + '">' + d + '</span>';
+    return '<div class="up-dd date">' + q('sun', 'Today', 'Thu') + q('rise', 'Tomorrow', 'Fri') + q('week', 'Next week', 'Mon, Oct 19', true) + q('nodate', 'No date', '') +
+      '<div class="up-mini"><div class="mh">October 2026<span>' + ICON.chevl + ICON.chevr + '</span></div><div class="g">' + cells + '</div></div></div>';
+  }
+  /** The list, open: found by what is typed, every list of every space and their sections, each with the folders it is in. */
+  function upListPick() {
+    function o(name, crumb, on, sub) { return '<div class="opt' + (on ? ' on' : '') + (sub ? ' sub' : '') + '">' + (sub ? '' : ICON.tasks) + name + (crumb ? '<small class="crumb">' + crumb + '</small>' : '') + (on ? '<small>✓</small>' : '') + '</div>'; }
+    return '<div class="up-dd list"><div class="find">Find a list or section</div>' +
+      '<div class="grp">Personal</div>' + o('Inbox', '', true) + o('Tasks', 'Scrawl') + o('Phase 1', '', false, true) + o('Groceries', 'Home') + o('Tasks', 'Client portal') +
+      '<div class="grp">Acme</div>' + o('Tasks', 'Sales') + o('Leads', 'Sales') + '</div>';
+  }
+  /**
+   * List: the days that have something, Overdue first with Reschedule; between two of them the
+   * free days, in one faint line. `add` is where something is being added: under Mon, Oct 19 from
+   * its + Add task, or on the first free day from the free days' line.
+   */
+  function upList(add, open) {
+    function day(key, title, when) {
+      var tasks = UP_DAYS[key];
+      return '<div class="sec">' + title + (when ? ' <span class="when">· ' + when + '</span>' : '') + ' <small>' + tasks.length + '</small></div>' +
+        tasks.map(function (o) { return upTask(o); }).join('') + (add === key ? upComposer('Mon, Oct 19', 'Prepare the demo for Acme', open) : '<div class="qa">+ Add task</div>');
+    }
+    var firstGap = true;
+    function gap(words) {
+      var here = add === 'free' && firstGap;
+      firstGap = false;
+      return here
+        ? '<div class="up-gap hover">' + words + '<span class="plus">' + ICON.plus + 'Add task</span></div>' + upComposer('Sat, Oct 17', 'Clean the balcony')
+        : '<div class="up-gap">' + words + '</div>';
+    }
+    // Adding under Monday, the list is scrolled down to it: Overdue and Today are above, and with a
+    // picker open Tomorrow too, so that it opens down under what opened it.
+    var top = add === '10-19' ? '' : '<div class="sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' + upTask(UP_DAYS['10-13'][0], 'Tue, Oct 13') + day('10-15', 'Today', 'Thu, Oct 15');
+    if (!open) top += day('10-16', 'Tomorrow', 'Fri, Oct 16') + gap('2 free days · Sat 17 – Sun 18');
+    var body = '<div class="tasksv">' + upHead(false) + '<div class="tl">' + top +
+      day('10-19', 'Mon, Oct 19') +
+      day('10-20', 'Tue, Oct 20') +
+      gap('1 free day · Wed 21') +
+      day('10-22', 'Thu, Oct 22') +
+      gap('5 free days · Fri 23 – Tue 27') +
+      day('10-28', 'Wed, Oct 28') +
+      '</div></div>';
+    return upFrame(body, '12 tasks · 2 cards');
+  }
+  /**
+   * Calendar: the month, from the Monday before its first day. A day shows as many as fit, two
+   * here, and +N more; one without anything is faint, today filled. `opened` is a day open in its small
+   * window; `drag` a task being dragged from Tue 20 to Thu 22; `add` a day something is being
+   * added to, its + lit and the adding open beside it.
+   */
+  function upCalendar(opened, drag, add) {
+    var cells = '';
+    for (var i = 0; i < 42; i++) {
+      var date = new Date(2026, 8, 28 + i);
+      var key = upKey(date);
+      var tasks = UP_DAYS[key] || [];
+      var cls = ['cd', date.getMonth() !== 9 && 'out', tasks.length && 'busy', key === '10-15' && 'today', (key === opened || key === add) && 'on', drag && key === '10-22' && 'drop-on'].filter(Boolean).join(' ');
+      var shown = tasks.slice(0, 2).map(function (o) {
+        var ghost = drag && key === '10-20';
+        return '<span class="cal-t' + (o.late ? ' late' : '') + (ghost ? ' ghost' : '') + '"' + (o.p ? ' style="--pc: var(--m-' + o.p + ')"' : '') + '><i' + (o.key ? ' class="sq"' : '') + '></i>' + (o.key ? '<span class="key">' + o.key + '</span>' : '') + '<span>' + o.t + '</span></span>';
+      }).join('');
+      cells += '<div class="' + cls + '"><span class="n">' + date.getDate() + '</span>' + (key === add ? '<span class="plus">' + ICON.plus + '</span>' : '') + shown + (tasks.length > 2 ? '<span class="cal-more">+' + (tasks.length - 2) + ' more</span>' : '') + '</div>';
+    }
+    var pop = opened
+      ? '<div class="up-pop"><h4>Mon, Oct 19 <small>4</small><span class="x">×</span></h4>' + UP_DAYS['10-19'].map(function (o) { return upTask(o); }).join('') + '<div class="qa">+ Add task</div></div>'
+      : '';
+    var lift = drag ? '<span class="cal-t lift"><i></i><span>Book the passport photos</span></span>' : '';
+    if (add) pop = '<div class="up-pop add">' + upComposer('Sat, Oct 24', 'Clean the balcony') + '</div>';
+    var body = '<div class="tasksv">' + upHead(true) + '<div class="up-cal"><div class="wd"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>' +
+      '<div class="grid">' + cells + pop + lift + '</div></div></div>';
+    return upFrame(body, drag ? 'Drop on a day to move the task there' : '12 tasks · 2 cards in October');
+  }
+  // Phone: the same two views; the choice beside the title, as a board's Board | List is.
+  function upPhoneHead(month) {
+    return '<div class="mb-head root split"><div><h2>Upcoming</h2><small>October 2026</small></div><div class="mb-seg"><span' + (month ? '' : ' class="on"') + '>List</span><span' + (month ? ' class="on"' : '') + '>Month</span></div></div>' +
+      '<div class="mb-seg"><span>Today</span><span class="on">Upcoming</span></div>';
+  }
+  function upPhoneTask(o, day) {
+    return mbT({ p: o.p, key: o.key, title: o.t, meta: (o.late ? mi('cal', day, 'late') : '') + mi(o.key ? 'board' : 'tasks', o.col ? o.col + ' · ' + o.w : o.w) + (o.rec ? mi('collection', o.rec) : '') });
+  }
+  function upPhoneCalendar(chosen) {
+    var days = '';
+    for (var i = 0; i < 42; i++) {
+      var date = new Date(2026, 8, 28 + i);
+      var key = upKey(date);
+      var busy = !!UP_DAYS[key];
+      var cls = [date.getMonth() !== 9 && 'out', busy && 'busy', key === '10-15' && 'today', key === chosen && 'on'].filter(Boolean).join(' ');
+      days += '<span' + (cls ? ' class="' + cls + '"' : '') + '><b>' + date.getDate() + '</b><i' + (busy ? '' : ' class="no"') + '></i></span>';
+    }
+    return '<div class="mb-cal"><div class="mh">October 2026<span class="nav">' + ICON.chevl + ICON.chevr + '</span></div>' +
+      '<div class="wd"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div><div class="days">' + days + '</div></div>';
+  }
+  /** Adding on a phone: the sheet over the keyboard, the day's chip set. */
+  function upPhoneAdd(day, name) {
+    return MB_DIM + '<div class="mb-qa"><span class="tt">' + name + '<span class="caret"></span></span><span class="ds">Description</span>' +
+      '<div class="mb-chips"><span class="mb-chip set">' + ICON.cal + day + '</span><span class="mb-chip">' + ICON.flag + 'Priority</span><span class="mb-chip">' + ICON.collection + 'Record</span></div>' +
+      '<div class="foot"><span class="where">' + ICON.tasks + 'Inbox' + MB_CHEV + '</span><span class="addb">Add</span></div></div>' + MB_KB;
+  }
+  function phoneUpcomingAdd() {
+    var month = mbPage(upPhoneHead(true) + upPhoneCalendar('10-24'), '<div class="mb-sec">Sat, Oct 24</div><p class="mb-p">Nothing due on this day.</p>');
+    var list = mbPage(upPhoneHead(false),
+      '<div class="mb-sec">Today · Thu, Oct 15 <small>2</small></div>' + UP_DAYS['10-15'].map(function (o) { return upPhoneTask(o); }).join('') +
+      '<div class="mb-sec">Tomorrow · Fri, Oct 16 <small>1</small></div>' + upPhoneTask(UP_DAYS['10-16'][0]));
+    return [
+      mbPhone('Month’ta 24 seçiliyken +: tarih o gün', month, mbTabs('today') + upPhoneAdd('Sat, Oct 24', 'Clean the balcony')),
+      mbPhone('List’te +: tarih yarın, çipten değişir', list, mbTabs('today') + upPhoneAdd('Tomorrow', 'Call the bank'))
+    ].join('');
+  }
+  function phoneUpcoming() {
+    var list = mbPage(upPhoneHead(false),
+      '<div class="mb-sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' + upPhoneTask(UP_DAYS['10-13'][0], 'Oct 13') +
+      '<div class="mb-sec">Today · Thu, Oct 15 <small>2</small></div>' + UP_DAYS['10-15'].map(function (o) { return upPhoneTask(o); }).join('') +
+      '<div class="mb-sec">Tomorrow · Fri, Oct 16 <small>1</small></div>' + upPhoneTask(UP_DAYS['10-16'][0]) +
+      '<div class="mb-gap">2 free days · Sat 17 – Sun 18</div>' +
+      '<div class="mb-sec">Mon, Oct 19 <small>4</small></div>' + UP_DAYS['10-19'].map(function (o) { return upPhoneTask(o); }).join(''));
+    var month = mbPage(upPhoneHead(true) + upPhoneCalendar('10-19'),
+      '<div class="mb-sec">Mon, Oct 19 <small>4</small></div>' + UP_DAYS['10-19'].map(function (o) { return upPhoneTask(o); }).join(''));
+    var free = mbPage(upPhoneHead(true) + upPhoneCalendar('10-24'),
+      '<div class="mb-sec">Sat, Oct 24</div><p class="mb-p">Nothing due on this day.</p><div class="mb-addday">' + ICON.plus + 'Add task on Sat, Oct 24</div>');
+    return [
+      mbPhone('List: işi olan günler, aradaki boş günler tek satır', list, mbTabs('today') + MB_FAB),
+      mbPhone('Month: günlerde nokta, seçilen günün işleri altta', month, mbTabs('today') + MB_FAB),
+      mbPhone('Boş bir gün seçili: + o güne ekler', free, mbTabs('today') + MB_FAB)
+    ].join('');
+  }
+  var UP_VIEWS = {
+    uplist: function () { return upList(null); },
+    upadd: function () { return upList('10-19'); },
+    upaddfree: function () { return upList('free'); },
+    upadddate: function () { return upList('10-19', 'date'); },
+    upaddlist: function () { return upList('10-19', 'list'); },
+    upcal: function () { return upCalendar(null, false); },
+    upcaladd: function () { return upCalendar(null, false, '10-24'); },
+    upday: function () { return upCalendar('10-19', false); },
+    updrag: function () { return upCalendar(null, true); }
+  };
+  function renderUp(section, view) {
+    var mock = section.querySelector('.mock');
+    var phones = { pup: phoneUpcoming, pupadd: phoneUpcomingAdd }[view];
+    mock.className = phones ? 'mock dir-a phones mbs' : 'mock dir-a';
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = phones ? phones() : UP_VIEWS[view]();
+    section.querySelectorAll('.brief [data-uview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.uview === view));
+    });
+  }
+  var sectionUp = document.querySelector('.dir[data-dir="upcoming"]');
+  sectionUp.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-uview]');
+    if (b) renderUp(sectionUp, b.dataset.uview);
+  });
+  renderUp(sectionUp, 'uplist');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
