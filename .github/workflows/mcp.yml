@@ -1,0 +1,71 @@
+# The stdio command for agents, `scrawl-mcp`: its tests on every change to it, the npm package
+# @scrawlnotes/mcp and the Claude Desktop bundle scrawl.mcpb on a tag like mcp-v0.1.0. Publishing
+# to npm needs the NPM_TOKEN secret of the scrawlnotes organization; the bundle goes on the
+# GitHub release of the tag.
+name: MCP
+
+on:
+  push:
+    branches: [main]
+    tags: ['mcp-v*']
+    paths:
+      - apps/mcp/**
+      - packages/agent/**
+      - packages/core/**
+      - packages/i18n/**
+      - pnpm-lock.yaml
+      - .github/workflows/mcp.yml
+  pull_request:
+    paths:
+      - apps/mcp/**
+      - packages/agent/**
+      - packages/core/**
+      - packages/i18n/**
+      - pnpm-lock.yaml
+      - .github/workflows/mcp.yml
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.9.1
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter "@scrawlnotes/mcp..."
+      - run: pnpm --filter @scrawlnotes/core --filter @scrawlnotes/agent --filter @scrawlnotes/mcp typecheck
+      - run: pnpm --filter @scrawlnotes/core --filter @scrawlnotes/agent --filter @scrawlnotes/mcp test
+
+  publish:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/mcp-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.9.1
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile --filter "@scrawlnotes/mcp..."
+      - run: pnpm --filter @scrawlnotes/mcp bundle
+      - name: The tag names the package's version
+        run: test "mcp-v$(node -p "require('./apps/mcp/package.json').version")" = "${GITHUB_REF_NAME}"
+      - run: cd apps/mcp && npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: scrawl-mcp ${{ github.ref_name }}
+          files: apps/mcp/dist/scrawl.mcpb

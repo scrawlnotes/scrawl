@@ -9,13 +9,17 @@ on:
     tags: ['server-v*']
     paths:
       - apps/server/**
+      - packages/agent/**
       - packages/core/**
+      - packages/i18n/**
       - pnpm-lock.yaml
       - .github/workflows/server.yml
   pull_request:
     paths:
       - apps/server/**
+      - packages/agent/**
       - packages/core/**
+      - packages/i18n/**
       - pnpm-lock.yaml
       - .github/workflows/server.yml
   workflow_dispatch:
@@ -33,8 +37,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile --filter "@scrawlnotes/server..."
-      - run: pnpm --filter @scrawlnotes/core --filter @scrawlnotes/server typecheck
-      - run: pnpm --filter @scrawlnotes/core --filter @scrawlnotes/server test
+      - run: pnpm --filter @scrawlnotes/core --filter @scrawlnotes/agent --filter @scrawlnotes/server typecheck
+      - run: pnpm --filter @scrawlnotes/core --filter @scrawlnotes/agent --filter @scrawlnotes/server test
 
   image:
     needs: test

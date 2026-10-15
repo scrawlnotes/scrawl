@@ -1,0 +1,41 @@
+{
+  "name": "@scrawlnotes/mcp",
+  "version": "0.1.0",
+  "description": "Scrawl for agents: an MCP server over the notes, task lists, boards and collections in your Scrawl spaces, for Claude Code, Claude Desktop, Cursor and any stdio MCP client.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "scrawl-mcp": "./dist/scrawl-mcp.mjs"
+  },
+  "files": [
+    "dist/scrawl-mcp.mjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scrawlnotes/scrawl",
+    "directory": "apps/mcp"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "bundle": "node scripts/build.mjs && node scripts/bundle.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.3.1",
+    "@scrawlnotes/agent": "workspace:*",
+    "@scrawlnotes/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@types/node": "^24.19.2",
+    "esbuild": "^0.28.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

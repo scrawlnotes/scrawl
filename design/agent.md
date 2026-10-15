@@ -1,6 +1,6 @@
 # Ajan: teknik tasarım (taslak)
 
-12. aşama. PLAN 4.8'in teknik karşılığıdır. Durum: kararlar onaylandı (15 Ekim 2026, 12. bölüm); 1. ve 2. dilim (araçlar, sunucudaki kapı) yazıldı, 13. bölümde notlar; sırada elle deneme, sonra 3. ve 4. dilim. Sunucu (11. aşama, `design/server.md`) yazıldı ve ayakta; ajan onun üstüne kurulur.
+12. aşama. PLAN 4.8'in teknik karşılığıdır. Durum: kararlar onaylandı (15 Ekim 2026, 12. bölüm); 1, 2 ve 3. dilim (araçlar, sunucudaki kapı, bilgisayardaki kapı) yazıldı, 13. bölümde notlar; sırada elle deneme ve 4. dilim. Sunucu (11. aşama, `design/server.md`) yazıldı ve ayakta; ajan onun üstüne kurulur.
 
 ## 1. Tek kural
 
@@ -194,3 +194,5 @@ Sonra: komut satırı yüzü (aynı paketin ikinci yüzü, ihtiyaç çıkarsa), 
 - **Ajan anahtarı API'yi açmaz:** `devices`'taki bir ajan satırının token'ı `/api/v1/*`'de 401 alır (`agent-key`); yalnız `/mcp` içindir. Uygulamanın kendi cihaz anahtarı da `/mcp`'yi açmaz.
 - **Hesap uçları:** `GET /api/v1/agents` hesabın bağlantıları (`id`, `client`, `connected`, `seen`), `DELETE /api/v1/agents/:id` keser. Arayüz 4. dilimde.
 - **Elle deneme bekliyor:** Claude Code'dan `claude mcp add --transport http scrawl https://scrawl.kaanarslan.dev/mcp`; claude.ai'da custom connector; ChatGPT Developer mode. Sunucu imajı yeni sürümde `/mcp`'yi açar, veritabanı açılışta kendini yükseltir.
+- **Bilgisayardaki kapı (3. dilim):** `apps/mcp`: `src/nodefs.ts` (`NodeFs`, Tauri köprüsünün Node hali; vault dışına çıkan yolu reddeder), `src/vaults.ts` (ayar dosyası üç sistemde: Windows `%APPDATA%\\app.scrawlnotes.desktop\\settings.json`, macOS `~/Library/Application Support/…`, Linux `$XDG_CONFIG_HOME` ya da `~/.config/…`; `vault` boşsa veri klasöründeki `Personal`; space'in adı klasördeki `space.json`'dan, yeri `source.provider`'dan), `src/main.ts` (komut satırı: klasörler ya da `--vault`, `--client`, `--help`, `--version`; `serveStdio`). `scripts/build.mjs` tek dosya `dist/scrawl-mcp.mjs` (1.8 MB, Node 20+), `scripts/bundle.mjs` manifest'i yazıp `mcpb pack` ile `dist/scrawl.mcpb` (350 KB; `user_config.folders` dizin, çoklu, isteğe bağlı; boşsa ayar dosyası; `--client Claude`). 5 test, biri derlenmiş komutla gerçek stdio istemcisi üstünden. `.github/workflows/mcp.yml`: her değişiklikte test, `mcp-v0.1.0` etiketinde npm'e `@scrawlnotes/mcp` (npm'de `scrawlnotes` organizasyonu ve `NPM_TOKEN` sırrı gerekir) ve GitHub release'e `scrawl.mcpb`.
+- **stdio'da istemci adı:** eski (2025) açılışla gelen istemcide `getClientVersion()` adı verir (test istemcisi "test-client" olarak yazdı); yeni sürümle gelende ad yoksa `--client` ya da "Agent". Bu bilgisayarda komut argümansız kişisel vault'u buldu (`OneDrive\\Belgeler\\Notes`).
