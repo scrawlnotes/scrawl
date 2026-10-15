@@ -129,6 +129,18 @@ export function parseKeys(text: string): KeyGroup[] {
 /** How many keys there are in all. */
 export const keyCount = (groups: KeyGroup[]) => groups.reduce((sum, group) => sum + group.keys.length, 0);
 
+/**
+ * The lines, from 0, that are neither a key, a comment nor blank: lines the table cannot show,
+ * as a name with a space in it (`API KEY=...`) or a value after a colon (`KEY: ...`).
+ */
+export function badLines(text: string): number[] {
+  const bad: number[] = [];
+  linesOf(text).forEach((line, i) => {
+    if (line.trim() !== '' && !COMMENT.test(line) && !entryOf(line)) bad.push(i);
+  });
+  return bad;
+}
+
 /** The line a key is on now: the one it was read from if it still holds it, else the first that does; -1 when none does. */
 function lineOf(lines: string[], at: KeyAt): number {
   if (entryOf(lines[at.line] ?? '')?.key === at.key) return at.line;
@@ -146,31 +158,26 @@ function change(text: string, edit: (lines: string[]) => boolean): string {
 }
 
 /**
- * Adds a key to a group, given by its heading's line and name: first among its keys, after one
- * of them (when it is still there), or last. Returns the text and where the key went.
+ * Adds a key at the end of a group, given by its heading's line and name; with a null name, to the
+ * keys before any heading. Returns the text and where the key went.
  */
-export function addKey(
-  text: string,
-  group: { line: number; name: string | null },
-  key: string,
-  value: string,
-  place: 'first' | 'last' | KeyAt = 'last',
-): { text: string; at: KeyAt | null } {
+export function addKey(text: string, group: { line: number; name: string | null }, key: string, value: string): { text: string; at: KeyAt | null } {
   const name = cleanKey(key);
   if (!name) return { text, at: null };
   const entry = `${name}=${writeValue(value)}`;
   const target = groupOf(parseKeys(text), group.line, group.name);
   if (!target) {
-    // The keys before any heading, when there are none yet: they go first.
+    // The keys before any heading, when there are none yet: they go first, a blank line between
+    // them and the heading that follows.
     if (group.name !== null) return { text, at: null };
-    return { text: text ? `${entry}${eolOf(text)}${text}` : `${entry}\n`, at: { line: 0, key: name } };
+    if (!text) return { text: `${entry}\n`, at: { line: 0, key: name } };
+    const eol = eolOf(text);
+    const apart = linesOf(text)[0]!.trim() === '' ? '' : eol;
+    return { text: `${entry}${eol}${apart}${text}`, at: { line: 0, key: name } };
   }
-  // After a key of this group only: another group may have a key of the same name.
-  const after = typeof place === 'object' ? (target.keys.find((k) => k.line === place.line && k.key === place.key) ?? target.keys.find((k) => k.key === place.key)) : undefined;
-  const line = after ? after.line + 1 : place === 'first' && target.keys.length > 0 ? target.keys[0]!.line : target.end;
   const lines = linesOf(text);
-  lines.splice(line, 0, entry);
-  return { text: lines.join(eolOf(text)), at: { line, key: name } };
+  lines.splice(target.end, 0, entry);
+  return { text: lines.join(eolOf(text)), at: { line: target.end, key: name } };
 }
 
 /** Changes a key's name and value; a key written with `export` keeps it. */

@@ -8,30 +8,35 @@ import {
   EditorView,
   keymap,
   lineNumbers,
+  placeholder,
   ViewPlugin,
   type ViewUpdate,
 } from '@codemirror/view';
+import { t } from '@scrawlnotes/i18n';
 import { findPanel } from './find';
 import { textSelection } from './selection';
 import { scrawlTheme } from './theme';
 
 // A keys file as text, after the Keys text view of design/mockups.html: line numbers, comments
-// faint, key names dim, values as they are. Plain text otherwise; nothing in it is formatted.
-// A collection's schema file is shown the same way, its keys dim.
+// faint, key names dim, values as they are; a line that is not a key is underlined in red, and
+// says why when pointed at. Empty, it shows how a group and its keys are written. Plain text
+// otherwise; nothing in it is formatted. A collection's schema file is shown the same way, its
+// keys dim.
 
 const comment = Decoration.mark({ class: 'cm-env-comment' });
 const keyName = Decoration.mark({ class: 'cm-env-key' });
+// Read the same way as `parseKeys` in core reads a key.
 const ENTRY = /^(\s*(?:export\s+)?)([^\s=#][^\s=]*)\s*=/;
 const JSON_KEY = /"(?:[^"\\]|\\.)*"(?=\s*:)/g;
 
-/** The marks of one line of a keys file: a comment, or the name of a key. */
+/** The marks of one line of a keys file: a comment, the name of a key, or a line that is neither. */
 function envLine(text: string, at: number, builder: RangeSetBuilder<Decoration>) {
   const start = text.search(/\S/);
-  if (start >= 0 && text[start] === '#') builder.add(at + start, at + text.length, comment);
-  else {
-    const m = ENTRY.exec(text);
-    if (m) builder.add(at + m[1]!.length, at + m[1]!.length + m[2]!.length, keyName);
-  }
+  if (start < 0) return;
+  if (text[start] === '#') return builder.add(at + start, at + text.length, comment);
+  const m = ENTRY.exec(text);
+  if (m) builder.add(at + m[1]!.length, at + m[1]!.length + m[2]!.length, keyName);
+  else builder.add(at + start, at + text.length, Decoration.mark({ class: 'cm-env-bad', attributes: { title: t('keys.notAKey') } }));
 }
 
 /** The marks of one line of JSON: the keys. */
@@ -74,12 +79,20 @@ const envTheme = EditorView.theme({
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '38px', padding: '0 12px 0 8px', fontSize: '12.5px' },
   '.cm-env-comment': { color: 'var(--sl-faint)' },
   '.cm-env-key': { color: 'var(--sl-dim)' },
+  '.cm-env-bad': {
+    textDecoration: 'underline wavy var(--sl-danger, #e5484d)',
+    textDecorationSkipInk: 'none',
+    textUnderlineOffset: '3px',
+  },
+  '.cm-placeholder': { color: 'var(--sl-faint)' },
 });
 
 export interface EnvEditor {
   view: EditorView;
   /** Puts text that changed elsewhere into the editor; the cursor stays where it was, and nothing is reported as typed. */
   setText(text: string): void;
+  /** Puts the cursor at the start of a line, from 0, and scrolls it into the middle of the view. */
+  goToLine(line: number): void;
   destroy(): void;
 }
 
@@ -123,6 +136,7 @@ export function createEnvEditor(options: {
         search({ top: false, createPanel: findPanel }),
         EditorView.lineWrapping,
         highlight(options.json ? jsonLine : envLine),
+        options.json ? [] : placeholder(t('keys.placeholder')),
         scrawlTheme,
         envTheme,
         keymap.of([...searchKeymap, ...historyKeymap, ...defaultKeymap, indentWithTab]),
@@ -145,6 +159,11 @@ export function createEnvEditor(options: {
       } finally {
         external = false;
       }
+    },
+    goToLine(line) {
+      const doc = view.state.doc;
+      const at = doc.line(Math.min(Math.max(line + 1, 1), doc.lines)).from;
+      view.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: 'center' }) });
     },
     destroy: () => view.destroy(),
   };

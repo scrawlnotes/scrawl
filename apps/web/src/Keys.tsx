@@ -1,6 +1,7 @@
 import {
   addGroup,
   addKey,
+  badLines,
   cleanKey,
   groupText,
   isSecret,
@@ -17,7 +18,7 @@ import {
 } from '@scrawlnotes/core';
 import { createEnvEditor } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
-import { type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type FocusEvent, type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { isPhone } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { Icon } from './Icon';
@@ -44,8 +45,8 @@ type GroupRef = { line: number; name: string | null };
 
 /** The one line of the table being typed in, if any. */
 type Typing =
-  /** Keys typed into a group; `after` is the key added last from the line, which stays right under it. */
-  | { kind: 'add'; group: GroupRef; after: KeyAt | null }
+  /** Keys typed into a group, each going last, the line staying under them. */
+  | { kind: 'add'; group: GroupRef }
   | { kind: 'edit'; at: KeyAt; focus: 'key' | 'value' }
   | { kind: 'rename'; group: GroupRef }
   | { kind: 'group' };
@@ -85,6 +86,31 @@ export async function writeClipboard(text: string): Promise<boolean> {
 
 const refOf = (group: KeyGroup): GroupRef => ({ line: group.line, name: group.name });
 const sameGroup = (ref: GroupRef, group: KeyGroup) => ref.line === group.line && ref.name === group.name;
+/** The keys before any heading, where Add key in the header puts a key. */
+const NO_GROUP: GroupRef = { line: -1, name: null };
+
+/** Lines of the text that are not keys, said over the table, with Show to go to the first. */
+export function BadLines({ count, onShow, phone }: { count: number; onShow: () => void; phone?: boolean }) {
+  if (count === 0) return null;
+  return (
+    <div className={phone ? 'mb-warn' : 'kv-bad'} role="status">
+      <Icon name="warn" />
+      <span>
+        {t('keys.notKeys', { count })}
+        {phone && (
+          <button type="button" onClick={onShow}>
+            {t('keys.showLine')}
+          </button>
+        )}
+      </span>
+      {!phone && (
+        <button type="button" onClick={onShow}>
+          {t('keys.showLine')}
+        </button>
+      )}
+    </div>
+  );
+}
 
 /** The group a reference is to: the one at its line, else the first of its name, as lines may have moved. */
 function groupAt(groups: KeyGroup[], ref: GroupRef): KeyGroup | undefined {
@@ -256,12 +282,17 @@ function KeyRow({ entry, secret, shown, copied, onReveal, onCopy, onEdit, onMenu
   );
 }
 
-/** The file as text, with line numbers; what is typed goes to the file as it is. On a phone it opens to be read, without the keyboard. */
-function KeysText({ text, onChange, onCursor, focus = true }: {
+/**
+ * The file as text, with line numbers; what is typed goes to the file as it is. On a phone it opens
+ * to be read, without the keyboard. Opened from Show over the table, it opens at that line.
+ */
+function KeysText({ text, onChange, onCursor, focus = true, at = null }: {
   text: string;
   onChange: (text: string) => void;
   onCursor: (at: { line: number; col: number }) => void;
   focus?: boolean;
+  /** The line, from 0, to open at. */
+  at?: number | null;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<ReturnType<typeof createEnvEditor> | null>(null);
@@ -270,6 +301,7 @@ function KeysText({ text, onChange, onCursor, focus = true }: {
   useEffect(() => {
     const made = createEnvEditor({ parent: host.current!, doc: text, onChange: (doc) => changed.current(doc), onCursor });
     editor.current = made;
+    if (at !== null) made.goToLine(at);
     if (focus) made.view.focus();
     return () => {
       made.destroy();
@@ -297,6 +329,14 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
   const view = look?.view ?? 'table';
   const narrow = useNarrow();
   const groups = useMemo(() => parseKeys(text), [text]);
+  const bad = useMemo(() => badLines(text), [text]);
+  // The line the text opens at, after Show over the table.
+  const [openAt, setOpenAt] = useState<number | null>(null);
+  const lookAs = (next: KeysLook['view'], line: number | null = null) => {
+    setOpenAt(line);
+    onLook({ view: next });
+  };
+  const showBad = () => lookAs('text', bad[0] ?? null);
   // A change asked for later (after a confirmation) is made to the text as it is then.
   const latest = useRef(text);
   latest.current = text;
@@ -331,18 +371,18 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
             <h1>{name}</h1>
           </div>
           <div className="mb-seg" role="tablist">
-            <button type="button" role="tab" aria-selected={view === 'table'} onClick={() => onLook({ view: 'table' })}>
+            <button type="button" role="tab" aria-selected={view === 'table'} onClick={() => lookAs('table')}>
               {t('keys.viewTable')}
             </button>
-            <button type="button" role="tab" aria-selected={view === 'text'} onClick={() => onLook({ view: 'text' })}>
+            <button type="button" role="tab" aria-selected={view === 'text'} onClick={() => lookAs('text')}>
               {t('keys.viewText')}
             </button>
           </div>
         </header>
         {view === 'table' ? (
-          <PhoneKeysTable text={text} latest={latest} change={change} actions={actions} adding={adding} />
+          <PhoneKeysTable text={text} latest={latest} change={change} actions={actions} adding={adding} bad={<BadLines phone count={bad.length} onShow={showBad} />} />
         ) : (
-          <KeysText text={text} onChange={change} onCursor={setCursor} focus={false} />
+          <KeysText text={text} onChange={change} onCursor={setCursor} focus={false} at={openAt} />
         )}
       </section>
     );
@@ -351,14 +391,11 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
   const copy = async (id: string, value: string) => setCopied({ id, ok: await writeClipboard(value) });
   const copiedText = (id: string) => (copied?.id === id ? (copied.ok ? t('keys.copied') : t('keys.notCopied')) : null);
 
-  const startAdding = (group: GroupRef) => setTyping({ kind: 'add', group, after: null });
-  // The first key goes first in the group, each next one after the one before, in the order typed.
+  const startAdding = (group: GroupRef) => setTyping({ kind: 'add', group });
+  // Each key goes last in the group, in the order typed; the line stays open under it.
   const addTo = (group: GroupRef, key: string, value: string) => {
-    const after = typing?.kind === 'add' ? typing.after : null;
-    const added = addKey(latest.current, group, key, value, after ?? 'first');
-    if (!added.at) return;
-    change(added.text);
-    setTyping({ kind: 'add', group, after: added.at });
+    const added = addKey(latest.current, group, key, value);
+    if (added.at) change(added.text);
   };
   const makeGroup = (groupName: string) => {
     const next = addGroup(latest.current, groupName);
@@ -398,18 +435,10 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
   const all = groups.flatMap((group) => group.keys);
   const edited = editing && (all.find((k) => k.line === editing.at.line && k.key === editing.at.key) ?? all.find((k) => k.key === editing.at.key));
 
-  /**
-   * A group's rows with the line keys are typed into, when it is open there: first in the group,
-   * then right under the key added last from it.
-   */
-  const withLine = (group: KeyGroup, rows: ReactNode[]): ReactNode[] => {
-    if (typing?.kind !== 'add' || typingGroup !== group) return rows;
-    const { after } = typing;
-    const last = after ? (group.keys.find((k) => k.line === after.line && k.key === after.key) ?? group.keys.find((k) => k.key === after.key)) : undefined;
-    const at = last ? group.keys.indexOf(last) + 1 : 0;
-    const line = <KeyLine key="adding" adding onSubmit={(key, value) => addTo(refOf(group), key, value)} onClose={() => setTyping(null)} />;
-    return [...rows.slice(0, at), line, ...rows.slice(at)];
-  };
+  /** The line keys are typed into, under a group's keys. */
+  const addLine = (group: GroupRef) => <KeyLine key="adding" adding onSubmit={(key, value) => addTo(group, key, value)} onClose={() => setTyping(null)} />;
+  // Add key in the header, before there are keys without a group: their group shows at the top, empty, with the line.
+  const newNoGroup = typing?.kind === 'add' && typing.group.name === null && !typingGroup;
 
   // Groups and keys are told apart by name and by how many of that name came before, which does not change as lines move.
   const seen = new Map<string, number>();
@@ -421,6 +450,16 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
 
   const table = (
     <div className="kv">
+      <BadLines count={bad.length} onShow={showBad} />
+      {newNoGroup && (
+        <div className="kv-grp">
+          <div className="kv-h">
+            <span className="nm none">{t('keys.noGroup')}</span>
+            <small>0</small>
+          </div>
+          {addLine(NO_GROUP)}
+        </div>
+      )}
       {groups.map((group) => {
         const id = idOf('g:', group.name ?? '');
         const adding = typing?.kind === 'add' && typingGroup === group;
@@ -459,7 +498,7 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
                 </span>
               </div>
             )}
-            {withLine(group, group.keys.map((entry) => {
+            {group.keys.map((entry) => {
               const keyId = idOf(`${id}/`, entry.key);
               if (entry === edited) {
                 return (
@@ -496,7 +535,8 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
                   onMenu={(event) => keyMenu(event, entry)}
                 />
               );
-            }))}
+            })}
+            {adding && addLine(refOf(group))}
             {group.keys.length === 0 && !adding && <div className="kv-none">{t('keys.noKeys')}</div>}
           </div>
         );
@@ -506,12 +546,17 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
           <NameLine adding onSubmit={makeGroup} onClose={() => setTyping(null)} />
         </div>
       )}
-      {groups.length === 0 && typing?.kind !== 'group' && <p className="kv-empty">{t('keys.empty')}</p>}
-      {/* On a phone the header has no room for it: a group is added at the end of the list. */}
+      {groups.length === 0 && typing?.kind !== 'group' && !newNoGroup && <p className="kv-empty">{t('keys.empty')}</p>}
+      {/* In a narrow window the header has no room for them: a key and a group are added at the end of the list. */}
       {narrow && typing?.kind !== 'group' && (
-        <button type="button" className="kv-add" onClick={() => setTyping({ kind: 'group' })}>
-          {t('keys.addGroupRow')}
-        </button>
+        <div className="kv-adds">
+          <button type="button" className="kv-add" onClick={() => startAdding(NO_GROUP)}>
+            {t('keys.addKeyRow')}
+          </button>
+          <button type="button" className="kv-add" onClick={() => setTyping({ kind: 'group' })}>
+            {t('keys.addGroupRow')}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -521,20 +566,25 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
       <header className="th">
         <b>{name}</b>
         <span className="vsw" role="tablist">
-          <button type="button" role="tab" aria-selected={view === 'table'} onClick={() => onLook({ view: 'table' })}>
+          <button type="button" role="tab" aria-selected={view === 'table'} onClick={() => lookAs('table')}>
             {t('keys.viewTable')}
           </button>
-          <button type="button" role="tab" aria-selected={view === 'text'} onClick={() => onLook({ view: 'text' })}>
+          <button type="button" role="tab" aria-selected={view === 'text'} onClick={() => lookAs('text')}>
             {t('keys.viewText')}
           </button>
         </span>
         {view === 'table' && !narrow && (
-          <button type="button" className="ghost" onClick={() => setTyping({ kind: 'group' })}>
-            {t('keys.addGroup')}
-          </button>
+          <>
+            <button type="button" className="ghost" onClick={() => startAdding(NO_GROUP)}>
+              {t('keys.addKey')}
+            </button>
+            <button type="button" className="ghost" onClick={() => setTyping({ kind: 'group' })}>
+              {t('keys.addGroup')}
+            </button>
+          </>
         )}
       </header>
-      {view === 'table' ? table : <KeysText text={text} onChange={change} onCursor={setCursor} />}
+      {view === 'table' ? table : <KeysText text={text} onChange={change} onCursor={setCursor} at={openAt} />}
     </section>
   );
 }

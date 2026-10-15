@@ -5019,6 +5019,46 @@ button.cb:hover::after {
   color: var(--sl-fg);
 }
 
+.kv-adds {
+  display: flex;
+  gap: 8px;
+}
+
+/* lines of the text that are not keys, over the groups */
+.kv-bad {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 7px 8px 7px 12px;
+  border: 1px solid color-mix(in srgb, #e0a84a 55%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, #e0a84a 12%, transparent);
+  color: var(--sl-fg);
+  font-size: 12px;
+}
+
+.kv-bad > .icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: #e0a84a;
+}
+
+.kv-bad button {
+  flex: none;
+  margin-left: auto;
+  padding: 3px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-fg);
+  font-size: 12px;
+}
+
+.kv-bad button:hover {
+  background: var(--sl-sel);
+}
+
 /* the file as text */
 .kvtext {
   flex: 1;

@@ -13,7 +13,7 @@ import {
   updateKey,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type FormEvent, type MouseEvent, type PointerEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { type KeysActions, writeClipboard } from './Keys';
 import { Empty, liftUntilTouch, Sheet } from './sheets';
@@ -30,7 +30,7 @@ type GroupRef = { line: number; name: string | null };
 
 const refOf = (group: KeyGroup): GroupRef => ({ line: group.line, name: group.name });
 const sameRef = (a: GroupRef, b: GroupRef) => a.line === b.line && a.name === b.name;
-/** The keys before any heading, the only place for a key in a file with no group yet. */
+/** The keys before any heading: No group, always a place for a key. */
 const NO_GROUP: GroupRef = { line: -1, name: null };
 
 /** A secret value as it shows until asked for: always as long, so that its length is not told. */
@@ -263,14 +263,16 @@ function GroupSheet({ start, onSave, onClose }: { start: string | null; onSave: 
 
 /**
  * A keys file's table on a phone. `latest` is the file's text as it is now, for a change made
- * after a question; `adding` counts the presses of +, each opening a new key's sheet.
+ * after a question; `adding` counts the presses of +, each opening a new key's sheet; `bad` says
+ * over the groups which lines of the text are not keys.
  */
-export function PhoneKeysTable({ text, latest, change, actions, adding }: {
+export function PhoneKeysTable({ text, latest, change, actions, adding, bad }: {
   text: string;
   latest: { current: string };
   change: (next: string) => void;
   actions: KeysActions;
   adding?: number;
+  bad?: ReactNode;
 }) {
   const groups = useMemo(() => parseKeys(text), [text]);
   const hold = useHold();
@@ -278,11 +280,12 @@ export function PhoneKeysTable({ text, latest, change, actions, adding }: {
   const [shown, setShown] = useState<ReadonlySet<string>>(() => new Set());
   const [copied, setCopied] = useState<string | null>(null);
   const [sheet, setSheet] = useState<{ kind: 'key'; group: GroupRef; entry: KeyEntry | null } | { kind: 'group'; group: GroupRef | null } | null>(null);
-  const refs = groups.length > 0 ? groups.map(refOf) : [NO_GROUP];
+  // The groups a key can be put in: No group is always one, first as its keys are.
+  const refs = groups.some((group) => group.name === null) ? groups.map(refOf) : [NO_GROUP, ...groups.map(refOf)];
 
-  // + opens a new key's sheet, for the first group.
+  // + opens a new key's sheet, for the first group shown.
   useEffect(() => {
-    if (adding) setSheet({ kind: 'key', group: refs[0]!, entry: null });
+    if (adding) setSheet({ kind: 'key', group: groups[0] ? refOf(groups[0]) : NO_GROUP, entry: null });
     // Only a press of + opens it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adding]);
@@ -299,10 +302,10 @@ export function PhoneKeysTable({ text, latest, change, actions, adding }: {
   };
   const saveKey = (entry: KeyEntry | null, from: GroupRef, into: GroupRef, name: string, value: string) => {
     const now = latest.current;
-    if (!entry) return change(addKey(now, into, name, value, 'last').text);
+    if (!entry) return change(addKey(now, into, name, value).text);
     if (sameRef(from, into)) return change(updateKey(now, entry, name, value));
     // To another group: out of this one, and in at the end of that one.
-    const moved = addKey(removeKey(now, entry), into, name, value, 'last');
+    const moved = addKey(removeKey(now, entry), into, name, value);
     if (moved.at) change(moved.text);
   };
   const deleteKey = (entry: KeyEntry) =>
@@ -360,6 +363,7 @@ export function PhoneKeysTable({ text, latest, change, actions, adding }: {
   const renaming = sheet?.kind === 'group' ? sheet : null;
   return (
     <div className="mb-klist">
+      {bad}
       {groups.length === 0 ? (
         <Empty icon="keys" title={t('phone.noKeys')} text={t('phone.noKeysText')} action={{ label: t('phone.addKey'), run: () => setSheet({ kind: 'key', group: NO_GROUP, entry: null }) }} />
       ) : (

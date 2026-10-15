@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addGroup,
   addKey,
+  badLines,
   cleanKey,
   groupText,
   isSecret,
@@ -71,15 +72,29 @@ describe('keys files', () => {
     expect(addKey(`X=1\n${FILE}`, { line: 5, name: 'OpenAI' }, 'ORG', 'o').text.split('\n')[9]).toBe('ORG=o');
   });
 
-  it('adds keys in the order they are typed under the line they are typed in', () => {
+  it('adds keys in the order they are typed, each after the one before', () => {
     const group = { line: 5, name: 'OpenAI' };
-    const first = addKey(FILE, group, 'ORG', 'o', 'first');
-    expect(first.at).toEqual({ line: 7, key: 'ORG' });
-    const second = addKey(first.text, group, 'PROJECT', 'p', first.at!);
-    expect(parseKeys(second.text)[1]!.keys.map((k) => k.key)).toEqual(['ORG', 'PROJECT', 'OPENAI_API_KEY']);
-    // A key of the same name in another group is not one to go after.
-    const two = '# Prod\nHOST=a\n\n# Staging\nHOST=b\n';
-    expect(addKey(two, { line: 3, name: 'Staging' }, 'PORT', '1', { line: 1, key: 'HOST' }).text).toBe('# Prod\nHOST=a\n\n# Staging\nHOST=b\nPORT=1\n');
+    const first = addKey(FILE, group, 'ORG', 'o');
+    expect(first.at).toEqual({ line: 8, key: 'ORG' });
+    const second = addKey(first.text, group, 'PROJECT', 'p');
+    expect(parseKeys(second.text)[1]!.keys.map((k) => k.key)).toEqual(['OPENAI_API_KEY', 'ORG', 'PROJECT']);
+  });
+
+  it('adds keys without a group before the first heading', () => {
+    const none = { line: -1, name: null };
+    const first = addKey('# A\nK=1\n', none, 'X', '1');
+    expect(first.text).toBe('X=1\n\n# A\nK=1\n');
+    expect(first.at).toEqual({ line: 0, key: 'X' });
+    expect(addKey(first.text, none, 'Y', '2').text).toBe('X=1\nY=2\n\n# A\nK=1\n');
+    expect(addKey('\n# A\n', none, 'X', '1').text).toBe('X=1\n\n# A\n');
+    expect(parseKeys(addKey(FILE, none, 'X', '1').text).map((g) => g.name)).toEqual([null, 'Production DB', 'OpenAI']);
+  });
+
+  it('tells the lines that are not keys', () => {
+    expect(badLines(FILE)).toEqual([]);
+    expect(badLines('# A\nAPI KEY=1\nOK=2\n  \nHOST: db\n# B\njust words\n')).toEqual([1, 4, 6]);
+    // A key typed with a space in its name is not read as one.
+    expect(parseKeys('# A\nAPI KEY=1\n')[0]!.keys).toEqual([]);
   });
 
   it('changes and removes a key by its line, checked by its name', () => {

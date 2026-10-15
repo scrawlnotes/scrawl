@@ -786,6 +786,7 @@ export const en = {
   // keys files
   'keys.viewTable': 'Table',
   'keys.viewText': 'Text',
+  'keys.addKey': 'Add key',
   'keys.addGroup': 'Add group',
   'keys.addGroupRow': '+ Add group',
   'keys.addKeyRow': '+ Add key',
@@ -807,6 +808,10 @@ export const en = {
   'keys.keyMenu': 'Key menu',
   'keys.groupMenu': 'Group menu',
   'keys.format': '.env',
+  'keys.placeholder': '# Group name\nKEY=value\nOTHER_KEY=value',
+  'keys.notAKey': 'Not a key: write NAME=value, with no spaces in the name.',
+  'keys.notKeys': { one: '1 line of the text is not a key.', other: '{count} lines of the text are not keys.' },
+  'keys.showLine': 'Show',
   'collection.defaultName': 'Collection',
   'collection.search': 'Search',
   'collection.addRecord': 'Add record',
