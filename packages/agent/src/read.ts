@@ -1,0 +1,185 @@
+import { createHash } from 'node:crypto';
+import {
+  boardName,
+  cardValue,
+  collectionName,
+  displayTitle,
+  type Findable,
+  listName,
+  loadBoard,
+  loadCollection,
+  loadList,
+  readTree,
+  recordTitle,
+  search as searchCore,
+  searchIndex,
+  type TreeNode,
+  valueText,
+} from '@scrawlnotes/core';
+import { checkOpen, cleanPath, fileKind, Refusal } from './paths';
+import { type Agent, type AgentSpace, type ElementKind, elementsOf, exists, pickSpace, todayOf } from './space';
+
+// Looking around: the spaces, what is in one, a file's text, and finding anything by name or by
+// text, as the sidebar and the search window do. Nothing here writes.
+
+/** The most text a tool reads or writes at once. */
+export const MAX_TEXT = 1024 * 1024;
+
+/** The digest of a text, as the server tags a file's content. */
+export const hashOf = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
+
+export async function spacesTool(agent: Agent) {
+  const [spaces, person] = await Promise.all([agent.spaces(), agent.person()]);
+  return {
+    data: {
+      today: todayOf(agent),
+      person: person?.name ?? null,
+      spaces: spaces.map(({ id, name, where, personal }) => ({ id, name, where, personal })),
+    },
+  };
+}
+
+/** A node as the tree tool gives it: without what only the app's screen needs. */
+function nodeOut(node: TreeNode): { name: string; path: string; kind: ElementKind; title?: string; children?: ReturnType<typeof nodeOut>[] } {
+  return {
+    name: node.name,
+    path: node.path,
+    kind: node.kind,
+    ...(node.title !== undefined && { title: node.title }),
+    ...(node.children && { children: node.children.map(nodeOut) }),
+  };
+}
+
+export async function treeTool(agent: Agent, args: { space?: string; folder?: string; kind?: ElementKind }) {
+  const space = await pickSpace(agent, args.space);
+  const folder = args.folder ? checkOpen(cleanPath(args.folder)) : '';
+  if (folder) {
+    const entry = await exists(space.fs, folder);
+    if (entry?.kind !== 'dir') throw new Refusal(`No folder at ${folder}`, { folders: (await elementsOf(space.fs, ['folder'])).map((f) => f.path) });
+  }
+  if (args.kind) {
+    const items = (await elementsOf(space.fs, [args.kind])).filter((e) => !folder || e.path.startsWith(`${folder}/`));
+    return { data: { space: space.id, folder, kind: args.kind, items } };
+  }
+  const nodes = (await readTree(space.fs, folder)).map(nodeOut);
+  return { data: { space: space.id, folder, nodes } };
+}
+
+export async function readTool(agent: Agent, args: { space?: string; path: string }) {
+  const space = await pickSpace(agent, args.space);
+  const path = checkOpen(cleanPath(args.path));
+  const entry = await exists(space.fs, path);
+  if (!entry) throw new Refusal(`Nothing is at ${path}`, { path });
+  if (entry.kind === 'dir') throw new Refusal(`${path} is a folder; use tree to see what is in it`, { path });
+  if (entry.size !== undefined && entry.size > MAX_TEXT) throw new Refusal(`${path} is larger than agents read (1 MB)`, { path, size: entry.size });
+  const text = await space.fs.readText(path);
+  if (text.length > MAX_TEXT) throw new Refusal(`${path} is larger than agents read (1 MB)`, { path });
+  return { data: { space: space.id, path, kind: fileKind(path), hash: hashOf(text), size: text.length }, text };
+}
+
+/** Something to be found in a space, with where it is. */
+interface Thing extends Findable {
+  space: string;
+  path: string;
+  id?: string;
+  where: string;
+}
+
+/** The fields whose values are read as text: not numbers, days, boxes or what is worked out. */
+const UNREAD = new Set(['number', 'date', 'checkbox', 'formula', 'rollup', 'name', 'code']);
+
+const joined = (...parts: (string | null | undefined | false)[]) => parts.filter(Boolean).join(' · ');
+
+/** Everything in a space that can be found: elements by name, notes by text, tasks, cards and records. */
+async function thingsOf(space: AgentSpace, today: string): Promise<Thing[]> {
+  const { fs } = space;
+  const things: Thing[] = [];
+  const elements = await elementsOf(fs);
+  const trail = (path: string) => [space.name, ...path.split('/').slice(0, -1)].join(' › ');
+  for (const element of elements) {
+    const where = trail(element.path);
+    if (element.kind === 'note') {
+      const text = await fs.readText(element.path).catch(() => '');
+      things.push({ kind: 'note', name: displayTitle(element.path, text), text, space: space.id, path: element.path, where });
+    } else if (element.kind === 'tasks') {
+      things.push({ kind: 'tasks', name: element.title, space: space.id, path: element.path, where });
+      const list = await loadList(fs, element.path);
+      for (const task of list.tasks) {
+        things.push({ kind: 'task', name: task.title, text: task.description ?? '', done: task.done, space: space.id, path: element.path, id: task.id, where: joined(listName(element.path), task.due) });
+      }
+    } else if (element.kind === 'board') {
+      things.push({ kind: 'board', name: element.title, space: space.id, path: element.path, where });
+      const board = await loadBoard(fs, element.path);
+      const columns = new Map(board.columns.map((c) => [c.id, c]));
+      for (const card of board.cards) {
+        const column = columns.get(card.column);
+        const fields = (board.fields ?? [])
+          .filter((f) => !UNREAD.has(f.type))
+          .map((f): [string, string] => [f.label, valueText(cardValue(board, card, f, today))])
+          .filter(([, value]) => value !== '');
+        if (card.labels?.length) fields.push(['Labels', card.labels.join(', ')]);
+        const comments = card.timeline.flatMap((entry) => (entry.kind === 'comment' ? [entry.text] : []));
+        things.push({
+          kind: 'card',
+          name: card.title,
+          key: `${board.prefix}-${card.key}`,
+          text: [card.description ?? '', ...comments].filter(Boolean).join('\n'),
+          fields,
+          done: column?.kind === 'done' || column?.kind === 'dropped',
+          space: space.id,
+          path: element.path,
+          id: card.id,
+          where: joined(boardName(element.path), column?.name),
+        });
+      }
+    } else if (element.kind === 'collection') {
+      things.push({ kind: 'collection', name: element.title, space: space.id, path: element.path, where });
+      const collection = await loadCollection(fs, element.path, undefined, true).catch(() => null);
+      if (!collection) continue;
+      for (const record of collection.records) {
+        const fields = collection.schema.fields
+          .filter((f) => !UNREAD.has(f.type))
+          .map((f): [string, string] => [f.label, valueText(record.values[f.key])])
+          .filter(([, value]) => value !== '');
+        things.push({
+          kind: 'record',
+          name: recordTitle(record),
+          key: record.name ? record.code : '',
+          text: record.body,
+          fields,
+          space: space.id,
+          path: record.path,
+          id: record.id,
+          where: joined(collectionName(element.path), where),
+        });
+      }
+    } else if (element.kind === 'folder') {
+      things.push({ kind: 'folder', name: element.title, space: space.id, path: element.path, where });
+    }
+  }
+  return things;
+}
+
+export async function searchTool(agent: Agent, args: { query: string; space?: string; limit?: number }) {
+  const query = args.query.trim();
+  if (!query) throw new Refusal('What to search for? Give a query');
+  const spaces = args.space ? [await pickSpace(agent, args.space)] : await agent.spaces();
+  const today = todayOf(agent);
+  const things = (await Promise.all(spaces.map((space) => thingsOf(space, today)))).flat();
+  const found = searchCore(searchIndex(things), query).slice(0, args.limit ?? 30);
+  return {
+    data: {
+      query,
+      found: found.map(({ item, line }) => ({
+        space: item.space,
+        kind: item.kind,
+        title: item.name,
+        ...(item.key && { key: item.key }),
+        path: item.path,
+        ...(item.id && { id: item.id }),
+        where: item.where,
+        ...(line && { line: line.text }),
+      })),
+    },
+  };
+}

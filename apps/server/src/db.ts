@@ -83,6 +83,40 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX versions_path ON versions (space_id, path);
   `,
+  // Agents (design/agent.md, 7.2): the OAuth clients that registered themselves, the codes given
+  // out while a sign-in is under way, and each agent connection, which is a device with an access
+  // token that runs out and a refresh token that is turned over.
+  `
+  CREATE TABLE oauth_clients (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL DEFAULT '',
+    redirect_uris TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE oauth_codes (
+    code_hash TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    redirect_uri TEXT NOT NULL,
+    code_challenge TEXT NOT NULL,
+    resource TEXT NOT NULL,
+    account_id TEXT NOT NULL REFERENCES accounts (id),
+    scope TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used_at INTEGER,
+    device_id TEXT
+  );
+  CREATE TABLE agents (
+    device_id TEXT PRIMARY KEY REFERENCES devices (id),
+    client_id TEXT NOT NULL,
+    client_name TEXT NOT NULL DEFAULT '',
+    scope TEXT NOT NULL DEFAULT '',
+    access_expires_at INTEGER NOT NULL,
+    refresh_hash TEXT UNIQUE,
+    refresh_expires_at INTEGER,
+    created_at INTEGER NOT NULL
+  );
+  `,
 ];
 
 export function openDb(file: string): Db {

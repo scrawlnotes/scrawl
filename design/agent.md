@@ -1,6 +1,6 @@
 # Ajan: teknik tasarım (taslak)
 
-12. aşama. PLAN 4.8'in teknik karşılığıdır. Durum: kararlar onaylandı (15 Ekim 2026, 12. bölüm); sırada 1. dilim, kodda bir şey yazılmadı. Sunucu (11. aşama, `design/server.md`) yazıldı ve ayakta; ajan onun üstüne kurulur.
+12. aşama. PLAN 4.8'in teknik karşılığıdır. Durum: kararlar onaylandı (15 Ekim 2026, 12. bölüm); 1. ve 2. dilim (araçlar, sunucudaki kapı) yazıldı, 13. bölümde notlar; sırada elle deneme, sonra 3. ve 4. dilim. Sunucu (11. aşama, `design/server.md`) yazıldı ve ayakta; ajan onun üstüne kurulur.
 
 ## 1. Tek kural
 
@@ -81,7 +81,7 @@ Araç açıklamaları (`description`) ve `annotations` doğru doldurulur: okuyan
 
 ## 5. Aktör ve iz
 
-- İstemci adını MCP'de her istekte söyler (`clientInfo`: "Claude", "Claude Code", "ChatGPT", "Cursor"); eski sürümle bağlanan istemcide açılıştan alınır. Ayar istemez.
+- İstemci adı: 2026-07-28 sürümünde her istekte gelebilir (`clientInfo`, SHOULD), eski sürümle bağlanan istemcide açılıştan alınır. Bugünkü SDK (2.3) adı istekle taşımıyor ve sunucuda her istek taze bir örnekle karşılandığı için açılış da yok; bu yüzden sunucuda ad OAuth kaydından gelir (DCR'deki `client_name` ya da CIMD belgesindeki ad: "Claude", "ChatGPT"), protokol adı taşıdığında o öne geçer. Ayar istemez.
 - Kişi bilgisayarda `.scrawl/me.json`'dan, sunucuda hesaptan bilinir. Aktör `"<istemci> · <kişi>"` yazılır: "Claude Code · Kaan". Kartın zaman çizgisinde, yorumda ve sunucudaki `versions` satırlarında bu görünür. Kişi adsızsa yalnız istemcinin adı.
 - Atama (assignee) için ajan bir kişi değildir; `people.json`'a girmez. Kişisel space'te kartın Assignee'si yazılan bir ad olduğu için ajan kendine "Claude" yazabilir (PLAN 4.4).
 - Ajanın üstüne yazdığı notun önceki hali her zaman sürüm olarak kalır (`keepVersion`, `always: true`); insan History'den geri alır.
@@ -164,9 +164,10 @@ Aynı `packages/agent`; fabrikaya hesap, `ServerFs` üreticisi, aktör ("Claude 
 
 ## 11. Dilimler
 
-1. **Araçlar ve bilgisayardaki kapı:** `packages/agent` (on dört araç, `scrawl://guide`, aktör), `NodeFs`, `apps/mcp` (`scrawl-mcp`, ayar dosyası ve `--vault`, stdio), npm paketi, `.mcpb` paketi; Claude Code ve Claude Desktop ile deneme. Senin günlük kullanımın bu ve sunucu istemez.
+1. **Araçlar:** `packages/agent` (on dört araç, `scrawl://guide`, aktör, ada göre çözme), testleri `MemoryFs` üstünde.
 2. **Sunucudaki kapı:** `ServerFs`, `POST /mcp`, metadata belgeleri, CIMD ve DCR, giriş sayfası, token ve refresh, `devices` ve `agents` tabloları, Disconnect; claude.ai'da (web ve telefon), ChatGPT'de ve Claude Code'da deneme; `scrawl.kaanarslan.dev/mcp`.
-3. **Arayüz ve rehber:** Settings › Agents mockup'ı, sonra bilgisayar ve telefon ekranı; hesabın sunucu sayfasında Agents; Cursor deeplink; README'lerde istemci başına adımlar.
+3. **Bilgisayardaki kapı:** `NodeFs`, `apps/mcp` (`scrawl-mcp`, ayar dosyası ve `--vault`, stdio), npm paketi, `.mcpb` paketi; Claude Code ve Claude Desktop ile deneme.
+4. **Arayüz ve rehber:** Settings › Agents mockup'ı, sonra bilgisayar ve telefon ekranı; hesabın sunucu sayfasında Agents; Cursor deeplink; README'lerde istemci başına adımlar.
 
 Sonra: komut satırı yüzü (aynı paketin ikinci yüzü, ihtiyaç çıkarsa), sunucuda zamanlanmış ajan koşuları ve otomasyon (ajan sunucuda koşar, aynı araçlarla), ajan için ince yetkiler (salt okunur ajan, space'e göre), dosya izleme (masaüstünde anında yenileme), eklerin okunması.
 
@@ -182,3 +183,14 @@ Sonra: komut satırı yüzü (aynı paketin ikinci yüzü, ihtiyaç çıkarsa), 
 8. CLI şimdilik yok.
 9. (Eklendi, onaylı.) Araçlar pano, koleksiyon ve listeyi ad ile de alır; ad birden fazlasına uyuyorsa yazmaz, adayları döndürür. `tree`'de tür süzgeci. Rehber "önce bak, varsa güncelle, belirsizse sor" der. Belli bir projeye ya da senaryoya bağlı hiçbir şey yok.
 10. (Eklendi, onaylı.) Belirsizlik kuralı kayıtlara da uygulanır: link ve görevin `record`'u adla verilip birden fazla kayıt uyuyorsa araç yazmaz, adayları döndürür. `spaces` bugünün tarihini ve kişinin adını döner.
+
+
+## 13. Yazılırken görülenler (15 Ekim 2026)
+
+- **Kod:** `packages/agent` (`src/server.ts` araçları kurar; `read.ts`, `write.ts`, `records.ts`, `cards.ts`, `tasks.ts` araçların kendisi; `space.ts` ada göre çözme; `guide.ts` rehber; 13 test, biri gerçek MCP istemcisiyle). Sunucuda `src/agent.ts` (uçlar ve /mcp), `src/oauth.ts` (yetki sunucusu), `src/agentfs.ts` (`ServerFs`), `src/pages.ts`'te giriş sayfası, `db.ts`'te 2. göç; 7 test.
+- **İstemci adı:** 5. bölümdeki gibi; sunucuda OAuth'tan.
+- **Çakışma:** `ServerFs` yazarken dosyanın okunduğu andaki özetini `If-Match` verir; biri arada yazmışsa bir kez daha dener ve yazar. Araç düzeyinde yeniden birleştirme yok: iki bütün yazmadan sonrakisi kalır, uygulamanın sync'teki birleştirmesi burada işlemez. Küçük ekipte nadir; gerekirse sonra.
+- **Token süresi ve SDK:** SDK'nın bearer denetimi süreyi gerçek saate göre ölçer; sunucu kalan süreyi kendi saatinden hesaplayıp verir, böylece testlerdeki sahte saat de çalışır.
+- **Ajan anahtarı API'yi açmaz:** `devices`'taki bir ajan satırının token'ı `/api/v1/*`'de 401 alır (`agent-key`); yalnız `/mcp` içindir. Uygulamanın kendi cihaz anahtarı da `/mcp`'yi açmaz.
+- **Hesap uçları:** `GET /api/v1/agents` hesabın bağlantıları (`id`, `client`, `connected`, `seen`), `DELETE /api/v1/agents/:id` keser. Arayüz 4. dilimde.
+- **Elle deneme bekliyor:** Claude Code'dan `claude mcp add --transport http scrawl https://scrawl.kaanarslan.dev/mcp`; claude.ai'da custom connector; ChatGPT Developer mode. Sunucu imajı yeni sürümde `/mcp`'yi açar, veritabanı açılışta kendini yükseltir.

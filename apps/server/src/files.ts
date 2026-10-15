@@ -195,6 +195,20 @@ export class SpaceFiles {
     }));
   }
 
+  /** What is at `path` now: a file with its tag, or a folder; undefined when nothing is. */
+  at(space: string, path: string): Entry | undefined {
+    const row = this.live(space, keyOf(path));
+    return row ? entryOf(row) : undefined;
+  }
+
+  /** The entries directly inside `dir` (`''` for the top), as a folder lists them, with when each last changed. */
+  listDir(space: string, dir: string): (Entry & { at: number })[] {
+    const [low, high] = dir ? inside(keyOf(dir)) : ['', '\uffff'];
+    const rows = this.db.prepare('SELECT * FROM entries WHERE space_id = ? AND deleted = 0 AND key >= ? AND key < ? ORDER BY key').all(space, low, high) as unknown as (Row & { at: number })[];
+    const depth = dir ? dir.split('/').length + 1 : 1;
+    return rows.filter((r) => r.path.split('/').length === depth).map((r) => ({ ...entryOf(r), at: r.at }));
+  }
+
   // ---------- inside ----------
 
   /** Runs a change, and tells it once it is kept, when it changed anything. */

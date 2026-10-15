@@ -57,6 +57,16 @@ up. The owner then opens spaces and invites people with links; no mail is sent.
 | `SCRAWL_APP_URL` | Where a link opened in a browser sends people. `https://app.scrawlnotes.com` by default. |
 | `PORT` | 8080 by default. |
 
+## Agents
+
+Claude, ChatGPT and Claude Code reach a space on this server at `https://<your server>/mcp` (MCP, Streamable HTTP). Each person signs in with their own account on the server's own page; the agent then sees and changes the spaces that person is in, as they would, and every change carries the agent's and the person's names.
+
+- **Claude on the web and on your phone:** on claude.ai, Settings › Connectors › Add custom connector, paste `https://<your server>/mcp`, sign in on the page that opens. Added on the web, it works on your phone and in Claude Desktop too.
+- **ChatGPT:** Settings › Apps & Connectors › Advanced › Developer mode, create a connector with the same address, sign in.
+- **Claude Code:** `claude mcp add --transport http scrawl https://<your server>/mcp`, then `/mcp` to sign in.
+
+The server needs HTTPS for this, as for the app. A connection shows under the account (`GET /api/v1/agents`) and is ended with `DELETE /api/v1/agents/<id>`; the app's Agents screen is coming.
+
 ## Backups
 
 ```bash

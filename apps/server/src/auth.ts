@@ -117,12 +117,18 @@ export class Accounts {
 
   /** Signs in on a device: a key of its own. */
   async signIn(input: { email?: unknown; password?: unknown; device?: unknown }, from: string): Promise<{ token: string; account: Account }> {
+    const account = await this.verifyPassword(input, from);
+    return { token: this.newDevice(account.id, input.device), account };
+  }
+
+  /** The account an email and a password belong to, with no key given: for a sign-in that is not a device's, as an agent's. */
+  async verifyPassword(input: { email?: unknown; password?: unknown }, from: string): Promise<Account> {
     const email = cleanEmail(input.email);
     this.tries.take(`${email.toLowerCase()} ${from}`);
     const row = this.db.prepare('SELECT * FROM accounts WHERE email = ? AND disabled_at IS NULL').get(email) as (Account & { password: string }) | undefined;
     if (!row) throw new Refused(401, 'no-account', 'No account with this email on this server');
     if (typeof input.password !== 'string' || !(await passwordMatches(row.password, input.password))) throw new Refused(401, 'wrong-password', 'The password is not right');
-    return { token: this.newDevice(row.id, input.device), account: { id: row.id, email: row.email, name: row.name, role: row.role } };
+    return { id: row.id, email: row.email, name: row.name, role: row.role };
   }
 
   /** The account and device a key belongs to, or null. */

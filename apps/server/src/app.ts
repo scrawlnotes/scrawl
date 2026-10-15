@@ -9,6 +9,8 @@ import { type Config, VERSION } from './config';
 import { BadPath, checkPath, Conflict, type SpaceFiles } from './files';
 import type { Live, LiveSocket } from './live';
 import type { Invites } from './invites';
+import { agentRoutes } from './agent';
+import type { OAuth } from './oauth';
 import { joinPage, type JoinFound, readyPage } from './pages';
 import type { Spaces } from './spaces';
 
@@ -24,6 +26,9 @@ export interface Parts {
   spaces: Spaces;
   live: Live;
   invites: Invites;
+  oauth: OAuth;
+  /** The server's clock, for what is measured against it. */
+  now: () => number;
 }
 
 type Env = { Variables: { account: Account; device: string } };
@@ -58,7 +63,7 @@ function pathIn(c: Context, space: string): string {
 const unquote = (tag: string) => tag.trim().replace(/^W\//, '').replace(/^"|"$/g, '');
 
 export function createApp(parts: Parts) {
-  const { config, blobs, files, accounts, spaces, live, invites } = parts;
+  const { config, blobs, files, accounts, spaces, live, invites, oauth } = parts;
   const app = new Hono<Env>();
 
   app.use(
@@ -158,6 +163,8 @@ export function createApp(parts: Parts) {
     const header = c.req.header('Authorization') ?? '';
     const who = header.startsWith('Bearer ') ? accounts.byToken(header.slice(7).trim()) : null;
     if (!who) throw new Refused(401, 'signed-out', 'This device is not signed in to the server');
+    // An agent's token is for /mcp only: it was given for that resource and nothing else.
+    if (oauth.isAgent(who.device)) throw new Refused(401, 'agent-key', 'An agent’s key does not open the API; agents use /mcp');
     c.set('account', who.account);
     c.set('device', who.device);
     await next();
@@ -258,6 +265,10 @@ export function createApp(parts: Parts) {
     files.mkdir(c.req.param('id'), typeof body.path === 'string' ? body.path : '', actor(c));
     return c.body(null, 204);
   });
+
+  // ---------- agents: the MCP door and its sign-in ----------
+
+  agentRoutes(app, parts, addressOf);
 
   return app;
 }

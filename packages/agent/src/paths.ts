@@ -1,0 +1,60 @@
+import { BOARD_EXT, KEYS_EXT, TASK_LIST_EXT } from '@scrawlnotes/core';
+
+// Paths as the agent gives them, and what it may not touch. A path is inside a space, with `/`,
+// as the app shows it in a tab. Keys files hold secrets, `.scrawl/` holds the app's own state and
+// `_attachments/` the attached files: the agent neither reads nor writes them (design/agent.md, 4).
+
+/** What a tool could not do, with what it needs to say so: candidates, nearest names, the hash a file has now. */
+export class Refusal extends Error {
+  constructor(
+    message: string,
+    readonly details: { [key: string]: unknown } = {},
+  ) {
+    super(message);
+    this.name = 'Refusal';
+  }
+}
+
+const MAX_PATH = 1024;
+
+/** A path as the agent wrote it, made plain: `/` only, no leading slash, no `..`, no control characters. */
+export function cleanPath(raw: string): string {
+  const path = raw
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/\/+/g, '/')
+    .replace(/^(\.\/)+/, '')
+    .replace(/^\/+|\/+$/g, '');
+  if (path.length > MAX_PATH) throw new Refusal('The path is too long');
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f]/.test(path)) throw new Refusal('The path has characters a path cannot have');
+  if (path.split('/').some((part) => part === '..' || part === '.')) throw new Refusal('The path may not go outside the space');
+  return path;
+}
+
+/** Why the agent may not touch a path, or null when it may. Hidden names (`.`, `_`) hold app state and attachments. */
+export function closedReason(path: string): string | null {
+  const parts = path.split('/').filter(Boolean);
+  if (parts.some((part) => part.startsWith('.') || part.startsWith('_'))) return 'This is Scrawl’s own folder or an attachment; agents do not read or write it';
+  if (path.endsWith(KEYS_EXT)) return 'Keys files hold secrets; agents do not read or write them';
+  return null;
+}
+
+/** Refuses a closed path. */
+export function checkOpen(path: string): string {
+  const why = closedReason(path);
+  if (why) throw new Refusal(why, { path });
+  return path;
+}
+
+export type FileKind = 'note' | 'tasks' | 'board' | 'keys' | 'schema' | 'other';
+
+/** What a file is, by its name: a note or a record, a task list, a board, a keys file, a collection's schema. */
+export function fileKind(path: string): FileKind {
+  if (path.endsWith(TASK_LIST_EXT)) return 'tasks';
+  if (path.endsWith(BOARD_EXT)) return 'board';
+  if (path.endsWith(KEYS_EXT)) return 'keys';
+  if (path.endsWith('/_collection.json') || path === '_collection.json') return 'schema';
+  if (path.endsWith('.md')) return 'note';
+  return 'other';
+}

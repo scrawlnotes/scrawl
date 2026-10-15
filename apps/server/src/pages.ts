@@ -55,6 +55,47 @@ export function joinPage(options: { host: string; version: string; link: string;
   return page(host, options.version, body);
 }
 
+/** What the sign-in page needs: who asks, and the request to carry through the form. */
+export interface AuthorizeView {
+  host: string;
+  version: string;
+  /** The client as it names itself: "Claude", "ChatGPT". */
+  client: string;
+  /** The request's parameters, carried as hidden fields. */
+  fields: { [name: string]: string };
+  /** The email typed last time, when the password was not right. */
+  email?: string;
+  error?: string;
+}
+
+/**
+ * The page an agent's sign-in opens: the person lets a client use their account here, with their
+ * email and password, or does not. Nothing is kept between visits; each connection asks again.
+ */
+export function authorizePage(view: AuthorizeView): string {
+  const host = escape(view.host);
+  const client = escape(view.client);
+  const hidden = Object.entries(view.fields)
+    .map(([name, value]) => `<input type="hidden" name="${escape(name)}" value="${escape(value)}">`)
+    .join('\n      ');
+  const body = `<h1>Let ${client} use your Scrawl account?</h1>
+      <p>${client} will see and change the spaces you are in on ${host}, as you would. Sign in to allow it.</p>
+      <form method="post" action="/oauth/authorize">
+      ${hidden}
+      <label>Email<input type="email" name="email" value="${escape(view.email ?? '')}" autocomplete="username" required autofocus></label>
+      <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+      ${view.error ? `<p class="error">${escape(view.error)}</p>` : ''}
+      <div class="buttons"><button type="submit" name="decision" value="deny" formnovalidate>Cancel</button><button type="submit" class="primary" name="decision" value="allow">Allow</button></div>
+      </form>`;
+  return page(host, view.version, body);
+}
+
+/** A sign-in that cannot go on: the client or its address is not right, so there is nowhere to send the person back to. */
+export function oauthErrorPage(options: { host: string; version: string; message: string }): string {
+  return page(escape(options.host), options.version, `<h1>This sign-in cannot go on</h1>
+      <p>${escape(options.message)}</p>`);
+}
+
 function page(host: string, version: string, body: string): string {
   return `<!doctype html>
 <html lang="en">
@@ -77,6 +118,13 @@ a.go { margin-top: 6px; padding: 10px 26px; border-radius: 9px; background: var(
 button { margin-top: 2px; padding: 6px 16px; border: 1px solid var(--line); border-radius: 8px; background: none; color: var(--dim); font: inherit; font-size: 14px; cursor: pointer; }
 button:hover { color: var(--fg); }
 footer { margin-top: auto; padding-top: 40px; color: var(--faint); font-size: 12.5px; }
+form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; margin-top: 10px; text-align: left; }
+label { display: flex; flex-direction: column; gap: 4px; color: var(--dim); font-size: 13.5px; }
+input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; }
+.buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+button.primary { padding: 8px 22px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 600; }
+button.primary:hover { color: var(--on-accent); opacity: 0.92; }
+p.error { color: #c0392b; font-size: 13.5px; }
 </style>
 </head>
 <body>
