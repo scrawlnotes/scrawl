@@ -6197,14 +6197,14 @@ p { margin: 0; max-width: 68ch; }
     return '<div class="st-space tight srv"><div class="top">' + ICON.server + '<b>' + SRV_HOST + '</b><small>kaan@outlook.com</small></div>' +
       '<div class="st-row"><span class="fl">Address</span><span class="path">' + AG_ADDRESS + '</span><span class="btn">Copy</span></div>' +
       '<div class="st-acts"><span class="lab">Add to</span><span class="st-btn">Claude</span><span class="st-btn">ChatGPT</span><span class="st-btn">Claude Code</span></div>' +
-      '<p class="st-note">Claude on the web and your phone, ChatGPT, a Claude Code elsewhere. Each signs in with your account here.</p>' +
+      '<p class="st-note">Each one signs in with your account on this server.</p>' +
       '<div class="st-list">' + AG_AGENTS.map(function (a, i) { return agLi(a, o.menu && i === 0); }).join('') + '</div>' +
       '<p class="st-note">Connected to your account; what they do carries their name and yours. Disconnect ends one’s access until it signs in again.</p></div>';
   }
   /** Settings › Agents: this computer, each server, and the agents connected to the account; or, with no server, where to get one. */
   function agPage(o) {
     o = o || {};
-    var head = '<p class="st-note">An agent reaches your notes the way you do: here, the folders on this computer; on the web and your phone, a Scrawl server.</p>';
+    var head = '<p class="st-note">An agent reaches your notes the way you do. On this computer, Claude Desktop, Claude Code and Cursor see the folders here. On the web and your phone, Claude and ChatGPT reach a Scrawl server.</p>';
     var none = '<div class="ag-none">' + ICON.server + '<span>Claude and ChatGPT on the web and on your phone can’t reach this computer. Connect them to a Scrawl server.</span><span class="st-btn go">Connect a server…</span></div>';
     return head + agComputer() + (o.none ? none : agServer(o));
   }
@@ -6253,10 +6253,10 @@ p { margin: 0; max-width: 68ch; }
   function mbAgPage(none) {
     if (none) {
       return mbPage(mbNav('Settings') + mbHead('Agents'),
-        '<p class="mb-p">Claude on your phone reaches your notes through a Scrawl server; it cannot reach a computer or a cloud folder. Connect a server, then add it to Claude on the web: it works here too.</p>' +
+        '<p class="mb-p">Claude on your phone and ChatGPT reach your notes through a Scrawl server; they cannot reach a computer or a cloud folder. Connect a server, then add it to Claude on the web: it works here too. Claude Desktop, Claude Code and Cursor work on a computer, from its Settings › Agents.</p>' +
         '<div class="mb-form"><div class="mb-btn">Connect a server…</div></div>');
     }
-    return mbPage(mbNav('Settings') + mbHead('Agents'),
+    return mbPage(mbNav('Settings') + mbHead('Agents', 'Claude here and ChatGPT reach a server; Claude Desktop, Claude Code and Cursor work on a computer'),
       '<div class="mb-sec">' + SRV_HOST + '</div>' +
       '<div class="mb-form"><div class="mb-group"><div class="mb-fr"><span class="fl">Address</span><span class="in srv-l">' + AG_ADDRESS + '</span><span class="val">' + ICON.copies + '</span></div></div></div>' +
       mbRow({ icon: 'plus', label: 'Add to Claude', sub: 'claude.ai › Settings › Connectors' }) +
