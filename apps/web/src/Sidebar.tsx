@@ -485,7 +485,7 @@ export function Sidebar({
           </>
         )}
       </nav>
-      {/* Files and the trash stay at the foot of the sidebar, apart from the folders, with the settings beside them. */}
+      {/* Files, the trash and the settings stay at the foot of the sidebar, apart from the folders: a row each, named. */}
       <div className="side-foot">
         {viewRow(
           FILES,
@@ -503,15 +503,12 @@ export function Sidebar({
           </>,
           0,
         )}
-        <button
-          type="button"
-          className={`side-settings${settingsOpen ? ' on' : ''}`}
-          title={t('side.settings')}
-          aria-label={t('side.settings')}
-          onClick={onSettings}
-        >
-          <Icon name="settings" />
-        </button>
+        <div className={`it${settingsOpen ? ' on' : ''}`}>
+          <button type="button" className="it-main" onClick={onSettings}>
+            <Icon name="cog" />
+            <span>{t('side.settings')}</span>
+          </button>
+        </div>
       </div>
     </aside>
   );

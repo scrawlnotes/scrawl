@@ -641,13 +641,9 @@ p { margin: 0; max-width: 68ch; }
 /* a card in Today: under its board, with its key; the box moves it to the first done column */
 .task .key { font: 10.5px/1 var(--m-mono); color: var(--m-faint); margin-right: 6px; }
 .task .cb.sq { border-radius: 3px; }
-/* settings: opened from the cog beside Trash; a window in the middle with its sections on the
+/* settings: opened from the Settings row at the foot of the sidebar, under Files and Trash (Oct 15:
+   a row each, named, no longer side by side); a window in the middle with its sections on the
    left. What is chosen applies at once; a typed name has its Save. */
-.foot-row { display: flex; align-items: center; gap: 4px; }
-.foot-row .it { flex: 1; min-width: 0; }
-.cog { flex: none; display: grid; place-items: center; width: 26px; height: 24px; border-radius: 4px; color: var(--m-dim); }
-.mock .cog svg { width: 14px; height: 14px; }
-.cog.on { background: var(--m-sel); color: var(--m-fg); }
 .st-dlg { display: flex; flex-direction: column; width: 660px; height: 540px; background: var(--m-bg); border: 1px solid var(--m-line); border-radius: 9px; box-shadow: 0 12px 32px rgb(0 0 0 / .4); overflow: hidden; }
 .st-head { display: flex; align-items: center; flex: none; padding: 11px 16px; border-bottom: 1px solid var(--m-line); }
 .st-head b { font-size: 14px; font-weight: 600; }
@@ -2252,6 +2248,7 @@ p { margin: 0; max-width: 68ch; }
 
   // Direction A (revised) is composed from the same content pieces, plus a board.
   ICON.board = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.5 4v16M14.5 4v10"/></svg>';
+  ICON.cog = '<svg viewBox="0 0 24 24"><path d="M12.98 5.47L14.15 3.67L16.36 4.59L15.93 6.69A6.6 6.6 0 0 1 17.31 8.07L19.41 7.64L20.33 9.85L18.53 11.02A6.6 6.6 0 0 1 18.53 12.98L20.33 14.15L19.41 16.36L17.31 15.93A6.6 6.6 0 0 1 15.93 17.31L16.36 19.41L14.15 20.33L12.98 18.53A6.6 6.6 0 0 1 11.02 18.53L9.85 20.33L7.64 19.41L8.07 17.31A6.6 6.6 0 0 1 6.69 15.93L4.59 16.36L3.67 14.15L5.47 12.98A6.6 6.6 0 0 1 5.47 11.02L3.67 9.85L4.59 7.64L6.69 8.07A6.6 6.6 0 0 1 8.07 6.69L7.64 4.59L9.85 3.67L11.02 5.47A6.6 6.6 0 0 1 12.98 5.47z"/><circle cx="12" cy="12" r="2.5"/></svg>';
   ICON.trash = '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/></svg>';
   ICON.folder = '<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>';
   ICON.open = '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
@@ -2296,8 +2293,8 @@ p { margin: 0; max-width: 68ch; }
       row({ chev: '▸', label: 'Snippets' }) +
       row({ chev: '▸', label: 'Reading' }) +
       '</div>' +
-      '<div class="side-foot"><div class="foot-row">' + row({ icon: 'trash', label: 'Trash', ct: 8, go: 'trash', on: view === 'trash' }) +
-      '<span class="cog' + (view.indexOf('settings') === 0 ? ' on' : '') + '" data-go="settings" title="Settings">' + ICON.settings + '</span></div></div>';
+      '<div class="side-foot">' + row({ icon: 'trash', label: 'Trash', ct: 8, go: 'trash', on: view === 'trash' }) +
+      row({ icon: 'cog', label: 'Settings', go: 'settings', on: view.indexOf('settings') === 0 }) + '</div>';
   }
   // The tree with folders that read as folders: a chevron big enough to hit, which turns as the
   // folder opens, and a folder icon, so that a folder and a file never look alike; each level one
@@ -2334,8 +2331,7 @@ p { margin: 0; max-width: 68ch; }
       frow({ folder: true, label: 'Snippets', ct: 23 }) +
       frow({ folder: true, label: 'Reading', ct: 8 }) +
       '</div>' +
-      '<div class="side-foot"><div class="foot-row">' + row({ icon: 'trash', label: 'Trash', ct: 8 }) +
-      '<span class="cog" title="Settings">' + ICON.settings + '</span></div></div>';
+      '<div class="side-foot">' + row({ icon: 'trash', label: 'Trash', ct: 8 }) + row({ icon: 'cog', label: 'Settings' }) + '</div>';
   }
   var FOLDER_MENU = '<div class="cmenu under"><span>New note here</span><span class="hot">New folder here</span><i></i><span>Delete folder</span></div>';
   function task(p, title, meta) {
@@ -4606,8 +4602,8 @@ p { margin: 0; max-width: 68ch; }
   // The views that show the Settings window, whose button at the foot of the sidebar is lit.
   var SP_SETTINGS = ['profile', 'spaceslist', 'spacepage', 'spremove', 'addspace', 'addpicker', 'addallow', 'addsignin'];
   function spFoot(on, trash, files) {
-    return '<div class="side-foot"><div class="foot-row">' + row({ icon: 'clip', label: 'Files', ct: 9, on: files }) + row({ icon: 'trash', label: 'Trash', ct: 8, on: trash }) +
-      '<span class="cog' + (on ? ' on' : '') + '" title="Settings">' + ICON.settings + '</span></div></div>';
+    return '<div class="side-foot">' + row({ icon: 'clip', label: 'Files', ct: 9, on: files }) + row({ icon: 'trash', label: 'Trash', ct: 8, on: trash }) +
+      row({ icon: 'cog', label: 'Settings', on: on }) + '</div>';
   }
   /** A row of the tree: a space's heading, a folder, or an item; each level one step in. */
   function spRowT(x) {
