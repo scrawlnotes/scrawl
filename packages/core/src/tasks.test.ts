@@ -6,6 +6,8 @@ import {
   addTask,
   childrenOf,
   dayOf,
+  dayRuns,
+  daysApart,
   depthOf,
   dueToday,
   dueUpcoming,
@@ -324,6 +326,40 @@ describe('due views', () => {
       ['2026-10-06', ['Home/tomorrow']],
       ['2026-10-09', ['Work/next']],
     ]);
+  });
+});
+
+describe('the days of Upcoming', () => {
+  it('counts days apart across a month, a year and a change of the clocks', () => {
+    expect(daysApart('2026-10-15', '2026-10-15')).toBe(0);
+    expect(daysApart('2026-10-30', '2026-11-02')).toBe(3);
+    expect(daysApart('2026-12-31', '2027-01-01')).toBe(1);
+    expect(daysApart('2026-03-28', '2026-03-30')).toBe(2);
+    expect(daysApart('2026-10-20', '2026-10-15')).toBe(-5);
+  });
+
+  it('puts the free days before each day that has something in one run', () => {
+    expect(dayRuns(['2026-10-15', '2026-10-16', '2026-10-19', '2026-10-20', '2026-10-22'], '2026-10-15')).toEqual([
+      { day: '2026-10-15' },
+      { day: '2026-10-16' },
+      { free: { from: '2026-10-17', to: '2026-10-18', count: 2 } },
+      { day: '2026-10-19' },
+      { day: '2026-10-20' },
+      { free: { from: '2026-10-21', to: '2026-10-21', count: 1 } },
+      { day: '2026-10-22' },
+    ]);
+  });
+
+  it('starts the first run today when today is free, across the end of a month', () => {
+    expect(dayRuns(['2026-11-02'], '2026-10-30')).toEqual([{ free: { from: '2026-10-30', to: '2026-11-01', count: 3 } }, { day: '2026-11-02' }]);
+  });
+
+  it('leaves out what is late, a day twice, and anything after the last day', () => {
+    expect(dayRuns(['2026-10-17', '2026-10-13', '2026-10-17'], '2026-10-15')).toEqual([
+      { free: { from: '2026-10-15', to: '2026-10-16', count: 2 } },
+      { day: '2026-10-17' },
+    ]);
+    expect(dayRuns([], '2026-10-15')).toEqual([]);
   });
 });
 

@@ -502,3 +502,30 @@ export function dueUpcoming(lists: Record<string, Task[]>, today: string): { day
   }
   return [...days].map(([day, tasks]) => ({ day, tasks }));
 }
+
+/** How many days `to` comes after `from`. */
+export function daysApart(from: string, to: string): number {
+  const utc = (day: string) => {
+    const [y, m, d] = day.split('-').map(Number) as [number, number, number];
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((utc(to) - utc(from)) / 86_400_000);
+}
+
+/** A day of Upcoming that has something, or the free days that come before the next such day. */
+export type DayRun = { day: string } | { free: { from: string; to: string; count: number } };
+
+/**
+ * Upcoming's days from `today` on, in order: each day that has something, and before each the
+ * free days since the last one, today's among them, as one run. Nothing comes after the last day.
+ */
+export function dayRuns(days: Iterable<string>, today: string): DayRun[] {
+  const runs: DayRun[] = [];
+  let next = today;
+  for (const day of [...new Set(days)].filter((d) => d >= today).sort()) {
+    if (day > next) runs.push({ free: { from: next, to: addDays(day, -1), count: daysApart(next, day) } });
+    runs.push({ day });
+    next = addDays(day, 1);
+  }
+  return runs;
+}

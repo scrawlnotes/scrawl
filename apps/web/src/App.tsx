@@ -123,7 +123,8 @@ import { pendingJoin } from './servers';
 import { Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Thing, thingsOf } from './Search';
-import { DueView, dueLabel, FilterView, type TaskActions, TaskList } from './Tasks';
+import { type Dated, DueView, dueLabel, FilterView, type TaskActions, TaskList } from './Tasks';
+import { Upcoming } from './Upcoming';
 import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
@@ -1166,10 +1167,14 @@ export function App() {
       pickDay: (title: string, onPick: (due: string | null) => void) => setDayPicker({ title, onPick }),
     }),
     reschedule: (items, due) => {
-      const before = items.map(({ list, id }) => ({ list, id, due: tasks[list]?.find((task) => task.id === id)?.due ?? null }));
-      for (const { list, id } of items) session.updateTask(list, id, { due });
+      const dueOf = (item: Dated) =>
+        ('list' in item ? tasks[item.list]?.find((task) => task.id === item.id)?.due : boards[item.board]?.cards.find((card) => card.id === item.id)?.due) ?? null;
+      const give = (item: Dated, day: string | null) =>
+        'list' in item ? session.updateTask(item.list, item.id, { due: day }) : session.updateCard(item.board, item.id, { due: day });
+      const before = items.map((item) => ({ item, due: dueOf(item) }));
+      for (const item of items) give(item, due);
       undoable(t('tasks.rescheduledNotice', { count: items.length, day: due ? dueLabel(due, today) : t('tasks.noDate') }), () => {
-        for (const was of before) session.updateTask(was.list, was.id, { due: was.due });
+        for (const was of before) give(was.item, was.due);
       });
     },
     addSection: (list, name) => session.addSection(list, name),
@@ -1425,7 +1430,20 @@ export function App() {
         fieldsAsked={collectionFields}
       />
     )}
-    {!phone && isDueView && <DueView kind={active === TODAY ? 'today' : 'upcoming'} lists={tasks} boards={boards} today={today} actions={taskActions} />}
+    {!phone && active === TODAY && <DueView kind="today" lists={tasks} boards={boards} today={today} actions={taskActions} />}
+    {!phone && active === UPCOMING && (
+      <Upcoming
+        lists={tasks}
+        boards={boards}
+        today={today}
+        actions={taskActions}
+        places={allPlaces()}
+        onAdd={(target, task) => {
+          session.addTask(target, task);
+          setNotice(t('phone.addedTo', { name: task.title.trim(), place: listLabel(target) }));
+        }}
+      />
+    )}
     {activeFilter && (
       <FilterView
         filter={activeFilter}

@@ -17,6 +17,7 @@ import { type FormEvent, type MouseEvent, type ReactNode, useLayoutEffect, useRe
 import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { collectionLabel, listLabel } from './items';
+import { MonthGrid, useMonth } from './MonthGrid';
 import { firstName } from './People';
 import { ActionSheet, Sheet, SheetClose, useAdded } from './sheets';
 import { dueClass, dueLabel, type TaskActions } from './Tasks';
@@ -29,7 +30,6 @@ const toDate = (day: string) => {
   const [y, m, d] = day.split('-').map(Number) as [number, number, number];
   return new Date(y, m - 1, d);
 };
-const dayOfDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 /** The next Monday after `today`. */
 const nextWeek = (today: string) => addDays(today, (8 - toDate(today).getDay()) % 7 || 7);
 const weekday = (day: string) => toDate(day).toLocaleDateString(locale(), { weekday: 'short' });
@@ -78,10 +78,7 @@ export function DateSheet({ label = t('tasks.date'), title, current, today, onPi
   onPick: (day: string | null) => void;
   onClose: () => void;
 }) {
-  const [month, setMonth] = useState(() => {
-    const date = toDate(current ?? today);
-    return new Date(date.getFullYear(), date.getMonth(), 1);
-  });
+  const [month, setMonth] = useMonth(current ?? today);
   const pick = (day: string | null) => {
     onPick(day);
     onClose();
@@ -96,11 +93,6 @@ export function DateSheet({ label = t('tasks.date'), title, current, today, onPi
       <Tick on={current === day} />
     </button>
   );
-  // A week starts on Monday.
-  const blanks = (month.getDay() + 6) % 7;
-  const length = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const shift = (by: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + by, 1));
-  const initials = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'narrow' }));
   return (
     <Sheet label={label} className="mb-create mb-date" onClose={onClose}>
       <div className="mb-sh">
@@ -115,36 +107,7 @@ export function DateSheet({ label = t('tasks.date'), title, current, today, onPi
         {quick('noDate', t('tasks.noDate'), null, '')}
       </div>
       <div className="mb-cal">
-        <div className="mh">
-          {month.toLocaleDateString(locale(), { month: 'long', year: 'numeric' })}
-          <span>
-            <button type="button" aria-label={t('phone.previousMonth')} onClick={() => shift(-1)}>
-              <Icon name="back" />
-            </button>
-            <button type="button" aria-label={t('phone.nextMonth')} onClick={() => shift(1)}>
-              <Icon name="chevron" />
-            </button>
-          </span>
-        </div>
-        <div className="g">
-          {initials.map((initial, i) => (
-            <span key={`w${i}`} className="w">
-              {initial}
-            </span>
-          ))}
-          {Array.from({ length: blanks }, (_, i) => (
-            <span key={`b${i}`} />
-          ))}
-          {Array.from({ length }, (_, i) => {
-            const day = dayOfDate(new Date(month.getFullYear(), month.getMonth(), i + 1));
-            const classes = [day < today && 'past', day === today && 'today', day === current && 'on'].filter(Boolean).join(' ');
-            return (
-              <button key={day} type="button" className={classes || undefined} onClick={() => pick(day)}>
-                {i + 1}
-              </button>
-            );
-          })}
-        </div>
+        <MonthGrid month={month} onMonth={setMonth} today={today} current={current} onPick={pick} />
       </div>
     </Sheet>
   );

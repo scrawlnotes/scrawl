@@ -56,6 +56,9 @@ import { AssigneeChip, firstName, PersonPicker, type SpacePeople } from './Peopl
 import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
+/** A task in its list, or a card on its board: something with a day to move. */
+export type Dated = { list: string; id: string } | { board: string; id: string };
+
 /** What can be done to a task, in the list at the path given. */
 export interface TaskActions {
   add: (list: string, input: NewTask) => void;
@@ -103,8 +106,8 @@ export interface TaskActions {
   quickAdd?: (list: string, section: string | null, due?: string) => void;
   /** On a phone: a section's name in a sheet, a new section's for null. */
   nameSection?: (list: string, section: Section | null) => void;
-  /** Gives the tasks one new day, all at once, with Undo: what is overdue, moved on. */
-  reschedule: (tasks: { list: string; id: string }[], due: string | null) => void;
+  /** Gives the tasks and cards one new day, all at once, with Undo: what is overdue, moved on. */
+  reschedule: (items: Dated[], due: string | null) => void;
   /** On a phone: a day chosen in a sheet, about `title`. */
   pickDay?: (title: string, onPick: (due: string | null) => void) => void;
 }
@@ -118,10 +121,12 @@ type PickRow = { none: true } | { dir: string; record: CollectionRecord };
  * in. The arrows move through them, Enter or a click links one, Esc closes. With a record linked,
  * the first row unlinks it.
  */
-function RecordPicker({ anchor, current, choices, onPick, onClose }: {
+export function RecordPicker({ anchor, current, choices, align = 'right', onPick, onClose }: {
   anchor: HTMLElement;
   current: TaskRecord | null;
   choices: { dir: string; records: CollectionRecord[] }[];
+  /** Which edge of the button it lines up with: a row's button is at its right, a chip of a new task at its left. */
+  align?: 'left' | 'right';
   onPick: (record: TaskRecord | null) => void;
   onClose: () => void;
 }) {
@@ -145,8 +150,8 @@ function RecordPicker({ anchor, current, choices, onPick, onClose }: {
   useLayoutEffect(() => {
     const button = pageBox(anchor);
     const width = 300;
-    setPlace({ top: button.bottom + 4, left: Math.max(8, Math.min(button.right - width, pageWindow().width - width - 8)), width });
-  }, [anchor]);
+    setPlace({ top: button.bottom + 4, left: Math.max(8, Math.min(align === 'left' ? button.left : button.right - width, pageWindow().width - width - 8)), width });
+  }, [anchor, align]);
   useEffect(() => {
     const away = (event: globalThis.MouseEvent) => {
       const target = event.target as Node;
@@ -251,7 +256,7 @@ function Grip({ title, onGrab, onRelease }: { title: string; onGrab: (event: Dra
 const WEEKDAY: Intl.DateTimeFormatOptions = { weekday: 'long' };
 const SHORT: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
 
-const toDate = (day: string) => {
+export const toDate = (day: string) => {
   const [y, m, d] = day.split('-').map(Number) as [number, number, number];
   return new Date(y, m - 1, d);
 };
@@ -270,7 +275,7 @@ export function dueLabel(day: string, today: string): string {
 export const dueClass = (day: string, today: string) => (day < today ? 'due late' : day === today ? 'due today' : 'due');
 
 /** The next Monday after `today`. */
-function nextWeek(today: string): string {
+export function nextWeek(today: string): string {
   const weekday = toDate(today).getDay();
   return addDays(today, (8 - weekday) % 7 || 7);
 }
@@ -316,7 +321,7 @@ function Composer({ placeholder, onAdd, onClose }: { placeholder: string; onAdd:
 }
 
 /** A text field as tall as what is written in it. */
-function GrowingField({ value, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
+export function GrowingField({ value, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
   const field = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     const element = field.current;
@@ -348,6 +353,8 @@ interface ItemProps {
   flat?: boolean;
   /** In a view that groups its tasks by list: the list is not named again. */
   grouped?: boolean;
+  /** In a view that groups its tasks by day: the day is not said again, unless it is past. */
+  byDay?: boolean;
   /** In a list, where tasks can be dragged to another place. */
   drag?: DragHandlers;
 }
@@ -359,7 +366,7 @@ interface Draft {
 }
 
 /** A task: on a phone a row of its own, else the desktop's. */
-function TaskItem(props: ItemProps) {
+export function TaskItem(props: ItemProps) {
   return isPhone() ? <PhoneTaskItem {...props} /> : <DesktopTaskItem {...props} />;
 }
 
@@ -610,7 +617,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
   );
 }
 
-function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, drag }: ItemProps) {
+function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag }: ItemProps) {
   const [editing, setEditing] = useState<Draft | null>(null);
   // The record button, while its list of records is open under it.
   const [picking, setPicking] = useState<HTMLElement | null>(null);
@@ -712,11 +719,12 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
       {actions.recordTitle(task.record)}
     </button>
   );
-  const meta = (task.due || progress.total > 0 || (flat && !grouped) || task.assignee || from || fromCard || about) && (
+  const due = task.due && !(byDay && task.due >= today) ? task.due : null;
+  const meta = (due || progress.total > 0 || (flat && !grouped) || task.assignee || from || fromCard || about) && (
     <div className="meta">
-      {task.due && (
-        <button type="button" className={dueClass(task.due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
-          {dueLabel(task.due, today)}
+      {due && (
+        <button type="button" className={dueClass(due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
+          {dueLabel(due, today)}
         </button>
       )}
       {progress.total > 0 &&
@@ -881,7 +889,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
 }
 
 /** The header and list frame the task views share, with the add row at the end of the list. */
-function TaskPage({ title, detail, extra, onAdd, onAddClick, footer, bare, adding, children }: {
+export function TaskPage({ title, detail, extra, onAdd, onAddClick, footer, bare, adding, children }: {
   title: string;
   detail?: string;
   /** More in the header, after the detail. */
@@ -1539,14 +1547,17 @@ export function FilterView({ filter, lists, boards, today, me, actions, onEdit }
  * moves it to its board's done column, or asks which one when the board has more than one. The
  * board is named unless the rows are grouped by it.
  */
-function CardRow({ board, whole, card, today, actions, grouped }: {
+export function CardRow({ board, whole, card, today, actions, grouped, byDay }: {
   board: string;
   whole: Board;
   card: Card;
   today: string;
   actions: TaskActions;
   grouped?: boolean;
+  /** Among the cards of a day: its day is not said again, unless it is past. */
+  byDay?: boolean;
 }) {
+  const due = card.due && !(byDay && card.due >= today) ? card.due : null;
   const column = whole.columns.find((c) => c.id === card.column);
   const phase = card.phase ? whole.phases.find((p) => p.id === card.phase) : undefined;
   const doneColumns = whole.columns.filter((c) => c.kind === 'done');
@@ -1622,7 +1633,7 @@ function CardRow({ board, whole, card, today, actions, grouped }: {
           {card.title}
         </button>
         <div className="meta">
-          {card.due && <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span>}
+          {due && <span className={dueClass(due, today)}>{dueLabel(due, today)}</span>}
           {!grouped && <span>{boardWhere(board)}</span>}
           {column && <span>{column.name}</span>}
           {phase && <span>{phase.name}</span>}
@@ -1634,7 +1645,7 @@ function CardRow({ board, whole, card, today, actions, grouped }: {
 }
 
 /** The dated cards of every board that are not finished: what is late, due today, and due later by day. */
-function splitDueCards(boards: Record<string, Board>, today: string) {
+export function splitDueCards(boards: Record<string, Board>, today: string) {
   const all = dueCards(boards);
   const later = new Map<string, typeof all>();
   for (const due of all) {
