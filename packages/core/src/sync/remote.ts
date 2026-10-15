@@ -87,8 +87,9 @@ export class RemoteSignedOut extends Error {
 
 /** The space's folder is gone from the cloud drive (deleted, or out of reach). */
 export class RemoteFolderGone extends Error {
-  constructor() {
-    super("The space's folder is gone from the cloud drive");
+  /** @param removed The space is there, but this person was taken out of it. */
+  constructor(readonly removed = false) {
+    super(removed ? 'You were taken out of this space' : "The space's folder is gone from the cloud drive");
     this.name = 'RemoteFolderGone';
   }
 }

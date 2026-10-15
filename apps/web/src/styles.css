@@ -8827,7 +8827,7 @@ button.cb:hover::after {
 }
 
 button.st-li:hover,
-.st-li.menu {
+.st-li.menu-on {
   background: color-mix(in srgb, var(--sl-fg) 6%, transparent);
 }
 
@@ -9949,4 +9949,95 @@ button.st-li:hover,
   width: 14px;
   height: 14px;
   margin-top: 1px;
+}
+
+/* People on a Scrawl server, after the Server part of design/mockups.html: People with Invite…
+   beside it, a role in a small frame after a name, the server's page, and the window with a link. */
+.st-acts.srv-people {
+  margin-bottom: -4px;
+}
+
+.st-acts.srv-people .primary {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.st-li .nm b .srv-role {
+  margin-left: 7px;
+  padding: 0 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  color: var(--sl-dim);
+  font-size: 10.5px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.st-space.srv-page .st-note {
+  margin-left: 66px;
+}
+
+.st-body .srv-err,
+.dialog .srv-err {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0 2px;
+  color: var(--sl-danger, #e5484d);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.st-body .srv-err .icon,
+.dialog .srv-err .icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+}
+
+.dialog.srv-link {
+  width: min(470px, calc(100vw - 32px));
+}
+
+.dialog .srv-copy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dialog .srv-copy input {
+  flex: 1;
+  min-width: 0;
+  color: var(--sl-dim);
+  font: 12px var(--sl-font-mono);
+  text-overflow: ellipsis;
+}
+
+.dialog .srv-copy .go {
+  flex: none;
+  padding: 4px 12px;
+  border: 1px solid var(--sl-accent);
+  border-radius: 5px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.dialog .srv-copy .go:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.dialog-actions .srv-note {
+  flex: 1;
+  align-self: center;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+/* The email a link for a new password is for: shown, not typed. */
+.fp .field[readonly] {
+  background: transparent;
+  color: var(--sl-dim);
 }

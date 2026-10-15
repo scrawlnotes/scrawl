@@ -21,7 +21,7 @@ afterEach(async () => {
 
 async function listen() {
   const data = mkdtempSync(join(tmpdir(), 'scrawl-live-'));
-  const server = makeServer({ url: 'http://localhost', port: 0, data, maxFileBytes: 1024 * 1024, ownerEmail: null });
+  const server = makeServer({ url: 'http://localhost', port: 0, data, maxFileBytes: 1024 * 1024, ownerEmail: null, appUrl: 'https://app.scrawlnotes.com' });
   const sockets = new WebSocketServer({ noServer: true });
   const http = serve({ fetch: server.app.fetch, port: 0, websocket: { server: sockets } });
   await new Promise<void>((resolve) => http.once('listening', () => resolve()));

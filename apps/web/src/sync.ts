@@ -22,7 +22,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type Cloud, oneDrive, type SignInIntent, type SignInResult, takeSignInResult } from './cloud';
 import type { Session, SpaceView } from './session';
 import { isPhone, leaveOver } from './device';
-import { type KnownServer, serverKey, serverRemote } from './servers';
+import { type KnownServer, serverKey, serverRemote, signOutOf } from './servers';
 import { isDesktop, vaultFolder } from './storage';
 
 // Sync of the spaces with folders of the user's cloud drive: when a turn runs, what the app shows
@@ -114,6 +114,8 @@ export interface SpaceSync {
   conflict: { path: string; at: number } | null;
   /** On a server whose live channel is open: what changes there comes in as it does. */
   live: boolean;
+  /** Why a space on a server stopped: this person was taken out of it, or signed out of the server on this device. */
+  why: 'removed' | 'left' | null;
 }
 
 /** A space that syncs, as the status bar and the sync panel list it. */
@@ -192,7 +194,7 @@ async function loadDevice(): Promise<SyncDevice> {
 }
 
 /** What a new connection, or none, starts from. */
-const FRESH = { syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false } satisfies Partial<SpaceSync>;
+const FRESH = { syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false, why: null } satisfies Partial<SpaceSync>;
 
 /** The personal space's key, which its connection is kept for: another notes folder is not connected with it. */
 const vaultKey = () => (isDesktop ? (vaultFolder() ?? '') : 'browser');
@@ -292,6 +294,7 @@ export class SyncService {
       lastDone: unit.lastDone,
       conflict: unit.conflict,
       live: unit.live,
+      why: unit.why,
     });
     const { space: _s, name: _n, ...own } = personal ? view(personal) : { space: null, name: '', connection: null, phase: 'off' as const, ...FRESH };
     this.set({ ...own, all: all.map(view) });
@@ -567,6 +570,7 @@ export class SyncService {
         phase: 'idle',
         syncedAt: Date.now(),
         error: null,
+        why: null,
         turn,
         lastDone: progress.jobs.some((job) => job.state === 'done') ? turn : unit.lastDone,
         ...(copy && { conflict: { path: inSpace(unit.space, copy), at: Date.now() } }),
@@ -584,8 +588,9 @@ export class SyncService {
         unit.missed = true;
         unit.again = true;
       } else if (error instanceof RemoteOffline) this.change(unit, { phase: 'offline', turn, lastDone });
-      else if (error instanceof RemoteSignedOut) this.change(unit, { phase: 'signedOut', turn, lastDone });
-      else if (error instanceof RemoteFolderGone) this.change(unit, { phase: 'folderGone', turn, lastDone });
+      // Signed out on purpose stays said so, turn after turn, until it is signed in to again.
+      else if (error instanceof RemoteSignedOut) this.change(unit, { phase: 'signedOut', why: unit.why === 'left' ? 'left' : null, turn, lastDone });
+      else if (error instanceof RemoteFolderGone) this.change(unit, { phase: 'folderGone', why: error.removed ? 'removed' : null, turn, lastDone });
       else this.change(unit, { phase: 'failed', error: error instanceof Error ? error.message : String(error), turn, lastDone });
       if (!missed) unit.missed = false;
     } finally {
@@ -707,9 +712,21 @@ export class SyncService {
     await OneDriveRemote.forget(vault);
   }
 
-  /** Signed in to a server, or set it up: this device takes the account's id, the person being one on every device. */
+  /** Signed in to a server, or set it up: this device takes the account's id, the person being one on every device; its spaces here sync again. */
   signedInToServer(server: KnownServer) {
     if (server.id) this.session.takePersonId(server.id);
+    this.signedInTo(server.url);
+  }
+
+  /** Signed in to a server again: its live channel opens with the new key, and its spaces here sync. */
+  private signedInTo(url: string) {
+    if (![...this.units.values()].some((unit) => unit.connection?.server === url)) return;
+    this.lives.get(url)?.stop();
+    this.lives.delete(url);
+    this.liveOn.delete(url);
+    this.followLives();
+    for (const unit of this.units.values()) if (unit.connection?.server === url) this.change(unit, { phase: 'idle', why: null });
+    this.syncNow();
   }
 
   /** A server's key no longer works: the app asks to sign in to it again, with the account it had. */
@@ -721,22 +738,29 @@ export class SyncService {
   doneServerSignIn(signedIn: boolean) {
     const url = this.snapshot.serverSignIn?.url;
     this.set({ serverSignIn: null });
-    if (!signedIn || !url) return;
-    // Its live channel opens again with the new key.
-    this.lives.get(url)?.stop();
-    this.lives.delete(url);
-    this.followLives();
-    for (const unit of this.units.values()) if (unit.connection?.server === url) this.change(unit, { phase: 'idle' });
-    this.syncNow();
+    if (signedIn && url) this.signedInTo(url);
   }
 
-  /** The spaces on a server, signed out of it on this device: they wait until it is signed in to again. */
-  signedOutOf(url: string) {
+  /**
+   * The spaces on a server, signed out of it on this device: they wait until it is signed in to
+   * again. `left` when the person signed out themselves, which stays said when the server's
+   * channel tells it afterwards.
+   */
+  signedOutOf(url: string, left = false) {
     for (const unit of this.units.values()) {
       if (unit.connection?.server !== url) continue;
       unit.store = null;
-      this.change(unit, { phase: 'signedOut' });
+      this.change(unit, { phase: 'signedOut', why: left || unit.why === 'left' ? 'left' : null });
     }
+  }
+
+  /** Signs out of a server on this device, as the person asked: its channel closes, and its spaces say so until it is signed in to again. */
+  async signOutOfServer(url: string) {
+    this.lives.get(url)?.stop();
+    this.lives.delete(url);
+    this.liveOn.delete(url);
+    this.signedOutOf(url, true);
+    await signOutOf(url);
   }
 
   /** Signed in again after the key stopped working: turns go on, of every space. */

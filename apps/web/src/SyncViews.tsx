@@ -47,20 +47,26 @@ export const sourcePlace = (source: SpaceSource | null | undefined) => (source?.
  * lives in its folder, so it is gone with it, or no longer open to you, and its copy stays here.
  * A space on a server is gone from it, or the person was taken out of it.
  */
-export const goneLong = (space: string | null, connection?: Connection | null) =>
-  connection?.server ? t('sync.serverGoneLong', { place: placeName(connection) }) : t(space ? 'sync.spaceGoneLong' : 'sync.folderGoneLong');
+export const goneLong = (space: string | null, connection?: Connection | null, why?: SpaceSync['why']) =>
+  connection?.server
+    ? t(why === 'removed' ? 'sync.removedLong' : 'sync.serverGoneLong', { place: placeName(connection) })
+    : t(space ? 'sync.spaceGoneLong' : 'sync.folderGoneLong');
 
-/** Signed out, and in the browser why renewing on opening did not go through, as Microsoft said it. */
-export const signedOutLong = (connection?: Connection | null) => {
+/** Signed out, and in the browser why renewing on opening did not go through, as Microsoft said it; or signed out of a server on purpose. */
+export const signedOutLong = (connection?: Connection | null, why?: SpaceSync['why']) => {
+  if (connection?.server && why === 'left') return t('sync.leftLong', { place: placeName(connection) });
   const text = t('sync.signedOutLong', { place: placeName(connection) });
   if (connection?.server) return text;
   const failure = renewFailure();
   return failure ? `${text} ${t('sync.renewFailed', { reason: failure.reason })}` : text;
 };
 
-/** What keeps a space from syncing, in a few words, naming where it syncs. */
-export function statusText(phase: Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, connection?: Connection | null): string {
-  if (phase === 'folderGone' && connection?.server) return t('sync.serverGone', { place: placeName(connection) });
+/** What keeps a space from syncing, in a few words, naming where it syncs; or that its person was taken out of it, or signed out. */
+export function statusText(phase: Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, connection?: Connection | null, of?: { why: SpaceSync['why']; name?: string }): string {
+  if (phase === 'folderGone' && connection?.server) {
+    return of?.why === 'removed' ? t('sync.removed', { space: of.name || t('settings.unnamed') }) : t('sync.serverGone', { place: placeName(connection) });
+  }
+  if (phase === 'signedOut' && connection?.server && of?.why === 'left') return t('sync.left');
   return t(STATUS[phase], { place: placeName(connection) });
 }
 
@@ -69,8 +75,8 @@ function stateOf(sync: SpaceSync, space: string | null = null): { text: string; 
   const { phase, syncedAt, error } = sync;
   if (phase === 'syncing') return { text: t('sync.syncingPct', { pct: percent(sync.turn?.progress.share ?? 0) }), tone: 'busy' };
   if (phase === 'offline') return { text: t('sync.offlineLong', { place: placeName(sync.connection) }), tone: 'off' };
-  if (phase === 'signedOut') return { text: signedOutLong(sync.connection), tone: 'bad' };
-  if (phase === 'folderGone') return { text: goneLong(space, sync.connection), tone: 'bad' };
+  if (phase === 'signedOut') return { text: signedOutLong(sync.connection, sync.why), tone: 'bad' };
+  if (phase === 'folderGone') return { text: goneLong(space, sync.connection, sync.why), tone: 'bad' };
   if (phase === 'failed') return { text: t('sync.failedLong', { error: error ?? '' }), tone: 'bad' };
   const synced = syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(syncedAt) });
   return { text: sync.live ? `${synced} · ${t('sync.live')}` : synced, tone: 'ok' };
@@ -976,7 +982,7 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
     );
   } else if (phase === 'off' || phase === 'idle') {
     text = syncedAt === null ? t('sync.notYet') : many ? t('sync.syncedAgo', { ago: ago(syncedAt) }) : t('sync.syncedTo', { place: placeName(shown.connection), ago: ago(syncedAt) });
-  } else text = statusText(phase, shown.connection);
+  } else text = statusText(phase, shown.connection, shown);
   const name = copy && basename(copy).replace(/\.[^.]+$/, '');
   return (
     <>
@@ -1203,17 +1209,17 @@ const SHORT: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, MessageKey> 
 };
 
 /** How a space's sync stands in a word, and whether something keeps it from going on. */
-export function shortOf({ phase, syncedAt, turn, connection }: SpaceSync): { text: string; bad: boolean } {
+export function shortOf({ phase, syncedAt, turn, connection, why }: SpaceSync): { text: string; bad: boolean } {
   if (phase === 'syncing') return { text: percent(turn?.progress.share ?? 0), bad: false };
   if (phase === 'off' || phase === 'idle') return { text: syncedAt === null ? t('sync.notYet') : ago(syncedAt), bad: false };
-  return { text: phase === 'folderGone' && connection?.server ? t('phone.spaceGone') : t(SHORT[phase]), bad: true };
+  return { text: phase === 'folderGone' && connection?.server ? t(why === 'removed' ? 'phone.removed' : 'phone.spaceGone') : t(SHORT[phase]), bad: true };
 }
 
 /** How a space's sync stands, on its row of the panel: `Synced 12 s ago`, `Syncing 38%`. */
 export function standingOf(unit: SpaceSync): string {
   if (unit.phase === 'syncing') return t('sync.syncingPct', { pct: percent(unit.turn?.progress.share ?? 0) });
   if (unit.phase === 'idle' || unit.phase === 'off') return unit.syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(unit.syncedAt) });
-  return statusText(unit.phase, unit.connection);
+  return statusText(unit.phase, unit.connection, unit);
 }
 
 /**
@@ -1272,8 +1278,8 @@ export function turnLine(sync: SpaceSyncView, running: boolean, doneFrom: TurnVi
     return t('panel.lastChanges', { ago: ago(doneFrom!.endedAt ?? doneFrom!.startedAt), summary: said });
   }
   if (phase === 'offline') return t('sync.offlineLong', { place: placeName(sync.connection) });
-  if (phase === 'signedOut') return signedOutLong(sync.connection);
-  if (phase === 'folderGone') return goneLong(sync.space, sync.connection);
+  if (phase === 'signedOut') return signedOutLong(sync.connection, sync.why);
+  if (phase === 'folderGone') return goneLong(sync.space, sync.connection, sync.why);
   return t('sync.failedLong', { error: sync.error ?? '' });
 }
 
@@ -1362,7 +1368,7 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
         {sync.syncedAt !== null && <small>{ago(sync.syncedAt)}</small>}
       </>
     );
-  } else title = <b>{statusText(phase, sync.connection)}</b>;
+  } else title = <b>{statusText(phase, sync.connection, sync)}</b>;
   const sub = turnLine(sync, running, doneFrom);
 
   const count = (which: PanelTab) => lists[which].length;

@@ -1,4 +1,5 @@
 import { ServerAccount, type ServerAccountInfo, ServerRemote, type ServerSignedIn } from '@scrawlnotes/core';
+import { useSyncExternalStore } from 'react';
 import { isDesktop } from './storage';
 
 // The Scrawl servers this device is signed in to (design/server.md, section 7): each one's
@@ -25,6 +26,30 @@ async function invoke<T>(command: string, args?: Record<string, unknown>): Promi
   return (await import('@tauri-apps/api/core')).invoke<T>(command, args);
 }
 
+// An invite or a password link the web app was opened with, from the link's page on its server:
+// `?join=<link>`. It is taken off the address at once, and kept until Add space has it.
+let joining: string | null = (() => {
+  try {
+    const params = new URLSearchParams(location.search);
+    const link = params.get('join');
+    if (!link) return null;
+    params.delete('join');
+    const rest = params.toString();
+    history.replaceState(history.state, '', `${location.pathname}${rest ? `?${rest}` : ''}${location.hash}`);
+    return link;
+  } catch {
+    return null;
+  }
+})();
+
+/** The link the app was opened with, that Add space has not taken yet. */
+export const pendingJoin = () => joining;
+
+/** Add space has the link: it is not offered again. */
+export function tookJoin() {
+  joining = null;
+}
+
 /** The address without `https://`, as the app shows a server: `kaan.scrawlnotes.com`. */
 export function hostOf(url: string): string {
   try {
@@ -49,7 +74,29 @@ function keepServers(list: KnownServer[]) {
   } catch {
     // Not kept: the server is not listed next time, and is connected to again.
   }
+  for (const heard of listeners) heard();
 }
+
+// The list as the screens show it, again whenever it changes: signed in, signed out, a role told.
+const listeners = new Set<() => void>();
+let shown: { raw: string | null; list: KnownServer[] } = { raw: null, list: [] };
+const subscribe = (heard: () => void) => {
+  listeners.add(heard);
+  return () => listeners.delete(heard);
+};
+const snapshot = () => {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(LIST);
+  } catch {
+    // Nothing kept to read: no servers.
+  }
+  if (raw !== shown.raw) shown = { raw, list: knownServers() };
+  return shown.list;
+};
+
+/** The servers this device is signed in to, for a screen that lists them. */
+export const useKnownServers = () => useSyncExternalStore(subscribe, snapshot);
 
 /** The server last connected to, whose address Connect a server… starts with. */
 export const lastServer = (): KnownServer | undefined => knownServers().at(-1);
@@ -75,6 +122,12 @@ export async function keepSignIn(url: string, { token, account }: ServerSignedIn
   const server: KnownServer = { url, id: account.id, email: account.email, name: account.name, role: account.role };
   keepServers([...knownServers().filter((each) => each.url !== url), server]);
   return server;
+}
+
+/** The role the server gave this account, as it said it last: the list says it too. */
+export function noteRole(url: string, role: ServerAccountInfo['role']) {
+  const list = knownServers();
+  if (list.some((each) => each.url === url && each.role !== role)) keepServers(list.map((each) => (each.url === url ? { ...each, role } : each)));
 }
 
 /** Signs out of a server on this device: its key ends there and here, and it is no longer listed. */

@@ -11,6 +11,8 @@ export interface Config {
   maxFileBytes: number;
   /** When set, only this email can set up the server, as its owner. */
   ownerEmail: string | null;
+  /** The web app a link opened in a browser goes on to. */
+  appUrl: string;
 }
 
 export const VERSION = '0.1.0';
@@ -29,6 +31,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     data: env.SCRAWL_DATA?.trim() || join(process.cwd(), 'data'),
     maxFileBytes: (Number(env.SCRAWL_MAX_FILE_MB) || 1024) * 1024 * 1024,
     ownerEmail: env.SCRAWL_OWNER_EMAIL?.trim() || null,
+    appUrl: (env.SCRAWL_APP_URL?.trim() || 'https://app.scrawlnotes.com').replace(/\/+$/, ''),
   };
 }
 

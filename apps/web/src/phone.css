@@ -6002,3 +6002,42 @@ body > .mb-lifted {
 .mb-srvfound.late > .icon {
   color: #e0a84a;
 }
+
+/* People on a server on a phone: a manager's word on the right, what went wrong in red, and the
+   sheet with a link: Done in its head, the link and Copy, New link under them. */
+.mb-p.err {
+  color: var(--sl-danger, #e5484d);
+}
+
+.mb-sheet.dialog.srv-link .dialog-actions > .done {
+  grid-column: 3;
+  justify-self: end;
+  font-weight: 600;
+}
+
+.mb-sheet.dialog.srv-link .dialog-actions > .again {
+  position: static;
+  grid-row: auto;
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  min-height: 44px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sl-fg) 7%, transparent);
+  font-size: 16px;
+}
+
+.mb-sheet.dialog.srv-link .dialog-actions > .srv-note {
+  order: 1;
+  grid-column: 1 / -1;
+}
+
+.mb-sheet.dialog .srv-copy input {
+  font-size: 14px;
+}
+
+.mb-sheet.dialog .srv-copy .go {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 16px;
+}

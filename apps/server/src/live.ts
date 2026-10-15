@@ -9,6 +9,7 @@ export interface LiveSocket {
   account: string;
   device: string;
   send(text: string): void;
+  close(): void;
 }
 
 const PING_MS = 30_000;
@@ -37,6 +38,23 @@ export class Live {
     const members = new Set((this.db.prepare('SELECT account_id FROM members WHERE space_id = ?').all(space) as { account_id: string }[]).map((row) => row.account_id));
     const text = JSON.stringify({ type: 'changed', space, seq });
     for (const socket of this.sockets) if (members.has(socket.account)) socket.send(text);
+  }
+
+  /** Someone was taken out of a space: their devices hear it, and their turn finds the space no longer theirs. */
+  nudge(account: string, space: string) {
+    const { seq } = (this.db.prepare('SELECT seq FROM spaces WHERE id = ?').get(space) as { seq: number } | undefined) ?? { seq: 0 };
+    const text = JSON.stringify({ type: 'changed', space, seq });
+    for (const socket of this.sockets) if (socket.account === account) socket.send(text);
+  }
+
+  /** A key ended, or a whole account: the connections it opened are told so, and closed. */
+  end(which: { account?: string; device?: string }) {
+    for (const socket of [...this.sockets]) {
+      if (socket.account !== which.account && socket.device !== which.device) continue;
+      socket.send(JSON.stringify({ type: 'signed-out' }));
+      socket.close();
+      this.sockets.delete(socket);
+    }
   }
 
   stop() {

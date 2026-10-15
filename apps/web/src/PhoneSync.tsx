@@ -42,7 +42,7 @@ const ROW = 64;
 const SPARE = 12;
 
 /** Nothing synced yet, for a space with no turn of its own. */
-const NONE: SpaceSync = { connection: null, phase: 'off', syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false };
+const NONE: SpaceSync = { connection: null, phase: 'off', syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false, why: null };
 
 const IMAGES = /\.(png|jpe?g|gif|webp|heic|avif|svg)$/i;
 const SOUNDS = /\.(m4a|mp3|wav|webm|ogg|aac|opus)$/i;
@@ -391,7 +391,7 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
       <div className={bad ? 'mb-sync bad' : 'mb-sync'}>
         <div className="st">
           {bad && <Icon name="warn" />}
-          <b>{running ? t('sync.syncingShort') : bad ? statusText(phase as keyof typeof STATUS, connection) : t('phone.synced')}</b>
+          <b>{running ? t('sync.syncingShort') : bad ? statusText(phase as keyof typeof STATUS, connection, unit) : t('phone.synced')}</b>
           {!running && !bad && unit.syncedAt !== null && <small>{ago(unit.syncedAt)}</small>}
           {running && <span className="pct">{percent(share)}</span>}
         </div>

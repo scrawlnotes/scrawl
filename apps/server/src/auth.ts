@@ -21,6 +21,12 @@ export interface Account {
   role: Role;
 }
 
+/** An account as the server's page lists it: how many of its spaces the person is in, and when one of their devices was last seen. */
+export interface AccountInfo extends Account {
+  spaces: number;
+  seen: number | null;
+}
+
 /** What a request that asks for something it cannot have is told: the code says what, for the app to say it in its words. */
 export class Refused extends Error {
   constructor(
@@ -137,7 +143,93 @@ export class Accounts {
     this.db.prepare('UPDATE devices SET revoked_at = ? WHERE id = ?').run(this.now(), device);
   }
 
-  private newDevice(account: string, name: unknown): string {
+  /** Everyone with an account here, for the owner and the admins. */
+  list(by: Account): AccountInfo[] {
+    if (by.role === 'member') throw new Refused(403, 'not-allowed', 'Only the owner and admins see the people on this server');
+    return this.db
+      .prepare(
+        `SELECT a.id, a.email, a.name, a.role,
+           (SELECT COUNT(*) FROM members m WHERE m.account_id = a.id) AS spaces,
+           (SELECT MAX(d.seen_at) FROM devices d WHERE d.account_id = a.id) AS seen
+         FROM accounts a WHERE a.disabled_at IS NULL
+         ORDER BY CASE a.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, a.name COLLATE NOCASE, a.email COLLATE NOCASE`,
+      )
+      .all() as unknown as AccountInfo[];
+  }
+
+  /** An account there now, or a refusal. */
+  get(id: string): Account {
+    const row = this.db.prepare('SELECT id, email, name, role FROM accounts WHERE id = ? AND disabled_at IS NULL').get(id) as Account | undefined;
+    if (!row) throw new Refused(404, 'no-account', 'No such account on this server');
+    return row;
+  }
+
+  /** Makes someone an admin or a member again; only the owner does, and the owner stays the owner. */
+  setRole(by: Account, id: string, role: unknown): Account {
+    if (by.role !== 'owner') throw new Refused(403, 'not-allowed', 'Only the owner changes who is an admin');
+    if (role !== 'admin' && role !== 'member') throw new Refused(400, 'bad-role', 'An account is an admin or a member');
+    const account = this.get(id);
+    if (account.role === 'owner') throw new Refused(409, 'owner', 'The owner stays the owner');
+    this.db.prepare('UPDATE accounts SET role = ? WHERE id = ?').run(role, id);
+    return { ...account, role };
+  }
+
+  /**
+   * Takes someone off the server: out of every space, every key of theirs ended. What they did
+   * stays in the spaces. The owner is never taken off, nor does anyone take themselves off.
+   */
+  remove(by: Account, id: string): Account {
+    if (by.role === 'member') throw new Refused(403, 'not-allowed', 'Only the owner and admins take people off this server');
+    const account = this.get(id);
+    if (account.role === 'owner') throw new Refused(409, 'owner', 'The owner stays on the server');
+    if (account.id === by.id) throw new Refused(409, 'yourself', 'You cannot take yourself off the server');
+    if (by.role === 'admin' && account.role === 'admin') throw new Refused(403, 'not-allowed', 'Only the owner takes an admin off the server');
+    transaction(this.db, () => {
+      this.db.prepare('UPDATE accounts SET disabled_at = ? WHERE id = ?').run(this.now(), id);
+      this.db.prepare('DELETE FROM members WHERE account_id = ?').run(id);
+      this.db.prepare('UPDATE devices SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL').run(this.now(), id);
+    });
+    return account;
+  }
+
+  /**
+   * Who an invite brings in: the account with that email, its password checked, or a new member
+   * with the person's id. One taken off the server before comes back with the password given now.
+   */
+  async joining(input: { name?: unknown; email?: unknown; password?: unknown; person?: unknown }, from: string): Promise<Account> {
+    const email = cleanEmail(input.email);
+    checkSignUp(email, input.password);
+    this.tries.take(`${email.toLowerCase()} ${from}`);
+    const row = this.db.prepare('SELECT * FROM accounts WHERE email = ?').get(email) as (Account & { password: string; disabled_at: number | null }) | undefined;
+    if (row && row.disabled_at === null) {
+      if (!(await passwordMatches(row.password, input.password))) throw new Refused(401, 'wrong-password', 'This email has an account on this server; its password is not right');
+      return { id: row.id, email: row.email, name: row.name, role: row.role };
+    }
+    const password = await hashPassword(input.password);
+    const name = cleanName(input.name);
+    if (row) {
+      this.db.prepare("UPDATE accounts SET disabled_at = NULL, password = ?, name = ?, role = 'member' WHERE id = ?").run(password, name || row.name, row.id);
+      return { id: row.id, email: row.email, name: name || row.name, role: 'member' };
+    }
+    // The person's id, unless an account has it already.
+    let id = personId(input.person);
+    if (this.db.prepare('SELECT 1 FROM accounts WHERE id = ?').get(id)) id = randomUUID();
+    this.db.prepare('INSERT INTO accounts (id, email, name, password, role, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(id, email, name, password, 'member', this.now());
+    return { id, email, name, role: 'member' };
+  }
+
+  /** A new password, from a link the owner or an admin gave: every key of the account ends, but this device's new one. */
+  async setPassword(id: string, password: unknown): Promise<void> {
+    if (typeof password !== 'string' || password.length < MIN_PASSWORD) throw new Refused(400, 'short-password', `The password needs at least ${MIN_PASSWORD} characters`);
+    const hashed = await hashPassword(password);
+    transaction(this.db, () => {
+      this.db.prepare('UPDATE accounts SET password = ? WHERE id = ?').run(hashed, id);
+      this.db.prepare('UPDATE devices SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL').run(this.now(), id);
+    });
+  }
+
+  /** A new key for one of the account's devices. */
+  newDevice(account: string, name: unknown): string {
     const token = randomBytes(32).toString('base64url');
     this.db
       .prepare('INSERT INTO devices (id, account_id, name, token_hash, created_at, seen_at) VALUES (?, ?, ?, ?, ?, ?)')

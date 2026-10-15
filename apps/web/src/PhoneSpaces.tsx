@@ -11,13 +11,14 @@ import { PhoneFolderSheet } from './PhoneSync';
 import { ActionSheet, Sheet, SheetClose } from './sheets';
 import { CloudIcon, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
 import { ConnectServerSheet } from './ServerConnect';
-import { hostOf, type KnownServer } from './servers';
+import { PhoneServerMembers, ROLE_WORD } from './ServerPeople';
+import { hostOf, type KnownServer, useKnownServers } from './servers';
 
 // The spaces on a phone, after the Phone spaces views of design/mockups.html: Settings › Spaces as
-// a list with Reorder, a space's page with its name, its sync and its people, the personal space's
-// with its name, folder and sync and this device's name, Remove from this phone with a switch for
-// the files here, Add space as a sheet, and giving a task or a card to one of the people of its
-// space.
+// a list with Reorder and the servers this phone is signed in to, a space's page with its name, its
+// sync and its people, the personal space's with its name, folder and sync and this device's name,
+// Remove from this phone with a switch for the files here, Add space as a sheet, and giving a task
+// or a card to one of the people of its space.
 
 /** How long a finger rests on a person before their menu opens. */
 const HOLD_MS = 450;
@@ -35,11 +36,19 @@ export function spacePlace(space: SpaceView): string | undefined {
 
 /**
  * Settings › Spaces: the personal space first, then every other in the order Browse shows them,
- * each opening its page; Add space under them. Reordering, each space beside the personal one
- * moves up or down by its arrows; the personal space stays first.
+ * each opening its page; Add space under them, and the servers this phone is signed in to, each
+ * opening its page. Reordering, each space beside the personal one moves up or down by its arrows;
+ * the personal space stays first.
  */
-export function PhoneSpacesList({ values, reordering, onOpen, onAdd }: { values: SettingsValues; reordering: boolean; onOpen: (id: string | null) => void; onAdd: () => void }) {
+export function PhoneSpacesList({ values, reordering, onOpen, onAdd, onServer }: {
+  values: SettingsValues;
+  reordering: boolean;
+  onOpen: (id: string | null) => void;
+  onAdd: () => void;
+  onServer: (url: string) => void;
+}) {
   const { spaces, me } = values;
+  const servers = useKnownServers();
   return (
     <>
       <div className="mb-list">
@@ -89,6 +98,28 @@ export function PhoneSpacesList({ values, reordering, onOpen, onAdd }: { values:
         </div>
       )}
       <p className="mb-p">{t('phone.spacesAbout')}</p>
+      {!reordering && servers.length > 0 && (
+        <>
+          <div className="mb-sec">
+            <span>{t('server.servers')}</span>
+          </div>
+          <div className="mb-list">
+            {servers.map((server) => (
+              <button key={server.url} type="button" className="mb-row" onClick={() => onServer(server.url)}>
+                <ServerIcon />
+                <span className="tx">
+                  <b>{hostOf(server.url)}</b>
+                  <small>
+                    {server.email} · {t(ROLE_WORD[server.role])}
+                  </small>
+                </span>
+                <Icon name="chevron" />
+              </button>
+            ))}
+          </div>
+          <p className="mb-p">{t('server.serversAbout')}</p>
+        </>
+      )}
     </>
   );
 }
@@ -231,8 +262,8 @@ export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; 
 
 /**
  * A space's page: its name, its sync, which opens the space's sync page, and the people who have
- * opened it, the user first and the inactive last. Its menu, with Remove from this phone, is on
- * the page's ···.
+ * opened it, the user first and the inactive last; on a server, who can open it there, its
+ * managers marked. Its menu, with Remove from this phone, is on the page's ···.
  */
 export function PhoneSpacePage({ space, values, onSync }: { space: SpaceView; values: SettingsValues; onSync: () => void }) {
   const [naming, setNaming] = useState(false);
@@ -252,7 +283,9 @@ export function PhoneSpacePage({ space, values, onSync }: { space: SpaceView; va
           <SyncField provider={space.source?.provider} word={unit && shortOf(unit)} onSync={onSync} />
         </div>
       </div>
-      {people.length > 0 && (
+      {space.source?.provider === 'server' ? (
+        <PhoneServerMembers space={space} me={values.me} />
+      ) : people.length > 0 && (
         <>
           <div className="mb-sec">
             <span>{t('settings.people')}</span>
@@ -575,7 +608,9 @@ export function PhoneAddSpaceSheet({ values, onSetName, onClose }: { values: Set
           me={values.me}
           device={sync.device.name}
           again={serverSignedOut && server ? { url: server.url, email: server.email } : undefined}
+          start={added.start}
           onDone={connected}
+          onProfile={values.onSaveProfile}
           onClose={() => setConnecting(false)}
         />
       )}

@@ -11,7 +11,8 @@ import { dueLabel } from './Tasks';
 import { CloudIcon, FolderPicker, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 import { ConnectServerDialog, serverFailure } from './ServerConnect';
-import { hostOf, knownServers, type KnownServer, serverAccount } from './servers';
+import { ROLE_WORD, ServerMembers, ServerPage } from './ServerPeople';
+import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, tookJoin, useKnownServers } from './servers';
 
 export type Section = 'profile' | 'appearance' | 'spaces' | 'language';
 
@@ -256,11 +257,15 @@ function Profile({ me, onSaveProfile }: Pick<SettingsValues, 'me' | 'onSaveProfi
  * The spaces: a list in the sidebar's order, each row opening the space's page, and Add space
  * under it. A space's page has its name, its folder, its sync, and the way out of this device.
  */
-function Spaces(values: Pick<SettingsValues, 'me' | 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'onPersonActive' | 'onSection' | 'onChangeSpaceFolder' | 'initialSpace' | 'addingAs' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
+function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'onPersonActive' | 'onSection' | 'onChangeSpaceFolder' | 'initialSpace' | 'addingAs' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
   const { spaces, onMoveSpace, onRemoveSpace, initialSpace, addingAs, sync, syncService } = values;
   // The page open: a space by its id, null for the personal space, undefined for the list.
   const [page, setPage] = useState<string | null | undefined>(initialSpace);
-  const [adding, setAdding] = useState(!!addingAs);
+  // Opened with an invite link, Add space opens with it.
+  const [adding, setAdding] = useState(() => !!addingAs || !!pendingJoin());
+  // A server's page, by its address.
+  const [serverPage, setServerPage] = useState<string | null>(null);
+  const servers = useKnownServers();
   const [removing, setRemoving] = useState<SpaceView | null>(null);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; id: string } | null>(null);
   // The account the page came back from Microsoft with is taken once.
@@ -278,6 +283,7 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'spaceName' | 'onRenameSpace
       onDevice={values.spaces.map((space) => space.id)}
       unnamed={!values.me?.name}
       {...(values.onSection && { onSetName: () => values.onSection!('profile') })}
+      onSaveProfile={values.onSaveProfile}
       onAdd={values.onAddSpace}
       onDone={(id) => {
         setAdding(false);
@@ -285,6 +291,19 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'spaceName' | 'onRenameSpace
       }}
     />;
   if (page === null) return <PersonalPage {...values} onBack={() => setPage(undefined)} />;
+  const onServer = serverPage ? servers.find((each) => each.url === serverPage) : undefined;
+  if (onServer) {
+    return (
+      <ServerPage
+        server={onServer}
+        onBack={() => setServerPage(null)}
+        onSignOut={() => {
+          setServerPage(null);
+          void syncService.signOutOfServer(onServer.url);
+        }}
+      />
+    );
+  }
   const shown = page === undefined ? null : spaces.find((space) => space.id === page);
   if (shown) {
     return (
@@ -330,7 +349,7 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'spaceName' | 'onRenameSpace
           </span>
         </button>
         {spaces.map((space) => (
-          <div key={space.id} className={`st-li${menu?.id === space.id ? ' menu' : ''}`} onContextMenu={(event) => spaceMenu(event, space.id)}>
+          <div key={space.id} className={`st-li${menu?.id === space.id ? ' menu-on' : ''}`} onContextMenu={(event) => spaceMenu(event, space.id)}>
             <button type="button" className="st-li-main" onClick={() => setPage(space.id)}>
               <Icon name="space" />
               <span className="nm">
@@ -351,6 +370,26 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'spaceName' | 'onRenameSpace
         </button>
         <small>{t('settings.addSpaceAbout')}</small>
       </div>
+      {servers.length > 0 && (
+        <>
+          <span className="st-label">{t('server.servers')}</span>
+          <div className="st-list">
+            {servers.map((server) => (
+              <button key={server.url} type="button" className="st-li" onClick={() => setServerPage(server.url)}>
+                <ServerIcon />
+                <span className="nm">
+                  <b>{hostOf(server.url)}</b>
+                  <small>
+                    {server.email} · {t(ROLE_WORD[server.role])}
+                  </small>
+                </span>
+                <span className="r">{t('server.spacesHere', { count: spaces.filter((space) => space.source?.provider === 'server' && space.source.place.url === server.url).length })}</span>
+              </button>
+            ))}
+          </div>
+          <p className="st-note">{t('server.serversAbout')}</p>
+        </>
+      )}
       {/* The device's name goes with every space's sync; on a phone it is on the personal space's page. */}
       {sync.available && <ThisDevice sync={sync} service={syncService} />}
       {add}
@@ -402,7 +441,7 @@ function People({ people, me, onActive }: { people: Person[]; me: Me | null; onA
           return (
             <div
               key={person.id}
-              className={`st-li one${person.active ? '' : ' off'}${menu?.id === person.id ? ' menu' : ''}`}
+              className={`st-li one${person.active ? '' : ' off'}${menu?.id === person.id ? ' menu-on' : ''}`}
               {...(offered && { onContextMenu: (event: MouseEvent) => open(event, person.id) })}
             >
               <span className="who" aria-hidden="true">
@@ -508,7 +547,12 @@ export function useAddSpace({ service, account: given, onAdd, onDone, onDevice }
   const [serverSpaces, setServerSpaces] = useState<ServerSpace[] | null>(null);
   const [choice, setChoice] = useState('new');
   const [serverSignedOut, setServerSignedOut] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  // The link the app was opened with goes into Connect a server…, which opens with it.
+  const [start] = useState(pendingJoin);
+  const [connecting, setConnecting] = useState(!!start);
+  useEffect(() => {
+    if (start) tookJoin();
+  }, [start]);
   const onDeviceKey = onDevice.join(' ');
 
   useEffect(() => {
@@ -525,6 +569,7 @@ export function useAddSpace({ service, account: given, onAdd, onDone, onDevice }
         const offered = spaces.filter((each) => !here.has(each.id));
         setServerSpaces(offered);
         setServers((now) => now.map((each) => (each.url === server.url ? { ...each, role: me.role } : each)));
+        noteRole(server.url, me.role);
         setChoice(me.role === 'member' ? (offered[0]?.id ?? '') : 'new');
       },
       (failure: unknown) => {
@@ -539,13 +584,33 @@ export function useAddSpace({ service, account: given, onAdd, onDone, onDevice }
     };
   }, [server?.url, onDeviceKey]);
 
-  /** Connected to a server, or signed in to it again: it is listed, and chosen. */
-  const connected = (signedIn: KnownServer) => {
+  /**
+   * Connected to a server, or signed in to it again: it is listed, and chosen. Joined a space with
+   * an invite: the space is added, or its page opens when it is on this device already. A new
+   * password set with a link: there is nothing to add, and Add space closes.
+   */
+  const connected = (signedIn: KnownServer, after?: { joined: ServerSpace } | { reset: true }) => {
     service.signedInToServer(signedIn);
     setServers(knownServers());
     setConnecting(false);
     setWhere(signedIn.url);
     setServerSignedOut(false);
+    if (after && 'reset' in after) {
+      onDone(null);
+      return;
+    }
+    const joined = after?.joined;
+    if (!joined) return;
+    if (onDevice.includes(joined.id)) {
+      onDone(joined.id);
+      return;
+    }
+    setBusy(true);
+    const source: SpaceSource = { provider: 'server', account: signedIn.email, place: { url: signedIn.url, space: joined.id } };
+    onAdd(joined.name, source, joined.id).then(onDone, (failure: unknown) => {
+      setError(failure instanceof Error ? failure.message : t('error.create'));
+      setBusy(false);
+    });
   };
 
   useEffect(() => {
@@ -674,10 +739,11 @@ export function useAddSpace({ service, account: given, onAdd, onDone, onDevice }
     connecting,
     setConnecting,
     connected,
+    start,
   };
 }
 
-function AddSpaceDialog({ sync, service, account: given, me, onDevice, unnamed, onSetName, onAdd, onDone }: {
+function AddSpaceDialog({ sync, service, account: given, me, onDevice, unnamed, onSetName, onSaveProfile, onAdd, onDone }: {
   sync: SyncSnapshot;
   service: SyncService;
   /** Who the user is, for setting up a server or signing in to one. */
@@ -689,12 +755,13 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, unnamed, 
   unnamed: boolean;
   /** Goes to Profile, to set the name. */
   onSetName?: () => void;
+  onSaveProfile: SettingsValues['onSaveProfile'];
   onAdd: SettingsValues['onAddSpace'];
   onDone: (id: string | null) => void;
 }) {
   const added = useAddSpace({ service, account: given, onAdd, onDone, onDevice });
   const { name, setName, account, folder, picking, setPicking, signing, error, setError, busy, ready, connect, choose, add } = added;
-  const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected } = added;
+  const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected, start } = added;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Escape' || picking || connecting) return;
@@ -858,7 +925,9 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, unnamed, 
           me={me}
           device={sync.device.name}
           again={serverSignedOut && server ? { url: server.url, email: server.email } : undefined}
+          start={start}
           onDone={connected}
+          onProfile={onSaveProfile}
           onClose={() => setConnecting(false)}
         />
       )}
@@ -1001,7 +1070,7 @@ function SpacePage({ space, me, onPersonActive, sync, service, onRename, onChang
         </div>
         <SpaceSyncRow view={sync.all.find((unit) => unit.space === space.id)} service={service} />
       </div>
-      {space.people.length > 0 && <People people={space.people} me={me} onActive={onPersonActive} />}
+      {space.source?.provider === 'server' ? <ServerMembers space={space} me={me} /> : space.people.length > 0 && <People people={space.people} me={me} onActive={onPersonActive} />}
       <div className="st-acts">
         <button type="button" onClick={onRemove}>
           {t('settings.removeSpace')}

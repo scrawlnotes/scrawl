@@ -185,7 +185,7 @@ export class ServerRemote implements RemoteStore {
   private async fail(response: Response, path = ''): Promise<never> {
     const error = await errorOf(response);
     if (response.status === 412 || error.code === 'no-file') throw new RemoteConflict(path);
-    if (error.code === 'no-space' || error.code === 'not-member') throw new RemoteFolderGone();
+    if (error.code === 'no-space' || error.code === 'not-member') throw new RemoteFolderGone(error.code === 'not-member');
     throw error;
   }
 }
@@ -216,6 +216,37 @@ export interface ServerSignedIn {
   token: string;
   account: ServerAccountInfo;
 }
+
+/** Someone with an account on the server, as its owner and admins see them. */
+export interface ServerPerson extends ServerAccountInfo {
+  /** How many of its spaces they are in. */
+  spaces: number;
+  /** When one of their devices was last seen; null when none was. */
+  seen: number | null;
+}
+
+/** Someone in a space on the server. */
+export interface ServerMember {
+  id: string;
+  email: string;
+  name: string;
+  role: 'manager' | 'member';
+  /** Their role on the server: its owner and admins are taken out of a space only by the owner or an admin. */
+  serverRole: ServerAccountInfo['role'];
+  seen: number | null;
+}
+
+/** A link a server made: an invite into a space, or one for a new password. */
+export interface ServerLink {
+  link: string;
+  /** When it runs out. */
+  expires: number;
+}
+
+/** What a link is, before it is used. */
+export type ServerInvitation =
+  | { kind: 'space'; space: { id: string; name: string }; by: string; expires: number }
+  | { kind: 'reset'; email: string; name: string; expires: number };
 
 /** The server itself: how it stands, setting it up, signing in and out, and its spaces. */
 export class ServerAccount {
@@ -256,6 +287,63 @@ export class ServerAccount {
   /** A new space on the server, with the id the app made for it. */
   openSpace(id: string, name: string): Promise<ServerSpace> {
     return this.client.json('/spaces', jsonBody({ id, name }));
+  }
+
+  /** What an invite or a password link is; a refusal when it was used, ran out or leads nowhere. */
+  invitation(code: string): Promise<ServerInvitation> {
+    return this.client.json(`/invites/${encodeURIComponent(code)}`, {}, false);
+  }
+
+  /** Joins a space with an invite: a new account, or the one with that email and its password. */
+  accept(code: string, input: { name: string; email: string; password: string; person: string; device: string }): Promise<ServerSignedIn & { space: ServerSpace }> {
+    return this.client.json(`/invites/${encodeURIComponent(code)}/accept`, jsonBody(input), false);
+  }
+
+  /** Sets a new password with a link; the account's other devices sign in again. */
+  setPassword(code: string, input: { password: string; device: string }): Promise<ServerSignedIn> {
+    return this.client.json(`/invites/${encodeURIComponent(code)}/reset`, jsonBody(input), false);
+  }
+
+  /** Everyone with an account here, for the owner and the admins. */
+  people(): Promise<ServerPerson[]> {
+    return this.client.json('/accounts');
+  }
+
+  /** Makes someone an admin, or a member again; the owner does. */
+  setRole(account: string, role: 'admin' | 'member'): Promise<ServerAccountInfo> {
+    return this.client.json(`/accounts/${encodeURIComponent(account)}`, { ...jsonBody({ role }), method: 'PATCH' });
+  }
+
+  /** Takes someone off the server: out of every space, their keys ended. */
+  async removePerson(account: string): Promise<void> {
+    const response = await this.client.request(`/accounts/${encodeURIComponent(account)}`, { method: 'DELETE' });
+    if (!response.ok) throw await errorOf(response);
+  }
+
+  /** A link for someone's new password, for a day. */
+  passwordLink(account: string): Promise<ServerLink> {
+    return this.client.json(`/accounts/${encodeURIComponent(account)}/reset`, { method: 'POST' });
+  }
+
+  /** Who is in a space. */
+  members(space: string): Promise<ServerMember[]> {
+    return this.client.json(`/spaces/${encodeURIComponent(space)}/members`);
+  }
+
+  /** Makes someone in a space a manager, or a member again. */
+  setMemberRole(space: string, account: string, role: 'manager' | 'member'): Promise<ServerMember[]> {
+    return this.client.json(`/spaces/${encodeURIComponent(space)}/members/${encodeURIComponent(account)}`, { ...jsonBody({ role }), method: 'PATCH' });
+  }
+
+  /** Takes someone out of a space. */
+  async removeMember(space: string, account: string): Promise<void> {
+    const response = await this.client.request(`/spaces/${encodeURIComponent(space)}/members/${encodeURIComponent(account)}`, { method: 'DELETE' });
+    if (!response.ok) throw await errorOf(response);
+  }
+
+  /** An invite into a space, for one person, for a week. */
+  invite(space: string): Promise<ServerLink> {
+    return this.client.json(`/spaces/${encodeURIComponent(space)}/invites`, { method: 'POST' });
   }
 }
 

@@ -119,6 +119,7 @@ import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { SyncStatus, syncWord } from './SyncViews';
 import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
+import { pendingJoin } from './servers';
 import { Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Thing, thingsOf } from './Search';
@@ -231,6 +232,11 @@ export function App() {
     if (phone && (sync.picking || sync.signInError)) setSyncAsked(true);
     else if (sync.picking || sync.adding || sync.signInError) setDialog({ kind: 'settings', section: 'spaces' });
   }, [sync.picking, sync.adding, sync.signInError]);
+  // Opened from a server's page for an invite or a password link: Settings opens at Spaces, with
+  // Add space joining with it.
+  useEffect(() => {
+    if (pendingJoin()) setDialog({ kind: 'settings', section: 'spaces' });
+  }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(

@@ -9,6 +9,8 @@ import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
 import { PhoneSyncList, PhoneSyncPage } from './PhoneSync';
+import { PhoneServerPage, YouAre } from './ServerPeople';
+import { hostOf, knownServers, pendingJoin } from './servers';
 import { PhoneSearch, type SearchAction, type Thing } from './Search';
 import { ActionSheet, Empty, useViewport } from './sheets';
 
@@ -38,6 +40,7 @@ type PageKind =
   | { kind: 'settings' }
   | { kind: 'section'; section: Section }
   | { kind: 'space'; id: string | null }
+  | { kind: 'server'; url: string }
   | { kind: 'sync'; space?: string | null; named?: boolean }
   | { kind: 'history'; path: string }
   | { kind: 'version'; path: string; version: Version }
@@ -463,7 +466,8 @@ export function Phone(props: PhoneProps) {
   const [newFolderIn, setNewFolderIn] = useState<string | null>(null);
   // Settings › Spaces: reordering the spaces, adding one, a space's menu and the question before it leaves this phone.
   const [reordering, setReordering] = useState(false);
-  const [addingSpace, setAddingSpace] = useState(false);
+  // Opened with an invite link, Add space opens with it.
+  const [addingSpace, setAddingSpace] = useState(() => !!pendingJoin());
   const [spaceMenu, setSpaceMenu] = useState<string | null>(null);
   const [removingSpace, setRemovingSpace] = useState<string | null>(null);
   const view = useViewport();
@@ -830,6 +834,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'settings') return t('settings.title');
     if (page.kind === 'section') return t(settingsSections().find((each) => each.id === page.section)?.label ?? 'settings.title');
     if (page.kind === 'space') return page.id ? (props.spaces.find((space) => space.id === page.id)?.name ?? '') : (props.settings.values.spaceName ?? t('settings.personal'));
+    if (page.kind === 'server') return hostOf(page.url);
     if (page.kind === 'sync') {
       if (!page.named) return t('phone.sync');
       return page.space ? (props.spaces.find((space) => space.id === page.space)?.name ?? '') : (props.settings.values.spaceName ?? t('settings.personal'));
@@ -1212,7 +1217,13 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'section' && page.section === 'spaces') {
       return (
         <PageFrame title={titleOf(page, of)} nav={{ ...nav, action: { label: reordering ? t('phone.done') : t('phone.reorder'), run: () => setReordering(!reordering) } }}>
-          <PhoneSpacesList values={props.settings.values} reordering={reordering} onOpen={(id) => push({ kind: 'space', id })} onAdd={() => setAddingSpace(true)} />
+          <PhoneSpacesList
+            values={props.settings.values}
+            reordering={reordering}
+            onOpen={(id) => push({ kind: 'space', id })}
+            onAdd={() => setAddingSpace(true)}
+            onServer={(url) => push({ kind: 'server', url })}
+          />
         </PageFrame>
       );
     }
@@ -1239,6 +1250,22 @@ export function Phone(props: PhoneProps) {
       return (
         <PageFrame title={space.name} sub={spacePlace(space)} nav={{ ...nav, onMenu: () => setSpaceMenu(space.id) }}>
           <PhoneSpacePage space={space} values={props.settings.values} onSync={() => push({ kind: 'sync', space: space.id })} />
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'server') {
+      const server = knownServers().find((each) => each.url === page.url);
+      if (!server) return <PageFrame title={titleOf(page, of)} nav={nav}>{null}</PageFrame>;
+      const { syncService } = props.settings.values;
+      return (
+        <PageFrame title={titleOf(page, of)} sub={<YouAre url={server.url} />} nav={nav}>
+          <PhoneServerPage
+            server={server}
+            onSignOut={() => {
+              pop();
+              void syncService.signOutOfServer(server.url);
+            }}
+          />
         </PageFrame>
       );
     }

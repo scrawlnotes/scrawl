@@ -33,7 +33,7 @@ afterEach(() => {
 function start(options: { ownerEmail?: string; pageSize?: number } = {}) {
   const data = mkdtempSync(join(tmpdir(), 'scrawl-server-'));
   let clock = Date.UTC(2026, 9, 15, 10, 0);
-  const config: Config = { url: URL, port: 0, data, maxFileBytes: 1024 * 1024, ownerEmail: options.ownerEmail ?? null };
+  const config: Config = { url: URL, port: 0, data, maxFileBytes: 1024 * 1024, ownerEmail: options.ownerEmail ?? null, appUrl: 'https://app.scrawlnotes.com' };
   const server = makeServer(config, { now: () => clock, ...(options.pageSize && { pageSize: options.pageSize }) });
   opened.push({
     data,

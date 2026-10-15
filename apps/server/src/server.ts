@@ -6,6 +6,7 @@ import { Blobs } from './blobs';
 import type { Config } from './config';
 import { type Db, openDb } from './db';
 import { SpaceFiles } from './files';
+import { Invites } from './invites';
 import { Live } from './live';
 import { Spaces } from './spaces';
 
@@ -19,6 +20,7 @@ export function makeServer(config: Config, options: { now?: () => number; pageSi
   const files = new SpaceFiles(db, blobs, now, options.pageSize, (space, seq) => live.changed(space, seq));
   const accounts = new Accounts(db, { ownerEmail: config.ownerEmail, startedAt: now() }, now);
   const spaces = new Spaces(db, now);
-  const app = createApp({ config, blobs, files, accounts, spaces, live });
-  return { db, blobs, files, accounts, spaces, live, app };
+  const invites = new Invites(db, accounts, spaces, config.url, now);
+  const app = createApp({ config, blobs, files, accounts, spaces, live, invites });
+  return { db, blobs, files, accounts, spaces, live, invites, app };
 }
