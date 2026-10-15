@@ -1,4 +1,4 @@
-import { dayOf, type Me, type Person, type SpaceSource } from '@scrawlnotes/core';
+import { dayOf, type Me, newSpaceId, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
 import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
@@ -8,8 +8,10 @@ import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SyncService, SyncSnapshot } from './sync';
 import { dueLabel } from './Tasks';
-import { CloudIcon, FolderPicker, placeWords, providerName, SpaceSyncRow, SyncRow, ThisDevice } from './SyncViews';
+import { CloudIcon, FolderPicker, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
+import { ConnectServerDialog, serverFailure } from './ServerConnect';
+import { hostOf, knownServers, type KnownServer, serverAccount } from './servers';
 
 export type Section = 'profile' | 'appearance' | 'spaces' | 'language';
 
@@ -272,6 +274,8 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'spaceName' | 'onRenameSpace
       sync={sync}
       service={syncService}
       account={addingAs ?? null}
+      me={values.me}
+      onDevice={values.spaces.map((space) => space.id)}
       unnamed={!values.me?.name}
       {...(values.onSection && { onSetName: () => values.onSection!('profile') })}
       onAdd={values.onAddSpace}
@@ -369,7 +373,8 @@ export function spaceWords(space: SpaceView, me: Me | null): string {
   if (!space.source) return space.folder ?? t('settings.inBrowser');
   const owner = space.source.place.owner;
   const who = peopleWords(space.people, me);
-  return [providerName(space.source.provider), ...(owner ? [t('settings.ownersFolder', { owner })] : []), ...(who ? [who] : [])].join(' · ');
+  const where = space.source.provider === 'server' ? sourcePlace(space.source) : providerName(space.source.provider);
+  return [where, ...(owner ? [t('settings.ownersFolder', { owner })] : []), ...(who ? [who] : [])].join(' · ');
 }
 
 /**
@@ -429,7 +434,7 @@ function People({ people, me, onActive }: { people: Person[]; me: Me | null; onA
  * The question before a space leaves this device: it stays in its cloud and on the other
  * devices; ticked, its copy here is deleted too, which cannot be undone, and Remove turns red.
  */
-export function RemoveSpaceDialog({ space, onRemove, onClose }: { space: Pick<SpaceView, 'name'>; onRemove: (deleteFiles: boolean) => void; onClose: () => void }) {
+export function RemoveSpaceDialog({ space, onRemove, onClose }: { space: Pick<SpaceView, 'name' | 'source'>; onRemove: (deleteFiles: boolean) => void; onClose: () => void }) {
   const [deleteFiles, setDeleteFiles] = useState(false);
   const title = t('settings.removeTitle', { name: space.name });
   const remove = () => {
@@ -439,7 +444,7 @@ export function RemoveSpaceDialog({ space, onRemove, onClose }: { space: Pick<Sp
   return (
     <Dialog label={title} className="space-remove" onClose={onClose}>
       <h2>{title}</h2>
-      <p className="confirm">{t('settings.removeMessage', { name: space.name })}</p>
+      <p className="confirm">{t('settings.removeMessage', { name: space.name, place: sourcePlace(space.source) })}</p>
       <label className="check">
         <input type="checkbox" checked={deleteFiles} onChange={(event) => setDeleteFiles(event.target.checked)} />
         <span>{t('settings.removeFiles')}</span>
@@ -471,16 +476,20 @@ export function RemoveSpaceDialog({ space, onRemove, onClose }: { space: Pick<Sp
  */
 /**
  * What adding a space goes through, in the window on a computer and in the sheet on a phone: a
- * name; the account, asked for, connected first when there is none; the folder there, chosen in
- * the drive's window, which a folder that is a space already, or one that cannot be one, answers;
- * and adding it.
+ * name; where it lives, OneDrive or a Scrawl server this device is signed in to. In OneDrive: the
+ * account, asked for, connected first when there is none; the folder there, chosen in the drive's
+ * window, which a folder that is a space already, or one that cannot be one, answers. On a server:
+ * a new space there, which only its owner and admins open, or one of its spaces the person was
+ * invited to and that is not on this device yet. Then adding it.
  */
-export function useAddSpace({ service, account: given, onAdd, onDone }: {
+export function useAddSpace({ service, account: given, onAdd, onDone, onDevice }: {
   service: SyncService;
   /** Signed in already, the page back from Microsoft: the account to choose the folder in. */
   account: Connection['account'] | null;
   onAdd: SettingsValues['onAddSpace'];
   onDone: (id: string | null) => void;
+  /** The ids of the spaces on this device, which a server's list leaves out. */
+  onDevice: string[];
 }) {
   const [name, setName] = useState('');
   // Undefined while it is being asked whether a key is kept.
@@ -491,6 +500,53 @@ export function useAddSpace({ service, account: given, onAdd, onDone }: {
   const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Where it lives: OneDrive, or a server by its address.
+  const [servers, setServers] = useState<KnownServer[]>(() => knownServers());
+  const [where, setWhere] = useState('onedrive');
+  const server = servers.find((each) => each.url === where) ?? null;
+  // The server's spaces not on this device, null while it is asked; and the one chosen, `new` for a new one.
+  const [serverSpaces, setServerSpaces] = useState<ServerSpace[] | null>(null);
+  const [choice, setChoice] = useState('new');
+  const [serverSignedOut, setServerSignedOut] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const onDeviceKey = onDevice.join(' ');
+
+  useEffect(() => {
+    if (!server) return;
+    let live = true;
+    setServerSpaces(null);
+    setServerSignedOut(false);
+    setError(null);
+    const account = serverAccount(server.url);
+    Promise.all([account.spaces(), account.me()]).then(
+      ([spaces, me]) => {
+        if (!live) return;
+        const here = new Set(onDeviceKey.split(' '));
+        const offered = spaces.filter((each) => !here.has(each.id));
+        setServerSpaces(offered);
+        setServers((now) => now.map((each) => (each.url === server.url ? { ...each, role: me.role } : each)));
+        setChoice(me.role === 'member' ? (offered[0]?.id ?? '') : 'new');
+      },
+      (failure: unknown) => {
+        if (!live) return;
+        setServerSpaces([]);
+        if (failure instanceof RemoteSignedOut) setServerSignedOut(true);
+        else setError(serverFailure(failure, hostOf(server.url)));
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [server?.url, onDeviceKey]);
+
+  /** Connected to a server, or signed in to it again: it is listed, and chosen. */
+  const connected = (signedIn: KnownServer) => {
+    service.signedInToServer(signedIn);
+    setServers(knownServers());
+    setConnecting(false);
+    setWhere(signedIn.url);
+    setServerSignedOut(false);
+  };
 
   useEffect(() => {
     if (given) return;
@@ -546,7 +602,31 @@ export function useAddSpace({ service, account: given, onAdd, onDone }: {
     }
   };
 
+  const addOnServer = async (on: KnownServer) => {
+    const chosen = choice === 'new' ? null : serverSpaces?.find((each) => each.id === choice);
+    if (!chosen && !name.trim()) {
+      setError(t('error.spaceName'));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const source = (id: string): SpaceSource => ({ provider: 'server', account: on.email, place: { url: on.url, space: id } });
+    try {
+      if (chosen) onDone(await onAdd(chosen.name || name, source(chosen.id), chosen.id));
+      else {
+        const id = newSpaceId();
+        await serverAccount(on.url).openSpace(id, name.trim());
+        onDone(await onAdd(name, source(id), id));
+      }
+    } catch (failure) {
+      if (failure instanceof RemoteSignedOut) setServerSignedOut(true);
+      else setError(serverFailure(failure, hostOf(on.url)));
+      setBusy(false);
+    }
+  };
+
   const add = async () => {
+    if (server) return addOnServer(server);
     if (busy || !account || !folder) return;
     if (!name.trim()) {
       setError(t('error.spaceName'));
@@ -563,13 +643,46 @@ export function useAddSpace({ service, account: given, onAdd, onDone }: {
     }
   };
 
-  const ready = !!account && !!folder && !busy;
-  return { name, setName, account, folder, picking, setPicking, signing, error, setError, busy, ready, connect, choose, add };
+  const chosenSpace = choice === 'new' ? null : (serverSpaces?.find((each) => each.id === choice) ?? null);
+  const ready = server
+    ? !busy && !serverSignedOut && (chosenSpace ? true : choice === 'new' && server.role !== 'member' && serverSpaces !== null)
+    : !!account && !!folder && !busy;
+  return {
+    name,
+    setName,
+    account,
+    folder,
+    picking,
+    setPicking,
+    signing,
+    error,
+    setError,
+    busy,
+    ready,
+    connect,
+    choose,
+    add,
+    servers,
+    where,
+    setWhere,
+    server,
+    serverSpaces,
+    choice,
+    setChoice,
+    chosenSpace,
+    serverSignedOut,
+    connecting,
+    setConnecting,
+    connected,
+  };
 }
 
-function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onAdd, onDone }: {
+function AddSpaceDialog({ sync, service, account: given, me, onDevice, unnamed, onSetName, onAdd, onDone }: {
   sync: SyncSnapshot;
   service: SyncService;
+  /** Who the user is, for setting up a server or signing in to one. */
+  me: Me | null;
+  onDevice: string[];
   /** Signed in already, the page back from Microsoft: the account to choose the folder in. */
   account: Connection['account'] | null;
   /** The profile has no name: the others of the space would see Unnamed. */
@@ -579,10 +692,12 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
   onAdd: SettingsValues['onAddSpace'];
   onDone: (id: string | null) => void;
 }) {
-  const { name, setName, account, folder, picking, setPicking, signing, error, setError, busy, ready, connect, choose, add } = useAddSpace({ service, account: given, onAdd, onDone });
+  const added = useAddSpace({ service, account: given, onAdd, onDone, onDevice });
+  const { name, setName, account, folder, picking, setPicking, signing, error, setError, busy, ready, connect, choose, add } = added;
+  const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected } = added;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Escape' || picking) return;
+    if (event.key !== 'Escape' || picking || connecting) return;
     // The settings behind close on Escape too; this window takes it first.
     event.preventDefault();
     event.stopPropagation();
@@ -614,13 +729,60 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
         />
         <span className="label">{t('space.location')}</span>
         <div className="list" role="radiogroup" aria-label={t('space.location')}>
-          <button type="button" role="radio" aria-checked="true" className="row on">
+          <button type="button" role="radio" aria-checked={where === 'onedrive'} className={where === 'onedrive' ? 'row on' : 'row'} onClick={() => setWhere('onedrive')}>
             <CloudIcon />
             <span className="name">{t('sync.oneDrive')}</span>
             <small>{account === undefined ? t('sync.loading') : account ? account.email || account.name : t('space.notConnected')}</small>
           </button>
+          {servers.map((each) => (
+            <button key={each.url} type="button" role="radio" aria-checked={where === each.url} className={where === each.url ? 'row on' : 'row'} onClick={() => setWhere(each.url)}>
+              <ServerIcon />
+              <span className="name">{hostOf(each.url)}</span>
+              <small>{each.email}</small>
+            </button>
+          ))}
+          <button type="button" className="row srv-new" onClick={() => setConnecting(true)}>
+            <Icon name="plus" />
+            <span className="name">{t('server.connect')}</span>
+          </button>
         </div>
-        {account === null || signing ? (
+        {server ? (
+          <>
+            <span className="label">{t('space.space')}</span>
+            {serverSignedOut ? (
+              <div className="connect">
+                <ServerIcon />
+                <span>{t('server.signInAgain', { host: hostOf(server.url) })}</span>
+                <button type="button" className="st-btn go" onClick={() => setConnecting(true)}>
+                  {t('server.signIn')}
+                </button>
+              </div>
+            ) : serverSpaces === null ? (
+              <p className="note">{t('server.looking')}</p>
+            ) : (
+              <>
+                <div className="list" role="radiogroup" aria-label={t('space.space')}>
+                  {server.role !== 'member' && (
+                    <button type="button" role="radio" aria-checked={choice === 'new'} className={choice === 'new' ? 'row on' : 'row'} onClick={() => setChoice('new')}>
+                      <Icon name="plus" />
+                      <span className="name">{name.trim() ? t('space.newSpace', { name: name.trim() }) : t('space.newSpaceUnnamed')}</span>
+                    </button>
+                  )}
+                  {serverSpaces.map((each) => (
+                    <button key={each.id} type="button" role="radio" aria-checked={choice === each.id} className={choice === each.id ? 'row on' : 'row'} onClick={() => setChoice(each.id)}>
+                      <Icon name="space" />
+                      <span className="name">{each.name || t('settings.unnamed')}</span>
+                      <small>
+                        {t('count.people', { count: each.people })} · {t('space.notHere')}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+                <p className="note">{server.role === 'member' ? t('space.onlyAdmins') : t('space.serverNote')}</p>
+              </>
+            )}
+          </>
+        ) : account === null || signing ? (
           <div className="connect">
             <CloudIcon />
             <span>{signing ? t('sync.waitingForBrowser') : t('space.connectFirst')}</span>
@@ -660,7 +822,7 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
             {error}
           </p>
         )}
-        {unnamed && account && !signing && (
+        {unnamed && (server || account) && !signing && (
           <div className="st-warn">
             <Icon name="warn" />
             <span>{t('space.unnamedWarning')}</span>
@@ -676,7 +838,7 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
             {t('dialog.cancel')}
           </button>
           <button type="button" className="st-btn go" disabled={!ready} onClick={() => void add()}>
-            {name.trim() ? t('space.add', { name: name.trim() }) : t('settings.add')}
+            {chosenSpace ? t('space.add', { name: chosenSpace.name || t('settings.unnamed') }) : name.trim() ? t('space.add', { name: name.trim() }) : t('settings.add')}
           </button>
         </div>
       </div>
@@ -689,6 +851,15 @@ function AddSpaceDialog({ sync, service, account: given, unnamed, onSetName, onA
           startShared={sync.addingShared}
           onUse={(chosen) => void choose(chosen)}
           onCancel={() => setPicking(false)}
+        />
+      )}
+      {connecting && (
+        <ConnectServerDialog
+          me={me}
+          device={sync.device.name}
+          again={serverSignedOut && server ? { url: server.url, email: server.email } : undefined}
+          onDone={connected}
+          onClose={() => setConnecting(false)}
         />
       )}
     </div>
@@ -808,7 +979,7 @@ function SpacePage({ space, me, onPersonActive, sync, service, onRename, onChang
         <div className="top">
           <Icon name="space" />
           <b>{space.name}</b>
-          {space.source && <small>{t('settings.inProvider', { provider: providerName(space.source.provider) })}</small>}
+          {space.source && <small>{space.source.provider === 'server' ? t('settings.onAServer') : t('settings.inProvider', { provider: providerName(space.source.provider) })}</small>}
         </div>
         <NameRow id="space-name" name={space.name} fallback={space.name} onRename={onRename} />
         <div className="st-row">

@@ -1,14 +1,17 @@
-import type { Person, PersonRef } from '@scrawlnotes/core';
+import type { Person, PersonRef, ServerSpace } from '@scrawlnotes/core';
 import { refOf } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { type SpacePeople, Who } from './People';
 import type { SpaceView } from './session';
+import type { Connection } from './sync';
 import { type SettingsValues, spaceWords, useAddSpace } from './Settings';
 import { PhoneFolderSheet } from './PhoneSync';
 import { ActionSheet, Sheet, SheetClose } from './sheets';
-import { CloudIcon, placeWords, providerName, shortOf } from './SyncViews';
+import { CloudIcon, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
+import { ConnectServerSheet } from './ServerConnect';
+import { hostOf, type KnownServer } from './servers';
 
 // The spaces on a phone, after the Phone spaces views of design/mockups.html: Settings › Spaces as
 // a list with Reorder, a space's page with its name, its sync and its people, the personal space's
@@ -24,6 +27,7 @@ const Tick = ({ on }: { on: boolean }) => <span className="tick">{on && <Icon na
 /** Where a space lives, under its name on its page: `In OneDrive, Ben Cole’s folder`. */
 export function spacePlace(space: SpaceView): string | undefined {
   if (!space.source) return undefined;
+  if (space.source.provider === 'server') return t('settings.onServer', { host: sourcePlace(space.source) });
   const provider = providerName(space.source.provider);
   const owner = space.source.place.owner;
   return owner ? t('phone.inOwners', { provider, owner }) : t('settings.inProvider', { provider });
@@ -291,7 +295,7 @@ export function RemoveSpaceSheet({ space, onRemove, onClose }: { space: SpaceVie
         <div className="mb-card">
           <div className="ask">
             <b>{title}</b>
-            <small>{t('phone.removeMessage', { provider: space.source ? providerName(space.source.provider) : t('sync.oneDrive') })}</small>
+            <small>{t('phone.removeMessage', { place: sourcePlace(space.source) })}</small>
           </div>
           <button type="button" className="a tog" role="switch" aria-checked={deleteFiles} onClick={() => setDeleteFiles(!deleteFiles)}>
             <span className="lb">{t('phone.removeFiles')}</span>
@@ -323,19 +327,121 @@ export function RemoveSpaceSheet({ space, onRemove, onClose }: { space: SpaceVie
   );
 }
 
+/** The head of a list picked inside Add space: the way back to it, and what is picked. */
+function PickHead({ title, onBack }: { title: string; onBack: () => void }) {
+  return (
+    <div className="mb-sh three">
+      <button type="button" className="cancel back" onClick={onBack}>
+        <Icon name="back" />
+        <span>{t('space.addTitle')}</span>
+      </button>
+      <b>{title}</b>
+      <span />
+    </div>
+  );
+}
+
+/** Where a space lives, picked: OneDrive, a server this phone is signed in to, or one connected to now. */
+function LocationSheet({ account, servers, where, onPick, onConnect, onClose }: {
+  account: Connection['account'] | null | undefined;
+  servers: KnownServer[];
+  where: string;
+  onPick: (where: string) => void;
+  onConnect: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet label={t('space.location')} className="mb-create" onClose={onClose}>
+      <PickHead title={t('space.location')} onBack={onClose} />
+      <div className="mb-list">
+        <button type="button" className="mb-row" onClick={() => onPick('onedrive')}>
+          <CloudIcon />
+          <span className="tx">
+            <b>{t('sync.oneDrive')}</b>
+            <small>{account ? account.email || account.name : t('space.notConnected')}</small>
+          </span>
+          <Tick on={where === 'onedrive'} />
+        </button>
+        {servers.map((server) => (
+          <button key={server.url} type="button" className="mb-row" onClick={() => onPick(server.url)}>
+            <ServerIcon />
+            <span className="tx">
+              <b>{hostOf(server.url)}</b>
+              <small>{server.email}</small>
+            </span>
+            <Tick on={where === server.url} />
+          </button>
+        ))}
+        <button type="button" className="mb-row srv-new" onClick={onConnect}>
+          <Icon name="plus" />
+          <span className="tx">
+            <b>{t('server.connect')}</b>
+          </span>
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+/** A space on a server, picked: a new one, named as typed, or one of its spaces not on this phone. */
+function ServerSpaceSheet({ server, spaces, name, choice, onPick, onClose }: {
+  server: KnownServer;
+  spaces: ServerSpace[];
+  name: string;
+  choice: string;
+  onPick: (choice: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet label={t('space.space')} className="mb-create" onClose={onClose}>
+      <PickHead title={t('space.space')} onBack={onClose} />
+      <div className="mb-list">
+        {server.role !== 'member' && (
+          <button type="button" className="mb-row" onClick={() => onPick('new')}>
+            <Icon name="plus" />
+            <span className="tx">
+              <b>{name.trim() ? t('space.newSpace', { name: name.trim() }) : t('space.newSpaceUnnamed')}</b>
+            </span>
+            <Tick on={choice === 'new'} />
+          </button>
+        )}
+        {spaces.map((space) => (
+          <button key={space.id} type="button" className="mb-row" onClick={() => onPick(space.id)}>
+            <Icon name="space" />
+            <span className="tx">
+              <b>{space.name || t('settings.unnamed')}</b>
+              <small>
+                {t('count.people', { count: space.people })} · {t('space.notHere')}
+              </small>
+            </span>
+            <Tick on={choice === space.id} />
+          </button>
+        ))}
+      </div>
+      <p className="mb-hint">{server.role === 'member' ? t('space.onlyAdmins') : t('space.serverNote')}</p>
+    </Sheet>
+  );
+}
+
 /**
- * Add space as a sheet: its name, where it lives (OneDrive, connected first when it is not), and
- * the folder there, chosen in the drive's window, among the user's own or by a link someone sent.
- * With the profile's name empty it warns, since the others see the user in a space.
+ * Add space as a sheet: its name, where it lives, and in OneDrive the folder there, chosen in the
+ * drive's window, among the user's own or by a link someone sent; on a server, a new space there
+ * or one of its spaces the user was invited to. With the profile's name empty it warns, since the
+ * others see the user in a space.
  */
 export function PhoneAddSpaceSheet({ values, onSetName, onClose }: { values: SettingsValues; onSetName: () => void; onClose: () => void }) {
   const { sync, syncService: service } = values;
-  const { name, setName, account, folder, picking, setPicking, signing, error, setError, ready, connect, choose, add } = useAddSpace({
+  const added = useAddSpace({
     service,
     account: values.addingAs ?? null,
     onAdd: values.onAddSpace,
     onDone: () => onClose(),
+    onDevice: values.spaces.map((space) => space.id),
   });
+  const { name, setName, account, folder, picking, setPicking, signing, error, setError, ready, connect, choose, add } = added;
+  const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected } = added;
+  const [locating, setLocating] = useState(false);
+  const [spacing, setSpacing] = useState(false);
   // The account the page came back from Microsoft with is taken once.
   useEffect(() => {
     if (values.addingAs) service.donePicking();
@@ -347,7 +453,7 @@ export function PhoneAddSpaceSheet({ values, onSetName, onClose }: { values: Set
           {t('dialog.cancel')}
         </button>
         <b>{t('space.addTitle')}</b>
-        <button type="button" className="ok" disabled={!ready || !name.trim()} onClick={() => void add()}>
+        <button type="button" className="ok" disabled={!ready || (!chosenSpace && !name.trim())} onClick={() => void add()}>
           {t('settings.add')}
         </button>
       </div>
@@ -367,30 +473,63 @@ export function PhoneAddSpaceSheet({ values, onSetName, onClose }: { values: Set
               }}
             />
           </label>
-          <button type="button" className="mb-fr" disabled={account === undefined || !!signing || !!account} onClick={() => void connect()}>
+          <button type="button" className="mb-fr" disabled={!!signing} onClick={() => setLocating(true)}>
             <span className="fl">{t('space.location')}</span>
-            <span className="val place">
-              <CloudIcon />
-              {t('sync.oneDrive')}
-              {account === null && <small> · {t('space.notConnected')}</small>}
-            </span>
-            {account === null && <Icon name="chevron" />}
-          </button>
-          <button type="button" className="mb-fr" disabled={!account} onClick={() => setPicking(true)}>
-            <span className="fl">{t('settings.folder')}</span>
-            <span className="val">{folder ? placeWords(folder.folder.path, folder.folder.drive) : <span className="none">{t('phone.choose')}</span>}</span>
+            {server ? (
+              <span className="val place">
+                <ServerIcon />
+                {hostOf(server.url)}
+              </span>
+            ) : (
+              <span className="val place">
+                <CloudIcon />
+                {t('sync.oneDrive')}
+                {account === null && <small> · {t('space.notConnected')}</small>}
+              </span>
+            )}
             <Icon name="chevron" />
           </button>
+          {server ? (
+            <button type="button" className="mb-fr" disabled={serverSpaces === null || serverSignedOut} onClick={() => setSpacing(true)}>
+              <span className="fl">{t('space.space')}</span>
+              <span className="val">
+                {serverSpaces === null ? (
+                  <span className="none">{t('server.looking')}</span>
+                ) : chosenSpace ? (
+                  chosenSpace.name || t('settings.unnamed')
+                ) : choice === 'new' && server.role !== 'member' ? (
+                  t('space.newSpaceUnnamed')
+                ) : (
+                  <span className="none">{t('phone.choose')}</span>
+                )}
+              </span>
+              <Icon name="chevron" />
+            </button>
+          ) : (
+            <button type="button" className="mb-fr" disabled={!account} onClick={() => setPicking(true)}>
+              <span className="fl">{t('settings.folder')}</span>
+              <span className="val">{folder ? placeWords(folder.folder.path, folder.folder.drive) : <span className="none">{t('phone.choose')}</span>}</span>
+              <Icon name="chevron" />
+            </button>
+          )}
         </div>
       </div>
-      {account === null && !signing && <p className="mb-hint">{t('space.connectFirst')}</p>}
+      {server && serverSignedOut && (
+        <p className="mb-hint">
+          {t('server.signInAgain', { host: hostOf(server.url) })}{' '}
+          <button type="button" className="mb-link inline" onClick={() => setConnecting(true)}>
+            {t('server.signIn')}
+          </button>
+        </p>
+      )}
+      {!server && account === null && !signing && <p className="mb-hint">{t('space.connectFirst')}</p>}
       {signing && <p className="mb-hint">{t('sync.waitingForBrowser')}</p>}
       {error && (
         <p className="mb-hint err" role="alert">
           {error}
         </p>
       )}
-      {!values.me?.name && account && (
+      {!values.me?.name && (server || account) && (
         <div className="mb-warn">
           <Icon name="warn" />
           <span>
@@ -400,6 +539,45 @@ export function PhoneAddSpaceSheet({ values, onSetName, onClose }: { values: Set
             </button>
           </span>
         </div>
+      )}
+      {locating && (
+        <LocationSheet
+          account={account}
+          servers={servers}
+          where={where}
+          onPick={(picked) => {
+            setLocating(false);
+            setWhere(picked);
+            if (picked === 'onedrive' && account === null) void connect();
+          }}
+          onConnect={() => {
+            setLocating(false);
+            setConnecting(true);
+          }}
+          onClose={() => setLocating(false)}
+        />
+      )}
+      {spacing && server && serverSpaces && (
+        <ServerSpaceSheet
+          server={server}
+          spaces={serverSpaces}
+          name={name}
+          choice={choice}
+          onPick={(picked) => {
+            setChoice(picked);
+            setSpacing(false);
+          }}
+          onClose={() => setSpacing(false)}
+        />
+      )}
+      {connecting && (
+        <ConnectServerSheet
+          me={values.me}
+          device={sync.device.name}
+          again={serverSignedOut && server ? { url: server.url, email: server.email } : undefined}
+          onDone={connected}
+          onClose={() => setConnecting(false)}
+        />
       )}
       {picking && account && (
         <PhoneFolderSheet

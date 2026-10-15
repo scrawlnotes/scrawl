@@ -17,8 +17,10 @@ import {
   type PanelTab,
   percent,
   providerName,
+  placeName,
   reasonOf,
   rowEnd,
+  statusText,
   standingOf,
   STATUS,
   TAB_LABEL,
@@ -40,7 +42,7 @@ const ROW = 64;
 const SPARE = 12;
 
 /** Nothing synced yet, for a space with no turn of its own. */
-const NONE: SpaceSync = { connection: null, phase: 'off', syncedAt: null, error: null, turn: null, lastDone: null, conflict: null };
+const NONE: SpaceSync = { connection: null, phase: 'off', syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false };
 
 const IMAGES = /\.(png|jpe?g|gif|webp|heic|avif|svg)$/i;
 const SOUNDS = /\.(m4a|mp3|wav|webm|ogg|aac|opus)$/i;
@@ -74,7 +76,7 @@ export function fileLook(path: string, top: string): { icon: IconName; name: str
 }
 
 /** A file of a turn: its kind, its name, its folder, and on the right what it does or did. */
-function FileRow({ job, top, style }: { job: SyncJob; top: string; style?: CSSProperties }) {
+function FileRow({ job, top, place, style }: { job: SyncJob; top: string; place: string; style?: CSSProperties }) {
   const look = fileLook(job.path, top);
   return (
     <div className="mb-row mb-file" style={style}>
@@ -85,7 +87,7 @@ function FileRow({ job, top, style }: { job: SyncJob; top: string; style?: CSSPr
       </span>
       <span className="ct">
         <JobIcon job={job} />
-        {rowEnd(job)}
+        {rowEnd(job, place)}
       </span>
     </div>
   );
@@ -95,7 +97,7 @@ function FileRow({ job, top, style }: { job: SyncJob; top: string; style?: CSSPr
  * The files of a tab. A turn may move thousands: only the rows in sight of the page, and a few
  * around them, are drawn, each at its place.
  */
-function FileRows({ jobs, top }: { jobs: readonly SyncJob[]; top: string }) {
+function FileRows({ jobs, top, place }: { jobs: readonly SyncJob[]; top: string; place: string }) {
   const box = useRef<HTMLDivElement>(null);
   const [range, setRange] = useState({ first: 0, last: 40 });
   useLayoutEffect(() => {
@@ -120,7 +122,7 @@ function FileRows({ jobs, top }: { jobs: readonly SyncJob[]; top: string }) {
   return (
     <div ref={box} className="mb-files" style={{ height: jobs.length * ROW }}>
       {jobs.slice(range.first, range.last).map((job, index) => (
-        <FileRow key={range.first + index} job={job} top={top} style={{ top: (range.first + index) * ROW, height: ROW }} />
+        <FileRow key={range.first + index} job={job} top={top} place={place} style={{ top: (range.first + index) * ROW, height: ROW }} />
       ))}
     </div>
   );
@@ -364,14 +366,14 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
   const { phase, connection } = unit;
   const account = connection?.account;
   const owner = connection?.folder.owner;
-  const provider = providerName(connection?.provider ?? 'onedrive');
+  const provider = connection?.server ? placeName(connection) : providerName(connection?.provider ?? 'onedrive');
   const sub = owner ? `${provider} · ${t('settings.ownersFolder', { owner })}` : account ? `${provider} · ${account.email || account.name}` : provider;
   const bad = !['off', 'idle', 'syncing'].includes(phase);
   // What mends what keeps it from going on, where something does: signing in again; for the
   // personal space, another folder.
   const mend =
     phase === 'signedOut'
-      ? { label: t('sync.signInAgain'), run: () => void signIn('resume') }
+      ? { label: t('sync.signInAgain'), run: () => (connection?.server ? service.askServerSignIn(connection.server, connection.account.email) : void signIn('resume')) }
       : phase === 'folderGone' && personal && connection
         ? { label: t('sync.chooseFolder'), run: () => setPicking(connection.account) }
         : null;
@@ -389,7 +391,7 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
       <div className={bad ? 'mb-sync bad' : 'mb-sync'}>
         <div className="st">
           {bad && <Icon name="warn" />}
-          <b>{running ? t('sync.syncingShort') : bad ? t(STATUS[phase as keyof typeof STATUS]) : t('phone.synced')}</b>
+          <b>{running ? t('sync.syncingShort') : bad ? statusText(phase as keyof typeof STATUS, connection) : t('phone.synced')}</b>
           {!running && !bad && unit.syncedAt !== null && <small>{ago(unit.syncedAt)}</small>}
           {running && <span className="pct">{percent(share)}</span>}
         </div>
@@ -442,14 +444,14 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
                 <span className="tx">
                   <b>{look.name}</b>
                   <small>{look.folder}</small>
-                  <span className="why">{reasonOf(job)}</span>
+                  <span className="why">{reasonOf(job, placeName(connection))}</span>
                 </span>
               </div>
             );
           })}
         </div>
       ) : (
-        <FileRows key={tab} jobs={shown} top={top} />
+        <FileRows key={tab} jobs={shown} top={top} place={placeName(connection)} />
       )}
       <p className="mb-p">{t('panel.when')}</p>
       {menu && connection && (

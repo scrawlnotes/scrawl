@@ -1,4 +1,4 @@
-import { basename, dirname, type OneDriveFolder, oneDriveTakes, type SyncJob, type SyncJobResult } from '@scrawlnotes/core';
+import { basename, dirname, type OneDriveFolder, oneDriveTakes, type SpaceSource, type SyncJob, type SyncJobResult } from '@scrawlnotes/core';
 import { sizeText } from '@scrawlnotes/editor';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -8,6 +8,7 @@ import { DOWNLOAD_LIMITS, loadDownloadLimit, pageBox, pageWindow, saveDownloadLi
 import { Icon } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SpaceSync, SpaceSyncView, SyncPhase, SyncService, SyncSnapshot, TurnView } from './sync';
+import { hostOf } from './servers';
 import { isDesktop } from './storage';
 
 // What sync shows: its row in a space's settings, this device's name, the window to choose a
@@ -35,27 +36,44 @@ export function useTicking(on: boolean) {
   }, [on]);
 }
 
+/** Where a space syncs, as its sync says it: OneDrive, or a Scrawl server by its address. */
+export const placeName = (connection: Connection | null | undefined) => (connection?.server ? hostOf(connection.server) : t('sync.oneDrive'));
+
+/** Where a space lives, from the device's list of spaces: OneDrive, or a server by its address. */
+export const sourcePlace = (source: SpaceSource | null | undefined) => (source?.provider === 'server' && source.place.url ? hostOf(source.place.url) : t('sync.oneDrive'));
+
 /**
  * Why a folder in the cloud is gone, and what to do: the personal space chooses another; a space
  * lives in its folder, so it is gone with it, or no longer open to you, and its copy stays here.
+ * A space on a server is gone from it, or the person was taken out of it.
  */
-export const goneLong = (space: string | null) => t(space ? 'sync.spaceGoneLong' : 'sync.folderGoneLong');
+export const goneLong = (space: string | null, connection?: Connection | null) =>
+  connection?.server ? t('sync.serverGoneLong', { place: placeName(connection) }) : t(space ? 'sync.spaceGoneLong' : 'sync.folderGoneLong');
 
 /** Signed out, and in the browser why renewing on opening did not go through, as Microsoft said it. */
-export const signedOutLong = () => {
+export const signedOutLong = (connection?: Connection | null) => {
+  const text = t('sync.signedOutLong', { place: placeName(connection) });
+  if (connection?.server) return text;
   const failure = renewFailure();
-  return failure ? `${t('sync.signedOutLong')} ${t('sync.renewFailed', { reason: failure.reason })}` : t('sync.signedOutLong');
+  return failure ? `${text} ${t('sync.renewFailed', { reason: failure.reason })}` : text;
 };
+
+/** What keeps a space from syncing, in a few words, naming where it syncs. */
+export function statusText(phase: Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, connection?: Connection | null): string {
+  if (phase === 'folderGone' && connection?.server) return t('sync.serverGone', { place: placeName(connection) });
+  return t(STATUS[phase], { place: placeName(connection) });
+}
 
 /** Where a phase stands, in the settings: words, and the colour of its dot; `space` null for the personal one. */
 function stateOf(sync: SpaceSync, space: string | null = null): { text: string; tone: 'ok' | 'busy' | 'off' | 'bad' } {
   const { phase, syncedAt, error } = sync;
   if (phase === 'syncing') return { text: t('sync.syncingPct', { pct: percent(sync.turn?.progress.share ?? 0) }), tone: 'busy' };
-  if (phase === 'offline') return { text: t('sync.offlineLong'), tone: 'off' };
-  if (phase === 'signedOut') return { text: signedOutLong(), tone: 'bad' };
-  if (phase === 'folderGone') return { text: goneLong(space), tone: 'bad' };
+  if (phase === 'offline') return { text: t('sync.offlineLong', { place: placeName(sync.connection) }), tone: 'off' };
+  if (phase === 'signedOut') return { text: signedOutLong(sync.connection), tone: 'bad' };
+  if (phase === 'folderGone') return { text: goneLong(space, sync.connection), tone: 'bad' };
   if (phase === 'failed') return { text: t('sync.failedLong', { error: error ?? '' }), tone: 'bad' };
-  return { text: syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(syncedAt) }), tone: 'ok' };
+  const synced = syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(syncedAt) });
+  return { text: sync.live ? `${synced} · ${t('sync.live')}` : synced, tone: 'ok' };
 }
 
 export interface SyncRowProps {
@@ -249,6 +267,11 @@ export function SpaceSyncRow({ view, service }: { view: SpaceSyncView | undefine
   useTicking(true);
   useEffect(() => () => signing?.cancel(), [signing]);
   const signIn = async () => {
+    const server = view?.connection?.server;
+    if (server) {
+      service.askServerSignIn(server, view.connection!.account.email);
+      return;
+    }
     const cloud = service.cloud();
     setError(null);
     if (cloud.redirects) {
@@ -282,14 +305,22 @@ export function SpaceSyncRow({ view, service }: { view: SpaceSyncView | undefine
     <div className="st-sync">
       <span className="fl">{t('sync.label')}</span>
       <div className="what">
-        <span className="who">
-          <CloudIcon />
-          <b>{t('sync.oneDrive')}</b>
-          <small>
-            {connection.account.email || connection.account.name} · {placeWords(connection.folder.path, connection.folder.drive)}
-          </small>
-        </span>
-        <span className={`state ${state.tone}`} role="status">
+        {connection.server ? (
+          <span className="who">
+            <ServerIcon />
+            <b>{hostOf(connection.server)}</b>
+            <small>{connection.account.email}</small>
+          </span>
+        ) : (
+          <span className="who">
+            <CloudIcon />
+            <b>{t('sync.oneDrive')}</b>
+            <small>
+              {connection.account.email || connection.account.name} · {placeWords(connection.folder.path, connection.folder.drive)}
+            </small>
+          </span>
+        )}
+        <span className={`state ${state.tone}${view.live ? ' live' : ''}`} role="status">
           <i />
           {state.text}
           {connection.folder.owner && ` · ${t('settings.ownersFolder', { owner: connection.folder.owner })}`}
@@ -320,9 +351,9 @@ export function SpaceSyncRow({ view, service }: { view: SpaceSyncView | undefine
   );
 }
 
-/** A cloud's name, by the provider a space's source names: OneDrive now, more as they come. */
+/** A cloud's name, by the provider a space's source names: OneDrive, or a Scrawl server. */
 export function providerName(provider: string): string {
-  return provider === 'onedrive' ? t('sync.oneDrive') : provider;
+  return provider === 'onedrive' ? t('sync.oneDrive') : provider === 'server' ? t('server.name') : provider;
 }
 
 /** A folder of a cloud drive in words, as its folder window shows the way to it: "My files › Clients", or "Shared › Northwind" in someone else's drive. */
@@ -426,6 +457,17 @@ export function CloudIcon() {
   return (
     <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.6 9.06 4.5 4.5 0 0 0 7 18z" />
+    </svg>
+  );
+}
+
+/** A Scrawl server: two units of a rack. */
+export function ServerIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4" y="4.5" width="16" height="6" rx="1.5" />
+      <rect x="4" y="13.5" width="16" height="6" rx="1.5" />
+      <path d="M7.5 7.5h.01M7.5 16.5h.01" />
     </svg>
   );
 }
@@ -872,8 +914,8 @@ export interface SyncStatusProps {
   onSyncNow: (space?: string | null) => void;
   /** Opens Settings at a space's sync: the personal space's for null. */
   onSettings: (space: string | null) => void;
-  /** Signs in again after the key stopped working. */
-  onSignIn: () => void;
+  /** Signs in again after the key stopped working: to OneDrive, or to the server of the space told. */
+  onSignIn: (sync?: SpaceSyncView) => void;
   onOpenCopy: (path: string) => void;
 }
 
@@ -932,8 +974,9 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
         {many ? t('sync.syncingIn', { name: shown.name }) : t('sync.syncingShort')} <span className="pct">{percent(turn?.progress.share ?? 0)}</span>
       </>
     );
-  } else if (phase === 'off' || phase === 'idle') text = syncedAt === null ? t('sync.notYet') : t('sync.syncedTo', { ago: ago(syncedAt) });
-  else text = t(STATUS[phase]);
+  } else if (phase === 'off' || phase === 'idle') {
+    text = syncedAt === null ? t('sync.notYet') : many ? t('sync.syncedAgo', { ago: ago(syncedAt) }) : t('sync.syncedTo', { place: placeName(shown.connection), ago: ago(syncedAt) });
+  } else text = statusText(phase, shown.connection);
   const name = copy && basename(copy).replace(/\.[^.]+$/, '');
   return (
     <>
@@ -977,9 +1020,9 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
               close();
               onSettings(space);
             }}
-            onSignIn={() => {
+            onSignIn={(unit) => {
               close();
-              onSignIn();
+              onSignIn(unit);
             }}
           />,
           document.body,
@@ -1026,7 +1069,7 @@ export type PanelTab = 'waiting' | 'done' | 'notSynced';
 export const TAB_LABEL: Record<PanelTab, MessageKey> = { waiting: 'panel.waiting', done: 'panel.done', notSynced: 'panel.notSynced' };
 
 /** What a turn did, counted: `3 sent, 2 brought, 1 merged`. */
-function summary(jobs: readonly SyncJob[]): string {
+function summary(jobs: readonly SyncJob[], place: string): string {
   const counts = new Map<SyncJobResult, number>();
   for (const job of jobs) if (job.state === 'done' && job.result) counts.set(job.result, (counts.get(job.result) ?? 0) + 1);
   const KEYS: [SyncJobResult, MessageKey][] = [
@@ -1039,7 +1082,7 @@ function summary(jobs: readonly SyncJob[]): string {
     ['removedThere', 'panel.countRemovedThere'],
     ['alike', 'panel.countAlike'],
   ];
-  return KEYS.flatMap(([result, key]) => (counts.get(result) ? [t(key, { count: counts.get(result)! })] : [])).join(t('list.separator'));
+  return KEYS.flatMap(([result, key]) => (counts.get(result) ? [t(key, { count: counts.get(result)!, place })] : [])).join(t('list.separator'));
 }
 
 /** The icon of a job: what it did, or what it will do. */
@@ -1081,10 +1124,10 @@ export function JobIcon({ job }: { job: SyncJob }) {
 }
 
 /** What a row says on its right: a waiting job's size or what it will do, a done one's outcome. */
-export function rowEnd(job: SyncJob): string {
+export function rowEnd(job: SyncJob, place: string): string {
   if (job.state === 'waiting') {
     if (job.kind === 'trash') return t('panel.willTrash');
-    if (job.kind === 'removeThere') return t('panel.willRemoveThere');
+    if (job.kind === 'removeThere') return t('panel.willRemoveThere', { place });
     if (job.kind === 'both') return t('panel.willMerge');
     return sizeText(job.size);
   }
@@ -1105,15 +1148,15 @@ export function rowEnd(job: SyncJob): string {
     case 'trashed':
       return t('panel.trashedLabel');
     case 'removedThere':
-      return t('panel.removedThereLabel');
+      return t('panel.removedThereLabel', { place });
     default:
       return t('panel.alikeLabel');
   }
 }
 
 /** Why a file was not synced, in a sentence. */
-export function reasonOf(job: SyncJob): string {
-  if (job.state === 'skipped') return t(job.reason === 'here' ? 'panel.changedHere' : 'panel.changedThere');
+export function reasonOf(job: SyncJob, place: string): string {
+  if (job.state === 'skipped') return job.reason === 'here' ? t('panel.changedHere') : t('panel.changedThere', { place });
   const bad = [...new Set([...job.path].filter((c) => '"*:<>?\\|'.includes(c)))].map((c) => t('quote', { name: c }));
   if (bad.length === 0 || job.path.split('/').some((name) => !oneDriveTakes(name.replace(/["*:<>?\\|]/g, '')))) return t('panel.badName');
   const chars = bad.length === 1 ? bad[0]! : `${bad.slice(0, -1).join(t('list.separator'))}${t('list.or')}${bad.at(-1)}`;
@@ -1124,7 +1167,7 @@ const ROW = 26;
 const ROW_NARROW = 34;
 
 /** A long list of jobs, of which only the rows in sight are drawn. */
-function JobRows({ jobs, height }: { jobs: readonly SyncJob[]; height: number }) {
+function JobRows({ jobs, height, place }: { jobs: readonly SyncJob[]; height: number; place: string }) {
   const box = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
   const [seen, setSeen] = useState(480);
@@ -1143,7 +1186,7 @@ function JobRows({ jobs, height }: { jobs: readonly SyncJob[]; height: number })
               {basename(job.path)}
               {dirname(job.path) && <small>{dirname(job.path)}</small>}
             </span>
-            <span className="r">{rowEnd(job)}</span>
+            <span className="r">{rowEnd(job, place)}</span>
           </div>
         ))}
       </div>
@@ -1160,17 +1203,17 @@ const SHORT: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, MessageKey> 
 };
 
 /** How a space's sync stands in a word, and whether something keeps it from going on. */
-export function shortOf({ phase, syncedAt, turn }: SpaceSync): { text: string; bad: boolean } {
+export function shortOf({ phase, syncedAt, turn, connection }: SpaceSync): { text: string; bad: boolean } {
   if (phase === 'syncing') return { text: percent(turn?.progress.share ?? 0), bad: false };
   if (phase === 'off' || phase === 'idle') return { text: syncedAt === null ? t('sync.notYet') : ago(syncedAt), bad: false };
-  return { text: t(SHORT[phase]), bad: true };
+  return { text: phase === 'folderGone' && connection?.server ? t('phone.spaceGone') : t(SHORT[phase]), bad: true };
 }
 
 /** How a space's sync stands, on its row of the panel: `Synced 12 s ago`, `Syncing 38%`. */
 export function standingOf(unit: SpaceSync): string {
   if (unit.phase === 'syncing') return t('sync.syncingPct', { pct: percent(unit.turn?.progress.share ?? 0) });
   if (unit.phase === 'idle' || unit.phase === 'off') return unit.syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(unit.syncedAt) });
-  return t(STATUS[unit.phase]);
+  return statusText(unit.phase, unit.connection);
 }
 
 /**
@@ -1223,14 +1266,14 @@ export function turnLine(sync: SpaceSyncView, running: boolean, doneFrom: TurnVi
     return parts.join(' · ');
   }
   if (phase === 'idle' || phase === 'off' || phase === 'syncing') {
-    const said = doneFrom ? summary(doneFrom.progress.jobs) : '';
+    const said = doneFrom ? summary(doneFrom.progress.jobs, placeName(sync.connection)) : '';
     if (!said) return t('panel.nothing');
     if (doneFrom === turn) return t('panel.lastTurn', { summary: said });
     return t('panel.lastChanges', { ago: ago(doneFrom!.endedAt ?? doneFrom!.startedAt), summary: said });
   }
-  if (phase === 'offline') return t('sync.offlineLong');
-  if (phase === 'signedOut') return signedOutLong();
-  if (phase === 'folderGone') return goneLong(sync.space);
+  if (phase === 'offline') return t('sync.offlineLong', { place: placeName(sync.connection) });
+  if (phase === 'signedOut') return signedOutLong(sync.connection);
+  if (phase === 'folderGone') return goneLong(sync.space, sync.connection);
   return t('sync.failedLong', { error: sync.error ?? '' });
 }
 
@@ -1252,7 +1295,7 @@ interface PanelProps {
   onClose: () => void;
   onSyncNow: (space?: string | null) => void;
   onSettings: (space: string | null) => void;
-  onSignIn: () => void;
+  onSignIn: (sync: SpaceSyncView) => void;
 }
 
 /**
@@ -1308,18 +1351,18 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
   if (running && progress) {
     title = (
       <>
-        <b>{many ? t('panel.syncingIn', { name: sync.name }) : t('panel.syncing')}</b>
+        <b>{many ? t('panel.syncingIn', { name: sync.name, place: placeName(sync.connection) }) : t('panel.syncing', { place: placeName(sync.connection) })}</b>
         <span className="pct">{percent(progress.share)}</span>
       </>
     );
   } else if (phase === 'idle' || phase === 'off' || phase === 'syncing') {
     title = (
       <>
-        <b>{t('panel.synced')}</b>
+        <b>{t('panel.synced', { place: placeName(sync.connection) })}</b>
         {sync.syncedAt !== null && <small>{ago(sync.syncedAt)}</small>}
       </>
     );
-  } else title = <b>{t(STATUS[phase])}</b>;
+  } else title = <b>{statusText(phase, sync.connection)}</b>;
   const sub = turnLine(sync, running, doneFrom);
 
   const count = (which: PanelTab) => lists[which].length;
@@ -1411,13 +1454,13 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
               <span className="nm" title={job.path}>
                 {basename(job.path)}
                 {dirname(job.path) && <small>{dirname(job.path)}</small>}
-                <span className="why">{reasonOf(job)}</span>
+                <span className="why">{reasonOf(job, placeName(sync.connection))}</span>
               </span>
             </div>
           ))}
         </div>
       ) : (
-        <JobRows key={tab} jobs={shown} height={narrow ? ROW_NARROW : ROW} />
+        <JobRows key={tab} jobs={shown} height={narrow ? ROW_NARROW : ROW} place={placeName(sync.connection)} />
       )}
       <div className="sp-foot">
         {!narrow && <span className="left">{running ? t('panel.started', { ago: ago(turn!.startedAt) }) : t('panel.when')}</span>}
@@ -1425,7 +1468,7 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
           {t('panel.settings')}
         </button>
         {phase === 'signedOut' ? (
-          <button type="button" className="st-btn go" onClick={onSignIn}>
+          <button type="button" className="st-btn go" onClick={() => onSignIn(sync)}>
             {t('sync.signInAgain')}
           </button>
         ) : (

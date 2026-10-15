@@ -9,6 +9,7 @@ import {
   RemoteOffline,
   RemoteSignedOut,
   type RemoteStore,
+  ServerLive,
   type SpaceInfo,
   spaceOf,
   type SyncDevice,
@@ -21,13 +22,15 @@ import { t } from '@scrawlnotes/i18n';
 import { type Cloud, oneDrive, type SignInIntent, type SignInResult, takeSignInResult } from './cloud';
 import type { Session, SpaceView } from './session';
 import { isPhone, leaveOver } from './device';
+import { type KnownServer, serverKey, serverRemote } from './servers';
 import { isDesktop, vaultFolder } from './storage';
 
 // Sync of the spaces with folders of the user's cloud drive: when a turn runs, what the app shows
 // of it, and connecting and disconnecting. Each space syncs on its own, with its own folder and
 // its own state in its own `.scrawl/`. The personal space is connected from its settings, and
 // which folder it is connected to is kept on the device; every other space lives in a cloud
-// folder from the moment it is added, which the device's list of spaces says. See
+// folder from the moment it is added, which the device's list of spaces says. A space can live on
+// a Scrawl server too, the team's own, synced the same way (design/server.md, section 7). See
 // design/cloud.md, sections 3, 6 and 7.
 
 /**
@@ -35,8 +38,10 @@ import { isDesktop, vaultFolder } from './storage';
  * Sooner on a phone, which is put away soon after something is jotted down.
  */
 const afterSaveMs = () => (isPhone() ? 1500 : 5000);
-/** While the app is open and on screen, a turn this often. */
+/** While the app is open and on screen, a turn this often; for a space on a server that says what changes as it does, every other time. */
 const EVERY_MS = 30_000;
+/** A save goes to a server this soon: the others see it in a second or two. */
+const SERVER_AFTER_SAVE_MS = 1000;
 /** How often a turn's progress is shown at most; the engine tells it far more often. */
 const PROGRESS_MS = 150;
 const CONNECTION = 'scrawl.sync';
@@ -58,12 +63,17 @@ function alone<T>(space: string | null, turn: () => Promise<T>): Promise<T> {
 }
 
 export interface Connection {
-  provider: 'onedrive';
+  provider: 'onedrive' | 'server';
   /** The space it is for: the desktop's notes folder, or the browser's own vault; `space:` and its id for a space beside it. */
   vault: string;
   account: { name: string; email: string };
-  /** The folder: in the user's drive, or in `drive`, someone else's who shared it, `owner` being who. */
+  /**
+   * The folder: in the user's drive, or in `drive`, someone else's who shared it, `owner` being
+   * who. On a server, the space there, by its id, with no path.
+   */
   folder: { id: string; path: string; drive?: string; owner?: string };
+  /** On a server: its address. */
+  server?: string;
 }
 
 /**
@@ -102,6 +112,8 @@ export interface SpaceSync {
   lastDone: TurnView | null;
   /** The last conflict copy made, by its path in the app, with when, to point it out for a moment. */
   conflict: { path: string; at: number } | null;
+  /** On a server whose live channel is open: what changes there comes in as it does. */
+  live: boolean;
 }
 
 /** A space that syncs, as the status bar and the sync panel list it. */
@@ -124,6 +136,8 @@ export interface SyncSnapshot extends SpaceSync {
   addingShared: boolean;
   /** Signing in in the browser went wrong, as the page came back. */
   signInError: string | null;
+  /** A server whose key no longer works, to sign in to again: its address and the account. */
+  serverSignIn: { url: string; email: string } | null;
   /** Every space that syncs, the personal one first, the others in the sidebar's order. */
   all: SpaceSyncView[];
 }
@@ -178,7 +192,7 @@ async function loadDevice(): Promise<SyncDevice> {
 }
 
 /** What a new connection, or none, starts from. */
-const FRESH = { syncedAt: null, error: null, turn: null, lastDone: null, conflict: null } satisfies Partial<SpaceSync>;
+const FRESH = { syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false } satisfies Partial<SpaceSync>;
 
 /** The personal space's key, which its connection is kept for: another notes folder is not connected with it. */
 const vaultKey = () => (isDesktop ? (vaultFolder() ?? '') : 'browser');
@@ -192,6 +206,9 @@ export function keptConnection(): Connection | null {
 /** The connection of a space beside the personal one, from where the device's list says it lives; null when it lives nowhere sync reaches. */
 function connectionOf(space: SpaceView): Connection | null {
   const { source } = space;
+  if (source?.provider === 'server' && source.place.url && source.place.space) {
+    return { provider: 'server', vault: `space:${space.id}`, account: { name: '', email: source.account ?? '' }, folder: { id: source.place.space, path: '' }, server: source.place.url };
+  }
   if (source?.provider !== 'onedrive' || !source.place.item) return null;
   const { item, path = '', drive, owner } = source.place;
   return { provider: 'onedrive', vault: `space:${space.id}`, account: { name: '', email: source.account ?? '' }, folder: { id: item, path, ...(drive && { drive }), ...(owner && { owner }) } };
@@ -206,6 +223,8 @@ interface Unit extends SpaceSyncView {
   again: boolean;
   /** Taken out of sync: no turn starts, and one running ends unheard. */
   gone: boolean;
+  /** The last turn missed a file of this device that was being written just then: the next one goes at once. */
+  missed: boolean;
 }
 
 /** A folder's path in the drive in one spelling, OneDrive's being of any case. */
@@ -222,6 +241,7 @@ export class SyncService {
     adding: null,
     addingShared: false,
     signInError: null,
+    serverSignIn: null,
     all: [],
   };
   private versions = 0;
@@ -229,7 +249,12 @@ export class SyncService {
   /** Every space that syncs, by its id, the personal one under `PERSONAL`. */
   private units = new Map<string, Unit>();
   private afterSave = 0;
+  private afterServerSave = 0;
   private every = 0;
+  /** Each server's live channel, by its address, open while a space on it syncs here. */
+  private lives = new Map<string, ServerLive>();
+  /** The servers whose live channel is open now. */
+  private liveOn = new Set<string>();
   private stops: (() => void)[] = [];
   /** The personal space's files, as last opened. */
   private vault: VaultFs | null = null;
@@ -266,6 +291,7 @@ export class SyncService {
       turn: unit.turn,
       lastDone: unit.lastDone,
       conflict: unit.conflict,
+      live: unit.live,
     });
     const { space: _s, name: _n, ...own } = personal ? view(personal) : { space: null, name: '', connection: null, phase: 'off' as const, ...FRESH };
     this.set({ ...own, all: all.map(view) });
@@ -299,11 +325,17 @@ export class SyncService {
     this.stops.push(this.session.subscribe(onSession));
     onSession();
     const onFocus = () => this.syncNow();
-    const onOnline = () => this.syncNow();
+    const onOnline = () => {
+      this.wakeLives();
+      this.syncNow();
+    };
     // Put away, what was typed goes at once: a phone stops the page soon after, and what is left
     // here would meet what is typed meanwhile on another device. Back on screen, what came from
     // there comes before more is typed. A phone tells neither with focus.
-    const onVisibility = () => this.syncNow();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') this.wakeLives();
+      this.syncNow();
+    };
     const onShow = (event: PageTransitionEvent) => event.persisted && this.syncNow();
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
@@ -315,8 +347,12 @@ export class SyncService {
       () => document.removeEventListener('visibilitychange', onVisibility),
       () => window.removeEventListener('pageshow', onShow),
     );
+    let ticks = 0;
     this.every = window.setInterval(() => {
-      if (document.visibilityState === 'visible') this.syncNow();
+      if (document.visibilityState !== 'visible') return;
+      ticks++;
+      // A space on a server that tells what changes needs the turn only as a check, every other time.
+      for (const [key, unit] of this.units) if (!(unit.live && ticks % 2)) this.syncNow(key);
     }, EVERY_MS);
   }
 
@@ -325,10 +361,52 @@ export class SyncService {
     this.stops = [];
     window.clearInterval(this.every);
     window.clearTimeout(this.afterSave);
+    window.clearTimeout(this.afterServerSave);
+    for (const live of this.lives.values()) live.stop();
+    this.lives.clear();
+  }
+
+  /**
+   * Opens a live channel to every server a space syncs on here, and closes those no space needs:
+   * a change there starts that space's turn at once.
+   */
+  private followLives() {
+    const wanted = new Set([...this.units.values()].flatMap((unit) => (unit.connection?.server ? [unit.connection.server] : [])));
+    for (const [url, live] of this.lives) {
+      if (wanted.has(url)) continue;
+      live.stop();
+      this.lives.delete(url);
+      this.liveOn.delete(url);
+    }
+    for (const url of wanted) {
+      if (this.lives.has(url)) continue;
+      const live = new ServerLive({
+        url,
+        token: () => serverKey(url),
+        onChanged: (space) => {
+          for (const [key, unit] of this.units) if (unit.connection?.server === url && unit.connection.folder.id === space) this.syncNow(key);
+        },
+        onLive: (on) => {
+          if (on) this.liveOn.add(url);
+          else this.liveOn.delete(url);
+          for (const unit of this.units.values()) if (unit.connection?.server === url) this.change(unit, { live: on });
+        },
+        onSignedOut: () => this.signedOutOf(url),
+      });
+      this.lives.set(url, live);
+      live.start();
+    }
+    // A space added on a server whose channel is open hears it too.
+    for (const unit of this.units.values()) if (unit.connection?.server) unit.live = this.liveOn.has(unit.connection.server);
+  }
+
+  /** The network came back or the app came to the front: a channel that closed opens again now. */
+  private wakeLives() {
+    for (const live of this.lives.values()) live.wake();
   }
 
   private unit(space: string | null, name: string, vault: VaultFs, connection: Connection): Unit {
-    return { space, name, vault, connection, phase: 'idle', ...FRESH, store: null, running: null, again: false, gone: false };
+    return { space, name, vault, connection, phase: 'idle', ...FRESH, store: null, running: null, again: false, gone: false, missed: false };
   }
 
   /** The personal space opened, or none: its own connection, if it has one. */
@@ -354,7 +432,7 @@ export class SyncService {
       const vault = this.session.spaceVault(space.id);
       const unit = this.units.get(space.id);
       // The same folder: the same turns go on, its files as the session opened them again.
-      if (unit && connection && vault && unit.connection?.folder.id === connection.folder.id) {
+      if (unit && connection && vault && unit.connection?.folder.id === connection.folder.id && unit.connection.server === connection.server) {
         unit.name = space.name;
         if (unit.vault !== vault) Object.assign(unit, { vault, store: null });
         continue;
@@ -372,6 +450,7 @@ export class SyncService {
       unit.gone = true;
       this.units.delete(key);
     }
+    this.followLives();
     this.show();
     for (const key of fresh) this.syncNow(key);
   }
@@ -385,6 +464,7 @@ export class SyncService {
     if (!unit) return;
     unit.gone = true;
     this.units.delete(id);
+    this.followLives();
     this.show();
     await unit.running?.catch(() => undefined);
   }
@@ -424,9 +504,13 @@ export class SyncService {
     oneDrive().signIn(intent, this.snapshot.connection?.account.email);
   }
 
+  /** A save done: a turn shortly, a space on a server's sooner; more saves meanwhile wait for it. */
   private soon() {
     window.clearTimeout(this.afterSave);
-    this.afterSave = window.setTimeout(() => this.syncNow(), afterSaveMs());
+    window.clearTimeout(this.afterServerSave);
+    const keys = (server: boolean) => [...this.units].flatMap(([key, unit]) => (!!unit.connection?.server === server ? [key] : []));
+    this.afterSave = window.setTimeout(() => keys(false).forEach((key) => this.syncNow(key)), afterSaveMs());
+    this.afterServerSave = window.setTimeout(() => keys(true).forEach((key) => this.syncNow(key)), SERVER_AFTER_SAVE_MS);
   }
 
   /** A turn now, of one space or of every one; while one runs, another right after it. */
@@ -441,8 +525,8 @@ export class SyncService {
   }
 
   private storeFor(unit: Unit): RemoteStore {
-    const { id, drive } = unit.connection!.folder;
-    unit.store ??= oneDrive().remote(id, unit.vault, drive);
+    const { folder, server } = unit.connection!;
+    unit.store ??= server ? serverRemote(server, folder.id) : oneDrive().remote(folder.id, unit.vault, folder.drive);
     return unit.store;
   }
 
@@ -487,15 +571,23 @@ export class SyncService {
         lastDone: progress.jobs.some((job) => job.state === 'done') ? turn : unit.lastDone,
         ...(copy && { conflict: { path: inSpace(unit.space, copy), at: Date.now() } }),
       });
+      unit.missed = false;
     } catch (error) {
       window.clearTimeout(timer);
       if (unit.gone || unit.connection !== connection) return;
       const turn = view(Date.now(), true);
       const lastDone = progress.jobs.some((job) => job.state === 'done') ? turn : unit.lastDone;
-      if (error instanceof RemoteOffline) this.change(unit, { phase: 'offline', turn, lastDone });
+      // A file of this device that was being written just then, as a space opens and the user's
+      // row goes into its people: the turn goes again at once, and only a second miss is told.
+      const missed = error instanceof DOMException && error.name === 'NotFoundError';
+      if (missed && !unit.missed) {
+        unit.missed = true;
+        unit.again = true;
+      } else if (error instanceof RemoteOffline) this.change(unit, { phase: 'offline', turn, lastDone });
       else if (error instanceof RemoteSignedOut) this.change(unit, { phase: 'signedOut', turn, lastDone });
       else if (error instanceof RemoteFolderGone) this.change(unit, { phase: 'folderGone', turn, lastDone });
       else this.change(unit, { phase: 'failed', error: error instanceof Error ? error.message : String(error), turn, lastDone });
+      if (!missed) unit.missed = false;
     } finally {
       unit.running = null;
       if (unit.again && !unit.gone) {
@@ -549,7 +641,7 @@ export class SyncService {
    * another's, and neither inside one nor holding one. A message why not; null when it can.
    */
   refusal(folder: Connection['folder']): string | null {
-    const taken = [this.units.get(PERSONAL)?.connection, ...this.spaces.map(connectionOf)].filter((each): each is Connection => !!each);
+    const taken = [this.units.get(PERSONAL)?.connection, ...this.spaces.map(connectionOf)].filter((each): each is Connection => each?.provider === 'onedrive');
     if (taken.some((each) => each.folder.id === folder.id && each.folder.drive === folder.drive)) return t('error.spaceThere');
     // Paths only nest in one drive: the user's own, or the same one someone shared from.
     if (taken.some((each) => each.folder.drive === folder.drive && foldersNest(drivePath(each.folder.path), drivePath(folder.path)))) return t('error.spaceNests');
@@ -613,6 +705,38 @@ export class SyncService {
   private async forgetState(vault: VaultFs) {
     for (const path of STATE_FILES) await vault.remove(path).catch(() => undefined);
     await OneDriveRemote.forget(vault);
+  }
+
+  /** Signed in to a server, or set it up: this device takes the account's id, the person being one on every device. */
+  signedInToServer(server: KnownServer) {
+    if (server.id) this.session.takePersonId(server.id);
+  }
+
+  /** A server's key no longer works: the app asks to sign in to it again, with the account it had. */
+  askServerSignIn(url: string, email: string) {
+    this.set({ serverSignIn: { url, email } });
+  }
+
+  /** Signed in to a server again, or not: the spaces on it sync again either way, and say so if not. */
+  doneServerSignIn(signedIn: boolean) {
+    const url = this.snapshot.serverSignIn?.url;
+    this.set({ serverSignIn: null });
+    if (!signedIn || !url) return;
+    // Its live channel opens again with the new key.
+    this.lives.get(url)?.stop();
+    this.lives.delete(url);
+    this.followLives();
+    for (const unit of this.units.values()) if (unit.connection?.server === url) this.change(unit, { phase: 'idle' });
+    this.syncNow();
+  }
+
+  /** The spaces on a server, signed out of it on this device: they wait until it is signed in to again. */
+  signedOutOf(url: string) {
+    for (const unit of this.units.values()) {
+      if (unit.connection?.server !== url) continue;
+      unit.store = null;
+      this.change(unit, { phase: 'signedOut' });
+    }
   }
 
   /** Signed in again after the key stopped working: turns go on, of every space. */

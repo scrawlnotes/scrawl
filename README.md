@@ -49,8 +49,9 @@ pnpm typecheck
 - `packages/i18n`: the words of the interface; English for now, other languages as further dictionaries
 - `apps/web`: the interface (sidebar, tabs, format bar, task views, dialogs) and browser storage
 - `apps/desktop`: Tauri shell around the interface, with file access to the notes folder
+- `apps/server`: the Scrawl server a team runs on its own machine, as a Docker image; spaces on it sync like a cloud folder (`design/server.md`)
 - `design/`: interface mockups
 
 ## License
 
-MIT
+The app and the packages are MIT. The server, `apps/server`, is AGPL-3.0 (its own `LICENSE`).

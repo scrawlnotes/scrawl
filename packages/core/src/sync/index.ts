@@ -3,8 +3,21 @@ export { conflictPath, fetchAway, type SyncDevice, type SyncJob, type SyncJobKin
 export { FakeGraph } from './fake-graph';
 export { type Merged, mergeFile, mergeKindOf, mergeText } from './merge-files';
 export { GRAPH, GraphError, type GraphOptions, OneDriveAccount, type OneDriveFolder, OneDriveRemote, oneDriveTakes } from './onedrive';
-export { isSynced } from './paths';
+export { isSynced, keyOf as pathKey } from './paths';
 export { quickXorHash } from './quickxor';
+export {
+  type LiveOptions,
+  readServerInput,
+  ServerAccount,
+  type ServerAccountInfo,
+  ServerError,
+  type ServerOptions,
+  ServerRemote,
+  type ServerSignedIn,
+  type ServerSpace,
+  type ServerStatus,
+  ServerLive,
+} from './server';
 export {
   MemoryRemote,
   type RemoteChanges,

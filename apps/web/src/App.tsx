@@ -118,6 +118,7 @@ import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type Sett
 import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { SyncStatus, syncWord } from './SyncViews';
+import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
 import { Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Thing, thingsOf } from './Search';
@@ -1936,8 +1937,15 @@ export function App() {
               sync={sync}
               onSyncNow={(space) => syncService.syncNow(space)}
               onSettings={(space) => setDialog({ kind: 'settings', section: 'spaces', space })}
-              // In the browser the page goes to Microsoft and back; on the desktop it is done in Settings, which waits for the system browser.
-              onSignIn={() => (syncService.cloud().redirects ? void syncService.leaveToSignIn('again') : setDialog({ kind: 'settings', section: 'spaces' }))}
+              // A space on a server asks for its password; for OneDrive, in the browser the page goes to Microsoft and back, and on the desktop
+              // it is done in Settings, which waits for the system browser.
+              onSignIn={(unit) =>
+                unit?.connection?.server
+                  ? syncService.askServerSignIn(unit.connection.server, unit.connection.account.email)
+                  : syncService.cloud().redirects
+                    ? void syncService.leaveToSignIn('again')
+                    : setDialog({ kind: 'settings', section: 'spaces' })
+              }
               onOpenCopy={(path) => void session.open(path)}
             />
           </footer>
@@ -2157,6 +2165,31 @@ export function App() {
             />
           );
         })()}
+      {/* A server whose key no longer works, asked to sign in to again by its spaces' sync. */}
+      {sync.serverSignIn &&
+        (phone ? (
+          <ConnectServerSheet
+            me={me}
+            device={sync.device.name}
+            again={sync.serverSignIn}
+            onDone={(server) => {
+              syncService.signedInToServer(server);
+              syncService.doneServerSignIn(true);
+            }}
+            onClose={() => syncService.doneServerSignIn(false)}
+          />
+        ) : (
+          <ConnectServerDialog
+            me={me}
+            device={sync.device.name}
+            again={sync.serverSignIn}
+            onDone={(server) => {
+              syncService.signedInToServer(server);
+              syncService.doneServerSignIn(true);
+            }}
+            onClose={() => syncService.doneServerSignIn(false)}
+          />
+        ))}
       {dialog?.kind === 'history' && (
         <HistoryDialog
           path={dialog.path}

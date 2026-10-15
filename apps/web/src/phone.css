@@ -5949,3 +5949,56 @@ body > .mb-lifted {
 .mb-sx-act:active {
   background: color-mix(in srgb, var(--sl-fg) 7%, var(--sl-bg));
 }
+
+/* A Scrawl server on a phone: Connect a server…, the server found, and its row in Location. */
+.mb-row.srv-new,
+.mb-row.srv-new > .icon {
+  color: var(--sl-accent);
+}
+
+.mb-fr input.in.mono {
+  color: var(--sl-dim);
+  font-family: var(--sl-font-mono);
+  font-size: 14px;
+}
+
+.mb-srvfound {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 14px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--sl-bg);
+}
+
+.mb-srvfound > .icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--sl-accent);
+}
+
+.mb-srvfound span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mb-srvfound b {
+  font-weight: 600;
+}
+
+.mb-srvfound small {
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}
+
+.mb-srvfound.late {
+  background: color-mix(in srgb, #e0a84a 14%, transparent);
+}
+
+.mb-srvfound.late > .icon {
+  color: #e0a84a;
+}

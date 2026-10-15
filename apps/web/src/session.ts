@@ -1572,7 +1572,8 @@ export class Session {
 
   /**
    * Who the user is: a name and an email, either free to be empty; the id is made with the
-   * first saving and never changes. Kept in the personal space, so that every device has it.
+   * first saving and does not change, but for signing in to a server (`takePersonId`). Kept in
+   * the personal space, so that every device has it.
    */
   saveProfile(name: string, email: string) {
     const { name: _n, email: _e, ...rest } = this.snapshot.me ?? newMe();
@@ -1583,6 +1584,23 @@ export class Session {
       .catch(() => undefined)
       .then(() => this.markSaved());
     // The spaces have the name and the email as they are now.
+    this.meetSpaces();
+  }
+
+  /**
+   * Signed in to a server whose account is this person under the id another device made: this
+   * device takes the account's id, so that the person is one in every space and what is given to
+   * them stays theirs (design/server.md, section 6).
+   */
+  takePersonId(id: string) {
+    const me = this.snapshot.me;
+    if (!me || me.id === id) return;
+    const next: Me = { ...me, id };
+    this.set({ me: next, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(() => saveMe(this.personal, next))
+      .catch(() => undefined)
+      .then(() => this.markSaved());
     this.meetSpaces();
   }
 
@@ -1637,7 +1655,11 @@ export class Session {
     await this.taskWrites;
   }
 
+  /** How many times the tree was read: a reading that ends after a later one began shows nothing, the later one having read newer files. */
+  private treeReads = 0;
+
   private async refreshTree() {
+    const reading = ++this.treeReads;
     await this.settle();
     const edits = new Map(this.edits);
     const tree = await readTree(this.personal);
@@ -1651,6 +1673,8 @@ export class Session {
     // being written, and what was read is older.
     const fresh = <T>(read: Record<string, T>, shown: Record<string, T>) =>
       Object.fromEntries(Object.entries(read).map(([path, value]) => [path, path in shown && this.edits.get(path) !== edits.get(path) ? shown[path]! : value]));
+    // A space just added is read as it opens, and again once its first turn brought its files.
+    if (reading !== this.treeReads) return;
     const now = this.snapshot;
     this.set({
       tree,

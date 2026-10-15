@@ -1,0 +1,117 @@
+import { DatabaseSync } from 'node:sqlite';
+
+// The server's list of what it keeps: accounts and their devices, spaces and who is in them,
+// invites, and every file of every space with its versions. A file's content is not here but in
+// the blobs beside it, by its digest. See design/server.md, section 4.
+
+export type Db = DatabaseSync;
+
+/** Each step brings the schema one version further; a database is taken through the ones it lacks, in order. */
+const MIGRATIONS: string[] = [
+  `
+  CREATE TABLE accounts (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    name TEXT NOT NULL DEFAULT '',
+    password TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member')),
+    created_at INTEGER NOT NULL,
+    disabled_at INTEGER
+  );
+  CREATE TABLE devices (
+    id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL REFERENCES accounts (id),
+    name TEXT NOT NULL DEFAULT '',
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL,
+    seen_at INTEGER NOT NULL,
+    revoked_at INTEGER
+  );
+  CREATE TABLE spaces (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL REFERENCES accounts (id),
+    created_at INTEGER NOT NULL,
+    seq INTEGER NOT NULL DEFAULT 0,
+    oldest_seq INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE members (
+    space_id TEXT NOT NULL REFERENCES spaces (id),
+    account_id TEXT NOT NULL REFERENCES accounts (id),
+    role TEXT NOT NULL CHECK (role IN ('manager', 'member')),
+    added_by TEXT,
+    added_at INTEGER NOT NULL,
+    PRIMARY KEY (space_id, account_id)
+  );
+  CREATE TABLE invites (
+    code_hash TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('space', 'reset')),
+    space_id TEXT REFERENCES spaces (id),
+    account_id TEXT REFERENCES accounts (id),
+    created_by TEXT NOT NULL REFERENCES accounts (id),
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used_at INTEGER
+  );
+  CREATE TABLE entries (
+    space_id TEXT NOT NULL REFERENCES spaces (id),
+    key TEXT NOT NULL,
+    path TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('file', 'dir')),
+    hash TEXT,
+    size INTEGER NOT NULL DEFAULT 0,
+    width INTEGER,
+    height INTEGER,
+    seq INTEGER NOT NULL,
+    author_id TEXT,
+    device_id TEXT,
+    at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (space_id, key)
+  );
+  CREATE INDEX entries_seq ON entries (space_id, seq);
+  CREATE TABLE versions (
+    space_id TEXT NOT NULL,
+    path TEXT NOT NULL,
+    from_path TEXT,
+    op TEXT NOT NULL CHECK (op IN ('write', 'move', 'remove')),
+    hash TEXT,
+    size INTEGER,
+    author_id TEXT,
+    device_id TEXT,
+    at INTEGER NOT NULL
+  );
+  CREATE INDEX versions_path ON versions (space_id, path);
+  `,
+];
+
+export function openDb(file: string): Db {
+  const db = new DatabaseSync(file);
+  db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
+  migrate(db);
+  return db;
+}
+
+function migrate(db: Db) {
+  db.exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  const row = db.prepare("SELECT value FROM meta WHERE key = 'schema'").get() as { value: string } | undefined;
+  for (let version = Number(row?.value ?? 0); version < MIGRATIONS.length; version++) {
+    transaction(db, () => {
+      db.exec(MIGRATIONS[version]!);
+      db.prepare("INSERT INTO meta (key, value) VALUES ('schema', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(String(version + 1));
+    });
+  }
+}
+
+/** Runs `run` as one transaction: all of it is kept, or none of it. */
+export function transaction<T>(db: Db, run: () => T): T {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const result = run();
+    db.exec('COMMIT');
+    return result;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
