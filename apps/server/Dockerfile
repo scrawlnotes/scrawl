@@ -1,5 +1,5 @@
-# The Scrawl server's image: the server and what it uses of packages/core, bundled into one file,
-# on Node 24. Build it from the repository's root:
+# The Scrawl server's image: the server and what it uses of packages/core and packages/agent,
+# bundled into one file, on Node 24. Build it from the repository's root:
 #   docker build -f apps/server/Dockerfile -t ghcr.io/scrawlnotes/server .
 # Everything it keeps is in /data; give it a volume. See design/server.md, section 8.
 # The bundle is plain JavaScript, so it is built once on the machine that builds the image, and
@@ -13,10 +13,13 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY apps/desktop/package.json apps/desktop/
+COPY apps/mcp/package.json apps/mcp/
+COPY packages/agent/package.json packages/agent/
 COPY packages/core/package.json packages/core/
 COPY packages/editor/package.json packages/editor/
 COPY packages/i18n/package.json packages/i18n/
 RUN pnpm install --frozen-lockfile --filter "@scrawlnotes/server..."
+COPY packages/agent packages/agent
 COPY packages/core packages/core
 COPY packages/i18n packages/i18n
 COPY apps/server apps/server
