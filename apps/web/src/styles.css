@@ -2067,9 +2067,8 @@ body > .touch-ghost {
 }
 
 /* Between two sections and under the last, Add section shows when the pointer is there, as
-   Todoist's: its words on the left and a line from them to the right end, in the accent. Between
-   two it lies over the space above the next section's name, taking no room. A new section goes in
-   there. */
+   Todoist's: its words in the middle of a line, quiet, not in the accent. Between two it lies over
+   the space above the next section's name, taking no room. A new section goes in there. */
 .sec-gap {
   position: relative;
   z-index: 1;
@@ -2079,17 +2078,18 @@ body > .touch-ghost {
   width: 100%;
   height: 22px;
   margin: -8px 0 -14px;
-  color: var(--sl-accent);
+  color: var(--sl-dim);
   font-size: 12px;
   font-weight: 600;
   opacity: 0;
 }
 
+.sec-gap::before,
 .sec-gap::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--sl-accent);
+  background: var(--sl-faint);
 }
 
 .sec-gap:hover,

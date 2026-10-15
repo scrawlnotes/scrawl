@@ -2079,15 +2079,16 @@ p { margin: 0; max-width: 68ch; }
 .mock .mb-addday svg { width: 20px; height: 20px; }
 /* Add section and the free days (Oct 15). On a wide screen a line across the whole list, its words
    in the middle, looked out of all proportion. Add section is a button in the header beside Add
-   task, as a new section goes at the end and is dragged up from there; between two sections it
-   shows when the pointer is there, as Todoist's, its words on the left and a line to the right.
+   task, as a new section goes at the end and is dragged up from there; between two sections and
+   under the last it shows when the pointer is there, as Todoist's, its words in the middle of a line.
    The free days are words on the left without a line, as + Add task is. */
 /* As wide as the screen it is seen on, past the page's column, since the trouble is a wide screen. */
 .dir[data-dir="dividers"] .scroller { width: calc(100vw - 40px); margin-left: calc(50% - 50vw + 20px); }
 .dir[data-dir="dividers"] .mock.dir-a:not(.phones) { height: 560px; min-width: 1500px; }
 .dir[data-dir="dividers"] .mock .side.fit, .dir[data-dir="dividers"] .mock .main.fit { max-height: 558px; }
-.qa.add-sec.dv-left::before { display: none; }
 .dv-gap { margin: -6px 0 -8px; }
+.qa.add-sec.dv-quiet { color: var(--m-dim); font-weight: 600; }
+.qa.add-sec.dv-quiet::before, .qa.add-sec.dv-quiet::after { background: var(--m-faint); }
 .mock .th .ghost + .add { margin-left: 0; }
 .dv-free { display: flex; align-items: center; gap: 12px; padding: 14px 0 2px; color: var(--m-faint); font-size: 11.5px; }
 .dv-free.hover { color: var(--m-dim); }
@@ -2328,7 +2329,7 @@ p { margin: 0; max-width: 68ch; }
       <div>
         <span class="letter">AYIRICILAR · 15 EKİM</span>
         <h2>Add section ve boş günler</h2>
-        <p>Geniş ekranda listenin bir ucundan öbür ucuna giden çizgi, yazısı ortada, orantısız duruyordu: listenin sonundaki Add section ve Upcoming'deki boş günler satırı. Add section başlığa, sarı Add task'ın yanına bir düğme olarak çıkar: yeni bölüm zaten listenin sonuna eklenir, adı orada yazılır, sonra sürüklenip yerine taşınır. Ayrıca iki bölümün arasına gelince Todoist'teki gibi solda Add section ve sağa uzanan vurgu renkli bir çizgi belirir; tıklayınca yeni bölüm o araya girer. Listenin altındaki çizgi kalkar. Boş günler satırı + Add task gibi solda, çizgisiz, soluk yazıdır; üstüne gelince yanında + Add task çıkar. Telefondaki boş günler satırı dar ekranda olduğu için olduğu gibi kalır.</p>
+        <p>Geniş ekranda listenin bir ucundan öbür ucuna giden çizgi, yazısı ortada, orantısız duruyordu: listenin sonundaki Add section ve Upcoming'deki boş günler satırı. Add section başlığa, sarı Add task'ın yanına bir düğme olarak çıkar: yeni bölüm zaten listenin sonuna eklenir, adı orada yazılır, sonra sürüklenip yerine taşınır. Ayrıca iki bölümün arasına ve listenin altına gelince Todoist'teki gibi ortasında Add section yazan soluk gri bir çizgi belirir; tıklayınca yeni bölüm oraya girer. Listenin altındaki çizgi kalkar. Boş günler satırı + Add task gibi solda, çizgisiz, soluk yazıdır; üstüne gelince yanında + Add task çıkar. Telefondaki boş günler satırı dar ekranda olduğu için olduğu gibi kalır.</p>
         <ul class="traits"><li>Add section: başlıkta</li><li>araya: üstüne gelince</li><li>boş günler: solda, çizgisiz</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Ayırıcı görünümü">
@@ -6583,7 +6584,7 @@ p { margin: 0; max-width: 68ch; }
         '<div class="tl">' + task('kartlarda sürükle bırak yapınca çoğu zaman scroll çıkıyor') + task('Upcoming takvimini iPhone’da dene') + task('Add section görünümünü düzelt') +
         '<div class="qa">+ Add task</div><div class="qa add-sec">Add section</div></div></div>', '3 tasks');
     }
-    var between = mode === 'hover' ? '<div class="dv-gap dv-pointer"><div class="qa add-sec dv-left hot">Add section</div></div>' : '';
+    var between = mode === 'hover' ? '<div class="dv-gap dv-pointer"><div class="qa add-sec dv-quiet">Add section</div></div>' : '';
     return dvFrame(false, '<div class="tasksv"><div class="th"><b>tasks</b><span class="count">Scrawl</span><button type="button" class="ghost">Add section</button><button type="button" class="add">Add task</button></div>' +
       '<div class="tl">' + task('Add section görünümünü düzelt') +
       section('Bugs', ['kartlarda sürükle bırak yapınca çoğu zaman scroll çıkıyor', 'Upcoming’de boş gün satırı']) + between +
