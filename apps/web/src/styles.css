@@ -798,6 +798,29 @@ input:focus {
   outline: none;
 }
 
+/* A window sits about the middle of the screen and is never taller than it: what does not fit
+   scrolls inside it, and its buttons stay in sight at its foot. Its top stays where it opened, so
+   it does not move as a list in it narrows; a tall one starts near the top of the screen. */
+.backdrop:has(> .dialog) {
+  padding: max(24px, calc(50vh - 320px)) 16px 24px;
+  box-sizing: border-box;
+}
+
+.backdrop > .dialog:not(.history) {
+  box-sizing: border-box;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.backdrop > .dialog:not(.history) .dialog-actions {
+  position: sticky;
+  bottom: -12px;
+  margin: 0 -12px -12px;
+  padding: 8px 12px 12px;
+  border-radius: 0 0 9px 9px;
+  background: var(--sl-side);
+}
+
 .dialog h2 {
   margin: 0 2px;
   color: var(--sl-dim);
@@ -1470,7 +1493,7 @@ input:focus {
 }
 
 .field-list .choices {
-  max-height: 30vh;
+  max-height: min(30vh, 260px);
 }
 
 /* The Board step of Create: a template is a card with its columns drawn by kind. */
