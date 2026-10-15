@@ -2348,56 +2348,137 @@ body > .mb-lifted {
   color: var(--sl-faint);
 }
 
-/* the week on top of Upcoming */
-.mb-week {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  margin: 4px 10px 2px;
+/* Upcoming, after the Phone views of the Upcoming mockups. List: the free days between two days
+   that have something, one faint line. Month: the month with ‹ and ›, a dot under each day that has
+   something, today in the accent and the day chosen filled; under it that day's tasks, or a row to
+   add one on it. */
+.mb-gap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px 2px;
+  color: var(--sl-faint);
+  font-size: 13px;
 }
 
-.mb-week button {
+.mb-gap::before,
+.mb-gap::after {
+  content: '';
+  flex: 1;
+  border-top: 1px dashed var(--sl-line);
+}
+
+.mb-month {
+  padding: 2px 12px 8px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.mb-month .mh {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 4px 6px;
+  color: var(--sl-fg);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mb-month .mh span {
+  display: flex;
+  gap: 2px;
+}
+
+.mb-month .mh button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 40px;
+  color: var(--sl-accent);
+}
+
+.mb-month .mh .icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+}
+
+.mb-month .wd,
+.mb-month .days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+}
+
+.mb-month .wd span {
+  padding-bottom: 4px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.mb-month .days button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 2px 0 6px;
-  color: var(--sl-faint);
-  font-size: 12px;
-  font-weight: 500;
+  gap: 1px;
+  padding: 1px 0;
 }
 
-.mb-week b {
+.mb-month .days b {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  color: var(--sl-fg);
-  font-size: 16px;
+  color: var(--sl-faint);
+  font-size: 15px;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
-/* today in the accent; the day chosen, which + adds to, filled */
-.mb-week .today b {
+.mb-month .days .busy b {
+  color: var(--sl-fg);
+}
+
+.mb-month .days .out b {
+  opacity: 0.45;
+}
+
+.mb-month .days .today b {
   color: var(--sl-accent);
   font-weight: 700;
 }
 
-.mb-week .on b {
+.mb-month .days .on b {
   background: var(--sl-accent);
   color: var(--sl-bg);
   font-weight: 700;
+  opacity: 1;
 }
 
-.mb-week i {
+.mb-month .days i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: var(--sl-faint);
 }
 
-.mb-week i.no {
+.mb-month .days i.no {
   visibility: hidden;
+}
+
+.mb-tasks .qa.mb-addday {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--sl-accent);
+  font-size: 16px;
+}
+
+.mb-tasks .qa.mb-addday .icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
 }
 
 /* + : a new task above the keyboard */

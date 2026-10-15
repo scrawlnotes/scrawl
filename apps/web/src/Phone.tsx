@@ -3,6 +3,7 @@ import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { UpcomingView } from './device';
 import { Icon, type IconName } from './Icon';
 import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
@@ -95,6 +96,9 @@ export interface PhoneProps {
   item: HTMLElement;
   /** Today or Upcoming. */
   dueView: (kind: 'today' | 'upcoming') => ReactNode;
+  /** How Upcoming shows: its days, or the month. */
+  upcomingView: UpcomingView;
+  onUpcomingView: (view: UpcomingView) => void;
   /** Whether + adds to what is open: a task to a list. */
   canAdd: (id: string) => boolean;
   /** + on what is open, or on Today or Upcoming: a task, typed above the keyboard. */
@@ -374,10 +378,12 @@ function NavBar({ back, onBack, title, scrolled, onMenu, action, choose }: {
 }
 
 /** A page's own frame: its bar, its large title, and what it holds, which scrolls under the bar. */
-function PageFrame({ nav, title, sub, head, children }: {
+function PageFrame({ nav, title, sub, side, head, children }: {
   nav?: Omit<Parameters<typeof NavBar>[0], 'scrolled' | 'title'>;
   title?: string;
   sub?: ReactNode;
+  /** Beside the title, a segmented choice of how the page shows. */
+  side?: ReactNode;
   /** More under the title, a segmented choice. */
   head?: ReactNode;
   children: ReactNode;
@@ -388,9 +394,21 @@ function PageFrame({ nav, title, sub, head, children }: {
       {nav && <NavBar {...nav} title={title} scrolled={scrolled} />}
       <div className="mb-body" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 38)}>
         {title && (
-          <header className={nav ? 'mb-head' : 'mb-head root'}>
-            <h1>{title}</h1>
-            {sub && <small>{sub}</small>}
+          <header className={[nav ? 'mb-head' : 'mb-head root', side && 'split'].filter(Boolean).join(' ')}>
+            {side ? (
+              <>
+                <div>
+                  <h1>{title}</h1>
+                  {sub && <small>{sub}</small>}
+                </div>
+                {side}
+              </>
+            ) : (
+              <>
+                <h1>{title}</h1>
+                {sub && <small>{sub}</small>}
+              </>
+            )}
           </header>
         )}
         {head}
@@ -1057,6 +1075,17 @@ export function Phone(props: PhoneProps) {
         <PageFrame
           title={due === 'today' ? t('side.today') : t('side.upcoming')}
           sub={due === 'today' ? day : undefined}
+          side={
+            due === 'upcoming' && (
+              <div className="mb-seg" role="tablist">
+                {(['list', 'calendar'] as const).map((view) => (
+                  <button key={view} type="button" role="tab" aria-selected={props.upcomingView === view} onClick={() => props.onUpcomingView(view)}>
+                    {view === 'list' ? t('tasks.viewList') : t('tasks.viewMonth')}
+                  </button>
+                ))}
+              </div>
+            )
+          }
           head={
             <div className="mb-seg" role="tablist">
               {(['today', 'upcoming'] as const).map((kind) => (
@@ -1257,8 +1286,8 @@ export function Phone(props: PhoneProps) {
   };
 
   const shownPages = leaving?.place === place ? [...stack, leaving.page] : stack;
-  // + adds what the page is for: on Today a task due today, on Upcoming one due tomorrow; in
-  // Browse and a folder Create for that folder; in a list a task.
+  // + adds what the page is for: on Today a task due today, on Upcoming one due tomorrow, or on the
+  // day chosen in its month; in Browse and a folder Create for that folder; in a list a task.
   const fab =
     top.kind === 'root' && place === 'today'
       ? () => props.onAdd(due === 'today' ? TODAY : UPCOMING)

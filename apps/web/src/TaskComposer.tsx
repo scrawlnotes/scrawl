@@ -1,9 +1,6 @@
 import {
   addDays,
-  dirname,
-  INBOX_TASKS,
   listName,
-  localPath,
   type NewTask,
   type Priority,
   type Record as CollectionRecord,
@@ -14,7 +11,7 @@ import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElement, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { pageBox, pageWindow } from './device';
-import type { MenuItem, TaskPlaceChoice } from './dialogs';
+import { listCrumb, type MenuItem, placesShown, type TaskPlaceChoice } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { listLabel, spaceLabel } from './items';
 import { MonthGrid, useMonth } from './MonthGrid';
@@ -35,9 +32,6 @@ export function dateWords(day: string, today: string): string {
 const chipDay = (day: string, today: string) => (day === today ? t('day.today') : day === addDays(today, 1) ? t('day.tomorrow') : dateWords(day, today));
 
 const weekday = (day: string) => toDate(day).toLocaleDateString(locale(), { weekday: 'short' });
-
-/** The folders a list is in, inside its space: `Clients › Acme`; nothing at the space's top. */
-const crumbOf = (list: string) => localPath(dirname(list)).split('/').filter(Boolean).join(' › ');
 
 /** Where a task goes, as its button says it: its list, and its section after it. */
 function placeName(places: TaskPlaceChoice[], list: string, section: string | null): string {
@@ -162,17 +156,7 @@ export function PlacePop({ anchor, places, current, onPick, onClose }: {
   const [at, setAt] = useState<number | null>(null);
   useAway(pop, anchor, onClose);
 
-  // The personal space first, Inbox first in it; the other spaces as their lists come.
-  const ordered = [...places].sort((a, b) => Number(b.list === INBOX_TASKS) - Number(a.list === INBOX_TASKS));
-  const spaces = [null, ...new Set(ordered.map((p) => spaceOf(p.list)).filter((space) => space !== null))];
-  const inOrder = spaces.flatMap((space) => ordered.filter((p) => spaceOf(p.list) === space));
-  const q = typed.trim().toLowerCase();
-  const has = (text: string) => text.toLowerCase().includes(q);
-  const listHas = (path: string) => has(listName(path)) || has(crumbOf(path));
-  // A list shows when it or one of its sections has what is typed; a section, when it or its list does.
-  const shown = inOrder.filter((p) =>
-    p.section === null ? listHas(p.list) || places.some((s) => s.list === p.list && s.section !== null && has(s.label)) : has(p.label) || listHas(p.list),
-  );
+  const shown = placesShown(places, typed);
   const isCurrent = (p: TaskPlaceChoice) => p.list === current.list && p.section === current.section;
   const selected = Math.min(at ?? Math.max(0, shown.findIndex(isCurrent)), shown.length - 1);
   useEffect(() => {
@@ -202,7 +186,7 @@ export function PlacePop({ anchor, places, current, onPick, onClose }: {
         </div>,
       );
     }
-    const crumb = p.section === null ? crumbOf(p.list) : '';
+    const crumb = p.section === null ? listCrumb(p.list) : '';
     out.push(
       <button
         key={`${p.list}\n${p.section ?? ''}`}

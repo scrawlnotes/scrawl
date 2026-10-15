@@ -47,7 +47,45 @@ function shiftMonth(month: string, by: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-const monthWords = (month: string) => toDate(`${month}-01`).toLocaleDateString(locale(), { month: 'long', year: 'numeric' });
+export const monthWords = (month: string) => toDate(`${month}-01`).toLocaleDateString(locale(), { month: 'long', year: 'numeric' });
+
+/** A day as it heads its tasks: `Today · Thu, Oct 15`, `Tomorrow · Fri, Oct 16`, else `Mon, Oct 19`. */
+export function dayHeading(day: string, today: string): ReactNode {
+  if (day !== today && day !== addDays(today, 1)) return dateWords(day, today);
+  return (
+    <>
+      {day === today ? t('tasks.today') : t('day.tomorrow')} <span className="when">· {dateWords(day, today)}</span>
+    </>
+  );
+}
+
+/** The free days between two that have something, as their line says them: `2 free days · Sat 17 – Sun 18`. */
+export function freeWords({ from, to, count }: { from: string; to: string; count: number }, today: string): string {
+  const sameMonth = from.slice(0, 7) === to.slice(0, 7);
+  return t('tasks.freeDays', { count, from: freeDay(from, sameMonth, today), to: freeDay(to, sameMonth, today) });
+}
+
+/** A free day on its line: `Sat 17`, or the date when the free days run into another month. */
+function freeDay(day: string, sameMonth: boolean, today: string): string {
+  return sameMonth ? `${toDate(day).toLocaleDateString(locale(), { weekday: 'short' })} ${Number(day.slice(8))}` : dateWords(day, today);
+}
+
+/** A task in its list, or a card on its board, on a day of the calendar. */
+export type Entry = { list: string; task: Task } | { board: string; card: Card };
+
+export const entryKey = (entry: Entry) => ('task' in entry ? `${entry.list}/${entry.task.id}` : `${entry.board}#${entry.card.id}`);
+
+/** Everything open with a day, by day: the tasks by priority, then the cards; and the tasks and the cards apart, to count. */
+export function datedByDay(lists: Record<string, Task[]>, boards: Record<string, Board>, today: string) {
+  const due = dueToday(lists, today);
+  const tasks = [...due.overdue, ...due.today, ...dueUpcoming(lists, today).flatMap((d) => d.tasks)];
+  const cards = dueCards(boards);
+  const byDay = new Map<string, Entry[]>();
+  const put = (day: string, entry: Entry) => byDay.set(day, [...(byDay.get(day) ?? []), entry]);
+  for (const each of tasks) put(each.task.due!, each);
+  for (const each of cards) put(each.card.due!, each);
+  return { tasks, cards, byDay };
+}
 
 /** How many tasks and cards, said the status bar's way. */
 const countWords = (tasks: number, cards: number) => [t('count.tasks', { count: tasks }), ...(cards > 0 ? [t('count.cards', { count: cards })] : [])];
@@ -115,11 +153,6 @@ interface Adding {
   n: number;
 }
 
-/** A free day on its line: `Sat 17`, or the date when the free days run into another month. */
-function freeDay(day: string, sameMonth: boolean, today: string): string {
-  return sameMonth ? `${toDate(day).toLocaleDateString(locale(), { weekday: 'short' })} ${Number(day.slice(8))}` : dateWords(day, today);
-}
-
 function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, asked }: Props & { asked: number }) {
   const [adding, setAdding] = useState<Adding | null>(null);
   const [rescheduling, setRescheduling] = useState<HTMLElement | null>(null);
@@ -184,11 +217,10 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
 
   for (const run of runs) {
     if ('free' in run) {
-      const { from, to, count } = run.free;
-      const sameMonth = from.slice(0, 7) === to.slice(0, 7);
+      const { from, to } = run.free;
       rows.push(
         <div key={`free:${from}`} className="up-gap">
-          <span>{t('tasks.freeDays', { count, from: freeDay(from, sameMonth, today), to: freeDay(to, sameMonth, today) })}</span>
+          <span>{freeWords(run.free, today)}</span>
           <button type="button" className="plus" title={t('tasks.addOn', { day: dateWords(from, today) })} onClick={() => open(from, from)}>
             <Icon name="plus" />
             {t('tasks.add')}
@@ -199,19 +231,11 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
       continue;
     }
     const { day } = run;
-    const heading: ReactNode =
-      day === today || day === tomorrow ? (
-        <>
-          {day === today ? t('tasks.today') : t('day.tomorrow')} <span className="when">· {dateWords(day, today)}</span>
-        </>
-      ) : (
-        dateWords(day, today)
-      );
     const dayTasks = tasksOn.get(day) ?? [];
     const dayCards = cards.later.get(day) ?? [];
     rows.push(
       <div key={`sec:${day}`} className="sec" data-day={day}>
-        {heading} <small>{dayTasks.length + dayCards.length}</small>
+        {dayHeading(day, today)} <small>{dayTasks.length + dayCards.length}</small>
       </div>,
       ...dayTasks.map(item),
       ...dayCards.map(cardItem),
@@ -254,11 +278,7 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   );
 }
 
-/** A task in its list, or a card on its board, on a day of the calendar. */
-type Entry = { list: string; task: Task } | { board: string; card: Card };
-
 const datedOf = (entry: Entry): Dated => ('task' in entry ? { list: entry.list, id: entry.task.id } : { board: entry.board, id: entry.card.id });
-const entryKey = (entry: Entry) => ('task' in entry ? `${entry.list}/${entry.task.id}` : `${entry.board}#${entry.card.id}`);
 
 /** A day of the calendar in its own window: `adding` it opens with a new task being typed; `n` tells one opening from the next. */
 interface Opened {
@@ -280,14 +300,7 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
   const [dropOn, setDropOn] = useState<string | null>(null);
   const days = monthDays(month);
 
-  // Everything open with a day, by day: the tasks by priority, then the cards.
-  const due = dueToday(lists, today);
-  const tasks = [...due.overdue, ...due.today, ...dueUpcoming(lists, today).flatMap((d) => d.tasks)];
-  const cards = dueCards(boards);
-  const byDay = new Map<string, Entry[]>();
-  const put = (day: string, entry: Entry) => byDay.set(day, [...(byDay.get(day) ?? []), entry]);
-  for (const each of tasks) put(each.task.due!, each);
-  for (const each of cards) put(each.card.due!, each);
+  const { tasks, cards, byDay } = datedByDay(lists, boards, today);
 
   // As many lines as a day has room for, however tall the window is.
   useLayoutEffect(() => {
@@ -524,14 +537,6 @@ function DayWindow({ grid, opened, entries, lists, boards, today, actions, place
     return () => window.removeEventListener('mousedown', away);
   }, [day]);
 
-  const heading =
-    day === today || day === addDays(today, 1) ? (
-      <>
-        {day === today ? t('tasks.today') : t('day.tomorrow')} <span className="when">· {dateWords(day, today)}</span>
-      </>
-    ) : (
-      dateWords(day, today)
-    );
   return createPortal(
     <div
       ref={pop}
@@ -549,7 +554,7 @@ function DayWindow({ grid, opened, entries, lists, boards, today, actions, place
       }}
     >
       <h4>
-        <span>{heading}</span>
+        <span>{dayHeading(day, today)}</span>
         {entries.length > 0 && <small>{entries.length}</small>}
         <button type="button" className="x" aria-label={t('dialog.close')} title={t('dialog.close')} onClick={onClose}>
           <Icon name="close" />

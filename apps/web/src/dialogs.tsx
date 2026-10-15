@@ -12,7 +12,9 @@ import {
   type Record as CollectionRecord,
   type FilterChoices,
   filterName,
+  INBOX_TASKS,
   join,
+  listName,
   localPath,
   newSchema,
   type Phase,
@@ -832,6 +834,27 @@ export interface TaskPlaceChoice {
   folder?: string;
   /** The task is there now, so it is no place to move it to. */
   here: boolean;
+}
+
+/** The folders a list is in, inside its space: `Clients › Acme`; nothing at the space's top. */
+export const listCrumb = (list: string) => localPath(dirname(list)).split('/').filter(Boolean).join(' › ');
+
+/**
+ * The places a new task can go, as its pickers list them: the personal space's first with Inbox
+ * at their top, then each other space's as they come. Only those with what is typed: a list when its
+ * name, its folders or one of its sections has it; a section when it or its list does.
+ */
+export function placesShown(places: TaskPlaceChoice[], typed: string): TaskPlaceChoice[] {
+  const ordered = [...places].sort((a, b) => Number(b.list === INBOX_TASKS) - Number(a.list === INBOX_TASKS));
+  const spaces = [null, ...new Set(ordered.map((p) => spaceOf(p.list)).filter((space) => space !== null))];
+  const q = typed.trim().toLowerCase();
+  const has = (text: string) => text.toLowerCase().includes(q);
+  const listHas = (path: string) => has(listName(path)) || has(listCrumb(path));
+  return spaces
+    .flatMap((space) => ordered.filter((p) => spaceOf(p.list) === space))
+    .filter((p) =>
+      p.section === null ? listHas(p.list) || places.some((s) => s.list === p.list && s.section !== null && has(s.label)) : has(p.label) || listHas(p.list),
+    );
 }
 
 /**

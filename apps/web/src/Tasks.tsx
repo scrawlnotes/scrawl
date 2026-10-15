@@ -9,7 +9,6 @@ import {
   depthOf,
   dirname,
   dueToday,
-  dueUpcoming,
   filterCards,
   filterFields,
   filterTasks,
@@ -387,7 +386,7 @@ const HOLD_MS = 450;
  * Pulled right it is done; pulled left it shows Date and More. Held, it lifts: let go where it is,
  * its actions open; carried, it moves.
  */
-function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, drag }: ItemProps) {
+function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag }: ItemProps) {
   const row = useRef<HTMLDivElement>(null);
   /** How far a finger has pulled the row, while it does. */
   const [pull, setPull] = useState<number | null>(null);
@@ -490,11 +489,12 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
   // many subtasks are done, its record, the note or card it came from.
   const noteName = task.note ? actions.noteTitle(task.note) : null;
   const cardKey = task.card ? actions.cardLabel(task.card) : null;
+  const due = task.due && !(byDay && task.due >= today) ? task.due : null;
   const meta = [
-    task.due && (
-      <span key="due" className={dueClass(task.due, today)}>
+    due && (
+      <span key="due" className={dueClass(due, today)}>
         <Icon name="calendar" />
-        {dueLabel(task.due, today)}
+        {dueLabel(due, today)}
       </span>
     ),
     flat && !grouped && (
@@ -1580,10 +1580,10 @@ export function CardRow({ board, whole, card, today, actions, grouped, byDay }: 
               {card.title}
             </b>
             <span className="meta">
-              {card.due && (
-                <span className={dueClass(card.due, today)}>
+              {due && (
+                <span className={dueClass(due, today)}>
                   <Icon name="calendar" />
-                  {dueLabel(card.due, today)}
+                  {dueLabel(due, today)}
                 </span>
               )}
               {!grouped && (
@@ -1659,9 +1659,8 @@ export function splitDueCards(boards: Record<string, Board>, today: string) {
   };
 }
 
-/** Today or Upcoming: what is due, from every task list and every board. */
-export function DueView({ kind, lists, boards, today, actions, bare, adding, day, onDay }: {
-  kind: 'today' | 'upcoming';
+/** Today: what is due today and what is late, from every task list and every board. */
+export function TodayView({ lists, boards, today, actions, bare, adding }: {
   lists: Record<string, Task[]>;
   boards: Record<string, Board>;
   today: string;
@@ -1670,9 +1669,6 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding, day
   bare?: boolean;
   /** Counts the presses of a phone's + button, which open the add row. */
   adding?: number;
-  /** On a phone's Upcoming: the day chosen in the week, which + adds to. */
-  day?: string;
-  onDay?: (day: string) => void;
 }) {
   const [showDone, setShowDone] = useState(false);
   const item = ({ list, task }: { list: string; task: Task }) => (
@@ -1681,9 +1677,9 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding, day
   const cardItem = ({ board, card }: { board: string; card: Card }, grouped?: boolean) => (
     <CardRow key={`${board}#${card.id}`} board={board} whole={boards[board]!} card={card} today={today} actions={actions} grouped={grouped} />
   );
-  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = [], day?: string, action?: ReactNode) =>
+  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = [], action?: ReactNode) =>
     tasks.length + cards.length > 0 && (
-      <div key={title} data-day={day}>
+      <div key={title}>
         <div className="sec">
           {title} <small>{tasks.length + cards.length}</small>
           {action}
@@ -1693,135 +1689,72 @@ export function DueView({ kind, lists, boards, today, actions, bare, adding, day
       </div>
     );
   const cards = splitDueCards(boards, today);
-
-  if (kind === 'today') {
-    const due = dueToday(lists, today);
-    // Cards come after the tasks, under the board they are on.
-    const byBoard = new Map<string, { board: string; card: Card }[]>();
-    for (const d of [...cards.overdue, ...cards.today]) byBoard.set(d.board, [...(byBoard.get(d.board) ?? []), d]);
-    // What was completed today, from every list, the latest first: found again, and opened again with its box.
-    const finished = Object.entries(lists)
-      .flatMap(([list, tasks]) => tasks.filter((task) => task.done && task.completed && dayOf(new Date(task.completed)) === today).map((task) => ({ list, task })))
-      .sort((a, b) => (a.task.completed! < b.task.completed! ? 1 : -1));
-    const nothingDue = due.overdue.length + due.today.length + byBoard.size === 0;
-    // What is overdue moves on to one day, all at once, as Todoist's Reschedule does.
-    const late = due.overdue.map(({ list, task }) => ({ list, id: task.id }));
-    const reschedule = (event: MouseEvent) => {
-      const to = (day: string | null) => actions.reschedule(late, day);
-      if (actions.pickDay) return actions.pickDay(t('tasks.rescheduleTitle', { count: late.length }), to);
-      actions.menu(event, [
-        { label: t('day.today'), run: () => to(today) },
-        { label: t('day.tomorrow'), run: () => to(addDays(today, 1)) },
-        { label: t('tasks.nextWeek'), run: () => to(nextWeek(today)) },
-      ]);
-    };
-    return (
-      <TaskPage
-        title={t('tasks.today')}
-        detail={toDate(today).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' })}
-        onAdd={(title) => actions.add(INBOX_TASKS, { title, due: today })}
-        bare={bare}
-        adding={adding}
-        footer={
-          finished.length > 0 && (
-            <>
-              <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
-                {t(showDone ? 'tasks.hideCompletedToday' : 'tasks.showCompletedToday', { count: finished.length })}
-              </button>
-              {showDone && finished.map(item)}
-            </>
-          )
-        }
-      >
-        {section(
-          t('tasks.overdue'),
-          due.overdue,
-          [],
-          undefined,
-          <button type="button" className="resch" onClick={reschedule}>
-            {t('tasks.reschedule')}
-          </button>,
-        )}
-        {section(t('tasks.today'), due.today)}
-        {[...byBoard].map(([board, dues]) => (
-          <div key={board}>
-            <div className="sec">
-              {boardHeading(board)} <small>{dues.length}</small>
-            </div>
-            {dues.map((d) => cardItem(d, true))}
-          </div>
-        ))}
-        {nothingDue &&
-          (isPhone() ? (
-            <Empty
-              icon="sun"
-              title={t(finished.length > 0 ? 'phone.allDoneToday' : 'phone.emptyToday')}
-              text={t(finished.length > 0 ? 'phone.allDoneTodayText' : 'phone.emptyTodayText')}
-              action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, today) }}
-            />
-          ) : (
-            <p className="task-empty">{t('tasks.nothingToday')}</p>
-          ))}
-      </TaskPage>
-    );
-  }
-
-  const days = dueUpcoming(lists, today);
-  const allDays = [...new Set([...days.map((d) => d.day), ...cards.later.keys()])].sort();
-  return (
-    <TaskPage title={t('tasks.upcoming')} bare={bare}>
-      {isPhone() && <WeekStrip today={today} busy={new Set(allDays)} chosen={day ?? addDays(today, 1)} onChoose={onDay} />}
-      {allDays.map((day) =>
-        section(
-          `${dueLabel(day, today)} · ${toDate(day).toLocaleDateString(locale(), SHORT)}`,
-          days.find((d) => d.day === day)?.tasks ?? [],
-          cards.later.get(day) ?? [],
-          day,
-        ),
-      )}
-      {allDays.length === 0 &&
-        (isPhone() ? (
-          <Empty
-            icon="week"
-            title={t('phone.emptyUpcoming')}
-            text={t('phone.emptyUpcomingText')}
-            action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, day ?? addDays(today, 1)) }}
-          />
-        ) : (
-          <p className="task-empty">{t('tasks.nothingLater')}</p>
-        ))}
-    </TaskPage>
-  );
-}
-
-/**
- * The week on top of Upcoming on a phone: seven days from today, today's number in the accent, a
- * dot under each that has something due. A tap chooses the day, which + adds to, and goes to its
- * tasks; tomorrow is chosen at first.
- */
-function WeekStrip({ today, busy, chosen, onChoose }: { today: string; busy: Set<string>; chosen: string; onChoose?: (day: string) => void }) {
-  const strip = useRef<HTMLDivElement>(null);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
-  const go = (day: string) => {
-    onChoose?.(day);
-    const found = strip.current?.parentElement?.querySelector<HTMLElement>(`[data-day="${day}"]`);
-    found?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  const due = dueToday(lists, today);
+  // Cards come after the tasks, under the board they are on.
+  const byBoard = new Map<string, { board: string; card: Card }[]>();
+  for (const d of [...cards.overdue, ...cards.today]) byBoard.set(d.board, [...(byBoard.get(d.board) ?? []), d]);
+  // What was completed today, from every list, the latest first: found again, and opened again with its box.
+  const finished = Object.entries(lists)
+    .flatMap(([list, tasks]) => tasks.filter((task) => task.done && task.completed && dayOf(new Date(task.completed)) === today).map((task) => ({ list, task })))
+    .sort((a, b) => (a.task.completed! < b.task.completed! ? 1 : -1));
+  const nothingDue = due.overdue.length + due.today.length + byBoard.size === 0;
+  // What is overdue moves on to one day, all at once, as Todoist's Reschedule does.
+  const late = due.overdue.map(({ list, task }) => ({ list, id: task.id }));
+  const reschedule = (event: MouseEvent) => {
+    const to = (day: string | null) => actions.reschedule(late, day);
+    if (actions.pickDay) return actions.pickDay(t('tasks.rescheduleTitle', { count: late.length }), to);
+    actions.menu(event, [
+      { label: t('day.today'), run: () => to(today) },
+      { label: t('day.tomorrow'), run: () => to(addDays(today, 1)) },
+      { label: t('tasks.nextWeek'), run: () => to(nextWeek(today)) },
+    ]);
   };
   return (
-    <div ref={strip} className="mb-week">
-      {days.map((day) => (
-        <button
-          key={day}
-          type="button"
-          className={[day === today && 'today', day === chosen && 'on'].filter(Boolean).join(' ') || undefined}
-          aria-pressed={day === chosen}
-          onClick={() => go(day)}
-        >
-          {toDate(day).toLocaleDateString(locale(), { weekday: 'short' })}
-          <b>{toDate(day).getDate()}</b>
-          <i className={busy.has(day) ? undefined : 'no'} />
-        </button>
+    <TaskPage
+      title={t('tasks.today')}
+      detail={toDate(today).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' })}
+      onAdd={(title) => actions.add(INBOX_TASKS, { title, due: today })}
+      bare={bare}
+      adding={adding}
+      footer={
+        finished.length > 0 && (
+          <>
+            <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
+              {t(showDone ? 'tasks.hideCompletedToday' : 'tasks.showCompletedToday', { count: finished.length })}
+            </button>
+            {showDone && finished.map(item)}
+          </>
+        )
+      }
+    >
+      {section(
+        t('tasks.overdue'),
+        due.overdue,
+        [],
+        <button type="button" className="resch" onClick={reschedule}>
+          {t('tasks.reschedule')}
+        </button>,
+      )}
+      {section(t('tasks.today'), due.today)}
+      {[...byBoard].map(([board, dues]) => (
+        <div key={board}>
+          <div className="sec">
+            {boardHeading(board)} <small>{dues.length}</small>
+          </div>
+          {dues.map((d) => cardItem(d, true))}
+        </div>
       ))}
-    </div>
+      {nothingDue &&
+        (isPhone() ? (
+          <Empty
+            icon="sun"
+            title={t(finished.length > 0 ? 'phone.allDoneToday' : 'phone.emptyToday')}
+            text={t(finished.length > 0 ? 'phone.allDoneTodayText' : 'phone.emptyTodayText')}
+            action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, today) }}
+          />
+        ) : (
+          <p className="task-empty">{t('tasks.nothingToday')}</p>
+        ))}
+    </TaskPage>
   );
 }

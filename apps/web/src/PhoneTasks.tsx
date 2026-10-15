@@ -2,6 +2,7 @@ import {
   addDays,
   childrenOf,
   depthOf,
+  listName,
   MAX_DEPTH,
   parseCardRef,
   type Priority,
@@ -9,14 +10,15 @@ import {
   type Record as CollectionRecord,
   recordTitle,
   type Section,
+  spaceOf,
   type Task,
   type TaskRecord,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, useLayoutEffect, useRef, useState } from 'react';
-import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
+import { listCrumb, type MenuHead, type MenuItem, placesShown, type TaskPlaceChoice } from './dialogs';
 import { Icon, type IconName } from './Icon';
-import { collectionLabel, listLabel } from './items';
+import { collectionLabel, listLabel, spaceLabel } from './items';
 import { MonthGrid, useMonth } from './MonthGrid';
 import { firstName } from './People';
 import { ActionSheet, Sheet, SheetClose, useAdded } from './sheets';
@@ -177,7 +179,11 @@ export function RecordSheet({ title = t('tasks.record'), current, choices, onPic
   );
 }
 
-/** A list or a section of it, picked in a sheet, found by typing; the one chosen is ticked. */
+/**
+ * A list or a section of it, picked in a sheet, found by typing; the one chosen is ticked. Each
+ * space's lists are under its name, the personal space's first with Inbox at their top, and a list
+ * shows the folders it is in, so that two of the same name are told apart.
+ */
 export function PlaceSheet({ places, current, onPick, onClose }: {
   places: TaskPlaceChoice[];
   current: { list: string; section: string | null };
@@ -185,14 +191,29 @@ export function PlaceSheet({ places, current, onPick, onClose }: {
   onClose: () => void;
 }) {
   const [typed, setTyped] = useState('');
-  const q = typed.trim().toLowerCase();
-  const has = (text?: string) => (text ?? '').toLowerCase().includes(q);
-  const listOf = (place: TaskPlaceChoice) => places.find((p) => p.list === place.list && p.section === null);
-  const shown = places.filter((place) =>
-    place.section === null
-      ? has(place.label) || has(place.folder) || places.some((p) => p.list === place.list && has(p.label))
-      : has(place.label) || has(listOf(place)?.label) || has(listOf(place)?.folder),
-  );
+  const shown = placesShown(places, typed);
+  const groups = [...new Set(shown.map((place) => spaceOf(place.list)))].map((space) => ({ space, places: shown.filter((place) => spaceOf(place.list) === space) }));
+  const row = (place: TaskPlaceChoice) => {
+    const crumb = place.section === null ? listCrumb(place.list) : '';
+    return (
+      <button
+        key={`${place.list}\n${place.section ?? ''}`}
+        type="button"
+        className={place.section === null ? 'mb-fr pick' : 'mb-fr pick sub'}
+        onClick={() => {
+          onPick(place);
+          onClose();
+        }}
+      >
+        {place.section === null && <Icon name="tasks" />}
+        <span className="in">
+          {place.section === null ? listName(place.list) : place.label}
+          {crumb && <small>{crumb}</small>}
+        </span>
+        <Tick on={place.list === current.list && place.section === current.section} />
+      </button>
+    );
+  };
   return (
     <Sheet label={t('moveTask.places')} className="mb-create" onClose={onClose}>
       <div className="mb-sh">
@@ -204,27 +225,17 @@ export function PlaceSheet({ places, current, onPick, onClose }: {
           <Icon name="search" />
           <input aria-label={t('moveTask.search')} placeholder={t('moveTask.search')} enterKeyHint="search" value={typed} onChange={(event) => setTyped(event.target.value)} />
         </label>
-        <div className="mb-group">
-          {shown.map((place) => (
-            <button
-              key={`${place.list}\n${place.section ?? ''}`}
-              type="button"
-              className={place.section === null ? 'mb-fr pick' : 'mb-fr pick sub'}
-              onClick={() => {
-                onPick(place);
-                onClose();
-              }}
-            >
-              {place.section === null && <Icon name="tasks" />}
-              <span className="in">
-                {place.label}
-                {place.folder && <small>{place.folder}</small>}
-              </span>
-              <Tick on={place.list === current.list && place.section === current.section} />
-            </button>
-          ))}
-          {shown.length === 0 && <p className="mb-fr none">{t('moveTask.none')}</p>}
-        </div>
+        {groups.map((group) => (
+          <div key={group.space ?? ''}>
+            <div className="mb-cap">{spaceLabel(group.space)}</div>
+            <div className="mb-group">{group.places.map(row)}</div>
+          </div>
+        ))}
+        {shown.length === 0 && (
+          <div className="mb-group">
+            <p className="mb-fr none">{t('moveTask.none')}</p>
+          </div>
+        )}
       </div>
     </Sheet>
   );

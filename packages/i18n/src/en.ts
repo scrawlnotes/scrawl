@@ -902,6 +902,8 @@ export const en = {
   'tasks.addOn': 'Add a task on {day}',
   'tasks.viewList': 'List',
   'tasks.viewCalendar': 'Calendar',
+  'tasks.viewMonth': 'Month',
+  'tasks.nothingOnDay': 'Nothing due on this day.',
   'tasks.moreOnDay': '+{count} more',
   'tasks.openDay': 'Open {day}',
   'tasks.inMonth': '{what} in {month}',

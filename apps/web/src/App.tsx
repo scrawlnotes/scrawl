@@ -109,7 +109,24 @@ import { folderLabel, setSpaceNames,
   FILES,
   UPCOMING,
 } from './items';
-import { applySize, applyTheme, isPhone, loadMode, loadSize, loadTheme, type Mode, onSystemShade, pageBox, saveMode, saveSize, saveTheme, shadeOfMode, systemShade } from './device';
+import {
+  applySize,
+  applyTheme,
+  isPhone,
+  loadMode,
+  loadSize,
+  loadTheme,
+  loadUpcomingView,
+  type Mode,
+  onSystemShade,
+  pageBox,
+  saveMode,
+  saveSize,
+  saveTheme,
+  saveUpcomingView,
+  shadeOfMode,
+  systemShade,
+} from './device';
 import { type Notice, Phone } from './Phone';
 import { PhoneCreate } from './PhoneCreate';
 import { PeopleSheet } from './PhoneSpaces';
@@ -123,8 +140,9 @@ import { pendingJoin } from './servers';
 import { Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Thing, thingsOf } from './Search';
-import { type Dated, DueView, dueLabel, FilterView, type TaskActions, TaskList } from './Tasks';
+import { type Dated, dueLabel, FilterView, type TaskActions, TaskList, TodayView } from './Tasks';
 import { Upcoming } from './Upcoming';
+import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
@@ -1013,10 +1031,10 @@ export function App() {
   const [taskSheet, setTaskSheet] = useState<{ list: string; id: string; subtask: boolean } | null>(null);
   const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record' | 'assignee'; list: string; id: string } | null>(null);
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
-  // On a phone's Upcoming the day chosen in the week, which + adds to; tomorrow until one is chosen.
+  // On a phone, how Upcoming shows, and the day chosen in its month, which + adds to there; tomorrow until one is chosen.
+  const [upcomingView, setUpcomingView] = useState(loadUpcomingView);
   const [upcomingDay, setUpcomingDay] = useState<string | null>(null);
-  // A day chosen before midnight that is past now is chosen no more.
-  const upDay = upcomingDay && upcomingDay >= today ? upcomingDay : addDays(today, 1);
+  const upDay = upcomingDay ?? addDays(today, 1);
   // On a phone a day for some tasks at once is chosen in a sheet: what is overdue, rescheduled.
   const [dayPicker, setDayPicker] = useState<{ title: string; onPick: (due: string | null) => void } | null>(null);
   // On a phone a section is named in a sheet: a new one from the list's menu, or one renamed.
@@ -1139,7 +1157,7 @@ export function App() {
     const collectionDir = collectionPathOf(id);
     if (collectionDir !== null) return setNewRecord({ dir: collectionDir });
     if (id === TODAY) return setQuickAdd({ list: INBOX_TASKS, section: null, due: today });
-    if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: upDay });
+    if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: upcomingView === 'calendar' ? upDay : addDays(today, 1) });
     const list = listOf(id);
     if (list !== null) setQuickAdd({ list, section: null, due: null });
   };
@@ -1430,7 +1448,7 @@ export function App() {
         fieldsAsked={collectionFields}
       />
     )}
-    {!phone && active === TODAY && <DueView kind="today" lists={tasks} boards={boards} today={today} actions={taskActions} />}
+    {!phone && active === TODAY && <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} />}
     {!phone && active === UPCOMING && (
       <Upcoming
         lists={tasks}
@@ -1545,7 +1563,18 @@ export function App() {
             filters={filters}
             counts={counts}
             item={itemLayer}
-            dueView={(kind) => <DueView kind={kind} lists={tasks} boards={boards} today={today} actions={taskActions} bare day={upDay} onDay={setUpcomingDay} />}
+            dueView={(kind) =>
+              kind === 'today' ? (
+                <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} bare />
+              ) : (
+                <PhoneUpcoming view={upcomingView} lists={tasks} boards={boards} today={today} actions={taskActions} day={upDay} onDay={setUpcomingDay} />
+              )
+            }
+            upcomingView={upcomingView}
+            onUpcomingView={(view) => {
+              setUpcomingView(view);
+              saveUpcomingView(view);
+            }}
             canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null || (keysPathOf(id) !== null && keysLooks[keysPathOf(id)!]?.view !== 'text') || (collectionPathOf(id) !== null && (collections[collectionPathOf(id)!]?.schema.fields.length ?? 0) > 0)}
             onAdd={phoneAdd}
             trashView={<TrashView items={trash} today={today} spaces={trashSpaces} choice={trashChoice} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
