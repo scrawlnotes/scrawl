@@ -3556,9 +3556,9 @@ body > .mb-lifted {
 }
 
 .mb .mb-bv .colm-cards {
+  --gap: 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
   padding-bottom: 110px;
 }
 

@@ -2066,29 +2066,34 @@ body > .touch-ghost {
   margin: 0;
 }
 
-.qa.add-sec {
+/* Between two sections, Add section shows when the pointer is there, as Todoist's: its words on the
+   left and a line from them to the right end, in the accent, over the space above the next
+   section's name. A new section goes in there. */
+.sec-gap {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  margin-top: 10px;
+  height: 14px;
+  margin-bottom: -14px;
+  color: var(--sl-accent);
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
 }
 
-.qa.add-sec::before,
-.qa.add-sec::after {
+.sec-gap::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--sl-line);
-}
-
-.qa.add-sec:hover {
-  color: var(--sl-accent);
-}
-
-.qa.add-sec:hover::before,
-.qa.add-sec:hover::after {
   background: var(--sl-accent);
+}
+
+.sec-gap:hover,
+.sec-gap:focus-visible {
+  opacity: 1;
 }
 
 .task {
@@ -2418,8 +2423,8 @@ button.cb:hover::after {
 }
 
 /* Upcoming, after the List views of the Upcoming mockups: a day's date faint after Today or
-   Tomorrow, and the free days between two days that have something in one faint line, which shows
-   Add task when the pointer is on it. */
+   Tomorrow, and the free days between two days that have something in faint words on the left, as
+   + Add task is, which show Add task beside them when the pointer is on them. */
 .sec .when {
   color: var(--sl-faint);
   font-weight: 400;
@@ -2428,17 +2433,10 @@ button.cb:hover::after {
 .up-gap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 14px 0 2px;
   color: var(--sl-faint);
   font-size: 11.5px;
-}
-
-.up-gap::before,
-.up-gap::after {
-  content: '';
-  flex: 1;
-  border-top: 1px dashed var(--sl-line);
 }
 
 .up-gap:hover,
@@ -2450,19 +2448,16 @@ button.cb:hover::after {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  max-width: 0;
-  margin-left: -10px;
-  overflow: hidden;
   color: var(--sl-accent);
   font-size: inherit;
   font-weight: 600;
   white-space: nowrap;
+  opacity: 0;
 }
 
 .up-gap:hover .plus,
 .up-gap .plus:focus-visible {
-  max-width: 120px;
-  margin-left: 0;
+  opacity: 1;
 }
 
 .up-gap .plus .icon {
@@ -3056,8 +3051,10 @@ button.cb:hover::after {
   color: var(--sl-fg);
 }
 
-/* Buttons side by side at the right end of a head, a board's Fields and Board…, keep together. */
-.th .ghost + .ghost {
+/* Buttons side by side at the right end of a head, a board's Fields and Board…, a list's Add section
+   and Add task, keep together. */
+.th .ghost + .ghost,
+.th .ghost + .add {
   margin-left: 0;
 }
 
@@ -4294,10 +4291,15 @@ button.cb:hover::after {
 }
 
 .colm-cards {
+  --gap: 5px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--gap);
   min-height: 8px;
+  /* Room above the first card and below the last for the line a carried card would land on,
+     given back by the margins, so that the column is as tall as without it. */
+  margin: calc(var(--gap) / -2 - 1px) 0;
+  padding: calc(var(--gap) / 2 + 1px) 0;
   overflow-y: auto;
 }
 
@@ -4470,10 +4472,23 @@ button.cb:hover::after {
   color: var(--sl-fg);
 }
 
+/* Where a carried card would land: a line in the middle of the gap between two cards. It takes no
+   room, its margin giving back the gap it adds, and sits at the bottom of the card before it, so
+   that a column does not grow by it and show a scrollbar while a card is carried over it. */
 .kc-drop {
+  position: relative;
   flex: none;
+  height: 0;
+  margin-top: calc(var(--gap) * -1);
+}
+
+.kc-drop::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--gap) / 2 - 1px);
+  right: 0;
+  left: 0;
   height: 2px;
-  margin: -1px 0;
   border-radius: 1px;
   background: var(--sl-accent);
 }

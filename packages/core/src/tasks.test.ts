@@ -215,6 +215,15 @@ describe('sections', () => {
     expect(addSection(sample(), ' ').sections).toHaveLength(2);
   });
 
+  it('adds a section at the end, at the top, or after another', () => {
+    const ids = (list: TaskList) => list.sections.map((s) => s.id);
+    expect(ids(addSection(sample(), 'Phase 2', 's2'))).toEqual(['s0', 's1', 's2']);
+    expect(ids(addSection(sample(), 'First', 'sx', null))).toEqual(['sx', 's0', 's1']);
+    expect(ids(addSection(sample(), 'Between', 'sx', 's0'))).toEqual(['s0', 'sx', 's1']);
+    // After a section that is not there, it stays at the end.
+    expect(ids(addSection(sample(), 'Lost', 'sx', 'gone'))).toEqual(['s0', 's1', 'sx']);
+  });
+
   it('deletes a section with its tasks and their subtasks', () => {
     const list = removeSection(sample(), 's0');
     expect(list.sections.map((s) => s.id)).toEqual(['s1']);

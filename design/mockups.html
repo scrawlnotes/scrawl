@@ -2077,6 +2077,24 @@ p { margin: 0; max-width: 68ch; }
 .mb-cal .days i.no { visibility: hidden; }
 .mb-addday { display: flex; align-items: center; gap: 10px; margin: 6px 16px; color: var(--m-accent); font-size: 16px; }
 .mock .mb-addday svg { width: 20px; height: 20px; }
+/* Add section and the free days (Oct 15). On a wide screen a line across the whole list, its words
+   in the middle, looked out of all proportion. Add section is a button in the header beside Add
+   task, as a new section goes at the end and is dragged up from there; between two sections it
+   shows when the pointer is there, as Todoist's, its words on the left and a line to the right.
+   The free days are words on the left without a line, as + Add task is. */
+/* As wide as the screen it is seen on, past the page's column, since the trouble is a wide screen. */
+.dir[data-dir="dividers"] .scroller { width: calc(100vw - 40px); margin-left: calc(50% - 50vw + 20px); }
+.dir[data-dir="dividers"] .mock.dir-a:not(.phones) { height: 560px; min-width: 1500px; }
+.dir[data-dir="dividers"] .mock .side.fit, .dir[data-dir="dividers"] .mock .main.fit { max-height: 558px; }
+.qa.add-sec.dv-left::before { display: none; }
+.dv-gap { margin: -6px 0 -8px; }
+.mock .th .ghost + .add { margin-left: 0; }
+.dv-free { display: flex; align-items: center; gap: 12px; padding: 14px 0 2px; color: var(--m-faint); font-size: 11.5px; }
+.dv-free.hover { color: var(--m-dim); }
+.dv-free .plus { display: inline-flex; align-items: center; gap: 4px; color: var(--m-accent); font-weight: 600; }
+.mock .dv-free .plus svg { width: 12px; height: 12px; }
+.dv-pointer { position: relative; }
+.dv-pointer::after { content: ''; position: absolute; left: 50%; top: 14px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 12px solid var(--m-fg); transform: rotate(-30deg); opacity: .8; }
 </style>
 
 <main class="page">
@@ -2300,6 +2318,25 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-uview="upcaladd">Calendar, add</button>
         <button type="button" data-uview="pup">Phone</button>
         <button type="button" data-uview="pupadd">Phone, add</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="dividers">
+    <div class="brief">
+      <div>
+        <span class="letter">AYIRICILAR · 15 EKİM</span>
+        <h2>Add section ve boş günler</h2>
+        <p>Geniş ekranda listenin bir ucundan öbür ucuna giden çizgi, yazısı ortada, orantısız duruyordu: listenin sonundaki Add section ve Upcoming'deki boş günler satırı. Add section başlığa, sarı Add task'ın yanına bir düğme olarak çıkar: yeni bölüm zaten listenin sonuna eklenir, adı orada yazılır, sonra sürüklenip yerine taşınır. Ayrıca iki bölümün arasına gelince Todoist'teki gibi solda Add section ve sağa uzanan vurgu renkli bir çizgi belirir; tıklayınca yeni bölüm o araya girer. Listenin altındaki çizgi kalkar. Boş günler satırı + Add task gibi solda, çizgisiz, soluk yazıdır; üstüne gelince yanında + Add task çıkar. Telefondaki boş günler satırı dar ekranda olduğu için olduğu gibi kalır.</p>
+        <ul class="traits"><li>Add section: başlıkta</li><li>araya: üstüne gelince</li><li>boş günler: solda, çizgisiz</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Ayırıcı görünümü">
+        <button type="button" data-dview="dvnowlist">Önce, liste</button>
+        <button type="button" data-dview="dvnowup">Önce, Upcoming</button>
+        <button type="button" data-dview="dvlist">Liste</button>
+        <button type="button" data-dview="dvhover">Liste, iki bölüm arası</button>
+        <button type="button" data-dview="dvup">Upcoming</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -6518,6 +6555,79 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderUp(sectionUp, b.dataset.uview);
   });
   renderUp(sectionUp, 'uplist');
+
+  // Add section and the free days (Oct 15, a draft), on a screen as wide as a large monitor.
+  function dvTree(up) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 1 }) + row({ label: 'Upcoming', ct: 12, on: up }) +
+      spRowT({ sp: true, open: true, label: 'Personal' }) +
+      spRowT({ d: 1, icon: 'tasks', label: 'Inbox', ct: 3 }) +
+      spRowT({ d: 1, folder: true, open: true, label: 'Scrawl' }) +
+      spRowT({ d: 2, icon: 'tasks', label: 'tasks', ct: 3, on: !up }) +
+      spRowT({ d: 2, icon: 'notes', label: 'Sync engine notes' }) +
+      spRowT({ d: 1, folder: true, label: 'Home', ct: 4 }) +
+      spRowT({ sp: true, open: true, label: 'Acme' }) +
+      spRowT({ d: 1, folder: true, label: 'Sales', ct: 5 }) +
+      '</div>' + spFoot(false);
+  }
+  function dvFrame(up, body, status) {
+    return '<aside class="side fit">' + dvTree(up) + '</aside><section class="main fit"><div class="panes">' +
+      pane(tab('tasks', up ? 'Upcoming' : 'tasks', 'dv', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>' + status + '</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  /** The list `tasks`: before, its Add section a line across its end, its words in the middle; now, Add section in the header, and between two sections when the pointer is there. */
+  function dvList(mode) {
+    function task(title) { return '<div class="task"><span class="cb"></span><div><div class="tt">' + title + '</div></div></div>'; }
+    function section(name, titles) { return '<div class="sec">▾ ' + name + ' <small>' + titles.length + '</small></div>' + titles.map(task).join('') + '<div class="qa">+ Add task</div>'; }
+    if (mode === 'now') {
+      return dvFrame(false, '<div class="tasksv"><div class="th"><b>tasks</b><span class="count">Scrawl</span><button type="button" class="add">Add task</button></div>' +
+        '<div class="tl">' + task('kartlarda sürükle bırak yapınca çoğu zaman scroll çıkıyor') + task('Upcoming takvimini iPhone’da dene') + task('Add section görünümünü düzelt') +
+        '<div class="qa">+ Add task</div><div class="qa add-sec">Add section</div></div></div>', '3 tasks');
+    }
+    var between = mode === 'hover' ? '<div class="dv-gap dv-pointer"><div class="qa add-sec dv-left hot">Add section</div></div>' : '';
+    return dvFrame(false, '<div class="tasksv"><div class="th"><b>tasks</b><span class="count">Scrawl</span><button type="button" class="ghost">Add section</button><button type="button" class="add">Add task</button></div>' +
+      '<div class="tl">' + task('Add section görünümünü düzelt') +
+      section('Bugs', ['kartlarda sürükle bırak yapınca çoğu zaman scroll çıkıyor', 'Upcoming’de boş gün satırı']) + between +
+      section('Ideas', ['Upcoming takvimini iPhone’da dene']) + '</div></div>', '4 tasks');
+  }
+  /** Upcoming's List: before, the free days a dashed line across it; now, on the left without a line, one with the pointer on it. */
+  function dvUp(now) {
+    function day(key, title, when) {
+      return '<div class="sec">' + title + (when ? ' <span class="when">· ' + when + '</span>' : '') + ' <small>' + UP_DAYS[key].length + '</small></div>' +
+        UP_DAYS[key].map(function (o) { return upTask(o); }).join('') + '<div class="qa">+ Add task</div>';
+    }
+    function gap(words, hover) {
+      if (now) return '<div class="up-gap">' + words + '</div>';
+      return '<div class="dv-free' + (hover ? ' hover' : '') + '"><span>' + words + '</span>' + (hover ? '<span class="plus dv-pointer">' + ICON.plus + 'Add task</span>' : '') + '</div>';
+    }
+    var body = '<div class="tasksv">' + upHead(false) + '<div class="tl">' +
+      day('10-15', 'Today', 'Thu, Oct 15') + day('10-16', 'Tomorrow', 'Fri, Oct 16') +
+      gap('2 free days · Sat 17 – Sun 18', true) +
+      day('10-19', 'Mon, Oct 19') + day('10-20', 'Tue, Oct 20') +
+      gap('1 free day · Wed 21') + '</div></div>';
+    return dvFrame(true, body, '12 tasks · 2 cards');
+  }
+  var DV_VIEWS = {
+    dvnowlist: function () { return dvList('now'); },
+    dvnowup: function () { return dvUp(true); },
+    dvlist: function () { return dvList('header'); },
+    dvhover: function () { return dvList('hover'); },
+    dvup: function () { return dvUp(false); }
+  };
+  function renderDv(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.className = 'mock dir-a';
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = DV_VIEWS[view]();
+    section.querySelectorAll('.brief [data-dview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.dview === view));
+    });
+  }
+  var sectionDv = document.querySelector('.dir[data-dir="dividers"]');
+  sectionDv.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-dview]');
+    if (b) renderDv(sectionDv, b.dataset.dview);
+  });
+  renderDv(sectionDv, 'dvlist');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

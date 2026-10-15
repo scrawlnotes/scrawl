@@ -205,10 +205,15 @@ export function sectionTasks(list: TaskList, section: string | null): Task[] {
   return childrenOf(list.tasks, null).filter((t) => of(t) === section);
 }
 
-/** Adds a section at the end of the list. A name of only spaces adds none. */
-export function addSection(list: TaskList, name: string, id: string = newId()): TaskList {
+/**
+ * Adds a section: at the end of the list, or after the section `after` names, at the top for null.
+ * A name of only spaces adds none.
+ */
+export function addSection(list: TaskList, name: string, id: string = newId(), after?: string | null): TaskList {
   const clean = name.trim();
-  return clean ? { ...list, sections: [...list.sections, { id, name: clean }] } : list;
+  if (!clean) return list;
+  const added = { ...list, sections: [...list.sections, { id, name: clean }] };
+  return after === undefined ? added : moveSection(added, id, after);
 }
 
 export function renameSection(list: TaskList, id: string, name: string): TaskList {

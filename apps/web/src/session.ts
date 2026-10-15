@@ -2096,8 +2096,9 @@ export class Session {
     });
   }
 
-  addSection(list: string, name: string) {
-    this.changeList(list, (current) => addSection(current, name));
+  /** Adds a section: at the end, or after the section `after` names, at the top for null. */
+  addSection(list: string, name: string, after?: string | null) {
+    this.changeList(list, (current) => addSection(current, name, undefined, after));
   }
 
   renameSection(list: string, id: string, name: string) {

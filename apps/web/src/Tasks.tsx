@@ -35,6 +35,7 @@ import {
 import { locale, t } from '@scrawlnotes/i18n';
 import {
   type DragEvent,
+  Fragment,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -67,7 +68,8 @@ export interface TaskActions {
   remove: (list: string, id: string) => void;
   /** Opens a menu at the pointer; on a phone an action sheet, `head` saying what it is about. */
   menu: (event: MouseEvent, items: MenuItem[], head?: MenuHead) => void;
-  addSection: (list: string, name: string) => void;
+  /** Adds a section: at the end, or after the section `after` names, at the top for null. */
+  addSection: (list: string, name: string, after?: string | null) => void;
   renameSection: (list: string, id: string, name: string) => void;
   foldSection: (list: string, id: string, collapsed: boolean) => void;
   /** Asks first, then deletes the section with its tasks. */
@@ -1267,7 +1269,9 @@ export function TaskList({ list, tasks, sections, today, actions, reveal = null 
 }) {
   const [showDone, setShowDone] = useState(false);
   const [composing, setComposing] = useState(false);
-  const [addingSection, setAddingSection] = useState(false);
+  // A new section's name, being typed where it goes: at the end, from the header's Add section, or
+  // between two sections, after the one `after` names (null for the top), from the line there.
+  const [addingSection, setAddingSection] = useState<{ after?: string | null } | null>(null);
   const whole: List = { sections, tasks };
   const shown = (task: Task) => showDone || !task.done;
   const rows = useRef<HTMLDivElement>(null);
@@ -1394,6 +1398,14 @@ export function TaskList({ list, tasks, sections, today, actions, reveal = null 
     <TaskPage
       title={listName(list)}
       detail={folderLabel(dirname(list))}
+      // A new section goes at the end, where its name is typed, and is dragged up from there.
+      extra={
+        !isPhone() && (
+          <button type="button" className="ghost" onClick={() => setAddingSection({})}>
+            {t('sections.add')}
+          </button>
+        )
+      }
       onAddClick={() => setComposing(true)}
       footer={
         completed > 0 && (
@@ -1431,30 +1443,37 @@ export function TaskList({ list, tasks, sections, today, actions, reveal = null 
             </button>
           )
         )}
-        {sections.map((section) => (
-          <SectionBlock
-            key={section.id}
-            list={list}
-            section={section}
-            top={sectionTasks(whole, section.id).filter(shown)}
-            item={item}
-            actions={actions}
-            drag={drag}
-            dropInto={drop?.into === section.id}
-          />
-        ))}
+        {sections.map((section, index) => {
+          // Before each section, Add section shows when the pointer is there, as Todoist's: a new
+          // section goes in between.
+          const after = index === 0 ? null : sections[index - 1]!.id;
+          return (
+            <Fragment key={section.id}>
+              {addingSection?.after === after ? (
+                <SectionComposer onAdd={(name) => actions.addSection(list, name, after)} onClose={() => setAddingSection(null)} />
+              ) : (
+                !isPhone() && (
+                  <button type="button" className="sec-gap" onClick={() => setAddingSection({ after })}>
+                    {t('sections.add')}
+                  </button>
+                )
+              )}
+              <SectionBlock
+                list={list}
+                section={section}
+                top={sectionTasks(whole, section.id).filter(shown)}
+                item={item}
+                actions={actions}
+                drag={drag}
+                dropInto={drop?.into === section.id}
+              />
+            </Fragment>
+          );
+        })}
         {drop?.line && <div className="drop-line" style={{ top: drop.line.top, left: drop.line.left }} />}
       </div>
-      {/* On a phone + adds a task, and a section comes from the list's menu. */}
-      {addingSection ? (
-        <SectionComposer onAdd={(name) => actions.addSection(list, name)} onClose={() => setAddingSection(false)} />
-      ) : (
-        !isPhone() && (
-          <button type="button" className="qa add-sec" onClick={() => setAddingSection(true)}>
-            {t('sections.add')}
-          </button>
-        )
-      )}
+      {/* Add section in the header opens this; on a phone it comes from the list's menu. */}
+      {addingSection && addingSection.after === undefined && <SectionComposer onAdd={(name) => actions.addSection(list, name)} onClose={() => setAddingSection(null)} />}
     </TaskPage>
   );
 }

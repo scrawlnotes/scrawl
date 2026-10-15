@@ -1195,7 +1195,7 @@ export function App() {
         for (const was of before) give(was.item, was.due);
       });
     },
-    addSection: (list, name) => session.addSection(list, name),
+    addSection: (list, name, after) => session.addSection(list, name, after),
     renameSection: (list, id, name) => session.renameSection(list, id, name),
     foldSection: (list, id, collapsed) => session.foldSection(list, id, collapsed),
     removeSection: deleteSection,
