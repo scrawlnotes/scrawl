@@ -85,7 +85,7 @@ export function authorizePage(view: AuthorizeView): string {
       <label>Email<input type="email" name="email" value="${escape(view.email ?? '')}" autocomplete="username" required autofocus></label>
       <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
       ${view.error ? `<p class="error">${escape(view.error)}</p>` : ''}
-      <div class="buttons"><button type="submit" name="decision" value="deny" formnovalidate>Cancel</button><button type="submit" class="primary" name="decision" value="allow">Allow</button></div>
+      <div class="buttons"><button type="submit" class="primary" name="decision" value="allow">Allow</button><button type="submit" name="decision" value="deny" formnovalidate>Cancel</button></div>
       </form>`;
   return page(host, view.version, body);
 }
@@ -121,7 +121,8 @@ footer { margin-top: auto; padding-top: 40px; color: var(--faint); font-size: 12
 form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; margin-top: 10px; text-align: left; }
 label { display: flex; flex-direction: column; gap: 4px; color: var(--dim); font-size: 13.5px; }
 input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; }
-.buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+/* Allow is first in the form, so that Enter allows; laid out the other way round, Cancel shows on the left. */
+.buttons { display: flex; flex-direction: row-reverse; gap: 8px; justify-content: flex-start; margin-top: 6px; }
 button.primary { padding: 8px 22px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 600; }
 button.primary:hover { color: var(--on-accent); opacity: 0.92; }
 p.error { color: #c0392b; font-size: 13.5px; }

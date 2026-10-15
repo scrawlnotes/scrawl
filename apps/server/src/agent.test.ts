@@ -148,6 +148,20 @@ describe('signing in', () => {
     expect(ended.status).toBe(401);
   });
 
+  it('lets Enter allow: Allow is the form’s first submit button, and a form without a decision allows', async () => {
+    const s = start();
+    await owner(s);
+    const client = await clientOf(s);
+    const { challenge } = pkce();
+    const params = new URLSearchParams({ client_id: client.id, redirect_uri: client.redirect, response_type: 'code', code_challenge: challenge, code_challenge_method: 'S256', state: 'xyz', resource: `${URL_}/mcp` });
+    const html = await (await s.fetch(`${URL_}/oauth/authorize?${params}`)).text();
+    expect(html.indexOf('value="allow"')).toBeGreaterThan(0);
+    expect(html.indexOf('value="allow"')).toBeLessThan(html.indexOf('value="deny"'));
+    const answered = await s.fetch(`${URL_}/oauth/authorize`, form({ ...Object.fromEntries(params), email: 'kaan@outlook.com', password: 'a long password' }));
+    expect(answered.status).toBe(302);
+    expect(new URL(answered.headers.get('Location')!).searchParams.get('code')).toBeTruthy();
+  });
+
   it('refuses a wrong password on the page, and sends the client back when the person says no', async () => {
     const s = start();
     await owner(s);
