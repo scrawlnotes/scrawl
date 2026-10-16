@@ -4,9 +4,9 @@ import { isDesktop } from './storage';
 // (sw/sw.js), and telling when a new version waits for the user to reload into it. Not on the
 // desktop, whose files are its own, nor while developing, where every change comes at once.
 
-/** When this version of the web app was built, written in by vite.config.ts. */
-declare const __BUILD_TIME__: string;
-export const BUILT = __BUILD_TIME__;
+/** The app's version, the desktop app's number, written in by vite.config.ts. */
+declare const __APP_VERSION__: string;
+export const APP_VERSION = __APP_VERSION__;
 
 /** How a check from Settings › About stands; a version found waiting is `ready` whoever found it. */
 export type WebUpdateStatus =

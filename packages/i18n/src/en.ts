@@ -192,7 +192,6 @@ export const en = {
   'about.restart': 'Restart',
   'about.note': 'Scrawl looks for a new version when it opens and every few hours, and downloads it by itself. A new version is installed when you restart Scrawl or close it.',
   'about.openSource': 'Scrawl is open source under the MIT license ·',
-  'about.webName': 'Scrawl on the web, from {date}',
   'about.webDownloading': 'Downloading the new version',
   'about.webReady': 'A new version is downloaded and ready',
   'about.webOffline': 'Could not reach {host}. Try again once you are online.',

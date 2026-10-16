@@ -1,5 +1,5 @@
 import { dayOf, type Me, type MovedMark, newSpaceId, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
-import { languages, locale, type MessageKey, t } from '@scrawlnotes/i18n';
+import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
 import type { SpaceView } from './session';
@@ -15,7 +15,7 @@ import { ROLE_WORD, ServerMembers, ServerPage } from './ServerPeople';
 import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, tookJoin, useKnownServers } from './servers';
 import { Agents } from './Agents';
 import { checkForUpdates, releasePage, useAppVersion, useDesktopUpdate } from './desktopUpdate';
-import { BUILT, checkForWebUpdate, subscribeUpdate, webUpdatesOn, webUpdateStatus } from './pwa';
+import { APP_VERSION, checkForWebUpdate, subscribeUpdate, webUpdatesOn, webUpdateStatus } from './pwa';
 import { isDesktop, openUrlOnDesktop } from './storage';
 
 export type Section = 'profile' | 'appearance' | 'spaces' | 'agents' | 'language' | 'about';
@@ -129,15 +129,14 @@ function AboutSource({ open }: { open: (url: string) => void }) {
 }
 
 /**
- * On the web: when the version running was built, as it has no number, and under it how the
- * updates stand, with Check for updates. A version found is kept on the device, and Reload goes
- * over to it, as the status bar's Reload does.
+ * On the web: the version running, the desktop app's number, and under it how the updates stand,
+ * with Check for updates. A version found is kept on the device, and Reload goes over to it, as
+ * the status bar's Reload does.
  */
 function WebAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
   const update = useSyncExternalStore(subscribeUpdate, webUpdateStatus);
   const on = useSyncExternalStore(subscribeUpdate, webUpdatesOn);
   useTicking(update.state === 'upToDate');
-  const built = new Date(BUILT).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' });
   const check = () => void checkForWebUpdate();
   const checkButton = (label: MessageKey, disabled = false) => (
     <button type="button" className="st-btn" disabled={disabled || !on} onClick={check}>
@@ -206,7 +205,7 @@ function WebAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) 
       <div className="st-space">
         <div className="st-row">
           <span className="fl">{t('about.version')}</span>
-          <span className="path plain">{t('about.webName', { date: built })}</span>
+          <span className="path plain">{t('about.name', { version: APP_VERSION })}</span>
         </div>
         <div className="st-sync">
           <span className="fl">{t('about.updates')}</span>
