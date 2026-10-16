@@ -791,6 +791,15 @@ export function App() {
   };
   // The menu of a note, a task list, a board, a keys file or a collection; Inbox, the personal space's own list, has none.
   const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
+  /** A tab double-clicked is renamed as its menu's Rename does; a filter's name is in its own window, and a view has none. */
+  const renameTab = async (id: string) => {
+    const filter = filters.find((each) => each.id === filterOf(id));
+    const path = collectionPathOf(id) ?? pathOf(id);
+    if (!filter && (!path || path === INBOX_TASKS)) return;
+    // A note opened by the clicks takes the focus a moment later; the window comes after that, so that its field keeps it.
+    await session.open(id);
+    window.setTimeout(() => setDialog(filter ? { kind: 'filter', filter } : { kind: 'rename', path: path! }));
+  };
   /** Whether the item is a note (a record is one too): not a task list, a board, a keys file or a collection. */
   const isNoteFile = (path: string) => !(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections);
   const itemMenuItems = (path: string, history: (path: string) => void = (path) => void showHistory(path)): MenuItem[] => [
@@ -1912,9 +1921,10 @@ export function App() {
                   if (event.button === 1) void session.close(id);
                 }}
                 onContextMenu={(event) => {
-                  const path = pathOf(id);
+                  const path = collectionPathOf(id) ?? pathOf(id);
                   if (path) itemMenu(event, path);
                 }}
+                onDoubleClick={(event) => !(event.target as Element).closest('.tab-close') && void renameTab(id)}
               >
                 <button type="button" className="tab-title" onClick={() => void session.open(id)}>
                   <Icon name={iconOf(id)} />
