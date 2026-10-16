@@ -2,6 +2,10 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.3
+
+- A start page while nothing is open, in place of Create opening by itself: Create's kinds on top, then Recent, what you opened last on this device, and Today. While nothing has been made yet, it says what each kind is for and offers the templates and connecting an agent.
+
 ## 0.1.2
 
 Scrawl comes to the Mac.
