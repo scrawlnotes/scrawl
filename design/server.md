@@ -6,7 +6,7 @@
 
 **Bu aşamada:** ekibin kendi makinesine kurduğu bir Docker sunucusu; space'ler orada durur; istemci ona sync motoruyla, OneDrive'ın yanında bir sağlayıcı olarak bağlanır; bir kişinin değişikliği diğerine bir iki saniyede geçer; hesap, cihaz anahtarı, davet linki; kurulum rehberi, yedek ve güncelleme.
 
-**Sonra:** ince yetkiler (salt okunur üye, klasöre göre yetki), SSO, otomasyon, zamanlanmış ajan koşuları, "şu an düzenliyor" göstergesi, sunucudaki sürüm geçmişinin ekranı ve notta "son yazan kazanır + şerit", kişisel space'in sunucuya bağlanması, Postgres, SSO, lisans, link ile paylaşma, CRDT. 12. aşamadaki ajan (MCP) bu API'nin üstüne kurulur.
+**Sonra:** ince yetkiler (salt okunur üye, klasöre göre yetki), SSO, otomasyon, zamanlanmış ajan koşuları, "şu an düzenliyor" göstergesi, sunucudaki sürüm geçmişinin ekranı ve notta "son yazan kazanır + şerit", Postgres, SSO, lisans, link ile paylaşma, CRDT. 12. aşamadaki ajan (MCP) bu API'nin üstüne kurulur.
 
 ## 2. Genel yapı
 
@@ -66,6 +66,7 @@ devices  (id TEXT PK, account_id, name,  -- "Kaan's laptop"
 
 spaces   (id TEXT PK,             -- Scrawl'daki space id'si (sp-xxxxxxxx)
           name, created_by, created_at,
+          personal_of TEXT,       -- kişisel space'se sahibinin hesabı; hesap başına bir tane (16 Ekim, design/spaces.md)
           seq INTEGER,            -- son değişikliğin numarası
           oldest_seq INTEGER)     -- bundan eski imleçe tam liste verilir
 
@@ -137,17 +138,18 @@ Hepsi `https://<sunucu>/api/v1` altında, JSON; her istek `Authorization: Bearer
 | `POST /sessions` `{ email, password, device }` | giriş; `{ token, account }` |
 | `DELETE /sessions/current` | bu cihazdan çıkış, anahtar geri alınır |
 | `GET /me` | hesap |
-| `GET /spaces` | üyesi olunan space'ler |
-| `POST /spaces` `{ id, name }` (Owner, Admin) | yeni space; açan Manager'ı olur |
+| `GET /spaces` | üyesi olunan space'ler; her satırda `personal` |
+| `POST /spaces` `{ id, name }` (Owner, Admin) | yeni paylaşılan space; açan Manager'ı olur |
+| `POST /spaces` `{ id, name, personal: true }` (herkes) | hesabın kişisel space'i; hesabın orada zaten varsa 409 `personal-exists` |
 | `GET /spaces/:id/members` | üyeler |
-| `PATCH /spaces/:id/members/:account` `{ role }` (Manager) | Manager yapar ya da Member'a döndürür; son Manager Member olamaz |
-| `DELETE /spaces/:id/members/:account` (Manager; Owner ve Admin her space'te) | space'ten çıkarma; erişim hemen biter. Owner'ı ve Admin'leri yalnız Owner ya da bir Admin çıkarır |
-| `POST /spaces/:id/invites` (Manager) | davet linki: `https://<sunucu>/join/<kod>`; gelen space'in Member'ı, sunucunun Member'ı olur |
+| `PATCH /spaces/:id/members/:account` `{ role }` (Manager) | Manager yapar ya da Member'a döndürür; son Manager Member olamaz. Kişisel space'te 403 `personal` |
+| `DELETE /spaces/:id/members/:account` (Manager; Owner ve Admin her space'te) | space'ten çıkarma; erişim hemen biter. Owner'ı ve Admin'leri yalnız Owner ya da bir Admin çıkarır. Kişisel space'te 403 `personal` |
+| `POST /spaces/:id/invites` (Manager) | davet linki: `https://<sunucu>/join/<kod>`; gelen space'in Member'ı, sunucunun Member'ı olur. Kişisel space'te 403 `personal` |
 | `GET /invites/:code` | linkin ne olduğu: hangi sunucu, hangi space, kim çağırdı |
 | `POST /invites/:code/accept` `{ name, email, password, person, device }` | hesap açılır (ya da var olan hesapla girilir), space'e katılınır; `{ token, account, space }` |
-| `GET /accounts` (Owner, Admin) | sunucudaki hesaplar, rolleri ve kaç space'te oldukları |
+| `GET /accounts` (Owner, Admin) | sunucudaki hesaplar, rolleri ve kaç space'te oldukları; kişisel space sayıya girmez |
 | `PATCH /accounts/:id` `{ role }` (Owner) | Admin ya da Member yapar; Owner'ın rolü değişmez |
-| `DELETE /accounts/:id` (Owner, Admin; Owner silinmez, Admin yalnız Member'ları çıkarır) | hesabı sunucudan çıkarır: bütün space'lerden çıkar, cihaz anahtarları geçersiz olur; yaptıkları space'lerde kalır |
+| `DELETE /accounts/:id` (Owner, Admin; Owner silinmez, Admin yalnız Member'ları çıkarır) | hesabı sunucudan çıkarır: paylaşılan bütün space'lerden çıkar, cihaz anahtarları geçersiz olur; yaptıkları space'lerde kalır. Kişisel space'i ve oradaki üyeliği kalır; kimse açamaz, kişi davetle dönünce yeniden ulaşır |
 | `POST /accounts/:id/reset` (Owner; Admin yalnız Member'lara) | şifre yenileme linki, 24 saat, tek kullanımlık. Admin'in Owner'a ya da başka bir Admin'e linki onun hesabına girmek olurdu |
 
 ### 5.3 Canlı kanal
@@ -157,7 +159,7 @@ Hepsi `https://<sunucu>/api/v1` altında, JSON; her istek `Authorization: Bearer
 ## 6. Kimlik ve güvenlik
 
 - **İlk kurulum:** sunucuya ilk bağlanan sahibi olur (Coolify ve Immich de böyle). Uygulama Connect a server…'da adresi alınca `GET /server`'a bakar; sunucu yeniyse kurulum formunu açar, ad ve e-posta Profile'dan gelir, şifre seçilir. Kurulum, sunucunun hesapsız açıldığı andan bir saat sonra kapanır; süre dolduysa uygulama sunucuyu barındırma panelinden yeniden başlatmasını söyler, yeniden başlayan hesapsız sunucuda süre yeniden işler. `SCRAWL_OWNER_EMAIL` verilmişse sunucuyu yalnız o e-posta kurabilir (Coolify'ın kurulumda tanımlanan yönetici hesabı gibi). Log okumak gerekmez.
-- **Roller:** sunucuda Owner, Admin, Member; space'te Manager, Member (yetki tablosu PLAN 5.5'te). Her istek rolü sunucuda denetler; yetmeyen 403 döner ve uygulama o düğmeyi zaten göstermez. Dosya isteklerinde 403 "üye değil" demektir (5.1).
+- **Roller:** sunucuda Owner, Admin, Member; space'te Manager, Member (yetki tablosu PLAN 5.5'te). Kişisel space'in tek üyesi sahibidir; bir hesap yalnız üyesi olduğu space'leri gördüğü için Owner ve Admin onu görmez ve açamaz, sunucu davet ve üye işlemlerini reddeder. Her istek rolü sunucuda denetler; yetmeyen 403 döner ve uygulama o düğmeyi zaten göstermez. Dosya isteklerinde 403 "üye değil" demektir (5.1).
 - **Davet:** space'in Manager'ları Invite… ile link alır; tek kullanımlık, 7 gün. Link tarayıcıda açılırsa sunucunun küçük bir sayfası "Bunu Scrawl'da aç" der: web uygulamasına linkle gönderen bir düğme ve masaüstü için "Add space › Connect a server…'a yapıştır" cümlesi.
 - **Sunucunun adresi tarayıcıda:** kurulmamışken "This Scrawl server is ready. Open Scrawl and connect to <adres> to set it up.", kurulduktan sonra "This is a Scrawl server. Open Scrawl and connect to <adres>." yazan düz bir sayfa.
 - **Kimlik:** hesabın id'si, daveti kabul eden cihazdaki `me.json` id'sidir; atamalar ve `people.json` bugünkü gibi çalışır. Başka bir cihazda girişte hesabın id'si o cihazdakinden farklıysa o cihaz hesabınkini alır; Profile'da boş olan ad ve e-posta da hesaptan dolar, dolu olanlar değişmez.
@@ -173,8 +175,8 @@ Hepsi `https://<sunucu>/api/v1` altında, JSON; her istek `Authorization: Bearer
 - **core:** `packages/core/src/sync/server.ts`: `ServerRemote` (`RemoteStore`'u yukarıdaki API ile doldurur, sayfaları kendisi birleştirir) ve `ServerAccount` (giriş, space'ler, üyeler, davet). Hataları 5.1'deki tabloya göre motorun hatalarına çevirir.
 - **Space kaynağı:** `SpaceSource` zaten sağlayıcıya açık: `{ provider: 'server', account: '<e-posta>', place: { url: 'https://kaan.scrawlnotes.com', space: 'sp-…' } }`. `Connection.provider` `'onedrive' | 'server'` olur.
 - **Sync servisi** (`apps/web/src/sync.ts`): sunucudaki space'in birimi `ServerRemote` kullanır; her sunucu için tek bir canlı bağlantı açılır, bütün space'leri onu dinler. Kaydettikten sonraki bekleme sunucu space'lerinde 1 saniye; canlı bağlantı varken 30 saniyelik tur 60 saniyeye çıkar.
-- **Arayüz** (mockup sayfasının Sunucu bölümü): Add space › Location'da her bağlı sunucu bir satır ("kaan.scrawlnotes.com · kaan@…") ve Connect a server…. Connect a server… tek bir alandır, sunucunun adresi ya da davet linki; Continue'da uygulama bakar ve kurulum (sunucu yeni), katılma (davet linki) ya da giriş (kurulu sunucu) formunu açar. Varsayılan adres yoktur; alan boşken silik bir örnek görünür, cihaz bağlandığı sunucuyu hatırlar ve alan onunla dolu gelir. Hesabı olmayan biri girmeye çalışırsa: "No account with this email on <adres>. Enter your own server's address, or ask its owner for a link." Folder adımının yerinde Space: New space (yazılan adla) ya da davet edilip bu cihazda olmayan space'ler; space sayfasında Manager'lar etiketli, People'ın yanında Invite… (link, Copy, New link) ve satırların menüsünde Make manager ve Remove from <space> yalnız Manager'lara görünür; New space yalnız Owner ve Admin'e. Settings › Spaces'in altında Servers; satır sunucunun sayfasını açar: hangi hesapla girildiği ve Sign out on this device, Owner ve Admin için ayrıca sunucudaki hesaplar, rolleri ve menüde Make admin / Make member (Owner), New password link…, Remove from server. Sync paneli aynı kalır; iki yeni durum var: space'ten çıkarılan kişinin cihazında "You were taken out of <space>", kendi isteğiyle çıkışta "Signed out on this device".
-- **Kişisel space** v1'de sunucuya bağlanmaz; OneDrive'da kalır ya da hiç sync olmaz.
+- **Arayüz** (mockup sayfasının Sunucu bölümü): Add space › Location'da her bağlı sunucu bir satır ("kaan.scrawlnotes.com · kaan@…") ve Connect a server…. Connect a server… tek bir alandır, sunucunun adresi ya da davet linki; Continue'da uygulama bakar ve kurulum (sunucu yeni), katılma (davet linki) ya da giriş (kurulu sunucu) formunu açar. Varsayılan adres yoktur; alan boşken silik bir örnek görünür, cihaz bağlandığı sunucuyu hatırlar ve alan onunla dolu gelir. Hesabı olmayan biri girmeye çalışırsa: "No account with this email on <adres>. Enter your own server's address, or ask its owner for a link." Folder adımının yerinde Space: New space (yazılan adla) ya da davet edilip bu cihazda olmayan paylaşılan space'ler; space sayfasında Manager'lar etiketli, People'ın yanında Invite… (link, Copy, New link) ve satırların menüsünde Make manager ve Remove from <space> yalnız Manager'lara görünür; paylaşılan New space yalnız Owner ve Admin'e. 16 Ekim'den beri Connect a server… ayrı bir pencere değil, Add space'in ve Sync Personal'ın bir adımıdır (`design/spaces.md` 2.5). Settings › Spaces'in altında Servers; satır sunucunun sayfasını açar: hangi hesapla girildiği ve Sign out on this device, Owner ve Admin için ayrıca sunucudaki hesaplar, rolleri ve menüde Make admin / Make member (Owner), New password link…, Remove from server. Sync paneli aynı kalır; iki yeni durum var: space'ten çıkarılan kişinin cihazında "You were taken out of <space>", kendi isteğiyle çıkışta "Signed out on this device".
+- **Kişisel space** (16 Ekim, `design/spaces.md`): cihazda kalır, OneDrive'da ya da bir sunucuda sync olur. Sunucuda `POST /spaces` `personal: true` ile açılır, hesabın orada bir kişisel space'i olur; Sync Personal penceresinde "New space "Personal"" ya da "Personal · yours" olarak seçilir. Sunucunun Owner'ı değilsen pencere "Not your server: The owner of <adres> can reach what is stored on it." der.
 
 ## 8. Kurulum ve işletme
 
@@ -195,7 +197,7 @@ Kurulum dosyaları `apps/server/deploy/`'da, rehberi `apps/server/README.md`'de:
 
 ## 9. Testler
 
-- **Sunucu:** yazma ve `If-Match`, taşıma, silme (klasörle), `changes` ve imleç, silinenlerin izi ve `full`, yol kuralları, ilk bağlananın sahip olması (süre, `SCRAWL_OWNER_EMAIL`, hesap varken ikinci kurulumun reddi), giriş, anahtar geri alma, davet (süre, tek kullanım), üyelik denetimi, kanal bildirimi.
+- **Sunucu:** yazma ve `If-Match`, taşıma, silme (klasörle), `changes` ve imleç, silinenlerin izi ve `full`, yol kuralları, ilk bağlananın sahip olması (süre, `SCRAWL_OWNER_EMAIL`, hesap varken ikinci kurulumun reddi), giriş, anahtar geri alma, davet (süre, tek kullanım), üyelik denetimi, kanal bildirimi. Kişisel space (`design/spaces.md` 7. bölüm): Member'ın açması, ikincisinin reddi, davet ve üye işlemlerinin reddi, başkasına görünmemesi, hesap sayısına girmemesi, hesap çıkıp dönünce ulaşılması.
 - **Sözleşme:** motorun `MemoryRemote`'la koşan testlerinden sağlayıcı davranışına dayananlar, test içinde açılan bir sunucuya karşı `ServerRemote` ile de koşar; ikisi aynı davranmalı.
 - **Uçtan uca:** iki kasa aynı space'e bağlı; birinde yapılan değişiklik bildirimle ötekine 2 saniye içinde geçer; panoda aynı anda iki kart değişir, ikisi de kalır.
 - **Elle (bitti ölçütü):** Scrawl'ın kendi ekibi bir space'i kendi sunucusunda kullanıyor; masaüstü, web ve iPhone'da.
@@ -217,3 +219,4 @@ Kurulum dosyaları `apps/server/deploy/`'da, rehberi `apps/server/README.md`'de:
 6. Herkes kendi sunucusunu kurar; bizim işlettiğimiz açık bir sunucu yok. Uygulamada varsayılan sunucu adresi yok; cihaz bağlandığını hatırlar.
 7. Sunucuya ilk bağlanan sahibi olur; log ve kurulum linki yok. Kurulum bir saat açık kalır, isteğe bağlı `SCRAWL_OWNER_EMAIL`.
 8. Temel roller bu aşamada ve açık çekirdekte: sunucuda Owner, Admin, Member (space'i Owner ve Admin açar); space'te Manager, Member (Invite… ve çıkarma Manager'ın). İnce yetkiler ve SSO ileride `ee/`.
+9. 16 Ekim: kişisel space sunucuda durabilir. Onu hesabı olan herkes açar, yalnız sahibi görür; hesap çıkarılınca kalır. Kararların hepsi `design/spaces.md` 9. bölümde.

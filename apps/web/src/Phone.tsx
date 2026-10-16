@@ -1259,7 +1259,7 @@ export function Phone(props: PhoneProps) {
       if (page.space === undefined && props.spaces.length > 0) {
         return (
           <PageFrame title={titleOf(page, of)} nav={{ ...nav, ...(values.sync.all.length > 0 && { action: { label: t('sync.syncNow'), run: () => values.syncService.syncNow() } }) }}>
-            <PhoneSyncList sync={values.sync} spaces={props.spaces} personalName={values.spaceName ?? t('settings.personal')} service={values.syncService} onOpen={(space) => push({ kind: 'sync', space, named: true })} />
+            <PhoneSyncList sync={values.sync} spaces={props.spaces} personalName={values.spaceName ?? t('settings.personal')} onOpen={(space) => push({ kind: 'sync', space, named: true })} />
           </PageFrame>
         );
       }

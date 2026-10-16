@@ -5,7 +5,6 @@ import { clientId, DEFAULT_CLIENT_ID, setClientId } from './cloud';
 import { Icon, type IconName } from './Icon';
 import type { SpaceView } from './session';
 import type { SettingsValues } from './Settings';
-import { DOWNLOAD_LIMITS, loadDownloadLimit, saveDownloadLimit } from './device';
 import { ActionSheet, Empty, Sheet, SheetClose } from './sheets';
 import { isDesktop } from './storage';
 import type { Connection, SpaceSync, SyncService, SyncSnapshot } from './sync';
@@ -139,66 +138,10 @@ function lineOf(unit: SpaceSync): string {
  * The Sync page with more than one space: each a row with how it stands, a bar while it syncs,
  * what keeps it from going on with a sign; a row opens the space's page.
  */
-const Tick = ({ on }: { on: boolean }) => <span className="tick">{on && <Icon name="check" />}</span>;
-
-/**
- * This phone's limit, after the Phone large files view of design/mockups.html: how large an
- * attached file comes by itself. A larger one waits in the cloud, in its place in the note, until
- * it is tapped. Raising it brings what is under it now.
- */
-export function DownloadLimit({ service }: { service: SyncService }) {
-  const [limit, setLimit] = useState(loadDownloadLimit);
-  const [open, setOpen] = useState(false);
-  const label = (each: number | null) => (each === null ? t('settings.everyFile') : t('settings.upToShort', { size: `${each} MB` }));
-  const choose = (each: number | null) => {
-    setLimit(each);
-    saveDownloadLimit(each);
-    setOpen(false);
-    service.syncNow();
-  };
-  return (
-    <>
-      <div className="mb-sec">{t('phone.thisPhone')}</div>
-      <div className="mb-list">
-        <button type="button" className="mb-row" onClick={() => setOpen(true)}>
-          <Icon name="download" />
-          <span className="tx">
-            <b>{t('settings.downloadBy')}</b>
-          </span>
-          <span className="ct">{label(limit)}</span>
-          <Icon name="chevron" />
-        </button>
-      </div>
-      <p className="mb-p">{t('settings.downloadAbout')}</p>
-      {open && (
-        <Sheet label={t('settings.downloadBy')} className="mb-create" onClose={() => setOpen(false)}>
-          <div className="mb-sh">
-            <b>{t('settings.downloadBy')}</b>
-            <small>{t('phone.thisPhone')}</small>
-            <SheetClose onClose={() => setOpen(false)} />
-          </div>
-          <div className="mb-form">
-            <div className="mb-group">
-              {[...DOWNLOAD_LIMITS, null].map((each) => (
-                <button key={each ?? 'all'} type="button" className="mb-fr pick" onClick={() => choose(each)}>
-                  <span className="in">{label(each)}</span>
-                  <Tick on={each === limit} />
-                </button>
-              ))}
-            </div>
-            <p className="mb-hint">{t('settings.downloadAboutPhone')}</p>
-          </div>
-        </Sheet>
-      )}
-    </>
-  );
-}
-
-export function PhoneSyncList({ sync, spaces, personalName, service, onOpen }: {
+export function PhoneSyncList({ sync, spaces, personalName, onOpen }: {
   sync: SyncSnapshot;
   spaces: SpaceView[];
   personalName: string;
-  service: SyncService;
   onOpen: (space: string | null) => void;
 }) {
   useTicking(true);
@@ -233,7 +176,6 @@ export function PhoneSyncList({ sync, spaces, personalName, service, onOpen }: {
         })}
       </div>
       <p className="mb-p">{t('panel.when')}</p>
-      <DownloadLimit service={service} />
     </>
   );
 }
@@ -421,8 +363,6 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
         {waiting}
         {problem}
       </div>
-      {/* With one space its sync page is the Sync page: this phone's limit is here. */}
-      {values.spaces.length === 0 && <DownloadLimit service={service} />}
       <div className={tabs.length === 3 ? 'mb-seg three' : 'mb-seg'} role="tablist">
         {tabs.map((each) => (
           <button key={each} type="button" role="tab" aria-selected={each === tab} onClick={() => setChosen(each)}>

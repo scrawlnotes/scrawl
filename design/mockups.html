@@ -2122,6 +2122,25 @@ p { margin: 0; max-width: 68ch; }
 .dir[data-dir="start"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
 .dir[data-dir="start"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
 .dir[data-dir="start"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+/* Spaces, personal and shared (Oct 16, a draft): Personal and Shared apart in Settings › Spaces,
+   and one window for where a space syncs, the place first, then the folder or the space there. */
+.dir[data-dir="spaces2"] { margin-top: 56px; }
+.dir[data-dir="spaces2"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="spaces2"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="spaces2"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.fp .list span em.ps-now { padding: 0 6px; border: 1px solid var(--m-line); border-radius: 9px; color: var(--m-dim); font-size: 10.5px; font-style: normal; }
+.fp .ps-check { display: flex; align-items: center; gap: 8px; margin: 12px 2px 0; color: var(--m-fg); font-size: 12.5px; }
+.fp .ps-check i { flex: none; width: 15px; height: 15px; border: 1.5px solid var(--m-faint); border-radius: 4px; box-sizing: border-box; }
+.fp .note.ps-under { margin: 4px 2px 0 25px; }
+.fp .ps-crumb { display: inline-flex; align-items: center; gap: 2px; margin: -4px 0 8px -4px; padding: 2px 6px 2px 2px; color: var(--m-dim); font-size: 12.5px; }
+.fp .ps-crumb svg { width: 13px; height: 13px; }
+.mb-fr .in.ps-sw { color: var(--m-fg); }
+/* Personal moved on another device: here its sync stops, in amber, with the way to follow it. */
+.st-sync .state.ps-moved { color: #e0a84a; }
+.st-sync .state.ps-moved svg { flex: none; width: 13px; height: 13px; }
+.status .sync-st .txt.ps-moved { color: #e0a84a; }
+.mb-srvfound.late { background: color-mix(in srgb, #e0a84a 12%, transparent); }
+.mb-srvfound.late > svg { color: #e0a84a; }
 .ss { flex: 1; min-height: 0; overflow: hidden; }
 .ss-in { max-width: 760px; margin: 0 auto; padding: 30px 32px 16px; display: flex; flex-direction: column; gap: 26px; }
 .ss-h { display: flex; align-items: baseline; gap: 7px; margin: 0 0 10px; font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--m-dim); }
@@ -2269,7 +2288,6 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-filesdel" data-aview="filesdel">Files delete</button>
         <button type="button" id="a-trashsel" data-aview="trashsel">Trash select</button>
         <button type="button" id="a-bigfile" data-aview="bigfile">Large files</button>
-        <button type="button" id="a-bigset" data-aview="bigset">Download setting</button>
         <button type="button" id="a-search" data-aview="search">Search</button>
         <button type="button" id="a-searchfind" data-aview="searchfind">Search find</button>
         <button type="button" id="a-searchnone" data-aview="searchnone">Search nothing found</button>
@@ -2316,15 +2334,13 @@ p { margin: 0; max-width: 68ch; }
       <div>
         <span class="letter">SUNUCU · 11. AŞAMA</span>
         <h2>Kendi sunucunda bir space</h2>
-        <p>Ekip kendi Docker sunucusunu kurar; space orada durur ve bir kişinin değişikliği diğerine bir iki saniyede geçer. Uygulamada sunucu OneDrive'ın yanında bir konumdur: Add space'te bir satır, Connect a server… ile bağlanma, davet linkiyle katılma, space'in sayfasında üyeler, Manager'lar ve Invite… düğmesi; sunucunun sayfasında hesaplar ve rolleri. Connect a server… tek bir alandır, sunucunun adresi ya da davet linki; yeni bir sunucuya ilk bağlanan sahibi olur. Sunucunun ayrı bir yönetim ekranı yoktur; tarayıcıda yalnız linki ya da adresi Scrawl'a yönlendiren küçük bir sayfası vardır. Teknik tasarım <code>design/server.md</code>.</p>
+        <p>Ekip kendi Docker sunucusunu kurar; space orada durur ve bir kişinin değişikliği diğerine bir iki saniyede geçer. Uygulamada sunucu OneDrive'ın yanında bir konumdur: Add space'te bir satır, Connect a server… ile bağlanma, davet linkiyle katılma, space'in sayfasında üyeler, Manager'lar ve Invite… düğmesi; sunucunun sayfasında hesaplar ve rolleri. Connect a server… Add space'in bir adımıdır: tek alan, sunucunun adresi ya da davet linki; sunucu cevap verince katılma, kurulum ya da giriş alanları aynı adımda açılır, sonra pencere Location'a döner. Yeni bir sunucuya ilk bağlanan sahibi olur. Sunucunun ayrı bir yönetim ekranı yoktur; tarayıcıda yalnız linki ya da adresi Scrawl'a yönlendiren küçük bir sayfası vardır. Teknik tasarım <code>design/server.md</code>.</p>
         <ul class="traits"><li>sunucu bir konum</li><li>adres ya da davet linki, tek alan</li><li>ilk bağlanan sahibi olur</li><li>roller: Owner, Admin, Member; space'te Manager</li><li>davet linkle, e-posta gönderilmez</li><li>masaüstü, web ve telefon</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Sunucu görünümü">
         <button type="button" data-sview="srvadd">Add space</button>
         <button type="button" data-sview="srvconnect">Connect, invite</button>
-        <button type="button" data-sview="srvjoin">Join</button>
         <button type="button" data-sview="srvnew">Connect, new server</button>
-        <button type="button" data-sview="srvsetup">Set up</button>
         <button type="button" data-sview="srvclosed">Setup closed</button>
         <button type="button" data-sview="srvsignin">Sign in</button>
         <button type="button" data-sview="srvnoacct">No account</button>
@@ -2442,6 +2458,35 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-ssview="ssday">Her gün</button>
         <button type="button" data-ssview="ssnew">Yeni cihaz</button>
         <button type="button" data-ssview="ssempty">Boş space</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="spaces2">
+    <div class="brief">
+      <div>
+        <span class="letter">SPACE'LER · KİŞİSEL VE PAYLAŞILAN</span>
+        <h2>Kişisel ve paylaşılan space'ler: tek akış</h2>
+        <p>Kişisel space ile paylaşılan space'ler keskin ayrılır. Settings › Spaces iki bölümdür: Personal, yalnız senin olan tek space; Shared, başkalarıyla çalıştığın space'ler, Add space onların altında. Kişisel space'in nerede sync olduğu tek bir akıştır: sayfasındaki Sync bölümünde Sync… (sync olmuyorken) ya da Change… aynı pencereyi açar; önce yer (Not synced, OneDrive, bağlı sunucular, Connect a server…), sonra o yerde klasör ya da space. Diğer cihazlarda aynı klasör ya da space seçilir, ikisindekiler birleşir. Yer değişince eski yerdeki kopya kalır; pencerede bir kutuyla silinebilir, kutu kapalı gelir. Not synced seçilince yalnız bu cihaz sync'i bırakır; bulut kopyası ve diğer cihazlar devam eder. Eski yerde her durumda küçük bir "taşındı" işareti kalır, kutu işaretliyse yalnız o kalır. Hâlâ oraya sync olan bir cihaz bu işareti görünce sync'i durdurur, "Personal moved" der; Move this device too aynı pencereyi yeni yer ve oradaki space seçili açar, cihazda olup karşıda olmayan her şey birlikte gider. Sunucudaki kişisel space'i yalnız sahibi görür; Owner ve Admin onu göremez, açamaz. Başkasının sunucusu seçilince pencere, sunucunun sahibinin orada saklananlara ulaşabileceğini söyler. Sunucuda hesabı olan herkes, Member da, orada bir kişisel space açabilir. Add space aynı iki adımdır, ama Not synced yoktur ve yeri sonradan değişmez. Connect a server… ayrı bir pencere açmaz, aynı pencerenin bir adımıdır; adres yazılınca sunucunun istediği alanlar (giriş, kurulum ya da katılma) o adımda açılır. Kişisel space'te davet linki olmaz. Kişisel space'in sayfasında People yoktur, Sync'te Change… vardır; paylaşılan space'in sayfasında People vardır, Change… yoktur. Telefonda aynı akış sheet'lerdedir. Teknik tasarım <code>design/spaces.md</code>.</p>
+        <ul class="traits"><li>Personal ve Shared iki bölüm</li><li>tek akış: yer, sonra klasör ya da space</li><li>Not synced yalnız kişiselde</li><li>yer değişimi yalnız kişiselde</li><li>eski kopya: kutu, kapalı</li><li>taşındı işareti, Move this device too</li><li>sunucuda yalnız sahibi görür</li><li>Member da açabilir</li><li>Connect a server aynı pencerede</li><li>masaüstü ve telefon</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Space görünümü">
+        <button type="button" data-psview="pslist">Spaces</button>
+        <button type="button" data-psview="pspage">Personal</button>
+        <button type="button" data-psview="pswhere">Sync…, sunucu</button>
+        <button type="button" data-psview="psonedrive">Sync…, OneDrive</button>
+        <button type="button" data-psview="psconnect">Connect a server</button>
+        <button type="button" data-psview="pssynced">Personal, synced</button>
+        <button type="button" data-psview="psmove">Change…, taşıma</button>
+        <button type="button" data-psview="psmoved">Personal moved</button>
+        <button type="button" data-psview="psfollow">Move this device too</button>
+        <button type="button" data-psview="psother">Başkasının sunucusu</button>
+        <button type="button" data-psview="psadd">Add space</button>
+        <button type="button" data-psview="psshared">Shared space</button>
+        <button type="button" data-psview="pphone">Phone</button>
+        <button type="button" data-psview="pphone2">Phone, shared</button>
+        <button type="button" data-psview="pphone3">Phone, moved</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -4971,7 +5016,7 @@ p { margin: 0; max-width: 68ch; }
       spRowT({ d: 1, folder: true, label: 'Support', ct: 3 }) +
       spRowT({ d: 1, folder: true, label: 'meetings', ct: 6 }) +
       spRowT({ sp: true, label: 'Side projects' }) +
-      '</div>' + spFoot(view === 'profile' ? 'settings' : SP_SETTINGS.indexOf(view) >= 0 || view === 'bigset' ? 'sync' : null, view === 'sptrash' || view === 'trashsel', view.indexOf('files') === 0);
+      '</div>' + spFoot(view === 'profile' ? 'settings' : SP_SETTINGS.indexOf(view) >= 0 ? 'sync' : null, view === 'sptrash' || view === 'trashsel', view.indexOf('files') === 0);
   }
   /** The sidebar of a first start: one space, so no heading; nothing in it yet. */
   function freshTree() {
@@ -5036,15 +5081,17 @@ p { margin: 0; max-width: 68ch; }
    * Remove from this device.
    */
   function spSpacesList(menu) {
-    return '<span class="st-label">Spaces</span>' +
-      '<p class="st-note">Each space is a place to work with others, kept in a cloud folder. The sidebar shows them in this order.</p>' +
+    return '<span class="st-label">Personal</span>' +
+      '<p class="st-note">Only yours; nobody else is in it. Sync it to your OneDrive or your Scrawl server to have it on your other devices too.</p>' +
+      '<div class="st-list">' + spLi({ icon: 'space', name: 'Personal', sub: 'OneDrive · My files › Scrawl' }) + '</div>' +
+      '<span class="st-label">Shared</span>' +
+      '<p class="st-note">The spaces you work in with others, in a OneDrive folder or on a Scrawl server. The sidebar shows them under Personal, in this order.</p>' +
       '<div class="st-list">' +
-      spLi({ icon: 'space', name: 'Personal', sub: 'Yours · ' + SP_DEFAULT + 'Personal' }) +
       spLi({ icon: 'space', name: 'Acme', sub: 'OneDrive · Lena Hartmann’s folder · 3 people', more: true, cls: menu ? 'menu' : '',
         menu: menu ? '<div class="cmenu"><span>Settings…</span><i></i><span class="off">Move up</span><span>Move down</span><i></i><span>Remove from this device</span></div>' : '' }) +
       spLi({ icon: 'space', name: 'Side projects', sub: 'OneDrive · just you', more: true }) +
       '</div>' +
-      '<div class="st-acts"><span class="st-btn go">' + ICON.plus + 'Add space…</span><small>A folder in OneDrive, yours or one shared with you.</small></div>' +
+      '<div class="st-acts"><span class="st-btn go">' + ICON.plus + 'Add space…</span><small>A OneDrive folder, or a space on a Scrawl server.</small></div>' +
       '<span class="st-label">This device</span>' +
       '<div class="st-device"><span class="fl">Name</span><span class="in">Laptop</span><span class="st-row"><span class="btn save">Save</span></span></div>';
   }
@@ -5054,7 +5101,7 @@ p { margin: 0; max-width: 68ch; }
    */
   function spSpacePage(quiet) {
     return '<span class="st-back">' + ICON.chevl + 'Spaces</span>' +
-      '<div class="st-space tight"><div class="top">' + ICON.space + '<b>Acme</b><small>In OneDrive</small></div>' +
+      '<div class="st-space tight"><div class="top">' + ICON.space + '<b>Acme</b><small>Shared</small></div>' +
       '<div class="st-row"><span class="fl">Name</span><span class="in">Acme</span><span class="btn save">Save</span></div>' +
       '<div class="st-row"><span class="fl">Folder</span><span class="path">' + SP_DEFAULT + 'Acme</span><span class="btn">Change…</span></div>' +
       '<div class="st-sync"><span class="fl">Sync</span><div class="what">' +
@@ -5096,10 +5143,11 @@ p { margin: 0; max-width: 68ch; }
     var where = how === 'signin'
       ? '<div class="sp-signin">' + ICON.cloud + '<span>Connect OneDrive to choose a folder in it.</span><span class="st-btn go">Connect OneDrive</span></div>'
       : '<div class="label">Folder</div><div class="sp-pick"><span class="path plain">' + ICON.cloud + 'Shared › Northwind<small>kaan@outlook.com</small></span><span class="st-btn">Choose folder…</span></div>';
-    return '<div class="fp-ovl"><div class="fp"><h3>Add space</h3>' +
+    return '<div class="fp-ovl"><div class="fp"><h3>Add space<small>Shared with others</small></h3>' +
       '<div class="label">Name</div><div class="field filled">Northwind</div>' +
       '<div class="label" style="margin-top: 10px">Location</div>' +
-      '<div class="list">' + src('cloud', 'OneDrive', how === 'signin' ? 'not connected' : 'kaan@outlook.com', true) + '</div>' +
+      '<div class="list">' + src('cloud', 'OneDrive', how === 'signin' ? 'not connected' : 'kaan@outlook.com', true) + src('server', SRV_HOST, 'kaan@outlook.com') +
+        '<span class="srv-new">' + ICON.plus + 'Connect a server…</span></div>' +
       '<div class="sp-add">' + where + '</div>' +
       (how === 'signin' ? '' : '<div class="sp-you">' +
         '<div><div class="label">Your name</div><div class="field">Kaan Arslan<span class="caret"></span></div></div>' +
@@ -5285,15 +5333,17 @@ p { margin: 0; max-width: 68ch; }
   }
   function mbSpacesList() {
     return mbPage(mbNav('Settings', ['Reorder']) + mbHead('Spaces'),
-      mbRow({ icon: 'space', label: 'Personal', sub: 'Yours · on this phone' }) +
+      '<div class="mb-sec">Personal</div>' +
+      mbRow({ icon: 'space', label: 'Personal', sub: 'OneDrive · My files › Scrawl' }) +
+      '<p class="mb-p">Only yours. Sync it to have it on your other devices too.</p>' +
+      '<div class="mb-sec">Shared</div>' +
       mbRow({ icon: 'space', label: 'Acme', sub: 'OneDrive · Lena Hartmann’s folder · 3 people' }) +
       mbRow({ icon: 'space', label: 'Side projects', sub: 'OneDrive · just you' }) +
-      '<div class="mb-gap"></div>' +
       mbRow({ icon: 'plus', label: 'Add space', chev: false }) +
-      '<p class="mb-p">Each space is a place to work with others, kept in a cloud folder. Browse shows them in this order.</p>');
+      '<p class="mb-p">The spaces you work in with others. Browse shows them in this order.</p>');
   }
   function mbSpacePage() {
-    return mbPage(mbNav('Spaces', ['dots']) + mbHead('Acme', 'In OneDrive, Lena Hartmann’s folder'),
+    return mbPage(mbNav('Spaces', ['dots']) + mbHead('Acme', 'Shared · in OneDrive, Lena Hartmann’s folder'),
       '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">Acme</span></div>' +
       '<div class="mb-fr"><span class="fl">Sync</span><span class="in">OneDrive</span><span class="val">12 s ago' + MB_CHEV + '</span></div></div>' +
       '<div class="mb-sec">People</div>' +
@@ -5318,7 +5368,7 @@ p { margin: 0; max-width: 68ch; }
   function phoneSpaces() {
     return [
       mbPhone('Browse: her space bir bölüm', mbBrowseSpaces(), mbTabs('browse') + MB_FAB),
-      mbPhone('Settings › Spaces: sıra Reorder ile', mbSpacesList(), mbTabs('browse')),
+      mbPhone('Settings › Spaces: Personal ve Shared, Reorder Shared’ı sıralar', mbSpacesList(), mbTabs('browse')),
       mbPhone('Bir space: adı, sync’i ve insanları', mbSpacePage(), mbTabs('browse')),
       mbPhone('Add space: ad, konum ve klasör; Profile’da ad ya da e-posta yoksa burada sorulur', mbSpacesList(), mbTabs('browse') + mbAddSpaceSheet())
     ].join('');
@@ -5451,23 +5501,6 @@ p { margin: 0; max-width: 68ch; }
       mbSyncRow('tasks', 'Tasks', 'Ideas', 'merged', 'merge') +
       mbSyncRow('notes', 'App names', 'Ideas', 'sent', 'up'));
   }
-  /** The personal space's page: its name, its folder and its sync as rows, and this device's name apart. */
-  function mbPersonalPage() {
-    return mbPage(mbNav('Spaces') + mbHead('Personal', 'Yours · on this phone'),
-      '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">Personal</span></div>' +
-      '<div class="mb-fr"><span class="fl">Folder</span><span class="in">On this phone</span></div>' +
-      '<div class="mb-fr"><span class="fl">Sync</span><span class="in none">Not synced</span><span class="val">' + MB_CHEV + '</span></div></div>' +
-      '<div class="mb-sec">This device</div>' +
-      '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">iPhone</span></div></div>' +
-      '<p class="mb-p">Conflict copies carry the name of the device that made them.</p>');
-  }
-  function mbPersonalConnect() {
-    return mbPage(mbNav('Personal') + mbHead('Sync'),
-      '<div class="mb-empty-st"><span class="ic">' + ICON.cloud + '</span><b>Not synced</b>' +
-        '<p>Keep this space in your own cloud drive to have it on every device.</p>' +
-        '<div class="mb-btn">Connect OneDrive</div></div>' +
-      '<p class="mb-p center">Scrawl asks to reach your OneDrive, and works only in the folder you choose.<br><br><u>Use your own app registration</u></p>');
-  }
   /** OneDrive's folders as a sheet: a tap picks a folder, its › goes into it; Use is at the top. */
   function mbOneDriveSheet() {
     function f(name, o) {
@@ -5493,9 +5526,9 @@ p { margin: 0; max-width: 68ch; }
   function phoneSyncMore() {
     return [
       mbPhone('Bir sorun: açıklaması ve kendi düğmesi', mbSideSignedOut(), mbTabs('browse')),
-      mbPhone('Kişisel space: satırlar, This device ayrı', mbPersonalPage(), mbTabs('browse')),
-      mbPhone('Bağlı değil: Connect OneDrive', mbPersonalConnect(), mbTabs('browse')),
-      mbPhone('OneDrive’da klasör: dokununca seçer, › içine girer', mbPersonalConnect(), mbTabs('browse') + mbOneDriveSheet())
+      mbPhone('Kişisel space: Location, This device ayrı', mbPsPersonal(), mbTabs('browse')),
+      mbPhone('Location: Sync Personal, OneDrive seçili', mbPsPersonal(), mbTabs('browse') + mbPsWhereSheet('onedrive')),
+      mbPhone('OneDrive’da klasör: dokununca seçer, › içine girer', mbPsPersonal(), mbTabs('browse') + mbOneDriveSheet())
     ].join('');
   }
   // Files (Oct 14). Every image, recording and file attached in a space, with where it is used,
@@ -5612,13 +5645,6 @@ p { margin: 0; max-width: 68ch; }
     '<div class="ln">&nbsp;</div>' +
     '<div class="ln">Next: ask about the drainage<span class="caret"></span></div>' +
     '</div></div>';
-  /** This device in Settings › Spaces, in a browser: how large a file comes by itself. */
-  function bigSetting() {
-    var list = spSpacesList(false).replace(/<div class="st-device">/g, '<div class="st-device wide">').replace('Yours · ' + SP_DEFAULT + 'Personal', 'Yours · In this browser') +
-      '<div class="st-device wide"><span class="fl">Download</span><span class="in choose">Files up to 10 MB<span class="dd">▾</span></span></div>' +
-      '<p class="st-note">Larger files stay in OneDrive until you open them; notes, lists and boards always come. The desktop app takes every file.</p>';
-    return spSettingsWindow('spaceslist').replace(spSpacesList(true), list);
-  }
   function filesTabs(on) {
     return tab('notes', 'Client call, Oct 6', 'note', false) + tab(on === 'trash' ? 'trash' : 'clip', on === 'trash' ? 'Trash' : 'Files', on, true) + '<div class="tab plus">+</div>';
   }
@@ -5634,7 +5660,6 @@ p { margin: 0; max-width: 68ch; }
   SP_VIEWS.bigfile = function () {
     return filesMain('bigfile', tab('notes', 'Site visit, Oct 6', 'note', true) + '<div class="tab plus">+</div>', BIG_NOTE, '<span>Ln 14, Col 29</span><span>38 words</span><span>Markdown</span>');
   };
-  SP_VIEWS.bigset = function () { return spNoteView('bigset') + bigSetting(); };
   // Search everywhere (Oct 14). One window, opened by Search at the top of the sidebar, that finds
   // anything by its name or by its text and opens it. The results are one list, the best match
   // first; each row says what it is and where, and a thing found by its text shows the line.
@@ -5826,25 +5851,10 @@ p { margin: 0; max-width: 68ch; }
       '<div><span class="aud away">' + ICON.audio + 'Recording<small>18.4 MB</small><span class="dl">' + ICON.cdown + 'Download</span></span></div>' +
       '<p>Next: ask about the drainage.</p></div>');
   }
-  function mbSyncLimit() {
-    return mbSyncSpaces().replace('<p class="mb-p">Every 30 s while open, and 5 s after a save.</p>',
-      '<div class="mb-sec">This phone</div>' +
-      '<div class="mb-form"><div class="mb-group"><div class="mb-fr"><span class="in">Download by itself</span><span class="val">Up to 10 MB' + MB_CHEV + '</span></div></div></div>' +
-      '<p class="mb-p">Larger files stay in OneDrive until you tap them. Notes, lists and boards always come. Every 30 s while open, and 5 s after a save.</p>');
-  }
-  function mbLimitSheet() {
-    function o(label, on) { return '<div class="mb-row"><span class="tx"><b>' + label + '</b></span>' + (on ? MB_TICK : '') + '</div>'; }
-    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
-      '<div class="mb-sh"><b>Download by itself</b><small>This phone</small><span class="x">' + ICON.x + '</span></div>' +
-      o('Up to 1 MB') + o('Up to 5 MB') + o('Up to 10 MB', true) + o('Up to 25 MB') + o('Up to 100 MB') + o('Every file') +
-      '<p class="mb-p">A larger file waits in OneDrive, in its place in the note, until you tap it. Once here, it stays.</p></div>';
-  }
   function phoneBigFiles() {
     return [
       mbPhone('İnmemiş büyük dosya: notta yerinde, boyutu ve Download', mbBigNote(false), mbTabs('browse')),
-      mbPhone('Dokununca iner; bitince resim yerine gelir', mbBigNote(true), mbTabs('browse')),
-      mbPhone('Sync sayfasında: bu telefonda kendiliğinden inen boyut', mbSyncLimit(), mbTabs('browse')),
-      mbPhone('Sınır telefonun kendi ayarı; varsayılan 10 MB', mbSyncLimit(), mbTabs('browse') + mbLimitSheet())
+      mbPhone('Dokununca iner; bitince resim yerine gelir', mbBigNote(true), mbTabs('browse'))
     ].join('');
   }
   // Search on a phone (Oct 14): the fourth tab, the same list as a page. A thing found opens as a
@@ -6015,14 +6025,16 @@ p { margin: 0; max-width: 68ch; }
   }
   /** Settings › Spaces with a space on a server, and under them the servers this device is signed in to. */
   function srvSpacesList() {
-    return '<span class="st-label">Spaces</span>' +
-      '<p class="st-note">Each space is a place to work with others, kept in a cloud folder or on a Scrawl server. The sidebar shows them in this order.</p>' +
+    return '<span class="st-label">Personal</span>' +
+      '<p class="st-note">Only yours; nobody else is in it. Sync it to your OneDrive or your Scrawl server to have it on your other devices too.</p>' +
+      '<div class="st-list">' + spLi({ icon: 'space', name: 'Personal', sub: 'OneDrive · My files › Scrawl' }) + '</div>' +
+      '<span class="st-label">Shared</span>' +
+      '<p class="st-note">The spaces you work in with others, in a OneDrive folder or on a Scrawl server. The sidebar shows them under Personal, in this order.</p>' +
       '<div class="st-list">' +
-      spLi({ icon: 'space', name: 'Personal', sub: 'Yours · ' + SP_DEFAULT + 'Personal' }) +
       spLi({ icon: 'space', name: 'Acme', sub: SRV_HOST + ' · 4 people', more: true }) +
       spLi({ icon: 'space', name: 'Side projects', sub: 'OneDrive · just you', more: true }) +
       '</div>' +
-      '<div class="st-acts"><span class="st-btn go">' + ICON.plus + 'Add space…</span><small>A folder in OneDrive, or a space on a Scrawl server.</small></div>' +
+      '<div class="st-acts"><span class="st-btn go">' + ICON.plus + 'Add space…</span><small>A OneDrive folder, or a space on a Scrawl server.</small></div>' +
       '<span class="st-label">Servers</span>' +
       '<div class="st-list">' + spLi({ icon: 'server', name: SRV_HOST, sub: 'kaan@outlook.com · Owner', r: '1 space here' }) + '</div>' +
       '<p class="st-note">A server opens its page: the account you are signed in with, and for its owner and admins the people on it.</p>' +
@@ -6038,7 +6050,7 @@ p { margin: 0; max-width: 68ch; }
   function srvSpacePage(as) {
     var member = as === 'member';
     return '<span class="st-back">' + ICON.chevl + 'Spaces</span>' +
-      '<div class="st-space tight"><div class="top">' + ICON.space + '<b>Acme</b><small>On a Scrawl server</small></div>' +
+      '<div class="st-space tight"><div class="top">' + ICON.space + '<b>Acme</b><small>Shared</small></div>' +
       '<div class="st-row"><span class="fl">Name</span><span class="in">Acme</span><span class="btn save">Save</span></div>' +
       '<div class="st-row"><span class="fl">Folder</span><span class="path">' + SP_DEFAULT + 'Acme</span><span class="btn">Change…</span></div>' +
       '<div class="st-sync"><span class="fl">Sync</span><div class="what">' +
@@ -6087,7 +6099,7 @@ p { margin: 0; max-width: 68ch; }
   /** Add space with a server chosen: a new space there named as typed, or one of its spaces you were invited to. */
   function srvAddSpace() {
     function li(icon, name, sub, cls) { return '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + ICON[icon] + name + (sub ? '<small>' + sub + '</small>' : '') + '</span>'; }
-    return '<div class="fp-ovl"><div class="fp"><h3>Add space</h3>' +
+    return '<div class="fp-ovl"><div class="fp"><h3>Add space<small>Shared with others</small></h3>' +
       '<div class="label">Name</div><div class="field filled">Northwind</div>' +
       '<div class="label" style="margin-top: 10px">Location</div>' +
       '<div class="list">' + li('cloud', 'OneDrive', 'kaan@outlook.com') + li('server', SRV_HOST, 'kaan@outlook.com', 'on') + li('plus', 'Connect a server…', '', 'srv-new') + '</div>' +
@@ -6098,45 +6110,39 @@ p { margin: 0; max-width: 68ch; }
       '</div></div>';
   }
   /**
-   * Connect a server: one field, the server's address or an invite link. Pasted, the app asks the
-   * server and says what Continue opens: joining a space, setting up a new server, or signing in.
-   * A new server's setting up closes an hour after it started; restarting it opens it again.
+   * Connect a server…, a step of Add space: one field, the server's address or an invite link.
+   * Once the server answers, what it asks for opens in the same step: joining a space, setting up
+   * a new server, or signing in; then Add space is back at Location with the server chosen. A new
+   * server's setting up closes an hour after it started; restarting it opens it again.
    */
   function srvConnect(kind) {
-    var invite = kind === 'invite', closed = kind === 'closed';
+    var invite = kind === 'invite', closed = kind === 'closed', setup = kind === 'new', none = kind === 'noacct';
+    function field(label, value, cls, first) {
+      return '<div class="label" style="margin-top: ' + (first ? '12' : '10') + 'px">' + label + '</div><div class="field filled' + (cls ? ' ' + cls : '') + '">' + value + '</div>';
+    }
+    var pw = '••••••••••<span class="caret"></span>';
     var found = invite
       ? '<div class="srv-found">' + ICON.server + '<span><b>Lena Hartmann invited you to Acme</b><small>' + SRV_HOST + ' · the link works until Oct 22</small></span></div>'
       : closed
         ? '<div class="srv-found late">' + ICON.warn + '<span><b>The time to set up ' + SRV_HOST + ' ran out</b><small>Restart the server in your hosting panel, then connect again.</small></span></div>'
-        : '<div class="srv-found">' + ICON.server + '<span><b>' + SRV_HOST + ' is new</b><small>Set it up and you become its owner.</small></span></div>';
-    return '<div class="fp-ovl"><div class="fp"><h3>Connect a server</h3>' +
-      '<div class="label">Server address or invite link</div><div class="field filled' + (invite ? ' sp-link' : '') + '">' + (invite ? SRV_LINK : SRV_HOST) + '</div>' + found +
-      '<p class="note">Your server’s address, or the invite link someone sent you.</p>' +
-      '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go' + (closed ? ' off' : '') + '">Continue</span></div>' +
-      '</div></div>';
-  }
-  /** Signing in to a server that is set up already; with no account for that email, it says what to do. */
-  function srvSignIn(none) {
-    return '<div class="fp-ovl"><div class="fp"><h3>Sign in<small>' + SRV_HOST + '</small></h3>' +
-      '<div class="label">Email</div><div class="field filled">' + (none ? 'kaan@gmail.com' : 'kaan@outlook.com') + '</div>' +
-      '<div class="label" style="margin-top: 10px">Password</div><div class="field filled srv-pw">••••••••••<span class="caret"></span></div>' +
-      (none
-        ? '<p class="srv-err">' + ICON.warn + '<span>No account with this email on ' + SRV_HOST + '. Enter your own server’s address, or ask its owner for a link.</span></p>'
-        : '<p class="note">Forgot it? The server’s owner can give you a link for a new one.</p>') +
-      '<div class="foot"><span class="st-btn">Back</span><span class="st-btn go">Sign in</span></div>' +
-      '</div></div>';
-  }
-  /** After the link: joining makes your account on the server, or the setup link makes you its owner. Name and email come from Profile. */
-  function srvJoin(setup) {
-    return '<div class="fp-ovl"><div class="fp"><h3>' + (setup ? 'Set up the server' : 'Join Acme') + '<small>' + SRV_HOST + '</small></h3>' +
-      '<p class="srv-what">' + (setup
-        ? SRV_HOST + ' is new, and you are the first to connect. You become its owner: you open its first space, invite the others, and can give anyone a link for a new password.'
-        : 'Lena Hartmann invited you to Acme. Your account on the server takes your name and email from Profile; choose a password for it.') + '</p>' +
-      '<div class="label">Name</div><div class="field filled">Kaan Arslan</div>' +
-      '<div class="label" style="margin-top: 10px">Email</div><div class="field filled">kaan@outlook.com</div>' +
-      '<div class="label" style="margin-top: 10px">Password</div><div class="field filled srv-pw">••••••••••<span class="caret"></span></div>' +
-      '<p class="note">At least 8 characters. You sign in with this email and password on your other devices.</p>' +
-      '<div class="foot"><span class="st-btn">Back</span><span class="st-btn go">' + (setup ? 'Set up' : 'Join Acme') + '</span></div>' +
+        : setup
+          ? '<div class="srv-found">' + ICON.server + '<span><b>' + SRV_HOST + ' is new</b><small>Set it up and you become its owner.</small></span></div>'
+          : '<div class="srv-found">' + ICON.server + '<span><b>' + SRV_HOST + '</b><small>Sign in with your account there.</small></span></div>';
+    var fields = invite || setup
+      ? field('Name', 'Kaan Arslan', '', true) + field('Email', 'kaan@outlook.com') + field('Password', pw, 'srv-pw') +
+        '<p class="note">' + (invite ? 'Your account on the server takes your name and email from Profile. ' : 'You open its first space, invite the others, and can give anyone a link for a new password. ') +
+        'At least 8 characters; you sign in with this email and password on your other devices.</p>'
+      : closed
+        ? '<p class="note">Your server’s address, or the invite link someone sent you.</p>'
+        : field('Email', none ? 'kaan@gmail.com' : 'kaan@outlook.com', '', true) + field('Password', pw, 'srv-pw') +
+          (none
+            ? '<p class="srv-err">' + ICON.warn + '<span>No account with this email on ' + SRV_HOST + '. Enter your own server’s address, or ask its owner for a link.</span></p>'
+            : '<p class="note">Forgot it? The server’s owner can give you a link for a new one.</p>');
+    var go = invite ? 'Join Acme' : setup ? 'Set up' : closed ? 'Continue' : 'Sign in';
+    return '<div class="fp-ovl"><div class="fp"><h3>Add space<small>Shared with others</small></h3>' +
+      '<span class="ps-crumb">' + ICON.chevl + 'Location</span>' +
+      '<div class="label">Server address or invite link</div><div class="field filled' + (invite ? ' sp-link' : '') + '">' + (invite ? SRV_LINK : SRV_HOST) + '</div>' + found + fields +
+      '<div class="foot"><span class="st-btn">Back</span><span class="st-btn go' + (closed ? ' off' : '') + '">' + go + '</span></div>' +
       '</div></div>';
   }
   /** Invite…: a link for one person, to send in a message; it works once, for a week. */
@@ -6206,10 +6212,11 @@ p { margin: 0; max-width: 68ch; }
   }
   function mbSrvSpaces() {
     return mbPage(mbNav('Settings', ['Reorder']) + mbHead('Spaces'),
-      mbRow({ icon: 'space', label: 'Personal', sub: 'Yours · on this phone' }) +
+      '<div class="mb-sec">Personal</div>' +
+      mbRow({ icon: 'space', label: 'Personal', sub: 'OneDrive · My files › Scrawl' }) +
+      '<div class="mb-sec">Shared</div>' +
       mbRow({ icon: 'space', label: 'Acme', sub: SRV_HOST + ' · 4 people' }) +
       mbRow({ icon: 'space', label: 'Side projects', sub: 'OneDrive · just you' }) +
-      '<div class="mb-gap"></div>' +
       mbRow({ icon: 'plus', label: 'Add space', chev: false }) +
       '<div class="mb-sec">Servers</div>' +
       mbRow({ icon: 'server', label: SRV_HOST, sub: 'kaan@outlook.com · Owner' }) +
@@ -6220,7 +6227,7 @@ p { margin: 0; max-width: 68ch; }
       (right ? '<span class="ct">' + right + '</span>' : '') + '</div>';
   }
   function mbSrvSpacePage(member) {
-    return mbPage(mbNav('Spaces', ['dots']) + mbHead('Acme', 'On ' + SRV_HOST),
+    return mbPage(mbNav('Spaces', ['dots']) + mbHead('Acme', 'Shared · on ' + SRV_HOST),
       '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">Acme</span></div>' +
       '<div class="mb-fr"><span class="fl">Sync</span><span class="in">Scrawl server</span><span class="val">Just now' + MB_CHEV + '</span></div></div>' +
       '<div class="mb-sec">People</div>' +
@@ -6273,13 +6280,11 @@ p { margin: 0; max-width: 68ch; }
   }
   var SRV_VIEWS = {
     srvadd: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace()); },
-    srvconnect: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvConnect('invite')); },
-    srvjoin: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvJoin(false)); },
-    srvnew: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvConnect('new')); },
-    srvsetup: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvJoin(true)); },
-    srvclosed: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvConnect('closed')); },
-    srvsignin: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvSignIn(false)); },
-    srvnoacct: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvAddSpace() + srvSignIn(true)); },
+    srvconnect: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvConnect('invite')); },
+    srvnew: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvConnect('new')); },
+    srvclosed: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvConnect('closed')); },
+    srvsignin: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvConnect('signin')); },
+    srvnoacct: function () { return spNoteView('spaceslist') + srvSettings(srvSpacesList(), srvConnect('noacct')); },
     srvspace: function () { return spNoteView('spaceslist') + srvSettings(srvSpacePage()); },
     srvmember: function () { return spNoteView('spaceslist') + srvSettings(srvSpacePage('menu')); },
     srvasmember: function () { return spNoteView('spaceslist') + srvSettings(srvSpacePage('member')); },
@@ -6883,6 +6888,241 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderSs(sectionSs, b.dataset.ssview);
   });
   renderSs(sectionSs, 'ssday');
+
+  // Spaces, personal and shared (Oct 16, a draft). The personal space and the shared ones are
+  // kept apart: Settings › Spaces has Personal, the one space that is only yours, and Shared, the
+  // spaces you work in with others, Add space under them. Where the personal space syncs is one
+  // flow: Sync… on its page, or Change… once it syncs, opens one window, the place first (Not
+  // synced, OneDrive, a server, Connect a server…), then the folder or the space there. Add space
+  // is the same two steps, without Not synced, and a shared space's place does not change.
+  // Connecting a server is a step of that window, not a window over it.
+  ICON.device = '<svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg>';
+  // A server someone else owns, where you have an account as a member.
+  var PS_OTHER = 'notes.northwind.example';
+  function psSpacesList() {
+    return '<span class="st-label">Personal</span>' +
+      '<p class="st-note">Only yours; nobody else is in it. Sync it to your OneDrive or your Scrawl server to have it on your other devices too.</p>' +
+      '<div class="st-list">' + spLi({ icon: 'space', name: 'Personal', sub: 'Not synced · only on this device' }) + '</div>' +
+      '<span class="st-label">Shared</span>' +
+      '<p class="st-note">The spaces you work in with others, in a OneDrive folder or on a Scrawl server. The sidebar shows them under Personal, in this order.</p>' +
+      '<div class="st-list">' +
+      spLi({ icon: 'space', name: 'Acme', sub: SRV_HOST + ' · 4 people', more: true }) +
+      spLi({ icon: 'space', name: 'Side projects', sub: 'OneDrive · 2 people', more: true }) +
+      '</div>' +
+      '<div class="st-acts"><span class="st-btn go">' + ICON.plus + 'Add space…</span><small>A OneDrive folder, or a space on a Scrawl server.</small></div>' +
+      '<span class="st-label">Servers</span>' +
+      '<div class="st-list">' + spLi({ icon: 'server', name: SRV_HOST, sub: 'kaan@outlook.com · Owner', r: '1 space here' }) + '</div>' +
+      '<span class="st-label">This device</span>' +
+      '<div class="st-device"><span class="fl">Name</span><span class="in">Laptop</span><span class="st-row"><span class="btn save">Save</span></span></div>';
+  }
+  /**
+   * The personal space's page: its name, its folder on this device, and where it syncs, with the
+   * one button that opens the window. No People: it is only yours. `at` is where it syncs now:
+   * nothing, or 'onedrive'; 'moved' is OneDrive after another device moved it to the server,
+   * found by the mark left in the folder: syncing here stops, and Move this device too follows it.
+   */
+  function psPersonalPage(at) {
+    var onedrive = '<span class="who">' + ICON.cloud + '<b>OneDrive</b><small>kaan@outlook.com · My files › Scrawl</small></span>';
+    var sync = at === 'onedrive'
+      ? onedrive + '<span class="state"><i></i>Synced 12 s ago</span><span class="acts"><span class="st-btn">Sync now</span><span class="st-btn">Change…</span></span>'
+      : at === 'moved'
+        ? onedrive + '<span class="state ps-moved">' + ICON.warn + 'Moved to ' + SRV_HOST + ' on Desktop PC · syncing here stopped</span>' +
+          '<p>Move this device too to go on. What is here and not there yet goes with it.</p>' +
+          '<span class="acts"><span class="st-btn go">Move this device too</span></span>'
+        : '<span class="who">' + ICON.laptop + '<b>Not synced</b><small>only on this device</small></span>' +
+          '<p>Sync it to have Personal on your other devices, in your OneDrive or on a Scrawl server.</p><span class="acts"><span class="st-btn go">Sync…</span></span>';
+    return '<span class="st-back">' + ICON.chevl + 'Spaces</span>' +
+      '<div class="st-space tight"><div class="top">' + ICON.space + '<b>Personal</b><small>Only you</small></div>' +
+      '<div class="st-row"><span class="fl">Name</span><span class="in">Personal</span><span class="btn save">Save</span></div>' +
+      '<div class="st-row"><span class="fl">Folder</span><span class="path">' + SP_DEFAULT + 'Personal</span><span class="btn">Change…</span></div>' +
+      '<div class="st-sync"><span class="fl">Sync</span><div class="what">' + sync + '</div></div>' +
+      '</div>';
+  }
+  function psLi(icon, name, sub, o) {
+    o = o || {};
+    return '<span class="' + (o.on ? 'on' : '') + (o.cls ? ' ' + o.cls : '') + '">' + ICON[icon] + name + (o.now ? '<em class="ps-now">Now</em>' : '') + (sub ? '<small>' + sub + '</small>' : '') + '</span>';
+  }
+  /**
+   * The one window for where a space syncs. For the personal space: Not synced is a place too,
+   * where it syncs now is marked Now, and moving away from a place asks whether its copy goes,
+   * unticked. For Add space: a name first, and no Not synced. `to` is the place chosen, 'server',
+   * 'other' (a server someone else owns, which says its owner can reach what is on it) or
+   * 'onedrive'; `from` is where the personal space syncs now, nothing or 'onedrive'. `follow` is
+   * Move this device too: the server and the personal space there are chosen already, and the
+   * copy in OneDrive was the other device's to keep or delete.
+   */
+  function psWhere(o) {
+    var personal = o.personal, server = o.to === 'server' || o.to === 'other', name = personal ? 'Personal' : 'Northwind';
+    var host = o.to === 'other' ? PS_OTHER : SRV_HOST;
+    var places = (personal ? psLi('laptop', 'Not synced', 'only on this device', { now: !o.from }) : '') +
+      psLi('cloud', 'OneDrive', 'kaan@outlook.com', { on: !server, now: o.from === 'onedrive' }) +
+      psLi('server', SRV_HOST, 'kaan@outlook.com', { on: o.to === 'server' }) +
+      (o.to === 'other' ? psLi('server', PS_OTHER, 'kaan@outlook.com', { on: true }) : '') +
+      psLi('plus', 'Connect a server…', '', { cls: 'srv-new' });
+    var space = o.follow
+      ? psLi('space', 'Personal', 'yours · moved here from Desktop PC', { on: true })
+      : psLi('plus', 'New space “' + name + '”', '', { on: true }) + (personal ? '' : psLi('space', 'Design team', '3 people · not on this device'));
+    var which = server
+      ? '<div class="label" style="margin-top: 10px">Space on ' + host + '</div><div class="list">' + space + '</div>' +
+        (o.to === 'other' ? '<div class="srv-found late">' + ICON.warn + '<span><b>Not your server</b><small>The owner of ' + PS_OTHER + ' can reach what is stored on it.</small></span></div>' : '')
+      : '<div class="label" style="margin-top: 10px">Folder</div><div class="sp-pick"><span class="path plain">' + ICON.cloud + 'My files › Scrawl<small>kaan@outlook.com</small></span><span class="st-btn">Choose folder…</span></div>';
+    var note = personal
+      ? (o.follow
+        ? 'What is on this device and not there yet goes with it.'
+        : o.from
+          ? 'Your other devices go on syncing with OneDrive until each is changed to this same space.'
+          : 'On your other devices, choose this same ' + (server ? 'space' : 'folder') + ': what each has is put together, and nothing is lost.')
+      : 'The spaces on the server you were invited to are listed until they are on this device.';
+    var leave = personal && o.from === 'onedrive' && !o.follow
+      ? '<div class="ps-check"><i></i>Delete the copy in OneDrive</div>' +
+        '<p class="note ps-under">Left unticked, the folder in OneDrive stays as it is; Scrawl no longer syncs it.</p>'
+      : '';
+    var go = personal ? (o.from ? 'Move to ' : 'Sync with ') + (server ? host : 'OneDrive') : 'Add “Northwind”';
+    return '<div class="fp-ovl"><div class="fp"><h3>' + (personal ? 'Sync Personal' : 'Add space<small>Shared with others</small>') + '</h3>' +
+      (personal ? '' : '<div class="label">Name</div><div class="field filled">Northwind</div>') +
+      '<div class="label"' + (personal ? '' : ' style="margin-top: 10px"') + '>Location</div>' +
+      '<div class="list">' + places + '</div>' + which +
+      '<p class="note">' + note + '</p>' + leave +
+      '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go">' + go + '</span></div>' +
+      '</div></div>';
+  }
+  /**
+   * Connect a server… as a step of the same window: the address, and once the server answers,
+   * what it asks for in that same step, here signing in. Sign in goes back to Location with the
+   * server chosen. For the personal space it takes an address only: an invite link is for a shared space.
+   */
+  function psConnect() {
+    return '<div class="fp-ovl"><div class="fp"><h3>Sync Personal</h3>' +
+      '<span class="ps-crumb">' + ICON.chevl + 'Location</span>' +
+      '<div class="label">Server address</div><div class="field filled">' + SRV_HOST + '</div>' +
+      '<div class="srv-found">' + ICON.server + '<span><b>' + SRV_HOST + '</b><small>Sign in with your account there.</small></span></div>' +
+      '<div class="label" style="margin-top: 12px">Email</div><div class="field filled">kaan@outlook.com</div>' +
+      '<div class="label" style="margin-top: 10px">Password</div><div class="field filled srv-pw">••••••••••<span class="caret"></span></div>' +
+      '<p class="note">Forgot it? The server’s owner can give you a link for a new one.</p>' +
+      '<div class="foot"><span class="st-btn">Back</span><span class="st-btn go">Sign in</span></div>' +
+      '</div></div>';
+  }
+  // Phone: the same, as pages and sheets.
+  function mbPsSpaces() {
+    return mbPage(mbNav('Settings', ['Reorder']) + mbHead('Spaces'),
+      '<div class="mb-sec">Personal</div>' +
+      mbRow({ icon: 'space', label: 'Personal', sub: 'Not synced · only on this phone' }) +
+      '<p class="mb-p">Only yours. Sync it to have it on your other devices too.</p>' +
+      '<div class="mb-sec">Shared</div>' +
+      mbRow({ icon: 'space', label: 'Acme', sub: SRV_HOST + ' · 4 people' }) +
+      mbRow({ icon: 'space', label: 'Side projects', sub: 'OneDrive · 2 people' }) +
+      mbRow({ icon: 'plus', label: 'Add space', chev: false }) +
+      '<p class="mb-p">The spaces you work in with others.</p>' +
+      '<div class="mb-sec">Servers</div>' +
+      mbRow({ icon: 'server', label: SRV_HOST, sub: 'kaan@outlook.com · Owner' }));
+  }
+  /** The personal space on a phone: Location opens the sheet; once it syncs, Sync opens how it stands. */
+  function mbPsPersonal(at) {
+    return mbPage(mbNav('Spaces') + mbHead('Personal', 'Only you'),
+      '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">Personal</span></div>' +
+      (at === 'onedrive'
+        ? '<div class="mb-fr"><span class="fl">Location</span><span class="in">OneDrive</span><span class="val">' + MB_CHEV + '</span></div>' +
+          '<div class="mb-fr"><span class="fl">Sync</span><span class="in">12 s ago</span><span class="val">' + MB_CHEV + '</span></div></div>' +
+          '<p class="mb-p">My files › Scrawl, kaan@outlook.com.</p>'
+        : '<div class="mb-fr"><span class="fl">Location</span><span class="in none">Not synced</span><span class="val">' + MB_CHEV + '</span></div></div>' +
+          '<p class="mb-p">Only on this phone. Sync it to have Personal on your other devices.</p>') +
+      '<div class="mb-sec">This device</div>' +
+      '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">iPhone</span></div></div>');
+  }
+  /**
+   * Sync Personal as a sheet: the place, then the space there. `mode` 'move' is moving from
+   * OneDrive, with the switch for its copy, off; 'follow' is Move this phone too, the space there
+   * chosen already; 'other' is a server someone else owns, which says its owner can reach what is on it.
+   */
+  function mbPsWhereSheet(mode) {
+    function r(icon, name, sub, on, now) {
+      return '<div class="mb-row">' + ICON[icon] + '<span class="tx"><b>' + name + (now ? ' <small style="display:inline">· now</small>' : '') + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' + (on ? MB_TICK : '') + '</div>';
+    }
+    var fromOneDrive = mode === 'move' || mode === 'follow', other = mode === 'other', onedrive = mode === 'onedrive', host = other ? PS_OTHER : SRV_HOST;
+    var foot = mode === 'move'
+      ? '<div class="mb-form"><div class="mb-group"><div class="mb-fr"><span class="in ps-sw">Delete the copy in OneDrive</span><span class="mb-sw"></span></div></div></div>' +
+        '<p class="mb-p">Off, the folder in OneDrive stays as it is; Scrawl no longer syncs it. Your other devices go on syncing with OneDrive until each is changed to this same space.</p>'
+      : mode === 'follow'
+        ? '<p class="mb-p">What is on this phone and not there yet goes with it.</p>'
+        : (other ? '<div class="mb-srvfound late">' + ICON.warn + '<span><b>Not your server</b><small>The owner of ' + PS_OTHER + ' can reach what is stored on it.</small></span></div>' : '') +
+          '<p class="mb-p">On your other devices, choose this same space: what each has is put together, and nothing is lost.</p>';
+    return MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>Sync Personal</b><span class="ok">' + (fromOneDrive ? 'Move' : 'Sync') + '</span></div>' +
+      '<div class="mb-sec">Location</div>' +
+      r('device', 'Not synced', 'only on this phone', false, !fromOneDrive) +
+      r('cloud', 'OneDrive', 'kaan@outlook.com', onedrive, fromOneDrive) +
+      r('server', SRV_HOST, 'kaan@outlook.com', !other && !onedrive) +
+      (other ? r('server', PS_OTHER, 'kaan@outlook.com', true) : '') +
+      '<div class="mb-row srv-new">' + ICON.plus + '<span class="tx"><b>Connect a server…</b></span></div>' +
+      (onedrive
+        ? '<div class="mb-sec">Folder</div>' + r('folder', 'My files › Scrawl', 'kaan@outlook.com', false) +
+          '<p class="mb-p">On your other devices, choose this same folder: what each has is put together, and nothing is lost.</p>'
+        : '<div class="mb-sec">Space on ' + host + '</div>' +
+          (mode === 'follow' ? r('space', 'Personal', 'yours · moved here from Desktop PC', true) : r('plus', 'New space “Personal”', '', true)) + foot) +
+      '</div>';
+  }
+  /** The personal space's sync on a phone after another device moved it: syncing here stopped, and the way to follow it. */
+  function mbPsMoved() {
+    return mbPage(mbNav('Personal') + mbHead('Sync', 'OneDrive · kaan@outlook.com'),
+      '<div class="mb-sync bad"><div class="st">' + ICON.warn + '<b>Personal moved</b></div>' +
+        '<div class="sub">Desktop PC moved it to ' + SRV_HOST + ' on Oct 16, and syncing here stopped. Move this phone too to go on; what is here and not there yet goes with it.</div>' +
+        '<div class="mb-btn">Move this phone too</div></div>');
+  }
+  function phonePersonal() {
+    return [
+      mbPhone('Spaces: Personal ve Shared ayrı', mbPsSpaces(), mbTabsSx('browse')),
+      mbPhone('Personal: Location, People yok', mbPsPersonal(), mbTabsSx('browse')),
+      mbPhone('Sync Personal: yer, sonra space', mbPsPersonal(), mbTabsSx('browse') + mbPsWhereSheet()),
+      mbPhone('Taşıma: eski kopya için düğme, kapalı', mbPsPersonal('onedrive'), mbTabsSx('browse') + mbPsWhereSheet('move'))
+    ].join('');
+  }
+  function phoneMoved() {
+    return [
+      mbPhone('Başka cihazda taşındı: burada sync durur', mbPsMoved(), mbTabsSx('browse')),
+      mbPhone('Move this phone too: space seçili gelir', mbPsMoved(), mbTabsSx('browse') + mbPsWhereSheet('follow')),
+      mbPhone('Başkasının sunucusu: sahibi ulaşabilir', mbPsPersonal(), mbTabsSx('browse') + mbPsWhereSheet('other'))
+    ].join('');
+  }
+  function phoneShared() {
+    return [
+      mbPhone('Add space: aynı iki adım', mbPsSpaces(), mbTabsSx('browse') + mbSrvAddSheet()),
+      mbPhone('Location: Not synced yok', mbPsSpaces(), mbTabsSx('browse') + mbSrvWhereSheet()),
+      mbPhone('Paylaşılan space: People var, yer değişmez', mbSrvSpacePage(false), mbTabsSx('browse'))
+    ].join('');
+  }
+  var PS_VIEWS = {
+    pslist: function () { return spNoteView('spaceslist') + srvSettings(psSpacesList()); },
+    pspage: function () { return spNoteView('spaceslist') + srvSettings(psPersonalPage()); },
+    pswhere: function () { return spNoteView('spaceslist') + srvSettings(psPersonalPage(), psWhere({ personal: true, to: 'server' })); },
+    psonedrive: function () { return spNoteView('spaceslist') + srvSettings(psPersonalPage(), psWhere({ personal: true, to: 'onedrive' })); },
+    psconnect: function () { return spNoteView('spaceslist') + srvSettings(psPersonalPage(), psConnect()); },
+    pssynced: function () { return spNoteView('spaceslist') + srvSettings(psPersonalPage('onedrive')); },
+    psmove: function () { return spNoteView('spaceslist') + srvSettings(psPersonalPage('onedrive'), psWhere({ personal: true, from: 'onedrive', to: 'server' })); },
+    psadd: function () { return spNoteView('spaceslist') + srvSettings(psSpacesList(), psWhere({ to: 'server' })); },
+    psshared: function () { return spNoteView('spaceslist') + srvSettings(srvSpacePage()); },
+    psmoved: function () { return spNoteView('spaceslist').replace(SP_STATUS, PS_STATUS_MOVED) + srvSettings(psPersonalPage('moved')); },
+    psfollow: function () { return spNoteView('spaceslist').replace(SP_STATUS, PS_STATUS_MOVED) + srvSettings(psPersonalPage('moved'), psWhere({ personal: true, from: 'onedrive', to: 'server', follow: true })); },
+    psother: function () { return spNoteView('spaceslist') + srvSettings(psPersonalPage(), psWhere({ personal: true, to: 'other' })); }
+  };
+  // The status bar while the personal space has moved on another device and this one has not followed.
+  var PS_STATUS_MOVED = '<div class="status"><span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>' +
+    '<span class="sync-st"><span class="txt ps-moved">' + ICON.warn + 'Personal moved</span><span class="sync-now" style="position: relative">' + ICON.resync + '</span></span></div>';
+  var PS_PHONES = { pphone: phonePersonal, pphone2: phoneShared, pphone3: phoneMoved };
+  function renderPs(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.className = PS_PHONES[view] ? 'mock dir-a phones four mbs' : 'mock dir-a';
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = (PS_PHONES[view] || PS_VIEWS[view])();
+    section.querySelectorAll('.brief [data-psview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.psview === view));
+    });
+  }
+  var sectionPs = document.querySelector('.dir[data-dir="spaces2"]');
+  sectionPs.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-psview]');
+    if (b) renderPs(sectionPs, b.dataset.psview);
+  });
+  renderPs(sectionPs, 'pslist');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

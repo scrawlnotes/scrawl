@@ -21,7 +21,7 @@ import {
 import { t } from '@scrawlnotes/i18n';
 import { type Cloud, oneDrive, type SignInIntent, type SignInResult, takeSignInResult } from './cloud';
 import type { Session, SpaceView } from './session';
-import { isPhone, leaveOver } from './device';
+import { isPhone, LEAVE_OVER } from './device';
 import { type KnownServer, serverKey, serverRemote, signOutOf } from './servers';
 import { isDesktop, vaultFolder } from './storage';
 
@@ -558,7 +558,7 @@ export class SyncService {
         // The space may have been closed, removed or disconnected while another tab's turn ran.
         if (unit.gone || unit.connection !== connection) return null;
         await this.session.beforeSync();
-        return syncOnce(unit.vault, this.storeFor(unit), device, { onProgress, leaveOver: leaveOver() });
+        return syncOnce(unit.vault, this.storeFor(unit), device, { onProgress, leaveOver: LEAVE_OVER });
       });
       window.clearTimeout(timer);
       // The space may have been closed, removed or disconnected while the turn ran.

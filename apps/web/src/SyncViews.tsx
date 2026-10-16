@@ -4,7 +4,7 @@ import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clientId, DEFAULT_CLIENT_ID, renewFailure, setClientId } from './cloud';
-import { DOWNLOAD_LIMITS, loadDownloadLimit, pageBox, pageWindow, saveDownloadLimit } from './device';
+import { pageBox, pageWindow } from './device';
 import { Icon } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SpaceSync, SpaceSyncView, SyncPhase, SyncService, SyncSnapshot, TurnView } from './sync';
@@ -403,8 +403,6 @@ function OwnApp({ onDone }: { onDone: () => void }) {
 /** This device's name, which conflict copies made here carry. */
 export function ThisDevice({ sync, service }: SyncRowProps) {
   const name = sync.device.name;
-  // How large an attached file comes here by itself.
-  const [limit, setLimit] = useState(loadDownloadLimit);
   const [draft, setDraft] = useState(name);
   useEffect(() => setDraft(name), [name]);
   const changed = draft.trim() !== '' && draft.trim() !== name;
@@ -430,31 +428,6 @@ export function ThisDevice({ sync, service }: SyncRowProps) {
         </button>
       </div>
       <p className="st-note">{t('sync.deviceAbout')}</p>
-      <div className="st-row wide">
-        <label className="fl" htmlFor="device-download">
-          {t('settings.download')}
-        </label>
-        <select
-          id="device-download"
-          value={limit === null ? 'all' : String(limit)}
-          onChange={(event) => {
-            const next = event.target.value === 'all' ? null : Number(event.target.value);
-            setLimit(next);
-            saveDownloadLimit(next);
-            // Files that are under the new limit come now.
-            service.syncNow();
-          }}
-        >
-          {DOWNLOAD_LIMITS.map((each) => (
-            <option key={each} value={each}>
-              {t('settings.upTo', { size: `${each} MB` })}
-            </option>
-          ))}
-          <option value="all">{t('settings.everyFile')}</option>
-        </select>
-        <span />
-      </div>
-      <p className="st-note">{t('settings.downloadAbout')}</p>
     </>
   );
 }

@@ -921,14 +921,6 @@ export const en = {
   'search.kind.filter': 'Filter',
   'search.kind.folder': 'Folder',
   'search.kind.space': 'Space',
-  'settings.download': 'Download',
-  'settings.downloadBy': 'Download by itself',
-  'settings.upTo': 'Files up to {size}',
-  'settings.upToShort': 'Up to {size}',
-  'settings.everyFile': 'Every file',
-  'settings.downloadAbout': 'Larger files stay in OneDrive until you open them; notes, lists and boards always come.',
-  'settings.downloadAboutPhone': 'A larger file waits in OneDrive, in its place in the note, until you tap it. Once here, it stays.',
-  'phone.thisPhone': 'This phone',
   'count.files': { one: '{count} file', other: '{count} files' },
 
   // history

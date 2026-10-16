@@ -12,7 +12,6 @@ const MODE = 'scrawl.mode';
 const THEME = 'scrawl.theme';
 const LANGUAGE = 'scrawl.language';
 const SIZE = { phone: 'scrawl.sizePhone', computer: 'scrawl.sizeComputer' } as const;
-const DOWNLOAD = 'scrawl.downloadLimit';
 const UPCOMING = 'scrawl.upcoming';
 
 function read(key: string): string | null {
@@ -142,28 +141,11 @@ export function keepTyping() {
   }).observe(document.body, { childList: true, subtree: true });
 }
 
-/** How large an attached file comes by itself, in MB, as it can be chosen. */
-export const DOWNLOAD_LIMITS = [1, 5, 10, 25, 100] as const;
-
 /**
- * How large an attached file comes to this device by itself, in MB; null for every file. The
- * desktop app takes every file; a browser and a phone files up to 10 MB, a larger one when asked.
+ * How large an attached file comes by itself, in bytes: 10 MB, on every device, with nothing to
+ * set. A larger one waits in the cloud, in its place in the note, until it is asked for.
  */
-export function loadDownloadLimit(): number | null {
-  const kept = read(DOWNLOAD);
-  if (kept === 'all') return null;
-  const limit = Number(kept);
-  if (kept !== null && (DOWNLOAD_LIMITS as readonly number[]).includes(limit)) return limit;
-  return '__TAURI_INTERNALS__' in window ? null : 10;
-}
-
-export const saveDownloadLimit = (limit: number | null) => write(DOWNLOAD, limit === null ? 'all' : String(limit));
-
-/** The same limit in bytes, as sync takes it; undefined for every file. */
-export function leaveOver(): number | undefined {
-  const limit = loadDownloadLimit();
-  return limit === null ? undefined : limit * 1024 * 1024;
-}
+export const LEAVE_OVER = 10 * 1024 * 1024;
 
 /** How Upcoming shows: the days that have something, one under the other, or the month. */
 export type UpcomingView = 'list' | 'calendar';
