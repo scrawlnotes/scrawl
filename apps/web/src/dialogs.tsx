@@ -366,11 +366,14 @@ export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: M
 /**
  * Creates a note, a task list, a board or a keys file. The kind is chosen first; the item then
  * gets a name, which may be left empty, and a folder; a board also starts from a template. A
- * folder's menu has the kind chosen already, and Back goes to the choice.
+ * folder's menu has the kind chosen already, and Back goes to the choice; the start page's
+ * templates have the template chosen too.
  */
-export function NewDialog({ start = null, folders, folder, collections, onCreate, onFilter, onClose }: {
+export function NewDialog({ start = null, template = null, folders, folder, collections, onCreate, onFilter, onClose }: {
   /** The kind chosen already, if any. */
   start?: ItemKind | null;
+  /** A board's or a collection's template chosen already, if any. */
+  template?: Template | CollectionTemplate | null;
   /** Every place, the personal space's top first. */
   folders: string[];
   /** The folder chosen to begin with. */
@@ -386,7 +389,7 @@ export function NewDialog({ start = null, folders, folder, collections, onCreate
   const [kind, setKind] = useState<ItemKind | null>(start);
   if (kind) {
     return (
-      <NewItemForm kind={kind} folders={folders} folder={folder} collections={collections} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
+      <NewItemForm kind={kind} template={template} folders={folders} folder={folder} collections={collections} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
     );
   }
   return <KindChoice onPick={(picked) => (picked === 'filter' ? onFilter() : setKind(picked))} onClose={onClose} />;
@@ -455,8 +458,9 @@ function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onCl
  * The second step of Create: a name, which may be left empty, the folder to put the item in,
  * and for a board the template it starts from.
  */
-function NewItemForm({ kind, folders, folder, collections, onCreate, onBack, onClose }: {
+function NewItemForm({ kind, template: chosenTemplate, folders, folder, collections, onCreate, onBack, onClose }: {
   kind: ItemKind;
+  template: Template | CollectionTemplate | null;
   folders: string[];
   folder: string;
   collections: string[];
@@ -465,8 +469,10 @@ function NewItemForm({ kind, folders, folder, collections, onCreate, onBack, onC
   onClose: () => void;
 }) {
   const [name, setName] = useState('');
-  const [template, setTemplate] = useState<Template>('software');
-  const [collectionTemplate, setCollectionTemplate] = useState<CollectionTemplate>('companies');
+  const [template, setTemplate] = useState<Template>(() => TEMPLATES.find((each) => each.template === chosenTemplate)?.template ?? 'software');
+  const [collectionTemplate, setCollectionTemplate] = useState<CollectionTemplate>(
+    () => COLLECTION_TEMPLATES.find((each) => each.template === chosenTemplate)?.template ?? 'companies',
+  );
   // A CRM board's links, as chosen; until then they point at Companies and People beside the board.
   const [chosen, setChosen] = useState<Partial<BoardLinks>>({});
   const [error, setError] = useState<string | null>(null);

@@ -1,9 +1,9 @@
 import { dayOf, type Me, type MovedMark, newSpaceId, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
-import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
-import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { languages, locale, type MessageKey, t } from '@scrawlnotes/i18n';
+import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
 import type { SpaceView } from './session';
-import { chooseLanguage, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
+import { chooseLanguage, isPhone, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
 import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SyncService, SyncSnapshot } from './sync';
@@ -15,6 +15,7 @@ import { ROLE_WORD, ServerMembers, ServerPage } from './ServerPeople';
 import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, tookJoin, useKnownServers } from './servers';
 import { Agents } from './Agents';
 import { checkForUpdates, releasePage, useAppVersion, useDesktopUpdate } from './desktopUpdate';
+import { BUILT, checkForWebUpdate, subscribeUpdate, webUpdatesOn, webUpdateStatus } from './pwa';
 import { isDesktop, openUrlOnDesktop } from './storage';
 
 export type Section = 'profile' | 'appearance' | 'spaces' | 'agents' | 'language' | 'about';
@@ -84,7 +85,7 @@ export interface SettingsValues {
   /** How the space's sync stands, and what connects and disconnects it. */
   sync: SyncSnapshot;
   syncService: SyncService;
-  /** Desktop: writes what is being typed, installs the update downloaded and opens the new version. */
+  /** Writes what is being typed, then goes over to the new version: on the desktop it installs it and opens again, on the web the page reloads into it. */
   onRestartUpdate?: () => void;
 }
 
@@ -96,8 +97,8 @@ export interface SettingsProps extends SettingsValues {
   onClose: () => void;
 }
 
-/** The sections, Language once there is more than one language, About on the desktop, which updates itself. */
-export const settingsSections = () => SECTIONS.filter((section) => (section.id !== 'language' || languages.length > 1) && (section.id !== 'about' || isDesktop));
+/** The sections, Language once there is more than one language, About on the desktop and the web, not on a phone. */
+export const settingsSections = () => SECTIONS.filter((section) => (section.id !== 'language' || languages.length > 1) && (section.id !== 'about' || isDesktop || !isPhone()));
 
 /** What a section is set to, beside it in the list of a phone. */
 export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }: Pick<SettingsValues, 'mode' | 'theme' | 'spaceName' | 'me' | 'spaces'>): string {
@@ -115,11 +116,122 @@ export function SettingsSection({ section, ...values }: SettingsValues & { secti
   return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : section === 'agents' ? <Agents {...values} /> : section === 'about' ? <About {...values} /> : <Language />;
 }
 
+/** The source, under both Abouts. */
+function AboutSource({ open }: { open: (url: string) => void }) {
+  return (
+    <p className="st-note about-source">
+      {t('about.openSource')}{' '}
+      <button type="button" className="st-link" onClick={() => open('https://github.com/scrawlnotes/scrawl')}>
+        github.com/scrawlnotes/scrawl
+      </button>
+    </p>
+  );
+}
+
+/**
+ * On the web: when the version running was built, as it has no number, and under it how the
+ * updates stand, with Check for updates. A version found is kept on the device, and Reload goes
+ * over to it, as the status bar's Reload does.
+ */
+function WebAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
+  const update = useSyncExternalStore(subscribeUpdate, webUpdateStatus);
+  const on = useSyncExternalStore(subscribeUpdate, webUpdatesOn);
+  useTicking(update.state === 'upToDate');
+  const built = new Date(BUILT).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' });
+  const check = () => void checkForWebUpdate();
+  const checkButton = (label: MessageKey, disabled = false) => (
+    <button type="button" className="st-btn" disabled={disabled || !on} onClick={check}>
+      {t(label)}
+    </button>
+  );
+  let state: ReactNode;
+  let acts: ReactNode = null;
+  switch (update.state) {
+    case 'idle':
+      state = <span className="state off">{t('about.notYet')}</span>;
+      acts = checkButton('about.check');
+      break;
+    case 'checking':
+      state = (
+        <span className="state">
+          <span className="spinner" aria-hidden="true" />
+          {t('about.checking')}
+        </span>
+      );
+      acts = checkButton('about.check', true);
+      break;
+    case 'upToDate':
+      state = (
+        <span className="state">
+          <i />
+          {t('about.upToDate', { ago: ago(update.checked) })}
+        </span>
+      );
+      acts = checkButton('about.check');
+      break;
+    case 'downloading':
+      state = (
+        <span className="state">
+          <span className="spinner" aria-hidden="true" />
+          {t('about.webDownloading')}
+        </span>
+      );
+      break;
+    case 'ready':
+      state = (
+        <span className="state ready">
+          <i />
+          {t('about.webReady')}
+        </span>
+      );
+      acts = (
+        <button type="button" className="st-btn go" onClick={onRestartUpdate}>
+          {t('status.reload')}
+        </button>
+      );
+      break;
+    case 'failed':
+      state = (
+        <span className="state warn">
+          <Icon name="warn" />
+          {update.offline ? t('about.webOffline', { host: window.location.host }) : t('about.failed', { reason: update.reason })}
+        </span>
+      );
+      acts = checkButton('about.tryAgain');
+      break;
+  }
+  return (
+    <>
+      <span className="st-label">{t('settings.about')}</span>
+      <div className="st-space">
+        <div className="st-row">
+          <span className="fl">{t('about.version')}</span>
+          <span className="path plain">{t('about.webName', { date: built })}</span>
+        </div>
+        <div className="st-sync">
+          <span className="fl">{t('about.updates')}</span>
+          <div className="what" role="status">
+            {state}
+            {acts && <span className="acts">{acts}</span>}
+          </div>
+        </div>
+      </div>
+      <p className="st-note">{t('about.webNote')}</p>
+      <AboutSource open={(url) => void window.open(url, '_blank', 'noopener')} />
+    </>
+  );
+}
+
 /**
  * The version running and what is new in it; under it how the updates stand, as a space's page
- * shows its sync, with what can be done. On the desktop only, where the app updates itself.
+ * shows its sync, with what can be done. The web has its own, WebAbout.
  */
 function About({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
+  if (!isDesktop) return <WebAbout onRestartUpdate={onRestartUpdate} />;
+  return <DesktopAbout onRestartUpdate={onRestartUpdate} />;
+}
+
+function DesktopAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
   const version = useAppVersion();
   const update = useDesktopUpdate();
   useTicking(update.state === 'upToDate');
@@ -215,12 +327,7 @@ function About({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
         </div>
       </div>
       <p className="st-note">{t('about.note')}</p>
-      <p className="st-note about-source">
-        {t('about.openSource')}{' '}
-        <button type="button" className="st-link" onClick={() => open('https://github.com/scrawlnotes/scrawl')}>
-          github.com/scrawlnotes/scrawl
-        </button>
-      </p>
+      <AboutSource open={open} />
     </>
   );
 }

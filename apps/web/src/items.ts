@@ -1,5 +1,5 @@
 import { basename, BOARD_EXT, boardName, collectionName, dirname, isScratchNote, KEYS_EXT, keysName, listName, localPath, spaceOf, TASK_LIST_EXT, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
-import { t } from '@scrawlnotes/i18n';
+import { locale, t } from '@scrawlnotes/i18n';
 import type { IconName } from './Icon';
 
 // A tab holds a note (its vault path), a task list, a board, a keys file or a view. The ids of
@@ -211,4 +211,15 @@ export function nameOf(id: string, titles: Record<string, string>, filters: Task
   const collection = collectionPathOf(id);
   if (collection !== null) return collectionName(collection);
   return labelOf(id, titles, filters);
+}
+
+/** When something opened was last on screen, as Recent says it: now, minutes or hours today, a weekday this week, else a day. */
+export function seenText(at: number, now: number): string {
+  const minutes = Math.floor((now - at) / 60_000);
+  if (minutes < 1) return t('phone.now');
+  if (minutes < 60) return t('phone.minutes', { count: minutes });
+  const then = new Date(at);
+  if (then.toDateString() === new Date(now).toDateString()) return t('phone.hours', { count: Math.floor(minutes / 60) });
+  if (now - at < 6 * 86_400_000) return then.toLocaleDateString(locale(), { weekday: 'short' });
+  return then.toLocaleDateString(locale(), { month: 'short', day: 'numeric' });
 }

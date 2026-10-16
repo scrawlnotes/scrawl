@@ -615,6 +615,331 @@ input:focus {
   font-weight: 600;
 }
 
+/* The start page, while nothing is open (PLAN 4.1, the Start page of design/mockups.html): Create's
+   kinds on top, then Recent and Today side by side; while no space has anything yet, the kinds with
+   what each is for, the templates and an agent to connect. A narrow window puts them under each other. */
+.start {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  container-type: inline-size;
+}
+
+.start-in {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 36px 32px 28px;
+}
+
+.start-h {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0 0 10px;
+  color: var(--sl-dim);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.start-h small {
+  color: var(--sl-faint);
+  font-size: 11px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.start-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.start-kind {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 3px 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sl-fg) 2.5%, transparent);
+  text-align: left;
+}
+
+.start-kind .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--sl-dim);
+}
+
+.start-kind b {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-kind small {
+  grid-column: 2;
+  color: var(--sl-dim);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.start-kind:hover {
+  border-color: color-mix(in srgb, var(--sl-fg) 22%, transparent);
+  background: color-mix(in srgb, var(--sl-fg) 7%, transparent);
+}
+
+.start-kind:hover .icon {
+  color: var(--sl-fg);
+}
+
+/* Every day the kinds are known: a row, each its icon over its name. */
+.start-kinds.row {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.start-kinds.row .start-kind {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 7px;
+  padding: 13px 8px 11px;
+  text-align: center;
+}
+
+.start-kinds.row .start-kind .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.start-kinds.row .start-kind b {
+  max-width: 100%;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.start-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+
+.start-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  width: calc(100% + 16px);
+  height: 30px;
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.start-row .icon {
+  color: var(--sl-dim);
+}
+
+.start-row .nm {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.start-row .pl {
+  margin-left: 8px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.start-row .when {
+  flex: none;
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.start-row:hover,
+.start-tpl:hover {
+  background: color-mix(in srgb, var(--sl-fg) 8%, transparent);
+}
+
+.start-none {
+  margin: 0;
+  padding: 6px 0;
+  color: var(--sl-dim);
+}
+
+.start-task {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 0 10px;
+  align-items: start;
+  padding: 5px 0 6px;
+}
+
+.start-task .cb {
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  border-width: 1.6px;
+}
+
+.start-task .cb::after {
+  left: 3px;
+  top: 0.5px;
+}
+
+.start-task .tx {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  text-align: left;
+}
+
+.start-task .tt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-task .tx:hover .tt {
+  text-decoration: underline;
+  text-decoration-color: var(--sl-faint);
+  text-underline-offset: 3px;
+}
+
+.start-task .key {
+  margin-right: 6px;
+  color: var(--sl-faint);
+  font: 10.5px/1 var(--sl-font-mono);
+}
+
+.start-task .meta {
+  gap: 2px 10px;
+  font-size: 11px;
+}
+
+.start-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 6px;
+  padding: 2px 0;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.start-more .icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2;
+}
+
+.start-more:hover {
+  color: var(--sl-fg);
+}
+
+.start-tpls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 32px;
+  align-items: start;
+}
+
+.start-tpl {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 0 10px;
+  align-items: center;
+  box-sizing: border-box;
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.start-tpl .icon {
+  grid-row: span 2;
+  width: 14px;
+  height: 14px;
+  color: var(--sl-dim);
+}
+
+.start-tpl b {
+  font-weight: 500;
+}
+
+.start-tpl small {
+  overflow: hidden;
+  color: var(--sl-dim);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-agent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+}
+
+.start-agent > .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--sl-dim);
+}
+
+.start-agent > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.start-agent b {
+  font-weight: 600;
+}
+
+.start-agent small {
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+@container (max-width: 640px) {
+  .start-in {
+    padding: 24px 18px;
+  }
+
+  .start-kinds,
+  .start-kinds.row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .start-cols,
+  .start-tpls {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
 .status {
   display: flex;
   flex: none;

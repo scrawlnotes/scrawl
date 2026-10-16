@@ -5,7 +5,7 @@ import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEv
 import { createPortal } from 'react-dom';
 import type { UpcomingView } from './device';
 import { Icon, type IconName } from './Icon';
-import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAgents } from './Agents';
@@ -203,16 +203,6 @@ function saveSeen(seen: Record<string, number>) {
   }
 }
 
-/** When something was last on screen: now, minutes or hours today, a weekday this week, else a day. */
-function seenText(at: number, now: number): string {
-  const minutes = Math.floor((now - at) / 60_000);
-  if (minutes < 1) return t('phone.now');
-  if (minutes < 60) return t('phone.minutes', { count: minutes });
-  const then = new Date(at);
-  if (then.toDateString() === new Date(now).toDateString()) return t('phone.hours', { count: Math.floor(minutes / 60) });
-  if (now - at < 6 * 86_400_000) return then.toLocaleDateString(locale(), { weekday: 'short' });
-  return then.toLocaleDateString(locale(), { month: 'short', day: 'numeric' });
-}
 
 function findFolder(nodes: TreeNode[], path: string): TreeNode | undefined {
   for (const node of nodes) {

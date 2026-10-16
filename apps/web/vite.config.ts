@@ -46,6 +46,8 @@ function serviceWorker(): Plugin {
 
 export default defineConfig({
   plugins: [react(), serviceWorker()],
+  // When this version was built, which Settings › About shows on the web, where there is no version number.
+  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   // The desktop shell expects 5173; a preview that cannot have it passes another port in PORT.
   server: { port: Number(process.env.PORT) || 5173, strictPort: true },
 });

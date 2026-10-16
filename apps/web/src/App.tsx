@@ -132,6 +132,7 @@ import { PhoneCreate } from './PhoneCreate';
 import { PeopleSheet } from './PhoneSpaces';
 import { type FileRow, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
+import { StartPage } from './StartPage';
 import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { restartIntoUpdate, useDesktopUpdate } from './desktopUpdate';
@@ -151,8 +152,9 @@ import { type FileActions, type FileSort, FilesView, fileTitle, Thumb, useIcon, 
 import { chooseSpaceFolder, downloadBlob, isDesktop, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
 
 type OpenDialog =
-  // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen.
-  | { kind: 'new'; start?: ItemKind; folder?: string }
+  // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen. The
+  // start page's templates choose a board's or a collection's template too.
+  | { kind: 'new'; start?: ItemKind; folder?: string; template?: Template | CollectionTemplate }
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
@@ -258,7 +260,7 @@ export function App() {
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const desktopUpdate = useDesktopUpdate();
-  const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, format, source, recording, recordError } =
+  const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -275,8 +277,6 @@ export function App() {
   const [sizes, setSizes] = useState(() => ({ phone: loadSize('phone'), computer: loadSize('computer') }));
   const [system, setSystem] = useState(systemShade);
   const [dialog, setDialog] = useState<OpenDialog>(null);
-  // With nothing open the app asks what to create, until that is declined once.
-  const [declined, setDeclined] = useState(false);
   // `target` is the sidebar row the menu was opened on, which stays marked while it is open.
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[]; target?: string; head?: MenuHead } | null>(null);
   const tabBar = useRef<HTMLDivElement>(null);
@@ -297,9 +297,9 @@ export function App() {
   const [viewStatus, setViewStatus] = useState<string[] | null>(null);
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
   const [tabGap, setTabGap] = useState<number | null>(null);
+  // With nothing open, a computer shows the start page; a phone its own Recent.
   const empty = ready && tabs.length === 0;
-  // A phone's Open says that nothing is open and offers Create itself.
-  const showNew = dialog?.kind === 'new' || (!phone && empty && !declined && !dialog);
+  const showNew = dialog?.kind === 'new';
   const showingEditor = active !== null && isNote(active);
 
   // Opening that failed says why, with a way to try again, rather than opening for ever.
@@ -320,9 +320,15 @@ export function App() {
     applyTheme(theme, shadeOfMode(mode, system));
   }, [theme, mode, system]);
 
+  // What is on screen was seen now, and what was there until now too: the start page's Recent
+  // lists them first. A phone keeps its own.
+  const seenBefore = useRef<string | null>(null);
   useEffect(() => {
-    if (!empty) setDeclined(false);
-  }, [empty]);
+    if (phone || !ready) return;
+    if (seenBefore.current && seenBefore.current !== active) session.seen(seenBefore.current);
+    if (active) session.seen(active);
+    seenBefore.current = active;
+  }, [session, phone, ready, active]);
 
   useEffect(() => {
     // Ctrl+N and Ctrl+W belong to the browser on the web, so Alt is used there. Ctrl+K opens the
@@ -418,10 +424,7 @@ export function App() {
     return () => window.removeEventListener('focus', onFocus);
   }, [session]);
 
-  const closeDialog = () => {
-    if (empty) setDeclined(true);
-    setDialog(null);
-  };
+  const closeDialog = () => setDialog(null);
   // New things go to the folder of the tab on screen, or to the top of the personal space.
   const newFolder = (active && folderOf(active)) ?? '';
   // Or to the folder or the space whose menu Create was opened from.
@@ -1376,6 +1379,25 @@ export function App() {
   // Filters look in the whole personal space, or in its top-level folders, with everything inside them.
   const topFolders = ['', ...tree.filter((node) => node.kind === 'folder').map((node) => node.path)];
 
+  // The start page: nothing in any space yet, Inbox's own list and folders aside, makes it offer the
+  // templates and an agent; Recent shows what is still there.
+  const holdsItems = (nodes: TreeNode[]): boolean =>
+    nodes.some((node) => (node.kind === 'folder' ? holdsItems(node.children ?? []) : node.path !== INBOX_TASKS));
+  const nothingYet = !holdsItems(tree) && spaces.every((each) => !holdsItems(each.tree)) && (tasks[INBOX_TASKS]?.length ?? 0) === 0;
+  const stillThere = (id: string) => {
+    const filter = filterOf(id);
+    if (filter !== null) return filters.some((each) => each.id === filter);
+    const list = listOf(id);
+    if (list !== null) return list in tasks;
+    const board = boardPathOf(id);
+    if (board !== null) return board in boards;
+    const keysFile = keysPathOf(id);
+    if (keysFile !== null) return keysFile in keyFiles;
+    const dir = collectionPathOf(id);
+    if (dir !== null) return dir in collections;
+    return id in tabTitles;
+  };
+
   // What is open: a note in the editor, or the view of a list, a board, a keys file, a collection,
   // a filter or the trash. On a computer it fills the main area under the tabs; on a phone it is
   // drawn into a layer that the page on top shows.
@@ -1495,25 +1517,35 @@ export function App() {
       />
     )}
     {!phone && active === FILES && filesView}
-    {!phone && !showingEditor && list === null && !board && keysText === undefined && !collection && !isDueView && !activeFilter && active !== TRASH && active !== FILES && (
-      <section className="placeholder">
-        {active ? (
-          <>
-            <h1>{labelOf(active, tabTitles, filters)}</h1>
-            <p>{t('board.placeholder')}</p>
-          </>
-        ) : (
-          empty && (
-            <>
-              <p>{t('empty.nothingOpen')}</p>
-              <button type="button" className="primary" onClick={() => setDialog({ kind: 'new' })}>
-                {t('empty.create')}
-              </button>
-            </>
-          )
-        )}
-      </section>
-    )}
+    {!phone && !showingEditor && list === null && !board && keysText === undefined && !collection && !isDueView && !activeFilter && active !== TRASH && active !== FILES &&
+      (active ? (
+        <section className="placeholder">
+          <h1>{labelOf(active, tabTitles, filters)}</h1>
+          <p>{t('board.placeholder')}</p>
+        </section>
+      ) : (
+        empty && (
+          <StartPage
+            empty={nothingYet}
+            recent={recent.filter((seen) => stillThere(seen.id))}
+            titles={tabTitles}
+            filters={filters}
+            lists={tasks}
+            boards={boards}
+            today={today}
+            actions={taskActions}
+            onKind={(kind) => setDialog(kind === 'filter' ? { kind: 'filter', filter: null, place: createIn } : { kind: 'new', start: kind })}
+            onTemplate={(start) => setDialog({ kind: 'new', start: start.kind, template: start.template })}
+            onOpen={(id) => void session.open(id)}
+            onOpenTask={(taskList, id) => {
+              void session.open(tasksOf(taskList));
+              setRevealTask({ list: taskList, id, at: Date.now() });
+            }}
+            onOpenToday={() => void session.open(TODAY)}
+            onAgents={() => setDialog({ kind: 'settings', section: 'agents' })}
+          />
+        )
+      ))}
     </>
   );
 
@@ -1521,7 +1553,7 @@ export function App() {
   const restartUpdate = () =>
     void session
       .beforeSync()
-      .then(restartIntoUpdate)
+      .then(isDesktop ? restartIntoUpdate : reloadIntoUpdate)
       .catch((error: unknown) => setNotice(t('status.updateFailed', { error: String(error) })));
 
   const settingsValues: SettingsValues = {
@@ -2048,9 +2080,10 @@ export function App() {
       )}
       {showNew && !phone && (
         <NewDialog
-          // Open already, as it is in an empty space, it starts again with what a folder's menu chose.
-          key={dialog?.kind === 'new' ? `${dialog.start ?? ''}:${dialog.folder ?? ''}` : ''}
+          // Open already, it starts again with what a folder's menu or the start page chose.
+          key={dialog?.kind === 'new' ? `${dialog.start ?? ''}:${dialog.folder ?? ''}:${dialog.template ?? ''}` : ''}
           start={(dialog?.kind === 'new' && dialog.start) || null}
+          template={(dialog?.kind === 'new' && dialog.template) || null}
           folders={everyFolder(tree, spaces)}
           folder={createIn}
           collections={Object.keys(collections)}

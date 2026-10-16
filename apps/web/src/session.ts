@@ -169,6 +169,11 @@ import {
   readAway,
   type AwayFile,
   AwayFilesError,
+  parseRecent,
+  type Seen,
+  seenMoved,
+  seenNow,
+  serializeRecent,
 } from '@scrawlnotes/core';
 import {
   addCopy,
@@ -217,7 +222,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardPathOf, collectionPathOf, collectionTab, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, spaceOfTab, tabOf } from './items';
+import { boardPathOf, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
 import { sampleDoc } from './sample';
 import {
   addSpaceEntry,
@@ -307,6 +312,8 @@ export interface Snapshot {
   spaces: SpaceView[];
   tabs: string[];
   active: string | null;
+  /** What was on screen last on this device, the latest first, open or not: the start page's Recent. */
+  recent: Seen[];
   /** Display name of every note, kept current while a note is being typed. */
   titles: Record<string, string>;
   /** Every task list, by the path of its file. */
@@ -376,6 +383,27 @@ function titlesOf(nodes: TreeNode[], out: Record<string, string> = {}): Record<s
   return out;
 }
 
+const RECENT = 'scrawl.recent';
+/** The views over everything: on screen, but not something opened, so not in Recent. */
+const VIEWS = new Set([TODAY, UPCOMING, TRASH, FILES]);
+
+/** The start page's Recent as this device kept it. */
+function loadRecent(): Seen[] {
+  try {
+    return parseRecent(localStorage.getItem(RECENT));
+  } catch {
+    return [];
+  }
+}
+
+function saveRecent(recent: Seen[]) {
+  try {
+    localStorage.setItem(RECENT, serializeRecent(recent));
+  } catch {
+    // Not kept; Recent starts again with what is opened next.
+  }
+}
+
 /** Every link in every collection with the name and code its record has now, where that record is loaded. */
 function freshenAll(collections: Record<string, Collection>): Record<string, Collection> {
   const lookup = (dir: string, id: string) => collections[dir]?.records.find((r) => r.id === id);
@@ -407,6 +435,7 @@ export class Session {
     spaces: [],
     tabs: [],
     active: null,
+    recent: loadRecent(),
     titles: {},
     tasks: {},
     sections: {},
@@ -1542,6 +1571,23 @@ export class Session {
     return null;
   }
 
+  /** What is on screen was seen now: Recent lists it first. The views over everything are not in it. */
+  seen(id: string) {
+    if (VIEWS.has(id)) return;
+    this.setRecent(seenNow(this.snapshot.recent, id, Date.now()));
+  }
+
+  /** What moved or was renamed keeps its place in Recent under its new tab, open or not. */
+  private moveRecent(from: string, to: string) {
+    const recent = seenMoved(this.snapshot.recent, from, to);
+    if (recent !== this.snapshot.recent) this.setRecent(recent);
+  }
+
+  private setRecent(recent: Seen[]) {
+    this.set({ recent });
+    saveRecent(recent);
+  }
+
   /** A board's or a keys file's look goes with it when it moves. */
   private moveLook(from: string, to: string) {
     const { [from]: look, ...rest } = this.snapshot.boardLooks;
@@ -1748,6 +1794,7 @@ export class Session {
     }
     this.moveLook(from, to);
     const [tab, target] = [tabOf(from), tabOf(to)];
+    this.moveRecent(tab, target);
     const { tabs, active } = this.snapshot;
     if (!tabs.includes(tab)) return;
     this.set({ tabs: tabs.map((each) => (each === tab ? target : each)), active: active === tab ? target : active });
@@ -1865,7 +1912,10 @@ export class Session {
     for (const record of records) {
       const target = `${to}${record.path.slice(from.length)}`;
       if (this.snapshot.tabs.includes(record.path)) await this.follow(record.path, target);
-      else await this.moveHistory(record.path, target);
+      else {
+        await this.moveHistory(record.path, target);
+        this.moveRecent(record.path, target);
+      }
     }
     await this.retargetSchemas(from, to);
     // Boards' links and tasks about its records follow it too.
@@ -1873,6 +1923,7 @@ export class Session {
     for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkTaskRecords(current, from, to));
     const { [from]: look, ...looks } = this.snapshot.collectionLooks;
     const [tab, target] = [collectionTab(from), collectionTab(to)];
+    this.moveRecent(tab, target);
     const { tabs, active } = this.snapshot;
     this.set({
       collectionLooks: look ? { ...looks, [to]: look } : looks,
@@ -2812,6 +2863,7 @@ export class Session {
     }
     this.moveLook(path, target);
     const [from, to] = [tabOf(path), tabOf(target)];
+    this.moveRecent(from, to);
     const { tabs, active } = this.snapshot;
     this.set({ tabs: tabs.map((tab) => (tab === from ? to : tab)), active: active === from ? to : active });
     await this.refreshTree();
@@ -2860,6 +2912,7 @@ export class Session {
     this.states.delete(path);
     this.disk.delete(path);
     this.moveLook(path, copied);
+    this.moveRecent(from, to);
     const { tabs, active } = this.snapshot;
     this.set({ tabs: tabs.map((tab) => (tab === from ? to : tab)), ...(active === from && { active: null }) });
     await this.refreshTree();

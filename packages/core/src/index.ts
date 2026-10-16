@@ -11,6 +11,7 @@ export * from './rollup';
 export * from './space';
 export * from './me';
 export * from './people';
+export * from './recent';
 export * from './spaces';
 export * from './sync';
 export * from './tasks';
