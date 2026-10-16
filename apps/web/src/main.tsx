@@ -9,6 +9,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { prepareSignIn } from './cloud';
+import { startDesktopUpdates } from './desktopUpdate';
 import { applyLanguage, applySize, applyTheme, keepTyping, loadMode, loadTheme, onTurn, shadeOfMode, systemShade } from './device';
 import { startWebApp } from './pwa';
 import { keptConnection } from './sync';
@@ -33,4 +34,5 @@ void prepareSignIn(connection && connection.account.email).then((stay) => {
     </StrictMode>,
   );
   startWebApp();
+  startDesktopUpdates();
 });

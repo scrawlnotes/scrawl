@@ -6517,6 +6517,46 @@ button.cb:hover::after {
   background: var(--sl-kind-dropped);
 }
 
+/* Settings › About (design/desktop-release.md): a version downloaded has the accent, its download
+   a bar, a look that failed the warning sign; the open source line sits at the foot. */
+.st-sync .state.ready i {
+  background: var(--sl-accent);
+}
+
+.st-sync .state .spinner,
+.st-sync .state .icon {
+  align-self: center;
+}
+
+.st-sync .state.warn .icon {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--sl-accent);
+}
+
+.st-sync .state .bar {
+  flex: none;
+  align-self: center;
+  width: 140px;
+  height: 4px;
+  margin-left: 4px;
+  border-radius: 2px;
+  background: var(--sl-line);
+  overflow: hidden;
+}
+
+.st-sync .state .bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--sl-accent);
+}
+
+.st-note.about-source {
+  margin-top: auto;
+}
+
 .st-sync .acts {
   display: flex;
   flex-wrap: wrap;

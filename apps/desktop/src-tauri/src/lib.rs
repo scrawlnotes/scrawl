@@ -1,6 +1,6 @@
 //! The desktop shell: a window around the web app, plus file access to the vault folder,
 //! opening attached files, reading the titles of web pages, and what signing in to a cloud
-//! drive needs (`cloud`).
+//! drive needs (`cloud`), and the app's own updates (`update`).
 //!
 //! The commands mirror the `VaultFs` interface of `packages/core`. Every path is relative to
 //! the vault root that the user chose, and may not leave it.
@@ -16,6 +16,7 @@ use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
 
 mod cloud;
+mod update;
 
 #[derive(Serialize)]
 struct Entry {
@@ -466,7 +467,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(cloud::Listeners::default())
+        .manage(update::Updates::default())
+        .setup(|app| {
+            update::start(app.handle());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             fs_list,
             fs_read,
@@ -493,10 +500,18 @@ pub fn run() {
             cloud::secret_get,
             cloud::secret_set,
             cloud::secret_delete,
-            cloud::device_name
+            cloud::device_name,
+            update::update_state,
+            update::update_check,
+            update::update_restart
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Scrawl");
+        .build(tauri::generate_context!())
+        .expect("error while running Scrawl")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                update::on_exit(app);
+            }
+        });
 }
 
 #[cfg(test)]

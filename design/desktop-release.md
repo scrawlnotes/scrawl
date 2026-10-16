@@ -1,6 +1,6 @@
 # Masaüstü dağıtımı ve güncelleme: teknik tasarım (taslak)
 
-Aşama dışı bir altyapı işi. Durum: plan onaylandı (16 Ekim 2026): imzasız başlanır, SignPath'e sonra başvurulur. Durum çubuğu ve About mockup'ı çizildi (mockup sayfasında GÜNCELLEME · MASAÜSTÜ), onay bekliyor. Masaüstü uygulaması Tauri 2 (`apps/desktop`), setup bugün NSIS ile elle derleniyor; GitHub'da henüz hiç release yok.
+Aşama dışı bir altyapı işi. Durum: plan onaylandı (16 Ekim 2026): imzasız başlanır, SignPath'e sonra başvurulur. Durum çubuğu ve About mockup'ı onaylandı (mockup sayfasında GÜNCELLEME · MASAÜSTÜ). 1. dilim (Windows) yazıldı, 14. bölümde notlar; sırada secret'lar ve ilk release. Masaüstü uygulaması Tauri 2 (`apps/desktop`), setup bugün NSIS ile elle derleniyor; GitHub'da henüz hiç release yok.
 
 ## 1. Ne istiyoruz
 
@@ -46,7 +46,7 @@ Otomatik güncellemeyi kapatma ayarı ilk sürümde yok.
 - **Tek sürüm yeri:** `apps/desktop/package.json`. `tauri.conf.json`'da `"version": "../package.json"`. İlk sürüm 0.1.0.
 - **Etiket:** `desktop-v0.1.0` (`server-v`, `mcp-v` gibi). CI, etiketin package.json'daki sürümle aynı olduğunu kontrol eder.
 - **Sürüm notu:** `apps/desktop/CHANGELOG.md`'de `## 0.1.0` başlığının altında, İngilizce ve kısa. CI bu bölümü release'in metni ve `latest.json`'daki `notes` yapar. Bölüm yoksa yayın durur.
-- **Release:** adı "Scrawl 0.1.0". Dosyalar `Scrawl-Setup.exe`, `Scrawl-Setup.exe.sig` ve `latest.json`. Setup'ın adında sürüm yok, böylece README'deki `releases/latest/download/Scrawl-Setup.exe` linki hep son sürümü indirir. `latest.json`'daki linkler etiketin kendi dosyalarına gider.
+- **Release:** adı "Scrawl 0.1.0". Dosyalar `Scrawl-setup.exe`, `Scrawl-setup.exe.sig` ve `latest.json`. Setup'ın adında sürüm yok, böylece README'deki `releases/latest/download/Scrawl-setup.exe` linki hep son sürümü indirir. `latest.json`'daki linkler etiketin kendi dosyalarına gider.
 - **"Latest" release masaüstünündür:** updater onu okur. `mcp.yml`'deki release `make_latest: false` alır, yoksa bir MCP sürümü masaüstünün güncellemesini keser.
 - **Yayın adımı:** sürümü artır, notu yaz, commit, tag, push. Bunu ben hazırlarım, push senin onayınla.
 - **Kötü sürüm çıkarsa:** yeni bir yama sürümü çıkar. Updater eski sürüme inmez.
@@ -70,11 +70,11 @@ Secret'lar: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. �
 **Rust** (`apps/desktop/src-tauri/src/update.rs`):
 
 - `tauri-plugin-updater` kaydı. Yalnız release derlemede çalışır, `tauri dev`'de kapalıdır.
-- Durum: `Idle`, `Checking`, `Downloading { version }`, `Ready { version, notes, bytes }`, `Failed { reason }`. İnen setup bellekte durur (birkaç MB).
+- Durum: `Idle`, `Checking`, `UpToDate { checked }`, `Downloading { version, percent }`, `Ready { version }`, `Failed { offline, reason }`. İnen setup bellekte durur (birkaç MB).
 - Zamanlayıcı: 30 sn sonra ve 4 saatte bir `check` → yeni sürüm varsa `download` → `Ready`. Her değişiklik `update` event'iyle web'e gider.
 - Komutlar: `update_state`, `update_check` (About'tan), `update_restart` (`install`, `restart_after_install(true)`).
 - `RunEvent::ExitRequested`: durum `Ready` ise `restart_after_install(false)` ile `install`. Windows'ta `install` uygulamayı kendisi kapatır.
-- Config: `plugins.updater` içinde `pubkey`, `endpoints`, `windows.installMode: "passive"`; `bundle.createUpdaterArtifacts: true`.
+- Config: `plugins.updater` içinde `pubkey`, `endpoints`, `windows.installMode: "passive"`. `bundle.createUpdaterArtifacts: true` yalnız `tauri.release.conf.json`'da, CI `--config` ile verir: yoksa elle `pnpm desktop:build` özel anahtar ister.
 - JS eklentisinin izinleri (`updater:default`) verilmez. Web yalnız bizim üç komutumuzu çağırır.
 
 **Web:**
@@ -84,7 +84,7 @@ Secret'lar: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. �
 - Settings › About: mockup onaylanınca.
 - i18n: `status.restart`, `settings.about` ve About'un metinleri.
 
-## 8. Windows imzası (karar gerekiyor)
+## 8. Windows imzası
 
 Updater'ın imzası güncellemeyi korur. Windows'un baktığı imza (Authenticode) başka şeydir ve yalnız ilk kurulumda görünür. Updater'ın indirdiği dosyada SmartScreen uyarısı çıkmaz.
 
@@ -136,6 +136,17 @@ Updater'ın imzası güncellemeyi korur. Windows'un baktığı imza (Authenticod
 
 Sonra: winget (`winget install Scrawl`, bedava), Linux (AppImage ve deb, iş akışına bir satır), Windows ARM64, beta kanalı.
 
-## 13. PLAN'a önerilen ek
+## 13. PLAN
 
 5.1 tablosuna "Dağıtım" satırı yazıldı (16 Ekim).
+
+## 14. Yazılırken görülenler (16 Ekim 2026)
+
+- `tauri-plugin-updater` 2.14, `zip` özelliği kapalı: istediği `zip` 4 sürümlerinin hepsi crates.io'da geri çekilmiş, bulunamıyor. Windows'ta güncelleme doğrudan setup'tır, zip gerekmez. Mac'in `.app.tar.gz`'si `tar` ile açılır, o özellikten bağımsız geliyor; mac diliminde yine de denenecek.
+- Özellikler `native-tls` ve `system-proxy`: uygulamanın kendi `reqwest`'i gibi, rustls ikinci kez girmez.
+- Anahtar çifti `~/.tauri/scrawl.key` (şifresi yanında `scrawl.key.password`), açık anahtar `tauri.conf.json`'da.
+- Rust: `src-tauri/src/update.rs`, komutlar `update_state`, `update_check`, `update_restart`; kapanışta kurulum `RunEvent::ExitRequested`'te. 3 test (aynı anda iki arama başlamaz, indirme yüzdesi, web'in okuduğu biçim).
+- Web: `desktopUpdate.ts`, durum çubuğunda Restart (üstüne gelince ipucu), Settings › About; Restart önce yazılanı kaydeder (`session.beforeSync`), kurulamazsa bildirim çıkar.
+- `apps/desktop/scripts/release-notes.mjs` ve 2 testi (`pnpm --filter @scrawlnotes/desktop test`).
+- Bu makinede CI'ın yaptığı derleme denendi: `Scrawl_0.1.0_x64-setup.exe` (5,25 MB) ve `.sig` çıktı; sürüm package.json'dan geliyor.
+- Etiketle tetiklenmezse yedek yol: Actions'ta Desktop iş akışını etiketin üstünde elle çalıştırmak aynı release'i çıkarır.

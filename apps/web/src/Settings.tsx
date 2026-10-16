@@ -1,6 +1,6 @@
 import { dayOf, type Me, newSpaceId, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
 import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
-import { type CSSProperties, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
 import type { SpaceView } from './session';
 import { chooseLanguage, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
@@ -8,14 +8,16 @@ import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SyncService, SyncSnapshot } from './sync';
 import { dueLabel } from './Tasks';
-import { CloudIcon, FolderPicker, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice } from './SyncViews';
+import { ago, CloudIcon, FolderPicker, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice, useTicking } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 import { ConnectServerDialog, serverFailure } from './ServerConnect';
 import { ROLE_WORD, ServerMembers, ServerPage } from './ServerPeople';
 import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, tookJoin, useKnownServers } from './servers';
 import { Agents } from './Agents';
+import { checkForUpdates, releasePage, useAppVersion, useDesktopUpdate } from './desktopUpdate';
+import { isDesktop, openUrlOnDesktop } from './storage';
 
-export type Section = 'profile' | 'appearance' | 'spaces' | 'agents' | 'language';
+export type Section = 'profile' | 'appearance' | 'spaces' | 'agents' | 'language' | 'about';
 
 const SECTIONS: { id: Section; label: MessageKey; icon: IconName }[] = [
   { id: 'profile', label: 'settings.profile', icon: 'person' },
@@ -23,6 +25,7 @@ const SECTIONS: { id: Section; label: MessageKey; icon: IconName }[] = [
   { id: 'spaces', label: 'settings.spaces', icon: 'space' },
   { id: 'agents', label: 'settings.agents', icon: 'agent' },
   { id: 'language', label: 'settings.language', icon: 'language' },
+  { id: 'about', label: 'settings.about', icon: 'info' },
 ];
 
 const MODES: { mode: Mode; label: MessageKey }[] = [
@@ -81,6 +84,8 @@ export interface SettingsValues {
   /** How the space's sync stands, and what connects and disconnects it. */
   sync: SyncSnapshot;
   syncService: SyncService;
+  /** Desktop: writes what is being typed, installs the update downloaded and opens the new version. */
+  onRestartUpdate?: () => void;
 }
 
 export interface SettingsProps extends SettingsValues {
@@ -91,8 +96,8 @@ export interface SettingsProps extends SettingsValues {
   onClose: () => void;
 }
 
-/** The sections, Language once there is more than one language. */
-export const settingsSections = () => SECTIONS.filter((section) => section.id !== 'language' || languages.length > 1);
+/** The sections, Language once there is more than one language, About on the desktop, which updates itself. */
+export const settingsSections = () => SECTIONS.filter((section) => (section.id !== 'language' || languages.length > 1) && (section.id !== 'about' || isDesktop));
 
 /** What a section is set to, beside it in the list of a phone. */
 export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }: Pick<SettingsValues, 'mode' | 'theme' | 'spaceName' | 'me' | 'spaces'>): string {
@@ -101,12 +106,123 @@ export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }
   // With more than one space, how many there are; with one, what it is called.
   if (id === 'spaces') return spaces.length > 0 ? String(spaces.length + 1) : (spaceName ?? t('settings.personal'));
   if (id === 'agents') return knownServers().length > 0 ? t('agents.viaServers', { count: knownServers().length }) : '';
+  if (id === 'about') return '';
   return languages.find((language) => language.tag === languageTag())?.name ?? '';
 }
 
 /** What a section has, in the window or on a phone's page. */
 export function SettingsSection({ section, ...values }: SettingsValues & { section: Section }) {
-  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : section === 'agents' ? <Agents {...values} /> : <Language />;
+  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : section === 'agents' ? <Agents {...values} /> : section === 'about' ? <About {...values} /> : <Language />;
+}
+
+/**
+ * The version running and what is new in it; under it how the updates stand, as a space's page
+ * shows its sync, with what can be done. On the desktop only, where the app updates itself.
+ */
+function About({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
+  const version = useAppVersion();
+  const update = useDesktopUpdate();
+  useTicking(update.state === 'upToDate');
+  const open = (url: string) => void openUrlOnDesktop(url).catch(() => undefined);
+  const check = () => void checkForUpdates().catch(() => undefined);
+  const checkButton = (label: MessageKey, disabled = false) => (
+    <button type="button" className="st-btn" disabled={disabled} onClick={check}>
+      {t(label)}
+    </button>
+  );
+  let state: ReactNode;
+  let acts: ReactNode = null;
+  switch (update.state) {
+    case 'idle':
+      state = <span className="state off">{t('about.notYet')}</span>;
+      acts = checkButton('about.check');
+      break;
+    case 'checking':
+      state = (
+        <span className="state">
+          <span className="spinner" aria-hidden="true" />
+          {t('about.checking')}
+        </span>
+      );
+      acts = checkButton('about.check', true);
+      break;
+    case 'upToDate':
+      state = (
+        <span className="state">
+          <i />
+          {t('about.upToDate', { ago: ago(update.checked) })}
+        </span>
+      );
+      acts = checkButton('about.check');
+      break;
+    case 'downloading':
+      state = (
+        <span className="state">
+          {update.percent === null ? t('about.downloading', { version: update.version }) : t('about.downloadingPct', { version: update.version, pct: update.percent })}
+          {update.percent !== null && (
+            <span className="bar" aria-hidden="true">
+              <i style={{ width: `${update.percent}%` }} />
+            </span>
+          )}
+        </span>
+      );
+      break;
+    case 'ready':
+      state = (
+        <span className="state ready">
+          <i />
+          {t('about.ready', { version: update.version })}
+        </span>
+      );
+      acts = (
+        <>
+          <button type="button" className="st-btn go" onClick={onRestartUpdate}>
+            {t('about.restart')}
+          </button>
+          <button type="button" className="st-btn" onClick={() => open(releasePage(update.version))}>
+            {t('about.whatsNewIn', { version: update.version })}
+          </button>
+        </>
+      );
+      break;
+    case 'failed':
+      state = (
+        <span className="state warn">
+          <Icon name="warn" />
+          {update.offline ? t('about.offline') : t('about.failed', { reason: update.reason })}
+        </span>
+      );
+      acts = checkButton('about.tryAgain');
+      break;
+  }
+  return (
+    <>
+      <span className="st-label">{t('settings.about')}</span>
+      <div className="st-space">
+        <div className="st-row">
+          <span className="fl">{t('about.version')}</span>
+          <span className="path plain">{t('about.name', { version })}</span>
+          <button type="button" disabled={!version} onClick={() => open(releasePage(version))}>
+            {t('about.whatsNew')}
+          </button>
+        </div>
+        <div className="st-sync">
+          <span className="fl">{t('about.updates')}</span>
+          <div className="what" role="status">
+            {state}
+            {acts && <span className="acts">{acts}</span>}
+          </div>
+        </div>
+      </div>
+      <p className="st-note">{t('about.note')}</p>
+      <p className="st-note about-source">
+        {t('about.openSource')}{' '}
+        <button type="button" className="st-link" onClick={() => open('https://github.com/scrawlnotes/scrawl')}>
+          github.com/scrawlnotes/scrawl
+        </button>
+      </p>
+    </>
+  );
 }
 
 /** A little window in a theme's colours, in the shade the interface is in. */

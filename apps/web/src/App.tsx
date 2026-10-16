@@ -134,6 +134,7 @@ import { type FileRow, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
+import { restartIntoUpdate, useDesktopUpdate } from './desktopUpdate';
 import { SyncStatus, syncWord } from './SyncViews';
 import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
 import { pendingJoin } from './servers';
@@ -257,6 +258,7 @@ export function App() {
     if (pendingJoin()) setDialog({ kind: 'settings', section: 'spaces' });
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
+  const desktopUpdate = useDesktopUpdate();
   const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
@@ -1508,6 +1510,13 @@ export function App() {
     </>
   );
 
+  // What is being typed is written first, then the update goes in and the new version opens.
+  const restartUpdate = () =>
+    void session
+      .beforeSync()
+      .then(restartIntoUpdate)
+      .catch((error: unknown) => setNotice(t('status.updateFailed', { error: String(error) })));
+
   const settingsValues: SettingsValues = {
     mode,
     onMode: (choice) => {
@@ -1546,6 +1555,7 @@ export function App() {
     onUseDefaultFolder: isDesktop ? () => void session.useDefaultFolder() : undefined,
     sync,
     syncService,
+    onRestartUpdate: restartUpdate,
   };
 
   return (
@@ -1966,6 +1976,14 @@ export function App() {
                 {/* What is being typed is written first, then the page reloads into the new version. */}
                 <button type="button" onClick={() => void session.beforeSync().then(reloadIntoUpdate)}>
                   {t('status.reload')}
+                </button>
+              </span>
+            )}
+            {desktopUpdate.state === 'ready' && (
+              <span className="update" role="status" title={t('status.updateTip', { version: desktopUpdate.version })}>
+                {t('status.updateReady')}
+                <button type="button" onClick={restartUpdate}>
+                  {t('status.restart')}
                 </button>
               </span>
             )}

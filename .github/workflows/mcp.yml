@@ -1,7 +1,7 @@
 # The stdio command for agents, `scrawl-mcp`: its tests on every change to it, the npm package
 # @scrawlnotes/mcp and the Claude Desktop bundle scrawl.mcpb on a tag like mcp-v0.1.0. Publishing
 # to npm needs the NPM_TOKEN secret of the scrawlnotes organization; the bundle goes on the
-# GitHub release of the tag.
+# GitHub release of the tag, which is never the latest release: that is the desktop app's.
 name: MCP
 
 on:
@@ -69,3 +69,5 @@ jobs:
         with:
           name: scrawl-mcp ${{ github.ref_name }}
           files: apps/mcp/dist/scrawl.mcpb
+          # The latest release is the desktop app's: its installed copies read their updates from it.
+          make_latest: false

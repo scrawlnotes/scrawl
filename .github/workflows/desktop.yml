@@ -1,0 +1,115 @@
+# The desktop app (design/desktop-release.md): its tests on every change to it, and on a tag like
+# desktop-v0.1.0 the Windows setup, built and put on the tag's GitHub release with latest.json, which
+# the installed apps read to update themselves. The release stays a draft until every build is up,
+# then becomes the latest release. Run by hand, it builds the setup without a release and leaves it
+# as the run's artifact. Signing the updates needs the TAURI_SIGNING_PRIVATE_KEY and
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD secrets; the setup itself is not signed yet.
+name: Desktop
+
+on:
+  push:
+    branches: [main]
+    tags: ['desktop-v*']
+    paths:
+      - apps/desktop/**
+      - .github/workflows/desktop.yml
+  pull_request:
+    paths:
+      - apps/desktop/**
+      - .github/workflows/desktop.yml
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.9.1
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+      - run: pnpm install --frozen-lockfile --filter "@scrawlnotes/desktop..."
+      - run: pnpm --filter @scrawlnotes/desktop test
+      - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+  build:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/desktop-v')
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.9.1
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+      - run: pnpm install --frozen-lockfile --filter "@scrawlnotes/desktop..." --filter "@scrawlnotes/web..."
+      - name: The tag names the app's version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: test "desktop-v$(node -p "require('./apps/desktop/package.json').version")" = "${GITHUB_REF_NAME}"
+      - name: The version's notes, from CHANGELOG.md
+        id: notes
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          notes="$(node apps/desktop/scripts/release-notes.mjs "${GITHUB_REF_NAME#desktop-v}")"
+          {
+            echo 'body<<END_OF_NOTES'
+            echo "$notes"
+            echo 'END_OF_NOTES'
+          } >> "$GITHUB_OUTPUT"
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          args: --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: Scrawl __VERSION__
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: true
+          # Scrawl-setup.exe: README links to the latest one by this name.
+          releaseAssetNamePattern: '[name][setup][ext]'
+          uploadWorkflowArtifacts: ${{ github.event_name == 'workflow_dispatch' }}
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: The release has the setup and latest.json
+        run: |
+          assets="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          echo "$assets"
+          grep -qx 'latest.json' <<< "$assets"
+          grep -qx 'Scrawl-setup.exe' <<< "$assets"
+      - run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest

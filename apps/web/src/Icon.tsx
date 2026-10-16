@@ -301,6 +301,12 @@ const shapes = {
       <path d="M10.5 10.5v5.5M13.5 10.5v5.5" />
     </>
   ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5.5M12 7.8v.2" />
+    </>
+  ),
   warn: (
     <>
       <circle cx="12" cy="12" r="8.5" />
