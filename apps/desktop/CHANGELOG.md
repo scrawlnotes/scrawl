@@ -2,6 +2,13 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.1
+
+- The first start asks nothing. Your name and email are asked only where others see you, when you add a shared space; a Scrawl server takes them from your account.
+- Double-click a tab to rename what it shows. A filter's tab opens its Filter window.
+- The right-click menu of a collection's tab opens.
+- Add to Claude Desktop in Settings › Agents opens the bundle made for this version of the agent command.
+
 ## 0.1.0
 
 The first release of the Windows app.
