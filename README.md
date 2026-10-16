@@ -3,12 +3,17 @@
 Notes, task lists, boards and collections, kept as plain files, for you and your agent. Spaces you
 share with others sync through a OneDrive folder or a Scrawl server you run yourself.
 
-It runs on Windows, in the browser at https://app.scrawlnotes.com, and on phones as a web app.
-macOS and Linux apps, and native iOS and Android apps, are on the way.
+It runs on Windows and the Mac, in the browser at https://app.scrawlnotes.com, and on phones as a
+web app. A Linux app, and native iOS and Android apps, are on the way.
 
 **Windows:** download [Scrawl-setup.exe](https://github.com/scrawlnotes/scrawl/releases/latest/download/Scrawl-setup.exe).
 The app keeps itself up to date. The setup is not signed yet, so Windows may stop it the first
 time: choose More info, then Run anyway.
+
+**Mac:** download [Scrawl.dmg](https://github.com/scrawlnotes/scrawl/releases/latest/download/Scrawl.dmg),
+one app for Apple silicon and Intel, and drag Scrawl to Applications. The app keeps itself up to
+date. It is not signed by an Apple developer yet, so the Mac stops it the first time: open System
+Settings › Privacy & Security and choose Open Anyway.
 
 ## Features
 

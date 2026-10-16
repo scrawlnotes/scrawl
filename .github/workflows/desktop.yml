@@ -1,9 +1,10 @@
 # The desktop app (design/desktop-release.md): its tests on every change to it, and on a tag like
-# desktop-v0.1.0 the Windows setup, built and put on the tag's GitHub release with latest.json, which
-# the installed apps read to update themselves. The release stays a draft until every build is up,
-# then becomes the latest release. Run by hand, it builds the setup without a release and leaves it
-# as the run's artifact. Signing the updates needs the TAURI_SIGNING_PRIVATE_KEY and
-# TAURI_SIGNING_PRIVATE_KEY_PASSWORD secrets; the setup itself is not signed yet.
+# desktop-v0.1.0 the Windows setup and the Mac's Scrawl.dmg, one for Apple silicon and Intel, built
+# and put on the tag's GitHub release with latest.json, which the installed apps read to update
+# themselves. The release stays a draft until every build is up, then becomes the latest release.
+# Run by hand, it builds both without a release and leaves them as the run's artifacts. Signing the
+# updates needs the TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD secrets; the
+# setup is not signed yet, and the Mac app is signed ad hoc, not by an Apple developer.
 name: Desktop
 
 on:
@@ -50,6 +51,8 @@ jobs:
         include:
           - platform: windows-latest
             args: ''
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v5
@@ -61,6 +64,9 @@ jobs:
           node-version: 24
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          # A universal Mac app is built for both, then joined.
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri -> target
@@ -93,7 +99,7 @@ jobs:
           releaseName: Scrawl __VERSION__
           releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
-          # Scrawl-setup.exe: README links to the latest one by this name.
+          # Scrawl-setup.exe and Scrawl.dmg: README links to the latest ones by these names.
           releaseAssetNamePattern: '[name][setup][ext]'
           uploadWorkflowArtifacts: ${{ github.event_name == 'workflow_dispatch' }}
 
@@ -106,10 +112,14 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: The release has the setup and latest.json
+      - name: The release has the setup, the dmg and latest.json for both
         run: |
           assets="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
           echo "$assets"
           grep -qx 'latest.json' <<< "$assets"
           grep -qx 'Scrawl-setup.exe' <<< "$assets"
+          grep -qx 'Scrawl.dmg' <<< "$assets"
+          platforms="$(gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern latest.json --output - | jq -r '.platforms | keys[]')"
+          echo "$platforms"
+          for platform in windows-x86_64 darwin-aarch64 darwin-x86_64; do grep -qx "$platform" <<< "$platforms"; done
       - run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest

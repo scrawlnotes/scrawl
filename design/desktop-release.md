@@ -99,13 +99,16 @@ Updater'ın imzası güncellemeyi korur. Windows'un baktığı imza (Authenticod
 
 **Karar (16 Ekim):** 0.1.0 imzasız çıkar, hemen ardından SignPath'e başvurulur. Onay gelince imza `bundle.windows.signCommand` ile CI'a girer. Tauri updater'ın `.sig` dosyasını imzalanmış setup'tan üretir, sıra bozulmaz.
 
-## 9. Mac (sonra)
+## 9. Mac
 
-- Apple Developer Program yılda 99$ (bireysel üyelik Türkiye'den olur). İmzasız ve notarize edilmemiş bir mac uygulaması pratikte açılmaz: System Settings › Privacy & Security › Open Anyway gerekir.
-- Matrix'e `macos-latest`, `--target universal-apple-darwin`: Intel ve Apple Silicon için tek `Scrawl.dmg`; updater için `.app.tar.gz` ve `.sig`; `latest.json`'a `darwin-aarch64` ve `darwin-x86_64`.
-- Secret'lar: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` ve notarization için App Store Connect API anahtarı.
-- Kodda bakılacaklar: Edit menüsü (Cmd+C ve Cmd+V onsuz çalışmaz), Keychain (`keyring` destekliyor), OneDrive girişi, kısayollarda Cmd, pencere başlığı. Mac'e özel ayarlar `tauri.macos.conf.json`'da.
-- Deneme için bir Mac gerekir; bizde yok.
+**Karar (16 Ekim):** Mac sürümü 0.1.2 ile imzasız çıkar; Apple Developer sonra.
+
+- Matrix'te `macos-latest`, `--target universal-apple-darwin`: Intel ve Apple Silicon için tek `Scrawl.dmg`; updater için `Scrawl.app.tar.gz` ve `.sig`; `latest.json`'da `darwin-aarch64` ve `darwin-x86_64`. publish adımı üçünü ve dmg'yi arar.
+- `tauri.macos.conf.json`: paketler `app` ve `dmg`, `signingIdentity: "-"`. Ad hoc imza Apple Silicon'da şart: imzasız indirilen uygulama için Mac "hasarlı" der ve açtırmaz; ad hoc imzalıda ilk açılışta System Settings › Privacy & Security › Open Anyway yeter.
+- Ad hoc imza her sürümde değişir. Keychain'deki anahtarlar (OneDrive, sunucu) güncellemeden sonra ilk okunurken Mac izin sorabilir; Always Allow bir daha sordurmaz. Apple Developer imzası gelince biter.
+- Apple Developer Program yılda 99$ (bireysel üyelik Türkiye'den olur). Gelince secret'lar: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` ve notarization için App Store Connect API anahtarı; `signingIdentity` onlardan gelir.
+- Koddakiler: Tauri 2 Mac'te varsayılan menüyü (Edit dahil, Cmd+C ve Cmd+V) kendisi kurar; `keyring` 4 Mac'te Keychain'i kendisi seçer.
+- Deneme: evdeki Mac mini (`ssh mac`); yerelde `CI=true pnpm tauri build --target universal-apple-darwin`.
 
 ## 10. Güvenlik
 
