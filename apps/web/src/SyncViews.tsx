@@ -88,75 +88,42 @@ export interface SyncRowProps {
 }
 
 /**
- * A space's sync, in its card: connected, its cloud, account, folder, how it stands and what can
- * be done; or not yet, with a sentence and the way to connect. Signing in goes on in the
- * system browser; the folder is chosen after it.
+ * The personal space's sync, in its card (design/spaces.md 2.2): not synced, only on this device,
+ * with Sync…; or where it syncs, how it stands, Sync now and Change…. Sync… and Change… open the
+ * one window where its place is chosen (`onPlace`). Signing in again goes on in the system
+ * browser; a folder that is gone is chosen again here.
  */
-export function SyncRow({ sync, service }: SyncRowProps) {
+export function SyncRow({ sync, service, onPlace }: SyncRowProps & { onPlace: () => void }) {
   const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState<Connection['account'] | null>(null);
-  const [ownApp, setOwnApp] = useState(false);
   const { connection } = sync;
   useTicking(connection !== null);
 
   useEffect(() => () => signing?.cancel(), [signing]);
 
-  // Back from Microsoft in the browser, signed in to connect: the folder is chosen now.
-  useEffect(() => {
-    if (!sync.picking) return;
-    setPicking(sync.picking);
-    service.donePicking();
-  }, [sync.picking, service]);
-
-  // Signs in, then asks for the folder, unless the key that is kept still works. In the browser
-  // the page goes to Microsoft and comes back, and the folder is asked for then.
-  const signIn = async (then: 'pick' | 'resume') => {
+  // Signs in again with the key kept. In the browser the page goes to Microsoft and comes back.
+  const signIn = async () => {
     const cloud = service.cloud();
     setError(null);
     service.clearSignInError();
     if (cloud.redirects) {
-      await service.leaveToSignIn(then === 'pick' ? 'connect' : 'again');
+      await service.leaveToSignIn('again');
       return;
     }
-    const attempt = cloud.signIn(then === 'pick' ? 'connect' : 'again');
+    const attempt = cloud.signIn('again');
     setSigning(attempt);
     try {
       await attempt.done;
+      service.signedInAgain();
     } catch (failure) {
-      setSigning(null);
       if (failure instanceof DOMException && failure.name === 'AbortError') return;
       const message = String(failure instanceof Error ? failure.message : failure);
       setError(message === 'timeout' ? t('sync.signInTimeout') : t('sync.signInFailed', { error: message }));
-      return;
-    }
-    setSigning(null);
-    if (then === 'resume') {
-      service.signedInAgain();
-      return;
-    }
-    try {
-      setPicking(await service.account());
-    } catch (failure) {
-      setError(t('sync.signInFailed', { error: failure instanceof Error ? failure.message : String(failure) }));
+    } finally {
+      setSigning(null);
     }
   };
-
-  const picker = picking && (
-    <FolderPicker
-      account={picking}
-      service={service}
-      onUse={(folder) => {
-        setPicking(null);
-        void service.connect(picking, folder);
-      }}
-      onCancel={() => {
-        setPicking(null);
-        // Not connected after all: the key kept for it goes, unless a space syncs with it.
-        if (!sync.connection && sync.all.length === 0) void service.cloud().signOut();
-      }}
-    />
-  );
 
   if (signing) {
     return (
@@ -191,11 +158,15 @@ export function SyncRow({ sync, service }: SyncRowProps) {
       <div className="st-sync">
         <span className="fl">{t('sync.label')}</span>
         <div className="what">
-          <p>{t('sync.notSynced')}</p>
+          <span className="who">
+            <Icon name="laptop" />
+            <b>{t('sync.notSyncedShort')}</b>
+            <small>{t('sync.onlyHere')}</small>
+          </span>
+          <p>{t('sync.syncItAbout')}</p>
           <span className="acts">
-            <button type="button" className="st-btn go" onClick={() => void signIn('pick')}>
-              <CloudIcon />
-              {t('sync.connectOneDrive')}
+            <button type="button" className="st-btn go" onClick={onPlace}>
+              {t('sync.syncDots')}
             </button>
           </span>
           {failed && (
@@ -203,15 +174,7 @@ export function SyncRow({ sync, service }: SyncRowProps) {
               {failed}
             </p>
           )}
-          <p className="small">{t('sync.access')}</p>
-          {!ownApp && (
-            <button type="button" className="st-link" onClick={() => setOwnApp(true)}>
-              {t('sync.ownApp')}
-            </button>
-          )}
-          {ownApp && <OwnApp onDone={() => setOwnApp(false)} />}
         </div>
-        {picker}
       </div>
     );
   }
@@ -225,16 +188,17 @@ export function SyncRow({ sync, service }: SyncRowProps) {
         <span className="who">
           <CloudIcon />
           <b>{t('sync.oneDrive')}</b>
-          <small>{connection.account.email || connection.account.name}</small>
+          <small>
+            {connection.account.email || connection.account.name} · {placeWords(connection.folder.path, connection.folder.drive)}
+          </small>
         </span>
-        <span className="where">{connection.folder.path}</span>
         <span className={`state ${state.tone}`} role="status">
           <i />
           {state.text}
         </span>
         <span className="acts">
           {sync.phase === 'signedOut' ? (
-            <button type="button" className="st-btn go" onClick={() => void signIn('resume')}>
+            <button type="button" className="st-btn go" onClick={() => void signIn()}>
               {t('sync.signInAgain')}
             </button>
           ) : sync.phase === 'folderGone' ? (
@@ -246,8 +210,8 @@ export function SyncRow({ sync, service }: SyncRowProps) {
               {t('sync.syncNow')}
             </button>
           )}
-          <button type="button" className="st-btn" onClick={() => void service.disconnect()}>
-            {t('sync.disconnect')}
+          <button type="button" className="st-btn" onClick={onPlace}>
+            {t('settings.change')}
           </button>
         </span>
         {failed && (
@@ -257,7 +221,17 @@ export function SyncRow({ sync, service }: SyncRowProps) {
         )}
         {notSynced > 0 && <p className="small">{t('sync.notSyncedCount', { count: notSynced })}</p>}
       </div>
-      {picker}
+      {picking && (
+        <FolderPicker
+          account={picking}
+          service={service}
+          onUse={(folder) => {
+            setPicking(null);
+            void service.connect(picking, folder);
+          }}
+          onCancel={() => setPicking(null)}
+        />
+      )}
     </div>
   );
 }
@@ -375,7 +349,7 @@ export function personalPlace(connection: Connection | null, phone = false): str
 }
 
 /** The user's own app registration, for those who would rather not sign in through Scrawl's. */
-function OwnApp({ onDone }: { onDone: () => void }) {
+export function OwnApp({ onDone }: { onDone: () => void }) {
   const kept = clientId();
   const [draft, setDraft] = useState(kept === DEFAULT_CLIENT_ID ? '' : kept);
   const save = () => {

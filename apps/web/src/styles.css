@@ -10900,3 +10900,59 @@ button.st-li:hover,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Personal and shared spaces (design/spaces.md): Connect a server… as a step of Add space, with
+   its way back to Location; Sync Personal's place that is now, and its own app registration. */
+.fp .srv-step {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.fp .step-back {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 2px;
+  margin: -4px 0 8px -4px;
+  padding: 2px 6px 2px 2px;
+  border-radius: 4px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.fp .step-back:hover {
+  color: var(--sl-fg);
+}
+
+.fp .step-back .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.fp.space-add .list .row .now {
+  padding: 0 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 9px;
+  color: var(--sl-dim);
+  font-size: 10.5px;
+  font-style: normal;
+}
+
+.fp .st-link {
+  align-self: flex-start;
+  margin: 6px 2px 0;
+}
+
+.fp .own-app {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.fp .own-app p.small {
+  margin: 0 2px;
+  color: var(--sl-faint);
+  font-size: 12px;
+}

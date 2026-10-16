@@ -5,7 +5,8 @@ import { clientId, DEFAULT_CLIENT_ID, setClientId } from './cloud';
 import { Icon, type IconName } from './Icon';
 import type { SpaceView } from './session';
 import type { SettingsValues } from './Settings';
-import { ActionSheet, Empty, Sheet, SheetClose } from './sheets';
+import { Empty, Sheet, SheetClose } from './sheets';
+import { PhoneSyncPersonalSheet } from './PhoneSpaces';
 import { isDesktop } from './storage';
 import type { Connection, SpaceSync, SyncService, SyncSnapshot } from './sync';
 import {
@@ -191,8 +192,9 @@ export interface SyncHead {
  * A space's sync on its page: how its turn stands, in a large word with its share and a bar while
  * it runs, the file going now, or when it was synced and what the last turn did, or what keeps it
  * from going on with the button that mends it; then Waiting, Done and Not synced, each file a row.
- * The personal space not synced connects here, and its menu disconnects it. `frame` puts the page
- * in its frame, with the line under its title and what its bar offers.
+ * The personal space not synced says so, and Sync… opens the sheet where its place is chosen, as
+ * its Location does. `frame` puts the page in its frame, with the line under its title and what
+ * its bar offers.
  */
 export function PhoneSyncPage({ space, values, frame }: { space: string | null; values: SettingsValues; frame: (head: SyncHead, body: ReactNode) => ReactNode }) {
   const { sync, syncService: service } = values;
@@ -206,47 +208,52 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
   const [picking, setPicking] = useState<Connection['account'] | null>(null);
   const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [menu, setMenu] = useState(false);
-  const [ownApp, setOwnApp] = useState(false);
+  // The sheet where the personal space's place is chosen; back from Microsoft, with the account signed in to.
+  const [placing, setPlacing] = useState(false);
+  const [signedIn, setSignedIn] = useState<Connection['account'] | null>(null);
 
   useEffect(() => () => signing?.cancel(), [signing]);
 
-  // Back from Microsoft, signed in to connect the personal space: its folder is chosen now.
+  // Back from Microsoft, signed in to sync the personal space: the sheet opens at its folders.
   useEffect(() => {
     if (!personal || !sync.picking) return;
-    setPicking(sync.picking);
+    setSignedIn(sync.picking);
+    setPlacing(true);
     service.donePicking();
   }, [personal, sync.picking, service]);
 
-  // Signs in, to connect and choose a folder, or again once the key stopped working. In the
-  // browser the page goes to Microsoft and comes back.
-  const signIn = async (then: 'pick' | 'resume') => {
+  // Signs in again once the key stopped working. In the browser the page goes to Microsoft and comes back.
+  const signIn = async () => {
     const cloud = service.cloud();
     setError(null);
     service.clearSignInError();
     if (cloud.redirects) {
-      await service.leaveToSignIn(then === 'pick' ? 'connect' : 'again');
+      await service.leaveToSignIn('again');
       return;
     }
-    const attempt = cloud.signIn(then === 'pick' ? 'connect' : 'again');
+    const attempt = cloud.signIn('again');
     setSigning(attempt);
     try {
       await attempt.done;
+      service.signedInAgain();
     } catch (failure) {
-      setSigning(null);
       if (failure instanceof DOMException && failure.name === 'AbortError') return;
       const message = String(failure instanceof Error ? failure.message : failure);
       setError(message === 'timeout' ? t('sync.signInTimeout') : t('sync.signInFailed', { error: message }));
-      return;
-    }
-    setSigning(null);
-    if (then === 'resume') return service.signedInAgain();
-    try {
-      setPicking(await service.account());
-    } catch (failure) {
-      setError(t('sync.signInFailed', { error: failure instanceof Error ? failure.message : String(failure) }));
+    } finally {
+      setSigning(null);
     }
   };
+  const placeSheet = placing && (
+    <PhoneSyncPersonalSheet
+      values={values}
+      account={signedIn}
+      onClose={() => {
+        setPlacing(false);
+        setSignedIn(null);
+      }}
+    />
+  );
 
   const failed = error ?? (personal ? sync.signInError : null);
   const waiting = signing && (
@@ -271,33 +278,18 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
         setPicking(null);
         void service.connect(picking, folder);
       }}
-      onCancel={() => {
-        setPicking(null);
-        // Not connected after all: the key kept for it goes, unless a space syncs with it.
-        if (!sync.connection && sync.all.length === 0) void service.cloud().signOut();
-      }}
+      onCancel={() => setPicking(null)}
     />
   );
 
-  // The personal space not synced: the way to connect it, with the app registration of one's own.
+  // The personal space not synced: only on this phone, and Sync… to choose where.
   if (personal && !sync.connection) {
     return frame(
       {},
       <>
-        <Empty
-          icon="cloud"
-          title={t('phone.notSynced')}
-          text={t('phone.notSyncedText')}
-          {...(!signing && { action: { label: t('sync.connectOneDrive'), run: () => void signIn('pick') } })}
-        />
-        {waiting}
+        <Empty icon="device" title={t('phone.notSynced')} text={t('phone.onlyHereText')} action={{ label: t('sync.syncDots'), run: () => setPlacing(true) }} />
         {problem}
-        <p className="mb-p center">{t('sync.access')}</p>
-        <button type="button" className="mb-link" onClick={() => setOwnApp(true)}>
-          {t('sync.ownApp')}
-        </button>
-        {ownApp && <OwnAppSheet onClose={() => setOwnApp(false)} />}
-        {picker}
+        {placeSheet}
       </>,
     );
   }
@@ -314,14 +306,13 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
   // personal space, another folder.
   const mend =
     phase === 'signedOut'
-      ? { label: t('sync.signInAgain'), run: () => (connection?.server ? service.askServerSignIn(connection.server, connection.account.email) : void signIn('resume')) }
+      ? { label: t('sync.signInAgain'), run: () => (connection?.server ? service.askServerSignIn(connection.server, connection.account.email) : void signIn()) }
       : phase === 'folderGone' && personal && connection
         ? { label: t('sync.chooseFolder'), run: () => setPicking(connection.account) }
         : null;
   const head: SyncHead = {
     sub,
     ...(!running && !mend && { action: { label: t('sync.syncNow'), run: () => service.syncNow(space) } }),
-    ...(personal && { onMenu: () => setMenu(true) }),
   };
   const shown = lists[tab];
   const share = progress?.share ?? 0;
@@ -393,20 +384,13 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
         <FileRows key={tab} jobs={shown} top={top} place={placeName(connection)} />
       )}
       <p className="mb-p">{t('panel.when')}</p>
-      {menu && connection && (
-        <ActionSheet
-          head={{ icon: 'cloud', title: provider, sub: `${account?.email || account?.name || ''} · ${connection.folder.path}` }}
-          items={[{ label: t('sync.disconnect'), danger: true, run: () => void service.disconnect() }]}
-          onClose={() => setMenu(false)}
-        />
-      )}
       {picker}
     </>,
   );
 }
 
 /** The user's own app registration, in a sheet: its id, for those who would rather not sign in through Scrawl's. */
-function OwnAppSheet({ onClose }: { onClose: () => void }) {
+export function OwnAppSheet({ onClose }: { onClose: () => void }) {
   const kept = clientId();
   const [draft, setDraft] = useState(kept === DEFAULT_CLIENT_ID ? '' : kept);
   const save = (event?: FormEvent) => {

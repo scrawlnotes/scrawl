@@ -6085,3 +6085,11 @@ body > .mb-lifted {
   color: var(--sl-faint);
   font-size: 13.5px;
 }
+
+/* Sync Personal as a sheet: the place it syncs with now, said beside its name. */
+.mb-row .tx b small.you {
+  display: inline;
+  color: var(--sl-faint);
+  font-size: 14px;
+  font-weight: 400;
+}

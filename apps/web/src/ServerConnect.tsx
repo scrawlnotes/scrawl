@@ -13,8 +13,9 @@ import { ServerIcon } from './SyncViews';
 // one. Setting up and joining take the name, the email and a password, the name and email from
 // Profile as it is; signing in the email and the password. Profile takes what it lacks from the
 // account after (`signedInToServer`). Joining with an email that has an account there takes its
-// password, and adds the space to it. The same window signs in again to a server whose key no
-// longer works. A window on a computer, a sheet on a phone.
+// password, and adds the space to it. On a computer it is a step of Add space, where what the
+// server asks for opens under the field at once; on its own, a window signs in again to a server
+// whose key no longer works. On a phone, a sheet.
 
 /** What the field leads to, once the server answered. */
 type Found =
@@ -138,14 +139,18 @@ function useServerConnect({ me, device, again, start, onDone }: ConnectOptions) 
 
   const invitation = found?.kind === 'invite' ? found.invitation : null;
   const canContinue = found?.kind === 'new' || found?.kind === 'ready' || found?.kind === 'invite';
+  // As a step of a window, what the server asks for opens under the field as soon as it answered.
+  const answered: Step | null = !found ? null : found.kind === 'new' ? 'setup' : found.kind === 'ready' ? 'signin' : found.kind === 'invite' ? (found.invitation.kind === 'space' ? 'join' : 'reset') : null;
+  const acting: Step = step !== 'address' ? step : (answered ?? 'address');
+  // A password link is for one account: its email is not typed.
+  useEffect(() => {
+    if (found?.kind === 'invite' && found.invitation.kind === 'reset') setEmail(found.invitation.email);
+  }, [found]);
   const next = () => {
     if (!found || !canContinue) return;
     setError(null);
-    if (found.kind === 'invite') {
-      // A password link is for one account: its email is not typed.
-      if (found.invitation.kind === 'reset') setEmail(found.invitation.email);
-      setStep(found.invitation.kind === 'space' ? 'join' : 'reset');
-    } else setStep(found.kind === 'new' ? 'setup' : 'signin');
+    if (found.kind === 'invite') setStep(found.invitation.kind === 'space' ? 'join' : 'reset');
+    else setStep(found.kind === 'new' ? 'setup' : 'signin');
   };
   const back = () => {
     setError(null);
@@ -153,33 +158,33 @@ function useServerConnect({ me, device, again, start, onDone }: ConnectOptions) 
     setStep('address');
   };
   const submit = async () => {
-    if (!url || busy) return;
+    if (!url || busy || acting === 'address') return;
     setBusy(true);
     setError(null);
     try {
       const account = serverAccount(url);
       const code = found?.kind === 'invite' ? found.code : '';
-      if (step === 'join') {
+      if (acting === 'join') {
         const joined = await account.accept(code, { name: name.trim(), email: email.trim(), password, person: me?.id ?? '', device });
         onDone(await keepSignIn(url, joined), { joined: joined.space });
-      } else if (step === 'reset') {
+      } else if (acting === 'reset') {
         onDone(await keepSignIn(url, await account.setPassword(code, { password, device })), { reset: true });
       } else {
         const signedIn =
-          step === 'setup'
+          acting === 'setup'
             ? await account.setUp({ name: name.trim(), email: email.trim(), password, person: me?.id ?? '', device })
             : await account.signIn({ email: email.trim(), password, device });
         onDone(await keepSignIn(url, signedIn));
       }
     } catch (failure) {
       // Joining with an email that has an account there asks for that account's password.
-      const taken = step === 'join' && failure instanceof ServerError && failure.code === 'wrong-password';
+      const taken = acting === 'join' && failure instanceof ServerError && failure.code === 'wrong-password';
       setError(taken ? t('server.errJoinPassword', { email: email.trim(), host }) : serverFailure(failure, host));
       setBusy(false);
     }
   };
-  const ready = !busy && !!email.trim() && !!password;
-  return { input, setInput, found, invitation, step, next, back, canContinue, name, setName, email, setEmail, password, setPassword, error, setError, busy, ready, submit, host };
+  const ready = !busy && acting !== 'address' && !!email.trim() && !!password;
+  return { input, setInput, found, invitation, step, acting, next, back, canContinue, name, setName, email, setEmail, password, setPassword, error, setError, busy, ready, submit, host };
 }
 
 /** The window's title for a step: the space joined is named. */
@@ -354,6 +359,117 @@ export function ConnectServerDialog({ onClose, ...options }: ConnectOptions & { 
         )}
       </form>
     </div>
+  );
+}
+
+/**
+ * Connect a server…, as a step of Add space on a computer (design/spaces.md 2.5): under "‹ Location",
+ * the field, and as soon as the server answers, what it asks for in the same step, setting up a new
+ * server, signing in to one, or joining a space with an invite link. Done, the window is back at
+ * Location with the server chosen; Back goes there too.
+ */
+export function ConnectStep({ onBack, ...options }: ConnectOptions & { onBack: () => void }) {
+  const c = useServerConnect(options);
+  const { card, line } = foundWords(c.found);
+  const step = c.acting;
+  // A link is shown as code from the moment it is pasted.
+  const linked = !!readServerInput(c.input)?.invite;
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    void c.submit();
+  };
+  return (
+    <form className="srv-step" onSubmit={onSubmit}>
+      <button type="button" className="step-back" onClick={onBack}>
+        <Icon name="back" />
+        {t('space.location')}
+      </button>
+      <label className="label" htmlFor="srv-address">
+        {t('server.field')}
+      </label>
+      <input
+        id="srv-address"
+        className={linked ? 'field mono' : 'field'}
+        value={c.input}
+        placeholder={t('server.example')}
+        autoFocus
+        autoComplete="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        onChange={(event) => {
+          c.setInput(event.target.value);
+          c.setError(null);
+        }}
+      />
+      {card && (
+        <div className={card.late ? 'srv-found late' : 'srv-found'}>
+          {card.late ? <Icon name="warn" /> : <ServerIcon />}
+          <span>
+            <b>{card.title}</b>
+            <small>{card.text}</small>
+          </span>
+        </div>
+      )}
+      {step === 'address' ? (
+        line ? <p className={line.err ? 'note err' : 'note'}>{line.text}</p> : <p className="note">{t('server.fieldNote')}</p>
+      ) : (
+        <>
+          {(step === 'setup' || step === 'join') && (
+            <>
+              <label className="label" htmlFor="srv-name">
+                {t('settings.name')}
+              </label>
+              <input id="srv-name" className="field" value={c.name} autoComplete="name" onChange={(event) => c.setName(event.target.value)} />
+            </>
+          )}
+          <label className="label" htmlFor="srv-email">
+            {t('settings.email')}
+          </label>
+          <input
+            id="srv-email"
+            className="field"
+            type="email"
+            value={c.email}
+            autoComplete={step === 'reset' ? 'username' : 'email'}
+            readOnly={step === 'reset'}
+            onChange={(event) => {
+              c.setEmail(event.target.value);
+              c.setError(null);
+            }}
+          />
+          <label className="label" htmlFor="srv-password">
+            {t(step === 'reset' ? 'server.newPassword' : 'server.password')}
+          </label>
+          <input
+            id="srv-password"
+            className="field"
+            type="password"
+            value={c.password}
+            autoComplete={step === 'signin' ? 'current-password' : 'new-password'}
+            onChange={(event) => {
+              c.setPassword(event.target.value);
+              c.setError(null);
+            }}
+          />
+          {c.error ? (
+            <p className="srv-err" role="alert">
+              <Icon name="warn" />
+              <span>{c.error}</span>
+            </p>
+          ) : (
+            <p className="note">{stepNote(step)}</p>
+          )}
+        </>
+      )}
+      <div className="foot">
+        <button type="button" className="st-btn" onClick={onBack}>
+          {t('server.back')}
+        </button>
+        <button type="submit" className="st-btn go" disabled={!c.ready}>
+          {step === 'address' ? t('server.continue') : stepAction(step, c.invitation, false)}
+        </button>
+      </div>
+    </form>
   );
 }
 

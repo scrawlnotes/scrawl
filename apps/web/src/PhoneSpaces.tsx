@@ -1,13 +1,13 @@
 import type { Person, PersonRef, ServerSpace } from '@scrawlnotes/core';
 import { refOf } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type FormEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { type SpacePeople, Who } from './People';
 import type { SpaceView } from './session';
 import type { Connection } from './sync';
 import { type SettingsValues, spaceWords, useAddSpace } from './Settings';
-import { PhoneFolderSheet } from './PhoneSync';
+import { OwnAppSheet, PhoneFolderSheet } from './PhoneSync';
 import { ActionSheet, Sheet, SheetClose } from './sheets';
 import { CloudIcon, personalPlace, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
 import { ConnectServerSheet } from './ServerConnect';
@@ -231,6 +231,7 @@ function SyncField({ provider, word, onSync }: { provider: string | undefined; w
  */
 export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; onSync: () => void }) {
   const [naming, setNaming] = useState<'space' | 'device' | null>(null);
+  const [placing, setPlacing] = useState(false);
   const { sync, syncService } = values;
   const name = values.spaceName ?? t('settings.personal');
   const unit = sync.all.find((each) => each.space === null);
@@ -242,13 +243,18 @@ export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; 
             <span className="fl">{t('settings.name')}</span>
             <span className="in">{name}</span>
           </button>
-          <div className="mb-fr">
-            <span className="fl">{t('settings.folder')}</span>
-            <span className="in">{values.folder ?? t('phone.onThisPhone')}</span>
-          </div>
-          {sync.available && <SyncField provider={sync.connection?.provider} word={unit && shortOf(unit)} onSync={onSync} />}
+          {sync.available && (
+            <button type="button" className="mb-fr" onClick={() => setPlacing(true)}>
+              <span className="fl">{t('space.location')}</span>
+              {sync.connection ? <span className="in">{t('sync.oneDrive')}</span> : <span className="in none">{t('sync.notSyncedShort')}</span>}
+              <Icon name="chevron" />
+            </button>
+          )}
+          {sync.available && sync.connection && <SyncField provider={sync.connection.provider} word={unit && shortOf(unit)} onSync={onSync} />}
         </div>
       </div>
+      {!sync.connection && <p className="mb-p">{t('phone.onlyHereText')}</p>}
+      {placing && <PhoneSyncPersonalSheet values={values} account={null} onClose={() => setPlacing(false)} />}
       {sync.available && (
         <>
           <div className="mb-sec">
@@ -268,6 +274,170 @@ export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; 
       {naming === 'space' && <NameSheet name={name} onSave={values.onRenameSpace} onClose={() => setNaming(null)} />}
       {naming === 'device' && <NameSheet name={sync.device.name} onSave={(device) => syncService.renameDevice(device)} onClose={() => setNaming(null)} />}
     </>
+  );
+}
+
+/**
+ * Sync Personal as a sheet, after the Phone views of design/mockups.html and design/spaces.md 2.6:
+ * the place, Not synced or OneDrive, the one it syncs with now marked; in OneDrive, connected first
+ * when it is not, then its folder, chosen in the drive's sheet. Sync connects it there, what is
+ * here and there put together; Stop takes this phone out, OneDrive's copy and the other devices
+ * going on as they were. Moving to another folder comes with the fourth slice.
+ */
+export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
+  values: SettingsValues;
+  /** Back from signing in in the browser: the account whose folders are chosen from. */
+  account: Connection['account'] | null;
+  onClose: () => void;
+}) {
+  const { sync, syncService: service } = values;
+  const name = values.spaceName ?? t('settings.personal');
+  const current = sync.connection;
+  const now = current ? 'onedrive' : 'none';
+  const [where, setWhere] = useState<'none' | 'onedrive'>(given ? 'onedrive' : now);
+  // Undefined while it is being asked whether a key is kept.
+  const [account, setAccount] = useState<Connection['account'] | null | undefined>(given ?? undefined);
+  const [folder, setFolder] = useState<Connection['folder'] | null>(null);
+  const [picking, setPicking] = useState(!!given);
+  const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
+  const [ownApp, setOwnApp] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (given) return;
+    let live = true;
+    void service.signedInAs().then((who) => live && setAccount(who));
+    return () => {
+      live = false;
+    };
+  }, [given, service]);
+  useEffect(() => () => signing?.cancel(), [signing]);
+
+  const connect = async () => {
+    const cloud = service.cloud();
+    setError(null);
+    service.clearSignInError();
+    if (cloud.redirects) {
+      // The page goes to Microsoft and comes back with this sheet open again, at the folders.
+      await service.leaveToSignIn('connect');
+      return;
+    }
+    const attempt = cloud.signIn('connect');
+    setSigning(attempt);
+    try {
+      await attempt.done;
+      setAccount(await service.account());
+      setPicking(true);
+    } catch (failure) {
+      if (failure instanceof DOMException && failure.name === 'AbortError') return;
+      const message = String(failure instanceof Error ? failure.message : failure);
+      setError(message === 'timeout' ? t('sync.signInTimeout') : t('sync.signInFailed', { error: message }));
+    } finally {
+      setSigning(null);
+    }
+  };
+  const choose = (chosen: Connection['folder']) => {
+    setPicking(false);
+    const refused = service.refusal(chosen);
+    setError(refused);
+    if (!refused) setFolder(chosen);
+  };
+  const apply = async () => {
+    if (busy) return;
+    setBusy(true);
+    if (where === 'none') await service.disconnect();
+    else if (account && folder) await service.connect(account, folder);
+    onClose();
+  };
+
+  const ready = !busy && where !== now && (where === 'none' || (!!account && !!folder));
+  const note = where === 'none' ? (now === 'none' ? null : t('personal.stopNote')) : now === 'onedrive' ? null : t('personal.sameFolderNote');
+  const failed = error ?? sync.signInError;
+  const placeRow = (place: 'none' | 'onedrive', icon: ReactNode, label: string, detail: string) => (
+    <button type="button" className="mb-row" onClick={() => setWhere(place)}>
+      {icon}
+      <span className="tx">
+        <b>
+          {label}
+          {now === place && <small className="you"> · {t('phone.now')}</small>}
+        </b>
+        <small>{detail}</small>
+      </span>
+      <Tick on={where === place} />
+    </button>
+  );
+  const shownFolder = current?.folder ?? folder;
+  return (
+    <Sheet label={t('personal.syncTitle', { name })} className="mb-create" onClose={onClose}>
+      <div className="mb-sh three">
+        <button type="button" className="cancel" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <b>{t('personal.syncTitle', { name })}</b>
+        <button type="button" className="ok" disabled={!ready} onClick={() => void apply()}>
+          {where === 'none' && now !== 'none' ? t('personal.stopShort') : t('personal.syncShort')}
+        </button>
+      </div>
+      <div className="mb-sec">
+        <span>{t('space.location')}</span>
+      </div>
+      <div className="mb-list">
+        {placeRow('none', <Icon name="device" />, t('sync.notSyncedShort'), t('phone.onlyHere'))}
+        {placeRow('onedrive', <CloudIcon />, t('sync.oneDrive'), account === undefined ? t('sync.loading') : account ? account.email || account.name : t('space.notConnected'))}
+      </div>
+      {where === 'onedrive' &&
+        (!current && (account === null || signing) ? (
+          <>
+            <div className="mb-list apart">
+              {signing ? (
+                <div className="mb-wait">
+                  <span className="spinner" aria-hidden="true" />
+                  <span>{t('sync.waitingForBrowser')}</span>
+                  <button type="button" onClick={() => signing.cancel()}>
+                    {t('sync.cancel')}
+                  </button>
+                </div>
+              ) : (
+                <button type="button" className="mb-row add" onClick={() => void connect()}>
+                  <CloudIcon />
+                  <span className="tx">
+                    <b>{t('sync.connectOneDrive')}</b>
+                  </span>
+                </button>
+              )}
+            </div>
+            <p className="mb-p">{t('sync.access')}</p>
+            <button type="button" className="mb-link" onClick={() => setOwnApp(true)}>
+              {t('sync.ownApp')}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="mb-sec">
+              <span>{t('settings.folder')}</span>
+            </div>
+            <div className="mb-list">
+              <button type="button" className="mb-row" disabled={!!current || !account || busy} onClick={() => setPicking(true)}>
+                <Icon name="folder" />
+                <span className="tx">
+                  <b>{shownFolder ? placeWords(shownFolder.path, shownFolder.drive) : t('space.noFolder')}</b>
+                  {(current?.account ?? account) && <small>{(current?.account ?? account)!.email || (current?.account ?? account)!.name}</small>}
+                </span>
+                {!current && <Icon name="chevron" />}
+              </button>
+            </div>
+          </>
+        ))}
+      {note && <p className="mb-p">{note}</p>}
+      {failed && (
+        <p className="mb-hint err" role="alert">
+          {failed}
+        </p>
+      )}
+      {picking && account && <PhoneFolderSheet account={account} service={service} onUse={(chosen) => choose(chosen)} onCancel={() => setPicking(false)} />}
+      {ownApp && <OwnAppSheet onClose={() => setOwnApp(false)} />}
+    </Sheet>
   );
 }
 

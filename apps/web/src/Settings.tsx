@@ -8,9 +8,9 @@ import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SyncService, SyncSnapshot } from './sync';
 import { dueLabel } from './Tasks';
-import { ago, CloudIcon, FolderPicker, personalPlace, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice, useTicking } from './SyncViews';
+import { ago, CloudIcon, FolderPicker, OwnApp, personalPlace, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice, useTicking } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
-import { ConnectServerDialog, serverFailure } from './ServerConnect';
+import { ConnectStep, serverFailure } from './ServerConnect';
 import { ROLE_WORD, ServerMembers, ServerPage } from './ServerPeople';
 import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, tookJoin, useKnownServers } from './servers';
 import { Agents } from './Agents';
@@ -397,6 +397,10 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
   useEffect(() => {
     if (addingAs) syncService.donePicking();
   }, [addingAs, syncService]);
+  // Back from Microsoft to sync the personal space: its page opens, the window on it at the folders.
+  useEffect(() => {
+    if (sync.picking) setPage(null);
+  }, [sync.picking]);
   const personalName = values.spaceName ?? t('settings.personal');
   const add =
     adding &&
@@ -917,124 +921,139 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, onSavePro
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Escape' || picking || connecting) return;
-    // The settings behind close on Escape too; this window takes it first.
+    if (event.key !== 'Escape' || picking) return;
+    // The settings behind close on Escape too; this window takes it first. Connecting, it goes back to Location.
     event.preventDefault();
     event.stopPropagation();
-    onDone(null);
+    if (connecting) setConnecting(false);
+    else onDone(null);
   };
 
   return (
     <div className="fp-ovl" onMouseDown={(event) => event.target === event.currentTarget && onDone(null)}>
       <div className="fp space-add" role="dialog" aria-modal="true" aria-label={t('space.addTitle')} tabIndex={-1} onKeyDown={onKeyDown}>
-        <h3>{t('space.addTitle')}</h3>
-        <label className="label" htmlFor="space-add-name">
-          {t('settings.name')}
-        </label>
-        <input
-          id="space-add-name"
-          className="field"
-          value={name}
-          autoFocus
-          autoComplete="off"
-          onChange={(event) => {
-            setName(event.target.value);
-            setError(null);
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            void add();
-          }}
-        />
-        <span className="label">{t('space.location')}</span>
-        <div className="list" role="radiogroup" aria-label={t('space.location')}>
-          <button type="button" role="radio" aria-checked={where === 'onedrive'} className={where === 'onedrive' ? 'row on' : 'row'} onClick={() => setWhere('onedrive')}>
-            <CloudIcon />
-            <span className="name">{t('sync.oneDrive')}</span>
-            <small>{account === undefined ? t('sync.loading') : account ? account.email || account.name : t('space.notConnected')}</small>
-          </button>
-          {servers.map((each) => (
-            <button key={each.url} type="button" role="radio" aria-checked={where === each.url} className={where === each.url ? 'row on' : 'row'} onClick={() => setWhere(each.url)}>
-              <ServerIcon />
-              <span className="name">{hostOf(each.url)}</span>
-              <small>{each.email}</small>
-            </button>
-          ))}
-          <button type="button" className="row srv-new" onClick={() => setConnecting(true)}>
-            <Icon name="plus" />
-            <span className="name">{t('server.connect')}</span>
-          </button>
-        </div>
-        {server ? (
-          <>
-            <span className="label">{t('space.space')}</span>
-            {serverSignedOut ? (
-              <div className="connect">
-                <ServerIcon />
-                <span>{t('server.signInAgain', { host: hostOf(server.url) })}</span>
-                <button type="button" className="st-btn go" onClick={() => setConnecting(true)}>
-                  {t('server.signIn')}
-                </button>
-              </div>
-            ) : serverSpaces === null ? (
-              <p className="note">{t('server.looking')}</p>
-            ) : (
-              <>
-                <div className="list" role="radiogroup" aria-label={t('space.space')}>
-                  {server.role !== 'member' && (
-                    <button type="button" role="radio" aria-checked={choice === 'new'} className={choice === 'new' ? 'row on' : 'row'} onClick={() => setChoice('new')}>
-                      <Icon name="plus" />
-                      <span className="name">{name.trim() ? t('space.newSpace', { name: name.trim() }) : t('space.newSpaceUnnamed')}</span>
-                    </button>
-                  )}
-                  {serverSpaces.map((each) => (
-                    <button key={each.id} type="button" role="radio" aria-checked={choice === each.id} className={choice === each.id ? 'row on' : 'row'} onClick={() => setChoice(each.id)}>
-                      <Icon name="space" />
-                      <span className="name">{each.name || t('settings.unnamed')}</span>
-                      <small>
-                        {t('count.people', { count: each.people })} · {t('space.notHere')}
-                      </small>
-                    </button>
-                  ))}
-                </div>
-                <p className="note">{server.role === 'member' ? t('space.onlyAdmins') : t('space.serverNote')}</p>
-              </>
-            )}
-          </>
-        ) : account === null || signing ? (
-          <div className="connect">
-            <CloudIcon />
-            <span>{signing ? t('sync.waitingForBrowser') : t('space.connectFirst')}</span>
-            {signing ? (
-              <button type="button" className="st-btn" onClick={() => signing.cancel()}>
-                {t('sync.cancel')}
-              </button>
-            ) : (
-              <button type="button" className="st-btn go" onClick={() => void connect()}>
-                {t('sync.connectOneDrive')}
-              </button>
-            )}
-          </div>
+        <h3>
+          {t('space.addTitle')}
+          <small>{t('space.sharedWithOthers')}</small>
+        </h3>
+        {connecting ? (
+          <ConnectStep
+            me={me}
+            device={sync.device.name}
+            again={serverSignedOut && server ? { url: server.url, email: server.email } : undefined}
+            start={start}
+            onDone={connected}
+            onBack={() => setConnecting(false)}
+          />
         ) : (
           <>
-            <span className="label">{t('settings.folder')}</span>
-            <div className="pick">
-              <span className={folder ? 'path' : 'path none'}>
-                {folder ? (
-                  <>
-                    <CloudIcon />
-                    {placeWords(folder.folder.path, folder.folder.drive)}
-                    {account && <small>{account.email || account.name}</small>}
-                  </>
-                ) : (
-                  t('space.noFolder')
-                )}
-              </span>
-              <button type="button" className="st-btn" disabled={!account || busy} onClick={() => setPicking(true)}>
-                {t('space.chooseFolder')}
+            <label className="label" htmlFor="space-add-name">
+              {t('settings.name')}
+            </label>
+            <input
+              id="space-add-name"
+              className="field"
+              value={name}
+              autoFocus
+              autoComplete="off"
+              onChange={(event) => {
+                setName(event.target.value);
+                setError(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                void add();
+              }}
+            />
+            <span className="label">{t('space.location')}</span>
+            <div className="list" role="radiogroup" aria-label={t('space.location')}>
+              <button type="button" role="radio" aria-checked={where === 'onedrive'} className={where === 'onedrive' ? 'row on' : 'row'} onClick={() => setWhere('onedrive')}>
+                <CloudIcon />
+                <span className="name">{t('sync.oneDrive')}</span>
+                <small>{account === undefined ? t('sync.loading') : account ? account.email || account.name : t('space.notConnected')}</small>
+              </button>
+              {servers.map((each) => (
+                <button key={each.url} type="button" role="radio" aria-checked={where === each.url} className={where === each.url ? 'row on' : 'row'} onClick={() => setWhere(each.url)}>
+                  <ServerIcon />
+                  <span className="name">{hostOf(each.url)}</span>
+                  <small>{each.email}</small>
+                </button>
+              ))}
+              <button type="button" className="row srv-new" onClick={() => setConnecting(true)}>
+                <Icon name="plus" />
+                <span className="name">{t('server.connect')}</span>
               </button>
             </div>
+            {server ? (
+              <>
+                <span className="label">{t('space.space')}</span>
+                {serverSignedOut ? (
+                  <div className="connect">
+                    <ServerIcon />
+                    <span>{t('server.signInAgain', { host: hostOf(server.url) })}</span>
+                    <button type="button" className="st-btn go" onClick={() => setConnecting(true)}>
+                      {t('server.signIn')}
+                    </button>
+                  </div>
+                ) : serverSpaces === null ? (
+                  <p className="note">{t('server.looking')}</p>
+                ) : (
+                  <>
+                    <div className="list" role="radiogroup" aria-label={t('space.space')}>
+                      {server.role !== 'member' && (
+                        <button type="button" role="radio" aria-checked={choice === 'new'} className={choice === 'new' ? 'row on' : 'row'} onClick={() => setChoice('new')}>
+                          <Icon name="plus" />
+                          <span className="name">{name.trim() ? t('space.newSpace', { name: name.trim() }) : t('space.newSpaceUnnamed')}</span>
+                        </button>
+                      )}
+                      {serverSpaces.map((each) => (
+                        <button key={each.id} type="button" role="radio" aria-checked={choice === each.id} className={choice === each.id ? 'row on' : 'row'} onClick={() => setChoice(each.id)}>
+                          <Icon name="space" />
+                          <span className="name">{each.name || t('settings.unnamed')}</span>
+                          <small>
+                            {t('count.people', { count: each.people })} · {t('space.notHere')}
+                          </small>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="note">{server.role === 'member' ? t('space.onlyAdmins') : t('space.serverNote')}</p>
+                  </>
+                )}
+              </>
+            ) : account === null || signing ? (
+              <div className="connect">
+                <CloudIcon />
+                <span>{signing ? t('sync.waitingForBrowser') : t('space.connectFirst')}</span>
+                {signing ? (
+                  <button type="button" className="st-btn" onClick={() => signing.cancel()}>
+                    {t('sync.cancel')}
+                  </button>
+                ) : (
+                  <button type="button" className="st-btn go" onClick={() => void connect()}>
+                    {t('sync.connectOneDrive')}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <span className="label">{t('settings.folder')}</span>
+                <div className="pick">
+                  <span className={folder ? 'path' : 'path none'}>
+                    {folder ? (
+                      <>
+                        <CloudIcon />
+                        {placeWords(folder.folder.path, folder.folder.drive)}
+                        {account && <small>{account.email || account.name}</small>}
+                      </>
+                    ) : (
+                      t('space.noFolder')
+                    )}
+                  </span>
+                  <button type="button" className="st-btn" disabled={!account || busy} onClick={() => setPicking(true)}>
+                    {t('space.chooseFolder')}
+                  </button>
+                </div>
           </>
         )}
         {asking && (
@@ -1076,6 +1095,8 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, onSavePro
             {chosenSpace ? t('space.add', { name: chosenSpace.name || t('settings.unnamed') }) : name.trim() ? t('space.add', { name: name.trim() }) : t('settings.add')}
           </button>
         </div>
+          </>
+        )}
       </div>
       {picking && account && (
         <FolderPicker
@@ -1086,16 +1107,6 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, onSavePro
           startShared={sync.addingShared}
           onUse={(chosen) => void choose(chosen)}
           onCancel={() => setPicking(false)}
-        />
-      )}
-      {connecting && (
-        <ConnectServerDialog
-          me={me}
-          device={sync.device.name}
-          again={serverSignedOut && server ? { url: server.url, email: server.email } : undefined}
-          start={start}
-          onDone={connected}
-          onClose={() => setConnecting(false)}
         />
       )}
     </div>
@@ -1149,6 +1160,15 @@ function PersonalPage({
   onBack,
 }: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'> & { onBack?: () => void }) {
   const name = spaceName ?? t('settings.personal');
+  // Where it syncs is chosen in one window; back from Microsoft with an account, it opens at OneDrive's folders.
+  const [placing, setPlacing] = useState(false);
+  const [signedIn, setSignedIn] = useState<Connection['account'] | null>(null);
+  useEffect(() => {
+    if (!sync.picking) return;
+    setSignedIn(sync.picking);
+    setPlacing(true);
+    syncService.donePicking();
+  }, [sync.picking, syncService]);
   return (
     <>
       {onBack && <BackRow onBack={onBack} />}
@@ -1183,9 +1203,206 @@ function PersonalPage({
             <span />
           )}
         </div>
-        {sync.available && <SyncRow sync={sync} service={syncService} />}
+        {sync.available && <SyncRow sync={sync} service={syncService} onPlace={() => setPlacing(true)} />}
       </div>
+      {placing && (
+        <SyncPersonalDialog
+          sync={sync}
+          service={syncService}
+          name={name}
+          account={signedIn}
+          onDone={() => {
+            setPlacing(false);
+            setSignedIn(null);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+type PersonalPlace = 'none' | 'onedrive';
+
+/**
+ * Sync Personal, after its views in design/mockups.html and design/spaces.md 2.4: where the
+ * personal space syncs, chosen in one window. Location first: Not synced, or OneDrive, the place
+ * it syncs now marked Now; in OneDrive, connected first when it is not, then its folder. Sync with
+ * OneDrive connects it there, what is here and there put together; Stop syncing takes this device
+ * out, OneDrive's copy and the other devices going on as they were. Moving from one folder to
+ * another comes with the fourth slice; until then the folder it syncs with is only shown.
+ */
+function SyncPersonalDialog({ sync, service, name, account: given, onDone }: {
+  sync: SyncSnapshot;
+  service: SyncService;
+  name: string;
+  /** Back from signing in in the browser: the account whose folders are chosen from. */
+  account: Connection['account'] | null;
+  onDone: () => void;
+}) {
+  const now: PersonalPlace = sync.connection ? 'onedrive' : 'none';
+  const [where, setWhere] = useState<PersonalPlace>(given ? 'onedrive' : now);
+  // Undefined while it is being asked whether a key is kept.
+  const [account, setAccount] = useState<Connection['account'] | null | undefined>(given ?? undefined);
+  const [folder, setFolder] = useState<Connection['folder'] | null>(null);
+  const [picking, setPicking] = useState(!!given);
+  const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
+  const [ownApp, setOwnApp] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (given) return;
+    let live = true;
+    void service.signedInAs().then((who) => live && setAccount(who));
+    return () => {
+      live = false;
+    };
+  }, [given, service]);
+  useEffect(() => () => signing?.cancel(), [signing]);
+
+  const connect = async () => {
+    const cloud = service.cloud();
+    setError(null);
+    service.clearSignInError();
+    if (cloud.redirects) {
+      // The page goes to Microsoft and comes back with this window open again, at the folders.
+      await service.leaveToSignIn('connect');
+      return;
+    }
+    const attempt = cloud.signIn('connect');
+    setSigning(attempt);
+    try {
+      await attempt.done;
+      setAccount(await service.account());
+      setPicking(true);
+    } catch (failure) {
+      if (failure instanceof DOMException && failure.name === 'AbortError') return;
+      const message = String(failure instanceof Error ? failure.message : failure);
+      setError(message === 'timeout' ? t('sync.signInTimeout') : t('sync.signInFailed', { error: message }));
+    } finally {
+      setSigning(null);
+    }
+  };
+
+  const choose = (chosen: Connection['folder']) => {
+    setPicking(false);
+    const refused = service.refusal(chosen);
+    setError(refused);
+    if (!refused) setFolder(chosen);
+  };
+
+  const apply = async () => {
+    if (busy) return;
+    setBusy(true);
+    if (where === 'none') await service.disconnect();
+    else if (account && folder) await service.connect(account, folder);
+    onDone();
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape' || picking) return;
+    // The settings behind close on Escape too; this window takes it first.
+    event.preventDefault();
+    event.stopPropagation();
+    onDone();
+  };
+
+  const current = sync.connection;
+  const ready = !busy && where !== now && (where === 'none' || (!!account && !!folder));
+  const note =
+    where === 'none' ? (now === 'none' ? null : t('personal.stopNote')) : now === 'onedrive' ? null : t('personal.sameFolderNote');
+  const placeRow = (place: PersonalPlace, icon: ReactNode, label: string, detail: string) => (
+    <button type="button" role="radio" aria-checked={where === place} className={where === place ? 'row on' : 'row'} onClick={() => setWhere(place)}>
+      {icon}
+      <span className="name">{label}</span>
+      {now === place && <em className="now">{t('personal.now')}</em>}
+      <small>{detail}</small>
+    </button>
+  );
+
+  return (
+    <div className="fp-ovl" onMouseDown={(event) => event.target === event.currentTarget && onDone()}>
+      <div className="fp space-add" role="dialog" aria-modal="true" aria-label={t('personal.syncTitle', { name })} tabIndex={-1} onKeyDown={onKeyDown}>
+        <h3>{t('personal.syncTitle', { name })}</h3>
+        <span className="label">{t('space.location')}</span>
+        <div className="list" role="radiogroup" aria-label={t('space.location')}>
+          {placeRow('none', <Icon name="laptop" />, t('sync.notSyncedShort'), t('sync.onlyHere'))}
+          {placeRow('onedrive', <CloudIcon />, t('sync.oneDrive'), account === undefined ? t('sync.loading') : account ? account.email || account.name : t('space.notConnected'))}
+        </div>
+        {where === 'onedrive' &&
+          (current ? (
+            <>
+              <span className="label">{t('settings.folder')}</span>
+              <div className="pick">
+                <span className="path">
+                  <CloudIcon />
+                  {placeWords(current.folder.path, current.folder.drive)}
+                  <small>{current.account.email || current.account.name}</small>
+                </span>
+              </div>
+            </>
+          ) : account === null || signing ? (
+            <>
+              <div className="connect">
+                <CloudIcon />
+                <span>{signing ? t('sync.waitingForBrowser') : t('space.connectFirst')}</span>
+                {signing ? (
+                  <button type="button" className="st-btn" onClick={() => signing.cancel()}>
+                    {t('sync.cancel')}
+                  </button>
+                ) : (
+                  <button type="button" className="st-btn go" onClick={() => void connect()}>
+                    {t('sync.connectOneDrive')}
+                  </button>
+                )}
+              </div>
+              <p className="note">{t('sync.access')}</p>
+              {ownApp ? (
+                <OwnApp onDone={() => setOwnApp(false)} />
+              ) : (
+                <button type="button" className="st-link" onClick={() => setOwnApp(true)}>
+                  {t('sync.ownApp')}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="label">{t('settings.folder')}</span>
+              <div className="pick">
+                <span className={folder ? 'path' : 'path none'}>
+                  {folder ? (
+                    <>
+                      <CloudIcon />
+                      {placeWords(folder.path, folder.drive)}
+                      {account && <small>{account.email || account.name}</small>}
+                    </>
+                  ) : (
+                    t('space.noFolder')
+                  )}
+                </span>
+                <button type="button" className="st-btn" disabled={!account || busy} onClick={() => setPicking(true)}>
+                  {t('space.chooseFolder')}
+                </button>
+              </div>
+            </>
+          ))}
+        {note && <p className="note">{note}</p>}
+        {(error ?? sync.signInError) && (
+          <p className="note err" role="alert">
+            {error ?? sync.signInError}
+          </p>
+        )}
+        <div className="foot">
+          <button type="button" className="st-btn" onClick={onDone}>
+            {t('dialog.cancel')}
+          </button>
+          <button type="button" className="st-btn go" disabled={!ready} onClick={() => void apply()}>
+            {where === 'none' && now !== 'none' ? t('personal.stop') : t('personal.syncWith', { place: t('sync.oneDrive') })}
+          </button>
+        </div>
+      </div>
+      {picking && account && <FolderPicker account={account} service={service} onUse={(chosen) => choose(chosen)} onCancel={() => setPicking(false)} />}
+    </div>
   );
 }
 
