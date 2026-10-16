@@ -675,16 +675,29 @@ export class SyncService {
    * both is put together, nothing lost. Whatever was kept of an earlier connection goes first.
    */
   async connect(account: Connection['account'], folder: Connection['folder']) {
+    // The stand-in drive forgets everything on reload, so its connection is not kept either.
+    await this.attach({ provider: 'onedrive', vault: vaultKey(), account, folder }, !oneDrive().fake);
+  }
+
+  /**
+   * Connects the personal space to its space on a server the device is signed in to, as `connect`
+   * does to a folder of the drive: what is here and there is put together (design/spaces.md).
+   */
+  async connectServer(url: string, email: string, space: string) {
+    await this.attach({ provider: 'server', vault: vaultKey(), account: { name: '', email }, folder: { id: space, path: '' }, server: url }, true);
+  }
+
+  private async attach(connection: Connection, keep: boolean) {
     const vault = this.vault;
     if (!vault) return;
     await this.forgetState(vault);
-    const connection: Connection = { provider: 'onedrive', vault: vaultKey(), account, folder };
-    // The stand-in drive forgets everything on reload, so its connection is not kept either.
-    if (!oneDrive().fake) write(CONNECTION, connection);
+    if (keep) write(CONNECTION, connection);
     const old = this.units.get(PERSONAL);
     if (old) old.gone = true;
     this.units.set(PERSONAL, this.unit(null, '', vault, connection));
     this.show();
+    // A space on a server tells of its changes over the server's live channel.
+    if (connection.server) this.followLives();
     this.syncNow(PERSONAL);
   }
 
@@ -698,6 +711,7 @@ export class SyncService {
     const unit = this.units.get(PERSONAL);
     if (unit) unit.gone = true;
     this.units.delete(PERSONAL);
+    this.followLives();
     this.show();
     if (this.units.size === 0) {
       await oneDrive()

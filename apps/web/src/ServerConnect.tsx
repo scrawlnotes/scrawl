@@ -366,14 +366,18 @@ export function ConnectServerDialog({ onClose, ...options }: ConnectOptions & { 
  * Connect a server…, as a step of Add space on a computer (design/spaces.md 2.5): under "‹ Location",
  * the field, and as soon as the server answers, what it asks for in the same step, setting up a new
  * server, signing in to one, or joining a space with an invite link. Done, the window is back at
- * Location with the server chosen; Back goes there too.
+ * Location with the server chosen; Back goes there too. For the personal space it takes an
+ * address only (`addressOnly`): an invite link calls to a shared space.
  */
-export function ConnectStep({ onBack, ...options }: ConnectOptions & { onBack: () => void }) {
+export function ConnectStep({ onBack, addressOnly = false, ...options }: ConnectOptions & { onBack: () => void; addressOnly?: boolean }) {
   const c = useServerConnect(options);
-  const { card, line } = foundWords(c.found);
-  const step = c.acting;
   // A link is shown as code from the moment it is pasted.
   const linked = !!readServerInput(c.input)?.invite;
+  const refused = addressOnly && linked;
+  const found = foundWords(c.found);
+  const card = refused ? undefined : found.card;
+  const line = refused ? { text: t('server.linkNotHere'), err: true } : found.line;
+  const step = refused ? 'address' : c.acting;
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     void c.submit();
@@ -385,7 +389,7 @@ export function ConnectStep({ onBack, ...options }: ConnectOptions & { onBack: (
         {t('space.location')}
       </button>
       <label className="label" htmlFor="srv-address">
-        {t('server.field')}
+        {t(addressOnly ? 'server.address' : 'server.field')}
       </label>
       <input
         id="srv-address"
@@ -411,7 +415,7 @@ export function ConnectStep({ onBack, ...options }: ConnectOptions & { onBack: (
         </div>
       )}
       {step === 'address' ? (
-        line ? <p className={line.err ? 'note err' : 'note'}>{line.text}</p> : <p className="note">{t('server.fieldNote')}</p>
+        line ? <p className={line.err ? 'note err' : 'note'}>{line.text}</p> : <p className="note">{t(addressOnly ? 'server.addressNote' : 'server.fieldNote')}</p>
       ) : (
         <>
           {(step === 'setup' || step === 'join') && (
@@ -465,7 +469,7 @@ export function ConnectStep({ onBack, ...options }: ConnectOptions & { onBack: (
         <button type="button" className="st-btn" onClick={onBack}>
           {t('server.back')}
         </button>
-        <button type="submit" className="st-btn go" disabled={!c.ready}>
+        <button type="submit" className="st-btn go" disabled={!c.ready || refused}>
           {step === 'address' ? t('server.continue') : stepAction(step, c.invitation, false)}
         </button>
       </div>
@@ -473,15 +477,18 @@ export function ConnectStep({ onBack, ...options }: ConnectOptions & { onBack: (
   );
 }
 
-/** Connect a server…, as a sheet on a phone. */
-export function ConnectServerSheet({ onClose, ...options }: ConnectOptions & { onClose: () => void }) {
+/** Connect a server…, as a sheet on a phone; for the personal space, an address only (`addressOnly`). */
+export function ConnectServerSheet({ onClose, addressOnly = false, ...options }: ConnectOptions & { onClose: () => void; addressOnly?: boolean }) {
   const c = useServerConnect(options);
-  const { card, line } = foundWords(c.found, true);
   const signing = c.step !== 'address';
   const leaving = !signing || !!options.again;
   const words = stepWords(c.step, c.invitation, c.host, !!options.again);
   // A link is shown as code from the moment it is pasted.
   const linked = !!readServerInput(c.input)?.invite;
+  const refused = addressOnly && linked;
+  const found = foundWords(c.found, true);
+  const card = refused ? undefined : found.card;
+  const line = refused ? { text: t('server.linkNotHere'), err: true } : found.line;
   return (
     <Sheet label={t('server.connectTitle')} className="mb-create mb-srv" onClose={onClose}>
       <div className="mb-sh three">
@@ -489,19 +496,19 @@ export function ConnectServerSheet({ onClose, ...options }: ConnectOptions & { o
           {leaving ? t('dialog.cancel') : t('server.back')}
         </button>
         <b>{stepTitle(c.step, c.invitation)}</b>
-        <button type="button" className="ok" disabled={signing ? !c.ready : !c.canContinue} onClick={() => (signing ? void c.submit() : c.next())}>
+        <button type="button" className="ok" disabled={signing ? !c.ready : !c.canContinue || refused} onClick={() => (signing ? void c.submit() : c.next())}>
           {signing ? stepAction(c.step, c.invitation, true) : t('server.continue')}
         </button>
       </div>
       {!signing ? (
         <>
-          <div className="mb-sec">{t('server.field')}</div>
+          <div className="mb-sec">{t(addressOnly ? 'server.address' : 'server.field')}</div>
           <div className="mb-form">
             <div className="mb-group">
               <label className="mb-fr">
                 <input
                   className={linked ? 'in mono' : 'in'}
-                  aria-label={t('server.field')}
+                  aria-label={t(addressOnly ? 'server.address' : 'server.field')}
                   value={c.input}
                   placeholder={t('server.example')}
                   autoComplete="off"
@@ -522,7 +529,7 @@ export function ConnectServerSheet({ onClose, ...options }: ConnectOptions & { o
               </span>
             </div>
           )}
-          {line ? <p className={line.err ? 'mb-hint err' : 'mb-hint'}>{line.text}</p> : <p className="mb-hint">{t('server.fieldNote')}</p>}
+          {line ? <p className={line.err ? 'mb-hint err' : 'mb-hint'}>{line.text}</p> : <p className="mb-hint">{t(addressOnly ? 'server.addressNote' : 'server.fieldNote')}</p>}
         </>
       ) : (
         <>

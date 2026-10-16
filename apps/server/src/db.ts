@@ -117,6 +117,11 @@ const MIGRATIONS: string[] = [
     created_at INTEGER NOT NULL
   );
   `,
+  // A personal space: its owner's account, one at most for each (design/spaces.md 3.3).
+  `
+  ALTER TABLE spaces ADD COLUMN personal_of TEXT REFERENCES accounts (id);
+  CREATE UNIQUE INDEX spaces_personal ON spaces (personal_of) WHERE personal_of IS NOT NULL;
+  `,
 ];
 
 export function openDb(file: string): Db {

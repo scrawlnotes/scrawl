@@ -1,10 +1,12 @@
 import { type Account, Refused, type Role } from './auth';
 import { type Db, transaction } from './db';
 
-// The spaces on the server and who is in each. The owner and the admins open spaces; whoever
-// opens one is its manager. A space's managers invite people, make others managers and take
-// people out; the owner and the admins may do so in every space they are in. Everyone in a space
-// edits what is in it. Someone sees only the spaces they are in. See PLAN 5.5, Roles.
+// The spaces on the server and who is in each. The owner and the admins open shared spaces;
+// whoever opens one is its manager. A space's managers invite people, make others managers and
+// take people out; the owner and the admins may do so in every space they are in. Everyone in a
+// space edits what is in it. Someone sees only the spaces they are in. Anyone with an account opens
+// a personal space of their own, one at most: only they are in it, so only they see it, and no one
+// is invited into it or taken out of it. See PLAN 5.5, Roles, and design/spaces.md 4.
 
 export type SpaceRole = 'manager' | 'member';
 
@@ -13,6 +15,8 @@ export interface SpaceInfo {
   name: string;
   role: SpaceRole;
   people: number;
+  /** Its owner's own space, where no one else is. */
+  personal: boolean;
 }
 
 /** Someone in a space, as its page lists them: their role there, and when one of their devices was last seen. */
@@ -36,12 +40,13 @@ export class Spaces {
 
   /** The spaces this account is in. */
   of(account: string): SpaceInfo[] {
-    return this.db
+    const rows = this.db
       .prepare(
-        `SELECT s.id, s.name, m.role, (SELECT COUNT(*) FROM members x WHERE x.space_id = s.id) AS people
+        `SELECT s.id, s.name, m.role, (SELECT COUNT(*) FROM members x WHERE x.space_id = s.id) AS people, s.personal_of IS NOT NULL AS personal
          FROM members m JOIN spaces s ON s.id = m.space_id WHERE m.account_id = ? ORDER BY s.name COLLATE NOCASE`,
       )
-      .all(account) as unknown as SpaceInfo[];
+      .all(account) as unknown as (Omit<SpaceInfo, 'personal'> & { personal: number })[];
+    return rows.map((row) => ({ ...row, personal: row.personal === 1 }));
   }
 
   /** A space this account is in. */
@@ -51,17 +56,22 @@ export class Spaces {
     return found;
   }
 
-  /** A new space, with the one who opened it as its manager. Its id is the one the app made for it. */
-  open(by: Account, input: { id?: unknown; name?: unknown }): SpaceInfo {
-    if (by.role === 'member') throw new Refused(403, 'not-allowed', 'Only the owner and admins of this server open spaces');
+  /**
+   * A new space, with the one who opened it as its manager. Its id is the one the app made for it.
+   * A shared one is opened by the owner or an admin; a personal one by anyone, once.
+   */
+  open(by: Account, input: { id?: unknown; name?: unknown; personal?: unknown }): SpaceInfo {
+    const personal = input.personal === true;
+    if (!personal && by.role === 'member') throw new Refused(403, 'not-allowed', 'Only the owner and admins of this server open spaces');
     const id = typeof input.id === 'string' ? input.id : '';
     if (!ID.test(id)) throw new Refused(400, 'bad-space', 'Not a space id');
     const name = typeof input.name === 'string' ? input.name.trim().slice(0, 200) : '';
     return transaction(this.db, () => {
       if (this.db.prepare('SELECT 1 FROM spaces WHERE id = ?').get(id)) throw new Refused(409, 'space-exists', 'A space with this id is on the server already');
-      this.db.prepare('INSERT INTO spaces (id, name, created_by, created_at) VALUES (?, ?, ?, ?)').run(id, name, by.id, this.now());
+      if (personal && this.db.prepare('SELECT 1 FROM spaces WHERE personal_of = ?').get(by.id)) throw new Refused(409, 'personal-exists', 'Your personal space is on this server already');
+      this.db.prepare('INSERT INTO spaces (id, name, created_by, created_at, personal_of) VALUES (?, ?, ?, ?, ?)').run(id, name, by.id, this.now(), personal ? by.id : null);
       this.db.prepare('INSERT INTO members (space_id, account_id, role, added_by, added_at) VALUES (?, ?, ?, ?, ?)').run(id, by.id, 'manager', by.id, this.now());
-      return { id, name, role: 'manager' as const, people: 1 };
+      return { id, name, role: 'manager' as const, people: 1, personal };
     });
   }
 
@@ -88,8 +98,9 @@ export class Spaces {
     return role === 'manager' || (role !== undefined && by.role !== 'member');
   }
 
-  /** Lets a space's managers through; refuses everyone else. */
+  /** Lets a space's managers through; refuses everyone else, and everyone in a personal space, where no one else comes in. */
   checkManager(space: string, by: Account) {
+    if (this.db.prepare('SELECT 1 FROM spaces WHERE id = ? AND personal_of IS NOT NULL').get(space)) throw new Refused(403, 'personal', 'A personal space has no one else in it');
     if (!this.manages(space, by)) throw new Refused(403, 'not-allowed', 'Only the managers of this space do this');
   }
 

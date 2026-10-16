@@ -155,7 +155,7 @@ export class Accounts {
     return this.db
       .prepare(
         `SELECT a.id, a.email, a.name, a.role,
-           (SELECT COUNT(*) FROM members m WHERE m.account_id = a.id) AS spaces,
+           (SELECT COUNT(*) FROM members m JOIN spaces s ON s.id = m.space_id WHERE m.account_id = a.id AND s.personal_of IS NULL) AS spaces,
            (SELECT MAX(d.seen_at) FROM devices d WHERE d.account_id = a.id) AS seen
          FROM accounts a WHERE a.disabled_at IS NULL
          ORDER BY CASE a.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, a.name COLLATE NOCASE, a.email COLLATE NOCASE`,
@@ -181,8 +181,10 @@ export class Accounts {
   }
 
   /**
-   * Takes someone off the server: out of every space, every key of theirs ended. What they did
-   * stays in the spaces. The owner is never taken off, nor does anyone take themselves off.
+   * Takes someone off the server: out of every shared space, every key of theirs ended. What they
+   * did stays in the spaces. Their personal space stays theirs: no one reaches it with their keys
+   * ended, and once they come back with an invite, it is there again. The owner is never taken
+   * off, nor does anyone take themselves off.
    */
   remove(by: Account, id: string): Account {
     if (by.role === 'member') throw new Refused(403, 'not-allowed', 'Only the owner and admins take people off this server');
@@ -192,7 +194,7 @@ export class Accounts {
     if (by.role === 'admin' && account.role === 'admin') throw new Refused(403, 'not-allowed', 'Only the owner takes an admin off the server');
     transaction(this.db, () => {
       this.db.prepare('UPDATE accounts SET disabled_at = ? WHERE id = ?').run(this.now(), id);
-      this.db.prepare('DELETE FROM members WHERE account_id = ?').run(id);
+      this.db.prepare('DELETE FROM members WHERE account_id = ? AND space_id NOT IN (SELECT id FROM spaces WHERE personal_of = ?)').run(id, id);
       this.db.prepare('UPDATE devices SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL').run(this.now(), id);
     });
     return account;

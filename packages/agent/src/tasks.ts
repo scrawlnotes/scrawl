@@ -18,7 +18,7 @@ import {
 } from '@scrawlnotes/core';
 import { dayArg } from './cards';
 import { Refusal } from './paths';
-import { actorOf, type Agent, type Client, type Element, elementsOf, exists, nowOf, personRefOf, pickElement, pickRecord, pickSpace, todayOf } from './space';
+import { actorOf, type Agent, type AgentSpace, type Client, type Element, elementsOf, exists, nowOf, personRefOf, pickElement, pickRecord, pickSpace, todayOf } from './space';
 
 // Tasks: what is due, the tasks of a list, adding and closing one. A task without a list goes to
 // the personal space's Inbox, as Todoist's.
@@ -110,8 +110,17 @@ export interface TaskArgs {
   done?: boolean;
 }
 
+/** Where a new task with neither a space nor a list goes: the personal space, when the agent reaches it. */
+async function inboxSpace(agent: Agent, ref?: string): Promise<AgentSpace> {
+  if (!ref?.trim()) {
+    const personal = (await agent.spaces()).find((each) => each.personal);
+    if (personal) return personal;
+  }
+  return pickSpace(agent, ref);
+}
+
 export async function saveTaskTool(agent: Agent, client: Client, args: TaskArgs) {
-  const space = await pickSpace(agent, args.space);
+  const space = args.list || args.id ? await pickSpace(agent, args.space) : await inboxSpace(agent, args.space);
   let path: string;
   if (args.list) path = (await pickElement(space.fs, args.list, ['tasks'], 'task list')).path;
   else if (space.personal) {

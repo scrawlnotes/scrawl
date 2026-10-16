@@ -136,7 +136,8 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
         id: space.id,
         name: space.name,
         where: host,
-        personal: false,
+        // The account's personal space here, where a task without a list goes.
+        personal: space.personal,
         fs: new ServerFs(files, blobs, space.id, { account: account.id, device }, config.maxFileBytes),
         // The store keeps every version: nothing goes to a history folder, which the server does not take.
         versioned: true,

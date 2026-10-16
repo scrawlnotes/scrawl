@@ -55,7 +55,7 @@ describe('invites', () => {
 
     const mert = await s.as(null).accept(codeOf(link), { name: 'Mert Kaya', email: 'mert@example.com', password: PASSWORD, person: 'person-mert-01', device: 'Phone' });
     expect(mert.account).toEqual({ id: 'person-mert-01', email: 'mert@example.com', name: 'Mert Kaya', role: 'member' });
-    expect(mert.space).toEqual({ id: ACME, name: 'Acme', role: 'member', people: 2 });
+    expect(mert.space).toEqual({ id: ACME, name: 'Acme', role: 'member', people: 2, personal: false });
     expect((await s.as(mert.token).spaces()).map((each) => each.name)).toEqual(['Acme']);
     expect(await refusal(s.as(mert.token).openSpace('sp-mertmert', 'Mine'))).toMatchObject({ status: 403, code: 'not-allowed' });
     expect(await refusal(s.as(null).accept(codeOf(link), { name: 'Deniz', email: 'deniz@example.com', password: PASSWORD, person: 'x', device: '' }))).toMatchObject({ status: 410, code: 'invite-used' });
@@ -185,5 +185,45 @@ describe('the people on a server', () => {
     expect((await s.as(fresh.token).me()).email).toBe('mert@example.com');
     expect((await s.as(null).signIn({ email: 'mert@example.com', password: 'a new long password', device: '' })).token).toBeTruthy();
     expect(await refusal(s.as(null).setPassword(codeOf(link), { password: 'another long one', device: '' }))).toMatchObject({ code: 'invite-used' });
+  });
+});
+
+describe('a personal space', () => {
+  const MINE = 'sp-mertmine';
+
+  it('is opened by anyone with an account, once, and seen by no one else', async () => {
+    const s = await start();
+    const mert = await s.invited(ACME, 'Mert Kaya', 'mert@example.com');
+    expect(await s.as(mert.token).openSpace(MINE, 'Personal', true)).toEqual({ id: MINE, name: 'Personal', role: 'manager', people: 1, personal: true });
+    expect(await refusal(s.as(mert.token).openSpace('sp-mertmore', 'Personal', true))).toMatchObject({ status: 409, code: 'personal-exists' });
+    // A shared space is still the owner's and the admins' to open.
+    expect(await refusal(s.as(mert.token).openSpace('sp-mertmore', 'Mine'))).toMatchObject({ status: 403, code: 'not-allowed' });
+    expect((await s.as(mert.token).spaces()).map((each) => [each.id, each.personal])).toEqual([[ACME, false], [MINE, true]]);
+    // The owner does not see it, cannot reach its files, and does not count it among Mert's spaces.
+    expect((await s.as(s.owner).spaces()).map((each) => each.id)).not.toContain(MINE);
+    expect(await refusal(s.remote(s.owner, MINE).changes(null))).toBeInstanceOf(RemoteFolderGone);
+    expect((await s.as(s.owner).people()).find((each) => each.email === 'mert@example.com')?.spaces).toBe(1);
+  });
+
+  it('takes no one in: no invite, and no one made a manager or taken out', async () => {
+    const s = await start();
+    const mert = await s.invited(ACME, 'Mert Kaya', 'mert@example.com');
+    await s.as(mert.token).openSpace(MINE, 'Personal', true);
+    expect(await refusal(s.as(mert.token).invite(MINE))).toMatchObject({ status: 403, code: 'personal' });
+    expect(await refusal(s.as(mert.token).setMemberRole(MINE, mert.account.id, 'member'))).toMatchObject({ status: 403, code: 'personal' });
+    expect(await refusal(s.as(mert.token).removeMember(MINE, 'person-kaan-01'))).toMatchObject({ status: 403, code: 'personal' });
+    expect((await s.as(mert.token).members(MINE)).map((each) => each.email)).toEqual(['mert@example.com']);
+  });
+
+  it('stays when its account is taken off the server, and is there again when they come back', async () => {
+    const s = await start();
+    const mert = await s.invited(ACME, 'Mert Kaya', 'mert@example.com');
+    await s.as(mert.token).openSpace(MINE, 'Personal', true);
+    await s.remote(mert.token, MINE).write('Inbox/Groceries.md', new Blob(['Milk\n']), null);
+    await s.as(s.owner).removePerson(mert.account.id);
+    expect(await refusal(s.remote(mert.token, MINE).changes(null))).toBeInstanceOf(RemoteSignedOut);
+    const back = await s.invited(OTHER, 'Mert Kaya', 'mert@example.com');
+    expect((await s.as(back.token).spaces()).map((each) => [each.id, each.personal])).toEqual([[OTHER, false], [MINE, true]]);
+    expect((await s.remote(back.token, MINE).changes(null)).changed.map((each) => each.path)).toContain('Inbox/Groceries.md');
   });
 });

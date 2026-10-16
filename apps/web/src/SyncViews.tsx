@@ -185,23 +185,31 @@ export function SyncRow({ sync, service, onPlace }: SyncRowProps & { onPlace: ()
     <div className="st-sync">
       <span className="fl">{t('sync.label')}</span>
       <div className="what">
-        <span className="who">
-          <CloudIcon />
-          <b>{t('sync.oneDrive')}</b>
-          <small>
-            {connection.account.email || connection.account.name} · {placeWords(connection.folder.path, connection.folder.drive)}
-          </small>
-        </span>
-        <span className={`state ${state.tone}`} role="status">
+        {connection.server ? (
+          <span className="who">
+            <ServerIcon />
+            <b>{hostOf(connection.server)}</b>
+            <small>{connection.account.email}</small>
+          </span>
+        ) : (
+          <span className="who">
+            <CloudIcon />
+            <b>{t('sync.oneDrive')}</b>
+            <small>
+              {connection.account.email || connection.account.name} · {placeWords(connection.folder.path, connection.folder.drive)}
+            </small>
+          </span>
+        )}
+        <span className={`state ${state.tone}${sync.live ? ' live' : ''}`} role="status">
           <i />
           {state.text}
         </span>
         <span className="acts">
           {sync.phase === 'signedOut' ? (
-            <button type="button" className="st-btn go" onClick={() => void signIn()}>
+            <button type="button" className="st-btn go" onClick={() => (connection.server ? service.askServerSignIn(connection.server, connection.account.email) : void signIn())}>
               {t('sync.signInAgain')}
             </button>
-          ) : sync.phase === 'folderGone' ? (
+          ) : sync.phase === 'folderGone' && !connection.server ? (
             <button type="button" className="st-btn go" onClick={() => setPicking(connection.account)}>
               {t('sync.chooseFolder')}
             </button>

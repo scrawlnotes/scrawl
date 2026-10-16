@@ -105,7 +105,8 @@ export function createApp(parts: Parts) {
 
   // ---------- without a key: how the server stands, setting it up, signing in ----------
 
-  app.get('/api/v1/server', (c) => c.json({ version: VERSION, new: accounts.isNew(), setupOpen: accounts.setupOpen() }));
+  // `personal`: it keeps personal spaces, so the app offers it for one (design/spaces.md).
+  app.get('/api/v1/server', (c) => c.json({ version: VERSION, new: accounts.isNew(), setupOpen: accounts.setupOpen(), personal: true }));
   app.post('/api/v1/setup', async (c) => c.json(await accounts.setUp(await json(c))));
   app.post('/api/v1/sessions', async (c) => c.json(await accounts.signIn(await json(c), addressOf(c))));
 

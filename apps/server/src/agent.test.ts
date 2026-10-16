@@ -255,6 +255,21 @@ describe('working through /mcp', () => {
     await client.close();
   });
 
+  it('shows the person’s personal space there as theirs, and puts a task with neither a space nor a list in its Inbox', async () => {
+    const s = start();
+    const key = await owner(s);
+    await s.account(key).openSpace('sp-kaanmine', 'Personal', true);
+    const { access } = await connect(s);
+    const client = await mcp(s, access);
+    const listed = (await client.callTool({ name: 'spaces', arguments: {} })).structuredContent as { spaces: { id: string; personal: boolean }[] };
+    expect(listed.spaces.map((each) => [each.id, each.personal])).toEqual(expect.arrayContaining([[SPACE, false], ['sp-kaanmine', true]]));
+    const added = await client.callTool({ name: 'save_task', arguments: { title: 'Renew the domain' } });
+    expect(added.isError).toBeFalsy();
+    expect(added.structuredContent).toMatchObject({ space: 'sp-kaanmine', list: 'Inbox.tasks.json' });
+    expect(s.server.files.file('sp-kaanmine', 'Inbox.tasks.json')).toBeTruthy();
+    await client.close();
+  });
+
   it('shows an agent only the spaces its person is in', async () => {
     const s = start();
     const key = await owner(s);

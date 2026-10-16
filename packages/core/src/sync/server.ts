@@ -196,6 +196,8 @@ export interface ServerStatus {
   new: boolean;
   /** It is new and can still be set up; it can for an hour after it started. */
   setupOpen: boolean;
+  /** It keeps personal spaces; a server from before they came leaves it out, and would open a shared one instead. */
+  personal?: boolean;
 }
 
 export interface ServerAccountInfo {
@@ -210,6 +212,8 @@ export interface ServerSpace {
   name: string;
   role: 'manager' | 'member';
   people: number;
+  /** The account's own personal space there; a server before it had them leaves it out. */
+  personal?: boolean;
 }
 
 export interface ServerSignedIn {
@@ -293,9 +297,9 @@ export class ServerAccount {
     return this.client.json('/spaces');
   }
 
-  /** A new space on the server, with the id the app made for it. */
-  openSpace(id: string, name: string): Promise<ServerSpace> {
-    return this.client.json('/spaces', jsonBody({ id, name }));
+  /** A new space on the server, with the id the app made for it; `personal` for the account's own, which anyone opens once. */
+  openSpace(id: string, name: string, personal = false): Promise<ServerSpace> {
+    return this.client.json('/spaces', jsonBody(personal ? { id, name, personal } : { id, name }));
   }
 
   /** What an invite or a password link is; a refusal when it was used, ran out or leads nowhere. */

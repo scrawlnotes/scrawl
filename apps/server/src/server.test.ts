@@ -59,7 +59,7 @@ const refusal = (promise: Promise<unknown>) => promise.then(() => null, (error: 
 describe('setting up and signing in', () => {
   it('lets the first to connect set up a new server and become its owner, once', async () => {
     const s = start();
-    expect(await s.account().status()).toMatchObject({ new: true, setupOpen: true });
+    expect(await s.account().status()).toMatchObject({ new: true, setupOpen: true, personal: true });
     const { token, account } = await s.account().setUp({ name: 'Kaan Arslan', email: 'kaan@outlook.com', password: 'a long password', person: PERSON, device: 'Laptop' });
     expect(account).toEqual({ id: PERSON, email: 'kaan@outlook.com', name: 'Kaan Arslan', role: 'owner' });
     expect(await s.account(token).me()).toEqual(account);
@@ -105,7 +105,7 @@ describe('spaces', () => {
   it('opens a space for its owner and admins only, with the opener its manager, and keeps its files for those in it', async () => {
     const s = start();
     const token = await owner(s);
-    expect(await s.account(token).spaces()).toEqual([{ id: SPACE, name: 'Acme', role: 'manager', people: 1 }]);
+    expect(await s.account(token).spaces()).toEqual([{ id: SPACE, name: 'Acme', role: 'manager', people: 1, personal: false }]);
     expect(await refusal(s.account(token).openSpace(SPACE, 'Again'))).toMatchObject({ status: 409, code: 'space-exists' });
 
     // A member, as an invite will make one: they open no space and see none they are not in.

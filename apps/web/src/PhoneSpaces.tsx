@@ -6,7 +6,7 @@ import { Icon } from './Icon';
 import { type SpacePeople, Who } from './People';
 import type { SpaceView } from './session';
 import type { Connection } from './sync';
-import { type SettingsValues, spaceWords, useAddSpace } from './Settings';
+import { type PersonalPlace, type SettingsValues, spaceWords, useAddSpace, useSyncPersonal } from './Settings';
 import { OwnAppSheet, PhoneFolderSheet } from './PhoneSync';
 import { ActionSheet, Sheet, SheetClose } from './sheets';
 import { CloudIcon, personalPlace, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
@@ -246,7 +246,7 @@ export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; 
           {sync.available && (
             <button type="button" className="mb-fr" onClick={() => setPlacing(true)}>
               <span className="fl">{t('space.location')}</span>
-              {sync.connection ? <span className="in">{t('sync.oneDrive')}</span> : <span className="in none">{t('sync.notSyncedShort')}</span>}
+              {sync.connection ? <span className="in">{sync.connection.server ? hostOf(sync.connection.server) : t('sync.oneDrive')}</span> : <span className="in none">{t('sync.notSyncedShort')}</span>}
               <Icon name="chevron" />
             </button>
           )}
@@ -278,11 +278,11 @@ export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; 
 }
 
 /**
- * Sync Personal as a sheet, after the Phone views of design/mockups.html and design/spaces.md 2.6:
- * the place, Not synced or OneDrive, the one it syncs with now marked; in OneDrive, connected first
- * when it is not, then its folder, chosen in the drive's sheet. Sync connects it there, what is
- * here and there put together; Stop takes this phone out, OneDrive's copy and the other devices
- * going on as they were. Moving to another folder comes with the fourth slice.
+ * Sync Personal as a sheet, after the Phone views of design/mockups.html and design/spaces.md 2.6,
+ * as `useSyncPersonal` goes through it: the place, Not synced, OneDrive or a server, the one it
+ * syncs with now marked; in OneDrive, connected first when it is not, then its folder, chosen in
+ * the drive's sheet; on a server, its personal space there or a new one, with a word when the
+ * server is someone else's. Connect a server… opens over it, for an address only.
  */
 export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
   values: SettingsValues;
@@ -292,82 +292,23 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
 }) {
   const { sync, syncService: service } = values;
   const name = values.spaceName ?? t('settings.personal');
-  const current = sync.connection;
-  const now = current ? 'onedrive' : 'none';
-  const [where, setWhere] = useState<'none' | 'onedrive'>(given ? 'onedrive' : now);
-  // Undefined while it is being asked whether a key is kept.
-  const [account, setAccount] = useState<Connection['account'] | null | undefined>(given ?? undefined);
-  const [folder, setFolder] = useState<Connection['folder'] | null>(null);
-  const [picking, setPicking] = useState(!!given);
-  const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
+  const p = useSyncPersonal({ sync, service, name, account: given, onDone: onClose });
   const [ownApp, setOwnApp] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (given) return;
-    let live = true;
-    void service.signedInAs().then((who) => live && setAccount(who));
-    return () => {
-      live = false;
-    };
-  }, [given, service]);
-  useEffect(() => () => signing?.cancel(), [signing]);
-
-  const connect = async () => {
-    const cloud = service.cloud();
-    setError(null);
-    service.clearSignInError();
-    if (cloud.redirects) {
-      // The page goes to Microsoft and comes back with this sheet open again, at the folders.
-      await service.leaveToSignIn('connect');
-      return;
-    }
-    const attempt = cloud.signIn('connect');
-    setSigning(attempt);
-    try {
-      await attempt.done;
-      setAccount(await service.account());
-      setPicking(true);
-    } catch (failure) {
-      if (failure instanceof DOMException && failure.name === 'AbortError') return;
-      const message = String(failure instanceof Error ? failure.message : failure);
-      setError(message === 'timeout' ? t('sync.signInTimeout') : t('sync.signInFailed', { error: message }));
-    } finally {
-      setSigning(null);
-    }
-  };
-  const choose = (chosen: Connection['folder']) => {
-    setPicking(false);
-    const refused = service.refusal(chosen);
-    setError(refused);
-    if (!refused) setFolder(chosen);
-  };
-  const apply = async () => {
-    if (busy) return;
-    setBusy(true);
-    if (where === 'none') await service.disconnect();
-    else if (account && folder) await service.connect(account, folder);
-    onClose();
-  };
-
-  const ready = !busy && where !== now && (where === 'none' || (!!account && !!folder));
-  const note = where === 'none' ? (now === 'none' ? null : t('personal.stopNote')) : now === 'onedrive' ? null : t('personal.sameFolderNote');
-  const failed = error ?? sync.signInError;
-  const placeRow = (place: 'none' | 'onedrive', icon: ReactNode, label: string, detail: string) => (
-    <button type="button" className="mb-row" onClick={() => setWhere(place)}>
+  const placeRow = (place: PersonalPlace, icon: ReactNode, label: string, detail: string) => (
+    <button key={place} type="button" className="mb-row" onClick={() => p.setWhere(place)}>
       {icon}
       <span className="tx">
         <b>
           {label}
-          {now === place && <small className="you"> · {t('phone.now')}</small>}
+          {p.now === place && <small className="you"> · {t('phone.now')}</small>}
         </b>
         <small>{detail}</small>
       </span>
-      <Tick on={where === place} />
+      <Tick on={p.where === place} />
     </button>
   );
-  const shownFolder = current?.folder ?? folder;
+  const shownFolder = p.current && !p.current.server ? p.current.folder : p.folder;
+  const folderAccount = p.current && !p.current.server ? p.current.account : p.account;
   return (
     <Sheet label={t('personal.syncTitle', { name })} className="mb-create" onClose={onClose}>
       <div className="mb-sh three">
@@ -375,8 +316,8 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
           {t('dialog.cancel')}
         </button>
         <b>{t('personal.syncTitle', { name })}</b>
-        <button type="button" className="ok" disabled={!ready} onClick={() => void apply()}>
-          {where === 'none' && now !== 'none' ? t('personal.stopShort') : t('personal.syncShort')}
+        <button type="button" className="ok" disabled={!p.ready} onClick={() => void p.apply()}>
+          {p.stopping ? t('personal.stopShort') : t('personal.syncShort')}
         </button>
       </div>
       <div className="mb-sec">
@@ -384,22 +325,29 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
       </div>
       <div className="mb-list">
         {placeRow('none', <Icon name="device" />, t('sync.notSyncedShort'), t('phone.onlyHere'))}
-        {placeRow('onedrive', <CloudIcon />, t('sync.oneDrive'), account === undefined ? t('sync.loading') : account ? account.email || account.name : t('space.notConnected'))}
+        {placeRow('onedrive', <CloudIcon />, t('sync.oneDrive'), p.account === undefined ? t('sync.loading') : p.account ? p.account.email || p.account.name : t('space.notConnected'))}
+        {p.servers.map((each) => placeRow(each.url, <ServerIcon />, hostOf(each.url), each.email))}
+        <button type="button" className="mb-row srv-new" onClick={() => p.setConnecting(true)}>
+          <Icon name="plus" />
+          <span className="tx">
+            <b>{t('server.connect')}</b>
+          </span>
+        </button>
       </div>
-      {where === 'onedrive' &&
-        (!current && (account === null || signing) ? (
+      {p.where === 'onedrive' &&
+        (!p.current && (p.account === null || p.signing) ? (
           <>
             <div className="mb-list apart">
-              {signing ? (
+              {p.signing ? (
                 <div className="mb-wait">
                   <span className="spinner" aria-hidden="true" />
                   <span>{t('sync.waitingForBrowser')}</span>
-                  <button type="button" onClick={() => signing.cancel()}>
+                  <button type="button" onClick={() => p.signing?.cancel()}>
                     {t('sync.cancel')}
                   </button>
                 </div>
               ) : (
-                <button type="button" className="mb-row add" onClick={() => void connect()}>
+                <button type="button" className="mb-row add" onClick={() => void p.connect()}>
                   <CloudIcon />
                   <span className="tx">
                     <b>{t('sync.connectOneDrive')}</b>
@@ -418,25 +366,77 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
               <span>{t('settings.folder')}</span>
             </div>
             <div className="mb-list">
-              <button type="button" className="mb-row" disabled={!!current || !account || busy} onClick={() => setPicking(true)}>
+              <button type="button" className="mb-row" disabled={(!!p.current && !p.current.server) || !p.account || p.busy} onClick={() => p.setPicking(true)}>
                 <Icon name="folder" />
                 <span className="tx">
                   <b>{shownFolder ? placeWords(shownFolder.path, shownFolder.drive) : t('space.noFolder')}</b>
-                  {(current?.account ?? account) && <small>{(current?.account ?? account)!.email || (current?.account ?? account)!.name}</small>}
+                  {folderAccount && <small>{folderAccount.email || folderAccount.name}</small>}
                 </span>
-                {!current && <Icon name="chevron" />}
+                {!(p.current && !p.current.server) && <Icon name="chevron" />}
               </button>
             </div>
           </>
         ))}
-      {note && <p className="mb-p">{note}</p>}
-      {failed && (
+      {p.server && (
+        <>
+          <div className="mb-sec">
+            <span>{t('personal.spaceOn', { host: hostOf(p.server.url) })}</span>
+          </div>
+          {p.serverSignedOut ? (
+            <div className="mb-list">
+              <button type="button" className="mb-row add" onClick={() => p.setConnecting(true)}>
+                <ServerIcon />
+                <span className="tx">
+                  <b>{t('server.signIn')}</b>
+                  <small>{t('server.signInAgain', { host: hostOf(p.server.url) })}</small>
+                </span>
+              </button>
+            </div>
+          ) : p.there === undefined ? (
+            <p className="mb-p">{t('server.looking')}</p>
+          ) : !p.keeps ? (
+            <p className="mb-hint err">{t('personal.serverTooOld', { host: hostOf(p.server.url) })}</p>
+          ) : (
+            <div className="mb-list">
+              <div className="mb-row">
+                <Icon name={p.there ? 'space' : 'plus'} />
+                <span className="tx">
+                  <b>{p.there ? p.there.name || name : t('space.newSpace', { name })}</b>
+                  {p.there && <small>{t('personal.yoursThere')}</small>}
+                </span>
+                <Tick on />
+              </div>
+            </div>
+          )}
+          {p.notYours && p.keeps && (
+            <div className="mb-srvfound late">
+              <Icon name="warn" />
+              <span>
+                <b>{t('personal.notYours')}</b>
+                <small>{t('personal.notYoursText', { host: hostOf(p.server.url) })}</small>
+              </span>
+            </div>
+          )}
+        </>
+      )}
+      {p.note && <p className="mb-p">{p.note}</p>}
+      {p.error && (
         <p className="mb-hint err" role="alert">
-          {failed}
+          {p.error}
         </p>
       )}
-      {picking && account && <PhoneFolderSheet account={account} service={service} onUse={(chosen) => choose(chosen)} onCancel={() => setPicking(false)} />}
+      {p.picking && p.account && <PhoneFolderSheet account={p.account} service={service} onUse={(chosen) => p.choose(chosen)} onCancel={() => p.setPicking(false)} />}
       {ownApp && <OwnAppSheet onClose={() => setOwnApp(false)} />}
+      {p.connecting && (
+        <ConnectServerSheet
+          addressOnly
+          me={values.me}
+          device={sync.device.name}
+          again={p.serverSignedOut && p.server ? { url: p.server.url, email: p.server.email } : undefined}
+          onDone={p.connected}
+          onClose={() => p.setConnecting(false)}
+        />
+      )}
     </Sheet>
   );
 }

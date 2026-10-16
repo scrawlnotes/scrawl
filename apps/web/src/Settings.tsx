@@ -715,7 +715,8 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
       ([spaces, me]) => {
         if (!live) return;
         const here = new Set(onDeviceKey.split(' '));
-        const offered = spaces.filter((each) => !here.has(each.id));
+        // The account's personal space there is not a shared space to add.
+        const offered = spaces.filter((each) => !here.has(each.id) && !each.personal);
         setServerSpaces(offered);
         setServers((now) => now.map((each) => (each.url === server.url ? { ...each, role: me.role } : each)));
         noteRole(server.url, me.role);
@@ -1158,7 +1159,8 @@ function PersonalPage({
   sync,
   syncService,
   onBack,
-}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'> & { onBack?: () => void }) {
+  me,
+}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService' | 'me'> & { onBack?: () => void }) {
   const name = spaceName ?? t('settings.personal');
   // Where it syncs is chosen in one window; back from Microsoft with an account, it opens at OneDrive's folders.
   const [placing, setPlacing] = useState(false);
@@ -1209,6 +1211,7 @@ function PersonalPage({
         <SyncPersonalDialog
           sync={sync}
           service={syncService}
+          me={me}
           name={name}
           account={signedIn}
           onDone={() => {
@@ -1221,34 +1224,45 @@ function PersonalPage({
   );
 }
 
-type PersonalPlace = 'none' | 'onedrive';
+/** Where the personal space syncs: nowhere, OneDrive, or a server by its address. */
+export type PersonalPlace = 'none' | 'onedrive' | (string & {});
 
 /**
- * Sync Personal, after its views in design/mockups.html and design/spaces.md 2.4: where the
- * personal space syncs, chosen in one window. Location first: Not synced, or OneDrive, the place
- * it syncs now marked Now; in OneDrive, connected first when it is not, then its folder. Sync with
- * OneDrive connects it there, what is here and there put together; Stop syncing takes this device
- * out, OneDrive's copy and the other devices going on as they were. Moving from one folder to
- * another comes with the fourth slice; until then the folder it syncs with is only shown.
+ * What Sync Personal goes through, in the window on a computer and in the sheet on a phone
+ * (design/spaces.md 2.4): the place, Not synced, OneDrive or a server this device is signed in to,
+ * the one it syncs with now marked; in OneDrive, connected first when it is not, then its folder;
+ * on a server, the account's personal space there, or a new one, named as the personal space is,
+ * with a word when the server is someone else's. Connect a server… is a step of it, an address
+ * only. Moving from one place to another comes with the fourth slice; until then only a personal
+ * space not synced is given a place, and one that syncs can stop.
  */
-function SyncPersonalDialog({ sync, service, name, account: given, onDone }: {
+export function useSyncPersonal({ sync, service, name, account: given, onDone }: {
   sync: SyncSnapshot;
   service: SyncService;
+  /** What the personal space is called, which a new space on a server takes. */
   name: string;
   /** Back from signing in in the browser: the account whose folders are chosen from. */
   account: Connection['account'] | null;
   onDone: () => void;
 }) {
-  const now: PersonalPlace = sync.connection ? 'onedrive' : 'none';
+  const current = sync.connection;
+  const now: PersonalPlace = current ? (current.server ?? 'onedrive') : 'none';
   const [where, setWhere] = useState<PersonalPlace>(given ? 'onedrive' : now);
   // Undefined while it is being asked whether a key is kept.
   const [account, setAccount] = useState<Connection['account'] | null | undefined>(given ?? undefined);
   const [folder, setFolder] = useState<Connection['folder'] | null>(null);
   const [picking, setPicking] = useState(!!given);
   const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
-  const [ownApp, setOwnApp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [servers, setServers] = useState<KnownServer[]>(() => knownServers());
+  const server = servers.find((each) => each.url === where) ?? null;
+  // On a server: the account's personal space there, null when it has none yet; undefined while it is asked.
+  const [there, setThere] = useState<ServerSpace | null | undefined>(undefined);
+  // Whether the server keeps personal spaces: one from before them would open a shared space instead.
+  const [keeps, setKeeps] = useState(true);
+  const [serverSignedOut, setServerSignedOut] = useState(false);
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
     if (given) return;
@@ -1259,6 +1273,42 @@ function SyncPersonalDialog({ sync, service, name, account: given, onDone }: {
     };
   }, [given, service]);
   useEffect(() => () => signing?.cancel(), [signing]);
+
+  useEffect(() => {
+    if (!server) return;
+    let live = true;
+    setThere(undefined);
+    setServerSignedOut(false);
+    setError(null);
+    const asked = serverAccount(server.url);
+    Promise.all([asked.spaces(), asked.me(), asked.status()]).then(
+      ([spaces, me, status]) => {
+        if (!live) return;
+        setKeeps(status.personal === true);
+        setThere(spaces.find((each) => each.personal) ?? null);
+        setServers((list) => list.map((each) => (each.url === server.url ? { ...each, role: me.role } : each)));
+        noteRole(server.url, me.role);
+      },
+      (failure: unknown) => {
+        if (!live) return;
+        setThere(null);
+        if (failure instanceof RemoteSignedOut) setServerSignedOut(true);
+        else setError(serverFailure(failure, hostOf(server.url)));
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [server?.url]);
+
+  /** Connected to a server, or signed in to it again: it is listed, and chosen. */
+  const connected = (signedIn: KnownServer) => {
+    service.signedInToServer(signedIn);
+    setServers(knownServers());
+    setConnecting(false);
+    setServerSignedOut(false);
+    setWhere(signedIn.url);
+  };
 
   const connect = async () => {
     const cloud = service.cloud();
@@ -1294,28 +1344,94 @@ function SyncPersonalDialog({ sync, service, name, account: given, onDone }: {
   const apply = async () => {
     if (busy) return;
     setBusy(true);
-    if (where === 'none') await service.disconnect();
-    else if (account && folder) await service.connect(account, folder);
-    onDone();
+    setError(null);
+    try {
+      if (where === 'none') await service.disconnect();
+      else if (where === 'onedrive') {
+        if (account && folder) await service.connect(account, folder);
+      } else if (server) {
+        const space = there ?? (await serverAccount(server.url).openSpace(newSpaceId(), name, true));
+        await service.connectServer(server.url, server.email, space.id);
+      }
+      onDone();
+    } catch (failure) {
+      if (failure instanceof RemoteSignedOut) setServerSignedOut(true);
+      else setError(server ? serverFailure(failure, hostOf(server.url)) : failure instanceof Error ? failure.message : String(failure));
+      setBusy(false);
+    }
   };
 
+  const stopping = where === 'none' && now !== 'none';
+  // From one place to another is a move, which comes with the fourth slice.
+  const moving = now !== 'none' && where !== 'none' && where !== now;
+  const placeReady = where === 'onedrive' ? !!account && !!folder : !!server && there !== undefined && keeps && !serverSignedOut;
+  const ready = !busy && where !== now && !moving && (where === 'none' || placeReady);
+  const place = where === 'onedrive' ? t('sync.oneDrive') : server ? hostOf(server.url) : '';
+  const action = stopping ? t('personal.stop') : t('personal.syncWith', { place: place || t('sync.oneDrive') });
+  const note = stopping ? t('personal.stopNote') : now !== 'none' || where === 'none' ? null : where === 'onedrive' ? t('personal.sameFolderNote') : t('personal.sameSpaceNote');
+  // Someone else's server: its owner reaches what is stored on it.
+  const notYours = !!server && server.role !== 'owner';
+  return {
+    now,
+    current,
+    where,
+    setWhere,
+    account,
+    folder,
+    picking,
+    setPicking,
+    signing,
+    error: error ?? sync.signInError,
+    busy,
+    servers,
+    server,
+    there,
+    keeps,
+    serverSignedOut,
+    connecting,
+    setConnecting,
+    connected,
+    connect,
+    choose,
+    apply,
+    ready,
+    stopping,
+    action,
+    note,
+    notYours,
+  };
+}
+
+/**
+ * Sync Personal, after its views in design/mockups.html and design/spaces.md 2.4: where the
+ * personal space syncs, chosen in one window, as `useSyncPersonal` goes through it. Connect a
+ * server… is a step of the window.
+ */
+function SyncPersonalDialog({ sync, service, me, name, account: given, onDone }: {
+  sync: SyncSnapshot;
+  /** Who the user is, for setting up a server from here. */
+  me: Me | null;
+  service: SyncService;
+  name: string;
+  /** Back from signing in in the browser: the account whose folders are chosen from. */
+  account: Connection['account'] | null;
+  onDone: () => void;
+}) {
+  const p = useSyncPersonal({ sync, service, name, account: given, onDone });
+  const [ownApp, setOwnApp] = useState(false);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Escape' || picking) return;
-    // The settings behind close on Escape too; this window takes it first.
+    if (event.key !== 'Escape' || p.picking) return;
+    // The settings behind close on Escape too; this window takes it first. Connecting, it goes back to Location.
     event.preventDefault();
     event.stopPropagation();
-    onDone();
+    if (p.connecting) p.setConnecting(false);
+    else onDone();
   };
-
-  const current = sync.connection;
-  const ready = !busy && where !== now && (where === 'none' || (!!account && !!folder));
-  const note =
-    where === 'none' ? (now === 'none' ? null : t('personal.stopNote')) : now === 'onedrive' ? null : t('personal.sameFolderNote');
   const placeRow = (place: PersonalPlace, icon: ReactNode, label: string, detail: string) => (
-    <button type="button" role="radio" aria-checked={where === place} className={where === place ? 'row on' : 'row'} onClick={() => setWhere(place)}>
+    <button key={place} type="button" role="radio" aria-checked={p.where === place} className={p.where === place ? 'row on' : 'row'} onClick={() => p.setWhere(place)}>
       {icon}
       <span className="name">{label}</span>
-      {now === place && <em className="now">{t('personal.now')}</em>}
+      {p.now === place && <em className="now">{t('personal.now')}</em>}
       <small>{detail}</small>
     </button>
   );
@@ -1324,84 +1440,137 @@ function SyncPersonalDialog({ sync, service, name, account: given, onDone }: {
     <div className="fp-ovl" onMouseDown={(event) => event.target === event.currentTarget && onDone()}>
       <div className="fp space-add" role="dialog" aria-modal="true" aria-label={t('personal.syncTitle', { name })} tabIndex={-1} onKeyDown={onKeyDown}>
         <h3>{t('personal.syncTitle', { name })}</h3>
-        <span className="label">{t('space.location')}</span>
-        <div className="list" role="radiogroup" aria-label={t('space.location')}>
-          {placeRow('none', <Icon name="laptop" />, t('sync.notSyncedShort'), t('sync.onlyHere'))}
-          {placeRow('onedrive', <CloudIcon />, t('sync.oneDrive'), account === undefined ? t('sync.loading') : account ? account.email || account.name : t('space.notConnected'))}
-        </div>
-        {where === 'onedrive' &&
-          (current ? (
-            <>
-              <span className="label">{t('settings.folder')}</span>
-              <div className="pick">
-                <span className="path">
-                  <CloudIcon />
-                  {placeWords(current.folder.path, current.folder.drive)}
-                  <small>{current.account.email || current.account.name}</small>
-                </span>
-              </div>
-            </>
-          ) : account === null || signing ? (
-            <>
-              <div className="connect">
-                <CloudIcon />
-                <span>{signing ? t('sync.waitingForBrowser') : t('space.connectFirst')}</span>
-                {signing ? (
-                  <button type="button" className="st-btn" onClick={() => signing.cancel()}>
-                    {t('sync.cancel')}
-                  </button>
-                ) : (
-                  <button type="button" className="st-btn go" onClick={() => void connect()}>
-                    {t('sync.connectOneDrive')}
-                  </button>
-                )}
-              </div>
-              <p className="note">{t('sync.access')}</p>
-              {ownApp ? (
-                <OwnApp onDone={() => setOwnApp(false)} />
-              ) : (
-                <button type="button" className="st-link" onClick={() => setOwnApp(true)}>
-                  {t('sync.ownApp')}
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <span className="label">{t('settings.folder')}</span>
-              <div className="pick">
-                <span className={folder ? 'path' : 'path none'}>
-                  {folder ? (
-                    <>
+        {p.connecting ? (
+          <ConnectStep
+            addressOnly
+            me={me}
+            device={sync.device.name}
+            again={p.serverSignedOut && p.server ? { url: p.server.url, email: p.server.email } : undefined}
+            onDone={p.connected}
+            onBack={() => p.setConnecting(false)}
+          />
+        ) : (
+          <>
+            <span className="label">{t('space.location')}</span>
+            <div className="list" role="radiogroup" aria-label={t('space.location')}>
+              {placeRow('none', <Icon name="laptop" />, t('sync.notSyncedShort'), t('sync.onlyHere'))}
+              {placeRow('onedrive', <CloudIcon />, t('sync.oneDrive'), p.account === undefined ? t('sync.loading') : p.account ? p.account.email || p.account.name : t('space.notConnected'))}
+              {p.servers.map((each) => placeRow(each.url, <ServerIcon />, hostOf(each.url), each.email))}
+              <button type="button" className="row srv-new" onClick={() => p.setConnecting(true)}>
+                <Icon name="plus" />
+                <span className="name">{t('server.connect')}</span>
+              </button>
+            </div>
+            {p.where === 'onedrive' &&
+              (p.current && !p.current.server ? (
+                <>
+                  <span className="label">{t('settings.folder')}</span>
+                  <div className="pick">
+                    <span className="path">
                       <CloudIcon />
-                      {placeWords(folder.path, folder.drive)}
-                      {account && <small>{account.email || account.name}</small>}
-                    </>
+                      {placeWords(p.current.folder.path, p.current.folder.drive)}
+                      <small>{p.current.account.email || p.current.account.name}</small>
+                    </span>
+                  </div>
+                </>
+              ) : p.account === null || p.signing ? (
+                <>
+                  <div className="connect">
+                    <CloudIcon />
+                    <span>{p.signing ? t('sync.waitingForBrowser') : t('space.connectFirst')}</span>
+                    {p.signing ? (
+                      <button type="button" className="st-btn" onClick={() => p.signing?.cancel()}>
+                        {t('sync.cancel')}
+                      </button>
+                    ) : (
+                      <button type="button" className="st-btn go" onClick={() => void p.connect()}>
+                        {t('sync.connectOneDrive')}
+                      </button>
+                    )}
+                  </div>
+                  <p className="note">{t('sync.access')}</p>
+                  {ownApp ? (
+                    <OwnApp onDone={() => setOwnApp(false)} />
                   ) : (
-                    t('space.noFolder')
+                    <button type="button" className="st-link" onClick={() => setOwnApp(true)}>
+                      {t('sync.ownApp')}
+                    </button>
                   )}
-                </span>
-                <button type="button" className="st-btn" disabled={!account || busy} onClick={() => setPicking(true)}>
-                  {t('space.chooseFolder')}
-                </button>
-              </div>
-            </>
-          ))}
-        {note && <p className="note">{note}</p>}
-        {(error ?? sync.signInError) && (
-          <p className="note err" role="alert">
-            {error ?? sync.signInError}
-          </p>
+                </>
+              ) : (
+                <>
+                  <span className="label">{t('settings.folder')}</span>
+                  <div className="pick">
+                    <span className={p.folder ? 'path' : 'path none'}>
+                      {p.folder ? (
+                        <>
+                          <CloudIcon />
+                          {placeWords(p.folder.path, p.folder.drive)}
+                          {p.account && <small>{p.account.email || p.account.name}</small>}
+                        </>
+                      ) : (
+                        t('space.noFolder')
+                      )}
+                    </span>
+                    <button type="button" className="st-btn" disabled={!p.account || p.busy} onClick={() => p.setPicking(true)}>
+                      {t('space.chooseFolder')}
+                    </button>
+                  </div>
+                </>
+              ))}
+            {p.server && (
+              <>
+                <span className="label">{t('personal.spaceOn', { host: hostOf(p.server.url) })}</span>
+                {p.serverSignedOut ? (
+                  <div className="connect">
+                    <ServerIcon />
+                    <span>{t('server.signInAgain', { host: hostOf(p.server.url) })}</span>
+                    <button type="button" className="st-btn go" onClick={() => p.setConnecting(true)}>
+                      {t('server.signIn')}
+                    </button>
+                  </div>
+                ) : p.there === undefined ? (
+                  <p className="note">{t('server.looking')}</p>
+                ) : !p.keeps ? (
+                  <p className="note err">{t('personal.serverTooOld', { host: hostOf(p.server.url) })}</p>
+                ) : (
+                  <div className="list">
+                    <span className="row on">
+                      {p.there ? <Icon name="space" /> : <Icon name="plus" />}
+                      <span className="name">{p.there ? p.there.name || name : t('space.newSpace', { name })}</span>
+                      {p.there && <small>{t('personal.yoursThere')}</small>}
+                    </span>
+                  </div>
+                )}
+                {p.notYours && p.keeps && (
+                  <div className="srv-found late">
+                    <Icon name="warn" />
+                    <span>
+                      <b>{t('personal.notYours')}</b>
+                      <small>{t('personal.notYoursText', { host: hostOf(p.server.url) })}</small>
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+            {p.note && <p className="note">{p.note}</p>}
+            {p.error && (
+              <p className="note err" role="alert">
+                {p.error}
+              </p>
+            )}
+            <div className="foot">
+              <button type="button" className="st-btn" onClick={onDone}>
+                {t('dialog.cancel')}
+              </button>
+              <button type="button" className="st-btn go" disabled={!p.ready} onClick={() => void p.apply()}>
+                {p.action}
+              </button>
+            </div>
+          </>
         )}
-        <div className="foot">
-          <button type="button" className="st-btn" onClick={onDone}>
-            {t('dialog.cancel')}
-          </button>
-          <button type="button" className="st-btn go" disabled={!ready} onClick={() => void apply()}>
-            {where === 'none' && now !== 'none' ? t('personal.stop') : t('personal.syncWith', { place: t('sync.oneDrive') })}
-          </button>
-        </div>
       </div>
-      {picking && account && <FolderPicker account={account} service={service} onUse={(chosen) => choose(chosen)} onCancel={() => setPicking(false)} />}
+      {p.picking && p.account && <FolderPicker account={p.account} service={service} onUse={(chosen) => p.choose(chosen)} onCancel={() => p.setPicking(false)} />}
     </div>
   );
 }

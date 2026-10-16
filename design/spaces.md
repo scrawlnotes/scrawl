@@ -1,6 +1,6 @@
 # Space'ler: kişisel ve paylaşılan (taslak)
 
-8. ve 11. aşama. PLAN 4.1 (Ayarlar), 4.8, 4.9, 5.3, 5.4 ve 5.5'in bu işle ilgili kısmının teknik karşılığıdır. Durum: kararlar verildi (16 Ekim 2026, 9. bölüm); ekranlar `design/mockups.html`'de, "Kişisel ve paylaşılan space'ler" bölümünde ve güncellenen Spaces ve Sunucu görünümlerinde; 1. ve 2. dilim yazıldı (ayrım, tek pencere), sırada 3. dilim.
+8. ve 11. aşama. PLAN 4.1 (Ayarlar), 4.8, 4.9, 5.3, 5.4 ve 5.5'in bu işle ilgili kısmının teknik karşılığıdır. Durum: kararlar verildi (16 Ekim 2026, 9. bölüm); ekranlar `design/mockups.html`'de, "Kişisel ve paylaşılan space'ler" bölümünde ve güncellenen Spaces ve Sunucu görünümlerinde; 1-3. dilim yazıldı (ayrım, tek pencere, sunucuda kişisel space), sırada 4. dilim, taşıma.
 
 ## 1. Kapsam
 
@@ -108,6 +108,7 @@ Kişisel space'in tek üyesi sahibidir (`members`'ta `manager`). Bir hesabın bi
 
 | İstek | Değişen |
 |---|---|
+| `GET /server` | `personal: true`: sunucu kişisel space tutar. Bunu söylemeyen eski bir sunucu `personal`'ı tanımaz ve paylaşılan bir space açardı; uygulama onu Sync Personal'da seçtirmez, "{host} does not keep personal spaces yet. Its owner updates it first." der |
 | `POST /spaces` `{ id, name, personal: true }` | herkese açık (Member dahil); hesabın orada kişisel space'i varsa 409 `personal-exists`. `personal` yoksa bugünkü gibi yalnız Owner ve Admin |
 | `GET /spaces` | her satırda `personal: boolean` |
 | `POST /spaces/:id/invites` | kişisel space'te 403 `personal` |

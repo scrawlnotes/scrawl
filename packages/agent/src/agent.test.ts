@@ -262,6 +262,10 @@ describe('tasks', () => {
     expect((await tasksTool(agent, {})).data.tasks.map((t) => t.title)).toEqual(['Later']);
     const shared = agentOf(spaceOf(fs, false, 'Acme'));
     expect((await refusal(saveTaskTool(shared, CLIENT, { title: 'x' }))).message).toContain('Which list');
+    // With more than one space, a task named by neither its space nor its list goes to the personal space's Inbox.
+    const both = agentOf({ ...spaceOf(new MemoryFs(), false, 'Acme') }, spaceOf(fs));
+    expect((await saveTaskTool(both, CLIENT, { title: 'Renew the domain' })).data).toMatchObject({ space: 'personal', list: 'Inbox.tasks.json' });
+    expect((await refusal(saveTaskTool(both, CLIENT, { title: 'x', space: 'Acme' }))).message).toContain('Which list');
   });
 });
 

@@ -116,7 +116,7 @@ Araç açıklamaları (`description`) ve `annotations` doğru doldurulur: okuyan
 - Her istek `Authorization: Bearer <token>` taşır. Token yoksa ya da geçersizse `401` ve `WWW-Authenticate: Bearer resource_metadata="https://<sunucu>/.well-known/oauth-protected-resource/mcp", scope="scrawl"`; bu başlık istemcinin giriş akışını başlatır (Claude 200'deki başlığı saymaz, 401 şart).
 - `GET /.well-known/oauth-protected-resource/mcp`: `{ resource: "https://<sunucu>/mcp", authorization_servers: ["https://<sunucu>"], scopes_supported: ["scrawl"], bearer_methods_supported: ["header"] }`. `resource` istemcinin yazdığı adresle birebir aynı olmalı; `SCRAWL_URL`'den türer.
 - `GET /.well-known/oauth-authorization-server`: issuer `https://<sunucu>`, `authorization_endpoint: /oauth/authorize`, `token_endpoint: /oauth/token`, `registration_endpoint: /oauth/register`, `response_types_supported: ["code"]`, `grant_types_supported: ["authorization_code", "refresh_token"]`, `code_challenge_methods_supported: ["S256"]`, `token_endpoint_auth_methods_supported: ["none"]`, `client_id_metadata_document_supported: true`, `authorization_response_iss_parameter_supported: true`, `scopes_supported: ["scrawl", "offline_access"]`.
-- **Hangi space'ler:** hesabın üyesi olduğu space'ler (`spaces.of(account)`); her araç `spaces.check` ile üyeliğe bakar. Kişisel space sunucuda olmadığı için (11. aşama) dışarıdaki ajan onu görmez; bu yüzden sunucuda `save_task`'te `list` zorunludur, araç bunu söyler.
+- **Hangi space'ler:** hesabın üyesi olduğu space'ler (`spaces.of(account)`); her araç `spaces.check` ile üyeliğe bakar. Hesabın o sunucuda kişisel space'i varsa (16 Ekim, `design/spaces.md`) ajan onu `personal: true` ile görür; `save_task`'te `space` ve `list` verilmezse görev oranın Inbox'ına gider. Kişisel space o sunucuda değilse `list` zorunludur, araç bunu söyler.
 - **`ServerFs`:** `VaultFs`'in `SpaceFiles` + `Blobs` üstündeki hali, space başına bir tane. `list` `entries`'ten önekle (`inside(key)`), `readText` blob dosyasından, `writeText` metni `blobs.take` ile alıp `files.write(space, path, taken, ifMatch, by)` ile; `move`, `remove`, `mkdir` birebir. Yazınca `onChange` çalışır, canlı kanal "değişti" der, kişinin açık uygulaması bir iki saniyede yeniler: ajanın yazdığı kart ekranda belirir.
 - **Dizin ve arama:** `.scrawl/index/` sync'e girmediği için sunucuda yoktur; `records` kayıt dosyalarını okur (SQLite ve blob için ucuz). `search` space'in dosyalarından dizin kurar ve space'in `seq`'iyle önbellekler.
 - Dosya sınırı `SCRAWL_MAX_FILE_MB` aynen; `read` ve `write` 1 MB metin.
@@ -141,7 +141,7 @@ SDK token vermez, yalnız denetler; yetki sunucusu bizim olur ve küçüktür: i
 
 ### 7.3 Araçlar sunucuda
 
-Aynı `packages/agent`; fabrikaya hesap, `ServerFs` üreticisi, aktör ("Claude · Kaan") ve `Actor { account, device }` verilir. `save_task`'te `list` zorunludur. `spaces` üyelik listesinden gelir. Hiçbir araç sunucu yönetimi yapmaz.
+Aynı `packages/agent`; fabrikaya hesap, `ServerFs` üreticisi, aktör ("Claude · Kaan") ve `Actor { account, device }` verilir. `save_task`'te `list`, hesabın o sunucuda kişisel space'i yoksa zorunludur. `spaces` üyelik listesinden gelir. Hiçbir araç sunucu yönetimi yapmaz.
 
 ## 8. Arayüz
 

@@ -133,7 +133,7 @@ Hepsi `https://<sunucu>/api/v1` altında, JSON; her istek `Authorization: Bearer
 
 | İstek | Ne yapar |
 |---|---|
-| `GET /server` | sunucunun hali: `{ version, new, setupOpen }`; `new` hiç hesap yokken |
+| `GET /server` | sunucunun hali: `{ version, new, setupOpen, personal }`; `new` hiç hesap yokken; `personal` kişisel space tuttuğunu söyler (16 Ekim), söylemeyen eski sunucu uygulamada kişisel space'e önerilmez |
 | `POST /setup` `{ name, email, password, person, device }` | yalnız hiç hesap yokken ve kurulum açıkken: ilk hesap sahibi olur; `{ token, account }`. Hesap varsa 409, süre dolduysa 410, `SCRAWL_OWNER_EMAIL` tutmazsa 403 |
 | `POST /sessions` `{ email, password, device }` | giriş; `{ token, account }` |
 | `DELETE /sessions/current` | bu cihazdan çıkış, anahtar geri alınır |

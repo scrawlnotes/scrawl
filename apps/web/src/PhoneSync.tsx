@@ -307,7 +307,7 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
   const mend =
     phase === 'signedOut'
       ? { label: t('sync.signInAgain'), run: () => (connection?.server ? service.askServerSignIn(connection.server, connection.account.email) : void signIn()) }
-      : phase === 'folderGone' && personal && connection
+      : phase === 'folderGone' && personal && connection && !connection.server
         ? { label: t('sync.chooseFolder'), run: () => setPicking(connection.account) }
         : null;
   const head: SyncHead = {
