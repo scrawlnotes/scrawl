@@ -46,8 +46,12 @@ function serviceWorker(): Plugin {
 
 export default defineConfig({
   plugins: [react(), serviceWorker()],
-  // The app's version, the desktop app's: the web is built from the same code and shows it in Settings › About.
-  define: { __APP_VERSION__: JSON.stringify(JSON.parse(readFileSync(here('../desktop/package.json'), 'utf8')).version) },
+  // The app's version, the desktop app's: the web is built from the same code and shows it in Settings › About,
+  // with when it was built, which for the web is when it went out.
+  define: {
+    __APP_VERSION__: JSON.stringify(JSON.parse(readFileSync(here('../desktop/package.json'), 'utf8')).version),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   // The desktop shell expects 5173; a preview that cannot have it passes another port in PORT.
   server: { port: Number(process.env.PORT) || 5173, strictPort: true },
 });

@@ -8,6 +8,10 @@ import { isDesktop } from './storage';
 declare const __APP_VERSION__: string;
 export const APP_VERSION = __APP_VERSION__;
 
+/** When this build went out on the web, written in by vite.config.ts as it is built. */
+declare const __BUILD_TIME__: string;
+export const PUBLISHED = __BUILD_TIME__;
+
 /** How a check from Settings › About stands; a version found waiting is `ready` whoever found it. */
 export type WebUpdateStatus =
   | { state: 'idle' }
