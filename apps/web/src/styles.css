@@ -10873,6 +10873,53 @@ button.st-li:hover,
   color: var(--sl-bg);
 }
 
+/* A command to run in a terminal, whole: it wraps rather than being cut, with Copy beside it. */
+.dialog .ag-code {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 7px 7px 7px 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-bg);
+}
+
+.dialog .ag-code code {
+  flex: 1;
+  min-width: 0;
+  padding-top: 3px;
+  color: var(--sl-fg);
+  font: 12px/1.5 var(--sl-font-mono);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.dialog .ag-code .go {
+  flex: none;
+  padding: 3px 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--sl-fg);
+  font-weight: 500;
+}
+
+.dialog .ag-code .go.on {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+}
+
+/* Removing it comes after what to know, apart from the steps. */
+.dialog .ag-remove {
+  margin: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--sl-line);
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
 @media (max-width: 640px) {
   .dialog .ag-fields {
     grid-template-columns: minmax(0, 1fr) auto;

@@ -7,7 +7,7 @@ import { type FoundVault, settingsFile, spacesOf, vaultsFromFolders, vaultsFromS
 
 // `scrawl-mcp`: Scrawl for an agent on this computer, over stdio. Run with no arguments it reads
 // the desktop app's settings and serves what the app sees; given folders, it serves those. The
-// client (Claude Code, Claude Desktop, Cursor) starts it and talks to it on stdin and stdout;
+// client (Claude Code, Codex, Claude Desktop, Cursor) starts it and talks to it on stdin and stdout;
 // everything else goes to stderr. See design/agent.md, 6.
 
 declare const __VERSION__: string | undefined;
@@ -25,7 +25,8 @@ space: the one with a .scrawl/space.json is that space, one without is the perso
   --client <name>    What to write changes as, when the client does not say its name.
   --help, --version
 
-Claude Code:   claude mcp add scrawl -- npx -y @scrawlnotes/mcp
+Claude Code:    claude mcp add --scope user scrawl -- npx -y @scrawlnotes/mcp
+Codex:          codex mcp add scrawl -- npx -y @scrawlnotes/mcp
 Claude Desktop: install the scrawl.mcpb bundle.
 `;
 

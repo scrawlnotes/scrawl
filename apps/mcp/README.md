@@ -1,6 +1,6 @@
 # Scrawl for agents
 
-`scrawl-mcp` is an MCP server over the notes, task lists, boards and collections in your [Scrawl](https://scrawlnotes.com) spaces, for the agent on your computer: Claude Code, Claude Desktop, Cursor, or any client that speaks MCP over stdio.
+`scrawl-mcp` is an MCP server over the notes, task lists, boards and collections in your [Scrawl](https://scrawlnotes.com) spaces, for the agent on your computer: Claude Code, Codex, Claude Desktop, Cursor, or any client that speaks MCP over stdio.
 
 Run with nothing, it reads the Scrawl desktop app's settings and serves what the app sees: your personal space and the copies of the spaces you share, whichever provider they live in. Given folders, it serves those.
 
@@ -12,8 +12,18 @@ npx -y @scrawlnotes/mcp "C:\Users\you\OneDrive\Scrawl"
 ## Claude Code
 
 ```bash
-claude mcp add scrawl -- npx -y @scrawlnotes/mcp
+claude mcp add --scope user scrawl -- npx -y @scrawlnotes/mcp
 ```
+
+`--scope user` adds it for every folder; without it, Claude Code adds it only for the folder you run it in. Start a new session afterwards: one that is already open does not see it. To remove it: `claude mcp remove scrawl`.
+
+## Codex
+
+```bash
+codex mcp add scrawl -- npx -y @scrawlnotes/mcp
+```
+
+Codex in the terminal, in your editor and in the ChatGPT desktop app share it. Start a new session afterwards. To remove it: `codex mcp remove scrawl`.
 
 ## Claude Desktop
 

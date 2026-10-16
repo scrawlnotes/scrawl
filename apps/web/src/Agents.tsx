@@ -14,20 +14,24 @@ import { dueLabel } from './Tasks';
 
 // Settings › Agents, after the Agents part of design/mockups.html (design/agent.md, 8): an agent
 // reaches the notes the way the person does. On this computer, the command the clients start and
-// where to add it: Claude Desktop, Claude Code, Cursor. For each server this device is signed in
-// to, the address, where to add it: Claude, ChatGPT, Gemini, Claude Code; and the agents connected to the
-// account, each to be disconnected. On a phone only the server part, since the phone's Claude
-// reaches only a server.
+// where to add it: Claude Desktop, Claude Code, Codex, Cursor. For each server this device is signed
+// in to, the address, where to add it: Claude, ChatGPT, Gemini, Claude Code, Codex; and the agents
+// connected to the account, each to be disconnected. On a phone only the server part, since the
+// phone's Claude reaches only a server.
 
 export const MCP_PACKAGE = '@scrawlnotes/mcp';
 export const MCP_COMMAND = `npx -y ${MCP_PACKAGE}`;
-export const CLAUDE_CODE_LOCAL = `claude mcp add scrawl -- ${MCP_COMMAND}`;
+/** For every folder: without --scope user, Claude Code adds a server only for the folder it is run in. */
+export const CLAUDE_CODE_LOCAL = `claude mcp add --scope user scrawl -- ${MCP_COMMAND}`;
+/** Codex keeps its servers in ~/.codex/config.toml, for every folder. */
+export const CODEX_LOCAL = `codex mcp add scrawl -- ${MCP_COMMAND}`;
 /** The Claude Desktop bundle, on the latest release. */
 export const MCPB_URL = 'https://github.com/scrawlnotes/scrawl/releases/latest/download/scrawl.mcpb';
 
 /** Where a server's agents connect: `https://kaan.scrawlnotes.com/mcp`. */
 export const mcpAddress = (url: string) => `${url.replace(/\/+$/, '')}/mcp`;
-export const claudeCodeRemote = (url: string) => `claude mcp add --transport http scrawl ${mcpAddress(url)}`;
+export const claudeCodeRemote = (url: string) => `claude mcp add --transport http --scope user scrawl ${mcpAddress(url)}`;
+export const codexRemote = (url: string) => `codex mcp add scrawl --url ${mcpAddress(url)}`;
 /** Cursor's install link: the server's config, base64, as docs.cursor.com/deeplinks has it. */
 export const cursorLink = () => `cursor://anysphere.cursor-deeplink/mcp/install?name=scrawl&config=${btoa(JSON.stringify({ command: 'npx', args: ['-y', MCP_PACKAGE] }))}`;
 
@@ -86,6 +90,7 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
   const servers = useKnownServers();
   const [copied, copy] = useCopy();
   const [adding, setAdding] = useState<{ to: AddTo; server: KnownServer } | null>(null);
+  const [running, setRunning] = useState<{ to: Terminal; server?: KnownServer } | null>(null);
   const names = [values.spaceName ?? t('settings.personal'), ...values.spaces.map((space) => space.name)].join(' · ');
   const button = (key: string, text: string, label: string) => (
     <button type="button" onClick={() => copy(key, text)}>
@@ -114,12 +119,17 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
             <button type="button" onClick={() => openLink(MCPB_URL)}>
               {t('agents.claudeDesktop')}
             </button>
-            {button('code-local', CLAUDE_CODE_LOCAL, t('agents.claudeCode'))}
+            <button type="button" onClick={() => setRunning({ to: 'claude-code' })}>
+              {t('agents.claudeCode')}
+            </button>
+            <button type="button" onClick={() => setRunning({ to: 'codex' })}>
+              {t('agents.codex')}
+            </button>
             <button type="button" onClick={() => openLink(cursorLink())}>
               {t('agents.cursor')}
             </button>
           </div>
-          <p className="st-note">{copied === 'code-local' ? t('agents.codeCopied') : t('agents.thisComputerNote')}</p>
+          <p className="st-note">{t('agents.thisComputerNote')}</p>
         </div>
       ) : (
         <div className="ag-none">
@@ -138,21 +148,31 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
           )}
         </div>
       ) : (
-        servers.map((server) => <ServerBlock key={server.url} server={server} copied={copied} onCopy={copy} onAdd={(to) => setAdding({ to, server })} />)
+        servers.map((server) => (
+          <ServerBlock
+            key={server.url}
+            server={server}
+            copied={copied}
+            onCopy={copy}
+            onAdd={(to) => (to === 'claude-code' || to === 'codex' ? setRunning({ to, server }) : setAdding({ to, server }))}
+          />
+        ))
       )}
       {adding && <AddToDialog to={adding.to} server={adding.server} onClose={() => setAdding(null)} />}
+      {running && <TerminalDialog to={running.to} server={running.server} onClose={() => setRunning(null)} />}
     </>
   );
 }
 
 type AddTo = 'claude' | 'chatgpt' | 'gemini';
+/** The agents that take a server from a command typed in a terminal. */
+type Terminal = 'claude-code' | 'codex';
 
 /** A server this device is signed in to: its address, where to add it, and the agents connected to the account. */
-function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; copied: string | null; onCopy: (key: string, text: string) => void; onAdd: (to: AddTo) => void }) {
+function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; copied: string | null; onCopy: (key: string, text: string) => void; onAdd: (to: AddTo | Terminal) => void }) {
   const a = useAgents(server.url);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; agent: ServerAgent } | null>(null);
   const address = mcpAddress(server.url);
-  const code = claudeCodeRemote(server.url);
   const open = (event: MouseEvent, agent: ServerAgent) => {
     event.preventDefault();
     setMenu({ at: { x: event.clientX, y: event.clientY }, agent });
@@ -184,11 +204,14 @@ function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; c
         <button type="button" onClick={() => onAdd('gemini')}>
           {t('agents.gemini')}
         </button>
-        <button type="button" onClick={() => onCopy(code, code)}>
-          {copied === code ? t('agents.copied') : t('agents.claudeCode')}
+        <button type="button" onClick={() => onAdd('claude-code')}>
+          {t('agents.claudeCode')}
+        </button>
+        <button type="button" onClick={() => onAdd('codex')}>
+          {t('agents.codex')}
         </button>
       </div>
-      <p className="st-note">{copied === code ? t('agents.codeCopied') : t('agents.eachSignsIn')}</p>
+      <p className="st-note">{t('agents.eachSignsIn')}</p>
       {a.error && (
         <p className="srv-err" role="alert">
           <Icon name="warn" />
@@ -284,6 +307,75 @@ function AddToDialog({ to, server, onClose }: { to: AddTo; server: KnownServer; 
         <li>{t('agents.signIn', { host: hostOf(server.url) })}</li>
       </ol>
       <p className="confirm">{t(how.note)}</p>
+      <div className="dialog-actions">
+        <button type="button" className="done" onClick={onClose}>
+          {t('agents.done')}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
+/**
+ * What each runs in a terminal: to add Scrawl on this computer or from a server, to sign in to the
+ * server, and to remove it; and what to know.
+ */
+const TERMINAL: Record<Terminal, { title: MessageKey; local: string; remote: (url: string) => string; login: string; remove: string; session: MessageKey; note: MessageKey }> = {
+  'claude-code': {
+    title: 'agents.addClaudeCodeTitle',
+    local: CLAUDE_CODE_LOCAL,
+    remote: claudeCodeRemote,
+    login: 'claude mcp login scrawl',
+    remove: 'claude mcp remove scrawl',
+    session: 'agents.claudeCodeSession',
+    note: 'agents.claudeCodeNote',
+  },
+  codex: {
+    title: 'agents.addCodexTitle',
+    local: CODEX_LOCAL,
+    remote: codexRemote,
+    login: 'codex mcp login scrawl',
+    remove: 'codex mcp remove scrawl',
+    session: 'agents.codexSession',
+    note: 'agents.codexNote',
+  },
+};
+
+/** Add to Claude Code or Codex: the commands to run, each whole with Copy beside it; from a server, signing in too; and removing it. */
+function TerminalDialog({ to, server, onClose }: { to: Terminal; server?: KnownServer; onClose: () => void }) {
+  const [copied, copy] = useCopy();
+  const how = TERMINAL[to];
+  const title = t(how.title);
+  const command = (key: string, text: string) => (
+    <div className="ag-code">
+      <code>{text}</code>
+      <button type="button" className={`go${copied === key ? ' on' : ''}`} onClick={() => copy(key, text)}>
+        {copied === key ? t('agents.copied') : t('agents.copy')}
+      </button>
+    </div>
+  );
+  return (
+    <Dialog label={title} className="ag-add" onClose={onClose}>
+      <h2>{title}</h2>
+      <ol className="ag-steps">
+        <li>
+          {t('agents.runInTerminal')}
+          {command('add', server ? how.remote(server.url) : how.local)}
+        </li>
+        {server && (
+          <li>
+            {t('agents.runSignIn', { host: hostOf(server.url) })}
+            {command('login', how.login)}
+          </li>
+        )}
+        <li>{t(how.session)}</li>
+      </ol>
+      {!server && <p className="confirm">{t('agents.localNote')}</p>}
+      <p className="confirm">{t(how.note)}</p>
+      <div className="ag-remove">
+        {t('agents.toRemove')}
+        {command('remove', how.remove)}
+      </div>
       <div className="dialog-actions">
         <button type="button" className="done" onClick={onClose}>
           {t('agents.done')}
