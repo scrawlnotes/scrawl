@@ -15,7 +15,13 @@ importers:
         version: 2.12.1
 
   apps/mcp:
-    dependencies:
+    devDependencies:
+      '@anthropic-ai/mcpb':
+        specifier: ^2.1.2
+        version: 2.1.2(supports-color@10.2.2)
+      '@modelcontextprotocol/client':
+        specifier: ^2.3.1
+        version: 2.3.1
       '@modelcontextprotocol/server':
         specifier: ^2.3.1
         version: 2.3.1
@@ -25,13 +31,6 @@ importers:
       '@scrawlnotes/core':
         specifier: workspace:*
         version: link:../../packages/core
-    devDependencies:
-      '@anthropic-ai/mcpb':
-        specifier: ^2.1.2
-        version: 2.1.2(supports-color@10.2.2)
-      '@modelcontextprotocol/client':
-        specifier: ^2.3.1
-        version: 2.3.1
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2

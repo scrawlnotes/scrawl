@@ -1,6 +1,8 @@
 # The stdio command for agents, `scrawl-mcp`: its tests on every change to it, the npm package
-# @scrawlnotes/mcp and the Claude Desktop bundle scrawl.mcpb on a tag like mcp-v0.1.0. Publishing
-# to npm needs the NPM_TOKEN secret of the scrawlnotes organization; the bundle goes on the
+# @scrawlnotes/mcp and the Claude Desktop bundle scrawl.mcpb on a tag like mcp-v0.1.0. npm takes
+# the package through trusted publishing, with no token: the package's settings on npmjs.com name
+# this repository and mcp.yml. npm trusts a workflow only for a package that exists, so 0.1.0 was
+# published by hand, and a version already on npm is not published again. The bundle goes on the
 # GitHub release of the tag, which is never the latest release: that is the desktop app's.
 name: MCP
 
@@ -62,9 +64,15 @@ jobs:
       - run: pnpm --filter @scrawlnotes/mcp bundle
       - name: The tag names the package's version
         run: test "mcp-v$(node -p "require('./apps/mcp/package.json').version")" = "${GITHUB_REF_NAME}"
-      - run: cd apps/mcp && npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: The package on npm, unless this version is there already
+        working-directory: apps/mcp
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if npm view "@scrawlnotes/mcp@${version}" version > /dev/null 2>&1; then
+            echo "@scrawlnotes/mcp@${version} is on npm already"
+          else
+            npm publish --access public
+          fi
       - uses: softprops/action-gh-release@v2
         with:
           name: scrawl-mcp ${{ github.ref_name }}

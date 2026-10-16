@@ -25,14 +25,12 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
-  "dependencies": {
-    "@modelcontextprotocol/server": "^2.3.1",
-    "@scrawlnotes/agent": "workspace:*",
-    "@scrawlnotes/core": "workspace:*"
-  },
   "devDependencies": {
     "@anthropic-ai/mcpb": "^2.1.2",
     "@modelcontextprotocol/client": "^2.3.1",
+    "@modelcontextprotocol/server": "^2.3.1",
+    "@scrawlnotes/agent": "workspace:*",
+    "@scrawlnotes/core": "workspace:*",
     "@types/node": "^24.19.2",
     "esbuild": "^0.28.1",
     "typescript": "^7.0.2",
