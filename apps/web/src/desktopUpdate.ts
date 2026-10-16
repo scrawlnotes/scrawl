@@ -17,6 +17,9 @@ export type UpdateStatus =
   | { state: 'ready'; version: string }
   | { state: 'failed'; offline: boolean; reason: string };
 
+/** The latest release on GitHub, where the desktop apps are downloaded. */
+export const LATEST_RELEASE = 'https://github.com/scrawlnotes/scrawl/releases/latest';
+
 /** The page of a version on GitHub, where its notes are. */
 export const releasePage = (version: string) => `https://github.com/scrawlnotes/scrawl/releases/tag/desktop-v${version}`;
 

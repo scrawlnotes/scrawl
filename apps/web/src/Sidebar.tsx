@@ -1,9 +1,11 @@
 import { INBOX_TASKS, inSpace, listName, localPath, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { LATEST_RELEASE } from './desktopUpdate';
 import { Icon, type IconName } from './Icon';
 import { collectionTab, countItems, FILES, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
+import { isDesktop } from './storage';
 
 // A note or a task list being dragged onto a folder.
 const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
@@ -474,7 +476,7 @@ export function Sidebar({
           </Fragment>
         ))}
       </nav>
-      {/* Files, the trash, sync and the settings stay at the foot of the sidebar, apart from the folders: a row each, named, as on a phone. */}
+      {/* Files, the trash, sync and the settings stay at the foot of the sidebar, apart from the folders: a row each, named, as on a phone. In the browser, Downloads opens the desktop apps' latest release on GitHub. */}
       <div className="side-foot">
         {viewRow(
           FILES,
@@ -493,6 +495,7 @@ export function Sidebar({
           0,
         )}
         {windowRow(syncOpen, onSync, 'cloud', t('phone.sync'))}
+        {!isDesktop && windowRow(false, () => window.open(LATEST_RELEASE, '_blank', 'noopener'), 'download', t('side.downloads'))}
         {windowRow(settingsOpen, onSettings, 'cog', t('side.settings'))}
       </div>
     </aside>

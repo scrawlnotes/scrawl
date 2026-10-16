@@ -81,6 +81,7 @@ export const en = {
   'side.search': 'Search',
   'side.searchTitle': 'Search ({keys})',
   'side.settings': 'Settings',
+  'side.downloads': 'Downloads',
   'side.spaceSettings': 'Settings…',
   'side.moveUp': 'Move up',
   'side.moveDown': 'Move down',
