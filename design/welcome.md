@@ -54,7 +54,7 @@ Ask it, for example:
 
 What the agent changes carries its name. When it rewrites a note, the earlier version stays in **History**. Scrawl's agent connection does not open your **Keys** files to it.
 
-On a computer, agents connect through the Windows app; on the web and your phone, they need a Scrawl server. **Settings › Agents** shows the steps.
+On a computer, agents connect through the desktop app; on the web and your phone, they need a Scrawl server. **Settings › Agents** shows the steps.
 
 ---
 
@@ -78,7 +78,7 @@ Until you connect it, your work stays on this device. It syncs to two places:
 | Version | Where | Good to know |
 | --- | --- | --- |
 | 🌐 **Web** | [app.scrawlnotes.com](https://app.scrawlnotes.com) | Works offline once loaded |
-| 💻 **Desktop** | **Downloads**, in the web app | Windows; updates itself |
+| 💻 **Desktop** | **Downloads**, in the web app | Windows and Mac; updates itself |
 | 📱 **Phone** | [app.scrawlnotes.com](https://app.scrawlnotes.com) | Add it to the home screen |
 | 🗄️ **Server** | Your own, with Docker | For a team; changes in seconds |
 
