@@ -2096,6 +2096,27 @@ p { margin: 0; max-width: 68ch; }
 .mock .dv-free .plus svg { width: 12px; height: 12px; }
 .dv-pointer { position: relative; }
 .dv-pointer::after { content: ''; position: absolute; left: 50%; top: 14px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 12px solid var(--m-fg); transform: rotate(-30deg); opacity: .8; }
+/* A new version (Oct 16, design/desktop-release.md 3), on a computer. Found and downloaded without a word;
+   once it is in, the status bar says so where the web's Reload is, with Restart, and its tip says it goes
+   in when Scrawl closes too. Settings › About: the version, What's new, and the updates as the space's
+   page shows its sync, how it stands and what can be done. */
+.dir[data-dir="update"] { margin-top: 56px; }
+.dir[data-dir="update"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="update"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="update"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.status .wu-ready { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 20px; margin: 0 -6px; padding: 0 6px; border-radius: 4px; color: var(--m-fg); }
+.status .wu-ready.on { background: var(--m-sel); }
+.status .wu-ready b { color: var(--m-accent); font-weight: 600; }
+.status .wu-tip { position: absolute; bottom: 28px; left: 0; padding: 4px 9px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); white-space: nowrap; box-shadow: 0 4px 12px rgb(0 0 0 / .25); }
+.st-sync .state i { flex: none; }
+.st-sync .state i.ready { background: var(--m-accent); }
+.mock .st-sync .state svg { flex: none; width: 13px; height: 13px; color: var(--m-dim); }
+.mock .st-sync .state.bad svg { color: var(--m-accent); }
+.st-sync .state .wu-bar { flex: none; width: 140px; height: 4px; margin-left: 4px; border-radius: 2px; background: var(--m-line); overflow: hidden; }
+.st-sync .state .wu-bar i { display: block; width: 64%; height: 100%; border-radius: 2px; background: var(--m-accent); }
+.st-btn.off { opacity: .45; }
+.wu-src { margin-top: auto; font-size: 12px; color: var(--m-faint); }
+.wu-src u { color: var(--m-dim); text-underline-offset: 2px; }
 </style>
 
 <main class="page">
@@ -2338,6 +2359,26 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-dview="dvlist">Liste</button>
         <button type="button" data-dview="dvhover">Liste, iki bölüm arası</button>
         <button type="button" data-dview="dvup">Upcoming</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="update">
+    <div class="brief">
+      <div>
+        <span class="letter">GÜNCELLEME · MASAÜSTÜ</span>
+        <h2>Yeni sürüm: durum çubuğu ve About</h2>
+        <p>Masaüstü uygulaması yeni sürümü açılıştan biraz sonra ve birkaç saatte bir GitHub'da arar, bulursa sessizce indirir; inerken hiçbir şey görünmez. İnince durum çubuğunda, web'deki Reload'ın yerinde, New version ready ve Restart çıkar; üstüne gelince basılmazsa ne olacağını söyler. Restart yazılanı kaydeder ve uygulamayı kapatır; küçük bir ilerleme penceresinden sonra Scrawl yeni sürümle açılır. Basılmazsa güncelleme Scrawl kapatılınca kurulur. Modal pencere ve zorla yeniden başlatma yok. Settings'in son bölümü About: sürüm ve What's new (o sürümün GitHub sayfası), güncellemenin durumu space sayfasındaki Sync gibi, durum satırı ve düğmesiyle. About yalnız masaüstündedir; web yeni sürümü zaten Reload ile alır. Teknik tasarım <code>design/desktop-release.md</code>.</p>
+        <ul class="traits"><li>sessiz arama ve indirme</li><li>durum çubuğunda Restart</li><li>basılmazsa kapanınca kurulur</li><li>modal yok</li><li>Settings › About</li><li>yalnız masaüstü</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Güncelleme görünümü">
+        <button type="button" data-wview="wubar">Status bar</button>
+        <button type="button" data-wview="wuabout">About</button>
+        <button type="button" data-wview="wuchecking">About, checking</button>
+        <button type="button" data-wview="wudown">About, downloading</button>
+        <button type="button" data-wview="wuready">About, ready</button>
+        <button type="button" data-wview="wufail">About, could not check</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -6629,6 +6670,69 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderDv(sectionDv, b.dataset.dview);
   });
   renderDv(sectionDv, 'dvlist');
+
+  // A new version (Oct 16, design/desktop-release.md 3), on a computer: the status bar once it is in,
+  // and Settings › About with how the updates stand.
+  ICON.info = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.2"/></svg>';
+  var WU_IN = 'is downloaded. It is installed when you restart, or when you close Scrawl.';
+  /** The status bar with the new version in, where the web's Reload is; its tip while the pointer is on it. */
+  function wuStatus(hover) {
+    return '<div class="status"><span>Ln 12, Col 20</span><span>74 words</span>' +
+      '<span class="wu-ready' + (hover ? ' on' : '') + '">New version ready<b>Restart</b>' +
+      (hover ? '<span class="wu-tip">Scrawl 0.2.0 ' + WU_IN + '</span>' : '') + '</span>' +
+      '<span>Markdown</span>' + syncStatus(false, null) + '</div>';
+  }
+  /** The app with a note open and the status bar given; Settings lit in the sidebar while its window is open. */
+  function wuApp(status, settings) {
+    return spNoteView(settings ? 'profile' : 'note').replace(SP_STATUS, status);
+  }
+  /** Settings › About: the version and what is new in it, then the updates as the space's page shows its sync. */
+  function wuAbout(state) {
+    var up = {
+      ok: { st: '<i></i>Up to date · checked 2 min ago', acts: '<span class="st-btn">Check for updates</span>' },
+      checking: { st: ICON.resync + 'Looking for a new version…', acts: '<span class="st-btn off">Check for updates</span>' },
+      down: { st: 'Downloading 0.2.0 · 64%<span class="wu-bar"><i></i></span>', acts: '' },
+      ready: { st: '<i class="ready"></i>0.2.0 is downloaded and ready', acts: '<span class="st-btn go">Restart</span><span class="st-btn">What’s new in 0.2.0</span>' },
+      fail: { st: ICON.warn + 'Could not reach GitHub. Scrawl tries again in a few hours.', acts: '<span class="st-btn">Try again</span>', cls: ' bad' }
+    }[state];
+    return '<span class="st-label">About</span>' +
+      '<div class="st-space">' +
+      '<div class="st-row"><span class="fl">Version</span><span class="path plain">Scrawl 0.1.0</span><span class="btn">What’s new</span></div>' +
+      '<div class="st-sync"><span class="fl">Updates</span><div class="what"><span class="state' + (up.cls || '') + '">' + up.st + '</span>' +
+      (up.acts ? '<span class="acts">' + up.acts + '</span>' : '') + '</div></div>' +
+      '</div>' +
+      '<p class="st-note">Scrawl looks for a new version when it opens and every few hours, and downloads it by itself. A new version is installed when you restart Scrawl or close it.</p>' +
+      '<p class="wu-src">Scrawl is open source under the MIT license · <u>github.com/scrawlnotes/scrawl</u></p>';
+  }
+  /** The Settings window with About lit, the last section, over the app. */
+  function wuSettings(body, status) {
+    return wuApp(status || SP_STATUS, true) + '<div class="ovl"><div class="st-dlg"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
+      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + row({ icon: 'space', label: 'Spaces' }) + row({ icon: 'agent', label: 'Agents' }) + row({ icon: 'info', label: 'About', on: true }) +
+      '</nav><div class="st-body">' + body + '</div></div></div></div>';
+  }
+  var WU_VIEWS = {
+    wubar: function () { return wuApp(wuStatus(true)); },
+    wuabout: function () { return wuSettings(wuAbout('ok')); },
+    wuchecking: function () { return wuSettings(wuAbout('checking')); },
+    wudown: function () { return wuSettings(wuAbout('down')); },
+    wuready: function () { return wuSettings(wuAbout('ready'), wuStatus(false)); },
+    wufail: function () { return wuSettings(wuAbout('fail')); }
+  };
+  function renderWu(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.className = 'mock dir-a';
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = WU_VIEWS[view]();
+    section.querySelectorAll('.brief [data-wview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.wview === view));
+    });
+  }
+  var sectionWu = document.querySelector('.dir[data-dir="update"]');
+  sectionWu.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-wview]');
+    if (b) renderWu(sectionWu, b.dataset.wview);
+  });
+  renderWu(sectionWu, 'wubar');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
