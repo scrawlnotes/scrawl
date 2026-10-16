@@ -1224,7 +1224,7 @@ export function Phone(props: PhoneProps) {
       // The personal space is the device's own: its folder, its sync and this device's name.
       if (!page.id) {
         return (
-          <PageFrame title={titleOf(page, of)} sub={t('phone.yoursHere')} nav={nav}>
+          <PageFrame title={titleOf(page, of)} sub={t('settings.onlyYou')} nav={nav}>
             <PhonePersonalPage values={props.settings.values} onSync={() => push({ kind: 'sync', space: null })} />
           </PageFrame>
         );

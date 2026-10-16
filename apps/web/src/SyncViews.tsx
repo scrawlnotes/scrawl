@@ -367,6 +367,13 @@ export function placeWords(path: string, drive?: string): string {
   return [t(drive ? 'sync.sharedTab' : 'sync.myFiles'), ...path.split('/').filter(Boolean)].join(' › ');
 }
 
+/** Where the personal space syncs, under its name in Settings › Spaces: nowhere, a folder of OneDrive, or a server. */
+export function personalPlace(connection: Connection | null, phone = false): string {
+  if (!connection) return t(phone ? 'phone.notSyncedHere' : 'settings.notSyncedHere');
+  if (connection.provider === 'server') return connection.server ? hostOf(connection.server) : t('server.name');
+  return `${t('sync.oneDrive')} · ${placeWords(connection.folder.path, connection.folder.drive)}`;
+}
+
 /** The user's own app registration, for those who would rather not sign in through Scrawl's. */
 function OwnApp({ onDone }: { onDone: () => void }) {
   const kept = clientId();

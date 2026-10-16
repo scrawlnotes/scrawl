@@ -9,7 +9,7 @@ import type { Connection } from './sync';
 import { type SettingsValues, spaceWords, useAddSpace } from './Settings';
 import { PhoneFolderSheet } from './PhoneSync';
 import { ActionSheet, Sheet, SheetClose } from './sheets';
-import { CloudIcon, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
+import { CloudIcon, personalPlace, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
 import { ConnectServerSheet } from './ServerConnect';
 import { PhoneServerMembers, ROLE_WORD } from './ServerPeople';
 import { hostOf, type KnownServer, useKnownServers } from './servers';
@@ -25,20 +25,20 @@ const HOLD_MS = 450;
 
 const Tick = ({ on }: { on: boolean }) => <span className="tick">{on && <Icon name="check" />}</span>;
 
-/** Where a space lives, under its name on its page: `In OneDrive, Ben Cole’s folder`. */
-export function spacePlace(space: SpaceView): string | undefined {
-  if (!space.source) return undefined;
-  if (space.source.provider === 'server') return t('settings.onServer', { host: sourcePlace(space.source) });
+/** What a shared space is and where it lives, under its name on its page: `Shared · in OneDrive, Ben Cole’s folder`. */
+export function spacePlace(space: SpaceView): string {
+  if (!space.source) return t('settings.shared');
+  if (space.source.provider === 'server') return t('phone.sharedOn', { host: sourcePlace(space.source) });
   const provider = providerName(space.source.provider);
   const owner = space.source.place.owner;
-  return owner ? t('phone.inOwners', { provider, owner }) : t('settings.inProvider', { provider });
+  return owner ? t('phone.sharedInOwners', { provider, owner }) : t('phone.sharedIn', { provider });
 }
 
 /**
- * Settings › Spaces: the personal space first, then every other in the order Browse shows them,
- * each opening its page; Add space under them, and the servers this phone is signed in to, each
- * opening its page. Reordering, each space beside the personal one moves up or down by its arrows;
- * the personal space stays first.
+ * Settings › Spaces: Personal, the one space that is only yours, with where it syncs; Shared,
+ * every other in the order Browse shows them, each opening its page, Add space under them; and
+ * the servers this phone is signed in to, each opening its page. Reordering, each shared space
+ * moves up or down by its arrows; the personal space stays where it is.
  */
 export function PhoneSpacesList({ values, reordering, onOpen, onAdd, onServer }: {
   values: SettingsValues;
@@ -51,44 +51,55 @@ export function PhoneSpacesList({ values, reordering, onOpen, onAdd, onServer }:
   const servers = useKnownServers();
   return (
     <>
+      <div className="mb-sec">
+        <span>{t('settings.personal')}</span>
+      </div>
       <div className="mb-list">
         <button type="button" className="mb-row" disabled={reordering} onClick={() => onOpen(null)}>
           <Icon name="space" />
           <span className="tx">
             <b>{values.spaceName ?? t('settings.personal')}</b>
-            <small>{t('phone.yoursHere')}</small>
+            <small>{personalPlace(values.sync.connection, true)}</small>
           </span>
           {!reordering && <Icon name="chevron" />}
         </button>
-        {spaces.map((space, i) =>
-          reordering ? (
-            <div key={space.id} className="mb-row">
-              <Icon name="space" />
-              <span className="tx">
-                <b>{space.name}</b>
-                <small>{spaceWords(space, me)}</small>
-              </span>
-              <button type="button" className="mb-ib" aria-label={t('side.moveUp')} title={t('side.moveUp')} disabled={i === 0} onClick={() => values.onMoveSpace(space.id, -1)}>
-                <Icon name="up" />
-              </button>
-              <button type="button" className="mb-ib" aria-label={t('side.moveDown')} title={t('side.moveDown')} disabled={i === spaces.length - 1} onClick={() => values.onMoveSpace(space.id, 1)}>
-                <Icon name="down" />
-              </button>
-            </div>
-          ) : (
-            <button key={space.id} type="button" className="mb-row" onClick={() => onOpen(space.id)}>
-              <Icon name="space" />
-              <span className="tx">
-                <b>{space.name}</b>
-                <small>{spaceWords(space, me)}</small>
-              </span>
-              <Icon name="chevron" />
-            </button>
-          ),
-        )}
       </div>
+      <p className="mb-p">{t('phone.personalAbout')}</p>
+      <div className="mb-sec">
+        <span>{t('settings.shared')}</span>
+      </div>
+      {spaces.length > 0 && (
+        <div className="mb-list">
+          {spaces.map((space, i) =>
+            reordering ? (
+              <div key={space.id} className="mb-row">
+                <Icon name="space" />
+                <span className="tx">
+                  <b>{space.name}</b>
+                  <small>{spaceWords(space, me)}</small>
+                </span>
+                <button type="button" className="mb-ib" aria-label={t('side.moveUp')} title={t('side.moveUp')} disabled={i === 0} onClick={() => values.onMoveSpace(space.id, -1)}>
+                  <Icon name="up" />
+                </button>
+                <button type="button" className="mb-ib" aria-label={t('side.moveDown')} title={t('side.moveDown')} disabled={i === spaces.length - 1} onClick={() => values.onMoveSpace(space.id, 1)}>
+                  <Icon name="down" />
+                </button>
+              </div>
+            ) : (
+              <button key={space.id} type="button" className="mb-row" onClick={() => onOpen(space.id)}>
+                <Icon name="space" />
+                <span className="tx">
+                  <b>{space.name}</b>
+                  <small>{spaceWords(space, me)}</small>
+                </span>
+                <Icon name="chevron" />
+              </button>
+            ),
+          )}
+        </div>
+      )}
       {!reordering && (
-        <div className="mb-list apart">
+        <div className={spaces.length > 0 ? 'mb-list apart' : 'mb-list'}>
           <button type="button" className="mb-row add" onClick={onAdd}>
             <Icon name="plus" />
             <span className="tx">

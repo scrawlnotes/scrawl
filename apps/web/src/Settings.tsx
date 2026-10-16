@@ -8,7 +8,7 @@ import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SyncService, SyncSnapshot } from './sync';
 import { dueLabel } from './Tasks';
-import { ago, CloudIcon, FolderPicker, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice, useTicking } from './SyncViews';
+import { ago, CloudIcon, FolderPicker, personalPlace, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice, useTicking } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 import { ConnectServerDialog, serverFailure } from './ServerConnect';
 import { ROLE_WORD, ServerMembers, ServerPage } from './ServerPeople';
@@ -377,8 +377,10 @@ function Profile({ me, onSaveProfile }: Pick<SettingsValues, 'me' | 'onSaveProfi
 }
 
 /**
- * The spaces: a list in the sidebar's order, each row opening the space's page, and Add space
- * under it. A space's page has its name, its folder, its sync, and the way out of this device.
+ * The spaces, after the Spaces views of design/mockups.html and design/spaces.md: Personal, the
+ * one space that is only yours, with where it syncs; Shared, the spaces worked in with others, in
+ * the sidebar's order, Add space under them. Each row opens the space's page: a shared space's has
+ * its name, its folder, its sync, its people and the way out of this device.
  */
 function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'onPersonActive' | 'onSection' | 'onChangeSpaceFolder' | 'initialSpace' | 'addingAs' | 'initialAdding' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
   const { spaces, onMoveSpace, onRemoveSpace, initialSpace, addingAs, sync, syncService } = values;
@@ -460,31 +462,37 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
   };
   return (
     <>
-      <span className="st-label">{t('settings.spaces')}</span>
-      <p className="st-note">{t('settings.spacesAbout')}</p>
+      <span className="st-label">{t('settings.personal')}</span>
+      <p className="st-note">{t('settings.personalAbout')}</p>
       <div className="st-list">
         <button type="button" className="st-li" onClick={() => setPage(null)}>
           <Icon name="space" />
           <span className="nm">
             <b>{personalName}</b>
-            <small>{values.folder ? `${t('settings.yours')} · ${values.folder}` : `${t('settings.yours')} · ${t('settings.inBrowser')}`}</small>
+            <small>{personalPlace(sync.connection)}</small>
           </span>
         </button>
-        {spaces.map((space) => (
-          <div key={space.id} className={`st-li${menu?.id === space.id ? ' menu-on' : ''}`} onContextMenu={(event) => spaceMenu(event, space.id)}>
-            <button type="button" className="st-li-main" onClick={() => setPage(space.id)}>
-              <Icon name="space" />
-              <span className="nm">
-                <b>{space.name}</b>
-                <small>{spaceWords(space, values.me)}</small>
-              </span>
-            </button>
-            <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => spaceMenu(event, space.id)}>
-              ···
-            </button>
-          </div>
-        ))}
       </div>
+      <span className="st-label">{t('settings.shared')}</span>
+      <p className="st-note">{t('settings.sharedAbout')}</p>
+      {spaces.length > 0 && (
+        <div className="st-list">
+          {spaces.map((space) => (
+            <div key={space.id} className={`st-li${menu?.id === space.id ? ' menu-on' : ''}`} onContextMenu={(event) => spaceMenu(event, space.id)}>
+              <button type="button" className="st-li-main" onClick={() => setPage(space.id)}>
+                <Icon name="space" />
+                <span className="nm">
+                  <b>{space.name}</b>
+                  <small>{spaceWords(space, values.me)}</small>
+                </span>
+              </button>
+              <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => spaceMenu(event, space.id)}>
+                ···
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="st-acts">
         <button type="button" className="primary" onClick={() => setAdding(true)}>
           <Icon name="plus" />
@@ -1148,7 +1156,7 @@ function PersonalPage({
         <div className="top">
           <Icon name="space" />
           <b>{name}</b>
-          <small>{t('settings.yours')}</small>
+          <small>{t('settings.onlyYou')}</small>
         </div>
         <NameRow id="space-name" name={name} fallback={t('settings.personal')} onRename={onRenameSpace} />
         <div className="st-row">
@@ -1207,7 +1215,7 @@ function SpacePage({ space, me, onPersonActive, sync, service, onRename, onChang
         <div className="top">
           <Icon name="space" />
           <b>{space.name}</b>
-          {space.source && <small>{space.source.provider === 'server' ? t('settings.onAServer') : t('settings.inProvider', { provider: providerName(space.source.provider) })}</small>}
+          <small>{t('settings.shared')}</small>
         </div>
         <NameRow id="space-name" name={space.name} fallback={space.name} onRename={onRename} />
         <div className="st-row">
