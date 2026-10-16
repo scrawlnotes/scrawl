@@ -602,9 +602,14 @@ function SaveButton({ onSave }: { onSave: () => void }) {
   );
 }
 
+/** Who did something on the timeline: the name it was done under; with none, You in the personal space, where there is only you, else Someone. */
+const actor = (by: string | undefined, team: SpacePeople | null) => by ?? (team ? t('card.someone') : t('card.you'));
+
 /** One comment on the timeline, with its menu: edit in place, or delete. */
-function Comment({ entry, today, onEdit, onRemove, menu, viewer }: {
+function Comment({ entry, who, today, onEdit, onRemove, menu, viewer }: {
   entry: Extract<TimelineEntry, { kind: 'comment' }>;
+  /** Who wrote it, as the timeline says it. */
+  who: string;
   today: string;
   onEdit: (text: string) => void;
   onRemove: () => void;
@@ -620,7 +625,7 @@ function Comment({ entry, today, onEdit, onRemove, menu, viewer }: {
         { label: t('card.editComment'), icon: 'pen', run: () => setDraft(entry.text) },
         { label: t('menu.delete'), icon: 'trash', danger: true, run: onRemove },
       ],
-      { icon: 'comment', title: entry.by ?? t('card.someone'), sub: when(entry.at, today) },
+      { icon: 'comment', title: who, sub: when(entry.at, today) },
     );
   const save = () => {
     if (draft?.trim()) onEdit(draft);
@@ -629,7 +634,7 @@ function Comment({ entry, today, onEdit, onRemove, menu, viewer }: {
   return (
     <div className="tl-cm" onContextMenu={open}>
       <div className="h">
-        <b>{entry.by ?? t('card.someone')}</b>
+        <b>{who}</b>
         {entry.edited && <small>{t('card.edited')}</small>}
         <span className="t">{when(entry.at, today)}</span>
         <button type="button" className="more" title={t('tasks.more')} aria-label={t('tasks.more')} onClick={open}>
@@ -774,7 +779,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
           {card.timeline.map((entry) =>
             entry.kind === 'move' ? (
               <div key={entry.id} className="tl-ev">
-                <b>{entry.by ?? t('card.someone')}</b>
+                <b>{actor(entry.by, team)}</b>
                 <span>{entry.from === null ? t('card.movedIn', { to: columnName(entry.to) }) : t('card.moved', { from: columnName(entry.from), to: columnName(entry.to) })}</span>
                 <span className="t">{when(entry.at, today)}</span>
               </div>
@@ -782,6 +787,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
               <Comment
                 key={entry.id}
                 entry={entry}
+                who={actor(entry.by, team)}
                 today={today}
                 menu={actions.menu}
                 viewer={(parent, doc) => actions.viewer(path, parent, doc)}
@@ -1119,7 +1125,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
           {card.timeline.map((entry) =>
             entry.kind === 'move' ? (
               <div key={entry.id} className="tl-ev">
-                <b>{entry.by ?? t('card.someone')}</b>
+                <b>{actor(entry.by, team)}</b>
                 <span>{entry.from === null ? t('card.movedIn', { to: columnName(entry.to) }) : t('card.moved', { from: columnName(entry.from), to: columnName(entry.to) })}</span>
                 <span className="t">{when(entry.at, today)}</span>
               </div>
@@ -1127,6 +1133,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
               <Comment
                 key={entry.id}
                 entry={entry}
+                who={actor(entry.by, team)}
                 today={today}
                 menu={actions.menu}
                 viewer={(parent, doc) => actions.viewer(path, parent, doc)}

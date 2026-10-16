@@ -712,9 +712,12 @@ export class SyncService {
     await OneDriveRemote.forget(vault);
   }
 
-  /** Signed in to a server, or set it up: this device takes the account's id, the person being one on every device; its spaces here sync again. */
+  /**
+   * Signed in to a server, or set it up: this device takes the account's id, the person being one
+   * on every device, and its name and email where Profile has none; its spaces here sync again.
+   */
   signedInToServer(server: KnownServer) {
-    if (server.id) this.session.takePersonId(server.id);
+    this.session.takeAccount(server);
     this.signedInTo(server.url);
   }
 

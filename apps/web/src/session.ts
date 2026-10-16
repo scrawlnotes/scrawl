@@ -63,7 +63,7 @@ import {
   fromSpace,
   isSpaceId,
   inSpace,
-  loadMe,
+  fillMe,
   loadPeople,
   loadSpace,
   localPath,
@@ -131,7 +131,7 @@ import {
   saveFilters,
   saveMe,
   saveSpace,
-  newMe,
+  startMe,
   sectionTasks,
   saveWorkspace,
   serializeBoard,
@@ -566,7 +566,8 @@ export class Session {
     const { tasks, sections, boards, keys, collections } = await this.readLists(everything);
     const filters = await loadFilters(this.personal);
     const space = await loadSpace(this.personal);
-    const me = await loadMe(this.personal);
+    // Nothing is asked at the first start: the name and the email wait for a space where others see them.
+    const me = await startMe(this.personal, this.snapshot.me);
     const trash = await this.readTrash();
     if (run !== this.run) return;
     const tabs = workspace.tabs.filter((id) => {
@@ -1572,35 +1573,35 @@ export class Session {
 
   /**
    * Who the user is: a name and an email, either free to be empty; the id is made with the
-   * first saving and does not change, but for signing in to a server (`takePersonId`). Kept in
+   * first start and does not change, but for signing in to a server (`takeAccount`). Kept in
    * the personal space, so that every device has it.
    */
   saveProfile(name: string, email: string) {
-    const { name: _n, email: _e, ...rest } = this.snapshot.me ?? newMe();
-    const me: Me = { ...rest, ...(name.trim() && { name: name.trim() }), ...(email.trim() && { email: email.trim() }) };
+    const me = this.snapshot.me;
+    if (!me) return;
+    const { name: _n, email: _e, ...rest } = me;
+    this.keepMe({ ...rest, ...(name.trim() && { name: name.trim() }), ...(email.trim() && { email: email.trim() }) });
+  }
+
+  /**
+   * Signed in to a server, or set it up: this device takes the account's id, so that the person
+   * is one in every space and what is given to them stays theirs (design/server.md, section 6);
+   * Profile's name and email, where empty, are the account's.
+   */
+  takeAccount(account: { id?: string | undefined; name: string; email: string }) {
+    const me = this.snapshot.me;
+    if (!me) return;
+    const next = fillMe(account.id && account.id !== me.id ? { ...me, id: account.id } : me, account.name, account.email);
+    if (next !== me) this.keepMe(next);
+  }
+
+  private keepMe(me: Me) {
     this.set({ me, saved: false });
     this.taskWrites = this.taskWrites
       .then(() => saveMe(this.personal, me))
       .catch(() => undefined)
       .then(() => this.markSaved());
-    // The spaces have the name and the email as they are now.
-    this.meetSpaces();
-  }
-
-  /**
-   * Signed in to a server whose account is this person under the id another device made: this
-   * device takes the account's id, so that the person is one in every space and what is given to
-   * them stays theirs (design/server.md, section 6).
-   */
-  takePersonId(id: string) {
-    const me = this.snapshot.me;
-    if (!me || me.id === id) return;
-    const next: Me = { ...me, id };
-    this.set({ me: next, saved: false });
-    this.taskWrites = this.taskWrites
-      .then(() => saveMe(this.personal, next))
-      .catch(() => undefined)
-      .then(() => this.markSaved());
+    // The spaces have the person as they are now.
     this.meetSpaces();
   }
 

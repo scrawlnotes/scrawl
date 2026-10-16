@@ -648,55 +648,6 @@ html:has(.phone-app) body {
   min-height: 40px;
 }
 
-/* The first start on a phone: a page of its own, the fields as rows. */
-.phone-app .welcome {
-  justify-content: flex-start;
-  gap: 14px;
-  padding: calc(env(safe-area-inset-top, 0px) + 56px) 16px 0;
-  font-size: 16px;
-}
-
-.phone-app .welcome h1 {
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.phone-app .welcome p {
-  font-size: 14px;
-}
-
-.phone-app .welcome .wl-row {
-  grid-template-columns: 78px minmax(0, 1fr);
-  width: 100%;
-  min-height: 48px;
-}
-
-.phone-app .welcome .wl-row label {
-  font-size: 16px;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--sl-dim);
-}
-
-.phone-app .welcome .wl-row input {
-  min-height: 44px;
-  font-size: 16px;
-}
-
-.phone-app .welcome .wl-foot {
-  flex-direction: column-reverse;
-  align-items: stretch;
-  width: 100%;
-  font-size: 14px;
-}
-
-.phone-app .welcome button {
-  min-height: 48px;
-  border-radius: 12px;
-  font-size: 16px;
-}
-
 /* ---------- sheets: a window comes up from the bottom, its buttons at its top ---------- */
 
 @keyframes mb-up {
@@ -1089,6 +1040,11 @@ button.mb-fr:active {
 
 .mb-hint.err {
   color: var(--sl-accent);
+}
+
+/* The last words of a sheet, kept off its edge. */
+.mb-hint.end {
+  padding-bottom: 12px;
 }
 
 .mb-search {

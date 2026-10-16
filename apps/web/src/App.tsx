@@ -148,7 +148,6 @@ import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { type FileActions, type FileSort, FilesView, fileTitle, Thumb, useIcon, useTitle, useWord } from './Files';
-import { Welcome } from './Welcome';
 import { chooseSpaceFolder, downloadBlob, isDesktop, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
 
 type OpenDialog =
@@ -298,8 +297,7 @@ export function App() {
   const [viewStatus, setViewStatus] = useState<string[] | null>(null);
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
   const [tabGap, setTabGap] = useState<number | null>(null);
-  // Not before the first start has asked who the user is: nothing opens over that.
-  const empty = ready && me !== null && tabs.length === 0;
+  const empty = ready && tabs.length === 0;
   // A phone's Open says that nothing is open and offers Create itself.
   const showNew = dialog?.kind === 'new' || (!phone && empty && !declined && !dialog);
   const showingEditor = active !== null && isNote(active);
@@ -1560,7 +1558,6 @@ export function App() {
 
   return (
     <div className={phone ? 'app phone-app' : drawer ? 'app drawer-open' : 'app'}>
-      {ready && !me && <Welcome onDone={(name, email) => session.saveProfile(name, email)} />}
       {phone ? (
         <>
           <Phone

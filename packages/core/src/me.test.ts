@@ -1,11 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryFs } from './fs';
-import { loadMe, mergeMe, newMe, parseMe, saveMe, serializeMe } from './me';
+import { fillMe, loadMe, mergeMe, newMe, parseMe, saveMe, serializeMe, startMe } from './me';
 import { mergeFields } from './sync/merge-records';
 
 describe('me', () => {
   it('is nobody until the first start saved one', async () => {
     expect(await loadMe(new MemoryFs())).toBeNull();
+  });
+
+  it('is made with the first start, with no name or email, and kept after', async () => {
+    const fs = new MemoryFs();
+    const me = await startMe(fs);
+    expect(me).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    expect(await loadMe(fs)).toEqual(me);
+    expect(await startMe(fs)).toEqual(me);
+  });
+
+  it('goes with the app to a personal folder that has no person, and not to one that has', async () => {
+    const known = { id: 'a1', name: 'Kaan' };
+    const empty = new MemoryFs();
+    expect(await startMe(empty, known)).toEqual(known);
+    expect(await loadMe(empty)).toEqual(known);
+    const other = new MemoryFs();
+    await saveMe(other, { id: 'b2', name: 'Kaan A.' });
+    expect(await startMe(other, known)).toEqual({ id: 'b2', name: 'Kaan A.' });
+  });
+
+  it('takes a name and an email only where they were empty', () => {
+    const empty = { id: 'a1' };
+    expect(fillMe(empty, ' Kaan Arslan ', 'kaan@example.com')).toEqual({ id: 'a1', name: 'Kaan Arslan', email: 'kaan@example.com' });
+    expect(fillMe({ id: 'a1', name: 'Kaan' }, 'Kaan Arslan', 'kaan@example.com')).toEqual({ id: 'a1', name: 'Kaan', email: 'kaan@example.com' });
+    const whole = { id: 'a1', name: 'Kaan', email: 'kaan@outlook.com' };
+    expect(fillMe(whole, 'Kaan Arslan', 'kaan@example.com')).toBe(whole);
+    expect(fillMe(empty, '  ', '')).toBe(empty);
   });
 
   it('keeps the id, the name and the email in the personal space', async () => {

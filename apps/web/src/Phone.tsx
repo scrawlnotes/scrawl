@@ -1381,10 +1381,6 @@ export function Phone(props: PhoneProps) {
       {(addingSpace || !!props.settings.values.addingAs) && (
         <PhoneAddSpaceSheet
           values={props.settings.values}
-          onSetName={() => {
-            setAddingSpace(false);
-            push({ kind: 'section', section: 'profile' });
-          }}
           onClose={() => setAddingSpace(false)}
         />
       )}

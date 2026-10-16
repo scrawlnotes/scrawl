@@ -54,7 +54,7 @@ export async function useDefaultVaultFolder(): Promise<void> {
  * A folder that holds a space's copy, or is inside one, is refused: spaces never nest.
  */
 export async function chooseVaultFolder(): Promise<boolean> {
-  const chosen = await chooseFolder(t('welcome.dialog'));
+  const chosen = await chooseFolder(t('settings.folderDialog'));
   if (!chosen) return false;
   if (settings.spaces.some((space) => space.folder && foldersNest(space.folder, chosen))) throw new Error(t('error.spaceNests'));
   await saveSettings({ ...settings, vault: chosen });

@@ -366,7 +366,7 @@ function Profile({ me, onSaveProfile }: Pick<SettingsValues, 'me' | 'onSaveProfi
           <label className="fl" htmlFor="me-email">
             {t('settings.email')}
           </label>
-          <input id="me-email" type="email" value={draft.email} autoComplete="email" placeholder={t('welcome.emailHint')} onChange={(event) => setDraft({ ...draft, email: event.target.value })} onKeyDown={onKeyDown} />
+          <input id="me-email" type="email" value={draft.email} autoComplete="email" placeholder={t('settings.emailHint')} onChange={(event) => setDraft({ ...draft, email: event.target.value })} onKeyDown={onKeyDown} />
           <button type="button" className="primary" disabled={!changed} onClick={save}>
             {t('settings.save')}
           </button>
@@ -404,8 +404,6 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
       account={addingAs ?? null}
       me={values.me}
       onDevice={values.spaces.map((space) => space.id)}
-      unnamed={!values.me?.name}
-      {...(values.onSection && { onSetName: () => values.onSection!('profile') })}
       onSaveProfile={values.onSaveProfile}
       onAdd={values.onAddSpace}
       onDone={(id) => {
@@ -641,20 +639,35 @@ export function RemoveSpaceDialog({ space, onRemove, onClose }: { space: Pick<Sp
  * What adding a space goes through, in the window on a computer and in the sheet on a phone: a
  * name; where it lives, OneDrive or a Scrawl server this device is signed in to. In OneDrive: the
  * account, asked for, connected first when there is none; the folder there, chosen in the drive's
- * window, which a folder that is a space already, or one that cannot be one, answers. On a server:
- * a new space there, which only its owner and admins open, or one of its spaces the person was
- * invited to and that is not on this device yet. Then adding it.
+ * window, which a folder that is a space already, or one that cannot be one, answers; the others
+ * there see you by Profile's name and email, so with either empty both are asked, and adding saves
+ * them to Profile. On a server: a new space there, which only its owner and admins open, or one of
+ * its spaces the person was invited to and that is not on this device yet; the account there says
+ * who you are. Then adding it.
  */
-export function useAddSpace({ service, account: given, onAdd, onDone, onDevice }: {
+export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd, onDone, onDevice }: {
   service: SyncService;
   /** Signed in already, the page back from Microsoft: the account to choose the folder in. */
   account: Connection['account'] | null;
+  /** Who the user is: Profile's name and email, asked for when one is empty. */
+  me: Me | null;
+  onSaveProfile: SettingsValues['onSaveProfile'];
   onAdd: SettingsValues['onAddSpace'];
   onDone: (id: string | null) => void;
   /** The ids of the spaces on this device, which a server's list leaves out. */
   onDevice: string[];
 }) {
   const [name, setName] = useState('');
+  // Your name and email for the others of a space in OneDrive, what Profile has to start with.
+  const [you, setYou] = useState({ name: me?.name ?? '', email: me?.email ?? '' });
+  // Asked once in a window, they stay until it closes, also once adding saved them to Profile.
+  const missing = !me?.name || !me?.email;
+  const [asked, setAsked] = useState(missing);
+  useEffect(() => {
+    if (missing) setAsked(true);
+  }, [missing]);
+  // Profile filled meanwhile, from a server's account: what it has goes where nothing is typed.
+  useEffect(() => setYou((now) => ({ name: now.name || me?.name || '', email: now.email || me?.email || '' })), [me?.name, me?.email]);
   // Undefined while it is being asked whether a key is kept.
   const [account, setAccount] = useState<Connection['account'] | null | undefined>(given ?? undefined);
   const [folder, setFolder] = useState<{ folder: Connection['folder']; id?: string } | null>(null);
@@ -823,6 +836,8 @@ export function useAddSpace({ service, account: given, onAdd, onDone, onDevice }
     }
     setBusy(true);
     setError(null);
+    // Profile first, so that the space's people have you as typed as soon as it opens.
+    if (asking && (you.name.trim() !== (me?.name ?? '') || you.email.trim() !== (me?.email ?? ''))) onSaveProfile(you.name, you.email);
     try {
       const { id: item, path, drive, owner } = folder.folder;
       onDone(await onAdd(name, { provider: 'onedrive', account: account.email || account.name, place: { item, path, ...(drive && { drive }), ...(owner && { owner }) } }, folder.id));
@@ -833,6 +848,8 @@ export function useAddSpace({ service, account: given, onAdd, onDone, onDevice }
   };
 
   const chosenSpace = choice === 'new' ? null : (serverSpaces?.find((each) => each.id === choice) ?? null);
+  // In OneDrive, once it is connected, with a name or an email missing from Profile.
+  const asking = !server && !!account && !signing && asked;
   const ready = server
     ? !busy && !serverSignedOut && (chosenSpace ? true : choice === 'new' && server.role !== 'member' && serverSpaces !== null)
     : !!account && !!folder && !busy;
@@ -864,28 +881,32 @@ export function useAddSpace({ service, account: given, onAdd, onDone, onDevice }
     setConnecting,
     connected,
     start,
+    asking,
+    you,
+    setYou,
   };
 }
 
-function AddSpaceDialog({ sync, service, account: given, me, onDevice, unnamed, onSetName, onSaveProfile, onAdd, onDone }: {
+function AddSpaceDialog({ sync, service, account: given, me, onDevice, onSaveProfile, onAdd, onDone }: {
   sync: SyncSnapshot;
   service: SyncService;
-  /** Who the user is, for setting up a server or signing in to one. */
+  /** Who the user is: asked for here when Profile lacks it, and for setting up a server or signing in to one. */
   me: Me | null;
   onDevice: string[];
   /** Signed in already, the page back from Microsoft: the account to choose the folder in. */
   account: Connection['account'] | null;
-  /** The profile has no name: the others of the space would see Unnamed. */
-  unnamed: boolean;
-  /** Goes to Profile, to set the name. */
-  onSetName?: () => void;
   onSaveProfile: SettingsValues['onSaveProfile'];
   onAdd: SettingsValues['onAddSpace'];
   onDone: (id: string | null) => void;
 }) {
-  const added = useAddSpace({ service, account: given, onAdd, onDone, onDevice });
+  const added = useAddSpace({ service, account: given, me, onSaveProfile, onAdd, onDone, onDevice });
   const { name, setName, account, folder, picking, setPicking, signing, error, setError, busy, ready, connect, choose, add } = added;
-  const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected, start } = added;
+  const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected, start, asking, you, setYou } = added;
+  const addOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    void add();
+  };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Escape' || picking || connecting) return;
@@ -1008,21 +1029,36 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, unnamed, 
             </div>
           </>
         )}
+        {asking && (
+          <div className="you">
+            <div>
+              <label className="label" htmlFor="space-add-you-name">
+                {t('space.yourName')}
+              </label>
+              <input id="space-add-you-name" className="field" value={you.name} autoComplete="name" onChange={(event) => setYou({ ...you, name: event.target.value })} onKeyDown={addOnEnter} />
+            </div>
+            <div>
+              <label className="label" htmlFor="space-add-you-email">
+                {t('space.yourEmail')}
+              </label>
+              <input
+                id="space-add-you-email"
+                className="field"
+                type="email"
+                value={you.email}
+                autoComplete="email"
+                placeholder={t('settings.emailHint')}
+                onChange={(event) => setYou({ ...you, email: event.target.value })}
+                onKeyDown={addOnEnter}
+              />
+            </div>
+            <p className="note">{name.trim() ? t('space.youNote', { space: name.trim() }) : t('space.youNoteUnnamed')}</p>
+          </div>
+        )}
         {error && (
           <p className="note err" role="alert">
             {error}
           </p>
-        )}
-        {unnamed && (server || account) && !signing && (
-          <div className="st-warn">
-            <Icon name="warn" />
-            <span>{t('space.unnamedWarning')}</span>
-            {onSetName && (
-              <button type="button" className="st-btn" onClick={onSetName}>
-                {t('space.setName')}
-              </button>
-            )}
-          </div>
         )}
         <div className="foot">
           <button type="button" className="st-btn" onClick={() => onDone(null)}>
@@ -1051,7 +1087,6 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, unnamed, 
           again={serverSignedOut && server ? { url: server.url, email: server.email } : undefined}
           start={start}
           onDone={connected}
-          onProfile={onSaveProfile}
           onClose={() => setConnecting(false)}
         />
       )}

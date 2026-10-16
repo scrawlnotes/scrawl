@@ -459,20 +459,22 @@ function ServerSpaceSheet({ server, spaces, name, choice, onPick, onClose }: {
 /**
  * Add space as a sheet: its name, where it lives, and in OneDrive the folder there, chosen in the
  * drive's window, among the user's own or by a link someone sent; on a server, a new space there
- * or one of its spaces the user was invited to. With the profile's name empty it warns, since the
- * others see the user in a space.
+ * or one of its spaces the user was invited to. In OneDrive, with Profile's name or email empty,
+ * You asks for both, since the others see the user in a space.
  */
-export function PhoneAddSpaceSheet({ values, onSetName, onClose }: { values: SettingsValues; onSetName: () => void; onClose: () => void }) {
+export function PhoneAddSpaceSheet({ values, onClose }: { values: SettingsValues; onClose: () => void }) {
   const { sync, syncService: service } = values;
   const added = useAddSpace({
     service,
     account: values.addingAs ?? null,
+    me: values.me,
+    onSaveProfile: values.onSaveProfile,
     onAdd: values.onAddSpace,
     onDone: () => onClose(),
     onDevice: values.spaces.map((space) => space.id),
   });
   const { name, setName, account, folder, picking, setPicking, signing, error, setError, ready, connect, choose, add } = added;
-  const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected } = added;
+  const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected, asking, you, setYou } = added;
   const [locating, setLocating] = useState(false);
   const [spacing, setSpacing] = useState(false);
   // The account the page came back from Microsoft with is taken once.
@@ -562,16 +564,33 @@ export function PhoneAddSpaceSheet({ values, onSetName, onClose }: { values: Set
           {error}
         </p>
       )}
-      {!values.me?.name && (server || account) && (
-        <div className="mb-warn">
-          <Icon name="warn" />
-          <span>
-            {t('space.unnamedWarning')}
-            <button type="button" onClick={onSetName}>
-              {t('space.setName')}
-            </button>
-          </span>
-        </div>
+      {asking && (
+        <>
+          <div className="mb-sec">{t('settings.you')}</div>
+          <div className="mb-form">
+            <div className="mb-group">
+              <label className="mb-fr">
+                <span className="fl">{t('settings.name')}</span>
+                <input className="in" autoComplete="name" enterKeyHint="next" aria-label={t('space.yourName')} value={you.name} onChange={(event) => setYou({ ...you, name: event.target.value })} />
+              </label>
+              <label className="mb-fr">
+                <span className="fl">{t('settings.email')}</span>
+                <input
+                  className="in"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  enterKeyHint="done"
+                  aria-label={t('space.yourEmail')}
+                  placeholder={t('settings.emailHint')}
+                  value={you.email}
+                  onChange={(event) => setYou({ ...you, email: event.target.value })}
+                />
+              </label>
+            </div>
+          </div>
+          <p className="mb-hint end">{name.trim() ? t('space.youNote', { space: name.trim() }) : t('space.youNoteUnnamed')}</p>
+        </>
       )}
       {locating && (
         <LocationSheet
@@ -610,7 +629,6 @@ export function PhoneAddSpaceSheet({ values, onSetName, onClose }: { values: Set
           again={serverSignedOut && server ? { url: server.url, email: server.email } : undefined}
           start={added.start}
           onDone={connected}
-          onProfile={values.onSaveProfile}
           onClose={() => setConnecting(false)}
         />
       )}

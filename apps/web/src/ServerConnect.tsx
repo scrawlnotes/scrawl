@@ -11,9 +11,10 @@ import { ServerIcon } from './SyncViews';
 // up a new server, whose first to connect becomes its owner; signing in to one set up already;
 // joining a space with an invite link, who invited you to what; a new password with a link for
 // one. Setting up and joining take the name, the email and a password, the name and email from
-// Profile; signing in the email and the password. Joining with an email that has an account there
-// takes its password, and adds the space to it. The same window signs in again to a server whose
-// key no longer works. A window on a computer, a sheet on a phone.
+// Profile as it is; signing in the email and the password. Profile takes what it lacks from the
+// account after (`signedInToServer`). Joining with an email that has an account there takes its
+// password, and adds the space to it. The same window signs in again to a server whose key no
+// longer works. A window on a computer, a sheet on a phone.
 
 /** What the field leads to, once the server answered. */
 type Found =
@@ -38,8 +39,6 @@ export interface ConnectOptions {
   start?: string | null | undefined;
   /** Connected; with the space an invite brought the person into, or after a link for a new password. */
   onDone: (server: KnownServer, after?: { joined: ServerSpace } | { reset: true }) => void;
-  /** Saves Profile, which takes the name and the email typed for a new account when it had none. */
-  onProfile?: (name: string, email: string) => void;
 }
 
 /** Why something asked of a server did not go through, in the app's words. */
@@ -85,7 +84,7 @@ export function serverFailure(error: unknown, host: string): string {
   return t('server.errOther', { message: error instanceof Error ? error.message : String(error) });
 }
 
-function useServerConnect({ me, device, again, start, onDone, onProfile }: ConnectOptions) {
+function useServerConnect({ me, device, again, start, onDone }: ConnectOptions) {
   const [input, setInput] = useState(again ? hostOf(again.url) : (start ?? ''));
   const [found, setFound] = useState<Found | null>(null);
   const [step, setStep] = useState<Step>(again ? 'signin' : 'address');
@@ -153,10 +152,6 @@ function useServerConnect({ me, device, again, start, onDone, onProfile }: Conne
     setPassword('');
     setStep('address');
   };
-  // A new account's name and email go to Profile where it had none, so the others see who it is.
-  const keepProfile = () => {
-    if (onProfile && (!me?.name || !me.email)) onProfile(me?.name || name.trim(), me?.email || email.trim());
-  };
   const submit = async () => {
     if (!url || busy) return;
     setBusy(true);
@@ -166,7 +161,6 @@ function useServerConnect({ me, device, again, start, onDone, onProfile }: Conne
       const code = found?.kind === 'invite' ? found.code : '';
       if (step === 'join') {
         const joined = await account.accept(code, { name: name.trim(), email: email.trim(), password, person: me?.id ?? '', device });
-        keepProfile();
         onDone(await keepSignIn(url, joined), { joined: joined.space });
       } else if (step === 'reset') {
         onDone(await keepSignIn(url, await account.setPassword(code, { password, device })), { reset: true });
@@ -175,7 +169,6 @@ function useServerConnect({ me, device, again, start, onDone, onProfile }: Conne
           step === 'setup'
             ? await account.setUp({ name: name.trim(), email: email.trim(), password, person: me?.id ?? '', device })
             : await account.signIn({ email: email.trim(), password, device });
-        if (step === 'setup') keepProfile();
         onDone(await keepSignIn(url, signedIn));
       }
     } catch (failure) {

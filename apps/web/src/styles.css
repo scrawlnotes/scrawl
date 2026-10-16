@@ -706,73 +706,6 @@ input:focus {
   background: var(--sl-line);
 }
 
-/* desktop: first run, before a notes folder is chosen */
-.welcome {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 10px;
-  padding: 0 max(28px, 12vw);
-  background: var(--sl-bg);
-}
-
-.welcome h1 {
-  margin: 0;
-  font-size: 19px;
-  font-weight: 600;
-}
-
-.welcome p {
-  max-width: 52ch;
-  margin: 0 0 6px;
-  color: var(--sl-dim);
-}
-
-.welcome .wl-row {
-  display: grid;
-  grid-template-columns: 58px minmax(0, 320px);
-  align-items: center;
-  gap: 8px;
-}
-
-.welcome .wl-row label {
-  color: var(--sl-faint);
-  font-size: 10.5px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.welcome .wl-row input {
-  min-width: 0;
-  padding: 6px 9px;
-  border: 1px solid var(--sl-line);
-  border-radius: 6px;
-  background: var(--sl-bg);
-  color: var(--sl-fg);
-  font: inherit;
-}
-
-.welcome .wl-foot {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 8px;
-  color: var(--sl-faint);
-  font-size: 12px;
-}
-
-.welcome button {
-  padding: 5px 14px;
-  border-radius: 6px;
-  background: var(--sl-accent);
-  color: var(--sl-bg);
-  font-weight: 600;
-}
-
 /* dialogs */
 .backdrop {
   position: fixed;
@@ -9668,32 +9601,6 @@ button.st-li:hover,
   opacity: 0.55;
 }
 
-/* What the others would see wrong, said before it happens: an empty name, in Add space. */
-.st-warn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, #e0a84a 55%, transparent);
-  border-radius: 7px;
-  background: color-mix(in srgb, #e0a84a 12%, transparent);
-  color: var(--sl-fg);
-  font-size: 12px;
-}
-
-.st-warn > .icon {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  color: #e0a84a;
-}
-
-.st-warn .st-btn {
-  flex: none;
-  margin-left: auto;
-}
-
 .st-acts {
   display: flex;
   flex-wrap: wrap;
@@ -9924,6 +9831,21 @@ button.st-li:hover,
   width: 22px;
   height: 22px;
   color: var(--sl-faint);
+}
+
+/* Your name and email for the others of a space in OneDrive, side by side, what they are for under them. */
+.fp.space-add .you {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 8px;
+}
+
+.fp.space-add .you .label:first-of-type {
+  margin-top: 10px;
+}
+
+.fp.space-add .you .note {
+  grid-column: 1 / -1;
 }
 
 /* The sync panel with more than one space: a row for each, the one chosen told under them. */

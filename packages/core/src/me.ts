@@ -47,6 +47,26 @@ export async function loadMe(fs: VaultFs): Promise<Me | null> {
 export const saveMe = (fs: VaultFs, me: Me) => fs.writeText(FILE, serializeMe(me));
 
 /**
+ * The person, made with the first start without asking anything: an id of their own, the name
+ * and the email empty until a space where others see them asks. A folder chosen for the personal
+ * space that has none takes `known`, the person the app had, so that they stay one.
+ */
+export async function startMe(fs: VaultFs, known?: Me | null): Promise<Me> {
+  const me = await loadMe(fs);
+  if (me) return me;
+  const made = known ?? newMe();
+  // Not written, the person is made again with the next start.
+  await saveMe(fs, made).catch(() => undefined);
+  return made;
+}
+
+/** The person with what was empty taken from elsewhere, a server account's name and email; what was set stays. The same person when nothing was empty. */
+export function fillMe(me: Me, name?: string, email?: string): Me {
+  const filled = { ...me, ...(!me.name && clean(name) && { name: clean(name) }), ...(!me.email && clean(email) && { email: clean(email) }) };
+  return filled.name === me.name && filled.email === me.email ? me : filled;
+}
+
+/**
  * The person from three versions of the file. Two devices that both made a person before the
  * first sync between them have two ids: the one that was synced first stays, since it may be in
  * a space's people already; the fields are merged as those of any record.

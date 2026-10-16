@@ -1580,9 +1580,6 @@ p { margin: 0; max-width: 68ch; }
 .st-li.one { padding: 5px 10px; }
 .st-li.one .nm { flex-direction: row; align-items: baseline; gap: 10px; }
 .st-li.one .who { width: 18px; height: 18px; font-size: 9.5px; line-height: 18px; }
-.st-warn { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 10px; border: 1px solid color-mix(in srgb, #e0a84a 55%, transparent); border-radius: 7px; background: color-mix(in srgb, #e0a84a 12%, transparent); color: var(--m-fg); font-size: 12px; }
-.st-warn svg { flex: none; width: 14px; height: 14px; color: #e0a84a; }
-.st-warn .st-btn { margin-left: auto; }
 .fp .list span small { margin-left: auto; color: var(--m-faint); font-size: 11.5px; }
 .rpick .rr { align-items: center; }
 .rpick .rr .fpad { width: 18px; }
@@ -1592,9 +1589,6 @@ p { margin: 0; max-width: 68ch; }
 .mb-p { margin: 0; padding: 10px 16px; color: var(--m-faint); font-size: 14px; line-height: 1.4; }
 .mb-row .who { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--m-sel); color: var(--m-fg); font: 600 13px/30px var(--m-ui); text-align: center; }
 .mb-row.red > svg, .mb-row.red b { color: #f0706a; }
-.mb-warn { display: flex; align-items: flex-start; gap: 10px; margin: 10px 16px 0; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #e0a84a 14%, transparent); color: var(--m-fg); font-size: 14px; line-height: 1.35; }
-.mb-warn svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: #e0a84a; }
-.mb-warn b { display: block; margin-top: 4px; color: var(--m-accent); font-weight: 600; }
 .mb-sheet .mb-sec { padding-top: 10px; }
 /* Spaces, Oct 12 review: a menu item that cannot be used now, a tab's path under the pointer, the red way out, Add space's parts, the trash by space, Create's folders, the sync of each space, a card given to someone, and the phone's. */
 .cmenu span.off { color: var(--m-faint); }
@@ -1607,6 +1601,9 @@ p { margin: 0; max-width: 68ch; }
 .fp .sp-add { margin-top: 12px; }
 .fp .label { margin: 0 2px 4px; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
 .fp .field { display: flex; padding: 7px 9px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-bg); color: var(--m-fg); font-size: 13px; }
+.fp .field.hint { color: var(--m-faint); }
+.fp .sp-you { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; margin-top: 14px; }
+.fp .sp-you .note { grid-column: 1 / -1; }
 .fp .sp-pick { display: flex; align-items: center; gap: 8px; }
 .fp .sp-pick .path { flex: 1; min-width: 0; overflow: hidden; padding: 6px 9px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-bg); color: var(--m-dim); font: 12px var(--m-mono); text-overflow: ellipsis; white-space: nowrap; }
 .fp .sp-signin { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 12px; border: 1px dashed var(--m-line); border-radius: 7px; color: var(--m-dim); font-size: 12.5px; text-align: center; }
@@ -2117,6 +2114,56 @@ p { margin: 0; max-width: 68ch; }
 .st-btn.off { opacity: .45; }
 .wu-src { margin-top: auto; font-size: 12px; color: var(--m-faint); }
 .wu-src u { color: var(--m-dim); text-underline-offset: 2px; }
+
+/* The start page (Oct 16): what the main area shows while nothing is open, in place of Create opening
+   by itself. Create's kinds on top, then Recent and Today side by side; with nothing in any space, the
+   kinds with what each is for, the templates and an agent to connect. */
+.dir[data-dir="start"] { margin-top: 56px; }
+.dir[data-dir="start"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="start"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="start"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.ss { flex: 1; min-height: 0; overflow: hidden; }
+.ss-in { max-width: 760px; margin: 0 auto; padding: 30px 32px 16px; display: flex; flex-direction: column; gap: 26px; }
+.ss-h { display: flex; align-items: baseline; gap: 7px; margin: 0 0 10px; font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--m-dim); }
+.ss-h small { font-size: 11px; letter-spacing: 0; color: var(--m-faint); font-variant-numeric: tabular-nums; }
+.ss-kinds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ss-kind { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 3px 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--m-line); border-radius: 8px; background: color-mix(in srgb, var(--m-fg) 2.5%, transparent); cursor: pointer; }
+.mock .ss-kind svg { width: 16px; height: 16px; color: var(--m-dim); }
+.ss-kind b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-kind small { grid-column: 2; font-size: 11.5px; line-height: 1.4; color: var(--m-dim); }
+.ss-kind.hover { border-color: color-mix(in srgb, var(--m-fg) 22%, transparent); background: color-mix(in srgb, var(--m-fg) 7%, transparent); }
+.ss-kind.hover svg { color: var(--m-fg); }
+/* Every day the kinds are known: a row, each its icon over its name. */
+.ss-kinds.row { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.ss-kinds.row .ss-kind { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 7px; padding: 13px 8px 11px; text-align: center; }
+.mock .ss-kinds.row .ss-kind svg { width: 18px; height: 18px; }
+.ss-kinds.row .ss-kind b { max-width: 100%; font-weight: 500; font-size: 12.5px; }
+.ss-cols { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 40px; }
+.ss-row { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 8px; margin: 0 -8px; border-radius: 6px; white-space: nowrap; cursor: pointer; }
+.mock .ss-row svg { flex: none; width: 13px; height: 13px; color: var(--m-dim); }
+.ss-row .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ss-row .pl { margin-left: 8px; font-size: 12px; color: var(--m-dim); }
+.ss-row .when { flex: none; margin-left: auto; padding-left: 12px; font-size: 11.5px; color: var(--m-faint); font-variant-numeric: tabular-nums; }
+.ss-row.hover { background: color-mix(in srgb, var(--m-fg) 8%, transparent); }
+.ss-none { margin: 0; padding: 6px 0; color: var(--m-dim); }
+.ss-task { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 1px 10px; padding: 5px 0 6px; }
+.ss-task .cb { width: 14px; height: 14px; margin-top: 3px; border-width: 1.6px; }
+.ss-task .cb.sq { border-radius: 3px; }
+.ss-task .tt { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-task .key { margin-right: 6px; font: 10.5px/1 var(--m-mono); color: var(--m-faint); }
+.ss-task .meta { grid-column: 2; gap: 2px 10px; font-size: 11px; }
+.ss-more { display: inline-flex; align-items: center; gap: 3px; margin-top: 6px; padding: 2px 0; font-size: 12px; color: var(--m-dim); cursor: pointer; }
+.mock .ss-more svg { width: 12px; height: 12px; stroke-width: 2; }
+.ss-tpls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; align-items: start; }
+.ss-tpl { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 0 10px; align-items: center; padding: 5px 8px; margin: 0 -8px; border-radius: 6px; cursor: pointer; }
+.mock .ss-tpl svg { grid-row: span 2; width: 14px; height: 14px; color: var(--m-dim); }
+.ss-tpl b { font-weight: 500; }
+.ss-tpl small { font-size: 11.5px; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-agent { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--m-line); border-radius: 8px; }
+.mock .ss-agent > svg { flex: none; width: 20px; height: 20px; color: var(--m-dim); }
+.ss-agent > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ss-agent b { font-weight: 600; }
+.ss-agent small { font-size: 12px; color: var(--m-dim); }
 </style>
 
 <main class="page">
@@ -2202,7 +2249,6 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-colmissing" data-aview="colmissing">Record missing</button>
         <button type="button" id="a-folders" data-aview="folders">Folder menu</button>
         <button type="button" id="a-subfolder" data-aview="subfolder">Subfolder</button>
-        <button type="button" id="a-welcome" data-aview="welcome">Welcome</button>
         <button type="button" id="a-profile" data-aview="profile">Profile</button>
         <button type="button" id="a-spaceslist" data-aview="spaceslist">Spaces list</button>
         <button type="button" id="a-spacepage" data-aview="spacepage">Space</button>
@@ -2250,7 +2296,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" id="a-pimport" data-aview="pimport">Phone import</button>
         <button type="button" id="a-pkeys" data-aview="pkeys">Phone keys</button>
         <button type="button" id="a-pempty" data-aview="pempty">Phone empty</button>
-        <button type="button" id="a-pwelcome" data-aview="pwelcome">Phone welcome</button>
+        <button type="button" id="a-pprofile" data-aview="pprofile">Phone profile</button>
         <button type="button" id="a-pspaces" data-aview="pspaces">Phone spaces</button>
         <button type="button" id="a-pspaces2" data-aview="pspaces2">Phone spaces more</button>
         <button type="button" id="a-psync" data-aview="psync">Phone sync</button>
@@ -2379,6 +2425,23 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-wview="wudown">About, downloading</button>
         <button type="button" data-wview="wuready">About, ready</button>
         <button type="button" data-wview="wufail">About, could not check</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="start">
+    <div class="brief">
+      <div>
+        <span class="letter">BAŞLANGIÇ SAYFASI · TASLAK</span>
+        <h2>Hiçbir şey açık değilken</h2>
+        <p>Hiç sekme açık değilken ana alan bir başlangıç sayfasıdır; Create penceresi artık kendiliğinden açılmaz. Sayfa bir sekme değildir, bir şey açılınca yerini ona bırakır. Üstte Create'in altı türü bir sırada durur: birine tıklamak Create'i o türün ikinci adımında, ad ve klasörle açar; Filter kendi penceresini açar. Altında solda Recent: bu cihazda en son açılan on şey, en yenisi üstte, nerede olduğu ve ne zaman bakıldığıyla; tıklayınca sekme olarak açılır. Space'lerde bir şey varken bu cihazda henüz hiçbir şey açılmamışsa Recent'te "Nothing opened on this device yet." yazar. Sağda Today: bugünkü ve geciken işlerden ilk beşi, yanlarındaki kutuyla bitirilir; altında Open Today; bugün iş yoksa "Nothing due today." yazar. Hiçbir space'te not, liste, pano, keys ya da koleksiyon yokken Create'in türleri ne işe yaradıklarıyla büyür, Recent ve Today'in yerine iki bölüm gelir: Start from a template (tıklayınca Create o şablon seçili açılır) ve Connect an agent (Settings › Agents). İlk şey oluşturulunca ikisi kalkar. + düğmesi ve Ctrl+N bugünkü gibi Create'i açar. Telefon değişmez: orada Recent bu işi görüyor.</p>
+        <ul class="traits"><li>sekme değil</li><li>Create kendiliğinden açılmaz</li><li>Recent: son on şey</li><li>Today: ilk beş</li><li>boşken şablonlar ve ajan</li><li>yalnız masaüstü ve web</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Başlangıç sayfası görünümü">
+        <button type="button" data-ssview="ssday">Her gün</button>
+        <button type="button" data-ssview="ssnew">Yeni cihaz</button>
+        <button type="button" data-ssview="ssempty">Boş space</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -4953,14 +5016,6 @@ p { margin: 0; max-width: 68ch; }
       '</div></div>';
   }
   var SP_ASSIGN_TAB = '<div class="tab on tipped" data-go="assign">' + ICON.tasks + '<span>Tasks · Sales</span><span class="ttip">Acme › Sales</span></div>';
-  /** The first start: who you are, over an empty app. Both fields can wait. */
-  function spWelcome() {
-    return '<div class="ovl center"><div class="mdlg" style="width: 400px"><h3>Welcome to Scrawl</h3>' +
-      '<p class="what">Who you are, for the people you will share a space with. Both can be changed in Settings, and both can wait.</p>' +
-      '<div class="label">Name</div><div class="field filled">Kaan Arslan<span class="caret"></span></div>' +
-      '<div class="label" style="margin-top: 10px">Email</div><div class="field">name@example.com</div>' +
-      '<div class="foot"><span class="count">Nothing is sent anywhere.</span><span class="st-btn go">Continue</span></div></div></div>';
-  }
   function spProfile() {
     return '<span class="st-label">You</span>' +
       '<p class="st-note">Your name goes on what you do where others see it: a comment, a change on a card, a task given to you. The email says which person you are in a shared space; nothing is sent to it.</p>' +
@@ -5031,8 +5086,10 @@ p { margin: 0; max-width: 68ch; }
    * Add space: a name, and where it lives. A space is where people work together, so it lives
    * in a cloud: every place is a row with the account it is connected to, OneDrive now, Google
    * Drive and our own server as more rows later. A folder is chosen in that place, one of
-   * yours or one shared with you; with no connection yet, connecting comes first. With your name
-   * empty it warns, since the others see you in a space.
+   * yours or one shared with you; with no connection yet, connecting comes first. In OneDrive the
+   * others see you by Profile's name and email, so with either empty, once OneDrive is connected,
+   * it asks for both here, what Profile has filled in, and Add saves them to Profile. A server
+   * takes them from your account there instead.
    */
   function spAddSpace(how) {
     function src(icon, name, sub, on) { return '<span' + (on ? ' class="on"' : '') + '>' + ICON[icon] + name + '<small>' + sub + '</small></span>'; }
@@ -5044,7 +5101,10 @@ p { margin: 0; max-width: 68ch; }
       '<div class="label" style="margin-top: 10px">Location</div>' +
       '<div class="list">' + src('cloud', 'OneDrive', how === 'signin' ? 'not connected' : 'kaan@outlook.com', true) + '</div>' +
       '<div class="sp-add">' + where + '</div>' +
-      (how === 'signin' ? '' : '<div class="st-warn">' + ICON.warn + '<span>Your name is empty. You will show as Unnamed in this space until you set it.</span><span class="st-btn">Set name</span></div>') +
+      (how === 'signin' ? '' : '<div class="sp-you">' +
+        '<div><div class="label">Your name</div><div class="field">Kaan Arslan<span class="caret"></span></div></div>' +
+        '<div><div class="label">Your email</div><div class="field hint">name@example.com</div></div>' +
+        '<p class="note">The others in Northwind see your name on what you do. Your email tells them which person you are. Both go to Profile.</p></div>') +
       '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go' + (how === 'signin' ? ' off' : '') + '">Add “Northwind”</span></div>' +
       '</div></div>';
   }
@@ -5139,9 +5199,6 @@ p { margin: 0; max-width: 68ch; }
       .replace('<span class="fl">Assignee</span><span class="in">', '<span class="fl">Assignee</span><span class="in sp-on">');
   }
   var SP_VIEWS = {
-    welcome: function () {
-      return '<aside class="side">' + freshTree() + '</aside><section class="main"><div class="panes">' + pane('<div class="tab plus">+</div>', '<div class="sp-empty"><span class="st-btn">Create…</span></div>') + '</div>' + SP_STATUS + '</section>' + spWelcome();
-    },
     sptree: function () {
       return '<aside class="side">' + spaceTree('sptree') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'today', true) + tab('notes', 'Sync engine: open questions', 'note', false) + '<div class="tab plus">+</div>', SP_TODAY) + '</div>' + SP_STATUS + '</section>';
     },
@@ -5170,16 +5227,9 @@ p { margin: 0; max-width: 68ch; }
       return spNoteView(view) + spSettingsWindow(view, add ? spAddSpace(add) + (view === 'addpicker' || view === 'addallow' ? spOneDrivePicker(view === 'addallow') : '') : view === 'spremove' ? spRemoveAsk() : '');
     };
   });
-  // Phone: the welcome as a page, Profile in Settings, the people of a space in a sheet.
+  // Phone: Profile in Settings, the people of a space in a sheet.
   function mbPerson(p, on) {
     return '<div class="mb-row' + (p.off ? ' off' : '') + '">' + who(p.ini) + '<span class="tx"><b>' + p.name + (p.you ? ' <small style="display:inline">· you</small>' : '') + '</b><small>' + (p.off ? 'Inactive · ' : '') + (p.mail || 'no email') + '</small></span>' + (on ? ICON.check.replace('<svg', '<svg class="tick"') : '') + '</div>';
-  }
-  function mbWelcome() {
-    return mbPage(mbHead('Welcome', 'For the people you share a space with', true),
-      '<div class="mb-form"><div class="mb-fr"><span class="fl">Name</span><span class="in">Kaan Arslan<span class="caret"></span></span></div>' +
-      '<div class="mb-fr"><span class="fl">Email</span><span class="in none">name@example.com</span></div></div>' +
-      '<p class="mb-p">Both can be changed in Settings, and both can wait. Nothing is sent anywhere.</p>' +
-      '<div class="mb-form"><div class="mb-btn">Continue</div></div>');
   }
   function mbSettingsList() {
     return mbPage(mbNav('Browse') + mbHead('Settings'),
@@ -5208,9 +5258,8 @@ p { margin: 0; max-width: 68ch; }
       SP_PEOPLE.filter(function (p) { return !p.off; }).map(function (p, i) { return mbPerson(p, i === 1); }).join('') +
       '<p class="mb-p">Everyone who has opened Acme.</p></div>';
   }
-  function phoneWelcome() {
+  function phoneProfile() {
     return [
-      mbPhone('İlk açılış: ad ve e-posta, ikisi de bekleyebilir', mbWelcome()),
       mbPhone('Settings: Profile listenin başında', mbSettingsList(), mbTabs('browse')),
       mbPhone('Profile: Save navigasyonda', mbProfile(), mbTabs('browse')),
       mbPhone('Göreve kişi: space’in insanları bir sheet’te', mbAcmeTasks(), mbTabs('browse') + mbAssignSheet())
@@ -5258,15 +5307,20 @@ p { margin: 0; max-width: 68ch; }
         '<div class="mb-fr"><span class="fl">Location</span><span class="val">' + ICON.cloud + 'OneDrive' + MB_CHEV + '</span></div>' +
         '<div class="mb-fr"><span class="fl">Folder</span><span class="val">Shared › Northwind' + MB_CHEV + '</span></div>' +
       '</div></div>' +
-      '<div class="mb-warn">' + ICON.warn + '<span>Your name is empty. You will show as Unnamed in this space until you set it.<b>Set name</b></span></div>' +
-      '<div style="height: 16px"></div></div>';
+      '<div class="mb-sec">You</div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr"><span class="fl">Name</span><span class="in">Kaan Arslan<span class="caret"></span></span></div>' +
+        '<div class="mb-fr"><span class="fl">Email</span><span class="in none">name@example.com</span></div>' +
+      '</div></div>' +
+      '<p class="mb-p">The others in Northwind see your name on what you do. Your email tells them which person you are. Both go to Profile.</p>' +
+      '<div style="height: 8px"></div></div>';
   }
   function phoneSpaces() {
     return [
       mbPhone('Browse: her space bir bölüm', mbBrowseSpaces(), mbTabs('browse') + MB_FAB),
       mbPhone('Settings › Spaces: sıra Reorder ile', mbSpacesList(), mbTabs('browse')),
       mbPhone('Bir space: adı, sync’i ve insanları', mbSpacePage(), mbTabs('browse')),
-      mbPhone('Add space: ad, konum ve klasör; ad boşsa uyarı', mbSpacesList(), mbTabs('browse') + mbAddSpaceSheet())
+      mbPhone('Add space: ad, konum ve klasör; Profile’da ad ya da e-posta yoksa burada sorulur', mbSpacesList(), mbTabs('browse') + mbAddSpaceSheet())
     ].join('');
   }
   // Phone, more of the spaces: Today names another space before its folder; a folder is chosen
@@ -5848,7 +5902,7 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Seçince telefonun paylaşma sheet’i: Files’a kaydet, gönder', mbNote(), mbTabs('browse') + share)
     ].join('');
   }
-  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, ptasksdone: phoneTasksDone, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pimport: phoneImport, pkeys: phoneKeys, pempty: phoneEmpty, pwelcome: phoneWelcome, pspaces: phoneSpaces, pspaces2: phoneSpacesMore, psync: phoneSync, psync2: phoneSyncMore, pfiles: phoneFiles, pfiles2: phoneFilesMore, pbig: phoneBigFiles, psearch: phoneSearch, pexport: phoneExport };
+  var MB_VIEWS = { pshell: phoneShell, ppages: phonePages, pcreate: phoneCreate, pmenus: phoneMenus, pnote: phoneNote, pnotetools: phoneNoteTools, pnotemore: phoneNoteMore, ptasks: phoneTasks, ptasksmore: phoneTasksMore, ptasksdone: phoneTasksDone, pboard: phoneBoard, pboardmore: phoneBoardMore, pphases: phonePhases, pcol: phoneCollection, pcolmore: phoneCollectionMore, pcolviews: phoneCollectionViews, pimport: phoneImport, pkeys: phoneKeys, pempty: phoneEmpty, pprofile: phoneProfile, pspaces: phoneSpaces, pspaces2: phoneSpacesMore, psync: phoneSync, psync2: phoneSyncMore, pfiles: phoneFiles, pfiles2: phoneFilesMore, pbig: phoneBigFiles, psearch: phoneSearch, pexport: phoneExport };
   function renderA(section, view) {
     var mock = section.querySelector('.mock');
     if (MB_VIEWS[view]) {
@@ -6733,6 +6787,102 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderWu(sectionWu, b.dataset.wview);
   });
   renderWu(sectionWu, 'wubar');
+
+  // The start page (Oct 16): the main area while nothing is open, in place of Create opening by itself.
+  // Every day Create's kinds are a row, with Recent and Today under them; with nothing in any space,
+  // the kinds say what each is for, and the templates and an agent take Recent's and Today's place.
+  var SS_KINDS = [
+    ['notes', 'Note', 'Meetings, ideas, anything written'],
+    ['tasks', 'Task list', 'To-dos with dates and priorities'],
+    ['board', 'Board', 'Cards in columns: a project, a pipeline'],
+    ['key', 'Keys', 'API keys, passwords, settings'],
+    ['collection', 'Collection', 'Design your forms'],
+    ['filter', 'Filter', 'Tasks from every list, by date, priority or place']
+  ];
+  /** Create's kinds: a row of icons and names, or with what each is for. */
+  function ssKinds(full) {
+    return '<div><div class="ss-h">Create</div><div class="ss-kinds' + (full ? '' : ' row') + '">' +
+      SS_KINDS.map(function (k) {
+        return '<div class="ss-kind">' + ICON[k[0]] + '<b>' + k[1] + '</b>' + (full ? '<small>' + k[2] + '</small>' : '') + '</div>';
+      }).join('') + '</div></div>';
+  }
+  /** What was opened last on this device, the latest first: where it is, and when it was looked at. */
+  var SS_RECENT = [
+    ['notes', 'Sync engine: open questions', 'Scrawl', '2 min'],
+    ['board', 'Deals', 'Acme · Sales', '18 min'],
+    ['collection', 'Companies', 'Acme · Sales', '1 h'],
+    ['tasks', 'Tasks', 'Scrawl', '3 h'],
+    ['board', 'Roadmap', 'Scrawl', 'Sun'],
+    ['notes', 'Pilot plan', 'Acme · Sales', 'Sat'],
+    ['key', 'Production', 'Scrawl', 'Thu'],
+    ['notes', 'Trip to Lisbon', 'Home', 'Oct 5']
+  ];
+  /** Recent; on a new device, where the spaces have things but nothing was opened here yet, a line says so. */
+  function ssRecent(none) {
+    return '<div><div class="ss-h">Recent</div>' + (none ? '<p class="ss-none">Nothing opened on this device yet.</p>' : SS_RECENT.map(function (r) {
+      return '<div class="ss-row">' + ICON[r[0]] + '<span class="nm">' + r[1] + '<span class="pl">' + r[2] + '</span></span><span class="when">' + r[3] + '</span></div>';
+    }).join('')) + '</div>';
+  }
+  /** Today's first five, the late first, as the sidebar counts them; the rest are in Today. */
+  function ssToday() {
+    function t(p, title, meta, card) {
+      return '<div class="ss-task"><span class="cb ' + p + (card ? ' sq' : '') + '"></span><div class="tt">' + title + '</div><div class="meta">' + meta + '</div></div>';
+    }
+    return '<div><div class="ss-h">Today<small>5</small></div>' +
+      t('p3', 'Renew the domain', '<span class="today">Oct 9</span><span>Home</span>') +
+      t('p1', 'Prototype live preview', '<span>Scrawl</span><span>2 of 4</span>') +
+      t('p2', 'Send the revised estimate', '<span>Acme · Sales</span>') +
+      t('', 'Call Acme about the yearly plan', '<span>Inbox</span>') +
+      t('p2', '<span class="key">DEA-12</span>Pilot for one portal', '<span>Deals · Acme · Sales</span><span>Proposal</span>', true) +
+      '<div class="ss-more">Open Today' + ICON.chevr + '</div></div>';
+  }
+  /** The templates there are, a board's and a collection's: a click opens Create with the template chosen. */
+  function ssTemplates() {
+    function r(icon, name, text) { return '<div class="ss-tpl">' + ICON[icon] + '<b>' + name + '</b><small>' + text + '</small></div>'; }
+    return '<div><div class="ss-h">Start from a template</div><div class="ss-tpls"><div>' +
+      r('board', 'CRM', 'Deals from Lead to Won or Lost') +
+      r('board', 'Software', 'Backlog to Done, in phases') +
+      r('board', 'Issue tracking', 'Bugs and requests, as a list') +
+      '</div><div>' +
+      r('collection', 'Companies', 'Customers, partners, investors') +
+      r('collection', 'People', 'Contacts at those companies') +
+      r('collection', 'Feedback', 'What users ask for') +
+      r('collection', 'Payments', 'Money in and money out') +
+      '</div></div></div>';
+  }
+  var SS_AGENT = '<div class="ss-agent">' + ICON.agent + '<div><b>Connect an agent</b><small>Claude Code, Codex and other agents can read and change your notes, tasks and boards.</small></div><span class="st-btn">Set up…</span></div>';
+  /** The page: every day, on a new device, or with nothing in any space yet. */
+  function ssPage(state) {
+    var empty = state === 'empty';
+    return '<div class="ss"><div class="ss-in">' + ssKinds(empty) +
+      (empty ? ssTemplates() + SS_AGENT : '<div class="ss-cols">' + ssRecent(state === 'new') + ssToday() + '</div>') +
+      '</div></div>';
+  }
+  /** Nothing open: the tab strip has only its +, and the status bar only the sync. */
+  function ssApp(tree, state) {
+    return '<aside class="side">' + tree + '</aside><section class="main"><div class="panes">' +
+      pane('<div class="tab plus">+</div>', ssPage(state)) + '</div><div class="status">' + syncStatus(false, null) + '</div></section>';
+  }
+  var SS_VIEWS = {
+    ssday: function () { return ssApp(spaceTree('start'), 'day'); },
+    ssnew: function () { return ssApp(spaceTree('start'), 'new'); },
+    ssempty: function () { return ssApp(freshTree(), 'empty'); }
+  };
+  function renderSs(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.className = 'mock dir-a';
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = SS_VIEWS[view]();
+    section.querySelectorAll('.brief [data-ssview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.ssview === view));
+    });
+  }
+  var sectionSs = document.querySelector('.dir[data-dir="start"]');
+  sectionSs.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ssview]');
+    if (b) renderSs(sectionSs, b.dataset.ssview);
+  });
+  renderSs(sectionSs, 'ssday');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
