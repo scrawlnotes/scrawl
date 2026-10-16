@@ -150,3 +150,4 @@ Sonra: winget (`winget install Scrawl`, bedava), Linux (AppImage ve deb, iş ak�
 - `apps/desktop/scripts/release-notes.mjs` ve 2 testi (`pnpm --filter @scrawlnotes/desktop test`).
 - Bu makinede CI'ın yaptığı derleme denendi: `Scrawl_0.1.0_x64-setup.exe` (5,25 MB) ve `.sig` çıktı; sürüm package.json'dan geliyor.
 - Etiketle tetiklenmezse yedek yol: Actions'ta Desktop iş akışını etiketin üstünde elle çalıştırmak aynı release'i çıkarır.
+- Latest release masaüstünündür. Settings › Agents'taki Claude Desktop düğmesi `.mcpb`'yi `releases/latest`'ten açıyordu; artık MCP'nin kendi sürümünün release'ine gider (`mcp-v<apps/mcp/package.json sürümü>/scrawl.mcpb`), sürüm web derlenirken alınır. Masaüstündeki düğme bu düzeltmeyi bir sonraki masaüstü sürümüyle alır.

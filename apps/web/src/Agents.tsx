@@ -1,5 +1,6 @@
 import { dayOf, RemoteSignedOut, type ServerAgent } from '@scrawlnotes/core';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
+import { version as mcpVersion } from '../../mcp/package.json';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import { ContextMenu, Dialog } from './dialogs';
 import { Icon } from './Icon';
@@ -25,8 +26,8 @@ export const MCP_COMMAND = `npx -y ${MCP_PACKAGE}`;
 export const CLAUDE_CODE_LOCAL = `claude mcp add --scope user scrawl -- ${MCP_COMMAND}`;
 /** Codex keeps its servers in ~/.codex/config.toml, for every folder. */
 export const CODEX_LOCAL = `codex mcp add scrawl -- ${MCP_COMMAND}`;
-/** The Claude Desktop bundle, on the latest release. */
-export const MCPB_URL = 'https://github.com/scrawlnotes/scrawl/releases/latest/download/scrawl.mcpb';
+/** The Claude Desktop bundle, on the release of the command's version: the latest release is the desktop app's. */
+export const MCPB_URL = `https://github.com/scrawlnotes/scrawl/releases/download/mcp-v${mcpVersion}/scrawl.mcpb`;
 
 /** Where a server's agents connect: `https://kaan.scrawlnotes.com/mcp`. */
 export const mcpAddress = (url: string) => `${url.replace(/\/+$/, '')}/mcp`;
