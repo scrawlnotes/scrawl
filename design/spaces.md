@@ -1,6 +1,6 @@
 # Space'ler: kişisel ve paylaşılan (taslak)
 
-8. ve 11. aşama. PLAN 4.1 (Ayarlar), 4.8, 4.9, 5.3, 5.4 ve 5.5'in bu işle ilgili kısmının teknik karşılığıdır. Durum: kararlar verildi (16 Ekim 2026, 9. bölüm); ekranlar `design/mockups.html`'de, "Kişisel ve paylaşılan space'ler" bölümünde ve güncellenen Spaces ve Sunucu görünümlerinde; 1-3. dilim yazıldı (ayrım, tek pencere, sunucuda kişisel space), sırada 4. dilim, taşıma.
+8. ve 11. aşama. PLAN 4.1 (Ayarlar), 4.8, 4.9, 5.3, 5.4 ve 5.5'in bu işle ilgili kısmının teknik karşılığıdır. Durum: kararlar verildi (16 Ekim 2026, 9. bölüm); ekranlar `design/mockups.html`'de, "Kişisel ve paylaşılan space'ler" bölümünde ve güncellenen Spaces ve Sunucu görünümlerinde; dört dilim de yazıldı (ayrım, tek pencere, sunucuda kişisel space, taşıma), 5. bölümde yazılırken değişenler.
 
 ## 1. Kapsam
 
@@ -77,17 +77,17 @@ Kişisel space başka bir cihazda taşındıysa bu cihaz eski yerle sync'i durdu
 
 ### 3.1 Cihazda
 
-Kişisel space'in bağlantısı bugünkü gibi `scrawl.sync`'tedir (`Connection`): `provider` `'onedrive' | 'server'`. Sunucuda `folder.id` space'in id'si, `server` adresi. Taşınınca yeni bağlantı eskisinin yerine yazılır, eski yerin sync durumu (`.scrawl/sync-state.json`, `.scrawl/sync-base`) silinir; yeni yerde ilk tur iki tarafı birleştirir.
+Kişisel space'in bağlantısı bugünkü gibi `scrawl.sync`'tedir (`Connection`): `provider` `'onedrive' | 'server'`. Sunucuda `folder.id` space'in id'si, `server` adresi. `since`: cihazın bu yere ne zamandan beri bağlı olduğu; izlerken izlenen işaretin zamanı. Taşınınca yeni bağlantı eskisinin yerine yazılır, eski yerin sync durumu (`.scrawl/sync-state.json`, `.scrawl/sync-base`) silinir; yeni yerde ilk tur iki tarafı birleştirir.
 
-### 3.2 Taşındı işareti: `.scrawl/moved.json`
+### 3.2 Taşındı işareti: `.scrawl/moved/<zaman>.json`
 
-Eski yere yazılır, kişisel space'in içindeki her dosya gibi sync'lenebilir bir yoldadır:
+Eski yere yazılır, her taşımada yeni bir dosya, adı taşındığı an (milisaniye). Böylece bir işaretin üstüne yazılmaz, aynı yere geri taşınınca eskisiyle yenisi karışmaz. İşaretler sync'lenmez (`isSynced` dışında); motor onları turdan önce okur:
 
 ```json
 {
   "to": { "provider": "server", "account": "kaan@outlook.com", "place": { "url": "https://kaan.scrawlnotes.com", "space": "sp-3k9x2m7q" } },
   "by": "Desktop PC",
-  "at": "2026-10-16T14:20:00Z"
+  "at": 1792165695349
 }
 ```
 
@@ -123,20 +123,20 @@ Kişisel space'in tek üyesi sahibidir (`members`'ta `manager`). Bir hesabın bi
 ## 5. İstemci
 
 - **core, sunucu:** `ServerAccount.openSpace(id, name, { personal })`; `ServerSpace`'e `personal`.
-- **core, motor:** yeni hata `RemoteMoved` (işaretin içeriğiyle). Motor değişiklik listesini aldıktan sonra, hiçbir şey uygulamadan önce bakar: listede `.scrawl/moved.json` değişmiş ya da yeni olarak varsa onu okur ve `RemoteMoved` atar. Tam listede de (ilk tur, `full`) aynı. Uygulamadan önce durmak şart: taşıyan cihaz eski kopyayı silmişse, işareti görmeden uygulanan bir tur bu cihazdaki notları da silerdi.
+- **core, motor:** yeni hata `RemoteMoved` (işaretin içeriğiyle) ve `SyncOptions.movedSince`. Motor değişiklik listesini aldıktan sonra, hiçbir şey uygulamadan önce bakar: listede `movedSince`'ten sonra bırakılmış bir işaret varsa en yenisini okur ve `RemoteMoved` atar. Daha eskisi, cihazın izlediği ya da bilerek geçtiği bir taşımanındır ve atlanır. `movedSince` yalnız kişisel space'e verilir; paylaşılan space işarete bakmaz. Eski kopyayı silmek `clearLeftPlace`'tir (core, `moved.ts`). Uygulamadan önce durmak şart: taşıyan cihaz eski kopyayı silmişse, işareti görmeden uygulanan bir tur bu cihazdaki notları da silerdi.
 - **Sync servisi** (`apps/web/src/sync.ts`):
   - `connect(connection)` OneDrive'ın yanında sunucuyu da kurar.
-  - `move(to, { deleteOld })`: (1) eski yere işareti yazar; (2) bağlantıyı değiştirir, eski durumu siler, yeni yerde ilk turu başlatır; (3) kutu işaretliyse ilk tur durmadan bitince eski yerde kökteki her şeyi siler, `.scrawl/`'da yalnız `moved.json` kalır. Silme turdan önce yapılmaz, böylece bir şey yolda kaybolmaz. Silme yarıda kalırsa bir sonraki açılışta sürer (bağlantının yanında `pendingClear`).
-  - Yeni durum `SyncPhase` `'moved'`; `SpaceSync`'e `moved: { to, by, at }`. Durum çubuğu ve telefonun Sync satırı bunu gösterir.
+  - `move(to, deleteLeft)`: (1) eski yere işareti yazar; (2) bağlantıyı değiştirir (`since` işaretin zamanı), eski durumu siler, yeni yerde ilk turu başlatır; (3) kutu işaretliyse ilk tur durmadan bitince eski yerde kökteki her şeyi siler, `.scrawl/moved/` kalır. Silme turdan önce yapılmaz, böylece bir şey yolda kaybolmaz. Silinecek yer cihazda `scrawl.syncClear`'da durur; silme yarıda kalırsa bir sonraki turdan sonra sürer.
+  - Yeni durum `SyncPhase` `'moved'`; `SpaceSync`'e `moved: { to, by, at }`. Bu durumda tur çalışmaz. Durum çubuğu "Personal moved", telefonun Sync satırı "Moved" der. İzlemek `connect` ya da `connectServer`'dır, `since` izlenen işaretin zamanı: yeni yerde ondan sonra bırakılmış bir işaret varsa cihaz onu da izler.
   - Not synced: bugünkü `disconnect()`.
-- **Pencere:** `useAddSpace` iki kipli olur (`'shared' | 'personal'`); masaüstünde `AddSpaceDialog` ve yeni `SyncPersonalDialog`, telefonda iki sheet aynı hook'u kullanır. `ServerConnect.tsx`'teki ayrı pencere ve sheet bir adım bileşenine döner (`ConnectStep`), pencerenin içinde çizilir.
+- **Pencere:** Sync Personal'ın kendi hook'u var (`useSyncPersonal`), masaüstündeki `SyncPersonalDialog` ve telefondaki sheet onu kullanır; Add space `useAddSpace`'te kalır. `ServerConnect.tsx`'teki ayrı pencere ve sheet bir adım bileşenine döner (`ConnectStep`), pencerenin içinde çizilir.
 - **Ekranlar:** `Settings.tsx` (iki bölüm, `PersonalPage`'in Sync bölümü, `SpacePage`'in etiketi), `SyncViews.tsx` (Sync satırının halleri, durum çubuğu), `PhoneSpaces.tsx`, `PhoneSync.tsx`; metinler `packages/i18n/src/en.ts`.
 
 ## 6. Güvenlik
 
 - Kişisel space'e yalnız sahibinin cihaz anahtarı ve ajanı ulaşır; davet ve üye işlemleri sunucuda reddedilir, istemcinin göstermemesine güvenilmez.
 - Sunucunun sahibi diskteki her şeye ulaşabilir; bu bir yetki açığı değil, kendi kurduğu makinenin gerçeğidir ve pencere söyler. Uçtan uca şifreleme bu işte yoktur.
-- `moved.json`'u okuyan cihaz yalnız kendi hesabıyla ulaşabildiği yere gider; işaretteki adres giriş istemeden hiçbir şey açmaz.
+- İşareti okuyan cihaz yalnız kendi hesabıyla ulaşabildiği yere gider; işaretteki adres giriş istemeden hiçbir şey açmaz.
 
 ## 7. Testler
 

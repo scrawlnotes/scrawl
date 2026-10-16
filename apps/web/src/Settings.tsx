@@ -1,4 +1,4 @@
-import { dayOf, type Me, newSpaceId, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
+import { dayOf, type Me, type MovedMark, newSpaceId, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
 import { languages, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
@@ -1165,6 +1165,8 @@ function PersonalPage({
   // Where it syncs is chosen in one window; back from Microsoft with an account, it opens at OneDrive's folders.
   const [placing, setPlacing] = useState(false);
   const [signedIn, setSignedIn] = useState<Connection['account'] | null>(null);
+  // Move this device too: where the space went on another device.
+  const [following, setFollowing] = useState<MovedMark | null>(null);
   useEffect(() => {
     if (!sync.picking) return;
     setSignedIn(sync.picking);
@@ -1205,7 +1207,15 @@ function PersonalPage({
             <span />
           )}
         </div>
-        {sync.available && <SyncRow sync={sync} service={syncService} onPlace={() => setPlacing(true)} />}
+        {sync.available && <SyncRow
+            sync={sync}
+            service={syncService}
+            onPlace={() => setPlacing(true)}
+            onFollow={() => {
+              setFollowing(sync.moved);
+              setPlacing(true);
+            }}
+          />}
       </div>
       {placing && (
         <SyncPersonalDialog
@@ -1214,9 +1224,11 @@ function PersonalPage({
           me={me}
           name={name}
           account={signedIn}
+          follow={following}
           onDone={() => {
             setPlacing(false);
             setSignedIn(null);
+            setFollowing(null);
           }}
         />
       )}
@@ -1233,36 +1245,46 @@ export type PersonalPlace = 'none' | 'onedrive' | (string & {});
  * the one it syncs with now marked; in OneDrive, connected first when it is not, then its folder;
  * on a server, the account's personal space there, or a new one, named as the personal space is,
  * with a word when the server is someone else's. Connect a server… is a step of it, an address
- * only. Moving from one place to another comes with the fourth slice; until then only a personal
- * space not synced is given a place, and one that syncs can stop.
+ * only. From one place to another it moves the space, leaving a mark in the old place and, asked,
+ * deleting the copy there; Stop syncing takes this device out. `follow`, the mark of a move made on
+ * another device, opens it at the place that move went to, for this device to follow.
  */
-export function useSyncPersonal({ sync, service, name, account: given, onDone }: {
+export function useSyncPersonal({ sync, service, name, account: given, follow, onDone }: {
   sync: SyncSnapshot;
   service: SyncService;
   /** What the personal space is called, which a new space on a server takes. */
   name: string;
   /** Back from signing in in the browser: the account whose folders are chosen from. */
   account: Connection['account'] | null;
+  /** Move this device too: where the space went on another device. */
+  follow?: MovedMark | null;
   onDone: () => void;
 }) {
   const current = sync.connection;
   const now: PersonalPlace = current ? (current.server ?? 'onedrive') : 'none';
-  const [where, setWhere] = useState<PersonalPlace>(given ? 'onedrive' : now);
+  const followTo = follow?.to;
+  const followUrl = followTo?.provider === 'server' ? followTo.place.url : undefined;
+  const [servers, setServers] = useState<KnownServer[]>(() => knownServers());
+  const [where, setWhere] = useState<PersonalPlace>(given ? 'onedrive' : followTo ? (followUrl ?? 'onedrive') : now);
   // Undefined while it is being asked whether a key is kept.
   const [account, setAccount] = useState<Connection['account'] | null | undefined>(given ?? undefined);
-  const [folder, setFolder] = useState<Connection['folder'] | null>(null);
+  const [folder, setFolder] = useState<Connection['folder'] | null>(() =>
+    followTo?.provider === 'onedrive' && followTo.place.item ? { id: followTo.place.item, path: followTo.place.path ?? '', ...(followTo.place.drive && { drive: followTo.place.drive }) } : null,
+  );
   const [picking, setPicking] = useState(!!given);
   const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [servers, setServers] = useState<KnownServer[]>(() => knownServers());
   const server = servers.find((each) => each.url === where) ?? null;
   // On a server: the account's personal space there, null when it has none yet; undefined while it is asked.
   const [there, setThere] = useState<ServerSpace | null | undefined>(undefined);
   // Whether the server keeps personal spaces: one from before them would open a shared space instead.
   const [keeps, setKeeps] = useState(true);
   const [serverSignedOut, setServerSignedOut] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  // Following to a server this device is not signed in to: connecting to it comes first.
+  const [connecting, setConnecting] = useState(!!followUrl && !servers.some((each) => each.url === followUrl));
+  // Asked when it moves: the copy in the place it leaves goes too.
+  const [deleteLeft, setDeleteLeft] = useState(false);
 
   useEffect(() => {
     if (given) return;
@@ -1324,7 +1346,7 @@ export function useSyncPersonal({ sync, service, name, account: given, onDone }:
     try {
       await attempt.done;
       setAccount(await service.account());
-      setPicking(true);
+      if (!followTo) setPicking(true);
     } catch (failure) {
       if (failure instanceof DOMException && failure.name === 'AbortError') return;
       const message = String(failure instanceof Error ? failure.message : failure);
@@ -1336,10 +1358,19 @@ export function useSyncPersonal({ sync, service, name, account: given, onDone }:
 
   const choose = (chosen: Connection['folder']) => {
     setPicking(false);
-    const refused = service.refusal(chosen);
+    // The folder it syncs with now is its own; any other that a space has is refused.
+    const own = current && !current.server && current.folder.id === chosen.id && current.folder.drive === chosen.drive;
+    const refused = own ? null : service.refusal(chosen);
     setError(refused);
-    if (!refused) setFolder(chosen);
+    if (!refused) setFolder(own ? null : chosen);
   };
+
+  // A folder of OneDrive other than the one it syncs with now is another place too.
+  const otherFolder = where === 'onedrive' && now === 'onedrive' && !!folder;
+  // Following, the place it went is elsewhere by its mark, in OneDrive another folder.
+  const changing = !!followTo || where !== now || otherFolder;
+  const stopping = where === 'none' && now !== 'none';
+  const moving = !followTo && now !== 'none' && where !== 'none' && changing;
 
   const apply = async () => {
     if (busy) return;
@@ -1348,10 +1379,17 @@ export function useSyncPersonal({ sync, service, name, account: given, onDone }:
     try {
       if (where === 'none') await service.disconnect();
       else if (where === 'onedrive') {
-        if (account && folder) await service.connect(account, folder);
+        if (!account || !folder) {
+          setBusy(false);
+          return;
+        }
+        if (moving) await service.move({ provider: 'onedrive', account, folder }, deleteLeft);
+        else await service.connect(account, folder, follow?.at);
       } else if (server) {
-        const space = there ?? (await serverAccount(server.url).openSpace(newSpaceId(), name, true));
-        await service.connectServer(server.url, server.email, space.id);
+        const space = followTo?.place.space ? { id: followTo.place.space } : (there ?? (await serverAccount(server.url).openSpace(newSpaceId(), name, true)));
+        const to = { provider: 'server' as const, account: { name: '', email: server.email }, folder: { id: space.id, path: '' }, server: server.url };
+        if (moving) await service.move(to, deleteLeft);
+        else await service.connectServer(server.url, server.email, space.id, follow?.at);
       }
       onDone();
     } catch (failure) {
@@ -1361,14 +1399,21 @@ export function useSyncPersonal({ sync, service, name, account: given, onDone }:
     }
   };
 
-  const stopping = where === 'none' && now !== 'none';
-  // From one place to another is a move, which comes with the fourth slice.
-  const moving = now !== 'none' && where !== 'none' && where !== now;
   const placeReady = where === 'onedrive' ? !!account && !!folder : !!server && there !== undefined && keeps && !serverSignedOut;
-  const ready = !busy && where !== now && !moving && (where === 'none' || placeReady);
+  const ready = !busy && changing && (where === 'none' || placeReady);
   const place = where === 'onedrive' ? t('sync.oneDrive') : server ? hostOf(server.url) : '';
-  const action = stopping ? t('personal.stop') : t('personal.syncWith', { place: place || t('sync.oneDrive') });
-  const note = stopping ? t('personal.stopNote') : now !== 'none' || where === 'none' ? null : where === 'onedrive' ? t('personal.sameFolderNote') : t('personal.sameSpaceNote');
+  // What it leaves, by name: OneDrive, or the server's address.
+  const left = current ? (current.server ? hostOf(current.server) : t('sync.oneDrive')) : '';
+  const action = stopping ? t('personal.stop') : moving || followTo ? t('personal.moveTo', { place }) : t('personal.syncWith', { place: place || t('sync.oneDrive') });
+  const note = stopping
+    ? t('personal.stopNote', { place: left })
+    : followTo
+      ? t('personal.followNote')
+      : moving
+        ? t(where === 'onedrive' ? 'personal.othersFolder' : 'personal.othersSpace', { place: left })
+        : now !== 'none' || where === 'none'
+          ? null
+          : t(where === 'onedrive' ? 'personal.sameFolderNote' : 'personal.sameSpaceNote');
   // Someone else's server: its owner reaches what is stored on it.
   const notYours = !!server && server.role !== 'owner';
   return {
@@ -1396,6 +1441,12 @@ export function useSyncPersonal({ sync, service, name, account: given, onDone }:
     apply,
     ready,
     stopping,
+    moving,
+    following: !!followTo,
+    followUrl,
+    deleteLeft,
+    setDeleteLeft,
+    left,
     action,
     note,
     notYours,
@@ -1407,17 +1458,19 @@ export function useSyncPersonal({ sync, service, name, account: given, onDone }:
  * personal space syncs, chosen in one window, as `useSyncPersonal` goes through it. Connect a
  * server… is a step of the window.
  */
-function SyncPersonalDialog({ sync, service, me, name, account: given, onDone }: {
+function SyncPersonalDialog({ sync, service, me, name, account: given, follow, onDone }: {
   sync: SyncSnapshot;
+  service: SyncService;
   /** Who the user is, for setting up a server from here. */
   me: Me | null;
-  service: SyncService;
   name: string;
   /** Back from signing in in the browser: the account whose folders are chosen from. */
   account: Connection['account'] | null;
+  /** Move this device too: where the space went on another device. */
+  follow: MovedMark | null;
   onDone: () => void;
 }) {
-  const p = useSyncPersonal({ sync, service, name, account: given, onDone });
+  const p = useSyncPersonal({ sync, service, name, account: given, follow, onDone });
   const [ownApp, setOwnApp] = useState(false);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Escape' || p.picking) return;
@@ -1435,6 +1488,10 @@ function SyncPersonalDialog({ sync, service, me, name, account: given, onDone }:
       <small>{detail}</small>
     </button>
   );
+  // The folder it syncs with now, until another is chosen.
+  const ownFolder = p.current && !p.current.server ? p.current : null;
+  const shownFolder = p.folder ?? ownFolder?.folder ?? null;
+  const folderAccount = p.folder ? p.account : (ownFolder?.account ?? p.account);
 
   return (
     <div className="fp-ovl" onMouseDown={(event) => event.target === event.currentTarget && onDone()}>
@@ -1446,6 +1503,7 @@ function SyncPersonalDialog({ sync, service, me, name, account: given, onDone }:
             me={me}
             device={sync.device.name}
             again={p.serverSignedOut && p.server ? { url: p.server.url, email: p.server.email } : undefined}
+            start={p.followUrl ?? null}
             onDone={p.connected}
             onBack={() => p.setConnecting(false)}
           />
@@ -1462,18 +1520,7 @@ function SyncPersonalDialog({ sync, service, me, name, account: given, onDone }:
               </button>
             </div>
             {p.where === 'onedrive' &&
-              (p.current && !p.current.server ? (
-                <>
-                  <span className="label">{t('settings.folder')}</span>
-                  <div className="pick">
-                    <span className="path">
-                      <CloudIcon />
-                      {placeWords(p.current.folder.path, p.current.folder.drive)}
-                      <small>{p.current.account.email || p.current.account.name}</small>
-                    </span>
-                  </div>
-                </>
-              ) : p.account === null || p.signing ? (
+              (!ownFolder && (p.account === null || p.signing) ? (
                 <>
                   <div className="connect">
                     <CloudIcon />
@@ -1501,20 +1548,22 @@ function SyncPersonalDialog({ sync, service, me, name, account: given, onDone }:
                 <>
                   <span className="label">{t('settings.folder')}</span>
                   <div className="pick">
-                    <span className={p.folder ? 'path' : 'path none'}>
-                      {p.folder ? (
+                    <span className={shownFolder ? 'path' : 'path none'}>
+                      {shownFolder ? (
                         <>
                           <CloudIcon />
-                          {placeWords(p.folder.path, p.folder.drive)}
-                          {p.account && <small>{p.account.email || p.account.name}</small>}
+                          {placeWords(shownFolder.path, shownFolder.drive)}
+                          {folderAccount && <small>{folderAccount.email || folderAccount.name}</small>}
                         </>
                       ) : (
                         t('space.noFolder')
                       )}
                     </span>
-                    <button type="button" className="st-btn" disabled={!p.account || p.busy} onClick={() => p.setPicking(true)}>
-                      {t('space.chooseFolder')}
-                    </button>
+                    {!p.following && (
+                      <button type="button" className="st-btn" disabled={!p.account || p.busy} onClick={() => p.setPicking(true)}>
+                        {t('space.chooseFolder')}
+                      </button>
+                    )}
                   </div>
                 </>
               ))}
@@ -1538,7 +1587,7 @@ function SyncPersonalDialog({ sync, service, me, name, account: given, onDone }:
                     <span className="row on">
                       {p.there ? <Icon name="space" /> : <Icon name="plus" />}
                       <span className="name">{p.there ? p.there.name || name : t('space.newSpace', { name })}</span>
-                      {p.there && <small>{t('personal.yoursThere')}</small>}
+                      {p.there && <small>{p.following && follow?.by ? t('personal.movedHere', { device: follow.by }) : t('personal.yoursThere')}</small>}
                     </span>
                   </div>
                 )}
@@ -1554,6 +1603,15 @@ function SyncPersonalDialog({ sync, service, me, name, account: given, onDone }:
               </>
             )}
             {p.note && <p className="note">{p.note}</p>}
+            {p.moving && (
+              <>
+                <label className="check">
+                  <input type="checkbox" checked={p.deleteLeft} onChange={(event) => p.setDeleteLeft(event.target.checked)} />
+                  {t('personal.deleteLeft', { place: p.left })}
+                </label>
+                <p className="note under">{t('personal.deleteLeftNote', { place: p.left })}</p>
+              </>
+            )}
             {p.error && (
               <p className="note err" role="alert">
                 {p.error}

@@ -1,5 +1,6 @@
 import { keyOf } from './paths';
 import { sha256 } from './hash';
+import type { MovedMark } from './moved';
 
 // Where a space's files live away from the device: OneDrive, later Google Drive or WebDAV. The
 // engine knows a provider only through this, so the same engine syncs with any of them. See
@@ -91,6 +92,14 @@ export class RemoteFolderGone extends Error {
   constructor(readonly removed = false) {
     super(removed ? 'You were taken out of this space' : "The space's folder is gone from the cloud drive");
     this.name = 'RemoteFolderGone';
+  }
+}
+
+/** The personal space moved from here to another place on another device; nothing was done here. */
+export class RemoteMoved extends Error {
+  constructor(readonly mark: MovedMark) {
+    super('The personal space moved to another place');
+    this.name = 'RemoteMoved';
   }
 }
 

@@ -1,4 +1,4 @@
-import { basename, BOARD_EXT, COLLECTION_FILE, dirname, KEYS_EXT, type SyncJob, TASK_LIST_EXT } from '@scrawlnotes/core';
+import { basename, BOARD_EXT, COLLECTION_FILE, dirname, KEYS_EXT, type MovedMark, type SyncJob, TASK_LIST_EXT } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type FormEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { clientId, DEFAULT_CLIENT_ID, setClientId } from './cloud';
@@ -16,6 +16,7 @@ import {
   JobIcon,
   type PanelTab,
   percent,
+  placeOf,
   providerName,
   placeName,
   reasonOf,
@@ -42,7 +43,7 @@ const ROW = 64;
 const SPARE = 12;
 
 /** Nothing synced yet, for a space with no turn of its own. */
-const NONE: SpaceSync = { connection: null, phase: 'off', syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false, why: null };
+const NONE: SpaceSync = { connection: null, phase: 'off', syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false, why: null, moved: null };
 
 const IMAGES = /\.(png|jpe?g|gif|webp|heic|avif|svg)$/i;
 const SOUNDS = /\.(m4a|mp3|wav|webm|ogg|aac|opus)$/i;
@@ -211,6 +212,8 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
   // The sheet where the personal space's place is chosen; back from Microsoft, with the account signed in to.
   const [placing, setPlacing] = useState(false);
   const [signedIn, setSignedIn] = useState<Connection['account'] | null>(null);
+  // Move this phone too: where the space went on another device.
+  const [follow, setFollow] = useState<MovedMark | null>(null);
 
   useEffect(() => () => signing?.cancel(), [signing]);
 
@@ -248,9 +251,11 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
     <PhoneSyncPersonalSheet
       values={values}
       account={signedIn}
+      follow={follow}
       onClose={() => {
         setPlacing(false);
         setSignedIn(null);
+        setFollow(null);
       }}
     />
   );
@@ -309,7 +314,15 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
       ? { label: t('sync.signInAgain'), run: () => (connection?.server ? service.askServerSignIn(connection.server, connection.account.email) : void signIn()) }
       : phase === 'folderGone' && personal && connection && !connection.server
         ? { label: t('sync.chooseFolder'), run: () => setPicking(connection.account) }
-        : null;
+        : phase === 'moved' && personal && unit.moved
+          ? {
+              label: t('phone.follow'),
+              run: () => {
+                setFollow(unit.moved);
+                setPlacing(true);
+              },
+            }
+          : null;
   const head: SyncHead = {
     sub,
     ...(!running && !mend && { action: { label: t('sync.syncNow'), run: () => service.syncNow(space) } }),
@@ -332,7 +345,11 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
             <i style={{ width: `${Math.floor(share * 1000) / 10}%` }} />
           </span>
         )}
-        <div className="sub">{turnLine(unit, running, doneFrom)}</div>
+        <div className="sub">
+          {phase === 'moved' && unit.moved
+            ? t('phone.movedText', { device: unit.moved.by || t('personal.anotherDevice'), place: placeOf(unit.moved.to), day: new Date(unit.moved.at).toLocaleDateString(locale(), { month: 'short', day: 'numeric' }) })
+            : turnLine(unit, running, doneFrom)}
+        </div>
         {current && current.size >= 512 * 1024 && (
           <div className="now">
             <Icon name={fileLook(current.path, top).icon} />
@@ -385,6 +402,7 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
       )}
       <p className="mb-p">{t('panel.when')}</p>
       {picker}
+      {placeSheet}
     </>,
   );
 }

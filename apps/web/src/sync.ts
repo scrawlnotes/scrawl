@@ -1,16 +1,23 @@
 import {
+  clearLeftPlace,
   foldersNest,
   inSpace,
   localPath,
+  MemoryFs,
+  type MovedMark,
+  movedPath,
   type OneDriveFolder,
   OneDriveRemote,
   parseSpace,
   RemoteFolderGone,
+  RemoteMoved,
   RemoteOffline,
   RemoteSignedOut,
   type RemoteStore,
   ServerLive,
   type SpaceInfo,
+  type SpaceSource,
+  serializeMoved,
   spaceOf,
   type SyncDevice,
   type SyncProgress,
@@ -45,6 +52,8 @@ const SERVER_AFTER_SAVE_MS = 1000;
 /** How often a turn's progress is shown at most; the engine tells it far more often. */
 const PROGRESS_MS = 150;
 const CONNECTION = 'scrawl.sync';
+/** The place the personal space left, its copy there to be deleted once the new place has had a turn. */
+const CLEAR = 'scrawl.syncClear';
 const DEVICE = 'scrawl.device';
 /** What the engine and the adapter keep of a connection, all on the device. */
 const STATE_FILES = ['.scrawl/sync-state.json', '.scrawl/sync-base'];
@@ -74,13 +83,26 @@ export interface Connection {
   folder: { id: string; path: string; drive?: string; owner?: string };
   /** On a server: its address. */
   server?: string;
+  /**
+   * The personal space: since when this device syncs with this place, in milliseconds. A mark of
+   * the space moving away left before it is of a move this device followed or chose past; one
+   * left after it stops the turn. Kept without it, every mark counts.
+   */
+  since?: number;
+}
+
+/** Where a connection leads, as a mark or the list of spaces says it. */
+export function sourceOf(connection: Pick<Connection, 'provider' | 'account' | 'folder' | 'server'>): SpaceSource {
+  const { account, folder } = connection;
+  if (connection.provider === 'server') return { provider: 'server', account: account.email, place: { url: connection.server ?? '', space: folder.id } };
+  return { provider: 'onedrive', account: account.email || account.name, place: { item: folder.id, path: folder.path, ...(folder.drive && { drive: folder.drive }), ...(folder.owner && { owner: folder.owner }) } };
 }
 
 /**
  * How sync stands: off (not connected), resting between turns, in a turn, or kept from going on:
  * no network, signed out, the folder gone, or another error.
  */
-export type SyncPhase = 'off' | 'idle' | 'syncing' | 'offline' | 'signedOut' | 'folderGone' | 'failed';
+export type SyncPhase = 'off' | 'idle' | 'syncing' | 'offline' | 'signedOut' | 'folderGone' | 'moved' | 'failed';
 
 /** A turn as the sync panel shows it: how it stands, or how it ended. */
 export interface TurnView {
@@ -116,6 +138,8 @@ export interface SpaceSync {
   live: boolean;
   /** Why a space on a server stopped: this person was taken out of it, or signed out of the server on this device. */
   why: 'removed' | 'left' | null;
+  /** The personal space moved on another device: where to, by which device, when. */
+  moved: MovedMark | null;
 }
 
 /** A space that syncs, as the status bar and the sync panel list it. */
@@ -194,7 +218,7 @@ async function loadDevice(): Promise<SyncDevice> {
 }
 
 /** What a new connection, or none, starts from. */
-const FRESH = { syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false, why: null } satisfies Partial<SpaceSync>;
+const FRESH = { syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false, why: null, moved: null } satisfies Partial<SpaceSync>;
 
 /** The personal space's key, which its connection is kept for: another notes folder is not connected with it. */
 const vaultKey = () => (isDesktop ? (vaultFolder() ?? '') : 'browser');
@@ -295,6 +319,7 @@ export class SyncService {
       conflict: unit.conflict,
       live: unit.live,
       why: unit.why,
+      moved: unit.moved,
     });
     const { space: _s, name: _n, ...own } = personal ? view(personal) : { space: null, name: '', connection: null, phase: 'off' as const, ...FRESH };
     this.set({ ...own, all: all.map(view) });
@@ -521,7 +546,7 @@ export class SyncService {
     const keys = space === undefined ? [...this.units.keys()] : [space ?? PERSONAL];
     for (const key of keys) {
       const unit = this.units.get(key);
-      if (!unit || unit.gone || !unit.connection || !this.snapshot.device.id) continue;
+      if (!unit || unit.gone || !unit.connection || !this.snapshot.device.id || unit.phase === 'moved') continue;
       if (unit.running) unit.again = true;
       else unit.running = this.turn(unit);
     }
@@ -558,7 +583,8 @@ export class SyncService {
         // The space may have been closed, removed or disconnected while another tab's turn ran.
         if (unit.gone || unit.connection !== connection) return null;
         await this.session.beforeSync();
-        return syncOnce(unit.vault, this.storeFor(unit), device, { onProgress, leaveOver: LEAVE_OVER });
+        // The personal space looks for a mark of it moving away, left after this device came to this place.
+        return syncOnce(unit.vault, this.storeFor(unit), device, { onProgress, leaveOver: LEAVE_OVER, ...(unit.space === null && { movedSince: connection?.since ?? 0 }) });
       });
       window.clearTimeout(timer);
       // The space may have been closed, removed or disconnected while the turn ran.
@@ -573,9 +599,12 @@ export class SyncService {
         why: null,
         turn,
         lastDone: progress.jobs.some((job) => job.state === 'done') ? turn : unit.lastDone,
+        moved: null,
         ...(copy && { conflict: { path: inSpace(unit.space, copy), at: Date.now() } }),
       });
       unit.missed = false;
+      // The personal space's first turn in a new place went through: the copy it left goes now, asked for.
+      if (unit.space === null) void this.clearLeft();
     } catch (error) {
       window.clearTimeout(timer);
       if (unit.gone || unit.connection !== connection) return;
@@ -591,6 +620,8 @@ export class SyncService {
       // Signed out on purpose stays said so, turn after turn, until it is signed in to again.
       else if (error instanceof RemoteSignedOut) this.change(unit, { phase: 'signedOut', why: unit.why === 'left' ? 'left' : null, turn, lastDone });
       else if (error instanceof RemoteFolderGone) this.change(unit, { phase: 'folderGone', why: error.removed ? 'removed' : null, turn, lastDone });
+      // Moved on another device: nothing was done, and no turn goes until this device follows.
+      else if (error instanceof RemoteMoved) this.change(unit, { phase: 'moved', moved: error.mark, turn, lastDone });
       else this.change(unit, { phase: 'failed', error: error instanceof Error ? error.message : String(error), turn, lastDone });
       if (!missed) unit.missed = false;
     } finally {
@@ -674,23 +705,65 @@ export class SyncService {
    * Connects the personal space to a folder of the drive and starts its first turn: what is in
    * both is put together, nothing lost. Whatever was kept of an earlier connection goes first.
    */
-  async connect(account: Connection['account'], folder: Connection['folder']) {
+  /** `since`: following a move made on another device, when it was made; else now. */
+  async connect(account: Connection['account'], folder: Connection['folder'], since?: number) {
     // The stand-in drive forgets everything on reload, so its connection is not kept either.
-    await this.attach({ provider: 'onedrive', vault: vaultKey(), account, folder }, !oneDrive().fake);
+    await this.attach({ provider: 'onedrive', vault: vaultKey(), account, folder, ...(since !== undefined && { since }) }, !oneDrive().fake);
   }
 
   /**
    * Connects the personal space to its space on a server the device is signed in to, as `connect`
    * does to a folder of the drive: what is here and there is put together (design/spaces.md).
    */
-  async connectServer(url: string, email: string, space: string) {
-    await this.attach({ provider: 'server', vault: vaultKey(), account: { name: '', email }, folder: { id: space, path: '' }, server: url }, true);
+  async connectServer(url: string, email: string, space: string, since?: number) {
+    await this.attach({ provider: 'server', vault: vaultKey(), account: { name: '', email }, folder: { id: space, path: '' }, server: url, ...(since !== undefined && { since }) }, true);
   }
+
+  /**
+   * Moves the personal space to another place (design/spaces.md 5): first the mark, in the place
+   * it leaves, which stops the other devices still syncing there; then the new place, where the
+   * first turn puts what is here and there together; and, asked for, once that turn has gone
+   * through, the copy in the old place goes but for its marks.
+   */
+  async move(to: Omit<Connection, 'vault' | 'since'>, deleteLeft: boolean) {
+    const unit = this.units.get(PERSONAL);
+    const from = unit?.connection;
+    if (!unit || !from) return;
+    const at = Date.now();
+    const mark: MovedMark = { to: sourceOf(to), by: this.snapshot.device.name, at };
+    await this.storeFor(unit).write(movedPath(at), new Blob([serializeMoved(mark)]), null);
+    write(CLEAR, deleteLeft ? from : null);
+    await this.attach({ ...to, vault: vaultKey(), since: at }, to.provider === 'server' || !oneDrive().fake);
+  }
+
+  /**
+   * Deletes the copy the personal space left in its old place, asked for when it moved: every
+   * file and folder there but the marks, which tell the devices still syncing there where it went.
+   * It goes on after a restart until it is done.
+   */
+  private async clearLeft() {
+    const left = read<Connection>(CLEAR);
+    if (!left || this.clearing) return;
+    this.clearing = true;
+    try {
+      // A store of its own: what the drive's store keeps of a folder is not the new place's to hold.
+      const store = left.server ? serverRemote(left.server, left.folder.id) : oneDrive().remote(left.folder.id, new MemoryFs(), left.folder.drive);
+      await clearLeftPlace(store);
+      write(CLEAR, null);
+    } catch {
+      // Unreached now: it goes on after the next turn.
+    } finally {
+      this.clearing = false;
+    }
+  }
+
+  private clearing = false;
 
   private async attach(connection: Connection, keep: boolean) {
     const vault = this.vault;
     if (!vault) return;
     await this.forgetState(vault);
+    connection = { ...connection, since: connection.since ?? Date.now() };
     if (keep) write(CONNECTION, connection);
     const old = this.units.get(PERSONAL);
     if (old) old.gone = true;

@@ -91,9 +91,10 @@ export interface SyncRowProps {
  * The personal space's sync, in its card (design/spaces.md 2.2): not synced, only on this device,
  * with Sync…; or where it syncs, how it stands, Sync now and Change…. Sync… and Change… open the
  * one window where its place is chosen (`onPlace`). Signing in again goes on in the system
- * browser; a folder that is gone is chosen again here.
+ * browser; a folder that is gone is chosen again here. Moved on another device, it says where to
+ * and that syncing here stopped, and Move this device too follows it (`onFollow`).
  */
-export function SyncRow({ sync, service, onPlace }: SyncRowProps & { onPlace: () => void }) {
+export function SyncRow({ sync, service, onPlace, onFollow }: SyncRowProps & { onPlace: () => void; onFollow: () => void }) {
   const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState<Connection['account'] | null>(null);
@@ -179,27 +180,51 @@ export function SyncRow({ sync, service, onPlace }: SyncRowProps & { onPlace: ()
     );
   }
 
+  const who = connection.server ? (
+    <span className="who">
+      <ServerIcon />
+      <b>{hostOf(connection.server)}</b>
+      <small>{connection.account.email}</small>
+    </span>
+  ) : (
+    <span className="who">
+      <CloudIcon />
+      <b>{t('sync.oneDrive')}</b>
+      <small>
+        {connection.account.email || connection.account.name} · {placeWords(connection.folder.path, connection.folder.drive)}
+      </small>
+    </span>
+  );
+
+  if (sync.phase === 'moved' && sync.moved) {
+    const { moved } = sync;
+    return (
+      <div className="st-sync">
+        <span className="fl">{t('sync.label')}</span>
+        <div className="what">
+          {who}
+          <span className="state moved" role="status">
+            <Icon name="warn" />
+            {t('personal.movedState', { place: placeOf(moved.to), device: moved.by || t('personal.anotherDevice') })}
+          </span>
+          <p>{t('personal.movedNote')}</p>
+          <span className="acts">
+            <button type="button" className="st-btn go" onClick={onFollow}>
+              {t('personal.follow')}
+            </button>
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const state = stateOf(sync);
   const notSynced = sync.turn?.progress.jobs.filter((job) => job.state === 'skipped' || job.state === 'refused').length ?? 0;
   return (
     <div className="st-sync">
       <span className="fl">{t('sync.label')}</span>
       <div className="what">
-        {connection.server ? (
-          <span className="who">
-            <ServerIcon />
-            <b>{hostOf(connection.server)}</b>
-            <small>{connection.account.email}</small>
-          </span>
-        ) : (
-          <span className="who">
-            <CloudIcon />
-            <b>{t('sync.oneDrive')}</b>
-            <small>
-              {connection.account.email || connection.account.name} · {placeWords(connection.folder.path, connection.folder.drive)}
-            </small>
-          </span>
-        )}
+        {who}
         <span className={`state ${state.tone}${sync.live ? ' live' : ''}`} role="status">
           <i />
           {state.text}
@@ -348,6 +373,10 @@ export function providerName(provider: string): string {
 export function placeWords(path: string, drive?: string): string {
   return [t(drive ? 'sync.sharedTab' : 'sync.myFiles'), ...path.split('/').filter(Boolean)].join(' › ');
 }
+
+/** Where a mark of a move leads, in a word: OneDrive, or the server's address. */
+export const placeOf = (source: { provider: string; place: { [key: string]: string } } | null | undefined) =>
+  source?.provider === 'server' && source.place.url ? hostOf(source.place.url) : t('sync.oneDrive');
 
 /** Where the personal space syncs, under its name in Settings › Spaces: nowhere, a folder of OneDrive, or a server. */
 export function personalPlace(connection: Connection | null, phone = false): string {
@@ -854,6 +883,7 @@ export const STATUS: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, Mess
   offline: 'sync.offline',
   signedOut: 'sync.signedOut',
   folderGone: 'sync.folderGone',
+  moved: 'sync.moved',
   failed: 'sync.failed',
 };
 
@@ -1167,6 +1197,7 @@ const SHORT: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, MessageKey> 
   offline: 'sync.offline',
   signedOut: 'phone.signedOut',
   folderGone: 'phone.folderGone',
+  moved: 'phone.moved',
   failed: 'phone.syncFailed',
 };
 

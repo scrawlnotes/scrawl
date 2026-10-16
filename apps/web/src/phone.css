@@ -6093,3 +6093,8 @@ body > .mb-lifted {
   font-size: 14px;
   font-weight: 400;
 }
+
+/* Moving the personal space: the switch for the copy it leaves, red once on. */
+.mb-fr .mb-sw.on.red {
+  background: var(--sl-p1);
+}

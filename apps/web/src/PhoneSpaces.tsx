@@ -1,4 +1,4 @@
-import type { Person, PersonRef, ServerSpace } from '@scrawlnotes/core';
+import type { MovedMark, Person, PersonRef, ServerSpace } from '@scrawlnotes/core';
 import { refOf } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
@@ -282,17 +282,21 @@ export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; 
  * as `useSyncPersonal` goes through it: the place, Not synced, OneDrive or a server, the one it
  * syncs with now marked; in OneDrive, connected first when it is not, then its folder, chosen in
  * the drive's sheet; on a server, its personal space there or a new one, with a word when the
- * server is someone else's. Connect a server… opens over it, for an address only.
+ * server is someone else's. Moving, a switch asks whether the copy it leaves goes, off; `follow`
+ * opens it at where a move made on another device went. Connect a server… opens over it, for an
+ * address only.
  */
-export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
+export function PhoneSyncPersonalSheet({ values, account: given, follow = null, onClose }: {
   values: SettingsValues;
   /** Back from signing in in the browser: the account whose folders are chosen from. */
   account: Connection['account'] | null;
+  /** Move this phone too: where the space went on another device. */
+  follow?: MovedMark | null;
   onClose: () => void;
 }) {
   const { sync, syncService: service } = values;
   const name = values.spaceName ?? t('settings.personal');
-  const p = useSyncPersonal({ sync, service, name, account: given, onDone: onClose });
+  const p = useSyncPersonal({ sync, service, name, account: given, follow, onDone: onClose });
   const [ownApp, setOwnApp] = useState(false);
   const placeRow = (place: PersonalPlace, icon: ReactNode, label: string, detail: string) => (
     <button key={place} type="button" className="mb-row" onClick={() => p.setWhere(place)}>
@@ -307,8 +311,10 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
       <Tick on={p.where === place} />
     </button>
   );
-  const shownFolder = p.current && !p.current.server ? p.current.folder : p.folder;
-  const folderAccount = p.current && !p.current.server ? p.current.account : p.account;
+  // The folder it syncs with now, until another is chosen.
+  const ownFolder = p.current && !p.current.server ? p.current : null;
+  const shownFolder = p.folder ?? ownFolder?.folder ?? null;
+  const folderAccount = p.folder ? p.account : (ownFolder?.account ?? p.account);
   return (
     <Sheet label={t('personal.syncTitle', { name })} className="mb-create" onClose={onClose}>
       <div className="mb-sh three">
@@ -317,7 +323,7 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
         </button>
         <b>{t('personal.syncTitle', { name })}</b>
         <button type="button" className="ok" disabled={!p.ready} onClick={() => void p.apply()}>
-          {p.stopping ? t('personal.stopShort') : t('personal.syncShort')}
+          {p.stopping ? t('personal.stopShort') : p.moving || p.following ? t('personal.moveShort') : t('personal.syncShort')}
         </button>
       </div>
       <div className="mb-sec">
@@ -335,7 +341,7 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
         </button>
       </div>
       {p.where === 'onedrive' &&
-        (!p.current && (p.account === null || p.signing) ? (
+        (!ownFolder && (p.account === null || p.signing) ? (
           <>
             <div className="mb-list apart">
               {p.signing ? (
@@ -366,13 +372,13 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
               <span>{t('settings.folder')}</span>
             </div>
             <div className="mb-list">
-              <button type="button" className="mb-row" disabled={(!!p.current && !p.current.server) || !p.account || p.busy} onClick={() => p.setPicking(true)}>
+              <button type="button" className="mb-row" disabled={p.following || !p.account || p.busy} onClick={() => p.setPicking(true)}>
                 <Icon name="folder" />
                 <span className="tx">
                   <b>{shownFolder ? placeWords(shownFolder.path, shownFolder.drive) : t('space.noFolder')}</b>
                   {folderAccount && <small>{folderAccount.email || folderAccount.name}</small>}
                 </span>
-                {!(p.current && !p.current.server) && <Icon name="chevron" />}
+                {!p.following && <Icon name="chevron" />}
               </button>
             </div>
           </>
@@ -402,7 +408,7 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
                 <Icon name={p.there ? 'space' : 'plus'} />
                 <span className="tx">
                   <b>{p.there ? p.there.name || name : t('space.newSpace', { name })}</b>
-                  {p.there && <small>{t('personal.yoursThere')}</small>}
+                  {p.there && <small>{p.following && follow?.by ? t('personal.movedHere', { device: follow.by }) : t('personal.yoursThere')}</small>}
                 </span>
                 <Tick on />
               </div>
@@ -419,7 +425,17 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
           )}
         </>
       )}
-      {p.note && <p className="mb-p">{p.note}</p>}
+      {p.moving && (
+        <div className="mb-form">
+          <div className="mb-group">
+            <button type="button" className="mb-fr" role="switch" aria-checked={p.deleteLeft} onClick={() => p.setDeleteLeft(!p.deleteLeft)}>
+              <span className="in">{t('personal.deleteLeft', { place: p.left })}</span>
+              <span className={p.deleteLeft ? 'mb-sw on red' : 'mb-sw'} />
+            </button>
+          </div>
+        </div>
+      )}
+      {(p.note || p.moving) && <p className="mb-p">{[p.moving && t('personal.deleteLeftNote', { place: p.left }), p.note].filter(Boolean).join(' ')}</p>}
       {p.error && (
         <p className="mb-hint err" role="alert">
           {p.error}
@@ -433,6 +449,7 @@ export function PhoneSyncPersonalSheet({ values, account: given, onClose }: {
           me={values.me}
           device={sync.device.name}
           again={p.serverSignedOut && p.server ? { url: p.server.url, email: p.server.email } : undefined}
+          start={p.followUrl ?? null}
           onDone={p.connected}
           onClose={() => p.setConnecting(false)}
         />

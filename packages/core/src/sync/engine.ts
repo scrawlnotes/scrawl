@@ -5,7 +5,8 @@ import { finishAwayOps, mayStayAway, readAwayOps } from './away';
 import { sha256 } from './hash';
 import { mergeFile, mergeKindOf } from './merge-files';
 import { isSynced, keyOf } from './paths';
-import { RemoteConflict, type RemoteFile, type RemoteStore } from './remote';
+import { movedAt, parseMoved } from './moved';
+import { type RemoteChanges, RemoteConflict, type RemoteFile, RemoteMoved, type RemoteStore } from './remote';
 import { dropBase, type FileRecord, loadSyncState, moveBase, readBase, saveSyncState, type SyncState, writeBase } from './state';
 
 // One turn of syncing a space with its remote. Each path is told against the base it had when it
@@ -93,6 +94,12 @@ export interface SyncOptions {
    * it is asked for (`fetchAway`); unset, every file comes.
    */
   leaveOver?: number;
+  /**
+   * The personal space: a mark of it moving away, left in this place after this moment, stops the
+   * turn before anything is done (`RemoteMoved`). One from before is of a move this device has
+   * followed, or chose past. Unset, no mark is looked for, as for a shared space.
+   */
+  movedSince?: number;
 }
 
 /** `away`: on the other side only, left there over this device's limit; not here, and not deleted here. */
@@ -174,6 +181,7 @@ class Turn {
     private readonly saveEveryMs: number,
     private readonly onProgress?: (progress: SyncProgress) => void,
     private readonly leaveOver?: number,
+    private readonly movedSince?: number,
   ) {}
 
   async run(): Promise<void> {
@@ -185,6 +193,7 @@ class Turn {
       this.looked = count;
       this.tell();
     });
+    await this.stopIfMoved(listing);
     for (const entry of listing.changed) {
       if (!isSynced(entry.path)) continue;
       if (entry.kind === 'dir') this.remoteDirs.set(keyOf(entry.path), entry.path);
@@ -402,6 +411,24 @@ class Turn {
    * A file deleted at one path and added at another with the same content was moved: it is
    * moved on the other side too, so that a large file is not sent again.
    */
+  /**
+   * The personal space moved away on another device: its newest mark left here after `movedSince`
+   * is read and the turn stops, before anything is done here or there. Doing nothing first is the
+   * point: the device that moved it may have deleted the copy here, and a turn that applied that
+   * would delete this device's notes too.
+   */
+  private async stopIfMoved(listing: RemoteChanges): Promise<void> {
+    if (this.movedSince === undefined) return;
+    let newest: { path: string; at: number } | null = null;
+    for (const entry of listing.changed) {
+      const at = entry.kind === 'file' ? movedAt(entry.path) : null;
+      if (at !== null && at > this.movedSince && (!newest || at > newest.at)) newest = { path: entry.path, at };
+    }
+    if (!newest) return;
+    const mark = parseMoved(await (await this.remote.read(newest.path)).text());
+    if (mark) throw new RemoteMoved(mark);
+  }
+
   private async moves(): Promise<void> {
     const records = this.state.files;
     // Moved here: a record whose file is gone, and a new file with its digest.
@@ -816,7 +843,7 @@ class Turn {
 /** One turn of syncing the space in `fs` with `remote`. Two turns of one space must not run at once. */
 export async function syncOnce(fs: VaultFs, remote: RemoteStore, device: SyncDevice, options: SyncOptions = {}): Promise<SyncReport> {
   const state = await loadSyncState(fs, device.id);
-  const turn = new Turn(fs, remote, device, state, options.now ?? (() => new Date()), options.saveEveryMs ?? 2000, options.onProgress, options.leaveOver);
+  const turn = new Turn(fs, remote, device, state, options.now ?? (() => new Date()), options.saveEveryMs ?? 2000, options.onProgress, options.leaveOver, options.movedSince);
   await turn.run();
   return turn.report;
 }

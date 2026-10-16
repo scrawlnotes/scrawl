@@ -10956,3 +10956,37 @@ button.st-li:hover,
   color: var(--sl-faint);
   font-size: 12px;
 }
+
+/* Moving the personal space: whether the copy it leaves goes, asked unticked; and on a device
+   still syncing with the old place, where it went, in the warning's amber. */
+.fp .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 2px 0;
+  color: var(--sl-fg);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.fp .check input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--sl-danger, #e5484d);
+}
+
+.fp .note.under {
+  margin: 4px 2px 0 25px;
+}
+
+.st-sync .state.moved {
+  align-items: center;
+  color: #e0a84a;
+}
+
+.st-sync .state.moved .icon {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
