@@ -505,7 +505,7 @@ describe('attachments, folders and the workspace', () => {
   it('round-trips the workspace and survives a missing or broken file', async () => {
     const fs = new MemoryFs();
     expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {}, keys: {}, collections: {} });
-    const boards = { 'Scrawl/Roadmap.board.json': { view: 'list' as const, phase: null }, 'Home/Renovation.board.json': { view: 'board' as const, phase: 'p2' }, 'Work/Plan.board.json': { view: 'list' as const } };
+    const boards = { 'Scrawl/Roadmap.board.json': { view: 'list' as const, phase: null }, 'Home/Renovation.board.json': { view: 'board' as const, phase: 'p2' }, 'Work/Plan.board.json': { view: 'list' as const }, 'Work/Issues.board.json': { view: 'board' as const, phase: '' } };
     const keys = { 'Scrawl/Production.env': { view: 'text' as const } };
     const collections = { 'Work/Companies': { view: null, sort: { key: 'status', dir: 'desc' as const }, group: 'status', columns: ['name', 'status'] } };
     await saveWorkspace(fs, { tabs: ['Inbox/a.md'], active: 'Inbox/a.md', boards, keys, collections });

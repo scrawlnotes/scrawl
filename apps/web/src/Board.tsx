@@ -24,6 +24,7 @@ import {
   isFinished,
   type NewCard,
   type Phase,
+  phaseCards,
   phaseProgress,
   numberText,
   reviewCount,
@@ -88,8 +89,8 @@ export interface BoardActions extends CardPanelActions {
 const DRAG_TYPE = 'application/x-scrawl-card';
 const COLUMN_DRAG_TYPE = 'application/x-scrawl-column';
 
-/** Which phase's cards the columns show: one phase, or every card. */
-type Shown = { phase: string } | { all: true };
+/** Which phase's cards the columns show: one phase, the cards in none (null), or every card. */
+type Shown = { phase: string | null } | { all: true };
 
 /**
  * A single line typed in place: Enter or leaving it keeps it, Esc or leaving it empty drops it.
@@ -596,6 +597,10 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
     const { done, total } = phaseProgress(board, phase.id);
     return t('board.progress', { done, total });
   };
+  // The cards in no phase have a chip of their own while there are some, and while it is chosen.
+  const unphased = phaseCards(board, null).length;
+  const noneOn = 'phase' in shown && shown.phase === null;
+  const noneChip = board.phases.length > 0 && (unphased > 0 || noneOn);
   const closedLabel = chosenClosed ? chosenClosed.name : narrow ? String(closed.length) : t('board.closedPhases', { count: closed.length });
 
   // Every chip is measured off screen; as many open phases as the line holds are shown.
@@ -607,7 +612,7 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
       const width = (role: string) => [...marks.querySelectorAll<HTMLElement>(`[data-role="${role}"]`)].reduce((sum, el) => sum + pageBox(el).width + STRIP_GAP, 0);
       const phases = [...marks.querySelectorAll<HTMLElement>('[data-role="phase"]')].map((el) => pageBox(el).width + STRIP_GAP);
       const room = box.clientWidth - STRIP_PADDING;
-      const fixed = width('closed') + width('all') + (chosen ? width('pmore') : 0);
+      const fixed = width('closed') + width('none') + width('all') + (chosen ? width('pmore') : 0);
       const all = phases.reduce((sum, w) => sum + w, 0);
       if (fixed + width('add') + all <= room) {
         setFit(phases.length);
@@ -627,7 +632,7 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
     const observer = new ResizeObserver(update);
     observer.observe(box);
     return () => observer.disconnect();
-  }, [board.phases, board.cards, narrow, closedLabel, renaming, chosen]);
+  }, [board.phases, board.cards, narrow, closedLabel, renaming, chosen, noneChip]);
 
   // The chosen open phase is never folded away: it takes the last place that fits.
   let shownOpen = open.slice(0, fit);
@@ -732,6 +737,12 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
           {t('board.addPhase')}
         </button>
       )}
+      {noneChip && (
+        <button type="button" role="tab" aria-selected={noneOn} className={`ph none${noneOn ? ' on' : ''}`} onClick={() => onShow({ phase: null })}>
+          <span>{t('list.noPhase')}</span>
+          <small>{unphased}</small>
+        </button>
+      )}
       {/* On a phone, All shows only when there are phases to choose from. */}
       {!(phone && board.phases.length === 0) && (
         <button type="button" role="tab" aria-selected={'all' in shown} className={`ph all${'all' in shown ? ' on' : ''}`} onClick={() => onShow({ all: true })}>
@@ -764,6 +775,12 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
         <span data-role="pmore" className="ph-more">
           ···
         </span>
+        {noneChip && (
+          <span data-role="none" className="ph none">
+            <span>{t('list.noPhase')}</span>
+            <small>{unphased}</small>
+          </span>
+        )}
         <span data-role="all" className="ph all">
           {allLabel}
         </span>
@@ -1419,6 +1436,7 @@ function PhoneBoardList({ board, path, today, actions, onStatus, onAdd }: {
 /** The phase a board shows at first: the one chosen last on this device while it is there, otherwise the current one. */
 function firstShown(board: Board, look: BoardLook | undefined): Shown {
   if (look?.phase === null) return { all: true };
+  if (look?.phase === '' && board.phasesOn) return { phase: null };
   if (typeof look?.phase === 'string' && board.phasesOn && board.phases.some((p) => p.id === look.phase)) return { phase: look.phase };
   const current = currentPhase(board);
   return board.phasesOn && current ? { phase: current.id } : { all: true };
@@ -1462,7 +1480,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   const remember = (next: Partial<typeof latest.current>) => {
     latest.current = { ...latest.current, ...next };
     const { view: v, shown: s, chosen: c, toggled: g, inFull: f } = latest.current;
-    onLook({ view: v, ...(c && { phase: 'all' in s ? null : s.phase }), ...(g.length > 0 && { toggled: g }), ...(f.length > 0 && { inFull: f }) });
+    onLook({ view: v, ...(c && { phase: 'all' in s ? null : (s.phase ?? '') }), ...(g.length > 0 && { toggled: g }), ...(f.length > 0 && { inFull: f }) });
   };
   const chooseView = (next: 'board' | 'list') => {
     setView(next);
@@ -1486,7 +1504,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   };
   // A phase that is gone, or phases turned off, shows everything.
   useEffect(() => {
-    if ('phase' in shown && (!board.phasesOn || !board.phases.some((p) => p.id === shown.phase))) {
+    if ('phase' in shown && (!board.phasesOn || (shown.phase !== null && !board.phases.some((p) => p.id === shown.phase)))) {
       setShown(board.phasesOn && current ? { phase: current.id } : { all: true });
     }
   }, [board, shown, current]);
@@ -1519,10 +1537,10 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   const [columnDrop, setColumnDrop] = useState<number | null>(null);
   const waiting = reviewCount(board);
   const shownPhase = 'phase' in shown ? board.phases.find((p) => p.id === shown.phase) : undefined;
-  const visible = (card: Card) => ('all' in shown ? true : (card.phase ?? null) === shown.phase);
-  const open = openCard !== null ? board.cards.find((card) => card.id === openCard) : undefined;
   // Every phase as a lane across the columns, and a lane for cards in none when there are any.
-  const unphased = board.cards.filter((card) => !card.phase || !board.phases.some((p) => p.id === card.phase));
+  const unphased = phaseCards(board, null);
+  const visible = (card: Card) => ('all' in shown ? true : shown.phase === null ? unphased.includes(card) : card.phase === shown.phase);
+  const open = openCard !== null ? board.cards.find((card) => card.id === openCard) : undefined;
   /** In All: whether the closed phases' lanes are unfolded. */
   const [closedLanes, setClosedLanes] = useState(false);
   const closedPhases = board.phases.filter((phase) => phase.state === 'done');

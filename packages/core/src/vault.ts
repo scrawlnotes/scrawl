@@ -34,7 +34,7 @@ export interface TreeNode {
 /** How a board was last looked at on this device: as columns or as a list, and which phase. */
 export interface BoardLook {
   view: 'board' | 'list';
-  /** The phase shown: its id, or null for every card; unset until one is chosen. */
+  /** The phase shown: its id, '' for the cards in no phase, or null for every card; unset until one is chosen. */
   phase?: string | null;
   /** In the list, the groups opened or closed against their default (finished ones closed, the rest open), by id. */
   toggled?: string[];

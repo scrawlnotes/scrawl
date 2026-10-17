@@ -4368,8 +4368,14 @@ button.cb:hover::after {
   font-weight: 400;
 }
 
+/* No phase and All sit together at the end of the line. */
+.ph.none,
 .ph.all {
   margin-left: auto;
+}
+
+.ph.none + .ph.all {
+  margin-left: 0;
 }
 
 .ph-edit {
