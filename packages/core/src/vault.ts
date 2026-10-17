@@ -67,6 +67,30 @@ export interface Workspace {
   keys: Record<string, KeysLook>;
   /** By the path of each collection's folder. */
   collections: Record<string, CollectionLook>;
+  /** The onboarding note was closed on this device: it opens by itself no more. */
+  welcomeClosed?: boolean;
+}
+
+/**
+ * The onboarding note, in the personal space: on this device only, never synced (sync/paths.ts),
+ * and like everything under `.scrawl` not in the tree, in Search or for an agent.
+ */
+export const WELCOME_NOTE = `${APP_DIR}/welcome.md`;
+
+/** Whether the onboarding note is there. */
+export async function welcomeThere(fs: VaultFs): Promise<boolean> {
+  if (fs.stat) return (await fs.stat(WELCOME_NOTE)) !== null;
+  try {
+    await fs.readText(WELCOME_NOTE);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Writes the onboarding note where it is not there yet; one that is there keeps what was written in it. */
+export async function ensureWelcome(fs: VaultFs, text: string): Promise<void> {
+  if (!(await welcomeThere(fs))) await fs.writeText(WELCOME_NOTE, text);
 }
 
 const isNote = (entry: Entry) => entry.kind === 'file' && entry.name.endsWith('.md');
@@ -766,7 +790,14 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
         collections[path] = read;
       }
     }
-    return { tabs, active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null, boards, keys, collections };
+    return {
+      tabs,
+      active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null,
+      boards,
+      keys,
+      collections,
+      ...(data.welcomeClosed === true && { welcomeClosed: true }),
+    };
   } catch {
     return { tabs: [], active: null, boards: {}, keys: {}, collections: {} };
   }

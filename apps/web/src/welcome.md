@@ -84,4 +84,4 @@ Until you connect it, your work stays on this device. It syncs to two places:
 
 ---
 
-🗑️ Deleted items go to **Trash** first. This welcome note is only on this device; close it when you are done.
+🗑️ Deleted items go to **Trash** first. This welcome note is only on this device, and opens each time until you close it.

@@ -174,6 +174,9 @@ import {
   seenMoved,
   seenNow,
   serializeRecent,
+  ensureWelcome,
+  WELCOME_NOTE,
+  welcomeThere,
 } from '@scrawlnotes/core';
 import {
   addCopy,
@@ -223,7 +226,8 @@ import {
   type TransactionSpec,
 } from '@scrawlnotes/editor';
 import { boardPathOf, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
-import { sampleDoc } from './sample';
+import welcomeComputer from './welcome.md?raw';
+import welcomePhone from './welcome.phone.md?raw';
 import {
   addSpaceEntry,
   chooseVaultFolder,
@@ -558,14 +562,18 @@ export class Session {
       }
     }
     let tree = await readTree(this.personal);
-    // The browser vault starts with a sample note. A folder on disk is the user's own; nothing is put there unasked.
+    // The browser vault starts with Inbox. A folder on disk is the user's own; nothing is put there unasked.
     if (!tree.length && !isDesktop) {
       await createTaskList(this.personal, '', listName(INBOX_TASKS));
-      await this.personal.writeText('Scrawl/Sync engine open questions.md', sampleDoc);
       tree = await readTree(this.personal);
     }
     const spaces = await this.spaceViews();
     const workspace = await loadWorkspace(this.personal);
+    // The onboarding note opens each time until it is closed on this device, for those who had
+    // the app before it too. It is kept under `.scrawl`, where the folder stays the user's own.
+    this.welcomeClosed = workspace.welcomeClosed === true;
+    if (!this.welcomeClosed) await ensureWelcome(this.personal, this.welcomeText());
+    const welcomeHere = await welcomeThere(this.personal);
     if (run !== this.run) return;
 
     this.editor = createEditor({
@@ -599,7 +607,7 @@ export class Session {
     const me = await startMe(this.personal, this.snapshot.me);
     const trash = await this.readTrash();
     if (run !== this.run) return;
-    const tabs = workspace.tabs.filter((id) => {
+    let tabs = workspace.tabs.filter((id) => {
       const list = listOf(id);
       const board = boardPathOf(id);
       const filter = filterOf(id);
@@ -609,14 +617,22 @@ export class Session {
       if (keysFile !== null) return keysFile in keys;
       const collection = collectionPathOf(id);
       if (collection !== null) return collection in collections;
+      // The onboarding note is not in the tree.
+      if (id === WELCOME_NOTE) return welcomeHere;
       return list !== null ? list in tasks : id in titles || !isNote(id);
     });
+    let active = workspace.active;
+    // Not closed yet: its tab is the first, and on screen when it was not open already.
+    if (!this.welcomeClosed && welcomeHere && !tabs.includes(WELCOME_NOTE)) {
+      tabs = [WELCOME_NOTE, ...tabs];
+      active = WELCOME_NOTE;
+    }
     const boardLooks = Object.fromEntries(Object.entries(workspace.boards).filter(([path]) => path in boards));
     const keysLooks = Object.fromEntries(Object.entries(workspace.keys).filter(([path]) => path in keys));
     const collectionLooks = Object.fromEntries(Object.entries(workspace.collections).filter(([path]) => path in collections));
     this.set({ ready: true, folder: vaultFolder(), defaultFolder: defaultVaultFolder(), me, tree, spaces, titles, tabs, tasks, sections, boards, boardLooks, keys, keysLooks, collections, collectionLooks, filters, space, trash });
-    // With no tabs from last time nothing is opened: the interface asks what to create.
-    const first = workspace.active && tabs.includes(workspace.active) ? workspace.active : tabs[0];
+    // With no tabs from last time nothing is opened: the start page shows.
+    const first = active && tabs.includes(active) ? active : tabs[0];
     if (first) await this.open(first);
     // Versions past their keeping time go, also those of notes deleted long ago.
     for (const [, fs] of this.fs.all()) void pruneHistory(fs).catch(() => undefined);
@@ -1451,6 +1467,7 @@ export class Session {
       boards: Object.fromEntries(Object.entries(boardLooks).filter(([path]) => path in boards)),
       keys: Object.fromEntries(Object.entries(keysLooks).filter(([path]) => path in keys)),
       collections: Object.fromEntries(Object.entries(collectionLooks).filter(([path]) => path in collections)),
+      ...(this.welcomeClosed && { welcomeClosed: true }),
     });
   }
 
@@ -1569,6 +1586,20 @@ export class Session {
     }
     await this.refreshTree();
     return null;
+  }
+
+  /** The onboarding note was closed on this device; kept in the workspace. */
+  private welcomeClosed = false;
+
+  /** The onboarding note's text: a phone's says where things are on a phone. */
+  private welcomeText(): string {
+    return this.touch ? welcomePhone : welcomeComputer;
+  }
+
+  /** Opens the onboarding note, from Search: written again first if it is not there. */
+  async openWelcome() {
+    await ensureWelcome(this.personal, this.welcomeText());
+    await this.open(WELCOME_NOTE);
   }
 
   /** What is on screen was seen now: Recent lists it first. The views over everything are not in it. */
@@ -2578,6 +2609,8 @@ export class Session {
   }
 
   async close(path: string) {
+    // The onboarding note, once closed, opens by itself no more on this device.
+    if (path === WELCOME_NOTE) this.welcomeClosed = true;
     await this.flush();
     const state = path === this.snapshot.active ? this.editor?.view.state : this.states.get(path);
     // A note that was never named or written in leaves nothing behind, like an empty editor tab.

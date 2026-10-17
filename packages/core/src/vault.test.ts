@@ -13,6 +13,7 @@ import {
   deleteFromTrash,
   displayTitle,
   emptyTrash,
+  ensureWelcome,
   INBOX_TASKS,
   isScratchNote,
   listName,
@@ -31,7 +32,9 @@ import {
   titleOf,
   trashFolder,
   trashItem,
+  WELCOME_NOTE,
 } from './vault';
+import { isSynced } from './sync/paths';
 
 const at = new Date(2026, 9, 5, 14, 32, 7);
 
@@ -512,6 +515,23 @@ describe('attachments, folders and the workspace', () => {
     expect(await loadWorkspace(fs)).toEqual({ tabs: ['Inbox/a.md'], active: null, boards: {}, keys: {}, collections: {} });
     await fs.writeText('.scrawl/workspace.json', 'not json');
     expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {}, keys: {}, collections: {} });
+  });
+
+  it('keeps the onboarding note on the device until it is closed, with what was written in it', async () => {
+    const fs = new MemoryFs();
+    await ensureWelcome(fs, '# Welcome to Scrawl\n');
+    expect(await fs.readText(WELCOME_NOTE)).toBe('# Welcome to Scrawl\n');
+    // Written in, it is not written over the next time the app opens.
+    await fs.writeText(WELCOME_NOTE, '# Welcome to Scrawl\n\nMy own line\n');
+    await ensureWelcome(fs, '# Welcome to Scrawl\n');
+    expect(await fs.readText(WELCOME_NOTE)).toBe('# Welcome to Scrawl\n\nMy own line\n');
+    // It is not synced, and not in the tree.
+    expect(isSynced(WELCOME_NOTE)).toBe(false);
+    expect((await readTree(fs)).map((node) => node.path)).toEqual([]);
+    // Closed, the workspace says so; a workspace from before the note says nothing, so it opens.
+    expect((await loadWorkspace(fs)).welcomeClosed).toBeUndefined();
+    await saveWorkspace(fs, { tabs: [], active: null, boards: {}, keys: {}, collections: {}, welcomeClosed: true });
+    expect((await loadWorkspace(fs)).welcomeClosed).toBe(true);
   });
 });
 

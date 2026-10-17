@@ -46,6 +46,7 @@ import {
   type BoardLinks,
   type TrashItem,
   type TreeNode,
+  WELCOME_NOTE,
 } from '@scrawlnotes/core';
 import { type EditorStats, type LinkTap, sizeText } from '@scrawlnotes/editor';
 import { type DragEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -266,8 +267,9 @@ export function App() {
     session.getSnapshot,
   );
   // A record open as a note is named in its tab by what the record is called; its file is named by its id.
+  // The onboarding note is not in the tree, which names the notes.
   const tabTitles = useMemo(() => {
-    const out = { ...titles };
+    const out: Record<string, string> = { ...titles, [WELCOME_NOTE]: t('welcome.title') };
     for (const collection of Object.values(collections)) for (const record of collection.records) out[record.path] = recordTitle(record);
     return out;
   }, [titles, collections]);
@@ -798,16 +800,21 @@ export function App() {
   const renameTab = async (id: string) => {
     const filter = filters.find((each) => each.id === filterOf(id));
     const path = collectionPathOf(id) ?? pathOf(id);
-    if (!filter && (!path || path === INBOX_TASKS)) return;
+    if (!filter && (!path || path === INBOX_TASKS || path === WELCOME_NOTE)) return;
     // A note opened by the clicks takes the focus a moment later; the window comes after that, so that its field keeps it.
     await session.open(id);
     window.setTimeout(() => setDialog(filter ? { kind: 'filter', filter } : { kind: 'rename', path: path! }));
   };
   /** Whether the item is a note (a record is one too): not a task list, a board, a keys file or a collection. */
   const isNoteFile = (path: string) => !(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections);
+  // The onboarding note stays where it is, as it is called: it has its history and goes out, and is closed rather than deleted.
   const itemMenuItems = (path: string, history: (path: string) => void = (path) => void showHistory(path)): MenuItem[] => [
-      { label: t('menu.moveTo'), icon: 'move', run: () => setDialog({ kind: 'move', path }) },
-      { label: t('menu.rename'), icon: 'pen', run: () => setDialog({ kind: 'rename', path }) },
+      ...(path === WELCOME_NOTE
+        ? []
+        : [
+            { label: t('menu.moveTo'), icon: 'move' as const, run: () => setDialog({ kind: 'move', path }) },
+            { label: t('menu.rename'), icon: 'pen' as const, run: () => setDialog({ kind: 'rename', path }) },
+          ]),
       // Only notes keep a history; a keys file keeps none, so that a password changed is gone.
       ...(isNoteFile(path) ? [{ label: t('menu.history'), icon: 'clock' as const, run: () => history(path) }] : []),
       // A note goes out as a PDF, an HTML file or its Markdown; a record does not.
@@ -820,7 +827,7 @@ export function App() {
             { label: t('menu.import'), icon: 'import' as const, run: () => chooseImport(path) },
           ]
         : []),
-      { label: t('menu.delete'), icon: 'trash', danger: true, run: () => deleteItem(path) },
+      ...(path === WELCOME_NOTE ? [] : [{ label: t('menu.delete'), icon: 'trash' as const, danger: true, run: () => deleteItem(path) }]),
     ];
   /** On a phone a menu is an action sheet, with what it is about at its top. */
   const showSheet = (items: MenuItem[], head?: MenuHead) => setMenu({ at: { x: 0, y: 0 }, items, head });
@@ -1126,6 +1133,8 @@ export function App() {
     { id: 'trash', label: t('side.trash'), icon: 'trash', run: () => void session.open(TRASH) },
     { id: 'settings', label: t('side.settings'), icon: 'settings', run: () => setDialog({ kind: 'settings' }) },
     { id: 'sync', label: t('sync.syncNow'), icon: 'cloud', run: () => void syncService.syncNow() },
+    // The onboarding note, once closed, is found again here.
+    { id: 'welcome', label: t('welcome.title'), icon: 'note', run: () => void session.openWelcome() },
   ];
   // A task, a folder or a space found: brought into sight where it is, and marked.
   const [revealTask, setRevealTask] = useState<{ list: string; id: string; at: number } | null>(null);
@@ -1536,7 +1545,7 @@ export function App() {
             actions={taskActions}
             onKind={(kind) => setDialog(kind === 'filter' ? { kind: 'filter', filter: null, place: createIn } : { kind: 'new', start: kind })}
             onTemplate={(start) => setDialog({ kind: 'new', start: start.kind, template: start.template })}
-            onOpen={(id) => void session.open(id)}
+            onOpen={(id) => void (id === WELCOME_NOTE ? session.openWelcome() : session.open(id))}
             onOpenTask={(taskList, id) => {
               void session.open(tasksOf(taskList));
               setRevealTask({ list: taskList, id, at: Date.now() });

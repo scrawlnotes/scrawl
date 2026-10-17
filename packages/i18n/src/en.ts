@@ -65,6 +65,8 @@ export const en = {
   'start.agent': 'Connect an agent',
   'start.agentText': 'Claude Code, Codex and other agents can read and change your notes, tasks and boards.',
   'start.agentSetUp': 'Set up…',
+  // the onboarding note, as its tab and Search name it
+  'welcome.title': 'Welcome to Scrawl',
   'board.placeholder': 'This board is not here any more.',
   'tab.close': 'Close ({keys})',
   'tab.new': 'New… ({keys})',

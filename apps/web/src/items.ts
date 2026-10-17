@@ -1,4 +1,4 @@
-import { basename, BOARD_EXT, boardName, collectionName, dirname, isScratchNote, KEYS_EXT, keysName, listName, localPath, spaceOf, TASK_LIST_EXT, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { basename, BOARD_EXT, boardName, collectionName, dirname, isScratchNote, KEYS_EXT, keysName, listName, localPath, spaceOf, TASK_LIST_EXT, type TaskFilter, type TreeNode, WELCOME_NOTE } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import type { IconName } from './Icon';
 
@@ -133,12 +133,14 @@ export function pathTip(id: string, personal: string): string | null {
   const path = pathOf(id) ?? collectionPathOf(id);
   if (path === null) return null;
   const space = spaceOf(path);
-  const folders = dirname(localPath(path)).split('/').filter(Boolean);
+  const folders = path === WELCOME_NOTE ? [] : dirname(localPath(path)).split('/').filter(Boolean);
   return [space ? (spaceNames.get(space) ?? space) : personal, ...folders].join(' › ');
 }
 
 /** The folder a tab's note, task list or board is in; null for the views over all folders. */
 export function folderOf(id: string): string | null {
+  // The onboarding note is kept under `.scrawl`, but is at the personal space's top, where what is made beside it goes.
+  if (id === WELCOME_NOTE) return '';
   const collection = collectionPathOf(id);
   if (collection !== null) return dirname(collection);
   const path = pathOf(id);
