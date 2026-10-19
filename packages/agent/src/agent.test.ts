@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
-import { createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, saveMe, savePeople, serializeBoard } from '@scrawlnotes/core';
+import { createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, restoreFromTrash, saveMe, savePeople, serializeBoard } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { cardsTool, commentTool, saveCardTool } from './cards';
 import { BRIEF, GUIDE } from './guide';
@@ -11,7 +11,8 @@ import { buildServer } from './server';
 import { type Agent, type AgentSpace, exists, pickElement } from './space';
 import { saveTaskTool, tasksTool } from './tasks';
 import { moveTool } from './move';
-import { createTool, trashTool, writeTool } from './write';
+import { trashTool } from './trash';
+import { createTool, writeTool } from './write';
 
 // The tools over a space in memory: what an agent does with a board, a collection, a task list
 // and the files, and what it is refused. See design/agent.md, 10.
@@ -649,6 +650,37 @@ describe('less to go through', () => {
     expect((await searchTool(agent, { query: 'Team' })).data.found[0]).toMatchObject({ kind: 'space', title: 'Team', space: 'sp-k7f3m2qa', spaceName: 'Team' });
     expect((await searchTool(agent, { query: 'ship the agent' })).data.found[0]).toMatchObject({ kind: 'note', spaceName: 'Personal' });
     expect((await refusal(pickElement(mine, 'Zebra', ['board'], 'board'))).details.nearest).toBeUndefined();
+  });
+});
+
+// One thing at a time to the trash, from which the person restores it (design/agent-fixes.md, 2).
+describe('the trash, one thing at a time', () => {
+  it('trashes a task with its subtasks, a section, a card or a record, takes a name for a path, and what it trashed comes back', async () => {
+    const { agent, fs, board } = await sample();
+    await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' });
+    await fs.writeText('Plans/Launch.tasks.json', JSON.stringify({ version: 1, sections: [{ id: 's1', name: 'This week' }], tasks: [] }));
+    const post = await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Write the post', section: 'This week' });
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Draft', parent: post.data.task.id });
+    const gone = await trashTool(agent, { path: 'Launch', id: 'write the post' });
+    expect(gone.data).toMatchObject({ kind: 'task', title: 'Write the post', from: 'Plans/Launch.tasks.json', message: expect.stringContaining('restore') });
+    expect((await loadList(fs, 'Plans/Launch.tasks.json')).tasks).toEqual([]);
+    const [task] = await readTrash(fs);
+    expect(task).toMatchObject({ kind: 'task', title: 'Write the post', count: 1 });
+    await restoreFromTrash(fs, task!);
+    expect((await loadList(fs, 'Plans/Launch.tasks.json')).tasks.map((t) => [t.title, t.section ?? null])).toEqual([['Write the post', 's1'], ['Draft', null]]);
+    expect((await trashTool(agent, { path: 'Launch', section: 'this week' })).data).toMatchObject({ kind: 'section', title: 'This week' });
+    expect((await loadList(fs, 'Plans/Launch.tasks.json')).tasks).toEqual([]);
+
+    const card = await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Old idea' });
+    expect((await trashTool(agent, { path: 'Scrawl', id: card.data.card.key })).data).toMatchObject({ kind: 'card', key: 'SCR-1', title: 'Old idea' });
+    expect((await loadBoard(fs, board)).cards).toEqual([]);
+    await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Acme Corp' } });
+    expect((await trashTool(agent, { path: 'Companies', id: 'acme corp' })).data).toMatchObject({ kind: 'record', title: 'Acme Corp' });
+    expect((await loadCollection(fs, 'CRM/Companies')).records).toEqual([]);
+    expect((await trashTool(agent, { path: 'Roadmap' })).data).toMatchObject({ trashed: 'Plans/Roadmap.md', kind: 'note' });
+    expect((await readTrash(fs)).map((t) => t.kind).sort()).toEqual(['card', 'note', 'note', 'section']);
+    expect((await refusal(trashTool(agent, { path: 'Launch', id: 'Nothing' }))).message).toContain('No task Nothing');
+    expect((await refusal(trashTool(agent, { path: 'Scrawl', section: 'x' }))).message).toContain('task list’s');
   });
 });
 

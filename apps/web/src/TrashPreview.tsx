@@ -5,6 +5,7 @@ import {
   type Collection,
   columnCards,
   keyOf,
+  type Piece,
   sectionTasks,
   type Task,
   type TaskList,
@@ -19,6 +20,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { placeLabel } from './items';
+import { pieceHome } from './Trash';
 import { clockTime, pastDayLabel } from './text';
 import { dueLabel } from './Tasks';
 
@@ -43,7 +45,7 @@ const ENTRY_ICONS: Record<TrashedEntry['kind'], IconName> = { folder: 'folder', 
 function deletedWords(item: TrashItem, today: string): string {
   const day = dayOf(new Date(item.deleted));
   const when = `${pastDayLabel(day, today)}, ${clockTime(item.deleted)}`;
-  return item.kind === 'attachment' ? t('trash.deletedAt', { when }) : t('trash.deletedFrom', { when, place: placeLabel(item.from) || t('trash.topLevel') });
+  return item.kind === 'attachment' ? t('trash.deletedAt', { when }) : t('trash.deletedFrom', { when, place: pieceHome(item) || placeLabel(item.from) || t('trash.topLevel') });
 }
 
 /** A note as it reads in the editor. */
@@ -107,6 +109,64 @@ function BoardBody({ board }: { board: Board }) {
           )
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * A task with its subtasks or a section with its tasks, as the list showed them; a card with its
+ * column, description, subtasks and comments, as its panel does.
+ */
+function PieceBody({ piece, home, today, resolveImage }: { piece: Piece | null; home: string; today: string; resolveImage: TrashPreviewProps['resolveImage'] }) {
+  if (!piece) return <p className="tp-none">{t('trash.cannotRead')}</p>;
+  if (piece.kind === 'task') {
+    const [top, ...under] = piece.tasks;
+    const { section: _section, ...bare } = top!;
+    return <TasksBody list={{ sections: [], tasks: [{ ...bare, parent: null }, ...under] }} today={today} />;
+  }
+  if (piece.kind === 'section') return <TasksBody list={{ sections: [piece.section], tasks: piece.tasks }} today={today} />;
+  const { card } = piece;
+  const comments = card.timeline.flatMap((entry) => (entry.kind === 'comment' ? [entry] : []));
+  return (
+    <div className="tp-list">
+      <div className="tp-task">
+        <span className="key">{piece.prefix ? `${piece.prefix}-${card.key}` : card.key}</span>
+        <span className="tx">{t('card.status')}: {piece.column.name}</span>
+        {card.due && <small>{dueLabel(card.due, today)}</small>}
+      </div>
+      {card.description?.trim() && (
+        <>
+          <div className="tp-head">{t('card.description')}</div>
+          <NoteBody text={card.description} home={home} resolveImage={resolveImage} />
+        </>
+      )}
+      {!!card.subtasks?.length && (
+        <>
+          <div className="tp-head">
+            {t('subtasks.title')} <small>{card.subtasks.length}</small>
+          </div>
+          {card.subtasks.map((subtask) => (
+            <div key={subtask.id} className={subtask.done ? 'tp-task done' : 'tp-task'}>
+              <span className={`cb p${subtask.priority}`} aria-hidden="true" />
+              <span className="tx">{subtask.title}</span>
+              {subtask.due && <small>{dueLabel(subtask.due, today)}</small>}
+            </div>
+          ))}
+        </>
+      )}
+      {comments.length > 0 && (
+        <>
+          <div className="tp-head">
+            {t('card.timeline')} <small>{comments.length}</small>
+          </div>
+          {comments.map((entry) => (
+            <div key={entry.id} className="tp-task">
+              <span className="tx">{entry.text}</span>
+              <small>{[entry.by, pastDayLabel(dayOf(new Date(entry.at)), today)].filter(Boolean).join(' · ')}</small>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -216,6 +276,8 @@ export function TrashContent({ item, today, read, resolveImage }: Omit<TrashPrev
       );
     case 'attachment':
       return <AttachmentBody item={item} blob={content.blob} />;
+    case 'piece':
+      return <PieceBody piece={content.piece} home={item.from} today={today} resolveImage={resolveImage} />;
   }
 }
 

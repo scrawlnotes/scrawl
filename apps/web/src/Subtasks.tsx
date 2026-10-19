@@ -21,6 +21,8 @@ export interface SubtasksProps {
   change: (fn: (list: Subtask[]) => Subtask[]) => void;
   /** Ticks one off where that is saved at once, saying so with Undo; without it ticking off is a change like the others. */
   complete?: (id: string) => void;
+  /** Where taking one off is saved at once: says so, with what puts it back for Undo. */
+  removed?: (undo: () => void) => void;
   /** The people of the space, to give a subtask to; null in the personal space, where none is given. */
   team: SpacePeople | null;
   today: string;
@@ -42,10 +44,19 @@ export function Subtasks(props: SubtasksProps) {
 }
 
 /** What each subtask's menu and buttons do, the same on a phone and a desktop. */
-function useSubtaskActions({ change, complete, today }: SubtasksProps) {
+function useSubtaskActions({ change, complete, removed, today }: SubtasksProps) {
   const update = (id: string, patch: SubtaskPatch) => change((list) => updateSubtask(list, id, patch));
   const toggle = (subtask: Subtask) => (!subtask.done && complete ? complete(subtask.id) : update(subtask.id, { done: !subtask.done }));
-  const remove = (id: string) => change((list) => removeSubtask(list, id));
+  const remove = (id: string) => {
+    let gone: { subtask: Subtask; at: number } | null = null;
+    change((list) => {
+      const at = list.findIndex((s) => s.id === id);
+      if (at >= 0) gone = { subtask: list[at]!, at };
+      return removeSubtask(list, id);
+    });
+    const taken = gone as { subtask: Subtask; at: number } | null;
+    if (taken && removed) removed(() => change((list) => (list.some((s) => s.id === taken.subtask.id) ? list : [...list.slice(0, taken.at), taken.subtask, ...list.slice(taken.at)])));
+  };
   const dateItems = (subtask: Subtask, pick: () => void): MenuItem[] => [
     { label: t('day.today'), run: () => update(subtask.id, { due: today }) },
     { label: t('day.tomorrow'), run: () => update(subtask.id, { due: addDays(today, 1) }) },

@@ -1,5 +1,5 @@
 import { t } from '@scrawlnotes/i18n';
-import { BOARD_EXT, type BoardLinks, loadBoard, newBoard, parseBoard, serializeBoard, type Template } from './board';
+import { BOARD_EXT, type BoardLinks, loadBoard, newBoard, parseBoard, saveBoard, serializeBoard, type Template } from './board';
 import { COLLECTION_FILE, type ColumnWidths, collectionName, isCollection, loadSchema, namedById, parseRecord, parseSchema, RECORD_EXT, readWidths, recordTitle, type RecordSort } from './collection';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
@@ -9,8 +9,9 @@ import { type FolderLook, sortedNodes } from './order';
 /** The order a folder's items are read in: by kind, the folders among them, then by name. The app puts them as each folder is set to show. */
 const READ_ORDER: FolderLook = { group: 'type', by: 'name', dir: 'asc', foldersFirst: false };
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
+import { type Piece, PIECE_EXTS, pieceCount, pieceKindOf, pieceTitle, parsePiece, putBackCard, putBackTasks, serializePiece } from './pieces';
 import { awayAt, moveAway, readAway, removeAway } from './sync/away';
-import { loadTasks, parseList, serializeList, serializeTasks, TASK_LIST_EXT } from './tasks';
+import { loadList, loadTasks, parseList, saveList, serializeList, serializeTasks, TASK_LIST_EXT } from './tasks';
 
 /**
  * The personal space's own task list, Inbox, at its top: where a task goes that is given no list,
@@ -340,10 +341,13 @@ export async function renameItem(fs: VaultFs, path: string, name: string): Promi
 interface TrashRecord {
   /** Its name in the trash folder. */
   name: string;
-  /** The path it had. */
+  /** The path it had; for a task, a section or a card, the list's or the board's. */
   from: string;
   /** When it was deleted, as an ISO time. */
   deleted: string;
+  /** A task's, a section's or a card's title, and how much it holds: the trash is listed without reading their files. */
+  title?: string;
+  count?: number;
 }
 
 async function readTrashIndex(fs: VaultFs): Promise<TrashRecord[]> {
@@ -381,6 +385,66 @@ export async function trashItem(fs: VaultFs, path: string, now = new Date()): Pr
   await changeTrashIndex(fs, (records) => [...records, { name: basename(target), from: path, deleted: now.toISOString() }]);
 }
 
+/**
+ * A task, a section or a card deleted from the list or the board at `from`: its own file in the
+ * trash, with where it was, and a row in the index with what it is called and how much it holds.
+ * The list or the board is changed by whoever deleted it; the attached files it uses stay where
+ * they are, as the trash links to them, and go only when it is deleted for good. Returns its path
+ * in the trash.
+ */
+export async function trashPiece(fs: VaultFs, from: string, piece: Piece, now = new Date()): Promise<string> {
+  const title = pieceTitle(piece);
+  const name = fileNameOf(title.trim().slice(0, 80)) || piece.kind;
+  const target = await trashPath(fs, name, PIECE_EXTS[piece.kind], now);
+  await fs.writeText(target, serializePiece(piece));
+  await changeTrashIndex(fs, (records) => [...records, { name: basename(target), from, deleted: now.toISOString(), title, count: pieceCount(piece) }]);
+  return target;
+}
+
+/** The task, the section or the card a trash item holds; null when it holds none, or none that can be read. */
+export async function readPiece(fs: VaultFs, item: Pick<TrashItem, 'path'>): Promise<Piece | null> {
+  return parsePiece(await fs.readText(item.path).catch(() => ''));
+}
+
+/** Takes an item out of the trash, its file and its row, with nothing else: a piece put back by the app. */
+export async function dropFromTrash(fs: VaultFs, item: Pick<TrashItem, 'path'>): Promise<void> {
+  await fs.remove(item.path).catch(() => undefined);
+  await forget(fs, basename(item.path));
+}
+
+/** What was deleted from a list or a board, or from what was in a folder, follows it when it moves: it goes back to where it is now. */
+export async function relinkTrash(fs: VaultFs, from: string, to: string): Promise<void> {
+  const moves = (path: string) => path === from || path.startsWith(`${from}/`);
+  const records = await readTrashIndex(fs);
+  if (!records.some((r) => pieceKindOf(r.name) && moves(r.from))) return;
+  await changeTrashIndex(fs, (all) => all.map((r) => (pieceKindOf(r.name) && moves(r.from) ? { ...r, from: `${to}${r.from.slice(from.length)}` } : r)));
+}
+
+/** A list or a board a piece in the trash cannot go back to: gone for good, or in the trash itself. */
+export class PieceHomeGone extends Error {
+  constructor(
+    readonly home: string,
+    /** The list or the board in the trash, to be restored first; null when it is gone for good. */
+    readonly inTrash: TrashItem | null,
+  ) {
+    super(inTrash ? `${home} is in the trash; restore it first` : `${home} is not there any more`);
+    this.name = 'PieceHomeGone';
+  }
+}
+
+/** Puts a task, a section or a card back into its list or board, on the files: for what has no app with them open. */
+async function restorePiece(fs: VaultFs, item: TrashItem): Promise<string> {
+  const piece = await readPiece(fs, item);
+  if (!piece) throw new Error(`${item.title} cannot be read`);
+  if (!(await fs.list(dirname(item.from)).catch(() => [])).some((e) => e.path === item.from)) {
+    throw new PieceHomeGone(item.from, (await readTrash(fs)).find((t) => t.from === item.from && (t.kind === 'tasks' || t.kind === 'board')) ?? null);
+  }
+  if (piece.kind === 'card') await saveBoard(fs, item.from, putBackCard(await loadBoard(fs, item.from), piece));
+  else await saveList(fs, item.from, putBackTasks(await loadList(fs, item.from), piece));
+  await dropFromTrash(fs, item);
+  return item.from;
+}
+
 /** Moves a folder to the trash with everything in it, files the app does not show included. */
 export async function trashFolder(fs: VaultFs, path: string, now = new Date()): Promise<void> {
   const target = await trashPath(fs, basename(path), '', now);
@@ -393,8 +457,8 @@ export async function trashFolder(fs: VaultFs, path: string, now = new Date()): 
 export interface TrashItem {
   /** Where it is in the trash. */
   path: string;
-  /** An attachment is a file that no note linked to any more. */
-  kind: 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'folder' | 'attachment';
+  /** An attachment is a file that no note linked to any more; a task, a section and a card are what was deleted from a list or a board. */
+  kind: 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'folder' | 'attachment' | 'task' | 'section' | 'card';
   /** What it was called in the interface. */
   title: string;
   /** The path it had, which it is restored to. */
@@ -411,6 +475,8 @@ export interface TrashItem {
   keys?: number;
   /** How many records a collection has. */
   records?: number;
+  /** How much a task, a section or a card holds: a task's subtasks, a section's tasks, a card's subtasks. */
+  count?: number;
   /** An attachment's size in bytes. */
   size?: number;
   /** An attachment left on the other side: in the trash there, not here. */
@@ -467,6 +533,15 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
       items.push({ path: entry.path, kind: 'attachment', title, from: record.from, deleted: record.deleted, size: entry.size });
       continue;
     }
+    // A task, a section or a card: what it is called and holds is in the index, its file not read.
+    const piece = entry.kind === 'file' ? pieceKindOf(entry.name) : null;
+    if (piece) {
+      const read = record?.title === undefined ? await readPiece(fs, entry) : null;
+      const title = record?.title ?? (read ? pieceTitle(read) : entry.name);
+      const count = record?.count ?? (read ? pieceCount(read) : 0);
+      items.push({ path: entry.path, kind: piece, title, from: record?.from ?? '', deleted: record?.deleted ?? (parseStamp(entry.name)?.time ?? new Date(0)).toISOString(), count });
+      continue;
+    }
     const isFolder = entry.kind === 'dir';
     const isList = !isFolder && entry.name.endsWith(TASK_LIST_EXT);
     const isBoardFile = !isFolder && entry.name.endsWith(BOARD_EXT);
@@ -511,6 +586,7 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
  * it got.
  */
 export async function restoreFromTrash(fs: VaultFs, item: TrashItem): Promise<string> {
+  if (item.kind === 'task' || item.kind === 'section' || item.kind === 'card') return restorePiece(fs, item);
   const folder = dirname(item.from);
   const tree = item.kind === 'folder' || item.kind === 'collection';
   const [name, ext] = tree ? [basename(item.from), ''] : splitName(basename(item.from));

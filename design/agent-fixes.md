@@ -62,7 +62,7 @@ Ayrı dosya iki sorunu da çıkarmıyor: listeler ve panolar küçülür, çöp 
 - Section, sütun ya da faz artık yoksa önce adıyla arar. Onu da bulamazsa görev section'sız, kart ilk sütunda ve fazsız döner.
 - Id'ler ve kart anahtarı (ROA-12) aynı kalır. `nextKey` hiç geri gitmediği için anahtar çakışmaz.
 - O id listede ya da panoda zaten varsa (iki cihaz aynı şeyi geri aldıysa) ikinci kez eklemez.
-- Kartla birlikte çöpe giden dosyalar onunla geri gelir. `canLink` `.json`'u zaten sayıyor, `restoreAttachments` olduğu gibi çalışır.
+- Görevin, section'ın ya da kartın kullandığı dosyalar o çöpteyken `_attachments`'ta yerinde kalır. `canLink` `.json`'u saydığı için çöpteki hali onlara bağlıdır ve taşınmalarını önler. Geri gelince dosyalar zaten yerindedir; arada başka bir yoldan çöpe gitmiş olan varsa `restoreAttachments` ile döner. Çöpten kalıcı silinince `deleteFromTrash` yalnız onun kullandığı dosyaları da siler. (Uygulanırken böyle oldu; ilk taslakta dosyaların onunla çöpe gideceği yazıyordu.)
 - Liste ya da pano çöpteyse geri alma bunu söyler ve önce onu geri getirmeyi önerir. Kalıcı olarak silindiyse geri alınamayacağını söyler.
 - Liste ya da pano sonradan taşınır ya da adı değişirse `move` index'teki `from`'u da yeni yere çevirir. Görevin ve kartın dönüş yeri böylece kaybolmaz.
 
@@ -276,6 +276,8 @@ Hız değil, bir işi bitirmek için ajanın kaç adım attığı ve neye takıl
 2. **Ajan düzeltmeleri** (3. bölüm) ve rehber. Commit c43801c.
 3. **Saat dilimi** (5. bölüm): sunucu, uygulama ve kapı. Commit 8efff2e.
 4. **Geri alınabilir silme** (2. bölüm): çekirdek, Trash ekranı, toast ve ajanın `trash`'i.
-5. **Ajanın sürtünmesi** (6. bölüm): space'siz bulma, kısa liste, toplu ekleme, tarihe göre her yerden, aramada space, gürültüsüz öneriler. Yalnız `packages/agent` ve rehberi değişir; 4. dilimden bağımsızdır, önce ya da sonra yapılabilir.
+5. **Ajanın sürtünmesi** (6. bölüm): space'siz bulma, kısa liste, toplu ekleme, tarihe göre her yerden, aramada space, gürültüsüz öneriler. Yalnız `packages/agent` ve rehberi değişir; 4. dilimden bağımsızdır, önce ya da sonra yapılabilir. Commit 2c03c81.
+
+19 Ekim akşam: 1., 2., 3. ve 5. dilim yayında; sunucu 0.2.15 (44aa658) Coolify'da, web Cloudflare'de.
 
 Her dilim kendi commit'i. 2. ve 3. dilim bitince sunucu 0.2.15 Coolify'a çıkar; 5. dilim de sunucunun bir sonraki sürümüyle çıkar. Web, 1., 3. ve 4. dilimden sonra Cloudflare'e çıkar. Masaüstü bir sonraki sürümle gelir. Her yayından sonra aynı denemeler `MCP Test` klasöründe yeniden yapılır.

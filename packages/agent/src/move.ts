@@ -12,6 +12,7 @@ import {
   relinkBoardNote,
   relinkNote,
   relinkTaskRecords,
+  relinkTrash,
   renameCollection,
   renameItem,
   retargetBoardLinks,
@@ -87,6 +88,8 @@ async function relink(fs: VaultFs, kind: ElementKind, from: string, to: string, 
       if (changed !== current) await saveBoard(fs, board.path, changed);
     }
   }
+  // What was deleted from a list or a board goes back to it where it is now.
+  if (kind === 'tasks' || kind === 'board') await relinkTrash(fs, from, to);
   if (kind === 'board' || kind === 'collection') {
     for (const collection of await elementsOf(fs, ['collection'])) {
       const current = await loadSchema(fs, collection.path);

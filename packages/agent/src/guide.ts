@@ -33,7 +33,8 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 | Finish or drop | a task: \`save_task\` with \`done: true\`; a card: \`save_card\` with \`column: "done"\` or \`"dropped"\` |
 | Change a collection's fields, a board's columns or phases | \`read\` the file, change the JSON, \`write\` it back with \`ifMatch\`; there is no other tool for it |
 | Move or rename a note, list, board or collection | \`move\`; what points at it follows |
-| Remove a note, list, board, folder or collection | \`trash\` |
+| Remove a note, list, board, folder or collection | \`trash\` with its path or name |
+| Remove one task, card or record, or a section with its tasks | \`trash\` with the list, board or collection as \`path\` and \`id\`, or \`section\`; what is finished is closed instead, not trashed |
 | Say what you did on a card | \`comment\` |
 
 Not yours: restoring from the trash, seeing a note's versions, attached files, settings and people. Ask the person for those.

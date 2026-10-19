@@ -8,7 +8,8 @@ import { answer } from './results';
 import { moveTool } from './move';
 import { type Agent, type Client } from './space';
 import { saveTaskTool, tasksTool } from './tasks';
-import { createTool, trashTool, writeTool } from './write';
+import { trashTool } from './trash';
+import { createTool, writeTool } from './write';
 
 // The MCP server: the fifteen tools and the guide, over whatever spaces a door gives it. The
 // same server runs over stdio on a computer and over HTTP on a Scrawl server. See design/agent.md.
@@ -141,8 +142,13 @@ export function buildServer(agent: Agent): McpServer {
     'trash',
     {
       title: 'Trash',
-      description: 'Sends a note, a task list, a board, a folder or a collection to the trash, where the person can restore it; nothing is deleted for good. This is the only way to remove a file. A collection goes by its folder, not by its _collection.json. One task or one card is not trashed: close a task with save_task done: true, drop a card with save_card column: "dropped".',
-      inputSchema: z.object({ space, path: z.string() }),
+      description: 'Sends something to the trash, where the person can restore it; nothing is deleted for good. A note, a task list, a board, a folder or a collection by its path or its name (a collection by its folder, not its _collection.json); with `id`, one task of the list, one card of the board (its key like SCR-12) or one record of the collection given as path; with `section`, a section of the list with its tasks. Trash what should not be there at all, a mistake or a copy; work that is finished or given up is closed instead: a task with save_task done: true, a card with save_card column "done" or "dropped".',
+      inputSchema: z.object({
+        space,
+        path: z.string().describe('What to trash, or the list, board or collection that holds it: its path or its name.'),
+        id: z.string().optional().describe('One task (its id or title), one card (its key, number or id) or one record (its id, name or code) of what path names.'),
+        section: z.string().optional().describe('A section of the list path names, by name: it goes with its tasks.'),
+      }),
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
     (args) => answer(() => trashTool(agent, args)),

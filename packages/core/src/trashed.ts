@@ -2,8 +2,9 @@ import { type Board, BOARD_EXT, loadBoard } from './board';
 import { type Collection, isCollection, loadCollection, RECORD_EXT } from './collection';
 import type { VaultFs } from './fs';
 import { KEYS_EXT, parseKeys } from './keys';
+import { type Piece } from './pieces';
 import { loadList, TASK_LIST_EXT, type TaskList } from './tasks';
-import type { TrashItem } from './vault';
+import { readPiece, type TrashItem } from './vault';
 
 // What a deleted item holds, read where it is in the trash, to be looked at before it is put
 // back: a note's text, a list's tasks, a board's cards, a collection's records, what a folder
@@ -25,7 +26,9 @@ export type Trashed =
   | { kind: 'collection'; collection: Collection }
   | { kind: 'folder'; entries: TrashedEntry[] }
   /** An image or a recording, read; null for another file, or one that is on the other side. */
-  | { kind: 'attachment'; blob: Blob | null };
+  | { kind: 'attachment'; blob: Blob | null }
+  /** A task with its subtasks, a section with its tasks, or a card, as it was deleted; null when its file cannot be read. */
+  | { kind: 'piece'; piece: Piece | null };
 
 const SHOWN = /\.(png|jpe?g|gif|webp|avif|svg|bmp|ico|webm|ogg|oga|opus|mp3|m4a|aac|wav|flac)$/i;
 
@@ -71,5 +74,9 @@ export async function readTrashed(fs: VaultFs, item: TrashItem): Promise<Trashed
       return { kind: 'folder', entries: await treeOf(fs, item.path) };
     case 'attachment':
       return { kind: 'attachment', blob: !item.away && SHOWN.test(item.title) ? await fs.readBlob(item.path) : null };
+    case 'task':
+    case 'section':
+    case 'card':
+      return { kind: 'piece', piece: await readPiece(fs, item) };
   }
 }

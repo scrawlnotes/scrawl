@@ -23,4 +23,5 @@ export * from './tasks';
 export * from './vault';
 export * from './search';
 export * from './trashed';
+export * from './pieces';
 export * from './names';

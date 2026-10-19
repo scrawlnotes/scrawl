@@ -1,4 +1,4 @@
-import { addDays, dayOf, spaceOf, type TrashItem } from '@scrawlnotes/core';
+import { addDays, BOARD_EXT, boardName, dayOf, listName, spaceOf, type TrashItem } from '@scrawlnotes/core';
 import { type ReactNode, useState } from 'react';
 import { sizeText } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
@@ -9,7 +9,16 @@ import { Icon, type IconName } from './Icon';
 import { Empty } from './sheets';
 import { clockTime, contentsText, pastDayLabel } from './text';
 
-const ICONS: Record<Exclude<TrashItem['kind'], 'attachment'>, IconName> = { note: 'note', tasks: 'tasks', board: 'board', keys: 'keys', collection: 'collection', folder: 'folder' };
+const ICONS: Record<Exclude<TrashItem['kind'], 'attachment'>, IconName> = { note: 'note', tasks: 'tasks', board: 'board', keys: 'keys', collection: 'collection', folder: 'folder', task: 'check', section: 'list', card: 'board' };
+
+/** What a task, a section or a card was in, as its row says it. */
+const PIECE_PLACE = { task: 'trash.taskIn', section: 'trash.sectionIn', card: 'trash.cardIn' } as const;
+
+/** A task's, a section's or a card's list or board, by name; empty for anything else. */
+export function pieceHome(item: TrashItem): string {
+  if (item.kind !== 'task' && item.kind !== 'section' && item.kind !== 'card') return '';
+  return item.from.endsWith(BOARD_EXT) ? boardName(item.from) : listName(item.from);
+}
 const IMAGE = /\.(png|jpe?g|gif|webp|avif|svg|bmp|ico)$/i;
 const AUDIO = /\.(webm|ogg|oga|opus|mp3|m4a|aac|wav|flac)$/i;
 
@@ -65,9 +74,12 @@ function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onOpen, on
 }) {
   // An attached file goes back to the attachments, which is no place to name.
   const file = item.kind === 'attachment';
-  const place = file ? '' : bySpace ? trailOf(item.from) : placeLabel(item.from);
+  const home = pieceHome(item);
+  const piece = item.kind === 'task' || item.kind === 'section' || item.kind === 'card';
+  const place = file ? '' : piece ? home : bySpace ? trailOf(item.from) : placeLabel(item.from);
   const meta = [
-    place,
+    piece ? t(PIECE_PLACE[item.kind as keyof typeof PIECE_PLACE], { place: home }) : place,
+    piece && item.count !== undefined && item.count > 0 && t(item.kind === 'section' ? 'count.tasks' : 'count.subtasks', { count: item.count }),
     file && t('trash.unused'),
     item.size !== undefined && sizeText(item.size),
     item.holds && (contentsText(item.holds) || t('trash.emptyFolder')),

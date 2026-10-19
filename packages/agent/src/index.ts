@@ -7,4 +7,5 @@ export { answer, failed, ok } from './results';
 export { buildServer, VERSION } from './server';
 export { type Agent, type AgentSpace, type Client, type Person, actorOf, elementsOf, pickElement, pickRecord, pickSpace } from './space';
 export { saveTaskTool, tasksTool } from './tasks';
-export { createTool, trashTool, writeTool } from './write';
+export { trashTool } from './trash';
+export { createTool, writeTool } from './write';

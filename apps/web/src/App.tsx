@@ -6,6 +6,7 @@ import {
   type FolderLook,
   type NodeTimes,
   isDefaultLook,
+  BOARD_EXT,
   boardName,
   type Card,
   cardBrief,
@@ -34,6 +35,7 @@ import {
   keyOf,
   keysName,
   listName,
+  PieceHomeGone,
   localPath,
   openCardCount,
   openCount,
@@ -47,7 +49,6 @@ import {
   type Subtask,
   updateSubtask,
   filterCards,
-  removeSection,
   removeTask,
   type Section,
   type TaskFilter,
@@ -499,19 +500,23 @@ export function App() {
     const message = contents ? t('delete.folderWithContents', { name, contents }) : t('delete.folderText', { name });
     ask(t('delete.folder'), message, () => void session.trashFolder(path));
   };
-  const deleteTask = (list: string, id: string) => {
-    const listTasks = tasks[list] ?? [];
-    const task = listTasks.find((candidate) => candidate.id === id);
-    if (!task) return;
-    // A task goes together with its subtasks.
-    const subtasks = listTasks.length - removeTask(listTasks, id).length - 1;
-    const name = quote(task.title);
-    const message =
-      subtasks > 0
-        ? t('delete.taskWithSubtasks', { name, subtasks: t('count.subtasks', { count: subtasks }) })
-        : t('delete.taskText', { name });
-    ask(t('delete.task'), message, () => session.removeTask(list, id));
-  };
+  // A task, a section or a card goes to the trash without asking, a task with its subtasks and a
+  // section with its tasks; Undo brings it back at once, the trash later.
+  /**
+   * Puts an item of the trash back. A task, a section or a card whose list or board is in the trash
+   * too asks to bring both back; one whose list or board is gone says so.
+   */
+  const restoreTrashed = (item: TrashItem) =>
+    void session.restore(item).catch((error: unknown) => {
+      if (!(error instanceof PieceHomeGone)) throw error;
+      const name = quote(error.home.endsWith(BOARD_EXT) ? boardName(error.home) : listName(error.home));
+      const what = quote(item.title);
+      const home = error.inTrash;
+      if (home) ask(t('trash.homeInTrash', { name }), t('trash.homeInTrashText', { item: what, name }), () => void session.restore(home).then(() => session.restore(item)), t('trash.restoreBoth'), false);
+      else setNotice(t('trash.homeGone', { name, item: what }));
+    });
+  const toTrash = (removed: Promise<() => Promise<void>>) => void removed.then((undo) => undoable(t('trash.movedNotice'), () => void undo().catch(() => undefined)));
+  const deleteTask = (list: string, id: string) => toTrash(session.removeTask(list, id));
   /**
    * Every list and every section of it, as places to move a task to. The one a top-level task is
    * in is marked; a subtask is in none of them, as moving it makes it a top-level task.
@@ -570,18 +575,10 @@ export function App() {
   ];
 
   // A section goes together with its tasks, as in Todoist.
-  const deleteSection = (list: string, section: Section) => {
-    const whole = { sections: sections[list] ?? [], tasks: tasks[list] ?? [] };
-    const count = whole.tasks.length - removeSection(whole, section.id).tasks.length;
-    const name = quote(section.name);
-    const message =
-      count > 0 ? t('delete.sectionWithTasks', { name, tasks: t('count.tasks', { count }) }) : t('delete.sectionText', { name });
-    ask(t('delete.section'), message, () => session.removeSection(list, section.id));
-  };
+  const deleteSection = (list: string, section: Section) => toTrash(session.removeSection(list, section.id));
 
-  // A card, a column with cards, or a phase is not deleted without asking; closing a phase asks too.
-  const deleteCard = (board: string, card: Card) =>
-    ask(t('delete.card'), t('delete.cardText', { name: quote(card.title) }), () => session.removeCard(board, card.id));
+  // A column with cards, or a phase, is not deleted without asking; closing a phase asks too. A card goes to the trash.
+  const deleteCard = (board: string, card: Card) => toTrash(session.removeCard(board, card.id));
   const deleteColumn = (board: string, column: Column) => {
     const total = boards[board]?.cards.filter((card) => card.column === column.id).length ?? 0;
     if (total === 0) return session.removeColumn(board, column.id);
@@ -1463,9 +1460,10 @@ export function App() {
     updateCard: (board, id, patch) => session.updateCard(board, id, patch),
     changeSubtasks: (board, id, change) => session.changeCardSubtasks(board, id, change),
     completeSubtask: (board, id, subtask) => undoable(t('tasks.completedNotice'), session.completeCardSubtask(board, id, subtask)),
+    removedSubtask: (undo) => undoable(t('subtasks.deletedNotice'), undo),
     addComment: (board, id, text) => session.addComment(board, id, text),
     editComment: (board, id, comment, text) => session.editComment(board, id, comment, text),
-    removeComment: (board, id, comment) => session.removeComment(board, id, comment),
+    removeComment: (board, id, comment) => undoable(t('board.commentDeletedNotice'), session.removeComment(board, id, comment)),
     copyBrief: (board, id) => void copyBrief(board, id),
     openCard: (board, id) => setOpenCard({ board, id }),
     editor: (home, parent, doc, onChange, hint) => session.openEditor(home, parent, doc, onChange, hint),
@@ -1738,7 +1736,7 @@ export function App() {
         spaces={trashSpaces}
         choice={trashChoice}
         onOpen={setTrashOpen}
-        onRestore={(item) => void session.restore(item)}
+        onRestore={restoreTrashed}
         onDelete={deleteForever}
         onEmpty={askEmptyTrash}
       />
@@ -1751,7 +1749,7 @@ export function App() {
         resolveImage={session.imageFrom}
         onRestore={() => {
           setTrashOpen(null);
-          void session.restore(trashShown);
+          restoreTrashed(trashShown);
         }}
         onDelete={() => deleteForever(trashShown, () => setTrashOpen(null))}
         onClose={() => setTrashOpen(null)}
@@ -1867,7 +1865,7 @@ export function App() {
             }}
             canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null || (keysPathOf(id) !== null && keysLooks[keysPathOf(id)!]?.view !== 'text') || (collectionPathOf(id) !== null && (collections[collectionPathOf(id)!]?.schema.fields.length ?? 0) > 0)}
             onAdd={phoneAdd}
-            trashView={<TrashView items={trash} today={today} spaces={trashSpaces} choice={trashChoice} onOpen={setTrashOpen} onRestore={(item) => void session.restore(item)} onDelete={(item) => deleteForever(item)} onEmpty={askEmptyTrash} />}
+            trashView={<TrashView items={trash} today={today} spaces={trashSpaces} choice={trashChoice} onOpen={setTrashOpen} onRestore={restoreTrashed} onDelete={(item) => deleteForever(item)} onEmpty={askEmptyTrash} />}
             trashItem={{
               open: trashShown,
               onShown: () => setTrashOpen(null),
@@ -1879,7 +1877,7 @@ export function App() {
                   resolveImage={session.imageFrom}
                   onRestore={() => {
                     done();
-                    void session.restore(item);
+                    restoreTrashed(item);
                   }}
                   onDelete={() => deleteForever(item, done)}
                 />
@@ -1991,11 +1989,10 @@ export function App() {
                       icon: 'trash',
                       danger: true,
                       // The page goes once the card is deleted, not when it is asked.
-                      run: () =>
-                        ask(t('delete.card'), t('delete.cardText', { name: quote(card.title) }), () => {
-                          setOpenCard(null);
-                          void session.removeCard(board, id);
-                        }),
+                      run: () => {
+                        setOpenCard(null);
+                        deleteCard(board, card);
+                      },
                     },
                   ],
                   { icon: 'board', title: `${keyOf(whole, card)} ${card.title}`, sub: t('phone.cardIn', { board: boardName(board) }) },

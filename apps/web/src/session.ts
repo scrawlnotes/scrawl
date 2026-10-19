@@ -1,5 +1,17 @@
 import { t } from '@scrawlnotes/i18n';
 import {
+  cardPiece,
+  dropFromTrash,
+  PieceHomeGone,
+  putBackCard,
+  putBackTasks,
+  readPiece,
+  relinkTrash,
+  sectionPiece,
+  serializePiece,
+  taskPiece,
+  TASK_LIST_EXT,
+  trashPiece,
   addCard,
   addColumn,
   addComment,
@@ -2961,8 +2973,14 @@ export class Session {
   }
 
   /** Deletes a section with its tasks; the interface asks first. */
-  removeSection(list: string, id: string) {
+  /** Deletes a section with its tasks: they go to the trash, from where they come back; returns what brings them back now, for Undo. */
+  async removeSection(list: string, id: string): Promise<() => Promise<void>> {
+    const piece = sectionPiece(this.listAt(list), id);
+    if (!piece) return async () => undefined;
+    const trashed = await this.trashPieceOf(list, piece);
     this.changeList(list, (current) => removeSection(current, id));
+    await this.freshTrash();
+    return () => this.putBack(list, trashed);
   }
 
   addTask(list: string, input: NewTask) {
@@ -2992,8 +3010,14 @@ export class Session {
     return () => this.changeTasks(list, (tasks) => reopenTasks(tasks, closed));
   }
 
-  removeTask(list: string, id: string) {
+  /** Deletes a task with its subtasks: it goes to the trash, from where it comes back; returns what brings it back now, for Undo. */
+  async removeTask(list: string, id: string): Promise<() => Promise<void>> {
+    const piece = taskPiece(this.listAt(list), id);
+    if (!piece) return async () => undefined;
+    const trashed = await this.trashPieceOf(list, piece);
     this.changeTasks(list, (tasks) => removeTask(tasks, id));
+    await this.freshTrash();
+    return () => this.putBack(list, trashed);
   }
 
   /** Shows a note or a view, adding a tab for it when it has none. */
@@ -3120,9 +3144,41 @@ export class Session {
     this.changeBoard(board, (current) => moveCard(current, id, place, undefined, this.by));
   }
 
-  /** Deletes a card for good; the interface asks first. */
-  removeCard(board: string, id: string) {
-    this.changeBoard(board, (current) => removeCard(current, id));
+  /** Deletes a card: it goes to the trash with its timeline, subtasks and values, from where it comes back; returns what brings it back now, for Undo. */
+  async removeCard(board: string, id: string): Promise<() => Promise<void>> {
+    const current = this.snapshot.boards[board];
+    const piece = current ? cardPiece(current, id) : null;
+    if (!piece) return async () => undefined;
+    const trashed = await this.trashPieceOf(board, piece);
+    this.changeBoard(board, (now) => removeCard(now, id));
+    await this.freshTrash();
+    return () => this.putBack(board, trashed);
+  }
+
+  /** Writes what was deleted from the list or the board at `home` to its space's trash; returns its path there, as the app has it. */
+  private async trashPieceOf(home: string, piece: Parameters<typeof trashPiece>[2]): Promise<string> {
+    const space = spaceOf(home);
+    return inSpace(space, await trashPiece(this.at(home).fs, localPath(home), piece));
+  }
+
+  /**
+   * Puts a task, a section or a card back from the trash into the list or the board at `home`, as
+   * it is shown, and the trash forgets it. A list or a board not open here, in the trash or gone, is
+   * refused with where it is, for the screen to say.
+   */
+  async putBack(home: string, trashed: string): Promise<void> {
+    const fs = this.at(home).fs;
+    const local = { path: localPath(trashed) };
+    const piece = await readPiece(fs, local);
+    if (!piece) return;
+    const open = piece.kind === 'card' ? home in this.snapshot.boards : home in this.snapshot.tasks;
+    if (!open) throw new PieceHomeGone(home, this.snapshot.trash.find((item) => item.from === home && (item.kind === 'tasks' || item.kind === 'board')) ?? null);
+    if (piece.kind === 'card') this.changeBoard(home, (board) => putBackCard(board, piece));
+    else this.changeList(home, (list) => putBackTasks(list, piece));
+    await dropFromTrash(fs, local);
+    // A file it used that went to the trash meanwhile comes back with it.
+    await this.bringBack(spaceOf(home), [serializePiece(piece)]);
+    await this.freshTrash();
   }
 
   /** Gives a board its own fields, its cards' choices renamed with them. */
@@ -3185,8 +3241,19 @@ export class Session {
     this.changeBoard(board, (current) => editComment(current, id, comment, text));
   }
 
-  removeComment(board: string, id: string, comment: string) {
+  /** Deletes a comment; returns what puts it back where it was on the timeline, for Undo. */
+  removeComment(board: string, id: string, comment: string): () => void {
+    const card = this.snapshot.boards[board]?.cards.find((c) => c.id === id);
+    const at = card?.timeline.findIndex((entry) => entry.id === comment) ?? -1;
+    const entry = at >= 0 ? card!.timeline[at]! : undefined;
     this.changeBoard(board, (current) => removeComment(current, id, comment));
+    return () => {
+      if (!entry) return;
+      this.changeBoard(board, (current) => ({
+        ...current,
+        cards: current.cards.map((c) => (c.id !== id || c.timeline.some((e) => e.id === entry.id) ? c : { ...c, timeline: [...c.timeline.slice(0, at), entry, ...c.timeline.slice(at)] })),
+      }));
+    };
   }
 
   addColumn(board: string, name: string, kind: ColumnKind, after?: string) {
@@ -3374,6 +3441,7 @@ export class Session {
   imageFrom = (home: string, src: string): string | Promise<string> => this.resolveImageAt(home, src);
 
   async restore(item: TrashItem) {
+    if (item.kind === 'task' || item.kind === 'section' || item.kind === 'card') return this.putBack(item.from, item.path);
     await restoreFromTrash(...this.trashAt(item));
     await this.refreshTree();
   }
@@ -3615,7 +3683,8 @@ export class Session {
     let restored = 0;
     for (const item of items) {
       try {
-        await restoreFromTrash(...this.trashAt(item));
+        if (item.kind === 'task' || item.kind === 'section' || item.kind === 'card') await this.putBack(item.from, item.path);
+        else await restoreFromTrash(...this.trashAt(item));
         restored++;
       } catch {
         // Gone from the trash meanwhile.
@@ -3657,6 +3726,11 @@ export class Session {
     if (path.endsWith(BOARD_EXT)) {
       for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkBoard(current, path, target));
       if (target !== path) await this.retargetSchemas(path, target);
+    }
+    // What was deleted from a list or a board goes back to it where it is now.
+    if (path.endsWith(TASK_LIST_EXT) || path.endsWith(BOARD_EXT)) {
+      const [was, now] = [this.at(path), this.at(target)];
+      if (was.space === now.space) await relinkTrash(was.fs, was.local, now.local).catch(() => undefined);
     }
     this.moveLook(path, target);
     await this.carryMade(path, target);

@@ -59,6 +59,8 @@ export interface CardPanelActions {
   changeSubtasks: (board: string, id: string, change: (list: Subtask[]) => Subtask[]) => void;
   /** Ticks off a card's subtask, saying so with Undo. */
   completeSubtask: (board: string, id: string, subtask: string) => void;
+  /** A subtask was taken off a card: says so, with Undo. */
+  removedSubtask?: (undo: () => void) => void;
   moveToColumn: (board: string, id: string, column: string) => void;
   /** Asks first, then deletes the card. */
   removeCard: (board: string, card: Card) => void;
@@ -777,6 +779,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
           list={card.subtasks ?? []}
           change={(change) => actions.changeSubtasks(path, card.id, change)}
           complete={(subtask) => actions.completeSubtask(path, card.id, subtask)}
+          removed={actions.removedSubtask}
           team={team}
           today={today}
           menu={actions.menu}
@@ -1146,6 +1149,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
           list={card.subtasks ?? []}
           change={(change) => actions.changeSubtasks(path, card.id, change)}
           complete={(subtask) => actions.completeSubtask(path, card.id, subtask)}
+          removed={actions.removedSubtask}
           team={team}
           today={today}
           menu={actions.menu}

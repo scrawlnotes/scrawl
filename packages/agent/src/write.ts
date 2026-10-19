@@ -1,5 +1,4 @@
 import {
-  BOARD_EXT,
   COLLECTION_TEMPLATES,
   type CollectionTemplate,
   createBoard,
@@ -10,10 +9,8 @@ import {
   dirname,
   fold,
   keepVersion,
-  TASK_LIST_EXT,
   type Template,
   type VaultFs,
-  trashWithFiles,
   markCreated,
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
@@ -21,7 +18,7 @@ import { hashOf, MAX_TEXT } from './read';
 import { checkFile } from './check';
 import { type Agent, AGENT_DEVICE, type AgentSpace, clockOf, elementsOf, exists, filePathOf, foundPath, nowOf, pickPath, pickSpace } from './space';
 
-// Writing: a file as it is, a new element, and the trash. A note the agent writes over keeps its
+// Writing: a file as it is, and a new element. A note the agent writes over keeps its
 // earlier text as a version, every time; nothing is deleted for good.
 
 export const BOARD_TEMPLATES: readonly Template[] = ['software', 'simple', 'issues', 'crm'];
@@ -152,21 +149,4 @@ export async function createTool(agent: Agent, args: { space?: string; folder?: 
   const written = (await space.fs.stat?.(path).catch(() => null))?.modified;
   await markCreated(space.fs, AGENT_DEVICE, { [path]: written ?? nowOf(agent) }).catch(() => undefined);
   return { data: { space: space.id, path, kind: args.kind, created: true } };
-}
-
-export async function trashTool(agent: Agent, args: { space?: string; path: string }) {
-  const typed = checkOpen(cleanPath(args.path));
-  if (!typed) throw new Refusal('What to trash? Give a path');
-  // Without its schema a collection's records are loose notes; the collection goes to the trash whole.
-  if (fileKind(typed) === 'schema') {
-    const folder = typed.split('/').slice(0, -1).join('/');
-    throw new Refusal(`${typed} is a collection’s schema; to remove the collection, trash its folder${folder ? ` (${folder})` : ''}`, { path: typed, ...(folder && { folder }) });
-  }
-  const { space, path } = await pickPath(agent, args.space, typed);
-  const entry = (await exists(space.fs, path))!;
-  const now = nowOf(agent);
-  // The attached files only it used go with it, as they do when the person deletes it.
-  await trashWithFiles(space.fs, path, entry.kind === 'dir', () => [], now);
-  const kind = entry.kind === 'dir' ? 'folder' : path.endsWith(BOARD_EXT) ? 'board' : path.endsWith(TASK_LIST_EXT) ? 'tasks' : 'file';
-  return { data: { space: space.id, trashed: path, kind } };
 }
