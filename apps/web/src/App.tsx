@@ -1632,7 +1632,7 @@ export function App() {
         recording={recording}
         recordError={recordError}
         onFormat={(action) => session.format(action)}
-        onLink={() => setLinkEdit({ url: format?.link?.url ?? '', linked: !!format?.link })}
+        onLink={() => setLinkEdit({ url: format?.link?.url ?? '', linked: !!format?.link && !format.link.bare })}
         onImage={() => session.pickImage()}
         onRecord={() => void session.startRecording()}
         onStop={() => session.stopRecording()}
@@ -2070,8 +2070,8 @@ export function App() {
               link={linkTap}
               onOpen={() => openHref(linkTap.href)}
               onEdit={() => {
-                session.placeCursor(linkTap.pos);
-                setLinkEdit({ url: linkTap.href, linked: true });
+                const link = session.placeCursor(linkTap.pos);
+                setLinkEdit({ url: link?.url ?? linkTap.href, linked: !link?.bare });
               }}
               onCopy={() => void navigator.clipboard.writeText(linkTap.href).then(() => setNotice(t('phone.copied')), () => undefined)}
               onClose={closeLinkTap}

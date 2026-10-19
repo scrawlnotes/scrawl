@@ -243,6 +243,8 @@ import {
   selectSelectionMatches,
   redo,
   undo,
+  linkAt,
+  type LinkInfo,
   setLink,
   visibleText,
   showCopy,
@@ -3870,11 +3872,15 @@ export class Session {
     return hint;
   }
 
-  /** Puts the cursor at `pos` in the note on screen, without bringing up the keyboard: a link tapped, to edit it. */
-  placeCursor(pos: number) {
+  /**
+   * Puts the cursor at `pos` in the note on screen, without bringing up the keyboard: a link
+   * tapped, to edit it. Returns the link there.
+   */
+  placeCursor(pos: number): LinkInfo | null {
     const view = this.editor?.view;
-    if (!view) return;
+    if (!view) return null;
     view.dispatch({ selection: { anchor: Math.min(pos + 1, view.state.doc.length) } });
+    return linkAt(view.state);
   }
 
   /** Find and replace in the note on screen. */

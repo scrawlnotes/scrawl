@@ -19,7 +19,7 @@ import {
 } from '@codemirror/view';
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { t } from '@scrawlnotes/i18n';
-import { linkUrl } from './commands';
+import { bareAddress, linkUrl } from './commands';
 import { IMAGE_SIZES, type ImageSize, MIN_IMAGE_WIDTH, readImageAlt, sizeOfWidth, writtenImageAlt } from './imageWidth';
 import { attachmentOf, AudioWidget, type AwayFileInfo, FileWidget, isAudio, type ItemAction, ItemWidget, type MediaOptions, selectWidget, sizeText } from './media';
 
@@ -50,6 +50,15 @@ const openInBrowser = (href: string) => void window.open(href, '_blank', 'noopen
 // Addresses a Ctrl/Cmd+click opens; any other link is only text to edit.
 const FOLLOWABLE = /^(https?:|mailto:)/i;
 const followKey = () => (typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl');
+
+const linkMark = (href: string) => {
+  const follows = FOLLOWABLE.test(href);
+  return Decoration.mark({
+    class: follows ? 'cm-sl-link cm-sl-link-out' : 'cm-sl-link',
+    attributes: { 'data-href': href, title: follows ? t('editor.linkHint', { href, key: followKey() }) : href },
+    kind: 'link',
+  });
+};
 
 /**
  * An image finished loading, so its line is taller now. The editor measures its lines again only
@@ -515,15 +524,7 @@ function collect(
       out.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget, kind: 'attachment', label }), role: 'unit' });
       return false;
     }
-    if (close.from > open.to) {
-      const follows = FOLLOWABLE.test(href);
-      const deco = Decoration.mark({
-        class: follows ? 'cm-sl-link cm-sl-link-out' : 'cm-sl-link',
-        attributes: { 'data-href': href, title: follows ? t('editor.linkHint', { href, key: followKey() }) : href },
-        kind: 'link',
-      });
-      out.push({ from: open.to, to: close.from, deco });
-    }
+    if (close.from > open.to) out.push({ from: open.to, to: close.from, deco: linkMark(href) });
     hidden(node.from, open.to, 'open', node);
     hidden(close.from, node.to, 'close', node);
   };
@@ -605,6 +606,12 @@ function collect(
         }
 
         if (name === 'Link') return link(ref.node);
+        if (name === 'URL') {
+          // A web address written in the text is a link to itself; the note stays as written.
+          const href = bareAddress(ref.node, doc.sliceString(ref.from, ref.to));
+          if (href) out.push({ from: ref.from, to: ref.to, deco: linkMark(href) });
+          return;
+        }
         if (name === 'Image') {
           image(ref.node);
           return false;

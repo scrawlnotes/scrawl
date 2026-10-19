@@ -128,8 +128,11 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
     if (value !== null) onLink(value.trim());
   };
   const onKey = (event: KeyboardEvent) => {
-    if (event.key === 'Enter') finishLink(url);
-    else if (event.key === 'Escape') finishLink(null);
+    if (event.key === 'Enter') {
+      // The note takes the focus back at once, and the key would go on into it as a new line.
+      event.preventDefault();
+      finishLink(url);
+    } else if (event.key === 'Escape') finishLink(null);
   };
 
   if (linking) {
@@ -148,7 +151,7 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
         <button type="button" onClick={() => finishLink(url)}>
           {t('format.apply')}
         </button>
-        {format?.link && (
+        {format?.link && !format.link.bare && (
           <button type="button" onClick={() => finishLink('')}>
             {t('format.removeLink')}
           </button>

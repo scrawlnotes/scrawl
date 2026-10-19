@@ -124,6 +124,8 @@ export interface LinkInfo {
   to: number;
   text: string;
   url: string;
+  /** A web address written in the text: its text is its address, so it cannot be taken away. */
+  bare?: boolean;
 }
 
 /**
@@ -135,14 +137,34 @@ export function linkUrl(link: SyntaxNode): SyntaxNode | null {
   return link.getChildren('URL').find((url) => close && url.from >= close.to) ?? null;
 }
 
+// Where an address is a link's or an image's own, drawn with it.
+const ADDRESS_OF = new Set(['Link', 'Image', 'Autolink']);
+
 /**
- * The link the main selection lies in, if any. A link to an attached file is not one here: it
- * shows as the file, and its address is not for editing.
+ * Where a web address written in the text points, as GFM reads one: `https://` goes before one
+ * that starts with `www.`. Null for a link's or an image's own address, and for a mail address,
+ * which stays text.
+ */
+export function bareAddress(url: SyntaxNode, text: string): string | null {
+  if (ADDRESS_OF.has(url.parent?.name ?? '')) return null;
+  if (/^https?:\/\//i.test(text)) return text;
+  return /^www\./i.test(text) ? `https://${text}` : null;
+}
+
+/**
+ * The link the main selection lies in, if any, or the web address written in the text there. A
+ * link to an attached file is not one here: it shows as the file, and its address is not for
+ * editing.
  */
 export function linkAt(state: EditorState): LinkInfo | null {
   const node = enclosing(state, state.selection.main, 'Link');
-  const [open, close] = node?.getChildren('LinkMark') ?? [];
-  if (!node || !open || !close) return null;
+  if (!node) {
+    const url = enclosing(state, state.selection.main, 'URL');
+    const text = url ? state.sliceDoc(url.from, url.to) : '';
+    return url && bareAddress(url, text) ? { from: url.from, to: url.to, text, url: text, bare: true } : null;
+  }
+  const [open, close] = node.getChildren('LinkMark');
+  if (!open || !close) return null;
   const url = linkUrl(node);
   if (url && attachmentOf(state.sliceDoc(url.from, url.to))) return null;
   return {
@@ -155,11 +177,26 @@ export function linkAt(state: EditorState): LinkInfo | null {
 
 /**
  * Links the selection to `url`. Inside an existing link the address is replaced, and an empty
- * address removes the link but keeps its text.
+ * address removes the link but keeps its text. A web address written in the text is replaced by
+ * the new one.
  */
 export function setLink(url: string): StateCommand {
   return ({ state, dispatch }) => {
     const existing = linkAt(state);
+    if (existing?.bare) {
+      if (!url) return false;
+      // Written as text, where a space would end it.
+      const insert = url.replace(/\s/g, '%20');
+      dispatch(
+        state.update({
+          changes: { from: existing.from, to: existing.to, insert },
+          selection: EditorSelection.range(existing.from, existing.from + insert.length),
+          scrollIntoView: true,
+          userEvent: 'input.format',
+        }),
+      );
+      return true;
+    }
     const range = existing ?? segments(state, state.selection.main.from, state.selection.main.to)[0];
     if (!range) return false;
     const text = existing ? existing.text : state.sliceDoc(range.from, range.to);

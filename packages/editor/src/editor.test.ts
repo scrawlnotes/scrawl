@@ -85,6 +85,25 @@ describe('live preview', () => {
     expect(decorations('[do|cs](https://x.y) end')).toEqual(['hide 0-1', 'link 1-5', 'hide 5-19']);
   });
 
+  it('shows a web address in the text as a link to it', () => {
+    const doc = 'Memduh Ev:\n\nA blok 5 numara\nhttps://maps.app.goo.gl/ih8GHEhGUKi5c4d47?g_st=ic\n\n- www.example.com/a. kaan@x.com';
+    const state = EditorState.create({ doc, extensions });
+    const links: string[] = [];
+    const iter = buildDecorations(state, [{ from: 0, to: doc.length }], {}, ensureSyntaxTree(state, doc.length, 5000)!).iter();
+    for (; iter.value; iter.next()) {
+      if (iter.value.spec.kind === 'link') links.push(`${doc.slice(iter.from, iter.to)} ${iter.value.spec.attributes['data-href']}`);
+    }
+    expect(links).toEqual([
+      'https://maps.app.goo.gl/ih8GHEhGUKi5c4d47?g_st=ic https://maps.app.goo.gl/ih8GHEhGUKi5c4d47?g_st=ic',
+      'www.example.com/a https://www.example.com/a',
+    ]);
+  });
+
+  it('draws a link whose text is its address once', () => {
+    expect(decorations('[https://x.y](https://x.y)|')).toEqual(['hide 0-1', 'link 1-12', 'hide 12-26']);
+    expect(decorations('![](https://x.y/a.png)|')).toEqual(['image 0-22']);
+  });
+
   it('hides the backslash of an escaped character', () => {
     expect(decorations('a \\*b|')).toEqual(['hide 2-3']);
   });
@@ -303,9 +322,14 @@ describe('literal typing', () => {
     }
   });
 
-  it('keeps a typed link as text', () => {
+  it('keeps a typed link as text, its address a link of its own', () => {
     const doc = typedSlowly('[docs](https://x.y)');
-    expect(decorationsOf(EditorState.create({ doc, extensions })).filter((d) => !d.startsWith('hide'))).toEqual([]);
+    expect(doc).toBe('[docs\\](https://x.y)');
+    expect(decorationsOf(EditorState.create({ doc, extensions })).filter((d) => !d.startsWith('hide'))).toEqual(['link 8-19']);
+  });
+
+  it('leaves a typed web address as written', () => {
+    expect(typedSlowly('https://maps.app.goo.gl/ih8G?g_st=ic and www.a.com/x_y_z')).toBe('https://maps.app.goo.gl/ih8G?g_st=ic and www.a.com/x_y_z');
   });
 
   it('escapes pasted Markdown as a whole', () => {
@@ -666,6 +690,20 @@ describe('pasted links', () => {
     expect(linkAt(EditorState.create({ doc, selection: { anchor: 5 }, extensions }))?.url).toBe(
       'https://en.wikipedia.org/wiki/Scrawl_%28film%29?a[]=1',
     );
+  });
+});
+
+describe('web addresses in the text', () => {
+  it('are links whose text is the address, which cannot be taken away', () => {
+    const state = stateOf('see www.a.com/x|. and kaan@x.com');
+    ensureSyntaxTree(state, state.doc.length, 5000);
+    expect(linkAt(state)).toEqual({ from: 4, to: 15, text: 'www.a.com/x', url: 'www.a.com/x', bare: true });
+    expect(linkAt(stateOf('see www.a.com/x. and kaan@x.|com'))).toBeNull();
+    expect(run(setLink(''), 'see https://a.com/x| end')).toBe('see https://a.com/x| end');
+  });
+
+  it('take a new address in place of the old one', () => {
+    expect(run(setLink('https://b.org/a b'), 'see https://a.com/x| end')).toBe('see |https://b.org/a%20b| end');
   });
 
 });
