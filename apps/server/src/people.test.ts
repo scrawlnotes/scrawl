@@ -112,6 +112,18 @@ describe('roles in a space', () => {
     expect(await refusal(s.as(s.owner).setMemberRole(ACME, (await s.as(s.owner).me()).id, 'member'))).toMatchObject({ code: 'last-manager' });
   });
 
+  it('lets its managers rename it for everyone in it, and no one else', async () => {
+    const s = await start();
+    const mert = await s.invited(ACME, 'Mert', 'mert@example.com');
+    expect(await refusal(s.as(mert.token).renameSpace(ACME, 'Mine now'))).toMatchObject({ status: 403, code: 'not-allowed' });
+    expect(await refusal(s.as(mert.token).renameSpace(OTHER, 'Mine now'))).toMatchObject({ status: 403, code: 'not-member' });
+    expect(await refusal(s.as(s.owner).renameSpace(ACME, '   '))).toMatchObject({ status: 400, code: 'bad-name' });
+    expect(await s.as(s.owner).renameSpace(ACME, ' Acme Inc? ')).toMatchObject({ id: ACME, name: 'Acme Inc?', role: 'manager' });
+    expect((await s.as(mert.token).spaces()).find((each) => each.id === ACME)?.name).toBe('Acme Inc?');
+    await s.as(s.owner).setMemberRole(ACME, mert.account.id, 'manager');
+    expect((await s.as(mert.token).renameSpace(ACME, 'Acme')).name).toBe('Acme');
+  });
+
   it('lets the owner and admins manage every space they are in', async () => {
     const s = await start();
     const lena = await s.invited(OTHER, 'Lena', 'lena@example.com');

@@ -1,7 +1,7 @@
 import { type Found, INBOX_TASKS, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { UpcomingView } from './device';
 import { Icon, type IconName } from './Icon';
@@ -11,7 +11,7 @@ import { type Section, sectionValue, SettingsSection, settingsSections, type Set
 import { PhoneAgents } from './Agents';
 import { PhoneLogs, useLogView } from './Logs';
 import { Spin } from './Loading';
-import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
+import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpaceMenu, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
 import { PhoneSyncList, PhoneSyncPage } from './PhoneSync';
 import { PhoneServerPage, YouAre } from './ServerPeople';
 import { hostOf, knownServers, pendingJoin } from './servers';
@@ -492,7 +492,9 @@ export function Phone(props: PhoneProps) {
   const logView = useLogView();
   // Opened with an invite link, Add space opens with it.
   const [addingSpace, setAddingSpace] = useState(() => !!pendingJoin());
-  const [spaceMenu, setSpaceMenu] = useState<string | null>(null);
+  // The menu of a space's page: a space by its id, null for the personal space's.
+  const [spaceMenu, setSpaceMenu] = useState<string | null | undefined>(undefined);
+  const closeSpaceMenu = useCallback(() => setSpaceMenu(undefined), []);
   const [removingSpace, setRemovingSpace] = useState<string | null>(null);
   const view = useViewport();
   const keyboard = view.keyboard;
@@ -1269,7 +1271,7 @@ export function Phone(props: PhoneProps) {
       // The personal space is the device's own: its folder, its sync and this device's name.
       if (!page.id) {
         return (
-          <PageFrame title={titleOf(page, of)} sub={t('settings.onlyYou')} nav={nav}>
+          <PageFrame title={titleOf(page, of)} sub={t('settings.onlyYou')} nav={{ ...nav, onMenu: () => setSpaceMenu(null) }}>
             <PhonePersonalPage values={props.settings.values} onSync={() => push({ kind: 'sync', space: null })} />
           </PageFrame>
         );
@@ -1400,11 +1402,12 @@ export function Phone(props: PhoneProps) {
           )}
         </div>
       )}
-      {spaceMenu && (
-        <ActionSheet
-          head={{ icon: 'space', title: props.spaces.find((space) => space.id === spaceMenu)?.name ?? '' }}
-          items={[{ label: t('phone.removeFromPhone'), danger: true, run: () => setRemovingSpace(spaceMenu) }]}
-          onClose={() => setSpaceMenu(null)}
+      {spaceMenu !== undefined && (spaceMenu === null || props.spaces.some((space) => space.id === spaceMenu)) && (
+        <PhoneSpaceMenu
+          space={spaceMenu === null ? null : props.spaces.find((space) => space.id === spaceMenu)!}
+          values={props.settings.values}
+          onRemove={() => spaceMenu && setRemovingSpace(spaceMenu)}
+          onClose={closeSpaceMenu}
         />
       )}
       {removingSpace &&

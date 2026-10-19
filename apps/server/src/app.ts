@@ -191,6 +191,8 @@ export function createApp(parts: Parts) {
   app.get('/api/v1/me', (c) => c.json(c.get('account')));
   app.get('/api/v1/spaces', (c) => c.json(spaces.of(c.get('account').id)));
   app.post('/api/v1/spaces', async (c) => c.json(spaces.open(c.get('account'), await json(c))));
+  // A new name, by its managers.
+  app.patch('/api/v1/spaces/:id', async (c) => c.json(spaces.rename(c.req.param('id'), (await json(c)).name, c.get('account'))));
 
   // ---------- a space's files, for those in it ----------
 

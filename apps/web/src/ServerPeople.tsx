@@ -35,6 +35,49 @@ export function YouAre({ url }: { url: string }) {
   return <>{t(role === 'owner' ? 'server.youOwner' : role === 'admin' ? 'server.youAdmin' : 'server.youMember')}</>;
 }
 
+/**
+ * Whether this person renames a space, and its new name sent to its server first where it is on
+ * one. On a server its managers rename it, and the owner and admins who are in it; the server
+ * keeps the name for everyone in it. A space in a folder of the cloud or of the device has no
+ * roles: whoever has it renames it, as the personal space (null) is its person's.
+ */
+export function useSpaceRename(space: SpaceView | null) {
+  const place = space?.source?.provider === 'server' ? space.source.place : null;
+  const url = place?.url ?? '';
+  const id = place?.space ?? '';
+  const [manages, setManages] = useState(!url);
+  useEffect(() => {
+    if (!url) {
+      setManages(true);
+      return;
+    }
+    let live = true;
+    setManages(false);
+    serverAccount(url)
+      .spaces()
+      .then(
+        (list) => {
+          const role = list.find((each) => each.id === id)?.role;
+          const server = knownServers().find((each) => each.url === url)?.role ?? 'member';
+          if (live) setManages(role === 'manager' || (role !== undefined && server !== 'member'));
+        },
+        () => undefined,
+      );
+    return () => {
+      live = false;
+    };
+  }, [url, id]);
+  const onServer = async (name: string) => {
+    if (!url) return;
+    try {
+      await serverAccount(url).renameSpace(id, name);
+    } catch (failure) {
+      throw new Error(serverFailure(failure, hostOf(url)));
+    }
+  };
+  return { canRename: manages, onServer };
+}
+
 /** A space on a server, for its page: who is in it, whether this person manages it, and what managing it does. */
 export function useServerSpace(space: SpaceView, me: Me | null) {
   const url = space.source?.place.url ?? '';

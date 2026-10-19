@@ -2,6 +2,7 @@ import type { MovedMark, Person, PersonRef, ServerSpace } from '@scrawlnotes/cor
 import { refOf } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { type SpacePeople, Who } from './People';
 import type { SpaceView } from './session';
@@ -11,7 +12,7 @@ import { OwnAppSheet, PhoneFolderSheet } from './PhoneSync';
 import { ActionSheet, Sheet, SheetClose } from './sheets';
 import { CloudIcon, personalPlace, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
 import { ConnectServerSheet } from './ServerConnect';
-import { PhoneServerMembers, ROLE_WORD } from './ServerPeople';
+import { PhoneServerMembers, ROLE_WORD, useSpaceRename } from './ServerPeople';
 import { hostOf, type KnownServer, useKnownServers } from './servers';
 
 // The spaces on a phone, after the Phone spaces views of design/mockups.html: Settings › Spaces as
@@ -177,13 +178,22 @@ function PersonRow({ person, you, onHold }: { person: Person; you: boolean; onHo
   );
 }
 
-/** A space's name, typed in a sheet: Cancel, Save, and the name. */
-function NameSheet({ name, onSave, onClose }: { name: string; onSave: (name: string) => void; onClose: () => void }) {
+/** A space's name, typed in a sheet: Cancel, Save, and the name. What a server says when it refuses shows under it, the sheet still open. */
+function NameSheet({ name, onSave, onClose }: { name: string; onSave: (name: string) => void | Promise<void>; onClose: () => void }) {
   const [text, setText] = useState(name);
-  const save = (event?: FormEvent) => {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async (event?: FormEvent) => {
     event?.preventDefault();
-    if (text.trim() && text.trim() !== name) onSave(text.trim());
-    onClose();
+    if (!text.trim() || text.trim() === name) return onClose();
+    setBusy(true);
+    try {
+      await onSave(text.trim());
+      onClose();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+      setBusy(false);
+    }
   };
   return (
     <Sheet label={t('settings.name')} className="mb-create" onClose={onClose}>
@@ -192,17 +202,22 @@ function NameSheet({ name, onSave, onClose }: { name: string; onSave: (name: str
           {t('dialog.cancel')}
         </button>
         <b>{t('settings.name')}</b>
-        <button type="button" className="ok" disabled={!text.trim()} onClick={() => save()}>
+        <button type="button" className="ok" disabled={busy || !text.trim()} onClick={() => void save()}>
           {t('card.save')}
         </button>
       </div>
-      <form className="mb-form" onSubmit={save}>
+      <form className="mb-form" onSubmit={(event) => void save(event)}>
         <div className="mb-group">
           <label className="mb-fr">
             <input className="in" autoFocus enterKeyHint="done" aria-label={t('settings.name')} value={text} onChange={(event) => setText(event.target.value)} />
           </label>
         </div>
       </form>
+      {error && (
+        <p className="mb-hint err" role="alert">
+          {error}
+        </p>
+      )}
     </Sheet>
   );
 }
@@ -225,34 +240,64 @@ function SyncField({ provider, word, onSync }: { provider: string | undefined; w
 }
 
 /**
- * The personal space's page, after the Phone sync more view of design/mockups.html: its name,
- * changed in a sheet, where it is kept, and its sync, which opens its sync page; this device's
- * name apart, which conflict copies made here carry.
+ * A space's menu, from the ··· of its page: Rename, which names it in a sheet, where this person
+ * renames it, and for a space beside the personal one Remove from this phone.
+ */
+export function PhoneSpaceMenu({ space, values, onRemove, onClose }: { space: SpaceView | null; values: SettingsValues; onRemove: () => void; onClose: () => void }) {
+  const renaming = useSpaceRename(space);
+  const [showing, setShowing] = useState(true);
+  const [naming, setNaming] = useState(false);
+  const name = space ? space.name : (values.spaceName ?? t('settings.personal'));
+  // The sheet closes as an item is chosen; the menu is gone once neither it nor the name's sheet is open.
+  useEffect(() => {
+    if (!showing && !naming) onClose();
+  }, [showing, naming, onClose]);
+  const items: MenuItem[] = [
+    ...(renaming.canRename ? [{ label: t('menu.rename'), icon: 'pen' as const, run: () => setNaming(true) }] : []),
+    ...(space ? [{ label: t('phone.removeFromPhone'), danger: true, run: onRemove }] : []),
+  ];
+  return (
+    <>
+      {showing && <ActionSheet head={{ icon: 'space', title: name }} items={items} onClose={() => setShowing(false)} />}
+      {naming && (
+        <NameSheet
+          name={name}
+          onSave={async (named) => {
+            if (!space) return values.onRenameSpace(named);
+            await renaming.onServer(named);
+            values.onRenameSpaceById(space.id, named);
+          }}
+          onClose={() => setNaming(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * The personal space's page, after the Phone sync more view of design/mockups.html: where it is
+ * kept, and its sync, which opens its sync page; this device's name apart, which conflict copies
+ * made here carry. Its name is changed from the page's ···.
  */
 export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; onSync: () => void }) {
-  const [naming, setNaming] = useState<'space' | 'device' | null>(null);
+  const [naming, setNaming] = useState(false);
   const [placing, setPlacing] = useState(false);
   const { sync, syncService } = values;
-  const name = values.spaceName ?? t('settings.personal');
   const unit = sync.all.find((each) => each.space === null);
   return (
     <>
-      <div className="mb-form">
-        <div className="mb-group">
-          <button type="button" className="mb-fr" onClick={() => setNaming('space')}>
-            <span className="fl">{t('settings.name')}</span>
-            <span className="in">{name}</span>
-          </button>
-          {sync.available && (
+      {sync.available && (
+        <div className="mb-form">
+          <div className="mb-group">
             <button type="button" className="mb-fr" onClick={() => setPlacing(true)}>
               <span className="fl">{t('space.location')}</span>
               {sync.connection ? <span className="in">{sync.connection.server ? hostOf(sync.connection.server) : t('sync.oneDrive')}</span> : <span className="in none">{t('sync.notSyncedShort')}</span>}
               <Icon name="chevron" />
             </button>
-          )}
-          {sync.available && sync.connection && <SyncField provider={sync.connection.provider} word={unit && shortOf(unit)} onSync={onSync} />}
+            {sync.connection && <SyncField provider={sync.connection.provider} word={unit && shortOf(unit)} onSync={onSync} />}
+          </div>
         </div>
-      </div>
+      )}
       {!sync.connection && <p className="mb-p">{t('phone.onlyHereText')}</p>}
       {placing && <PhoneSyncPersonalSheet values={values} account={null} onClose={() => setPlacing(false)} />}
       {sync.available && (
@@ -262,7 +307,7 @@ export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; 
           </div>
           <div className="mb-form">
             <div className="mb-group">
-              <button type="button" className="mb-fr" onClick={() => setNaming('device')}>
+              <button type="button" className="mb-fr" onClick={() => setNaming(true)}>
                 <span className="fl">{t('settings.name')}</span>
                 <span className="in">{sync.device.name}</span>
               </button>
@@ -271,8 +316,7 @@ export function PhonePersonalPage({ values, onSync }: { values: SettingsValues; 
           <p className="mb-p">{t('sync.deviceAbout')}</p>
         </>
       )}
-      {naming === 'space' && <NameSheet name={name} onSave={values.onRenameSpace} onClose={() => setNaming(null)} />}
-      {naming === 'device' && <NameSheet name={sync.device.name} onSave={(device) => syncService.renameDevice(device)} onClose={() => setNaming(null)} />}
+      {naming && <NameSheet name={sync.device.name} onSave={(device) => syncService.renameDevice(device)} onClose={() => setNaming(false)} />}
     </>
   );
 }
@@ -459,12 +503,11 @@ export function PhoneSyncPersonalSheet({ values, account: given, follow = null, 
 }
 
 /**
- * A space's page: its name, its sync, which opens the space's sync page, and the people who have
- * opened it, the user first and the inactive last; on a server, who can open it there, its
- * managers marked. Its menu, with Remove from this phone, is on the page's ···.
+ * A space's page: its sync, which opens the space's sync page, and the people who have opened it,
+ * the user first and the inactive last; on a server, who can open it there, its managers marked.
+ * Its menu, with Rename and Remove from this phone, is on the page's ···.
  */
 export function PhoneSpacePage({ space, values, onSync }: { space: SpaceView; values: SettingsValues; onSync: () => void }) {
-  const [naming, setNaming] = useState(false);
   const [held, setHeld] = useState<Person | null>(null);
   const unit = values.sync.all.find((each) => each.space === space.id);
   const me = values.me?.id;
@@ -474,10 +517,6 @@ export function PhoneSpacePage({ space, values, onSync }: { space: SpaceView; va
     <>
       <div className="mb-form">
         <div className="mb-group">
-          <button type="button" className="mb-fr" onClick={() => setNaming(true)}>
-            <span className="fl">{t('settings.name')}</span>
-            <span className="in">{space.name}</span>
-          </button>
           <SyncField provider={space.source?.provider} word={unit && shortOf(unit)} onSync={onSync} />
         </div>
       </div>
@@ -495,7 +534,6 @@ export function PhoneSpacePage({ space, values, onSync }: { space: SpaceView; va
           </div>
         </>
       )}
-      {naming && <NameSheet name={space.name} onSave={(name) => values.onRenameSpaceById(space.id, name)} onClose={() => setNaming(false)} />}
       {held && (
         <ActionSheet
           head={{ icon: 'person', title: held.name ?? t('settings.unnamed'), ...(held.email && { sub: held.email }) }}

@@ -310,6 +310,11 @@ export class ServerAccount {
     return this.client.json('/spaces', jsonBody(personal ? { id, name, personal } : { id, name }));
   }
 
+  /** Names a space anew on the server, for everyone in it; its managers do. */
+  renameSpace(space: string, name: string): Promise<ServerSpace> {
+    return this.client.json(`/spaces/${encodeURIComponent(space)}`, { ...jsonBody({ name }), method: 'PATCH' });
+  }
+
   /** What an invite or a password link is; a refusal when it was used, ran out or leads nowhere. */
   invitation(code: string): Promise<ServerInvitation> {
     return this.client.json(`/invites/${encodeURIComponent(code)}`, {}, false);

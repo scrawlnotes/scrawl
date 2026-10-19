@@ -129,6 +129,16 @@ export class Spaces {
     if (!this.manages(space, by)) throw new Refused(403, 'not-allowed', 'Only the managers of this space do this');
   }
 
+  /** Names a space anew, for everyone in it: its managers do, and the owner of a personal one. */
+  rename(space: string, name: unknown, by: Account): SpaceInfo {
+    this.check(space, by.id);
+    if (!this.manages(space, by)) throw new Refused(403, 'not-allowed', 'Only the managers of this space rename it');
+    const named = typeof name === 'string' ? name.trim().slice(0, 200) : '';
+    if (!named) throw new Refused(400, 'bad-name', 'A space has a name');
+    this.db.prepare('UPDATE spaces SET name = ? WHERE id = ?').run(named, space);
+    return this.info(space, by.id);
+  }
+
   /** Brings someone into a space, as a member, unless they are in it already. */
   add(space: string, account: string, by: string) {
     this.db.prepare("INSERT INTO members (space_id, account_id, role, added_by, added_at) VALUES (?, ?, 'member', ?, ?) ON CONFLICT DO NOTHING").run(space, account, by, this.now());

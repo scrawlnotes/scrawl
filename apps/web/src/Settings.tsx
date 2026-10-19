@@ -11,7 +11,7 @@ import { dueLabel } from './Tasks';
 import { ago, CloudIcon, FolderPicker, OwnApp, personalPlace, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice, useTicking } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 import { ConnectStep, serverFailure } from './ServerConnect';
-import { ROLE_WORD, ServerMembers, ServerPage } from './ServerPeople';
+import { ROLE_WORD, ServerMembers, ServerPage, useSpaceRename } from './ServerPeople';
 import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, tookJoin, useKnownServers } from './servers';
 import { Agents } from './Agents';
 import { LogsSection } from './Logs';
@@ -1243,29 +1243,83 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, o
 }
 
 /** The name of a space, saved with its button; Escape puts the one it has back. */
-function NameRow({ id, name, fallback, onRename }: { id: string; name: string; fallback: string; onRename: (name: string) => void }) {
-  const [draft, setDraft] = useState(name);
-  useEffect(() => setDraft(name), [name]);
-  const changed = (draft.trim() || fallback) !== name;
-  const save = () => {
-    if (changed) onRename(draft);
+/**
+ * A space's name at the top of its page, with Rename beside it where this person renames it:
+ * the name turns into a field, with Save and Cancel. What the server says when it refuses shows
+ * under it, the field still open.
+ */
+function SpaceTop({ name, sub, canRename, onRename }: { name: string; sub: string; canRename: boolean; onRename: (name: string) => void | Promise<void> }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const close = () => {
+    setDraft(null);
+    setError(null);
   };
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') save();
-    else if (event.key === 'Escape' && draft !== name) setDraft(name);
-    else return;
-    event.preventDefault();
+  const save = async () => {
+    const named = draft?.trim() ?? '';
+    if (!named || named === name) return close();
+    setBusy(true);
+    try {
+      await onRename(named);
+      close();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setBusy(false);
+    }
   };
+  if (draft === null) {
+    return (
+      <div className="top">
+        <Icon name="space" />
+        <b>{name}</b>
+        {canRename && (
+          <button type="button" className="st-rename" onClick={() => setDraft(name)}>
+            <Icon name="pen" />
+            {t('menu.rename')}
+          </button>
+        )}
+        <small>{sub}</small>
+      </div>
+    );
+  }
   return (
-    <div className="st-row">
-      <label className="fl" htmlFor={id}>
-        {t('settings.name')}
-      </label>
-      <input id={id} value={draft} autoComplete="off" onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} />
-      <button type="button" className="primary" disabled={!changed} onClick={save}>
-        {t('settings.save')}
-      </button>
-    </div>
+    <>
+      <form
+        className="top naming"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <Icon name="space" />
+        <input
+          autoFocus
+          value={draft}
+          autoComplete="off"
+          aria-label={t('settings.name')}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+          }}
+        />
+        <button type="submit" className="primary" disabled={busy || !draft.trim()}>
+          {t('settings.save')}
+        </button>
+        <button type="button" onClick={close}>
+          {t('dialog.cancel')}
+        </button>
+      </form>
+      {error && (
+        <p className="st-note error" role="alert">
+          {error}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -1305,12 +1359,7 @@ function PersonalPage({
     <>
       {onBack && <BackRow onBack={onBack} />}
       <div className="st-space">
-        <div className="top">
-          <Icon name="space" />
-          <b>{name}</b>
-          <small>{t('settings.onlyYou')}</small>
-        </div>
-        <NameRow id="space-name" name={name} fallback={t('settings.personal')} onRename={onRenameSpace} />
+        <SpaceTop name={name} sub={t('settings.onlyYou')} canRename onRename={onRenameSpace} />
         <div className="st-row">
           <span className="fl">{t('settings.folder')}</span>
           {folder ? (
@@ -1780,16 +1829,20 @@ function SpacePage({ space, me, onPersonActive, sync, service, onRename, onChang
   onRemoved: () => void;
   onRemoveSpace: SettingsValues['onRemoveSpace'];
 }) {
+  const renaming = useSpaceRename(space);
   return (
     <>
       <BackRow onBack={onBack} />
       <div className="st-space">
-        <div className="top">
-          <Icon name="space" />
-          <b>{space.name}</b>
-          <small>{t('settings.shared')}</small>
-        </div>
-        <NameRow id="space-name" name={space.name} fallback={space.name} onRename={onRename} />
+        <SpaceTop
+          name={space.name}
+          sub={t('settings.shared')}
+          canRename={renaming.canRename}
+          onRename={async (name) => {
+            await renaming.onServer(name);
+            onRename(name);
+          }}
+        />
         <div className="st-row">
           <span className="fl">{t('settings.folder')}</span>
           {space.folder ? (
