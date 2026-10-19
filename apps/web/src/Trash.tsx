@@ -87,6 +87,7 @@ function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onOpen, on
     item.cards !== undefined && item.cards > 0 && t('count.cards', { count: item.cards }),
     item.keys !== undefined && item.keys > 0 && t('count.keys', { count: item.keys }),
     item.records !== undefined && item.records > 0 && t('count.records', { count: item.records }),
+    item.here && t('trash.here'),
     bySpace ? whenOf(item, today) : clockTime(item.deleted),
   ].filter(Boolean);
   const restore = file ? t('trash.restore') : t('trash.restoreTo', { place: place || t('trash.topLevel') });

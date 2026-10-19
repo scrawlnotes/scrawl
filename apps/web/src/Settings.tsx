@@ -10,14 +10,14 @@ import type { Connection, SyncService, SyncSnapshot } from './sync';
 import { dueLabel } from './Tasks';
 import { ago, CloudIcon, FolderPicker, OwnApp, personalPlace, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice, useTicking } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
-import { ConnectStep, serverFailure } from './ServerConnect';
+import { ConnectStep, serverFailure, signInWords } from './ServerConnect';
 import { ROLE_WORD, ServerMembers, ServerPage, useSpaceRename } from './ServerPeople';
-import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, tookJoin, useKnownServers } from './servers';
+import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, type SignInWhy, signInWhy, tookJoin, useKnownServers } from './servers';
 import { Agents } from './Agents';
 import { LogsSection } from './Logs';
 import { checkForUpdates, releasePage, useAppVersion, useDesktopUpdate } from './desktopUpdate';
 import { APP_VERSION, checkForWebUpdate, PUBLISHED, subscribeUpdate, webUpdatesOn, webUpdateStatus } from './pwa';
-import { isDesktop, openUrlOnDesktop } from './storage';
+import { type AskOneDrive, isDesktop, type OneDriveAnswer, openUrlOnDesktop } from './storage';
 
 export type Section = 'profile' | 'appearance' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
 
@@ -71,8 +71,8 @@ export interface SettingsValues {
   onSection?: (section: Section, options?: { adding?: boolean }) => void;
   /** Spaces opens with Add space open: asked for from Agents, to connect a server. */
   initialAdding?: boolean;
-  /** Desktop: asks for another folder for a space's copy on this device, and moves it there. */
-  onChangeSpaceFolder?: (id: string) => void;
+  /** Desktop: asks for another folder for a space's copy on this device, and moves it there; one in OneDrive is asked about with `ask`. */
+  onChangeSpaceFolder?: (id: string, ask: AskOneDrive) => void;
   /** The space whose page Spaces opens on: an id, null for the personal space, undefined for the list. */
   initialSpace?: string | null;
   /** Back from signing in to add a space: Spaces opens with Add space, its folder to be chosen in this account. */
@@ -81,8 +81,8 @@ export interface SettingsValues {
   folder: string | null;
   /** Desktop: the folder the notes go to unless another is chosen. */
   defaultFolder: string | null;
-  /** Desktop: asks for another notes folder. */
-  onChangeFolder?: () => void;
+  /** Desktop: asks for another notes folder; one in OneDrive is asked about with `ask`. */
+  onChangeFolder?: (ask: AskOneDrive) => void;
   /** Desktop: goes back to the default folder. */
   onUseDefaultFolder?: () => void;
   /** How the space's sync stands, and what connects and disconnects it. */
@@ -503,6 +503,7 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
   const [addingFrom, setAddingFrom] = useState<{ server: string; space: string } | null>(null);
   const servers = useKnownServers();
   const [removing, setRemoving] = useState<SpaceView | null>(null);
+  const [oneDrive, askOneDrive] = useOneDriveAsk();
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; id: string } | null>(null);
   // The account the page came back from Microsoft with is taken once.
   useEffect(() => {
@@ -533,7 +534,15 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
         }
       }}
     />;
-  if (page === null) return <PersonalPage {...values} onBack={() => setPage(undefined)} />;
+  if (page === null) {
+    const { onChangeFolder } = values;
+    return (
+      <>
+        <PersonalPage {...values} onChangeFolder={onChangeFolder && (() => onChangeFolder(askOneDrive))} onBack={() => setPage(undefined)} />
+        {oneDrive}
+      </>
+    );
+  }
   const onServer = serverPage ? servers.find((each) => each.url === serverPage) : undefined;
   if (onServer) {
     return (
@@ -559,20 +568,23 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
   const shown = page === undefined ? null : spaces.find((space) => space.id === page);
   if (shown) {
     return (
-      <SpacePage
-        space={shown}
-        me={values.me}
-        onPersonActive={(person, active) => values.onPersonActive(shown.id, person, active)}
-        sync={sync}
-        service={syncService}
-        onRename={(name) => values.onRenameSpaceById(shown.id, name)}
-        {...(values.onChangeSpaceFolder && { onChangeFolder: () => values.onChangeSpaceFolder!(shown.id) })}
-        onBack={() => setPage(undefined)}
-        onRemove={() => setRemoving(shown)}
-        removing={removing}
-        onRemoved={() => setRemoving(null)}
-        onRemoveSpace={onRemoveSpace}
-      />
+      <>
+        <SpacePage
+          space={shown}
+          me={values.me}
+          onPersonActive={(person, active) => values.onPersonActive(shown.id, person, active)}
+          sync={sync}
+          service={syncService}
+          onRename={(name) => values.onRenameSpaceById(shown.id, name)}
+          {...(values.onChangeSpaceFolder && { onChangeFolder: () => values.onChangeSpaceFolder!(shown.id, askOneDrive) })}
+          onBack={() => setPage(undefined)}
+          onRemove={() => setRemoving(shown)}
+          removing={removing}
+          onRemoved={() => setRemoving(null)}
+          onRemoveSpace={onRemoveSpace}
+        />
+        {oneDrive}
+      </>
     );
   }
   const spaceMenu = (event: MouseEvent, id: string) => {
@@ -764,6 +776,46 @@ export function RemoveSpaceDialog({ space, onRemove, onClose }: { space: Pick<Sp
   );
 }
 
+/** Desktop: the question about a folder chosen in OneDrive, whose app would sync it a second time. Enter chooses another. */
+function OneDriveFolderDialog({ onAnswer }: { onAnswer: (answer: OneDriveAnswer) => void }) {
+  const title = t('settings.inOneDrive');
+  const onKey = (event: KeyboardEvent) => {
+    // Enter on Use it anyway is that button's own click.
+    if (event.key !== 'Enter' || event.target instanceof HTMLButtonElement) return;
+    event.preventDefault();
+    onAnswer('another');
+  };
+  return (
+    <Dialog label={title} onClose={() => onAnswer(null)} onKeyDown={onKey}>
+      <h2>{title}</h2>
+      <p className="confirm">{t('settings.inOneDriveText')}</p>
+      <div className="dialog-actions">
+        <button type="button" onClick={() => onAnswer('use')}>
+          {t('settings.useAnyway')}
+        </button>
+        <button type="button" className="primary" onClick={() => onAnswer('another')}>
+          {t('settings.chooseAnother')}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
+/** The question about a folder in OneDrive, drawn where the settings are, and the ask that opens it and waits for its answer. */
+function useOneDriveAsk(): [ReactNode, AskOneDrive] {
+  const [answering, setAnswering] = useState<((answer: OneDriveAnswer) => void) | null>(null);
+  const ask: AskOneDrive = () => new Promise((resolve) => setAnswering(() => resolve));
+  const window = answering && (
+    <OneDriveFolderDialog
+      onAnswer={(answer) => {
+        setAnswering(null);
+        answering(answer);
+      }}
+    />
+  );
+  return [window, ask];
+}
+
 /**
  * Add space, after the Add space views of design/mockups.html: a name, where the space lives (a
  * row for each place, with the account it is connected to: OneDrive now, more later) and the
@@ -822,7 +874,7 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
   // The server's spaces not on this device, null while it is asked; and the one chosen, `new` for a new one.
   const [serverSpaces, setServerSpaces] = useState<ServerSpace[] | null>(null);
   const [choice, setChoice] = useState('new');
-  const [serverSignedOut, setServerSignedOut] = useState(false);
+  const [serverSignedOut, setServerSignedOut] = useState<SignInWhy | null>(null);
   // The link the app was opened with goes into Connect a server…, which opens with it.
   const [start] = useState(pendingJoin);
   const [connecting, setConnecting] = useState(!!start);
@@ -835,7 +887,7 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
     if (!server) return;
     let live = true;
     setServerSpaces(null);
-    setServerSignedOut(false);
+    setServerSignedOut(null);
     setError(null);
     const account = serverAccount(server.url);
     Promise.all([account.spaces(), account.me()]).then(
@@ -853,7 +905,7 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
       (failure: unknown) => {
         if (!live) return;
         setServerSpaces([]);
-        if (failure instanceof RemoteSignedOut) setServerSignedOut(true);
+        if (failure instanceof RemoteSignedOut) setServerSignedOut(signInWhy(failure, server.url));
         else setError(serverFailure(failure, hostOf(server.url)));
       },
     );
@@ -872,7 +924,7 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
     setServers(knownServers());
     setConnecting(false);
     setWhere(signedIn.url);
-    setServerSignedOut(false);
+    setServerSignedOut(null);
     if (after && 'reset' in after) {
       onDone(null);
       return;
@@ -965,7 +1017,7 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
         onDone(await onAdd(name, source(id), id));
       }
     } catch (failure) {
-      if (failure instanceof RemoteSignedOut) setServerSignedOut(true);
+      if (failure instanceof RemoteSignedOut) setServerSignedOut(signInWhy(failure, on.url));
       else setError(serverFailure(failure, hostOf(on.url)));
       setBusy(false);
     }
@@ -1106,7 +1158,7 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, o
           <ConnectStep
             me={me}
             device={sync.device.name}
-            again={serverSignedOut && server ? { url: server.url, email: server.email } : undefined}
+            again={serverSignedOut && server ? { url: server.url, email: server.email, why: serverSignedOut } : undefined}
             start={start}
             onDone={connected}
             onBack={() => setConnecting(false)}
@@ -1138,7 +1190,7 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, o
                 {serverSignedOut ? (
                   <div className="connect">
                     <ServerIcon />
-                    <span>{t('server.signInAgain', { host: hostOf(server.url) })}</span>
+                    <span>{signInWords(serverSignedOut, hostOf(server.url))}</span>
                     <button type="button" className="st-btn go" onClick={() => setConnecting(true)}>
                       {t('server.signIn')}
                     </button>
@@ -1361,7 +1413,7 @@ function PersonalPage({
   syncService,
   onBack,
   me,
-}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService' | 'me'> & { onBack?: () => void }) {
+}: Pick<SettingsValues, 'spaceName' | 'onRenameSpace' | 'folder' | 'defaultFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService' | 'me'> & { onChangeFolder?: () => void; onBack?: () => void }) {
   const name = spaceName ?? t('settings.personal');
   // Where it syncs is chosen in one window; back from Microsoft with an account, it opens at OneDrive's folders.
   const [placing, setPlacing] = useState(false);
@@ -1476,7 +1528,7 @@ export function useSyncPersonal({ sync, service, name, account: given, follow, o
   const [there, setThere] = useState<ServerSpace | null | undefined>(undefined);
   // Whether the server keeps personal spaces: one from before them would open a shared space instead.
   const [keeps, setKeeps] = useState(true);
-  const [serverSignedOut, setServerSignedOut] = useState(false);
+  const [serverSignedOut, setServerSignedOut] = useState<SignInWhy | null>(null);
   // Following to a server this device is not signed in to: connecting to it comes first.
   const [connecting, setConnecting] = useState(!!followUrl && !servers.some((each) => each.url === followUrl));
   // Asked when it moves: the copy in the place it leaves goes too.
@@ -1496,7 +1548,7 @@ export function useSyncPersonal({ sync, service, name, account: given, follow, o
     if (!server) return;
     let live = true;
     setThere(undefined);
-    setServerSignedOut(false);
+    setServerSignedOut(null);
     setError(null);
     const asked = serverAccount(server.url);
     Promise.all([asked.spaces(), asked.me(), asked.status()]).then(
@@ -1510,7 +1562,7 @@ export function useSyncPersonal({ sync, service, name, account: given, follow, o
       (failure: unknown) => {
         if (!live) return;
         setThere(null);
-        if (failure instanceof RemoteSignedOut) setServerSignedOut(true);
+        if (failure instanceof RemoteSignedOut) setServerSignedOut(signInWhy(failure, server.url));
         else setError(serverFailure(failure, hostOf(server.url)));
       },
     );
@@ -1524,7 +1576,7 @@ export function useSyncPersonal({ sync, service, name, account: given, follow, o
     service.signedInToServer(signedIn);
     setServers(knownServers());
     setConnecting(false);
-    setServerSignedOut(false);
+    setServerSignedOut(null);
     setWhere(signedIn.url);
   };
 
@@ -1589,7 +1641,7 @@ export function useSyncPersonal({ sync, service, name, account: given, follow, o
       }
       onDone();
     } catch (failure) {
-      if (failure instanceof RemoteSignedOut) setServerSignedOut(true);
+      if (failure instanceof RemoteSignedOut && server) setServerSignedOut(signInWhy(failure, server.url));
       else setError(server ? serverFailure(failure, hostOf(server.url)) : failure instanceof Error ? failure.message : String(failure));
       setBusy(false);
     }
@@ -1698,7 +1750,7 @@ function SyncPersonalDialog({ sync, service, me, name, account: given, follow, o
             addressOnly
             me={me}
             device={sync.device.name}
-            again={p.serverSignedOut && p.server ? { url: p.server.url, email: p.server.email } : undefined}
+            again={p.serverSignedOut && p.server ? { url: p.server.url, email: p.server.email, why: p.serverSignedOut } : undefined}
             start={p.followUrl ?? null}
             onDone={p.connected}
             onBack={() => p.setConnecting(false)}
@@ -1769,7 +1821,7 @@ function SyncPersonalDialog({ sync, service, me, name, account: given, follow, o
                 {p.serverSignedOut ? (
                   <div className="connect">
                     <ServerIcon />
-                    <span>{t('server.signInAgain', { host: hostOf(p.server.url) })}</span>
+                    <span>{signInWords(p.serverSignedOut, hostOf(p.server.url))}</span>
                     <button type="button" className="st-btn go" onClick={() => p.setConnecting(true)}>
                       {t('server.signIn')}
                     </button>

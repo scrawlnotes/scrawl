@@ -24,6 +24,8 @@ const APP_DIR = '.scrawl';
 const TRASH = `${APP_DIR}/trash`;
 /** Where each item in the trash was before it was deleted. */
 const TRASH_INDEX = `${TRASH}/index.json`;
+/** The names of what is in this device's trash only, kept on the device: see `trashItem`'s `here`. */
+const TRASH_HERE = `${APP_DIR}/trash-here.json`;
 const WORKSPACE = `${APP_DIR}/workspace.json`;
 
 export interface TreeNode {
@@ -369,7 +371,39 @@ async function changeTrashIndex(fs: VaultFs, change: (records: TrashRecord[]) =>
   await fs.writeText(TRASH_INDEX, `${JSON.stringify({ version: 1, items: records }, null, 2)}\n`);
 }
 
-const forget = (fs: VaultFs, name: string) => changeTrashIndex(fs, (records) => records.filter((r) => r.name !== name));
+async function readHere(fs: VaultFs): Promise<string[]> {
+  try {
+    const names = (JSON.parse(await fs.readText(TRASH_HERE)) as { names?: unknown }).names;
+    return Array.isArray(names) ? names.filter((name): name is string => typeof name === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+async function changeHere(fs: VaultFs, change: (names: string[]) => string[]): Promise<void> {
+  const before = await readHere(fs);
+  const names = change(before);
+  if (names.length === before.length && names.every((name, i) => name === before[i])) return;
+  if (names.length === 0) await fs.remove(TRASH_HERE).catch(() => undefined);
+  else await fs.writeText(TRASH_HERE, `${JSON.stringify({ version: 1, names }, null, 2)}\n`);
+}
+
+const forget = async (fs: VaultFs, name: string) => {
+  await changeTrashIndex(fs, (records) => records.filter((r) => r.name !== name));
+  await changeHere(fs, (names) => names.filter((n) => n !== name));
+};
+
+/**
+ * The paths of what is in this device's trash only, for sync to pass over. A name whose file is
+ * no longer there (restored, deleted for good) is forgotten.
+ */
+export async function trashedHere(fs: VaultFs): Promise<string[]> {
+  const names = await readHere(fs);
+  if (names.length === 0) return [];
+  const there = new Set((await fs.list(TRASH).catch(() => [])).map((entry) => entry.name));
+  await changeHere(fs, (all) => all.filter((name) => there.has(name)));
+  return names.filter((name) => there.has(name)).map((name) => join(TRASH, name));
+}
 
 /**
  * Whether the trash's index says `path`, or a folder it was in, was deleted after `since` (in
@@ -392,10 +426,16 @@ async function trashPath(fs: VaultFs, name: string, ext: string, now: Date): Pro
   return freePath(TRASH, `${stamp(now)} ${name}`, ext, await names(fs, TRASH));
 }
 
-/** Deleted notes and task lists go to the trash instead of being removed, and the trash remembers where they were. */
-export async function trashItem(fs: VaultFs, path: string, now = new Date()): Promise<void> {
+/**
+ * Deleted notes and task lists go to the trash instead of being removed, and the trash remembers
+ * where they were. With `here`, a file sync found on this device only, gone on the other side,
+ * goes to this device's trash and is never sent up; restored, it is synced again.
+ */
+export async function trashItem(fs: VaultFs, path: string, now = new Date(), { here = false }: { here?: boolean } = {}): Promise<void> {
   const [name, ext] = splitName(basename(path));
   const target = await trashPath(fs, name, ext, now);
+  // Listed first, so that a turn of syncing that reads the trash meanwhile already passes it over.
+  if (here) await changeHere(fs, (names) => [...names, basename(target)]);
   // A file left on the other side goes to the trash there, with the next turn of syncing.
   if (await awayAt(fs, path)) await moveAway(fs, path, target);
   else await fs.move(path, target);
@@ -498,6 +538,8 @@ export interface TrashItem {
   size?: number;
   /** An attachment left on the other side: in the trash there, not here. */
   away?: boolean;
+  /** A file sync found here only, gone on the other side: in this device's trash, never sent up. */
+  here?: boolean;
 }
 
 /** What a folder holds, all the way down. */
@@ -594,7 +636,8 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
     if (!record?.from.startsWith(`${ATTACHMENTS}/`)) continue;
     items.push({ path: file.path, kind: 'attachment', title: basename(record.from), from: record.from, deleted: record.deleted, size: file.size, away: true });
   }
-  return items.sort((a, b) => b.deleted.localeCompare(a.deleted));
+  const here = new Set(await readHere(fs));
+  return items.map((item) => (here.has(basename(item.path)) ? { ...item, here: true } : item)).sort((a, b) => b.deleted.localeCompare(a.deleted));
 }
 
 /**
@@ -642,6 +685,7 @@ export async function emptyTrash(fs: VaultFs, unsaved: string[] = []): Promise<v
   if ((await fs.list(TRASH)).length === 0 && away.length === 0) return;
   const texts = await textsOf(fs, TRASH);
   await fs.remove(TRASH);
+  await changeHere(fs, () => []);
   for (const file of away) await removeAway(fs, file.path);
   await removeAttachmentsOf(fs, texts, unsaved);
 }

@@ -1,7 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { readServerInput } from './server';
+import { RemoteSignedOut } from './remote';
+import { readServerInput, ServerRemote } from './server';
 
 // The server itself is tried in apps/server, against this client.
+
+describe('a space on a server that cannot be reached with this device’s key', () => {
+  const signedOut = (remote: ServerRemote) => remote.changes(null).then(
+    () => null,
+    (error: unknown) => error,
+  );
+
+  it('says this device has no key, when it has none, without asking the server', async () => {
+    let asked = 0;
+    const fetch = (async () => {
+      asked++;
+      return new Response('{}');
+    }) as typeof globalThis.fetch;
+    const error = await signedOut(new ServerRemote({ url: 'https://kaan.scrawlnotes.com', token: () => null, space: 'sp-1', fetch }));
+    expect(error).toBeInstanceOf(RemoteSignedOut);
+    expect((error as RemoteSignedOut).notYet).toBe(true);
+    expect(asked).toBe(0);
+  });
+
+  it('says the server no longer takes the key it has', async () => {
+    const fetch = (async () => new Response('{}', { status: 401 })) as typeof globalThis.fetch;
+    const error = await signedOut(new ServerRemote({ url: 'https://kaan.scrawlnotes.com', token: () => 'old-key', space: 'sp-1', fetch }));
+    expect(error).toBeInstanceOf(RemoteSignedOut);
+    expect((error as RemoteSignedOut).notYet).toBe(false);
+  });
+});
 
 describe('what is typed in Connect a server…', () => {
   it('takes an address with or without https://, keeping only where the server is', () => {

@@ -1352,6 +1352,24 @@ input:focus {
   font-weight: 600;
 }
 
+/* A space waiting for a sign-in, beside sync while sync speaks of another: it signs in. */
+.status .sign-in {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 20px;
+  margin: 0 -6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  color: var(--sl-accent);
+}
+
+.status .sign-in:hover {
+  background: var(--sl-sel);
+  color: var(--sl-accent);
+}
+
 /* sync in the status bar: how it stands, which opens its settings, and Sync now beside it */
 .status .sync-st {
   display: flex;
@@ -10690,6 +10708,19 @@ button.st-li:hover,
   white-space: nowrap;
 }
 
+/* A space kept from going on, on its row of the panel: in the accent; waiting for a sign-in, with a key. */
+.sp-sp .r.bad {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--sl-accent);
+}
+
+.sp-sp .r .icon {
+  width: 12px;
+  height: 12px;
+}
+
 .sp-sp .r {
   color: var(--sl-faint);
   font-size: 11.5px;
@@ -11970,6 +12001,24 @@ button.st-li:hover,
   display: flex;
   align-items: center;
   padding-right: 10px;
+}
+
+/* A space waiting for a sign-in: its heading marked where a folder has its count, and inside it,
+   first, a row in the accent that signs in. */
+.it .ct.need {
+  display: flex;
+  align-items: center;
+  padding-right: 10px;
+  color: var(--sl-accent);
+}
+
+.it.need {
+  color: var(--sl-accent);
+  font-size: 12.5px;
+}
+
+.it.need:hover {
+  color: var(--sl-accent);
 }
 
 /* In a space or an open folder not read yet: Loading…, where its items will be. */

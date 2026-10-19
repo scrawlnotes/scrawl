@@ -264,6 +264,7 @@ import welcomeComputer from './welcome.md?raw';
 import welcomePhone from './welcome.phone.md?raw';
 import {
   addSpaceEntry,
+  type AskOneDrive,
   chooseVaultFolder,
   moveSpaceEntry,
   defaultVaultFolder,
@@ -2250,9 +2251,9 @@ export class Session {
     }
   }
 
-  /** Desktop: asks for the notes folder and opens it. Open notes are saved and closed first. */
-  async chooseFolder() {
-    if (!this.parent || !(await chooseVaultFolder())) return;
+  /** Desktop: asks for the notes folder and opens it. Open notes are saved and closed first. A folder in OneDrive is asked about with `ask`. */
+  async chooseFolder(ask: AskOneDrive) {
+    if (!this.parent || !(await chooseVaultFolder(ask))) return;
     await this.reopen();
   }
 

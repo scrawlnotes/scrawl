@@ -1,6 +1,6 @@
 import { basename, dirname, type Entry, type VaultFs } from '../fs';
 import { freePath, splitName } from '../paths';
-import { deletedSince, trashItem } from '../vault';
+import { deletedSince, trashedHere, trashItem } from '../vault';
 import { finishAwayOps, mayStayAway, readAwayOps } from './away';
 import { sha256 } from './hash';
 import { mergeFile, mergeKindOf } from './merge-files';
@@ -213,6 +213,8 @@ class Turn {
     this.stage = 'checking';
     this.looked = 0;
     this.local = await walk(this.fs);
+    // What a turn put in this device's trash only, found here alone, stays here.
+    for (const path of await trashedHere(this.fs)) this.local.files.delete(keyOf(path));
     this.refuseNames();
     this.tell();
 
@@ -700,14 +702,14 @@ class Turn {
    * the trash came over, or the trash's index says it, or a folder it was in, was deleted after
    * it last changed here, its copy in the trash left on the other side or another version of it,
    * as on a device back after a long time. What went otherwise goes to this device's trash, as
-   * everything sync deletes does.
+   * everything sync deletes does, and stays there: found here alone, it is not sent up.
    */
   private async removeHere(key: string): Promise<void> {
     const entry = this.local.files.get(key)!;
     const record = this.state.files[key]!;
     if (!(await this.untouched(key, entry.path))) return;
     if (isUnder(key, TRASH) || (await this.inTrash(record)) || (await deletedSince(this.fs, entry.path, entry.modified))) await this.fs.remove(entry.path);
-    else await trashItem(this.fs, entry.path, this.now());
+    else await trashItem(this.fs, entry.path, this.now(), { here: true });
     this.report.removedHere.push(entry.path);
     this.result = 'trashed';
     await this.drop(key);

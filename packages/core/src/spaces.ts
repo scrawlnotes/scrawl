@@ -332,6 +332,16 @@ export function foldersNest(a: string, b: string): boolean {
 }
 
 /**
+ * Whether a folder on a computer is inside OneDrive's, whose app syncs it too: on Windows a
+ * folder `OneDrive`, or `OneDrive - <organization>` for a work account, on the way down to it; on
+ * macOS one of `Library/CloudStorage/OneDrive-…`. Told by the path alone, the app running or not.
+ */
+export function inOneDrive(path: string): boolean {
+  const parts = folderKey(path).toLowerCase().split('/');
+  return parts.some((part, i) => part === 'onedrive' || part.startsWith('onedrive - ') || (part.startsWith('onedrive-') && parts[i - 1] === 'cloudstorage' && parts[i - 2] === 'library'));
+}
+
+/**
  * The spaces beside the personal one, by id, once `dragged` is dropped before or after the space
  * `target` names; null is the personal space, which stays first, so after it is the first place.
  */

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type Card, parseBoard, serializeBoard } from '../board';
 import { type Entry, MemoryFs, type VaultFs } from '../fs';
 import { parseList, serializeList, type Task } from '../tasks';
-import { readTrash, trashFolder, trashItem, trashPiece } from '../vault';
+import { deleteFromTrash, emptyTrash, readTrash, restoreFromTrash, trashFolder, trashItem, trashPiece } from '../vault';
 import { type SyncDevice, type SyncProgress, syncOnce } from './engine';
 import { isSynced } from './paths';
 import { MemoryRemote, type RemoteStore } from './remote';
@@ -633,6 +633,55 @@ describe('sync', () => {
       await remote.remove('Plans/Week.tasks.json', await tagOf(remote, 'Plans/Week.tasks.json'));
       await syncLaptop();
       expect((await readTrash(laptop)).filter((item) => item.kind === 'tasks').map((item) => item.from)).toEqual(['Plans/Week.tasks.json']);
+    });
+  });
+
+  describe('28. a file here alone, gone on the other side with no trace in its trash: in this device’s trash only', () => {
+    /** The laptop has a note the remote lost with nothing in its trash: deleted for good there, or by another program. */
+    async function leftHere() {
+      const sides = setup();
+      await sides.laptop.writeText('test/Note.md', 'test');
+      await sides.syncLaptop();
+      await sides.remote.remove('test/Note.md', await tagOf(sides.remote, 'test/Note.md'));
+      const report = await sides.syncLaptop();
+      return { ...sides, report };
+    }
+    const trashThere = (remote: MemoryRemote) => remote.paths().filter((p) => p.startsWith('.scrawl/trash/') && p !== '.scrawl/trash/index.json');
+
+    it('goes to the trash here, is never sent up, and the other device does not see it', async () => {
+      const { remote, laptop, phone, report, syncLaptop, syncPhone } = await leftHere();
+      expect(report.removedHere).toEqual(['test/Note.md']);
+      expect((await readTrash(laptop)).map((item) => [item.from, item.here])).toEqual([['test/Note.md', true]]);
+      expect(trashThere(remote)).toEqual([]);
+      // Only the trash's index goes up, with the row of where it was.
+      expect((await syncLaptop()).uploaded).toEqual(['.scrawl/trash/index.json']);
+      expect((await syncLaptop()).uploaded).toEqual([]);
+      expect(trashThere(remote)).toEqual([]);
+      await syncPhone();
+      expect(await readTrash(phone)).toEqual([]);
+    });
+
+    it('restored, it is synced again', async () => {
+      const { remote, laptop, syncLaptop } = await leftHere();
+      const [item] = await readTrash(laptop);
+      expect(await restoreFromTrash(laptop, item!)).toBe('test/Note.md');
+      expect(await laptop.stat('.scrawl/trash-here.json')).toBeNull();
+      expect((await syncLaptop()).uploaded).toContain('test/Note.md');
+      expect(await remote.text('test/Note.md')).toBe('test');
+    });
+
+    it('deleted for good or with the trash emptied, it is forgotten here and nothing goes up', async () => {
+      const { remote, laptop, syncLaptop } = await leftHere();
+      const [item] = await readTrash(laptop);
+      await deleteFromTrash(laptop, item!);
+      expect(await laptop.stat('.scrawl/trash-here.json')).toBeNull();
+      await syncLaptop();
+      expect(trashThere(remote)).toEqual([]);
+
+      const again = await leftHere();
+      await emptyTrash(again.laptop);
+      expect(await again.laptop.stat('.scrawl/trash-here.json')).toBeNull();
+      expect((await again.syncLaptop()).uploaded).toEqual([]);
     });
   });
 

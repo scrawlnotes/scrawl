@@ -144,7 +144,7 @@ import { PeopleSheet } from './PhoneSpaces';
 import { type FileRow, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { StartPage } from './StartPage';
-import { SyncService } from './sync';
+import { type SpaceSyncView, SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { restartIntoUpdate, useDesktopUpdate } from './desktopUpdate';
 import { SyncStatus, syncWord } from './SyncViews';
@@ -164,7 +164,7 @@ import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { TrashPreviewDialog, TrashPreviewPage } from './TrashPreview';
 import type { DescriptionHost } from './Description';
 import { type FileActions, type FileSort, FilesView, fileTitle, Thumb, useIcon, useTitle, useWord } from './Files';
-import { chooseSpaceFolder, clipboardFilesOnDesktop, downloadBlob, isDesktop, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
+import { type AskOneDrive, chooseSpaceFolder, clipboardFilesOnDesktop, downloadBlob, isDesktop, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
 
 type OpenDialog =
   // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen. The
@@ -260,6 +260,17 @@ export function App() {
   });
   const [syncService] = useState(() => new SyncService(session));
   const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
+  /**
+   * Signs in for a space waiting for it. A space on a server asks for its password; for OneDrive,
+   * in the browser the page goes to Microsoft and back, and on the desktop it is done in
+   * Settings, which waits for the system browser.
+   */
+  const signInFor = (unit?: SpaceSyncView) =>
+    unit?.connection?.server
+      ? syncService.askServerSignIn(unit.connection.server, unit.connection.account.email)
+      : syncService.cloud().redirects
+        ? void syncService.leaveToSignIn('again')
+        : setDialog({ kind: 'settings', section: 'spaces' });
   /** On a phone: the personal space's sync page is asked for. */
   const [syncAsked, setSyncAsked] = useState(false);
   // Back from signing in in the browser: Settings opens at the space's sync, for its folder or what
@@ -828,9 +839,9 @@ export function App() {
    * running ending before, so that no turn reads its files as they go; it starts again once the
    * space is opened where it is now. A folder that cannot take it is refused with a word why.
    */
-  const changeSpaceFolder = async (id: string) => {
+  const changeSpaceFolder = async (id: string, ask: AskOneDrive) => {
     try {
-      const to = await chooseSpaceFolder();
+      const to = await chooseSpaceFolder(ask);
       if (!to) return;
       await syncService.forgetSpace(id);
       await session.moveSpaceCopy(id, to);
@@ -1824,13 +1835,13 @@ export function App() {
     onRemoveSpace: (id, deleteFiles) => void removeSpace(id, deleteFiles),
     onMoveSpace: (id, by) => void session.moveSpace(id, by),
     onPersonActive: (space, person, active) => session.setPersonActive(space, person, active),
-    onChangeSpaceFolder: isDesktop ? (id) => void changeSpaceFolder(id) : undefined,
+    onChangeSpaceFolder: isDesktop ? (id, ask) => void changeSpaceFolder(id, ask) : undefined,
     initialSpace: dialog?.kind === 'settings' ? dialog.space : undefined,
     addingAs: sync.adding,
     folder,
     defaultFolder,
     // A folder that holds a space, or is inside one, is refused with a word why.
-    onChangeFolder: isDesktop ? () => void session.chooseFolder().catch((error: unknown) => setNotice(error instanceof Error ? error.message : t('error.spaceNests'))) : undefined,
+    onChangeFolder: isDesktop ? (ask) => void session.chooseFolder(ask).catch((error: unknown) => setNotice(error instanceof Error ? error.message : t('error.spaceNests'))) : undefined,
     onUseDefaultFolder: isDesktop ? () => void session.useDefaultFolder() : undefined,
     sync,
     syncService,
@@ -1914,6 +1925,8 @@ export function App() {
             search={{ things: searchThings, actions: searchActions, onShown: setSearchShown, onPick: openFound, still }}
             reading={reading}
             onWant={(paths) => session.want(paths)}
+            syncs={sync.all}
+            onSignIn={signInFor}
             syncWord={syncWord(sync)}
             syncAsked={syncAsked}
             onSyncShown={() => setSyncAsked(false)}
@@ -2179,6 +2192,8 @@ export function App() {
           reveal={revealFolder}
           reading={reading}
           onWant={(paths) => session.want(paths)}
+          syncs={sync.all}
+          onSignIn={signInFor}
         />
         <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
         <main className="main">
@@ -2332,15 +2347,7 @@ export function App() {
               sync={sync}
               onSyncNow={(space) => syncService.syncNow(space)}
               onSettings={(space) => setDialog({ kind: 'settings', section: 'spaces', space })}
-              // A space on a server asks for its password; for OneDrive, in the browser the page goes to Microsoft and back, and on the desktop
-              // it is done in Settings, which waits for the system browser.
-              onSignIn={(unit) =>
-                unit?.connection?.server
-                  ? syncService.askServerSignIn(unit.connection.server, unit.connection.account.email)
-                  : syncService.cloud().redirects
-                    ? void syncService.leaveToSignIn('again')
-                    : setDialog({ kind: 'settings', section: 'spaces' })
-              }
+              onSignIn={signInFor}
               onOpenCopy={(path) => void session.open(path)}
             />
           </footer>

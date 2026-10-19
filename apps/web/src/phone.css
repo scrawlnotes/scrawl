@@ -6344,6 +6344,28 @@ body > .mb-lifted {
   margin-left: 8px;
 }
 
+/* A space waiting for a sign-in: marked by its name, and its first row, in the accent, signs in. */
+.mb-sec .need {
+  display: grid;
+  margin-left: 8px;
+  color: var(--sl-accent);
+}
+
+.mb-sec .need .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.mb-row.need,
+.mb-row.need > .icon,
+.mb-row.need .tx b {
+  color: var(--sl-accent);
+}
+
+.mb-row.need .tx b {
+  font-weight: 500;
+}
+
 .mb-row.loading,
 .ld-row-phone {
   gap: 13px;

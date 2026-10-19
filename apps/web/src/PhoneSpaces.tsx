@@ -11,7 +11,7 @@ import { type PersonalPlace, type SettingsValues, spaceWords, useAddSpace, useSy
 import { OwnAppSheet, PhoneFolderSheet } from './PhoneSync';
 import { ActionSheet, Sheet, SheetClose } from './sheets';
 import { CloudIcon, personalPlace, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
-import { ConnectServerSheet } from './ServerConnect';
+import { ConnectServerSheet, signInWords } from './ServerConnect';
 import { PhoneServerMembers, ROLE_WORD, useSpaceRename } from './ServerPeople';
 import { hostOf, type KnownServer, useKnownServers } from './servers';
 
@@ -438,7 +438,7 @@ export function PhoneSyncPersonalSheet({ values, account: given, follow = null, 
                 <ServerIcon />
                 <span className="tx">
                   <b>{t('server.signIn')}</b>
-                  <small>{t('server.signInAgain', { host: hostOf(p.server.url) })}</small>
+                  <small>{signInWords(p.serverSignedOut, hostOf(p.server.url))}</small>
                 </span>
               </button>
             </div>
@@ -492,7 +492,7 @@ export function PhoneSyncPersonalSheet({ values, account: given, follow = null, 
           addressOnly
           me={values.me}
           device={sync.device.name}
-          again={p.serverSignedOut && p.server ? { url: p.server.url, email: p.server.email } : undefined}
+          again={p.serverSignedOut && p.server ? { url: p.server.url, email: p.server.email, why: p.serverSignedOut } : undefined}
           start={p.followUrl ?? null}
           onDone={p.connected}
           onClose={() => p.setConnecting(false)}
@@ -747,7 +747,7 @@ export function PhoneAddSpaceSheet({ values, onClose }: { values: SettingsValues
             <Icon name="chevron" />
           </button>
           {server ? (
-            <button type="button" className="mb-fr" disabled={serverSpaces === null || serverSignedOut} onClick={() => setSpacing(true)}>
+            <button type="button" className="mb-fr" disabled={serverSpaces === null || !!serverSignedOut} onClick={() => setSpacing(true)}>
               <span className="fl">{t('space.space')}</span>
               <span className="val">
                 {serverSpaces === null ? (
@@ -790,7 +790,7 @@ export function PhoneAddSpaceSheet({ values, onClose }: { values: SettingsValues
       </div>
       {server && serverSignedOut && (
         <p className="mb-hint">
-          {t('server.signInAgain', { host: hostOf(server.url) })}{' '}
+          {signInWords(serverSignedOut, hostOf(server.url))}{' '}
           <button type="button" className="mb-link inline" onClick={() => setConnecting(true)}>
             {t('server.signIn')}
           </button>
@@ -865,7 +865,7 @@ export function PhoneAddSpaceSheet({ values, onClose }: { values: SettingsValues
         <ConnectServerSheet
           me={values.me}
           device={sync.device.name}
-          again={serverSignedOut && server ? { url: server.url, email: server.email } : undefined}
+          again={serverSignedOut && server ? { url: server.url, email: server.email, why: serverSignedOut } : undefined}
           start={added.start}
           onDone={connected}
           onClose={() => setConnecting(false)}

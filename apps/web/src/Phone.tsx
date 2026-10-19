@@ -13,6 +13,8 @@ import { PhoneLogs, useLogView } from './Logs';
 import { Spin } from './Loading';
 import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpaceMenu, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
 import { PhoneSyncList, PhoneSyncPage } from './PhoneSync';
+import type { SpaceSyncView } from './sync';
+import { percent, placeName, signInAsk, signInFresh } from './SyncViews';
 import { PhoneServerPage, YouAre } from './ServerPeople';
 import { hostOf, knownServers, pendingJoin } from './servers';
 import { PhoneSearch, type SearchAction, type Thing } from './Search';
@@ -132,6 +134,10 @@ export interface PhoneProps {
   onWant: (paths: string[]) => void;
   /** How sync stands in a word, and whether something keeps it from going on. */
   syncWord: { text: string; bad: boolean };
+  /** How each space's sync stands: one waiting for a sign-in says so in its section, one in its first turn how far it is. */
+  syncs: readonly SpaceSyncView[];
+  /** Signs in for a space waiting for it: to its server, or to OneDrive. */
+  onSignIn: (unit: SpaceSyncView) => void;
   /** Asks for the personal space's sync page: back from signing in to connect it, its folder is chosen there. */
   syncAsked: boolean;
   onSyncShown: () => void;
@@ -967,33 +973,69 @@ export function Phone(props: PhoneProps) {
     </div>
   );
 
+  /** In a space waiting for a sign-in, first: the server under the words; it opens the sign-in. */
+  const signInRow = (unit: SpaceSyncView) => (
+    <button type="button" className="mb-row need" aria-label={signInAsk(unit)} onClick={() => props.onSignIn(unit)}>
+      <Icon name="keys" />
+      <span className="tx">
+        <b>{t(signInFresh(unit) ? 'side.signInToSync' : 'side.signInAgainToSync')}</b>
+        <small>{placeName(unit.connection)}</small>
+      </span>
+    </button>
+  );
+
+  /** In an empty space in its first turn here: how far it is. */
+  const firstTurnRow = (unit: SpaceSyncView) => (
+    <div className="mb-row loading">
+      <Spin />
+      <span className="tx">
+        <b>{t('sync.syncingPct', { pct: percent(unit.turn?.progress.share ?? 0) })}</b>
+      </span>
+    </div>
+  );
+
   /** The items of a folder, or of a space's top, in the order chosen for it on this device. */
   const inOrder = (key: string, nodes: TreeNode[]) => sortedNodes(nodes, props.folderLooks[key] ?? DEFAULT_LOOK, props.times);
 
   /**
    * A space's section of Browse: its name with the button of how its top is put in order and a +
-   * for what can be made there, and what is there; turning while it is read.
+   * for what can be made there, and what is there; turning while it is read or in its first turn
+   * here, and marked while it waits for a sign-in, with a row that opens it.
    */
-  const spaceSection = (key: string, name: string, parent: string, nodes: TreeNode[], reading: boolean, first?: ReactNode) => (
-    <Fragment key={key}>
-      <div className="mb-sec">
-        <span>{name}</span>
-        {reading && <Spin />}
-        <button type="button" className="tune" aria-label={t('side.view')} title={t('side.view')} onClick={() => props.onSpaceOrder(parent)}>
-          <Icon name="tune" />
-        </button>
-        <button type="button" aria-label={t('create.title')} title={t('create.title')} onClick={() => props.onFolderMenu(parent, () => setNewFolderIn(parent))}>
-          <Icon name="plus" />
-        </button>
-      </div>
-      <div className="mb-list">
-        {newFolderIn === parent && <FolderForm onAdd={(folder) => props.onNewFolder(folder, parent)} onCancel={() => setNewFolderIn(null)} />}
-        {first}
-        {inOrder(parent, nodes).map(browseRow)}
-        {reading && nodes.length === 0 && loadingRow}
-      </div>
-    </Fragment>
-  );
+  const spaceSection = (key: string, name: string, parent: string, nodes: TreeNode[], reading: boolean, first?: ReactNode) => {
+    const unit = props.syncs.find((each) => (each.space ?? 'personal') === key);
+    const empty = nodes.length === 0;
+    const firstTurn = !!unit && empty && unit.phase === 'syncing' && unit.syncedAt === null;
+    return (
+      <Fragment key={key}>
+        <div className="mb-sec">
+          <span>{name}</span>
+          {reading || firstTurn ? (
+            <Spin />
+          ) : (
+            unit?.phase === 'signedOut' && (
+              <span className="need" role="img" aria-label={signInAsk(unit)}>
+                <Icon name="warn" />
+              </span>
+            )
+          )}
+          <button type="button" className="tune" aria-label={t('side.view')} title={t('side.view')} onClick={() => props.onSpaceOrder(parent)}>
+            <Icon name="tune" />
+          </button>
+          <button type="button" aria-label={t('create.title')} title={t('create.title')} onClick={() => props.onFolderMenu(parent, () => setNewFolderIn(parent))}>
+            <Icon name="plus" />
+          </button>
+        </div>
+        <div className="mb-list">
+          {unit?.phase === 'signedOut' && signInRow(unit)}
+          {newFolderIn === parent && <FolderForm onAdd={(folder) => props.onNewFolder(folder, parent)} onCancel={() => setNewFolderIn(null)} />}
+          {first}
+          {inOrder(parent, nodes).map(browseRow)}
+          {empty && (reading ? loadingRow : firstTurn && firstTurnRow(unit))}
+        </div>
+      </Fragment>
+    );
+  };
 
   const syncRight = props.syncWord.bad ? (
     <span className="wn">

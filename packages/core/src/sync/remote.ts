@@ -80,7 +80,8 @@ export class RemoteOffline extends Error {
 
 /** The provider no longer takes the sign-in: the account must be signed in to again. */
 export class RemoteSignedOut extends Error {
-  constructor() {
+  /** @param notYet This device has no key for it at all: it never signed in to it here, or signed out of it. */
+  constructor(readonly notYet = false) {
     super('Signed out of the cloud drive');
     this.name = 'RemoteSignedOut';
   }

@@ -1,4 +1,4 @@
-import { ServerAccount, type ServerAccountInfo, ServerRemote, type ServerSignedIn } from '@scrawlnotes/core';
+import { type RemoteSignedOut, ServerAccount, type ServerAccountInfo, ServerRemote, type ServerSignedIn } from '@scrawlnotes/core';
 import { useSyncExternalStore } from 'react';
 import { isDesktop } from './storage';
 
@@ -116,6 +116,15 @@ const snapshot = () => {
   if (raw !== shown.raw) shown = { raw, list: knownServers() };
   return shown.list;
 };
+
+/** Whether the person signed out of this server on this device, and has not signed in to it since. */
+export const signedOutHere = (url: string) => forgottenServers().has(url);
+
+/** Why a server asks to be signed in to: never signed in to here, signed out of here, or the key it has no longer taken. */
+export type SignInWhy = 'notYet' | 'left' | 'again';
+
+/** Why a server that refused asks to be signed in to. */
+export const signInWhy = (refused: RemoteSignedOut, url: string): SignInWhy => (refused.notYet ? (signedOutHere(url) ? 'left' : 'notYet') : 'again');
 
 /** The servers this device is signed in to, for a screen that lists them. */
 export const useKnownServers = () => useSyncExternalStore(subscribe, snapshot);

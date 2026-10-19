@@ -2234,6 +2234,27 @@ p { margin: 0; max-width: 68ch; }
 .mb-p.op-mstill .op-spin { width: 13px; height: 13px; border-width: 2px; }
 .mb-screen .op-boot { position: absolute; inset: 0; }
 @media (prefers-reduced-motion: reduce) { .op-spin { animation: none; } }
+.dir[data-dir="signin"] { margin-top: 56px; }
+.dir[data-dir="signin"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="signin"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="signin"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.it .ct.si-mark { display: flex; align-items: center; color: var(--m-p2); }
+.mock .it .ct.si-mark svg { width: 13px; height: 13px; }
+.it.fx.si-need { color: var(--m-accent); font-size: 12.5px; }
+.mock .it.fx.si-need svg { color: var(--m-accent); }
+.it.fx.si-need span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir-a .status .si-notice { display: flex; align-items: center; gap: 6px; height: 20px; margin-left: auto; padding: 0 6px; border-radius: 4px; color: var(--m-accent); }
+.mock .status .si-notice svg { width: 13px; height: 13px; }
+.dir-a .status .si-notice + .sync-st { margin-left: 0; }
+.sp-sp .r.si-bad { display: flex; align-items: center; gap: 5px; color: var(--m-p2); }
+.mock .sp-sp .r.si-bad svg { width: 12px; height: 12px; color: var(--m-p2); }
+.sp-sub.si-sub { color: var(--m-fg); line-height: 1.45; }
+.sp-foot .si-left { margin-right: auto; color: var(--m-faint); font-size: 12px; }
+.mb-sec .si-mmark { display: grid; align-self: center; color: var(--m-p2); }
+.mock .mb-sec .si-mmark svg { width: 14px; height: 14px; }
+.mb-row.si-mneed, .mb-row.si-mneed .tx b { color: var(--m-accent); }
+.mock .mb-row.si-mneed svg { color: var(--m-accent); }
+.mb-row.si-mneed .tx b { font-weight: 500; }
 </style>
 
 <main class="page">
@@ -2561,6 +2582,25 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-opview="oplogswarn">Logs, Warnings</button>
         <button type="button" data-opview="opphone">Phone</button>
         <button type="button" data-opview="opphone2">Phone, Logs</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="signin">
+    <div class="brief">
+      <div>
+        <span class="letter">SUNUCUYA GİRİŞ · TASLAK</span>
+        <h2>Bir space giriş beklerken</h2>
+        <p>Space bir sunucudaysa ve bu cihaz o sunucuya hiç girmemişse, ya da sunucu bu cihazın girişini artık kabul etmiyorsa, bunu bugün yalnız sync panelinin satırları söylüyor. Başka bir space sync olurken status bar o space'i gösteriyor, yan panelde space'in altı boş kalıyor. Taslakta bu üç yerde görünür. Yan panelde space'in başlığında sarı bir işaret durur, space kapalıyken de görünür; içinde ilk satır "Sign in to sync"tir, tıklanınca giriş penceresi açılır; dar yan panelde sunucunun adı yazmaz, üzerine gelince ve pencerede görünür. Status bar'da sync'in solunda "Sign in to &lt;sunucu&gt;" durur; başka bir space sync olurken de görünür, tıklanınca giriş penceresi açılır. Sync panelinde bu space'lerin satırı sarıdır. Bu cihazda hiç sync olmamış bir space seçilince panel nedenini ve Sign in düğmesini gösterir, boş sekmeleri göstermez. Yeni cihazda "again" denmez: "Sign in to &lt;sunucu&gt;", sync panelinde "Not signed in". Sunucu girişi reddettiyse bugünkü gibi "Sign in to &lt;sunucu&gt; again" denir. Giriş penceresi o sunucuda bu cihaza açılacak space'leri sayar: tek giriş hepsini açar. Girişten sonra boş bir space'in ilk sync'i sürerken içinde "Syncing… 38%" satırı durur, sync bitince space'in içi gelir. Telefonda Browse'da space başlığında aynı işaret, altında aynı satır. Sync satırı da bunu bugünkü gibi ilk söyler.</p>
+        <ul class="traits"><li>yan panelde space'in içinde</li><li>status bar'da sync'in yanında</li><li>yeni cihazda “again” yok</li><li>tek giriş, bütün space'ler</li><li>ilk sync görünür</li><li>masaüstü, web ve telefon</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Sunucuya giriş görünümü">
+        <button type="button" data-siview="sineed">Yeni cihazda</button>
+        <button type="button" data-siview="sipanel">Sync paneli</button>
+        <button type="button" data-siview="sidialog">Giriş penceresi</button>
+        <button type="button" data-siview="sifirst">Girişten sonra</button>
+        <button type="button" data-siview="siphone">Phone</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -7427,6 +7467,129 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderOp(sectionOp, b.dataset.opview);
   });
   renderOp(sectionOp, 'opshell');
+
+  // A space on a server this device is not signed in to (Oct 19). The sidebar holds it inside the
+  // space and marks its heading, the status bar says it beside sync even while another space
+  // syncs, and the sync panel's row is yellow. One sign-in opens every space on that server; a
+  // space's first turn says how far it is inside the space until its files are there.
+  var SI_HOST = 'scrawl.kaanarslan.dev';
+  var SI_NEED = 'Sign in to ' + SI_HOST;
+  // Inside a space the server is not named: the sidebar is narrow, and the window names it.
+  var SI_ROW = 'Sign in to sync';
+  var SI_SPACES = ['Klinitra', 'OzBI', 'Scrawl', 'Game Development'];
+  /** A space's heading, with the yellow mark while it waits for a sign-in. */
+  function siHead(label, open, mark) {
+    return '<div class="it fx fsp" style="--d: 0"><span class="fchev' + (open ? ' open' : '') + '">' + ICON.chevr + '</span>' + ICON.space + '<span>' + label + '</span>' +
+      (mark === 'spin' ? '<span class="ct op-ct">' + OP_SPIN + '</span>' : mark ? '<span class="ct si-mark" title="' + SI_NEED + '">' + ICON.warn + '</span>' : '') + '<span class="more">···</span></div>';
+  }
+  /** Inside a space waiting for a sign-in: the first row, which opens the sign-in window. */
+  function siNeedRow() { return '<div class="it fx si-need" style="--d: 1" title="' + SI_NEED + '"><span class="fpad"></span>' + ICON.key + '<span>' + SI_ROW + '</span></div>'; }
+  /** Inside an empty space while its first turn runs. */
+  function siSyncRow(pct) { return '<div class="it fx op-load" style="--d: 1"><span class="fpad"></span>' + OP_SPIN + '<span>Syncing… ' + pct + '</span></div>'; }
+  /** The sidebar on a new device: Personal syncing, the server's spaces waiting; after the sign-in, their first turns. */
+  function siTree(state) {
+    var first = state === 'first';
+    var personal = opRowT({ sp: true, open: true, label: 'Personal' }) +
+      opRowT({ d: 1, folder: true, label: 'Inbox', ct: 4 }) + opRowT({ d: 1, folder: true, label: 'Notes', ct: 9 }) +
+      opRowT({ d: 1, folder: true, label: 'Home', ct: 4 }) + opRowT({ d: 1, folder: true, label: 'Reading', ct: 8 });
+    var spaces = SI_SPACES.map(function (name, i) {
+      if (!first) return siHead(name, i < 3, true) + (i < 3 ? siNeedRow() : '');
+      // OzBI's first turn ended: what it holds is there.
+      if (name === 'OzBI') return siHead(name, true, false) + opRowT({ d: 1, folder: true, label: 'Reports', ct: 7 }) + opRowT({ d: 1, folder: true, label: 'Meetings', ct: 12 });
+      // A folded space turns on its heading while its first turn runs.
+      return siHead(name, i < 3, i < 3 ? false : 'spin') + (i < 3 ? siSyncRow(['38%', '', '12%'][i]) : '');
+    }).join('');
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 3 }) + row({ label: 'Upcoming', ct: 7 }) + personal + spaces + '</div>' + spFoot(null);
+  }
+  /** The status bar: the sign-in beside sync while Personal syncs; after it, the spaces' first turns. */
+  function siStatus(state) {
+    var need = state !== 'first';
+    var text = need ? 'Syncing Personal <span class="pct">42%</span>' : 'Syncing Klinitra <span class="pct">38%</span>';
+    return '<div class="status"><span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>' +
+      (need ? '<span class="si-notice">' + ICON.key + SI_NEED + '</span>' : '') +
+      '<span class="sync-st"><span class="txt' + (state === 'panel' ? ' on' : '') + '">' + ICON.cloud + text + '</span><span class="sync-now turning" style="position: relative">' + ICON.resync + '</span></span></div>';
+  }
+  /** The sync panel with Klinitra chosen: a space never synced here shows why, and Sign in, without empty tabs. */
+  function siPanel() {
+    function sr(name, state, o) {
+      o = o || {};
+      return '<div class="sp-sp' + (o.on ? ' on' : '') + '">' + ICON.space + '<span class="nm">' + name + '</span><span class="r' + (o.bad ? ' si-bad' : '') + '">' + (o.bad ? ICON.key : '') + state + '</span></div>';
+    }
+    return '<div class="sp"><div class="sp-spaces">' +
+      sr('Personal', 'Syncing <b>42%</b>') +
+      SI_SPACES.map(function (name, i) { return sr(name, 'Not signed in', { bad: true, on: i === 0 }); }).join('') + '</div>' +
+      '<div class="sp-head"><div class="sp-title"><b>Klinitra · Not signed in on this device</b></div>' +
+      '<div class="sp-sub si-sub">This device is not signed in to ' + SI_HOST + ' yet. One sign-in opens its four spaces here; until then their copy on this device is empty.</div></div>' +
+      '<div class="sp-foot"><span class="si-left">' + SI_HOST + ' · kaan@outlook.com</span><span class="st-btn">Sync settings</span><span class="st-btn go">Sign in</span></div></div>';
+  }
+  /** The sign-in window: the account the other devices use, and the spaces it opens here. */
+  function siDialog() {
+    return '<div class="fp-ovl"><div class="fp"><h3>Sign in<small>' + SI_HOST + '</small></h3>' +
+      '<p class="srv-what">This device is not signed in to ' + SI_HOST + ' yet. Signing in opens Klinitra, OzBI, Scrawl and Game Development here.</p>' +
+      '<div class="label">Email</div><div class="field filled">kaan@outlook.com</div>' +
+      '<div class="label" style="margin-top: 10px">Password</div><div class="field filled srv-pw">••••••••••<span class="caret"></span></div>' +
+      '<p class="note">Forgot it? The server’s owner can give you a link for a new one.</p>' +
+      '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go">Sign in</span></div></div></div>';
+  }
+  function siApp(state, over) {
+    return '<aside class="side">' + siTree(state) + '</aside><section class="main"><div class="panes">' +
+      pane(tab('notes', 'Sync engine: open questions', 'note', true) + '<div class="tab plus">+</div>', edFull) + '</div>' + siStatus(state) + '</section>' + (over || '');
+  }
+  // The phone: Browse holds the same row inside each space; after the sign-in, each first turn.
+  function mbSiNeed() { return '<div class="mb-row si-mneed">' + ICON.key + '<span class="tx"><b>' + SI_ROW + '</b><small>' + SI_HOST + '</small></span></div>'; }
+  function mbSiSyncing(pct) { return '<div class="mb-row op-mload">' + OP_SPIN + '<span class="tx"><b>Syncing… ' + pct + '</b></span></div>'; }
+  function mbSiBrowse(first) {
+    var spaces = SI_SPACES.map(function (name, i) {
+      if (first && name === 'OzBI') return '<div class="mb-sec">' + name + '</div>' + mbRow({ icon: 'folder', fold: true, label: 'Reports', ct: 7 }) + mbRow({ icon: 'folder', fold: true, label: 'Meetings', ct: 12 });
+      return '<div class="mb-sec">' + name + (first ? '' : '<span class="si-mmark">' + ICON.warn + '</span>') + '</div>' + (first ? mbSiSyncing(['38%', '', '12%', '84%'][i]) : mbSiNeed());
+    }).join('');
+    return mbPage(mbHead('Browse', null, true),
+      '<div class="mb-sec">Personal</div>' +
+      mbRow({ icon: 'folder', fold: true, label: 'Inbox', ct: 4 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Notes', ct: 9 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Home', ct: 4 }) + spaces);
+  }
+  function mbSiSync() {
+    function s(name, sub, o) {
+      o = o || {};
+      return '<div class="mb-row mb-spsync">' + ICON.space + '<span class="tx"><b>' + name + '</b><small' + (o.bad ? ' class="bad"' : '') + '>' + (o.bad ? ICON.warn : '') + sub + '</small>' +
+        (o.pct ? '<span class="mb-bar"><i style="width: ' + o.pct + '%"></i></span>' : '') + '</span>' +
+        (o.pct ? '<span class="ct">' + o.pct + '%</span>' : '') + MB_CHEV + '</div>';
+    }
+    return mbPage(mbNav('Browse', ['Sync now']) + mbHead('Sync'),
+      s('Personal', 'Syncing · 1 of 16 files', { pct: 42 }) +
+      SI_SPACES.map(function (name) { return s(name, 'Not signed in', { bad: true }); }).join('') +
+      '<p class="mb-p">One sign-in to ' + SI_HOST + ' opens its four spaces on this phone.</p>' +
+      '<div class="mb-p"><span class="st-btn go" style="display: block; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: 600; text-align: center">' + SI_NEED + '</span></div>');
+  }
+  function phoneSignIn() {
+    return [
+      mbPhone('Browse: space’in içinde Sign in satırı', mbSiBrowse(false), mbTabs('browse') + MB_FAB),
+      mbPhone('Sync: “Not signed in”, tek giriş', mbSiSync(), mbTabs('browse')),
+      mbPhone('Girişten sonra: ilk sync space’in içinde', mbSiBrowse(true), mbTabs('browse') + MB_FAB)
+    ].join('');
+  }
+  var SI_VIEWS = {
+    sineed: function () { return siApp('need'); },
+    sipanel: function () { return siApp('panel', siPanel()); },
+    sidialog: function () { return siApp('need', siDialog()); },
+    sifirst: function () { return siApp('first'); }
+  };
+  function renderSi(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.className = view === 'siphone' ? 'mock dir-a phones mbs' : 'mock dir-a';
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = view === 'siphone' ? phoneSignIn() : SI_VIEWS[view]();
+    section.querySelectorAll('.brief [data-siview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.siview === view));
+    });
+  }
+  var sectionSi = document.querySelector('.dir[data-dir="signin"]');
+  sectionSi.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-siview]');
+    if (b) renderSi(sectionSi, b.dataset.siview);
+  });
+  renderSi(sectionSi, 'sineed');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

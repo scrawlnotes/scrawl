@@ -8,7 +8,7 @@ import { basename } from '../fs';
  * The marks a moved personal space leaves in its old place are not synced either: they are read
  * there before a turn (see `moved.ts`). Nor is the onboarding note, which each device has its own of.
  */
-const DEVICE_ONLY = ['.scrawl/history', '.scrawl/workspace.json', '.scrawl/sync-state.json', '.scrawl/sync-away.json', '.scrawl/sync-base', '.scrawl/onedrive.json', '.scrawl/index', '.scrawl/moved', '.scrawl/welcome.md', '.spaces'];
+const DEVICE_ONLY = ['.scrawl/history', '.scrawl/workspace.json', '.scrawl/sync-state.json', '.scrawl/sync-away.json', '.scrawl/trash-here.json', '.scrawl/sync-base', '.scrawl/onedrive.json', '.scrawl/index', '.scrawl/moved', '.scrawl/welcome.md', '.spaces'];
 
 /** What systems leave in folders. */
 const SYSTEM_FILES = new Set(['desktop.ini', 'thumbs.db', '.ds_store']);

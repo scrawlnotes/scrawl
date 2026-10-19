@@ -29,7 +29,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type Cloud, oneDrive, type SignInIntent, signInSettled, takeSignInResult } from './cloud';
 import type { Session, SpaceView } from './session';
 import { isPhone, LEAVE_OVER } from './device';
-import { type KnownServer, serverKey, serverRemote, signOutOf } from './servers';
+import { type KnownServer, serverKey, serverRemote, type SignInWhy, signedOutHere, signOutOf } from './servers';
 import { isDesktop, vaultFolder } from './storage';
 
 // Sync of the spaces with folders of the user's cloud drive: when a turn runs, what the app shows
@@ -136,10 +136,23 @@ export interface SpaceSync {
   conflict: { path: string; at: number } | null;
   /** On a server whose live channel is open: what changes there comes in as it does. */
   live: boolean;
-  /** Why a space on a server stopped: this person was taken out of it, or signed out of the server on this device. */
-  why: 'removed' | 'left' | null;
+  /**
+   * Why a space on a server stopped: this person was taken out of it, signed out of the server on
+   * this device, or this device was never signed in to it (the server came with the personal
+   * space, from another device).
+   */
+  why: 'removed' | 'left' | 'notYet' | null;
   /** The personal space moved on another device: where to, by which device, when. */
   moved: MovedMark | null;
+}
+
+/** A server asked to sign in to: its address, the account, and the spaces on it here, which one sign-in opens. */
+export interface ServerSignIn {
+  url: string;
+  email: string;
+  /** Why it is asked: this device was never signed in to it, the person signed out of it here, or the server no longer takes the key. */
+  why: SignInWhy;
+  spaces: string[];
 }
 
 /** A space that syncs, as the status bar and the sync panel list it. */
@@ -163,7 +176,7 @@ export interface SyncSnapshot extends SpaceSync {
   /** Signing in in the browser went wrong, as the page came back. */
   signInError: string | null;
   /** A server whose key no longer works, to sign in to again: its address and the account. */
-  serverSignIn: { url: string; email: string } | null;
+  serverSignIn: ServerSignIn | null;
   /** Every space that syncs, the personal one first, the others in the sidebar's order. */
   all: SpaceSyncView[];
 }
@@ -424,7 +437,7 @@ export class SyncService {
           else this.liveOn.delete(url);
           for (const unit of this.units.values()) if (unit.connection?.server === url) this.change(unit, { live: on });
         },
-        onSignedOut: () => this.signedOutOf(url),
+        onSignedOut: (notYet) => this.signedOutOf(url, false, notYet),
       });
       this.lives.set(url, live);
       live.start();
@@ -577,12 +590,16 @@ export class SyncService {
       timer = 0;
       this.change(unit, { turn: view(null, false) });
     };
+    // A space waiting for a sign-in stays shown so while its turn tries again, as one with no key
+    // here does every time: it is syncing only once the place answers with what changed.
+    const waiting = unit.phase === 'signedOut';
     const onProgress = (next: SyncProgress) => {
       progress = next;
+      if (waiting && unit.phase === 'signedOut' && (next.stage !== 'reading' || next.looked > 0)) this.change(unit, { phase: 'syncing' });
       if (next.stage === 'sending' && sendingSince === null) sendingSince = Date.now();
       timer ||= window.setTimeout(showTurn, PROGRESS_MS);
     };
-    this.change(unit, { phase: 'syncing', turn: view(null, false) });
+    if (!waiting) this.change(unit, { phase: 'syncing', turn: view(null, false) });
     try {
       const report = await alone(unit.space, async () => {
         // The space may have been closed, removed or disconnected while another tab's turn ran.
@@ -622,8 +639,9 @@ export class SyncService {
         unit.missed = true;
         unit.again = true;
       } else if (error instanceof RemoteOffline) this.change(unit, { phase: 'offline', turn, lastDone });
-      // Signed out on purpose stays said so, turn after turn, until it is signed in to again.
-      else if (error instanceof RemoteSignedOut) this.change(unit, { phase: 'signedOut', why: unit.why === 'left' ? 'left' : null, turn, lastDone });
+      // Signed out on purpose stays said so, turn after turn, until it is signed in to again; a
+      // server this device has no key for is one it never signed in to here.
+      else if (error instanceof RemoteSignedOut) this.change(unit, { phase: 'signedOut', why: this.signedOutWhy(unit, false, error.notYet), turn, lastDone });
       else if (error instanceof RemoteFolderGone) this.change(unit, { phase: 'folderGone', why: error.removed ? 'removed' : null, turn, lastDone });
       // Moved on another device: nothing was done, and no turn goes until this device follows.
       else if (error instanceof RemoteMoved) this.change(unit, { phase: 'moved', moved: error.mark, turn, lastDone });
@@ -824,9 +842,17 @@ export class SyncService {
     this.syncNow();
   }
 
-  /** A server's key no longer works: the app asks to sign in to it again, with the account it had. */
+  /**
+   * A server's spaces wait for a sign-in: the app asks for it, with the account they had, naming
+   * the spaces on it here.
+   */
   askServerSignIn(url: string, email: string) {
-    this.set({ serverSignIn: { url, email } });
+    // In the sidebar's order: the personal space first, when it is there.
+    const personal = this.units.get(PERSONAL);
+    const units = [...(personal ? [personal] : []), ...this.spaces.flatMap((space) => this.units.get(space.id) ?? [])].filter((unit) => unit.connection?.server === url);
+    const why = units.some((unit) => unit.why === 'left') ? 'left' : units.some((unit) => unit.why === 'notYet') ? 'notYet' : 'again';
+    const name = (unit: Unit) => (unit.space === null ? (this.session.getSnapshot().space.name ?? t('settings.personal')) : unit.name);
+    this.set({ serverSignIn: { url, email, why, spaces: units.map(name) } });
   }
 
   /** Signed in to a server again, or not: the spaces on it sync again either way, and say so if not. */
@@ -841,12 +867,23 @@ export class SyncService {
    * again. `left` when the person signed out themselves, which stays said when the server's
    * channel tells it afterwards.
    */
-  signedOutOf(url: string, left = false) {
+  signedOutOf(url: string, left = false, notYet = false) {
     for (const unit of this.units.values()) {
       if (unit.connection?.server !== url) continue;
       unit.store = null;
-      this.change(unit, { phase: 'signedOut', why: left || unit.why === 'left' ? 'left' : null });
+      this.change(unit, { phase: 'signedOut', why: this.signedOutWhy(unit, left, notYet) });
     }
+  }
+
+  /**
+   * Why a space waits for a sign-in: signed out of its server on purpose, here and now or before
+   * the app last opened; this device having no key for it, never signed in to it here; or the
+   * server no longer taking the key it has.
+   */
+  private signedOutWhy(unit: Unit, left: boolean, notYet: boolean): SpaceSync['why'] {
+    const url = unit.connection?.server;
+    if (left || unit.why === 'left' || (notYet && url && signedOutHere(url))) return 'left';
+    return notYet && url ? 'notYet' : null;
   }
 
   /** Signs out of a server on this device, as the person asked: its channel closes, and its spaces say so until it is signed in to again. */

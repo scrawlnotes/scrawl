@@ -68,7 +68,7 @@ class Client {
     const headers = new Headers(init.headers);
     if (signed) {
       const token = await this.options.token();
-      if (!token) throw new RemoteSignedOut();
+      if (!token) throw new RemoteSignedOut(true);
       headers.set('Authorization', `Bearer ${token}`);
     }
     let response: Response;
@@ -402,8 +402,8 @@ export interface LiveOptions {
   onChanged: (space: string, seq: number) => void;
   /** The connection opened, or closed: whether changes come in as they are made. */
   onLive?: (live: boolean) => void;
-  /** The server no longer takes this device's key. */
-  onSignedOut?: () => void;
+  /** The server no longer takes this device's key; `notYet` when this device has none. */
+  onSignedOut?: (notYet: boolean) => void;
   /** `WebSocket` itself, unless a test gives another. */
   WebSocket?: typeof WebSocket;
 }
@@ -453,7 +453,7 @@ export class ServerLive {
     const token = await this.options.token();
     if (this.stopped || this.socket) return;
     if (!token) {
-      this.options.onSignedOut?.();
+      this.options.onSignedOut?.(true);
       return;
     }
     const Socket = this.options.WebSocket ?? WebSocket;
@@ -480,7 +480,7 @@ export class ServerLive {
       } else if (message.type === 'changed' && typeof message.space === 'string') this.options.onChanged(message.space, Number(message.seq));
       else if (message.type === 'signed-out') {
         this.stop();
-        this.options.onSignedOut?.();
+        this.options.onSignedOut?.(false);
       }
     };
     socket.onclose = () => {

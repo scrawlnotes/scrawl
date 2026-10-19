@@ -6,6 +6,7 @@ import { keepVersion, listVersions } from './history';
 import {
   foldersNest,
   droppedSpaces,
+  inOneDrive,
   fromSpace,
   inSpace,
   isSpaceId,
@@ -181,6 +182,18 @@ describe('spaces', () => {
     expect(foldersNest('/home/kaan/Notes', '/home/kaan/notes')).toBe(false);
     expect(foldersNest('/home/kaan/Notes', '/home/kaan/Notes/Acme')).toBe(true);
     expect(foldersNest('', '/home')).toBe(false);
+  });
+
+  it('tells a folder inside OneDrive’s, whose app would sync it a second time', () => {
+    expect(inOneDrive('C:\\Users\\kaan\\OneDrive\\Belgeler\\Notes')).toBe(true);
+    expect(inOneDrive('C:\\Users\\kaan\\OneDrive')).toBe(true);
+    expect(inOneDrive('C:\\Users\\kaan\\OneDrive - Contoso\\Notes')).toBe(true);
+    expect(inOneDrive('/Users/kaan/Library/CloudStorage/OneDrive-Personal/Notes')).toBe(true);
+    expect(inOneDrive('/Users/kaan/OneDrive/Notes')).toBe(true);
+    expect(inOneDrive('C:\\Users\\kaan\\Documents\\Notes')).toBe(false);
+    expect(inOneDrive('C:\\Users\\kaan\\OneDrive notes')).toBe(false);
+    expect(inOneDrive('C:\\Data\\OneDrive-backup')).toBe(false);
+    expect(inOneDrive('C:\\Users\\kaan\\AppData\\Roaming\\app.scrawlnotes.desktop\\Acme')).toBe(false);
   });
 });
 

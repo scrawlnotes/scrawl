@@ -55,6 +55,7 @@ export const goneLong = (space: string | null, connection?: Connection | null, w
 /** Signed out, and in the browser why renewing on opening did not go through, as Microsoft said it; or signed out of a server on purpose. */
 export const signedOutLong = (connection?: Connection | null, why?: SpaceSync['why']) => {
   if (connection?.server && why === 'left') return t('sync.leftLong', { place: placeName(connection) });
+  if (connection?.server && why === 'notYet') return t('sync.notSignedInLong', { place: placeName(connection) });
   const text = t('sync.signedOutLong', { place: placeName(connection) });
   if (connection?.server) return text;
   const failure = renewFailure();
@@ -67,8 +68,23 @@ export function statusText(phase: Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>
     return of?.why === 'removed' ? t('sync.removed', { space: of.name || t('settings.unnamed') }) : t('sync.serverGone', { place: placeName(connection) });
   }
   if (phase === 'signedOut' && connection?.server && of?.why === 'left') return t('sync.left');
+  if (phase === 'signedOut' && connection?.server && of?.why === 'notYet') return t('sync.notSignedIn', { place: placeName(connection) });
   return t(STATUS[phase], { place: placeName(connection) });
 }
+
+/**
+ * Whether a space waits for a sign-in this device never gave, or took back, to a server: it is
+ * Sign in, not Sign in again.
+ */
+export const signInFresh = (unit: Pick<SpaceSync, 'phase' | 'connection' | 'why'>) =>
+  unit.phase === 'signedOut' && !!unit.connection?.server && (unit.why === 'notYet' || unit.why === 'left');
+
+/** The sign-in a space waits for, naming where: `Sign in to kaan.scrawlnotes.com`, or `Sign in to OneDrive again`. */
+export const signInAsk = (unit: Pick<SpaceSync, 'phase' | 'connection' | 'why'>) =>
+  t(signInFresh(unit) ? 'sync.notSignedIn' : 'sync.signedOut', { place: placeName(unit.connection) });
+
+/** A button that signs in: Sign in, or Sign in again where the key it had is no longer taken. */
+export const signInLabel = (unit: Pick<SpaceSync, 'phase' | 'connection' | 'why'>) => t(signInFresh(unit) ? 'server.signIn' : 'sync.signInAgain');
 
 /** Where a phase stands, in the settings: words, and the colour of its dot; `space` null for the personal one. */
 function stateOf(sync: SpaceSync, space: string | null = null): { text: string; tone: 'ok' | 'busy' | 'off' | 'bad' } {
@@ -232,7 +248,7 @@ export function SyncRow({ sync, service, onPlace, onFollow }: SyncRowProps & { o
         <span className="acts">
           {sync.phase === 'signedOut' ? (
             <button type="button" className="st-btn go" onClick={() => (connection.server ? service.askServerSignIn(connection.server, connection.account.email) : void signIn())}>
-              {t('sync.signInAgain')}
+              {signInLabel(sync)}
             </button>
           ) : sync.phase === 'folderGone' && !connection.server ? (
             <button type="button" className="st-btn go" onClick={() => setPicking(connection.account)}>
@@ -345,7 +361,7 @@ export function SpaceSyncRow({ view, service }: { view: SpaceSyncView | undefine
             </button>
           ) : view.phase === 'signedOut' ? (
             <button type="button" className="st-btn go" onClick={() => void signIn()}>
-              {t('sync.signInAgain')}
+              {signInLabel(view)}
             </button>
           ) : (
             <button type="button" className="st-btn" disabled={view.phase === 'syncing'} onClick={() => service.syncNow(view.space)}>
@@ -893,6 +909,9 @@ const CONFLICT_SHOWN_MS = 10_000;
 const HOVER_OPEN_MS = 350;
 const HOVER_CLOSE_MS = 300;
 
+/** What keeps a space from going on until something is done: its row on the panel says it in the accent. */
+const STOPPED: ReadonlySet<SyncPhase> = new Set(['signedOut', 'folderGone', 'failed', 'moved']);
+
 /** Which of the spaces that sync the status bar speaks of: one in a turn, else one kept from going on, else the one synced longest ago. */
 function standing(all: readonly SpaceSyncView[]): SpaceSyncView | null {
   const worst: SyncPhase[] = ['syncing', 'signedOut', 'folderGone', 'failed', 'offline'];
@@ -920,7 +939,9 @@ export interface SyncStatusProps {
 /**
  * Sync in the status bar: how it stands, with the share done while a turn runs, Sync now beside
  * it, and a new conflict copy for a moment. Resting the pointer on it opens the sync panel, a
- * click keeps it open; on a phone a tap opens it as a sheet. Nothing while not connected.
+ * click keeps it open; on a phone a tap opens it as a sheet. A space waiting for a sign-in is
+ * said beside it even while another one syncs: one place by its name, which signs in; several
+ * by how many, which opens the panel. Nothing while not connected.
  */
 export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }: SyncStatusProps) {
   useTicking(sync.all.length > 0);
@@ -963,6 +984,10 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
   const shown = standing(sync.all);
   if (!shown) return null;
   const { phase, syncedAt, turn } = shown;
+  // The spaces waiting for a sign-in, by where: a server's address, or '' for OneDrive. Said
+  // apart only while sync itself speaks of something else.
+  const waiting = new Map(sync.all.filter((unit) => unit.phase === 'signedOut').map((unit) => [unit.connection?.server ?? '', unit]));
+  const asking = phase === 'signedOut' ? null : waiting.size === 1 ? [...waiting.values()][0]! : waiting.size > 1 ? 'many' : null;
   // With more than one space, the one in a turn is named.
   const many = sync.all.length > 1;
   let text: ReactNode;
@@ -981,6 +1006,22 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
       {copy && (
         <button type="button" className="notice sync-copy" onClick={() => onOpenCopy(copy)}>
           {t('sync.conflictCopy', { name: name ?? '' })}
+        </button>
+      )}
+      {asking && (
+        <button
+          type="button"
+          className="sign-in"
+          onClick={() => {
+            if (asking !== 'many') onSignIn(asking);
+            else {
+              window.clearTimeout(timers.current.open);
+              setOpen('kept');
+            }
+          }}
+        >
+          <Icon name="keys" />
+          {asking === 'many' ? t('sync.signInPlaces', { count: waiting.size }) : signInAsk(asking)}
         </button>
       )}
       <span ref={item} className={`sync-st ${phase}`}>
@@ -1205,6 +1246,7 @@ const SHORT: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, MessageKey> 
 export function shortOf({ phase, syncedAt, turn, connection, why }: SpaceSync): { text: string; bad: boolean } {
   if (phase === 'syncing') return { text: percent(turn?.progress.share ?? 0), bad: false };
   if (phase === 'off' || phase === 'idle') return { text: syncedAt === null ? t('sync.notYet') : ago(syncedAt), bad: false };
+  if (phase === 'signedOut' && connection?.server && why === 'notYet') return { text: t('sync.notSignedInShort'), bad: true };
   return { text: phase === 'folderGone' && connection?.server ? t(why === 'removed' ? 'phone.removed' : 'phone.spaceGone') : t(SHORT[phase]), bad: true };
 }
 
@@ -1212,6 +1254,7 @@ export function shortOf({ phase, syncedAt, turn, connection, why }: SpaceSync): 
 export function standingOf(unit: SpaceSync): string {
   if (unit.phase === 'syncing') return t('sync.syncingPct', { pct: percent(unit.turn?.progress.share ?? 0) });
   if (unit.phase === 'idle' || unit.phase === 'off') return unit.syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(unit.syncedAt) });
+  if (unit.phase === 'signedOut' && unit.connection?.server && unit.why === 'notYet') return t('sync.notSignedInShort');
   return statusText(unit.phase, unit.connection, unit);
 }
 
@@ -1361,8 +1404,14 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
         {sync.syncedAt !== null && <small>{ago(sync.syncedAt)}</small>}
       </>
     );
-  } else title = <b>{statusText(phase, sync.connection, sync)}</b>;
+  } else {
+    // With more than one space, the one told is named.
+    const state = phase === 'signedOut' && sync.connection?.server && sync.why === 'notYet' ? t('sync.notSignedInHere') : statusText(phase, sync.connection, sync);
+    title = <b>{many ? t('panel.of', { name: sync.name, state }) : state}</b>;
+  }
   const sub = turnLine(sync, running, doneFrom);
+  // Waiting for a sign-in with nothing done or to do: no tabs, nothing in them.
+  const bare = phase === 'signedOut' && tabs.every((each) => lists[each].length === 0);
 
   const count = (which: PanelTab) => lists[which].length;
   const shown = lists[tab];
@@ -1402,7 +1451,10 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
             >
               <Icon name="space" />
               <span className="nm">{unit.name}</span>
-              <span className="r">{standingOf(unit)}</span>
+              <span className={STOPPED.has(unit.phase) ? 'r bad' : 'r'}>
+                {unit.phase === 'signedOut' && <Icon name="keys" />}
+                {standingOf(unit)}
+              </span>
             </button>
           ))}
         </div>
@@ -1435,15 +1487,17 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
           </div>
         )}
       </div>
-      <div className="sp-tabs" role="tablist">
-        {tabs.map((each) => (
-          <button key={each} type="button" role="tab" aria-selected={each === tab} className={each === tab ? 'on' : undefined} onClick={() => setChosen(each)}>
-            {t(TAB_LABEL[each])}
-            <small className={each === 'notSynced' && count(each) > 0 ? 'warn' : undefined}>{count(each).toLocaleString(locale())}</small>
-          </button>
-        ))}
-      </div>
-      {shown.length === 0 ? (
+      {!bare && (
+        <div className="sp-tabs" role="tablist">
+          {tabs.map((each) => (
+            <button key={each} type="button" role="tab" aria-selected={each === tab} className={each === tab ? 'on' : undefined} onClick={() => setChosen(each)}>
+              {t(TAB_LABEL[each])}
+              <small className={each === 'notSynced' && count(each) > 0 ? 'warn' : undefined}>{count(each).toLocaleString(locale())}</small>
+            </button>
+          ))}
+        </div>
+      )}
+      {bare ? null : shown.length === 0 ? (
         <p className="sp-empty">{empty}</p>
       ) : tab === 'notSynced' ? (
         <div className="sp-list">
@@ -1462,13 +1516,22 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
         <JobRows key={tab} jobs={shown} height={narrow ? ROW_NARROW : ROW} place={placeName(sync.connection)} />
       )}
       <div className="sp-foot">
-        {!narrow && <span className="left">{running ? t('panel.started', { ago: ago(turn!.startedAt) }) : t('panel.when')}</span>}
+        {!narrow && (
+          <span className="left">
+            {running
+              ? t('panel.started', { ago: ago(turn!.startedAt) })
+              : // Waiting for a sign-in: where, and with which account.
+                phase === 'signedOut' && sync.connection
+                ? `${placeName(sync.connection)} · ${sync.connection.account.email || sync.connection.account.name}`
+                : t('panel.when')}
+          </span>
+        )}
         <button type="button" className="st-btn" onClick={() => onSettings(sync.space)}>
           {t('panel.settings')}
         </button>
         {phase === 'signedOut' ? (
           <button type="button" className="st-btn go" onClick={() => onSignIn(sync)}>
-            {t('sync.signInAgain')}
+            {signInLabel(sync)}
           </button>
         ) : (
           !running && (

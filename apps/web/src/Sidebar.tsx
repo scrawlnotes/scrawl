@@ -7,6 +7,8 @@ import { Spin } from './Loading';
 import { collectionTab, countItems, FILES, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { isDesktop } from './storage';
+import type { SpaceSyncView } from './sync';
+import { percent, signInAsk, signInFresh } from './SyncViews';
 
 // A note or a task list being dragged onto a folder.
 const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
@@ -93,6 +95,10 @@ interface Props {
   reading: ReadonlySet<string>;
   /** Folders looked at, read first while the app opens: those open as it starts, and one opened. */
   onWant: (paths: string[]) => void;
+  /** How each space's sync stands: one waiting for a sign-in says so inside it, one in its first turn how far it is. */
+  syncs: readonly SpaceSyncView[];
+  /** Signs in for a space waiting for it: to its server, or to OneDrive. */
+  onSignIn: (unit: SpaceSyncView) => void;
 }
 
 /** The key a space's heading folds and marks under; the personal space's is `@personal`. */
@@ -143,6 +149,8 @@ export function Sidebar({
   reveal,
   reading,
   onWant,
+  syncs,
+  onSignIn,
 }: Props) {
   // A folder starts closed; one opened stays open, on this device, until it is closed.
   const [opened, setOpened] = useState(() => loadPaths(OPENED));
@@ -512,15 +520,46 @@ export function Sidebar({
     },
   });
 
+  /** How a space's sync stands on this device; none for one that does not sync. */
+  const syncOf = (id: string | null) => syncs.find((unit) => (unit.space ?? '') === (id ?? ''));
+  /** A space in its first turn on this device, with nothing in it yet: it says how far the turn is. */
+  const firstTurn = (unit: SpaceSyncView | undefined, empty: boolean) => !!unit && empty && unit.phase === 'syncing' && unit.syncedAt === null;
+
+  // Inside a space waiting for a sign-in, first: it opens the sign-in (design/mockups.html,
+  // Sunucuya giriş). The server is named over it, the sidebar being narrow.
+  const signInRow = (unit: SpaceSyncView) => (
+    <div className="it need" style={indent(1)}>
+      <button type="button" className="it-main" title={signInAsk(unit)} onClick={() => onSignIn(unit)}>
+        <i className="it-pad" />
+        <Icon name="keys" />
+        <span>{t(signInFresh(unit) ? 'side.signInToSync' : 'side.signInAgainToSync')}</span>
+      </button>
+    </div>
+  );
+
+  // Inside an empty space in its first turn here: how far it is, until what it holds is there.
+  const firstTurnRow = (unit: SpaceSyncView) => (
+    <div className="it loading" style={indent(1)}>
+      <span className="it-main">
+        <i className="it-pad" />
+        <Spin />
+        <span>{t('sync.syncingPct', { pct: percent(unit.turn?.progress.share ?? 0) })}</span>
+      </span>
+    </div>
+  );
+
   // A space's heading: its name and its menu; it folds like a folder, and takes what is dropped on
   // it to its top. One beside the personal space is dragged to another place among the spaces.
-  const spaceRow = (id: string | null, name: string) => {
+  // It turns while it is read as the app opens, or in its first turn here; it is marked while it
+  // waits for a sign-in.
+  const spaceRow = (id: string | null, name: string, empty = false) => {
     const key = spaceKey(id);
     const top = id ? key : '';
     const open = !folded.has(key);
     const menu = (event: MouseEvent) => onSpaceMenu(event, id);
     const add = (event: MouseEvent) => onSpaceAdd(event, id, () => startFolder(top));
     const placed = spaceDrop?.id === id ? (spaceDrop.after ? ' drop-after' : ' drop-before') : '';
+    const unit = syncOf(id);
     return (
       <div
         key={key}
@@ -545,11 +584,17 @@ export function Sidebar({
           <Icon name="space" />
           <span>{name}</span>
         </button>
-        {/* Turning until all of the space is read, as the app opens. */}
-        {reading.has(id ?? '') && (
+        {/* Turning until all of the space is read, as the app opens, or until its first turn ends; marked while it waits for a sign-in. */}
+        {reading.has(id ?? '') || firstTurn(unit, empty) ? (
           <span className="ct reading">
             <Spin />
           </span>
+        ) : (
+          unit?.phase === 'signedOut' && (
+            <span className="ct need" role="img" title={signInAsk(unit)} aria-label={signInAsk(unit)}>
+              <Icon name="warn" />
+            </span>
+          )
         )}
         {/* What can be made at its top, and apart from it how it is viewed and the rest. */}
         {viewAndAdd(menu, add)}
@@ -568,16 +613,23 @@ export function Sidebar({
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
         {spaceRow(null, personalName)}
+        {!folded.has(spaceKey(null)) && syncOf(null)?.phase === 'signedOut' && signInRow(syncOf(null)!)}
         {!folded.has(spaceKey(null)) && addingIn === '' && folderForm(1)}
         {!folded.has(spaceKey(null)) && personal(1)}
-        {spaces.map((space) => (
-          <Fragment key={space.id}>
-            {spaceRow(space.id, space.name)}
-            {!folded.has(spaceKey(space.id)) && addingIn === spaceKey(space.id) && folderForm(1)}
-            {!folded.has(spaceKey(space.id)) && rows(spaceKey(space.id), space.tree, 1, true)}
-            {!folded.has(spaceKey(space.id)) && reading.has(space.id) && space.tree.length === 0 && loadingRow(1)}
-          </Fragment>
-        ))}
+        {spaces.map((space) => {
+          const open = !folded.has(spaceKey(space.id));
+          const unit = syncOf(space.id);
+          const empty = space.tree.length === 0;
+          return (
+            <Fragment key={space.id}>
+              {spaceRow(space.id, space.name, empty)}
+              {open && unit?.phase === 'signedOut' && signInRow(unit)}
+              {open && addingIn === spaceKey(space.id) && folderForm(1)}
+              {open && rows(spaceKey(space.id), space.tree, 1, true)}
+              {open && empty && (reading.has(space.id) ? loadingRow(1) : unit && firstTurn(unit, empty) && firstTurnRow(unit))}
+            </Fragment>
+          );
+        })}
       </nav>
       {/* Files, the trash, sync and the settings stay at the foot of the sidebar, apart from the folders: a row each, named, as on a phone. In the browser, Downloads opens the desktop apps' latest release on GitHub. */}
       <div className="side-foot">

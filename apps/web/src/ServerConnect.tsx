@@ -2,7 +2,7 @@ import { type Me, readServerInput, RemoteOffline, ServerError, type ServerInvita
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type KeyboardEvent, useEffect, useState } from 'react';
 import { Icon } from './Icon';
-import { hostOf, keepSignIn, type KnownServer, serverAccount } from './servers';
+import { hostOf, keepSignIn, type KnownServer, serverAccount, type SignInWhy } from './servers';
 import { Sheet } from './sheets';
 import { ServerIcon } from './SyncViews';
 
@@ -14,8 +14,9 @@ import { ServerIcon } from './SyncViews';
 // Profile as it is; signing in the email and the password. Profile takes what it lacks from the
 // account after (`signedInToServer`). Joining with an email that has an account there takes its
 // password, and adds the space to it. On a computer it is a step of Add space, where what the
-// server asks for opens under the field at once; on its own, a window signs in again to a server
-// whose key no longer works. On a phone, a sheet.
+// server asks for opens under the field at once; on its own, a window signs in to a server whose
+// spaces wait for it: one this device never signed in to, one signed out of here, or one that no
+// longer takes the key. It names the spaces it opens. On a phone, a sheet.
 
 /** What the field leads to, once the server answered. */
 type Found =
@@ -34,8 +35,11 @@ export interface ConnectOptions {
   me: Me | null;
   /** This device's name, which the server keeps with its key. */
   device: string;
-  /** Signing in again to a server whose key no longer works: its address and the account. */
-  again?: { url: string; email: string } | undefined;
+  /**
+   * Signing in to a server whose spaces wait for it: its address, the account, why it is asked,
+   * and the spaces on it here, which the sign-in opens.
+   */
+  again?: { url: string; email: string; why?: SignInWhy; spaces?: readonly string[] } | undefined;
   /** What the field starts with: the link the app was opened with, from a link's page. */
   start?: string | null | undefined;
   /** Connected; with the space an invite brought the person into, or after a link for a new password. */
@@ -194,12 +198,23 @@ function stepTitle(step: Step, invitation: ServerInvitation | null): string {
   return t(step === 'setup' ? 'server.setupTitle' : step === 'signin' ? 'server.signInTitle' : 'server.connectTitle');
 }
 
+/**
+ * Why a server asks to be signed in to, in a sentence: this device never signed in to it, the
+ * person signed out of it here, or it no longer takes the key; with the spaces it opens.
+ */
+export function signInWords(why: SignInWhy, host: string, spaces: readonly string[] = []): string {
+  const names = spaces.length > 0 ? new Intl.ListFormat(locale(), { type: 'conjunction' }).format(spaces) : '';
+  if (why === 'notYet') return names ? t('server.notSignedInOpens', { host, spaces: names }) : t('server.notSignedIn', { host });
+  if (why === 'left') return names ? t('server.signedOutOpens', { host, spaces: names }) : t('server.signedOutHere', { host });
+  return t('server.signInAgain', { host });
+}
+
 /** What the window says over its fields for a step, when it says something. */
-function stepWords(step: Step, invitation: ServerInvitation | null, host: string, again: boolean): string | null {
+function stepWords(step: Step, invitation: ServerInvitation | null, host: string, again: ConnectOptions['again']): string | null {
   if (step === 'setup') return t('server.setupText', { host });
   if (step === 'join' && invitation?.kind === 'space') return t(invitation.by ? 'server.joinText' : 'server.joinTextNoOne', { by: invitation.by, space: invitation.space.name, host });
   if (step === 'reset' && invitation?.kind === 'reset') return t('server.resetText', { email: invitation.email, host });
-  if (again) return t('server.signInAgain', { host });
+  if (again) return signInWords(again.why ?? 'again', host, again.spaces);
   return null;
 }
 
@@ -239,7 +254,7 @@ export function ConnectServerDialog({ onClose, ...options }: ConnectOptions & { 
   const c = useServerConnect(options);
   const { card, line } = foundWords(c.found);
   const signing = c.step !== 'address';
-  const words = stepWords(c.step, c.invitation, c.host, !!options.again);
+  const words = stepWords(c.step, c.invitation, c.host, options.again);
   // A link is shown as code from the moment it is pasted.
   const linked = !!readServerInput(c.input)?.invite;
   const onKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
@@ -482,7 +497,7 @@ export function ConnectServerSheet({ onClose, addressOnly = false, ...options }:
   const c = useServerConnect(options);
   const signing = c.step !== 'address';
   const leaving = !signing || !!options.again;
-  const words = stepWords(c.step, c.invitation, c.host, !!options.again);
+  const words = stepWords(c.step, c.invitation, c.host, options.again);
   // A link is shown as code from the moment it is pasted.
   const linked = !!readServerInput(c.input)?.invite;
   const refused = addressOnly && linked;

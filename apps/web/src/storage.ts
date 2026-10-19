@@ -1,4 +1,4 @@
-import { foldersNest, localPath, readSpaceEntries, type SpaceEntry, spaceOf, type VaultFs } from '@scrawlnotes/core';
+import { foldersNest, inOneDrive, localPath, readSpaceEntries, type SpaceEntry, spaceOf, type VaultFs } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { openBrowserVault, openBrowserVaultAt, removeBrowserVaultAt } from './opfsFs';
@@ -49,14 +49,39 @@ export async function useDefaultVaultFolder(): Promise<void> {
   await saveSettings({ ...settings, vault: null });
 }
 
+/** What is answered about a folder chosen in OneDrive: use it, choose another, or nothing (the window closed). */
+export type OneDriveAnswer = 'use' | 'another' | null;
+/** Asks what to do with a folder chosen in OneDrive, whose app would sync it a second time. */
+export type AskOneDrive = () => Promise<OneDriveAnswer>;
+
+/**
+ * Desktop: the folder window, checked by `check`, which throws to refuse one; a folder in OneDrive
+ * is asked about, and the window comes again while another is wanted. Null when it was cancelled.
+ */
+async function chooseChecked(title: string, check: (chosen: string) => Promise<void>, ask: AskOneDrive): Promise<string | null> {
+  for (;;) {
+    const chosen = await chooseFolder(title);
+    if (!chosen) return null;
+    await check(chosen);
+    if (!inOneDrive(chosen)) return chosen;
+    const answer = await ask();
+    if (answer !== 'another') return answer === 'use' ? chosen : null;
+  }
+}
+
 /**
  * Asks for the notes folder and remembers it. Returns false when the dialog was cancelled.
  * A folder that holds a space's copy, or is inside one, is refused: spaces never nest.
  */
-export async function chooseVaultFolder(): Promise<boolean> {
-  const chosen = await chooseFolder(t('settings.folderDialog'));
+export async function chooseVaultFolder(ask: AskOneDrive): Promise<boolean> {
+  const chosen = await chooseChecked(
+    t('settings.folderDialog'),
+    async (path) => {
+      if (settings.spaces.some((space) => space.folder && foldersNest(space.folder, path))) throw new Error(t('error.spaceNests'));
+    },
+    ask,
+  );
   if (!chosen) return false;
-  if (settings.spaces.some((space) => space.folder && foldersNest(space.folder, chosen))) throw new Error(t('error.spaceNests'));
   await saveSettings({ ...settings, vault: chosen });
   return true;
 }
@@ -176,13 +201,16 @@ export async function removeSpaceEntry(id: string, deleteFiles: boolean): Promis
  * neither hold the personal space or another space nor be inside one. Null when the dialog was
  * cancelled.
  */
-export async function chooseSpaceFolder(): Promise<string | null> {
-  const chosen = await chooseFolder(t('settings.spaceFolderDialog'));
-  if (!chosen) return null;
-  const taken = [folder, ...settings.spaces.map((space) => space.folder)].filter((each): each is string => !!each);
-  if (taken.some((each) => foldersNest(each, chosen))) throw new Error(t('error.spaceNests'));
-  if ((await new TauriFs(chosen).list('')).length > 0) throw new Error(t('error.folderNotEmpty'));
-  return chosen;
+export async function chooseSpaceFolder(ask: AskOneDrive): Promise<string | null> {
+  return chooseChecked(
+    t('settings.spaceFolderDialog'),
+    async (chosen) => {
+      const taken = [folder, ...settings.spaces.map((space) => space.folder)].filter((each): each is string => !!each);
+      if (taken.some((each) => foldersNest(each, chosen))) throw new Error(t('error.spaceNests'));
+      if ((await new TauriFs(chosen).list('')).length > 0) throw new Error(t('error.folderNotEmpty'));
+    },
+    ask,
+  );
 }
 
 /** Desktop: moves a space's copy on this device into the folder chosen for it, and remembers it there. */
