@@ -10571,6 +10571,11 @@ button.st-li:hover,
   color: var(--sl-dim);
 }
 
+/* A trash group's name folds it, as its arrow does. */
+.sec .sec-name.trash-fold {
+  cursor: pointer;
+}
+
 /* Create's and Move to's folders with more than one space: each space's under its name, a folder
    inside another a step in; a space's name picks its top. */
 .choices.folder-groups .group,

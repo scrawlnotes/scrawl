@@ -1,4 +1,5 @@
 import { addDays, dayOf, spaceOf, type TrashItem } from '@scrawlnotes/core';
+import { type ReactNode, useState } from 'react';
 import { sizeText } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
 import { ChooseBox, groupState, useLetGo } from './choose';
@@ -104,8 +105,9 @@ function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onRestore,
 /**
  * The trash: what was deleted, by the day it was, with a way back for each item. With more than
  * one space, after the Spaces trash view of design/mockups.html: one screen still, each space's
- * deleted items under its own heading, in the sidebar's order. Rows are chosen together after the
- * Trash select view: on a computer the bar over them takes the heading's place.
+ * deleted items under its own heading, in the sidebar's order. A heading folds its group, as a
+ * task list's section does, so that a long one does not hide the next. Rows are chosen together
+ * after the Trash select view: on a computer the bar over them takes the heading's place.
  */
 export function TrashView({ items, today, spaces = [], choice, onRestore, onDelete, onEmpty }: {
   items: TrashItem[];
@@ -119,6 +121,32 @@ export function TrashView({ items, today, spaces = [], choice, onRestore, onDele
 }) {
   const phone = isPhone();
   const { chosen } = choice;
+  // The groups folded, by their space's id or their day, while the trash is open.
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const fold = (key: string) =>
+    setFolded((now) => {
+      const next = new Set(now);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  /** A group's heading: its arrow and its name fold it; its box chooses its rows. */
+  const heading = (key: string, name: string, group: TrashItem[], icon?: ReactNode) => {
+    const open = !folded.has(key);
+    return (
+      <div className={['sec', 'fold', icon && 'spc', phone && 'mb-tsec', !open && 'closed'].filter(Boolean).join(' ')}>
+        <button type="button" className="chev" aria-expanded={open} aria-label={t(open ? 'sections.fold' : 'sections.unfold', { name })} onClick={() => fold(key)}>
+          {phone ? <Icon name="chevron" /> : open ? '▾' : '▸'}
+        </button>
+        {groupBox(group, name)}
+        {icon}
+        <button type="button" className="sec-name trash-fold" onClick={() => fold(key)}>
+          {name}
+        </button>
+        <small>{group.length}</small>
+      </div>
+    );
+  };
   const count = items.filter((item) => chosen.has(item.path)).length;
   // On a computer, choosing one row is choosing: every row shows its box.
   const choosing = phone ? choice.choosing : count > 0;
@@ -204,21 +232,14 @@ export function TrashView({ items, today, spaces = [], choice, onRestore, onDele
         {bySpace
           ? spaceGroups.map(({ space, items: spaceItems }) => (
               <div key={space.id ?? ''}>
-                <div className="sec spc">
-                  {groupBox(spaceItems, space.name)}
-                  <Icon name="space" />
-                  {space.name} <small>{spaceItems.length}</small>
-                </div>
-                {rows(spaceItems, true)}
+                {heading(`space:${space.id ?? ''}`, space.name, spaceItems, <Icon name="space" />)}
+                {!folded.has(`space:${space.id ?? ''}`) && rows(spaceItems, true)}
               </div>
             ))
           : days.map(({ day, items: dayItems }) => (
               <div key={day}>
-                <div className="sec">
-                  {groupBox(dayItems, pastDayLabel(day, today))}
-                  {pastDayLabel(day, today)} <small>{dayItems.length}</small>
-                </div>
-                {rows(dayItems, false)}
+                {heading(`day:${day}`, pastDayLabel(day, today), dayItems)}
+                {!folded.has(`day:${day}`) && rows(dayItems, false)}
               </div>
             ))}
         {items.length > 0 ? (
