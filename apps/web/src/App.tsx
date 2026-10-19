@@ -155,6 +155,7 @@ import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
+import { TrashPreviewDialog, TrashPreviewPage } from './TrashPreview';
 import { type FileActions, type FileSort, FilesView, fileTitle, Thumb, useIcon, useTitle, useWord } from './Files';
 import { chooseSpaceFolder, downloadBlob, isDesktop, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
 
@@ -602,15 +603,21 @@ export function App() {
     ask(t('phase.close'), message, () => session.closePhase(board, phase.id), t('phase.closeAction'), false);
   };
 
-  const deleteForever = (item: TrashItem) =>
+  const deleteForever = (item: TrashItem, then?: () => void) =>
     ask(
       t('delete.forever'),
       t(item.kind === 'note' || item.kind === 'folder' ? 'delete.foreverWithFiles' : 'delete.foreverText', {
         name: quote(item.title),
       }),
-      () => void session.deleteForever(item),
+      () => {
+        void session.deleteForever(item);
+        then?.();
+      },
       t('delete.forever'),
     );
+  // A deleted item looked at before it is put back: a window on a computer, a page on a phone.
+  const [trashOpen, setTrashOpen] = useState<TrashItem | null>(null);
+  const trashShown = trashOpen && trash.some((item) => item.path === trashOpen.path) ? trashOpen : null;
   /** Where a file is used, opened: a note in its tab, a card on its board, a record over what is open. */
   const openUse = (use: FileUse) => {
     if (use.kind === 'card' && use.card) return showCard(use.path, use.card.id);
@@ -1639,9 +1646,24 @@ export function App() {
         today={today}
         spaces={trashSpaces}
         choice={trashChoice}
+        onOpen={setTrashOpen}
         onRestore={(item) => void session.restore(item)}
         onDelete={deleteForever}
         onEmpty={askEmptyTrash}
+      />
+    )}
+    {!phone && trashShown && (
+      <TrashPreviewDialog
+        item={trashShown}
+        today={today}
+        read={session.trashedContent}
+        resolveImage={session.imageFrom}
+        onRestore={() => {
+          setTrashOpen(null);
+          void session.restore(trashShown);
+        }}
+        onDelete={() => deleteForever(trashShown, () => setTrashOpen(null))}
+        onClose={() => setTrashOpen(null)}
       />
     )}
     {!phone && active === FILES && filesView}
@@ -1754,7 +1776,24 @@ export function App() {
             }}
             canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null || (keysPathOf(id) !== null && keysLooks[keysPathOf(id)!]?.view !== 'text') || (collectionPathOf(id) !== null && (collections[collectionPathOf(id)!]?.schema.fields.length ?? 0) > 0)}
             onAdd={phoneAdd}
-            trashView={<TrashView items={trash} today={today} spaces={trashSpaces} choice={trashChoice} onRestore={(item) => void session.restore(item)} onDelete={deleteForever} onEmpty={askEmptyTrash} />}
+            trashView={<TrashView items={trash} today={today} spaces={trashSpaces} choice={trashChoice} onOpen={setTrashOpen} onRestore={(item) => void session.restore(item)} onDelete={(item) => deleteForever(item)} onEmpty={askEmptyTrash} />}
+            trashItem={{
+              open: trashShown,
+              onShown: () => setTrashOpen(null),
+              view: (item, done) => (
+                <TrashPreviewPage
+                  item={item}
+                  today={today}
+                  read={session.trashedContent}
+                  resolveImage={session.imageFrom}
+                  onRestore={() => {
+                    done();
+                    void session.restore(item);
+                  }}
+                  onDelete={() => deleteForever(item, done)}
+                />
+              ),
+            }}
             trashChoice={{
               choosing: trashChoosing,
               count: chosenTrash.length,

@@ -20,7 +20,10 @@ import {
   loadWorkspace,
   moveItem,
   readTrash,
+  loadNoteTitles,
+  NOTE_TITLES,
   readFolder,
+  saveNoteTitles,
   readTree,
   renameItem,
   restoreAttachments,
@@ -89,7 +92,7 @@ describe('vault', () => {
     ]);
   });
 
-  it('reads a folder at a time: the folders in it still to be read, each with what it holds, and how many notes it read', async () => {
+  it('reads a folder at a time: the folders in it still to be read, how many notes it read, and a collection by its schema file alone', async () => {
     const fs = new MemoryFs();
     await fs.writeText('Inbox.tasks.json', '[]');
     await fs.writeText('plan.md', '# Plan');
@@ -97,6 +100,9 @@ describe('vault', () => {
     await fs.writeText('Clients/_collection.json', '{}');
     await fs.writeText('Clients/Acme.md', '---\nid: a\n---\n');
     await fs.writeText('.scrawl/workspace.json', '{}');
+    const listed: string[] = [];
+    const list = fs.list.bind(fs);
+    fs.list = (dir) => (listed.push(dir), list(dir));
     const read = await readFolder(fs, '', await fs.list(''));
     expect(read.nodes.map((n) => [n.kind, n.path, n.reading])).toEqual([
       ['tasks', 'Inbox.tasks.json', undefined],
@@ -105,10 +111,52 @@ describe('vault', () => {
       ['note', 'plan.md', undefined],
     ]);
     expect(read.nodes[2]!.children).toEqual([]);
-    expect(read.folders.map((f) => [f.path, f.listed.map((e) => e.name)])).toEqual([['Work', ['notes.md']]]);
+    expect(read.folders).toEqual([{ path: 'Work' }]);
     expect(read.read).toBe(1);
+    // Neither the collection nor the folder was listed: the folder is, as it is read next.
+    expect(listed).toEqual(['']);
     // Read whole, the same tree has every folder's items and none left to be read.
     expect((await readTree(fs))[2]).toEqual({ name: 'Work', path: 'Work', kind: 'folder', children: [{ name: 'notes.md', path: 'Work/notes.md', kind: 'note', title: 'notes' }] });
+  });
+
+  it('names the notes that did not change from the titles kept, reads those that did, and keeps only those still there', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('2026-10-05 143207.md', '# First');
+    await fs.writeText('Work/b.md', '');
+    await fs.writeText('Work/c.md', 'c');
+    const reads: string[] = [];
+    const readText = fs.readText.bind(fs);
+    fs.readText = (path) => (reads.push(path), readText(path));
+
+    // Nothing kept yet: every note is read, and the titles are written.
+    const first = await loadNoteTitles(fs);
+    await readTree(fs, '', first);
+    await saveNoteTitles(fs, first);
+    expect(reads.filter((path) => path.endsWith('.md')).sort()).toEqual(['2026-10-05 143207.md', 'Work/b.md', 'Work/c.md']);
+
+    // Again: none is read, the same tree, nothing written.
+    reads.length = 0;
+    const again = await loadNoteTitles(fs);
+    const tree = await readTree(fs, '', again);
+    expect(reads.filter((path) => path !== NOTE_TITLES)).toEqual([]);
+    expect(tree.map((n) => [n.path, n.title])).toEqual([['Work', undefined], ['2026-10-05 143207.md', 'First']]);
+    expect(tree[0]!.children!.map((n) => [n.path, n.empty])).toEqual([['Work/b.md', true], ['Work/c.md', undefined]]);
+    expect(again.changed).toBe(false);
+
+    // One changed and one gone: only the changed one is read, and the gone one is no longer kept.
+    await fs.writeText('2026-10-05 143207.md', '# Renamed');
+    await fs.remove('Work/c.md');
+    reads.length = 0;
+    const third = await loadNoteTitles(fs);
+    expect((await readTree(fs, '', third)).find((n) => n.path === '2026-10-05 143207.md')?.title).toBe('Renamed');
+    expect(reads.filter((path) => path !== NOTE_TITLES)).toEqual(['2026-10-05 143207.md']);
+    expect(third.changed).toBe(true);
+    await saveNoteTitles(fs, third);
+    expect(Object.keys(JSON.parse(await readText(NOTE_TITLES)).notes).sort()).toEqual(['2026-10-05 143207.md', 'Work/b.md']);
+
+    // Titles that cannot be read are none: every note is read again.
+    await fs.writeText(NOTE_TITLES, 'not json');
+    expect((await loadNoteTitles(fs)).get((await fs.list(''))[1]!)).toBeNull();
   });
 
   it('shows an unnamed note by its first line and a named note by its file name', () => {

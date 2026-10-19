@@ -906,6 +906,15 @@ export const en = {
   'trash.note':
     'Restore puts an item back where it was. Attached files that no note uses any more are moved here. Nothing here is deleted until you delete it.',
   'trash.nothing': 'The trash is empty.',
+  'trash.look': 'See what it holds',
+  'trash.deletedFrom': 'Deleted {when} · from {place}',
+  'trash.deletedAt': 'Deleted {when}',
+  'trash.previewEmpty': 'Nothing in it.',
+  'trash.reading': 'Reading…',
+  'trash.cannotRead': 'It cannot be read here. Restore it to see it.',
+  'trash.valuesHidden': 'The values stay hidden until it is restored.',
+  'trash.fileNotShown': 'It is shown once it is restored.',
+  'trash.fileAway': 'It is on the other side of sync and comes when it is restored.',
   'trash.restoredNotice': { one: '{count} item restored', other: '{count} items restored' },
 
   // rows chosen together, in the trash and in Files

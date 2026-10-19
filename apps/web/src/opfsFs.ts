@@ -34,23 +34,25 @@ class OpfsFs implements VaultFs {
     } catch {
       return [];
     }
-    const out: Entry[] = [];
-    for await (const [name, child] of handle.entries()) {
-      const path = join(dir, name);
-      if (child.kind === 'directory') {
-        out.push({ name, path, kind: 'dir' });
-        continue;
-      }
-      try {
-        const file = await (child as FileSystemFileHandle).getFile();
-        out.push({ name, path, kind: 'file', size: file.size, modified: file.lastModified });
-      } catch (error) {
-        // Moved or deleted while the folder was read, by the trash: it is not there any more. Being
-        // written at that moment, by a save, it is still there, only its size is not known.
-        if (!(error instanceof DOMException && error.name === 'NotFoundError')) out.push({ name, path, kind: 'file' });
-      }
-    }
-    return out;
+    const children: [string, FileSystemHandle][] = [];
+    for await (const child of handle.entries()) children.push(child);
+    // Every file's size and time are asked for at once: one after another, a folder of a thousand
+    // files takes several times as long.
+    const out = await Promise.all(
+      children.map(async ([name, child]): Promise<Entry | null> => {
+        const path = join(dir, name);
+        if (child.kind === 'directory') return { name, path, kind: 'dir' };
+        try {
+          const file = await (child as FileSystemFileHandle).getFile();
+          return { name, path, kind: 'file', size: file.size, modified: file.lastModified };
+        } catch (error) {
+          // Moved or deleted while the folder was read, by the trash: it is not there any more. Being
+          // written at that moment, by a save, it is still there, only its size is not known.
+          return error instanceof DOMException && error.name === 'NotFoundError' ? null : { name, path, kind: 'file' };
+        }
+      }),
+    );
+    return out.filter((entry): entry is Entry => entry !== null);
   }
 
   /**

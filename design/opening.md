@@ -1,6 +1,6 @@
 # Açılış: hızlı ve kademeli (taslak)
 
-Durum: 19 Ekim 2026. Kullanıcı dört adımı onayladı: ölçüm, Microsoft dönüşünün çizimi beklememesi, kademeli açılış (her klasörün içinde yükleniyor, space'ler birbirini beklemeden açılır), daha az okuma. Ölçüm About'ta değil, Settings'te yeni bir Logs bölümünde, standart log satırlarıyla durur; sonra başka loglar da oraya yazar. 14. ve 15. bölümün kararları onaylandı; 1. dilim 41ba81e'de, 2. dilim 1825595'te, 3. dilim yazıldı (16. bölüm). Ekranlar `design/mockups.html`'de, "Açılış" bölümünde.
+Durum: 19 Ekim 2026. Kullanıcı dört adımı onayladı: ölçüm, Microsoft dönüşünün çizimi beklememesi, kademeli açılış (her klasörün içinde yükleniyor, space'ler birbirini beklemeden açılır), daha az okuma. Ölçüm About'ta değil, Settings'te yeni bir Logs bölümünde, standart log satırlarıyla durur; sonra başka loglar da oraya yazar. 14. ve 15. bölümün kararları onaylandı; 1. dilim 41ba81e'de, 2. dilim 1825595'te, 3. dilim 8446e8e'de (16. bölüm), 4. dilim yazıldı (17. bölüm). Ekranlar `design/mockups.html`'de, "Açılış" bölümünde.
 
 ## 1. Sorun
 
@@ -264,3 +264,11 @@ Onaylanan sırayla. Her dilim bitince commit sorulur.
 - **Log:** 1. dilimin adım adım satırları (Spaces opened, Attachments listed, ağaç, listeler, çöp kutusu) yerine her space'in kendi satırı var: `Personal read in 1.8 s: 300 notes, 300 read from disk; 10 folders, 1 task list, 0 boards, 2 collections, 3000 records`.
 - **Ölçüm** (geliştirme sunucusu, 5196; kişisel space'te 300 not ve 2 × 1.500 kayıt, üç space'te 100'er not ve 500'er kayıt): kabuk 0,2–0,3 sn, ilk sekme 0,4–0,5 sn, üç space 0,9 sn'de, kişisel space 1,8–1,9 sn'de, hepsi 2,2 sn'de (koleksiyon index'i hazırken; ilk açılışta 6,0 sn). Açılış sürerken açılan klasör 0,03 sn'de Loading… gösterdi, 0,17 sn'de doldu.
 - **Görülen:** bir klasörün koleksiyon mu klasör mü olduğu içi bütünüyle listelenerek anlaşılıyor. Kişisel space'in en üstü, içindeki iki 1.500 kayıtlı koleksiyonun listesini beklediği için öteki space'ler bütünüyle okunduktan sonra geldi. 4. dilimde koleksiyon, `_collection.json`'un tek bir `stat`'ıyla anlaşılır; liste koleksiyonun kendi işinde bir kez alınır (11. bölümdeki "koleksiyon tek listelenir").
+
+## 17. 4. dilim yazılırken görülenler (19 Ekim 2026)
+
+- **Başlık index'i:** dosyası `.scrawl/index/_titles.json`. Adı `_` ile başlıyor, çünkü `_` ile başlayan klasörler gizli sayılır; böylece hiçbir koleksiyonun index'iyle karışmaz. Açılışta her space'in index'i en üstü okunmadan önce okunur, space bütünüyle okununca yazılır. `refreshTree` de aynı index'i kullanır. Yalnız bütün bir ağaç okununca yazılır; okunurken görülmeyen not index'ten düşer.
+- **Koleksiyon:** dosya katmanı tek bir dosyanın varlığını söyleyebiliyorsa (`stat`; OPFS, masaüstü ve bellek), koleksiyon `_collection.json`'un `stat`'ıyla anlaşılır. Klasör kendi işinde listelenir, koleksiyon `loadCollection`'da bir kez. Böylece bir space'in en üstü içindeki koleksiyonları beklemez.
+- **Paralel listeleme:** `OpfsFs.list` girişleri toplar, her dosyanın boyutunu ve zamanını aynı anda ister.
+- **Yeniden okuma:** okumalar sırayla gider. Biri başlamayı beklerken istenen öteki onun içine katılır; tek space'lik bir istek, bütününü isteyenle birleşince bütün olur. Sync turundan sonra yalnız o space'in ağacı, listeleri, koleksiyonları ve çöp kutusu okunur, açık notlarından da yalnız o space'inkiler. Öteki space'lerinkiler olduğu gibi kalır. Pencere odağı ve oluşturma, taşıma, silme hepsini okur.
+- **Ölçüm** (aynı veri, geliştirme sunucusu): açılış 2,2 sn'den 1,1–1,2 sn'ye indi. Kişisel space 1,8 sn yerine 0,7 sn'de, öteki üç space 0,5–0,7 sn'de okundu, hiçbir not diskten okunmadı. Index yokken ilk açılışta her not bir kez okunur ve index yazılır.

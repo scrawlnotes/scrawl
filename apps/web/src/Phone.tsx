@@ -1,4 +1,4 @@
-import { type Found, INBOX_TASKS, inSpace, listName, spaceOf, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
+import { type Found, INBOX_TASKS, inSpace, listName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -47,6 +47,7 @@ type PageKind =
   | { kind: 'server'; url: string }
   | { kind: 'sync'; space?: string | null; named?: boolean }
   | { kind: 'history'; path: string }
+  | { kind: 'trashItem'; item: TrashItem }
   | { kind: 'version'; path: string; version: Version }
   | { kind: 'card'; board: string; id: string }
   | { kind: 'record'; dir: string; id: string };
@@ -107,6 +108,12 @@ export interface PhoneProps {
   /** + on what is open, or on Today or Upcoming: a task, typed above the keyboard. */
   onAdd: (id: string) => void;
   trashView: ReactNode;
+  /** A deleted item looked at as a page over the trash: `open` asks for it, `view` draws it, calling `done` once it is restored or deleted. */
+  trashItem: {
+    open: TrashItem | null;
+    onShown: () => void;
+    view: (item: TrashItem, done: () => void) => ReactNode;
+  };
   /** The trash's Select: its rows chosen together, and what is done with them. */
   trashChoice: PhoneChoice;
   /** Files, a page from Browse beside the trash. */
@@ -791,6 +798,15 @@ export function Phone(props: PhoneProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goneRecords]);
 
+  // A deleted item opens as a page over the trash.
+  const { open: trashAsked, onShown: trashShown } = props.trashItem;
+  useEffect(() => {
+    if (!trashAsked) return;
+    trashShown();
+    push({ kind: 'trashItem', item: trashAsked });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trashAsked]);
+
   // A note's history opens as a page over the note's.
   const { open: historyAsked, onShown: historyShown } = props.history;
   useEffect(() => {
@@ -858,6 +874,7 @@ export function Phone(props: PhoneProps) {
       return page.space ? (props.spaces.find((space) => space.id === page.space)?.name ?? '') : (props.settings.values.spaceName ?? t('settings.personal'));
     }
     if (page.kind === 'history') return t('history.title');
+    if (page.kind === 'trashItem') return page.item.title;
     if (page.kind === 'card') return props.card.label(page.board, page.id);
     if (page.kind === 'record') return props.record.label(page.dir, page.id);
     if (page.kind === 'version') return props.history.label(page.version);
@@ -1169,6 +1186,13 @@ export function Phone(props: PhoneProps) {
               />
             ))}
           </div>
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'trashItem') {
+      return (
+        <PageFrame title={titleOf(page, of)} nav={nav}>
+          {props.trashItem.view(page.item, pop)}
         </PageFrame>
       );
     }

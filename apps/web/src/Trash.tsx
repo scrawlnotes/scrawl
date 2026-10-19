@@ -50,7 +50,7 @@ function whenOf(item: TrashItem, today: string): string {
  * a space's heading the folder in the space and when. Its box at the left chooses it; while rows
  * are chosen, a click anywhere on it does.
  */
-function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onRestore, onDelete }: {
+function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onOpen, onRestore, onDelete }: {
   item: TrashItem;
   today: string;
   bySpace: boolean;
@@ -58,6 +58,8 @@ function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onRestore,
   /** Rows are being chosen: each shows its box, and a click on one chooses it. */
   choosing: boolean;
   onChoose: (on: boolean) => void;
+  /** Shows what it holds, before it is put back. */
+  onOpen?: () => void;
   onRestore: () => void;
   onDelete: () => void;
 }) {
@@ -77,11 +79,17 @@ function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onRestore,
   ].filter(Boolean);
   const restore = file ? t('trash.restore') : t('trash.restoreTo', { place: place || t('trash.topLevel') });
   return (
-    <div className={`trow choosable${chosen ? ' chosen' : ''}`} onClick={choosing ? () => onChoose(!chosen) : undefined}>
+    <div className={`trow choosable${chosen ? ' chosen' : ''}`} onClick={choosing ? () => onChoose(!chosen) : isPhone() ? onOpen : undefined}>
       <ChooseBox state={chosen} label={t('choose.row', { name: item.title })} onChange={onChoose} />
       <Icon name={iconOf(item)} />
       <div className="task-body">
-        <span className="trow-title">{item.title}</span>
+        {onOpen && !choosing && !isPhone() ? (
+          <button type="button" className="trow-title open" title={t('trash.look')} onClick={onOpen}>
+            {item.title}
+          </button>
+        ) : (
+          <span className="trow-title">{item.title}</span>
+        )}
         <div className="meta">
           {meta.map((part, i) => (
             <span key={i}>{part}</span>
@@ -89,7 +97,7 @@ function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onRestore,
         </div>
       </div>
       {!choosing && (
-        <div className="task-actions">
+        <div className="task-actions" onClick={(event) => event.stopPropagation()}>
           <button type="button" title={restore} aria-label={restore} onClick={onRestore}>
             <Icon name="restore" />
           </button>
@@ -109,12 +117,14 @@ function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onRestore,
  * task list's section does, so that a long one does not hide the next. Rows are chosen together
  * after the Trash select view: on a computer the bar over them takes the heading's place.
  */
-export function TrashView({ items, today, spaces = [], choice, onRestore, onDelete, onEmpty }: {
+export function TrashView({ items, today, spaces = [], choice, onOpen, onRestore, onDelete, onEmpty }: {
   items: TrashItem[];
   today: string;
   /** Every space, the personal one first; with more than one the trash goes by space. */
   spaces?: TrashSpace[];
   choice: TrashChoice;
+  /** Shows what an item holds, before it is put back. */
+  onOpen?: (item: TrashItem) => void;
   onRestore: (item: TrashItem) => void;
   onDelete: (item: TrashItem) => void;
   onEmpty: () => void;
@@ -174,6 +184,7 @@ export function TrashView({ items, today, spaces = [], choice, onRestore, onDele
         chosen={chosen.has(item.path)}
         choosing={choosing}
         onChoose={(on) => choice.onChoose([item.path], on)}
+        {...(onOpen && { onOpen: () => onOpen(item) })}
         onRestore={() => onRestore(item)}
         onDelete={() => onDelete(item)}
       />

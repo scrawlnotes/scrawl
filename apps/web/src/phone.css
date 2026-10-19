@@ -1946,6 +1946,43 @@ body > .mb-lifted {
   font-size: 16px;
 }
 
+/* A deleted item's page on a phone: where it was, what it holds, Delete forever and Restore at its foot. */
+.mb-trash-item {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.mb-trash-item .tp-meta {
+  margin: 0;
+  padding: 0 16px 10px;
+  font-size: 14px;
+}
+
+.mb-trash-item .tp-body {
+  flex: 1;
+  margin: 0 12px 12px;
+}
+
+.mb-trash-item .tp-task {
+  min-height: 44px;
+  font-size: 15px;
+}
+
+.mb-trash-item .tp-note .cm-content {
+  font-size: 16px;
+}
+
+.mb-trash-item .mb-foot {
+  position: sticky;
+  bottom: 0;
+}
+
+.mb-trash-item .mb-btn.danger {
+  background: none;
+  color: var(--sl-p1);
+}
+
 .mb-foot {
   display: flex;
   flex: none;

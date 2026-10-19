@@ -1,6 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import { BOARD_EXT, type BoardLinks, loadBoard, newBoard, parseBoard, serializeBoard, type Template } from './board';
-import { type ColumnWidths, collectionName, isCollection, loadSchema, namedById, parseRecord, parseSchema, RECORD_EXT, readWidths, recordTitle, type RecordSort } from './collection';
+import { COLLECTION_FILE, type ColumnWidths, collectionName, isCollection, loadSchema, namedById, parseRecord, parseSchema, RECORD_EXT, readWidths, recordTitle, type RecordSort } from './collection';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
@@ -721,15 +721,16 @@ export async function saveFile(fs: VaultFs, file: File, options: PartsOptions = 
 
 /**
  * Reads the folders, task lists, boards, keys files and notes of a vault: task lists first, then
- * boards, then keys files, then collections, then folders, then notes, each by name.
+ * boards, then keys files, then collections, then folders, then notes, each by name. With
+ * `titles`, a note that did not change since it was kept there is not read again.
  */
-export async function readTree(fs: VaultFs, dir = ''): Promise<TreeNode[]> {
+export async function readTree(fs: VaultFs, dir = '', titles?: NoteTitles): Promise<TreeNode[]> {
   const fill = async (at: string, listed: Entry[]): Promise<TreeNode[]> => {
-    const { nodes, folders } = await readFolder(fs, at, listed);
+    const { nodes, folders } = await readFolder(fs, at, listed, titles);
     await Promise.all(
       folders.map(async (folder) => {
         const node = nodes.find((each) => each.path === folder.path)!;
-        node.children = await fill(folder.path, folder.listed);
+        node.children = await fill(folder.path, folder.listed ?? (await fs.list(folder.path)));
         delete node.reading;
       }),
     );
@@ -738,23 +739,25 @@ export async function readTree(fs: VaultFs, dir = ''): Promise<TreeNode[]> {
   return fill(dir, await fs.list(dir));
 }
 
-/** One folder read: what it holds, each folder in it with its own entries, to be read next. */
+/** One folder read: what it holds, and each folder in it, to be read next. */
 export interface FolderRead {
   /** In the tree's order; a folder in it is `reading`, its `children` empty. */
   nodes: TreeNode[];
-  /** The folders in it, each with its entries as listed, which tell a collection from a folder. */
-  folders: { path: string; listed: Entry[] }[];
+  /** The folders in it, with their entries when they had to be listed to tell them from a collection. */
+  folders: { path: string; listed?: Entry[] }[];
   /** How many notes were read from disk for their titles. */
   read: number;
 }
 
 /**
- * Reads one folder from its entries as listed: its notes' titles, and the entries of each folder
- * in it, which tell a collection from a folder and are what that folder is read from next. The
- * app opens a folder at a time this way; `readTree` reads them all.
+ * Reads one folder from its entries as listed: its notes' titles, from `titles` for those that
+ * did not change, and the folders in it, to be read next. A collection is told from a folder by
+ * its schema file, looked up alone where the files can say whether one file is there; elsewhere
+ * the folder is listed, and its entries go with it. The app opens a folder at a time this way;
+ * `readTree` reads them all.
  */
-export async function readFolder(fs: VaultFs, dir: string, listed: Entry[]): Promise<FolderRead> {
-  const inside = new Map<string, Entry[]>();
+export async function readFolder(fs: VaultFs, dir: string, listed: Entry[], titles?: NoteTitles): Promise<FolderRead> {
+  const inside = new Map<string, Entry[] | undefined>();
   let read = 0;
   const entries = listed.filter(
     (e) => !isHidden(e.name) && (e.kind === 'dir' || isNote(e) || isTaskList(e) || isBoard(e) || isKeys(e)),
@@ -762,17 +765,22 @@ export async function readFolder(fs: VaultFs, dir: string, listed: Entry[]): Pro
   const nodes = await Promise.all(
     entries.map(async (e): Promise<TreeNode> => {
       if (e.kind === 'dir') {
-        const listedHere = await fs.list(e.path);
-        if (isCollection(listedHere)) return { name: e.name, path: e.path, kind: 'collection', title: collectionName(e.path) };
+        const listedHere = fs.stat ? undefined : await fs.list(e.path);
+        const collection = listedHere ? isCollection(listedHere) : (await fs.stat!(join(e.path, COLLECTION_FILE))) !== null;
+        if (collection) return { name: e.name, path: e.path, kind: 'collection', title: collectionName(e.path) };
         inside.set(e.path, listedHere);
         return { name: e.name, path: e.path, kind: 'folder', children: [], reading: true };
       }
       if (isTaskList(e)) return { name: e.name, path: e.path, kind: 'tasks', title: listName(e.path) };
       if (isBoard(e)) return { name: e.name, path: e.path, kind: 'board', title: boardName(e.path) };
       if (isKeys(e)) return { name: e.name, path: e.path, kind: 'keys', title: keysName(e.path) };
+      const kept = titles?.get(e);
+      if (kept) return { name: e.name, path: e.path, kind: 'note', title: kept.title, ...(kept.empty && { empty: true }) };
       const text = await fs.readText(e.path);
       read++;
-      return { name: e.name, path: e.path, kind: 'note', title: displayTitle(e.path, text), ...(text.trim() === '' && { empty: true }) };
+      const title = displayTitle(e.path, text);
+      titles?.set(e, title, text.trim() === '');
+      return { name: e.name, path: e.path, kind: 'note', title, ...(text.trim() === '' && { empty: true }) };
     }),
   );
   const order: Record<TreeNode['kind'], number> = { tasks: 1, board: 2, keys: 3, collection: 4, folder: 5, note: 6 };
@@ -780,8 +788,87 @@ export async function readFolder(fs: VaultFs, dir: string, listed: Entry[]): Pro
   // Names compare without their extension, so that `Board 2` comes after `Board`.
   const plain = (n: TreeNode) => (n.kind === 'folder' || n.kind === 'collection' ? n.name : splitName(n.name)[0]);
   nodes.sort((a, b) => rank(a) - rank(b) || plain(a).localeCompare(plain(b), undefined, { numeric: true }));
-  const folders = nodes.filter((node) => node.kind === 'folder').map((node) => ({ path: node.path, listed: inside.get(node.path)! }));
+  const folders = nodes
+    .filter((node) => node.kind === 'folder')
+    .map((node) => {
+      const listedHere = inside.get(node.path);
+      return listedHere ? { path: node.path, listed: listedHere } : { path: node.path };
+    });
   return { nodes, folders, read };
+}
+
+/** Where a space keeps its notes' titles on this device, so as not to read every note to name it. */
+export const NOTE_TITLES = '.scrawl/index/_titles.json';
+
+/** A note's title as it was when its file had this size and this time. */
+export interface NoteTitle {
+  modified: number;
+  size: number;
+  title: string;
+  empty?: true;
+}
+
+/**
+ * The notes' titles kept for a space, and those seen as its tree is read now: one whose file
+ * has the size and the time it had is named from here, one read anew is kept with them. Only
+ * the notes seen are kept again, so that one gone goes from here too.
+ */
+export class NoteTitles {
+  private readonly kept: Map<string, NoteTitle>;
+  private readonly seen = new Map<string, NoteTitle>();
+  private grew = false;
+
+  constructor(kept: Record<string, NoteTitle> = {}) {
+    this.kept = new Map(Object.entries(kept));
+  }
+
+  /** The title kept for a note whose file did not change since; null when it has to be read. */
+  get(entry: Entry): NoteTitle | null {
+    const kept = this.kept.get(entry.path);
+    if (!kept || entry.modified === undefined || kept.modified !== entry.modified || kept.size !== entry.size) return null;
+    this.seen.set(entry.path, kept);
+    return kept;
+  }
+
+  /** A note read now, kept with the size and the time of its file. */
+  set(entry: Entry, title: string, empty: boolean) {
+    if (entry.modified === undefined || entry.size === undefined) return;
+    this.seen.set(entry.path, { modified: entry.modified, size: entry.size, title, ...(empty && { empty: true }) });
+    this.grew = true;
+  }
+
+  /** Whether the titles are to be written again: a note read anew, or one no longer there. */
+  get changed(): boolean {
+    return this.grew || this.seen.size !== this.kept.size;
+  }
+
+  toJSON() {
+    return { version: 1, notes: Object.fromEntries(this.seen) };
+  }
+}
+
+/** The notes' titles a space keeps; none when the file is not there or cannot be read. */
+export async function loadNoteTitles(fs: VaultFs): Promise<NoteTitles> {
+  try {
+    const data = JSON.parse(await fs.readText(NOTE_TITLES)) as { version?: unknown; notes?: unknown };
+    if (data.version !== 1 || !data.notes || typeof data.notes !== 'object') return new NoteTitles();
+    const notes: Record<string, NoteTitle> = {};
+    for (const [path, raw] of Object.entries(data.notes as Record<string, unknown>)) {
+      const each = raw as Partial<NoteTitle> | null;
+      if (each && typeof each.modified === 'number' && typeof each.size === 'number' && typeof each.title === 'string') {
+        notes[path] = { modified: each.modified, size: each.size, title: each.title, ...(each.empty === true && { empty: true }) };
+      }
+    }
+    return new NoteTitles(notes);
+  } catch {
+    return new NoteTitles();
+  }
+}
+
+/** Writes the notes' titles after a whole tree was read with them, when they changed. One not written is only read again. */
+export async function saveNoteTitles(fs: VaultFs, titles: NoteTitles): Promise<void> {
+  if (!titles.changed) return;
+  await fs.writeText(NOTE_TITLES, JSON.stringify(titles)).catch(() => undefined);
 }
 
 export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
