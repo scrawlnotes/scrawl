@@ -2,6 +2,7 @@ import { type Board, type Card, type CollectionTemplate, dueCards, dueToday, key
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import type { MouseEvent } from 'react';
 import { KINDS, type NewKind } from './dialogs';
+import { StillOpening } from './Loading';
 import { Icon } from './Icon';
 import { boardWhere, collectionWhere, collectionPathOf, folderLabel, folderOf, iconOf, listWhere, nameOf, pathOf, seenText, spaceWhere } from './items';
 import { dueClass, dueLabel, type DueSubtask, placeOf as subtaskPlace, subtaskRefOf, type TaskActions } from './Tasks';
@@ -42,7 +43,7 @@ function placeOf(id: string): string {
 
 type Due = { list: string; task: Task } | { board: string; card: Card } | DueSubtask;
 
-export function StartPage({ empty, recent, titles, filters, lists, boards, today, actions, onKind, onTemplate, onOpen, onOpenTask, onOpenToday, onAgents }: {
+export function StartPage({ empty, recent, titles, filters, lists, boards, today, actions, onKind, onTemplate, onOpen, onOpenTask, onOpenToday, onAgents, still = null }: {
   /** No space has anything in it yet. */
   empty: boolean;
   /** What was on screen last on this device and is still there, the latest first. */
@@ -63,6 +64,8 @@ export function StartPage({ empty, recent, titles, filters, lists, boards, today
   onOpenToday: () => void;
   /** Opens Settings › Agents. */
   onAgents: () => void;
+  /** The spaces still read as the app opens, said under Today. */
+  still?: string | null;
 }) {
   const now = Date.now();
   return (
@@ -138,7 +141,7 @@ export function StartPage({ empty, recent, titles, filters, lists, boards, today
                 ))
               )}
             </div>
-            <StartToday lists={lists} boards={boards} today={today} actions={actions} onOpenTask={onOpenTask} onOpenToday={onOpenToday} />
+            <StartToday lists={lists} boards={boards} today={today} actions={actions} onOpenTask={onOpenTask} onOpenToday={onOpenToday} still={still} />
           </div>
         )}
       </div>
@@ -147,7 +150,8 @@ export function StartPage({ empty, recent, titles, filters, lists, boards, today
 }
 
 /** Today's first few, as Today orders them: the late tasks, today's, then the cards, then the subtasks of cards and records; each finished from its box. */
-function StartToday({ lists, boards, today, actions, onOpenTask, onOpenToday }: {
+function StartToday({ lists, boards, today, actions, onOpenTask, onOpenToday, still }: {
+  still: string | null;
   lists: Record<string, Task[]>;
   boards: Record<string, Board>;
   today: string;
@@ -254,6 +258,7 @@ function StartToday({ lists, boards, today, actions, onOpenTask, onOpenToday }: 
         {t('start.openToday')}
         <Icon name="chevron" />
       </button>
+      <StillOpening text={still} />
     </div>
   );
 }

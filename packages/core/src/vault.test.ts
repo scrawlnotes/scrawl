@@ -20,6 +20,7 @@ import {
   loadWorkspace,
   moveItem,
   readTrash,
+  readFolder,
   readTree,
   renameItem,
   restoreAttachments,
@@ -86,6 +87,28 @@ describe('vault', () => {
       { name: 'Sprint.tasks.json', path: 'Work/Sprint.tasks.json', kind: 'tasks', title: 'Sprint' },
       { name: 'plan.md', path: 'Work/plan.md', kind: 'note', title: 'plan' },
     ]);
+  });
+
+  it('reads a folder at a time: the folders in it still to be read, each with what it holds, and how many notes it read', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('Inbox.tasks.json', '[]');
+    await fs.writeText('plan.md', '# Plan');
+    await fs.writeText('Work/notes.md', 'notes');
+    await fs.writeText('Clients/_collection.json', '{}');
+    await fs.writeText('Clients/Acme.md', '---\nid: a\n---\n');
+    await fs.writeText('.scrawl/workspace.json', '{}');
+    const read = await readFolder(fs, '', await fs.list(''));
+    expect(read.nodes.map((n) => [n.kind, n.path, n.reading])).toEqual([
+      ['tasks', 'Inbox.tasks.json', undefined],
+      ['collection', 'Clients', undefined],
+      ['folder', 'Work', true],
+      ['note', 'plan.md', undefined],
+    ]);
+    expect(read.nodes[2]!.children).toEqual([]);
+    expect(read.folders.map((f) => [f.path, f.listed.map((e) => e.name)])).toEqual([['Work', ['notes.md']]]);
+    expect(read.read).toBe(1);
+    // Read whole, the same tree has every folder's items and none left to be read.
+    expect((await readTree(fs))[2]).toEqual({ name: 'Work', path: 'Work', kind: 'folder', children: [{ name: 'notes.md', path: 'Work/notes.md', kind: 'note', title: 'notes' }] });
   });
 
   it('shows an unnamed note by its first line and a named note by its file name', () => {

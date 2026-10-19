@@ -1,6 +1,6 @@
 # Açılış: hızlı ve kademeli (taslak)
 
-Durum: 19 Ekim 2026. Kullanıcı dört adımı onayladı: ölçüm, Microsoft dönüşünün çizimi beklememesi, kademeli açılış (her klasörün içinde yükleniyor, space'ler birbirini beklemeden açılır), daha az okuma. Ölçüm About'ta değil, Settings'te yeni bir Logs bölümünde, standart log satırlarıyla durur; sonra başka loglar da oraya yazar. 14. ve 15. bölümün kararları onaylandı; 1. dilim 41ba81e'de, 2. dilim yazıldı. Ekranlar `design/mockups.html`'de, "Açılış" bölümünde.
+Durum: 19 Ekim 2026. Kullanıcı dört adımı onayladı: ölçüm, Microsoft dönüşünün çizimi beklememesi, kademeli açılış (her klasörün içinde yükleniyor, space'ler birbirini beklemeden açılır), daha az okuma. Ölçüm About'ta değil, Settings'te yeni bir Logs bölümünde, standart log satırlarıyla durur; sonra başka loglar da oraya yazar. 14. ve 15. bölümün kararları onaylandı; 1. dilim 41ba81e'de, 2. dilim 1825595'te, 3. dilim yazıldı (16. bölüm). Ekranlar `design/mockups.html`'de, "Açılış" bölümünde.
 
 ## 1. Sorun
 
@@ -254,3 +254,13 @@ Onaylanan sırayla. Her dilim bitince commit sorulur.
 3. **Clear yok:** satırlar kendiliğinden düşer. Silmek isteyen olursa sonra eklenir.
 4. **Telefonda Save yok,** yalnız Copy. Telefonda dosya kaydetmek paylaşma penceresi demek ve Copy aynı işi görüyor.
 5. **Mesajlar İngilizce ve çevrilmez;** not, liste ve kayıt adları yazılmaz, space adları yazılır.
+
+## 16. 3. dilim yazılırken görülenler (19 Ekim 2026)
+
+- **Kabuk:** `ready` space'ler açılınca, workspace, filtreler, profil ve space'lerin insanları okununca gelir; yan panelde her space başlığı spinner'la, içinde Loading… durur. Kişisel space'te Inbox satırı hep vardır; Inbox dosyası yoksa da okunur, bugünkü gibi boş liste olur.
+- **Sekmeler:** bu cihazda olmayan bir space'in sekmesi kabukla birlikte düşer. Ekrandaki not dosyasından okunur; dosyası yoksa sekme düşer ve sıradaki açılır. Ekrandaki liste, board, keys ya da koleksiyon okuma sırasının başındadır; okunana kadar sekme yükleniyor görünümünü gösterir. Diğer sekmeler space'leri okununca kontrol edilir.
+- **Okuma sürerken yapılan değişiklik:** liste yazılırken dosyadaki haliyle birleştirildiği için okunmamış bir listeye görev eklense de dosyadaki görevler kalır; sonradan gelen okuma, açılış sırasında değişmiş bir listenin, board'un, keys dosyasının ya da koleksiyonun üstüne yazmaz.
+- **Yeniden okuma:** açılış sürerken istenen `refreshTree` (oluşturma, taşıma, silme, pencere odağı, sync turu) beklemez; açılış bitince bir kez yapılır. Yani açılış sürerken oluşturulan bir not, sekmesi hemen açılsa da, yan panele açılış bitince girer.
+- **Log:** 1. dilimin adım adım satırları (Spaces opened, Attachments listed, ağaç, listeler, çöp kutusu) yerine her space'in kendi satırı var: `Personal read in 1.8 s: 300 notes, 300 read from disk; 10 folders, 1 task list, 0 boards, 2 collections, 3000 records`.
+- **Ölçüm** (geliştirme sunucusu, 5196; kişisel space'te 300 not ve 2 × 1.500 kayıt, üç space'te 100'er not ve 500'er kayıt): kabuk 0,2–0,3 sn, ilk sekme 0,4–0,5 sn, üç space 0,9 sn'de, kişisel space 1,8–1,9 sn'de, hepsi 2,2 sn'de (koleksiyon index'i hazırken; ilk açılışta 6,0 sn). Açılış sürerken açılan klasör 0,03 sn'de Loading… gösterdi, 0,17 sn'de doldu.
+- **Görülen:** bir klasörün koleksiyon mu klasör mü olduğu içi bütünüyle listelenerek anlaşılıyor. Kişisel space'in en üstü, içindeki iki 1.500 kayıtlı koleksiyonun listesini beklediği için öteki space'ler bütünüyle okunduktan sonra geldi. 4. dilimde koleksiyon, `_collection.json`'un tek bir `stat`'ıyla anlaşılır; liste koleksiyonun kendi işinde bir kez alınır (11. bölümdeki "koleksiyon tek listelenir").

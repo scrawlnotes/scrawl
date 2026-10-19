@@ -3,6 +3,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { LATEST_RELEASE } from './desktopUpdate';
 import { Icon, type IconName } from './Icon';
+import { Spin } from './Loading';
 import { collectionTab, countItems, FILES, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { isDesktop } from './storage';
@@ -77,6 +78,10 @@ interface Props {
    * one ask from the next.
    */
   reveal: { path: string; at: number } | null;
+  /** The spaces still read as the app opens: `''` for the personal one, the others by id. */
+  reading: ReadonlySet<string>;
+  /** Folders looked at, read first while the app opens: those open as it starts, and one opened. */
+  onWant: (paths: string[]) => void;
 }
 
 /** The key a space's heading folds and marks under; the personal space's is `@personal`. */
@@ -121,6 +126,8 @@ export function Sidebar({
   onSearch,
   searchOpen,
   reveal,
+  reading,
+  onWant,
 }: Props) {
   // A folder starts closed; one opened stays open, on this device, until it is closed.
   const [opened, setOpened] = useState(() => loadPaths(OPENED));
@@ -143,13 +150,21 @@ export function Sidebar({
   const [folderName, setFolderName] = useState('');
   const [folderError, setFolderError] = useState<string | null>(null);
 
-  const toggle = (path: string) =>
+  const toggle = (path: string) => {
+    if (!opened.has(path)) onWant([path]);
     setOpened((current) => {
       const next = new Set(current);
       if (!next.delete(path)) next.add(path);
       savePaths(OPENED, next);
       return next;
     });
+  };
+  // The folders open as the app starts are read before the others.
+  useEffect(() => {
+    if (opened.size > 0) onWant([...opened]);
+    // Once, as the sidebar is first drawn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const showInFull = (path: string, full: boolean) =>
     setShownInFull((current) => {
@@ -171,6 +186,7 @@ export function Sidebar({
     if (space && folded.has(key)) toggleSpace(key);
     const parts = localPath(reveal.path).split('/').filter(Boolean);
     if (parts.length > 0) {
+      onWant([reveal.path]);
       setOpened((current) => {
         const next = new Set(current);
         parts.forEach((_, index) => next.add(inSpace(space, parts.slice(0, index + 1).join('/'))));
@@ -350,6 +366,17 @@ export function Sidebar({
 
   const children = (node: TreeNode, depth: number, spaced: boolean): ReactNode => rows(node.path, node.children ?? [], depth, spaced);
 
+  // In a space or an open folder whose items are not read yet, as the app opens.
+  const loadingRow = (depth: number) => (
+    <div className="it loading" style={indent(depth)}>
+      <span className="it-main">
+        <i className="it-pad" />
+        <Spin />
+        <span>{t('opening.loading')}</span>
+      </span>
+    </div>
+  );
+
   // A folder reads as one: an arrow big enough to hit, which turns as it opens, and its icon.
   const folderHead = (open: boolean, name: string) => (
     <>
@@ -401,6 +428,7 @@ export function Sidebar({
         {open && addingIn === node.path && folderForm(depth + 1)}
         {open && filterRows(node.path, depth + 1)}
         {open && children(node, depth + 1, true)}
+        {open && node.reading && loadingRow(depth + 1)}
       </div>
     );
   };
@@ -425,6 +453,7 @@ export function Sidebar({
         depth,
         true,
       )}
+      {reading.has('') && tree.length === 0 && loadingRow(depth)}
     </>
   );
 
@@ -450,6 +479,12 @@ export function Sidebar({
           <Icon name="space" />
           <span>{name}</span>
         </button>
+        {/* Turning until all of the space is read, as the app opens. */}
+        {reading.has(id ?? '') && (
+          <span className="ct reading">
+            <Spin />
+          </span>
+        )}
         {more(menu)}
       </div>
     );
@@ -473,6 +508,7 @@ export function Sidebar({
             {spaceRow(space.id, space.name)}
             {!folded.has(spaceKey(space.id)) && addingIn === spaceKey(space.id) && folderForm(1)}
             {!folded.has(spaceKey(space.id)) && rows(spaceKey(space.id), space.tree, 1, true)}
+            {!folded.has(spaceKey(space.id)) && reading.has(space.id) && space.tree.length === 0 && loadingRow(1)}
           </Fragment>
         ))}
       </nav>

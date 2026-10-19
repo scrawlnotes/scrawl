@@ -11630,3 +11630,93 @@ button.st-li:hover,
   color: var(--sl-faint);
   font: 12px var(--sl-font-ui);
 }
+
+/* As the app opens: a ring that turns while something is read, Loading… where it will be, and
+   the spaces still read under what is shown so far; after the Açılış views of design/mockups.html. */
+.spin {
+  flex: none;
+  display: inline-block;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border: 1.6px solid var(--sl-line);
+  border-top-color: var(--sl-accent);
+  border-radius: 50%;
+  animation: turning 0.9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
+/* A space's heading turns where a folder has its count, until all of it is read. */
+.it .ct.reading {
+  display: flex;
+  align-items: center;
+  padding-right: 10px;
+}
+
+/* In a space or an open folder not read yet: Loading…, where its items will be. */
+.it.loading {
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.it.loading:hover {
+  background: none;
+  color: var(--sl-faint);
+}
+
+.it.loading .spin {
+  margin: 0 1.5px;
+}
+
+/* The status bar while the app still reads: Opening…, turning. */
+.status .opening {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* A tab whose file is not read yet: its name, Loading… beside it, the faint rows of what will be there. */
+.ld-wait {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ld-rows {
+  padding: 4px 26px;
+}
+
+.ld-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 34px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.ld-row i {
+  width: 11%;
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--sl-fg) 7%, transparent);
+}
+
+.ld-row i:first-child {
+  margin-right: auto;
+}
+
+/* Under Today, Upcoming, a filter, Search and the start page: the spaces still read. */
+.still {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}

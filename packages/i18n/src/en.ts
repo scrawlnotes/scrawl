@@ -180,6 +180,8 @@ export const en = {
   'server.name': 'Scrawl server',
   'settings.agents': 'Agents',
   'settings.logs': 'Logs',
+  'opening.loading': 'Loading…',
+  'opening.still': 'Still opening {spaces}…',
   'logs.show': 'Show',
   'logs.all': 'All',
   'logs.warnings': 'Warnings',
@@ -886,6 +888,7 @@ export const en = {
   },
 
   // a file left in the cloud, in a note
+  'editor.pasteNothing': 'Nothing came with the paste. A file copied in a folder goes into a note by dragging it in.',
   'editor.away.where': 'in OneDrive',
   'editor.away.download': 'Download',
   'editor.away.downloading': 'Downloading · {done} of {size}',

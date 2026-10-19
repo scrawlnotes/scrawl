@@ -79,6 +79,8 @@ export function openingFailed(error: string) {
 export interface OpeningMeasure {
   /** Runs a step and writes its line, `text` saying what it did in the time it took. */
   time<T>(name: string, run: () => Promise<T>, text: (result: T, took: string) => string): Promise<T>;
+  /** Writes a step that ran on its own, such as a space read beside the others, which took `ms`. */
+  step(name: string, ms: number, text: string): void;
   /** Writes how long the whole opening took and its longest step. */
   finish(): void;
 }
@@ -94,6 +96,11 @@ export function openingMeasure(live: () => boolean): OpeningMeasure {
       steps.push({ name, ms });
       log('info', SOURCE, text(result, seconds(ms)));
       return result;
+    },
+    step(name, ms, text) {
+      if (!writes()) return;
+      steps.push({ name, ms });
+      log('info', SOURCE, text);
     },
     finish() {
       if (!writes()) return;

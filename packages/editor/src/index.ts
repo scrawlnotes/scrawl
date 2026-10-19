@@ -93,6 +93,10 @@ export interface ScrawlEditorOptions extends LivePreviewOptions {
    * them meanwhile with `addCopy`, and puts them in the note when they are there.
    */
   addFiles?: (files: File[], at: number) => void;
+  /** Files copied in the system that a paste did not carry: a computer's app reads them from its clipboard. */
+  pastedFiles?: () => Promise<File[]>;
+  /** A paste that carried nothing the note takes, no text and no file: a file copied in a folder, in a browser. */
+  onEmptyPaste?: () => void;
   /** Starts recording from the microphone, for the `/` menu. */
   record?: () => void;
   /** The note stopped linking to some attached files, or started linking to them, as an edit or undo did. */
@@ -166,13 +170,29 @@ function statsOf(state: EditorState, chars: number, words: number): EditorStats 
 }
 
 /** Pasted and dropped files go to `addFiles`, with where they land. */
-function fileInput(addFiles: (files: File[], at: number) => void) {
+function fileInput(addFiles: (files: File[], at: number) => void, pastedFiles?: () => Promise<File[]>, onEmptyPaste?: () => void) {
   return EditorView.domEventHandlers({
     paste(event, view) {
-      const files = [...(event.clipboardData?.files ?? [])];
-      if (!files.length) return false;
+      const data = event.clipboardData;
+      const at = view.state.selection.main.head;
+      // Files as the page is given them, or as items where only those carry them.
+      let files = [...(data?.files ?? [])];
+      if (!files.length) files = [...(data?.items ?? [])].filter((item) => item.kind === 'file').map((item) => item.getAsFile()).filter((file): file is File => file !== null);
+      if (files.length) {
+        event.preventDefault();
+        addFiles(files, at);
+        return true;
+      }
+      // With no text either, it may be files copied in a folder, which the page is not given: the
+      // computer's app reads them from the clipboard; else the person is told how to bring one in.
+      if (data && (data.getData('text/plain') || data.getData('text/html'))) return false;
       event.preventDefault();
-      addFiles(files, view.state.selection.main.head);
+      if (!pastedFiles) onEmptyPaste?.();
+      else
+        void pastedFiles().then(
+          (found) => (found.length ? addFiles(found, at) : onEmptyPaste?.()),
+          () => onEmptyPaste?.(),
+        );
       return true;
     },
     drop(event, view) {
@@ -297,7 +317,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         linkPaste(),
         // Before `fileInput`: a dragged image comes with a file, which here is moved, not copied.
         widgetMoves,
-        addFiles ? fileInput(addFiles) : [],
+        addFiles ? fileInput(addFiles, options.pastedFiles, options.onEmptyPaste) : [],
         copiesField,
         foundField,
         scrawlTheme,

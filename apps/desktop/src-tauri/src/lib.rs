@@ -15,6 +15,7 @@ use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
 
+mod clipboard;
 mod cloud;
 mod update;
 
@@ -494,6 +495,8 @@ pub fn run() {
             reveal_file,
             open_url,
             fs_write_part,
+            clipboard::clipboard_files,
+            clipboard::clipboard_file,
             cloud::oauth_listen,
             cloud::oauth_wait,
             cloud::token_request,

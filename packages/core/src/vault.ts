@@ -29,6 +29,8 @@ export interface TreeNode {
   /** A note with nothing written in it yet, when the tree was read: a phone opens it to be written in. */
   empty?: boolean;
   children?: TreeNode[];
+  /** A folder whose items are not read yet, as the app opens: its `children` are empty until they are. */
+  reading?: true;
 }
 
 /** How a board was last looked at on this device: as columns or as a list, and which phase. */
@@ -722,25 +724,54 @@ export async function saveFile(fs: VaultFs, file: File, options: PartsOptions = 
  * boards, then keys files, then collections, then folders, then notes, each by name.
  */
 export async function readTree(fs: VaultFs, dir = ''): Promise<TreeNode[]> {
-  return treeOf(fs, dir, await fs.list(dir));
+  const fill = async (at: string, listed: Entry[]): Promise<TreeNode[]> => {
+    const { nodes, folders } = await readFolder(fs, at, listed);
+    await Promise.all(
+      folders.map(async (folder) => {
+        const node = nodes.find((each) => each.path === folder.path)!;
+        node.children = await fill(folder.path, folder.listed);
+        delete node.reading;
+      }),
+    );
+    return nodes;
+  };
+  return fill(dir, await fs.list(dir));
 }
 
-/** The nodes of a folder, from its entries as listed. */
-async function treeOf(fs: VaultFs, dir: string, listed: Entry[]): Promise<TreeNode[]> {
+/** One folder read: what it holds, each folder in it with its own entries, to be read next. */
+export interface FolderRead {
+  /** In the tree's order; a folder in it is `reading`, its `children` empty. */
+  nodes: TreeNode[];
+  /** The folders in it, each with its entries as listed, which tell a collection from a folder. */
+  folders: { path: string; listed: Entry[] }[];
+  /** How many notes were read from disk for their titles. */
+  read: number;
+}
+
+/**
+ * Reads one folder from its entries as listed: its notes' titles, and the entries of each folder
+ * in it, which tell a collection from a folder and are what that folder is read from next. The
+ * app opens a folder at a time this way; `readTree` reads them all.
+ */
+export async function readFolder(fs: VaultFs, dir: string, listed: Entry[]): Promise<FolderRead> {
+  const inside = new Map<string, Entry[]>();
+  let read = 0;
   const entries = listed.filter(
     (e) => !isHidden(e.name) && (e.kind === 'dir' || isNote(e) || isTaskList(e) || isBoard(e) || isKeys(e)),
   );
   const nodes = await Promise.all(
     entries.map(async (e): Promise<TreeNode> => {
       if (e.kind === 'dir') {
-        const inside = await fs.list(e.path);
-        if (isCollection(inside)) return { name: e.name, path: e.path, kind: 'collection', title: collectionName(e.path) };
-        return { name: e.name, path: e.path, kind: 'folder', children: await treeOf(fs, e.path, inside) };
+        const listedHere = await fs.list(e.path);
+        if (isCollection(listedHere)) return { name: e.name, path: e.path, kind: 'collection', title: collectionName(e.path) };
+        inside.set(e.path, listedHere);
+        return { name: e.name, path: e.path, kind: 'folder', children: [], reading: true };
       }
       if (isTaskList(e)) return { name: e.name, path: e.path, kind: 'tasks', title: listName(e.path) };
       if (isBoard(e)) return { name: e.name, path: e.path, kind: 'board', title: boardName(e.path) };
       if (isKeys(e)) return { name: e.name, path: e.path, kind: 'keys', title: keysName(e.path) };
       const text = await fs.readText(e.path);
+      read++;
       return { name: e.name, path: e.path, kind: 'note', title: displayTitle(e.path, text), ...(text.trim() === '' && { empty: true }) };
     }),
   );
@@ -748,7 +779,9 @@ async function treeOf(fs: VaultFs, dir: string, listed: Entry[]): Promise<TreeNo
   const rank = (n: TreeNode) => order[n.kind];
   // Names compare without their extension, so that `Board 2` comes after `Board`.
   const plain = (n: TreeNode) => (n.kind === 'folder' || n.kind === 'collection' ? n.name : splitName(n.name)[0]);
-  return nodes.sort((a, b) => rank(a) - rank(b) || plain(a).localeCompare(plain(b), undefined, { numeric: true }));
+  nodes.sort((a, b) => rank(a) - rank(b) || plain(a).localeCompare(plain(b), undefined, { numeric: true }));
+  const folders = nodes.filter((node) => node.kind === 'folder').map((node) => ({ path: node.path, listed: inside.get(node.path)! }));
+  return { nodes, folders, read };
 }
 
 export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {

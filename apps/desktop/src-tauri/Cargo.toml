@@ -22,3 +22,7 @@ tauri-plugin-updater = { version = "2.14", default-features = false, features = 
 keyring = "4"
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "form", "http2", "system-proxy"] }
 tokio = { version = "1", features = ["net", "time", "io-util", "macros", "rt"] }
+
+# Files copied in Explorer, read from the clipboard when they are pasted into a note.
+[target.'cfg(windows)'.dependencies]
+clipboard-win = "5"

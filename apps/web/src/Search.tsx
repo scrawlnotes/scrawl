@@ -28,6 +28,7 @@ import { sizeText } from '@scrawlnotes/editor';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { fileTitle, kindOf } from './Files';
+import { StillOpening } from './Loading';
 import { Icon, type IconName } from './Icon';
 import { boardOf, collectionTab, filterTab, keysOf, listHeading, spaceLabel, tasksOf } from './items';
 import type { FileRow, SpaceView } from './session';
@@ -354,11 +355,13 @@ type Row = { kind: 'found'; found: Found<Thing> } | { kind: 'past'; search: stri
  * arrow keys move through it, and left and right at an end of what is typed change the tab; Enter
  * opens, Esc closes; a click opens too.
  */
-export function SearchWindow({ things, actions, onPick, onClose }: {
+export function SearchWindow({ things, actions, onPick, onClose, still = null }: {
   things: Thing[] | null;
   actions: SearchAction[];
   onPick: (found: Found<Thing>) => void;
   onClose: () => void;
+  /** The spaces still read as the app opens, whose things are not found yet. */
+  still?: string | null;
 }) {
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<SearchTab>('all');
@@ -502,6 +505,7 @@ export function SearchWindow({ things, actions, onPick, onClose }: {
                 </button>
               ))}
               {found.length > SHOWN && <p className="sx-more">{t('search.narrow', { count: SHOWN })}</p>}
+              <StillOpening text={still} />
               {actionsPart}
             </div>
           )
@@ -555,12 +559,14 @@ export function SearchWindow({ things, actions, onPick, onClose }: {
  * them, a row each with what it is and where under its name; with nothing typed the searches made
  * last. The actions come at the foot. Cancel takes back what was typed and the keyboard.
  */
-export function PhoneSearch({ things, actions, query, onQuery, onPick }: {
+export function PhoneSearch({ things, actions, query, onQuery, onPick, still = null }: {
   things: Thing[] | null;
   actions: SearchAction[];
   query: string;
   onQuery: (query: string) => void;
   onPick: (found: Found<Thing>) => void;
+  /** The spaces still read as the app opens, whose things are not found yet. */
+  still?: string | null;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
@@ -689,6 +695,7 @@ export function PhoneSearch({ things, actions, query, onQuery, onPick }: {
                 </button>
               ))}
               {found.length > SHOWN && <p className="mb-p">{t('search.narrow', { count: SHOWN })}</p>}
+              <StillOpening text={still} />
             </div>
           )}
           {actionsPart}

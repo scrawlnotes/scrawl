@@ -6238,3 +6238,38 @@ body > .mb-lifted {
 .mb-logs .mb-p {
   padding-top: 14px;
 }
+
+/* As the app opens, on a phone: a space's section turns beside its name until it is read, and a
+   space or a folder not read yet, or a tab whose file is not, says Loading… where its rows will be. */
+.mb-sec .spin {
+  width: 11px;
+  height: 11px;
+  margin-left: 8px;
+}
+
+.mb-row.loading,
+.ld-row-phone {
+  gap: 13px;
+  color: var(--sl-faint);
+}
+
+.mb-row.loading .spin,
+.ld-row-phone .spin {
+  width: 14px;
+  height: 14px;
+  margin: 0 3px;
+  border-width: 2px;
+}
+
+.still.mb-still {
+  gap: 10px;
+  padding: 14px 16px;
+  color: var(--sl-dim);
+  font-size: 14px;
+}
+
+.still.mb-still .spin {
+  width: 13px;
+  height: 13px;
+  border-width: 2px;
+}

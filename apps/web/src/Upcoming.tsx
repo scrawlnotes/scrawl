@@ -17,6 +17,7 @@ import { type CSSProperties, type ReactElement, type ReactNode, type RefObject, 
 import { createPortal } from 'react-dom';
 import { loadUpcomingView, pageBox, pageWindow, saveUpcomingView, type UpcomingView } from './device';
 import type { TaskPlaceChoice } from './dialogs';
+import { StillOpening } from './Loading';
 import { Icon } from './Icon';
 import { dateWords, DatePop, TaskComposer } from './TaskComposer';
 import {
@@ -52,6 +53,8 @@ interface Props {
   onAdd: (list: string, task: NewTask) => void;
   /** What the status bar says about the view. */
   onStatus: (parts: string[] | null) => void;
+  /** The spaces still read as the app opens, said under the days read so far. */
+  still?: string | null;
 }
 
 /** A month as `YYYY-MM`, `by` months on. */
@@ -171,7 +174,7 @@ export function Upcoming(props: Props) {
     setAsked(asked + 1);
   };
   return (
-    <TaskPage title={t('tasks.upcoming')} extra={header} onAddClick={add}>
+    <TaskPage title={t('tasks.upcoming')} extra={header} onAddClick={add} footer={<StillOpening text={props.still ?? null} />}>
       {view === 'list' ? <UpcomingList {...props} asked={asked} /> : <UpcomingCalendar {...props} month={month} asked={asked} />}
     </TaskPage>
   );

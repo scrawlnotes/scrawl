@@ -1,4 +1,4 @@
-import { type Found, INBOX_TASKS, inSpace, listName, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
+import { type Found, INBOX_TASKS, inSpace, listName, spaceOf, type TaskFilter, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -10,6 +10,7 @@ import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAgents } from './Agents';
 import { PhoneLogs, useLogView } from './Logs';
+import { Spin } from './Loading';
 import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
 import { PhoneSyncList, PhoneSyncPage } from './PhoneSync';
 import { PhoneServerPage, YouAre } from './ServerPeople';
@@ -117,7 +118,11 @@ export interface PhoneProps {
    * Search, the fourth tab: what it finds, read while it is on screen (`onShown`); `onPick` opens
    * what was found, but a folder, which opens as a page here, and a space, which Browse shows.
    */
-  search: { things: Thing[] | null; actions: SearchAction[]; onShown: (shown: boolean) => void; onPick: (found: Found<Thing>) => void };
+  search: { things: Thing[] | null; actions: SearchAction[]; onShown: (shown: boolean) => void; onPick: (found: Found<Thing>) => void; still: string | null };
+  /** The spaces still read as the app opens: `''` for the personal one, the others by id. */
+  reading: ReadonlySet<string>;
+  /** A folder's page opened while the app opens: it is read before the others. */
+  onWant: (paths: string[]) => void;
   /** How sync stands in a word, and whether something keeps it from going on. */
   syncWord: { text: string; bad: boolean };
   /** Asks for the personal space's sync page: back from signing in to connect it, its folder is chosen there. */
@@ -543,6 +548,7 @@ export function Phone(props: PhoneProps) {
     requestAnimationFrame(() => requestAnimationFrame(() => setEntering((now) => (now === key ? null : now))));
   };
   const push = (page: PageKind) => {
+    if (page.kind === 'folder') props.onWant([page.path]);
     const added: Page = { ...page, key: ++pageKeys };
     setStacks((current) => ({ ...current, [place]: [...current[place], added] }));
     slideIn(added.key);
@@ -926,11 +932,22 @@ export function Phone(props: PhoneProps) {
     );
   };
 
-  /** A space's section of Browse: its name with a + for what can be made at its top, and what is there. */
-  const spaceSection = (key: string, name: string, parent: string, nodes: TreeNode[], first?: ReactNode) => (
+  /** In a space or a folder not read yet, as the app opens. */
+  const loadingRow = (
+    <div className="mb-row loading">
+      <Spin />
+      <span className="tx">
+        <b>{t('opening.loading')}</b>
+      </span>
+    </div>
+  );
+
+  /** A space's section of Browse: its name with a + for what can be made at its top, and what is there; turning while it is read. */
+  const spaceSection = (key: string, name: string, parent: string, nodes: TreeNode[], reading: boolean, first?: ReactNode) => (
     <Fragment key={key}>
       <div className="mb-sec">
         <span>{name}</span>
+        {reading && <Spin />}
         <button type="button" aria-label={t('create.title')} title={t('create.title')} onClick={() => props.onFolderMenu(parent, () => setNewFolderIn(parent))}>
           <Icon name="plus" />
         </button>
@@ -939,6 +956,7 @@ export function Phone(props: PhoneProps) {
         {newFolderIn === parent && <FolderForm onAdd={(folder) => props.onNewFolder(folder, parent)} onCancel={() => setNewFolderIn(null)} />}
         {first}
         {nodes.map(browseRow)}
+        {reading && nodes.length === 0 && loadingRow}
       </div>
     </Fragment>
   );
@@ -980,9 +998,10 @@ export function Phone(props: PhoneProps) {
           spaceLabel(null),
           '',
           tree.filter((node) => node.path !== INBOX_TASKS),
+          props.reading.has(''),
           personalFirst,
         )}
-        {props.spaces.map((space) => spaceSection(space.id, space.name, inSpace(space.id, ''), space.tree))}
+        {props.spaces.map((space) => spaceSection(space.id, space.name, inSpace(space.id, ''), space.tree, props.reading.has(space.id)))}
         <div className="mb-list apart">
           <Row icon="clip" label={t('side.files')} right={counts[FILES] || ''} onClick={() => push({ kind: 'files' })} />
           <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
@@ -1039,6 +1058,7 @@ export function Phone(props: PhoneProps) {
       </>
     );
     const empty = placed.length === 0 && children.length === 0;
+    if (node?.reading || (!node && props.reading.has(spaceOf(path) ?? ''))) return <div className="mb-list">{loadingRow}</div>;
     if (empty && newFolderIn !== path) {
       return <Empty icon="folder" title={t('phone.emptyFolder')} text={t('phone.emptyFolderText')} action={{ label: t('create.title'), run: () => props.onCreate(path) }} />;
     }
@@ -1059,7 +1079,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'root' && of === 'search') {
       return (
         <PageFrame title={titleOf(page, of)}>
-          <PhoneSearch things={props.search.things} actions={searchActions} query={query} onQuery={setQuery} onPick={pickFound} />
+          <PhoneSearch things={props.search.things} actions={searchActions} query={query} onQuery={setQuery} onPick={pickFound} still={props.search.still} />
         </PageFrame>
       );
     }

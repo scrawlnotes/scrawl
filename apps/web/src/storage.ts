@@ -177,6 +177,47 @@ export async function revealFileOnDesktop(path: string): Promise<void> {
   if (at) await invoke('reveal_file', { root: at[0], path: at[1] });
 }
 
+/** The type of a file read from the clipboard, by its name's end: an image goes into a note as an image. */
+const PASTED_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+  avif: 'image/avif',
+  heic: 'image/heic',
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  md: 'text/markdown',
+  csv: 'text/csv',
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  wav: 'audio/wav',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  zip: 'application/zip',
+};
+
+/** Desktop: the files copied in Explorer, read, for a paste into a note; what cannot be read, a folder among them, is left out. */
+export async function clipboardFilesOnDesktop(): Promise<File[]> {
+  const paths = await invoke<string[]>('clipboard_files');
+  const read = await Promise.all(
+    paths.map(async (path) => {
+      try {
+        const bytes = await invoke<ArrayBuffer>('clipboard_file', { path });
+        const name = path.split(/[\\/]/).pop() || 'file';
+        const end = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1).toLowerCase() : '';
+        return new File([bytes], name, { type: PASTED_TYPES[end] ?? '' });
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return read.filter((file): file is File => file !== null);
+}
+
 /** Desktop: opens a web or mail address or a phone number in the default browser, mail program or phone program. */
 export async function openUrlOnDesktop(url: string): Promise<void> {
   await invoke('open_url', { url });

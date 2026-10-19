@@ -143,6 +143,7 @@ import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { restartIntoUpdate, useDesktopUpdate } from './desktopUpdate';
 import { SyncStatus, syncWord } from './SyncViews';
 import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
+import { LoadingView, Spin, stillOpening } from './Loading';
 import { openingDrawn, openingFailed } from './opening';
 import { pendingJoin } from './servers';
 import { Sidebar } from './Sidebar';
@@ -267,7 +268,7 @@ export function App() {
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const desktopUpdate = useDesktopUpdate();
-  const { ready, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -1020,9 +1021,11 @@ export function App() {
     };
     // A link tapped in a note, on a phone.
     session.linkTap = setLinkTap;
+    session.say = (text) => setShown({ text });
     return () => {
       session.showMenu = null;
       session.linkTap = null;
+      session.say = null;
     };
   }, [session]);
   const [linkTap, setLinkTap] = useState<LinkTap | null>(null);
@@ -1149,7 +1152,8 @@ export function App() {
     return () => {
       current = false;
     };
-  }, [searchOn, ready]);
+    // Opened while the app still reads, it reads again once all of it is read.
+  }, [searchOn, ready, reading.size === 0]);
   const searchThings = useMemo<Thing[] | null>(
     () => (searchRead ? thingsOf({ tree, spaces, titles: tabTitles, tasks, boards, collections, filters, texts: searchRead.texts, files: searchRead.files, today }) : null),
     [searchRead, tree, spaces, tabTitles, tasks, boards, collections, filters, today],
@@ -1442,6 +1446,13 @@ export function App() {
   const keysText = keysPath !== null ? keyFiles[keysPath] : undefined;
   const collectionPath = active ? collectionPathOf(active) : null;
   const collection = collectionPath !== null ? collections[collectionPath] : undefined;
+  // As the app opens, a tab whose task list, board, keys file or collection is not read yet shows
+  // it is loading, rather than empty.
+  const readingItem = (path: string | null, items: Record<string, unknown>) => path !== null && !(path in items) && reading.has(spaceOf(path) ?? '');
+  const itemLoading = readingItem(list, tasks) || readingItem(boardPath, boards) || readingItem(keysPath, keyFiles) || readingItem(collectionPath, collections);
+  const loadingName = list !== null ? listName(list) : boardPath !== null ? boardName(boardPath) : keysPath !== null ? keysName(keysPath) : collectionPath !== null ? collectionName(collectionPath) : '';
+  // And under what shows tasks, and in Search, the spaces still read.
+  const still = stillOpening(reading, new Map([['', space.name ?? t('settings.personal')], ...spaces.map((each) => [each.id, each.name] as const)]));
   const isDueView = active === TODAY || active === UPCOMING;
   const filterId = active ? filterOf(active) : null;
   const activeFilter = filters.find((filter) => filter.id === filterId) ?? null;
@@ -1487,7 +1498,7 @@ export function App() {
   // templates and an agent; Recent shows what is still there.
   const holdsItems = (nodes: TreeNode[]): boolean =>
     nodes.some((node) => (node.kind === 'folder' ? holdsItems(node.children ?? []) : node.path !== INBOX_TASKS));
-  const nothingYet = !holdsItems(tree) && spaces.every((each) => !holdsItems(each.tree)) && (tasks[INBOX_TASKS]?.length ?? 0) === 0;
+  const nothingYet = reading.size === 0 && !holdsItems(tree) && spaces.every((each) => !holdsItems(each.tree)) && (tasks[INBOX_TASKS]?.length ?? 0) === 0;
   const stillThere = (id: string) => {
     const filter = filterOf(id);
     if (filter !== null) return filters.some((each) => each.id === filter);
@@ -1539,7 +1550,8 @@ export function App() {
       />
     )}
     <div className="editor" ref={host} hidden={!showingEditor} />
-    {list !== null && (
+    {itemLoading && <LoadingView name={loadingName} />}
+    {list !== null && !itemLoading && (
       <TaskList
         key={list}
         list={list}
@@ -1593,7 +1605,7 @@ export function App() {
         fieldsAsked={collectionFields}
       />
     )}
-    {!phone && active === TODAY && <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} />}
+    {!phone && active === TODAY && <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} still={still} />}
     {!phone && active === UPCOMING && (
       <Upcoming
         lists={tasks}
@@ -1606,11 +1618,13 @@ export function App() {
           setNotice(t('phone.addedTo', { name: task.title.trim(), place: listLabel(target) }));
         }}
         onStatus={setViewStatus}
+        still={still}
       />
     )}
     {activeFilter && (
       <FilterView
         filter={activeFilter}
+        still={still}
         lists={tasks}
         boards={boards}
         today={today}
@@ -1631,7 +1645,7 @@ export function App() {
       />
     )}
     {!phone && active === FILES && filesView}
-    {!phone && !showingEditor && list === null && !board && keysText === undefined && !collection && !isDueView && !activeFilter && active !== TRASH && active !== FILES &&
+    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && !isDueView && !activeFilter && active !== TRASH && active !== FILES &&
       (active ? (
         <section className="placeholder">
           <h1>{labelOf(active, tabTitles, filters)}</h1>
@@ -1657,6 +1671,7 @@ export function App() {
             }}
             onOpenToday={() => void session.open(TODAY)}
             onAgents={() => setDialog({ kind: 'settings', section: 'agents' })}
+            still={still}
           />
         )
       ))}
@@ -1727,9 +1742,9 @@ export function App() {
             item={itemLayer}
             dueView={(kind) =>
               kind === 'today' ? (
-                <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} bare />
+                <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} bare still={still} />
               ) : (
-                <PhoneUpcoming view={upcomingView} lists={tasks} boards={boards} today={today} actions={taskActions} day={upDay} onDay={setUpcomingDay} />
+                <PhoneUpcoming view={upcomingView} lists={tasks} boards={boards} today={today} actions={taskActions} day={upDay} onDay={setUpcomingDay} still={still} />
               )
             }
             upcomingView={upcomingView}
@@ -1768,7 +1783,9 @@ export function App() {
               ],
             }}
             onFilesShown={setFilesShown}
-            search={{ things: searchThings, actions: searchActions, onShown: setSearchShown, onPick: openFound }}
+            search={{ things: searchThings, actions: searchActions, onShown: setSearchShown, onPick: openFound, still }}
+            reading={reading}
+            onWant={(paths) => session.want(paths)}
             syncWord={syncWord(sync)}
             syncAsked={syncAsked}
             onSyncShown={() => setSyncAsked(false)}
@@ -2025,6 +2042,8 @@ export function App() {
           onSearch={() => setSearching(true)}
           searchOpen={searching}
           reveal={revealFolder}
+          reading={reading}
+          onWant={(paths) => session.want(paths)}
         />
         <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
         <main className="main">
@@ -2150,7 +2169,19 @@ export function App() {
                 </button>
               </span>
             ) : (
-              <span className="push">{!ready ? t('status.opening') : saved ? t('status.saved') : t('status.saving')}</span>
+              <span className="push">
+                {/* Opening… while the app still reads; what is being saved is said first. */}
+                {!ready || (saved && reading.size > 0) ? (
+                  <span className="opening">
+                    <Spin />
+                    {t('status.opening')}
+                  </span>
+                ) : saved ? (
+                  t('status.saved')
+                ) : (
+                  t('status.saving')
+                )}
+              </span>
             )}
             {showingEditor && (
               <button
@@ -2246,7 +2277,7 @@ export function App() {
           onClose={closeDialog}
         />
       )}
-      {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onClose={() => setSearching(false)} />}
+      {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onClose={() => setSearching(false)} still={still} />}
       {dialog?.kind === 'removeSpace' &&
         (() => {
           const space = spaces.find((each) => each.id === dialog.id);

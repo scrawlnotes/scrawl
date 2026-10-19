@@ -77,7 +77,9 @@ import {
   withPerson,
   MultiFs,
   newSpaceId,
+  type Entry,
   prefixTree,
+  readFolder,
   rebaseBoard,
   rebaseCollection,
   rebaseSchema,
@@ -229,6 +231,7 @@ import {
   type TransactionSpec,
 } from '@scrawlnotes/editor';
 import { boardPathOf, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
+import { JobQueue } from './jobs';
 import { type OpeningMeasure, openingMeasure, seconds } from './opening';
 import welcomeComputer from './welcome.md?raw';
 import welcomePhone from './welcome.phone.md?raw';
@@ -245,6 +248,7 @@ import {
   fileUrl,
   isDesktop,
   openFileOnDesktop,
+  clipboardFilesOnDesktop,
   openUrlOnDesktop,
   openVault,
   revealFileOnDesktop,
@@ -307,7 +311,10 @@ const formatCommands = {
 export type FormatAction = keyof typeof formatCommands;
 
 export interface Snapshot {
+  /** The shell is up: the spaces are open and last time's tabs are there; their items come as they are read. */
   ready: boolean;
+  /** The spaces whose items are not all read yet as the app opens: `''` for the personal one, the others by id. */
+  reading: ReadonlySet<string>;
   /** Desktop only: the folder the notes are in. */
   folder: string | null;
   /** Desktop only: the folder the notes go to unless another is chosen. */
@@ -383,22 +390,86 @@ export interface SpaceView {
   tree: TreeNode[];
 }
 
-/** How many notes and folders a tree has, for the opening's log. */
-function treeSize(nodes: TreeNode[]): string {
-  let notes = 0;
-  let folders = 0;
-  const visit = (each: TreeNode[]) => {
-    for (const node of each) {
-      if (node.kind === 'note') notes++;
-      else if (node.kind === 'folder') {
-        folders++;
-        visit(node.children ?? []);
-      }
-    }
-  };
-  visit(nodes);
-  return `${notes} notes, ${folders} folders`;
+/** The personal space's key among the spaces read as the app opens. */
+const PERSONAL = '';
+/** How many folders and files are read at once as the app opens: each is a call to the browser's storage. */
+const READ_AT_ONCE = 8;
+/** What is read first as the app opens: the tab on screen, each space's top, the folders looked at, ... */
+const FIRST = { tab: 0, top: 1, wanted: 2, files: 3, list: 4, folder: 5, collection: 6, trash: 7 };
+/** How often what was read is shown at most, as the app opens. */
+const SHOW_MS = 100;
+
+/** A space being read as the app opens. */
+interface SpaceRead {
+  key: string;
+  space: string | null;
+  fs: VaultFs;
+  /** What the opening's log calls it. */
+  name: string;
+  /** Each folder read, by its path in the space, `''` for its top: what it holds. */
+  folders: Map<string, TreeNode[]>;
+  /** Its jobs not done yet; none left, it is read. */
+  left: number;
+  started: number;
+  notes: number;
+  fromDisk: number;
+  folderCount: number;
+  lists: number;
+  boards: number;
+  collections: number;
+  records: number;
 }
+
+/** The reading of every space as the app opens, until all of it is read. */
+interface OpeningRead {
+  run: number;
+  queue: JobQueue;
+  reads: Map<string, SpaceRead>;
+  /** The task lists, boards, keys files and collections asked for, by path: none is read twice. */
+  items: Set<string>;
+  /** What the tree has, by path, for one the tab on screen asked for first and could not read. */
+  seen: Map<string, TreeNode['kind']>;
+  /** The spaces whose tree grew since it was last shown, and those read all through since. */
+  changed: Set<string>;
+  finished: Set<string>;
+  /** The title of the note on screen, read before its folder is. */
+  early: Record<string, string>;
+  tasks: Record<string, Task[]>;
+  sections: Record<string, Section[]>;
+  boards: Record<string, Board>;
+  keys: Record<string, string>;
+  collections: Record<string, Collection>;
+  /** Each space's trash, by its key. */
+  trash: Map<string, TrashItem[]>;
+  /** Something read waits to be shown. */
+  dirty: boolean;
+  timer: number;
+  shownAt: number;
+}
+
+/** A space's tree as far as it is read: a folder not read yet is `reading`, with no children. */
+function treeOfRead(read: SpaceRead): TreeNode[] {
+  const build = (dir: string): TreeNode[] =>
+    (read.folders.get(dir) ?? []).map((node) =>
+      node.kind === 'folder' && read.folders.has(node.path) ? { name: node.name, path: node.path, kind: 'folder', children: build(node.path) } : node,
+    );
+  return build('');
+}
+
+/** What a tab shows that is read as a file of its own: a task list, a board, a keys file or a collection, by its path. */
+function itemOfTab(id: string): [TreeNode['kind'], string] | null {
+  const list = listOf(id);
+  if (list !== null) return ['tasks', list];
+  const board = boardPathOf(id);
+  if (board !== null) return ['board', board];
+  const keys = keysPathOf(id);
+  if (keys !== null) return ['keys', keys];
+  const collection = collectionPathOf(id);
+  return collection !== null ? ['collection', collection] : null;
+}
+
+/** How many of something, for the opening's log, which is not translated: `1 note`, `2 notes`. */
+const many = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 /** What a tab is, for the opening's log: its kind, never its name. */
 function tabKind(id: string): string {
@@ -465,6 +536,7 @@ function freshenAll(collections: Record<string, Collection>): Record<string, Col
 export class Session {
   private snapshot: Snapshot = {
     ready: false,
+    reading: new Set(),
     folder: null,
     defaultFolder: null,
     me: null,
@@ -514,6 +586,8 @@ export class Session {
   private readonly unlinked = new Set<string>();
   /** Shows the menu of a right click in a note; the interface sets it, to draw it like its other menus. */
   showMenu: ((at: { x: number; y: number }, items: ItemAction[], about?: ItemAbout) => void) | null = null;
+  /** Says something for a moment in the status bar, from the window. */
+  say: ((text: string) => void) | null = null;
   /** A link tapped in a note on a touch screen; the interface sets it, to show what can be done with it. */
   linkTap: ((link: LinkTap) => void) | null = null;
   /**
@@ -580,43 +654,23 @@ export class Session {
 
   async start(parent: HTMLElement) {
     const run = ++this.run;
-    // The first start of the page writes each of its steps to the device's log, with how long it took.
+    // The first start of the page writes how it went to the device's log: each space read, the
+    // first tab, and the whole.
     const measure = openingMeasure(() => run === this.run);
     this.parent = parent;
     this.personal = await openVault();
-    await measure.time('Spaces', () => this.openSpaces(), (_, took) => `Spaces opened in ${took}: ${this.opened.size} besides Personal`);
-    const listed = async () => {
-      let count = 0;
-      for (const [space, fs] of this.fs.all()) {
-        for (const entry of await fs.list(ATTACHMENTS).catch(() => [])) {
-          // A copy that was cut off when the app closed leaves its hidden part behind.
-          if (entry.name.startsWith('.') && entry.name.endsWith('.part')) {
-            await fs.remove(entry.path).catch(() => undefined);
-            continue;
-          }
-          count++;
-          // Nothing is read here: images are read when a note shows them, other files when they are opened.
-          if (entry.size !== undefined) this.sizes.set(inSpace(space, entry.path), entry.size);
-        }
-      }
-      return count;
-    };
-    await measure.time('Attachments', listed, (count, took) => `Attachments listed in ${took}: ${count} files`);
-    const readPersonal = async () => {
-      const read = await readTree(this.personal);
-      // The browser vault starts with Inbox. A folder on disk is the user's own; nothing is put there unasked.
-      if (read.length || isDesktop) return read;
-      await createTaskList(this.personal, '', listName(INBOX_TASKS));
-      return readTree(this.personal);
-    };
-    const tree = await measure.time('Personal tree', readPersonal, (read, took) => `Personal tree read in ${took}: ${treeSize(read)}`);
-    const spaces = await this.spaceViews(measure);
+    await this.openSpaces();
     const workspace = await loadWorkspace(this.personal);
     // The onboarding note opens each time until it is closed on this device, for those who had
     // the app before it too. It is kept under `.scrawl`, where the folder stays the user's own.
     this.welcomeClosed = workspace.welcomeClosed === true;
     if (!this.welcomeClosed) await ensureWelcome(this.personal, this.welcomeText());
     const welcomeHere = await welcomeThere(this.personal);
+    const filters = await loadFilters(this.personal);
+    const space = await loadSpace(this.personal);
+    // Nothing is asked at the first start: the name and the email wait for a space where others see them.
+    const me = await startMe(this.personal, this.snapshot.me);
+    const people = await Promise.all([...this.opened.values()].map((each) => loadPeople(each.fs)));
     if (run !== this.run) return;
 
     this.editor = createEditor({
@@ -625,6 +679,9 @@ export class Session {
       // windows, so links go to the default browser.
       ...this.filesOf(() => this.onScreen),
       addFiles: (files, at) => this.addFiles(files, at),
+      // Files copied in Explorer reach a page only through the desktop app, which reads them from the clipboard.
+      pastedFiles: isDesktop ? clipboardFilesOnDesktop : undefined,
+      onEmptyPaste: () => this.say?.(t('editor.pasteNothing')),
       onStats: (stats) => {
         // The editor reports as soon as it exists, before any note is in it.
         const { active } = this.snapshot;
@@ -641,35 +698,15 @@ export class Session {
     });
     window.addEventListener('pagehide', this.flush);
 
-    const everything = [...tree, ...spaces.flatMap((space) => space.tree)];
-    const titles = titlesOf(everything);
-    const lists = (read: Pick<Snapshot, 'tasks' | 'boards' | 'keys' | 'collections'>) =>
-      `${Object.keys(read.tasks).length} task lists, ${Object.keys(read.boards).length} boards, ${Object.keys(read.keys).length} keys files, ` +
-      `${Object.keys(read.collections).length} collections, ${Object.values(read.collections).reduce((sum, each) => sum + each.records.length, 0)} records`;
-    const { tasks, sections, boards, keys, collections } = await measure.time(
-      'Lists and collections',
-      () => this.readLists(everything),
-      (read, took) => `Lists, boards and collections read in ${took}: ${lists(read)}`,
-    );
-    const filters = await loadFilters(this.personal);
-    const space = await loadSpace(this.personal);
-    // Nothing is asked at the first start: the name and the email wait for a space where others see them.
-    const me = await startMe(this.personal, this.snapshot.me);
-    const trash = await measure.time('Trash', () => this.readTrash(), (items, took) => `Trash read in ${took}: ${items.length} items`);
-    if (run !== this.run) return;
+    // The shell comes now, with last time's tabs: a space's are checked once it is read, as each
+    // space's items come as they are read (`readOpening`). Those of a space no longer on this
+    // device, a filter gone, or the onboarding note not there, go now.
     let tabs = workspace.tabs.filter((id) => {
-      const list = listOf(id);
-      const board = boardPathOf(id);
+      const where = spaceOfTab(id);
+      if (where && !this.opened.has(where)) return false;
       const filter = filterOf(id);
       if (filter !== null) return filters.some((f) => f.id === filter);
-      if (board !== null) return board in boards;
-      const keysFile = keysPathOf(id);
-      if (keysFile !== null) return keysFile in keys;
-      const collection = collectionPathOf(id);
-      if (collection !== null) return collection in collections;
-      // The onboarding note is not in the tree.
-      if (id === WELCOME_NOTE) return welcomeHere;
-      return list !== null ? list in tasks : id in titles || !isNote(id);
+      return id !== WELCOME_NOTE || welcomeHere;
     });
     let active = workspace.active;
     // Not closed yet: its tab is the first, and on screen when it was not open already.
@@ -677,19 +714,330 @@ export class Session {
       tabs = [WELCOME_NOTE, ...tabs];
       active = WELCOME_NOTE;
     }
-    const boardLooks = Object.fromEntries(Object.entries(workspace.boards).filter(([path]) => path in boards));
-    const keysLooks = Object.fromEntries(Object.entries(workspace.keys).filter(([path]) => path in keys));
-    const collectionLooks = Object.fromEntries(Object.entries(workspace.collections).filter(([path]) => path in collections));
-    this.set({ ready: true, folder: vaultFolder(), defaultFolder: defaultVaultFolder(), me, tree, spaces, titles, tabs, tasks, sections, boards, boardLooks, keys, keysLooks, collections, collectionLooks, filters, space, trash });
+    const spaces = [...this.opened].map(
+      ([id, each], index): SpaceView => ({ id, name: each.name, folder: each.entry.folder ?? null, source: each.entry.source ?? null, people: people[index]!, tree: [] }),
+    );
+    this.set({
+      ready: true,
+      reading: new Set([PERSONAL, ...this.opened.keys()]),
+      folder: vaultFolder(),
+      defaultFolder: defaultVaultFolder(),
+      me,
+      tree: [],
+      spaces,
+      titles: {},
+      tabs,
+      tasks: {},
+      sections: {},
+      boards: {},
+      boardLooks: workspace.boards,
+      keys: {},
+      keysLooks: workspace.keys,
+      collections: {},
+      collectionLooks: workspace.collections,
+      filters,
+      space,
+      trash: [],
+    });
     // With no tabs from last time nothing is opened: the start page shows.
     const first = active && tabs.includes(active) ? active : tabs[0];
-    if (first) await measure.time('First tab', () => this.open(first), () => `First tab at ${seconds(performance.now())}: ${tabKind(first)}`);
+    const reading = this.readOpening(run, measure, first ?? null);
+    if (first) await this.openFirst(first, measure);
+    await reading;
+    if (run !== this.run) return;
     measure.finish();
     // Versions past their keeping time go, also those of notes deleted long ago.
     for (const [, fs] of this.fs.all()) void pruneHistory(fs).catch(() => undefined);
     void this.sweepAttachments(run);
     void this.recountFiles();
     this.meetSpaces();
+  }
+
+  /**
+   * Opens last time's tab on screen as the app opens, before its space is read: a note is read
+   * from its file at once. One whose file is gone closes, and the next one opens.
+   */
+  private async openFirst(first: string, measure: OpeningMeasure) {
+    let id: string | undefined = first;
+    const start = performance.now();
+    while (id) {
+      try {
+        await this.open(id);
+        break;
+      } catch {
+        const tabs = this.snapshot.tabs.filter((tab) => tab !== id);
+        this.set({ tabs });
+        id = tabs[0];
+      }
+    }
+    if (!id) return;
+    // Its title, before its folder is read.
+    const text = isNote(id) ? this.disk.get(id) : undefined;
+    if (text !== undefined && this.opening) {
+      this.opening.early[id] = displayTitle(id, text);
+      this.set({ titles: { ...this.snapshot.titles, [id]: this.opening.early[id]! } });
+    }
+    measure.step('First tab', performance.now() - start, `First tab at ${seconds(performance.now())}: ${tabKind(id)}`);
+  }
+
+  /** Folders looked at, by their paths in the app: while the app opens they are read before the others, and the folders they are in. */
+  want(paths: string[]) {
+    for (const path of paths) {
+      this.wanted.add(path);
+      const space = spaceOf(path);
+      const parts = localPath(path).split('/').filter(Boolean);
+      parts.forEach((_, index) => this.opening?.queue.hurry(`folder:${inSpace(space, parts.slice(0, index + 1).join('/'))}`, FIRST.wanted));
+    }
+  }
+
+  /** The folders looked at, read first as the app opens. */
+  private readonly wanted = new Set<string>();
+  /** The spaces being read as the app opens; null once all of them are. */
+  private opening: OpeningRead | null = null;
+  /** The tree was to be read again while the app opened: it is, once the opening's reading is done. */
+  private refreshLater = false;
+
+  /**
+   * Reads every space as the app opens, in one queue, a few files at a time, the spaces side by
+   * side (design/opening.md, section 5): the tab on screen's file first, then each space's top,
+   * the folders looked at, the task lists, boards and keys files, the other folders shallow first,
+   * the collections, and each space's trash. What is read is shown as it comes, at most every
+   * 100 ms; a space read all through is no longer `reading`, its tabs whose file is gone close,
+   * and its sync can begin.
+   */
+  private async readOpening(run: number, measure: OpeningMeasure, tab: string | null) {
+    const o: OpeningRead = {
+      run,
+      queue: new JobQueue(READ_AT_ONCE),
+      reads: new Map(),
+      items: new Set(),
+      seen: new Map(),
+      changed: new Set(),
+      finished: new Set(),
+      early: {},
+      tasks: {},
+      sections: {},
+      boards: {},
+      keys: {},
+      collections: {},
+      trash: new Map(),
+      dirty: false,
+      timer: 0,
+      shownAt: 0,
+    };
+    this.opening = o;
+    const started = performance.now();
+    const counts = { left: 0, started, notes: 0, fromDisk: 0, folderCount: 0, lists: 0, boards: 0, collections: 0, records: 0 };
+    o.reads.set(PERSONAL, { key: PERSONAL, space: null, fs: this.personal, name: 'Personal', folders: new Map(), ...counts });
+    for (const [id, each] of this.opened) o.reads.set(id, { key: id, space: id, fs: each.fs, name: each.name, folders: new Map(), ...counts });
+
+    /** Adds a job of a space; once none of its jobs is left, the space is read. */
+    const add = (read: SpaceRead, key: string, priority: number, job: () => Promise<void>) => {
+      read.left++;
+      o.queue.add(key, priority, async () => {
+        try {
+          if (run === this.run) await job();
+        } finally {
+          read.left--;
+          if (read.left === 0) this.spaceRead(o, read, measure);
+        }
+      });
+    };
+
+    /** A task list, a board, a keys file or a collection, read once; the tab on screen's before the tree has it, and again from the tree if that could not be read. */
+    const item = (read: SpaceRead, kind: TreeNode['kind'], path: string, asked = false) => {
+      if (kind === 'note' || kind === 'folder') return;
+      if (!asked) o.seen.set(path, kind);
+      if (o.items.has(path)) return;
+      o.items.add(path);
+      add(read, `item:${path}`, asked ? FIRST.tab : kind === 'collection' ? FIRST.collection : FIRST.list, async () => {
+        if (!(await this.readItem(o, kind, path, asked))) {
+          o.items.delete(path);
+          const known = o.seen.get(path);
+          if (asked && known) item(read, known, path);
+          return;
+        }
+        if (kind === 'tasks') read.lists++;
+        else if (kind === 'board') read.boards++;
+        else if (kind === 'collection') {
+          read.collections++;
+          read.records += o.collections[path]?.records.length ?? 0;
+        }
+        this.soonShown(o);
+      });
+    };
+
+    /** A folder's items, from its entries as listed; the folders in it come next, those looked at first. */
+    const fill = async (read: SpaceRead, dir: string, listed: Entry[], depth: number) => {
+      const { nodes, folders, read: fromDisk } = await readFolder(read.fs, dir, listed);
+      read.folders.set(dir, nodes);
+      read.notes += nodes.filter((node) => node.kind === 'note').length;
+      read.fromDisk += fromDisk;
+      read.folderCount += folders.length;
+      o.changed.add(read.key);
+      this.soonShown(o);
+      for (const folder of folders) {
+        const path = inSpace(read.space, folder.path);
+        add(read, `folder:${path}`, this.wanted.has(path) ? FIRST.wanted : FIRST.folder + (depth + 1) / 100, () => fill(read, folder.path, folder.listed, depth + 1));
+      }
+      for (const node of nodes) item(read, node.kind, inSpace(read.space, node.path));
+    };
+
+    const asked = tab ? itemOfTab(tab) : null;
+    const askedRead = tab ? o.reads.get(spaceOfTab(tab) ?? PERSONAL) : undefined;
+    if (asked && askedRead) item(askedRead, asked[0], asked[1], true);
+    for (const read of o.reads.values()) {
+      add(read, `top:${read.key}`, FIRST.top, async () => {
+        await fill(read, '', await read.fs.list(''), 0);
+        // The browser vault starts with Inbox. A folder on disk is the user's own; nothing is put there unasked.
+        if (read.space !== null || isDesktop || read.folders.get('')!.length > 0) return;
+        await createTaskList(this.personal, '', listName(INBOX_TASKS));
+        await fill(read, '', await read.fs.list(''), 0);
+      });
+      add(read, `files:${read.key}`, FIRST.files, async () => {
+        for (const entry of await read.fs.list(ATTACHMENTS).catch(() => [])) {
+          // A copy that was cut off when the app closed leaves its hidden part behind.
+          if (entry.name.startsWith('.') && entry.name.endsWith('.part')) {
+            await read.fs.remove(entry.path).catch(() => undefined);
+            continue;
+          }
+          // Nothing is read here: images are read when a note shows them, other files when they are opened.
+          if (entry.size !== undefined) this.sizes.set(inSpace(read.space, entry.path), entry.size);
+        }
+      });
+      add(read, `trash:${read.key}`, FIRST.trash, async () => {
+        const items = await readTrash(read.fs).catch(() => []);
+        o.trash.set(read.key, items.map((each) => ({ ...each, path: inSpace(read.space, each.path), from: inSpace(read.space, each.from) })));
+        this.soonShown(o);
+      });
+    }
+    // Inbox is the personal space's list even when its file is not there yet, as the sidebar shows it.
+    item(o.reads.get(PERSONAL)!, 'tasks', INBOX_TASKS);
+
+    await o.queue.idle();
+    if (run !== this.run || this.opening !== o) return;
+    this.showOpening(o);
+    this.opening = null;
+    // How things are looked at is kept only for those still there.
+    const { boards, keys, collections, boardLooks, keysLooks, collectionLooks } = this.snapshot;
+    const there = <T>(looks: Record<string, T>, items: Record<string, unknown>) => Object.fromEntries(Object.entries(looks).filter(([path]) => path in items));
+    this.set({ reading: new Set(), boardLooks: there(boardLooks, boards), keysLooks: there(keysLooks, keys), collectionLooks: there(collectionLooks, collections) });
+    if (this.refreshLater) {
+      this.refreshLater = false;
+      void this.refreshTree();
+    }
+  }
+
+  /**
+   * Reads a task list, a board, a keys file or a collection as the app opens, keeping its text to
+   * tell later whether it changed there. One that cannot be read now, as it is being written, is
+   * shown empty, as it was when the app opened all at once; one only asked for by the tab on
+   * screen, which may be gone, is left until the tree has it. False when nothing was read.
+   */
+  private async readItem(o: OpeningRead, kind: TreeNode['kind'], path: string, asked: boolean): Promise<boolean> {
+    if (kind === 'collection') {
+      // A collection that cannot be read (its schema file gone meanwhile) is left out, not shown broken.
+      const loaded = await this.loadCollectionAt(path).catch(() => null);
+      if (loaded) o.collections[path] = loaded;
+      return loaded !== null;
+    }
+    const text = await this.fs.readText(path).catch(() => null);
+    if (text === null && asked) return false;
+    if (text !== null) this.records.set(path, text);
+    if (kind === 'tasks') {
+      const list = this.parseListAt(path, text ?? '');
+      o.tasks[path] = list.tasks;
+      o.sections[path] = list.sections;
+    } else if (kind === 'board') o.boards[path] = this.parseBoardAt(path, text ?? '');
+    else o.keys[path] = text ?? '';
+    return true;
+  }
+
+  /** A space is read all through: its line in the opening's log, and it is shown so. */
+  private spaceRead(o: OpeningRead, read: SpaceRead, measure: OpeningMeasure) {
+    if (o !== this.opening) return;
+    o.finished.add(read.key);
+    const took = performance.now() - read.started;
+    measure.step(
+      read.name,
+      took,
+      `${read.name} read in ${seconds(took)}: ${many(read.notes, 'note')}, ${read.fromDisk} read from disk; ${many(read.folderCount, 'folder')}, ` +
+        `${many(read.lists, 'task list')}, ${many(read.boards, 'board')}, ${many(read.collections, 'collection')}, ${many(read.records, 'record')}`,
+    );
+    this.showOpening(o);
+  }
+
+  /** Shows what was read soon: at once when nothing was shown for a while, otherwise with what comes meanwhile. */
+  private soonShown(o: OpeningRead) {
+    o.dirty = true;
+    if (o.timer) return;
+    o.timer = window.setTimeout(() => this.showOpening(o), Math.max(0, SHOW_MS - (performance.now() - o.shownAt)));
+  }
+
+  /**
+   * Shows what was read as the app opens: the trees as far as they are read, the lists, boards,
+   * keys files and collections read, the trash. One changed here meanwhile is shown as it is: what
+   * was written then was merged with its file. A space read all through is no longer `reading`.
+   */
+  private showOpening(o: OpeningRead) {
+    if (o !== this.opening) return;
+    window.clearTimeout(o.timer);
+    o.timer = 0;
+    o.shownAt = performance.now();
+    if (!o.dirty && o.finished.size === 0) return;
+    o.dirty = false;
+    const now = this.snapshot;
+    const patch: Partial<Snapshot> = {};
+    if (o.changed.has(PERSONAL)) patch.tree = treeOfRead(o.reads.get(PERSONAL)!);
+    if ([...o.changed].some((key) => key !== PERSONAL)) {
+      patch.spaces = now.spaces.map((view) => (o.changed.has(view.id) && o.reads.has(view.id) ? { ...view, tree: prefixTree(treeOfRead(o.reads.get(view.id)!), view.id) } : view));
+    }
+    if (patch.tree || patch.spaces) {
+      const everything = [...(patch.tree ?? now.tree), ...(patch.spaces ?? now.spaces).flatMap((view) => view.tree)];
+      // A note being typed keeps the title it has now.
+      const typed = Object.fromEntries([...this.pending.keys()].filter((path) => path in now.titles).map((path) => [path, now.titles[path]!]));
+      patch.titles = { ...o.early, ...titlesOf(everything), ...typed };
+    }
+    o.changed.clear();
+    const fresh = <T>(read: Record<string, T>, shown: Record<string, unknown>) => Object.fromEntries(Object.entries(read).filter(([path]) => !(path in shown)));
+    if (Object.keys(o.tasks).length > 0) {
+      patch.tasks = { ...now.tasks, ...fresh(o.tasks, now.tasks) };
+      patch.sections = { ...now.sections, ...fresh(o.sections, now.tasks) };
+    }
+    if (Object.keys(o.boards).length > 0) patch.boards = { ...now.boards, ...fresh(o.boards, now.boards) };
+    if (Object.keys(o.keys).length > 0) patch.keys = { ...now.keys, ...fresh(o.keys, now.keys) };
+    if (Object.keys(o.collections).length > 0) patch.collections = freshenAll({ ...now.collections, ...fresh(o.collections, now.collections) });
+    o.tasks = {};
+    o.sections = {};
+    o.boards = {};
+    o.keys = {};
+    o.collections = {};
+    if (o.trash.size > 0) patch.trash = [...o.trash.values()].flat().sort((a, b) => b.deleted.localeCompare(a.deleted));
+    const finished = [...o.finished];
+    o.finished.clear();
+    if (finished.length > 0) patch.reading = new Set([...now.reading].filter((key) => !finished.includes(key)));
+    this.set(patch);
+    for (const key of finished) void this.closeGoneTabs(key);
+  }
+
+  /** Once a space is read, its tabs whose file is gone close, as they did when the app opened all at once. */
+  private async closeGoneTabs(key: string) {
+    for (const id of this.snapshot.tabs) if ((spaceOfTab(id) ?? PERSONAL) === key && !this.tabThere(id)) await this.detach(id);
+  }
+
+  /** Whether what a tab shows is there, as its space was read. */
+  private tabThere(id: string): boolean {
+    const { tasks, boards, keys, collections, titles, filters } = this.snapshot;
+    // The onboarding note is not in the tree; it was looked for as the app opened.
+    if (id === WELCOME_NOTE) return true;
+    const filter = filterOf(id);
+    if (filter !== null) return filters.some((f) => f.id === filter);
+    const item = itemOfTab(id);
+    if (item) {
+      const [kind, path] = item;
+      return path in (kind === 'tasks' ? tasks : kind === 'board' ? boards : kind === 'keys' ? keys : collections);
+    }
+    return id in titles || !isNote(id);
   }
 
   /**
@@ -755,21 +1103,16 @@ export class Session {
   }
 
   /** The spaces as the interface shows them, each with its tree read now. */
-  private async spaceViews(measure?: OpeningMeasure): Promise<SpaceView[]> {
+  private async spaceViews(): Promise<SpaceView[]> {
     return Promise.all(
-      [...this.opened].map(async ([id, space]) => {
-        const read = () => readTree(space.fs).catch((): TreeNode[] => []);
-        // At the first start each space's tree is a step of the opening's log.
-        const tree = measure ? await measure.time(`${space.name} tree`, read, (nodes, took) => `${space.name} tree read in ${took}: ${treeSize(nodes)}`) : await read();
-        return {
-          id,
-          name: space.name,
-          folder: space.entry.folder ?? null,
-          source: space.entry.source ?? null,
-          people: await loadPeople(space.fs),
-          tree: prefixTree(tree, id),
-        };
-      }),
+      [...this.opened].map(async ([id, space]) => ({
+        id,
+        name: space.name,
+        folder: space.entry.folder ?? null,
+        source: space.entry.source ?? null,
+        people: await loadPeople(space.fs),
+        tree: prefixTree(await readTree(space.fs).catch(() => []), id),
+      })),
     );
   }
 
@@ -998,6 +1341,8 @@ export class Session {
 
   dispose() {
     this.run++;
+    if (this.opening) window.clearTimeout(this.opening.timer);
+    this.opening = null;
     this.stopRecording();
     window.removeEventListener('pagehide', this.flush);
     if (!this.editor) return;
@@ -1793,6 +2138,11 @@ export class Session {
   private treeReads = 0;
 
   private async refreshTree() {
+    // While the app opens its reading has what is there; the tree is read again once it is done.
+    if (this.opening) {
+      this.refreshLater = true;
+      return;
+    }
     const reading = ++this.treeReads;
     await this.settle();
     const edits = new Map(this.edits);
@@ -1831,9 +2181,9 @@ export class Session {
     this.edits.set(path, (this.edits.get(path) ?? 0) + 1);
   }
 
-  /** The personal space's files, for sync; null until it is open. */
+  /** The personal space's files, for sync; null until it is open and read. */
   get vault(): VaultFs | null {
-    return this.snapshot.ready ? this.personal : null;
+    return this.snapshot.ready && !this.snapshot.reading.has(PERSONAL) ? this.personal : null;
   }
 
   /** Before a turn of sync: everything waiting is written, so that the turn takes it along. */

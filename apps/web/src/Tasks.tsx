@@ -58,6 +58,7 @@ import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { priorityItems } from './PhoneTasks';
 import { TaskComposer } from './TaskComposer';
 import { Icon, type IconName } from './Icon';
+import { StillOpening } from './Loading';
 import { boardHeading, boardLabel, boardWhere, collectionHeading, collectionLabel, collectionWhere, folderLabel, listHeading, listLabel, listWhere } from './items';
 import { AssigneeChip, firstName, PersonPicker, type SpacePeople } from './People';
 import { Empty, liftUntilTouch } from './sheets';
@@ -1606,8 +1607,10 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
  * A saved filter: the open tasks of every list that match it, by the list they are in, after the
  * Filter view of design/mockups.html (direction A).
  */
-export function FilterView({ filter, lists, boards, today, me, actions, onEdit }: {
+export function FilterView({ filter, lists, boards, today, me, actions, onEdit, still = null }: {
   filter: TaskFilter;
+  /** The spaces still read as the app opens, said under what is found so far. */
+  still?: string | null;
   lists: Record<string, Task[]>;
   boards: Record<string, Board>;
   today: string;
@@ -1636,6 +1639,7 @@ export function FilterView({ filter, lists, boards, today, me, actions, onEdit }
   return (
     <TaskPage
       title={filter.name}
+      footer={<StillOpening text={still} />}
       extra={
         <>
           {chips.map((chip, i) => (
@@ -1885,8 +1889,10 @@ export function splitDueCards(boards: Record<string, Board>, today: string) {
 }
 
 /** Today: what is due today and what is late, from every task list and every board. */
-export function TodayView({ lists, boards, today, actions, bare, adding }: {
+export function TodayView({ lists, boards, today, actions, bare, adding, still = null }: {
   lists: Record<string, Task[]>;
+  /** The spaces still read as the app opens, said under the tasks read so far. */
+  still?: string | null;
   boards: Record<string, Board>;
   today: string;
   actions: TaskActions;
@@ -1946,14 +1952,17 @@ export function TodayView({ lists, boards, today, actions, bare, adding }: {
       bare={bare}
       adding={adding}
       footer={
-        finished.length > 0 && (
-          <>
-            <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
-              {t(showDone ? 'tasks.hideCompletedToday' : 'tasks.showCompletedToday', { count: finished.length })}
-            </button>
-            {showDone && finished.map(item)}
-          </>
-        )
+        <>
+          {finished.length > 0 && (
+            <>
+              <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
+                {t(showDone ? 'tasks.hideCompletedToday' : 'tasks.showCompletedToday', { count: finished.length })}
+              </button>
+              {showDone && finished.map(item)}
+            </>
+          )}
+          <StillOpening text={still} />
+        </>
       }
     >
       {section(

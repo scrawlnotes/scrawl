@@ -339,11 +339,16 @@ export class SyncService {
       this.syncNow();
     });
     let wasSaved = true;
+    let seen: { spaces: SpaceView[] | null; reading: ReadonlySet<string> | null } = { spaces: null, reading: null };
     const onSession = () => {
-      const { ready, saved, spaces } = this.session.getSnapshot();
+      const { ready, saved, spaces, reading } = this.session.getSnapshot();
       const vault = ready ? this.session.vault : null;
       if (vault !== this.vault) this.open(vault);
-      if (ready && spaces !== this.spaces) this.follow(spaces);
+      // As the app opens, each space syncs once it is read.
+      if (ready && (spaces !== seen.spaces || reading !== seen.reading)) {
+        seen = { spaces, reading };
+        this.follow(reading.size > 0 ? spaces.filter((space) => !reading.has(space.id)) : spaces);
+      }
       // A save done: a turn shortly, unless more saves come first.
       if (saved && !wasSaved) this.soon();
       wasSaved = saved;

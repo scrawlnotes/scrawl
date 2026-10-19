@@ -3,6 +3,7 @@ import { locale, t } from '@scrawlnotes/i18n';
 import { Fragment, useState } from 'react';
 import type { UpcomingView } from './device';
 import { Icon } from './Icon';
+import { StillOpening } from './Loading';
 import { Empty } from './sheets';
 import { dateWords } from './TaskComposer';
 import { CardRow, type Dated, type DueSubtask, placeOf, splitDueCards, splitDueSubtasks, SubtaskRow, subtaskRefOf, type TaskActions, TaskItem, TaskPage } from './Tasks';
@@ -22,13 +23,15 @@ interface Props {
   /** The day chosen in the month, which + adds to there. */
   day: string;
   onDay: (day: string) => void;
+  /** The spaces still read as the app opens, said under the days read so far. */
+  still?: string | null;
 }
 
 export function PhoneUpcoming(props: Props) {
   return props.view === 'calendar' ? <PhoneMonth {...props} /> : <PhoneDays {...props} />;
 }
 
-function PhoneDays({ lists, boards, today, actions }: Props) {
+function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
   const due = dueToday(lists, today);
   const cards = splitDueCards(boards, today);
   const subtasks = splitDueSubtasks(actions.dueSubtasks(), today);
@@ -54,7 +57,7 @@ function PhoneDays({ lists, boards, today, actions }: Props) {
   const reschedule = () => actions.pickDay?.(t('tasks.rescheduleTitle', { count: late.length }), (day) => actions.reschedule(late, day));
 
   return (
-    <TaskPage title={t('tasks.upcoming')} bare>
+    <TaskPage title={t('tasks.upcoming')} bare footer={<StillOpening text={still} />}>
       {late.length > 0 && (
         <>
           <div className="sec">
@@ -97,7 +100,7 @@ function PhoneDays({ lists, boards, today, actions }: Props) {
   );
 }
 
-function PhoneMonth({ lists, boards, today, actions, day, onDay }: Props) {
+function PhoneMonth({ lists, boards, today, actions, day, onDay, still = null }: Props) {
   const [month, setMonth] = useState(day.slice(0, 7));
   const { byDay } = datedByDay(lists, boards, today, actions.dueSubtasks());
   const entries = byDay.get(day) ?? [];
@@ -110,7 +113,7 @@ function PhoneMonth({ lists, boards, today, actions, day, onDay }: Props) {
   const row = (entry: Entry) => <EntryRow key={entryKey(entry)} entry={entry} lists={lists} boards={boards} today={today} actions={actions} />;
 
   return (
-    <TaskPage title={t('tasks.upcoming')} bare>
+    <TaskPage title={t('tasks.upcoming')} bare footer={<StillOpening text={still} />}>
       <div className="mb-month">
         <div className="mh">
           {monthWords(month)}
