@@ -4,7 +4,10 @@ import { COLLECTION_FILE, type ColumnWidths, collectionName, isCollection, loadS
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
 import { fileNameOf, shownName } from './names';
-import { DEFAULT_LOOK, type FolderLook, sortedNodes } from './order';
+import { type FolderLook, sortedNodes } from './order';
+
+/** The order a folder's items are read in: by kind, the folders among them, then by name. The app puts them as each folder is set to show. */
+const READ_ORDER: FolderLook = { group: 'type', by: 'name', dir: 'asc', foldersFirst: false };
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
 import { awayAt, moveAway, readAway, removeAway } from './sync/away';
 import { loadTasks, parseList, serializeList, serializeTasks, TASK_LIST_EXT } from './tasks';
@@ -827,7 +830,7 @@ export async function readFolder(fs: VaultFs, dir: string, listed: Entry[], titl
     titles?.set(e, title, text.trim() === '');
     return { name: e.name, path: e.path, kind: 'note', title, ...(text.trim() === '' && { empty: true }) };
   }
-  nodes.splice(0, nodes.length, ...sortedNodes(nodes, DEFAULT_LOOK));
+  nodes.splice(0, nodes.length, ...sortedNodes(nodes, READ_ORDER));
   const folders = nodes
     .filter((node) => node.kind === 'folder')
     .map((node) => {
@@ -954,9 +957,9 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
     const folders: Record<string, FolderLook> = {};
     if (data.folders && typeof data.folders === 'object') {
       for (const [path, look] of Object.entries(data.folders as Record<string, unknown>)) {
-        const { group, by, dir } = (look ?? {}) as Partial<FolderLook>;
+        const { group, by, dir, foldersFirst } = (look ?? {}) as Partial<FolderLook>;
         if ((group === 'type' || group === 'none') && (by === 'name' || by === 'created' || by === 'modified') && (dir === 'asc' || dir === 'desc')) {
-          folders[path] = { group, by, dir };
+          folders[path] = { group, by, dir, ...(foldersFirst === false && { foldersFirst: false }) };
         }
       }
     }

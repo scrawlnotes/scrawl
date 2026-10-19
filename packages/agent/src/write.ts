@@ -96,8 +96,9 @@ export async function createTool(agent: Agent, args: { space?: string; folder?: 
       path = await createFolder(space.fs, name, folder);
       break;
   }
-  // When it was made, kept as the app keeps it, for the order by Date created.
-  await markCreated(space.fs, AGENT_DEVICE, { [path]: nowOf(agent) }).catch(() => undefined);
+  // When it was made, kept as the app keeps it, for the order by Date created: when its file was written.
+  const written = (await space.fs.stat?.(path).catch(() => null))?.modified;
+  await markCreated(space.fs, AGENT_DEVICE, { [path]: written ?? nowOf(agent) }).catch(() => undefined);
   return { data: { space: space.id, path, kind: args.kind } };
 }
 

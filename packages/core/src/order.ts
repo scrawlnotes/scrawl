@@ -2,20 +2,26 @@ import { splitName } from './paths';
 import type { TreeNode } from './vault';
 
 // How the items of a folder, or of a space's top, are put in order in the sidebar and in Browse:
-// grouped by their kind (task lists, boards, keys files, collections, folders, notes) or not,
-// with the folders on top; then by name, when they were made or when they were last written,
-// one way or the other. Each folder is set on its own, on each device. See PLAN.md 4.1.
+// the folders on top or not, grouped by their kind (task lists, boards, keys files, collections,
+// folders, notes) or not; then by name, when they were made or when they were last written, one
+// way or the other. Each folder is set on its own, on each device. See PLAN.md 4.1.
 
 export interface FolderLook {
   group: 'type' | 'none';
   by: 'name' | 'created' | 'modified';
   dir: 'asc' | 'desc';
+  /** The folders on top, before everything else; on where it is left out. */
+  foldersFirst?: boolean;
 }
 
-/** As the items have always been: by kind, then by name, A to Z. */
-export const DEFAULT_LOOK: FolderLook = { group: 'type', by: 'name', dir: 'asc' };
+/** The folders on top, then by kind, the latest written first. */
+export const DEFAULT_LOOK: FolderLook = { group: 'type', by: 'modified', dir: 'desc', foldersFirst: true };
 
-export const isDefaultLook = (look: FolderLook) => look.group === DEFAULT_LOOK.group && look.by === DEFAULT_LOOK.by && look.dir === DEFAULT_LOOK.dir;
+/** Whether a look puts the folders on top. */
+export const foldersFirst = (look: FolderLook) => look.foldersFirst !== false;
+
+export const isDefaultLook = (look: FolderLook) =>
+  look.group === DEFAULT_LOOK.group && look.by === DEFAULT_LOOK.by && look.dir === DEFAULT_LOOK.dir && foldersFirst(look);
 
 const KIND: Record<TreeNode['kind'], number> = { tasks: 1, board: 2, keys: 3, collection: 4, folder: 5, note: 6 };
 
@@ -50,6 +56,7 @@ export function sortedNodes(nodes: TreeNode[], look: FolderLook, { created = () 
   };
   const key = look.by === 'created' ? madeAt : look.by === 'modified' ? lastWritten : null;
   const way = look.dir === 'asc' ? 1 : -1;
-  const rank = (node: TreeNode) => (look.group === 'type' ? KIND[node.kind] : node.kind === 'folder' ? 0 : 1);
+  const top = foldersFirst(look);
+  const rank = (node: TreeNode) => (top && node.kind === 'folder' ? 0 : 10) + (look.group === 'type' ? KIND[node.kind] : 0);
   return [...nodes].sort((a, b) => rank(a) - rank(b) || (key ? key(a) - key(b) : byName(a, b)) * way || byName(a, b));
 }

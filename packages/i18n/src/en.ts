@@ -98,6 +98,7 @@ export const en = {
   'side.groupBy': 'Group by',
   'side.groupType': 'Type',
   'side.groupNone': 'None',
+  'side.foldersFirst': 'Folders first',
   'side.sortBy': 'Sort by',
   'side.byName': 'Name',
   'side.byCreated': 'Date created',

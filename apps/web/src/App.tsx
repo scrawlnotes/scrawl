@@ -2,6 +2,7 @@ import { locale, t } from '@scrawlnotes/i18n';
 import {
   basename,
   DEFAULT_LOOK,
+  foldersFirst,
   type FolderLook,
   type NodeTimes,
   isDefaultLook,
@@ -1035,7 +1036,11 @@ export function App() {
         value: groups[look.group],
         apart: true,
         run: () => undefined,
-        items: (['type', 'none'] as const).map((group) => ({ label: groups[group], checked: look.group === group, run: set({ group }) })),
+        items: [
+          ...(['type', 'none'] as const).map((group) => ({ label: groups[group], checked: look.group === group, run: set({ group }) })),
+          // Apart from the grouping: the folders on top, or among the rest.
+          { label: t('side.foldersFirst'), checked: foldersFirst(look), apart: true, run: set({ foldersFirst: !foldersFirst(look) }) },
+        ],
       },
       {
         label: t('side.sortBy'),

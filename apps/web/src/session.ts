@@ -1943,13 +1943,18 @@ export class Session {
     this.set({ created });
   }
 
-  /** Keeps when things were made: now, or the times given, by path in the app. */
-  private async madeNow(paths: string[], at = new Date()) {
+  /**
+   * Keeps when things were made, by path in the app: when their files were written, so that a
+   * thing just made was made and last written at the same moment; or the time given.
+   */
+  private async madeNow(paths: string[], at?: Date) {
     const times: Record<string, number> = {};
     for (const path of paths) {
       const { fs, local } = this.at(path);
-      await markCreated(fs, this.deviceId, { [local]: at }).catch(() => undefined);
-      times[path.toLowerCase()] = at.getTime();
+      const written = at ? undefined : (await fs.stat?.(local).catch(() => null))?.modified;
+      const time = at?.getTime() ?? written ?? Date.now();
+      await markCreated(fs, this.deviceId, { [local]: time }).catch(() => undefined);
+      times[path.toLowerCase()] = time;
     }
     this.set({ created: { ...times, ...this.snapshot.created } });
   }

@@ -27,9 +27,13 @@ describe('a folder’s order', () => {
   const made: Record<string, number> = { 'Work/Brief.md': 10, 'Work/Agenda 10.md': 30, 'Work/Agenda 2.md': 20 };
   const created = (each: TreeNode) => made[each.path];
 
-  it('goes by kind and then by name, as it always has', () => {
-    expect(names(sortedNodes(items, DEFAULT_LOOK))).toEqual(['Sprint.tasks.json', 'Roadmap.board.json', 'Old', 'Agenda 2.md', 'Agenda 10.md', 'Brief.md']);
-    expect(names(sortedNodes(items, { group: 'type', by: 'name', dir: 'desc' }))).toEqual(['Sprint.tasks.json', 'Roadmap.board.json', 'Old', 'Brief.md', 'Agenda 10.md', 'Agenda 2.md']);
+  it('puts the folders on top, then the kinds, the latest written first, unless it is set otherwise', () => {
+    expect(names(sortedNodes(items, DEFAULT_LOOK))).toEqual(['Old', 'Sprint.tasks.json', 'Roadmap.board.json', 'Agenda 10.md', 'Brief.md', 'Agenda 2.md']);
+    // Without the folders on top, a folder is among the kinds.
+    expect(names(sortedNodes(items, { group: 'type', by: 'name', dir: 'asc', foldersFirst: false }))).toEqual(['Sprint.tasks.json', 'Roadmap.board.json', 'Old', 'Agenda 2.md', 'Agenda 10.md', 'Brief.md']);
+    expect(names(sortedNodes(items, { group: 'type', by: 'name', dir: 'desc' }))).toEqual(['Old', 'Sprint.tasks.json', 'Roadmap.board.json', 'Brief.md', 'Agenda 10.md', 'Agenda 2.md']);
+    // Not grouped and without the folders on top, everything goes together.
+    expect(names(sortedNodes(items, { group: 'none', by: 'name', dir: 'asc', foldersFirst: false }))).toEqual(['Agenda 2.md', 'Agenda 10.md', 'Brief.md', 'Old', 'Roadmap.board.json', 'Sprint.tasks.json']);
   });
 
   it('goes by when things were last written, a folder by what is in it', () => {
@@ -38,7 +42,7 @@ describe('a folder’s order', () => {
 
   it('goes by when things were made, what is not known by when it was written', () => {
     expect(names(sortedNodes(items, { group: 'none', by: 'created', dir: 'asc' }, { created }))).toEqual(['Old', 'Brief.md', 'Agenda 2.md', 'Agenda 10.md', 'Sprint.tasks.json', 'Roadmap.board.json']);
-    expect(names(sortedNodes(items, { group: 'type', by: 'created', dir: 'desc' }, { created }))).toEqual(['Sprint.tasks.json', 'Roadmap.board.json', 'Old', 'Agenda 10.md', 'Agenda 2.md', 'Brief.md']);
+    expect(names(sortedNodes(items, { group: 'type', by: 'created', dir: 'desc' }, { created }))).toEqual(['Old', 'Sprint.tasks.json', 'Roadmap.board.json', 'Agenda 10.md', 'Agenda 2.md', 'Brief.md']);
   });
 
   it('takes a collection’s times from its files: the newest written, the oldest for when it was made', async () => {
@@ -59,8 +63,15 @@ describe('a folder’s order', () => {
 
   it('is kept on the device by folder, the default left out', async () => {
     const fs = new MemoryFs();
-    await saveWorkspace(fs, { tabs: [], active: null, boards: {}, keys: {}, collections: {}, folders: { Work: { group: 'none', by: 'modified', dir: 'desc' }, Bad: { group: 'x' } as never } });
-    expect((await loadWorkspace(fs)).folders).toEqual({ Work: { group: 'none', by: 'modified', dir: 'desc' } });
+    await saveWorkspace(fs, {
+      tabs: [],
+      active: null,
+      boards: {},
+      keys: {},
+      collections: {},
+      folders: { Work: { group: 'none', by: 'name', dir: 'asc', foldersFirst: false }, Old: { group: 'type', by: 'created', dir: 'desc', foldersFirst: true }, Bad: { group: 'x' } as never },
+    });
+    expect((await loadWorkspace(fs)).folders).toEqual({ Work: { group: 'none', by: 'name', dir: 'asc', foldersFirst: false }, Old: { group: 'type', by: 'created', dir: 'desc' } });
   });
 });
 
