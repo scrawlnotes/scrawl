@@ -380,7 +380,7 @@ describe('renaming and moving a collection', () => {
     expect(await renameCollection(fs, 'Scrawl/Taken 2', 'TAKEN 2')).toBe('Scrawl/TAKEN 2');
     expect((await fs.list('Scrawl')).map((e) => e.name).sort()).toEqual(['TAKEN 2', 'Taken']);
     expect((await loadCollection(fs, 'Scrawl/TAKEN 2')).records.map((r) => r.name)).toEqual(['Acme']);
-    await expect(renameCollection(fs, 'Scrawl/TAKEN 2', ' / ')).rejects.toThrow();
+    await expect(renameCollection(fs, 'Scrawl/TAKEN 2', '   ')).rejects.toThrow();
   });
 
   it('moves the folder into another, and links follow it', async () => {

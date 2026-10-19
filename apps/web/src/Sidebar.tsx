@@ -1,4 +1,4 @@
-import { INBOX_TASKS, inSpace, listName, localPath, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { INBOX_TASKS, inSpace, listName, localPath, shownName, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { LATEST_RELEASE } from './desktopUpdate';
@@ -420,7 +420,7 @@ export function Sidebar({
           onContextMenu={(event) => folderMenu(event, node.path)}
         >
           <button type="button" className="it-main" aria-expanded={open} onClick={() => toggle(node.path)}>
-            {folderHead(open, node.name)}
+            {folderHead(open, shownName(node.name))}
           </button>
           {!open && <span className="ct">{countItems(node) || ''}</span>}
           {more((event) => folderMenu(event, node.path))}

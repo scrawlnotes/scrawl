@@ -20,6 +20,7 @@ import {
   type Span,
   spaceOf,
   type Task,
+  shownName,
   type TaskFilter,
   type TreeNode,
   valueText,
@@ -101,7 +102,7 @@ export function thingsOf(data: SearchData): Thing[] {
       else if (node.kind === 'keys') things.push({ kind: 'keys', name: keysName(node.path), target: { kind: 'tab', id: keysOf(node.path) }, icon: 'keys', where });
       else if (node.kind === 'collection') things.push({ kind: 'collection', name: collectionName(node.path), target: { kind: 'tab', id: collectionTab(node.path) }, icon: 'collection', where });
       else if (node.kind === 'folder') {
-        things.push({ kind: 'folder', name: node.name, target: { kind: 'folder', path: node.path }, icon: 'folder', where });
+        things.push({ kind: 'folder', name: shownName(node.name), target: { kind: 'folder', path: node.path }, icon: 'folder', where });
         visit(node.children ?? []);
       }
     }

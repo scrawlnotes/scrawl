@@ -1,4 +1,4 @@
-import { basename, BOARD_EXT, boardName, collectionName, dirname, isScratchNote, KEYS_EXT, keysName, listName, localPath, spaceOf, TASK_LIST_EXT, type TaskFilter, type TreeNode, WELCOME_NOTE } from '@scrawlnotes/core';
+import { basename, BOARD_EXT, boardName, collectionName, dirname, isScratchNote, KEYS_EXT, keysName, listName, localPath, shownName, spaceOf, TASK_LIST_EXT, type TaskFilter, type TreeNode, WELCOME_NOTE } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import type { IconName } from './Icon';
 
@@ -74,32 +74,32 @@ export function folderLabel(folder: string): string {
   if (folder === '') return spaceLabel(null);
   const space = spaceOf(folder);
   if (space && localPath(folder) === '') return spaceNames.get(space) ?? basename(folder);
-  return basename(folder);
+  return shownName(basename(folder));
 }
 
 /** A folder's path as a list of folders shows it: a space's own name in front of its path. */
 export function shownPath(path: string): string {
   const space = spaceOf(path);
-  if (!space) return path || spaceLabel(null);
+  if (!space) return shownName(path) || spaceLabel(null);
   const name = spaceNames.get(space) ?? space;
-  const local = localPath(path);
+  const local = shownName(localPath(path));
   return local ? `${name}/${local}` : name;
 }
 
 /** Where a folder is, the whole way down to it: the space's name, then its folders: `Personal › Klinitra › Tasks`. */
-export const placeWords = (folder: string) => [spaceLabel(spaceOf(folder)), ...localPath(folder).split('/').filter(Boolean)].join(' › ');
+export const placeWords = (folder: string) => [spaceLabel(spaceOf(folder)), ...localPath(folder).split('/').filter(Boolean).map(shownName)].join(' › ');
 
 /** The folder a path is in, shown as words: the space's name, then the folders, apart. */
 export function placeLabel(path: string): string {
   const space = spaceOf(path);
-  const parts = dirname(localPath(path)).split('/').filter(Boolean);
+  const parts = dirname(localPath(path)).split('/').filter(Boolean).map(shownName);
   if (space) parts.unshift(spaceNames.get(space) ?? space);
   return parts.join(' / ');
 }
 
 /** The folders a path is in, inside its space, as words: `Scrawl / meetings`; empty at the top. */
 export function trailOf(path: string): string {
-  return dirname(localPath(path)).split('/').filter(Boolean).join(' / ');
+  return dirname(localPath(path)).split('/').filter(Boolean).map(shownName).join(' / ');
 }
 
 /** The space and the folder something of another space is in, as the views over every space say it: `Acme · Sales`; null in the personal space. */
@@ -107,7 +107,7 @@ export function spaceWhere(path: string): string | null {
   const space = spaceOf(path);
   if (!space) return null;
   const folder = dirname(localPath(path));
-  return [spaceNames.get(space) ?? space, ...(folder ? [basename(folder)] : [])].join(' · ');
+  return [spaceNames.get(space) ?? space, ...(folder ? [shownName(basename(folder))] : [])].join(' · ');
 }
 
 /** Where a task list is, under a row of Today, Upcoming or a filter: as its tab says, or `Acme · Sales` in another space. */
@@ -207,7 +207,7 @@ export function labelOf(id: string, titles: Record<string, string>, filters: Tas
   const collection = collectionPathOf(id);
   if (collection !== null) return collectionLabel(collection);
   // A record opened as a note is not in the tree's titles; it is named after its file.
-  return titles[id] ?? (isScratchNote(id) ? t('note.untitled') : basename(id).replace(/\.md$/, ''));
+  return titles[id] ?? (isScratchNote(id) ? t('note.untitled') : shownName(basename(id).replace(/\.md$/, '')));
 }
 
 /** What something opened is called on a phone: its name alone, the folder it is in being said under it. */

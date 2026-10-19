@@ -3,6 +3,7 @@ import { BOARD_EXT, type BoardLinks, loadBoard, newBoard, parseBoard, serializeB
 import { COLLECTION_FILE, type ColumnWidths, collectionName, isCollection, loadSchema, namedById, parseRecord, parseSchema, RECORD_EXT, readWidths, recordTitle, type RecordSort } from './collection';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
+import { fileNameOf, shownName } from './names';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
 import { awayAt, moveAway, readAway, removeAway } from './sync/away';
 import { loadTasks, parseList, serializeList, serializeTasks, TASK_LIST_EXT } from './tasks';
@@ -126,7 +127,7 @@ const SCRATCH_NAME = /^\d{4}-\d{2}-\d{2} \d{6}( \d+)?\.md$/;
  */
 export function displayTitle(path: string, text: string): string {
   const name = basename(path);
-  return SCRATCH_NAME.test(name) ? titleOf(text) : name.replace(/\.md$/, '');
+  return SCRATCH_NAME.test(name) ? titleOf(text) : shownName(name.replace(/\.md$/, ''));
 }
 
 /** A note that was never given a name, and is shown under its first line. */
@@ -134,11 +135,11 @@ export const isScratchNote = (path: string) => SCRATCH_NAME.test(basename(path))
 
 /** What a task list is called: its file name. */
 export function listName(path: string): string {
-  return basename(path).slice(0, -TASK_LIST_EXT.length);
+  return shownName(basename(path).slice(0, -TASK_LIST_EXT.length));
 }
 
 /** What a board is called: its file name. */
-export const boardName = (path: string) => basename(path).slice(0, -BOARD_EXT.length);
+export const boardName = (path: string) => shownName(basename(path).slice(0, -BOARD_EXT.length));
 
 /** Paths of files being written in parts, which no other file may take until they are there. */
 const writing = new Set<string>();
@@ -151,7 +152,8 @@ async function names(fs: VaultFs, dir: string): Promise<Set<string>> {
   return taken;
 }
 
-const cleanName = (name: string) => name.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
+/** A name typed, as a file can be named: what a file name does not take turned into its look-alike (names.ts). */
+const cleanName = (name: string) => fileNameOf(name).replace(/\s+/g, ' ').trim();
 
 /** A name typed by the user, ready to be a file name; `ext` is left off when it was typed too. */
 function fileName(name: string, ext: string): string {
@@ -711,7 +713,8 @@ export async function saveAttachment(fs: VaultFs, file: Blob, now = new Date(), 
  * Returns its path; written into a link, the path needs `linkAddress` for its spaces.
  */
 export async function saveFile(fs: VaultFs, file: File, options: PartsOptions = {}): Promise<string> {
-  const [name, ext] = splitName(cleanName(file.name) || 'file');
+  // An attached file keeps the name it came with, what a file name does not take made a space.
+  const [name, ext] = splitName(file.name.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'file');
   const path = reserve(await names(fs, ATTACHMENTS), (taken) =>
     freePath(ATTACHMENTS, isHidden(name) ? `file ${name}` : name, ext, taken),
   );

@@ -1,4 +1,5 @@
 import { basename } from './fs';
+import { shownName } from './names';
 
 // A keys file holds API keys, passwords and settings as a .env file: `KEY=value` lines, with a
 // `# heading` comment before each group of them. The text is what is kept; the groups are read
@@ -8,7 +9,7 @@ import { basename } from './fs';
 export const KEYS_EXT = '.env';
 
 /** What a keys file is called: its file name. */
-export const keysName = (path: string) => basename(path).slice(0, -KEYS_EXT.length);
+export const keysName = (path: string) => shownName(basename(path).slice(0, -KEYS_EXT.length));
 
 export interface KeyEntry {
   /** The line it is on, from 0. */

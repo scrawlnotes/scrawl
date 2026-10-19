@@ -10,6 +10,7 @@ import {
   type Record as CollectionRecord,
   readTree,
   refOf,
+  shownName,
   TASK_LIST_EXT,
   type TreeNode,
   type VaultFs,
@@ -103,7 +104,8 @@ export interface Element {
   title: string;
 }
 
-const titleOf = (node: TreeNode) => node.title ?? node.name;
+/** What an element is called, a folder too, with what its file name holds as a look-alike shown as typed. */
+const titleOf = (node: TreeNode) => node.title ?? shownName(node.name);
 
 /** Every element of a space, folders walked, in the sidebar's order; only those of `kinds` when given. */
 export async function elementsOf(fs: VaultFs, kinds?: ElementKind[]): Promise<Element[]> {

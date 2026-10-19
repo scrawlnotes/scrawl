@@ -1,4 +1,4 @@
-import { type Found, INBOX_TASKS, inSpace, listName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
+import { type Found, INBOX_TASKS, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -928,7 +928,7 @@ export function Phone(props: PhoneProps) {
           key={node.path}
           icon="folder"
           folder
-          label={node.name}
+          label={shownName(node.name)}
           right={countItems(node) || ''}
           onClick={() => push({ kind: 'folder', path: node.path })}
           onHold={folderHold(node.path)}

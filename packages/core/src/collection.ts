@@ -1,6 +1,7 @@
 import { t } from '@scrawlnotes/i18n';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { basename, type Entry, join, type VaultFs } from './fs';
+import { fileNameOf, shownName } from './names';
 import { freePath, moveTree } from './paths';
 import { readSubtasks, type Subtask, writtenSubtask } from './subtasks';
 
@@ -206,7 +207,7 @@ export interface Record {
 export const SUBTASKS_KEY = 'subtasks';
 
 /** What a collection is called: its folder's name. */
-export const collectionName = (dir: string) => basename(dir);
+export const collectionName = (dir: string) => shownName(basename(dir));
 
 /** The collection a record's file is in. */
 export const collectionOf = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf('/')));
@@ -1025,7 +1026,8 @@ export async function loadCollection(fs: VaultFs, dir: string, ids: () => string
 
 // ---------- making and changing ----------
 
-const cleanName = (name: string) => name.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
+/** A name typed, as a folder can be named: what a file name does not take turned into its look-alike (names.ts). */
+const cleanName = (name: string) => fileNameOf(name).replace(/\s+/g, ' ').trim();
 
 /** A body as the file holds it: no blank line at its start, one line end at its end when it has text. */
 const normalBody = (body: string) => {

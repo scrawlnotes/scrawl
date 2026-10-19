@@ -258,8 +258,10 @@ describe('vault', () => {
     const fs = new MemoryFs();
     await fs.writeText('Work/2026-10-05 143207.md', 'text');
     await fs.writeText('Work/Plan.md', 'other');
-    expect(await renameItem(fs, 'Work/2026-10-05 143207.md', 'Road/map?')).toBe('Work/Road map.md');
-    expect(await renameItem(fs, 'Work/Road map.md', 'Plan')).toBe('Work/Plan 2.md');
+    // What a file name does not take is kept as its look-alike, and shown back as typed.
+    expect(await renameItem(fs, 'Work/2026-10-05 143207.md', 'Road/map?')).toBe('Work/Road∕map？.md');
+    expect(displayTitle('Work/Road∕map？.md', '')).toBe('Road/map?');
+    expect(await renameItem(fs, 'Work/Road∕map？.md', 'Plan')).toBe('Work/Plan 2.md');
     expect(await renameItem(fs, 'Work/Plan.md', 'Plan.md')).toBe('Work/Plan.md');
     expect(await renameItem(fs, 'Work/Plan.md', 'plan')).toBe('Work/plan.md');
     await expect(renameItem(fs, 'Work/plan.md', '  ')).rejects.toThrow();
@@ -560,7 +562,7 @@ describe('attachments, folders and the workspace', () => {
 
   it('rejects folder names that would be hidden', async () => {
     await expect(createFolder(new MemoryFs(), '.git')).rejects.toThrow();
-    expect(await createFolder(new MemoryFs(), ' Work/Notes ')).toBe('Work Notes');
+    expect(await createFolder(new MemoryFs(), ' Work/Notes ')).toBe('Work∕Notes');
   });
 
   it('makes a folder inside another, as deep as wanted', async () => {
