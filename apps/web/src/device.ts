@@ -13,6 +13,8 @@ const THEME = 'scrawl.theme';
 const LANGUAGE = 'scrawl.language';
 const SIZE = { phone: 'scrawl.sizePhone', computer: 'scrawl.sizeComputer' } as const;
 const UPCOMING = 'scrawl.upcoming';
+/** The theme's colours, for index.html to paint the page with before the app's code comes. */
+const BOOT = 'scrawl.boot';
 
 function read(key: string): string | null {
   try {
@@ -171,6 +173,9 @@ export function applyTheme(id: string, shade: Shade) {
   for (const [name, colour] of Object.entries(palette)) root.style.setProperty(`--sl-${name}`, colour);
   // On a phone the bar above the app takes the colour of the tab bar under it.
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.side);
+  // The page under the app is the theme's too, and so is the next opening's boot screen.
+  root.style.background = palette.bg;
+  write(BOOT, JSON.stringify({ bg: palette.bg, side: palette.side }));
 }
 
 /** The language the interface is shown in, as kept on this device. */

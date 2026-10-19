@@ -26,7 +26,7 @@ import {
   type VaultFs,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type Cloud, oneDrive, type SignInIntent, type SignInResult, takeSignInResult } from './cloud';
+import { type Cloud, oneDrive, type SignInIntent, signInSettled, takeSignInResult } from './cloud';
 import type { Session, SpaceView } from './session';
 import { isPhone, LEAVE_OVER } from './device';
 import { type KnownServer, serverKey, serverRemote, signOutOf } from './servers';
@@ -286,8 +286,6 @@ export class SyncService {
   private vault: VaultFs | null = null;
   /** The spaces beside it, as the session last showed them. */
   private spaces: SpaceView[] = [];
-  /** How a sign-in that left the page ended, dealt with once the space is open. */
-  private signedIn: SignInResult | null = takeSignInResult();
 
   constructor(private readonly session: Session) {}
 
@@ -448,7 +446,8 @@ export class SyncService {
     if (vault && connection) this.units.set(PERSONAL, this.unit(null, '', vault, connection));
     this.show();
     if (connection) this.syncNow(PERSONAL);
-    if (vault) this.afterSignIn();
+    // How a sign-in that left the page ended is dealt with once the space is open and the return is finished.
+    if (vault) void signInSettled().then(() => this.afterSignIn());
   }
 
   /** The spaces beside the personal one changed: a space added starts syncing, one removed stops, one renamed is shown so. */
@@ -503,8 +502,7 @@ export class SyncService {
    * went wrong is told, but for a renewal on opening, which the next turn tells if it matters.
    */
   private afterSignIn() {
-    const done = this.signedIn;
-    this.signedIn = null;
+    const done = takeSignInResult();
     if (!done) return;
     if (done.error) {
       if (done.intent !== 'renew') this.set({ signInError: t('sync.signInFailed', { error: done.error }) });

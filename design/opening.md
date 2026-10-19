@@ -1,6 +1,6 @@
 # Açılış: hızlı ve kademeli (taslak)
 
-Durum: 19 Ekim 2026. Kullanıcı dört adımı onayladı: ölçüm, Microsoft dönüşünün çizimi beklememesi, kademeli açılış (her klasörün içinde yükleniyor, space'ler birbirini beklemeden açılır), daha az okuma. Ölçüm About'ta değil, Settings'te yeni bir Logs bölümünde, standart log satırlarıyla durur; sonra başka loglar da oraya yazar. 14. ve 15. bölümün kararları onaylandı; 1. dilim yazılıyor. Ekranlar `design/mockups.html`'de, "Açılış" bölümünde.
+Durum: 19 Ekim 2026. Kullanıcı dört adımı onayladı: ölçüm, Microsoft dönüşünün çizimi beklememesi, kademeli açılış (her klasörün içinde yükleniyor, space'ler birbirini beklemeden açılır), daha az okuma. Ölçüm About'ta değil, Settings'te yeni bir Logs bölümünde, standart log satırlarıyla durur; sonra başka loglar da oraya yazar. 14. ve 15. bölümün kararları onaylandı; 1. dilim 41ba81e'de, 2. dilim yazıldı. Ekranlar `design/mockups.html`'de, "Açılış" bölümünde.
 
 ## 1. Sorun
 
@@ -122,7 +122,7 @@ Tek bir kuyruk vardır. En çok 8 iş aynı anda çalışır, çünkü OPFS her 
 
 **Dönüş:**
 - Microsoft'a gidiş çizimden önce kalır, çünkü sayfa çizilmeden ayrılmalı. Bu kısım yalnız PKCE, `sessionStorage` ve `location.assign`'dır; ağ beklemez.
-- Dönüşte `finish()` başlatılır ama beklenmez, uygulama hemen çizilir.
+- Dönüşte `takeReturn()` adresi hemen temizler ve gelenleri alır; `finish()` token isteğini arkada yapar, uygulama beklemeden çizilir.
 - `cloud.ts` bir `signInSettled` promise'i tutar:
   - `SignedCloud.token()` önce onu bekler. Böylece sync ya da Graph isteği eski anahtarla yarışmaz.
   - `SyncService`, `afterSignIn`'i bu promise bitince çalıştırır.
@@ -130,8 +130,8 @@ Tek bir kuyruk vardır. En çok 8 iş aynı anda çalışır, çünkü OPFS her 
 
 **Açılış ekranı:**
 - `index.html`'de `#root`'un içinde düz HTML ve CSS ile bir `.boot` öğesi durur. `createRoot` çizince yerini uygulama alır.
-- `applyTheme` arka plan ve simge rengini `localStorage`'da `scrawl.boot` olarak tutar. `index.html`'deki küçük satır içi betik bunu okuyup `.boot`'a verir. Yoksa `prefers-color-scheme`'e göre koyu ya da açık seçilir.
-- Simge `animation-delay: 400ms` ile belirir.
+- `applyTheme` temanın arka plan rengini ve kenar rengini `localStorage`'da `scrawl.boot` olarak tutar, arka planı sayfanın kendisine (`html`) de verir. `index.html`'deki küçük satır içi betik bunu okuyup sayfaya ve `theme-color`'a verir. Yoksa `prefers-color-scheme`'e göre koyu ya da açık seçilir.
+- Simge (`/icons/icon-192.png`, 64 px) `animation-delay: 400ms` ile belirir; az hareket isteyen cihazda geçişsiz.
 - CSP yok, satır içi betik engellenmez.
 
 ## 10. Logs
@@ -166,6 +166,8 @@ Tek bir kuyruk vardır. En çok 8 iş aynı anda çalışır, çünkü OPFS her 
 | Açılış hata verirse | ERROR | `Opening failed: <hata>` |
 
 Masaüstünde Microsoft satırları yoktur.
+
+2. dilimden sonra token isteği açılışı beklemez: `Signed in to OneDrive` satırı çoğu zaman `Opened in`den sonra gelir ve en uzun adıma sayılmaz.
 
 **Veri ve kod:**
 - `localStorage`'da `scrawl.log`: `{ at: number; level: 'info' | 'warn' | 'error'; source: string; text: string }[]`.

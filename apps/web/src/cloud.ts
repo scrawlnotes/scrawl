@@ -196,14 +196,20 @@ abstract class SignedCloud {
   /** Keeps the newest key; `fresh` when a sign-in gave it, not a renewal. */
   protected abstract keepKey(key: string, fresh: boolean): Promise<void>;
 
-  /** An access token: the one in memory while it lasts, otherwise a new one for the kept key. */
-  token = (fresh: boolean): Promise<string> => {
+  /**
+   * An access token: the one in memory while it lasts, otherwise a new one for the kept key. Back
+   * from Microsoft, it waits for the code that came back to become the tokens, so that the key
+   * renewed then is the one used.
+   */
+  token = (fresh: boolean): Promise<string> => settling.then(() => this.tokenNow(fresh));
+
+  private tokenNow(fresh: boolean): Promise<string> {
     if (!fresh && this.access && Date.now() < this.access.until) return Promise.resolve(this.access.token);
     this.asking ??= this.renew().finally(() => {
       this.asking = null;
     });
     return this.asking;
-  };
+  }
 
   private async renew(): Promise<string> {
     const key = await this.keptKey();
@@ -322,6 +328,15 @@ interface Pending {
   before?: number;
 }
 
+/** What came back from Microsoft to a page that went there, taken from its address. */
+interface Return {
+  pending: Pending;
+  code: string | null;
+  error: string | null;
+  /** Microsoft's words for the error. */
+  description: string | null;
+}
+
 /** How a sign-in that left the page ended, once it came back. */
 export interface SignInResult {
   intent: SignInIntent | 'renew';
@@ -402,8 +417,11 @@ class BrowserCloud extends SignedCloud implements Cloud {
     return true;
   }
 
-  /** The page came back from Microsoft: the code becomes the tokens, and the address is cleaned. Null when it did not. */
-  async finish(): Promise<SignInResult | null> {
+  /**
+   * The page came back from Microsoft: what came back is taken from the address, which is cleaned.
+   * Null when it did not, or when it is a return this page did not begin, which is left alone.
+   */
+  takeReturn(): Return | null {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const error = params.get('error');
@@ -411,15 +429,19 @@ class BrowserCloud extends SignedCloud implements Cloud {
     const pending = readJson<Pending>(sessionStorage, PENDING);
     sessionStorage.removeItem(PENDING);
     window.history.replaceState(null, '', window.location.pathname + window.location.hash);
-    // A return this page did not begin is left alone.
     if (!pending || pending.state !== params.get('state')) return null;
+    return { pending, code, error, description: params.get('error_description') };
+  }
+
+  /** The code that came back becomes the tokens: how the sign-in ended. */
+  async finish({ pending, code, error, description }: Return): Promise<SignInResult> {
     // A renewal on opening that did not go through is kept with its reason, for the sync panel to say.
     const failed = (reason: string): SignInResult => {
       if (pending.intent === 'renew') keepRenewFailure(reason);
       return { intent: pending.intent, error: reason };
     };
     if (error) {
-      const reason = params.get('error_description')?.split('\n')[0] || error;
+      const reason = description?.split('\n')[0] || error;
       openingRefused(pending.intent === 'renew', reason);
       return failed(reason);
     }
@@ -438,7 +460,9 @@ class BrowserCloud extends SignedCloud implements Cloud {
     return { intent: pending.intent };
   }
 
+  // Back from signing in, the key is kept once the code that came back became it.
   async signedIn(): Promise<boolean> {
+    await settling;
     return (await this.keptKey()) !== null;
   }
 
@@ -526,17 +550,29 @@ export function oneDrive(): Cloud {
 export const fakeGraph = () => (cloud instanceof FakeCloud ? cloud.graph : null);
 
 let result: SignInResult | null = null;
+/** The return from Microsoft being finished while the app is drawn; settled already when there is none. */
+let settling: Promise<void> = Promise.resolve();
 
 /**
- * Before the app is drawn, in the browser: a sign-in that left the page is finished; or, for a
- * space whose sign-in is getting old, the page goes to Microsoft and back to renew it, once a
- * session and only online. Returns false when the page is leaving.
+ * Before the app is drawn, in the browser: a sign-in that left the page and came back is finished
+ * while the app is drawn, what needs a token waiting for it; or, for a space whose sign-in is
+ * getting old, the page goes to Microsoft and back to renew it, once a session and only online.
+ * Returns false when the page is leaving.
  */
 export async function prepareSignIn(connectedAs: string | null): Promise<boolean> {
   const here = oneDrive();
   if (!(here instanceof BrowserCloud)) return true;
-  result = await here.finish();
-  if (result || connectedAs === null || !navigator.onLine) return true;
+  const back = here.takeReturn();
+  if (back) {
+    settling = here.finish(back).then(
+      (done) => {
+        result = done;
+      },
+      () => undefined,
+    );
+    return true;
+  }
+  if (connectedAs === null || !navigator.onLine) return true;
   const since = here.keySince();
   let tried = false;
   try {
@@ -564,7 +600,10 @@ export function backFromRenewing(): { leftAt: number; before: number } | null {
   return { leftAt: pending.leftAt, before: pending.before ?? 0 };
 }
 
-/** How the sign-in that left the page ended, once; null when there was none. */
+/** Settles once the return from Microsoft, if the page came back from there, is finished. */
+export const signInSettled = (): Promise<void> => settling;
+
+/** How the sign-in that left the page ended, once; null when there was none, or it is not finished yet. */
 export function takeSignInResult(): SignInResult | null {
   const taken = result;
   result = null;
