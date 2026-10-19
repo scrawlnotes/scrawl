@@ -2324,9 +2324,10 @@ body > .touch-ghost {
   margin: 0;
 }
 
-/* Between two sections and under the last, Add section shows when the pointer is there, as
-   Todoist's: its words in the middle of a line, quiet, not in the accent. Between two it lies over
-   the space above the next section's name, taking no room. A new section goes in there. */
+/* Between two sections and under the last, never in a list with none, Add section shows when the
+   pointer is there, as Todoist's: its words in the middle of a line, quiet, not in the accent.
+   Between two it lies over the space above the next section's name, taking no room. A new section
+   goes in there. */
 .sec-gap {
   position: relative;
   z-index: 1;
