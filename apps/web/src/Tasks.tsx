@@ -392,6 +392,13 @@ export function TitleField({ value, onChange, onKeyDown, ref, ...props }: Omit<T
     element.style.height = 'auto';
     element.style.height = `${element.scrollHeight}px`;
   }, [value]);
+  // Opened to change what is there, the caret comes after it, where typing goes on.
+  useLayoutEffect(() => {
+    const element = field.current;
+    if (element && props.autoFocus) element.setSelectionRange(element.value.length, element.value.length);
+    // Only as it opens; after that the caret is where it is put.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const hold = (element: HTMLTextAreaElement | null) => {
     field.current = element;
     if (typeof ref === 'function') ref(element);
