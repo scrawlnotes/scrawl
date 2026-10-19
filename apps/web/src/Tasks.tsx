@@ -1543,13 +1543,18 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
         {sectionTasks(whole, null).filter(shown).map(item)}
         {composing ? (
           <Composer placeholder={t('tasks.name')} onAdd={(title) => actions.add(list, { title })} onClose={() => setComposing(false)} />
+        ) : !isPhone() ? (
+          // The tasks in no section end with their own add row, as each section does.
+          <button type="button" className="qa" onClick={() => setComposing(true)}>
+            {t('tasks.addRow')}
+          </button>
         ) : (
-          // With sections, each has its own add row; the header's button adds above them. On a
-          // phone + adds.
-          sections.length === 0 &&
-          !isPhone() && (
-            <button type="button" className="qa" onClick={() => setComposing(true)}>
-              {t('tasks.addRow')}
+          // On a phone + adds; with sections, the tasks in none have their row too, as each section has.
+          sections.length > 0 &&
+          actions.quickAdd && (
+            <button type="button" className="qa mb-sec-add" onClick={() => actions.quickAdd!(list, null)}>
+              <Icon name="plus" />
+              {t('tasks.add')}
             </button>
           )
         )}
