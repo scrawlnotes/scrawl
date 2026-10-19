@@ -1,6 +1,6 @@
 # MCP testinin düzeltmeleri (taslak)
 
-Durum: 19 Ekim 2026. Sunucu 0.2.14'te on beş araç, Scrawl space'inin `MCP Test` klasöründe elle denendi. Kullanıcı bulguların düzeltilmesini onayladı ve silmenin her yerde olmasını, ama geri alınabilmesini istedi. 2. bölümün yaklaşımı ve 6. bölümdeki dört karar onaylandı.
+Durum: 19 Ekim 2026. Sunucu 0.2.14'te on beş araç, Scrawl space'inin `MCP Test` klasöründe elle denendi. Kullanıcı bulguların düzeltilmesini onayladı ve silmenin her yerde olmasını, ama geri alınabilmesini istedi. 2. bölümün yaklaşımı ve 7. bölümdeki ilk dört karar onaylandı; 1., 2. ve 3. dilim commit'li. Ajanın bir işi bitirirken yaşadığı sürtünme sonra ölçüldü ve 6. bölümde 5. dilim olarak eklendi; onun kararları (7. bölüm, 5–9) da onaylandı.
 
 ## 1. Testte çıkanlar
 
@@ -70,7 +70,7 @@ Ayrı dosya iki sorunu da çıkarmıyor: listeler ve panolar küçülür, çöp 
 - Trash ekranında görev, section ve kart da görünür. Başlık satırı "Task · Yapılacaklar", "Card · Roadmap · ROA-12" gibidir.
 - Önizleme: görev alt görevleriyle, kart başlığı, sütunu, açıklaması, alt görevleri ve yorumlarıyla görünür. `readTrashed` yeni türleri okur.
 - Restore ve Delete forever düğmeleri öbürlerindeki gibidir.
-- Silme geri alınabildiği için onay penceresi kalkar, yerine Todoist'teki gibi "Moved to Trash · Undo" toast'ı gelir. Bu bir karar, 6. bölümde.
+- Silme geri alınabildiği için onay penceresi kalkar, yerine Todoist'teki gibi "Moved to Trash · Undo" toast'ı gelir. Bu bir karar, 7. bölümde.
 
 **Ajan.**
 - `trash` `path` yanında `id` de alır. `path` artık `move`'daki gibi adla da verilebilir.
@@ -162,18 +162,120 @@ Sunucu `today`'i ve adsız notun adını kendi saatine (UTC) göre hesaplıyor. 
 
 Test: saat dilimi Europe/Istanbul olan bir kişi için 02:00'de `today` o günü verir, UTC'nin dününü vermez.
 
-## 6. Kararlar (onaylandı)
+## 6. Ajanın sürtünmesi (5. dilim)
+
+Hız değil, bir işi bitirmek için ajanın kaç adım attığı ve neye takıldığı. Ölçüm 19 Ekim'de, sunucudaki dört space'te (Game Development, Klinitra, OzBI, Scrawl) yalnız okuyan çağrılarla yapıldı.
+
+### Bugün
+
+- **Space seçme zorunluluğu.** Birden fazla space varken `tree`, `cards`, `tasks` ve `records` space verilmeden reddediliyor ("Which space?"), ad verilse de. `pickElement` yalnız tek bir space'in içinde arıyor. Ajan önce boşa bir çağrı yapıyor ya da space'i kendisi tahmin ediyor.
+- **Arama space'leri bulmuyor.** "Klinitra" araması Klinitra'daki görevleri getirdi, space'in kendisini getirmedi. Sonuçlar space'i adıyla değil kimliğiyle (`sp-p15edl79`) gösteriyor.
+- **Kart listesi ağır.** `cards`, Roadmap'in 7 açık kartı için yaklaşık 8 KB döndü: her çağrıda 16 fazın ve bütün sütunların kimlikleri, her kartın açıklaması ve bütün yorumları geliyor. Eklemeden önce bakmak için çağrılan liste ajanın bağlamını dolduruyor.
+- **Toplu yazma yok.** Toplantıdan çıkan her madde ayrı bir `save_card` çağrısı. ChatGPT yazan her çağrı için kişiye onay sorduğundan (`design/agent.md` 4) beş madde beş onay demek.
+- **Tarihe göre her yerden bakılamıyor.** `tasks` `due` ile yalnız bir space'e bakıyor; `cards`'ın tarih filtresi yok ve pano istiyor. "Bugün ne var?" her space için `tasks`, sonra her panonun bütün kartları.
+- **Gürültülü öneriler.** Ad bulunamayınca `pickElement` ve `pickRecord` hiçbir şey benzemese de 20'ye kadar alakasız öğe öneriyor (`nearest`'in "yoksa hepsi" yedeği). Yollar için bu 2. dilimde düzeldi (`nearestPaths`).
+
+| İş | Bugün | Bu dilimden sonra |
+|---|---|---|
+| "Scrawl toplantısını Roadmap'e işle", 5 madde | 9 çağrı (`spaces`, `tree`, `cards`, not, 5× `save_card`), ChatGPT'de 6 onay | 4 çağrı (`spaces`, kısa `cards`, not, notla bağlı tek `save_card`), 2 onay |
+| "Bugün ne var?" | 4× `tasks`, her panonun bütün kartları | `tasks` ve `cards` `due: "today"` ile, 2 çağrı |
+| "Roadmap'e kart ekle", space söylenmeden | "Which space?" reddi, sonra tekrar | Tek çağrı |
+| "Klinitra'da ne var?" | `spaces`'ten adı eşleştirip `tree` | `search` space'i de buluyor |
+
+### Önerilen
+
+**1. Space vermeden adla bulma.**
+- `space.ts`'e `pickAcross(agent, space, ref, kinds, what)` gelir. `space` verilmişse bugünkü gibi `pickSpace` ve `pickElement` çalışır. Verilmemişse ve tek space varsa yine aynısı olur.
+- Birden fazla space varken her space'in `elementsOf(kinds)`'i `pickElement`'in kurallarıyla (yol, yazıldığı gibi ad, başlık) taranır:
+  - Tek eşleşme kullanılır ve sonuçta space'in kimliği ve adı söylenir.
+  - Birden fazla eşleşmede hiçbir şey yazılmaz; adaylar space adlarıyla döner (`{ space, spaceName, path, title }`).
+  - Hiç eşleşme yoksa bütün space'lerdeki benzer adlar (6. madde) döner.
+- Kullananlar:
+  - `cards`, `save_card`, `comment` (pano)
+  - `tasks`, `save_task` (liste)
+  - `records`, `save_record` (koleksiyon)
+  - `move` (öğe)
+  - `read` ve `trash` (yalnız bir space'te olan yol)
+- Bir şey **yaratan** çağrı space olmadan bugünkü gibi reddedilir: `create` ve `write` ile yeni bir dosya. Nereye yazılacağını tahmin etmek yanlış space'e yazmak olur.
+- `tree` `kind` ile ve space'siz çağrılırsa her space'in o türdeki öğelerini tek listede verir; her öğede `space` ve `spaceName` bulunur. `kind` yoksa bütün ağaç çok uzun olacağı için bugünkü gibi space ister.
+- `tasks` liste ve space verilmeden `due` ya da `assignee` ile çağrılırsa bütün space'lerin listelerine bakar; her görevde `space` ve `spaceName` bulunur. Filtresiz ve space'siz çağrı space ister, çünkü bütün görevler çok fazla olur.
+
+**2. Kısa kart listesi.**
+- `cards` varsayılan olarak her kartın kısa halini verir: `{ key, title, column, phase, priority, due, labels, assignee, subtasks: "2/5", comments: 3, note }`. Kart kimliği yok (anahtar yeter), açıklama ve yorum metinleri yok.
+- Tam hali (bugünkü `cardOut`) yalnız tek kart istenince (`card`) ya da `full: true` ile gelir.
+- Başlıkta sütunlar `{ name, kind }` olarak gelir; araçlar sütunu zaten adıyla ya da türüyle alıyor. Fazlardan yalnız açık olanlar (`current`, `upcoming`) adlarıyla gelir, bitenlerin sayısı `donePhases` olarak söylenir. Panonun alanları (`fields`) olduğu gibi kalır, çünkü `values` onlarla yazılıyor.
+- Beklenen boyut: aynı 7 kart için yaklaşık 1,5 KB.
+- `write` için kimlikler gerekirse ajan dosyayı zaten `read` ile okuyor; rehber bunu söyler.
+
+**3. Toplu ekleme ve değiştirme.**
+- `save_card` ve `save_task` tek kartın ya da görevin alanları yerine `items` da alır: aynı pano ya da liste için en fazla 50 öğe. Her öğe bugünkü tek çağrının alanlarını taşır (`id` ile değiştirmek de olur). `board`, `list` ve `space` bir kez, en üstte verilir.
+- Önce bütün öğeler denetlenir (gün, öncelik, kişi, sütun, faz, alanlar). Biri reddedilirse **hiçbiri yazılmaz**; ret hangi öğe olduğunu (`item: 3`) ve nedenini söyler.
+- Hepsi geçerse pano ya da liste bir kez okunur, öğeler sırayla uygulanır ve dosya bir kez yazılır.
+- Tekrar koruması öğeler arasında da çalışır: aynı başlıkta iki öğe gelirse ikincisi `exists` olur, `another: true` verilmemişse.
+- Sonuç `{ created, changed, exists, cards | tasks }` döner; kartlar 2. maddedeki kısa haliyle.
+- `items` ile tek öğe alanları birlikte verilirse reddedilir, hangisinin kastedildiği belli olmaz.
+- Açıklamalar toplantı örneğini verir: "maddeleri tek çağrıda `items` ile yaz, notu `note` ile bağla".
+
+**4. Tarihe ve kişiye göre her yerden.**
+- `cards` `due` (`overdue`, `today`, `upcoming`) ve `assignee` alır; `board` isteğe bağlı olur.
+- Pano verilmezse 1. maddedeki gibi space'in, space de verilmezse bütün space'lerin panolarına bakılır. Fazın değil tarihin önemli olduğu bu görünümde kartların hepsi taranır, ama yalnız açık olanlar; her kartta `board` ve `spaceName` bulunur.
+- Panosuz çağrıda en az bir filtre gerekir (`due`, `assignee` ya da `label`). Bütün panoların bütün kartları çok fazla olur.
+- `due` görevlerdeki gibi `todayOf(agent)` ile, yani kişinin saat dilimiyle hesaplanır.
+- `tasks` ve `cards`'ta `assignee: "me"` kişinin kendisi demektir (`agent.person()`).
+- Rehberin "ne için hangi araç" tablosuna "Bugün ne var: `tasks` ve `cards`, ikisi de `due: "today"` ile" satırı eklenir.
+
+**5. Aramada space.**
+- `thingsOf` her space için kendisini de bir öğe olarak ekler: `{ kind: 'space', name, path: '', where }`. `FindKind`'da `space` zaten var.
+- Her sonuçta `space` kimliğinin yanında `spaceName` de bulunur.
+- "Klinitra" araması önce space'i, sonra içindekileri getirir. Space adının kendisi, çekirdekteki sıralamaya göre adla tam eşleşme olduğu için en üstte çıkar.
+
+**6. Gürültüsüz öneriler.**
+- `nearest` hiçbir şey benzemiyorsa boş döner, hepsini değil.
+- `pickElement` ve `pickRecord`'un `nearest` alanı yalnız benzeyenlerle gelir; boşsa hiç gelmez, `nearestPaths` gibi.
+
+**Araç sayısı 15 kalır.** Yeni parametreler: `cards`'ta `full`, `due` ve isteğe bağlı `board`; `save_card` ve `save_task`'ta `items`. Sunucu ve bilgisayar kapısı aynı kodu kullandığı için ikisi birlikte değişir.
+
+### Testler (`agent.test.ts`)
+
+- **Space'siz bulma:**
+  - iki space'te tek "Roadmap" panosu space'siz bulunuyor ve sonuçta space'i yazıyor
+  - iki space'te iki "Yapılacaklar" listesi varsa adaylar space adlarıyla dönüyor ve hiçbir şey yazılmıyor
+  - `create` space'siz reddediliyor
+  - `tree` (`kind` ile) ve `tasks` (`due` ile) space'siz bütün space'leri kapsıyor
+- **Kısa liste:** varsayılan kartlarda açıklama ve yorum metni yok, sayıları var; `full: true` ve tek kart bugünkü tam hali veriyor; başlıkta yalnız açık fazlar var.
+- **Toplu ekleme:**
+  - beş kart tek çağrıda yazılıyor, dosya bir kez yazılıyor
+  - biri reddedilince hiçbiri yazılmıyor, ret öğenin sırasını söylüyor
+  - öğeler arasında aynı başlık `exists` oluyor
+  - görevlerde de aynısı
+- **Tarihe göre:** iki space'te bugün tarihli kartlar panosuz `cards` ile geliyor; filtresiz panosuz çağrı reddediliyor; `assignee: "me"` kişinin kartlarını ve görevlerini veriyor.
+- **Arama:** space adıyla arama space'i ilk sırada getiriyor; sonuçlarda `spaceName` var.
+- **Öneriler:** hiçbir şey benzemeyince `nearest` alanı gelmiyor.
+- **MCP üstünden:** `save_card` `items` ile, gerçek bir istemciden tek çağrıda.
+
+## 7. Kararlar
+
+### 1.–4. dilim için (onaylandı)
 
 1. Silinen görev, section ve kart, 2. bölümdeki gibi çöpe ayrı dosya olarak gider.
 2. Uygulamada görev, section ve kart silinirken onay penceresi yerine "Moved to Trash · Undo" toast'ı gelir.
 3. Saat dilimi kişinin hesabında tutulur, yalnız sunucunun ayarına bırakılmaz.
 4. "Kaan" gibi tek bir kişiyle eşleşen ad ya da soyad kabul edilir. Kişileri olan space'te eşleşmeyen ad reddedilir.
 
-## 7. Dilimler ve yayın
+### 5. dilim için (onaylandı)
 
-1. **Çekirdek düzeltmeleri** (4. bölüm): faz notu, olmayan gün, arama sırası.
-2. **Ajan düzeltmeleri** (3. bölüm) ve rehber.
-3. **Saat dilimi** (5. bölüm): sunucu, uygulama ve kapı.
+5. Space vermeden adla bulma yalnız var olanı bulur. Bir şey yaratan çağrı (`create`, `write` ile yeni dosya) space'siz bugünkü gibi reddedilir.
+6. `cards` varsayılan olarak kısa liste verir; tam hali tek kart ya da `full: true` ile gelir.
+7. Toplu eklemede bir öğe reddedilirse hiçbiri yazılmaz.
+8. Panosuz `cards` ve space'siz `tasks` en az bir filtre ister: `due` ya da `assignee`, kartlarda `label` da.
+9. `assignee: "me"` kişinin kendisidir.
+
+## 8. Dilimler ve yayın
+
+1. **Çekirdek düzeltmeleri** (4. bölüm): faz notu, olmayan gün, arama sırası. Commit d5b3ee7.
+2. **Ajan düzeltmeleri** (3. bölüm) ve rehber. Commit c43801c.
+3. **Saat dilimi** (5. bölüm): sunucu, uygulama ve kapı. Commit 8efff2e.
 4. **Geri alınabilir silme** (2. bölüm): çekirdek, Trash ekranı, toast ve ajanın `trash`'i.
+5. **Ajanın sürtünmesi** (6. bölüm): space'siz bulma, kısa liste, toplu ekleme, tarihe göre her yerden, aramada space, gürültüsüz öneriler. Yalnız `packages/agent` ve rehberi değişir; 4. dilimden bağımsızdır, önce ya da sonra yapılabilir.
 
-Her dilim kendi commit'i. 2. ve 3. dilim bitince sunucu 0.2.15 Coolify'a çıkar. Web, 1., 3. ve 4. dilimden sonra Cloudflare'e çıkar. Masaüstü bir sonraki sürümle gelir. Her yayından sonra aynı denemeler `MCP Test` klasöründe yeniden yapılır.
+Her dilim kendi commit'i. 2. ve 3. dilim bitince sunucu 0.2.15 Coolify'a çıkar; 5. dilim de sunucunun bir sonraki sürümüyle çıkar. Web, 1., 3. ve 4. dilimden sonra Cloudflare'e çıkar. Masaüstü bir sonraki sürümle gelir. Her yayından sonra aynı denemeler `MCP Test` klasöründe yeniden yapılır.
