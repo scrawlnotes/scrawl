@@ -13,7 +13,7 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 - Before adding, look at what is there and update it instead of adding again: \`cards\`, \`records\` and \`tasks\` show what exists.
 - Give boards, collections, task lists and records by name; a tool uses the one match and tells you its path. When more than one thing fits, the tool writes nothing and returns the candidates: ask the person which.
 - Do not write what you are not sure of. Say what you did and what is left; on a card, say it with \`comment\`.
-- \`spaces\` tells today's date and the person's name; use them for days like "next week" and when something is yours.
+- \`spaces\` tells today's date and the person's name; use them for days like "next week" and when something is yours. It also gives each space's people: give a card or a task to one of them by name.
 - Keys files, the \`.scrawl/\` folder and \`_attachments/\` are closed to you. Nothing is deleted for good: \`trash\` sends to the trash, where the person restores.
 
 ## What each tool is for
@@ -24,6 +24,8 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 | Read or write a note | \`read\`, \`write\` (with \`ifMatch\`) |
 | Make a new note, list, board, collection or folder | \`create\` |
 | Add or change a task, a card, a record | \`save_task\`, \`save_card\`, \`save_record\` (with \`id\` to change) |
+| Move a task to another section, under another task, to another list | \`save_task\` with \`id\` and \`section\`, \`parent\` or \`toList\` |
+| Tie a task or a card to a note | \`save_task\` or \`save_card\` with \`note\` |
 | See tasks, cards, records | \`tasks\`, \`cards\`, \`records\` |
 | Finish or drop | a task: \`save_task\` with \`done: true\`; a card: \`save_card\` with \`column: "done"\` or \`"dropped"\` |
 | Change a collection's fields, a board's columns or phases | \`read\` the file, change the JSON, \`write\` it back with \`ifMatch\`; there is no other tool for it |
@@ -35,7 +37,7 @@ Not yours: restoring from the trash, seeing a note's versions, attached files, s
 
 ## When a call is cut off
 
-Call it again; nothing is added twice. No idempotency key is needed, and none is taken. \`save_record\` does not add a record whose name or code is already there, \`save_card\` does not add an open card whose title is already on the board: each returns the one that exists with \`exists: true\`, and you give its \`id\` to change it. When you mean a second one with the same name, pass \`another: true\`. A subtask sent again is not added twice: an open one with its title is changed instead. \`comment\` does not write the same text twice in a row. \`write\` with \`ifMatch\` refuses when the file changed since you read it: read it again, then write.
+Call it again; nothing is added twice. No idempotency key is needed, and none is taken. \`save_record\` does not add a record whose name or code is already there, \`save_card\` does not add an open card whose title is already on the board, \`save_task\` does not add an open task whose title is already in the same place of the list, \`create\` does not make what is already in the folder by that name: each returns the one that exists with \`exists: true\`, and you give its \`id\` (its path, for \`create\`) to change it. When you mean a second one with the same name, pass \`another: true\`. A subtask sent again is not added twice: an open one with its title is changed instead. \`comment\` does not write the same text twice in a row. \`write\` with \`ifMatch\` refuses when the file changed since you read it: read it again, then write.
 
 ## A space
 
@@ -49,7 +51,7 @@ A space is a folder tree. Folders group things; a folder with a \`_collection.js
 | Collection | folder with \`_collection.json\`; each record a \`.md\` file | \`records\`, \`save_record\` |
 | Keys | \`Name.env\` | closed |
 
-\`create\` makes any of them (and folders) with the right file and name; \`write\` writes any open file as it is; \`move\` moves or renames any of them; \`trash\` removes any of them.
+\`create\` makes any of them (and folders) with the right file and name; \`write\` writes any of them but keys as it is, and refuses a schema, a board or a task list the app could not read, saying each thing to mend; \`move\` moves or renames any of them; \`trash\` removes any of them. A name with what a file name cannot hold (\`?\`, \`:\`) is kept in the file with a look-alike: \`Ne yapmalı?\` is \`Ne yapmalı？.md\`; the tools take it either way.
 
 ## Notes
 
@@ -79,7 +81,7 @@ To add a field, change its options or its type: \`read\` the \`_collection.json\
 
 ## Who did what
 
-Every change you make is written with your name and the person's ("Claude Code · Kaan") on card timelines and in the server's history. Assign a card or a task to a person by their name as the space knows them.
+Every change you make is written with your name and the person's ("Claude Code · Kaan") on card timelines and in the server's history. Assign a card or a task to a person by their name as the space knows them, as \`spaces\` lists them; a first or a last name is enough when only one person has it. In a space with people, a name that is none of them is refused; in the personal space a name is kept as it is written.
 `;
 
 /** The guide up to how a space is laid out: how to behave, what each tool is for, a call cut off. Sent as the server's instructions. */

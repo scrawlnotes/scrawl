@@ -1,13 +1,19 @@
 import {
   addTask,
+  childrenOf,
+  depthOf,
   fold,
   INBOX_TASKS,
   listName,
   loadCollection,
   loadList,
+  MAX_DEPTH,
+  moveTask,
+  moveTaskToList,
   type NewTask,
   type Priority,
   saveList,
+  sectionTasks,
   serializeList,
   setDone,
   type Task,
@@ -18,10 +24,10 @@ import {
 } from '@scrawlnotes/core';
 import { dayArg } from './cards';
 import { Refusal } from './paths';
-import { actorOf, type Agent, type AgentSpace, type Client, type Element, elementsOf, exists, nowOf, personRefOf, pickElement, pickRecord, pickSpace, todayOf } from './space';
+import { actorOf, type Agent, type AgentSpace, type Client, type Element, elementsOf, exists, noteRefOf, nowOf, personRefOf, pickElement, pickRecord, pickSpace, todayOf } from './space';
 
-// Tasks: what is due, the tasks of a list, adding and closing one. A task without a list goes to
-// the personal space's Inbox, as Todoist's.
+// Tasks: what is due, the tasks of a list, adding, moving and closing one. A task without a list
+// goes to the personal space's Inbox, as Todoist's.
 
 const same = (a: string, b: string) => fold(a.trim()) === fold(b.trim());
 
@@ -105,9 +111,45 @@ export interface TaskArgs {
   priority?: number;
   assignee?: string | null;
   record?: string | { collection: string; record: string } | null;
-  section?: string;
-  parent?: string;
+  /** The note it is about, by path or name; null unlinks it. */
+  note?: string | null;
+  /** The section it goes in, by name or id; null for none. */
+  section?: string | null;
+  /** The task it goes under, by id; null for the top level. */
+  parent?: string | null;
+  /** Another list to move a task that is there to, by name or path. */
+  toList?: string;
   done?: boolean;
+  /** Add it even though an open task with its title is there already. */
+  another?: boolean;
+}
+
+const DEEPEST = `subtasks go at most ${MAX_DEPTH} levels below a top-level task`;
+
+/** The section `ref` names in a list, by id or name; null for none. */
+function sectionOf(list: TaskList, path: string, ref: string | null): string | null {
+  if (ref === null || !ref.trim()) return null;
+  const section = list.sections.find((s) => s.id === ref) ?? list.sections.find((s) => same(s.name, ref));
+  if (!section) throw new Refusal(`No section called ${ref} in ${listName(path)}`, { sections: list.sections.map((s) => s.name) });
+  return section.id;
+}
+
+/**
+ * A task that is there put where the agent asked, at the end of its new siblings: under `parent`
+ * (null for the top level), or at the top level in `section`. Refused where it cannot go.
+ */
+function placeTask(list: TaskList, path: string, id: string, parentArg: string | null | undefined, sectionArg: string | null | undefined, clock: () => Date): TaskList {
+  const task = list.tasks.find((t) => t.id === id)!;
+  const parent = parentArg !== undefined ? parentArg : sectionArg !== undefined ? null : task.parent;
+  if (parent !== null && !list.tasks.some((t) => t.id === parent)) throw new Refusal(`No task ${parent} to put this one under`, { list: path });
+  const section = parent !== null ? null : sectionArg !== undefined ? sectionOf(list, path, sectionArg) : task.parent === null ? (task.section ?? null) : null;
+  const siblings = (parent === null ? sectionTasks(list, section) : childrenOf(list.tasks, parent)).filter((t) => t.id !== id);
+  const moved = moveTask(list, id, { parent, section, after: siblings[siblings.length - 1]?.id ?? null }, clock);
+  const placed = moved.tasks.find((t) => t.id === id)!;
+  if (placed.parent !== parent || (parent === null && (placed.section ?? null) !== section)) {
+    throw new Refusal(`${task.title} cannot go there: a task does not go under itself or its own subtasks, and ${DEEPEST}`, { id });
+  }
+  return moved;
 }
 
 /** Where a new task with neither a space nor a list goes: the personal space, when the agent reaches it. */
@@ -133,8 +175,13 @@ export async function saveTaskTool(agent: Agent, client: Client, args: TaskArgs)
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
   if (args.priority !== undefined && priority === undefined) throw new Refusal('Priority is 1 (highest) to 4 (none)', { given: args.priority });
   const due = dayArg(args.due, 'Due');
-  const assignee = args.assignee === undefined ? undefined : await personRefOf(space.fs, args.assignee);
+  const assignee = args.assignee === undefined ? undefined : await personRefOf(space, args.assignee);
   const record = args.record === undefined ? undefined : await recordRefOf(space.fs, args.record);
+  const note = await noteRefOf(space.fs, args.note);
+  if (args.toList && !args.id) throw new Refusal('toList moves a task that is there; to add a task to another list, give that list as list');
+  const target = args.toList ? await pickElement(space.fs, args.toList, ['tasks'], 'task list') : undefined;
+  const elsewhere = target && target.path !== path ? target.path : undefined;
+  if (elsewhere && args.parent) throw new Refusal('A task moved to another list goes at its top level; move it first, then give parent');
   let tasks = list.tasks;
   let id: string;
   let created = false;
@@ -145,6 +192,7 @@ export async function saveTaskTool(agent: Agent, client: Client, args: TaskArgs)
       if (Array.isArray(found) && found.length > 1) throw new Refusal(`More than one task is called ${args.id}; say which by id`, { candidates: found.map((t) => ({ id: t.id, title: t.title })) });
       throw new Refusal(`No task ${args.id} in ${listName(path)}`, { list: path });
     }
+    if (args.title !== undefined && !args.title.trim()) throw new Refusal('A task’s title cannot be empty; leave title out to keep it', { id: task.id });
     id = task.id;
     tasks = updateTask(
       tasks,
@@ -156,25 +204,44 @@ export async function saveTaskTool(agent: Agent, client: Client, args: TaskArgs)
         ...(priority !== undefined && { priority }),
         ...(assignee !== undefined && { assignee }),
         ...(record !== undefined && { record }),
+        ...(note !== undefined && { note }),
       },
       clock,
     );
   } else {
     const title = args.title?.trim();
     if (!title) throw new Refusal('A new task needs a title');
-    const section = args.section ? (list.sections.find((s) => s.id === args.section) ?? list.sections.find((s) => same(s.name, args.section!))) : undefined;
-    if (args.section && !section) throw new Refusal(`No section called ${args.section} in ${listName(path)}`, { sections: list.sections.map((s) => s.name) });
-    if (args.parent && !tasks.some((t) => t.id === args.parent)) throw new Refusal(`No task ${args.parent} to put this one under`, { list: path });
+    const parent = args.parent ?? null;
+    const section = parent === null ? sectionOf(list, path, args.section ?? null) : null;
+    if (parent !== null && !tasks.some((t) => t.id === parent)) throw new Refusal(`No task ${parent} to put this one under`, { list: path });
+    if (parent !== null && depthOf(tasks, parent) >= MAX_DEPTH) throw new Refusal(`${title} cannot go under that task: ${DEEPEST}`, { parent });
+    // A cut-off call sent again must not add the task twice; a list rarely means to hold two open tasks of one title in one place.
+    const twins = args.another ? [] : tasks.filter((t) => !t.done && t.parent === parent && same(t.title, title));
+    if (twins.length > 1) throw new Refusal(`More than one open task is already called ${title} here; nothing was added. Give id to change one of them, or another: true to add one more`, { candidates: twins.map((t) => ({ id: t.id, title: t.title })) });
+    if (twins.length === 1) {
+      const found = twins[0]!;
+      return {
+        data: {
+          space: space.id,
+          list: path,
+          created: false,
+          exists: true,
+          message: `An open task called ${title} is already in ${listName(path)}; nothing was added. To change it, give its id ${found.id}; to add a second one with this title on purpose, pass another: true.`,
+          task: taskOut(path, list, found),
+        },
+      };
+    }
     const by = actorOf(client, await agent.person());
     const input: NewTask = {
       title,
-      ...(section && { section: section.id }),
-      ...(args.parent && { parent: args.parent }),
+      ...(section !== null && { section }),
+      ...(parent !== null && { parent }),
       ...(args.description !== undefined && { description: args.description }),
       ...(due !== undefined && { due }),
       ...(priority !== undefined && { priority }),
       ...(assignee && { assignee }),
       ...(record && { record }),
+      ...(note && { note }),
       ...(by && { author: { name: by } }),
     };
     const before = tasks.length;
@@ -184,7 +251,15 @@ export async function saveTaskTool(agent: Agent, client: Client, args: TaskArgs)
     created = true;
   }
   if (args.done !== undefined) tasks = setDone(tasks, id, args.done, clock);
-  const saved: TaskList = { ...list, tasks };
+  let saved: TaskList = { ...list, tasks };
+  if (!created && !elsewhere && (args.parent !== undefined || args.section !== undefined)) saved = placeTask(saved, path, id, args.parent, args.section, clock);
+  if (elsewhere) {
+    const to = await loadList(space.fs, elsewhere);
+    const moved = moveTaskToList(saved, to, id, sectionOf(to, elsewhere, args.section ?? null), clock);
+    await saveList(space.fs, path, moved.from);
+    await saveList(space.fs, elsewhere, moved.to);
+    return { data: { space: space.id, list: elsewhere, from: path, created, task: taskOut(elsewhere, moved.to, moved.to.tasks.find((t) => t.id === id)!) } };
+  }
   await saveList(space.fs, path, saved);
-  return { data: { space: space.id, list: path, created, task: taskOut(path, saved, tasks.find((t) => t.id === id)!) } };
+  return { data: { space: space.id, list: path, created, task: taskOut(path, saved, saved.tasks.find((t) => t.id === id)!) } };
 }

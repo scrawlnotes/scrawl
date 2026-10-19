@@ -7,15 +7,19 @@ import {
   createFolder,
   createNote,
   createTaskList,
+  dirname,
+  fold,
   keepVersion,
   TASK_LIST_EXT,
   type Template,
+  type VaultFs,
   trashWithFiles,
   markCreated,
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
 import { hashOf, MAX_TEXT } from './read';
-import { type Agent, AGENT_DEVICE, elementsOf, exists, nowOf, pickSpace } from './space';
+import { checkFile } from './check';
+import { type Agent, AGENT_DEVICE, elementsOf, exists, filePathOf, foundPath, nearestPaths, nowOf, pickSpace } from './space';
 
 // Writing: a file as it is, a new element, and the trash. A note the agent writes over keeps its
 // earlier text as a version, every time; nothing is deleted for good.
@@ -25,10 +29,13 @@ export const BOARD_TEMPLATES: readonly Template[] = ['software', 'simple', 'issu
 /** The lists a schema, a board and a task list must have. The app reads a file without them as empty, and its next save loses what was there. */
 const LISTS: Partial<Record<FileKind, string[]>> = { schema: ['fields'], board: ['columns', 'cards'], tasks: ['tasks'] };
 
-/** Refuses a schema, a board or a task list that is not JSON or lacks its lists, saying what is wrong. */
-function checkJson(path: string, kind: FileKind, text: string) {
+/**
+ * Refuses a schema, a board or a task list that is not JSON, lacks its lists or has what the app
+ * cannot read, saying each thing that is wrong; returns what is written but worth saying.
+ */
+async function checkJson(fs: VaultFs, path: string, kind: FileKind, text: string): Promise<string[]> {
   const lists = LISTS[kind];
-  if (!lists) return;
+  if (!lists) return [];
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -38,15 +45,21 @@ function checkJson(path: string, kind: FileKind, text: string) {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) throw new Refusal(`${path} must be a JSON object; nothing was written`, { path });
   const missing = lists.filter((key) => !Array.isArray((data as { [key: string]: unknown })[key]));
   if (missing.length) throw new Refusal(`${path} needs ${missing.map((key) => `"${key}"`).join(' and ')} as a list; nothing was written. Read the file, change it and write all of it back`, { path, missing });
+  const { problems, notes } = await checkFile(fs, kind, data as { [key: string]: unknown }, text);
+  if (problems.length) throw new Refusal(`${path} was not written: ${problems.length === 1 ? 'one thing' : `${problems.length} things`} to mend, then write it again`, { path, problems });
+  return notes;
 }
 
 export async function writeTool(agent: Agent, args: { space?: string; path: string; text: string; ifMatch?: string }) {
   const space = await pickSpace(agent, args.space);
-  const path = checkOpen(cleanPath(args.path));
-  if (!path) throw new Refusal('Which file? Give a path');
-  if (args.text.length > MAX_TEXT) throw new Refusal('The text is larger than agents write (1 MB)', { path });
+  const typed = checkOpen(cleanPath(args.path));
+  if (!typed) throw new Refusal('Which file? Give a path');
+  if (args.text.length > MAX_TEXT) throw new Refusal('The text is larger than agents write (1 MB)', { path: typed });
+  // A name with what a file name cannot hold is written with the look-alike the app gives it: `Ne yapmalı？.md`.
+  const path = (await foundPath(space.fs, typed)) ?? filePathOf(typed);
   const kind = fileKind(path);
-  checkJson(path, kind, args.text);
+  if (kind === 'other') throw new Refusal(`Scrawl shows notes (.md), task lists (.tasks.json), boards (.board.json) and collections' schemas (_collection.json); ${path} is none of them and was not written`, { path });
+  const notes = await checkJson(space.fs, path, kind, args.text);
   const entry = await exists(space.fs, path);
   if (entry?.kind === 'dir') throw new Refusal(`${path} is a folder`, { path });
   const previous = entry ? await space.fs.readText(path) : null;
@@ -57,12 +70,15 @@ export async function writeTool(agent: Agent, args: { space?: string; path: stri
   // A server versions every write itself; its history folder is a device's own, and it refuses it.
   if (kind === 'note' && !space.versioned && previous?.trim() && previous !== args.text) await keepVersion(space.fs, path, previous, { now: nowOf(agent), always: true });
   await space.fs.writeText(path, args.text);
-  return { data: { space: space.id, path, kind, hash: hashOf(args.text), created: !entry } };
+  return { data: { space: space.id, path, kind, hash: hashOf(args.text), created: !entry, ...(notes.length > 0 && { notes }) } };
 }
 
 export type CreateKind = 'note' | 'tasks' | 'board' | 'collection' | 'folder';
 
-export async function createTool(agent: Agent, args: { space?: string; folder?: string; kind: CreateKind; name: string; template?: string; text?: string }) {
+/** Each kind as the agent reads it in a sentence. */
+const KIND_WORDS: { [kind in CreateKind]: string } = { note: 'note', tasks: 'task list', board: 'board', collection: 'collection', folder: 'folder' };
+
+export async function createTool(agent: Agent, args: { space?: string; folder?: string; kind: CreateKind; name: string; template?: string; text?: string; another?: boolean }) {
   const space = await pickSpace(agent, args.space);
   const folder = args.folder ? checkOpen(cleanPath(args.folder)) : '';
   if (folder) {
@@ -70,7 +86,25 @@ export async function createTool(agent: Agent, args: { space?: string; folder?: 
     if (entry?.kind !== 'dir') throw new Refusal(`No folder at ${folder}; create it first or give one that is there`, { folders: (await elementsOf(space.fs, ['folder'])).map((f) => f.path) });
   }
   const name = args.name.trim();
-  if (!name && args.kind !== 'note') throw new Refusal(`A ${args.kind} needs a name`);
+  const what = KIND_WORDS[args.kind];
+  if (!name && args.kind !== 'note') throw new Refusal(`A ${what} needs a name`);
+  // A cut-off call sent again must not make a second one, "Plan 2"; a folder is the one that is there.
+  const same = name ? (await elementsOf(space.fs, [args.kind])).find((e) => dirname(e.path) === folder && fold(e.title) === fold(name)) : undefined;
+  if (same && (!args.another || args.kind === 'folder')) {
+    return {
+      data: {
+        space: space.id,
+        path: same.path,
+        kind: args.kind,
+        created: false,
+        exists: true,
+        message:
+          args.kind === 'folder'
+            ? `A folder called ${name} is already there; nothing was made.`
+            : `A ${what} called ${name} is already there (${same.path}); nothing was made. To change it, use its path; to make a second one, numbered, pass another: true.`,
+      },
+    };
+  }
   let path: string;
   switch (args.kind) {
     case 'note':
@@ -99,20 +133,24 @@ export async function createTool(agent: Agent, args: { space?: string; folder?: 
   // When it was made, kept as the app keeps it, for the order by Date created: when its file was written.
   const written = (await space.fs.stat?.(path).catch(() => null))?.modified;
   await markCreated(space.fs, AGENT_DEVICE, { [path]: written ?? nowOf(agent) }).catch(() => undefined);
-  return { data: { space: space.id, path, kind: args.kind } };
+  return { data: { space: space.id, path, kind: args.kind, created: true } };
 }
 
 export async function trashTool(agent: Agent, args: { space?: string; path: string }) {
   const space = await pickSpace(agent, args.space);
-  const path = checkOpen(cleanPath(args.path));
-  if (!path) throw new Refusal('What to trash? Give a path');
+  const typed = checkOpen(cleanPath(args.path));
+  if (!typed) throw new Refusal('What to trash? Give a path');
   // Without its schema a collection's records are loose notes; the collection goes to the trash whole.
-  if (fileKind(path) === 'schema') {
-    const folder = path.split('/').slice(0, -1).join('/');
-    throw new Refusal(`${path} is a collection’s schema; to remove the collection, trash its folder${folder ? ` (${folder})` : ''}`, { path, ...(folder && { folder }) });
+  if (fileKind(typed) === 'schema') {
+    const folder = typed.split('/').slice(0, -1).join('/');
+    throw new Refusal(`${typed} is a collection’s schema; to remove the collection, trash its folder${folder ? ` (${folder})` : ''}`, { path: typed, ...(folder && { folder }) });
   }
-  const entry = await exists(space.fs, path);
-  if (!entry) throw new Refusal(`Nothing is at ${path}`, { path });
+  const path = await foundPath(space.fs, typed);
+  if (!path) {
+    const nearest = await nearestPaths(space.fs, typed);
+    throw new Refusal(`Nothing is at ${typed}`, { path: typed, ...(nearest.length > 0 && { nearest }) });
+  }
+  const entry = (await exists(space.fs, path))!;
   const now = nowOf(agent);
   // The attached files only it used go with it, as they do when the person deletes it.
   await trashWithFiles(space.fs, path, entry.kind === 'dir', () => [], now);

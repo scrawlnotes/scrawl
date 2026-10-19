@@ -11,6 +11,7 @@ import {
   columnCards,
   columnOf,
   currentPhase,
+  type Field,
   type FieldValue,
   firstColumn,
   fold,
@@ -31,7 +32,7 @@ import {
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, Refusal } from './paths';
 import { parseValues } from './records';
-import { actorOf, type Agent, type Client, exists, nowOf, personRefOf, pickElement, pickSpace, todayOf } from './space';
+import { actorOf, type Agent, type Client, exists, noteRefOf, nowOf, personRefOf, pickElement, pickSpace, todayOf } from './space';
 import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
 // Boards: the cards of a board, a card as a brief, adding and changing a card, moving it by its
@@ -107,6 +108,7 @@ export function cardOut(board: Board, card: Card, today: string) {
     assignee: card.assignee ?? null,
     ...(Object.keys(values).length > 0 && { values }),
     ...(card.subtasks?.length && { subtasks: card.subtasks.map(subtaskOut) }),
+    ...(card.note && { note: card.note }),
     comments: card.timeline.flatMap((entry) => (entry.kind === 'comment' ? [{ at: entry.at, ...(entry.by && { by: entry.by }), text: entry.text }] : [])),
     created: card.created,
     updated: card.updated,
@@ -207,10 +209,26 @@ export interface CardArgs {
   labels?: string[];
   assignee?: string | null;
   values?: { [key: string]: unknown };
+  /** The note it is about, by path or name; null unlinks it. */
+  note?: string | null;
   /** Its subtasks to add, change or take off. */
   subtasks?: SubtaskArg[];
   /** Add the card even though an open one has its title already. */
   another?: boolean;
+}
+
+/** What a field holds, said for a value that does not fit it. */
+function fitOf(field: Field): string {
+  switch (field.type) {
+    case 'number':
+      return 'a number, like 4900';
+    case 'date':
+      return 'a day on the calendar as YYYY-MM-DD';
+    case 'checkbox':
+      return 'true or false';
+    default:
+      return `a ${field.type}`;
+  }
 }
 
 export async function saveCardTool(agent: Agent, client: Client, args: CardArgs) {
@@ -224,17 +242,20 @@ export async function saveCardTool(agent: Agent, client: Client, args: CardArgs)
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
   if (args.priority !== undefined && priority === undefined) throw new Refusal('Priority is 1 (highest) to 4 (none)', { given: args.priority });
   const due = dayArg(args.due, 'Due');
-  const assignee = args.assignee === undefined ? undefined : await personRefOf(space.fs, args.assignee);
+  const assignee = args.assignee === undefined ? undefined : await personRefOf(space, args.assignee);
   const values = args.values ? await parseValues(space.fs, board.fields ?? [], args.values) : undefined;
   if (values && Object.keys(values.extra).length > 0) {
     const [key, raw] = Object.entries(values.extra)[0]!;
-    throw new Refusal(`The value for ${key} does not fit its field`, { field: key, given: raw });
+    const field = (board.fields ?? []).find((f) => f.key === key)!;
+    throw new Refusal(`${field.label} is ${fitOf(field)}; ${JSON.stringify(raw)} does not fit`, { field: key, given: raw });
   }
+  const note = await noteRefOf(space.fs, args.note);
   let card: Card;
   let created = false;
   if (args.id) {
     card = pickCard(board, args.id);
-    const subtasks = args.subtasks ? await applySubtasks(space.fs, card.subtasks ?? [], args.subtasks, now) : undefined;
+    if (args.title !== undefined && !args.title.trim()) throw new Refusal('A card’s title cannot be empty; leave title out to keep it', { card: keyOf(board, card) });
+    const subtasks = args.subtasks ? await applySubtasks(space, card.subtasks ?? [], args.subtasks, now) : undefined;
     board = updateCard(
       board,
       card.id,
@@ -248,6 +269,7 @@ export async function saveCardTool(agent: Agent, client: Client, args: CardArgs)
         ...(phase !== undefined && { phase: phase?.id ?? null }),
         ...(values && { values: values.values }),
         ...(subtasks && { subtasks }),
+        ...(note !== undefined && { note }),
       },
       () => now,
     );
@@ -284,8 +306,9 @@ export async function saveCardTool(agent: Agent, client: Client, args: CardArgs)
       ...(args.labels && { labels: args.labels }),
       ...(assignee && { assignee }),
       ...(values && { values: values.values }),
+      ...(note && { note }),
     };
-    const subtasks = args.subtasks ? await applySubtasks(space.fs, [], args.subtasks, now) : [];
+    const subtasks = args.subtasks ? await applySubtasks(space, [], args.subtasks, now) : [];
     const before = board.cards.length;
     board = addCard(board, input, () => now, by);
     if (board.cards.length === before) throw new Refusal('The card could not be added');

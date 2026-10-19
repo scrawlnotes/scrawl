@@ -18,7 +18,7 @@ import {
 } from '@scrawlnotes/core';
 import { GUIDE } from './guide';
 import { checkOpen, cleanPath, fileKind, Refusal } from './paths';
-import { type Agent, type AgentSpace, type ElementKind, elementsOf, exists, pickSpace, todayOf } from './space';
+import { type Agent, type AgentSpace, type ElementKind, elementsOf, exists, foundPath, nearestPaths, peopleOf, pickSpace, todayOf } from './space';
 
 // Looking around: the spaces, what is in one, a file's text, and finding anything by name or by
 // text, as the sidebar and the search window do. Nothing here writes.
@@ -39,7 +39,8 @@ export async function spacesTool(agent: Agent) {
   const data = {
     today: todayOf(agent),
     person: person?.name ?? null,
-    spaces: spaces.map(({ id, name, where, personal }) => ({ id, name, where, personal })),
+    // Who a card or a task can be given to: the space's people, by name.
+    spaces: await Promise.all(spaces.map(async ({ id, name, where, personal, fs }) => ({ id, name, where, personal, people: await peopleOf(fs) }))),
   };
   return { data: { ...data, guide: GUIDE }, text: `${JSON.stringify(data)}\n\n${GUIDE}` };
 }
@@ -72,9 +73,13 @@ export async function treeTool(agent: Agent, args: { space?: string; folder?: st
 
 export async function readTool(agent: Agent, args: { space?: string; path: string }) {
   const space = await pickSpace(agent, args.space);
-  const path = checkOpen(cleanPath(args.path));
-  const entry = await exists(space.fs, path);
-  if (!entry) throw new Refusal(`Nothing is at ${path}`, { path });
+  const typed = checkOpen(cleanPath(args.path));
+  const path = await foundPath(space.fs, typed);
+  if (!path) {
+    const nearest = await nearestPaths(space.fs, typed);
+    throw new Refusal(`Nothing is at ${typed}`, { path: typed, ...(nearest.length > 0 && { nearest }) });
+  }
+  const entry = (await exists(space.fs, path))!;
   if (entry.kind === 'dir') throw new Refusal(`${path} is a folder; use tree to see what is in it`, { path });
   if (entry.size !== undefined && entry.size > MAX_TEXT) throw new Refusal(`${path} is larger than agents read (1 MB)`, { path, size: entry.size });
   const text = await space.fs.readText(path);

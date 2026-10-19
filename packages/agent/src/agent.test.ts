@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
-import { createBoard, createCollection, createFolder, createNote, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, saveMe } from '@scrawlnotes/core';
+import { createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, saveMe, savePeople } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { cardsTool, commentTool, saveCardTool } from './cards';
 import { BRIEF, GUIDE } from './guide';
@@ -57,7 +57,7 @@ describe('looking around', () => {
     const { agent } = await sample();
     const spaces = await spacesTool(agent);
     const { guide, ...data } = spaces.data;
-    expect(data).toEqual({ today: '2026-10-15', person: 'Kaan', spaces: [{ id: 'personal', name: 'Personal', where: 'this computer', personal: true }] });
+    expect(data).toEqual({ today: '2026-10-15', person: 'Kaan', spaces: [{ id: 'personal', name: 'Personal', where: 'this computer', personal: true, people: [] }] });
     // The guide comes after them as text, and in the structured content too.
     expect(spaces.text.startsWith(JSON.stringify(data))).toBe(true);
     expect(spaces.text).toContain(GUIDE);
@@ -139,9 +139,9 @@ describe('writing files', () => {
     const read = await readTool(agent, { path });
     expect(read.data.kind).toBe('schema');
     const schema = JSON.parse(read.text) as { fields: object[] };
-    schema.fields.push({ key: 'segment', label: 'Segment', type: 'select', options: ['SMB', 'Enterprise'] });
+    schema.fields.push({ key: 'region', label: 'Region', type: 'select', options: ['EMEA', 'Americas'] });
     await writeTool(agent, { path, text: JSON.stringify(schema), ifMatch: read.data.hash });
-    expect((await loadSchema(fs, companies)).fields.map((f) => f.key)).toContain('segment');
+    expect((await loadSchema(fs, companies)).fields.map((f) => f.key)).toContain('region');
     const blank = await createTool(agent, { folder: 'CRM', kind: 'collection', name: 'Investors', template: 'blank' });
     const empty = await readTool(agent, { path: `${blank.data.path}/_collection.json` });
     const fields = [{ key: 'name', label: 'Name', type: 'name' }];
@@ -384,7 +384,176 @@ describe('moving', () => {
     expect((await refusal(moveTool(agent, { path: 'Roadmap' }))).message).toContain('folder');
     expect((await refusal(moveTool(agent, { path: 'Roadmap', folder: 'Nowhere' }))).details.folders).toEqual(['CRM', 'Plans']);
     expect((await refusal(moveTool(agent, { path: 'Roadmap', folder: 'CRM/Customers' }))).message).toContain('collection');
-    expect((await refusal(moveTool(agent, { path: 'Plans', name: 'Roadmaps' }))).message).toContain('No note, task list, board or collection');
+    expect((await refusal(moveTool(agent, { path: 'Plans', name: 'Roadmaps' }))).message).toContain('Folders are not moved');
+  });
+});
+
+// What came up when every tool was tried by hand on the server, 19 October (design/agent-fixes.md, 3).
+describe('tried by hand', () => {
+  it('does not add a task or make a note, a list or a folder again when the call is sent twice, unless told another', async () => {
+    const { agent, fs } = await sample();
+    await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' });
+    const task = await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Write the post' });
+    const again = await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'write the post ', priority: 1 });
+    expect(again.data).toMatchObject({ created: false, exists: true, task: { id: task.data.task.id, priority: 4 } });
+    // A subtask of that title is another task; so is one when the first is done.
+    const sub = await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Write the post', parent: task.data.task.id });
+    expect(sub.data.created).toBe(true);
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', id: task.data.task.id, done: true });
+    expect((await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Write the post' })).data.created).toBe(true);
+    expect((await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Write the post', another: true })).data.created).toBe(true);
+    expect((await loadList(fs, 'Plans/Launch.tasks.json')).tasks.length).toBe(4);
+
+    const note = await createTool(agent, { folder: 'Plans', kind: 'note', name: 'roadmap', text: 'Again' });
+    expect(note.data).toMatchObject({ path: 'Plans/Roadmap.md', created: false, exists: true });
+    expect(await fs.readText('Plans/Roadmap.md')).toContain('Ship the agent');
+    expect((await createTool(agent, { folder: 'Plans', kind: 'note', name: 'Roadmap', another: true })).data).toMatchObject({ path: 'Plans/Roadmap 2.md', created: true });
+    expect((await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' })).data.exists).toBe(true);
+    expect((await createTool(agent, { kind: 'folder', name: 'plans' })).data).toMatchObject({ path: 'Plans', exists: true });
+    expect((await refusal(createTool(agent, { kind: 'tasks', name: ' ' }))).message).toBe('A task list needs a name');
+  });
+
+  it('finds a person by a first or a last name, and refuses a name none of a space’s people has', async () => {
+    const fs = new MemoryFs();
+    await savePeople(fs, [
+      { id: 'p1', name: 'Kaan Arslan', seen: '', active: true },
+      { id: 'p2', name: 'Ayşe Yılmaz', seen: '', active: true },
+      { id: 'p3', name: 'Ayşe Demir', seen: '', active: true },
+    ]);
+    await createTaskList(fs, '', 'Team');
+    const agent = agentOf(spaceOf(fs, false, 'Team'));
+    expect((await spacesTool(agent)).data.spaces[0]!.people).toEqual(['Kaan Arslan', 'Ayşe Yılmaz', 'Ayşe Demir']);
+    const given = await saveTaskTool(agent, CLIENT, { list: 'Team', title: 'Plan the week', assignee: 'Kaan' });
+    expect(given.data.task.assignee).toEqual({ id: 'p1', name: 'Kaan Arslan' });
+    expect((await saveTaskTool(agent, CLIENT, { list: 'Team', id: given.data.task.id, assignee: 'yilmaz' })).data.task.assignee).toEqual({ id: 'p2', name: 'Ayşe Yılmaz' });
+    expect((await refusal(saveTaskTool(agent, CLIENT, { list: 'Team', title: 'x', assignee: 'Ayşe' }))).details.candidates).toHaveLength(2);
+    const nobody = await refusal(saveTaskTool(agent, CLIENT, { list: 'Team', title: 'x', assignee: 'Mehmet' }));
+    expect(nobody.details.people).toEqual(['Kaan Arslan', 'Ayşe Yılmaz', 'Ayşe Demir']);
+    // The personal space keeps a name as it is written.
+    const { agent: mine } = await sample();
+    expect((await saveTaskTool(mine, CLIENT, { title: 'Call', assignee: 'Mehmet' })).data.task.assignee).toEqual({ name: 'Mehmet' });
+  });
+
+  it('refuses a schema, a task list or a board the app could not read, saying each thing to mend', async () => {
+    const { agent, fs, companies, board } = await sample();
+    const path = `${companies}/_collection.json`;
+    const before = await fs.readText(path);
+    const fields = [
+      { key: 'name', label: 'Name', type: 'name' },
+      { key: 'name', label: 'Name again', type: 'text' },
+      { key: 'other', label: 'Other name', type: 'name' },
+      { key: 'amount', label: 'Amount', type: 'money' },
+      { key: 'Big Key', label: 'Big', type: 'text' },
+      { key: 'double', label: 'Double', type: 'formula', formula: 'qty * ' },
+      { key: 'total', label: 'Total', type: 'rollup', rollup: { from: 'CRM/Activities', fn: 'sum' } },
+    ];
+    const schema = await refusal(writeTool(agent, { path, text: JSON.stringify({ version: 2, fields }) }));
+    expect(schema.details.problems).toEqual([
+      'The key name is there twice; each field has its own',
+      'amount has the type "money", which is none of name, code, text, number, date, select, multi-select, checkbox, url, email, phone, person, link, formula, rollup',
+      'The key Big Key is not one: a key is lowercase letters, digits and _, like big_key',
+      'total: a rollup with sum needs rollup.field, the field it works out',
+      'There is more than one name field; a collection has one at most',
+      expect.stringContaining('double: '),
+    ]);
+    expect(await fs.readText(path)).toBe(before);
+    // What only points at something not made yet is written, and said.
+    const ahead = await writeTool(agent, { path, text: JSON.stringify({ version: 2, fields: [{ key: 'name', label: 'Name', type: 'name' }, { key: 'owner', label: 'Owner', type: 'link', collection: 'CRM/People' }] }) });
+    expect(ahead.data.notes).toEqual(['owner links to CRM/People, which is not a collection in this space yet']);
+
+    const list = await refusal(writeTool(agent, { path: 'Plans/Launch.tasks.json', text: JSON.stringify({ sections: [{ id: 's1', name: 'Now' }], tasks: [{ id: 't1', title: 'One', parent: 'nope' }, { id: 't2', title: '' }, { id: 't3', title: 'Three', section: 's9', due: '2026-02-30' }] }) }));
+    expect(list.details.problems).toEqual([
+      'One is under nope, which is not a task in this list',
+      'Task 2 needs an id and a title',
+      'Three is in the section s9, which is not in "sections"',
+      'Three is due "2026-02-30": a day on the calendar as YYYY-MM-DD, or null',
+    ]);
+    expect(await exists(fs, 'Plans/Launch.tasks.json')).toBeNull();
+
+    const read = await readTool(agent, { path: board });
+    const data = JSON.parse(read.text) as { columns: { id: string; name: string; kind: string }[]; phases?: unknown[]; cards: unknown[] };
+    const broken = {
+      ...data,
+      columns: [...data.columns.filter((c) => c.kind !== 'done'), { id: 'x', name: 'Later', kind: 'someday' }],
+      phases: [{ id: 'p1', name: 'One', state: 'current' }, { id: 'p2', name: 'Two', state: 'current' }],
+      cards: [{ id: 'c1', title: 'Lost card', column: 'gone' }],
+    };
+    expect((await refusal(writeTool(agent, { path: board, text: JSON.stringify(broken), ifMatch: read.data.hash }))).details.problems).toEqual([
+      'The column Later has the kind "someday", which is none of backlog, active, review, done, dropped',
+      'A board keeps at least one done column',
+      'More than one phase is current; one is, while any is open',
+      'Lost card is in the column gone, which is not in "columns"; keep the column, or move the card first',
+    ]);
+    // Only what the app shows is written.
+    expect((await refusal(writeTool(agent, { path: 'Plans/script.js', text: 'x' }))).message).toContain('none of them');
+    expect(await exists(fs, 'Plans/script.js')).toBeNull();
+  });
+
+  it('moves a task to a section, under another task, to the top, or to another list, and refuses where it cannot go', async () => {
+    const { agent, fs } = await sample();
+    const launch = await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' });
+    await fs.writeText(launch.data.path, JSON.stringify({ version: 1, sections: [{ id: 's1', name: 'This week' }], tasks: [] }));
+    const post = await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Write the post' });
+    const id = post.data.task.id;
+    expect((await saveTaskTool(agent, CLIENT, { list: 'Launch', id, section: 'this week' })).data.task.section).toBe('This week');
+    const other = await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Ship', section: 'This week' });
+    const under = await saveTaskTool(agent, CLIENT, { list: 'Launch', id, parent: other.data.task.id });
+    expect(under.data.task).toMatchObject({ parent: other.data.task.id });
+    expect(under.data.task.section).toBeUndefined();
+    expect((await saveTaskTool(agent, CLIENT, { list: 'Launch', id, parent: null })).data.task.parent).toBeUndefined();
+    expect((await refusal(saveTaskTool(agent, CLIENT, { list: 'Launch', id: other.data.task.id, parent: other.data.task.id }))).message).toContain('cannot go there');
+    expect((await refusal(saveTaskTool(agent, CLIENT, { list: 'Launch', id, title: '  ' }))).message).toContain('cannot be empty');
+    // To another list, with its subtasks.
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Draft', parent: id });
+    await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Later' });
+    const moved = await saveTaskTool(agent, CLIENT, { list: 'Launch', id, toList: 'Later' });
+    expect(moved.data).toMatchObject({ list: 'Plans/Later.tasks.json', from: 'Plans/Launch.tasks.json' });
+    expect((await loadList(fs, 'Plans/Later.tasks.json')).tasks.map((t) => t.title)).toEqual(['Write the post', 'Draft']);
+    expect((await loadList(fs, 'Plans/Launch.tasks.json')).tasks.map((t) => t.title)).toEqual(['Ship']);
+    // Five levels deep is as deep as it goes.
+    let parent = other.data.task.id;
+    for (let level = 1; level <= 4; level++) parent = (await saveTaskTool(agent, CLIENT, { list: 'Launch', title: `Level ${level}`, parent })).data.task.id;
+    expect((await refusal(saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Too deep', parent }))).message).toContain('at most 4 levels');
+  });
+
+  it('ties a task and a card to a note, by its name, and unties them', async () => {
+    const { agent, fs, board, note } = await sample();
+    const task = await saveTaskTool(agent, CLIENT, { title: 'Read the roadmap', note: 'Roadmap' });
+    expect(task.data.task.note).toBe(note);
+    expect((await saveTaskTool(agent, CLIENT, { id: task.data.task.id, note: null })).data.task.note).toBeUndefined();
+    const card = await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Plan October', note: 'Plans/Roadmap.md' });
+    expect(card.data.card.note).toBe(note);
+    expect((await cardsTool(agent, { board: 'Scrawl', card: card.data.card.key, brief: true })).data.brief).toContain('Ship the agent in October.');
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', id: card.data.card.key, note: null });
+    expect((await loadBoard(fs, board)).cards[0]!.note).toBeUndefined();
+    expect((await refusal(saveCardTool(agent, CLIENT, { board: 'Scrawl', id: card.data.card.key, note: 'Nowhere' }))).message).toContain('No note is called Nowhere');
+  });
+
+  it('gives a code to one record only, and says what a card field holds when a value does not fit', async () => {
+    const { agent } = await sample();
+    const path = 'CRM/Companies/_collection.json';
+    const read = await readTool(agent, { path });
+    const schema = JSON.parse(read.text) as { fields: object[] };
+    schema.fields.push({ key: 'code', label: 'Code', type: 'code' });
+    await writeTool(agent, { path, text: JSON.stringify(schema), ifMatch: read.data.hash });
+    await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Acme Corp', code: 'ACME' } });
+    const beta = await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Beta', code: 'BETA' } });
+    expect((await refusal(saveRecordTool(agent, { collection: 'Companies', id: beta.data.record.id, values: { code: 'acme' } }))).message).toContain('Acme Corp already has the code ACME');
+    expect((await refusal(saveRecordTool(agent, { collection: 'Companies', values: { name: 'Acme Two', code: 'ACME' }, another: true }))).message).toContain('a code belongs to one record');
+    await createTool(agent, { folder: 'CRM', kind: 'board', name: 'Deals', template: 'crm' });
+    expect((await refusal(saveCardTool(agent, CLIENT, { board: 'Deals', title: 'Acme', values: { value: 'four thousand' } }))).message).toBe('Value is a number, like 4900; "four thousand" does not fit');
+  });
+
+  it('takes a name as it was typed, with what a file name cannot hold, and says what is near when nothing is there', async () => {
+    const { agent, fs } = await sample();
+    const asked = await createTool(agent, { folder: 'Plans', kind: 'note', name: 'Ne yapmalı?', text: 'Sorular' });
+    expect(asked.data.path).toBe('Plans/Ne yapmalı？.md');
+    expect((await readTool(agent, { path: 'Plans/Ne yapmalı?.md' })).data).toMatchObject({ path: 'Plans/Ne yapmalı？.md', text: 'Sorular' });
+    expect((await writeTool(agent, { path: 'Plans/Neden: kısa.md', text: 'x' })).data.path).toBe('Plans/Neden꞉ kısa.md');
+    expect(await fs.readText('Plans/Neden꞉ kısa.md')).toBe('x');
+    expect((await moveTool(agent, { path: 'Plans/Ne yapmalı?.md', name: 'Sorular' })).data.to).toBe('Plans/Sorular.md');
+    expect((await refusal(readTool(agent, { path: 'Plans/Roadmp.md' }))).details.nearest).toBeUndefined();
+    expect((await refusal(readTool(agent, { path: 'Plans/Road map.md' }))).details.nearest).toContain('Plans/Roadmap.md');
   });
 });
 

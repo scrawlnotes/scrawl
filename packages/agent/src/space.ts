@@ -1,9 +1,11 @@
 import {
+  basename,
   BOARD_EXT,
   type Collection,
   type Entry,
   dayOf,
   dirname,
+  fileNameOf,
   fold,
   loadPeople,
   type PersonRef,
@@ -123,6 +125,27 @@ export async function elementsOf(fs: VaultFs, kinds?: ElementKind[]): Promise<El
   return out;
 }
 
+/** A path as the agent typed it, with what a file name cannot hold as the look-alike the app gives it: `Ne yapmalı?.md` is `Ne yapmalı？.md`. */
+export const filePathOf = (path: string) => path.split('/').map(fileNameOf).join('/');
+
+/** The path of what is there, as it was typed or with its look-alikes; null when neither is there. */
+export async function foundPath(fs: VaultFs, path: string): Promise<string | null> {
+  if (await exists(fs, path)) return path;
+  const typed = filePathOf(path);
+  return typed !== path && (await exists(fs, typed)) ? typed : null;
+}
+
+/** The paths of what has a word of the name of one that is not there; at most ten, none when nothing is near. */
+export async function nearestPaths(fs: VaultFs, path: string): Promise<string[]> {
+  const words = fold(basename(path).replace(/\.(md|tasks\.json|board\.json)$/, ''))
+    .split(/\s+/)
+    .filter((word) => word.length > 1);
+  return (await elementsOf(fs))
+    .filter((e) => words.some((word) => fold(e.title).includes(word)))
+    .slice(0, 10)
+    .map((e) => e.path);
+}
+
 /** What is at `path`, or null: a file as `stat` gives it, a folder as its parent lists it. */
 export async function exists(fs: VaultFs, path: string): Promise<Entry | null> {
   if (!path) return { name: '', path: '', kind: 'dir' };
@@ -148,14 +171,23 @@ export async function pickElement(fs: VaultFs, ref: string, kinds: ElementKind[]
   const wanted = ref.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
   if (!wanted) throw new Refusal(`Which ${what}? Give its name or path`);
   const all = await elementsOf(fs, kinds);
+  const typed = filePathOf(wanted);
   // A name alone is a name, not a path: `Scrawl` finds a board called Scrawl wherever it is, and two of them are two.
-  const byPath = all.find((e) => e.path === wanted || same(e.path, wanted) || (wanted.includes('/') && same(bare(e.path, e.kind), wanted)));
+  const atPath = (e: Element, path: string) => e.path === path || same(e.path, path) || (path.includes('/') && same(bare(e.path, e.kind), path));
+  const byPath = all.find((e) => atPath(e, wanted) || atPath(e, typed));
   if (byPath) return byPath;
   const byTitle = all.filter((e) => same(e.title, wanted));
   if (byTitle.length === 1) return byTitle[0]!;
   if (byTitle.length > 1) throw new Refusal(`More than one ${what} is called ${ref}; say which by path`, { candidates: byTitle });
   const close = nearest(all, wanted);
   throw new Refusal(all.length === 0 ? `There is no ${what} in this space` : `No ${what} is called ${ref}`, { ...(close.length > 0 && { nearest: close }) });
+}
+
+/** The note a task or a card is about, by path or name; null unlinks it. */
+export async function noteRefOf(fs: VaultFs, ref: string | null | undefined): Promise<string | null | undefined> {
+  if (ref === undefined || ref === null) return ref;
+  if (!ref.trim()) return null;
+  return (await pickElement(fs, ref, ['note'], 'note')).path;
 }
 
 /**
@@ -178,17 +210,35 @@ export function pickRecord(collection: Collection, ref: string): CollectionRecor
   throw new Refusal(`No record is called ${ref} in ${collection.dir}`, { ...(close.length > 0 && { nearest: close.map((c) => shown(c.record)) }) });
 }
 
+/** The names of a space's people, those who still open it. */
+export async function peopleOf(fs: VaultFs): Promise<string[]> {
+  return (await loadPeople(fs).catch(() => [])).filter((p) => p.active && p.name).map((p) => p.name!);
+}
+
 /**
- * Who a name means in a space: the person of that name in the space's people, else the name as
- * it was typed, as the personal space has it. Null gives it to nobody.
+ * Who a name means in a space: the person of that name in the space's people, or the one person
+ * a first or a last name fits ("Kaan" is Kaan Arslan). In a space that has people, a name that
+ * fits none of them is refused with their names; the personal space, and one with no people yet,
+ * keep the name as it was typed. Null gives it to nobody.
  */
-export async function personRefOf(fs: VaultFs, name: string | null | undefined): Promise<PersonRef | null> {
+export async function personRefOf(space: Pick<AgentSpace, 'fs' | 'personal'>, name: string | null | undefined): Promise<PersonRef | null> {
   if (name === null) return null;
   const clean = name?.trim();
   if (!clean) return null;
-  const people = await loadPeople(fs).catch(() => []);
-  const found = people.filter((p) => p.name && same(p.name, clean));
-  if (found.length === 1) return refOf(found[0]!);
-  if (found.length > 1) throw new Refusal(`More than one person is called ${clean}`, { candidates: found.map((p) => ({ id: p.id, name: p.name })) });
-  return { name: clean };
+  const people = (await loadPeople(space.fs).catch(() => [])).filter((p) => p.name);
+  const shown = (found: typeof people) => found.map((p) => ({ id: p.id, name: p.name }));
+  const byId = people.find((p) => p.id === clean);
+  if (byId) return refOf(byId);
+  const whole = people.filter((p) => same(p.name!, clean));
+  if (whole.length === 1) return refOf(whole[0]!);
+  if (whole.length > 1) throw new Refusal(`More than one person is called ${clean}; say which by id`, { candidates: shown(whole) });
+  const words = fold(clean).split(/\s+/);
+  const part = people.filter((p) => {
+    const theirs = fold(p.name!).split(/\s+/);
+    return words.every((word) => theirs.includes(word));
+  });
+  if (part.length === 1) return refOf(part[0]!);
+  if (part.length > 1) throw new Refusal(`More than one person is called ${clean}; give the whole name`, { candidates: shown(part) });
+  if (space.personal || people.length === 0) return { name: clean };
+  throw new Refusal(`No one called ${clean} is in this space; give the name of one of its people`, { people: people.map((p) => p.name) });
 }

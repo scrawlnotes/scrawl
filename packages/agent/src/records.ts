@@ -220,14 +220,22 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
       },
     };
   }
+  // A code says which record it is: two records with one code make a link by code ambiguous.
+  const codeField = schema.fields.find((f) => f.type === 'code');
+  const code = codeField ? values[codeField.key] : undefined;
+  const codeHolder = (self: string | undefined) => (typeof code === 'string' && code.trim() ? collection.records.find((r) => r.id !== self && r.code && same(r.code, code)) : undefined);
   if (args.id) {
     const found = pickRecord(collection, args.id);
+    const holder = codeHolder(found.id);
+    if (holder) throw new Refusal(`${holder.name || holder.id} already has the code ${holder.code}; a code belongs to one record`, { record: { id: holder.id, name: holder.name, code: holder.code } });
     const kept = { ...found.extra };
     for (const key of Object.keys(values)) delete kept[key];
-    const subtasks = args.subtasks ? await applySubtasks(space.fs, found.subtasks ?? [], args.subtasks, nowOf(agent)) : undefined;
+    const subtasks = args.subtasks ? await applySubtasks(space, found.subtasks ?? [], args.subtasks, nowOf(agent)) : undefined;
     record = await updateRecord(space.fs, schema, { ...found, extra: { ...kept, ...extra } }, { values, ...(args.body !== undefined && { body: args.body }), ...(subtasks && { subtasks }) });
   } else {
-    const subtasks = args.subtasks ? await applySubtasks(space.fs, [], args.subtasks, nowOf(agent)) : undefined;
+    const holder = codeHolder(undefined);
+    if (holder) throw new Refusal(`${holder.name || holder.id} already has the code ${holder.code}; a code belongs to one record`, { record: { id: holder.id, name: holder.name, code: holder.code } });
+    const subtasks = args.subtasks ? await applySubtasks(space, [], args.subtasks, nowOf(agent)) : undefined;
     record = await addRecord(space.fs, collection, { values, ...(args.body !== undefined && { body: args.body }), ...(subtasks?.length && { subtasks }) });
     if (Object.keys(extra).length > 0) record = await updateRecord(space.fs, schema, { ...record, extra }, {});
     created = true;

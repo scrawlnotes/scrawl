@@ -32,6 +32,10 @@ const MOVABLE: ElementKind[] = ['note', 'tasks', 'board', 'collection'];
 
 export async function moveTool(agent: Agent, args: { space?: string; path: string; folder?: string; name?: string }) {
   const space = await pickSpace(agent, args.space);
+  const given = cleanPath(args.path);
+  if (given && (await exists(space.fs, given))?.kind === 'dir' && !(await elementsOf(space.fs, ['collection'])).some((c) => c.path === given)) {
+    throw new Refusal('Folders are not moved; move what is in them, each with its own move', { folder: given });
+  }
   const element = await pickElement(space.fs, args.path, MOVABLE, 'note, task list, board or collection');
   checkOpen(element.path);
   const folder = args.folder === undefined ? undefined : checkOpen(cleanPath(args.folder));

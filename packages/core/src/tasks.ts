@@ -410,8 +410,8 @@ export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Da
   return [...tasks, task];
 }
 
-/** What can be changed of a task by editing it; a record of null unlinks it, an assignee of null gives it to nobody. */
-export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'priority' | 'record' | 'assignee'>>;
+/** What can be changed of a task by editing it; a record or a note of null unlinks it, an assignee of null gives it to nobody. */
+export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'priority' | 'record' | 'assignee' | 'note'>>;
 
 /**
  * Changes a task. An empty title keeps the old one. A description loses the blank lines and
@@ -427,6 +427,7 @@ export function updateTask(tasks: Task[], id: string, patch: TaskPatch, now: Clo
     const next: Task = { ...t, ...clean, updated: iso(now) };
     if (next.record === null || next.record === undefined) delete next.record;
     if (next.assignee === null || next.assignee === undefined) delete next.assignee;
+    if (next.note === null || next.note === undefined) delete next.note;
     return next;
   });
 }

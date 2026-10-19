@@ -1,7 +1,7 @@
-import { addSubtask, fold, type Priority, removeSubtask, type Subtask, type SubtaskPatch, updateSubtask, type VaultFs } from '@scrawlnotes/core';
+import { addSubtask, fold, type Priority, removeSubtask, type Subtask, type SubtaskPatch, updateSubtask } from '@scrawlnotes/core';
 import { dayArg } from './cards';
 import { Refusal } from './paths';
-import { personRefOf } from './space';
+import { type AgentSpace, personRefOf } from './space';
 
 // A card's and a record's own subtasks as save_card and save_record change them: each one asked
 // for is changed when it is named, by its id or its title, and added when it is not. One sent again
@@ -44,14 +44,14 @@ function pickSubtask(list: Subtask[], ref: string): Subtask {
 }
 
 /** A list of subtasks with the changes the agent asked for, in their order. */
-export async function applySubtasks(fs: VaultFs, list: Subtask[], asked: SubtaskArg[], now: Date): Promise<Subtask[]> {
+export async function applySubtasks(space: Pick<AgentSpace, 'fs' | 'personal'>, list: Subtask[], asked: SubtaskArg[], now: Date): Promise<Subtask[]> {
   const clock = () => now;
   let next = list;
   for (const arg of asked) {
     const priority = arg.priority === undefined ? undefined : ([1, 2, 3, 4].includes(arg.priority) ? (arg.priority as Priority) : undefined);
     if (arg.priority !== undefined && priority === undefined) throw new Refusal('A subtask’s priority is 1 (highest) to 4 (none)', { given: arg.priority });
     const due = dayArg(arg.due, 'A subtask’s due');
-    const assignee = arg.assignee === undefined ? undefined : await personRefOf(fs, arg.assignee);
+    const assignee = arg.assignee === undefined ? undefined : await personRefOf(space, arg.assignee);
     const found = arg.id ? pickSubtask(next, arg.id) : arg.title ? next.find((s) => !s.done && same(s.title, arg.title!)) : undefined;
     if (arg.remove) {
       if (found) next = removeSubtask(next, found.id);

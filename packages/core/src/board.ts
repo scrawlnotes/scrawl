@@ -681,11 +681,11 @@ function cleanLabels(labels: string[]): string[] {
 }
 
 /** What can be changed of a card by editing it; `values` changes only the board's fields it names. */
-export type CardPatch = Partial<Pick<Card, 'title' | 'description' | 'priority' | 'due' | 'labels' | 'assignee' | 'phase' | 'subtasks'>> & { values?: { [key: string]: FieldValue } };
+export type CardPatch = Partial<Pick<Card, 'title' | 'description' | 'priority' | 'due' | 'labels' | 'assignee' | 'phase' | 'subtasks' | 'note'>> & { values?: { [key: string]: FieldValue } };
 
 /**
- * Changes a card. An empty title keeps the old one; an empty description, label list or
- * assignee is removed; a phase the board does not have is treated as none.
+ * Changes a card. An empty title keeps the old one; an empty description, label list, assignee
+ * or note is removed; a phase the board does not have is treated as none.
  */
 export function updateCard(board: Board, id: string, patch: CardPatch, now: Clock = () => new Date()): Board {
   if (patch.title !== undefined && !patch.title.trim()) return board;
@@ -703,12 +703,13 @@ export function updateCard(board: Board, id: string, patch: CardPatch, now: Cloc
       if (patch.phase !== undefined) setOrDrop(next, 'phase', patch.phase && board.phases.some((p) => p.id === patch.phase) ? patch.phase : undefined);
       if (patch.values !== undefined) setOrDrop(next, 'values', filledValues({ ...c.values, ...patch.values }));
       if (patch.subtasks !== undefined) setOrDrop(next, 'subtasks', patch.subtasks.length > 0 ? patch.subtasks : undefined);
+      if (patch.note !== undefined) setOrDrop(next, 'note', patch.note || undefined);
       return next;
     }),
   };
 }
 
-function setOrDrop<K extends 'description' | 'labels' | 'assignee' | 'phase' | 'values' | 'subtasks'>(card: Card, field: K, value: Card[K] | undefined): void {
+function setOrDrop<K extends 'description' | 'labels' | 'assignee' | 'phase' | 'values' | 'subtasks' | 'note'>(card: Card, field: K, value: Card[K] | undefined): void {
   if (value === undefined) delete card[field];
   else card[field] = value;
 }
