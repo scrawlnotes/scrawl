@@ -1298,6 +1298,8 @@ export interface MenuItem {
   value?: string;
   /** It takes something away: on a phone it comes last, red. */
   danger?: boolean;
+  /** A priority: its flag in its colour before it, on a computer too, and a tick after the one set. */
+  flag?: Priority;
   /** On a phone: a class for its row, as a priority's colour. */
   className?: string;
 }
@@ -1447,12 +1449,15 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
             <button
               type="button"
               role="menuitem"
+              className={item.flag ? `prio p${item.flag}` : undefined}
               onClick={() => {
                 onClose();
                 item.run();
               }}
             >
+              {item.flag && <Icon name="flag" />}
               {item.label}
+              {item.flag && item.value && <span className="val">{item.value}</span>}
             </button>
           )}
         </Fragment>

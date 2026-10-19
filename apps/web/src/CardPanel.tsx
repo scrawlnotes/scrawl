@@ -844,9 +844,9 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
             </>
           )}
           <label htmlFor="card-priority">{t('card.priority')}</label>
-          <select id="card-priority" value={card.priority} onChange={(event) => update({ priority: Number(event.target.value) as Priority })}>
+          <select id="card-priority" className={`prio p${card.priority}`} value={card.priority} onChange={(event) => update({ priority: Number(event.target.value) as Priority })}>
             {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
+              <option key={p} value={p} className={`p${p}`}>
                 {p === 4 ? t('tasks.noPriority') : t('tasks.priorityN', { n: p })}
               </option>
             ))}

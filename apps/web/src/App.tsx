@@ -143,6 +143,7 @@ import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { restartIntoUpdate, useDesktopUpdate } from './desktopUpdate';
 import { SyncStatus, syncWord } from './SyncViews';
 import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
+import { openingDrawn, openingFailed } from './opening';
 import { pendingJoin } from './servers';
 import { Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
@@ -187,9 +188,10 @@ const keys = (key: string) => `${isDesktop ? 'Ctrl' : 'Alt'}+${key}`;
 function position(stats: EditorStats): string {
   if (stats.selectedChars === 0) return t('status.position', { line: stats.line, col: stats.col });
   const characters = t('count.characters', { count: stats.selectedChars });
-  if (stats.cursors > 1) return t('status.selections', { selections: t('count.selections', { count: stats.cursors }), characters });
-  if (stats.selectedLines > 1) return t('status.selectedLines', { lines: t('count.lines', { count: stats.selectedLines }), characters });
-  return t('status.selected', { characters });
+  const words = t('count.words', { count: stats.selectedWords });
+  if (stats.cursors > 1) return t('status.selections', { selections: t('count.selections', { count: stats.cursors }), words, characters });
+  if (stats.selectedLines > 1) return t('status.selectedLines', { lines: t('count.lines', { count: stats.selectedLines }), words, characters });
+  return t('status.selected', { words, characters });
 }
 
 function folderPaths(nodes: TreeNode[], out: string[] = []): string[] {
@@ -311,7 +313,12 @@ export function App() {
   // Opening that failed says why, with a way to try again, rather than opening for ever.
   const [openFailed, setOpenFailed] = useState<string | null>(null);
   useEffect(() => {
-    session.start(host.current!).catch((error: unknown) => setOpenFailed(error instanceof Error ? error.message : String(error)));
+    openingDrawn();
+    session.start(host.current!).catch((error: unknown) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      openingFailed(reason);
+      setOpenFailed(reason);
+    });
     return () => session.dispose();
   }, [session]);
 
@@ -1438,6 +1445,41 @@ export function App() {
   const isDueView = active === TODAY || active === UPCOMING;
   const filterId = active ? filterOf(active) : null;
   const activeFilter = filters.find((filter) => filter.id === filterId) ?? null;
+  /**
+   * What the status bar says of a task view, after the mockups: a list's open tasks, with those due
+   * today and those late; Today's and a filter's tasks and cards, with the late ones; the trash's items.
+   */
+  const taskViewStatus = (): string[] | null => {
+    const late = (day: string | null | undefined) => !!day && day < today;
+    const besides = (dueToday: number, overdue: number) => [
+      ...(dueToday > 0 ? [t('count.dueToday', { count: dueToday })] : []),
+      ...(overdue > 0 ? [t('count.overdue', { count: overdue })] : []),
+    ];
+    const list = active ? listOf(active) : null;
+    if (list !== null) {
+      const open = (tasks[list] ?? []).filter((task) => !task.done);
+      return [t('count.open', { count: open.length }), ...besides(open.filter((task) => task.due === today).length, open.filter((task) => late(task.due)).length)];
+    }
+    const counted = (taskCount: number, cardCount: number, overdue: number) => [
+      t('count.tasks', { count: taskCount }),
+      ...(cardCount > 0 ? [t('count.cards', { count: cardCount })] : []),
+      ...besides(0, overdue),
+    ];
+    if (active === TODAY) {
+      const cards = dueCards(boards).filter((d) => d.card.due! <= today);
+      const subtasks = dueSubtasksNow.filter((d) => d.subtask.due! <= today);
+      const overdue = dueNow.overdue.length + cards.filter((d) => late(d.card.due)).length + subtasks.filter((d) => late(d.subtask.due)).length;
+      return counted(dueNow.overdue.length + dueNow.today.length + subtasks.length, cards.length, overdue);
+    }
+    if (activeFilter) {
+      const found = filterTasks(activeFilter, tasks, today, me?.id).flatMap((group) => group.tasks);
+      const cards = filterCards(activeFilter, boards, today, me?.id).flatMap((group) => group.cards);
+      return counted(found.length, cards.length, found.filter((task) => late(task.due)).length + cards.filter((card) => late(card.due)).length);
+    }
+    if (active === TRASH) return [t('count.items', { count: trash.length })];
+    return null;
+  };
+  const taskStatus = taskViewStatus();
   // Filters look in the whole personal space, or in its top-level folders, with everything inside them.
   const topFolders = ['', ...tree.filter((node) => node.kind === 'folder').map((node) => node.path)];
 
@@ -1498,7 +1540,16 @@ export function App() {
     )}
     <div className="editor" ref={host} hidden={!showingEditor} />
     {list !== null && (
-      <TaskList key={list} list={list} tasks={tasks[list] ?? []} sections={sections[list] ?? []} today={today} actions={taskActions} reveal={revealTask?.list === list ? revealTask : null} />
+      <TaskList
+        key={list}
+        list={list}
+        tasks={tasks[list] ?? []}
+        sections={sections[list] ?? []}
+        today={today}
+        actions={taskActions}
+        places={allPlaces()}
+        reveal={revealTask?.list === list ? revealTask : null}
+      />
     )}
     {boardPath !== null && board && (
       <BoardView
@@ -1510,6 +1561,7 @@ export function App() {
         actions={boardActions}
         look={boardLooks[boardPath]}
         onLook={(look) => session.lookAtBoard(boardPath, look)}
+        onStatus={setViewStatus}
         openCard={openCard?.board === boardPath ? openCard.id : null}
         onCloseCard={() => setOpenCard(null)}
         adding={boardAdding}
@@ -2054,8 +2106,10 @@ export function App() {
             )}
           <footer className="status">
             {stats && <span>{position(stats)}</span>}
+            {stats && <span>{t('count.words', { count: stats.words })}</span>}
             {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
-            {(keysText !== undefined || collection || active === UPCOMING) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
+            {(keysText !== undefined || collection || active === UPCOMING || boardPath !== null) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
+            {taskStatus?.map((part, i) => <span key={`task-${i}`}>{part}</span>)}
             {notice && (
               <span className="notice" role="status">
                 {notice.text}

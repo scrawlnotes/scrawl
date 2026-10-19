@@ -1,5 +1,6 @@
 import { FakeGraph, type GraphOptions, OneDriveAccount, OneDriveRemote, RemoteOffline, RemoteSignedOut, type RemoteStore, type VaultFs } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
+import { openingLeaves, openingRefused, openingSignedIn } from './opening';
 import { isDesktop } from './storage';
 
 // Signing in to OneDrive and keeping the sign-in: the code flow with PKCE. On the desktop the sign-in
@@ -316,6 +317,9 @@ interface Pending {
   state: string;
   intent: SignInIntent | 'renew';
   redirect: string;
+  /** When the page left (`Date.now()`), and how long it had been open: the opening's log counts them. */
+  leftAt?: number;
+  before?: number;
 }
 
 /** How a sign-in that left the page ended, once it came back. */
@@ -373,12 +377,12 @@ class BrowserCloud extends SignedCloud implements Cloud {
    * signed-in account goes through without a choice. Returns false when it cannot keep what the
    * return needs, and stays.
    */
-  async leave(intent: Pending['intent'], email?: string): Promise<boolean> {
+  async leave(intent: Pending['intent'], email?: string, before = performance.now()): Promise<boolean> {
     const { verifier, challenge } = await pkce();
     const state = randomText(16);
     const redirect = `${window.location.origin}/`;
     try {
-      sessionStorage.setItem(PENDING, JSON.stringify({ verifier, state, intent, redirect } satisfies Pending));
+      sessionStorage.setItem(PENDING, JSON.stringify({ verifier, state, intent, redirect, leftAt: Date.now(), before } satisfies Pending));
     } catch {
       return false;
     }
@@ -414,15 +418,23 @@ class BrowserCloud extends SignedCloud implements Cloud {
       if (pending.intent === 'renew') keepRenewFailure(reason);
       return { intent: pending.intent, error: reason };
     };
-    if (error) return failed(params.get('error_description')?.split('\n')[0] || error);
+    if (error) {
+      const reason = params.get('error_description')?.split('\n')[0] || error;
+      openingRefused(pending.intent === 'renew', reason);
+      return failed(reason);
+    }
+    const asked = performance.now();
     try {
       await this.signedInWith(
         await tokenRequest(this.post, { grant_type: 'authorization_code', code: code!, redirect_uri: pending.redirect, code_verifier: pending.verifier, scope: scopesFor(pending.intent) }),
         pending.intent,
       );
     } catch (failure) {
-      return failed(failure instanceof Error ? failure.message : String(failure));
+      const reason = failure instanceof Error ? failure.message : String(failure);
+      openingSignedIn(performance.now() - asked, reason);
+      return failed(reason);
     }
+    openingSignedIn(performance.now() - asked);
     return { intent: pending.intent };
   }
 
@@ -534,7 +546,22 @@ export async function prepareSignIn(connectedAs: string | null): Promise<boolean
   }
   if (since === null || tried || Date.now() - since < RENEW_AFTER_MS) return true;
   sessionStorage.setItem(RENEWED, '1');
-  return !(await here.leave('renew', connectedAs || undefined));
+  const before = openingLeaves(Math.floor((Date.now() - since) / (60 * 60 * 1000)));
+  return !(await here.leave('renew', connectedAs || undefined, before));
+}
+
+/**
+ * In the browser, as the page's code runs: the page came back from Microsoft after renewing the
+ * sign-in on opening, with when it left and how long it had been open; null otherwise. Nothing is
+ * taken: the return is finished by `prepareSignIn`.
+ */
+export function backFromRenewing(): { leftAt: number; before: number } | null {
+  if (isDesktop) return null;
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('code') && !params.has('error')) return null;
+  const pending = readJson<Pending>(sessionStorage, PENDING);
+  if (!pending || pending.intent !== 'renew' || pending.state !== params.get('state') || typeof pending.leftAt !== 'number') return null;
+  return { leftAt: pending.leftAt, before: pending.before ?? 0 };
 }
 
 /** How the sign-in that left the page ended, once; null when there was none. */

@@ -2183,6 +2183,57 @@ p { margin: 0; max-width: 68ch; }
 .ss-agent > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ss-agent b { font-weight: 600; }
 .ss-agent small { font-size: 12px; color: var(--m-dim); }
+
+/* The opening (Oct 19, design/opening.md): what is not read yet says Loading… where it will be; a
+   space's heading turns until all of it is read; the boot screen; Settings › About › Openings. */
+.dir[data-dir="opening"] { margin-top: 56px; }
+.dir[data-dir="opening"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="opening"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="opening"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.op-spin { flex: none; display: inline-block; box-sizing: border-box; width: 10px; height: 10px; border: 1.6px solid var(--m-line); border-top-color: var(--m-accent); border-radius: 50%; animation: op-turn .9s linear infinite; }
+@keyframes op-turn { to { transform: rotate(360deg); } }
+.it .ct.op-ct { display: flex; align-items: center; padding-right: 2px; }
+.it.fx.op-load { color: var(--m-faint); font-size: 12px; }
+.it.fx.op-load .op-spin { margin: 0 7px 0 2px; }
+.dir-a .status .op-opening { display: flex; align-items: center; gap: 6px; }
+.th .count.op-wait { display: flex; align-items: center; gap: 6px; }
+.op-skel { display: flex; align-items: center; gap: 12px; height: 34px; padding: 0 8px; margin: 0 -8px; border-bottom: 1px solid var(--m-line); }
+.op-skel i { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--m-fg) 7%, transparent); }
+.op-skel i:first-child { margin-right: auto; }
+.op-still { display: flex; align-items: center; gap: 8px; padding: 12px 0; font-size: 12.5px; color: var(--m-dim); }
+.mock.op-bootmock { display: block; }
+.op-boot { display: grid; place-items: center; height: 100%; background: var(--m-bg); }
+.mock .op-boot .op-logo, .op-boot .op-logo { width: 76px; height: 76px; stroke: none; }
+.lg-head { display: flex; align-items: center; gap: 8px; }
+.lg-head .st-label { margin-right: auto; }
+.lg-seg { display: flex; padding: 2px; border: 1px solid var(--m-line); border-radius: 6px; font-size: 12px; }
+.lg-seg span { padding: 2px 10px; border-radius: 4px; color: var(--m-dim); }
+.lg-seg span.on { background: var(--m-sel); color: var(--m-fg); }
+.lg-box { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 6px 0; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-code); font: 11px/1.55 var(--m-mono); }
+.lg-box.scrolled { justify-content: flex-end; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px); mask-image: linear-gradient(to bottom, transparent 0, #000 28px); }
+.lg-day { padding: 6px 12px 2px; color: var(--m-faint); font: 10.5px var(--m-ui); letter-spacing: .07em; text-transform: uppercase; }
+.lg-line { display: grid; grid-template-columns: 84px 38px 50px minmax(0, 1fr); gap: 0 8px; padding: 1px 12px; color: var(--m-dim); }
+.lg-line .t { color: var(--m-faint); font-variant-numeric: tabular-nums; }
+.lg-line .lv.warn { color: var(--m-p2); }
+.lg-line .lv.error { color: var(--m-p1); }
+.lg-line .src { color: var(--m-faint); }
+.lg-line .msg { color: var(--m-fg); overflow-wrap: anywhere; }
+.lg-line.warn { background: color-mix(in srgb, var(--m-p2) 7%, transparent); }
+.lg-line.error { background: color-mix(in srgb, var(--m-p1) 8%, transparent); }
+.mb-seg.lg { grid-template-columns: repeat(3, 1fr); margin: 0 16px 6px; }
+.mb-log { padding: 8px 16px; border-bottom: 1px solid var(--m-line); }
+.mb-log .h { display: flex; gap: 8px; font: 12.5px var(--m-mono); color: var(--m-faint); font-variant-numeric: tabular-nums; }
+.mb-log .h .warn { color: var(--m-p2); }
+.mb-log .h .error { color: var(--m-p1); }
+.mb-log p { margin: 2px 0 0; font: 13.5px/1.4 var(--m-mono); color: var(--m-fg); overflow-wrap: anywhere; }
+.mb-sec .op-spin { align-self: center; width: 11px; height: 11px; }
+.mb-row.op-mload { color: var(--m-faint); }
+.mb-row.op-mload .op-spin { width: 14px; height: 14px; margin: 0 4px 0 3px; border-width: 2px; }
+.mb-row.op-mload .tx b { color: var(--m-faint); }
+.mb-p.op-mstill { display: flex; align-items: center; gap: 10px; padding-top: 14px; color: var(--m-dim); }
+.mb-p.op-mstill .op-spin { width: 13px; height: 13px; border-width: 2px; }
+.mb-screen .op-boot { position: absolute; inset: 0; }
+@media (prefers-reduced-motion: reduce) { .op-spin { animation: none; } }
 </style>
 
 <main class="page">
@@ -2487,6 +2538,29 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-psview="pphone">Phone</button>
         <button type="button" data-psview="pphone2">Phone, shared</button>
         <button type="button" data-psview="pphone3">Phone, moved</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="opening">
+    <div class="brief">
+      <div>
+        <span class="letter">AÇILIŞ · TASLAK</span>
+        <h2>Uygulama açılırken: kademeli, ölçülü</h2>
+        <p>Uygulama artık her şeyi okuyup sonra çizmez. Kodu yüklenene kadar sayfa boş kalmaz: temanın arka planı gelir, 400 ms'yi geçerse ortada Scrawl simgesi belirir. Sonra kabuk hemen gelir: Today, Upcoming, her space'in başlığı ve son açılıştaki sekmeler; ekrandaki not, dosyası okunur okunmaz açılır. Space'ler birbirini beklemez. Bir space'in başlığında, her şeyi okunana kadar küçük bir spinner döner; space beklemeden açılıp kapanır, içinde okunmuş olan her şey görünür. İçi henüz okunmamış bir space'te ya da açılmış bir klasörde, içinde "Loading…" satırı durur; açılan klasör okuma sırasının önüne geçer. Kapalı bir klasörün sayısı, içi okununca gelir. İçi okunmamış koleksiyon, board, liste ya da keys sekmesinde, başlığın yanında Loading… ve satırların yeri görünür. Today, Upcoming, Search ve başlangıç sayfasının Today'i okunmuş işleri gösterir; altlarında, okunmakta olan space'leri sayan bir satır durur. Status bar her şey okunana kadar Opening… der. Settings'te yeni bir bölüm, Logs: bu cihazın log satırları, eskiden yeniye; her satırda saat, seviye (INFO, WARN, ERROR), kaynak ve mesaj. Şimdilik yalnız açılış yazar, sonra başka parçalar da oraya yazar. Üstte All, Warnings, Errors, Copy ve Save…; ekranda satırlar gün başlıklarının altında durur, Copy ve Save tam tarihli standart biçimi yazar. Telefonda Browse'da ve klasör sayfasında aynı Loading… satırı, Logs da Settings'te bir sayfa. Sayılar örnektir. Teknik tasarım <code>design/opening.md</code>.</p>
+        <ul class="traits"><li>açılış ekranı</li><li>kabuk hemen</li><li>space'ler birbirini beklemez</li><li>klasörün içinde Loading…</li><li>okunan hemen görünür</li><li>Settings › Logs</li><li>masaüstü, web ve telefon</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Açılış görünümü">
+        <button type="button" data-opview="opboot">Açılış ekranı</button>
+        <button type="button" data-opview="opshell">Kabuk</button>
+        <button type="button" data-opview="opfolders">Klasörler okunurken</button>
+        <button type="button" data-opview="opcol">Koleksiyon sekmesi</button>
+        <button type="button" data-opview="optoday">Today</button>
+        <button type="button" data-opview="oplogs">Settings › Logs</button>
+        <button type="button" data-opview="oplogswarn">Logs, Warnings</button>
+        <button type="button" data-opview="opphone">Phone</button>
+        <button type="button" data-opview="opphone2">Phone, Logs</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -7123,6 +7197,236 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderPs(sectionPs, b.dataset.psview);
   });
   renderPs(sectionPs, 'pslist');
+
+  // The opening (Oct 19, design/opening.md). The app comes in pieces: the boot screen while the
+  // code loads, then the shell with last time's tabs and the note on screen. A space or an opened
+  // folder not read yet holds Loading… inside; a space's heading turns until all of it is read.
+  // A tab whose file is not read yet says so by its name. Settings › About keeps the last 20
+  // openings, each with its steps on one line of time.
+  ICON.clock = ICON.clock || '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+  var OP_SPIN = '<span class="op-spin" aria-hidden="true"></span>';
+  // Scrawl's icon, as the app's own icons have it: three waves on a dark tile.
+  var OP_LOGO = '<svg class="op-logo" viewBox="0 0 192 192"><rect width="192" height="192" rx="42" fill="#1f242c"/>' +
+    '<g fill="none" stroke="#e9ac45" stroke-width="11"><path d="M44 66q13-13 26 0t26 0t26 0t26 0"/><path d="M44 99q13-13 26 0t26 0t26 0"/><path d="M44 132q13-13 26 0t26 0"/></g></svg>';
+  /** A row of the tree as spRowT draws it; a space's heading turns in place of its count while it is read. */
+  function opRowT(x) {
+    var head = x.sp || x.folder;
+    return '<div class="it fx' + (x.sp ? ' fsp' : x.folder ? ' fdir' : '') + (x.on ? ' on' : '') + '" style="--d: ' + (x.d || 0) + '">' +
+      (head ? '<span class="fchev' + (x.open ? ' open' : '') + '">' + ICON.chevr + '</span>' + (x.sp ? ICON.space : ICON.folder) : '<span class="fpad"></span>' + ICON[x.icon]) +
+      '<span>' + x.label + '</span>' + (x.spin ? '<span class="ct op-ct">' + OP_SPIN + '</span>' : x.ct ? '<span class="ct">' + x.ct + '</span>' : '') +
+      (head ? '<span class="more">···</span>' : '') + '</div>';
+  }
+  /** Inside a space or an opened folder whose items are not read yet. */
+  function opLoad(d) { return '<div class="it fx op-load" style="--d: ' + d + '"><span class="fpad"></span>' + OP_SPIN + '<span>Loading…</span></div>'; }
+  /**
+   * The sidebar as the opening goes on: the shell, with nothing read yet; then the spaces' tops
+   * read and a folder opened before its items are; later, two spaces read and one still reading.
+   */
+  function opTree(state, on) {
+    var tree;
+    if (state === 'shell') {
+      tree = row({ label: 'Today' }) + row({ label: 'Upcoming' }) +
+        opRowT({ sp: true, open: true, label: 'Personal', spin: true }) + opLoad(1) +
+        opRowT({ sp: true, open: true, label: 'Acme', spin: true }) + opLoad(1) +
+        opRowT({ sp: true, label: 'Side projects', spin: true });
+    } else if (state === 'folders') {
+      tree = row({ label: 'Today', ct: 3 }) + row({ label: 'Upcoming', ct: 7 }) +
+        opRowT({ sp: true, open: true, label: 'Personal', spin: true }) +
+        opRowT({ d: 1, folder: true, label: 'Inbox', ct: 4 }) +
+        opRowT({ d: 1, folder: true, open: true, label: 'Scrawl' }) + opLoad(2) +
+        opRowT({ d: 1, folder: true, label: 'Home' }) +
+        opRowT({ d: 1, folder: true, label: 'Reading' }) +
+        opRowT({ sp: true, open: true, label: 'Acme', spin: true }) +
+        opRowT({ d: 1, folder: true, open: true, label: 'Sales' }) +
+        opRowT({ d: 2, icon: 'tasks', label: 'Tasks', ct: 5 }) +
+        opRowT({ d: 2, icon: 'board', label: 'Deals', ct: 8 }) +
+        opRowT({ d: 2, icon: 'collection', label: 'Companies', on: on === 'col' }) +
+        opRowT({ d: 1, folder: true, label: 'Support', ct: 3 }) +
+        opRowT({ d: 1, folder: true, label: 'meetings' }) +
+        opRowT({ sp: true, label: 'Side projects', spin: true });
+    } else {
+      tree = row({ label: 'Today', ct: 5, on: on === 'today' }) + row({ label: 'Upcoming', ct: 12 }) +
+        opRowT({ sp: true, open: true, label: 'Personal' }) +
+        opRowT({ d: 1, folder: true, label: 'Inbox', ct: 4 }) +
+        opRowT({ d: 1, folder: true, label: 'Scrawl', ct: 9 }) +
+        opRowT({ d: 1, folder: true, label: 'Home', ct: 4 }) +
+        opRowT({ d: 1, folder: true, label: 'Reading', ct: 8 }) +
+        opRowT({ sp: true, open: true, label: 'Acme' }) +
+        opRowT({ d: 1, folder: true, label: 'Sales', ct: 5 }) +
+        opRowT({ d: 1, folder: true, label: 'Support', ct: 3 }) +
+        opRowT({ d: 1, folder: true, label: 'meetings', ct: 6 }) +
+        opRowT({ sp: true, open: true, label: 'Side projects', spin: true }) + opLoad(1);
+    }
+    return '<div class="tree fxt">' + tree + '</div>' + spFoot(null);
+  }
+  /** The status bar while something is still read: Opening…, turning, where Saved goes. */
+  var OP_STATUS = '<div class="status"><span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span><span class="op-opening">' + OP_SPIN + 'Opening…</span>' + syncStatus(false, null) + '</div>';
+  /** Last time's tabs: the note, the board, the collection; Today in front when it is on screen. */
+  function opTabs(on) {
+    return (on === 'today' ? tab('tasks', 'Today', 'today', true) : '') +
+      tab('notes', 'Sync engine: open questions', 'note', on === 'note') + tab('board', 'Deals', 'board', false) + tab('collection', 'Companies', 'col', on === 'col') +
+      '<div class="tab plus">+</div>';
+  }
+  /** A collection whose records are not read yet: its name, Loading… in place of how many, and where its rows will be. */
+  function opColLoading() {
+    function skel(w) { return '<div class="op-skel"><i style="width: ' + w + '%"></i><i style="width: 14%"></i><i style="width: 9%"></i><i style="width: 11%"></i></div>'; }
+    return '<div class="bv"><div class="th"><b>Companies</b><span class="count op-wait">' + OP_SPIN + 'Loading…</span></div>' +
+      '<div class="blist">' + [38, 26, 33, 22, 36, 29, 24, 31, 27].map(skel).join('') + '</div></div>';
+  }
+  /** Today while one space is still read: what is read is there, a line under it says what is not yet. */
+  var OP_TODAY = '<div class="tasksv"><div class="th"><b>Today</b><button type="button" class="add">Add task</button></div><div class="tl">' +
+    '<div class="sec">Overdue <small>1</small></div>' +
+    task('p3', 'Renew the domain', '<span class="today">Oct 9</span><span>Home</span>') +
+    '<div class="sec">Mon, Oct 12 <small>3</small></div>' +
+    task('p1', 'Prototype live preview', '<span>Scrawl</span><span>2 of 4</span>') +
+    task('p2', 'Send the revised estimate', '<span>Acme · Sales</span>' + who('K') + '<span>Kaan</span>') +
+    task('', 'Call Acme about the yearly plan', '<span>Inbox</span>' + recChip('Acme Corp')) +
+    '<div class="sec">Deals · Acme · Sales <small>1</small></div>' +
+    '<div class="task"><span class="cb sq p2"></span><div><div class="tt"><span class="key">DEA-12</span>Pilot for one portal</div><div class="meta"><span class="today">Today</span><span>Proposal</span>' + who('L') + '<span>Lena</span></div></div></div>' +
+    '<div class="op-still">' + OP_SPIN + 'Still opening Side projects…</div></div></div>';
+  function opApp(state, on, body, status) {
+    return '<aside class="side">' + opTree(state, on) + '</aside><section class="main"><div class="panes">' + pane(opTabs(on), body) + '</div>' + (status || OP_STATUS) + '</section>';
+  }
+  ICON.logs = '<svg viewBox="0 0 24 24"><path d="M9.5 7H19M9.5 12H19M9.5 17H19"/><path d="M5 7h.5M5 12h.5M5 17h.5"/></svg>';
+  // This device's log, oldest first: each opening writes its own lines. No note's, list's or
+  // record's name is in them; a space's is, to tell which one was slow.
+  var OP_LOG = [
+    ['Oct 18', '08:04:51.208', 'info', 'Sign-in is 22 h old: renewing with Microsoft'],
+    ['Oct 18', '08:04:53.611', 'info', 'Back from Microsoft after 2.1 s'],
+    ['Oct 18', '08:04:53.612', 'warn', 'Renewing with Microsoft failed: AADSTS50058: A silent sign-in request was sent but no user is signed in.'],
+    ['Oct 18', '08:04:53.902', 'info', 'Page loaded in 0.3 s'],
+    ['Oct 18', '08:04:54.010', 'info', 'Shell drawn at 0.4 s'],
+    ['Oct 18', '08:04:54.105', 'info', 'First tab at 0.5 s: a note'],
+    ['Oct 18', '08:04:54.480', 'info', 'Side projects read in 0.2 s: 2 notes, 0 read from disk; 1 folder, 0 lists, 0 records'],
+    ['Oct 18', '08:04:55.020', 'info', 'Acme read in 0.9 s: 61 notes, 3 read from disk; 9 folders, 3 lists, 312 records'],
+    ['Oct 18', '08:04:59.310', 'info', 'Personal read in 5.2 s: 412 notes, 388 read from disk; 38 folders, 4 lists, 0 records'],
+    ['Oct 18', '08:04:59.311', 'warn', 'Opened in 6.4 s; longest: Personal 5.2 s'],
+    ['Oct 18', '22:40:11.204', 'info', 'Page loaded in 0.2 s'],
+    ['Oct 18', '22:40:11.318', 'info', 'Shell drawn at 0.3 s'],
+    ['Oct 18', '22:40:11.402', 'info', 'First tab at 0.4 s: a board'],
+    ['Oct 18', '22:40:11.690', 'info', 'Acme read in 0.4 s: 61 notes, 0 read from disk; 9 folders, 3 lists, 312 records'],
+    ['Oct 18', '22:40:11.912', 'info', 'Personal read in 0.6 s: 412 notes, 2 read from disk; 38 folders, 4 lists, 0 records'],
+    ['Oct 18', '22:40:11.913', 'info', 'Opened in 1.1 s; longest: Personal 0.6 s'],
+    ['Oct 19', '08:11:34.402', 'info', 'Sign-in is 23 h old: renewing with Microsoft'],
+    ['Oct 19', '08:12:05.410', 'info', 'Back from Microsoft after 31.0 s'],
+    ['Oct 19', '08:12:05.712', 'info', 'Page loaded in 0.3 s'],
+    ['Oct 19', '08:12:05.820', 'info', 'Shell drawn at 0.4 s'],
+    ['Oct 19', '08:12:05.914', 'info', 'First tab at 0.5 s: a note'],
+    ['Oct 19', '08:12:06.520', 'info', 'Signed in to OneDrive in 0.8 s'],
+    ['Oct 19', '08:12:06.640', 'info', 'Side projects read in 0.2 s: 2 notes, 0 read from disk; 1 folder, 0 lists, 0 records'],
+    ['Oct 19', '08:12:06.710', 'info', 'Acme read in 0.9 s: 61 notes, 4 read from disk; 9 folders, 3 lists, 312 records'],
+    ['Oct 19', '08:12:12.110', 'info', 'Personal read in 6.5 s: 412 notes, 9 read from disk; 38 folders, 4 lists, 0 records'],
+    ['Oct 19', '08:12:12.112', 'warn', 'Opened in 38.2 s; longest: Microsoft 31.0 s']
+  ];
+  var OP_DAYS = { 'Oct 18': 'Sun, Oct 18', 'Oct 19': 'Today' };
+  /** The lines shown: all, or the warnings and errors; each day under its heading, the time and the rest in columns. */
+  function opLogLines(warn, last) {
+    var lines = OP_LOG.filter(function (l) { return !warn || l[2] !== 'info'; });
+    if (last) lines = lines.slice(-last);
+    var day = null;
+    return lines.map(function (l) {
+      var head = l[0] !== day ? '<div class="lg-day">' + OP_DAYS[l[0]] + '</div>' : '';
+      day = l[0];
+      return head + '<div class="lg-line' + (l[2] === 'info' ? '' : ' ' + l[2]) + '"><span class="t">' + l[1] + '</span><span class="lv ' + l[2] + '">' + l[2].toUpperCase() + '</span><span class="src">opening</span><span class="msg">' + l[3] + '</span></div>';
+    }).join('');
+  }
+  /** Settings › Logs: the levels, Copy and Save…, the lines scrolled to the newest, and where they are kept. */
+  function opLogs(warn) {
+    return '<div class="lg-head"><span class="st-label">Logs</span><span class="lg-seg"><span' + (warn ? '' : ' class="on"') + '>All</span><span' + (warn ? ' class="on"' : '') + '>Warnings</span><span>Errors</span></span><span class="st-btn">Copy</span><span class="st-btn">Save…</span></div>' +
+      '<div class="lg-box' + (warn ? '' : ' scrolled') + '">' + opLogLines(warn, warn ? 0 : 17) + '</div>' +
+      '<p class="st-note">Kept on this device: the last 1,000 lines. They leave it only when you copy or save them.</p>';
+  }
+  /** The Settings window with Logs lit, before About, over the app. */
+  function opSettings(body) {
+    return wuApp(SP_STATUS, true) + '<div class="ovl"><div class="st-dlg"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
+      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + row({ icon: 'space', label: 'Spaces' }) + row({ icon: 'agent', label: 'Agents' }) +
+      row({ icon: 'logs', label: 'Logs', on: true }) + row({ icon: 'info', label: 'About' }) +
+      '</nav><div class="st-body">' + body + '</div></div></div></div>';
+  }
+  // The phone: the boot screen, Browse with a space still read, a folder not read yet, Today.
+  function mbOpLoad() { return '<div class="mb-row op-mload">' + OP_SPIN + '<span class="tx"><b>Loading…</b></span></div>'; }
+  function mbOpBrowse() {
+    return mbPage(mbHead('Browse', null, true),
+      '<div class="mb-sec">Personal</div>' +
+      mbRow({ icon: 'folder', fold: true, label: 'Inbox', ct: 4 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Scrawl', ct: 9 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Home', ct: 4 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Reading', ct: 8 }) +
+      '<div class="mb-sec">Acme' + OP_SPIN + '</div>' +
+      mbRow({ icon: 'folder', fold: true, label: 'Sales' }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Support' }) +
+      '<div class="mb-sec">Side projects' + OP_SPIN + '</div>' + mbOpLoad());
+  }
+  function mbOpFolder() { return mbPage(mbNav('Browse', ['dots']) + mbHead('Sales'), mbOpLoad()); }
+  function mbOpToday() {
+    return mbPage(mbHead('Today', 'Monday, Oct 12', true) + '<div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>',
+      '<div class="mb-sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' +
+      mbT({ p: 'p3', title: 'Renew the domain', meta: mi('cal', 'Oct 9', 'late') + mi('tasks', 'Tasks · Home') }) +
+      '<div class="mb-sec">Today <small>2</small></div>' +
+      mbT({ p: 'p1', title: 'Prototype live preview', meta: mi('tasks', 'Tasks · Scrawl') + mi('', '2 of 4') }) +
+      mbT({ title: 'Call Acme about the yearly plan', meta: mi('tasks', 'Inbox') }) +
+      '<p class="mb-p op-mstill">' + OP_SPIN + 'Still opening Acme and Side projects…</p>');
+  }
+  // The phone's Settings has Logs: a page with the levels on top and each line under its day.
+  function mbOpSettings() {
+    return mbPage(mbNav('Browse') + mbHead('Settings'),
+      mbRow({ icon: 'person', label: 'Profile', ct: 'Kaan Arslan' }) +
+      mbRow({ icon: 'half', label: 'Appearance', ct: 'Frost · System' }) +
+      mbRow({ icon: 'space', label: 'Spaces', ct: 3 }) +
+      mbRow({ icon: 'agent', label: 'Agents' }) +
+      mbRow({ icon: 'logs', label: 'Logs' }));
+  }
+  function mbOpLogs(warn) {
+    var lines = OP_LOG.filter(function (l) { return !warn || l[2] !== 'info'; });
+    if (!warn) lines = lines.slice(-5);
+    var day = null;
+    return mbPage(mbNav('Settings', ['Copy']) + mbHead('Logs') + '<div class="mb-seg lg"><span' + (warn ? '' : ' class="on"') + '>All</span><span' + (warn ? ' class="on"' : '') + '>Warnings</span><span>Errors</span></div>',
+      lines.map(function (l) {
+        var head = l[0] !== day ? '<div class="mb-sec">' + OP_DAYS[l[0]] + '</div>' : '';
+        day = l[0];
+        return head + '<div class="mb-log"><div class="h"><span>' + l[1] + '</span><span class="' + l[2] + '">' + l[2].toUpperCase() + '</span><span>opening</span></div><p>' + l[3] + '</p></div>';
+      }).join(''));
+  }
+  function phoneOpening() {
+    return [
+      mbPhone('Açılış ekranı: tema rengi, 400 ms sonra simge', '<div class="op-boot">' + OP_LOGO + '</div>'),
+      mbPhone('Browse: okunan space’ler hemen, okunan yerinde Loading…', mbOpBrowse(), mbTabs('browse') + MB_FAB),
+      mbPhone('Okunmamış klasör: Empty değil, Loading…', mbOpFolder(), mbTabs('browse') + MB_FAB),
+      mbPhone('Today: okunanlar, altta okunmakta olanlar', mbOpToday(), mbTabs('today') + MB_FAB)
+    ].join('');
+  }
+  function phoneOpenings() {
+    return [
+      mbPhone('Settings: Logs bir satır', mbOpSettings(), mbTabs('browse')),
+      mbPhone('Logs: en yeni altta, gün başlıklarıyla; Copy üstte', mbOpLogs(false), mbTabs('browse')),
+      mbPhone('Warnings: yalnız WARN ve ERROR', mbOpLogs(true), mbTabs('browse'))
+    ].join('');
+  }
+  var OP_VIEWS = {
+    opboot: function () { return '<div class="op-boot">' + OP_LOGO + '</div>'; },
+    opshell: function () { return opApp('shell', 'note', edFull); },
+    opfolders: function () { return opApp('folders', 'note', edFull); },
+    opcol: function () { return opApp('folders', 'col', opColLoading(), OP_STATUS.replace('<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>', '')); },
+    optoday: function () { return opApp('later', 'today', OP_TODAY, OP_STATUS.replace('<span>Ln 12, Col 20</span><span>74 words</span><span>Markdown</span>', '<span>5 tasks</span><span>1 overdue</span>')); },
+    oplogs: function () { return opSettings(opLogs(false)); },
+    oplogswarn: function () { return opSettings(opLogs(true)); }
+  };
+  var OP_PHONES = { opphone: phoneOpening, opphone2: phoneOpenings };
+  function renderOp(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.className = OP_PHONES[view] ? 'mock dir-a phones four mbs' : view === 'opboot' ? 'mock dir-a op-bootmock' : 'mock dir-a';
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = (OP_PHONES[view] || OP_VIEWS[view])();
+    section.querySelectorAll('.brief [data-opview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.opview === view));
+    });
+  }
+  var sectionOp = document.querySelector('.dir[data-dir="opening"]');
+  sectionOp.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-opview]');
+    if (b) renderOp(sectionOp, b.dataset.opview);
+  });
+  renderOp(sectionOp, 'opshell');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

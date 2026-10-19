@@ -14,11 +14,12 @@ import { ConnectStep, serverFailure } from './ServerConnect';
 import { ROLE_WORD, ServerMembers, ServerPage } from './ServerPeople';
 import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, tookJoin, useKnownServers } from './servers';
 import { Agents } from './Agents';
+import { LogsSection } from './Logs';
 import { checkForUpdates, releasePage, useAppVersion, useDesktopUpdate } from './desktopUpdate';
 import { APP_VERSION, checkForWebUpdate, PUBLISHED, subscribeUpdate, webUpdatesOn, webUpdateStatus } from './pwa';
 import { isDesktop, openUrlOnDesktop } from './storage';
 
-export type Section = 'profile' | 'appearance' | 'spaces' | 'agents' | 'language' | 'about';
+export type Section = 'profile' | 'appearance' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
 
 const SECTIONS: { id: Section; label: MessageKey; icon: IconName }[] = [
   { id: 'profile', label: 'settings.profile', icon: 'person' },
@@ -26,6 +27,7 @@ const SECTIONS: { id: Section; label: MessageKey; icon: IconName }[] = [
   { id: 'spaces', label: 'settings.spaces', icon: 'space' },
   { id: 'agents', label: 'settings.agents', icon: 'agent' },
   { id: 'language', label: 'settings.language', icon: 'language' },
+  { id: 'logs', label: 'settings.logs', icon: 'logs' },
   { id: 'about', label: 'settings.about', icon: 'info' },
 ];
 
@@ -107,13 +109,13 @@ export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }
   // With more than one space, how many there are; with one, what it is called.
   if (id === 'spaces') return spaces.length > 0 ? String(spaces.length + 1) : (spaceName ?? t('settings.personal'));
   if (id === 'agents') return knownServers().length > 0 ? t('agents.viaServers', { count: knownServers().length }) : '';
-  if (id === 'about') return '';
+  if (id === 'about' || id === 'logs') return '';
   return languages.find((language) => language.tag === languageTag())?.name ?? '';
 }
 
 /** What a section has, in the window or on a phone's page. */
 export function SettingsSection({ section, ...values }: SettingsValues & { section: Section }) {
-  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : section === 'agents' ? <Agents {...values} /> : section === 'about' ? <About {...values} /> : <Language />;
+  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : section === 'agents' ? <Agents {...values} /> : section === 'logs' ? <LogsSection /> : section === 'about' ? <About {...values} /> : <Language />;
 }
 
 /** The source, under both Abouts. */

@@ -229,6 +229,7 @@ import {
   type TransactionSpec,
 } from '@scrawlnotes/editor';
 import { boardPathOf, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
+import { type OpeningMeasure, openingMeasure, seconds } from './opening';
 import welcomeComputer from './welcome.md?raw';
 import welcomePhone from './welcome.phone.md?raw';
 import {
@@ -380,6 +381,35 @@ export interface SpaceView {
   people: Person[];
   /** Its folders and files, their paths carrying the space. */
   tree: TreeNode[];
+}
+
+/** How many notes and folders a tree has, for the opening's log. */
+function treeSize(nodes: TreeNode[]): string {
+  let notes = 0;
+  let folders = 0;
+  const visit = (each: TreeNode[]) => {
+    for (const node of each) {
+      if (node.kind === 'note') notes++;
+      else if (node.kind === 'folder') {
+        folders++;
+        visit(node.children ?? []);
+      }
+    }
+  };
+  visit(nodes);
+  return `${notes} notes, ${folders} folders`;
+}
+
+/** What a tab is, for the opening's log: its kind, never its name. */
+function tabKind(id: string): string {
+  if (id === WELCOME_NOTE) return 'the welcome note';
+  if (listOf(id) !== null) return 'a task list';
+  if (boardPathOf(id) !== null) return 'a board';
+  if (keysPathOf(id) !== null) return 'a keys file';
+  if (collectionPathOf(id) !== null) return 'a collection';
+  if (filterOf(id) !== null) return 'a filter';
+  if (VIEWS.has(id)) return id === TODAY ? 'Today' : id === UPCOMING ? 'Upcoming' : id === FILES ? 'Files' : 'the trash';
+  return isNote(id) ? 'a note' : 'a view';
 }
 
 function titlesOf(nodes: TreeNode[], out: Record<string, string> = {}): Record<string, string> {
@@ -550,27 +580,37 @@ export class Session {
 
   async start(parent: HTMLElement) {
     const run = ++this.run;
+    // The first start of the page writes each of its steps to the device's log, with how long it took.
+    const measure = openingMeasure(() => run === this.run);
     this.parent = parent;
     this.personal = await openVault();
-    await this.openSpaces();
-    for (const [space, fs] of this.fs.all()) {
-      for (const entry of await fs.list(ATTACHMENTS).catch(() => [])) {
-        // A copy that was cut off when the app closed leaves its hidden part behind.
-        if (entry.name.startsWith('.') && entry.name.endsWith('.part')) {
-          await fs.remove(entry.path).catch(() => undefined);
-          continue;
+    await measure.time('Spaces', () => this.openSpaces(), (_, took) => `Spaces opened in ${took}: ${this.opened.size} besides Personal`);
+    const listed = async () => {
+      let count = 0;
+      for (const [space, fs] of this.fs.all()) {
+        for (const entry of await fs.list(ATTACHMENTS).catch(() => [])) {
+          // A copy that was cut off when the app closed leaves its hidden part behind.
+          if (entry.name.startsWith('.') && entry.name.endsWith('.part')) {
+            await fs.remove(entry.path).catch(() => undefined);
+            continue;
+          }
+          count++;
+          // Nothing is read here: images are read when a note shows them, other files when they are opened.
+          if (entry.size !== undefined) this.sizes.set(inSpace(space, entry.path), entry.size);
         }
-        // Nothing is read here: images are read when a note shows them, other files when they are opened.
-        if (entry.size !== undefined) this.sizes.set(inSpace(space, entry.path), entry.size);
       }
-    }
-    let tree = await readTree(this.personal);
-    // The browser vault starts with Inbox. A folder on disk is the user's own; nothing is put there unasked.
-    if (!tree.length && !isDesktop) {
+      return count;
+    };
+    await measure.time('Attachments', listed, (count, took) => `Attachments listed in ${took}: ${count} files`);
+    const readPersonal = async () => {
+      const read = await readTree(this.personal);
+      // The browser vault starts with Inbox. A folder on disk is the user's own; nothing is put there unasked.
+      if (read.length || isDesktop) return read;
       await createTaskList(this.personal, '', listName(INBOX_TASKS));
-      tree = await readTree(this.personal);
-    }
-    const spaces = await this.spaceViews();
+      return readTree(this.personal);
+    };
+    const tree = await measure.time('Personal tree', readPersonal, (read, took) => `Personal tree read in ${took}: ${treeSize(read)}`);
+    const spaces = await this.spaceViews(measure);
     const workspace = await loadWorkspace(this.personal);
     // The onboarding note opens each time until it is closed on this device, for those who had
     // the app before it too. It is kept under `.scrawl`, where the folder stays the user's own.
@@ -603,12 +643,19 @@ export class Session {
 
     const everything = [...tree, ...spaces.flatMap((space) => space.tree)];
     const titles = titlesOf(everything);
-    const { tasks, sections, boards, keys, collections } = await this.readLists(everything);
+    const lists = (read: Pick<Snapshot, 'tasks' | 'boards' | 'keys' | 'collections'>) =>
+      `${Object.keys(read.tasks).length} task lists, ${Object.keys(read.boards).length} boards, ${Object.keys(read.keys).length} keys files, ` +
+      `${Object.keys(read.collections).length} collections, ${Object.values(read.collections).reduce((sum, each) => sum + each.records.length, 0)} records`;
+    const { tasks, sections, boards, keys, collections } = await measure.time(
+      'Lists and collections',
+      () => this.readLists(everything),
+      (read, took) => `Lists, boards and collections read in ${took}: ${lists(read)}`,
+    );
     const filters = await loadFilters(this.personal);
     const space = await loadSpace(this.personal);
     // Nothing is asked at the first start: the name and the email wait for a space where others see them.
     const me = await startMe(this.personal, this.snapshot.me);
-    const trash = await this.readTrash();
+    const trash = await measure.time('Trash', () => this.readTrash(), (items, took) => `Trash read in ${took}: ${items.length} items`);
     if (run !== this.run) return;
     let tabs = workspace.tabs.filter((id) => {
       const list = listOf(id);
@@ -636,7 +683,8 @@ export class Session {
     this.set({ ready: true, folder: vaultFolder(), defaultFolder: defaultVaultFolder(), me, tree, spaces, titles, tabs, tasks, sections, boards, boardLooks, keys, keysLooks, collections, collectionLooks, filters, space, trash });
     // With no tabs from last time nothing is opened: the start page shows.
     const first = active && tabs.includes(active) ? active : tabs[0];
-    if (first) await this.open(first);
+    if (first) await measure.time('First tab', () => this.open(first), () => `First tab at ${seconds(performance.now())}: ${tabKind(first)}`);
+    measure.finish();
     // Versions past their keeping time go, also those of notes deleted long ago.
     for (const [, fs] of this.fs.all()) void pruneHistory(fs).catch(() => undefined);
     void this.sweepAttachments(run);
@@ -707,16 +755,21 @@ export class Session {
   }
 
   /** The spaces as the interface shows them, each with its tree read now. */
-  private async spaceViews(): Promise<SpaceView[]> {
+  private async spaceViews(measure?: OpeningMeasure): Promise<SpaceView[]> {
     return Promise.all(
-      [...this.opened].map(async ([id, space]) => ({
-        id,
-        name: space.name,
-        folder: space.entry.folder ?? null,
-        source: space.entry.source ?? null,
-        people: await loadPeople(space.fs),
-        tree: prefixTree(await readTree(space.fs).catch(() => []), id),
-      })),
+      [...this.opened].map(async ([id, space]) => {
+        const read = () => readTree(space.fs).catch((): TreeNode[] => []);
+        // At the first start each space's tree is a step of the opening's log.
+        const tree = measure ? await measure.time(`${space.name} tree`, read, (nodes, took) => `${space.name} tree read in ${took}: ${treeSize(nodes)}`) : await read();
+        return {
+          id,
+          name: space.name,
+          folder: space.entry.folder ?? null,
+          source: space.entry.source ?? null,
+          people: await loadPeople(space.fs),
+          tree: prefixTree(tree, id),
+        };
+      }),
     );
   }
 

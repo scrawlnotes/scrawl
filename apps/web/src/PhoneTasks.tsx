@@ -48,6 +48,7 @@ export const priorityItems = (current: Priority, pick: (priority: Priority) => v
     label: priority === 4 ? t('tasks.noPriority') : t('tasks.priorityN', { n: priority }),
     icon: 'flag',
     className: `p${priority}`,
+    flag: priority,
     value: priority === current ? '✓' : undefined,
     run: () => pick(priority),
   }));

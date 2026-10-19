@@ -9,6 +9,7 @@ import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, 
 import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAgents } from './Agents';
+import { PhoneLogs, useLogView } from './Logs';
 import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
 import { PhoneSyncList, PhoneSyncPage } from './PhoneSync';
 import { PhoneServerPage, YouAre } from './ServerPeople';
@@ -475,6 +476,8 @@ export function Phone(props: PhoneProps) {
   const [newFolderIn, setNewFolderIn] = useState<string | null>(null);
   // Settings › Spaces: reordering the spaces, adding one, a space's menu and the question before it leaves this phone.
   const [reordering, setReordering] = useState(false);
+  // Settings › Logs: what is shown, and Copy in the page's bar.
+  const logView = useLogView();
   // Opened with an invite link, Add space opens with it.
   const [addingSpace, setAddingSpace] = useState(() => !!pendingJoin());
   const [spaceMenu, setSpaceMenu] = useState<string | null>(null);
@@ -1190,6 +1193,14 @@ export function Phone(props: PhoneProps) {
             onAdd={() => setAddingSpace(true)}
             onServer={(url) => push({ kind: 'server', url })}
           />
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'section' && page.section === 'logs') {
+      const copy = { label: t(logView.copied ? 'logs.copied' : 'logs.copy'), run: () => void logView.copy() };
+      return (
+        <PageFrame title={titleOf(page, of)} nav={{ ...nav, ...(logView.shown.length > 0 && { action: copy }) }}>
+          <PhoneLogs view={logView} />
         </PageFrame>
       );
     }

@@ -15,6 +15,7 @@ import { listCrumb, type MenuItem, placesShown, type TaskPlaceChoice } from './d
 import { Icon, type IconName } from './Icon';
 import { listLabel, spaceLabel } from './items';
 import { MonthGrid, useMonth } from './MonthGrid';
+import { priorityItems } from './PhoneTasks';
 import { GrowingField, nextWeek, RecordPicker, TitleField, toDate } from './Tasks';
 
 // Adding a task on a computer, after the List, add views of the Upcoming mockups: its name and
@@ -284,13 +285,7 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
   const priorityMenu = (event: MouseEvent<HTMLButtonElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
     const under = { clientX: box.left, clientY: box.bottom + 4, preventDefault: () => event.preventDefault() } as MouseEvent;
-    menu(
-      under,
-      ([1, 2, 3, 4] as Priority[]).map((each) => ({
-        label: `${each === priority ? '✓ ' : ''}${each === 4 ? t('tasks.noPriority') : t('tasks.priorityN', { n: each })}`,
-        run: () => setPriority(each),
-      })),
-    );
+    menu(under, priorityItems(priority, setPriority));
   };
   // Pressing a button at the foot leaves the keyboard in the name.
   const keepTyping = (event: MouseEvent) => event.preventDefault();

@@ -8,11 +8,16 @@ import './phone.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { prepareSignIn } from './cloud';
+import { backFromRenewing, prepareSignIn } from './cloud';
 import { startDesktopUpdates } from './desktopUpdate';
 import { applyLanguage, applySize, applyTheme, keepTyping, loadMode, loadTheme, onTurn, shadeOfMode, systemShade } from './device';
+import { openingBegins } from './opening';
 import { startWebApp } from './pwa';
 import { keptConnection } from './sync';
+
+// The opening's log begins as soon as the page's code runs: how long the code took to come, and
+// how long the page was at Microsoft when it comes back from renewing the sign-in.
+openingBegins(backFromRenewing());
 
 // The theme, the size and the language this device keeps are set before anything is drawn, so
 // that the first frame is already right.

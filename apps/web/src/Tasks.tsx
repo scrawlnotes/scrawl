@@ -54,7 +54,9 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
-import type { MenuHead, MenuItem } from './dialogs';
+import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
+import { priorityItems } from './PhoneTasks';
+import { TaskComposer } from './TaskComposer';
 import { Icon, type IconName } from './Icon';
 import { boardHeading, boardLabel, boardWhere, collectionHeading, collectionLabel, collectionWhere, folderLabel, listHeading, listLabel, listWhere } from './items';
 import { AssigneeChip, firstName, PersonPicker, type SpacePeople } from './People';
@@ -773,14 +775,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
       { label: t('tasks.delete'), run: () => actions.remove(list, task.id) },
     ]);
   };
-  const priorityMenu = (event: MouseEvent) =>
-    actions.menu(
-      event,
-      ([1, 2, 3, 4] as Priority[]).map((priority) => ({
-        label: `${priority === task.priority ? '✓ ' : ''}${priority === 4 ? t('tasks.noPriority') : t('tasks.priorityN', { n: priority })}`,
-        run: () => actions.update(list, task.id, { priority }),
-      })),
-    );
+  const priorityMenu = (event: MouseEvent) => actions.menu(event, priorityItems(task.priority, (priority) => actions.update(list, task.id, { priority })));
 
   // The note the task was made from: a link to it, or only its name once the note is gone.
   const noteName = task.note ? actions.noteTitle(task.note) : null;
@@ -1332,12 +1327,18 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
               onAdd={(title) => actions.add(list, { title, section: section.id })}
               onClose={() => setComposing(false)}
             />
-          ) : (
-            !phone && (
-              <button type="button" className="qa" onClick={() => setComposing(true)}>
-                {t('tasks.addRow')}
+          ) : phone ? (
+            // On a phone a task is typed above the keyboard, this section chosen.
+            actions.quickAdd && (
+              <button type="button" className="qa mb-sec-add" onClick={() => actions.quickAdd!(list, section.id)}>
+                <Icon name="plus" />
+                {t('tasks.add')}
               </button>
             )
+          ) : (
+            <button type="button" className="qa" onClick={() => setComposing(true)}>
+              {t('tasks.addRow')}
+            </button>
           )}
         </>
       )}
@@ -1349,17 +1350,22 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
  * One task list, with the folder it is in beside its name. Tasks in no section come first,
  * without a header; then each section; then the row that adds a section.
  */
-export function TaskList({ list, tasks, sections, today, actions, reveal = null }: {
+export function TaskList({ list, tasks, sections, today, actions, places, reveal = null }: {
   list: string;
   tasks: Task[];
   sections: Section[];
   today: string;
   actions: TaskActions;
+  /** Every list and section a task can go in: in a list with sections, the header's Add task asks where. */
+  places?: TaskPlaceChoice[];
   /** A task found by the search window: shown, done or in a folded section as it may be, brought into sight and marked for a moment. `at` tells one ask from the next. */
   reveal?: { id: string; at: number } | null;
 }) {
   const [showDone, setShowDone] = useState(false);
   const [composing, setComposing] = useState(false);
+  // The header's Add task in a list with sections: a new task with the place it goes, chosen at its
+  // foot, at first the top of the list; the count tells one opening from the next.
+  const [placing, setPlacing] = useState(0);
   // A new section's name, being typed where it goes: at the end, from the header's Add section, or
   // between two sections, after the one `after` names (null for the top), from the line there.
   const [addingSection, setAddingSection] = useState<{ after?: string | null } | null>(null);
@@ -1497,7 +1503,7 @@ export function TaskList({ list, tasks, sections, today, actions, reveal = null 
           </button>
         )
       }
-      onAddClick={() => setComposing(true)}
+      onAddClick={() => (sections.length > 0 && places ? setPlacing(placing + 1) : setComposing(true))}
       footer={
         completed > 0 && (
           <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
@@ -1512,6 +1518,19 @@ export function TaskList({ list, tasks, sections, today, actions, reveal = null 
           title={t(completed > 0 ? 'phone.allDone' : 'phone.emptyList')}
           text={t(completed > 0 ? 'phone.allDoneText' : 'phone.emptyListText')}
           action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(list, null) }}
+        />
+      )}
+      {placing > 0 && places && (
+        <TaskComposer
+          key={`placing:${placing}`}
+          start={{ due: null, list, section: null }}
+          today={today}
+          places={places}
+          recordChoices={actions.recordChoices}
+          recordName={actions.recordTitle}
+          menu={actions.menu}
+          onAdd={(target, task) => actions.add(target, task)}
+          onClose={() => setPlacing(0)}
         />
       )}
       <div

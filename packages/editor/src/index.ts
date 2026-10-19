@@ -39,6 +39,7 @@ import { foundField } from './found';
 import { attachmentChanges, widgetMoves } from './media';
 import { linkPaste } from './links';
 import { cursorBehavior } from './cursor';
+import { wordCount } from './words';
 import { literalInput } from './literal';
 import { livePreview, type LivePreviewOptions, mediaChanged, setSourceMode, sourceMode } from './livePreview';
 import { textSelection } from './selection';
@@ -56,6 +57,7 @@ export { exportHtml, fontRuns, type OutFile, type OutFiles, PDF_WIDTH, pdfConten
 export { addCopy, type Copy, copyFollows, copyPosition, copyProgress, dropCopy, progressText, showCopy } from './copies';
 export { linkAddress, linkText, pastedLink, pastedUrl } from './links';
 export { cursorBehavior, restingPosition } from './cursor';
+export { wordCount } from './words';
 export { attachmentChanges, attachmentsIn, type ItemAbout, type ItemAction, sizeText } from './media';
 export { buildDecorations, type LinkTap, livePreview, type LivePreviewOptions, setSourceMode, sourceMode } from './livePreview';
 export { literalInput, positionsToEscape } from './literal';
@@ -70,8 +72,12 @@ export interface EditorStats {
   col: number;
   /** Characters in the note. */
   chars: number;
+  /** Words in the note. */
+  words: number;
   /** Characters in the selection, summed over all cursors. */
   selectedChars: number;
+  /** Words in the selection, summed over all cursors. */
+  selectedWords: number;
   /** Lines the main selection spans. */
   selectedLines: number;
   cursors: number;
@@ -143,14 +149,17 @@ const SLASH_ICONS = {
   image: '<rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M5 17l4.5-4.5 3 3 2.5-2.5L20 18"/>',
 };
 
-function statsOf(state: EditorState, chars: number): EditorStats {
+function statsOf(state: EditorState, chars: number, words: number): EditorStats {
   const main = state.selection.main;
   const line = state.doc.lineAt(main.head);
+  const selected = state.selection.ranges.filter((r) => !r.empty).map((r) => visibleText(state, r.from, r.to));
   return {
     line: line.number,
     col: visibleText(state, line.from, main.head).length + 1,
     chars,
-    selectedChars: state.selection.ranges.reduce((sum, r) => sum + visibleText(state, r.from, r.to).length, 0),
+    words,
+    selectedChars: selected.reduce((sum, text) => sum + text.length, 0),
+    selectedWords: selected.reduce((sum, text) => sum + wordCount(text), 0),
     selectedLines: state.doc.lineAt(main.to).number - state.doc.lineAt(main.from).number + 1,
     cursors: state.selection.ranges.length,
   };
@@ -218,13 +227,14 @@ export const addTable = (view: EditorView): boolean => {
 
 export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
   // The note's length is recounted only when its text or the view mode changes, not on every cursor move.
-  let counted: { doc: unknown; source: boolean; chars: number } | null = null;
+  let counted: { doc: unknown; source: boolean; chars: number; words: number } | null = null;
   const stats = (state: EditorState) => {
     const source = state.field(sourceMode);
     if (counted?.doc !== state.doc || counted.source !== source) {
-      counted = { doc: state.doc, source, chars: visibleText(state, 0, state.doc.length).length };
+      const text = visibleText(state, 0, state.doc.length);
+      counted = { doc: state.doc, source, chars: text.length, words: wordCount(text) };
     }
-    return statsOf(state, counted.chars);
+    return statsOf(state, counted.chars, counted.words);
   };
   const addFiles = options.addFiles;
   const record = options.record;

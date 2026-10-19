@@ -1455,7 +1455,7 @@ function firstShown(board: Board, look: BoardLook | undefined): Shown {
  * open card in a panel on the right. The same cards read as a list too. Columns or list, and
  * the phase chosen, are remembered on the device for each board.
  */
-export function BoardView({ path, board, name, today, actions, look, onLook, openCard, onCloseCard, adding, fieldsAsked }: {
+export function BoardView({ path, board, name, today, actions, look, onLook, onStatus, openCard, onCloseCard, adding, fieldsAsked }: {
   path: string;
   board: Board;
   /** What the board is called. */
@@ -1465,6 +1465,8 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   /** How the board was last looked at on this device. */
   look: BoardLook | undefined;
   onLook: (look: BoardLook) => void;
+  /** Says in the status bar what is shown: the phase with how much of it is done, and how many cards; null when it goes. */
+  onStatus?: (parts: string[] | null) => void;
   /** The card shown in the panel, by its id. */
   openCard: string | null;
   onCloseCard: () => void;
@@ -1548,6 +1550,18 @@ export function BoardView({ path, board, name, today, actions, look, onLook, ope
   // Every phase as a lane across the columns, and a lane for cards in none when there are any.
   const unphased = phaseCards(board, null);
   const visible = (card: Card) => ('all' in shown ? true : shown.phase === null ? unphased.includes(card) : card.phase === shown.phase);
+  // The status bar, after the mockups: "Phase 3 · 4/13 done · 13 cards", the cards being those shown.
+  const statusPhase = board.phasesOn ? shownPhase : undefined;
+  const shownCount = board.cards.filter(visible).length;
+  const progress = statusPhase ? phaseProgress(board, statusPhase.id) : null;
+  const status = [
+    ...(statusPhase && progress ? [t('board.phaseStatus', { phase: statusPhase.name, done: progress.done, total: progress.total })] : []),
+    ...(board.phasesOn && 'phase' in shown && shown.phase === null ? [t('card.noPhase')] : []),
+    t('count.cards', { count: shownCount }),
+  ];
+  const statusKey = status.join('\u0000');
+  useEffect(() => onStatus?.(status), [statusKey]);
+  useEffect(() => () => onStatus?.(null), []);
   const open = openCard !== null ? board.cards.find((card) => card.id === openCard) : undefined;
   /** In All: whether the closed phases' lanes are unfolded. */
   const [closedLanes, setClosedLanes] = useState(false);

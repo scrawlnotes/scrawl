@@ -19,6 +19,16 @@ import { literalPattern } from './find';
 import { pastedLink, pastedUrl } from './links';
 import { cursorBehavior, restingPosition } from './cursor';
 import { markdownSlice, visibleText } from './clipboard';
+import { wordCount } from './words';
+
+describe('word count', () => {
+  it('counts words, an apostrophe or a hyphen inside one, and no marks or signs', () => {
+    expect(wordCount('')).toBe(0);
+    expect(wordCount('# Sync engine: open questions')).toBe(4);
+    expect(wordCount("- [ ] don't send the e-posta — 3 times | 12:30")).toBe(7);
+    expect(wordCount('Müşteri görüşmesinden sonra teklifi gönder')).toBe(5);
+  });
+});
 import { addCopy, type Copy, copiesField, copyFollows, copyPosition, copyProgress, dropCopy, progressText } from './copies';
 import { positionsToEscape } from './literal';
 import { buildDecorations, setSourceMode, sourceMode } from './livePreview';

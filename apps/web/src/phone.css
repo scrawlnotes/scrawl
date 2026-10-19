@@ -2218,6 +2218,22 @@ body > .mb-lifted {
 }
 
 /* a section: folds by its arrow, its menu by ··· */
+/* A section's own add row: under its tasks, as quiet as a task's details. */
+.mb-tasks .qa.mb-sec-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--sl-faint);
+  font-size: 15px;
+}
+
+.mb .mb-tasks .qa.mb-sec-add .icon {
+  width: 18px;
+  height: 18px;
+}
+
 .mb-tasks .sec.mb-tsec {
   display: flex;
   align-items: center;
@@ -6183,4 +6199,42 @@ body > .mb-lifted {
 /* Moving the personal space: the switch for the copy it leaves, red once on. */
 .mb-fr .mb-sw.on.red {
   background: var(--sl-p1);
+}
+
+/* Settings › Logs on a phone: each line its time, level and source over what it says. */
+.mb-logs .mb-seg {
+  margin-bottom: 4px;
+}
+
+.mb-log {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.mb-log .h {
+  display: flex;
+  gap: 8px;
+  color: var(--sl-faint);
+  font: 12.5px var(--sl-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-log .h .warn {
+  color: var(--sl-p2);
+}
+
+.mb-log .h .error {
+  color: var(--sl-p1);
+}
+
+.mb-log p {
+  margin: 2px 0 0;
+  color: var(--sl-fg);
+  font: 13.5px/1.4 var(--sl-font-mono);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.mb-logs .mb-p {
+  padding-top: 14px;
 }
