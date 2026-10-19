@@ -44,7 +44,6 @@ interface Props {
   /** Open tasks behind a row, by the id of the tab the row opens. */
   counts: Record<string, number>;
   onOpen: (id: string) => void;
-  onTrash: (path: string) => void;
   onMove: (path: string, folder: string) => void;
   /** Makes a folder in `parent`, at the top for `''`; returns a message when it cannot. */
   onNewFolder: (name: string, parent: string) => Promise<string | null>;
@@ -116,7 +115,6 @@ export function Sidebar({
   active,
   counts,
   onOpen,
-  onTrash,
   onMove,
   onNewFolder,
   onItemMenu,
@@ -360,7 +358,7 @@ export function Sidebar({
     </div>
   );
 
-  // A task list or a board shows how many of its tasks or cards are open where a note has its trash button.
+  // A task list, a board or a collection shows how many of its tasks, cards or records are open; deleting is in its menu.
   const itemRow = (node: TreeNode, depth: number, spaced: boolean) => {
     const tab = node.kind === 'collection' ? collectionTab(node.path) : tabOf(node.path);
     const counted = node.kind === 'tasks' || node.kind === 'board' || node.kind === 'collection';
@@ -378,13 +376,7 @@ export function Sidebar({
           <Icon name={node.kind === 'folder' ? 'folder' : node.kind} />
           <span>{titles[node.path] ?? node.title}</span>
         </button>
-        {counted ? (
-          <span className="ct">{counts[tab] || ''}</span>
-        ) : (
-          <button type="button" className="it-action" title={t('side.moveToTrash')} onClick={() => onTrash(node.path)}>
-            ×
-          </button>
-        )}
+        {counted && <span className="ct">{counts[tab] || ''}</span>}
         {node.path !== INBOX_TASKS && more((event) => onItemMenu(event, node.path))}
       </div>
     );

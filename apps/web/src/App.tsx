@@ -2152,7 +2152,6 @@ export function App() {
             setDrawer(false);
             void session.open(id);
           }}
-          onTrash={deleteItem}
           onMove={(path, target) => void moveTo(path, target)}
           onNewFolder={(name, parent) => session.newFolder(name, parent)}
           onItemMenu={itemMenu}

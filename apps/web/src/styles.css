@@ -231,22 +231,6 @@ input:focus {
   font-variant-numeric: tabular-nums;
 }
 
-.it-action {
-  flex: none;
-  width: 22px;
-  color: var(--sl-faint);
-  opacity: 0;
-}
-
-.it:hover .it-action,
-.it-action:focus-visible {
-  opacity: 1;
-}
-
-.it-action:hover {
-  color: var(--sl-fg);
-}
-
 .grp {
   display: flex;
   align-items: center;
@@ -4446,10 +4430,6 @@ textarea.tt-edit {
 }
 
 @media (hover: none) {
-  .it-action {
-    display: none;
-  }
-
   .it-more {
     display: grid;
   }

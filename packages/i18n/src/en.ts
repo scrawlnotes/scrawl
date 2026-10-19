@@ -569,7 +569,6 @@ export const en = {
   'settings.language': 'Language',
   'side.open': 'Folders and views',
   'side.more': 'More',
-  'side.moveToTrash': 'Move to trash',
   // the phone: a tab bar with Browse and Today, and a page for each thing opened
   'phone.places': 'Places',
   'phone.browse': 'Browse',
