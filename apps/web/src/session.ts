@@ -1262,15 +1262,17 @@ export class Session {
    * Adds a space that lives in a cloud folder: its copy on this device is made (on desktop a
    * folder named after it in the app's data folder), and its sync brings what the folder holds.
    * A folder that is a space already keeps the id it has, so that the same space is the same on
-   * every device; `id` is that one, read from the folder. Returns the space's id.
+   * every device; `id` is that one, read from the folder. A space that is there already
+   * (`existing`) comes with its own name, which its sync brings; only a new one has `name`
+   * written in it. Returns the space's id.
    */
-  async addSpace(name: string, source: SpaceSource, id?: string): Promise<string> {
+  async addSpace(name: string, source: SpaceSource, id?: string, existing = false): Promise<string> {
     const entries = spaceEntries();
     const kept = isSpaceId(id) && !entries.some((each) => each.id === id) ? id : newSpaceId();
     const made = await newSpaceFolder(kept, name.trim());
     const fs = await openSpaceVault(made);
     if (!fs) throw new Error(t('error.create'));
-    await saveSpace(fs, { id: kept, name: name.trim() });
+    if (!existing) await saveSpace(fs, { id: kept, name: name.trim() });
     await addSpaceEntry({ ...made, source });
     await this.reloadSpaces();
     return kept;

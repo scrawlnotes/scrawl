@@ -709,7 +709,7 @@ export function PhoneAddSpaceSheet({ values, onClose }: { values: SettingsValues
     onDone: () => onClose(),
     onDevice: values.spaces.map((space) => space.id),
   });
-  const { name, setName, account, folder, picking, setPicking, signing, error, setError, ready, connect, choose, add } = added;
+  const { name, setName, naming, spaceName, account, folder, picking, setPicking, signing, error, setError, ready, connect, choose, add } = added;
   const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected, asking, you, setYou } = added;
   const [locating, setLocating] = useState(false);
   const [spacing, setSpacing] = useState(false);
@@ -724,26 +724,12 @@ export function PhoneAddSpaceSheet({ values, onClose }: { values: SettingsValues
           {t('dialog.cancel')}
         </button>
         <b>{t('space.addTitle')}</b>
-        <button type="button" className="ok" disabled={!ready || (!chosenSpace && !name.trim())} onClick={() => void add()}>
+        <button type="button" className="ok" disabled={!ready} onClick={() => void add()}>
           {t('settings.add')}
         </button>
       </div>
       <div className="mb-form">
         <div className="mb-group">
-          <label className="mb-fr">
-            <span className="fl">{t('settings.name')}</span>
-            <input
-              className="in"
-              autoComplete="off"
-              enterKeyHint="done"
-              aria-label={t('settings.name')}
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value);
-                setError(null);
-              }}
-            />
-          </label>
           <button type="button" className="mb-fr" disabled={!!signing} onClick={() => setLocating(true)}>
             <span className="fl">{t('space.location')}</span>
             {server ? (
@@ -782,6 +768,23 @@ export function PhoneAddSpaceSheet({ values, onClose }: { values: SettingsValues
               <span className="val">{folder ? placeWords(folder.folder.path, folder.folder.drive) : <span className="none">{t('phone.choose')}</span>}</span>
               <Icon name="chevron" />
             </button>
+          )}
+          {/* A name only for a new space: one that is there already comes with its own. */}
+          {naming && (
+            <label className="mb-fr">
+              <span className="fl">{t('settings.name')}</span>
+              <input
+                className="in"
+                autoComplete="off"
+                enterKeyHint="done"
+                aria-label={t('settings.name')}
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  setError(null);
+                }}
+              />
+            </label>
           )}
         </div>
       </div>
@@ -825,7 +828,7 @@ export function PhoneAddSpaceSheet({ values, onClose }: { values: SettingsValues
               </label>
             </div>
           </div>
-          <p className="mb-hint end">{name.trim() ? t('space.youNote', { space: name.trim() }) : t('space.youNoteUnnamed')}</p>
+          <p className="mb-hint end">{spaceName ? t('space.youNote', { space: spaceName }) : t('space.youNoteUnnamed')}</p>
         </>
       )}
       {locating && (

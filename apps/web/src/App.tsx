@@ -1739,7 +1739,7 @@ export function App() {
     onRenameSpace: (name) => session.renameSpace(name),
     spaces,
     onRenameSpaceById: (id, name) => session.renameSpaceById(id, name),
-    onAddSpace: (name, source, id) => session.addSpace(name, source, id),
+    onAddSpace: (name, source, id, existing) => session.addSpace(name, source, id, existing),
     onRemoveSpace: (id, deleteFiles) => void removeSpace(id, deleteFiles),
     onMoveSpace: (id, by) => void session.moveSpace(id, by),
     onPersonActive: (space, person, active) => session.setPersonActive(space, person, active),

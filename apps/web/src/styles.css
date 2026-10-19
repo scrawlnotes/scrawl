@@ -10442,7 +10442,7 @@ button.st-li:hover,
   text-transform: uppercase;
 }
 
-.fp.space-add .label:first-of-type {
+.fp.space-add h3 + .label {
   margin-top: 0;
 }
 

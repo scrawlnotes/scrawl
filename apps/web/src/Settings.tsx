@@ -60,7 +60,8 @@ export interface SettingsValues {
   spaces: SpaceView[];
   onRenameSpaceById: (id: string, name: string) => void;
   /** Adds a space living in a cloud folder, `id` the one the folder has when it is a space already; resolves to its id. */
-  onAddSpace: (name: string, source: SpaceSource, id?: string) => Promise<string>;
+  /** Adds a space; `existing` for one that is there already, which comes with its own name. */
+  onAddSpace: (name: string, source: SpaceSource, id?: string, existing?: boolean) => Promise<string>;
   /** Takes a space off this device; with `deleteFiles`, its copy here goes too. */
   onRemoveSpace: (id: string, deleteFiles: boolean) => void;
   onMoveSpace: (id: string, by: -1 | 1) => void;
@@ -807,7 +808,8 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
   useEffect(() => setYou((now) => ({ name: now.name || me?.name || '', email: now.email || me?.email || '' })), [me?.name, me?.email]);
   // Undefined while it is being asked whether a key is kept.
   const [account, setAccount] = useState<Connection['account'] | null | undefined>(given ?? undefined);
-  const [folder, setFolder] = useState<{ folder: Connection['folder']; id?: string } | null>(null);
+  // A folder that is a space already has its id and its name; one that is not is named here.
+  const [folder, setFolder] = useState<{ folder: Connection['folder']; id?: string; name?: string } | null>(null);
   // Back from signing in for it, the folder window opens at once.
   const [picking, setPicking] = useState(!!given);
   const [signing, setSigning] = useState<{ cancel(): void } | null>(null);
@@ -883,7 +885,7 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
     }
     setBusy(true);
     const source: SpaceSource = { provider: 'server', account: signedIn.email, place: { url: signedIn.url, space: joined.id } };
-    onAdd(joined.name, source, joined.id).then(onDone, (failure: unknown) => {
+    onAdd(joined.name, source, joined.id, true).then(onDone, (failure: unknown) => {
       setError(failure instanceof Error ? failure.message : t('error.create'));
       setBusy(false);
     });
@@ -930,12 +932,15 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
     }
     setBusy(true);
     try {
-      // A folder that is a space already says what it is called; its id goes with it.
+      // A folder that is a space already says what it is called; its id goes with it. One that is
+      // not is named here, its folder's name to start with.
       const info = await service.spaceAt(chosen);
-      setFolder({ folder: chosen, ...(info.id && { id: info.id }) });
-      // With no name typed yet, the space is called what it calls itself, else what its folder is called.
-      const named = info.name ?? chosen.path.split('/').filter(Boolean).pop();
-      if (named && !name.trim()) setName(named);
+      const folderName = chosen.path.split('/').filter(Boolean).pop();
+      if (info.id) setFolder({ folder: chosen, id: info.id, name: info.name ?? folderName ?? t('settings.unnamed') });
+      else {
+        setFolder({ folder: chosen });
+        if (folderName && !name.trim()) setName(folderName);
+      }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -953,7 +958,7 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
     setError(null);
     const source = (id: string): SpaceSource => ({ provider: 'server', account: on.email, place: { url: on.url, space: id } });
     try {
-      if (chosen) onDone(await onAdd(chosen.name || name, source(chosen.id), chosen.id));
+      if (chosen) onDone(await onAdd(chosen.name || t('settings.unnamed'), source(chosen.id), chosen.id, true));
       else {
         const id = newSpaceId();
         await serverAccount(on.url).openSpace(id, name.trim());
@@ -969,7 +974,7 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
   const add = async () => {
     if (server) return addOnServer(server);
     if (busy || !account || !folder) return;
-    if (!name.trim()) {
+    if (!folder.id && !name.trim()) {
       setError(t('error.spaceName'));
       return;
     }
@@ -979,7 +984,8 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
     if (asking && (you.name.trim() !== (me?.name ?? '') || you.email.trim() !== (me?.email ?? ''))) onSaveProfile(you.name, you.email);
     try {
       const { id: item, path, drive, owner } = folder.folder;
-      onDone(await onAdd(name, { provider: 'onedrive', account: account.email || account.name, place: { item, path, ...(drive && { drive }), ...(owner && { owner }) } }, folder.id));
+      const source: SpaceSource = { provider: 'onedrive', account: account.email || account.name, place: { item, path, ...(drive && { drive }), ...(owner && { owner }) } };
+      onDone(await (folder.id ? onAdd(folder.name!, source, folder.id, true) : onAdd(name, source)));
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : t('error.create'));
       setBusy(false);
@@ -989,12 +995,19 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
   const chosenSpace = choice === 'new' ? null : (serverSpaces?.find((each) => each.id === choice) ?? null);
   // In OneDrive, once it is connected, with a name or an email missing from Profile.
   const asking = !server && !!account && !signing && asked;
+  // A name is asked only for a new space: a space that is there already comes with its own,
+  // which only its Rename changes.
+  const naming = server ? !chosenSpace && choice === 'new' && server.role !== 'member' && serverSpaces !== null : !!folder && !folder.id;
+  // What the space is called, for Add and the note on your name.
+  const spaceName = server ? (chosenSpace ? chosenSpace.name || t('settings.unnamed') : name.trim()) : folder?.id ? folder.name! : name.trim();
   const ready = server
-    ? !busy && !serverSignedOut && (chosenSpace ? true : choice === 'new' && server.role !== 'member' && serverSpaces !== null)
-    : !!account && !!folder && !busy;
+    ? !busy && !serverSignedOut && (chosenSpace ? true : naming && !!name.trim())
+    : !!account && !!folder && !busy && (!naming || !!name.trim());
   return {
     name,
     setName,
+    naming,
+    spaceName,
     account,
     folder,
     picking,
@@ -1041,8 +1054,32 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, o
   preset?: { server: string; space: string } | null;
 }) {
   const added = useAddSpace({ service, account: given, me, onSaveProfile, onAdd, onDone, onDevice, preset });
-  const { name, setName, account, folder, picking, setPicking, signing, error, setError, busy, ready, connect, choose, add } = added;
-  const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected, start, asking, you, setYou } = added;
+  const { name, setName, naming, spaceName, account, folder, picking, setPicking, signing, error, setError, busy, ready, connect, choose, add } = added;
+  const { servers, where, setWhere, server, serverSpaces, choice, setChoice, serverSignedOut, connecting, setConnecting, connected, start, asking, you, setYou } = added;
+  // The name of a new space, under what it is made in: the server's New space, or a folder that is not a space yet.
+  const nameField = naming && (
+    <>
+      <label className="label" htmlFor="space-add-name">
+        {t('settings.name')}
+      </label>
+      <input
+        id="space-add-name"
+        className="field"
+        value={name}
+        autoFocus
+        autoComplete="off"
+        onChange={(event) => {
+          setName(event.target.value);
+          setError(null);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          void add();
+        }}
+      />
+    </>
+  );
   const addOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
@@ -1076,25 +1113,6 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, o
           />
         ) : (
           <>
-            <label className="label" htmlFor="space-add-name">
-              {t('settings.name')}
-            </label>
-            <input
-              id="space-add-name"
-              className="field"
-              value={name}
-              autoFocus
-              autoComplete="off"
-              onChange={(event) => {
-                setName(event.target.value);
-                setError(null);
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter') return;
-                event.preventDefault();
-                void add();
-              }}
-            />
             <span className="label">{t('space.location')}</span>
             <div className="list" role="radiogroup" aria-label={t('space.location')}>
               <button type="button" role="radio" aria-checked={where === 'onedrive'} className={where === 'onedrive' ? 'row on' : 'row'} onClick={() => setWhere('onedrive')}>
@@ -1147,6 +1165,7 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, o
                       ))}
                     </div>
                     <p className="note">{server.role === 'member' ? t('space.onlyAdmins') : t('space.serverNote')}</p>
+                    {nameField}
                   </>
                 )}
               </>
@@ -1183,6 +1202,7 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, o
                     {t('space.chooseFolder')}
                   </button>
                 </div>
+                {nameField}
           </>
         )}
         {asking && (
@@ -1208,7 +1228,7 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, o
                 onKeyDown={addOnEnter}
               />
             </div>
-            <p className="note">{name.trim() ? t('space.youNote', { space: name.trim() }) : t('space.youNoteUnnamed')}</p>
+            <p className="note">{spaceName ? t('space.youNote', { space: spaceName }) : t('space.youNoteUnnamed')}</p>
           </div>
         )}
         {error && (
@@ -1221,7 +1241,7 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, o
             {t('dialog.cancel')}
           </button>
           <button type="button" className="st-btn go" disabled={!ready} onClick={() => void add()}>
-            {chosenSpace ? t('space.add', { name: chosenSpace.name || t('settings.unnamed') }) : name.trim() ? t('space.add', { name: name.trim() }) : t('settings.add')}
+            {spaceName ? t('space.add', { name: spaceName }) : t('settings.add')}
           </button>
         </div>
           </>
@@ -1242,7 +1262,6 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, o
   );
 }
 
-/** The name of a space, saved with its button; Escape puts the one it has back. */
 /**
  * A space's name at the top of its page, with Rename beside it where this person renames it:
  * the name turns into a field, with Save and Cancel. What the server says when it refuses shows
