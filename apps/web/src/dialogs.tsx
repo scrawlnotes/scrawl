@@ -1304,6 +1304,11 @@ export interface MenuItem {
   className?: string;
   /** The one of a few that is set, as an image's size: a tick after it. */
   checked?: boolean;
+  /**
+   * A menu of its own: on a computer it opens beside the item, which shows its `value` and an
+   * arrow; on a phone it takes the sheet's place.
+   */
+  items?: MenuItem[];
 }
 
 /** On a phone: what a menu is about, at its top. */
@@ -1408,6 +1413,14 @@ export function ContextMenu(props: MenuProps) {
 
 function PointerMenu({ at, items, onClose }: MenuProps) {
   const menu = useRef<HTMLDivElement>(null);
+  // The item whose own menu is open beside it, by its place in the list, and whether that menu
+  // opens to the left, where the window has no room on the right.
+  const [sub, setSub] = useState<{ index: number; top: number; left: boolean } | null>(null);
+  const openSub = (index: number, button: HTMLElement) => {
+    const box = pageBox(menu.current!);
+    const left = box.right + box.width > pageWindow().width;
+    setSub({ index, top: button.offsetTop - 4, left });
+  };
   // The pointer is where the screen says; the menu is placed in the page's own pixels.
   const [place, setPlace] = useState(() => ({ x: onPage(at.x), y: onPage(at.y) }));
   // Near the right or bottom edge the menu opens to the left of or above the pointer, so it stays in the window.
@@ -1439,19 +1452,39 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
   }, [onClose]);
   return (
     <div ref={menu} className="menu" role="menu" style={{ left: place.x, top: place.y }}>
-      {items.map((item) => (
+      {items.map((item, index) => (
         <Fragment key={item.label}>
-          {item.apart && <hr />}
-          {item.disabled ? (
+          {item.apart && index > 0 && <hr />}
+          {item.items ? (
+            <button
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={sub?.index === index}
+              className={sub?.index === index ? 'has-sub on' : 'has-sub'}
+              onMouseEnter={(event) => openSub(index, event.currentTarget)}
+              onClick={(event) => openSub(index, event.currentTarget)}
+              onKeyDown={(event) => {
+                if (event.key !== 'ArrowRight') return;
+                event.preventDefault();
+                openSub(index, event.currentTarget);
+              }}
+            >
+              {item.label}
+              {item.value && <span className="sub-val">{item.value}</span>}
+              <Icon name="chevron" />
+            </button>
+          ) : item.disabled !== undefined ? (
             <button type="button" role="menuitem" className="off" disabled>
               {item.label}
-              <small>{item.disabled}</small>
+              {item.disabled && <small>{item.disabled}</small>}
             </button>
           ) : (
             <button
               type="button"
               role="menuitem"
               className={item.flag ? `prio p${item.flag}` : undefined}
+              onMouseEnter={() => setSub(null)}
               onClick={() => {
                 onClose();
                 item.run();
@@ -1465,6 +1498,28 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
           )}
         </Fragment>
       ))}
+      {sub && items[sub.index]?.items && (
+        <div className={sub.left ? 'menu sub left' : 'menu sub'} role="menu" style={{ top: sub.top }} onMouseDown={(event) => event.stopPropagation()}>
+          {items[sub.index]!.items!.map((item) => (
+            <Fragment key={item.label}>
+              {item.apart && <hr />}
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={!!item.checked}
+                disabled={item.disabled !== undefined}
+                onClick={() => {
+                  onClose();
+                  item.run();
+                }}
+              >
+                {item.label}
+                {item.checked && <span className="val">✓</span>}
+              </button>
+            </Fragment>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -336,6 +336,7 @@ export class SyncService {
     void loadDevice().then((device) => {
       this.set({ device });
       this.session.deviceName = device.name;
+      this.session.deviceId = device.id;
       this.syncNow();
     });
     let wasSaved = true;

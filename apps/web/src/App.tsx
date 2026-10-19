@@ -1,6 +1,9 @@
 import { locale, t } from '@scrawlnotes/i18n';
 import {
   basename,
+  DEFAULT_LOOK,
+  type FolderLook,
+  isDefaultLook,
   boardName,
   type Card,
   cardBrief,
@@ -270,7 +273,7 @@ export function App() {
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const desktopUpdate = useDesktopUpdate();
-  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -786,10 +789,13 @@ export function App() {
   // A space's heading: what can be made at its top, as in a folder, its settings, its place among
   // the spaces, and the way out of this device. The personal space stays first and stays, so it
   // has no more than its settings.
-  const spaceMenu = (event: MouseEvent, id: string | null, addFolder: () => void) => {
+  // Its +: what can be made at its top.
+  const spaceAdd = (event: MouseEvent, id: string | null, addFolder: () => void) => openMenu(event, folderMenuItems(inSpace(id, ''), addFolder), id ? `@${id}` : '@personal');
+  // Its other button: how its top is put in order, then its settings, its place and leaving this device.
+  const spaceMenu = (event: MouseEvent, id: string | null) => {
     const at = id ? spaces.findIndex((space) => space.id === id) : -1;
     const items: MenuItem[] = [
-      ...folderMenuItems(inSpace(id, ''), addFolder),
+      ...orderItems(id ? inSpace(id, '') : ''),
       { label: t('side.spaceSettings'), icon: 'settings', apart: true, run: () => setDialog({ kind: 'settings', section: 'spaces', space: id }) },
     ];
     if (id) {
@@ -939,7 +945,8 @@ export function App() {
     const parent = dirname(path);
     const top = localPath(path) === '';
     const sub = top ? undefined : parent ? t('phone.kindIn', { kind: t('create.folder'), folder: folderLabel(parent) }) : t('create.folder');
-    showSheet(folderMenuItems(path, addFolder), { icon: top ? 'space' : 'folder', title: folderLabel(path), sub });
+    // A space's top has its order on its own button; a folder has it in its menu.
+    showSheet(top ? folderMenuItems(path, addFolder) : withOrder(folderMenuItems(path, addFolder), path), { icon: top ? 'space' : 'folder', title: folderLabel(path), sub });
   };
   // A collection as a CSV file, saved where the user says.
   const exportCsv = async (dir: string) => {
@@ -998,7 +1005,46 @@ export function App() {
   // under the drawer; anything else opens its Create or Filter window with the folder chosen, the
   // drawer closed so that what is made shows; a new folder is named in the sidebar, under the
   // folder it goes in. A space's top is no folder: it is not deleted from here.
-  const folderMenu = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, folderMenuItems(path, addFolder), path);
+  // A folder's menu: what can be made in it, how its items are put in order, and deleting it.
+  const folderMenu = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, withOrder(folderMenuItems(path, addFolder), path), path);
+  /** A folder's items with Group by, Sort by and Reset before its Delete. */
+  const withOrder = (items: MenuItem[], key: string): MenuItem[] => {
+    const at = items.findIndex((item) => item.danger);
+    return at < 0 ? [...items, ...orderItems(key)] : [...items.slice(0, at), ...orderItems(key), ...items.slice(at)];
+  };
+  /**
+   * How the items of a folder (by its path), or of a space's top (its key, '' for the personal
+   * space), are put in order on this device: Group by and Sort by, each a menu of its own, and
+   * Reset to defaults.
+   */
+  const orderItems = (key: string): MenuItem[] => {
+    const look = folderLooks[key] ?? DEFAULT_LOOK;
+    const set = (patch: Partial<FolderLook>) => () => session.lookAtFolder(key, { ...look, ...patch });
+    const groups = { type: t('side.groupType'), none: t('side.groupNone') };
+    const sorts = { name: t('side.byName'), created: t('side.byCreated'), modified: t('side.byModified') };
+    return [
+      {
+        label: t('side.groupBy'),
+        icon: 'list',
+        value: groups[look.group],
+        apart: true,
+        run: () => undefined,
+        items: (['type', 'none'] as const).map((group) => ({ label: groups[group], checked: look.group === group, run: set({ group }) })),
+      },
+      {
+        label: t('side.sortBy'),
+        icon: 'sort',
+        value: sorts[look.by],
+        run: () => undefined,
+        items: [
+          ...(['name', 'created', 'modified'] as const).map((by) => ({ label: sorts[by], checked: look.by === by, run: set({ by }) })),
+          { label: t('side.ascending'), checked: look.dir === 'asc', apart: true, run: set({ dir: 'asc' }) },
+          { label: t('side.descending'), checked: look.dir === 'desc', run: set({ dir: 'desc' }) },
+        ],
+      },
+      { label: t('side.resetOrder'), icon: 'undo', run: () => session.lookAtFolder(key, DEFAULT_LOOK), ...(isDefaultLook(look) && { disabled: '' }) },
+    ];
+  };
   const folderMenuItems = (path: string, addFolder: () => void): MenuItem[] => {
     const createHere = (start: ItemKind) => () => {
       setDrawer(false);
@@ -1893,6 +1939,9 @@ export function App() {
             onNewFolder={(name, parent) => session.newFolder(name, parent)}
             onItemMenu={phoneItemMenu}
             onFolderMenu={phoneFolderMenu}
+            onSpaceOrder={(key) => showSheet(orderItems(key), { icon: 'tune', title: key === '' ? (space.name ?? t('settings.personal')) : folderLabel(key) })}
+            folderLooks={folderLooks}
+            created={created}
             menuOpen={menu !== null}
             history={{
               open: phoneHistory,
@@ -2106,6 +2155,9 @@ export function App() {
           spaces={spaces}
           personalName={space.name ?? t('settings.personal')}
           onSpaceMenu={spaceMenu}
+          onSpaceAdd={spaceAdd}
+          folderLooks={folderLooks}
+          created={created}
           onSettings={() => {
             setDrawer(false);
             setDialog({ kind: 'settings' });

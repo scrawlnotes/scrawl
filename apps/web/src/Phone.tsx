@@ -1,4 +1,4 @@
-import { type Found, INBOX_TASKS, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
+import { DEFAULT_LOOK, type FolderLook, type Found, INBOX_TASKS, sortedNodes, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -150,6 +150,12 @@ export interface PhoneProps {
   onItemMenu: (id: string, page?: boolean) => void;
   /** A folder's menu; `addFolder` names a new folder in it. */
   onFolderMenu: (path: string, addFolder: () => void) => void;
+  /** How a space's top is put in order, as a sheet: by its key, '' for the personal space. */
+  onSpaceOrder: (key: string) => void;
+  /** How the items of a folder are put in order, by its path; a space's top by its key, the personal one's by ''. */
+  folderLooks: Record<string, FolderLook>;
+  /** When each item was made, by its path lowercased. */
+  created: Record<string, number>;
   /** Whether a menu is open: a row held for it stays lifted until it closes. */
   menuOpen: boolean;
   /**
@@ -961,12 +967,21 @@ export function Phone(props: PhoneProps) {
     </div>
   );
 
-  /** A space's section of Browse: its name with a + for what can be made at its top, and what is there; turning while it is read. */
+  /** The items of a folder, or of a space's top, in the order chosen for it on this device. */
+  const inOrder = (key: string, nodes: TreeNode[]) => sortedNodes(nodes, props.folderLooks[key] ?? DEFAULT_LOOK, (node) => props.created[node.path.toLowerCase()]);
+
+  /**
+   * A space's section of Browse: its name with the button of how its top is put in order and a +
+   * for what can be made there, and what is there; turning while it is read.
+   */
   const spaceSection = (key: string, name: string, parent: string, nodes: TreeNode[], reading: boolean, first?: ReactNode) => (
     <Fragment key={key}>
       <div className="mb-sec">
         <span>{name}</span>
         {reading && <Spin />}
+        <button type="button" className="tune" aria-label={t('side.view')} title={t('side.view')} onClick={() => props.onSpaceOrder(parent)}>
+          <Icon name="tune" />
+        </button>
         <button type="button" aria-label={t('create.title')} title={t('create.title')} onClick={() => props.onFolderMenu(parent, () => setNewFolderIn(parent))}>
           <Icon name="plus" />
         </button>
@@ -974,7 +989,7 @@ export function Phone(props: PhoneProps) {
       <div className="mb-list">
         {newFolderIn === parent && <FolderForm onAdd={(folder) => props.onNewFolder(folder, parent)} onCancel={() => setNewFolderIn(null)} />}
         {first}
-        {nodes.map(browseRow)}
+        {inOrder(parent, nodes).map(browseRow)}
         {reading && nodes.length === 0 && loadingRow}
       </div>
     </Fragment>
@@ -1033,7 +1048,7 @@ export function Phone(props: PhoneProps) {
 
   const folderPage = (path: string) => {
     const node = findFolder([...tree, ...props.spaces.flatMap((space) => space.tree)], path);
-    const children = node?.children ?? [];
+    const children = inOrder(path, node?.children ?? []);
     const placed = filters.filter((filter) => placeOf(filter) === path);
     const rows = (
       <>

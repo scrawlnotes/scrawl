@@ -201,7 +201,11 @@ export function liftUntilTouch(row: HTMLElement) {
 }
 
 /** A menu on a phone. A Delete, or anything else that takes something away, comes last and red. */
-export function ActionSheet({ head, items, onClose }: { head?: MenuHead; items: MenuItem[]; onClose: () => void }) {
+export function ActionSheet({ head, items: all, onClose }: { head?: MenuHead; items: MenuItem[]; onClose: () => void }) {
+  // An item with a menu of its own shows that menu in the sheet's place, under the item's name.
+  const [sub, setSub] = useState<MenuItem | null>(null);
+  const items = sub?.items ?? all;
+  if (sub) head = { icon: head?.icon ?? 'menu', title: sub.label, ...(head && { sub: head.title }) };
   const groups: MenuItem[][] = [];
   for (const item of items.filter((each) => !each.danger)) {
     if (item.apart || groups.length === 0) groups.push([]);
@@ -239,6 +243,7 @@ export function ActionSheet({ head, items, onClose }: { head?: MenuHead; items: 
                   className={['a', item.danger && 'red', item.className].filter(Boolean).join(' ')}
                   disabled={item.disabled !== undefined}
                   onClick={() => {
+                    if (item.items) return setSub(item);
                     onClose();
                     item.run();
                   }}
@@ -249,6 +254,7 @@ export function ActionSheet({ head, items, onClose }: { head?: MenuHead; items: 
                     {item.disabled && <small>{item.disabled}</small>}
                   </span>
                   {(item.value || item.checked) && <span className="on">{item.value ?? '✓'}</span>}
+                  {item.items && <Icon name="chevron" />}
                 </button>
               ))}
             </Fragment>

@@ -1,4 +1,4 @@
-import { INBOX_TASKS, inSpace, listName, localPath, shownName, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { DEFAULT_LOOK, type FolderLook, INBOX_TASKS, inSpace, listName, localPath, shownName, sortedNodes, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { LATEST_RELEASE } from './desktopUpdate';
@@ -67,8 +67,14 @@ interface Props {
   spaces: SpaceView[];
   /** What the personal space is called, for its heading. */
   personalName: string;
-  /** A space heading's menu; null is the personal space. `addFolder` starts naming a folder at the space's top. */
-  onSpaceMenu: (event: MouseEvent, id: string | null, addFolder: () => void) => void;
+  /** A space heading's menu of what to view and the rest; null is the personal space. */
+  onSpaceMenu: (event: MouseEvent, id: string | null) => void;
+  /** A space heading's +: what can be made at its top. `addFolder` starts naming a folder there. */
+  onSpaceAdd: (event: MouseEvent, id: string | null, addFolder: () => void) => void;
+  /** How the items of a folder are put in order, by its path; a space's top by its key, the personal one's by ''. */
+  folderLooks: Record<string, FolderLook>;
+  /** When each item was made, by its path lowercased. */
+  created: Record<string, number>;
   /** Opens the search window; `searchOpen` while it is open. */
   onSearch: () => void;
   searchOpen: boolean;
@@ -123,6 +129,9 @@ export function Sidebar({
   spaces,
   personalName,
   onSpaceMenu,
+  onSpaceAdd,
+  folderLooks,
+  created,
   onSearch,
   searchOpen,
   reveal,
@@ -215,7 +224,8 @@ export function Sidebar({
    * full, it ends with a row to show less. Under the folders, an item leaves room for a folder's
    * arrow, so that its icon lines up with theirs.
    */
-  const rows = (key: string, nodes: TreeNode[], depth: number, spaced: boolean): ReactNode => {
+  const rows = (key: string, items: TreeNode[], depth: number, spaced: boolean): ReactNode => {
+    const nodes = sortedNodes(items, folderLooks[key] ?? DEFAULT_LOOK, (node) => created[node.path.toLowerCase()]);
     const row = (node: TreeNode) => (node.kind === 'folder' ? folderRow(node, depth) : itemRow(node, depth, spaced));
     const toggleRow = (full: boolean, label: string) => (
       <div className="it more" style={indent(depth)}>
@@ -462,7 +472,8 @@ export function Sidebar({
     const key = spaceKey(id);
     const top = id ? key : '';
     const open = !folded.has(key);
-    const menu = (event: MouseEvent) => onSpaceMenu(event, id, () => startFolder(top));
+    const menu = (event: MouseEvent) => onSpaceMenu(event, id);
+    const add = (event: MouseEvent) => onSpaceAdd(event, id, () => startFolder(top));
     return (
       <div
         key={key}
@@ -485,7 +496,13 @@ export function Sidebar({
             <Spin />
           </span>
         )}
-        {more(menu)}
+        {/* What can be made at its top, and apart from it how it is viewed and the rest. */}
+        <button type="button" className="it-more it-icon" title={t('side.view')} aria-label={t('side.view')} onClick={menu}>
+          <Icon name="tune" />
+        </button>
+        <button type="button" className="it-more it-icon" title={t('side.add')} aria-label={t('side.add')} onClick={add}>
+          <Icon name="plus" />
+        </button>
       </div>
     );
   };

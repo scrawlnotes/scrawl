@@ -58,6 +58,9 @@ export interface Client {
   name?: string;
 }
 
+/** The name an agent writes the times of what it makes under, beside each device's own. */
+export const AGENT_DEVICE = 'agent';
+
 export const nowOf = (agent: Agent): Date => (agent.now ?? (() => new Date()))();
 
 /** Today as `YYYY-MM-DD`, in the local calendar. */

@@ -1044,6 +1044,39 @@ input:focus {
 }
 
 /* a line between groups of items */
+/* An item with a menu of its own: what is set in it, then an arrow; the menu opens beside it. */
+.menu button.has-sub .sub-val {
+  margin-left: auto;
+  padding-left: 16px;
+  color: var(--sl-faint);
+}
+
+.menu button.has-sub .icon {
+  width: 11px;
+  height: 11px;
+  margin-left: 6px;
+  color: var(--sl-faint);
+}
+
+.menu button.has-sub:not(:has(.sub-val)) .icon {
+  margin-left: auto;
+}
+
+.menu button.has-sub.on {
+  background: var(--sl-sel);
+}
+
+.menu.sub {
+  position: absolute;
+  left: calc(100% + 4px);
+  min-width: 160px;
+}
+
+.menu.sub.left {
+  right: calc(100% + 4px);
+  left: auto;
+}
+
 .menu hr {
   height: 1px;
   margin: 4px 2px;
@@ -4388,6 +4421,16 @@ textarea.tt-edit {
 
 .it-more:hover {
   color: var(--sl-fg);
+}
+
+/* A space heading's + and the button of how it is viewed, icons where a row has its ···. */
+.it-more.it-icon {
+  width: 24px;
+}
+
+.it-more.it-icon .icon {
+  width: 14px;
+  height: 14px;
 }
 
 @media (hover: hover) {

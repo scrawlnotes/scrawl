@@ -1,4 +1,5 @@
 import {
+  carryCreated,
   dirname,
   loadBoard,
   loadCollection,
@@ -21,7 +22,7 @@ import {
   type VaultFs,
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, Refusal } from './paths';
-import { type Agent, type ElementKind, elementsOf, exists, pickElement, pickSpace } from './space';
+import { type Agent, AGENT_DEVICE, type ElementKind, elementsOf, exists, pickElement, pickSpace } from './space';
 
 // Moving and renaming: a note, a task list, a board or a collection goes into another folder, gets
 // another name, or both; what points at it (tasks, cards, link fields, rollups) points at it where
@@ -53,7 +54,10 @@ export async function moveTool(agent: Agent, args: { space?: string; path: strin
     if (folder !== undefined && folder !== dirname(to)) to = await moveItem(fs, to, folder);
     if (name) to = await renameItem(fs, to, name);
   }
-  if (to !== from) await relink(fs, element.kind, from, to, !space.versioned);
+  if (to !== from) {
+    await relink(fs, element.kind, from, to, !space.versioned);
+    await carryCreated(fs, AGENT_DEVICE, from, to).catch(() => undefined);
+  }
   return { data: { space: space.id, kind: element.kind, from, to, moved: to !== from } };
 }
 

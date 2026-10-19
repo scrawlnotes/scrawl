@@ -11,10 +11,11 @@ import {
   TASK_LIST_EXT,
   type Template,
   trashWithFiles,
+  markCreated,
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
 import { hashOf, MAX_TEXT } from './read';
-import { type Agent, elementsOf, exists, nowOf, pickSpace } from './space';
+import { type Agent, AGENT_DEVICE, elementsOf, exists, nowOf, pickSpace } from './space';
 
 // Writing: a file as it is, a new element, and the trash. A note the agent writes over keeps its
 // earlier text as a version, every time; nothing is deleted for good.
@@ -95,6 +96,8 @@ export async function createTool(agent: Agent, args: { space?: string; folder?: 
       path = await createFolder(space.fs, name, folder);
       break;
   }
+  // When it was made, kept as the app keeps it, for the order by Date created.
+  await markCreated(space.fs, AGENT_DEVICE, { [path]: nowOf(agent) }).catch(() => undefined);
   return { data: { space: space.id, path, kind: args.kind } };
 }
 

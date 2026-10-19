@@ -331,6 +331,15 @@ html:has(.phone-app) body {
   color: var(--sl-accent);
 }
 
+/* A space's order button and its +, side by side at the right. */
+.mb-sec button.tune {
+  width: 36px;
+}
+
+.mb-sec button.tune + button {
+  margin-left: 0;
+}
+
 .mb-none {
   margin: 0;
   padding: 14px 16px;

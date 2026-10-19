@@ -36,6 +36,7 @@ import {
   titleOf,
   trashFolder,
   trashItem,
+  type TreeNode,
   WELCOME_NOTE,
 } from './vault';
 import { isSynced } from './sync/paths';
@@ -62,6 +63,9 @@ describe('titleOf', () => {
   });
 });
 
+/** Tree nodes without when they were written, which a memory vault makes up. */
+const unwritten = (nodes: TreeNode[]): TreeNode[] => JSON.parse(JSON.stringify(nodes, (key, value) => (key === 'modified' ? undefined : value)));
+
 describe('vault', () => {
   it('creates scratch notes at the top of the space without name clashes', async () => {
     const fs = new MemoryFs();
@@ -86,7 +90,7 @@ describe('vault', () => {
     expect(tree.map((n) => n.path)).toEqual(['Inbox.tasks.json', 'Empty', 'Inbox', 'Work', 'loose.md']);
     expect(tree[0]).toMatchObject({ kind: 'tasks', title: 'Inbox' });
     expect(tree[2]!.children!.map((n) => n.path)).toEqual(['Inbox/a.md']);
-    expect(tree[3]!.children).toEqual([
+    expect(unwritten(tree[3]!.children!)).toEqual([
       { name: 'Sprint.tasks.json', path: 'Work/Sprint.tasks.json', kind: 'tasks', title: 'Sprint' },
       { name: 'plan.md', path: 'Work/plan.md', kind: 'note', title: 'plan' },
     ]);
@@ -116,7 +120,7 @@ describe('vault', () => {
     // Neither the collection nor the folder was listed: the folder is, as it is read next.
     expect(listed).toEqual(['']);
     // Read whole, the same tree has every folder's items and none left to be read.
-    expect((await readTree(fs))[2]).toEqual({ name: 'Work', path: 'Work', kind: 'folder', children: [{ name: 'notes.md', path: 'Work/notes.md', kind: 'note', title: 'notes' }] });
+    expect(unwritten([(await readTree(fs))[2]!])[0]).toEqual({ name: 'Work', path: 'Work', kind: 'folder', children: [{ name: 'notes.md', path: 'Work/notes.md', kind: 'note', title: 'notes' }] });
   });
 
   it('names the notes that did not change from the titles kept, reads those that did, and keeps only those still there', async () => {

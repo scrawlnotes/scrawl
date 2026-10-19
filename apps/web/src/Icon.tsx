@@ -384,6 +384,14 @@ const shapes = {
       <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none" />
     </>
   ),
+  /** How a space's or a folder's items are shown and put in order: two sliders. */
+  tune: (
+    <>
+      <path d="M8 4v16M16 4v16" />
+      <rect x="5.5" y="13" width="5" height="4" rx="1.2" />
+      <rect x="13.5" y="7" width="5" height="4" rx="1.2" />
+    </>
+  ),
   /** An image's ready sizes, in its menu: a frame and the image in it. */
   sizeSmall: (
     <>

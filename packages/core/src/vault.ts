@@ -4,6 +4,7 @@ import { COLLECTION_FILE, type ColumnWidths, collectionName, isCollection, loadS
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
 import { fileNameOf, shownName } from './names';
+import { DEFAULT_LOOK, type FolderLook, sortedNodes } from './order';
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
 import { awayAt, moveAway, readAway, removeAway } from './sync/away';
 import { loadTasks, parseList, serializeList, serializeTasks, TASK_LIST_EXT } from './tasks';
@@ -32,6 +33,8 @@ export interface TreeNode {
   children?: TreeNode[];
   /** A folder whose items are not read yet, as the app opens: its `children` are empty until they are. */
   reading?: true;
+  /** When it was last written on this device, in milliseconds, where the files say. */
+  modified?: number;
 }
 
 /** How a board was last looked at on this device: as columns or as a list, and which phase. */
@@ -72,6 +75,8 @@ export interface Workspace {
   collections: Record<string, CollectionLook>;
   /** The onboarding note was closed on this device: it opens by itself no more. */
   welcomeClosed?: boolean;
+  /** How the items of a folder are put in order, by its path; a space's top by its key, the personal one's by ''. */
+  folders?: Record<string, FolderLook>;
 }
 
 /**
@@ -801,31 +806,28 @@ export async function readFolder(fs: VaultFs, dir: string, listed: Entry[], titl
     (e) => !isHidden(e.name) && (e.kind === 'dir' || isNote(e) || isTaskList(e) || isBoard(e) || isKeys(e)),
   );
   const nodes = await Promise.all(
-    entries.map(async (e): Promise<TreeNode> => {
-      if (e.kind === 'dir') {
-        const listedHere = fs.stat ? undefined : await fs.list(e.path);
-        const collection = listedHere ? isCollection(listedHere) : (await fs.stat!(join(e.path, COLLECTION_FILE))) !== null;
-        if (collection) return { name: e.name, path: e.path, kind: 'collection', title: collectionName(e.path) };
-        inside.set(e.path, listedHere);
-        return { name: e.name, path: e.path, kind: 'folder', children: [], reading: true };
-      }
-      if (isTaskList(e)) return { name: e.name, path: e.path, kind: 'tasks', title: listName(e.path) };
-      if (isBoard(e)) return { name: e.name, path: e.path, kind: 'board', title: boardName(e.path) };
-      if (isKeys(e)) return { name: e.name, path: e.path, kind: 'keys', title: keysName(e.path) };
-      const kept = titles?.get(e);
-      if (kept) return { name: e.name, path: e.path, kind: 'note', title: kept.title, ...(kept.empty && { empty: true }) };
-      const text = await fs.readText(e.path);
-      read++;
-      const title = displayTitle(e.path, text);
-      titles?.set(e, title, text.trim() === '');
-      return { name: e.name, path: e.path, kind: 'note', title, ...(text.trim() === '' && { empty: true }) };
-    }),
+    entries.map(async (e): Promise<TreeNode> => ({ ...(await nodeOf(e)), ...(e.modified !== undefined && { modified: e.modified }) })),
   );
-  const order: Record<TreeNode['kind'], number> = { tasks: 1, board: 2, keys: 3, collection: 4, folder: 5, note: 6 };
-  const rank = (n: TreeNode) => order[n.kind];
-  // Names compare without their extension, so that `Board 2` comes after `Board`.
-  const plain = (n: TreeNode) => (n.kind === 'folder' || n.kind === 'collection' ? n.name : splitName(n.name)[0]);
-  nodes.sort((a, b) => rank(a) - rank(b) || plain(a).localeCompare(plain(b), undefined, { numeric: true }));
+  async function nodeOf(e: Entry): Promise<TreeNode> {
+    if (e.kind === 'dir') {
+      const listedHere = fs.stat ? undefined : await fs.list(e.path);
+      const collection = listedHere ? isCollection(listedHere) : (await fs.stat!(join(e.path, COLLECTION_FILE))) !== null;
+      if (collection) return { name: e.name, path: e.path, kind: 'collection', title: collectionName(e.path) };
+      inside.set(e.path, listedHere);
+      return { name: e.name, path: e.path, kind: 'folder', children: [], reading: true };
+    }
+    if (isTaskList(e)) return { name: e.name, path: e.path, kind: 'tasks', title: listName(e.path) };
+    if (isBoard(e)) return { name: e.name, path: e.path, kind: 'board', title: boardName(e.path) };
+    if (isKeys(e)) return { name: e.name, path: e.path, kind: 'keys', title: keysName(e.path) };
+    const kept = titles?.get(e);
+    if (kept) return { name: e.name, path: e.path, kind: 'note', title: kept.title, ...(kept.empty && { empty: true }) };
+    const text = await fs.readText(e.path);
+    read++;
+    const title = displayTitle(e.path, text);
+    titles?.set(e, title, text.trim() === '');
+    return { name: e.name, path: e.path, kind: 'note', title, ...(text.trim() === '' && { empty: true }) };
+  }
+  nodes.splice(0, nodes.length, ...sortedNodes(nodes, DEFAULT_LOOK));
   const folders = nodes
     .filter((node) => node.kind === 'folder')
     .map((node) => {
@@ -948,6 +950,16 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
         collections[path] = read;
       }
     }
+    // How folders are put in order: only what is one of the choices, and not the default, is kept.
+    const folders: Record<string, FolderLook> = {};
+    if (data.folders && typeof data.folders === 'object') {
+      for (const [path, look] of Object.entries(data.folders as Record<string, unknown>)) {
+        const { group, by, dir } = (look ?? {}) as Partial<FolderLook>;
+        if ((group === 'type' || group === 'none') && (by === 'name' || by === 'created' || by === 'modified') && (dir === 'asc' || dir === 'desc')) {
+          folders[path] = { group, by, dir };
+        }
+      }
+    }
     return {
       tabs,
       active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null,
@@ -955,6 +967,7 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
       keys,
       collections,
       ...(data.welcomeClosed === true && { welcomeClosed: true }),
+      ...(Object.keys(folders).length > 0 && { folders }),
     };
   } catch {
     return { tabs: [], active: null, boards: {}, keys: {}, collections: {} };

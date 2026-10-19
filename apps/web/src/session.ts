@@ -117,6 +117,12 @@ import {
   parseList,
   pruneHistory,
   readTrash,
+  readCreated,
+  markCreated,
+  carryCreated,
+  guessCreated,
+  type FolderLook,
+  isDefaultLook,
   readTrashed,
   type Trashed,
   readTree,
@@ -263,6 +269,15 @@ import {
 } from './storage';
 
 const SAVE_DELAY_MS = 400;
+
+/** The node at `path` in a tree, a folder found among the folders it is in. */
+function findNode(nodes: TreeNode[], path: string): TreeNode | null {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    if (node.children && path.startsWith(`${node.path}/`)) return findNode(node.children, path);
+  }
+  return null;
+}
 /** What starts a list item, a task box, a quote or a heading, nested as deep as it goes. */
 const LINE_MARKERS = /^\s*(?:(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?|>\s?|#{1,6}\s+)+/;
 
@@ -345,6 +360,10 @@ export interface Snapshot {
   boards: Record<string, Board>;
   /** How each board was last looked at on this device, by the path of its file. */
   boardLooks: Record<string, BoardLook>;
+  /** How the items of a folder are put in order on this device, by its path; a space's top by its key, the personal one's by ''. */
+  folderLooks: Record<string, FolderLook>;
+  /** When each item of every space was made, as the app keeps it, by its path lowercased. */
+  created: Record<string, number>;
   /** The text of every keys file, by its path. */
   keys: Record<string, string>;
   /** How each keys file was last looked at on this device, by its path. */
@@ -558,6 +577,8 @@ export class Session {
     sections: {},
     boards: {},
     boardLooks: {},
+    folderLooks: {},
+    created: {},
     keys: {},
     keysLooks: {},
     collections: {},
@@ -615,6 +636,8 @@ export class Session {
   neighborOnClose = true;
   /** This device's name, which a conflict copy made here carries; sync tells it. */
   deviceName = '';
+  /** This device's id, once it is known: the times it writes of what is made go in its own file. */
+  deviceId = '';
   /** The text of each open note as it was last read from or written to the vault. */
   private readonly disk = new Map<string, string>();
   /** What each task list, board and keys file held when it was last read or written here, to tell what changed there since. */
@@ -739,6 +762,7 @@ export class Session {
       sections: {},
       boards: {},
       boardLooks: workspace.boards,
+      folderLooks: workspace.folders ?? {},
       keys: {},
       keysLooks: workspace.keys,
       collections: {},
@@ -757,6 +781,7 @@ export class Session {
     // Versions past their keeping time go, also those of notes deleted long ago.
     for (const [, fs] of this.fs.all()) void pruneHistory(fs).catch(() => undefined);
     void this.recountFiles();
+    void this.readCreatedTimes();
     this.meetSpaces();
   }
 
@@ -1884,7 +1909,7 @@ export class Session {
   }
 
   private saveWorkspace() {
-    const { tabs, active, boards, boardLooks, keys, keysLooks, collections, collectionLooks } = this.snapshot;
+    const { tabs, active, boards, boardLooks, keys, keysLooks, collections, collectionLooks, folderLooks } = this.snapshot;
     // Boards and keys files that are gone are forgotten.
     void saveWorkspace(this.personal, {
       tabs,
@@ -1893,7 +1918,68 @@ export class Session {
       keys: Object.fromEntries(Object.entries(keysLooks).filter(([path]) => path in keys)),
       collections: Object.fromEntries(Object.entries(collectionLooks).filter(([path]) => path in collections)),
       ...(this.welcomeClosed && { welcomeClosed: true }),
+      ...(Object.keys(folderLooks).length > 0 && { folders: folderLooks }),
     });
+  }
+
+  /**
+   * Puts the items of a folder in another order on this device; `key` is its path, a space's key
+   * for its top, '' for the personal space's. By when they were made, the times not kept yet are
+   * worked out and kept, once.
+   */
+  lookAtFolder(key: string, look: FolderLook) {
+    const { [key]: _was, ...rest } = this.snapshot.folderLooks;
+    this.set({ folderLooks: isDefaultLook(look) ? rest : { ...rest, [key]: look } });
+    this.saveWorkspace();
+    if (look.by === 'created') void this.guessCreatedIn(key);
+  }
+
+  /** The times of everything made in every space, read again from the files the devices keep them in. */
+  private async readCreatedTimes() {
+    const created: Record<string, number> = {};
+    for (const [space, fs] of this.fs.all()) {
+      for (const [path, time] of await readCreated(fs).catch(() => new Map<string, number>())) created[inSpace(space, path)] = time;
+    }
+    this.set({ created });
+  }
+
+  /** Keeps when things were made: now, or the times given, by path in the app. */
+  private async madeNow(paths: string[], at = new Date()) {
+    const times: Record<string, number> = {};
+    for (const path of paths) {
+      const { fs, local } = this.at(path);
+      await markCreated(fs, this.deviceId, { [local]: at }).catch(() => undefined);
+      times[path.toLowerCase()] = at.getTime();
+    }
+    this.set({ created: { ...times, ...this.snapshot.created } });
+  }
+
+  /** A rename or a move in a space: what was made at `from` keeps its time at `to`, with what is under it. */
+  private async carryMade(from: string, to: string) {
+    const { fs, local } = this.at(from);
+    await carryCreated(fs, this.deviceId, local, localPath(to)).catch(() => undefined);
+    await this.readCreatedTimes();
+  }
+
+  /** Works out once when the things in a folder were made, where the app did not keep it, and keeps it. */
+  private async guessCreatedIn(key: string) {
+    const space = key === '' ? null : spaceOf(key);
+    const top = space ? (this.snapshot.spaces.find((each) => each.id === space)?.tree ?? []) : this.snapshot.tree;
+    const local = localPath(key);
+    const nodes: TreeNode[] = [];
+    const visit = (list: TreeNode[]) => {
+      for (const node of list) {
+        nodes.push(node);
+        if (node.children) visit(node.children);
+      }
+    };
+    visit(local === '' ? top : (findNode(top, key)?.children ?? []));
+    const missing = nodes.filter((node) => this.snapshot.created[node.path.toLowerCase()] === undefined);
+    if (missing.length === 0 || !this.deviceId) return;
+    const fs = this.fs.of(space);
+    const guessed = await guessCreated(fs, this.deviceId, missing.map((node) => ({ path: localPath(node.path), ...(node.modified !== undefined && { modified: node.modified }) }))).catch(() => ({}));
+    const times = Object.fromEntries(Object.entries(guessed).map(([path, time]) => [inSpace(space, path), time]));
+    this.set({ created: { ...times, ...this.snapshot.created } });
   }
 
   /** Remembers how a board is looked at: as columns or a list, and which phase. */
@@ -2050,6 +2136,11 @@ export class Session {
     if (look) this.set({ boardLooks: { ...rest, [to]: look } });
     const { [from]: keysLook, ...others } = this.snapshot.keysLooks;
     if (keysLook) this.set({ keysLooks: { ...others, [to]: keysLook } });
+    // A folder keeps its order, and so does every folder in it.
+    const folders = Object.entries(this.snapshot.folderLooks);
+    if (folders.some(([key]) => key === from || key.startsWith(`${from}/`))) {
+      this.set({ folderLooks: Object.fromEntries(folders.map(([key, value]) => [key === from || key.startsWith(`${from}/`) ? to + key.slice(from.length) : key, value])) });
+    }
   }
 
   /** Desktop: asks for the notes folder and opens it. Open notes are saved and closed first. */
@@ -2228,6 +2319,8 @@ export class Session {
       space,
     });
     await this.recountFiles();
+    // Times of things made on other devices come with their files.
+    void this.readCreatedTimes();
   }
 
   /** A task list, a board or a keys file was changed here. */
@@ -2400,6 +2493,7 @@ export class Session {
    * records open as notes follow their files with their history, and its tab and look go along.
    */
   private async recollect(from: string, to: string) {
+    await this.carryMade(from, to);
     const records = this.snapshot.collections[from]?.records ?? [];
     for (const record of records) {
       const target = `${to}${record.path.slice(from.length)}`;
@@ -3058,6 +3152,7 @@ export class Session {
   async newNote(folder = '') {
     const { fs, space, local } = this.at(folder);
     const path = inSpace(space, await createScratchNote(fs, new Date(), local));
+    await this.madeNow([path]);
     await this.refreshTree();
     await this.open(path);
   }
@@ -3082,6 +3177,7 @@ export class Session {
       // collection's linked blocks are written as the space has them.
       const { fs, space, local } = this.at(folder);
       const target = newFolder ? await createFolder(fs, local) : local;
+      if (newFolder) await this.madeNow([inSpace(space, target)]);
       const own = toSpace(space);
       const company = links && own(links.company);
       const contact = links && own(links.contact);
@@ -3096,6 +3192,7 @@ export class Session {
                 ? await createCollection(fs, target, name, collectionTemplate)
                 : await createBoard(fs, target, name, template, company && contact ? { company, contact } : undefined);
       path = inSpace(space, made);
+      await this.madeNow([path]);
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }
@@ -3466,6 +3563,7 @@ export class Session {
       if (target !== path) await this.retargetSchemas(path, target);
     }
     this.moveLook(path, target);
+    await this.carryMade(path, target);
     const [from, to] = [tabOf(path), tabOf(target)];
     this.moveRecent(from, to);
     const { tabs, active } = this.snapshot;
@@ -3510,6 +3608,9 @@ export class Session {
       local = await copyToSpace(source.fs, source.local, into.fs, into.local);
     }
     const copied = inSpace(into.space, local);
+    // In its new space it was made when it was made in its old one.
+    const made = this.snapshot.created[path.toLowerCase()];
+    await this.madeNow([copied], made === undefined ? new Date() : new Date(made));
     if (collection) await trashFolder(source.fs, source.local);
     else await trashItem(source.fs, source.local);
     const [from, to] = collection ? [collectionTab(path), collectionTab(copied)] : [tabOf(path), tabOf(copied)];
@@ -3529,7 +3630,9 @@ export class Session {
   async moveToNewFolder(path: string, name: string): Promise<string | null> {
     try {
       const { fs, space } = this.at(path);
-      await this.move(path, inSpace(space, await createFolder(fs, name)));
+      const folder = inSpace(space, await createFolder(fs, name));
+      await this.madeNow([folder]);
+      await this.move(path, folder);
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : t('error.createFolder');
@@ -3559,8 +3662,8 @@ export class Session {
   /** Creates a folder in `parent`, at the top of its space when it is one, of the personal space without one; returns a message when the name cannot be used. */
   async newFolder(name: string, parent = ''): Promise<string | null> {
     try {
-      const { fs, local } = this.at(parent);
-      await createFolder(fs, name, local);
+      const { fs, space, local } = this.at(parent);
+      await this.madeNow([inSpace(space, await createFolder(fs, name, local))]);
     } catch (error) {
       return error instanceof Error ? error.message : t('error.createFolder');
     }
