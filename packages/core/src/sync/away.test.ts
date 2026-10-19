@@ -159,6 +159,24 @@ describe('files away', () => {
     expect((await readTrash(laptop)).filter((i) => i.title === 'roof.png')).toEqual([]);
   });
 
+  it('removes outright a file deleted on the other side whose copy in the trash waits there', async () => {
+    const { laptop, phone, remote, syncLaptop, syncPhone } = setup();
+    await laptop.writeBlob('_attachments/roof.png', blob(4000));
+    await syncLaptop();
+    // The phone took it before it had a limit, as an app from before large files waited.
+    await syncOnce(phone, remote, PHONE, { now, saveEveryMs: 0 });
+    await trashItem(laptop, '_attachments/roof.png', now());
+    await syncLaptop();
+    // Its copy in the trash no longer has the tag the phone knew, so its move is not told.
+    const copy = (await remote.changes(null)).changed.find((e) => e.kind === 'file' && e.path.includes('roof'))!;
+    await remote.write(copy.path, blob(4000), copy.kind === 'file' ? copy.tag : null);
+    const report = await syncPhone();
+    expect(report.removedHere).toEqual(['_attachments/roof.png']);
+    expect(report.uploaded).toEqual([]);
+    expect((await readTrash(phone)).map((item) => [item.title, item.away])).toEqual([['roof.png', true]]);
+    expect(remote.paths().filter((p) => p.includes('roof'))).toHaveLength(1);
+  });
+
   it('empties the trash of files away too', async () => {
     const { phone, remote, syncPhone } = await siteVisit();
     await trashItem(phone, '_attachments/roof.png', now());

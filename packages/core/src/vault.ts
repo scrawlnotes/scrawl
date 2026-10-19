@@ -11,6 +11,7 @@ const READ_ORDER: FolderLook = { group: 'type', by: 'name', dir: 'asc', foldersF
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
 import { type Piece, PIECE_EXTS, pieceCount, pieceKindOf, pieceTitle, parsePiece, putBackCard, putBackTasks, serializePiece } from './pieces';
 import { awayAt, moveAway, readAway, removeAway } from './sync/away';
+import { keyOf } from './sync/paths';
 import { loadList, loadTasks, parseList, saveList, serializeList, serializeTasks, TASK_LIST_EXT } from './tasks';
 
 /**
@@ -369,6 +370,22 @@ async function changeTrashIndex(fs: VaultFs, change: (records: TrashRecord[]) =>
 }
 
 const forget = (fs: VaultFs, name: string) => changeTrashIndex(fs, (records) => records.filter((r) => r.name !== name));
+
+/**
+ * Whether the trash's index says `path`, or a folder it was in, was deleted after `since` (in
+ * milliseconds; at any time when it is not known): deleted on purpose, by whichever device, the
+ * row having come with the index, though the copy in the trash may not be here. A task, a section
+ * or a card deleted from a list or a board says nothing of the list or the board itself.
+ */
+export async function deletedSince(fs: VaultFs, path: string, since?: number): Promise<boolean> {
+  const key = keyOf(path);
+  return (await readTrashIndex(fs)).some((record) => {
+    if (pieceKindOf(record.name)) return false;
+    const from = keyOf(record.from);
+    if (key !== from && !key.startsWith(`${from}/`)) return false;
+    return since === undefined || Date.parse(record.deleted) > since;
+  });
+}
 
 /** A free path in the trash, named after the moment of deleting so that deleting twice never clashes. */
 async function trashPath(fs: VaultFs, name: string, ext: string, now: Date): Promise<string> {

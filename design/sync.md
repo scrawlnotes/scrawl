@@ -141,7 +141,7 @@ Bunun için `VaultFs`'in listesine dosyaların değişme zamanı eklenir (`Entry
 PLAN'daki güvenlik ağı: sync'in sildiği her şey önce çöpe gider.
 
 - Uygulamada silinen bir şey zaten `.scrawl/trash/`'e taşınır; sync bunu bir taşıma olarak görür (eski yol gitti, çöpte aynı özetli yeni bir dosya var) ve uzakta da taşır, içerik yeniden yüklenmez. Öbür cihaz da kendi dosyasını çöpe taşır; çöpün dizini ayrıca gelir.
-- Uzaktan bir silme gelince, gelen çöp dosyalarında içeriği aynı (özeti eşit) bir kayıt varsa yereldeki dosya doğrudan kaldırılır, çünkü zaten çöptedir; yoksa (başka bir programla silinmişse) yereldeki dosya bu cihazın çöpüne taşınır.
+- Uzaktan bir silme gelince, dosya zaten çöpteyse yereldeki kopyası doğrudan kaldırılır. Zaten çöpte demek iki şeyden biridir: gelen çöp dosyalarında içeriği aynı (özeti eşit) bir dosya vardır, ya da çöpün dizini bu dosyanın ya da içinde olduğu bir klasörün, dosya burada son değiştikten sonra silindiğini söyler. İkincisi uzun süre sonra dönen cihaz içindir (19 Ekim): çöpteki kopya başka bir sürüm olabilir ya da büyük olduğu için inmemiş olabilir; eski kopya çöpe ikinci kez konup yeniden yüklenmez. Listeden ya da panodan silinen görev, bölüm ve kartın satırı listeyi ya da panoyu silinmiş saymaz. Bunların dışında (başka bir programla silinmişse) yereldeki dosya bu cihazın çöpüne taşınır.
 - Klasör silmeleri içindekilerle birlikte aynı kurala uyar. Bir cihazda silinen klasörün içindeki bir not öbür cihazda değiştirildiyse klasör yalnızca o notla geri gelir; klasörün geri kalanı çöpte durur ve çöpteki kopya kalır. Bu bilinçli bir kabuldür: değişiklik kaybolmaz, silinen de çöpten geri alınabilir.
 - Uzakta silinen dosya sağlayıcının kendi çöp kutusuna da gider (OneDrive'da Recycle bin).
 
@@ -183,6 +183,7 @@ Bellekte çalışan bir `MemoryRemote` (her yazımda etiketi değişen) ve iki a
 21. Uzağın kabul etmediği bir ad: dosya bu cihazda kalır, gönderilmez, raporda gösterilir.
 22. Listelenip okunmadan önce uzakta silinen bir dosya: tur durmaz, dosya sonraki tura kalır.
 26. Cihazın kaydı uzaktakine uymaz ve liste ondan söz etmez (dosya orada yok ya da başka sürümü var): uzak dosyayı bir kez reddeder, sonraki tur her şeyi baştan listeler. Burada silinen unutulur, burada değişen yüklenir, iki tarafta değişen birleşir; dosya her turda yeniden reddedilmez.
+27. Uzun süre sonra dönen cihaz: öbür tarafta notu değişip klasörüyle silinen dosya burada doğrudan kalkar, çöpte klasörün tek kaydı olur, hiçbir şey yüklenmez; çöpteki kopyası büyük olduğu için inmeyen ek de öyle. Silinmiş bir klasörle aynı adı taşıyan ve sonradan yazılmış bir notu başka bir program silerse not yine bu cihazın çöpüne gider; listeden bir görevin silinmiş olması, liste başka bir programla silinince listeyi çöpe gitmekten alıkoymaz.
 
 Hepsi `packages/core/src/sync/engine.test.ts` içinde; birleştirme kuralları ayrıca `merge.test.ts` içinde, her biri iki yönde (yerel ve uzak yer değiştirerek) aynı sonucu verdiği sınanarak.
 

@@ -1,6 +1,6 @@
 import { basename, dirname, type Entry, type VaultFs } from '../fs';
 import { freePath, splitName } from '../paths';
-import { trashItem } from '../vault';
+import { deletedSince, trashItem } from '../vault';
 import { finishAwayOps, mayStayAway, readAwayOps } from './away';
 import { sha256 } from './hash';
 import { mergeFile, mergeKindOf } from './merge-files';
@@ -696,15 +696,17 @@ class Turn {
   }
 
   /**
-   * Gone on the other side. What is in the trash already (the app moved it there, and the trash
-   * came over) is removed; what went otherwise goes to this device's trash, as everything sync
-   * deletes does.
+   * Gone on the other side. What is in the trash already is removed: the app moved it there and
+   * the trash came over, or the trash's index says it, or a folder it was in, was deleted after
+   * it last changed here, its copy in the trash left on the other side or another version of it,
+   * as on a device back after a long time. What went otherwise goes to this device's trash, as
+   * everything sync deletes does.
    */
   private async removeHere(key: string): Promise<void> {
     const entry = this.local.files.get(key)!;
     const record = this.state.files[key]!;
     if (!(await this.untouched(key, entry.path))) return;
-    if (isUnder(key, TRASH) || (await this.inTrash(record))) await this.fs.remove(entry.path);
+    if (isUnder(key, TRASH) || (await this.inTrash(record)) || (await deletedSince(this.fs, entry.path, entry.modified))) await this.fs.remove(entry.path);
     else await trashItem(this.fs, entry.path, this.now());
     this.report.removedHere.push(entry.path);
     this.result = 'trashed';

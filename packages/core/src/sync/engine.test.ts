@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { type Card, parseBoard, serializeBoard } from '../board';
-import { MemoryFs, type VaultFs } from '../fs';
+import { type Entry, MemoryFs, type VaultFs } from '../fs';
 import { parseList, serializeList, type Task } from '../tasks';
-import { readTrash, trashFolder, trashItem } from '../vault';
+import { readTrash, trashFolder, trashItem, trashPiece } from '../vault';
 import { type SyncDevice, type SyncProgress, syncOnce } from './engine';
 import { isSynced } from './paths';
 import { MemoryRemote, type RemoteStore } from './remote';
@@ -575,6 +575,64 @@ describe('sync', () => {
       expect(await remote.text('Inbox/Note.md')).toBe('ONE\ntwo\nTHREE\n');
       await syncLaptop();
       expect(await contents(laptop)).toEqual(await contents(phone));
+    });
+  });
+
+  describe('27. a device back after a long time: what was deleted meanwhile is not put in the trash again', () => {
+    /** A device telling when its files were written as a disk does, in milliseconds, from the 7th of October on. */
+    const onDisk = (fs: MemoryFs): VaultFs => {
+      const clock = (entry: Entry | null) => (entry?.modified === undefined ? entry : { ...entry, modified: Date.UTC(2026, 9, 7) + entry.modified * 1000 });
+      return new Proxy(fs, {
+        get(target, prop) {
+          if (prop === 'list') return async (dir: string) => (await target.list(dir)).map(clock);
+          if (prop === 'stat') return async (path: string) => clock(await target.stat(path));
+          const value = Reflect.get(target, prop);
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+    };
+
+    it('a folder deleted there after its notes changed: removed here outright, the trash holding one of it', async () => {
+      const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+      await laptop.writeText('Scrawl/Plan.md', 'plan');
+      await laptop.writeText('Scrawl/Deep/Notes.md', 'notes');
+      await syncLaptop();
+      await syncPhone();
+      // While the laptop is away the phone changes a note, then deletes the folder.
+      await phone.writeText('Scrawl/Plan.md', 'plan, later');
+      await syncPhone();
+      await trashFolder(phone, 'Scrawl', now());
+      await syncPhone();
+      // The note not changed follows its move into the trash; the one changed there is gone here.
+      const report = await syncLaptop();
+      expect(report.removedHere).toEqual(['Scrawl/Plan.md']);
+      expect(report.uploaded).toEqual([]);
+      expect((await readTrash(laptop)).map((item) => item.from)).toEqual(['Scrawl']);
+      await syncPhone();
+      expect(await contents(phone)).toEqual(await contents(laptop));
+    });
+
+    it('a note in a folder deleted before it was written, deleted by another program: still to this device’s trash', async () => {
+      const { remote, laptop } = setup();
+      const disk = onDisk(laptop);
+      const sync = () => syncOnce(disk, remote, LAPTOP, { now, saveEveryMs: 0 });
+      await laptop.writeText('Inbox/Old.md', 'old');
+      await trashFolder(laptop, 'Inbox', new Date(2026, 9, 1));
+      await laptop.writeText('Inbox/New.md', 'new');
+      await sync();
+      await remote.remove('Inbox/New.md', await tagOf(remote, 'Inbox/New.md'));
+      await sync();
+      expect((await readTrash(laptop)).map((item) => item.from).sort()).toEqual(['Inbox', 'Inbox/New.md']);
+    });
+
+    it('a list a task was deleted from, deleted by another program: still to this device’s trash', async () => {
+      const { remote, laptop, syncLaptop } = setup();
+      await laptop.writeText('Plans/Week.tasks.json', serializeList({ ...parseList(''), tasks: [task('a'), task('b')] }));
+      await trashPiece(laptop, 'Plans/Week.tasks.json', { version: 1, kind: 'task', section: null, parent: null, after: null, tasks: [task('b')] }, now());
+      await syncLaptop();
+      await remote.remove('Plans/Week.tasks.json', await tagOf(remote, 'Plans/Week.tasks.json'));
+      await syncLaptop();
+      expect((await readTrash(laptop)).filter((item) => item.kind === 'tasks').map((item) => item.from)).toEqual(['Plans/Week.tasks.json']);
     });
   });
 
