@@ -411,11 +411,13 @@ input:focus {
   text-overflow: ellipsis;
 }
 
+/* At the tab's right end, however short its name. */
 .tab-close {
   display: grid;
   flex: none;
   place-items: center;
   width: 24px;
+  margin-left: auto;
   height: 100%;
   color: var(--sl-faint);
 }
