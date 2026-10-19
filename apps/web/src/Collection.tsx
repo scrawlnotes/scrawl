@@ -71,6 +71,7 @@ import {
   type RecordPatch,
   type RecordSort,
   sortRecords,
+  type Subtask,
   unplacedFields,
   valueText,
 } from '@scrawlnotes/core';
@@ -98,6 +99,7 @@ import { Icon } from './Icon';
 import { collectionLabel } from './items';
 import { useNarrow } from './narrow';
 import { FilterSheet, PhoneCollectionList, ViewSheet } from './PhoneCollection';
+import { Subtasks } from './Subtasks';
 import { dueClass, dueLabel } from './Tasks';
 import { quote } from './text';
 
@@ -648,14 +650,16 @@ export interface Draft {
   /** By field key, the name and the code among them. */
   values: Record['values'];
   body: string;
+  subtasks: Subtask[];
 }
 
 export const draftOf = (record: Record | null, values: Record['values'] = {}): Draft =>
-  record ? { values: { ...record.values }, body: record.body } : { values: { ...values }, body: '' };
+  record ? { values: { ...record.values }, body: record.body, subtasks: record.subtasks ?? [] } : { values: { ...values }, body: '', subtasks: [] };
 
 /** Whether two drafts differ in anything that would be written. */
 export function differs(a: Draft, b: Draft): boolean {
   if (a.body !== b.body) return true;
+  if (JSON.stringify(a.subtasks) !== JSON.stringify(b.subtasks)) return true;
   for (const key of new Set([...Object.keys(a.values), ...Object.keys(b.values)])) {
     const [x, y] = [a.values[key], b.values[key]];
     if (isEmpty(x) && isEmpty(y)) continue;
@@ -917,7 +921,7 @@ export function recordLayout(schema: Schema, dir: string, isNew: boolean, action
   const own = layoutOf(schema);
   if (isNew) {
     const sections = own.columns.flatMap((column) =>
-      column.sections.map((section) => ({ ...section, items: section.items.filter((item) => 'field' in item || item.block === 'body') })),
+      column.sections.map((section) => ({ ...section, items: section.items.filter((item) => 'field' in item || item.block === 'body' || item.block === 'subtasks') })),
     );
     return { columns: [{ sections: sections.filter((section) => section.items.length > 0) }] };
   }
@@ -993,7 +997,7 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
       return;
     }
     busy.current = true;
-    const patch = { values: draft.values, body: draft.body };
+    const patch = { values: draft.values, body: draft.body, subtasks: draft.subtasks };
     const failed = isNew ? await actions.addRecord(dir, patch) : await actions.updateRecord(dir, record.id, patch);
     busy.current = false;
     if (failed) setError(failed);
@@ -1100,6 +1104,23 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
     }
     if (layoutItem.block === 'cards' && record) {
       return <CardsBlock key={`cards-${index}`} dir={dir} record={record} today={today} actions={actions} onOpen={(board, card) => setOver({ board, card })} />;
+    }
+    if (layoutItem.block === 'subtasks') {
+      return (
+        <div key={`subtasks-${index}`} className="blk">
+          <Subtasks
+            list={draft.subtasks}
+            change={(change) => {
+              setError(null);
+              setDraft((d) => ({ ...d, subtasks: change(d.subtasks) }));
+            }}
+            team={actions.cardActions.people?.(dir) ?? null}
+            today={today}
+            menu={actions.menu}
+            place="record"
+          />
+        </div>
+      );
     }
     return null;
   };

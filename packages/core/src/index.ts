@@ -13,6 +13,7 @@ export * from './me';
 export * from './people';
 export * from './recent';
 export * from './spaces';
+export * from './subtasks';
 export * from './sync';
 export * from './tasks';
 export * from './vault';

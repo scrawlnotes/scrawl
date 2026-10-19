@@ -125,6 +125,14 @@ export const boardHeading = (board: string) => {
   return where ? `${boardName(board)} · ${where}` : boardLabel(board);
 };
 
+/** A collection heading its group in those views: `Companies · Acme · Sales` in another space. */
+export const collectionHeading = (dir: string) => {
+  const where = spaceWhere(dir);
+  return where ? `${collectionName(dir)} · ${where}` : collectionLabel(dir);
+};
+/** Where a record is, on its row in those views: its space when another, else its collection. */
+export const collectionWhere = (dir: string) => spaceWhere(dir) ?? collectionLabel(dir);
+
 /**
  * The way to what a tab shows, said when the pointer rests on the tab: the space, then its
  * folders, `Acme › Sales`; `personal` names the personal space. Null for the views over all.

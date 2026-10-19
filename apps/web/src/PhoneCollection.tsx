@@ -55,6 +55,7 @@ import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, use
 import { Chip } from './choices';
 import { type CollectionActions, type Draft, differs, draftOf, excerpt, NotesBlock, recordLayout, singularOf, type ValueContext } from './Collection';
 import { Icon, type IconName } from './Icon';
+import { Subtasks } from './Subtasks';
 import { DateSheet } from './PhoneTasks';
 import { Empty, Sheet, SheetClose } from './sheets';
 import { dueClass, dueLabel } from './Tasks';
@@ -626,7 +627,9 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   const layout = recordLayout(schema, dir, false, actions);
   const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items));
   const rows = formFields(schema, items.filter((item): item is { field: string } => 'field' in item)).filter((f) => f.type !== 'name' && f.type !== 'code');
-  const blocks = items.filter((item): item is LinkedBlock | { block: 'cards' } => 'block' in item && item.block !== 'body');
+  // What links here, each in a tab; the record's own subtasks are on the first, with its fields.
+  const blocks = items.filter((item): item is LinkedBlock | { block: 'cards' } => 'block' in item && (item.block === 'linked' || item.block === 'cards'));
+  const hasSubtasks = items.some((item) => 'block' in item && item.block === 'subtasks');
   const rolled = rolledValues(record, collection, actions.collections(), actions.boards(), today);
   const rollups: Entry['values'] = {};
   for (const field of schema.fields) if (field.type === 'rollup') rollups[field.key] = rolled[field.key] ?? null;
@@ -660,7 +663,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
     }
     busy.current = true;
     setError(null);
-    const failed = await actions.updateRecord(dir, record.id, { values: draft.values, body: draft.body });
+    const failed = await actions.updateRecord(dir, record.id, { values: draft.values, body: draft.body, subtasks: draft.subtasks });
     busy.current = false;
     if (failed) setError(failed);
   };
@@ -740,6 +743,19 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
             <div className="mb-notes">
               <NotesBlock key={resets} home={collection.dir} text={draft.body} editor={actions.editor} onChange={(body) => setDraft((d) => ({ ...d, body }))} />
             </div>
+            {hasSubtasks && (
+              <Subtasks
+                list={draft.subtasks}
+                change={(change) => {
+                  setError(null);
+                  setDraft((d) => ({ ...d, subtasks: change(d.subtasks) }));
+                }}
+                team={actions.cardActions.people?.(dir) ?? null}
+                today={today}
+                menu={actions.menu}
+                place="record"
+              />
+            )}
           </>
         )}
         {shownBlock?.block === 'linked' && <LinkedTab block={shownBlock} dir={dir} schema={schema} record={record} today={today} actions={actions} />}
@@ -975,7 +991,7 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
     const missing = missingText(schema, draft.values);
     if (missing) return setError(missing);
     busy.current = true;
-    const failed = await actions.addRecord(dir, { values: draft.values, body: draft.body });
+    const failed = await actions.addRecord(dir, { values: draft.values, body: draft.body, subtasks: draft.subtasks });
     busy.current = false;
     if (failed) setError(failed);
     else onClose();
@@ -1019,6 +1035,17 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
           <div className="mb-notes in-sheet">
             <NotesBlock home={collection.dir} text={draft.body} editor={actions.editor} onChange={(body) => setDraft((d) => ({ ...d, body }))} />
           </div>
+          {items.some((item) => 'block' in item && item.block === 'subtasks') && (
+            <Subtasks
+              list={draft.subtasks}
+              change={(change) => setDraft((d) => ({ ...d, subtasks: change(d.subtasks) }))}
+              team={actions.cardActions.people?.(dir) ?? null}
+              today={today}
+              menu={actions.menu}
+              place="record"
+              inSheet
+            />
+          )}
           <p className={error ? 'mb-hint err' : 'mb-hint'} role={error ? 'alert' : undefined}>
             {error ?? t('collection.savedIn', { collection: collectionName(dir) })}
           </p>

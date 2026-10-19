@@ -14,6 +14,7 @@ import {
   numberText,
   type PersonRef,
   type Priority,
+  type Subtask,
   type TimelineEntry,
   valueText,
 } from '@scrawlnotes/core';
@@ -46,12 +47,17 @@ import { LinkSheet } from './PhoneCollection';
 import { DateSheet, priorityItems } from './PhoneTasks';
 import { Sheet } from './sheets';
 import { StatusIcon } from './StatusIcon';
+import { Subtasks } from './Subtasks';
 import { dueClass, dueLabel } from './Tasks';
 import { clockTime, pastDayLabel } from './text';
 
 /** What the card panel does, on the board at the path given. */
 export interface CardPanelActions {
   updateCard: (board: string, id: string, patch: CardPatch) => void;
+  /** Changes a card's subtasks, from the list as it is when it is saved. */
+  changeSubtasks: (board: string, id: string, change: (list: Subtask[]) => Subtask[]) => void;
+  /** Ticks off a card's subtask, saying so with Undo. */
+  completeSubtask: (board: string, id: string, subtask: string) => void;
   moveToColumn: (board: string, id: string, column: string) => void;
   /** Asks first, then deletes the card. */
   removeCard: (board: string, card: Card) => void;
@@ -763,6 +769,15 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
         <TextField id="card-title" label={t('card.title')} value={card.title} onSave={(title) => update({ title })} />
         <div className="cp-sec">{t('card.description')}</div>
         <div className="cp-desc" ref={host} />
+        <Subtasks
+          list={card.subtasks ?? []}
+          change={(change) => actions.changeSubtasks(path, card.id, change)}
+          complete={(subtask) => actions.completeSubtask(path, card.id, subtask)}
+          team={team}
+          today={today}
+          menu={actions.menu}
+          place="card"
+        />
         {card.note && (
           <p className="cp-links">
             {noteTitle === null ? (
@@ -1120,6 +1135,15 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
         </div>
         <div className="mb-cap mb-cpad">{t('card.description')}</div>
         <div className="mb-cdesc" ref={host} />
+        <Subtasks
+          list={card.subtasks ?? []}
+          change={(change) => actions.changeSubtasks(path, card.id, change)}
+          complete={(subtask) => actions.completeSubtask(path, card.id, subtask)}
+          team={team}
+          today={today}
+          menu={actions.menu}
+          place="card"
+        />
         {card.timeline.length > 0 && <div className="mb-cap mb-cpad">{t('card.timeline')}</div>}
         <div className="mb-ctl tlog">
           {card.timeline.map((entry) =>

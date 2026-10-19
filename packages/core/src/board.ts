@@ -2,6 +2,7 @@ import { evaluateFormula, type Field, type FieldValue, isEmpty, pointsAt, readFi
 import { type ChoiceRenames, renameChoices } from './fields';
 import type { VaultFs } from './fs';
 import { type PersonRef, readPersonRef } from './people';
+import { addSubtask, type NewSubtask, readSubtasks, type Subtask, writtenSubtask } from './subtasks';
 import type { Priority } from './tasks';
 
 // A board is a file of its own in a folder: `<name>.board.json`. It holds its columns, its
@@ -83,6 +84,8 @@ export interface Card {
    * its field's type holds it. A value whose field was taken out stays. Left out when empty.
    */
   values?: { [key: string]: unknown };
+  /** Its own subtasks, in their order; left out when it has none. */
+  subtasks?: Subtask[];
 }
 
 export interface Board {
@@ -281,6 +284,9 @@ function parseCards(list: unknown, columns: Column[]): Card[] {
       values: isValues(raw.values) ? raw.values : undefined,
     });
     const card = out[out.length - 1]!;
+    const subtasks = readSubtasks(raw.subtasks);
+    if (subtasks.length > 0) card.subtasks = subtasks;
+    else delete card.subtasks;
     for (const key of ['assignee', 'author'] as const) {
       const ref = readPersonRef(raw[key]);
       if (ref) card[key] = ref;
@@ -326,7 +332,8 @@ function withOneCurrent(phases: Phase[]): Phase[] {
 /** A board as its file holds it. */
 export function serializeBoard(board: Board): string {
   const { phases, ...rest } = board;
-  return `${JSON.stringify({ version: 1, ...rest, ...(phases.length > 0 && { phases }) }, null, 2)}\n`;
+  const cards = rest.cards.map((c) => (c.subtasks ? { ...c, subtasks: c.subtasks.map(writtenSubtask) } : c));
+  return `${JSON.stringify({ version: 1, ...rest, cards, ...(phases.length > 0 && { phases }) }, null, 2)}\n`;
 }
 
 /** Reads the board at `path`. A board whose file is missing is empty. */
@@ -621,6 +628,8 @@ export interface NewCard {
   note?: string | null;
   /** Values of the board's own fields, by key: a deal added from a company has the company. */
   values?: { [key: string]: FieldValue };
+  /** Its subtasks, in their order. */
+  subtasks?: NewSubtask[];
   /** Put first in its column rather than last. */
   first?: boolean;
   /** Put right after this card of its column, when it is there: cards typed one after another keep their order. */
@@ -660,6 +669,8 @@ export function addCard(board: Board, input: NewCard, now: Clock = () => new Dat
     completed: columnOf(board, { column } as Card)?.kind === 'done' ? stamp : null,
     timeline: [],
   };
+  const subtasks = (input.subtasks ?? []).reduce<Subtask[]>((list, s) => addSubtask(list, s, now), []);
+  if (subtasks.length > 0) card.subtasks = subtasks;
   // The cards after it in its column move down one to make room.
   const cards = after ? board.cards.map((c) => (c.column === column && c.order > after.order ? { ...c, order: c.order + 1 } : c)) : board.cards;
   return { ...board, nextKey: board.nextKey + 1, cards: [...cards, card] };
@@ -670,7 +681,7 @@ function cleanLabels(labels: string[]): string[] {
 }
 
 /** What can be changed of a card by editing it; `values` changes only the board's fields it names. */
-export type CardPatch = Partial<Pick<Card, 'title' | 'description' | 'priority' | 'due' | 'labels' | 'assignee' | 'phase'>> & { values?: { [key: string]: FieldValue } };
+export type CardPatch = Partial<Pick<Card, 'title' | 'description' | 'priority' | 'due' | 'labels' | 'assignee' | 'phase' | 'subtasks'>> & { values?: { [key: string]: FieldValue } };
 
 /**
  * Changes a card. An empty title keeps the old one; an empty description, label list or
@@ -691,12 +702,13 @@ export function updateCard(board: Board, id: string, patch: CardPatch, now: Cloc
       if (patch.assignee !== undefined) setOrDrop(next, 'assignee', patch.assignee || undefined);
       if (patch.phase !== undefined) setOrDrop(next, 'phase', patch.phase && board.phases.some((p) => p.id === patch.phase) ? patch.phase : undefined);
       if (patch.values !== undefined) setOrDrop(next, 'values', filledValues({ ...c.values, ...patch.values }));
+      if (patch.subtasks !== undefined) setOrDrop(next, 'subtasks', patch.subtasks.length > 0 ? patch.subtasks : undefined);
       return next;
     }),
   };
 }
 
-function setOrDrop<K extends 'description' | 'labels' | 'assignee' | 'phase' | 'values'>(card: Card, field: K, value: Card[K] | undefined): void {
+function setOrDrop<K extends 'description' | 'labels' | 'assignee' | 'phase' | 'values' | 'subtasks'>(card: Card, field: K, value: Card[K] | undefined): void {
   if (value === undefined) delete card[field];
   else card[field] = value;
 }
@@ -809,6 +821,24 @@ export function dueCards(boards: Record<string, Board>): DueCard[] {
     .sort((a, b) => a.card.due!.localeCompare(b.card.due!) || a.card.priority - b.card.priority);
 }
 
+/** An open subtask with a due day, of a card not finished, with the card and the path of its board. */
+export interface DueCardSubtask {
+  board: string;
+  card: Card;
+  subtask: Subtask;
+}
+
+/** The dated subtasks not done of the cards not finished, across boards, by day then priority. */
+export function dueCardSubtasks(boards: Record<string, Board>): DueCardSubtask[] {
+  return Object.entries(boards)
+    .flatMap(([path, board]) =>
+      board.cards
+        .filter((c) => c.subtasks && !isFinished(board, c))
+        .flatMap((card) => card.subtasks!.filter((s) => s.due && !s.done).map((subtask) => ({ board: path, card, subtask }))),
+    )
+    .sort((a, b) => a.subtask.due!.localeCompare(b.subtask.due!) || a.subtask.priority - b.subtask.priority);
+}
+
 /** A board whose link fields point at the collection at `from` point at `to`, where it went; the same board when none does. */
 export function retargetBoardLinks(board: Board, from: string, to: string): Board {
   if (!board.fields?.some((f) => f.type === 'link' && f.collection === from)) return board;
@@ -858,6 +888,11 @@ export function cardBrief(board: Board, card: Card, notes: NoteTexts = {}): stri
   }
   lines.push(...fields.map((f) => `- ${f}`), '');
   if (card.description) lines.push(card.description.trim(), '');
+  if (card.subtasks?.length) {
+    lines.push('## Subtasks', '');
+    for (const s of card.subtasks) lines.push(`- [${s.done ? 'x' : ' '}] ${s.title}${s.due ? ` (due ${s.due})` : ''}${s.priority < 4 ? ` (p${s.priority})` : ''}`);
+    lines.push('');
+  }
   const comments = card.timeline.filter((e): e is Extract<TimelineEntry, { kind: 'comment' }> => e.kind === 'comment');
   if (comments.length) {
     lines.push('## Comments', '');

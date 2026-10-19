@@ -37,6 +37,10 @@ import {
   type Phase,
   phaseCards,
   dueCards,
+  dueCardSubtasks,
+  dueRecordSubtasks,
+  type Subtask,
+  updateSubtask,
   filterCards,
   removeSection,
   removeTask,
@@ -143,7 +147,7 @@ import { pendingJoin } from './servers';
 import { Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Thing, thingsOf } from './Search';
-import { type Dated, dueLabel, FilterView, type TaskActions, TaskList, TodayView } from './Tasks';
+import { type Dated, dueLabel, type DueSubtask, FilterView, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList, TodayView } from './Tasks';
 import { Upcoming } from './Upcoming';
 import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
@@ -1187,6 +1191,13 @@ export function App() {
     const space = spaces.find((each) => each.id === spaceOf(path));
     return space ? { name: space.name, people: space.people, ...(me && { me: me.id }) } : null;
   };
+  // The open subtasks with a day of every card and record, by day then priority, for Today and Upcoming.
+  const dueSubtasksNow: DueSubtask[] = [...dueCardSubtasks(boards), ...dueRecordSubtasks(collections)].sort(
+    (a, b) => a.subtask.due!.localeCompare(b.subtask.due!) || a.subtask.priority - b.subtask.priority,
+  );
+  /** Changes the subtasks of a card or a record, from the list as it is now. */
+  const changeSubtasksOf = (ref: SubtaskRef, change: (list: Subtask[]) => Subtask[]) =>
+    'board' in ref ? session.changeCardSubtasks(ref.board, ref.id, change) : void session.changeRecordSubtasks(ref.collection, ref.id, change);
   const taskActions: TaskActions = {
     add: (target, input) => session.addTask(target, input),
     update: (target, id, change) => session.updateTask(target, id, change),
@@ -1206,10 +1217,21 @@ export function App() {
       pickDay: (title: string, onPick: (due: string | null) => void) => setDayPicker({ title, onPick }),
     }),
     reschedule: (items, due) => {
+      const subtaskOf = (item: SubtaskRef) =>
+        ('board' in item ? boards[item.board]?.cards.find((card) => card.id === item.id)?.subtasks : collections[item.collection]?.records.find((r) => r.id === item.id)?.subtasks)?.find(
+          (s) => s.id === item.subtask,
+        );
       const dueOf = (item: Dated) =>
-        ('list' in item ? tasks[item.list]?.find((task) => task.id === item.id)?.due : boards[item.board]?.cards.find((card) => card.id === item.id)?.due) ?? null;
-      const give = (item: Dated, day: string | null) =>
-        'list' in item ? session.updateTask(item.list, item.id, { due: day }) : session.updateCard(item.board, item.id, { due: day });
+        (isSubtaskRef(item)
+          ? subtaskOf(item)?.due
+          : 'list' in item
+            ? tasks[item.list]?.find((task) => task.id === item.id)?.due
+            : boards[item.board]?.cards.find((card) => card.id === item.id)?.due) ?? null;
+      const give = (item: Dated, day: string | null) => {
+        if (isSubtaskRef(item)) return changeSubtasksOf(item, (list) => updateSubtask(list, item.subtask, { due: day }));
+        if ('list' in item) return session.updateTask(item.list, item.id, { due: day });
+        session.updateCard(item.board, item.id, { due: day });
+      };
       const before = items.map((item) => ({ item, due: dueOf(item) }));
       for (const item of items) give(item, due);
       undoable(t('tasks.rescheduledNotice', { count: items.length, day: due ? dueLabel(due, today) : t('tasks.noDate') }), () => {
@@ -1248,6 +1270,12 @@ export function App() {
     },
     openRecord: (collection, id) => (phone ? setRecordAsked({ dir: collection, id }) : setRecordOver({ dir: collection, id })),
     people: peopleOf,
+    dueSubtasks: () => dueSubtasksNow,
+    completeSubtask: (ref) =>
+      undoable(
+        t('tasks.completedNotice'),
+        'board' in ref ? session.completeCardSubtask(ref.board, ref.id, ref.subtask) : session.completeRecordSubtask(ref.collection, ref.id, ref.subtask),
+      ),
   };
   // A card's brief: the card as Markdown, with the note it came from.
   const copyBrief = async (board: string, id: string) => {
@@ -1303,6 +1331,8 @@ export function App() {
       deleteCard(board, card);
     },
     updateCard: (board, id, patch) => session.updateCard(board, id, patch),
+    changeSubtasks: (board, id, change) => session.changeCardSubtasks(board, id, change),
+    completeSubtask: (board, id, subtask) => undoable(t('tasks.completedNotice'), session.completeCardSubtask(board, id, subtask)),
     addComment: (board, id, text) => session.addComment(board, id, text),
     editComment: (board, id, comment, text) => session.editComment(board, id, comment, text),
     removeComment: (board, id, comment) => session.removeComment(board, id, comment),
@@ -1365,7 +1395,7 @@ export function App() {
     />
   );
   const dueNow = dueToday(tasks, today);
-  const dueCardsNow = dueCards(boards).filter((d) => d.card.due! <= today).length;
+  const dueCardsNow = dueCards(boards).filter((d) => d.card.due! <= today).length + dueSubtasksNow.filter((d) => d.subtask.due! <= today).length;
   const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [TRASH]: trash.length, [FILES]: fileCount };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);

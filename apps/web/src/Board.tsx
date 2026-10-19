@@ -47,6 +47,7 @@ import { CardQuickAdd, cardHead, ColumnTabs, KindMark, Label, StatusSheet } from
 import { Empty, liftUntilTouch, Sheet, SheetClose } from './sheets';
 import { dueClass, dueLabel } from './Tasks';
 import { holdToDrag } from './touchDrag';
+import { SubtaskCount } from './Subtasks';
 
 /** What a board is called, from its path: its file's name without the extension. */
 const titleOfBoard = (path: string) => path.slice(path.lastIndexOf('/') + 1).replace(/\.board\.json$/, '');
@@ -252,6 +253,8 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
   onStatus?: (card: Card) => void;
 }) {
   const comments = card.timeline.filter((entry) => entry.kind === 'comment').length;
+  // How many of its subtasks are done, beside its day.
+  const subtasks = card.subtasks?.length ? <SubtaskCount list={card.subtasks} /> : null;
   const noteTitle = card.note ? actions.noteTitle(card.note) : null;
   const people = actions.people?.(path)?.people;
   const phase = showPhase && card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
@@ -301,7 +304,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
             {card.assignee && <span className="mb-who">{initialOf(card.assignee, people)}</span>}
           </span>
           <b>{card.title}</b>
-          {(card.due || card.labels?.length || comments > 0 || phase || face.length > 0) && (
+          {(card.due || subtasks || card.labels?.length || comments > 0 || phase || face.length > 0) && (
             <span className="meta">
               {card.due && (
                 <span className={dueClass(card.due, today)}>
@@ -309,6 +312,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
                   {dueLabel(card.due, today)}
                 </span>
               )}
+              {subtasks}
               {card.labels?.map((label) => <Label key={label} label={label} />)}
               {comments > 0 && (
                 <span>
@@ -351,9 +355,10 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
           <i className={`dot p${card.priority}`} />
           <span>{card.title}</span>
         </span>
-        {(card.due || card.labels?.length || comments > 0 || noteTitle !== null || phase || face.length > 0 || card.assignee) && (
+        {(card.due || subtasks || card.labels?.length || comments > 0 || noteTitle !== null || phase || face.length > 0 || card.assignee) && (
           <span className="meta">
             {card.due && <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span>}
+            {subtasks}
             {card.labels?.map((label) => (
               <span key={label} className="lbl" style={{ '--lh': labelHue(label) } as React.CSSProperties}>
                 {label}
@@ -1167,7 +1172,10 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
         onContextMenu={menu}
       >
         <span className="key">{keyOf(board, card)}</span>
-        <span className="tt">{card.title}</span>
+        <span className="tt">
+          {card.title}
+          {card.subtasks?.length ? <SubtaskCount list={card.subtasks} /> : null}
+        </span>
         <span className="st">
           {column && <StatusIcon status={columnStatus(board, column)} />}
           {column?.name}

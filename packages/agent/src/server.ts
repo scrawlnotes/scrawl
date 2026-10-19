@@ -34,6 +34,20 @@ function pretty(name: string): string {
 const space = z.string().optional().describe('The space, by name or id. Needed only when there is more than one.');
 const day = z.string().nullable().optional().describe('A day as YYYY-MM-DD; null for none.');
 const values = z.record(z.string(), z.unknown()).optional().describe('Field values by field key or label. A link field takes a record’s name, code or id (or a list of them).');
+const subtasks = z
+  .array(
+    z.object({
+      id: z.string().optional().describe('The subtask to change: its id or its title. Left out, it is added, unless an open one has the title.'),
+      title: z.string().optional(),
+      done: z.boolean().optional(),
+      due: z.string().nullable().optional().describe('A day as YYYY-MM-DD; null for none.'),
+      priority: z.number().int().min(1).max(4).optional(),
+      assignee: z.string().nullable().optional(),
+      remove: z.boolean().optional().describe('true takes it off the list.'),
+    }),
+  )
+  .optional()
+  .describe('Subtasks to add, change, tick off (done: true) or take off (remove: true); the others stay as they are. One level, in the order added.');
 const another = z.boolean().optional().describe('true to add it even though one with the same name is already there. Left out, the tool returns the one that exists instead of adding a second.');
 
 /** The MCP server over the spaces `agent` gives, with every tool and the guide. */
@@ -176,6 +190,7 @@ export function buildServer(agent: Agent): McpServer {
         id: z.string().optional().describe('The record to change: its id, name or code. Left out, a new record is added.'),
         values,
         body: z.string().optional().describe('The notes under the fields, markdown.'),
+        subtasks,
         another,
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },
@@ -214,7 +229,7 @@ export function buildServer(agent: Agent): McpServer {
         board: z.string(),
         id: z.string().optional(),
         title: z.string().optional(),
-        description: z.string().optional().describe('Markdown; a checklist is `- [ ]` lines.'),
+        description: z.string().optional().describe('Markdown. For steps to tick off use subtasks.'),
         column: z.string().optional(),
         phase: z.string().optional().describe('A phase by name; "none" for the general backlog.'),
         priority: z.number().int().min(1).max(4).optional().describe('1 highest, 4 none.'),
@@ -222,6 +237,7 @@ export function buildServer(agent: Agent): McpServer {
         labels: z.array(z.string()).optional(),
         assignee: z.string().nullable().optional().describe('A person’s name; null for nobody.'),
         values,
+        subtasks,
         another,
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },

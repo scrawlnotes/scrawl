@@ -2677,6 +2677,109 @@ button.cb:hover::after {
   text-align: left;
 }
 
+/* A card's or a record's own subtasks, set as a list's tasks: one level, the head saying how many
+   are done. Where a dragged one would go shows as a line in the accent, above or under a row. */
+.subtasks {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stk-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.stk-head small {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.stk-rows {
+  position: relative;
+  padding-left: 2px;
+}
+
+.stk-rows .task {
+  position: relative;
+  padding: 6px 0;
+}
+
+.stk-rows .task > .grip {
+  top: 8px;
+  left: -15px;
+}
+
+.stk-rows .tt,
+.stk-rows .tt-edit {
+  font-size: 13px;
+}
+
+.stk-rows .task.editing {
+  margin: 2px -10px;
+}
+
+.stk-rows .qa {
+  padding: 7px 0 2px;
+  font-size: 13px;
+}
+
+.stk-rows .qa.stk-done {
+  padding-top: 4px;
+  font-size: 12px;
+}
+
+.task.drop-above {
+  box-shadow: inset 0 2px 0 var(--sl-accent);
+}
+
+.task.drop-below {
+  box-shadow: inset 0 -2px 0 var(--sl-accent);
+}
+
+.subtasks.on-record .stk-rows {
+  margin-top: 2px;
+}
+
+/* How many of a card's subtasks are done, on its face and its row; once all are, in the accent. */
+.stk-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stk-count .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.stk-count.all {
+  color: var(--sl-accent);
+}
+
+/* A dated subtask in Today, Upcoming and the start page: the card or the record it is in, by a small mark. */
+.sub-row .meta .from,
+.start-task .meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.sub-row .meta .icon,
+.start-task .meta .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.lrow .tt .stk-count {
+  margin-left: 8px;
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
 .qa:hover {
   color: var(--sl-fg);
 }

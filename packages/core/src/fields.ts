@@ -9,6 +9,7 @@ import {
   type Record,
   type Schema,
   serializeSchema,
+  SUBTASKS_KEY,
 } from './collection';
 
 // What the Fields window needs to change a collection's schema: keys for new fields, choices
@@ -17,12 +18,12 @@ import {
 
 /**
  * A key for a new field from its label: lower case, words joined by underscores, numbered when
- * taken; `field` for a label with no letters or digits. `id` is the record's own and never a field's.
+ * taken; `field` for a label with no letters or digits. `id` and `subtasks` are the record's own and never a field's.
  */
 export function keyFor(label: string, taken: ReadonlySet<string>): string {
   const base = cleanFieldKey(label) || 'field';
   let key = base;
-  for (let n = 2; taken.has(key) || key === 'id'; n++) key = `${base}_${n}`;
+  for (let n = 2; taken.has(key) || key === 'id' || key === SUBTASKS_KEY; n++) key = `${base}_${n}`;
   return key;
 }
 

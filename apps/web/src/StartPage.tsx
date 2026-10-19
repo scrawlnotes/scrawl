@@ -1,10 +1,10 @@
-import { type Board, type Card, type CollectionTemplate, dueCards, dueToday, keyOf, type Seen, type Task, type TaskFilter, type Template } from '@scrawlnotes/core';
+import { type Board, type Card, type CollectionTemplate, dueCards, dueToday, keyOf, recordTitle, type Seen, type Task, type TaskFilter, type Template } from '@scrawlnotes/core';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import type { MouseEvent } from 'react';
 import { KINDS, type NewKind } from './dialogs';
 import { Icon } from './Icon';
-import { boardWhere, collectionPathOf, folderLabel, folderOf, iconOf, listWhere, nameOf, pathOf, seenText, spaceWhere } from './items';
-import { dueClass, dueLabel, type TaskActions } from './Tasks';
+import { boardWhere, collectionWhere, collectionPathOf, folderLabel, folderOf, iconOf, listWhere, nameOf, pathOf, seenText, spaceWhere } from './items';
+import { dueClass, dueLabel, type DueSubtask, placeOf as subtaskPlace, subtaskRefOf, type TaskActions } from './Tasks';
 
 // The main area while nothing is open, on a computer and on the web (PLAN 4.1, the Start page of
 // design/mockups.html), in place of Create opening by itself. Create's kinds are on top, Recent and
@@ -40,7 +40,7 @@ function placeOf(id: string): string {
   return folder === null ? '' : folderLabel(folder);
 }
 
-type Due = { list: string; task: Task } | { board: string; card: Card };
+type Due = { list: string; task: Task } | { board: string; card: Card } | DueSubtask;
 
 export function StartPage({ empty, recent, titles, filters, lists, boards, today, actions, onKind, onTemplate, onOpen, onOpenTask, onOpenToday, onAgents }: {
   /** No space has anything in it yet. */
@@ -146,7 +146,7 @@ export function StartPage({ empty, recent, titles, filters, lists, boards, today
   );
 }
 
-/** Today's first few, as Today orders them: the late tasks, today's, then the cards; each finished from its box. */
+/** Today's first few, as Today orders them: the late tasks, today's, then the cards, then the subtasks of cards and records; each finished from its box. */
 function StartToday({ lists, boards, today, actions, onOpenTask, onOpenToday }: {
   lists: Record<string, Task[]>;
   boards: Record<string, Board>;
@@ -156,7 +156,12 @@ function StartToday({ lists, boards, today, actions, onOpenTask, onOpenToday }: 
   onOpenToday: () => void;
 }) {
   const tasks = dueToday(lists, today);
-  const due: Due[] = [...tasks.overdue, ...tasks.today, ...dueCards(boards).filter((d) => d.card.due! <= today)];
+  const due: Due[] = [
+    ...tasks.overdue,
+    ...tasks.today,
+    ...dueCards(boards).filter((d) => d.card.due! <= today),
+    ...actions.dueSubtasks().filter((d) => d.subtask.due! <= today),
+  ];
   // A card on a board with more than one done column asks which, under its box.
   const finishCard = (event: MouseEvent<HTMLButtonElement>, board: string, card: Card) => {
     const done = boards[board]?.columns.filter((column) => column.kind === 'done') ?? [];
@@ -178,7 +183,33 @@ function StartToday({ lists, boards, today, actions, onOpenTask, onOpenToday }: 
       </h2>
       {due.length === 0 && <p className="start-none">{t('tasks.nothingToday')}</p>}
       {due.slice(0, TODAY_SHOWN).map((item) =>
-        'task' in item ? (
+        'subtask' in item ? (
+          <div key={`${subtaskPlace(item)}~${item.subtask.id}`} className="start-task">
+            <button
+              type="button"
+              className={`cb p${item.subtask.priority}`}
+              role="checkbox"
+              aria-checked={false}
+              aria-label={t('tasks.complete', { name: item.subtask.title })}
+              onClick={() => actions.completeSubtask(subtaskRefOf(item))}
+            />
+            <button
+              type="button"
+              className="tx"
+              onClick={() => ('board' in item ? actions.openCard(item.board, item.card.id) : actions.openRecord(item.collection, item.record.id))}
+            >
+              <span className="tt">{item.subtask.title}</span>
+              <span className="meta">
+                {lateDay(item.subtask.due)}
+                <span>
+                  <Icon name="subtask" />
+                  {'board' in item ? `${boards[item.board] ? keyOf(boards[item.board]!, item.card) : ''} ${item.card.title}`.trim() : recordTitle(item.record)}
+                </span>
+                <span>{'board' in item ? boardWhere(item.board) : collectionWhere(item.collection)}</span>
+              </span>
+            </button>
+          </div>
+        ) : 'task' in item ? (
           <div key={`${item.list}/${item.task.id}`} className="start-task">
             <button
               type="button"

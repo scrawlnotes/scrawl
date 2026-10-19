@@ -155,6 +155,8 @@ import {
   type TrashItem,
   type TreeNode,
   updateCard,
+  type Subtask,
+  updateSubtask,
   setBoardFields,
   type Field,
   updatePhase,
@@ -2441,6 +2443,33 @@ export class Session {
 
   updateCard(board: string, id: string, patch: CardPatch) {
     this.changeBoard(board, (current) => updateCard(current, id, patch));
+  }
+
+  /** Changes a card's subtasks, from the list as it is now. */
+  changeCardSubtasks(board: string, id: string, change: (list: Subtask[]) => Subtask[]) {
+    this.changeBoard(board, (current) => {
+      const card = current.cards.find((c) => c.id === id);
+      return card ? updateCard(current, id, { subtasks: change(card.subtasks ?? []) }) : current;
+    });
+  }
+
+  /** Ticks off a card's subtask; returns what opens it again. */
+  completeCardSubtask(board: string, id: string, subtask: string): () => void {
+    this.changeCardSubtasks(board, id, (list) => updateSubtask(list, subtask, { done: true }));
+    return () => this.changeCardSubtasks(board, id, (list) => updateSubtask(list, subtask, { done: false }));
+  }
+
+  /** Changes a record's subtasks, from the list as it is now, and writes its file. Returns a message when it cannot be saved. */
+  changeRecordSubtasks(dir: string, id: string, change: (list: Subtask[]) => Subtask[]): Promise<string | null> {
+    const record = this.snapshot.collections[dir]?.records.find((r) => r.id === id);
+    if (!record) return Promise.resolve(t('error.record'));
+    return this.updateRecord(dir, id, { subtasks: change(record.subtasks ?? []) });
+  }
+
+  /** Ticks off a record's subtask; returns what opens it again. */
+  completeRecordSubtask(dir: string, id: string, subtask: string): () => void {
+    void this.changeRecordSubtasks(dir, id, (list) => updateSubtask(list, subtask, { done: true }));
+    return () => void this.changeRecordSubtasks(dir, id, (list) => updateSubtask(list, subtask, { done: false }));
   }
 
   /**

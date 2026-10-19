@@ -2,6 +2,7 @@ import { t } from '@scrawlnotes/i18n';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { basename, type Entry, join, type VaultFs } from './fs';
 import { freePath, moveTree } from './paths';
+import { readSubtasks, type Subtask, writtenSubtask } from './subtasks';
 
 // A collection is a folder with a schema file in it, `_collection.json`, and one Markdown file
 // per record, named after the record's id: the record's fields in YAML front matter, free text
@@ -87,14 +88,15 @@ export const NAME_KEY = 'name';
 
 /**
  * An element of the record screen: a field, the body, the records of another collection that
- * link here, or cards and tasks. Linked records are a list or a timeline, sorted by a field (a
+ * link here, cards and tasks, or the record's own subtasks. Linked records are a list or a timeline, sorted by a field (a
  * timeline by its day, newest first), a list's rows showing the fields named.
  */
 export type LayoutItem =
   | { field: string }
   | { block: 'body' }
   | { block: 'linked'; collection: string; sort?: string; style?: 'list' | 'timeline'; fields?: string[] }
-  | { block: 'cards' };
+  | { block: 'cards' }
+  | { block: 'subtasks' };
 
 export type LinkedBlock = Extract<LayoutItem, { block: 'linked' }>;
 
@@ -196,7 +198,12 @@ export interface Record {
   /** Front matter the schema knows nothing about, kept as it was. */
   extra: { [key: string]: unknown };
   body: string;
+  /** Its own subtasks, in their order, from the front matter's `subtasks`; left out when it has none. */
+  subtasks?: Subtask[];
 }
+
+/** The key of a record's subtasks in its front matter, which no field takes. */
+export const SUBTASKS_KEY = 'subtasks';
 
 /** What a collection is called: its folder's name. */
 export const collectionName = (dir: string) => basename(dir);
@@ -439,7 +446,7 @@ function readField(raw: unknown): Field | null {
 function readItem(raw: unknown): LayoutItem | null {
   if (!isRecord(raw)) return null;
   if (typeof raw.field === 'string') return { field: cleanFieldKey(raw.field) };
-  if (raw.block === 'body' || raw.block === 'cards') return { block: raw.block };
+  if (raw.block === 'body' || raw.block === 'cards' || raw.block === 'subtasks') return { block: raw.block };
   if (raw.block === 'linked' && typeof raw.collection === 'string') {
     const fields = strings(raw.fields).map(cleanFieldKey).filter(Boolean);
     return {
@@ -897,9 +904,14 @@ function recordOf(front: { [key: string]: unknown }, body: string, schema: Schem
   const values: Record['values'] = {};
   const extra: Record['extra'] = {};
   const known = new Map(schema.fields.map((f) => [f.key, f]));
+  let subtasks: Subtask[] = [];
   for (const [key, raw] of Object.entries(front)) {
     if (key === 'id') continue;
     const field = known.get(key);
+    if (key === SUBTASKS_KEY && !field) {
+      subtasks = readSubtasks(raw);
+      continue;
+    }
     // A value worked out on screen is not the file's; what the file has there is kept as it was.
     if (!field || field.type === 'formula' || field.type === 'rollup') {
       extra[key] = raw;
@@ -911,7 +923,7 @@ function recordOf(front: { [key: string]: unknown }, body: string, schema: Schem
   }
   const named = nameField(schema);
   if (named && isEmpty(values[named.key]) && !namedById(path)) values[named.key] = recordName(path);
-  return { id: typeof front.id === 'string' ? front.id : '', path, ...identity(values, schema), values, extra, body };
+  return { id: typeof front.id === 'string' ? front.id : '', path, ...identity(values, schema), values, extra, body, ...(subtasks.length > 0 && { subtasks }) };
 }
 
 /** The file of a record: its id, then its fields in the schema's order, then what the schema does not know, then the body. */
@@ -924,7 +936,9 @@ export function serializeRecord(record: Record, schema: Schema): string {
   }
   for (const [key, value] of Object.entries(record.extra)) if (!(key in front)) front[key] = value;
   const yaml = stringifyYaml(front, { lineWidth: 0 }).replace(/\n$/, '');
-  return `---\n${yaml}\n---\n${normalBody(record.body)}`;
+  // Each subtask on a line of its own, so that two devices that change two of them merge line by line.
+  const subtasks = record.subtasks?.length && !(SUBTASKS_KEY in front) ? `\n${SUBTASKS_KEY}:${record.subtasks.map((s) => `\n  - ${JSON.stringify(writtenSubtask(s))}`).join('')}` : '';
+  return `---\n${yaml}${subtasks}\n---\n${normalBody(record.body)}`;
 }
 
 const isHidden = (name: string) => name.startsWith('.') || name.startsWith('_');
@@ -1134,6 +1148,8 @@ export function retargetLinks(schema: Schema, from: string, to: string): Schema 
 export interface NewRecord {
   values?: Record['values'];
   body?: string;
+  /** Its subtasks, as the form made them, in their order. */
+  subtasks?: Subtask[];
 }
 
 /** The values as a file keeps them: the empty ones left out. */
@@ -1155,18 +1171,37 @@ export async function addRecord(fs: VaultFs, collection: Collection, input: NewR
   }
   const values = filled(input.values ?? {});
   const record: Record = { id, path, ...identity(values, collection.schema), values, extra: {}, body: normalBody(input.body ?? '') };
+  if (input.subtasks?.length) record.subtasks = input.subtasks;
   await fs.writeText(path, serializeRecord(record, collection.schema));
   return record;
 }
 
-export type RecordPatch = Partial<Pick<Record, 'body'>> & { values?: Record['values'] };
+export type RecordPatch = Partial<Pick<Record, 'body' | 'subtasks'>> & { values?: Record['values'] };
 
 /** Changes a record and writes its file, where it is. Returns the record as written. */
 export async function updateRecord(fs: VaultFs, schema: Schema, record: Record, patch: RecordPatch): Promise<Record> {
   const values = filled(patch.values ? { ...record.values, ...patch.values } : record.values);
   const next: Record = { ...record, ...(patch.body !== undefined && { body: normalBody(patch.body) }), values, ...identity(values, schema) };
+  if (patch.subtasks !== undefined) {
+    if (patch.subtasks.length > 0) next.subtasks = patch.subtasks;
+    else delete next.subtasks;
+  }
   await fs.writeText(next.path, serializeRecord(next, schema));
   return next;
+}
+
+/** An open subtask with a due day, with its record and the folder of the record's collection. */
+export interface DueRecordSubtask {
+  collection: string;
+  record: Record;
+  subtask: Subtask;
+}
+
+/** The dated subtasks not done of every record, across collections by folder, by day then priority. */
+export function dueRecordSubtasks(collections: { [dir: string]: Pick<Collection, 'records'> }): DueRecordSubtask[] {
+  return Object.entries(collections)
+    .flatMap(([dir, c]) => c.records.flatMap((record) => (record.subtasks ?? []).filter((s) => s.due && !s.done).map((subtask) => ({ collection: dir, record, subtask }))))
+    .sort((a, b) => a.subtask.due!.localeCompare(b.subtask.due!) || a.subtask.priority - b.subtask.priority);
 }
 
 // ---------- looking at records ----------

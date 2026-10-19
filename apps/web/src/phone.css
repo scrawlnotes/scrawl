@@ -2879,6 +2879,67 @@ body > .mb-lifted {
   padding-right: 8px;
 }
 
+/* A card's or a record's subtasks on a phone: the title, under it its day and who it is given to;
+   held, one is carried, and where it would go shows as a line. */
+.mb-subtasks .mb-fr.sub .in {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 0;
+}
+
+.mb-subtasks .mb-fr.sub .meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--sl-dim);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.mb-subtasks .mb-fr.sub .meta .today {
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+.mb-subtasks .mb-fr.sub .meta .late {
+  color: var(--sl-p1);
+  font-weight: 600;
+}
+
+.mb-subtasks .mb-fr.sub.done .tx {
+  color: var(--sl-faint);
+  text-decoration: line-through;
+}
+
+.mb-subtasks .mb-fr.sub.done .in {
+  text-decoration: none;
+}
+
+.mb-subtasks .mb-fr.drop-above {
+  box-shadow: inset 0 2px 0 var(--sl-accent);
+}
+
+.mb-subtasks .stk-end {
+  height: 2px;
+  background: var(--sl-accent);
+}
+
+.mb-subtasks .mb-fr.stk-done .in {
+  padding-left: 32px;
+  color: var(--sl-dim);
+  font-size: 14px;
+}
+
+/* Its head sits on the page's edge as the description's does; the list is set in as the fields are. */
+.mb-cbody .mb-stk,
+.mb-rbody .mb-stk {
+  padding-bottom: 4px;
+}
+
 .mb-fr.add-sub input.in {
   font-size: 16px;
 }

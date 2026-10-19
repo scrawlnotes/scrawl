@@ -161,7 +161,12 @@ function mergeTimeline(base: TimelineEntry[], local: TimelineEntry[], remote: Ti
 
 function mergeCard(was: Card | undefined, mine: Card, theirs: Card): Card {
   const card = mergeFields(was, mine, theirs, 'updated');
-  return { ...card, timeline: mergeTimeline(was?.timeline ?? [], mine.timeline, theirs.timeline) };
+  // Subtasks one by one, as the timeline: what each side added stays, and a change on one side is kept.
+  const subtasks = mergeRecords(was?.subtasks ?? [], mine.subtasks ?? [], theirs.subtasks ?? [], byId, (b, l, r) => mergeFields(b, l, r));
+  const merged: Card = { ...card, timeline: mergeTimeline(was?.timeline ?? [], mine.timeline, theirs.timeline) };
+  if (subtasks.length > 0) merged.subtasks = subtasks;
+  else delete merged.subtasks;
+  return merged;
 }
 
 /**

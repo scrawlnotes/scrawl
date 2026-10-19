@@ -26,7 +26,8 @@ import {
   withRollups,
 } from '@scrawlnotes/core';
 import { Refusal } from './paths';
-import { type Agent, elementsOf, pickElement, pickRecord, pickSpace, todayOf } from './space';
+import { type Agent, elementsOf, nowOf, pickElement, pickRecord, pickSpace, todayOf } from './space';
+import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
 // Collections: asking for records with conditions, and adding or changing one. A link is given
 // by the name or the code of the record it points at; a value that does not fit its field is not
@@ -73,6 +74,7 @@ export function recordOut(record: CollectionRecord, schema: Schema, today: strin
     ...(record.code && { code: record.code }),
     values,
     ...(problems.length > 0 && { problems }),
+    ...(record.subtasks?.length && { subtasks: record.subtasks.map(subtaskOut) }),
     body: record.body,
   };
 }
@@ -193,7 +195,7 @@ function twinsOf(collection: Collection, values: { [key: string]: FieldValue }):
   return null;
 }
 
-export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string; another?: boolean }) {
+export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string; subtasks?: SubtaskArg[]; another?: boolean }) {
   const space = await pickSpace(agent, args.space);
   const element = await pickElement(space.fs, args.collection, ['collection'], 'collection');
   const collection = await loadCollection(space.fs, element.path);
@@ -222,9 +224,11 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     const found = pickRecord(collection, args.id);
     const kept = { ...found.extra };
     for (const key of Object.keys(values)) delete kept[key];
-    record = await updateRecord(space.fs, schema, { ...found, extra: { ...kept, ...extra } }, { values, ...(args.body !== undefined && { body: args.body }) });
+    const subtasks = args.subtasks ? await applySubtasks(space.fs, found.subtasks ?? [], args.subtasks, nowOf(agent)) : undefined;
+    record = await updateRecord(space.fs, schema, { ...found, extra: { ...kept, ...extra } }, { values, ...(args.body !== undefined && { body: args.body }), ...(subtasks && { subtasks }) });
   } else {
-    record = await addRecord(space.fs, collection, { values, ...(args.body !== undefined && { body: args.body }) });
+    const subtasks = args.subtasks ? await applySubtasks(space.fs, [], args.subtasks, nowOf(agent)) : undefined;
+    record = await addRecord(space.fs, collection, { values, ...(args.body !== undefined && { body: args.body }), ...(subtasks?.length && { subtasks }) });
     if (Object.keys(extra).length > 0) record = await updateRecord(space.fs, schema, { ...record, extra }, {});
     created = true;
   }

@@ -5,8 +5,8 @@ import type { UpcomingView } from './device';
 import { Icon } from './Icon';
 import { Empty } from './sheets';
 import { dateWords } from './TaskComposer';
-import { CardRow, type Dated, splitDueCards, type TaskActions, TaskItem, TaskPage } from './Tasks';
-import { datedByDay, dayHeading, type Entry, entryKey, freeWords, monthWords } from './Upcoming';
+import { CardRow, type Dated, type DueSubtask, placeOf, splitDueCards, splitDueSubtasks, SubtaskRow, subtaskRefOf, type TaskActions, TaskItem, TaskPage } from './Tasks';
+import { datedByDay, dayHeading, type Entry, entryKey, EntryRow, freeWords, monthWords } from './Upcoming';
 
 // Upcoming on a phone, after the Phone views of the Upcoming mockups, in two views chosen beside its
 // title. List: what is late first, with Reschedule, then today, then only the days that have
@@ -31,10 +31,12 @@ export function PhoneUpcoming(props: Props) {
 function PhoneDays({ lists, boards, today, actions }: Props) {
   const due = dueToday(lists, today);
   const cards = splitDueCards(boards, today);
+  const subtasks = splitDueSubtasks(actions.dueSubtasks(), today);
   const tasksOn = new Map(dueUpcoming(lists, today).map((d) => [d.day, d.tasks]));
   tasksOn.set(today, due.today);
   cards.later.set(today, cards.today);
-  const busy = [...tasksOn, ...cards.later].filter(([, on]) => on.length > 0).map(([day]) => day);
+  subtasks.later.set(today, subtasks.today);
+  const busy = [...tasksOn, ...cards.later, ...subtasks.later].filter(([, on]) => on.length > 0).map(([day]) => day);
   const runs = dayRuns(busy, today);
 
   const item = ({ list, task }: { list: string; task: Task }) => (
@@ -43,7 +45,12 @@ function PhoneDays({ lists, boards, today, actions }: Props) {
   const cardItem = ({ board, card }: { board: string; card: Card }) => (
     <CardRow key={`${board}#${card.id}`} board={board} whole={boards[board]!} card={card} today={today} actions={actions} byDay />
   );
-  const late: Dated[] = [...due.overdue.map(({ list, task }) => ({ list, id: task.id })), ...cards.overdue.map(({ board, card }) => ({ board, id: card.id }))];
+  const subtaskItem = (d: DueSubtask) => <SubtaskRow key={`${placeOf(d)}~${d.subtask.id}`} due={d} today={today} actions={actions} byDay />;
+  const late: Dated[] = [
+    ...due.overdue.map(({ list, task }) => ({ list, id: task.id })),
+    ...cards.overdue.map(({ board, card }) => ({ board, id: card.id })),
+    ...subtasks.overdue.map(subtaskRefOf),
+  ];
   const reschedule = () => actions.pickDay?.(t('tasks.rescheduleTitle', { count: late.length }), (day) => actions.reschedule(late, day));
 
   return (
@@ -58,6 +65,7 @@ function PhoneDays({ lists, boards, today, actions }: Props) {
           </div>
           {due.overdue.map(item)}
           {cards.overdue.map(cardItem)}
+          {subtasks.overdue.map(subtaskItem)}
         </>
       )}
       {runs.map((run) =>
@@ -68,10 +76,12 @@ function PhoneDays({ lists, boards, today, actions }: Props) {
         ) : (
           <Fragment key={run.day}>
             <div className="sec">
-              {dayHeading(run.day, today)} <small>{(tasksOn.get(run.day)?.length ?? 0) + (cards.later.get(run.day)?.length ?? 0)}</small>
+              {dayHeading(run.day, today)}{' '}
+              <small>{(tasksOn.get(run.day)?.length ?? 0) + (cards.later.get(run.day)?.length ?? 0) + (subtasks.later.get(run.day)?.length ?? 0)}</small>
             </div>
             {(tasksOn.get(run.day) ?? []).map(item)}
             {(cards.later.get(run.day) ?? []).map(cardItem)}
+            {(subtasks.later.get(run.day) ?? []).map(subtaskItem)}
           </Fragment>
         ),
       )}
@@ -89,7 +99,7 @@ function PhoneDays({ lists, boards, today, actions }: Props) {
 
 function PhoneMonth({ lists, boards, today, actions, day, onDay }: Props) {
   const [month, setMonth] = useState(day.slice(0, 7));
-  const { byDay } = datedByDay(lists, boards, today);
+  const { byDay } = datedByDay(lists, boards, today, actions.dueSubtasks());
   const entries = byDay.get(day) ?? [];
   const shift = (by: number) => {
     const [y, m] = month.split('-').map(Number) as [number, number];
@@ -97,12 +107,7 @@ function PhoneMonth({ lists, boards, today, actions, day, onDay }: Props) {
     setMonth(`${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}`);
   };
   const initials = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'narrow' }));
-  const row = (entry: Entry) =>
-    'task' in entry ? (
-      <TaskItem key={entryKey(entry)} list={entry.list} task={entry.task} tasks={lists[entry.list] ?? []} today={today} showDone={false} actions={actions} flat byDay />
-    ) : (
-      <CardRow key={entryKey(entry)} board={entry.board} whole={boards[entry.board]!} card={entry.card} today={today} actions={actions} byDay />
-    );
+  const row = (entry: Entry) => <EntryRow key={entryKey(entry)} entry={entry} lists={lists} boards={boards} today={today} actions={actions} />;
 
   return (
     <TaskPage title={t('tasks.upcoming')} bare>

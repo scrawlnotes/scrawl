@@ -247,6 +247,49 @@ describe('collections', () => {
   });
 });
 
+describe('subtasks', () => {
+  it('adds a card with subtasks, ticks one off by its title, changes one by id, and does not add one twice', async () => {
+    const { agent, fs, board } = await sample();
+    const added = await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Landing page', subtasks: [{ title: 'Design' }, { title: 'Wire the form', due: '2026-10-20', priority: 2 }] });
+    expect(added.data.card.subtasks).toEqual([
+      { id: expect.any(String), title: 'Design', done: false, priority: 4, due: null },
+      { id: expect.any(String), title: 'Wire the form', done: false, priority: 2, due: '2026-10-20' },
+    ]);
+    const formId = added.data.card.subtasks![1]!.id;
+    const changed = await saveCardTool(agent, CLIENT, {
+      board,
+      id: 'SCR-1',
+      subtasks: [{ id: 'design', done: true }, { id: formId, title: 'Wire the signup form' }, { title: 'Design' }, { title: 'Test it' }],
+    });
+    expect(changed.data.card.subtasks!.map((s) => [s.title, s.done])).toEqual([
+      ['Design', true],
+      ['Wire the signup form', false],
+      ['Design', false],
+      ['Test it', false],
+    ]);
+    // Sent again after a cut-off call: the open ones of those titles are changed, not added.
+    const again = await saveCardTool(agent, CLIENT, { board, id: 'SCR-1', subtasks: [{ title: 'Design' }, { title: 'Test it', priority: 1 }] });
+    expect(again.data.card.subtasks).toHaveLength(4);
+    const removed = await saveCardTool(agent, CLIENT, { board, id: 'SCR-1', subtasks: [{ id: formId, remove: true }] });
+    expect(removed.data.card.subtasks!.map((s) => s.title)).toEqual(['Design', 'Design', 'Test it']);
+    expect((await loadBoard(fs, board)).cards[0]!.subtasks![0]!.completed).toBe(NOW.toISOString());
+    expect((await refusal(saveCardTool(agent, CLIENT, { board, id: 'SCR-1', subtasks: [{ id: 'nothing' }] }))).message).toContain('No subtask');
+    expect((await refusal(saveCardTool(agent, CLIENT, { board, id: 'SCR-1', subtasks: [{ id: 'design' }] }))).message).toContain('More than one subtask');
+    expect((await cardsTool(agent, { board, card: 'SCR-1', brief: true })).text).toContain('## Subtasks\n\n- [x] Design\n- [ ] Design\n- [ ] Test it (p1)');
+  });
+
+  it('keeps a record’s subtasks in its front matter and changes them', async () => {
+    const { agent, fs } = await sample();
+    const acme = await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Acme Corp' }, subtasks: [{ title: 'Send the offer', due: '2026-10-16' }] });
+    expect(acme.data.record.subtasks).toEqual([{ id: expect.any(String), title: 'Send the offer', done: false, priority: 4, due: '2026-10-16' }]);
+    const done = await saveRecordTool(agent, { collection: 'Companies', id: 'Acme Corp', subtasks: [{ id: 'send the offer', done: true }] });
+    expect(done.data.record.subtasks![0]).toMatchObject({ done: true, completed: NOW.toISOString() });
+    const record = (await loadCollection(fs, 'CRM/Companies')).records[0]!;
+    expect(record.subtasks).toHaveLength(1);
+    expect(await fs.readText(record.path)).toContain('\nsubtasks:\n  - {"id":');
+  });
+});
+
 describe('tasks', () => {
   it('adds to the Inbox with a record by name, lists what is due, closes, and names the list in a shared space', async () => {
     const { agent, fs } = await sample();

@@ -2,6 +2,10 @@ import {
   addDays,
   basename,
   type Board,
+  BOARD_EXT,
+  cardRef,
+  type DueCardSubtask,
+  type DueRecordSubtask,
   type Card,
   childrenOf,
   dayOf,
@@ -51,13 +55,42 @@ import { createPortal } from 'react-dom';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
-import { boardHeading, boardLabel, boardWhere, collectionLabel, folderLabel, listHeading, listLabel, listWhere } from './items';
+import { boardHeading, boardLabel, boardWhere, collectionHeading, collectionLabel, collectionWhere, folderLabel, listHeading, listLabel, listWhere } from './items';
 import { AssigneeChip, firstName, PersonPicker, type SpacePeople } from './People';
 import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
 /** A task in its list, or a card on its board: something with a day to move. */
-export type Dated = { list: string; id: string } | { board: string; id: string };
+/** A subtask of a card or of a record: what it is in, and its own id. */
+export type SubtaskRef = { board: string; id: string; subtask: string } | { collection: string; id: string; subtask: string };
+
+/** Something with a day, to give it another: a task, a card, or a subtask of a card or a record. */
+export type Dated = { list: string; id: string } | { board: string; id: string } | SubtaskRef;
+
+export const isSubtaskRef = (item: Dated): item is SubtaskRef => 'subtask' in item;
+
+/** An open subtask with a day: of a card on its board, or of a record in its collection. */
+export type DueSubtask = DueCardSubtask | DueRecordSubtask;
+
+export const subtaskRefOf = (due: DueSubtask): SubtaskRef =>
+  'board' in due ? { board: due.board, id: due.card.id, subtask: due.subtask.id } : { collection: due.collection, id: due.record.id, subtask: due.subtask.id };
+
+/** Where a dated subtask is: the board or the collection its card or record is in. */
+export const placeOf = (due: DueSubtask) => ('board' in due ? due.board : due.collection);
+
+/** The dated subtasks of every card and record: what is late, due today, and due later by day. */
+export function splitDueSubtasks(all: DueSubtask[], today: string) {
+  const later = new Map<string, DueSubtask[]>();
+  for (const due of all) {
+    if (due.subtask.due! <= today) continue;
+    later.set(due.subtask.due!, [...(later.get(due.subtask.due!) ?? []), due]);
+  }
+  return {
+    overdue: all.filter((d) => d.subtask.due! < today),
+    today: all.filter((d) => d.subtask.due === today),
+    later,
+  };
+}
 
 /** What can be done to a task, in the list at the path given. */
 export interface TaskActions {
@@ -111,6 +144,10 @@ export interface TaskActions {
   reschedule: (items: Dated[], due: string | null) => void;
   /** On a phone: a day chosen in a sheet, about `title`. */
   pickDay?: (title: string, onPick: (due: string | null) => void) => void;
+  /** The open subtasks with a day of every card and record, by day then priority. */
+  dueSubtasks: () => DueSubtask[];
+  /** Ticks off a subtask of a card or a record, with Undo. */
+  completeSubtask: (ref: SubtaskRef) => void;
 }
 
 /** A row of the record picker: unlinking, or a record of a collection. */
@@ -246,7 +283,7 @@ export const GRIP = (
 );
 
 /** The handle a row is dragged by; it shows when the row is hovered. */
-function Grip({ title, onGrab, onRelease }: { title: string; onGrab: (event: DragEvent<HTMLElement>) => void; onRelease: () => void }) {
+export function Grip({ title, onGrab, onRelease }: { title: string; onGrab: (event: DragEvent<HTMLElement>) => void; onRelease: () => void }) {
   return (
     <span className="grip" title={title} draggable onDragStart={onGrab} onDragEnd={onRelease}>
       {GRIP}
@@ -285,7 +322,7 @@ export function nextWeek(today: string): string {
 const keepTyping = (event: MouseEvent) => event.preventDefault();
 
 /** The row a new task is typed into. Add task, or Enter, adds it and keeps the row for the next one. */
-function Composer({ placeholder, onAdd, onClose }: { placeholder: string; onAdd: (title: string) => void; onClose: () => void }) {
+export function Composer({ placeholder, addLabel = t('tasks.add'), onAdd, onClose }: { placeholder: string; addLabel?: string; onAdd: (title: string) => void; onClose: () => void }) {
   const [title, setTitle] = useState('');
   const add = () => {
     if (!title.trim()) return;
@@ -294,7 +331,11 @@ function Composer({ placeholder, onAdd, onClose }: { placeholder: string; onAdd:
   };
   const onKey = (event: KeyboardEvent) => {
     if (event.key === 'Enter') add();
-    else if (event.key === 'Escape') onClose();
+    else if (event.key === 'Escape') {
+      // The row closes; the window it is in stays.
+      event.preventDefault();
+      onClose();
+    }
   };
   return (
     <div className="task composing">
@@ -314,7 +355,7 @@ function Composer({ placeholder, onAdd, onClose }: { placeholder: string; onAdd:
           {t('dialog.cancel')}
         </button>
         <button type="button" className="primary" disabled={!title.trim()} onMouseDown={keepTyping} onClick={add}>
-          {t('tasks.add')}
+          {addLabel}
         </button>
       </div>
     </div>
@@ -333,7 +374,7 @@ export function GrowingField({ value, ...props }: TextareaHTMLAttributes<HTMLTex
   return <textarea ref={field} rows={2} value={value} {...props} />;
 }
 
-function IconButton({ icon, title, onClick }: { icon: IconName; title: string; onClick: (event: MouseEvent) => void }) {
+export function IconButton({ icon, title, onClick }: { icon: IconName; title: string; onClick: (event: MouseEvent) => void }) {
   return (
     <button type="button" title={title} aria-label={title} onClick={onClick}>
       <Icon name={icon} />
@@ -1672,6 +1713,88 @@ export function CardRow({ board, whole, card, today, actions, grouped, byDay }: 
   );
 }
 
+/**
+ * A subtask with a day, in the views over every list, after a task's row: its box ticks it off, its
+ * title opens the card or the record it is in, which its row names, with the board or collection
+ * unless the rows are grouped by it.
+ */
+export function SubtaskRow({ due, today, actions, grouped, byDay }: {
+  due: DueSubtask;
+  today: string;
+  actions: TaskActions;
+  grouped?: boolean;
+  /** Among the subtasks of a day: its day is not said again, unless it is past. */
+  byDay?: boolean;
+}) {
+  const { subtask } = due;
+  const day = subtask.due && !(byDay && subtask.due >= today) ? subtask.due : null;
+  const onCard = 'board' in due;
+  const owner = onCard ? `${actions.cardLabel(cardRef(due.board, due.card.id)) ?? ''} ${due.card.title}`.trim() : recordTitle(due.record);
+  const where = onCard ? boardWhere(due.board) : collectionWhere(due.collection);
+  const open = () => (onCard ? actions.openCard(due.board, due.card.id) : actions.openRecord(due.collection, due.record.id));
+  const people = actions.people?.(placeOf(due))?.people;
+  const box = (
+    <button
+      type="button"
+      className={`cb p${subtask.priority}`}
+      role="checkbox"
+      aria-checked={false}
+      aria-label={t('tasks.complete', { name: subtask.title })}
+      onClick={() => actions.completeSubtask(subtaskRefOf(due))}
+    />
+  );
+  if (isPhone()) {
+    return (
+      <div className="mb-task sub-row" data-row="subtask">
+        <div className="slide">
+          {box}
+          <button type="button" className="tx" onClick={open}>
+            <b>{subtask.title}</b>
+            <span className="meta">
+              {day && (
+                <span className={dueClass(day, today)}>
+                  <Icon name="calendar" />
+                  {dueLabel(day, today)}
+                </span>
+              )}
+              <span title={t('subtasks.of', { owner })}>
+                <Icon name="subtask" />
+                {owner}
+              </span>
+              {!grouped && <span>{where}</span>}
+              {subtask.assignee && (
+                <span>
+                  <Icon name="person" />
+                  {firstName(subtask.assignee, people)}
+                </span>
+              )}
+            </span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="task sub-row" data-row="subtask">
+      {box}
+      <div className="task-body">
+        <button type="button" className="tt" onClick={open}>
+          {subtask.title}
+        </button>
+        <div className="meta">
+          {day && <span className={dueClass(day, today)}>{dueLabel(day, today)}</span>}
+          <button type="button" className="from" title={t('subtasks.of', { owner })} onClick={open}>
+            <Icon name="subtask" />
+            {owner}
+          </button>
+          {!grouped && <span>{where}</span>}
+          {subtask.assignee && <AssigneeChip assignee={subtask.assignee} people={people} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** The dated cards of every board that are not finished: what is late, due today, and due later by day. */
 export function splitDueCards(boards: Record<string, Board>, today: string) {
   const all = dueCards(boards);
@@ -1717,10 +1840,14 @@ export function TodayView({ lists, boards, today, actions, bare, adding }: {
       </div>
     );
   const cards = splitDueCards(boards, today);
+  const subtasks = splitDueSubtasks(actions.dueSubtasks(), today);
   const due = dueToday(lists, today);
-  // Cards come after the tasks, under the board they are on.
-  const byBoard = new Map<string, { board: string; card: Card }[]>();
-  for (const d of [...cards.overdue, ...cards.today]) byBoard.set(d.board, [...(byBoard.get(d.board) ?? []), d]);
+  // Cards come after the tasks, under the board they are on; the subtasks of cards and records after
+  // them, under the board or the collection they are in.
+  const byBoard = new Map<string, { cards: { board: string; card: Card }[]; subtasks: DueSubtask[] }>();
+  const group = (place: string) => byBoard.get(place) ?? byBoard.set(place, { cards: [], subtasks: [] }).get(place)!;
+  for (const d of [...cards.overdue, ...cards.today]) group(d.board).cards.push(d);
+  for (const d of [...subtasks.overdue, ...subtasks.today]) group(placeOf(d)).subtasks.push(d);
   // What was completed today, from every list, the latest first: found again, and opened again with its box.
   const finished = Object.entries(lists)
     .flatMap(([list, tasks]) => tasks.filter((task) => task.done && task.completed && dayOf(new Date(task.completed)) === today).map((task) => ({ list, task })))
@@ -1764,12 +1891,15 @@ export function TodayView({ lists, boards, today, actions, bare, adding }: {
         </button>,
       )}
       {section(t('tasks.today'), due.today)}
-      {[...byBoard].map(([board, dues]) => (
-        <div key={board}>
+      {[...byBoard].map(([place, dues]) => (
+        <div key={place}>
           <div className="sec">
-            {boardHeading(board)} <small>{dues.length}</small>
+            {place.endsWith(BOARD_EXT) ? boardHeading(place) : collectionHeading(place)} <small>{dues.cards.length + dues.subtasks.length}</small>
           </div>
-          {dues.map((d) => cardItem(d, true))}
+          {dues.cards.map((d) => cardItem(d, true))}
+          {dues.subtasks.map((d) => (
+            <SubtaskRow key={`${placeOf(d)}#${d.subtask.id}`} due={d} today={today} actions={actions} grouped />
+          ))}
         </div>
       ))}
       {nothingDue &&

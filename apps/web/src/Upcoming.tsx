@@ -19,7 +19,21 @@ import { loadUpcomingView, pageBox, pageWindow, saveUpcomingView, type UpcomingV
 import type { TaskPlaceChoice } from './dialogs';
 import { Icon } from './Icon';
 import { dateWords, DatePop, TaskComposer } from './TaskComposer';
-import { CardRow, type Dated, splitDueCards, type TaskActions, TaskItem, TaskPage, toDate } from './Tasks';
+import {
+  CardRow,
+  type Dated,
+  type DueSubtask,
+  isSubtaskRef,
+  placeOf,
+  splitDueCards,
+  splitDueSubtasks,
+  SubtaskRow,
+  subtaskRefOf,
+  type TaskActions,
+  TaskItem,
+  TaskPage,
+  toDate,
+} from './Tasks';
 
 // Upcoming on a computer, after the Upcoming mockups, in two views chosen in its header and kept
 // on the device. List: what is late first, with Reschedule, then today, then only the days that
@@ -70,13 +84,29 @@ function freeDay(day: string, sameMonth: boolean, today: string): string {
   return sameMonth ? `${toDate(day).toLocaleDateString(locale(), { weekday: 'short' })} ${Number(day.slice(8))}` : dateWords(day, today);
 }
 
-/** A task in its list, or a card on its board, on a day of the calendar. */
-export type Entry = { list: string; task: Task } | { board: string; card: Card };
+/** A task in its list, a card on its board, or a subtask of a card or a record, on a day of the calendar. */
+export type Entry = { list: string; task: Task } | { board: string; card: Card } | DueSubtask;
 
-export const entryKey = (entry: Entry) => ('task' in entry ? `${entry.list}/${entry.task.id}` : `${entry.board}#${entry.card.id}`);
+/** What a task, a card or a subtask is told apart by. */
+const datedKey = (item: Dated) =>
+  isSubtaskRef(item) ? `${'board' in item ? item.board : item.collection}~${item.id}~${item.subtask}` : 'list' in item ? `${item.list}/${item.id}` : `${item.board}#${item.id}`;
 
-/** Everything open with a day, by day: the tasks by priority, then the cards; and the tasks and the cards apart, to count. */
-export function datedByDay(lists: Record<string, Task[]>, boards: Record<string, Board>, today: string) {
+const datedOf = (entry: Entry): Dated => ('subtask' in entry ? subtaskRefOf(entry) : 'task' in entry ? { list: entry.list, id: entry.task.id } : { board: entry.board, id: entry.card.id });
+
+export const entryKey = (entry: Entry) => datedKey(datedOf(entry));
+
+/** An entry as the views over every list show it: a task's row, a card's, a subtask's. */
+export function EntryRow({ entry, lists, boards, today, actions }: { entry: Entry; lists: Record<string, Task[]>; boards: Record<string, Board>; today: string; actions: TaskActions }) {
+  if ('subtask' in entry) return <SubtaskRow due={entry} today={today} actions={actions} byDay />;
+  if ('task' in entry) return <TaskItem list={entry.list} task={entry.task} tasks={lists[entry.list] ?? []} today={today} showDone={false} actions={actions} flat byDay />;
+  return <CardRow board={entry.board} whole={boards[entry.board]!} card={entry.card} today={today} actions={actions} byDay />;
+}
+
+/**
+ * Everything open with a day, by day: the tasks by priority, then the cards, then the subtasks of
+ * cards and records; and the tasks, the cards and the subtasks apart, to count.
+ */
+export function datedByDay(lists: Record<string, Task[]>, boards: Record<string, Board>, today: string, subtasks: DueSubtask[]) {
   const due = dueToday(lists, today);
   const tasks = [...due.overdue, ...due.today, ...dueUpcoming(lists, today).flatMap((d) => d.tasks)];
   const cards = dueCards(boards);
@@ -84,7 +114,8 @@ export function datedByDay(lists: Record<string, Task[]>, boards: Record<string,
   const put = (day: string, entry: Entry) => byDay.set(day, [...(byDay.get(day) ?? []), entry]);
   for (const each of tasks) put(each.task.due!, each);
   for (const each of cards) put(each.card.due!, each);
-  return { tasks, cards, byDay };
+  for (const each of subtasks) put(each.subtask.due!, each);
+  return { tasks, cards, subtasks, byDay };
 }
 
 /** How many tasks and cards, said the status bar's way. */
@@ -159,15 +190,18 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   const tomorrow = addDays(today, 1);
   const due = dueToday(lists, today);
   const cards = splitDueCards(boards, today);
+  const subtasks = splitDueSubtasks(actions.dueSubtasks(), today);
   const tasksOn = new Map(dueUpcoming(lists, today).map((d) => [d.day, d.tasks]));
   tasksOn.set(today, due.today);
   cards.later.set(today, cards.today);
-  const busy = [...tasksOn, ...cards.later].filter(([, on]) => on.length > 0).map(([day]) => day);
+  subtasks.later.set(today, subtasks.today);
+  const busy = [...tasksOn, ...cards.later, ...subtasks.later].filter(([, on]) => on.length > 0).map(([day]) => day);
   const runs = dayRuns(busy, today);
 
   const open = (at: string, day: string) => setAdding({ at, due: day, n: (adding?.n ?? 0) + 1 });
   useAsked(asked, () => open(tomorrow, tomorrow));
-  const taskCount = due.overdue.length + [...tasksOn.values()].reduce((sum, on) => sum + on.length, 0);
+  const taskCount =
+    due.overdue.length + [...tasksOn.values()].reduce((sum, on) => sum + on.length, 0) + subtasks.overdue.length + [...subtasks.later.values()].reduce((sum, on) => sum + on.length, 0);
   const cardCount = cards.overdue.length + [...cards.later.values()].reduce((sum, on) => sum + on.length, 0);
   useEffect(() => onStatus(countWords(taskCount, cardCount)), [taskCount, cardCount]);
 
@@ -198,10 +232,15 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   const cardItem = ({ board, card }: { board: string; card: Card }) => (
     <CardRow key={`${board}#${card.id}`} board={board} whole={boards[board]!} card={card} today={today} actions={actions} byDay />
   );
+  const subtaskItem = (d: DueSubtask) => <SubtaskRow key={`${placeOf(d)}~${d.subtask.id}`} due={d} today={today} actions={actions} byDay />;
   // One list of rows, so that the adding row keeps what is typed in it when a task added moves it.
   const rows: ReactElement[] = [];
 
-  const late: Dated[] = [...due.overdue.map(({ list, task }) => ({ list, id: task.id })), ...cards.overdue.map(({ board, card }) => ({ board, id: card.id }))];
+  const late: Dated[] = [
+    ...due.overdue.map(({ list, task }) => ({ list, id: task.id })),
+    ...cards.overdue.map(({ board, card }) => ({ board, id: card.id })),
+    ...subtasks.overdue.map(subtaskRefOf),
+  ];
   if (late.length > 0) {
     rows.push(
       <div key="sec:late" className="sec">
@@ -212,6 +251,7 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
       </div>,
       ...due.overdue.map(item),
       ...cards.overdue.map(cardItem),
+      ...subtasks.overdue.map(subtaskItem),
     );
   }
 
@@ -233,12 +273,14 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
     const { day } = run;
     const dayTasks = tasksOn.get(day) ?? [];
     const dayCards = cards.later.get(day) ?? [];
+    const daySubtasks = subtasks.later.get(day) ?? [];
     rows.push(
       <div key={`sec:${day}`} className="sec" data-day={day}>
-        {dayHeading(day, today)} <small>{dayTasks.length + dayCards.length}</small>
+        {dayHeading(day, today)} <small>{dayTasks.length + dayCards.length + daySubtasks.length}</small>
       </div>,
       ...dayTasks.map(item),
       ...dayCards.map(cardItem),
+      ...daySubtasks.map(subtaskItem),
     );
     const here = place(adding?.at === day);
     rows.push(
@@ -278,8 +320,6 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   );
 }
 
-const datedOf = (entry: Entry): Dated => ('task' in entry ? { list: entry.list, id: entry.task.id } : { board: entry.board, id: entry.card.id });
-
 /** A day of the calendar in its own window: `adding` it opens with a new task being typed; `n` tells one opening from the next. */
 interface Opened {
   day: string;
@@ -300,7 +340,7 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
   const [dropOn, setDropOn] = useState<string | null>(null);
   const days = monthDays(month);
 
-  const { tasks, cards, byDay } = datedByDay(lists, boards, today);
+  const { tasks, cards, subtasks, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks());
 
   // As many lines as a day has room for, however tall the window is.
   useLayoutEffect(() => {
@@ -323,7 +363,7 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
   useAsked(asked, () => addOn(addDays(today, 1)));
 
   const inMonth = (day: string) => day.slice(0, 7) === month;
-  const taskCount = tasks.filter((each) => inMonth(each.task.due!)).length;
+  const taskCount = tasks.filter((each) => inMonth(each.task.due!)).length + subtasks.filter((each) => inMonth(each.subtask.due!)).length;
   const cardCount = cards.filter((each) => inMonth(each.card.due!)).length;
   useEffect(
     () => onStatus(dragging ? [t('tasks.dropOnDay')] : [t('tasks.inMonth', { what: countWords(taskCount, cardCount).join(' · '), month: toDate(`${month}-01`).toLocaleDateString(locale(), { month: 'long' }) })]),
@@ -335,11 +375,10 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
     setDropOn(null);
   };
   const line = (entry: Entry, day: string) => {
-    const isTask = 'task' in entry;
-    const title = isTask ? entry.task.title : entry.card.title;
-    const priority = isTask ? entry.task.priority : entry.card.priority;
+    const isCard = 'card' in entry && !('subtask' in entry);
+    const { title, priority } = 'subtask' in entry ? entry.subtask : 'task' in entry ? entry.task : entry.card;
     const item = datedOf(entry);
-    const lifted = dragging && entryKey(entry) === ('list' in dragging.item ? `${dragging.item.list}/${dragging.item.id}` : `${dragging.item.board}#${dragging.item.id}`);
+    const lifted = dragging && entryKey(entry) === datedKey(dragging.item);
     return (
       <button
         key={entryKey(entry)}
@@ -359,8 +398,8 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
           openDay(day);
         }}
       >
-        <i className={isTask ? undefined : 'sq'} />
-        {!isTask && boards[entry.board] && <span className="key">{keyOf(boards[entry.board]!, entry.card)}</span>}
+        <i className={isCard ? 'sq' : undefined} />
+        {isCard && boards[entry.board] && <span className="key">{keyOf(boards[entry.board]!, entry.card)}</span>}
         <span>{title}</span>
       </button>
     );
@@ -561,13 +600,9 @@ function DayWindow({ grid, opened, entries, lists, boards, today, actions, place
         </button>
       </h4>
       <div className="day-rows">
-        {entries.map((entry) =>
-          'task' in entry ? (
-            <TaskItem key={entryKey(entry)} list={entry.list} task={entry.task} tasks={lists[entry.list] ?? []} today={today} showDone={false} actions={actions} flat byDay />
-          ) : (
-            <CardRow key={entryKey(entry)} board={entry.board} whole={boards[entry.board]!} card={entry.card} today={today} actions={actions} byDay />
-          ),
-        )}
+        {entries.map((entry) => (
+          <EntryRow key={entryKey(entry)} entry={entry} lists={lists} boards={boards} today={today} actions={actions} />
+        ))}
       </div>
       {opened.adding ? (
         <TaskComposer

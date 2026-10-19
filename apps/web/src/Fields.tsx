@@ -328,6 +328,7 @@ function typeWords(field: DraftField): string {
 function blockWords(block: Block, collections: Collection[]): [string, string] {
   if (block.block === 'body') return [t('fields.addNotes'), t('fields.notesMeta')];
   if (block.block === 'cards') return [t('fields.cards'), t('fields.cardsMeta')];
+  if (block.block === 'subtasks') return [t('subtasks.title'), t('fields.subtasksMeta')];
   const source = collections.find((c) => c.dir === block.collection);
   const style = linkedStyle(block, source);
   const shown = (block.fields ?? []).map((key) => source?.schema.fields.find((f) => f.key === key)?.label.toLowerCase() ?? key);
@@ -772,10 +773,16 @@ function BlockEditor({ block, dir, collections, onChange, onDelete }: {
 }
 
 /** What + Add puts in a section. */
-type Addition = 'field' | 'linked' | 'body' | 'cards';
+type Addition = 'field' | 'linked' | 'body' | 'cards' | 'subtasks';
 
-/** The menu under a section's + Add: a field, the records of a collection that links here, the notes, the cards that link here. */
-function AddMenu({ linking, notesPlaced, cardsPlaced, onAdd }: { linking: boolean; notesPlaced: boolean; cardsPlaced: boolean; onAdd: (what: Addition) => void }) {
+/** The menu under a section's + Add: a field, the records of a collection that links here, the notes, the cards that link here, the record's own subtasks. */
+function AddMenu({ linking, notesPlaced, cardsPlaced, subtasksPlaced, onAdd }: {
+  linking: boolean;
+  notesPlaced: boolean;
+  cardsPlaced: boolean;
+  subtasksPlaced: boolean;
+  onAdd: (what: Addition) => void;
+}) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLButtonElement>(null);
   const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
@@ -784,6 +791,7 @@ function AddMenu({ linking, notesPlaced, cardsPlaced, onAdd }: { linking: boolea
     { value: 'linked', label: t('fields.addLinked'), hint: linking ? t('fields.addLinkedHint') : t('fields.noLinking'), chip: false, disabled: !linking },
     { value: 'body', label: t('fields.addNotes'), hint: notesPlaced ? t('fields.notesPlaced') : t('fields.notesHint'), chip: false, disabled: notesPlaced },
     { value: 'cards', label: t('fields.cards'), hint: cardsPlaced ? t('fields.notesPlaced') : t('fields.cardsHint'), chip: false, disabled: cardsPlaced },
+    { value: 'subtasks', label: t('subtasks.title'), hint: subtasksPlaced ? t('fields.notesPlaced') : t('fields.subtasksHint'), chip: false, disabled: subtasksPlaced },
   ];
   return (
     <>
@@ -870,6 +878,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   const placed = (kind: Block['block']) => draft.columns.some((c) => c.sections.some((s) => s.items.some((i) => 'block' in i && i.block.block === kind)));
   const notesPlaced = placed('body');
   const cardsPlaced = placed('cards');
+  const subtasksPlaced = placed('subtasks');
   const linking = linkingCollections(collections, dir);
   const unlinkable = !draft.fields.some((f) => f.type === 'name' || f.type === 'code');
   const boards = actions.boards();
@@ -1148,7 +1157,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
           )}
           {section.items.map(element)}
           {drop?.section === section.id && <div className="fdrop" style={{ top: drop.y }} />}
-          <AddMenu linking={linking.length > 0} notesPlaced={notesPlaced} cardsPlaced={cardsPlaced} onAdd={(what) => add(section.id, what)} />
+          <AddMenu linking={linking.length > 0} notesPlaced={notesPlaced} cardsPlaced={cardsPlaced} subtasksPlaced={subtasksPlaced} onAdd={(what) => add(section.id, what)} />
         </div>
       ))}
       <button type="button" className="fsec-add" onClick={() => setColumns(draft.columns.map((each) => (each.id === column.id ? { ...each, sections: [...each.sections, { id: newId(), items: [] }] } : each)))}>

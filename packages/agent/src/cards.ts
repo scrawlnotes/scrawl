@@ -31,6 +31,7 @@ import {
 import { checkOpen, cleanPath, Refusal } from './paths';
 import { parseValues } from './records';
 import { actorOf, type Agent, type Client, exists, nowOf, personRefOf, pickElement, pickSpace, todayOf } from './space';
+import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
 // Boards: the cards of a board, a card as a brief, adding and changing a card, moving it by its
 // column's kind, and commenting. The current phase is where the agent works unless told otherwise.
@@ -106,6 +107,7 @@ export function cardOut(board: Board, card: Card, today: string) {
     ...(card.labels?.length && { labels: card.labels }),
     assignee: card.assignee ?? null,
     ...(Object.keys(values).length > 0 && { values }),
+    ...(card.subtasks?.length && { subtasks: card.subtasks.map(subtaskOut) }),
     comments: card.timeline.flatMap((entry) => (entry.kind === 'comment' ? [{ at: entry.at, ...(entry.by && { by: entry.by }), text: entry.text }] : [])),
     created: card.created,
     updated: card.updated,
@@ -124,6 +126,10 @@ async function briefOf(fs: VaultFs, board: Board, path: string, card: Card, toda
   }
   if (card.labels?.length) lines.push(`Labels: ${card.labels.join(', ')}`);
   if (card.description) lines.push('', card.description.trim());
+  if (card.subtasks?.length) {
+    lines.push('', '## Subtasks', '');
+    for (const s of card.subtasks) lines.push(`- [${s.done ? 'x' : ' '}] ${s.title}${s.due ? ` (due ${s.due})` : ''}${s.priority < 4 ? ` (p${s.priority})` : ''}`);
+  }
   const phase = card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
   if (phase) {
     lines.push('', `## Phase: ${phase.name}`);
@@ -202,6 +208,8 @@ export interface CardArgs {
   labels?: string[];
   assignee?: string | null;
   values?: { [key: string]: unknown };
+  /** Its subtasks to add, change or take off. */
+  subtasks?: SubtaskArg[];
   /** Add the card even though an open one has its title already. */
   another?: boolean;
 }
@@ -227,6 +235,7 @@ export async function saveCardTool(agent: Agent, client: Client, args: CardArgs)
   let created = false;
   if (args.id) {
     card = pickCard(board, args.id);
+    const subtasks = args.subtasks ? await applySubtasks(space.fs, card.subtasks ?? [], args.subtasks, now) : undefined;
     board = updateCard(
       board,
       card.id,
@@ -239,6 +248,7 @@ export async function saveCardTool(agent: Agent, client: Client, args: CardArgs)
         ...(assignee !== undefined && { assignee }),
         ...(phase !== undefined && { phase: phase?.id ?? null }),
         ...(values && { values: values.values }),
+        ...(subtasks && { subtasks }),
       },
       () => now,
     );
@@ -276,10 +286,12 @@ export async function saveCardTool(agent: Agent, client: Client, args: CardArgs)
       ...(assignee && { assignee }),
       ...(values && { values: values.values }),
     };
+    const subtasks = args.subtasks ? await applySubtasks(space.fs, [], args.subtasks, now) : [];
     const before = board.cards.length;
     board = addCard(board, input, () => now, by);
     if (board.cards.length === before) throw new Refusal('The card could not be added');
     card = board.cards[board.cards.length - 1]!;
+    if (subtasks.length > 0) board = updateCard(board, card.id, { subtasks }, () => now);
     created = true;
   }
   await saveBoard(space.fs, element.path, board);
