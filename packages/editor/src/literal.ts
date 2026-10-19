@@ -1,6 +1,7 @@
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
-import type { EditorState, Extension } from '@codemirror/state';
+import { type ChangeSet, EditorState, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+import type { SyntaxNode } from '@lezer/common';
 import { sourceMode } from './livePreview';
 
 // In the normal view the note is text, not Markdown: what is typed or pasted stays as it is.
@@ -60,6 +61,54 @@ export function positionsToEscape(state: EditorState, inserted: readonly Span[])
   }
   return [...out].sort((a, b) => a - b);
 }
+
+/**
+ * Dividers written `---` that an edit put right under a line of text, where they underline it as
+ * a heading: the blank line between deleted, or text typed on it. Given as the ranges of their
+ * `---` in `state`.
+ */
+export function gluedDividers(before: EditorState, state: EditorState, changes: ChangeSet): Span[] {
+  const doc = state.doc;
+  const out: Span[] = [];
+  changes.iterChangedRanges((_fromA, _toA, from, to) => {
+    // The divider is on the changed lines or the one after them.
+    const first = doc.lineAt(from).number;
+    const last = Math.min(doc.lineAt(to).number + 1, doc.lines);
+    let underline = false;
+    for (let n = first; n <= last && !underline; n++) underline = UNDERLINE.test(doc.line(n).text);
+    if (!underline) return;
+    const end = doc.line(last).to;
+    const tree = ensureSyntaxTree(state, end, 100) ?? syntaxTree(state);
+    tree.iterate({
+      from: doc.line(first).from,
+      to: end,
+      enter(node) {
+        if (node.name !== 'SetextHeading2') return;
+        const mark = node.node.getChild('HeaderMark');
+        if (!mark || out.some((span) => span.from === mark.from)) return false;
+        const at = changes.invertedDesc.mapPos(mark.from, 1);
+        const old = ensureSyntaxTree(before, at + 1, 100) ?? syntaxTree(before);
+        for (let was: SyntaxNode | null = old.resolveInner(at, 1); was; was = was.parent) {
+          if (was.name === 'HorizontalRule' && was.from === at) out.push({ from: mark.from, to: mark.to });
+        }
+        return false;
+      },
+    });
+  });
+  return out;
+}
+
+// What can underline a heading: a row of dashes, as a divider may be written too.
+const UNDERLINE = /^ {0,3}-+[ \t]*$/;
+
+/** Keeps a divider one when an edit puts it right under a line of text: it is written `***` instead. Off in source mode. */
+export const keepDividers = EditorState.transactionFilter.of((tr) => {
+  if (!tr.docChanged || tr.startState.field(sourceMode, false)) return tr;
+  if (!['input', 'delete', 'move'].some((event) => tr.isUserEvent(event))) return tr;
+  const glued = gluedDividers(tr.startState, tr.state, tr.changes);
+  // In the same transaction, so that one undo puts back the blank line and the `---` with it.
+  return glued.length ? [tr, { changes: glued.map((span) => ({ ...span, insert: '***' })), sequential: true }] : tr;
+});
 
 const TYPED = ['input.type', 'input.paste', 'input.drop'];
 

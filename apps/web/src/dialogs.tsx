@@ -1318,6 +1318,8 @@ export interface MenuHead {
   sub?: string;
   /** Shown in the icon's place: an image's own picture. */
   picture?: ReactNode;
+  /** A faint line under the items, as when a note was last written. */
+  foot?: string;
 }
 
 /** A place a confirming question names, in a box under its message: a note a file is taken out of. */

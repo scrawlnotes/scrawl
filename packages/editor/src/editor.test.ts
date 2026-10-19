@@ -1,8 +1,10 @@
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { ensureSyntaxTree } from '@codemirror/language';
-import { EditorSelection, EditorState, type StateCommand } from '@codemirror/state';
+import { EditorSelection, EditorState, type StateCommand, type TransactionSpec } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
+import { history, undo } from '@codemirror/commands';
 import {
+  insertDivider,
   insertTable,
   linkAt,
   setLink,
@@ -30,7 +32,7 @@ describe('word count', () => {
   });
 });
 import { addCopy, type Copy, copiesField, copyFollows, copyPosition, copyProgress, dropCopy, progressText } from './copies';
-import { positionsToEscape } from './literal';
+import { keepDividers, positionsToEscape } from './literal';
 import { buildDecorations, setSourceMode, sourceMode } from './livePreview';
 import { attachmentChanges } from './media';
 import { cellMarkdown, copiedCells, fillCells, parseTable, pasteTable, serializeTable, tableDecorations, tableGrid, tableOfCells } from './table';
@@ -690,6 +692,36 @@ describe('pasted links', () => {
     expect(linkAt(EditorState.create({ doc, selection: { anchor: 5 }, extensions }))?.url).toBe(
       'https://en.wikipedia.org/wiki/Scrawl_%28film%29?a[]=1',
     );
+  });
+});
+
+describe('dividers', () => {
+  const note = 'Gokhan ev: C-16\n\n---\n\nNecati';
+  const edit = (doc: string, spec: TransactionSpec, source = false) => {
+    let state = EditorState.create({ doc, extensions: [extensions, history(), keepDividers] });
+    if (source) state = state.update({ effects: setSourceMode.of(true) }).state;
+    ensureSyntaxTree(state, doc.length, 5000);
+    return state.update(spec).state;
+  };
+
+  it('are written so that no text can underline itself with one', () => {
+    expect(run(insertDivider, 'text|')).toBe('text\n\n***|\n');
+  });
+
+  it('stay one when the blank line above is deleted or written on', () => {
+    expect(edit(note, { changes: { from: 15, to: 16 }, userEvent: 'delete.backward' }).doc.toString()).toBe('Gokhan ev: C-16\n***\n\nNecati');
+    expect(edit(note, { changes: { from: 16, insert: 'x' }, userEvent: 'input.type' }).doc.toString()).toBe('Gokhan ev: C-16\nx\n***\n\nNecati');
+  });
+
+  it('come back as they were with one undo', () => {
+    let state = edit(note, { changes: { from: 15, to: 16 }, userEvent: 'delete.backward' });
+    undo({ state, dispatch: (tr) => (state = tr.state) });
+    expect(state.doc.toString()).toBe(note);
+  });
+
+  it('leave a heading written with a line under it, and source mode, alone', () => {
+    expect(edit('Title\n---\n\ntext', { changes: { from: 5, insert: 's' }, userEvent: 'input.type' }).doc.toString()).toBe('Titles\n---\n\ntext');
+    expect(edit(note, { changes: { from: 15, to: 16 }, userEvent: 'delete.backward' }, true).doc.toString()).toBe('Gokhan ev: C-16\n---\n\nNecati');
   });
 });
 

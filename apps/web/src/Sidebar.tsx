@@ -2,6 +2,7 @@ import { DEFAULT_LOOK, droppedSpaces, type FolderLook, INBOX_TASKS, type NodeTim
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { LATEST_RELEASE } from './desktopUpdate';
+import { cutShort, useHoverTip } from './HoverTip';
 import { Icon, type IconName } from './Icon';
 import { Spin } from './Loading';
 import { collectionTab, countItems, FILES, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
@@ -87,10 +88,11 @@ interface Props {
   searchOpen: boolean;
   /**
    * A folder or a space found by the search window, by its path or a space's key: the folders it
-   * is in open, so does it, and its row is brought into sight and marked for a moment. `at` tells
-   * one ask from the next.
+   * is in open, so does it, and its row is brought into sight and marked for a moment. With
+   * `item`, something made or moved into the folder: the folder opens the same way, and the item's
+   * row is brought into sight. `at` tells one ask from the next.
    */
-  reveal: { path: string; at: number } | null;
+  reveal: { path: string; item?: string; at: number } | null;
   /** The spaces still read as the app opens: `''` for the personal one, the others by id. */
   reading: ReadonlySet<string>;
   /** Folders looked at, read first while the app opens: those open as it starts, and one opened. */
@@ -176,6 +178,22 @@ export function Sidebar({
   const [folderName, setFolderName] = useState('');
   const [folderError, setFolderError] = useState<string | null>(null);
 
+  // A row whose name is cut short says it in full once the pointer rests on it.
+  const nameTip = useHoverTip();
+  const pointedRow = useRef<Element | null>(null);
+  const pointAt = (event: MouseEvent) => {
+    const row = event.target instanceof Element ? event.target.closest('.it-main') : null;
+    if (row === pointedRow.current) return;
+    pointedRow.current = row;
+    const label = row && [...row.children].reverse().find((child) => child.tagName === 'SPAN' && !child.classList.contains('chev'));
+    if (row && label && cutShort(label)) nameTip.show(row, [label.textContent], label);
+    else nameTip.hide();
+  };
+  const pointAway = () => {
+    pointedRow.current = null;
+    nameTip.hide();
+  };
+
   const toggle = (path: string) => {
     if (!opened.has(path)) onWant([path]);
     setOpened((current) => {
@@ -203,13 +221,17 @@ export function Sidebar({
 
   const marked = (key: string) => (key === menuTarget ? ' marked' : '') + (key === flash ? ' found' : '');
 
+  // The row of something made or moved into a folder, brought into sight once its folder is open.
+  const [sighted, setSighted] = useState<{ path: string; at: number } | null>(null);
+
   // A folder or a space found by the search window: its space unfolds, the folders it is in open
-  // and so does it, and its row is marked for a moment once it is in sight.
+  // and so does it, and its row is marked for a moment once it is in sight. A folder something was
+  // put in opens the same way, and the row of what was put there comes into sight.
   useEffect(() => {
     if (!reveal) return;
     const space = spaceOf(reveal.path);
     const key = spaceKey(space);
-    if (space && folded.has(key)) toggleSpace(key);
+    if (folded.has(key)) toggleSpace(key);
     const parts = localPath(reveal.path).split('/').filter(Boolean);
     if (parts.length > 0) {
       onWant([reveal.path]);
@@ -220,6 +242,7 @@ export function Sidebar({
         return next;
       });
     }
+    if (reveal.item) return setSighted({ path: reveal.item, at: reveal.at });
     setFlash(parts.length > 0 ? reveal.path : key);
     const timer = window.setTimeout(() => setFlash(null), 1800);
     return () => window.clearTimeout(timer);
@@ -229,6 +252,9 @@ export function Sidebar({
   useEffect(() => {
     if (flash) nav.current?.querySelector(`[data-path="${CSS.escape(flash)}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [flash]);
+  useEffect(() => {
+    if (sighted) nav.current?.querySelector(`[data-path="${CSS.escape(sighted.path)}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [sighted]);
 
   // The file of the tab on screen: never hidden among the items a long folder does not show.
   const activePath = active === null ? null : pathOf(active);
@@ -261,7 +287,8 @@ export function Sidebar({
         </>
       );
     }
-    const found = (node: TreeNode) => flash !== null && (node.path === flash || flash.startsWith(`${node.path}/`));
+    const leadsTo = (node: TreeNode, path: string | undefined) => path !== undefined && (node.path === path || path.startsWith(`${node.path}/`));
+    const found = (node: TreeNode) => leadsTo(node, flash ?? undefined) || leadsTo(node, sighted?.path);
     const shown = nodes.filter((node, index) => index < SHOWN || holdsActive(node) || found(node));
     return (
       <>
@@ -355,7 +382,7 @@ export function Sidebar({
   );
 
   const viewRow = (id: string, label: ReactNode, depth: number, onMenu?: (event: MouseEvent) => void) => (
-    <div key={id} className={`it${id === active ? ' on' : ''}${marked(id)}`} style={indent(depth)} onContextMenu={onMenu}>
+    <div key={id} className={`it${id === active ? ' on' : ''}${marked(id)}`} style={indent(depth)} data-path={id} onContextMenu={onMenu}>
       <button type="button" className="it-main" onClick={() => onOpen(id)}>
         {label}
       </button>
@@ -383,6 +410,7 @@ export function Sidebar({
         key={node.path}
         className={`it${tab === active ? ' on' : ''}${marked(node.path)}`}
         style={indent(depth)}
+        data-path={node.path}
         draggable
         onDragStart={(event) => event.dataTransfer.setData(ITEM_DRAG_TYPE, node.path)}
         onContextMenu={(event) => onItemMenu(event, node.path)}
@@ -604,7 +632,7 @@ export function Sidebar({
 
   return (
     <aside className="side">
-      <nav ref={nav} className="tree">
+      <nav ref={nav} className="tree" onMouseOver={pointAt} onMouseLeave={pointAway} onMouseDown={pointAway} onDragStart={pointAway} onScroll={pointAway}>
         {/* Search reads as a search box, over the rows: it opens the search window. */}
         <button type="button" className={`side-search${searchOpen ? ' on' : ''}`} title={t('side.searchTitle', { keys: 'Ctrl+K' })} onClick={onSearch}>
           <Icon name="search" />
@@ -653,6 +681,7 @@ export function Sidebar({
         {!isDesktop && windowRow(false, () => window.open(LATEST_RELEASE, '_blank', 'noopener'), 'download', t('side.downloads'))}
         {windowRow(settingsOpen, onSettings, 'cog', t('side.settings'))}
       </div>
+      {nameTip.tip}
     </aside>
   );
 }

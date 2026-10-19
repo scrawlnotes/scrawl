@@ -268,7 +268,9 @@ const writtenAs = (path: string) => [path, path.replace(/[() <>]/g, (c) => `%${c
  * the space it came from. Returns its path in the other space.
  */
 export async function copyToSpace(from: VaultFs, path: string, to: VaultFs, folder: string): Promise<string> {
-  const isDir = isCollection(await from.list(path));
+  // Asked of the folder it is in: a disk that is asked what is inside a file says that is wrong.
+  const entry = (await from.list(dirname(path))).find((each) => each.path === path);
+  const isDir = entry?.kind === 'dir' && isCollection(await from.list(path));
   // The files that go, by their path under the item.
   const files: string[] = [];
   const visit = async (dir: string) => {

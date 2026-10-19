@@ -259,6 +259,7 @@ export function ActionSheet({ head, items: all, onClose }: { head?: MenuHead; it
               ))}
             </Fragment>
           ))}
+          {head?.foot && <div className="ft">{head.foot}</div>}
         </div>
         <div className="mb-card">
           <button type="button" className="a cancel" onClick={onClose}>

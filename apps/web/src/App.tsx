@@ -82,6 +82,7 @@ import {
 } from './dialogs';
 import { type BoardActions, BoardView } from './Board';
 import { FormatBar } from './FormatBar';
+import { cutShort, useHoverTip } from './HoverTip';
 import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History';
 import { PhoneCardPage } from './CardPanel';
 import { LinkActions, LinkSheet, PhoneFormatBar } from './PhoneNote';
@@ -130,7 +131,6 @@ import {
   loadUpcomingView,
   type Mode,
   onSystemShade,
-  pageBox,
   saveMode,
   saveSize,
   saveTheme,
@@ -159,7 +159,7 @@ import { type Dated, dueLabel, type DueSubtask, FilterView, isSubtaskRef, type S
 import { Upcoming } from './Upcoming';
 import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
-import { contentsText, quote } from './text';
+import { contentsText, quote, writtenText } from './text';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { TrashPreviewDialog, TrashPreviewPage } from './TrashPreview';
 import type { DescriptionHost } from './Description';
@@ -186,8 +186,6 @@ type OpenDialog =
 
 // A tab being dragged to another place in the tab bar.
 const TAB_DRAG_TYPE = 'application/x-scrawl-tab';
-/** How long the pointer rests on a tab before it says the way to what it shows. */
-const TAB_TIP_MS = 500;
 /** The files a collection imports: CSV and Excel. */
 const IMPORTABLE = '.csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
 
@@ -287,7 +285,7 @@ export function App() {
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const desktopUpdate = useDesktopUpdate();
-  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -818,14 +816,24 @@ export function App() {
     openMenu(event, items, id ? `@${id}` : '@personal');
   };
   const askRemoveSpace = (id: string) => setDialog({ kind: 'removeSpace', id });
-  /** Moves something into a folder; to another space it is a copy there, the original in its own trash, which is said. */
-  const moveTo = async (path: string, folder: string) => {
+  /**
+   * Moves something into a folder; to another space it is a copy there, the original in its own
+   * trash, which is said. Returns why when it could not be moved.
+   */
+  const moveTo = async (path: string, folder: string): Promise<string | null> => {
     const [from, to] = [spaceOf(path), spaceOf(folder)];
-    await session.move(path, folder);
-    if (from === to) return;
+    try {
+      await session.move(path, folder);
+    } catch (error) {
+      return t('move.failed', { name: quote(nameOfItem(path) || basename(path)), error: error instanceof Error ? error.message : String(error) });
+    }
+    if (from === to) return null;
     const named = (id: string | null) => (id ? (spaces.find((each) => each.id === id)?.name ?? '') : (space.name ?? t('settings.personal')));
     setNotice(t('move.across', { space: named(to), from: named(from) }));
+    return null;
   };
+  /** Moves something dropped on a folder or chosen in Move to; why it could not be is said in the status bar. */
+  const moveAndSay = (path: string, folder: string) => void moveTo(path, folder).then((error) => error && setNotice(error));
   /**
    * A space leaves this device: its sync stops first, a turn running ending before, so that no
    * turn sees its files go and takes that to the cloud; then its copy here may be deleted.
@@ -871,8 +879,7 @@ export function App() {
       at = done.path;
     }
     if (folder.create) return session.moveToNewFolder(at, folder.folder);
-    if (folder.folder !== dirname(at)) await moveTo(at, folder.folder);
-    return null;
+    return folder.folder !== dirname(at) ? moveTo(at, folder.folder) : null;
   };
   /** A tab double-clicked is renamed as its menu's Rename does; a filter's name is in its own window, and a view has none. */
   const renameTab = async (id: string) => {
@@ -919,7 +926,13 @@ export function App() {
     const kinds = { note: 'create.note', tasks: 'create.tasks', board: 'create.board', keys: 'create.keys', collection: 'create.collection', filter: 'create.filter' } as const;
     const kind = t(kinds[icon as keyof typeof kinds] ?? 'create.note');
     const where = filter ? (filter.folder ?? '') : (folderOf(id) ?? '');
-    const head: MenuHead = { icon, title: nameOf(id, tabTitles, filters), sub: t('phone.kindIn', { kind, folder: folderLabel(where) }) };
+    const head: MenuHead = {
+      icon,
+      title: nameOf(id, tabTitles, filters),
+      sub: t('phone.kindIn', { kind, folder: folderLabel(where) }),
+      // A note's own page, where there is no status bar, says when it was last written under its menu.
+      ...(page && id === active && written !== null && { foot: writtenText(written) }),
+    };
     if (filter) return showSheet(filterMenuItems(filter), head);
     const path = collectionPathOf(id) ?? pathOf(id);
     // A note's own page has Find and Markdown; its history opens as pages over it.
@@ -1119,10 +1132,13 @@ export function App() {
     // A link tapped in a note, on a phone.
     session.linkTap = setLinkTap;
     session.say = (text) => setShown({ text });
+    // What is made or moved into a folder is shown there: the folder opens in the sidebar.
+    session.placed = (folder, item) => setRevealFolder({ path: folder, item, at: Date.now() });
     return () => {
       session.showMenu = null;
       session.linkTap = null;
       session.say = null;
+      session.placed = null;
     };
   }, [session]);
   const [linkTap, setLinkTap] = useState<LinkTap | null>(null);
@@ -1151,22 +1167,15 @@ export function App() {
   // No mark where the tab would not move: right before or after itself.
   const draggedFrom = draggedTab ? tabs.indexOf(draggedTab) : -1;
   const shownGap = tabGap !== null && tabGap !== draggedFrom && tabGap !== draggedFrom + 1 ? tabGap : null;
-  // With more than one space, a tab says the way to what it shows once the pointer rests on it:
-  // `Acme › Sales`. Its name stays as it is.
-  const [tabTip, setTabTip] = useState<{ text: string; left: number; top: number } | null>(null);
-  const tipTimer = useRef(0);
+  // Once the pointer rests on a tab, it says its name in full when it is cut short and, with more
+  // than one space, the way to what it shows under it: `Acme › Sales`.
+  const tabTip = useHoverTip();
   const showTabTip = (event: MouseEvent<HTMLElement>, id: string) => {
-    const text = spaces.length > 0 ? pathTip(id, space.name ?? t('settings.personal')) : null;
-    if (!text) return;
-    const box = pageBox(event.currentTarget);
-    window.clearTimeout(tipTimer.current);
-    tipTimer.current = window.setTimeout(() => setTabTip({ text, left: box.left + 10, top: box.bottom + 4 }), TAB_TIP_MS);
+    const label = event.currentTarget.querySelector('.tab-title span');
+    const where = spaces.length > 0 ? pathTip(id, space.name ?? t('settings.personal')) : null;
+    tabTip.show(event.currentTarget, [where || cutShort(label) ? labelOf(id, tabTitles, filters) : null, where], label ?? undefined);
   };
-  const hideTabTip = () => {
-    window.clearTimeout(tipTimer.current);
-    setTabTip(null);
-  };
-  useEffect(() => () => window.clearTimeout(tipTimer.current), []);
+  const hideTabTip = tabTip.hide;
   const tabClass = (id: string, i: number) =>
     [
       'tab',
@@ -1271,9 +1280,10 @@ export function App() {
     // The onboarding note, once closed, is found again here.
     { id: 'welcome', label: t('welcome.title'), icon: 'note', run: () => void session.openWelcome() },
   ];
-  // A task, a folder or a space found: brought into sight where it is, and marked.
+  // A task, a folder or a space found: brought into sight where it is, and marked. A folder
+  // something was made or moved into opens to it.
   const [revealTask, setRevealTask] = useState<{ list: string; id: string; at: number } | null>(null);
-  const [revealFolder, setRevealFolder] = useState<{ path: string; at: number } | null>(null);
+  const [revealFolder, setRevealFolder] = useState<{ path: string; item?: string; at: number } | null>(null);
   /** Opens what was found: a note at the words found in it, a task in its list, a card, a record, a file, a folder in the sidebar. */
   const openFound = (found: Found<Thing>) => {
     const target = found.item.target;
@@ -2162,7 +2172,7 @@ export function App() {
             setDrawer(false);
             void session.open(id);
           }}
-          onMove={(path, target) => void moveTo(path, target)}
+          onMove={moveAndSay}
           onNewFolder={(name, parent) => session.newFolder(name, parent)}
           onItemMenu={itemMenu}
           onFolderMenu={folderMenu}
@@ -2266,17 +2276,12 @@ export function App() {
             </button>
           </div>
           {itemContent}
-          {tabTip &&
-            createPortal(
-              <div className="tab-tip" role="tooltip" style={{ left: tabTip.left, top: tabTip.top }}>
-                {tabTip.text}
-              </div>,
-              document.body,
-            )}
+          {tabTip.tip}
           <footer className="status">
             {stats && <span>{position(stats)}</span>}
             {stats && <span>{t('count.words', { count: stats.words })}</span>}
             {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
+            {stats && written !== null && <span>{writtenText(written)}</span>}
             {(keysText !== undefined || collection || active === UPCOMING || boardPath !== null) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
             {taskStatus?.map((part, i) => <span key={`task-${i}`}>{part}</span>)}
             {notice && (
@@ -2464,7 +2469,7 @@ export function App() {
           folders={everyFolder(tree, spaces)}
           current={dirname(dialog.path)}
           onMove={(target) => {
-            void moveTo(dialog.path, target);
+            moveAndSay(dialog.path, target);
             setDialog(null);
           }}
           onCreate={async (name) => {

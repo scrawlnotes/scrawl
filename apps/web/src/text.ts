@@ -32,3 +32,12 @@ export function pastDayLabel(day: string, today: string): string {
 /** The time of day of a moment, on a 24-hour clock: `14:41`. */
 export const clockTime = (iso: string) =>
   new Date(iso).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+
+/** When a note was last written, as the status bar says it: `Modified today, 22:31`, `Modified Oct 14, 12:55`. */
+export function writtenText(at: number, now = new Date()): string {
+  const when = new Date(at);
+  const time = clockTime(when.toISOString());
+  if (when.toDateString() === now.toDateString()) return t('status.modifiedToday', { time });
+  const sameYear = when.getFullYear() === now.getFullYear();
+  return t('status.modified', { day: when.toLocaleDateString(locale(), sameYear ? SHORT : { ...SHORT, year: 'numeric' }), time });
+}

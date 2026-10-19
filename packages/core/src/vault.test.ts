@@ -670,6 +670,25 @@ describe('between spaces', () => {
     expect(await from.readText('Sales/Pilot plan.md')).toContain('# Pilot');
   });
 
+  it('copies from a disk that says listing a file is wrong, as Windows does', async () => {
+    const { copyToSpace } = await import('./vault');
+    const { createCollection } = await import('./collection');
+    class Disk extends MemoryFs {
+      override async list(dir: string) {
+        if (await this.stat(dir)) throw new Error('The directory name is invalid. (os error 267)');
+        return super.list(dir);
+      }
+    }
+    const from = new Disk();
+    const to = new MemoryFs();
+    await from.writeText('Memduh Ev.md', 'A blok 5 numara');
+    const dir = await createCollection(from, '', 'Companies', 'companies');
+    expect(await copyToSpace(from, 'Memduh Ev.md', to, 'Homes')).toBe('Homes/Memduh Ev.md');
+    expect(await to.readText('Homes/Memduh Ev.md')).toBe('A blok 5 numara');
+    expect(await copyToSpace(from, dir, to, '')).toBe('Companies');
+    expect((await to.list('Companies')).map((e) => e.name)).toContain('_collection.json');
+  });
+
   it('leaves out what a task list or a board says about items of the space it came from', async () => {
     const { copyToSpace } = await import('./vault');
     const from = new MemoryFs();

@@ -493,7 +493,9 @@ export const insertTable: StateCommand = (target) => {
   const block = [row(header), row(header.map((h) => '-'.repeat(h.length))), row(header.map((h) => ' '.repeat(h.length)))];
   return insertBlock(block.join('\n'))(target);
 };
-export const insertDivider = insertBlock('---');
+// Not `---`: under a line of text, with the blank line between deleted, that underlines the line
+// as a heading; `***` is a divider wherever it is.
+export const insertDivider = insertBlock('***');
 
 /**
  * Splits a selection that spans several lines into one selection per line, each with its own

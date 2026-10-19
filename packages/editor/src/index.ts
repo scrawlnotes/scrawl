@@ -40,7 +40,7 @@ import { attachmentChanges, widgetMoves } from './media';
 import { linkPaste } from './links';
 import { cursorBehavior } from './cursor';
 import { wordCount } from './words';
-import { literalInput } from './literal';
+import { keepDividers, literalInput } from './literal';
 import { livePreview, type LivePreviewOptions, mediaChanged, setSourceMode, sourceMode } from './livePreview';
 import { textSelection } from './selection';
 import { type SlashItem, slashMenu } from './slash';
@@ -315,6 +315,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         cursorBehavior,
         clipboard,
         linkPaste(),
+        keepDividers,
         // Before `fileInput`: a dragged image comes with a file, which here is moved, not copied.
         widgetMoves,
         addFiles ? fileInput(addFiles, options.pastedFiles, options.onEmptyPaste) : [],

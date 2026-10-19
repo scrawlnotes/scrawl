@@ -1445,6 +1445,14 @@ button.mb-fr:active {
   background: color-mix(in srgb, var(--sl-bg) 55%, var(--sl-side));
 }
 
+/* Under the items: when the note was last written. */
+.mb-acts .ft {
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--sl-line);
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
 .mb-acts .a.red,
 .mb-acts .a.red .icon {
   color: var(--sl-p1);

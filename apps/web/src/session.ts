@@ -410,6 +410,8 @@ export interface Snapshot {
   saved: boolean;
   /** Cursor and formatting of the note on screen; null while a view is shown instead. */
   stats: EditorStats | null;
+  /** When the note on screen was last written, as its file says; null while it is not known or a view is shown. */
+  written: number | null;
   /** When the recording from the microphone started; null while nothing is recorded. */
   recording: { since: number } | null;
   /** Why the microphone could not be used, shown for a moment. */
@@ -614,6 +616,7 @@ export class Session {
     fileVersion: 0,
     saved: true,
     stats: null,
+    written: null,
     format: null,
     source: false,
     recording: null,
@@ -642,6 +645,8 @@ export class Session {
   say: ((text: string) => void) | null = null;
   /** A link tapped in a note on a touch screen; the interface sets it, to show what can be done with it. */
   linkTap: ((link: LinkTap) => void) | null = null;
+  /** Something made or moved into `folder`, by its path or a filter's tab; the interface sets it, to open the folder to it. */
+  placed: ((folder: string, item: string) => void) | null = null;
   /**
    * A phone: a tap on an image opens it, holding one opens its menu, and a tap on a link asks what
    * to do with it; none of them brings up the keyboard.
@@ -1495,6 +1500,13 @@ export class Session {
     this.queueSave(path, doc);
   }
 
+  /** Reads when a note was last written, from its file, for the status bar while it is on screen. */
+  private async readWritten(path: string) {
+    const { fs, local } = this.at(path);
+    const written = (await fs.stat?.(local).catch(() => null))?.modified ?? null;
+    if (this.snapshot.active === path && written !== this.snapshot.written) this.set({ written });
+  }
+
   /** Marks a note as changed, to be saved shortly. */
   private queueSave(path: string, doc: string) {
     this.pending.set(path, doc);
@@ -1538,6 +1550,7 @@ export class Session {
         if (held !== undefined && held !== text) await this.keep(path, held);
         await this.fs.writeText(path, text);
         this.disk.set(path, text);
+        void this.readWritten(path);
         // A record edited as a note: its collection shows what was written.
         if (dirname(path) in this.snapshot.collections) await this.reloadCollection(dirname(path));
       }),
@@ -2195,17 +2208,19 @@ export class Session {
   async createLinked(dir: string, target: string): Promise<string | null> {
     const collection = this.snapshot.collections[dir];
     if (!collection) return t('error.create');
+    let shown: string;
     try {
       const { fs, space } = this.at(dir);
       const own = toSpace(space)(target);
       const made = own === null ? null : await createLinkedCollection(fs, this.own(collection), own);
       if (!made) return t('error.create');
-      const shown = inSpace(space, made);
+      shown = inSpace(space, made);
       if (shown !== target) await this.saveSchemaAt(dir, retargetLinks(collection.schema, target, shown));
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }
     await this.refreshTree();
+    this.placed?.(dirname(shown), shown);
     return null;
   }
 
@@ -2341,6 +2356,7 @@ export class Session {
         this.states.delete(path);
         continue;
       }
+      void this.readWritten(path);
       this.external = true;
       try {
         view.dispatch({
@@ -2659,13 +2675,14 @@ export class Session {
   }
 
   /** Moves a collection's folder into `folder` of its space; a move to another space is not made here. */
-  async moveCollection(dir: string, folder: string) {
+  async moveCollection(dir: string, folder: string): Promise<string | undefined> {
     const source = this.at(dir);
     const into = this.at(folder);
     if (source.space !== into.space) return;
     await this.settle();
     const target = inSpace(source.space, await moveCollectionDir(source.fs, source.local, into.local));
     if (target !== dir) await this.recollect(dir, target);
+    return target;
   }
 
   /** Adds a record to a collection, as a file of its own named after its id. Returns a message when it cannot be made. */
@@ -2944,9 +2961,11 @@ export class Session {
   /** Saves a filter, a new one or a changed one, and shows it. */
   saveFilter(filter: TaskFilter) {
     const { filters } = this.snapshot;
-    const next = filters.some((f) => f.id === filter.id) ? filters.map((f) => (f.id === filter.id ? filter : f)) : [...filters, filter];
+    const before = filters.find((f) => f.id === filter.id);
+    const next = before ? filters.map((f) => (f.id === filter.id ? filter : f)) : [...filters, filter];
     this.writeFilters(next);
     void this.open(filterTab(filter.id));
+    if (!before || (before.folder ?? '') !== (filter.folder ?? '')) this.placed?.(filter.folder ?? '', filterTab(filter.id));
   }
 
   /** Deletes a saved filter, and closes its tab; its tasks stay where they are. The interface asks first. */
@@ -3043,12 +3062,13 @@ export class Session {
         }
         this.states.delete(id);
         // Set before the editor reports its new state, so the report is attributed to this note.
-        this.set({ active: id, tabs: openTabs });
+        this.set({ active: id, tabs: openTabs, written: null });
         editor.setState(state, this.scrolls.get(state));
         // Source mode is one setting for the whole window, not per note.
         editor.setSourceMode(this.snapshot.source);
+        void this.readWritten(id);
       } else {
-        this.set({ active: id, tabs: openTabs, stats: null, format: null });
+        this.set({ active: id, tabs: openTabs, stats: null, format: null, written: null });
       }
       this.saveWorkspace();
     }
@@ -3321,6 +3341,7 @@ export class Session {
     await this.madeNow([path]);
     await this.refreshTree();
     await this.open(path);
+    this.placed?.(dirname(path), path);
   }
 
   /**
@@ -3364,6 +3385,7 @@ export class Session {
     }
     await this.refreshTree();
     await this.open(kind === 'collection' ? collectionTab(path) : tabOf(path));
+    this.placed?.(dirname(path), path);
     return null;
   }
 
@@ -3394,7 +3416,7 @@ export class Session {
     const next = this.neighborOnClose ? (rest[index] ?? rest[index - 1]) : undefined;
     if (next) await this.open(next);
     else {
-      this.set({ stats: null, format: null });
+      this.set({ stats: null, format: null, written: null });
       this.saveWorkspace();
     }
   }
@@ -3753,10 +3775,15 @@ export class Session {
     if (dirname(path) === folder) return;
     const source = this.at(path);
     const into = this.at(folder);
-    if (source.space !== into.space) return this.moveAcross(path, folder);
-    if (path in this.snapshot.collections) return this.moveCollection(path, folder);
-    await this.settle();
-    await this.repath(path, inSpace(source.space, await moveItem(source.fs, source.local, into.local)));
+    let moved: string | undefined;
+    if (source.space !== into.space) moved = await this.moveAcross(path, folder);
+    else if (path in this.snapshot.collections) moved = await this.moveCollection(path, folder);
+    else {
+      await this.settle();
+      moved = inSpace(source.space, await moveItem(source.fs, source.local, into.local));
+      await this.repath(path, moved);
+    }
+    if (moved) this.placed?.(folder, moved);
   }
 
   /**
