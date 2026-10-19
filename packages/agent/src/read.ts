@@ -29,7 +29,11 @@ export const MAX_TEXT = 1024 * 1024;
 /** The digest of a text, as the server tags a file's content. */
 export const hashOf = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
 
-/** The spaces, today and the person, and for the model the guide after them: many clients show it nothing else of the server. */
+/**
+ * The spaces, today and the person, and for the model the guide after them: many clients show it
+ * nothing else of the server. The guide is in the structured content too, as a client that shows
+ * only that (Claude Code does) would leave it out.
+ */
 export async function spacesTool(agent: Agent) {
   const [spaces, person] = await Promise.all([agent.spaces(), agent.person()]);
   const data = {
@@ -37,7 +41,7 @@ export async function spacesTool(agent: Agent) {
     person: person?.name ?? null,
     spaces: spaces.map(({ id, name, where, personal }) => ({ id, name, where, personal })),
   };
-  return { data, text: `${JSON.stringify(data)}\n\n${GUIDE}` };
+  return { data: { ...data, guide: GUIDE }, text: `${JSON.stringify(data)}\n\n${GUIDE}` };
 }
 
 /** A node as the tree tool gives it: without what only the app's screen needs. */
@@ -75,7 +79,8 @@ export async function readTool(agent: Agent, args: { space?: string; path: strin
   if (entry.size !== undefined && entry.size > MAX_TEXT) throw new Refusal(`${path} is larger than agents read (1 MB)`, { path, size: entry.size });
   const text = await space.fs.readText(path);
   if (text.length > MAX_TEXT) throw new Refusal(`${path} is larger than agents read (1 MB)`, { path });
-  return { data: { space: space.id, path, kind: fileKind(path), hash: hashOf(text), size: text.length }, text };
+  // The file in the structured content too: a client that shows only that would leave it out.
+  return { data: { space: space.id, path, kind: fileKind(path), hash: hashOf(text), size: text.length, text }, text };
 }
 
 /** Something to be found in a space, with where it is. */

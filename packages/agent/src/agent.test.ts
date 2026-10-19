@@ -56,9 +56,12 @@ describe('looking around', () => {
   it('tells the spaces, today and the person, and gives the model the whole guide after them', async () => {
     const { agent } = await sample();
     const spaces = await spacesTool(agent);
-    expect(spaces.data).toEqual({ today: '2026-10-15', person: 'Kaan', spaces: [{ id: 'personal', name: 'Personal', where: 'this computer', personal: true }] });
-    expect(spaces.text.startsWith(JSON.stringify(spaces.data))).toBe(true);
+    const { guide, ...data } = spaces.data;
+    expect(data).toEqual({ today: '2026-10-15', person: 'Kaan', spaces: [{ id: 'personal', name: 'Personal', where: 'this computer', personal: true }] });
+    // The guide comes after them as text, and in the structured content too.
+    expect(spaces.text.startsWith(JSON.stringify(data))).toBe(true);
     expect(spaces.text).toContain(GUIDE);
+    expect(guide).toBe(GUIDE);
   });
 
   it('briefs with the guide up to how a space is laid out, and points to the rest', () => {
@@ -396,8 +399,8 @@ describe('over MCP', () => {
     expect((guide.contents[0] as { text: string }).text).toContain('# Scrawl for agents');
     expect(client.getInstructions()).toBe(BRIEF);
     const spaces = await client.callTool({ name: 'spaces', arguments: {} });
-    expect(spaces.structuredContent).toMatchObject({ today: '2026-10-15', person: 'Kaan' });
-    expect(spaces.structuredContent).not.toHaveProperty('guide');
+    // A client that shows only the structured content gets the guide and a file's text there too.
+    expect(spaces.structuredContent).toMatchObject({ today: '2026-10-15', person: 'Kaan', guide: expect.stringContaining('## Collections') });
     expect((spaces.content as { text: string }[])[0]!.text).toContain('## Collections');
     const card = await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', title: 'From a client' } });
     expect(card.isError).toBeFalsy();
@@ -407,7 +410,7 @@ describe('over MCP', () => {
     expect(refused.structuredContent).toMatchObject({ error: expect.stringContaining('Keys files') });
     const schema = await client.callTool({ name: 'read', arguments: { path: 'CRM/Companies/_collection.json' } });
     expect(schema.isError).toBeFalsy();
-    expect(schema.structuredContent).toMatchObject({ kind: 'schema' });
+    expect(schema.structuredContent).toMatchObject({ kind: 'schema', text: expect.stringContaining('"fields"') });
     await client.close();
   });
 });
