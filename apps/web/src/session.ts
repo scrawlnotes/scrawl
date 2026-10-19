@@ -1396,6 +1396,7 @@ export class Session {
   async carry() {
     if (!this.deviceId) return;
     try {
+      // What the devices carry together, with this device's spaces in its own order.
       const latest = await readCarried(this.personal);
       const entries = spaceEntries().filter((entry) => entry.source);
       const spaces = new Map((latest?.spaces ?? []).map((space) => [space.id, space]));
@@ -1417,27 +1418,29 @@ export class Session {
   }
 
   /**
-   * Takes in what another device carried through the personal space, once, where it wrote later
-   * than this device last took it in or wrote: the spaces this device does not have, unless it
-   * removed them, and their order; and the servers, listed for a sign-in.
+   * Takes in what the devices carry together through the personal space, whenever it is read,
+   * whichever device's file came last: the spaces this device does not have, unless it removed
+   * them, and the servers, listed for a sign-in. The order is taken once from each file written
+   * later than this device last took one in or wrote its own.
    */
   private async takeCarried() {
     try {
-      const latest = await readCarried(this.personal);
-      if (!latest || (carriedSeen() && Date.parse(latest.written) <= Date.parse(carriedSeen()))) return;
-      setCarriedSeen(latest.written);
+      const carried = await readCarried(this.personal);
+      if (!carried) return;
       const removed = removedSpaces();
-      for (const space of latest.spaces) {
+      for (const space of carried.spaces) {
         if (removed.has(space.id) || spaceEntries().some((entry) => entry.id === space.id)) continue;
         await this.addSpace(space.name ?? t('settings.space'), space.source, space.id, true).catch(() => undefined);
       }
+      for (const server of carried.servers) rememberServer(server);
+      if (carriedSeen() && Date.parse(carried.written) <= Date.parse(carriedSeen())) return;
+      setCarriedSeen(carried.written);
       const ids = spaceEntries().map((entry) => entry.id);
       const ordered = inOrderOf(
         ids,
-        latest.spaces.map((space) => space.id).filter((id) => ids.includes(id)),
+        carried.spaces.map((space) => space.id).filter((id) => ids.includes(id)),
       );
       if (ordered.join(' ') !== ids.join(' ')) await this.orderSpaces(ordered);
-      for (const server of latest.servers) rememberServer(server);
     } catch {
       // Taken in with the next turn.
     }

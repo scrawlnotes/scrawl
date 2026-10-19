@@ -5,9 +5,10 @@ import type { SpaceSource } from './spaces';
 // syncs to: the spaces beside it, in their order, and the servers. A new device that syncs its
 // personal space gets them; nothing that lets anything in goes with it, no key and no password,
 // nor where a copy is on a disk. Each device writes only its own file, `.scrawl/settings/<device>.json`,
-// with when it wrote it, so that no two write the same file; the latest one written is what holds.
-// A space removed from a device, or a server signed out of, is left out there only: the others
-// keep it, and a new device gets it. See PLAN.md 5.4.
+// with when it wrote it, so that no two write the same file. What they carry together is every
+// space and every server any of them wrote, whichever file came first; the order is the one the
+// latest written has. A space removed from a device, or a server signed out of, is left out there
+// only: the others keep it, and a new device gets it. See PLAN.md 5.4.
 
 export const CARRIED_DIR = '.scrawl/settings';
 
@@ -52,15 +53,28 @@ function readOne(text: string): Carried | null {
   }
 }
 
-/** What the devices wrote last: the latest of their files; null when none wrote yet. */
+/**
+ * What the devices carry together: every space and server any of them wrote, the spaces in the
+ * order of the latest written, those it does not have after them, a server as the latest that
+ * has it wrote it; `written` is when the latest was. Null when none wrote yet.
+ */
 export async function readCarried(fs: VaultFs): Promise<Carried | null> {
-  let latest: Carried | null = null;
+  const all: Carried[] = [];
   for (const file of await fs.list(CARRIED_DIR).catch(() => [])) {
     if (file.kind !== 'file' || !file.name.endsWith('.json')) continue;
     const read = readOne(await fs.readText(file.path).catch(() => ''));
-    if (read && (!latest || Date.parse(read.written) > Date.parse(latest.written))) latest = read;
+    if (read) all.push(read);
   }
-  return latest;
+  if (all.length === 0) return null;
+  // The latest first: its order holds, and what it says of a space or a server.
+  all.sort((a, b) => Date.parse(b.written) - Date.parse(a.written));
+  const spaces = new Map<string, CarriedSpace>();
+  const servers = new Map<string, CarriedServer>();
+  for (const one of all) {
+    for (const space of one.spaces) if (!spaces.has(space.id)) spaces.set(space.id, space);
+    for (const server of one.servers) if (!servers.has(server.url)) servers.set(server.url, server);
+  }
+  return { written: all[0]!.written, spaces: [...spaces.values()], servers: [...servers.values()] };
 }
 
 /** Writes what this device has into its own file. Nothing without a device. */
