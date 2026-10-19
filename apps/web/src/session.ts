@@ -1977,14 +1977,20 @@ export class Session {
 
   /** Gives a collection a name; its folder is renamed. Returns a message when the name cannot be used. */
   async renameCollection(dir: string, name: string): Promise<string | null> {
+    const done = await this.renamedCollection(dir, name);
+    return 'error' in done ? done.error : null;
+  }
+
+  /** Renames a collection; returns its folder after, or why it cannot be. */
+  private async renamedCollection(dir: string, name: string): Promise<{ path: string } | { error: string }> {
     await this.settle();
     try {
       const { fs, space, local } = this.at(dir);
       const target = inSpace(space, await renameCollectionDir(fs, local, name));
       if (target !== dir) await this.recollect(dir, target);
-      return null;
+      return { path: target };
     } catch (error) {
-      return error instanceof Error ? error.message : t('error.rename');
+      return { error: error instanceof Error ? error.message : t('error.rename') };
     }
   }
 
@@ -2996,14 +3002,21 @@ export class Session {
 
   /** Gives a note, a task list, a board, a keys file or a collection a name. Returns a message when the name cannot be used. */
   async rename(path: string, name: string): Promise<string | null> {
-    if (path in this.snapshot.collections) return this.renameCollection(path, name);
+    const done = await this.renamed(path, name);
+    return 'error' in done ? done.error : null;
+  }
+
+  /** Gives an item a name; returns where it is after, or why the name cannot be used. */
+  async renamed(path: string, name: string): Promise<{ path: string } | { error: string }> {
+    if (path in this.snapshot.collections) return this.renamedCollection(path, name);
     await this.settle();
     try {
       const { fs, space, local } = this.at(path);
-      await this.repath(path, inSpace(space, await renameItem(fs, local, name)));
-      return null;
+      const target = inSpace(space, await renameItem(fs, local, name));
+      await this.repath(path, target);
+      return { path: target };
     } catch (error) {
-      return error instanceof Error ? error.message : t('error.rename');
+      return { error: error instanceof Error ? error.message : t('error.rename') };
     }
   }
 

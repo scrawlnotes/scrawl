@@ -800,6 +800,29 @@ export function App() {
   };
   // The menu of a note, a task list, a board, a keys file or a collection; Inbox, the personal space's own list, has none.
   const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
+  /** What an item is called, as the Rename window shows it. */
+  const nameOfItem = (path: string) =>
+    isTaskListPath(path)
+      ? listName(path)
+      : isBoardPath(path)
+        ? boardName(path)
+        : isKeysPath(path)
+          ? keysName(path)
+          : path in collections
+            ? collectionName(path)
+            : (titles[path] ?? '');
+  /** The Rename window's name and folder: the name first, then the move, where either changed. */
+  const saveNameAndPlace = async (path: string, name: string, folder: FolderChoice): Promise<string | null> => {
+    let at = path;
+    if (name !== nameOfItem(path)) {
+      const done = await session.renamed(path, name);
+      if ('error' in done) return done.error;
+      at = done.path;
+    }
+    if (folder.create) return session.moveToNewFolder(at, folder.folder);
+    if (folder.folder !== dirname(at)) await moveTo(at, folder.folder);
+    return null;
+  };
   /** A tab double-clicked is renamed as its menu's Rename does; a filter's name is in its own window, and a view has none. */
   const renameTab = async (id: string) => {
     const filter = filters.find((each) => each.id === filterOf(id));
@@ -2230,18 +2253,10 @@ export function App() {
       )}
       {dialog?.kind === 'rename' && (
         <RenameDialog
-          name={
-            isTaskListPath(dialog.path)
-              ? listName(dialog.path)
-              : isBoardPath(dialog.path)
-                ? boardName(dialog.path)
-                : isKeysPath(dialog.path)
-                  ? keysName(dialog.path)
-                  : dialog.path in collections
-                    ? collectionName(dialog.path)
-                    : (titles[dialog.path] ?? '')
-          }
-          onRename={(name) => session.rename(dialog.path, name)}
+          name={nameOfItem(dialog.path)}
+          folder={dirname(dialog.path)}
+          folders={everyFolder(tree, spaces)}
+          onSave={(name, folder) => saveNameAndPlace(dialog.path, name, folder)}
           onClose={closeDialog}
         />
       )}

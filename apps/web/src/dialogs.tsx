@@ -1098,39 +1098,70 @@ export function NewCardDialog({ title, note, boards, initial, onAdd, onClose }: 
   );
 }
 
-/** Asks for the name of a note or a task list. */
-export function RenameDialog({ name, onRename, onClose }: {
+/**
+ * The name and the place of a note, a task list, a board, a keys file or a collection, from its
+ * menu's Rename or its tab double-clicked: its name, and its folder as the Create window has it,
+ * where it is now. Save changes what was changed, the name first.
+ */
+export function RenameDialog({ name, folder, folders, onSave, onClose }: {
   name: string;
-  onRename: (name: string) => Promise<string | null>;
+  /** The folder it is in. */
+  folder: string;
+  folders: string[];
+  /** Saves the name and the folder; returns a message when either cannot be. */
+  onSave: (name: string, folder: FolderChoice) => Promise<string | null>;
   onClose: () => void;
 }) {
   const [value, setValue] = useState(name);
+  const [choice, setChoice] = useState<FolderChoice>({ folder, create: false });
   const [error, setError] = useState<string | null>(null);
+  const busy = useRef(false);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const failed = await onRename(value);
+    if (busy.current) return;
+    busy.current = true;
+    const failed = await onSave(value, choice);
+    busy.current = false;
     if (failed) setError(failed);
     else onClose();
   };
   return (
-    <Dialog label={t('rename.title')} onClose={onClose}>
+    <Dialog label={t('rename.title')} className="new-item" onClose={onClose}>
       <h2>{t('rename.title')}</h2>
       <form onSubmit={submit}>
-        <input
-          id="rename-item"
-          aria-label={t('rename.name')}
-          autoFocus
-          value={value}
-          onFocus={(event) => event.target.select()}
-          onChange={(event) => setValue(event.target.value)}
-        />
-        {error && <p role="alert">{error}</p>}
+        <div className="dialog-body">
+          <label className="field">
+            <span>{t('create.name')}</span>
+            <input
+              id="rename-item"
+              autoFocus
+              value={value}
+              onFocus={(event) => event.target.select()}
+              onChange={(event) => {
+                setValue(event.target.value);
+                setError(null);
+              }}
+            />
+          </label>
+          <div className="field">
+            <span>{t('create.folder')}</span>
+            <FolderField
+              folders={folders}
+              value={choice}
+              onChange={(picked) => {
+                setChoice(picked);
+                setError(null);
+              }}
+            />
+          </div>
+          {error && <p role="alert">{error}</p>}
+        </div>
         <div className="dialog-actions">
           <button type="button" onClick={onClose}>
             {t('dialog.cancel')}
           </button>
           <button type="submit" className="primary">
-            {t('rename.title')}
+            {t('card.save')}
           </button>
         </div>
       </form>
