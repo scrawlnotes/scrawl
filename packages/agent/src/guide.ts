@@ -11,7 +11,8 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 
 - Look around first: \`spaces\`, then \`tree\` (with \`kind\` for all boards, collections or task lists at once) or \`search\`.
 - Before adding, look at what is there and update it instead of adding again: \`cards\`, \`records\` and \`tasks\` show what exists.
-- Give boards, collections, task lists and records by name; a tool uses the one match and tells you its path. When more than one thing fits, the tool writes nothing and returns the candidates: ask the person which.
+- Give boards, collections, task lists and records by name; a tool uses the one match and tells you its path. You need not name the space: what is named is looked for in every space, and the result says which space it is in; give \`space\` to look in one only, and to make something new when there is more than one. When more than one thing fits, the tool writes nothing and returns the candidates with their spaces: ask the person which.
+- Lists come short: \`cards\` gives each card's key, title, column and counts; ask for one card, or \`full: true\`, for its description and comments.
 - Do not write what you are not sure of. Say what you did and what is left; on a card, say it with \`comment\`.
 - \`spaces\` tells today's date and the person's name; use them for days like "next week" and when something is yours. It also gives each space's people: give a card or a task to one of them by name.
 - Keys files, the \`.scrawl/\` folder and \`_attachments/\` are closed to you. Nothing is deleted for good: \`trash\` sends to the trash, where the person restores.
@@ -27,6 +28,8 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 | Move a task to another section, under another task, to another list | \`save_task\` with \`id\` and \`section\`, \`parent\` or \`toList\` |
 | Tie a task or a card to a note | \`save_task\` or \`save_card\` with \`note\` |
 | See tasks, cards, records | \`tasks\`, \`cards\`, \`records\` |
+| Add many cards or tasks at once (a meeting's points) | \`save_card\` or \`save_task\` with \`items\`; tie them to the meeting's note with \`note\` |
+| See what is due today, or what is someone's, everywhere | \`tasks\` and \`cards\`, both with \`due: "today"\` or \`assignee\` (\`"me"\` for the person), no list, board or space |
 | Finish or drop | a task: \`save_task\` with \`done: true\`; a card: \`save_card\` with \`column: "done"\` or \`"dropped"\` |
 | Change a collection's fields, a board's columns or phases | \`read\` the file, change the JSON, \`write\` it back with \`ifMatch\`; there is no other tool for it |
 | Move or rename a note, list, board or collection | \`move\`; what points at it follows |

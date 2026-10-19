@@ -32,11 +32,12 @@ import {
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, Refusal } from './paths';
 import { parseValues } from './records';
-import { actorOf, type Agent, type Client, exists, noteRefOf, nowOf, personRefOf, pickElement, pickSpace, todayOf } from './space';
+import { actorOf, type Agent, type AgentSpace, type Client, type Due, dueIs, elementsOf, exists, isAssignee, noteRefOf, nowOf, personRefOf, pickAcross, pickSpace, todayOf } from './space';
 import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
-// Boards: the cards of a board, a card as a brief, adding and changing a card, moving it by its
-// column's kind, and commenting. The current phase is where the agent works unless told otherwise.
+// Boards: the cards of a board, short, and of every board by a day or a person; a card in full or
+// as a brief; adding and changing one card or many at once, moving one by its column's kind, and
+// commenting. The current phase is where the agent works unless told otherwise.
 
 /** A day as the agent wrote it, or a refusal: one that is not on the calendar (2026-02-30) too. */
 export function dayArg(value: string | null | undefined, what: string): string | null | undefined {
@@ -86,15 +87,47 @@ export function pickCard(board: Board, ref: string): Card {
   throw new Refusal(`No card ${ref} on this board`, {});
 }
 
-/** A card as the tools give it. */
-export function cardOut(board: Board, card: Card, today: string) {
-  const column = columnOf(board, card);
-  const phase = card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
+/** A card's values of the board's own fields, worked out, the empty ones left out. */
+function valuesOf(board: Board, card: Card, today: string): { [key: string]: FieldValue } {
   const values: { [key: string]: FieldValue } = {};
   for (const field of board.fields ?? []) {
     const value = cardValue(board, card, field, today);
     if (!isEmpty(value)) values[field.key] = value;
   }
+  return values;
+}
+
+/**
+ * A card as a list gives it: what tells cards apart and how far each is, without its texts. Its
+ * description, subtasks and comments come with the card alone, or with `full: true`.
+ */
+export function cardLine(board: Board, card: Card, today: string) {
+  const column = columnOf(board, card);
+  const phase = card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
+  const values = valuesOf(board, card, today);
+  const comments = card.timeline.filter((entry) => entry.kind === 'comment').length;
+  const ticked = card.subtasks?.filter((s) => s.done).length ?? 0;
+  return {
+    key: keyOf(board, card),
+    title: card.title,
+    column: column?.name ?? null,
+    ...(phase && { phase: phase.name }),
+    priority: card.priority,
+    due: card.due,
+    ...(card.labels?.length && { labels: card.labels }),
+    assignee: card.assignee?.name ?? null,
+    ...(Object.keys(values).length > 0 && { values }),
+    ...(card.subtasks?.length && { subtasks: `${ticked}/${card.subtasks.length}` }),
+    ...(comments > 0 && { comments }),
+    ...(card.note && { note: card.note }),
+  };
+}
+
+/** A card as the tools give it in full. */
+export function cardOut(board: Board, card: Card, today: string) {
+  const column = columnOf(board, card);
+  const phase = card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
+  const values = valuesOf(board, card, today);
   return {
     id: card.id,
     key: keyOf(board, card),
@@ -153,26 +186,79 @@ async function briefOf(fs: VaultFs, board: Board, path: string, card: Card, toda
   return `${lines.join('\n')}\n`;
 }
 
-/** A board's head as the tools give it. */
+/** A board's head as the tools give it: its columns by name and kind, its open phases, how many are done. */
 function boardOut(path: string, board: Board) {
   const current = currentPhase(board);
+  const open = board.phases.filter((p) => p.state !== 'done');
   return {
     board: path,
     name: boardName(path),
     prefix: board.prefix,
     phasesOn: board.phasesOn,
-    currentPhase: current ? { id: current.id, name: current.name, ...(current.goal && { goal: current.goal }), ...(current.doneWhen && { doneWhen: current.doneWhen }) } : null,
-    columns: board.columns,
-    phases: board.phases.map(({ id, name, state }) => ({ id, name, state })),
+    currentPhase: current ? { name: current.name, ...(current.goal && { goal: current.goal }), ...(current.doneWhen && { doneWhen: current.doneWhen }) } : null,
+    columns: board.columns.map(({ name, kind }) => ({ name, kind })),
+    ...(board.phases.length > 0 && { phases: open.map(({ name, state }) => ({ name, state })), donePhases: board.phases.length - open.length }),
     ...(board.fields?.length && { fields: board.fields.map(({ key, label, type, options, collection, many }) => ({ key, label, type, ...(options && { options }), ...(collection && { collection }), ...(many && { many }) })) }),
   };
 }
 
-export async function cardsTool(agent: Agent, args: { space?: string; board: string; card?: string; column?: string; phase?: string; assignee?: string; label?: string; open?: boolean; brief?: boolean }) {
-  const space = await pickSpace(agent, args.space);
-  const element = await pickElement(space.fs, args.board, ['board'], 'board');
-  const board = await loadBoard(space.fs, element.path);
+export interface CardsArgs {
+  space?: string;
+  /** Left out with `due`, `assignee` or `label`: every board. */
+  board?: string;
+  card?: string;
+  column?: string;
+  phase?: string;
+  assignee?: string;
+  label?: string;
+  due?: Due;
+  open?: boolean;
+  brief?: boolean;
+  /** Each card with its description, subtasks and comments. */
+  full?: boolean;
+}
+
+/** The cards that are what `assignee`, `label` and `due` ask for. */
+async function fitsOf(agent: Agent, args: CardsArgs): Promise<(card: Card) => boolean> {
   const today = todayOf(agent);
+  const person = args.assignee ? await agent.person() : null;
+  return (card) => (!args.assignee || isAssignee(card.assignee, args.assignee, person)) && (!args.label || !!card.labels?.some((l) => same(l, args.label!))) && (!args.due || dueIs(card.due, args.due, today));
+}
+
+/** The cards of one board, or, with no board given, the cards of every board that fit `due`, `assignee` or `label`. */
+export function cardsTool(agent: Agent, args: CardsArgs & { board: string }): ReturnType<typeof boardCards>;
+export function cardsTool(agent: Agent, args: CardsArgs & { board?: undefined }): ReturnType<typeof acrossBoards>;
+export function cardsTool(agent: Agent, args: CardsArgs): ReturnType<typeof boardCards> | ReturnType<typeof acrossBoards>;
+export function cardsTool(agent: Agent, args: CardsArgs) {
+  return args.board?.trim() ? boardCards(agent, { ...args, board: args.board }) : acrossBoards(agent, args);
+}
+
+/** Across boards a card's day matters, not its phase: every open card that fits, wherever it is. */
+async function acrossBoards(agent: Agent, args: CardsArgs) {
+  if (args.card) throw new Refusal('Which board is the card on? Give board too, or find the card with search');
+  if (!args.due && !args.assignee && !args.label) throw new Refusal('Give a board, or due, assignee or label to look across every board');
+  const today = todayOf(agent);
+  const fits = await fitsOf(agent, args);
+  const spaces = args.space?.trim() ? [await pickSpace(agent, args.space)] : await agent.spaces();
+  const found: { [key: string]: unknown; due: string | null; priority: number }[] = [];
+  for (const space of spaces) {
+    for (const element of await elementsOf(space.fs, ['board'])) {
+      const board = await loadBoard(space.fs, element.path);
+      for (const card of board.cards) {
+        if (((args.open ?? true) && isFinished(board, card)) || !fits(card)) continue;
+        found.push({ ...(args.full ? cardOut(board, card, today) : cardLine(board, card, today)), board: element.path, boardName: boardName(element.path), space: space.id, spaceName: space.name });
+      }
+    }
+  }
+  found.sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999') || a.priority - b.priority);
+  return { data: { today, total: found.length, cards: found } };
+}
+
+async function boardCards(agent: Agent, args: CardsArgs & { board: string }) {
+  const today = todayOf(agent);
+  const fits = await fitsOf(agent, args);
+  const { space, element } = await pickAcross(agent, args.space, args.board, ['board'], 'board');
+  const board = await loadBoard(space.fs, element.path);
   let cards: Card[];
   if (args.card) cards = [pickCard(board, args.card)];
   else {
@@ -184,14 +270,21 @@ export async function cardsTool(agent: Agent, args: { space?: string; board: str
       const kind = COLUMN_KINDS.includes(fold(args.column) as ColumnKind) ? (fold(args.column) as ColumnKind) : null;
       cards = cards.filter((c) => (kind ? columnOf(board, c)?.kind === kind : c.column === column.id));
     }
-    if (args.assignee) cards = cards.filter((c) => c.assignee && ((c.assignee.name && same(c.assignee.name, args.assignee!)) || c.assignee.id === args.assignee));
-    if (args.label) cards = cards.filter((c) => c.labels?.some((l) => same(l, args.label!)));
+    cards = cards.filter(fits);
     const order = new Map(board.columns.map((c, i) => [c.id, i]));
     cards = [...cards].sort((a, b) => (order.get(a.column) ?? 99) - (order.get(b.column) ?? 99) || a.order - b.order);
   }
   const brief = args.brief && cards.length === 1 ? await briefOf(space.fs, board, element.path, cards[0]!, today) : undefined;
+  const full = !!args.card || !!args.full;
   return {
-    data: { space: space.id, ...boardOut(element.path, board), total: cards.length, cards: cards.map((c) => cardOut(board, c, today)), ...(brief && { brief }) },
+    data: {
+      space: space.id,
+      spaceName: space.name,
+      ...boardOut(element.path, board),
+      total: cards.length,
+      cards: cards.map((c) => (full ? cardOut(board, c, today) : cardLine(board, c, today))),
+      ...(brief && { brief }),
+    },
     ...(brief && { text: brief }),
   };
 }
@@ -215,6 +308,22 @@ export interface CardArgs {
   subtasks?: SubtaskArg[];
   /** Add the card even though an open one has its title already. */
   another?: boolean;
+  /** Many cards at once on the board, each with the fields of one: all written, or none. */
+  items?: CardItem[];
+}
+
+/** One card of many, as `items` gives it: what one card takes, but the board. */
+export type CardItem = Omit<CardArgs, 'space' | 'board' | 'items'>;
+
+/** The most cards or tasks one call adds or changes. */
+export const MAX_ITEMS = 50;
+
+/** What one card's turn did: the board as it is now, the card, and whether it was added, changed or already there. */
+interface CardDone {
+  board: Board;
+  card: Card;
+  status: 'created' | 'changed' | 'exists';
+  message?: string;
 }
 
 /** What a field holds, said for a value that does not fit it. */
@@ -231,12 +340,83 @@ function fitOf(field: Field): string {
   }
 }
 
-export async function saveCardTool(agent: Agent, client: Client, args: CardArgs) {
-  const space = await pickSpace(agent, args.space);
-  const element = await pickElement(space.fs, args.board, ['board'], 'board');
-  let board = await loadBoard(space.fs, element.path);
-  const now = nowOf(agent);
-  const by = actorOf(client, await agent.person());
+/** The fields of one card given beside `items`, which say one card while items say many. */
+function singleFields(args: object): string[] {
+  return Object.entries(args as { [key: string]: unknown })
+    .filter(([key, value]) => value !== undefined && !['space', 'board', 'list', 'items'].includes(key))
+    .map(([key]) => key);
+}
+
+/** Refuses `items` that are none, too many, or given with the fields of one. */
+export function checkItems(args: object, items: unknown[], what: string) {
+  const single = singleFields(args);
+  if (single.length > 0) throw new Refusal(`Give ${single.join(', ')} inside each of items, or leave items out for one ${what}`, { fields: single });
+  if (items.length === 0) throw new Refusal(`items is empty; give at least one ${what}`);
+  if (items.length > MAX_ITEMS) throw new Refusal(`At most ${MAX_ITEMS} at once; ${items.length} were given`, { given: items.length });
+}
+
+/** One card added or changed, or, with `items`, many on one board in one go. */
+export function saveCardTool(agent: Agent, client: Client, args: CardArgs & { items: CardItem[] }): ReturnType<typeof saveCards>;
+export function saveCardTool(agent: Agent, client: Client, args: CardArgs & { items?: undefined }): ReturnType<typeof saveCard>;
+export function saveCardTool(agent: Agent, client: Client, args: CardArgs): ReturnType<typeof saveCard> | ReturnType<typeof saveCards>;
+export function saveCardTool(agent: Agent, client: Client, args: CardArgs) {
+  return args.items ? saveCards(agent, client, { ...args, items: args.items }) : saveCard(agent, client, args);
+}
+
+/** The board a card or cards go on, the clock and the actor. */
+async function cardPlace(agent: Agent, client: Client, args: CardArgs) {
+  const { space, element } = await pickAcross(agent, args.space, args.board, ['board'], 'board');
+  return {
+    space,
+    element,
+    board: await loadBoard(space.fs, element.path),
+    now: nowOf(agent),
+    by: actorOf(client, await agent.person()),
+    today: todayOf(agent),
+    where: { space: space.id, spaceName: space.name, board: element.path },
+  };
+}
+
+async function saveCard(agent: Agent, client: Client, args: CardArgs) {
+  const { space, element, board, now, by, today, where } = await cardPlace(agent, client, args);
+  const step = await applyCard(space, board, args, now, by);
+  if (step.status === 'exists') return { data: { ...where, created: false, exists: true, message: step.message, card: cardOut(board, step.card, today) } };
+  await saveBoard(space.fs, element.path, step.board);
+  return { data: { ...where, created: step.status === 'created', card: cardOut(step.board, step.board.cards.find((c) => c.id === step.card.id)!, today) } };
+}
+
+async function saveCards(agent: Agent, client: Client, args: CardArgs & { items: CardItem[] }) {
+  checkItems(args, args.items, 'card');
+  const place = await cardPlace(agent, client, args);
+  const { space, element, now, by, today, where } = place;
+  let { board } = place;
+  // Every card is checked and laid on the board before anything is written: one refused, none written.
+  const done: CardDone[] = [];
+  for (const [i, item] of args.items.entries()) {
+    try {
+      const step = await applyCard(space, board, item, now, by);
+      board = step.board;
+      done.push(step);
+    } catch (error) {
+      if (error instanceof Refusal) throw new Refusal(`Item ${i + 1}: ${error.message}; nothing was written`, { item: i + 1, ...error.details });
+      throw error;
+    }
+  }
+  if (done.some((step) => step.status !== 'exists')) await saveBoard(space.fs, element.path, board);
+  const count = (status: CardDone['status']) => done.filter((step) => step.status === status).length;
+  return {
+    data: {
+      ...where,
+      created: count('created'),
+      changed: count('changed'),
+      exists: count('exists'),
+      cards: done.map((step) => ({ status: step.status, ...cardLine(board, board.cards.find((c) => c.id === step.card.id)!, today) })),
+    },
+  };
+}
+
+/** One card added to `board` or changed on it, as `args` asks; the board is not written. */
+async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: Date, by: string | undefined): Promise<CardDone> {
   const column = args.column ? pickColumn(board, args.column) : undefined;
   const phase = args.phase ? pickPhase(board, args.phase) : undefined;
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
@@ -285,16 +465,8 @@ export async function saveCardTool(agent: Agent, client: Client, args: CardArgs)
     if (twins.length > 1) throw new Refusal(`More than one open card is already called ${title}; nothing was added. Give id to change one of them, or another: true to add one more`, { candidates: twins.map((c) => ({ key: keyOf(board, c), id: c.id, title: c.title })) });
     if (twins.length === 1) {
       const found = twins[0]!;
-      return {
-        data: {
-          space: space.id,
-          board: element.path,
-          created: false,
-          exists: true,
-          message: `An open card called ${title} is already on this board (${keyOf(board, found)}); nothing was added. To change it, give its id ${keyOf(board, found)}; to add a second one with this title on purpose, pass another: true.`,
-          card: cardOut(board, found, todayOf(agent)),
-        },
-      };
+      const message = `An open card called ${title} is already on this board (${keyOf(board, found)}); nothing was added. To change it, give its id ${keyOf(board, found)}; to add a second one with this title on purpose, pass another: true.`;
+      return { board, card: found, status: 'exists', message };
     }
     const input: NewCard = {
       title,
@@ -316,14 +488,11 @@ export async function saveCardTool(agent: Agent, client: Client, args: CardArgs)
     if (subtasks.length > 0) board = updateCard(board, card.id, { subtasks }, () => now);
     created = true;
   }
-  await saveBoard(space.fs, element.path, board);
-  const saved = board.cards.find((c) => c.id === card.id)!;
-  return { data: { space: space.id, board: element.path, created, card: cardOut(board, saved, todayOf(agent)) } };
+  return { board, card, status: created ? 'created' : 'changed' };
 }
 
 export async function commentTool(agent: Agent, client: Client, args: { space?: string; board: string; card: string; text: string }) {
-  const space = await pickSpace(agent, args.space);
-  const element = await pickElement(space.fs, args.board, ['board'], 'board');
+  const { space, element } = await pickAcross(agent, args.space, args.board, ['board'], 'board');
   let board = await loadBoard(space.fs, element.path);
   const card = pickCard(board, args.card);
   const text = args.text.trim();

@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
-import { createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, saveMe, savePeople } from '@scrawlnotes/core';
+import { createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, saveMe, savePeople, serializeBoard } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { cardsTool, commentTool, saveCardTool } from './cards';
 import { BRIEF, GUIDE } from './guide';
@@ -557,6 +557,101 @@ describe('tried by hand', () => {
   });
 });
 
+// Less to go through to get a thing done (design/agent-fixes.md, 6).
+describe('less to go through', () => {
+  /** The personal space of `sample`, and a team's with a board called Roadmap; each has a list called Yapılacaklar. */
+  async function two() {
+    const { fs: mine, board } = await sample();
+    const team = new MemoryFs();
+    await createBoard(team, '', 'Roadmap', 'software');
+    await createTaskList(team, '', 'Yapılacaklar');
+    await createTaskList(mine, 'Plans', 'Yapılacaklar');
+    return { mine, team, board, agent: agentOf(spaceOf(mine), spaceOf(team, false, 'Team')) };
+  }
+
+  it('finds a board, a list or a file by its name in whichever space has it, and asks which when two have it', async () => {
+    const { agent, team } = await two();
+    const added = await saveCardTool(agent, CLIENT, { board: 'Roadmap', title: 'Ship' });
+    expect(added.data).toMatchObject({ space: 'sp-k7f3m2qa', spaceName: 'Team', board: 'Roadmap.board.json', created: true });
+    expect((await loadBoard(team, 'Roadmap.board.json')).cards).toHaveLength(1);
+    expect((await cardsTool(agent, { board: 'Scrawl' })).data).toMatchObject({ space: 'personal', board: 'Plans/Scrawl.board.json' });
+    const both = await refusal(tasksTool(agent, { list: 'Yapılacaklar' }));
+    expect((both.details.candidates as { spaceName: string }[]).map((c) => c.spaceName).sort()).toEqual(['Personal', 'Team']);
+    expect((await readTool(agent, { path: 'Plans/Roadmap.md' })).data.space).toBe('personal');
+    // What makes something new names its space.
+    expect((await refusal(createTool(agent, { kind: 'note', name: 'x' }))).message).toContain('Which space?');
+    expect((await refusal(writeTool(agent, { path: 'New.md', text: 'x' }))).message).toContain('Which space?');
+    expect((await refusal(cardsTool(agent, { board: 'Nowhere' }))).message).toContain('in any space');
+    const boards = (await treeTool(agent, { kind: 'board' })).data as { items: { path: string; spaceName: string }[] };
+    expect(boards.items.map((b) => `${b.spaceName}:${b.path}`)).toEqual(['Personal:Plans/Scrawl.board.json', 'Team:Roadmap.board.json']);
+  });
+
+  it('lists cards short, with the open phases only, and one card or full: true in full', async () => {
+    const { agent, fs, board } = await sample();
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'One', description: 'Long words', subtasks: [{ title: 'a' }, { title: 'b', done: true }] });
+    const two = (await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Two' })).data.card;
+    await commentTool(agent, CLIENT, { board: 'Scrawl', card: two.key, text: 'Started' });
+    const listed = (await cardsTool(agent, { board: 'Scrawl' })).data;
+    expect(listed.cards).toEqual([
+      { key: 'SCR-1', title: 'One', column: 'Backlog', priority: 4, due: null, assignee: null, subtasks: '1/2' },
+      { key: 'SCR-2', title: 'Two', column: 'Backlog', priority: 4, due: null, assignee: null, comments: 1 },
+    ]);
+    expect(listed.columns[0]).toEqual({ name: 'Backlog', kind: 'backlog' });
+    expect((await cardsTool(agent, { board: 'Scrawl', full: true })).data.cards[0]).toMatchObject({ description: 'Long words' });
+    expect((await cardsTool(agent, { board: 'Scrawl', card: 'SCR-2' })).data.cards[0]).toMatchObject({ comments: [{ text: 'Started' }] });
+    const phased = { ...(await loadBoard(fs, board)), phases: [{ id: 'p1', name: 'Old', state: 'done' as const }, { id: 'p2', name: 'Now', state: 'current' as const }, { id: 'p3', name: 'Next', state: 'upcoming' as const }] };
+    await fs.writeText(board, serializeBoard(phased));
+    expect((await cardsTool(agent, { board: 'Scrawl' })).data).toMatchObject({ currentPhase: { name: 'Now' }, phases: [{ name: 'Now', state: 'current' }, { name: 'Next', state: 'upcoming' }], donePhases: 1 });
+  });
+
+  it('adds or changes many cards or tasks in one call, all of them or none, each once', async () => {
+    const { agent, fs, board } = await sample();
+    const many = await saveCardTool(agent, CLIENT, { board: 'Scrawl', items: [{ title: 'Write the post', due: '2026-10-20' }, { title: 'Call Acme', assignee: 'Kaan' }, { title: 'write the post' }] });
+    expect(many.data).toMatchObject({ created: 2, changed: 0, exists: 1 });
+    expect(many.data.cards.map((c) => [c.status, c.key])).toEqual([['created', 'SCR-1'], ['created', 'SCR-2'], ['exists', 'SCR-1']]);
+    // Sent again after a cut-off call: nothing more.
+    expect((await saveCardTool(agent, CLIENT, { board: 'Scrawl', items: [{ title: 'Write the post' }, { title: 'Call Acme' }] })).data).toMatchObject({ created: 0, exists: 2 });
+    const before = await fs.readText(board);
+    const refused = await refusal(saveCardTool(agent, CLIENT, { board: 'Scrawl', items: [{ title: 'Fine' }, { title: 'Bad day', due: '2026-02-30' }] }));
+    expect(refused.message).toContain('Item 2');
+    expect(refused.details.item).toBe(2);
+    expect(await fs.readText(board)).toBe(before);
+    expect((await refusal(saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'x', items: [{ title: 'y' }] }))).message).toContain('inside each of items');
+    await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' });
+    const first = await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Draft' });
+    const tasks = await saveTaskTool(agent, CLIENT, { list: 'Launch', items: [{ id: first.data.task.id, priority: 1 }, { title: 'Review' }, { title: 'Publish', due: '2026-10-21' }] });
+    expect(tasks.data).toMatchObject({ created: 2, changed: 1, exists: 0 });
+    expect((await loadList(fs, 'Plans/Launch.tasks.json')).tasks.map((t) => [t.title, t.priority])).toEqual([['Draft', 1], ['Review', 4], ['Publish', 4]]);
+  });
+
+  it('looks across every board and list by a day or a person, in every space', async () => {
+    const { agent } = await two();
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Today here', due: '2026-10-15' });
+    await saveCardTool(agent, CLIENT, { board: 'Roadmap', title: 'Today there', due: '2026-10-15', assignee: 'Kaan' });
+    await saveCardTool(agent, CLIENT, { board: 'Roadmap', title: 'Later', due: '2026-10-30' });
+    await saveTaskTool(agent, CLIENT, { space: 'Team', list: 'Yapılacaklar', title: 'Team task today', due: '2026-10-15' });
+    await saveTaskTool(agent, CLIENT, { title: 'Inbox today', due: '2026-10-15' });
+    expect((await cardsTool(agent, { due: 'today' })).data.cards.map((c) => [c.title, c.spaceName])).toEqual([
+      ['Today here', 'Personal'],
+      ['Today there', 'Team'],
+    ]);
+    expect((await cardsTool(agent, { assignee: 'me' })).data.cards.map((c) => c.title)).toEqual(['Today there']);
+    expect((await refusal(cardsTool(agent, {}))).message).toContain('due, assignee or label');
+    expect((await tasksTool(agent, { due: 'today' })).data.tasks.map((t) => [t.title, t.spaceName])).toEqual([
+      ['Inbox today', 'Personal'],
+      ['Team task today', 'Team'],
+    ]);
+    expect((await refusal(tasksTool(agent, {}))).message).toContain('give due or assignee');
+  });
+
+  it('finds a space by its name, says which space each hit is in, and offers only names that are near', async () => {
+    const { agent, mine } = await two();
+    expect((await searchTool(agent, { query: 'Team' })).data.found[0]).toMatchObject({ kind: 'space', title: 'Team', space: 'sp-k7f3m2qa', spaceName: 'Team' });
+    expect((await searchTool(agent, { query: 'ship the agent' })).data.found[0]).toMatchObject({ kind: 'note', spaceName: 'Personal' });
+    expect((await refusal(pickElement(mine, 'Zebra', ['board'], 'board'))).details.nearest).toBeUndefined();
+  });
+});
+
 describe('over MCP', () => {
   it('serves the tools and the guide to a client, and writes with the client’s name', async () => {
     const { agent, fs, board } = await sample();
@@ -583,6 +678,10 @@ describe('over MCP', () => {
     const schema = await client.callTool({ name: 'read', arguments: { path: 'CRM/Companies/_collection.json' } });
     expect(schema.isError).toBeFalsy();
     expect(schema.structuredContent).toMatchObject({ kind: 'schema', text: expect.stringContaining('"fields"') });
+    // Many cards in one call, as a meeting's points.
+    const many = await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', items: [{ title: 'Point one' }, { title: 'Point two', due: '2026-10-20' }] } });
+    expect(many.isError).toBeFalsy();
+    expect(many.structuredContent).toMatchObject({ created: 2, cards: [{ title: 'Point one' }, { title: 'Point two' }] });
     await client.close();
   });
 });

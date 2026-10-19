@@ -82,11 +82,10 @@ export function actorOf(client: Client, person: Person | null): string | undefin
 
 const same = (a: string, b: string) => fold(a.trim()) === fold(b.trim());
 
-/** The items whose title has a word of `ref`, else all of them; at most twenty. */
+/** The items whose title has a word of `ref`; at most twenty, none when nothing is near. */
 function nearest<T extends { title: string }>(items: T[], ref: string): T[] {
   const words = fold(ref).split(/\s+/).filter(Boolean);
-  const close = items.filter((item) => words.some((word) => fold(item.title).includes(word)));
-  return (close.length > 0 ? close : items).slice(0, 20);
+  return items.filter((item) => words.some((word) => fold(item.title).includes(word))).slice(0, 20);
 }
 
 /** The space `ref` names, by id or name; the only one when there is one and nothing was named. */
@@ -187,6 +186,80 @@ export async function pickElement(fs: VaultFs, ref: string, kinds: ElementKind[]
   if (byTitle.length > 1) throw new Refusal(`More than one ${what} is called ${ref}; say which by path`, { candidates: byTitle });
   const close = nearest(all, wanted);
   throw new Refusal(all.length === 0 ? `There is no ${what} in this space` : `No ${what} is called ${ref}`, { ...(close.length > 0 && { nearest: close }) });
+}
+
+/** An element found by its name or path, with the space it is in. */
+export interface Found {
+  space: AgentSpace;
+  element: Element;
+}
+
+/** What a space is called beside its id, for what comes from more than one space. */
+const spaceOf = (space: AgentSpace) => ({ space: space.id, spaceName: space.name });
+
+/**
+ * The element `ref` names among those of `kinds`: in the space `spaceRef` names, or, with none
+ * named and more than one space, in whichever space has it, as `pickElement` finds it there. One
+ * match is used; more than one, in one space or in several, is refused with the candidates and
+ * their spaces; none with the nearest names of every space. What makes something new names its
+ * space: this only finds what is there.
+ */
+export async function pickAcross(agent: Agent, spaceRef: string | undefined, ref: string, kinds: ElementKind[], what: string): Promise<Found> {
+  const spaces = await agent.spaces();
+  if (spaceRef?.trim() || spaces.length <= 1) {
+    const space = await pickSpace(agent, spaceRef);
+    return { space, element: await pickElement(space.fs, ref, kinds, what) };
+  }
+  if (!ref.trim()) throw new Refusal(`Which ${what}? Give its name or path`);
+  const found: Found[] = [];
+  const near: (Element & { space: string; spaceName: string })[] = [];
+  for (const space of spaces) {
+    try {
+      found.push({ space, element: await pickElement(space.fs, ref, kinds, what) });
+    } catch (error) {
+      if (!(error instanceof Refusal)) throw error;
+      for (const element of (error.details.candidates as Element[] | undefined) ?? []) found.push({ space, element });
+      for (const element of (error.details.nearest as Element[] | undefined) ?? []) near.push({ ...element, ...spaceOf(space) });
+    }
+  }
+  if (found.length === 1) return found[0]!;
+  if (found.length > 1) throw new Refusal(`More than one ${what} is called ${ref}; say which by its space and path`, { candidates: found.map(({ space, element }) => ({ ...element, ...spaceOf(space) })) });
+  throw new Refusal(`No ${what} is called ${ref} in any space`, { ...(near.length > 0 && { nearest: near.slice(0, 20) }) });
+}
+
+/**
+ * The space and the path of a file or a folder that is there: in the space `spaceRef` names, or,
+ * with none named and more than one space, in the one space that has it. Refused with the spaces
+ * when several have it, with the nearest paths when none does.
+ */
+export async function pickPath(agent: Agent, spaceRef: string | undefined, typed: string): Promise<{ space: AgentSpace; path: string }> {
+  const spaces = await agent.spaces();
+  const among = spaceRef?.trim() || spaces.length <= 1 ? [await pickSpace(agent, spaceRef)] : spaces;
+  const found: { space: AgentSpace; path: string }[] = [];
+  for (const space of among) {
+    const path = await foundPath(space.fs, typed);
+    if (path) found.push({ space, path });
+  }
+  if (found.length === 1) return found[0]!;
+  if (found.length > 1) throw new Refusal(`${typed} is in more than one space; say which with space`, { candidates: found.map(({ space, path }) => ({ path, ...spaceOf(space) })) });
+  const nearest = (await Promise.all(among.map(async (space) => (await nearestPaths(space.fs, typed)).map((path) => (among.length > 1 ? { path, ...spaceOf(space) } : path))))).flat();
+  throw new Refusal(`Nothing is at ${typed}${among.length > 1 ? ' in any space' : ''}`, { path: typed, ...(nearest.length > 0 && { nearest: nearest.slice(0, 10) }) });
+}
+
+/** When something is due, as `tasks` and `cards` ask for it. */
+export type Due = 'overdue' | 'today' | 'upcoming';
+
+/** Whether a day is `due`, from `today`: before it, on it, or after it. */
+export function dueIs(day: string | null | undefined, due: Due, today: string): boolean {
+  if (!day) return false;
+  return due === 'overdue' ? day < today : due === 'today' ? day === today : day > today;
+}
+
+/** Whether `assignee`, as an agent asked for it, is the one a task or a card is given to: `me` is the person. */
+export function isAssignee(given: { id?: string; name?: string } | null | undefined, asked: string, person: Person | null): boolean {
+  if (!given) return false;
+  if (fold(asked.trim()) === 'me') return !!person && ((!!person.id && given.id === person.id) || (!!person.name && !!given.name && same(given.name, person.name)));
+  return (!!given.name && same(given.name, asked)) || given.id === asked;
 }
 
 /** The note a task or a card is about, by path or name; null unlinks it. */

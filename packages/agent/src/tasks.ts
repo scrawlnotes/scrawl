@@ -22,9 +22,9 @@ import {
   updateTask,
   type VaultFs,
 } from '@scrawlnotes/core';
-import { dayArg } from './cards';
+import { checkItems, dayArg } from './cards';
 import { Refusal } from './paths';
-import { actorOf, type Agent, type AgentSpace, type Client, type Element, elementsOf, exists, noteRefOf, nowOf, personRefOf, pickElement, pickRecord, pickSpace, todayOf } from './space';
+import { actorOf, type Agent, type AgentSpace, type Client, type Due, dueIs, type Element, elementsOf, exists, isAssignee, noteRefOf, nowOf, personRefOf, pickAcross, pickElement, pickRecord, pickSpace, todayOf } from './space';
 
 // Tasks: what is due, the tasks of a list, adding, moving and closing one. A task without a list
 // goes to the personal space's Inbox, as Todoist's.
@@ -55,24 +55,37 @@ export function taskOut(list: string, tasks: TaskList, task: Task) {
   };
 }
 
-export async function tasksTool(agent: Agent, args: { space?: string; list?: string; due?: 'overdue' | 'today' | 'upcoming'; assignee?: string; done?: boolean | 'all' }) {
-  const space = await pickSpace(agent, args.space);
-  const lists: Element[] = args.list ? [await pickElement(space.fs, args.list, ['tasks'], 'task list')] : await elementsOf(space.fs, ['tasks']);
+export async function tasksTool(agent: Agent, args: { space?: string; list?: string; due?: Due; assignee?: string; done?: boolean | 'all' }) {
+  const spaces = await agent.spaces();
+  // With no list and no space named, a day or a person looks in every space: what is due today, wherever it is.
+  const across = !args.list && !args.space?.trim() && spaces.length > 1;
+  let places: { space: AgentSpace; lists: Element[] }[];
+  if (args.list) {
+    const { space, element } = await pickAcross(agent, args.space, args.list, ['tasks'], 'task list');
+    places = [{ space, lists: [element] }];
+  } else if (across) {
+    if (!args.due && !args.assignee) throw new Refusal('Which space? Name one with `space`, or give due or assignee to look in every space', { spaces: spaces.map(({ id, name, where }) => ({ id, name, where })) });
+    places = await Promise.all(spaces.map(async (space) => ({ space, lists: await elementsOf(space.fs, ['tasks']) })));
+  } else {
+    const space = await pickSpace(agent, args.space);
+    places = [{ space, lists: await elementsOf(space.fs, ['tasks']) }];
+  }
   const today = todayOf(agent);
-  const out: ReturnType<typeof taskOut>[] = [];
-  for (const list of lists) {
-    const loaded = await loadList(space.fs, list.path);
-    for (const task of loaded.tasks) {
-      if (args.done !== 'all' && task.done !== (args.done ?? false)) continue;
-      if (args.due === 'overdue' && !(task.due && task.due < today)) continue;
-      if (args.due === 'today' && task.due !== today) continue;
-      if (args.due === 'upcoming' && !(task.due && task.due > today)) continue;
-      if (args.assignee && !(task.assignee && ((task.assignee.name && same(task.assignee.name, args.assignee)) || task.assignee.id === args.assignee))) continue;
-      out.push(taskOut(list.path, loaded, task));
+  const person = args.assignee ? await agent.person() : null;
+  const out: (ReturnType<typeof taskOut> & { space?: string; spaceName?: string })[] = [];
+  for (const { space, lists } of places) {
+    for (const list of lists) {
+      const loaded = await loadList(space.fs, list.path);
+      for (const task of loaded.tasks) {
+        if (args.done !== 'all' && task.done !== (args.done ?? false)) continue;
+        if (args.due && !dueIs(task.due, args.due, today)) continue;
+        if (args.assignee && !isAssignee(task.assignee, args.assignee, person)) continue;
+        out.push({ ...taskOut(list.path, loaded, task), ...(across && { space: space.id, spaceName: space.name }) });
+      }
     }
   }
   out.sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999') || a.priority - b.priority);
-  return { data: { space: space.id, today, total: out.length, tasks: out } };
+  return { data: { ...(!across && { space: places[0]!.space.id }), today, total: out.length, tasks: out } };
 }
 
 /** The record a task is about, as the agent named it: by name, code or id across the space's collections, or in one collection. */
@@ -122,6 +135,8 @@ export interface TaskArgs {
   done?: boolean;
   /** Add it even though an open task with its title is there already. */
   another?: boolean;
+  /** Many tasks at once in the list, each with the fields of one: all written, or none. */
+  items?: TaskItem[];
 }
 
 const DEEPEST = `subtasks go at most ${MAX_DEPTH} levels below a top-level task`;
@@ -161,27 +176,105 @@ async function inboxSpace(agent: Agent, ref?: string): Promise<AgentSpace> {
   return pickSpace(agent, ref);
 }
 
-export async function saveTaskTool(agent: Agent, client: Client, args: TaskArgs) {
-  const space = args.list || args.id ? await pickSpace(agent, args.space) : await inboxSpace(agent, args.space);
+
+/** One task of many, as `items` gives it: what one task takes, but the list. */
+export type TaskItem = Omit<TaskArgs, 'space' | 'list' | 'items' | 'toList'>;
+
+/** What one task's turn did: the list as it is now, the task, and whether it was added, changed or already there. */
+interface TaskDone {
+  list: TaskList;
+  id: string;
+  status: 'created' | 'changed' | 'exists';
+  message?: string;
+}
+
+/** One task added or changed, or, with `items`, many in one list in one go. */
+export function saveTaskTool(agent: Agent, client: Client, args: TaskArgs & { items: TaskItem[] }): ReturnType<typeof saveTasks>;
+export function saveTaskTool(agent: Agent, client: Client, args: TaskArgs & { items?: undefined }): ReturnType<typeof saveTask>;
+export function saveTaskTool(agent: Agent, client: Client, args: TaskArgs): ReturnType<typeof saveTask> | ReturnType<typeof saveTasks>;
+export function saveTaskTool(agent: Agent, client: Client, args: TaskArgs) {
+  return args.items ? saveTasks(agent, client, { ...args, items: args.items }) : saveTask(agent, client, args);
+}
+
+/** The list a task or tasks go in: the one named, in whichever space has it, or the personal space's Inbox; with the clock and the actor. */
+async function taskPlace(agent: Agent, client: Client, args: TaskArgs) {
+  let space: AgentSpace;
   let path: string;
-  if (args.list) path = (await pickElement(space.fs, args.list, ['tasks'], 'task list')).path;
-  else if (space.personal) {
+  if (args.list) {
+    const found = await pickAcross(agent, args.space, args.list, ['tasks'], 'task list');
+    space = found.space;
+    path = found.element.path;
+  } else {
+    space = args.id ? await pickSpace(agent, args.space) : await inboxSpace(agent, args.space);
+    if (!space.personal) throw new Refusal('Which list? This space has no Inbox; name a task list', { lists: (await elementsOf(space.fs, ['tasks'])).map((l) => ({ title: l.title, path: l.path })) });
     path = INBOX_TASKS;
     if (!(await exists(space.fs, path))) await space.fs.writeText(path, serializeList({ sections: [], tasks: [] }));
-  } else throw new Refusal('Which list? This space has no Inbox; name a task list', { lists: (await elementsOf(space.fs, ['tasks'])).map((l) => ({ title: l.title, path: l.path })) });
-  const list = await loadList(space.fs, path);
+  }
   const now = nowOf(agent);
-  const clock = () => now;
+  return { space, path, list: await loadList(space.fs, path), clock: () => now, by: actorOf(client, await agent.person()) };
+}
+
+async function saveTask(agent: Agent, client: Client, args: TaskArgs) {
+  const { space, path, list, clock, by } = await taskPlace(agent, client, args);
+  if (args.toList && !args.id) throw new Refusal('toList moves a task that is there; to add a task to another list, give that list as list');
+  const target = args.toList ? await pickElement(space.fs, args.toList, ['tasks'], 'task list') : undefined;
+  const elsewhere = target && target.path !== path ? target.path : undefined;
+  if (elsewhere && args.parent) throw new Refusal('A task moved to another list goes at its top level; move it first, then give parent');
+  const step = await applyTask(space, list, path, args, clock, by, !elsewhere);
+  const where = { space: space.id, spaceName: space.name };
+  if (step.status === 'exists') return { data: { ...where, list: path, created: false, exists: true, message: step.message, task: taskOut(path, list, list.tasks.find((t) => t.id === step.id)!) } };
+  const created = step.status === 'created';
+  if (elsewhere) {
+    const to = await loadList(space.fs, elsewhere);
+    const moved = moveTaskToList(step.list, to, step.id, sectionOf(to, elsewhere, args.section ?? null), clock);
+    await saveList(space.fs, path, moved.from);
+    await saveList(space.fs, elsewhere, moved.to);
+    return { data: { ...where, list: elsewhere, from: path, created, task: taskOut(elsewhere, moved.to, moved.to.tasks.find((t) => t.id === step.id)!) } };
+  }
+  await saveList(space.fs, path, step.list);
+  return { data: { ...where, list: path, created, task: taskOut(path, step.list, step.list.tasks.find((t) => t.id === step.id)!) } };
+}
+
+async function saveTasks(agent: Agent, client: Client, args: TaskArgs & { items: TaskItem[] }) {
+  checkItems(args, args.items, 'task');
+  const { space, path, clock, by, ...place } = await taskPlace(agent, client, args);
+  let { list } = place;
+  // Every task is checked and laid in the list before anything is written: one refused, none written.
+  const done: TaskDone[] = [];
+  for (const [i, item] of args.items.entries()) {
+    try {
+      if ((item as TaskArgs).toList) throw new Refusal('toList moves one task at a time, without items');
+      const step = await applyTask(space, list, path, item, clock, by, true);
+      list = step.list;
+      done.push(step);
+    } catch (error) {
+      if (error instanceof Refusal) throw new Refusal(`Item ${i + 1}: ${error.message}; nothing was written`, { item: i + 1, ...error.details });
+      throw error;
+    }
+  }
+  if (done.some((step) => step.status !== 'exists')) await saveList(space.fs, path, list);
+  const count = (status: TaskDone['status']) => done.filter((step) => step.status === status).length;
+  return {
+    data: {
+      space: space.id,
+      spaceName: space.name,
+      list: path,
+      created: count('created'),
+      changed: count('changed'),
+      exists: count('exists'),
+      tasks: done.map((step) => ({ status: step.status, ...taskOut(path, list, list.tasks.find((t) => t.id === step.id)!) })),
+    },
+  };
+}
+
+/** One task added to `list` or changed in it, as `args` asks, placed where it asks when `place`; the list is not written. */
+async function applyTask(space: AgentSpace, list: TaskList, path: string, args: TaskItem, clock: () => Date, by: string | undefined, place: boolean): Promise<TaskDone> {
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
   if (args.priority !== undefined && priority === undefined) throw new Refusal('Priority is 1 (highest) to 4 (none)', { given: args.priority });
   const due = dayArg(args.due, 'Due');
   const assignee = args.assignee === undefined ? undefined : await personRefOf(space, args.assignee);
   const record = args.record === undefined ? undefined : await recordRefOf(space.fs, args.record);
   const note = await noteRefOf(space.fs, args.note);
-  if (args.toList && !args.id) throw new Refusal('toList moves a task that is there; to add a task to another list, give that list as list');
-  const target = args.toList ? await pickElement(space.fs, args.toList, ['tasks'], 'task list') : undefined;
-  const elsewhere = target && target.path !== path ? target.path : undefined;
-  if (elsewhere && args.parent) throw new Refusal('A task moved to another list goes at its top level; move it first, then give parent');
   let tasks = list.tasks;
   let id: string;
   let created = false;
@@ -220,18 +313,9 @@ export async function saveTaskTool(agent: Agent, client: Client, args: TaskArgs)
     if (twins.length > 1) throw new Refusal(`More than one open task is already called ${title} here; nothing was added. Give id to change one of them, or another: true to add one more`, { candidates: twins.map((t) => ({ id: t.id, title: t.title })) });
     if (twins.length === 1) {
       const found = twins[0]!;
-      return {
-        data: {
-          space: space.id,
-          list: path,
-          created: false,
-          exists: true,
-          message: `An open task called ${title} is already in ${listName(path)}; nothing was added. To change it, give its id ${found.id}; to add a second one with this title on purpose, pass another: true.`,
-          task: taskOut(path, list, found),
-        },
-      };
+      const message = `An open task called ${title} is already in ${listName(path)}; nothing was added. To change it, give its id ${found.id}; to add a second one with this title on purpose, pass another: true.`;
+      return { list, id: found.id, status: 'exists', message };
     }
-    const by = actorOf(client, await agent.person());
     const input: NewTask = {
       title,
       ...(section !== null && { section }),
@@ -251,15 +335,7 @@ export async function saveTaskTool(agent: Agent, client: Client, args: TaskArgs)
     created = true;
   }
   if (args.done !== undefined) tasks = setDone(tasks, id, args.done, clock);
-  let saved: TaskList = { ...list, tasks };
-  if (!created && !elsewhere && (args.parent !== undefined || args.section !== undefined)) saved = placeTask(saved, path, id, args.parent, args.section, clock);
-  if (elsewhere) {
-    const to = await loadList(space.fs, elsewhere);
-    const moved = moveTaskToList(saved, to, id, sectionOf(to, elsewhere, args.section ?? null), clock);
-    await saveList(space.fs, path, moved.from);
-    await saveList(space.fs, elsewhere, moved.to);
-    return { data: { space: space.id, list: elsewhere, from: path, created, task: taskOut(elsewhere, moved.to, moved.to.tasks.find((t) => t.id === id)!) } };
-  }
-  await saveList(space.fs, path, saved);
-  return { data: { space: space.id, list: path, created, task: taskOut(path, saved, saved.tasks.find((t) => t.id === id)!) } };
+  let next: TaskList = { ...list, tasks };
+  if (!created && place && (args.parent !== undefined || args.section !== undefined)) next = placeTask(next, path, id, args.parent, args.section, clock);
+  return { list: next, id, status: created ? 'created' : 'changed' };
 }

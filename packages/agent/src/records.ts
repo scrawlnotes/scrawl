@@ -26,7 +26,7 @@ import {
   withRollups,
 } from '@scrawlnotes/core';
 import { Refusal } from './paths';
-import { type Agent, elementsOf, nowOf, pickElement, pickRecord, pickSpace, todayOf } from './space';
+import { type Agent, elementsOf, nowOf, pickAcross, pickRecord, todayOf } from './space';
 import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
 // Collections: asking for records with conditions, and adding or changing one. A link is given
@@ -114,8 +114,7 @@ function conditionOf(schema: Schema, where: Where): Condition {
 }
 
 export async function recordsTool(agent: Agent, args: { space?: string; collection: string; where?: Where[]; sort?: { field: string; dir?: 'asc' | 'desc' }; limit?: number }) {
-  const space = await pickSpace(agent, args.space);
-  const element = await pickElement(space.fs, args.collection, ['collection'], 'collection');
+  const { space, element } = await pickAcross(agent, args.space, args.collection, ['collection'], 'collection');
   const today = todayOf(agent);
   const collection = await rolled(space.fs, await loadCollection(space.fs, element.path), today);
   const { schema } = collection;
@@ -196,8 +195,7 @@ function twinsOf(collection: Collection, values: { [key: string]: FieldValue }):
 }
 
 export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string; subtasks?: SubtaskArg[]; another?: boolean }) {
-  const space = await pickSpace(agent, args.space);
-  const element = await pickElement(space.fs, args.collection, ['collection'], 'collection');
+  const { space, element } = await pickAcross(agent, args.space, args.collection, ['collection'], 'collection');
   const collection = await loadCollection(space.fs, element.path);
   const { schema } = collection;
   const { values, extra } = await parseValues(space.fs, schema.fields, args.values ?? {});

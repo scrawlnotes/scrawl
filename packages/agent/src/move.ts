@@ -22,7 +22,7 @@ import {
   type VaultFs,
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, Refusal } from './paths';
-import { type Agent, AGENT_DEVICE, type ElementKind, elementsOf, exists, pickElement, pickSpace } from './space';
+import { type Agent, AGENT_DEVICE, type ElementKind, elementsOf, exists, pickAcross, pickSpace } from './space';
 
 // Moving and renaming: a note, a task list, a board or a collection goes into another folder, gets
 // another name, or both; what points at it (tasks, cards, link fields, rollups) points at it where
@@ -31,12 +31,14 @@ import { type Agent, AGENT_DEVICE, type ElementKind, elementsOf, exists, pickEle
 const MOVABLE: ElementKind[] = ['note', 'tasks', 'board', 'collection'];
 
 export async function moveTool(agent: Agent, args: { space?: string; path: string; folder?: string; name?: string }) {
-  const space = await pickSpace(agent, args.space);
   const given = cleanPath(args.path);
-  if (given && (await exists(space.fs, given))?.kind === 'dir' && !(await elementsOf(space.fs, ['collection'])).some((c) => c.path === given)) {
-    throw new Refusal('Folders are not moved; move what is in them, each with its own move', { folder: given });
+  const all = await agent.spaces();
+  for (const each of args.space?.trim() || all.length <= 1 ? [await pickSpace(agent, args.space)] : all) {
+    if (given && (await exists(each.fs, given))?.kind === 'dir' && !(await elementsOf(each.fs, ['collection'])).some((c) => c.path === given)) {
+      throw new Refusal('Folders are not moved; move what is in them, each with its own move', { folder: given });
+    }
   }
-  const element = await pickElement(space.fs, args.path, MOVABLE, 'note, task list, board or collection');
+  const { space, element } = await pickAcross(agent, args.space, args.path, MOVABLE, 'note, task list, board or collection');
   checkOpen(element.path);
   const folder = args.folder === undefined ? undefined : checkOpen(cleanPath(args.folder));
   const name = args.name?.trim();

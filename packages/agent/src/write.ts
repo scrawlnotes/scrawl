@@ -19,7 +19,7 @@ import {
 import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
 import { hashOf, MAX_TEXT } from './read';
 import { checkFile } from './check';
-import { type Agent, AGENT_DEVICE, clockOf, elementsOf, exists, filePathOf, foundPath, nearestPaths, nowOf, pickSpace } from './space';
+import { type Agent, AGENT_DEVICE, type AgentSpace, clockOf, elementsOf, exists, filePathOf, foundPath, nowOf, pickPath, pickSpace } from './space';
 
 // Writing: a file as it is, a new element, and the trash. A note the agent writes over keeps its
 // earlier text as a version, every time; nothing is deleted for good.
@@ -50,13 +50,31 @@ async function checkJson(fs: VaultFs, path: string, kind: FileKind, text: string
   return notes;
 }
 
+/**
+ * Where a file is written: the file that is there, in the space named or in whichever space has
+ * it; a new one in the space named, or the only one. A new file is not put in a space guessed at.
+ * A name with what a file name cannot hold is written with the look-alike the app gives it:
+ * `Ne yapmalı？.md`.
+ */
+async function writePlace(agent: Agent, spaceRef: string | undefined, typed: string): Promise<{ space: AgentSpace; path: string }> {
+  const spaces = await agent.spaces();
+  if (!spaceRef?.trim() && spaces.length > 1) {
+    try {
+      return await pickPath(agent, undefined, typed);
+    } catch (error) {
+      if (error instanceof Refusal && error.details.candidates) throw error;
+      throw new Refusal(`Which space? ${typed} is in none of them; to make it, name the space with space`, { spaces: spaces.map(({ id, name, where }) => ({ id, name, where })) });
+    }
+  }
+  const space = await pickSpace(agent, spaceRef);
+  return { space, path: (await foundPath(space.fs, typed)) ?? filePathOf(typed) };
+}
+
 export async function writeTool(agent: Agent, args: { space?: string; path: string; text: string; ifMatch?: string }) {
-  const space = await pickSpace(agent, args.space);
   const typed = checkOpen(cleanPath(args.path));
   if (!typed) throw new Refusal('Which file? Give a path');
   if (args.text.length > MAX_TEXT) throw new Refusal('The text is larger than agents write (1 MB)', { path: typed });
-  // A name with what a file name cannot hold is written with the look-alike the app gives it: `Ne yapmalı？.md`.
-  const path = (await foundPath(space.fs, typed)) ?? filePathOf(typed);
+  const { space, path } = await writePlace(agent, args.space, typed);
   const kind = fileKind(path);
   if (kind === 'other') throw new Refusal(`Scrawl shows notes (.md), task lists (.tasks.json), boards (.board.json) and collections' schemas (_collection.json); ${path} is none of them and was not written`, { path });
   const notes = await checkJson(space.fs, path, kind, args.text);
@@ -137,7 +155,6 @@ export async function createTool(agent: Agent, args: { space?: string; folder?: 
 }
 
 export async function trashTool(agent: Agent, args: { space?: string; path: string }) {
-  const space = await pickSpace(agent, args.space);
   const typed = checkOpen(cleanPath(args.path));
   if (!typed) throw new Refusal('What to trash? Give a path');
   // Without its schema a collection's records are loose notes; the collection goes to the trash whole.
@@ -145,11 +162,7 @@ export async function trashTool(agent: Agent, args: { space?: string; path: stri
     const folder = typed.split('/').slice(0, -1).join('/');
     throw new Refusal(`${typed} is a collection’s schema; to remove the collection, trash its folder${folder ? ` (${folder})` : ''}`, { path: typed, ...(folder && { folder }) });
   }
-  const path = await foundPath(space.fs, typed);
-  if (!path) {
-    const nearest = await nearestPaths(space.fs, typed);
-    throw new Refusal(`Nothing is at ${typed}`, { path: typed, ...(nearest.length > 0 && { nearest }) });
-  }
+  const { space, path } = await pickPath(agent, args.space, typed);
   const entry = (await exists(space.fs, path))!;
   const now = nowOf(agent);
   // The attached files only it used go with it, as they do when the person deletes it.

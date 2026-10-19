@@ -18,7 +18,7 @@ import {
 } from '@scrawlnotes/core';
 import { GUIDE } from './guide';
 import { checkOpen, cleanPath, fileKind, Refusal } from './paths';
-import { type Agent, type AgentSpace, type ElementKind, elementsOf, exists, foundPath, nearestPaths, peopleOf, pickSpace, todayOf } from './space';
+import { type Agent, type AgentSpace, type ElementKind, elementsOf, exists, peopleOf, pickPath, pickSpace, todayOf } from './space';
 
 // Looking around: the spaces, what is in one, a file's text, and finding anything by name or by
 // text, as the sidebar and the search window do. Nothing here writes.
@@ -57,6 +57,12 @@ function nodeOut(node: TreeNode): { name: string; path: string; kind: ElementKin
 }
 
 export async function treeTool(agent: Agent, args: { space?: string; folder?: string; kind?: ElementKind }) {
+  // One kind in every space at once, each with its space: every board, wherever it is.
+  const spaces = await agent.spaces();
+  if (args.kind && !args.space?.trim() && !args.folder && spaces.length > 1) {
+    const items = (await Promise.all(spaces.map(async (space) => (await elementsOf(space.fs, [args.kind!])).map((e) => ({ ...e, space: space.id, spaceName: space.name }))))).flat();
+    return { data: { kind: args.kind, items } };
+  }
   const space = await pickSpace(agent, args.space);
   const folder = args.folder ? checkOpen(cleanPath(args.folder)) : '';
   if (folder) {
@@ -72,13 +78,8 @@ export async function treeTool(agent: Agent, args: { space?: string; folder?: st
 }
 
 export async function readTool(agent: Agent, args: { space?: string; path: string }) {
-  const space = await pickSpace(agent, args.space);
   const typed = checkOpen(cleanPath(args.path));
-  const path = await foundPath(space.fs, typed);
-  if (!path) {
-    const nearest = await nearestPaths(space.fs, typed);
-    throw new Refusal(`Nothing is at ${typed}`, { path: typed, ...(nearest.length > 0 && { nearest }) });
-  }
+  const { space, path } = await pickPath(agent, args.space, typed);
   const entry = (await exists(space.fs, path))!;
   if (entry.kind === 'dir') throw new Refusal(`${path} is a folder; use tree to see what is in it`, { path });
   if (entry.size !== undefined && entry.size > MAX_TEXT) throw new Refusal(`${path} is larger than agents read (1 MB)`, { path, size: entry.size });
@@ -104,7 +105,8 @@ const joined = (...parts: (string | null | undefined | false)[]) => parts.filter
 /** Everything in a space that can be found: elements by name, notes by text, tasks, cards and records. */
 async function thingsOf(space: AgentSpace, today: string): Promise<Thing[]> {
   const { fs } = space;
-  const things: Thing[] = [];
+  // The space itself, as a project is often one: "Klinitra" finds the space before what is in it.
+  const things: Thing[] = [{ kind: 'space', name: space.name, space: space.id, path: '', where: space.where }];
   const elements = await elementsOf(fs);
   const trail = (path: string) => [space.name, ...path.split('/').slice(0, -1)].join(' › ');
   for (const element of elements) {
@@ -178,11 +180,13 @@ export async function searchTool(agent: Agent, args: { query: string; space?: st
   const today = todayOf(agent);
   const things = (await Promise.all(spaces.map((space) => thingsOf(space, today)))).flat();
   const found = searchCore(searchIndex(things), query).slice(0, args.limit ?? 30);
+  const names = new Map(spaces.map((space) => [space.id, space.name]));
   return {
     data: {
       query,
       found: found.map(({ item, line }) => ({
         space: item.space,
+        spaceName: names.get(item.space) ?? item.space,
         kind: item.kind,
         title: item.name,
         ...(item.key && { key: item.key }),
