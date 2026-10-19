@@ -217,6 +217,7 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
       recordChoices={actions.recordChoices}
       recordName={actions.recordTitle}
       menu={actions.menu}
+      description={actions.description}
       onAdd={onAdd}
       onClose={() => setAdding(null)}
     />
@@ -616,6 +617,7 @@ function DayWindow({ grid, opened, entries, lists, boards, today, actions, place
           recordChoices={actions.recordChoices}
           recordName={actions.recordTitle}
           menu={actions.menu}
+          description={actions.description}
           onAdd={onAdd}
           onClose={() => {
             onAdding(false);

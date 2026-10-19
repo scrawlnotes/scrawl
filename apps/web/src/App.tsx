@@ -156,6 +156,7 @@ import type { SpacePeople } from './People';
 import { contentsText, quote } from './text';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { TrashPreviewDialog, TrashPreviewPage } from './TrashPreview';
+import type { DescriptionHost } from './Description';
 import { type FileActions, type FileSort, FilesView, fileTitle, Thumb, useIcon, useTitle, useWord } from './Files';
 import { chooseSpaceFolder, clipboardFilesOnDesktop, downloadBlob, isDesktop, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
 
@@ -621,6 +622,12 @@ export function App() {
   /** Where a file is used, opened: a note in its tab, a card on its board, a record over what is open. */
   const openUse = (use: FileUse) => {
     if (use.kind === 'card' && use.card) return showCard(use.path, use.card.id);
+    // A task opens in its list, shown and marked there; on a phone as its sheet.
+    if (use.kind === 'task' && use.task) {
+      if (phone) return setTaskSheet({ list: use.path, id: use.task.id, subtask: false });
+      void session.open(tasksOf(use.path));
+      return setRevealTask({ list: use.path, id: use.task.id, at: Date.now() });
+    }
     if (use.kind === 'record') {
       const dir = dirname(use.path);
       const record = collections[dir]?.records.find((each) => each.path === use.path);
@@ -648,7 +655,7 @@ export function App() {
       places: places.map((use) => ({
         icon: useIcon(use),
         name: useTitle(use),
-        sub: [useWord(use), use.kind === 'card' ? boardName(use.path) : use.kind === 'record' ? collectionName(dirname(use.path)) : placeLabel(use.path)].filter(Boolean).join(' · '),
+        sub: [useWord(use), use.kind === 'card' ? boardName(use.path) : use.kind === 'record' ? collectionName(dirname(use.path)) : use.kind === 'task' ? listName(use.path) : placeLabel(use.path)].filter(Boolean).join(' · '),
       })),
       after: places.length > 0 ? t('files.goesToTrash', { count }) : undefined,
       brief: places.length > 0 ? t('files.takenOut', { count, places: names }) : t('files.unusedGoes', { count }),
@@ -1260,7 +1267,13 @@ export function App() {
   /** Changes the subtasks of a card or a record, from the list as it is now. */
   const changeSubtasksOf = (ref: SubtaskRef, change: (list: Subtask[]) => Subtask[]) =>
     'board' in ref ? session.changeCardSubtasks(ref.board, ref.id, change) : void session.changeRecordSubtasks(ref.collection, ref.id, change);
+  // A task's description, a card's or a record's notes: the editor notes have, and Attach.
+  const descriptionHost: DescriptionHost = {
+    editor: (home, parent, doc, onChange, hint) => session.openEditor(home, parent, doc, onChange, hint),
+    attach: (editor, home, files) => session.attachTo(editor, home, files),
+  };
   const taskActions: TaskActions = {
+    description: descriptionHost,
     add: (target, input) => session.addTask(target, input),
     update: (target, id, change) => session.updateTask(target, id, change),
     setDone: (target, id, done, quiet) => {
@@ -1380,6 +1393,7 @@ export function App() {
       return boardActions;
     },
     editor: (home, parent, doc, onChange) => session.openEditor(home, parent, doc, onChange),
+    attach: descriptionHost.attach,
   };
   const boardActions: BoardActions = {
     addCard: (board, input) => session.addCard(board, input),
@@ -1401,6 +1415,7 @@ export function App() {
     copyBrief: (board, id) => void copyBrief(board, id),
     openCard: (board, id) => setOpenCard({ board, id }),
     editor: (home, parent, doc, onChange, hint) => session.openEditor(home, parent, doc, onChange, hint),
+    attach: descriptionHost.attach,
     viewer: (home, parent, doc) => session.openViewer(home, parent, doc),
     menu: (event, items, head) => (phone ? showSheet(items, head) : openMenu(event, items)),
     addColumn: (board, name, kind, after) => session.addColumn(board, name, kind, after),
@@ -2052,6 +2067,7 @@ export function App() {
               today={today}
               recordChoices={taskActions.recordChoices}
               recordName={taskActions.recordTitle}
+              description={descriptionHost}
               onAdd={(list, task) => session.addTask(list, task)}
               onClose={() => setQuickAdd(null)}
             />

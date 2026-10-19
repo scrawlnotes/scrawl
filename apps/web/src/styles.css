@@ -2594,25 +2594,75 @@ textarea.tt-edit {
   display: none;
 }
 
-.desc-edit {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 3em;
+/* A description in the editor notes have, its images and files in it: no line numbers, as tall as
+   what is written; Attach under it. */
+.desc-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   margin-top: 3px;
-  padding: 0;
-  border: 0;
-  outline: none;
-  background: none;
-  color: var(--sl-fg);
-  font: inherit;
-  font-size: 12px;
-  line-height: 1.5;
-  resize: none;
-  overflow: hidden;
 }
 
-.desc-edit::placeholder {
+.desc-field .desc-box {
+  align-self: stretch;
+  min-height: 1.5em;
+}
+
+.desc-field .cm-editor {
+  height: auto;
+  background: none;
+  font-size: 12px;
+}
+
+.desc-field .cm-gutters {
+  display: none !important;
+}
+
+.desc-field .cm-scroller {
+  overflow: visible;
+}
+
+.desc-field .cm-content {
+  padding: 0;
+}
+
+.desc-field .cm-line {
+  padding: 0;
+}
+
+.attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: -6px;
+  padding: 2px 6px;
+  border-radius: 5px;
   color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.attach .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.attach:hover,
+.attach:focus-visible {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+/* How many images and files a task's description has, beside it in its row. */
+.clips {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.clips .icon {
+  width: 11px;
+  height: 11px;
 }
 
 .edit-foot {
@@ -3177,8 +3227,7 @@ textarea.tt-edit {
   outline: none;
 }
 
-.task-composer .desc-edit {
-  display: block;
+.task-composer .desc-field {
   min-height: 0;
   margin: 2px 0 7px;
   padding-left: 26px;
@@ -8606,6 +8655,17 @@ textarea.tt-edit {
   border-radius: 5px;
   background: var(--sl-side);
   cursor: text;
+}
+
+/* Attach under a record's notes and a card's description, at the left. */
+.rm-attach {
+  margin-top: 4px;
+  padding-left: 6px;
+}
+
+.cp-desc + .attach {
+  align-self: flex-start;
+  margin: -4px 0 0;
 }
 
 .rm-notes:focus-within {

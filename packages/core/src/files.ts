@@ -2,21 +2,24 @@ import { BOARD_EXT, parseBoard, serializeBoard, type TimelineEntry } from './boa
 import { isCollection, loadSchema, parseRecord, recordTitle, type Schema } from './collection';
 import { basename, dirname, type Entry, type VaultFs } from './fs';
 import { readAway } from './sync/away';
-import { ATTACHMENTS, displayTitle, readTrash } from './vault';
+import { parseList, serializeList, TASK_LIST_EXT } from './tasks';
+import { ATTACHMENTS, displayTitle, listName, readTrash } from './vault';
 
 // Files: every image, recording and file attached in a space, with where each is used. A file is
-// used where a note, a card or a record links to it; a note in the trash still uses its files.
+// used where a note, a task, a card or a record links to it; a note in the trash still uses its files.
 // See PLAN.md 4.2.
 
 /** Where an attached file is used. */
 export interface FileUse {
-  kind: 'note' | 'card' | 'record';
-  /** The note's or the record's file, or the card's board. */
+  kind: 'note' | 'task' | 'card' | 'record';
+  /** The note's or the record's file, the task's list or the card's board. */
   path: string;
-  /** What it is called: a note's or a record's name; a card's key, `SCR-12`. */
+  /** What it is called: a note's or a record's name; a task's title; a card's key, `SCR-12`. */
   title: string;
   /** A card's id on its board, and its title. */
   card?: { id: string; title: string };
+  /** A task's id in its list, and the list's name. */
+  task?: { id: string; list: string };
   /** In the trash: a note deleted, or something in a folder deleted. */
   inTrash: boolean;
 }
@@ -124,9 +127,25 @@ export function dropFileFromBoard(text: string, path: string): string {
   return changed ? serializeBoard({ ...board, cards }) : text;
 }
 
-/** Takes the attached file at `path` out of the text of what uses it: a note, a record or a board. */
+/** A task list's text without the links to the attached file at `path` in its tasks' descriptions. The text as it was when it has none. */
+export function dropFileFromTasks(text: string, path: string): string {
+  const list = parseList(text);
+  let changed = false;
+  const tasks = list.tasks.map((task) => {
+    if (task.description === undefined) return task;
+    const description = dropFile(task.description, path);
+    if (description === task.description) return task;
+    changed = true;
+    return { ...task, description };
+  });
+  return changed ? serializeList({ ...list, tasks }) : text;
+}
+
+/** Takes the attached file at `path` out of the text of what uses it: a note, a record, a task list or a board. */
 export function dropFileFrom(usePath: string, text: string, path: string): string {
-  return usePath.endsWith(BOARD_EXT) ? dropFileFromBoard(text, path) : dropFile(text, path);
+  if (usePath.endsWith(BOARD_EXT)) return dropFileFromBoard(text, path);
+  if (usePath.endsWith(TASK_LIST_EXT)) return dropFileFromTasks(text, path);
+  return dropFile(text, path);
 }
 
 /** Adds what the notes, records and boards at and under `dir` use, by the file used. */
@@ -156,6 +175,14 @@ async function usesUnder(fs: VaultFs, dir: string, entries: Entry[], uses: Map<s
       }
       continue;
     }
+    if (entry.name.endsWith(TASK_LIST_EXT)) {
+      const text = await fs.readText(entry.path);
+      if (!text.includes(ATTACHMENTS)) continue;
+      for (const task of parseList(text).tasks) {
+        for (const file of filesIn(task.description ?? '')) add(file, { kind: 'task', path: entry.path, title: task.title, task: { id: task.id, list: listName(entry.path) }, inTrash });
+      }
+      continue;
+    }
     if (!entry.name.endsWith('.md')) continue;
     const text = await fs.readText(entry.path);
     if (!text.includes(ATTACHMENTS)) continue;
@@ -174,7 +201,7 @@ export async function fileUses(fs: VaultFs): Promise<Map<string, FileUse[]>> {
   await usesUnder(fs, '', await fs.list(''), uses, false);
   for (const item of await readTrash(fs)) {
     if (item.kind === 'note') await usesUnder(fs, dirname(item.path), [{ name: basename(item.path), path: item.path, kind: 'file' }], uses, true, item.title);
-    else if (item.kind === 'board') await usesUnder(fs, dirname(item.path), [{ name: basename(item.path), path: item.path, kind: 'file' }], uses, true);
+    else if (item.kind === 'board' || item.kind === 'tasks') await usesUnder(fs, dirname(item.path), [{ name: basename(item.path), path: item.path, kind: 'file' }], uses, true);
     else if (item.kind === 'folder' || item.kind === 'collection') await usesUnder(fs, item.path, await fs.list(item.path), uses, true);
   }
   return uses;

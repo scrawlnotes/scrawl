@@ -32,8 +32,8 @@ export function fileTitle(file: Pick<FileRow, 'name' | 'named' | 'added'>): stri
   return `${word} · ${day}, ${clockTime(when.toISOString())}`;
 }
 
-export const useIcon = (use: FileUse): IconName => (use.kind === 'card' ? 'board' : use.kind === 'record' ? 'collection' : 'note');
-export const useWord = (use: FileUse) => (use.kind === 'card' ? t('files.useCard') : use.kind === 'record' ? t('files.useRecord') : t('files.useNote'));
+export const useIcon = (use: FileUse): IconName => ({ note: 'note', task: 'tasks', card: 'board', record: 'collection' } as const)[use.kind];
+export const useWord = (use: FileUse) => ({ note: t('files.useNote'), task: t('files.useTask'), card: t('files.useCard'), record: t('files.useRecord') })[use.kind];
 /** What a use is called: a card by its key and its title. */
 export const useTitle = (use: FileUse) => (use.card ? `${use.title} ${use.card.title}` : use.title);
 

@@ -95,6 +95,7 @@ import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, Opti
 import { FieldsDialog } from './Fields';
 import { isPhone, onPage } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
+import { AttachButton } from './Description';
 import { Icon } from './Icon';
 import { collectionLabel } from './items';
 import { useNarrow } from './narrow';
@@ -130,6 +131,8 @@ export interface CollectionActions {
   ask: (title: string, message: string, run: () => void, action: string) => void;
   /** An editor for the body of a record of the collection at `home`, in `parent`; the host wires it to the files of its space. */
   editor: (home: string, parent: HTMLElement, doc: string, onChange: (doc: string) => void) => ScrawlEditor;
+  /** Copies files chosen with Attach into a record's notes, where the cursor is. */
+  attach: (editor: ScrawlEditor, home: string, files: File[]) => void;
   /** The records of the collection at a path, for a link to pick from; null when there is no such collection. */
   records: (collection: string) => Record[] | null;
   /** The collection at a path, for the records that link to a record; null when there is none. */
@@ -624,7 +627,13 @@ export function FieldInput({ field, value, autoFocus, ctx, onChange, onEnter }: 
 }
 
 /** The body of a record, in the live preview editor, as part of the form: what is typed goes to the draft. */
-export function NotesBlock({ home, text, editor, onChange }: { home: string; text: string; editor: CollectionActions['editor']; onChange: (text: string) => void }) {
+export function NotesBlock({ home, text, editor, attach, onChange }: {
+  home: string;
+  text: string;
+  editor: CollectionActions['editor'];
+  attach: CollectionActions['attach'];
+  onChange: (text: string) => void;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const made = useRef<ScrawlEditor | null>(null);
   const changed = useRef(onChange);
@@ -639,9 +648,14 @@ export function NotesBlock({ home, text, editor, onChange }: { home: string; tex
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
-    <div className={text ? 'rm-notes' : 'rm-notes empty'} data-hint={t('collection.notesHint')} onClick={() => made.current?.view.focus()}>
-      <div ref={host} />
-    </div>
+    <>
+      <div className={text ? 'rm-notes' : 'rm-notes empty'} data-hint={t('collection.notesHint')} onClick={() => made.current?.view.focus()}>
+        <div ref={host} />
+      </div>
+      <div className="rm-attach">
+        <AttachButton onFiles={(files) => made.current && attach(made.current, home, files)} />
+      </div>
+    </>
   );
 }
 
@@ -1082,7 +1096,7 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const body = (index: number): ReactNode => (
     <div key={`body-${index}`} className="prop prop-body">
       <span className="pl">{t('collection.body')}</span>
-      <NotesBlock home={collection.dir} text={draft.body} editor={actions.editor} onChange={(text) => set({ body: text })} />
+      <NotesBlock home={collection.dir} text={draft.body} editor={actions.editor} attach={actions.attach} onChange={(text) => set({ body: text })} />
     </div>
   );
   const entry = (layoutItem: LayoutItem, index: number): ReactNode => {

@@ -35,6 +35,8 @@ import {
   type TaskRecord,
   type Record as CollectionRecord,
   recordTitle,
+  dropFile,
+  filesIn,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import {
@@ -57,6 +59,7 @@ import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { priorityItems } from './PhoneTasks';
 import { TaskComposer } from './TaskComposer';
+import { type DescriptionHost, DescriptionField } from './Description';
 import { Icon, type IconName } from './Icon';
 import { StillOpening } from './Loading';
 import { boardHeading, boardLabel, boardWhere, collectionHeading, collectionLabel, collectionWhere, folderLabel, listHeading, listLabel, listWhere } from './items';
@@ -65,6 +68,18 @@ import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
 /** A task in its list, or a card on its board: something with a day to move. */
+/**
+ * A description as a row shows it: its text without the images and files in it, which are
+ * counted instead, for a clip beside the task.
+ */
+export function rowDescription(text: string | undefined): { text: string; files: number } {
+  if (!text) return { text: '', files: 0 };
+  const files = filesIn(text);
+  let plain = text;
+  for (const file of files) plain = dropFile(plain, file);
+  return { text: plain.trim(), files: files.size };
+}
+
 /** A subtask of a card or of a record: what it is in, and its own id. */
 export type SubtaskRef = { board: string; id: string; subtask: string } | { collection: string; id: string; subtask: string };
 
@@ -152,6 +167,8 @@ export interface TaskActions {
   dueSubtasks: () => DueSubtask[];
   /** Ticks off a subtask of a card or a record, with Undo. */
   completeSubtask: (ref: SubtaskRef) => void;
+  /** A task's description in the editor notes have, with its images and files. */
+  description: DescriptionHost;
 }
 
 /** A row of the record picker: unlinking, or a record of a collection. */
@@ -366,18 +383,6 @@ export function Composer({ placeholder, addLabel = t('tasks.add'), onAdd, onClos
   );
 }
 
-/** A text field as tall as what is written in it. */
-export function GrowingField({ value, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string }) {
-  const field = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
-    const element = field.current;
-    if (!element) return;
-    element.style.height = 'auto';
-    element.style.height = `${element.scrollHeight}px`;
-  }, [value]);
-  return <textarea ref={field} rows={2} value={value} {...props} />;
-}
-
 /**
  * A task's or a subtask's title being typed: one line of words that wraps and grows as long as it
  * is, so that a long title is seen whole while it is written. Enter never breaks it: it does what
@@ -586,6 +591,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
   const noteName = task.note ? actions.noteTitle(task.note) : null;
   const cardKey = task.card ? actions.cardLabel(task.card) : null;
   const due = task.due && !(byDay && task.due >= today) ? task.due : null;
+  const described = rowDescription(task.description);
   const meta = [
     due && (
       <span key="due" className={dueClass(due, today)}>
@@ -600,6 +606,12 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
       </span>
     ),
     progress.total > 0 && <span key="progress">{t('tasks.progress', { done: progress.done, total: progress.total })}</span>,
+    described.files > 0 && (
+      <span key="files" className="clips" title={t('count.files', { count: described.files })}>
+        <Icon name="clip" />
+        {described.files}
+      </span>
+    ),
     task.assignee && (
       <span key="who">
         <Icon name="person" />
@@ -697,7 +709,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
           />
           <button type="button" className="tx" onClick={() => actions.open?.(list, task.id)}>
             <b>{task.title}</b>
-            {task.description && <span className="desc">{task.description}</span>}
+            {described.text && <span className="desc">{described.text}</span>}
             {meta.length > 0 && <span className="meta">{meta}</span>}
           </button>
         </div>
@@ -809,7 +821,15 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
     </button>
   );
   const due = task.due && !(byDay && task.due >= today) ? task.due : null;
-  const meta = (due || progress.total > 0 || (flat && !grouped) || task.assignee || from || fromCard || about) && (
+  const described = rowDescription(task.description);
+  // While it is edited its files show in it; in its row they are counted.
+  const clips = !editing && described.files > 0 && (
+    <span className="clips" title={t('count.files', { count: described.files })}>
+      <Icon name="clip" />
+      {described.files}
+    </span>
+  );
+  const meta = (due || progress.total > 0 || (flat && !grouped) || clips || task.assignee || from || fromCard || about) && (
     <div className="meta">
       {due && (
         <button type="button" className={dueClass(due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
@@ -825,6 +845,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
           </button>
         ))}
       {flat && !grouped && <span>{listWhere(list)}</span>}
+      {clips}
       {task.assignee && <AssigneeChip assignee={task.assignee} people={team?.people} />}
       {from}
       {fromCard}
@@ -850,8 +871,9 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
                   { label: t('tasks.delete'), run: () => actions.remove(list, task.id) },
                 ])
         }
-        // Leaving the editor, by a click elsewhere or by Tab, saves it.
-        onBlur={editing ? (event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && save() : undefined}
+        // Leaving the editor, by a click elsewhere or by Tab, saves it; not the window losing the
+        // focus, as to the file window Attach opens.
+        onBlur={editing ? (event) => document.hasFocus() && !event.currentTarget.contains(event.relatedTarget as Node | null) && save() : undefined}
       >
         {drag && !editing && <Grip title={t('tasks.drag')} onGrab={(event) => drag.grab(event, { task })} onRelease={drag.release} />}
         <button
@@ -878,15 +900,13 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
                   } else if (event.key === 'Escape') cancel();
                 }}
               />
-              <GrowingField
-                className="desc-edit"
-                aria-label={t('tasks.description')}
-                placeholder={t('tasks.description')}
+              <DescriptionField
+                home={list}
                 value={editing.description}
-                onChange={(event) => setEditing({ ...editing, description: event.target.value })}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') cancel();
-                }}
+                hint={t('tasks.description')}
+                host={actions.description}
+                onChange={(description) => setEditing((now) => now && { ...now, description })}
+                onEscape={cancel}
               />
               {meta}
             </div>
@@ -904,7 +924,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
             <button type="button" className="tt" onClick={startEditing}>
               {task.title}
             </button>
-            {task.description && <div className="desc">{task.description}</div>}
+            {described.text && <div className="desc">{described.text}</div>}
             {meta}
           </div>
         )}
@@ -1530,6 +1550,7 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
           recordChoices={actions.recordChoices}
           recordName={actions.recordTitle}
           menu={actions.menu}
+          description={actions.description}
           onAdd={(target, task) => actions.add(target, task)}
           onClose={() => setPlacing(0)}
         />

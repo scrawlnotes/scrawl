@@ -15,7 +15,8 @@ import {
   type TaskRecord,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type FormEvent, type MouseEvent, type ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { type FormEvent, type MouseEvent, type ReactNode, useRef, useState } from 'react';
+import { type DescriptionHost, DescriptionField } from './Description';
 import { listCrumb, type MenuHead, type MenuItem, placesShown, type TaskPlaceChoice } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { collectionLabel, listLabel, spaceLabel } from './items';
@@ -52,20 +53,6 @@ export const priorityItems = (current: Priority, pick: (priority: Priority) => v
     value: priority === current ? '✓' : undefined,
     run: () => pick(priority),
   }));
-
-/** A text field as tall as what is written in it. */
-function Growing({ value, className, placeholder, label, onChange }: { value: string; className: string; placeholder?: string; label: string; onChange: (value: string) => void }) {
-  const field = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
-    const element = field.current;
-    if (!element) return;
-    element.style.height = 'auto';
-    element.style.height = `${element.scrollHeight}px`;
-  }, [value]);
-  return (
-    <textarea ref={field} rows={1} className={className} aria-label={label} placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
-  );
-}
 
 /**
  * A due date in a sheet: Today, Tomorrow, Next week and No date, each with its day, then the month
@@ -289,12 +276,13 @@ export function SectionSheet({ list, start, onSave, onClose }: { list: string; s
   );
 }
 
-export function QuickAdd({ initial, places, today, recordChoices, recordName, onAdd, onClose }: {
+export function QuickAdd({ initial, places, today, recordChoices, recordName, description: host, onAdd, onClose }: {
   initial: { list: string; section: string | null; due: string | null };
   places: TaskPlaceChoice[];
   today: string;
   recordChoices: () => { dir: string; records: CollectionRecord[] }[];
   recordName: (record: TaskRecord) => string;
+  description: DescriptionHost;
   onAdd: (list: string, task: { title: string; description?: string; section: string | null; due: string | null; priority: Priority; record: TaskRecord | null }) => void;
   onClose: () => void;
 }) {
@@ -306,6 +294,8 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, on
   const [place, setPlace] = useState({ list: initial.list, section: initial.section });
   const [picking, setPicking] = useState<'date' | 'priority' | 'record' | 'place' | null>(null);
   const added = useAdded();
+  // The description's editor is made anew once a task is added, and for a list in another space.
+  const [count, setCount] = useState(0);
   const titleField = useRef<HTMLTextAreaElement>(null);
   const add = (event?: FormEvent) => {
     event?.preventDefault();
@@ -314,6 +304,7 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, on
     added.say(t('phone.addedTo', { name: title.trim(), place: placeLabel(places, place.list, place.section) }));
     setTitle('');
     setDescription('');
+    setCount((n) => n + 1);
     titleField.current?.focus();
   };
   const chip = (icon: IconName, label: string, set: boolean, kind: typeof picking, className?: string) => (
@@ -337,7 +328,14 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, on
             value={title}
             onChange={setTitle}
           />
-          <Growing className="ds" label={t('tasks.description')} placeholder={t('tasks.description')} value={description} onChange={setDescription} />
+          <DescriptionField
+            key={`${spaceOf(place.list) ?? ''}:${count}`}
+            home={place.list}
+            value={description}
+            hint={t('tasks.description')}
+            host={host}
+            onChange={setDescription}
+          />
           <div className="mb-chips">
             {chip('calendar', due ? dueLabel(due, today) : t('tasks.date'), !!due, 'date', due ? dueClass(due, today) : undefined)}
             {chip('flag', priority === 4 ? t('tasks.priority') : priorityLabel(priority), priority !== 4, 'priority', `p${priority}`)}
@@ -385,6 +383,8 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
 }) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? '');
+  // Discard puts the description's editor back as the task has it.
+  const [resets, setResets] = useState(0);
   const [adding, setAdding] = useState(subtask);
   const [newSub, setNewSub] = useState('');
   const changed = (title.trim() && title !== task.title) || description.trim() !== (task.description ?? '');
@@ -404,6 +404,7 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
   const discard = () => {
     setTitle(task.title);
     setDescription(task.description ?? '');
+    setResets((n) => n + 1);
   };
   const priorityMenu = () => actions.menu(NO_POINTER, priorityItems(task.priority, (priority) => actions.update(list, task.id, { priority })), head);
   // In a space with people a task is given to one of them; the personal space has only the user.
@@ -483,7 +484,7 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
         />
         <div className="tx">
           <TitleField className="tt" aria-label={t('tasks.title')} value={title} onChange={setTitle} />
-          <Growing className="ds" label={t('tasks.description')} placeholder={t('tasks.description')} value={description} onChange={setDescription} />
+          <DescriptionField key={`${task.id}:${resets}`} home={list} value={description} hint={t('tasks.description')} host={actions.description} onChange={setDescription} />
         </div>
       </div>
       <div className="mb-form">

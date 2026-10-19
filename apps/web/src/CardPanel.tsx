@@ -38,6 +38,7 @@ import { type CollectionActions, FieldInput, RecordDialog, type ValueContext } f
 import { isPhone, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { labelHue, useEscape } from './choices';
+import { AttachButton } from './Description';
 import { Icon, type IconName } from './Icon';
 import { boardLabel } from './items';
 import { assigneeLabel, PersonPicker, type SpacePeople, Who } from './People';
@@ -73,6 +74,8 @@ export interface CardPanelActions {
   openNote: (path: string) => void;
   /** An editor for the description of a card of the board at `home`, in `parent`; the host wires it to the files of the board's space. */
   editor: (home: string, parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string) => ScrawlEditor;
+  /** Copies files chosen with Attach into a description's editor, where its cursor is. */
+  attach: (editor: ScrawlEditor, home: string, files: File[]) => void;
   /** A read-only view of Markdown, for comments on a card of the board at `home`. */
   viewer: (home: string, parent: HTMLElement, doc: string) => ScrawlViewer;
   /** The collections the board's link fields point at: their records to pick from, and a record to open over the card. */
@@ -769,6 +772,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
         <TextField id="card-title" label={t('card.title')} value={card.title} onSave={(title) => update({ title })} />
         <div className="cp-sec">{t('card.description')}</div>
         <div className="cp-desc" ref={host} />
+        <AttachButton onFiles={(files) => editor.current && actions.attach(editor.current, path, files)} />
         <Subtasks
           list={card.subtasks ?? []}
           change={(change) => actions.changeSubtasks(path, card.id, change)}
@@ -1135,6 +1139,9 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
         </div>
         <div className="mb-cap mb-cpad">{t('card.description')}</div>
         <div className="mb-cdesc" ref={host} />
+        <div className="mb-cattach">
+          <AttachButton onFiles={(files) => editor.current && actions.attach(editor.current, path, files)} />
+        </div>
         <Subtasks
           list={card.subtasks ?? []}
           change={(change) => actions.changeSubtasks(path, card.id, change)}

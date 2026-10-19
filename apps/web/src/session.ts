@@ -174,6 +174,7 @@ import {
   type AttachedFile,
   dropFileFrom,
   dropFileFromBoard,
+  dropFileFromTasks,
   listFiles,
   readAway,
   type AwayFile,
@@ -1631,6 +1632,21 @@ export class Session {
     return editor;
   }
 
+  /**
+   * Copies files chosen with Attach into a second editor, on a line of their own: the cursor's,
+   * when it is empty, else a new one under it. They go to the attachments of the space `home` is in.
+   */
+  attachTo(editor: ScrawlEditor, home: string, files: File[]) {
+    const { view } = editor;
+    const line = view.state.doc.lineAt(view.state.selection.main.head);
+    let at = view.state.selection.main.head;
+    if (line.text.trim() !== '') {
+      view.dispatch({ changes: { from: line.to, insert: '\n' }, selection: { anchor: line.to + 1 } });
+      at = line.to + 1;
+    }
+    void this.copyFiles(view, home, files, at);
+  }
+
   /** A read-only view of Markdown, for a comment on a card of the board at `home`: images and files of its space show in it. */
   openViewer(home: string, parent: HTMLElement, doc: string): ScrawlViewer {
     return createViewer({ parent, doc, ...this.filesOf(() => home) });
@@ -2627,6 +2643,14 @@ export class Session {
     const tasks = rebaseTasks(changed.tasks, withinSpace(spaceOf(path)));
     const next = tasks === changed.tasks ? changed : { ...changed, tasks };
     if (next === current) return;
+    // A task deleted takes the files only its description used to the trash; one put back, by Undo, brings them.
+    if (next.tasks !== current.tasks) {
+      const before = attachmentsIn(JSON.stringify(current.tasks));
+      const after = attachmentsIn(JSON.stringify(next.tasks));
+      const gone = [...before].filter((src) => !after.has(src));
+      const back = [...after].filter((src) => !before.has(src));
+      if (gone.length || back.length) this.attachmentsChanged(path, gone, back);
+    }
     this.set({
       tasks: { ...this.snapshot.tasks, [path]: next.tasks },
       sections: { ...this.snapshot.sections, [path]: next.sections },
@@ -2638,6 +2662,7 @@ export class Session {
       .catch(() => undefined)
       .then(() => {
         this.markSaved();
+        void this.trashUnlinkedFiles();
       });
   }
 
@@ -3323,6 +3348,7 @@ export class Session {
     await this.settle();
     const texts = new Map<string, string>();
     const boards = new Map<string, Board>();
+    const lists = new Map<string, TaskList>();
     const collections = new Set<string>();
     for (const file of files) {
       const src = localPath(file.path);
@@ -3336,6 +3362,16 @@ export class Session {
             const text = serializeBoard(current);
             const dropped = dropFileFromBoard(text, src);
             return dropped === text ? current : parseBoard(dropped);
+          });
+          continue;
+        }
+        if (use.kind === 'task') {
+          if (!(use.path in this.snapshot.tasks)) continue;
+          if (!lists.has(use.path)) lists.set(use.path, this.listAt(use.path));
+          this.changeList(use.path, (current) => {
+            const text = serializeList(current);
+            const dropped = dropFileFromTasks(text, src);
+            return dropped === text ? current : parseList(dropped);
           });
           continue;
         }
@@ -3365,6 +3401,7 @@ export class Session {
     return async () => {
       for (const [path, text] of texts) await this.putText(path, text).catch(() => undefined);
       for (const [path, board] of boards) this.changeBoard(path, () => board);
+      for (const [path, list] of lists) this.changeList(path, () => list);
       // The files come back from the trash, as a text linking to them again brings them.
       for (const [space, fs] of this.fs.all()) {
         const mine = files.filter((file) => file.space === space).map((file) => localPath(file.path));

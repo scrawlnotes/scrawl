@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { addCard, addComment, newBoard, parseBoard, serializeBoard } from './board';
 import { addRecord, createCollection, loadCollection } from './collection';
-import { dropFile, dropFileFromBoard, listFiles } from './files';
+import { dropFile, dropFileFrom, dropFileFromBoard, listFiles } from './files';
 import { MemoryFs } from './fs';
+import { addTask, parseList, serializeList } from './tasks';
 import { trashItem } from './vault';
 
 const blob = (size: number) => new Blob([new Uint8Array(size)]);
@@ -21,6 +22,24 @@ const awayState = (files: { path: string; size: number }[]) =>
   });
 
 describe('files', () => {
+  it('are used by a task whose description links to them, and leave it when they are deleted', async () => {
+    const fs = new MemoryFs();
+    await fs.writeBlob('_attachments/2026-10-19-101500.png', blob(300));
+    await fs.writeBlob('_attachments/quote.pdf', blob(40));
+    let tasks = addTask([], { title: 'Send the quote', description: 'Screen:\n![](_attachments/2026-10-19-101500.png)\n[quote.pdf](_attachments/quote.pdf)' }, at, 't1');
+    tasks = addTask(tasks, { title: 'Call back' }, at, 't2');
+    const text = serializeList({ sections: [], tasks });
+    await fs.writeText('Work/Sales.tasks.json', text);
+    const files = await listFiles(fs);
+    expect(files.find((f) => f.name === 'quote.pdf')!.uses).toEqual([
+      { kind: 'task', path: 'Work/Sales.tasks.json', title: 'Send the quote', task: { id: 't1', list: 'Sales' }, inTrash: false },
+    ]);
+    // The file deleted, its link leaves the description; the rest of it stays.
+    const dropped = parseList(dropFileFrom('Work/Sales.tasks.json', text, '_attachments/quote.pdf'));
+    expect(dropped.tasks.find((task) => task.id === 't1')!.description).toBe('Screen:\n![](_attachments/2026-10-19-101500.png)');
+    expect(dropFileFrom('Work/Sales.tasks.json', text, '_attachments/other.pdf')).toBe(text);
+  });
+
   it('lists every attached file with where it is used: notes, cards, records, and notes in the trash', async () => {
     const fs = new MemoryFs();
     await fs.writeBlob('_attachments/2026-10-06-143207.png', blob(1200));

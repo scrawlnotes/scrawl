@@ -2880,6 +2880,34 @@ body > .mb-lifted {
   line-height: 1.45;
 }
 
+/* A task's description on a phone, in the editor notes have, and Attach under it, a finger's size. */
+.mb-tbig .desc-field,
+.mb-qa .desc-field {
+  margin-top: 6px;
+}
+
+.mb-tbig .desc-field .cm-editor,
+.mb-qa .desc-field .cm-editor {
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.mb-tbig .desc-field .cm-editor {
+  color: var(--sl-dim);
+}
+
+.mb-tbig .desc-field .attach,
+.mb-qa .desc-field .attach {
+  min-height: 32px;
+  font-size: 15px;
+}
+
+.mb-tbig .desc-field .attach .icon,
+.mb-qa .desc-field .attach .icon {
+  width: 16px;
+  height: 16px;
+}
+
 .mb-tbig .ds::placeholder {
   color: var(--sl-faint);
 }
@@ -4058,6 +4086,25 @@ body > .mb-lifted {
 
 .mb-cdesc .cm-content {
   padding: 2px 0 8px;
+}
+
+/* Attach under a card's description and a record's notes on a phone, a finger's size. */
+.mb-cattach,
+.mb-notes .rm-attach {
+  padding: 0 8px 6px;
+}
+
+.mb-cattach .attach,
+.mb-notes .rm-attach .attach {
+  min-height: 32px;
+  margin-left: 0;
+  font-size: 15px;
+}
+
+.mb-cattach .attach .icon,
+.mb-notes .rm-attach .attach .icon {
+  width: 16px;
+  height: 16px;
 }
 
 /* the timeline: moves as lines, comments in boxes */

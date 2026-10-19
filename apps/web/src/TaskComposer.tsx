@@ -12,11 +12,12 @@ import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElem
 import { createPortal } from 'react-dom';
 import { pageBox, pageWindow } from './device';
 import { listCrumb, type MenuItem, placesShown, type TaskPlaceChoice } from './dialogs';
+import { type DescriptionHost, DescriptionField } from './Description';
 import { Icon, type IconName } from './Icon';
 import { listLabel, spaceLabel } from './items';
 import { MonthGrid, useMonth } from './MonthGrid';
 import { priorityItems } from './PhoneTasks';
-import { GrowingField, nextWeek, RecordPicker, TitleField, toDate } from './Tasks';
+import { nextWeek, RecordPicker, TitleField, toDate } from './Tasks';
 
 // Adding a task on a computer, after the List, add views of the Upcoming mockups: its name and
 // description, then chips for its date, priority and record, and at the foot the list it goes in,
@@ -245,18 +246,22 @@ export interface ComposerStart {
  * the row with the same date and list for the next one. A record is one of the list's space, as a
  * task's links do not reach another space.
  */
-export function TaskComposer({ start, today, places, recordChoices, recordName, menu, onAdd, onClose }: {
+export function TaskComposer({ start, today, places, recordChoices, recordName, menu, description: host, onAdd, onClose }: {
   start: ComposerStart;
   today: string;
   places: TaskPlaceChoice[];
   recordChoices: () => { dir: string; records: CollectionRecord[] }[];
   recordName: (record: TaskRecord) => string;
   menu: (event: MouseEvent, items: MenuItem[]) => void;
+  description: DescriptionHost;
   onAdd: (list: string, task: NewTask) => void;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  // The description's editor is made anew once a task is added, and for a list in another
+  // space, whose attachments its files go to; what was written comes along.
+  const [added, setAdded] = useState(0);
   const [due, setDue] = useState(start.due);
   const [priority, setPriority] = useState<Priority>(4);
   const [record, setRecord] = useState<TaskRecord | null>(null);
@@ -275,6 +280,7 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
     onAdd(place.list, { title, description: description.trim() || undefined, section: place.section, due, priority, record });
     setTitle('');
     setDescription('');
+    setAdded((n) => n + 1);
     titleField.current?.focus();
   };
   const choosePlace = (chosen: TaskPlaceChoice) => {
@@ -316,13 +322,13 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
           }}
         />
       </div>
-      <GrowingField
-        className="desc-edit"
-        aria-label={t('tasks.description')}
-        placeholder={t('tasks.description')}
-        rows={1}
+      <DescriptionField
+        key={`${spaceOf(place.list) ?? ''}:${added}`}
+        home={place.list}
         value={description}
-        onChange={(event) => setDescription(event.target.value)}
+        hint={t('tasks.description')}
+        host={host}
+        onChange={setDescription}
       />
       <div className="chips">
         <button
