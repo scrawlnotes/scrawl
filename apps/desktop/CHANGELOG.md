@@ -2,6 +2,18 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.5
+
+Deleting a task or a card can be undone.
+
+- A task, a section or a card goes to the trash without asking, a task with its subtasks and a section with its tasks: Moved to Trash, with Undo.
+- In the trash each says which list or board it was in and shows what it held; Restore puts it back where it was, a card with its key. If its list or board is in the trash too, Restore asks to bring both back.
+- Deleting a comment or a card's subtask shows Undo too.
+- In a search, what you typed, found just as you typed it, comes before its words found apart.
+- A day that is not on the calendar, like 30.02.2026, is marked in a record and is not taken as a day when importing.
+- A phase's note stays linked when the note is moved or renamed.
+- An agent on your server knows your day: the app tells the server your time zone.
+
 ## 0.1.4
 
 Many small things made right, and a few new ones.
