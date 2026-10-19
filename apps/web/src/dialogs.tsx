@@ -1411,8 +1411,48 @@ export function ContextMenu(props: MenuProps) {
   return isPhone() ? <ActionSheet head={props.head} items={props.items} onClose={props.onClose} /> : <PointerMenu {...props} />;
 }
 
+/** What was last pressed, and when: a menu opened by a click knows the button that opened it. */
+let pressed: { element: Element; left: boolean; at: number } | null = null;
+if (typeof window !== 'undefined') {
+  window.addEventListener(
+    'pointerdown',
+    (event) => {
+      pressed = event.target instanceof Element ? { element: event.target, left: event.button === 0, at: Date.now() } : null;
+    },
+    true,
+  );
+}
+
+/** The button a menu opening now was clicked open with; none for a right click or a key. */
+function openedBy(): Element | null {
+  if (!pressed?.left || Date.now() - pressed.at > 1000) return null;
+  return pressed.element.closest('button, [role="button"]');
+}
+
+/**
+ * A press on the button that opened a menu closes it: the click that follows is kept from the
+ * button, which would open the menu again.
+ */
+function keepClickFrom(button: Element) {
+  const keep = (event: globalThis.MouseEvent) => {
+    if (button.contains(event.target as Node)) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    done();
+  };
+  const done = () => {
+    window.removeEventListener('click', keep, true);
+    window.clearTimeout(timer);
+  };
+  const timer = window.setTimeout(done, 1000);
+  window.addEventListener('click', keep, true);
+}
+
 function PointerMenu({ at, items, onClose }: MenuProps) {
   const menu = useRef<HTMLDivElement>(null);
+  // The button it was opened with: pressed again, it closes the menu, as the other pickers do.
+  const [anchor] = useState(openedBy);
   // The item whose own menu is open beside it, by its place in the list, and whether that menu
   // opens to the left, where the window has no room on the right.
   const [sub, setSub] = useState<{ index: number; top: number; left: boolean } | null>(null);
@@ -1439,7 +1479,9 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
   useEffect(() => {
     menu.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
     const close = (event: MouseEvent | globalThis.KeyboardEvent) => {
-      if (event instanceof MouseEvent ? !menu.current?.contains(event.target as Node) : event.key === 'Escape') onClose();
+      if (event instanceof MouseEvent ? menu.current?.contains(event.target as Node) : event.key !== 'Escape') return;
+      if (event instanceof MouseEvent && anchor?.contains(event.target as Node)) keepClickFrom(anchor);
+      onClose();
     };
     window.addEventListener('mousedown', close);
     window.addEventListener('keydown', close);
@@ -1449,7 +1491,7 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
       window.removeEventListener('keydown', close);
       window.removeEventListener('blur', onClose);
     };
-  }, [onClose]);
+  }, [onClose, anchor]);
   return (
     <div ref={menu} className="menu" role="menu" style={{ left: place.x, top: place.y }}>
       {items.map((item, index) => (
