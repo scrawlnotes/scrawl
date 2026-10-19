@@ -15,7 +15,7 @@ import { listCrumb, type MenuItem, placesShown, type TaskPlaceChoice } from './d
 import { Icon, type IconName } from './Icon';
 import { listLabel, spaceLabel } from './items';
 import { MonthGrid, useMonth } from './MonthGrid';
-import { GrowingField, nextWeek, RecordPicker, toDate } from './Tasks';
+import { GrowingField, nextWeek, RecordPicker, TitleField, toDate } from './Tasks';
 
 // Adding a task on a computer, after the List, add views of the Upcoming mockups: its name and
 // description, then chips for its date, priority and record, and at the foot the list it goes in,
@@ -261,7 +261,7 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
   const [record, setRecord] = useState<TaskRecord | null>(null);
   const [place, setPlace] = useState({ list: start.list, section: start.section });
   const [open, setOpen] = useState<{ kind: 'date' | 'place' | 'record'; anchor: HTMLElement } | null>(null);
-  const titleField = useRef<HTMLInputElement>(null);
+  const titleField = useRef<HTMLTextAreaElement>(null);
 
   const toggle = (kind: 'date' | 'place' | 'record', anchor: HTMLElement) => setOpen((was) => (was?.kind === kind ? null : { kind, anchor }));
   // A picker closed, by a pick or not, gives the keyboard back to the name.
@@ -306,14 +306,14 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
     >
       <div className="r1">
         <span className="cb" />
-        <input
+        <TitleField
           ref={titleField}
           className="tt-edit"
           aria-label={t('tasks.name')}
           placeholder={t('tasks.name')}
           autoFocus
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={setTitle}
           onKeyDown={(event) => {
             if (event.key !== 'Enter') return;
             event.preventDefault();

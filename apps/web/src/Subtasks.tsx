@@ -7,7 +7,7 @@ import { Icon } from './Icon';
 import { AssigneeChip, assigneeLabel, PersonPicker, type SpacePeople } from './People';
 import { PeopleSheet } from './PhoneSpaces';
 import { DateSheet, priorityItems } from './PhoneTasks';
-import { Composer, dueClass, dueLabel, Grip, IconButton, nextWeek } from './Tasks';
+import { Composer, dueClass, dueLabel, Grip, IconButton, nextWeek, TitleField } from './Tasks';
 import { holdToDrag } from './touchDrag';
 
 // A card's or a record's own subtasks, after the task rows of a list: one level, a box, the title,
@@ -181,12 +181,12 @@ function DesktopSubtasks(props: SubtasksProps) {
         {isEditing ? (
           <>
             <div className="task-body">
-              <input
+              <TitleField
                 className="tt-edit"
                 aria-label={t('tasks.subtaskName')}
                 autoFocus
                 value={editing.title}
-                onChange={(event) => setEditing({ id: subtask.id, title: event.target.value })}
+                onChange={(title) => setEditing({ id: subtask.id, title })}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault();
@@ -379,13 +379,13 @@ function PhoneSubtasks(props: SubtasksProps) {
   const row = (subtask: Subtask) =>
     editing?.id === subtask.id ? (
       <form key={subtask.id} className="mb-fr add-sub" onSubmit={rename}>
-        <input
+        <TitleField
           className="in"
           autoFocus
           enterKeyHint="done"
           aria-label={t('tasks.subtaskName')}
           value={editing.title}
-          onChange={(event) => setEditing({ id: subtask.id, title: event.target.value })}
+          onChange={(title) => setEditing({ id: subtask.id, title })}
           onBlur={() => setEditing(null)}
         />
         <button type="submit" className="go" disabled={!editing.title.trim()} onMouseDown={(event) => event.preventDefault()}>
@@ -426,14 +426,14 @@ function PhoneSubtasks(props: SubtasksProps) {
       {carried && carried.before === null && <div className="stk-end" />}
       {adding ? (
         <form className="mb-fr add-sub" onSubmit={add}>
-          <input
+          <TitleField
             className="in"
             autoFocus
             enterKeyHint="send"
             aria-label={t('tasks.subtaskName')}
             placeholder={t('tasks.subtaskName')}
             value={typed}
-            onChange={(event) => setTyped(event.target.value)}
+            onChange={setTyped}
             onBlur={() => !typed.trim() && setAdding(false)}
           />
           <button type="submit" className="go" disabled={!typed.trim()} onMouseDown={(event) => event.preventDefault()}>

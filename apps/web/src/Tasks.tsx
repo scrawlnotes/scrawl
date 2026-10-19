@@ -44,6 +44,7 @@ import {
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type Ref,
   type TextareaHTMLAttributes,
   type TouchEvent as ReactTouchEvent,
   useEffect,
@@ -340,13 +341,13 @@ export function Composer({ placeholder, addLabel = t('tasks.add'), onAdd, onClos
   return (
     <div className="task composing">
       <span className="cb" />
-      <input
+      <TitleField
         className="tt-edit"
         aria-label={placeholder}
         placeholder={placeholder}
         autoFocus
         value={title}
-        onChange={(event) => setTitle(event.target.value)}
+        onChange={setTitle}
         onKeyDown={onKey}
         onBlur={() => !title.trim() && onClose()}
       />
@@ -372,6 +373,48 @@ export function GrowingField({ value, ...props }: TextareaHTMLAttributes<HTMLTex
     element.style.height = `${element.scrollHeight}px`;
   }, [value]);
   return <textarea ref={field} rows={2} value={value} {...props} />;
+}
+
+/**
+ * A task's or a subtask's title being typed: one line of words that wraps and grows as long as it
+ * is, so that a long title is seen whole while it is written. Enter never breaks it: it does what
+ * the field's own keys say, or else sends its form; a pasted line break becomes a space.
+ */
+export function TitleField({ value, onChange, onKeyDown, ref, ...props }: Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange'> & {
+  value: string;
+  onChange: (value: string) => void;
+  ref?: Ref<HTMLTextAreaElement>;
+}) {
+  const field = useRef<HTMLTextAreaElement | null>(null);
+  useLayoutEffect(() => {
+    const element = field.current;
+    if (!element) return;
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+  }, [value]);
+  const hold = (element: HTMLTextAreaElement | null) => {
+    field.current = element;
+    if (typeof ref === 'function') ref(element);
+    else if (ref) ref.current = element;
+  };
+  return (
+    <textarea
+      ref={hold}
+      rows={1}
+      value={value}
+      onChange={(event) => onChange(event.target.value.replace(/[ \t]*\r?\n[ \t]*/g, ' '))}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+          event.preventDefault();
+          if (onKeyDown) onKeyDown(event);
+          else event.currentTarget.form?.requestSubmit();
+          return;
+        }
+        onKeyDown?.(event);
+      }}
+      {...props}
+    />
+  );
 }
 
 export function IconButton({ icon, title, onClick }: { icon: IconName; title: string; onClick: (event: MouseEvent) => void }) {
@@ -819,12 +862,12 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
         {editing ? (
           <>
             <div className="task-body">
-              <input
+              <TitleField
                 className="tt-edit"
                 aria-label={t('tasks.title')}
                 autoFocus
                 value={editing.title}
-                onChange={(event) => setEditing({ ...editing, title: event.target.value })}
+                onChange={(title) => setEditing({ ...editing, title })}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault();

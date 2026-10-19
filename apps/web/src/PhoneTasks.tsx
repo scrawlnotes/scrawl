@@ -22,7 +22,7 @@ import { collectionLabel, listLabel, spaceLabel } from './items';
 import { MonthGrid, useMonth } from './MonthGrid';
 import { firstName } from './People';
 import { ActionSheet, Sheet, SheetClose, useAdded } from './sheets';
-import { dueClass, dueLabel, type TaskActions } from './Tasks';
+import { dueClass, dueLabel, type TaskActions, TitleField } from './Tasks';
 
 // Tasks on a phone, after the Phone tasks views of design/mockups.html: a task opens as a sheet
 // with everything about it; its date, its record and the list a new task goes in are picked in
@@ -305,7 +305,7 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, on
   const [place, setPlace] = useState({ list: initial.list, section: initial.section });
   const [picking, setPicking] = useState<'date' | 'priority' | 'record' | 'place' | null>(null);
   const added = useAdded();
-  const titleField = useRef<HTMLInputElement>(null);
+  const titleField = useRef<HTMLTextAreaElement>(null);
   const add = (event?: FormEvent) => {
     event?.preventDefault();
     if (!title.trim()) return;
@@ -326,7 +326,7 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, on
       <Sheet label={t('tasks.add')} className="mb-qa" onClose={onClose}>
         <form onSubmit={add}>
           {added.line}
-          <input
+          <TitleField
             ref={titleField}
             className="tt"
             aria-label={t('tasks.name')}
@@ -334,15 +334,9 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, on
             autoFocus
             enterKeyHint="send"
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            onChange={setTitle}
           />
-          <input
-            className="ds"
-            aria-label={t('tasks.description')}
-            placeholder={t('tasks.description')}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
+          <Growing className="ds" label={t('tasks.description')} placeholder={t('tasks.description')} value={description} onChange={setDescription} />
           <div className="mb-chips">
             {chip('calendar', due ? dueLabel(due, today) : t('tasks.date'), !!due, 'date', due ? dueClass(due, today) : undefined)}
             {chip('flag', priority === 4 ? t('tasks.priority') : priorityLabel(priority), priority !== 4, 'priority', `p${priority}`)}
@@ -487,7 +481,7 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
           }}
         />
         <div className="tx">
-          <Growing className="tt" label={t('tasks.title')} value={title} onChange={setTitle} />
+          <TitleField className="tt" aria-label={t('tasks.title')} value={title} onChange={setTitle} />
           <Growing className="ds" label={t('tasks.description')} placeholder={t('tasks.description')} value={description} onChange={setDescription} />
         </div>
       </div>
@@ -562,14 +556,14 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
               {canNest &&
                 (adding ? (
                   <form className="mb-fr add-sub" onSubmit={addSub}>
-                    <input
+                    <TitleField
                       className="in"
                       autoFocus
                       enterKeyHint="send"
                       aria-label={t('tasks.subtaskName')}
                       placeholder={t('tasks.subtaskName')}
                       value={newSub}
-                      onChange={(event) => setNewSub(event.target.value)}
+                      onChange={setNewSub}
                     />
                     <button type="submit" className="go" disabled={!newSub.trim()}>
                       {t('phone.add')}

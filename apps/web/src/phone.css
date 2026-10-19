@@ -904,8 +904,26 @@ button.mb-fr:active {
   outline: none;
 }
 
-.mb-fr input.in::placeholder {
+.mb-fr input.in::placeholder,
+.mb-fr textarea.in::placeholder {
   color: var(--sl-faint);
+}
+
+/* A subtask's title typed in a row: it wraps and the row grows with it. */
+.mb-fr textarea.in {
+  display: block;
+  padding: 12px 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  outline: none;
+  resize: none;
 }
 
 .mb-fr .val {
@@ -2482,11 +2500,18 @@ body > .mb-lifted {
 
 .mb-qa .tt,
 .mb-qa .ds {
+  display: block;
+  width: 100%;
   padding: 6px 0;
   border: 0;
   background: none;
   color: var(--sl-fg);
+  font-family: inherit;
+  line-height: 1.35;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   outline: none;
+  resize: none;
 }
 
 .mb-qa .tt {

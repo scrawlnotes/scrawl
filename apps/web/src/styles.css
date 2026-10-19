@@ -2451,6 +2451,15 @@ button.cb:hover::after {
   color: var(--sl-faint);
 }
 
+/* Typed in, a long title wraps and the field grows with it. */
+textarea.tt-edit {
+  display: block;
+  overflow: hidden;
+  outline: none;
+  resize: none;
+  overflow-wrap: anywhere;
+}
+
 .task.done .tt {
   color: var(--sl-faint);
   text-decoration: line-through;
