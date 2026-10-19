@@ -2,6 +2,13 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.8
+
+The app no longer opens white.
+
+- On Windows the window opens in your theme's colour, not white while it gets ready; on a Mac it shows once it is ready.
+- The Scrawl icon shows at once while the app opens, and goes softly when the app is there.
+
 ## 0.1.7
 
 A web address in a note is a link, and a note dragged to another space moves there.
