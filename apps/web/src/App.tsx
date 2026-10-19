@@ -3,6 +3,7 @@ import {
   basename,
   DEFAULT_LOOK,
   type FolderLook,
+  type NodeTimes,
   isDefaultLook,
   boardName,
   type Card,
@@ -1006,6 +1007,11 @@ export function App() {
   // drawer closed so that what is made shows; a new folder is named in the sidebar, under the
   // folder it goes in. A space's top is no folder: it is not deleted from here.
   // A folder's menu: what can be made in it, how its items are put in order, and deleting it.
+  // When the items were made, as the app keeps it, and a collection's files written, for their order.
+  const nodeTimes: NodeTimes = {
+    created: (node) => created[node.path.toLowerCase()],
+    written: (node) => (node.kind === 'collection' ? collections[node.path]?.written : undefined),
+  };
   const folderMenu = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, withOrder(folderMenuItems(path, addFolder), path), path);
   /** A folder's items with Group by, Sort by and Reset before its Delete. */
   const withOrder = (items: MenuItem[], key: string): MenuItem[] => {
@@ -1941,7 +1947,7 @@ export function App() {
             onFolderMenu={phoneFolderMenu}
             onSpaceOrder={(key) => showSheet(orderItems(key), { icon: 'tune', title: key === '' ? (space.name ?? t('settings.personal')) : folderLabel(key) })}
             folderLooks={folderLooks}
-            created={created}
+            times={nodeTimes}
             menuOpen={menu !== null}
             history={{
               open: phoneHistory,
@@ -2157,7 +2163,7 @@ export function App() {
           onSpaceMenu={spaceMenu}
           onSpaceAdd={spaceAdd}
           folderLooks={folderLooks}
-          created={created}
+          times={nodeTimes}
           onSettings={() => {
             setDrawer(false);
             setDialog({ kind: 'settings' });

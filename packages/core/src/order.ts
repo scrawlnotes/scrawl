@@ -23,23 +23,30 @@ const KIND: Record<TreeNode['kind'], number> = { tasks: 1, board: 2, keys: 3, co
 const plain = (node: TreeNode) => (node.kind === 'folder' || node.kind === 'collection' ? node.name : splitName(node.name)[0]);
 const byName = (a: TreeNode, b: TreeNode) => plain(a).localeCompare(plain(b), undefined, { numeric: true });
 
-/** When a node was last written: a folder when anything in it was, the latest. */
-export function lastWritten(node: TreeNode): number {
-  const own = node.modified ?? 0;
-  return node.kind === 'folder' ? Math.max(own, ...(node.children ?? []).map(lastWritten)) : own;
+/** What is known of when the nodes were made and written, beside what the tree has. */
+export interface NodeTimes {
+  /** When a node was made, as the app keeps it. */
+  created?: (node: TreeNode) => number | undefined;
+  /** A collection's files, its schema and its records: when the oldest and the newest were written. */
+  written?: (node: TreeNode) => { first: number; last: number } | undefined;
 }
 
 /**
- * The nodes in the order `look` asks for. `created` tells when a node was made, where it is known;
- * a folder not known was made when the first thing in it was, and anything else not known when it
- * was last written. Nodes that tie go by name.
+ * The nodes in the order `look` asks for. A node was written when its file was, a collection when
+ * the newest of its files was, a folder when anything in it was. It was made when `created` says;
+ * where that is not known, a folder when the first thing in it was, a collection when its oldest
+ * file was written, anything else when it was last written. Nodes that tie go by name.
  */
-export function sortedNodes(nodes: TreeNode[], look: FolderLook, created: (node: TreeNode) => number | undefined = () => undefined): TreeNode[] {
+export function sortedNodes(nodes: TreeNode[], look: FolderLook, { created = () => undefined, written = () => undefined }: NodeTimes = {}): TreeNode[] {
+  const lastWritten = (node: TreeNode): number => {
+    const own = written(node)?.last ?? node.modified ?? 0;
+    return node.kind === 'folder' ? Math.max(own, ...(node.children ?? []).map(lastWritten)) : own;
+  };
   const madeAt = (node: TreeNode): number => {
     const known = created(node);
     if (known !== undefined) return known;
     if (node.kind === 'folder' && node.children?.length) return Math.min(...node.children.map(madeAt));
-    return lastWritten(node);
+    return written(node)?.first ?? lastWritten(node);
   };
   const key = look.by === 'created' ? madeAt : look.by === 'modified' ? lastWritten : null;
   const way = look.dir === 'asc' ? 1 : -1;

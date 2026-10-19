@@ -1,4 +1,4 @@
-import { DEFAULT_LOOK, type FolderLook, INBOX_TASKS, inSpace, listName, localPath, shownName, sortedNodes, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { DEFAULT_LOOK, type FolderLook, INBOX_TASKS, type NodeTimes, inSpace, listName, localPath, shownName, sortedNodes, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { LATEST_RELEASE } from './desktopUpdate';
@@ -73,8 +73,8 @@ interface Props {
   onSpaceAdd: (event: MouseEvent, id: string | null, addFolder: () => void) => void;
   /** How the items of a folder are put in order, by its path; a space's top by its key, the personal one's by ''. */
   folderLooks: Record<string, FolderLook>;
-  /** When each item was made, by its path lowercased. */
-  created: Record<string, number>;
+  /** When the items were made and their files written, beside what the tree has. */
+  times: NodeTimes;
   /** Opens the search window; `searchOpen` while it is open. */
   onSearch: () => void;
   searchOpen: boolean;
@@ -131,7 +131,7 @@ export function Sidebar({
   onSpaceMenu,
   onSpaceAdd,
   folderLooks,
-  created,
+  times,
   onSearch,
   searchOpen,
   reveal,
@@ -225,7 +225,7 @@ export function Sidebar({
    * arrow, so that its icon lines up with theirs.
    */
   const rows = (key: string, items: TreeNode[], depth: number, spaced: boolean): ReactNode => {
-    const nodes = sortedNodes(items, folderLooks[key] ?? DEFAULT_LOOK, (node) => created[node.path.toLowerCase()]);
+    const nodes = sortedNodes(items, folderLooks[key] ?? DEFAULT_LOOK, times);
     const row = (node: TreeNode) => (node.kind === 'folder' ? folderRow(node, depth) : itemRow(node, depth, spaced));
     const toggleRow = (full: boolean, label: string) => (
       <div className="it more" style={indent(depth)}>

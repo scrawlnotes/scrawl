@@ -1,4 +1,4 @@
-import { DEFAULT_LOOK, type FolderLook, type Found, INBOX_TASKS, sortedNodes, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
+import { DEFAULT_LOOK, type FolderLook, type Found, type NodeTimes, INBOX_TASKS, sortedNodes, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -154,8 +154,8 @@ export interface PhoneProps {
   onSpaceOrder: (key: string) => void;
   /** How the items of a folder are put in order, by its path; a space's top by its key, the personal one's by ''. */
   folderLooks: Record<string, FolderLook>;
-  /** When each item was made, by its path lowercased. */
-  created: Record<string, number>;
+  /** When the items were made and their files written, beside what the tree has. */
+  times: NodeTimes;
   /** Whether a menu is open: a row held for it stays lifted until it closes. */
   menuOpen: boolean;
   /**
@@ -968,7 +968,7 @@ export function Phone(props: PhoneProps) {
   );
 
   /** The items of a folder, or of a space's top, in the order chosen for it on this device. */
-  const inOrder = (key: string, nodes: TreeNode[]) => sortedNodes(nodes, props.folderLooks[key] ?? DEFAULT_LOOK, (node) => props.created[node.path.toLowerCase()]);
+  const inOrder = (key: string, nodes: TreeNode[]) => sortedNodes(nodes, props.folderLooks[key] ?? DEFAULT_LOOK, props.times);
 
   /**
    * A space's section of Browse: its name with the button of how its top is put in order and a +

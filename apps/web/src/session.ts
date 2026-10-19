@@ -1977,7 +1977,11 @@ export class Session {
     const missing = nodes.filter((node) => this.snapshot.created[node.path.toLowerCase()] === undefined);
     if (missing.length === 0 || !this.deviceId) return;
     const fs = this.fs.of(space);
-    const guessed = await guessCreated(fs, this.deviceId, missing.map((node) => ({ path: localPath(node.path), ...(node.modified !== undefined && { modified: node.modified }) }))).catch(() => ({}));
+    const guessed = await guessCreated(fs, this.deviceId, missing.map((node) => {
+      // A collection was made about when its oldest file was written.
+      const written = this.snapshot.collections[node.path]?.written?.first ?? node.modified;
+      return { path: localPath(node.path), ...(written !== undefined && { modified: written }) };
+    })).catch(() => ({}));
     const times = Object.fromEntries(Object.entries(guessed).map(([path, time]) => [inSpace(space, path), time]));
     this.set({ created: { ...times, ...this.snapshot.created } });
   }

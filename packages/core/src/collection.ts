@@ -949,6 +949,12 @@ export interface Collection {
   dir: string;
   schema: Schema;
   records: Record[];
+  /**
+   * When its files, its schema and its records, were written on this device: the oldest, as near
+   * as the files tell to when it was made, and the newest. A folder's own time is not kept
+   * everywhere, nor does it change as a record does.
+   */
+  written?: { first: number; last: number };
 }
 
 // ---------- the index ----------
@@ -990,7 +996,10 @@ async function readIndex(fs: VaultFs, dir: string): Promise<CollectionIndex> {
  */
 export async function loadCollection(fs: VaultFs, dir: string, ids: () => string = newRecordId, readOnly = false): Promise<Collection> {
   const schema = await loadSchema(fs, dir);
-  const entries = (await fs.list(dir)).filter(isRecordFile).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const listed = await fs.list(dir);
+  const entries = listed.filter(isRecordFile).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const times = listed.filter((file) => file.kind === 'file' && file.modified !== undefined).map((file) => file.modified!);
+  const written = times.length > 0 ? { first: Math.min(...times), last: Math.max(...times) } : undefined;
   const index = await readIndex(fs, dir);
   const next: CollectionIndex = {};
   let changed = Object.keys(index).length !== entries.length;
@@ -1021,7 +1030,7 @@ export async function loadCollection(fs: VaultFs, dir: string, ids: () => string
     records.push(record);
   }
   if (changed && !readOnly) await fs.writeText(indexPath(dir), JSON.stringify({ version: 1, records: next })).catch(() => undefined);
-  return { dir, schema, records };
+  return { dir, schema, records, ...(written && { written }) };
 }
 
 // ---------- making and changing ----------

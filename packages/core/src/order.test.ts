@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { createCollection, loadCollection } from './collection';
 import { carryCreated, guessCreated, markCreated, readCreated } from './created';
 import { MemoryFs } from './fs';
 import { keepVersion } from './history';
 import { DEFAULT_LOOK, sortedNodes } from './order';
-import { loadWorkspace, saveWorkspace, type TreeNode } from './vault';
+import { loadWorkspace, readTree, saveWorkspace, type TreeNode } from './vault';
 
 const node = (kind: TreeNode['kind'], name: string, modified: number, children?: TreeNode[]): TreeNode => ({
   kind,
@@ -32,12 +33,28 @@ describe('a folder’s order', () => {
   });
 
   it('goes by when things were last written, a folder by what is in it', () => {
-    expect(names(sortedNodes(items, { group: 'none', by: 'modified', dir: 'desc' }, created))).toEqual(['Old', 'Agenda 10.md', 'Brief.md', 'Roadmap.board.json', 'Agenda 2.md', 'Sprint.tasks.json']);
+    expect(names(sortedNodes(items, { group: 'none', by: 'modified', dir: 'desc' }, { created }))).toEqual(['Old', 'Agenda 10.md', 'Brief.md', 'Roadmap.board.json', 'Agenda 2.md', 'Sprint.tasks.json']);
   });
 
   it('goes by when things were made, what is not known by when it was written', () => {
-    expect(names(sortedNodes(items, { group: 'none', by: 'created', dir: 'asc' }, created))).toEqual(['Old', 'Brief.md', 'Agenda 2.md', 'Agenda 10.md', 'Sprint.tasks.json', 'Roadmap.board.json']);
-    expect(names(sortedNodes(items, { group: 'type', by: 'created', dir: 'desc' }, created))).toEqual(['Sprint.tasks.json', 'Roadmap.board.json', 'Old', 'Agenda 10.md', 'Agenda 2.md', 'Brief.md']);
+    expect(names(sortedNodes(items, { group: 'none', by: 'created', dir: 'asc' }, { created }))).toEqual(['Old', 'Brief.md', 'Agenda 2.md', 'Agenda 10.md', 'Sprint.tasks.json', 'Roadmap.board.json']);
+    expect(names(sortedNodes(items, { group: 'type', by: 'created', dir: 'desc' }, { created }))).toEqual(['Sprint.tasks.json', 'Roadmap.board.json', 'Old', 'Agenda 10.md', 'Agenda 2.md', 'Brief.md']);
+  });
+
+  it('takes a collection’s times from its files: the newest written, the oldest for when it was made', async () => {
+    const fs = new MemoryFs();
+    // A memory vault counts the writes as their times: the collection first, then the note, then a record.
+    const dir = await createCollection(fs, 'Work', 'Leads', 'blank');
+    await fs.writeText('Work/Brief.md', 'brief');
+    await fs.writeText(`${dir}/acme.md`, '---\nid: acme\n---\n');
+    const leads = await loadCollection(fs, dir);
+    const [work] = await readTree(fs);
+    const brief = work!.children!.find((each) => each.kind === 'note')!;
+    expect(leads.written!.first).toBeLessThan(brief.modified!);
+    expect(leads.written!.last).toBeGreaterThan(brief.modified!);
+    const written = (each: TreeNode) => (each.kind === 'collection' ? leads.written : undefined);
+    expect(names(sortedNodes(work!.children!, { group: 'none', by: 'modified', dir: 'desc' }, { written }))).toEqual(['Leads', 'Brief.md']);
+    expect(names(sortedNodes(work!.children!, { group: 'none', by: 'created', dir: 'desc' }, { written }))).toEqual(['Brief.md', 'Leads']);
   });
 
   it('is kept on the device by folder, the default left out', async () => {
