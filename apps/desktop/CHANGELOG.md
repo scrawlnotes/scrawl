@@ -2,6 +2,16 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.6
+
+A space waiting for you to sign in says so, and a computer back after a long time sends nothing deleted up again.
+
+- A space on a server this computer is not signed in to says so in the sidebar, with Sign in to sync inside it, and in the status bar beside sync, even while another space syncs. One sign-in opens every space on that server, and the window says which.
+- A space syncing to this computer for the first time shows how far it is inside it, until what it holds is there.
+- A computer back after a long time, or the app installed again over an old folder, no longer puts what was deleted meanwhile in the trash again, nor sends it up.
+- A file found only on this computer and deleted elsewhere goes to this computer's trash and stays there, marked Only on this device; restored, it syncs again.
+- Choosing a folder inside OneDrive for a space asks first: OneDrive's own app would sync it a second time.
+
 ## 0.1.5
 
 Deleting a task or a card can be undone.
