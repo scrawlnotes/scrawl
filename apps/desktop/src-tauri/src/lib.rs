@@ -463,6 +463,73 @@ async fn settings_save(app: tauri::AppHandle, settings: Settings) -> Result<(), 
     allow_vault(&app, &settings)
 }
 
+/// The colour the app's page was last drawn on, which the window opens in next time.
+#[derive(Serialize, Deserialize)]
+struct Boot {
+    bg: String,
+}
+
+fn boot_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    Ok(dir.join("boot.json"))
+}
+
+/// `#1e2229` as a colour; None for anything else.
+fn hex_color(text: &str) -> Option<tauri::window::Color> {
+    let hex = text.strip_prefix('#').filter(|hex| hex.len() == 6 && hex.is_ascii())?;
+    let channel = |at: usize| u8::from_str_radix(&hex[at..at + 2], 16).ok();
+    Some(tauri::window::Color(channel(0)?, channel(2)?, channel(4)?, 255))
+}
+
+/// Keeps the colour the app's page is drawn on, the theme's, for the window to open in.
+#[tauri::command]
+async fn boot_color(app: tauri::AppHandle, bg: String) -> Result<(), String> {
+    if hex_color(&bg).is_none() {
+        return Err(format!("not a colour: {bg}"));
+    }
+    let file = boot_file(&app)?;
+    let text = serde_json::to_string(&Boot { bg }).map_err(|e| e.to_string())?;
+    if fs::read_to_string(&file).is_ok_and(|kept| kept == text) {
+        return Ok(());
+    }
+    write_atomic(&file, text.as_bytes())
+}
+
+/// The page is drawn: a window that waited for it is shown.
+#[tauri::command]
+fn window_ready(window: tauri::WebviewWindow) {
+    if !window.is_visible().unwrap_or(true) {
+        let _ = window.show();
+    }
+}
+
+/// The window, made here rather than from tauri.conf.json alone: it opens in the colour the app
+/// was last drawn on, never the web view's white while it starts. On macOS the web view's own
+/// colour cannot be set, so there the window is hidden until the page is drawn (`window_ready`),
+/// three seconds at most.
+fn open_window(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    let config = app.config().app.windows.first().cloned().ok_or("no window in tauri.conf.json")?;
+    let bg = boot_file(app.handle())
+        .ok()
+        .and_then(|file| fs::read_to_string(file).ok())
+        .and_then(|text| serde_json::from_str::<Boot>(&text).ok())
+        .and_then(|boot| hex_color(&boot.bg))
+        // The page's own colour before a theme is kept: the dark one.
+        .unwrap_or(tauri::window::Color(0x1e, 0x22, 0x29, 255));
+    let wait = cfg!(target_os = "macos");
+    let window = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?
+        .background_color(bg)
+        .visible(!wait)
+        .build()?;
+    if wait {
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+            window_ready(window);
+        });
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -472,10 +539,13 @@ pub fn run() {
         .manage(cloud::Listeners::default())
         .manage(update::Updates::default())
         .setup(|app| {
+            open_window(app)?;
             update::start(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            boot_color,
+            window_ready,
             fs_list,
             fs_read,
             fs_write_text,

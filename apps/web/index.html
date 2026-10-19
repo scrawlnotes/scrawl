@@ -15,20 +15,21 @@
     <meta name="apple-mobile-web-app-title" content="Scrawl" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <!-- Until the app's code comes the page is never white: the theme this device keeps, or its light
-         or dark side, and the icon after 400 ms, so that a quick opening never shows it. The app,
-         drawn, takes its place. See design/opening.md, section 9. -->
+         or dark side, with the icon in the middle, coming in at once and softly. The app, drawn,
+         takes its place, the icon going softly over it (main.tsx). See design/opening.md, section 9. -->
     <style>
-      html { background: #1e2229; }
-      @media (prefers-color-scheme: light) { html { background: #fbfbfc; } }
-      .boot { position: fixed; inset: 0; display: grid; place-items: center; }
-      .boot img { width: 64px; height: 64px; opacity: 0; animation: boot-in 0.25s ease-out 0.4s forwards; }
+      html { --boot: #1e2229; background: var(--boot); }
+      @media (prefers-color-scheme: light) { html { --boot: #fbfbfc; } }
+      .boot { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: var(--boot); transition: opacity 0.2s ease-out; }
+      .boot.gone { opacity: 0; pointer-events: none; }
+      .boot img { width: 64px; height: 64px; opacity: 0; animation: boot-in 0.2s ease-out forwards; }
       @keyframes boot-in { to { opacity: 1; } }
-      @media (prefers-reduced-motion: reduce) { .boot img { animation-duration: 0s; } }
+      @media (prefers-reduced-motion: reduce) { .boot, .boot img { transition: none; animation-duration: 0s; } }
     </style>
     <script>
       try {
         const kept = JSON.parse(localStorage.getItem('scrawl.boot') || 'null');
-        if (kept && kept.bg) document.documentElement.style.background = kept.bg;
+        if (kept && kept.bg) document.documentElement.style.setProperty('--boot', kept.bg);
         if (kept && kept.side) document.querySelector('meta[name="theme-color"]').setAttribute('content', kept.side);
       } catch {
         // Nothing kept, or no storage: the device's light or dark side.
@@ -36,7 +37,12 @@
     </script>
   </head>
   <body>
-    <div id="root"><div class="boot" aria-hidden="true"><img src="/icons/icon-192.png" alt="" /></div></div>
+    <div id="boot" class="boot" aria-hidden="true"><img src="/icons/icon-192.png" alt="" /></div>
+    <div id="root"></div>
+    <script>
+      // On a Mac the desktop window waits, hidden, until this page is there to be drawn.
+      window.__TAURI_INTERNALS__?.invoke('window_ready').catch(() => undefined);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

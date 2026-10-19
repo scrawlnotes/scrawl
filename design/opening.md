@@ -40,7 +40,7 @@ Sunucudaki space'ler küçük: Klinitra'da on kadar öğe, Planetary Nebula'da 2
 
 ## 3. Kullanıcı ne görür
 
-- **Açılış ekranı:** uygulamanın kodu yüklenene kadar sayfa boş kalmaz, temanın arka planı gelir. 400 ms'yi geçerse ortada Scrawl simgesi belirir. Bilgisayarda bu süre genelde 100 ms civarında, o yüzden orada simge hiç görünmez.
+- **Açılış ekranı:** uygulamanın kodu yüklenene kadar sayfa boş kalmaz, temanın arka planı ve ortada Scrawl simgesi gelir; simge beklemeden, kısa bir geçişle belirir, uygulama çizilince yine kısa bir geçişle yerini ona bırakır (19 Ekim gecesi; önceden 400 ms sonra belirirdi, hızlı açılışta hiç görünmezdi). Masaüstünde pencerenin kendisi de beyaz açılmaz (9. bölüm).
 - **Microsoft dönüşü:** uygulama hemen çizilir, token isteği arkada biter. Sync bekler.
 - **Kabuk hemen gelir:** yan panelde Today, Upcoming ve her space'in başlığı; sekmeler son açılıştaki gibi. Ekrandaki not, dosyası okunur okunmaz açılır. Ağacın okunmasını beklemez.
 - **Space başlığı:** space'in her şeyi okunana kadar başlığında küçük bir spinner döner. Space beklemeden açılıp kapanır. İçinde okunmuş olan her şey görünür, en üstü henüz okunmadıysa içinde "Loading…" satırı durur.
@@ -129,9 +129,10 @@ Tek bir kuyruk vardır. En çok 8 iş aynı anda çalışır, çünkü OPFS her 
 - `Pending`'e `leftAt` (`Date.now()`) ve `before` (ayrılan sayfanın `performance.now()`'ı) eklenir. Açılışın log satırları bunlarla Microsoft'ta geçen süreyi hesaplar.
 
 **Açılış ekranı:**
-- `index.html`'de `#root`'un içinde düz HTML ve CSS ile bir `.boot` öğesi durur. `createRoot` çizince yerini uygulama alır.
-- `applyTheme` temanın arka plan rengini ve kenar rengini `localStorage`'da `scrawl.boot` olarak tutar, arka planı sayfanın kendisine (`html`) de verir. `index.html`'deki küçük satır içi betik bunu okuyup sayfaya ve `theme-color`'a verir. Yoksa `prefers-color-scheme`'e göre koyu ya da açık seçilir.
-- Simge (`/icons/icon-192.png`, 64 px) `animation-delay: 400ms` ile belirir; az hareket isteyen cihazda geçişsiz.
+- `index.html`'de `#root`'un yanında, onun üstünde düz HTML ve CSS ile bir `#boot` öğesi durur. Uygulama ilk çizildiğinde (`main.tsx`'te `BootGoes`) 0,2 sn'lik bir geçişle kaybolur ve sayfadan çıkar.
+- `applyTheme` temanın arka plan rengini ve kenar rengini `localStorage`'da `scrawl.boot` olarak tutar, arka planı sayfanın kendisine (`html`) de verir. `index.html`'deki küçük satır içi betik bunu okuyup `--boot` rengine ve `theme-color`'a verir. Yoksa `prefers-color-scheme`'e göre koyu ya da açık seçilir.
+- Simge (`/icons/icon-192.png`, 64 px) beklemeden, 0,2 sn'lik bir geçişle belirir; az hareket isteyen cihazda geçişsiz. (İlk hali 400 ms bekliyordu; masaüstünde uygulama ondan önce çizildiği için kullanıcı simgeyi hiç görmedi, gördüğü yalnız pencerenin beyazıydı.)
+- **Masaüstü penceresi (19 Ekim gecesi):** Tauri pencereyi web görünümü (WebView2) hazırlanırken beyaz gösteriyordu; Windows'ta ölçülen sıcak açılışta 0,7 sn. Pencere artık `tauri.conf.json`'dan değil kabuğun `setup`'ında (`open_window`) yapılır, `background_color` ile: `applyTheme` masaüstünde rengi `boot_color` komutuyla kabuğa da verir, kabuk onu ayar klasöründe `boot.json`'da tutar, yoksa koyu `#1e2229`. macOS'ta Tauri web görünümünün rengini veremiyor; orada pencere gizli açılır, `index.html` sayfa ayrıştırılınca `window_ready`'yi çağırır, kabuk en geç 3 sn sonra yine gösterir.
 - CSP yok, satır içi betik engellenmez.
 
 ## 10. Logs
@@ -242,7 +243,7 @@ Onaylanan sırayla. Her dilim bitince commit sorulur.
 
 1. **Açılış sürerken Today, Upcoming, Search ve başlangıç sayfası** okunan işleri gösterir; altlarında "Still opening …" satırı durur.
 2. **Ölçüm About'ta değil,** Settings'te ayrı bir Logs bölümündedir. Satırları standart log biçimindedir, sonra başka loglar da oraya yazar (10. bölüm). About bugünkü gibi kalır, telefonda yine görünmez.
-3. **Açılış ekranı:** temanın arka planı, 400 ms'den sonra ortada Scrawl simgesi; yazı yok.
+3. **Açılış ekranı:** temanın arka planı, 400 ms'den sonra ortada Scrawl simgesi; yazı yok. 19 Ekim gecesi değişti: simge beklemeden ve yumuşak geçişle gelir, masaüstü penceresi beyaz değil temanın renginde açılır (9. bölüm).
 4. **Paralel listeleme** kapsama girdi (11. bölüm).
 5. **Space space yeniden okuma** kapsama girdi (8. bölüm).
 6. **Takip:** PLAN'da 6. aşama (Web) satırı, panoda "6 Web" fazı. Her dilim bir kart olur, gerçek açılış denemesi "deneme" kartı.

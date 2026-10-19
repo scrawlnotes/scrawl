@@ -1,4 +1,6 @@
 import { languages, setLanguage } from '@scrawlnotes/i18n';
+import { invoke } from '@tauri-apps/api/core';
+import { isDesktop } from './storage';
 import { paletteOf, type Shade, shadeOf, themeById } from './themes';
 
 // What this device remembers about the app, apart from any space: the mode, the theme, the size
@@ -173,9 +175,11 @@ export function applyTheme(id: string, shade: Shade) {
   for (const [name, colour] of Object.entries(palette)) root.style.setProperty(`--sl-${name}`, colour);
   // On a phone the bar above the app takes the colour of the tab bar under it.
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', palette.side);
-  // The page under the app is the theme's too, and so is the next opening's boot screen.
+  // The page under the app is the theme's too, and so is the next opening's boot screen; on the
+  // desktop the window opens in it too, before its page is there.
   root.style.background = palette.bg;
   write(BOOT, JSON.stringify({ bg: palette.bg, side: palette.side }));
+  if (isDesktop) void invoke('boot_color', { bg: palette.bg }).catch(() => undefined);
 }
 
 /** The language the interface is shown in, as kept on this device. */

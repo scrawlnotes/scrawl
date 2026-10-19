@@ -5,7 +5,7 @@ import '@fontsource/jetbrains-mono/400-italic.css';
 import '@fontsource/jetbrains-mono/700.css';
 import './styles.css';
 import './phone.css';
-import { StrictMode } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { backFromRenewing, prepareSignIn } from './cloud';
@@ -14,6 +14,18 @@ import { applyLanguage, applySize, applyTheme, keepTyping, loadMode, loadTheme, 
 import { openingBegins } from './opening';
 import { startWebApp } from './pwa';
 import { keptConnection } from './sync';
+
+/** The boot screen of index.html goes softly once the app is drawn under it. */
+function BootGoes() {
+  useEffect(() => {
+    const boot = document.getElementById('boot');
+    if (!boot) return;
+    boot.classList.add('gone');
+    const timer = window.setTimeout(() => boot.remove(), 300);
+    return () => window.clearTimeout(timer);
+  }, []);
+  return null;
+}
 
 // The opening's log begins as soon as the page's code runs: how long the code took to come, and
 // how long the page was at Microsoft when it comes back from renewing the sign-in.
@@ -36,6 +48,7 @@ void prepareSignIn(connection && connection.account.email).then((stay) => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <App />
+      <BootGoes />
     </StrictMode>,
   );
   startWebApp();
