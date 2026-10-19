@@ -109,12 +109,21 @@ export function revealCursor(dom: Element): boolean {
   return true;
 }
 
+/** Where a note was scrolled to in the editor. */
+/** Where a note was scrolled to in the editor: the line at its top, and how far into it. */
+export type ScrollPlace = ReturnType<EditorView['scrollSnapshot']>;
+
 export interface ScrawlEditor {
   view: EditorView;
   /** A fresh editing state for a note. Each open tab keeps its own, with its undo history. */
   createState(doc: string): EditorState;
-  /** Shows another note in the editor. The current state is `view.state`. */
-  setState(state: EditorState): void;
+  /**
+   * Shows another note in the editor, scrolled to `place` when it was open before, else at its
+   * top. The current state is `view.state`.
+   */
+  setState(state: EditorState, place?: ScrollPlace): void;
+  /** Where the note shown is scrolled to, for `setState` to come back to. */
+  scrollPlace(): ScrollPlace;
   /** Shows the note as plain Markdown instead of the formatted preview. */
   setSourceMode(on: boolean): void;
   /** Draws the note's images, files and recordings anew, after files of it came back. */
@@ -312,10 +321,14 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
   return {
     view,
     createState,
-    setState(state) {
+    setState(state, place) {
       view.setState(state);
+      // The editor keeps where it was scrolled to; another note starts at its top, or where it was left.
+      if (place) view.dispatch({ effects: place });
+      else view.scrollDOM.scrollTop = 0;
       options.onStats?.(stats(state));
     },
+    scrollPlace: () => view.scrollSnapshot(),
     setSourceMode: (on) => view.dispatch({ effects: setSourceMode.of(on) }),
     refreshMedia: () => view.dispatch({ effects: mediaChanged.of(null) }),
     destroy: () => view.destroy(),

@@ -207,6 +207,7 @@ import {
   openSearchPanel,
   linkText,
   type ScrawlEditor,
+  type ScrollPlace,
   type ScrawlViewer,
   searchPanelOpen,
   selectNextOccurrence,
@@ -2326,7 +2327,10 @@ export class Session {
     if (!editor) return;
     const { active, tabs } = this.snapshot;
     if (id !== active) {
-      if (active && isNote(active)) this.states.set(active, editor.view.state);
+      if (active && isNote(active)) {
+        this.states.set(active, editor.view.state);
+        this.scrolls.set(editor.view.state, editor.scrollPlace());
+      }
       const openTabs = tabs.includes(id) ? tabs : [...tabs, id];
       if (isNote(id)) {
         let state = this.states.get(id);
@@ -2338,7 +2342,7 @@ export class Session {
         this.states.delete(id);
         // Set before the editor reports its new state, so the report is attributed to this note.
         this.set({ active: id, tabs: openTabs });
-        editor.setState(state);
+        editor.setState(state, this.scrolls.get(state));
         // Source mode is one setting for the whole window, not per note.
         editor.setSourceMode(this.snapshot.source);
       } else {
@@ -2347,7 +2351,8 @@ export class Session {
       this.saveWorkspace();
     }
     // Deferred: the editor is still hidden when it replaces a view, and a hidden element cannot take focus.
-    if (isNote(id) && this.focusOnOpen) window.setTimeout(() => this.editor?.view.focus());
+    // Taking the focus does not scroll to the caret: the note shows where it was left, or its top.
+    if (isNote(id) && this.focusOnOpen) window.setTimeout(() => this.editor?.view.contentDOM.focus({ preventScroll: true }));
     // On a phone a note with nothing in it opens to be written in: the keyboard held since the tap
     // goes to it. Anything else lets the keyboard go.
     else if (this.keeper) {
@@ -2355,6 +2360,9 @@ export class Session {
       window.setTimeout(() => this.releaseKeyboard(write));
     }
   }
+
+  /** Where each note left in its tab was scrolled to, by the state it was left with: a note read anew starts at its top. */
+  private scrolls = new WeakMap<EditorState, ScrollPlace>();
 
   /** The hidden field that holds the keyboard on a phone from a tap until the note it opens is shown. */
   private keeper: HTMLInputElement | null = null;
