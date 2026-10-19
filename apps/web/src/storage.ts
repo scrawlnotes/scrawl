@@ -71,6 +71,47 @@ export async function chooseFolder(title: string): Promise<string | null> {
 // ---------- the other spaces ----------
 
 const SPACES_KEY = 'scrawl.spaces';
+const REMOVED_KEY = 'scrawl.spacesRemoved';
+const CARRIED_SEEN_KEY = 'scrawl.carriedSeen';
+
+/** The spaces removed from this device, by id: what the personal space carries does not bring them back here. */
+export function removedSpaces(): Set<string> {
+  try {
+    const list: unknown = JSON.parse(localStorage.getItem(REMOVED_KEY) ?? '[]');
+    return new Set(Array.isArray(list) ? list.filter((id): id is string => typeof id === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** Remembers a space removed from this device, or forgets that it was, once it is added again. */
+export function markSpaceRemoved(id: string, removed: boolean) {
+  const ids = removedSpaces();
+  if (removed) ids.add(id);
+  else ids.delete(id);
+  try {
+    localStorage.setItem(REMOVED_KEY, JSON.stringify([...ids]));
+  } catch {
+    // Not kept: the space may come back here with what the personal space carries.
+  }
+}
+
+/** When what the personal space carries was last taken in or written here, as an ISO time; '' before. */
+export function carriedSeen(): string {
+  try {
+    return localStorage.getItem(CARRIED_SEEN_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setCarriedSeen(written: string) {
+  try {
+    localStorage.setItem(CARRIED_SEEN_KEY, written);
+  } catch {
+    // Not kept: it is taken in again, which changes nothing.
+  }
+}
 
 /** The spaces beside the personal one, in the order the sidebar shows them. */
 export function spaceEntries(): SpaceEntry[] {

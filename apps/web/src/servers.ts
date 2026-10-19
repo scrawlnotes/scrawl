@@ -19,6 +19,28 @@ export interface KnownServer {
 }
 
 const LIST = 'scrawl.servers';
+const FORGOTTEN = 'scrawl.serversForgotten';
+
+/** The servers signed out of on this device, by address: what the personal space carries does not list them here again. */
+function forgottenServers(): Set<string> {
+  try {
+    const list: unknown = JSON.parse(localStorage.getItem(FORGOTTEN) ?? '[]');
+    return new Set(Array.isArray(list) ? list.filter((url): url is string => typeof url === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markForgotten(url: string, forgotten: boolean) {
+  const urls = forgottenServers();
+  if (forgotten) urls.add(url);
+  else urls.delete(url);
+  try {
+    localStorage.setItem(FORGOTTEN, JSON.stringify([...urls]));
+  } catch {
+    // Not kept: the server may be listed again here.
+  }
+}
 const browserKey = (url: string) => `scrawl.serverKey:${url}`;
 const secretName = (url: string) => `server ${url}`;
 
@@ -115,8 +137,22 @@ export const serverAccount = (url: string) => new ServerAccount({ url, token: ()
 
 export const serverRemote = (url: string, space: string) => new ServerRemote({ url, token: () => serverKey(url), space });
 
+/**
+ * A server another device is signed in to, from what the personal space carries: listed here
+ * without a key, as one signed out of, for one sign-in to open its spaces. One signed out of on
+ * this device, or listed already, is left as it is.
+ */
+export function rememberServer(server: { url: string; email: string; name?: string; id?: string; role?: KnownServer['role'] }) {
+  if (forgottenServers().has(server.url) || knownServers().some((each) => each.url === server.url)) return;
+  keepServers([...knownServers(), { url: server.url, email: server.email, name: server.name ?? '', role: server.role ?? 'member', ...(server.id && { id: server.id }) }]);
+}
+
+/** Hears every change of the servers listed, as this device's sign-ins and roles change. */
+export const onServersChanged = (heard: () => void) => subscribe(heard);
+
 /** Signed in to a server, or set it up: its key is kept and it is listed, last. */
 export async function keepSignIn(url: string, { token, account }: ServerSignedIn): Promise<KnownServer> {
+  markForgotten(url, false);
   if (isDesktop) await invoke('secret_set', { name: secretName(url), value: token });
   else localStorage.setItem(browserKey(url), token);
   const server: KnownServer = { url, id: account.id, email: account.email, name: account.name, role: account.role };
@@ -137,5 +173,6 @@ export async function signOutOf(url: string) {
     .catch(() => undefined);
   if (isDesktop) await invoke('secret_delete', { name: secretName(url) });
   else localStorage.removeItem(browserKey(url));
+  markForgotten(url, true);
   keepServers(knownServers().filter((each) => each.url !== url));
 }

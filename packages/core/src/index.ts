@@ -1,4 +1,5 @@
 export * from './board';
+export * from './carried';
 export * from './collection';
 export * from './created';
 export * from './order';

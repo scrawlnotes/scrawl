@@ -118,6 +118,9 @@ import {
   pruneHistory,
   readTrash,
   readCreated,
+  readCarried,
+  writeCarried,
+  inOrderOf,
   markCreated,
   carryCreated,
   guessCreated,
@@ -266,7 +269,12 @@ import {
   revealFileOnDesktop,
   useDefaultVaultFolder,
   vaultFolder,
+  removedSpaces,
+  markSpaceRemoved,
+  carriedSeen,
+  setCarriedSeen,
 } from './storage';
+import { knownServers, onServersChanged, rememberServer } from './servers';
 
 const SAVE_DELAY_MS = 400;
 
@@ -638,6 +646,8 @@ export class Session {
   deviceName = '';
   /** This device's id, once it is known: the times it writes of what is made go in its own file. */
   deviceId = '';
+  /** Whether a change of the servers listed writes what is carried. */
+  private serversHeard = false;
   /** The text of each open note as it was last read from or written to the vault. */
   private readonly disk = new Map<string, string>();
   /** What each task list, board and keys file held when it was last read or written here, to tell what changed there since. */
@@ -782,6 +792,12 @@ export class Session {
     for (const [, fs] of this.fs.all()) void pruneHistory(fs).catch(() => undefined);
     void this.recountFiles();
     void this.readCreatedTimes();
+    // What another device carried through the personal space while this one was closed; then what this one carries.
+    void this.takeCarried().then(() => this.carry());
+    if (!this.serversHeard) {
+      this.serversHeard = true;
+      onServersChanged(() => void this.carry());
+    }
     this.meetSpaces();
   }
 
@@ -1294,6 +1310,7 @@ export class Session {
   async addSpace(name: string, source: SpaceSource, id?: string, existing = false): Promise<string> {
     const entries = spaceEntries();
     const kept = isSpaceId(id) && !entries.some((each) => each.id === id) ? id : newSpaceId();
+    markSpaceRemoved(kept, false);
     const made = await newSpaceFolder(kept, name.trim());
     const fs = await openSpaceVault(made);
     if (!fs) throw new Error(t('error.create'));
@@ -1312,6 +1329,8 @@ export class Session {
   async removeSpace(id: string, deleteFiles: boolean) {
     await this.settle();
     for (const tab of this.snapshot.tabs.filter((each) => spaceOfTab(each) === id)) await this.detach(tab);
+    // Only from this device: what the personal space carries keeps it for the others.
+    markSpaceRemoved(id, true);
     await removeSpaceEntry(id, deleteFiles);
     await this.reloadSpaces();
   }
@@ -1366,6 +1385,62 @@ export class Session {
     await this.openSpaces();
     await this.refreshTree();
     this.meetSpaces();
+    void this.carry();
+  }
+
+  /**
+   * Writes what this device carries to the others through the personal space: the spaces it has
+   * in the cloud, in its order, with those removed here kept where they were, and the servers it
+   * knows. Nothing is written when that is what is there already.
+   */
+  async carry() {
+    if (!this.deviceId) return;
+    try {
+      const latest = await readCarried(this.personal);
+      const entries = spaceEntries().filter((entry) => entry.source);
+      const spaces = new Map((latest?.spaces ?? []).map((space) => [space.id, space]));
+      for (const entry of entries) spaces.set(entry.id, { id: entry.id, name: this.opened.get(entry.id)?.name ?? entry.name, source: entry.source! });
+      const order = inOrderOf(
+        (latest?.spaces ?? []).map((space) => space.id),
+        entries.map((entry) => entry.id),
+      );
+      const servers = new Map((latest?.servers ?? []).map((server) => [server.url, server]));
+      for (const server of knownServers()) servers.set(server.url, { url: server.url, email: server.email, ...(server.name && { name: server.name }), ...(server.id && { id: server.id }), role: server.role });
+      const next = { spaces: order.map((id) => spaces.get(id)!), servers: [...servers.values()] };
+      if (latest && JSON.stringify({ spaces: latest.spaces, servers: latest.servers }) === JSON.stringify(next)) return;
+      const now = new Date();
+      await writeCarried(this.personal, this.deviceId, next, now);
+      setCarriedSeen(now.toISOString());
+    } catch {
+      // Written again with the next change.
+    }
+  }
+
+  /**
+   * Takes in what another device carried through the personal space, once, where it wrote later
+   * than this device last took it in or wrote: the spaces this device does not have, unless it
+   * removed them, and their order; and the servers, listed for a sign-in.
+   */
+  private async takeCarried() {
+    try {
+      const latest = await readCarried(this.personal);
+      if (!latest || (carriedSeen() && Date.parse(latest.written) <= Date.parse(carriedSeen()))) return;
+      setCarriedSeen(latest.written);
+      const removed = removedSpaces();
+      for (const space of latest.spaces) {
+        if (removed.has(space.id) || spaceEntries().some((entry) => entry.id === space.id)) continue;
+        await this.addSpace(space.name ?? t('settings.space'), space.source, space.id, true).catch(() => undefined);
+      }
+      const ids = spaceEntries().map((entry) => entry.id);
+      const ordered = inOrderOf(
+        ids,
+        latest.spaces.map((space) => space.id).filter((id) => ids.includes(id)),
+      );
+      if (ordered.join(' ') !== ids.join(' ')) await this.orderSpaces(ordered);
+      for (const server of latest.servers) rememberServer(server);
+    } catch {
+      // Taken in with the next turn.
+    }
   }
 
   /** The text of every open note of a space, saved or not: the notes that may link to its attached files. */
@@ -2334,8 +2409,9 @@ export class Session {
       space,
     });
     await this.recountFiles();
-    // Times of things made on other devices come with their files.
+    // Times of things made on other devices come with their files, and what they carry with the personal space's.
     void this.readCreatedTimes();
+    if (reads(PERSONAL)) void this.takeCarried().then(() => this.carry());
   }
 
   /** A task list, a board or a keys file was changed here. */
