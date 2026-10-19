@@ -2,6 +2,18 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.7
+
+A web address in a note is a link, and a note dragged to another space moves there.
+
+- A web address in a note's text is a link, typed or pasted with other text: Ctrl+click opens it. With the cursor in it, the Link button changes the address in place.
+- In the Link field, Enter no longer puts a new line where the selected text was.
+- A note, a task list, a board or a keys file dragged onto another space moves there; before, nothing happened. A move that does not work says why in the status bar.
+- A divider stays a divider when the blank line above it is deleted or written on.
+- A name too long for its tab or its row in the sidebar shows in full when the pointer rests on it.
+- A folder you make something in, or move something into, opens in the sidebar.
+- The status bar says when the note on screen was last modified.
+
 ## 0.1.6
 
 A space waiting for you to sign in says so, and a computer back after a long time sends nothing deleted up again.
