@@ -1006,7 +1006,7 @@ input:focus {
 .menu button.prio.p2 .icon { color: var(--sl-p2); }
 .menu button.prio.p3 .icon { color: var(--sl-p3); }
 
-.menu button.prio .val {
+.menu button .val {
   margin-left: auto;
   padding-left: 16px;
   color: var(--sl-accent);

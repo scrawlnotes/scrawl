@@ -248,7 +248,7 @@ export function ActionSheet({ head, items, onClose }: { head?: MenuHead; items: 
                     {item.label}
                     {item.disabled && <small>{item.disabled}</small>}
                   </span>
-                  {item.value && <span className="on">{item.value}</span>}
+                  {(item.value || item.checked) && <span className="on">{item.value ?? '✓'}</span>}
                 </button>
               ))}
             </Fragment>

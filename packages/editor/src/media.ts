@@ -56,10 +56,16 @@ const SLOP = 8;
 
 /** Something that can be done with an image, file or recording in a note. */
 export interface ItemAction {
-  kind: 'open' | 'reveal' | 'delete';
+  kind: 'open' | 'reveal' | ImageSizeKind | 'delete';
   label: string;
   run: () => void;
+  /** The size an image is drawn at now. */
+  on?: boolean;
 }
+
+/** The ready sizes of an image, in its bar and its menu. */
+export type ImageSizeKind = 'small' | 'medium' | 'full';
+const SIZE_KINDS: readonly ItemAction['kind'][] = ['small', 'medium', 'full'];
 
 const ATTACHMENTS = '_attachments/';
 const AUDIO = /\.(webm|ogg|oga|opus|mp3|m4a|aac|wav|flac)$/i;
@@ -200,17 +206,26 @@ const ACTION_ICONS: Record<ItemAction['kind'], string> = {
   open: '<path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
   reveal: '<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
   delete: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7"/><path d="M10.5 10.5v5.5M13.5 10.5v5.5"/>',
+  // The sizes are words side by side in the bar, as one control.
+  small: '',
+  medium: '',
+  full: '',
 };
 
 /** The bar a selected item shows, after the Item menu view of design/mockups.html (direction A). */
 function itemBar(actions: ItemAction[]): HTMLElement {
   const bar = el('span', 'cm-sl-itembar');
   bar.setAttribute('role', 'toolbar');
+  let last: ItemAction['kind'] | null = null;
   for (const action of actions) {
-    if (action.kind === 'delete' && bar.childElementCount > 0) bar.append(el('i', 'cm-sl-itembar-gap'));
-    const button = el('button', 'cm-sl-itembar-button');
+    const size = SIZE_KINDS.includes(action.kind);
+    const starts = action.kind === 'delete' || (size && !(last && SIZE_KINDS.includes(last)));
+    if (starts && bar.childElementCount > 0) bar.append(el('i', 'cm-sl-itembar-gap'));
+    last = action.kind;
+    const button = el('button', size ? 'cm-sl-itembar-button cm-sl-itembar-size' : 'cm-sl-itembar-button');
     button.type = 'button';
-    button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ACTION_ICONS[action.kind]}</svg>`;
+    if (ACTION_ICONS[action.kind]) button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ACTION_ICONS[action.kind]}</svg>`;
+    if (size) button.setAttribute('aria-pressed', String(!!action.on));
     button.append(action.label);
     // The note keeps its selection and its focus while a button is pressed.
     button.addEventListener('mousedown', (event) => event.preventDefault());
@@ -225,7 +240,7 @@ function itemBar(actions: ItemAction[]): HTMLElement {
 }
 
 /** An item's DOM, with what is needed to show a change of selection without drawing it again. */
-type ItemDom = HTMLElement & { itemKey?: string; itemBody?: HTMLElement };
+type ItemDom = HTMLElement & { itemKey?: string; itemBody?: HTMLElement; itemWidget?: ItemWidget };
 
 /**
  * An image, file or recording in a note. A click selects it as one unit. Selected on its own, it
@@ -271,6 +286,14 @@ export abstract class ItemWidget extends WidgetType {
     return other.identity() === this.identity() && other.selected === this.selected && other.active === this.active;
   }
 
+  /**
+   * The widget its DOM shows now. A widget drawn once is kept while only what it does not draw
+   * anew changes, as an image's width or the length of its Markdown; what its DOM does goes by this.
+   */
+  protected latest(root: HTMLElement): this {
+    return ((root as ItemDom).itemWidget as this | undefined) ?? this;
+  }
+
   private actions(view: EditorView, root: HTMLElement): ItemAction[] {
     const open = this.opener();
     const file = this.file();
@@ -278,9 +301,18 @@ export abstract class ItemWidget extends WidgetType {
     const actions: ItemAction[] = [];
     if (open) actions.push({ kind: 'open', label: t('editor.item.open'), run: open });
     if (file && reveal) actions.push({ kind: 'reveal', label: t('editor.item.reveal'), run: () => reveal(file) });
+    actions.push(...this.moreActions(view, root));
     actions.push({ kind: 'delete', label: t('editor.item.delete'), run: () => removeWidget(view, root, this.length, !this.options.touch) });
     return actions;
   }
+
+  /** What else an item offers, before Delete. */
+  protected moreActions(_view: EditorView, _root: HTMLElement): ItemAction[] {
+    return [];
+  }
+
+  /** Lets an item add to its DOM once its body is in it. */
+  protected addTo(_view: EditorView, _root: HTMLElement) {}
 
   /** What the item is, for the head of its menu: its kind, its file's name and its size. */
   private about(): ItemAbout {
@@ -341,20 +373,23 @@ export abstract class ItemWidget extends WidgetType {
     root.append(body);
     root.itemKey = this.identity();
     root.itemBody = body;
+    root.itemWidget = this;
+    this.addTo(view, root);
     // Pressing and moving drags the item to another place in the note. A note that is only shown,
     // like an earlier version, has nothing to do with its items but look at them.
     body.draggable = !view.state.readOnly;
-    body.addEventListener('dragstart', () => dragWidget(view, root, this.length));
+    body.addEventListener('dragstart', () => dragWidget(view, root, this.latest(root).length));
     body.addEventListener('contextmenu', (event) => {
       const show = this.options.showMenu;
       if (!show || view.state.readOnly) return;
       event.preventDefault();
       // On a touch screen the item is not selected: that would bring up the keyboard.
-      if (!this.options.touch) selectWidget(view, root, this.length);
-      show({ x: event.clientX, y: event.clientY }, this.actions(view, root), this.about());
+      const now = this.latest(root);
+      if (!this.options.touch) selectWidget(view, root, now.length);
+      show({ x: event.clientX, y: event.clientY }, now.actions(view, root), now.about());
     });
     const show = this.options.showMenu;
-    if (this.options.touch && show) this.holdForMenu(view, body, () => show({ x: 0, y: 0 }, this.actions(view, root), this.about()));
+    if (this.options.touch && show) this.holdForMenu(view, body, () => show({ x: 0, y: 0 }, this.latest(root).actions(view, root), this.latest(root).about()));
     this.showSelection(view, root);
     return root;
   }
@@ -362,6 +397,7 @@ export abstract class ItemWidget extends WidgetType {
   /** A change of selection only changes the outline and the bar, so a playing recording plays on. */
   updateDOM(dom: HTMLElement, view: EditorView) {
     if ((dom as ItemDom).itemKey !== this.identity()) return false;
+    (dom as ItemDom).itemWidget = this;
     this.showSelection(view, dom);
     return true;
   }

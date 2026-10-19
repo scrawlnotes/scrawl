@@ -384,6 +384,25 @@ const shapes = {
       <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none" />
     </>
   ),
+  /** An image's ready sizes, in its menu: a frame and the image in it. */
+  sizeSmall: (
+    <>
+      <path d="M4 8.5V5a1 1 0 0 1 1-1h3.5M15.5 4H19a1 1 0 0 1 1 1v3.5M20 15.5V19a1 1 0 0 1-1 1h-3.5M8.5 20H5a1 1 0 0 1-1-1v-3.5" />
+      <rect x="9.5" y="9.5" width="5" height="5" rx="1" />
+    </>
+  ),
+  sizeMedium: (
+    <>
+      <path d="M4 8.5V5a1 1 0 0 1 1-1h3.5M15.5 4H19a1 1 0 0 1 1 1v3.5M20 15.5V19a1 1 0 0 1-1 1h-3.5M8.5 20H5a1 1 0 0 1-1-1v-3.5" />
+      <rect x="7.5" y="7.5" width="9" height="9" rx="1.5" />
+    </>
+  ),
+  sizeFull: (
+    <>
+      <rect x="3.5" y="5" width="17" height="14" rx="2" />
+      <path d="M7.5 12h9M7.5 12l2-2M7.5 12l2 2M16.5 12l-2-2M16.5 12l-2 2" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof shapes;

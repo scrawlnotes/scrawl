@@ -1,5 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import {
+  EditorSelection,
   type EditorState,
   type Extension,
   type Range,
@@ -19,7 +20,8 @@ import {
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { t } from '@scrawlnotes/i18n';
 import { linkUrl } from './commands';
-import { attachmentOf, AudioWidget, type AwayFileInfo, FileWidget, isAudio, ItemWidget, type MediaOptions, selectWidget, sizeText } from './media';
+import { IMAGE_SIZES, type ImageSize, MIN_IMAGE_WIDTH, readImageAlt, sizeOfWidth, writtenImageAlt } from './imageWidth';
+import { attachmentOf, AudioWidget, type AwayFileInfo, FileWidget, isAudio, type ItemAction, ItemWidget, type MediaOptions, selectWidget, sizeText } from './media';
 
 export interface LivePreviewOptions extends MediaOptions {
   /**
@@ -118,15 +120,23 @@ class RuleWidget extends WidgetType {
   }
 }
 
-/** An image in a note. A click selects it, a double click opens it. */
+/**
+ * An image in a note. A click selects it, a double click opens it. Selected, it is made smaller or
+ * larger by its corner, or to one of the ready sizes from its bar or its menu (imageWidth.ts).
+ */
 class ImageWidget extends ItemWidget {
   protected override rootClass = 'cm-sl-img-wrap';
   protected readonly selectedClass = 'cm-sl-img-selected';
   protected readonly kind = 'image';
+  /** What its alt text says, its width left out. */
+  readonly label: string;
+  /** The width it is drawn at; null for as large as it fits. */
+  readonly width: number | null;
 
   constructor(
     /** The source as the note has it. */
     src: string,
+    /** Its alt text as the note has it, its width in it. */
     readonly alt: string,
     length: number,
     selected: boolean,
@@ -137,12 +147,91 @@ class ImageWidget extends ItemWidget {
     readonly loads: number,
   ) {
     super(src, length, selected, active, preview, version);
+    ({ label: this.label, width: this.width } = readImageAlt(alt));
   }
+  // A change of width is not drawn anew, so the image does not blink: see updateDOM.
   protected key() {
-    return `${this.src}\n${this.alt}\n${this.length}`;
+    return `${this.src}\n${this.label}`;
   }
   override eq(other: ImageWidget) {
-    return super.eq(other) && other.loads === this.loads;
+    return super.eq(other) && other.loads === this.loads && other.length === this.length && other.width === this.width;
+  }
+  override updateDOM(dom: HTMLElement, view: EditorView) {
+    if (!super.updateDOM(dom, view)) return false;
+    this.sizeTo(dom);
+    return true;
+  }
+  /** Draws the image at its width, or as large as it fits. */
+  private sizeTo(root: HTMLElement) {
+    const img = root.querySelector<HTMLImageElement>(':scope > .cm-sl-img');
+    root.classList.toggle('cm-sl-img-sized', this.width !== null);
+    if (img) img.style.width = this.width === null ? '' : `${this.width}px`;
+  }
+  /** Writes the image's width in the note, keeping it selected if it was. */
+  private resize(view: EditorView, root: HTMLElement, width: number | null) {
+    const from = view.posAtDOM(root);
+    const at = from + 2; // after `![`
+    if (view.state.sliceDoc(at, at + this.alt.length) !== this.alt) return;
+    const alt = writtenImageAlt(this.label, width);
+    const length = this.length + alt.length - this.alt.length;
+    view.dispatch({
+      changes: { from: at, to: at + this.alt.length, insert: alt },
+      selection: this.active ? EditorSelection.range(from, from + length) : undefined,
+      userEvent: 'input.resize',
+    });
+  }
+  protected override moreActions(view: EditorView, root: HTMLElement): ItemAction[] {
+    const now = sizeOfWidth(this.width);
+    return (Object.keys(IMAGE_SIZES) as ImageSize[]).map((size) => ({
+      kind: size,
+      label: t(`editor.item.${size}`),
+      on: now === size,
+      run: () => now !== size && this.latest(root).resize(view, root, IMAGE_SIZES[size]),
+    }));
+  }
+  /**
+   * With a mouse, a selected image has a handle on its bottom right corner: dragging it makes the
+   * image narrower or wider, its height following. Dragged to the edge of the text it is Full.
+   */
+  protected override addTo(view: EditorView, root: HTMLElement) {
+    this.sizeTo(root);
+    if (view.state.readOnly || this.preview.touch) return;
+    const handle = document.createElement('span');
+    handle.className = 'cm-sl-img-handle';
+    handle.title = t('editor.item.resize');
+    handle.addEventListener('pointerdown', (event) => {
+      const img = root.querySelector<HTMLImageElement>(':scope > .cm-sl-img');
+      const line = root.closest<HTMLElement>('.cm-line');
+      if (event.button !== 0 || !img || !line) return;
+      event.preventDefault();
+      event.stopPropagation();
+      // The page may be zoomed: the pointer moves in the screen's pixels, the image is sized in the page's.
+      const box = img.getBoundingClientRect();
+      const scale = box.width / (img.offsetWidth || 1) || 1;
+      const start = img.offsetWidth;
+      const most = Math.max(MIN_IMAGE_WIDTH, Math.floor((line.getBoundingClientRect().right - box.left) / scale - parseFloat(getComputedStyle(line).paddingRight)));
+      const x = event.clientX;
+      let width = start;
+      handle.setPointerCapture(event.pointerId);
+      root.classList.add('cm-sl-img-sized', 'cm-sl-img-resizing');
+      const move = (each: PointerEvent) => {
+        width = Math.min(most, Math.max(MIN_IMAGE_WIDTH, Math.round(start + (each.clientX - x) / scale)));
+        img.style.width = `${width}px`;
+      };
+      const end = (each: PointerEvent) => {
+        handle.removeEventListener('pointermove', move);
+        handle.removeEventListener('pointerup', end);
+        handle.removeEventListener('pointercancel', end);
+        root.classList.remove('cm-sl-img-resizing');
+        const now = this.latest(root);
+        if (each.type === 'pointercancel' || width === start) now.sizeTo(root);
+        else now.resize(view, root, width >= most ? IMAGE_SIZES.full : width);
+      };
+      handle.addEventListener('pointermove', move);
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+    });
+    root.append(handle);
   }
   protected file() {
     return attachmentOf(this.src);
@@ -172,14 +261,14 @@ class ImageWidget extends ItemWidget {
     const url = this.preview.resolveImage?.(this.src) ?? this.src;
     if (typeof url === 'string') img.src = url;
     else void url.then((resolved) => (img.src = resolved), () => undefined);
-    img.alt = this.alt;
-    img.title = this.alt;
+    img.alt = this.label;
+    img.title = this.label;
     // The image changes the line height once it loads.
     img.addEventListener('load', () => {
       if (img.isConnected) view.dispatch({ effects: imageLoaded.of(null) });
     });
     // On a touch screen a tap opens it.
-    img.addEventListener('click', () => (this.preview.touch ? this.opener()?.() : selectWidget(view, root, this.length)));
+    img.addEventListener('click', () => (this.preview.touch ? this.opener()?.() : selectWidget(view, root, this.latest(root).length)));
     img.addEventListener('dblclick', () => this.opener()?.());
     return img;
   }

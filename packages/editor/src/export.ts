@@ -1,4 +1,5 @@
 import { Marked, type Token, type Tokens } from 'marked';
+import { readImageAlt } from './imageWidth';
 
 // A note going out as a file, after the Export views of design/mockups.html (PLAN 4.7): as one
 // HTML file with its images and recordings in it, or as the content of a PDF. Both read the note
@@ -85,7 +86,10 @@ export function exportHtml(markdown: string, name: string, files: OutFiles): str
       image(token) {
         const file = fileAt(files, token.href);
         if (!file) return false;
-        if (file.kind === 'image' && file.data) return `<img src="${file.data}" alt="${escapeHtml(token.text)}">`;
+        if (file.kind === 'image' && file.data) {
+          const { label, width } = readImageAlt(token.text);
+          return `<img src="${file.data}" alt="${escapeHtml(label)}"${width === null ? '' : ` style="width: ${width}px"`}>`;
+        }
         if (file.kind === 'audio' && file.data) return `<audio controls src="${file.data}"></audio>`;
         return fileChip(file);
       },
@@ -169,11 +173,14 @@ export const PDF_WIDTH = 483;
 /** The most an image is high on a page, in points. */
 const PDF_IMAGE_HEIGHT = 560;
 
-/** How large an image is on a page: as large as it is (a pixel is ¾ of a point), no wider than the text and no higher than most of a page. */
-function imageSize(file: OutFile): PdfNode {
-  if (!file.width || !file.height) return { fit: [PDF_WIDTH, PDF_IMAGE_HEIGHT] };
-  const width = file.width * 0.75;
-  const height = file.height * 0.75;
+/**
+ * How large an image is on a page: as large as it is (a pixel is ¾ of a point), or as wide as the
+ * note has it; no wider than the text and no higher than most of a page.
+ */
+function imageSize(file: OutFile, shown: number | null = null): PdfNode {
+  if (!file.width || !file.height) return shown === null ? { fit: [PDF_WIDTH, PDF_IMAGE_HEIGHT] } : { fit: [Math.min(PDF_WIDTH, shown * 0.75), PDF_IMAGE_HEIGHT] };
+  const width = (shown ?? file.width) * 0.75;
+  const height = width * (file.height / file.width);
   const scale = Math.min(1, PDF_WIDTH / width, PDF_IMAGE_HEIGHT / height);
   return { width: Math.round(width * scale * 100) / 100 };
 }
@@ -202,7 +209,7 @@ export function pdfContent(markdown: string, name: string, files: OutFiles, font
   ];
 
   /** Inline pieces; an image found among them is handed to `onImage` and leaves a gap in the text. */
-  const inline = (list: Token[], look: Look, onImage?: (file: OutFile) => void): PdfNode[] =>
+  const inline = (list: Token[], look: Look, onImage?: (file: OutFile, width: number | null) => void): PdfNode[] =>
     list.flatMap((token): PdfNode[] => {
       switch (token.type) {
         case 'text':
@@ -229,7 +236,7 @@ export function pdfContent(markdown: string, name: string, files: OutFiles, font
           const each = token as Tokens.Link | Tokens.Image;
           const file = fileAt(files, each.href);
           if (file?.kind === 'image' && file.data && onImage) {
-            onImage(file);
+            onImage(file, token.type === 'image' ? readImageAlt((token as Tokens.Image).text).width : null);
             return [];
           }
           if (file) return chip(file, look);
@@ -252,9 +259,9 @@ export function pdfContent(markdown: string, name: string, files: OutFiles, font
       if (pieces.some((piece) => String((piece as { text?: string }).text ?? '').trim() !== '')) blocks.push({ text: pieces, margin });
       pieces = [];
     };
-    const onImage = (file: OutFile) => {
+    const onImage = (file: OutFile, width: number | null) => {
       flush();
-      blocks.push({ image: file.data, ...imageSize(file), margin: [0, 4, 0, 10] });
+      blocks.push({ image: file.data, ...imageSize(file, width), margin: [0, 4, 0, 10] });
     };
     for (const token of list) pieces.push(...inline([token], look, onImage));
     flush();

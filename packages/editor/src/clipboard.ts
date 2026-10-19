@@ -1,5 +1,6 @@
 import type { EditorState, Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+import { readImageAlt } from './imageWidth';
 import { previewItems, roleRanges, sourceMode } from './livePreview';
 import { renderHtml } from './render';
 import { copiedCells, pasteTable } from './table';
@@ -29,7 +30,7 @@ export function visibleText(state: EditorState, from: number, to: number, links 
     const end = Math.min(item.to, to);
     if (end <= start) continue;
     out += state.sliceDoc(pos, start);
-    if (item.deco!.spec.kind === 'image') out += links ? (item.deco!.spec.alt as string) : '';
+    if (item.deco!.spec.kind === 'image') out += links ? readImageAlt(item.deco!.spec.alt as string).label : '';
     // An attached file reads as its name, the way it shows.
     else if (item.deco!.spec.kind === 'attachment') out += item.deco!.spec.label as string;
     else if (links && item.role === 'close') {

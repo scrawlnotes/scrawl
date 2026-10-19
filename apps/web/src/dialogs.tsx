@@ -1302,6 +1302,8 @@ export interface MenuItem {
   flag?: Priority;
   /** On a phone: a class for its row, as a priority's colour. */
   className?: string;
+  /** The one of a few that is set, as an image's size: a tick after it. */
+  checked?: boolean;
 }
 
 /** On a phone: what a menu is about, at its top. */
@@ -1458,6 +1460,7 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
               {item.flag && <Icon name="flag" />}
               {item.label}
               {item.flag && item.value && <span className="val">{item.value}</span>}
+              {item.checked && <span className="val">✓</span>}
             </button>
           )}
         </Fragment>

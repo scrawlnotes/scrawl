@@ -1015,10 +1015,18 @@ export function App() {
   // An image, file or recording in a note has its right-click menu drawn like the others; on a
   // phone, where holding it opens it, it says what it is and how large.
   useEffect(() => {
-    const icons = { open: 'open', reveal: 'folder', delete: 'trash' } as const;
+    const icons = { open: 'open', reveal: 'folder', small: 'sizeSmall', medium: 'sizeMedium', full: 'sizeFull', delete: 'trash' } as const;
     const kinds = { image: ['image', 'phone.image'], file: ['file', 'phone.file'], audio: ['audio', 'phone.recording'] } as const;
     session.showMenu = (at, actions, about) => {
-      const items: MenuItem[] = actions.map((action) => ({ label: action.label, run: action.run, icon: icons[action.kind], danger: action.kind === 'delete' }));
+      // An image's sizes are a group of their own, the one it is drawn at ticked.
+      const items: MenuItem[] = actions.map((action) => ({
+        label: action.label,
+        run: action.run,
+        icon: icons[action.kind],
+        danger: action.kind === 'delete',
+        apart: action.kind === 'small',
+        checked: action.on,
+      }));
       const head: MenuHead | undefined = about && {
         icon: kinds[about.kind][0],
         title: about.name,

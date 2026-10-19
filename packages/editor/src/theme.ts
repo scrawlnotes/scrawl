@@ -295,7 +295,29 @@ const editorTheme = EditorView.theme({
     overflow: 'hidden',
   },
   '.cm-sl-copying-bar i': { display: 'block', height: '100%', backgroundColor: 'var(--sl-accent)' },
-  '.cm-sl-img-wrap': { position: 'relative', display: 'inline-block', maxWidth: 'min(100%, 560px)', verticalAlign: 'top' },
+  '.cm-sl-img-wrap': { position: 'relative', display: 'inline-block', maxWidth: 'min(100%, 720px)', verticalAlign: 'top' },
+  // An image with its width in the note is drawn at it, as wide as the text at most.
+  '.cm-sl-img-sized': { maxWidth: '100%' },
+  '.cm-sl-img-sized > .cm-sl-img': { maxHeight: 'none' },
+  // Its corner, while it is selected with a mouse; see ImageWidget.
+  '.cm-sl-img-handle': {
+    display: 'none',
+    position: 'absolute',
+    zIndex: '2',
+    right: '-6px',
+    bottom: '-6px',
+    width: '12px',
+    height: '12px',
+    boxSizing: 'border-box',
+    borderRadius: '3px',
+    border: '2px solid var(--sl-bg)',
+    backgroundColor: 'var(--sl-accent)',
+    cursor: 'nwse-resize',
+    touchAction: 'none',
+  },
+  '.cm-sl-img-selected ~ .cm-sl-img-handle': { display: 'block' },
+  '.cm-sl-img-resizing, .cm-sl-img-resizing *': { cursor: 'nwse-resize' },
+  '.cm-sl-img-resizing > .cm-sl-itembar': { display: 'none' },
   // A file left in the cloud in its place, after the Large files view of design/mockups.html:
   // a file or a recording a chip with Download, an image a box as large as it will be.
   '.cm-sl-away': {
@@ -371,7 +393,7 @@ const editorTheme = EditorView.theme({
   '.cm-sl-img': {
     display: 'block',
     maxWidth: '100%',
-    maxHeight: '320px',
+    maxHeight: '480px',
     borderRadius: '6px',
     border: '1px solid var(--sl-line)',
   },
@@ -421,6 +443,9 @@ const editorTheme = EditorView.theme({
     strokeLinecap: 'round',
     strokeLinejoin: 'round',
   },
+  // The ready sizes of an image, words side by side, the one it is drawn at marked.
+  '.cm-sl-itembar-size': { padding: '5px 7px', color: 'var(--sl-dim)' },
+  '.cm-sl-itembar-size[aria-pressed="true"]': { backgroundColor: 'var(--sl-sel)', color: 'var(--sl-fg)', fontWeight: '600' },
   '.cm-sl-itembar-gap': { alignSelf: 'stretch', width: '1px', margin: '3px 2px', backgroundColor: 'var(--sl-line)' },
 });
 
