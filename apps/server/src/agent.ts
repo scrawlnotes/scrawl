@@ -130,22 +130,28 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
   });
 
   /** The spaces and the person an agent works on, for one request: those of the account the token is for. */
-  const agentOf = (account: Account, device: string, clientName: string): Agent => ({
-    spaces: async () =>
-      spaces.of(account.id).map((space) => ({
-        id: space.id,
-        name: space.name,
-        where: host,
-        // The account's personal space here, where a task without a list goes.
-        personal: space.personal,
-        fs: new ServerFs(files, blobs, space.id, { account: account.id, device }, config.maxFileBytes),
-        // The store keeps every version: nothing goes to a history folder, which the server does not take.
-        versioned: true,
-      })),
-    person: async () => ({ id: account.id, name: account.name }),
-    // The protocol does not carry the client's name with every request; the sign-in does.
-    client: { name: clientName || 'Agent' },
-  });
+  const agentOf = (account: Account, device: string, clientName: string): Agent => {
+    const timeZone = accounts.timeZoneOf(account.id);
+    return {
+      spaces: async () =>
+        spaces.of(account.id).map((space) => ({
+          id: space.id,
+          name: space.name,
+          where: host,
+          // The account's personal space here, where a task without a list goes.
+          personal: space.personal,
+          fs: new ServerFs(files, blobs, space.id, { account: account.id, device }, config.maxFileBytes),
+          // The store keeps every version: nothing goes to a history folder, which the server does not take.
+          versioned: true,
+        })),
+      person: async () => ({ id: account.id, name: account.name }),
+      // The server's clock, in the person's time zone when the app told it: their today, not the server's.
+      now: () => new Date(now()),
+      ...(timeZone && { timeZone }),
+      // The protocol does not carry the client's name with every request; the sign-in does.
+      client: { name: clientName || 'Agent' },
+    };
+  };
 
   const handler = createMcpHandler((ctx) => {
     const extra = ctx.authInfo?.extra as { account: Account; device: string; clientName: string } | undefined;

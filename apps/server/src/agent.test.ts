@@ -255,6 +255,21 @@ describe('working through /mcp', () => {
     await client.close();
   });
 
+  it('keeps the person’s time zone as the app tells it, and gives an agent their today, not the server’s', async () => {
+    const s = start();
+    const key = await owner(s);
+    expect((await s.account(key).setTimeZone('Europe/Istanbul')).timeZone).toBe('Europe/Istanbul');
+    await expect(s.account(key).setTimeZone('Mars/Olympus')).rejects.toMatchObject({ status: 400, code: 'bad-time-zone' });
+    // 22:30 at the server is 01:30 the next day in Istanbul.
+    s.later(12.5 * 60 * 60 * 1000);
+    const { access } = await connect(s);
+    const client = await mcp(s, access);
+    expect((await client.callTool({ name: 'spaces', arguments: {} })).structuredContent).toMatchObject({ today: '2026-10-16' });
+    const note = await client.callTool({ name: 'create', arguments: { kind: 'note', name: '' } });
+    expect(note.structuredContent).toMatchObject({ path: '2026-10-16 013000.md' });
+    await client.close();
+  });
+
   it('shows the person’s personal space there as theirs, and puts a task with neither a space nor a list in its Inbox', async () => {
     const s = start();
     const key = await owner(s);

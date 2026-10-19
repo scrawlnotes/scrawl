@@ -274,7 +274,7 @@ import {
   carriedSeen,
   setCarriedSeen,
 } from './storage';
-import { knownServers, onServersChanged, rememberServer } from './servers';
+import { knownServers, onServersChanged, rememberServer, tellTimeZones } from './servers';
 
 const SAVE_DELAY_MS = 400;
 
@@ -701,6 +701,8 @@ export class Session {
     this.parent = parent;
     this.personal = await openVault();
     await this.openSpaces();
+    // The servers hear the person's time zone, for an agent's "today" there; nothing waits for them.
+    tellTimeZones();
     const workspace = await loadWorkspace(this.personal);
     // The onboarding note opens each time until it is closed on this device, for those who had
     // the app before it too. It is kept under `.scrawl`, where the folder stays the user's own.

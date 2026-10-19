@@ -300,6 +300,11 @@ export class ServerAccount {
     return this.client.json('/me');
   }
 
+  /** Tells the server the person's time zone, as `Europe/Istanbul`: an agent's "today" there is theirs. */
+  setTimeZone(timeZone: string): Promise<ServerAccountInfo & { timeZone: string }> {
+    return this.client.json('/me', { ...jsonBody({ timeZone }), method: 'PATCH' });
+  }
+
   /** The spaces this account is in. */
   spaces(): Promise<ServerSpace[]> {
     return this.client.json('/spaces');

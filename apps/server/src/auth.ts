@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import { isTimeZone } from '@scrawlnotes/core';
 import { SETUP_MS } from './config';
 import { type Db, transaction } from './db';
 
@@ -168,6 +169,20 @@ export class Accounts {
     const row = this.db.prepare('SELECT id, email, name, role FROM accounts WHERE id = ? AND disabled_at IS NULL').get(id) as Account | undefined;
     if (!row) throw new Refused(404, 'no-account', 'No such account on this server');
     return row;
+  }
+
+  /** Keeps the person's time zone, as the app tells it: `Europe/Istanbul`. */
+  setTimeZone(id: string, zone: unknown): Account & { timeZone: string } {
+    if (!isTimeZone(zone)) throw new Refused(400, 'bad-time-zone', 'A time zone is a name such as Europe/Istanbul');
+    const account = this.get(id);
+    this.db.prepare('UPDATE accounts SET time_zone = ? WHERE id = ?').run(zone, id);
+    return { ...account, timeZone: zone };
+  }
+
+  /** The person's time zone, when the app told it; null before. */
+  timeZoneOf(id: string): string | null {
+    const row = this.db.prepare('SELECT time_zone FROM accounts WHERE id = ?').get(id) as { time_zone: string | null } | undefined;
+    return row?.time_zone ?? null;
   }
 
   /** Makes someone an admin or a member again; only the owner does, and the owner stays the owner. */

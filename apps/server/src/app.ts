@@ -189,6 +189,8 @@ export function createApp(parts: Parts) {
   // Every shared space and who is in it, for the owner and admins.
   app.get('/api/v1/shared-spaces', (c) => c.json(spaces.shared(c.get('account'))));
   app.get('/api/v1/me', (c) => c.json(c.get('account')));
+  // The person's time zone, which the app tells as it signs in and as it opens.
+  app.patch('/api/v1/me', async (c) => c.json(accounts.setTimeZone(c.get('account').id, (await json(c)).timeZone)));
   app.get('/api/v1/spaces', (c) => c.json(spaces.of(c.get('account').id)));
   app.post('/api/v1/spaces', async (c) => c.json(spaces.open(c.get('account'), await json(c))));
   // A new name, by its managers.

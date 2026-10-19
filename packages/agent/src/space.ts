@@ -3,7 +3,7 @@ import {
   BOARD_EXT,
   type Collection,
   type Entry,
-  dayOf,
+  dayIn,
   dirname,
   fileNameOf,
   fold,
@@ -16,6 +16,7 @@ import {
   TASK_LIST_EXT,
   type TreeNode,
   type VaultFs,
+  wallClock,
 } from '@scrawlnotes/core';
 import { Refusal } from './paths';
 
@@ -51,6 +52,8 @@ export interface Agent {
   spaces(): Promise<AgentSpace[]>;
   person(): Promise<Person | null>;
   now?: () => Date;
+  /** The person's time zone, as `Europe/Istanbul`, when the door knows it: a server's own is not theirs. This computer's when left out. */
+  timeZone?: string;
   /** The client, when the door knows it better than the protocol says: on the server, the OAuth client that signed in. */
   client?: Client;
 }
@@ -65,8 +68,11 @@ export const AGENT_DEVICE = 'agent';
 
 export const nowOf = (agent: Agent): Date => (agent.now ?? (() => new Date()))();
 
-/** Today as `YYYY-MM-DD`, in the local calendar. */
-export const todayOf = (agent: Agent): string => dayOf(nowOf(agent));
+/** Today as `YYYY-MM-DD`, in the person's time zone, else in the local calendar. */
+export const todayOf = (agent: Agent): string => dayIn(nowOf(agent), agent.timeZone);
+
+/** Now as the person's clock shows it, for what is named by the moment, as a note never named. */
+export const clockOf = (agent: Agent): Date => wallClock(nowOf(agent), agent.timeZone);
 
 /** Who a change is written as: "Claude Code · Kaan"; the client alone when the person has no name. */
 export function actorOf(client: Client, person: Person | null): string | undefined {

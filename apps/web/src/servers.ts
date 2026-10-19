@@ -157,8 +157,34 @@ export async function keepSignIn(url: string, { token, account }: ServerSignedIn
   else localStorage.setItem(browserKey(url), token);
   const server: KnownServer = { url, id: account.id, email: account.email, name: account.name, role: account.role };
   keepServers([...knownServers().filter((each) => each.url !== url), server]);
+  tellTimeZone(url);
   return server;
 }
+
+/** This device's time zone, as `Europe/Istanbul`; empty when the browser does not say. */
+const timeZone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * Tells a server the person's time zone, so that an agent's "today" there is theirs and not the
+ * server's (design/agent-fixes.md 5). Nothing waits for it, and a server signed out of, or one
+ * older than this, is left as it is.
+ */
+export function tellTimeZone(url: string) {
+  const zone = timeZone();
+  if (!zone) return;
+  void serverKey(url)
+    .then((key) => (key ? serverAccount(url).setTimeZone(zone) : undefined))
+    .catch(() => undefined);
+}
+
+/** Tells every server this device is signed in to the person's time zone, as the app opens. */
+export const tellTimeZones = () => knownServers().forEach((server) => tellTimeZone(server.url));
 
 /** The role the server gave this account, as it said it last: the list says it too. */
 export function noteRole(url: string, role: ServerAccountInfo['role']) {

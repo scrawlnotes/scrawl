@@ -19,7 +19,7 @@ import {
 import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
 import { hashOf, MAX_TEXT } from './read';
 import { checkFile } from './check';
-import { type Agent, AGENT_DEVICE, elementsOf, exists, filePathOf, foundPath, nearestPaths, nowOf, pickSpace } from './space';
+import { type Agent, AGENT_DEVICE, clockOf, elementsOf, exists, filePathOf, foundPath, nearestPaths, nowOf, pickSpace } from './space';
 
 // Writing: a file as it is, a new element, and the trash. A note the agent writes over keeps its
 // earlier text as a version, every time; nothing is deleted for good.
@@ -108,7 +108,7 @@ export async function createTool(agent: Agent, args: { space?: string; folder?: 
   let path: string;
   switch (args.kind) {
     case 'note':
-      path = await createNote(space.fs, folder, name, nowOf(agent));
+      path = await createNote(space.fs, folder, name, clockOf(agent));
       if (args.text) await space.fs.writeText(path, args.text);
       break;
     case 'tasks':

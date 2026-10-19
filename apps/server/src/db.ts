@@ -122,6 +122,10 @@ const MIGRATIONS: string[] = [
   ALTER TABLE spaces ADD COLUMN personal_of TEXT REFERENCES accounts (id);
   CREATE UNIQUE INDEX spaces_personal ON spaces (personal_of) WHERE personal_of IS NOT NULL;
   `,
+  // The person's time zone, as the app tells it: an agent's "today" is theirs, not the server's (design/agent-fixes.md 5).
+  `
+  ALTER TABLE accounts ADD COLUMN time_zone TEXT;
+  `,
 ];
 
 export function openDb(file: string): Db {
