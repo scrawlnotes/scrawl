@@ -146,7 +146,6 @@ import {
   setColumnKind,
   setDone,
   setPhasesOn,
-  sweepAttachments,
   type Section,
   type Task,
   type SpaceInfo,
@@ -158,6 +157,7 @@ import {
   type Template,
   trashFolder,
   trashItem,
+  trashWithFiles,
   trashUnlinked,
   type TrashItem,
   type TreeNode,
@@ -755,7 +755,6 @@ export class Session {
     measure.finish();
     // Versions past their keeping time go, also those of notes deleted long ago.
     for (const [, fs] of this.fs.all()) void pruneHistory(fs).catch(() => undefined);
-    void this.sweepAttachments(run);
     void this.recountFiles();
     this.meetSpaces();
   }
@@ -1343,22 +1342,9 @@ export class Session {
     return [
       ...[...this.pending].filter(([path]) => mine(path)).map(([, text]) => text),
       ...[...this.states].filter(([path]) => mine(path)).map(([, state]) => state.doc.toString()),
-      ...(this.editor && mine(this.onScreen) ? [this.editor.view.state.doc.toString()] : []),
+      // With no note on screen the editor holds the last one shown, which may be gone.
+      ...(this.editor && this.snapshot.active && isNote(this.snapshot.active) && mine(this.onScreen) ? [this.editor.view.state.doc.toString()] : []),
     ];
-  }
-
-  /**
-   * Attached files that no note links to any more go to the trash as the app opens too: those
-   * whose links were removed while it was closed, by another program or another device.
-   */
-  private async sweepAttachments(run: number) {
-    try {
-      let moved = 0;
-      for (const [space, fs] of this.fs.all()) moved += await sweepAttachments(fs, () => this.openTexts(space));
-      if (moved > 0 && run === this.run) await this.freshTrash();
-    } catch {
-      // It is tried again the next time the app opens.
-    }
   }
 
   dispose() {
@@ -2495,13 +2481,25 @@ export class Session {
     }
   }
 
-  /** Moves a record's file to the trash; the interface asks first. */
+  /** Moves a record's file to the trash, with the files only it used; the interface asks first. */
   async trashRecord(dir: string, record: CollectionRecord) {
     await this.settle();
-    const { fs, local } = this.at(record.path);
-    await trashItem(fs, local);
     await this.detach(record.path);
+    await this.trashWithFiles(record.path, false);
     this.setCollection(dir, (current) => ({ ...current, records: current.records.filter((r) => r.id !== record.id) }));
+    await this.freshTrash();
+  }
+
+  /**
+   * Moves an item or a folder to the trash, and with it the attached files only it used: they
+   * come back with it. Its tabs are closed first, so that it is not counted as still using them.
+   */
+  private async trashWithFiles(path: string, folder: boolean) {
+    const { fs, local } = this.at(path);
+    const space = spaceOf(path);
+    const moved = await trashWithFiles(fs, local, folder, () => this.openTexts(space));
+    if (moved.length === 0) return;
+    this.forgetMedia(moved.map((file) => inSpace(space, file)));
     await this.freshTrash();
   }
 
@@ -2558,6 +2556,12 @@ export class Session {
     // A link to another space has no place in the board's file; it is left out here already.
     const next = rebaseBoard(change(current), withinSpace(spaceOf(path)));
     if (next === current) return;
+    // A card deleted takes the files only it used to the trash; one put back, by Undo, brings them.
+    const before = attachmentsIn(JSON.stringify(current.cards));
+    const after = attachmentsIn(JSON.stringify(next.cards));
+    const gone = [...before].filter((src) => !after.has(src));
+    const back = [...after].filter((src) => !before.has(src));
+    if (gone.length || back.length) this.attachmentsChanged(path, gone, back);
     this.set({ boards: { ...this.snapshot.boards, [path]: next }, saved: false });
     this.edited(path);
     this.taskWrites = this.taskWrites
@@ -3119,12 +3123,11 @@ export class Session {
     if (discard) await this.refreshTree();
   }
 
-  /** Moves a note, a task list or a board to the trash. */
+  /** Moves a note, a task list or a board to the trash, with the files only it used. */
   async trash(path: string) {
     await this.settle();
-    const { fs, local } = this.at(path);
-    await trashItem(fs, local);
     await this.detach(tabOf(path));
+    await this.trashWithFiles(path, false);
     await this.refreshTree();
   }
 
@@ -3141,8 +3144,7 @@ export class Session {
     if (active && inside(active)) await this.detach(active);
     // A collection's own tab, when the folder is one.
     await this.detach(collectionTab(path));
-    const { fs, local } = this.at(path);
-    await trashFolder(fs, local);
+    await this.trashWithFiles(path, true);
     await this.refreshTree();
   }
 
@@ -3184,6 +3186,33 @@ export class Session {
       ),
     );
     return lists.flat().sort((a, b) => (b.added ?? 0) - (a.added ?? 0) || a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Puts files in a space's Files, used by nothing: they stay until they are deleted. A file
+   * keeps its name; an image pasted from the clipboard, which the browser calls just "image", is
+   * named by the moment it came, as one put in a note is. Returns how many came in.
+   */
+  async uploadFiles(space: string | null, files: File[]): Promise<number> {
+    const fs = this.fs.of(space);
+    let count = 0;
+    this.copying += files.length;
+    this.set({ saved: false });
+    for (const file of files) {
+      try {
+        const pasted = file.type.startsWith('image/') && /^image\.\w+$/i.test(file.name);
+        const src = pasted ? await saveAttachment(fs, file) : await saveFile(fs, file);
+        this.sizes.set(inSpace(space, src), file.size);
+        count++;
+      } catch {
+        // A file that could not be copied is not there; the others go on.
+      } finally {
+        this.copying--;
+        this.markSaved();
+      }
+    }
+    await this.recountFiles();
+    return count;
   }
 
   /** Opens an attached file: on desktop with the program the system uses for it, in the browser in a new tab. */

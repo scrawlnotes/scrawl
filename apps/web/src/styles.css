@@ -3689,6 +3689,13 @@ textarea.tt-edit {
   color: var(--sl-faint);
 }
 
+/* Files dragged over Files: the list is where they land. */
+.files-view.dropping .tl {
+  border-radius: 8px;
+  outline: 2px dashed var(--sl-accent);
+  outline-offset: -4px;
+}
+
 .files-view .th .search:focus-within {
   border-color: var(--sl-dim);
 }

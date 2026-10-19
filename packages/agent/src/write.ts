@@ -10,8 +10,7 @@ import {
   keepVersion,
   TASK_LIST_EXT,
   type Template,
-  trashFolder,
-  trashItem,
+  trashWithFiles,
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
 import { hashOf, MAX_TEXT } from './read';
@@ -111,8 +110,8 @@ export async function trashTool(agent: Agent, args: { space?: string; path: stri
   const entry = await exists(space.fs, path);
   if (!entry) throw new Refusal(`Nothing is at ${path}`, { path });
   const now = nowOf(agent);
-  if (entry.kind === 'dir') await trashFolder(space.fs, path, now);
-  else await trashItem(space.fs, path, now);
+  // The attached files only it used go with it, as they do when the person deletes it.
+  await trashWithFiles(space.fs, path, entry.kind === 'dir', () => [], now);
   const kind = entry.kind === 'dir' ? 'folder' : path.endsWith(BOARD_EXT) ? 'board' : path.endsWith(TASK_LIST_EXT) ? 'tasks' : 'file';
   return { data: { space: space.id, trashed: path, kind } };
 }

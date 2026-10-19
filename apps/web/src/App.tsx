@@ -157,7 +157,7 @@ import { contentsText, quote } from './text';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { TrashPreviewDialog, TrashPreviewPage } from './TrashPreview';
 import { type FileActions, type FileSort, FilesView, fileTitle, Thumb, useIcon, useTitle, useWord } from './Files';
-import { chooseSpaceFolder, downloadBlob, isDesktop, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
+import { chooseSpaceFolder, clipboardFilesOnDesktop, downloadBlob, isDesktop, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
 
 type OpenDialog =
   // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen. The
@@ -699,6 +699,19 @@ export function App() {
         ],
         { icon: 'file', title: fileTitle(file), sub: `${sizeText(file.size)}${trashSpaces.length > 1 ? ` · ${spaceName(file.space)}` : ''}`, picture: <Thumb file={file} image={session.imageOf} className="mb-thumb" /> },
       ),
+    chooseSpace: (at, pick) => {
+      if (trashSpaces.length === 1) return pick(null);
+      const items = trashSpaces.map((each): MenuItem => ({ label: each.name, icon: 'space', run: () => pick(each.id) }));
+      if (phone) showSheet(items, { icon: 'import', title: t('files.uploadTo') });
+      else setMenu({ at, items });
+    },
+    upload: async (space, list) => {
+      const count = await session.uploadFiles(space, list);
+      if (count > 0) setNotice(t('files.uploaded', { count }));
+      readFilesAgain();
+      return count;
+    },
+    ...(isDesktop && { clipboardFiles: clipboardFilesOnDesktop }),
     chooseSort: (sort, onPick) => {
       const pick = (next: FileSort, label: string, icon: IconName): MenuItem => ({
         label,
@@ -1423,6 +1436,7 @@ export function App() {
   const filesView = (
     <FilesView
       files={files}
+      onScreen={filesOnScreen}
       today={today}
       spaces={trashSpaces}
       choice={{

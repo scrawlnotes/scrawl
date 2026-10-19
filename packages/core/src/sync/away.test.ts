@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { listFiles } from '../files';
 import { MemoryFs, type VaultFs } from '../fs';
-import { AwayFilesError, copyToSpace, deleteFromTrash, emptyTrash, readTrash, restoreFromTrash, saveFile, sweepAttachments, trashItem } from '../vault';
+import { AwayFilesError, copyToSpace, deleteFromTrash, emptyTrash, readTrash, restoreFromTrash, saveFile, trashItem, trashUnlinked } from '../vault';
 import { readAway } from './away';
 import { fetchAway, type SyncDevice, syncOnce } from './engine';
 import { MemoryRemote, type RemoteStore } from './remote';
@@ -116,7 +116,7 @@ describe('files away', () => {
   it('forgets a file away that went on the other side, and keeps it in the trash there as away', async () => {
     const { laptop, phone, syncLaptop, syncPhone } = await siteVisit();
     await laptop.writeText('Site visit.md', '![](_attachments/small.png)\n');
-    expect(await sweepAttachments(laptop, () => [], now())).toBe(1);
+    expect(await trashUnlinked(laptop, ['_attachments/roof.png'], () => [], now())).toHaveLength(1);
     await syncLaptop();
     const report = await syncPhone();
     expect(report.removedHere).toEqual([]);
@@ -169,10 +169,10 @@ describe('files away', () => {
     expect(remote.paths().filter((p) => p.includes('roof'))).toEqual([]);
   });
 
-  it('sweeps a file away that nothing uses into the trash, and deletes it with the last note that used it', async () => {
+  it('takes a file away that a note stopped using into the trash', async () => {
     const { phone, remote, syncPhone } = await siteVisit();
     await phone.writeText('Site visit.md', '![](_attachments/small.png)\n');
-    expect(await sweepAttachments(phone, () => [], now())).toBe(1);
+    expect(await trashUnlinked(phone, ['_attachments/roof.png'], () => [], now())).toHaveLength(1);
     expect((await readTrash(phone)).map((i) => [i.title, i.away])).toEqual([['roof.png', true]]);
     await syncPhone();
     expect(remote.paths().some((p) => p.startsWith('.scrawl/trash/') && p.endsWith('roof.png'))).toBe(true);

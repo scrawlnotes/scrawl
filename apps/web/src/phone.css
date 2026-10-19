@@ -3168,23 +3168,27 @@ body > .mb-lifted {
 }
 
 /* the trash's large title, with how many things are in it and Empty trash beside them */
-.mb-trash-head {
+.mb-trash-head,
+.mb-files-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 12px;
 }
 
-.mb-trash-head h1 {
+.mb-trash-head h1,
+.mb-files-head h1 {
   flex-basis: 100%;
 }
 
-.mb-trash-head span {
+.mb-trash-head span,
+.mb-files-head span {
   color: var(--sl-faint);
   font-size: 14px;
 }
 
-.mb-trash-head button {
+.mb-trash-head button,
+.mb-files-head button {
   margin-left: auto;
   color: var(--sl-accent);
   font-size: 15px;

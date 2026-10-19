@@ -516,20 +516,23 @@ export async function restoreFromTrash(fs: VaultFs, item: TrashItem): Promise<st
     await fs.move(item.path, target);
   }
   await forget(fs, basename(item.path));
-  if (item.kind === 'note' || tree) await restoreAttachments(fs, await textsOf(fs, target));
+  if (tree || (item.kind !== 'attachment' && canLink(target))) await restoreAttachments(fs, await textsOf(fs, target));
   return target;
 }
 
 /**
- * Deletes an item in the trash for good. A note or a folder takes with it the attached files
- * that only it linked to. `unsaved` is the text of notes not written yet.
+ * Deletes an item in the trash for good. What can link to attached files takes with it those
+ * that only it linked to, in the trash with it or not. `unsaved` is the text of notes not
+ * written yet.
  */
 export async function deleteFromTrash(fs: VaultFs, item: TrashItem, unsaved: string[] = []): Promise<void> {
-  const texts = item.kind === 'note' || item.kind === 'folder' || item.kind === 'collection' ? await textsOf(fs, item.path) : [];
+  const tree = item.kind === 'folder' || item.kind === 'collection';
+  const texts = tree || (item.kind !== 'attachment' && canLink(item.path)) ? await textsOf(fs, item.path) : [];
   if (item.away) await removeAway(fs, item.path);
   else await fs.remove(item.path);
   await forget(fs, basename(item.path));
   await removeAttachmentsOf(fs, texts, unsaved);
+  await removeTrashedFilesOf(fs, texts, unsaved);
 }
 
 /** Deletes everything in the trash for good, with the attached files that only its notes linked to. */
@@ -616,12 +619,29 @@ async function trashIfUnlinked(fs: VaultFs, files: Entry[], unsaved: () => strin
 }
 
 /**
- * Moves the attached files that nothing links to any more into the trash, where they can still
- * be restored. Notes in the trash count, so that restoring one shows its files. `unsaved` gives
- * the text of notes not written yet. Returns how many files were moved.
+ * Moves a note, a task list, a board, a record or a folder to the trash, and with it the attached
+ * files it linked to that nothing outside the trash links to any more: they go with it, and come
+ * back with it. A file that nothing ever linked to, put in Files, stays: only deleting what used
+ * it takes a file to the trash. `unsaved` gives the text of notes not written yet, asked once
+ * the item is in the trash. Returns the paths of the files that went with it.
  */
-export async function sweepAttachments(fs: VaultFs, unsaved: () => string[] = () => [], now = new Date()): Promise<number> {
-  return (await trashIfUnlinked(fs, await everyAttached(fs), unsaved, now)).length;
+export async function trashWithFiles(fs: VaultFs, path: string, folder: boolean, unsaved: () => string[] = () => [], now = new Date()): Promise<string[]> {
+  const texts = folder || canLink(path) ? await textsOf(fs, path) : [];
+  if (folder) await trashFolder(fs, path, now);
+  else await trashItem(fs, path, now);
+  if (texts.length === 0) return [];
+  const gone = linkedIn(texts);
+  const files = (await everyAttached(fs)).filter((file) => gone.includes(file.path.toLowerCase()));
+  if (files.length === 0) return [];
+  // What stays links to them: the notes outside the trash, and those not written yet.
+  const linked = linkedIn([...(await textsOf(fs, '')), ...unsaved()]);
+  const moved: string[] = [];
+  for (const file of files) {
+    if (linked.includes(file.path.toLowerCase())) continue;
+    await trashItem(fs, file.path, now);
+    moved.push(file.path);
+  }
+  return moved;
 }
 
 /**
@@ -670,6 +690,21 @@ async function removeAttachmentsOf(fs: VaultFs, texts: string[], unsaved: string
     if (linked.includes(file.path.toLowerCase())) continue;
     if (away.has(file.path.toLowerCase())) await removeAway(fs, file.path);
     else await fs.remove(file.path);
+  }
+}
+
+/** Deletes for good the attached files in the trash that `texts` linked to, when nothing else links to them. */
+async function removeTrashedFilesOf(fs: VaultFs, texts: string[], unsaved: string[]): Promise<void> {
+  if (texts.length === 0) return;
+  const gone = linkedIn(texts);
+  const trashed = (await readTrash(fs)).filter((item) => item.kind === 'attachment' && gone.includes(item.from.toLowerCase()));
+  if (trashed.length === 0) return;
+  const linked = linkedIn([...(await allTexts(fs)), ...unsaved]);
+  for (const item of trashed) {
+    if (linked.includes(item.from.toLowerCase())) continue;
+    if (item.away) await removeAway(fs, item.path);
+    else await fs.remove(item.path);
+    await forget(fs, basename(item.path));
   }
 }
 

@@ -1,7 +1,7 @@
 import { dayOf, type FileUse } from '@scrawlnotes/core';
 import { sizeText } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type DragEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { ChooseBox, groupState, useLetGo } from './choose';
 import { isPhone } from './device';
 import { Icon, type IconName } from './Icon';
@@ -13,7 +13,8 @@ import type { TrashSpace } from './Trash';
 
 // Files: every image, recording and file attached in a space, with where it is used, its size and
 // when it came, each space's under its own heading. A row opens the file; the name of a note, a
-// card or a record on it opens that. After the Files views of design/mockups.html (PLAN 4.2).
+// card or a record on it opens that. Files come in here too, by Upload, dropped or pasted: used by
+// nothing, they stay until they are deleted. After the Files views of design/mockups.html (PLAN 4.2).
 
 const IMAGE = /\.(png|jpe?g|gif|webp|avif|svg|bmp|ico)$/i;
 const AUDIO = /\.(webm|ogg|oga|opus|mp3|m4a|aac|wav|flac)$/i;
@@ -64,6 +65,12 @@ export interface FileActions {
   menu: (file: FileRow) => void;
   /** On a phone: the sort, chosen in a sheet. */
   chooseSort: (sort: FileSort, onPick: (sort: FileSort) => void) => void;
+  /** The space files come into, asked where there is more than one; `at` is where its menu opens. */
+  chooseSpace: (at: { x: number; y: number }, pick: (space: string | null) => void) => void;
+  /** Puts files in a space's Files; resolves with how many came in. */
+  upload: (space: string | null, files: File[]) => Promise<number>;
+  /** On the desktop app: the files copied in the file manager, for a paste. */
+  clipboardFiles?: () => Promise<File[]>;
 }
 
 export type FileSort = { key: 'added' | 'size' | 'name'; dir: 'asc' | 'desc' };
@@ -276,9 +283,11 @@ function PhoneFileRow({ file, chosen, choosing, going, actions, onChoose }: {
  * chips, and the files, each space's under its heading when there is more than one. Rows are
  * chosen together as in the trash.
  */
-export function FilesView({ files, today, spaces, choice, actions, downloads }: {
+export function FilesView({ files, today, spaces, choice, actions, downloads, onScreen }: {
   /** Null while they are read. */
   files: FileRow[] | null;
+  /** Shown now: a paste puts files in it. */
+  onScreen: boolean;
   /** The files coming from the cloud now, by path: how much of each came. */
   downloads: Record<string, { done: number; size: number }>;
   today: string;
@@ -291,6 +300,86 @@ export function FilesView({ files, today, spaces, choice, actions, downloads }: 
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<FileKind | 'all'>('all');
   const [sort, setSort] = useState<FileSort>(NEWEST);
+  // Files coming in: how many are still being copied, and whether some are dragged over.
+  const [adding, setAdding] = useState(0);
+  const [dropping, setDropping] = useState(false);
+  const view = useRef<HTMLElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  const pickedFor = useRef<string | null>(null);
+  const several = spaces.length > 1;
+  const put = (space: string | null, list: File[]) => {
+    if (list.length === 0) return;
+    setAdding((n) => n + list.length);
+    void actions.upload(space, list).finally(() => setAdding((n) => n - list.length));
+  };
+  /** Files with no space yet: it is asked, where there is more than one. */
+  const putAsked = (list: File[], at: { x: number; y: number }) => {
+    if (list.length > 0) actions.chooseSpace(at, (space) => put(space, list));
+  };
+  const chooseFiles = (event: MouseEvent<HTMLButtonElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    actions.chooseSpace({ x: box.left, y: box.bottom + 2 }, (space) => {
+      pickedFor.current = space;
+      picker.current?.click();
+    });
+  };
+  const middle = () => {
+    const box = view.current?.getBoundingClientRect();
+    return box ? { x: box.left + box.width / 2 - 80, y: box.top + 80 } : { x: 0, y: 0 };
+  };
+  // A paste while Files is shown puts what was copied in it: an image, or files copied in the
+  // file manager. One into the search box that brings text is the search's.
+  useEffect(() => {
+    if (!onScreen || isPhone()) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const list = [...(event.clipboardData?.files ?? [])];
+      if (list.length > 0) {
+        event.preventDefault();
+        putAsked(list, middle());
+        return;
+      }
+      const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+      if (typing || !actions.clipboardFiles) return;
+      void actions.clipboardFiles().then((found) => putAsked(found, middle()), () => undefined);
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  });
+  // Files dragged in: into the space of the heading they are dropped under, else the one asked for.
+  const dragging = {
+    onDragOver: (event: DragEvent<HTMLElement>) => {
+      if (!event.dataTransfer.types.includes('Files')) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      setDropping(true);
+    },
+    onDragLeave: (event: DragEvent<HTMLElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false);
+    },
+    onDrop: (event: DragEvent<HTMLElement>) => {
+      setDropping(false);
+      const list = [...event.dataTransfer.files];
+      if (list.length === 0) return;
+      event.preventDefault();
+      const group = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-space]') : null;
+      if (!several) put(spaces[0]?.id ?? null, list);
+      else if (group) put(group.dataset.space || null, list);
+      else putAsked(list, { x: event.clientX, y: event.clientY });
+    },
+  };
+  const fileInput = (
+    <input
+      ref={picker}
+      type="file"
+      multiple
+      hidden
+      onChange={(event) => {
+        const list = [...(event.target.files ?? [])];
+        event.target.value = '';
+        put(pickedFor.current, list);
+      }}
+    />
+  );
   const all = files ?? [];
   const counts = useMemo(() => {
     const out = { all: all.length, image: 0, audio: 0, file: 0 };
@@ -352,7 +441,7 @@ export function FilesView({ files, today, spaces, choice, actions, downloads }: 
       <input type="search" enterKeyHint="search" placeholder={t('files.search')} aria-label={t('files.search')} value={query} onChange={(event) => setQuery(event.target.value)} />
     </label>
   );
-  const summary = files === null ? '' : `${t('count.files', { count: all.length })} · ${total(all)}`;
+  const summary = adding > 0 ? t('files.adding', { count: adding }) : files === null ? '' : `${t('count.files', { count: all.length })} · ${total(all)}`;
   const empty =
     files !== null && all.length === 0 ? (
       phone ? (
@@ -390,16 +479,22 @@ export function FilesView({ files, today, spaces, choice, actions, downloads }: 
 
   if (phone) {
     return (
-      <section className="mb-files">
-        <header className="mb-head">
+      <section ref={view} className="mb-files">
+        <header className="mb-head mb-files-head">
           <h1>{t('files.title')}</h1>
-          {summary && <small>{summary}</small>}
+          {summary && <span>{summary}</span>}
+          {!choosing && (
+            <button type="button" onClick={chooseFiles}>
+              {t('files.upload')}
+            </button>
+          )}
         </header>
+        {fileInput}
         {all.length > 0 && search}
         {all.length > 0 && kinds}
         {empty}
         {groups.map(({ space, files: list }) => (
-          <div key={space?.id ?? ''}>
+          <div key={space?.id ?? ''} data-space={space?.id ?? ''}>
             {space && heading(space, list)}
             {list.map((file) => (
               <PhoneFileRow
@@ -433,7 +528,7 @@ export function FilesView({ files, today, spaces, choice, actions, downloads }: 
   };
   const chosenFiles = all.filter((file) => chosen.has(file.path));
   return (
-    <section className="tasks files-view">
+    <section ref={view} className={`tasks files-view${dropping ? ' dropping' : ''}`} {...dragging}>
       {count > 0 ? (
         <header className="th chosen-bar">
           <button type="button" className="let-go" title={t('choose.letGo')} aria-label={t('choose.letGo')} onClick={() => choice.onChoose(every, false)}>
@@ -454,8 +549,12 @@ export function FilesView({ files, today, spaces, choice, actions, downloads }: 
           <b>{t('files.title')}</b>
           {summary && <span>{summary}</span>}
           {search}
+          <button type="button" className="ghost" onClick={chooseFiles}>
+            {t('files.upload')}
+          </button>
         </header>
       )}
+      {fileInput}
       {all.length > 0 && kinds}
       <div className={`tl${choosing ? ' choosing' : ''}`}>
         {all.length > 0 && (
@@ -470,7 +569,7 @@ export function FilesView({ files, today, spaces, choice, actions, downloads }: 
           </div>
         )}
         {groups.map(({ space, files: list }) => (
-          <div key={space?.id ?? ''}>
+          <div key={space?.id ?? ''} data-space={space?.id ?? ''}>
             {space && heading(space, list)}
             {list.map((file) => (
               <FileLine

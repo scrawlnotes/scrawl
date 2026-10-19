@@ -31,8 +31,8 @@ import {
   saveAttachment,
   saveFile,
   saveWorkspace,
-  sweepAttachments,
   trashUnlinked,
+  trashWithFiles,
   titleOf,
   trashFolder,
   trashItem,
@@ -437,36 +437,47 @@ describe('unused attachments', () => {
   const later = new Date(2026, 9, 6, 9, 30, 0);
   const files = async (fs: MemoryFs) => (await fs.list('_attachments')).map((e) => e.name).sort();
 
-  it('go to the trash when nothing links to them, also not a note in the trash', async () => {
+  it('go to the trash with the note, list, board or folder that used them, and come back with it', async () => {
     const fs = new MemoryFs();
-    for (const name of ['photo.png', 'Scope v3 (final).pdf', 'memo.webm', 'list.pdf', 'trashed.png', 'unsaved.png', 'old.png', 'gone.png']) {
+    for (const name of ['photo.png', 'Scope v3 (final).pdf', 'shared.png', 'open.png', 'list.pdf', 'deep.png', 'loose.pdf']) {
       await fs.writeText(`_attachments/${name}`, 'data');
     }
-    await fs.writeText('Work/call.md', '![](_attachments/photo.png)\n[Scope v3 \\(final\\)](_attachments/Scope%20v3%20%28final%29.pdf)');
-    await fs.writeText('Inbox/2026-10-05 101010.md', '[memo](_attachments/memo.webm)');
+    await fs.writeText('Work/call.md', '![](_attachments/photo.png)\n[Scope v3 \\(final\\)](_attachments/Scope%20v3%20%28final%29.pdf) ![](_attachments/shared.png) ![](_attachments/open.png)');
+    await fs.writeText('Work/other.md', '![](_attachments/shared.png)');
     await fs.writeText('Work/Sprint.tasks.json', '{"tasks":[{"id":"1","title":"Read [it](_attachments/list.pdf)"}]}');
-    await fs.writeText('Old/note.md', '![](_attachments/trashed.png)');
-    await trashItem(fs, 'Old/note.md', at);
-    // History keeps old text but does not keep files: restoring a version brings them back.
-    await fs.writeText('.scrawl/history/Work/call.md/2026-10-01 090000.md', '![](_attachments/old.png)');
+    await fs.writeText('Old/deep/note.md', '![](_attachments/deep.png)');
+    // Another note uses one, and one is in a note not written yet: those stay.
+    const unsaved = () => ['![](_attachments/open.png)'];
+    expect(await trashWithFiles(fs, 'Work/call.md', false, unsaved, at)).toEqual(['_attachments/photo.png', '_attachments/Scope v3 (final).pdf']);
+    expect(await trashWithFiles(fs, 'Work/Sprint.tasks.json', false, () => [], at)).toEqual(['_attachments/list.pdf']);
+    expect(await trashWithFiles(fs, 'Old', true, () => [], at)).toEqual(['_attachments/deep.png']);
+    // A file nothing ever used, put in Files, stays where it is.
+    expect(await files(fs)).toEqual(['loose.pdf', 'open.png', 'shared.png']);
 
-    expect(await sweepAttachments(fs, () => ['![](_attachments/unsaved.png)'], later)).toBe(2);
-    expect(await files(fs)).toEqual(['Scope v3 (final).pdf', 'list.pdf', 'memo.webm', 'photo.png', 'trashed.png', 'unsaved.png']);
-    const swept = (await readTrash(fs)).filter((i) => i.kind === 'attachment');
-    expect(swept.map((i) => [i.title, i.from, i.size]).sort()).toEqual([
-      ['gone.png', '_attachments/gone.png', 4],
-      ['old.png', '_attachments/old.png', 4],
-    ]);
-    // Sweeping again finds nothing more; without the unsaved note its file would go too.
-    expect(await sweepAttachments(fs, () => ['![](_attachments/unsaved.png)'], later)).toBe(0);
-    expect(await sweepAttachments(fs, () => [], later)).toBe(1);
+    // Each comes back with what used it.
+    for (const kind of ['note', 'tasks', 'folder'] as const) await restoreFromTrash(fs, (await readTrash(fs)).find((i) => i.kind === kind)!);
+    expect(await files(fs)).toEqual(['Scope v3 (final).pdf', 'deep.png', 'list.pdf', 'loose.pdf', 'open.png', 'photo.png', 'shared.png']);
+    expect(await readTrash(fs)).toEqual([]);
+  });
+
+  it('are deleted for good from the trash with the item they went with, unless something else uses them', async () => {
+    const fs = new MemoryFs();
+    for (const name of ['mine.png', 'kept.png']) await fs.writeText(`_attachments/${name}`, 'x');
+    await fs.writeText('Work/a.md', '![](_attachments/mine.png) ![](_attachments/kept.png)');
+    await fs.writeText('Work/b.md', '![](_attachments/kept.png)');
+    await trashWithFiles(fs, 'Work/a.md', false, () => [], at);
+    // b goes later, kept.png with it; a deleted for good does not take kept.png, which b in the trash uses.
+    await trashWithFiles(fs, 'Work/b.md', false, () => [], later);
+    const a = (await readTrash(fs)).find((i) => i.from === 'Work/a.md')!;
+    await deleteFromTrash(fs, a);
+    expect((await readTrash(fs)).map((i) => i.title).sort()).toEqual(['b', 'kept.png']);
   });
 
   it('come back with an old version or a note from the trash that links to them', async () => {
     const fs = new MemoryFs();
     await fs.writeText('_attachments/a.png', 'a');
     await fs.writeText('_attachments/b.png', 'b');
-    expect(await sweepAttachments(fs, () => [], at)).toBe(2);
+    expect(await trashUnlinked(fs, ['_attachments/a.png', '_attachments/b.png'], () => [], at)).toHaveLength(2);
     expect(await files(fs)).toEqual([]);
 
     // An old version of a note is restored from its history.
@@ -497,7 +508,7 @@ describe('unused attachments', () => {
   it('do not come back over another file that took their name', async () => {
     const fs = new MemoryFs();
     await fs.writeText('_attachments/scope.pdf', 'old');
-    await sweepAttachments(fs, () => [], at);
+    await trashUnlinked(fs, ['_attachments/scope.pdf'], () => [], at);
     await fs.writeText('_attachments/scope.pdf', 'new');
     expect(await restoreAttachments(fs, ['[scope](_attachments/scope.pdf)'])).toEqual([]);
     expect(await fs.readText('_attachments/scope.pdf')).toBe('new');
