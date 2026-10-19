@@ -173,6 +173,22 @@ describe('the people on a server', () => {
     expect(await refusal(s.as(null).signIn({ email: 'mert@example.com', password: PASSWORD, device: '' }))).toMatchObject({ code: 'no-account' });
   });
 
+  it('see every shared space with who is in it, the owner and admins only, and no one’s personal space', async () => {
+    const s = await start();
+    const mert = await s.invited(ACME, 'Mert', 'mert@example.com');
+    const lena = await s.invited(OTHER, 'Lena', 'lena@example.com');
+    await s.as(mert.token).openSpace('sp-mertmine', 'Mert’s own', true);
+    await s.as(s.owner).setRole(lena.account.id, 'admin');
+    const shared = [
+      { id: ACME, name: 'Acme', people: 2, members: expect.arrayContaining(['person-kaan-01', mert.account.id]) },
+      { id: OTHER, name: 'Other', people: 2, members: expect.arrayContaining(['person-kaan-01', lena.account.id]) },
+    ];
+    expect(await s.as(s.owner).sharedSpaces()).toEqual(shared);
+    // An admin sees them all, those they are not in too.
+    expect(await s.as(lena.token).sharedSpaces()).toEqual(shared);
+    expect(await refusal(s.as(mert.token).sharedSpaces())).toMatchObject({ status: 403, code: 'not-allowed' });
+  });
+
   it('get a link for a new password, which ends their other keys', async () => {
     const s = await start();
     const mert = await s.invited(ACME, 'Mert', 'mert@example.com');

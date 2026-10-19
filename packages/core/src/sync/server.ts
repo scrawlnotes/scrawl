@@ -229,6 +229,14 @@ export interface ServerPerson extends ServerAccountInfo {
   seen: number | null;
 }
 
+/** A shared space on the server as its owner and admins see it: who is in it, by account id. */
+export interface ServerSharedSpace {
+  id: string;
+  name: string;
+  people: number;
+  members: string[];
+}
+
 /** Someone in a space on the server. */
 export interface ServerMember {
   id: string;
@@ -320,6 +328,11 @@ export class ServerAccount {
   /** Everyone with an account here, for the owner and the admins. */
   people(): Promise<ServerPerson[]> {
     return this.client.json('/accounts');
+  }
+
+  /** Every shared space on the server and who is in it, for its owner and admins; a server from before refuses. */
+  sharedSpaces(): Promise<ServerSharedSpace[]> {
+    return this.client.json('/shared-spaces');
   }
 
   /** Makes someone an admin, or a member again; the owner does. */

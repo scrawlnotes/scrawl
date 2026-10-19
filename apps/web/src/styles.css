@@ -11142,6 +11142,63 @@ button.st-li:hover,
   white-space: nowrap;
 }
 
+/* A server's spaces on its page: a mark for each, On this device or Add on the right. Someone's count
+   of spaces opens the names of those spaces under them. */
+.st-li .srv-sp {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--sl-code);
+  color: var(--sl-dim);
+}
+
+.st-li .srv-sp .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.st-li .srv-add {
+  padding: 3px 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-fg);
+  font-size: 12px;
+}
+
+.st-li .srv-add:hover {
+  border-color: var(--sl-accent);
+  color: var(--sl-accent);
+}
+
+.st-li .srv-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.st-li .srv-count .icon {
+  width: 11px;
+  height: 11px;
+  transition: transform 0.12s;
+}
+
+.st-li .srv-count[aria-expanded='true'] .icon {
+  transform: rotate(90deg);
+}
+
+.st-li .srv-count:hover {
+  color: var(--sl-fg);
+}
+
+.srv-theirs {
+  padding: 2px 14px 10px 58px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .st-space.srv-page .st-note {
   margin-left: 66px;
 }

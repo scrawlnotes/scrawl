@@ -1245,6 +1245,7 @@ export function Phone(props: PhoneProps) {
         <PageFrame title={titleOf(page, of)} sub={<YouAre url={server.url} />} nav={nav}>
           <PhoneServerPage
             server={server}
+            onDevice={props.spaces.map((space) => space.id)}
             onAgents={() => push({ kind: 'section', section: 'agents' })}
             onSignOut={() => {
               pop();

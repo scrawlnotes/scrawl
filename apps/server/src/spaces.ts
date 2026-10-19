@@ -30,6 +30,15 @@ export interface Member {
   seen: number | null;
 }
 
+/** A shared space as its owner and admins see it in the server's page: who is in it, by account. */
+export interface SharedSpace {
+  id: string;
+  name: string;
+  people: number;
+  /** The accounts in it, by id. */
+  members: string[];
+}
+
 const ID = /^sp-[a-z0-9]{8}$/;
 
 export class Spaces {
@@ -47,6 +56,22 @@ export class Spaces {
       )
       .all(account) as unknown as (Omit<SpaceInfo, 'personal'> & { personal: number })[];
     return rows.map((row) => ({ ...row, personal: row.personal === 1 }));
+  }
+
+  /**
+   * Every shared space on the server with who is in it, for its owner and admins, whether they are
+   * in it or not. No personal space: only its owner sees it.
+   */
+  shared(by: Account): SharedSpace[] {
+    if (by.role === 'member') throw new Refused(403, 'not-allowed', 'Only the owner and admins see every space on this server');
+    const spaces = this.db.prepare('SELECT id, name FROM spaces WHERE personal_of IS NULL ORDER BY name COLLATE NOCASE').all() as unknown as { id: string; name: string }[];
+    const members = this.db
+      .prepare('SELECT m.space_id AS space, m.account_id AS account FROM members m JOIN accounts a ON a.id = m.account_id WHERE a.disabled_at IS NULL')
+      .all() as unknown as { space: string; account: string }[];
+    return spaces.map((space) => {
+      const ids = members.filter((m) => m.space === space.id).map((m) => m.account);
+      return { ...space, people: ids.length, members: ids };
+    });
   }
 
   /** A space this account is in. */

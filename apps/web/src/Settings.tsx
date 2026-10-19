@@ -498,6 +498,8 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
   const [adding, setAdding] = useState(() => !!addingAs || !!pendingJoin() || !!values.initialAdding);
   // A server's page, by its address.
   const [serverPage, setServerPage] = useState<string | null>(null);
+  // A server's space being added from its page, chosen in the window already.
+  const [addingFrom, setAddingFrom] = useState<{ server: string; space: string } | null>(null);
   const servers = useKnownServers();
   const [removing, setRemoving] = useState<SpaceView | null>(null);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; id: string } | null>(null);
@@ -518,26 +520,39 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
       account={addingAs ?? null}
       me={values.me}
       onDevice={values.spaces.map((space) => space.id)}
+      preset={addingFrom}
       onSaveProfile={values.onSaveProfile}
       onAdd={values.onAddSpace}
       onDone={(id) => {
         setAdding(false);
-        if (id) setPage(id);
+        setAddingFrom(null);
+        if (id) {
+          setServerPage(null);
+          setPage(id);
+        }
       }}
     />;
   if (page === null) return <PersonalPage {...values} onBack={() => setPage(undefined)} />;
   const onServer = serverPage ? servers.find((each) => each.url === serverPage) : undefined;
   if (onServer) {
     return (
-      <ServerPage
-        server={onServer}
-        onBack={() => setServerPage(null)}
-        {...(values.onSection && { onAgents: () => values.onSection!('agents') })}
-        onSignOut={() => {
-          setServerPage(null);
-          void syncService.signOutOfServer(onServer.url);
-        }}
-      />
+      <>
+        <ServerPage
+          server={onServer}
+          onDevice={values.spaces.map((space) => space.id)}
+          onAdd={(space) => {
+            setAddingFrom({ server: onServer.url, space });
+            setAdding(true);
+          }}
+          onBack={() => setServerPage(null)}
+          {...(values.onSection && { onAgents: () => values.onSection!('agents') })}
+          onSignOut={() => {
+            setServerPage(null);
+            void syncService.signOutOfServer(onServer.url);
+          }}
+        />
+        {add}
+      </>
     );
   }
   const shown = page === undefined ? null : spaces.find((space) => space.id === page);
@@ -765,7 +780,7 @@ export function RemoveSpaceDialog({ space, onRemove, onClose }: { space: Pick<Sp
  * its spaces the person was invited to and that is not on this device yet; the account there says
  * who you are. Then adding it.
  */
-export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd, onDone, onDevice }: {
+export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd, onDone, onDevice, preset }: {
   service: SyncService;
   /** Signed in already, the page back from Microsoft: the account to choose the folder in. */
   account: Connection['account'] | null;
@@ -776,6 +791,8 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
   onDone: (id: string | null) => void;
   /** The ids of the spaces on this device, which a server's list leaves out. */
   onDevice: string[];
+  /** A space of a server to add, chosen already: from the server's page. */
+  preset?: { server: string; space: string } | null;
 }) {
   const [name, setName] = useState('');
   // Your name and email for the others of a space in OneDrive, what Profile has to start with.
@@ -798,7 +815,7 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
   const [busy, setBusy] = useState(false);
   // Where it lives: OneDrive, or a server by its address.
   const [servers, setServers] = useState<KnownServer[]>(() => knownServers());
-  const [where, setWhere] = useState('onedrive');
+  const [where, setWhere] = useState(preset?.server ?? 'onedrive');
   const server = servers.find((each) => each.url === where) ?? null;
   // The server's spaces not on this device, null while it is asked; and the one chosen, `new` for a new one.
   const [serverSpaces, setServerSpaces] = useState<ServerSpace[] | null>(null);
@@ -828,7 +845,8 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
         setServerSpaces(offered);
         setServers((now) => now.map((each) => (each.url === server.url ? { ...each, role: me.role } : each)));
         noteRole(server.url, me.role);
-        setChoice(me.role === 'member' ? (offered[0]?.id ?? '') : 'new');
+        const asked = preset?.server === server.url ? offered.find((each) => each.id === preset.space) : undefined;
+        setChoice(asked ? asked.id : me.role === 'member' ? (offered[0]?.id ?? '') : 'new');
       },
       (failure: unknown) => {
         if (!live) return;
@@ -1008,7 +1026,7 @@ export function useAddSpace({ service, account: given, me, onSaveProfile, onAdd,
   };
 }
 
-function AddSpaceDialog({ sync, service, account: given, me, onDevice, onSaveProfile, onAdd, onDone }: {
+function AddSpaceDialog({ sync, service, account: given, me, onDevice, preset, onSaveProfile, onAdd, onDone }: {
   sync: SyncSnapshot;
   service: SyncService;
   /** Who the user is: asked for here when Profile lacks it, and for setting up a server or signing in to one. */
@@ -1019,8 +1037,10 @@ function AddSpaceDialog({ sync, service, account: given, me, onDevice, onSavePro
   onSaveProfile: SettingsValues['onSaveProfile'];
   onAdd: SettingsValues['onAddSpace'];
   onDone: (id: string | null) => void;
+  /** A space of a server to add, chosen already: from the server's page. */
+  preset?: { server: string; space: string } | null;
 }) {
-  const added = useAddSpace({ service, account: given, me, onSaveProfile, onAdd, onDone, onDevice });
+  const added = useAddSpace({ service, account: given, me, onSaveProfile, onAdd, onDone, onDevice, preset });
   const { name, setName, account, folder, picking, setPicking, signing, error, setError, busy, ready, connect, choose, add } = added;
   const { servers, where, setWhere, server, serverSpaces, choice, setChoice, chosenSpace, serverSignedOut, connecting, setConnecting, connected, start, asking, you, setYou } = added;
   const addOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {

@@ -1,6 +1,6 @@
-import { dayOf, type Me, RemoteSignedOut, type ServerAccountInfo, type ServerAgent, type ServerLink, type ServerMember, type ServerPerson } from '@scrawlnotes/core';
+import { dayOf, type Me, RemoteSignedOut, type ServerAccountInfo, type ServerAgent, type ServerLink, type ServerMember, type ServerPerson, type ServerSharedSpace, type ServerSpace } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, type MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ConfirmDialog, ContextMenu, Dialog, type MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { writeClipboard } from './Keys';
@@ -364,6 +364,10 @@ function useServerPage(server: KnownServer) {
   const [me, setMe] = useState<ServerAccountInfo | null>(null);
   const [people, setPeople] = useState<ServerPerson[] | null>(null);
   const [agents, setAgents] = useState<ServerAgent[] | null>(null);
+  // The shared spaces the account is in; and for the owner and admins every shared space with who is
+  // in it, null from a server from before that tells it.
+  const [spaces, setSpaces] = useState<ServerSpace[] | null>(null);
+  const [shared, setShared] = useState<ServerSharedSpace[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
@@ -372,6 +376,8 @@ function useServerPage(server: KnownServer) {
       setMe(mine);
       noteRole(server.url, mine.role);
       setAgents(await account.agents().catch(() => []));
+      setSpaces((await account.spaces()).filter((space) => !space.personal));
+      setShared(mine.role === 'member' ? null : await account.sharedSpaces().catch(() => null));
       setPeople(mine.role === 'member' ? [] : await account.people());
       setError(null);
     } catch (failure) {
@@ -391,6 +397,7 @@ function useServerPage(server: KnownServer) {
     }
   };
   const role = me?.role ?? server.role;
+  const inIt = new Set((spaces ?? []).map((space) => space.id));
   return {
     host,
     me,
@@ -398,6 +405,16 @@ function useServerPage(server: KnownServer) {
     people,
     agents,
     error,
+    /** The spaces the page lists: every shared one for the owner and admins, else those the account is in; null while asked. */
+    listed:
+      spaces === null
+        ? null
+        : shared
+          ? shared.map((space) => ({ id: space.id, name: space.name, people: space.people, mine: inIt.has(space.id) }))
+          : spaces.map((space) => ({ id: space.id, name: space.name, people: space.people, mine: true })),
+    /** The names of the shared spaces someone is in, for the owner and admins. */
+    spacesOf: (person: string) => (shared ?? []).filter((space) => space.members.includes(person)).map((space) => space.name || t('settings.unnamed')),
+    everySpace: shared !== null,
     setRole: (person: ServerPerson, to: 'admin' | 'member') => act(() => serverAccount(server.url).setRole(person.id, to)),
     remove: (person: ServerPerson) => act(() => serverAccount(server.url).removePerson(person.id)),
     passwordLink: (person: ServerPerson) => () => serverAccount(server.url).passwordLink(person.id),
@@ -426,8 +443,62 @@ function personItems(p: ReturnType<typeof useServerPage>, person: ServerPerson, 
 /** What the agents row says: who is connected, by name. */
 const agentNames = (agents: ServerAgent[] | null) => (agents === null ? '' : agents.length === 0 ? t('agents.noneConnected') : agents.map((agent) => agent.client || t('agents.unnamedAgent')).join(', '));
 
-export function ServerPage({ server, onBack, onSignOut, onAgents }: { server: KnownServer; onBack: () => void; onSignOut: () => void; onAgents?: () => void }) {
+/**
+ * The spaces of a server on its page: each with how many people are in it and whether it is on this
+ * device, with Add for one that is not and that the account is in. For the owner and admins every
+ * shared space, those they are not in said so; personal spaces are only their owners'.
+ */
+function ServerSpaces({ p, onDevice, onAdd }: { p: ReturnType<typeof useServerPage>; onDevice: string[]; onAdd?: (space: string) => void }) {
+  if (!p.listed || p.listed.length === 0) return null;
+  return (
+    <>
+      <span className="st-label">{t('server.spacesOn')}</span>
+      <p className="st-note">{t(p.everySpace ? 'server.spacesAboutAll' : 'server.spacesAboutMine')}</p>
+      <div className="st-list">
+        {p.listed.map((space) => {
+          const here = onDevice.includes(space.id);
+          return (
+            <div key={space.id} className="st-li one">
+              <span className="srv-sp" aria-hidden="true">
+                <Icon name="space" />
+              </span>
+              <span className="nm">
+                <b>{space.name || t('settings.unnamed')}</b>
+                <small>
+                  {t('count.people', { count: space.people })}
+                  {!space.mine && ` · ${t('server.notInIt')}`}
+                </small>
+              </span>
+              {here ? (
+                <span className="r">{t('server.onThisDevice')}</span>
+              ) : space.mine && onAdd ? (
+                <button type="button" className="srv-add" onClick={() => onAdd(space.id)}>
+                  {t('settings.add')}
+                </button>
+              ) : (
+                <span className="r" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+export function ServerPage({ server, onDevice, onAdd, onBack, onSignOut, onAgents }: {
+  server: KnownServer;
+  /** The ids of the spaces on this device. */
+  onDevice: string[];
+  /** Adds a space of the server that the account is in to this device. */
+  onAdd: (space: string) => void;
+  onBack: () => void;
+  onSignOut: () => void;
+  onAgents?: () => void;
+}) {
   const p = useServerPage(server);
+  // The people whose spaces are shown under them, by id.
+  const [opened, setOpened] = useState<string[]>([]);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; person: ServerPerson } | null>(null);
   const [removing, setRemoving] = useState<ServerPerson | null>(null);
   const [linking, setLinking] = useState<ServerPerson | null>(null);
@@ -473,6 +544,7 @@ export function ServerPage({ server, onBack, onSignOut, onAgents }: { server: Kn
           <span>{p.error}</span>
         </p>
       )}
+      <ServerSpaces p={p} onDevice={onDevice} onAdd={onAdd} />
       {p.role !== 'member' && p.people && p.people.length > 0 && (
         <>
           <span className="st-label">{t('server.peopleOn')}</span>
@@ -480,8 +552,11 @@ export function ServerPage({ server, onBack, onSignOut, onAgents }: { server: Kn
           <div className="st-list">
             {p.people.map((person) => {
               const you = person.id === p.me?.id;
+              const theirs = p.everySpace && person.spaces > 0 ? p.spacesOf(person.id) : null;
+              const shown = theirs !== null && opened.includes(person.id);
               return (
-                <div key={person.id} className={`st-li one${menu?.person.id === person.id ? ' menu-on' : ''}`} {...(reaches(p, person) && { onContextMenu: (event: MouseEvent) => open(event, person) })}>
+                <Fragment key={person.id}>
+                <div className={`st-li one${menu?.person.id === person.id ? ' menu-on' : ''}`} {...(reaches(p, person) && { onContextMenu: (event: MouseEvent) => open(event, person) })}>
                   <span className="who" aria-hidden="true">
                     {initial(person.name, person.email)}
                   </span>
@@ -493,13 +568,27 @@ export function ServerPage({ server, onBack, onSignOut, onAgents }: { server: Kn
                     </b>
                     <small>{person.email}</small>
                   </span>
-                  <span className="r">{t('server.spacesCount', { count: person.spaces })}</span>
+                  {theirs ? (
+                    <button
+                      type="button"
+                      className="r srv-count"
+                      aria-expanded={shown}
+                      onClick={() => setOpened((now) => (now.includes(person.id) ? now.filter((id) => id !== person.id) : [...now, person.id]))}
+                    >
+                      {t('server.spacesCount', { count: person.spaces })}
+                      <Icon name="chevron" />
+                    </button>
+                  ) : (
+                    <span className="r">{t('server.spacesCount', { count: person.spaces })}</span>
+                  )}
                   {reaches(p, person) && (
                     <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => open(event, person)}>
                       ···
                     </button>
                   )}
                 </div>
+                {shown && <div className="srv-theirs">{theirs.join(' · ')}</div>}
+                </Fragment>
               );
             })}
           </div>
@@ -539,7 +628,7 @@ export function ServerPage({ server, onBack, onSignOut, onAgents }: { server: Kn
 }
 
 /** The server's page on a phone: the account and Sign out, and for its owner and admins the people, each with a sheet. */
-export function PhoneServerPage({ server, onSignOut, onAgents }: { server: KnownServer; onSignOut: () => void; onAgents?: () => void }) {
+export function PhoneServerPage({ server, onDevice, onSignOut, onAgents }: { server: KnownServer; onDevice: string[]; onSignOut: () => void; onAgents?: () => void }) {
   const p = useServerPage(server);
   const [held, setHeld] = useState<ServerPerson | null>(null);
   const [removing, setRemoving] = useState<ServerPerson | null>(null);
@@ -562,6 +651,28 @@ export function PhoneServerPage({ server, onSignOut, onAgents }: { server: Known
         </div>
       </div>
       {p.error && <p className="mb-p err">{p.error}</p>}
+      {p.listed && p.listed.length > 0 && (
+        <>
+          <div className="mb-sec">
+            <span>{t('server.spacesOn')}</span>
+          </div>
+          <div className="mb-list">
+            {p.listed.map((space) => (
+              <div key={space.id} className="mb-row person">
+                <span className="tx">
+                  <b>{space.name || t('settings.unnamed')}</b>
+                  <small>
+                    {t('count.people', { count: space.people })}
+                    {!space.mine && ` · ${t('server.notInIt')}`}
+                  </small>
+                </span>
+                <span className="ct">{onDevice.includes(space.id) ? t('server.onThisDevice') : ''}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mb-p">{t(p.everySpace ? 'server.spacesAboutAll' : 'server.spacesAboutMine')}</p>
+        </>
+      )}
       {p.role !== 'member' && p.people && p.people.length > 0 && (
         <>
           <div className="mb-sec">
@@ -609,7 +720,11 @@ export function PhoneServerPage({ server, onSignOut, onAgents }: { server: Known
       <p className="mb-p">{t('server.signOutText')}</p>
       {held && (
         <ActionSheet
-          head={{ icon: 'person', title: held.name || held.email, sub: `${held.email} · ${t(ROLE_WORD[held.role])} · ${t('server.spacesCount', { count: held.spaces })}` }}
+          head={{
+            icon: 'person',
+            title: held.name || held.email,
+            sub: [held.email, t(ROLE_WORD[held.role]), p.everySpace && held.spaces > 0 ? p.spacesOf(held.id).join(', ') : t('server.spacesCount', { count: held.spaces })].join(' · '),
+          }}
           items={personItems(
             p,
             held,

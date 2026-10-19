@@ -17,6 +17,7 @@ export {
   type ServerLink,
   type ServerMember,
   type ServerPerson,
+  type ServerSharedSpace,
   type ServerOptions,
   ServerRemote,
   type ServerSignedIn,
