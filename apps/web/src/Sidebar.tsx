@@ -51,7 +51,9 @@ interface Props {
   /** A right click on a note, a task list or a folder. */
   onItemMenu: (event: MouseEvent, path: string) => void;
   /** A folder's menu; `addFolder` starts naming a folder inside it, under its row. */
-  onFolderMenu: (event: MouseEvent, path: string, addFolder: () => void) => void;
+  onFolderMenu: (event: MouseEvent, path: string) => void;
+  /** A folder's +: what can be made in it; `addFolder` starts naming a folder inside it, under its row. */
+  onFolderAdd: (event: MouseEvent, path: string, addFolder: () => void) => void;
   /** The saved filters, under Today and Upcoming. */
   filters: TaskFilter[];
   onFilterMenu: (event: MouseEvent, filter: TaskFilter) => void;
@@ -119,6 +121,7 @@ export function Sidebar({
   onNewFolder,
   onItemMenu,
   onFolderMenu,
+  onFolderAdd,
   filters,
   onFilterMenu,
   onSettings,
@@ -300,7 +303,20 @@ export function Sidebar({
     </form>
   );
 
-  const folderMenu = (event: MouseEvent, path: string) => onFolderMenu(event, path, () => startFolder(path));
+  const folderMenu = (event: MouseEvent, path: string) => onFolderMenu(event, path);
+  const folderAdd = (event: MouseEvent, path: string) => onFolderAdd(event, path, () => startFolder(path));
+
+  /** A space's or a folder's two buttons: how it is viewed and the rest, and + for what can be made in it. */
+  const viewAndAdd = (menu: (event: MouseEvent) => void, add: (event: MouseEvent) => void) => (
+    <>
+      <button type="button" className="it-more it-icon" title={t('side.view')} aria-label={t('side.view')} onClick={menu}>
+        <Icon name="tune" />
+      </button>
+      <button type="button" className="it-more it-icon" title={t('side.add')} aria-label={t('side.add')} onClick={add}>
+        <Icon name="plus" />
+      </button>
+    </>
+  );
 
   const dropProps = (folder: string) => ({
     onDragOver: (event: DragEvent) => {
@@ -433,7 +449,7 @@ export function Sidebar({
             {folderHead(open, shownName(node.name))}
           </button>
           {!open && <span className="ct">{countItems(node) || ''}</span>}
-          {more((event) => folderMenu(event, node.path))}
+          {viewAndAdd((event) => folderMenu(event, node.path), (event) => folderAdd(event, node.path))}
         </div>
         {open && addingIn === node.path && folderForm(depth + 1)}
         {open && filterRows(node.path, depth + 1)}
@@ -497,12 +513,7 @@ export function Sidebar({
           </span>
         )}
         {/* What can be made at its top, and apart from it how it is viewed and the rest. */}
-        <button type="button" className="it-more it-icon" title={t('side.view')} aria-label={t('side.view')} onClick={menu}>
-          <Icon name="tune" />
-        </button>
-        <button type="button" className="it-more it-icon" title={t('side.add')} aria-label={t('side.add')} onClick={add}>
-          <Icon name="plus" />
-        </button>
+        {viewAndAdd(menu, add)}
       </div>
     );
   };

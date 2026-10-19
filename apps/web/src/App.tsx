@@ -948,7 +948,7 @@ export function App() {
     const top = localPath(path) === '';
     const sub = top ? undefined : parent ? t('phone.kindIn', { kind: t('create.folder'), folder: folderLabel(parent) }) : t('create.folder');
     // A space's top has its order on its own button; a folder has it in its menu.
-    showSheet(top ? folderMenuItems(path, addFolder) : withOrder(folderMenuItems(path, addFolder), path), { icon: top ? 'space' : 'folder', title: folderLabel(path), sub });
+    showSheet(top ? folderMenuItems(path, addFolder) : [...folderMenuItems(path, addFolder), ...orderItems(path), folderDelete(path)], { icon: top ? 'space' : 'folder', title: folderLabel(path), sub });
   };
   // A collection as a CSV file, saved where the user says.
   const exportCsv = async (dir: string) => {
@@ -1003,22 +1003,16 @@ export function App() {
     if (!header || rows.length === 0) return setNotice(t('import.empty'));
     setImporting({ dir, fileName: file.name, header, rows });
   };
-  // What can be made in a folder, or at the top of a space. A new note shows at once, out from
-  // under the drawer; anything else opens its Create or Filter window with the folder chosen, the
-  // drawer closed so that what is made shows; a new folder is named in the sidebar, under the
-  // folder it goes in. A space's top is no folder: it is not deleted from here.
-  // A folder's menu: what can be made in it, how its items are put in order, and deleting it.
   // When the items were made, as the app keeps it, and a collection's files written, for their order.
   const nodeTimes: NodeTimes = {
     created: (node) => created[node.path.toLowerCase()],
     written: (node) => (node.kind === 'collection' ? collections[node.path]?.written : undefined),
   };
-  const folderMenu = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, withOrder(folderMenuItems(path, addFolder), path), path);
-  /** A folder's items with Group by, Sort by and Reset before its Delete. */
-  const withOrder = (items: MenuItem[], key: string): MenuItem[] => {
-    const at = items.findIndex((item) => item.danger);
-    return at < 0 ? [...items, ...orderItems(key)] : [...items.slice(0, at), ...orderItems(key), ...items.slice(at)];
-  };
+  // A folder, as a space: its + for what can be made in it, and its other button for how its
+  // items are put in order and deleting it.
+  const folderAdd = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, folderMenuItems(path, addFolder), path);
+  const folderMenu = (event: MouseEvent, path: string) => openMenu(event, [...orderItems(path), folderDelete(path)], path);
+  const folderDelete = (path: string): MenuItem => ({ label: t('menu.deleteFolder'), icon: 'trash', danger: true, run: () => deleteFolder(path), apart: true });
   /**
    * How the items of a folder (by its path), or of a space's top (its key, '' for the personal
    * space), are put in order on this device: Group by and Sort by, each a menu of its own, and
@@ -1056,6 +1050,10 @@ export function App() {
       { label: t('side.resetOrder'), icon: 'undo', run: () => session.lookAtFolder(key, DEFAULT_LOOK), ...(isDefaultLook(look) && { disabled: '' }) },
     ];
   };
+  // What can be made in a folder, or at the top of a space. A new note shows at once, out from
+  // under the drawer; anything else opens its Create or Filter window with the folder chosen, the
+  // drawer closed so that what is made shows; a new folder is named in the sidebar, under the
+  // folder it goes in.
   const folderMenuItems = (path: string, addFolder: () => void): MenuItem[] => {
     const createHere = (start: ItemKind) => () => {
       setDrawer(false);
@@ -1084,7 +1082,6 @@ export function App() {
         },
       },
       { label: t('menu.newFolderHere'), icon: 'folder', run: addFolder, apart: true },
-      ...(localPath(path) === '' ? [] : [{ label: t('menu.deleteFolder'), icon: 'trash' as const, danger: true, run: () => deleteFolder(path), apart: true }]),
     ];
   };
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -2160,6 +2157,7 @@ export function App() {
           onNewFolder={(name, parent) => session.newFolder(name, parent)}
           onItemMenu={itemMenu}
           onFolderMenu={folderMenu}
+          onFolderAdd={folderAdd}
           filters={filters}
           onFilterMenu={filterMenu}
           menuTarget={menu?.target ?? null}
