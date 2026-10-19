@@ -214,6 +214,9 @@ describe('boards', () => {
     expect((await refusal(saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'x', column: 'Testing' }))).details.columns).toHaveLength(5);
     expect((await refusal(saveCardTool(agent, CLIENT, { board: 'Scrawl', id: 'SCR-9', title: 'x' }))).message).toContain('No card');
     expect((await refusal(saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'x', due: 'tomorrow' }))).message).toContain('YYYY-MM-DD');
+    // A day that only looks like one is refused too, wherever a day is given.
+    expect((await refusal(saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'x', due: '2026-02-30' }))).message).toContain('on the calendar');
+    expect((await refusal(saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'x', subtasks: [{ title: 'y', due: '2026-13-01' }] }))).message).toContain('on the calendar');
   });
 });
 

@@ -765,10 +765,14 @@ export function removeCard(board: Board, id: string): Board {
   return board.cards.some((c) => c.id === id) ? { ...board, cards: board.cards.filter((c) => c.id !== id) } : board;
 }
 
-/** Points the cards made from the note at `from` to the note's new path. */
+/** Points the cards made from the note at `from`, and the phases whose note it is, to the note's new path. */
 export function relinkBoardNote(board: Board, from: string, to: string): Board {
-  if (!board.cards.some((c) => c.note === from)) return board;
-  return { ...board, cards: board.cards.map((c) => (c.note === from ? { ...c, note: to } : c)) };
+  if (!board.cards.some((c) => c.note === from) && !board.phases.some((p) => p.note === from)) return board;
+  return {
+    ...board,
+    cards: board.cards.map((c) => (c.note === from ? { ...c, note: to } : c)),
+    phases: board.phases.map((p) => (p.note === from ? { ...p, note: to } : p)),
+  };
 }
 
 // ---------- comments ----------

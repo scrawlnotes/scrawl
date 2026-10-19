@@ -239,6 +239,9 @@ describe('record files', () => {
     expect(readValue('date', new Date('2026-10-08T10:00:00Z'))).toBe('2026-10-08');
     expect(readValue('date', '2026-10-08T10:00')).toBe('2026-10-08');
     expect(readValue('date', 'soon')).toBeNull();
+    // Looking like a day is not enough: it is marked, as anything else that does not fit.
+    expect(readValue('date', '2026-02-30')).toBeNull();
+    expect(readValue('date', '2024-02-29')).toBe('2024-02-29');
     expect(readValue('multi-select', 'one')).toEqual(['one']);
     expect(readValue('text', 7)).toBe('7');
   });

@@ -44,6 +44,9 @@ describe('CSV', () => {
     // Something's name goes to the name field when no column is called Name; another system's id goes nowhere.
     expect(guessTargets(['Company name', 'Internal id'], [], companies.schema, 'Notes')).toEqual([{ field: 'name' }, { skip: true }]);
     expect(guessType(['yes', 'No'])).toBe('checkbox');
+    expect(guessType(['14.10.2026', '29/02/2024'])).toBe('date');
+    // A day that is not on the calendar is not one.
+    expect(guessType(['14.10.2026', '30.02.2026'])).toBe('text');
 
     const plan = planImport(companies, header, rows, targets, 'update', {});
     // Globex is there: it changes; Initech is new.

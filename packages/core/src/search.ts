@@ -244,8 +244,8 @@ function lineOf<T extends Findable>(each: Prepared<T>, words: string[]): FoundLi
 /**
  * What matches what was typed, the best first. Every word has to start a word, in the name or the
  * key, or else in the text or a field's value. Found in the name alone is best, the whole of what
- * was typed best of all, then at its start; then found partly in the name and partly elsewhere;
- * then elsewhere only.
+ * was typed best of all, then at its start; then the whole of what was typed, as it was typed, in
+ * the text; then found partly in the name and partly elsewhere; then elsewhere only.
  */
 export function search<T extends Findable>(index: SearchIndex<T>, query: string): Found<T>[] {
   const words = queryWords(query);
@@ -274,11 +274,13 @@ export function search<T extends Findable>(index: SearchIndex<T>, query: string)
       score += 40 * inName.filter((word) => wholeWord(each.name, word) || wholeWord(each.key, word)).length;
       // Of names as well found, the shorter is nearer to what was typed.
       score -= Math.min(each.name.length, 120) / 2;
+    } else if (words.length > 1 && wordAt(each.text, phrase) >= 0) {
+      // "Satır iki" written so in a note is nearer than a name with "satırı" and a text with "ikinci".
+      score = 800 + 10 * (wholeWord(each.text, phrase) ? 1 : 0);
     } else if (inName.length > 0) {
       score = 400 + 60 * inName.length;
     } else {
       score = 100;
-      if (words.length > 1 && each.text.includes(phrase)) score += 60;
       score += 10 * inText.filter((word) => wholeWord(each.text, word)).length;
     }
     if (each.item.done) score -= 300;

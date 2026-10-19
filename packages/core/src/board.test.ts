@@ -275,6 +275,13 @@ describe('cards', () => {
     expect(relinkBoardNote(board, 'Work/b.md', 'x')).toBe(board);
     board = relinkBoardNote(board, 'Work/a.md', 'Done/a.md');
     expect(card(board, 'A').note).toBe('Done/a.md');
+    // A phase's note follows it too, and a card's with it.
+    board = addPhase(board, { name: 'P1', note: 'Done/a.md' }, 'p1');
+    board = addPhase(board, { name: 'P2', note: 'Other.md' }, 'p2');
+    board = relinkBoardNote(board, 'Done/a.md', 'Plans/a.md');
+    expect(board.phases.map((p) => p.note)).toEqual(['Plans/a.md', 'Other.md']);
+    expect(card(board, 'A').note).toBe('Plans/a.md');
+    expect(relinkBoardNote(board, 'Done/a.md', 'x')).toBe(board);
     expect(removeCard(board, 'A').cards).toEqual([]);
     expect(removeCard(board, 'nope')).toBe(board);
   });

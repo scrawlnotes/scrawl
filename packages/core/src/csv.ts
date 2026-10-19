@@ -1,4 +1,5 @@
 import { type Board } from './board';
+import { isDay } from './day';
 import {
   type Collection,
   type Field,
@@ -155,7 +156,7 @@ function sheetCellOf(field: Field, value: FieldValue | undefined): SheetCell {
   if (typeof value === 'number' || typeof value === 'boolean') return value;
   if (typeof value === 'string') {
     // A formula or a rollup can come out as a day: the last contact.
-    if ((field.type === 'date' || field.type === 'formula' || field.type === 'rollup') && DAY.test(value)) return { day: value };
+    if ((field.type === 'date' || field.type === 'formula' || field.type === 'rollup') && isDay(value)) return { day: value };
     if (field.type === 'url' || field.type === 'email') {
       const href = fieldHref(field.type, value);
       if (href) return { text: value, href };
@@ -183,7 +184,6 @@ export type ImportMode = 'update' | 'add';
 /** The types a new field from a column can be. */
 export const IMPORTED_TYPES: readonly FieldType[] = ['text', 'number', 'date', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person'];
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const DOTTED = /^(\d{1,2})[./](\d{1,2})[./](\d{4})$/;
 
 /** A number as people write it: `12000`, `12,000`, `12.000,50`, `1 200`. Null when it is not one. */
@@ -199,14 +199,14 @@ function numberOf(text: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** A day as people write it: `2026-10-14`, `14.10.2026`, `14/10/2026`. Null when it is not one. */
+/** A day as people write it: `2026-10-14`, `14.10.2026`, `14/10/2026`. Null when it is not one, 30.02.2026 neither. */
 function dayOf(text: string): string | null {
   const t = text.trim();
-  if (DAY.test(t)) return t;
+  if (isDay(t)) return t;
   const m = DOTTED.exec(t);
   if (!m) return null;
-  const [d, mo, y] = [Number(m[1]), Number(m[2]), m[3]!];
-  return d >= 1 && d <= 31 && mo >= 1 && mo <= 12 ? `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null;
+  const day = `${m[3]}-${m[2]!.padStart(2, '0')}-${m[1]!.padStart(2, '0')}`;
+  return isDay(day) ? day : null;
 }
 
 /** The type a new field from a column takes: number, day or flag when every value is one, text otherwise. */

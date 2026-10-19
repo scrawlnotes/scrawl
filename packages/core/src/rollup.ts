@@ -1,19 +1,18 @@
 import { BOARD_EXT, type Board, cardValue, isFinished, linkedCards } from './board';
 import { type Collection, type Field, type FieldValue, fieldValueOf, linkedRecords, type Record, type RollupFn } from './collection';
+import { isDay } from './day';
 
 // Rollups: values of a record worked out from what links to it, the records of another
 // collection or the cards of a board, as a company's last contact is the latest day of its
 // activities. They are shown and never written; the table works them out before it sorts,
 // groups and sums. See PLAN.md 4.6.
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
-
 /** What a rollup makes of the values it found: their sum, or their most or least, numbers before days. */
 function aggregate(fn: RollupFn, values: (FieldValue | undefined)[]): number | string | null {
   const numbers = values.filter((v): v is number => typeof v === 'number');
   if (fn === 'sum') return numbers.length > 0 ? numbers.reduce((sum, n) => sum + n, 0) : null;
   if (numbers.length > 0) return fn === 'max' ? Math.max(...numbers) : Math.min(...numbers);
-  const days = values.filter((v): v is string => typeof v === 'string' && DAY.test(v)).sort();
+  const days = values.filter((v): v is string => typeof v === 'string' && isDay(v)).sort();
   if (days.length === 0) return null;
   return fn === 'max' ? days[days.length - 1]! : days[0]!;
 }

@@ -1,5 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { isDay } from './day';
 import { basename, type Entry, join, type VaultFs } from './fs';
 import { fileNameOf, shownName } from './names';
 import { freePath, moveTree } from './paths';
@@ -618,8 +619,6 @@ export function unplacedFields(schema: Schema): Field[] {
 
 // ---------- values ----------
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
-
 /** A link as a file wrote it: a map with an id; a bare string is taken as a name with no id, so that a hand-written link still shows. */
 function readLink(raw: unknown): Link | null {
   if (isLink(raw)) return { id: raw.id, name: raw.name, ...(typeof raw.code === 'string' && raw.code && { code: raw.code }) };
@@ -648,7 +647,7 @@ export function readValue(type: FieldType, raw: unknown, many = false): FieldVal
     case 'date': {
       // `yaml` reads a day as text; another tool may have written a time with it.
       const text = raw instanceof Date ? raw.toISOString().slice(0, 10) : String(raw).trim().slice(0, 10);
-      return DAY.test(text) ? text : null;
+      return isDay(text) ? text : null;
     }
     default:
       return typeof raw === 'string' ? raw : typeof raw === 'number' || typeof raw === 'boolean' ? String(raw) : null;
@@ -672,7 +671,7 @@ export function valueText(value: FieldValue | undefined): string {
 
 /** A day as a count of days, so that one day taken from another is a number of days. */
 const dayNumber = (day: string): number | null => {
-  if (!DAY.test(day)) return null;
+  if (!isDay(day)) return null;
   const [y, m, d] = day.split('-').map(Number) as [number, number, number];
   return Math.round(Date.UTC(y, m - 1, d) / 86400000);
 };

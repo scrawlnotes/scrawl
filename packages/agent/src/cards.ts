@@ -14,6 +14,7 @@ import {
   type FieldValue,
   firstColumn,
   fold,
+  isDay,
   isEmpty,
   isFinished,
   keyOf,
@@ -36,14 +37,12 @@ import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 // Boards: the cards of a board, a card as a brief, adding and changing a card, moving it by its
 // column's kind, and commenting. The current phase is where the agent works unless told otherwise.
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
-
-/** A day as the agent wrote it, or a refusal. */
+/** A day as the agent wrote it, or a refusal: one that is not on the calendar (2026-02-30) too. */
 export function dayArg(value: string | null | undefined, what: string): string | null | undefined {
   if (value === undefined || value === null) return value;
   const day = value.trim();
   if (!day) return null;
-  if (!DAY.test(day)) throw new Refusal(`${what} is a day as YYYY-MM-DD`, { given: value });
+  if (!isDay(day)) throw new Refusal(`${what} is a day on the calendar as YYYY-MM-DD`, { given: value });
   return day;
 }
 

@@ -62,6 +62,18 @@ describe('search', () => {
     expect(find(items, 'acme export')[1]).toMatchObject({ inName: [[0, 6]], line: { text: 'For Acme', marks: [[4, 8]] } });
   });
 
+  it('puts what was typed, found as it was typed in a text, before its words found apart', () => {
+    const items: Findable[] = [
+      { kind: 'note', name: 'Adsız not ilk satırı', text: 'Adsız not ilk satırı\nikinci satır' },
+      { kind: 'note', name: 'CRLF', text: 'Satır bir\nSatır iki\n' },
+      { kind: 'note', name: 'Liste', text: 'iki satır' },
+    ];
+    expect(names(find(items, 'Satır iki'))).toEqual(['CRLF', 'Adsız not ilk satırı', 'Liste']);
+    expect(find(items, 'satır iki')[0]!.line).toMatchObject({ text: 'Satır iki' });
+    // One word is not a phrase: a name still comes first.
+    expect(names(find(items, 'satır'))[0]).toBe('Adsız not ilk satırı');
+  });
+
   it('finds a card by its key, the whole key above all', () => {
     const items: Findable[] = [
       { kind: 'card', name: 'Pilot for one portal', key: 'DEA-12' },

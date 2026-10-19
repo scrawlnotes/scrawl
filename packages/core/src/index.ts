@@ -4,6 +4,7 @@ export * from './collection';
 export * from './created';
 export * from './order';
 export * from './csv';
+export * from './day';
 export * from './fields';
 export * from './filters';
 export * from './files';
