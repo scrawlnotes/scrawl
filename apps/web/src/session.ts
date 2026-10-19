@@ -1330,6 +1330,12 @@ export class Session {
     }
   }
 
+  /** Puts the spaces beside the personal one in this order, by id: one dragged to another place. */
+  async orderSpaces(ids: string[]) {
+    await orderSpaceEntries(ids);
+    await this.reloadSpaces();
+  }
+
   /** Moves a space up or down in the sidebar's order. */
   async moveSpace(id: string, by: -1 | 1) {
     const ids = this.snapshot.spaces.map((space) => space.id);

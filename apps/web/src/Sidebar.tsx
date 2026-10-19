@@ -1,4 +1,4 @@
-import { DEFAULT_LOOK, type FolderLook, INBOX_TASKS, type NodeTimes, inSpace, listName, localPath, shownName, sortedNodes, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { DEFAULT_LOOK, droppedSpaces, type FolderLook, INBOX_TASKS, type NodeTimes, inSpace, listName, localPath, shownName, sortedNodes, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { LATEST_RELEASE } from './desktopUpdate';
@@ -10,6 +10,8 @@ import { isDesktop } from './storage';
 
 // A note or a task list being dragged onto a folder.
 const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
+/** A space's heading being dragged to another place among the spaces. */
+const SPACE_DRAG_TYPE = 'application/x-scrawl-space';
 
 /** A folder with more than this many items shows only its first `SHOWN`, and how many more there are. */
 const MANY = 20;
@@ -70,6 +72,8 @@ interface Props {
   personalName: string;
   /** A space heading's menu of what to view and the rest; null is the personal space. */
   onSpaceMenu: (event: MouseEvent, id: string | null) => void;
+  /** Puts the spaces beside the personal one in this order, by id. */
+  onOrderSpaces: (ids: string[]) => void;
   /** A space heading's +: what can be made at its top. `addFolder` starts naming a folder there. */
   onSpaceAdd: (event: MouseEvent, id: string | null, addFolder: () => void) => void;
   /** How the items of a folder are put in order, by its path; a space's top by its key, the personal one's by ''. */
@@ -131,6 +135,7 @@ export function Sidebar({
   personalName,
   onSpaceMenu,
   onSpaceAdd,
+  onOrderSpaces,
   folderLooks,
   times,
   onSearch,
@@ -155,6 +160,9 @@ export function Sidebar({
   const [flash, setFlash] = useState<string | null>(null);
   const nav = useRef<HTMLElement>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  // A space dragged among the others: the heading it would go before or after, by its id, the
+  // personal one's null (only after it: it stays first).
+  const [spaceDrop, setSpaceDrop] = useState<{ id: string | null; after: boolean } | null>(null);
   // The folder a new folder is being named in, `''` for the top; null while none is.
   const [addingIn, setAddingIn] = useState<string | null>(null);
   const [folderName, setFolderName] = useState('');
@@ -475,20 +483,59 @@ export function Sidebar({
     </>
   );
 
-  // A space's heading: its name and its menu; it folds like a folder, and takes what is dropped on it to its top.
+  /**
+   * A space's heading takes another space dragged onto it before or after it, by the half it is
+   * over; the personal space stays first, so one dropped on its heading goes after it.
+   */
+  const spaceDropProps = (id: string | null, items: ReturnType<typeof dropProps>) => ({
+    onDragOver: (event: DragEvent) => {
+      if (!event.dataTransfer.types.includes(SPACE_DRAG_TYPE)) return items.onDragOver(event);
+      event.preventDefault();
+      const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const after = id === null || event.clientY > box.top + box.height / 2;
+      if (spaceDrop?.id !== id || spaceDrop.after !== after) setSpaceDrop({ id, after });
+    },
+    onDragLeave: () => {
+      setSpaceDrop(null);
+      items.onDragLeave();
+    },
+    onDrop: (event: DragEvent) => {
+      const dragged = event.dataTransfer.getData(SPACE_DRAG_TYPE);
+      if (!dragged) return items.onDrop(event);
+      event.preventDefault();
+      const at = spaceDrop;
+      setSpaceDrop(null);
+      if (!at) return;
+      const now = spaces.map((space) => space.id);
+      const ids = droppedSpaces(now, dragged, at.id, at.after);
+      if (ids.join(' ') !== now.join(' ')) onOrderSpaces(ids);
+    },
+  });
+
+  // A space's heading: its name and its menu; it folds like a folder, and takes what is dropped on
+  // it to its top. One beside the personal space is dragged to another place among the spaces.
   const spaceRow = (id: string | null, name: string) => {
     const key = spaceKey(id);
     const top = id ? key : '';
     const open = !folded.has(key);
     const menu = (event: MouseEvent) => onSpaceMenu(event, id);
     const add = (event: MouseEvent) => onSpaceAdd(event, id, () => startFolder(top));
+    const placed = spaceDrop?.id === id ? (spaceDrop.after ? ' drop-after' : ' drop-before') : '';
     return (
       <div
         key={key}
-        className={`it fold space${dropTarget === top ? ' drop' : ''}${marked(key)}`}
+        className={`it fold space${dropTarget === top ? ' drop' : ''}${placed}${marked(key)}`}
         style={indent(0)}
         data-path={key}
-        {...dropProps(top)}
+        {...spaceDropProps(id, dropProps(top))}
+        {...(id && {
+          draggable: true,
+          onDragStart: (event: DragEvent) => {
+            event.dataTransfer.setData(SPACE_DRAG_TYPE, id);
+            event.dataTransfer.effectAllowed = 'move';
+          },
+          onDragEnd: () => setSpaceDrop(null),
+        })}
         onContextMenu={menu}
       >
         <button type="button" className="it-main" aria-expanded={open} onClick={() => toggleSpace(key)}>

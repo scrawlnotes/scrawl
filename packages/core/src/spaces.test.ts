@@ -5,6 +5,7 @@ import { MemoryFs } from './fs';
 import { keepVersion, listVersions } from './history';
 import {
   foldersNest,
+  droppedSpaces,
   fromSpace,
   inSpace,
   isSpaceId,
@@ -180,5 +181,16 @@ describe('spaces', () => {
     expect(foldersNest('/home/kaan/Notes', '/home/kaan/notes')).toBe(false);
     expect(foldersNest('/home/kaan/Notes', '/home/kaan/Notes/Acme')).toBe(true);
     expect(foldersNest('', '/home')).toBe(false);
+  });
+});
+
+describe('spaces dragged to another place', () => {
+  const ids = ['a', 'b', 'c', 'd'];
+  it('go before or after the space they are dropped on, the personal one staying first', () => {
+    expect(droppedSpaces(ids, 'd', 'b', false)).toEqual(['a', 'd', 'b', 'c']);
+    expect(droppedSpaces(ids, 'a', 'c', true)).toEqual(['b', 'c', 'a', 'd']);
+    expect(droppedSpaces(ids, 'c', null, true)).toEqual(['c', 'a', 'b', 'd']);
+    expect(droppedSpaces(ids, 'b', 'b', true)).toEqual(ids);
+    expect(droppedSpaces(ids, 'b', 'gone', false)).toEqual(ids);
   });
 });

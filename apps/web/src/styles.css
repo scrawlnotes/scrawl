@@ -159,6 +159,15 @@ input:focus {
   box-shadow: inset 0 0 0 1px var(--sl-accent);
 }
 
+/* Where a space dragged among the others goes: a line over or under the heading it is on. */
+.it.space.drop-before {
+  box-shadow: inset 0 2px 0 var(--sl-accent);
+}
+
+.it.space.drop-after {
+  box-shadow: inset 0 -2px 0 var(--sl-accent);
+}
+
 /* Each level of folders one step further in. */
 .it-main {
   display: flex;

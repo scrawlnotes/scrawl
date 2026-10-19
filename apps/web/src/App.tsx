@@ -2164,6 +2164,7 @@ export function App() {
           personalName={space.name ?? t('settings.personal')}
           onSpaceMenu={spaceMenu}
           onSpaceAdd={spaceAdd}
+          onOrderSpaces={(ids) => void session.orderSpaces(ids)}
           folderLooks={folderLooks}
           times={nodeTimes}
           onSettings={() => {

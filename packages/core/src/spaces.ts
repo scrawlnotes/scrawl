@@ -330,3 +330,15 @@ export function foldersNest(a: string, b: string): boolean {
   if (!x || !y) return false;
   return x === y || x.startsWith(`${y}/`) || y.startsWith(`${x}/`);
 }
+
+/**
+ * The spaces beside the personal one, by id, once `dragged` is dropped before or after the space
+ * `target` names; null is the personal space, which stays first, so after it is the first place.
+ */
+export function droppedSpaces(ids: string[], dragged: string, target: string | null, after: boolean): string[] {
+  if (target === dragged) return ids;
+  const rest = ids.filter((id) => id !== dragged);
+  const at = target === null ? 0 : rest.indexOf(target) + (after ? 1 : 0);
+  if (target !== null && at < (after ? 1 : 0)) return ids;
+  return [...rest.slice(0, at), dragged, ...rest.slice(at)];
+}
