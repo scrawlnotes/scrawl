@@ -2,6 +2,12 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.9
+
+A key being added waits for you.
+
+- In a keys file, a key you are adding stays as you left it when you go to another tab, to copy its value there, and come back: its name, its value and where the cursor was.
+
 ## 0.1.8
 
 The app no longer opens white.
