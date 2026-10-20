@@ -2255,6 +2255,51 @@ p { margin: 0; max-width: 68ch; }
 .mb-row.si-mneed, .mb-row.si-mneed .tx b { color: var(--m-accent); }
 .mock .mb-row.si-mneed svg { color: var(--m-accent); }
 .mb-row.si-mneed .tx b { font-weight: 500; }
+/* Collections as small apps (stage 13), slice 1: one language for formulas, lookups, rollups with conditions, today in conditions. */
+.dir[data-dir="capps"] { margin-top: 56px; }
+.dir[data-dir="capps"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="capps"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="capps"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.ca-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px 136px 72px 96px 96px 96px 96px; align-items: center; gap: 0 12px; padding: 6px 8px; margin: 0 -8px; border-bottom: 1px solid var(--m-line); }
+.ca-row.tx { grid-template-columns: minmax(0, 1fr) 136px 136px 70px 96px 64px 76px; }
+.ca-row.head { padding: 10px 8px 6px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.ca-row.head .num { text-align: right; }
+.ca-row .tt, .ca-row .lk { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ca-row .lk { color: var(--m-dim); }
+.ca-row .mono { font: 12px var(--m-mono); color: var(--m-dim); }
+.ca-row .num { text-align: right; font-variant-numeric: tabular-nums; }
+.ca-row .dt { color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.ca-row .dt.late { color: #f0706a; }
+.ca-row .lbl { justify-self: start; padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; white-space: nowrap; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.ca-row .empty { color: var(--m-faint); }
+.ca-row.on { background: var(--m-sel); border-radius: 5px; border-color: transparent; }
+.ca-row.sum { border-bottom: 0; color: var(--m-dim); font-weight: 500; }
+/* In the Fields window: a formula's box, what it gives or what is wrong with it; a rollup's conditions; a lookup's two picks. */
+.fe .in.mono { font: 12px var(--m-mono); font-variant-ligatures: none; white-space: pre; overflow: hidden; }
+.fe .in.bad { border-color: color-mix(in srgb, #f0706a 70%, transparent); }
+.fi-note b { color: var(--m-dim); font-weight: 500; }
+.fi-note.bad { color: #f0706a; }
+.fi-note code { font: 11px var(--m-mono); font-variant-ligatures: none; color: var(--m-dim); }
+.fi-note.bad code { color: inherit; }
+.fe-row.top { align-items: flex-start; }
+.fe-row.top > .fe-name { padding-top: 6px; }
+.fe .fe-row > .fe-name { width: 64px; }
+.ca-where { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
+.ca-where .fcond { grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1fr) 14px; }
+.ca-where .fcond .in { background: var(--m-side); }
+.ca-where .lbl, .ca-filter .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; white-space: nowrap; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+/* The Filter window: a day's condition takes Today or a day. */
+.fp.ca-filter { width: 600px; }
+.ca-filter .ca-hint { margin: 0 0 8px; color: var(--m-dim); font-size: 12.5px; }
+.ca-filter .fcond .in { background: var(--m-bg); }
+.ca-filter .ca-val { position: relative; }
+.ca-filter .ca-val > .in { border-color: var(--m-accent); }
+.ca-dmenu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 3; display: flex; flex-direction: column; gap: 1px; padding: 4px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .35); }
+.ca-dmenu span { display: flex; align-items: center; padding: 3px 8px; border-radius: 4px; font-size: 12px; color: var(--m-fg); }
+.ca-dmenu span.on { background: var(--m-sel); }
+.ca-dmenu span small { margin-left: auto; color: var(--m-faint); font-size: 11px; }
+.ca-filter .fcond-add { margin-top: 6px; }
+.ca-filter .foot .ca-count { margin-right: auto; color: var(--m-faint); font-size: 12px; }
 </style>
 
 <main class="page">
@@ -2601,6 +2646,28 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-siview="sidialog">Giriş penceresi</button>
         <button type="button" data-siview="sifirst">Girişten sonra</button>
         <button type="button" data-siview="siphone">Phone</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="capps">
+    <div class="brief">
+      <div>
+        <span class="letter">KOLEKSİYON · 13. AŞAMA · 1. DİLİM</span>
+        <h2>Dil ve hesap</h2>
+        <p>Asansör örneği: Atlas Lifts space'inde Projects, Budget lines ve Transactions. Formül JS'e benzeyen dille yazılır ve metin de verir (<code>spent &gt; budget ? "Over budget" : "OK"</code>). Kutunun altında ne verdiği ve hangi alanları okuduğu, yanlışsa neyin yanlış olduğu yazar. Rollup'a Filter penceresindeki koşul satırları gelir: Spent, yönü Out olan hareketlerin toplamıdır. Lookup bir linkin hedefindeki alanı gösterir: hareketin projesinin müşterisi. Filter'da tarih koşulu Today alır. Sayı biçimi 2. dilimde; burada sayılar bugünkü gibi.</p>
+        <ul class="traits"><li>JS'e benzeyen tek dil</li><li>formül metin, tarih, sayı verir</li><li>yanlışı kutunun altında</li><li>lookup: linkin hedefindeki alan</li><li>rollup'ta koşul ve ortalama</li><li>koşulda Today</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="1. dilim görünümü">
+        <button type="button" data-caview="caprojects">Projects</button>
+        <button type="button" data-caview="caformula">Formül</button>
+        <button type="button" data-caview="cabad">Formülde hata</button>
+        <button type="button" data-caview="carollup">Rollup koşulu</button>
+        <button type="button" data-caview="catypes">Türler</button>
+        <button type="button" data-caview="catx">Transactions</button>
+        <button type="button" data-caview="calookup">Lookup</button>
+        <button type="button" data-caview="cafilter">Filter: Today</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -7590,6 +7657,198 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderSi(sectionSi, b.dataset.siview);
   });
   renderSi(sectionSi, 'sineed');
+
+  // Collections as small apps (stage 13), slice 1 (Oct 20): one language for formulas, with a
+  // syntax like JS, that gives a number, a text, a day or a flag and says what is wrong where it is
+  // typed; lookups, a field of the record a link points at; rollups with the Filter window's
+  // conditions and an average; Today as a condition's day. A company that runs projects: Projects,
+  // Budget lines and Transactions in its space. Numbers show as they do today; their format is slice 2.
+  LC.Offer = '#6aa5f0'; LC.Active = '#5cb87a'; LC.Done = '#8b93a1'; LC.Out = '#f0a54a'; LC.In = '#5cb87a';
+  LC.Planned = '#8b93a1'; LC.Invoiced = '#6aa5f0'; LC.Paid = '#5cb87a';
+  var CA_SPACE = 'Atlas Lifts';
+  var CA_PROJECTS = [
+    { name: 'Atakule Tower', code: 'PRJ-0014', cust: 'Ankara Holding', st: 'Active', budget: 1240000, spent: 862400 },
+    { name: 'Kadıköy Residence', code: 'PRJ-0013', cust: 'Moda Yapı', st: 'Active', budget: 640000, spent: 702450 },
+    { name: 'Bursa Mall, block B', code: 'PRJ-0012', cust: 'Nilüfer AVM', st: 'Active', budget: 980000, spent: 411300 },
+    { name: 'Antalya Hotel', code: 'PRJ-0015', cust: 'Lara Turizm', st: 'Offer', budget: 760000, spent: 0 },
+    { name: 'İzmir City Hospital', code: 'PRJ-0011', cust: 'Ege Sağlık', st: 'Done', budget: 2150000, spent: 2068900 },
+    { name: 'Konak Offices', code: 'PRJ-0010', cust: 'Konak Gayrimenkul', st: 'Done', budget: 455000, spent: 438200 },
+    { name: 'Eskişehir Campus', code: 'PRJ-0009', cust: 'Anadolu Eğitim', st: 'Done', budget: 1320000, spent: 1296750 }
+  ];
+  var CA_TX = [
+    { name: 'Cabin steel, inv. 2231', proj: 'Atakule Tower', cust: 'Ankara Holding', dir: 'Out', amount: 184500, due: 'Oct 12', st: 'Paid' },
+    { name: 'Second instalment', proj: 'Atakule Tower', cust: 'Ankara Holding', dir: 'In', amount: 420000, due: 'Oct 15', st: 'Invoiced', late: true },
+    { name: 'Guide rails', proj: 'Kadıköy Residence', cust: 'Moda Yapı', dir: 'Out', amount: 96800, due: 'Oct 9', st: 'Invoiced', late: true },
+    { name: 'Door operators, 6 units', proj: 'Kadıköy Residence', cust: 'Moda Yapı', dir: 'Out', amount: 141300, due: 'Oct 28', st: 'Planned' },
+    { name: 'Crane for the shaft', proj: 'Bursa Mall, block B', cust: 'Nilüfer AVM', dir: 'Out', amount: 38500, due: 'Oct 6', st: 'Paid' },
+    { name: 'Down payment', proj: 'Bursa Mall, block B', cust: 'Nilüfer AVM', dir: 'In', amount: 294000, due: 'Oct 3', st: 'Paid' },
+    { name: 'Installation crew, week 41', proj: 'Atakule Tower', cust: 'Ankara Holding', dir: 'Out', amount: 62400, due: 'Oct 17', st: 'Invoiced', late: true },
+    { name: 'Inspection fee', proj: 'Eskişehir Campus', cust: 'Anadolu Eğitim', dir: 'Out', amount: 7800, due: 'Nov 4', st: 'Planned' }
+  ];
+  function caNum(n) { return n.toLocaleString('en-US'); }
+  /** The sidebar: the company's space, its Operations folder open with the three collections, the board and the note. */
+  function caTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 11 }) +
+      opRowT({ sp: true, label: 'Personal' }) +
+      opRowT({ sp: true, open: true, label: CA_SPACE }) +
+      opRowT({ d: 1, folder: true, open: true, label: 'Operations' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Projects', ct: 7, on: on === 'projects' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Budget lines', ct: 41 }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Transactions', ct: 128, on: on === 'tx' }) +
+      opRowT({ d: 2, icon: 'board', label: 'Projects board', ct: 23 }) +
+      opRowT({ d: 2, icon: 'notes', label: 'How we run a project' }) +
+      opRowT({ d: 1, folder: true, label: 'Sales', ct: 4 }) +
+      opRowT({ d: 1, folder: true, label: 'Service', ct: 6 }) +
+      opRowT({ d: 1, icon: 'collection', label: 'Companies', ct: 38 }) +
+      '</div>' + spFoot(null);
+  }
+  function caHead(name, count) {
+    return '<div class="th"><b>' + name + '</b><span class="count">' + count + '</span><span class="srch">' + ICON.find + 'Search…</span><button type="button" class="ghost">Fields</button><button type="button" class="add">Add record</button></div>';
+  }
+  /** Projects: the budget, what was spent and the income are rollups; what remains and the health are formulas, the health a text. */
+  function caProjects() {
+    var total = { budget: 0, spent: 0 };
+    var rows = CA_PROJECTS.map(function (p) {
+      total.budget += p.budget; total.spent += p.spent;
+      return '<div class="ca-row"><span class="tt">' + p.name + '</span><span class="mono">' + p.code + '</span><span class="lk">' + p.cust + '</span>' + lbl(p.st) +
+        '<span class="num">' + caNum(p.budget) + '</span><span class="num">' + caNum(p.spent) + '</span><span class="num">' + caNum(p.budget - p.spent) + '</span>' +
+        '<span>' + (p.spent > p.budget ? 'Over budget' : 'OK') + '</span></div>';
+    }).join('');
+    return '<div class="bv">' + caHead('Projects', '7 records') + '<div class="blist">' +
+      '<div class="ca-row head"><span>Name</span><span>Code</span><span>Customer</span><span>Status</span><span class="num">Budget</span><span class="num">Spent</span><span class="num">Remaining</span><span>Health</span></div>' +
+      rows + '<div class="ca-row sum"><span></span><span></span><span></span><span></span><span class="num">' + caNum(total.budget) + '</span><span class="num">' + caNum(total.spent) + '</span><span class="num">' + caNum(total.budget - total.spent) + '</span><span></span></div>' +
+      '</div></div>';
+  }
+  /** Transactions: Customer is a lookup, the customer of the transaction's project. */
+  function caTransactions() {
+    var rows = CA_TX.map(function (x) {
+      return '<div class="ca-row tx"><span class="tt">' + x.name + '</span><span class="lk">' + x.proj + '</span><span class="lk">' + x.cust + '</span>' + lbl(x.dir) +
+        '<span class="num">' + caNum(x.amount) + '</span><span class="dt">' + x.due + '</span>' + lbl(x.st) + '</div>';
+    }).join('');
+    return '<div class="bv">' + caHead('Transactions', '128 records') + '<div class="blist">' +
+      '<div class="ca-row tx head"><span>Name</span><span>Project</span><span>Customer</span><span>Direction</span><span class="num">Amount</span><span class="sorted">Due ↓</span><span>Status</span></div>' +
+      rows + '<div class="lmore">Show 120 more</div></div></div>';
+  }
+  /**
+   * The Fields window of Projects or Transactions, as the app has it, with what slice 1 brings: a
+   * formula opened, with what it gives and what it reads, or what is wrong with it; a rollup with
+   * conditions; the types with Lookup and Rollup; a lookup's link and field.
+   */
+  function caFields(state) {
+    var grip = '<span class="grip"><svg viewBox="0 0 9 12"><circle cx="2" cy="2" r="1.3"/><circle cx="7" cy="2" r="1.3"/><circle cx="2" cy="6" r="1.3"/><circle cx="7" cy="6" r="1.3"/><circle cx="2" cy="10" r="1.3"/><circle cx="7" cy="10" r="1.3"/></svg></span>';
+    var trash = '<span class="fdel" title="Delete">' + ICON.trash + '</span>';
+    function fld(label, type, req) { return '<div class="fitem">' + grip + '<span class="fl">' + label + (req ? '<i>*</i>' : '') + '</span><small>' + type + '</small></div>'; }
+    function blk(label, meta) { return '<div class="fitem blk">' + grip + '<span class="bl"><b>' + label + '</b><small>' + meta + '</small></span></div>'; }
+    function box(text, o) { o = o || {}; return '<span class="in' + (o.on ? ' on' : '') + (o.mono ? ' mono' : '') + (o.bad ? ' bad' : '') + '">' + text + (o.on ? '<span class="caret"></span>' : '') + (o.dd ? '<span class="dd">▾</span>' : '') + '</span>'; }
+    // Formulas, lookups and rollups have no Required: they are worked out, never typed.
+    function open(name, type, key, more, o) {
+      o = o || {};
+      return '<div class="fitem edit' + (o.fresh ? ' fresh' : '') + '">' + grip + '<div class="fe">' +
+        '<div class="fe-top">' + box(name, { on: o.typing }) + '<span class="ftype' + (o.types ? ' open' : '') + '">' + box(type, { dd: true }) + (o.types || '') + '</span>' + trash + '</div>' +
+        '<div class="fe-row">' + (o.req ? '<label class="fcheck"><span class="cb"></span>Required</label>' : '') + '<span class="fkey">' + key + '</span></div>' +
+        (more || '') + '</div></div>';
+    }
+    function cond(field, op, value) { return '<div class="fcond"><span class="in sel">' + field + '<span class="dd">▾</span></span><span class="in sel">' + op + '<span class="dd">▾</span></span><span class="in">' + value + '</span><span class="x">×</span></div>'; }
+    function col(n, ratio, body) {
+      return '<div class="fcol" style="flex: 1"><div class="fcol-h">Column ' + n +
+        '<span class="ratio"><span' + (ratio === 1 ? ' class="on"' : '') + '>1</span><span' + (ratio === 2 ? ' class="on"' : '') + '>2</span><span' + (ratio === 3 ? ' class="on"' : '') + '>3</span></span><span class="x" title="Remove column">×</span></div>' +
+        body + '<div class="fsec-add">+ Add section</div></div>';
+    }
+    var add = '<div class="fadd">+ Add</div>';
+    var HINT = '<p class="fi-note">Fields by key, a linked record’s with a dot: <code>customer.segment</code>. <code>+ - * / %</code> · <code>== != &lt; &gt;</code> · <code>&amp;&amp; || !</code> · <code>a ? b : c</code> · <code>today()</code> <code>round()</code> <code>empty()</code></p>';
+    var TYPES = [['Name', 'What the record is called; shows wherever it is linked', 'taken'], ['Code', 'A short code you type, CUS-0012; shows beside the name', 'taken'], ['Text', 'A line of text'], ['Number', 'Sums under the table'], ['Date', 'A day'], ['Select', 'One of a few choices'], ['Multi-select', 'Several choices, tags'], ['Checkbox', 'Yes or no'], ['URL', 'A web address, opens in the browser'], ['Email', 'Opens a new mail'], ['Phone', 'Calls the number'], ['Person', 'Who it is with'], ['Link', 'A record of another collection'], ['Formula', 'Worked out from other fields'], ['Lookup', 'A field of a linked record', 'on'], ['Rollup', 'Worked out from what links here']];
+    var typeList = '<div class="ftypes">' + TYPES.map(function (t, i) {
+      return '<div class="ft' + (t[2] === 'on' ? ' on' : '') + (t[2] === 'taken' ? ' taken' : '') + (i === 2 ? ' apart' : '') + '"><b>' + t[0] + '</b><small>' + (t[2] === 'taken' ? 'Already in this collection' : t[1]) + '</small>' + (t[2] === 'on' ? '<span class="tick">✓</span>' : '') + '</div>';
+    }).join('') + '</div>';
+    var tx = state === 'lookup';
+    var screen;
+    if (tx) {
+      screen = col(1, 1, '<div class="fsec">' +
+        fld('Name', 'name', true) + fld('Project', 'link · Projects') + fld('Line', 'link · Budget lines') + fld('Direction', 'select') +
+        fld('Amount', 'number') + fld('Date', 'date') + blk('Notes', 'the body: free text') + add + '</div>') +
+        col(2, 1, '<div class="fsec">' +
+        fld('Due', 'date') + fld('Status', 'select') + fld('Invoice', 'text') + fld('Paid on', 'date') +
+        open('Customer', 'Lookup', 'customer',
+          '<div class="fe-row"><span class="fe-name">Through</span>' + box('Project · link to Projects', { dd: true }) + '</div>' +
+          '<div class="fe-row"><span class="fe-name">Shows</span>' + box('Customer', { dd: true }) + '</div>' +
+          '<p class="fi-note">The <u>customer</u> of the transaction’s <u>project</u>. Shown on the record and in the table, never written; in a formula it is <code>project.customer</code>.</p>') +
+        add + '</div>') + '<div class="fcol-add">+ Add column</div>';
+    } else {
+      var health = state === 'formula'
+        ? open('Health', 'Formula', 'health', box('spent &gt; budget ? "Over budget" : "OK"', { on: true, mono: true }) +
+            '<p class="fi-note"><b>Gives text</b> · reads <u>spent</u> and <u>budget</u></p>' + HINT)
+        : fld('Health', 'formula');
+      var remaining = state === 'bad'
+        ? open('Remaining', 'Formula', 'remaining', box('budget - status', { on: true, mono: true, bad: true }) +
+            '<p class="fi-note bad"><code>status</code> is a choice, not a number; <code>-</code> takes numbers or days.</p>' + HINT)
+        : fld('Remaining', 'formula');
+      var spent = state === 'rollup'
+        ? open('Spent', 'Rollup', 'spent',
+            '<div class="fe-row"><span class="fe-name">From</span>' + box('Transactions · ' + CA_SPACE, { dd: true }) + '</div>' +
+            '<div class="fe-row"><span class="fe-name">Function</span>' + box('Sum', { dd: true }) + box('Amount', { dd: true }) + '</div>' +
+            '<div class="fe-row top"><span class="fe-name">Where</span><div class="ca-where">' + cond('Direction', 'is', lbl('Out')) + '<div class="fcond-add">+ Add condition</div></div></div>' +
+            '<p class="fi-note">The sum of <u>amount</u> in the transactions that link to the project, where direction is Out.</p>')
+        : fld('Spent', 'rollup · Transactions');
+      screen =
+        col(1, 1, '<div class="fsec">' +
+          fld('Name', 'name', true) + fld('Code', 'code') + fld('Customer', 'link · Companies') + fld('Status', 'select') +
+          fld('Start', 'date') + fld('Delivery', 'date') + fld('Contract', 'number') +
+          blk('Notes', 'the body: free text, site notes') + add + '</div>') +
+        col(2, 1, '<div class="fsec">' +
+          fld('Budget', 'rollup · Budget lines') + spent + fld('Income', 'rollup · Transactions') + remaining + health +
+          (state === 'types' ? open('Segment', 'Lookup', 'segment', '', { fresh: true, typing: true, types: typeList }) : '') +
+          blk('Budget lines', 'linked · list · planned, actual') + blk('Transactions', 'linked · list · amount, status') + blk('Cards and tasks', 'the cards and tasks about it') +
+          add + '</div>') +
+        '<div class="fcol-add">+ Add column</div>';
+    }
+    var name = tx ? 'Transactions' : 'Projects';
+    return '<div class="ovl center"><div class="fdlg">' +
+      '<div class="cp-head">' + ICON.collection + '<b>Fields</b><span>' + name + ' · ' + CA_SPACE + '</span><span class="vsw"><span class="on">Design</span><span>Text</span></span><span class="x">×</span></div>' +
+      '<div class="fd-canvas"><div class="fd-say">The record window as it opens. Click a field or a block to change it there; drag it to move it; + Add puts a new one where it is.</div><div class="fcols">' + screen + '</div></div>' +
+      '<div class="rm-foot"><span class="hint">Saved in Operations/' + name + '/_collection.json · an agent can edit it too</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span></div>' +
+      '</div></div>';
+  }
+  /** The Filter window of Transactions: a day's condition takes Today, which moves with the day, or a day. */
+  function caFilter() {
+    function cond(field, op, value, menu) {
+      return '<div class="fcond"><span class="in sel">' + field + '<span class="dd">▾</span></span><span class="in sel">' + op + '<span class="dd">▾</span></span>' +
+        (menu ? '<span class="ca-val"><span class="in sel">' + value + '<span class="dd">▾</span></span>' + menu + '</span>' : '<span class="in">' + value + '</span>') + '<span class="x">×</span></div>';
+    }
+    var menu = '<div class="ca-dmenu"><span class="on">Today<small>moves with the day</small></span><span>A day…</span></div>';
+    return '<div class="fp-ovl"><div class="fp ca-filter"><h3>Filter</h3><p class="ca-hint">Show records where</p><div class="fconds">' +
+      cond('Status', 'is not', lbl('Paid')) + cond('Due', 'is before', 'Today', menu) + cond('Direction', 'is', lbl('In')) + '</div><div class="fcond-add">+ Add condition</div>' +
+      '<div class="foot"><span class="ca-count">1 record</span><span class="st-btn">Cancel</span><span class="st-btn">Save as view</span><span class="st-btn go">Apply</span></div></div></div>';
+  }
+  function caApp(on, body, over, count) {
+    var tabs = tab('collection', 'Projects · ' + CA_SPACE, 'x', on === 'projects') + tab('collection', 'Transactions · ' + CA_SPACE, 'x', on === 'tx') + tab('notes', 'How we run a project', 'x', false) + '<div class="tab plus">+</div>';
+    return '<aside class="side">' + caTree(on) + '</aside><section class="main"><div class="panes">' + pane(tabs, body) + '</div>' +
+      '<div class="status"><span>' + count + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  var CA_VIEWS = {
+    caprojects: function () { return caApp('projects', caProjects(), '', '7 records'); },
+    caformula: function () { return caApp('projects', caProjects(), caFields('formula'), '7 records'); },
+    cabad: function () { return caApp('projects', caProjects(), caFields('bad'), '7 records'); },
+    carollup: function () { return caApp('projects', caProjects(), caFields('rollup'), '7 records'); },
+    catypes: function () { return caApp('projects', caProjects(), caFields('types'), '7 records'); },
+    catx: function () { return caApp('tx', caTransactions(), '', '128 records'); },
+    calookup: function () { return caApp('tx', caTransactions(), caFields('lookup'), '128 records'); },
+    cafilter: function () { return caApp('tx', caTransactions(), caFilter(), '128 records'); }
+  };
+  function renderCa(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.className = 'mock dir-a' + (/^ca(formula|bad|rollup|types|lookup)$/.test(view) ? ' wider' : '');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = CA_VIEWS[view]();
+    section.querySelectorAll('.brief [data-caview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.caview === view));
+    });
+  }
+  var sectionCa = document.querySelector('.dir[data-dir="capps"]');
+  sectionCa.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-caview]');
+    if (b) renderCa(sectionCa, b.dataset.caview);
+  });
+  renderCa(sectionCa, 'caformula');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
