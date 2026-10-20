@@ -51,6 +51,20 @@ type Typing =
   | { kind: 'rename'; group: GroupRef }
   | { kind: 'group' };
 
+/** What is typed in an open line, and the field it was typed in last. */
+interface LineText {
+  key: string;
+  value: string;
+  field: 'key' | 'value';
+}
+
+/**
+ * The line open in each keys file, by path, with what is typed in it, while the app is open: the
+ * file's view is drawn anew when its tab comes back, after a value was copied in another one, and
+ * the line comes back as it was left.
+ */
+const openLines = new Map<string, { typing: Typing; text?: LineText }>();
+
 /** A secret value as it shows until asked for: always as long, so that its length is not told. */
 const DOTS = '••••••••••';
 /** How long "Copied" shows beside what was copied. */
@@ -118,16 +132,22 @@ function groupAt(groups: KeyGroup[], ref: GroupRef): KeyGroup | undefined {
 }
 
 /** The line a key, its value, or a group's name is typed in. Leaving an empty line to add closes it. */
-function KeyLine({ start, focus = 'key', adding, onSubmit, onClose }: {
+function KeyLine({ start, focus = 'key', adding, kept, onType, onSubmit, onClose }: {
   start?: KeyEntry;
   focus?: 'key' | 'value';
   /** A line to add keys with: it empties after each and stays for the next. */
   adding: boolean;
+  /** What was typed in it before its view was drawn anew. */
+  kept?: LineText;
+  /** Told what is typed, for the line to come back as it was. */
+  onType: (text: LineText) => void;
   onSubmit: (key: string, value: string) => void;
   onClose: () => void;
 }) {
-  const [key, setKey] = useState(start?.key ?? '');
-  const [value, setValue] = useState(start?.value ?? '');
+  const [key, setKey] = useState(kept?.key ?? start?.key ?? '');
+  const [value, setValue] = useState(kept?.value ?? start?.value ?? '');
+  const [typedIn, setTypedIn] = useState(kept?.field ?? focus);
+  useEffect(() => onType({ key, value, field: typedIn }), [key, value, typedIn]);
   const keyInput = useRef<HTMLInputElement>(null);
   const valueInput = useRef<HTMLInputElement>(null);
   const ready = cleanKey(key) !== '';
@@ -161,8 +181,9 @@ function KeyLine({ start, focus = 'key', adding, onSubmit, onClose }: {
         {...field}
         aria-label={t('keys.key')}
         placeholder={t('keys.key')}
-        autoFocus={focus === 'key'}
+        autoFocus={(kept?.field ?? focus) === 'key'}
         value={key}
+        onFocus={() => setTypedIn('key')}
         onChange={(event) => setKey(event.target.value)}
         onKeyDown={(event) => onKey(event, 'key')}
       />
@@ -171,8 +192,9 @@ function KeyLine({ start, focus = 'key', adding, onSubmit, onClose }: {
         {...field}
         aria-label={t('keys.value')}
         placeholder={t('keys.value')}
-        autoFocus={focus === 'value'}
+        autoFocus={(kept?.field ?? focus) === 'value'}
         value={value}
+        onFocus={() => setTypedIn('value')}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => onKey(event, 'value')}
       />
@@ -189,13 +211,17 @@ function KeyLine({ start, focus = 'key', adding, onSubmit, onClose }: {
 }
 
 /** A group's name typed in, in place of its header: for a new group, or to rename one. */
-function NameLine({ start, adding, onSubmit, onClose }: {
+function NameLine({ start, adding, kept, onType, onSubmit, onClose }: {
   start?: string;
   adding: boolean;
+  /** The name typed before its view was drawn anew, as a line's key. */
+  kept?: LineText;
+  onType: (text: LineText) => void;
   onSubmit: (name: string) => void;
   onClose: () => void;
 }) {
-  const [name, setName] = useState(start ?? '');
+  const [name, setName] = useState(kept?.key ?? start ?? '');
+  useEffect(() => onType({ key: name, value: '', field: 'key' }), [name]);
   const ready = name.trim() !== '';
   const submit = () => ready && onSubmit(name);
   const onKey = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -341,7 +367,18 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
   const latest = useRef(text);
   latest.current = text;
   const change = (next: string) => actions.change(path, next);
-  const [typing, setTyping] = useState<Typing | null>(null);
+  // The line open in the file, kept beside the view while the app is open (openLines).
+  const [typing, setOpen] = useState<Typing | null>(() => openLines.get(path)?.typing ?? null);
+  const setTyping = (next: Typing | null) => {
+    if (next) openLines.set(path, { typing: next });
+    else openLines.delete(path);
+    setOpen(next);
+  };
+  const kept = openLines.get(path)?.text;
+  const keep = (text: LineText) => {
+    const line = openLines.get(path);
+    if (line) line.text = text;
+  };
   // Secret values asked for stay shown until the file is closed, by group and key name.
   const [shown, setShown] = useState<Set<string>>(() => new Set());
   const [copied, setCopied] = useState<{ id: string; ok: boolean } | null>(null);
@@ -436,7 +473,7 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
   const edited = editing && (all.find((k) => k.line === editing.at.line && k.key === editing.at.key) ?? all.find((k) => k.key === editing.at.key));
 
   /** The line keys are typed into, under a group's keys. */
-  const addLine = (group: GroupRef) => <KeyLine key="adding" adding onSubmit={(key, value) => addTo(group, key, value)} onClose={() => setTyping(null)} />;
+  const addLine = (group: GroupRef) => <KeyLine key="adding" adding kept={kept} onType={keep} onSubmit={(key, value) => addTo(group, key, value)} onClose={() => setTyping(null)} />;
   // Add key in the header, before there are keys without a group: their group shows at the top, empty, with the line.
   const newNoGroup = typing?.kind === 'add' && typing.group.name === null && !typingGroup;
 
@@ -470,6 +507,8 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
               <NameLine
                 start={group.name ?? ''}
                 adding={false}
+                kept={kept}
+                onType={keep}
                 onSubmit={(next) => {
                   change(renameGroup(latest.current, refOf(group), next));
                   setTyping(null);
@@ -507,6 +546,8 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
                     start={entry}
                     focus={editing!.focus}
                     adding={false}
+                    kept={kept}
+                    onType={keep}
                     onSubmit={(key, value) => {
                       change(updateKey(latest.current, entry, key, value));
                       setTyping(null);
@@ -543,7 +584,7 @@ export function KeysView({ path, name, text, look, onLook, actions, onStatus, ad
       })}
       {typing?.kind === 'group' && (
         <div className="kv-grp">
-          <NameLine adding onSubmit={makeGroup} onClose={() => setTyping(null)} />
+          <NameLine adding kept={kept} onType={keep} onSubmit={makeGroup} onClose={() => setTyping(null)} />
         </div>
       )}
       {groups.length === 0 && typing?.kind !== 'group' && !newNoGroup && <p className="kv-empty">{t('keys.empty')}</p>}
