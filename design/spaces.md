@@ -12,7 +12,7 @@
 - Ad ve e-posta yalnız başkalarının seni gördüğü yerde sorulur: paylaşılan space'i OneDrive'da eklerken. Kişisel space'i bağlarken sorulmaz.
 - Sync motorunun birleştirme kuralları, sunucunun dosya API'si ve canlı kanalı.
 
-**Sonra:** Google Drive (14. aşama) iki akışta da bir yer daha olur.
+**Sonra:** Google Drive (15. aşama) iki akışta da bir yer daha olur.
 
 ## 2. Ekranlar
 

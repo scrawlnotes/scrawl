@@ -218,5 +218,5 @@ Kurulum dosyaları `apps/server/deploy/`'da, rehberi `apps/server/README.md`'de:
 5. Deneme yerelde Docker'la; bizim kullanımımız Coolify'a bağlanan küçük bir sunucuda, kişisel bir alt alan adıyla (`scrawl.kaanarslan.dev`).
 6. Herkes kendi sunucusunu kurar; bizim işlettiğimiz açık bir sunucu yok. Uygulamada varsayılan sunucu adresi yok; cihaz bağlandığını hatırlar.
 7. Sunucuya ilk bağlanan sahibi olur; log ve kurulum linki yok. Kurulum bir saat açık kalır, isteğe bağlı `SCRAWL_OWNER_EMAIL`.
-8. Temel roller bu aşamada ve açık çekirdekte: sunucuda Owner, Admin, Member (space'i Owner ve Admin açar); space'te Manager, Member (Invite… ve çıkarma Manager'ın). İnce yetkiler ve SSO ileride `ee/`.
+8. Temel roller bu aşamada ve açık çekirdekte: sunucuda Owner, Admin, Member (space'i Owner ve Admin açar); space'te Manager, Member (Invite… ve çıkarma Manager'ın). İnce yetkiler ve SSO ileride, açık çekirdekte; ücretli özellik ve `ee/` yok (20 Ekim, PLAN 5.5).
 9. 16 Ekim: kişisel space sunucuda durabilir. Onu hesabı olan herkes açar, yalnız sahibi görür; hesap çıkarılınca kalır. Kararların hepsi `design/spaces.md` 9. bölümde.

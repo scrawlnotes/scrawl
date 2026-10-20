@@ -1,6 +1,6 @@
 # Bulut bağlantısı: tasarım
 
-Faz 5'in ikinci adımı: kişisel space'in, kullanıcının kendi bulut hesabındaki bir klasörle eşitlenmesi. Önce masaüstünde OneDrive; Google Drive aynı çerçeveye space'lerden sonra, 14. aşamada eklenir (10. bölüm). Sync motoru hazırdır (`design/sync.md`); bu adım ona bir uzak depo, bir giriş ve bir yüz verir. Birden çok space 9. aşamadadır.
+Faz 5'in ikinci adımı: kişisel space'in, kullanıcının kendi bulut hesabındaki bir klasörle eşitlenmesi. Önce masaüstünde OneDrive; Google Drive aynı çerçeveye space'lerden sonra, 15. aşamada eklenir (10. bölüm). Sync motoru hazırdır (`design/sync.md`); bu adım ona bir uzak depo, bir giriş ve bir yüz verir. Birden çok space 9. aşamadadır.
 
 ## 1. Parçalar
 
