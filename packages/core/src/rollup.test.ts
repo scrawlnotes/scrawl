@@ -37,7 +37,7 @@ describe('rollups', () => {
     expect(rollupValue(field({ from: 'S/Activities', fn: 'count' }), companies.dir, companies.records[0]!, all, boards, today)).toBe(2);
     expect(rollupValue(field({ from: 'S/Deals.board.json', fn: 'sum', field: 'value' }), companies.dir, companies.records[0]!, all, boards, today)).toBe(36000);
     expect(rollupValue(field({ from: 'S/Deals.board.json', fn: 'count', open: true }), companies.dir, companies.records[0]!, all, boards, today)).toBe(1);
-    expect(rollupValue(field({ from: 'S/Deals.board.json', fn: 'sum', field: 'value' }), companies.dir, companies.records[1]!, all, boards, today)).toBeNull();
+    expect(rollupValue(field({ from: 'S/Deals.board.json', fn: 'sum', field: 'value' }), companies.dir, companies.records[1]!, all, boards, today)).toBe(0);
     expect(rollupValue(field({ from: 'S/Nowhere', fn: 'count' }), companies.dir, companies.records[0]!, all, boards, today)).toBeNull();
   });
 

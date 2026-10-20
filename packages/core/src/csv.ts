@@ -7,6 +7,7 @@ import {
   type FieldType,
   type FieldValue,
   fieldValueOf,
+  isComputed,
   isEmpty,
   isLink,
   linkTo,
@@ -139,7 +140,7 @@ function cellOf(value: FieldValue | undefined): string {
   return String(value);
 }
 
-/** A collection as a CSV file: its fields' labels, then every record, formulas and rollups worked out, the notes last. */
+/** A collection as a CSV file: its fields' labels, then every record, what is worked out worked out, the notes last. */
 export function collectionCsv(collection: Collection, collections: Collection[], boards: { [path: string]: Board }, notesLabel: string, today: string): string {
   const { schema, records } = withRollups(collection, collections, boards, today);
   const header = [...schema.fields.map((f) => f.label), notesLabel];
@@ -155,8 +156,8 @@ function sheetCellOf(field: Field, value: FieldValue | undefined): SheetCell {
   if (isEmpty(value)) return '';
   if (typeof value === 'number' || typeof value === 'boolean') return value;
   if (typeof value === 'string') {
-    // A formula or a rollup can come out as a day: the last contact.
-    if ((field.type === 'date' || field.type === 'formula' || field.type === 'rollup') && isDay(value)) return { day: value };
+    // What is worked out can come out as a day: the last contact.
+    if ((field.type === 'date' || isComputed(field.type)) && isDay(value)) return { day: value };
     if (field.type === 'url' || field.type === 'email') {
       const href = fieldHref(field.type, value);
       if (href) return { text: value, href };
@@ -230,7 +231,7 @@ const simple = (text: string) => text.trim().toLowerCase().replace(/[\s_-]+/g, '
  */
 export function guessTargets(header: string[], rows: string[][], schema: Schema, notesLabel: string): ColumnTarget[] {
   const taken = new Set<string>();
-  const usable = schema.fields.filter((f) => f.type !== 'formula' && f.type !== 'rollup');
+  const usable = schema.fields.filter((f) => !isComputed(f.type));
   const exact = (n: string) => usable.find((f) => !taken.has(f.key) && (simple(f.label) === n || simple(f.key) === n));
   const names = header.map(simple);
   const named = nameField(schema);

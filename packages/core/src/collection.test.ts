@@ -603,10 +603,12 @@ describe('formulas, conditions, groups and sums', () => {
     expect(formulaProblem('today() - last_contact + paid', schema)).toBeNull();
     expect(formulaProblem('', schema)).toBe('Type a formula.');
     expect(formulaProblem('qty *', schema)).toBe('This is not a formula yet.');
-    expect(formulaProblem('now() - 1', schema)).toBe('This is not a formula yet.');
+    expect(formulaProblem('now() - 1', schema)).toBe('There is no now() here; write today().');
     expect(formulaProblem('qty * price', schema)).toBe('There is no field with the key price.');
     expect(formulaProblem('total * 2', schema, 'total')).toBe('A formula cannot use itself.');
-    expect(formulaProblem('status + 1', schema)).toBe('Status holds no number or day.');
+    expect(formulaProblem('status - 1', schema)).toBe('status is a choice, not a number; - takes numbers or days.');
+    // A text on either side of + makes a text, as in JS.
+    expect(formulaProblem('status + 1', schema)).toBeNull();
   });
 
   it('matches conditions by field type', () => {

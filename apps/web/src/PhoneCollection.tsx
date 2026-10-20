@@ -6,9 +6,9 @@ import {
   collectionName,
   collectionOf,
   columnSum,
+  computerFor,
   type Condition,
   type ConditionOp,
-  evaluateFormula,
   faceFields,
   type Field,
   fieldHref,
@@ -16,6 +16,7 @@ import {
   fieldValueOf,
   GROUPABLE,
   INBOX_TASKS,
+  isComputed,
   isEmpty,
   isFinished,
   isLink,
@@ -41,11 +42,11 @@ import {
   recordTitle,
   type RecordGroup,
   type RecordSort,
-  rolledValues,
   type Schema,
   sortRecords,
   type Task,
   templateNamed,
+  TODAY,
   unplacedFields,
   valueText,
   type View,
@@ -238,6 +239,7 @@ function FieldRow({ field, value, worked, changed, bad, autoFocus, today, ctx, o
   );
   switch (field.type) {
     case 'formula':
+    case 'lookup':
     case 'rollup':
       return (
         <div className={classes}>
@@ -311,7 +313,7 @@ function FieldRows({ schema, fields, values, rollups, original, problems, firstF
   schema: Schema;
   fields: Field[];
   values: Entry['values'];
-  /** What links to the record, worked out, for its rollups and the formulas over them. */
+  /** What is worked out for the record from what is typed and what links to it: its formulas, lookups and rollups. */
   rollups: Entry['values'];
   /** The values as the file has them, for the changed ones to be marked; null for a new record. */
   original: Entry['values'] | null;
@@ -330,7 +332,7 @@ function FieldRows({ schema, fields, values, rollups, original, problems, firstF
           key={field.key}
           field={field}
           value={values[field.key] ?? null}
-          worked={field.type === 'rollup' ? (rollups[field.key] ?? null) : field.type === 'formula' ? evaluateFormula(field.formula ?? '', { ...rollups, ...values }, schema, today) : null}
+          worked={isComputed(field.type) ? (rollups[field.key] ?? null) : null}
           changed={original !== null && !same(values[field.key], original[field.key])}
           bad={problems.has(field.key)}
           autoFocus={field.key === firstFocus}
@@ -630,9 +632,8 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   // What links here, each in a tab; the record's own subtasks are on the first, with its fields.
   const blocks = items.filter((item): item is LinkedBlock | { block: 'cards' } => 'block' in item && (item.block === 'linked' || item.block === 'cards'));
   const hasSubtasks = items.some((item) => 'block' in item && item.block === 'subtasks');
-  const rolled = rolledValues(record, collection, actions.collections(), actions.boards(), today);
-  const rollups: Entry['values'] = {};
-  for (const field of schema.fields) if (field.type === 'rollup') rollups[field.key] = rolled[field.key] ?? null;
+  // What is worked out from what the page holds now; the rollups are the record's, from what links to it.
+  const rollups = computerFor(collection, actions.collections(), actions.boards(), today).draft(dir, record, draft.values);
   const found = recordProblems({ values: draft.values, extra: record.extra }, schema);
   const problems = new Set(found.map((p) => p.field));
   const problemLines = found.map((p) => problemText(p, schema.fields.find((f) => f.key === p.field)!, { values: draft.values, extra: record.extra }));
@@ -820,7 +821,10 @@ function LinkedTab({ block, dir, schema: own, record, today, actions }: { block:
   }
   const { schema } = source;
   const open = (r: Entry) => actions.show?.(source.dir, r.id);
-  const records = linkedRecords(source, dir, record);
+  // The linked records with what is worked out among their values, their fields as those show.
+  const computer = computerFor(source, actions.collections(), actions.boards(), today);
+  const shownAs = computer.shown(source.dir);
+  const records = linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) }));
   const byKey = (key: string | undefined) => (key ? schema.fields.find((f) => f.key === key) : undefined);
   const day = byKey(block.sort)?.type === 'date' ? byKey(block.sort) : schema.fields.find((f) => f.type === 'date');
   const timeline = block.style ? block.style === 'timeline' : !!day;
@@ -877,7 +881,7 @@ function LinkedTab({ block, dir, schema: own, record, today, actions }: { block:
             <small>
               {r.name && r.code && <span className="key">{r.code}</span>}
               {shown(r).map((f) => (
-                <ListValue key={f.key} field={f} value={fieldValueOf(r, f, schema, today)} today={today} />
+                <ListValue key={f.key} field={shownAs.get(f.key) ?? f} value={fieldValueOf(r, f, schema, today)} today={today} />
               ))}
             </small>
           </span>
@@ -1021,7 +1025,7 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
               schema={schema}
               fields={fields}
               values={draft.values}
-              rollups={{}}
+              rollups={computerFor(collection, actions.collections(), actions.boards(), today).draft(dir, null, draft.values)}
               original={null}
               problems={new Set()}
               firstFocus={fields.find((f) => f.type !== 'formula' && f.type !== 'checkbox')?.key}
@@ -1496,11 +1500,20 @@ export function FilterSheet({ schema, first, conditions, total, count, records, 
       );
     }
     if (field.type === 'date') {
+      // Today moves with the day; a day picked stays.
       return (
-        <label className="mb-fr">
-          {label}
-          <input className="in r" type="date" aria-label={t('collection.value')} value={typeof value === 'string' ? value : ''} onChange={(event) => set(index, { ...condition, value: event.target.value || undefined })} />
-        </label>
+        <>
+          <label className="mb-fr">
+            {label}
+            <input className="in r" type="date" aria-label={t('collection.value')} value={typeof value === 'string' && value !== TODAY ? value : ''} onChange={(event) => set(index, { ...condition, value: event.target.value || undefined })} />
+          </label>
+          <button type="button" className="mb-fr pick" onClick={() => set(index, { ...condition, value: value === TODAY ? undefined : TODAY })}>
+            <span className="in">
+              {t('collection.today')} <small>{t('collection.todayHint')}</small>
+            </span>
+            <Tick on={value === TODAY} />
+          </button>
+        </>
       );
     }
     return (

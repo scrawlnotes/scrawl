@@ -9,6 +9,7 @@ import {
   type FieldValue,
   fieldValueOf,
   fold,
+  isComputed,
   isEmpty,
   type Link,
   linkTo,
@@ -45,6 +46,7 @@ export function fieldOut(field: Field) {
     ...(field.many && { many: true }),
     ...(field.formula && { formula: field.formula }),
     ...(field.rollup && { rollup: field.rollup }),
+    ...(field.lookup && { lookup: field.lookup }),
   };
 }
 
@@ -56,7 +58,7 @@ export function pickField(fields: Field[], ref: string): Field {
   return found;
 }
 
-/** A record as the tools give it: its values with formulas and rollups worked out, and what does not fit its schema. */
+/** A record as the tools give it: its values with what is worked out (formulas, lookups, rollups) worked out, and what does not fit its schema. */
 export function recordOut(record: CollectionRecord, schema: Schema, today: string) {
   const values: { [key: string]: FieldValue } = {};
   for (const field of schema.fields) {
@@ -93,9 +95,9 @@ async function surroundings(fs: VaultFs, except: string): Promise<{ collections:
   return { collections, boards };
 }
 
-/** A collection with its rollups worked out, when it has any. */
+/** A collection with what is worked out among its records' values, when it has any: formulas (which may read a linked record's field), lookups, rollups. */
 async function rolled(fs: VaultFs, collection: Collection, today: string): Promise<Collection> {
-  if (!collection.schema.fields.some((f) => f.type === 'rollup')) return collection;
+  if (!collection.schema.fields.some((f) => isComputed(f.type))) return collection;
   const { collections, boards } = await surroundings(fs, collection.dir);
   return withRollups(collection, [collection, ...collections], boards, today);
 }
@@ -161,7 +163,7 @@ export async function parseValues(fs: VaultFs, fields: Field[], given: { [key: s
   const extra: { [key: string]: unknown } = {};
   for (const [name, raw] of Object.entries(given)) {
     const field = pickField(fields, name);
-    if (field.type === 'formula' || field.type === 'rollup') throw new Refusal(`${field.label} is worked out, not written`, { field: field.key });
+    if (isComputed(field.type)) throw new Refusal(`${field.label} is worked out, not written`, { field: field.key });
     if (field.type === 'link') {
       values[field.key] = await resolveLinks(fs, field, raw);
       continue;

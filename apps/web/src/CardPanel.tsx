@@ -4,9 +4,11 @@ import {
   type CardPatch,
   cardValue,
   columnStatus,
+  computerFor,
   dayOf,
   type Field,
   type FieldValue,
+  isComputed,
   isEmpty,
   isLink,
   keyOf,
@@ -34,7 +36,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { type CollectionActions, FieldInput, RecordDialog, type ValueContext } from './Collection';
+import { Cell, type CollectionActions, FieldInput, RecordDialog, type ValueContext } from './Collection';
 import { isPhone, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { labelHue, useEscape } from './choices';
@@ -706,6 +708,9 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
   const [over, setOver] = useState<{ dir: string; id: string } | null>(null);
   const noteTitle = card.note ? actions.noteTitle(card.note) : null;
   const records = actions.recordActions;
+  // The board's own fields, a formula's and a lookup's worked out with the records they read.
+  const computer = computerFor(null, records.collections(), { ...records.boards(), [path]: board }, today);
+  const shownAs = computer.shown(path);
   const team = actions.people?.(path) ?? null;
   const ctx: ValueContext = {
     records: records.records,
@@ -879,7 +884,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
         {(board.fields ?? []).length > 0 && (
           <div className="own-fields">
             {board.fields!.map((field) => {
-              const value = cardValue(board, card, field, today);
+              const value = computer.cardValue(path, card, field);
               return (
                 <div key={field.key} className="prop">
                   <label className="pl" htmlFor={`field-${field.key}`}>
@@ -887,8 +892,8 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
                     {field.required && <i title={t('collection.required')}>*</i>}
                   </label>
                   <div className="pe">
-                    {field.type === 'formula' ? (
-                      <span className={typeof value === 'number' ? 'st-field formula' : 'st-field formula none'}>{typeof value === 'number' ? numberText(value) : '–'}</span>
+                    {isComputed(field.type) ? (
+                      <span className={isEmpty(value) ? 'st-field formula none' : 'st-field formula'}>{isEmpty(value) ? '–' : <Cell field={shownAs.get(field.key) ?? field} value={value} ctx={ctx} />}</span>
                     ) : (
                       <CardFieldBox field={field} value={value} ctx={ctx} onSave={(next) => update({ values: { [field.key]: next } })} />
                     )}
@@ -937,6 +942,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
   const [linking, setLinking] = useState<Field | null>(null);
   const [over, setOver] = useState<{ dir: string; id: string } | null>(null);
   const records = actions.recordActions;
+  const computer = computerFor(null, records.collections(), { ...records.boards(), [path]: board }, today);
   // In a space with people a card is given to one of them; in the personal space a name is typed.
   const team = actions.people?.(path) ?? null;
   const ctx: ValueContext = {
@@ -996,7 +1002,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
   // A board's field as a row: what is worked out only shows; a tick turns over; a choice is picked
   // from an action sheet, a record from its collection's; the rest is typed in a sheet.
   const fieldRow = (field: Field) => {
-    const value = cardValue(board, card, field, today);
+    const value = computer.cardValue(path, card, field);
     const links = (Array.isArray(value) ? value : [value]).filter(isLink);
     const shown = isEmpty(value) ? (
       none
@@ -1019,7 +1025,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
         {field.required && <i className="req">*</i>}
       </>
     );
-    if (field.type === 'formula' || field.type === 'rollup') {
+    if (isComputed(field.type)) {
       return (
         <div key={field.key} className="mb-fr">
           <Icon name={FIELD_ICONS[field.type]} />
@@ -1238,6 +1244,7 @@ const FIELD_ICONS: { [type in Field['type']]: IconName } = {
   person: 'person',
   link: 'collection',
   formula: 'hash',
+  lookup: 'collection',
   rollup: 'hash',
 };
 

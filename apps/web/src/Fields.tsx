@@ -7,12 +7,16 @@ import {
   type Collection,
   collectionName,
   COLLECTION_FILE,
+  type Condition,
   defaultLayout,
   type Field,
   FIELD_TYPES,
   type FieldType,
-  formulaProblem,
+  formulaInfo,
+  isComplete,
+  isComputed,
   isLinkable,
+  type Kind,
   keyFor,
   type Layout,
   type LayoutBlock,
@@ -21,22 +25,30 @@ import {
   linkFieldsTo,
   linkingCollections,
   nameField,
+  opsFor,
+  opTakesValue,
   OPTION_COLORS,
   type OptionColor,
   parseSchema,
+  type Record,
   ROLLUP_FNS,
   type RollupFn,
   type Schema,
+  type SchemaOf,
+  schemasOf,
   serializeSchema,
   settleSchema,
+  shownField,
   SINGLE_TYPES,
+  TODAY,
 } from '@scrawlnotes/core';
 import { createEnvEditor } from '@scrawlnotes/editor';
-import { t } from '@scrawlnotes/i18n';
+import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { holdToDrag } from './touchDrag';
 import { createPortal } from 'react-dom';
 import { boxKeys, hueStyle, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
+import { ConditionRow } from './Collection';
 import { pageBox, pageWindow } from './device';
 import { Icon } from './Icon';
 import { boardLabel, collectionLabel } from './items';
@@ -81,7 +93,8 @@ interface DraftField {
   collection: string;
   many: boolean;
   formula: string;
-  rollup: { from: string; fn: RollupFn; field: string; open: boolean };
+  rollup: { from: string; fn: RollupFn; field: string; open: boolean; where: Condition[] };
+  lookup: { link: string; field: string };
   fresh: boolean;
 }
 
@@ -182,7 +195,8 @@ function draftFields(fields: Field[]): DraftField[] {
       collection: f.collection ?? '',
       many: !!f.many,
       formula: f.formula ?? '',
-      rollup: { from: f.rollup?.from ?? '', fn: f.rollup?.fn ?? 'count', field: f.rollup?.field ?? '', open: !!f.rollup?.open },
+      rollup: { from: f.rollup?.from ?? '', fn: f.rollup?.fn ?? 'count', field: f.rollup?.field ?? '', open: !!f.rollup?.open, where: f.rollup?.where ?? [] },
+      lookup: { link: f.lookup?.link ?? '', field: f.lookup?.field ?? '' },
       fresh: false,
     }),
   );
@@ -199,7 +213,8 @@ const freshField = (fields: DraftField[]): DraftField => ({
   collection: '',
   many: false,
   formula: '',
-  rollup: { from: '', fn: 'count', field: '', open: false },
+  rollup: { from: '', fn: 'count', field: '', open: false, where: [] },
+  lookup: { link: '', field: '' },
   fresh: true,
 });
 
@@ -213,7 +228,7 @@ function toField(f: DraftField): Field {
     type: f.type,
     ...(isChoice(f.type) && { options: names }),
     ...(isChoice(f.type) && Object.keys(colors).length > 0 && { colors }),
-    ...(f.required && f.type !== 'name' && f.type !== 'formula' && { required: true }),
+    ...(f.required && f.type !== 'name' && !isComputed(f.type) && { required: true }),
     ...(f.type === 'link' && { collection: f.collection, ...(f.many && { many: true }) }),
     ...(f.type === 'formula' && { formula: f.formula }),
     ...(f.type === 'rollup' && {
@@ -222,8 +237,10 @@ function toField(f: DraftField): Field {
         fn: f.rollup.fn,
         ...(f.rollup.fn !== 'count' && f.rollup.field && { field: f.rollup.field }),
         ...(f.rollup.open && f.rollup.from.endsWith(BOARD_EXT) && { open: true }),
+        ...(f.rollup.where.some(isComplete) && { where: f.rollup.where.filter(isComplete) }),
       },
     }),
+    ...(f.type === 'lookup' && { lookup: { link: f.lookup.link, field: f.lookup.field } }),
   };
 }
 
@@ -321,7 +338,25 @@ function typeWords(field: DraftField): string {
   const type = t(`fields.type.${field.type}`).toLowerCase();
   if (field.type === 'link' && field.collection) return `${type} · ${collectionName(field.collection)}`;
   if (field.type === 'rollup' && field.rollup.from) return `${type} · ${field.rollup.from.endsWith(BOARD_EXT) ? boardName(field.rollup.from) : collectionName(field.rollup.from)}`;
+  if (field.type === 'lookup' && field.lookup.link) return `${type} · ${field.lookup.link}`;
   return type;
+}
+
+/** What a formula gives, in the words under its box: "Gives text". */
+const givesWords = (kind: Kind) => t(`fields.gives.${typeof kind === 'string' ? kind : 'list' in kind ? 'list' : 'record'}`);
+
+/** Keys or names as a sentence lists them: "spent and budget". */
+const listed = (items: string[]) => new Intl.ListFormat(locale(), { type: 'conjunction' }).format(items);
+
+/** A rollup's conditions in words: "direction is Out and due is before today". */
+function conditionsWords(where: Condition[], fields: Field[]): string {
+  return listed(
+    where.filter(isComplete).map((c) => {
+      const field = fields.find((f) => f.key === c.field);
+      const value = c.value === TODAY ? t('collection.today').toLowerCase() : Array.isArray(c.value) ? new Intl.ListFormat(locale(), { type: 'disjunction' }).format(c.value) : String(c.value ?? '');
+      return `${(field?.label ?? c.field).toLowerCase()} ${t(`collection.op.${c.op}`)}${opTakesValue(c.op) ? ` ${value}` : ''}`;
+    }),
+  );
 }
 
 /** What a block is called on the screen, and the line beside it. */
@@ -588,13 +623,15 @@ function Choices({ field, onChange }: { field: DraftField; onChange: (choices: C
 }
 
 /** A field opened where it is: its name, type and key, whether it is required, then what its type needs. */
-function FieldEditor({ field, fields, collections, types, sources = [], onChange, onDelete }: {
+function FieldEditor({ field, fields, collections, types, sources = [], schemaOf, onChange, onDelete }: {
   field: DraftField;
   fields: DraftField[];
   collections: Collection[];
   types?: readonly FieldType[];
   /** What a rollup can be worked out from. */
   sources?: RollupSource[];
+  /** The fields of the other collections and boards, for a formula's dot, a lookup and a rollup's conditions. */
+  schemaOf: SchemaOf;
   onChange: (patch: Partial<DraftField>) => void;
   onDelete: () => void;
 }) {
@@ -606,22 +643,38 @@ function FieldEditor({ field, fields, collections, types, sources = [], onChange
   const retype = (type: FieldType) => onChange({ type, ...(type === 'name' && { required: false }) });
   const targets: Option[] = collections.filter((c) => isLinkable(c.schema)).map((c) => ({ value: c.dir, label: collectionLabel(c.dir), chip: false }));
   if (field.collection && !targets.some((o) => o.value === field.collection)) targets.push({ value: field.collection, label: collectionLabel(field.collection), chip: false });
-  const problem = field.type === 'formula' ? formulaProblem(field.formula, { fields: fields.map(toField) }, field.key) : null;
+  // What a formula gives and reads, or what is wrong with it.
+  const info = field.type === 'formula' && field.formula.trim() ? formulaInfo(field.formula, { fields: fields.map(toField), self: field.key, schemaOf }) : null;
+  const problem = info && 'problem' in info ? info.problem : null;
+  // A lookup: the link it goes through, and the field of the linked record it shows.
+  const links = fields.filter((f) => f.type === 'link' && f.collection);
+  const through = links.find((f) => f.key === field.lookup.link);
+  const target = through ? schemaOf(through.collection) : undefined;
+  const looked = target?.fields.find((f) => f.key === field.lookup.field);
+  const linkOptions: Option[] = links.map((f) => ({ value: f.key, label: t('fields.throughLink', { link: f.label.trim() || f.key, collection: collectionName(f.collection) }), chip: false }));
+  const lookedOptions: Option[] = (target?.fields ?? []).map((f) => ({ value: f.key, label: f.label, chip: false }));
   // A rollup: where it is worked out from, what it does, and with which of their fields.
   const roll = field.rollup;
   const source = sources.find((o) => o.value === roll.from);
   const sourceOptions: Option[] = sources.map((o) => ({ value: o.value, label: o.label, chip: false }));
   if (roll.from && !source) sourceOptions.push({ value: roll.from, label: roll.from.endsWith(BOARD_EXT) ? boardLabel(roll.from) : collectionLabel(roll.from), chip: false });
   const fnOptions: Option[] = ROLLUP_FNS.map((fn) => ({ value: fn, label: t(`fields.fn.${fn}`), chip: false }));
-  const counted = (source?.fields ?? []).filter((f) => f.type === 'number' || f.type === 'date' || f.type === 'formula');
+  const counted = (source?.fields ?? []).filter((f) => f.type === 'number' || f.type === 'date' || isComputed(f.type));
   const ofOptions: Option[] = counted.map((f) => ({ value: f.key, label: f.label, chip: false }));
   const ofField = counted.find((f) => f.key === roll.field);
   const sourceName = source?.name.toLowerCase() ?? '';
-  const rollNote = !source
+  const said = !source
     ? null
     : roll.fn === 'count'
       ? t('fields.rollupCount', { source: sourceName })
       : ofField && t('fields.rollupOf', { fn: t(`fields.fn.${roll.fn}`).toLowerCase(), field: ofField.label.toLowerCase(), source: sourceName });
+  const whereWords = source ? conditionsWords(roll.where, source.fields) : '';
+  const rollNote = said && whereWords ? `${said.replace(/\.$/, '')}${t('fields.rollupWhere', { conditions: whereWords })}` : said;
+  // Its conditions ask of the source's fields as they show; a link's records come from the collections at hand.
+  const sourceShown = (f: Field) => (source ? shownField(f, { fields: source.fields, schemaOf }) : f);
+  const recordsOf = (dir: string): Record[] | null => collections.find((c) => c.dir === dir)?.records ?? null;
+  const firstAsked = source?.fields.find((f) => f.type !== 'name') ?? source?.fields[0];
+  const setWhere = (where: Condition[]) => onChange({ rollup: { ...roll, where } });
   return (
     <div className="fe">
       <div className="fe-top">
@@ -632,7 +685,7 @@ function FieldEditor({ field, fields, collections, types, sources = [], onChange
         </button>
       </div>
       <div className="fe-row">
-        {field.type !== 'formula' && field.type !== 'rollup' && (
+        {!isComputed(field.type) && (
           <label className="fcheck" title={field.type === 'name' ? t('fields.nameRequired') : undefined}>
             <input type="checkbox" checked={field.type === 'name' || field.required} disabled={field.type === 'name'} onChange={(event) => onChange({ required: event.target.checked })} />
             {t('fields.required')}
@@ -675,13 +728,60 @@ function FieldEditor({ field, fields, collections, types, sources = [], onChange
               {t('fields.openOnly')}
             </label>
           )}
+          {source && firstAsked && (
+            <div className="fe-row top">
+              <span className="fe-name">{t('fields.where')}</span>
+              <div className="fe-where">
+                {roll.where.map((condition, i) => (
+                  <ConditionRow
+                    key={i}
+                    schema={{ fields: source.fields }}
+                    condition={condition}
+                    records={recordsOf}
+                    shown={sourceShown}
+                    onChange={(next) => setWhere(roll.where.map((c, j) => (j === i ? next : c)))}
+                    onRemove={() => setWhere(roll.where.filter((_, j) => j !== i))}
+                  />
+                ))}
+                <button type="button" className="cond-add" onClick={() => setWhere([...roll.where, { field: firstAsked.key, op: opsFor(sourceShown(firstAsked).type)[0]! }])}>
+                  {t('collection.addCondition')}
+                </button>
+              </div>
+            </div>
+          )}
           {rollNote && <p className="fi-note">{rollNote}</p>}
+        </>
+      )}
+      {field.type === 'lookup' && (
+        <>
+          <div className="fe-row">
+            <span className="fe-name">{t('fields.through')}</span>
+            <Picker className="in" options={linkOptions} value={through ? through.key : null} label={links.length > 0 ? t('fields.through') : t('fields.noLinks')} onPick={(key) => key && onChange({ lookup: { link: key, field: '' } })} />
+          </div>
+          <div className="fe-row">
+            <span className="fe-name">{t('fields.shows')}</span>
+            <Picker className="in" options={lookedOptions} value={looked ? looked.key : null} label={t('fields.shows')} onPick={(key) => key && onChange({ lookup: { ...field.lookup, field: key } })} />
+          </div>
+          {through && looked && (
+            <p className="fi-note">{t('fields.lookupNote', { field: looked.label.toLowerCase(), link: (through.label.trim() || through.key).toLowerCase(), path: `${through.key}.${looked.key}` })}</p>
+          )}
         </>
       )}
       {field.type === 'formula' && (
         <>
           <input className="in mono" aria-label={t('fields.type.formula')} spellCheck={false} autoComplete="off" placeholder="qty * price" value={field.formula} onChange={(event) => onChange({ formula: event.target.value })} />
-          <p className={problem && field.formula.trim() ? 'fi-note bad' : 'fi-note'}>{problem && field.formula.trim() ? problem : t('fields.formulaHint')}</p>
+          {problem ? (
+            <p className="fi-note bad">{problem}</p>
+          ) : (
+            info &&
+            'kind' in info && (
+              <p className="fi-note">
+                <b>{givesWords(info.kind)}</b>
+                {info.reads.length > 0 && ` · ${t('fields.reads', { fields: listed(info.reads) })}`}
+              </p>
+            )
+          )}
+          <p className="fi-note">{t('fields.formulaHint')}</p>
         </>
       )}
     </div>
@@ -886,6 +986,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
     ...linking.map((c) => ({ value: c.dir, label: collectionLabel(c.dir), name: collectionName(c.dir), board: false, fields: c.schema.fields })),
     ...boardsLinkingTo(boards, dir).map((path) => ({ value: path, label: boardLabel(path), name: boardName(path), board: true, fields: boards[path]!.fields ?? [] })),
   ];
+  const schemaOf = schemasOf(collections, boards);
 
   // The keyboard comes into the window, so that Esc closes it before anything is clicked.
   useEffect(() => {
@@ -1049,6 +1150,11 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
         setOpen(placeOf(unrolled));
         return setError(t(unrolled.rollup.from ? 'fields.rollupFieldNeeded' : 'fields.rollupNeeded', { field: unrolled.label.trim() }));
       }
+      const unlooked = draft.fields.find((f) => f.type === 'lookup' && (!f.lookup.link || !f.lookup.field));
+      if (unlooked) {
+        setOpen(placeOf(unlooked));
+        return setError(t('fields.lookupNeeded', { field: unlooked.label.trim() }));
+      }
       next = toSchema(draft, schema);
       renames = compose(carried, renamesOf(draft.fields));
     }
@@ -1079,7 +1185,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
             {GRIP}
           </span>
           {field ? (
-            <FieldEditor field={field} fields={draft.fields} collections={collections} sources={sources} onChange={(patch) => changeField(field.id, patch)} onDelete={() => removeItem(item)} />
+            <FieldEditor field={field} fields={draft.fields} collections={collections} sources={sources} schemaOf={schemaOf} onChange={(patch) => changeField(field.id, patch)} onDelete={() => removeItem(item)} />
           ) : (
             'block' in item && <BlockEditor block={item.block} dir={dir} collections={collections} onChange={(block) => changeBlock(item.id, block)} onDelete={() => removeItem(item)} />
           )}
@@ -1386,6 +1492,7 @@ export function BoardFieldsDialog({ board, path, collections, actions, onClose }
             fields={fields}
             collections={collections}
             types={BOARD_TYPES}
+            schemaOf={schemasOf(collections)}
             onChange={(patch) => change(fields.map((f) => (f.id === field.id ? { ...f, ...patch } : f)))}
             onDelete={() => {
               change(fields.filter((f) => f.id !== field.id));

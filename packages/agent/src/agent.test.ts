@@ -451,7 +451,7 @@ describe('tried by hand', () => {
     const schema = await refusal(writeTool(agent, { path, text: JSON.stringify({ version: 2, fields }) }));
     expect(schema.details.problems).toEqual([
       'The key name is there twice; each field has its own',
-      'amount has the type "money", which is none of name, code, text, number, date, select, multi-select, checkbox, url, email, phone, person, link, formula, rollup',
+      'amount has the type "money", which is none of name, code, text, number, date, select, multi-select, checkbox, url, email, phone, person, link, formula, lookup, rollup',
       'The key Big Key is not one: a key is lowercase letters, digits and _, like big_key',
       'total: a rollup with sum needs rollup.field, the field it works out',
       'There is more than one name field; a collection has one at most',
@@ -461,6 +461,28 @@ describe('tried by hand', () => {
     // What only points at something not made yet is written, and said.
     const ahead = await writeTool(agent, { path, text: JSON.stringify({ version: 2, fields: [{ key: 'name', label: 'Name', type: 'name' }, { key: 'owner', label: 'Owner', type: 'link', collection: 'CRM/People' }] }) });
     expect(ahead.data.notes).toEqual(['owner links to CRM/People, which is not a collection in this space yet']);
+    // A lookup goes through a link field of the collection; a formula is checked in its language, with what it is done with.
+    const looks = await refusal(
+      writeTool(agent, {
+        path,
+        text: JSON.stringify({
+          version: 2,
+          fields: [
+            { key: 'name', label: 'Name', type: 'name' },
+            { key: 'segment', label: 'Segment', type: 'select', options: ['SMB'] },
+            { key: 'via', label: 'Via', type: 'lookup', lookup: { link: 'segment', field: 'x' } },
+            { key: 'none', label: 'None', type: 'lookup', lookup: {} },
+            { key: 'odd', label: 'Odd', type: 'formula', formula: 'segment - 1' },
+          ],
+        }),
+      }),
+    );
+    expect(looks.details.problems).toEqual([
+      'via: lookup.link is segment, which is not a link field of this collection',
+      'none is a lookup with no link: lookup.link is the key of a link field of this collection',
+      "none: lookup.field is the key of the linked record's field it shows",
+      'odd: segment is a choice, not a number; - takes numbers or days.',
+    ]);
 
     const list = await refusal(writeTool(agent, { path: 'Plans/Launch.tasks.json', text: JSON.stringify({ sections: [{ id: 's1', name: 'Now' }], tasks: [{ id: 't1', title: 'One', parent: 'nope' }, { id: 't2', title: '' }, { id: 't3', title: 'Three', section: 's9', due: '2026-02-30' }] }) }));
     expect(list.details.problems).toEqual([

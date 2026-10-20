@@ -8,7 +8,7 @@ import {
   type CollectionLook,
   collectionOf,
   type ColumnWidths,
-  evaluateFormula,
+  computerFor,
   collectionName,
   columnSum,
   type Condition,
@@ -21,6 +21,7 @@ import {
   groupRecords,
   faceFields,
   isComplete,
+  isComputed,
   isEmpty,
   isFinished,
   keyOf,
@@ -65,13 +66,12 @@ import {
   nameField,
   type NewRecord,
   numberText,
-  rolledValues,
-  withRollups,
   type Record,
   type RecordPatch,
   type RecordSort,
   sortRecords,
   type Subtask,
+  TODAY,
   unplacedFields,
   valueText,
 } from '@scrawlnotes/core';
@@ -179,6 +179,7 @@ const WIDTHS: { [type in Field['type']]: [number, number] } = {
   person: [84, 124],
   link: [120, 184],
   formula: [76, 110],
+  lookup: [100, 160],
   rollup: [92, 120],
   name: [160, 240],
   code: [80, 112],
@@ -760,7 +761,10 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
     );
   }
   const { schema } = source;
-  const records = linkedRecords(source, dir, record);
+  // The linked records with what is worked out among their values, and their fields as those show.
+  const computer = computerFor(source, actions.collections(), actions.boards(), today);
+  const shownAs = computer.shown(source.dir);
+  const records = linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) }));
   const byKey = (key: string | undefined) => (key ? schema.fields.find((f) => f.key === key) : undefined);
   const day = byKey(block.sort)?.type === 'date' ? byKey(block.sort) : schema.fields.find((f) => f.type === 'date');
   const timeline = block.style ? block.style === 'timeline' : !!day;
@@ -818,7 +822,7 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
           </span>
           <span className="meta">
             {shown(r).map((f) => (
-              <Cell key={f.key} field={f} value={fieldValueOf(r, f, schema, today)} ctx={ctx} />
+              <Cell key={f.key} field={shownAs.get(f.key) ?? f} value={fieldValueOf(r, f, schema, today)} ctx={ctx} />
             ))}
           </span>
         </button>
@@ -1039,35 +1043,21 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
 
   // A new record's first box has the keyboard.
   const firstKey = isNew ? layout.columns.flatMap((c) => c.sections.flatMap((s) => s.items)).find((i): i is { field: string } => 'field' in i)?.field : undefined;
-  // The rollups of a record, worked out from what links to it, for their boxes and the formulas over them.
-  const rollups: Record['values'] = {};
-  if (record) {
-    const rolled = rolledValues(record, collection, actions.collections(), actions.boards(), today);
-    for (const field of schema.fields) if (field.type === 'rollup') rollups[field.key] = rolled[field.key] ?? null;
-  }
+  // What is worked out (formulas, lookups, rollups) from what the form holds now; the rollups are the record's, from what links to it.
+  const computer = useMemo(() => computerFor(collection, actions.collections(), actions.boards(), today), [collection, actions, today]);
+  const computed = computer.draft(dir, record, draft.values);
+  const shownAs = computer.shown(dir);
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
     if (!field) return null;
-    // A rollup is worked out from what links to the record; it is not typed.
-    if (field.type === 'rollup') {
-      const worked = rollups[field.key];
+    // What is worked out is shown, not typed.
+    if (isComputed(field.type)) {
+      const worked = computed[field.key];
       return (
         <div key={`${key}-${index}`} className="prop">
           <span className="pl">{field.label}</span>
           <div className="pe">
-            <span className={isEmpty(worked) ? 'st-field formula none' : 'st-field formula'}>{typeof worked === 'number' ? numberText(worked) : isEmpty(worked) ? '–' : valueText(worked)}</span>
-          </div>
-        </div>
-      );
-    }
-    // A formula is worked out from what is typed; it is not typed itself.
-    if (field.type === 'formula') {
-      const worked = evaluateFormula(field.formula ?? '', { ...rollups, ...draft.values }, schema, today);
-      return (
-        <div key={`${key}-${index}`} className="prop">
-          <span className="pl">{field.label}</span>
-          <div className="pe">
-            <span className={worked === null ? 'st-field formula none' : 'st-field formula'}>{worked === null ? '–' : numberText(worked)}</span>
+            <span className={isEmpty(worked) ? 'st-field formula none' : 'st-field formula'}>{isEmpty(worked) ? '–' : <Cell field={shownAs.get(field.key) ?? field} value={worked} ctx={ctx} />}</span>
           </div>
         </div>
       );
@@ -1217,15 +1207,50 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
 
 // ---------- views: filters, groups, columns ----------
 
-/** A condition being typed: the field, what is asked of it, and the value when one is needed. */
-export function ConditionRow({ schema, condition, records, onChange, onRemove }: {
+/**
+ * A day's value in a condition: Today, which moves with the day, or a day picked. "A day…" opens
+ * the device's own day picker, which sits under the box.
+ */
+function DayValue({ value, onChange }: { value: string | undefined; onChange: (value: string | undefined) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const day = typeof value === 'string' && value !== TODAY ? value : '';
+  const options: Option[] = [
+    { value: TODAY, label: t('collection.today'), hint: t('collection.todayHint'), chip: false },
+    { value: 'day', label: t('collection.aDay'), chip: false },
+  ];
+  const pick = (picked: string | null) => {
+    if (picked === TODAY) return onChange(TODAY);
+    const box = input.current;
+    if (!box) return;
+    try {
+      box.showPicker();
+    } catch {
+      box.focus();
+    }
+  };
+  return (
+    <span className="cv-day">
+      <Picker className="cv" options={options} value={value === TODAY ? TODAY : day ? 'day' : null} text={value === TODAY ? t('collection.today') : day ? dayText(day) : undefined} label={t('collection.value')} onPick={pick} />
+      <input ref={input} type="date" className="cv-pick" tabIndex={-1} aria-label={t('collection.aDay')} value={day} onChange={(event) => onChange(event.target.value || undefined)} />
+    </span>
+  );
+}
+
+/** A day as a condition shows it: Oct 12, 2026. */
+const dayText = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+/** A condition being typed: the field, what is asked of it, and the value when one is needed. A worked-out field asks as what it shows (`shown`). */
+export function ConditionRow({ schema, condition, records, shown, onChange, onRemove }: {
   schema: Pick<Schema, 'fields'>;
   condition: Condition;
   records: CollectionActions['records'];
+  /** A field as its value shows: a formula with the type of what it gives. */
+  shown?: (field: Field) => Field;
   onChange: (condition: Condition) => void;
   onRemove: () => void;
 }) {
-  const field = schema.fields.find((f) => f.key === condition.field) ?? schema.fields[0]!;
+  const raw = schema.fields.find((f) => f.key === condition.field) ?? schema.fields[0]!;
+  const field = shown ? shown(raw) : raw;
   const ops = opsFor(field.type);
   const fieldOptions: Option[] = schema.fields.filter((f) => f.type !== 'formula' || f.formula).map((f) => ({ value: f.key, label: f.label, chip: false }));
   const opOptions: Option[] = ops.map((op) => ({ value: op, label: t(`collection.op.${op}`), chip: false }));
@@ -1240,7 +1265,7 @@ export function ConditionRow({ schema, condition, records, onChange, onRemove }:
       <Picker options={fieldOptions} value={condition.field} label={t('collection.field')} onPick={(key) => {
         const next = schema.fields.find((f) => f.key === key);
         if (!next) return;
-        const nextOps = opsFor(next.type);
+        const nextOps = opsFor((shown ? shown(next) : next).type);
         onChange({ field: next.key, op: nextOps.includes(condition.op) ? condition.op : nextOps[0]! });
       }} />
       <Picker options={opOptions} value={condition.op} label={t('collection.op')} onPick={(op) => op && onChange({ ...condition, op: op as ConditionOp, ...(opTakesValue(op as ConditionOp) && value !== undefined && { value }) })} />
@@ -1250,7 +1275,7 @@ export function ConditionRow({ schema, condition, records, onChange, onRemove }:
         ) : field.type === 'number' || field.type === 'formula' ? (
           <input type="number" step="any" className="cv" aria-label={t('collection.value')} placeholder={t('collection.value')} value={typeof value === 'number' ? value : typeof value === 'string' ? value : ''} onChange={(event) => onChange({ ...condition, value: event.target.value === '' ? undefined : Number(event.target.value) })} />
         ) : field.type === 'date' ? (
-          <input type="date" className="cv" aria-label={t('collection.value')} value={typeof value === 'string' ? value : ''} onChange={(event) => onChange({ ...condition, value: event.target.value || undefined })} />
+          <DayValue value={typeof value === 'string' ? value : undefined} onChange={(day) => onChange({ ...condition, value: day })} />
         ) : (
           <input type="text" className="cv" aria-label={t('collection.value')} placeholder={t('collection.value')} value={typeof value === 'string' ? value : ''} onChange={(event) => onChange({ ...condition, value: event.target.value })} />
         )
@@ -1265,8 +1290,10 @@ export function ConditionRow({ schema, condition, records, onChange, onRemove }:
 }
 
 /** The conditions of the table, edited in a window; Apply shows them, Save as view keeps them in the schema. */
-function FilterDialog({ schema, first, conditions, count, records, view, onApply, onSave, onClose }: {
+function FilterDialog({ schema, first, conditions, count, records, showAs, view, onApply, onSave, onClose }: {
   schema: Schema;
+  /** A field as its value shows: a formula with the type of what it gives. */
+  showAs: (field: Field) => Field;
   /** The field a new condition starts on: the first column after the name. */
   first: Field;
   conditions: Condition[];
@@ -1285,7 +1312,7 @@ function FilterDialog({ schema, first, conditions, count, records, view, onApply
   const [naming, setNaming] = useState(false);
   const backdrop = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
-  const add = () => setDraft([...draft, { field: first.key, op: opsFor(first.type)[0]! }]);
+  const add = () => setDraft([...draft, { field: first.key, op: opsFor(showAs(first).type)[0]! }]);
   useEscape(backdrop, onClose);
   const shown = count(draft);
   // The keyboard comes into the window, so that Esc closes it before anything is clicked.
@@ -1303,6 +1330,7 @@ function FilterDialog({ schema, first, conditions, count, records, view, onApply
             schema={schema}
             condition={condition}
             records={records}
+            shown={showAs}
             onChange={(next) => setDraft(draft.map((c, j) => (j === i ? next : c)))}
             onRemove={() => setDraft(draft.filter((_, j) => j !== i))}
           />
@@ -1386,8 +1414,12 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   fieldsAsked?: number;
 }) {
   const { dir, schema } = collection;
-  // The records with their rollups worked out, for the table; a record opens as its file has it.
-  const rolled = useMemo(() => withRollups(collection, actions.collections(), actions.boards(), today), [collection, actions, today]);
+  // The records with what is worked out among their values, for the table; a record opens as its file has it.
+  const computer = useMemo(() => computerFor(collection, actions.collections(), actions.boards(), today), [collection, actions, today]);
+  const rolled = useMemo(() => computer.withValues(collection.dir) ?? collection, [computer, collection]);
+  // A worked-out field shows, sorts, groups and is asked about as what it gives.
+  const shownAs = useMemo(() => computer.shown(collection.dir), [computer, collection.dir]);
+  const asShown = (field: Field) => shownAs.get(field.key) ?? field;
   const records = rolled.records;
   const name = collectionName(dir);
   const narrow = useNarrow();
@@ -1437,7 +1469,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
     [records, schema, state.conditions, query, today],
   );
   const shown = useMemo(() => sortRecords(matching, schema, state.sort, today), [matching, schema, state.sort, today]);
-  const groups = useMemo(() => (state.group ? groupRecords(shown, schema, state.group, today) : null), [shown, schema, state.group, today]);
+  const groups = useMemo(() => (state.group ? groupRecords(shown, schema, state.group, today, shownAs.get(state.group)) : null), [shown, schema, state.group, today, shownAs]);
   const groupField = state.group ? fieldsByKey.get(state.group) : undefined;
 
   useEffect(() => {
@@ -1510,7 +1542,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
 
   const openRecord = (id: string) => setOpen({ kind: 'record', id });
   const sortBy = (key: string) => change({ sort: { key, dir: state.sort.key === key && state.sort.dir === 'asc' ? 'desc' : 'asc' } });
-  const isNumeric = (field: Field) => field.type === 'number' || field.type === 'formula' || (field.type === 'rollup' && (field.rollup?.fn === 'count' || field.rollup?.fn === 'sum'));
+  const isNumeric = (field: Field) => asShown(field).type === 'number';
   const cellClass = (field: Field, i: number) => [i === 0 && 'c0', isNumeric(field) && 'r'].filter(Boolean).join(' ') || undefined;
   const head = (field: Field, i: number) => {
     const on = state.sort.key === field.key;
@@ -1527,7 +1559,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const cellOf = (record: Record, field: Field) => {
     if (field.key === TITLE.key) return <span className="ct name">{recordTitle(record)}</span>;
     const problem = problems.get(record.id)?.find((p) => p.field === field.key);
-    return problem ? <Flagged problem={problem} field={field} record={record} /> : <Cell field={field} value={fieldValueOf(record, field, schema, today)} ctx={ctx} />;
+    return problem ? <Flagged problem={problem} field={field} record={record} /> : <Cell field={asShown(field)} value={fieldValueOf(record, field, schema, today)} ctx={ctx} />;
   };
   // A record with something to check has a dot at the start of its row, which stays when the table scrolls.
   const flag = (record: Record) => {
@@ -1590,7 +1622,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
           .filter((f) => f.type !== 'name' && f.key !== TITLE.key && !isEmpty(fieldValueOf(record, f, schema, today)))
           .slice(0, 3)
           .map((f) => (
-            <Cell key={f.key} field={f} value={fieldValueOf(record, f, schema, today)} ctx={ctx} />
+            <Cell key={f.key} field={asShown(f)} value={fieldValueOf(record, f, schema, today)} ctx={ctx} />
           ))}
       </small>
     </button>
@@ -1642,7 +1674,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
     </div>
   );
 
-  const groupOptions: Option[] = [{ value: null, label: t('collection.noGroup'), chip: false }, ...schema.fields.filter((f) => GROUPABLE.includes(f.type)).map((f) => ({ value: f.key, label: f.label, chip: false }))];
+  const groupOptions: Option[] = [{ value: null, label: t('collection.noGroup'), chip: false }, ...schema.fields.filter((f) => GROUPABLE.includes(asShown(f).type)).map((f) => ({ value: f.key, label: f.label, chip: false }))];
   const columnOptions: Option[] = allFields.slice(1).map((f) => ({ value: f.key, label: f.label, chip: false }));
   const columnsPicked = fields.slice(1).map((f) => f.key);
   const viewMenu = (event: MouseEvent, v: View) =>
@@ -1704,7 +1736,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
           count={applied.length > 0 || query ? t('phone.matchOf', { count: shown.length, total: records.length }) : t('count.records', { count: records.length })}
           schema={schema}
           today={today}
-          fields={fields.slice(1)}
+          fields={fields.slice(1).map(asShown)}
           records={records}
           shown={shown}
           groups={groups}
@@ -1730,7 +1762,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
         {viewing && !filtering && (
           <ViewSheet
             viewName={view ? view.name : t('collection.all')}
-            all={schema.fields}
+            all={schema.fields.map(asShown)}
             optional={allFields.slice(1)}
             sort={state.sort}
             group={state.group}
@@ -1745,8 +1777,8 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
         )}
         {filtering && (
           <FilterSheet
-            schema={schema}
-            first={fields[1] ?? fields[0]!}
+            schema={{ ...schema, fields: schema.fields.map(asShown) }}
+            first={asShown(fields[1] ?? fields[0]!)}
             conditions={state.conditions}
             total={records.length}
             count={countFor}
@@ -1828,6 +1860,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
           conditions={state.conditions}
           count={countFor}
           records={actions.records}
+          showAs={asShown}
           view={view}
           onApply={applyFilter}
           onSave={saveFilter}

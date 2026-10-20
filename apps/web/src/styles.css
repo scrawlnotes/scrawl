@@ -8859,6 +8859,23 @@ textarea.tt-edit {
   outline: none;
 }
 
+/* A day's value in a condition: Today, or a day from the device's own picker, which opens under the box. */
+.cv-day {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+
+.cv-day > .cv-pick {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .cond .cv::placeholder,
 .cond .st-field .none {
   color: var(--sl-faint);
@@ -9916,6 +9933,44 @@ textarea.tt-edit {
   text-transform: uppercase;
 }
 
+.fe-row > .fe-name {
+  min-width: 64px;
+}
+
+/* A rollup's conditions in the Fields window: the Filter window's rows, under its other boxes. */
+.fe-row.top {
+  align-items: flex-start;
+}
+
+.fe-row.top > .fe-name {
+  padding-top: 9px;
+}
+
+.fe-where {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fe .cond .cv {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 31px;
+  padding: 5px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-side);
+  color: var(--sl-fg);
+  font: inherit;
+}
+
+.fe .cond .cv:focus {
+  border-color: var(--sl-accent);
+  outline: none;
+}
+
 .fe-meta {
   flex: 1;
   min-width: 0;
@@ -9953,6 +10008,12 @@ textarea.tt-edit {
 
 .fe .in.mono {
   font-family: var(--sl-font-mono);
+  font-variant-ligatures: none;
+}
+
+.fi-note b {
+  color: var(--sl-dim);
+  font-weight: 500;
 }
 
 .fe .st-field.in {

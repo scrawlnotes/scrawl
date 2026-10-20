@@ -3,6 +3,7 @@ import {
   collectionName,
   type ColumnTarget,
   guessTargets,
+  isComputed,
   IMPORTED_TYPES,
   type ImportMode,
   type ImportPlan,
@@ -64,7 +65,7 @@ export function ImportDialog({ collection, fileName, header, rows, sheets, sheet
 
   const plan = useMemo(() => planImport(collection, header, rows, columns, mode, targets), [collection, header, rows, columns, mode, targets]);
   const named = schema.fields.some((f) => f.type === 'name' || f.type === 'code');
-  const fieldOptions: Option[] = schema.fields.filter((f) => f.type !== 'formula' && f.type !== 'rollup').map((f) => ({ value: f.key, label: f.label, chip: false }));
+  const fieldOptions: Option[] = schema.fields.filter((f) => !isComputed(f.type)).map((f) => ({ value: f.key, label: f.label, chip: false }));
   const options: Option[] = [
     ...fieldOptions,
     ...IMPORTED_TYPES.map((type, i) => ({ value: `add:${type}`, label: t('import.newField', { type: t(`fields.type.${type}`) }), chip: false, apart: i === 0 })),

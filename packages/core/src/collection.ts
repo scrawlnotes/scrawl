@@ -1,6 +1,7 @@
 import { t } from '@scrawlnotes/i18n';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { isDay } from './day';
+import { dayValue, type Env, evaluate, formulaInfo, fromRuntime, type Node, parseExpression, type RV, type Scope, toRuntime } from './lang';
 import { basename, type Entry, join, type VaultFs } from './fs';
 import { fileNameOf, shownName } from './names';
 import { freePath, moveTree } from './paths';
@@ -18,14 +19,14 @@ import { readSubtasks, type Subtask, writtenSubtask } from './subtasks';
 export const COLLECTION_FILE = '_collection.json';
 export const RECORD_EXT = '.md';
 
-export type FieldType = 'name' | 'code' | 'text' | 'number' | 'date' | 'select' | 'multi-select' | 'checkbox' | 'url' | 'email' | 'phone' | 'person' | 'link' | 'formula' | 'rollup';
+export type FieldType = 'name' | 'code' | 'text' | 'number' | 'date' | 'select' | 'multi-select' | 'checkbox' | 'url' | 'email' | 'phone' | 'person' | 'link' | 'formula' | 'lookup' | 'rollup';
 
-export const FIELD_TYPES: readonly FieldType[] = ['name', 'code', 'text', 'number', 'date', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person', 'link', 'formula', 'rollup'];
+export const FIELD_TYPES: readonly FieldType[] = ['name', 'code', 'text', 'number', 'date', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person', 'link', 'formula', 'lookup', 'rollup'];
 
-/** What a rollup does with what links to the record: counts it, adds it up, or takes its most or least. */
-export type RollupFn = 'count' | 'sum' | 'max' | 'min';
+/** What a rollup does with what links to the record: counts it, adds it up, averages it, or takes its most or least. */
+export type RollupFn = 'count' | 'sum' | 'avg' | 'max' | 'min';
 
-export const ROLLUP_FNS: readonly RollupFn[] = ['count', 'sum', 'max', 'min'];
+export const ROLLUP_FNS: readonly RollupFn[] = ['count', 'sum', 'avg', 'max', 'min'];
 
 /**
  * A value worked out from what links to the record: the records of a collection or the cards of
@@ -39,6 +40,16 @@ export interface Rollup {
   field?: string;
   /** For a board: its open cards only. */
   open?: boolean;
+  /** Only those records or cards that meet these conditions, as the Filter window's: the transactions whose direction is Out. */
+  where?: Condition[];
+}
+
+/** A field of the record a link field points at, shown as a field of this one: a transaction's customer, through its project. */
+export interface Lookup {
+  /** The key of this collection's link field. */
+  link: string;
+  /** The key of the field of the linked record. */
+  field: string;
 }
 
 /** The types a schema has one field of at most: the record's name, and its code. */
@@ -67,6 +78,8 @@ export interface Field {
   formula?: string;
   /** A rollup's source and what it does. Not written to the record's file. */
   rollup?: Rollup;
+  /** A lookup's link and field. Not written to the record's file. */
+  lookup?: Lookup;
 }
 
 /**
@@ -131,6 +144,9 @@ export interface RecordSort {
 export type ConditionOp = 'contains' | 'is' | 'is-not' | 'empty' | 'not-empty' | 'gt' | 'lt' | 'before' | 'after' | 'on' | 'true' | 'false';
 
 export const CONDITION_OPS: readonly ConditionOp[] = ['contains', 'is', 'is-not', 'empty', 'not-empty', 'gt', 'lt', 'before', 'after', 'on', 'true', 'false'];
+
+/** A day's condition's value that is always today: "due is before today". */
+export const TODAY = 'today';
 
 export interface Condition {
   field: string;
@@ -433,15 +449,21 @@ function readField(raw: unknown): Field | null {
     const r = isRecord(raw.rollup) ? raw.rollup : {};
     const fn = ROLLUP_FNS.includes(r.fn as RollupFn) ? (r.fn as RollupFn) : 'count';
     const key = typeof r.field === 'string' ? cleanFieldKey(r.field) : '';
+    const where = (Array.isArray(r.where) ? r.where : []).map((c) => readCondition(c)).filter((c): c is Condition => c !== null);
     field.rollup = {
       from: typeof r.from === 'string' ? r.from.replace(/^\/+|\/+$/g, '') : '',
       fn,
       ...(key && fn !== 'count' && { field: key }),
       ...(r.open === true && { open: true }),
+      ...(where.length > 0 && { where }),
     };
   }
-  // A name is required by being the name; the others say so.
-  if (raw.required === true && type !== 'name') field.required = true;
+  if (type === 'lookup') {
+    const l = isRecord(raw.lookup) ? raw.lookup : {};
+    field.lookup = { link: typeof l.link === 'string' ? cleanFieldKey(l.link) : '', field: typeof l.field === 'string' ? cleanFieldKey(l.field) : '' };
+  }
+  // A name is required by being the name; the others say so; what is worked out is never typed.
+  if (raw.required === true && type !== 'name' && !isComputed(type)) field.required = true;
   return field;
 }
 
@@ -669,182 +691,106 @@ export function valueText(value: FieldValue | undefined): string {
 
 // ---------- formulas ----------
 
-/** A day as a count of days, so that one day taken from another is a number of days. */
-const dayNumber = (day: string): number | null => {
-  if (!isDay(day)) return null;
-  const [y, m, d] = day.split('-').map(Number) as [number, number, number];
-  return Math.round(Date.UTC(y, m - 1, d) / 86400000);
-};
+/** Whether a field's value is worked out, never typed nor written: a formula, a lookup, a rollup. */
+export const isComputed = (type: FieldType) => type === 'formula' || type === 'lookup' || type === 'rollup';
 
-type Token = { kind: 'number'; value: number } | { kind: 'name'; value: string } | { kind: 'op'; value: string };
+const parsed = new Map<string, Node | null>();
 
-function tokenize(expr: string): Token[] | null {
-  const tokens: Token[] = [];
-  const re = /\s*(?:(\d+(?:\.\d+)?)|([A-Za-z_][A-Za-z0-9_]*)|([-+*/(),]))/y;
-  let at = 0;
-  while (at < expr.length) {
-    re.lastIndex = at;
-    const m = re.exec(expr);
-    if (!m) return null;
-    if (m[1] !== undefined) tokens.push({ kind: 'number', value: Number(m[1]) });
-    else if (m[2] !== undefined) tokens.push({ kind: 'name', value: m[2].toLowerCase() });
-    else tokens.push({ kind: 'op', value: m[3]! });
-    at = re.lastIndex;
-    if (at === m.index) return null;
+/** A formula as read, kept by its text, so that a table of a thousand records reads it once; null when it is not one. */
+export function formulaNode(expr: string): Node | null {
+  let node = parsed.get(expr);
+  if (node === undefined) {
+    try {
+      node = parseExpression(expr);
+    } catch {
+      node = null;
+    }
+    if (parsed.size > 2000) parsed.clear();
+    parsed.set(expr, node);
   }
-  return tokens;
-}
-
-/** A field's value as a number for a formula: numbers as they are, days as day counts, flags as 1 and 0, formulas worked out. */
-function numberOf(field: Field, values: Record['values'], schema: Pick<Schema, 'fields'>, today: string, depth: number): number | null {
-  const value = values[field.key];
-  switch (field.type) {
-    case 'number':
-      return typeof value === 'number' ? value : null;
-    case 'date':
-      return typeof value === 'string' ? dayNumber(value) : null;
-    case 'checkbox':
-      return value === true ? 1 : value === false ? 0 : null;
-    case 'formula':
-      return depth > 8 ? null : evaluateFormula(field.formula ?? '', values, schema, today, depth + 1);
-    case 'rollup':
-      return typeof value === 'number' ? value : typeof value === 'string' ? dayNumber(value) : null;
-    default:
-      return null;
-  }
-}
-
-/** A formula read: a number, a field, today, a negation, or two parts joined by an operation. */
-type FormulaNode =
-  | { kind: 'number'; value: number }
-  | { kind: 'field'; key: string }
-  | { kind: 'today' }
-  | { kind: 'neg'; of: FormulaNode }
-  | { kind: 'op'; op: string; left: FormulaNode; right: FormulaNode };
-
-/** Reads a formula: numbers, the four operations, parentheses, field keys and `today()`. Null when it is not one. */
-function parseFormula(expr: string): FormulaNode | null {
-  const tokens = tokenize(expr.trim());
-  if (!tokens || tokens.length === 0) return null;
-  let i = 0;
-  const takeOp = (op: string) => {
-    const token = tokens[i];
-    if (token?.kind === 'op' && token.value === op) {
-      i++;
-      return true;
-    }
-    return false;
-  };
-  const factor = (): FormulaNode | null => {
-    const token = tokens[i++];
-    if (!token) return null;
-    if (token.kind === 'number') return { kind: 'number', value: token.value };
-    if (token.kind === 'op' && token.value === '-') {
-      const inner = factor();
-      return inner && { kind: 'neg', of: inner };
-    }
-    if (token.kind === 'op' && token.value === '(') {
-      const inner = expression();
-      return inner && takeOp(')') ? inner : null;
-    }
-    if (token.kind === 'name') {
-      if (!takeOp('(')) return { kind: 'field', key: token.value };
-      return token.value === 'today' && takeOp(')') ? { kind: 'today' } : null;
-    }
-    return null;
-  };
-  const joined = (part: () => FormulaNode | null, ops: string[]) => (): FormulaNode | null => {
-    let left = part();
-    while (left) {
-      const next = tokens[i];
-      if (next?.kind !== 'op' || !ops.includes(next.value)) break;
-      i++;
-      const right = part();
-      if (!right) return null;
-      left = { kind: 'op', op: next.value, left, right };
-    }
-    return left;
-  };
-  const term = joined(factor, ['*', '/']);
-  const expression = joined(term, ['+', '-']);
-  const node = expression();
-  return node && i === tokens.length ? node : null;
-}
-
-/** The field keys a formula reads. */
-function formulaKeys(node: FormulaNode): string[] {
-  if (node.kind === 'field') return [node.key];
-  if (node.kind === 'neg') return formulaKeys(node.of);
-  if (node.kind === 'op') return [...formulaKeys(node.left), ...formulaKeys(node.right)];
-  return [];
+  return node;
 }
 
 /**
- * Works out a formula over a record's fields: numbers, the four operations, parentheses, field keys,
- * `today()`, and days taken from days. Null when it cannot be worked out: a field it needs is empty,
- * or the expression is not one. A formula is shown, never written to the file.
+ * A worked-out value as a record holds it, read back by the language: a day of a rollup or a
+ * lookup is a day, a number a number. Only for what is worked out; a typed field is read by its type.
  */
-export function evaluateFormula(expr: string, values: Record['values'], schema: Pick<Schema, 'fields'>, today: string, depth = 0): number | null {
-  const node = parseFormula(expr);
+function computedRuntime(value: FieldValue | undefined): RV {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') return isDay(value) ? dayValue(value) : value;
+  if (isLink(value)) return { ref: true, dir: '', id: value.id, name: value.name, ...(value.code && { code: value.code }) };
+  if (Array.isArray(value)) return (value as unknown[]).map((v) => (isLink(v) ? v.name : String(v)));
+  return value;
+}
+
+/** A field of a record as a formula over the record's own fields reads it; a formula worked out in turn, at most eight deep. */
+function ownRuntime(field: Field, values: Record['values'], schema: Pick<Schema, 'fields'>, today: string, depth: number): RV {
+  if (field.type === 'formula') {
+    const node = formulaNode(field.formula ?? '');
+    if (!node || depth > 8) return null;
+    return evaluate(node, ownEnv(values, schema, today, depth + 1));
+  }
+  return isComputed(field.type) ? computedRuntime(values[field.key]) : toRuntime(field, values[field.key]);
+}
+
+function ownEnv(values: Record['values'], schema: Pick<Schema, 'fields'>, today: string, depth: number): Env {
+  return {
+    today,
+    field: (key) => {
+      const field = schema.fields.find((f) => f.key === key);
+      return field ? ownRuntime(field, values, schema, today, depth) : null;
+    },
+    // A linked record's field needs the other records: a Computer (compute.ts) works it out.
+    member: () => null,
+  };
+}
+
+/**
+ * Works out a formula over a record's own fields, for `today`, as a record holds what it gives:
+ * a number, a text, a day, yes or no. A linked record's field (`project.customer`) needs the other
+ * records and is worked out by a Computer (compute.ts); here it gives nothing. Null when it
+ * cannot be worked out: a field it needs is empty, or the expression is not one. A formula is
+ * shown, never written to the file.
+ */
+export function evaluateFormula(expr: string, values: Record['values'], schema: Pick<Schema, 'fields'>, today: string): FieldValue {
+  const node = formulaNode(expr);
   if (!node) return null;
-  const work = (n: FormulaNode): number | null => {
-    switch (n.kind) {
-      case 'number':
-        return n.value;
-      case 'today':
-        return dayNumber(today);
-      case 'field': {
-        const field = schema.fields.find((f) => f.key === n.key);
-        return field ? numberOf(field, values, schema, today, depth) : null;
-      }
-      case 'neg': {
-        const inner = work(n.of);
-        return inner === null ? null : -inner;
-      }
-      case 'op': {
-        const [left, right] = [work(n.left), work(n.right)];
-        if (left === null || right === null) return null;
-        if (n.op === '+') return left + right;
-        if (n.op === '-') return left - right;
-        if (n.op === '*') return left * right;
-        return right === 0 ? null : left / right;
-      }
-    }
-  };
-  const result = work(node);
-  return result !== null && Number.isFinite(result) ? result : null;
+  try {
+    return fromRuntime(evaluate(node, ownEnv(values, schema, today, 0)));
+  } catch {
+    return null;
+  }
 }
-
-/** The types a formula can read a number from. */
-const COUNTED: readonly FieldType[] = ['number', 'date', 'checkbox', 'formula', 'rollup'];
 
 /**
- * What is wrong with a formula, said for the one typing it: it is not one, or it reads a field that
- * is not there, one that holds no number, or itself (the formula of the field `key`). Null when it
- * can be worked out.
+ * What is wrong with a formula, said for the one typing it: it is not one, it reads a field that
+ * is not there or itself (the formula of the field `key`), or a value of the wrong kind for what
+ * is done with it. `schemaOf` gives the fields of other collections, for a linked record's
+ * fields and for lookups. Null when it can be worked out.
  */
-export function formulaProblem(expr: string, schema: Pick<Schema, 'fields'>, key?: string): string | null {
-  if (!expr.trim()) return t('fields.formulaEmpty');
-  const node = parseFormula(expr);
-  if (!node) return t('fields.formulaBroken');
-  for (const name of formulaKeys(node)) {
-    const field = schema.fields.find((f) => f.key === name);
-    if (!field) return t('fields.formulaUnknown', { name });
-    if (name === key) return t('fields.formulaSelf');
-    if (!COUNTED.includes(field.type)) return t('fields.formulaNotNumber', { name: field.label });
-  }
-  return null;
+export function formulaProblem(expr: string, schema: Pick<Schema, 'fields'>, key?: string, schemaOf?: Scope['schemaOf']): string | null {
+  const info = formulaInfo(expr, { fields: schema.fields, ...(key && { self: key }), ...(schemaOf && { schemaOf }) });
+  return 'problem' in info ? info.problem : null;
 }
 
-/** A record's value for a field, formulas worked out for `today`. */
+/** A record's value for a field: what is worked out where it was (a Computer puts it among the values), else a formula over the record's own fields. */
 export function fieldValueOf(record: Pick<Record, 'values'>, field: Field, schema: Pick<Schema, 'fields'>, today: string): FieldValue | undefined {
-  if (field.type === 'formula') return evaluateFormula(field.formula ?? '', record.values, schema, today);
+  if (isComputed(field.type) && !(field.key in record.values)) return field.type === 'formula' ? evaluateFormula(field.formula ?? '', record.values, schema, today) : undefined;
   return record.values[field.key];
 }
 
 /** Whether a value counts as empty. */
 export const isEmpty = (value: FieldValue | undefined) =>
   value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
+
+/** The type a worked-out value shows as, from what it is: a number, a day, yes or no, links, choices, a text. */
+export function typeOfValue(value: FieldValue | undefined): FieldType {
+  if (typeof value === 'number') return 'number';
+  if (typeof value === 'boolean') return 'checkbox';
+  if (isLink(value) || (Array.isArray(value) && value.length > 0 && isLink(value[0]))) return 'link';
+  if (Array.isArray(value)) return 'multi-select';
+  return typeof value === 'string' && isDay(value) ? 'date' : 'text';
+}
 
 // ---------- record files ----------
 
@@ -913,7 +859,7 @@ function recordOf(front: { [key: string]: unknown }, body: string, schema: Schem
       continue;
     }
     // A value worked out on screen is not the file's; what the file has there is kept as it was.
-    if (!field || field.type === 'formula' || field.type === 'rollup') {
+    if (!field || isComputed(field.type)) {
       extra[key] = raw;
       continue;
     }
@@ -930,7 +876,7 @@ function recordOf(front: { [key: string]: unknown }, body: string, schema: Schem
 export function serializeRecord(record: Record, schema: Schema): string {
   const front: { [key: string]: unknown } = { id: record.id };
   for (const field of schema.fields) {
-    if (field.type === 'formula' || field.type === 'rollup') continue;
+    if (isComputed(field.type)) continue;
     const value = record.values[field.key];
     if (!isEmpty(value)) front[field.key] = value;
   }
@@ -1314,7 +1260,8 @@ export function matchesCondition(record: Pick<Record, 'values'>, schema: Pick<Sc
   const number = typeof value === 'number' ? value : null;
   const n = typeof condition.value === 'number' ? condition.value : Number(condition.value);
   const day = typeof value === 'string' ? value : '';
-  const target = typeof condition.value === 'string' ? condition.value : '';
+  // A day's condition may ask about today, which moves with the day.
+  const target = condition.value === TODAY ? today : typeof condition.value === 'string' ? condition.value : '';
   switch (condition.op) {
     case 'empty':
       return empty;
@@ -1327,7 +1274,7 @@ export function matchesCondition(record: Pick<Record, 'values'>, schema: Pick<Sc
     case 'contains':
       return !empty && wanted.length > 0 && wanted.some((w) => valueText(value).toLowerCase().includes(lower(w)));
     case 'is':
-      return field.type === 'number' || field.type === 'formula' || typeof value === 'number' ? number !== null && number === n : !empty && has();
+      return field.type === 'number' || typeof value === 'number' ? number !== null && number === n : !empty && has();
     case 'is-not':
       return empty || !has();
     case 'gt':
@@ -1361,9 +1308,11 @@ export interface RecordGroup {
  * The records in groups by a field, in the order of the field's options when it has them, else by
  * name; a record with several choices is in each of its groups; the records with none come last.
  */
-export function groupRecords(records: Record[], schema: Schema, key: string, today: string): RecordGroup[] {
+export function groupRecords(records: Record[], schema: Schema, key: string, today: string, shown?: Field): RecordGroup[] {
   const field = schema.fields.find((f) => f.key === key);
-  if (!field || !GROUPABLE.includes(field.type)) return [{ key: '', label: '', records }];
+  // A worked-out field groups as what it shows: a lookup of a choice by its choices.
+  const as = field && shown?.key === field.key ? shown : field;
+  if (!field || !as || !GROUPABLE.includes(as.type)) return [{ key: '', label: '', records }];
   const groups = new Map<string, RecordGroup>();
   const add = (groupKey: string, label: string, record: Record) => {
     let group = groups.get(groupKey);
@@ -1380,7 +1329,7 @@ export function groupRecords(records: Record[], schema: Schema, key: string, tod
     else if (Array.isArray(value)) for (const v of value) (isLink(v) ? add(v.id || v.name, recordLabel(v), record) : add(v, v, record));
     else add(String(value), valueText(value), record);
   }
-  const order = field.options ?? [];
+  const order = as.options ?? [];
   const rank = (g: RecordGroup) => (g.key === '' ? Number.MAX_SAFE_INTEGER : order.includes(g.key) ? order.indexOf(g.key) : order.length);
   return [...groups.values()].sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
 }
@@ -1388,7 +1337,7 @@ export function groupRecords(records: Record[], schema: Schema, key: string, tod
 /** The sum of a number or formula column over records; null when the column is not one, or no record has a value. */
 export function columnSum(records: Record[], schema: Schema, key: string, today: string): number | null {
   const field = schema.fields.find((f) => f.key === key);
-  if (!field || (field.type !== 'number' && field.type !== 'formula' && field.type !== 'rollup')) return null;
+  if (!field || (field.type !== 'number' && !isComputed(field.type))) return null;
   let sum = 0;
   let any = false;
   for (const record of records) {
@@ -1412,8 +1361,9 @@ export function sortRecords(records: Record[], schema: Schema, sort: RecordSort,
   const field = schema.fields.find((f) => f.key === sort.key);
   const type = field?.type ?? 'text';
   const valueOf = (r: Record): FieldValue | undefined => (field ? fieldValueOf(r, field, schema, today) : r.values[sort.key]);
+  // A worked-out field sorts by what it gives: numbers as numbers, the rest as text.
   const compare = (a: FieldValue, b: FieldValue): number => {
-    if (type === 'number' || type === 'checkbox' || type === 'formula' || (typeof a === 'number' && typeof b === 'number')) return Number(a) - Number(b);
+    if ((typeof a === 'number' && typeof b === 'number') || (typeof a === 'boolean' && typeof b === 'boolean') || type === 'number' || type === 'checkbox') return Number(a) - Number(b);
     return valueText(a).localeCompare(valueText(b), undefined, { numeric: true, sensitivity: 'base' });
   };
   const byName = (a: Record, b: Record) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
@@ -1518,7 +1468,7 @@ export interface RecordProblem {
 export function recordProblems(record: Pick<Record, 'values' | 'extra'>, schema: Schema): RecordProblem[] {
   const problems: RecordProblem[] = [];
   for (const field of schema.fields) {
-    if (field.type === 'formula' || field.type === 'rollup') continue;
+    if (isComputed(field.type)) continue;
     const value = record.values[field.key];
     if (isEmpty(value) && field.key in record.extra) problems.push({ field: field.key, kind: 'mismatch' });
     else if ((field.type === 'name' || field.required) && (typeof value === 'string' ? !value.trim() : isEmpty(value))) problems.push({ field: field.key, kind: 'missing' });

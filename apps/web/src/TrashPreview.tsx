@@ -4,6 +4,7 @@ import {
   dayOf,
   type Collection,
   columnCards,
+  isComputed,
   keyOf,
   type Piece,
   sectionTasks,
@@ -173,7 +174,7 @@ function PieceBody({ piece, home, today, resolveImage }: { piece: Piece | null; 
 
 /** A collection's records as a table: their name and code, then a few of their fields. */
 function CollectionBody({ collection }: { collection: Collection }) {
-  const fields = collection.schema.fields.filter((f) => f.type !== 'formula' && f.type !== 'rollup').slice(0, 4);
+  const fields = collection.schema.fields.filter((f) => !isComputed(f.type)).slice(0, 4);
   const records = [...collection.records].sort((a, b) => (a.name || a.code).localeCompare(b.name || b.code));
   if (records.length === 0) return <p className="tp-none">{t('trash.previewEmpty')}</p>;
   return (

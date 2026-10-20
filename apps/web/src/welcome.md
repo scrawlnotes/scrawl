@@ -28,7 +28,7 @@ Cards in columns. **Software** works in phases, **Issue tracking** shows issues 
 
 Records such as companies, people or payments, each on its own form.
 
-🎨 **Design your own forms.** Collections come with a form designer, **Fields**. Choose the fields you need (text, number, date, select, checkbox, email, phone, person, link, formula, rollup), drag them into columns, and put notes and linked records beside them. Make a form for whatever you keep track of: candidates, suppliers, equipment, anything.
+🎨 **Design your own forms.** Collections come with a form designer, **Fields**. Choose the fields you need (text, number, date, select, checkbox, email, phone, person, link, formula, lookup, rollup), drag them into columns, and put notes and linked records beside them. Make a form for whatever you keep track of: candidates, suppliers, equipment, anything.
 
 Templates include **Companies**, **People**, **Activities**, **Feedback** and **Payments**. Records link to each other, so a company shows its people and activities. You can bring in rows from CSV or Excel.
 

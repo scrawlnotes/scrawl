@@ -158,6 +158,7 @@ Bugünkü rollup'a üç şey eklenir:
 - **`where`:** kaynak kayıtlar ya da kartlar için koşullar. Bunlar Filter penceresindeki koşul satırlarının aynısıdır, Fields penceresinde de aynı satırlarla kurulur. Gelir ve gider böyle ayrılır.
 - **`avg`:** `count`, `sum`, `max` ve `min`'in yanına ortalama.
 - **Zincir:** kaynak alan hesaplanan bir alan olabilir: kalemin gerçekleşeni (rollup) projede toplanır, kalemin kalanı (formül) projede en küçüğüyle alınır.
+- **Hiçbir şey yokken:** bağlanan bir kayıt ya da kart yoksa `sum` ve `count` 0 verir; `avg`, `max` ve `min` boş kalır. Böylece yeni bir projenin kalanı (`budget - spent`) boş değil, bütçenin kendisidir (20 Ekim kararı).
 
 Koşullarda tarih değeri olarak `"today"` da yazılabilir (`due` `before` `today`). Bu Filter penceresine de gelir; PLAN'daki "vadesi geçmiş kayıtlı bir filtredir" cümlesi ancak böyle tutar. Bugün koşul yalnız sabit bir gün alıyor.
 

@@ -1,4 +1,22 @@
-import { type ColumnKind, COLUMN_KINDS, cleanFieldKey, FIELD_TYPES, type FieldType, formulaProblem, isDay, parseSchema, ROLLUP_FNS, type RollupFn, type VaultFs } from '@scrawlnotes/core';
+import {
+  BOARD_EXT,
+  type ColumnKind,
+  COLUMN_KINDS,
+  CONDITION_OPS,
+  type ConditionOp,
+  cleanFieldKey,
+  type Field,
+  FIELD_TYPES,
+  type FieldType,
+  formulaProblem,
+  isDay,
+  loadBoard,
+  loadSchema,
+  parseSchema,
+  ROLLUP_FNS,
+  type RollupFn,
+  type VaultFs,
+} from '@scrawlnotes/core';
 import { type FileKind } from './paths';
 import { elementsOf } from './space';
 
@@ -30,7 +48,19 @@ export async function checkFile(fs: VaultFs, kind: FileKind, data: Json, text: s
 async function checkSchema(fs: VaultFs, data: Json, text: string): Promise<Checked> {
   const problems: string[] = [];
   const notes: string[] = [];
-  const there = new Set((await elementsOf(fs, ['collection', 'board'])).map((e) => e.path));
+  const elements = await elementsOf(fs, ['collection', 'board']);
+  const there = new Set(elements.map((e) => e.path));
+  // The fields of the space's other collections and boards, for lookups, a formula's dot and a rollup's conditions.
+  const fieldsAt = new Map<string, Field[]>();
+  for (const element of elements) {
+    try {
+      fieldsAt.set(element.path, element.path.endsWith(BOARD_EXT) ? ((await loadBoard(fs, element.path)).fields ?? []) : (await loadSchema(fs, element.path)).fields);
+    } catch {
+      // A file that cannot be read says nothing of its fields.
+    }
+  }
+  const schemaOf = (path: string) => (fieldsAt.has(path) ? { fields: fieldsAt.get(path)! } : undefined);
+  const own = Array.isArray(data.fields) ? (data.fields as unknown[]).filter(isObject) : [];
   const keys = new Set<string>();
   let names = 0;
   let codes = 0;
@@ -56,13 +86,35 @@ async function checkSchema(fs: VaultFs, data: Json, text: string): Promise<Check
       else if (!there.has(rollup.from)) notes.push(`${key} rolls up from ${rollup.from}, which is not in this space yet`);
       if (!ROLLUP_FNS.includes(rollup.fn as RollupFn)) problems.push(`${key}: rollup.fn is one of ${ROLLUP_FNS.join(', ')}`);
       else if (rollup.fn !== 'count' && !filled(rollup.field)) problems.push(`${key}: a rollup with ${String(rollup.fn)} needs rollup.field, the field it works out`);
+      const source = filled(rollup.from) ? schemaOf(rollup.from) : undefined;
+      if (rollup.where !== undefined) {
+        if (!Array.isArray(rollup.where)) problems.push(`${key}: rollup.where is a list of conditions, { field, op, value }`);
+        else {
+          rollup.where.forEach((c, j) => {
+            if (!isObject(c) || !filled(c.field)) return void problems.push(`${key}: condition ${j + 1} of rollup.where needs a field, the key of a field of ${String(rollup.from)}`);
+            if (!CONDITION_OPS.includes(c.op as ConditionOp)) problems.push(`${key}: the op of condition ${j + 1} is one of ${CONDITION_OPS.join(', ')}`);
+            if (source && !source.fields.some((f) => f.key === c.field)) problems.push(`${key}: ${String(rollup.from)} has no field with the key ${c.field}`);
+          });
+        }
+      }
+    }
+    if (type === 'lookup') {
+      const lookup = isObject(field.lookup) ? field.lookup : {};
+      const link = own.find((f) => f.key === lookup.link);
+      if (!filled(lookup.link)) problems.push(`${key} is a lookup with no link: lookup.link is the key of a link field of this collection`);
+      else if (!link || link.type !== 'link') problems.push(`${key}: lookup.link is ${lookup.link}, which is not a link field of this collection`);
+      if (!filled(lookup.field)) problems.push(`${key}: lookup.field is the key of the linked record's field it shows`);
+      else if (link && filled(link.collection)) {
+        const target = schemaOf(link.collection);
+        if (target && !target.fields.some((f) => f.key === lookup.field)) problems.push(`${key}: ${link.collection} has no field with the key ${lookup.field}`);
+      }
     }
   });
   if (names > 1) problems.push('There is more than one name field; a collection has one at most');
   if (codes > 1) problems.push('There is more than one code field; a collection has one at most');
   const schema = parseSchema(text);
   for (const field of schema.fields) {
-    const problem = field.type === 'formula' ? formulaProblem(field.formula ?? '', schema, field.key) : null;
+    const problem = field.type === 'formula' ? formulaProblem(field.formula ?? '', schema, field.key, schemaOf) : null;
     if (problem) problems.push(`${field.key}: ${problem}`);
   }
   return { problems, notes };

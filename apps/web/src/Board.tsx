@@ -8,6 +8,7 @@ import {
   type Card,
   type CardPlace,
   cardSum,
+  computerFor,
   cardValue,
   type ChoiceRenames,
   type Column,
@@ -1002,6 +1003,7 @@ const LIST_WIDTHS: { [type in Field['type']]: number } = {
   person: 90,
   link: 150,
   formula: 90,
+  lookup: 140,
   rollup: 90,
 };
 /** The list's own columns: key, title, status, priority, labels, who, due. */
@@ -1009,14 +1011,14 @@ const LIST_COLUMNS = '58px minmax(160px, 1fr) 90px 60px 116px 40px 80px';
 const LIST_LEAST = 640;
 
 /** Cards in a list's order: by the field asked, else by column then place; finished cards last. Who has a card goes by their name among `people`. */
-function sortCards(board: Board, cards: Card[], sort: Sort | null, people?: Person[]): Card[] {
+function sortCards(board: Board, cards: Card[], sort: Sort | null, people?: Person[], valueOf: (card: Card, field: Field) => FieldValue = (card, field) => cardValue(board, card, field)): Card[] {
   const columnAt = new Map(board.columns.map((c, i) => [c.id, i]));
   const rank = (card: Card) => (isFinished(board, card) ? 1 : 0);
   const own = sort?.field.startsWith('f:') ? board.fields?.find((f) => `f:${f.key}` === sort.field) : undefined;
   const value = (card: Card): string | number => {
     // A board's field: numbers as numbers, the rest by their text; the empty ones last.
     if (own) {
-      const v = cardValue(board, card, own);
+      const v = valueOf(card, own);
       if (isEmpty(v)) return own.type === 'number' || own.type === 'formula' ? Number.MAX_SAFE_INTEGER : '\uffff';
       return typeof v === 'number' ? v : valueText(v).toLowerCase();
     }
@@ -1125,7 +1127,11 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
       }));
   // Every status and every phase shows, with no cards too, so that there is a place to add one;
   // the cards in no phase only when there are some.
-  const shown = groups.map((group) => ({ ...group, cards: sortCards(board, group.cards.filter(visible), sort, people) })).filter((g) => g.cards.length > 0 || g.id !== 'none');
+  // The board's own fields, a formula's and a lookup's worked out with the records they read.
+  const computer = computerFor(null, actions.recordActions.collections(), { ...actions.recordActions.boards(), [path]: board }, today);
+  const shownAs = computer.shown(path);
+  const valueOf = (card: Card, field: Field) => computer.cardValue(path, card, field);
+  const shown = groups.map((group) => ({ ...group, cards: sortCards(board, group.cards.filter(visible), sort, people, valueOf) })).filter((g) => g.cards.length > 0 || g.id !== 'none');
   // A card typed into a status's group goes into that column; into a phase's, into that phase.
   // The first goes first in the group, each next one after the one before.
   const addTo = (group: ListGroup, title: string) => {
@@ -1146,14 +1152,18 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
   );
   // The board's own fields as columns after the card's, wider than the window when they need to be.
   const own = board.fields ?? [];
-  const isNumber = (field: Field) => field.type === 'number' || field.type === 'formula';
+  const isNumber = (field: Field) => (shownAs.get(field.key) ?? field).type === 'number';
   const grid = {
     '--lcols': [LIST_COLUMNS, ...own.map((f) => `${LIST_WIDTHS[f.type]}px`)].join(' '),
     '--lmin': `${LIST_LEAST + own.reduce((sum, f) => sum + LIST_WIDTHS[f.type] + 12, 0)}px`,
   } as React.CSSProperties;
   const ctx: ValueContext = { records: actions.recordActions.records, collection: actions.recordActions.collection, openLink: actions.recordActions.openLink };
   const listed = shown.flatMap((group) => group.cards);
-  const sums = own.map((field) => (isNumber(field) ? cardSum(board, listed, field, today) : null));
+  const sumOf = (field: Field) => {
+    const numbers = listed.map((card) => valueOf(card, field)).filter((v): v is number => typeof v === 'number');
+    return numbers.length > 0 ? numbers.reduce((a, b) => a + b, 0) : null;
+  };
+  const sums = own.map((field) => (isNumber(field) ? sumOf(field) : null));
   const row = (card: Card) => {
     const column = board.columns.find((c) => c.id === card.column);
     const menu = (event: MouseEvent) =>
@@ -1201,7 +1211,7 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
         <span className={card.due ? dueClass(card.due, today) : 'due'}>{card.due ? dueLabel(card.due, today) : ''}</span>
         {own.map((field) => (
           <span key={field.key} className={isNumber(field) ? 'own r' : 'own'}>
-            <Cell field={field} value={cardValue(board, card, field, today)} ctx={ctx} />
+            <Cell field={shownAs.get(field.key) ?? field} value={valueOf(card, field)} ctx={ctx} />
           </span>
         ))}
       </div>
@@ -1314,14 +1324,18 @@ function PhoneBoardList({ board, path, today, actions, onStatus, onAdd }: {
   const [sort, setSort] = useState<Sort | null>(null);
   const pressed = useRef<{ x: number; y: number; timer: number; fired: boolean } | null>(null);
   const own = board.fields ?? [];
-  const isNumber = (field: Field) => field.type === 'number' || field.type === 'formula';
+  const computer = computerFor(null, actions.recordActions.collections(), { ...actions.recordActions.boards(), [path]: board }, today);
+  const shownAs = computer.shown(path);
+  const valueOf = (card: Card, field: Field) => computer.cardValue(path, card, field);
+  const isNumber = (field: Field) => (shownAs.get(field.key) ?? field).type === 'number';
   const current = sort?.field ?? 'status';
   const sortedBy = current.startsWith('f:') ? own.find((field) => `f:${field.key}` === current) : undefined;
   // The number on the right: the one sorted by, else the board's first.
   const number = sortedBy && isNumber(sortedBy) ? sortedBy : own.find(isNumber);
   const link = own.find((field) => field.type === 'link');
-  const cards = sortCards(board, board.cards, sort);
-  const total = number ? cardSum(board, board.cards, number, today) : null;
+  const cards = sortCards(board, board.cards, sort, undefined, valueOf);
+  const numbers = number ? board.cards.map((card) => valueOf(card, number)).filter((v): v is number => typeof v === 'number') : [];
+  const total = numbers.length > 0 ? numbers.reduce((a, b) => a + b, 0) : null;
   const fields: { field: Sort['field']; label: string; icon: IconName }[] = [
     { field: 'status', label: t('list.status'), icon: 'board' },
     { field: 'title', label: t('list.title'), icon: 'pen' },
@@ -1392,7 +1406,7 @@ function PhoneBoardList({ board, path, today, actions, onStatus, onAdd }: {
       {cards.map((card) => {
         const column = board.columns.find((each) => each.id === card.column);
         const linked = link ? cardValue(board, card, link, today) : null;
-        const value = number ? cardValue(board, card, number, today) : null;
+        const value = number ? valueOf(card, number) : null;
         return (
           <button
             key={card.id}
