@@ -1,5 +1,5 @@
 import { checkbox, codeField, currencyField, day, formula, link, nameField, number, person, rollup, select, text } from '../pieces';
-import { companies, hasServices, products } from '../shared';
+import { companies, hasServices, locations, products } from '../shared';
 import type { AppDraft, AppTemplate } from '../types';
 import { lineFormat } from './sales';
 
@@ -117,8 +117,7 @@ export const stock: AppTemplate = {
     app.field('stock-movements', person('by', 'By', true));
 
     if (places) {
-      app.field('locations', nameField());
-      app.field('locations', text('address', 'Address'));
+      locations(app);
       app.field('locations', checkbox('is_default', 'Default'));
       ((answers.locationList as string[] | undefined) ?? LOCATIONS).forEach((name, i) => app.record('locations', { name, ...(i === 0 && { is_default: true }) }));
       app.block('locations', { block: 'linked', collection: app.path('stock-levels'), style: 'list', fields: ['stock'] });

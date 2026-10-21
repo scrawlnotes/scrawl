@@ -1,6 +1,6 @@
 # Scrawl apps: hazır şablonlardan app kurmak (taslak)
 
-Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda (1c0a5f3), notlarda dosya linki kodda (7c8aac4). 3. dilim kodda (mockup 5818907, kod 0c60dce). 4. dilim kodda (mockup 96ffbd4).
+Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda (1c0a5f3), notlarda dosya linki kodda (7c8aac4). 3. dilim kodda (mockup 5818907, kod 0c60dce). 4. dilim kodda (mockup 96ffbd4, kod c87652d). 5. dilim (üç yeni şablon) kodda.
 
 ## 1. Amaç
 
@@ -17,7 +17,7 @@ Asıl değer **zincirde**: birlikte seçilen şablonlar ortak parçalarını bir
 Ölçü 13. aşamadakiyle aynı: bu bir ERP değil. Her şablon küçük bir ekibin işinin çoğunu görür, fazlasını değil. Fatura kesmek, bordro, muhasebe kayıtları kapsam dışında.
 
 Verilen kararlar (21 Ekim 2026):
-- İlk sürümde yedi şablon var: CRM, Satış ve faturalama, Müşteri desteği, Proje yönetimi, Bütçe ve harcama, Stok ve satın alma, Ürün geliştirme (3. bölüm). İşe alım, Demirbaş ve bakım, Randevu ve rezervasyon, İçerik takvimi ileride yapılacaklar planında (10. bölüm).
+- İlk sürümde on şablon var: CRM, Satış ve faturalama, Müşteri desteği, Proje yönetimi, Bütçe ve harcama, Stok ve satın alma, Ürün geliştirme (3.1–3.7) ve 5. dilimde eklenen İşe alım, Demirbaş ve bakım, İçerik takvimi (3.8–3.10). Randevu ve rezervasyon ile E-ticaret ileride yapılacaklar planında (10. bölüm).
 - Bazı sorular şablon başına değil, app başına bir kez sorulur: app adı ve para birimleri (2.2).
 - Kurulu bir app'e şablon eklemek ilk sürümde var. Ortak parça şemasındaki şablon işaretinden bulunur; yalnız eklenir, hiçbir şey silinmez ya da değişmez; kurmadan önce özet gelir. App'ten şablon çıkarmak yok (4.2).
 - Kural dili yeni bir yetenek alır: **soru soran düğme** (`ask`). Stok düzeltme, kısmi tahsilat, masrafı reddetme nedeni ve depolar arası transfer bununla yapılır (5. bölüm).
@@ -87,6 +87,21 @@ Verilen kararlar (21 Ekim 2026):
 - Eklenecek bir kural ya da formül var olan bir alanla çalışmayacaksa Add soluk kalır; kırmızı kutuda sade dille ne değişmesi gerektiği yazar ("Products has a Cost field that holds text; … Change Cost's type to Number in Products' Fields, then add the template again").
 - Eklenince yeni parçalar kenar çubuğunda belirir; toast "Stock and purchasing added to Spare parts: 5 collections set up, 5 added to" ve Undo.
 - Telefonda ··· bir action sheet, Add to app en üstte; pencere sheet.
+
+22 Ekim 2026'da, 5. dilim için verilen kararlar:
+- Yayından önce üç şablon daha: İşe alım, Demirbaş ve bakım, İçerik takvimi (3.8–3.10). Yeni ekran olmadığı için mockup yok; kartlar ve sorular var olan pencerede.
+- Şablon penceresindeki gruplar: İçerik takvimi Customers'ta, Demirbaş ve bakım Money'de, İşe alım Work'te.
+- Demirbaşın yerleri Stok'un depolarıyla aynı Locations listesidir.
+- Randevu ve rezervasyon ile E-ticaret sonraya (10. bölüm).
+
+22 Ekim 2026'da, 5. dilimin kodu yazılırken verilen kararlar:
+- Kural dilinde bir düğmenin sorusu kişi de olabilir: `type: "person"`, kutusu formdaki kişi alanıyla aynı; Assign kişiyi böyle sorar. Ajan kişiyi adıyla verir; rehber söyler (5. bölüm).
+- Aşama listesinde Hired ve Published bitti, Rejected bırakıldı sayılır (CRM'in aşama kuralı). Aşama listesi boş bırakılırsa pano varsayılan aşamalarla kurulur.
+- İşe alım: kaynakta Agency dışındakiler seçili gelir, hiçbiri seçilmezse kaynak alanı kurulmaz. Kartın başlığı adayın adıdır, pozisyon kartta alan. İşe alınan sayısı adayın Hired for alanından sayılır (toplama pano sütununa bakamaz). Düğmeler Add to position, Schedule interview, Hire sırasıyla.
+- Demirbaş: yeni demirbaş kişilere veriliyorsa In storage, verilmiyorsa In use başlar. Sonraki bakım planlı bakımların en yakın tarihidir; aralıklar 30, 91, 182 ve 365 gün. Log maintenance'ın türü düzenli bakımda Planned, değilse Repair ile gelir; notsuz kaydın adı "Service of MacBook Pro", "Repair of …". Locations'ın tanımı "your warehouses, offices and other places" oldu.
+- İçerik takvimi: kampanyanın Published sayısı bütün içerikten yayınlanmamışlar çıkarılarak bulunur; kampanyanın başlangıcı bugünle gelir.
+- İkonlar: İşe alım ataç, Demirbaş laptop, İçerik takvimi takvim.
+- Bütün birleşim testleri uzadı (core 6138 plan, ajanda 2046 kurulum); süre sınırları buna göre.
 
 22 Ekim 2026'da, 4. dilimin kodu yazılırken verilen kararlar:
 - Kenar çubuğu bir klasörün app olduğunu içinde `_app.json` olmasından anlar; menü açılırken dosya okunmaz.
@@ -165,6 +180,9 @@ Ortak parçalar:
 | Payments | Satış, Bütçe, Stok (tedarikçi borcu) |
 | Projects | Proje yönetimi, Bütçe |
 | Feedback | Destek, Ürün geliştirme |
+| Locations | Stok (birden çok depo), Demirbaş (birden çok yer) |
+
+Ortak olmasa da başka şablonun parçasına bağlananlar: Demirbaşın tedarikçisi Companies'e (CRM, Satış, Destek ya da Stok kurduysa), bakım gideri Payments'a (Bütçe); içerik kartı Releases'e (Ürün geliştirme), kampanya Budget lines'a (Bütçe).
 
 ### 3.1 CRM
 
@@ -325,11 +343,84 @@ Stok elle yazılmaz, hareketlerden hesaplanır.
   3. **Fazlarla mı çalışıyorsunuz?** Hayır (varsayılan). Evetse Roadmap'te fazlar açılır.
   4. **Müşteri geri bildirimini de toplayacak mısınız?** Destek seçilmediyse burada sorulur.
 
+### 3.8 İşe alım
+
+Açık pozisyonlar, adaylar, adayın süreçteki yeri ve görüşmeler. Şablon penceresinde Work grubunda.
+
+| Parça | Tür | İçinde | Hesaplanan |
+|---|---|---|---|
+| Positions | koleksiyon | ad, kod (POS-0001), ekip, yer, çalışma şekli (Full-time, Part-time, Contract, Intern), kadro (1), sorumlu (ben), durum (Open, On hold, Filled, Closed), açılış (bugün) | başvuru (kartlar), süreçteki aday (açık kartlar), işe alınan, kalan kadro |
+| Candidates | koleksiyon | ad, e-posta, telefon, LinkedIn, kaynak (soruya göre), etiketler, işe alındığı pozisyon, başlama günü; CV ve notlar kaydın notunda | görüşme sayısı, ortalama puan (soruya göre) |
+| Hiring | pano | aşamalar (soru 1); kartta aday ve pozisyon | — |
+| Interviews | koleksiyon (soruya göre) | başlık, aday, pozisyon, tarih (bugün), tür (Phone screen, Technical, Culture, Final), görüşen (ben); soruya göre puan (1–5) ve öneri (Strong yes, Yes, No, Strong no) | — |
+| How we hire | tanıtım notunda | aşamaların anlamı, kim görüşür, teklif nasıl verilir | — |
+
+- **Ekranlar:** pozisyonun ekranında adayların kartları ve görüşmeler; adayın ekranında kartları ve görüşmeleri zaman çizelgesi olarak.
+- **Kurallar:**
+  - Candidates'ta **Add to position:** pozisyonu sorar, Hiring panosunun ilk aşamasına adaya ve pozisyona bağlı bir kart açar.
+  - **Schedule interview** (görüşmeler kaydediliyorsa): pozisyonu, tarihi ve türü sorar; görüşeni ben olan bir görüşme açar.
+  - **Hire:** pozisyonu ve başlama gününü sorar. Adayın o pozisyondaki kartını bitti sayılan aşamaya (Hired) taşır, işe alındığı pozisyonu ve başlama gününü yazar, işe başlama adımlarını (soru 4) adayın alt görevleri olarak açar. Kalan kadro sıfıra inince pozisyonu Filled yapar.
+  - Kontrol: puan 1 ile 5 arasında.
+- **Zincir:** yok; tek başına durur.
+- **Sorular:**
+  1. **İşe alım aşamalarınız:** liste; varsayılanı Applied, Screening, Interview, Offer, Hired, Rejected. Hired bitti, Rejected bırakıldı sayılır; ipuçları CRM'in aşamalarındaki gibi.
+  2. **Adaylar nereden geliyor?** Çoklu seçim: Referral, LinkedIn, Job boards, Website, Agency; varsayılanı ilk dördü. Seçilenler kaynak seçenekleri olur; hiçbiri seçilmezse kaynak alanı kurulmaz.
+  3. **Görüşmeleri kaydedecek misiniz?** Evet (varsayılan): Interviews ve Schedule interview kurulur. Altında **puan ve öneri de tutulsun mu?** Evet (varsayılan).
+  4. **İşe başlayan için adımlar:** liste; varsayılanı Contract signed, Equipment ready, Accounts opened, First week planned. Boş bırakılabilir.
+
+### 3.9 Demirbaş ve bakım
+
+Şirketin eşyaları: kimde, nerede oldukları, ne zaman bakım gördükleri ve kaça mal oldukları. Şablon penceresinde Money grubunda.
+
+| Parça | Tür | İçinde | Hesaplanan |
+|---|---|---|---|
+| Assets | koleksiyon | kod (AST-0001), ad, kategori (soru 1), seri no, durum (In use, In storage, In repair, Retired), kimde (soruya göre), yer (soruya göre), tedarikçi, alış tarihi, maliyet, garanti bitişi, bakım aralığı (soruya göre) | garantide mi, toplam bakım gideri; düzenli bakımda son bakım, sonraki bakım, bakımı geçti mi |
+| Maintenance | koleksiyon | başlık, demirbaş, tür (Planned, Repair, Inspection), tarih (bugün), durum (Planned, Done), yapan, maliyet | — |
+| Locations | koleksiyon, ortak (soruya göre) | ad, adres; Stok birden çok depoyla kuruluysa onun listesi | — |
+| How we look after things | tanıtım notunda | kim ne alır, arıza nasıl bildirilir, bakım ne zaman yapılır | — |
+
+- **Ekranlar:** demirbaşın ekranında bakımları tablo olarak, altında toplam maliyet; yerin ekranında oradaki demirbaşlar; Companies varsa tedarikçinin ekranında ondan alınan demirbaşlar.
+- **Kurallar:**
+  - **Log maintenance:** türü, maliyeti ve notu sorar; bugünün tarihiyle Done bir bakım açar.
+  - **Assign** (kişilere veriliyorsa): kişiyi sorar, kimde'yi yazar, durumu In use yapar. **Return:** kimde'yi boşaltır, durumu In storage yapar. Kontrol: Retired bir demirbaş kimsede olamaz.
+  - **Retire:** önce sorar, durumu Retired yapar.
+  - Maintenance'ta, kaydederken (düzenli bakımda): planlı bir bakım Done olunca ve demirbaşın aralığı varsa bir sonraki planlı bakım, aralık kadar sonraki tarihle açılır.
+  - Sonraki bakımın tarihi geçince demirbaş işaretlenir ("Maintenance due").
+- **Zincir:**
+  - Stok birden çok depoyla kuruluysa Locations ortaktır; aynı adlı yer bir kez eklenir.
+  - Companies varsa (CRM, Satış, Destek ya da Stok kurduysa) tedarikçi oraya bağlanır; yoksa düz metindir.
+  - Bütçe kuruluysa ve soru 5 evetse bir "Maintenance" gider kalemi kurulur; maliyeti olan bakım Done olunca o kaleme bağlı, çıkan yönlü, Invoiced bir ödeme açılır.
+- **Sorular:**
+  1. **Demirbaş kategorileriniz:** liste; varsayılanı Computers, Phones, Furniture, Vehicles, Machines, Other.
+  2. **Demirbaşları kişilere veriyor musunuz?** Evet (varsayılan): kimde, Assign ve Return.
+  3. **Düzenli bakım yapıyor musunuz?** Evet (varsayılan): bakım aralığı (Monthly, Every 3 months, Every 6 months, Yearly), son ve sonraki bakım, sıradaki planlı bakım.
+  4. **Birden çok yeriniz var mı?** Hayır (varsayılan). Evetse yerler bir listeyle sorulur; varsayılanı Head office, Warehouse.
+  5. **Bakım giderleri Payments'a yazılsın mı?** Bütçe seçildiyse; evet (varsayılan).
+
+### 3.10 İçerik takvimi
+
+Ne, hangi kanalda, ne zaman yayınlanacak. Şablon penceresinde Customers grubunda.
+
+| Parça | Tür | İçinde | Hesaplanan |
+|---|---|---|---|
+| Content | pano | aşamalar (soru 2); kartta kanal (soru 1), tür (Post, Article, Video, Newsletter), yayın linki; kampanya (soruya göre), sürüm (Ürün geliştirme varsa). Yayın günü kartın vadesi, sorumlu kartın kişisi | — |
+| Campaigns | koleksiyon (soruya göre) | ad, amaç, başlangıç, bitiş, durum (Planned, Running, Done); Bütçe varsa bütçe kalemi | içerik sayısı, yayınlanan |
+| How we publish | tanıtım notunda | ne sıklıkla yayınlanır, kim onaylar, yayından sonra ne yapılır | — |
+
+- **Takvim:** yayın günü kartın vadesi olduğu için içerikler Upcoming'in takviminde görünür; ayrı bir takvim kurulmaz. Yayınlanan kart takvimden düşer.
+- **Ekranlar:** kampanyanın ekranında kartları; Ürün geliştirme varsa sürümün ekranında içerikleri de (kartları).
+- **Kurallar:** panoların kuralı yok. Campaigns'te **Plan content:** başlığı, kanalı ve yayın gününü sorar, kampanyaya bağlı bir kart açar. Kontrol: kampanyanın bitişi başlangıcından önce olamaz.
+- **Zincir:** Ürün geliştirme varsa kart bir sürüme bağlanır (sürüm duyurusu). Bütçe varsa kampanya bir bütçe kalemine bağlanır ve kalemin gerçekleşenini gösterir.
+- **Sorular:**
+  1. **Hangi kanallarda yayınlıyorsunuz?** Çoklu seçim: Blog, Newsletter, LinkedIn, X, Instagram, YouTube, Podcast; varsayılanı Blog, Newsletter, LinkedIn.
+  2. **Yayın aşamalarınız:** liste; varsayılanı Ideas, Writing, Review, Scheduled, Published. Published bitti sayılır.
+  3. **Kampanyalarla mı çalışıyorsunuz?** Hayır (varsayılan).
+
 ## 4. Zincir
 
 ### 4.1 Ortak parçalar ve şablon işareti
 
-Bir app'in her koleksiyonu şemasında hangi parça olduğunu taşır: `"role"` alanı (`companies`, `people`, `products`, `orders`, `order-lines`, `payments`, `budget-lines`, `expenses`, `stock-movements`, `stock-levels`, `locations`, `purchase-orders`, `purchase-order-lines`, `projects`, `time-entries`, `feedback`, `releases`…). Panolar da aynı işareti alır: pano dosyasında `"role"` (`deals`, `requests`, `work`, `roadmap`, `bugs`). Saved replies klasörü adından bulunur.
+Bir app'in her koleksiyonu şemasında hangi parça olduğunu taşır: `"role"` alanı (`companies`, `people`, `products`, `orders`, `order-lines`, `payments`, `budget-lines`, `expenses`, `stock-movements`, `stock-levels`, `locations`, `purchase-orders`, `purchase-order-lines`, `projects`, `time-entries`, `feedback`, `releases`, `positions`, `candidates`, `interviews`, `assets`, `maintenance`, `campaigns`…). Panolar da aynı işareti alır: pano dosyasında `"role"` (`deals`, `requests`, `work`, `roadmap`, `bugs`, `hiring`, `content`). Saved replies klasörü adından bulunur.
 
 Şablon kurulurken ortak parça önce app klasöründe işaretinden aranır; varsa ona bağlanılır, yoksa kurulur. İşaret ad ve yerden bağımsızdır: kişi Companies'i "Customers" diye yeniden adlandırsa da, alt klasöre taşısa da bulunur. Aynı işaretten iki parça varsa ilki alınır ve özet bunu söyler.
 
@@ -371,7 +462,7 @@ action("Correct stock", { ask: { total: { label: "Counted total", type: "number"
 })
 ```
 
-- **Türler:** `number`, `text`, `date`, `choice` (`options` ile), `link` (`collection` ile: transferde depo). `default` bir değer ya da kaydın alanlarını okuyan bir formüldür; `required: true` boş bırakılmasını engeller; `note` kutunun altındaki kısa satırdır (bir metin ya da ``() => `Now ${stock}` ``).
+- **Türler:** `number`, `text`, `date`, `choice` (`options` ile), `link` (`collection` ile: transferde depo), `person` (space'in kişilerinden biri: Assign; 5. dilimde eklendi). `default` bir değer ya da kaydın alanlarını okuyan bir formüldür; `required: true` boş bırakılmasını engeller; `note` kutunun altındaki kısa satırdır (bir metin ya da ``() => `Now ${stock}` ``).
 - **`say`:** düğmenin seçeneği; pencerenin başlığının altındaki cümle (``say: () => `${name} has ${stock} in stock` ``). Yazılmazsa kaydın adı görünür.
 - **Liste indeksi:** `find("Locations")[0]`, `linked("Stock levels")[1]`; olmayan sıra boş verir. Formülde de geçerlidir.
 - **Gövdede** `input.total` olarak okunur. Rules sekmesi `ask`'ı da denetler: olmayan tür, `input`'ta tanımlanmamış ad, türü tutmayan işlem satırında söylenir.
@@ -384,7 +475,7 @@ action("Correct stock", { ask: { total: { label: "Counted total", type: "number"
 ### 6.1 Core
 
 - **`packages/core/src/apps/`** yeni bir klasör:
-  - `templates/` her şablon bir dosya: `crm.ts`, `sales.ts`, `support.ts`, `projects.ts`, `budget.ts`, `stock.ts`, `product.ts`. Her biri `AppTemplate` verir: `id`, `version`, `group`, ad ve açıklama (i18n anahtarları), `questions`, `build(answers, ctx)`.
+  - `templates/` her şablon bir dosya: `crm.ts`, `sales.ts`, `support.ts`, `projects.ts`, `budget.ts`, `stock.ts`, `product.ts`; 5. dilimde `recruiting.ts`, `assets.ts`, `content.ts`. Her biri `AppTemplate` verir: `id`, `version`, `group`, ad ve açıklama (i18n anahtarları), `questions`, `build(answers, ctx)`.
   - `questions.ts`: soru türleri (2.3), varsayılanlar, başka şablona ya da cevaba bağlı sorular, cevapların denetimi.
   - `build.ts`: seçilen şablonlar ve cevaplardan bir **kurulum planı** çıkarır, hiçbir şey yazmadan: kurulacak klasörler, şemalar, panolar, notlar, kural dosyaları ve var olanlara eklenecekler. Ortak parçalar bir kez üretilir; bağlar app klasöründeki yollarla kurulur. Kural dosyaları üretilip `rulesProblems` ile denetlenir; denetimden geçmeyen bir plan hiç yazılmaz (bu bir hata, kişiye değil bize söylenir).
   - `about.ts`: tanıtım notunu kurulum planından üretir (2.4); Add to app için yalnız yeni bölümü.
@@ -416,7 +507,7 @@ action("Correct stock", { ask: { total: { label: "Counted total", type: "number"
 
 ## 7. Testler
 
-- **core `apps`:** her şablon tek başına; yedi şablonun bütün birleşimleri (128) her cevap kümesiyle kurulup her şema şema denetiminden, her kural dosyası `rulesProblems`'tan hatasız geçer. Ortak parçalar bir kez kurulur ve bağlar doğru yere gider. Kurulum `MemoryFs`'e yazılır, yarıda düşen kurulum hiçbir şey bırakmaz, Undo hepsini geri alır.
+- **core `apps`:** her şablon tek başına; şablonların bütün birleşimleri (yedi şablonda 127, onda 1023) her cevap kümesiyle kurulup her şema şema denetiminden, her kural dosyası `rulesProblems`'tan hatasız geçer. Ortak parçalar bir kez kurulur ve bağlar doğru yere gider. Kurulum `MemoryFs`'e yazılır, yarıda düşen kurulum hiçbir şey bırakmaz, Undo hepsini geri alır.
 - **Zincir:** kurulu bir app'e şablon eklemek; yeniden adlandırılmış ve taşınmış ortak parçanın bulunması; aynı anahtarlı farklı türde alanın bırakılması; değiştirilmiş kurallar dosyasına ekleme; aynı adlı kuralın ikinci kez eklenmemesi.
 - **Tanıtım notu:** yalnız kurulanı anlatır (seçilmeyen bir soru kuralı notta yok); linkleri kurulan dosyalara gider; Add to app değiştirilmiş notun yalnız sonuna ekler.
 - **Kurallar uçtan uca:** Atlas'ta yapılanlar her şablon için: siparişte kalem hesabı (vergi dahil ve hariç, indirim), tahsilatta siparişin Paid olması, teslimde stok düşümü ve geri alınması, mal kabulü, Correct stock, transfer, masraf onayı ve geri ödeme, beklenen tahsilat.
@@ -432,6 +523,7 @@ Arayüzü olan her dilim önce `design/mockups.html`'de mockup'la başlar ve ona
 2. **Şablonların çekirdeği ve ajan:** `apps/` (sorular, plan, kurulum, roller, tanıtım notu), yedi şablon, `_app.json`, şablon işareti; `create` ile `kind: "app"` ve rehber. Arayüzsüz ama ajanla hemen kullanılabilir.
 3. **Sihirbaz:** New app, şablon kartları, sorular, özet, kurulum, Undo; telefon.
 4. **Add to app:** kurulu app'e şablon eklemek; özet, Undo.
+5. **Üç yeni şablon:** İşe alım, Demirbaş ve bakım, İçerik takvimi (3.8–3.10); sorular, kurallar, zincir, tanıtım notu, ajanın rehberi, testler. Yeni ekran yok, mockup yok.
 
 ## 9. PLAN'da değişenler
 
@@ -442,8 +534,8 @@ Arayüzü olan her dilim önce `design/mockups.html`'de mockup'la başlar ve ona
 
 ## 10. İleride yapılacaklar
 
-- **Yeni şablonlar:** İşe alım (pozisyonlar, adaylar, süreç panosu, görüşmeler), Demirbaş ve bakım, Randevu ve rezervasyon, İçerik takvimi.
-- **Randevu ve rezervasyon'un istedikleri:** tarih alanında saat, gün ve hafta görünümü (takvim). İçerik takvimi de bunlardan yararlanır.
+- **Randevu ve rezervasyon** (22 Ekim'de yine sonraya bırakıldı): Services (ad, süre, fiyat, veren çalışanlar), CRM'le ortak People (müşteriler), Appointments (müşteri, hizmet, çalışan, saatli başlangıç, durum Booked, Confirmed, Done, No-show, Cancelled; hesaplanan bitiş ve fiyat), soruya göre Resources (oda, masa, araç, cihaz); aynı çalışanın ya da kaynağın çakışan randevusu işaretlenir; Done randevu Satış ya da Bütçe varsa tahsilat açar. Sorular: neyin randevusu (hizmet, kaynak, ikisi), tek kişi mi ekip mi, ücret alınıyor mu. İstedikleri: tarih alanında saat (core, ajan, tablo, form ve telefonda saat seçici; mockup ister) ve koleksiyona takvim görünümü. Takvim yeniden tasarlanmaz: Upcoming'in ay takvimi koleksiyonun kayıtlarını seçilen tarih alanına göre gösterir, kayıtlı görünümün filtresiyle tek çalışanın ya da odanın takvimi olur, günün penceresi o günün kayıtlarını saat sırasıyla listeler; saat dilimli gün ve hafta görünümü daha sonra.
+- **E-ticaret şablonu** (22 Ekim'de önerildi, sonraya bırakıldı): Satış'ın ve Stok'un üstüne oturur. Channels (Trendyol, Hepsiburada, Amazon, kendi site; komisyon %, sipariş başı sabit ücret, hakediş günü; sipariş sayısı, ciro, net kâr, iade oranı); Orders'a kanal, pazaryeri sipariş no, kargoya son gün, kargo firması, takip no, kargo maliyeti, Packed ve Shipped durumları, hesaplanan komisyon, ürün maliyeti, net kâr ve marj; Returns (sipariş, ürün, adet, neden, durum, iade tutarı); Products'a satılan, iade edilen, iade oranı, net kâr. Kurallar: Ship (kargo firması ve takip no), Return, iade Received olunca stoğa dönüş (Stok varsa), Refunded olunca iade ödemesi (Bütçe varsa), teslim edilen siparişin hakedişi beklenen tahsilat olarak (Bütçe varsa), kargoya son günü geçen sipariş işaretlenir. Destek varsa talep kanallarına pazaryeri soruları ve yorumları. Sorular: kanallar, kargo firmaları, iadeler, hakediş. Siparişlerin girişi: canlı bağlantı sunucu işi (sunucuda otomasyonla birlikte); içe aktarmanın pazaryeri sipariş no ile eşleşmesi ve satır satır gelen dosyayı siparişe ve kalemlere ayırması gerekir, bugün bunu ajan yapar. Açık kararlar: ayrı şablon mu Satış'ın sorusu mu, kanal ve kargo listelerinin varsayılanı bölgeye göre mi.
 - **Stok:** lot ve seri numarası.
 - **Kişinin kendi şablonu:** bir app klasörünü şablon olarak kaydetmek (Roadmap'te ROA-151).
 - **Şablonun yeni sürümünü kurulu app'e uygulamak:** `_app.json`'daki sürümle mümkün; ilk sürümde yok.

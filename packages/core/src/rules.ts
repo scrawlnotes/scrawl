@@ -34,7 +34,7 @@ export interface CheckRule {
 }
 
 /** What a question of a button asks for. */
-export const ASK_TYPES = ['number', 'text', 'date', 'choice', 'link'] as const;
+export const ASK_TYPES = ['number', 'text', 'date', 'choice', 'link', 'person'] as const;
 export type AskType = (typeof ASK_TYPES)[number];
 
 /** A question a button asks before it runs, read in its body as `input.key`. */

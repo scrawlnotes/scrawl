@@ -1,3 +1,4 @@
+import type { MessageKey } from '@scrawlnotes/i18n';
 import type { ColumnKind } from '../../board';
 import { day, inMain, link, multi, number, openCards, person, rollup, select } from '../pieces';
 import { companies, people } from '../shared';
@@ -5,11 +6,15 @@ import type { AppTemplate } from '../types';
 
 /** A board's columns from a list of stages: Won and Lost as they say, else the first waits and the last is done. */
 export function stageColumns(stages: string[]): [string, ColumnKind][] {
-  const kinds: ColumnKind[] = stages.map((s) => (/^(won|done|closed)$/i.test(s) ? 'done' : /^(lost|dropped|cancell?ed)$/i.test(s) ? 'dropped' : 'active'));
+  const kinds: ColumnKind[] = stages.map((s) => (/^(won|done|closed|hired|published)$/i.test(s) ? 'done' : /^(lost|dropped|cancell?ed|rejected)$/i.test(s) ? 'dropped' : 'active'));
   if (!kinds.includes('done')) kinds[kinds.lastIndexOf('active') >= 0 ? kinds.lastIndexOf('active') : kinds.length - 1] = 'done';
   if (kinds[0] === 'active' && kinds.length > 2) kinds[0] = 'backlog';
   return stages.map((s, i) => [s, kinds[i]!]);
 }
+
+/** What a list of stages says beside each: the first waits, the done and the dropped ones. */
+export const stageHints = (items: string[]) =>
+  stageColumns(items).map(([, kind]) => (kind === 'backlog' ? 'apps.hint.waiting' : kind === 'done' ? 'apps.hint.done' : kind === 'dropped' ? 'apps.hint.dropped' : null) as MessageKey | null);
 
 const STAGES = ['Lead', 'Contacted', 'Meeting', 'Proposal', 'Won', 'Lost'];
 
@@ -52,7 +57,7 @@ export const crm: AppTemplate = {
       under: 'deals',
       help: 'apps.crm.stagesHelp',
       add: 'apps.crm.addStage',
-      hints: (items) => stageColumns(items).map(([, kind]) => (kind === 'backlog' ? 'apps.hint.waiting' : kind === 'done' ? 'apps.hint.done' : kind === 'dropped' ? 'apps.hint.dropped' : null)),
+      hints: stageHints,
     },
   ],
   money: (answers) => answers.deals !== false,

@@ -12,7 +12,7 @@ import { type Answers, TEMPLATE_IDS, type TemplateId } from './types';
 let n = 0;
 const ids = () => `id${++n}`;
 
-/** Every set of templates: 127 of them, and the empty one left out. */
+/** Every set of templates: 1023 of them, and the empty one left out. */
 const sets = (): TemplateId[][] => {
   const out: TemplateId[][] = [];
   for (let mask = 1; mask < 1 << TEMPLATE_IDS.length; mask++) out.push(TEMPLATE_IDS.filter((_, i) => mask & (1 << i)));
@@ -28,6 +28,9 @@ const MOST: { [id in TemplateId]: Answers } = {
   budget: { periods: 'monthly', due: true, expenses: true, expected: true },
   stock: { purchasing: true, locations: true, deduct: 'confirmed', payables: true },
   product: { bugs: true, releases: true, phases: true, feedback: true },
+  recruiting: { interviews: true, scores: true },
+  assets: { assign: true, service: true, places: true, costs: true },
+  content: { campaigns: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -37,6 +40,9 @@ const LEAST: { [id in TemplateId]: Answers } = {
   budget: { periods: 'none', due: false, expenses: false, categories: [] },
   stock: { purchasing: false, locations: false, deduct: 'no' },
   product: { bugs: false, releases: false, phases: false, feedback: false },
+  recruiting: { stages: [], sources: [], interviews: false, steps: [] },
+  assets: { categories: [], assign: false, service: false, places: false, costs: false },
+  content: { channels: [], stages: [], campaigns: false },
 };
 
 /** What a template asks of these, given only the questions it asks with this set. */
@@ -59,8 +65,8 @@ describe('setting up an app', () => {
         }
       }
     }
-    expect(made).toBe(127 * 6);
-  });
+    expect(made).toBe(1023 * 6);
+  }, 60_000);
 
   it('sets up a shared piece once, for every template that uses it', () => {
     const plan = planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'crm' }, { id: 'sales' }, { id: 'stock' }, { id: 'support' }] }, { ids });

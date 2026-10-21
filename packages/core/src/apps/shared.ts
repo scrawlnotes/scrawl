@@ -62,6 +62,12 @@ export function payments(app: AppDraft) {
   });
 }
 
+/** The places of Stock's warehouses and of Assets: one list. */
+export function locations(app: AppDraft) {
+  app.field('locations', nameField());
+  app.field('locations', text('address', 'Address'));
+}
+
 export function feedback(app: AppDraft) {
   app.field('feedback', nameField('Title'));
   if (app.hasPiece('people')) app.field('feedback', link('person', 'Person', app.path('people')));

@@ -11,7 +11,7 @@ import type { Field, LayoutBlock, NumberFormat } from '../collection';
 export const APP_FILE = '_app.json';
 
 /** The templates, in the order they are set up: the one before sets up what a shared piece starts with. */
-export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'projects', 'budget', 'stock', 'product'] as const;
+export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'projects', 'budget', 'stock', 'product', 'recruiting', 'assets', 'content'] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 

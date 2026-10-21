@@ -30,13 +30,21 @@ export const PIECES: { [role: string]: PieceInfo } = {
   'budget-lines': { kind: 'collection', name: 'Budget lines', singular: 'budget line', about: 'what you plan to earn and spend, and what was paid.' },
   expenses: { kind: 'collection', name: 'Expenses', singular: 'expense', about: 'what people spent and are to be paid back for.' },
   'stock-movements': { kind: 'collection', name: 'Stock movements', singular: 'movement', about: 'every move of stock in and out.' },
-  locations: { kind: 'collection', name: 'Locations', singular: 'location', about: 'your warehouses.' },
+  locations: { kind: 'collection', name: 'Locations', singular: 'location', about: 'your warehouses, offices and other places.' },
   'stock-levels': { kind: 'collection', name: 'Stock levels', singular: 'stock level', about: 'what is in each warehouse, a product each.' },
   'purchase-orders': { kind: 'collection', name: 'Purchase orders', singular: 'purchase order', about: 'what you order from suppliers.' },
   'purchase-order-lines': { kind: 'collection', name: 'Purchase order lines', singular: 'line', about: 'what each purchase order is for.' },
   roadmap: { kind: 'board', name: 'Roadmap', about: 'the work on the product, a card each, from idea to done.' },
   bugs: { kind: 'board', name: 'Bugs', about: 'the bugs found, a card each.' },
   releases: { kind: 'collection', name: 'Releases', singular: 'release', about: 'each release, its day and its notes.' },
+  positions: { kind: 'collection', name: 'Positions', singular: 'position', about: 'the jobs you are hiring for, and how many people each needs.' },
+  candidates: { kind: 'collection', name: 'Candidates', singular: 'candidate', about: 'the people who applied, with their CV in their notes.' },
+  hiring: { kind: 'board', name: 'Hiring', about: 'each candidate for a position, a card each, by stage.' },
+  interviews: { kind: 'collection', name: 'Interviews', singular: 'interview', about: 'each interview, who held it and what they thought.' },
+  assets: { kind: 'collection', name: 'Assets', singular: 'asset', about: 'what the company owns, who has it and where it is.' },
+  maintenance: { kind: 'collection', name: 'Maintenance', singular: 'maintenance', about: 'every service, repair and check, with its cost.' },
+  content: { kind: 'board', name: 'Content', about: 'what you will publish, a card each, by stage; its due day is the day it goes out.' },
+  campaigns: { kind: 'collection', name: 'Campaigns', singular: 'campaign', about: 'each campaign, its dates and what is published in it.' },
 };
 
 /** The roles, in the order the pieces are listed: by template, the shared ones first where they are first used. */

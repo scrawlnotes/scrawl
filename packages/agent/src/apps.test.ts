@@ -36,6 +36,9 @@ const MOST: { [id in TemplateId]: Answers } = {
   budget: { periods: 'monthly', due: true, expenses: true, expected: true },
   stock: { purchasing: true, locations: true, deduct: 'confirmed', payables: true },
   product: { bugs: true, releases: true, phases: true, feedback: true },
+  recruiting: { interviews: true, scores: true },
+  assets: { assign: true, service: true, places: true, costs: true },
+  content: { campaigns: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -45,6 +48,9 @@ const LEAST: { [id in TemplateId]: Answers } = {
   budget: { periods: 'none', due: false, expenses: false, categories: [] },
   stock: { purchasing: false, locations: false, deduct: 'no' },
   product: { bugs: false, releases: false, phases: false, feedback: false },
+  recruiting: { stages: [], sources: [], interviews: false, steps: [] },
+  assets: { categories: [], assign: false, service: false, places: false, costs: false },
+  content: { channels: [], stages: [], campaigns: false },
 };
 
 /** What a template is asked with this set: only the questions it asks. */
@@ -82,8 +88,8 @@ describe('apps', () => {
         apps++;
       }
     }
-    expect(apps).toBe(254);
-  }, 120_000);
+    expect(apps).toBe(2046);
+  }, 600_000);
 
   it('runs a sale through: a line from its product, the order adding up, stock out on delivery, the payment expected and recorded', async () => {
     const { fs, agent } = await world();
@@ -217,6 +223,106 @@ describe('apps', () => {
     const shipped = await saveRecordTool(agent, { collection: 'Studio/Releases', id: release.data.record.id, action: 'Ship' });
     expect(shipped.data.record.values).toMatchObject({ status: 'Released', shipped: '2026-10-21', open_cards: 1 });
     expect(shipped.data.record.problems).toEqual([{ kind: 'check', field: 'status', text: 'Released with 1 open cards' }]);
+  });
+
+  it('hires a candidate: on the board, interviewed and scored, hired with the first steps, the position filled', async () => {
+    const { fs, agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Team', templates: ['recruiting'] });
+    await saveRecordTool(agent, { collection: 'Team/Positions', values: { name: 'Backend developer', team: 'Platform' } });
+    const ayse = await saveRecordTool(agent, { collection: 'Team/Candidates', values: { name: 'Ayşe Yılmaz', source: 'Referral' } });
+    const id = ayse.data.record.id;
+    const press = (action: string, input?: object) => saveRecordTool(agent, { collection: 'Team/Candidates', id, action, ...(input && { input: input as never }) });
+    await press('Add to position', { position: 'Backend developer' });
+    const board = async () => JSON.parse(await fs.readText('Team/Hiring.board.json'));
+    const column = async () => {
+      const b = await board();
+      return b.columns.find((c: { id: string }) => c.id === b.cards[0].column).name;
+    };
+    expect((await board()).cards.map((c: { title: string; values: object }) => [c.title, c.values])).toEqual([
+      ['Ayşe Yılmaz', { candidate: expect.objectContaining({ name: 'Ayşe Yılmaz' }), position: expect.objectContaining({ name: 'Backend developer' }) }],
+    ]);
+    expect(await column()).toBe('Applied');
+    const position = async () => (await recordsTool(agent, { collection: 'Team/Positions' })).data.records[0]!.values;
+    expect(await position()).toMatchObject({ code: 'POS-0001', status: 'Open', openings: 1, applicants: 1, in_process: 1, hired: 0, left: 1, owner: 'Kaan' });
+
+    await press('Schedule interview', { position: 'Backend developer', date: '2026-10-23', type: 'Technical' });
+    const interview = (await recordsTool(agent, { collection: 'Team/Interviews' })).data.records[0]!;
+    expect(interview).toMatchObject({ name: 'Technical with Ayşe Yılmaz', values: expect.objectContaining({ date: '2026-10-23', interviewer: 'Kaan', candidate: expect.objectContaining({ name: 'Ayşe Yılmaz' }) }) });
+    const scored = await saveRecordTool(agent, { collection: 'Team/Interviews', id: interview.id, values: { score: 7 } });
+    expect(scored.data.record.problems).toEqual([{ kind: 'check', field: 'score', text: 'A score is from 1 to 5' }]);
+    await saveRecordTool(agent, { collection: 'Team/Interviews', id: interview.id, values: { score: 4, recommendation: 'Yes' } });
+
+    const hired = await press('Hire', { position: 'Backend developer', start: '2026-11-02' });
+    expect(hired.data.record.values).toMatchObject({ hired_for: expect.objectContaining({ name: 'Backend developer' }), start: '2026-11-02', interview_count: 1, score: 4 });
+    expect((hired.data.record as { subtasks: { title: string; due: string }[] }).subtasks.map((t) => [t.title, t.due])).toEqual([
+      ['Contract signed', '2026-11-02'],
+      ['Equipment ready', '2026-11-02'],
+      ['Accounts opened', '2026-11-02'],
+      ['First week planned', '2026-11-02'],
+    ]);
+    expect(await column()).toBe('Hired');
+    expect(await position()).toMatchObject({ status: 'Filled', applicants: 1, in_process: 0, hired: 1, left: 0 });
+    expect((await refusal(press('Hire', { position: 'Backend developer', start: '2026-11-02' }))).message).toMatch(/Hired already/);
+  });
+
+  it("keeps an asset: given and taken back, serviced with the next one planned and its cost on the budget, retired", async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Office', templates: ['budget', 'assets'], currencies: ['TRY'] });
+    const mac = await saveRecordTool(agent, { collection: 'Office/Assets', values: { name: 'MacBook Pro', category: 'Computers', cost: 90000, interval: 'Every 6 months', warranty: '2027-10-01' } });
+    expect(mac.data.record.values).toMatchObject({ code: 'AST-0001', status: 'In storage', in_warranty: true, maintenance_cost: 0 });
+    const id = mac.data.record.id;
+    const press = (action: string, input?: object) => saveRecordTool(agent, { collection: 'Office/Assets', id, action, ...(input && { input: input as never }) });
+    expect((await press('Assign', { to: 'Kaan' })).data.record.values).toMatchObject({ holder: 'Kaan', status: 'In use' });
+
+    const serviced = await press('Log maintenance', { type: 'Planned', cost: 1500 });
+    expect(serviced.data.record.values).toMatchObject({ last_service: '2026-10-21', next_service: '2027-04-21', maintenance_cost: 1500 });
+    const jobs = (await recordsTool(agent, { collection: 'Office/Maintenance' })).data.records.map((r) => [r.name, r.values.status, r.values.date]);
+    expect(jobs).toEqual(expect.arrayContaining([['Service of MacBook Pro', 'Done', '2026-10-21'], ['Service of MacBook Pro', 'Planned', '2027-04-21']]));
+    const owed = (await recordsTool(agent, { collection: 'Office/Payments' })).data.records.map((r) => r.values);
+    expect(owed).toEqual([expect.objectContaining({ name: 'Service of MacBook Pro', direction: 'Out', amount: 1500, status: 'Invoiced', budget_line: expect.objectContaining({ name: 'Maintenance' }) })]);
+
+    expect((await press('Return')).data.record.values).toMatchObject({ status: 'In storage' });
+    expect((await refusal(press('Return'))).message).toMatch(/It is with nobody/);
+    expect((await press('Retire')).data.record.values).toMatchObject({ status: 'Retired' });
+    expect((await refusal(press('Assign', { to: 'Kaan' }))).message).toMatch(/A retired asset is with nobody/);
+  });
+
+  it('plans a campaign: a card on its day, counted by the campaign, linked to a release and a budget line', async () => {
+    const { fs, agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Marketing', templates: ['budget', 'product', 'content'], answers: { content: { campaigns: true } }, currencies: ['TRY'] });
+    await saveRecordTool(agent, { collection: 'Marketing/Budget lines', values: { name: 'Launch ads', planned: 20000 } });
+    const launch = await saveRecordTool(agent, { collection: 'Marketing/Campaigns', values: { name: 'Launch', start: '2026-11-01', end: '2026-11-30', budget_line: 'Launch ads' } });
+    const planned = await saveRecordTool(agent, { collection: 'Marketing/Campaigns', id: launch.data.record.id, action: 'Plan content', input: { title: 'Launch post', channel: 'Blog', day: '2026-11-05' } });
+    expect(planned.data.record.values).toMatchObject({ pieces: 1, published: 0, spent: 0 });
+    const board = JSON.parse(await fs.readText('Marketing/Content.board.json'));
+    expect(board.columns.map((c: { name: string; kind: string }) => [c.name, c.kind])).toEqual([
+      ['Ideas', 'backlog'],
+      ['Writing', 'active'],
+      ['Review', 'active'],
+      ['Scheduled', 'active'],
+      ['Published', 'done'],
+    ]);
+    expect(board.cards.map((c: { title: string; due: string; values: object }) => [c.title, c.due, c.values])).toEqual([
+      ['Launch post', '2026-11-05', { campaign: expect.objectContaining({ name: 'Launch' }), channel: 'Blog' }],
+    ]);
+    expect(board.fields.map((f: { key: string }) => f.key)).toEqual(['channel', 'type', 'link', 'release', 'campaign']);
+    const late = await saveRecordTool(agent, { collection: 'Marketing/Campaigns', id: launch.data.record.id, values: { end: '2026-10-01' } });
+    expect(late.data.record.problems).toEqual([{ kind: 'check', field: 'end', text: 'The end is before the start' }]);
+  });
+
+  it('keeps one list of places for Stock and Assets', async () => {
+    const { agent } = await world();
+    await createTool(agent, {
+      kind: 'app',
+      name: 'Depot',
+      templates: ['stock', 'assets'],
+      answers: { stock: { locations: true, purchasing: false }, assets: { places: true, placeList: ['Main warehouse', 'Head office'] } },
+      currencies: ['EUR'],
+    });
+    const places = (await recordsTool(agent, { collection: 'Depot/Locations' })).data.records.map((r) => r.name);
+    expect(places.sort()).toEqual(['Head office', 'Main warehouse', 'Second warehouse']);
+    const forklift = await saveRecordTool(agent, { collection: 'Depot/Assets', values: { name: 'Forklift', location: 'Main warehouse' } });
+    expect(forklift.data.record.values).toMatchObject({ location: expect.objectContaining({ name: 'Main warehouse' }) });
   });
 
   it('adds a template to an app, says what it added, and refuses what is wrong', async () => {
