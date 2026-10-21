@@ -620,6 +620,7 @@ function NumberBox({ id, field, value, currency, autoFocus, onChange, onEnter }:
     <input
       id={id}
       type={shown ? 'text' : 'number'}
+      inputMode="decimal"
       step="any"
       autoFocus={autoFocus}
       aria-label={field.label}

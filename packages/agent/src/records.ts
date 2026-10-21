@@ -14,9 +14,13 @@ import {
   isEmpty,
   type Link,
   linkTo,
+  actionsOf,
+  type ActionRule,
+  isDay,
   loadBoard,
   loadCollection,
   loadList,
+  pathNamed,
   newRecordId,
   planAction,
   planSave,
@@ -111,6 +115,35 @@ async function surroundings(fs: VaultFs, except: string): Promise<{ collections:
     } else if (element.kind === 'board') boards[element.path] = await loadBoard(fs, element.path);
   }
   return { collections, boards };
+}
+
+/** What an agent gave for what a button asks, each answer as its question takes it: a link by its record's name, code or id. */
+function answersFor(action: ActionRule | undefined, input: { [key: string]: unknown } | undefined, world: RuleSpaceNow, dir: string): CollectionRecord['values'] {
+  const asks = action?.ask ?? [];
+  const unknown = Object.keys(input ?? {}).filter((key) => !asks.some((a) => a.key === key));
+  if (unknown.length > 0) throw new Refusal(asks.length > 0 ? `${action!.name} asks no ${unknown.join(', ')}; it asks ${asks.map((a) => a.key).join(', ')}` : `${action?.name ?? 'The button'} asks nothing; leave input out`);
+  const out: CollectionRecord['values'] = {};
+  for (const a of asks) {
+    const raw = input?.[a.key];
+    if (raw === undefined || raw === null || raw === '') continue;
+    if (a.type === 'number') {
+      const n = typeof raw === 'number' ? raw : Number(raw);
+      if (!Number.isFinite(n)) throw new Refusal(`${a.key} takes a number`);
+      out[a.key] = n;
+    } else if (a.type === 'choice') {
+      if (!a.options!.includes(String(raw))) throw new Refusal(`${a.key} is one of ${a.options!.join(', ')}`);
+      out[a.key] = String(raw);
+    } else if (a.type === 'date') {
+      if (!isDay(String(raw))) throw new Refusal(`${a.key} takes a day as YYYY-MM-DD`);
+      out[a.key] = String(raw);
+    } else if (a.type === 'link') {
+      const path = pathNamed(world.collections.map((c) => c.dir), a.collection!, dir);
+      const collection = world.collections.find((c) => c.dir === path);
+      if (!collection) throw new Refusal(`There is no collection called ${a.collection} for ${a.key}`);
+      out[a.key] = linkTo(pickRecord(collection, String(raw)));
+    } else out[a.key] = String(raw);
+  }
+  return out;
 }
 
 /** The space as a button sees it: every collection with its rules, every board, every task list. */
@@ -236,7 +269,7 @@ function twinsOf(collection: Collection, values: { [key: string]: FieldValue }):
   return null;
 }
 
-export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string; subtasks?: SubtaskArg[]; another?: boolean; action?: string }) {
+export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string; subtasks?: SubtaskArg[]; another?: boolean; action?: string; input?: { [key: string]: unknown } }) {
   const { space, element } = await pickAcross(agent, args.space, args.collection, ['collection'], 'collection');
   const collection = await loadCollection(space.fs, element.path);
   const { schema } = collection;
@@ -311,7 +344,8 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     let pressed: { action: string; done: string; changes: string[]; stopped?: string[] };
     try {
       if (!home?.rules) throw new RuleStop(`There is no button called ${args.action} in the rules of ${element.path}.`, 0);
-      const plan = planAction(home.rules, args.action, element.path, record.id, world);
+      const answers = answersFor(actionsOf(home.rules).find((a) => a.name === args.action), args.input, world, element.path);
+      const plan = planAction(home.rules, args.action, element.path, record.id, world, answers);
       const words = planWords(plan, world);
       await writePlan(space.fs, plan, world, () => nowOf(agent), me);
       const stopped = (plan.stops ?? []).map((s) => `${s.name} stopped on line ${s.line} of the rules: ${s.message} What it does was left out.`);

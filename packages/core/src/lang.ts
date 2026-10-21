@@ -140,6 +140,7 @@ export type Node = { at: number; end: number } & (
   | { k: 'list'; items: Node[] }
   | { k: 'name'; name: string }
   | { k: 'member'; of: Node; name: string }
+  | { k: 'index'; of: Node; index: Node }
   | { k: 'call'; fn: string; args: Node[] }
   | { k: 'unary'; op: '-' | '!'; of: Node }
   | { k: 'bin'; op: string; left: Node; right: Node }
@@ -321,7 +322,17 @@ export function reader(tokens: Token[]): Reader {
     }
   };
   const postfix = (node: Node): Node => {
-    while (isOp('.')) {
+    while (isOp('.') || isOp('[')) {
+      // A list's item by its place, from 0: `find("Locations")[0]`.
+      if (isOp('[')) {
+        i++;
+        deeper();
+        const index = expression(0);
+        const close = expect(']');
+        depth--;
+        node = { k: 'index', of: node, index, at: node.at, end: close.end };
+        continue;
+      }
       i++;
       const name = tokens[i++]!;
       if (name.k !== 'id') fail(name);
@@ -456,6 +467,9 @@ export function reader(tokens: Token[]): Reader {
 }
 
 // ---------- kinds ----------
+
+/** The path a button's answers are read from as a record, `input`, followed by the button's name. */
+export const ASK_INPUT = '\u0000ask\u0000';
 
 /** What a value is, as far as can be told before working it out. */
 export type Kind = 'number' | 'text' | 'day' | 'bool' | 'null' | 'any' | { list: Kind } | { record: string };
@@ -712,6 +726,11 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
         const schema = scope.schemaOf?.(target);
         if (!schema) return isList(of) ? { list: 'any' } : 'any';
         const field = schema.fields.find((f) => f.key === n.name);
+        if (!field && target.startsWith(ASK_INPUT)) {
+          const keys = schema.fields.map((f) => f.key);
+          const said = keys.length > 1 ? `${keys.slice(0, -1).join(', ')} ${t('list.and')} ${keys[keys.length - 1]}` : (keys[0] ?? '');
+          throw new LangError(t('rules.askNo', { button: target.slice(ASK_INPUT.length), name: n.name, keys: said }), n.at);
+        }
         if (!field) throw new LangError(t('lang.noTargetField', { name: n.name, link: label(n.of) }), n.at);
         let kind: Kind;
         try {
@@ -744,6 +763,14 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
           throw new LangError(t('lang.args', { fn: n.fn, count }), n.at);
         }
         return spec.kind(n.args.map((a) => visit(a)), n.args);
+      }
+      case 'index': {
+        const of = visit(n.of);
+        const at = visit(n.index);
+        need(NUMBERISH(at), t('lang.notNumber', { what: words(n.index, at), op: '[ ]' }), n.index);
+        if (isList(of)) return of.list;
+        if (of === 'any' || of === 'null') return 'any';
+        throw new LangError(t('lang.notIndexable', { what: words(n.of, of) }), n.of.at);
       }
       case 'unary': {
         const of = visit(n.of);
@@ -1079,6 +1106,11 @@ export function evaluate(node: Node, env: Env): RV {
           throw new LangError(t('lang.noFunction', { fn: n.fn }), n.at);
         }
         return call(n.fn, args, env);
+      }
+      case 'index': {
+        const of = run(n.of);
+        const at = run(n.index);
+        return Array.isArray(of) && typeof at === 'number' && Number.isInteger(at) && at >= 0 ? (of[at] ?? null) : null;
       }
       case 'this':
         return env.self ?? null;

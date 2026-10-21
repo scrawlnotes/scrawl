@@ -1,6 +1,7 @@
 import { t } from '@scrawlnotes/i18n';
 import { basename, dirname, join } from './fs';
-import { check, type Env, evaluate, isNothing, type Kind, LangError, type Node, type Reader, reader, type Scope, type Stmt, textOf, tokenize, truthy } from './lang';
+import type { Field } from './collection';
+import { ASK_INPUT, check, type Env, evaluate, isNothing, type Kind, LangError, type Node, type Reader, reader, type Scope, type Stmt, textOf, tokenize, truthy } from './lang';
 
 // A collection's rules: a file beside its schema, `_rules.js`, written in the language of formulas.
 // It is never run as JS: our own reader takes only the calls it knows, at its top. A check says
@@ -32,12 +33,36 @@ export interface CheckRule {
   at: number;
 }
 
-/** A button as read: its label, when it may run (and what it says when it may not), whether it asks first, and what it does. */
+/** What a question of a button asks for. */
+export const ASK_TYPES = ['number', 'text', 'date', 'choice', 'link'] as const;
+export type AskType = (typeof ASK_TYPES)[number];
+
+/** A question a button asks before it runs, read in its body as `input.key`. */
+export interface AskRule {
+  key: string;
+  label: string;
+  type: AskType;
+  /** A choice's options. */
+  options?: string[];
+  /** A link's collection, by name as the person calls it. */
+  collection?: string;
+  /** A value, or what works one out from the record. */
+  default?: Node;
+  required: boolean;
+  /** The line under its box: a text, or what works one out. */
+  note?: Node;
+  at: number;
+}
+
+/** A button as read: its label, when it may run (and what it says when it may not), whether it asks first, what it asks for, and what it does. */
 export interface ActionRule {
   name: string;
   when?: Node;
   hint?: string;
   confirm: boolean;
+  /** The sentence under its window's title. */
+  say?: Node;
+  ask?: AskRule[];
   body: Stmt[];
   at: number;
 }
@@ -146,9 +171,65 @@ function readAction(read: Reader, at: number, before: readonly ActionRule[]): Ac
     } else if (entry.key === 'hint') {
       if (value.k !== 'str') throw new LangError(t('rules.actionHint'), value.at);
       action.hint = value.v;
+    } else if (entry.key === 'say') {
+      action.say = textNode(value, 'rules.actionSay');
+    } else if (entry.key === 'ask') {
+      action.ask = readAsk(value);
     } else throw new LangError(t('rules.actionOption', { name: entry.key }), entry.at);
   }
   return action;
+}
+
+/** A text, or `() => ` a text: what a button's say or a question's note is. */
+function textNode(value: Node, wrong: Parameters<typeof t>[0]): Node {
+  if (value.k === 'str' || value.k === 'tpl') return value;
+  if (value.k === 'arrow' && !Array.isArray(value.body) && value.params.length === 0) return value.body;
+  throw new LangError(t(wrong), value.at);
+}
+
+/** A button's questions: `{ total: { label: "Counted total", type: "number" } }`. */
+function readAsk(value: Node): AskRule[] {
+  if (value.k !== 'obj' || value.entries.length === 0) throw new LangError(t('rules.askShape'), value.at);
+  return value.entries.map((entry) => {
+    const spec = entry.value;
+    if (spec.k !== 'obj') throw new LangError(t('rules.askShape'), spec.at);
+    const ask: AskRule = { key: entry.key, label: entry.key, type: 'text', required: false, at: entry.at };
+    let typed = false;
+    for (const part of spec.entries) {
+      const v = part.value;
+      if (part.key === 'label') {
+        if (v.k !== 'str' || !v.v.trim()) throw new LangError(t('rules.askLabel'), v.at);
+        ask.label = v.v.trim();
+      } else if (part.key === 'type') {
+        if (v.k !== 'str' || !(ASK_TYPES as readonly string[]).includes(v.v)) throw new LangError(t('rules.askType'), v.at);
+        ask.type = v.v as AskType;
+        typed = true;
+      } else if (part.key === 'options') {
+        if (v.k !== 'list' || v.items.length === 0 || v.items.some((i) => i.k !== 'str')) throw new LangError(t('rules.askOptions'), v.at);
+        ask.options = v.items.map((i) => (i as { v: string }).v);
+      } else if (part.key === 'collection') {
+        if (v.k !== 'str' || !v.v.trim()) throw new LangError(t('rules.askCollection'), v.at);
+        ask.collection = v.v.trim();
+      } else if (part.key === 'default') {
+        ask.default = v.k === 'arrow' && !Array.isArray(v.body) && v.params.length === 0 ? v.body : v;
+      } else if (part.key === 'required') {
+        if (v.k !== 'bool') throw new LangError(t('rules.askRequired'), v.at);
+        ask.required = v.v;
+      } else if (part.key === 'note') {
+        ask.note = textNode(v, 'rules.askNote');
+      } else throw new LangError(t('rules.askPart', { name: part.key }), part.at);
+    }
+    if (!typed) throw new LangError(t('rules.askType'), spec.at);
+    if (ask.type === 'choice' && !ask.options) throw new LangError(t('rules.askOptions'), spec.at);
+    if (ask.type === 'link' && !ask.collection) throw new LangError(t('rules.askCollection'), spec.at);
+    return ask;
+  });
+}
+
+/** A question as a field, for what reads its answer: a choice is a select, a link links to `collection` (a path). */
+export function askField(ask: AskRule, collection?: string): Field {
+  const type = ask.type === 'choice' ? 'select' : ask.type;
+  return { key: ask.key, label: ask.label, type, ...(ask.options && { options: ask.options }), ...(ask.type === 'link' && { collection: collection ?? ask.collection ?? '' }) } as Field;
 }
 
 /** What a rule finds by name in the space: its collections, boards and task lists, by path. */
@@ -196,9 +277,22 @@ const isListKind = (k: Kind): k is { list: Kind } => typeof k === 'object' && 'l
  * list not in the space, a field a record of it does not have, a function called the wrong way.
  * What runs on save reads `old` too, a record of its own collection.
  */
-function checkBody(body: Stmt[], when: Node | undefined, outer: Scope, space: RuleSpace | undefined, saving = false): void {
+function checkBody(body: Stmt[], when: Node | undefined, outer: Scope, space: RuleSpace | undefined, saving = false, action?: ActionRule): void {
   const dir = outer.dir ?? '';
-  const scope: Scope = saving ? { ...outer, schemaOf: (path) => (path === dir ? { fields: [...outer.fields] } : outer.schemaOf?.(path)) } : outer;
+  // What a button asks is read as input, a record whose fields are its questions.
+  const asked = action?.ask?.length ? `${ASK_INPUT}${action.name}` : null;
+  const askFields = () =>
+    (action?.ask ?? []).map((a) => {
+      if (a.type !== 'link' || !space) return askField(a);
+      const path = pathNamed(space.collections.map((c) => c.dir), a.collection!, dir);
+      if (!path) throw new LangError(t('rules.noCollection', { name: a.collection! }), a.at);
+      return askField(a, path);
+    });
+  const inputFields = asked ? askFields() : [];
+  const scope: Scope = {
+    ...outer,
+    schemaOf: (path) => (saving && path === dir ? { fields: [...outer.fields] } : asked && path === asked ? { fields: inputFields } : outer.schemaOf?.(path)),
+  };
   const collectionArg = (node: Node | undefined, fn: string) => {
     if (!node || node.k !== 'str') throw new LangError(t('rules.nameInQuotes', { fn, what: t('rules.what.collection') }), node?.at ?? 0);
     if (!space) return undefined;
@@ -327,7 +421,15 @@ function checkBody(body: Stmt[], when: Node | undefined, outer: Scope, space: Ru
     }
   };
   if (when) check(when, { ...scope, use: 'rule', self: undefined });
-  walk(body, new Map(saving ? [['old', { record: dir }]] : []), new Set(saving ? ['old'] : []));
+  // What a button says and the defaults and notes of what it asks read the record, and a note what was typed.
+  const reading: Scope = { ...scope, use: 'rule', self: undefined, locals: new Map(asked ? [['input', { record: asked }]] : []), ruleFn };
+  if (action?.say) check(action.say, reading);
+  for (const a of action?.ask ?? []) {
+    if (a.default) check(a.default, reading);
+    if (a.note) check(a.note, reading);
+  }
+  const locals = new Map<string, Kind>(saving ? [['old', { record: dir }]] : asked ? [['input', { record: asked }]] : []);
+  walk(body, locals, new Set(saving ? ['old'] : asked ? ['input'] : []));
 }
 
 /** The line a place of a text is on, from 1. */
@@ -364,7 +466,7 @@ export function rulesProblems(src: string, scope: Scope, space?: RuleSpace): Rul
   }
   for (const action of rules.actions) {
     try {
-      checkBody(action.body, action.when, scope, space);
+      checkBody(action.body, action.when, scope, space, false, action);
     } catch (error) {
       if (error instanceof LangError) problems.push(said(error.at, error.message));
       else throw error;

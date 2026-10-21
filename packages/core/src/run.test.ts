@@ -4,7 +4,7 @@ import { type Collection, type Field, loadCollection, type Record, saveSchema, t
 import { Computer } from './compute';
 import { MemoryFs } from './fs';
 import { rulesProblems } from './rules';
-import { actionsOf, actionState, planAction, planSave, planWords, RuleStop, savedWords, writePlan } from './run';
+import { actionsOf, actionState, askOf, planAction, planSave, planWords, RuleStop, savedWords, writePlan } from './run';
 import { loadList, saveList } from './tasks';
 
 const today = '2026-10-21';
@@ -265,5 +265,82 @@ describe('what runs on save', () => {
     const words = planWords(plan, s);
     expect(words.ask.slice(-2)).toEqual([{ text: 'Then Kickoff card, as it is saved', head: true }, { text: 'add 1 card to Projects board', names: 'Antalya Hotel kickoff' }]);
     expect(words.done).toBe('Start project: 3 budget lines, 2 subtasks, 1 task, 1 card, Status Active, Start 2026-10-21');
+  });
+});
+
+const ASKS = `action("Grow budget", {
+  say: () => \`\${name} has a contract of \${contract}\`,
+  ask: {
+    share: { label: "Share", type: "number", default: () => 0.3, required: true, note: () => \`That is \${contract * input.share}\` },
+    line: { label: "Line", type: "link", collection: "Budget lines", default: () => find("Budget lines")[0] },
+    category: { label: "Category", type: "choice", options: ["Material", "Labour"] },
+  },
+}, () => {
+  add("Budget lines", { name: input.category, category: input.category, planned: contract * input.share })
+  if (!empty(input.line)) update(input.line, { planned: 0 })
+})
+`;
+
+describe('a button that asks', () => {
+  const asking = () => {
+    const s = space();
+    s.collections[0]!.rules = ASKS;
+    return s;
+  };
+  const where = (s: ReturnType<typeof space>) => ({ collections: s.collections.map((c) => ({ dir: c.dir, fields: c.schema.fields })), boards: [], lists: [] });
+
+  it('is read and checked: what it asks, and only that, is read as input', () => {
+    const s = asking();
+    const scope = { fields: s.collections[0]!.schema.fields, dir: 'Atlas/Projects' };
+    expect(rulesProblems(ASKS, scope, where(s))).toEqual([]);
+    expect(actionsOf(ASKS)[0]!.ask!.map((a) => [a.key, a.type, a.required])).toEqual([
+      ['share', 'number', true],
+      ['line', 'link', false],
+      ['category', 'choice', false],
+    ]);
+    const wrong = (src: string) => rulesProblems(src, scope, where(s))[0]?.message;
+    expect(wrong(ASKS.replace('contract * input.share })', 'contract * input.shar })'))).toBe('Grow budget asks no shar; it asks share, line and category.');
+    expect(wrong('action("A", { ask: { x: { label: "X" } } }, () => {})')).toMatch(/type/);
+    expect(wrong('action("A", { ask: { x: { type: "colour" } } }, () => {})')).toMatch(/number, text, date, choice or link/);
+    expect(wrong('action("A", { ask: { x: { type: "choice" } } }, () => {})')).toMatch(/options/);
+    expect(wrong('action("A", { ask: { x: { type: "link", collection: "Lines" } } }, () => {})')).toMatch(/no collection called Lines/);
+    expect(wrong('action("A", { ask: { x: { type: "text", hint: "y" } } }, () => {})')).toMatch(/takes label, type/);
+    expect(wrong('action("A", () => { status = input.x })')).toMatch(/input/);
+  });
+
+  it('says what it is about, gives its defaults and works its notes out with what was typed', () => {
+    const s = asking();
+    s.collections[1]!.records.push(record('Atlas/Budget lines', 'l1', 'Material', { project: link('p1', 'Antalya Hotel'), planned: 900 }));
+    const asked = askOf(ASKS, 'Grow budget', 'Atlas/Projects', 'p1', s)!;
+    expect(asked.say).toBe('Antalya Hotel has a contract of 2400000');
+    expect(asked.questions.map((q) => [q.key, q.value, q.note ?? null])).toEqual([
+      ['share', 0.3, 'That is 720000'],
+      ['line', { id: 'l1', name: 'Material' }, null],
+      ['category', null, null],
+    ]);
+    expect(asked.questions[1]!.collection).toBe('Atlas/Budget lines');
+    expect(askOf(ASKS, 'Grow budget', 'Atlas/Projects', 'p1', s, { share: 0.5 })!.questions[0]).toMatchObject({ value: 0.5, note: 'That is 1200000' });
+  });
+
+  it('runs on what was given, and stops on a needed answer left empty', () => {
+    const s = asking();
+    s.collections[1]!.records.push(record('Atlas/Budget lines', 'l1', 'Material', { project: link('p1', 'Antalya Hotel'), planned: 900 }));
+    const plan = planAction(ASKS, 'Grow budget', 'Atlas/Projects', 'p1', s, { share: 0.5, category: 'Labour', line: { id: 'l1', name: 'Material' } });
+    expect(plan.changes).toMatchObject([
+      { kind: 'add', dir: 'Atlas/Budget lines', values: { name: 'Labour', category: 'Labour', planned: 1200000 } },
+      { kind: 'update', dir: 'Atlas/Budget lines', id: 'l1', values: { planned: 0 } },
+    ]);
+    expect(() => planAction(ASKS, 'Grow budget', 'Atlas/Projects', 'p1', s, { category: 'Labour' })).toThrow('Share is needed.');
+  });
+
+  it('picks an item of a list by its place', () => {
+    const s = space();
+    s.collections[1]!.records.push(record('Atlas/Budget lines', 'l1', 'Material', { planned: 1 }), record('Atlas/Budget lines', 'l2', 'Labour', { planned: 2 }));
+    s.collections[0]!.rules = 'action("Pick", () => {\n  const second = find("Budget lines")[1]\n  if (!empty(second)) update(second, { planned: 20 })\n  if (empty(find("Budget lines")[5])) status = "Done"\n})';
+    expect(planAction(s.collections[0]!.rules, 'Pick', 'Atlas/Projects', 'p1', s).changes).toEqual([
+      { kind: 'update', dir: 'Atlas/Budget lines', id: 'l2', values: { planned: 20 } },
+      { kind: 'update', dir: 'Atlas/Projects', id: 'p1', values: { status: 'Done' } },
+    ]);
+    expect(rulesProblems('action("Pick", () => { const x = name[0] })', { fields: s.collections[0]!.schema.fields, dir: 'Atlas/Projects' })[0]?.message).toMatch(/not a list/);
   });
 });

@@ -1,6 +1,6 @@
 # Scrawl apps: hazır şablonlardan app kurmak (taslak)
 
-Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilimin mockup'ı 21 Ekim'de onaylandı (`design/mockups.html`, 14. aşama · 1. dilim).
+Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d).
 
 ## 1. Amaç
 

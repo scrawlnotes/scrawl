@@ -63,6 +63,7 @@ import { type EditorStats, type LinkTap, sizeText } from '@scrawlnotes/editor';
 import { type DragEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  AskDialog,
   ButtonDialog,
   ConfirmDialog,
   type ConfirmPlace,
@@ -182,6 +183,7 @@ type OpenDialog =
   | { kind: 'export'; path: string }
   | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void; places?: ConfirmPlace[]; after?: string; brief?: string }
   | { kind: 'button'; run: ButtonRun; record: string }
+  | { kind: 'askButton'; dir: string; id: string; name: string }
   | { kind: 'removeSpace'; id: string }
   | { kind: 'history'; path: string }
   | { kind: 'moveTask'; list: string; id: string }
@@ -523,6 +525,8 @@ export function App() {
     setShown({ title: t('run.stopped', { name: stop.name }), text: event.done ? `${said} ${event.done}.` : said, ...(undo && { undo }), sticky: true, toast: true });
   };
   const pressButton = (dir: string, id: string, name: string) => {
+    // One that asks opens its questions first; what it does is worked out there.
+    if (session.askButton(dir, id, name)) return setDialog({ kind: 'askButton', dir, id, name });
     const run = session.planButton(dir, id, name);
     if (run instanceof RuleStop) return buttonStopped(name, run);
     const record = collections[dir]?.records.find((r) => r.id === id);
@@ -2625,6 +2629,19 @@ export function App() {
           onConfirm={() => {
             setDialog(null);
             runButton(dialog.run);
+          }}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'askButton' && (
+        <AskDialog
+          name={dialog.name}
+          ask={(given) => session.askButton(dialog.dir, dialog.id, dialog.name, given)}
+          plan={(given) => session.planButton(dialog.dir, dialog.id, dialog.name, given)}
+          ctx={{ records: collectionActions.records, collection: collectionActions.collection, openLink: collectionActions.openLink }}
+          onRun={(run) => {
+            setDialog(null);
+            runButton(run);
           }}
           onClose={closeDialog}
         />

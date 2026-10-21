@@ -606,6 +606,38 @@ describe('tried by hand', () => {
     expect((await refusal(saveRecordTool(agent, { collection: 'Projects', id: 'Antalya Hotel', action: 'Close' }))).message).toContain('no button called Close');
   });
 
+  it('gives a button that asks its answers in input, a link by its record’s name', async () => {
+    const { agent, fs } = await sample();
+    const projects = await createCollection(fs, 'Ops', 'Projects', 'blank');
+    const lines = await createCollection(fs, 'Ops', 'Budget lines', 'blank');
+    await writeTool(agent, { path: `${projects}/_collection.json`, text: JSON.stringify({ version: 2, template: 'blank', fields: [{ key: 'name', label: 'Name', type: 'name' }, { key: 'contract', label: 'Contract', type: 'number' }] }) });
+    await writeTool(agent, { path: `${lines}/_collection.json`, text: JSON.stringify({ version: 2, template: 'blank', fields: [{ key: 'name', label: 'Name', type: 'name' }, { key: 'project', label: 'Project', type: 'link', collection: projects }, { key: 'planned', label: 'Planned', type: 'number' }] }) });
+    await writeTool(agent, {
+      path: `${projects}/_rules.js`,
+      text: [
+        'action("Add a line", { ask: {',
+        '  name: { label: "Name", type: "text", required: true },',
+        '  share: { label: "Share", type: "number", default: () => 0.1 },',
+        '  like: { label: "Like", type: "link", collection: "Budget lines" },',
+        '} }, () => {',
+        '  add("Budget lines", { name: input.name, planned: contract * input.share })',
+        '  if (!empty(input.like)) update(input.like, { planned: 1 })',
+        '})',
+      ].join('\n'),
+    });
+    await saveRecordTool(agent, { collection: 'Projects', values: { name: 'Antalya Hotel', contract: 1000 } });
+    await saveRecordTool(agent, { collection: 'Budget lines', values: { name: 'Material', project: 'Antalya Hotel', planned: 300 } });
+    const pressed = await saveRecordTool(agent, { collection: 'Projects', id: 'Antalya Hotel', action: 'Add a line', input: { name: 'Labour', share: '0.5', like: 'Material' } });
+    expect(pressed.data.action?.done).toBe('Add a line: 1 record, 1 record changed');
+    const shown = (await loadCollection(fs, lines)).records.map((r) => [r.name, r.values.planned]).sort();
+    expect(shown).toEqual([
+      ['Labour', 500],
+      ['Material', 1],
+    ]);
+    expect((await refusal(saveRecordTool(agent, { collection: 'Projects', id: 'Antalya Hotel', action: 'Add a line', input: { share: 1 } }))).message).toContain('Name is needed');
+    expect((await refusal(saveRecordTool(agent, { collection: 'Projects', id: 'Antalya Hotel', action: 'Add a line', input: { name: 'X', colour: 'red' } }))).message).toBe('Add a line asks no colour; it asks name, share, like');
+  });
+
   it('builds a small app as the guide says: linked collections, what is worked out, a board, rules, a button and what runs on save', async () => {
     const { agent, fs } = await sample();
     const folder = (await createTool(agent, { kind: 'folder', name: 'Operations' })).data.path;

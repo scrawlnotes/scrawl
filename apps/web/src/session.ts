@@ -109,6 +109,8 @@ import {
   toSpace,
   withinSpace,
   type AskLine,
+  askOf,
+  type AskQuestion,
   type Plan,
   planAction,
   planSave,
@@ -2892,13 +2894,29 @@ export class Session {
     writeStops(rest);
   }
 
-  /** What a button of a collection's rules would do to a record, writing nothing; or where its rules stopped, and why. */
-  planButton(dir: string, id: string, name: string): ButtonRun | RuleStop {
+  /**
+   * What a button of a collection's rules asks before it runs, for its window, with what was given
+   * so far; null for one that asks nothing. A link's collection is its path as the app has it.
+   */
+  askButton(dir: string, id: string, name: string, given: CollectionRecord['values'] = {}): { say: string; questions: AskQuestion[] } | null {
+    const rules = this.snapshot.collections[dir]?.rules;
+    if (!rules) return null;
+    const space = spaceOf(dir);
+    try {
+      const asked = askOf(rules, name, localPath(dir), id, this.ruleSpace(dir), given);
+      return asked && { ...asked, questions: asked.questions.map((q) => (q.collection ? { ...q, collection: inSpace(space, q.collection) } : q)) };
+    } catch {
+      return null;
+    }
+  }
+
+  /** What a button of a collection's rules would do to a record with what it was given, writing nothing; or where its rules stopped, and why. */
+  planButton(dir: string, id: string, name: string, given: CollectionRecord['values'] = {}): ButtonRun | RuleStop {
     const rules = this.snapshot.collections[dir]?.rules;
     if (!rules) return new RuleStop(t('run.noAction', { name }), 0);
     const space = this.ruleSpace(dir);
     try {
-      const plan = planAction(rules, name, localPath(dir), id, space);
+      const plan = planAction(rules, name, localPath(dir), id, space, given);
       return { dir, plan, ...planWords(plan, space) };
     } catch (error) {
       if (error instanceof RuleStop) return error;

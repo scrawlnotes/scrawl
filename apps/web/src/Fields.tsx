@@ -1248,6 +1248,7 @@ function RulesText({ text, problems, stop, onClearStop, onChange }: { text: stri
       <div className="ftext frules" ref={host} />
       <p className="fi-note fd-help">{t('fields.rulesHelp')}</p>
       <p className="fi-note fd-help">{t('fields.rulesActionHelp')}</p>
+      <p className="fi-note fd-help">{t('fields.rulesAskHelp')}</p>
       <p className="fi-note fd-help">{t('fields.rulesSaveHelp')}</p>
     </>
   );

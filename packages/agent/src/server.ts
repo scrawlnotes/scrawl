@@ -201,6 +201,7 @@ export function buildServer(agent: Agent): McpServer {
         subtasks,
         another,
         action: z.string().optional().describe('A button of the collection’s rules to press on the record, by its label: "Start project".'),
+        input: z.record(z.string(), z.unknown()).optional().describe('With action: the answers to what the button asks, by its questions’ keys: { "total": 11 }; a link by the record’s name, code or id.'),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },

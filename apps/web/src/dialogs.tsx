@@ -1,4 +1,5 @@
 import {
+  type AskQuestion,
   basename,
   type BoardLinks,
   type CollectionTemplate,
@@ -8,6 +9,7 @@ import {
   DUE_RULES,
   type Field,
   isComplete,
+  isEmpty,
   opsFor,
   type Record as CollectionRecord,
   type FilterChoices,
@@ -20,6 +22,7 @@ import {
   type Phase,
   type PhasePatch,
   type Priority,
+  RuleStop,
   spaceOf,
   type TaskFilter,
   type Template,
@@ -36,16 +39,18 @@ import {
   type RefObject,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { type Option, Picker } from './choices';
-import { ConditionRow } from './Collection';
+import { ConditionRow, FieldInput, type ValueContext } from './Collection';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import { Icon, type IconName } from './Icon';
 import type { ExportFormat } from './exporting';
 import { collectionLabel, folderLabel, placeWords, shownPath, spaceLabel } from './items';
+import type { ButtonRun } from './session';
 import { ActionSheet, AskSheet, Sheet, SheetClose } from './sheets';
 
 interface DialogProps {
@@ -1342,6 +1347,110 @@ export function ButtonDialog({ name, record, lines, onConfirm, onClose }: {
           {t('dialog.cancel')}
         </button>
         <button type="button" className="primary" onClick={onConfirm}>
+          {name}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
+/** A question of a button as a field, for the form's own box: a choice is a select, a link picks from its collection. */
+const askedField = (q: AskQuestion): Field =>
+  ({ key: q.key, label: q.label, type: q.type === 'choice' ? 'select' : q.type, ...(q.options && { options: q.options }), ...(q.collection && { collection: q.collection }) }) as Field;
+
+/**
+ * The window of a button that asks before it runs: its name, what it is about, its questions in
+ * the form's boxes (the first one's answer selected), under them what it will do worked out again
+ * with what is typed, and its own name on its button, faint while a needed answer is empty or it
+ * would stop. On a phone a sheet.
+ */
+export function AskDialog({ name, ask, plan, ctx, onRun, onClose }: {
+  name: string;
+  /** Its say and questions with what was given so far. */
+  ask: (given: CollectionRecord['values']) => { say: string; questions: AskQuestion[] } | null;
+  /** What it would do with the answers. */
+  plan: (given: CollectionRecord['values']) => ButtonRun | RuleStop;
+  ctx: ValueContext;
+  onRun: (run: ButtonRun) => void;
+  onClose: () => void;
+}) {
+  const [given, setGiven] = useState<CollectionRecord['values']>({});
+  const asked = useMemo(() => ask(given), [ask, given]);
+  const answers = useMemo(() => Object.fromEntries((asked?.questions ?? []).map((q) => [q.key, q.value])), [asked]);
+  const run = useMemo(() => plan(answers), [plan, answers]);
+  const host = useRef<HTMLDivElement>(null);
+  // The first answer comes selected: typing puts another in its place.
+  useEffect(() => {
+    const first = host.current?.querySelector<HTMLInputElement>('input:not([type="checkbox"])');
+    first?.focus();
+    first?.select();
+  }, []);
+  if (!asked) return null;
+  const missing = asked.questions.filter((q) => q.required && isEmpty(q.value));
+  const stopped = run instanceof RuleStop && missing.length === 0 ? run : null;
+  const ready = missing.length === 0 && !(run instanceof RuleStop);
+  const go = () => ready && onRun(run as ButtonRun);
+  const questions = asked.questions.map((q) => (
+    <div key={q.key} className="prop ask-q">
+      <label className="pl" htmlFor={`field-${q.key}`}>
+        {q.label}
+        {q.required && <i title={t('collection.required')}>*</i>}
+      </label>
+      <div className="pe">
+        <FieldInput field={askedField(q)} value={q.value} ctx={ctx} onChange={(value) => setGiven((g) => ({ ...g, [q.key]: value }))} onEnter={go} />
+        {q.required && isEmpty(q.value) ? <p className="pbad">{t('run.needed', { label: q.label })}</p> : q.note && <p className="pnote">{q.note}</p>}
+      </div>
+    </div>
+  ));
+  const will = (
+    <div className="ask-will">
+      <span className="hd">{t('run.thisWill')}</span>
+      {stopped ? (
+        <p className="pbad">{stopped.message}</p>
+      ) : (
+        !(run instanceof RuleStop) && (
+          <ul className="ask-lines">
+            {run.ask.map((line, i) => (
+              <li key={i} className={line.head ? 'head' : undefined}>
+                {line.text} {line.names && <small>{line.names}</small>}
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+    </div>
+  );
+  if (isPhone()) {
+    return (
+      <Sheet label={name} className="mb-create" onClose={onClose}>
+        <div className="mb-sh">
+          <b>{name}</b>
+          <SheetClose onClose={onClose} />
+        </div>
+        <div className="mb-ask ask-form" ref={host}>
+          {asked.say && <p>{asked.say}</p>}
+          {questions}
+          {will}
+          <button type="button" className="go" disabled={!ready} onClick={go}>
+            {name}
+          </button>
+        </div>
+      </Sheet>
+    );
+  }
+  return (
+    <Dialog label={name} onClose={onClose}>
+      <div className="ask-form" ref={host}>
+        <h2>{name}</h2>
+        {asked.say && <p className="confirm">{asked.say}</p>}
+        {questions}
+        {will}
+      </div>
+      <div className="dialog-actions">
+        <button type="button" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" disabled={!ready} onClick={go}>
           {name}
         </button>
       </div>

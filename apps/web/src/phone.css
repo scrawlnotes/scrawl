@@ -6484,3 +6484,54 @@ body > .mb-lifted {
   margin-left: -20px;
   font-size: 12px;
 }
+
+/* The questions of a button that asks, in its sheet: boxes a finger types in. */
+.mb-ask.ask-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mb-ask.ask-form > p {
+  margin: 0;
+}
+
+.mb-ask .prop .pl {
+  color: var(--sl-faint);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mb-ask .prop .pe input:not([type='checkbox']),
+.mb-ask .prop .pe .st-field,
+.mb-ask .prop .pe .chips {
+  min-height: 46px;
+  height: auto;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-size: 17px;
+}
+
+.mb-ask .pnote,
+.mb-ask .pbad {
+  font-size: 13.5px;
+}
+
+.mb-ask .ask-will {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.mb-ask .ask-will .hd {
+  font-size: 12px;
+}
+
+.mb-ask .go:disabled {
+  opacity: 0.45;
+}
+
+.mb-ask.ask-form .pbad {
+  margin: 0;
+  color: var(--sl-accent);
+}

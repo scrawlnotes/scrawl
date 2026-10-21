@@ -22,8 +22,8 @@ import {
 } from './collection';
 import { Computer, valueFor } from './compute';
 import { basename, join, type VaultFs } from './fs';
-import { type CardRef, dayValue, type Env, equal, evaluate, Fn, fromRuntime, isCardRef, isRef, LangError, type Node, Obj, type Ref, type RV, type Stmt, toRuntime, truthy } from './lang';
-import { type ActionRule, lineAt, pathNamed, rulesOf, type SaveRule } from './rules';
+import { type CardRef, dayValue, type Env, equal, evaluate, Fn, fromRuntime, isCardRef, isRef, LangError, type Node, Obj, type Ref, type RV, type Stmt, textOf, toRuntime, truthy } from './lang';
+import { type ActionRule, askField, type AskType, lineAt, pathNamed, rulesOf, type SaveRule } from './rules';
 import { addSubtask, type NewSubtask } from './subtasks';
 import { addTask, loadList, type NewTask, removeTask, saveList, type Task } from './tasks';
 import { readTrash, restoreFromTrash, trashItem } from './vault';
@@ -151,6 +151,10 @@ interface Run {
   by?: string;
   /** Told of each field of the record it sets. */
   onSet?: (key: string) => void;
+  /** What a button was given for what it asks, as `input`. */
+  input?: Obj;
+  /** Instead of running the body: what works out a node as the body would, for a button's say, defaults and notes. */
+  peek?: (value: (node: Node) => RV) => void;
 }
 
 /** The space as rules see it while they run: what they changed put in it, and the changes gathered. */
@@ -222,13 +226,109 @@ function saveChanged(o: Overlay, space: RuleSpaceNow): SaveStop[] {
  * would do, with what runs on save of the records it changes. Throws a RuleStop saying the line
  * and why when it cannot be run through.
  */
-export function planAction(rules: string, name: string, dir: string, recordId: string, space: RuleSpaceNow): Plan {
+export function planAction(rules: string, name: string, dir: string, recordId: string, space: RuleSpaceNow, given: Record['values'] = {}): Plan {
   const action = actionsOf(rules).find((a) => a.name === name);
   if (!action) throw new RuleStop(t('run.noAction', { name }), 0);
   const o = overlayOf(space);
-  execute({ src: rules, body: action.body, dir, id: recordId }, o, space, action.when && { node: action.when, name, hint: action.hint, at: action.at });
+  const input = action.ask ? inputOf(action, given, space, dir) : undefined;
+  const missing = action.ask?.find((a) => a.required && isEmpty(given[a.key] ?? null));
+  if (missing) throw new RuleStop(t('run.needed', { label: missing.label }), lineAt(rules, missing.at));
+  execute({ src: rules, body: action.body, dir, id: recordId, ...(input && { input }) }, o, space, action.when && { node: action.when, name, hint: action.hint, at: action.at });
   const stops = saveChanged(o, space);
   return { action: name, dir, id: recordId, confirm: action.confirm, changes: o.changes, ...(stops.length > 0 && { stops }) };
+}
+
+/** What a button was given for what it asks, as the language reads it: each answer as its question's kind of field holds it. */
+function inputOf(action: ActionRule, given: Record['values'], space: RuleSpaceNow, dir: string): Obj {
+  const paths = space.collections.map((c) => c.dir);
+  return new Obj(
+    new Map(
+      (action.ask ?? []).map((a) => {
+        const field = askField(a, a.type === 'link' ? pathNamed(paths, a.collection!, dir) : undefined);
+        return [a.key, toRuntime(field, given[a.key] ?? null)];
+      }),
+    ),
+  );
+}
+
+/** A question of a button as its window shows it: its answer so far (its default when nothing is given) and the line under it. */
+export interface AskQuestion {
+  key: string;
+  label: string;
+  type: AskType;
+  options?: string[];
+  /** A link's collection, by its path in the space. */
+  collection?: string;
+  required: boolean;
+  value: FieldValue;
+  note?: string;
+}
+
+/**
+ * What a button asks before it runs, for its window: the sentence under its title (its say, else
+ * the record's name) and its questions, each with what was given or else its default, and its note
+ * worked out with what was given. Null for a button that asks nothing.
+ */
+export function askOf(rules: string, name: string, dir: string, recordId: string, space: RuleSpaceNow, given: Record['values'] = {}): { say: string; questions: AskQuestion[] } | null {
+  const action = actionsOf(rules).find((a) => a.name === name);
+  if (!action?.ask?.length) return null;
+  const record = space.collections.find((c) => c.dir === dir)?.records.find((r) => r.id === recordId);
+  const paths = space.collections.map((c) => c.dir);
+  let say = record ? recordTitle(record) : '';
+  const questions: AskQuestion[] = action.ask.map((a) => ({
+    key: a.key,
+    label: a.label,
+    type: a.type,
+    ...(a.options && { options: a.options }),
+    ...(a.type === 'link' && { collection: pathNamed(paths, a.collection!, dir) ?? a.collection! }),
+    required: a.required,
+    value: given[a.key] ?? null,
+  }));
+  const worked = (value: (node: Node) => RV, node: Node): RV => {
+    try {
+      return value(node);
+    } catch {
+      return null;
+    }
+  };
+  execute(
+    {
+      src: rules,
+      body: [],
+      dir,
+      id: recordId,
+      input: inputOf(action, { ...Object.fromEntries(questions.map((q) => [q.key, q.value])), ...given }, space, dir),
+      peek: (value) => {
+        if (action.say) say = textOf(worked(value, action.say)) || say;
+        action.ask!.forEach((a, i) => {
+          const q = questions[i]!;
+          if (!(a.key in given) && a.default) q.value = fromRuntime(worked(value, a.default));
+        });
+      },
+    },
+    overlayOf(space),
+    space,
+  );
+  // The notes read what was given, a default included.
+  execute(
+    {
+      src: rules,
+      body: [],
+      dir,
+      id: recordId,
+      input: inputOf(action, Object.fromEntries(questions.map((q) => [q.key, q.value])), space, dir),
+      peek: (value) => {
+        action.ask!.forEach((a, i) => {
+          if (!a.note) return;
+          const note = textOf(worked(value, a.note)).trim();
+          if (note) questions[i]!.note = note;
+        });
+      },
+    },
+    overlayOf(space),
+    space,
+  );
+  return { say, questions };
 }
 
 /** What a collection's rules do as a record is saved, writing nothing yet. */
@@ -558,6 +658,8 @@ function execute(r: Run, o: Overlay, space: RuleSpaceNow, when?: { node: Node; n
   }
   const root = new Locals();
   if (r.old) root.declare('old', r.old, true);
+  if (r.input) root.declare('input', r.input, true);
+  if (r.peek) return r.peek((node) => value(node, root));
   run(r.body, root);
 }
 

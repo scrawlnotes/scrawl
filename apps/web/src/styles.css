@@ -12777,3 +12777,53 @@ button.st-li:hover,
     box-shadow: inset 0 0 0 1px transparent;
   }
 }
+
+/* The window of a button that asks: its questions in the form's boxes, what it will do under them. */
+.dialog:has(> .ask-form) {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.ask-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ask-form h2 {
+  margin-bottom: -4px;
+}
+
+.ask-form .ask-q {
+  gap: 4px;
+}
+
+.pnote {
+  margin: 0;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.ask-will {
+  padding-top: 10px;
+  border-top: 1px solid var(--sl-line);
+}
+
+.ask-will .hd {
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.ask-will .ask-lines {
+  margin: 6px 0 0;
+}
+
+.ask-will .pbad {
+  margin-top: 6px;
+}
+
+.ask-form .pbad {
+  color: var(--sl-accent);
+}
