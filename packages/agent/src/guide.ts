@@ -91,6 +91,24 @@ A record is a \`.md\` file named after its id: YAML front matter with \`id\` and
 
 To add a field, change its options or its type: \`read\` the \`_collection.json\`, add to or change \`fields\` (a new field: \`{ "key": "segment", "label": "Segment", "type": "select", "options": ["SMB", "Mid", "Enterprise"] }\`; keys are short, lowercase, unique and never change), \`write\` it back with \`ifMatch\`. Values of a removed field stay in the record files. To set up a new kind of list, \`create\` a blank collection and \`write\` its \`_collection.json\`; the person's rules for a process live in a note next to it (an SOP): read it, then apply it.
 
+## Building a small app
+
+A small app is a few collections that link to each other, what is worked out from them, a board, a note for the process and the rules; nothing more is needed. Build it a step at a time, each refused write mended before the next:
+
+1. \`create\` a folder, and in it the collections (template blank), the board and the note.
+2. \`write\` each \`_collection.json\` twice: first its own fields and its links (a link names its collection by path, \`"collection": "Operations/Projects"\`), then, once every collection has its links, with the rollups, lookups and formulas that read the others' fields, and the \`layout\`: the record's fields on the left, \`{ "block": "actions" }\` for its buttons, its linked records as tables on the right.
+3. \`read\` the board and \`write\` its columns, and a field linking a card to its record.
+4. \`write\` each \`_rules.js\`: its checks, buttons and onSaves. A wrong one is refused on its line.
+5. Add a record with \`save_record\`, press a button with \`action\`, and read them back with \`records\`: what is worked out, the checks they fail and what the rules did are there.
+6. Write the process in the note: what each status means, what is done when, who does it.
+
+The example a lift company runs its projects with, in Operations:
+- **Projects:** name; code, default \`=next('PRJ-', 4)\`; customer, a link to Companies; status, Offer, Active or Done, default Offer; start, default \`=today()\`; delivery; contract in lira (\`format\`). Worked out: budget, a rollup summing Budget lines' planned; spent, summing Transactions' amount where direction is Out; remaining, \`budget - spent\`; health, \`spent > budget ? "Over budget" : "OK"\`. Rules: \`check("delivery", () => delivery >= start, "Delivery is before the start")\` and a button, Start project, adding three budget lines at 30% of the contract each, a subtask and a card in Survey, and setting status to Active.
+- **Budget lines:** name, project (a link), category, planned; actual, a rollup summing Transactions' amount where direction is Out; remaining, \`planned - actual\`.
+- **Transactions:** name, project, line (a link to Budget lines), direction (In or Out, default Out), amount, due, status (Planned, Invoiced or Paid), paid on; customer, a lookup through project; overdue, \`status != "Paid" && due < today()\`. Rules: \`check("line", () => direction != "Out" || !empty(line), "Pick the budget line")\` and \`onSave("Paid date", () => { if (status == "Paid" && old.status != "Paid" && empty(paid_on)) paid_on = today() })\`.
+- **Projects board:** columns Survey, Production, Installation, Acceptance, Done; a project field linking each card to its project.
+- **How we run a project:** a note saying what each status means and when a project starts and closes.
+
 ## Who did what
 
 Every change you make is written with your name and the person's ("Claude Code · Kaan") on card timelines and in the server's history. Assign a card or a task to a person by their name as the space knows them, as \`spaces\` lists them; a first or a last name is enough when only one person has it. In a space with people, a name that is none of them is refused; in the personal space a name is kept as it is written.

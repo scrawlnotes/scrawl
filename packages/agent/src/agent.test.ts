@@ -606,6 +606,150 @@ describe('tried by hand', () => {
     expect((await refusal(saveRecordTool(agent, { collection: 'Projects', id: 'Antalya Hotel', action: 'Close' }))).message).toContain('no button called Close');
   });
 
+  it('builds a small app as the guide says: linked collections, what is worked out, a board, rules, a button and what runs on save', async () => {
+    const { agent, fs } = await sample();
+    const folder = (await createTool(agent, { kind: 'folder', name: 'Operations' })).data.path;
+    const made = async (name: string) => (await createTool(agent, { folder, kind: 'collection', name, template: 'blank' })).data.path;
+    const [projects, lines, transactions] = [await made('Projects'), await made('Budget lines'), await made('Transactions')];
+    const board = (await createTool(agent, { folder, kind: 'board', name: 'Projects board', template: 'simple' })).data.path;
+    const money = { style: 'currency', currency: 'TRY', decimals: 0 };
+    const out = [{ field: 'direction', op: 'is', value: ['Out'] }];
+    const schemas: [string, object][] = [
+      [
+        transactions,
+        {
+          version: 2,
+          template: 'blank',
+          singular: 'transaction',
+          fields: [
+            { key: 'name', label: 'Name', type: 'name' },
+            { key: 'project', label: 'Project', type: 'link', collection: projects },
+            { key: 'line', label: 'Line', type: 'link', collection: lines },
+            { key: 'direction', label: 'Direction', type: 'select', options: ['In', 'Out'], default: 'Out' },
+            { key: 'amount', label: 'Amount', type: 'number', format: money },
+            { key: 'due', label: 'Due', type: 'date' },
+            { key: 'status', label: 'Status', type: 'select', options: ['Planned', 'Invoiced', 'Paid'], default: 'Planned' },
+            { key: 'paid_on', label: 'Paid on', type: 'date' },
+            { key: 'customer', label: 'Customer', type: 'lookup', lookup: { link: 'project', field: 'customer' } },
+            { key: 'overdue', label: 'Overdue', type: 'formula', formula: 'status != "Paid" && due < today()' },
+          ],
+        },
+      ],
+      [
+        lines,
+        {
+          version: 2,
+          template: 'blank',
+          singular: 'budget line',
+          fields: [
+            { key: 'name', label: 'Name', type: 'name' },
+            { key: 'project', label: 'Project', type: 'link', collection: projects },
+            { key: 'category', label: 'Category', type: 'select', options: ['Material', 'Labour', 'Transport'] },
+            { key: 'planned', label: 'Planned', type: 'number', format: money },
+            { key: 'actual', label: 'Actual', type: 'rollup', rollup: { from: transactions, fn: 'sum', field: 'amount', where: out }, format: money },
+            { key: 'remaining', label: 'Remaining', type: 'formula', formula: 'planned - actual', format: money },
+          ],
+        },
+      ],
+      [
+        projects,
+        {
+          version: 2,
+          template: 'blank',
+          singular: 'project',
+          fields: [
+            { key: 'name', label: 'Name', type: 'name' },
+            { key: 'code', label: 'Code', type: 'code', default: "=next('PRJ-', 4)" },
+            { key: 'customer', label: 'Customer', type: 'link', collection: 'CRM/Companies' },
+            { key: 'status', label: 'Status', type: 'select', options: ['Offer', 'Active', 'Done'], default: 'Offer' },
+            { key: 'start', label: 'Start', type: 'date', default: '=today()' },
+            { key: 'delivery', label: 'Delivery', type: 'date' },
+            { key: 'contract', label: 'Contract', type: 'number', format: money },
+            { key: 'budget', label: 'Budget', type: 'rollup', rollup: { from: lines, fn: 'sum', field: 'planned' }, format: money },
+            { key: 'spent', label: 'Spent', type: 'rollup', rollup: { from: transactions, fn: 'sum', field: 'amount', where: out }, format: money },
+            { key: 'remaining', label: 'Remaining', type: 'formula', formula: 'budget - spent', format: money },
+            { key: 'health', label: 'Health', type: 'formula', formula: 'spent > budget ? "Over budget" : "OK"' },
+          ],
+          layout: {
+            columns: [
+              { sections: [{ items: [{ block: 'actions' }, { field: 'name' }, { field: 'code' }, { field: 'customer' }, { field: 'status' }, { field: 'start' }, { field: 'delivery' }, { field: 'contract' }, { block: 'body' }, { block: 'subtasks' }] }] },
+              {
+                width: 2,
+                sections: [
+                  {
+                    items: [
+                      { block: 'linked', collection: lines, style: 'table', fields: ['category', 'planned', 'actual', 'remaining'], sums: true },
+                      { block: 'linked', collection: transactions, style: 'table', fields: ['direction', 'amount', 'due', 'status'] },
+                      { block: 'cards' },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    ];
+    // Each collection's own fields and links first, then what is worked out from the others'.
+    type Shape = { fields: { type: string }[]; layout?: unknown };
+    for (const [dir, schema] of schemas) {
+      const plain = { ...(schema as Shape), fields: (schema as Shape).fields.filter((f) => !['formula', 'lookup', 'rollup'].includes(f.type)), layout: undefined };
+      await writeTool(agent, { path: `${dir}/_collection.json`, text: JSON.stringify(plain) });
+    }
+    for (const [dir, schema] of schemas) await writeTool(agent, { path: `${dir}/_collection.json`, text: JSON.stringify(schema) });
+    const read = await readTool(agent, { path: board });
+    const shaped = JSON.parse(read.data.text);
+    shaped.columns = [
+      { id: 'survey', name: 'Survey', kind: 'active' },
+      { id: 'production', name: 'Production', kind: 'active' },
+      { id: 'installation', name: 'Installation', kind: 'active' },
+      { id: 'acceptance', name: 'Acceptance', kind: 'review' },
+      { id: 'done', name: 'Done', kind: 'done' },
+    ];
+    shaped.fields = [{ key: 'project', label: 'Project', type: 'link', collection: projects }];
+    await writeTool(agent, { path: board, text: JSON.stringify(shaped), ifMatch: read.data.hash });
+    await writeTool(agent, {
+      path: `${projects}/_rules.js`,
+      text: [
+        'check("delivery", () => delivery >= start, "Delivery is before the start")',
+        '',
+        'action("Start project", { when: () => status == "Offer", confirm: true }, () => {',
+        '  for (const name of ["Material", "Labour", "Transport"]) add("Budget lines", { name, category: name, planned: contract * 0.3 })',
+        '  subtask("Site survey", { due: start + 3 })',
+        '  card("Projects board", { title: `${name} survey`, column: "Survey" })',
+        '  status = "Active"',
+        '})',
+      ].join('\n'),
+    });
+    await writeTool(agent, {
+      path: `${transactions}/_rules.js`,
+      text: [
+        'check("line", () => direction != "Out" || !empty(line), "Pick the budget line")',
+        '',
+        'onSave("Paid date", () => {',
+        '  if (status == "Paid" && old.status != "Paid" && empty(paid_on)) paid_on = today()',
+        '})',
+      ].join('\n'),
+    });
+
+    await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Lara Turizm' } });
+    const project = await saveRecordTool(agent, { collection: 'Projects', values: { name: 'Antalya Hotel', customer: 'Lara Turizm', contract: 1000000, delivery: '2027-04-30' } });
+    expect(project.data.record.values).toMatchObject({ code: 'PRJ-0001', status: 'Offer', start: '2026-10-15' });
+    const started = await saveRecordTool(agent, { collection: 'Projects', id: 'PRJ-0001', action: 'Start project' });
+    expect(started.data.action?.done).toBe('Start project: 3 budget lines, 1 subtask, 1 card, Status Active');
+    expect((await loadBoard(fs, board)).cards.map((c) => [c.title, c.column])).toEqual([['Antalya Hotel survey', 'survey']]);
+
+    const paid = await saveRecordTool(agent, { collection: 'Transactions', values: { name: 'Cabin steel', project: 'Antalya Hotel', line: 'Material', amount: 120000, due: '2026-10-10', status: 'Invoiced' } });
+    expect(paid.data.record.values).toMatchObject({ direction: 'Out', customer: { name: 'Lara Turizm' }, overdue: true });
+    expect(paid.data.record.problems).toBeUndefined();
+    const marked = await saveRecordTool(agent, { collection: 'Transactions', id: paid.data.record.id, values: { status: 'Paid' } });
+    expect(marked.data.record.values).toMatchObject({ paid_on: '2026-10-15', overdue: false });
+    const shown = (await recordsTool(agent, { collection: 'Projects' })).data.records[0]!;
+    expect(shown.values).toMatchObject({ status: 'Active', budget: 900000, spent: 120000, remaining: 780000, health: 'OK' });
+    const material = (await recordsTool(agent, { collection: 'Budget lines' })).data.records.find((r) => r.name === 'Material')!;
+    expect(material.values).toMatchObject({ planned: 300000, actual: 120000, remaining: 180000 });
+  });
+
   it('runs what a collection runs as a record is saved, saying what it did elsewhere and where it stopped', async () => {
     const { agent, fs } = await sample();
     const projects = await createCollection(fs, 'Ops', 'Projects', 'blank');
