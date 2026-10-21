@@ -1,6 +1,6 @@
 # Koleksiyonla küçük uygulamalar: teknik tasarım (taslak)
 
-Durum: 20 Ekim 2026'da onaylandı, PLAN.md'ye işlendi. 1. dilim kodda (ffc68b3). 2. dilim kodda (mockup 63e5ec8, kod 2c2c4fd). 3. dilimin mockup'ı 21 Ekim'de onaylandı (`design/mockups.html`, 13. aşama · 3. dilim).
+Durum: 20 Ekim 2026'da onaylandı, PLAN.md'ye işlendi. 1. dilim kodda (ffc68b3). 2. dilim kodda (mockup 63e5ec8, kod 2c2c4fd). 3. dilim kodda (mockup 3eb21de, kod 5a10baf). 4. dilimin mockup'ı 21 Ekim'de onaylandı (`design/mockups.html`, 13. aşama · 4. dilim).
 
 ## 1. Amaç
 
@@ -42,6 +42,13 @@ Verilen kararlar (20 Ekim 2026):
 - + Add row'un Add ve Cancel düğmeleri yeni satırın altında, sağdadır; tablo yana kaysa da görünür (5.2).
 - Tablo görünümündeki bağlı blokta başlıktaki "+ Add …" düğmesi yoktur; tek ekleme yeri alttaki + Add row'dur (5.3).
 - Bağlı tablonun toplamı blok başına açılır ya da kapanır (5.3).
+
+21 Ekim 2026'da, 4. dilimin mockup'ıyla verilen kararlar:
+- `when` tutmayan düğmenin ipucunu kural isteğe bağlı `hint` ile yazar (`{ when: () => status == "Active", hint: "Only while the status is Active" }`); `hint` yoksa ipucu koşulu yazıldığı gibi gösterir (6.4).
+- Düzende Buttons bloğu yoksa ve kurallarda düğme varsa düğmeler kayıt ekranının en üstünde çıkar (6.4).
+- Tablo satırının ··· menüsü üstünde durulan satırın sonunda görünür: Open, düğmeler (soluk olan nedeniyle), Delete (6.4).
+- Düşen kuralın toast'ı kapatılana kadar kalır, satır numarasını ve nedeni söyler (6.4).
+- Onay sorusu eklenenleri sayıyla ve adlarıyla, değişen alanı eski ve yeni değeriyle yazar (6.4).
 
 ## 2. Örnek: proje, görev ve bütçe
 
@@ -302,8 +309,9 @@ action("Close project", { when: () => status == "Active", confirm: true }, () =>
 })
 ```
 
-- Düzende yeni bir blok: `{ "block": "actions" }`. Kayıt ekranında düğmeler olarak çizilir; tablodaki satırın ··· menüsünde de bulunur.
-- `when` yanlışsa düğme soluk olur. `confirm` varsa önce değişiklik listesinden sayılan bir soru gelir ("Adds 3 budget lines and 2 subtasks, changes 1 record").
+- Düzende yeni bir blok: `{ "block": "actions" }` (Fields penceresinde Buttons). Kayıt ekranında düğmeler olarak çizilir; düzende bu blok yoksa düğmeler kayıt ekranının en üstündedir. Tablodaki satırın ··· menüsünde de bulunur: menü üstünde durulan satırın sonunda görünür, içinde Open, düğmeler ve Delete vardır.
+- `when` yanlışsa düğme soluk olur; üstünde durunca `hint` yazar, `hint` yoksa koşul yazıldığı gibi görünür. `confirm` varsa önce değişiklik listesinden sayılan bir soru gelir: eklenenler sayıyla ve adlarıyla ("3 budget lines: Material, Labour, Transport"), değişen alan eski ve yeni değeriyle ("Status from Offer to Active").
+- Kural yarıda düşerse hiçbir şey yazılmaz; toast kapatılana kadar kalır, satırı ve nedeni söyler.
 - Formda kaydedilmemiş bir değişiklik varsa önce kaydedilir, sonra çalışır.
 - Bittiğinde toast çıkar: "Start project: 3 budget lines, 2 subtasks" ve **Undo**. Undo, eklenenleri çöpe atar, değişenleri eski değerine döndürür, silinenleri çöpten geri getirir.
 - Düğmenin değiştirdiği kayıtlarda kaydederken çalışan kurallar da çalışır (6.5).

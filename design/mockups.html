@@ -2460,6 +2460,54 @@ p { margin: 0; max-width: 68ch; }
 .mb-addrow { padding: 12px 16px; color: var(--m-accent); font-size: 15px; }
 .cc-menu.end { left: auto; right: -1px; }
 .cc-blk .cc-row.head { font-size: 10.5px; }
+/* Collections as small apps (stage 13), slice 4: buttons that run a rule. */
+.dir[data-dir="capps4"] { margin-top: 56px; }
+.dir[data-dir="capps4"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="capps4"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="capps4"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+/* The record's buttons, where its layout puts them: one that may run, one that may not now, faint. */
+.cd-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cd-act { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-side); color: var(--m-fg); font-size: 12.5px; }
+.cd-act svg { width: 13px; height: 13px; color: var(--m-accent); }
+.mock .cd-act svg { width: 13px; height: 13px; }
+.cd-act.off { color: var(--m-faint); opacity: .7; }
+.cd-act.off svg { color: var(--m-faint); }
+.cd-act.hover { border-color: var(--m-faint); }
+.cd-tip { position: relative; }
+.cd-tip .tip { position: absolute; top: calc(100% + 6px); left: 0; z-index: 4; padding: 3px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-dim); font-size: 11.5px; white-space: nowrap; box-shadow: 0 6px 16px rgb(0 0 0 / .3); }
+/* The question before a button that asks: what it will do, counted. */
+.cd-ask { width: 420px; padding: 18px 20px 16px; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-bg); box-shadow: 0 12px 32px rgb(0 0 0 / .45); }
+.cd-ask h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: var(--m-fg); }
+.cd-ask p { margin: 0 0 6px; color: var(--m-dim); font-size: 12.5px; line-height: 1.5; }
+.cd-ask ul { margin: 6px 0 14px; padding: 0 0 0 18px; color: var(--m-fg); font-size: 12.5px; line-height: 1.65; }
+.cd-ask ul small { color: var(--m-faint); }
+.cd-ask .foot { display: flex; justify-content: flex-end; gap: 6px; }
+.ovl.cd-over { z-index: 6; align-items: center; padding-top: 0; background: rgb(0 0 0 / .45); }
+/* The notice at the foot of the window after a button ran, with Undo; or what stopped it. */
+.cd-toast { position: absolute; bottom: 38px; left: 50%; z-index: 7; display: flex; align-items: center; gap: 14px; padding: 8px 10px 8px 14px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-side); color: var(--m-fg); font-size: 12.5px; box-shadow: 0 10px 26px rgb(0 0 0 / .4); transform: translateX(-50%); white-space: nowrap; }
+.cd-toast .undo { color: var(--m-accent); font-weight: 600; }
+.cd-toast.bad { border-color: color-mix(in srgb, var(--m-accent) 60%, var(--m-line)); white-space: normal; width: 520px; }
+.cd-toast.bad b { color: var(--m-accent); font-weight: 600; }
+.cd-toast .x { margin-left: auto; color: var(--m-faint); }
+/* A row's ··· at its end, on the row pointed at, and its menu with the buttons in it. */
+.cd-more { position: absolute; top: 50%; right: 6px; display: grid; place-items: center; width: 22px; height: 20px; margin-top: -10px; border: 1px solid var(--m-line); border-radius: 4px; background: var(--m-side); color: var(--m-fg); letter-spacing: 1px; font-size: 12px; }
+.cd-menu { position: absolute; right: 6px; top: calc(100% - 2px); z-index: 5; display: flex; flex-direction: column; gap: 1px; width: 220px; padding: 4px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .4); font-size: 12.5px; font-weight: 400; }
+.cd-menu > span { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 4px; color: var(--m-fg); }
+.cd-menu > span.on { background: var(--m-sel); }
+.cd-menu > span.off { color: var(--m-faint); }
+.cd-menu > span small { margin-left: auto; color: var(--m-faint); font-size: 11px; }
+.cd-menu > i { margin: 3px 4px; border-top: 1px solid var(--m-line); }
+.cd-menu > span.danger { color: #f0706a; }
+/* The block of buttons in the Fields window. */
+.cd-bed { display: flex; flex-direction: column; gap: 7px; }
+/* On a phone: the buttons under the name; the question as a sheet. */
+.cd-macts { display: flex; gap: 8px; padding: 0 16px 12px; }
+.cd-mact { padding: 8px 14px; border: 1px solid var(--m-line); border-radius: 18px; color: var(--m-fg); font-size: 15px; }
+.cd-mact.off { color: var(--m-faint); }
+.mb-ask { padding: 4px 16px 18px; }
+.mb-ask p { margin: 0 0 10px; color: var(--m-dim); font-size: 15px; line-height: 1.45; }
+.mb-ask ul { margin: 0 0 16px; padding-left: 20px; color: var(--m-fg); font-size: 15px; line-height: 1.6; }
+.mb-ask .go { display: block; padding: 13px; border-radius: 12px; background: var(--m-accent); color: var(--m-on-accent); font-size: 16px; font-weight: 600; text-align: center; }
 </style>
 
 <main class="page">
@@ -2878,6 +2926,28 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-ccview="ccrecadd">Bağlı tabloda Add row</button>
         <button type="button" data-ccview="ccblock">Blok ayarı</button>
         <button type="button" data-ccview="ccphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="capps4">
+    <div class="brief">
+      <div>
+        <span class="letter">KOLEKSİYON · 13. AŞAMA · 4. DİLİM</span>
+        <h2>Düğmeler</h2>
+        <p>Bir kayıtta tekrar tekrar yapılan birkaç adımlık iş tek düğmeye iner. Düğme <code>_rules.js</code>'te <code>action("Start project", { when, confirm }, () =&gt; { … })</code> olarak yazılır; kural dili artık deyim de alır (<code>const</code>, <code>if</code>, <code>for</code>) ve space'in kayıtlarını, kartlarını, görevlerini okur ve değiştirir: <code>add</code>, <code>update</code>, <code>remove</code>, <code>card</code>, <code>move</code>, <code>subtask</code>, <code>task</code>, alana atama. Düğmeler kayıt ekranında Fields'ta yerleştirilen Buttons bloğunda durur; tablonun satırındaki ··· menüsünde de vardır. <code>when</code> tutmazsa düğme soluktur, neden olduğu üstünde durunca yazar. <code>confirm</code> varsa önce ne yapacağı sayılarak sorulur. Bitince toast ve Undo. Kural yarıda düşerse hiçbir şey yazılmaz, toast hangi satırda neden durduğunu söyler.</p>
+        <ul class="traits"><li>action(…) _rules.js'te</li><li>kayıt ekranında Buttons bloğu</li><li>satırın ··· menüsünde</li><li>when tutmazsa soluk</li><li>confirm: sayarak sorar</li><li>toast ve Undo</li><li>düşerse hiçbir şey yazılmaz</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="4. dilim görünümü">
+        <button type="button" data-cdview="cdrec">Kayıtta düğmeler</button>
+        <button type="button" data-cdview="cdconfirm">Onay sorusu</button>
+        <button type="button" data-cdview="cddone">Bitti: toast ve Undo</button>
+        <button type="button" data-cdview="cderror">Kural düştü</button>
+        <button type="button" data-cdview="cdrules">Rules'ta action</button>
+        <button type="button" data-cdview="cdrow">Satırın ··· menüsü</button>
+        <button type="button" data-cdview="cdfields">Buttons bloğu</button>
+        <button type="button" data-cdview="cdphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -8527,6 +8597,146 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderCc(sectionCc, b.dataset.ccview);
   });
   renderCc(sectionCc, 'ccsel');
+
+  // Collections as small apps (stage 13), slice 4 (Oct 21): buttons. A rule written in the
+  // collection's _rules.js as action("Start project", { when, confirm }, () => { … }) is a button
+  // on the record's screen, in the Buttons block where Fields puts it, and in a table row's ···
+  // menu. Faint while its `when` does not hold; with `confirm` it asks first, saying what it will
+  // do, counted; done, a toast with Undo; a rule that stops halfway writes nothing.
+  var CD_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></svg>';
+  var CD_CHECK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  function cdButtons(o) {
+    o = o || {};
+    var start = '<span class="cd-act' + (o.started ? ' off' : '') + (o.hover === 'start' ? ' hover' : '') + '">' + CD_PLAY + 'Start project</span>';
+    var close = '<span class="cd-tip"><span class="cd-act' + (o.started ? '' : ' off') + (o.hover === 'close' ? ' hover' : '') + '">' + CD_CHECK + 'Close project</span>' +
+      (o.hover === 'close' ? '<span class="tip">Only while the status is Active</span>' : '') + '</span>';
+    return '<div class="cd-acts">' + start + close + '</div>';
+  }
+  var CD_LINES = [{ name: 'Material', cat: 'Material' }, { name: 'Labour', cat: 'Labour' }, { name: 'Transport', cat: 'Transport' }];
+  /** Antalya Hotel's window: its buttons above its fields; before Start project, or after it. */
+  function cdRecord(o) {
+    o = o || {};
+    var started = !!o.started;
+    var head = ICON.collection + '<span class="key">PRJ-0015</span><span>Projects · ' + CA_SPACE + '</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    var left = cdButtons({ started: started, hover: o.hover }) +
+      ccProp('Name', 'Antalya Hotel', { req: true }) +
+      '<div class="cc-two">' + ccProp('Code', 'PRJ-0015') + ccProp('Status', lbl(started ? 'Active' : 'Offer'), { dd: true }) + '</div>' +
+      ccProp('Customer', '<span class="lk">Lara Turizm</span>', { dd: true }) +
+      '<div class="cc-two">' + ccProp('Start', 'Oct 27, 2026') + ccProp('Delivery', 'Apr 30, 2027') + '</div>' +
+      '<div class="cc-two">' + ccProp('Contract', cbMoney(2400000)) + ccProp('Budget', cbMoney(started ? 2160000 : 0)) + '</div>' +
+      ccProp('Notes', 'Two cabins for the lobby, one service lift; the hotel opens in May.', { body: true });
+    var lines = started
+      ? CD_LINES.map(function (l) {
+          return '<div class="cc-row bl"><span class="go"></span><span class="nm"><span class="t">' + l.name + '</span></span><span>' + lbl(l.cat) + '</span><span class="num">' + cbMoney(720000) + '</span><span class="num calc">' + cbMoney(0) + '</span><span class="num calc">' + cbMoney(720000) + '</span></div>';
+        }).join('') + '<div class="cc-addrow">+ Add row</div><div class="cc-row bl sum"><span></span><span class="cap">Sum</span><span></span><span class="num">' + cbMoney(2160000) + '</span><span class="num">' + cbMoney(0) + '</span><span class="num">' + cbMoney(2160000) + '</span></div>'
+      : '<div class="cc-addrow">+ Add row</div>';
+    var right = '<div class="cc-blk"><div class="blk-h">Budget lines <small>' + (started ? 3 : 0) + '</small></div>' +
+      '<div class="cc-row bl head"><span></span><span>Name</span><span>Category</span><span class="num">Planned</span><span class="num">Actual</span><span class="num">Remaining</span></div>' + lines + '</div>' +
+      '<div class="cc-blk"><div class="blk-h">Subtasks <small>' + (started ? 2 : 0) + '</small></div>' +
+      (started ? '<div class="cc-row tr"><span class="go"></span><span class="nm"><span class="t">○&nbsp; Site survey</span></span><span></span><span></span><span class="dt">Oct 30</span><span></span></div><div class="cc-row tr"><span class="go"></span><span class="nm"><span class="t">○&nbsp; Order the cabin</span></span><span></span><span></span><span></span><span></span></div>' : '') +
+      '<div class="cc-addrow">+ Add subtask</div></div>';
+    return '<div class="ovl center"><div class="rmod cc-rm"><div class="cp-head">' + head + '</div>' +
+      '<div class="cc-cols"><div class="cc-col">' + left + '</div><div class="cc-col">' + right + '</div></div>' +
+      '<div class="rm-foot"><span class="st-btn">Cancel</span><span class="st-btn go off">Save</span></div></div></div>';
+  }
+  /** The question a button with confirm asks: what it will add and change, from what it would do. */
+  var CD_ASK = '<div class="ovl cd-over"><div class="cd-ask"><h3>Start project?</h3><p>For Antalya Hotel this will:</p>' +
+    '<ul><li>add 3 budget lines <small>Material, Labour, Transport</small></li><li>add 2 subtasks <small>Site survey, Order the cabin</small></li><li>change Status from Offer to Active</li></ul>' +
+    '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go">Start project</span></div></div></div>';
+  var CD_DONE = '<div class="cd-toast">Start project: 3 budget lines, 2 subtasks, Status Active<span class="undo">Undo</span></div>';
+  var CD_FAIL = '<div class="cd-toast bad"><span><b>Start project stopped</b> on line 6 of the rules: Budget lines has no field category any more. Nothing was written.</span><span class="x">×</span></div>';
+  /** The Rules tab of Projects: its check, and its two buttons. */
+  function cdRules() {
+    function fn(x) { return '<span class="fn">' + x + '</span>'; }
+    function st(x) { return '<span class="st">' + x + '</span>'; }
+    function kw(x) { return '<span class="kw">' + x + '</span>'; }
+    function nu(x) { return '<span class="nu">' + x + '</span>'; }
+    function cm(x) { return '<span class="cm">' + x + '</span>'; }
+    var lines = [
+      cm('// What a project must be, and what its buttons do.'),
+      fn('check') + '(' + st('"delivery"') + ', () =&gt; delivery &gt;= start, ' + st('"Delivery is before the start"') + ')',
+      '',
+      fn('action') + '(' + st('"Start project"') + ', { when: () =&gt; status == ' + st('"Offer"') + ', confirm: ' + nu('true') + ' }, () =&gt; {',
+      '  ' + kw('for') + ' (' + kw('const') + ' name ' + kw('of') + ' [' + st('"Material"') + ', ' + st('"Labour"') + ', ' + st('"Transport"') + ']) {',
+      '    ' + fn('add') + '(' + st('"Budget lines"') + ', { name, category: name, planned: contract * ' + nu('0.3') + ' })',
+      '  }',
+      '  ' + fn('subtask') + '(' + st('"Site survey"') + ', { due: start + ' + nu('3') + ' })',
+      '  ' + fn('subtask') + '(' + st('"Order the cabin"') + ')',
+      '  status = ' + st('"Active"'),
+      '})',
+      '',
+      fn('action') + '(' + st('"Close project"') + ', { when: () =&gt; status == ' + st('"Active"') + ', confirm: ' + nu('true') + ' }, () =&gt; {',
+      '  ' + kw('for') + ' (' + kw('const') + ' c ' + kw('of') + ' ' + fn('cards') + '(' + st('"Projects board"') + ', { project: ' + kw('this') + ' })) ' + fn('move') + '(c, ' + st('"Acceptance"') + ')',
+      '  status = ' + st('"Done"'),
+      '})'
+    ];
+    var code = '<div class="cb-code">' + lines.map(function (l, i) { return '<div><i>' + (i + 1) + '</i><span>' + l + '</span></div>'; }).join('') + '</div>' +
+      '<p class="fi-note cb-help"><code>action("Label", { when: () =&gt; condition, confirm: true }, () =&gt; { … })</code>: a button on the record’s screen. It reads the record’s fields, <code>this</code>, <code>linked()</code>, <code>find()</code>, <code>cards()</code>; it changes the record’s fields and <code>add()</code>, <code>update()</code>, <code>remove()</code>, <code>card()</code>, <code>move()</code>, <code>subtask()</code>, <code>task()</code>. Nothing is written until it is through.</p>';
+    return cbWindow('Projects', 'rules', code, '<span class="hint">Saved in Operations/Projects/_rules.js · an agent can edit it too</span><span class="st-btn">Cancel</span><span class="st-btn go off">Save</span>');
+  }
+  /** Projects as a table, one row pointed at, its ··· open with the record's buttons in it. */
+  function cdProjects() {
+    var rows = CA_PROJECTS.map(function (p, i) {
+      var on = i === 3;
+      return '<div class="ca-row' + (on ? ' on' : '') + '"><span class="tt">' + p.name + '</span><span class="mono">' + p.code + '</span><span class="lk">' + p.cust + '</span>' + lbl(p.st) +
+        '<span class="num">' + cbMoney(p.budget) + '</span><span class="num">' + cbMoney(p.spent) + '</span><span class="num">' + cbMoney(p.budget - p.spent) + '</span>' +
+        '<span>' + (p.spent > p.budget ? 'Over budget' : 'OK') + '</span>' +
+        (on ? '<span class="cd-more">···</span><div class="cd-menu"><span>Open</span><i></i><span class="on">' + CD_PLAY.replace('<svg', '<svg width="12" height="12"') + 'Start project</span><span class="off">Close project<small>while Active</small></span><i></i><span class="danger">Delete</span></div>' : '') + '</div>';
+    }).join('');
+    return '<div class="bv">' + caHead('Projects', '7 records') + '<div class="blist">' +
+      '<div class="ca-row head"><span>Name</span><span>Code</span><span>Customer</span><span>Status</span><span class="num">Budget</span><span class="num">Spent</span><span class="num">Remaining</span><span>Health</span></div>' +
+      rows + '</div></div>';
+  }
+  /** The Fields window of Projects: the Buttons block at the top of the first column, opened. */
+  function cdFields() {
+    var add = '<div class="fadd">+ Add</div>';
+    var block = '<div class="fitem edit">' + CB_GRIP + '<div class="fe cd-bed">' +
+      '<div class="fe-top"><span class="fe-name">Buttons</span><span class="fe-meta">Start project, Close project</span><span class="fdel" title="Delete">' + ICON.trash + '</span></div>' +
+      '<p class="fi-note">The buttons of this collection’s rules, in their order in <u>_rules.js</u>. One is written in Rules: <code>action("Label", …)</code>.</p></div></div>';
+    return cbCanvas(
+      cbCol(1, '<div class="fsec">' + block + cbFld('Name', 'name', true) + cbFld('Code', 'code') + cbFld('Status', 'select') + cbFld('Customer', 'link · Companies') +
+        cbFld('Start', 'date') + cbFld('Delivery', 'date') + cbFld('Contract', 'number') + cbFld('Budget', 'rollup · Budget lines') + cbBlk('Notes', 'the body: free text, site notes') + add + '</div>') +
+      cbCol(2, '<div class="fsec">' + cbBlk('Budget lines', 'linked · table · name, category, planned, actual, remaining') + cbBlk('Subtasks', 'the record’s own steps') + cbBlk('Cards and tasks', 'the cards and tasks about it') + add + '</div>'));
+  }
+  /** On a phone: the buttons under the name; the question as a sheet. */
+  function cdPhone() {
+    var top = mbRecordTop('Projects', 'Antalya Hotel', 'PRJ-0015', [], [['Details'], ['Budget lines', 0], ['Subtasks', 0]], 'Details');
+    var acts = '<div class="cd-macts"><span class="cd-mact">Start project</span><span class="cd-mact off">Close project</span></div>';
+    var body = '<div class="mb-form" style="padding-top: 4px"><div class="mb-group wide">' + mbVal('Status', mbLbl('Offer')) + mbVal('Customer', 'Lara Turizm') + mbVal('Start', 'Oct 27') + mbVal('Contract', cbMoney(2400000), { cls: 'ro', text: true }) + '</div></div>';
+    var page = mbPage(top, acts + body);
+    var sheet = MB_DIM + '<div class="mb-sheet"><span class="grab"></span><div class="mb-sh"><b>Start project?</b><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-ask"><p>For Antalya Hotel this will:</p><ul><li>add 3 budget lines</li><li>add 2 subtasks</li><li>change Status from Offer to Active</li></ul><span class="go">Start project</span></div></div>';
+    return mbPhone('Düğmeler adın altında; soluk olan şimdi çalışmaz', page, mbTabs('browse')) + mbPhone('Onay sorusu sheet olarak', page, mbTabs('browse') + sheet);
+  }
+  var CD_VIEWS = {
+    cdrec: function () { return ccApp(ccTable(), cdRecord({ hover: 'close' }), '128 records'); },
+    cdconfirm: function () { return ccApp(ccTable(), cdRecord() + CD_ASK, '128 records'); },
+    cddone: function () { return ccApp(ccTable(), cdRecord({ started: true }) + CD_DONE, '128 records'); },
+    cderror: function () { return ccApp(ccTable(), cdRecord() + CD_FAIL, '128 records'); },
+    cdrules: function () { return cbApp('projects', cbProjects(), cdRules(), '7 records'); },
+    cdrow: function () { return cbApp('projects', cdProjects(), '', '7 records'); },
+    cdfields: function () { return cbApp('projects', cbProjects(), cbWindow('Projects', 'design', cdFields()), '7 records'); }
+  };
+  function renderCd(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'cdphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = cdPhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'cdrow' ? '' : ' wider');
+      mock.innerHTML = CD_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-cdview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.cdview === view));
+    });
+  }
+  var sectionCd = document.querySelector('.dir[data-dir="capps4"]');
+  sectionCd.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-cdview]');
+    if (b) renderCd(sectionCd, b.dataset.cdview);
+  });
+  renderCd(sectionCd, 'cdrec');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
