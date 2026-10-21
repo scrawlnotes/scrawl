@@ -234,6 +234,11 @@ function onDisk(path: string): [string, string] | null {
   return root ? [root, localPath(path)] : null;
 }
 
+/** Desktop: whether a path of the app is in a folder on this device, where the file manager can show it. */
+export function isOnDisk(path: string): boolean {
+  return onDisk(path) !== null;
+}
+
 /** Desktop: opens a file of a space with the program the system uses for it. */
 export async function openFileOnDesktop(path: string): Promise<void> {
   const at = onDisk(path);

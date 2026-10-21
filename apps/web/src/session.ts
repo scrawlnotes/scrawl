@@ -3632,6 +3632,30 @@ export class Session {
     if (discard) await this.refreshTree();
   }
 
+  /** Closes every tab but one, each as Close does, and shows that one. */
+  async closeOthers(keep: string) {
+    await this.closeTabs(this.snapshot.tabs.filter((tab) => tab !== keep));
+    if (this.snapshot.active !== keep) await this.open(keep);
+  }
+
+  /** Closes the tabs after one. */
+  async closeToTheRight(id: string) {
+    const { tabs } = this.snapshot;
+    const index = tabs.indexOf(id);
+    if (index >= 0) await this.closeTabs(tabs.slice(index + 1));
+  }
+
+  async closeAll() {
+    await this.closeTabs(this.snapshot.tabs);
+  }
+
+  /** Closes some tabs as Close does, the one on screen last, so that the one shown after it is one that stays. */
+  private async closeTabs(ids: string[]) {
+    const { active } = this.snapshot;
+    for (const id of ids) if (id !== active) await this.close(id);
+    if (active && ids.includes(active)) await this.close(active);
+  }
+
   /** Moves a note, a task list or a board to the trash, with the files only it used. */
   async trash(path: string) {
     await this.settle();
@@ -3736,7 +3760,7 @@ export class Session {
     }
   }
 
-  /** Shows an attached file in its folder; on desktop only. */
+  /** Shows an attached file, or an item of the sidebar, in its folder; on desktop only. */
   revealAttached(path: string) {
     if (isDesktop) void revealFileOnDesktop(path).catch(() => undefined);
   }

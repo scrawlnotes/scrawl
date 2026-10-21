@@ -383,10 +383,30 @@ input:focus {
   right: -1px;
 }
 
+/* The tab under the pointer, and the one whose menu is open, stand out as the sidebar's rows do;
+   the one whose menu is open is outlined too, so that it is clear which tab the menu is for. */
+.tab:not(.on):hover,
+.tab.marked:not(.on) {
+  background: color-mix(in srgb, var(--sl-fg) 9%, transparent);
+  color: var(--sl-fg);
+}
+
+.tab.marked {
+  box-shadow: inset 0 0 0 1px var(--sl-accent);
+}
+
+.tab.marked .tab-close span {
+  opacity: 1;
+}
+
 .tab.on {
   background: var(--sl-bg);
   color: var(--sl-fg);
   box-shadow: inset 0 2px 0 var(--sl-accent);
+}
+
+.tab.on.marked {
+  box-shadow: inset 0 2px 0 var(--sl-accent), inset 0 0 0 1px var(--sl-accent);
 }
 
 .tab-title {

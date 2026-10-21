@@ -170,7 +170,7 @@ import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { TrashPreviewDialog, TrashPreviewPage } from './TrashPreview';
 import type { DescriptionHost } from './Description';
 import { type FileActions, type FileSort, FilesView, fileTitle, Thumb, useIcon, useTitle, useWord } from './Files';
-import { type AskOneDrive, chooseSpaceFolder, clipboardFilesOnDesktop, downloadBlob, isDesktop, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
+import { type AskOneDrive, chooseSpaceFolder, clipboardFilesOnDesktop, downloadBlob, isDesktop, isOnDisk, openUrlOnDesktop, saveFile, saveTextFile } from './storage';
 
 type OpenDialog =
   // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen. The
@@ -198,6 +198,19 @@ const IMPORTABLE = '.csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-offi
 
 // Ctrl+N and Ctrl+W belong to the browser on the web, so Alt is used there.
 const keys = (key: string) => `${isDesktop ? 'Ctrl' : 'Alt'}+${key}`;
+/** The system's file manager is Finder on a Mac. */
+const onMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent);
+/**
+ * An item's menu on a computer, in groups: its name and place, what it keeps and gives out, then
+ * Delete. A phone's sheet keeps the items as they come.
+ */
+const ITEM_GROUPS: IconName[][] = [['pen', 'move'], ['clock', 'export', 'import'], ['trash']];
+const inGroups = (items: MenuItem[]): MenuItem[] => {
+  const groups = ITEM_GROUPS.map((icons) => icons.flatMap((icon) => items.filter((item) => item.icon === icon)));
+  // An item no group names goes with what it keeps and gives out, before Delete.
+  groups[1]!.push(...items.filter((item) => !groups.flat().includes(item)));
+  return groups.flatMap((group) => group.map((item, i) => ({ ...item, apart: i === 0 })));
+};
 
 function position(stats: EditorStats): string {
   if (stats.selectedChars === 0) return t('status.position', { line: stats.line, col: stats.col });
@@ -902,7 +915,26 @@ export function App() {
     }
   };
   // The menu of a note, a task list, a board, a keys file or a collection; Inbox, the personal space's own list, has none.
-  const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, itemMenuItems(path), path);
+  const itemMenu = (event: MouseEvent, path: string) => path !== INBOX_TASKS && openMenu(event, inGroups(itemMenuItems(path)), path);
+  /**
+   * A tab's menu, at the pointer, for the tab right-clicked, which stays marked while it is open:
+   * closing it and the tabs beside it, where it is on this computer, then its item's own menu. A
+   * view or a filter has the first group only.
+   */
+  const tabMenu = (event: MouseEvent, id: string) => {
+    event.preventDefault();
+    const at = tabs.indexOf(id);
+    const path = collectionPathOf(id) ?? pathOf(id);
+    const items: MenuItem[] = [
+      { label: t('tab.closeOne'), run: () => void session.close(id) },
+      { label: t('tab.closeOthers'), run: () => void session.closeOthers(id), ...(tabs.length === 1 && { disabled: '' }) },
+      { label: t('tab.closeRight'), run: () => void session.closeToTheRight(id), ...(at === tabs.length - 1 && { disabled: '' }) },
+      { label: t('tab.closeAll'), run: () => void session.closeAll() },
+    ];
+    if (path && isDesktop && isOnDisk(path)) items.push({ label: t(onMac ? 'tab.revealFinder' : 'tab.revealExplorer'), apart: true, run: () => session.revealAttached(path) });
+    if (path && path !== INBOX_TASKS) items.push(...inGroups(itemMenuItems(path)));
+    setMenu({ at: { x: event.clientX, y: event.clientY }, items, target: `tab:${id}` });
+  };
   /** What an item is called, as the Rename window shows it. */
   const nameOfItem = (path: string) =>
     isTaskListPath(path)
@@ -1226,6 +1258,7 @@ export function App() {
     [
       'tab',
       id === active && 'on',
+      menu?.target === `tab:${id}` && 'marked',
       id === draggedTab && 'dragging',
       shownGap === i && 'gap-before',
       shownGap === tabs.length && i === tabs.length - 1 && 'gap-after',
@@ -2305,8 +2338,8 @@ export function App() {
                   if (event.button === 1) void session.close(id);
                 }}
                 onContextMenu={(event) => {
-                  const path = collectionPathOf(id) ?? pathOf(id);
-                  if (path) itemMenu(event, path);
+                  hideTabTip();
+                  tabMenu(event, id);
                 }}
                 onDoubleClick={(event) => !(event.target as Element).closest('.tab-close') && void renameTab(id)}
               >

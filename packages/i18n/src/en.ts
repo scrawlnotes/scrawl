@@ -76,6 +76,13 @@ export const en = {
   'welcome.title': 'Welcome to Scrawl',
   'board.placeholder': 'This board is not here any more.',
   'tab.close': 'Close ({keys})',
+  // a tab's right-click menu
+  'tab.closeOne': 'Close',
+  'tab.closeOthers': 'Close Others',
+  'tab.closeRight': 'Close to the Right',
+  'tab.closeAll': 'Close All',
+  'tab.revealExplorer': 'Reveal in File Explorer',
+  'tab.revealFinder': 'Reveal in Finder',
   'tab.new': 'New… ({keys})',
   'tab.board': '{board} · {folder}',
   'tab.list': '{list} · {folder}',
