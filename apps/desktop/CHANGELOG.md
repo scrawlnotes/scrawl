@@ -2,6 +2,18 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.10
+
+A collection can be a small app: what is worked out from linked records, checks, default values, money, a table typed in as a sheet, buttons, and rules that run when a record is saved.
+
+- Formulas are written in a language like JS's: they give a number, a text, a day or yes or no, and read a linked record's field with a dot (`project.customer`). A lookup shows a field of a linked record; a rollup takes only what its condition picks, averages too, and a sum of nothing is 0. A day's condition in Filter takes Today.
+- The Fields window has a Rules tab, the collection's `_rules.js`: a check marks a record that does not fit, at its field, and never refuses it; what is wrong with a rule is said under its line, and the rules are saved once it is put right. The Text tab is called Schema now, and comes last.
+- A field can start with a value, or a formula: Today, Me, the next number (PRJ-0016 after PRJ-0015).
+- A number has a format: Number, Currency or Percent, its decimals, and its currency or each record's own; sums of money are one line a currency. Settings › Appearance › Numbers picks how numbers are written on this computer.
+- A collection's table is typed in as a sheet: a click picks a cell, typing or Enter edits it, Tab and the arrows move. + Add row adds a record with its defaults, and opens the next. A record opens from the button at the start of its row, or from its name. A record's linked records can show as a table, with their sums.
+- Buttons: `action("Start project", …)` in the rules is a button on the record's screen and in a row's ··· menu. It asks first when it says so, a button that cannot run now says why, and Undo takes back what it did.
+- Rules that run when a record is saved, `onSave(…)`: from the form, a cell, + Add row, an import or a button. What one will write in the record shows in the form before you save, and a cell it wrote lights for a moment; what it does elsewhere comes with Undo. One that stops leaves the record as you wrote it, and the Rules tab shows where it stopped.
+
 ## 0.1.9
 
 A key being added waits for you.
