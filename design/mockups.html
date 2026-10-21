@@ -2508,6 +2508,34 @@ p { margin: 0; max-width: 68ch; }
 .mb-ask p { margin: 0 0 10px; color: var(--m-dim); font-size: 15px; line-height: 1.45; }
 .mb-ask ul { margin: 0 0 16px; padding-left: 20px; color: var(--m-fg); font-size: 15px; line-height: 1.6; }
 .mb-ask .go { display: block; padding: 13px; border-radius: 12px; background: var(--m-accent); color: var(--m-on-accent); font-size: 16px; font-weight: 600; text-align: center; }
+/* Collections as small apps (stage 13), slice 5: rules that run when a record is saved. */
+.dir[data-dir="capps5"] { margin-top: 56px; }
+.dir[data-dir="capps5"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="capps5"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="capps5"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+/* Transactions with the day each was paid; a cell a rule has just written lit for a moment. */
+.ca-row.ce-tx { grid-template-columns: minmax(0, 1fr) 136px 70px 104px 64px 76px 78px; }
+.ca-row .ce-lit { justify-self: start; margin: -3px -6px; padding: 3px 6px; border-radius: 4px; background: color-mix(in srgb, var(--m-accent) 22%, transparent); color: var(--m-fg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 55%, transparent); }
+.ca-row .ce-pick { justify-self: start; margin: -3px -6px; padding: 2px 5px; border-radius: 4px; box-shadow: 0 0 0 1.5px var(--m-accent); }
+/* In the form: what a rule will write on Save, faint in its box, its rule named under it. */
+.cb-prop .box.ce-will { border-style: dashed; color: var(--m-dim); }
+.cb-prop .ce-by { margin: 0; color: var(--m-faint); font-size: 11.5px; line-height: 1.45; }
+.cb-prop .ce-by b { color: var(--m-dim); font-weight: 500; }
+.cb-prop .box.ce-changed { border-color: var(--m-accent); }
+/* The Rules tab: where a rule last stopped, over the code; its line marked. */
+.ce-last { display: flex; align-items: flex-start; gap: 10px; margin: 14px 18px 0; padding: 8px 10px 8px 12px; border: 1px solid color-mix(in srgb, var(--m-accent) 55%, var(--m-line)); border-radius: 7px; background: color-mix(in srgb, var(--m-accent) 8%, var(--m-bg)); color: var(--m-fg); font-size: 12px; line-height: 1.5; }
+.ce-last b { color: var(--m-accent); font-weight: 600; }
+.ce-last small { display: block; color: var(--m-faint); font-size: 11px; }
+.ce-last .x { margin-left: auto; color: var(--m-faint); }
+.ce-last + .cb-code { margin-top: 10px; }
+.cb-code .ce-stop { background: color-mix(in srgb, var(--m-accent) 12%, transparent); }
+.cb-code .ce-stop i { color: var(--m-accent); }
+/* The question of a button: what the record's rules will do with it, after a line of their own. */
+.cd-ask ul .ce-from { list-style: none; margin: 4px 0 0 -18px; color: var(--m-faint); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+/* On a phone: a field the rule wrote marked as changed; the toast with Undo. */
+.mb-fr .val.ce-new { color: var(--m-fg); }
+.mb-toast.ce-bad { flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 16px 11px; white-space: normal; font-weight: 500; line-height: 1.4; }
+.mb-toast.ce-bad b { font-weight: 700; }
 </style>
 
 <main class="page">
@@ -2948,6 +2976,28 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-cdview="cdrow">Satırın ··· menüsü</button>
         <button type="button" data-cdview="cdfields">Buttons bloğu</button>
         <button type="button" data-cdview="cdphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="capps5">
+    <div class="brief">
+      <div>
+        <span class="letter">KOLEKSİYON · 13. AŞAMA · 5. DİLİM</span>
+        <h2>Kaydederken çalışan kural</h2>
+        <p>Bir değişiklik nereden yapılırsa yapılsın aynı iş yapılır. Kural <code>_rules.js</code>'te <code>onSave("Paid date", () =&gt; { … })</code> olarak yazılır; kaydın yeni değerlerini, <code>old</code> ile de eskilerini okur. Kayıt formdan, tablodaki bir hücreden, + Add row'dan, içe aktarmadan, bir düğmeden ya da ajandan yazılınca, yazan yerde bir kez çalışır; sync'le gelen değişiklikte çalışmaz. Kaydın kendi alanlarına yazdığı kayıtla birlikte yazılır ve yerinde görünür. Başka kayıtlarda yaptığı iş hemen ardından yazılır, toast ve Undo ile. Kural düşerse kayıt kişinin yazdığıyla kalır; toast nedenini söyler, Rules sekmesi son duruşu gösterir.</p>
+        <ul class="traits"><li>onSave(…) _rules.js'te</li><li>old ile eski değerler</li><li>form, hücre, içe aktarma, düğme, ajan</li><li>sync'te çalışmaz</li><li>kendi alanı kayıtla birlikte</li><li>başka kayıtlar: toast ve Undo</li><li>düşerse kayıt yine yazılır</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="5. dilim görünümü">
+        <button type="button" data-ceview="cerules">Rules'ta onSave</button>
+        <button type="button" data-ceview="cecell">Tabloda Paid</button>
+        <button type="button" data-ceview="ceform">Formda Paid</button>
+        <button type="button" data-ceview="ceother">Başka kayıt: toast ve Undo</button>
+        <button type="button" data-ceview="cestop">Kural düştü</button>
+        <button type="button" data-ceview="celast">Rules'ta son duruş</button>
+        <button type="button" data-ceview="cebutton">Düğmeyle birlikte</button>
+        <button type="button" data-ceview="cephone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -8737,6 +8787,163 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderCd(sectionCd, b.dataset.cdview);
   });
   renderCd(sectionCd, 'cdrec');
+
+  // Collections as small apps (stage 13), slice 5 (Oct 21): rules that run when a record is saved.
+  // onSave("Paid date", () => { … }) in the collection's _rules.js runs where the record is
+  // written, once: its form, a cell, + Add row, an import, a button, an agent; never on sync. What
+  // it sets on the record is saved with it and shows where it is; what it does elsewhere is
+  // written right after, with a toast and Undo. One that stops leaves the record as written.
+  function ceFn(x) { return '<span class="fn">' + x + '</span>'; }
+  function ceSt(x) { return '<span class="st">' + x + '</span>'; }
+  function ceKw(x) { return '<span class="kw">' + x + '</span>'; }
+  function ceNu(x) { return '<span class="nu">' + x + '</span>'; }
+  function ceCm(x) { return '<span class="cm">' + x + '</span>'; }
+  /** Lines of code, numbered; `stop` marks the line a rule last stopped on. */
+  function ceCode(lines, stop) {
+    return '<div class="cb-code">' + lines.map(function (l, i) {
+      return '<div' + (i + 1 === stop ? ' class="ce-stop"' : '') + '><i>' + (i + 1) + '</i><span>' + l + '</span></div>';
+    }).join('') + '</div>';
+  }
+  var CE_HELP = '<p class="fi-note cb-help"><code>onSave("Name", () =&gt; { … })</code>: runs when a record is saved: from its form, a cell, + Add row, an import, a button or an agent, never when a change comes by sync. It reads the record as it is saved, and <code>old</code>, the record as it was. What it sets on the record is saved with it; what it does to other records is written right after, with Undo. What it changes does not run the rules again.</p>';
+  /** Transactions, with the day each was paid; `just` is the row whose Status was just set to Paid, its Paid on written by the rule. */
+  var CE_TX = CB_TX.map(function (x, i) {
+    return { name: x.name, proj: x.proj, dir: x.dir, amount: x.amount, due: x.due, st: x.st, late: x.late, paid: ['Oct 10', '', '', '', 'Oct 6', 'Oct 2', '', ''][i] };
+  });
+  function ceTransactions(just) {
+    var rows = CE_TX.map(function (x, i) {
+      var now = i === just;
+      var st = now ? '<span class="ce-pick">' + lbl('Paid') + '</span>' : lbl(x.st);
+      var paid = now ? '<span class="dt ce-lit">Oct 21</span>' : '<span class="dt">' + (x.paid || '<span class="empty">–</span>') + '</span>';
+      return '<div class="ca-row ce-tx' + (now ? ' on' : '') + '"><span class="tt">' + x.name + '</span><span class="lk">' + x.proj + '</span>' + lbl(x.dir) +
+        '<span class="num">' + cbMoney(x.amount) + '</span><span class="dt' + (x.late && !now ? ' late' : '') + '">' + x.due + '</span>' + st + paid + '</div>';
+    }).join('');
+    return '<div class="bv">' + caHead('Transactions', '128 records') + '<div class="blist">' +
+      '<div class="ca-row ce-tx head"><span>Name</span><span>Project</span><span>Direction</span><span class="num">Amount</span><span class="sorted">Due ↓</span><span>Status</span><span>Paid on</span></div>' +
+      rows + '<div class="lmore">Show 120 more</div></div></div>';
+  }
+  /** The Rules tab of Transactions: its check, and the rule that writes the day a payment was paid. */
+  function ceTxRules() {
+    var code = ceCode([
+      ceCm('// What a transaction must be. One that fails a check is marked, never refused.'),
+      ceFn('check') + '(' + ceSt('"line"') + ', () =&gt; direction != ' + ceSt('"Out"') + ' || !' + ceFn('empty') + '(line), ' + ceSt('"Pick the budget line"') + ')',
+      '',
+      ceCm('// Marked Paid, from wherever: the day it was paid is written.'),
+      ceFn('onSave') + '(' + ceSt('"Paid date"') + ', () =&gt; {',
+      '  ' + ceKw('if') + ' (status == ' + ceSt('"Paid"') + ' &amp;&amp; old.status != ' + ceSt('"Paid"') + ' &amp;&amp; ' + ceFn('empty') + '(paid_on)) paid_on = ' + ceFn('today') + '()',
+      '})'
+    ]);
+    return cbWindow('Transactions', 'rules', code + CE_HELP, '<span class="hint">Saved in Operations/Transactions/_rules.js · an agent can edit it too</span><span class="st-btn">Cancel</span><span class="st-btn go off">Save</span>');
+  }
+  /** Second instalment's window, Status set to Paid and not saved yet: Paid on shows what the rule will write. */
+  function ceForm() {
+    var head = ICON.collection + '<span>Transactions · ' + CA_SPACE + '</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    var will = '<div class="cb-prop"><span class="pl">Paid on</span><span class="box ce-will">Oct 21, 2026</span><p class="ce-by"><b>Paid date</b> writes this when you save</p></div>';
+    return cbRecord(head, [
+      cbProp('Name', 'Second instalment', { req: true }) +
+      cbProp('Project', '<span class="lk">Atakule Tower</span>', { dd: true }) +
+      cbProp('Line', '<span class="nil">Choose…</span>', { dd: true }) +
+      cbProp('Direction', lbl('In'), { dd: true }) +
+      cbProp('Amount', '<span>₺420.000</span>') +
+      cbProp('Date', 'Oct 1, 2026') +
+      cbProp('Notes', 'Add a note…', { body: true }),
+      cbProp('Due', 'Oct 15, 2026') +
+      cbProp('Status', lbl('Paid'), { dd: true, on: true }) +
+      will +
+      cbProp('Invoice', 'AH-0415') +
+      cbProp('Customer', '<span class="lk">Ankara Holding</span>')
+    ], '<span class="st-btn">Cancel</span><span class="st-btn go">Save</span>');
+  }
+  /** Projects in lira, Antalya Hotel's Status just set to Active in its cell. */
+  function ceProjects() {
+    var total = { budget: 0, spent: 0 };
+    var rows = CA_PROJECTS.map(function (p) {
+      total.budget += p.budget; total.spent += p.spent;
+      var now = p.code === 'PRJ-0015';
+      return '<div class="ca-row' + (now ? ' on' : '') + '"><span class="tt">' + p.name + '</span><span class="mono">' + p.code + '</span><span class="lk">' + p.cust + '</span>' +
+        (now ? '<span class="ce-pick">' + lbl('Active') + '</span>' : lbl(p.st)) +
+        '<span class="num">' + cbMoney(p.budget) + '</span><span class="num">' + cbMoney(p.spent) + '</span><span class="num">' + cbMoney(p.budget - p.spent) + '</span>' +
+        '<span>' + (p.spent > p.budget ? 'Over budget' : 'OK') + '</span></div>';
+    }).join('');
+    return '<div class="bv">' + caHead('Projects', '7 records') + '<div class="blist">' +
+      '<div class="ca-row head"><span>Name</span><span>Code</span><span>Customer</span><span>Status</span><span class="num">Budget</span><span class="num">Spent</span><span class="num">Remaining</span><span>Health</span></div>' +
+      rows + '<div class="ca-row sum"><span></span><span></span><span></span><span></span><span class="num">' + cbMoney(total.budget) + '</span><span class="num">' + cbMoney(total.spent) + '</span><span class="num">' + cbMoney(total.budget - total.spent) + '</span><span></span></div>' +
+      '</div></div>';
+  }
+  var CE_ADDED = '<div class="cd-toast">Kickoff card: 1 card added to Projects board<span class="undo">Undo</span></div>';
+  var CE_STOP = '<div class="cd-toast bad"><span><b>Kickoff card stopped</b> on line 6 of the rules: Projects board has no column Survey any more. Antalya Hotel was saved as you wrote it.</span><span class="x">×</span></div>';
+  /** The Rules tab of Projects: where a rule last stopped, over the code, its line marked. */
+  function ceProjectRules() {
+    var last = '<div class="ce-last"><span><b>Kickoff card stopped</b> on line 6 when Antalya Hotel was saved, today at 14:32: Projects board has no column Survey any more.' +
+      '<small>Antalya Hotel was saved as it was written; the card was not added. Seen on this device; it goes when the rules are saved again.</small></span><span class="x">×</span></div>';
+    var code = ceCode([
+      ceCm('// What a project must be, what is done when it is saved, and what its buttons do.'),
+      ceFn('check') + '(' + ceSt('"delivery"') + ', () =&gt; delivery &gt;= start, ' + ceSt('"Delivery is before the start"') + ')',
+      '',
+      ceFn('onSave') + '(' + ceSt('"Kickoff card"') + ', () =&gt; {',
+      '  ' + ceKw('if') + ' (status == ' + ceSt('"Active"') + ' &amp;&amp; old.status != ' + ceSt('"Active"') + ') {',
+      '    ' + ceFn('card') + '(' + ceSt('"Projects board"') + ', { title: ' + ceSt('`${name} kickoff`') + ', column: ' + ceSt('"Survey"') + ', project: ' + ceKw('this') + ' })',
+      '  }',
+      '})',
+      '',
+      ceFn('action') + '(' + ceSt('"Start project"') + ', { when: () =&gt; status == ' + ceSt('"Offer"') + ', confirm: ' + ceNu('true') + ' }, () =&gt; {',
+      '  ' + ceKw('for') + ' (' + ceKw('const') + ' name ' + ceKw('of') + ' [' + ceSt('"Material"') + ', ' + ceSt('"Labour"') + ', ' + ceSt('"Transport"') + ']) ' + ceFn('add') + '(' + ceSt('"Budget lines"') + ', { name, category: name, planned: contract * ' + ceNu('0.3') + ' })',
+      '  ' + ceFn('subtask') + '(' + ceSt('"Site survey"') + ', { due: start + ' + ceNu('3') + ' })',
+      '  ' + ceFn('subtask') + '(' + ceSt('"Order the cabin"') + ')',
+      '  status = ' + ceSt('"Active"'),
+      '})'
+    ], 6);
+    return cbWindow('Projects', 'rules', last + code + CE_HELP, '<span class="hint">Saved in Operations/Projects/_rules.js · an agent can edit it too</span><span class="st-btn">Cancel</span><span class="st-btn go off">Save</span>');
+  }
+  /** Start project's question: what the button does, then what the project's rule does when the button saves it. */
+  var CE_ASK = '<div class="ovl cd-over"><div class="cd-ask"><h3>Start project?</h3><p>For Antalya Hotel this will:</p>' +
+    '<ul><li>add 3 budget lines <small>Material, Labour, Transport</small></li><li>add 2 subtasks <small>Site survey, Order the cabin</small></li><li>change Status from Offer to Active</li>' +
+    '<li class="ce-from">Then Kickoff card, as it is saved</li><li>add 1 card to Projects board <small>Antalya Hotel kickoff</small></li></ul>' +
+    '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go">Start project</span></div></div></div>';
+  /** On a phone: Paid on showing what the rule writes before Save; the toast after another record's work. */
+  function cePhone() {
+    var nav = '<div class="mb-nav"><span class="tb plain">Cancel</span><span class="mid">Second instalment</span><span class="acts"><span class="tb">Save</span></span></div>';
+    var form = nav + '<div class="mb-rhead"><h2>Second instalment</h2></div>' +
+      '<div class="mb-form" style="padding-top: 4px"><div class="mb-group wide">' +
+      mbVal('Project', 'Atakule Tower', { cls: 'lnk' }) + mbVal('Direction', mbLbl('In')) + mbVal('Amount', cbMoney(420000), { cls: 'ro', text: true }) +
+      mbVal('Due', 'Oct 15') + mbVal('Status', mbLbl('Paid'), { changed: true }) + mbVal('Paid on', 'Today') + mbVal('Invoice', 'AH-0415', { text: true }) +
+      '</div><div class="mb-hint">Paid date writes Paid on when you save.</div></div>';
+    var list = mbNav('Recent', ['dots']) + mbHead('Projects', '7 records') +
+      CA_PROJECTS.slice(0, 6).map(function (p) {
+        var st = p.code === 'PRJ-0015' ? 'Active' : p.st;
+        return mbRec(p.name, mbLbl(st) + '<span>' + p.code + '</span>', cbMoney(p.budget));
+      }).join('');
+    return mbPhone('Paid seçilince Paid on’a ne yazılacağı görünür', mbPage('', form), '') +
+      mbPhone('Antalya Hotel Active olunca: toast ve Undo', mbPage('', list), mbTabs('browse') + MB_FAB + '<span class="mb-toast undo"><span>Kickoff card: 1 card added</span><span class="u">Undo</span></span>');
+  }
+  var CE_VIEWS = {
+    cerules: function () { return cbApp('tx', ceTransactions(), ceTxRules(), '128 records'); },
+    cecell: function () { return cbApp('tx', ceTransactions(2), '', '128 records'); },
+    ceform: function () { return cbApp('tx', ceTransactions(), ceForm(), '128 records'); },
+    ceother: function () { return cbApp('projects', ceProjects(), CE_ADDED, '7 records'); },
+    cestop: function () { return cbApp('projects', ceProjects(), CE_STOP, '7 records'); },
+    celast: function () { return cbApp('projects', ceProjects(), ceProjectRules(), '7 records'); },
+    cebutton: function () { return cbApp('projects', cbProjects(), cdRecord() + CE_ASK, '7 records'); }
+  };
+  function renderCe(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'cephone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = cePhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'cecell' || view === 'ceother' || view === 'cestop' ? '' : ' wider');
+      mock.innerHTML = CE_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-ceview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.ceview === view));
+    });
+  }
+  var sectionCe = document.querySelector('.dir[data-dir="capps5"]');
+  sectionCe.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ceview]');
+    if (b) renderCe(sectionCe, b.dataset.ceview);
+  });
+  renderCe(sectionCe, 'cerules');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

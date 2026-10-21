@@ -1,6 +1,6 @@
 # Koleksiyonla küçük uygulamalar: teknik tasarım (taslak)
 
-Durum: 20 Ekim 2026'da onaylandı, PLAN.md'ye işlendi. 1. dilim kodda (ffc68b3). 2. dilim kodda (mockup 63e5ec8, kod 2c2c4fd). 3. dilim kodda (mockup 3eb21de, kod 5a10baf). 4. dilim kodda (mockup fd14739).
+Durum: 20 Ekim 2026'da onaylandı, PLAN.md'ye işlendi. 1. dilim kodda (ffc68b3). 2. dilim kodda (mockup 63e5ec8, kod 2c2c4fd). 3. dilim kodda (mockup 3eb21de, kod 5a10baf). 4. dilim kodda (mockup fd14739, kod ff9b120). 5. dilimin mockup'ı 21 Ekim'de onaylandı (`design/mockups.html`, 13. aşama · 5. dilim).
 
 ## 1. Amaç
 
@@ -27,6 +27,15 @@ Verilen kararlar (20 Ekim 2026):
 - Bu iş 13. aşamanın (Dropbox, S3, GitHub) önüne girer.
 - Finans ayrı bir space olmaz, space'ler arası link de gerekmez. Bölümler space'in içinde yetkiyle ayrılır; bu, sunucuda klasöre göre yetkiyle gelir (PLAN, Sonraya kalanlar).
 
+20 Ekim 2026'da, 1. dilimin mockup'ıyla verilen kararlar:
+- Bağlanan bir kayıt yokken `sum` 0 verir; `avg`, `max` ve `min` boş kalır. Yeni bir projenin kalanı böylece bütçenin kendisidir (4.4).
+
+20 Ekim 2026'da, 1. dilimin koduyla verilen kararlar:
+- Onay kutusu hesapta 1 ve 0 sayılır, JS'teki gibi; bugünkü `paid * 10` gibi formüller bozulmaz (4.1).
+- Formül hatası uygulamanın hata rengiyle (vurgu rengi) yazılır, mockup'taki kırmızıyla değil (4.2).
+- Seçenek gösteren bir lookup seçeneğin kendi rengiyle çizilir (4.3).
+- Onboarding notunun alan türleri listesinde lookup da vardır (4.3).
+
 21 Ekim 2026'da, 2. dilimin mockup'ıyla verilen kararlar:
 - Fields penceresinin sekmeleri Design, Rules ve Schema'dır. Text'in adı Schema olur ve en sona geçer; şema dosyasını gösterir.
 - Para birimi her cihazda simgesiyle yazılır: İngilizce bir cihazda `₺1,250.50` (4.6).
@@ -35,6 +44,12 @@ Verilen kararlar (20 Ekim 2026):
 - Formdaki sayı kutusu biçimli görünür, yazarken düz sayıya döner (4.6).
 - Varsayılan değer alanın düzenleyicisinde Value ya da Formula olarak verilir (5.1).
 - Rules sekmesinde yanlış satır varken Save kapalıdır (6.1).
+- Tarihler bugünkü gibi İngilizce yazılır; cihazın biçimine yalnız sayılar geçer (4.6).
+- Örneğe Purchase orders koleksiyonu girer: yurt dışından alınan parçalar, her biri tedarikçinin para biriminde. Para birimini kaydın alanından okumanın örneğidir (4.6).
+
+21 Ekim 2026'da, 2. dilimin koduyla verilen kararlar:
+- Boş bir alanla yapılan karşılaştırma da boş verir, yanlış değil; bir kontrol henüz yazılmamış bir alanda takılmaz. Teslim günü boş bir kayıtta `due < today()` "hayır" yerine boş görünür (4.1, 6.3).
+- Para birimi listesinde kod ve ad tek satırda yazılır: "TRY · Turkish Lira" (4.6).
 
 21 Ekim 2026'da, 3. dilimin mockup'ıyla verilen kararlar:
 - Hücre, Enter ve yazmaya başlamanın yanında seçili hücreye bir daha tıklayınca ve çift tıklayınca da düzenlenir (5.2).
@@ -43,12 +58,34 @@ Verilen kararlar (20 Ekim 2026):
 - Tablo görünümündeki bağlı blokta başlıktaki "+ Add …" düğmesi yoktur; tek ekleme yeri alttaki + Add row'dur (5.3).
 - Bağlı tablonun toplamı blok başına açılır ya da kapanır (5.3).
 
+21 Ekim 2026'da, 3. dilimin koduyla verilen kararlar:
+- Hücrede Enter değeri yazar ve bir alt satıra iner, Tab yana geçer (5.2).
+- İlk Esc yazılanı ya da seçimi bırakır, ikincisi pencereyi kapatır (5.2).
+- + Add row'da Add'e basınca satır kapanmaz, sonraki kayıt için varsayılanlarla yeniden açılır; sıradaki numara da sayar (PRJ-0016'dan sonra PRJ-0017). Cancel ya da Esc kapatır (5.2).
+- Bağlı bloğun gösterdiği alanlar Fields penceresindeki kutuda virgülle ayrılır (5.3).
+
 21 Ekim 2026'da, 4. dilimin mockup'ıyla verilen kararlar:
 - `when` tutmayan düğmenin ipucunu kural isteğe bağlı `hint` ile yazar (`{ when: () => status == "Active", hint: "Only while the status is Active" }`); `hint` yoksa ipucu koşulu yazıldığı gibi gösterir (6.4).
 - Düzende Buttons bloğu yoksa ve kurallarda düğme varsa düğmeler kayıt ekranının en üstünde çıkar (6.4).
 - Tablo satırının ··· menüsü üstünde durulan satırın sonunda görünür: Open, düğmeler (soluk olan nedeniyle), Delete (6.4).
 - Düşen kuralın toast'ı kapatılana kadar kalır, satır numarasını ve nedeni söyler (6.4).
 - Onay sorusu eklenenleri sayıyla ve adlarıyla, değişen alanı eski ve yeni değeriyle yazar (6.4).
+
+21 Ekim 2026'da, 4. dilimin koduyla verilen kararlar:
+- Satırın ··· menüsü kuralı olmayan koleksiyonda da vardır; orada yalnız Open ve Delete bulunur (6.4).
+- Telefonda soluk düğmeye dokununca nedeni toast olarak söylenir (6.4).
+- Bilgisayarda satırın ··· menüsü uygulamanın öteki menüleri gibidir: düğmelerin önünde simge yok, Delete kırmızı değil (6.4).
+- Ajanın `save_record`'unda düğme durursa çağrı reddedilir; aynı çağrıda verilen alan değerleri yazılmış kalır (7).
+- Kayıt penceresinde hiçbir şey yazılmamışsa form kaydın yeni halini gösterir: bir düğmeden sonra da, kayıt başka yerden değişince de (6.4).
+
+21 Ekim 2026'da, 5. dilimin mockup'ıyla verilen kararlar:
+- Kaydederken çalışan kuralın kaydın kendi alanına yazacağı değer formda Save'den önce görünür: kutuda kesik çizgili çerçeveyle, altında kuralın adıyla ("Paid date writes this when you save"); telefonda alanların altında bir satırla (6.5).
+- Tabloda kuralın yazdığı hücre bir an vurgu rengiyle yanar. Yalnız kaydın kendi alanları değiştiyse toast çıkmaz (6.5).
+- Kuralın son durduğu yer Rules sekmesinde kodun üstünde yazar: hangi kural, hangi kayıt, ne zaman, neden; satırı işaretlidir. Cihazda tutulur, sync'e girmez; kurallar yeniden kaydedilince ya da × ile kalkar (6.5).
+- Düğmenin sorusu kaydederken çalışan kuralların yapacaklarını da kuralın adıyla ayrı sayar; Undo hepsini birlikte geri alır (6.4, 6.5).
+- İçe aktarmada kural her kayıtta çalışır. Başka kayıtlardaki iş sonda tek toast ve tek Undo ile söylenir ("Kickoff card: 3 cards added"); kural bir kayıtta durursa o kayıt yazıldığı gibi kalır, toast kaç kayıtta durduğunu söyler (6.5).
+- Birden fazla `onSave` dosyadaki sırayla çalışır; her biri öncekilerin kayda yazdıklarını görür. Yeni bir kayıtta `old`'un alanları boştur (6.5).
+- Ajanın `save_record`'u her kuralın yaptığını söyler; kural durursa çağrı reddedilmez, kayıt yazılır ve sonuç kuralın nerede durduğunu söyler (7).
 
 ## 2. Örnek: proje, görev ve bütçe
 
@@ -145,7 +182,7 @@ Formül, doğrulama, varsayılan değer ve kurallar tek bir dili kullanır. Söz
 - **Tarihler:** tarih − tarih gün sayısıdır, tarih + sayı tarihtir. `today() - last_contact` bugünkü gibi gün sayısı verir. Bu JS'teki gibi değildir, dilimizin kuralıdır.
 - **Fonksiyonlar:** `today()`, `empty(x)`, `round(x, basamak)`, `abs(x)`, `min(…)`, `max(…)`, `year(d)`, `month(d)`, `contains(metin ya da liste, değer)`, `text(x)`. Yalnız varsayılan değerde ve kuralda: `me()` (bakan kişiye göre değiştiği için formülde olmaz) ve varsayılan değerde `next(önek, basamak)`.
 - **Alan türleri dilde:** select ve person metindir (`status == "Paid"`). Çoklu seçim listedir (`contains(tags, "vip")`). Onay kutusu `true` ya da `false`'tur. Tek link hedef kayıttır, metin olarak adını verir.
-- **Boş değer:** boş bir alanla yapılan hesap boş verir (bugünkü gibi), karşılaştırma yanlış verir. `empty(x)` boş olup olmadığını sorar.
+- **Boş değer:** boş bir alanla yapılan hesap da karşılaştırma da boş verir; boş bir kontrol tutmamış sayılmaz. `empty(x)` boş olup olmadığını sorar.
 - **Tür denetimi:** ifade okunurken alanların türünden sonucun türü çıkarılır: sayı, metin, tarih ya da onay. `? :`'nin iki kolu farklı türdeyse, sayı bekleyen yere metin verilmişse ya da olmayan bir alan okunuyorsa Fields penceresi söyler. Ajanın şema denetimi de aynısını söyler.
 - **Formülde olmayanlar:** atama, değişken, döngü, `find()` ve `linked()`. Formül her an her yerde hesaplanır ve neye bağlı olduğu belli olmalıdır; başka kayıtlardan değer almanın yolu nokta, lookup ve rollup'tır.
 - **Geriye uyum:** bugünkü formüller (`qty * unit_price`, `today() - last_contact`) aynen çalışır.
@@ -333,7 +370,11 @@ onSave("Kickoff card", () => {
 - **Döngü olmaz:** kuralın kendi yaptığı değişiklikler (bu kayıtta ya da başka kayıtlarda) hiçbir kaydederken kuralını yeniden çalıştırmaz.
 - **Sıra:** kural, kaydın yeni değerleriyle kayıt yazılmadan önce çalışır. Bu kayda yaptığı değişiklikler kayıtla birlikte tek seferde yazılır, başka kayıtlara yaptıkları hemen ardından. Formda kuralın yazdığı değer hemen görünür (`paid_on` dolar).
 - **Hata:** kural düşerse kayıt yine kişinin yazdığıyla yazılır, kişinin yazdığı kaybolmaz. Kuralın değişiklikleri yazılmaz; toast hatayı söyler, Rules sekmesi son hatayı gösterir.
-- **Başka kayıtlar:** kural başka kayıtları da değiştirdiyse toast söyler ("Kickoff card: 1 card added") ve **Undo** sunar.
+- **Başka kayıtlar:** kural başka kayıtları da değiştirdiyse toast söyler ("Kickoff card: 1 card added") ve **Undo** sunar. Yalnız kaydın kendi alanları değiştiyse toast çıkmaz; tabloda kuralın yazdığı hücre bir an vurgu rengiyle yanar.
+- **Formda önce görünür:** kuralın kaydın kendi alanına yazacağı değer Save'den önce kutuda kesik çizgili çerçeveyle ve kuralın adıyla görünür. Kural bunun için formdaki değerlerle, hiçbir şey yazmadan çalıştırılır; başka kayıtlara yapacağı iş gösterilmez.
+- **Sıra ve `old`:** birden fazla `onSave` dosyadaki sırayla çalışır, her biri öncekilerin kayda yazdıklarını görür. Yeni kayıtta `old`'un alanları boştur.
+- **Düğme ve içe aktarma:** düğmenin sorusu, değiştirdiği kayıtlarda çalışacak kuralların yapacaklarını da kuralın adıyla sayar; Undo hepsini geri alır. İçe aktarmada kural her kayıtta çalışır; başka kayıtlardaki iş sonda tek toast ve tek Undo ile söylenir, durduğu kayıtların sayısı da.
+- **Son duruş:** Rules sekmesi kuralın son durduğu yeri kodun üstünde gösterir: kural, kayıt, zaman, neden, işaretli satır. Bu cihazda tutulur, sync'e girmez; kurallar yeniden kaydedilince ya da × ile kalkar.
 
 ## 7. Ajan (MCP)
 
