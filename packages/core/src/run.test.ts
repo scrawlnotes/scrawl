@@ -245,6 +245,16 @@ describe('what runs on save', () => {
     expect(run.after.changes).toEqual([]);
   });
 
+  it('runs nothing again for what it changes', () => {
+    const s = saving();
+    // A budget line saved puts its project to Active; the project's own onSaves do not run for that.
+    s.collections[1]!.rules = 'onSave("Start the project", () => {\n  update(project, { status: "Active" })\n})';
+    const line = record('Atlas/Budget lines', 'l1', 'Material', { project: link('p1', 'Antalya Hotel'), planned: 100 });
+    const run = planSave('Atlas/Budget lines', line, null, s);
+    expect(run.after.changes).toEqual([{ kind: 'update', dir: 'Atlas/Projects', id: 'p1', values: { status: 'Active' }, by: 'Start the project' }]);
+    expect(run.stops).toEqual([]);
+  });
+
   it('runs on the records a button changes, and its question says so under the onSave’s name', () => {
     const s = saving();
     const plan = planAction(RULES + SAVES, 'Start project', 'Atlas/Projects', 'p1', s);

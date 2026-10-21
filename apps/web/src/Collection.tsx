@@ -1054,11 +1054,15 @@ function LinkedTable({ block, source, dir, record, today, actions, onOpen }: {
     me: actions.me?.(),
     add: (values) => actions.addRecord(source.dir, { values }),
   });
+  const lit = useLit(source);
   const grid = useGrid({
     rows,
     fields: columns,
     open: (r) => onOpen(source, r),
-    write: (r, field, value) => void actions.updateRecord(source.dir, r.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed)),
+    write: (r, field, value) => {
+      lit.wrote(r.id, field.key, value);
+      void actions.updateRecord(source.dir, r.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
+    },
   });
   const numeric = (field: Field) => asShown(field).type === 'number';
   const cellClass = (field: Field, i: number) => [i === 0 && 'c0', numeric(field) && 'r'].filter(Boolean).join(' ') || undefined;
@@ -1088,7 +1092,7 @@ function LinkedTable({ block, source, dir, record, today, actions, onOpen }: {
                     key={field.key}
                     role="cell"
                     data-cell={c['data-cell']}
-                    className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', field.type === 'name' && 'opens'].filter(Boolean).join(' ') || undefined}
+                    className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', field.type === 'name' && 'opens', lit.on(r.id, field.key) && 'lit'].filter(Boolean).join(' ') || undefined}
                     onClick={c.onClick}
                     onDoubleClick={c.onDoubleClick}
                   >
@@ -1286,6 +1290,34 @@ export function recordLayout(schema: Schema, dir: string, isNew: boolean, action
   if (!first) return layout;
   const [section, ...others] = first.sections;
   return { columns: [{ ...first, sections: [{ ...section, items: [{ block: 'actions' }, ...(section?.items ?? [])] }, ...others] }, ...rest] };
+}
+
+/**
+ * The cells of a collection's table its rules wrote as a cell's record was saved, lit for a
+ * moment: `wrote` is told of each cell typed in, and the record is looked at as it comes back.
+ */
+function useLit(collection: Collection) {
+  const wrote = useRef<{ id: string; key: string; value: FieldValue; values: Record['values'] } | null>(null);
+  const [lit, setLit] = useState<{ id: string; keys: string[] } | null>(null);
+  useEffect(() => {
+    const was = wrote.current;
+    const now = was && collection.records.find((r) => r.id === was.id);
+    // Not back yet while the cell does not hold what was typed in it.
+    if (!was || !now || valueText(now.values[was.key] ?? null) !== valueText(was.value)) return;
+    wrote.current = null;
+    const keys = collection.schema.fields.filter((f) => f.key !== was.key && !isComputed(f.type) && valueText(now.values[f.key] ?? null) !== valueText(was.values[f.key] ?? null)).map((f) => f.key);
+    if (keys.length === 0) return;
+    setLit({ id: now.id, keys });
+    const timer = window.setTimeout(() => setLit(null), 1600);
+    return () => window.clearTimeout(timer);
+  }, [collection]);
+  return {
+    wrote: (id: string, key: string, value: FieldValue) => {
+      const record = collection.records.find((r) => r.id === id);
+      if (record && savesOf(collection.rules).length > 0) wrote.current = { id, key, value, values: record.values };
+    },
+    on: (id: string, key: string) => lit?.id === id && lit.keys.includes(key),
+  };
 }
 
 /**
@@ -1987,22 +2019,9 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
 
   const openRecord = (id: string) => setOpen({ kind: 'record', id });
   // A value typed in a cell is written to its record's file; what goes wrong is said.
-  // A cell the collection's rules wrote as the record was saved lights for a moment.
-  const wrote = useRef<{ record: Record; values: Record['values'] } | null>(null);
-  const [lit, setLit] = useState<{ id: string; keys: string[] } | null>(null);
-  useEffect(() => {
-    const was = wrote.current;
-    const now = was && collection.records.find((r) => r.id === was.record.id);
-    if (!was || !now || now === was.record) return;
-    wrote.current = null;
-    const keys = schema.fields.filter((f) => !isComputed(f.type) && valueText(now.values[f.key] ?? null) !== valueText(was.values[f.key] ?? null)).map((f) => f.key);
-    if (keys.length === 0) return;
-    setLit({ id: now.id, keys });
-    const timer = window.setTimeout(() => setLit(null), 1600);
-    return () => window.clearTimeout(timer);
-  }, [collection.records, schema]);
+  const lit = useLit(collection);
   const writeCell = (record: Record, field: Field, value: FieldValue) => {
-    if (savesOf(collection.rules).length > 0) wrote.current = { record, values: { ...record.values, [field.key]: value } };
+    lit.wrote(record.id, field.key, value);
     void actions.updateRecord(dir, record.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
   };
   const adding = useAdding({ computer, dir, schema, given: () => ({}), me: actions.me?.(), add: (values) => actions.addRecord(dir, { values }) });
@@ -2066,7 +2085,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
             key={field.key}
             role="cell"
             data-cell={c['data-cell']}
-            className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', field.type === 'name' && 'opens', lit?.id === record.id && lit.keys.includes(field.key) && 'lit'].filter(Boolean).join(' ') || undefined}
+            className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', field.type === 'name' && 'opens', lit.on(record.id, field.key) && 'lit'].filter(Boolean).join(' ') || undefined}
             onClick={c.onClick}
             onDoubleClick={c.onDoubleClick}
           >
