@@ -2536,6 +2536,48 @@ p { margin: 0; max-width: 68ch; }
 .mb-fr .val.ce-new { color: var(--m-fg); }
 .mb-toast.ce-bad { flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 16px 11px; white-space: normal; font-weight: 500; line-height: 1.4; }
 .mb-toast.ce-bad b { font-weight: 700; }
+/* Scrawl apps (stage 14), slice 1: a button that asks for a value before it runs. */
+.dir[data-dir="apps1"] { margin-top: 56px; }
+.dir[data-dir="apps1"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="apps1"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="apps1"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+/* Products and their stock, as Stok's template sets them up. */
+.ca-row.sa-pr { grid-template-columns: minmax(0, 1fr) 84px 76px 64px 104px 84px 64px; }
+.ca-row .sa-low { color: var(--m-accent); }
+/* The window a button with questions opens: its questions, what it will do with them, its own button. */
+.cd-ask.sa-ask { width: 460px; }
+.sa-q { display: flex; flex-direction: column; gap: 4px; margin: 12px 0 0; }
+.sa-q .pl { color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.sa-q .pl i { margin-left: 3px; color: var(--m-accent); font-style: normal; }
+.sa-q .box { position: relative; display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-side); color: var(--m-fg); font-size: 12.5px; box-sizing: border-box; }
+.sa-q .box.on { border-color: var(--m-accent); }
+.sa-q .box .caret { display: inline-block; width: 1.5px; height: 15px; margin-left: -5px; background: var(--m-accent); }
+.sa-q .box .nil { color: var(--m-faint); }
+.sa-q .box .dd { margin-left: auto; color: var(--m-faint); font-size: 10px; }
+.sa-q .box .sel { padding: 0 2px; border-radius: 2px; background: color-mix(in srgb, var(--m-accent) 35%, transparent); }
+.sa-q .bad { margin: 0; color: var(--m-accent); font-size: 11.5px; }
+.sa-q .note { margin: 0; color: var(--m-faint); font-size: 11.5px; }
+.sa-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sa-two .sa-q { margin-top: 12px; }
+.sa-pick { position: absolute; top: calc(100% + 4px); left: -1px; right: -1px; z-index: 3; display: flex; flex-direction: column; gap: 1px; padding: 4px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .35); }
+.sa-pick span { display: flex; align-items: center; padding: 4px 8px; border-radius: 4px; color: var(--m-fg); font-size: 12px; }
+.sa-pick span.on { background: var(--m-sel); }
+.sa-pick span small { margin-left: auto; color: var(--m-faint); font-size: 11px; }
+.sa-will { margin: 14px 0 14px; padding-top: 10px; border-top: 1px solid var(--m-line); }
+.sa-will .hd { color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.cd-ask.sa-ask .sa-will ul { margin: 6px 0 0; }
+.cd-ask.sa-ask .foot .st-btn.go.off { opacity: .45; }
+/* The Rules tab: a button's questions written in ask, what is wrong under its line. */
+.cb-code .sa-err { text-decoration: underline wavy var(--m-accent); text-underline-offset: 3px; }
+/* On a phone: the questions in the sheet, a number typed with the keypad's digits. */
+.mb-ask .sa-mq { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; }
+.mb-ask .sa-mq .l { color: var(--m-faint); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+.mb-ask .sa-mq .v { display: flex; align-items: center; min-height: 46px; padding: 0 14px; border: 1.5px solid var(--m-accent); border-radius: 12px; background: var(--m-bg); color: var(--m-fg); font-size: 17px; }
+.mb-ask .sa-mq .v .caret { display: inline-block; width: 2px; height: 20px; margin-left: 1px; background: var(--m-accent); }
+.mb-ask .sa-will { margin: 0 0 16px; padding-top: 0; border-top: 0; }
+.mb-ask .sa-will .hd { font-size: 12px; }
+.mb-ask .sa-will ul { margin: 6px 0 0; padding-left: 20px; color: var(--m-fg); font-size: 15px; line-height: 1.6; }
+.mb-ask .sa-will small { color: var(--m-faint); font-size: 13px; }
 </style>
 
 <main class="page">
@@ -2998,6 +3040,27 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-ceview="celast">Rules'ta son duruş</button>
         <button type="button" data-ceview="cebutton">Düğmeyle birlikte</button>
         <button type="button" data-ceview="cephone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="apps1">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · 14. AŞAMA · 1. DİLİM</span>
+        <h2>Soru soran düğme</h2>
+        <p>Bir düğme çalışmadan önce değer de sorabilir. Kuralda <code>action("Correct stock", { ask: { total: { label: "Counted total", type: "number", default: () =&gt; stock } } }, () =&gt; { … })</code> olarak yazılır; gövde girilen değeri <code>input.total</code> olarak okur. Basınca küçük bir pencere açılır: sorular, altında girilen değerle yeniden hesaplanan "This will" listesi ve düğmenin kendi adını taşıyan onay. Sorunun türü sayı, metin, tarih, seçim ya da bir koleksiyondan kayıt olabilir; varsayılanı hazır gelir, zorunlu olan boşken düğme soluk kalır. Stok düzeltme, kısmi tahsilat, masrafı reddetme nedeni ve depolar arası transfer bununla yapılır. Satırın ··· menüsünden basılan düğme de aynı pencereyi açar; telefonda sheet olur; ajan değeri <code>input</code> ile verir.</p>
+        <ul class="traits"><li>action(…, { ask }) _rules.js'te</li><li>input.total gövdede</li><li>sayı, metin, tarih, seçim, kayıt</li><li>varsayılan hazır</li><li>zorunlu boşken soluk</li><li>"This will" değerle değişir</li><li>telefonda sheet</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="14. aşama 1. dilim görünümü">
+        <button type="button" data-saview="sarecord">Kayıtta düğmeler</button>
+        <button type="button" data-saview="sacorrect">Correct stock</button>
+        <button type="button" data-saview="sapayment">Record payment</button>
+        <button type="button" data-saview="sareject">Reject: zorunlu neden</button>
+        <button type="button" data-saview="satransfer">Transfer: depo seçmek</button>
+        <button type="button" data-saview="sarules">Rules'ta ask</button>
+        <button type="button" data-saview="saphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -8944,6 +9007,202 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderCe(sectionCe, b.dataset.ceview);
   });
   renderCe(sectionCe, 'cerules');
+
+  // Scrawl apps (stage 14), slice 1 (Oct 21): a button that asks for a value before it runs. A
+  // rule written as action("Correct stock", { ask: { total: { label, type, default } } }, …) opens
+  // a window with its questions; what it will do is said under them, worked out again with what
+  // is typed; the window's own button carries the button's name. Atlas Lifts keeps its stock as
+  // Stok's template sets it up: products, their movements, two warehouses.
+  var SA_PRODUCTS = [
+    { name: 'Door operator kit', code: 'PRD-0007', unit: 'pcs', cost: 18600, stock: 14, low: 6 },
+    { name: 'Steel rope, 10 mm', code: 'PRD-0012', unit: 'm', cost: 210, stock: 420, low: 200 },
+    { name: 'Control panel', code: 'PRD-0003', unit: 'pcs', cost: 12900, stock: 3, low: 4 },
+    { name: 'Guide rail, 5 m', code: 'PRD-0005', unit: 'pcs', cost: 3450, stock: 36, low: 20 },
+    { name: 'Cabin light', code: 'PRD-0018', unit: 'pcs', cost: 640, stock: 58, low: 25 },
+    { name: 'Buffer, spring', code: 'PRD-0021', unit: 'pcs', cost: 980, stock: 12, low: 8 }
+  ];
+  /** The sidebar of Atlas Lifts' Operations folder with Stok's and Satış' collections in it. */
+  function saTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 11 }) +
+      opRowT({ sp: true, label: 'Personal' }) +
+      opRowT({ sp: true, open: true, label: CA_SPACE }) +
+      opRowT({ d: 1, folder: true, open: true, label: 'Operations' }) +
+      opRowT({ d: 2, icon: 'notes', label: 'About Operations' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Products', ct: 48, on: on === 'products' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Stock movements', ct: 312 }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Locations', ct: 2 }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Orders', ct: 64, on: on === 'orders' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Payments', ct: 140 }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Expenses', ct: 27, on: on === 'expenses' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Companies', ct: 38 }) +
+      '</div>' + spFoot(null);
+  }
+  function saApp(on, body, over, count) {
+    var tabs = tab('collection', 'Products · ' + CA_SPACE, 'x', on === 'products') + tab('collection', 'Orders · ' + CA_SPACE, 'x', on === 'orders') + tab('collection', 'Expenses · ' + CA_SPACE, 'x', on === 'expenses') + '<div class="tab plus">+</div>';
+    return '<aside class="side">' + saTree(on) + '</aside><section class="main"><div class="panes">' + pane(tabs, body) + '</div>' +
+      '<div class="status"><span>' + count + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  function saProducts() {
+    var rows = SA_PRODUCTS.map(function (p) {
+      var low = p.stock <= p.low;
+      return '<div class="ca-row sa-pr"><span class="tt">' + p.name + '</span><span class="mono">' + p.code + '</span><span class="num' + (low ? ' sa-low' : '') + '">' + p.stock + '</span><span>' + p.unit + '</span>' +
+        '<span class="num">' + cbMoney(p.cost) + '</span><span class="num">' + p.low + '</span>' + (low ? '<span class="sa-low">Low</span>' : '<span>OK</span>') + '</div>';
+    }).join('');
+    return '<div class="bv">' + caHead('Products', '48 records') + '<div class="blist">' +
+      '<div class="ca-row sa-pr head"><span>Name</span><span>Code</span><span class="num">Stock</span><span>Unit</span><span class="num">Cost</span><span class="num">Reorder at</span><span>Status</span></div>' +
+      rows + '<div class="lmore">Show 42 more</div></div></div>';
+  }
+  /** The buttons of Products' rules at the top of a product's window. */
+  var SA_BUTTONS = '<div class="cd-acts">' + ['Correct stock', 'Transfer', 'Reorder'].map(function (b) { return '<span class="cd-act">' + CD_PLAY + b + '</span>'; }).join('') + '</div>';
+  /** Door operator kit's window: its buttons above its fields, its stock in each warehouse on the right. */
+  function saProduct() {
+    var head = ICON.collection + '<span class="key">PRD-0007</span><span>Products · ' + CA_SPACE + '</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    var levels = '<div class="cc-blk"><div class="blk-h">Stock levels <small>2</small></div>' +
+      '<div class="cc-row bl head" style="grid-template-columns: 22px minmax(0, 1fr) 90px 90px 90px"><span></span><span>Location</span><span class="num">In</span><span class="num">Out</span><span class="num">Stock</span></div>' +
+      '<div class="cc-row bl" style="grid-template-columns: 22px minmax(0, 1fr) 90px 90px 90px"><span class="go"></span><span class="nm"><span class="t">Main warehouse</span></span><span class="num calc">40</span><span class="num calc">30</span><span class="num calc">10</span></div>' +
+      '<div class="cc-row bl" style="grid-template-columns: 22px minmax(0, 1fr) 90px 90px 90px"><span class="go"></span><span class="nm"><span class="t">Store Kadıköy</span></span><span class="num calc">6</span><span class="num calc">2</span><span class="num calc">4</span></div>' +
+      '<div class="cc-row bl sum" style="grid-template-columns: 22px minmax(0, 1fr) 90px 90px 90px"><span></span><span class="cap">Sum</span><span class="num">46</span><span class="num">32</span><span class="num">14</span></div></div>';
+    return cbRecord(head, [
+      SA_BUTTONS +
+      cbProp('Name', 'Door operator kit', { req: true }) +
+      cbProp('Code', 'PRD-0007') +
+      cbProp('Type', lbl('product'), { dd: true }) +
+      cbProp('Unit', 'pcs', { dd: true }) +
+      cbProp('Price', '₺24.900') +
+      cbProp('Cost', '₺18.600') +
+      cbProp('Reorder at', '6') +
+      cbProp('Supplier', '<span class="lk">Kessler Antriebe</span>', { dd: true }),
+      cbProp('Stock', '14') + cbProp('Stock value', '₺260.400') + levels
+    ], '<span class="st-btn">Cancel</span><span class="st-btn go off">Save</span>');
+  }
+  /** The window a button with questions opens. `qs` are its questions, `will` what it will do, `go` its button. */
+  function saAsk(title, say, qs, will, go, off) {
+    return '<div class="ovl cd-over"><div class="cd-ask sa-ask"><h3>' + title + '</h3><p>' + say + '</p>' + qs +
+      '<div class="sa-will"><span class="hd">This will</span><ul>' + will + '</ul></div>' +
+      '<div class="foot"><span class="st-btn">Cancel</span><span class="st-btn go' + (off ? ' off' : '') + '">' + go + '</span></div></div></div>';
+  }
+  function saQ(label, box, o) {
+    o = o || {};
+    return '<label class="sa-q"><span class="pl">' + label + (o.req ? '<i>*</i>' : '') + '</span><span class="box' + (o.on ? ' on' : '') + '">' + box + (o.dd ? '<span class="dd">▾</span>' : '') + (o.pick || '') + '</span>' +
+      (o.bad ? '<p class="bad">' + o.bad + '</p>' : o.note ? '<p class="note">' + o.note + '</p>' : '') + '</label>';
+  }
+  var SA_CORRECT = saAsk('Correct stock', 'Door operator kit has 14 in stock: 10 in Main warehouse, 4 in Store Kadıköy.',
+    '<div class="sa-two">' + saQ('Location', 'Main warehouse', { dd: true }) + saQ('Counted total', '7<span class="caret"></span>', { on: true, note: 'Now 10' }) + '</div>',
+    '<li>add 1 stock movement <small>adjustment, Out 3, Main warehouse</small></li><li>change Stock from 14 to 11</li>', 'Correct stock');
+  var SA_TRANSFER = saAsk('Transfer', 'Door operator kit: 10 in Main warehouse, 4 in Store Kadıköy.',
+    '<div class="sa-two">' + saQ('From', 'Main warehouse', { dd: true }) + saQ('Quantity', '4<span class="caret"></span>', { on: true }) + '</div>' +
+    saQ('To', '<span class="nil">Choose…</span>', { dd: true, req: true, pick: '<div class="sa-pick"><span class="on">Store Kadıköy</span><span>Site depot, Atakule</span></div>' }),
+    '<li>add 2 stock movements <small>transfer, Out 4 from Main warehouse, In 4 to the location chosen</small></li>', 'Transfer', true);
+  /** Orders as Satış' template sets them up, for Record payment. */
+  var SA_ORDERS = [
+    { code: 'ORD-0042', cust: 'Moda Yapı', date: 'Oct 2', st: 'Invoiced', total: 96800, paid: 0 },
+    { code: 'ORD-0041', cust: 'Ankara Holding', date: 'Sep 29', st: 'Paid', total: 184500, paid: 184500 },
+    { code: 'ORD-0040', cust: 'Nilüfer AVM', date: 'Sep 24', st: 'Delivered', total: 38500, paid: 0 },
+    { code: 'ORD-0039', cust: 'Lara Turizm', date: 'Sep 20', st: 'Confirmed', total: 141300, paid: 50000 }
+  ];
+  LC.Invoiced = LC.Invoiced || '#e0a84a'; LC.Delivered = LC.Delivered || '#6aa5f0'; LC.Confirmed = LC.Confirmed || '#8b93a1';
+  function saOrders() {
+    var rows = SA_ORDERS.map(function (o) {
+      return '<div class="ca-row sa-pr"><span class="tt">' + o.code + '</span><span class="lk">' + o.cust + '</span><span class="dt">' + o.date + '</span>' + lbl(o.st) +
+        '<span class="num">' + cbMoney(o.total) + '</span><span class="num">' + cbMoney(o.paid) + '</span><span class="num">' + cbMoney(o.total - o.paid) + '</span></div>';
+    }).join('');
+    return '<div class="bv">' + caHead('Orders', '64 records') + '<div class="blist">' +
+      '<div class="ca-row sa-pr head"><span>Code</span><span>Customer</span><span>Date</span><span>Status</span><span class="num">Total</span><span class="num">Collected</span><span class="num">Left</span></div>' +
+      rows + '</div></div>';
+  }
+  var SA_PAYMENT = saAsk('Record payment', 'ORD-0042 for Moda Yapı: ₺96.800 invoiced, due Oct 16, nothing collected yet.',
+    saQ('Amount', '<span class="sel">40000</span><span class="caret"></span>', { on: true, note: 'Left to collect: ₺96.800' }) +
+    '<div class="sa-two">' + saQ('Paid on', 'Oct 21, 2026') + saQ('Method', 'Bank transfer', { dd: true }) + '</div>',
+    '<li>mark ₺40.000 of the invoiced payment Paid</li><li>add 1 payment <small>₺56.800 still to collect, due Oct 16</small></li>', 'Record payment');
+  /** Expenses as Bütçe's template sets them up, for Reject. */
+  function saExpenses() {
+    var rows = [['Taxi to Atakule site', 'Emre', 'Oct 20', 'Submitted', 640], ['Hotel, Bursa, 2 nights', 'Selin', 'Oct 17', 'Submitted', 4800], ['Team lunch', 'Kaan', 'Oct 15', 'Approved', 2350], ['Fuel, site van', 'Emre', 'Oct 12', 'Reimbursed', 1900]].map(function (e) {
+      return '<div class="ca-row sa-pr"><span class="tt">' + e[0] + '</span><span>' + e[1] + '</span><span class="dt">' + e[2] + '</span>' + lbl(e[3]) + '<span class="num">' + cbMoney(e[4]) + '</span><span></span><span></span></div>';
+    }).join('');
+    return '<div class="bv">' + caHead('Expenses', '27 records') + '<div class="blist">' +
+      '<div class="ca-row sa-pr head"><span>Title</span><span>Person</span><span>Date</span><span>Status</span><span class="num">Amount</span><span></span><span></span></div>' +
+      rows + '</div></div>';
+  }
+  LC.Submitted = LC.Submitted || '#6aa5f0'; LC.Approved = LC.Approved || '#5cb87a'; LC.Reimbursed = LC.Reimbursed || '#8b93a1';
+  var SA_REJECT = saAsk('Reject', 'Hotel, Bursa, 2 nights: ₺4.800 by Selin, Oct 17.',
+    saQ('Reason', '<span class="caret"></span>', { on: true, req: true, bad: 'A reason is needed' }),
+    '<li>change Status from Submitted to Rejected</li><li>set Reason to what you write</li>', 'Reject', true);
+  /** Lines of code numbered, a message under the line it is about unnumbered, the line with the mistake marked. */
+  function saCode(lines, bad) {
+    var n = 0;
+    return '<div class="cb-code">' + lines.map(function (l) {
+      if (Array.isArray(l)) return '<div><i></i><span>' + l[1] + '</span></div>';
+      n += 1;
+      return '<div' + (n === bad ? ' class="on"' : '') + '><i>' + n + '</i><span>' + l + '</span></div>';
+    }).join('') + '</div>';
+  }
+  /** The Rules tab of Products: the two buttons that ask, a mistake in what one reads. */
+  function saRules() {
+    var code = saCode([
+      ceCm('// What a product must be, and its buttons. A button that asks reads what was typed as input.'),
+      ceFn('check') + '(' + ceSt('"stock"') + ', () =&gt; stock &gt; reorder_at, ' + ceSt('`Low: ${stock} left`') + ')',
+      '',
+      ceFn('action') + '(' + ceSt('"Correct stock"') + ', {',
+      '  ask: {',
+      '    location: { label: ' + ceSt('"Location"') + ', type: ' + ceSt('"link"') + ', collection: ' + ceSt('"Locations"') + ', default: () =&gt; ' + ceFn('find') + '(' + ceSt('"Locations"') + ')[' + ceNu('0') + '] },',
+      '    total: { label: ' + ceSt('"Counted total"') + ', type: ' + ceSt('"number"') + ', required: ' + ceNu('true') + ' },',
+      '  },',
+      '}, () =&gt; {',
+      '  ' + ceKw('const') + ' level = ' + ceFn('find') + '(' + ceSt('"Stock levels"') + ', { product: ' + ceKw('this') + ', location: input.location })[' + ceNu('0') + ']',
+      '  ' + ceKw('const') + ' diff = input.<span class="sa-err">totl</span> - level.stock',
+      ['', '<span class="msg">Correct stock asks no totl; it asks location and total.</span>'],
+      '  ' + ceKw('if') + ' (diff != ' + ceNu('0') + ') ' + ceFn('add') + '(' + ceSt('"Stock movements"') + ', { product: ' + ceKw('this') + ', location: input.location, direction: diff &gt; ' + ceNu('0') + ' ? ' + ceSt('"In"') + ' : ' + ceSt('"Out"') + ', type: ' + ceSt('"adjustment"') + ', quantity: ' + ceFn('abs') + '(diff) })',
+      '})',
+      '',
+      ceFn('action') + '(' + ceSt('"Reorder"') + ', { when: () =&gt; !' + ceFn('empty') + '(supplier), confirm: ' + ceNu('true') + ' }, () =&gt; {',
+      '  ' + ceKw('const') + ' order = ' + ceFn('add') + '(' + ceSt('"Purchase orders"') + ', { supplier, status: ' + ceSt('"Draft"') + ' })',
+      '  ' + ceFn('add') + '(' + ceSt('"Purchase order lines"') + ', { order, product: ' + ceKw('this') + ', quantity: reorder_at * ' + ceNu('2') + ' })',
+      '})'
+    ], 11);
+    var help = '<p class="fi-note cb-help"><code>ask: { key: { label, type, default, required } }</code>: what the button asks before it runs, read in its body as <code>input.key</code>. A type is number, text, date, choice (with <code>options</code>) or link (with <code>collection</code>); <code>default</code> is a value or <code>() =&gt; …</code> reading the record.</p>';
+    return cbWindow('Products', 'rules', code + help, '<span class="cb-fix">Line 11 has a mistake; it is saved once it is put right.</span><span class="st-btn">Cancel</span><span class="st-btn go off">Save</span>');
+  }
+  /** On a phone: the product's buttons under its name; Correct stock's questions as a sheet. */
+  function saPhone() {
+    var top = mbRecordTop('Products', 'Door operator kit', 'PRD-0007', [], [['Details'], ['Stock levels', 2], ['Movements', 12]], 'Details');
+    var acts = '<div class="cd-macts"><span class="cd-mact">Correct stock</span><span class="cd-mact">Transfer</span><span class="cd-mact">Reorder</span></div>';
+    var body = '<div class="mb-form" style="padding-top: 4px"><div class="mb-group wide">' + mbVal('Stock', '14', { cls: 'ro', text: true }) + mbVal('Unit', 'pcs') + mbVal('Cost', '₺18.600', { text: true }) + mbVal('Reorder at', '6', { text: true }) + mbVal('Supplier', 'Kessler Antriebe', { cls: 'lnk' }) + '</div></div>';
+    var page = mbPage(top, acts + body);
+    var sheet = MB_DIM + '<div class="mb-sheet"><span class="grab"></span><div class="mb-sh"><b>Correct stock</b><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-ask"><div class="sa-mq"><span class="l">Location</span><span class="v">Main warehouse</span></div>' +
+      '<div class="sa-mq"><span class="l">Counted total</span><span class="v">7<span class="caret"></span></span></div>' +
+      '<div class="sa-will"><span class="hd">This will</span><ul><li>add 1 stock movement <small>adjustment, Out 3</small></li></ul></div>' +
+      '<span class="go">Correct stock</span></div></div>';
+    return mbPhone('Düğmeler adın altında', page, mbTabs('browse')) + mbPhone('Correct stock soruları sheet olarak', page, mbTabs('browse') + sheet);
+  }
+  var SA_VIEWS = {
+    sarecord: function () { return saApp('products', saProducts(), saProduct(), '48 records · 1 to check'); },
+    sacorrect: function () { return saApp('products', saProducts(), saProduct() + SA_CORRECT, '48 records · 1 to check'); },
+    sapayment: function () { return saApp('orders', saOrders(), SA_PAYMENT, '64 records'); },
+    sareject: function () { return saApp('expenses', saExpenses(), SA_REJECT, '27 records'); },
+    satransfer: function () { return saApp('products', saProducts(), saProduct() + SA_TRANSFER, '48 records · 1 to check'); },
+    sarules: function () { return saApp('products', saProducts(), saRules(), '48 records · 1 to check'); }
+  };
+  function renderSa(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'saphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = saPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = SA_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-saview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.saview === view));
+    });
+  }
+  var sectionSa = document.querySelector('.dir[data-dir="apps1"]');
+  sectionSa.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-saview]');
+    if (b) renderSa(sectionSa, b.dataset.saview);
+  });
+  renderSa(sectionSa, 'sarecord');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
