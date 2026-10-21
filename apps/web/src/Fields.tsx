@@ -71,7 +71,8 @@ import { Icon } from './Icon';
 import { boardLabel, collectionLabel } from './items';
 import { useNarrow } from './narrow';
 import { GRIP } from './Tasks';
-import { quote } from './text';
+import type { StopNote } from './session';
+import { clockTime, quote } from './text';
 
 // A collection's Fields window, after the Fields views of design/mockups.html: one window for the
 // fields and the record screen, which fills it with its columns and sections as the record opens.
@@ -95,6 +96,10 @@ export interface FieldsActions {
   tasks: () => { readonly [list: string]: unknown };
   /** Who uses the app, for a default of `me()`. */
   me?: () => string | undefined;
+  /** Where the collection's rules last stopped on this device; null when they have not since they were saved. */
+  lastStop?: (dir: string) => StopNote | null;
+  /** Forgets where they last stopped. */
+  clearStop?: (dir: string) => void;
 }
 
 /** A choice as the window holds it: its name now, the one it had when the window opened, and its color. */
@@ -1193,8 +1198,16 @@ function SchemaText({ text, onChange }: { text: string; onChange: (text: string)
   return <div className="ftext" ref={host} />;
 }
 
-/** The rules file as code; what is wrong is said under its line. */
-function RulesText({ text, problems, onChange }: { text: string; problems: RuleProblem[]; onChange: (text: string) => void }) {
+/** When a rule stopped, as the note over the rules says it: "today, 14:32", "Oct 20, 09:15". */
+function stopWhen(at: string): string {
+  const time = clockTime(at);
+  const when = new Date(at);
+  if (when.toDateString() === new Date().toDateString()) return t('run.whenToday', { time });
+  return t('run.whenDay', { day: when.toLocaleDateString(locale(), { month: 'short', day: 'numeric' }), time });
+}
+
+/** The rules file as code; what is wrong is said under its line; where a rule last stopped, over it, its line marked. */
+function RulesText({ text, problems, stop, onClearStop, onChange }: { text: string; problems: RuleProblem[]; stop: StopNote | null; onClearStop: () => void; onChange: (text: string) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<RulesEditor | null>(null);
   const changed = useRef(onChange);
@@ -1216,11 +1229,26 @@ function RulesText({ text, problems, onChange }: { text: string; problems: RuleP
     // Said again only when what is wrong changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [said]);
+  useEffect(() => {
+    editor.current?.setStop(stop?.line ?? null);
+  }, [stop?.line]);
   return (
     <>
+      {stop && (
+        <div className="rules-stop" role="status">
+          <span>
+            <b>{t('run.stopped', { name: stop.name })}</b> {t('run.lastStop', { line: stop.line, record: stop.record, when: stopWhen(stop.at), message: stop.message })}
+            <small>{t('run.lastStopNote', { record: stop.record })}</small>
+          </span>
+          <button type="button" className="x" title={t('notice.close')} aria-label={t('notice.close')} onClick={onClearStop}>
+            ×
+          </button>
+        </div>
+      )}
       <div className="ftext frules" ref={host} />
       <p className="fi-note fd-help">{t('fields.rulesHelp')}</p>
       <p className="fi-note fd-help">{t('fields.rulesActionHelp')}</p>
+      <p className="fi-note fd-help">{t('fields.rulesSaveHelp')}</p>
     </>
   );
 }
@@ -1247,6 +1275,8 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   const [text, setText] = useState('');
   // The rules file as typed; written with the schema when it changed.
   const [rules, setRules] = useState(collection.rules ?? '');
+  // Where they last stopped on this device, said over them.
+  const [stop, setStop] = useState(() => actions.lastStop?.(dir) ?? null);
   // Choices renamed in Design before Text was opened: the records follow them on Save.
   const [carried, setCarried] = useState<ChoiceRenames>({});
   const [open, setOpen] = useState<string | null>(null);
@@ -1610,6 +1640,11 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
           <RulesText
             text={rules}
             problems={ruleProblems}
+            stop={stop}
+            onClearStop={() => {
+              actions.clearStop?.(dir);
+              setStop(null);
+            }}
             onChange={(next) => {
               setError(null);
               setRules(next);

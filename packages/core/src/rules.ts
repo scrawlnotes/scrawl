@@ -10,8 +10,8 @@ import { check, type Env, evaluate, isNothing, type Kind, LangError, type Node, 
 // wherever the record is read and write nothing. A button is
 // `action("Start project", { when: () => status == "Offer", confirm: true }, () => { … })`: its
 // body is statements that read the space's records, cards and tasks and change them (run.ts).
-// What runs when a record is saved (`onSave`) comes later in the same file. See
-// design/collection-apps.md 6.
+// What runs when a record is saved is `onSave("Paid date", () => { … })`: a body as a button's,
+// reading the record as it is saved and `old`, the record as it was. See design/collection-apps.md 6.
 
 export const RULES_FILE = '_rules.js';
 
@@ -42,9 +42,17 @@ export interface ActionRule {
   at: number;
 }
 
+/** What runs when a record is saved, as read: its name and what it does. */
+export interface SaveRule {
+  name: string;
+  body: Stmt[];
+  at: number;
+}
+
 export interface Rules {
   checks: CheckRule[];
   actions: ActionRule[];
+  saves: SaveRule[];
 }
 
 /** What is wrong with a rules file: where, on which line, and what. */
@@ -60,13 +68,18 @@ export function parseRules(src: string): Rules {
   const read: Reader = reader(tokenize(src));
   const checks: CheckRule[] = [];
   const actions: ActionRule[] = [];
+  const saves: SaveRule[] = [];
   while (read.peek().k !== 'end') {
     const start = read.next();
     if (start.k !== 'id') read.fail(start);
-    if ((start.v !== 'check' && start.v !== 'action') || !read.isOp('(')) throw new LangError(t('rules.onlyCheck'), start.at);
+    if ((start.v !== 'check' && start.v !== 'action' && start.v !== 'onsave') || !read.isOp('(')) throw new LangError(t('rules.onlyCheck'), start.at);
     read.next();
     if (start.v === 'action') {
       actions.push(readAction(read, start.at, actions));
+      continue;
+    }
+    if (start.v === 'onsave') {
+      saves.push(readSave(read, start.at, saves));
       continue;
     }
     const first = read.next();
@@ -87,7 +100,21 @@ export function parseRules(src: string): Rules {
     if (read.isOp(';')) read.next();
     checks.push({ field, fieldAt: first.at, test, message, at: start.at });
   }
-  return { checks, actions };
+  return { checks, actions, saves };
+}
+
+/** The rest of `onSave(`: its name and its body. */
+function readSave(read: Reader, at: number, before: readonly SaveRule[]): SaveRule {
+  const label = read.next();
+  if (label.k !== 'str' || !label.v.trim()) throw new LangError(t('rules.saveName'), label.at);
+  const name = label.v.trim();
+  if (before.some((s) => s.name.toLowerCase() === name.toLowerCase())) throw new LangError(t('rules.saveTwice', { name }), label.at);
+  read.expect(',');
+  const body = read.expression();
+  if (body.k !== 'arrow' || body.params.length > 0) throw new LangError(t('rules.saveBody'), body.at);
+  read.expect(')');
+  if (read.isOp(';')) read.next();
+  return { name, body: Array.isArray(body.body) ? body.body : [{ k: 'expr', node: body.body, at: body.body.at }], at };
 }
 
 /** The rest of `action(`: its label, its options, its body. */
@@ -164,12 +191,14 @@ export function pathNamed(paths: readonly string[], name: string, from: string):
 const isListKind = (k: Kind): k is { list: Kind } => typeof k === 'object' && 'list' in k;
 
 /**
- * What is wrong with a button's body, said where it is: a name not given before, a field that is
- * not there or is worked out, a collection, a board or a list not in the space, a field a record
- * of it does not have, a function called the wrong way.
+ * What is wrong with a button's body, or with what runs when a record is saved, said where it is:
+ * a name not given before, a field that is not there or is worked out, a collection, a board or a
+ * list not in the space, a field a record of it does not have, a function called the wrong way.
+ * What runs on save reads `old` too, a record of its own collection.
  */
-function checkAction(action: ActionRule, scope: Scope, space: RuleSpace | undefined): void {
-  const dir = scope.dir ?? '';
+function checkBody(body: Stmt[], when: Node | undefined, outer: Scope, space: RuleSpace | undefined, saving = false): void {
+  const dir = outer.dir ?? '';
+  const scope: Scope = saving ? { ...outer, schemaOf: (path) => (path === dir ? { fields: [...outer.fields] } : outer.schemaOf?.(path)) } : outer;
   const collectionArg = (node: Node | undefined, fn: string) => {
     if (!node || node.k !== 'str') throw new LangError(t('rules.nameInQuotes', { fn, what: t('rules.what.collection') }), node?.at ?? 0);
     if (!space) return undefined;
@@ -297,8 +326,8 @@ function checkAction(action: ActionRule, scope: Scope, space: RuleSpace | undefi
       }
     }
   };
-  if (action.when) check(action.when, { ...scope, use: 'rule', self: undefined });
-  walk(action.body, new Map(), new Set());
+  if (when) check(when, { ...scope, use: 'rule', self: undefined });
+  walk(body, new Map(saving ? [['old', { record: dir }]] : []), new Set(saving ? ['old'] : []));
 }
 
 /** The line a place of a text is on, from 1. */
@@ -335,7 +364,15 @@ export function rulesProblems(src: string, scope: Scope, space?: RuleSpace): Rul
   }
   for (const action of rules.actions) {
     try {
-      checkAction(action, scope, space);
+      checkBody(action.body, action.when, scope, space);
+    } catch (error) {
+      if (error instanceof LangError) problems.push(said(error.at, error.message));
+      else throw error;
+    }
+  }
+  for (const save of rules.saves) {
+    try {
+      checkBody(save.body, undefined, scope, space, true);
     } catch (error) {
       if (error instanceof LangError) problems.push(said(error.at, error.message));
       else throw error;

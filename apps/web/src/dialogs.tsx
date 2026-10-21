@@ -1295,7 +1295,8 @@ export function ButtonDialog({ name, record, lines, onConfirm, onClose }: {
   name: string;
   /** The record's title. */
   record: string;
-  lines: { text: string; names?: string }[];
+  /** A line a head names the onSave the lines after it are of. */
+  lines: { text: string; names?: string; head?: boolean }[];
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -1303,7 +1304,7 @@ export function ButtonDialog({ name, record, lines, onConfirm, onClose }: {
   const list = (
     <ul className="ask-lines">
       {lines.map((line, i) => (
-        <li key={i}>
+        <li key={i} className={line.head ? 'head' : undefined}>
           {line.text} {line.names && <small>{line.names}</small>}
         </li>
       ))}

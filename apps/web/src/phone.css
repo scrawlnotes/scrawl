@@ -6479,3 +6479,8 @@ body > .mb-lifted {
   width: 18px;
   height: 18px;
 }
+
+.mb-ask .ask-lines li.head {
+  margin-left: -20px;
+  font-size: 12px;
+}

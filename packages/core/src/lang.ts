@@ -1065,6 +1065,8 @@ export function evaluate(node: Node, env: Env): RV {
         if (n.name === 'length' && (Array.isArray(of) || typeof of === 'string')) return of.length;
         if (isRef(of)) return env.member(of, n.name);
         if (isCardRef(of)) return env.cardMember?.(of, n.name) ?? null;
+        // A set of values, as old is: the record as it was.
+        if (of instanceof Obj) return of.values.get(n.name) ?? null;
         if (Array.isArray(of)) return of.flatMap((r) => (isRef(r) ? [env.member(r, n.name)] : isCardRef(r) ? [env.cardMember?.(r, n.name) ?? null] : [])).flat();
         return null;
       }

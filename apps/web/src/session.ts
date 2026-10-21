@@ -111,10 +111,18 @@ import {
   type AskLine,
   type Plan,
   planAction,
+  planSave,
   planWords,
+  recordWith,
   type RuleSpaceNow,
   RuleStop,
+  savedWords,
+  savesOf,
+  type SaveRun,
+  type SaveStop,
   writePlan,
+  newRecordId,
+  recordTitle,
   moveCard,
   moveCardToKind,
   moveColumn,
@@ -430,6 +438,41 @@ export interface Snapshot {
   source: boolean;
 }
 
+/** What a collection's rules did as records were saved: what they did elsewhere, said, with what undoes it; where they stopped. */
+export interface RuleEvent {
+  done: string;
+  undo?: () => Promise<void>;
+  stops: StopNote[];
+}
+
+/** Where a collection's rule stopped on this device: which, on which record, when, on which line and why. */
+export interface StopNote extends Omit<SaveStop, 'dir' | 'id'> {
+  /** The record's title. */
+  record: string;
+  /** When, as an ISO time. */
+  at: string;
+}
+
+/** The last stop of each collection's rules seen on this device, by its folder as the app has it; never synced. */
+const STOPS = 'scrawl.ruleStops';
+
+function readStops(): { [dir: string]: StopNote } {
+  try {
+    return JSON.parse(localStorage.getItem(STOPS) ?? '{}') as { [dir: string]: StopNote };
+  } catch {
+    return {};
+  }
+}
+
+function writeStops(stops: { [dir: string]: StopNote }) {
+  try {
+    if (Object.keys(stops).length > 0) localStorage.setItem(STOPS, JSON.stringify(stops));
+    else localStorage.removeItem(STOPS);
+  } catch {
+    // A browser that keeps nothing keeps no stop either.
+  }
+}
+
 /** What a collection's button would do to a record, worked out on its space: the question before it, the toast after it. */
 export interface ButtonRun {
   /** The collection, as the app has it. */
@@ -662,6 +705,8 @@ export class Session {
   showMenu: ((at: { x: number; y: number }, items: ItemAction[], about?: ItemAbout) => void) | null = null;
   /** Says something for a moment in the status bar, from the window. */
   say: ((text: string) => void) | null = null;
+  /** Says what a collection's rules did as records were saved, or where they stopped; the interface sets it, for its toast. */
+  ruled: ((event: RuleEvent) => void) | null = null;
   /** A link tapped in a note on a touch screen; the interface sets it, to show what can be done with it. */
   linkTap: ((link: LinkTap) => void) | null = null;
   /** Something made or moved into `folder`, by its path or a filter's tab; the interface sets it, to open the folder to it. */
@@ -2170,7 +2215,11 @@ export class Session {
     try {
       await this.saveSchemaAt(dir, schema);
       // The rules file beside it, written as typed: the Fields window writes none with a mistake.
-      if (rules !== undefined) await this.fs.writeText(rulesPath(dir), rules);
+      // Where they last stopped goes with them.
+      if (rules !== undefined) {
+        await this.fs.writeText(rulesPath(dir), rules);
+        this.clearStop(dir);
+      }
       if (Object.keys(renames).length > 0) {
         for (const { path } of collection.records) {
           const record = parseRecord(await this.fs.readText(path), schema, path);
@@ -2198,32 +2247,42 @@ export class Session {
     const collection = this.snapshot.collections[dir];
     if (!collection) return t('error.record');
     await this.settle();
+    const saves: { ran: SaveRun; record: string }[] = [];
     try {
       if (serializeSchema(plan.schema) !== serializeSchema(collection.schema)) await this.saveSchemaAt(dir, plan.schema);
       const { fs } = this.at(dir);
       const target = this.own({ ...collection, schema: plan.schema });
       const mapped = new Set(plan.mapped);
       const others = Object.values(this.snapshot.collections).filter((c) => c.dir !== dir);
+      // The collection's rules run on each record as it is saved, on the space as it was before.
+      const world = savesOf(collection.rules).length > 0 ? this.ruleSpace(dir) : undefined;
+      const shaped = { ...collection, schema: plan.schema };
       for (const input of plan.added) {
         // The fields no column goes to take their defaults, the next number counting the rows before.
         const given = input.values ?? {};
         const made = computerFor({ ...collection, schema: plan.schema, records: target.records }, others, this.snapshot.boards, dayIn(new Date())).defaults(dir, given, this.snapshot.me?.name || undefined);
         for (const key of mapped) if (!(key in given)) delete made[key];
-        const record = await addCollectionRecord(fs, target, { ...input, values: made });
+        const id = newRecordId();
+        const ran = world ? this.onSave(dir, recordWith(shaped, id, made), null, world) : null;
+        const record = await addCollectionRecord(fs, target, { ...input, values: ran ? ran.values : made }, id);
         target.records = [...target.records, record];
+        if (ran) saves.push({ ran, record: recordTitle(record) });
       }
       for (const change of plan.updated) {
         const record = collection.records.find((r) => r.id === change.id);
         if (!record) continue;
-        await updateCollectionRecord(fs, target.schema, { ...record, path: localPath(record.path) }, { values: change.values, ...(change.body !== undefined && { body: change.body }) });
+        const ran = world ? this.onSave(dir, { ...record, values: { ...record.values, ...change.values } }, record, world) : null;
+        await updateCollectionRecord(fs, target.schema, { ...record, path: localPath(record.path) }, { values: ran ? ran.values : change.values, ...(change.body !== undefined && { body: change.body }) });
         this.disk.delete(record.path);
         this.states.delete(record.path);
+        if (ran) saves.push({ ran, record: recordTitle(record) });
       }
     } catch (error) {
       await this.reloadCollection(dir);
       return error instanceof Error ? error.message : t('error.record');
     }
     await this.reloadCollection(dir);
+    if (saves.length > 0) await this.afterSave(dir, saves);
     return null;
   }
 
@@ -2712,26 +2771,32 @@ export class Session {
     return target;
   }
 
-  /** Adds a record to a collection, as a file of its own named after its id. Returns a message when it cannot be made. */
+  /** Adds a record to a collection, as a file of its own named after its id; its collection's rules run as it is saved. Returns a message when it cannot be made. */
   async addRecord(dir: string, input: NewRecord): Promise<string | null> {
     const collection = this.snapshot.collections[dir];
     if (!collection) return t('error.create');
+    const id = newRecordId();
+    const ran = this.onSave(dir, recordWith(collection, id, input.values ?? {}), null);
+    let made: CollectionRecord;
     try {
       const { fs, space } = this.at(dir);
-      const made = await addCollectionRecord(fs, this.own(collection), input);
-      const record = { ...made, path: inSpace(space, made.path) };
-      this.setCollection(dir, (current) => ({ ...current, records: [...current.records, record] }));
-      return null;
+      const written = await addCollectionRecord(fs, this.own(collection), ran ? { ...input, values: ran.values } : input, id);
+      made = { ...written, path: inSpace(space, written.path) };
+      this.setCollection(dir, (current) => ({ ...current, records: [...current.records, made] }));
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }
+    if (ran) await this.afterSave(dir, [{ ran, record: recordTitle(made) }]);
+    return null;
   }
 
-  /** Changes a record and writes its file, which stays where it is. Returns a message when it cannot be saved. */
+  /** Changes a record and writes its file, which stays where it is; its collection's rules run as it is saved. Returns a message when it cannot be saved. */
   async updateRecord(dir: string, id: string, patch: RecordPatch): Promise<string | null> {
     const collection = this.snapshot.collections[dir];
     const record = collection?.records.find((r) => r.id === id);
     if (!collection || !record) return t('error.record');
+    const ran = this.onSave(dir, { ...record, values: { ...record.values, ...(patch.values ?? {}) } }, record);
+    if (ran) patch = { ...patch, values: ran.values };
     try {
       const { fs, space } = this.at(dir);
       const written = await updateCollectionRecord(fs, this.own(collection).schema, { ...record, path: localPath(record.path) }, patch);
@@ -2740,6 +2805,7 @@ export class Session {
       this.disk.delete(next.path);
       this.states.delete(next.path);
       this.setCollection(dir, (current) => ({ ...current, records: current.records.map((r) => (r.id === id ? next : r)) }));
+      if (ran) await this.afterSave(dir, [{ ran, record: recordTitle(next) }]);
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : t('error.record');
@@ -2772,6 +2838,60 @@ export class Session {
     };
   }
 
+  /**
+   * What the collection at `dir` runs as a record is saved, worked out on its space: `record` as
+   * it is to be written, `old` as it was, null for a new one. Null when it runs nothing on save.
+   */
+  private onSave(dir: string, record: CollectionRecord, old: CollectionRecord | null, space: RuleSpaceNow = this.ruleSpace(dir)): SaveRun | null {
+    if (savesOf(this.snapshot.collections[dir]?.rules).length === 0) return null;
+    const local = (r: CollectionRecord) => ({ ...r, path: localPath(r.path) });
+    return planSave(localPath(dir), local(record), old && local(old), space);
+  }
+
+  /**
+   * Writes what the rules of saved records do elsewhere, all at once, and says it: a toast with
+   * what undoes it, and where they stopped, which is kept on this device until the rules are
+   * saved again.
+   */
+  private async afterSave(dir: string, saves: { ran: SaveRun; record: string }[]) {
+    const space = spaceOf(dir);
+    const changes = saves.flatMap((s) => s.ran.after.changes);
+    const now = new Date().toISOString();
+    const stops = saves.flatMap((s) => s.ran.stops.map((stop): StopNote => ({ name: stop.name, line: stop.line, message: stop.message, record: s.record, at: now })));
+    let done = '';
+    let undo: RuleEvent['undo'];
+    if (changes.length > 0) {
+      await this.settle();
+      const world = this.ruleSpace(dir);
+      const plan = { action: '', dir: localPath(dir), id: '', confirm: false, changes };
+      done = savedWords(plan, world);
+      const back = await writePlan(this.at(dir).fs, plan, world, undefined, this.by);
+      await this.rescan(space);
+      undo = async () => {
+        await this.settle();
+        await back();
+        await this.rescan(space);
+      };
+    }
+    if (stops.length > 0) this.noteStop(dir, stops[stops.length - 1]!);
+    if (done || stops.length > 0) this.ruled?.({ done, ...(undo && { undo }), stops });
+  }
+
+  /** Where the rules of the collection at `dir` last stopped on this device; null when they have not since they were saved. */
+  lastStop(dir: string): StopNote | null {
+    return readStops()[dir] ?? null;
+  }
+
+  private noteStop(dir: string, stop: StopNote) {
+    writeStops({ ...readStops(), [dir]: stop });
+  }
+
+  /** Forgets where the rules of the collection at `dir` last stopped: they were saved again, or the note was closed. */
+  clearStop(dir: string) {
+    const { [dir]: _gone, ...rest } = readStops();
+    writeStops(rest);
+  }
+
   /** What a button of a collection's rules would do to a record, writing nothing; or where its rules stopped, and why. */
   planButton(dir: string, id: string, name: string): ButtonRun | RuleStop {
     const rules = this.snapshot.collections[dir]?.rules;
@@ -2793,6 +2913,13 @@ export class Session {
     const space = spaceOf(run.dir);
     const undo = await writePlan(fs, run.plan, this.ruleSpace(run.dir), undefined, this.by);
     await this.rescan(space);
+    // What runs on save of the records it changed and stopped is kept, as a save's is.
+    const last = run.plan.stops?.at(-1);
+    if (last) {
+      const collection = Object.values(this.snapshot.collections).find((c) => localPath(c.dir) === last.dir && spaceOf(c.dir) === space);
+      const record = collection?.records.find((r) => r.id === last.id);
+      if (collection) this.noteStop(collection.dir, { name: last.name, line: last.line, message: last.message, record: record ? recordTitle(record) : '', at: new Date().toISOString() });
+    }
     return async () => {
       await this.settle();
       await undo();

@@ -23,7 +23,7 @@ import {
 import { Computer, valueFor } from './compute';
 import { basename, join, type VaultFs } from './fs';
 import { type CardRef, dayValue, type Env, equal, evaluate, Fn, fromRuntime, isCardRef, isRef, LangError, type Node, Obj, type Ref, type RV, type Stmt, toRuntime, truthy } from './lang';
-import { type ActionRule, lineAt, pathNamed, rulesOf } from './rules';
+import { type ActionRule, lineAt, pathNamed, rulesOf, type SaveRule } from './rules';
 import { addSubtask, type NewSubtask } from './subtasks';
 import { addTask, loadList, type NewTask, removeTask, saveList, type Task } from './tasks';
 import { readTrash, restoreFromTrash, trashItem } from './vault';
@@ -47,23 +47,35 @@ export interface RuleSpaceNow {
   me?: string;
 }
 
-/** One thing a button does to the space. */
-export type Change =
+/** One thing a button, or what runs on save, does to the space; `by`, the onSave that did it. */
+export type Change = (
   | { kind: 'add'; dir: string; id: string; values: Record['values'] }
   | { kind: 'update'; dir: string; id: string; values: Record['values'] }
   | { kind: 'remove'; dir: string; id: string }
   | { kind: 'subtask'; dir: string; id: string; subtask: NewSubtask }
   | { kind: 'card'; board: string; id: string; card: NewCard }
   | { kind: 'move'; board: string; id: string; column: string }
-  | { kind: 'task'; list: string; id: string; task: NewTask };
+  | { kind: 'task'; list: string; id: string; task: NewTask }
+) & { by?: string };
 
-/** What a button would do to a record, ready to be said and written. */
+/** What runs on save that stopped: which, on which record, on which line of its rules, and why. */
+export interface SaveStop {
+  name: string;
+  dir: string;
+  id: string;
+  line: number;
+  message: string;
+}
+
+/** What a button would do to a record, ready to be said and written; what runs on save of the records it changes is in it. */
 export interface Plan {
   action: string;
   dir: string;
   id: string;
   confirm: boolean;
   changes: Change[];
+  /** What runs on save that stopped: left out, the rest written. */
+  stops?: SaveStop[];
 }
 
 /** A button that stopped: on which line of the rules, and why. */
@@ -126,25 +138,154 @@ class Locals {
   }
 }
 
+/** One run of a body of statements on a record: a button's, or what runs on save. */
+interface Run {
+  /** The rules file it is written in, for the line it stops on. */
+  src: string;
+  body: Stmt[];
+  dir: string;
+  id: string;
+  /** What runs on save reads the record as it was, as `old`. */
+  old?: Obj;
+  /** The onSave's name, put on what it changes. */
+  by?: string;
+  /** Told of each field of the record it sets. */
+  onSet?: (key: string) => void;
+}
+
+/** The space as rules see it while they run: what they changed put in it, and the changes gathered. */
+interface Overlay {
+  collections: Map<string, Collection>;
+  boards: Map<string, Board>;
+  changes: Change[];
+}
+
+const overlayOf = (space: RuleSpaceNow): Overlay => ({
+  collections: new Map(space.collections.map((c) => [c.dir, { ...c, records: [...c.records] }])),
+  boards: new Map(Object.entries(space.boards).map(([path, b]) => [path, { ...b, cards: [...b.cards] }])),
+  changes: [],
+});
+
+/** The overlay as it is now; what it gives puts it back so, when what ran next stopped. */
+function snapshot(o: Overlay): () => void {
+  const collections = new Map([...o.collections].map(([k, c]) => [k, { ...c, records: [...c.records] }]));
+  const boards = new Map(o.boards);
+  const changes = o.changes.map((c) => ({ ...c, ...('values' in c && { values: { ...c.values } }), ...('card' in c && { card: { ...c.card } }) }) as Change);
+  return () => {
+    o.collections = collections;
+    o.boards = boards;
+    o.changes = changes;
+  };
+}
+
+/** The record as it was, as `old` reads it: its fields, the worked-out ones too; all empty for a new one. */
+function oldOf(space: RuleSpaceNow, dir: string, before: Record | null): Obj {
+  const fields = space.collections.find((c) => c.dir === dir)?.schema.fields ?? [];
+  if (!before) return new Obj(new Map(fields.map((f) => [f.key, null])));
+  const computer = new Computer(space.collections, space.boards, space.today);
+  return new Obj(new Map(fields.map((f) => [f.key, computer.read(dir, before, f.key)])));
+}
+
+/** What a collection runs when one of its records is saved, in their order in its rules. */
+export const savesOf = (rules: string | undefined): SaveRule[] => (rules ? (rulesOf(rules)?.saves ?? []) : []);
+
+/**
+ * Runs what runs on save for each record the overlay's changes add or change, once each, in their
+ * order: what that changes runs nothing again. One that stops is left out and said.
+ */
+function saveChanged(o: Overlay, space: RuleSpaceNow): SaveStop[] {
+  const stops: SaveStop[] = [];
+  const seen = new Set<string>();
+  const touched = o.changes.flatMap((c) => (c.kind === 'add' || c.kind === 'update' ? [{ dir: c.dir, id: c.id, added: c.kind === 'add' }] : []));
+  for (const { dir, id, added } of touched) {
+    if (seen.has(`${dir}\u0000${id}`)) continue;
+    seen.add(`${dir}\u0000${id}`);
+    const src = o.collections.get(dir)?.rules;
+    const before = added ? null : (space.collections.find((c) => c.dir === dir)?.records.find((r) => r.id === id) ?? null);
+    const old = oldOf(space, dir, before);
+    for (const save of savesOf(src)) {
+      const back = snapshot(o);
+      try {
+        execute({ src: src!, body: save.body, dir, id, old, by: save.name }, o, space);
+      } catch (error) {
+        if (!(error instanceof RuleStop)) throw error;
+        back();
+        stops.push({ name: save.name, dir, id, line: error.line, message: error.message });
+      }
+    }
+  }
+  return stops;
+}
+
 /**
  * Runs a button of a record's collection against the space, writing nothing, and gives what it
- * would do. Throws a RuleStop saying the line and why when it cannot be run through.
+ * would do, with what runs on save of the records it changes. Throws a RuleStop saying the line
+ * and why when it cannot be run through.
  */
 export function planAction(rules: string, name: string, dir: string, recordId: string, space: RuleSpaceNow): Plan {
   const action = actionsOf(rules).find((a) => a.name === name);
   if (!action) throw new RuleStop(t('run.noAction', { name }), 0);
+  const o = overlayOf(space);
+  execute({ src: rules, body: action.body, dir, id: recordId }, o, space, action.when && { node: action.when, name, hint: action.hint, at: action.at });
+  const stops = saveChanged(o, space);
+  return { action: name, dir, id: recordId, confirm: action.confirm, changes: o.changes, ...(stops.length > 0 && { stops }) };
+}
+
+/** What a collection's rules do as a record is saved, writing nothing yet. */
+export interface SaveRun {
+  /** The record's values as the rules leave them. */
+  values: Record['values'];
+  /** The fields they set, each with the onSave that set it last. */
+  set: { [key: string]: string };
+  /** What they do elsewhere, and the record's subtasks, to write right after it; each change with the onSave that made it. */
+  after: Plan;
+  /** What stopped: its changes left out, the record written as it was given. */
+  stops: SaveStop[];
+}
+
+/**
+ * Runs what a record's collection runs when it is saved: `record` as it is to be written (a new
+ * one with the id it will have), `old` as it was, null for a new one. Each onSave sees what the
+ * ones before it set; what one changes runs none again. Writes nothing.
+ */
+export function planSave(dir: string, record: Record, old: Record | null, space: RuleSpaceNow): SaveRun {
+  const collection = space.collections.find((c) => c.dir === dir);
+  const saves = savesOf(collection?.rules);
+  const after: Plan = { action: '', dir, id: record.id, confirm: false, changes: [] };
+  if (!collection || saves.length === 0) return { values: record.values, set: {}, after, stops: [] };
+  const o = overlayOf(space);
+  const home = o.collections.get(dir)!;
+  home.records = home.records.some((r) => r.id === record.id) ? home.records.map((r) => (r.id === record.id ? record : r)) : [...home.records, record];
+  const was = oldOf(space, dir, old);
+  const set: SaveRun['set'] = {};
+  const stops: SaveStop[] = [];
+  for (const save of saves) {
+    const back = snapshot(o);
+    const mine: string[] = [];
+    try {
+      execute({ src: collection.rules!, body: save.body, dir, id: record.id, old: was, by: save.name, onSet: (key) => mine.push(key) }, o, space);
+      for (const key of mine) set[key] = save.name;
+    } catch (error) {
+      if (!(error instanceof RuleStop)) throw error;
+      back();
+      stops.push({ name: save.name, dir, id: record.id, line: error.line, message: error.message });
+    }
+  }
+  const now = o.collections.get(dir)!.records.find((r) => r.id === record.id) ?? record;
+  after.changes = o.changes.filter((c) => !(c.kind === 'update' && c.dir === dir && c.id === record.id));
+  return { values: now.values, set, after, stops };
+}
+function execute(r: Run, o: Overlay, space: RuleSpaceNow, when?: { node: Node; name: string; hint?: string; at: number }): void {
+  const { src: rules, dir, id: recordId } = r;
   const stop = (message: string, at: number): never => {
     throw new RuleStop(message, lineAt(rules, at));
   };
-  // The space as the button sees it, its own changes in it.
-  const collections = new Map(space.collections.map((c) => [c.dir, { ...c, records: [...c.records] }]));
-  const boards = new Map(Object.entries(space.boards).map(([path, b]) => [path, { ...b, cards: [...b.cards] }]));
-  const changes: Change[] = [];
+  const { collections, boards, changes } = o;
   let computer: Computer | null = null;
   const now = () => (computer ??= new Computer([...collections.values()], Object.fromEntries(boards), space.today));
   const changed = (change: Change, at: number) => {
     if (changes.length >= MAX_CHANGES) stop(t('run.tooMany', { count: MAX_CHANGES }), at);
-    changes.push(change);
+    changes.push(r.by ? { ...change, by: r.by } : change);
     computer = null;
   };
   const home = collections.get(dir);
@@ -181,6 +322,7 @@ export function planAction(rules: string, name: string, dir: string, recordId: s
   };
   /** Puts values into a record the button sees, and gathers the change: into what it added, when it is one of those. */
   const patch = (targetDir: string, id: string, values: Record['values'], at: number) => {
+    if (targetDir === dir && id === recordId) for (const key of Object.keys(values)) r.onSet?.(key);
     const collection = collections.get(targetDir)!;
     collection.records = collection.records.map((r) => (r.id === id ? withValues(collection, r, values) : r));
     const added = changes.find((c): c is Extract<Change, { kind: 'add' }> => c.kind === 'add' && c.dir === targetDir && c.id === id);
@@ -410,13 +552,18 @@ export function planAction(rules: string, name: string, dir: string, recordId: s
       }
     }
   };
-  if (action.when) {
-    const on = value(action.when, new Locals());
-    if (!truthy(on)) throw new RuleStop(t('run.notNow', { name, hint: action.hint ?? rules.slice(action.when.at, action.when.end).trim() }), lineAt(rules, action.at));
+  if (when) {
+    const on = value(when.node, new Locals());
+    if (!truthy(on)) throw new RuleStop(t('run.notNow', { name: when.name, hint: when.hint ?? rules.slice(when.node.at, when.node.end).trim() }), lineAt(rules, when.at));
   }
-  run(action.body, new Locals());
-  return { action: name, dir, id: recordId, confirm: action.confirm, changes };
+  const root = new Locals();
+  if (r.old) root.declare('old', r.old, true);
+  run(r.body, root);
 }
+
+/** A record of a collection with these values, its name and code following: a new one, before it is written. */
+export const recordWith = (collection: Pick<Collection, 'dir' | 'schema'>, id: string, values: Record['values']): Record =>
+  withValues(collection, { id, path: join(collection.dir, `${id}.md`), name: '', code: '', values: {}, extra: {}, body: '' }, values);
 
 /** A record with values put in, its name and code following. */
 function withValues(collection: Pick<Collection, 'schema'>, record: Record, values: Record['values']): Record {
@@ -436,25 +583,30 @@ function countOf(collection: Collection | undefined, dir: string, count: number)
 
 const listed = (names: string[]) => (names.length > 5 ? `${names.slice(0, 5).join(', ')}, …` : names.join(', '));
 
-/** A line of the question before a button: what it does, and the names of what it adds or removes, said faint after it. */
+/** A line of the question before a button: what it does, and the names of what it adds or removes, said faint after it; a `head` names the onSave the lines after it are of. */
 export interface AskLine {
   text: string;
   names?: string;
+  head?: boolean;
 }
 
+type Words = Pick<RuleSpaceNow, 'collections' | 'boards' | 'lists'>;
+
 /**
- * What a plan does, in the words of the question before it (`ask`, one line each: what it adds
- * with their names, the record's fields from and to) and of the toast after it (`done`).
+ * What some changes do, said three ways: lines of the question (`ask`), pieces of the toast after
+ * a button (`done`) and after a save (`past`); the record's own fields apart, last.
  */
-export function planWords(plan: Plan, space: Pick<RuleSpaceNow, 'collections' | 'boards' | 'lists'>): { ask: AskLine[]; done: string } {
+function phrases(changes: Change[], plan: Pick<Plan, 'dir' | 'id'>, space: Words) {
   const ask: AskLine[] = [];
-  const line = (text: string, names: string[] = []): AskLine => (names.length > 0 ? { text, names: listed(names) } : { text });
   const done: string[] = [];
+  const past: string[] = [];
+  const fields: { ask: AskLine[]; done: string[] } = { ask: [], done: [] };
+  const line = (text: string, names: string[] = []): AskLine => (names.length > 0 ? { text, names: listed(names) } : { text });
   const collection = (dir: string) => space.collections.find((c) => c.dir === dir);
   const adds = new Map<string, string[]>();
   const updates = new Map<string, number>();
   const removes = new Map<string, string[]>();
-  for (const c of plan.changes) {
+  for (const c of changes) {
     if (c.kind === 'add') {
       const schema = collection(c.dir)?.schema;
       const named = schema && nameField(schema);
@@ -467,58 +619,99 @@ export function planWords(plan: Plan, space: Pick<RuleSpaceNow, 'collections' | 
     const shown = names.filter(Boolean);
     ask.push(line(t('run.askAdd', { what }), shown));
     done.push(what);
+    past.push(t('run.added', { what }));
   }
-  const subtasks = plan.changes.filter((c): c is Extract<Change, { kind: 'subtask' }> => c.kind === 'subtask');
+  const subtasks = changes.filter((c): c is Extract<Change, { kind: 'subtask' }> => c.kind === 'subtask');
   if (subtasks.length > 0) {
     const what = t('run.subtasks', { count: subtasks.length });
     ask.push(line(t('run.askAdd', { what }), subtasks.map((s) => s.subtask.title)));
     done.push(what);
+    past.push(t('run.added', { what }));
   }
-  const cards = plan.changes.filter((c): c is Extract<Change, { kind: 'card' }> => c.kind === 'card');
+  const cards = changes.filter((c): c is Extract<Change, { kind: 'card' }> => c.kind === 'card');
   for (const path of new Set(cards.map((c) => c.board))) {
     const here = cards.filter((c) => c.board === path);
     const what = t('run.cards', { count: here.length });
-    ask.push(line(t('run.askCards', { what, board: basename(path).replace(/\.board\.json$/i, '') }), here.map((c) => c.card.title)));
+    const board = basename(path).replace(/\.board\.json$/i, '');
+    ask.push(line(t('run.askCards', { what, board }), here.map((c) => c.card.title)));
     done.push(what);
+    past.push(t('run.addedTo', { what, where: board }));
   }
-  const moves = plan.changes.filter((c): c is Extract<Change, { kind: 'move' }> => c.kind === 'move');
+  const moves = changes.filter((c): c is Extract<Change, { kind: 'move' }> => c.kind === 'move');
   for (const column of new Set(moves.map((m) => `${m.board}\u0000${m.column}`))) {
     const [path, id] = column.split('\u0000') as [string, string];
     const count = moves.filter((m) => m.board === path && m.column === id).length;
     const name = space.boards[path]?.columns.find((c) => c.id === id)?.name ?? id;
     ask.push(line(t('run.askMove', { what: t('run.cards', { count }), column: name })));
     done.push(t('run.moved', { what: t('run.cards', { count }), column: name }));
+    past.push(t('run.movedTo', { what: t('run.cards', { count }), column: name }));
   }
-  const tasks = plan.changes.filter((c): c is Extract<Change, { kind: 'task' }> => c.kind === 'task');
+  const tasks = changes.filter((c): c is Extract<Change, { kind: 'task' }> => c.kind === 'task');
   for (const list of new Set(tasks.map((c) => c.list))) {
     const here = tasks.filter((c) => c.list === list);
     const what = t('run.tasks', { count: here.length });
-    ask.push(line(t('run.askTasks', { what, list: basename(list).replace(/\.tasks\.json$/i, '') }), here.map((c) => c.task.title)));
+    const name = basename(list).replace(/\.tasks\.json$/i, '');
+    ask.push(line(t('run.askTasks', { what, list: name }), here.map((c) => c.task.title)));
     done.push(what);
+    past.push(t('run.addedTo', { what, where: name }));
   }
   for (const [dir, count] of updates) {
     const what = countOf(collection(dir), dir, count);
     ask.push(line(t('run.askChange', { what })));
     done.push(t('run.changed', { what }));
+    past.push(t('run.changed', { what }));
   }
   for (const [dir, names] of removes) {
     const what = countOf(collection(dir), dir, names.length);
     ask.push(line(t('run.askRemove', { what }), names));
     done.push(t('run.removed', { what }));
+    past.push(t('run.removed', { what }));
   }
-  // The record's own fields last: from what they were to what they will be.
+  // The record's own fields: from what they were to what they will be.
   const home = collection(plan.dir);
   const record = home?.records.find((r) => r.id === plan.id);
-  const own = plan.changes.find((c): c is Extract<Change, { kind: 'update' }> => c.kind === 'update' && c.dir === plan.dir && c.id === plan.id);
+  const own = changes.find((c): c is Extract<Change, { kind: 'update' }> => c.kind === 'update' && c.dir === plan.dir && c.id === plan.id);
   for (const [key, value] of Object.entries(own?.values ?? {})) {
     const field = home?.schema.fields.find((f) => f.key === key);
     const label = field?.label ?? key;
     const before = valueText(record?.values[key] ?? null);
     const after = valueText(value);
-    ask.push(line(before ? t('run.askFromTo', { field: label, from: before, to: after || t('run.nothing') }) : t('run.askSet', { field: label, to: after || t('run.nothing') })));
-    done.push(t('run.fieldNow', { field: label, to: after || t('run.nothing') }));
+    fields.ask.push(line(before ? t('run.askFromTo', { field: label, from: before, to: after || t('run.nothing') }) : t('run.askSet', { field: label, to: after || t('run.nothing') })));
+    fields.done.push(t('run.fieldNow', { field: label, to: after || t('run.nothing') }));
   }
+  return { ask, done, past, fields };
+}
+
+/** The onSaves that made some of the changes, in the order they first did. */
+const bysOf = (changes: Change[]) => [...new Set(changes.flatMap((c) => (c.by ? [c.by] : [])))];
+
+/**
+ * What a plan does, in the words of the question before it (`ask`, one line each: what it adds
+ * with their names, the record's fields from and to, then what each onSave of the records it
+ * changes does, under its name) and of the toast after it (`done`).
+ */
+export function planWords(plan: Plan, space: Words): { ask: AskLine[]; done: string } {
+  const main = phrases(plan.changes.filter((c) => !c.by), plan, space);
+  const ask = [...main.ask, ...main.fields.ask];
+  const done = [...main.done];
+  for (const by of bysOf(plan.changes)) {
+    const group = phrases(plan.changes.filter((c) => c.by === by), plan, space);
+    if (group.ask.length > 0) ask.push({ text: t('run.askThen', { name: by }), head: true }, ...group.ask);
+    done.push(...group.done);
+  }
+  done.push(...main.fields.done);
   return { ask, done: done.length > 0 ? `${plan.action}: ${done.join(', ')}` : t('run.nothingDone', { name: plan.action }) };
+}
+
+/** What a record's onSaves did elsewhere, for the toast after it is saved: "Kickoff card: 1 card added to Projects board"; empty when nothing. */
+export function savedWords(after: Plan, space: Words): string {
+  return bysOf(after.changes)
+    .map((by) => {
+      const { past } = phrases(after.changes.filter((c) => c.by === by), after, space);
+      return past.length > 0 ? `${by}: ${past.join(', ')}` : '';
+    })
+    .filter(Boolean)
+    .join(' · ');
 }
 
 // ---------- writing a plan ----------

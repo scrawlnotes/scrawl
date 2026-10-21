@@ -147,7 +147,7 @@ import {
 import { type Notice, Phone } from './Phone';
 import { PhoneCreate } from './PhoneCreate';
 import { PeopleSheet } from './PhoneSpaces';
-import { type ButtonRun, type FileRow, Session, type SpaceView } from './session';
+import { type ButtonRun, type FileRow, type RuleEvent, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { StartPage } from './StartPage';
 import { type SpaceSyncView, SyncService } from './sync';
@@ -491,11 +491,24 @@ export function App() {
       sticky: true,
       toast: true,
     });
+  // What runs on save of the records a button changed and stopped is left out, the rest written: both said, until closed.
   const runButton = (run: ButtonRun) =>
     void session.runButton(run).then(
-      (undo) => setShown({ text: run.done, undo: () => void undo(), toast: true }),
+      (undo) => {
+        const stop = run.plan.stops?.at(-1);
+        if (!stop) return setShown({ text: run.done, undo: () => void undo(), toast: true });
+        setShown({ title: t('run.stopped', { name: stop.name }), text: t('run.leftOut', { line: stop.line, message: stop.message, done: run.done }), undo: () => void undo(), sticky: true, toast: true });
+      },
       (error: unknown) => buttonStopped(run.plan.action, new RuleStop(error instanceof Error ? error.message : t('error.record'), 0)),
     );
+  // What a record's rules did elsewhere as it was saved, with Undo; where one stopped, until closed.
+  const saveRuled = (event: RuleEvent) => {
+    const undo = event.undo && (() => void event.undo!());
+    const stop = event.stops.at(-1);
+    if (!stop) return setShown({ text: event.done, ...(undo && { undo }), toast: true });
+    const said = event.stops.length > 1 ? t('run.savesStopped', { count: event.stops.length }) : t('run.saveStoppedAt', { line: stop.line, message: stop.message, record: stop.record });
+    setShown({ title: t('run.stopped', { name: stop.name }), text: event.done ? `${said} ${event.done}.` : said, ...(undo && { undo }), sticky: true, toast: true });
+  };
   const pressButton = (dir: string, id: string, name: string) => {
     const run = session.planButton(dir, id, name);
     if (run instanceof RuleStop) return buttonStopped(name, run);
@@ -1163,12 +1176,14 @@ export function App() {
     // A link tapped in a note, on a phone.
     session.linkTap = setLinkTap;
     session.say = (text) => setShown({ text });
+    session.ruled = (event) => saveRuled(event);
     // What is made or moved into a folder is shown there: the folder opens in the sidebar.
     session.placed = (folder, item) => setRevealFolder({ path: folder, item, at: Date.now() });
     return () => {
       session.showMenu = null;
       session.linkTap = null;
       session.say = null;
+      session.ruled = null;
       session.placed = null;
     };
   }, [session]);
@@ -1489,6 +1504,8 @@ export function App() {
     changeSchema: (dir, change) => session.changeSchema(dir, change),
     saveFields: (dir, schema, renames, rules) => session.saveFields(dir, schema, renames, rules),
     me: () => me?.name || undefined,
+    lastStop: (dir) => session.lastStop(dir),
+    clearStop: (dir) => session.clearStop(dir),
     createLinked: (dir, target) => session.createLinked(dir, target),
     boards: () => boards,
     tasks: () => tasks,

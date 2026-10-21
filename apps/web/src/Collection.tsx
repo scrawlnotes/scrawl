@@ -12,6 +12,11 @@ import {
   computerFor,
   actionsOf,
   actionState,
+  planSave,
+  recordWith,
+  type RuleSpaceNow,
+  savesOf,
+  spaceOf,
   collectionName,
   columnSums,
   currencyOf,
@@ -104,6 +109,7 @@ import { isPhone, onPage } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { AttachButton } from './Description';
 import { Icon } from './Icon';
+import type { StopNote } from './session';
 import { collectionLabel } from './items';
 import { useNarrow } from './narrow';
 import { FilterSheet, PhoneCollectionList, ViewSheet } from './PhoneCollection';
@@ -156,6 +162,11 @@ export interface CollectionActions {
   saveFields: (dir: string, schema: Schema, renames: ChoiceRenames, rules?: string) => Promise<string | null>;
   /** Who uses the app: what a default of me() gives. */
   me?: () => string | undefined;
+  /** Where the collection's rules last stopped on this device; null when they have not since they were saved. */
+  lastStop?: (dir: string) => StopNote | null;
+  /** Forgets where they last stopped. */
+  clearStop?: (dir: string) => void;
+
   /** Makes the collection a block of `dir`'s record screen looks for, which is not there, linked to `dir`. Returns a message when it cannot. */
   createLinked: (dir: string, target: string) => Promise<string | null>;
   /** Every board, by path: the cards that link to a record. */
@@ -1277,6 +1288,40 @@ export function recordLayout(schema: Schema, dir: string, isNew: boolean, action
   return { columns: [{ ...first, sections: [{ ...section, items: [{ block: 'actions' }, ...(section?.items ?? [])] }, ...others] }, ...rest] };
 }
 
+/**
+ * What a record's collection runs as it is saved, worked out on what the form holds, writing
+ * nothing: the fields it would set to something else, each with the onSave that would. Empty
+ * when it runs nothing on save.
+ */
+export function savePreview(
+  collection: Collection,
+  record: Record | null,
+  values: Record['values'],
+  actions: Pick<CollectionActions, 'collections' | 'boards' | 'tasks' | 'me'>,
+  today: string,
+): { key: string; by: string; value: FieldValue }[] {
+  if (savesOf(collection.rules).length === 0) return [];
+  const space = spaceOf(collection.dir);
+  const here = (path: string) => spaceOf(path) === space;
+  const me = actions.me?.();
+  const world: RuleSpaceNow = {
+    collections: actions.collections().filter((c) => here(c.dir)),
+    boards: Object.fromEntries(Object.entries(actions.boards()).filter(([path]) => here(path))),
+    lists: Object.fromEntries(Object.entries(actions.tasks()).filter(([path]) => here(path))),
+    today,
+    ...(me && { me }),
+  };
+  try {
+    const run = planSave(collection.dir, record ? { ...record, values } : recordWith(collection, '', values), record, world);
+    return Object.entries(run.set).flatMap(([key, by]) => {
+      const value = run.values[key] ?? null;
+      return valueText(value) === valueText(values[key] ?? null) ? [] : [{ key, by, value }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** A record opened over another: one of a collection that links to it, or a new one already linked; or a card that links to it. */
 type Over = { dir: string; id: string } | { dir: string; values: Record['values'] } | { board: string; card: string };
 
@@ -1388,11 +1433,15 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const firstKey = isNew ? layout.columns.flatMap((c) => c.sections.flatMap((s) => s.items)).find((i): i is { field: string } => 'field' in i)?.field : undefined;
   // What is worked out (formulas, lookups, rollups) from what the form holds now; the rollups are the record's, from what links to it.
   const computer = useMemo(() => computerFor(collection, actions.collections(), actions.boards(), today), [collection, actions, today]);
-  const computed = computer.draft(dir, record, draft.values);
+  // What the collection's rules will write in its own fields as it is saved, shown before Save: what
+  // is worked out and checked is of the record as it will be.
+  const willWrite = useMemo(() => savePreview(collection, record, draft.values, actions, today), [collection, record, draft.values, actions, today]);
+  const toBe = willWrite.length > 0 ? { ...draft.values, ...Object.fromEntries(willWrite.map((w) => [w.key, w.value])) } : draft.values;
+  const computed = computer.draft(dir, record, toBe);
   const shownAs = computer.shown(dir);
   // What does not fit the schema, as the form holds it now: a record's, not a new one's, which is checked on Create;
   // and the checks of the collection's rules it fails, a new one's too, at their fields or above the form.
-  const problems = [...(record ? recordProblems({ values: draft.values, extra: record.extra }, schema) : []), ...computer.checks(dir, record, draft.values)];
+  const problems = [...(record ? recordProblems({ values: toBe, extra: record.extra }, schema) : []), ...computer.checks(dir, record, toBe)];
   const recordWide = problems.filter((p) => !p.field || !fields.has(p.field));
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
@@ -1411,23 +1460,29 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
         </div>
       );
     }
+    const will = willWrite.find((w) => w.key === field.key);
     return (
       <div key={`${key}-${index}`} className={problem ? 'prop bad' : 'prop'}>
         <label className="pl" htmlFor={`field-${field.key}`}>
           {field.label}
           {(field.required || field.type === 'name') && <i title={t('collection.required')}>*</i>}
         </label>
-        <div className="pe">
+        <div className={will ? 'pe will' : 'pe'}>
           <FieldInput
             field={field}
-            value={draft.values[field.key] ?? null}
+            value={will ? will.value : (draft.values[field.key] ?? null)}
             autoFocus={field.key === firstKey}
             ctx={ctx}
             currency={currencyOf(field.format, draft.values)}
             onChange={(next) => setValue(field.key, next)}
             onEnter={field.type === 'name' ? () => void save() : undefined}
           />
-          {problem && (record || problem.kind === 'check') && <p className="pbad">{problemText(problem, field, { values: draft.values, extra: record?.extra ?? {} })}</p>}
+          {will && (
+            <p className="pwill">
+              <b>{will.by}</b> {t('run.writesThis')}
+            </p>
+          )}
+          {problem && (record || problem.kind === 'check') && <p className="pbad">{problemText(problem, field, { values: toBe, extra: record?.extra ?? {} })}</p>}
         </div>
       </div>
     );
@@ -1932,7 +1987,24 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
 
   const openRecord = (id: string) => setOpen({ kind: 'record', id });
   // A value typed in a cell is written to its record's file; what goes wrong is said.
-  const writeCell = (record: Record, field: Field, value: FieldValue) => void actions.updateRecord(dir, record.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
+  // A cell the collection's rules wrote as the record was saved lights for a moment.
+  const wrote = useRef<{ record: Record; values: Record['values'] } | null>(null);
+  const [lit, setLit] = useState<{ id: string; keys: string[] } | null>(null);
+  useEffect(() => {
+    const was = wrote.current;
+    const now = was && collection.records.find((r) => r.id === was.record.id);
+    if (!was || !now || now === was.record) return;
+    wrote.current = null;
+    const keys = schema.fields.filter((f) => !isComputed(f.type) && valueText(now.values[f.key] ?? null) !== valueText(was.values[f.key] ?? null)).map((f) => f.key);
+    if (keys.length === 0) return;
+    setLit({ id: now.id, keys });
+    const timer = window.setTimeout(() => setLit(null), 1600);
+    return () => window.clearTimeout(timer);
+  }, [collection.records, schema]);
+  const writeCell = (record: Record, field: Field, value: FieldValue) => {
+    if (savesOf(collection.rules).length > 0) wrote.current = { record, values: { ...record.values, [field.key]: value } };
+    void actions.updateRecord(dir, record.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
+  };
   const adding = useAdding({ computer, dir, schema, given: () => ({}), me: actions.me?.(), add: (values) => actions.addRecord(dir, { values }) });
   const sortBy = (key: string) => change({ sort: { key, dir: state.sort.key === key && state.sort.dir === 'asc' ? 'desc' : 'asc' } });
   const isNumeric = (field: Field) => asShown(field).type === 'number';
@@ -1994,7 +2066,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
             key={field.key}
             role="cell"
             data-cell={c['data-cell']}
-            className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', field.type === 'name' && 'opens'].filter(Boolean).join(' ') || undefined}
+            className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', field.type === 'name' && 'opens', lit?.id === record.id && lit.keys.includes(field.key) && 'lit'].filter(Boolean).join(' ') || undefined}
             onClick={c.onClick}
             onDoubleClick={c.onDoubleClick}
           >

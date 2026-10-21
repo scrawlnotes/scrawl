@@ -18,6 +18,8 @@ export interface RulesProblem {
 }
 
 const setProblems = StateEffect.define<RulesProblem[]>();
+/** The line a rule last stopped on, from 1; null for none. */
+const setStop = StateEffect.define<number | null>();
 
 class Said extends WidgetType {
   constructor(readonly message: string) {
@@ -67,6 +69,21 @@ const problemsField = StateField.define<{ problems: RulesProblem[]; deco: Decora
   provide: (field) => EditorView.decorations.from(field, (value) => value.deco),
 });
 
+/** The line a rule last stopped on, marked; it stays on its line as the text above it changes. */
+const stopField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (!effect.is(setStop)) continue;
+      const line = effect.value;
+      if (line === null || line < 1 || line > tr.state.doc.lines) return Decoration.none;
+      return Decoration.set([Decoration.line({ class: 'cm-rules-stop' }).range(tr.state.doc.line(line).from)]);
+    }
+    return tr.docChanged ? value.map(tr.changes) : value;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
 const rulesTheme = EditorView.theme({
   '&': { backgroundColor: 'var(--sl-code)' },
   '.cm-scroller': { fontFamily: 'var(--sl-font-mono)', fontSize: '12.5px', lineHeight: '1.75', fontVariantLigatures: 'none' },
@@ -76,6 +93,7 @@ const rulesTheme = EditorView.theme({
   '.cm-lineNumbers .cm-gutterElement': { minWidth: '38px', padding: '0 12px 0 8px', fontSize: '12.5px' },
   '.cm-rules-bad': { textDecoration: 'underline wavy var(--sl-accent)', textDecorationSkipInk: 'none', textUnderlineOffset: '3px' },
   '.cm-rules-said': { padding: '0 16px 2px 2px', color: 'var(--sl-accent)', fontFamily: 'var(--sl-font-ui, inherit)', fontSize: '11.5px', lineHeight: '1.6', whiteSpace: 'normal' },
+  '.cm-rules-stop': { backgroundColor: 'color-mix(in srgb, var(--sl-accent) 12%, transparent)' },
   '.cm-placeholder': { color: 'var(--sl-faint)' },
 });
 
@@ -83,6 +101,8 @@ export interface RulesEditor {
   view: EditorView;
   /** Shows what is wrong with the text as it is now; none clears it. */
   setProblems(problems: RulesProblem[]): void;
+  /** Marks the line a rule last stopped on; null takes the mark away. */
+  setStop(line: number | null): void;
   destroy(): void;
 }
 
@@ -105,6 +125,7 @@ export function createRulesEditor(options: { parent: HTMLElement; doc: string; h
         language.of([]),
         options.hint ? placeholder(options.hint) : [],
         problemsField,
+        stopField,
         scrawlTheme,
         rulesTheme,
         keymap.of([...searchKeymap, ...historyKeymap, ...defaultKeymap, indentWithTab]),
@@ -123,6 +144,7 @@ export function createRulesEditor(options: { parent: HTMLElement; doc: string; h
   return {
     view,
     setProblems: (problems) => view.dispatch({ effects: setProblems.of(problems) }),
+    setStop: (line) => view.dispatch({ effects: setStop.of(line) }),
     destroy: () => {
       gone = true;
       view.destroy();

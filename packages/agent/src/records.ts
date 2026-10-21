@@ -17,10 +17,16 @@ import {
   loadBoard,
   loadCollection,
   loadList,
+  newRecordId,
   planAction,
+  planSave,
   planWords,
+  recordWith,
   type RuleSpaceNow,
   RuleStop,
+  savedWords,
+  savesOf,
+  type SaveRun,
   type Task,
   writePlan,
   matchesConditions,
@@ -240,6 +246,10 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
   const computer = new Computer([collection, ...around.collections], around.boards, today);
   let record: CollectionRecord;
   let created = false;
+  // What the collection runs as a record is saved runs before it is written, as in the app.
+  const me = (await agent.person())?.name || undefined;
+  const saving = savesOf(collection.rules).length > 0;
+  let ran: SaveRun | null = null;
   const twins = args.id || args.another ? null : twinsOf(collection, values);
   if (twins) {
     const shown = (r: CollectionRecord) => ({ id: r.id, name: r.name, ...(r.code && { code: r.code }), path: r.path });
@@ -269,31 +279,43 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     const subtasks = args.subtasks ? await applySubtasks(space, found.subtasks ?? [], args.subtasks, nowOf(agent)) : undefined;
     // A button pressed on a record as it is writes nothing of the record's own first.
     const given = Object.keys(values).length > 0 || Object.keys(extra).length > 0 || args.body !== undefined || !!subtasks;
-    record = given || !args.action ? await updateRecord(space.fs, schema, { ...found, extra: { ...kept, ...extra } }, { values, ...(args.body !== undefined && { body: args.body }), ...(subtasks && { subtasks }) }) : found;
+    if (saving && (given || !args.action)) ran = planSave(element.path, { ...found, values: { ...found.values, ...values } }, found, await ruleSpaceNow(space.fs, today, me));
+    record = given || !args.action ? await updateRecord(space.fs, schema, { ...found, extra: { ...kept, ...extra } }, { values: ran ? ran.values : values, ...(args.body !== undefined && { body: args.body }), ...(subtasks && { subtasks }) }) : found;
   } else {
     const holder = codeHolder(undefined);
     if (holder) throw new Refusal(`${holder.name || holder.id} already has the code ${holder.code}; a code belongs to one record`, { record: { id: holder.id, name: holder.name, code: holder.code } });
     const subtasks = args.subtasks ? await applySubtasks(space, [], args.subtasks, nowOf(agent)) : undefined;
     // The fields not given take their defaults, a later one reading what is given; what is given, even empty, stays.
-    const made = computer.defaults(element.path, Object.fromEntries(Object.entries(values).filter(([, v]) => !isEmpty(v))), (await agent.person())?.name || undefined);
+    const made = computer.defaults(element.path, Object.fromEntries(Object.entries(values).filter(([, v]) => !isEmpty(v))), me);
     for (const key of Object.keys(values)) made[key] = values[key]!;
     for (const key of Object.keys(extra)) delete made[key];
-    record = await addRecord(space.fs, collection, { values: made, ...(args.body !== undefined && { body: args.body }), ...(subtasks?.length && { subtasks }) });
+    const id = newRecordId();
+    if (saving) ran = planSave(element.path, recordWith(collection, id, made), null, await ruleSpaceNow(space.fs, today, me));
+    record = await addRecord(space.fs, collection, { values: ran ? ran.values : made, ...(args.body !== undefined && { body: args.body }), ...(subtasks?.length && { subtasks }) }, id);
     if (Object.keys(extra).length > 0) record = await updateRecord(space.fs, schema, { ...record, extra }, {});
     created = true;
   }
+  // What the rules did elsewhere is written right after the record, the space read again for it.
+  let onSave: { did?: string; stopped?: string[] } | undefined;
+  if (ran && (ran.after.changes.length > 0 || ran.stops.length > 0)) {
+    const world = await ruleSpaceNow(space.fs, today, me);
+    if (ran.after.changes.length > 0) await writePlan(space.fs, ran.after, world, () => nowOf(agent), me);
+    const did = savedWords(ran.after, world);
+    const stopped = ran.stops.map((s) => `${s.name} stopped on line ${s.line} of the rules: ${s.message} The record was saved as given; what it does was left out.`);
+    onSave = { ...(did && { did }), ...(stopped.length > 0 && { stopped }) };
+  }
   if (args.action) {
     // The button runs on the record as written, as in the app; what it does is written at once.
-    const me = (await agent.person())?.name || undefined;
     const world = await ruleSpaceNow(space.fs, today, me);
     const home = world.collections.find((c) => c.dir === element.path);
-    let ran: { action: string; done: string; changes: string[] };
+    let pressed: { action: string; done: string; changes: string[]; stopped?: string[] };
     try {
       if (!home?.rules) throw new RuleStop(`There is no button called ${args.action} in the rules of ${element.path}.`, 0);
       const plan = planAction(home.rules, args.action, element.path, record.id, world);
       const words = planWords(plan, world);
       await writePlan(space.fs, plan, world, () => nowOf(agent), me);
-      ran = { action: plan.action, done: words.done, changes: words.ask.map((line) => (line.names ? `${line.text}: ${line.names}` : line.text)) };
+      const stopped = (plan.stops ?? []).map((s) => `${s.name} stopped on line ${s.line} of the rules: ${s.message} What it does was left out.`);
+      pressed = { action: plan.action, done: words.done, changes: words.ask.map((line) => (line.head ? line.text.toUpperCase() : line.names ? `${line.text}: ${line.names}` : line.text)), ...(stopped.length > 0 && { stopped }) };
     } catch (error) {
       if (!(error instanceof RuleStop)) throw error;
       const saved = created ? ` The record was added (${record.id}).` : '';
@@ -303,9 +325,9 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     const written = now.records.find((r) => r.id === record.id) ?? record;
     const { collections } = await surroundings(space.fs, element.path);
     const after = new Computer([now, ...collections], around.boards, today);
-    return { data: { space: space.id, collection: element.path, created, action: ran, record: recordsOut(after, now, [written], today)[0]! } };
+    return { data: { space: space.id, collection: element.path, created, onSave, action: pressed, record: recordsOut(after, now, [written], today)[0]! } };
   }
   // Worked out again with the record as written, for what links to it and what it reads.
   const after = new Computer([{ ...collection, records: [...collection.records.filter((r) => r.id !== record.id), record] }, ...around.collections], around.boards, today);
-  return { data: { space: space.id, collection: element.path, created, record: recordsOut(after, collection, [record], today)[0]! } };
+  return { data: { space: space.id, collection: element.path, created, onSave, record: recordsOut(after, collection, [record], today)[0]! } };
 }

@@ -606,6 +606,41 @@ describe('tried by hand', () => {
     expect((await refusal(saveRecordTool(agent, { collection: 'Projects', id: 'Antalya Hotel', action: 'Close' }))).message).toContain('no button called Close');
   });
 
+  it('runs what a collection runs as a record is saved, saying what it did elsewhere and where it stopped', async () => {
+    const { agent, fs } = await sample();
+    const projects = await createCollection(fs, 'Ops', 'Projects', 'blank');
+    const board = (await createTool(agent, { folder: 'Ops', kind: 'board', name: 'Projects board' })).data.path;
+    const fields = [
+      { key: 'name', label: 'Name', type: 'name' },
+      { key: 'status', label: 'Status', type: 'select', options: ['Offer', 'Active'] },
+      { key: 'started', label: 'Started', type: 'date' },
+    ];
+    await writeTool(agent, { path: `${projects}/_collection.json`, text: JSON.stringify({ version: 2, template: 'blank', singular: 'project', fields }) });
+    await writeTool(agent, {
+      path: `${projects}/_rules.js`,
+      text: [
+        'onSave("Kickoff card", () => {',
+        '  if (status == "Active" && old.status != "Active") card("Projects board", { title: `${name} kickoff` })',
+        '})',
+        'onSave("Started", () => {',
+        '  if (status == "Active" && empty(started)) started = today()',
+        '})',
+        'onSave("Broken", () => {',
+        '  if (status == "Active") update(find("Projects", { name: "Nobody" }).find((p) => true), { status: "Offer" })',
+        '})',
+      ].join('\n'),
+    });
+    const made = await saveRecordTool(agent, { collection: 'Projects', values: { name: 'Antalya Hotel', status: 'Active' } });
+    expect(made.data.record.values.started).toBe('2026-10-15');
+    expect(made.data.onSave?.did).toBe('Kickoff card: 1 card added to Projects board');
+    expect(made.data.onSave?.stopped).toEqual([expect.stringMatching(/^Broken stopped on line 8 of the rules: .*saved as given/)]);
+    expect((await loadBoard(fs, board)).cards.map((c) => c.title)).toEqual(['Antalya Hotel kickoff']);
+    // Saved again while Active: old says it was, so no second card.
+    const again = await saveRecordTool(agent, { collection: 'Projects', id: 'Antalya Hotel', values: { status: 'Active' } });
+    expect(again.data.onSave?.did).toBeUndefined();
+    expect((await loadBoard(fs, board)).cards).toHaveLength(1);
+  });
+
   it('moves a task to a section, under another task, to the top, or to another list, and refuses where it cannot go', async () => {
     const { agent, fs } = await sample();
     const launch = await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' });

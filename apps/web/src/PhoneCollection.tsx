@@ -58,7 +58,7 @@ import {
 import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
-import { type CollectionActions, type Draft, differs, draftOf, excerpt, NotesBlock, recordLayout, singularOf, type ValueContext } from './Collection';
+import { type CollectionActions, type Draft, differs, draftOf, excerpt, NotesBlock, recordLayout, savePreview, singularOf, type ValueContext } from './Collection';
 import { Icon, type IconName } from './Icon';
 import { Subtasks } from './Subtasks';
 import { DateSheet } from './PhoneTasks';
@@ -654,11 +654,18 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   const hasSubtasks = items.some((item) => 'block' in item && item.block === 'subtasks');
   // What is worked out from what the page holds now; the rollups are the record's, from what links to it.
   const computer = computerFor(collection, actions.collections(), actions.boards(), today);
-  const rollups = computer.draft(dir, record, draft.values);
+  // What the collection's rules will write in its own fields as it is saved: shown in their rows, said under them;
+  // what is worked out and checked is of the record as it will be.
+  const willWrite = savePreview(collection, record, draft.values, actions, today);
+  const willValues = willWrite.length > 0 ? { ...draft.values, ...Object.fromEntries(willWrite.map((w) => [w.key, w.value])) } : draft.values;
+  const rollups = computer.draft(dir, record, willValues);
   // What does not fit the schema, and the checks of the collection's rules the record fails as the page holds it.
-  const found = [...recordProblems({ values: draft.values, extra: record.extra }, schema), ...computer.checks(dir, record, draft.values)];
+  const found = [...recordProblems({ values: willValues, extra: record.extra }, schema), ...computer.checks(dir, record, willValues)];
   const problems = new Set(found.map((p) => p.field));
-  const problemLines = found.map((p) => problemText(p, schema.fields.find((f) => f.key === p.field), { values: draft.values, extra: record.extra }));
+  const problemLines = found.map((p) => problemText(p, schema.fields.find((f) => f.key === p.field), { values: willValues, extra: record.extra }));
+  const willLines = [...new Set(willWrite.map((w) => w.by))].map((by) =>
+    t('run.willWrite', { name: by, fields: willWrite.filter((w) => w.by === by).map((w) => schema.fields.find((f) => f.key === w.key)?.label ?? w.key).join(t('list.separator')) }),
+  );
 
   // A site, a mail and a phone each give a button under the name.
   const quick = (['url', 'phone', 'email'] as const).flatMap((type) => {
@@ -776,7 +783,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
                 <FieldRows
                   schema={schema}
                   fields={rows}
-                  values={draft.values}
+                  values={willValues}
                   rollups={rollups}
                   original={original.values}
                   problems={problems}
@@ -786,6 +793,11 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
                   onPick={setPicking}
                 />
               )}
+              {willLines.map((line) => (
+                <p key={line} className="mb-hint">
+                  {line}
+                </p>
+              ))}
               {problemLines.length > 0 && <p className="mb-hint err">{problemLines.join(' ')}</p>}
             </div>
             <div className="mb-cap mb-cpad">{t('collection.body')}</div>

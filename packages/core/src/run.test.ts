@@ -4,7 +4,7 @@ import { type Collection, type Field, loadCollection, type Record, saveSchema, t
 import { Computer } from './compute';
 import { MemoryFs } from './fs';
 import { rulesProblems } from './rules';
-import { actionsOf, actionState, planAction, planWords, RuleStop, writePlan } from './run';
+import { actionsOf, actionState, planAction, planSave, planWords, RuleStop, savedWords, writePlan } from './run';
 import { loadList, saveList } from './tasks';
 
 const today = '2026-10-21';
@@ -180,5 +180,80 @@ describe('buttons', () => {
     expect(back.subtasks ?? []).toEqual([]);
     expect((await loadList(fs, 'Inbox.tasks.json')).tasks).toEqual([]);
     expect((await loadBoard(fs, 'Atlas/Projects board.board.json')).cards).toHaveLength(2);
+  });
+});
+
+const SAVES = `
+onSave("Kickoff card", () => {
+  if (status == "Active" && old.status != "Active") card("Projects board", { title: \`\${name} kickoff\`, column: "Acceptance" })
+})
+
+onSave("Started", () => {
+  if (status == "Active" && old.status != "Active") start = today()
+})
+
+onSave("Broken", () => {
+  if (status == "Done") update(linked("Budget lines").find((l) => l.planned > 1000000000), { planned: 1 })
+})
+`;
+
+describe('what runs on save', () => {
+  const saving = () => {
+    const s = space();
+    s.collections[0]!.rules = RULES + SAVES;
+    return s;
+  };
+
+  it('is checked where it is written, old a record of its own collection', () => {
+    const s = saving();
+    const scope = { fields: s.collections[0]!.schema.fields, dir: 'Atlas/Projects' };
+    const where = { collections: s.collections.map((c) => ({ dir: c.dir, fields: c.schema.fields })), boards: [], lists: [] };
+    expect(rulesProblems(SAVES, scope).map((p) => p.message)).toEqual([]);
+    const wrong = (body: string) => rulesProblems(`onSave("A", () => {\n${body}\n})`, scope, where)[0]?.message;
+    expect(wrong('if (old.statuss == "x") status = "Done"')).toMatch(/statuss/);
+    expect(wrong('old = 1')).toMatch(/const/);
+    expect(wrong('add("Lines", { name: "x" })')).toMatch(/no collection called Lines/);
+    expect(rulesProblems('onSave("A", () => {})\nonSave("a", () => {})', scope)[0]!.message).toMatch(/already/);
+  });
+
+  it('sets the record’s fields with it, does the rest after it, each onSave seeing the ones before', () => {
+    const s = saving();
+    const p1 = s.collections[0]!.records[0]!;
+    const run = planSave('Atlas/Projects', { ...p1, values: { ...p1.values, status: 'Active' } }, p1, s);
+    expect(run.values).toMatchObject({ status: 'Active', start: today });
+    expect(run.set).toEqual({ start: 'Started' });
+    expect(run.after.changes).toMatchObject([{ kind: 'card', board: 'Atlas/Projects board.board.json', by: 'Kickoff card', card: { title: 'Antalya Hotel kickoff', column: 'acc' } }]);
+    expect(run.stops).toEqual([]);
+    expect(savedWords(run.after, s)).toBe('Kickoff card: 1 card added to Projects board');
+    // Saved again while Active: old says it was, so nothing runs.
+    const again = planSave('Atlas/Projects', { ...p1, values: { ...p1.values, status: 'Active' } }, { ...p1, values: { ...p1.values, status: 'Active' } }, s);
+    expect(again.after.changes).toEqual([]);
+    expect(again.set).toEqual({});
+    // A new record's old has nothing in it.
+    const made = planSave('Atlas/Projects', record('Atlas/Projects', 'p9', 'Bursa Mall', { status: 'Active' }), null, s);
+    expect(made.after.changes.map((c) => c.kind)).toEqual(['card']);
+    expect(made.values.start).toBe(today);
+  });
+
+  it('leaves out what stops, keeping the record as given and what the others did', () => {
+    const s = saving();
+    const p1 = s.collections[0]!.records[0]!;
+    const run = planSave('Atlas/Projects', { ...p1, values: { ...p1.values, status: 'Done' } }, p1, s);
+    expect(run.values.status).toBe('Done');
+    expect(run.stops).toMatchObject([{ name: 'Broken', id: 'p1', line: 34 }]);
+    expect(run.stops[0]!.message).toMatch(/takes a record/);
+    expect(run.after.changes).toEqual([]);
+  });
+
+  it('runs on the records a button changes, and its question says so under the onSave’s name', () => {
+    const s = saving();
+    const plan = planAction(RULES + SAVES, 'Start project', 'Atlas/Projects', 'p1', s);
+    const card = plan.changes.find((c) => c.kind === 'card');
+    expect(card).toMatchObject({ by: 'Kickoff card', card: { title: 'Antalya Hotel kickoff' } });
+    // What it set on the record goes with the button's own change of it.
+    expect(plan.changes.find((c) => c.kind === 'update' && c.id === 'p1')).toMatchObject({ values: { status: 'Active', start: today } });
+    const words = planWords(plan, s);
+    expect(words.ask.slice(-2)).toEqual([{ text: 'Then Kickoff card, as it is saved', head: true }, { text: 'add 1 card to Projects board', names: 'Antalya Hotel kickoff' }]);
+    expect(words.done).toBe('Start project: 3 budget lines, 2 subtasks, 1 task, 1 card, Status Active, Start 2026-10-21');
   });
 });

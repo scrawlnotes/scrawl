@@ -12655,6 +12655,16 @@ button.st-li:hover,
   font-size: inherit;
 }
 
+/* What runs on save of the records the button changes: its name over its lines. */
+.ask-lines li.head {
+  margin: 4px 0 0 -18px;
+  list-style: none;
+  color: var(--sl-faint);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 /* The Buttons block in the Fields window: where its buttons are written, a click away. */
 .fe .fe-link {
   color: inherit;
@@ -12671,4 +12681,79 @@ button.st-li:hover,
 .fe .fi-note code {
   font-family: var(--sl-font-mono);
   font-size: 11px;
+}
+
+/* The Rules tab: where a rule last stopped, over the code, its line marked in it. */
+.rules-stop {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--sl-accent) 55%, var(--sl-line));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--sl-accent) 8%, var(--sl-bg));
+  color: var(--sl-fg);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rules-stop b {
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+.rules-stop small {
+  display: block;
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.rules-stop .x {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.rules-stop .x:hover {
+  color: var(--sl-fg);
+}
+
+/* A box the collection's rules will write as the record is saved: dashed, the rule named under it. */
+.prop .pe.will input:not([type='checkbox']),
+.prop .pe.will .chips,
+.prop .pe.will .st-field {
+  border-style: dashed;
+  color: var(--sl-dim);
+}
+
+.pwill {
+  margin: 0;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.pwill b {
+  color: var(--sl-dim);
+  font-weight: 500;
+}
+
+/* A cell the collection's rules wrote as its record was saved, lit for a moment. */
+.ctable .crow > .lit {
+  animation: rule-lit 1.6s ease-out;
+}
+
+@keyframes rule-lit {
+  0%,
+  35% {
+    background: color-mix(in srgb, var(--sl-accent) 24%, var(--sl-bg));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sl-accent) 55%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
 }
