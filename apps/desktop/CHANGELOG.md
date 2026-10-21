@@ -2,6 +2,16 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.11
+
+Apps set up from ready templates, links to what is in the space, and a tab menu like VS Code's.
+
+- New app, in Create and in a folder's + menu as New app here, sets up an app from ten ready templates: CRM, Sales and invoicing, Customer support, Project management, Budget and spending, Stock and purchasing, Product development, Recruiting, Assets and maintenance, and Content calendar. Pick the ones you need and answer a few questions, each ready with an answer: the app's folder gets its collections, boards and rules, linked to each other, and an About note that says what is in it and how it is used. Undo takes it back.
+- Add to app, first in an app folder's ··· menu, adds a template to an app. Only what is missing is added and nothing there is changed; where something there would keep it from working, it says what to change first.
+- A button can ask before it runs: a number, a text, a day, a choice, a record or a person, in a window that shows what it will do with the answers.
+- A note links to a note, a task list, a board, a collection or a folder in the space. Typing a name in the link box finds it, Ctrl+click opens it in the app, and moving or renaming it keeps the links to it right.
+- A tab's right-click menu is as VS Code's: Close, Close Others, Close to the Right and Close All; Reveal in File Explorer, or in Finder on a Mac; Rename, Move to…, History, Export… and Delete.
+
 ## 0.1.10
 
 A collection can be a small app: what is worked out from linked records, checks, default values, money, a table typed in as a sheet, buttons, and rules that run when a record is saved.
