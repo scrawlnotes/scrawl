@@ -1,6 +1,6 @@
 # Scrawl apps: hazır şablonlardan app kurmak (taslak)
 
-Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda (1c0a5f3), notlarda dosya linki kodda (7c8aac4). 3. dilim kodda (mockup 5818907).
+Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda (1c0a5f3), notlarda dosya linki kodda (7c8aac4). 3. dilim kodda (mockup 5818907, kod 0c60dce). 4. dilimin mockup'ı onaylı.
 
 ## 1. Amaç
 
@@ -79,6 +79,14 @@ Verilen kararlar (21 Ekim 2026):
 - Pencerenin yüksekliği sayfasına göre; Esc ve Back bir adım geri, ilk adımda Cancel. Üstteki adım adları tıklanmaz.
 - Telefonda geri düğmesi şablonun kısa adını söyler ("‹ Stock").
 - Depolar sorusunun etiketi "Your warehouses", açıklaması altında; Bütçe kartının metni mockup'taki gibi.
+
+22 Ekim 2026'da, 4. dilimin mockup'ıyla verilen kararlar (design/mockups.html, 14. aşama · 4. dilim):
+- App klasörünün ··· menüsünde en üstte Add to app…, yalnız `_app.json` olan klasörde. Space'in ve klasörün + menüsünde New app here (2.1'deki + menüsü; 3. dilimde eksik kalmıştı).
+- Pencerenin başlığı "Add to Spare parts"; adımları Templates, yeni şablonların soruları, Summary. Kurulu şablonlar soluk, "In the app" yazar, seçilmez; yeni şablonun kartı "Uses Products and Companies, in the app" der; başka şablona bağlı soru "Asked because Sales and invoicing is in the app" der (4.2).
+- Özet iki sütun: Set up (kurulacak parçalar, düğmeler, kendiliğinden olanlar) ve Added to what is there (her parçaya ne eklendiği: "8 fields, 2 blocks on its screen, 3 rules"; tanıtım notuna "a section at its end"), altında "Nothing is changed or taken away". Olduğu gibi bırakılan alan bilgi kutusunda söylenir. Düğmenin adı Add.
+- Eklenecek bir kural ya da formül var olan bir alanla çalışmayacaksa Add soluk kalır; kırmızı kutuda sade dille ne değişmesi gerektiği yazar ("Products has a Cost field that holds text; … Change Cost's type to Number in Products' Fields, then add the template again").
+- Eklenince yeni parçalar kenar çubuğunda belirir; toast "Stock and purchasing added to Spare parts: 5 collections set up, 5 added to" ve Undo.
+- Telefonda ··· bir action sheet, Add to app en üstte; pencere sheet.
 
 ## 2. Sihirbaz
 

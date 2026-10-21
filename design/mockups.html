@@ -2704,6 +2704,42 @@ p { margin: 0; max-width: 68ch; }
 .na-mopt.on::before { border: 6px solid var(--m-accent); }
 .na-mopt small { margin-left: auto; color: var(--m-faint); font-size: 13px; }
 .na-mbtn { display: block; margin: 6px 0 0; padding: 13px 0; border-radius: 12px; background: var(--m-accent); color: var(--m-bg); font-size: 16px; font-weight: 600; text-align: center; }
+/* Scrawl apps (stage 14), slice 4: Add to app, a template added to an app set up before. */
+.dir[data-dir="apps4"] { margin-top: 56px; }
+.dir[data-dir="apps4"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="apps4"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="apps4"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+/* The app folder's menus: ··· with Add to app first, + with New app here. */
+.aa-menu { position: absolute; z-index: 6; min-width: 210px; padding: 4px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .4); font-size: 12.5px; }
+.aa-menu span { display: flex; align-items: center; gap: 8px; padding: 5px 9px; border-radius: 5px; color: var(--m-fg); }
+.aa-menu span svg { width: 13px; height: 13px; color: var(--m-dim); }
+.aa-menu span.hot { background: var(--m-sel); }
+.aa-menu span small { margin-left: auto; color: var(--m-faint); font-size: 11.5px; }
+.aa-menu span.red { color: #f0706a; }
+.aa-menu span.red svg { color: #f0706a; }
+.aa-menu i { display: block; height: 1px; margin: 4px 6px; background: var(--m-line); }
+/* A template the app has: faint, with In the app where the tick would be. */
+.na-card.aa-in { opacity: .55; }
+.na-card.aa-in .tick { display: none; }
+.na-card .aa-badge { position: absolute; top: 9px; right: 10px; padding: 1px 7px; border: 1px solid var(--m-line); border-radius: 10px; color: var(--m-dim); font-size: 10.5px; }
+.na-mcard.aa-in { opacity: .55; }
+.na-mcard.aa-in .ck { border-style: dashed; }
+/* The summary of what is added: what is set up, what is added to what is there, what is left as it is. */
+.aa-sum { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 12px; }
+.aa-sum .col { padding: 10px 12px; border: 1px solid var(--m-line); border-radius: 8px; }
+.aa-sum h4 { margin: 0 0 8px; color: var(--m-faint); font-size: 10.5px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; }
+.aa-sum .pc { display: flex; align-items: center; gap: 7px; padding: 3px 0; color: var(--m-fg); font-size: 12.5px; }
+.aa-sum .pc svg { width: 12px; height: 12px; color: var(--m-dim); flex: none; }
+.aa-sum .pc small { margin-left: auto; color: var(--m-faint); font-size: 11px; text-align: right; }
+.aa-sum .pc.aa-add small { color: var(--m-dim); }
+.aa-sum .hd { display: block; margin: 9px 0 3px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.aa-sum ul { margin: 0; padding-left: 16px; color: var(--m-dim); font-size: 12px; line-height: 1.5; }
+.aa-kept { display: flex; gap: 8px; margin: 12px 0 0; padding: 8px 10px; border-radius: 6px; background: color-mix(in srgb, var(--m-accent) 9%, transparent); color: var(--m-fg); font-size: 12px; line-height: 1.45; }
+.aa-kept svg { flex: none; width: 14px; height: 14px; margin-top: 1px; color: var(--m-accent); }
+.aa-kept.bad { background: color-mix(in srgb, #f0706a 12%, transparent); }
+.aa-kept.bad svg { color: #f0706a; }
+.aa-kept b { font-weight: 600; }
+.aa-sum .col.off { opacity: .5; }
 </style>
 
 <main class="page">
@@ -3210,6 +3246,28 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-naview="nasummary">Özet</button>
         <button type="button" data-naview="nadone">Kuruldu</button>
         <button type="button" data-naview="naphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="apps4">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · 14. AŞAMA · 4. DİLİM</span>
+        <h2>Add to app</h2>
+        <p>Kurulu bir app'in klasörünün ··· menüsünde en üstte <b>Add to app…</b> var; klasörde <code>_app.json</code> varsa görünür. Aynı pencere açılır: kurulu şablonlar soluk ve "In the app" yazar, seçilemez; app adı, yeri ve para birimleri sorulmaz, <code>_app.json</code>'dan okunur. Yeni şablonun soruları sorulur; özet neyin kurulacağını, var olanlara neyin ekleneceğini ve neyin olduğu gibi bırakılacağını söyler. Yalnız eklenir: hiçbir şey silinmez ya da değişmez. Eklenecek bir kural ya da formül var olan bir alanla çalışmayacaksa hiçbir şey eklenmez, ne değişmesi gerektiği söylenir. Add'e basınca eklenir, toast'ta Undo eklenenleri geri alır. Space'in ve klasörün + menüsünde de <b>New app here</b> var.</p>
+        <ul class="traits"><li>··· menüsünde Add to app</li><li>+ menüsünde New app here</li><li>kurulu şablon soluk</li><li>ad ve para birimi sorulmaz</li><li>özet: kurulacak, eklenecek, bırakılacak</li><li>çalışmayacaksa eklenmez</li><li>Add, Undo</li><li>telefonda sheet</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="14. aşama 4. dilim görünümü">
+        <button type="button" data-aaview="aamenu">Klasörün menüsü</button>
+        <button type="button" data-aaview="aaplus">+ menüsü</button>
+        <button type="button" data-aaview="aatemplates">Şablonlar</button>
+        <button type="button" data-aaview="aastock">Soruları</button>
+        <button type="button" data-aaview="aasummary">Özet</button>
+        <button type="button" data-aaview="aablocked">Çalışmayacaksa</button>
+        <button type="button" data-aaview="aadone">Eklendi</button>
+        <button type="button" data-aaview="aaphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -9384,6 +9442,164 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderNa(sectionNa, b.dataset.naview);
   });
   renderNa(sectionNa, 'natemplates');
+
+  // Scrawl apps (stage 14), slice 4 (Oct 22): Add to app. Spare parts was set up from CRM and
+  // Sales and invoicing; Stock and purchasing is added to it. The app folder's ··· menu has Add to
+  // app first; the window it opens has the app's templates faint, asks only the new template's
+  // questions, and its summary says what is set up, what is added to what is there and what is
+  // left as it is. Add writes it; Undo takes it back. The + menus have New app here.
+  var AA_BEFORE = [['notes', 'About Spare parts'], ['collection', 'Activities'], ['collection', 'Companies'], ['board', 'Deals'], ['collection', 'Order lines'], ['collection', 'Orders'], ['collection', 'Payments'], ['collection', 'People'], ['collection', 'Products']];
+  var AA_ADDED = [['collection', 'Locations', 2], ['collection', 'Purchase order lines'], ['collection', 'Purchase orders'], ['collection', 'Stock levels'], ['collection', 'Stock movements']];
+  function aaTree(after, hot) {
+    var pieces = AA_BEFORE.concat(after ? AA_ADDED : []).sort(function (a, b) { return a[0] === 'notes' ? -1 : b[0] === 'notes' ? 1 : a[1].localeCompare(b[1]); });
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 11 }) +
+      opRowT({ sp: true, label: 'Personal' }) +
+      opRowT({ sp: true, open: true, label: CA_SPACE }) +
+      opRowT({ d: 1, folder: true, label: 'Operations' }) +
+      opRowT({ d: 1, folder: true, open: true, label: 'Spare parts', on: hot }) +
+      pieces.map(function (p) { return opRowT({ d: 2, icon: p[0], label: p[1], ct: p[2] || undefined, on: !hot && p[1] === 'About Spare parts' }); }).join('') +
+      opRowT({ d: 1, icon: 'notes', label: 'Price list 2026' }) +
+      '</div>' + spFoot(null);
+  }
+  /** Spare parts' About note, before Stock is added or after. */
+  var AA_NOTE = function (after) {
+    var note = naAbout().replace(/<div class="cd-toast">[\s\S]*$/, '');
+    if (after) return note;
+    return note
+      .replace('CRM, Sales and invoicing and Stock and purchasing. This', 'CRM and Sales and invoicing. This')
+      .replace(/ <b>Products<\/b> is one for[^<]*/, '')
+      .replace('one for CRM, Sales and invoicing and Stock and purchasing.', 'one for CRM and Sales and invoicing.');
+  };
+  function aaApp(over, o) {
+    o = o || {};
+    var tabs = tab('notes', 'Price list 2026', 'x', false) + tab('notes', 'About Spare parts', 'x', true) + '<div class="tab plus">+</div>';
+    return '<aside class="side">' + aaTree(o.after, o.hot) + '</aside><section class="main"><div class="panes">' + pane(tabs, AA_NOTE(o.after)) + '</div>' +
+      '<div class="status"><span>214 words</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  function aaMenu(style, items) {
+    return '<div class="aa-menu" style="' + style + '">' + items.map(function (it) {
+      if (it === '-') return '<i></i>';
+      return '<span class="' + (it.hot ? 'hot' : '') + (it.red ? ' red' : '') + '">' + ICON[it.icon] + it.label + (it.value ? '<small>' + it.value + '</small>' : '') + '</span>';
+    }).join('') + '</div>';
+  }
+  var AA_MORE = aaMenu('left: 196px; top: 168px', [
+    { icon: 'app', label: 'Add to app…', hot: true }, '-',
+    { icon: 'bullets', label: 'Group by', value: 'Type ›' }, { icon: 'sort', label: 'Sort by', value: 'Name ›' }, { icon: 'undo', label: 'Reset to defaults' }, '-',
+    { icon: 'trash', label: 'Delete folder', red: true }]);
+  var AA_PLUS = aaMenu('left: 196px; top: 168px', [
+    { icon: 'notes', label: 'New note here' }, { icon: 'tasks', label: 'New task list here' }, { icon: 'board', label: 'New board here' }, { icon: 'key', label: 'New keys here' },
+    { icon: 'collection', label: 'New collection here' }, { icon: 'app', label: 'New app here', hot: true }, { icon: 'filter', label: 'New filter here' }, '-',
+    { icon: 'folder', label: 'New folder here' }]);
+  function aaSteps(at, steps) {
+    return '<div class="steps">' + steps.map(function (s, i) { return '<span' + (i === at ? ' class="on"' : i < at ? ' class="done"' : '') + '>' + s + '</span>'; }).join('') + '</div>';
+  }
+  var AA_STEPS = ['Templates', 'Stock and purchasing', 'Summary'];
+  function aaWindow(at, page, count, go, off) {
+    return '<div class="ovl"><div class="mdlg na-dlg"><div class="na-top"><h3>Add to Spare parts</h3><span class="x">×</span></div>' + aaSteps(at, AA_STEPS) +
+      '<div class="na-page">' + page + '</div>' +
+      '<div class="foot"><span class="count">' + count + '</span>' + (at > 0 ? '<span class="st-btn">Back</span>' : '<span class="st-btn">Cancel</span>') +
+      '<span class="st-btn go' + (off ? ' off' : '') + '">' + (go || 'Next') + '</span></div></div></div>';
+  }
+  function aaCard(id, state, shared) {
+    var tp = NA_TEMPLATES[id];
+    var on = state === 'on';
+    return '<div class="na-card' + (on ? ' on' : state === 'in' ? ' aa-in' : '') + '"><span class="tick">' + (on ? ICON.check : '') + '</span>' + (state === 'in' ? '<span class="aa-badge">In the app</span>' : '') +
+      '<span class="hd">' + ICON[tp.icon] + tp.name + '</span><span class="what">' + tp.what + '</span>' +
+      '<span class="sets">' + tp.sets.filter(function (s) { return !(on && s[1] === 'Products'); }).map(function (s) { return '<span>' + ICON[s[0]] + s[1] + '</span>'; }).join('') + '</span>' +
+      (shared ? '<span class="shared">' + ICON.link + shared + '</span>' : '') + '</div>';
+  }
+  var AA_STATE = { crm: 'in', sales: 'in', stock: 'on' };
+  function aaTemplates() {
+    var page = NA_GROUPS.map(function (g) {
+      return '<div class="na-group"><div class="label">' + g[0] + '</div><div class="na-cards">' + g[1].map(function (id) {
+        return aaCard(id, AA_STATE[id], id === 'stock' ? 'Uses Products and Companies, in the app' : null);
+      }).join('') + '</div></div>';
+    }).join('');
+    return aaWindow(0, page, '1 template to add · Spare parts has CRM and Sales and invoicing');
+  }
+  function aaStock() {
+    var page = '<p class="na-lead">Every answer is ready; change only what is different for you.</p><div class="na-qs">' +
+      naQ('Will you track purchasing too?', naSeg(['Yes', 'No'], 'Yes')) +
+      naQ('Do you have more than one warehouse?', naSeg(['Yes', 'No'], 'Yes')) +
+      naQ('Your warehouses', naList([['Main warehouse', 'default'], ['Store Kadıköy']], 'Add a warehouse'), { sub: true, help: 'The first is where goods go when no warehouse is given.' }) +
+      naQ('Should a sale take its products out of stock?', naRadio(['No', 'When the order is confirmed', 'When the order is delivered'], 2), { why: 'Asked because Sales and invoicing is in the app' }) +
+      '</div>';
+    return aaWindow(1, page, 'Stock and purchasing · 4 questions');
+  }
+  /** A phone's sheet of the window, its three steps as a line. */
+  function aaSheet(title, back, next, at, body) {
+    return MB_DIM + '<div class="mb-sheet na-sheet"><span class="grab"></span><div class="mb-sh three"><span class="cancel">' + (back === 'Cancel' ? 'Cancel' : ICON.chevl + back) + '</span><b>' + title + '</b><span class="ok">' + next + '</span></div>' +
+      '<div class="na-msteps">' + [0, 1, 2].map(function (i) { return '<i' + (i <= at ? ' class="on"' : '') + '></i>'; }).join('') + '</div><div class="na-mbody">' + body + '</div></div>';
+  }
+  function aaPc(icon, name, small, cls) { return '<div class="pc' + (cls ? ' ' + cls : '') + '">' + ICON[icon] + name + (small ? '<small>' + small + '</small>' : '') + '</div>'; }
+  function aaSummaryPage(blocked) {
+    var made = '<div class="col' + (blocked ? ' off' : '') + '"><h4>Set up</h4>' +
+      aaPc('collection', 'Stock movements') + aaPc('collection', 'Locations', '2 warehouses') + aaPc('collection', 'Stock levels') + aaPc('collection', 'Purchase orders') + aaPc('collection', 'Purchase order lines') +
+      '<span class="hd">Buttons</span><ul><li>Correct stock, Transfer, Reorder</li></ul>' +
+      '<span class="hd">By itself</span><ul><li>Delivered orders take stock out</li><li>Received purchase orders bring it in</li><li>Low stock is marked</li></ul></div>';
+    var added = '<div class="col' + (blocked ? ' off' : '') + '"><h4>Added to what is there</h4>' +
+      aaPc('collection', 'Products', '8 fields, 2 blocks on its screen, 3 rules', 'aa-add') +
+      aaPc('collection', 'Orders', '1 field, 2 rules', 'aa-add') +
+      aaPc('collection', 'Order lines', '1 rule', 'aa-add') +
+      aaPc('collection', 'Companies', '2 blocks on its screen', 'aa-add') +
+      aaPc('notes', 'About Spare parts', 'a section at its end', 'aa-add') +
+      '<span class="hd">Nothing is changed or taken away</span><ul><li>What is there stays as it is; only what is missing is added.</li></ul></div>';
+    var kept = blocked
+      ? '<div class="aa-kept bad">' + ICON.warn + '<span><b>Nothing can be added yet.</b> Products has a Cost field that holds text; Stock and purchasing works out stock value from it as a number. Change Cost’s type to Number in Products’ Fields, then add the template again.</span></div>'
+      : '<div class="aa-kept">' + ICON.info + '<span>Products has a <b>Stock status</b> field of another type; it is kept as it is, and Stock and purchasing’s is not added.</span></div>';
+    return '<div class="na-where">' + ICON.folder + '<b>Spare parts</b><small>in Atlas Lifts · CRM, Sales and invoicing</small></div><div class="aa-sum">' + made + added + '</div>' + kept;
+  }
+  // On a phone: the folder's menu as an action sheet, Add to app first; the window as a sheet.
+  function aaPhone() {
+    var page = mbPage(mbNav('Atlas Lifts', ['dots']) + mbHead('Spare parts', '10 items · App'), '<div>' +
+      AA_BEFORE.map(function (p) { return mbRow({ icon: p[0], label: p[1] }); }).join('') + '</div>');
+    var menu = MB_DIM + mbActions('folder', 'Spare parts', 'App · CRM, Sales and invoicing', [
+      [{ icon: 'app', label: 'Add to app' }],
+      [{ icon: 'notes', label: 'New note here' }, { icon: 'app', label: 'New app here' }, { icon: 'folder', label: 'New folder here' }],
+      [{ icon: 'sort', label: 'Sort by', on: 'Name' }],
+      [{ icon: 'trash', label: 'Delete folder', red: true }]]);
+    var templates = aaSheet('Add to Spare parts', 'Cancel', 'Next', 0, NA_GROUPS.map(function (g) {
+      return '<div class="na-mlabel">' + g[0] + '</div><div class="na-mgroup">' + g[1].map(function (id) {
+        var tp = NA_TEMPLATES[id];
+        var st = AA_STATE[id];
+        return '<div class="na-mcard' + (st === 'on' ? ' on' : st === 'in' ? ' aa-in' : '') + '"><span class="ck">' + (st === 'on' ? ICON.check : '') + '</span><span class="tx"><b>' + tp.name + '</b><small>' + (st === 'in' ? 'In the app' : tp.what) + '</small>' + (st === 'on' ? '<span class="sh">Uses Products and Companies, in the app</span>' : '') + '</span></div>';
+      }).join('') + '</div>';
+    }).join(''));
+    var summary = aaSheet('Summary', 'Stock', '', 2,
+      '<div class="na-mlabel">Set up</div><div class="na-mgroup"><div class="na-mrow">Stock and purchasing<small>5 collections</small></div></div>' +
+      '<div class="na-mlabel">Added to what is there</div><div class="na-mgroup"><div class="na-mrow">Products<small>8 fields, 2 blocks, 3 rules</small></div><div class="na-mrow">Orders<small>1 field, 2 rules</small></div><div class="na-mrow">Order lines<small>1 rule</small></div><div class="na-mrow">Companies<small>2 blocks</small></div><div class="na-mrow">About Spare parts<small>a section at its end</small></div></div>' +
+      '<p class="na-help" style="margin: 8px 4px 14px; font-size: 13px">Nothing there is changed or taken away.</p><span class="na-mbtn">Add</span>');
+    return mbPhone('Klasörün menüsünde Add to app', page, mbTabs('browse') + menu) + mbPhone('Kurulu şablonlar soluk', page, mbTabs('browse') + templates) + mbPhone('Özet ve Add', page, mbTabs('browse') + summary);
+  }
+  var AA_VIEWS = {
+    aamenu: function () { return aaApp(AA_MORE, { hot: true }); },
+    aaplus: function () { return aaApp(AA_PLUS, { hot: true }); },
+    aatemplates: function () { return aaApp(aaTemplates()); },
+    aastock: function () { return aaApp(aaStock()); },
+    aasummary: function () { return aaApp(aaWindow(2, aaSummaryPage(false), '5 collections set up, 5 added to', 'Add')); },
+    aablocked: function () { return aaApp(aaWindow(2, aaSummaryPage(true), 'Products’ Cost keeps it from working', 'Add', true)); },
+    aadone: function () { return aaApp('<div class="cd-toast">Stock and purchasing added to Spare parts: 5 collections set up, 5 added to<span class="undo">Undo</span></div>', { after: true }); }
+  };
+  function renderAa(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'aaphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = aaPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = AA_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-aaview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.aaview === view));
+    });
+  }
+  var sectionAa = document.querySelector('.dir[data-dir="apps4"]');
+  sectionAa.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-aaview]');
+    if (b) renderAa(sectionAa, b.dataset.aaview);
+  });
+  renderAa(sectionAa, 'aamenu');
 
   // Scrawl apps (stage 14), slice 1 (Oct 21): a button that asks for a value before it runs. A
   // rule written as action("Correct stock", { ask: { total: { label, type, default } } }, …) opens
