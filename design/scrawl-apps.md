@@ -1,6 +1,6 @@
 # Scrawl apps: hazır şablonlardan app kurmak (taslak)
 
-Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d).
+Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda: şablonların çekirdeği ve ajan.
 
 ## 1. Amaç
 
@@ -37,6 +37,28 @@ Verilen kararlar (21 Ekim 2026):
 - Kayıt sorusu formdaki link seçicinin aynısını açar (5).
 - Kural dili liste indeksini tanır: `find("Locations")[0]`; olmayan sıra boş verir (5).
 - Telefonda sayı sorusu sayı klavyesini açar (5).
+
+21 Ekim 2026'da, 2. dilimin kodu yazılırken verilen kararlar:
+- Teknik:
+  - Parçanın işareti `template` alanı genişletilerek değil, şemada ve pano dosyasında yeni bir `role` alanıyla tutulur. `template` bugün Create penceresine ve eksik bağlı koleksiyonu açmaya bağlı; ayrı alan onlara dokunmaz (4.1).
+  - Kurulum tek geçişte yazılır. Plan yazılmadan önce bellekte bütünüyle denetlenir; iki geçiş ajanın yazma denetimi için gerekiyordu (6.1).
+  - Sync birleştirmesinde pano alanları kayboluyordu; düzeltildi. Ajanda düğmeden sonra dönen kayıt panoların eski halini okuyordu; düzeltildi.
+- Şablon davranışı:
+  - Ödemelerde durum (Planned, Invoiced, Paid) hep var. "Ödemeleri vadesiyle izliyor musunuz?" yalnız vadeyi ve gecikmeyi kurar; tahsilat, masraf onayı ve mal kabulü durumla çalışır (3.5).
+  - Birden çok para biriminde para birimini sipariş, satın alma siparişi, ödeme, masraf ve fırsat tutar; kalemlerde tutar düz sayıdır. Ürünün fiyatı ve maliyeti, bütçe kalemi ve projenin sözleşmesi ana para birimindedir; bütçenin ve projenin toplamları yalnız ana para birimindeki ödemeleri sayar (2.2).
+  - Vergi ve indirim tam sayı yüzde olarak yazılır: "Tax %" 20, "Discount %" 10 (3.2).
+  - Sipariş ve satın alma kaleminin adı "Item"dır, boşsa ürünün adı yazılır. Zaman kaydının adı "Note"tur (3.2, 3.4, 3.6).
+  - Locations'ta "Default" kutusu vardır, ilk depo işaretli gelir. Deposu boş bir hareket, sipariş ya da satın alma siparişi varsayılan depoya yazılır (3.6).
+  - Proje bütçesi evetse ve Bütçe seçilmediyse Bütçe'nin parçaları kendi varsayılanlarıyla kurulur ve tanıtım notunda Bütçe'nin bölümü de olur; `_app.json` yalnız Proje'yi tutar. Bütçe seçiliyse projenin bütçe sorusu sorulmaz (3.4).
+  - Start project kartları projenin adıyla açılır: "Antalya Hotel: Kickoff" (3.4).
+  - Ürünün türü (product, service) yalnız Satış'ta "ikisi" seçildiyse kurulur; hizmet kalemleri stoktan düşmez (3.2, 3.6).
+- Tasarımda yazmayan varsayılanlar: talep kanalları e-posta, telefon, chat; hazır cevaplar evet, üç örnek cevapla; indirim evet; teklif evet; projeler ikisi için; proje bütçesi hayır; standart bütçe kalemleri Material %40, Labour %40, Transport %10; masraf kategorileri Travel, Meals, Supplies, Equipment, Other; depolar Main warehouse, Second warehouse.
+- Kurulu app'e eklemek (4.2):
+  - Aynı anahtarlı alan başka türdeyse ve eklenecek bir formül ya da kural onu okuyorsa hiçbir şey eklenmez, nedeni söylenir. Okuyan yoksa özette söylenir.
+  - Kişinin sildiği bir parça eklemede geri kurulmaz.
+  - Undo yeni klasörleri, panoları ve notları çöpe atar, değişen dosyaları eski haline getirir; koleksiyona eklenen kural dosyasını ve başlangıç kayıtlarını kaldırır.
+  - Ajanın `create`'i: `folder` bir app ise ona ekler, değilse içinde yeni app kurar; aynı ad ve aynı şablonlarla yeniden çağrılınca `exists: true` döner.
+- Tanıtım notu parçaları kendi dosyalarına link verir. Notlarda dosyaya link bugün açılmıyor (yalnız http ve mailto); bu ayrı bir iş olarak planlanacak. O gelene kadar not parçaları kalın adla yazar.
 
 ## 2. Sihirbaz
 
@@ -262,7 +284,7 @@ Stok elle yazılmaz, hareketlerden hesaplanır.
 
 ### 4.1 Ortak parçalar ve şablon işareti
 
-Bir app'in her koleksiyonu şemasında hangi parça olduğunu taşır: bugünkü `"template"` alanı (`companies`, `people`, `payments`…) bu iş için genişler. Yeni değerler: `products`, `orders`, `order-lines`, `budget-lines`, `expenses`, `stock-movements`, `stock-levels`, `locations`, `purchase-orders`, `purchase-order-lines`, `projects`, `time-entries`, `releases`, `deals`… Panolar da aynı işareti alır: pano dosyasına `"template"` alanı eklenir (`deals`, `requests`, `work`, `roadmap`, `bugs`).
+Bir app'in her koleksiyonu şemasında hangi parça olduğunu taşır: `"role"` alanı (`companies`, `people`, `products`, `orders`, `order-lines`, `payments`, `budget-lines`, `expenses`, `stock-movements`, `stock-levels`, `locations`, `purchase-orders`, `purchase-order-lines`, `projects`, `time-entries`, `feedback`, `releases`…). Panolar da aynı işareti alır: pano dosyasında `"role"` (`deals`, `requests`, `work`, `roadmap`, `bugs`). Saved replies klasörü adından bulunur.
 
 Şablon kurulurken ortak parça önce app klasöründe işaretinden aranır; varsa ona bağlanılır, yoksa kurulur. İşaret ad ve yerden bağımsızdır: kişi Companies'i "Customers" diye yeniden adlandırsa da, alt klasöre taşısa da bulunur. Aynı işaretten iki parça varsa ilki alınır ve özet bunu söyler.
 
@@ -321,9 +343,9 @@ action("Correct stock", { ask: { total: { label: "Counted total", type: "number"
   - `questions.ts`: soru türleri (2.3), varsayılanlar, başka şablona ya da cevaba bağlı sorular, cevapların denetimi.
   - `build.ts`: seçilen şablonlar ve cevaplardan bir **kurulum planı** çıkarır, hiçbir şey yazmadan: kurulacak klasörler, şemalar, panolar, notlar, kural dosyaları ve var olanlara eklenecekler. Ortak parçalar bir kez üretilir; bağlar app klasöründeki yollarla kurulur. Kural dosyaları üretilip `rulesProblems` ile denetlenir; denetimden geçmeyen bir plan hiç yazılmaz (bu bir hata, kişiye değil bize söylenir).
   - `about.ts`: tanıtım notunu kurulum planından üretir (2.4); Add to app için yalnız yeni bölümü.
-  - `install.ts`: planı `VaultFs`'e bir kerede yazar, sırayla: klasörler, her koleksiyonun kendi alanları ve linkleri, sonra hesaplananlar ve düzen (lookup ve rollup diğer koleksiyonun alanlarını istediği için; 13. aşamanın ajan testinde görüldü), panolar, kurallar, tanıtım notu, `_app.json`. Yarıda düşerse yazdıklarını çöpe atar. Geri alma işlevi verir.
+  - `install.ts`: denetlenmiş planı `VaultFs`'e bir kerede yazar, sırayla: klasörler, şemalar, kurallar ve başlangıç kayıtları, panolar, notlar, tanıtım notu, en son `_app.json`. Yarıda düşerse yazdıklarını geri alır. Geri alma işlevi verir (`undoApp`).
   - `roles.ts`: bir app klasöründe şablon işaretinden ortak parçaları bulur (4.1).
-- **Şema:** `CollectionTemplate` yeni değerleri alır; bunlar "bu koleksiyon hangi parça" der, yeni koleksiyon şablonu olarak Create penceresinde listelenmez. Pano dosyası isteğe bağlı `template` alanı alır.
+- **Şema:** isteğe bağlı `role` alanı, "bu koleksiyon hangi parça" der; Create penceresindeki koleksiyon şablonlarını etkilemez. Pano dosyası da isteğe bağlı `role` alanı alır; sync birleştirmesi onu ve pano alanlarını korur.
 - **Kural dili:** `ask` ve `input` (5. bölüm) `rules.ts`, `lang.ts`, `run.ts`'te; `planAction` girilen değerleri alır.
 
 ### 6.2 Web ve masaüstü

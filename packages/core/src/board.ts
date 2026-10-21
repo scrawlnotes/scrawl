@@ -103,6 +103,8 @@ export interface Board {
   phases: Phase[];
   /** The board's own fields, in the order a card shows them; left out when it has none. */
   fields?: Field[];
+  /** Which piece of an app it is (`deals`, `roadmap`…), as an app template set it up. */
+  role?: string;
   cards: Card[];
 }
 
@@ -212,6 +214,7 @@ export function parseBoard(text: string): Board {
     columns,
     phases: withOneCurrent(phases),
     ...(fields.length > 0 && { fields }),
+    ...(typeof data?.role === 'string' && data.role.trim() && { role: data.role.trim() }),
     cards,
   };
 }

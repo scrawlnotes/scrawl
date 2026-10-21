@@ -217,6 +217,8 @@ export interface Schema {
   template: CollectionTemplate;
   /** What one record is called, `company` for Companies: "New company", "Add company". Unset says "record". */
   singular?: string;
+  /** Which piece of an app it is (`companies`, `orders`…), as an app template set it up: what another template looks for to link to it, whatever it is called now. */
+  role?: string;
   /** The saved views, in the order they were made. */
   views?: View[];
   /** The fields; their order is the order of the table's columns. */
@@ -612,7 +614,13 @@ export function parseSchema(text: string): Schema {
   let layout = readLayout(data.layout);
   if (data.version !== 2) ({ fields, layout } = fromVersion1(fields, layout));
   const template: CollectionTemplate = COLLECTION_TEMPLATES.includes(data.template as CollectionTemplate) ? (data.template as CollectionTemplate) : 'blank';
-  const schema: Schema = { version: 2, template, ...(typeof data.singular === 'string' && data.singular.trim() && { singular: data.singular.trim() }), fields };
+  const schema: Schema = {
+    version: 2,
+    template,
+    ...(typeof data.singular === 'string' && data.singular.trim() && { singular: data.singular.trim() }),
+    ...(typeof data.role === 'string' && data.role.trim() && { role: data.role.trim() }),
+    fields,
+  };
   if (layout) schema.layout = layout;
   const views = readViews(data.views, fields);
   if (views.length > 0) schema.views = views;

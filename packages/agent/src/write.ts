@@ -12,9 +12,12 @@ import {
   type Template,
   type VaultFs,
   markCreated,
+  APP_FILE,
+  basename,
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
 import { hashOf, MAX_TEXT } from './read';
+import { type AppArgs, createApp } from './apps';
 import { checkFile, checkRules } from './check';
 import { type Agent, AGENT_DEVICE, type AgentSpace, clockOf, elementsOf, exists, filePathOf, foundPath, nowOf, pickPath, pickSpace } from './space';
 
@@ -73,6 +76,7 @@ export async function writeTool(agent: Agent, args: { space?: string; path: stri
   if (args.text.length > MAX_TEXT) throw new Refusal('The text is larger than agents write (1 MB)', { path: typed });
   const { space, path } = await writePlace(agent, args.space, typed);
   const kind = fileKind(path);
+  if (basename(path) === APP_FILE) throw new Refusal(`${APP_FILE} says which templates an app was set up from and with which answers; it is read, not written. To add a template, use create with kind app and the app as folder`, { path });
   if (kind === 'other') throw new Refusal(`Scrawl shows notes (.md), task lists (.tasks.json), boards (.board.json), collections' schemas (_collection.json) and rules (_rules.js); ${path} is none of them and was not written`, { path });
   const notes = await checkJson(space.fs, path, kind, args.text);
   if (kind === 'rules') {
@@ -92,18 +96,19 @@ export async function writeTool(agent: Agent, args: { space?: string; path: stri
   return { data: { space: space.id, path, kind, hash: hashOf(args.text), created: !entry, ...(notes.length > 0 && { notes }) } };
 }
 
-export type CreateKind = 'note' | 'tasks' | 'board' | 'collection' | 'folder';
+export type CreateKind = 'note' | 'tasks' | 'board' | 'collection' | 'folder' | 'app';
 
 /** Each kind as the agent reads it in a sentence. */
-const KIND_WORDS: { [kind in CreateKind]: string } = { note: 'note', tasks: 'task list', board: 'board', collection: 'collection', folder: 'folder' };
+const KIND_WORDS: { [kind in CreateKind]: string } = { note: 'note', tasks: 'task list', board: 'board', collection: 'collection', folder: 'folder', app: 'app' };
 
-export async function createTool(agent: Agent, args: { space?: string; folder?: string; kind: CreateKind; name: string; template?: string; text?: string; another?: boolean }) {
+export async function createTool(agent: Agent, args: { space?: string; folder?: string; kind: CreateKind; name: string; template?: string; text?: string; another?: boolean } & Omit<AppArgs, 'folder' | 'name'>) {
   const space = await pickSpace(agent, args.space);
   const folder = args.folder ? checkOpen(cleanPath(args.folder)) : '';
   if (folder) {
     const entry = await exists(space.fs, folder);
     if (entry?.kind !== 'dir') throw new Refusal(`No folder at ${folder}; create it first or give one that is there`, { folders: (await elementsOf(space.fs, ['folder'])).map((f) => f.path) });
   }
+  if (args.kind === 'app') return createApp(agent, space, { ...args, folder });
   const name = args.name.trim();
   const what = KIND_WORDS[args.kind];
   if (!name && args.kind !== 'note') throw new Refusal(`A ${what} needs a name`);

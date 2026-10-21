@@ -197,6 +197,17 @@ describe('merging a board', () => {
     expect(result.columns.map((c) => c.id)).not.toContain('later');
     expect(result.columns.map((c) => c.id)).toContain(result.cards[0]!.column);
   });
+
+  it('keeps the board fields and the app piece one side added', () => {
+    const fields = [{ key: 'amount', label: 'Amount', type: 'number' as const }];
+    const base = board([]);
+    const mine = board([], { fields, role: 'deals' });
+    const theirs = board([card('a', 1)]);
+    const result = parseBoard(merged('board', base, mine, theirs));
+    expect(result.fields?.map((f) => f.key)).toEqual(['amount']);
+    expect(result.role).toBe('deals');
+    expect(result.cards).toHaveLength(1);
+  });
 });
 
 describe('merging the files of a space', () => {

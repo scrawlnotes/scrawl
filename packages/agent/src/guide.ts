@@ -3,6 +3,24 @@
 // reaches the model with `spaces`, the one call every client makes and shows; the brief, its first
 // part, goes as the server's instructions to clients that hand those to the model.
 
+import { APP_TEMPLATES, type Question, TEMPLATE_IDS } from '@scrawlnotes/core';
+import { t } from '@scrawlnotes/i18n';
+
+/** A question as the guide says it: its key, how it is answered and its default. */
+function questionLine(q: Question): string {
+  const shown = (v: unknown) => (Array.isArray(v) ? (v.length ? v.join(', ') : 'none') : typeof v === 'boolean' ? (v ? 'yes' : 'no') : String(v));
+  const how =
+    q.kind === 'yesno' ? 'true or false' : q.kind === 'choice' ? `one of ${q.options!.map((o) => o.value).join(', ')}` : q.kind === 'multi' ? `some of ${q.options!.map((o) => o.value).join(', ')}` : 'a list of words';
+  return `\`${q.key}\` (${how}; ${shown(q.default)} when not given): ${t(q.label)}`;
+}
+
+/** The templates an app is set up from and what each asks, as \`create\` takes them. */
+const appTemplates = () =>
+  TEMPLATE_IDS.map((id) => {
+    const template = APP_TEMPLATES[id];
+    return `- **${id}**, ${t(template.name)}: ${t(template.what)} ${template.questions.map(questionLine).join('; ')}.`;
+  }).join('\n');
+
 export const GUIDE = `# Scrawl for agents
 
 Scrawl keeps notes, task lists, boards and collections as plain files in a folder called a space. A person sees them in the Scrawl app; you see the same files. Everything you write, the person sees; everything they write, you can read.
@@ -24,6 +42,7 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 | Know where you are | \`spaces\`, then \`tree\` or \`search\` |
 | Read or write a note | \`read\`, \`write\` (with \`ifMatch\`) |
 | Make a new note, list, board, collection or folder | \`create\` |
+| Set up an app from ready templates, or add one to an app | \`create\` with \`kind: "app"\` |
 | Add or change a task, a card, a record | \`save_task\`, \`save_card\`, \`save_record\` (with \`id\` to change) |
 | Move a task to another section, under another task, to another list | \`save_task\` with \`id\` and \`section\`, \`parent\` or \`toList\` |
 | Tie a task or a card to a note | \`save_task\` or \`save_card\` with \`note\` |
@@ -108,6 +127,14 @@ The example a lift company runs its projects with, in Operations:
 - **Transactions:** name, project, line (a link to Budget lines), direction (In or Out, default Out), amount, due, status (Planned, Invoiced or Paid), paid on; customer, a lookup through project; overdue, \`status != "Paid" && due < today()\`. Rules: \`check("line", () => direction != "Out" || !empty(line), "Pick the budget line")\` and \`onSave("Paid date", () => { if (status == "Paid" && old.status != "Paid" && empty(paid_on)) paid_on = today() })\`.
 - **Projects board:** columns Survey, Production, Installation, Acceptance, Done; a project field linking each card to its project.
 - **How we run a project:** a note saying what each status means and when a project starts and closes.
+
+## Apps
+
+An app is a folder set up from ready templates at once: its collections, boards and rules, linked to each other, and a note, About and the app's name, saying what is in it and how it is used. \`create\` with \`kind: "app"\`, \`name\`, \`templates\`, \`answers\` by template and, when it keeps money, \`currencies\` (the main one first) sets one up; an answer not given takes its default, and a wrong one is refused with what it takes. Ask the person what the questions ask, or take it from what they told you. Templates set up together share their pieces: one Companies for CRM, Sales, Support and Stock (its suppliers), one Products for Sales and Stock, one Payments for all the money, one Feedback, one Projects. A project's budget brings Budget's pieces.
+
+${appTemplates()}
+
+To add templates to an app, give its folder as \`folder\`: only what is missing is added, the pieces found by the role in their schema or board file (\`"role": "orders"\`) wherever they are and whatever they are called now; nothing there is changed or taken away, and the result says what was added. \`_app.json\` in the app's folder keeps which templates it was set up from, with their answers: \`read\` it, never \`write\` it. After that, change the app as any other collection, board or rule, and keep its About note right.
 
 ## Who did what
 

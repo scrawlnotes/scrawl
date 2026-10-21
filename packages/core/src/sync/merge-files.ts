@@ -188,6 +188,12 @@ function separateKeys(cards: Card[], nextKey: number): { cards: Card[]; nextKey:
   return { cards: cards.map((c) => (renumbered.has(c.id) ? { ...c, key: renumbered.get(c.id)! } : c)), nextKey: next };
 }
 
+/** A part of a board that may be left out, merged as one value: left out when the merge has none. */
+function mergeOptional<K extends 'fields' | 'role'>(key: K, b: Board, l: Board, r: Board): Partial<Pick<Board, K>> {
+  const value = mergeValue(b[key], l[key], r[key]);
+  return value === undefined ? {} : ({ [key]: value } as Partial<Pick<Board, K>>);
+}
+
 function mergeBoard(base: string, local: string, remote: string): string {
   const [b, l, r] = [base, local, remote].map(parseBoard) as [Board, Board, Board];
   const columns = mergeRecords(b.columns, l.columns, r.columns, byId, (was, mine, theirs) => mergeFields(was, mine, theirs));
@@ -201,6 +207,9 @@ function mergeBoard(base: string, local: string, remote: string): string {
     ...(mergeValue(b.view, l.view, r.view) === 'list' && { view: 'list' as const }),
     columns,
     phases,
+    // The board's own fields and its piece of an app, as either side left them.
+    ...mergeOptional('fields', b, l, r),
+    ...mergeOptional('role', b, l, r),
     cards: spreadOrder(keyed.cards, (c) => c.column),
   };
   // Read back, so that a card in a column deleted on the other side, or two current phases, are put right.

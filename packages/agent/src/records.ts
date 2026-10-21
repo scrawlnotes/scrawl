@@ -357,8 +357,9 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     }
     const now = await loadCollection(space.fs, element.path);
     const written = now.records.find((r) => r.id === record.id) ?? record;
-    const { collections } = await surroundings(space.fs, element.path);
-    const after = new Computer([now, ...collections], around.boards, today);
+    // The boards as the button left them too: a card it added counts in a rollup.
+    const { collections, boards } = await surroundings(space.fs, element.path);
+    const after = new Computer([now, ...collections], boards, today);
     return { data: { space: space.id, collection: element.path, created, onSave, action: pressed, record: recordsOut(after, now, [written], today)[0]! } };
   }
   // Worked out again with the record as written, for what links to it and what it reads.
