@@ -106,11 +106,6 @@ export async function welcomeThere(fs: VaultFs): Promise<boolean> {
   }
 }
 
-/** Writes the onboarding note where it is not there yet; one that is there keeps what was written in it. */
-export async function ensureWelcome(fs: VaultFs, text: string): Promise<void> {
-  if (!(await welcomeThere(fs))) await fs.writeText(WELCOME_NOTE, text);
-}
-
 const isNote = (entry: Entry) => entry.kind === 'file' && entry.name.endsWith('.md');
 const isTaskList = (entry: Entry) => entry.kind === 'file' && entry.name.endsWith(TASK_LIST_EXT);
 const isBoard = (entry: Entry) => entry.kind === 'file' && entry.name.endsWith(BOARD_EXT);

@@ -13,7 +13,6 @@ import {
   deleteFromTrash,
   displayTitle,
   emptyTrash,
-  ensureWelcome,
   INBOX_TASKS,
   isScratchNote,
   listName,
@@ -605,14 +604,9 @@ describe('attachments, folders and the workspace', () => {
     expect(await loadWorkspace(fs)).toEqual({ tabs: [], active: null, boards: {}, keys: {}, collections: {} });
   });
 
-  it('keeps the onboarding note on the device until it is closed, with what was written in it', async () => {
+  it('keeps the onboarding note on the device until it is closed', async () => {
     const fs = new MemoryFs();
-    await ensureWelcome(fs, '# Welcome to Scrawl\n');
-    expect(await fs.readText(WELCOME_NOTE)).toBe('# Welcome to Scrawl\n');
-    // Written in, it is not written over the next time the app opens.
-    await fs.writeText(WELCOME_NOTE, '# Welcome to Scrawl\n\nMy own line\n');
-    await ensureWelcome(fs, '# Welcome to Scrawl\n');
-    expect(await fs.readText(WELCOME_NOTE)).toBe('# Welcome to Scrawl\n\nMy own line\n');
+    await fs.writeText(WELCOME_NOTE, '# Welcome to Scrawl\n');
     // It is not synced, and not in the tree.
     expect(isSynced(WELCOME_NOTE)).toBe(false);
     expect((await readTree(fs)).map((node) => node.path)).toEqual([]);

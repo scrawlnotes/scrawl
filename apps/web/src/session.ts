@@ -240,7 +240,6 @@ import {
   seenMoved,
   seenNow,
   serializeRecent,
-  ensureWelcome,
   WELCOME_NOTE,
   welcomeThere,
 } from '@scrawlnotes/core';
@@ -812,9 +811,10 @@ export class Session {
     tellTimeZones();
     const workspace = await loadWorkspace(this.personal);
     // The onboarding note opens each time until it is closed on this device, for those who had
-    // the app before it too. It is kept under `.scrawl`, where the folder stays the user's own.
+    // the app before it too, with this version's text. It is kept under `.scrawl`, where the folder
+    // stays the user's own.
     this.welcomeClosed = workspace.welcomeClosed === true;
-    if (!this.welcomeClosed) await ensureWelcome(this.personal, this.welcomeText());
+    if (!this.welcomeClosed) await this.personal.writeText(WELCOME_NOTE, this.welcomeText());
     const welcomeHere = await welcomeThere(this.personal);
     const filters = await loadFilters(this.personal);
     const space = await loadSpace(this.personal);
@@ -2388,9 +2388,9 @@ export class Session {
     return this.touch ? welcomePhone : welcomeComputer;
   }
 
-  /** Opens the onboarding note, from Search: written again first if it is not there. */
+  /** Opens the onboarding note, from Search: written first, with this version's text. */
   async openWelcome() {
-    await ensureWelcome(this.personal, this.welcomeText());
+    await this.personal.writeText(WELCOME_NOTE, this.welcomeText());
     await this.open(WELCOME_NOTE);
   }
 
