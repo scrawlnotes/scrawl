@@ -6,14 +6,18 @@ import {
   type FieldValue,
   formulaNode,
   isComputed,
+  isEmpty,
   isLink,
   linkFieldsTo,
   matchesCondition,
   type Record,
+  type RecordProblem,
   type RollupFn,
   type Schema,
 } from './collection';
-import { Day, type Env, evaluate, fromRuntime, isRef, type Kind, kindOfField, type Ref, type RV, type Scope, toRuntime } from './lang';
+import { isDay } from './day';
+import { Day, type Env, evaluate, fromRuntime, isRef, type Kind, kindOfField, type Ref, type RV, type Scope, textOf, toRuntime } from './lang';
+import { failedChecks, rulesOf } from './rules';
 
 // What is worked out across a space: formulas, which may read a linked record's field
 // (`project.customer`); lookups, a linked record's field shown as one of this record's; rollups,
@@ -32,6 +36,45 @@ export type SchemaOf = (path: string) => Pick<Schema, 'fields'> | undefined;
 export function schemasOf(collections: readonly Collection[], boards: { readonly [path: string]: Board } = {}): SchemaOf {
   const byDir = new Map(collections.map((c) => [c.dir, c.schema]));
   return (path) => (path.endsWith(BOARD_EXT) ? (boards[path] ? { fields: boards[path]!.fields ?? [] } : undefined) : byDir.get(path));
+}
+
+/**
+ * The next number with a prefix among a field's values: one more than the highest written after
+ * it, in so many digits at least (`PRJ-0013` after `PRJ-0012`); the first is 1.
+ */
+export function nextNumber(values: readonly unknown[], prefix: string, digits: number): string {
+  const lower = prefix.toLowerCase();
+  let most = 0;
+  for (const value of values) {
+    if (typeof value !== 'string' || !value.toLowerCase().startsWith(lower)) continue;
+    const m = /^\d+/.exec(value.slice(prefix.length));
+    if (m) most = Math.max(most, Number(m[0]));
+  }
+  return `${prefix}${String(most + 1).padStart(digits, '0')}`;
+}
+
+/** A value worked out as a field of this type holds it; null for one it cannot hold. */
+function valueFor(field: Field, v: RV): FieldValue {
+  if (v === null) return null;
+  switch (field.type) {
+    case 'date':
+      return v instanceof Day ? v.toString() : typeof v === 'string' && isDay(v) ? v : null;
+    case 'number':
+      return typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'boolean' ? (v ? 1 : 0) : null;
+    case 'checkbox':
+      return typeof v === 'boolean' ? v : null;
+    case 'link': {
+      const links = fromRuntime(Array.isArray(v) ? v.filter(isRef) : isRef(v) ? v : null);
+      if (Array.isArray(links)) return field.many ? links : (links[0] ?? null);
+      return links;
+    }
+    case 'multi-select': {
+      const items = (Array.isArray(v) ? v.flat(8) : [v]).map(textOf).filter(Boolean);
+      return items.length > 0 ? items : null;
+    }
+    default:
+      return textOf(v) || null;
+  }
 }
 
 /** What a rollup makes of the values it found: their sum (0 for none), their average, their most or least, numbers before days. */
@@ -97,6 +140,51 @@ export class Computer {
   /** One field's value for a record. */
   value(dir: string, record: Record, field: Field): FieldValue {
     return fromRuntime(this.run(dir, record, field, false));
+  }
+
+  /**
+   * The values a new record of the collection at `dir` starts with: those given (the links a
+   * linked block fills), then each empty field's default in the schema's order, so that one may
+   * read a link given or a field before it (`=project.currency`). `me` is who makes it.
+   */
+  defaults(dir: string, given: Record['values'] = {}, me?: string): Record['values'] {
+    const collection = this.dirs.get(dir);
+    if (!collection) return given;
+    const values: Record['values'] = { ...given };
+    const made: Record = { id: '', path: '', name: '', code: '', values, extra: {}, body: '' };
+    for (const field of collection.schema.fields) {
+      if (field.default === undefined || isComputed(field.type) || !isEmpty(values[field.key])) continue;
+      const value = this.defaultOf(collection, made, field, me);
+      if (!isEmpty(value)) values[field.key] = value;
+    }
+    return values;
+  }
+
+  /** A field's default for a record being made: as written, or worked out. */
+  private defaultOf(collection: Collection, made: Record, field: Field, me?: string): FieldValue {
+    const given = field.default!;
+    if (!(typeof given === 'string' && given.startsWith('='))) return given;
+    const node = formulaNode(given.slice(1));
+    if (!node) return null;
+    try {
+      const env: Env = { ...this.env(collection.dir, made, true), ...(me && { me }), next: (prefix, digits) => nextNumber(collection.records.map((r) => r.values[field.key]), prefix, digits) };
+      return valueFor(field, evaluate(node, env));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * The checks of its collection's rules a record fails, each as a problem at its field (none for
+   * the record as a whole); with `values`, for the record as a form holds it, not saved yet.
+   */
+  checks(dir: string, record: Record | null, values?: Record['values']): RecordProblem[] {
+    const src = this.dirs.get(dir)?.rules;
+    const rules = src ? rulesOf(src) : null;
+    if (!rules || rules.checks.length === 0) return [];
+    const draft = values !== undefined;
+    const shown: Record = draft || !record ? { id: record?.id ?? '', path: record?.path ?? '', name: record?.name ?? '', code: record?.code ?? '', values: values ?? {}, extra: {}, body: '' } : record;
+    return failedChecks(rules, this.env(dir, shown, draft)).map((f) => ({ field: f.field ?? '', kind: 'check', message: f.message }));
   }
 
   /** A collection with what is worked out among its records' values, for the table to show, sort, group, sum and filter by; the same collection when it has nothing worked out. */

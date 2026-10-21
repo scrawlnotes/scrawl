@@ -122,16 +122,20 @@ import { folderLabel, setSpaceNames,
   UPCOMING,
 } from './items';
 import {
+  applyNumbers,
   applySize,
   applyTheme,
   isPhone,
   loadMode,
+  loadNumbers,
   loadSize,
   loadTheme,
   loadUpcomingView,
   type Mode,
+  type Numbers,
   onSystemShade,
   saveMode,
+  saveNumbers,
   saveSize,
   saveTheme,
   saveUpcomingView,
@@ -299,6 +303,7 @@ export function App() {
   }, [titles, collections]);
   // The mode and the theme chosen on this device, and the shade the device itself is in, for System.
   const [mode, setMode] = useState<Mode>(loadMode);
+  const [numbers, setNumbers] = useState<Numbers>(loadNumbers);
   const [theme, setTheme] = useState(loadTheme);
   const [sizes, setSizes] = useState(() => ({ phone: loadSize('phone'), computer: loadSize('computer') }));
   const [system, setSystem] = useState(systemShade);
@@ -1454,7 +1459,8 @@ export function App() {
     collection: (dir) => collections[dir] ?? null,
     collections: () => Object.values(collections),
     changeSchema: (dir, change) => session.changeSchema(dir, change),
-    saveFields: (dir, schema, renames) => session.saveFields(dir, schema, renames),
+    saveFields: (dir, schema, renames, rules) => session.saveFields(dir, schema, renames, rules),
+    me: () => me?.name || undefined,
     createLinked: (dir, target) => session.createLinked(dir, target),
     boards: () => boards,
     tasks: () => tasks,
@@ -1834,6 +1840,13 @@ export function App() {
       setSizes({ ...sizes, [kind]: size });
       saveSize(kind, size);
       applySize();
+    },
+    numbers,
+    onNumbers: (choice) => {
+      saveNumbers(choice);
+      applyNumbers(choice);
+      // Every number on screen is written again the new way.
+      setNumbers(choice);
     },
     me,
     onSaveProfile: (name, email) => session.saveProfile(name, email),

@@ -6,8 +6,9 @@ import { isDay } from './day';
 // which takes only what it knows. Numbers, texts, days, yes or no and lists; a field by its key
 // and a linked record's field with a dot (`project.customer`); + - * / %, comparisons, && || !,
 // `? :`, and a few functions. Nothing in it reaches a file, the network or another space, and a
-// formula gives the same for the same record, so it is worked out wherever it is read. See
-// design/collection-apps.md 4.1.
+// formula gives the same for the same record, so it is worked out wherever it is read. A
+// default value is written in it too, with what a formula cannot ask: who makes the record and
+// the next number. See design/collection-apps.md 4.1 and 5.1.
 
 // ---------- reading ----------
 
@@ -24,7 +25,7 @@ export class LangError extends Error {
 /** Fields that read each other round: a formula that, through others, reads itself. */
 class RoundError extends LangError {}
 
-type Token =
+export type Token =
   | { k: 'num'; v: number; at: number; end: number }
   | { k: 'str'; v: string; at: number; end: number }
   | { k: 'tpl'; parts: (string | { src: string; at: number })[]; at: number; end: number }
@@ -40,7 +41,8 @@ export const MAX_SOURCE = 2000;
 /** How deep parentheses and calls may go. */
 const MAX_DEPTH = 32;
 
-function tokenize(src: string, offset = 0): Token[] {
+/** The parts of a text: numbers, texts, names and operators; comments, as JS writes them, left out. */
+export function tokenize(src: string, offset = 0): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   const at = () => offset + i;
@@ -48,6 +50,16 @@ function tokenize(src: string, offset = 0): Token[] {
     const c = src[i]!;
     if (/\s/.test(c)) {
       i++;
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '/') {
+      while (i < src.length && src[i] !== '\n') i++;
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '*') {
+      const close = src.indexOf('*/', i + 2);
+      if (close < 0) throw new LangError(t('lang.openComment'), offset + i);
+      i = close + 2;
       continue;
     }
     const start = i;
@@ -145,6 +157,26 @@ export function parseExpression(src: string): Node {
 }
 
 function parseTokens(tokens: Token[]): Node {
+  const read = reader(tokens);
+  const node = read.expression();
+  read.end();
+  return node;
+}
+
+/** What reads tokens one after another: an expression from where it stands, or one token; a rules file reads its calls with it. */
+export interface Reader {
+  peek(): Token;
+  next(): Token;
+  isOp(v: string): boolean;
+  expect(v: string): Token;
+  /** Throws a LangError saying that this token is not expected. */
+  fail(token: Token): never;
+  expression(): Node;
+  /** Throws when anything is left. */
+  end(): void;
+}
+
+export function reader(tokens: Token[]): Reader {
   let i = 0;
   let depth = 0;
   const peek = () => tokens[i]!;
@@ -237,7 +269,7 @@ function parseTokens(tokens: Token[]): Node {
     return node;
   };
   const unary = (): Node => postfix(primary());
-  const expression = (min: number): Node => {
+  function expression(min: number): Node {
     let left = unary();
     for (;;) {
       const token = peek();
@@ -257,10 +289,18 @@ function parseTokens(tokens: Token[]): Node {
       left = { k: 'bin', op: SAME[token.v] ?? token.v, left, right, at: left.at, end: right.end };
     }
     return left;
+  }
+  return {
+    peek,
+    next: () => tokens[i++]!,
+    isOp,
+    expect,
+    fail,
+    expression: () => expression(0),
+    end: () => {
+      if (peek().k !== 'end') fail(peek());
+    },
   };
-  const node = expression(0);
-  if (peek().k !== 'end') fail(peek());
-  return node;
 }
 
 // ---------- kinds ----------
@@ -280,8 +320,8 @@ export interface Scope {
   schemaOf?: (path: string) => Pick<Schema, 'fields'> | undefined;
   /** The key of the field being worked out, which cannot read itself. */
   self?: string;
-  /** Where it is written: a formula cannot ask who looks (`me()`). */
-  use?: 'formula' | 'default';
+  /** Where it is written: a formula cannot ask who looks (`me()`) nor the next number (`next()`); a default value and a rule can. */
+  use?: 'formula' | 'default' | 'rule';
 }
 
 /** What an expression gives and which of the record's fields it reads. */
@@ -376,7 +416,7 @@ export function kindOfField(field: Field, scope: Scope, stack: string[] = []): K
 interface FnSpec {
   /** Least and most arguments. */
   args: [number, number];
-  /** Not in a formula: what it gives changes with who looks. */
+  /** Not in a formula: what it gives changes with who looks, or with when the record is made. */
   notInFormula?: true;
   kind: (args: Kind[], at: Node[]) => Kind;
 }
@@ -392,6 +432,15 @@ function need(ok: boolean, message: string, node: Node) {
 const FNS: { [name: string]: FnSpec } = {
   today: { args: [0, 0], kind: () => 'day' },
   me: { args: [0, 0], notInFormula: true, kind: () => 'text' },
+  next: {
+    args: [1, 2],
+    notInFormula: true,
+    kind: ([prefix, digits], [p, d]) => {
+      need(prefix === 'text' || prefix === 'any', t('lang.fnNext'), p!);
+      if (digits !== undefined) need(NUMBERISH(digits), t('lang.fnNext'), d!);
+      return 'text';
+    },
+  },
   empty: { args: [1, 1], kind: () => 'bool' },
   text: { args: [1, 1], kind: () => 'text' },
   abs: {
@@ -517,7 +566,7 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
           const instead = ELSEWHERE[n.fn];
           throw new LangError(instead ? t('lang.writeInstead', { fn: n.fn, instead }) : t('lang.noFunction', { fn: n.fn }), n.at);
         }
-        if (spec.notInFormula && scope.use !== 'default') throw new LangError(t('lang.notInFormula', { fn: n.fn }), n.at);
+        if (spec.notInFormula && scope.use !== 'default' && scope.use !== 'rule') throw new LangError(t(n.fn === 'next' ? 'lang.nextNotInFormula' : 'lang.notInFormula', { fn: n.fn }), n.at);
         const [least, most] = spec.args;
         if (n.args.length < least || n.args.length > most) {
           const count = least === 0 ? t('lang.args.0') : most === 64 ? t('lang.args.1-') : least === most ? t(least === 1 ? 'lang.args.1' : 'lang.args.2') : t('lang.args.1-2');
@@ -673,7 +722,7 @@ export function fromRuntime(v: RV): FieldValue {
   return v;
 }
 
-const isNothing = (v: RV) => v === null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'number' && Number.isNaN(v));
+export const isNothing = (v: RV) => v === null || v === '' || (Array.isArray(v) && v.length === 0) || (typeof v === 'number' && Number.isNaN(v));
 
 /** A value as text: what `text()` and `+` with a text make of it. */
 export function textOf(v: RV): string {
@@ -685,7 +734,7 @@ export function textOf(v: RV): string {
   return String(v);
 }
 
-const truthy = (v: RV): boolean => !(isNothing(v) || v === false || v === 0);
+export const truthy = (v: RV): boolean => !(isNothing(v) || v === false || v === 0);
 
 /** A value as a number for arithmetic: a number, or yes or no as 1 or 0; null for anything else. */
 const numberOf = (v: RV): number | null => (typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 1 : 0) : null);
@@ -707,12 +756,14 @@ function order(a: RV, b: RV): number | null {
   return null;
 }
 
-/** What working out reads: the record's fields, a linked record's fields, today, and who looks. */
+/** What working out reads: the record's fields, a linked record's fields, today, who looks, and for a default the next number. */
 export interface Env {
   field(key: string): RV;
   member(ref: Ref, key: string): RV;
   today: string;
   me?: string;
+  /** The next number with a prefix, in so many digits at least: one more than the highest the field has in the collection. */
+  next?(prefix: string, digits: number): string;
 }
 
 /** How many parts of an expression one working out may visit, so that nothing runs away. */
@@ -773,7 +824,10 @@ export function evaluate(node: Node, env: Env): RV {
           case '<=':
           case '>':
           case '>=': {
-            const o = isNothing(a) || isNothing(b) ? null : order(a, b);
+            // What is not written yet is neither before nor after anything: the comparison gives
+            // nothing, so that a check of a field still empty does not fail.
+            if (isNothing(a) || isNothing(b)) return null;
+            const o = order(a, b);
             if (o === null) return false;
             return n.op === '<' ? o < 0 : n.op === '<=' ? o <= 0 : n.op === '>' ? o > 0 : o >= 0;
           }
@@ -819,6 +873,11 @@ function call(fn: string, args: RV[], env: Env): RV {
       return dayValue(env.today);
     case 'me':
       return env.me ?? null;
+    case 'next': {
+      if (typeof a !== 'string' || !env.next) return null;
+      const digits = typeof b === 'number' ? Math.max(1, Math.min(12, Math.trunc(b))) : 1;
+      return env.next(a, digits);
+    }
     case 'empty':
       return isNothing(a ?? null);
     case 'text':

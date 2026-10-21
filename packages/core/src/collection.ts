@@ -1,10 +1,11 @@
 import { t } from '@scrawlnotes/i18n';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { isDay } from './day';
-import { dayValue, type Env, evaluate, formulaInfo, fromRuntime, type Node, parseExpression, type RV, type Scope, toRuntime } from './lang';
+import { dayValue, type Env, evaluate, formulaInfo, fromRuntime, type Kind, kindWords, type Node, parseExpression, type RV, type Scope, toRuntime } from './lang';
 import { basename, type Entry, join, type VaultFs } from './fs';
 import { fileNameOf, shownName } from './names';
 import { freePath, moveTree } from './paths';
+import { RULES_FILE, rulesPath } from './rules';
 import { readSubtasks, type Subtask, writtenSubtask } from './subtasks';
 
 // A collection is a folder with a schema file in it, `_collection.json`, and one Markdown file
@@ -52,6 +53,22 @@ export interface Lookup {
   field: string;
 }
 
+/** How a number is written: plain, as money or as a share; money in the field's currency, or in the one a field of the record holds; with so many decimals. */
+export interface NumberFormat {
+  style: 'number' | 'currency' | 'percent';
+  /** The currency's code, `TRY`, for every record. */
+  currency?: string;
+  /** The key of the record's field that holds its currency's code, for a record each in its own. */
+  currencyField?: string;
+  /** 0 to 4; unset for as many as the number has, two at most, or the currency's own. */
+  decimals?: number;
+}
+
+export const FORMAT_STYLES: readonly NumberFormat['style'][] = ['number', 'currency', 'percent'];
+
+/** A field's default value: one the field holds, or `=` and an expression worked out when a record is made (`=today()`, `=next("PRJ-", 4)`). */
+export type DefaultValue = string | number | boolean | string[];
+
 /** The types a schema has one field of at most: the record's name, and its code. */
 export const SINGLE_TYPES: readonly FieldType[] = ['name', 'code'];
 
@@ -80,6 +97,10 @@ export interface Field {
   rollup?: Rollup;
   /** A lookup's link and field. Not written to the record's file. */
   lookup?: Lookup;
+  /** What a new record starts with, as typed or worked out when it is made; written to its file as any value. Not for what is worked out. */
+  default?: DefaultValue;
+  /** How a number, or a formula, lookup or rollup giving one, is written. */
+  format?: NumberFormat;
 }
 
 /**
@@ -464,7 +485,28 @@ function readField(raw: unknown): Field | null {
   }
   // A name is required by being the name; the others say so; what is worked out is never typed.
   if (raw.required === true && type !== 'name' && !isComputed(type)) field.required = true;
+  const given = raw.default;
+  if (!isComputed(type) && (typeof given === 'string' ? given !== '' : typeof given === 'number' ? Number.isFinite(given) : typeof given === 'boolean' || (Array.isArray(given) && given.every((v) => typeof v === 'string')))) {
+    field.default = given as DefaultValue;
+  }
+  if (type === 'number' || isComputed(type)) {
+    const format = readFormat(raw.format);
+    if (format) field.format = format;
+  }
   return field;
+}
+
+function readFormat(raw: unknown): NumberFormat | undefined {
+  if (!isRecord(raw)) return undefined;
+  const style = FORMAT_STYLES.includes(raw.style as NumberFormat['style']) ? (raw.style as NumberFormat['style']) : 'number';
+  const format: NumberFormat = { style };
+  if (style === 'currency') {
+    const by = typeof raw.currencyField === 'string' ? cleanFieldKey(raw.currencyField) : '';
+    if (by) format.currencyField = by;
+    else if (typeof raw.currency === 'string' && /^[A-Za-z]{3}$/.test(raw.currency.trim())) format.currency = raw.currency.trim().toUpperCase();
+  }
+  if (typeof raw.decimals === 'number' && Number.isInteger(raw.decimals) && raw.decimals >= 0 && raw.decimals <= 4) format.decimals = raw.decimals;
+  return format;
 }
 
 function readItem(raw: unknown): LayoutItem | null {
@@ -676,8 +718,60 @@ export function readValue(type: FieldType, raw: unknown, many = false): FieldVal
   }
 }
 
-/** A number as the screen shows it: grouped by thousands, two decimals at most. */
-export const numberText = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+// ---------- numbers ----------
+
+/** The language numbers are written in on this device: the browser's (unset), or one chosen in Settings. */
+let numberLocale: string | undefined;
+const formatters = new Map<string, Intl.NumberFormat>();
+
+/** Writes numbers as this language does from now on: `tr-TR` for 1.234,56, `en-US` for 1,234.56; unset for the browser's. */
+export function setNumberLocale(locale: string | undefined) {
+  numberLocale = locale;
+  formatters.clear();
+}
+
+function formatter(options: Intl.NumberFormatOptions): Intl.NumberFormat {
+  const key = JSON.stringify(options);
+  let made = formatters.get(key);
+  if (!made) {
+    made = new Intl.NumberFormat(numberLocale, options);
+    formatters.set(key, made);
+  }
+  return made;
+}
+
+/** A currency's code as a record or a format holds it, `TRY`; undefined for what is not one. */
+export const currencyCode = (value: unknown): string | undefined => (typeof value === 'string' && /^[A-Za-z]{3}$/.test(value.trim()) ? value.trim().toUpperCase() : undefined);
+
+/** The currency a number of a record is in: its format's, or the one its record holds in the format's field. */
+export const currencyOf = (format: NumberFormat | undefined, values?: { readonly [key: string]: unknown }): string | undefined =>
+  format?.style !== 'currency' ? undefined : format.currencyField ? currencyCode(values?.[format.currencyField]) : format.currency;
+
+/**
+ * A number as the screen shows it, as this device writes numbers: grouped by thousands, two
+ * decimals at most; with a format, as money with its currency's symbol (₺1.250,50 in Turkish,
+ * ₺1,250.50 in English), as a share (0.18 as 18%), with so many decimals. Money whose currency is
+ * not known is written as a number.
+ */
+export function formatNumber(n: number, format?: NumberFormat, currency?: string): string {
+  const decimals = format?.decimals;
+  const digits: Intl.NumberFormatOptions = decimals !== undefined ? { minimumFractionDigits: decimals, maximumFractionDigits: decimals } : { maximumFractionDigits: 2 };
+  if (format?.style === 'currency') {
+    const code = currency ?? (format.currencyField ? undefined : format.currency);
+    if (code) {
+      try {
+        return formatter({ style: 'currency', currency: code, currencyDisplay: 'narrowSymbol', ...(decimals !== undefined && digits) }).format(n);
+      } catch {
+        // A code Intl does not know: written as a number.
+      }
+    }
+  }
+  if (format?.style === 'percent') return formatter({ style: 'percent', ...digits }).format(n);
+  return formatter(digits).format(n);
+}
+
+/** A number as the screen shows it, with no format of its own. */
+export const numberText = (n: number) => formatNumber(n);
 
 /** A value as the table and the search read it. */
 export function valueText(value: FieldValue | undefined): string {
@@ -760,6 +854,74 @@ export function evaluateFormula(expr: string, values: Record['values'], schema: 
   } catch {
     return null;
   }
+}
+
+/** Whether a kind is what a field of this type holds, for a default worked out. */
+function fitsType(kind: Kind, field: Field): boolean {
+  if (kind === 'any' || kind === 'null') return true;
+  switch (field.type) {
+    case 'number':
+      return kind === 'number' || kind === 'bool';
+    case 'date':
+      return kind === 'day';
+    case 'checkbox':
+      return kind === 'bool';
+    case 'link':
+      return typeof kind === 'object' && ('record' in kind || ('list' in kind && typeof kind.list === 'object' && 'record' in kind.list));
+    case 'multi-select':
+      return kind === 'text' || (typeof kind === 'object' && 'list' in kind && (kind.list === 'text' || kind.list === 'any'));
+    default:
+      return kind === 'text' || kind === 'number' || (typeof kind === 'object' && 'record' in kind);
+  }
+}
+
+/**
+ * What is wrong with a field's default value: a formula that cannot be worked out or gives what
+ * the field does not hold; a value the field cannot hold, a choice that is not one of its own.
+ */
+export function defaultProblem(field: Field, schema: Pick<Schema, 'fields'>, schemaOf?: Scope['schemaOf']): string | null {
+  const given = field.default;
+  if (given === undefined || isComputed(field.type)) return null;
+  if (typeof given === 'string' && given.startsWith('=')) {
+    const info = formulaInfo(given.slice(1), { fields: schema.fields, schemaOf, self: field.key, use: 'default' });
+    if ('problem' in info) return info.problem;
+    return fitsType(info.kind, field) ? null : t('fields.defaultKind', { what: kindWords(info.kind), field: field.label });
+  }
+  const options = field.options ?? [];
+  switch (field.type) {
+    case 'number':
+      return typeof given === 'number' ? null : t('fields.defaultNumber');
+    case 'checkbox':
+      return typeof given === 'boolean' ? null : t('fields.defaultCheckbox');
+    case 'date':
+      return typeof given === 'string' && isDay(given) ? null : t('fields.defaultDay');
+    case 'select':
+      return typeof given === 'string' && options.includes(given) ? null : t('collection.problem.choice', { value: String(given), field: field.label });
+    case 'multi-select': {
+      const wrong = (Array.isArray(given) ? given : [String(given)]).find((v) => !options.includes(v));
+      return wrong === undefined ? null : t('collection.problem.choice', { value: wrong, field: field.label });
+    }
+    case 'link':
+      return t('fields.defaultLink');
+    default:
+      return typeof given === 'string' ? null : t('fields.defaultText');
+  }
+}
+
+/**
+ * Whether a rollup adds up money in more than one currency: a field whose records each hold their
+ * own currency, summed with no condition keeping it to one. Says so, or null.
+ */
+export function mixedCurrency(field: Field, schemaOf: (path: string) => Pick<Schema, 'fields'> | undefined): string | null {
+  const r = field.rollup;
+  if (field.type !== 'rollup' || !r?.field || r.fn === 'count') return null;
+  const source = schemaOf(r.from)?.fields;
+  const summed = source?.find((f) => f.key === r.field);
+  const by = summed?.format?.style === 'currency' ? summed.format.currencyField : undefined;
+  if (!summed || !by) return null;
+  const held = source!.find((f) => f.key === by);
+  const one = (r.where ?? []).some((c) => c.field === by && c.op === 'is' && (Array.isArray(c.value) ? c.value.length === 1 : typeof c.value === 'string' && c.value !== ''));
+  return one ? null : t('fields.mixedCurrency', { field: summed.label, currency: held?.label ?? by });
 }
 
 /**
@@ -894,6 +1056,8 @@ export interface Collection {
   dir: string;
   schema: Schema;
   records: Record[];
+  /** Its rules file (`_rules.js`) as written; unset when it has none. */
+  rules?: string;
   /**
    * When its files, its schema and its records, were written on this device: the oldest, as near
    * as the files tell to when it was made, and the newest. A folder's own time is not kept
@@ -975,7 +1139,8 @@ export async function loadCollection(fs: VaultFs, dir: string, ids: () => string
     records.push(record);
   }
   if (changed && !readOnly) await fs.writeText(indexPath(dir), JSON.stringify({ version: 1, records: next })).catch(() => undefined);
-  return { dir, schema, records, ...(written && { written }) };
+  const rules = listed.some((e) => e.kind === 'file' && e.name === RULES_FILE) ? await fs.readText(rulesPath(dir)).catch(() => undefined) : undefined;
+  return { dir, schema, records, ...(rules !== undefined && { rules }), ...(written && { written }) };
 }
 
 // ---------- making and changing ----------
@@ -1334,6 +1499,38 @@ export function groupRecords(records: Record[], schema: Schema, key: string, tod
   return [...groups.values()].sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
+/** A sum of money in one currency; no currency for numbers whose record has none. */
+export interface Sum {
+  value: number;
+  currency?: string;
+}
+
+/**
+ * A column's sum over records: one, or one for each currency when the field's records each hold
+ * their own, in the order of the currency field's choices, then as met, those with none last;
+ * null when the column is not one of numbers, or no record has a value.
+ */
+export function columnSums(records: Record[], schema: Schema, key: string, today: string): Sum[] | null {
+  const field = schema.fields.find((f) => f.key === key);
+  const by = field?.format?.style === 'currency' ? field.format.currencyField : undefined;
+  if (!field || !by) {
+    const sum = columnSum(records, schema, key, today);
+    return sum === null ? null : [{ value: sum }];
+  }
+  if (field.type !== 'number' && !isComputed(field.type)) return null;
+  const sums = new Map<string, number>();
+  for (const record of records) {
+    const value = fieldValueOf(record, field, schema, today);
+    if (typeof value !== 'number') continue;
+    const currency = currencyCode(record.values[by]) ?? '';
+    sums.set(currency, (sums.get(currency) ?? 0) + value);
+  }
+  if (sums.size === 0) return null;
+  const order = (schema.fields.find((f) => f.key === by)?.options ?? []).map((o) => o.toUpperCase());
+  const rank = (c: string) => (c === '' ? Number.MAX_SAFE_INTEGER : order.includes(c) ? order.indexOf(c) : order.length);
+  return [...sums].sort(([a], [b]) => rank(a) - rank(b)).map(([currency, value]) => ({ value, ...(currency && { currency }) }));
+}
+
 /** The sum of a number or formula column over records; null when the column is not one, or no record has a value. */
 export function columnSum(records: Record[], schema: Schema, key: string, today: string): number | null {
   const field = schema.fields.find((f) => f.key === key);
@@ -1461,8 +1658,12 @@ export function missingFields(values: Record['values'], schema: Schema): string[
  * its file may have come from elsewhere; it is marked.
  */
 export interface RecordProblem {
+  /** The field it is at; empty for one about the record as a whole. */
   field: string;
-  kind: 'missing' | 'mismatch' | 'choice';
+  /** `check`: a check of the collection's rules the record fails, saying what to do. */
+  kind: 'missing' | 'mismatch' | 'choice' | 'check';
+  /** What a check says. */
+  message?: string;
 }
 
 export function recordProblems(record: Pick<Record, 'values' | 'extra'>, schema: Schema): RecordProblem[] {
@@ -1477,8 +1678,9 @@ export function recordProblems(record: Pick<Record, 'values' | 'extra'>, schema:
   return problems;
 }
 
-/** What is wrong with a field of a record, said for the one looking at it. */
-export function problemText(problem: RecordProblem, field: Field, record: Pick<Record, 'values' | 'extra'>): string {
+/** What is wrong with a field of a record, or with the record, said for the one looking at it. */
+export function problemText(problem: RecordProblem, field: Field | undefined, record: Pick<Record, 'values' | 'extra'>): string {
+  if (problem.kind === 'check' || !field) return problem.message ?? '';
   if (problem.kind === 'missing') return field.type === 'name' ? t('collection.nameNeeded') : t('collection.problem.missing', { field: field.label });
   if (problem.kind === 'choice') return t('collection.problem.choice', { value: String(record.values[field.key]), field: field.label });
   return t('collection.problem.mismatch', { value: rawText(record.extra[field.key]), type: t(`fields.type.${field.type}`).toLowerCase() });

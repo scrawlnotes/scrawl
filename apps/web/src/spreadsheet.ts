@@ -61,12 +61,13 @@ const sheetName = (name: string) => name.replace(/[\\/?*[\]:]/g, ' ').trim().sli
 
 /** How many letters a cell shows, for its column's width: its longest line. */
 function shownLength(value: SheetCell): number {
-  if (typeof value === 'object') return 'day' in value ? 10 : value.text.length;
+  if (typeof value === 'object') return 'day' in value ? 10 : 'number' in value ? String(Math.round(value.number)).length + 6 : value.text.length;
   return Math.max(...String(value).split('\n').map((line) => line.length));
 }
 
 /**
- * Rows as an Excel file of one sheet named `name`: numbers as numbers, days as days shown as the
+ * Rows as an Excel file of one sheet named `name`: numbers as numbers, in their format where they
+ * have one (`"₺"#,##0.00`), days as days shown as the
  * reader's own Excel shows a short date, flags as TRUE and FALSE, an address that opens; each
  * column as wide as what is in it, within bounds, and a filter on the heading.
  */
@@ -83,6 +84,8 @@ export async function writeSheet(name: string, rows: SheetCell[][]): Promise<Blo
       else if (typeof value === 'boolean') sheet[at] = { t: 'b', v: value };
       // `m/d/yy` is Excel's own short date, which each reader sees in the way of their country.
       else if (typeof value === 'object' && 'day' in value) sheet[at] = { t: 'n', v: sheetSerial(value.day), z: 'm/d/yy' };
+      // A number keeps its format: money with its symbol, a share as one.
+      else if (typeof value === 'object' && 'number' in value) sheet[at] = { t: 'n', v: value.number, z: value.format };
       else if (typeof value === 'object') sheet[at] = { t: 's', v: value.text, l: { Target: value.href } };
       else sheet[at] = { t: 's', v: value };
     }),

@@ -1,4 +1,4 @@
-import { BOARD_EXT, COLLECTION_FILE, KEYS_EXT, TASK_LIST_EXT } from '@scrawlnotes/core';
+import { BOARD_EXT, COLLECTION_FILE, KEYS_EXT, RULES_FILE, TASK_LIST_EXT } from '@scrawlnotes/core';
 
 // Paths as the agent gives them, and what it may not touch. A path is inside a space, with `/`,
 // as the app shows it in a tab. Keys files hold secrets, `.scrawl/` holds the app's own state and
@@ -33,10 +33,10 @@ export function cleanPath(raw: string): string {
   return path;
 }
 
-/** Why the agent may not touch a path, or null when it may. Hidden names (`.`, `_`) hold app state and attachments; a schema is open. */
+/** Why the agent may not touch a path, or null when it may. Hidden names (`.`, `_`) hold app state and attachments; a schema and a rules file are open. */
 export function closedReason(path: string): string | null {
   const parts = path.split('/').filter(Boolean);
-  const hidden = (part: string, i: number) => (part.startsWith('.') || part.startsWith('_')) && !(i === parts.length - 1 && part === COLLECTION_FILE);
+  const hidden = (part: string, i: number) => (part.startsWith('.') || part.startsWith('_')) && !(i === parts.length - 1 && (part === COLLECTION_FILE || part === RULES_FILE));
   if (parts.some(hidden)) return 'This is Scrawl’s own folder or an attachment; agents do not read or write it';
   if (path.endsWith(KEYS_EXT)) return 'Keys files hold secrets; agents do not read or write them';
   return null;
@@ -49,14 +49,15 @@ export function checkOpen(path: string): string {
   return path;
 }
 
-export type FileKind = 'note' | 'tasks' | 'board' | 'keys' | 'schema' | 'other';
+export type FileKind = 'note' | 'tasks' | 'board' | 'keys' | 'schema' | 'rules' | 'other';
 
-/** What a file is, by its name: a note or a record, a task list, a board, a keys file, a collection's schema. */
+/** What a file is, by its name: a note or a record, a task list, a board, a keys file, a collection's schema or its rules. */
 export function fileKind(path: string): FileKind {
   if (path.endsWith(TASK_LIST_EXT)) return 'tasks';
   if (path.endsWith(BOARD_EXT)) return 'board';
   if (path.endsWith(KEYS_EXT)) return 'keys';
   if (path.endsWith(`/${COLLECTION_FILE}`) || path === COLLECTION_FILE) return 'schema';
+  if (path.endsWith(`/${RULES_FILE}`) || path === RULES_FILE) return 'rules';
   if (path.endsWith('.md')) return 'note';
   return 'other';
 }

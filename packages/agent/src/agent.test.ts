@@ -512,6 +512,68 @@ describe('tried by hand', () => {
     expect(await exists(fs, 'Plans/script.js')).toBeNull();
   });
 
+  it('writes a collection’s rules, refuses one with a mistake on its line, marks the records failing a check and gives a new record its defaults', async () => {
+    const { agent, fs } = await sample();
+    const dir = await createCollection(fs, 'CRM', 'Projects', 'blank');
+    const schema = {
+      version: 2,
+      template: 'blank',
+      fields: [
+        { key: 'name', label: 'Name', type: 'name' },
+        { key: 'code', label: 'Code', type: 'code', default: "=next('PRJ-', 4)" },
+        { key: 'status', label: 'Status', type: 'select', options: ['Offer', 'Active'], default: 'Offer' },
+        { key: 'start', label: 'Start', type: 'date', default: '=today()' },
+        { key: 'delivery', label: 'Delivery', type: 'date' },
+        { key: 'owner', label: 'Owner', type: 'person', default: '=me()' },
+        { key: 'budget', label: 'Budget', type: 'number', format: { style: 'currency', currency: 'TRY', decimals: 0 } },
+      ],
+    };
+    await writeTool(agent, { path: `${dir}/_collection.json`, text: JSON.stringify(schema) });
+    // A default or a format the app could not read is refused, each said.
+    const wrong = await refusal(
+      writeTool(agent, {
+        path: `${dir}/_collection.json`,
+        text: JSON.stringify({
+          ...schema,
+          fields: [
+            ...schema.fields.slice(0, 2),
+            { key: 'status', label: 'Status', type: 'select', options: ['Offer'], default: 'Won' },
+            { key: 'start', label: 'Start', type: 'date', default: '=next("S")' },
+            { key: 'budget', label: 'Budget', type: 'number', format: { style: 'money', decimals: 7 } },
+            { key: 'price', label: 'Price', type: 'text', format: { style: 'currency', currency: 'TRY' } },
+          ],
+        }),
+      }),
+    );
+    expect(wrong.details.problems).toEqual([
+      'budget: format.style is one of number, currency, percent',
+      'budget: format.decimals is 0 to 4',
+      'price: format is for numbers, and for formulas, lookups and rollups giving one',
+      'status: default: “Won” is not one of the choices of Status.',
+      'start: default: This gives a text, which Start does not hold.',
+    ]);
+
+    const rules = `${dir}/_rules.js`;
+    const bad = await refusal(writeTool(agent, { path: rules, text: 'check("delivery", () => delivery >= start, "Delivery is before the start")\ncheck("deliver", () => true, "x")\n' }));
+    expect(bad.details.problems).toEqual(['Line 2: There is no field with the key deliver.']);
+    expect(await exists(fs, rules)).toBeNull();
+    expect((await refusal(writeTool(agent, { path: 'CRM/_rules.js', text: '' }))).details.problems).toEqual([expect.stringContaining('not a collection')]);
+    const written = await writeTool(agent, { path: rules, text: 'check("delivery", () => delivery >= start, "Delivery is before the start")\n' });
+    expect(written.data.kind).toBe('rules');
+    expect((await readTool(agent, { path: rules })).data.kind).toBe('rules');
+
+    const made = await saveRecordTool(agent, { collection: 'Projects', values: { name: 'Atakule Tower', delivery: '2026-10-01' } });
+    expect(made.data.record.values).toMatchObject({ code: 'PRJ-0001', status: 'Offer', start: '2026-10-15', owner: 'Kaan' });
+    expect(made.data.record.problems).toEqual([{ field: 'delivery', kind: 'check', text: 'Delivery is before the start' }]);
+    // What is given stays, even empty; the next number follows the highest.
+    const next = await saveRecordTool(agent, { collection: 'Projects', values: { name: 'Kadıköy Residence', status: 'Active', start: null } });
+    expect(next.data.record.values).toEqual({ name: 'Kadıköy Residence', code: 'PRJ-0002', status: 'Active', owner: 'Kaan' });
+    const listed = await recordsTool(agent, { collection: 'Projects' });
+    expect(listed.data.fields.find((f) => f.key === 'budget')).toMatchObject({ format: { style: 'currency', currency: 'TRY', decimals: 0 } });
+    expect(listed.data.fields.find((f) => f.key === 'code')).toMatchObject({ default: "=next('PRJ-', 4)" });
+    expect(Object.fromEntries(listed.data.records.map((r) => [r.name, r.problems?.length ?? 0]))).toEqual({ 'Atakule Tower': 1, 'Kadıköy Residence': 0 });
+  });
+
   it('moves a task to a section, under another task, to the top, or to another list, and refuses where it cannot go', async () => {
     const { agent, fs } = await sample();
     const launch = await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' });

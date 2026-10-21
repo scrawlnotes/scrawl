@@ -27,7 +27,8 @@ import {
   type Phase,
   phaseCards,
   phaseProgress,
-  numberText,
+  formatNumber,
+  currencyOf,
   reviewCount,
   valueText,
 } from '@scrawlnotes/core';
@@ -325,7 +326,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
               {face.map(({ field, value }) =>
                 typeof value === 'number' ? (
                   <span key={field.key} className="val">
-                    {numberText(value)}
+                    {formatNumber(value, field.format, currencyOf(field.format, card.values))}
                   </span>
                 ) : (
                   <span key={field.key} className="co">
@@ -378,7 +379,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
             {face.map(({ field, value }) =>
               typeof value === 'number' ? (
                 <span key={field.key} className="val" title={field.label}>
-                  {numberText(value)}
+                  {formatNumber(value, field.format, currencyOf(field.format, card.values))}
                 </span>
               ) : (
                 <span key={field.key} className="co" title={field.label}>
@@ -534,7 +535,7 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
         <small>{cards.length}</small>
         {sum !== null && (
           <span className="sum" title={sumField!.label}>
-            {numberText(sum)}
+            {formatNumber(sum, sumField!.format)}
           </span>
         )}
         {!inLane && (
@@ -1293,7 +1294,7 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
           <span />
           {own.map((field, i) => (
             <span key={field.key} className="own r">
-              {sums[i] !== null && sums[i] !== undefined ? <span className="num">{numberText(sums[i]!)}</span> : null}
+              {sums[i] !== null && sums[i] !== undefined ? <span className="num">{formatNumber(sums[i]!, field.format)}</span> : null}
             </span>
           ))}
         </div>
@@ -1401,7 +1402,7 @@ function PhoneBoardList({ board, path, today, actions, onStatus, onAdd }: {
           <Icon name={sort === null ? 'list' : sort.desc ? 'down' : 'up'} />
           {label}
         </button>
-        <span className="tot">{total !== null ? numberText(total) : t('count.cards', { count: board.cards.length })}</span>
+        <span className="tot">{total !== null ? formatNumber(total, number?.format) : t('count.cards', { count: board.cards.length })}</span>
       </div>
       {cards.map((card) => {
         const column = board.columns.find((each) => each.id === card.column);
@@ -1444,7 +1445,7 @@ function PhoneBoardList({ board, path, today, actions, onStatus, onAdd }: {
               </small>
             </span>
             {typeof value === 'number' ? (
-              <span className="num">{numberText(value)}</span>
+              <span className="num">{formatNumber(value, number?.format, currencyOf(number?.format, card.values))}</span>
             ) : (
               card.due && <span className={`num ${dueClass(card.due, today)}`}>{dueLabel(card.due, today)}</span>
             )}

@@ -3,7 +3,7 @@ import { languages, locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
 import type { SpaceView } from './session';
-import { chooseLanguage, isPhone, languageTag, type Mode, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
+import { chooseLanguage, isPhone, languageTag, type Mode, NUMBER_CHOICES, type Numbers, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
 import { Icon, type IconName } from './Icon';
 import { useNarrow } from './narrow';
 import type { Connection, SyncService, SyncSnapshot } from './sync';
@@ -50,6 +50,9 @@ export interface SettingsValues {
   /** How large the app is drawn on a phone and on a computer, in percent. */
   sizes: Record<SizeKind, number>;
   onSize: (kind: SizeKind, size: number) => void;
+  /** How numbers are written on this device. */
+  numbers: Numbers;
+  onNumbers: (numbers: Numbers) => void;
   /** Who the user is; null until the first start has asked. */
   me: Me | null;
   onSaveProfile: (name: string, email: string) => void;
@@ -368,7 +371,7 @@ const SIZE_KINDS: { kind: SizeKind; label: MessageKey }[] = [
  * phone and on a computer, the one this device uses said so. Each theme shows itself in the shade
  * the mode gives; one without a light side says so. What is chosen applies at once.
  */
-function Appearance({ mode, onMode, theme, onTheme, system, sizes, onSize }: Pick<SettingsValues, 'mode' | 'onMode' | 'theme' | 'onTheme' | 'system' | 'sizes' | 'onSize'>) {
+function Appearance({ mode, onMode, theme, onTheme, system, sizes, onSize, numbers, onNumbers }: Pick<SettingsValues, 'mode' | 'onMode' | 'theme' | 'onTheme' | 'system' | 'sizes' | 'onSize' | 'numbers' | 'onNumbers'>) {
   const shade = shadeOfMode(mode, system);
   const here = thisSizeKind();
   return (
@@ -438,6 +441,21 @@ function Appearance({ mode, onMode, theme, onTheme, system, sizes, onSize }: Pic
         </div>
       ))}
       <p className="st-note">{t('settings.sizeNote')}</p>
+      <span className="st-label" id="st-numbers">
+        {t('settings.numbers')}
+      </span>
+      <div className="st-modes" role="radiogroup" aria-labelledby="st-numbers">
+        {NUMBER_CHOICES.map((choice) => {
+          // Each written as it writes a number; the browser's way as this browser does.
+          const sample = new Intl.NumberFormat(choice === 'browser' ? undefined : choice).format(1234.56);
+          return (
+            <button key={choice} type="button" role="radio" aria-checked={choice === numbers} className={choice === numbers ? 'on' : undefined} onClick={() => onNumbers(choice)}>
+              {choice === 'browser' ? t('settings.numbersBrowser', { sample }) : sample}
+            </button>
+          );
+        })}
+      </div>
+      <p className="st-note">{t('settings.numbersNote')}</p>
     </>
   );
 }

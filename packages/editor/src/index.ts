@@ -51,6 +51,7 @@ export { clipboard, markdownSlice, visibleText } from './clipboard';
 export * from './commands';
 export { addCursorBelow, closeSearchPanel, openSearchPanel, redo, searchPanelOpen, selectNextOccurrence, selectSelectionMatches, undo };
 export { createEnvEditor, type EnvEditor } from './env';
+export { createRulesEditor, type RulesEditor, type RulesProblem } from './rules';
 export { literalPattern } from './find';
 export { showFound } from './found';
 export { exportHtml, fontRuns, type OutFile, type OutFiles, PDF_WIDTH, pdfContent, type PdfFonts, type PdfNode, titled } from './export';

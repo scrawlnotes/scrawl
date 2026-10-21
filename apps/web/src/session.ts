@@ -31,7 +31,9 @@ import {
   createFolder,
   createKeys,
   createCollection,
+  computerFor,
   createLinkedCollection,
+  dayIn,
   addRecord as addCollectionRecord,
   updateRecord as updateCollectionRecord,
   loadCollection,
@@ -44,6 +46,7 @@ import {
   parseRecord,
   serializeRecord,
   renameChoices,
+  rulesPath,
   type ChoiceRenames,
   type ImportPlan,
   serializeSchema,
@@ -2144,12 +2147,14 @@ export class Session {
    * collection is read again, its records as the new schema reads them. Returns a message when it
    * cannot be written.
    */
-  async saveFields(dir: string, schema: Schema, renames: ChoiceRenames): Promise<string | null> {
+  async saveFields(dir: string, schema: Schema, renames: ChoiceRenames, rules?: string): Promise<string | null> {
     const collection = this.snapshot.collections[dir];
     if (!collection) return t('error.record');
     await this.settle();
     try {
       await this.saveSchemaAt(dir, schema);
+      // The rules file beside it, written as typed: the Fields window writes none with a mistake.
+      if (rules !== undefined) await this.fs.writeText(rulesPath(dir), rules);
       if (Object.keys(renames).length > 0) {
         for (const { path } of collection.records) {
           const record = parseRecord(await this.fs.readText(path), schema, path);
@@ -2181,8 +2186,14 @@ export class Session {
       if (serializeSchema(plan.schema) !== serializeSchema(collection.schema)) await this.saveSchemaAt(dir, plan.schema);
       const { fs } = this.at(dir);
       const target = this.own({ ...collection, schema: plan.schema });
+      const mapped = new Set(plan.mapped);
+      const others = Object.values(this.snapshot.collections).filter((c) => c.dir !== dir);
       for (const input of plan.added) {
-        const record = await addCollectionRecord(fs, target, input);
+        // The fields no column goes to take their defaults, the next number counting the rows before.
+        const given = input.values ?? {};
+        const made = computerFor({ ...collection, schema: plan.schema, records: target.records }, others, this.snapshot.boards, dayIn(new Date())).defaults(dir, given, this.snapshot.me?.name || undefined);
+        for (const key of mapped) if (!(key in given)) delete made[key];
+        const record = await addCollectionRecord(fs, target, { ...input, values: made });
         target.records = [...target.records, record];
       }
       for (const change of plan.updated) {

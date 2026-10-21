@@ -1,10 +1,11 @@
+import { setNumberLocale } from '@scrawlnotes/core';
 import { languages, setLanguage } from '@scrawlnotes/i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { isDesktop } from './storage';
 import { paletteOf, type Shade, shadeOf, themeById } from './themes';
 
-// What this device remembers about the app, apart from any space: the mode, the theme, the size
-// and the language. Storage can be missing or refuse (a private window); the app then starts with
+// What this device remembers about the app, apart from any space: the mode, the theme, the size,
+// the language and how numbers are written. Storage can be missing or refuse (a private window); the app then starts with
 // what is usual.
 
 /** Light or dark as chosen: the device's own setting, or one of them whatever the device uses. */
@@ -15,6 +16,7 @@ const THEME = 'scrawl.theme';
 const LANGUAGE = 'scrawl.language';
 const SIZE = { phone: 'scrawl.sizePhone', computer: 'scrawl.sizeComputer' } as const;
 const UPCOMING = 'scrawl.upcoming';
+const NUMBERS = 'scrawl.numbers';
 /** The theme's colours, for index.html to paint the page with before the app's code comes. */
 const BOOT = 'scrawl.boot';
 
@@ -81,6 +83,24 @@ export function loadSize(kind: SizeKind): number {
 }
 
 export const saveSize = (kind: SizeKind, size: number) => write(SIZE[kind], size === DEFAULT_SIZE[kind] ? null : String(size));
+
+/**
+ * How numbers are written: as the browser's language does, or one way whatever it is. A browser
+ * knows its language and not the region, so an English one writes 1,234.56 in Turkey too.
+ */
+export type Numbers = 'browser' | 'tr-TR' | 'en-US';
+
+export const NUMBER_CHOICES: readonly Numbers[] = ['browser', 'tr-TR', 'en-US'];
+
+export function loadNumbers(): Numbers {
+  const value = read(NUMBERS);
+  return value === 'tr-TR' || value === 'en-US' ? value : 'browser';
+}
+
+export const saveNumbers = (numbers: Numbers) => write(NUMBERS, numbers === 'browser' ? null : numbers);
+
+/** Writes numbers from now on as this device keeps it. */
+export const applyNumbers = (numbers: Numbers = loadNumbers()) => setNumberLocale(numbers === 'browser' ? undefined : numbers);
 
 /**
  * Draws the whole app larger or smaller, everything in step. A phone is told it is narrower than

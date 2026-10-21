@@ -5,7 +5,9 @@ import {
   type Collection,
   collectionName,
   collectionOf,
-  columnSum,
+  columnSums,
+  currencyOf,
+  formatNumber,
   computerFor,
   type Condition,
   type ConditionOp,
@@ -92,8 +94,9 @@ const isAddress = (type: Field['type']): type is keyof typeof ADDRESS => type in
 const isNumeric = (field: Field) => field.type === 'number' || field.type === 'formula' || (field.type === 'rollup' && (field.rollup?.fn === 'count' || field.rollup?.fn === 'sum'));
 /** A day, as a date field and a rollup of days hold it. */
 const isDay = (value: FieldValue | undefined): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
-/** What a formula or a rollup works out to, as a row shows it: a number, a day, or its text. */
-const workedText = (value: FieldValue, today: string) => (typeof value === 'number' ? numberText(value) : isDay(value) ? dueLabel(value, today) : valueText(value));
+/** What a formula or a rollup works out to, as a row shows it: a number in its field's format, a day, or its text. */
+const workedText = (value: FieldValue, today: string, field?: Field, values?: Entry['values']) =>
+  typeof value === 'number' ? formatNumber(value, field?.format, currencyOf(field?.format, values)) : isDay(value) ? dueLabel(value, today) : valueText(value);
 /** Whether a field holds days: a date, or the latest or earliest of a rollup. */
 const holdsDays = (field: Field) => field.type === 'date' || (field.type === 'rollup' && (field.rollup?.fn === 'max' || field.rollup?.fn === 'min'));
 
@@ -169,25 +172,29 @@ function ShownValue({ field, value, today }: { field: Field; value: FieldValue |
     return <span className="tx">{links.map((link) => recordLabel(link)).join(', ')}</span>;
   }
   if (field.type === 'date') return <span className="tx">{dueLabel(valueText(value), today)}</span>;
-  if (typeof value === 'number') return <span className="tx">{numberText(value)}</span>;
+  if (typeof value === 'number') return <span className="tx">{formatNumber(value, field.format)}</span>;
   return <span className="tx">{valueText(value)}</span>;
 }
 
 /** A value in the line under a record's name in the list: a choice as its chip, a tick by its field's name. */
-function ListValue({ field, value, today }: { field: Field; value: FieldValue | undefined; today: string }) {
+function ListValue({ field, value, today, values }: { field: Field; value: FieldValue | undefined; today: string; values?: Entry['values'] }) {
   if (field.type === 'checkbox') return value === true ? <span>{field.label}</span> : null;
   if (field.type === 'select' || field.type === 'multi-select') return <ShownValue field={field} value={value} today={today} />;
   if (field.type === 'link') return <span>{(Array.isArray(value) ? value : [value]).filter(isLink).map((link) => recordLabel(link)).join(', ')}</span>;
   if (isDay(value)) return <span>{dueLabel(value, today)}</span>;
-  if (typeof value === 'number') return <span>{numberText(value)}</span>;
+  if (typeof value === 'number') return <span>{formatNumber(value, field.format, currencyOf(field.format, values))}</span>;
   return <span>{valueText(value ?? null)}</span>;
 }
 
 // ---------- a record's fields as rows ----------
 
-/** A number typed in place: what is typed stays as it is typed, the value is kept once it is a number. */
-function NumberBox({ value, label, autoFocus, onChange }: { value: number | null; label: string; autoFocus: boolean; onChange: (value: number | null) => void }) {
+/**
+ * A number typed in place: what is typed stays as it is typed, the value is kept once it is a
+ * number. With a format (`shown`), it shows as the list does until it is typed in.
+ */
+function NumberBox({ value, label, autoFocus, shown, onChange }: { value: number | null; label: string; autoFocus: boolean; shown?: string; onChange: (value: number | null) => void }) {
   const [text, setText] = useState(value === null ? '' : String(value));
+  const [typing, setTyping] = useState(autoFocus);
   useEffect(() => {
     const typed = text.trim() === '' ? null : Number(text.replace(',', '.'));
     if (typed !== value) setText(value === null ? '' : String(value));
@@ -200,8 +207,10 @@ function NumberBox({ value, label, autoFocus, onChange }: { value: number | null
       inputMode="decimal"
       enterKeyHint="done"
       aria-label={label}
-      value={text}
+      value={!typing && shown !== undefined && value !== null ? shown : text}
       autoFocus={autoFocus}
+      onFocus={() => setTyping(true)}
+      onBlur={() => setTyping(false)}
       onChange={(event) => {
         const raw = event.target.value;
         setText(raw);
@@ -217,9 +226,11 @@ function NumberBox({ value, label, autoFocus, onChange }: { value: number | null
  * button that opens an address; a choice, a link, a day or a person opens a sheet; a tick is a
  * switch; a formula or a rollup is worked out and only shows. A changed value is marked.
  */
-function FieldRow({ field, value, worked, changed, bad, autoFocus, today, ctx, onChange, onPick }: {
+function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today, ctx, onChange, onPick }: {
   field: Field;
   value: FieldValue;
+  /** The record's values, for a number in the currency one of them holds. */
+  values: Entry['values'];
   /** What a formula or a rollup works out to. */
   worked: FieldValue;
   changed: boolean;
@@ -244,7 +255,7 @@ function FieldRow({ field, value, worked, changed, bad, autoFocus, today, ctx, o
       return (
         <div className={classes}>
           {label}
-          <span className="val ro">{isEmpty(worked) ? '–' : workedText(worked, today)}</span>
+          <span className="val ro">{isEmpty(worked) ? '–' : workedText(worked, today, field, values)}</span>
         </div>
       );
     case 'checkbox':
@@ -274,7 +285,13 @@ function FieldRow({ field, value, worked, changed, bad, autoFocus, today, ctx, o
       return (
         <label className={classes}>
           {label}
-          <NumberBox value={typeof value === 'number' ? value : null} label={field.label} autoFocus={autoFocus} onChange={onChange} />
+          <NumberBox
+            value={typeof value === 'number' ? value : null}
+            label={field.label}
+            autoFocus={autoFocus}
+            shown={field.format && typeof value === 'number' ? formatNumber(value, field.format, currencyOf(field.format, values)) : undefined}
+            onChange={onChange}
+          />
         </label>
       );
     default: {
@@ -332,6 +349,7 @@ function FieldRows({ schema, fields, values, rollups, original, problems, firstF
           key={field.key}
           field={field}
           value={values[field.key] ?? null}
+          values={values}
           worked={isComputed(field.type) ? (rollups[field.key] ?? null) : null}
           changed={original !== null && !same(values[field.key], original[field.key])}
           bad={problems.has(field.key)}
@@ -633,10 +651,12 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   const blocks = items.filter((item): item is LinkedBlock | { block: 'cards' } => 'block' in item && (item.block === 'linked' || item.block === 'cards'));
   const hasSubtasks = items.some((item) => 'block' in item && item.block === 'subtasks');
   // What is worked out from what the page holds now; the rollups are the record's, from what links to it.
-  const rollups = computerFor(collection, actions.collections(), actions.boards(), today).draft(dir, record, draft.values);
-  const found = recordProblems({ values: draft.values, extra: record.extra }, schema);
+  const computer = computerFor(collection, actions.collections(), actions.boards(), today);
+  const rollups = computer.draft(dir, record, draft.values);
+  // What does not fit the schema, and the checks of the collection's rules the record fails as the page holds it.
+  const found = [...recordProblems({ values: draft.values, extra: record.extra }, schema), ...computer.checks(dir, record, draft.values)];
   const problems = new Set(found.map((p) => p.field));
-  const problemLines = found.map((p) => problemText(p, schema.fields.find((f) => f.key === p.field)!, { values: draft.values, extra: record.extra }));
+  const problemLines = found.map((p) => problemText(p, schema.fields.find((f) => f.key === p.field), { values: draft.values, extra: record.extra }));
 
   // A site, a mail and a phone each give a button under the name.
   const quick = (['url', 'phone', 'email'] as const).flatMap((type) => {
@@ -881,7 +901,7 @@ function LinkedTab({ block, dir, schema: own, record, today, actions }: { block:
             <small>
               {r.name && r.code && <span className="key">{r.code}</span>}
               {shown(r).map((f) => (
-                <ListValue key={f.key} field={shownAs.get(f.key) ?? f} value={fieldValueOf(r, f, schema, today)} today={today} />
+                <ListValue key={f.key} field={shownAs.get(f.key) ?? f} value={fieldValueOf(r, f, schema, today)} today={today} values={r.values} />
               ))}
             </small>
           </span>
@@ -942,7 +962,7 @@ function CardsTab({ dir, record, today, actions, onOpenCard }: { dir: string; re
                 <span>{several && column ? `${column.name} · ${boardName(path)}` : column?.name}</span>
               </small>
             </span>
-            {typeof amount === 'number' && <span className="rt num">{numberText(amount)}</span>}
+            {typeof amount === 'number' && <span className="rt num">{formatNumber(amount, value?.format, currencyOf(value?.format, card.values))}</span>}
           </button>
         );
       })}
@@ -974,12 +994,17 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   onClose: () => void;
 }) {
   const { dir, schema } = collection;
-  const original = useMemo(() => draftOf(null, values), [values]);
+  const computer = computerFor(collection, actions.collections(), actions.boards(), today);
+  // It starts with the values given (the links of the block it is added from), then its fields' defaults.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const original = useMemo(() => draftOf(null, computer.defaults(dir, values ?? {}, actions.me?.())), [values]);
   const [draft, setDraft] = useState<Draft>(original);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState<Field | null>(null);
   const busy = useRef(false);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
+  // The checks of the collection's rules it fails as it is typed: said under the form, the fields marked.
+  const checked = computer.checks(dir, null, draft.values);
   const layout = recordLayout(schema, dir, true, actions);
   const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items));
   // Nothing links to it yet: its rollups have nothing to work out.
@@ -1025,9 +1050,9 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
               schema={schema}
               fields={fields}
               values={draft.values}
-              rollups={computerFor(collection, actions.collections(), actions.boards(), today).draft(dir, null, draft.values)}
+              rollups={computer.draft(dir, null, draft.values)}
               original={null}
-              problems={new Set()}
+              problems={new Set(checked.map((p) => p.field))}
               firstFocus={fields.find((f) => f.type !== 'formula' && f.type !== 'checkbox')?.key}
               today={today}
               ctx={ctx}
@@ -1050,6 +1075,7 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
               inSheet
             />
           )}
+          {checked.length > 0 && <p className="mb-hint err">{checked.map((p) => p.message).join(' ')}</p>}
           <p className={error ? 'mb-hint err' : 'mb-hint'} role={error ? 'alert' : undefined}>
             {error ?? t('collection.savedIn', { collection: collectionName(dir) })}
           </p>
@@ -1125,24 +1151,25 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
           {rest.length > 0 && (
             <small>
               {rest.map((f) => (
-                <ListValue key={f.key} field={f} value={value(f)} today={today} />
+                <ListValue key={f.key} field={f} value={value(f)} today={today} values={record.values} />
               ))}
             </small>
           )}
         </span>
         {right && !isEmpty(at) && (
-          <span className={typeof at === 'number' ? 'rt num' : at === today ? 'rt today' : 'rt'}>{workedText(at ?? null, today)}</span>
+          <span className={typeof at === 'number' ? 'rt num' : at === today ? 'rt today' : 'rt'}>{workedText(at ?? null, today, right, record.values)}</span>
         )}
       </button>
     );
   };
   const groupHead = (group: RecordGroup) => {
-    const sum = number ? columnSum(group.records, schema, number.key, today) : null;
+    // Money in each record's own currency is summed one currency at a time.
+    const sums = number ? columnSums(group.records, schema, number.key, today) : null;
     return (
       <button key={`g\u0000${group.key}`} type="button" className={closed.has(group.key) ? 'mb-sec mb-gsec closed' : 'mb-sec mb-gsec'} aria-expanded={!closed.has(group.key)} onClick={() => onToggle(group.key)}>
         <span>{group.key === '' ? t('collection.noValue', { field: groupField?.label ?? '' }) : group.label}</span>
         <small>{group.records.length}</small>
-        {sum !== null && <span className="sum">{numberText(sum)}</span>}
+        {sums !== null && <span className="sum">{sums.map((s) => formatNumber(s.value, number?.format, s.currency)).join(' · ')}</span>}
       </button>
     );
   };

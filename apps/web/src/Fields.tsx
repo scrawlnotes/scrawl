@@ -7,14 +7,21 @@ import {
   type Collection,
   collectionName,
   COLLECTION_FILE,
+  computerFor,
   type Condition,
+  dayIn,
+  type DefaultValue,
   defaultLayout,
+  defaultProblem,
   type Field,
   FIELD_TYPES,
   type FieldType,
+  FORMAT_STYLES,
+  formatNumber,
   formulaInfo,
   isComplete,
   isComputed,
+  isEmpty,
   isLinkable,
   type Kind,
   keyFor,
@@ -24,7 +31,9 @@ import {
   type LinkedBlock,
   linkFieldsTo,
   linkingCollections,
+  mixedCurrency,
   nameField,
+  type NumberFormat,
   opsFor,
   opTakesValue,
   OPTION_COLORS,
@@ -33,6 +42,9 @@ import {
   type Record,
   ROLLUP_FNS,
   type RollupFn,
+  RULES_FILE,
+  type RuleProblem,
+  rulesProblems,
   type Schema,
   type SchemaOf,
   schemasOf,
@@ -41,14 +53,15 @@ import {
   shownField,
   SINGLE_TYPES,
   TODAY,
+  valueText,
 } from '@scrawlnotes/core';
-import { createEnvEditor } from '@scrawlnotes/editor';
+import { createEnvEditor, createRulesEditor, type RulesEditor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { holdToDrag } from './touchDrag';
 import { createPortal } from 'react-dom';
 import { boxKeys, hueStyle, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
-import { ConditionRow } from './Collection';
+import { ConditionRow, DayValue } from './Collection';
 import { pageBox, pageWindow } from './device';
 import { Icon } from './Icon';
 import { boardLabel, collectionLabel } from './items';
@@ -61,17 +74,21 @@ import { quote } from './text';
 // A field or a block is changed where it is: a click opens it in place (its name, its type,
 // whether it is required, its choices and their colors; a link's collection; a block's collection
 // and how it shows) and it closes again. Dragged to move; + Add in a section puts a new one there.
-// Text shows the same thing as the file. Everything changes one draft; Save writes it.
+// A field's default value and a number's format are set there too. Rules shows the collection's
+// rules file as code, what is wrong under its line; Schema shows the same thing as the schema
+// file. Everything changes one draft; Save writes it.
 
 export interface FieldsActions {
   /** Every collection in the space. */
   collections: () => Collection[];
   /** Asks before something is lost; `action` is what the confirming button says. */
   ask: (title: string, message: string, run: () => void, action: string) => void;
-  /** Writes the schema, and the records whose choices were renamed. Returns a message when it cannot. */
-  saveFields: (dir: string, schema: Schema, renames: ChoiceRenames) => Promise<string | null>;
+  /** Writes the schema, and the records whose choices were renamed; with `rules`, the rules file too. Returns a message when it cannot. */
+  saveFields: (dir: string, schema: Schema, renames: ChoiceRenames, rules?: string) => Promise<string | null>;
   /** Every board, by path: whether any links to the collection. */
   boards: () => { [path: string]: Board };
+  /** Who uses the app, for a default of `me()`. */
+  me?: () => string | undefined;
 }
 
 /** A choice as the window holds it: its name now, the one it had when the window opened, and its color. */
@@ -95,7 +112,28 @@ interface DraftField {
   formula: string;
   rollup: { from: string; fn: RollupFn; field: string; open: boolean; where: Condition[] };
   lookup: { link: string; field: string };
+  /** A default given as the field's own value (Today and Me among them), or as a formula. */
+  defaultMode: 'value' | 'formula';
+  defaultValue: DefaultValue | null;
+  defaultFormula: string;
+  format: NumberFormat | null;
   fresh: boolean;
+}
+
+/** The currencies offered in the list; another is typed by its code. */
+const CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP'];
+/** The list's choice that turns it into a box for a currency's code. */
+const OTHER_CURRENCY = '\u0000other';
+const TODAY_DEFAULT = '=today()';
+const ME_DEFAULT = '=me()';
+
+/** A default as the window holds it: Today and Me are values, any other `=` a formula. */
+function draftDefault(field: Field): Pick<DraftField, 'defaultMode' | 'defaultValue' | 'defaultFormula'> {
+  const given = field.default;
+  const bare = typeof given === 'string' ? given.replace(/\s/g, '') : '';
+  const valued = (field.type === 'date' && bare === TODAY_DEFAULT) || (field.type === 'person' && bare === ME_DEFAULT);
+  if (typeof given === 'string' && given.startsWith('=') && !valued) return { defaultMode: 'formula', defaultValue: null, defaultFormula: given.slice(1) };
+  return { defaultMode: field.type === 'link' ? 'formula' : 'value', defaultValue: valued ? bare : (given ?? null), defaultFormula: '' };
 }
 
 /** What a rollup can be worked out from: a collection whose records link here, or a board whose cards do. */
@@ -197,6 +235,8 @@ function draftFields(fields: Field[]): DraftField[] {
       formula: f.formula ?? '',
       rollup: { from: f.rollup?.from ?? '', fn: f.rollup?.fn ?? 'count', field: f.rollup?.field ?? '', open: !!f.rollup?.open, where: f.rollup?.where ?? [] },
       lookup: { link: f.lookup?.link ?? '', field: f.lookup?.field ?? '' },
+      ...draftDefault(f),
+      format: f.format ?? null,
       fresh: false,
     }),
   );
@@ -215,8 +255,21 @@ const freshField = (fields: DraftField[]): DraftField => ({
   formula: '',
   rollup: { from: '', fn: 'count', field: '', open: false, where: [] },
   lookup: { link: '', field: '' },
+  defaultMode: 'value',
+  defaultValue: null,
+  defaultFormula: '',
+  format: null,
   fresh: true,
 });
+
+/** A field's default as the schema holds it: its value, or `=` and its formula; none when empty or worked out. */
+function defaultOf(f: DraftField): DefaultValue | undefined {
+  if (isComputed(f.type)) return undefined;
+  if (f.defaultMode === 'formula' || f.type === 'link') return f.defaultFormula.trim() ? `=${f.defaultFormula.trim()}` : undefined;
+  const value = f.defaultValue;
+  if (value === null || value === '' || (Array.isArray(value) && value.length === 0)) return undefined;
+  return value;
+}
 
 /** A field of the draft as the schema holds it. */
 function toField(f: DraftField): Field {
@@ -241,6 +294,8 @@ function toField(f: DraftField): Field {
       },
     }),
     ...(f.type === 'lookup' && { lookup: { link: f.lookup.link, field: f.lookup.field } }),
+    ...(defaultOf(f) !== undefined && { default: defaultOf(f) }),
+    ...(f.format && (f.type === 'number' || isComputed(f.type)) && { format: f.format }),
   };
 }
 
@@ -623,7 +678,7 @@ function Choices({ field, onChange }: { field: DraftField; onChange: (choices: C
 }
 
 /** A field opened where it is: its name, type and key, whether it is required, then what its type needs. */
-function FieldEditor({ field, fields, collections, types, sources = [], schemaOf, onChange, onDelete }: {
+function FieldEditor({ field, fields, collections, types, sources = [], schemaOf, preview, onChange, onDelete }: {
   field: DraftField;
   fields: DraftField[];
   collections: Collection[];
@@ -632,6 +687,8 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
   sources?: RollupSource[];
   /** The fields of the other collections and boards, for a formula's dot, a lookup and a rollup's conditions. */
   schemaOf: SchemaOf;
+  /** What a new record would get for a field's default, as text; a collection's fields have defaults, a board's do not. */
+  preview?: (field: Field) => string | null;
   onChange: (patch: Partial<DraftField>) => void;
   onDelete: () => void;
 }) {
@@ -646,6 +703,8 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
   // What a formula gives and reads, or what is wrong with it.
   const info = field.type === 'formula' && field.formula.trim() ? formulaInfo(field.formula, { fields: fields.map(toField), self: field.key, schemaOf }) : null;
   const problem = info && 'problem' in info ? info.problem : null;
+  // A number, or what is worked out giving one, takes a format.
+  const numeric = field.type === 'number' || (isComputed(field.type) && shownField(toField(field), { fields: fields.map(toField), schemaOf }).type === 'number');
   // A lookup: the link it goes through, and the field of the linked record it shows.
   const links = fields.filter((f) => f.type === 'link' && f.collection);
   const through = links.find((f) => f.key === field.lookup.link);
@@ -675,6 +734,8 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
   const recordsOf = (dir: string): Record[] | null => collections.find((c) => c.dir === dir)?.records ?? null;
   const firstAsked = source?.fields.find((f) => f.type !== 'name') ?? source?.fields[0];
   const setWhere = (where: Condition[]) => onChange({ rollup: { ...roll, where } });
+  // Money in each record's own currency, summed with nothing keeping it to one.
+  const mixed = field.type === 'rollup' ? mixedCurrency(toField(field), schemaOf) : null;
   return (
     <div className="fe">
       <div className="fe-top">
@@ -749,7 +810,7 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
               </div>
             </div>
           )}
-          {rollNote && <p className="fi-note">{rollNote}</p>}
+
         </>
       )}
       {field.type === 'lookup' && (
@@ -784,7 +845,152 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
           <p className="fi-note">{t('fields.formulaHint')}</p>
         </>
       )}
+      {preview && !isComputed(field.type) && <DefaultRow field={field} fields={fields} schemaOf={schemaOf} preview={preview} onChange={onChange} />}
+      {numeric && <FormatRow field={field} fields={fields} onChange={onChange} />}
+      {field.type === 'rollup' && rollNote && <p className="fi-note">{rollNote}</p>}
+      {mixed && <p className="fi-note warn">{mixed}</p>}
     </div>
+  );
+}
+
+/** A field's default: its own value (Today for a day, Me for a person), or a formula; what a new record gets, or what is wrong. */
+function DefaultRow({ field, fields, schemaOf, preview, onChange }: {
+  field: DraftField;
+  fields: DraftField[];
+  schemaOf: SchemaOf;
+  preview: (field: Field) => string | null;
+  onChange: (patch: Partial<DraftField>) => void;
+}) {
+  const formula = field.defaultMode === 'formula' || field.type === 'link';
+  const own = toField(field);
+  const problem = own.default !== undefined ? defaultProblem(own, { fields: fields.map(toField) }, schemaOf) : null;
+  const gets = own.default !== undefined && !problem ? preview(own) : null;
+  const value = field.defaultValue;
+  const none: Option = { value: null, label: t('fields.noDefault'), chip: false };
+  let box: ReactNode;
+  if (formula) {
+    box = <input className="in mono" aria-label={t('fields.default')} spellCheck={false} autoComplete="off" placeholder={field.type === 'date' ? 'start + 30' : 'next("PRJ-", 4)'} value={field.defaultFormula} onChange={(event) => onChange({ defaultFormula: event.target.value })} />;
+  } else if (field.type === 'select' || field.type === 'multi-select') {
+    const names = field.choices.map((c) => c.name.trim()).filter(Boolean);
+    const picked = Array.isArray(value) ? (value[0] ?? null) : typeof value === 'string' ? value : null;
+    box = <Picker className="in" options={[none, ...names.map((name) => ({ value: name, label: name, chip: true, color: field.choices.find((c) => c.name.trim() === name)?.color }))]} value={picked} label={t('fields.noDefault')} onPick={(name) => onChange({ defaultValue: name === null ? null : field.type === 'multi-select' ? [name] : name })} />;
+  } else if (field.type === 'checkbox') {
+    box = <Picker className="in" options={[none, { value: 'true', label: t('collection.yes'), chip: false }, { value: 'false', label: t('collection.no'), chip: false }]} value={typeof value === 'boolean' ? String(value) : null} label={t('fields.noDefault')} onPick={(v) => onChange({ defaultValue: v === null ? null : v === 'true' })} />;
+  } else if (field.type === 'date') {
+    box = <DayValue value={value === TODAY_DEFAULT ? TODAY : typeof value === 'string' ? value : undefined} todayHint={t('fields.todayMade')} none={t('fields.noDefault')} onChange={(v) => onChange({ defaultValue: v === TODAY ? TODAY_DEFAULT : (v ?? null) })} />;
+  } else if (field.type === 'person') {
+    box = <Picker className="in" options={[none, { value: ME_DEFAULT, label: t('fields.defaultMe'), hint: t('fields.defaultMeHint'), chip: false }]} value={value === ME_DEFAULT ? ME_DEFAULT : null} text={typeof value === 'string' && value !== ME_DEFAULT ? value : undefined} label={t('fields.noDefault')} onPick={(v) => onChange({ defaultValue: v })} />;
+  } else if (field.type === 'number') {
+    box = <input className="in" type="number" aria-label={t('fields.default')} placeholder={t('fields.noDefault')} value={typeof value === 'number' ? value : ''} onChange={(event) => onChange({ defaultValue: event.target.value === '' ? null : Number(event.target.value) })} />;
+  } else {
+    box = <input className="in" aria-label={t('fields.default')} placeholder={t('fields.noDefault')} value={typeof value === 'string' ? value : ''} onChange={(event) => onChange({ defaultValue: event.target.value })} />;
+  }
+  return (
+    <>
+      <div className="fe-row">
+        <span className="fe-name">{t('fields.default')}</span>
+        {field.type !== 'link' && (
+          <span className="vsw" role="group" aria-label={t('fields.default')}>
+            <button type="button" className={formula ? undefined : 'on'} aria-pressed={!formula} onClick={() => onChange({ defaultMode: 'value' })}>
+              {t('fields.defaultValue')}
+            </button>
+            <button type="button" className={formula ? 'on' : undefined} aria-pressed={formula} onClick={() => onChange({ defaultMode: 'formula' })}>
+              {t('fields.defaultFormula')}
+            </button>
+          </span>
+        )}
+        <span className="fe-val">{box}</span>
+      </div>
+      {problem ? <p className="fi-note bad">{problem}</p> : gets && <p className="fi-note"><b>{t('fields.defaultGets', { value: gets })}</b></p>}
+      {own.default !== undefined && <p className="fi-note">{t('fields.defaultNote')}</p>}
+      {formula && <p className="fi-note">{t('fields.defaultHint')}</p>}
+    </>
+  );
+}
+
+/** A number's format: plain, money or a share; money's currency, the field's or one each record holds; how many decimals. */
+function FormatRow({ field, fields, onChange }: { field: DraftField; fields: DraftField[]; onChange: (patch: Partial<DraftField>) => void }) {
+  const format = field.format;
+  // Another currency is typed by its code, three letters.
+  const [typing, setTyping] = useState(false);
+  const set = (patch: Partial<NumberFormat>) => {
+    const next: NumberFormat = { style: 'number', ...format, ...patch };
+    if (next.style !== 'currency') {
+      delete next.currency;
+      delete next.currencyField;
+    }
+    if (next.decimals === undefined) delete next.decimals;
+    onChange({ format: next.style === 'number' && next.decimals === undefined ? null : next });
+  };
+  const styles: Option[] = FORMAT_STYLES.map((style) => ({ value: style, label: t(`fields.style.${style}`), chip: false }));
+  const names = (() => {
+    try {
+      return new Intl.DisplayNames([locale()], { type: 'currency' });
+    } catch {
+      return null;
+    }
+  })();
+  const holders = fields.filter((f) => f.id !== field.id && (f.type === 'select' || f.type === 'text'));
+  const named = (code: string) => (names?.of(code) && names.of(code) !== code ? `${code} · ${names.of(code)}` : code);
+  const currencies: Option[] = [
+    ...[...CURRENCIES, ...(format?.currency && !CURRENCIES.includes(format.currency) ? [format.currency] : [])].map((code) => ({ value: code, label: named(code), chip: false })),
+    { value: OTHER_CURRENCY, label: t('fields.otherCurrency'), chip: false },
+    ...holders.map((f, i) => ({ value: `field:${f.key}`, label: t('fields.fromField', { field: f.label.trim() || f.key }), chip: false, apart: i === 0 })),
+  ];
+  const held = format?.currencyField ? fields.find((f) => f.key === format.currencyField) : undefined;
+  const currency = format?.currencyField ? `field:${format.currencyField}` : (format?.currency ?? null);
+  // What a number looks like on this device: money in its currency, or in the first choice of the field holding one.
+  const sampleCurrency = format?.currency ?? held?.choices.map((c) => c.name.trim()).find((c) => /^[A-Za-z]{3}$/.test(c))?.toUpperCase();
+  const sample = format ? formatNumber(format.style === 'percent' ? 0.185 : format.decimals ? 1240000.5 : 1240000, format, sampleCurrency) : null;
+  return (
+    <>
+      <div className="fe-row">
+        <span className="fe-name">{t('fields.format')}</span>
+        <Picker className="in fe-fmt" options={styles} value={format?.style ?? 'number'} label={t('fields.format')} onPick={(style) => style && set({ style: style as NumberFormat['style'] })} />
+        {format?.style === 'currency' &&
+          (typing ? (
+            <input
+              className="in mono"
+              aria-label={t('fields.currency')}
+              placeholder="CHF"
+              maxLength={3}
+              autoFocus
+              spellCheck={false}
+              onBlur={() => setTyping(false)}
+              onChange={(event) => {
+                const code = event.target.value.trim().toUpperCase();
+                if (/^[A-Z]{3}$/.test(code)) {
+                  set({ currency: code, currencyField: undefined });
+                  setTyping(false);
+                }
+              }}
+            />
+          ) : (
+            <Picker
+              className="in"
+              options={currencies}
+              value={currency}
+              text={held ? t('fields.fromField', { field: held.label.trim() || held.key }) : undefined}
+              label={t('fields.currency')}
+              onPick={(v) => {
+                if (v === OTHER_CURRENCY) setTyping(true);
+                else if (v) set(v.startsWith('field:') ? { currencyField: v.slice(6), currency: undefined } : { currency: v, currencyField: undefined });
+              }}
+            />
+          ))}
+      </div>
+      <div className="fe-row">
+        <span className="fe-name">{t('fields.decimals')}</span>
+        <span className="vsw" role="group" aria-label={t('fields.decimals')}>
+          {[0, 1, 2, 3, 4].map((n) => (
+            <button key={n} type="button" className={format?.decimals === n ? 'on' : undefined} aria-pressed={format?.decimals === n} onClick={() => set({ decimals: format?.decimals === n ? undefined : n })}>
+              {n}
+            </button>
+          ))}
+        </span>
+      </div>
+      {sample && <p className="fi-note">{t('fields.formatNote', { sample })}</p>}
+    </>
   );
 }
 
@@ -941,6 +1147,37 @@ function SchemaText({ text, onChange }: { text: string; onChange: (text: string)
   return <div className="ftext" ref={host} />;
 }
 
+/** The rules file as code; what is wrong is said under its line. */
+function RulesText({ text, problems, onChange }: { text: string; problems: RuleProblem[]; onChange: (text: string) => void }) {
+  const host = useRef<HTMLDivElement>(null);
+  const editor = useRef<RulesEditor | null>(null);
+  const changed = useRef(onChange);
+  changed.current = onChange;
+  useEffect(() => {
+    const made = createRulesEditor({ parent: host.current!, doc: text, hint: t('fields.rulesHint'), onChange: (doc) => changed.current(doc) });
+    editor.current = made;
+    made.view.focus();
+    return () => {
+      editor.current = null;
+      made.destroy();
+    };
+    // Made once with the rules as they are; what is typed in it is the draft from then on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const said = JSON.stringify(problems);
+  useEffect(() => {
+    editor.current?.setProblems(problems.map((p) => ({ at: p.at, message: p.message })));
+    // Said again only when what is wrong changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [said]);
+  return (
+    <>
+      <div className="ftext frules" ref={host} />
+      <p className="fi-note fd-help">{t('fields.rulesHelp')}</p>
+    </>
+  );
+}
+
 // ---------- the window ----------
 
 export function FieldsDialog({ collection, actions, onClose }: { collection: Collection; actions: FieldsActions; onClose: () => void }) {
@@ -959,8 +1196,10 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   const [start] = useState(() => toDraft(schema, linked));
   const [original] = useState(() => serializeSchema(settleSchema(toSchema(start, schema), linked)));
   const [draft, setDraft] = useState(start);
-  const [view, setView] = useState<'design' | 'text'>('design');
+  const [view, setView] = useState<'design' | 'rules' | 'text'>('design');
   const [text, setText] = useState('');
+  // The rules file as typed; written with the schema when it changed.
+  const [rules, setRules] = useState(collection.rules ?? '');
   // Choices renamed in Design before Text was opened: the records follow them on Save.
   const [carried, setCarried] = useState<ChoiceRenames>({});
   const [open, setOpen] = useState<string | null>(null);
@@ -973,7 +1212,10 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   const backdrop = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
 
-  const dirty = view === 'design' ? serializeSchema(settleSchema(toSchema(draft, schema), linked)) !== original : textProblem(text) !== null || serializeSchema(settleSchema(parseSchema(text), linked)) !== original;
+  const rulesChanged = rules !== (collection.rules ?? '');
+  const dirty =
+    rulesChanged ||
+    (view !== 'text' ? serializeSchema(settleSchema(toSchema(draft, schema), linked)) !== original : textProblem(text) !== null || serializeSchema(settleSchema(parseSchema(text), linked)) !== original);
   const fieldsById = new Map(draft.fields.map((f) => [f.id, f]));
   const placed = (kind: Block['block']) => draft.columns.some((c) => c.sections.some((s) => s.items.some((i) => 'block' in i && i.block.block === kind)));
   const notesPlaced = placed('body');
@@ -987,6 +1229,15 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
     ...boardsLinkingTo(boards, dir).map((path) => ({ value: path, label: boardLabel(path), name: boardName(path), board: true, fields: boards[path]!.fields ?? [] })),
   ];
   const schemaOf = schemasOf(collections, boards);
+  // The rules checked against the fields as they are now; a file with a mistake is not written.
+  const ruleProblems = rules.trim() ? rulesProblems(rules, { fields: (view === 'text' && textProblem(text) === null ? parseSchema(text) : toSchema(draft, schema)).fields, schemaOf }) : [];
+  const unruly = rulesChanged && ruleProblems.length > 0;
+  /** What a new record gets for a field's default, as the draft has it. */
+  const preview = (field: Field): string | null => {
+    const shaped: Collection = { ...collection, schema: { ...toSchema(draft, schema), fields: draft.fields.map(toField) } };
+    const value = computerFor(shaped, collections, boards, dayIn(new Date())).defaults(dir, {}, actions.me?.())[field.key];
+    return isEmpty(value) ? null : valueText(value);
+  };
 
   // The keyboard comes into the window, so that Esc closes it before anything is clicked.
   useEffect(() => {
@@ -1108,24 +1359,23 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
     });
   };
 
-  const switchTo = (next: 'design' | 'text') => {
+  const switchTo = (next: 'design' | 'rules' | 'text') => {
     if (next === view) return;
+    if (view === 'text') {
+      const problem = textProblem(text);
+      if (problem) return setError(problem);
+      setDraft(toDraft(parseSchema(text), linked));
+      setError(null);
+    } else close();
     if (next === 'text') {
-      close();
       setCarried(compose(carried, renamesOf(draft.fields)));
       setText(serializeSchema(settleSchema(toSchema(draft, schema), linked)));
-      setView('text');
-      return;
     }
-    const problem = textProblem(text);
-    if (problem) return setError(problem);
-    setDraft(toDraft(parseSchema(text), linked));
-    setError(null);
-    setView('design');
+    setView(next);
   };
 
   const save = async () => {
-    if (busy.current) return;
+    if (busy.current || unruly) return;
     let next: Schema;
     let renames: ChoiceRenames;
     if (view === 'text') {
@@ -1155,6 +1405,12 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
         setOpen(placeOf(unlooked));
         return setError(t('fields.lookupNeeded', { field: unlooked.label.trim() }));
       }
+      const uncurrencied = draft.fields.find((f) => f.format?.style === 'currency' && !f.format.currency && !f.format.currencyField);
+      if (uncurrencied) {
+        setView('design');
+        setOpen(placeOf(uncurrencied));
+        return setError(t('fields.currencyNeeded', { field: uncurrencied.label.trim() }));
+      }
       next = toSchema(draft, schema);
       renames = compose(carried, renamesOf(draft.fields));
     }
@@ -1162,7 +1418,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
     // Only the fields that still have choices have them renamed in the records.
     const kept = Object.fromEntries(Object.entries(renames).filter(([key]) => settled.fields.some((f) => f.key === key && isChoice(f.type))));
     busy.current = true;
-    const failed = await actions.saveFields(dir, settled, kept);
+    const failed = await actions.saveFields(dir, settled, kept, rulesChanged ? rules : undefined);
     busy.current = false;
     if (failed) setError(failed);
     else onClose();
@@ -1185,7 +1441,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
             {GRIP}
           </span>
           {field ? (
-            <FieldEditor field={field} fields={draft.fields} collections={collections} sources={sources} schemaOf={schemaOf} onChange={(patch) => changeField(field.id, patch)} onDelete={() => removeItem(item)} />
+            <FieldEditor field={field} fields={draft.fields} collections={collections} sources={sources} schemaOf={schemaOf} preview={preview} onChange={(patch) => changeField(field.id, patch)} onDelete={() => removeItem(item)} />
           ) : (
             'block' in item && <BlockEditor block={item.block} dir={dir} collections={collections} onChange={(block) => changeBlock(item.id, block)} onDelete={() => removeItem(item)} />
           )}
@@ -1283,6 +1539,9 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
             <button type="button" className={view === 'design' ? 'on' : undefined} aria-pressed={view === 'design'} onClick={() => switchTo('design')}>
               {t('fields.design')}
             </button>
+            <button type="button" className={view === 'rules' ? 'on' : undefined} aria-pressed={view === 'rules'} onClick={() => switchTo('rules')}>
+              {t('fields.rules')}
+            </button>
             <button type="button" className={view === 'text' ? 'on' : undefined} aria-pressed={view === 'text'} onClick={() => switchTo('text')}>
               {t('fields.text')}
             </button>
@@ -1291,7 +1550,16 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
             ×
           </button>
         </div>
-        {view === 'text' ? (
+        {view === 'rules' ? (
+          <RulesText
+            text={rules}
+            problems={ruleProblems}
+            onChange={(next) => {
+              setError(null);
+              setRules(next);
+            }}
+          />
+        ) : view === 'text' ? (
           <SchemaText
             text={text}
             onChange={(next) => {
@@ -1321,11 +1589,17 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
           </div>
         )}
         <div className="rm-foot">
-          {error ? <p role="alert">{error}</p> : <span className="hint">{t('fields.savedIn', { file: `${collectionName(dir)}/${COLLECTION_FILE}` })}</span>}
+          {error ? (
+            <p role="alert">{error}</p>
+          ) : unruly ? (
+            <p role="alert">{t('fields.rulesFix', { line: ruleProblems[0]!.line })}</p>
+          ) : (
+            <span className="hint">{t('fields.savedIn', { file: `${collectionName(dir)}/${view === 'rules' ? RULES_FILE : COLLECTION_FILE}` })}</span>
+          )}
           <button type="button" onClick={leave}>
             {t('dialog.cancel')}
           </button>
-          <button type="button" className="primary" disabled={!dirty} onClick={() => void save()}>
+          <button type="button" className="primary" disabled={!dirty || unruly} onClick={() => void save()}>
             {t('collection.save')}
           </button>
         </div>

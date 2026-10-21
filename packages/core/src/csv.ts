@@ -2,6 +2,7 @@ import { type Board } from './board';
 import { isDay } from './day';
 import {
   type Collection,
+  currencyOf,
   type Field,
   fieldHref,
   type FieldType,
@@ -14,6 +15,7 @@ import {
   nameField,
   codeField,
   type NewRecord,
+  type NumberFormat,
   type Record,
   recordLabel,
   type Schema,
@@ -148,12 +150,38 @@ export function collectionCsv(collection: Collection, collections: Collection[],
   return toCsv([header, ...rows]);
 }
 
-/** A cell of an Excel sheet: text, a number, a flag, a day (`2026-03-12`), or text that opens an address. */
-export type SheetCell = string | number | boolean | { day: string } | { text: string; href: string };
+/** A cell of an Excel sheet: text, a number, a number with Excel's format, a flag, a day (`2026-03-12`), or text that opens an address. */
+export type SheetCell = string | number | boolean | { day: string } | { text: string; href: string } | { number: number; format: string };
 
-/** A value as an Excel cell: numbers, flags and days as themselves, a web or mail address that opens, the rest as the CSV file writes it. */
-function sheetCellOf(field: Field, value: FieldValue | undefined): SheetCell {
+/**
+ * A number's format as Excel writes one: `"₺"#,##0.00`, `0%`, `#,##0.0`. Excel shows its
+ * separators as the reader's country does. Money whose currency is not known is a number.
+ */
+export function excelFormat(format: NumberFormat, currency?: string, value?: number): string {
+  const code = format.style === 'currency' ? (currency ?? format.currency) : undefined;
+  let decimals = format.decimals;
+  let symbol = '';
+  if (code) {
+    try {
+      const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' });
+      symbol = money.formatToParts(0).find((p) => p.type === 'currency')?.value ?? code;
+      decimals ??= money.resolvedOptions().maximumFractionDigits;
+    } catch {
+      symbol = '';
+    }
+  }
+  // With no decimals set, a whole number is written whole and another with two.
+  decimals ??= value === undefined || Number.isInteger(value) ? 0 : 2;
+  const places = decimals ? `.${'0'.repeat(decimals)}` : '';
+  if (format.style === 'percent') return `0${places}%`;
+  const number = `#,##0${places}`;
+  return symbol ? `"${symbol.replace(/"/g, '')}"${number}` : number;
+}
+
+/** A value as an Excel cell: numbers, flags and days as themselves, a number with its format, a web or mail address that opens, the rest as the CSV file writes it. */
+function sheetCellOf(field: Field, value: FieldValue | undefined, values: Record['values']): SheetCell {
   if (isEmpty(value)) return '';
+  if (typeof value === 'number' && field.format) return { number: value, format: excelFormat(field.format, currencyOf(field.format, values), value) };
   if (typeof value === 'number' || typeof value === 'boolean') return value;
   if (typeof value === 'string') {
     // What is worked out can come out as a day: the last contact.
@@ -170,7 +198,7 @@ function sheetCellOf(field: Field, value: FieldValue | undefined): SheetCell {
 export function collectionSheet(collection: Collection, collections: Collection[], boards: { [path: string]: Board }, notesLabel: string, today: string): SheetCell[][] {
   const { schema, records } = withRollups(collection, collections, boards, today);
   const header: SheetCell[] = [...schema.fields.map((f) => f.label), notesLabel];
-  const rows = records.map((r) => [...schema.fields.map((f) => sheetCellOf(f, fieldValueOf(r, f, schema, today))), r.body.trim()]);
+  const rows = records.map((r) => [...schema.fields.map((f) => sheetCellOf(f, fieldValueOf(r, f, schema, today), r.values)), r.body.trim()]);
   return [header, ...rows];
 }
 
@@ -283,6 +311,8 @@ export interface ImportPlan {
   schema: Schema;
   added: NewRecord[];
   updated: { id: string; values: Record['values']; body?: string }[];
+  /** The keys of the fields a column of the file goes to; the others take their defaults in a new record. */
+  mapped: string[];
 }
 
 /**
@@ -333,6 +363,6 @@ export function planImport(collection: Collection, header: string[], rows: strin
     if (match) updated.push({ id: match.id, values, ...(body && { body }) });
     else added.push({ values, ...(body && { body }) });
   }
-  return { schema, added, updated };
+  return { schema, added, updated, mapped: [...new Set(fieldOf.filter((f): f is Field => f !== null).map((f) => f.key))] };
 }
 

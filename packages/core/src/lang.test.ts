@@ -69,7 +69,7 @@ describe('the language', () => {
     expect(run('!paid')).toBe(false);
     expect(run('discount || 0')).toBe(0);
     expect(run('qty * discount')).toBeNull();
-    expect(run('delivery > start')).toBe(false);
+    expect(run('delivery > start')).toBeNull();
     expect(run('empty(delivery)')).toBe(true);
     expect(run('qty / 0')).toBeNull();
     expect(run('customer == "Ankara Holding"')).toBe(true);

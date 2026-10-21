@@ -10,7 +10,10 @@ import {
   type ColumnWidths,
   computerFor,
   collectionName,
-  columnSum,
+  columnSums,
+  currencyOf,
+  formatNumber,
+  type Sum,
   type Condition,
   type ConditionOp,
   type Field,
@@ -141,8 +144,10 @@ export interface CollectionActions {
   collections: () => Collection[];
   /** Changes the collection's schema file, for its views. Returns a message when it cannot be written. */
   changeSchema: (dir: string, change: (schema: Schema) => Schema) => Promise<string | null>;
-  /** Writes what the Fields window changed: the schema, and the records whose choices were renamed. */
-  saveFields: (dir: string, schema: Schema, renames: ChoiceRenames) => Promise<string | null>;
+  /** Writes what the Fields window changed: the schema, the records whose choices were renamed, and the rules file when given. */
+  saveFields: (dir: string, schema: Schema, renames: ChoiceRenames, rules?: string) => Promise<string | null>;
+  /** Who uses the app: what a default of me() gives. */
+  me?: () => string | undefined;
   /** Makes the collection a block of `dir`'s record screen looks for, which is not there, linked to `dir`. Returns a message when it cannot. */
   createLinked: (dir: string, target: string) => Promise<string | null>;
   /** Every board, by path: the cards that link to a record. */
@@ -272,7 +277,13 @@ export interface ValueContext {
 const isAddress = (type: Field['type']) => type === 'url' || type === 'email' || type === 'phone';
 
 /** A value as the table shows it: text, a chip for a choice, chips for choices, a tick for a flag, an address to open. */
-export function Cell({ field, value, ctx }: { field: Field; value: FieldValue | undefined; ctx: ValueContext }) {
+export function Cell({ field, value, ctx, values }: {
+  field: Field;
+  value: FieldValue | undefined;
+  ctx: ValueContext;
+  /** The record's values, for a number whose currency is one of its fields. */
+  values?: Record['values'];
+}) {
   if (isEmpty(value)) return <span className="empty">–</span>;
   if (field.type === 'select') return <Chip text={valueText(value)} color={optionColor(field, valueText(value))} />;
   if (field.type === 'multi-select') {
@@ -315,7 +326,7 @@ export function Cell({ field, value, ctx }: { field: Field; value: FieldValue | 
       </a>
     );
   }
-  if (typeof value === 'number') return <span className="num">{numberText(value)}</span>;
+  if (typeof value === 'number') return <span className="num">{formatNumber(value, field.format, currencyOf(field.format, values))}</span>;
   const kind = field.type === 'name' ? 'ct name' : field.type === 'code' ? 'ct code' : field.type === 'date' || field.type === 'rollup' ? 'ct dt' : 'ct';
   return <span className={field.type === 'number' || field.type === 'formula' ? 'num' : kind}>{text}</span>;
 }
@@ -325,8 +336,27 @@ export function Cell({ field, value, ctx }: { field: Field; value: FieldValue | 
  * pointed at: "required" where a required field is empty, the text the file has where it holds
  * what the field cannot, a choice that is not one of the field's with a ring.
  */
-function Flagged({ problem, field, record }: { problem: RecordProblem; field: Field; record: Record }) {
+function Flagged({ problem, field, record, shown, value, ctx }: {
+  problem: RecordProblem;
+  field: Field;
+  record: Record;
+  /** The field as its value shows, and the value, for a check: the value in the accent, or what to do where it is empty. */
+  shown: Field;
+  value: FieldValue | undefined;
+  ctx: ValueContext;
+}) {
   const why = problemText(problem, field, record);
+  if (problem.kind === 'check') {
+    return isEmpty(value) ? (
+      <span className="ct bad" title={why}>
+        {why}
+      </span>
+    ) : (
+      <span className="flagged val" title={why}>
+        <Cell field={shown} value={value} ctx={ctx} values={record.values} />
+      </span>
+    );
+  }
   if (problem.kind === 'choice') {
     const value = String(record.values[field.key]);
     return (
@@ -552,16 +582,49 @@ function LinkField({ field, value, ctx, onChange }: {
   );
 }
 
+/**
+ * A number's box. With a format it shows the number as the table does (₺96.800) and turns into
+ * the plain number when it is typed in, back again when left.
+ */
+function NumberBox({ id, field, value, currency, autoFocus, onChange, onEnter }: {
+  id: string;
+  field: Field;
+  value: number | null;
+  currency?: string;
+  autoFocus?: boolean;
+  onChange: (value: FieldValue) => void;
+  onEnter?: () => void;
+}) {
+  const [typing, setTyping] = useState(!!autoFocus);
+  const shown = !typing && field.format && value !== null;
+  return (
+    <input
+      id={id}
+      type={shown ? 'text' : 'number'}
+      step="any"
+      autoFocus={autoFocus}
+      aria-label={field.label}
+      value={shown ? formatNumber(value, field.format, currency ?? currencyOf(field.format)) : (value ?? '')}
+      onFocus={() => setTyping(true)}
+      onBlur={() => setTyping(false)}
+      onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))}
+      onKeyDown={(event) => onEnter && event.key === 'Enter' && (event.preventDefault(), onEnter())}
+    />
+  );
+}
+
 /** What the button beside an address does, by the field's type. */
 const OPEN_LABEL = { url: 'collection.openUrl', email: 'collection.writeEmail', phone: 'collection.call' } as const;
 
 /** The box a field is typed in, by its type. The value typed is held by the form. */
-export function FieldInput({ field, value, autoFocus, ctx, onChange, onEnter }: {
+export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, onEnter }: {
   field: Field;
   value: FieldValue;
   /** The keyboard comes to the box when the form opens. */
   autoFocus?: boolean;
   ctx: ValueContext;
+  /** The currency of a number written as money, when it is one of the record's fields. */
+  currency?: string;
   onChange: (value: FieldValue) => void;
   /** Enter in a line of text: the name's saves the form. */
   onEnter?: () => void;
@@ -582,18 +645,7 @@ export function FieldInput({ field, value, autoFocus, ctx, onChange, onEnter }: 
         </label>
       );
     case 'number':
-      return (
-        <input
-          id={id}
-          type="number"
-          step="any"
-          autoFocus={autoFocus}
-          aria-label={field.label}
-          value={typeof value === 'number' ? value : ''}
-          onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))}
-          onKeyDown={(event) => onEnter && event.key === 'Enter' && (event.preventDefault(), onEnter())}
-        />
-      );
+      return <NumberBox id={id} field={field} value={typeof value === 'number' ? value : null} currency={currency} autoFocus={autoFocus} onChange={onChange} onEnter={onEnter} />;
     case 'date':
       return <input id={id} type="date" autoFocus={autoFocus} aria-label={field.label} value={valueText(value)} onChange={(event) => onChange(event.target.value || null)} />;
     default: {
@@ -822,7 +874,7 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
           </span>
           <span className="meta">
             {shown(r).map((f) => (
-              <Cell key={f.key} field={shownAs.get(f.key) ?? f} value={fieldValueOf(r, f, schema, today)} ctx={ctx} />
+              <Cell key={f.key} field={shownAs.get(f.key) ?? f} value={fieldValueOf(r, f, schema, today)} ctx={ctx} values={r.values} />
             ))}
           </span>
         </button>
@@ -892,7 +944,7 @@ function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; reco
             </span>
             <span className="meta">
               <span>{several && column ? `${column.name} · ${boardName(path)}` : column?.name}</span>
-              {typeof amount === 'number' && <span className="num">{numberText(amount)}</span>}
+              {typeof amount === 'number' && <span className="num">{formatNumber(amount, value?.format, currencyOf(value?.format, card.values))}</span>}
             </span>
           </button>
         );
@@ -974,16 +1026,16 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const name = collectionName(dir);
   const fields = useMemo(() => new Map(schema.fields.map((f) => [f.key, f])), [schema]);
   const unplaced = unplacedFields(schema);
-  const [draft, setDraft] = useState<Draft>(() => draftOf(record, values));
+  // A new record starts with the values given (the links of the block it is added from), then its fields' defaults.
+  const [given] = useState(() => (record ? values : computerFor(collection, actions.collections(), actions.boards(), today).defaults(collection.dir, values ?? {}, actions.me?.())));
+  const [draft, setDraft] = useState<Draft>(() => draftOf(record, given));
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState<Over | null>(null);
   const busy = useRef(false);
   const backdrop = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
   const isNew = record === null;
-  const original = useMemo(() => draftOf(record, values), [record, values]);
-  // What does not fit the schema, as the form holds it now: a record's, not a new one's, which is checked on Create.
-  const problems = record ? recordProblems({ values: draft.values, extra: record.extra }, schema) : [];
+  const original = useMemo(() => draftOf(record, given), [record, given]);
   const dirty = differs(draft, original);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
 
@@ -1047,22 +1099,27 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const computer = useMemo(() => computerFor(collection, actions.collections(), actions.boards(), today), [collection, actions, today]);
   const computed = computer.draft(dir, record, draft.values);
   const shownAs = computer.shown(dir);
+  // What does not fit the schema, as the form holds it now: a record's, not a new one's, which is checked on Create;
+  // and the checks of the collection's rules it fails, a new one's too, at their fields or above the form.
+  const problems = [...(record ? recordProblems({ values: draft.values, extra: record.extra }, schema) : []), ...computer.checks(dir, record, draft.values)];
+  const recordWide = problems.filter((p) => !p.field || !fields.has(p.field));
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
     if (!field) return null;
     // What is worked out is shown, not typed.
+    const problem = problems.find((p) => p.field === field.key);
     if (isComputed(field.type)) {
       const worked = computed[field.key];
       return (
-        <div key={`${key}-${index}`} className="prop">
+        <div key={`${key}-${index}`} className={problem ? 'prop bad' : 'prop'}>
           <span className="pl">{field.label}</span>
           <div className="pe">
-            <span className={isEmpty(worked) ? 'st-field formula none' : 'st-field formula'}>{isEmpty(worked) ? '–' : <Cell field={shownAs.get(field.key) ?? field} value={worked} ctx={ctx} />}</span>
+            <span className={isEmpty(worked) ? 'st-field formula none' : 'st-field formula'}>{isEmpty(worked) ? '–' : <Cell field={shownAs.get(field.key) ?? field} value={worked} ctx={ctx} values={computed} />}</span>
+            {problem && <p className="pbad">{problem.message}</p>}
           </div>
         </div>
       );
     }
-    const problem = problems.find((p) => p.field === field.key);
     return (
       <div key={`${key}-${index}`} className={problem ? 'prop bad' : 'prop'}>
         <label className="pl" htmlFor={`field-${field.key}`}>
@@ -1075,10 +1132,11 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
             value={draft.values[field.key] ?? null}
             autoFocus={field.key === firstKey}
             ctx={ctx}
+            currency={currencyOf(field.format, draft.values)}
             onChange={(next) => setValue(field.key, next)}
             onEnter={field.type === 'name' ? () => void save() : undefined}
           />
-          {problem && record && <p className="pbad">{problemText(problem, field, { values: draft.values, extra: record.extra })}</p>}
+          {problem && (record || problem.kind === 'check') && <p className="pbad">{problemText(problem, field, { values: draft.values, extra: record?.extra ?? {} })}</p>}
         </div>
       </div>
     );
@@ -1169,6 +1227,15 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
           </button>
         </div>
         <div className="rm-scroll">
+          {recordWide.length > 0 && (
+            <div className="rm-checks">
+              {recordWide.map((p, i) => (
+                <p key={i} className="pbad">
+                  {p.message}
+                </p>
+              ))}
+            </div>
+          )}
           <div className="rm-cols">{columns}</div>
         </div>
         <div className="rm-foot">
@@ -1211,15 +1278,24 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
  * A day's value in a condition: Today, which moves with the day, or a day picked. "A day…" opens
  * the device's own day picker, which sits under the box.
  */
-function DayValue({ value, onChange }: { value: string | undefined; onChange: (value: string | undefined) => void }) {
+export function DayValue({ value, todayHint = t('collection.todayHint'), none, onChange }: {
+  value: string | undefined;
+  /** What Today is said to be: a condition's moves with the day, a default's is the day a record is made. */
+  todayHint?: string;
+  /** What having no day is called, when it can be picked. */
+  none?: string;
+  onChange: (value: string | undefined) => void;
+}) {
   const input = useRef<HTMLInputElement>(null);
   const day = typeof value === 'string' && value !== TODAY ? value : '';
   const options: Option[] = [
-    { value: TODAY, label: t('collection.today'), hint: t('collection.todayHint'), chip: false },
+    { value: TODAY, label: t('collection.today'), hint: todayHint, chip: false },
     { value: 'day', label: t('collection.aDay'), chip: false },
+    ...(none ? [{ value: null, label: none, chip: false, apart: true }] : []),
   ];
   const pick = (picked: string | null) => {
     if (picked === TODAY) return onChange(TODAY);
+    if (picked === null) return onChange(undefined);
     const box = input.current;
     if (!box) return;
     try {
@@ -1451,8 +1527,11 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const applied = state.conditions.filter(isComplete);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
   const noFields = schema.fields.length === 0;
-  // What does not fit the schema in each record, by its id; a record with none is not in it.
-  const problems = useMemo(() => new Map(records.map((r) => [r.id, recordProblems(r, schema)] as const).filter(([, found]) => found.length > 0)), [records, schema]);
+  // What does not fit the schema in each record, and the checks of the collection's rules it fails, by its id; a record with none is not in it.
+  const problems = useMemo(
+    () => new Map(collection.records.map((r) => [r.id, [...recordProblems(r, schema), ...computer.checks(dir, r)]] as const).filter(([, found]) => found.length > 0)),
+    [collection.records, schema, computer, dir],
+  );
 
   // What the view says is changed on the view itself; the plain table's look is kept on this device.
   const change = (patch: TablePatch) => {
@@ -1559,13 +1638,18 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const cellOf = (record: Record, field: Field) => {
     if (field.key === TITLE.key) return <span className="ct name">{recordTitle(record)}</span>;
     const problem = problems.get(record.id)?.find((p) => p.field === field.key);
-    return problem ? <Flagged problem={problem} field={field} record={record} /> : <Cell field={asShown(field)} value={fieldValueOf(record, field, schema, today)} ctx={ctx} />;
+    const value = fieldValueOf(record, field, schema, today);
+    return problem ? (
+      <Flagged problem={problem} field={field} record={record} shown={asShown(field)} value={value} ctx={ctx} />
+    ) : (
+      <Cell field={asShown(field)} value={value} ctx={ctx} values={record.values} />
+    );
   };
   // A record with something to check has a dot at the start of its row, which stays when the table scrolls.
   const flag = (record: Record) => {
     const found = problems.get(record.id);
     if (!found) return null;
-    const why = found.map((p) => problemText(p, fieldsByKey.get(p.field)!, record)).join(' ');
+    const why = found.map((p) => problemText(p, fieldsByKey.get(p.field), record)).join(' ');
     return <span className="flag" title={t('collection.problems', { problems: why })} aria-label={t('collection.problems', { problems: why })} />;
   };
   // A record with several choices is in several groups: its row's key tells them apart.
@@ -1591,13 +1675,21 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
       ))}
     </div>
   );
-  const sums = fields.map((f) => columnSum(shown, schema, f.key, today));
+  const sums = fields.map((f) => columnSums(shown, schema, f.key, today));
   const hasSums = sums.some((v) => v !== null);
+  // Money in each record's own currency is summed one currency a line, in the order of its choices.
+  const sumText = (field: Field, of: Sum[] | null) => (
+    <span className={of && of.length > 1 ? 'num split' : 'num'}>
+      {(of ?? [{ value: 0 }]).map((s, j) => (
+        <span key={s.currency ?? j}>{formatNumber(s.value, field.format, s.currency)}</span>
+      ))}
+    </span>
+  );
   const sumRow = (of: Record[], label: string, key: string) => (
     <div key={key} className="crow sum" role="row">
       {fields.map((field, i) => (
         <div key={field.key} role="cell" className={cellClass(field, i)}>
-          {i === 0 ? <span className="ct">{label}</span> : sums[i] !== null ? <span className="num">{numberText(columnSum(of, schema, field.key, today) ?? 0)}</span> : null}
+          {i === 0 ? <span className="ct">{label}</span> : sums[i] !== null ? sumText(field, columnSums(of, schema, field.key, today)) : null}
         </div>
       ))}
     </div>
@@ -1622,7 +1714,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
           .filter((f) => f.type !== 'name' && f.key !== TITLE.key && !isEmpty(fieldValueOf(record, f, schema, today)))
           .slice(0, 3)
           .map((f) => (
-            <Cell key={f.key} field={asShown(f)} value={fieldValueOf(record, f, schema, today)} ctx={ctx} />
+            <Cell key={f.key} field={asShown(f)} value={fieldValueOf(record, f, schema, today)} ctx={ctx} values={record.values} />
           ))}
       </small>
     </button>

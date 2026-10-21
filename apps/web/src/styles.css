@@ -12148,3 +12148,63 @@ button.st-li:hover,
   color: var(--sl-dim);
   font-size: 12.5px;
 }
+
+/* ---------- stage 13, slice 2: checks, default values, the number format ---------- */
+/* After the slice 2 views of design/mockups.html. A default's value or formula, and a number's
+   format with its currency, in the field's editor; the rules file as code, what is wrong under its
+   line; a sum of money in records' own currencies a line each; a record's check above its form. */
+
+.fe-row > .fe-val {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.fe-row > .fe-val > .in,
+.fe-row > .fe-val > .cv-day {
+  flex: 1;
+  min-width: 0;
+}
+
+.fe-row > .fe-val > .cv-day > .cv {
+  box-sizing: border-box;
+  height: 31px;
+  margin: 0;
+}
+
+.fe-row > .in.fe-fmt {
+  flex: none;
+  width: 112px;
+}
+
+.fi-note.warn {
+  color: var(--sl-accent);
+}
+
+.ftext.frules {
+  margin-bottom: 8px;
+}
+
+.fi-note.fd-help {
+  margin: 0 18px 12px;
+}
+
+.rm-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.ctable .crow.sum .num.split {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.flagged.val .num,
+.flagged.val .ct {
+  color: var(--sl-accent);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}

@@ -10,7 +10,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { backFromRenewing, prepareSignIn } from './cloud';
 import { startDesktopUpdates } from './desktopUpdate';
-import { applyLanguage, applySize, applyTheme, keepTyping, loadMode, loadTheme, onTurn, shadeOfMode, systemShade } from './device';
+import { applyLanguage, applyNumbers, applySize, applyTheme, keepTyping, loadMode, loadTheme, onTurn, shadeOfMode, systemShade } from './device';
 import { openingBegins } from './opening';
 import { startWebApp } from './pwa';
 import { keptConnection } from './sync';
@@ -34,6 +34,7 @@ openingBegins(backFromRenewing());
 // The theme, the size and the language this device keeps are set before anything is drawn, so
 // that the first frame is already right.
 applyLanguage();
+applyNumbers();
 applyTheme(loadTheme(), shadeOfMode(loadMode(), systemShade()));
 applySize();
 onTurn(applySize);

@@ -15,7 +15,7 @@ import {
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
 import { hashOf, MAX_TEXT } from './read';
-import { checkFile } from './check';
+import { checkFile, checkRules } from './check';
 import { type Agent, AGENT_DEVICE, type AgentSpace, clockOf, elementsOf, exists, filePathOf, foundPath, nowOf, pickPath, pickSpace } from './space';
 
 // Writing: a file as it is, and a new element. A note the agent writes over keeps its
@@ -73,8 +73,12 @@ export async function writeTool(agent: Agent, args: { space?: string; path: stri
   if (args.text.length > MAX_TEXT) throw new Refusal('The text is larger than agents write (1 MB)', { path: typed });
   const { space, path } = await writePlace(agent, args.space, typed);
   const kind = fileKind(path);
-  if (kind === 'other') throw new Refusal(`Scrawl shows notes (.md), task lists (.tasks.json), boards (.board.json) and collections' schemas (_collection.json); ${path} is none of them and was not written`, { path });
+  if (kind === 'other') throw new Refusal(`Scrawl shows notes (.md), task lists (.tasks.json), boards (.board.json), collections' schemas (_collection.json) and rules (_rules.js); ${path} is none of them and was not written`, { path });
   const notes = await checkJson(space.fs, path, kind, args.text);
+  if (kind === 'rules') {
+    const problems = await checkRules(space.fs, path, args.text);
+    if (problems.length) throw new Refusal(`${path} was not written: ${problems.length === 1 ? 'one thing' : `${problems.length} things`} to mend, then write it again`, { path, problems });
+  }
   const entry = await exists(space.fs, path);
   if (entry?.kind === 'dir') throw new Refusal(`${path} is a folder`, { path });
   const previous = entry ? await space.fs.readText(path) : null;

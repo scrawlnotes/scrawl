@@ -13,7 +13,8 @@ import {
   isLink,
   keyOf,
   type Link,
-  numberText,
+  formatNumber,
+  currencyOf,
   type PersonRef,
   type Priority,
   type Subtask,
@@ -1011,7 +1012,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
     ) : (
       <span className={field.type === 'link' ? 'tx lnk' : 'tx'}>
         {typeof value === 'number'
-          ? numberText(value)
+          ? formatNumber(value, field.format, currencyOf(field.format, card.values))
           : links.length > 0
             ? links.map((link) => link.name || link.code).join(', ')
             : field.type === 'date'

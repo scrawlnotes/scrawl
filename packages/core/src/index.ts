@@ -3,6 +3,7 @@ export * from './carried';
 export * from './collection';
 export * from './compute';
 export * from './lang';
+export * from './rules';
 export * from './created';
 export * from './order';
 export * from './csv';

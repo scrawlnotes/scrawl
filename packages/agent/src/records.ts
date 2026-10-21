@@ -2,6 +2,7 @@ import {
   addRecord,
   type Board,
   type Collection,
+  Computer,
   CONDITION_OPS,
   type Condition,
   type ConditionOp,
@@ -19,12 +20,12 @@ import {
   problemText,
   readValue,
   type Record as CollectionRecord,
+  type RecordProblem,
   recordProblems,
   type Schema,
   sortRecords,
   updateRecord,
   type VaultFs,
-  withRollups,
 } from '@scrawlnotes/core';
 import { Refusal } from './paths';
 import { type Agent, elementsOf, nowOf, pickAcross, pickRecord, todayOf } from './space';
@@ -32,7 +33,9 @@ import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
 // Collections: asking for records with conditions, and adding or changing one. A link is given
 // by the name or the code of the record it points at; a value that does not fit its field is not
-// refused but written and marked, as the app marks it. Formulas and rollups come worked out.
+// refused but written and marked, as the app marks it, and so is a record failing a check of its
+// collection's rules. Formulas and rollups come worked out; a new record gets the defaults of the
+// fields not given.
 
 /** A field as the tools describe it. */
 export function fieldOut(field: Field) {
@@ -47,6 +50,8 @@ export function fieldOut(field: Field) {
     ...(field.formula && { formula: field.formula }),
     ...(field.rollup && { rollup: field.rollup }),
     ...(field.lookup && { lookup: field.lookup }),
+    ...(field.default !== undefined && { default: field.default }),
+    ...(field.format && { format: field.format }),
   };
 }
 
@@ -58,16 +63,16 @@ export function pickField(fields: Field[], ref: string): Field {
   return found;
 }
 
-/** A record as the tools give it: its values with what is worked out (formulas, lookups, rollups) worked out, and what does not fit its schema. */
-export function recordOut(record: CollectionRecord, schema: Schema, today: string) {
+/** A record as the tools give it: its values with what is worked out (formulas, lookups, rollups) worked out, what does not fit its schema and the checks it fails. */
+export function recordOut(record: CollectionRecord, schema: Schema, today: string, checks: RecordProblem[] = []) {
   const values: { [key: string]: FieldValue } = {};
   for (const field of schema.fields) {
     const value = fieldValueOf(record, field, schema, today);
     if (!isEmpty(value)) values[field.key] = value as FieldValue;
   }
-  const problems = recordProblems(record, schema).map((problem) => {
-    const field = schema.fields.find((f) => f.key === problem.field)!;
-    return { field: problem.field, kind: problem.kind, text: problemText(problem, field, record) };
+  const problems = [...recordProblems(record, schema), ...checks].map((problem) => {
+    const field = schema.fields.find((f) => f.key === problem.field);
+    return { ...(problem.field && { field: problem.field }), kind: problem.kind, text: problemText(problem, field, record) };
   });
   return {
     id: record.id,
@@ -95,11 +100,15 @@ async function surroundings(fs: VaultFs, except: string): Promise<{ collections:
   return { collections, boards };
 }
 
-/** A collection with what is worked out among its records' values, when it has any: formulas (which may read a linked record's field), lookups, rollups. */
-async function rolled(fs: VaultFs, collection: Collection, today: string): Promise<Collection> {
-  if (!collection.schema.fields.some((f) => isComputed(f.type))) return collection;
+/** What works out a collection's records with the space around it: formulas (which may read a linked record's field), lookups, rollups, its checks, a new record's defaults. */
+async function computerAround(fs: VaultFs, collection: Collection, today: string): Promise<Computer> {
   const { collections, boards } = await surroundings(fs, collection.dir);
-  return withRollups(collection, [collection, ...collections], boards, today);
+  return new Computer([collection, ...collections], boards, today);
+}
+
+/** Records as the tools give them, each with what is worked out and the checks it fails. */
+function recordsOut(computer: Computer, collection: Collection, records: CollectionRecord[], today: string) {
+  return records.map((r) => recordOut({ ...r, values: computer.values(collection.dir, r) }, collection.schema, today, computer.checks(collection.dir, r)));
 }
 
 export interface Where {
@@ -118,7 +127,8 @@ function conditionOf(schema: Schema, where: Where): Condition {
 export async function recordsTool(agent: Agent, args: { space?: string; collection: string; where?: Where[]; sort?: { field: string; dir?: 'asc' | 'desc' }; limit?: number }) {
   const { space, element } = await pickAcross(agent, args.space, args.collection, ['collection'], 'collection');
   const today = todayOf(agent);
-  const collection = await rolled(space.fs, await loadCollection(space.fs, element.path), today);
+  const computer = await computerAround(space.fs, await loadCollection(space.fs, element.path), today);
+  const collection = computer.withValues(element.path)!;
   const { schema } = collection;
   const conditions = (args.where ?? []).map((w) => conditionOf(schema, w));
   let records = collection.records.filter((r) => matchesConditions(r, schema, conditions, today));
@@ -131,7 +141,7 @@ export async function recordsTool(agent: Agent, args: { space?: string; collecti
       ...(schema.singular && { singular: schema.singular }),
       fields: schema.fields.map(fieldOut),
       total: records.length,
-      records: records.slice(0, limit).map((r) => recordOut(r, schema, today)),
+      records: records.slice(0, limit).map((r) => recordOut(r, schema, today, computer.checks(element.path, r))),
     },
   };
 }
@@ -202,13 +212,15 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
   const { schema } = collection;
   const { values, extra } = await parseValues(space.fs, schema.fields, args.values ?? {});
   const today = todayOf(agent);
+  const around = await surroundings(space.fs, element.path);
+  const computer = new Computer([collection, ...around.collections], around.boards, today);
   let record: CollectionRecord;
   let created = false;
   const twins = args.id || args.another ? null : twinsOf(collection, values);
   if (twins) {
     const shown = (r: CollectionRecord) => ({ id: r.id, name: r.name, ...(r.code && { code: r.code }), path: r.path });
     if (twins.records.length > 1) throw new Refusal(`More than one record is already called ${twins.what}; nothing was added. Give id to change one of them, or another: true to add one more`, { candidates: twins.records.map(shown) });
-    const found = (await rolled(space.fs, { ...collection, records: [twins.records[0]!] }, today)).records[0]!;
+    const found = twins.records[0]!;
     return {
       data: {
         space: space.id,
@@ -216,7 +228,7 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
         created: false,
         exists: true,
         message: `A record called ${twins.what} is already there; nothing was added. To change it, give its id ${found.id}; to add a second one with this name on purpose, pass another: true.`,
-        record: recordOut(found, schema, today),
+        record: recordsOut(computer, collection, [found], today)[0]!,
       },
     };
   }
@@ -236,10 +248,15 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     const holder = codeHolder(undefined);
     if (holder) throw new Refusal(`${holder.name || holder.id} already has the code ${holder.code}; a code belongs to one record`, { record: { id: holder.id, name: holder.name, code: holder.code } });
     const subtasks = args.subtasks ? await applySubtasks(space, [], args.subtasks, nowOf(agent)) : undefined;
-    record = await addRecord(space.fs, collection, { values, ...(args.body !== undefined && { body: args.body }), ...(subtasks?.length && { subtasks }) });
+    // The fields not given take their defaults, a later one reading what is given; what is given, even empty, stays.
+    const made = computer.defaults(element.path, Object.fromEntries(Object.entries(values).filter(([, v]) => !isEmpty(v))), (await agent.person())?.name || undefined);
+    for (const key of Object.keys(values)) made[key] = values[key]!;
+    for (const key of Object.keys(extra)) delete made[key];
+    record = await addRecord(space.fs, collection, { values: made, ...(args.body !== undefined && { body: args.body }), ...(subtasks?.length && { subtasks }) });
     if (Object.keys(extra).length > 0) record = await updateRecord(space.fs, schema, { ...record, extra }, {});
     created = true;
   }
-  const shown = await rolled(space.fs, { ...collection, records: [record] }, today);
-  return { data: { space: space.id, collection: element.path, created, record: recordOut(shown.records[0]!, schema, today) } };
+  // Worked out again with the record as written, for what links to it and what it reads.
+  const after = new Computer([{ ...collection, records: [...collection.records.filter((r) => r.id !== record.id), record] }, ...around.collections], around.boards, today);
+  return { data: { space: space.id, collection: element.path, created, record: recordsOut(after, collection, [record], today)[0]! } };
 }

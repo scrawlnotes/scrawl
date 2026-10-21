@@ -5,16 +5,24 @@ import {
   CONDITION_OPS,
   type ConditionOp,
   cleanFieldKey,
+  defaultProblem,
+  dirname,
   type Field,
   FIELD_TYPES,
   type FieldType,
+  FORMAT_STYLES,
   formulaProblem,
+  isComputed,
   isDay,
   loadBoard,
   loadSchema,
+  mixedCurrency,
+  type NumberFormat,
   parseSchema,
   ROLLUP_FNS,
   type RollupFn,
+  rulesProblems,
+  schemaPath,
   type VaultFs,
 } from '@scrawlnotes/core';
 import { type FileKind } from './paths';
@@ -45,12 +53,9 @@ export async function checkFile(fs: VaultFs, kind: FileKind, data: Json, text: s
   return { problems: [], notes: [] };
 }
 
-async function checkSchema(fs: VaultFs, data: Json, text: string): Promise<Checked> {
-  const problems: string[] = [];
-  const notes: string[] = [];
+/** The space's collections and boards, and where the fields of each are found: for lookups, a formula's dot, a rollup's conditions, a rule's linked record. */
+async function fieldsAround(fs: VaultFs): Promise<{ there: Set<string>; schemaOf: (path: string) => { fields: Field[] } | undefined }> {
   const elements = await elementsOf(fs, ['collection', 'board']);
-  const there = new Set(elements.map((e) => e.path));
-  // The fields of the space's other collections and boards, for lookups, a formula's dot and a rollup's conditions.
   const fieldsAt = new Map<string, Field[]>();
   for (const element of elements) {
     try {
@@ -59,7 +64,41 @@ async function checkSchema(fs: VaultFs, data: Json, text: string): Promise<Check
       // A file that cannot be read says nothing of its fields.
     }
   }
-  const schemaOf = (path: string) => (fieldsAt.has(path) ? { fields: fieldsAt.get(path)! } : undefined);
+  return { there: new Set(elements.map((e) => e.path)), schemaOf: (path) => (fieldsAt.has(path) ? { fields: fieldsAt.get(path)! } : undefined) };
+}
+
+/**
+ * What is wrong with a collection's rules file, each with its line: one that is not beside a
+ * schema, one that cannot be read, a check of a field that is not there or that cannot be worked out.
+ */
+export async function checkRules(fs: VaultFs, path: string, text: string): Promise<string[]> {
+  const dir = dirname(path);
+  const schema = await loadSchema(fs, dir).catch(() => null);
+  if (!schema || (await fs.stat?.(schemaPath(dir))) === null) return [`A rules file goes in a collection's folder, beside its _collection.json; ${dir || 'this folder'} is not a collection`];
+  const { schemaOf } = await fieldsAround(fs);
+  return rulesProblems(text, { fields: schema.fields, schemaOf }).map((p) => `Line ${p.line}: ${p.message}`);
+}
+
+/** What is wrong with a number's format as written. */
+function formatProblems(key: string, raw: unknown, type: unknown, keys: unknown[]): string[] {
+  if (raw === undefined) return [];
+  if (type !== 'number' && !isComputed(type as FieldType)) return [`${key}: format is for numbers, and for formulas, lookups and rollups giving one`];
+  if (!isObject(raw)) return [`${key}: format is { style, currency or currencyField, decimals }`];
+  const problems: string[] = [];
+  if (!FORMAT_STYLES.includes(raw.style as NumberFormat['style'])) problems.push(`${key}: format.style is one of ${FORMAT_STYLES.join(', ')}`);
+  if (raw.decimals !== undefined && !(typeof raw.decimals === 'number' && Number.isInteger(raw.decimals) && raw.decimals >= 0 && raw.decimals <= 4)) problems.push(`${key}: format.decimals is 0 to 4`);
+  if (raw.style === 'currency') {
+    if (raw.currencyField !== undefined) {
+      if (!filled(raw.currencyField) || !keys.includes(raw.currencyField)) problems.push(`${key}: format.currencyField is the key of this collection's field that holds each record's currency code`);
+    } else if (!(typeof raw.currency === 'string' && /^[A-Za-z]{3}$/.test(raw.currency))) problems.push(`${key}: a currency format takes currency, a code like TRY or EUR, or currencyField`);
+  }
+  return problems;
+}
+
+async function checkSchema(fs: VaultFs, data: Json, text: string): Promise<Checked> {
+  const problems: string[] = [];
+  const notes: string[] = [];
+  const { there, schemaOf } = await fieldsAround(fs);
   const own = Array.isArray(data.fields) ? (data.fields as unknown[]).filter(isObject) : [];
   const keys = new Set<string>();
   let names = 0;
@@ -73,6 +112,13 @@ async function checkSchema(fs: VaultFs, data: Json, text: string): Promise<Check
     if (!FIELD_TYPES.includes(type as FieldType)) problems.push(`${key} has the type ${JSON.stringify(type)}, which is none of ${FIELD_TYPES.join(', ')}`);
     if (type === 'name') names++;
     if (type === 'code') codes++;
+    problems.push(...formatProblems(key, field.format, type, own.map((f) => f.key)));
+    if (field.default !== undefined) {
+      if (isComputed(type as FieldType)) problems.push(`${key} is worked out and takes no default`);
+      else if (!['string', 'number', 'boolean'].includes(typeof field.default) && !(Array.isArray(field.default) && field.default.every((v) => typeof v === 'string'))) {
+        problems.push(`${key}: default is a value the field holds, or "=" and a formula: "=today()", "=next(\\"PRJ-\\", 4)"`);
+      }
+    }
     if ((type === 'select' || type === 'multi-select') && field.options !== undefined && !(Array.isArray(field.options) && field.options.every((o) => typeof o === 'string'))) {
       problems.push(`The options of ${key} are a list of words`);
     }
@@ -116,6 +162,10 @@ async function checkSchema(fs: VaultFs, data: Json, text: string): Promise<Check
   for (const field of schema.fields) {
     const problem = field.type === 'formula' ? formulaProblem(field.formula ?? '', schema, field.key, schemaOf) : null;
     if (problem) problems.push(`${field.key}: ${problem}`);
+    const wrong = defaultProblem(field, schema, schemaOf);
+    if (wrong) problems.push(`${field.key}: default: ${wrong}`);
+    const mixed = mixedCurrency(field, schemaOf);
+    if (mixed) notes.push(`${field.key}: ${mixed}`);
   }
   return { problems, notes };
 }

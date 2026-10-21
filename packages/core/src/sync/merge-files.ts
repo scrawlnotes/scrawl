@@ -2,6 +2,7 @@ import { diffIndices } from 'node-diff3';
 import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from '../board';
 import { parseFilters, serializeFilters, type TaskFilter } from '../filters';
 import { KEYS_EXT } from '../keys';
+import { RULES_FILE } from '../rules';
 import { mergeMe, parseMe, serializeMe } from '../me';
 import { mergePeople, parsePeople } from '../people';
 import { parseSpace, serializeSpace } from '../space';
@@ -17,8 +18,9 @@ const TRASH_INDEX = '.scrawl/trash/index.json';
 /** How a file is merged; null for a file that cannot be (an attachment). */
 export function mergeKindOf(path: string): MergeKind | null {
   const lower = path.toLowerCase();
-  // A keys file is lines of text too: two devices that changed different keys keep both.
-  if (lower.endsWith('.md') || lower.endsWith(KEYS_EXT)) return 'text';
+  // A keys file is lines of text too: two devices that changed different keys keep both; so is a
+  // collection's rules file, two devices that changed different rules keeping both.
+  if (lower.endsWith('.md') || lower.endsWith(KEYS_EXT) || lower === RULES_FILE || lower.endsWith(`/${RULES_FILE}`)) return 'text';
   if (lower.endsWith(TASK_LIST_EXT)) return 'tasks';
   if (lower.endsWith(BOARD_EXT)) return 'board';
   if (lower === '.scrawl/filters.json') return 'filters';
