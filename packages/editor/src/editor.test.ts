@@ -251,6 +251,9 @@ describe('formatting commands', () => {
     expect(run(setLink('https://x.y'), 'see |docs| now')).toBe('see [|docs|](https://x.y) now');
     expect(run(setLink('https://z.w'), 'see [|docs|](https://x.y) now')).toBe('see [|docs|](https://z.w) now');
     expect(run(setLink(''), 'see [|docs|](https://x.y) now')).toBe('see |docs| now');
+    // A path with a space stays one link; with nothing selected, the name picked is its text.
+    expect(run(setLink('Atlas/Order lines'), 'see |lines| now')).toBe('see [|lines|](Atlas/Order%20lines) now');
+    expect(run(setLink('Order%20lines', 'Order lines'), 'see | now')).toBe('see [|Order lines|](Order%20lines) now');
   });
 
   it('sets, changes and removes a heading', () => {

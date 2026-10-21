@@ -29,7 +29,10 @@ export interface LivePreviewOptions extends MediaOptions {
    * the image is read.
    */
   resolveImage?: (src: string) => string | Promise<string>;
-  /** Opens a web or mail address of the note. Without it, the browser opens it in a new tab. */
+  /**
+   * Opens a link of the note: a web or mail address, or a path to something in the space, from
+   * the note's folder. Without it, the browser opens a web address in a new tab, and a path is not opened.
+   */
   openLink?: (href: string) => void;
   /**
    * A tap on a link on a touch screen: the host shows what can be done with it. The tap moves no
@@ -45,14 +48,19 @@ export interface LinkTap {
   pos: number;
 }
 
-const openInBrowser = (href: string) => void window.open(href, '_blank', 'noopener');
+// Addresses a Ctrl/Cmd+click opens: a web or mail address, and a path to something in the space
+// (no scheme, not a place in the note). Any other link is only text to edit.
+const OUTSIDE = /^(https?:|mailto:)/i;
+const followable = (href: string) => {
+  const h = href.trim();
+  return OUTSIDE.test(h) || (h !== '' && !/^[a-z][a-z0-9+.-]*:/i.test(h) && !h.startsWith('#') && !h.startsWith('//'));
+};
 
-// Addresses a Ctrl/Cmd+click opens; any other link is only text to edit.
-const FOLLOWABLE = /^(https?:|mailto:)/i;
+const openInBrowser = (href: string) => void (OUTSIDE.test(href) && window.open(href, '_blank', 'noopener'));
 const followKey = () => (typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl');
 
 const linkMark = (href: string) => {
-  const follows = FOLLOWABLE.test(href);
+  const follows = followable(href);
   return Decoration.mark({
     class: follows ? 'cm-sl-link cm-sl-link-out' : 'cm-sl-link',
     attributes: { 'data-href': href, title: follows ? t('editor.linkHint', { href, key: followKey() }) : href },
@@ -707,7 +715,7 @@ const followLinks = (open: (href: string) => void) =>
     mousedown(event) {
       if (!(event.ctrlKey || event.metaKey) || !(event.target instanceof HTMLElement)) return false;
       const href = event.target.closest<HTMLElement>('.cm-sl-link')?.dataset.href;
-      if (!href || !FOLLOWABLE.test(href)) return false;
+      if (!href || !followable(href)) return false;
       open(href);
       event.preventDefault();
       return true;

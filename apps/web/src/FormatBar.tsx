@@ -1,13 +1,20 @@
 import type { FormatState } from '@scrawlnotes/editor';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
+import { OptionList } from './choices';
+import { choiceHint, type LinkChoice, matchChoices } from './linkChoices';
 import type { FormatAction } from './session';
 
 interface Props {
   /** Formatting at the cursor, or null when no note is being edited. */
   format: FormatState | null;
   onFormat: (action: FormatAction) => void;
-  onLink: (url: string) => void;
+  /** Links the selection to an address; `text` is the link's text when nothing is selected. */
+  onLink: (url: string, text?: string) => void;
+  /** What the note can link to in its space, offered as the address is typed. */
+  linkChoices: LinkChoice[];
+  /** How the note writes a link to one of them. */
+  linkHref: (choice: LinkChoice) => string;
   /** When the recording started, while one is going on. */
   recording: { since: number } | null;
   /** Why the microphone could not be used, for a moment. */
@@ -95,7 +102,7 @@ const keepEditorFocus = (event: MouseEvent) => {
 };
 
 /** The formatting controls: a fixed row above the editor that acts on the selection or the word at the cursor. */
-export function FormatBar({ format, onFormat, onLink, recording, recordError, onRecord, onStop, onToTask, onToCard, toTaskKeys, onImage, onFind }: Props) {
+export function FormatBar({ format, onFormat, onLink, linkChoices, linkHref, recording, recordError, onRecord, onStop, onToTask, onToCard, toTaskKeys, onImage, onFind }: Props) {
   const [linking, setLinking] = useState(false);
   // Whether the bar goes on past the right edge of a narrow window.
   const bar = useRef<HTMLDivElement>(null);
@@ -119,15 +126,31 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
     if (linking) input.current?.focus();
   }, [linking]);
 
+  // As the address is typed, what in the space it may name is offered under it; Esc closes the list first.
+  const [offering, setOffering] = useState(false);
+  const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
+  const offered = linking && offering ? matchChoices(linkChoices, url) : [];
+
   const startLink = () => {
     setUrl(format?.link?.url ?? '');
+    setOffering(false);
     setLinking(true);
   };
   const finishLink = (value: string | null) => {
     setLinking(false);
     if (value !== null) onLink(value.trim());
   };
+  const pick = (path: string | null) => {
+    const choice = offered.find((c) => c.path === path);
+    if (!choice) return;
+    setLinking(false);
+    onLink(linkHref(choice), choice.title);
+  };
   const onKey = (event: KeyboardEvent) => {
+    if (offered.length > 0) {
+      keys.current?.(event);
+      if (event.defaultPrevented) return;
+    }
     if (event.key === 'Enter') {
       // The note takes the focus back at once, and the key would go on into it as a new line.
       event.preventDefault();
@@ -145,9 +168,26 @@ export function FormatBar({ format, onFormat, onLink, recording, recordError, on
           aria-label={t('format.linkAddress')}
           placeholder={t('format.linkPlaceholder')}
           value={url}
-          onChange={(event) => setUrl(event.target.value)}
+          autoComplete="off"
+          onChange={(event) => {
+            setUrl(event.target.value);
+            setOffering(true);
+          }}
           onKeyDown={onKey}
         />
+        {offered.length > 0 && (
+          <OptionList
+            anchor={input}
+            options={offered.map((c) => ({ value: c.path, label: c.title, hint: choiceHint(c), chip: false }))}
+            current={[]}
+            label={t('format.linkAddress')}
+            keys={keys}
+            width={360}
+            className="link-choices"
+            onPick={pick}
+            onClose={() => setOffering(false)}
+          />
+        )}
         <button type="button" onClick={() => finishLink(url)}>
           {t('format.apply')}
         </button>

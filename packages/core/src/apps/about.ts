@@ -1,4 +1,5 @@
-import { basename } from '../fs';
+import { basename, dirname } from '../fs';
+import { hrefTo } from '../links';
 import { boardName } from '../vault';
 import { collectionName } from '../collection';
 import type { AboutSection, Part, TemplateId } from './types';
@@ -26,13 +27,13 @@ function shared(parts: Map<string, Part>, users: Map<string, string[]>): string[
   return lines;
 }
 
-/** A section of the note for a template, its pieces named as they are called now. */
-export function aboutSection(section: AboutSection, parts: Map<string, Part>, from: Map<string, string>): string {
+/** A section of the note for a template, its pieces named as they are called now, each a link to it from the note's folder. */
+export function aboutSection(section: AboutSection, parts: Map<string, Part>, from: Map<string, string>, folder: string): string {
   const pieces = section.pieces.flatMap((role) => {
     const part = parts.get(role);
     if (!part) return [];
     const by = from.get(role);
-    return [`- **${partName(part)}**: ${part.about}${by && by !== section.title ? ` Set up with ${by}.` : ''}`];
+    return [`- [${partName(part)}](${hrefTo(folder, part.path)}): ${part.about}${by && by !== section.title ? ` Set up with ${by}.` : ''}`];
   });
   const out = [`## ${section.title}`, '', section.what, '', "### What's in it", '', ...pieces, '', '### How to use it', '', ...section.how.map((s, i) => `${i + 1}. ${s}`)];
   if (section.auto.length > 0) out.push('', '### What happens by itself', '', ...section.auto.map((s) => `- ${s}`));
@@ -58,7 +59,7 @@ function agentAsks(parts: Map<string, Part>): string[] {
  * The About note of an app: its title, what it is made of and how the pieces meet, a section for
  * each template, then what to ask the agent.
  */
-export function aboutNote(title: string, sections: { id: TemplateId; section: AboutSection }[], parts: Map<string, Part>): string {
+export function aboutNote(path: string, title: string, sections: { id: TemplateId; section: AboutSection }[], parts: Map<string, Part>): string {
   const users = new Map<string, string[]>();
   for (const { section } of sections) for (const role of section.pieces) users.set(role, [...(users.get(role) ?? []), section.title]);
   const from = new Map([...users].map(([role, titles]) => [role, titles[0]!]));
@@ -69,13 +70,13 @@ export function aboutNote(title: string, sections: { id: TemplateId; section: Ab
   ];
   const meets = shared(parts, users);
   if (meets.length > 0) lines.push('', ...meets);
-  for (const { section } of sections) lines.push('', aboutSection(section, parts, from));
+  for (const { section } of sections) lines.push('', aboutSection(section, parts, from, dirname(path)));
   lines.push('', '## Changing it with your agent', '', 'Ask your agent to change the app; it reads this note first. For example:', '', ...agentAsks(parts).map((a) => `- ${a}`));
   return `${lines.join('\n')}\n`;
 }
 
 /** The sections a template added to an app already set up, put at the end of its note. */
-export function aboutAdded(sections: { id: TemplateId; section: AboutSection }[], parts: Map<string, Part>): string {
+export function aboutAdded(path: string, sections: { id: TemplateId; section: AboutSection }[], parts: Map<string, Part>): string {
   const from = new Map<string, string>();
-  return sections.map(({ section }) => aboutSection(section, parts, from)).join('\n\n');
+  return sections.map(({ section }) => aboutSection(section, parts, from, dirname(path))).join('\n\n');
 }

@@ -11,6 +11,7 @@ import {
   relinkBoard,
   relinkBoardNote,
   relinkNote,
+  relinkNotes,
   relinkTaskRecords,
   relinkTrash,
   renameCollection,
@@ -61,15 +62,16 @@ export async function moveTool(agent: Agent, args: { space?: string; path: strin
     if (folder !== undefined && folder !== dirname(to)) to = await moveItem(fs, to, folder);
     if (name) to = await renameItem(fs, to, name);
   }
+  let links: string[] = [];
   if (to !== from) {
-    await relink(fs, element.kind, from, to, !space.versioned);
+    links = await relink(fs, element.kind, from, to, !space.versioned);
     await carryCreated(fs, AGENT_DEVICE, from, to).catch(() => undefined);
   }
-  return { data: { space: space.id, kind: element.kind, from, to, moved: to !== from } };
+  return { data: { space: space.id, kind: element.kind, from, to, moved: to !== from, ...(links.length > 0 && { links: `The links of ${links.length === 1 ? 'a note' : `${links.length} notes`} point at it where it is now: ${links.join(', ')}` }) } };
 }
 
-/** What pointed at `from` points at `to`; a note's history goes along on a computer, where it is kept beside the note. */
-async function relink(fs: VaultFs, kind: ElementKind, from: string, to: string, history: boolean): Promise<void> {
+/** What pointed at `from` points at `to`, the links of notes too, which it returns; a note's history goes along on a computer, where it is kept beside the note. */
+async function relink(fs: VaultFs, kind: ElementKind, from: string, to: string, history: boolean): Promise<string[]> {
   if (history && kind === 'note') await moveHistory(fs, from, to).catch(() => undefined);
   if (history && kind === 'collection') {
     const { records } = await loadCollection(fs, to, undefined, true).catch(() => ({ records: [] }));
@@ -97,4 +99,6 @@ async function relink(fs: VaultFs, kind: ElementKind, from: string, to: string, 
       if (changed !== current) await saveSchema(fs, collection.path, changed);
     }
   }
+  // A note that links to it, and its own links when it is a note or a collection's records.
+  return relinkNotes(fs, [{ from, to }]);
 }

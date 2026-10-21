@@ -58,7 +58,7 @@ Verilen kararlar (21 Ekim 2026):
   - Kişinin sildiği bir parça eklemede geri kurulmaz.
   - Undo yeni klasörleri, panoları ve notları çöpe atar, değişen dosyaları eski haline getirir; koleksiyona eklenen kural dosyasını ve başlangıç kayıtlarını kaldırır.
   - Ajanın `create`'i: `folder` bir app ise ona ekler, değilse içinde yeni app kurar; aynı ad ve aynı şablonlarla yeniden çağrılınca `exists: true` döner.
-- Tanıtım notu parçaları kendi dosyalarına link verir. Notlarda dosyaya link bugün açılmıyor (yalnız http ve mailto); bu ayrı bir iş olarak planlanacak. O gelene kadar not parçaları kalın adla yazar.
+- Tanıtım notu parçaları kendi dosyalarına link verir; bunun için notlarda dosyaya link geldi (2.5, 21 Ekim'de onaylandı).
 
 ## 2. Sihirbaz
 
@@ -105,6 +105,15 @@ App klasörünün en üstünde, app'in adıyla bir not: "About Atlas". Kişinin 
 En sonda **Changing it with your agent:** örnek isteklerle ("Add a field…", "Change the deal stages…").
 
 Not İngilizce kurulur, uygulamanın dili gibi. Add to app'te yeni şablonun bölümü notun sonuna eklenir; kişinin notta değiştirdiği hiçbir şeye dokunulmaz (4.2).
+
+### 2.5 Notlarda dosyaya link
+
+Tanıtım notunun parçalara link verebilmesi için her notta geçerli (21 Ekim 2026'da onaylandı):
+
+- **Yazım:** standart Markdown linki, notun klasörüne göre göreli yol; boşluk %20: `[Companies](Companies)`, `[Deals](Deals.board.json)`, `[Order lines](Order%20lines)`, `[Plan](../Plans/Roadmap.md)`. GitHub ve Obsidian gibi yerlerde de böyle okunur. Ekli dosyalar bugünkü gibi space'in en üstünden: `_attachments/…`. Bir kaydın ya da kartın notundaki link kaydın koleksiyonundan, kartın panosunun klasöründen okunur.
+- **Açılış:** web linkleriyle aynı. Masaüstünde ve web'de Ctrl+tık (Mac'te ⌘) linki uygulamada açar: not, görev listesi, pano ve koleksiyon kendi sekmesinde, klasör kenar çubuğunda, ekli dosya Files'taki gibi. Telefonda dokununca çıkan menüde Open. Olmayan bir hedefte toast "It is not here any more." der.
+- **Taşıma ve yeniden adlandırma:** bir not, görev listesi, pano, koleksiyon ya da klasör taşınınca ya da adı değişince ona giden linkler space'in bütün notlarında (kayıtların notları da) güncellenir; taşınan notun ve koleksiyonun kendi linkleri yeni yerinden yazılır. Ekrandaki not değişikliği bir düzenleme olarak alır. Uygulamada ve ajanın `move`'unda aynı kod çalışır (core `links.ts`); ajanın sonucu hangi notların değiştiğini söyler. Başka space'e taşımada linkler güncellenmez; space'ler arası link yoktur.
+- **Ekleme:** link kutusuna (masaüstünde biçim çubuğunda Link, telefonda link sheet'i) bir ad yazınca altında space'teki eşleşen notlar, görev listeleri, panolar, koleksiyonlar ve klasörler listelenir; her satırda ne olduğu ve hangi klasörde olduğu yazar. Ok tuşları ve Enter ya da dokunarak seçilir; doğru göreli yol yazılır, seçili metin yoksa linkin metni seçilenin adı olur. `http`, `mailto` ya da `www.` ile başlayan bir adreste liste çıkmaz. Elle yazılan adresteki boşluk %20 olarak yazılır. Mockup'sız yapıldı (21 Ekim'de kararlaştırıldı).
 
 ## 3. Şablonlar
 

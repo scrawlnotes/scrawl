@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseBoard } from '../board';
 import { parseSchema } from '../collection';
 import { MemoryFs } from '../fs';
+import { linksIn, resolveHref } from '../links';
 import { APP_FILE, AppProblems, planApp } from './build';
 import { installApp, undoApp } from './install';
 import { TEMPLATES } from './questions';
@@ -102,6 +103,16 @@ describe('the About note', () => {
     expect(about({ deduct: 'no' })).not.toContain('go out of stock');
     expect(about({ deduct: 'no', purchasing: false })).not.toContain('Purchase orders');
     expect(about({})).toMatch(/^# About Atlas\n\nAtlas is set up from Sales and invoicing and Stock and purchasing\./);
+  });
+
+  it('links each piece to what was set up', () => {
+    const plan = planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'crm' }, { id: 'sales' }, { id: 'support' }, { id: 'stock', answers: { locations: true } }] }, { ids });
+    const text = plan.files.find((f) => f.path === 'Atlas/About Atlas.md')!.text;
+    const made = new Set(plan.created.map((c) => c.path));
+    const targets = linksIn(text).map((l) => resolveHref('Atlas', l.href));
+    expect(targets).toEqual(expect.arrayContaining(['Atlas/Companies', 'Atlas/Deals.board.json', 'Atlas/Order lines', 'Atlas/Saved replies', 'Atlas/Stock levels']));
+    expect(targets.filter((p) => !made.has(p!))).toEqual([]);
+    expect(text).toContain('- [Order lines](Order%20lines): what each order is for');
   });
 });
 

@@ -403,11 +403,11 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   // The About note: whole for a new app; for an app set up before, the new templates' sections at its end.
   const sections = after.sections.filter((s) => !before?.sections.some((b) => b.id === s.id));
   if (found?.about) {
-    if (sections.length > 0) file(found.about.path, `${found.about.text.replace(/\s*$/, '')}\n\n${aboutAdded(sections, after.parts)}\n`, found.about.text);
+    if (sections.length > 0) file(found.about.path, `${found.about.text.replace(/\s*$/, '')}\n\n${aboutAdded(found.about.path, sections, after.parts)}\n`, found.about.text);
   } else {
     const path = freePath(folder, fileNameOf(aboutName(title)), '.md', names);
     plan.created.push({ kind: 'note', path });
-    file(path, aboutNote(title, found ? sections : after.sections, after.parts));
+    file(path, aboutNote(path, title, found ? sections : after.sections, after.parts));
   }
 
   plan.app = {

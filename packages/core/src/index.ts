@@ -29,4 +29,5 @@ export * from './search';
 export * from './trashed';
 export * from './pieces';
 export * from './names';
+export * from './links';
 export * from './apps';

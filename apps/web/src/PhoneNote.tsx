@@ -3,6 +3,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from './Icon';
 import type { FormatAction } from './session';
+import { choiceHint, type LinkChoice, matchChoices } from './linkChoices';
 import { Sheet } from './sheets';
 
 // A note on a phone, after the Phone note views of design/mockups.html. The format bar stays at
@@ -158,14 +159,19 @@ export function PhoneFormatBar({ format, recording, recordError, onFormat, onLin
 }
 
 /** A link's address in a sheet: Cancel, Apply, and Remove link for a link there already. */
-export function LinkSheet({ url, linked, onApply, onClose }: {
+export function LinkSheet({ url, linked, choices, linkHref, onApply, onClose }: {
   url: string;
   /** Whether the text is a link already: it can then be taken away. */
   linked: boolean;
-  onApply: (url: string) => void;
+  /** What the note can link to in its space, offered as the address is typed. */
+  choices: LinkChoice[];
+  linkHref: (choice: LinkChoice) => string;
+  /** `text` is the link's text when nothing is selected: the name of what was picked. */
+  onApply: (url: string, text?: string) => void;
   onClose: () => void;
 }) {
   const [value, setValue] = useState(url);
+  const offered = value === url ? [] : matchChoices(choices, value, 20);
   const apply = (event?: FormEvent) => {
     event?.preventDefault();
     onApply(value.trim());
@@ -193,10 +199,23 @@ export function LinkSheet({ url, linked, onApply, onClose }: {
               aria-label={t('format.linkAddress')}
               placeholder={t('format.linkPlaceholder')}
               value={value}
+              autoComplete="off"
               onChange={(event) => setValue(event.target.value)}
             />
           </label>
         </div>
+        {offered.length > 0 && (
+          <div className="mb-group">
+            {offered.map((choice) => (
+              <button key={choice.path} type="button" className="mb-fr pick" onClick={() => onApply(linkHref(choice), choice.title)}>
+                <span className="in">
+                  {choice.title}
+                  <small>{choiceHint(choice)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
         {linked && (
           <div className="mb-group apart">
             <button type="button" className="mb-fr red" onClick={() => onApply('')}>

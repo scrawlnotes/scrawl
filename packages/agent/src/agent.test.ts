@@ -353,6 +353,18 @@ describe('not twice', () => {
 });
 
 describe('moving', () => {
+  it('keeps the links of notes right: to what moved, and of what moved', async () => {
+    const { agent, fs, note } = await sample();
+    await writeTool(agent, { path: 'Plans/Links.md', text: 'See [Companies](../CRM/Companies) and [the roadmap](Roadmap.md).\n' });
+    await writeTool(agent, { path: note, text: '# Roadmap\n\nFor [Companies](../CRM/Companies).\n' });
+    const moved = await moveTool(agent, { path: 'Roadmap', folder: '' });
+    expect(moved.data).toMatchObject({ to: 'Roadmap.md', links: 'The links of 2 notes point at it where it is now: Plans/Links.md, Roadmap.md' });
+    expect(await fs.readText('Roadmap.md')).toContain('For [Companies](CRM/Companies).');
+    await moveTool(agent, { path: 'Companies', name: 'Customers' });
+    expect(await fs.readText('Plans/Links.md')).toBe('See [Companies](../CRM/Customers) and [the roadmap](../Roadmap.md).\n');
+    expect(await fs.readText('Roadmap.md')).toContain('For [Companies](CRM/Customers).');
+  });
+
   it('moves and renames a note, a board and a collection, and what points at them follows', async () => {
     const { agent, fs, note } = await sample();
     await writeTool(agent, { path: note, text: '# Roadmap\n\nShip in November.\n' });

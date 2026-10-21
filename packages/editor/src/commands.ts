@@ -178,15 +178,16 @@ export function linkAt(state: EditorState): LinkInfo | null {
 /**
  * Links the selection to `url`. Inside an existing link the address is replaced, and an empty
  * address removes the link but keeps its text. A web address written in the text is replaced by
- * the new one.
+ * the new one. With nothing selected, `text` is put at the cursor as the link's text: the name of
+ * what was picked to link to. A space in the address is written %20, as a link ends at a space.
  */
-export function setLink(url: string): StateCommand {
+export function setLink(url: string, text?: string): StateCommand {
   return ({ state, dispatch }) => {
     const existing = linkAt(state);
+    const address = url.replace(/\s/g, '%20');
     if (existing?.bare) {
       if (!url) return false;
-      // Written as text, where a space would end it.
-      const insert = url.replace(/\s/g, '%20');
+      const insert = address;
       dispatch(
         state.update({
           changes: { from: existing.from, to: existing.to, insert },
@@ -197,16 +198,17 @@ export function setLink(url: string): StateCommand {
       );
       return true;
     }
-    const range = existing ?? segments(state, state.selection.main.from, state.selection.main.to)[0];
+    const at = state.selection.main;
+    const range = existing ?? segments(state, at.from, at.to)[0] ?? (at.empty && text && url ? { from: at.head, to: at.head } : undefined);
     if (!range) return false;
-    const text = existing ? existing.text : state.sliceDoc(range.from, range.to);
+    const label = existing ? existing.text : range.to > range.from ? state.sliceDoc(range.from, range.to) : text!;
     if (!existing && !url) return false;
-    const insert = url ? `[${text}](${url})` : text;
+    const insert = url ? `[${label}](${address})` : label;
     const textFrom = range.from + (url ? 1 : 0);
     dispatch(
       state.update({
         changes: { from: range.from, to: range.to, insert },
-        selection: EditorSelection.range(textFrom, textFrom + text.length),
+        selection: EditorSelection.range(textFrom, textFrom + label.length),
         scrollIntoView: true,
         userEvent: 'input.format',
       }),

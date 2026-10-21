@@ -118,12 +118,14 @@ import { folderLabel, setSpaceNames,
   nameOf,
   pathOf,
   pathTip,
+  tabOf,
   tasksOf,
   TODAY,
   TRASH,
   FILES,
   UPCOMING,
 } from './items';
+import { choiceHref, type LinkChoice, linkChoices } from './linkChoices';
 import {
   applyNumbers,
   applySize,
@@ -319,6 +321,9 @@ export function App() {
     for (const collection of Object.values(collections)) for (const record of collection.records) out[record.path] = recordTitle(record);
     return out;
   }, [titles, collections]);
+  // What the note on screen can link to, offered as a link's address is typed.
+  const noteLinks = useMemo(() => (active && isNote(active) ? linkChoices(tree, active) : []), [tree, active]);
+  const noteHref = (choice: LinkChoice) => choiceHref(active ?? '', choice);
   // The mode and the theme chosen on this device, and the shade the device itself is in, for System.
   const [mode, setMode] = useState<Mode>(loadMode);
   const [numbers, setNumbers] = useState<Numbers>(loadNumbers);
@@ -1215,12 +1220,22 @@ export function App() {
     session.ruled = (event) => saveRuled(event);
     // What is made or moved into a folder is shown there: the folder opens in the sidebar.
     session.placed = (folder, item) => setRevealFolder({ path: folder, item, at: Date.now() });
+    // A link inside the space opens what it points at: a folder in the sidebar, a file as Files opens it.
+    session.openTarget = (target) => {
+      if (target.kind === 'folder') {
+        setDrawer(true);
+        return setRevealFolder({ path: target.path, at: Date.now() });
+      }
+      if (target.kind === 'file') return void session.openAttached(target.path);
+      void session.open(target.kind === 'collection' ? collectionTab(target.path) : tabOf(target.path));
+    };
     return () => {
       session.showMenu = null;
       session.linkTap = null;
       session.say = null;
       session.ruled = null;
       session.placed = null;
+      session.openTarget = null;
     };
   }, [session]);
   const [linkTap, setLinkTap] = useState<LinkTap | null>(null);
@@ -1229,7 +1244,6 @@ export function App() {
   const [linkEdit, setLinkEdit] = useState<{ url: string; linked: boolean } | null>(null);
   /** The note whose history a phone is asked to show. */
   const [phoneHistory, setPhoneHistory] = useState<string | null>(null);
-  const openHref = (href: string) => (isDesktop ? void openUrlOnDesktop(href).catch(() => undefined) : void window.open(href, '_blank', 'noopener'));
 
   const onTabDragOver = (event: DragEvent) => {
     if (!event.dataTransfer.types.includes(TAB_DRAG_TYPE)) return;
@@ -1742,7 +1756,9 @@ export function App() {
       <FormatBar
         format={format}
         onFormat={(action) => session.format(action)}
-        onLink={(url) => session.setLink(url)}
+        onLink={(url, text) => session.setLink(url, text)}
+        linkChoices={noteLinks}
+        linkHref={noteHref}
         recording={recording}
         recordError={recordError}
         onRecord={() => void session.startRecording()}
@@ -2174,7 +2190,7 @@ export function App() {
           {linkTap && (
             <LinkActions
               link={linkTap}
-              onOpen={() => openHref(linkTap.href)}
+              onOpen={() => session.openTapped(linkTap.href)}
               onEdit={() => {
                 const link = session.placeCursor(linkTap.pos);
                 setLinkEdit({ url: link?.url ?? linkTap.href, linked: !link?.bare });
@@ -2249,9 +2265,11 @@ export function App() {
             <LinkSheet
               url={linkEdit.url}
               linked={linkEdit.linked}
-              onApply={(url) => {
+              choices={noteLinks}
+              linkHref={noteHref}
+              onApply={(url, text) => {
                 setLinkEdit(null);
-                session.setLink(url);
+                session.setLink(url, text);
               }}
               onClose={() => setLinkEdit(null)}
             />

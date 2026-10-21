@@ -78,7 +78,7 @@ A space is a folder tree. Folders group things; a folder with a \`_collection.js
 
 ## Notes
 
-A note is markdown. A note that was never named is called after its first line. Links to other notes are markdown links to their paths. When you write over a note, its earlier text is kept: as a version beside the note on a computer, in the server's history on a server.
+A note is markdown. A note that was never named is called after its first line. A link to something in the space (a note, a task list, a board, a collection, a folder) is a markdown link to its path from the note's folder, with a space written %20: \`[Deals](Deals.board.json)\`, \`[Order lines](Order%20lines)\`, \`[Plan](../Plans/Roadmap.md)\`; the person opens it in the app. When something is moved or renamed, with \`move\` or in the app, the links to it follow, and so do the links of what moved. When you write over a note, its earlier text is kept: as a version beside the note on a computer, in the server's history on a server.
 
 ## Task lists
 

@@ -7,6 +7,12 @@ import {
   putBackTasks,
   readPiece,
   relinkTrash,
+  applyChanges,
+  isInsideHref,
+  movedBy,
+  relinkPlan,
+  relinkText,
+  resolveHref,
   sectionPiece,
   serializePiece,
   taskPiece,
@@ -279,7 +285,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardPathOf, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isNote, keysPathOf, listOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardPathOf, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
 import { JobQueue } from './jobs';
 import { type OpeningMeasure, openingMeasure, seconds } from './opening';
 import welcomeComputer from './welcome.md?raw';
@@ -312,6 +318,12 @@ import {
 import { knownServers, onServersChanged, rememberServer, tellTimeZones } from './servers';
 
 const SAVE_DELAY_MS = 400;
+
+/** What a link inside a space points at, by its path in the app: an item of the tree, or an attached file. */
+export interface LinkTarget {
+  kind: TreeNode['kind'] | 'file';
+  path: string;
+}
 
 /** The node at `path` in a tree, a folder found among the folders it is in. */
 function findNode(nodes: TreeNode[], path: string): TreeNode | null {
@@ -820,7 +832,7 @@ export class Session {
       onChange: (doc) => this.changed(doc),
       showMenu: (at, items, about) => this.showMenu?.(at, items, about),
       touch: this.touch,
-      onLinkTap: this.touch ? (link) => this.linkTap?.(link) : undefined,
+      onLinkTap: this.touch ? (link) => this.tapped(this.onScreen, link) : undefined,
       placeholder: this.touch ? () => this.emptyNote() : undefined,
       onAttachments: (removed, added) => this.attachmentsChanged(this.onScreen, removed, added),
       record: () => void this.startRecording(),
@@ -1273,6 +1285,53 @@ export class Session {
   /** An attached file's path in the app: `src` as a note, a card or a record at `home` has it, in the space `home` is in. */
   private attached(home: string, src: string): string {
     return inSpace(spaceOfTab(home), src);
+  }
+
+  /** Where a link tapped on a phone is: the note on screen, a card's board, a record's collection. */
+  private tapHome = '';
+
+  private tapped(home: string, link: LinkTap) {
+    this.tapHome = home;
+    this.linkTap?.(link);
+  }
+
+  /** Opens the link tapped on a phone, from where it is. */
+  openTapped = (href: string) => void this.followLink(this.tapHome, href);
+
+  /** Where the window shows what a link inside the space points at. */
+  openTarget: ((target: LinkTarget) => void) | null = null;
+
+  /**
+   * Opens a link of something at `home` (a note, a card's board, a record's collection): a web or
+   * mail address in the browser, a path in its space in the app, read from the folder `home` is
+   * in. One to what is not there says so.
+   */
+  async followLink(home: string, href: string) {
+    if (!isInsideHref(href)) {
+      if (isDesktop) void openUrlOnDesktop(href).catch(() => undefined);
+      else window.open(href, '_blank', 'noopener');
+      return;
+    }
+    const target = await this.linkTarget(home, href);
+    if (target) this.openTarget?.(target);
+    else this.say?.(t('editor.linkGone'));
+  }
+
+  /** What a link inside the space points at, by its path in the app; null when nothing is there. */
+  async linkTarget(home: string, href: string): Promise<LinkTarget | null> {
+    const { fs, space, local } = this.at(home);
+    const found = resolveHref(home in this.snapshot.collections ? local : dirname(local), href);
+    if (!found) return null;
+    const path = inSpace(space, found);
+    if (found.startsWith(`${ATTACHMENTS}/`)) return { kind: 'file', path };
+    const node = findNode(this.snapshot.tree, path);
+    if (node) return { kind: node.kind, path };
+    // A folder not read yet: the files say what it is.
+    const entry = await fs.stat?.(found).catch(() => null);
+    if (!entry) return null;
+    if (entry.kind === 'dir') return { kind: (await fs.list(found)).some((e) => e.name === '_collection.json') ? 'collection' : 'folder', path };
+    const kind = found.endsWith('.md') ? 'note' : isTaskListPath(found) ? 'tasks' : isBoardPath(found) ? 'board' : isKeysPath(found) ? 'keys' : null;
+    return kind ? { kind, path } : null;
   }
 
   /** The note in the editor, whose attached files the editor shows. */
@@ -1800,7 +1859,7 @@ export class Session {
       resolveImage: (src: string) => this.resolveImageAt(home(), src),
       openFile: (src: string) => void this.openFile(home(), src),
       revealFile: isDesktop ? (src: string) => void revealFileOnDesktop(this.attached(home(), src)).catch(() => undefined) : undefined,
-      openLink: isDesktop ? (href: string) => void openUrlOnDesktop(href).catch(() => undefined) : undefined,
+      openLink: (href: string) => this.followLink(home(), href),
       fileSize: (src: string) => this.sizes.get(this.attached(home(), src)) ?? this.awayAt(this.attached(home(), src))?.size,
       resolveAudio: (src: string) => this.mediaUrl(home(), src),
       away: (src: string) => this.awayAt(this.attached(home(), src)),
@@ -1831,7 +1890,7 @@ export class Session {
       addFiles: (files, at) => void this.copyFiles(editor.view, home, files, at),
       showMenu: (at, items, about) => this.showMenu?.(at, items, about),
       touch: this.touch,
-      onLinkTap: this.touch ? (link) => this.linkTap?.(link) : undefined,
+      onLinkTap: this.touch ? (link) => this.tapped(home, link) : undefined,
       onAttachments: (removed, added) => this.attachmentsChanged(home, removed, added),
     });
     return editor;
@@ -2731,6 +2790,7 @@ export class Session {
       tabs: tabs.map((each) => (each === tab ? target : each)),
       active: active === tab ? target : active,
     });
+    await this.relinkNotes(from, to);
     await this.refreshTree();
     this.saveWorkspace();
   }
@@ -4004,8 +4064,43 @@ export class Session {
     this.moveRecent(from, to);
     const { tabs, active } = this.snapshot;
     this.set({ tabs: tabs.map((tab) => (tab === from ? to : tab)), active: active === from ? to : active });
+    await this.relinkNotes(path, target);
     await this.refreshTree();
     this.saveWorkspace();
+  }
+
+  /**
+   * After `path` went to `target` in its space, the notes that link to it, and its own links when it
+   * is a note or a collection's records, point at it where it is now. The note on screen takes the
+   * change as an edit; any other is written, and read again when it is opened.
+   */
+  private async relinkNotes(path: string, target: string) {
+    const [was, now] = [this.at(path), this.at(target)];
+    if (was.space !== now.space || was.local === now.local) return;
+    const moves = [{ from: was.local, to: now.local }];
+    const notes = await relinkPlan(now.fs, moves).catch(() => []);
+    const view = this.editor?.view;
+    const collections = new Set<string>();
+    for (const note of notes) {
+      const id = inSpace(now.space, note.path);
+      if (id === this.snapshot.active && view) {
+        const from = movedBy(moves.map((m) => ({ from: m.to, to: m.from })))(note.path) ?? note.path;
+        const changes = relinkText(view.state.doc.toString(), dirname(from), dirname(note.path), movedBy(moves));
+        if (changes.length > 0) view.dispatch({ changes });
+        continue;
+      }
+      const text = applyChanges(note.text, note.changes);
+      try {
+        await now.fs.writeText(note.path, text);
+      } catch {
+        continue;
+      }
+      if (this.disk.has(id)) this.disk.set(id, text);
+      this.states.delete(id);
+      if (dirname(id) in this.snapshot.collections) collections.add(dirname(id));
+    }
+    // A record whose notes changed is read again, so that its next save keeps them.
+    for (const dir of collections) await this.reloadCollection(dir);
   }
 
   /**
@@ -4119,11 +4214,11 @@ export class Session {
     view.focus();
   }
 
-  /** Links what is selected, or changes or takes away the link at the cursor. On a phone the keyboard stays as it was. */
-  setLink(url: string) {
+  /** Links what is selected, or changes or takes away the link at the cursor; with nothing selected, `text` is put as the link's text. On a phone the keyboard stays as it was. */
+  setLink(url: string, text?: string) {
     const view = this.editor?.view;
     if (!view || !this.snapshot.format) return;
-    setLink(url)(view);
+    setLink(url, text)(view);
     if (this.focusOnOpen) view.focus();
   }
 
