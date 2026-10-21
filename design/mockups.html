@@ -2578,6 +2578,132 @@ p { margin: 0; max-width: 68ch; }
 .mb-ask .sa-will .hd { font-size: 12px; }
 .mb-ask .sa-will ul { margin: 6px 0 0; padding-left: 20px; color: var(--m-fg); font-size: 15px; line-height: 1.6; }
 .mb-ask .sa-will small { color: var(--m-faint); font-size: 13px; }
+/* Scrawl apps (stage 14), slice 3: New app, a window that sets up an app from ready templates. */
+.dir[data-dir="apps3"] { margin-top: 56px; }
+.dir[data-dir="apps3"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="apps3"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="apps3"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+/* The window: its steps on top, a page under them, Back and Next at its foot. */
+.mdlg.na-dlg { display: flex; flex-direction: column; width: 820px; max-height: 92%; padding: 16px 18px; box-sizing: border-box; }
+.na-dlg .na-top { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+.na-dlg .na-top h3 { margin: 0; }
+.na-dlg .na-top .x { margin-left: auto; color: var(--m-faint); font-size: 15px; }
+.na-dlg .steps { flex-wrap: wrap; margin: 0 0 12px; }
+.na-dlg .steps span.done { color: var(--m-dim); }
+.na-dlg .na-page { flex: 1; min-height: 0; overflow: hidden; }
+.na-dlg .na-lead { margin: 0 0 12px; color: var(--m-dim); font-size: 12.5px; line-height: 1.5; }
+.na-dlg .foot { margin-top: 14px; }
+.na-dlg .foot .count { color: var(--m-dim); font-size: 12px; }
+.na-dlg .foot .st-btn.go.off { opacity: .45; }
+/* Templates: by group, a card each; a card chosen is outlined and ticked, and says what it shares. */
+.na-group { margin: 0 0 10px; }
+.na-group .label { margin-bottom: 6px; }
+.na-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.na-card { position: relative; display: flex; flex-direction: column; gap: 5px; padding: 9px 11px 9px; border: 1px solid var(--m-line); border-radius: 8px; color: var(--m-dim); font-size: 12px; line-height: 1.45; }
+.na-card .hd { display: flex; align-items: center; gap: 7px; color: var(--m-fg); font-size: 13px; font-weight: 600; }
+.na-card .hd svg { width: 15px; height: 15px; color: var(--m-dim); }
+.na-card .tick { position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 16px; height: 16px; border: 1.5px solid var(--m-faint); border-radius: 4px; box-sizing: border-box; }
+.na-card.on { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 7%, transparent); }
+.na-card.on .tick { border-color: var(--m-accent); background: var(--m-accent); }
+.na-card.on .tick svg { width: 12px; height: 12px; color: var(--m-bg); stroke-width: 3; }
+.na-card .what { padding-right: 18px; }
+.na-card .sets { display: flex; flex-wrap: wrap; gap: 3px 10px; color: var(--m-faint); font-size: 11px; }
+.na-card .sets span { display: inline-flex; align-items: center; gap: 4px; }
+.na-card .sets svg { width: 11px; height: 11px; }
+.na-card .shared { display: flex; align-items: center; gap: 5px; margin-top: 1px; color: color-mix(in srgb, var(--m-accent) 85%, var(--m-fg)); font-size: 11px; }
+.na-card .shared svg { width: 11px; height: 11px; }
+/* The app's own page: its name and place, its currencies. */
+.na-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 18px; max-width: 620px; }
+.na-fields .wide { grid-column: 1 / -1; }
+.na-fields .field { display: flex; align-items: center; gap: 6px; }
+.na-fields .field .dd { margin-left: auto; color: var(--m-faint); font-size: 10px; }
+.na-fields .field svg { width: 13px; height: 13px; color: var(--m-dim); }
+.na-help { margin: 5px 2px 0; color: var(--m-faint); font-size: 11.5px; line-height: 1.45; }
+.na-help.bad { color: var(--m-accent); }
+.na-curs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 6px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-bg); }
+.na-cur { display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px 3px 9px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-side); color: var(--m-fg); font-size: 12.5px; }
+.na-cur small { color: var(--m-faint); font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; }
+.na-cur .x { color: var(--m-faint); font-size: 12px; }
+.na-curs .na-add { color: var(--m-faint); font-size: 12.5px; padding: 0 4px; }
+/* A template's questions: one under the other, each with its answer ready. */
+.na-qs { display: flex; flex-direction: column; gap: 16px; max-width: 600px; }
+.na-q > .ql { display: block; margin: 0 0 6px; color: var(--m-fg); font-size: 13px; }
+.na-q > .ql small { margin-left: 6px; color: var(--m-faint); font-size: 11.5px; }
+.na-q.sub { margin: -6px 0 0 18px; padding-left: 12px; border-left: 2px solid var(--m-line); }
+.na-why { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 6px; color: var(--m-faint); font-size: 11.5px; }
+.na-why svg { width: 12px; height: 12px; }
+.na-seg { display: inline-flex; padding: 2px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-bg); }
+.na-seg span { padding: 4px 14px; border-radius: 5px; color: var(--m-dim); font-size: 12.5px; }
+.na-seg span.on { background: var(--m-sel); color: var(--m-fg); box-shadow: inset 0 0 0 1px var(--m-line); }
+.na-radio { display: flex; flex-direction: column; gap: 2px; }
+.na-radio span { display: flex; align-items: center; gap: 9px; padding: 5px 8px; border-radius: 5px; color: var(--m-fg); font-size: 12.5px; }
+.na-radio span::before { content: ""; flex: none; width: 13px; height: 13px; border: 1.5px solid var(--m-faint); border-radius: 50%; box-sizing: border-box; }
+.na-radio span.on::before { border: 4px solid var(--m-accent); }
+.na-radio span small { margin-left: 6px; color: var(--m-faint); font-size: 11.5px; }
+.na-list { display: flex; flex-direction: column; gap: 3px; max-width: 360px; }
+.na-list .it { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); font-size: 12.5px; }
+.na-list .it .gr { color: var(--m-faint); font-size: 11px; letter-spacing: -1px; cursor: grab; }
+.na-list .it .t { flex: 1; }
+.na-list .it small { color: var(--m-faint); font-size: 11px; }
+.na-list .it .x { color: var(--m-faint); font-size: 12px; }
+.na-list .it.typing { border-color: var(--m-accent); }
+.na-list .na-add { display: flex; align-items: center; gap: 6px; padding: 4px 8px; color: var(--m-faint); font-size: 12.5px; }
+.na-list .na-add svg { width: 12px; height: 12px; }
+/* The summary: a column per template, what it sets up, its buttons, what happens by itself. */
+.na-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.na-sum .col { padding: 10px 12px; border: 1px solid var(--m-line); border-radius: 8px; }
+.na-sum .col h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; color: var(--m-fg); font-size: 13px; }
+.na-sum .col h4 svg { width: 14px; height: 14px; color: var(--m-dim); }
+.na-sum .pc { display: flex; align-items: center; gap: 7px; padding: 2px 0; color: var(--m-fg); font-size: 12.5px; }
+.na-sum .pc svg { width: 12px; height: 12px; color: var(--m-dim); }
+.na-sum .pc small { margin-left: auto; color: var(--m-faint); font-size: 11px; }
+.na-sum .hd { display: block; margin: 9px 0 3px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.na-sum ul { margin: 0; padding-left: 16px; color: var(--m-dim); font-size: 12px; line-height: 1.5; }
+.na-where { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 10px; border-radius: 6px; background: var(--m-bg); color: var(--m-fg); font-size: 12.5px; }
+.na-where svg { width: 14px; height: 14px; color: var(--m-dim); }
+.na-where small { color: var(--m-faint); font-size: 11.5px; }
+.na-where .note { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--m-dim); }
+/* Create: App among the kinds, after Collection. */
+.choices-m span.na-new small { color: var(--m-faint); }
+/* After Create: the app's folder open in the sidebar, its About note on screen, a toast with Undo. */
+.na-about .lnk { text-decoration: underline; }
+.na-about .h2 { font-size: 1.12em; font-weight: 700; }
+.na-about .h3 { color: var(--m-dim); font-weight: 600; }
+.na-about .li.ol { padding-left: 2.1em; }
+.na-mrow { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-bottom: 1px solid var(--m-line); color: var(--m-fg); font-size: 15px; }
+.na-mrow:last-child { border-bottom: 0; }
+.na-mrow small { margin-left: auto; color: var(--m-dim); font-size: 14px; text-align: right; }
+/* On a phone: a sheet of pages, the template's questions on one page each. */
+.mb-sheet.na-sheet { top: 52px; }
+.na-msteps { display: flex; gap: 4px; margin: 2px 16px 12px; }
+.na-msteps i { flex: 1; height: 3px; border-radius: 2px; background: var(--m-line); }
+.na-msteps i.on { background: var(--m-accent); }
+.na-mbody { padding: 0 16px 16px; }
+.na-mbody .lead { margin: 0 0 12px; color: var(--m-dim); font-size: 14px; line-height: 1.45; }
+.na-mcard { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-bottom: 1px solid var(--m-line); }
+.na-mcard:last-child { border-bottom: 0; }
+.na-mcard .ck { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-top: 1px; border: 1.5px solid var(--m-faint); border-radius: 50%; box-sizing: border-box; }
+.na-mcard.on .ck { border-color: var(--m-accent); background: var(--m-accent); }
+.na-mcard.on .ck svg { width: 14px; height: 14px; color: var(--m-bg); stroke-width: 3; }
+.na-mcard .tx { display: flex; flex-direction: column; gap: 2px; }
+.na-mcard b { color: var(--m-fg); font-size: 16px; font-weight: 600; }
+.na-mcard small { color: var(--m-dim); font-size: 13.5px; line-height: 1.4; }
+.na-mcard .sh { color: color-mix(in srgb, var(--m-accent) 85%, var(--m-fg)); font-size: 13px; }
+.na-mlabel { margin: 14px 4px 6px; color: var(--m-faint); font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; }
+.na-mlabel:first-child { margin-top: 0; }
+.na-mgroup { border-radius: 12px; background: var(--m-bg); overflow: hidden; }
+.na-mq { margin: 0 0 18px; }
+.na-mq .ql { display: block; margin: 0 4px 8px; color: var(--m-fg); font-size: 15px; line-height: 1.35; }
+.na-mq .why { display: block; margin: -4px 4px 8px; color: var(--m-faint); font-size: 13px; }
+.na-mseg { display: flex; padding: 3px; border-radius: 10px; background: var(--m-bg); }
+.na-mseg span { flex: 1; padding: 8px 0; border-radius: 8px; color: var(--m-dim); font-size: 14.5px; text-align: center; }
+.na-mseg span.on { background: var(--m-sel); color: var(--m-fg); }
+.na-mopt { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--m-line); color: var(--m-fg); font-size: 15px; }
+.na-mopt:last-child { border-bottom: 0; }
+.na-mopt::before { content: ""; flex: none; width: 20px; height: 20px; border: 1.5px solid var(--m-faint); border-radius: 50%; box-sizing: border-box; }
+.na-mopt.on::before { border: 6px solid var(--m-accent); }
+.na-mopt small { margin-left: auto; color: var(--m-faint); font-size: 13px; }
+.na-mbtn { display: block; margin: 6px 0 0; padding: 13px 0; border-radius: 12px; background: var(--m-accent); color: var(--m-bg); font-size: 16px; font-weight: 600; text-align: center; }
 </style>
 
 <main class="page">
@@ -3061,6 +3187,29 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-saview="satransfer">Transfer: depo seçmek</button>
         <button type="button" data-saview="sarules">Rules'ta ask</button>
         <button type="button" data-saview="saphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="apps3">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · 14. AŞAMA · 3. DİLİM</span>
+        <h2>New app</h2>
+        <p>Create penceresinde Collection'ın altında <b>App</b> var; başlangıç sayfasının şablonlarından da açılır. Açılan pencere bir sihirbaz: önce şablonlar seçilir, sonra app'in adı, yeri ve para birimleri, sonra seçilen her şablonun kendi sayfasında soruları, en son özet. Her sorunun cevabı hazır gelir; kişi hiçbir şeye dokunmadan Next ile ilerleyebilir. Başka bir şablona ya da cevaba bağlı soru, yalnız o zaman ve nedeniyle görünür. Create'e basınca app'in klasörü açılır, tanıtım notu ekrana gelir, toast'ta Undo olur. Telefonda aynı adımlar, sayfa sayfa ilerleyen bir sheet'te.</p>
+        <ul class="traits"><li>Create'te App</li><li>şablonlar gruplarıyla, kart kart</li><li>ortak parça kartta söylenir</li><li>ad, yer, para birimleri</li><li>şablon başına bir sayfa soru</li><li>cevaplar hazır</li><li>bağlı soru nedeniyle</li><li>özet, Create, Undo</li><li>telefonda sheet</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="14. aşama 3. dilim görünümü">
+        <button type="button" data-naview="nacreate">Create'te App</button>
+        <button type="button" data-naview="natemplates">Şablonlar</button>
+        <button type="button" data-naview="naapp">Ad ve para birimleri</button>
+        <button type="button" data-naview="nacrm">CRM: liste sorusu</button>
+        <button type="button" data-naview="nasales">Satış: bağlı soru</button>
+        <button type="button" data-naview="nastock">Stok: başka şablona bağlı</button>
+        <button type="button" data-naview="nasummary">Özet</button>
+        <button type="button" data-naview="nadone">Kuruldu</button>
+        <button type="button" data-naview="naphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -9007,6 +9156,234 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderCe(sectionCe, b.dataset.ceview);
   });
   renderCe(sectionCe, 'cerules');
+
+  // Scrawl apps (stage 14), slice 3 (Oct 21): New app. Create has App after Collection; it opens a
+  // window that goes in steps: the templates, chosen as cards by group; the app's name, place and
+  // currencies; a page of questions for each template chosen, every answer ready; a summary of what
+  // will be set up; then Create, which opens the app's About note with Undo in a toast. Atlas Lifts
+  // sets up Spare parts from CRM, Sales and invoicing and Stock and purchasing.
+  ICON.app = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
+  var NA_TEMPLATES = {
+    crm: { name: 'CRM', icon: 'person', what: 'Your customers, the people there, every call and meeting, and your deals.', sets: [['collection', 'Companies'], ['collection', 'People'], ['collection', 'Activities'], ['board', 'Deals']] },
+    support: { name: 'Customer support', icon: 'comment', what: 'Requests from customers, from the first message to its answer, and their feedback.', sets: [['board', 'Requests'], ['collection', 'Feedback'], ['folder', 'Saved replies']] },
+    sales: { name: 'Sales and invoicing', icon: 'tag', what: 'Products, quotes, orders and the money coming in; invoices are made elsewhere.', sets: [['collection', 'Products'], ['collection', 'Orders'], ['collection', 'Order lines'], ['collection', 'Payments']] },
+    budget: { name: 'Budget and spending', icon: 'stack', what: 'What you plan to earn and spend, payments in and out, and your people’s expenses.', sets: [['collection', 'Budget lines'], ['collection', 'Payments'], ['collection', 'Expenses']] },
+    stock: { name: 'Stock and purchasing', icon: 'table', what: 'What you have in stock, every movement in and out, and what you order from suppliers.', sets: [['collection', 'Products'], ['collection', 'Stock movements'], ['collection', 'Purchase orders']] },
+    projects: { name: 'Project management', icon: 'board', what: 'Projects, the work on each as cards, the hours spent and their budget.', sets: [['collection', 'Projects'], ['board', 'Work'], ['collection', 'Time entries']] },
+    product: { name: 'Product development', icon: 'flag', what: 'The work on your product from idea to release, its bugs and what customers ask for.', sets: [['board', 'Roadmap'], ['board', 'Bugs'], ['collection', 'Releases']] }
+  };
+  var NA_GROUPS = [['Customers', ['crm', 'support']], ['Money', ['sales', 'budget', 'stock']], ['Work', ['projects', 'product']]];
+  var NA_CHOSEN = { crm: true, sales: true, stock: true };
+  var NA_SHARED = { sales: 'Uses Companies with CRM', stock: 'Uses Products with Sales and invoicing, Companies with CRM' };
+  var NA_STEPS = ['Templates', 'App', 'CRM', 'Sales and invoicing', 'Stock and purchasing', 'Summary'];
+  function naSteps(at) {
+    return '<div class="steps">' + NA_STEPS.map(function (s, i) { return '<span' + (i === at ? ' class="on"' : i < at ? ' class="done"' : '') + '>' + s + '</span>'; }).join('') + '</div>';
+  }
+  /** The window: its title and steps, a page, and its foot: what is chosen on the left, Back and Next. */
+  function naWindow(at, page, count, go, o) {
+    o = o || {};
+    return '<div class="ovl"><div class="mdlg na-dlg"><div class="na-top"><h3>New app</h3><span class="x">×</span></div>' + naSteps(at) +
+      '<div class="na-page">' + page + '</div>' +
+      '<div class="foot"><span class="count">' + count + '</span>' + (at > 0 ? '<span class="st-btn">Back</span>' : '<span class="st-btn">Cancel</span>') +
+      '<span class="st-btn go' + (o.off ? ' off' : '') + '">' + (go || 'Next') + '</span></div></div></div>';
+  }
+  /** The sidebar of Atlas Lifts; once it is set up, Spare parts open in it with its About note on screen. */
+  function naTree(done) {
+    var pieces = done ? [['notes', 'About Spare parts', 0, true], ['collection', 'Activities', 0], ['collection', 'Companies', 0], ['board', 'Deals', 0], ['collection', 'Locations', 2], ['collection', 'Order lines', 0], ['collection', 'Orders', 0], ['collection', 'Payments', 0], ['collection', 'People', 0], ['collection', 'Products', 0],
+      ['collection', 'Purchase order lines', 0], ['collection', 'Purchase orders', 0], ['collection', 'Stock levels', 0], ['collection', 'Stock movements', 0]] : [];
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 11 }) +
+      opRowT({ sp: true, label: 'Personal' }) +
+      opRowT({ sp: true, open: true, label: CA_SPACE }) +
+      opRowT({ d: 1, folder: true, label: 'Operations' }) +
+      (done ? opRowT({ d: 1, folder: true, open: true, label: 'Spare parts' }) : '') +
+      pieces.map(function (p) { return opRowT({ d: 2, icon: p[0], label: p[1], ct: p[2] || undefined, on: p[3] }); }).join('') +
+      opRowT({ d: 1, icon: 'notes', label: 'Price list 2026', on: !done }) +
+      opRowT({ d: 1, icon: 'tasks', label: 'Inbox' }) +
+      '</div>' + spFoot(null);
+  }
+  var NA_FBAR = FBAR.replace(/<div class="rec">[\s\S]*?<\/div>/, '<div class="g"><span>Record</span></div>');
+  var NA_NOTE = NA_FBAR + '<div class="ed"><div class="col">' +
+    '<div class="ln h1">Price list 2026</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">Spare parts we sell to the buildings we service, with the cost from Kessler and our price.</div>' +
+    '<div class="ln li"><span class="bu">•</span>Door operator kit: cost ₺18.600, price ₺24.900</div>' +
+    '<div class="ln li"><span class="bu">•</span>Control panel: cost ₺12.900, price ₺17.400</div>' +
+    '<div class="ln li"><span class="bu">•</span>Steel rope, 10 mm: ₺210 a metre, ₺290 to the customer</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">To set up: who orders what, what we have in stock, who has paid.</div>' +
+    '</div></div>';
+  function naApp(over, done) {
+    var tabs = done ? tab('notes', 'Price list 2026', 'x', false) + tab('notes', 'About Spare parts', 'x', true) : tab('notes', 'Price list 2026', 'x', true);
+    return '<aside class="side">' + naTree(done) + '</aside><section class="main"><div class="panes">' + pane(tabs + '<div class="tab plus">+</div>', done ? naAbout() : NA_NOTE) + '</div>' +
+      '<div class="status"><span>' + (done ? '214 words' : '58 words') + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  /** Create, with App after Collection: ready templates set up together, in a folder of their own. */
+  function naCreate() {
+    function choice(n, icon, label, note, on) { return '<span' + (on ? ' class="on na-new"' : '') + '><kbd>' + n + '</kbd>' + ICON[icon] + label + (note ? '<small>' + note + '</small>' : '') + '</span>'; }
+    return '<div class="ovl"><div class="mdlg" style="width: 420px"><h3>Create</h3><div class="choices-m">' +
+      choice(1, 'notes', 'Note', 'Meetings, ideas, anything written') + choice(2, 'tasks', 'Task list', 'To-dos with dates and priorities') + choice(3, 'board', 'Board', 'Cards in columns: a project, a pipeline') +
+      choice(4, 'key', 'Keys', 'API keys, passwords, settings') + choice(5, 'collection', 'Collection', 'Companies, people, payments…') +
+      choice(6, 'app', 'App', 'Ready templates set up together: CRM, sales, stock…', true) + choice(7, 'filter', 'Filter', 'Tasks from every list, by date, priority or place') +
+      '</div></div></div>';
+  }
+  function naCard(id) {
+    var tp = NA_TEMPLATES[id];
+    var on = !!NA_CHOSEN[id];
+    return '<div class="na-card' + (on ? ' on' : '') + '"><span class="tick">' + (on ? ICON.check : '') + '</span>' +
+      '<span class="hd">' + ICON[tp.icon] + tp.name + '</span><span class="what">' + tp.what + '</span>' +
+      '<span class="sets">' + tp.sets.map(function (s) { return '<span>' + ICON[s[0]] + s[1] + '</span>'; }).join('') + '</span>' +
+      (on && NA_SHARED[id] ? '<span class="shared">' + ICON.link + NA_SHARED[id] + '</span>' : '') + '</div>';
+  }
+  function naTemplates() {
+    var page = NA_GROUPS.map(function (g) {
+        return '<div class="na-group"><div class="label">' + g[0] + '</div><div class="na-cards">' + g[1].map(naCard).join('') + '</div></div>';
+      }).join('');
+    return naWindow(0, page, '3 templates · Companies and Products are shared');
+  }
+  function naAppPage() {
+    var page = '<div class="na-fields">' +
+      '<div><div class="label">Name</div><div class="field filled">Spare parts<span class="caret"></span></div><p class="na-help">Its folder, with everything in it, is called this.</p></div>' +
+      '<div><div class="label">In</div><div class="field filled">' + ICON.space + 'Atlas Lifts<span class="dd">▾</span></div><p class="na-help">The top of the space, or a folder in it.</p></div>' +
+      '<div class="wide"><div class="label">Currencies</div><div class="na-curs"><span class="na-cur">TRY <small>main</small><span class="x">×</span></span><span class="na-cur">EUR<span class="x">×</span></span><span class="na-add">Add a currency…</span></div>' +
+      '<p class="na-help">Prices, costs and deals are in the main one. With more than one, each order and purchase order says which it is in, and its total is in that.</p></div>' +
+      '</div>';
+    return naWindow(1, page, 'Spare parts · TRY and EUR');
+  }
+  function naSeg(options, on) { return '<span class="na-seg">' + options.map(function (o) { return '<span' + (o === on ? ' class="on"' : '') + '>' + o + '</span>'; }).join('') + '</span>'; }
+  function naRadio(options, on) { return '<span class="na-radio">' + options.map(function (o, i) { return '<span' + (i === on ? ' class="on"' : '') + '>' + o + '</span>'; }).join('') + '</span>'; }
+  function naQ(label, control, o) {
+    o = o || {};
+    return '<div class="na-q' + (o.sub ? ' sub' : '') + '">' + (o.why ? '<span class="na-why">' + ICON.link + o.why + '</span>' : '') + '<span class="ql">' + label + (o.small ? '<small>' + o.small + '</small>' : '') + '</span>' + control + (o.help ? '<p class="na-help">' + o.help + '</p>' : '') + '</div>';
+  }
+  function naList(items, add) {
+    return '<div class="na-list">' + items.map(function (it) {
+      return '<span class="it' + (it[2] ? ' typing' : '') + '"><span class="gr">⋮⋮</span><span class="t">' + it[0] + (it[2] ? '<span class="caret"></span>' : '') + '</span>' + (it[1] ? '<small>' + it[1] + '</small>' : '') + '<span class="x">×</span></span>';
+    }).join('') + '<span class="na-add">' + ICON.plus + add + '</span></div>';
+  }
+  function naCrm() {
+    var page = '<p class="na-lead">Every answer is ready; change only what is different for you.</p><div class="na-qs">' +
+      naQ('Who are your customers?', naRadio(['Companies and the people there', 'People only'], 0)) +
+      naQ('Will you track deals?', naSeg(['Yes', 'No'], 'Yes')) +
+      naQ('The stages of a deal', naList([['Lead', 'waiting'], ['Contacted'], ['Meeting'], ['Proposal'], ['Won', 'done'], ['Lost', 'dropped']], 'Add a stage'), { sub: true, help: 'The columns of the Deals board, in this order. Won closes a deal as done, Lost as dropped.' }) +
+      '</div>';
+    return naWindow(2, page, 'CRM · 3 questions');
+  }
+  function naSales() {
+    var page = '<p class="na-lead">Every answer is ready; change only what is different for you.</p><div class="na-qs">' +
+      naQ('What do you sell?', naSeg(['Products', 'Services', 'Both'], 'Both')) +
+      naQ('Is tax added to your prices?', naSeg(['Yes', 'No'], 'Yes')) +
+      naQ('Do your prices usually include the tax?', naSeg(['Yes', 'No'], 'No'), { sub: true, help: 'Where a new product starts. Each product and each order line says its own, with its own rate.' }) +
+      naQ('Do you give discounts?', naSeg(['Yes', 'No'], 'Yes'), { help: 'A discount is given on a line, as a share of it.' }) +
+      naQ('Do you send quotes?', naSeg(['Yes', 'No'], 'Yes'), { help: 'An order starts as a Quote, and becomes Confirmed when the customer says yes.' }) +
+      '</div>';
+    return naWindow(3, page, 'Sales and invoicing · 5 questions');
+  }
+  function naStock() {
+    var page = '<p class="na-lead">Every answer is ready; change only what is different for you.</p><div class="na-qs">' +
+      naQ('Will you track purchasing too?', naSeg(['Yes', 'No'], 'Yes')) +
+      naQ('Do you have more than one warehouse?', naSeg(['Yes', 'No'], 'Yes')) +
+      naQ('Your warehouses', naList([['Main warehouse', 'default'], ['Store Kadıköy']], 'Add a warehouse'), { sub: true, help: 'The first is where goods go when no warehouse is given.' }) +
+      naQ('Should a sale take its products out of stock?', naRadio(['No', 'When the order is confirmed', 'When the order is delivered'], 2), { why: 'Asked because Sales and invoicing is set up too' }) +
+      '</div>';
+    return naWindow(4, page, 'Stock and purchasing · 4 questions');
+  }
+  function naSumCol(id, pieces, buttons, auto) {
+    var tp = NA_TEMPLATES[id];
+    return '<div class="col"><h4>' + ICON[tp.icon] + tp.name + '</h4>' +
+      pieces.map(function (p) { return '<div class="pc">' + ICON[p[0]] + p[1] + (p[2] ? '<small>' + p[2] + '</small>' : '') + '</div>'; }).join('') +
+      '<span class="hd">Buttons</span><ul>' + buttons.map(function (b) { return '<li>' + b + '</li>'; }).join('') + '</ul>' +
+      '<span class="hd">By itself</span><ul>' + auto.map(function (b) { return '<li>' + b + '</li>'; }).join('') + '</ul></div>';
+  }
+  function naSummary() {
+    var page = '<div class="na-where">' + ICON.folder + '<b>Spare parts</b><small>in Atlas Lifts</small><span class="note">' + ICON.notes + 'About Spare parts says what is in it</span></div>' +
+      '<div class="na-sum">' +
+      naSumCol('crm', [['collection', 'Companies'], ['collection', 'People'], ['collection', 'Activities'], ['board', 'Deals', '6 stages']], ['Log a call, Log a meeting'], ['Last contact from the latest activity', 'A company shows its open deals']) +
+      naSumCol('sales', [['collection', 'Products', 'with Stock'], ['collection', 'Orders'], ['collection', 'Order lines'], ['collection', 'Payments']], ['Record payment'], ['A line takes its price and tax from the product', 'An order is Paid once nothing is left']) +
+      naSumCol('stock', [['collection', 'Stock movements'], ['collection', 'Locations', '2'], ['collection', 'Stock levels'], ['collection', 'Purchase orders'], ['collection', 'Purchase order lines']], ['Correct stock, Transfer, Reorder'], ['Delivered orders take stock out', 'Received purchase orders bring it in', 'Low stock is marked']) +
+      '</div>';
+    return naWindow(5, page, '12 collections, 1 board, 1 note', 'Create');
+  }
+  /** The About note just set up: what Spare parts is, then a section a template, its pieces as links. */
+  function naAbout() {
+    var L = function (t) { return '<span class="lnk">' + t + '</span>'; };
+    return NA_FBAR + '<div class="ed na-about"><div class="col">' +
+      '<div class="ln h1">About Spare parts</div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln">Spare parts is set up from CRM, Sales and invoicing and Stock and purchasing. This note says what is in it and how it is used; change it to say how your team works.</div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln"><b>Companies</b> is one for CRM, Sales and invoicing and Stock and purchasing. <b>Products</b> is one for Sales and invoicing and Stock and purchasing.</div>' +
+      '<div class="ln">&nbsp;</div>' +
+      '<div class="ln h2">CRM</div>' +
+      '<div class="ln">Who your customers are, the people you talk to there, every call and meeting, and the deals on their way.</div>' +
+      '<div class="ln h3">What’s in it</div>' +
+      '<div class="ln li"><span class="bu">•</span>' + L('Companies') + ': the companies you work with.</div>' +
+      '<div class="ln li"><span class="bu">•</span>' + L('People') + ': the people you talk to.</div>' +
+      '<div class="ln li"><span class="bu">•</span>' + L('Activities') + ': every call, meeting, email and note, with its day.</div>' +
+      '<div class="ln li"><span class="bu">•</span>' + L('Deals') + ': the deals on their way, a card each, by stage.</div>' +
+      '<div class="ln h3">How to use it</div>' +
+      '<div class="ln li ol"><span class="bu">1.</span>Add a company, then its people.</div>' +
+      '<div class="ln li ol"><span class="bu">2.</span>Press Log a call or Log a meeting on their screen after you talk.</div>' +
+      '</div></div><div class="cd-toast">Spare parts set up: 12 collections, 1 board, 1 note<span class="undo">Undo</span></div>';
+  }
+  // On a phone: one sheet, a page each step; the bar on top goes back and on.
+  function naSheet(title, back, next, at, body) {
+    return MB_DIM + '<div class="mb-sheet na-sheet"><span class="grab"></span><div class="mb-sh three"><span class="cancel">' + (back === 'Cancel' ? 'Cancel' : ICON.chevl + back) + '</span><b>' + title + '</b><span class="ok">' + next + '</span></div>' +
+      '<div class="na-msteps">' + [0, 1, 2, 3, 4, 5].map(function (i) { return '<i' + (i <= at ? ' class="on"' : '') + '></i>'; }).join('') + '</div><div class="na-mbody">' + body + '</div></div>';
+  }
+  function naMcard(id) {
+    var tp = NA_TEMPLATES[id];
+    var on = !!NA_CHOSEN[id];
+    return '<div class="na-mcard' + (on ? ' on' : '') + '"><span class="ck">' + (on ? ICON.check : '') + '</span><span class="tx"><b>' + tp.name + '</b><small>' + tp.what + '</small>' + (on && NA_SHARED[id] ? '<span class="sh">' + NA_SHARED[id].replace(', Companies with CRM', '') + '</span>' : '') + '</span></div>';
+  }
+  function naPhone() {
+    var page = mbPage(mbNav('Atlas Lifts', ['dots']) + mbHead('Price list 2026'), '<div class="mb-ed"><p>Spare parts we sell to the buildings we service, with the cost from Kessler and our price.</p></div>');
+    var templates = naSheet('New app', 'Cancel', 'Next', 0, NA_GROUPS.map(function (g) {
+      return '<div class="na-mlabel">' + g[0] + '</div><div class="na-mgroup">' + g[1].map(naMcard).join('') + '</div>';
+    }).join(''));
+    var app = naSheet('App', 'Templates', 'Next', 1,
+      '<div class="na-mgroup">' + mbVal('Name', 'Spare parts', { text: true, cls: 'lnkc' }) + mbVal('In', 'Atlas Lifts') + mbVal('Currencies', 'TRY, EUR') + '</div>' +
+      '<p class="na-help" style="margin: 8px 4px 0; font-size: 13px">Prices, costs and deals are in the first. With more than one, each order says which it is in.</p>');
+    var stock = naSheet('Stock and purchasing', 'Sales', 'Next', 4,
+      '<div class="na-mq"><span class="ql">Will you track purchasing too?</span><span class="na-mseg"><span class="on">Yes</span><span>No</span></span></div>' +
+      '<div class="na-mq"><span class="ql">Do you have more than one warehouse?</span><span class="na-mseg"><span class="on">Yes</span><span>No</span></span></div>' +
+      '<div class="na-mq"><span class="ql">Should a sale take its products out of stock?</span><span class="why">Asked because Sales and invoicing is set up too</span><div class="na-mgroup"><span class="na-mopt">No</span><span class="na-mopt">When the order is confirmed</span><span class="na-mopt on">When the order is delivered</span></div></div>');
+    var summary = naSheet('Summary', 'Stock', '', 5,
+      '<div class="na-mlabel">Spare parts, in Atlas Lifts</div>' +
+      '<div class="na-mgroup"><div class="na-mrow">CRM<small>3 collections, Deals</small></div><div class="na-mrow">Sales and invoicing<small>4 collections</small></div><div class="na-mrow">Stock and purchasing<small>5 collections</small></div><div class="na-mrow">About Spare parts<small>note</small></div></div>' +
+      '<p class="na-help" style="margin: 8px 4px 14px; font-size: 13px">12 collections, 1 board, 1 note. Companies and Products are shared.</p><span class="na-mbtn">Create</span>');
+    return mbPhone('Şablonlar', page, mbTabs('browse') + templates) + mbPhone('Ad, yer ve para birimleri', page, mbTabs('browse') + app) +
+      mbPhone('Bir şablonun soruları', page, mbTabs('browse') + stock) + mbPhone('Özet ve Create', page, mbTabs('browse') + summary);
+  }
+  var NA_VIEWS = {
+    nacreate: function () { return naApp(naCreate()); },
+    natemplates: function () { return naApp(naTemplates()); },
+    naapp: function () { return naApp(naAppPage()); },
+    nacrm: function () { return naApp(naCrm()); },
+    nasales: function () { return naApp(naSales()); },
+    nastock: function () { return naApp(naStock()); },
+    nasummary: function () { return naApp(naSummary()); },
+    nadone: function () { return naApp('', true); }
+  };
+  function renderNa(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'naphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = naPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = NA_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-naview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.naview === view));
+    });
+  }
+  var sectionNa = document.querySelector('.dir[data-dir="apps3"]');
+  sectionNa.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-naview]');
+    if (b) renderNa(sectionNa, b.dataset.naview);
+  });
+  renderNa(sectionNa, 'natemplates');
 
   // Scrawl apps (stage 14), slice 1 (Oct 21): a button that asks for a value before it runs. A
   // rule written as action("Correct stock", { ask: { total: { label, type, default } } }, …) opens

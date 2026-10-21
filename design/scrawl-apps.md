@@ -1,6 +1,6 @@
 # Scrawl apps: hazır şablonlardan app kurmak (taslak)
 
-Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda: şablonların çekirdeği ve ajan.
+Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda (1c0a5f3), notlarda dosya linki kodda (7c8aac4). 3. dilimin mockup'ı onaylı.
 
 ## 1. Amaç
 
@@ -59,6 +59,17 @@ Verilen kararlar (21 Ekim 2026):
   - Undo yeni klasörleri, panoları ve notları çöpe atar, değişen dosyaları eski haline getirir; koleksiyona eklenen kural dosyasını ve başlangıç kayıtlarını kaldırır.
   - Ajanın `create`'i: `folder` bir app ise ona ekler, değilse içinde yeni app kurar; aynı ad ve aynı şablonlarla yeniden çağrılınca `exists: true` döner.
 - Tanıtım notu parçaları kendi dosyalarına link verir; bunun için notlarda dosyaya link geldi (2.5, 21 Ekim'de onaylandı).
+
+21 Ekim 2026'da, 3. dilimin mockup'ıyla verilen kararlar (design/mockups.html, 14. aşama · 3. dilim):
+- Create penceresinde App, Collection'ın altında 6. sırada; Filter 7'ye kayar. Başlangıç sayfasının "Start from a template" bölümünde bir App satırı pencereyi şablonlar adımında açar (2.1).
+- Pencerenin üstünde Create'teki gibi adımlar: Templates, App, seçilen her şablon, Summary. Altta solda o adımın özeti, sağda Back (ilk adımda Cancel) ve Next; son adımda Create.
+- Şablonlar Customers, Money ve Work gruplarında birer kart: adı, ne işe yaradığı, kuracağı parçalar ikonlarıyla; seçilen kart turuncu çerçeveli ve tikli; ortak parça kartın altında yazar ("Uses Companies with CRM").
+- App adımında ad, yer (space'in en üstü ya da içinde bir klasör) ve para birimleri; para birimleri sıralı çipler, ilki "main", "Add a currency…" ile eklenir (2.2).
+- Sorular: evet/hayır ve kısa seçim segmentli düğme, uzun seçenekli seçim radyo listesi, liste sürüklenen satırlar (× ile silinir, "Add a stage" gibi eklenir; aşamada waiting, done, dropped, ilk depoda default ipucu). Bir cevaba bağlı soru onun altında içeride durur; başka bir şablona bağlı soru "Asked because Sales and invoicing is set up too" der. Sayfanın başında "Every answer is ready; change only what is different for you." (2.3).
+- Özet: üstte klasör ve yeri, yanında tanıtım notu; her şablon bir sütun: parçaları, düğmeleri, kendiliğinden olanlar; altta sayılar ve Create (2.1).
+- Kurulunca klasör kenar çubuğunda açılır, tanıtım notu yeni sekmede; toast "Spare parts set up: 12 collections, 1 board, 1 note" ve Undo.
+- Telefonda tam boy sheet: üst çubukta geri ve Next, altında ilerleme çizgisi, aynı sayfalar; özetin altında büyük Create.
+- Satış'ın kart metni kısaldı: "Products, quotes, orders and the money coming in; invoices are made elsewhere."
 
 ## 2. Sihirbaz
 
