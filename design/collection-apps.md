@@ -1,6 +1,6 @@
 # Koleksiyonla küçük uygulamalar: teknik tasarım (taslak)
 
-Durum: 20 Ekim 2026'da onaylandı, PLAN.md'ye işlendi. 1. dilim kodda (ffc68b3). 2. dilimin mockup'ı 21 Ekim'de onaylandı (`design/mockups.html`, 13. aşama · 2. dilim).
+Durum: 20 Ekim 2026'da onaylandı, PLAN.md'ye işlendi. 1. dilim kodda (ffc68b3). 2. dilim kodda (mockup 63e5ec8, kod 2c2c4fd). 3. dilimin mockup'ı 21 Ekim'de onaylandı (`design/mockups.html`, 13. aşama · 3. dilim).
 
 ## 1. Amaç
 
@@ -35,6 +35,13 @@ Verilen kararlar (20 Ekim 2026):
 - Formdaki sayı kutusu biçimli görünür, yazarken düz sayıya döner (4.6).
 - Varsayılan değer alanın düzenleyicisinde Value ya da Formula olarak verilir (5.1).
 - Rules sekmesinde yanlış satır varken Save kapalıdır (6.1).
+
+21 Ekim 2026'da, 3. dilimin mockup'ıyla verilen kararlar:
+- Hücre, Enter ve yazmaya başlamanın yanında seçili hücreye bir daha tıklayınca ve çift tıklayınca da düzenlenir (5.2).
+- Kaydı açan düğme yalnız üstünde durulan ya da seçili satırda görünür (5.2).
+- + Add row'un Add ve Cancel düğmeleri yeni satırın altında, sağdadır; tablo yana kaysa da görünür (5.2).
+- Tablo görünümündeki bağlı blokta başlıktaki "+ Add …" düğmesi yoktur; tek ekleme yeri alttaki + Add row'dur (5.3).
+- Bağlı tablonun toplamı blok başına açılır ya da kapanır (5.3).
 
 ## 2. Örnek: proje, görev ve bütçe
 
@@ -219,10 +226,10 @@ Hesaplanmayan her alanda `default` olabilir: sabit bir değer (`"Offer"`, `0`, `
 ### 5.2 Tabloda düzenleme (önce mockup)
 
 "Kalem kalem takip"in asıl engeli giriş hızı. Tablo hesap tablosu gibi çalışır:
-- Bir hücreye tıklayınca hücre seçilir. Enter'a basınca ya da yazmaya başlayınca düzenlenir. Seçim açılır listesi ve link seçici formdakiyle aynıdır. Hücreden çıkınca değer yazılır. Esc vazgeçer.
+- Bir hücreye tıklayınca hücre seçilir. Enter'a basınca, yazmaya başlayınca, seçili hücreye bir daha tıklayınca ya da çift tıklayınca düzenlenir. Seçim açılır listesi, link seçici ve gün formdakiyle aynıdır ve hücrenin altında açılır. Hücreden çıkınca değer yazılır. Esc vazgeçer. Oklar ve Tab seçimi taşır.
 - Hesaplanan hücreler salt okunurdur ve soluk görünür.
-- Kayıt, satırın başındaki düğmeyle ve name hücresiyle açılır. Bugünkü "satıra tıklayınca kayıt açılır" davranışı böylece değişir.
-- Tablonun altında **+ Add row**: varsayılanları dolu boş bir satır açılır. Satırın sonunda **Add** ve **Cancel** düğmeleri durur. Name boşken Add soluktur. Dosya Add'e basınca tek seferde yazılır.
+- Kayıt, satırın başındaki düğmeyle ve name hücresiyle açılır. Düğme üstünde durulan ya da seçili satırda görünür. Bugünkü "satıra tıklayınca kayıt açılır" davranışı böylece değişir.
+- Tablonun altında **+ Add row**: varsayılanları dolu boş bir satır açılır, ad kutusu klavyeyi alır. **Add** ve **Cancel** yeni satırın altında, sağda durur. Name boşken Add soluktur. Dosya Add'e basınca tek seferde yazılır. Gruplu tabloda + Add row tablonun en altındadır; eklenen kayıt kendi grubuna geçer.
 - Her hücre değişikliği kaydın kendi dosyasını yazar ve kaydederken çalışan kuralları çalıştırır. Farklı alanlar satır bazında birleştiği için iki kişinin aynı kayıtta farklı hücreleri düzenlemesi çakışma çıkarmaz.
 - Telefonda tablo yok; liste ve form bugünkü gibi kalır (4.9).
 
@@ -235,8 +242,8 @@ Bağlı kayıt bloğuna üçüncü bir görünüm: `style: "table"`.
 ```
 
 - Sütunlar `fields`'tır. Hücreler 5.2'deki gibi düzenlenir.
-- Altta **+ Add row** bulunur. Satırın linkleri bugünkü + Add gibi dolu gelir: kayda ve kaydın kendi linklerine.
-- `sums` açıksa sayı sütunlarının altında biçimli toplam görünür.
+- Altta **+ Add row** bulunur; başlıkta "+ Add …" düğmesi yoktur. Satırın linkleri bugünkü + Add gibi dolu gelir: kayda ve kaydın kendi linklerine.
+- `sums` açıksa sayı sütunlarının altında biçimli toplam görünür. Fields penceresinde blok Timeline, List ya da Table olur; Table'da gösterilen alanlar sütundur, "Sums under it" toplamı açar.
 - Satırın başındaki düğme kaydı bu pencerenin üstünde açar (bugünkü gibi).
 - Telefonda liste olarak görünür, altında toplam satırı.
 

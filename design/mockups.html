@@ -2373,6 +2373,93 @@ p { margin: 0; max-width: 68ch; }
 .cb-rm .rm-foot .hint { margin-right: auto; color: var(--m-faint); font-size: 11.5px; }
 /* The Fields window scrolls; a tall field opened is cut at its foot, as it would be before a scroll. */
 .dir[data-dir="capps2"] .fd-canvas { overflow: hidden; }
+/* Collections as small apps (stage 13), slice 3: a table edited in its cells, + Add row, linked records as a table. */
+.dir[data-dir="capps3"] { margin-top: 56px; }
+.dir[data-dir="capps3"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="capps3"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="capps3"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+/* A row: a gutter for the button that opens the record, then its cells. */
+.cc-row { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr) 132px 104px 108px 70px 100px 62px 78px; align-items: stretch; min-height: 32px; margin: 0 -8px; padding: 0 8px 0 0; border-bottom: 1px solid var(--m-line); }
+.cc-row.head { min-height: 0; padding-top: 6px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--m-faint); }
+.cc-row > span { position: relative; display: flex; align-items: center; min-width: 0; padding: 0 7px; white-space: nowrap; }
+.cc-row > span > .t { overflow: hidden; text-overflow: ellipsis; }
+.cc-row.head > span { padding-bottom: 6px; }
+.cc-row .num { justify-content: flex-end; font-variant-numeric: tabular-nums; }
+.cc-row .lk { color: var(--m-dim); }
+.cc-row .nm { font-weight: 500; }
+.cc-row .nm .t { text-decoration: underline transparent; text-underline-offset: 3px; }
+.cc-row .dt { color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.cc-row .dt.late { color: #f0706a; }
+.cc-row .calc { color: var(--m-faint); }
+.cc-row .lbl, .cc-menu .lbl, .cc-lpick .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; white-space: nowrap; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.cc-row .cc-lk { overflow: hidden; text-decoration: none; padding: 0 6px; border: 1px solid var(--m-line); border-radius: 4px; color: var(--m-fg); font-size: 11.5px; line-height: 18px; text-overflow: ellipsis; }
+/* The button that opens the record, at the start of the row the pointer is on, or of the one selected. */
+.cc-row > .go { justify-content: center; padding: 0; color: var(--m-faint); }
+.cc-row > .go i { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; }
+.mock .cc-row > .go svg { width: 12px; height: 12px; }
+.cc-row.hover { background: color-mix(in srgb, var(--m-sel) 35%, transparent); }
+.cc-row.hover > .go i { background: var(--m-side); color: var(--m-fg); box-shadow: 0 0 0 1px var(--m-line); }
+.cc-row.hover .nm .t { text-decoration-color: var(--m-faint); }
+/* The cell selected, and the one being typed in. */
+.cc-row > .sel { box-shadow: inset 0 0 0 2px var(--m-accent); border-radius: 3px; }
+.cc-row > .edit { box-shadow: inset 0 0 0 2px var(--m-accent); border-radius: 3px; background: var(--m-side); }
+.cc-row > .edit .caret { display: inline-block; width: 1.5px; height: 14px; margin-left: 1px; background: var(--m-accent); }
+.cc-row .dd { margin-left: auto; padding-left: 4px; color: var(--m-faint); font-size: 10px; }
+/* The row being added: its boxes, the defaults filled, Add and Cancel at its end. */
+.cc-row.new { background: color-mix(in srgb, var(--m-accent) 6%, transparent); }
+.cc-row.new > span.in { margin: 3px 2px; padding: 0 6px; border: 1px solid var(--m-line); border-radius: 4px; background: var(--m-side); }
+.cc-row.new > span.in.on { border-color: var(--m-accent); }
+.cc-row.new .ph { color: var(--m-faint); }
+.cc-row.new .caret { display: inline-block; width: 1.5px; height: 14px; margin-right: 1px; background: var(--m-accent); }
+.cc-acts { display: flex; justify-content: flex-end; gap: 6px; margin: 0 -8px; padding: 6px 8px 8px; border-bottom: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-accent) 6%, transparent); }
+.cc-acts .st-btn { padding: 2px 10px; font-size: 11.5px; }
+.cc-acts .note { margin-right: auto; color: var(--m-faint); font-size: 11.5px; }
+.st-btn.off { opacity: .45; }
+.cc-addrow { margin: 0 -8px; padding: 7px 8px 7px 30px; border-bottom: 1px solid var(--m-line); color: var(--m-faint); font-size: 12px; }
+.cc-row.sum { color: var(--m-dim); font-weight: 600; border-bottom: 0; }
+.cc-row.sum .cap { color: var(--m-faint); font-weight: 400; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+/* What opens under a cell: the field's choices, a link's records, as in the form. */
+.cc-menu { position: absolute; top: calc(100% + 3px); left: -1px; z-index: 4; display: flex; flex-direction: column; gap: 1px; min-width: 160px; padding: 4px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .35); font-weight: 400; }
+.cc-menu > span { display: flex; align-items: center; gap: 8px; padding: 3px 8px; border-radius: 4px; }
+.cc-menu > span.on { background: var(--m-sel); }
+.cc-menu > span .ok { margin-left: auto; color: var(--m-dim); font-size: 11px; }
+.cc-lpick { width: 280px; }
+.cc-lpick .q { margin: 0 0 3px; padding: 3px 8px; border: 1px solid var(--m-accent); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); }
+.cc-lpick .q .caret { display: inline-block; width: 1.5px; height: 13px; margin-left: 1px; vertical-align: -2px; background: var(--m-accent); }
+.cc-lpick > span small { margin-left: auto; color: var(--m-faint); font: 11px var(--m-mono); }
+.cc-lpick .hd { padding: 3px 8px 1px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+/* A record window as the app has it, wide, its linked records as tables. */
+.rmod.cc-rm { width: 1180px; height: auto; max-height: 94%; }
+.cc-rm .cp-head .key { font: 11px/1 var(--m-mono); color: var(--m-fg); }
+.cc-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 28px; padding: 16px 20px 20px; }
+.cc-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cc-prop { display: flex; flex-direction: column; gap: 4px; }
+.cc-prop .pl { color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.cc-prop .pl i { margin-left: 3px; color: var(--m-accent); font-style: normal; }
+.cc-prop .box { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-side); box-sizing: border-box; }
+.cc-prop .box .dd { margin-left: auto; color: var(--m-faint); font-size: 10px; }
+.cc-prop .box .lk { text-decoration: underline; text-decoration-color: var(--m-faint); text-underline-offset: 3px; }
+.cc-prop .box .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.cc-prop.body .box { align-items: flex-start; min-height: 56px; color: var(--m-faint); }
+.cc-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* A linked block as a table: its head, its rows as the table's, its sums, + Add row. */
+.cc-blk { display: flex; flex-direction: column; }
+.cc-blk .blk-h { display: flex; align-items: center; gap: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--m-line); color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.cc-blk .cc-row { margin: 0; padding-right: 0; font-size: 12.5px; }
+.cc-blk .cc-row.bl { grid-template-columns: 22px minmax(0, 1fr) 96px 100px 100px 100px; }
+.cc-blk .cc-row.tr { grid-template-columns: 22px minmax(0, 1fr) 70px 104px 64px 78px; }
+.cc-blk .cc-addrow { margin: 0; padding-left: 30px; }
+.cc-blk .cc-acts { margin: 0; }
+/* The block's editor in the Fields window: Table beside Timeline and List, its sums. */
+.cc-bed { display: flex; flex-direction: column; gap: 7px; }
+.cc-bed .fe-row .vsw { font-size: 12px; }
+.cc-bed .fcheck .cb.on { background: var(--m-accent); border-color: var(--m-accent); }
+/* On a phone, the linked tab as a list, its sum under it. */
+.mb-sumrow { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--m-line); color: var(--m-faint); font-size: 13.5px; }
+.mb-sumrow b { margin-left: auto; color: var(--m-fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.mb-addrow { padding: 12px 16px; color: var(--m-accent); font-size: 15px; }
+.cc-menu.end { left: auto; right: -1px; }
+.cc-blk .cc-row.head { font-size: 10.5px; }
 </style>
 
 <main class="page">
@@ -2767,6 +2854,30 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-cbview="cbpo">Purchase orders</button>
         <button type="button" data-cbview="cbpofield">Para birimi alanı</button>
         <button type="button" data-cbview="cbmixed">Karışık para birimi</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="capps3">
+    <div class="brief">
+      <div>
+        <span class="letter">KOLEKSİYON · 13. AŞAMA · 3. DİLİM</span>
+        <h2>Hızlı giriş</h2>
+        <p>Tablo hesap tablosu gibi çalışır. Hücreye tıklayınca hücre seçilir; yazmaya başlayınca, Enter'a basınca, seçili hücreye bir daha tıklayınca ya da çift tıklayınca düzenlenir. Seçim, link ve gün formdaki listeyi hücrenin altında açar. Hücreden çıkınca değer yazılır, Esc vazgeçer. Hesaplanan hücreler soluktur ve düzenlenmez. Kayıt, satırın başındaki düğmeyle (üstünde durulan ya da seçili satırda görünür) ve adına tıklayınca açılır. Tablonun altında + Add row: varsayılanları dolu bir satır açılır, ad yazılınca Add ile yazılır. Kayıt penceresinde bağlı kayıtlar tablo olarak gösterilebilir; Fields penceresinde blok Timeline, List ya da Table olur, tabloda gösterilen alanlar sütundur, altında toplam. Telefonda tablo yok; bağlı kayıtlar liste, altında toplam.</p>
+        <ul class="traits"><li>tıklayınca hücre seçilir</li><li>yazınca düzenlenir</li><li>satır başında açma düğmesi</li><li>hesaplanan soluk</li><li>+ Add row, varsayılanlar dolu</li><li>bağlı kayıtlar tablo</li><li>tablonun altında toplam</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="3. dilim görünümü">
+        <button type="button" data-ccview="ccsel">Hücre seçili</button>
+        <button type="button" data-ccview="ccchoice">Seçimi düzenle</button>
+        <button type="button" data-ccview="cclink">Link seçici</button>
+        <button type="button" data-ccview="ccnum">Sayı yazılıyor</button>
+        <button type="button" data-ccview="ccadd">+ Add row</button>
+        <button type="button" data-ccview="ccadded">Add row: ad yazıldı</button>
+        <button type="button" data-ccview="ccrecord">Bağlı tablolar</button>
+        <button type="button" data-ccview="ccrecadd">Bağlı tabloda Add row</button>
+        <button type="button" data-ccview="ccblock">Blok ayarı</button>
+        <button type="button" data-ccview="ccphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -8234,6 +8345,188 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderCb(sectionCb, b.dataset.cbview);
   });
   renderCb(sectionCb, 'cbrules');
+
+  // Collections as small apps (stage 13), slice 3 (Oct 21): entry made quick. A table works as a
+  // sheet does: a click selects a cell, typing or Enter edits it, a choice, a link or a day opens
+  // the form's own list under it; what is worked out is faint and not typed in. A record opens
+  // from the button at the start of its row and from its name. + Add row opens a row with the
+  // defaults filled. In a record's window, linked records may be a table with its sums.
+  var CC_TX = [
+    { name: 'Cabin steel, inv. 2231', proj: 'Atakule Tower', cust: 'Ankara Holding', line: 'Material', dir: 'Out', amount: 184500, due: 'Oct 12', st: 'Paid' },
+    { name: 'Second instalment', proj: 'Atakule Tower', cust: 'Ankara Holding', line: '', dir: 'In', amount: 420000, due: 'Oct 15', st: 'Invoiced', late: true },
+    { name: 'Guide rails', proj: 'Kadıköy Residence', cust: 'Moda Yapı', line: 'Material', dir: 'Out', amount: 96800, due: 'Oct 9', st: 'Invoiced', late: true },
+    { name: 'Door operators, 6 units', proj: 'Kadıköy Residence', cust: 'Moda Yapı', line: 'Material', dir: 'Out', amount: 141300, due: 'Oct 28', st: 'Planned' },
+    { name: 'Crane for the shaft', proj: 'Bursa Mall, block B', cust: 'Nilüfer AVM', line: 'Transport', dir: 'Out', amount: 38500, due: 'Oct 6', st: 'Paid' },
+    { name: 'Down payment', proj: 'Bursa Mall, block B', cust: 'Nilüfer AVM', line: '', dir: 'In', amount: 294000, due: 'Oct 3', st: 'Paid' },
+    { name: 'Installation crew, week 41', proj: 'Atakule Tower', cust: 'Ankara Holding', line: 'Labour', dir: 'Out', amount: 62400, due: 'Oct 17', st: 'Invoiced', late: true },
+    { name: 'Inspection fee', proj: 'Eskişehir Campus', cust: 'Anadolu Eğitim', line: 'Other', dir: 'Out', amount: 7800, due: 'Oct 30', st: 'Planned' }
+  ];
+  var CC_GO = '<span class="go"><i title="Open the record">' + ICON.open + '</i></span>';
+  /** A row of Transactions: `o.hover` shows the button that opens it, `o.cells` puts a cell's own content (selected, typed in, with its list). */
+  function ccRow(x, o) {
+    o = o || {};
+    var cells = o.cells || {};
+    function cell(key, cls, inner) {
+      var own = cells[key];
+      return own ? '<span class="' + cls + ' ' + own.cls + '">' + own.html + '</span>' : '<span class="' + cls + '">' + inner + '</span>';
+    }
+    return '<div class="cc-row' + (o.hover ? ' hover' : '') + '">' + (o.hover ? CC_GO : '<span class="go"></span>') +
+      cell('name', 'nm', '<span class="t">' + x.name + '</span>') +
+      cell('proj', '', '<span class="cc-lk">' + x.proj + '</span>') +
+      '<span class="calc"><span class="t">' + x.cust + '</span></span>' +
+      cell('line', 'lk', '<span class="t">' + x.line + '</span>') +
+      cell('dir', '', lbl(x.dir)) +
+      cell('amount', 'num', cbMoney(x.amount)) +
+      cell('due', 'dt' + (x.late ? ' late' : ''), x.due) +
+      cell('st', '', lbl(x.st)) + '</div>';
+  }
+  var CC_HEAD = '<div class="cc-row head"><span></span><span>Name</span><span>Project</span><span>Customer</span><span>Line</span><span>Direction</span><span class="num">Amount</span><span class="sorted">Due ↓</span><span>Status</span></div>';
+  /** Transactions as a table, each row as `o.rows[i]` says; then + Add row, or the row being added. */
+  function ccTable(o) {
+    o = o || {};
+    var rows = CC_TX.map(function (x, i) { return ccRow(x, (o.rows || {})[i]); }).join('');
+    var tail = o.adding || '<div class="cc-addrow">+ Add row</div>';
+    return '<div class="bv">' + caHead('Transactions', '128 records') + '<div class="blist">' + CC_HEAD + rows + tail + '<div class="lmore">Show 120 more</div></div></div>';
+  }
+  var CC_CHOICES = '<div class="cc-menu end">' + [['Planned'], ['Invoiced', true], ['Paid']].map(function (c) {
+    return '<span' + (c[1] ? ' class="on"' : '') + '>' + lbl(c[0]) + (c[1] ? '<span class="ok">✓</span>' : '') + '</span>';
+  }).join('') + '</div>';
+  var CC_PICK = '<div class="cc-menu cc-lpick"><div class="q">kad<span class="caret"></span></div>' +
+    '<span class="on">Kadıköy Residence<small>PRJ-0013</small></span><span>Kadıköy Offices<small>PRJ-0007</small></span></div>';
+  /** The row being added, at the foot of the rows: its name typed or not, the defaults filled, Add and Cancel. */
+  function ccAdding(name) {
+    var row = '<div class="cc-row new"><span class="go"></span>' +
+      '<span class="in on">' + (name ? name : '') + '<span class="caret"></span></span>' +
+      '<span class="in"><span class="ph">Project…</span></span>' +
+      '<span class="calc">–</span>' +
+      '<span class="in"><span class="ph">Line…</span></span>' +
+      '<span class="in">' + lbl('Out') + '</span>' +
+      '<span class="in num"><span class="ph">Amount</span></span>' +
+      '<span class="in dt"><span class="ph">Due</span></span>' +
+      '<span class="in">' + lbl('Planned') + '</span></div>';
+    return row + '<div class="cc-acts"><span class="st-btn">Cancel</span><span class="st-btn go' + (name ? '' : ' off') + '">Add</span></div>';
+  }
+  function ccApp(body, over, count) {
+    var tabs = tab('collection', 'Projects · ' + CA_SPACE, 'x', false) + tab('collection', 'Transactions · ' + CA_SPACE, 'x', true) + '<div class="tab plus">+</div>';
+    return '<aside class="side">' + cbTree('tx') + '</aside><section class="main"><div class="panes">' + pane(tabs, body) + '</div>' +
+      '<div class="status"><span>' + count + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  var CC_BL = [
+    { name: 'Material', cat: 'Material', planned: 620000, actual: 532300 },
+    { name: 'Labour', cat: 'Labour', planned: 380000, actual: 248600 },
+    { name: 'Transport', cat: 'Transport', planned: 90000, actual: 38500 },
+    { name: 'Other', cat: 'Other', planned: 150000, actual: 43000 }
+  ];
+  var CC_ATX = [
+    { name: 'Cabin steel, inv. 2231', dir: 'Out', amount: 184500, due: 'Oct 12', st: 'Paid' },
+    { name: 'Second instalment', dir: 'In', amount: 420000, due: 'Oct 15', st: 'Invoiced', late: true },
+    { name: 'Installation crew, week 41', dir: 'Out', amount: 62400, due: 'Oct 17', st: 'Invoiced', late: true },
+    { name: 'Elevator doors, 4 units', dir: 'Out', amount: 96300, due: 'Oct 24', st: 'Planned' }
+  ];
+  LC.Material = '#6aa5f0'; LC.Labour = '#b48ef0'; LC.Transport = '#e0a040'; LC.Other = '#8b93a1';
+  /** Atakule Tower's budget lines as a table: planned, actual and what remains; their sums; + Add row, or a line being added. */
+  function ccLines(adding) {
+    var sum = { planned: 0, actual: 0 };
+    var rows = CC_BL.map(function (l, i) {
+      sum.planned += l.planned; sum.actual += l.actual;
+      return '<div class="cc-row bl' + (i === 1 && !adding ? ' hover' : '') + '">' + (i === 1 && !adding ? CC_GO : '<span class="go"></span>') +
+        '<span class="nm"><span class="t">' + l.name + '</span></span><span>' + lbl(l.cat) + '</span>' +
+        '<span class="num">' + cbMoney(l.planned) + '</span><span class="num calc">' + cbMoney(l.actual) + '</span><span class="num calc">' + cbMoney(l.planned - l.actual) + '</span></div>';
+    }).join('');
+    var tail = adding
+      ? '<div class="cc-row bl new"><span class="go"></span><span class="in on">Inspection<span class="caret"></span></span><span class="in">' + lbl('Other') + '</span>' +
+        '<span class="in num"><span class="ph">Planned</span></span><span class="num calc">' + cbMoney(0) + '</span><span class="num calc">–</span></div>' +
+        '<div class="cc-acts"><span class="note">Linked to Atakule Tower</span><span class="st-btn">Cancel</span><span class="st-btn go">Add</span></div>'
+      : '<div class="cc-addrow">+ Add row</div>';
+    return '<div class="cc-blk"><div class="blk-h">Budget lines <small>4</small></div>' +
+      '<div class="cc-row bl head"><span></span><span>Name</span><span>Category</span><span class="num">Planned</span><span class="num">Actual</span><span class="num">Remaining</span></div>' +
+      rows + tail +
+      '<div class="cc-row bl sum"><span></span><span class="cap">Sum</span><span></span><span class="num">' + cbMoney(sum.planned) + '</span><span class="num">' + cbMoney(sum.actual) + '</span><span class="num">' + cbMoney(sum.planned - sum.actual) + '</span></div></div>';
+  }
+  /** Its transactions as a table, with no sums: money in and money out added together says nothing. */
+  function ccTransactions() {
+    return '<div class="cc-blk"><div class="blk-h">Transactions <small>4</small></div>' +
+      '<div class="cc-row tr head"><span></span><span>Name</span><span>Direction</span><span class="num">Amount</span><span>Due</span><span>Status</span></div>' +
+      CC_ATX.map(function (x) {
+        return '<div class="cc-row tr"><span class="go"></span><span class="nm"><span class="t">' + x.name + '</span></span><span>' + lbl(x.dir) + '</span><span class="num">' + cbMoney(x.amount) + '</span>' +
+          '<span class="dt' + (x.late ? ' late' : '') + '">' + x.due + '</span><span>' + lbl(x.st) + '</span></div>';
+      }).join('') + '<div class="cc-addrow">+ Add row</div></div>';
+  }
+  function ccProp(label, value, o) {
+    o = o || {};
+    return '<div class="cc-prop' + (o.body ? ' body' : '') + '"><span class="pl">' + label + (o.req ? '<i>*</i>' : '') + '</span><span class="box">' + value + (o.dd ? '<span class="dd">▾</span>' : '') + '</span></div>';
+  }
+  /** Atakule Tower's window: its fields and notes on the left; its budget lines and transactions on the right, as tables. */
+  function ccRecord(adding) {
+    var head = ICON.collection + '<span class="key">PRJ-0014</span><span>Projects · ' + CA_SPACE + '</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    var left = ccProp('Name', 'Atakule Tower', { req: true }) +
+      '<div class="cc-two">' + ccProp('Code', 'PRJ-0014') + ccProp('Status', lbl('Active'), { dd: true }) + '</div>' +
+      ccProp('Customer', '<span class="lk">Ankara Holding</span>', { dd: true }) +
+      '<div class="cc-two">' + ccProp('Start', 'Sep 1, 2026') + ccProp('Delivery', 'Feb 26, 2027') + '</div>' +
+      '<div class="cc-two">' + ccProp('Budget', cbMoney(1240000)) + ccProp('Spent', cbMoney(862400)) + '</div>' +
+      '<div class="cc-two">' + ccProp('Remaining', cbMoney(377600)) + ccProp('Health', 'OK') + '</div>' +
+      ccProp('Notes', 'Machine room on the roof; the crane needs the street closed on Sundays.', { body: true });
+    return '<div class="ovl center"><div class="rmod cc-rm"><div class="cp-head">' + head + '</div>' +
+      '<div class="cc-cols"><div class="cc-col">' + left + '</div><div class="cc-col">' + ccLines(adding) + ccTransactions() + '</div></div>' +
+      '<div class="rm-foot"><span class="st-btn">Cancel</span><span class="st-btn go off">Save</span></div></div></div>';
+  }
+  /** The Fields window of Projects, the Budget lines block open: Table beside Timeline and List, its columns and its sums. */
+  function ccBlockFields() {
+    var add = '<div class="fadd">+ Add</div>';
+    var block = '<div class="fitem edit">' + CB_GRIP + '<div class="fe cc-bed">' +
+      '<div class="fe-top"><span class="fe-name">Linked records</span>' + cbBox('Budget lines · ' + CA_SPACE, { dd: true }) + '<span class="fdel" title="Delete">' + ICON.trash + '</span></div>' +
+      '<div class="fe-row"><span class="vsw"><span>Timeline</span><span>List</span><span class="on">Table</span></span>' + cbBox('By Name', { dd: true }) + '</div>' +
+      '<div class="fe-row">' + cbBox('Name, Category, Planned, Actual, Remaining', { dd: true }) + '</div>' +
+      '<div class="fe-row"><label class="fcheck"><span class="cb on"></span>Sums under it</label></div>' +
+      '<p class="fi-note">The budget lines whose project is this record, as a table: a column for each field shown, the sums of its numbers under it. + Add row adds one linked here.</p>' +
+      '</div></div>';
+    return cbCanvas(
+      cbCol(1, '<div class="fsec">' + cbFld('Name', 'name', true) + cbFld('Code', 'code') + cbFld('Status', 'select') + cbFld('Customer', 'link · Companies') +
+        cbFld('Start', 'date') + cbFld('Delivery', 'date') + cbFld('Budget', 'rollup · Budget lines') + cbFld('Spent', 'rollup · Transactions') + cbFld('Remaining', 'formula') + cbFld('Health', 'formula') +
+        cbBlk('Notes', 'the body: free text, site notes') + add + '</div>') +
+      cbCol(2, '<div class="fsec">' + block + cbBlk('Transactions', 'linked · table · name, direction, amount, due, status') + cbBlk('Cards and tasks', 'the cards and tasks about it') + add + '</div>'));
+  }
+  /** On a phone: the Budget lines tab as a list, planned on the right, the sum under it. */
+  function ccPhone() {
+    var top = mbRecordTop('Projects', 'Atakule Tower', 'PRJ-0014', [], [['Details'], ['Budget lines', 4], ['Transactions', 4], ['Cards', 2]], 'Budget lines');
+    var rows = CC_BL.map(function (l) { return mbRec(l.name, mbLbl(l.cat) + '<span>' + cbMoney(l.actual) + ' spent</span>', cbMoney(l.planned)); }).join('');
+    var page = mbPage(top, rows + '<div class="mb-sumrow">Sum of planned<b>' + cbMoney(1240000) + '</b></div>');
+    var tx = mbPage(mbRecordTop('Projects', 'Atakule Tower', 'PRJ-0014', [], [['Details'], ['Budget lines', 4], ['Transactions', 4], ['Cards', 2]], 'Transactions'),
+      CC_ATX.map(function (x) { return mbRec(x.name, mbLbl(x.dir) + mbLbl(x.st), cbMoney(x.amount)); }).join(''));
+    return mbPhone('Bağlı tablo telefonda liste; altında toplam', page, mbTabs('browse') + MB_FAB) +
+      mbPhone('Toplamı kapalı bağlı tablo: yalnız liste', tx, mbTabs('browse') + MB_FAB);
+  }
+  var CC_VIEWS = {
+    ccsel: function () { return ccApp(ccTable({ rows: { 2: { hover: true, cells: { st: { cls: 'sel', html: lbl('Invoiced') } } } } }), '', '128 records'); },
+    ccchoice: function () { return ccApp(ccTable({ rows: { 2: { hover: true, cells: { st: { cls: 'edit', html: lbl('Invoiced') + '<span class="dd">▾</span>' + CC_CHOICES } } } } }), '', '128 records'); },
+    cclink: function () { return ccApp(ccTable({ rows: { 2: { hover: true, cells: { proj: { cls: 'edit', html: '<span class="cc-lk">Kadıköy Residence</span><span class="dd">▾</span>' + CC_PICK } } } } }), '', '128 records'); },
+    ccnum: function () { return ccApp(ccTable({ rows: { 3: { hover: true, cells: { amount: { cls: 'edit', html: '141300<span class="caret"></span>' } } } } }), '', '128 records'); },
+    ccadd: function () { return ccApp(ccTable({ adding: ccAdding('') }), '', '128 records'); },
+    ccadded: function () { return ccApp(ccTable({ adding: ccAdding('Elevator doors, 4 units') }), '', '128 records'); },
+    ccrecord: function () { return ccApp(ccTable(), ccRecord(false), '128 records'); },
+    ccrecadd: function () { return ccApp(ccTable(), ccRecord(true), '128 records'); },
+    ccblock: function () { return cbApp('projects', cbProjects(), cbWindow('Projects', 'design', ccBlockFields()), '7 records'); }
+  };
+  function renderCc(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'ccphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = ccPhone();
+    } else {
+      mock.className = 'mock dir-a' + (/^cc(record|recadd|block)$/.test(view) ? ' wider' : '');
+      mock.innerHTML = CC_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-ccview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.ccview === view));
+    });
+  }
+  var sectionCc = document.querySelector('.dir[data-dir="capps3"]');
+  sectionCc.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ccview]');
+    if (b) renderCc(sectionCc, b.dataset.ccview);
+  });
+  renderCc(sectionCc, 'ccsel');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
