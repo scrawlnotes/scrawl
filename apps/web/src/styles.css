@@ -13036,7 +13036,7 @@ button.st-li:hover,
 .na-bad,
 .na-help.na-bad {
   margin: 4px 2px 0;
-  color: var(--sl-danger);
+  color: var(--sl-danger, #e5484d);
   font-size: 12px;
 }
 
@@ -13401,4 +13401,131 @@ button.st-li:hover,
   .na-sum {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Add to app: the app's templates faint, In the app where the tick would be; a summary of what is
+   set up, what is added to what is there, what is left as it is, or what to change first. */
+.na-card.in {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.na-card.in:hover {
+  border-color: var(--sl-line);
+}
+
+.na-card .na-in {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  padding: 1px 7px;
+  border: 1px solid var(--sl-line);
+  border-radius: 10px;
+  color: var(--sl-dim);
+  font-size: 10.5px;
+}
+
+.na-card.in .hd {
+  padding-right: 80px;
+}
+
+.na-add2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 12px;
+}
+
+.na-add2.off {
+  opacity: 0.5;
+}
+
+.na-add2 .col {
+  padding: 10px 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+}
+
+.na-add2 h4 {
+  margin: 0 0 8px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.na-add2 .na-one + .na-one {
+  margin-top: 12px;
+}
+
+.na-add2 .pc {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  color: var(--sl-fg);
+  font-size: 12.5px;
+}
+
+.na-add2 .pc .icon {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--sl-dim);
+}
+
+.na-add2 .pc small {
+  margin-left: auto;
+  color: var(--sl-dim);
+  font-size: 11px;
+  text-align: right;
+}
+
+.na-add2 .hd {
+  display: block;
+  margin: 9px 0 3px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.na-add2 ul {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.na-box {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--sl-accent) 9%, transparent);
+  color: var(--sl-fg);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.na-box .icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  color: var(--sl-accent);
+}
+
+.na-box.bad {
+  background: color-mix(in srgb, var(--sl-danger, #e5484d) 12%, transparent);
+}
+
+.na-box.bad .icon {
+  color: var(--sl-danger, #e5484d);
+}
+
+.na-box b {
+  font-weight: 600;
 }

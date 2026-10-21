@@ -1,11 +1,13 @@
 import {
   APP_TEMPLATES,
+  type AppFile,
   type AppInput,
   type AppPlan,
   AppProblems,
   type Answer,
   type Answers,
   askedQuestions,
+  dirname,
   localPath,
   PIECES,
   type Question,
@@ -56,11 +58,13 @@ type Step = 'templates' | 'app' | TemplateId | 'summary';
 /** A piece's name and kind, by its role. */
 const pieceOf = (role: string) => PIECES[role]!;
 
-export function NewAppDialog({ folders, folder, onPlan, onCreate, onClose }: {
+export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClose }: {
   /** Every place, the personal space's top first. */
   folders: string[];
   /** The place it starts in. */
   folder: string;
+  /** Templates added to an app set up before (Add to app): its `_app.json`. Its templates are shown faint, its name and currencies are not asked. */
+  adding?: AppFile;
   /** The plan of what was chosen; throws AppProblems for what is wrong with it. */
   onPlan: (input: AppInput, place: FolderChoice) => Promise<AppPlan>;
   /** Sets it up; a message when it could not be. */
@@ -73,31 +77,49 @@ export function NewAppDialog({ folders, folder, onPlan, onCreate, onClose }: {
   const [name, setName] = useState('');
   const [place, setPlace] = useState<FolderChoice>(() => ({ folder: folders.includes(folder) ? folder : (folders[0] ?? ''), create: false }));
   const [currencies, setCurrencies] = useState<string[]>(() => [localCurrency()]);
-  const [given, setGiven] = useState<Partial<Record<TemplateId, Answers>>>({});
+  // An app's own templates are read with the answers they were set up with.
+  const [given, setGiven] = useState<Partial<Record<TemplateId, Answers>>>(() => Object.fromEntries((adding?.templates ?? []).map((x) => [x.id, x.answers])));
   const [plan, setPlan] = useState<AppPlan | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
   const busy = useRef(false);
 
-  const chosenSet = new Set(chosen);
+  const installed = new Set<TemplateId>((adding?.templates ?? []).map((x) => x.id));
+  // What the questions and the pieces are worked out with: the app's templates and the ones chosen.
+  const chosenSet = new Set<TemplateId>([...installed, ...chosen]);
   const answersOf = (id: TemplateId): Answers => readAnswers(APP_TEMPLATES[id], chosenSet, given[id] ?? {}).answers;
   const view = { has: (id: TemplateId) => chosenSet.has(id), answers: answersOf };
   const rolesOf = (id: TemplateId) => APP_TEMPLATES[id].pieces(answersOf(id), view);
-  const money = chosen.some((id) => APP_TEMPLATES[id].money(answersOf(id)));
-  const steps: Step[] = ['templates', 'app', ...chosen, 'summary'];
+  const money = !adding && chosen.some((id) => APP_TEMPLATES[id].money(answersOf(id)));
+  const steps: Step[] = adding ? ['templates', ...chosen, 'summary'] : ['templates', 'app', ...chosen, 'summary'];
   const step = steps[Math.min(at, steps.length - 1)]!;
   const stepLabel = (s: Step) => (s === 'templates' ? t('apps.step.templates') : s === 'app' ? t('apps.step.app') : s === 'summary' ? t('apps.step.summary') : t(APP_TEMPLATES[s].name));
   // A phone's back button says where it goes in a word.
   const backLabel = (s: Step) => (s === 'templates' || s === 'app' || s === 'summary' ? stepLabel(s) : t(APP_TEMPLATES[s].short));
 
-  /** The pieces a chosen template takes from the ones chosen before it. */
+  /** The pieces a chosen template takes from the app or from the ones chosen before it. */
   const borrowed = (id: TemplateId): Set<string> => {
-    if (!chosenSet.has(id)) return new Set();
-    const before = chosen.filter((other) => TEMPLATE_IDS.indexOf(other) < TEMPLATE_IDS.indexOf(id));
+    if (!chosenSet.has(id) || installed.has(id)) return new Set();
+    const before = [...installed, ...chosen.filter((other) => TEMPLATE_IDS.indexOf(other) < TEMPLATE_IDS.indexOf(id))];
     return new Set(rolesOf(id).filter((role) => before.some((other) => rolesOf(other).includes(role))));
   };
-  /** What a chosen template shares with the ones chosen before it: "Companies with CRM". */
+  /** What a chosen template shares, in a line: "Uses Companies with CRM"; added to an app, "Uses Products and Companies, in the app". */
+  const sharedLine = (id: TemplateId): string | null => {
+    if (!chosenSet.has(id) || installed.has(id)) return null;
+    const inApp = rolesOf(id).filter((role) => [...installed].some((other) => rolesOf(other).includes(role)));
+    const withNew = sharedOf(id).filter((_, i) => !inApp.includes(newShared(id)[i]!));
+    const parts = [inApp.length > 0 ? t('apps.usesInApp', { pieces: listed(inApp.map((r) => pieceOf(r).name)) }) : null, withNew.length > 0 ? t('apps.uses', { pieces: withNew.join(', ') }) : null];
+    return parts.filter(Boolean).join(' · ') || null;
+  };
+  /** The roles of what a chosen template shares with the new ones chosen before it, in the order sharedOf says them. */
+  const newShared = (id: TemplateId): string[] => {
+    const before = chosen.filter((other) => TEMPLATE_IDS.indexOf(other) < TEMPLATE_IDS.indexOf(id));
+    const said: string[] = [];
+    for (const other of before) for (const role of rolesOf(id)) if (rolesOf(other).includes(role) && !said.includes(role)) said.push(role);
+    return said;
+  };
+  /** What a chosen template shares with the new ones chosen before it: "Companies with CRM". */
   const sharedOf = (id: TemplateId): string[] => {
-    if (!chosenSet.has(id)) return [];
+    if (!chosenSet.has(id) || installed.has(id)) return [];
     const before = chosen.filter((other) => TEMPLATE_IDS.indexOf(other) < TEMPLATE_IDS.indexOf(id));
     const said = new Set<string>();
     const out: string[] = [];
@@ -114,7 +136,7 @@ export function NewAppDialog({ folders, folder, onPlan, onCreate, onClose }: {
   const sharedPieces = [...new Set(chosen.flatMap((id) => rolesOf(id)).filter((role, _, all) => chosen.filter((id) => rolesOf(id).includes(role)).length > 1))].map((r) => pieceOf(r).name);
   const sharedNames = [...new Set(sharedPieces)];
 
-  const input = (): AppInput => ({ name, currencies, templates: chosen.map((id) => ({ id, answers: answersOf(id) })) });
+  const input = (): AppInput => ({ name: adding?.name ?? name, currencies, templates: chosen.map((id) => ({ id, answers: answersOf(id) })) });
   const answer = (id: TemplateId, key: string, value: Answer) => setGiven((now) => ({ ...now, [id]: { ...answersOf(id), ...now[id], [key]: value } }));
   const toggle = (id: TemplateId) => setChosen((now) => (now.includes(id) ? now.filter((x) => x !== id) : TEMPLATE_IDS.filter((x) => x === id || now.includes(x))));
 
@@ -157,22 +179,30 @@ export function NewAppDialog({ folders, folder, onPlan, onCreate, onClose }: {
     if (at === 0) onClose();
     else setAt(at - 1);
   };
-  const ready = step === 'templates' ? chosen.length > 0 : step === 'app' ? name.trim() !== '' && (!money || currencies.length > 0) : step === 'summary' ? !!plan : true;
+  const ready = step === 'templates' ? chosen.length > 0 : step === 'app' ? name.trim() !== '' && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length : true;
+  const title = adding ? t('apps.addTo', { name: adding.name }) : t('apps.title');
+  const go = adding ? t('apps.add') : t('apps.create');
 
   const foot = (): string => {
     if (step === 'templates') {
+      if (adding) {
+        const has = t('apps.has', { name: adding.name, templates: listed([...installed].map((id) => t(APP_TEMPLATES[id].name))) });
+        return chosen.length === 0 ? has : `${t('apps.toAdd', { count: chosen.length })} · ${has}`;
+      }
       if (chosen.length === 0) return t('apps.pickOne');
       const count = t('apps.chosen', { count: chosen.length });
       return sharedNames.length > 0 ? `${count} · ${t('apps.shared', { count: sharedNames.length, pieces: listed(sharedNames) })}` : count;
     }
     if (step === 'app') return [name.trim(), money ? currencies.join(', ') : ''].filter(Boolean).join(' · ');
-    if (step === 'summary') return plan ? counts(plan) : '';
+    if (step === 'summary') return plan ? (plan.blocked?.length ? t('apps.cantAdd') : adding ? addedCounts(plan) : counts(plan)) : '';
     const asked = askedQuestions(APP_TEMPLATES[step], chosenSet, answersOf(step));
     return t('apps.questions', { template: t(APP_TEMPLATES[step].name), count: asked.length });
   };
 
   const page = () => {
-    if (step === 'templates') return <TemplatesPage phone={phone} chosen={chosenSet} rolesOf={(id) => rolesOf(id).filter((role) => !borrowed(id).has(role))} sharedOf={sharedOf} onToggle={toggle} />;
+    if (step === 'templates') {
+      return <TemplatesPage phone={phone} chosen={chosenSet} installed={installed} rolesOf={(id) => rolesOf(id).filter((role) => !borrowed(id).has(role))} sharedLine={sharedLine} onToggle={toggle} />;
+    }
     if (step === 'app') {
       return (
         <AppPage
@@ -192,20 +222,20 @@ export function NewAppDialog({ folders, folder, onPlan, onCreate, onClose }: {
         />
       );
     }
-    if (step === 'summary') return plan && <SummaryPage phone={phone} plan={plan} place={place} />;
-    return <QuestionsPage id={step} chosen={chosenSet} answers={answersOf(step)} onAnswer={(key, value) => answer(step, key, value)} />;
+    if (step === 'summary') return plan && (adding ? <AddSummary phone={phone} plan={plan} installed={installed} place={place} /> : <SummaryPage phone={phone} plan={plan} place={place} />);
+    return <QuestionsPage id={step} chosen={chosenSet} installed={installed} answers={answersOf(step)} onAnswer={(key, value) => answer(step, key, value)} />;
   };
   const shownProblems = step === 'app' ? [] : problems;
 
   if (phone) {
     return (
-      <Sheet label={t('apps.title')} className="mb-create na-sheet" onClose={onClose} onEscape={back}>
+      <Sheet label={title} className="mb-create na-sheet" onClose={onClose} onEscape={back}>
         <div className="mb-sh three">
           <button type="button" className={at > 0 ? 'cancel back' : 'cancel'} onClick={back}>
             {at > 0 && <Icon name="back" />}
             {at > 0 ? backLabel(steps[at - 1]!) : t('dialog.cancel')}
           </button>
-          <b>{at === 0 ? t('apps.title') : stepLabel(step)}</b>
+          <b>{at === 0 ? title : stepLabel(step)}</b>
           {step === 'summary' ? (
             <span />
           ) : (
@@ -228,7 +258,7 @@ export function NewAppDialog({ folders, folder, onPlan, onCreate, onClose }: {
           ))}
           {step === 'summary' && (
             <button type="button" className="na-mbtn" disabled={!ready} onClick={() => void next()}>
-              {t('apps.create')}
+              {go}
             </button>
           )}
         </div>
@@ -237,8 +267,8 @@ export function NewAppDialog({ folders, folder, onPlan, onCreate, onClose }: {
   }
 
   return (
-    <Dialog label={t('apps.title')} className="new-app" onClose={onClose} onEscape={back}>
-      <h2>{t('apps.title')}</h2>
+    <Dialog label={title} className="new-app" onClose={onClose} onEscape={back}>
+      <h2>{title}</h2>
       <div className="na-steps">
         {steps.map((s, i) => (
           <span key={s} className={i === at ? 'on' : i < at ? 'done' : undefined}>
@@ -260,7 +290,7 @@ export function NewAppDialog({ folders, folder, onPlan, onCreate, onClose }: {
           {at === 0 ? t('dialog.cancel') : t('dialog.back')}
         </button>
         <button type="button" className="primary" disabled={!ready} onClick={() => void next()}>
-          {step === 'summary' ? t('apps.create') : t('apps.next')}
+          {step === 'summary' ? go : t('apps.next')}
         </button>
       </div>
     </Dialog>
@@ -282,11 +312,13 @@ export function counts(plan: AppPlan): string {
     .join(', ');
 }
 
-function TemplatesPage({ phone, chosen, rolesOf, sharedOf, onToggle }: {
+function TemplatesPage({ phone, chosen, installed, rolesOf, sharedLine, onToggle }: {
   phone: boolean;
   chosen: ReadonlySet<TemplateId>;
+  /** The templates the app has already: faint, and not to be picked. */
+  installed: ReadonlySet<TemplateId>;
   rolesOf: (id: TemplateId) => string[];
-  sharedOf: (id: TemplateId) => string[];
+  sharedLine: (id: TemplateId) => string | null;
   onToggle: (id: TemplateId) => void;
 }) {
   return (
@@ -299,16 +331,25 @@ function TemplatesPage({ phone, chosen, rolesOf, sharedOf, onToggle }: {
             <div className={phone ? 'na-mgroup' : 'na-cards'}>
               {ids.map((id) => {
                 const template = APP_TEMPLATES[id];
-                const on = chosen.has(id);
-                const shared = sharedOf(id);
+                const there = installed.has(id);
+                const on = chosen.has(id) && !there;
+                const shared = sharedLine(id);
                 return (
-                  <button key={id} type="button" role="checkbox" aria-checked={on} className={phone ? 'na-mcard' : 'na-card'} onClick={() => onToggle(id)}>
-                    <span className="tick">{on && <Icon name="check" />}</span>
+                  <button
+                    key={id}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={on}
+                    aria-disabled={there || undefined}
+                    className={[phone ? 'na-mcard' : 'na-card', there && 'in'].filter(Boolean).join(' ')}
+                    onClick={() => !there && onToggle(id)}
+                  >
+                    {there && !phone ? <span className="na-in">{t('apps.inTheApp')}</span> : <span className="tick">{on && <Icon name="check" />}</span>}
                     <span className="hd">
                       {!phone && <Icon name={template.icon as IconName} />}
                       {t(template.name)}
                     </span>
-                    <span className="what">{t(template.what)}</span>
+                    <span className="what">{there && phone ? t('apps.inTheApp') : t(template.what)}</span>
                     {!phone && (
                       <span className="sets">
                         {rolesOf(id).map((role) => (
@@ -319,10 +360,10 @@ function TemplatesPage({ phone, chosen, rolesOf, sharedOf, onToggle }: {
                         ))}
                       </span>
                     )}
-                    {shared.length > 0 && (
+                    {shared && (
                       <span className="shared">
                         {!phone && <Icon name="link" />}
-                        {t('apps.uses', { pieces: shared.join(', ') })}
+                        {shared}
                       </span>
                     )}
                   </button>
@@ -446,7 +487,13 @@ function AppPage({ phone, name, onName, folders, place, onPlace, money, currenci
   );
 }
 
-function QuestionsPage({ id, chosen, answers, onAnswer }: { id: TemplateId; chosen: ReadonlySet<TemplateId>; answers: Answers; onAnswer: (key: string, value: Answer) => void }) {
+function QuestionsPage({ id, chosen, installed, answers, onAnswer }: {
+  id: TemplateId;
+  chosen: ReadonlySet<TemplateId>;
+  installed: ReadonlySet<TemplateId>;
+  answers: Answers;
+  onAnswer: (key: string, value: Answer) => void;
+}) {
   const asked = askedQuestions(APP_TEMPLATES[id], chosen, answers);
   const keys = new Set(asked.map((q) => q.key));
   return (
@@ -457,7 +504,7 @@ function QuestionsPage({ id, chosen, answers, onAnswer }: { id: TemplateId; chos
           {q.because && chosen.has(q.because) && (
             <span className="na-why">
               <Icon name="link" />
-              {t('apps.because', { template: t(APP_TEMPLATES[q.because].name) })}
+              {t(installed.has(q.because) ? 'apps.becauseInApp' : 'apps.because', { template: t(APP_TEMPLATES[q.because].name) })}
             </span>
           )}
           <span className="ql" id={`q-${q.key}`}>
@@ -578,7 +625,7 @@ function ListControl({ question: q, items, onChange }: { question: Question; ite
 
 function SummaryPage({ phone, plan, place }: { phone: boolean; plan: AppPlan; place: FolderChoice }) {
   const about = plan.created.find((c) => c.kind === 'note');
-  const where = localPath(place.folder) ? folderLabel(place.folder) : folderLabel(place.folder) || '';
+  const where = folderLabel(place.folder);
   const shortOf = (ids: TemplateId[]) => listed(ids.map((id) => t(APP_TEMPLATES[id].short)));
   if (phone) {
     return (
@@ -626,7 +673,7 @@ function SummaryPage({ phone, plan, place }: { phone: boolean; plan: AppPlan; pl
               <div key={p.name} className="pc">
                 <Icon name={PIECE_ICON[p.kind]!} />
                 {p.name}
-                {p.with.length > 0 ? <small>{t('apps.with', { templates: shortOf(p.with) })}</small> : p.records > 0 ? <small>{p.records}</small> : null}
+                {p.with.length > 0 ? <small>{t('apps.with', { templates: shortOf(p.with) })}</small> : p.records > 0 ? <small>{t('apps.records', { count: p.records })}</small> : null}
               </div>
             ))}
             {s.buttons.length > 0 && (
@@ -650,6 +697,133 @@ function SummaryPage({ phone, plan, place }: { phone: boolean; plan: AppPlan; pl
           </div>
         ))}
       </div>
+    </>
+  );
+}
+
+/** What adding templates does, in words: "5 collections set up, 5 added to". */
+export function addedCounts(plan: AppPlan): string {
+  const made = counts(plan);
+  return [made ? t('apps.setUpWhat', { what: made }) : '', plan.added.length > 0 ? t('apps.addedTo', { count: plan.added.length }) : ''].filter(Boolean).join(', ');
+}
+
+/**
+ * The summary of templates added to an app: what is set up, what is added to what is there, and
+ * what is left as it is; or, where what is added would not work with what is there, what to change.
+ */
+function AddSummary({ phone, plan, installed, place }: { phone: boolean; plan: AppPlan; installed: ReadonlySet<TemplateId>; place: FolderChoice }) {
+  const blocked = plan.blocked ?? [];
+  const has = listed([...installed].map((id) => t(APP_TEMPLATES[id].name)));
+  // The app's folder is in another; it is said where.
+  const where = t('apps.inPlace', { place: folderLabel(dirname(place.folder)) });
+  const boxes = (
+    <>
+      {blocked.length > 0 && (
+        <div className="na-box bad" role="alert">
+          <Icon name="warn" />
+          <span>
+            <b>{t('apps.cantAdd')}</b> {blocked.join(' ')}
+          </span>
+        </div>
+      )}
+      {blocked.length === 0 &&
+        plan.notes.map((note) => (
+          <div key={note} className="na-box">
+            <Icon name="info" />
+            <span>{note}</span>
+          </div>
+        ))}
+    </>
+  );
+  if (phone) {
+    return (
+      <>
+        <div className={blocked.length > 0 ? 'na-off' : undefined}>
+          <div className="na-label">{t('apps.setUpTitle')}</div>
+          <div className="na-mgroup">
+            {plan.templates.map((s) => (
+              <div key={s.id} className="na-mrow">
+                {s.title}
+                <small>{s.pieces.map((p) => p.name).join(', ')}</small>
+              </div>
+            ))}
+          </div>
+          {plan.added.length > 0 && (
+            <>
+              <div className="na-label">{t('apps.addedTitle')}</div>
+              <div className="na-mgroup">
+                {plan.added.map((a) => (
+                  <div key={a.name} className="na-mrow">
+                    {a.name}
+                    <small>{a.what}</small>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          <p className="na-help">{t('apps.onlyMissing')}</p>
+        </div>
+        {boxes}
+      </>
+    );
+  }
+  return (
+    <>
+      <div className="na-where">
+        <Icon name="folder" />
+        <b>{plan.app.name}</b>
+        <small>{[where, has].filter(Boolean).join(' · ')}</small>
+      </div>
+      <div className={blocked.length > 0 ? 'na-add2 off' : 'na-add2'}>
+        <div className="col">
+          <h4>{t('apps.setUpTitle')}</h4>
+          {plan.templates.map((s) => (
+            <div key={s.id} className="na-one">
+              {plan.templates.length > 1 && <span className="hd">{s.title}</span>}
+              {s.pieces.map((p) => (
+                <div key={p.name} className="pc">
+                  <Icon name={PIECE_ICON[p.kind]!} />
+                  {p.name}
+                  {p.records > 0 && <small>{t('apps.records', { count: p.records })}</small>}
+                </div>
+              ))}
+              {s.buttons.length > 0 && (
+                <>
+                  <span className="hd">{t('apps.buttons')}</span>
+                  <ul>
+                    <li>{s.buttons.join(', ')}</li>
+                  </ul>
+                </>
+              )}
+              {s.glance.length > 0 && (
+                <>
+                  <span className="hd">{t('apps.byItself')}</span>
+                  <ul>
+                    {s.glance.map((g) => (
+                      <li key={g}>{g}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="col">
+          <h4>{t('apps.addedTitle')}</h4>
+          {plan.added.map((a) => (
+            <div key={a.name} className="pc">
+              <Icon name={PIECE_ICON[a.kind]!} />
+              {a.name}
+              <small>{a.what}</small>
+            </div>
+          ))}
+          <span className="hd">{t('apps.nothingChanged')}</span>
+          <ul>
+            <li>{t('apps.onlyMissing')}</li>
+          </ul>
+        </div>
+      </div>
+      {boxes}
     </>
   );
 }

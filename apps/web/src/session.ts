@@ -7,10 +7,14 @@ import {
   putBackTasks,
   readPiece,
   relinkTrash,
+  type AppFile,
   type AppInput,
   type AppPlan,
+  AppProblems,
+  findApp,
   installApp,
   planApp,
+  readAppFile,
   undoApp,
   applyChanges,
   isInsideHref,
@@ -584,7 +588,7 @@ interface OpeningRead {
 function treeOfRead(read: SpaceRead): TreeNode[] {
   const build = (dir: string): TreeNode[] =>
     (read.folders.get(dir) ?? []).map((node) =>
-      node.kind === 'folder' && read.folders.has(node.path) ? { name: node.name, path: node.path, kind: 'folder', children: build(node.path) } : node,
+      node.kind === 'folder' && read.folders.has(node.path) ? { name: node.name, path: node.path, kind: 'folder', ...(node.app && { app: true }), children: build(node.path) } : node,
     );
   return build('');
 }
@@ -3711,6 +3715,66 @@ export class Session {
         await this.refreshTree();
       },
     };
+  }
+
+  /** The app set up in a folder, as its _app.json says: its name, currencies and templates; null when it is not one. */
+  async appAt(folder: string): Promise<AppFile | null> {
+    const { fs, local } = this.at(folder);
+    return readAppFile(fs, local);
+  }
+
+  /**
+   * The plan of templates added to the app in `folder`: what is set up, what is added to what is
+   * there, what is left as it is, and what would not work, said rather than thrown. Writes nothing.
+   */
+  async planAddToApp(folder: string, templates: AppInput['templates']): Promise<AppPlan> {
+    const { fs, local } = this.at(folder);
+    const found = await findApp(fs, local);
+    if (!found) throw new AppProblems([t('apps.notApp')]);
+    return planApp({ name: found.app.name, templates }, { found, keepBlocked: true });
+  }
+
+  /**
+   * Adds templates to an app as planned. Gives what takes it back: what was set up to the trash,
+   * its tabs closed, what was added to taken away, what was changed as it was.
+   */
+  async installAddToApp(plan: AppPlan, folder: string): Promise<{ undo: () => Promise<void> } | { error: string }> {
+    await this.settle();
+    const { fs, space } = this.at(folder);
+    let done;
+    try {
+      done = await installApp(fs, plan);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : t('error.create') };
+    }
+    const made = plan.created.map((c) => inSpace(space, c.path));
+    await this.madeNow(made);
+    // A note written here, the About note given its new section, is shown as it is now.
+    const notes = plan.files.filter((f) => f.before !== null && f.path.endsWith('.md'));
+    for (const f of notes) this.noteRewritten(inSpace(space, f.path), f.before!, f.text);
+    await this.refreshTree();
+    this.placed?.(inSpace(space, plan.folder), made[0] ?? inSpace(space, plan.folder));
+    return {
+      undo: async () => {
+        await this.settle();
+        const inside = (path: string | null) => !!path && made.some((m) => path === m || path.startsWith(`${m}/`));
+        await this.closeTabs(this.snapshot.tabs.filter((tab) => inside(pathOf(tab) ?? collectionPathOf(tab))));
+        await undoApp(fs, done);
+        for (const f of notes) this.noteRewritten(inSpace(space, f.path), f.text, f.before!);
+        await this.refreshTree();
+      },
+    };
+  }
+
+  /** A note's file written here from `from` to `to`: the note on screen takes it as an edit, any other is read again when it is opened. */
+  private noteRewritten(id: string, from: string, to: string) {
+    const view = this.editor?.view;
+    if (id === this.snapshot.active && view) {
+      if (view.state.doc.toString() === from) view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: to } });
+      return;
+    }
+    if (this.disk.has(id)) this.disk.set(id, to);
+    this.states.delete(id);
   }
 
   /** Moves a tab to `index`, a gap between the tabs as they are now: 0 is before the first. */

@@ -7,6 +7,9 @@ import type { Field, LayoutBlock, NumberFormat } from '../collection';
 // that holds money one Payments (design/scrawl-apps.md). Nothing here writes; build.ts makes a
 // plan of the files and install.ts writes it.
 
+/** The file in an app's folder that says it is one: its templates and their answers. */
+export const APP_FILE = '_app.json';
+
 /** The templates, in the order they are set up: the one before sets up what a shared piece starts with. */
 export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'projects', 'budget', 'stock', 'product'] as const;
 
@@ -218,8 +221,12 @@ export interface AppPlan {
   created: { kind: 'collection' | 'board' | 'folder' | 'note'; path: string }[];
   /** What is added to what was there, in plain words: "Companies: 2 fields, 1 rule". */
   changed: string[];
+  /** The same, a piece each: its name and what is added to it, "2 fields, 1 rule"; the About note's new section too. */
+  added: { kind: Part['kind'] | 'note'; name: string; what: string }[];
   /** What was left as it was: a field of the same key and another type. */
   notes: string[];
+  /** Why what is added would not work, said as what to change; set only when the plan was asked for anyway, and then it is not to be written. */
+  blocked?: string[];
   /** What each template set up sets up, for the wizard's summary: in the order they are set up, a piece under the first that has it. */
   templates: TemplateSummary[];
 }

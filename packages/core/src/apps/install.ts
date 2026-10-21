@@ -19,6 +19,7 @@ const exists = async (fs: VaultFs, path: string) => (fs.stat ? (await fs.stat(pa
 
 /** Writes the plan. Takes back what it wrote and throws again when a write fails. */
 export async function installApp(fs: VaultFs, plan: AppPlan): Promise<Installed> {
+  if (plan.blocked?.length) throw new Error(plan.blocked.join(' '));
   const done: Installed = { folder: plan.folder, dirs: [], files: [] };
   try {
     for (const dir of plan.dirs) {

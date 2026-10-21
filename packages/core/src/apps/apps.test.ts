@@ -149,8 +149,12 @@ describe('installing an app', () => {
     const found = (await findApp(fs, 'Atlas'))!;
     // A text Cost keeps what reads it as a number from working: nothing is added, and it says why.
     expect(() => planApp({ name: '', templates: [{ id: 'stock' }] }, { found, ids })).toThrow(
-      new AppProblems(['Products has a Cost of another type; it is kept as it is', 'What it adds would not work: Atlas/Products: stock_value: cost is a text, not a number; * takes numbers. Change that first, then add it again']),
+      new AppProblems(['Products has a Cost field of the type Text, and what is added reads it as Number. In Products, open Fields and change Cost to Number, then add the template again.']),
     );
+    // For a summary, the same is said in the plan, which cannot be installed.
+    const blocked = planApp({ name: '', templates: [{ id: 'stock' }] }, { found, ids, keepBlocked: true });
+    expect(blocked.blocked).toEqual(['Products has a Cost field of the type Text, and what is added reads it as Number. In Products, open Fields and change Cost to Number, then add the template again.']);
+    await expect(installApp(fs, blocked)).rejects.toThrow('In Products, open Fields');
     // One no rule reads as a number is only said.
     schema.fields = schema.fields.map((f: { key: string }) => (f.key === 'cost' ? { key: 'stock_status', label: 'Stock note', type: 'text' } : f));
     await fs.writeText('Atlas/Products/_collection.json', JSON.stringify(schema));
@@ -184,6 +188,9 @@ describe('installing an app', () => {
     expect(found!.pieces.get('products')!.path).toBe('Atlas/Shop/Goods');
     const plan = planApp({ name: '', templates: [{ id: 'stock' }] }, { found: found!, ids });
     expect(plan.changed).toEqual(['Companies: 2 blocks on its screen', 'Goods: 8 fields, 1 block on its screen, 3 rules', 'Orders: 1 rule', 'Order lines: 1 rule']);
+    // The summary of what is added: a piece each, the About note's new section; what is set up, without what the app has.
+    expect(plan.added.map((a) => `${a.name}: ${a.what}`)).toEqual([...plan.changed, 'About Atlas: a section at its end']);
+    expect(plan.templates.map((s) => [s.id, s.pieces.map((p) => p.name)])).toEqual([['stock', ['Stock movements', 'Purchase orders', 'Purchase order lines']]]);
     const done = await installApp(fs, plan);
     const goods = parseSchema(await fs.readText('Atlas/Shop/Goods/_collection.json'));
     expect(goods.fields.map((f) => f.key)).toEqual(expect.arrayContaining(['price', 'cost', 'stock']));

@@ -1,6 +1,6 @@
 # Scrawl apps: hazır şablonlardan app kurmak (taslak)
 
-Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda (1c0a5f3), notlarda dosya linki kodda (7c8aac4). 3. dilim kodda (mockup 5818907, kod 0c60dce). 4. dilimin mockup'ı onaylı.
+Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda (1c0a5f3), notlarda dosya linki kodda (7c8aac4). 3. dilim kodda (mockup 5818907, kod 0c60dce). 4. dilim kodda (mockup 96ffbd4).
 
 ## 1. Amaç
 
@@ -87,6 +87,14 @@ Verilen kararlar (21 Ekim 2026):
 - Eklenecek bir kural ya da formül var olan bir alanla çalışmayacaksa Add soluk kalır; kırmızı kutuda sade dille ne değişmesi gerektiği yazar ("Products has a Cost field that holds text; … Change Cost's type to Number in Products' Fields, then add the template again").
 - Eklenince yeni parçalar kenar çubuğunda belirir; toast "Stock and purchasing added to Spare parts: 5 collections set up, 5 added to" ve Undo.
 - Telefonda ··· bir action sheet, Add to app en üstte; pencere sheet.
+
+22 Ekim 2026'da, 4. dilimin kodu yazılırken verilen kararlar:
+- Kenar çubuğu bir klasörün app olduğunu içinde `_app.json` olmasından anlar; menü açılırken dosya okunmaz.
+- Eklenecek olan var olan bir alanla çalışmayacaksa core hata vermez, ne değişmesi gerektiğini planda söyler; özet onu kırmızı kutuda gösterir. Böyle bir plan kurulmaz; ajan için davranış aynıdır.
+- Özetin üstünde app'in yeri ve içindeki şablonlar yazar: "Spare parts in Atlas · CRM, Sales and invoicing, and Stock and purchasing".
+- Kayıt sayısı tekil ve çoğul yazılır ("1 record"); New app'in özetinde de.
+- Uyarıların kırmızısı tanımsız bir renge bağlıydı; 3. dilimin "ad alınmış" uyarısı da düzeldi.
+- New app here her klasörün + menüsünde, app klasörünün kendisinde de.
 
 ## 2. Sihirbaz
 

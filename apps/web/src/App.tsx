@@ -1,5 +1,6 @@
 import { locale, t } from '@scrawlnotes/i18n';
 import {
+  type AppFile,
   basename,
   DEFAULT_LOOK,
   foldersFirst,
@@ -126,7 +127,7 @@ import { folderLabel, setSpaceNames,
   UPCOMING,
 } from './items';
 import { choiceHref, type LinkChoice, linkChoices } from './linkChoices';
-import { counts as appCounts, NewAppDialog } from './AppWizard';
+import { addedCounts, counts as appCounts, NewAppDialog } from './AppWizard';
 import {
   applyNumbers,
   applySize,
@@ -181,6 +182,7 @@ type OpenDialog =
   // start page's templates choose a board's or a collection's template too.
   | { kind: 'new'; start?: ItemKind; folder?: string; template?: Template | CollectionTemplate }
   | { kind: 'newApp'; folder: string }
+  | { kind: 'addToApp'; folder: string; app: AppFile }
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
@@ -1056,7 +1058,7 @@ export function App() {
     const top = localPath(path) === '';
     const sub = top ? undefined : parent ? t('phone.kindIn', { kind: t('create.folder'), folder: folderLabel(parent) }) : t('create.folder');
     // A space's top has its order on its own button; a folder has it in its menu.
-    showSheet(top ? folderMenuItems(path, addFolder) : [...folderMenuItems(path, addFolder), ...orderItems(path), folderDelete(path)], { icon: top ? 'space' : 'folder', title: folderLabel(path), sub });
+    showSheet(top ? folderMenuItems(path, addFolder) : [...appItems(path), ...folderMenuItems(path, addFolder), ...orderItems(path), folderDelete(path)], { icon: top ? 'space' : 'folder', title: folderLabel(path), sub });
   };
   // A collection as a CSV file, saved where the user says.
   const exportCsv = async (dir: string) => {
@@ -1119,7 +1121,21 @@ export function App() {
   // A folder, as a space: its + for what can be made in it, and its other button for how its
   // items are put in order and deleting it.
   const folderAdd = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, folderMenuItems(path, addFolder), path);
-  const folderMenu = (event: MouseEvent, path: string) => openMenu(event, [...orderItems(path), folderDelete(path)], path);
+  const folderMenu = (event: MouseEvent, path: string) => openMenu(event, [...appItems(path), ...orderItems(path), folderDelete(path)], path);
+  // An app's folder has Add to app first: the New app window, with the app's templates there already.
+  const appItems = (path: string): MenuItem[] =>
+    [tree, ...spaces.map((s) => s.tree)].some((nodes) => findNode(nodes, path)?.app)
+      ? [
+          {
+            label: t('menu.addToApp'),
+            icon: 'app',
+            run: () => {
+              setDrawer(false);
+              void session.appAt(path).then((app) => app && setDialog({ kind: 'addToApp', folder: path, app }));
+            },
+          },
+        ]
+      : [];
   const folderDelete = (path: string): MenuItem => ({ label: t('menu.deleteFolder'), icon: 'trash', danger: true, run: () => deleteFolder(path), apart: true });
   /**
    * How the items of a folder (by its path), or of a space's top (its key, '' for the personal
@@ -1181,6 +1197,14 @@ export function App() {
       { label: t('menu.newBoardHere'), icon: 'board', run: createHere('board') },
       { label: t('menu.newKeysHere'), icon: 'keys', run: createHere('keys') },
       { label: t('menu.newCollectionHere'), icon: 'collection', run: createHere('collection') },
+      {
+        label: t('menu.newAppHere'),
+        icon: 'app',
+        run: () => {
+          setDrawer(false);
+          setDialog({ kind: 'newApp', folder: path });
+        },
+      },
       {
         label: t('menu.newFilterHere'),
         icon: 'filter',
@@ -2502,6 +2526,23 @@ export function App() {
           onCreate={create}
           onFilter={() => setDialog({ kind: 'filter', filter: null, place: createIn })}
           onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'addToApp' && (
+        <NewAppDialog
+          folders={everyFolder(tree, spaces)}
+          folder={dialog.folder}
+          adding={dialog.app}
+          onPlan={(input) => session.planAddToApp(dialog.folder, input.templates)}
+          onCreate={async (plan) => {
+            const done = await session.installAddToApp(plan, dialog.folder);
+            if ('error' in done) return done.error;
+            setDialog(null);
+            const added = plan.templates.map((s) => s.title);
+            setShown({ text: t('apps.added', { templates: new Intl.ListFormat(locale(), { type: 'conjunction' }).format(added), name: plan.app.name, what: addedCounts(plan) }), undo: () => void done.undo(), toast: true });
+            return null;
+          }}
           onClose={closeDialog}
         />
       )}

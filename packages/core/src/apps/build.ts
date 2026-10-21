@@ -1,4 +1,4 @@
-import { t } from '@scrawlnotes/i18n';
+import { type MessageKey, t } from '@scrawlnotes/i18n';
 import { BOARD_EXT, type Board, prefixFor, serializeBoard } from '../board';
 import {
   COLLECTION_FILE,
@@ -16,7 +16,7 @@ import {
   serializeRecord,
   serializeSchema,
 } from '../collection';
-import { join } from '../fs';
+import { basename, join } from '../fs';
 import { fileNameOf } from '../names';
 import { freePath } from '../paths';
 import { RULES_FILE, rulesProblems, ruleSpaceOf } from '../rules';
@@ -36,6 +36,7 @@ import {
   type Part,
   type PlannedFile,
   type RuleChunk,
+  APP_FILE,
   TEMPLATE_IDS,
   type TemplateId,
   type TemplateSummary,
@@ -46,7 +47,7 @@ import {
 // to an app already set up, the plan is what the templates make with the new ones less what they
 // made without them, put onto what is there: only added, nothing there changed or taken away.
 
-export const APP_FILE = '_app.json';
+export { APP_FILE };
 
 /** Answers that are not answers, a template that is not one, a name or currencies missing: what the person or the agent is to put right. */
 export class AppProblems extends Error {
@@ -215,6 +216,8 @@ export interface PlanOptions {
   ids?: () => string;
   /** The names taken in `parent`, lowercased, for a new app's folder. */
   taken?: ReadonlySet<string>;
+  /** Added to an app, what would not work with what is there is said in the plan's `blocked` rather than thrown: for a summary to show it. */
+  keepBlocked?: boolean;
 }
 
 /**
@@ -222,7 +225,7 @@ export interface PlanOptions {
  * AppProblems for what was given wrong: a template that is not one or is there already, a
  * question that is not one or an answer that is not, the name, the currencies.
  */
-export function planApp(input: AppInput, { parent = '', found, ids, taken = new Set() }: PlanOptions = {}): AppPlan {
+export function planApp(input: AppInput, { parent = '', found, ids, taken = new Set(), keepBlocked = false }: PlanOptions = {}): AppPlan {
   const problems: string[] = [];
   const title = found ? found.app.name : fileNameOf(input.name ?? '').replace(/\s+/g, ' ').trim();
   if (!title || title.startsWith('.') || title.startsWith('_')) problems.push(t('apps.needsName'));
@@ -273,7 +276,13 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
 
   const newId = ids ?? (() => crypto.randomUUID());
   const recordId = ids ?? newRecordId;
-  const plan: AppPlan = { folder, app: { version: 1, name: title, currencies: money.currencies, templates: [] }, dirs: found ? [] : [folder], files: [], created: [], changed: [], notes: [], templates: [] };
+  const plan: AppPlan = { folder, app: { version: 1, name: title, currencies: money.currencies, templates: [] }, dirs: found ? [] : [folder], files: [], created: [], changed: [], added: [], notes: [], templates: [] };
+  // A field there of the same key and another type, kept as it is: what is added may read it.
+  const kept: { piece: string; label: string; key: string; has: string; wants: string }[] = [];
+  const keep = (part: Part, there: Field, field: Field) => {
+    plan.notes.push(t('apps.keptField', { piece: partName(part), field: there.label ?? field.key }));
+    kept.push({ piece: partName(part), label: there.label ?? field.key, key: field.key, has: there.type, wants: field.type });
+  };
   const file = (path: string, text: string, was: string | null = null) => plan.files.push({ path, text, before: was });
   const checks: { part: CollectionPart; fields: Field[]; rules: RuleChunk[] }[] = [];
   const final = new Map<string, { fields: readonly Field[] }>();
@@ -336,7 +345,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       for (const field of fields) {
         const there = data.fields.find((f) => f.key === field.key);
         if (there) {
-          if (there.type !== field.type) plan.notes.push(t('apps.keptField', { piece: partName(part), field: there.label ?? field.key }));
+          if (there.type !== field.type) keep(part, there, field);
           continue;
         }
         data.fields.push(field);
@@ -382,7 +391,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       for (const field of part.fields.filter((f) => !old?.fields.some((o) => o.key === f.key))) {
         const there = fields.find((f) => f.key === field.key);
         if (there) {
-          if (there.type !== field.type) plan.notes.push(t('apps.keptField', { piece: partName(part), field: there.label ?? field.key }));
+          if (there.type !== field.type) keep(part, there, field);
           continue;
         }
         fields.push(field);
@@ -399,7 +408,10 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       for (const note of notes) file(join(part.path, `${fileNameOf(note.name)}.md`), note.text);
       if (notes.length > 0) added.push(t('apps.addedNotes', { count: notes.length }));
     }
-    if (added.length > 0) plan.changed.push(`${partName(part)}: ${added.join(', ')}`);
+    if (added.length > 0) {
+      plan.changed.push(`${partName(part)}: ${added.join(', ')}`);
+      plan.added.push({ kind: part.kind, name: partName(part), what: added.join(', ') });
+    }
   }
   // A piece the new templates do not set up, as it is: for links and rules to be checked against it.
   for (const piece of found?.pieces.values() ?? []) {
@@ -410,14 +422,17 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   // The About note: whole for a new app; for an app set up before, the new templates' sections at its end.
   const sections = after.sections.filter((s) => !before?.sections.some((b) => b.id === s.id));
   if (found?.about) {
-    if (sections.length > 0) file(found.about.path, `${found.about.text.replace(/\s*$/, '')}\n\n${aboutAdded(found.about.path, sections, after.parts)}\n`, found.about.text);
+    if (sections.length > 0) {
+      file(found.about.path, `${found.about.text.replace(/\s*$/, '')}\n\n${aboutAdded(found.about.path, sections, after.parts)}\n`, found.about.text);
+      plan.added.push({ kind: 'note', name: basename(found.about.path).replace(/\.md$/, ''), what: t('apps.aboutSection') });
+    }
   } else {
     const path = freePath(folder, fileNameOf(aboutName(title)), '.md', names);
     plan.created.push({ kind: 'note', path });
     file(path, aboutNote(path, title, found ? sections : after.sections, after.parts));
   }
 
-  plan.templates = summaries(sections, after);
+  plan.templates = summaries(sections, after, new Set(found?.pieces.keys() ?? []));
   plan.app = {
     version: 1,
     name: title,
@@ -429,14 +444,21 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
 
   const wrong = problemsOf(checks, final, boards);
   // On an app set up before, what is there may keep what is added from working: a field of the same key and another type.
-  if (wrong.length > 0 && found) throw new AppProblems([...plan.notes, ...wrong.map((what) => t('apps.wouldBreak', { what }))]);
-  if (wrong.length > 0) throw new Error(`The app templates make a wrong app (${[...all.keys()].join(', ')}):\n${wrong.join('\n')}`);
+  if (wrong.length > 0 && found) {
+    // Said as what to change: the field kept as it is that what is added reads, else what does not work.
+    const reads = kept.filter((k) => wrong.some((w) => new RegExp(`\\b${k.key}\\b`).test(w)));
+    const type = (of: string) => t(`fields.type.${of}` as MessageKey);
+    const said = reads.length > 0 ? reads.map((k) => t('apps.keptBreaks', { piece: k.piece, field: k.label, has: type(k.has), wants: type(k.wants) })) : wrong.map((what) => t('apps.wouldBreak', { what }));
+    if (!keepBlocked) throw new AppProblems(said);
+    plan.blocked = said;
+  } else if (wrong.length > 0) throw new Error(`The app templates make a wrong app (${[...all.keys()].join(', ')}):\n${wrong.join('\n')}`);
   return plan;
 }
 
 /** What each template sets up, for the wizard's summary: a piece under the first template that has it, with the ones after it that share it. */
-function summaries(sections: { id: TemplateId; section: AboutSection }[], draft: Draft): TemplateSummary[] {
-  const said = new Set<string>();
+function summaries(sections: { id: TemplateId; section: AboutSection }[], draft: Draft, there: ReadonlySet<string>): TemplateSummary[] {
+  // A piece the app has already is not set up again.
+  const said = new Set<string>(there);
   return sections.map(({ id, section }) => ({
     id,
     title: section.title,

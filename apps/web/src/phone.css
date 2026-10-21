@@ -6677,7 +6677,7 @@ body > .mb-lifted {
 
 .na-sheet .na-bad {
   margin: 8px 4px 0;
-  color: var(--sl-danger);
+  color: var(--sl-danger, #e5484d);
   font-size: 14px;
 }
 
@@ -6947,4 +6947,43 @@ body > .mb-lifted {
 
 .na-mbtn:disabled {
   opacity: 0.45;
+}
+
+/* Add to app on a phone: the app's templates faint; what cannot be added said under the summary. */
+.na-mcard.in {
+  opacity: 0.55;
+}
+
+.na-mcard.in .tick {
+  border-style: dashed;
+}
+
+.na-off {
+  opacity: 0.5;
+}
+
+.na-sheet .na-box {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sl-accent) 10%, transparent);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.na-sheet .na-box.bad {
+  background: color-mix(in srgb, var(--sl-danger, #e5484d) 14%, transparent);
+}
+
+.na-sheet .na-box .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--sl-accent);
+}
+
+.na-sheet .na-box.bad .icon {
+  color: var(--sl-danger, #e5484d);
 }

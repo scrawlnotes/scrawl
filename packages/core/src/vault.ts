@@ -2,6 +2,7 @@ import { t } from '@scrawlnotes/i18n';
 import { BOARD_EXT, type BoardLinks, loadBoard, newBoard, parseBoard, saveBoard, serializeBoard, type Template } from './board';
 import { COLLECTION_FILE, type ColumnWidths, collectionName, isCollection, loadSchema, namedById, parseRecord, parseSchema, RECORD_EXT, readWidths, recordTitle, type RecordSort } from './collection';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
+import { APP_FILE } from './apps/types';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
 import { fileNameOf, shownName } from './names';
 import { type FolderLook, sortedNodes } from './order';
@@ -40,6 +41,8 @@ export interface TreeNode {
   children?: TreeNode[];
   /** A folder whose items are not read yet, as the app opens: its `children` are empty until they are. */
   reading?: true;
+  /** A folder an app was set up in, from ready templates: it holds `_app.json`. */
+  app?: true;
   /** When it was last written on this device, in milliseconds, where the files say. */
   modified?: number;
 }
@@ -956,7 +959,9 @@ export async function readFolder(fs: VaultFs, dir: string, listed: Entry[], titl
       const collection = listedHere ? isCollection(listedHere) : (await fs.stat!(join(e.path, COLLECTION_FILE))) !== null;
       if (collection) return { name: e.name, path: e.path, kind: 'collection', title: collectionName(e.path) };
       inside.set(e.path, listedHere);
-      return { name: e.name, path: e.path, kind: 'folder', children: [], reading: true };
+      // An app's folder says so, for its menu's Add to app.
+      const app = listedHere ? listedHere.some((x) => x.name === APP_FILE) : (await fs.stat!(join(e.path, APP_FILE))) !== null;
+      return { name: e.name, path: e.path, kind: 'folder', children: [], reading: true, ...(app && { app: true as const }) };
     }
     if (isTaskList(e)) return { name: e.name, path: e.path, kind: 'tasks', title: listName(e.path) };
     if (isBoard(e)) return { name: e.name, path: e.path, kind: 'board', title: boardName(e.path) };
