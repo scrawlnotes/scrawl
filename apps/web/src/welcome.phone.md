@@ -32,6 +32,12 @@ Records such as companies, people or payments, each on its own form.
 
 Templates include **Companies**, **People**, **Activities**, **Feedback** and **Payments**. Records link to each other, so a company shows its people and activities. You can bring in rows from CSV or Excel.
 
+Rules in **Fields** check records, add buttons such as **Start project**, and fill in fields when a record is saved.
+
+### 🧱 Apps
+
+Collections, boards and rules that work together, set up from ready templates: **CRM**, **Sales and invoicing**, **Customer support**, **Project management**, **Budget and spending**, **Stock and purchasing**, **Product development**, **Recruiting**, **Assets and maintenance** and **Content calendar**. In **Browse**, press **+** and pick **App**, choose the ones you need and answer a few questions; each comes with an answer ready. The app's folder gets everything, linked to each other, and an **About** note on how it is used. **Add to app**, in the folder's **···** menu, adds another template later.
+
 ### 🔑 Keys
 
 API keys, passwords and settings in a `.env` file. Secret values stay hidden until shown. Copy one value, or a whole group as `.env` text.
@@ -46,15 +52,19 @@ API keys, passwords and settings in a `.env` file. Secret values stay hidden unt
 
 ## 🤖 Working with an agent
 
-Connect Claude Code, Codex, Claude or another agent in **Settings › Agents**. It reads and changes the same notes, tasks, boards and collections you see here.
+An agent works on the same notes, tasks, boards and collections you see here, as you would. On a computer, connect Claude Desktop, Claude Code, Codex or Cursor through the desktop app; on the web and your phone, connect Claude, ChatGPT or Gemini through a Scrawl server. **Settings › Agents** shows the steps.
 
 Ask it, for example:
 
-> Make a board called Launch, with a card for each thing to do before the launch.
+- **Turn a meeting into work:** "Add a card to the Launch board for each decision in today's meeting note."
+- **Catch up:** "What is due today?" or "What is Ayşe working on?"
+- **Keep records:** "Add Lara Turizm as a customer and log today's call with them."
+- **Set up an app:** "Set up a CRM with sales and stock for our spare parts business, in TRY and EUR."
+- **Make your own:** "Make a collection of job candidates with their CV, source and score, and a button that schedules an interview."
+- **Press a button:** "Approve Ayşe's taxi expense." or "Count the Rail stock as 12."
+- **Tidy up:** "Move last year's project notes into an Archive folder." Links to them keep working.
 
-What the agent changes carries its name. When it rewrites a note, the earlier version stays in **History**. Scrawl's agent connection does not open your **Keys** files to it.
-
-On a computer, agents connect through the desktop app; on the web and your phone, they need a Scrawl server. **Settings › Agents** shows the steps.
+What the agent changes carries its name. When it rewrites a note, the earlier version stays in **History**; what it deletes goes to **Trash**. It cannot open your **Keys** files, attachments or settings.
 
 ---
 

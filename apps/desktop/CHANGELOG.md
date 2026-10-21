@@ -11,6 +11,7 @@ Apps set up from ready templates, links to what is in the space, and a tab menu 
 - A button can ask before it runs: a number, a text, a day, a choice, a record or a person, in a window that shows what it will do with the answers.
 - A note links to a note, a task list, a board, a collection or a folder in the space. Typing a name in the link box finds it, Ctrl+click opens it in the app, and moving or renaming it keeps the links to it right.
 - A tab's right-click menu is as VS Code's: Close, Close Others, Close to the Right and Close All; Reveal in File Explorer, or in Finder on a Mac; Rename, Move to…, History, Export… and Delete.
+- The welcome note tells about apps, and more of what an agent can do for you.
 
 ## 0.1.10
 

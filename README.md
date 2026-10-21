@@ -17,18 +17,41 @@ Settings › Privacy & Security and choose Open Anyway.
 
 ## Features
 
-- **Agent first**: every note, task, board and record is a plain file your agent (Claude Code or
-  another) can read and write. No assistant inside; MCP comes next.
+- **Agent first**: every note, task, board and record is a plain file, and your agent works on them
+  through Scrawl's MCP tools: Claude Code, Codex, Cursor and Claude Desktop on your computer, Claude,
+  ChatGPT and Gemini through a Scrawl server. It reads and writes, sets up apps and presses buttons
+  as you would. No assistant inside.
 - **Notes**: Markdown, formatted as you type. No name or folder needed to start.
 - **Task lists**: sections, subtasks, priorities and due dates; Today, Upcoming and filters.
 - **Boards**: columns, cards, comments and phases. A card copies as a brief for a person or an agent.
 - **Collections**: lists of records that link to each other, like people, companies and deals,
-  with their own form designer, views, formulas and CSV or Excel in and out.
+  with their own form designer, views, formulas, rules and buttons, and CSV or Excel in and out.
+- **Apps**: collections, boards and rules that work together, set up from ten ready templates: CRM,
+  Sales and invoicing, Customer support, Project management, Budget and spending, Stock and
+  purchasing, Product development, Recruiting, Assets and maintenance, and Content calendar. Add a
+  template to an app later.
 - **Templates**: People, Companies, Activities, Feedback and Payments collections; Software,
   Issue tracking, CRM and Simple boards. Ready for running a startup.
 - **Keys**: `.env` files as a table.
 - **Spaces**: work with others in a OneDrive folder or on your own Scrawl server.
-- Search, export to PDF, HTML or Markdown, note history and a trash.
+- Search, links between notes and what is in the space, export to PDF, HTML or Markdown, note
+  history and a trash.
+
+## Working with an agent
+
+Connect your agent in Settings › Agents: Claude Desktop, Claude Code, Codex or Cursor through the
+desktop app, or Claude, ChatGPT and Gemini through a Scrawl server. It works on the same notes,
+tasks, boards and collections you see. Ask it, for example:
+
+- "Add a card to the Launch board for each decision in today's meeting note."
+- "What is due today?"
+- "Set up a CRM with sales and stock for our spare parts business, in TRY and EUR."
+- "Make a collection of job candidates with their CV, source and score, and a button that
+  schedules an interview."
+- "Approve Ayşe's taxi expense."
+
+What it changes carries its name, an earlier version of a note stays in its history, and what it
+deletes goes to the trash. It cannot open your Keys files.
 
 ## How it is different
 
