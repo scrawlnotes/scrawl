@@ -6400,3 +6400,82 @@ body > .mb-lifted {
   height: 13px;
   border-width: 2px;
 }
+
+/* The buttons of a collection's rules under a record's name; one that may not run now is faint. */
+.mb-rbuttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 16px 12px;
+}
+
+.mb-rbutton {
+  padding: 8px 14px;
+  border: 1px solid var(--sl-line);
+  border-radius: 18px;
+  color: var(--sl-fg);
+  font-size: 15px;
+}
+
+.mb-rbutton.off {
+  color: var(--sl-faint);
+}
+
+/* The question a button asks, as a sheet: what it will do, then its own button, wide. */
+.mb-ask {
+  padding: 4px 16px 18px;
+}
+
+.mb-ask p {
+  margin: 0 0 10px;
+  color: var(--sl-dim);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.mb-ask .ask-lines {
+  margin: 0 0 16px;
+  padding-left: 20px;
+  color: var(--sl-fg);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.mb-ask .ask-lines small {
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.mb-ask .go {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  border-radius: 12px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* What stopped a button: kept until its × closes it. */
+.mb-toast.bad span {
+  white-space: normal;
+  padding: 10px 0;
+  font-weight: 500;
+}
+
+.mb-toast.bad b {
+  font-weight: 700;
+}
+
+.mb-toast .x {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+}
+
+.mb-toast .x svg {
+  width: 18px;
+  height: 18px;
+}

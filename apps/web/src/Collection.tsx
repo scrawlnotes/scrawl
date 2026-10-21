@@ -10,6 +10,8 @@ import {
   type ColumnWidths,
   type Computer,
   computerFor,
+  actionsOf,
+  actionState,
   collectionName,
   columnSums,
   currencyOf,
@@ -122,6 +124,8 @@ export interface CollectionActions {
   updateRecord: (dir: string, id: string, patch: RecordPatch) => Promise<string | null>;
   /** Asks first, then moves the record's file to the trash. */
   removeRecord: (dir: string, record: Record) => void;
+  /** Runs a button of the collection's rules on a record as it is written: asks first when it says so; says what it did, with Undo, or where it stopped. */
+  pressButton: (dir: string, id: string, name: string) => void;
   /** Opens the record's file as a note, in a tab. */
   openNote: (path: string) => void;
   /** Opens a web page, a new mail or a call, outside the app. */
@@ -1247,9 +1251,10 @@ function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; reco
 /**
  * The layout of a record's screen. A new record is one column of its fields and body. A record
  * with no layout of its own has, under its body, the records of every collection that links to its
- * collection, and the cards of every board that does.
+ * collection, and the cards of every board that does. The buttons of its rules are where the
+ * layout puts them, or at the top when it puts them nowhere.
  */
-export function recordLayout(schema: Schema, dir: string, isNew: boolean, actions: Pick<CollectionActions, 'collections' | 'boards'>): Layout {
+export function recordLayout(schema: Schema, dir: string, isNew: boolean, actions: Pick<CollectionActions, 'collections' | 'boards'>, buttons = false): Layout {
   const own = layoutOf(schema);
   if (isNew) {
     const sections = own.columns.flatMap((column) =>
@@ -1257,12 +1262,19 @@ export function recordLayout(schema: Schema, dir: string, isNew: boolean, action
     );
     return { columns: [{ sections: sections.filter((section) => section.items.length > 0) }] };
   }
-  if (schema.layout) return own;
-  const linked: LayoutBlock[] = [
-    ...linkingCollections(actions.collections(), dir).map((c): LinkedBlock => ({ block: 'linked', collection: c.dir })),
-    ...(boardsLinkingTo(actions.boards(), dir).length > 0 ? [{ block: 'cards' } as const] : []),
-  ];
-  return linked.length > 0 ? { columns: [{ sections: [...own.columns[0]!.sections, { items: linked }] }] } : own;
+  const linked: LayoutBlock[] = schema.layout
+    ? []
+    : [
+        ...linkingCollections(actions.collections(), dir).map((c): LinkedBlock => ({ block: 'linked', collection: c.dir })),
+        ...(boardsLinkingTo(actions.boards(), dir).length > 0 ? [{ block: 'cards' } as const] : []),
+      ];
+  const layout = linked.length > 0 ? { columns: [{ sections: [...own.columns[0]!.sections, { items: linked }] }] } : own;
+  const placed = layout.columns.some((c) => c.sections.some((s) => s.items.some((i) => 'block' in i && i.block === 'actions')));
+  if (!buttons || placed) return layout;
+  const [first, ...rest] = layout.columns;
+  if (!first) return layout;
+  const [section, ...others] = first.sections;
+  return { columns: [{ ...first, sections: [{ ...section, items: [{ block: 'actions' }, ...(section?.items ?? [])] }, ...others] }, ...rest] };
 }
 
 /** A record opened over another: one of a collection that links to it, or a new one already linked; or a card that links to it. */
@@ -1299,9 +1311,17 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const isNew = record === null;
   const original = useMemo(() => draftOf(record, given), [record, given]);
   const dirty = differs(draft, original);
+  // A form not typed in follows the record as it is written: after one of its buttons, or a change made elsewhere.
+  const followed = useRef(original);
+  useEffect(() => {
+    const before = followed.current;
+    followed.current = original;
+    setDraft((d) => (differs(d, before) ? d : original));
+  }, [original]);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
+  const buttons = useMemo(() => actionsOf(collection.rules), [collection.rules]);
 
-  const layout: Layout = useMemo(() => recordLayout(schema, dir, isNew, actions), [schema, isNew, dir, actions]);
+  const layout: Layout = useMemo(() => recordLayout(schema, dir, isNew, actions, buttons.length > 0), [schema, isNew, dir, actions, buttons.length]);
   // The name, and the fields the layout does not place, go in the first column that has fields.
   const fieldColumn = Math.max(0, layout.columns.findIndex((column) => column.sections.some((section) => section.items.some((item) => 'field' in item))));
 
@@ -1320,20 +1340,29 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   };
 
   const named = nameField(schema);
-  const save = async () => {
-    if (busy.current) return;
+  /** Writes the form; false when it cannot be, saying why. */
+  const write = async (): Promise<boolean> => {
+    if (busy.current) return false;
     const missing = missingFields(draft.values, schema);
     if (missing.length > 0) {
       const labels = missing.filter((k) => k !== named?.key).map((k) => fields.get(k)?.label ?? k);
       setError(named && missing.includes(named.key) ? t('collection.nameNeeded') : t('collection.requiredMissing', { fields: labels.join(t('list.separator')) }));
-      return;
+      return false;
     }
     busy.current = true;
     const patch = { values: draft.values, body: draft.body, subtasks: draft.subtasks };
     const failed = isNew ? await actions.addRecord(dir, patch) : await actions.updateRecord(dir, record.id, patch);
     busy.current = false;
     if (failed) setError(failed);
-    else onClose();
+    return !failed;
+  };
+  const save = async () => {
+    if (await write()) onClose();
+  };
+  // A button runs on the record as it is written: what was typed is saved first.
+  const press = async (button: string) => {
+    if (!record || (dirty && !(await write()))) return;
+    actions.pressButton(dir, record.id, button);
   };
   // Nothing typed is lost without asking.
   const leave = (then: () => void = onClose) => {
@@ -1412,6 +1441,26 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const entry = (layoutItem: LayoutItem, index: number): ReactNode => {
     if ('field' in layoutItem) return item(layoutItem.field, index);
     if (layoutItem.block === 'body') return body(index);
+    if (layoutItem.block === 'actions') {
+      if (!record || buttons.length === 0) return null;
+      const now = { ...record, values: draft.values };
+      return (
+        <div key={`actions-${index}`} className="rm-buttons" role="group" aria-label={t('run.buttons')}>
+          {buttons.map((button) => {
+            const state = actionState(collection.rules ?? '', button, computer, dir, now);
+            return (
+              <span key={button.name} className="rbtn-tip">
+                <button type="button" className={state.on ? 'rbtn' : 'rbtn off'} aria-disabled={!state.on} onClick={() => state.on && void press(button.name)}>
+                  <Icon name="play" />
+                  {button.name}
+                </button>
+                {state.hint && <span className="tip">{state.hint}</span>}
+              </span>
+            );
+          })}
+        </div>
+      );
+    }
     if (layoutItem.block === 'linked' && record) {
       return (
         <LinkedRecords
@@ -1917,6 +1966,22 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
     const why = found.map((p) => problemText(p, fieldsByKey.get(p.field), record)).join(' ');
     return <span className="flag" title={t('collection.problems', { problems: why })} aria-label={t('collection.problems', { problems: why })} />;
   };
+  // A row's ···, at its end on the row pointed at or picked: Open, the buttons of the rules, faint
+  // with why when they may not run now, and Delete.
+  const buttons = useMemo(() => actionsOf(collection.rules), [collection.rules]);
+  const rowMenu = (event: MouseEvent, record: Record) =>
+    actions.menu(
+      event,
+      [
+        { label: t('collection.open'), run: () => openRecord(record.id) },
+        ...buttons.map((button, i) => {
+          const state = actionState(collection.rules ?? '', button, computer, dir, record);
+          return { label: button.name, icon: 'play' as const, run: () => actions.pressButton(dir, record.id, button.name), ...(!state.on && { disabled: state.hint ?? '' }), ...(i === 0 && { apart: true }) };
+        }),
+        { label: t('menu.delete'), run: () => actions.removeRecord(dir, record), apart: true, danger: true },
+      ],
+      { icon: 'collection', title: recordTitle(record), sub: collectionName(dir) },
+    );
   // A record with several choices is in several groups: its row's key tells them apart. A cell is
   // picked and typed in as a sheet's; the record opens from the button at the start of the row,
   // shown on the row pointed at or picked, and from its name.
@@ -1945,6 +2010,9 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
           </div>
         );
       })}
+      <button type="button" className="rmore" title={t('collection.menu')} aria-label={t('collection.menu')} onClick={(event) => rowMenu(event, record)}>
+        ···
+      </button>
     </div>
   );
   const sums = fields.map((f) => columnSums(shown, schema, f.key, today));

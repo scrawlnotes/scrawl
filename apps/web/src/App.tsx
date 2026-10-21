@@ -13,6 +13,7 @@ import {
   cardRef,
   type CollectionTemplate,
   recordTitle,
+  RuleStop,
   isLinkable,
   collectionCsv,
   collectionSheet,
@@ -62,6 +63,7 @@ import { type EditorStats, type LinkTap, sizeText } from '@scrawlnotes/editor';
 import { type DragEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  ButtonDialog,
   ConfirmDialog,
   type ConfirmPlace,
   ContextMenu,
@@ -145,7 +147,7 @@ import {
 import { type Notice, Phone } from './Phone';
 import { PhoneCreate } from './PhoneCreate';
 import { PeopleSheet } from './PhoneSpaces';
-import { type FileRow, Session, type SpaceView } from './session';
+import { type ButtonRun, type FileRow, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { StartPage } from './StartPage';
 import { type SpaceSyncView, SyncService } from './sync';
@@ -179,6 +181,7 @@ type OpenDialog =
   | { kind: 'rename'; path: string }
   | { kind: 'export'; path: string }
   | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void; places?: ConfirmPlace[]; after?: string; brief?: string }
+  | { kind: 'button'; run: ButtonRun; record: string }
   | { kind: 'removeSpace'; id: string }
   | { kind: 'history'; path: string }
   | { kind: 'moveTask'; list: string; id: string }
@@ -409,6 +412,7 @@ export function App() {
   const undoable = (text: string, undo: () => void) => setShown({ text, undo });
   useEffect(() => {
     if (!notice) return;
+    if (notice.sticky) return;
     const timer = window.setTimeout(() => setShown(null), notice.action ? 10000 : notice.undo ? 6000 : 4000);
     return () => window.clearTimeout(timer);
   }, [notice]);
@@ -477,6 +481,28 @@ export function App() {
   // Nothing is deleted without asking first.
   const ask = (title: string, message: string, run: () => void, action = t('delete.action'), danger = true) =>
     setDialog({ kind: 'confirm', title, message, action, danger, run });
+
+  // A button of a collection's rules: worked out first, asked about when it says so, then written
+  // at once, its toast with Undo; one that stops writes nothing and says where until it is closed.
+  const buttonStopped = (name: string, stop: RuleStop) =>
+    setShown({
+      title: t('run.stopped', { name }),
+      text: stop.line > 0 ? t('run.stoppedAt', { line: stop.line, message: stop.message }) : t('run.stoppedWhy', { message: stop.message }),
+      sticky: true,
+      toast: true,
+    });
+  const runButton = (run: ButtonRun) =>
+    void session.runButton(run).then(
+      (undo) => setShown({ text: run.done, undo: () => void undo(), toast: true }),
+      (error: unknown) => buttonStopped(run.plan.action, new RuleStop(error instanceof Error ? error.message : t('error.record'), 0)),
+    );
+  const pressButton = (dir: string, id: string, name: string) => {
+    const run = session.planButton(dir, id, name);
+    if (run instanceof RuleStop) return buttonStopped(name, run);
+    const record = collections[dir]?.records.find((r) => r.id === id);
+    if (run.plan.confirm) setDialog({ kind: 'button', run, record: record ? recordTitle(record) : name });
+    else runButton(run);
+  };
   const deleteItem = (path: string) => {
     if (path in collections) {
       const name = quote(collectionName(path));
@@ -1446,6 +1472,7 @@ export function App() {
     addRecord: (dir, input) => session.addRecord(dir, input),
     updateRecord: (dir, id, patch) => session.updateRecord(dir, id, patch),
     removeRecord: (dir, record) => ask(t('delete.record'), recordDeleteText(record), () => void session.trashRecord(dir, record)),
+    pressButton,
     openNote: (path) => void session.open(path),
     // The desktop app hands an address to the system; in a browser it opens beside the app.
     openLink: (href) => (isDesktop ? void openUrlOnDesktop(href).catch(() => undefined) : void window.open(href, '_blank', 'noopener')),
@@ -1956,6 +1983,7 @@ export function App() {
             onSyncShown={() => setSyncAsked(false)}
             notice={notice}
             onUndo={undoNotice}
+            onCloseNotice={() => setShown(null)}
             update={
               update && (
                 <>
@@ -2298,7 +2326,7 @@ export function App() {
             {stats && written !== null && <span>{writtenText(written)}</span>}
             {(keysText !== undefined || collection || active === UPCOMING || boardPath !== null) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
             {taskStatus?.map((part, i) => <span key={`task-${i}`}>{part}</span>)}
-            {notice && (
+            {notice && !notice.toast && (
               <span className="notice" role="status">
                 {notice.text}
                 {notice.undo && (
@@ -2506,6 +2534,23 @@ export function App() {
           onClose={closeDialog}
         />
       )}
+      {!phone && notice?.toast && (
+        <div className={notice.sticky ? 'toast bad' : 'toast'} role={notice.sticky ? 'alert' : 'status'}>
+          <span>
+            {notice.title && <b>{notice.title}</b>} {notice.text}
+          </span>
+          {notice.undo && (
+            <button type="button" className="undo" onClick={undoNotice}>
+              {t('notice.undo')}
+            </button>
+          )}
+          {notice.sticky && (
+            <button type="button" className="x" aria-label={t('notice.close')} title={t('notice.close')} onClick={() => setShown(null)}>
+              ×
+            </button>
+          )}
+        </div>
+      )}
       {dialog?.kind === 'confirm' && (
         <ConfirmDialog
           title={dialog.title}
@@ -2518,6 +2563,18 @@ export function App() {
           onConfirm={() => {
             setDialog(null);
             dialog.run();
+          }}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'button' && (
+        <ButtonDialog
+          name={dialog.run.plan.action}
+          record={dialog.record}
+          lines={dialog.run.ask}
+          onConfirm={() => {
+            setDialog(null);
+            runButton(dialog.run);
           }}
           onClose={closeDialog}
         />

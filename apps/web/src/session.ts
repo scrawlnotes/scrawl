@@ -108,6 +108,13 @@ import {
   spaceOf,
   toSpace,
   withinSpace,
+  type AskLine,
+  type Plan,
+  planAction,
+  planWords,
+  type RuleSpaceNow,
+  RuleStop,
+  writePlan,
   moveCard,
   moveCardToKind,
   moveColumn,
@@ -421,6 +428,15 @@ export interface Snapshot {
   recordError: string | null;
   format: FormatState | null;
   source: boolean;
+}
+
+/** What a collection's button would do to a record, worked out on its space: the question before it, the toast after it. */
+export interface ButtonRun {
+  /** The collection, as the app has it. */
+  dir: string;
+  plan: Plan;
+  ask: AskLine[];
+  done: string;
 }
 
 /** An attached file as Files shows it: its path and the paths of what uses it as the app has them, in its space. */
@@ -2737,6 +2753,51 @@ export class Session {
     await this.trashWithFiles(record.path, false);
     this.setCollection(dir, (current) => ({ ...current, records: current.records.filter((r) => r.id !== record.id) }));
     await this.freshTrash();
+  }
+
+  /** The space `dir` is in as a button sees it: its collections, boards and task lists with the paths its own files have. */
+  private ruleSpace(dir: string): RuleSpaceNow {
+    const space = spaceOf(dir);
+    const here = (path: string) => spaceOf(path) === space;
+    const own = toSpace(space);
+    const { collections, boards, tasks, me } = this.snapshot;
+    return {
+      collections: Object.values(collections)
+        .filter((c) => here(c.dir))
+        .map((c) => this.own(c)),
+      boards: Object.fromEntries(Object.entries(boards).flatMap(([path, board]) => (here(path) ? [[localPath(path), rebaseBoard(board, own)]] : []))),
+      lists: Object.fromEntries(Object.entries(tasks).flatMap(([path, list]) => (here(path) ? [[localPath(path), rebaseTasks(list, own)]] : []))),
+      today: dayIn(new Date()),
+      ...(me?.name && { me: me.name }),
+    };
+  }
+
+  /** What a button of a collection's rules would do to a record, writing nothing; or where its rules stopped, and why. */
+  planButton(dir: string, id: string, name: string): ButtonRun | RuleStop {
+    const rules = this.snapshot.collections[dir]?.rules;
+    if (!rules) return new RuleStop(t('run.noAction', { name }), 0);
+    const space = this.ruleSpace(dir);
+    try {
+      const plan = planAction(rules, name, localPath(dir), id, space);
+      return { dir, plan, ...planWords(plan, space) };
+    } catch (error) {
+      if (error instanceof RuleStop) return error;
+      return new RuleStop(error instanceof Error ? error.message : t('error.record'), 0);
+    }
+  }
+
+  /** Writes what a button worked out, at once, and reads its space again; gives what undoes it. */
+  async runButton(run: ButtonRun): Promise<() => Promise<void>> {
+    await this.settle();
+    const { fs } = this.at(run.dir);
+    const space = spaceOf(run.dir);
+    const undo = await writePlan(fs, run.plan, this.ruleSpace(run.dir), undefined, this.by);
+    await this.rescan(space);
+    return async () => {
+      await this.settle();
+      await undo();
+      await this.rescan(space);
+    };
   }
 
   /**

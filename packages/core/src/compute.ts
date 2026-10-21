@@ -54,7 +54,7 @@ export function nextNumber(values: readonly unknown[], prefix: string, digits: n
 }
 
 /** A value worked out as a field of this type holds it; null for one it cannot hold. */
-function valueFor(field: Field, v: RV): FieldValue {
+export function valueFor(field: Field, v: RV): FieldValue {
   if (v === null) return null;
   switch (field.type) {
     case 'date':
@@ -140,6 +140,17 @@ export class Computer {
   /** One field's value for a record. */
   value(dir: string, record: Record, field: Field): FieldValue {
     return fromRuntime(this.run(dir, record, field, false));
+  }
+
+  /** A field's value for a record as the language holds it: a day as a day, a link as a record. */
+  read(dir: string, record: Record, key: string): RV {
+    const field = this.dirs.get(dir)?.schema.fields.find((f) => f.key === key);
+    return field ? this.run(dir, record, field, false) : null;
+  }
+
+  /** A field of a linked record, as the language holds it. */
+  readMember(ref: Ref, key: string): RV {
+    return this.member(ref, key);
   }
 
   /**

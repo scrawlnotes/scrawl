@@ -1,6 +1,6 @@
 # Koleksiyonla küçük uygulamalar: teknik tasarım (taslak)
 
-Durum: 20 Ekim 2026'da onaylandı, PLAN.md'ye işlendi. 1. dilim kodda (ffc68b3). 2. dilim kodda (mockup 63e5ec8, kod 2c2c4fd). 3. dilim kodda (mockup 3eb21de, kod 5a10baf). 4. dilimin mockup'ı 21 Ekim'de onaylandı (`design/mockups.html`, 13. aşama · 4. dilim).
+Durum: 20 Ekim 2026'da onaylandı, PLAN.md'ye işlendi. 1. dilim kodda (ffc68b3). 2. dilim kodda (mockup 63e5ec8, kod 2c2c4fd). 3. dilim kodda (mockup 3eb21de, kod 5a10baf). 4. dilim kodda (mockup fd14739).
 
 ## 1. Amaç
 

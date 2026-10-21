@@ -16,6 +16,13 @@ import {
   linkTo,
   loadBoard,
   loadCollection,
+  loadList,
+  planAction,
+  planWords,
+  type RuleSpaceNow,
+  RuleStop,
+  type Task,
+  writePlan,
   matchesConditions,
   problemText,
   readValue,
@@ -98,6 +105,23 @@ async function surroundings(fs: VaultFs, except: string): Promise<{ collections:
     } else if (element.kind === 'board') boards[element.path] = await loadBoard(fs, element.path);
   }
   return { collections, boards };
+}
+
+/** The space as a button sees it: every collection with its rules, every board, every task list. */
+async function ruleSpaceNow(fs: VaultFs, today: string, me: string | undefined): Promise<RuleSpaceNow> {
+  const collections: Collection[] = [];
+  const boards: { [path: string]: Board } = {};
+  const lists: { [path: string]: Task[] } = {};
+  for (const element of await elementsOf(fs, ['collection', 'board', 'tasks'])) {
+    if (element.kind === 'collection') {
+      const collection = await loadCollection(fs, element.path, undefined, true).catch(() => null);
+      if (collection) collections.push(collection);
+    } else if (element.kind === 'board') {
+      const board = await loadBoard(fs, element.path).catch(() => null);
+      if (board) boards[element.path] = board;
+    } else lists[element.path] = (await loadList(fs, element.path).catch(() => null))?.tasks ?? [];
+  }
+  return { collections, boards, lists, today, ...(me && { me }) };
 }
 
 /** What works out a collection's records with the space around it: formulas (which may read a linked record's field), lookups, rollups, its checks, a new record's defaults. */
@@ -206,7 +230,7 @@ function twinsOf(collection: Collection, values: { [key: string]: FieldValue }):
   return null;
 }
 
-export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string; subtasks?: SubtaskArg[]; another?: boolean }) {
+export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string; subtasks?: SubtaskArg[]; another?: boolean; action?: string }) {
   const { space, element } = await pickAcross(agent, args.space, args.collection, ['collection'], 'collection');
   const collection = await loadCollection(space.fs, element.path);
   const { schema } = collection;
@@ -243,7 +267,9 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     const kept = { ...found.extra };
     for (const key of Object.keys(values)) delete kept[key];
     const subtasks = args.subtasks ? await applySubtasks(space, found.subtasks ?? [], args.subtasks, nowOf(agent)) : undefined;
-    record = await updateRecord(space.fs, schema, { ...found, extra: { ...kept, ...extra } }, { values, ...(args.body !== undefined && { body: args.body }), ...(subtasks && { subtasks }) });
+    // A button pressed on a record as it is writes nothing of the record's own first.
+    const given = Object.keys(values).length > 0 || Object.keys(extra).length > 0 || args.body !== undefined || !!subtasks;
+    record = given || !args.action ? await updateRecord(space.fs, schema, { ...found, extra: { ...kept, ...extra } }, { values, ...(args.body !== undefined && { body: args.body }), ...(subtasks && { subtasks }) }) : found;
   } else {
     const holder = codeHolder(undefined);
     if (holder) throw new Refusal(`${holder.name || holder.id} already has the code ${holder.code}; a code belongs to one record`, { record: { id: holder.id, name: holder.name, code: holder.code } });
@@ -255,6 +281,29 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     record = await addRecord(space.fs, collection, { values: made, ...(args.body !== undefined && { body: args.body }), ...(subtasks?.length && { subtasks }) });
     if (Object.keys(extra).length > 0) record = await updateRecord(space.fs, schema, { ...record, extra }, {});
     created = true;
+  }
+  if (args.action) {
+    // The button runs on the record as written, as in the app; what it does is written at once.
+    const me = (await agent.person())?.name || undefined;
+    const world = await ruleSpaceNow(space.fs, today, me);
+    const home = world.collections.find((c) => c.dir === element.path);
+    let ran: { action: string; done: string; changes: string[] };
+    try {
+      if (!home?.rules) throw new RuleStop(`There is no button called ${args.action} in the rules of ${element.path}.`, 0);
+      const plan = planAction(home.rules, args.action, element.path, record.id, world);
+      const words = planWords(plan, world);
+      await writePlan(space.fs, plan, world, () => nowOf(agent), me);
+      ran = { action: plan.action, done: words.done, changes: words.ask.map((line) => (line.names ? `${line.text}: ${line.names}` : line.text)) };
+    } catch (error) {
+      if (!(error instanceof RuleStop)) throw error;
+      const saved = created ? ` The record was added (${record.id}).` : '';
+      throw new Refusal(`${args.action} stopped${error.line > 0 ? ` on line ${error.line} of the rules` : ''}: ${error.message} Nothing of it was written.${saved}`);
+    }
+    const now = await loadCollection(space.fs, element.path);
+    const written = now.records.find((r) => r.id === record.id) ?? record;
+    const { collections } = await surroundings(space.fs, element.path);
+    const after = new Computer([now, ...collections], around.boards, today);
+    return { data: { space: space.id, collection: element.path, created, action: ran, record: recordsOut(after, now, [written], today)[0]! } };
   }
   // Worked out again with the record as written, for what links to it and what it reads.
   const after = new Computer([{ ...collection, records: [...collection.records.filter((r) => r.id !== record.id), record] }, ...around.collections], around.boards, today);

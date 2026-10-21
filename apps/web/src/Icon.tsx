@@ -123,6 +123,8 @@ const shapes = {
   close: <path d="M7 7l10 10M17 7L7 17" />,
   /** What is chosen in a list on a phone. */
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  /** A button of a collection's rules. */
+  play: <path d="M8 5.5v13l10-6.5z" />,
   up: <path d="M12 19V5M6 11l6-6 6 6" />,
   down: <path d="M12 5v14M6 13l6 6 6-6" />,
   /** A card's labels. */

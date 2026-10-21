@@ -132,7 +132,9 @@ export type LayoutItem =
   | { block: 'body' }
   | { block: 'linked'; collection: string; sort?: string; style?: LinkedStyle; fields?: string[]; sums?: boolean }
   | { block: 'cards' }
-  | { block: 'subtasks' };
+  | { block: 'subtasks' }
+  /** The buttons of the collection's rules (`action(…)` in _rules.js). */
+  | { block: 'actions' };
 
 /** How a block shows the records that link to the record: newest first by a day, a list, or a table whose cells are typed in, with its sums when `sums`. */
 export type LinkedStyle = 'list' | 'timeline' | 'table';
@@ -515,7 +517,7 @@ function readFormat(raw: unknown): NumberFormat | undefined {
 function readItem(raw: unknown): LayoutItem | null {
   if (!isRecord(raw)) return null;
   if (typeof raw.field === 'string') return { field: cleanFieldKey(raw.field) };
-  if (raw.block === 'body' || raw.block === 'cards' || raw.block === 'subtasks') return { block: raw.block };
+  if (raw.block === 'body' || raw.block === 'cards' || raw.block === 'subtasks' || raw.block === 'actions') return { block: raw.block };
   if (raw.block === 'linked' && typeof raw.collection === 'string') {
     const fields = strings(raw.fields).map(cleanFieldKey).filter(Boolean);
     return {

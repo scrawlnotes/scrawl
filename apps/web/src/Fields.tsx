@@ -17,6 +17,7 @@ import {
   FIELD_TYPES,
   type FieldType,
   FORMAT_STYLES,
+  actionsOf,
   formatNumber,
   formulaInfo,
   isComplete,
@@ -46,6 +47,7 @@ import {
   RULES_FILE,
   type RuleProblem,
   rulesProblems,
+  ruleSpaceOf,
   type Schema,
   type SchemaOf,
   schemasOf,
@@ -53,6 +55,7 @@ import {
   settleSchema,
   shownField,
   SINGLE_TYPES,
+  spaceOf,
   TODAY,
   valueText,
 } from '@scrawlnotes/core';
@@ -88,6 +91,8 @@ export interface FieldsActions {
   saveFields: (dir: string, schema: Schema, renames: ChoiceRenames, rules?: string) => Promise<string | null>;
   /** Every board, by path: whether any links to the collection. */
   boards: () => { [path: string]: Board };
+  /** Every task list, by path: what its buttons' rules may add a task to. */
+  tasks: () => { readonly [list: string]: unknown };
   /** Who uses the app, for a default of `me()`. */
   me?: () => string | undefined;
 }
@@ -415,11 +420,12 @@ function conditionsWords(where: Condition[], fields: Field[]): string {
   );
 }
 
-/** What a block is called on the screen, and the line beside it. */
-function blockWords(block: Block, collections: Collection[]): [string, string] {
+/** What a block is called on the screen, and the line beside it; the buttons by the names the rules give them. */
+function blockWords(block: Block, collections: Collection[], buttons: string[]): [string, string] {
   if (block.block === 'body') return [t('fields.addNotes'), t('fields.notesMeta')];
   if (block.block === 'cards') return [t('fields.cards'), t('fields.cardsMeta')];
   if (block.block === 'subtasks') return [t('subtasks.title'), t('fields.subtasksMeta')];
+  if (block.block === 'actions') return [t('fields.buttons'), buttons.length > 0 ? buttons.join(', ') : t('fields.noButtons')];
   const source = collections.find((c) => c.dir === block.collection);
   const style = linkedStyle(block, source);
   const shown = (block.fields ?? []).map((key) => source?.schema.fields.find((f) => f.key === key)?.label.toLowerCase() ?? key);
@@ -995,11 +1001,18 @@ function FormatRow({ field, fields, onChange }: { field: DraftField; fields: Dra
   );
 }
 
-/** A block opened where it is: linked records with their collection, how they show and in what order; the notes and cards with a way off the screen. */
-function BlockEditor({ block, dir, collections, onChange, onDelete }: {
+/**
+ * A block opened where it is: linked records with their collection, how they show and in what
+ * order; the notes and cards with a way off the screen; the buttons with where they are written.
+ */
+function BlockEditor({ block, dir, collections, buttons, onRules, onChange, onDelete }: {
   block: Block;
   dir: string;
   collections: Collection[];
+  /** The names of the buttons the rules give, in their order. */
+  buttons: string[];
+  /** Opens the Rules tab. */
+  onRules: () => void;
   onChange: (block: Block) => void;
   onDelete: () => void;
 }) {
@@ -1009,7 +1022,7 @@ function BlockEditor({ block, dir, collections, onChange, onDelete }: {
     </button>
   );
   if (block.block !== 'linked') {
-    const [name, meta] = blockWords(block, collections);
+    const [name, meta] = blockWords(block, collections, buttons);
     return (
       <div className="fe">
         <div className="fe-top">
@@ -1017,6 +1030,15 @@ function BlockEditor({ block, dir, collections, onChange, onDelete }: {
           <span className="fe-meta">{meta}</span>
           {trash}
         </div>
+        {block.block === 'actions' && (
+          <p className="fi-note">
+            {t('fields.buttonsNote')}{' '}
+            <button type="button" className="fe-link" onClick={onRules}>
+              {t('fields.rules')}
+            </button>
+            : <code>action("Label", …)</code>.
+          </p>
+        )}
       </div>
     );
   }
@@ -1101,14 +1123,15 @@ function BlockEditor({ block, dir, collections, onChange, onDelete }: {
 }
 
 /** What + Add puts in a section. */
-type Addition = 'field' | 'linked' | 'body' | 'cards' | 'subtasks';
+type Addition = 'field' | 'linked' | 'body' | 'cards' | 'subtasks' | 'actions';
 
-/** The menu under a section's + Add: a field, the records of a collection that links here, the notes, the cards that link here, the record's own subtasks. */
-function AddMenu({ linking, notesPlaced, cardsPlaced, subtasksPlaced, onAdd }: {
+/** The menu under a section's + Add: a field, the records of a collection that links here, the notes, the cards that link here, the record's own subtasks, its buttons. */
+function AddMenu({ linking, notesPlaced, cardsPlaced, subtasksPlaced, buttonsPlaced, onAdd }: {
   linking: boolean;
   notesPlaced: boolean;
   cardsPlaced: boolean;
   subtasksPlaced: boolean;
+  buttonsPlaced: boolean;
   onAdd: (what: Addition) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -1120,6 +1143,7 @@ function AddMenu({ linking, notesPlaced, cardsPlaced, subtasksPlaced, onAdd }: {
     { value: 'body', label: t('fields.addNotes'), hint: notesPlaced ? t('fields.notesPlaced') : t('fields.notesHint'), chip: false, disabled: notesPlaced },
     { value: 'cards', label: t('fields.cards'), hint: cardsPlaced ? t('fields.notesPlaced') : t('fields.cardsHint'), chip: false, disabled: cardsPlaced },
     { value: 'subtasks', label: t('subtasks.title'), hint: subtasksPlaced ? t('fields.notesPlaced') : t('fields.subtasksHint'), chip: false, disabled: subtasksPlaced },
+    { value: 'actions', label: t('fields.buttons'), hint: buttonsPlaced ? t('fields.notesPlaced') : t('fields.buttonsHint'), chip: false, disabled: buttonsPlaced },
   ];
   return (
     <>
@@ -1196,6 +1220,7 @@ function RulesText({ text, problems, onChange }: { text: string; problems: RuleP
     <>
       <div className="ftext frules" ref={host} />
       <p className="fi-note fd-help">{t('fields.rulesHelp')}</p>
+      <p className="fi-note fd-help">{t('fields.rulesActionHelp')}</p>
     </>
   );
 }
@@ -1243,6 +1268,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   const notesPlaced = placed('body');
   const cardsPlaced = placed('cards');
   const subtasksPlaced = placed('subtasks');
+  const buttonsPlaced = placed('actions');
   const linking = linkingCollections(collections, dir);
   const unlinkable = !draft.fields.some((f) => f.type === 'name' || f.type === 'code');
   const boards = actions.boards();
@@ -1252,7 +1278,15 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
   ];
   const schemaOf = schemasOf(collections, boards);
   // The rules checked against the fields as they are now; a file with a mistake is not written.
-  const ruleProblems = rules.trim() ? rulesProblems(rules, { fields: (view === 'text' && textProblem(text) === null ? parseSchema(text) : toSchema(draft, schema)).fields, schemaOf }) : [];
+  // What its buttons name is looked for in the collection's own space.
+  const here = (path: string) => spaceOf(path) === spaceOf(dir);
+  const ruleSpace = ruleSpaceOf(
+    collections.filter((c) => here(c.dir)),
+    Object.fromEntries(Object.entries(boards).filter(([path]) => here(path))),
+    Object.keys(actions.tasks()).filter(here),
+  );
+  const ruleProblems = rules.trim() ? rulesProblems(rules, { fields: (view === 'text' && textProblem(text) === null ? parseSchema(text) : toSchema(draft, schema)).fields, schemaOf, dir }, ruleSpace) : [];
+  const buttons = actionsOf(rules).map((a) => a.name);
   const unruly = rulesChanged && ruleProblems.length > 0;
   /** What a new record gets for a field's default, as the draft has it. */
   const preview = (field: Field): string | null => {
@@ -1465,7 +1499,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
           {field ? (
             <FieldEditor field={field} fields={draft.fields} collections={collections} sources={sources} schemaOf={schemaOf} preview={preview} onChange={(patch) => changeField(field.id, patch)} onDelete={() => removeItem(item)} />
           ) : (
-            'block' in item && <BlockEditor block={item.block} dir={dir} collections={collections} onChange={(block) => changeBlock(item.id, block)} onDelete={() => removeItem(item)} />
+            'block' in item && <BlockEditor block={item.block} dir={dir} collections={collections} buttons={buttons} onRules={() => setView('rules')} onChange={(block) => changeBlock(item.id, block)} onDelete={() => removeItem(item)} />
           )}
         </div>
       );
@@ -1498,7 +1532,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
         </div>
       );
     }
-    const [name, meta] = blockWords((item as { block: Block }).block, collections);
+    const [name, meta] = blockWords((item as { block: Block }).block, collections, buttons);
     return (
       <div key={item.id} className="fitem fblk" {...shared}>
         <span className="grip">{GRIP}</span>
@@ -1541,7 +1575,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
           )}
           {section.items.map(element)}
           {drop?.section === section.id && <div className="fdrop" style={{ top: drop.y }} />}
-          <AddMenu linking={linking.length > 0} notesPlaced={notesPlaced} cardsPlaced={cardsPlaced} subtasksPlaced={subtasksPlaced} onAdd={(what) => add(section.id, what)} />
+          <AddMenu linking={linking.length > 0} notesPlaced={notesPlaced} cardsPlaced={cardsPlaced} subtasksPlaced={subtasksPlaced} buttonsPlaced={buttonsPlaced} onAdd={(what) => add(section.id, what)} />
         </div>
       ))}
       <button type="button" className="fsec-add" onClick={() => setColumns(draft.columns.map((each) => (each.id === column.id ? { ...each, sections: [...each.sections, { id: newId(), items: [] }] } : each)))}>

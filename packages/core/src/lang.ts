@@ -144,7 +144,25 @@ export type Node = { at: number; end: number } & (
   | { k: 'unary'; op: '-' | '!'; of: Node }
   | { k: 'bin'; op: string; left: Node; right: Node }
   | { k: 'cond'; test: Node; yes: Node; no: Node }
+  // What only a rule writes: the record itself, a set of values, a function, a list's method.
+  | { k: 'this' }
+  | { k: 'obj'; entries: { key: string; value: Node; at: number }[] }
+  | { k: 'arrow'; params: string[]; body: Node | Stmt[] }
+  | { k: 'mcall'; of: Node; name: string; args: Node[] }
 );
+
+/** A statement of a rule: a name given a value, a field or a name set, a choice, a loop, an end, or something done. */
+export type Stmt = { at: number } & (
+  | { k: 'let'; name: string; value: Node; constant: boolean }
+  | { k: 'set'; name: string; value: Node }
+  | { k: 'if'; test: Node; yes: Stmt[]; no: Stmt[] }
+  | { k: 'for'; name: string; of: Node; body: Stmt[] }
+  | { k: 'return' }
+  | { k: 'expr'; node: Node }
+);
+
+/** What JS has and a rule does not: said when one is written. */
+const NOT_IN_RULES = ['while', 'do', 'function', 'class', 'import', 'export', 'try', 'throw', 'var', 'switch', 'async'];
 
 const BINARY: { [op: string]: number } = { '||': 2, '&&': 3, '==': 4, '!=': 4, '===': 4, '!==': 4, '<': 5, '<=': 5, '>': 5, '>=': 5, '+': 6, '-': 6, '*': 7, '/': 7, '%': 7 };
 const SAME: { [op: string]: string } = { '===': '==', '!==': '!=' };
@@ -175,6 +193,8 @@ export interface Reader {
   /** Throws when anything is left. */
   end(): void;
 }
+
+const idOf = (token: Token | undefined) => (token?.k === 'id' ? token.v : null);
 
 export function reader(tokens: Token[]): Reader {
   let i = 0;
@@ -215,6 +235,13 @@ export function reader(tokens: Token[]): Reader {
       case 'id': {
         if (token.v === 'true' || token.v === 'false') return { k: 'bool', v: token.v === 'true', at: token.at, end: token.end };
         if (token.v === 'null') return { k: 'null', at: token.at, end: token.end };
+        if (token.v === 'this') return { k: 'this', at: token.at, end: token.end };
+        if (token.v === 'new' && peek().k === 'id') throw new LangError(t('lang.notHere', { word: 'new' }), token.at);
+        // `x => …`: a function of one value, as a list's filter takes.
+        if (isOp('=>')) {
+          i++;
+          return arrow([token.v], token.at);
+        }
         if (isOp('(')) {
           if (token.v === 'if') throw new LangError(t('lang.noIf'), token.at);
           i++;
@@ -232,11 +259,45 @@ export function reader(tokens: Token[]): Reader {
       }
       case 'op': {
         if (token.v === '(') {
+          // `(a, b) => …` and `() => …`: names in brackets before an arrow.
+          let j = i;
+          const params: string[] = [];
+          while (idOf(tokens[j]) !== null && (tokens[j + 1]?.k === 'op' && ((tokens[j + 1] as { v: string }).v === ',' || (tokens[j + 1] as { v: string }).v === ')'))) {
+            params.push(idOf(tokens[j])!);
+            j += (tokens[j + 1] as { v: string }).v === ',' ? 2 : 1;
+          }
+          const close = tokens[j];
+          const next = tokens[j + 1];
+          if (close?.k === 'op' && close.v === ')' && next?.k === 'op' && next.v === '=>') {
+            i = j + 2;
+            return arrow(params, token.at);
+          }
           deeper();
           const inner = expression(0);
           expect(')');
           depth--;
           return inner;
+        }
+        if (token.v === '{') {
+          // A set of values: `{ name, planned: contract * 0.3 }`.
+          deeper();
+          const entries: { key: string; value: Node; at: number }[] = [];
+          while (!isOp('}')) {
+            const key = tokens[i++]!;
+            if (key.k !== 'id' && key.k !== 'str') fail(key);
+            const name = (key as { v: string }).v;
+            let value: Node;
+            if (isOp(':')) {
+              i++;
+              value = expression(0);
+            } else value = { k: 'name', name: name.toLowerCase(), at: key.at, end: key.end };
+            entries.push({ key: name, value, at: key.at });
+            if (!isOp(',')) break;
+            i++;
+          }
+          const close = expect('}');
+          depth--;
+          return { k: 'obj', entries, at: token.at, end: close.end };
         }
         if (token.v === '[') {
           deeper();
@@ -264,10 +325,101 @@ export function reader(tokens: Token[]): Reader {
       i++;
       const name = tokens[i++]!;
       if (name.k !== 'id') fail(name);
-      node = { k: 'member', of: node, name: (name as { v: string }).v, at: node.at, end: name.end };
+      if (isOp('(')) {
+        // A list's method: `lines.filter(l => l.actual > l.planned)`.
+        i++;
+        deeper();
+        const args: Node[] = [];
+        if (!isOp(')')) {
+          do args.push(expression(0));
+          while (isOp(',') && ++i);
+        }
+        const close = expect(')');
+        depth--;
+        node = { k: 'mcall', of: node, name: (name as { v: string }).v, args, at: node.at, end: close.end };
+      } else node = { k: 'member', of: node, name: (name as { v: string }).v, at: node.at, end: name.end };
     }
     return node;
   };
+  /** A function: what it is given by name, then a value worked out, or a body of statements. */
+  function arrow(params: string[], at: number): Node {
+    if (isOp('{')) {
+      const body = block();
+      return { k: 'arrow', params, body, at, end: tokens[i - 1]!.end };
+    }
+    const body = expression(0);
+    return { k: 'arrow', params, body, at, end: body.end };
+  }
+  const semi = () => {
+    if (isOp(';')) i++;
+  };
+  function block(): Stmt[] {
+    expect('{');
+    deeper();
+    const out: Stmt[] = [];
+    while (!isOp('}')) {
+      if (peek().k === 'end') fail(peek());
+      out.push(statement());
+    }
+    expect('}');
+    depth--;
+    return out;
+  }
+  const body = (): Stmt[] => (isOp('{') ? block() : [statement()]);
+  function statement(): Stmt {
+    const token = peek();
+    const at = token.at;
+    if (token.k === 'id') {
+      if (NOT_IN_RULES.includes(token.v)) throw new LangError(t('lang.notHere', { word: token.v }), at);
+      if (token.v === 'let' || token.v === 'const') {
+        i++;
+        const name = tokens[i++]!;
+        if (name.k !== 'id') fail(name);
+        expect('=');
+        const value = expression(0);
+        semi();
+        return { k: 'let', name: (name as { v: string }).v, value, constant: token.v === 'const', at };
+      }
+      if (token.v === 'if') {
+        i++;
+        expect('(');
+        const test = expression(0);
+        expect(')');
+        const yes = body();
+        const no = idOf(peek()) === 'else' ? (i++, body()) : [];
+        return { k: 'if', test, yes, no, at };
+      }
+      if (token.v === 'for') {
+        i++;
+        expect('(');
+        const kind = tokens[i++]!;
+        if (idOf(kind) !== 'const' && idOf(kind) !== 'let') throw new LangError(t('lang.forOf'), kind.at);
+        const name = tokens[i++]!;
+        if (name.k !== 'id') fail(name);
+        if (idOf(peek()) !== 'of') throw new LangError(t('lang.forOf'), peek().at);
+        i++;
+        const of = expression(0);
+        expect(')');
+        return { k: 'for', name: (name as { v: string }).v, of, body: body(), at };
+      }
+      if (token.v === 'return') {
+        i++;
+        semi();
+        return { k: 'return', at };
+      }
+      const next = tokens[i + 1];
+      if (next?.k === 'op' && next.v === '=') {
+        i += 2;
+        const value = expression(0);
+        semi();
+        return { k: 'set', name: token.v, value, at };
+      }
+    }
+    const node = expression(0);
+    semi();
+    return { k: 'expr', node, at };
+  }
+  // `expression` and `statement` call each other: a function's body holds statements.
   const unary = (): Node => postfix(primary());
   function expression(min: number): Node {
     let left = unary();
@@ -316,6 +468,12 @@ const sameKind = (a: Kind, b: Kind): boolean =>
 /** Where a name is read: this record's fields, the fields of other collections and boards for a link's target, and what is being written. */
 export interface Scope {
   fields: readonly Field[];
+  /** In a rule: the names given values before, by let, const, for or a function's own. */
+  locals?: ReadonlyMap<string, Kind>;
+  /** In a rule: the collection of the record, which `this` is. */
+  dir?: string;
+  /** In a rule: what a rule's own function gives (add, find…), or undefined for one that is not. Throws what is wrong with how it is called. */
+  ruleFn?: (fn: string, args: Kind[], nodes: Node[]) => Kind | undefined;
   /** The fields of the collection, or the board, at a path. */
   schemaOf?: (path: string) => Pick<Schema, 'fields'> | undefined;
   /** The key of the field being worked out, which cannot read itself. */
@@ -537,6 +695,8 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
         return { list: first && kinds.every((k) => k === 'null' || k === 'any' || sameKind(k, first)) ? first : 'any' };
       }
       case 'name': {
+        const local = scope.locals?.get(n.name);
+        if (local !== undefined) return local;
         const field = fields.find((f) => f.key === n.name);
         if (!field) throw new LangError(t('fields.formulaUnknown', { name: n.name }), n.at);
         if (n.name === scope.self) throw new LangError(t('fields.formulaSelf'), n.at);
@@ -546,6 +706,7 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
       case 'member': {
         const of = visit(n.of);
         if (of === 'any' || of === 'null') return 'any';
+        if (n.name === 'length' && (isList(of) || of === 'text')) return 'number';
         const target = isRecordKind(of) ? of.record : isList(of) && isRecordKind(of.list) ? of.list.record : null;
         if (target === null) throw new LangError(t('lang.notLink', { what: words(n.of, of) }), n.of.at);
         const schema = scope.schemaOf?.(target);
@@ -562,6 +723,16 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
       }
       case 'call': {
         const spec = FNS[n.fn];
+        const own = !spec && scope.use === 'rule' ? scope.ruleFn?.(n.fn, n.args.map((a) => (a.k === 'arrow' || a.k === 'obj' ? 'any' : visit(a))), n.args) : undefined;
+        if (own !== undefined) {
+          for (const a of n.args) if (a.k === 'arrow' || a.k === 'obj') visit(a);
+          return own;
+        }
+        if (n.fn === 'sum' && n.args.length === 2 && n.args[1]!.k === 'arrow') {
+          visit(n.args[0]!);
+          visit(n.args[1]!);
+          return 'number';
+        }
         if (!spec) {
           const instead = ELSEWHERE[n.fn];
           throw new LangError(instead ? t('lang.writeInstead', { fn: n.fn, instead }) : t('lang.noFunction', { fn: n.fn }), n.at);
@@ -588,6 +759,12 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
         if (!sameKind(yes, no)) throw new LangError(t('lang.branches', { yes: kindWords(yes), no: kindWords(no) }), n.yes.at);
         return yes;
       }
+      case 'this':
+      case 'obj':
+      case 'arrow':
+      case 'mcall':
+        if (scope.use !== 'rule') throw new LangError(t('lang.onlyInRules'), n.at);
+        return visitRule(n);
       case 'bin': {
         const [a, b] = [visit(n.left), visit(n.right)];
         const loose = (k: Kind) => k === 'any' || k === 'null';
@@ -639,6 +816,57 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
       }
     }
   };
+  /** What only a rule writes: the record, a set of values, a function (its names known while its body is checked), a list's method. */
+  function visitRule(n: Node): Kind {
+    switch (n.k) {
+      case 'this':
+        return scope.dir ? { record: scope.dir } : 'any';
+      case 'obj':
+        for (const e of n.entries) visit(e.value);
+        return 'any';
+      case 'arrow': {
+        if (Array.isArray(n.body)) return 'any';
+        const locals = new Map(scope.locals ?? []);
+        for (const p of n.params) locals.set(p, 'any');
+        check(n.body, { ...scope, locals }, stack);
+        return 'any';
+      }
+      case 'mcall': {
+        const of = visit(n.of);
+        const item: Kind = isList(of) ? of.list : 'any';
+        const fnArg = (i: number) => {
+          const a = n.args[i];
+          if (!a) throw new LangError(t('lang.args', { fn: n.name, count: t('lang.args.1') }), n.at);
+          if (a.k !== 'arrow' || Array.isArray(a.body)) throw new LangError(t('lang.methodFn', { fn: n.name }), a.at);
+          const locals = new Map(scope.locals ?? []);
+          if (a.params[0]) locals.set(a.params[0], item);
+          return check(a.body, { ...scope, locals }, stack).kind;
+        };
+        if (of !== 'any' && of !== 'null' && !isList(of)) throw new LangError(t('lang.notList', { what: kindWords(of), fn: n.name }), n.of.at);
+        switch (n.name) {
+          case 'filter':
+            fnArg(0);
+            return isList(of) ? of : { list: 'any' };
+          case 'map':
+            return { list: fnArg(0) };
+          case 'some':
+          case 'every':
+            fnArg(0);
+            return 'bool';
+          case 'find':
+            fnArg(0);
+            return item;
+          case 'includes':
+            for (const a of n.args) visit(a);
+            return 'bool';
+          default:
+            throw new LangError(t('lang.noMethod', { fn: n.name }), n.at);
+        }
+      }
+      default:
+        return 'any';
+    }
+  }
   const kind = visit(node);
   return { kind, reads: [...reads] };
 }
@@ -679,8 +907,31 @@ export interface Ref {
   code?: string;
 }
 
+/** A card of a board as a rule holds it: where it is. */
+export interface CardRef {
+  cardref: true;
+  board: string;
+  id: string;
+}
+
+/** A set of values a rule writes, `{ name, planned }`, by key as written. */
+export class Obj {
+  constructor(readonly values: ReadonlyMap<string, RV>) {}
+}
+
+/** A function a rule writes, `l => l.actual > l.planned`, with the names it was written among. */
+export class Fn {
+  constructor(
+    readonly params: string[],
+    readonly body: Node | Stmt[],
+    readonly env: Env,
+  ) {}
+}
+
 /** A value as the language works with it. */
-export type RV = number | string | boolean | null | Day | Ref | RV[];
+export type RV = number | string | boolean | null | Day | Ref | CardRef | Obj | Fn | RV[];
+
+export const isCardRef = (v: unknown): v is CardRef => typeof v === 'object' && v !== null && (v as CardRef).cardref === true;
 
 export const isRef = (v: unknown): v is Ref => typeof v === 'object' && v !== null && (v as Ref).ref === true;
 const isLinkValue = (v: unknown): v is Link => typeof v === 'object' && v !== null && !Array.isArray(v) && typeof (v as Link).name === 'string' && typeof (v as Link).id === 'string';
@@ -709,7 +960,7 @@ export function toRuntime(field: Pick<Field, 'type' | 'collection'>, value: Fiel
 
 /** A value of the language as a record shows it: a day as YYYY-MM-DD, a linked record as a link. */
 export function fromRuntime(v: RV): FieldValue {
-  if (v === null || v === undefined) return null;
+  if (v === null || v === undefined || v instanceof Obj || v instanceof Fn || isCardRef(v)) return null;
   if (v instanceof Day) return v.toString();
   if (isRef(v)) return { id: v.id, name: v.name, ...(v.code && { code: v.code }) };
   if (Array.isArray(v)) {
@@ -726,7 +977,7 @@ export const isNothing = (v: RV) => v === null || v === '' || (Array.isArray(v) 
 
 /** A value as text: what `text()` and `+` with a text make of it. */
 export function textOf(v: RV): string {
-  if (v === null || v === undefined) return '';
+  if (v === null || v === undefined || v instanceof Obj || v instanceof Fn || isCardRef(v)) return '';
   if (v instanceof Day) return v.toString();
   if (isRef(v)) return v.name;
   if (Array.isArray(v)) return v.map(textOf).filter(Boolean).join(', ');
@@ -739,7 +990,8 @@ export const truthy = (v: RV): boolean => !(isNothing(v) || v === false || v ===
 /** A value as a number for arithmetic: a number, or yes or no as 1 or 0; null for anything else. */
 const numberOf = (v: RV): number | null => (typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 1 : 0) : null);
 
-function equal(a: RV, b: RV): boolean {
+/** Whether two values are the same as the language compares them: a link by its record, a day by its day. */
+export function equal(a: RV, b: RV): boolean {
   if (isNothing(a) || isNothing(b)) return isNothing(a) && isNothing(b);
   if (a instanceof Day || b instanceof Day) return a instanceof Day && b instanceof Day && a.n === b.n;
   if (isRef(a) && isRef(b)) return a.id && b.id ? a.id === b.id : a.name.trim().toLowerCase() === b.name.trim().toLowerCase();
@@ -764,6 +1016,23 @@ export interface Env {
   me?: string;
   /** The next number with a prefix, in so many digits at least: one more than the highest the field has in the collection. */
   next?(prefix: string, digits: number): string;
+  /** In a rule: a name given a value before; undefined when it is not one. */
+  local?(name: string): RV | undefined;
+  /** In a rule: the record itself. */
+  self?: Ref;
+  /** In a rule: what one of its own functions gives (add, find…); undefined for one that is not. */
+  rule?(fn: string, args: RV[], node: Node): RV | undefined;
+  /** In a rule: a field of a card, or its title, column, due day or assignee. */
+  cardMember?(card: CardRef, key: string): RV;
+  /** The parts visited so far, shared by everything one rule works out. */
+  steps?: { n: number };
+}
+
+/** Works a function out for the values it is given. */
+export function applyFn(fn: Fn, args: RV[]): RV {
+  if (Array.isArray(fn.body)) throw new LangError(t('lang.methodFn', { fn: '' }));
+  const outer = fn.env;
+  return evaluate(fn.body, { ...outer, local: (name) => (fn.params.includes(name) ? (args[fn.params.indexOf(name)] ?? null) : outer.local?.(name)) });
 }
 
 /** How many parts of an expression one working out may visit, so that nothing runs away. */
@@ -771,9 +1040,9 @@ const MAX_STEPS = 100000;
 
 /** Works an expression out; a part that cannot be (an empty field, a wrong kind, a division by zero) gives null. */
 export function evaluate(node: Node, env: Env): RV {
-  let steps = 0;
+  const steps = env.steps ?? { n: 0 };
   const run = (n: Node): RV => {
-    if (++steps > MAX_STEPS) throw new LangError(t('lang.tooMuch'), n.at);
+    if (++steps.n > MAX_STEPS) throw new LangError(t('lang.tooMuch'), n.at);
     switch (n.k) {
       case 'num':
         return n.v;
@@ -787,16 +1056,56 @@ export function evaluate(node: Node, env: Env): RV {
         return n.parts.map((p) => (typeof p === 'string' ? p : textOf(run(p)))).join('');
       case 'list':
         return n.items.map(run);
-      case 'name':
-        return env.field(n.name);
+      case 'name': {
+        const local = env.local?.(n.name);
+        return local !== undefined ? local : env.field(n.name);
+      }
       case 'member': {
         const of = run(n.of);
+        if (n.name === 'length' && (Array.isArray(of) || typeof of === 'string')) return of.length;
         if (isRef(of)) return env.member(of, n.name);
-        if (Array.isArray(of)) return of.flatMap((r) => (isRef(r) ? [env.member(r, n.name)] : [])).flat();
+        if (isCardRef(of)) return env.cardMember?.(of, n.name) ?? null;
+        if (Array.isArray(of)) return of.flatMap((r) => (isRef(r) ? [env.member(r, n.name)] : isCardRef(r) ? [env.cardMember?.(r, n.name) ?? null] : [])).flat();
         return null;
       }
-      case 'call':
-        return call(n.fn, n.args.map(run), env);
+      case 'call': {
+        const args = n.args.map(run);
+        if (n.fn === 'sum' && args[1] instanceof Fn && Array.isArray(args[0])) return numbersIn(args[0].map((x) => applyFn(args[1] as Fn, [x]))).reduce((s, x) => s + x, 0);
+        if (!FNS[n.fn] && env.rule) {
+          const own = env.rule(n.fn, args, n);
+          if (own !== undefined) return own;
+          throw new LangError(t('lang.noFunction', { fn: n.fn }), n.at);
+        }
+        return call(n.fn, args, env);
+      }
+      case 'this':
+        return env.self ?? null;
+      case 'obj':
+        return new Obj(new Map(n.entries.map((e) => [e.key, run(e.value)])));
+      case 'arrow':
+        return new Fn(n.params, n.body, { ...env, steps });
+      case 'mcall': {
+        const of = run(n.of);
+        const list = Array.isArray(of) ? of : [];
+        const fn = run(n.args[0] ?? { k: 'null', at: n.at, end: n.end });
+        const each = (x: RV) => (fn instanceof Fn ? truthy(applyFn(fn, [x])) : false);
+        switch (n.name) {
+          case 'filter':
+            return list.filter(each);
+          case 'map':
+            return fn instanceof Fn ? list.map((x) => applyFn(fn, [x])) : [];
+          case 'some':
+            return list.some(each);
+          case 'every':
+            return list.every(each);
+          case 'find':
+            return list.find(each) ?? null;
+          case 'includes':
+            return list.some((x) => equal(x, fn));
+          default:
+            throw new LangError(t('lang.noMethod', { fn: n.name }), n.at);
+        }
+      }
       case 'unary': {
         const v = run(n.of);
         if (n.op === '!') return !truthy(v);

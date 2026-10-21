@@ -1285,6 +1285,69 @@ export function ConfirmDialog({ title, message, places, after, brief, action, da
   );
 }
 
+/**
+ * The question a button of a collection's rules asks before it runs: what it will do to the
+ * record, a line each, the names of what it adds faint after them. On a phone a sheet, its
+ * button wide under the lines.
+ */
+export function ButtonDialog({ name, record, lines, onConfirm, onClose }: {
+  /** The button's label. */
+  name: string;
+  /** The record's title. */
+  record: string;
+  lines: { text: string; names?: string }[];
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const title = t('run.askTitle', { name });
+  const list = (
+    <ul className="ask-lines">
+      {lines.map((line, i) => (
+        <li key={i}>
+          {line.text} {line.names && <small>{line.names}</small>}
+        </li>
+      ))}
+    </ul>
+  );
+  if (isPhone()) {
+    return (
+      <Sheet label={title} className="mb-create" onClose={onClose}>
+        <div className="mb-sh">
+          <b>{title}</b>
+          <SheetClose onClose={onClose} />
+        </div>
+        <div className="mb-ask">
+          <p>{t('run.askFor', { name: record })}</p>
+          {list}
+          <button type="button" className="go" onClick={onConfirm}>
+            {name}
+          </button>
+        </div>
+      </Sheet>
+    );
+  }
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' || event.target instanceof HTMLButtonElement) return;
+    event.preventDefault();
+    onConfirm();
+  };
+  return (
+    <Dialog label={title} onClose={onClose} onKeyDown={onKey}>
+      <h2>{title}</h2>
+      <p className="confirm">{t('run.askFor', { name: record })}</p>
+      {list}
+      <div className="dialog-actions">
+        <button type="button" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" onClick={onConfirm}>
+          {name}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
 export interface MenuItem {
   label: string;
   run: () => void;

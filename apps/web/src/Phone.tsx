@@ -86,6 +86,12 @@ export interface Notice {
   text: string;
   undo?: () => void;
   action?: { label: string; run: () => void };
+  /** Said first, in the accent: what stopped. */
+  title?: string;
+  /** What went wrong, kept until it is closed with its ×. */
+  sticky?: boolean;
+  /** On a computer, shown over an open window at the foot of the screen, not in the status bar. */
+  toast?: boolean;
 }
 
 export interface PhoneProps {
@@ -144,6 +150,8 @@ export interface PhoneProps {
   /** Something that happened, for a moment; with Undo, which `onUndo` does. */
   notice: Notice | null;
   onUndo: () => void;
+  /** Closes a notice that stays until it is closed. */
+  onCloseNotice: () => void;
   /** A new version waiting, with its Reload button. */
   update: ReactNode;
   onOpen: (id: string) => void;
@@ -1443,8 +1451,15 @@ export function Phone(props: PhoneProps) {
         <div className="mb-toasts">
           {props.update && <div className="mb-update">{props.update}</div>}
           {props.notice && (
-            <div className={props.notice.undo || props.notice.action ? 'mb-toast undo' : 'mb-toast'} role="status">
-              <span>{props.notice.text}</span>
+            <div className={[props.notice.undo || props.notice.action || props.notice.sticky ? 'mb-toast undo' : 'mb-toast', props.notice.sticky ? 'bad' : ''].join(' ').trim()} role={props.notice.sticky ? 'alert' : 'status'}>
+              <span>
+                {props.notice.title && <b>{props.notice.title}</b>} {props.notice.text}
+              </span>
+              {props.notice.sticky && (
+                <button type="button" className="x" aria-label={t('notice.close')} title={t('notice.close')} onClick={props.onCloseNotice}>
+                  <Icon name="close" />
+                </button>
+              )}
               {props.notice.undo && (
                 <button type="button" onClick={props.onUndo}>
                   {t('notice.undo')}

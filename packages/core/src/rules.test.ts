@@ -61,7 +61,7 @@ describe('rules', () => {
     const scope = { fields: transactions.schema.fields };
     expect(rulesProblems(RULES, scope)).toEqual([]);
     // What cannot be read stops the file, on its line; a check that can is checked against the fields.
-    const unread = rulesProblems('check("line", () => true, "x")\naction("Start", () => 1)', scope);
+    const unread = rulesProblems('check("line", () => true, "x")\nonSave("Paid", () => 1)', scope);
     expect(unread).toHaveLength(1);
     expect(unread[0]!.line).toBe(2);
     expect(unread[0]!.message).toMatch(/check\(…\)/);

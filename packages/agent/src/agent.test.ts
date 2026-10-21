@@ -574,6 +574,38 @@ describe('tried by hand', () => {
     expect(Object.fromEntries(listed.data.records.map((r) => [r.name, r.problems?.length ?? 0]))).toEqual({ 'Atakule Tower': 1, 'Kadıköy Residence': 0 });
   });
 
+  it('presses a button of a collection’s rules on a record, writing what it does at once, and refuses one that stops', async () => {
+    const { agent, fs } = await sample();
+    const projects = await createCollection(fs, 'Ops', 'Projects', 'blank');
+    const lines = await createCollection(fs, 'Ops', 'Budget lines', 'blank');
+    const field = (key: string, type: string, more = {}) => ({ key, label: key[0]!.toUpperCase() + key.slice(1), type, ...more });
+    await writeTool(agent, { path: `${projects}/_collection.json`, text: JSON.stringify({ version: 2, template: 'blank', singular: 'project', fields: [field('name', 'name'), field('status', 'select', { options: ['Offer', 'Active'] }), field('contract', 'number')] }) });
+    await writeTool(agent, { path: `${lines}/_collection.json`, text: JSON.stringify({ version: 2, template: 'blank', singular: 'budget line', fields: [field('name', 'name'), field('project', 'link', { collection: projects }), field('planned', 'number')] }) });
+    const rules = `${projects}/_rules.js`;
+    // What a button names is looked for in the space: a collection that is not there is said on its line.
+    const wrong = await refusal(writeTool(agent, { path: rules, text: 'action("Start", () => {\n  add("Lines", { name: "x" })\n})\n' }));
+    expect(wrong.details.problems).toEqual(['Line 2: There is no collection called Lines in this space.']);
+    await writeTool(agent, {
+      path: rules,
+      text: 'action("Start project", { when: () => status == "Offer", confirm: true }, () => {\n  for (const name of ["Material", "Labour"]) add("Budget lines", { name, planned: contract / 2 })\n  status = "Active"\n})\n',
+    });
+    await saveRecordTool(agent, { collection: 'Projects', values: { name: 'Antalya Hotel', status: 'Offer', contract: 1000 } });
+    const pressed = await saveRecordTool(agent, { collection: 'Projects', id: 'Antalya Hotel', action: 'Start project' });
+    expect(pressed.data.action).toEqual({ action: 'Start project', done: 'Start project: 2 budget lines, Status Active', changes: ['add 2 budget lines: Material, Labour', 'change Status from Offer to Active'] });
+    expect(pressed.data.record.values.status).toBe('Active');
+    const added = await loadCollection(fs, lines);
+    expect(added.records.map((r) => [r.name, r.values.planned, (r.values.project as { name: string }).name]).sort()).toEqual([
+      ['Labour', 500, 'Antalya Hotel'],
+      ['Material', 500, 'Antalya Hotel'],
+    ]);
+    // Pressed again it does not run: its condition no longer holds, and nothing is written.
+    const again = await refusal(saveRecordTool(agent, { collection: 'Projects', id: 'Antalya Hotel', action: 'Start project' }));
+    expect(again.message).toMatch(/^Start project stopped/);
+    expect(again.message).toContain('Nothing of it was written');
+    expect((await loadCollection(fs, lines)).records).toHaveLength(2);
+    expect((await refusal(saveRecordTool(agent, { collection: 'Projects', id: 'Antalya Hotel', action: 'Close' }))).message).toContain('no button called Close');
+  });
+
   it('moves a task to a section, under another task, to the top, or to another list, and refuses where it cannot go', async () => {
     const { agent, fs } = await sample();
     const launch = await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' });

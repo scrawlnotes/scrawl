@@ -9,6 +9,8 @@ import {
   currencyOf,
   formatNumber,
   computerFor,
+  actionsOf,
+  actionState,
   type Condition,
   type ConditionOp,
   faceFields,
@@ -674,19 +676,27 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   const shownBlock = tab > 0 ? blocks[tab - 1] : undefined;
   const source = shownBlock?.block === 'linked' ? actions.collection(shownBlock.collection) : null;
 
-  const save = async () => {
-    if (busy.current) return;
+  /** Writes the page; false when it cannot be, saying why. */
+  const save = async (): Promise<boolean> => {
+    if (busy.current) return false;
     const missing = missingText(schema, draft.values);
     if (missing) {
       setError(missing);
       setTab(0);
-      return;
+      return false;
     }
     busy.current = true;
     setError(null);
     const failed = await actions.updateRecord(dir, record.id, { values: draft.values, body: draft.body, subtasks: draft.subtasks });
     busy.current = false;
     if (failed) setError(failed);
+    return !failed;
+  };
+  // The buttons of the collection's rules, under the name; one runs on the record as it is written, what was typed saved first.
+  const buttons = actionsOf(collection.rules);
+  const press = async (button: string) => {
+    if (dirty && !(await save())) return;
+    actions.pressButton(dir, record.id, button);
   };
   const cancel = () => {
     setDraft(original);
@@ -738,6 +748,24 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
         )}
         {tab === 0 && (
           <>
+            {buttons.length > 0 && (
+              <div className="mb-rbuttons" role="group" aria-label={t('run.buttons')}>
+                {buttons.map((button) => {
+                  const state = actionState(collection.rules ?? '', button, computer, dir, { ...record, values: draft.values });
+                  return (
+                    <button
+                      key={button.name}
+                      type="button"
+                      className={state.on ? 'mb-rbutton' : 'mb-rbutton off'}
+                      aria-disabled={!state.on}
+                      onClick={() => (state.on ? void press(button.name) : state.hint && actions.say?.(state.hint))}
+                    >
+                      {button.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="mb-form mb-rform">
               {error && (
                 <p className="mb-hint err" role="alert">

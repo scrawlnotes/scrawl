@@ -21,7 +21,9 @@ import {
   parseSchema,
   ROLLUP_FNS,
   type RollupFn,
+  type RuleSpace,
   rulesProblems,
+  ruleSpaceOf,
   schemaPath,
   type VaultFs,
 } from '@scrawlnotes/core';
@@ -76,7 +78,24 @@ export async function checkRules(fs: VaultFs, path: string, text: string): Promi
   const schema = await loadSchema(fs, dir).catch(() => null);
   if (!schema || (await fs.stat?.(schemaPath(dir))) === null) return [`A rules file goes in a collection's folder, beside its _collection.json; ${dir || 'this folder'} is not a collection`];
   const { schemaOf } = await fieldsAround(fs);
-  return rulesProblems(text, { fields: schema.fields, schemaOf }).map((p) => `Line ${p.line}: ${p.message}`);
+  return rulesProblems(text, { fields: schema.fields, schemaOf, dir }, await ruleSpaceAround(fs)).map((p) => `Line ${p.line}: ${p.message}`);
+}
+
+/** The space as its buttons name what is in it: its collections' and boards' fields, its boards' columns, its task lists. */
+async function ruleSpaceAround(fs: VaultFs): Promise<RuleSpace> {
+  const elements = await elementsOf(fs, ['collection', 'board', 'tasks']);
+  const collections: { dir: string; schema: { fields: Field[] } }[] = [];
+  const boards: { [path: string]: { fields?: Field[]; columns: { name: string }[] } } = {};
+  for (const element of elements) {
+    if (element.kind === 'collection') {
+      const schema = await loadSchema(fs, element.path).catch(() => null);
+      if (schema) collections.push({ dir: element.path, schema });
+    } else if (element.kind === 'board') {
+      const board = await loadBoard(fs, element.path).catch(() => null);
+      if (board) boards[element.path] = board;
+    }
+  }
+  return ruleSpaceOf(collections, boards, elements.filter((e) => e.kind === 'tasks').map((e) => e.path));
 }
 
 /** What is wrong with a number's format as written. */

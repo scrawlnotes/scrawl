@@ -1,0 +1,184 @@
+import { describe, expect, it } from 'vitest';
+import { addCard, loadBoard, newBoard, saveBoard } from './board';
+import { type Collection, type Field, loadCollection, type Record, saveSchema, type Schema, serializeRecord } from './collection';
+import { Computer } from './compute';
+import { MemoryFs } from './fs';
+import { rulesProblems } from './rules';
+import { actionsOf, actionState, planAction, planWords, RuleStop, writePlan } from './run';
+import { loadList, saveList } from './tasks';
+
+const today = '2026-10-21';
+const schema = (fields: Field[], singular?: string): Schema => ({ version: 2, template: 'blank', ...(singular && { singular }), fields: [{ key: 'name', label: 'Name', type: 'name' }, ...fields] });
+function record(dir: string, id: string, name: string, values: Record['values'] = {}): Record {
+  return { id, path: `${dir}/${id}.md`, name, code: '', values: { name, ...values }, extra: {}, body: '' };
+}
+const link = (id: string, name: string) => ({ id, name });
+
+const RULES = `check("delivery", () => delivery >= start, "Delivery is before the start")
+
+action("Start project", { when: () => status == "Offer", confirm: true, hint: "Only for an offer" }, () => {
+  for (const name of ["Material", "Labour", "Transport"]) {
+    add("Budget lines", { name, category: name, planned: contract * 0.3 })
+  }
+  const lines = find("Budget lines", { project: this })
+  if (lines.length == 3) subtask("Site survey", { due: start + 3 })
+  subtask("Order the cabin")
+  task("Inbox", { title: \`Call \${name}\` })
+  status = "Active"
+})
+
+action("Close project", { when: () => status == "Active" }, () => {
+  for (const c of cards("Projects board", { project: this })) move(c, "Acceptance")
+  const big = linked("Budget lines").filter((l) => l.planned > 500)
+  for (const l of big) update(l, { planned: 500 })
+  status = "Done"
+})
+
+action("Broken", () => {
+  add("Budget lines", { name: "X", cost: 1 })
+})
+`;
+
+function space() {
+  const projects: Collection = {
+    dir: 'Atlas/Projects',
+    schema: schema(
+      [
+        { key: 'status', label: 'Status', type: 'select', options: ['Offer', 'Active', 'Done'] },
+        { key: 'start', label: 'Start', type: 'date' },
+        { key: 'delivery', label: 'Delivery', type: 'date' },
+        { key: 'contract', label: 'Contract', type: 'number' },
+      ],
+      'project',
+    ),
+    records: [record('Atlas/Projects', 'p1', 'Antalya Hotel', { status: 'Offer', start: '2026-10-27', contract: 2400000 })],
+    rules: RULES,
+  };
+  const lines: Collection = {
+    dir: 'Atlas/Budget lines',
+    schema: schema(
+      [
+        { key: 'project', label: 'Project', type: 'link', collection: 'Atlas/Projects' },
+        { key: 'category', label: 'Category', type: 'select', options: ['Material', 'Labour', 'Transport'] },
+        { key: 'planned', label: 'Planned', type: 'number' },
+      ],
+      'budget line',
+    ),
+    records: [],
+  };
+  let board = newBoard('Projects board', 'simple');
+  board = { ...board, fields: [{ key: 'project', label: 'Project', type: 'link', collection: 'Atlas/Projects' }], columns: [...board.columns, { id: 'acc', name: 'Acceptance', kind: 'review' as const }] };
+  board = addCard(board, { title: 'Survey', values: { project: link('p1', 'Antalya Hotel') } }, () => new Date(), undefined, 'c1');
+  board = addCard(board, { title: 'Other job' }, () => new Date(), undefined, 'c2');
+  return { collections: [projects, lines], boards: { 'Atlas/Projects board.board.json': board }, lists: { 'Inbox.tasks.json': [] }, today, me: 'Kaan' };
+}
+
+describe('buttons', () => {
+  it('reads buttons and says what is wrong with them on their line', () => {
+    const s = space();
+    const where = {
+      collections: s.collections.map((c) => ({ dir: c.dir, fields: c.schema.fields })),
+      boards: Object.entries(s.boards).map(([path, b]) => ({ path, fields: b.fields ?? [], columns: b.columns.map((c) => c.name) })),
+      lists: Object.keys(s.lists),
+    };
+    const scope = { fields: s.collections[0]!.schema.fields, dir: 'Atlas/Projects' };
+    expect(actionsOf(RULES).map((a) => [a.name, a.confirm, a.hint])).toEqual([
+      ['Start project', true, 'Only for an offer'],
+      ['Close project', false, undefined],
+      ['Broken', false, undefined],
+    ]);
+    const problems = rulesProblems(RULES, scope, where);
+    expect(problems.map((p) => [p.line, p.message])).toEqual([[22, 'Budget lines has no field cost.']]);
+    const wrong = (body: string) => rulesProblems(`action("A", () => {\n${body}\n})`, scope, where)[0]?.message;
+    expect(wrong('add("Lines", { name: "x" })')).toMatch(/no collection called Lines/);
+    expect(wrong('statuss = "Done"')).toMatch(/statuss/);
+    expect(wrong('const x = 1\nx = 2')).toMatch(/const/);
+    expect(wrong('while (true) {}')).toMatch(/while/);
+    expect(wrong('card("Projects board", { title: "x", column: "Later" })')).toMatch(/no column called Later/);
+    expect(wrong('task("Todo", { title: "x" })')).toMatch(/no task list called Todo/);
+    expect(wrong('linked("Budget lines").sort()')).toMatch(/no sort/);
+    expect(rulesProblems('action("A", () => {})\naction("a", () => {})', scope)[0]!.message).toMatch(/already/);
+    expect(wrong('let x = 1\nx = 2\nfor (const l of linked("Budget lines")) update(l, { planned: l.planned * x })')).toBeUndefined();
+  });
+
+  it('works out what a button would do, writing nothing, seeing its own changes', () => {
+    const s = space();
+    const plan = planAction(RULES, 'Start project', 'Atlas/Projects', 'p1', s);
+    expect(plan.confirm).toBe(true);
+    expect(plan.changes.map((c) => c.kind)).toEqual(['add', 'add', 'add', 'subtask', 'subtask', 'task', 'update']);
+    const added = plan.changes.filter((c) => c.kind === 'add');
+    // Linked back to the project as + Add does, its values as their fields hold them.
+    expect(added.map((c) => c.kind === 'add' && c.values)).toEqual(['Material', 'Labour', 'Transport'].map((name) => ({ name, category: name, planned: 720000, project: link('p1', 'Antalya Hotel') })));
+    // The lines it added are found: so the survey has its day.
+    expect(plan.changes[3]).toMatchObject({ kind: 'subtask', subtask: { title: 'Site survey', due: '2026-10-30' } });
+    expect(plan.changes[5]).toMatchObject({ kind: 'task', list: 'Inbox.tasks.json', task: { title: 'Call Antalya Hotel', record: { collection: 'Atlas/Projects', id: 'p1' } } });
+    expect(plan.changes[6]).toEqual({ kind: 'update', dir: 'Atlas/Projects', id: 'p1', values: { status: 'Active' } });
+    expect(s.collections[1]!.records).toEqual([]);
+    const words = planWords(plan, s);
+    expect(words.ask).toEqual([
+      { text: 'add 3 budget lines', names: 'Material, Labour, Transport' },
+      { text: 'add 2 subtasks', names: 'Site survey, Order the cabin' },
+      { text: 'add 1 task to Inbox', names: 'Call Antalya Hotel' },
+      { text: 'change Status from Offer to Active' },
+    ]);
+    expect(words.done).toBe('Start project: 3 budget lines, 2 subtasks, 1 task, Status Active');
+  });
+
+  it('is faint when its condition does not hold, says why, and stops on the line that fails', () => {
+    const s = space();
+    const computer = new Computer(s.collections, s.boards, today);
+    const p1 = s.collections[0]!.records[0]!;
+    const close = actionsOf(RULES)[1]!;
+    expect(actionState(RULES, actionsOf(RULES)[0]!, computer, 'Atlas/Projects', p1)).toEqual({ on: true });
+    expect(actionState(RULES, close, computer, 'Atlas/Projects', p1)).toEqual({ on: false, hint: 'status == "Active"' });
+    expect(() => planAction(RULES, 'Close project', 'Atlas/Projects', 'p1', s)).toThrow(RuleStop);
+    try {
+      planAction(RULES, 'Broken', 'Atlas/Projects', 'p1', s);
+    } catch (error) {
+      expect(error).toBeInstanceOf(RuleStop);
+      expect((error as RuleStop).line).toBe(22);
+      expect((error as RuleStop).message).toMatch(/no field cost/);
+    }
+  });
+
+  it('moves cards and changes linked records', () => {
+    const s = space();
+    s.collections[0]!.records[0]!.values.status = 'Active';
+    s.collections[1]!.records.push(record('Atlas/Budget lines', 'l1', 'Material', { project: link('p1', 'Antalya Hotel'), planned: 900 }), record('Atlas/Budget lines', 'l2', 'Labour', { project: link('p1', 'Antalya Hotel'), planned: 100 }));
+    const plan = planAction(RULES, 'Close project', 'Atlas/Projects', 'p1', s);
+    expect(plan.changes).toEqual([
+      { kind: 'move', board: 'Atlas/Projects board.board.json', id: 'c1', column: 'acc' },
+      { kind: 'update', dir: 'Atlas/Budget lines', id: 'l1', values: { planned: 500 } },
+      { kind: 'update', dir: 'Atlas/Projects', id: 'p1', values: { status: 'Done' } },
+    ]);
+    expect(planWords(plan, s).ask.map((l) => l.text)).toEqual(['move 1 card to Acceptance', 'change 1 budget line', 'change Status from Active to Done']);
+  });
+
+  it('writes a plan at once and undoes it', async () => {
+    const fs = new MemoryFs();
+    const s = space();
+    for (const c of s.collections) {
+      await saveSchema(fs, c.dir, c.schema);
+      for (const r of c.records) await fs.writeText(r.path, serializeRecord(r, c.schema));
+    }
+    await saveBoard(fs, 'Atlas/Projects board.board.json', s.boards['Atlas/Projects board.board.json']!);
+    await saveList(fs, 'Inbox.tasks.json', { tasks: [], sections: [] });
+    const loaded = await Promise.all(s.collections.map((c) => loadCollection(fs, c.dir)));
+    const here = { ...s, collections: loaded.map((c, i) => ({ ...c, rules: s.collections[i]!.rules })) };
+    const plan = planAction(RULES, 'Start project', 'Atlas/Projects', 'p1', here);
+    const undo = await writePlan(fs, plan, here);
+    const lines = await loadCollection(fs, 'Atlas/Budget lines');
+    expect(lines.records.map((r) => r.name).sort()).toEqual(['Labour', 'Material', 'Transport']);
+    const project = (await loadCollection(fs, 'Atlas/Projects')).records[0]!;
+    expect(project.values.status).toBe('Active');
+    expect(project.subtasks?.map((t) => t.title)).toEqual(['Site survey', 'Order the cabin']);
+    expect((await loadList(fs, 'Inbox.tasks.json')).tasks.map((t) => t.title)).toEqual(['Call Antalya Hotel']);
+    await undo();
+    expect((await loadCollection(fs, 'Atlas/Budget lines')).records).toEqual([]);
+    const back = (await loadCollection(fs, 'Atlas/Projects')).records[0]!;
+    expect(back.values.status).toBe('Offer');
+    expect(back.subtasks ?? []).toEqual([]);
+    expect((await loadList(fs, 'Inbox.tasks.json')).tasks).toEqual([]);
+    expect((await loadBoard(fs, 'Atlas/Projects board.board.json')).cards).toHaveLength(2);
+  });
+});

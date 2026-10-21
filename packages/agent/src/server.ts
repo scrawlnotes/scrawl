@@ -191,7 +191,7 @@ export function buildServer(agent: Agent): McpServer {
     'save_record',
     {
       title: 'Save a record',
-      description: 'Adds one record to a collection, or changes one when `id` is given (its id, name or code). Values are by field key or label; a link field takes the linked record’s name, code or id. A value that does not fit its field is written and marked in `problems`, not refused. Without `id`, a record with the same name or code is not added again: the tool returns it with exists: true; give its id to change it, or another: true to add a second one on purpose.',
+      description: 'Adds one record to a collection, or changes one when `id` is given (its id, name or code). Values are by field key or label; a link field takes the linked record’s name, code or id. A value that does not fit its field is written and marked in `problems`, not refused. Without `id`, a record with the same name or code is not added again: the tool returns it with exists: true; give its id to change it, or another: true to add a second one on purpose. `action` presses a button of the collection’s rules (an action() in its _rules.js) on the record, after the values are written: what it adds and changes is written at once and said back in `action`; a button that stops writes nothing and says the line and why.',
       inputSchema: z.object({
         space,
         collection: z.string(),
@@ -200,6 +200,7 @@ export function buildServer(agent: Agent): McpServer {
         body: z.string().optional().describe('The notes under the fields, markdown.'),
         subtasks,
         another,
+        action: z.string().optional().describe('A button of the collection’s rules to press on the record, by its label: "Start project".'),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
