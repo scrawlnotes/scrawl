@@ -1,6 +1,6 @@
 # Koleksiyonla küçük uygulamalar: teknik tasarım (taslak)
 
-Durum: 20 Ekim 2026, taslak. Kararlar 1. bölümde; tasarımın bütünü onay bekliyor. Kodda bir şey yazılmadı. PLAN.md henüz değişmedi; değişecek yerler 11. bölümde.
+Durum: 20 Ekim 2026'da onaylandı, PLAN.md'ye işlendi. 1. dilim kodda (ffc68b3). 2. dilimin mockup'ı 21 Ekim'de onaylandı (`design/mockups.html`, 13. aşama · 2. dilim).
 
 ## 1. Amaç
 
@@ -26,6 +26,15 @@ Verilen kararlar (20 Ekim 2026):
 - Para birimini kaydın bir alanından okuyan sütunda tablo ve grup toplamı para birimine göre ayrılır; rollup ve formülde v1'de para birimi alan başınadır (4.6).
 - Bu iş 13. aşamanın (Dropbox, S3, GitHub) önüne girer.
 - Finans ayrı bir space olmaz, space'ler arası link de gerekmez. Bölümler space'in içinde yetkiyle ayrılır; bu, sunucuda klasöre göre yetkiyle gelir (PLAN, Sonraya kalanlar).
+
+21 Ekim 2026'da, 2. dilimin mockup'ıyla verilen kararlar:
+- Fields penceresinin sekmeleri Design, Rules ve Schema'dır. Text'in adı Schema olur ve en sona geçer; şema dosyasını gösterir.
+- Para birimi her cihazda simgesiyle yazılır: İngilizce bir cihazda `₺1,250.50` (4.6).
+- Tarayıcı bölgeyi bilmez, yalnız kendi dilini bilir. Settings › Appearance'ta cihaz başına **Numbers** seçeneği olur: tarayıcıya göre, `1.234,56` ya da `1,234.56` (4.6).
+- Rollup'ın koşulu para birimini tek birine sabitlerse karışık para birimi uyarısı kalkar (4.6).
+- Formdaki sayı kutusu biçimli görünür, yazarken düz sayıya döner (4.6).
+- Varsayılan değer alanın düzenleyicisinde Value ya da Formula olarak verilir (5.1).
+- Rules sekmesinde yanlış satır varken Save kapalıdır (6.1).
 
 ## 2. Örnek: proje, görev ve bütçe
 
@@ -184,12 +193,15 @@ Sayı, formül, rollup ve lookup alanında `format`:
 
 - `style`: `number`, `currency` ya da `percent`. `decimals`: 0 ile 4 arası.
 - Yüzde, Excel'deki gibi kesirle tutulur: 0,18 değeri %18 görünür. Excel'e aktarınca aynı kalır.
-- Gösterim `Intl.NumberFormat` ile, cihazın dil ve bölge ayarına göre yapılır. Türkiye'de `₺1.250,50`, ABD'de `TRY 1,250.50` görünür. Dosyadaki değer hep düz sayıdır. Aynı space'te iki kişi kendi biçimini görür.
+- Gösterim `Intl.NumberFormat` ile, cihazın dil ve bölge ayarına göre yapılır. Para birimi her cihazda simgesiyle yazılır (`currencyDisplay: "narrowSymbol"`): Türkiye'de `₺1.250,50`, ABD'de `₺1,250.50`. Dosyadaki değer hep düz sayıdır. Aynı space'te iki kişi kendi biçimini görür.
+- Tarayıcı bölge ayarını bilmez, yalnız kendi dilini bilir: Chrome İngilizceyse Windows'ta bölge Türkiye olsa da `1,250.50` görünür. Bu yüzden Settings › Appearance'ta cihaz başına **Numbers** seçeneği vardır: *As the browser* (varsayılan), `1.234,56`, `1,234.56`. Seçenek cihazda kalır, sync'e girmez.
+- Formdaki sayı kutusu biçimli görünür (`₺96.800`); kutuya girince düz sayıya döner, çıkınca yeniden biçimlenir.
+- Biçim Fields penceresinde alanın düzenleyicisindedir: Format satırında Number, Currency ya da Percent ve para birimi (listeden bir kod ya da *From a field* altında kaydın bir select ya da text alanı), Decimals satırında 0-4.
 - Tablo toplamı, grup toplamları, kart yüzü ve sütun başı toplamı da biçimi kullanır. Bugünkü `numberText` (hep en-US) `formatNumber(value, format)` olur.
 - Excel'e aktarmada hücre sayı olarak kalır, biçimi hücrenin biçimi olur (`₺#,##0.00`). CSV düz sayı yazar.
 - Para birimi ya alanın kendisinde yazar (`"currency": "TRY"`) ya da kaydın bir alanından okunur (`"currencyField": "currency"`, Payments'taki gibi her ödemenin kendi para birimi).
 - Para birimini alandan okuyan bir sütunda tablo toplamı ve grup toplamları para birimine göre ayrılır: `₺120.000 · €4.500`. Bugün TL ile EUR birbirine ekleniyor; bu yanlış.
-- Rollup ve formülde v1'de para birimi alan başınadır. Para birimini alandan okuyan bir alanı toplayan rollup, karışık para birimini toplayacağı için Fields penceresinde ve şema denetiminde uyarı verir.
+- Rollup ve formülde v1'de para birimi alan başınadır. Para birimini alandan okuyan bir alanı toplayan rollup, karışık para birimini toplayacağı için Fields penceresinde ve şema denetiminde uyarı verir. Rollup'ın koşulu para birimi alanını tek bir değere sabitlerse (`Currency is EUR`) uyarı kalkar.
 
 ## 5. Giriş
 
@@ -197,6 +209,7 @@ Sayı, formül, rollup ve lookup alanında `format`:
 
 Hesaplanmayan her alanda `default` olabilir: sabit bir değer (`"Offer"`, `0`, `true`) ya da ifade (`"=today()"`, `"=me()"`, `"=project.currency"`).
 
+- Fields penceresinde alanın düzenleyicisinde Default satırı vardır: **Value** ya da **Formula**. Value, alanın formdaki kutusuyla verilir (seçenek, kişi, gün; günde Today da seçilir ve `=today()` yazılır). Formula, formül kutusudur; altında yeni kaydın ne alacağı yazar ("Next: PRJ-0016").
 - Yeni kayıt formu açılırken doldurulur. Kişi değeri görür ve değiştirebilir. Bağlı kayıt bloğundan açılan formda linkler önce dolar, ardından varsayılanlar şema sırasıyla hesaplanır. Bu yüzden bir varsayılan, linkin hedefini okuyabilir.
 - Ajanın `save_record`'u ve kuraldaki `add()` yeni bir kayıtta verilmeyen alanı varsayılanla doldurur.
 - İçe aktarmada dosyada sütunu olmayan alan da varsayılanı alır.
@@ -235,7 +248,8 @@ Bir koleksiyonun kuralları klasöründe `_rules.js` dosyasında durur; şema (`
 
 - Ayrı dosyanın nedeni: çok satırlı kod JSON'un içinde kaçış karakterleriyle okunmaz hale gelir, ajan da onu yazarken yanılır. Ayrı dosyada kod olduğu gibi durur, editörler JS gibi renklendirir, sync'te not gibi satır bazında birleşir.
 - Dosya JS olarak çalıştırılmaz; kendi okuyucumuz okur. En üstte yalnız üç çağrı olabilir: `check(…)`, `action(…)` ve `onSave(…)`. Gerisi hatadır.
-- Fields penceresinde Rules sekmesi dosyayı gösterir ve düzenletir: CodeMirror'ın JS renklendirmesiyle (editörde zaten olan `language-data`), yanlış satırın altında ne olduğu, Save ile yazılır.
+- Fields penceresinin sekmeleri Design, Rules ve Schema'dır. Rules sekmesi dosyayı gösterir ve düzenletir: CodeMirror'ın JS renklendirmesiyle (editörde zaten olan `language-data`), yanlış satırın altında ne olduğu, Save ile yazılır. Yanlış bir satır varken Save kapalıdır ve altta hangi satır olduğu yazar. Dosya yoksa sekme boş açılır; ilk Save dosyayı yaratır.
+- 2. dilimde dosya yalnız `check` alır; `action` 4. dilimde, `onSave` 5. dilimde eklenir.
 - Kayıtlar sync'le gelirken dosya da gelir; kural her cihazda aynıdır.
 
 ### 6.2 Kural dili

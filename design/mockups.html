@@ -2300,6 +2300,79 @@ p { margin: 0; max-width: 68ch; }
 .ca-dmenu span small { margin-left: auto; color: var(--m-faint); font-size: 11px; }
 .ca-filter .fcond-add { margin-top: 6px; }
 .ca-filter .foot .ca-count { margin-right: auto; color: var(--m-faint); font-size: 12px; }
+/* Collections as small apps (stage 13), slice 2: checks in _rules.js, default values, the number format. */
+.dir[data-dir="capps2"] { margin-top: 56px; }
+.dir[data-dir="capps2"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="capps2"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="capps2"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.mock { --hl-keyword: #d08ae0; --hl-string: #9ece8a; --hl-number: #f0a070; --hl-function: #7ab0f5; }
+.mock.dir-a[data-mode="light"] { --hl-keyword: #8a3fb0; --hl-string: #3d7a2a; --hl-number: #b0531a; --hl-function: #2360b8; }
+/* A record that does not pass a check: a dot left of its name, the cell in the accent. */
+.ca-row { position: relative; }
+.ca-row > .flag { position: absolute; top: 50%; left: 0; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--m-accent); }
+.ca-row .bad { color: var(--m-accent); }
+.ca-row .bad.val { text-decoration: underline dotted; text-underline-offset: 3px; }
+.ca-row.cb-tx { grid-template-columns: minmax(0, 1fr) 136px 112px 70px 104px 64px 76px; }
+.ca-row.cb-po { grid-template-columns: minmax(0, 1fr) 136px 136px 112px 68px 84px 76px; }
+.ca-row .num .cur { color: var(--m-faint); }
+/* A sum of money in more than one currency: one line each, in the choices' order. */
+.ca-row.sum { align-items: start; }
+.ca-row .num.split { display: flex; flex-direction: column; }
+/* The Rules tab: _rules.js as code, what is wrong under its line. */
+.cb-code { flex: 1; min-height: 0; margin: 14px 18px 8px; padding: 10px 0; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-code); font: 12.5px/1.75 var(--m-mono); font-variant-ligatures: none; color: var(--m-fg); overflow: hidden; }
+.cb-code > div { display: grid; grid-template-columns: 40px 1fr; white-space: pre; }
+.cb-code i { padding-right: 12px; font-style: normal; color: var(--m-faint); text-align: right; }
+.cb-code .on { background: color-mix(in srgb, var(--m-sel) 45%, transparent); }
+.cb-code .kw { color: var(--hl-keyword); }
+.cb-code .st { color: var(--hl-string); }
+.cb-code .nu { color: var(--hl-number); }
+.cb-code .fn { color: var(--hl-function); }
+.cb-code .cm { color: var(--m-faint); font-style: italic; }
+.cb-code .err { text-decoration: underline wavy var(--m-accent); text-underline-offset: 3px; }
+.cb-code .msg { color: var(--m-accent); font: 11.5px/1.6 var(--m-ui); white-space: normal; }
+.cb-code .caret { display: inline-block; width: 1.5px; height: 14px; margin: 0 -1px; vertical-align: -2px; background: var(--m-accent); }
+.cb-help { max-width: none; margin: 0 18px 12px; }
+.cb-help code { font: 11px var(--m-mono); font-variant-ligatures: none; color: var(--m-dim); }
+.fdlg .rm-foot .cb-fix { margin-right: auto; color: var(--m-accent); font-size: 12px; }
+.st-btn.off { opacity: .45; }
+/* A default value: the field's own value, or a formula. */
+.fe-row .vsw.cb-mode { flex: none; }
+.fe .cb-val { position: relative; flex: 1; min-width: 0; }
+.fe .cb-val > .in { width: 100%; }
+.fe .cb-val > .in.on { border-color: var(--m-accent); }
+.fe .in.ph { color: var(--m-faint); }
+.fi-note.warn { color: var(--m-accent); }
+.fi-note.warn code { color: inherit; }
+.fe .ca-dmenu { width: 220px; right: auto; }
+.fe .ca-dmenu .sep { margin: 3px 4px; padding: 0; border-top: 1px solid var(--m-line); border-radius: 0; height: 0; }
+.fe .ca-dmenu .hd { padding: 2px 8px 0; color: var(--m-faint); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.fe .ca-dmenu span b { width: 38px; font: 500 11.5px var(--m-mono); color: var(--m-dim); }
+.fe .ca-dmenu span .ok { margin-left: auto; color: var(--m-dim); }
+.fe-row .in.cb-fmt { flex: none; width: 112px; }
+/* The record window as the app has it: columns of boxes, a box that fails a check in the accent with what to do under it. */
+.rmod.cb-rm { width: 900px; height: auto; max-height: 92%; }
+.cb-rm .cp-head .key { font: 11px/1 var(--m-mono); color: var(--m-fg); }
+.cb-cols { display: flex; align-items: flex-start; gap: 28px; padding: 16px 20px 20px; }
+.cb-col { display: flex; flex: 1; flex-direction: column; gap: 12px; min-width: 0; }
+.cb-prop { display: flex; flex-direction: column; gap: 4px; }
+.cb-prop .pl { color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.cb-prop .pl i { margin-left: 3px; color: var(--m-accent); font-style: normal; }
+.cb-prop .box { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-side); color: var(--m-fg); box-sizing: border-box; }
+.cb-prop .box.on { border-color: var(--m-accent); }
+.cb-prop .box .dd { margin-left: auto; color: var(--m-faint); font-size: 10px; }
+.cb-prop .box .nil, .cb-prop .box.none { color: var(--m-faint); }
+.cb-prop .box .lk { color: var(--m-fg); text-decoration: underline; text-decoration-color: var(--m-faint); text-underline-offset: 3px; }
+.cb-prop .box .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.cb-prop .box .caret { display: inline-block; width: 1.5px; height: 15px; margin-left: -5px; background: var(--m-accent); }
+.cb-prop.bad .box { border-color: var(--m-accent); }
+.cb-prop .pbad { margin: 0; color: var(--m-accent); font-size: 11.5px; line-height: 1.45; }
+.cb-prop.body .box { align-items: flex-start; min-height: 64px; color: var(--m-faint); }
+.cb-sec { display: flex; flex-direction: column; gap: 12px; }
+.cb-sec h3 { margin: 0; padding-bottom: 4px; border-bottom: 1px solid var(--m-line); color: var(--m-faint); font-size: 10.5px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; }
+.cb-rm .rm-foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 10px 20px 14px; border-top: 1px solid var(--m-line); }
+.cb-rm .rm-foot .hint { margin-right: auto; color: var(--m-faint); font-size: 11.5px; }
+/* The Fields window scrolls; a tall field opened is cut at its foot, as it would be before a scroll. */
+.dir[data-dir="capps2"] .fd-canvas { overflow: hidden; }
 </style>
 
 <main class="page">
@@ -2668,6 +2741,32 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-caview="catx">Transactions</button>
         <button type="button" data-caview="calookup">Lookup</button>
         <button type="button" data-caview="cafilter">Filter: Today</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="capps2">
+    <div class="brief">
+      <div>
+        <span class="letter">KOLEKSİYON · 13. AŞAMA · 2. DİLİM</span>
+        <h2>Doğrulama, varsayılan değer, sayı biçimi</h2>
+        <p>Aynı Atlas Lifts örneği. Kurallar koleksiyonun klasöründe <code>_rules.js</code> dosyasında durur; Fields penceresinde yeni Rules sekmesi onu gösterir ve düzenletir, yanlış satırın altında ne olduğu yazar. Sekmeler Design, Rules ve Schema; Text'in adı Schema oldu ve en sona geçti. Bu dilimde dosya yalnız <code>check</code> alır. Koşul tutmazsa kayıt reddedilmez, bugünkü gibi işaretlenir: satır başında nokta, hücrede ne yapılacağı, formda kutunun altında mesaj, durum çubuğunda "2 to check". Varsayılan değer ve sayı biçimi alanın kendi düzenleyicisinde. Varsayılan ya alanın kendi değeridir ya formül; yeni kayıt formu açılırken dolar, kişi değiştirebilir. Para birimi alanda sabit yazar ya da kaydın bir alanından okunur; o zaman tablo toplamı para birimine göre ayrılır. Sayılar cihazın biçimiyle yazılır, para birimi her cihazda simgesiyle; burada Türkçe bir cihaz.</p>
+        <ul class="traits"><li>_rules.js, Rules sekmesi</li><li>check işaretler, reddetmez</li><li>yanlış satırın altında</li><li>varsayılan: değer ya da formül</li><li>next("PRJ-", 4)</li><li>₺ cihazın biçimiyle</li><li>toplam para birimine göre</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="2. dilim görünümü">
+        <button type="button" data-cbview="cbrules">Rules</button>
+        <button type="button" data-cbview="cbrulesbad">Rules'ta hata</button>
+        <button type="button" data-cbview="cbtx">Kontrol: tablo</button>
+        <button type="button" data-cbview="cbrec">Kontrol: kayıt</button>
+        <button type="button" data-cbview="cbnext">Varsayılan: next()</button>
+        <button type="button" data-cbview="cbtoday">Varsayılan: değer</button>
+        <button type="button" data-cbview="cbnew">Yeni kayıt</button>
+        <button type="button" data-cbview="cbformat">Sayı biçimi</button>
+        <button type="button" data-cbview="cbprojects">Projects ₺</button>
+        <button type="button" data-cbview="cbpo">Purchase orders</button>
+        <button type="button" data-cbview="cbpofield">Para birimi alanı</button>
+        <button type="button" data-cbview="cbmixed">Karışık para birimi</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -7849,6 +7948,292 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderCa(sectionCa, b.dataset.caview);
   });
   renderCa(sectionCa, 'caformula');
+
+  // Collections as small apps (stage 13), slice 2 (Oct 21): checks in the collection's _rules.js,
+  // written in a Rules tab of the Fields window and marked where the record shows, never refused; a
+  // field's default value, its own value or a formula, next() for the next number; the number
+  // format, its currency fixed or read from the record, a table's sum split by currency. The same
+  // company as slice 1, on a Turkish device: ₺1.240.000. The window's tabs are Design, Rules and
+  // Schema, which was Text (Oct 21): the schema file as it is, last.
+  LC.Received = '#5cb87a'; LC.Ordered = '#6aa5f0'; LC.Draft = '#8b93a1'; LC.TRY = '#8b93a1'; LC.EUR = '#8b93a1'; LC.USD = '#8b93a1';
+  function cbMoney(n, cur, dec) {
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: cur || 'TRY', minimumFractionDigits: dec || 0, maximumFractionDigits: dec || 0 }).format(n);
+  }
+  var CB_TX = [
+    { name: 'Cabin steel, inv. 2231', proj: 'Atakule Tower', line: 'Material', dir: 'Out', amount: 184500, due: 'Oct 12', st: 'Paid' },
+    { name: 'Second instalment', proj: 'Atakule Tower', line: '', dir: 'In', amount: 420000, due: 'Oct 15', st: 'Invoiced', late: true },
+    { name: 'Guide rails', proj: 'Kadıköy Residence', line: '', dir: 'Out', amount: 96800, due: 'Oct 9', st: 'Invoiced', late: true, bad: 'line' },
+    { name: 'Door operators, 6 units', proj: 'Kadıköy Residence', line: 'Material', dir: 'Out', amount: 141300, due: 'Oct 28', st: 'Planned' },
+    { name: 'Crane for the shaft', proj: 'Bursa Mall, block B', line: 'Transport', dir: 'Out', amount: 38500, due: 'Oct 6', st: 'Paid' },
+    { name: 'Down payment', proj: 'Bursa Mall, block B', line: '', dir: 'In', amount: 294000, due: 'Oct 3', st: 'Paid' },
+    { name: 'Installation crew, week 41', proj: 'Atakule Tower', line: 'Labour', dir: 'Out', amount: 62400, due: 'Oct 17', st: 'Invoiced', late: true },
+    { name: 'Inspection fee', proj: 'Eskişehir Campus', line: 'Other', dir: 'Out', amount: 7800, due: 'Oct 30', st: 'Planned', bad: 'due' }
+  ];
+  var CB_PO = [
+    { name: 'Door operators, 6 units', sup: 'Kessler Antriebe', proj: 'Kadıköy Residence', amount: 18600, cur: 'EUR', at: 'Sep 30', st: 'Received' },
+    { name: 'Traction machine, 13 stops', sup: 'Kessler Antriebe', proj: 'Atakule Tower', amount: 42300, cur: 'EUR', at: 'Oct 2', st: 'Ordered' },
+    { name: 'Control panels, 2 units', sup: 'Lumen Controls', proj: 'Atakule Tower', amount: 12900, cur: 'USD', at: 'Oct 7', st: 'Ordered' },
+    { name: 'Steel ropes, 600 m', sup: 'Marmara Halat', proj: 'Bursa Mall, block B', amount: 38500, cur: 'TRY', at: 'Oct 9', st: 'Received' },
+    { name: 'Safety gear set', sup: 'Vela Sicurezza', proj: 'Bursa Mall, block B', amount: 9850, cur: 'EUR', at: 'Oct 14', st: 'Ordered' },
+    { name: 'Cabin panels, stainless', sup: 'Marmara Çelik', proj: 'Antalya Hotel', amount: 126400, cur: 'TRY', at: 'Oct 18', st: 'Draft' },
+    { name: 'Buffers, 4 units', sup: 'Vela Sicurezza', proj: 'Atakule Tower', amount: 4200, cur: 'EUR', at: 'Oct 20', st: 'Draft' }
+  ];
+  /** The sidebar of slice 1 with Purchase orders, bought abroad in the supplier's currency. */
+  function cbTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 11 }) +
+      opRowT({ sp: true, label: 'Personal' }) +
+      opRowT({ sp: true, open: true, label: CA_SPACE }) +
+      opRowT({ d: 1, folder: true, open: true, label: 'Operations' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Projects', ct: 7, on: on === 'projects' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Budget lines', ct: 41 }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Transactions', ct: 128, on: on === 'tx' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Purchase orders', ct: 7, on: on === 'po' }) +
+      opRowT({ d: 2, icon: 'board', label: 'Projects board', ct: 23 }) +
+      opRowT({ d: 2, icon: 'notes', label: 'How we run a project' }) +
+      opRowT({ d: 1, folder: true, label: 'Sales', ct: 4 }) +
+      opRowT({ d: 1, folder: true, label: 'Service', ct: 6 }) +
+      opRowT({ d: 1, icon: 'collection', label: 'Companies', ct: 38 }) +
+      '</div>' + spFoot(null);
+  }
+  /** Projects in lira, as a Turkish device writes it; what remains of Kadıköy below nothing. */
+  function cbProjects() {
+    var total = { budget: 0, spent: 0 };
+    var rows = CA_PROJECTS.map(function (p) {
+      total.budget += p.budget; total.spent += p.spent;
+      return '<div class="ca-row"><span class="tt">' + p.name + '</span><span class="mono">' + p.code + '</span><span class="lk">' + p.cust + '</span>' + lbl(p.st) +
+        '<span class="num">' + cbMoney(p.budget) + '</span><span class="num">' + cbMoney(p.spent) + '</span><span class="num">' + cbMoney(p.budget - p.spent) + '</span>' +
+        '<span>' + (p.spent > p.budget ? 'Over budget' : 'OK') + '</span></div>';
+    }).join('');
+    return '<div class="bv">' + caHead('Projects', '7 records') + '<div class="blist">' +
+      '<div class="ca-row head"><span>Name</span><span>Code</span><span>Customer</span><span>Status</span><span class="num">Budget</span><span class="num">Spent</span><span class="num">Remaining</span><span>Health</span></div>' +
+      rows + '<div class="ca-row sum"><span></span><span></span><span></span><span></span><span class="num">' + cbMoney(total.budget) + '</span><span class="num">' + cbMoney(total.spent) + '</span><span class="num">' + cbMoney(total.budget - total.spent) + '</span><span></span></div>' +
+      '</div></div>';
+  }
+  /**
+   * Transactions with their budget line: an outgoing one with no line and one due before its date
+   * fail their checks, a dot at the start of the row, the cell in the accent saying what to do.
+   */
+  function cbTransactions() {
+    var rows = CB_TX.map(function (x) {
+      var line = x.bad === 'line' ? '<span class="bad">Pick the budget line</span>' : '<span class="lk">' + x.line + '</span>';
+      var due = '<span class="dt' + (x.late ? ' late' : '') + (x.bad === 'due' ? ' bad val' : '') + '"' + (x.bad === 'due' ? ' title="Due is before the date"' : '') + '>' + x.due + '</span>';
+      return '<div class="ca-row cb-tx">' + (x.bad ? '<i class="flag"></i>' : '') + '<span class="tt">' + x.name + '</span><span class="lk">' + x.proj + '</span>' + line + lbl(x.dir) +
+        '<span class="num">' + cbMoney(x.amount) + '</span>' + due + lbl(x.st) + '</div>';
+    }).join('');
+    return '<div class="bv">' + caHead('Transactions', '128 records') + '<div class="blist">' +
+      '<div class="ca-row cb-tx head"><span>Name</span><span>Project</span><span>Line</span><span>Direction</span><span class="num">Amount</span><span class="sorted">Due ↓</span><span>Status</span></div>' +
+      rows + '<div class="lmore">Show 120 more</div></div></div>';
+  }
+  /** Purchase orders, each in its supplier's currency; the sum under Amount, one line a currency. */
+  function cbOrders() {
+    var sums = { TRY: 0, EUR: 0, USD: 0 };
+    var rows = CB_PO.map(function (o) {
+      sums[o.cur] += o.amount;
+      return '<div class="ca-row cb-po"><span class="tt">' + o.name + '</span><span class="lk">' + o.sup + '</span><span class="lk">' + o.proj + '</span>' +
+        '<span class="num">' + cbMoney(o.amount, o.cur, 2) + '</span>' + lbl(o.cur) + '<span class="dt">' + o.at + '</span>' + lbl(o.st) + '</div>';
+    }).join('');
+    var split = ['TRY', 'EUR', 'USD'].map(function (c) { return '<span>' + cbMoney(sums[c], c, 2) + '</span>'; }).join('');
+    return '<div class="bv">' + caHead('Purchase orders', '7 records') + '<div class="blist">' +
+      '<div class="ca-row cb-po head"><span>Name</span><span>Supplier</span><span>Project</span><span class="num">Amount</span><span>Currency</span><span class="sorted">Ordered ↑</span><span>Status</span></div>' +
+      rows + '<div class="ca-row cb-po sum"><span></span><span></span><span></span><span class="num split">' + split + '</span><span></span><span></span><span></span></div>' +
+      '</div></div>';
+  }
+
+  // The Fields window's pieces, as slice 1 draws them.
+  var CB_GRIP = '<span class="grip"><svg viewBox="0 0 9 12"><circle cx="2" cy="2" r="1.3"/><circle cx="7" cy="2" r="1.3"/><circle cx="2" cy="6" r="1.3"/><circle cx="7" cy="6" r="1.3"/><circle cx="2" cy="10" r="1.3"/><circle cx="7" cy="10" r="1.3"/></svg></span>';
+  function cbFld(label, type, req) { return '<div class="fitem">' + CB_GRIP + '<span class="fl">' + label + (req ? '<i>*</i>' : '') + '</span><small>' + type + '</small></div>'; }
+  function cbBlk(label, meta) { return '<div class="fitem blk">' + CB_GRIP + '<span class="bl"><b>' + label + '</b><small>' + meta + '</small></span></div>'; }
+  function cbBox(text, o) { o = o || {}; return '<span class="in' + (o.on ? ' on' : '') + (o.mono ? ' mono' : '') + (o.ph ? ' ph' : '') + (o.cls ? ' ' + o.cls : '') + '">' + text + (o.caret ? '<span class="caret"></span>' : '') + (o.dd ? '<span class="dd">▾</span>' : '') + '</span>'; }
+  function cbOpen(name, type, key, more, o) {
+    o = o || {};
+    return '<div class="fitem edit">' + CB_GRIP + '<div class="fe">' +
+      '<div class="fe-top">' + cbBox(name) + '<span class="ftype">' + cbBox(type, { dd: true }) + '</span><span class="fdel" title="Delete">' + ICON.trash + '</span></div>' +
+      '<div class="fe-row">' + (o.req ? '<label class="fcheck"><span class="cb"></span>Required</label>' : '') + '<span class="fkey">' + key + '</span></div>' +
+      (more || '') + '</div></div>';
+  }
+  function cbCol(n, body) {
+    return '<div class="fcol" style="flex: 1"><div class="fcol-h">Column ' + n +
+      '<span class="ratio"><span class="on">1</span><span>2</span><span>3</span></span><span class="x" title="Remove column">×</span></div>' +
+      body + '<div class="fsec-add">+ Add section</div></div>';
+  }
+  /** A default: the field's own value, or a formula worked out when a record is made. */
+  function cbDefault(mode, control) {
+    return '<div class="fe-row"><span class="fe-name">Default</span><span class="vsw cb-mode"><span' + (mode === 'value' ? ' class="on"' : '') + '>Value</span><span' + (mode === 'formula' ? ' class="on"' : '') + '>Formula</span></span>' + control + '</div>';
+  }
+  /** A number's format: plain, money or a share; money's currency the field's or the record's; how many decimals. */
+  function cbFormat(style, cur, dec, menu) {
+    return '<div class="fe-row"><span class="fe-name">Format</span>' + cbBox(style, { dd: true, cls: 'cb-fmt' }) +
+      '<span class="cb-val">' + cbBox(cur, { dd: true, on: !!menu }) + (menu || '') + '</span></div>' +
+      '<div class="fe-row"><span class="fe-name">Decimals</span><span class="vsw cb-mode">' + [0, 1, 2, 3, 4].map(function (n) { return '<span' + (n === dec ? ' class="on"' : '') + '>' + n + '</span>'; }).join('') + '</span></div>';
+  }
+  function cbWindow(name, view, body, foot) {
+    return '<div class="ovl center"><div class="fdlg">' +
+      '<div class="cp-head">' + ICON.collection + '<b>Fields</b><span>' + name + ' · ' + CA_SPACE + '</span><span class="vsw"><span' + (view === 'design' ? ' class="on"' : '') + '>Design</span><span' + (view === 'rules' ? ' class="on"' : '') + '>Rules</span><span>Schema</span></span><span class="x">×</span></div>' +
+      body + '<div class="rm-foot">' + (foot || '<span class="hint">Saved in Operations/' + name + '/_collection.json · an agent can edit it too</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span>') + '</div></div></div>';
+  }
+  function cbCanvas(screen) {
+    return '<div class="fd-canvas"><div class="fd-say">The record window as it opens. Click a field or a block to change it there; drag it to move it; + Add puts a new one where it is.</div><div class="fcols">' + screen + '<div class="fcol-add">+ Add column</div></div></div>';
+  }
+  /**
+   * The Fields window of Projects with one field open: Code's default the next number, Start's
+   * today, Budget's format in lira, or Imports, a sum of orders in more than one currency.
+   */
+  function cbProjectFields(state) {
+    var add = '<div class="fadd">+ Add</div>';
+    var code = state === 'next'
+      ? cbOpen('Code', 'Code', 'code',
+          cbDefault('formula', '<span class="cb-val">' + cbBox('next("PRJ-", 4)', { on: true, mono: true, caret: true }) + '</span>') +
+          '<p class="fi-note"><b>Next: PRJ-0016</b> · one more than the highest PRJ- number, in 4 digits</p>' +
+          '<p class="fi-note">Filled in on a new record’s form, where it can be changed.</p>' +
+          '<p class="fi-note">As in a formula: <code>today()</code> <code>me()</code> <code>next("PRJ-", 4)</code> · a linked record’s field: <code>project.currency</code></p>', { req: true })
+      : cbFld('Code', 'code');
+    var start = state === 'today'
+      ? cbOpen('Start', 'Date', 'start',
+          cbDefault('value', '<span class="cb-val">' + cbBox('Today', { dd: true, on: true }) +
+            '<div class="ca-dmenu"><span class="on">Today<small>the day it is made</small></span><span>A day…</span><span class="sep"></span><span>None</span></div></span>') +
+          '<p class="fi-note">A new project starts on the day it is made.</p>', { req: true })
+      : cbFld('Start', 'date');
+    var budget = state === 'format'
+      ? cbOpen('Budget', 'Rollup', 'budget',
+          '<div class="fe-row"><span class="fe-name">From</span>' + cbBox('Budget lines · ' + CA_SPACE, { dd: true }) + '</div>' +
+          '<div class="fe-row"><span class="fe-name">Function</span>' + cbBox('Sum', { dd: true }) + cbBox('Planned', { dd: true }) + '</div>' +
+          '<div class="fe-row top"><span class="fe-name">Where</span><div class="ca-where"><div class="fcond-add">+ Add condition</div></div></div>' +
+          cbFormat('Currency', 'TRY', 0) +
+          '<p class="fi-note">The sum of <u>planned</u> in the budget lines that link to the project.</p>' +
+          '<p class="fi-note">On this device <b>₺1.240.000</b>; each person sees numbers as their own device writes them.</p>')
+      : cbFld('Budget', 'rollup · Budget lines');
+    var imports = state === 'mixed'
+      ? cbOpen('Imports', 'Rollup', 'imports',
+          '<div class="fe-row"><span class="fe-name">From</span>' + cbBox('Purchase orders · ' + CA_SPACE, { dd: true }) + '</div>' +
+          '<div class="fe-row"><span class="fe-name">Function</span>' + cbBox('Sum', { dd: true }) + cbBox('Amount', { dd: true }) + '</div>' +
+          '<div class="fe-row top"><span class="fe-name">Where</span><div class="ca-where"><div class="fcond-add">+ Add condition</div></div></div>' +
+          cbFormat('Currency', 'TRY', 0) +
+          '<p class="fi-note">The sum of <u>amount</u> in the purchase orders that link to the project.</p>' +
+          '<p class="fi-note warn">Amount is in each order’s own currency, so this adds euros, dollars and lira as one. Add a condition, <code>Currency is EUR</code>, to sum one currency.</p>')
+      : '';
+    return cbCanvas(
+      cbCol(1, '<div class="fsec">' + cbFld('Name', 'name', true) + code + cbFld('Customer', 'link · Companies') + cbFld('Status', 'select') +
+        start + cbFld('Delivery', 'date') + cbFld('Contract', 'number') + imports + cbBlk('Notes', 'the body: free text, site notes') + add + '</div>') +
+      cbCol(2, '<div class="fsec">' + budget + cbFld('Spent', 'rollup · Transactions') + cbFld('Income', 'rollup · Transactions') + cbFld('Remaining', 'formula') + cbFld('Health', 'formula') +
+        cbBlk('Budget lines', 'linked · list · planned, actual') + cbBlk('Transactions', 'linked · list · amount, status') + cbBlk('Cards and tasks', 'the cards and tasks about it') + add + '</div>'));
+  }
+  /** The Fields window of Purchase orders, Amount open: money in the currency each order has, the currency list open. */
+  function cbOrderFields() {
+    var add = '<div class="fadd">+ Add</div>';
+    var menu = '<div class="ca-dmenu"><span><b>TRY</b>Turkish lira</span><span><b>EUR</b>Euro</span><span><b>USD</b>US dollar</span><span><b>GBP</b>Pound sterling</span><span>Another currency…</span>' +
+      '<span class="sep"></span><span class="hd">From a field</span><span class="on">Currency<span class="ok">✓</span></span></div>';
+    var amount = cbOpen('Amount', 'Number', 'amount',
+      cbDefault('value', '<span class="cb-val">' + cbBox('None', { ph: true }) + '</span>') +
+      cbFormat('Currency', 'From Currency', 2, menu) +
+      '<p class="fi-note">Each order in its own currency: <b>€18.600,00</b>, <b>$12.900,00</b>. Sums under the table are split by currency.</p>', { req: true });
+    return cbCanvas(
+      cbCol(1, '<div class="fsec">' + cbFld('Name', 'name', true) + cbFld('Supplier', 'link · Companies') + cbFld('Project', 'link · Projects') + amount +
+        cbFld('Currency', 'select') + cbBlk('Notes', 'the body: free text') + add + '</div>') +
+      cbCol(2, '<div class="fsec">' + cbFld('Order no', 'code') + cbFld('Ordered', 'date') + cbFld('Expected', 'date') + cbFld('Status', 'select') + add + '</div>'));
+  }
+  /** The Rules tab: Transactions' _rules.js as code, and what is wrong under its line. */
+  function cbRules(bad) {
+    function fn(x) { return '<span class="fn">' + x + '</span>'; }
+    function st(x) { return '<span class="st">' + x + '</span>'; }
+    function cm(x) { return '<span class="cm">' + x + '</span>'; }
+    var check = fn('check');
+    var lines = [
+      [1, cm('// What a transaction must be. One that fails a check is marked, never refused.')],
+      [2, ''],
+      [3, check + '(' + st('"line"') + ', () =&gt; direction != ' + st('"Out"') + ' || !' + fn('empty') + '(line), ' + st('"Pick the budget line"') + ')'],
+      [4, bad
+        ? check + '(' + st('"due"') + ', () =&gt; ' + fn('empty') + '(date) || due &gt;= <span class="err">dat</span><span class="caret"></span>, ' + st('"Due is before the date"') + ')'
+        : check + '(' + st('"due"') + ', () =&gt; ' + fn('empty') + '(date) || due &gt;= date, ' + st('"Due is before the date"') + ')', bad],
+      bad ? ['', '<span class="msg">Transactions has no field dat.</span>'] : null,
+      [5, check + '(<span class="nu">null</span>, () =&gt; direction != ' + st('"In"') + ' || ' + fn('empty') + '(line), ' + st('"Money coming in has no budget line"') + ')']
+    ].filter(Boolean);
+    var code = '<div class="cb-code">' + lines.map(function (l) {
+      return '<div' + (l[2] ? ' class="on"' : '') + '><i>' + l[0] + '</i><span>' + l[1] + '</span></div>';
+    }).join('') + '</div>' +
+      '<p class="fi-note cb-help"><code>check("field", () =&gt; condition, "what to do")</code>: where the condition is false the record is marked at that field, or as a whole with <code>null</code>. It reads every field, the worked-out ones too, as a formula does.</p>';
+    var foot = bad
+      ? '<span class="cb-fix">Line 4 has a mistake; it is saved once it is put right.</span><span class="st-btn">Cancel</span><span class="st-btn go off">Save</span>'
+      : '<span class="hint">Saved in Operations/Transactions/_rules.js · an agent can edit it too</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span>';
+    return cbWindow('Transactions', 'rules', code, foot);
+  }
+  function cbProp(label, value, o) {
+    o = o || {};
+    return '<div class="cb-prop' + (o.bad ? ' bad' : '') + (o.body ? ' body' : '') + '"><span class="pl">' + label + (o.req ? '<i>*</i>' : '') + '</span>' +
+      '<span class="box' + (o.on ? ' on' : '') + (o.none ? ' none' : '') + '">' + value + (o.dd ? '<span class="dd">▾</span>' : '') + '</span>' +
+      (o.bad ? '<p class="pbad">' + o.bad + '</p>' : '') + '</div>';
+  }
+  function cbRecord(head, cols, foot) {
+    return '<div class="ovl center"><div class="rmod cb-rm"><div class="cp-head">' + head + '</div>' +
+      '<div class="cb-cols">' + cols.map(function (c) { return '<div class="cb-col">' + c + '</div>'; }).join('') + '</div>' +
+      '<div class="rm-foot">' + foot + '</div></div></div>';
+  }
+  /** Guide rails, opened from the table: an outgoing payment with no budget line, said under the box. */
+  function cbCheckRecord() {
+    var head = ICON.collection + '<span>Transactions · ' + CA_SPACE + '</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    return cbRecord(head, [
+      cbProp('Name', 'Guide rails', { req: true }) +
+      cbProp('Project', '<span class="lk">Kadıköy Residence</span>', { dd: true }) +
+      cbProp('Line', '<span class="nil">Choose…</span>', { dd: true, bad: 'Pick the budget line' }) +
+      cbProp('Direction', lbl('Out'), { dd: true }) +
+      cbProp('Amount', '<span>₺96.800</span>') +
+      cbProp('Date', 'Oct 2, 2026') +
+      cbProp('Notes', 'Add a note…', { body: true }),
+      cbProp('Due', 'Oct 9, 2026') +
+      cbProp('Status', lbl('Invoiced'), { dd: true }) +
+      cbProp('Invoice', 'MH-2231') +
+      cbProp('Paid on', '<span class="nil">–</span>') +
+      cbProp('Customer', '<span class="lk">Moda Yapı</span>')
+    ], '<span class="st-btn">Cancel</span><span class="st-btn go off">Save</span>');
+  }
+  /** A new project: its code the next number, its status Offer, its start today; the sums nothing yet. */
+  function cbNewProject() {
+    var head = ICON.collection + '<span>New project</span><span class="x">×</span>';
+    return cbRecord(head, [
+      cbProp('Name', '<span class="caret"></span>', { req: true, on: true }) +
+      cbProp('Code', 'PRJ-0016') +
+      cbProp('Customer', '<span class="nil">Choose…</span>', { dd: true }) +
+      cbProp('Status', lbl('Offer'), { dd: true }) +
+      cbProp('Start', 'Oct 21, 2026') +
+      cbProp('Delivery', '') +
+      cbProp('Contract', '') +
+      cbProp('Notes', 'Add a note…', { body: true }),
+      cbProp('Budget', '₺0') + cbProp('Spent', '₺0') + cbProp('Income', '₺0') + cbProp('Remaining', '₺0') + cbProp('Health', 'OK')
+    ], '<span class="hint">Saved in Projects</span><span class="st-btn">Cancel</span><span class="st-btn go">Create</span>');
+  }
+  function cbApp(on, body, over, count) {
+    var tabs = tab('collection', 'Projects · ' + CA_SPACE, 'x', on === 'projects') + tab('collection', 'Transactions · ' + CA_SPACE, 'x', on === 'tx') + tab('collection', 'Purchase orders · ' + CA_SPACE, 'x', on === 'po') + '<div class="tab plus">+</div>';
+    return '<aside class="side">' + cbTree(on) + '</aside><section class="main"><div class="panes">' + pane(tabs, body) + '</div>' +
+      '<div class="status"><span>' + count + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  var CB_VIEWS = {
+    cbrules: function () { return cbApp('tx', cbTransactions(), cbRules(false), '128 records · 2 to check'); },
+    cbrulesbad: function () { return cbApp('tx', cbTransactions(), cbRules(true), '128 records · 2 to check'); },
+    cbtx: function () { return cbApp('tx', cbTransactions(), '', '128 records · 2 to check'); },
+    cbrec: function () { return cbApp('tx', cbTransactions(), cbCheckRecord(), '128 records · 2 to check'); },
+    cbnext: function () { return cbApp('projects', cbProjects(), cbWindow('Projects', 'design', cbProjectFields('next')), '7 records'); },
+    cbtoday: function () { return cbApp('projects', cbProjects(), cbWindow('Projects', 'design', cbProjectFields('today')), '7 records'); },
+    cbnew: function () { return cbApp('projects', cbProjects(), cbNewProject(), '7 records'); },
+    cbformat: function () { return cbApp('projects', cbProjects(), cbWindow('Projects', 'design', cbProjectFields('format')), '7 records'); },
+    cbprojects: function () { return cbApp('projects', cbProjects(), '', '7 records'); },
+    cbpo: function () { return cbApp('po', cbOrders(), '', '7 records'); },
+    cbpofield: function () { return cbApp('po', cbOrders(), cbWindow('Purchase orders', 'design', cbOrderFields()), '7 records'); },
+    cbmixed: function () { return cbApp('projects', cbProjects(), cbWindow('Projects', 'design', cbProjectFields('mixed')), '7 records'); }
+  };
+  function renderCb(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.className = 'mock dir-a' + (/^cb(tx|projects|po)$/.test(view) ? '' : ' wider');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.innerHTML = CB_VIEWS[view]();
+    section.querySelectorAll('.brief [data-cbview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.cbview === view));
+    });
+  }
+  var sectionCb = document.querySelector('.dir[data-dir="capps2"]');
+  sectionCb.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-cbview]');
+    if (b) renderCb(sectionCb, b.dataset.cbview);
+  });
+  renderCb(sectionCb, 'cbrules');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
