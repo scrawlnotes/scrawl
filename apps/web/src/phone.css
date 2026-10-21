@@ -6535,3 +6535,416 @@ body > .mb-lifted {
   margin: 0;
   color: var(--sl-accent);
 }
+
+/* New app on a phone: one sheet as tall as the screen, a page a step; its bar goes back and on,
+   a line of steps under it. */
+.mb-sheet.na-sheet {
+  height: calc(100% - env(safe-area-inset-top) - 12px);
+}
+
+.na-msteps {
+  display: flex;
+  gap: 4px;
+  margin: 2px 16px 12px;
+}
+
+.na-msteps i {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--sl-line);
+}
+
+.na-msteps i.on {
+  background: var(--sl-accent);
+}
+
+.na-mbody {
+  padding: 0 16px 16px;
+}
+
+.na-sheet .na-label {
+  margin: 14px 4px 6px;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.na-sheet .na-group:first-child .na-label {
+  margin-top: 0;
+}
+
+.na-mgroup {
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--sl-bg);
+}
+
+.na-mcard {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--sl-line);
+  text-align: left;
+}
+
+.na-mcard:last-child {
+  border-bottom: 0;
+}
+
+.na-mcard .tick {
+  grid-row: span 3;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--sl-faint);
+  border-radius: 50%;
+}
+
+.na-mcard[aria-checked='true'] .tick {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+}
+
+.na-mcard .tick .icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 3;
+}
+
+.na-mcard .hd {
+  color: var(--sl-fg);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.na-mcard .what {
+  color: var(--sl-dim);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.na-mcard .shared {
+  margin-top: 2px;
+  color: color-mix(in srgb, var(--sl-accent) 85%, var(--sl-fg));
+  font-size: 13px;
+}
+
+.na-mapp {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.na-sheet .na-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.na-sheet .na-field > span {
+  margin: 0 4px;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.na-sheet .na-field input,
+.na-sheet .na-field .folder-field {
+  min-height: 46px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font-size: 16px;
+}
+
+.na-sheet .na-help {
+  margin: 0 4px;
+  color: var(--sl-faint);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.na-sheet .na-bad {
+  margin: 8px 4px 0;
+  color: var(--sl-danger);
+  font-size: 14px;
+}
+
+.na-sheet .na-curs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: var(--sl-bg);
+}
+
+.na-sheet .na-cur {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 8px;
+  background: var(--sl-side);
+  font-size: 15px;
+}
+
+.na-sheet .na-cur small {
+  color: var(--sl-faint);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.na-sheet .na-cur .x,
+.na-sheet .na-list .x {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--sl-faint);
+}
+
+.na-sheet .na-curs input.na-add {
+  flex: 1;
+  min-width: 120px;
+  min-height: 0;
+  padding: 4px;
+  border: 0;
+  background: none;
+  font-size: 16px;
+  text-transform: uppercase;
+}
+
+.na-sheet .na-curs input.na-add::placeholder {
+  text-transform: none;
+}
+
+.na-sheet .na-addbtn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--sl-accent);
+}
+
+.na-sheet .na-qs {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.na-sheet .na-lead {
+  margin: 0 4px;
+  color: var(--sl-dim);
+  font-size: 14px;
+}
+
+.na-sheet .na-q {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.na-sheet .na-q > .ql {
+  margin: 0 4px;
+  color: var(--sl-fg);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.na-sheet .na-q.sub {
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 2px solid var(--sl-line);
+}
+
+.na-sheet .na-why {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 4px -4px;
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.na-sheet .na-why .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.na-sheet .na-seg {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--sl-bg);
+}
+
+.na-sheet .na-seg button {
+  flex: 1;
+  padding: 9px 6px;
+  border-radius: 8px;
+  color: var(--sl-dim);
+  font-size: 14.5px;
+}
+
+.na-sheet .na-seg button[aria-checked='true'],
+.na-sheet .na-seg button[aria-pressed='true'] {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.na-sheet .na-radio {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--sl-bg);
+}
+
+.na-sheet .na-radio button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-fg);
+  font-size: 15px;
+  text-align: left;
+}
+
+.na-sheet .na-radio button:last-child {
+  border-bottom: 0;
+}
+
+.na-sheet .na-radio button::before {
+  content: '';
+  flex: none;
+  width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--sl-faint);
+  border-radius: 50%;
+}
+
+.na-sheet .na-radio button[aria-checked='true']::before {
+  border: 6px solid var(--sl-accent);
+}
+
+.na-sheet .na-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--sl-bg);
+}
+
+.na-sheet .na-list .it {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 6px 0 12px;
+  border: 0;
+  border-bottom: 1px solid var(--sl-line);
+  border-radius: 0;
+  background: none;
+}
+
+.na-sheet .na-list .gr {
+  color: var(--sl-faint);
+  font-size: 13px;
+  letter-spacing: -1px;
+}
+
+.na-sheet .na-list input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font-size: 16px;
+}
+
+.na-sheet .na-list .it small {
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.na-sheet .na-list .na-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 14px;
+  color: var(--sl-accent);
+  font-size: 15px;
+}
+
+.na-sheet .na-list .na-add .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.na-mrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-fg);
+  font-size: 15px;
+}
+
+.na-mrow:last-child {
+  border-bottom: 0;
+}
+
+.na-mrow small {
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--sl-dim);
+  font-size: 13.5px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.na-sheet .na-mgroup + .na-help {
+  margin: 8px 4px 14px;
+}
+
+.na-mbtn {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 13px 0;
+  border-radius: 12px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.na-mbtn:disabled {
+  opacity: 0.45;
+}

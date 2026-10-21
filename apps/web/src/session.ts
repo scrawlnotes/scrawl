@@ -7,6 +7,11 @@ import {
   putBackTasks,
   readPiece,
   relinkTrash,
+  type AppInput,
+  type AppPlan,
+  installApp,
+  planApp,
+  undoApp,
   applyChanges,
   isInsideHref,
   movedBy,
@@ -285,7 +290,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardPathOf, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardPathOf, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
 import { JobQueue } from './jobs';
 import { type OpeningMeasure, openingMeasure, seconds } from './opening';
 import welcomeComputer from './welcome.md?raw';
@@ -3664,6 +3669,48 @@ export class Session {
     await this.open(kind === 'collection' ? collectionTab(path) : tabOf(path));
     this.placed?.(dirname(path), path);
     return null;
+  }
+
+  /**
+   * The plan of a new app in a place, a folder typed to be made too: what the New app window's
+   * summary shows, with nothing written. Throws AppProblems for what is wrong with what was given:
+   * its name taken there, an answer that is not one.
+   */
+  async planNewApp(input: AppInput, place: { folder: string; create: boolean }): Promise<AppPlan> {
+    const { fs, local } = this.at(place.folder);
+    // A folder typed to be made has nothing in it yet.
+    const taken = new Set((place.create ? [] : await fs.list(local).catch(() => [])).map((e) => e.path.toLowerCase()));
+    return planApp(input, { parent: local, taken });
+  }
+
+  /**
+   * Sets up an app as planned: its folder in the sidebar, open, and its About note on screen.
+   * Gives what takes it all back, its tabs closed; or why it could not be set up, nothing left.
+   */
+  async installNewApp(plan: AppPlan, place: { folder: string; create: boolean }): Promise<{ undo: () => Promise<void> } | { error: string }> {
+    await this.settle();
+    const { fs, space, local } = this.at(place.folder);
+    let done;
+    try {
+      if (place.create) await this.madeNow([inSpace(space, await createFolder(fs, local))]);
+      done = await installApp(fs, plan);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : t('error.create') };
+    }
+    const folder = inSpace(space, plan.folder);
+    await this.madeNow([folder, ...plan.created.map((c) => inSpace(space, c.path))]);
+    await this.refreshTree();
+    const about = plan.created.find((c) => c.kind === 'note');
+    if (about) await this.open(inSpace(space, about.path));
+    this.placed?.(folder, about ? inSpace(space, about.path) : folder);
+    return {
+      undo: async () => {
+        const inside = (path: string | null) => !!path && (path === folder || path.startsWith(`${folder}/`));
+        await this.closeTabs(this.snapshot.tabs.filter((tab) => inside(pathOf(tab) ?? collectionPathOf(tab))));
+        await undoApp(fs, done);
+        await this.refreshTree();
+      },
+    };
   }
 
   /** Moves a tab to `index`, a gap between the tabs as they are now: 0 is before the first. */

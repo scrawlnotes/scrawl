@@ -43,7 +43,7 @@ function placeOf(id: string): string {
 
 type Due = { list: string; task: Task } | { board: string; card: Card } | DueSubtask;
 
-export function StartPage({ empty, recent, titles, filters, lists, boards, today, actions, onKind, onTemplate, onOpen, onOpenTask, onOpenToday, onAgents, still = null }: {
+export function StartPage({ empty, recent, titles, filters, lists, boards, today, actions, onKind, onTemplate, onApp, onOpen, onOpenTask, onOpenToday, onAgents, still = null }: {
   /** No space has anything in it yet. */
   empty: boolean;
   /** What was on screen last on this device and is still there, the latest first. */
@@ -58,6 +58,8 @@ export function StartPage({ empty, recent, titles, filters, lists, boards, today
   onKind: (kind: NewKind) => void;
   /** Opens Create for a board or a collection with the template chosen. */
   onTemplate: (start: { kind: 'board'; template: Template } | { kind: 'collection'; template: CollectionTemplate }) => void;
+  /** Opens New app at its templates. */
+  onApp: () => void;
   onOpen: (id: string) => void;
   /** Opens a task's list with the task shown in it. */
   onOpenTask: (list: string, id: string) => void;
@@ -92,6 +94,11 @@ export function StartPage({ empty, recent, titles, filters, lists, boards, today
               <h2 className="start-h">{t('start.templates')}</h2>
               <div className="start-tpls">
                 <div>
+                  <button type="button" className="start-tpl" onClick={onApp}>
+                    <Icon name="app" />
+                    <b>{t('create.app')}</b>
+                    <small>{t('start.appText')}</small>
+                  </button>
                   {BOARD_STARTS.map((start) => (
                     <button key={start.template} type="button" className="start-tpl" onClick={() => onTemplate({ kind: 'board', template: start.template })}>
                       <Icon name="board" />

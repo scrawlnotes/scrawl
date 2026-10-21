@@ -8,6 +8,8 @@ export const product: AppTemplate = {
   version: 1,
   group: 'work',
   name: 'apps.product.name',
+  short: 'apps.product.short',
+  icon: 'flag',
   what: 'apps.product.what',
   questions: [
     { key: 'bugs', kind: 'yesno', label: 'apps.product.bugs', default: true },
@@ -96,6 +98,7 @@ export const product: AppTemplate = {
       title: 'Product development',
       what: `The work on your product from idea to release${bugs ? ', and the bugs found on the way' : ''}${ideas ? ', with what customers asked for' : ''}.`,
       pieces: ['roadmap', ...(bugs ? ['bugs'] : []), ...(releases ? ['releases'] : []), ...(ideas && !app.has('support') ? ['feedback'] : [])],
+      glance: [...(releases ? ['Ship marks a release out'] : []), ...(ideas ? ['A feedback shows the cards that answer it'] : [])],
       how: [
         `Add each piece of work as a card on ${app.called('roadmap')} and move it as it goes${releases ? '; link it to the release it goes out in' : ''}.`,
         ...(bugs ? [`Add each bug to ${app.called('bugs')}, with how bad it is.`] : []),

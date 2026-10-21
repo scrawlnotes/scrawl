@@ -126,6 +126,7 @@ import { folderLabel, setSpaceNames,
   UPCOMING,
 } from './items';
 import { choiceHref, type LinkChoice, linkChoices } from './linkChoices';
+import { counts as appCounts, NewAppDialog } from './AppWizard';
 import {
   applyNumbers,
   applySize,
@@ -179,6 +180,7 @@ type OpenDialog =
   // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen. The
   // start page's templates choose a board's or a collection's template too.
   | { kind: 'new'; start?: ItemKind; folder?: string; template?: Template | CollectionTemplate }
+  | { kind: 'newApp'; folder: string }
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
@@ -1898,8 +1900,9 @@ export function App() {
             boards={boards}
             today={today}
             actions={taskActions}
-            onKind={(kind) => setDialog(kind === 'filter' ? { kind: 'filter', filter: null, place: createIn } : { kind: 'new', start: kind })}
+            onKind={(kind) => setDialog(kind === 'filter' ? { kind: 'filter', filter: null, place: createIn } : kind === 'app' ? { kind: 'newApp', folder: createIn } : { kind: 'new', start: kind })}
             onTemplate={(start) => setDialog({ kind: 'new', start: start.kind, template: start.template })}
+            onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
             onOpen={(id) => void (id === WELCOME_NOTE ? session.openWelcome() : session.open(id))}
             onOpenTask={(taskList, id) => {
               void session.open(tasksOf(taskList));
@@ -2483,6 +2486,7 @@ export function App() {
           collections={Object.keys(collections)}
           onCreate={create}
           onFilter={() => setDialog({ kind: 'filter', filter: null, place: createIn })}
+          onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
           onClose={closeDialog}
         />
       )}
@@ -2497,6 +2501,22 @@ export function App() {
           collections={Object.keys(collections)}
           onCreate={create}
           onFilter={() => setDialog({ kind: 'filter', filter: null, place: createIn })}
+          onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'newApp' && (
+        <NewAppDialog
+          folders={everyFolder(tree, spaces)}
+          folder={dialog.folder}
+          onPlan={(input, place) => session.planNewApp(input, place)}
+          onCreate={async (plan, place) => {
+            const done = await session.installNewApp(plan, place);
+            if ('error' in done) return done.error;
+            setDialog(null);
+            setShown({ text: t('apps.setUp', { name: plan.app.name, what: appCounts(plan) }), undo: () => void done.undo(), toast: true });
+            return null;
+          }}
           onClose={closeDialog}
         />
       )}

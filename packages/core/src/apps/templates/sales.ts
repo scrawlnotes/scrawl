@@ -14,6 +14,8 @@ export const sales: AppTemplate = {
   version: 1,
   group: 'money',
   name: 'apps.sales.name',
+  short: 'apps.sales.short',
+  icon: 'tag',
   what: 'apps.sales.what',
   questions: [
     {
@@ -28,9 +30,9 @@ export const sales: AppTemplate = {
       default: 'both',
     },
     { key: 'tax', kind: 'yesno', label: 'apps.sales.tax', default: true },
-    { key: 'taxIncluded', kind: 'yesno', label: 'apps.sales.taxIncluded', default: false, when: ({ answers }) => answers.tax !== false },
-    { key: 'discount', kind: 'yesno', label: 'apps.sales.discount', default: true },
-    { key: 'quotes', kind: 'yesno', label: 'apps.sales.quotes', default: true },
+    { key: 'taxIncluded', kind: 'yesno', label: 'apps.sales.taxIncluded', default: false, when: ({ answers }) => answers.tax !== false, under: 'tax', help: 'apps.sales.taxIncludedHelp' },
+    { key: 'discount', kind: 'yesno', label: 'apps.sales.discount', default: true, help: 'apps.sales.discountHelp' },
+    { key: 'quotes', kind: 'yesno', label: 'apps.sales.quotes', default: true, help: 'apps.sales.quotesHelp' },
   ],
   money: () => true,
   pieces: (_answers, app) => [customerRole(app), 'products', 'orders', 'order-lines', 'payments'],
@@ -150,6 +152,7 @@ export const sales: AppTemplate = {
       title: 'Sales and invoicing',
       what: `Your ${answers.sells === 'services' ? 'services' : answers.sells === 'products' ? 'products' : 'products and services'}, the orders for them${quotes ? ' from the quote on' : ''}, and the money coming in. Invoices are made in your accounting program; their numbers are kept here.`,
       pieces: ['products', 'orders', 'order-lines', 'payments'],
+      glance: [tax ? 'A line takes its price and tax from the product' : 'A line takes its price from the product', 'An order is Paid once nothing is left'],
       how: [
         'Add your products with their price' + (tax ? ' and tax.' : '.'),
         `Add an order for a customer${quotes ? ' (it starts as a Quote)' : ''}, then its lines on its screen: pick the product, write the quantity.`,

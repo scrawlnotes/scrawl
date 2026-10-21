@@ -235,7 +235,7 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
  * no folder has to create it; however many there are, the list scrolls inside and the window
  * stays as it is.
  */
-function FolderField({ folders, value, onChange }: { folders: string[]; value: FolderChoice; onChange: (choice: FolderChoice) => void }) {
+export function FolderField({ folders, value, onChange }: { folders: string[]; value: FolderChoice; onChange: (choice: FolderChoice) => void }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLButtonElement>(null);
   const close = () => {
@@ -354,8 +354,8 @@ function FolderPop({ anchor, folders, value, onPick, onClose }: {
   );
 }
 
-export type NewKind = 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'filter';
-export type ItemKind = Exclude<NewKind, 'filter'>;
+export type NewKind = 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'app' | 'filter';
+export type ItemKind = Exclude<NewKind, 'filter' | 'app'>;
 
 // Keys come after Board and before Filter, which is a view rather than a file; what they are for
 // is said beside them, as the kind least known.
@@ -365,6 +365,8 @@ export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: M
   { kind: 'board', label: 'create.board', icon: 'board', text: 'create.boardText' },
   { kind: 'keys', label: 'create.keys', icon: 'keys', text: 'create.keysText' },
   { kind: 'collection', label: 'create.collection', icon: 'collection', text: 'create.collectionText' },
+  // An app is ready templates set up together, in a window of its own (design/scrawl-apps.md 2).
+  { kind: 'app', label: 'create.app', icon: 'app', text: 'create.appText' },
   { kind: 'filter', label: 'create.filter', icon: 'filter', text: 'create.filterText' },
 ];
 
@@ -374,7 +376,7 @@ export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: M
  * folder's menu has the kind chosen already, and Back goes to the choice; the start page's
  * templates have the template chosen too.
  */
-export function NewDialog({ start = null, template = null, folders, folder, collections, onCreate, onFilter, onClose }: {
+export function NewDialog({ start = null, template = null, folders, folder, collections, onCreate, onFilter, onApp, onClose }: {
   /** The kind chosen already, if any. */
   start?: ItemKind | null;
   /** A board's or a collection's template chosen already, if any. */
@@ -389,6 +391,8 @@ export function NewDialog({ start = null, template = null, folders, folder, coll
   onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => Promise<string | null>;
   /** A filter has a window of its own. */
   onFilter: () => void;
+  /** And so has an app. */
+  onApp: () => void;
   onClose: () => void;
 }) {
   const [kind, setKind] = useState<ItemKind | null>(start);
@@ -397,7 +401,7 @@ export function NewDialog({ start = null, template = null, folders, folder, coll
       <NewItemForm kind={kind} template={template} folders={folders} folder={folder} collections={collections} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
     );
   }
-  return <KindChoice onPick={(picked) => (picked === 'filter' ? onFilter() : setKind(picked))} onClose={onClose} />;
+  return <KindChoice onPick={(picked) => (picked === 'filter' ? onFilter() : picked === 'app' ? onApp() : setKind(picked))} onClose={onClose} />;
 }
 
 export const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard', keys: 'create.newKeys', collection: 'create.newCollection' };

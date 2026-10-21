@@ -29,6 +29,22 @@ const shapes = {
       <path d="M4 10h16M4 14.5h16M10 10v9" />
     </>
   ),
+  /** An app: ready templates set up together, four squares. */
+  app: (
+    <>
+      <rect x="4" y="4" width="7" height="7" rx="1.5" />
+      <rect x="13" y="4" width="7" height="7" rx="1.5" />
+      <rect x="4" y="13" width="7" height="7" rx="1.5" />
+      <rect x="13" y="13" width="7" height="7" rx="1.5" />
+    </>
+  ),
+  /** Money kept in a pile: Budget and spending. */
+  stack: (
+    <>
+      <rect x="4" y="8" width="12.5" height="12" rx="2" />
+      <path d="M8 4.5h9.5a2 2 0 0 1 2 2V16" />
+    </>
+  ),
   open: (
     <>
       <path d="M14 4h6v6M20 4l-8.5 8.5" />

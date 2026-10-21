@@ -16,6 +16,8 @@ export const projects: AppTemplate = {
   version: 1,
   group: 'work',
   name: 'apps.projects.name',
+  short: 'apps.projects.short',
+  icon: 'board',
   what: 'apps.projects.what',
   questions: [
     {
@@ -30,9 +32,9 @@ export const projects: AppTemplate = {
       default: 'both',
     },
     { key: 'time', kind: 'yesno', label: 'apps.projects.time', default: false },
-    { key: 'steps', kind: 'list', label: 'apps.projects.steps', default: STEPS },
-    { key: 'budget', kind: 'yesno', label: 'apps.projects.budget', default: false, when: ({ chosen }) => !chosen.has('budget') },
-    { key: 'lines', kind: 'list', label: 'apps.projects.lines', default: LINES, when: ({ chosen, answers }) => chosen.has('budget') || answers.budget === true },
+    { key: 'steps', kind: 'list', label: 'apps.projects.steps', default: STEPS, help: 'apps.projects.stepsHelp', add: 'apps.projects.addStep' },
+    { key: 'budget', kind: 'yesno', label: 'apps.projects.budget', default: false, when: ({ chosen }) => !chosen.has('budget'), help: 'apps.projects.budgetHelp' },
+    { key: 'lines', kind: 'list', label: 'apps.projects.lines', default: LINES, when: ({ chosen, answers }) => chosen.has('budget') || answers.budget === true, under: 'budget', help: 'apps.projects.linesHelp', add: 'apps.projects.addLine' },
   ],
   money: (answers) => answers.budget === true,
   pieces: (answers) => ['projects', 'work', ...(answers.time === true ? ['time-entries'] : [])],
@@ -120,6 +122,7 @@ ${started.join('\n')}
       title: 'Project management',
       what: `Your projects${customers ? ' and who they are for' : ''}, the work on each as cards${time ? ', the hours spent' : ''}${budget ? ', and their budget and spending' : ''}.`,
       pieces: ['projects', 'work', ...(time ? ['time-entries'] : [])],
+      glance: [`Start project adds its cards${lines.length > 0 ? ' and budget lines' : ''}`, 'Progress from the cards that are done', ...(time ? ['A project adds up its hours'] : [])],
       how: [
         `Add a project${customers ? ' with its customer' : ''}, its start and its end${budget ? ', and its contract' : ''}.`,
         'Press Start project when the work begins.',

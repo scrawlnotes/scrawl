@@ -12827,3 +12827,578 @@ button.st-li:hover,
 .ask-form .pbad {
   color: var(--sl-accent);
 }
+
+/* New app (design/scrawl-apps.md 2, design/mockups.html stage 14 slice 3): a window in steps,
+   the templates as cards, the app's name and currencies, a page of questions for each template,
+   a summary. Its title, steps and buttons stay; the page between them scrolls. */
+.dialog.new-app {
+  width: min(820px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 48px));
+  padding: 16px 18px;
+}
+
+.backdrop > .dialog.new-app {
+  overflow: hidden;
+}
+
+.new-app .na-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -2px 2px 6px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.new-app .na-steps .on {
+  color: var(--sl-fg);
+}
+
+.new-app .na-steps .done {
+  color: var(--sl-dim);
+}
+
+.new-app .na-steps span + span::before {
+  content: '›';
+  margin-right: 6px;
+  color: var(--sl-faint);
+}
+
+.backdrop > .dialog.new-app > .dialog-body {
+  flex: 1;
+  margin: 0 -18px;
+  padding: 2px 18px 8px;
+}
+
+.backdrop > .dialog.new-app .dialog-actions {
+  position: static;
+  align-items: center;
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--sl-line);
+  border-radius: 0;
+}
+
+.new-app .na-count {
+  margin-right: auto;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.na-label {
+  margin: 0 2px 6px;
+  color: var(--sl-faint);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.na-group {
+  margin-bottom: 10px;
+}
+
+.na-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.na-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 9px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.na-card:hover {
+  border-color: color-mix(in srgb, var(--sl-accent) 45%, var(--sl-line));
+}
+
+.na-card[aria-checked='true'] {
+  border-color: var(--sl-accent);
+  background: color-mix(in srgb, var(--sl-accent) 7%, transparent);
+}
+
+.na-card .tick {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--sl-faint);
+  border-radius: 4px;
+}
+
+.na-card[aria-checked='true'] .tick {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+}
+
+.na-card .tick .icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3;
+}
+
+.na-card .hd {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 20px;
+  color: var(--sl-fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.na-card .hd .icon {
+  width: 15px;
+  height: 15px;
+  color: var(--sl-dim);
+}
+
+.na-card .what {
+  padding-right: 14px;
+}
+
+.na-card .sets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.na-card .sets span,
+.na-card .shared {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.na-card .sets .icon,
+.na-card .shared .icon {
+  flex: none;
+  width: 11px;
+  height: 11px;
+}
+
+.na-card .shared {
+  color: color-mix(in srgb, var(--sl-accent) 85%, var(--sl-fg));
+  font-size: 11px;
+}
+
+/* The app's page: its name and place side by side, its currencies under them. */
+.na-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px 18px;
+  max-width: 640px;
+}
+
+.na-fields .wide {
+  grid-column: 1 / -1;
+}
+
+.na-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.na-field > span {
+  margin: 0 2px;
+  color: var(--sl-faint);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.na-help {
+  margin: 1px 2px 0;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.na-bad,
+.na-help.na-bad {
+  margin: 4px 2px 0;
+  color: var(--sl-danger);
+  font-size: 12px;
+}
+
+.na-curs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+}
+
+.na-cur {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-side);
+  color: var(--sl-fg);
+  font-size: 12.5px;
+  cursor: grab;
+}
+
+.na-cur small {
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.na-cur .x,
+.na-list .x {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  color: var(--sl-faint);
+}
+
+.na-cur .x:hover,
+.na-list .x:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.na-cur .x .icon,
+.na-list .x .icon {
+  width: 11px;
+  height: 11px;
+}
+
+.dialog .na-curs input.na-add {
+  flex: 1;
+  min-width: 120px;
+  width: auto;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  text-transform: uppercase;
+}
+
+.dialog .na-curs input.na-add::placeholder {
+  text-transform: none;
+}
+
+/* The common codes are offered as it is typed, without the list's arrow. */
+.na-curs input.na-add::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+
+.na-addbtn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  color: var(--sl-accent);
+}
+
+.na-addbtn .icon {
+  width: 13px;
+  height: 13px;
+}
+
+/* A template's questions, each with its answer ready. */
+.na-qs {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+}
+
+.na-lead {
+  margin: 0;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.na-q {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.na-q > .ql {
+  color: var(--sl-fg);
+  font-size: 13px;
+}
+
+.na-q.sub {
+  margin: -6px 0 0 18px;
+  padding-left: 12px;
+  border-left: 2px solid var(--sl-line);
+}
+
+.na-why {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: -2px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.na-why .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.na-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  padding: 2px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-bg);
+}
+
+.na-seg button {
+  padding: 4px 14px;
+  border-radius: 5px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.na-seg button:hover {
+  color: var(--sl-fg);
+}
+
+.na-seg button[aria-checked='true'],
+.na-seg button[aria-pressed='true'] {
+  background: var(--sl-sel);
+  box-shadow: inset 0 0 0 1px var(--sl-line);
+  color: var(--sl-fg);
+}
+
+.na-radio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.na-radio button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  color: var(--sl-fg);
+  font-size: 12.5px;
+}
+
+.na-radio button:hover {
+  background: var(--sl-sel);
+}
+
+.na-radio button::before {
+  content: '';
+  flex: none;
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--sl-faint);
+  border-radius: 50%;
+}
+
+.na-radio button[aria-checked='true']::before {
+  border: 4px solid var(--sl-accent);
+}
+
+.na-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: min(360px, 100%);
+}
+
+.na-list .it {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+}
+
+.na-list .it:focus-within {
+  border-color: var(--sl-accent);
+}
+
+.na-list .gr {
+  color: var(--sl-faint);
+  font-size: 11px;
+  letter-spacing: -1px;
+  cursor: grab;
+  user-select: none;
+}
+
+.dialog .na-list input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 2px;
+  border: 0;
+  background: none;
+}
+
+.na-list .it small {
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.na-list .na-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 8px;
+  border-radius: 5px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.na-list .na-add:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.na-list .na-add .icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* The summary: where it goes, then a column for each template. */
+.na-where {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font-size: 12.5px;
+}
+
+.na-where .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--sl-dim);
+}
+
+.na-where small {
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.na-where .note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--sl-dim);
+}
+
+.na-sum {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.na-sum .col {
+  padding: 10px 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+}
+
+.na-sum h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  color: var(--sl-fg);
+  font-size: 13px;
+}
+
+.na-sum h4 .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--sl-dim);
+}
+
+.na-sum .pc {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 0;
+  color: var(--sl-fg);
+  font-size: 12.5px;
+}
+
+.na-sum .pc .icon {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--sl-dim);
+}
+
+.na-sum .pc small {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 11px;
+  text-align: right;
+}
+
+.na-sum .hd {
+  display: block;
+  margin: 9px 0 3px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.na-sum ul {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .na-cards,
+  .na-sum {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

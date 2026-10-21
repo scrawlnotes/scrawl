@@ -42,6 +42,16 @@ export interface Question {
   default: Answer;
   /** Asked only when this holds; else its answer is its default, and the template reads it so. */
   when?: (asking: Asking) => boolean;
+  /** The key of the question of the same template it hangs on: the wizard shows it under that one. */
+  under?: string;
+  /** The other template it is asked because of: the wizard says so above it. */
+  because?: TemplateId;
+  /** A line under it saying what the answer does. */
+  help?: MessageKey;
+  /** A list's button that adds an item: "Add a stage". */
+  add?: MessageKey;
+  /** What a list's items stand for, beside each, where something does: Won is done, the first warehouse the default. */
+  hints?: (items: string[]) => (MessageKey | null)[];
 }
 
 export interface AppTemplate {
@@ -50,6 +60,10 @@ export interface AppTemplate {
   version: number;
   group: TemplateGroup;
   name: MessageKey;
+  /** Its name in a word, where another template's piece is said to be shared with it: "with Stock". */
+  short: MessageKey;
+  /** Its card's icon, by the name the app's icons go by. */
+  icon: string;
   /** What it is for, in a line. */
   what: MessageKey;
   questions: Question[];
@@ -139,6 +153,8 @@ export interface AboutSection {
   work: string[];
   /** What it set up, by role, for the list of what is in it; a piece another template set up is said there. */
   pieces: string[];
+  /** What happens by itself in a few words each, for the wizard's summary. */
+  glance: string[];
 }
 
 /** A collection of the app as it is being built. */
@@ -204,4 +220,17 @@ export interface AppPlan {
   changed: string[];
   /** What was left as it was: a field of the same key and another type. */
   notes: string[];
+  /** What each template set up sets up, for the wizard's summary: in the order they are set up, a piece under the first that has it. */
+  templates: TemplateSummary[];
+}
+
+/** What a template sets up, as the wizard's summary says it. */
+export interface TemplateSummary {
+  id: TemplateId;
+  title: string;
+  /** Its pieces, each with the templates after it that share it, and how many records it starts with. */
+  pieces: { kind: Part['kind']; name: string; with: TemplateId[]; records: number }[];
+  /** The names of the buttons it adds. */
+  buttons: string[];
+  glance: string[];
 }

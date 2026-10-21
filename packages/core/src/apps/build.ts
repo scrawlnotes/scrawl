@@ -38,6 +38,7 @@ import {
   type RuleChunk,
   TEMPLATE_IDS,
   type TemplateId,
+  type TemplateSummary,
 } from './types';
 
 // From the templates chosen and their answers, the plan of an app: its folders and files, written
@@ -97,6 +98,8 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 class Draft implements AppDraft {
   readonly parts = new Map<string, Part>();
   readonly sections: { id: TemplateId; section: AboutSection }[] = [];
+  /** The buttons each template adds, by their names. */
+  readonly buttons = new Map<TemplateId, string[]>();
   private building: TemplateId | null = null;
 
   constructor(
@@ -136,6 +139,10 @@ class Draft implements AppDraft {
   rule(role: string, chunk: RuleChunk) {
     const part = this.part(role, 'collection');
     if (!part.rules.some((r) => r.kind === chunk.kind && r.name === chunk.name)) part.rules.push(chunk);
+    if (chunk.kind === 'action' && this.building) {
+      const own = this.buttons.get(this.building) ?? [];
+      if (!own.includes(chunk.name)) this.buttons.set(this.building, [...own, chunk.name]);
+    }
   }
 
   record(role: string, values: { [key: string]: string | number | boolean }) {
@@ -266,7 +273,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
 
   const newId = ids ?? (() => crypto.randomUUID());
   const recordId = ids ?? newRecordId;
-  const plan: AppPlan = { folder, app: { version: 1, name: title, currencies: money.currencies, templates: [] }, dirs: found ? [] : [folder], files: [], created: [], changed: [], notes: [] };
+  const plan: AppPlan = { folder, app: { version: 1, name: title, currencies: money.currencies, templates: [] }, dirs: found ? [] : [folder], files: [], created: [], changed: [], notes: [], templates: [] };
   const file = (path: string, text: string, was: string | null = null) => plan.files.push({ path, text, before: was });
   const checks: { part: CollectionPart; fields: Field[]; rules: RuleChunk[] }[] = [];
   const final = new Map<string, { fields: readonly Field[] }>();
@@ -410,6 +417,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
     file(path, aboutNote(path, title, found ? sections : after.sections, after.parts));
   }
 
+  plan.templates = summaries(sections, after);
   plan.app = {
     version: 1,
     name: title,
@@ -424,6 +432,24 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   if (wrong.length > 0 && found) throw new AppProblems([...plan.notes, ...wrong.map((what) => t('apps.wouldBreak', { what }))]);
   if (wrong.length > 0) throw new Error(`The app templates make a wrong app (${[...all.keys()].join(', ')}):\n${wrong.join('\n')}`);
   return plan;
+}
+
+/** What each template sets up, for the wizard's summary: a piece under the first template that has it, with the ones after it that share it. */
+function summaries(sections: { id: TemplateId; section: AboutSection }[], draft: Draft): TemplateSummary[] {
+  const said = new Set<string>();
+  return sections.map(({ id, section }) => ({
+    id,
+    title: section.title,
+    pieces: section.pieces.flatMap((role) => {
+      const part = draft.parts.get(role);
+      if (!part || said.has(role)) return [];
+      said.add(role);
+      const others = sections.filter((s) => s.id !== id && s.section.pieces.includes(role)).map((s) => s.id);
+      return [{ kind: part.kind, name: partName(part), with: others, records: part.kind === 'collection' ? part.records.length : 0 }];
+    }),
+    buttons: draft.buttons.get(id) ?? [],
+    glance: section.glance,
+  }));
 }
 
 /**

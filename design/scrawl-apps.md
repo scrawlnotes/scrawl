@@ -1,6 +1,6 @@
 # Scrawl apps: hazır şablonlardan app kurmak (taslak)
 
-Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda (1c0a5f3), notlarda dosya linki kodda (7c8aac4). 3. dilimin mockup'ı onaylı.
+Durum: 21 Ekim 2026'da onaylandı, PLAN.md'ye 14. aşama olarak işlendi. 1. dilim kodda (mockup 58c5b3d, kod 0508919). 2. dilim kodda (1c0a5f3), notlarda dosya linki kodda (7c8aac4). 3. dilim kodda (mockup 5818907).
 
 ## 1. Amaç
 
@@ -70,6 +70,15 @@ Verilen kararlar (21 Ekim 2026):
 - Kurulunca klasör kenar çubuğunda açılır, tanıtım notu yeni sekmede; toast "Spare parts set up: 12 collections, 1 board, 1 note" ve Undo.
 - Telefonda tam boy sheet: üst çubukta geri ve Next, altında ilerleme çizgisi, aynı sayfalar; özetin altında büyük Create.
 - Satış'ın kart metni kısaldı: "Products, quotes, orders and the money coming in; invoices are made elsewhere."
+
+21 Ekim 2026'da, 3. dilimin kodu yazılırken verilen kararlar:
+- Para birimi önce cihazın bölgesinden gelir: Türkiye'de TRY, euro bölgesinde EUR, bilinmeyen yerde USD. Kod yazılıp Enter ya da + ile eklenir, yazarken sık kullanılanlar önerilir; çipler sürüklenerek sıralanır, ilki ana para birimidir.
+- Ad ve yerle ilgili uyarı ad kutusunun altında çıkar; ad App sayfasından çıkarken denetlenir.
+- En çok üç kısa seçenekli soru segmentli düğme, diğeri radyo listesi; çoklu seçim (talep kanalları) aç/kapa düğmeler. Listenin satırları yerinde yazılır, Enter yeni satır açar.
+- Kartta yalnız şablonun kendi parçaları listelenir; ortak parça "Uses…" satırında söylenir.
+- Pencerenin yüksekliği sayfasına göre; Esc ve Back bir adım geri, ilk adımda Cancel. Üstteki adım adları tıklanmaz.
+- Telefonda geri düğmesi şablonun kısa adını söyler ("‹ Stock").
+- Depolar sorusunun etiketi "Your warehouses", açıklaması altında; Bütçe kartının metni mockup'taki gibi.
 
 ## 2. Sihirbaz
 

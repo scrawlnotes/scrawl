@@ -28,6 +28,8 @@ export const crm: AppTemplate = {
   version: 1,
   group: 'customers',
   name: 'apps.crm.name',
+  short: 'apps.crm.short',
+  icon: 'person',
   what: 'apps.crm.what',
   questions: [
     {
@@ -41,7 +43,17 @@ export const crm: AppTemplate = {
       default: 'companies',
     },
     { key: 'deals', kind: 'yesno', label: 'apps.crm.deals', default: true },
-    { key: 'stages', kind: 'list', label: 'apps.crm.stages', default: STAGES, when: ({ answers }) => answers.deals !== false },
+    {
+      key: 'stages',
+      kind: 'list',
+      label: 'apps.crm.stages',
+      default: STAGES,
+      when: ({ answers }) => answers.deals !== false,
+      under: 'deals',
+      help: 'apps.crm.stagesHelp',
+      add: 'apps.crm.addStage',
+      hints: (items) => stageColumns(items).map(([, kind]) => (kind === 'backlog' ? 'apps.hint.waiting' : kind === 'done' ? 'apps.hint.done' : kind === 'dropped' ? 'apps.hint.dropped' : null)),
+    },
   ],
   money: (answers) => answers.deals !== false,
   pieces: (answers) => [...(answers.customers === 'companies' ? ['companies'] : []), 'people', 'activities', ...(answers.deals !== false ? ['deals'] : [])],
@@ -114,6 +126,7 @@ export const crm: AppTemplate = {
         ? 'Who your customers are, the people you talk to there, every call and meeting, and the deals on their way.'
         : 'Who your customers are, every call and meeting with them, and the deals on their way.',
       pieces: [...(firms ? ['companies'] : []), 'people', 'activities', ...(deals ? ['deals'] : [])],
+      glance: ['Last contact from the latest activity', ...(deals && firms ? ['A company shows its open deals'] : [])],
       how: [
         firms ? 'Add a company, then its people.' : 'Add a person.',
         'Press Log a call or Log a meeting on their screen after you talk; write what was said in the activity.',

@@ -20,6 +20,8 @@ export const support: AppTemplate = {
   version: 1,
   group: 'customers',
   name: 'apps.support.name',
+  short: 'apps.support.short',
+  icon: 'comment',
   what: 'apps.support.what',
   questions: [
     {
@@ -57,6 +59,7 @@ export const support: AppTemplate = {
       title: 'Customer support',
       what: `Every request a customer sends${channels.length > 0 ? ` by ${channels.join(', ')}` : ''}, from the first message to its answer${answers.feedback !== false ? ', and what customers tell you about the product' : ''}.`,
       pieces: ['requests', ...(answers.feedback !== false ? ['feedback'] : []), ...(answers.replies !== false ? ['saved-replies'] : [])],
+      glance: [app.hasPiece('companies') ? 'A company and a person show their requests' : 'A person shows their requests'],
       how: [
         `Add a card on ${app.called('requests')} for each request; link it to the person${app.hasPiece('companies') ? ' and the company' : ''}.`,
         'Move it as you work: In progress, Waiting on customer while you wait for an answer, Resolved once it is answered.',

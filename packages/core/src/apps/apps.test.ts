@@ -74,6 +74,15 @@ describe('setting up an app', () => {
     const orders = parseSchema(schemas.find((f) => f.path === 'Atlas/Orders/_collection.json')!.text);
     expect(orders.fields.find((f) => f.key === 'customer')!.collection).toBe('Atlas/Companies');
     expect(plan.created.map((c) => c.path)).toContain('Atlas/About Atlas.md');
+    // The wizard's summary: a piece under the first template that has it, with the ones that share it.
+    expect(plan.templates.map((s) => [s.id, s.pieces.map((p) => p.name)])).toEqual([
+      ['crm', ['Companies', 'People', 'Activities', 'Deals']],
+      ['sales', ['Products', 'Orders', 'Order lines', 'Payments']],
+      ['support', ['Requests', 'Feedback', 'Saved replies']],
+      ['stock', ['Stock movements', 'Purchase orders', 'Purchase order lines']],
+    ]);
+    expect(plan.templates[1]!.pieces[0]).toMatchObject({ name: 'Products', with: ['stock'] });
+    expect(plan.templates.find((s) => s.id === 'stock')!.buttons).toEqual(['Correct stock', 'Reorder']);
   });
 
   it('says what is wrong with what it was given', () => {

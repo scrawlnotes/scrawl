@@ -42,11 +42,23 @@ export const stock: AppTemplate = {
   version: 1,
   group: 'money',
   name: 'apps.stock.name',
+  short: 'apps.stock.short',
+  icon: 'table',
   what: 'apps.stock.what',
   questions: [
     { key: 'purchasing', kind: 'yesno', label: 'apps.stock.purchasing', default: true },
     { key: 'locations', kind: 'yesno', label: 'apps.stock.locations', default: false },
-    { key: 'locationList', kind: 'list', label: 'apps.stock.locationList', default: LOCATIONS, when: ({ answers }) => answers.locations === true },
+    {
+      key: 'locationList',
+      kind: 'list',
+      label: 'apps.stock.locationList',
+      default: LOCATIONS,
+      when: ({ answers }) => answers.locations === true,
+      under: 'locations',
+      help: 'apps.stock.locationListHelp',
+      add: 'apps.stock.addLocation',
+      hints: (items) => items.map((_, i) => (i === 0 ? 'apps.hint.default' : null)),
+    },
     {
       key: 'deduct',
       kind: 'choice',
@@ -58,8 +70,9 @@ export const stock: AppTemplate = {
       ],
       default: 'delivered',
       when: ({ chosen }) => chosen.has('sales'),
+      because: 'sales',
     },
-    { key: 'payables', kind: 'yesno', label: 'apps.stock.payables', default: true, when: ({ chosen, answers }) => chosen.has('budget') && answers.purchasing !== false },
+    { key: 'payables', kind: 'yesno', label: 'apps.stock.payables', default: true, when: ({ chosen, answers }) => chosen.has('budget') && answers.purchasing !== false, because: 'budget' },
   ],
   money: () => true,
   pieces: (answers) => [
@@ -254,6 +267,11 @@ ${movement(app, '        ', 'product: line.product, direction: "Out", type: "sal
       title: 'Stock and purchasing',
       what: `What you have in stock${placesText}, every movement in and out${buying ? ', and what you order from suppliers' : ''}. Stock is never written by hand: it is worked out from the movements.`,
       pieces: ['products', 'stock-movements', ...(places ? ['locations', 'stock-levels'] : []), ...(buying ? ['purchase-orders', 'purchase-order-lines'] : [])],
+      glance: [
+        ...(at ? [deduct === 'confirmed' ? 'Confirmed orders take stock out' : 'Delivered orders take stock out'] : []),
+        ...(buying ? ['Received purchase orders bring it in'] : []),
+        'Low stock is marked',
+      ],
       how: [
         'Add your products with their cost, their supplier and the level to reorder at.',
         ...(buying ? ['Add a purchase order for a supplier and its lines; make it Ordered when it is sent, Received when the goods come.'] : ['Add a movement for what comes in and what goes out.']),
