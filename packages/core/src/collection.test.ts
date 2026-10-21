@@ -684,3 +684,16 @@ describe('formulas, conditions, groups and sums', () => {
     expect(read.fields[1]).toEqual({ key: 'note', label: 'note', type: 'text' });
   });
 });
+
+describe('linked records as a table', () => {
+  it('keeps a linked block shown as a table, its fields and its sums', () => {
+    const block = { block: 'linked', collection: 'Atlas/Budget lines', style: 'table', fields: ['name', 'planned', 'actual'], sums: true };
+    const read = parseSchema(JSON.stringify({ version: 2, fields: [{ key: 'name', type: 'name' }], layout: { columns: [{ sections: [{ items: [block, { block: 'linked', collection: 'Atlas/Transactions', style: 'table', sums: 'yes' }, { block: 'linked', collection: 'X', style: 'grid' }] }] }] } }));
+    const items = read.layout!.columns[0]!.sections[0]!.items;
+    expect(items[0]).toEqual(block);
+    // Sums are said with true; a style it does not know is left to the default.
+    expect(items[1]).toEqual({ block: 'linked', collection: 'Atlas/Transactions', style: 'table' });
+    expect(items[2]).toEqual({ block: 'linked', collection: 'X' });
+    expect(parseSchema(serializeSchema(read)).layout).toEqual(read.layout);
+  });
+});

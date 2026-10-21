@@ -29,6 +29,7 @@ import {
   type LayoutBlock,
   type LayoutItem,
   type LinkedBlock,
+  type LinkedStyle,
   linkFieldsTo,
   linkingCollections,
   mixedCurrency,
@@ -422,12 +423,12 @@ function blockWords(block: Block, collections: Collection[]): [string, string] {
   const source = collections.find((c) => c.dir === block.collection);
   const style = linkedStyle(block, source);
   const shown = (block.fields ?? []).map((key) => source?.schema.fields.find((f) => f.key === key)?.label.toLowerCase() ?? key);
-  const meta = [t('fields.linked'), t(style === 'timeline' ? 'fields.timeline' : 'fields.list').toLowerCase(), ...(style === 'timeline' ? [t('fields.newestFirst')] : shown.length > 0 ? [shown.join(', ')] : [])];
+  const meta = [t('fields.linked'), t(`fields.${style}`).toLowerCase(), ...(style === 'timeline' ? [t('fields.newestFirst')] : shown.length > 0 ? [shown.join(', ')] : [])];
   return [collectionName(block.collection), meta.join(' · ')];
 }
 
 /** How linked records show when the block does not say: as a timeline when they have a day. */
-function linkedStyle(block: LinkedBlock, source: Collection | undefined): 'list' | 'timeline' {
+function linkedStyle(block: LinkedBlock, source: Collection | undefined): LinkedStyle {
   return block.style ?? (source?.schema.fields.some((f) => f.type === 'date') ? 'timeline' : 'list');
 }
 
@@ -1032,10 +1033,15 @@ function BlockEditor({ block, dir, collections, onChange, onDelete }: {
   const sort = block.sort && sorts.some((o) => o.value === block.sort) ? block.sort : ((style === 'timeline' ? days[0]?.key : (source && nameField(source.schema)?.key)) ?? null);
   const back = source ? linkFieldsTo(source.schema, dir).map((f) => f.label.toLowerCase()) : [];
   const name = collectionName(block.collection);
-  const note = back.length === 0 ? t('fields.linkedNone', { collection: name }) : t(style === 'timeline' ? 'fields.linkedTimeline' : 'fields.linkedList', { collection: name.toLowerCase(), field: back.join(' / ') });
-  const restyle = (next: 'list' | 'timeline') => {
-    const { sort: _sort, fields: _fields, ...rest } = block;
-    onChange({ ...rest, style: next, ...(next === 'list' && block.fields && { fields: block.fields }) });
+  const note =
+    back.length === 0
+      ? t('fields.linkedNone', { collection: name })
+      : t(style === 'timeline' ? 'fields.linkedTimeline' : style === 'table' ? 'fields.linkedTable' : 'fields.linkedList', { collection: name.toLowerCase(), field: back.join(' / ') });
+  const restyle = (next: LinkedStyle) => {
+    const { sort: _sort, fields: _fields, sums: _sums, ...rest } = block;
+    // A list and a table keep the fields they show, and the order; a table its sums.
+    const kept = next !== 'timeline' && style !== 'timeline';
+    onChange({ ...rest, style: next, ...(kept && block.fields && { fields: block.fields }), ...(kept && block.sort && { sort: block.sort }), ...(next === 'table' && block.sums && { sums: true }) });
   };
   return (
     <div className="fe">
@@ -1052,6 +1058,9 @@ function BlockEditor({ block, dir, collections, onChange, onDelete }: {
           <button type="button" className={style === 'list' ? 'on' : undefined} aria-pressed={style === 'list'} onClick={() => restyle('list')}>
             {t('fields.list')}
           </button>
+          <button type="button" className={style === 'table' ? 'on' : undefined} aria-pressed={style === 'table'} onClick={() => restyle('table')}>
+            {t('fields.table')}
+          </button>
         </span>
         {sorts.length > 0 ? (
           <Picker className="in" options={sorts} value={sort} label={t('fields.order')} onPick={(key) => key && onChange({ ...block, sort: key })} />
@@ -1059,7 +1068,7 @@ function BlockEditor({ block, dir, collections, onChange, onDelete }: {
           style === 'timeline' && <span className="fe-meta">{t('fields.noDate')}</span>
         )}
       </div>
-      {style === 'list' && fields.length > 0 && (
+      {style !== 'timeline' && fields.length > 0 && (
         <div className="fe-row">
           <MultiPicker
             className="in"
@@ -1072,6 +1081,19 @@ function BlockEditor({ block, dir, collections, onChange, onDelete }: {
             }}
           />
         </div>
+      )}
+      {style === 'table' && (
+        <label className="fcheck">
+          <input
+            type="checkbox"
+            checked={!!block.sums}
+            onChange={(event) => {
+              const { sums: _sums, ...rest } = block;
+              onChange(event.target.checked ? { ...rest, sums: true } : rest);
+            }}
+          />
+          {t('fields.sums')}
+        </label>
       )}
       <p className="fi-note">{note}</p>
     </div>

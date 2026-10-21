@@ -8,6 +8,7 @@ import {
   type CollectionLook,
   collectionOf,
   type ColumnWidths,
+  type Computer,
   computerFor,
   collectionName,
   columnSums,
@@ -96,6 +97,7 @@ import {
 import { CardPanel, type CardPanelActions } from './CardPanel';
 import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { FieldsDialog } from './Fields';
+import { CellEditor, useGrid } from './Grid';
 import { isPhone, onPage } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { AttachButton } from './Description';
@@ -132,6 +134,8 @@ export interface CollectionActions {
   create?: (dir: string, values?: Record['values']) => void;
   /** Asks before something is lost; `action` is what the confirming button says. */
   ask: (title: string, message: string, run: () => void, action: string) => void;
+  /** Says something that went wrong, as a notice at the foot of the window. */
+  say?: (text: string) => void;
   /** An editor for the body of a record of the collection at `home`, in `parent`; the host wires it to the files of its space. */
   editor: (home: string, parent: HTMLElement, doc: string, onChange: (doc: string) => void) => ScrawlEditor;
   /** Copies files chosen with Attach into a record's notes, where the cursor is. */
@@ -813,6 +817,7 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
     );
   }
   const { schema } = source;
+  if (block.style === 'table') return <LinkedTable block={block} source={source} dir={dir} record={record} today={today} actions={actions} onOpen={onOpen} />;
   // The linked records with what is worked out among their values, and their fields as those show.
   const computer = computerFor(source, actions.collections(), actions.boards(), today);
   const shownAs = computer.shown(source.dir);
@@ -879,6 +884,263 @@ function LinkedRecords({ block, dir, record, today, actions, onOpen, onAdd }: {
           </span>
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * The row + Add row opens at the foot of a table, after the slice 3 views of design/mockups.html:
+ * a box for each field the table shows, the defaults in them, what is worked out shown faint.
+ * Add writes the record (faint while it has no name), Cancel and Esc close the row.
+ */
+function NewRow({ fields, schema, values, computed, shown, cellClass, ctx, width, error, onChange, onAdd, onCancel }: {
+  fields: Field[];
+  schema: Schema;
+  values: Record['values'];
+  /** What is worked out from them. */
+  computed: Record['values'];
+  shown: (field: Field) => Field;
+  cellClass: (field: Field, i: number) => string | undefined;
+  ctx: ValueContext;
+  /** How wide the line with Add is: as the table shows, so that its buttons stay in sight when the table is wider. */
+  width?: number;
+  error: string | null;
+  onChange: (values: Record['values']) => void;
+  onAdd: () => void;
+  onCancel: () => void;
+}) {
+  const named = nameField(schema);
+  const nameless = !!named && !valueText(values[named.key] ?? null).trim();
+  const first = fields.find((f) => f.key !== TITLE.key && !isComputed(f.type))?.key;
+  return (
+    <>
+      <div
+        className="crow new"
+        role="row"
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape' || event.defaultPrevented) return;
+          event.stopPropagation();
+          onCancel();
+        }}
+      >
+        {fields.map((field, i) => (
+          <div key={field.key} role="cell" className={[cellClass(field, i), isComputed(field.type) && 'calc'].filter(Boolean).join(' ') || undefined}>
+            {field.key === TITLE.key ? (
+              <span className="empty">–</span>
+            ) : isComputed(field.type) ? (
+              <Cell field={shown(field)} value={computed[field.key]} ctx={ctx} values={computed} />
+            ) : (
+              <FieldInput
+                field={field}
+                value={values[field.key] ?? null}
+                autoFocus={field.key === first}
+                ctx={ctx}
+                currency={currencyOf(field.format, values)}
+                onChange={(next) => onChange({ ...values, [field.key]: next })}
+                onEnter={field.type === 'name' && !nameless ? onAdd : undefined}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="cadd-acts" style={width ? { width } : undefined}>
+        {error && <p role="alert">{error}</p>}
+        <button type="button" onClick={onCancel}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" disabled={nameless} onClick={onAdd}>
+          {t('collection.addRowButton')}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/**
+ * A table's + Add row: the values of the row being added, the defaults first; Add writes it and
+ * opens the next one at once, with the defaults again (the next number counting the one added).
+ */
+function useAdding({ computer, dir, schema, given, me, add }: {
+  computer: Computer;
+  dir: string;
+  schema: Schema;
+  /** What a new row starts with before the defaults: the links of a linked block. */
+  given: () => Record['values'];
+  me?: string;
+  add: (values: Record['values']) => Promise<string | null>;
+}) {
+  const [values, setValues] = useState<Record['values'] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const again = useRef(false);
+  const busy = useRef(false);
+  const start = () => {
+    setError(null);
+    setValues(computer.defaults(dir, given(), me));
+  };
+  // The record added comes into the collection; the next row counts it.
+  useEffect(() => {
+    if (!again.current) return;
+    again.current = false;
+    start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computer]);
+  const write = async () => {
+    if (!values || busy.current) return;
+    const missing = missingFields(values, schema).filter((key) => key !== nameField(schema)?.key);
+    if (missing.length > 0) return setError(t('collection.requiredMissing', { fields: missing.map((k) => schema.fields.find((f) => f.key === k)?.label ?? k).join(t('list.separator')) }));
+    busy.current = true;
+    const failed = await add(values);
+    busy.current = false;
+    if (failed) return setError(failed);
+    again.current = true;
+    setValues(null);
+  };
+  return { values, error, start, write, change: (next: Record['values']) => (setError(null), setValues(next)), cancel: () => setValues(null) };
+}
+
+/** The fields a linked table shows when its block names none: the collection's, but the link back here, six at most. */
+function linkedColumns(block: LinkedBlock, schema: Schema, dir: string): Field[] {
+  const byKey = new Map(schema.fields.map((f) => [f.key, f]));
+  const named = nameField(schema);
+  const back = new Set(linkFieldsTo(schema, dir).map((f) => f.key));
+  const chosen = block.fields ? block.fields.map((k) => byKey.get(k)).filter((f): f is Field => !!f && f.type !== 'name') : schema.fields.filter((f) => f.type !== 'name' && !back.has(f.key)).slice(0, 5);
+  return [...(named ? [named] : schema.fields.length > 0 ? [] : [TITLE]), ...chosen];
+}
+
+/**
+ * Linked records as a table, after the slice 3 views of design/mockups.html: a column for each
+ * field the block shows, its cells typed in as the collection's table's are, the sums of its
+ * numbers under it when the block says so, and + Add row, which adds one linked to the record.
+ * A record opens over this one from the button at the start of its row, or from its name.
+ */
+function LinkedTable({ block, source, dir, record, today, actions, onOpen }: {
+  block: LinkedBlock;
+  source: Collection;
+  dir: string;
+  record: Record;
+  today: string;
+  actions: CollectionActions;
+  onOpen: (source: Collection, record: Record) => void;
+}) {
+  const { schema } = source;
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
+  const computer = useMemo(() => computerFor(source, actions.collections(), actions.boards(), today), [source, actions, today]);
+  const shownAs = computer.shown(source.dir);
+  const asShown = (field: Field) => shownAs.get(field.key) ?? field;
+  const columns = linkedColumns(block, schema, dir);
+  const linked = linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) }));
+  const rows = sortRecords(linked, schema, { key: block.sort ?? nameField(schema)?.key ?? '', dir: 'asc' }, today);
+  const recordSchema = actions.collection(dir)?.schema;
+  const adding = useAdding({
+    computer,
+    dir: source.dir,
+    schema,
+    given: () => (recordSchema ? linkedValues(schema, dir, record, recordSchema) : {}),
+    me: actions.me?.(),
+    add: (values) => actions.addRecord(source.dir, { values }),
+  });
+  const grid = useGrid({
+    rows,
+    fields: columns,
+    open: (r) => onOpen(source, r),
+    write: (r, field, value) => void actions.updateRecord(source.dir, r.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed)),
+  });
+  const numeric = (field: Field) => asShown(field).type === 'number';
+  const cellClass = (field: Field, i: number) => [i === 0 && 'c0', numeric(field) && 'r'].filter(Boolean).join(' ') || undefined;
+  const widths = columns.map((f) => WIDTHS[asShown(f).type][0]);
+  const sums = block.sums ? columns.map((f) => (numeric(f) ? columnSums(rows, schema, f.key, today) : null)) : [];
+  return (
+    <div className="blk ltable">
+      <div className="blk-h">
+        <span>{collectionName(block.collection)}</span>
+        <small>{rows.length}</small>
+      </div>
+      <div className="ltable-scroll">
+        <div ref={grid.box} className="ctable" role="table" aria-label={collectionName(block.collection)} tabIndex={0} onKeyDown={grid.keyDown} style={{ '--grid': [`minmax(${widths[0]}px, 1fr)`, ...widths.slice(1).map((w) => `${w}px`)].join(' ') } as CSSProperties}>
+          <div className="crow head" role="row">
+            {columns.map((field, i) => (
+              <div key={field.key} role="columnheader" className={cellClass(field, i)}>
+                <span className="hs">{field.label}</span>
+              </div>
+            ))}
+          </div>
+          {rows.map((r) => (
+            <div key={r.id} role="row" className={grid.picked?.id === r.id ? 'crow on' : 'crow'}>
+              {columns.map((field, i) => {
+                const c = grid.cell(r, field);
+                return (
+                  <div
+                    key={field.key}
+                    role="cell"
+                    data-cell={c['data-cell']}
+                    className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', field.type === 'name' && 'opens'].filter(Boolean).join(' ') || undefined}
+                    onClick={c.onClick}
+                    onDoubleClick={c.onDoubleClick}
+                  >
+                    {i === 0 && (
+                      <button type="button" className="ropen" title={t('collection.openRecord')} aria-label={t('collection.openRecord')} onClick={(event) => (event.stopPropagation(), onOpen(source, r))}>
+                        <Icon name="open" />
+                      </button>
+                    )}
+                    {c.editing ? (
+                      <CellEditor field={field} value={r.values[field.key]} typed={grid.editing?.typed} ctx={ctx} onDone={(value, then) => grid.done(r, field, value, then)} />
+                    ) : field.key === TITLE.key ? (
+                      <span className="ct name">{recordTitle(r)}</span>
+                    ) : (
+                      <Cell field={asShown(field)} value={fieldValueOf(r, field, schema, today)} ctx={ctx} values={r.values} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          {adding.values && (
+            <NewRow
+              fields={columns}
+              schema={schema}
+              values={adding.values}
+              computed={computer.draft(source.dir, null, adding.values)}
+              shown={asShown}
+              cellClass={cellClass}
+              ctx={ctx}
+              error={adding.error}
+              onChange={adding.change}
+              onAdd={() => void adding.write()}
+              onCancel={adding.cancel}
+            />
+          )}
+          {block.sums && rows.length > 0 && (
+            <div className="crow sum" role="row">
+              {columns.map((field, i) => (
+                <div key={field.key} role="cell" className={cellClass(field, i)}>
+                  {i === 0 ? (
+                    <span className="ct">{t('collection.sum')}</span>
+                  ) : sums[i] ? (
+                    <span className={sums[i]!.length > 1 ? 'num split' : 'num'}>
+                      {sums[i]!.map((s, j) => (
+                        <span key={s.currency ?? j}>{formatNumber(s.value, field.format, s.currency)}</span>
+                      ))}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {rows.length === 0 && !adding.values && <p className="blk-none">{t('collection.noLinked', { collection: collectionName(block.collection).toLowerCase() })}</p>}
+      {!adding.values && (
+        <button
+          type="button"
+          className="cadd"
+          onClick={() => {
+            grid.clear();
+            adding.start();
+          }}
+        >
+          {t('collection.addRow')}
+        </button>
+      )}
     </div>
   );
 }
@@ -1620,6 +1882,9 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   };
 
   const openRecord = (id: string) => setOpen({ kind: 'record', id });
+  // A value typed in a cell is written to its record's file; what goes wrong is said.
+  const writeCell = (record: Record, field: Field, value: FieldValue) => void actions.updateRecord(dir, record.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
+  const adding = useAdding({ computer, dir, schema, given: () => ({}), me: actions.me?.(), add: (values) => actions.addRecord(dir, { values }) });
   const sortBy = (key: string) => change({ sort: { key, dir: state.sort.key === key && state.sort.dir === 'asc' ? 'desc' : 'asc' } });
   const isNumeric = (field: Field) => asShown(field).type === 'number';
   const cellClass = (field: Field, i: number) => [i === 0 && 'c0', isNumeric(field) && 'r'].filter(Boolean).join(' ') || undefined;
@@ -1652,27 +1917,34 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
     const why = found.map((p) => problemText(p, fieldsByKey.get(p.field), record)).join(' ');
     return <span className="flag" title={t('collection.problems', { problems: why })} aria-label={t('collection.problems', { problems: why })} />;
   };
-  // A record with several choices is in several groups: its row's key tells them apart.
+  // A record with several choices is in several groups: its row's key tells them apart. A cell is
+  // picked and typed in as a sheet's; the record opens from the button at the start of the row,
+  // shown on the row pointed at or picked, and from its name.
   const row = (record: Record, group = '') => (
-    <div
-      key={`${group}\u0000${record.id}`}
-      role="row"
-      tabIndex={0}
-      className="crow"
-      onClick={() => openRecord(record.id)}
-      onKeyDown={(event) => {
-        if ((event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) {
-          event.preventDefault();
-          openRecord(record.id);
-        }
-      }}
-    >
-      {fields.map((field, i) => (
-        <div key={field.key} role="cell" className={cellClass(field, i)}>
-          {i === 0 && flag(record)}
-          {cellOf(record, field)}
-        </div>
-      ))}
+    <div key={`${group}\u0000${record.id}`} role="row" className={grid.picked?.id === record.id ? 'crow on' : 'crow'}>
+      {fields.map((field, i) => {
+        const c = grid.cell(record, field);
+        return (
+          <div
+            key={field.key}
+            role="cell"
+            data-cell={c['data-cell']}
+            className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', field.type === 'name' && 'opens'].filter(Boolean).join(' ') || undefined}
+            onClick={c.onClick}
+            onDoubleClick={c.onDoubleClick}
+          >
+            {i === 0 && (
+              <>
+                <button type="button" className="ropen" title={t('collection.openRecord')} aria-label={t('collection.openRecord')} onClick={(event) => (event.stopPropagation(), openRecord(record.id))}>
+                  <Icon name="open" />
+                </button>
+                {flag(record)}
+              </>
+            )}
+            {c.editing ? <CellEditor field={field} value={record.values[field.key]} typed={grid.editing?.typed} ctx={ctx} onDone={(value, then) => grid.done(record, field, value, then)} /> : cellOf(record, field)}
+          </div>
+        );
+      })}
     </div>
   );
   const sums = fields.map((f) => columnSums(shown, schema, f.key, today));
@@ -1740,6 +2012,38 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
       {t('collection.showMore', { count: shown.length - rows.length })}
     </button>
   );
+  // The rows in the order the table shows them, for the arrows that move the cell picked.
+  const inOrder = groups ? groups.flatMap((group) => (closed.has(group.key) ? [] : group.records)) : rows;
+  const grid = useGrid({ rows: inOrder, fields, open: (record) => openRecord(record.id), write: writeCell });
+  const newRow = adding.values ? (
+    <NewRow
+      fields={fields}
+      schema={schema}
+      values={adding.values}
+      computed={computer.draft(dir, null, adding.values)}
+      shown={asShown}
+      cellClass={cellClass}
+      ctx={ctx}
+      width={space > 0 ? space - 2 * SIDES : undefined}
+      error={adding.error}
+      onChange={adding.change}
+      onAdd={() => void adding.write()}
+      onCancel={adding.cancel}
+    />
+  ) : (
+    !noFields && (
+      <button
+        type="button"
+        className="cadd"
+        onClick={() => {
+          grid.clear();
+          adding.start();
+        }}
+      >
+        {t('collection.addRow')}
+      </button>
+    )
+  );
 
   const table = narrow ? (
     <div className="clist">
@@ -1749,7 +2053,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
     </div>
   ) : (
     <div ref={scroller} className={scrolled ? 'blist clist scrolled' : 'blist clist'} onScroll={(event) => setScrolled(event.currentTarget.scrollLeft > 0)}>
-      <div className="ctable" role="table" aria-label={name} style={{ '--grid': widths.map((w) => `${w}px`).join(' '), minWidth: tableWidth } as CSSProperties}>
+      <div ref={grid.box} className="ctable" role="table" aria-label={name} tabIndex={0} onKeyDown={grid.keyDown} style={{ '--grid': widths.map((w) => `${w}px`).join(' '), minWidth: tableWidth } as CSSProperties}>
         <div className="crow head" role="row">
           {fields.map(head)}
         </div>
@@ -1759,6 +2063,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
               ...(closed.has(group.key) ? [] : [...group.records.map((r) => row(r, group.key)), ...(hasSums ? [sumRow(group.records, t('collection.sum'), `s\u0000${group.key}`)] : [])]),
             ])
           : rows.map((r) => row(r))}
+        {newRow}
         {hasSums && shown.length > 0 && sumRow(shown, groups ? t('collection.all') : t('collection.sum'), 'sum')}
       </div>
       {more}

@@ -130,9 +130,12 @@ export const NAME_KEY = 'name';
 export type LayoutItem =
   | { field: string }
   | { block: 'body' }
-  | { block: 'linked'; collection: string; sort?: string; style?: 'list' | 'timeline'; fields?: string[] }
+  | { block: 'linked'; collection: string; sort?: string; style?: LinkedStyle; fields?: string[]; sums?: boolean }
   | { block: 'cards' }
   | { block: 'subtasks' };
+
+/** How a block shows the records that link to the record: newest first by a day, a list, or a table whose cells are typed in, with its sums when `sums`. */
+export type LinkedStyle = 'list' | 'timeline' | 'table';
 
 export type LinkedBlock = Extract<LayoutItem, { block: 'linked' }>;
 
@@ -519,8 +522,9 @@ function readItem(raw: unknown): LayoutItem | null {
       block: 'linked',
       collection: raw.collection.replace(/^\/+|\/+$/g, ''),
       ...(typeof raw.sort === 'string' && { sort: cleanFieldKey(raw.sort) }),
-      ...((raw.style === 'list' || raw.style === 'timeline') && { style: raw.style }),
+      ...((raw.style === 'list' || raw.style === 'timeline' || raw.style === 'table') && { style: raw.style }),
       ...(fields.length > 0 && { fields }),
+      ...(raw.sums === true && { sums: true }),
     };
   }
   return null;

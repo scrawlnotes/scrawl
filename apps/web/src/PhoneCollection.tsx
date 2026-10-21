@@ -888,25 +888,39 @@ function LinkedTab({ block, dir, schema: own, record, today, actions }: { block:
   }
   // A row shows the fields the block names, else the first two filled in, leaving out the link back here.
   const back = new Set(linkFieldsTo(schema, dir).map((f) => f.key));
+  const named = block.fields ? block.fields.map(byKey).filter((f): f is Field => !!f) : schema.fields.filter((f) => f.type !== 'name' && f.type !== 'code' && !back.has(f.key));
+  // A table is a list here: its first number on the right, summed under it when the block sums.
+  const number = block.style === 'table' ? named.find((f) => (shownAs.get(f.key) ?? f).type === 'number') : undefined;
   const shown = (r: Entry) =>
-    (block.fields ? block.fields.map(byKey).filter((f): f is Field => !!f) : schema.fields.filter((f) => f.type !== 'name' && f.type !== 'code' && !back.has(f.key)))
-      .filter((f) => !isEmpty(fieldValueOf(r, f, schema, today)))
+    named
+      .filter((f) => f !== number && !isEmpty(fieldValueOf(r, f, schema, today)))
       .slice(0, 2);
+  const sums = number && block.sums ? columnSums(rows, schema, number.key, today) : null;
   return (
     <div className="mb-rlist">
-      {rows.map((r) => (
-        <button key={r.id} type="button" className="mb-cr" onClick={() => open(r)}>
-          <span className="tx">
-            <b>{recordTitle(r)}</b>
-            <small>
-              {r.name && r.code && <span className="key">{r.code}</span>}
-              {shown(r).map((f) => (
-                <ListValue key={f.key} field={shownAs.get(f.key) ?? f} value={fieldValueOf(r, f, schema, today)} today={today} values={r.values} />
-              ))}
-            </small>
-          </span>
-        </button>
-      ))}
+      {rows.map((r) => {
+        const amount = number ? fieldValueOf(r, number, schema, today) : undefined;
+        return (
+          <button key={r.id} type="button" className="mb-cr" onClick={() => open(r)}>
+            <span className="tx">
+              <b>{recordTitle(r)}</b>
+              <small>
+                {r.name && r.code && <span className="key">{r.code}</span>}
+                {shown(r).map((f) => (
+                  <ListValue key={f.key} field={shownAs.get(f.key) ?? f} value={fieldValueOf(r, f, schema, today)} today={today} values={r.values} />
+                ))}
+              </small>
+            </span>
+            {typeof amount === 'number' && <span className="rt num">{formatNumber(amount, number!.format, currencyOf(number!.format, r.values))}</span>}
+          </button>
+        );
+      })}
+      {sums && (
+        <div className="mb-sumrow">
+          {t('phone.sumOf', { field: number!.label.toLowerCase() })}
+          <b>{sums.map((s) => formatNumber(s.value, number!.format, s.currency)).join(' · ')}</b>
+        </div>
+      )}
     </div>
   );
 }

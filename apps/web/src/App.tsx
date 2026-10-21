@@ -1455,6 +1455,7 @@ export function App() {
       create: (dir: string, values?: Parameters<NonNullable<CollectionActions['create']>>[1]) => setNewRecord({ dir, values }),
     }),
     ask: (title, message, run, action) => ask(title, message, run, action),
+    say: (text) => setNotice(text),
     records: (dir) => collections[dir]?.records ?? null,
     collection: (dir) => collections[dir] ?? null,
     collections: () => Object.values(collections),
