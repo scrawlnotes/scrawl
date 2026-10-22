@@ -2,6 +2,12 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.12
+
+A deleted folder stays deleted.
+
+- A folder with folders in it, deleted on one device, no longer comes back from another device that syncs the space. Before, the empty folders left on that device's disk brought it back, a level less each time; from the trash too, once deleted for good. Update every device that syncs the space, then delete such a folder once more.
+
 ## 0.1.11
 
 Apps set up from ready templates, links to what is in the space, and a tab menu like VS Code's.
