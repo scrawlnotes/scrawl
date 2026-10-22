@@ -46,6 +46,9 @@ const MOST: { [id in TemplateId]: Answers } = {
   content: { campaigns: true },
   subscriptions: { sells: 'memberships', trial: true, customers: 'people', payments: true },
   contracts: { notice: '60', seats: true },
+  timeoff: { allowance: '25', holidays: 'gb', approvals: true },
+  goals: { period: 'half', checkins: true },
+  incidents: { actions: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -62,6 +65,9 @@ const LEAST: { [id in TemplateId]: Answers } = {
   content: { channels: [], stages: [], campaigns: false },
   subscriptions: { sells: 'agreements', plans: [], trial: false, customers: 'companies', payments: false },
   contracts: { kinds: [], notice: '0', seats: false },
+  timeoff: { types: [], allowance: '10', holidays: 'none', approvals: false },
+  goals: { period: 'year', checkins: false },
+  incidents: { types: [], actions: false },
 };
 
 /** What a template asks of these, given only the questions it asks with this set. */
@@ -259,6 +265,43 @@ describe('setting up an app', () => {
     expect(plan.templates.map((s) => [s.id, s.buttons])).toEqual([
       ['subscriptions', ['Renew', 'Pause', 'Resume', 'Cancel']],
       ['contracts', ['Renew', 'End', 'Cancel']],
+    ]);
+  });
+
+  it('sets up Time off with this year’s and next year’s holidays, Goals and Incidents, tied to the templates beside them', () => {
+    // By the device's region: 14 days and Turkey's holidays in Turkey; 20 days and none elsewhere.
+    expect(readAnswers(TEMPLATES.timeoff, new Set(['timeoff']), {}, 'TR').answers).toMatchObject({ allowance: '14', holidays: 'tr' });
+    expect(readAnswers(TEMPLATES.timeoff, new Set(['timeoff']), {}, 'FR').answers).toMatchObject({ allowance: '20', holidays: 'none' });
+    const plan = planApp(
+      {
+        name: 'Team',
+        templates: [{ id: 'support' }, { id: 'product' }, { id: 'recruiting' }, { id: 'timeoff', answers: { holidays: 'tr' } }, { id: 'goals' }, { id: 'incidents' }],
+      },
+      { ids, today: '2026-10-22' },
+    );
+    const schema = (path: string) => parseSchema(plan.files.find((f) => f.path === `${path}/_collection.json`)!.text);
+    const holidays = plan.files.filter((f) => f.path.startsWith('Team/Holidays/') && f.path.endsWith('.md'));
+    expect(holidays).toHaveLength(28);
+    expect(holidays.map((f) => /day: (.*)/.exec(f.text)![1]).filter((d) => d!.startsWith('2027-05'))).toEqual(['2027-05-01', '2027-05-16', '2027-05-17', '2027-05-18', '2027-05-19', '2027-05-19']);
+    const leave = schema('Team/Leave requests');
+    expect(leave.fields.find((f) => f.key === 'status')).toMatchObject({ options: ['Requested', 'Approved', 'Rejected', 'Cancelled'], default: 'Requested' });
+    expect(leave.views![0]!.calendar).toEqual({ start: 'first', end: 'last', color: 'type', upcoming: true });
+    expect(schema('Team/Employees').fields.find((f) => f.key === 'allowance')!.default).toBe(20);
+    const rules = (path: string) => plan.files.find((f) => f.path === `${path}/_rules.js`)!.text;
+    expect(rules('Team/Candidates')).toContain('onSave("To employees"');
+
+    const goals = schema('Team/Goals');
+    expect(goals.fields.find((f) => f.key === 'period')!.default).toBe('=text(year(today())) + " Q" + text(round((month(today()) + 1) / 3))');
+    expect(goals.views![0]!.calendar).toEqual({ start: 'due', color: 'status', upcoming: true });
+    const board = (path: string) => parseBoard(plan.files.find((f) => f.path === path)!.text);
+    expect(board('Team/Roadmap.board.json').fields!.find((f) => f.key === 'goal')!.collection).toBe('Team/Goals');
+    expect(board('Team/Requests.board.json').fields!.find((f) => f.key === 'incident')!.collection).toBe('Team/Incidents');
+    expect(board('Team/Actions.board.json').columns.map((c) => c.name)).toEqual(['To do', 'Doing', 'Done']);
+    expect(schema('Team/Incidents').views![0]!.calendar).toEqual({ start: 'started', end: 'ended', color: 'severity', upcoming: false });
+    expect(plan.templates.filter((s) => ['timeoff', 'goals', 'incidents'].includes(s.id)).map((s) => [s.id, s.buttons])).toEqual([
+      ['timeoff', ['Approve', 'Reject']],
+      ['goals', ['Update']],
+      ['incidents', ['Resolve', 'Close', 'Add action']],
     ]);
   });
 

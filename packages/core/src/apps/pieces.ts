@@ -54,6 +54,14 @@ export const PIECES: { [role: string]: PieceInfo } = {
   plans: { kind: 'collection', name: 'Plans', singular: 'plan', about: 'what you sell by the month or the year, with its price.' },
   subscriptions: { kind: 'collection', name: 'Subscriptions', singular: 'subscription', about: 'who is on which plan, from when, and when it renews.' },
   contracts: { kind: 'collection', name: 'Contracts', singular: 'contract', about: 'each contract: with whom, from when to when, and by when to give notice.' },
+  employees: { kind: 'collection', name: 'Employees', singular: 'employee', about: 'your people: their team, their manager, and the leave they have left.' },
+  'leave-requests': { kind: 'collection', name: 'Leave requests', singular: 'leave request', about: 'each leave asked for: who, what kind, from when to when, and whether it is approved.' },
+  holidays: { kind: 'collection', name: 'Holidays', singular: 'holiday', about: 'the public holidays and the days the company is closed; leave is counted without them.' },
+  goals: { kind: 'collection', name: 'Goals', singular: 'goal', about: 'each goal of the period: whose it is, by when, and how far it is.' },
+  'key-results': { kind: 'collection', name: 'Key results', singular: 'key result', about: 'what measures each goal: where it started, where it should get, and where it is.' },
+  'check-ins': { kind: 'collection', name: 'Check-ins', singular: 'check-in', about: 'each update of a key result: its value on a day, and a note.' },
+  incidents: { kind: 'collection', name: 'Incidents', singular: 'incident', about: 'each incident: what happened, how bad, from when to when, why, and what was done.' },
+  actions: { kind: 'board', name: 'Actions', about: 'what is done so that it does not happen again, a card each, with whom and by when.' },
 };
 
 /** The roles, in the order the pieces are listed: by template, the shared ones first where they are first used. */

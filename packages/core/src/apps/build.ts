@@ -17,6 +17,7 @@ import {
   serializeRecord,
   serializeSchema,
 } from '../collection';
+import { dayIn } from '../day';
 import { basename, join } from '../fs';
 import { fileNameOf } from '../names';
 import { freePath } from '../paths';
@@ -108,6 +109,7 @@ class Draft implements AppDraft {
   constructor(
     readonly title: string,
     readonly money: Money,
+    readonly today: string,
     private readonly chosen: ReadonlyMap<TemplateId, Answers>,
     paths: ReadonlyMap<string, string>,
     roles: ReadonlySet<string>,
@@ -230,6 +232,8 @@ export interface PlanOptions {
   found?: FoundApp;
   /** Ids for a board's columns and the records it starts with; random ones otherwise. */
   ids?: () => string;
+  /** The day it is set up; this device's today when not given. */
+  today?: string;
   /** The names taken in `parent`, lowercased, for a new app's folder. */
   taken?: ReadonlySet<string>;
   /** Added to an app, what would not work with what is there is said in the plan's `blocked` rather than thrown: for a summary to show it. */
@@ -241,7 +245,7 @@ export interface PlanOptions {
  * AppProblems for what was given wrong: a template that is not one or is there already, a
  * question that is not one or an answer that is not, the name, the currencies.
  */
-export function planApp(input: AppInput, { parent = '', found, ids, taken = new Set(), keepBlocked = false }: PlanOptions = {}): AppPlan {
+export function planApp(input: AppInput, { parent = '', found, ids, taken = new Set(), keepBlocked = false, today = dayIn(new Date()) }: PlanOptions = {}): AppPlan {
   const problems: string[] = [];
   const title = found ? found.app.name : fileNameOf(input.name ?? '').replace(/\s+/g, ' ').trim();
   if (!title || title.startsWith('.') || title.startsWith('_')) problems.push(t('apps.needsName'));
@@ -289,9 +293,9 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
     names.add(path.toLowerCase());
     paths.set(role, path);
   }
-  const after = new Draft(title, money, all, paths, roles);
+  const after = new Draft(title, money, today, all, paths, roles);
   after.run();
-  const before = found ? new Draft(title, money, base, paths, rolesOf(base)) : null;
+  const before = found ? new Draft(title, money, today, base, paths, rolesOf(base)) : null;
   before?.run();
 
   const newId = ids ?? (() => crypto.randomUUID());

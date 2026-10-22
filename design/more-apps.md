@@ -305,3 +305,24 @@ Roadmap'te faz "16 Yeni app şablonları" ve her dilim bir kart; denemeler "dene
 - Cancel by takvimi Today ve Upcoming'e gelir; Ends ayrı takvimdir ve aynı sözleşme iki kez görünmesin diye Upcoming'e gelmez.
 - Renew aktif ya da bitmiş sözleşmede; Cancel taslak ya da aktifte, onay ister, neden sormaz.
 - Bütün kümeler testinin yerine her şablon tek başına, aynı taraftan her ikili, her grup ve her taraf hep birlikte (core'da altı cevap ve para birimi biçimiyle, ajanda iki).
+
+3. dilimin kodunda verilenler (22 Ekim, onaylı):
+
+- Resmi tatiller sorusu: None, Turkey, United States, United Kingdom, Germany; varsayılan cihazın bölgesine göre, başka yerde None. Bu yılın ve gelecek yılın tatilleri kurulur (`packages/core/src/apps/holidays.ts`).
+  - Türkiye'nin dini bayramları Diyanet'in açıkladığı tarihlerle: 2026 Ramazan 20–22 Mart, Kurban 27–30 Mayıs; 2027 Ramazan 9–11 Mart, Kurban 16–19 Mayıs. Yeni yıl açıklanınca tabloya eklenir; o zamana kadar o yılın yalnız sabit tatilleri kurulur.
+  - Arife ve 28 Ekim gibi yarım günler dahil değil.
+  - ABD'de hafta sonuna düşen tatil Cuma ya da Pazartesi'ye, İngiltere'de sonraki iş gününe kayar; Almanya'da kaymaz. Adlar İngilizce.
+- Yıllık izin hakkı seçeneği 10, 14, 15, 20, 25, 30 gün; Türkiye'de 14, başka yerde 20.
+- Listedeki ilk izin türü yıllık haktan düşülür ("from the allowance"); liste boşsa olağan türler kurulur.
+- Gün sayısı ilk ya da son gün değişince yeniden hesaplanır, elle yazılan başka durumda kalır; tek günlük izinde ilk gün yeter.
+- İzinler onaylanmıyorsa durumlar yalnız Approved ve Cancelled, düğme yok.
+- Tatil takvimi Upcoming'e gelmez.
+- İşe alınanı Employees'e Candidates'taki bir kaydetme kuralı ekler; Hire değişmez, İzinler app'e sonradan eklense de çalışır.
+- Kurulum o günün tarihini bilir: pencerede cihazın, ajanda ajanın günü.
+- Hedefin dönemi soruya göre "2026 Q4", "2026 H2" ya da "2026" diye başlar.
+- Ölçütün ilerlemesi %0 ile %100 arasında tutulur; başlangıç değeri 0.
+- Hedeflerde kontrol: bitiş günü geçmiş ve Done olmayan hedef "Past its due day" diye işaretlenir (her şablonda en az bir kontrol kuralı için).
+- Update yalnız ilerleme kayıtları tutuluyorsa var; değilse Current elle yazılır.
+- Olayda varsayılanlar: önem Major, başlangıç şimdi, sorumlu kişinin kendisi.
+- Talepten olay: talep kartının Incident alanında olay seçilir; olay ona bağlı kartları gösterir.
+- Actions panosunun kolonları To do, Doing, Done.

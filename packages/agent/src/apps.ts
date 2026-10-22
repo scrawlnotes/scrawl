@@ -1,6 +1,6 @@
 import { APP_TEMPLATES, AppProblems, audienceOf, findApp, installApp, markCreated, planApp, TEMPLATE_IDS } from '@scrawlnotes/core';
 import { Refusal } from './paths';
-import { type Agent, AGENT_DEVICE, type AgentSpace, nowOf } from './space';
+import { type Agent, AGENT_DEVICE, type AgentSpace, nowOf, todayOf } from './space';
 
 // An app set up by an agent, as the New app window sets it up (design/scrawl-apps.md 6.3): the
 // templates, each with its answers, the ones not given taking their defaults; in `folder` a new
@@ -48,7 +48,7 @@ export async function createApp(agent: Agent, space: AgentSpace, args: AppArgs) 
   let plan;
   try {
     const taken = new Set((await space.fs.list(args.folder)).map((e) => e.path.toLowerCase()));
-    plan = planApp(input, { parent: args.folder, taken, ...(found && { found }) });
+    plan = planApp(input, { parent: args.folder, taken, today: todayOf(agent), ...(found && { found }) });
   } catch (error) {
     if (error instanceof AppProblems) throw new Refusal(`The app was not ${found ? 'changed' : 'made'}: ${error.problems.length === 1 ? 'one thing' : `${error.problems.length} things`} to mend`, { problems: error.problems, templates: templateList() });
     throw error;

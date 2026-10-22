@@ -12,7 +12,7 @@ import type { PieceInfo } from './pieces';
 export const APP_FILE = '_app.json';
 
 /** The templates, in the order they are set up: the one before sets up what a shared piece starts with. */
-export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content', 'subscriptions', 'contracts'] as const;
+export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content', 'subscriptions', 'contracts', 'timeoff', 'goals', 'incidents'] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
@@ -112,6 +112,8 @@ export interface AppDraft extends Chosen {
   /** The app's name, its folder's. */
   readonly title: string;
   readonly money: Money;
+  /** The day it is set up, `YYYY-MM-DD`: this year's holidays are this year's. */
+  readonly today: string;
   /** Whether the app has the piece, set up now or before. */
   hasPiece(role: string): boolean;
   /** The piece's path, for a link or a rollup. */
