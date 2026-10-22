@@ -15,8 +15,17 @@ export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'project
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
-/** The group a template is listed in. */
-export type TemplateGroup = 'customers' | 'work' | 'money';
+/** Who a template is for: a business or a person. An app is set up from one side only (design/more-apps.md 1). */
+export type Audience = 'business' | 'personal';
+
+/** The groups templates are listed in, of each side, in the order they are shown. */
+export const TEMPLATE_GROUPS = { business: ['customers', 'money', 'work'], personal: ['home', 'health', 'life'] } as const;
+
+/** The group a template is listed in: Customers, Money, Work for a business; Money and home, Health, Life for a person. */
+export type TemplateGroup = (typeof TEMPLATE_GROUPS)[Audience][number];
+
+/** The side a group is of. */
+export const audienceOf = (group: TemplateGroup): Audience => ((TEMPLATE_GROUPS.business as readonly string[]).includes(group) ? 'business' : 'personal');
 
 /** An answer: a choice's value, yes or no, the choices or the items of a list, a line of text. */
 export type Answer = string | boolean | string[];

@@ -11714,8 +11714,23 @@ button.st-li:hover,
   white-space: nowrap;
 }
 
+/* Add to stays on the left; when the agents don't fit one line, they wrap beside it, not under it. */
 .st-space.ag .st-acts {
+  flex-wrap: nowrap;
+  align-items: baseline;
   gap: 6px;
+}
+
+.st-space.ag .st-acts .lab {
+  flex: none;
+  white-space: nowrap;
+}
+
+.st-space.ag .ag-to {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
 }
 
 .st-acts .lab {
@@ -11836,6 +11851,12 @@ button.st-li:hover,
   font: 12px/1.5 var(--sl-font-mono);
   overflow-wrap: anywhere;
   user-select: all;
+}
+
+/* A file's text keeps its lines and its indent; a line too long for the box scrolls rather than breaks. */
+.dialog .ag-code.lines code {
+  overflow-x: auto;
+  white-space: pre;
 }
 
 .dialog .ag-code .go {
@@ -12895,6 +12916,24 @@ button.st-li:hover,
 
 .na-group {
   margin-bottom: 10px;
+}
+
+/* Business or Personal, above the cards (design/more-apps.md 1): it stays as the cards scroll. */
+.na-side {
+  position: sticky;
+  top: -2px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -2px 0 10px;
+  padding: 2px 0 8px;
+  background: var(--sl-side);
+}
+
+.na-side small {
+  color: var(--sl-faint);
+  font-size: 12px;
 }
 
 .na-cards {

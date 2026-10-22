@@ -688,18 +688,29 @@ function readViews(raw: unknown, fields: Field[]): View[] {
 /** The fields a calendar can be colored by: a choice, a linked record, a person; each of their values in a color of its own. */
 export const COLOR_TYPES: readonly FieldType[] = ['select', 'link', 'person'];
 
-/** The fields a calendar can start on: the dates. */
-export const calendarStarts = (fields: readonly Field[]) => fields.filter((f) => f.type === 'date');
+/**
+ * Whether a formula gives a day, as the record's own fields tell; with `maybe`, also one that may
+ * and cannot be told here, reading a linked record's field.
+ */
+function givesDay(field: Field, fields: readonly Field[], maybe = false): boolean {
+  if (field.type !== 'formula' || !field.formula) return false;
+  const info = formulaInfo(field.formula, { fields, self: field.key });
+  return !('problem' in info) && (info.kind === 'day' || (maybe && info.kind === 'any'));
+}
+
+/** The fields a calendar can start on: the dates, then the formulas that give a day, `birthday + years(1)`. */
+export const calendarStarts = (fields: readonly Field[]) => [...fields.filter((f) => f.type === 'date'), ...fields.filter((f) => givesDay(f, fields))];
 
 /**
- * A Calendar view's settings as its file has them: its start a date field, else the first there
- * is; its end a date or a field worked out, its length a number or one worked out, its color a
- * choice; one that names a field gone is without it. Null when there is no date field.
+ * A Calendar view's settings as its file has them: its start a date field or a formula that gives
+ * a day, else the first of calendarStarts; its end a date or a field worked out, its length a number
+ * or one worked out, its color a choice; one that names a field gone is without it. Null when
+ * there is nothing to start on.
  */
 function readCalendar(raw: unknown, fields: Field[]): CalendarSettings | null {
   const given = isRecord(raw) ? raw : {};
   const field = (key: unknown, fits: (f: Field) => boolean) => (typeof key === 'string' ? fields.find((f) => f.key === cleanFieldKey(key) && fits(f)) : undefined);
-  const start = field(given.start, (f) => f.type === 'date') ?? calendarStarts(fields)[0];
+  const start = field(given.start, (f) => f.type === 'date' || givesDay(f, fields, true)) ?? calendarStarts(fields)[0];
   if (!start) return null;
   const end = field(given.end, (f) => f.type === 'date' || isComputed(f.type));
   const duration = end ? undefined : field(given.duration, (f) => f.type === 'number' || isComputed(f.type));

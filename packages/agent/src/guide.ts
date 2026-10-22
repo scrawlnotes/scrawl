@@ -3,7 +3,7 @@
 // reaches the model with `spaces`, the one call every client makes and shows; the brief, its first
 // part, goes as the server's instructions to clients that hand those to the model.
 
-import { APP_TEMPLATES, type Question, TEMPLATE_IDS } from '@scrawlnotes/core';
+import { APP_TEMPLATES, type Audience, audienceOf, type Question, TEMPLATE_IDS } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 
 /** A question as the guide says it: its key, how it is answered and its default. */
@@ -14,12 +14,18 @@ function questionLine(q: Question): string {
   return `\`${q.key}\` (${how}; ${shown(q.default)} when not given): ${t(q.label)}`;
 }
 
-/** The templates an app is set up from and what each asks, as \`create\` takes them. */
+/** The templates an app is set up from and what each asks, as \`create\` takes them: those for a business, then those for a person. */
 const appTemplates = () =>
-  TEMPLATE_IDS.map((id) => {
-    const template = APP_TEMPLATES[id];
-    return `- **${id}**, ${t(template.name)}: ${t(template.what)} ${template.questions.map(questionLine).join('; ')}.`;
-  }).join('\n');
+  (['business', 'personal'] as Audience[])
+    .map((side) => {
+      const lines = TEMPLATE_IDS.filter((id) => audienceOf(APP_TEMPLATES[id].group) === side).map((id) => {
+        const template = APP_TEMPLATES[id];
+        return `- **${id}**, ${t(template.name)}: ${t(template.what)} ${template.questions.map(questionLine).join('; ')}.`;
+      });
+      return lines.length === 0 ? '' : `${side === 'business' ? 'For a business, a team or a club:' : 'For a person and their home:'}\n\n${lines.join('\n')}`;
+    })
+    .filter(Boolean)
+    .join('\n\n');
 
 export const GUIDE = `# Scrawl for agents
 
@@ -40,17 +46,20 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 | To | Use |
 |---|---|
 | Know where you are | \`spaces\`, then \`tree\` or \`search\` |
-| Read or write a note | \`read\`, \`write\` (with \`ifMatch\`) |
+| Read or write a note | \`read\`, \`write\` (with \`ifMatch\`); a long one a piece at a time: \`read\` with \`lines\`, \`write\` with \`append\` |
+| Change a part of a note or a rules file | \`write\` with \`edits\`: each \`find\` as it is there, once, with its \`replace\` |
 | Make a new note, list, board, collection or folder | \`create\` |
 | Set up an app from ready templates, or add one to an app | \`create\` with \`kind: "app"\` |
 | Add or change a task, a card, a record | \`save_task\`, \`save_card\`, \`save_record\` (with \`id\` to change) |
 | Move a task to another section, under another task, to another list | \`save_task\` with \`id\` and \`section\`, \`parent\` or \`toList\` |
+| Put a card or a task in its place, "at the top", "after X" | \`save_card\` or \`save_task\` with \`after\`: the one before it, or \`"top"\` |
 | Tie a task or a card to a note | \`save_task\` or \`save_card\` with \`note\` |
 | See tasks, cards, records | \`tasks\`, \`cards\`, \`records\` |
 | Add many cards or tasks at once (a meeting's points) | \`save_card\` or \`save_task\` with \`items\`; tie them to the meeting's note with \`note\` |
 | See what is due today, or what is someone's, everywhere | \`tasks\` and \`cards\`, both with \`due: "today"\` or \`assignee\` (\`"me"\` for the person), no list, board or space |
 | Finish or drop | a task: \`save_task\` with \`done: true\`; a card: \`save_card\` with \`column: "done"\` or \`"dropped"\` |
-| Change a collection's fields, a board's columns or phases | \`read\` the file, change the JSON, \`write\` it back with \`ifMatch\`; there is no other tool for it |
+| Change a board's columns, phases or fields, a list's sections, a collection's fields or views | \`read\` with \`part\` (\`"phases"\`, \`"columns"\`, \`"sections"\`, \`"fields"\`, \`"views"\`), change it, \`write\` it back with the same \`part\` and \`ifMatch\`; the cards follow as in the app |
+| Rename a choice of a select field | \`write\` the field with the new name in its options, and \`renames\`; the records and cards holding the old name take the new one |
 | Move or rename a note, list, board or collection | \`move\`; what points at it follows |
 | Remove a note, list, board, folder or collection | \`trash\` with its path or name |
 | Remove one task, card or record, or a section with its tasks | \`trash\` with the list, board or collection as \`path\` and \`id\`, or \`section\`; what is finished is closed instead, not trashed |
@@ -60,7 +69,7 @@ Not yours: restoring from the trash, seeing a note's versions, attached files, s
 
 ## When a call is cut off
 
-Call it again; nothing is added twice. No idempotency key is needed, and none is taken. \`save_record\` does not add a record whose name or code is already there, \`save_card\` does not add an open card whose title is already on the board, \`save_task\` does not add an open task whose title is already in the same place of the list, \`create\` does not make what is already in the folder by that name: each returns the one that exists with \`exists: true\`, and you give its \`id\` (its path, for \`create\`) to change it. When you mean a second one with the same name, pass \`another: true\`. A subtask sent again is not added twice: an open one with its title is changed instead. \`comment\` does not write the same text twice in a row. \`write\` with \`ifMatch\` refuses when the file changed since you read it: read it again, then write.
+Call it again; nothing is added twice. No idempotency key is needed, and none is taken. \`save_record\` does not add a record whose name or code is already there, \`save_card\` does not add an open card whose title is already on the board, \`save_task\` does not add an open task whose title is already in the same place of the list, \`create\` does not make what is already in the folder by that name: each returns the one that exists with \`exists: true\`, and you give its \`id\` (its path, for \`create\`) to change it. When you mean a second one with the same name, pass \`another: true\`. A subtask sent again is not added twice: an open one with its title is changed instead. \`comment\` does not write the same text twice in a row. \`write\` of a file, or of a part, that is already as you write it returns \`written: false\`; \`append\` does not add what the file already ends with; \`edits\` whose \`find\` is gone says so, and whether its \`replace\` is there. \`write\` with \`ifMatch\` refuses when the file, or the part, changed since you read it: read it again, then write.
 
 ## A space
 
@@ -80,9 +89,11 @@ A space is a folder tree. Folders group things; a folder with a \`_collection.js
 
 A note is markdown. A note that was never named is called after its first line. A link to something in the space (a note, a task list, a board, a collection, a folder) is a markdown link to its path from the note's folder, with a space written %20: \`[Deals](Deals.board.json)\`, \`[Order lines](Order%20lines)\`, \`[Plan](../Plans/Roadmap.md)\`; the person opens it in the app. When something is moved or renamed, with \`move\` or in the app, the links to it follow, and so do the links of what moved. When you write over a note, its earlier text is kept: as a version beside the note on a computer, in the server's history on a server.
 
+To change a part of a note, \`write\` with \`edits\`, not the whole note: each \`find\` copied from the note as it is, there once (give more of the text around it when it is there more often, or \`all: true\` for every place), with its \`replace\`. A long note is written a piece at a time: \`write\` its start with \`text\`, then each piece after with \`append\`. It is read a piece at a time too: \`read\` gives \`lineCount\`, \`read\` with \`lines: { from, to }\` gives those lines, and \`search\` gives the line a word is on as \`lineNo\`.
+
 ## Task lists
 
-\`{ "sections": [{ "id", "name" }], "tasks": [Task] }\`. A task: \`id\`, \`title\`, \`done\`, \`priority\` (1 highest, 4 none), \`due\` (\`YYYY-MM-DD\` or null), \`parent\` (a subtask's parent id or null), \`order\`, \`created\`, \`updated\`, \`completed\`; optional \`description\`, \`section\` (a section id), \`assignee\` ({ id?, name? }), \`author\`, \`note\` (a note's path), \`card\` (\`board path#card id\`), \`record\` ({ collection, id, name, code? }). Prefer \`save_task\`: it makes ids and keeps the order. To add, rename or reorder sections, \`read\` the list, change \`sections\`, \`write\` it back.
+\`{ "sections": [{ "id", "name" }], "tasks": [Task] }\`. A task: \`id\`, \`title\`, \`done\`, \`priority\` (1 highest, 4 none), \`due\` (\`YYYY-MM-DD\` or null), \`parent\` (a subtask's parent id or null), \`order\`, \`created\`, \`updated\`, \`completed\`; optional \`description\`, \`section\` (a section id), \`assignee\` ({ id?, name? }), \`author\`, \`note\` (a note's path), \`card\` (\`board path#card id\`), \`record\` ({ collection, id, name, code? }). Prefer \`save_task\`: it makes ids and keeps the order, and \`after\` puts a task where it goes. To add, rename or reorder sections, \`read\` the list with \`part: "sections"\`, change that list, \`write\` it back with the same \`part\` and \`ifMatch\`; a new section needs no id. A section with tasks is not taken away so: \`trash\` it with \`section\`, and its tasks go with it.
 
 ## Boards
 
@@ -92,13 +103,15 @@ A note is markdown. A note that was never named is called after its first line. 
 - Phases are ordered units of scope; exactly one is current while any is open. Work in the current phase: \`cards\` shows it by default (\`phase: "all"\` for every card), \`save_card\` adds to it. Leave other phases alone.
 - A card: \`id\`, \`key\` (its number; shown as \`PREFIX-12\`), \`title\`, \`description\` (markdown), \`subtasks\` (the steps to tick off, one level: \`{ id, title, done, priority, due, assignee?, created, completed? }\`; \`save_card\` with \`subtasks\` adds, changes, ticks off or takes off one by one), \`column\`, \`phase\`, \`order\`, \`priority\`, \`due\`, \`labels\`, \`assignee\`, \`note\`, \`values\` (the board's own fields), \`timeline\` (moves and comments, with who did them). A card is a brief: \`cards\` with one card and \`brief: true\` gives it as one text, its linked note and phase included.
 - Boards may have fields of their own (a deal's company, value, next step), given as \`values\` by key or label; a link field takes a record's name or code.
-- To add, rename or reorder columns or phases, or to add a field: \`read\` the board, change \`columns\`, \`phases\` or \`fields\`, \`write\` it back with \`ifMatch\`. Keep every \`id\` as it is and keep at least one \`done\` column. A column: \`{ "id", "name", "kind" }\`; a phase: \`{ "id", "name", "state": "upcoming" | "current" | "done", "goal"?, "doneWhen"?, "note"? }\`, one of them current.
+- To add, rename, reorder or take away columns or phases, to close a phase, or to add a field: \`read\` the board with \`part\` (\`"columns"\`, \`"phases"\` or \`"fields"\`), change that list, \`write\` it back with the same \`part\` and \`ifMatch\`. Never write the whole board for it: its cards are large and are written with \`save_card\`. Keep every \`id\` as it is; a new column or phase needs none. Keep at least one \`done\` column. A column: \`{ "id", "name", "kind" }\`; a phase: \`{ "id", "name", "state": "upcoming" | "current" | "done", "goal"?, "doneWhen"?, "note"? }\`, one of them current.
+- The cards follow as in the app, and \`write\` says where in \`followed\`: a column taken away sends its cards to the end of the first column; a phase taken away leaves its cards in no phase; a phase set to done sends its cards not finished to the next open phase, or to no phase when there is none. To close the current phase, set it done and the next one current.
+- A card's place in its column: \`save_card\` with \`after\`, the card before it, or \`"top"\`.
 
 ## Collections
 
 A collection is a folder with \`_collection.json\`: \`{ "version": 2, "template", "singular"?, "fields": [...], "layout"?, "views"? }\`. A field: \`key\`, \`label\`, \`type\` (name, code, text, number, date, time, select, multi-select, checkbox, person, url, email, phone, link, formula, lookup, rollup), \`options\` and \`colors\` for selects, \`required\`, \`collection\` and \`many\` for links, \`formula\`, \`lookup\` ({ link, field }: the key of this collection's link field and the key of the linked record's field it shows, as a transaction's customer through its project), \`rollup\` ({ from, field, fn: count|sum|avg|max|min, open?, where? }: \`where\` is a list of conditions on the records or cards it works from, as the Filter window's, \`{ "field": "direction", "op": "is", "value": ["Out"] }\`; a day's condition may take \`"today"\`; a sum of nothing is 0), \`default\` (what a new record starts with: a value the field holds, \`"Offer"\`, \`0\`, \`true\`, or \`=\` and a formula worked out when the record is made: \`"=today()"\`, \`"=me()"\`, \`"=project.currency"\`, and the next number, \`"=next('PRJ-', 4)"\`, PRJ-0016 after PRJ-0015), \`time: true\` for a date that holds a time too (\`2026-10-22T14:30\`; one with no time is all day; there is no time zone, 14:30 is 14:30 for everyone; a time field holds \`14:30\` alone), \`format\` for a number, or a formula, lookup or rollup giving one (\`{ "style": "currency", "currency": "TRY", "decimals": 0 }\`; style number, currency, percent or duration (minutes, shown as 1 h 30 min), a share written 0.18 for 18%; \`currencyField\` in place of \`currency\` when each record holds its own currency's code, like EUR, in a field). At most one \`name\` and one \`code\` field; nothing is added by itself.
 
-A formula is written in a language like JS's, read by Scrawl, not run as JS: field keys (\`qty * unit_price\`), a linked record's field with a dot (\`project.customer\`, \`customer.segment\`), numbers, texts in quotes, \`\` \`\${name} survey\` \`\`, \`+ - * / %\` (\`+\` joins texts), \`== != < <= > >=\`, \`&& || !\`, \`a ? b : c\`, and \`today()\`, \`empty()\`, \`round(x, n)\`, \`abs()\`, \`min()\`, \`max()\`, \`sum()\`, \`year()\`, \`month()\`, \`weekday()\` (Mon, Tue … Sun), \`contains()\`, \`text()\`, and for time \`now()\`, \`minutes(n)\`, \`hours(n)\`, \`day(x)\` (its day), \`time(x)\` (its time), \`at(day, time)\`. A day minus a day is a number of days, of minutes when both have their time; a day plus a number is a day; \`start + minutes(duration)\` is a day with its time; a day alone counts as 00:00. A formula gives a number, a text, a day or yes or no (\`spent > budget ? "Over budget" : "OK"\`); an empty field makes it empty. There is no \`if()\` and no \`=\`: write \`? :\` and \`==\`. A schema whose formula is wrong is refused, saying what is wrong.
+A formula is written in a language like JS's, read by Scrawl, not run as JS: field keys (\`qty * unit_price\`), a linked record's field with a dot (\`project.customer\`, \`customer.segment\`), numbers, texts in quotes, \`\` \`\${name} survey\` \`\`, \`+ - * / %\` (\`+\` joins texts), \`== != < <= > >=\`, \`&& || !\`, \`a ? b : c\`, and \`today()\`, \`empty()\`, \`round(x, n)\`, \`abs()\`, \`min()\`, \`max()\`, \`sum()\`, \`year()\`, \`month()\`, \`weekday()\` (Mon, Tue … Sun), \`contains()\`, \`text()\`, and for time \`now()\`, \`minutes(n)\`, \`hours(n)\`, \`months(n)\`, \`years(n)\`, \`day(x)\` (its day), \`time(x)\` (its time), \`at(day, time)\`, \`workdays(a, b)\` (the days Monday to Friday from a to b, both counted). A day minus a day is a number of days, of minutes when both have their time; a day plus a number is a day; \`start + minutes(duration)\` is a day with its time; \`renews + months(1)\` is a month on by the calendar, Jan 31 giving the last of February; a day alone counts as 00:00. A formula gives a number, a text, a day or yes or no (\`spent > budget ? "Over budget" : "OK"\`); an empty field makes it empty. There is no \`if()\` and no \`=\`: write \`? :\` and \`==\`. A schema whose formula is wrong is refused, saying what is wrong.
 
 A collection's rules are in \`_rules.js\` beside its \`_collection.json\`, in the same language, never run as JS; \`read\` and \`write\` it as a file. It holds checks, one after another: \`check("delivery", () => delivery >= start, "Delivery is before the start")\`, the key of the field it marks (\`null\` for the record as a whole), what must hold, and what to say when it does not. A check may read other records with \`find("Appointments", { staff: staff })\` and \`linked(…)\`, as a button does, and their fields with a dot (\`find(…).some((a) => a != this && a.start < ends && a.ends > start)\`); it changes nothing, so \`add\`, \`update\` and the like are refused in it. A record failing a check is not refused but marked, in \`problems\` with kind check; a check of fields still empty does not fail. A rules file with a mistake is refused, each mistake with its line.
 
@@ -108,9 +121,9 @@ And what runs as a record is saved: \`onSave("Paid date", () => { if (status == 
 
 A record is a \`.md\` file named after its id: YAML front matter with \`id\` and the fields by key, and \`subtasks\` when it has any (a card's kind, one per line), then the body (notes about it). The record's screen shows its subtasks where its layout has a \`{ "block": "subtasks" }\`, and the records linking to it where it has \`{ "block": "linked", "collection": "Atlas/Budget lines", "style": "table", "fields": ["name", "planned", "actual"], "sums": true }\` (style list, timeline or table: a table's cells are typed in, its columns are the fields, and with sums its numbers are summed under it); \`save_record\` with \`subtasks\` changes them as \`save_card\` does. A link is \`{ id, name, code? }\` of the record it points at; links never break when records are renamed. Formulas, lookups and rollups are worked out on screen and never written to the file. \`records\` returns them worked out; \`save_record\` takes links by name or code, gives a new record the defaults of the fields not given, and writes a value that does not fit as it is, marked in \`problems\` (the app marks it too). Templates: companies, people, activities, feedback, payments, blank.
 
-A view in \`views\` is a table (\`{ id, name, conditions, sort?, group?, columns? }\`) or a calendar: \`"kind": "calendar", "calendar": { "start": "starts", "end"?: "ends", "duration"?: "duration", "color"?: "status", "upcoming": true }\`, its records on the day, or the day and time, of \`start\` (a date field), as long as \`end\` or \`duration\` (minutes) says, else 30 minutes, in the colors of a select. With \`upcoming\` its records from today on show in Today and Upcoming beside the tasks: \`records\` with no collection and \`due: "today"\` gives them, the way \`tasks\` and \`cards\` give theirs; asked what is on today, give all three. \`records\` with \`from\` and \`to\` gives a collection's records on those days. To move one, \`save_record\` its start.
+A view in \`views\` is a table (\`{ id, name, conditions, sort?, group?, columns? }\`) or a calendar: \`"kind": "calendar", "calendar": { "start": "starts", "end"?: "ends", "duration"?: "duration", "color"?: "status", "upcoming": true }\`, its records on the day, or the day and time, of \`start\` (a date field, or a formula giving a day, as a birthday this year: such a record is not moved), as long as \`end\` or \`duration\` (minutes) says, else 30 minutes, in the colors of a select. With \`upcoming\` its records from today on show in Today and Upcoming beside the tasks: \`records\` with no collection and \`due: "today"\` gives them, the way \`tasks\` and \`cards\` give theirs; asked what is on today, give all three. \`records\` with \`from\` and \`to\` gives a collection's records on those days. To move one, \`save_record\` its start.
 
-To add a field, change its options or its type: \`read\` the \`_collection.json\`, add to or change \`fields\` (a new field: \`{ "key": "segment", "label": "Segment", "type": "select", "options": ["SMB", "Mid", "Enterprise"] }\`; keys are short, lowercase, unique and never change), \`write\` it back with \`ifMatch\`. Values of a removed field stay in the record files. To set up a new kind of list, \`create\` a blank collection and \`write\` its \`_collection.json\`; the person's rules for a process live in a note next to it (an SOP): read it, then apply it.
+To add a field, change its options or its type: \`read\` the \`_collection.json\`, or only its \`fields\` with \`part\`, add to or change them (a new field: \`{ "key": "segment", "label": "Segment", "type": "select", "options": ["SMB", "Mid", "Enterprise"] }\`; keys are short, lowercase, unique and never change), \`write\` it back the same way with \`ifMatch\`; a view is changed the same way with \`part: "views"\`. Values of a removed field stay in the record files. To rename a choice, write the field with the new name in its options (and in its colors) and give \`renames\`, \`{ "segment": { "Mid": "Mid-market" } }\`: the records holding the old name take the new one, and so do the views' conditions. To set up a new kind of list, \`create\` a blank collection and \`write\` its \`_collection.json\`; the person's rules for a process live in a note next to it (an SOP): read it, then apply it.
 
 ## Building a small app
 
@@ -118,7 +131,7 @@ A small app is a few collections that link to each other, what is worked out fro
 
 1. \`create\` a folder, and in it the collections (template blank), the board and the note.
 2. \`write\` each \`_collection.json\` twice: first its own fields and its links (a link names its collection by path, \`"collection": "Operations/Projects"\`), then, once every collection has its links, with the rollups, lookups and formulas that read the others' fields, and the \`layout\`: the record's fields on the left, \`{ "block": "actions" }\` for its buttons, its linked records as tables on the right.
-3. \`read\` the board and \`write\` its columns, and a field linking a card to its record.
+3. \`read\` the board's \`columns\` with \`part\` and \`write\` them back with the same \`part\`, then its \`fields\` the same way, with a field linking a card to its record.
 4. \`write\` each \`_rules.js\`: its checks, buttons and onSaves. A wrong one is refused on its line.
 5. Add a record with \`save_record\`, press a button with \`action\`, and read them back with \`records\`: what is worked out, the checks they fail and what the rules did are there.
 6. Write the process in the note: what each status means, what is done when, who does it.
@@ -132,7 +145,7 @@ The example a lift company runs its projects with, in Operations:
 
 ## Apps
 
-An app is a folder set up from ready templates at once: its collections, boards and rules, linked to each other, and a note, About and the app's name, saying what is in it and how it is used. \`create\` with \`kind: "app"\`, \`name\`, \`templates\`, \`answers\` by template and, when it keeps money, \`currencies\` (the main one first) sets one up; an answer not given takes its default, and a wrong one is refused with what it takes. Ask the person what the questions ask, or take it from what they told you. Templates set up together share their pieces: one Companies for CRM, Sales, Support and Stock (its suppliers), one Products for Sales and Stock, one Payments for all the money, one Feedback, one Projects, one Locations for Stock's warehouses and Assets' places. A project's budget brings Budget's pieces.
+An app is a folder set up from ready templates at once: its collections, boards and rules, linked to each other, and a note, About and the app's name, saying what is in it and how it is used. \`create\` with \`kind: "app"\`, \`name\`, \`templates\`, \`answers\` by template and, when it keeps money, \`currencies\` (the main one first) sets one up; an answer not given takes its default, and a wrong one is refused with what it takes. Ask the person what the questions ask, or take it from what they told you. Templates set up together share their pieces: one Companies for CRM, Sales, Support and Stock (its suppliers), one Products for Sales and Stock, one Payments for all the money, one Feedback, one Projects, one Locations for Stock's warehouses and Assets' places. A project's budget brings Budget's pieces. An app is for a business or for a person: its templates are all of one side, never both.
 
 ${appTemplates()}
 

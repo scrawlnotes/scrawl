@@ -1,6 +1,6 @@
 # Scrawl for agents
 
-`scrawl-mcp` is an MCP server over the notes, task lists, boards and collections in your [Scrawl](https://scrawlnotes.com) spaces, for the agent on your computer: Claude Code, Codex, Claude Desktop, Cursor, or any client that speaks MCP over stdio.
+`scrawl-mcp` is an MCP server over the notes, task lists, boards and collections in your [Scrawl](https://scrawlnotes.com) spaces, for the agent on your computer: Claude Code, Codex, Claude Desktop, Cursor, Antigravity, or any client that speaks MCP over stdio.
 
 Run with nothing, it reads the Scrawl desktop app's settings and serves what the app sees: your personal space and the copies of the spaces you share, whichever provider they live in. Given folders, it serves those.
 
@@ -32,6 +32,23 @@ Install the `scrawl.mcpb` bundle from the [releases](https://github.com/scrawlno
 ## Cursor
 
 Add a server with `command: npx`, `args: ["-y", "@scrawlnotes/mcp"]`, or use the install link the Scrawl app gives under Settings › Agents.
+
+## Antigravity
+
+Open `~/.gemini/config/mcp_config.json` (on Windows `%USERPROFILE%\.gemini\config\mcp_config.json`), or make it, and put in it:
+
+```json
+{
+  "mcpServers": {
+    "scrawl": {
+      "command": "npx",
+      "args": ["-y", "@scrawlnotes/mcp"]
+    }
+  }
+}
+```
+
+If it already has servers, add only the `scrawl` part inside `mcpServers`. Close Antigravity and open it again. Its app, its editor and its command line all read this file. To remove it, take the `scrawl` part out.
 
 ## What the agent can do
 

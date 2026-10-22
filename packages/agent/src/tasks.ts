@@ -132,6 +132,8 @@ export interface TaskArgs {
   parent?: string | null;
   /** Another list to move a task that is there to, by name or path. */
   toList?: string;
+  /** The task it goes right after, beside it, by id or title; "top" for the first place. */
+  after?: string;
   done?: boolean;
   /** Add it even though an open task with its title is there already. */
   another?: boolean;
@@ -149,17 +151,29 @@ function sectionOf(list: TaskList, path: string, ref: string | null): string | n
   return section.id;
 }
 
+/** The task a task goes right after among `siblings`, as `ref` names it by id or title; null for the top. */
+function afterTask(siblings: Task[], ref: string, title: string): string | null {
+  if (same(ref, 'top')) return null;
+  const byId = siblings.find((t) => t.id === ref);
+  if (byId) return byId.id;
+  const byTitle = siblings.filter((t) => same(t.title, ref));
+  if (byTitle.length === 1) return byTitle[0]!.id;
+  if (byTitle.length > 1) throw new Refusal(`More than one task beside ${title} is called ${ref}; say which by id`, { candidates: byTitle.map((t) => ({ id: t.id, title: t.title })) });
+  throw new Refusal(`No task ${ref} beside ${title}: after is a task in the place it goes, by id or title, or "top"`, { tasks: siblings.map((t) => ({ id: t.id, title: t.title })) });
+}
+
 /**
- * A task that is there put where the agent asked, at the end of its new siblings: under `parent`
- * (null for the top level), or at the top level in `section`. Refused where it cannot go.
+ * A task put where the agent asked: under `parent` (null for the top level), or at the top level
+ * in `section`, right after the task `afterRef` names, else at the end. Refused where it cannot go.
  */
-function placeTask(list: TaskList, path: string, id: string, parentArg: string | null | undefined, sectionArg: string | null | undefined, clock: () => Date): TaskList {
+function placeTask(list: TaskList, path: string, id: string, parentArg: string | null | undefined, sectionArg: string | null | undefined, clock: () => Date, afterRef?: string): TaskList {
   const task = list.tasks.find((t) => t.id === id)!;
   const parent = parentArg !== undefined ? parentArg : sectionArg !== undefined ? null : task.parent;
   if (parent !== null && !list.tasks.some((t) => t.id === parent)) throw new Refusal(`No task ${parent} to put this one under`, { list: path });
   const section = parent !== null ? null : sectionArg !== undefined ? sectionOf(list, path, sectionArg) : task.parent === null ? (task.section ?? null) : null;
   const siblings = (parent === null ? sectionTasks(list, section) : childrenOf(list.tasks, parent)).filter((t) => t.id !== id);
-  const moved = moveTask(list, id, { parent, section, after: siblings[siblings.length - 1]?.id ?? null }, clock);
+  const after = afterRef === undefined ? (siblings[siblings.length - 1]?.id ?? null) : afterTask(siblings, afterRef, task.title);
+  const moved = moveTask(list, id, { parent, section, after }, clock);
   const placed = moved.tasks.find((t) => t.id === id)!;
   if (placed.parent !== parent || (parent === null && (placed.section ?? null) !== section)) {
     throw new Refusal(`${task.title} cannot go there: a task does not go under itself or its own subtasks, and ${DEEPEST}`, { id });
@@ -227,9 +241,10 @@ async function saveTask(agent: Agent, client: Client, args: TaskArgs) {
   if (elsewhere) {
     const to = await loadList(space.fs, elsewhere);
     const moved = moveTaskToList(step.list, to, step.id, sectionOf(to, elsewhere, args.section ?? null), clock);
+    const into = args.after !== undefined ? placeTask(moved.to, elsewhere, step.id, null, args.section ?? null, clock, args.after) : moved.to;
     await saveList(space.fs, path, moved.from);
-    await saveList(space.fs, elsewhere, moved.to);
-    return { data: { ...where, list: elsewhere, from: path, created, task: taskOut(elsewhere, moved.to, moved.to.tasks.find((t) => t.id === step.id)!) } };
+    await saveList(space.fs, elsewhere, into);
+    return { data: { ...where, list: elsewhere, from: path, created, task: taskOut(elsewhere, into, into.tasks.find((t) => t.id === step.id)!) } };
   }
   await saveList(space.fs, path, step.list);
   return { data: { ...where, list: path, created, task: taskOut(path, step.list, step.list.tasks.find((t) => t.id === step.id)!) } };
@@ -336,6 +351,9 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
   }
   if (args.done !== undefined) tasks = setDone(tasks, id, args.done, clock);
   let next: TaskList = { ...list, tasks };
-  if (!created && place && (args.parent !== undefined || args.section !== undefined)) next = placeTask(next, path, id, args.parent, args.section, clock);
+  // A new one is where parent and section put it already; after moves it among its siblings.
+  if (place && (args.after !== undefined || (!created && (args.parent !== undefined || args.section !== undefined)))) {
+    next = placeTask(next, path, id, created ? undefined : args.parent, created ? undefined : args.section, clock, args.after);
+  }
   return { list: next, id, status: created ? 'created' : 'changed' };
 }

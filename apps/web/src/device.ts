@@ -1,4 +1,4 @@
-import { setNumberLocale } from '@scrawlnotes/core';
+import { type Audience, setNumberLocale } from '@scrawlnotes/core';
 import { languages, setLanguage } from '@scrawlnotes/i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { isDesktop } from './storage';
@@ -17,6 +17,8 @@ const LANGUAGE = 'scrawl.language';
 const SIZE = { phone: 'scrawl.sizePhone', computer: 'scrawl.sizeComputer' } as const;
 const UPCOMING = 'scrawl.upcoming';
 const CALENDAR_RANGE = 'scrawl.calendarRange';
+/** The side the New app window shows first, kept apart for the personal space and for the others. */
+const APP_SIDE = { personal: 'scrawl.appSidePersonal', other: 'scrawl.appSideOther' } as const;
 const NUMBERS = 'scrawl.numbers';
 /** The theme's colours, for index.html to paint the page with before the app's code comes. */
 const BOOT = 'scrawl.boot';
@@ -188,6 +190,14 @@ export const loadCalendarRange = (): CalendarRange => {
 };
 
 export const saveCalendarRange = (range: CalendarRange) => write(CALENDAR_RANGE, range === 'month' ? null : range);
+
+/** Who the New app window's templates are for as it opens: the side last chosen there, else Personal in the personal space, Business in the others. */
+export function loadAppSide(personal: boolean): Audience {
+  const kept = read(APP_SIDE[personal ? 'personal' : 'other']);
+  return kept === 'business' || kept === 'personal' ? kept : personal ? 'personal' : 'business';
+}
+
+export const saveAppSide = (personal: boolean, side: Audience) => write(APP_SIDE[personal ? 'personal' : 'other'], side === (personal ? 'personal' : 'business') ? null : side);
 
 /** Sizes the app again each time a phone is turned. */
 export function onTurn(listener: () => void): () => void {

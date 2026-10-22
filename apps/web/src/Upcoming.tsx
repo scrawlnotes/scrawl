@@ -568,10 +568,11 @@ function DayChip({ entry, day, today, boards, lifted, onDragStart, onDragEnd, on
     const due = entry.calendar;
     const name = recordLabel(due.record) || t('collection.untitled');
     const time = due.start.slice(0, 10) === day ? timeOf(due.start) : null;
+    // One whose day is worked out is opened, not moved.
     return (
       <button
         type="button"
-        draggable
+        draggable={!!movedValues(due.schema, due.view.calendar!, due, due.start)}
         className={['cal-t', 'rec', time && 'timed', lifted && 'ghost'].filter(Boolean).join(' ')}
         style={{ '--cc': choiceColor(due.colorField, due.choice) } as CSSProperties}
         title={name}

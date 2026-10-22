@@ -92,7 +92,31 @@ describe('working with time', () => {
     expect(run('starts < next')).toBe(true);
   });
 
+  it('adds months and years by the calendar, and counts the working days', () => {
+    expect(run('next + months(1)')).toBe('2027-02-21');
+    expect(run('next + months(1)', { next: '2027-01-31' })).toBe('2027-02-28');
+    expect(run('next + months(1)', { next: '2028-01-31' })).toBe('2028-02-29');
+    expect(run('next - months(2)')).toBe('2026-11-21');
+    expect(run('next + months(12)')).toBe(run('next + years(1)'));
+    expect(run('next + years(1)', { next: '2028-02-29' })).toBe('2029-02-28');
+    expect(run('starts + months(3)')).toBe('2027-01-22T14:30');
+    expect(run('next + months(1) + minutes(30)')).toBe('2027-02-21T00:30');
+    expect(run('next - 1 + months(duration / 30)')).toBe('2027-04-20');
+    // Monday to Friday, both days counted; the other way round, less than none.
+    expect(run('workdays(day(starts), next)', { starts: '2026-10-19', next: '2026-10-25' })).toBe(5);
+    expect(run('workdays(day(starts), next)', { starts: '2026-10-22', next: '2026-10-22' })).toBe(1);
+    expect(run('workdays(day(starts), next)', { starts: '2026-10-24', next: '2026-10-25' })).toBe(0);
+    expect(run('workdays(day(starts), next)', { starts: '2026-10-23', next: '2026-11-02' })).toBe(7);
+    expect(run('workdays(next, day(starts))', { starts: '2026-10-23', next: '2026-11-02' })).toBe(-7);
+    expect(run('workdays(day(starts), next)', { starts: '2026-01-01', next: '2026-12-31' })).toBe(261);
+    expect(run('workdays(day(starts), next)', { starts: '2026-10-22' })).toBeNull();
+  });
+
   it('says what is wrong with time in a formula', () => {
+    expect(formulaProblem('months("one")', schema)).toBe('months() takes a number.');
+    expect(formulaProblem('workdays(next, 3)', schema)).toBe('workdays() takes a day.');
+    expect(formulaProblem('workdays(next)', schema)).toBe('workdays() takes two values.');
+    expect(formulaProblem('next + years(1)', schema)).toBe(null);
     expect(formulaProblem('arrival + 1', schema)).toBe('A time takes minutes(n) or hours(n): 14:30 + minutes(45).');
     expect(formulaProblem('minutes(30) + name', schema)).toBe(null);
     expect(formulaProblem('minutes("half")', schema)).toBe('minutes() takes a number.');

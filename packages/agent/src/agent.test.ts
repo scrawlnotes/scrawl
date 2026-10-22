@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
-import { createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, restoreFromTrash, saveMe, savePeople, serializeBoard } from '@scrawlnotes/core';
+import { columnCards, createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, restoreFromTrash, saveMe, savePeople, serializeBoard } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { cardsTool, commentTool, saveCardTool } from './cards';
 import { BRIEF, GUIDE } from './guide';
@@ -1071,5 +1071,232 @@ describe('records on a calendar', () => {
     const days = await recordsTool(agent, { collection: 'Activities', from: '2026-10-10', to: '2026-10-15' });
     expect(days.data.records.map((r) => r.name).sort()).toEqual(['Intro', 'Kickoff']);
     expect((await refusal(recordsTool(agent, { collection: 'Activities', from: 'tomorrow' }))).message).toContain('YYYY-MM-DD');
+  });
+});
+
+describe('a part at a time', () => {
+  /** The sample's board with two phases, the first current, and three cards: one open, one done, one of the second phase. */
+  async function phased() {
+    const sampled = await sample();
+    const { fs, board, agent } = sampled;
+    const b = await loadBoard(fs, board);
+    await fs.writeText(board, serializeBoard({ ...b, phasesOn: true, phases: [{ id: 'p1', name: 'Agent', state: 'current' }, { id: 'p2', name: 'Server', state: 'upcoming' }] }));
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Open one' });
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Done one', column: 'done' });
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Later one', phase: 'Server' });
+    return sampled;
+  }
+
+  const phaseOf = async (fs: MemoryFs, board: string, title: string) => (await loadBoard(fs, board)).cards.find((c) => c.title === title)!.phase;
+
+  it('reads and writes a board’s phases alone: the cards stay as they are, and follow when a phase closes or goes', async () => {
+    const { agent, fs, board } = await phased();
+    const read = await readTool(agent, { path: board, part: 'phases' });
+    expect(read.data).toMatchObject({ kind: 'board', part: 'phases' });
+    const phases = JSON.parse(read.text) as { id?: string; name: string; state: string }[];
+    expect(phases.map((p) => p.name)).toEqual(['Agent', 'Server']);
+    // A card moved meanwhile does not stop the phases being written; the cards are as they were.
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', id: 'Open one', column: 'todo' });
+    const cards = (await loadBoard(fs, board)).cards;
+    const added = await writeTool(agent, { path: board, part: 'phases', text: JSON.stringify([...phases, { name: 'Apps', state: 'upcoming' }]), ifMatch: read.data.hash });
+    expect(added.data).toMatchObject({ part: 'phases', written: true });
+    const now = await loadBoard(fs, board);
+    expect(now.cards).toEqual(cards);
+    expect(now.phases.map((p) => p.name)).toEqual(['Agent', 'Server', 'Apps']);
+    expect(now.phases[2]!.id).toMatch(/^[0-9a-f-]{36}$/);
+    // The phases changed since: the old hash is refused; written as they are, nothing changes, whatever the hash.
+    expect((await refusal(writeTool(agent, { path: board, part: 'phases', text: JSON.stringify(phases), ifMatch: read.data.hash }))).message).toContain('changed');
+    const again = await readTool(agent, { path: board, part: 'phases' });
+    expect((await writeTool(agent, { path: board, part: 'phases', text: again.text, ifMatch: 'stale' })).data.written).toBe(false);
+    expect(added.data.hash).toBe(again.data.hash);
+    // Agent closed, Server current: the open card goes on to Server, the done one stays.
+    const closed = (JSON.parse(again.text) as { name: string; state: string }[]).map((p) => ({ ...p, state: p.name === 'Agent' ? 'done' : p.name === 'Server' ? 'current' : p.state }));
+    const close = await writeTool(agent, { path: board, part: 'phases', text: JSON.stringify(closed), ifMatch: again.data.hash });
+    expect(close.data.followed).toEqual(['1 card of Agent not finished went to Server']);
+    expect(await phaseOf(fs, board, 'Open one')).toBe('p2');
+    expect(await phaseOf(fs, board, 'Done one')).toBe('p1');
+    // Server taken away: its cards are in no phase.
+    const left = closed.filter((p) => p.name !== 'Server').map((p) => (p.name === 'Apps' ? { ...p, state: 'current' } : p));
+    const gone = await writeTool(agent, { path: board, part: 'phases', text: JSON.stringify(left) });
+    expect(gone.data.followed).toEqual(['2 cards of Server are in no phase now']);
+    expect(await phaseOf(fs, board, 'Later one')).toBeUndefined();
+    // What is no part, and a part that is not JSON or not a list.
+    expect((await refusal(readTool(agent, { path: board, part: 'cards' }))).message).toContain('save_card');
+    expect((await refusal(writeTool(agent, { path: board, part: 'nextKey', text: '9' }))).message).toContain('grows by itself');
+    expect((await refusal(readTool(agent, { path: board, part: 'colour' }))).details.parts).toEqual(['columns', 'phases', 'fields', 'phasesOn', 'prefix', 'view']);
+    expect((await refusal(writeTool(agent, { path: board, part: 'phases', text: '[{' }))).message).toContain('not JSON');
+    expect((await refusal(writeTool(agent, { path: board, part: 'phases', text: '{}' }))).message).toContain('is a list');
+    expect((await refusal(writeTool(agent, { path: board, part: 'phases', text: JSON.stringify([{ name: 'A', state: 'current' }, { name: 'B', state: 'current' }]) }))).details.problems).toEqual(['More than one phase is current; one is, while any is open']);
+    expect((await refusal(readTool(agent, { path: 'Plans/Roadmap.md', part: 'phases' }))).message).toContain('has no parts');
+  });
+
+  it('writes a board’s columns alone: a column taken away sends its cards to the first, a kind changed marks them finished', async () => {
+    const { agent, fs, board } = await phased();
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', id: 'Open one', column: 'review' });
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', id: 'Later one', column: 'doing' });
+    const read = await readTool(agent, { path: board, part: 'columns' });
+    const columns = JSON.parse(read.text) as { id?: string; name: string; kind: string }[];
+    const next = [...columns.filter((c) => c.name !== 'Review').map((c) => (c.name === 'Doing' ? { ...c, kind: 'done' } : c)), { name: 'Blocked', kind: 'active' }];
+    const written = await writeTool(agent, { path: board, part: 'columns', text: JSON.stringify(next), ifMatch: read.data.hash }, CLIENT);
+    expect(written.data.followed).toEqual(['1 card of Review went to Backlog']);
+    const now = await loadBoard(fs, board);
+    expect(now.columns.map((c) => c.name)).toEqual(['Backlog', 'Todo', 'Doing', 'Done', 'Blocked']);
+    expect(now.columns[4]!.id).toMatch(/^[0-9a-f-]{36}$/);
+    const open = now.cards.find((c) => c.title === 'Open one')!;
+    expect(open.column).toBe(now.columns[0]!.id);
+    expect(open.timeline.at(-1)).toMatchObject({ kind: 'move', by: 'Claude Code · Kaan', to: now.columns[0]!.id });
+    expect(now.cards.find((c) => c.title === 'Later one')!.completed).toBe(NOW.toISOString());
+    // The last done column stays.
+    const undone = now.columns.map(({ id, name, kind }) => ({ id, name, kind: kind === 'done' ? 'active' : kind }));
+    expect((await refusal(writeTool(agent, { path: board, part: 'columns', text: JSON.stringify(undone) }))).details.problems).toContain('A board keeps at least one done column');
+  });
+
+  it('writes a list’s sections alone, and leaves a section with tasks to the trash', async () => {
+    const { agent, fs } = await sample();
+    const list = (await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' })).data.path;
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Write the post' });
+    const read = await readTool(agent, { path: list, part: 'sections' });
+    expect(read.text).toBe('[]');
+    await writeTool(agent, { path: list, part: 'sections', text: JSON.stringify([{ name: 'This week' }, { name: 'Later' }]), ifMatch: read.data.hash });
+    const made = await loadList(fs, list);
+    expect(made.sections.map((s) => s.name)).toEqual(['This week', 'Later']);
+    expect(made.tasks.map((t) => t.title)).toEqual(['Write the post']);
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Ship', section: 'This week' });
+    const busy = await refusal(writeTool(agent, { path: list, part: 'sections', text: JSON.stringify([made.sections[1]]) }));
+    expect(busy.message).toContain('use trash with section "This week"');
+    await writeTool(agent, { path: list, part: 'sections', text: JSON.stringify([made.sections[0]]) });
+    expect((await loadList(fs, list)).sections.map((s) => s.name)).toEqual(['This week']);
+    expect((await refusal(writeTool(agent, { path: list, part: 'tasks', text: '[]' }))).message).toContain('save_task');
+  });
+
+  it('writes a schema’s views alone, and renames a choice in the records, the views and a board’s cards', async () => {
+    const { agent, fs, companies, board } = await sample();
+    const path = `${companies}/_collection.json`;
+    const fieldsBefore = (await loadSchema(fs, companies)).fields;
+    const view = { id: 'v1', name: 'Active', conditions: [{ field: 'status', op: 'is', value: ['active'] }] };
+    await writeTool(agent, { path, part: 'views', text: JSON.stringify([view]) });
+    expect((await loadSchema(fs, companies)).fields).toEqual(fieldsBefore);
+    await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Acme', status: 'active' } });
+    await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Globex', status: 'prospect' } });
+    const fields = JSON.parse((await readTool(agent, { path, part: 'fields' })).text) as { key: string; options?: string[] }[];
+    const renamed = fields.map((f) => (f.key === 'status' ? { ...f, options: ['prospect', 'live', 'churned'] } : f));
+    const written = await writeTool(agent, { path, part: 'fields', text: JSON.stringify(renamed), renames: { status: { active: 'live' } } });
+    expect(written.data.followed).toEqual(['1 record took the new names']);
+    const after = await loadCollection(fs, companies);
+    expect(after.records.map((r) => [r.name, r.values.status]).sort()).toEqual([['Acme', 'live'], ['Globex', 'prospect']]);
+    expect(after.schema.views![0]!.conditions[0]!.value).toEqual(['live']);
+    expect((await refusal(writeTool(agent, { path, part: 'fields', text: JSON.stringify(renamed), renames: { status: { gone: 'live' } } }))).message).toContain('gone was no choice');
+    expect((await refusal(writeTool(agent, { path, part: 'fields', text: JSON.stringify(renamed), renames: { status: { live: 'later' } } }))).message).toContain('add it to its options');
+    expect((await refusal(writeTool(agent, { path: 'Plans/Roadmap.md', text: 'x', renames: { status: { a: 'b' } } }))).message).toContain('renames go with');
+    // A board's own field.
+    await writeTool(agent, { path: board, part: 'fields', text: JSON.stringify([{ key: 'size', label: 'Size', type: 'select', options: ['S', 'M'] }]) });
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'Small one', values: { size: 'S' } });
+    const sized = await writeTool(agent, { path: board, part: 'fields', text: JSON.stringify([{ key: 'size', label: 'Size', type: 'select', options: ['Small', 'M'] }]), renames: { size: { S: 'Small' } } });
+    expect(sized.data.followed).toEqual(['1 card took the new names']);
+    expect((await loadBoard(fs, board)).cards[0]!.values).toEqual({ size: 'Small' });
+  });
+
+  it('changes a note where each find is, all of them or none, keeps its version, and refuses edits elsewhere', async () => {
+    const { agent, fs, note, board, companies } = await sample();
+    const changed = await writeTool(agent, { path: note, edits: [{ find: 'October', replace: 'November' }] });
+    expect(changed.data.replaced).toBe(1);
+    expect(await fs.readText(note)).toBe('# Roadmap\n\nShip the agent in November.\n');
+    expect((await listVersions(fs, note)).length).toBe(1);
+    // Sent again, its find is gone and its replace is there.
+    expect((await refusal(writeTool(agent, { path: note, edits: [{ find: 'October', replace: 'November' }] }))).message).toContain('may be written already');
+    await writeTool(agent, { path: note, text: 'one two one\nthree\n' });
+    expect((await refusal(writeTool(agent, { path: note, edits: [{ find: 'one', replace: '1' }] }))).details.found).toBe(2);
+    // The second edit fails: the first is not written either.
+    expect((await refusal(writeTool(agent, { path: note, edits: [{ find: 'three', replace: '3' }, { find: 'four', replace: '4' }] }))).details.edit).toBe(2);
+    expect(await fs.readText(note)).toBe('one two one\nthree\n');
+    expect((await writeTool(agent, { path: note, edits: [{ find: 'one', replace: '1', all: true }, { find: 'two 1\nthree', replace: 'two 1\n3' }] })).data.replaced).toBe(3);
+    expect(await fs.readText(note)).toBe('1 two 1\n3\n');
+    // Lines written on Windows.
+    await fs.writeText('Plans/Windows.md', 'line one\r\nline two\r\n');
+    await writeTool(agent, { path: 'Plans/Windows.md', edits: [{ find: 'line one\nline two', replace: 'first\nsecond' }] });
+    expect(await fs.readText('Plans/Windows.md')).toBe('first\r\nsecond\r\n');
+    // A rules file is checked; a board takes a part instead.
+    const rules = `${companies}/_rules.js`;
+    await writeTool(agent, { path: rules, text: 'check("name", () => !empty(name), "Needs a name")\n' });
+    expect((await refusal(writeTool(agent, { path: rules, edits: [{ find: '!empty(name)', replace: '!empty(' }] }))).details.problems).toBeDefined();
+    expect((await refusal(writeTool(agent, { path: board, edits: [{ find: 'Backlog', replace: 'Ideas' }] }))).message).toContain('write one part');
+    expect((await refusal(writeTool(agent, { path: 'Plans/Nothing.md', edits: [{ find: 'a', replace: 'b' }] }))).message).toContain('No file');
+    expect((await refusal(writeTool(agent, { path: note, text: 'x', append: 'y' }))).message).toContain('not text and append');
+    expect((await refusal(writeTool(agent, { path: note }))).message).toContain('What to write');
+  });
+
+  it('writes a long note a piece at a time, not twice, and reads it a piece at a time', async () => {
+    const { agent, fs } = await sample();
+    const made = await writeTool(agent, { path: 'Plans/Long.md', append: '# Long\n\nOne' });
+    expect(made.data.created).toBe(true);
+    await writeTool(agent, { path: 'Plans/Long.md', append: 'Two\nThree\nFour' });
+    expect(await fs.readText('Plans/Long.md')).toBe('# Long\n\nOne\nTwo\nThree\nFour');
+    // Sent again after a cut-off call, it is not added twice; nothing was lost, so there is no version.
+    expect((await writeTool(agent, { path: 'Plans/Long.md', append: 'Two\nThree\nFour' })).data.exists).toBe(true);
+    expect(await listVersions(fs, 'Plans/Long.md')).toEqual([]);
+    const whole = await readTool(agent, { path: 'Plans/Long.md' });
+    expect(whole.data.lineCount).toBe(6);
+    const some = await readTool(agent, { path: 'Plans/Long.md', lines: { from: 3, to: 4 } });
+    expect(some.text).toBe('One\nTwo');
+    expect(some.data).toMatchObject({ lines: { from: 3, to: 4, total: 6 }, hash: whole.data.hash });
+    expect((await readTool(agent, { path: 'Plans/Long.md', lines: { from: 5, to: 99 } })).text).toBe('Three\nFour');
+    expect((await refusal(readTool(agent, { path: 'Plans/Long.md', lines: { from: 7 } }))).message).toContain('has 6 lines');
+    expect((await refusal(readTool(agent, { path: 'Plans/Long.md', lines: { from: 1 }, part: 'phases' }))).message).toContain('not both');
+    const found = await searchTool(agent, { query: 'Three' });
+    expect(found.data.found.find((f) => f.path === 'Plans/Long.md')).toMatchObject({ lineNo: 5 });
+  });
+
+  it('puts a card in its column and a task among its siblings where after says', async () => {
+    const { agent, fs, board } = await sample();
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', items: [{ title: 'A' }, { title: 'B' }, { title: 'C' }] });
+    const order = async (kind = 'backlog') => {
+      const b = await loadBoard(fs, board);
+      return columnCards(b, b.columns.find((c) => c.kind === kind)!.id).map((c) => c.title);
+    };
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', id: 'C', after: 'top' });
+    expect(await order()).toEqual(['C', 'A', 'B']);
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', id: 'A', after: 'SCR-2' });
+    expect(await order()).toEqual(['C', 'B', 'A']);
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', title: 'D', after: 'SCR-3' });
+    expect(await order()).toEqual(['C', 'D', 'B', 'A']);
+    await saveCardTool(agent, CLIENT, { board: 'Scrawl', items: [{ id: 'B', column: 'todo' }, { id: 'A', column: 'todo', after: 'top' }] });
+    expect(await order('active')).toEqual(['A', 'B']);
+    const elsewhere = await refusal(saveCardTool(agent, CLIENT, { board: 'Scrawl', id: 'D', after: 'SCR-1' }));
+    expect(elsewhere.message).toContain('is not in Backlog');
+    expect(elsewhere.details.cards).toEqual([{ key: 'SCR-3', title: 'C' }]);
+    // Tasks, at the top level and under a task.
+    const list = (await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' })).data.path;
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', items: [{ title: 'One' }, { title: 'Two' }, { title: 'Three' }] });
+    const titles = async (parent: string | null = null) => (await loadList(fs, list)).tasks.filter((t) => t.parent === parent).sort((a, b) => a.order - b.order).map((t) => t.title);
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', id: 'Three', after: 'top' });
+    expect(await titles()).toEqual(['Three', 'One', 'Two']);
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Four', after: 'One' });
+    expect(await titles()).toEqual(['Three', 'One', 'Four', 'Two']);
+    const one = (await loadList(fs, list)).tasks.find((t) => t.title === 'One')!.id;
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', items: [{ title: 'Draft', parent: one }, { title: 'Outline', parent: one, after: 'top' }] });
+    expect(await titles(one)).toEqual(['Outline', 'Draft']);
+    expect((await refusal(saveTaskTool(agent, CLIENT, { list: 'Launch', id: 'Two', after: 'Draft' }))).message).toContain('No task Draft beside Two');
+  });
+
+  it('takes a part, edits, append, lines and after over MCP', async () => {
+    const { agent, fs, board, note } = await phased();
+    const server = buildServer(agent);
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverSide);
+    const client = new Client({ name: 'test-client', version: '1.0.0' });
+    await client.connect(clientSide);
+    const read = await client.callTool({ name: 'read', arguments: { path: board, part: 'phases' } });
+    expect(read.structuredContent).toMatchObject({ part: 'phases' });
+    const phases = JSON.parse((read.content[0] as { text: string }).text) as object[];
+    const written = await client.callTool({ name: 'write', arguments: { path: board, part: 'phases', text: JSON.stringify([...phases, { name: 'Apps', state: 'upcoming' }]), ifMatch: (read.structuredContent as { hash: string }).hash } });
+    expect(written.isError).toBeFalsy();
+    expect((await loadBoard(fs, board)).phases.map((p) => p.name)).toEqual(['Agent', 'Server', 'Apps']);
+    expect((await client.callTool({ name: 'write', arguments: { path: note, edits: [{ find: 'October', replace: 'November' }] } })).structuredContent).toMatchObject({ replaced: 1 });
+    expect((await client.callTool({ name: 'write', arguments: { path: note, append: 'Then the server.' } })).isError).toBeFalsy();
+    expect((await client.callTool({ name: 'read', arguments: { path: note, lines: { from: 3 } } })).structuredContent).toMatchObject({ text: 'Ship the agent in November.\nThen the server.', lines: { from: 3, to: 4, total: 4 } });
+    expect((await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', id: 'Done one', after: 'top' } })).isError).toBeFalsy();
+    const both = await client.callTool({ name: 'write', arguments: { path: note, text: 'x', edits: [{ find: 'a', replace: 'b' }] } });
+    expect(both.isError).toBe(true);
+    await client.close();
   });
 });

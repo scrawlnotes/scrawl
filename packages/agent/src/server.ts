@@ -28,7 +28,7 @@ function clientOf(server: McpServer, agent: Agent, ctx: ServerContext): Client {
 
 /** A client's name as people write it: `claude-code` is Claude Code. */
 function pretty(name: string): string {
-  const known: { [key: string]: string } = { 'claude-code': 'Claude Code', 'claude-ai': 'Claude', 'claude': 'Claude', 'claude-desktop': 'Claude Desktop', 'chatgpt': 'ChatGPT', 'cursor': 'Cursor' };
+  const known: { [key: string]: string } = { 'claude-code': 'Claude Code', 'claude-ai': 'Claude', 'claude': 'Claude', 'claude-desktop': 'Claude Desktop', 'chatgpt': 'ChatGPT', 'cursor': 'Cursor', 'antigravity': 'Antigravity' };
   return known[name.toLowerCase()] ?? name;
 }
 
@@ -90,8 +90,16 @@ export function buildServer(agent: Agent): McpServer {
     'read',
     {
       title: 'Read a file',
-      description: 'Returns one file as it is, with its hash: a note (markdown), a record (front matter and body), a task list or a board (JSON), or a collection’s schema (_collection.json). Use it to read a note, and before `write` when you change a schema or a board’s columns. Keys files, .scrawl/ and _attachments/ are closed.',
-      inputSchema: z.object({ space, path: z.string().describe('The file’s path in the space.') }),
+      description: 'Returns one file as it is, with its hash: a note (markdown), a record (front matter and body), a task list or a board (JSON), or a collection’s schema (_collection.json). With `part`, one part of a board, a task list or a schema alone, with its own hash: a board’s phases or columns without its cards, a list’s sections without its tasks, a schema’s fields or views; read it so before `write` with the same `part`. With `lines`, some lines of a long note. Keys files, .scrawl/ and _attachments/ are closed.',
+      inputSchema: z.object({
+        space,
+        path: z.string().describe('The file’s path in the space.'),
+        part: z.string().optional().describe('One part read alone: of a board columns, phases, fields, phasesOn, prefix or view; of a task list sections; of a schema fields, layout, views, defaultView or singular.'),
+        lines: z
+          .object({ from: z.number().int().min(1), to: z.number().int().min(1).optional() })
+          .optional()
+          .describe('For a note or a rules file: only these lines, counted from 1, both included; to left out reads to the end. The hash is still the whole file’s, for a write after it.'),
+      }),
       annotations: { readOnlyHint: true },
     },
     (args) => answer(() => readTool(agent, args)),
@@ -101,18 +109,35 @@ export function buildServer(agent: Agent): McpServer {
     'write',
     {
       title: 'Write a file',
-      description: 'Writes one file as it is, replacing what was there, making folders as needed. Use it for notes, and for what no other tool changes: a collection’s fields (its _collection.json) and a board’s columns and phases (its .board.json). Read the file first and pass its hash as `ifMatch`, so nothing is lost when it changed since. A schema, a board or a task list is written whole, as JSON; one the app could not read (no JSON, a key twice, a type that is none, a column kind that is none, no done column, a task without an id) is refused with each thing to mend. Only notes (.md), task lists, boards and schemas are written. A note’s earlier text is kept. For tasks, cards and records use save_task, save_card and save_record instead: they keep ids and order.',
-      inputSchema: z.object({ space: z.string().optional().describe('The space, by name or id. Left out, a file that is there is found in whichever space has it; a new one needs the space when there is more than one.'), path: z.string(), text: z.string(), ifMatch: z.string().optional().describe('The hash the file had when read; the write is refused when it changed.') }),
+      description: 'Writes a file, making folders as needed, in one of four ways: `text` writes the whole file, replacing what was there; `part` with `text` writes one part of a board, a task list or a schema alone (its phases, its columns, its sections, its views), the rest of the file staying as it is; `edits` changes a note or a rules file where each `find` is; `append` adds to the end of one, so a long note is written a piece at a time. Use it for notes, and for what no other tool changes: a collection’s fields and views, a board’s columns and phases, a list’s sections. For a board or a list write the part you change, never the whole file: read it with the same `part` first and pass its hash as `ifMatch`, so nothing is lost when it changed since. A new column, phase or section needs no id. When a part takes a column or a phase away, or sets a phase done, the cards follow as in the app (to the first column, to the next open phase, or to no phase) and `followed` says where. A schema, a board or a task list the app could not read (a key twice, a type that is none, a column kind that is none, no done column, a task without an id) is refused with each thing to mend. Only notes (.md), task lists, boards, schemas and rules are written. A note’s earlier text is kept. For tasks, cards and records use save_task, save_card and save_record instead: they keep ids and order.',
+      inputSchema: z.object({
+        space: z.string().optional().describe('The space, by name or id. Left out, a file that is there is found in whichever space has it; a new one needs the space when there is more than one.'),
+        path: z.string(),
+        text: z.string().optional().describe('The whole file; with part, the JSON of that part.'),
+        part: z.string().optional().describe('One part written alone with text: of a board columns, phases, fields, phasesOn, prefix or view; of a task list sections; of a schema fields, layout, views, defaultView or singular.'),
+        edits: z
+          .array(z.object({ find: z.string().min(1).describe('Text as it is in the file, there once.'), replace: z.string(), all: z.boolean().optional().describe('true changes every place find is.') }))
+          .min(1)
+          .max(50)
+          .optional()
+          .describe('Changes in a note or a rules file, in their order: each find is replaced by its replace. All are written, or none when a find is not there, or is there more than once without all.'),
+        append: z.string().optional().describe('Text added at the end of a note or a rules file, which is made when it is not there.'),
+        renames: z
+          .record(z.string(), z.record(z.string(), z.string()))
+          .optional()
+          .describe('With a schema, or a board’s part "fields": choices renamed in a select field, by the field’s key, { "status": { "Lead": "Prospect" } }, the new name in its options; the cards and records holding the old name take the new one.'),
+        ifMatch: z.string().optional().describe('The hash the file, or with part the part, had when read; the write is refused when it changed.'),
+      }),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     },
-    (args) => answer(() => writeTool(agent, args)),
+    (args, ctx) => answer(() => writeTool(agent, args, client(ctx))),
   );
 
   server.registerTool(
     'search',
     {
       title: 'Search',
-      description: 'Finds things by name or by words in their text, across every space: the spaces themselves, notes, tasks, cards, records, boards, collections, folders. Each hit says what it is and where it is (its space by id and name, and its path). Use it when you do not know where something is.',
+      description: 'Finds things by name or by words in their text, across every space: the spaces themselves, notes, tasks, cards, records, boards, collections, folders. Each hit says what it is and where it is (its space by id and name, and its path; in a note, the number of the line, `lineNo`, for read with lines). Use it when you do not know where something is.',
       inputSchema: z.object({ query: z.string(), space, limit: z.number().int().positive().optional() }),
       annotations: { readOnlyHint: true },
     },
@@ -250,6 +275,7 @@ export function buildServer(agent: Agent): McpServer {
     values,
     note: z.string().nullable().optional().describe('The note it is about, by path or name; null unlinks it.'),
     subtasks,
+    after: z.string().optional().describe('The card it goes right after in its column, by key (SCR-12); "top" for the first place. Left out, a card moved to another column goes at its end.'),
     another,
   };
 
@@ -257,7 +283,7 @@ export function buildServer(agent: Agent): McpServer {
     'save_card',
     {
       title: 'Save a card',
-      description: 'Adds one card to a board (in the current phase, first column), or changes one when `id` is given (its key like SCR-12, its number or id). `column` moves it, by the column’s name or kind: "review" leaves it for the person to look at, "done" finishes it, "dropped" drops it. Many cards at once go in `items`, each with the fields of one: a meeting’s points in one call, tied to its note with `note`; all are written, or none when one is refused. Written with your name on the card’s timeline. Without `id`, an open card with the same title is not added again: the tool returns it with exists: true; give its id to change it, or another: true to add a second one on purpose.',
+      description: 'Adds one card to a board (in the current phase, first column), or changes one when `id` is given (its key like SCR-12, its number or id). `column` moves it, by the column’s name or kind: "review" leaves it for the person to look at, "done" finishes it, "dropped" drops it; `after` puts it right after another card of its column, or at the top. Many cards at once go in `items`, each with the fields of one: a meeting’s points in one call, tied to its note with `note`; all are written, or none when one is refused. Written with your name on the card’s timeline. Without `id`, an open card with the same title is not added again: the tool returns it with exists: true; give its id to change it, or another: true to add a second one on purpose.',
       inputSchema: z.object({
         space,
         board: z.string(),
@@ -308,6 +334,7 @@ export function buildServer(agent: Agent): McpServer {
     note: z.string().nullable().optional().describe('The note it is about, by path or name; null unlinks it.'),
     section: z.string().nullable().optional().describe('The section it goes in, by name; null for none.'),
     parent: z.string().nullable().optional().describe('The task it goes under, by id; null for the top level.'),
+    after: z.string().optional().describe('The task it goes right after, under the same parent or in the same section, by id or title; "top" for the first place. Left out, a moved task goes at the end.'),
     done: z.boolean().optional(),
     another,
   };
@@ -316,7 +343,7 @@ export function buildServer(agent: Agent): McpServer {
     'save_task',
     {
       title: 'Save a task',
-      description: 'Adds one task to a list (the personal space’s Inbox when `list` is left out), or changes one when `id` is given (its id or title). done: true closes it, false reopens it. `record` ties it to a record by the record’s name or code, `note` to a note. `section` and `parent` place it, a new one or one that is there; `toList` moves one that is there to another list. Many tasks at once go in `items`, each with the fields of one; all are written, or none when one is refused. Without `id`, an open task with the same title in the same place is not added again: the tool returns it with exists: true; another: true adds a second one. Written with your name as its author.',
+      description: 'Adds one task to a list (the personal space’s Inbox when `list` is left out), or changes one when `id` is given (its id or title). done: true closes it, false reopens it. `record` ties it to a record by the record’s name or code, `note` to a note. `section` and `parent` place it, a new one or one that is there, and `after` right after another task there, or at the top; `toList` moves one that is there to another list. Many tasks at once go in `items`, each with the fields of one; all are written, or none when one is refused. Without `id`, an open task with the same title in the same place is not added again: the tool returns it with exists: true; another: true adds a second one. Written with your name as its author.',
       inputSchema: z.object({
         space,
         list: z.string().optional(),

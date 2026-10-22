@@ -15,10 +15,10 @@ import { dueLabel } from './Tasks';
 
 // Settings › Agents, after the Agents part of design/mockups.html (design/agent.md, 8): an agent
 // reaches the notes the way the person does. On this computer, the command the clients start and
-// where to add it: Claude Desktop, Claude Code, Codex, Cursor. For each server this device is signed
-// in to, the address, where to add it: Claude, ChatGPT, Gemini, Claude Code, Codex; and the agents
-// connected to the account, each to be disconnected. On a phone only the server part, since the
-// phone's Claude reaches only a server.
+// where to add it: Claude Desktop, Claude Code, Codex, Cursor, Antigravity. For each server this
+// device is signed in to, the address, where to add it: Claude, ChatGPT, Gemini, Claude Code, Codex,
+// Cursor, Antigravity; and the agents connected to the account, each to be disconnected. On a phone
+// only the server part, since the phone's Claude reaches only a server.
 
 export const MCP_PACKAGE = '@scrawlnotes/mcp';
 export const MCP_COMMAND = `npx -y ${MCP_PACKAGE}`;
@@ -33,8 +33,13 @@ export const MCPB_URL = `https://github.com/scrawlnotes/scrawl/releases/download
 export const mcpAddress = (url: string) => `${url.replace(/\/+$/, '')}/mcp`;
 export const claudeCodeRemote = (url: string) => `claude mcp add --transport http --scope user scrawl ${mcpAddress(url)}`;
 export const codexRemote = (url: string) => `codex mcp add scrawl --url ${mcpAddress(url)}`;
-/** Cursor's install link: the server's config, base64, as docs.cursor.com/deeplinks has it. */
-export const cursorLink = () => `cursor://anysphere.cursor-deeplink/mcp/install?name=scrawl&config=${btoa(JSON.stringify({ command: 'npx', args: ['-y', MCP_PACKAGE] }))}`;
+/** Cursor's install link: the server's config, base64, as docs.cursor.com/deeplinks has it; the command here, or a server's address. */
+export const cursorLink = (url?: string) =>
+  `cursor://anysphere.cursor-deeplink/mcp/install?name=scrawl&config=${encodeURIComponent(btoa(JSON.stringify(url ? { url: mcpAddress(url) } : { command: 'npx', args: ['-y', MCP_PACKAGE] })))}`;
+/** Antigravity keeps its servers in one file, which its app, its editor and its command line read. */
+export const ANTIGRAVITY_FILE = /Windows/.test(navigator.userAgent) ? '%USERPROFILE%\\.gemini\\config\\mcp_config.json' : '~/.gemini/config/mcp_config.json';
+/** What goes in that file: the command here, or a server's address (`serverUrl`, which every Antigravity takes). */
+export const antigravityConfig = (url?: string) => JSON.stringify({ mcpServers: { scrawl: url ? { serverUrl: mcpAddress(url) } : { command: 'npx', args: ['-y', MCP_PACKAGE] } } }, null, 2);
 
 const openLink = (href: string) => (isDesktop ? void openUrlOnDesktop(href).catch(() => undefined) : void window.open(href, '_blank', 'noopener'));
 
@@ -92,6 +97,7 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
   const [copied, copy] = useCopy();
   const [adding, setAdding] = useState<{ to: AddTo; server: KnownServer } | null>(null);
   const [running, setRunning] = useState<{ to: Terminal; server?: KnownServer } | null>(null);
+  const [antigravity, setAntigravity] = useState<{ server?: KnownServer } | null>(null);
   const names = [values.spaceName ?? t('settings.personal'), ...values.spaces.map((space) => space.name)].join(' · ');
   const button = (key: string, text: string, label: string) => (
     <button type="button" onClick={() => copy(key, text)}>
@@ -117,18 +123,23 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
           </div>
           <div className="st-acts">
             <small className="lab">{t('agents.addTo')}</small>
-            <button type="button" onClick={() => openLink(MCPB_URL)}>
-              {t('agents.claudeDesktop')}
-            </button>
-            <button type="button" onClick={() => setRunning({ to: 'claude-code' })}>
-              {t('agents.claudeCode')}
-            </button>
-            <button type="button" onClick={() => setRunning({ to: 'codex' })}>
-              {t('agents.codex')}
-            </button>
-            <button type="button" onClick={() => openLink(cursorLink())}>
-              {t('agents.cursor')}
-            </button>
+            <span className="ag-to">
+              <button type="button" onClick={() => openLink(MCPB_URL)}>
+                {t('agents.claudeDesktop')}
+              </button>
+              <button type="button" onClick={() => setRunning({ to: 'claude-code' })}>
+                {t('agents.claudeCode')}
+              </button>
+              <button type="button" onClick={() => setRunning({ to: 'codex' })}>
+                {t('agents.codex')}
+              </button>
+              <button type="button" onClick={() => openLink(cursorLink())}>
+                {t('agents.cursor')}
+              </button>
+              <button type="button" onClick={() => setAntigravity({})}>
+                {t('agents.antigravity')}
+              </button>
+            </span>
           </div>
           <p className="st-note">{t('agents.thisComputerNote')}</p>
         </div>
@@ -155,12 +166,18 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
             server={server}
             copied={copied}
             onCopy={copy}
-            onAdd={(to) => (to === 'claude-code' || to === 'codex' ? setRunning({ to, server }) : setAdding({ to, server }))}
+            onAdd={(to) => {
+              if (to === 'cursor') openLink(cursorLink(server.url));
+              else if (to === 'antigravity') setAntigravity({ server });
+              else if (to === 'claude-code' || to === 'codex') setRunning({ to, server });
+              else setAdding({ to, server });
+            }}
           />
         ))
       )}
       {adding && <AddToDialog to={adding.to} server={adding.server} onClose={() => setAdding(null)} />}
       {running && <TerminalDialog to={running.to} server={running.server} onClose={() => setRunning(null)} />}
+      {antigravity && <AntigravityDialog server={antigravity.server} onClose={() => setAntigravity(null)} />}
     </>
   );
 }
@@ -168,9 +185,11 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
 type AddTo = 'claude' | 'chatgpt' | 'gemini';
 /** The agents that take a server from a command typed in a terminal. */
 type Terminal = 'claude-code' | 'codex';
+/** Where a server is added from its block: Cursor by its install link, Antigravity by its file. */
+type ServerAddTo = AddTo | Terminal | 'cursor' | 'antigravity';
 
 /** A server this device is signed in to: its address, where to add it, and the agents connected to the account. */
-function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; copied: string | null; onCopy: (key: string, text: string) => void; onAdd: (to: AddTo | Terminal) => void }) {
+function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; copied: string | null; onCopy: (key: string, text: string) => void; onAdd: (to: ServerAddTo) => void }) {
   const a = useAgents(server.url);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; agent: ServerAgent } | null>(null);
   const address = mcpAddress(server.url);
@@ -196,21 +215,29 @@ function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; c
       </div>
       <div className="st-acts">
         <small className="lab">{t('agents.addTo')}</small>
-        <button type="button" onClick={() => onAdd('claude')}>
-          {t('agents.claude')}
-        </button>
-        <button type="button" onClick={() => onAdd('chatgpt')}>
-          {t('agents.chatgpt')}
-        </button>
-        <button type="button" onClick={() => onAdd('gemini')}>
-          {t('agents.gemini')}
-        </button>
-        <button type="button" onClick={() => onAdd('claude-code')}>
-          {t('agents.claudeCode')}
-        </button>
-        <button type="button" onClick={() => onAdd('codex')}>
-          {t('agents.codex')}
-        </button>
+        <span className="ag-to">
+          <button type="button" onClick={() => onAdd('claude')}>
+            {t('agents.claude')}
+          </button>
+          <button type="button" onClick={() => onAdd('chatgpt')}>
+            {t('agents.chatgpt')}
+          </button>
+          <button type="button" onClick={() => onAdd('gemini')}>
+            {t('agents.gemini')}
+          </button>
+          <button type="button" onClick={() => onAdd('claude-code')}>
+            {t('agents.claudeCode')}
+          </button>
+          <button type="button" onClick={() => onAdd('codex')}>
+            {t('agents.codex')}
+          </button>
+          <button type="button" onClick={() => onAdd('cursor')}>
+            {t('agents.cursor')}
+          </button>
+          <button type="button" onClick={() => onAdd('antigravity')}>
+            {t('agents.antigravity')}
+          </button>
+        </span>
       </div>
       <p className="st-note">{t('agents.eachSignsIn')}</p>
       {a.error && (
@@ -342,19 +369,24 @@ const TERMINAL: Record<Terminal, { title: MessageKey; local: string; remote: (ur
   },
 };
 
+/** A command or a file's text, whole, with Copy beside it; `lines` keeps its lines as written. */
+function CopyCode({ text, copied, onCopy, lines }: { text: string; copied: boolean; onCopy: () => void; lines?: boolean }) {
+  return (
+    <div className={`ag-code${lines ? ' lines' : ''}`}>
+      <code>{text}</code>
+      <button type="button" className={`go${copied ? ' on' : ''}`} onClick={onCopy}>
+        {copied ? t('agents.copied') : t('agents.copy')}
+      </button>
+    </div>
+  );
+}
+
 /** Add to Claude Code or Codex: the commands to run, each whole with Copy beside it; from a server, signing in too; and removing it. */
 function TerminalDialog({ to, server, onClose }: { to: Terminal; server?: KnownServer; onClose: () => void }) {
   const [copied, copy] = useCopy();
   const how = TERMINAL[to];
   const title = t(how.title);
-  const command = (key: string, text: string) => (
-    <div className="ag-code">
-      <code>{text}</code>
-      <button type="button" className={`go${copied === key ? ' on' : ''}`} onClick={() => copy(key, text)}>
-        {copied === key ? t('agents.copied') : t('agents.copy')}
-      </button>
-    </div>
-  );
+  const command = (key: string, text: string) => <CopyCode text={text} copied={copied === key} onCopy={() => copy(key, text)} />;
   return (
     <Dialog label={title} className="ag-add" onClose={onClose}>
       <h2>{title}</h2>
@@ -377,6 +409,47 @@ function TerminalDialog({ to, server, onClose }: { to: Terminal; server?: KnownS
         {t('agents.toRemove')}
         {command('remove', how.remove)}
       </div>
+      <div className="dialog-actions">
+        <button type="button" className="done" onClick={onClose}>
+          {t('agents.done')}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
+/**
+ * Add to Antigravity, which has no command and no link for it: the file to open, what to put in
+ * it, each with Copy; from a server, signing in with the code Antigravity asks for; and removing it.
+ */
+function AntigravityDialog({ server, onClose }: { server?: KnownServer; onClose: () => void }) {
+  const [copied, copy] = useCopy();
+  const title = t('agents.addAntigravityTitle');
+  const config = antigravityConfig(server?.url);
+  return (
+    <Dialog label={title} className="ag-add" onClose={onClose}>
+      <h2>{title}</h2>
+      <ol className="ag-steps">
+        <li>
+          {t('agents.antigravityOpen')}
+          <CopyCode text={ANTIGRAVITY_FILE} copied={copied === 'file'} onCopy={() => copy('file', ANTIGRAVITY_FILE)} />
+        </li>
+        <li>
+          {t('agents.antigravityPut')}
+          <CopyCode text={config} copied={copied === 'config'} onCopy={() => copy('config', config)} lines />
+        </li>
+        {server ? (
+          <>
+            <li>{t('agents.antigravityAuthenticate')}</li>
+            <li>{t('agents.antigravityCode', { host: hostOf(server.url) })}</li>
+          </>
+        ) : (
+          <li>{t('agents.antigravityRestart')}</li>
+        )}
+      </ol>
+      {!server && <p className="confirm">{t('agents.localNote')}</p>}
+      <p className="confirm">{t('agents.antigravityNote')}</p>
+      <div className="ag-remove">{t('agents.antigravityRemove')}</div>
       <div className="dialog-actions">
         <button type="button" className="done" onClick={onClose}>
           {t('agents.done')}

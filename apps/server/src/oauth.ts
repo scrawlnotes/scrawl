@@ -69,6 +69,8 @@ export interface Verified {
 }
 
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
+/** Schemes a browser handles itself, never an app's own: a redirect there would run or show something in the page. */
+const BROWSER_SCHEMES = new Set(['javascript:', 'vbscript:', 'data:', 'blob:', 'file:', 'filesystem:', 'about:', 'view-source:', 'ftp:', 'ws:', 'wss:']);
 
 /** Whether a redirect URI a client registered may be used: as written, or on the loopback whatever the port (RFC 8252). */
 export function redirectAllowed(registered: string, given: string): boolean {
@@ -82,12 +84,18 @@ export function redirectAllowed(registered: string, given: string): boolean {
   }
 }
 
-/** A redirect URI a client may register: https, or http on the loopback. */
+/**
+ * A redirect URI a client may register: https, http on the loopback, or an app's own scheme
+ * (RFC 8252, 7.1), as Cursor's `cursor://anysphere.cursor-mcp/oauth/callback`.
+ */
 function redirectValid(uri: unknown): uri is string {
   if (typeof uri !== 'string') return false;
   try {
     const url = new URL(uri);
-    return !url.hash && (url.protocol === 'https:' || (url.protocol === 'http:' && LOOPBACK.has(url.hostname)));
+    if (url.hash) return false;
+    if (url.protocol === 'https:') return true;
+    if (url.protocol === 'http:') return LOOPBACK.has(url.hostname);
+    return !BROWSER_SCHEMES.has(url.protocol);
   } catch {
     return false;
   }
@@ -152,7 +160,7 @@ export class OAuth {
   /** RFC 7591: a client registers itself with its name and where it may be sent back to; it gets an id and no secret. */
   register(body: { [key: string]: unknown }) {
     const uris = Array.isArray(body.redirect_uris) ? body.redirect_uris : [];
-    if (uris.length === 0 || !uris.every(redirectValid)) throw new OAuthRefused(400, 'invalid_redirect_uri', 'redirect_uris must be https addresses, or http on the loopback');
+    if (uris.length === 0 || !uris.every(redirectValid)) throw new OAuthRefused(400, 'invalid_redirect_uri', 'redirect_uris must be https addresses, http on the loopback, or an app’s own scheme');
     const name = typeof body.client_name === 'string' ? body.client_name.trim().slice(0, 100) : '';
     const id = token();
     this.db.prepare('INSERT INTO oauth_clients (id, name, redirect_uris, created_at) VALUES (?, ?, ?, ?)').run(id, name, JSON.stringify(uris), this.now());

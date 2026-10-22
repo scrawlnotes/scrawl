@@ -7,35 +7,35 @@ import {
   type Answer,
   type Answers,
   askedQuestions,
+  type Audience,
+  audienceOf,
   dirname,
   localPath,
   PIECES,
   type Question,
   readAnswers,
   readCurrencies,
+  spaceOf,
+  TEMPLATE_GROUPS,
   TEMPLATE_IDS,
-  type TemplateGroup,
   type TemplateId,
 } from '@scrawlnotes/core';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, useRef, useState } from 'react';
-import { deviceRegion, isPhone } from './device';
+import { deviceRegion, isPhone, loadAppSide, saveAppSide } from './device';
 import { Dialog, type FolderChoice, FolderField } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { folderLabel } from './items';
 import { Sheet } from './sheets';
 
 // New app (design/scrawl-apps.md 2): a window that goes in steps. The templates, chosen as cards
-// by group; the app's name, its place and its currencies; a page of questions for each template
-// chosen, every answer ready; a summary of what will be set up; then Create. On a phone the same
-// pages in a sheet, its bar going back and on. The plan is worked out by core, which writes
-// nothing until Create.
+// by group, for a business or for a person (design/more-apps.md 1); the app's name, its place and
+// its currencies; a page of questions for each template chosen, every answer ready; a summary of
+// what will be set up; then Create. On a phone the same pages in a sheet, its bar going back and
+// on. The plan is worked out by core, which writes nothing until Create.
 
-const GROUPS: { group: TemplateGroup; label: MessageKey }[] = [
-  { group: 'customers', label: 'apps.group.customers' },
-  { group: 'money', label: 'apps.group.money' },
-  { group: 'work', label: 'apps.group.work' },
-];
+/** The sides that have templates, Business first. */
+const SIDES = (['business', 'personal'] as const).filter((side) => TEMPLATE_IDS.some((id) => audienceOf(APP_TEMPLATES[id].group) === side));
 
 /** The kind of a piece as an icon. */
 const PIECE_ICON: Record<string, IconName> = { collection: 'collection', board: 'board', folder: 'folder', note: 'note' };
@@ -73,6 +73,11 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
 }) {
   const phone = isPhone();
   const [at, setAt] = useState(0);
+  // Added to an app, its own side; else as the device keeps it, by the space it is made in.
+  const personal = spaceOf(folder) === null;
+  const appSide = (adding?.templates ?? []).map((x) => APP_TEMPLATES[x.id]).find(Boolean);
+  const [side, setSide] = useState<Audience>(() => (appSide ? audienceOf(appSide.group) : loadAppSide(personal)));
+  const shownSide = SIDES.includes(side) ? side : SIDES[0]!;
   const [chosen, setChosen] = useState<TemplateId[]>([]);
   const [name, setName] = useState('');
   const [place, setPlace] = useState<FolderChoice>(() => ({ folder: folders.includes(folder) ? folder : (folders[0] ?? ''), create: false }));
@@ -140,6 +145,14 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
   const input = (): AppInput => ({ name: adding?.name ?? name, currencies, templates: chosen.map((id) => ({ id, answers: answersOf(id) })) });
   const answer = (id: TemplateId, key: string, value: Answer) => setGiven((now) => ({ ...now, [id]: { ...answersOf(id), ...now[id], [key]: value } }));
   const toggle = (id: TemplateId) => setChosen((now) => (now.includes(id) ? now.filter((x) => x !== id) : TEMPLATE_IDS.filter((x) => x === id || now.includes(x))));
+  // An app is of one side: the other lets go of what was chosen.
+  const pickSide = (to: Audience) => {
+    if (to === shownSide) return;
+    setSide(to);
+    saveAppSide(personal, to);
+    setChosen([]);
+    setProblems([]);
+  };
 
   /** Works the plan out: on the app's page for its name and currencies, before the summary for all of it. */
   const planned = async (): Promise<AppPlan | null> => {
@@ -202,7 +215,18 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
 
   const page = () => {
     if (step === 'templates') {
-      return <TemplatesPage phone={phone} chosen={chosenSet} installed={installed} rolesOf={(id) => rolesOf(id).filter((role) => !borrowed(id).has(role))} sharedLine={sharedLine} onToggle={toggle} />;
+      return (
+        <TemplatesPage
+          phone={phone}
+          side={shownSide}
+          onSide={adding || SIDES.length < 2 ? undefined : pickSide}
+          chosen={chosenSet}
+          installed={installed}
+          rolesOf={(id) => rolesOf(id).filter((role) => !borrowed(id).has(role))}
+          sharedLine={sharedLine}
+          onToggle={toggle}
+        />
+      );
     }
     if (step === 'app') {
       return (
@@ -313,8 +337,12 @@ export function counts(plan: AppPlan): string {
     .join(', ');
 }
 
-function TemplatesPage({ phone, chosen, installed, rolesOf, sharedLine, onToggle }: {
+function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, sharedLine, onToggle }: {
   phone: boolean;
+  /** Whose templates are shown: a business's or a person's. */
+  side: Audience;
+  /** Shows the other side's; unset where there is no choosing, adding to an app. */
+  onSide?: (side: Audience) => void;
   chosen: ReadonlySet<TemplateId>;
   /** The templates the app has already: faint, and not to be picked. */
   installed: ReadonlySet<TemplateId>;
@@ -324,11 +352,24 @@ function TemplatesPage({ phone, chosen, installed, rolesOf, sharedLine, onToggle
 }) {
   return (
     <>
-      {GROUPS.map(({ group, label }) => {
+      {onSide && (
+        <div className="na-side">
+          <span className="na-seg" role="radiogroup" aria-label={t('apps.side')}>
+            {SIDES.map((each) => (
+              <button key={each} type="button" role="radio" aria-checked={each === side} onClick={() => onSide(each)}>
+                {t(`apps.side.${each}`)}
+              </button>
+            ))}
+          </span>
+          {!phone && <small>{t(`apps.side.${side}Help`)}</small>}
+        </div>
+      )}
+      {TEMPLATE_GROUPS[side].map((group) => {
         const ids = TEMPLATE_IDS.filter((id) => APP_TEMPLATES[id].group === group);
+        if (ids.length === 0) return null;
         return (
           <div key={group} className="na-group">
-            <div className="na-label">{t(label)}</div>
+            <div className="na-label">{t(`apps.group.${group}`)}</div>
             <div className={phone ? 'na-mgroup' : 'na-cards'}>
               {ids.map((id) => {
                 const template = APP_TEMPLATES[id];

@@ -6575,6 +6575,15 @@ body > .mb-lifted {
   margin-top: 0;
 }
 
+/* Business or Personal across the top of the templates, as it is on a computer, without its line. */
+.na-sheet .na-side {
+  position: static;
+  display: block;
+  margin: 0 0 4px;
+  padding: 4px 0 0;
+  background: none;
+}
+
 .na-mgroup {
   overflow: hidden;
   border-radius: 12px;

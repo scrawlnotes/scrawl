@@ -87,6 +87,19 @@ export function pickCard(board: Board, ref: string): Card {
   throw new Refusal(`No card ${ref} on this board`, {});
 }
 
+/** The card a card goes right after in `column`, as `ref` names it; null for the top. */
+function afterOf(board: Board, column: string, ref: string, self: string): string | null {
+  if (same(ref, 'top')) return null;
+  const card = pickCard(board, ref);
+  if (card.id === self) throw new Refusal('A card does not go after itself; give the card before it, or "top"', { after: ref });
+  if (card.column !== column) {
+    const name = board.columns.find((c) => c.id === column)?.name ?? column;
+    const cards = columnCards(board, column).filter((c) => c.id !== self);
+    throw new Refusal(`${keyOf(board, card)} is not in ${name}: after is a card of the column it goes in, or "top"`, { column: name, cards: cards.slice(0, 30).map((c) => ({ key: keyOf(board, c), title: c.title })) });
+  }
+  return card.id;
+}
+
 /** A card's values of the board's own fields, worked out, the empty ones left out. */
 function valuesOf(board: Board, card: Card, today: string): { [key: string]: FieldValue } {
   const values: { [key: string]: FieldValue } = {};
@@ -306,6 +319,8 @@ export interface CardArgs {
   note?: string | null;
   /** Its subtasks to add, change or take off. */
   subtasks?: SubtaskArg[];
+  /** The card it goes right after in its column, by key; "top" for the first place. */
+  after?: string;
   /** Add the card even though an open one has its title already. */
   another?: boolean;
   /** Many cards at once on the board, each with the fields of one: all written, or none. */
@@ -455,9 +470,11 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
       },
       () => now,
     );
-    if (column && column.id !== card.column) {
-      const last = columnCards(board, column.id).filter((c) => c.id !== card.id).pop();
-      board = moveCard(board, card.id, { column: column.id, after: last?.id ?? null }, () => now, by);
+    // To another column, at its end unless after says where; or to another place in its own.
+    if ((column && column.id !== card.column) || args.after !== undefined) {
+      const to = column?.id ?? card.column;
+      const after = args.after !== undefined ? afterOf(board, to, args.after, card.id) : (columnCards(board, to).filter((c) => c.id !== card.id).pop()?.id ?? null);
+      board = moveCard(board, card.id, { column: to, after }, () => now, by);
     }
   } else {
     const title = args.title?.trim();
@@ -488,6 +505,7 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
     if (board.cards.length === before) throw new Refusal('The card could not be added');
     card = board.cards[board.cards.length - 1]!;
     if (subtasks.length > 0) board = updateCard(board, card.id, { subtasks }, () => now);
+    if (args.after !== undefined) board = moveCard(board, card.id, { column: card.column, after: afterOf(board, card.column, args.after, card.id) }, () => now, by);
     created = true;
   }
   return { board, card, status: created ? 'created' : 'changed' };

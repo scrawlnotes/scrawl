@@ -330,7 +330,10 @@ export function CalendarViewDialog({ schema, view, showAs, records, count, onSav
   onSave: (view: View) => void;
   onClose: () => void;
 }) {
-  const starts = calendarStarts(schema.fields);
+  // A formula the view starts on that reads a linked record's day is not told here to give one, and stays.
+  const dated = calendarStarts(schema.fields);
+  const given = schema.fields.find((f) => f.key === view?.calendar?.start);
+  const starts = given && !dated.includes(given) ? [...dated, given] : dated;
   const [name, setName] = useState(view?.name ?? t('calendar.calendar'));
   // A new one goes by the first date, as long as a number of minutes when there is one, in the colors of the first choice.
   const [settings, setSettings] = useState<CalendarSettings>(() => {

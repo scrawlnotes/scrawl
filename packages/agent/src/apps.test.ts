@@ -417,5 +417,20 @@ describe('apps', () => {
     expect(wrong.details.problems).toEqual(['sales.tax: the answer is true or false', 'Give the currencies the app keeps money in, like TRY or EUR; the first is the main one']);
     expect((await refusal(createTool(agent, { kind: 'app', folder: 'Atlas', name: '', templates: ['crm'] }))).details.problems).toEqual(['crm is in the app already']);
   });
+
+  it('says whom each template is for, and refuses an app of both sides', async () => {
+    const { agent } = await world();
+    const listed = (await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: [] }))).details.templates as { id: string; audience: string }[];
+    expect(listed.find((x) => x.id === 'crm')!.audience).toBe('business');
+    // Content taken as a person's for a while.
+    const was = APP_TEMPLATES.content.group;
+    APP_TEMPLATES.content.group = 'life';
+    try {
+      const mixed = await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: ['crm', 'content'], currencies: ['TRY'] }));
+      expect(mixed.details.problems).toEqual(['An app is set up from templates for a business or for a person, not both: crm for a business, content for a person. Set them up as two apps']);
+    } finally {
+      APP_TEMPLATES.content.group = was;
+    }
+  });
 });
 

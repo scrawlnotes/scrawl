@@ -471,8 +471,11 @@ export function reader(tokens: Token[]): Reader {
 /** The path a button's answers are read from as a record, `input`, followed by the button's name. */
 export const ASK_INPUT = '\u0000ask\u0000';
 
-/** What a value is, as far as can be told before working it out. */
-/** A day may hold its time; a time is a time of day alone; a span is minutes to add to either: `minutes(30)`. */
+/**
+ * What a value is, as far as can be told before working it out. A day may hold its time; a time
+ * is a time of day alone; a span is minutes to add to either, `minutes(30)`, or months to add to
+ * a day, `months(1)`.
+ */
 export type Kind = 'number' | 'text' | 'day' | 'time' | 'span' | 'bool' | 'null' | 'any' | { list: Kind } | { record: string };
 
 const isList = (k: Kind): k is { list: Kind } => typeof k === 'object' && 'list' in k;
@@ -620,6 +623,28 @@ const FNS: { [name: string]: FnSpec } = {
     kind: ([a], [n]) => {
       need(NUMBERISH(a!), t('lang.fnNumber', { fn: 'hours' }), n!);
       return 'span';
+    },
+  },
+  months: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(NUMBERISH(a!), t('lang.fnNumber', { fn: 'months' }), n!);
+      return 'span';
+    },
+  },
+  years: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(NUMBERISH(a!), t('lang.fnNumber', { fn: 'years' }), n!);
+      return 'span';
+    },
+  },
+  workdays: {
+    args: [2, 2],
+    kind: ([a, b], [n, m]) => {
+      need(DAYISH(a!), t('lang.fnDay', { fn: 'workdays' }), n!);
+      need(DAYISH(b!), t('lang.fnDay', { fn: 'workdays' }), m!);
+      return 'number';
     },
   },
   day: {
@@ -1022,9 +1047,12 @@ export function clockValue(text: string): Clock | null {
   return clock ? new Clock(clockMinutes(clock)) : null;
 }
 
-/** A span of minutes, `minutes(30)`, `hours(2)`: what is added to a day or a time. */
+/** A span of minutes, `minutes(30)`, `hours(2)`, or of calendar months, `months(1)`, `years(1)`: what is added to a day or a time. */
 export class Duration {
-  constructor(readonly minutes: number) {}
+  constructor(
+    readonly minutes: number,
+    readonly months = 0,
+  ) {}
 }
 
 /** A linked record as the language holds it: where it is, and its name for what shows it. */
@@ -1093,7 +1121,8 @@ export function toRuntime(field: Pick<Field, 'type' | 'collection'>, value: Fiel
 export function fromRuntime(v: RV): FieldValue {
   if (v === null || v === undefined || v instanceof Obj || v instanceof Fn || isCardRef(v)) return null;
   if (v instanceof Day || v instanceof Clock) return v.toString();
-  if (v instanceof Duration) return v.minutes;
+  // A span of months is no number of minutes: it is only added to a day.
+  if (v instanceof Duration) return v.months ? null : v.minutes;
   if (isRef(v)) return { id: v.id, name: v.name, ...(v.code && { code: v.code }) };
   if (Array.isArray(v)) {
     const items = v.flat(8).filter((x) => x !== null && x !== undefined);
@@ -1113,7 +1142,7 @@ export function textOf(v: RV): string {
   // A day with its time reads as the day and the clock.
   if (v instanceof Day) return v.m === null ? v.toString() : v.toString().replace('T', ' ');
   if (v instanceof Clock) return v.toString();
-  if (v instanceof Duration) return String(v.minutes);
+  if (v instanceof Duration) return v.months ? '' : String(v.minutes);
   if (isRef(v)) return v.name;
   if (Array.isArray(v)) return v.map(textOf).filter(Boolean).join(', ');
   if (typeof v === 'number') return Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100);
@@ -1130,7 +1159,7 @@ export function equal(a: RV, b: RV): boolean {
   if (isNothing(a) || isNothing(b)) return isNothing(a) && isNothing(b);
   if (a instanceof Day || b instanceof Day) return a instanceof Day && b instanceof Day && a.n === b.n && a.m === b.m;
   if (a instanceof Clock || b instanceof Clock) return a instanceof Clock && b instanceof Clock && a.m === b.m;
-  if (a instanceof Duration || b instanceof Duration) return a instanceof Duration && b instanceof Duration && a.minutes === b.minutes;
+  if (a instanceof Duration || b instanceof Duration) return a instanceof Duration && b instanceof Duration && a.minutes === b.minutes && a.months === b.months;
   if (isRef(a) && isRef(b)) return a.id && b.id ? a.id === b.id : a.name.trim().toLowerCase() === b.name.trim().toLowerCase();
   if (isRef(a) && typeof b === 'string') return a.name === b || a.code === b;
   if (isRef(b) && typeof a === 'string') return b.name === a || b.code === a;
@@ -1143,7 +1172,8 @@ function order(a: RV, b: RV): number | null {
   // A day alone is at its start, as 00:00.
   if (a instanceof Day && b instanceof Day) return a.at - b.at;
   if (a instanceof Clock && b instanceof Clock) return a.m - b.m;
-  if (a instanceof Duration && b instanceof Duration) return a.minutes - b.minutes;
+  // Months and minutes are not of one measure: spans are ordered by one when the other is the same.
+  if (a instanceof Duration && b instanceof Duration) return a.months === b.months ? a.minutes - b.minutes : a.minutes === b.minutes ? a.months - b.months : null;
   if (typeof a === 'string' && typeof b === 'string') return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
   return null;
 }
@@ -1170,10 +1200,10 @@ export interface Env {
   steps?: { n: number };
 }
 
-/** Works a function out for the values it is given. */
 /** The days of the week as weekday() gives them, from Sunday, as JS counts them. */
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
+/** Works a function out for the values it is given. */
 export function applyFn(fn: Fn, args: RV[]): RV {
   if (Array.isArray(fn.body)) throw new LangError(t('lang.methodFn', { fn: '' }));
   const outer = fn.env;
@@ -1294,7 +1324,7 @@ export function evaluate(node: Node, env: Env): RV {
           }
           case '+': {
             if (typeof a === 'string' || typeof b === 'string') return textOf(a) + textOf(b);
-            if (a instanceof Duration || b instanceof Duration) return plus(a instanceof Duration ? b : a, (a instanceof Duration ? a : (b as Duration)).minutes);
+            if (a instanceof Duration || b instanceof Duration) return plus(a instanceof Duration ? b : a, a instanceof Duration ? a : (b as Duration));
             const [x, y] = [numberOf(a), numberOf(b)];
             if (x !== null && y !== null) return x + y;
             if (a instanceof Day && y !== null) return new Day(a.n + Math.trunc(y), a.m);
@@ -1302,7 +1332,7 @@ export function evaluate(node: Node, env: Env): RV {
             return null;
           }
           case '-': {
-            if (b instanceof Duration) return plus(a, -b.minutes);
+            if (b instanceof Duration) return plus(a, new Duration(-b.minutes, -b.months));
             const [x, y] = [numberOf(a), numberOf(b)];
             if (x !== null && y !== null) return x - y;
             // Two days with their times are so many minutes apart; else so many days.
@@ -1328,12 +1358,37 @@ export function evaluate(node: Node, env: Env): RV {
   return typeof result === 'number' && !Number.isFinite(result) ? null : result;
 }
 
-/** A day, a time or a span with minutes added: a day alone at its start gets a time; a time goes round the clock. */
-function plus(v: RV, minutes: number): RV {
-  if (v instanceof Day) return dayAt(v.at + Math.round(minutes));
-  if (v instanceof Clock) return new Clock((((v.m + Math.round(minutes)) % 1440) + 1440) % 1440);
-  if (v instanceof Duration) return new Duration(v.minutes + minutes);
+/**
+ * A day, a time or a span with a span added: a day alone at its start gets a time for minutes;
+ * a time goes round the clock and takes no months; months go by the calendar, a day past the
+ * month's end at its last (Jan 31 and a month is Feb 28 or 29).
+ */
+function plus(v: RV, span: Duration): RV {
+  if (v instanceof Day) {
+    const moved = span.months ? addMonths(v, Math.trunc(span.months)) : v;
+    return span.minutes || !span.months ? dayAt(moved.at + Math.round(span.minutes)) : moved;
+  }
+  if (v instanceof Clock) return new Clock((((v.m + Math.round(span.minutes)) % 1440) + 1440) % 1440);
+  if (v instanceof Duration) return new Duration(v.minutes + span.minutes, v.months + span.months);
   return null;
+}
+
+function addMonths(day: Day, months: number): Day {
+  const date = new Date(day.n * 86400000);
+  const total = date.getUTCFullYear() * 12 + date.getUTCMonth() + months;
+  const [y, m] = [Math.floor(total / 12), ((total % 12) + 12) % 12];
+  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Day(Math.round(Date.UTC(y, m, Math.min(date.getUTCDate(), last)) / 86400000), day.m);
+}
+
+/** The days from one day to another, both counted, that are Monday to Friday; less than none when the second is before the first. */
+function workdays(a: Day, b: Day): number {
+  if (b.n < a.n) return -workdays(b, a);
+  const days = b.n - a.n + 1;
+  let count = Math.floor(days / 7) * 5;
+  // 1970-01-01, day 0, was a Thursday: (n + 4) % 7 is 0 on a Sunday.
+  for (let n = a.n + days - (days % 7); n <= b.n; n++) if ((((n + 4) % 7) + 7) % 7 % 6 !== 0) count++;
+  return count;
 }
 
 /** This device's clock on `today`, for now() where none is given. */
@@ -1356,6 +1411,12 @@ function call(fn: string, args: RV[], env: Env): RV {
       return typeof a === 'number' ? new Duration(a) : null;
     case 'hours':
       return typeof a === 'number' ? new Duration(a * 60) : null;
+    case 'months':
+      return typeof a === 'number' ? new Duration(0, Math.trunc(a)) : null;
+    case 'years':
+      return typeof a === 'number' ? new Duration(0, Math.trunc(a) * 12) : null;
+    case 'workdays':
+      return a instanceof Day && b instanceof Day ? workdays(a, b) : null;
     case 'day':
       return a instanceof Day ? new Day(a.n) : null;
     case 'time':

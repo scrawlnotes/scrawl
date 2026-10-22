@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { atMinutes, calendarRecords, compareOnDay, dueRecords, layoutDay, minutesBetween, minutesOfDay, movedValues, startingValues, stretchedValues, weekDays, weekStart } from './calendar';
-import { type Collection, parseSchema, type Record, serializeSchema, type View } from './collection';
+import { calendarStarts, type Collection, evaluateFormula, parseSchema, type Record, serializeSchema, type View } from './collection';
 
 describe('the calendar', () => {
   it('has a week from its Monday', () => {
@@ -63,6 +63,37 @@ describe('the calendar', () => {
     expect(read({ start: 'status', color: 'starts', upcoming: false }).calendar).toEqual({ start: 'starts', upcoming: false });
     // With no date field it is a table.
     expect(read({ start: 'starts' }, [{ key: 'name', type: 'name' }]).kind).toBeUndefined();
+  });
+
+  it('starts on a formula that gives a day, which is shown and not moved', () => {
+    const fields = [
+      { key: 'name', type: 'name' },
+      { key: 'label', type: 'formula', formula: 'name + "!"' },
+      { key: 'next', type: 'formula', formula: 'birthday + years(year(today()) - year(birthday)) < today() ? birthday + years(year(today()) - year(birthday) + 1) : birthday + years(year(today()) - year(birthday))' },
+      { key: 'birthday', type: 'date' },
+      { key: 'renews', type: 'formula', formula: 'contract.ends - 30' },
+      { key: 'contract', type: 'link', collection: 'Contracts' },
+    ];
+    const view = (start: string) => ({ id: 'c', name: 'Birthdays', kind: 'calendar', calendar: { start, upcoming: true }, conditions: [] });
+    const read = (start: string) => parseSchema(JSON.stringify({ version: 2, fields, views: [view(start)] }));
+    // The dates first, then the formulas that give a day; one reading a linked record's is kept where it is given.
+    expect(calendarStarts(read('next').fields).map((f) => f.key)).toEqual(['birthday', 'next']);
+    expect(read('next').views![0]!.calendar!.start).toBe('next');
+    expect(read('renews').views![0]!.calendar!.start).toBe('renews');
+    expect(read('label').views![0]!.calendar!.start).toBe('birthday');
+    const schema = read('next');
+    const today = '2026-10-22';
+    const person = (id: string, birthday: string): Record => {
+      const values = { name: id, birthday };
+      return { id, path: `People/${id}.md`, name: id, values: { ...values, next: evaluateFormula(fields[2]!.formula!, values, schema, today) }, body: '' } as unknown as Record;
+    };
+    const people = { dir: 'People', schema, records: [person('ayse', '1990-11-03'), person('mert', '1985-10-01'), person('can', '2000-02-29')] } as Collection;
+    expect(dueRecords([people], today).map((r) => [r.record.id, r.start])).toEqual([
+      ['ayse', '2026-11-03'],
+      ['can', '2027-02-28'],
+      ['mert', '2027-10-01'],
+    ]);
+    expect(movedValues(schema, schema.views![0]!.calendar!, { start: '2026-11-03', end: null }, '2026-11-04')).toBeNull();
   });
 
   it('puts the records of a calendar on their days, and brings those from today on to Today and Upcoming', () => {

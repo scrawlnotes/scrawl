@@ -282,3 +282,12 @@ Roadmap'te faz "16 Yeni app şablonları" ve her dilim bir kart; denemeler "dene
 3. Her şablonun içeriği ve soruları (3. ve 4. bölüm).
 4. PLAN'da yeni aşama 16; Dropbox 17, Google Drive 18, Mobil 19; dilimlerin sırası 6. bölümdeki gibi.
 5. Bütün kümeler testinin yerine tek tek, ikili ve gruplar hep birlikte.
+
+1. dilimin kodunda verilenler (22 Ekim, onaylı):
+
+- Seçim cihazda iki yerde tutulur: kişisel space için ve öbür space'ler için.
+- Business · Personal seçimi iki tarafta da şablon olunca görünür; kişisel şablonlar gelene kadar pencere bugünkü gibidir. Şablonu olmayan grup gösterilmez.
+- `workdays(a, b)` b, a'dan önceyse eksi sayı verir (Excel'deki NETWORKDAYS gibi).
+- `months()` ve `years()` saate eklenmez; tek başına bir değer olarak boş görünür.
+- Takvim ayarında formül alanı, kaydın kendi alanlarından gün verdiği anlaşılıyorsa listelenir; bağlı kaydın gününü okuyan formül, şablonda ya da ajanın yazdığı dosyada başlangıç verilmişse kabul edilir. Böyle kayıt takvimde ve Upcoming'de sürüklenmez, yalnız açılır.
+- Ajanın şablon listesinde her şablonun `audience`'ı yazar; rehber şablonları iki taraf başlığıyla sayar.

@@ -7,7 +7,7 @@ import { type FoundVault, settingsFile, spacesOf, vaultsFromFolders, vaultsFromS
 
 // `scrawl-mcp`: Scrawl for an agent on this computer, over stdio. Run with no arguments it reads
 // the desktop app's settings and serves what the app sees; given folders, it serves those. The
-// client (Claude Code, Codex, Claude Desktop, Cursor) starts it and talks to it on stdin and stdout;
+// client (Claude Code, Codex, Claude Desktop, Cursor, Antigravity) starts it and talks to it on stdin and stdout;
 // everything else goes to stderr. See design/agent.md, 6.
 
 declare const __VERSION__: string | undefined;

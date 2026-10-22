@@ -189,6 +189,29 @@ describe('signing in', () => {
     expect(await liar.page.text()).toContain('does not name its own address');
   });
 
+  it('registers Cursor, which sends its own scheme with the others, and sends it back to either; refuses a scheme the browser runs', async () => {
+    const s = start();
+    await owner(s);
+    const register = (redirect_uris: string[]) => s.fetch(`${URL_}/oauth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_name: 'Cursor', redirect_uris }) });
+    const cursor = await register(['cursor://anysphere.cursor-mcp/oauth/callback', 'https://www.cursor.com/agents/mcp/oauth/callback', 'http://localhost:8787/callback']);
+    expect(cursor.status).toBe(201);
+    const { client_id } = (await cursor.json()) as { client_id: string };
+    for (const redirect of ['cursor://anysphere.cursor-mcp/oauth/callback', 'http://localhost:8787/callback']) {
+      const { challenge } = pkce();
+      const params = new URLSearchParams({ client_id, redirect_uri: redirect, response_type: 'code', code_challenge: challenge, code_challenge_method: 'S256', state: 'xyz', resource: `${URL_}/mcp` });
+      expect((await s.fetch(`${URL_}/oauth/authorize?${params}`)).status).toBe(200);
+      const answered = await s.fetch(`${URL_}/oauth/authorize`, form({ ...Object.fromEntries(params), email: 'kaan@outlook.com', password: 'a long password' }));
+      const location = answered.headers.get('Location')!;
+      expect(location.startsWith(`${redirect}?`)).toBe(true);
+      expect(new URL(location).searchParams.get('code')).toBeTruthy();
+    }
+    for (const bad of ['javascript:alert(1)', 'data:text/html,hi', 'file:///etc/passwd', 'http://evil.example/callback']) {
+      const refused = await register(['cursor://anysphere.cursor-mcp/oauth/callback', bad]);
+      expect(refused.status).toBe(400);
+      expect(((await refused.json()) as { error: string }).error).toBe('invalid_redirect_uri');
+    }
+  });
+
   it('turns a refresh token over, ends an access token in an hour, and lets the person disconnect', async () => {
     const s = start();
     const key = await owner(s);
@@ -252,6 +275,17 @@ describe('working through /mcp', () => {
     expect((text.content[0] as { text: string }).text).toContain('"prefix": "SCR"');
     const board = JSON.parse((text.content[0] as { text: string }).text) as { cards: { author: { name: string } }[] };
     expect(board.cards[0]!.author).toEqual({ name: 'Test agent · Kaan Arslan' });
+    // A board's phases alone, read and written back, its cards as they were; a note changed where its text is.
+    const phases = await client.callTool({ name: 'read', arguments: { path: 'Scrawl.board.json', part: 'phases' } });
+    expect(phases.structuredContent).toMatchObject({ part: 'phases', text: '[]' });
+    const phased = await client.callTool({ name: 'write', arguments: { path: 'Scrawl.board.json', part: 'phases', text: JSON.stringify([{ name: 'Server', state: 'current' }]), ifMatch: (phases.structuredContent as { hash: string }).hash } });
+    expect(phased.structuredContent).toMatchObject({ part: 'phases', written: true });
+    const after = JSON.parse(((await client.callTool({ name: 'read', arguments: { path: 'Scrawl.board.json' } })).content[0] as { text: string }).text) as { phases: { name: string }[]; cards: { title: string }[] };
+    expect(after.phases.map((p) => p.name)).toEqual(['Server']);
+    expect(after.cards.map((c) => c.title)).toEqual(['Write the server door']);
+    const edited = await client.callTool({ name: 'write', arguments: { path: 'Plans/Roadmap.md', edits: [{ find: 'November', replace: 'December' }] } });
+    expect(edited.structuredContent).toMatchObject({ replaced: 1 });
+    expect(s.server.db.prepare('SELECT COUNT(*) AS n FROM versions WHERE space_id = ? AND path = ?').get(SPACE, 'Plans/Roadmap.md')).toEqual({ n: 3 });
     await client.close();
   });
 

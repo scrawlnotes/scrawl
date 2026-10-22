@@ -52,7 +52,7 @@ API keys, passwords and settings in a `.env` file. Secret values stay hidden unt
 
 ## 🤖 Working with an agent
 
-An agent works on the same notes, tasks, boards and collections you see here, as you would. On a computer, connect Claude Desktop, Claude Code, Codex or Cursor through the desktop app; on the web and your phone, connect Claude, ChatGPT or Gemini through a Scrawl server. **Settings › Agents** shows the steps.
+An agent works on the same notes, tasks, boards and collections you see here, as you would. On a computer, connect Claude Desktop, Claude Code, Codex, Cursor or Antigravity through the desktop app; on the web and your phone, connect Claude, ChatGPT or Gemini through a Scrawl server. **Settings › Agents** shows the steps.
 
 Ask it, for example:
 

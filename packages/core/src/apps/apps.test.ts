@@ -8,7 +8,7 @@ import { APP_FILE, AppProblems, planApp } from './build';
 import { installApp, undoApp } from './install';
 import { readAnswers, TEMPLATES } from './questions';
 import { findApp } from './roles';
-import { type Answers, TEMPLATE_IDS, type TemplateId } from './types';
+import { type Answers, audienceOf, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from './types';
 
 let n = 0;
 const ids = () => `id${++n}`;
@@ -229,6 +229,23 @@ describe('setting up an app', () => {
     ]);
     expect(wrong({ name: 'A', templates: [{ id: 'hr' }] })[0]).toMatch(/no template hr/);
     expect(wrong({ name: 'A', templates: [{ id: 'support' }] })).toEqual([]);
+  });
+
+  it('sets up an app from the templates of one side, for a business or for a person', async () => {
+    expect(TEMPLATE_IDS.filter((id) => !Object.values(TEMPLATE_GROUPS).some((groups) => (groups as readonly string[]).includes(TEMPLATES[id].group)))).toEqual([]);
+    expect([audienceOf('money'), audienceOf('home')]).toEqual(['business', 'personal']);
+    // Content taken as a person's for a while: with CRM it is refused, alone it is set up, and nothing of a business is added to it.
+    const was = TEMPLATES.content.group;
+    TEMPLATES.content.group = 'life';
+    try {
+      expect(() => planApp({ name: 'A', templates: [{ id: 'crm' }, { id: 'content' }] })).toThrow('An app is set up from templates for a business or for a person, not both: crm for a business, content for a person. Set them up as two apps');
+      const fs = new MemoryFs();
+      await installApp(fs, planApp({ name: 'Mine', templates: [{ id: 'content' }] }, { ids }));
+      const found = (await findApp(fs, 'Mine'))!;
+      expect(() => planApp({ name: '', templates: [{ id: 'support' }] }, { found })).toThrow(/support for a business, content for a person/);
+    } finally {
+      TEMPLATES.content.group = was;
+    }
   });
 });
 

@@ -30,6 +30,8 @@ import {
   type AppDraft,
   type AppFile,
   type AppPlan,
+  type Audience,
+  audienceOf,
   type BoardPart,
   type CollectionPart,
   type FolderPart,
@@ -248,6 +250,9 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   }
   if (fresh.length === 0 && problems.length === 0) problems.push(t('apps.needsTemplate', { ids: TEMPLATE_IDS.join(', ') }));
   const chosen = new Set<TemplateId>([...installed.keys(), ...fresh]);
+  // One side only: a business's pieces and a person's are not linked, and are mostly kept apart.
+  const side = (audience: Audience) => [...chosen].filter((id) => audienceOf(TEMPLATES[id].group) === audience);
+  if (side('business').length > 0 && side('personal').length > 0) problems.push(t('apps.oneSide', { business: side('business').join(', '), personal: side('personal').join(', ') }));
   const given = new Map(input.templates.map((x) => [x.id, x.answers ?? {}]));
   const answers = new Map(installed);
   for (const id of fresh) {

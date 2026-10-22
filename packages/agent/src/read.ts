@@ -17,7 +17,8 @@ import {
   valueText,
 } from '@scrawlnotes/core';
 import { GUIDE } from './guide';
-import { checkOpen, cleanPath, fileKind, Refusal } from './paths';
+import { checkPart, partOf, PARTS } from './parts';
+import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
 import { type Agent, type AgentSpace, type ElementKind, elementsOf, exists, peopleOf, pickPath, pickSpace, todayOf } from './space';
 
 // Looking around: the spaces, what is in one, a file's text, and finding anything by name or by
@@ -77,7 +78,28 @@ export async function treeTool(agent: Agent, args: { space?: string; folder?: st
   return { data: { space: space.id, folder, nodes } };
 }
 
-export async function readTool(agent: Agent, args: { space?: string; path: string }) {
+/** A text's lines, without the empty one after its last line break. */
+function linesOf(text: string): string[] {
+  const lines = text.split(/\r?\n/);
+  if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+  return lines;
+}
+
+/** What `read` gives: the file, a part of it or some of its lines, with the hash a write after it is checked against. */
+type ReadOut = {
+  space: string;
+  path: string;
+  kind: FileKind;
+  /** The file's, or with `part` the part's. */
+  hash: string;
+  text: string;
+  part?: string;
+  size?: number;
+  lineCount?: number;
+  lines?: { from: number; to: number; total: number };
+};
+
+export async function readTool(agent: Agent, args: { space?: string; path: string; part?: string; lines?: { from: number; to?: number } }): Promise<{ data: ReadOut; text: string }> {
   const typed = checkOpen(cleanPath(args.path));
   const { space, path } = await pickPath(agent, args.space, typed);
   const entry = (await exists(space.fs, path))!;
@@ -85,8 +107,34 @@ export async function readTool(agent: Agent, args: { space?: string; path: strin
   if (entry.size !== undefined && entry.size > MAX_TEXT) throw new Refusal(`${path} is larger than agents read (1 MB)`, { path, size: entry.size });
   const text = await space.fs.readText(path);
   if (text.length > MAX_TEXT) throw new Refusal(`${path} is larger than agents read (1 MB)`, { path });
+  const kind = fileKind(path);
+  const textual = kind === 'note' || kind === 'rules';
+  if (args.part !== undefined && args.lines) throw new Refusal('Give part or lines, not both', { path });
+  if (args.part !== undefined) {
+    checkPart(kind, args.part, path);
+    let data: { [key: string]: unknown };
+    try {
+      data = JSON.parse(text) as typeof data;
+    } catch {
+      throw new Refusal(`${path} is not JSON; read it without part`, { path });
+    }
+    const part = partOf(kind, data, args.part);
+    return { data: { space: space.id, path, kind, part: args.part, hash: hashOf(part.text), text: part.text }, text: part.text };
+  }
+  if (args.lines) {
+    if (!textual) throw new Refusal(`lines are for a note or a rules file; for ${path} give part`, { path, parts: Object.keys(PARTS[kind] ?? {}) });
+    const all = linesOf(text);
+    const { from } = args.lines;
+    const to = Math.min(args.lines.to ?? all.length, all.length);
+    if (!Number.isInteger(from) || from < 1) throw new Refusal('Lines count from 1', { path });
+    if (from > all.length) throw new Refusal(`${path} has ${all.length === 1 ? 'one line' : `${all.length} lines`}`, { path, total: all.length });
+    if (to < from) throw new Refusal('to comes after from', { path });
+    const piece = all.slice(from - 1, to).join('\n');
+    // The hash is the whole file's, for a write after it.
+    return { data: { space: space.id, path, kind, hash: hashOf(text), lines: { from, to, total: all.length }, text: piece }, text: piece };
+  }
   // The file in the structured content too: a client that shows only that would leave it out.
-  return { data: { space: space.id, path, kind: fileKind(path), hash: hashOf(text), size: text.length, text }, text };
+  return { data: { space: space.id, path, kind, hash: hashOf(text), size: text.length, ...(textual && { lineCount: linesOf(text).length }), text }, text };
 }
 
 /** Something to be found in a space, with where it is. */
@@ -194,6 +242,8 @@ export async function searchTool(agent: Agent, args: { query: string; space?: st
         ...(item.id && { id: item.id }),
         where: item.where,
         ...(line && { line: line.text }),
+        // Where in a note, for read with lines.
+        ...(item.kind === 'note' && line?.spans[0] && { lineNo: item.text!.slice(0, line.spans[0][0]).split('\n').length }),
       })),
     },
   };

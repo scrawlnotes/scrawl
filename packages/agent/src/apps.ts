@@ -1,4 +1,4 @@
-import { APP_TEMPLATES, AppProblems, findApp, installApp, markCreated, planApp, TEMPLATE_IDS } from '@scrawlnotes/core';
+import { APP_TEMPLATES, AppProblems, audienceOf, findApp, installApp, markCreated, planApp, TEMPLATE_IDS } from '@scrawlnotes/core';
 import { Refusal } from './paths';
 import { type Agent, AGENT_DEVICE, type AgentSpace, nowOf } from './space';
 
@@ -14,8 +14,8 @@ export interface AppArgs {
   currencies?: string[];
 }
 
-/** The templates and what each asks, for a refusal to say what is there. */
-const templateList = () => TEMPLATE_IDS.map((id) => ({ id, questions: APP_TEMPLATES[id].questions.map((q) => q.key) }));
+/** The templates, whom each is for and what each asks, for a refusal to say what is there. */
+const templateList = () => TEMPLATE_IDS.map((id) => ({ id, audience: audienceOf(APP_TEMPLATES[id].group), questions: APP_TEMPLATES[id].questions.map((q) => q.key) }));
 
 export async function createApp(agent: Agent, space: AgentSpace, args: AppArgs) {
   const ids = args.templates ?? [];

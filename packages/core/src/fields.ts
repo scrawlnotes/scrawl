@@ -51,7 +51,7 @@ export function renameChoices(values: Record['values'], renames: ChoiceRenames):
 }
 
 /** The views of a schema with renamed choices in their conditions. */
-function renameInViews(schema: Schema, renames: ChoiceRenames): Schema {
+export function renameInViews(schema: Schema, renames: ChoiceRenames): Schema {
   if (!schema.views) return schema;
   const views = schema.views.map((view) => ({
     ...view,

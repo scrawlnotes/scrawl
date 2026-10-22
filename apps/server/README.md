@@ -59,13 +59,15 @@ up. The owner then opens spaces and invites people with links; no mail is sent.
 
 ## Agents
 
-Claude, ChatGPT, Gemini, Claude Code and Codex reach a space on this server at `https://<your server>/mcp` (MCP, Streamable HTTP). Each person signs in with their own account on the server's own page; the agent then sees and changes the spaces that person is in, as they would, and every change carries the agent's and the person's names. The app's Settings › Agents gives each of these steps with the values to copy.
+Claude, ChatGPT, Gemini, Claude Code, Codex, Cursor and Antigravity reach a space on this server at `https://<your server>/mcp` (MCP, Streamable HTTP). Each person signs in with their own account on the server's own page; the agent then sees and changes the spaces that person is in, as they would, and every change carries the agent's and the person's names. The app's Settings › Agents gives each of these steps with the values to copy.
 
 - **Claude on the web and on your phone:** on claude.ai, Customize › Connectors, + Add, Add custom connector. Name it Scrawl, give `https://<your server>/mcp` as the Remote MCP server URL, choose Continue twice, pick Sign in now and Use Claude’s published identity, then Add, and sign in on the page that opens. Added on the web, it works on your phone and in Claude Desktop too.
 - **ChatGPT:** on chatgpt.com, Plugins, +, Add custom MCP server. Name it Scrawl, give the same address under Connection, leave OAuth as it is, tick I understand and want to continue, choose Create as a plugin and sign in. ChatGPT lets it write on Business, Enterprise and Edu; on other plans it may only read.
 - **Gemini:** on gemini.google.com, Settings › Personal Intelligence › Connected Apps, + Custom. Give the same address as the MCP Server URL, leave Additional settings empty, choose Next and sign in. Added on the web, it works in the Gemini phone app too.
 - **Claude Code:** `claude mcp add --transport http --scope user scrawl https://<your server>/mcp`, then `claude mcp login scrawl` to sign in, and a new session. Without `--scope user` it is added only for the folder you run it in.
 - **Codex:** `codex mcp add scrawl --url https://<your server>/mcp`, then `codex mcp login scrawl` to sign in, and a new session.
+- **Cursor:** add a server with `url: https://<your server>/mcp`, or use the install link the app gives, and sign in when Cursor asks.
+- **Antigravity:** in `~/.gemini/config/mcp_config.json` (on Windows `%USERPROFILE%\.gemini\config\mcp_config.json`), add `"scrawl": { "serverUrl": "https://<your server>/mcp" }` inside `mcpServers`. Close Antigravity and open it again, choose Authenticate beside scrawl under Customizations, sign in, and paste the code the next page gives into Antigravity.
 
 The server needs HTTPS for this, as for the app. A connection shows under the account (`GET /api/v1/agents`) and is ended with `DELETE /api/v1/agents/<id>`; the app's Settings › Agents lists them, with Disconnect.
 

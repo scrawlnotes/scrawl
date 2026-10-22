@@ -18,8 +18,8 @@ Settings › Privacy & Security and choose Open Anyway.
 ## Features
 
 - **Agent first**: every note, task, board and record is a plain file, and your agent works on them
-  through Scrawl's MCP tools: Claude Code, Codex, Cursor and Claude Desktop on your computer, Claude,
-  ChatGPT and Gemini through a Scrawl server. It reads and writes, sets up apps and presses buttons
+  through Scrawl's MCP tools: Claude Code, Codex, Cursor, Antigravity and Claude Desktop on your
+  computer, Claude, ChatGPT and Gemini through a Scrawl server. It reads and writes, sets up apps and presses buttons
   as you would. No assistant inside.
 - **Notes**: Markdown, formatted as you type. No name or folder needed to start.
 - **Task lists**: sections, subtasks, priorities and due dates; Today, Upcoming and filters.
@@ -39,8 +39,8 @@ Settings › Privacy & Security and choose Open Anyway.
 
 ## Working with an agent
 
-Connect your agent in Settings › Agents: Claude Desktop, Claude Code, Codex or Cursor through the
-desktop app, or Claude, ChatGPT and Gemini through a Scrawl server. It works on the same notes,
+Connect your agent in Settings › Agents: Claude Desktop, Claude Code, Codex, Cursor or Antigravity
+through the desktop app, or Claude, ChatGPT and Gemini through a Scrawl server. It works on the same notes,
 tasks, boards and collections you see. Ask it, for example:
 
 - "Add a card to the Launch board for each decision in today's meeting note."
