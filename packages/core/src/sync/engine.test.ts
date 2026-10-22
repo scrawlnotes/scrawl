@@ -685,6 +685,55 @@ describe('sync', () => {
     });
   });
 
+  describe('29. a folder with folders in it, deleted on one device: the other device’s empty folders do not bring it back', () => {
+    const client = (path: string) => path === 'Client' || path.startsWith('Client/');
+
+    it('they go with it, there and in the trash, deleted for good too', async () => {
+      const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+      await laptop.writeText('Client/Brief.md', 'brief');
+      await laptop.writeText('Client/2026/Notes.md', 'notes');
+      await laptop.writeText('Client/2026/Q4/Plan.md', 'plan');
+      await syncLaptop();
+      await syncPhone();
+      // On a disk the folders stay when what was in them goes, as they do not in memory.
+      const onDisk = (root: string) => Promise.all(['', '/2026', '/2026/Q4'].map((dir) => phone.mkdir(`${root}${dir}`)));
+      await onDisk('Client');
+      await trashFolder(laptop, 'Client', now());
+      await syncLaptop();
+      await syncPhone();
+      await syncLaptop();
+      expect(remote.dirPaths().filter(client)).toEqual([]);
+      for (const fs of [laptop, phone]) {
+        expect((await dirs(fs)).filter(client)).toEqual([]);
+        expect(await readTrash(fs)).toHaveLength(1);
+      }
+      // Deleted for good, its copy in the phone's trash leaving its folders there too.
+      const [item] = await readTrash(laptop);
+      await onDisk(item!.path);
+      await deleteFromTrash(laptop, item!);
+      await syncLaptop();
+      await syncPhone();
+      await syncLaptop();
+      expect(remote.dirPaths().filter((path) => path.startsWith(item!.path))).toEqual([]);
+      for (const fs of [laptop, phone]) expect(await readTrash(fs)).toEqual([]);
+    });
+
+    it('a folder made in it on the other device meanwhile keeps it, there too', async () => {
+      const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+      await laptop.writeText('Client/2026/Notes.md', 'notes');
+      await syncLaptop();
+      await syncPhone();
+      for (const dir of ['Client', 'Client/2026', 'Client/2026/Ideas']) await phone.mkdir(dir);
+      await trashFolder(laptop, 'Client', now());
+      await syncLaptop();
+      await syncPhone();
+      await syncLaptop();
+      const kept = ['Client', 'Client/2026', 'Client/2026/Ideas'];
+      expect(remote.dirPaths().filter(client)).toEqual(kept);
+      for (const fs of [laptop, phone]) expect((await dirs(fs)).filter(client)).toEqual(kept);
+    });
+  });
+
   it('does nothing on a turn when nothing changed', async () => {
     const { remote, laptop, syncLaptop } = setup();
     await laptop.writeText('Scrawl/Plan.md', 'plan');

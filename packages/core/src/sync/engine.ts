@@ -741,14 +741,17 @@ class Turn {
 
   /**
    * Empty folders are synced too. A folder goes on the other side only when nothing synced is
-   * left in it; one that still holds something stays, or comes back. One deleted here while the
-   * turn ran is still known by what was in it: it is kept until a later turn takes that away
-   * there, and then goes there too, rather than staying there empty and coming back.
+   * left in it; one that still holds something stays, or comes back. An empty folder in it that
+   * went on the other side too holds nothing: on a disk the folders stay when their files go,
+   * and they go with it rather than bringing it back there. One deleted here while the turn ran
+   * is still known by what was in it: it is kept until a later turn takes that away there, and
+   * then goes there too, rather than staying there empty and coming back.
    */
   private async folders(): Promise<void> {
     const now = await walk(this.fs);
+    const goes = (dir: string) => this.removed.has(dir) && this.state.dirs[dir] !== undefined;
     const holds = (dir: string) =>
-      [...Object.keys(this.state.files), ...now.files.keys()].some((k) => isUnder(k, dir)) || [...now.dirs.keys()].some((k) => isUnder(k, dir));
+      [...Object.keys(this.state.files), ...now.files.keys()].some((k) => isUnder(k, dir)) || [...now.dirs.keys()].some((k) => isUnder(k, dir) && !goes(k));
     const keys = new Set([...now.dirs.keys(), ...this.remoteDirs.keys(), ...Object.keys(this.state.dirs)]);
     for (const key of [...keys].sort()) {
       const here = now.dirs.get(key);
