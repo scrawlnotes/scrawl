@@ -3543,8 +3543,8 @@ p { margin: 0; max-width: 68ch; }
       <div>
         <span class="letter">YENİ APP ŞABLONLARI · 16. AŞAMA · 1. DİLİM</span>
         <h2>Şablonlar: Business ve Personal</h2>
-        <p>New app penceresinin Templates adımında kartların üstünde <b>Business · Personal</b>; seçilen cihazda kalır, kişisel space'te Personal ile açılır. Bir app ya iş ya kişisel şablonlardan kurulur: öbür tarafa geçince seçilenler bırakılır; Add to app yalnız app'in kendi tarafını sunar. Business'ta iş şablonları bugünkü gruplarında (Customers, Money, Work), sekizi yeni; Personal'da on kişisel şablon üç grupta: <b>Money and home</b>, <b>Health</b> ve <b>Life</b>. Telefonda aynı seçim sheet'in üstünde.</p>
-        <ul class="traits"><li>Business · Personal</li><li>bir app tek taraftan</li><li>kişisel space'te Personal</li><li>20 iş, 10 kişisel şablon</li><li>telefonda da</li></ul>
+        <p>New app penceresinin Templates adımında kartların üstünde <b>Business · Personal</b>; seçilen cihazda kalır, kişisel space'te Personal ile açılır. Bir app ya iş ya kişisel şablonlardan kurulur: öbür tarafa geçince seçilenler bırakılır; Add to app yalnız app'in kendi tarafını sunar. Business'ta iş şablonları bugünkü gruplarında (Customers, Money, Work), sekizi yeni; Personal'da on bir kişisel şablon üç grupta: <b>Money and home</b>, <b>Health</b> ve <b>Life</b>. Telefonda aynı seçim sheet'in üstünde.</p>
+        <ul class="traits"><li>Business · Personal</li><li>bir app tek taraftan</li><li>kişisel space'te Personal</li><li>20 iş, 11 kişisel şablon</li><li>telefonda da</li></ul>
       </div>
       <span class="pick" role="group" aria-label="16. aşama 1. dilim görünümü">
         <button type="button" data-apview="apbiz">Business</button>
@@ -10513,15 +10513,16 @@ p { margin: 0; max-width: 68ch; }
     health: ['Health', 'sun', 'Doctor’s appointments, medicines, results and vaccinations.', [['collection', 'Appointments'], ['collection', 'Medications']]],
     recipes: ['Recipes and meal plan', 'bullets', 'Your recipes, the week’s meals and the shopping list.', [['collection', 'Recipes'], ['collection', 'Meal plan'], ['collection', 'Shopping list']]],
     travel: ['Travel', 'globe', 'Trips, bookings with their times, places to see, packing and spending.', [['collection', 'Trips'], ['collection', 'Bookings']]],
+    split: ['Shared expenses', 'share', 'Who paid what on a trip or at home, who owes whom, and settling up.', [['collection', 'Groups'], ['collection', 'Expenses'], ['collection', 'Settlements']]],
     jobs: ['Job search', 'clip', 'Where you applied, how each stands, interviews and when to follow up.', [['collection', 'Applications'], ['collection', 'Interviews']]],
     people: ['People and birthdays', 'person', 'The people close to you, their birthdays every year, when you last talked.', [['collection', 'People'], ['collection', 'Moments']]],
-    reading: ['Reading and watching', 'quote', 'Books, films and series: what is next, what you finished and how you liked it.', [['collection', 'Library']]],
+    reading: ['Reading and watching', 'quote', 'Books, films, series, anime, manga and webtoons: where to watch, how far you are, what is next.', [['collection', 'Library'], ['collection', 'Log'], ['collection', 'Lists']]],
     sport: ['Sport and training', 'rise', 'Workouts, the week’s plan, sets and records, body measures and races.', [['collection', 'Workouts'], ['collection', 'Plan'], ['collection', 'Races']]],
     habits: ['Habits and goals', 'check', 'Habits you tick each day, how you kept them this week, your own goals.', [['collection', 'Habits'], ['collection', 'Check-ins'], ['collection', 'Goals']]]
   };
-  var AP_NEW = { field: 1, consulting: 1, association: 1, subscriptions: 1, contracts: 1, timeoff: 1, goals: 1, incidents: 1, finance: 1, home: 1, health: 1, recipes: 1, sport: 1, travel: 1, jobs: 1, people: 1, reading: 1, habits: 1 };
+  var AP_NEW = { field: 1, consulting: 1, association: 1, subscriptions: 1, contracts: 1, timeoff: 1, goals: 1, incidents: 1, finance: 1, home: 1, health: 1, recipes: 1, sport: 1, travel: 1, split: 1, jobs: 1, people: 1, reading: 1, habits: 1 };
   var AP_BUSINESS = [['Customers', ['crm', 'support', 'appointments', 'content', 'field', 'consulting', 'association']], ['Money', ['sales', 'budget', 'stock', 'ecommerce', 'subscriptions']], ['Work', ['projects', 'product', 'recruiting', 'assets', 'contracts', 'timeoff', 'goals', 'incidents']]];
-  var AP_PERSONAL = [['Money and home', ['finance', 'home', 'recipes']], ['Health', ['health', 'sport', 'habits']], ['Life', ['travel', 'jobs', 'people', 'reading']]];
+  var AP_PERSONAL = [['Money and home', ['finance', 'home', 'recipes']], ['Health', ['health', 'sport', 'habits']], ['Life', ['travel', 'split', 'jobs', 'people', 'reading']]];
   function apCard(id, chosen) {
     var t = AP_T[id];
     var on = !!chosen[id];

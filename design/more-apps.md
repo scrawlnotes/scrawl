@@ -1,6 +1,6 @@
 # Yeni app şablonları: iş ve kişisel
 
-22 Ekim 2026'da onaylandı; PLAN'da 16. aşama. Kullanıcının seçtikleri: iş tarafında sekiz şablon, kişisel tarafta on şablon; şablon penceresinde Business ve Personal ayrımı.
+22 Ekim 2026'da onaylandı; PLAN'da 16. aşama. Kullanıcının seçtikleri: iş tarafında sekiz şablon, kişisel tarafta on bir şablon; şablon penceresinde Business ve Personal ayrımı.
 
 Her şablon bugünkülerin yolunu izler (`packages/core/src/apps/templates/*.ts`): parçalar, alanlar, kurallar, düğmeler, takvim görünümü, tanıtım notu ve sorular; her soru bir cevapla hazır gelir. Ortak parçalar (People, Companies, Payments, Products) bugünkü gibi paylaşılır. Hesaplananlar formül, lookup ve rollup'tır; kurallar `_rules.js`'tedir.
 
@@ -9,7 +9,7 @@ Her şablon bugünkülerin yolunu izler (`packages/core/src/apps/templates/*.ts`
 - Her şablonun bir kitlesi olur: `audience: 'business' | 'personal'`.
 - Şablonlar adımının üstünde iki seçenek: **Business · Personal**. Kişisel space'te Personal ile, öbürlerinde Business ile açılır; seçim cihazda kalır.
 - Bir app ya iş ya kişisel şablonlardan kurulur: iki tarafın parçaları birbirine bağlanmaz, verileri de çoğu zaman ayrı space'lerde durur. Öbür tarafa geçince seçilenler bırakılır. Add to app yalnız app'in kendi tarafındaki şablonları sunar.
-- İş şablonları bugünkü gruplarında kalır (Customers, Work, Money). Kişiseller üç grupta: **Money and home** (Kişisel finans, Ev araç ve belgeler, Tarifler), **Health** (Sağlık, Spor ve antrenman, Alışkanlıklar) ve **Life** (Seyahat, İş arama, Yakınlar, Okuma ve izleme).
+- İş şablonları bugünkü gruplarında kalır (Customers, Work, Money). Kişiseller üç grupta: **Money and home** (Kişisel finans, Ev araç ve belgeler, Tarifler), **Health** (Sağlık, Spor ve antrenman, Alışkanlıklar) ve **Life** (Seyahat, Paylaşılan harcamalar, İş arama, Yakınlar, Okuma ve izleme).
 - Ajanın `create` aracı şablonları kitlesiyle listeler; iki taraftan şablonu aynı app'e koymaz, nedenini söyler.
 - Ekranı değiştiği için önce mockup.
 
@@ -191,9 +191,24 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.8 Okuma ve izleme listesi (Life)
 
-- **Library:** ad, tür (Book, Film, Series, Podcast), yazarı ya da yönetmeni, durum (Want, In progress, Done, Dropped), puan, başlama ve bitiş, etiketler; notlar gövdede.
-- **Görünümler:** türe göre, sıradakiler, bu yıl bitenler.
-- **Sorular:** türler (çoklu).
+22 Ekim'de kullanıcının gerçekte tuttuğuna göre genişletildi.
+
+- **Library:** her eser.
+  - Tür: Book, Film, Series, Anime, Manga, Webtoon, Podcast, Game.
+  - Yazarı ya da yönetmeni, yılı, türleri (çoklu), kimin önerdiği (Yakınlar varsa ona bağlı), kapak resmi; yorum gövdede.
+  - Bilgi linki: IMDb, Goodreads, MyAnimeList ya da başka bir sayfa.
+  - Nerede izlenir ya da okunur: bir seçim (Netflix, Max, Disney+, Prime Video, Crunchyroll, Webtoon, Kindle, kağıt…) ve doğrudan link. Liste bölgeye göre gelir.
+  - Durum: Want, Up next, In progress, Paused, Done, Dropped; puan 1–5; başlama ve bitiş.
+- **İlerleme (soruya göre):** türüne göre sayfa (Book), bölüm (Series, Anime, Podcast) ya da bölüm/cilt (Manga, Webtoon); okunan ya da izlenen, toplam, yüzde. Update düğmesi yenisini sorar, günlüğe yazar; sonuncuda Done olur, bitiş günü yazılır.
+- **Log:** gün, eser, sayfa ya da bölüm ya da dakika. Bu haftaki sayfa ve bölüm, art arda günler, yılın toplamı.
+- **Yıllık hedef (soruya göre):** "2026'da 24 kitap" gibi; biten, gidişat ve bu hızla yıl sonunda varılacak sayı.
+- **Quotes (soruya göre):** alıntı, eser, sayfa ya da bölüm, etiketler.
+- **Lists:** kişinin kendi listeleri ("Yaz için", "Oscar adayları", "Ayşe'nin önerileri"); bir eser birden çok listede.
+- **Ödünç (soruya göre):** kime verildi, ne zaman, ne zaman geri gelmeli; geri gelme günü Upcoming'de, geciken işaretlenir.
+- **Çıkış günleri (soruya göre):** beklenen kitap, film, yeni sezon ya da yeni bölümün günü Upcoming'de.
+- **Görünümler:** Up next (sırayla), In progress (ilerlemesiyle), bu yıl bitenler (puanıyla), türe göre, nerede izleneceğine göre; bitenlerin takvimi.
+- **Ajan ile:** adı yazmak yeter; ajan yazarını, yılını, sayfa ya da bölüm sayısını ve bilgi linkini doldurabilir. Rehber anlatır.
+- **Sorular:** hangi türler (çoklu, hepsi seçili), nerede izliyor ve okuyorsunuz (liste, bölgeye göre: Türkiye'de Netflix, Disney+, Prime Video, Max, Exxen, TOD, Gain, Mubi, YouTube, Crunchyroll, Webtoon, Kindle, kağıt; başka yerde Netflix, Max, Disney+, Prime Video, Apple TV+, Hulu, YouTube, Crunchyroll, Webtoon, Kindle, kağıt), ilerleme tutulsun mu, yıllık hedef (sayı ya da yok), alıntılar, ödünç, çıkış günleri.
 
 ### 4.9 Alışkanlıklar ve kişisel hedefler (Health)
 
@@ -216,6 +231,20 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 - **Sorular:** hangi sporlar (çoklu), set ve tekrar tutulsun mu, vücut ölçüleri tutulsun mu, yarışlar ve hedefler tutulsun mu.
 - Antrenör ve spor salonu için ayrı iş şablonu yok: üyeler, ders programı ve paketler Randevu ile Abonelikler'le kurulur.
 
+### 4.11 Paylaşılan harcamalar (Life)
+
+22 Ekim'de eklendi. Gezi, ev arkadaşları, ortak yemekler, aile içi masraflar: kim ne ödedi, kimin kime ne kadar borcu var.
+
+- **Groups:** ad, para birimi, kişiler; toplam harcama, kişi başı ortalama.
+- **People:** grubun kişileri (Yakınlar'ın People'ından ayrı rol); ödediği, payına düşen, bakiyesi (+ alacaklı, − borçlu).
+- **Expenses:** ne için, gün, tutar, kim ödedi, kimler arasında (varsayılan grubun herkesi), bölme şekli (Equally; soruya göre By amounts, By shares), kategori; fiş ekte. Soruya göre para birimi ve kur, grubun para birimine çevrilir.
+- **Shares:** harcama kaydedilince her kişinin payı yazılır; kuruş artanı ödeyene kalır. Bakiyeler buradan.
+- **Settlements:** kim kime ne ödedi. Grubun **Settle up** düğmesi en az ödemeyle "kim kime ne kadar" önerilerini yazar; ödenen Paid işaretlenir, bakiyeler sıfıra iner.
+- **Seyahat ile:** gezi aynı zamanda grup olur; gezinin harcamaları bu şablonun Expenses'ıdır, gezinin harcanan tutarı ve bütçesi buradan gelir.
+- **Kişisel finans ile (soruya göre):** kendi payın senin hesabına harcama olarak yazılır.
+- Herkesin kendi harcamasını girmesi için app paylaşılan bir space'te kurulur (sunucu, paylaşılan OneDrive); değilse kayıtları bir kişi tutar. Grubun özetini dışa aktarıp göndermek sonraya.
+- **Sorular:** kimlerle (liste), grubun para birimi, farklı para biriminde harcama oluyor mu, bölme şekilleri (yalnız eşit, tutar ve oranla da), Kişisel finans seçiliyse kendi payın oraya yazılsın mı.
+
 ## 5. Ortak kurallar
 
 - Bir şablon başka bir şablonla birlikte kurulunca bağlanır; tek başına da eksiksiz çalışır.
@@ -232,7 +261,7 @@ Yeni aşama **16 Yeni app şablonları**; Dropbox 17, Google Drive 18, Mobil 19 
 3. İzinler, Hedefler, Olaylar.
 4. Saha servisi, Danışmanlık, Dernek.
 5. Kişisel finans, Ev araç ve belgeler, Sağlık.
-6. Tarifler, Seyahat, İş arama.
+6. Tarifler, Seyahat, Paylaşılan harcamalar, İş arama.
 7. Yakınlar, Okuma ve izleme, Alışkanlıklar, Spor ve antrenman.
 
 Roadmap'te faz "16 Yeni app şablonları" ve her dilim bir kart; denemeler "deneme" etiketli kartlar.
@@ -240,7 +269,7 @@ Roadmap'te faz "16 Yeni app şablonları" ve her dilim bir kart; denemeler "dene
 ## 7. Testler
 
 - **core:** her şablonun kurulumu (parçalar, alanlar, görünümler, varsayılan cevaplar, bölge listeleri); `months`, `years`, `workdays`; formülden başlayan takvim; her şablonun kontrolleri çalışırken.
-- **Bütün kümeler:** core ve ajanın her şablon kümesini kuran testleri 30 şablonla çok uzar (2^30 küme). Bunun yerine her şablonu tek başına, her şablonu her öbür şablonla ikili, ve iş ile kişisel grupların hepsini birlikte kurmak.
+- **Bütün kümeler:** core ve ajanın her şablon kümesini kuran testleri 31 şablonla çok uzar (2^31 küme). Bunun yerine her şablonu tek başına, her şablonu her öbür şablonla ikili, ve iş ile kişisel grupların hepsini birlikte kurmak.
 - **ajan:** her şablonda düğmeleri ve kuralları baştan sona deneyen bir akış (E-ticaret testindeki gibi).
 - **web:** penceredeki Business ve Personal seçimi tarayıcıda; her dilimde bir kurulum tarayıcıda açılır.
 
