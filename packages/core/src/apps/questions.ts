@@ -14,17 +14,21 @@ import { goals } from './templates/goals';
 import { health } from './templates/health';
 import { home } from './templates/home';
 import { incidents } from './templates/incidents';
+import { jobs } from './templates/jobs';
 import { product } from './templates/product';
+import { recipes } from './templates/recipes';
 import { projects } from './templates/projects';
 import { recruiting } from './templates/recruiting';
 import { sales } from './templates/sales';
+import { split } from './templates/split';
 import { stock } from './templates/stock';
 import { subscriptions } from './templates/subscriptions';
 import { support } from './templates/support';
 import { timeoff } from './templates/timeoff';
+import { travel } from './templates/travel';
 import { type Answer, type Answers, type AppTemplate, type Question, TEMPLATE_IDS, type TemplateId } from './types';
 
-export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content, subscriptions, contracts, timeoff, goals, incidents, field, consulting, association, finance, home, health };
+export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content, subscriptions, contracts, timeoff, goals, incidents, field, consulting, association, finance, home, health, recipes, travel, split, jobs };
 
 export const isTemplateId = (id: unknown): id is TemplateId => TEMPLATE_IDS.includes(id as TemplateId);
 

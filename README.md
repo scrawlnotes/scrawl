@@ -31,8 +31,8 @@ Settings › Privacy & Security and choose Open Anyway.
   Budget and spending, Stock and purchasing, E-commerce, Product development, Recruiting, Assets and
   maintenance, Content calendar, Subscriptions and memberships, Contracts and renewals, Time off and
   team, Goals, Incidents and actions, Field service, Consulting, and Association and club. For a
-  person: Personal finance; Home, car and documents; and Health. An app is one or the other; add a
-  template to it later.
+  person: Personal finance; Home, car and documents; Recipes and meal plan; Health; Travel; Shared
+  expenses; and Job search. An app is one or the other; add a template to it later.
 - **Templates**: People, Companies, Activities, Feedback and Payments collections; Software,
   Issue tracking, CRM and Simple boards. Ready for running a startup.
 - **Keys**: `.env` files as a table.

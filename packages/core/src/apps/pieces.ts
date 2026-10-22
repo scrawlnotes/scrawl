@@ -85,6 +85,22 @@ export const PIECES: { [role: string]: PieceInfo } = {
   medications: { kind: 'collection', name: 'Medications', singular: 'medication', about: 'what is taken, how much and when, and when to get more.' },
   results: { kind: 'collection', name: 'Results', singular: 'result', about: 'test results, with their papers in their notes.' },
   vaccinations: { kind: 'collection', name: 'Vaccinations', singular: 'vaccination', about: 'each vaccination, and when the next one is due.' },
+  recipes: { kind: 'collection', name: 'Recipes', singular: 'recipe', about: 'your recipes, how long each takes and for how many; how it is made in its notes.' },
+  ingredients: { kind: 'collection', name: 'Ingredients', singular: 'ingredient', about: 'what goes into each recipe, and how much.' },
+  meals: { kind: 'collection', name: 'Meal plan', singular: 'meal', about: 'what is cooked on which day, for which meal.' },
+  shopping: { kind: 'collection', name: 'Shopping list', singular: 'item', about: 'what to buy, and whether it is bought.' },
+  trips: { kind: 'collection', name: 'Trips', singular: 'trip', about: 'each trip: where to, from when to when, and what it costs.' },
+  bookings: { kind: 'collection', name: 'Bookings', singular: 'booking', about: 'the flights, hotels, trains, cars and events of each trip, with their times.' },
+  places: { kind: 'collection', name: 'Places', singular: 'place', about: 'what to see on each trip, and whether you went.' },
+  packing: { kind: 'collection', name: 'Packing', singular: 'thing', about: 'what to take on each trip, and whether it is packed.' },
+  spending: { kind: 'collection', name: 'Expenses', singular: 'expense', about: 'what was spent, on a trip or in a group, and on what.' },
+  groups: { kind: 'collection', name: 'Groups', singular: 'group', about: 'each group whose expenses are shared: a flat, a team, a family.' },
+  'group-members': { kind: 'collection', name: 'Members', singular: 'member', about: 'the people of each group, with what each paid, what each owes, and their balance.' },
+  shares: { kind: 'collection', name: 'Shares', singular: 'share', about: "each one's part of each expense, and each payment made between them." },
+  settlements: { kind: 'collection', name: 'Settlements', singular: 'settlement', about: 'who pays whom how much to settle up, and whether it is paid.' },
+  employers: { kind: 'collection', name: 'Companies', singular: 'company', about: 'the companies you apply to.' },
+  applications: { kind: 'collection', name: 'Applications', singular: 'application', about: 'each job you applied for: where, how it stands, and what is next.' },
+  'job-interviews': { kind: 'collection', name: 'Interviews', singular: 'interview', about: 'each interview: for which job, when, and with whom.' },
 };
 
 /** The roles, in the order the pieces are listed: by template, the shared ones first where they are first used. */

@@ -55,6 +55,10 @@ const MOST: { [id in TemplateId]: Answers } = {
   finance: { bills: true },
   home: { jobs: ['Gutters cleaned yearly'] },
   health: { for: 'family', family: ['Ayşe', 'Can'], medications: true },
+  recipes: { shopping: true },
+  travel: {},
+  split: { people: ['Ayşe', 'Can', 'Deniz'], methods: 'all', abroad: true, finance: true },
+  jobs: {},
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -80,6 +84,10 @@ const LEAST: { [id in TemplateId]: Answers } = {
   finance: { accounts: [], categories: [], bills: false },
   home: { keeps: [] },
   health: { for: 'me', medications: false },
+  recipes: { meals: [], shopping: false },
+  travel: { keeps: [] },
+  split: { people: [], methods: 'equal', abroad: false, finance: false },
+  jobs: { stages: [] },
 };
 
 /** What a template asks of these, given only the questions it asks with this set. */
@@ -354,6 +362,24 @@ describe('setting up an app', () => {
       ['consulting', ['Log time', 'Bill']],
       ['association', ['Issue dues']],
     ]);
+  });
+
+  it('sets up Shared expenses with its people in its first group, and with Travel on the trips', () => {
+    const plan = planApp({ name: 'Flat', currencies: ['TRY'], templates: [{ id: 'split', answers: { people: ['Ayşe', 'Can'] } }] }, { ids });
+    const records = (dir: string) => plan.files.filter((f) => f.path.startsWith(`Flat/${dir}/`) && f.path.endsWith('.md')).map((f) => f.text);
+    const group = /id: (\w+)/.exec(records('Groups')[0]!)![1];
+    // A record set up after another links to it by its name.
+    expect(records('Members').map((t) => /group:\n\s+id: (\w+)\n\s+name: (.*)/.exec(t)!.slice(1))).toEqual([
+      [group, 'Flat'],
+      [group, 'Flat'],
+    ]);
+    const trip = planApp({ name: 'Away', currencies: ['TRY'], templates: [{ id: 'travel' }, { id: 'split' }] }, { ids });
+    const collections = trip.created.filter((c) => c.kind === 'collection').map((c) => c.path);
+    expect(collections).not.toContain('Away/Groups');
+    expect(collections.filter((p) => p.startsWith('Away/Expenses'))).toEqual(['Away/Expenses']);
+    const expenses = parseSchema(trip.files.find((f) => f.path === 'Away/Expenses/_collection.json')!.text);
+    expect(expenses.fields.map((f) => f.key)).toEqual(expect.arrayContaining(['trip', 'payer', 'between', 'total', 'category']));
+    expect(trip.files.find((f) => f.path === 'Away/Trips/_rules.js')!.text).toContain('action("Settle up"');
   });
 
   it('says what is wrong with what it was given', () => {

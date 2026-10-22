@@ -313,11 +313,23 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   const final = new Map<string, { fields: readonly Field[] }>();
   const boards: { [path: string]: { fields?: readonly Field[]; columns: { name: string }[] } } = {};
 
+  // The records set up so far, by collection and lowercased name: one set up after may link to one by its name, a member to its group.
+  const seeded = new Map<string, Map<string, string>>();
   const seeds = (part: CollectionPart, schema: Schema, records: CollectionPart['records']) => {
-    for (const values of records) {
+    const named = seeded.get(part.path) ?? new Map<string, string>();
+    seeded.set(part.path, named);
+    for (const given of records) {
       const id = recordId();
       const path = join(part.path, `${id}${RECORD_EXT}`);
-      file(path, serializeRecord({ id, path, name: String(values.name ?? ''), code: '', values, extra: {}, body: '' }, schema));
+      const values = Object.fromEntries(
+        Object.entries(given).map(([key, value]) => {
+          const field = schema.fields.find((f) => f.key === key);
+          const to = field?.type === 'link' && typeof value === 'string' ? seeded.get(field.collection ?? '')?.get(value.toLowerCase()) : undefined;
+          return [key, to && typeof value === 'string' ? { id: to, name: value } : value];
+        }),
+      );
+      named.set(String(given.name ?? '').toLowerCase(), id);
+      file(path, serializeRecord({ id, path, name: String(given.name ?? ''), code: '', values, extra: {}, body: '' }, schema));
     }
   };
 

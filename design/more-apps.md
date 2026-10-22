@@ -358,3 +358,16 @@ Roadmap'te faz "16 Yeni app şablonları" ve her dilim bir kart; denemeler "dene
 - Aile için isim listesi verilirse "For" seçimdir, liste boşsa metin; takvimler kişiye göre renkli.
 - Sağlıkta kontroller: "Get more by" günü geçmiş ve bitmemiş ilaç; sonraki günü geçmiş aşı (her şablonda en az bir kontrol için). Tahlillerin takvimi yok; randevuda Note alanı var.
 - Ev şablonunun ikonu `keys` (taslaktaki `key` uygulamada yok).
+
+6. dilimin kodunda verilenler (23 Ekim, onaylı):
+
+- Paylaşılan harcamalarda grubun kişileri "Members" adlı koleksiyon (Yakınlar'ın People'ıyla aynı adı taşımasın). Her kişi bir gruba bağlı; aynı kişi iki grupta iki kayıttır, bakiyeler grup başına.
+- Sorulan kişiler app'in adını taşıyan ilk gruba bağlanır: kurulumda bir kayıt, aynı kurulumda öncekine adıyla bağlanabilir. Seyahat varsa grup kurulmaz, kişiler gezilerine sonra bağlanır.
+- Her pay kaydı tek bir kişiye bağlı, "ödediği" ve "payı" ile; yapılmış ödeme de iki pay kaydıdır. Bakiye bunlardan toplanır (bir harcamada ödeyen ve paylaşanlar aynı kişilere bağlı olduğundan başka türlü sayılamaz).
+- Settle up en fazla "kişi sayısı eksi bir" ödeme önerir; kesin en azı aramaz.
+- Tutar, ödeyen, kimler arasında, bölme şekli ya da kur değişince paylar yeniden yazılır; tutarla bölünende elle yazılanlar yeniden eşitlenir.
+- Kişisel finansla kendi pay "Me" işaretli kişinin, banka hesabından harcama olarak yazılır.
+- Paylaşılan harcamalarda takvim yok: güne bağlı bir şeyi yok.
+- Tariflerde tür seçenekleri Main, Soup, Salad, Side, Dessert, Breakfast, Snack; alışveriş listesi "To buy" görünümüyle açılır; malzemesiz tarif "No ingredients yet" diye işaretlenir (her şablonda bir kontrol için).
+- Seyahatte rezervasyon türleri Flight, Hotel, Train, Car, Event; harcama kategorileri Transport, Stay, Food, Activities, Shopping, Other; "biten, başlangıçtan önce" kontrolleri.
+- İş aramada aşamalar CRM'deki gibi okunur (Rejected bitmiş, son aşama tamam); takip kontrolü yalnız süren başvurularda. Companies iş tarafındakinden ayrı bir parça.
