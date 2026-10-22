@@ -2861,6 +2861,71 @@ p { margin: 0; max-width: 68ch; }
 .cv-mrec span { display: flex; flex-direction: column; gap: 2px; padding-left: 10px; border-left: 3px solid var(--cc); }
 .cv-mrec b { font-weight: 500; }
 .cv-mrec small { color: var(--m-faint); font-size: 13px; }
+/* Calendar (stage 15), slice 3: a collection's Calendar view, its window, a range picked for a new record; records in Today and Upcoming; a board's Calendar. */
+.dir[data-dir="cal3"] { margin-top: 56px; }
+.dir[data-dir="cal3"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="cal3"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="cal3"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.dir[data-dir="cal3"] .mock.dir-a:not(.phones) { width: 1320px; height: 830px; }
+.dir[data-dir="cal3"] .mock .side.fit, .dir[data-dir="cal3"] .mock .main.fit { max-height: 828px; }
+.dir[data-dir="cal3"] .bv { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.c3-bar { display: flex; flex: none; align-items: center; gap: 6px 10px; padding: 0 16px 8px; }
+.c3-views { display: flex; align-items: center; gap: 2px; }
+.c3-views > span { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 5px; color: var(--m-dim); font-size: 12px; }
+.c3-views > span.on { background: var(--m-sel); color: var(--m-fg); }
+.mock .c3-views svg { width: 12px; height: 12px; }
+.c3-views .c3-plus { display: grid; place-items: center; width: 22px; height: 22px; margin-left: 2px; padding: 0; }
+.c3-views .c3-plus.on { background: var(--m-sel); color: var(--m-fg); }
+.c3-tools { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.c3-tools .cv-nav { margin: 0 6px 0 0; }
+.c3-tools .cv-nav b { margin-left: 6px; font-size: 13px; font-weight: 600; }
+.c3-ghost { padding: 2px 9px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-dim); font-size: 12px; }
+.c3-ghost.more { padding: 2px 7px; letter-spacing: 1px; }
+.cmenu.c3-menu { left: 150px; top: 76px; min-width: 240px; }
+.cmenu.c3-menu span { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 8px; }
+.cmenu.c3-menu b { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; }
+.mock .cmenu.c3-menu svg { width: 13px; height: 13px; }
+.cmenu.c3-menu small { padding-left: 20px; color: var(--m-faint); font-size: 11.5px; }
+.c3-cal { padding-top: 0; }
+.c3-pick { position: absolute; left: 2px; right: 2px; z-index: 2; border: 1.5px dashed var(--m-accent); border-radius: 4px; background: color-mix(in srgb, var(--m-accent) 14%, transparent); box-sizing: border-box; }
+.c3-pick span { position: absolute; left: 6px; top: 3px; color: var(--m-fg); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.c3-dlg { width: 560px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-side); box-shadow: 0 18px 50px rgb(0 0 0 / .45); }
+.c3-dh { margin: 0 16px; padding: 14px 0 10px; border-bottom: 1px solid var(--m-line); color: var(--m-dim); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.c3-grid { display: grid; grid-template-columns: 78px minmax(0, 1fr); align-items: center; gap: 10px 12px; padding: 14px 16px; }
+.c3-grid .fl { color: var(--m-dim); font-size: 12px; }
+.c3-dlg .in { position: relative; display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 3px 9px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); font-size: 12.5px; box-sizing: border-box; white-space: nowrap; }
+.c3-dlg .in.on { border-color: var(--m-accent); }
+.c3-dlg .in .dd { margin-left: auto; color: var(--m-faint); font-size: 10px; }
+.c3-dlg .in .caret { display: inline-block; width: 1px; height: 14px; margin-left: -4px; background: var(--m-fg); }
+.c3-dlg .in small { display: inline-flex; align-items: center; gap: 3px; color: var(--m-faint); font-size: 11px; }
+.c3-dlg .in small i { width: 8px; height: 8px; border-radius: 2px; }
+.c3-dd { position: relative; max-width: 300px; }
+.c3-dlg .ca-dmenu span { justify-content: space-between; gap: 12px; padding: 5px 8px; }
+.c3-dlg .ca-dmenu small { color: var(--m-faint); font-size: 11px; }
+.c3-dlg .ca-dmenu .sep { height: 1px; margin: 3px 2px; padding: 0; background: var(--m-line); }
+.c3-check { align-items: flex-start; gap: 9px; }
+.c3-check .cb { display: grid; flex: none; place-items: center; width: 14px; height: 14px; margin-top: 1px; border-radius: 3px; }
+.c3-check .cb.on { border-color: var(--m-accent); background: var(--m-accent); color: var(--m-on-accent); }
+.mock .c3-check .cb svg { width: 11px; height: 11px; stroke-width: 3; }
+.c3-check > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.c3-check b { color: var(--m-fg); font-size: 12.5px; font-weight: 500; }
+.c3-check small { color: var(--m-faint); font-size: 11.5px; }
+.c3-conds { margin: 0 16px; padding: 10px 0 12px; border-top: 1px solid var(--m-line); }
+.c3-sub { color: var(--m-faint); font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.c3-conds p { margin: 8px 0 6px; color: var(--m-faint); font-size: 12px; }
+.c3-add { color: var(--m-dim); font-size: 12px; }
+.c3-foot { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-top: 1px solid var(--m-line); }
+.c3-foot .count { margin-right: auto; color: var(--m-faint); font-size: 12px; }
+.th .c3-date { margin-left: 8px; color: var(--m-faint); font-size: 12px; }
+.task.c3-rec { cursor: default; }
+.c3-rbar { justify-self: center; width: 4px; min-height: 32px; border-radius: 2px; background: var(--cc); }
+.c3-rec .meta .c3-when { color: var(--m-fg); font-variant-numeric: tabular-nums; }
+.mock .c3-rec .meta svg { width: 11px; height: 11px; margin-right: 3px; vertical-align: -1px; }
+.c3-rec.past { opacity: .5; }
+.mock .mb-view svg { width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; }
+.c3-mgrid { margin-top: 6px; }
+.cv-mrec.past { opacity: .5; }
+.cv-tip.c3-mtip { left: 8px; font-size: 12px; }
 </style>
 
 <main class="page">
@@ -3431,6 +3496,30 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-clview="cldrag">Sürükleme</button>
         <button type="button" data-clview="clresize">Süreyi çekme</button>
         <button type="button" data-clview="clphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="cal3">
+    <div class="brief">
+      <div>
+        <span class="letter">TAKVİM · 15. AŞAMA · 3. DİLİM</span>
+        <h2>Koleksiyonun ve panonun takvimi; Today ve Upcoming'de kayıtlar</h2>
+        <p>Koleksiyonun görünümler çubuğunda <b>+</b>: Table ya da <b>Calendar</b>. Calendar görünümünün penceresinde adı, hangi tarihe göre (ilk tarih alanı seçili gelir), ne kadar sürdüğü (bitiş alanı, süre alanı ya da yok: 30 dakika), rengi (bir seçim alanı), <b>Show in Today and Upcoming</b> (açık gelir) ve koşulları; sonra ··· ile değişir. Takvim Upcoming'inkiyle aynı: Day, Week, Month; kutu sürüklenince günü ve saati, altı çekilince süresi değişir, Undo'suyla. Boş saatlerde sürükleyip aralık seçince, ya da bir yarım saate tıklayınca, yeni kayıt formu başlangıcı ve süresi dolu açılır. Saatli alana göre olan görünüm Week, yalnız güne göre olan Month ile açılır. Today'de günün görevleri ve kartları, sonra saatsiz kayıtlar, sonra saatliler saat sırasıyla; kayıt, görevin kutusu yerine renginde bir çizgiyle ve saatiyle; geçmişte kalan soluk, late değil. Upcoming'in List'inde günlerin altında aynı sırayla. Panoda Board ve List'in yanında <b>Calendar</b>: kartlar vade gününde, ay; sürüklenince vadesi değişir. Telefonda takvim görünümü görünümler arasında, Day ve Month; kutuya uzun basıp sürükleyince saati, şeritteki bir güne bırakınca günü değişir. Takvim görünümü bilgisayarda kurulur.</p>
+        <ul class="traits"><li>Table ya da Calendar</li><li>tarih, uzunluk, renk</li><li>Show in Today and Upcoming</li><li>aralık seçip ekleme</li><li>Today'de saat sırası</li><li>panonun ayı</li><li>telefonda uzun basma</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="15. aşama 3. dilim görünümü">
+        <button type="button" data-c3view="c3week">Calendar görünümü</button>
+        <button type="button" data-c3view="c3plus">+ görünüm</button>
+        <button type="button" data-c3view="c3set">Görünümün penceresi</button>
+        <button type="button" data-c3view="c3len">Uzunluk</button>
+        <button type="button" data-c3view="c3pick">Aralık seçme</button>
+        <button type="button" data-c3view="c3new">Yeni kayıt</button>
+        <button type="button" data-c3view="c3today">Today</button>
+        <button type="button" data-c3view="c3up">Upcoming List</button>
+        <button type="button" data-c3view="c3board">Pano</button>
+        <button type="button" data-c3view="c3phone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -10116,6 +10205,253 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderCl(sectionCl, b.dataset.clview);
   });
   renderCl(sectionCl, 'clweek');
+
+  // Calendar (stage 15), slice 3 (Oct 22): a collection's Calendar view, a board's Calendar, and
+  // the records of a calendar shown in Today and Upcoming. Atlas Lifts' Site visits: a Calendar
+  // view beside All and Kaan's visits, by Starts, as long as Duration, in the color of its Status.
+  // Today is Thursday, Oct 22, 2026; it is 11:20.
+  var C3_STATUS = { Planned: '#6aa5f0', Done: '#5cb87a', 'Waiting parts': '#e0a35a' };
+  var C3_VISITS = [
+    { d: 19, from: 10, to: 11, t: 'Brake test', st: 'Done', who: 'Selin', proj: 'Kadıköy Residence' },
+    { d: 20, from: 11.25, to: 13.25, t: 'Safety gear test', st: 'Done', who: 'Kaan', proj: 'Bursa Mall, block B' },
+    { d: 21, from: 8, to: 12, t: 'Cabin panel fitting', st: 'Waiting parts', who: 'Selin', proj: 'Antalya Hotel' },
+    { d: 22, from: 9, to: 9.75, t: 'Door operator check', st: 'Done', who: 'Deniz', proj: 'Kadıköy Residence' },
+    { d: 22, from: 14.5, to: 16, t: 'Planned maintenance', st: 'Planned', who: 'Kaan', proj: 'Atakule Tower', col: 0, cols: 2 },
+    { d: 22, from: 15, to: 16, t: 'Pit cleaning', st: 'Planned', who: 'Deniz', proj: 'Atakule Tower', col: 1, cols: 2 },
+    { d: 23, from: 10, to: 11, t: 'Rope tension', st: 'Planned', who: 'Deniz', proj: 'Bursa Mall, block B' },
+    { d: 23, from: 13, to: 14, t: 'Governor check', st: 'Planned', who: 'Kaan', proj: 'Antalya Hotel' }
+  ];
+  var C3_ALLDAY = { 22: [{ t: 'Annual inspection', st: 'Planned', who: 'Kaan', proj: 'Atakule Tower' }], 26: [{ t: 'Handover walk', st: 'Planned', who: 'Selin', proj: 'Antalya Hotel' }] };
+  function c3Box(o, wide, extra) {
+    return clBox({ d: o.d, from: o.from, to: o.to, t: o.t, w: o.proj, who: o.who, col: o.col, cols: o.cols, c: 'x' }, wide, extra).replace('--cc:undefined', '--cc:' + C3_STATUS[o.st]);
+  }
+  function c3Lbl(s) { return '<span class="lbl" style="--lc:' + C3_STATUS[s] + '">' + s + '</span>'; }
+  function c3Chip(o) { return '<span class="cv-chip rec" style="--cc:' + C3_STATUS[o.st] + '"><i></i>' + o.t + '</span>'; }
+  function c3Tree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 7, on: on === 'today' }) + row({ label: 'Upcoming', ct: 16, on: on === 'upcoming' }) +
+      opRowT({ sp: true, label: 'Personal' }) +
+      opRowT({ sp: true, open: true, label: CA_SPACE }) +
+      opRowT({ d: 1, folder: true, open: true, label: 'Operations' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Projects', ct: 7 }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Site visits', ct: 11, on: on === 'visits' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Transactions', ct: 128 }) +
+      opRowT({ d: 2, icon: 'board', label: 'Roadmap', ct: 23, on: on === 'board' }) +
+      opRowT({ d: 1, folder: true, label: 'People ops', ct: 6 }) +
+      opRowT({ d: 1, folder: true, label: 'Sales', ct: 4 }) +
+      opRowT({ d: 1, icon: 'collection', label: 'Companies', ct: 38 }) +
+      '</div>' + spFoot(null);
+  }
+  function c3App(on, tabs, body, status, over) {
+    return '<aside class="side fit">' + c3Tree(on) + '</aside><section class="main fit"><div class="panes">' + pane(tabs + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>' + status + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  var C3_VTABS = tab('collection', 'Projects · ' + CA_SPACE, 'x', false) + tab('collection', 'Site visits · ' + CA_SPACE, 'x', true);
+  /** The bar under a collection's name: its views, + for another; a calendar's day, week or month and its filter. */
+  function c3Bar(calendar, plusOn) {
+    // Before the Calendar view is made, the table's views alone.
+    var views = '<span class="c3-views"><span' + (calendar ? '' : ' class="on"') + '>All</span><span>Kaan’s visits</span>' + (calendar ? '<span class="on">' + ICON.cal + 'Calendar</span>' : '') +
+      '<span class="c3-plus' + (plusOn ? ' on' : '') + '" title="Add a view">' + ICON.plus + '</span></span>';
+    var tools = calendar
+      ? '<span class="cv-nav"><span class="cv-today">Today</span><span class="nav">' + ICON.chevl + '</span><span class="nav">' + ICON.chevr + '</span><b>Oct 19 – 25, 2026</b></span>' +
+        '<span class="up-seg"><span>Day</span><span class="on">Week</span><span>Month</span></span><span class="c3-ghost">Filter</span><span class="c3-ghost more">···</span>'
+      : '<span class="c3-ghost">Filter</span><span class="c3-ghost">Group ▾</span><span class="c3-ghost">Columns</span>';
+    return '<div class="c3-bar">' + views + '<span class="c3-tools">' + tools + '</span></div>' +
+      (plusOn ? '<div class="cmenu c3-menu"><span class="hot"><b>' + ICON.collection + 'Table</b><small>Records as rows</small></span><span><b>' + ICON.cal + 'Calendar</b><small>Records on their days and hours</small></span></div>' : '');
+  }
+  function c3Head(count) { return caHead('Site visits', count); }
+  /** The week of the Calendar view: the visits on their days and hours, in their Status' color; a range being picked on Friday. */
+  function c3Week(pick) {
+    var heads = CL_WEEK.map(function (d, i) { return '<div class="cv-dh' + (d === 22 ? ' today' : '') + (d < 22 ? ' past' : '') + '"><small>' + CL_WD[i] + '</small><b>' + d + '</b></div>'; }).join('');
+    var alls = CL_WEEK.map(function (d) { return '<div class="cv-ad' + (d === 22 ? ' today' : '') + '">' + (C3_ALLDAY[d] || []).map(c3Chip).join('') + '</div>'; }).join('');
+    var cols = CL_WEEK.map(function (d) {
+      var boxes = C3_VISITS.filter(function (o) { return o.d === d; }).map(function (o) { return c3Box(o); }).join('');
+      if (pick && d === 23) boxes += '<div class="c3-pick" style="top:' + (15 - CL_FROM) * CL_HOUR + 'px;height:' + 1.5 * CL_HOUR + 'px"><span>15:00 – 16:30</span></div>';
+      var now = d === 22 ? '<div class="cv-now" style="top:' + (CL_NOW - CL_FROM) * CL_HOUR + 'px"><i></i></div>' : '';
+      return '<div class="cv-col' + (d === 22 ? ' today' : '') + '">' + boxes + now + '</div>';
+    }).join('');
+    return '<div class="cv-week c3-cal"><div class="cv-row heads"><span class="g"></span>' + heads + '</div>' +
+      '<div class="cv-row alld"><span class="g">all day</span>' + alls + '</div>' +
+      '<div class="cv-scroll"><div class="cv-grid" style="height:' + (CL_TO - CL_FROM) * CL_HOUR + 'px">' + clHours() + '<div class="cv-cols">' + cols + '</div></div></div></div>';
+  }
+  function c3Collection(o) {
+    o = o || {};
+    var body = o.table
+      ? '<div class="bv">' + c3Head('11 records') + c3Bar(false, o.plus) + '<div class="blist">' +
+          '<div class="ca-row ti-sv head"><span>Name</span><span>Project</span><span>Technician</span><span class="sorted">Starts ↑</span><span class="num">Duration</span><span>Ends</span><span>Status</span></div>' +
+          C3_VISITS.slice(0, 7).map(function (v) {
+            return '<div class="ca-row ti-sv"><span class="tt">' + v.t + '</span><span class="lk">' + v.proj + '</span><span class="ti-who">' + mbWho(v.who[0]) + v.who + '</span>' +
+              '<span class="dt">Oct ' + v.d + '<span class="ti-t">' + clClock(v.from) + '</span></span><span class="num">' + tiDur((v.to - v.from) * 60) + '</span><span class="dt">Oct ' + v.d + ', ' + clClock(v.to) + '</span><span>' + c3Lbl(v.st) + '</span></div>';
+          }).join('') + '</div></div>'
+      : '<div class="bv">' + c3Head('11 records') + c3Bar(true) + c3Week(o.pick) + '</div>';
+    return c3App('visits', C3_VTABS, body, o.table ? '11 records · Sorted by Starts' : o.pick ? 'Drag over the hours to pick a range · a click picks half an hour' : '8 visits this week', o.over);
+  }
+  /** The Calendar view's window: its name, the day it goes by, how long, its color, Today and Upcoming, its conditions. */
+  function c3Settings(menu) {
+    var len = '<span class="cb-val c3-dd">' + cbBox('Duration <small>number · duration</small>', { dd: true, on: !!menu }) +
+      (menu ? '<div class="ca-dmenu"><span>Ends<small>formula · date and time</small></span><span class="on">Duration<small>number · duration</small></span><span class="sep"></span><span>None<small>30 minutes each</small></span></div>' : '') + '</span>';
+    return '<div class="ovl center"><div class="c3-dlg">' +
+      '<div class="c3-dh">Calendar view</div>' +
+      '<div class="c3-grid">' +
+        '<span class="fl">Name</span>' + cbBox('Calendar', { on: !menu, caret: !menu }) +
+        '<span class="fl">Starts</span><span class="cb-val c3-dd">' + cbBox('Starts <small>date and time</small>', { dd: true }) + '</span>' +
+        '<span class="fl">Length</span>' + len +
+        '<span class="fl">Color</span><span class="cb-val c3-dd">' + cbBox('Status <small>' + ['Planned', 'Done', 'Waiting parts'].map(function (s) { return '<i style="background:' + C3_STATUS[s] + '"></i>'; }).join('') + '</small>', { dd: true }) + '</span>' +
+        '<span class="fl"></span><label class="fcheck c3-check"><span class="cb on">' + ICON.check + '</span><span><b>Show in Today and Upcoming</b><small>Its visits from today on show there with the tasks; past ones are not late.</small></span></label>' +
+      '</div>' +
+      '<div class="c3-conds"><span class="c3-sub">Conditions</span><p>Every record is shown.</p><span class="c3-add">+ Add condition</span></div>' +
+      '<div class="c3-foot"><span class="count">11 records</span><span class="st-btn">Cancel</span><span class="st-btn go">Save view</span></div>' +
+      '</div></div>';
+  }
+  /** A range picked on Friday, 15:00 to 16:30: a new visit's form, its start and its length filled in. */
+  function c3NewRecord() {
+    var head = ICON.collection + '<span>New site visit · ' + CA_SPACE + '</span><span class="x">×</span>';
+    return cbRecord(head, [
+      cbProp('Name', '<span class="caret"></span>', { req: true, on: true }) +
+      cbProp('Project', '<span class="nil">Choose…</span>', { dd: true }) +
+      cbProp('Technician', '<span class="nil">Nobody</span>', { dd: true }) +
+      '<div class="cb-prop"><span class="pl">Starts<i>*</i></span>' + tiWhenBox('Oct 23, 2026', '15:00') + '</div>' +
+      cbProp('Duration', '90<span class="ti-unit">1 h 30 min</span>') +
+      cbProp('Ends', 'Oct 23, 16:30', { none: true }) +
+      cbProp('Notes', 'Add a note…', { body: true }),
+      cbProp('Arrival window', '<span class="nil">None</span>') +
+      cbProp('Status', c3Lbl('Planned'), { dd: true }) +
+      '<p class="fi-note ti-say">Starts and Duration come from the range picked on the calendar.</p>'
+    ], '<span class="st-btn">Cancel</span><span class="st-btn go">Add visit</span>');
+  }
+  /** A record in Today's or Upcoming's list: its color as a bar where a task has its box, its time first, then where it is from and whose. */
+  function c3Rec(o, past) {
+    var when = o.from === undefined ? 'all day' : clClock(o.from) + ' – ' + clClock(o.to);
+    return '<div class="task c3-rec' + (past ? ' past' : '') + '" style="--cc:' + (o.color || C3_STATUS[o.st]) + '"><span class="c3-rbar"></span><div><div class="tt">' + o.t + '</div>' +
+      '<div class="meta"><span class="c3-when">' + when + '</span><span>' + ICON.collection + (o.from_ || 'Site visits') + '</span><span>' + o.who + '</span>' + (o.proj ? '<span>' + o.proj + '</span>' : '') + '</div></div></div>';
+  }
+  function c3Task(o) { return upTask(o, 'Tue, Oct 20'); }
+  var C3_PHONE_SCREEN = { t: 'Phone screen with Can Demir', from: 15, to: 15.5, who: 'Kaan', from_: 'Interviews', color: '#b18cf0' };
+  /** Today: late first; then the day's tasks and cards, its visits with no time, then those with a time by the hour. */
+  function c3Today() {
+    var visits = C3_VISITS.filter(function (o) { return o.d === 22; });
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Thu, Oct 22</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' + upTask({ t: 'Send the lift certificate to Atakule', w: 'Inbox', late: true, p: 'p2' }, 'Tue, Oct 20') +
+      '<div class="sec">Today <small>8</small></div>' +
+      upTask({ t: 'Order the cabin panels', w: 'Operations', p: 'p1' }) +
+      upTask({ t: 'Send the invoice', w: 'Inbox', p: 'p3' }) +
+      upTask({ key: 'ROA-31', t: 'Quote for Antalya Hotel', w: 'Roadmap', col: 'Doing', p: 'p2' }) +
+      c3Rec(C3_ALLDAY[22][0]) +
+      c3Rec(visits[0], true) +
+      c3Rec(visits[1]) +
+      c3Rec(C3_PHONE_SCREEN) +
+      c3Rec(visits[2]) +
+      '<div class="qa">+ Add task</div></div></div>';
+    return c3App('today', tab('tasks', 'Today', 'x', true), body, '4 tasks · 1 card · 5 records');
+  }
+  /** Upcoming's List: under each day its tasks and cards, then its records, those with a time by the hour. */
+  function c3Upcoming() {
+    var fri = C3_VISITS.filter(function (o) { return o.d === 23; });
+    var body = '<div class="tasksv">' + '<div class="th"><b>Upcoming</b><span class="up-seg"><span class="on">List</span><span>Calendar</span></span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Tomorrow <span class="when">· Fri, Oct 23</span> <small>3</small></div>' +
+      upTask({ t: 'Call Acme about the yearly plan', w: 'Inbox' }) + c3Rec(fri[0]) + c3Rec(fri[1]) + '<div class="qa">+ Add task</div>' +
+      '<div class="up-gap">2 free days · Sat 24 – Sun 25</div>' +
+      '<div class="sec">Mon, Oct 26 <small>2</small></div>' +
+      upTask({ t: 'Quarterly plan review', w: 'Operations', p: 'p1' }) + c3Rec(C3_ALLDAY[26][0]) + '<div class="qa">+ Add task</div>' +
+      '<div class="sec">Tue, Oct 27 <small>1</small></div>' +
+      c3Rec({ t: 'Technical with Ayşe Yılmaz', from: 10, to: 11, who: 'Kaan', from_: 'Interviews', color: '#b18cf0' }) + '<div class="qa">+ Add task</div>' +
+      '</div></div>';
+    return c3App('upcoming', tab('tasks', 'Upcoming', 'x', true), body, '9 tasks · 2 cards · 11 records');
+  }
+  /** A board's Calendar: the month, each card on its due day with its key, dragged to another day to take it. */
+  function c3Board() {
+    var CARDS = { 6: [['ROA-22', 'Lift app login', 'p2']], 14: [['ROA-27', 'Export to Excel', '']], 20: [['ROA-29', 'Push notifications', 'p3']], 22: [['ROA-31', 'Quote for Antalya Hotel', 'p2'], ['ROA-33', 'Price list import', '']], 23: [['ROA-34', 'Technician app beta', 'p1']], 27: [['ROA-35', 'Service report PDF', 'p2'], ['ROA-36', 'Spare parts search', ''], ['ROA-37', 'Contract renewals', 'p3'], ['ROA-38', 'Map of sites', '']], 30: [['ROA-40', 'Release 1.4', 'p1']] };
+    var cells = '';
+    for (var i = 0; i < 42; i++) {
+      var date = new Date(2026, 8, 28 + i);
+      var d = date.getDate();
+      var inOct = date.getMonth() === 9;
+      var items = inOct ? CARDS[d] || [] : [];
+      var cls = ['cd', !inOct && 'out', items.length && 'busy', inOct && d === 22 && 'today'].filter(Boolean).join(' ');
+      cells += '<div class="' + cls + '"><span class="n">' + d + '</span>' + items.slice(0, 3).map(function (c) {
+        return '<span class="cal-t"' + (c[2] ? ' style="--pc: var(--m-' + c[2] + ')"' : '') + '><i class="sq"></i><span class="key">' + c[0] + '</span><span>' + c[1] + '</span></span>';
+      }).join('') + (items.length > 3 ? '<span class="cal-more">+' + (items.length - 3) + ' more</span>' : '') + '</div>';
+    }
+    var body = '<div class="tasksv cv"><div class="th"><b>Roadmap</b><span class="count">23 cards</span><span class="up-seg"><span>Board</span><span>List</span><span class="on">Calendar</span></span>' +
+      '<span class="cv-nav"><span class="cv-today">Today</span><span class="nav">' + ICON.chevl + '</span><span class="nav">' + ICON.chevr + '</span><b>October 2026</b></span>' +
+      '<button type="button" class="add">Add card</button></div>' +
+      '<div class="up-cal"><div class="wd"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div><div class="grid">' + cells + '</div></div></div>';
+    return c3App('board', tab('board', 'Roadmap · ' + CA_SPACE, 'x', true), body, '11 cards in October · 12 with no day');
+  }
+  /** On a phone: the Calendar view's day; a visit held and moved; Today with the visits. */
+  function c3Phone() {
+    var head = '<div class="mb-head split"><div><h2>Site visits</h2><small>Thursday, Oct 22</small></div><div class="mb-seg"><span class="on">Day</span><span>Month</span></div></div>';
+    var views = '<div class="mb-views"><span class="mb-view">All</span><span class="mb-view">Kaan’s visits</span><span class="mb-view on">' + ICON.cal + 'Calendar</span><span class="opt">' + ICON.settings + '</span></div>';
+    var strip = '<div class="cv-mstrip">' + CL_WEEK.map(function (d, i) {
+      var busy = C3_VISITS.some(function (o) { return o.d === d; }) || C3_ALLDAY[d];
+      return '<span' + (d === 22 ? ' class="on"' : '') + '><small>' + CL_WD[i][0] + '</small><b>' + d + '</b><i' + (busy ? '' : ' class="no"') + '></i></span>';
+    }).join('') + '</div>';
+    // The hours as scrolled: from 08:00 as the day opens, from 13:00 with a visit held there.
+    var base = 8;
+    function day(held) {
+      base = held ? 13 : 8;
+      var boxes = C3_VISITS.filter(function (o) { return o.d === 22; }).map(function (o) {
+        var from = o.from, to = o.to, cls = '';
+        if (held && o.t === 'Pit cleaning') return phBox(o, 15, 16, 'ghost') + phBox(o, 16.5, 17.5, 'lift', false, 0, 1) +
+          '<span class="cv-tip c3-mtip" style="top:' + ((16.5 - base) * 52 - 30) + 'px">Thu, Oct 22 · 16:30 – 17:30</span>';
+        return phBox(o, from, to, cls);
+      }).join('');
+      return mbPage(mbNav('Operations', ['dots']) + head + views + strip,
+        '<div class="cv-mall">' + c3Chip(C3_ALLDAY[22][0]) + '</div><div class="cv-mgrid c3-mgrid"><div class="cv-mhours">' + phHours() + '</div><div class="cv-mcol">' + boxes +
+        (held ? '' : '<div class="cv-now" style="top:' + (CL_NOW - base) * 52 + 'px"><i></i></div>') + '</div></div>');
+    }
+    function phHours() { var s = ''; for (var h = base; h < base + 10; h++) s += '<span style="top:' + (h - base) * 52 + 'px">' + clClock(h) + '</span>'; return s; }
+    function phBox(o, from, to, extra, tip, col, cols) {
+      col = col === undefined ? o.col || 0 : col; cols = cols || o.cols || 1;
+      var ht = (to - from) * 52;
+      return '<div class="cv-box' + (ht < 40 ? ' short' : '') + (extra ? ' ' + extra : '') + '" style="top:' + (from - base) * 52 + 'px;height:' + (ht - 3) + 'px;left:calc(' + (col * 100) / cols + '% + 2px);width:calc(' + 100 / cols + '% - 4px);--cc:' + C3_STATUS[o.st] + '"><b>' + o.t + '</b><small>' + clClock(from) + ' – ' + clClock(to) + '</small>' +
+'</div>';
+    }
+    var visits = C3_VISITS.filter(function (o) { return o.d === 22; });
+    function mrec(o, past) {
+      return '<div class="cv-mrec' + (past ? ' past' : '') + '" style="--cc:' + (o.color || C3_STATUS[o.st]) + '"><em>' + (o.from === undefined ? 'all day' : clClock(o.from)) + '</em><span><b>' + o.t + '</b><small>' + (o.from_ || 'Site visits') + ' · ' + o.who + '</small></span></div>';
+    }
+    var todayHead = '<div class="mb-head root"><h2>Today</h2><small>Thursday, Oct 22</small></div><div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>';
+    var today = mbPage(todayHead,
+      '<div class="mb-sec">Today <small>8</small></div>' +
+      upPhoneTask({ t: 'Order the cabin panels', w: 'Operations', p: 'p1' }) + upPhoneTask({ key: 'ROA-31', t: 'Quote for Antalya Hotel', w: 'Roadmap', col: 'Doing', p: 'p2' }) +
+      mrec(C3_ALLDAY[22][0]) + mrec(visits[0], true) + mrec(visits[1]) + mrec(C3_PHONE_SCREEN) + mrec(visits[2]));
+    return [
+      mbPhone('Calendar görünümü: Day; Month da var', day(false), mbTabs('browse') + MB_FAB),
+      mbPhone('Uzun basıp sürükleyince saati; şeritteki güne bırakınca günü', day(true), mbTabs('browse')),
+      mbPhone('Today: görevler, sonra tüm gün kayıt, sonra saat sırası', today, mbTabs('today') + MB_FAB)
+    ].join('');
+  }
+  var C3_VIEWS = {
+    c3week: function () { return c3Collection(); },
+    c3plus: function () { return c3Collection({ table: true, plus: true }); },
+    c3set: function () { return c3Collection({ table: true, over: c3Settings(false) }); },
+    c3len: function () { return c3Collection({ table: true, over: c3Settings(true) }); },
+    c3pick: function () { return c3Collection({ pick: true }); },
+    c3new: function () { return c3Collection({ pick: true, over: c3NewRecord() }); },
+    c3today: c3Today,
+    c3up: c3Upcoming,
+    c3board: c3Board
+  };
+  function renderC3(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'c3phone') {
+      mock.className = 'mock dir-a phones mbs';
+      mock.innerHTML = c3Phone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = C3_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-c3view]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.c3view === view));
+    });
+  }
+  var sectionC3 = document.querySelector('.dir[data-dir="cal3"]');
+  sectionC3.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-c3view]');
+    if (b) renderC3(sectionC3, b.dataset.c3view);
+  });
+  renderC3(sectionC3, 'c3week');
 
   // Scrawl apps (stage 14), slice 1 (Oct 21): a button that asks for a value before it runs. A
   // rule written as action("Correct stock", { ask: { total: { label, type, default } } }, …) opens

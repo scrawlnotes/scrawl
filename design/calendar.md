@@ -237,3 +237,12 @@ Bugün, sırasıyla; her dilimin sonunda commit sorulur. Arayüzü olan dilim ö
 - Telefonun Day'inde başlık, hafta şeridi ve çipler durur, yalnız saatler kayar. Çipe dokununca görev kendi sheet'inde, kart panosunda, alt görev kartında ya da kaydında açılır. Saatlerde sağa sola kaydırınca gün değişir.
 - Başlığın altında Day'de gün yazılır; Month'ta yazılmaz, ayın adı hemen altında.
 - Telefonda uzun basıp taşıma, kayıt kutularıyla 3. dilimde gelir.
+
+22 Ekim 2026'da 3. dilimin mockup'ıyla onaylananlar:
+- Görünümler çubuğunun sonunda +: Table (o anki tabloyla yeni görünüm, Save as view gibi; o da yerinde kalır) ya da Calendar.
+- Calendar görünümünün penceresi: Name, Starts, Length (Ends, Duration ya da None: 30 dakika), Color, Show in Today and Upcoming, koşullar; sonra ··· ile değişir. Araç çubuğunda Today, ‹ ›, Day, Week, Month, Filter, ···; Group ve Columns yok.
+- Starts saatliyse Week, yalnız günse Month ile açılır; seçim görünüm başına cihazda kalır.
+- Boş saatlerde sürükleyip aralık seçince ya da yarım saate tıklayınca yeni kayıt formu, başlangıcı ve süresi dolu.
+- Today'de görevler ve kartlar, sonra tüm gün kayıtlar, sonra saatliler saat sırasıyla. Kaydın satırında kutu yerine renginde çizgi; önce saati, sonra koleksiyonu, kişisi, bağlı kaydı. Geçmişte kalan soluk. Upcoming'in List'inde günlerin altında aynı sıra.
+- Panonun Calendar'ı yalnız ay: kartın saati yok. Status bar günü olmayan kartları sayar.
+- Telefonda takvim görünümü görünüm çiplerinde, Day ve Month; kurulması bilgisayarda. Kutuya uzun basıp sürükleyince saati, şeritteki güne bırakınca günü değişir. Today'de kayıtlar saat sütunuyla.
