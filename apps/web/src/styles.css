@@ -13659,3 +13659,291 @@ button.st-li:hover,
 .ce-dt .dtbox .dt-add {
   height: 24px;
 }
+
+/* The calendar's day and week (Calendar.tsx): the days' names, the all-day row, the hours under it
+   scrolled to the morning, today tinted with a line at the time it is, and the boxes of what has a
+   time, in their source's color, those at the same time side by side. */
+.up-month .up-today {
+  width: auto;
+  padding: 0 9px;
+  color: var(--sl-fg);
+  font-size: 12px;
+}
+
+.up-month .mn {
+  min-width: 0;
+  margin-left: 6px;
+  text-align: left;
+}
+
+.vsw.up-range {
+  margin-left: auto;
+}
+
+.vsw.up-range + .add {
+  margin-left: 10px;
+}
+
+.up-week {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  padding-top: 2px;
+}
+
+.tg {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tg-row {
+  display: grid;
+  flex: none;
+  grid-template-columns: 52px repeat(7, minmax(0, 1fr));
+}
+
+.tg.one .tg-row {
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
+.tg-row .g {
+  padding: 6px 8px 0 0;
+  color: var(--sl-faint);
+  font-size: 10px;
+  text-align: right;
+}
+
+.tg-dh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 8px;
+  color: var(--sl-dim);
+}
+
+.tg-dh small {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.tg-dh b {
+  font-size: 18px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.tg-dh.past {
+  color: var(--sl-faint);
+}
+
+.tg-dh.today {
+  color: var(--sl-accent);
+}
+
+.tg-dh.today b {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 700;
+}
+
+.tg-all {
+  border-top: 1px solid var(--sl-line);
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.tg-ad {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 4px;
+  border-left: 1px solid var(--sl-line);
+  cursor: default;
+}
+
+.tg.one .tg-ad {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.tg.one .tg-ad .cal-t {
+  max-width: 320px;
+}
+
+.tg-ad.today {
+  background: color-mix(in srgb, var(--sl-accent) 5%, transparent);
+}
+
+.tg-ad.on {
+  background: color-mix(in srgb, var(--sl-sel) 60%, transparent);
+}
+
+.tg-ad.drop-on {
+  outline: 2px dashed var(--sl-accent);
+  outline-offset: -3px;
+  background: color-mix(in srgb, var(--sl-accent) 8%, transparent);
+}
+
+.tg-scroll {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.tg-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
+.tg-hours {
+  position: relative;
+}
+
+.tg-hours span {
+  position: absolute;
+  right: 8px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-50%);
+}
+
+.tg-cols {
+  position: relative;
+  display: grid;
+  background-image: repeating-linear-gradient(to bottom, var(--sl-line) 0 1px, transparent 1px 44px);
+}
+
+.tg-col {
+  position: relative;
+  border-left: 1px solid var(--sl-line);
+}
+
+.tg-col.today {
+  background: color-mix(in srgb, var(--sl-accent) 4%, transparent);
+}
+
+.tg-box {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  box-sizing: border-box;
+  padding: 3px 7px;
+  overflow: hidden;
+  border-left: 3px solid var(--cc);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cc) 22%, var(--sl-bg));
+  cursor: pointer;
+  user-select: none;
+}
+
+.tg-box.movable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.tg-box b {
+  overflow: hidden;
+  color: var(--sl-fg);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tg-box small {
+  color: var(--sl-dim);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.tg-box.short {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+.tg-box.ghost {
+  opacity: 0.3;
+}
+
+.tg-box.lift {
+  z-index: 3;
+  overflow: visible;
+  outline: 1px solid var(--cc);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.45);
+  pointer-events: none;
+}
+
+.tg-tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: var(--sl-fg);
+  color: var(--sl-bg);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tg-foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.tg-box:hover .tg-foot::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 22px;
+  height: 3px;
+  margin-left: -11px;
+  border-radius: 2px;
+  background: var(--cc);
+}
+
+.tg-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  border-top: 2px solid var(--sl-p1);
+  pointer-events: none;
+}
+
+.tg-now i {
+  position: absolute;
+  left: -5px;
+  top: -6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sl-p1);
+}

@@ -7085,3 +7085,198 @@ body > .mb-lifted {
   font-size: 16px;
   text-align: center;
 }
+
+/* ---------- Upcoming's Day (stage 15): the week's strip, the day's tasks and cards, its hours ---------- */
+
+.mb-head.split .mb-seg:has(> :nth-child(3)) {
+  grid-template-columns: repeat(3, auto);
+  width: auto;
+}
+
+.mb-head.split .mb-seg:has(> :nth-child(3)) button {
+  padding: 0 9px;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+/* The title, the strip and the chips stay; the hours under them scroll alone, to the foot of the page. */
+.mb-body:has(.mb-hours) {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+.mb-body:has(.mb-hours) > * {
+  flex: none;
+}
+
+.mb-body:has(.mb-hours) > .mb-due {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mb-tasks .tl:has(> .mb-hours) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+.mb-wstrip {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 2px 12px 6px;
+  text-align: center;
+}
+
+.mb-wstrip button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 0;
+}
+
+.mb-wstrip small {
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.mb-wstrip b {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--sl-fg);
+  font-size: 16px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-wstrip .today b {
+  color: var(--sl-accent);
+  font-weight: 700;
+}
+
+.mb-wstrip .on b {
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 700;
+}
+
+.mb-wstrip i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sl-faint);
+}
+
+.mb-wstrip i.no {
+  background: none;
+}
+
+.mb-allday {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 30%;
+  padding: 6px 16px 8px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.mb-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--pc, var(--sl-faint)) 14%, transparent);
+  color: var(--sl-fg);
+  font-size: 14.5px;
+  text-align: left;
+}
+
+.mb-chip i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pc, var(--sl-faint));
+}
+
+.mb-chip i.sq {
+  border-radius: 1.5px;
+}
+
+.mb-chip .key {
+  flex: none;
+  color: var(--sl-faint);
+  font: 11.5px/1 var(--sl-font-mono);
+}
+
+.mb-chip > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-chip.late > span:last-child {
+  color: var(--sl-p1);
+}
+
+.mb-hours {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 0 calc(var(--ph-bar) + 84px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mb-hgrid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 54px 1fr;
+}
+
+.mb-hlabels {
+  position: relative;
+}
+
+.mb-hlabels span {
+  position: absolute;
+  right: 8px;
+  color: var(--sl-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-50%);
+}
+
+.mb-hcol {
+  position: relative;
+  margin-right: 12px;
+  border-left: 1px solid var(--sl-line);
+  background-image: repeating-linear-gradient(to bottom, var(--sl-line) 0 1px, transparent 1px 52px);
+}
+
+.mb-hcol .tg-box {
+  text-align: left;
+}
+
+.mb-hcol .tg-box b {
+  font-size: 14px;
+}
+
+.mb-hcol .tg-box small {
+  font-size: 12.5px;
+}

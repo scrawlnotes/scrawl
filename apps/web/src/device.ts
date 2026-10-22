@@ -16,6 +16,7 @@ const THEME = 'scrawl.theme';
 const LANGUAGE = 'scrawl.language';
 const SIZE = { phone: 'scrawl.sizePhone', computer: 'scrawl.sizeComputer' } as const;
 const UPCOMING = 'scrawl.upcoming';
+const CALENDAR_RANGE = 'scrawl.calendarRange';
 const NUMBERS = 'scrawl.numbers';
 /** The theme's colours, for index.html to paint the page with before the app's code comes. */
 const BOOT = 'scrawl.boot';
@@ -177,6 +178,16 @@ export type UpcomingView = 'list' | 'calendar';
 export const loadUpcomingView = (): UpcomingView => (read(UPCOMING) === 'calendar' ? 'calendar' : 'list');
 
 export const saveUpcomingView = (view: UpcomingView) => write(UPCOMING, view === 'list' ? null : view);
+
+/** How much the calendar shows: a day, a week or the month. A phone shows a week as its day. */
+export type CalendarRange = 'day' | 'week' | 'month';
+
+export const loadCalendarRange = (): CalendarRange => {
+  const range = read(CALENDAR_RANGE);
+  return range === 'day' || range === 'week' ? range : 'month';
+};
+
+export const saveCalendarRange = (range: CalendarRange) => write(CALENDAR_RANGE, range === 'month' ? null : range);
 
 /** Sizes the app again each time a phone is turned. */
 export function onTurn(listener: () => void): () => void {

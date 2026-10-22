@@ -137,6 +137,7 @@ import {
   loadNumbers,
   loadSize,
   loadTheme,
+  loadCalendarRange,
   loadUpcomingView,
   type Mode,
   type Numbers,
@@ -145,6 +146,7 @@ import {
   saveNumbers,
   saveSize,
   saveTheme,
+  saveCalendarRange,
   saveUpcomingView,
   shadeOfMode,
   systemShade,
@@ -1318,8 +1320,11 @@ export function App() {
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
   // On a phone, how Upcoming shows, and the day chosen in its month, which + adds to there; tomorrow until one is chosen.
   const [upcomingView, setUpcomingView] = useState(loadUpcomingView);
+  // A phone shows a day or the month; a week chosen on a computer is a day there.
+  const [calendarRange, setCalendarRange] = useState(loadCalendarRange);
+  const phoneUpcoming = upcomingView === 'list' ? 'list' : calendarRange === 'month' ? 'month' : 'day';
   const [upcomingDay, setUpcomingDay] = useState<string | null>(null);
-  const upDay = upcomingDay ?? addDays(today, 1);
+  const upDay = upcomingDay ?? today;
   // On a phone a day for some tasks at once is chosen in a sheet: what is overdue, rescheduled.
   const [dayPicker, setDayPicker] = useState<{ title: string; onPick: (due: string | null) => void } | null>(null);
   // On a phone a section is named in a sheet: a new one from the list's menu, or one renamed.
@@ -2014,13 +2019,19 @@ export function App() {
               kind === 'today' ? (
                 <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} bare still={still} />
               ) : (
-                <PhoneUpcoming view={upcomingView} lists={tasks} boards={boards} today={today} actions={taskActions} day={upDay} onDay={setUpcomingDay} still={still} />
+                <PhoneUpcoming view={phoneUpcoming} lists={tasks} boards={boards} today={today} actions={taskActions} day={upDay} onDay={setUpcomingDay} still={still} />
               )
             }
-            upcomingView={upcomingView}
+            upcomingView={phoneUpcoming}
+            upcomingDay={upDay}
             onUpcomingView={(view) => {
-              setUpcomingView(view);
-              saveUpcomingView(view);
+              const shown = view === 'list' ? 'list' : 'calendar';
+              setUpcomingView(shown);
+              saveUpcomingView(shown);
+              if (view !== 'list') {
+                setCalendarRange(view);
+                saveCalendarRange(view);
+              }
             }}
             canAdd={(id) => listOf(id) !== null || boardPathOf(id) !== null || (keysPathOf(id) !== null && keysLooks[keysPathOf(id)!]?.view !== 'text') || (collectionPathOf(id) !== null && (collections[collectionPathOf(id)!]?.schema.fields.length ?? 0) > 0)}
             onAdd={phoneAdd}

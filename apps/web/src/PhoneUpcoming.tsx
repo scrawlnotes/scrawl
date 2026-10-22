@@ -1,7 +1,7 @@
-import { addDays, type Board, type Card, dayRuns, dueToday, dueUpcoming, INBOX_TASKS, monthDays, type Task } from '@scrawlnotes/core';
+import { addDays, type Board, type Card, dayRuns, dueToday, dueUpcoming, INBOX_TASKS, keyOf, monthDays, type Task, weekDays } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { Fragment, useState } from 'react';
-import type { UpcomingView } from './device';
+import { type CSSProperties, Fragment, useState } from 'react';
+import { PhoneHours } from './Calendar';
 import { Icon } from './Icon';
 import { StillOpening } from './Loading';
 import { Empty } from './sheets';
@@ -9,13 +9,18 @@ import { dateWords } from './TaskComposer';
 import { CardRow, type Dated, type DueSubtask, placeOf, splitDueCards, splitDueSubtasks, SubtaskRow, subtaskRefOf, type TaskActions, TaskItem, TaskPage } from './Tasks';
 import { datedByDay, dayHeading, type Entry, entryKey, EntryRow, freeWords, monthWords } from './Upcoming';
 
-// Upcoming on a phone, after the Phone views of the Upcoming mockups, in two views chosen beside its
-// title. List: what is late first, with Reschedule, then today, then only the days that have
-// something, the free days between them in one faint line. Month: the month with a dot under each
-// day that has something, and under it the tasks of the day chosen, which + adds to.
+// Upcoming on a phone, after the Phone views of the Upcoming and Calendar mockups, in three views
+// chosen beside its title. List: what is late first, with Reschedule, then today, then only the
+// days that have something, the free days between them in one faint line. Day: the week's strip,
+// the day's tasks and cards, then its hours with what has a time; swiped to the next day. Month:
+// the month with a dot under each day that has something, and under it the tasks of the day
+// chosen, which + adds to.
+
+/** What a phone's Upcoming shows. */
+export type PhoneUpcomingView = 'list' | 'day' | 'month';
 
 interface Props {
-  view: UpcomingView;
+  view: PhoneUpcomingView;
   lists: Record<string, Task[]>;
   boards: Record<string, Board>;
   today: string;
@@ -28,7 +33,48 @@ interface Props {
 }
 
 export function PhoneUpcoming(props: Props) {
-  return props.view === 'calendar' ? <PhoneMonth {...props} /> : <PhoneDays {...props} />;
+  return props.view === 'month' ? <PhoneMonth {...props} /> : props.view === 'day' ? <PhoneDay {...props} /> : <PhoneDays {...props} />;
+}
+
+/** A day on a phone: its week's strip, a dot under each day that has something; the day's tasks and cards; its hours. */
+function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: Props) {
+  const { byDay } = datedByDay(lists, boards, today, actions.dueSubtasks());
+  const entries = byDay.get(day) ?? [];
+  // A task opens as its sheet, a card on its board, a subtask in its card or its record.
+  const open = (entry: Entry) => {
+    if ('subtask' in entry) return 'board' in entry ? actions.openCard(entry.board, entry.card.id) : actions.openRecord(entry.collection, entry.record.id);
+    if ('task' in entry) return actions.open?.(entry.list, entry.task.id);
+    actions.openCard(entry.board, entry.card.id);
+  };
+  const chip = (entry: Entry) => {
+    const isCard = 'card' in entry && !('subtask' in entry);
+    const { title, priority } = 'subtask' in entry ? entry.subtask : 'task' in entry ? entry.task : entry.card;
+    return (
+      <button key={entryKey(entry)} type="button" className={day < today ? 'mb-chip late' : 'mb-chip'} style={priority < 4 ? ({ '--pc': `var(--sl-p${priority})` } as CSSProperties) : undefined} onClick={() => open(entry)}>
+        <i className={isCard ? 'sq' : undefined} />
+        {isCard && boards[entry.board] && <span className="key">{keyOf(boards[entry.board]!, entry.card)}</span>}
+        <span>{title}</span>
+      </button>
+    );
+  };
+  return (
+    <TaskPage title={t('tasks.upcoming')} bare footer={<StillOpening text={still} />}>
+      <div className="mb-wstrip">
+        {weekDays(day).map((each) => {
+          const busy = byDay.has(each);
+          return (
+            <button key={each} type="button" className={[each === day && 'on', each === today && 'today'].filter(Boolean).join(' ') || undefined} aria-pressed={each === day} aria-label={dateWords(each, today)} onClick={() => onDay(each)}>
+              <small>{new Date(`${each}T12:00:00`).toLocaleDateString(locale(), { weekday: 'narrow' })}</small>
+              <b>{Number(each.slice(8))}</b>
+              <i className={busy ? undefined : 'no'} />
+            </button>
+          );
+        })}
+      </div>
+      {entries.length > 0 && <div className="mb-allday">{entries.map(chip)}</div>}
+      <PhoneHours day={day} today={today} boxes={[]} onOpen={() => {}} onSwipe={(by) => onDay(addDays(day, by))} />
+    </TaskPage>
+  );
 }
 
 function PhoneDays({ lists, boards, today, actions, still = null }: Props) {

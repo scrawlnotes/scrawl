@@ -76,12 +76,10 @@ Tek bir takvim; Upcoming'in bugünkü ay takviminin yerine geçer ve koleksiyonu
 
 ### Teknik
 
-- `apps/web/src/Calendar.tsx` (masaüstü) ve `PhoneCalendar.tsx`.
-- Öğe modeli `CalendarItem`: id, başlık, başlangıç (gün ya da gün ve saat), bitiş, tüm gün mü, renk, kaynağı (görev, kart, alt görev, kayıt) ve açma ile taşıma işlevleri.
-- Core'da:
-  - `calendar.ts`: hafta ve ay aralıkları, bir aralığa düşen öğeler, çakışan kutuların sütunlara dağıtılması (`calendarLayout`).
-  - Saf işlevler, testli.
-- Yalnız görünen aralığın öğeleri hesaplanır.
+- `apps/web/src/Calendar.tsx`: `TimeGrid` (bilgisayarda Day ve Week) ve `PhoneHours` (telefonda günün saatleri). Tüm gün satırının hücrelerini çağıran verir; Upcoming'in ayı `Upcoming.tsx`'te, telefonun hafta şeridi ve ayı `PhoneUpcoming.tsx`'te.
+- Kutu modeli `CalendarBox`: anahtar, başlık, alt satır, başlangıç, bitiş ya da süre, renk, taşınır mı. Açma, taşıma, süre çekme ve boş saate ekleme çağıranın işlevleridir; yazdığını o yazar, Undo'suyla.
+- Core'da `calendar.ts`: `weekStart`, `weekDays`, `layoutDay` (bir günün kutuları, çakışanlar sütunlarda; önceki günden taşan gün başından, ertesi güne taşan gün sonuna kadar), `atMinutes`, `minutesBetween`. Saf işlevler, testli.
+- Yalnız görünen günlerin kutuları hesaplanır.
 
 ## 4. Koleksiyonun ve panonun takvimi; Today ve Upcoming
 
@@ -226,3 +224,16 @@ Bugün, sırasıyla; her dilimin sonunda commit sorulur. Arayüzü olan dilim ö
 - İçe aktarmada hücreleri saatli sütun saatli tarih, yalnız saatler Time alanı olur; Excel'e saatli değer saatiyle (`m/d/yy h:mm`) gider.
 - Düğmenin sorusu `type: "time"` ya da `type: "date", time: true` olabilir; ajan cevaplar.
 - Fields'teki alan listesinde "date and time" ve "number · duration"; saatli tarih sütunu daha geniş.
+
+22 Ekim 2026'da, 2. dilimin kodu yazılırken verilen kararlar:
+- Haftanın tüm gün hücresinde üç öğe; fazlası varsa iki öğe ve "+N more". Day hepsini gösterir.
+- Tüm gün hücresine tıklayınca günün penceresi açılır, aydaki gibi; öğe başka güne sürüklenince o günü alır, Undo'suyla.
+- Add task her görünümde yarına ekler; takvim yarının olduğu yere döner.
+- Upcoming'de saatlere tıklamak bir şey eklemez: görevin saati yok, kayıtlar 3. dilimde gelir.
+- Başlıkta Today, ‹ ›, aralığın adı (hafta "Oct 19 – 25, 2026", gün "Thursday, Oct 22, 2026"); Day, Week, Month seçici Add task'in yanında. Status bar'da "5 tasks this week", "4 tasks on Fri, Oct 23".
+- Saatler 07:00'nin biraz üstünden açılır, saati yarım görünmesin diye.
+- Telefonda List, Day, Month; bilgisayarda seçilen Week telefonda Day görünür. Seçim cihazda kalır, bilgisayarınkiyle aynı yerde.
+- Telefonda Day ve Month bugünle açılır (taslaktaki gibi; önceden ay yarınla açılıyordu). + gösterilen güne ekler.
+- Telefonun Day'inde başlık, hafta şeridi ve çipler durur, yalnız saatler kayar. Çipe dokununca görev kendi sheet'inde, kart panosunda, alt görev kartında ya da kaydında açılır. Saatlerde sağa sola kaydırınca gün değişir.
+- Başlığın altında Day'de gün yazılır; Month'ta yazılmaz, ayın adı hemen altında.
+- Telefonda uzun basıp taşıma, kayıt kutularıyla 3. dilimde gelir.

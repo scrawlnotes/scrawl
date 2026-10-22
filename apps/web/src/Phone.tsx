@@ -3,7 +3,7 @@ import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { UpcomingView } from './device';
+import type { PhoneUpcomingView } from './PhoneUpcoming';
 import { Icon, type IconName } from './Icon';
 import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
@@ -109,8 +109,10 @@ export interface PhoneProps {
   /** Today or Upcoming. */
   dueView: (kind: 'today' | 'upcoming') => ReactNode;
   /** How Upcoming shows: its days, or the month. */
-  upcomingView: UpcomingView;
-  onUpcomingView: (view: UpcomingView) => void;
+  upcomingView: PhoneUpcomingView;
+  onUpcomingView: (view: PhoneUpcomingView) => void;
+  /** The day Upcoming's Day shows. */
+  upcomingDay: string;
   /** Whether + adds to what is open: a task to a list. */
   canAdd: (id: string) => boolean;
   /** + on what is open, or on Today or Upcoming: a task, typed above the keyboard. */
@@ -1172,13 +1174,13 @@ export function Phone(props: PhoneProps) {
       return (
         <PageFrame
           title={due === 'today' ? t('side.today') : t('side.upcoming')}
-          sub={due === 'today' ? day : undefined}
+          sub={due === 'today' ? day : props.upcomingView === 'day' ? new Date(`${props.upcomingDay}T12:00:00`).toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric' }) : undefined}
           side={
             due === 'upcoming' && (
               <div className="mb-seg" role="tablist">
-                {(['list', 'calendar'] as const).map((view) => (
+                {(['list', 'day', 'month'] as const).map((view) => (
                   <button key={view} type="button" role="tab" aria-selected={props.upcomingView === view} onClick={() => props.onUpcomingView(view)}>
-                    {view === 'list' ? t('tasks.viewList') : t('tasks.viewMonth')}
+                    {view === 'list' ? t('tasks.viewList') : t(`calendar.${view}`)}
                   </button>
                 ))}
               </div>

@@ -11,11 +11,13 @@ import {
   monthDays,
   type NewTask,
   type Task,
+  weekDays,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type ReactElement, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { loadUpcomingView, pageBox, pageWindow, saveUpcomingView, type UpcomingView } from './device';
+import { TimeGrid } from './Calendar';
+import { type CalendarRange, loadCalendarRange, loadUpcomingView, pageBox, pageWindow, saveCalendarRange, saveUpcomingView, type UpcomingView } from './device';
 import type { TaskPlaceChoice } from './dialogs';
 import { StillOpening } from './Loading';
 import { Icon } from './Icon';
@@ -137,12 +139,27 @@ function useAsked(asked: number, open: () => void) {
 export function Upcoming(props: Props) {
   const { today, onStatus } = props;
   const [view, setView] = useState<UpcomingView>(loadUpcomingView);
-  const [month, setMonth] = useState(today.slice(0, 7));
+  const [range, setRange] = useState<CalendarRange>(loadCalendarRange);
+  // The day the calendar is on: its week, its month.
+  const [focus, setFocus] = useState(today);
+  const month = focus.slice(0, 7);
   const [asked, setAsked] = useState(0);
   const choose = (next: UpcomingView) => {
     setView(next);
     saveUpcomingView(next);
   };
+  const chooseRange = (next: CalendarRange) => {
+    setRange(next);
+    saveCalendarRange(next);
+  };
+  const shift = (by: number) => setFocus(range === 'month' ? `${shiftMonth(month, by)}-01` : addDays(focus, range === 'week' ? by * 7 : by));
+  const days = range === 'day' ? [focus] : weekDays(focus);
+  const title =
+    range === 'month'
+      ? monthWords(month)
+      : range === 'day'
+        ? toDate(focus).toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
+        : new Intl.DateTimeFormat(locale(), { month: 'short', day: 'numeric', year: 'numeric' }).formatRange(toDate(days[0]!), toDate(days[6]!));
   useEffect(() => () => onStatus(null), []);
 
   const header = (
@@ -156,26 +173,44 @@ export function Upcoming(props: Props) {
         </button>
       </span>
       {view === 'calendar' && (
-        <span className="up-month">
-          <button type="button" aria-label={t('phone.previousMonth')} title={t('phone.previousMonth')} onClick={() => setMonth(shiftMonth(month, -1))}>
-            <Icon name="back" />
-          </button>
-          <span className="mn">{monthWords(month)}</span>
-          <button type="button" aria-label={t('phone.nextMonth')} title={t('phone.nextMonth')} onClick={() => setMonth(shiftMonth(month, 1))}>
-            <Icon name="chevron" />
-          </button>
-        </span>
+        <>
+          <span className="up-month">
+            <button type="button" className="up-today" onClick={() => setFocus(today)}>
+              {t('day.today')}
+            </button>
+            <button type="button" aria-label={t(`calendar.previous.${range}`)} title={t(`calendar.previous.${range}`)} onClick={() => shift(-1)}>
+              <Icon name="back" />
+            </button>
+            <button type="button" aria-label={t(`calendar.next.${range}`)} title={t(`calendar.next.${range}`)} onClick={() => shift(1)}>
+              <Icon name="chevron" />
+            </button>
+            <span className="mn">{title}</span>
+          </span>
+          <span className="vsw up-range" role="tablist" aria-label={t('calendar.range')}>
+            {(['day', 'week', 'month'] as const).map((each) => (
+              <button key={each} type="button" role="tab" aria-selected={range === each} onClick={() => chooseRange(each)}>
+                {t(`calendar.${each}`)}
+              </button>
+            ))}
+          </span>
+        </>
       )}
     </>
   );
-  // Add task adds on tomorrow; on the calendar, in this month, where tomorrow always is.
+  // Add task adds on tomorrow; on the calendar, where tomorrow is shown.
   const add = () => {
-    if (view === 'calendar') setMonth(today.slice(0, 7));
+    if (view === 'calendar') setFocus(range === 'month' ? today : addDays(today, 1));
     setAsked(asked + 1);
   };
   return (
     <TaskPage title={t('tasks.upcoming')} extra={header} onAddClick={add} footer={<StillOpening text={props.still ?? null} />}>
-      {view === 'list' ? <UpcomingList {...props} asked={asked} /> : <UpcomingCalendar {...props} month={month} asked={asked} />}
+      {view === 'list' ? (
+        <UpcomingList {...props} asked={asked} />
+      ) : range === 'month' ? (
+        <UpcomingCalendar {...props} month={month} asked={asked} />
+      ) : (
+        <UpcomingWeek key={range} {...props} days={days} asked={asked} />
+      )}
     </TaskPage>
   );
 }
@@ -378,36 +413,19 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
     setDragging(null);
     setDropOn(null);
   };
-  const line = (entry: Entry, day: string) => {
-    const isCard = 'card' in entry && !('subtask' in entry);
-    const { title, priority } = 'subtask' in entry ? entry.subtask : 'task' in entry ? entry.task : entry.card;
-    const item = datedOf(entry);
-    const lifted = dragging && entryKey(entry) === datedKey(dragging.item);
-    return (
-      <button
-        key={entryKey(entry)}
-        type="button"
-        draggable
-        className={['cal-t', day < today && 'late', lifted && 'ghost'].filter(Boolean).join(' ')}
-        style={priority < 4 ? ({ '--pc': `var(--sl-p${priority})` } as CSSProperties) : undefined}
-        title={title}
-        onDragStart={(event) => {
-          event.dataTransfer.effectAllowed = 'move';
-          event.dataTransfer.setData('text/plain', title);
-          setDragging({ item, from: day });
-        }}
-        onDragEnd={end}
-        onClick={(event) => {
-          event.stopPropagation();
-          openDay(day);
-        }}
-      >
-        <i className={isCard ? 'sq' : undefined} />
-        {isCard && boards[entry.board] && <span className="key">{keyOf(boards[entry.board]!, entry.card)}</span>}
-        <span>{title}</span>
-      </button>
-    );
-  };
+  const line = (entry: Entry, day: string) => (
+    <DayChip
+      key={entryKey(entry)}
+      entry={entry}
+      day={day}
+      today={today}
+      boards={boards}
+      lifted={!!dragging && entryKey(entry) === datedKey(dragging.item)}
+      onDragStart={() => setDragging({ item: datedOf(entry), from: day })}
+      onDragEnd={end}
+      onOpen={() => openDay(day)}
+    />
+  );
 
   const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'short' }));
   return (
@@ -497,6 +515,158 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
           );
         })}
       </div>
+      {opened && (
+        <DayWindow
+          key={opened.day}
+          grid={grid}
+          opened={opened}
+          entries={byDay.get(opened.day) ?? []}
+          lists={lists}
+          boards={boards}
+          today={today}
+          actions={actions}
+          places={places}
+          onAdd={onAdd}
+          onAdding={(adding) => setOpened({ ...opened, adding, n: adding ? opened.n + 1 : opened.n })}
+          onClose={() => setOpened(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** A task, a card or a subtask on a day of the calendar: dragged to another day, it takes that day; clicked, its day opens. */
+function DayChip({ entry, day, today, boards, lifted, onDragStart, onDragEnd, onOpen }: {
+  entry: Entry;
+  day: string;
+  today: string;
+  boards: Record<string, Board>;
+  lifted: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onOpen: () => void;
+}) {
+  const isCard = 'card' in entry && !('subtask' in entry);
+  const { title, priority } = 'subtask' in entry ? entry.subtask : 'task' in entry ? entry.task : entry.card;
+  return (
+    <button
+      type="button"
+      draggable
+      className={['cal-t', day < today && 'late', lifted && 'ghost'].filter(Boolean).join(' ')}
+      style={priority < 4 ? ({ '--pc': `var(--sl-p${priority})` } as CSSProperties) : undefined}
+      title={title}
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', title);
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpen();
+      }}
+    >
+      <i className={isCard ? 'sq' : undefined} />
+      {isCard && boards[entry.board] && <span className="key">{keyOf(boards[entry.board]!, entry.card)}</span>}
+      <span>{title}</span>
+    </button>
+  );
+}
+
+/**
+ * A day or a week, after the Calendar mockups: each day's tasks, cards and subtasks in its all-day
+ * cell, as many as fit and +N more, dragged to another day to take it; a day's cell opens its
+ * window, as the month's does. The hours hold what has a time.
+ */
+function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, days, asked }: Props & { days: string[]; asked: number }) {
+  const grid = useRef<HTMLDivElement>(null);
+  const [opened, setOpened] = useState<Opened | null>(null);
+  const [dragging, setDragging] = useState<{ item: Dated; from: string } | null>(null);
+  const [dropOn, setDropOn] = useState<string | null>(null);
+  const { tasks, cards, subtasks, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks());
+  const one = days.length === 1;
+  // A day shows all it has; a week three a day, and +N more.
+  const fit = one ? Number.MAX_SAFE_INTEGER : 3;
+
+  const openDay = (day: string) => setOpened((was) => (was?.day === day ? was : { day, adding: false, n: (was?.n ?? 0) + 1 }));
+  const addOn = (day: string) => setOpened((was) => ({ day, adding: true, n: (was?.n ?? 0) + 1 }));
+  useEffect(() => setOpened(null), [days[0]]);
+  useAsked(asked, () => addOn(days.includes(addDays(today, 1)) ? addDays(today, 1) : days[0]!));
+
+  const shown = (day: string) => day >= days[0]! && day <= days.at(-1)!;
+  const taskCount = tasks.filter((each) => shown(each.task.due!)).length + subtasks.filter((each) => shown(each.subtask.due!)).length;
+  const cardCount = cards.filter((each) => shown(each.card.due!)).length;
+  useEffect(
+    () =>
+      onStatus(
+        dragging
+          ? [t('tasks.dropOnDay')]
+          : [one ? t('tasks.onDay', { what: countWords(taskCount, cardCount).join(' · '), day: dateWords(days[0]!, today) }) : t('tasks.inWeek', { what: countWords(taskCount, cardCount).join(' · ') })],
+      ),
+    [dragging, taskCount, cardCount, days[0], one],
+  );
+  const end = () => {
+    setDragging(null);
+    setDropOn(null);
+  };
+
+  const cell = (day: string) => {
+    const entries = byDay.get(day) ?? [];
+    const visible = entries.length > fit ? entries.slice(0, fit - 1) : entries;
+    const more = entries.length - visible.length;
+    return (
+      <div
+        key={day}
+        className={['tg-ad', day === today && 'today', day < today && 'past', opened?.day === day && 'on', dropOn === day && 'drop-on'].filter(Boolean).join(' ')}
+        data-day={day}
+        onClick={() => openDay(day)}
+        onDragOver={(event) => {
+          if (!dragging) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'move';
+          if (dropOn !== day) setDropOn(day);
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropOn((was) => (was === day ? null : was));
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          if (dragging && dragging.from !== day) actions.reschedule([dragging.item], day);
+          end();
+        }}
+      >
+        {visible.map((entry) => (
+          <DayChip
+            key={entryKey(entry)}
+            entry={entry}
+            day={day}
+            today={today}
+            boards={boards}
+            lifted={!!dragging && entryKey(entry) === datedKey(dragging.item)}
+            onDragStart={() => setDragging({ item: datedOf(entry), from: day })}
+            onDragEnd={end}
+            onOpen={() => openDay(day)}
+          />
+        ))}
+        {more > 0 && (
+          <button
+            type="button"
+            className="cal-more"
+            onClick={(event) => {
+              event.stopPropagation();
+              openDay(day);
+            }}
+          >
+            {t('tasks.moreOnDay', { count: more })}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="up-week">
+      <TimeGrid days={days} today={today} allDay={cell} boxes={[]} onOpen={() => {}} gridRef={grid} />
       {opened && (
         <DayWindow
           key={opened.day}
