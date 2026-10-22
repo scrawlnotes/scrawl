@@ -11,7 +11,7 @@ import type { Field, LayoutBlock, NumberFormat, View } from '../collection';
 export const APP_FILE = '_app.json';
 
 /** The templates, in the order they are set up: the one before sets up what a shared piece starts with. */
-export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'projects', 'budget', 'stock', 'product', 'recruiting', 'assets', 'content'] as const;
+export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'product', 'recruiting', 'assets', 'content'] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
@@ -108,12 +108,12 @@ export interface AppDraft extends Chosen {
   field(role: string, field: Field): void;
   /** Adds a block to the right of a collection's record screen, once. */
   block(role: string, block: LayoutBlock): void;
-  /** Adds a view to a collection as it is set up, once by its id; a collection there before keeps its own views. */
-  view(role: string, view: View): void;
+  /** Adds a view to a collection as it is set up, once by its id, the one it opens on with `opens`; a collection there before keeps its own views. */
+  view(role: string, view: View, opens?: boolean): void;
   /** Adds a rule to a collection's `_rules.js`, once by its name. */
   rule(role: string, chunk: RuleChunk): void;
   /** Adds a record to a collection as it is set up: a budget line, a warehouse. */
-  record(role: string, values: { [key: string]: string | number | boolean }): void;
+  record(role: string, values: { [key: string]: string | number | boolean | string[] }): void;
   /** A board's columns and how it is shown, when it is set up. */
   columns(role: string, columns: [string, ColumnKind][], look?: { phasesOn?: boolean; list?: boolean }): void;
   /** A note in a folder piece: a saved reply. */
@@ -175,9 +175,11 @@ export interface CollectionPart {
   blocks: LayoutBlock[];
   /** The views it starts with: a calendar. */
   views: View[];
+  /** The view it opens on, by its id. */
+  defaultView?: string;
   rules: RuleChunk[];
   /** The records it starts with. */
-  records: { [key: string]: string | number | boolean }[];
+  records: { [key: string]: string | number | boolean | string[] }[];
   /** Set when it was there before: its files as they were. */
   was?: { schema: string; rules: string | null };
 }

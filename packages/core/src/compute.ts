@@ -10,14 +10,15 @@ import {
   isLink,
   linkFieldsTo,
   matchesCondition,
+  pointsAt,
   type Record,
   type RecordProblem,
   type RollupFn,
   type Schema,
 } from './collection';
 import { clockOf, dateOf, isDay } from './day';
-import { Clock, Day, type Env, evaluate, fromRuntime, isRef, type Kind, kindOfField, type Ref, type RV, type Scope, textOf, toRuntime } from './lang';
-import { failedChecks, rulesOf } from './rules';
+import { Clock, Day, equal, type Env, evaluate, fromRuntime, isRef, type Kind, kindOfField, Obj, type Ref, type RV, type Scope, textOf, toRuntime } from './lang';
+import { failedChecks, pathNamed, rulesOf } from './rules';
 
 // What is worked out across a space: formulas, which may read a linked record's field
 // (`project.customer`); lookups, a linked record's field shown as one of this record's; rollups,
@@ -93,6 +94,9 @@ function aggregate(fn: RollupFn, values: RV[]): RV {
   if (days.length === 0) return null;
   return days.reduce((a, b) => ((fn === 'max' ? b.n > a.n : b.n < a.n) ? b : a));
 }
+
+/** A record as a rule holds it. */
+const refTo = (dir: string, record: Pick<Record, 'id' | 'name' | 'code'>): Ref => ({ ref: true, dir, id: record.id, name: record.name, ...(record.code && { code: record.code }) });
 
 export class Computer {
   private readonly dirs = new Map<string, Collection>();
@@ -200,7 +204,8 @@ export class Computer {
     if (!rules || rules.checks.length === 0) return [];
     const draft = values !== undefined;
     const shown: Record = draft || !record ? { id: record?.id ?? '', path: record?.path ?? '', name: record?.name ?? '', code: record?.code ?? '', values: values ?? {}, extra: {}, body: '' } : record;
-    return failedChecks(rules, this.env(dir, shown, draft)).map((f) => ({ field: f.field ?? '', kind: 'check', message: f.message }));
+    const env: Env = { ...this.env(dir, shown, draft), self: refTo(dir, shown), rule: (fn, args) => this.reading(dir, shown, fn, args) };
+    return failedChecks(rules, env).map((f) => ({ field: f.field ?? '', kind: 'check', message: f.message }));
   }
 
   /** A collection with what is worked out among its records' values, for the table to show, sort, group, sum and filter by; the same collection when it has nothing worked out. */
@@ -282,6 +287,30 @@ export class Computer {
       },
       member: (ref, key) => this.member(ref, key),
     };
+  }
+
+  /**
+   * What a check's find() and linked() give: the records of a collection whose fields hold what
+   * is asked, or those that link to the record; undefined for another function.
+   */
+  private reading(dir: string, record: Record, fn: string, args: RV[]): RV | undefined {
+    if (fn !== 'find' && fn !== 'linked') return undefined;
+    const path = typeof args[0] === 'string' ? pathNamed([...this.dirs.keys()], args[0], dir) : undefined;
+    const source = path ? this.dirs.get(path) : undefined;
+    if (!path || !source) return [];
+    if (fn === 'linked') {
+      const links = linkFieldsTo(source.schema, dir);
+      return source.records.filter((r) => !!record.id && links.some((f) => pointsAt(r.values[f.key], record))).map((r) => refTo(path, r));
+    }
+    const set = args[1] ?? null;
+    const holds = (r: Record) =>
+      !(set instanceof Obj) ||
+      [...set.values].every(([key, wanted]) => {
+        const field = source.schema.fields.find((f) => f.key === key.toLowerCase());
+        if (!field) return false;
+        return isRef(wanted) ? pointsAt(r.values[field.key], { id: wanted.id, name: wanted.name }) : equal(toRuntime(field, r.values[field.key] ?? null), wanted);
+      });
+    return source.records.filter(holds).map((r) => refTo(path, r));
   }
 
   /** A field of a linked record. */

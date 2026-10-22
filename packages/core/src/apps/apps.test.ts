@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseBoard } from '../board';
-import { parseSchema } from '../collection';
+import { addRecord, type Collection, loadCollection, parseSchema } from '../collection';
+import { Computer } from '../compute';
 import { MemoryFs } from '../fs';
 import { linksIn, resolveHref } from '../links';
 import { APP_FILE, AppProblems, planApp } from './build';
@@ -12,7 +13,7 @@ import { type Answers, TEMPLATE_IDS, type TemplateId } from './types';
 let n = 0;
 const ids = () => `id${++n}`;
 
-/** Every set of templates: 1023 of them, and the empty one left out. */
+/** Every set of templates: 2047 of them, and the empty one left out. */
 const sets = (): TemplateId[][] => {
   const out: TemplateId[][] = [];
   for (let mask = 1; mask < 1 << TEMPLATE_IDS.length; mask++) out.push(TEMPLATE_IDS.filter((_, i) => mask & (1 << i)));
@@ -24,6 +25,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'companies', deals: true },
   sales: { sells: 'both', tax: true, taxIncluded: true, discount: true, quotes: true },
   support: { feedback: true, replies: true },
+  appointments: { for: 'both', by: 'team', staff: ['Ayşe', 'Mehmet'], fee: true, payments: true },
   projects: { for: 'both', time: true, budget: true },
   budget: { periods: 'monthly', due: true, expenses: true, expected: true },
   stock: { purchasing: true, locations: true, deduct: 'confirmed', payables: true },
@@ -36,6 +38,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
   sales: { sells: 'services', tax: false, discount: false, quotes: false },
   support: { channels: [], feedback: false, replies: false },
+  appointments: { for: 'resources', by: 'me', resources: [], fee: false },
   projects: { for: 'internal', time: false, budget: false, steps: [] },
   budget: { periods: 'none', due: false, expenses: false, categories: [] },
   stock: { purchasing: false, locations: false, deduct: 'no' },
@@ -65,8 +68,8 @@ describe('setting up an app', () => {
         }
       }
     }
-    expect(made).toBe(1023 * 6);
-  }, 60_000);
+    expect(made).toBe(2047 * 6);
+  }, 180_000);
 
   it('sets up a shared piece once, for every template that uses it', () => {
     const plan = planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'crm' }, { id: 'sales' }, { id: 'stock' }, { id: 'support' }] }, { ids });
@@ -123,6 +126,45 @@ describe('setting up an app', () => {
     expect(field('activities', 'date')).toMatchObject({ type: 'date', time: true });
     expect(field('interviews', 'date')).toMatchObject({ type: 'date', time: true });
     expect(field('maintenance', 'date')!.time).toBeUndefined();
+  });
+
+  it('sets up Appointments: a calendar it opens on, one for each in the team, and checks that mark what runs into another', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Studio', currencies: ['TRY'], templates: [{ id: 'appointments', answers: { for: 'both', by: 'team', staff: ['Ayşe', 'Mehmet'], services: ['Consultation 30', 'Massage 60', 'Tea'] } }] }, { ids }));
+    const schema = parseSchema(await fs.readText('Studio/Appointments/_collection.json'));
+    expect(schema.defaultView).toBe('calendar');
+    expect(schema.views!.map((v) => [v.name, v.calendar!.color, v.conditions])).toEqual([
+      ['Calendar', 'staff', []],
+      ['Ayşe', 'status', [{ field: 'staff', op: 'is', value: ['Ayşe'] }]],
+      ['Mehmet', 'status', [{ field: 'staff', op: 'is', value: ['Mehmet'] }]],
+    ]);
+    const load = (dir: string) => loadCollection(fs, `Studio/${dir}`);
+    expect((await load('Services')).records.map((r) => [r.name, r.values.duration]).sort()).toEqual([['Consultation', 30], ['Massage', 60], ['Tea', 30]]);
+    const staff = await load('Staff');
+    const ayse = staff.records.find((r) => r.name === 'Ayşe')!;
+    expect(ayse.values).toMatchObject({ from: '09:00', until: '18:00', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] });
+    const room = (await load('Resources')).records.find((r) => r.name === 'Room 1')!;
+    let appointments: Collection = await load('Appointments');
+    const book = async (name: string, start: string, duration: number, more: object = {}) => {
+      const made = await addRecord(fs, appointments, { values: { name, start, duration, status: 'Booked', staff: { id: ayse.id, name: 'Ayşe' }, ...more } });
+      appointments = await load('Appointments');
+      return made.id;
+    };
+    const a = await book('Consultation with Can', '2026-10-22T14:30', 60);
+    const b = await book('Massage with Ece', '2026-10-22T15:00', 30);
+    const c = await book('Late one', '2026-10-22T17:30', 60);
+    const d = await book('Sunday one', '2026-10-25T10:00', 30);
+    const e = await book('In room 1', '2026-10-23T10:00', 60, { staff: null, resource: { id: room.id, name: 'Room 1' } });
+    const f = await book('Also in room 1', '2026-10-23T10:30', 60, { staff: null, resource: { id: room.id, name: 'Room 1' } });
+    const all = await Promise.all(['Appointments', 'Services', 'Staff', 'Resources', 'People'].map(load));
+    const computer = new Computer(all, {}, '2026-10-21');
+    const marked = (id: string) => computer.checks('Studio/Appointments', appointments.records.find((r) => r.id === id)!).map((p) => p.message);
+    expect(marked(a)).toEqual(['Overlaps with Massage with Ece, 15:00']);
+    expect(marked(b)).toEqual(['Overlaps with Consultation with Can, 14:30']);
+    expect(marked(c)).toEqual(["Outside Ayşe's hours, 09:00 to 18:00"]);
+    expect(marked(d)).toEqual(['Ayşe does not work on Sun']);
+    expect(marked(e)).toEqual(['Overlaps with Also in room 1, 10:30']);
+    expect(marked(f)).toEqual(['Overlaps with In room 1, 10:00']);
   });
 
   it('says what is wrong with what it was given', () => {

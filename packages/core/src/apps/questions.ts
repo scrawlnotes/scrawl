@@ -1,4 +1,5 @@
 import { t } from '@scrawlnotes/i18n';
+import { appointments } from './templates/appointments';
 import { assets } from './templates/assets';
 import { budget } from './templates/budget';
 import { content } from './templates/content';
@@ -11,7 +12,7 @@ import { stock } from './templates/stock';
 import { support } from './templates/support';
 import { type Answer, type Answers, type AppTemplate, type Question, TEMPLATE_IDS, type TemplateId } from './types';
 
-export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, projects, budget, stock, product, recruiting, assets, content };
+export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, product, recruiting, assets, content };
 
 export const isTemplateId = (id: unknown): id is TemplateId => TEMPLATE_IDS.includes(id as TemplateId);
 

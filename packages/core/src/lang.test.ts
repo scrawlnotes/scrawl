@@ -106,7 +106,8 @@ describe('the language', () => {
     expect(problem('"open')).toBe('A text is not closed: a quote or a ` is missing.');
     expect(problem('status = "Done"')).toBe('Write == to compare; a formula does not set a value.');
     expect(problem('if(qty > 2, 1, 0)')).toBe('There is no if(); write condition ? then : else.');
-    expect(problem('weekday(start)')).toBe('There is no function weekday().');
+    expect(problem('quarter(start)')).toBe('There is no function quarter().');
+    expect(problem('weekday(start)')).toBeNull();
     expect(problem('round()')).toBe('round() takes one or two values.');
     expect(problem('me()')).toBe('me() cannot be in a formula: what it gives depends on who looks.');
     expect(problem('price - status')).toBe('status is a choice, not a number; - takes numbers or days.');

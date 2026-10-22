@@ -141,7 +141,10 @@ export function calendarRecords(collection: Collection, view: View, today: strin
     if (!start || !matchesConditions(record, collection.schema, view.conditions, today)) continue;
     const end = settings.end ? dateValue(record.values[settings.end]) : null;
     const length = settings.duration ? record.values[settings.duration] : null;
-    const choice = colorField ? record.values[colorField.key] : null;
+    // A choice by itself; a linked record or a person by its name.
+    const held = colorField ? record.values[colorField.key] : null;
+    const first = Array.isArray(held) ? held[0] : held;
+    const choice = typeof first === 'string' ? first : first && typeof first === 'object' && 'name' in first ? first.name : null;
     out.push({
       record,
       start,

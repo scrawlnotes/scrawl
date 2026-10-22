@@ -97,6 +97,41 @@ describe('rules', () => {
     expect(broken.checks(transactions.dir, transactions.records[0]!)).toEqual([]);
   });
 
+  it('lets a check read other records with find() and linked(), and change nothing', () => {
+    const OVERLAP = 'find("Visits", { staff: staff }).find((v) => v != this && v.status != "Cancelled" && v.start < start + minutes(length) && v.start + minutes(v.length) > start)';
+    const visits: Collection = {
+      dir: 'S/Visits',
+      schema: schema([
+        { key: 'start', label: 'Start', type: 'date', time: true },
+        { key: 'length', label: 'Length', type: 'number' },
+        { key: 'staff', label: 'Staff', type: 'text' },
+        { key: 'status', label: 'Status', type: 'select', options: ['Booked', 'Cancelled'] },
+      ]),
+      records: [
+        record('a1', 'Maintenance', { start: '2026-10-22T14:30', length: 90, staff: 'Kaan', status: 'Booked' }),
+        record('a2', 'Call', { start: '2026-10-22T15:00', length: 30, staff: 'Kaan', status: 'Booked' }),
+        record('a3', 'Survey', { start: '2026-10-22T15:00', length: 30, staff: 'Deniz', status: 'Booked' }),
+        record('a4', 'Old', { start: '2026-10-22T14:45', length: 30, staff: 'Kaan', status: 'Cancelled' }),
+        record('a5', 'Weekend', { start: '2026-10-25T10:00', length: 30, staff: 'Kaan', status: 'Booked' }),
+      ],
+      rules: `check("start", () => status == "Cancelled" || empty(${OVERLAP}), \`Overlaps with \${${OVERLAP}.name}, \${text(time(${OVERLAP}.start))}\`)
+check("start", () => weekday(start) != "Sun", "Not on a Sunday")`,
+    };
+    const computer = new Computer([visits], {}, today);
+    const at = (id: string) => computer.checks(visits.dir, visits.records.find((r) => r.id === id)!).map((p) => p.message);
+    expect(at('a1')).toEqual(['Overlaps with Call, 15:00']);
+    expect(at('a2')).toEqual(['Overlaps with Maintenance, 14:30']);
+    expect(at('a3')).toEqual([]);
+    expect(at('a4')).toEqual([]);
+    expect(at('a5')).toEqual(['Not on a Sunday']);
+    // A new one, as its form holds it, is read against those saved.
+    expect(computer.checks(visits.dir, null, { start: '2026-10-22T15:15', length: 15, staff: 'Kaan', status: 'Booked' }).map((p) => p.message)).toEqual(['Overlaps with Maintenance, 14:30']);
+    // What would change the space is not for a check.
+    const scope = { fields: visits.schema.fields, dir: visits.dir };
+    expect(rulesProblems(visits.rules!, scope)).toEqual([]);
+    expect(rulesProblems('check(null, () => empty(add("Visits", { name: "x" })), "x")', scope)[0]!.message).toMatch(/only reads/);
+  });
+
   it('is read with its collection and merged by lines as a note is', async () => {
     const fs = new MemoryFs();
     await saveSchema(fs, 'S/Transactions', transactions.schema);

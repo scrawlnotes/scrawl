@@ -1945,7 +1945,8 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   // Conditions applied without being saved as a view, until the tab closes.
   const [adHoc, setAdHoc] = useState<Condition[]>([]);
   const views = schema.views ?? [];
-  const view = views.find((v) => v.id === look?.view) ?? null;
+  // Until a view is chosen on this device, the one the schema opens on.
+  const view = views.find((v) => v.id === (look?.view === undefined ? schema.defaultView : look.view)) ?? null;
   const calendarView = view?.kind === 'calendar' ? view : null;
   const nav = useCalendarNav(`${dir}#${view?.id ?? ''}`, calendarView ? firstRange(schema, calendarView) : 'week', today);
   const fieldsByKey = useMemo(() => new Map(schema.fields.map((f) => [f.key, f])), [schema]);

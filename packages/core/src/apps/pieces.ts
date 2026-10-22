@@ -45,6 +45,10 @@ export const PIECES: { [role: string]: PieceInfo } = {
   maintenance: { kind: 'collection', name: 'Maintenance', singular: 'maintenance', about: 'every service, repair and check, with its cost.' },
   content: { kind: 'board', name: 'Content', about: 'what you will publish, a card each, by stage; its due day is the day it goes out.' },
   campaigns: { kind: 'collection', name: 'Campaigns', singular: 'campaign', about: 'each campaign, its dates and what is published in it.' },
+  appointments: { kind: 'collection', name: 'Appointments', singular: 'appointment', about: 'each appointment or booking: for whom, when, with whom, and how it stands.' },
+  services: { kind: 'collection', name: 'Services', singular: 'service', about: 'what you give an appointment for, with how long it takes.' },
+  staff: { kind: 'collection', name: 'Staff', singular: 'person', about: 'who takes the appointments, with their hours and days.' },
+  resources: { kind: 'collection', name: 'Resources', singular: 'resource', about: 'the rooms, tables and things that are booked.' },
 };
 
 /** The roles, in the order the pieces are listed: by template, the shared ones first where they are first used. */

@@ -437,6 +437,32 @@ function checkBody(body: Stmt[], when: Node | undefined, outer: Scope, space: Ru
   walk(body, locals, new Set(saving ? ['old'] : asked ? ['input'] : []));
 }
 
+/** What a check may call: find() and linked(), which read the space and change nothing; another of the rules' own functions is refused. */
+function readingFn(scope: Scope, space: RuleSpace | undefined): NonNullable<Scope['ruleFn']> {
+  const dir = scope.dir ?? '';
+  return (fn, _kinds, nodes) => {
+    if (!READ_FNS.includes(fn) && CHANGE_FNS.includes(fn)) throw new LangError(t('rules.readOnlyInCheck', { fn }), nodes[0]?.at ?? 0);
+    if (!READ_FNS.includes(fn)) return undefined;
+    if (nodes.length < 1 || nodes.length > (fn === 'find' ? 2 : 1)) throw new LangError(t('lang.args', { fn, count: fn === 'find' ? t('lang.args.1-2') : t('lang.args.1') }), nodes[0]?.at ?? 0);
+    const name = nodes[0]!;
+    if (name.k !== 'str') throw new LangError(t('rules.nameInQuotes', { fn, what: t('rules.what.collection') }), name.at);
+    if (!space) return { list: 'any' };
+    const path = pathNamed(space.collections.map((c) => c.dir), name.v, dir);
+    if (!path) throw new LangError(t('rules.noCollection', { name: name.v }), name.at);
+    const target = space.collections.find((c) => c.dir === path)!;
+    if (fn === 'linked' && !target.fields.some((f) => f.type === 'link' && f.collection === dir)) throw new LangError(t('rules.noLinkBack', { name: name.v }), name.at);
+    const set = nodes[1];
+    if (set?.k === 'obj') {
+      for (const e of set.entries) if (!target.fields.some((f) => f.key === e.key.toLowerCase())) throw new LangError(t('rules.noFieldIn', { where: name.v, name: e.key }), e.at);
+    }
+    return { list: { record: target.dir } };
+  };
+}
+
+/** The rules' own functions that read the space, and those that change it. */
+const READ_FNS = ['find', 'linked'];
+const CHANGE_FNS = ['add', 'update', 'remove', 'card', 'move', 'subtask', 'task', 'cards'];
+
 /** The line a place of a text is on, from 1. */
 export const lineAt = (src: string, at: number) => src.slice(0, Math.max(0, at)).split('\n').length;
 
@@ -455,7 +481,7 @@ export function rulesProblems(src: string, scope: Scope, space?: RuleSpace): Rul
     throw error;
   }
   const problems: RuleProblem[] = [];
-  const ruled: Scope = { ...scope, use: 'rule', self: undefined };
+  const ruled: Scope = { ...scope, use: 'rule', self: undefined, ruleFn: readingFn(scope, space) };
   for (const rule of rules.checks) {
     if (rule.field !== null && !scope.fields.some((f) => f.key === rule.field)) {
       problems.push(said(rule.fieldAt, t('fields.formulaUnknown', { name: rule.field })));

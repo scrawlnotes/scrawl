@@ -36,7 +36,7 @@ Rules in **Fields** check records, add buttons such as **Start project**, and fi
 
 ### 🧱 Apps
 
-Collections, boards and rules that work together, set up from ready templates: **CRM**, **Sales and invoicing**, **Customer support**, **Project management**, **Budget and spending**, **Stock and purchasing**, **Product development**, **Recruiting**, **Assets and maintenance** and **Content calendar**. In **Browse**, press **+** and pick **App**, choose the ones you need and answer a few questions; each comes with an answer ready. The app's folder gets everything, linked to each other, and an **About** note on how it is used. **Add to app**, in the folder's **···** menu, adds another template later.
+Collections, boards and rules that work together, set up from ready templates: **CRM**, **Sales and invoicing**, **Customer support**, **Appointments and bookings**, **Project management**, **Budget and spending**, **Stock and purchasing**, **Product development**, **Recruiting**, **Assets and maintenance** and **Content calendar**. In **Browse**, press **+** and pick **App**, choose the ones you need and answer a few questions; each comes with an answer ready. The app's folder gets everything, linked to each other, and an **About** note on how it is used. **Add to app**, in the folder's **···** menu, adds another template later.
 
 ### 🔑 Keys
 

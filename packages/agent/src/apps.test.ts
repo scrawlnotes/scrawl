@@ -32,6 +32,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'companies', deals: true },
   sales: { sells: 'both', tax: true, taxIncluded: true, discount: true, quotes: true },
   support: { feedback: true, replies: true },
+  appointments: { for: 'both', by: 'team', staff: ['Ayşe', 'Mehmet'], fee: true, payments: true },
   projects: { for: 'both', time: true, budget: true },
   budget: { periods: 'monthly', due: true, expenses: true, expected: true },
   stock: { purchasing: true, locations: true, deduct: 'confirmed', payables: true },
@@ -44,6 +45,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
   sales: { sells: 'services', tax: false, discount: false, quotes: false },
   support: { channels: [], feedback: false, replies: false },
+  appointments: { for: 'resources', by: 'me', resources: [], fee: false },
   projects: { for: 'internal', time: false, budget: false, steps: [] },
   budget: { periods: 'none', due: false, expenses: false, categories: [] },
   stock: { purchasing: false, locations: false, deduct: 'no' },
@@ -88,8 +90,8 @@ describe('apps', () => {
         apps++;
       }
     }
-    expect(apps).toBe(2046);
-  }, 600_000);
+    expect(apps).toBe(4094);
+  }, 900_000);
 
   it('runs a sale through: a line from its product, the order adding up, stock out on delivery, the payment expected and recorded', async () => {
     const { fs, agent } = await world();
@@ -204,6 +206,21 @@ describe('apps', () => {
     expect(closed.data.record.values).toMatchObject({ status: 'Done', open_cards: 0, progress: 1, hours: 6, billable_hours: 6 });
     const board = JSON.parse(await fs.readText('Lifts/Work.board.json'));
     expect(board.cards.map((c: { title: string }) => c.title)).toEqual(['Antalya Hotel: Kickoff', 'Antalya Hotel: Planning', 'Antalya Hotel: Delivery', 'Antalya Hotel: Review']);
+  });
+
+  it('books an appointment from its service, and writes it as a payment when it is done', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Clinic', templates: ['appointments', 'budget'], currencies: ['TRY'] });
+    const visit = await saveRecordTool(agent, { collection: 'Clinic/Appointments', values: { name: 'Consultation with Can', start: '2026-10-22T10:00', service: 'Consultation', price: 500 } });
+    expect(visit.data.record.values).toMatchObject({ duration: 30, status: 'Booked', ends: '2026-10-22T10:30' });
+    const id = visit.data.record.id;
+    expect((await saveRecordTool(agent, { collection: 'Clinic/Appointments', id, action: 'Confirm' })).data.record.values.status).toBe('Confirmed');
+    const moved = await saveRecordTool(agent, { collection: 'Clinic/Appointments', id, action: 'Reschedule', input: { start: '2026-10-23T11:00' } });
+    expect(moved.data.record.values).toMatchObject({ start: '2026-10-23T11:00', status: 'Booked' });
+    await saveRecordTool(agent, { collection: 'Clinic/Appointments', id, action: 'Done' });
+    const payments = (await recordsTool(agent, { collection: 'Clinic/Payments' })).data.records;
+    expect(payments).toHaveLength(1);
+    expect(payments[0]!.values).toMatchObject({ name: 'Consultation with Can', direction: 'In', amount: 500, status: 'Invoiced', appointment: { id }, budget_line: { name: 'Appointments' } });
   });
 
   it('logs a call from a company, and ships a release asking first when cards are open', async () => {

@@ -241,6 +241,8 @@ export interface Schema {
   role?: string;
   /** The saved views, in the order they were made. */
   views?: View[];
+  /** The view it opens on, by its id, until another is chosen on a device: an app's calendar. */
+  defaultView?: string;
   /** The fields; their order is the order of the table's columns. */
   fields: Field[];
   /** The record screen; unset means one column of every field, then the body. */
@@ -645,6 +647,7 @@ export function parseSchema(text: string): Schema {
   if (layout) schema.layout = layout;
   const views = readViews(data.views, fields);
   if (views.length > 0) schema.views = views;
+  if (typeof data.defaultView === 'string' && views.some((v) => v.id === data.defaultView)) schema.defaultView = data.defaultView;
   return schema;
 }
 
@@ -682,6 +685,9 @@ function readViews(raw: unknown, fields: Field[]): View[] {
   return views;
 }
 
+/** The fields a calendar can be colored by: a choice, a linked record, a person; each of their values in a color of its own. */
+export const COLOR_TYPES: readonly FieldType[] = ['select', 'link', 'person'];
+
 /** The fields a calendar can start on: the dates. */
 export const calendarStarts = (fields: readonly Field[]) => fields.filter((f) => f.type === 'date');
 
@@ -697,7 +703,7 @@ function readCalendar(raw: unknown, fields: Field[]): CalendarSettings | null {
   if (!start) return null;
   const end = field(given.end, (f) => f.type === 'date' || isComputed(f.type));
   const duration = end ? undefined : field(given.duration, (f) => f.type === 'number' || isComputed(f.type));
-  const color = field(given.color, (f) => f.type === 'select');
+  const color = field(given.color, (f) => COLOR_TYPES.includes(f.type));
   return {
     start: start.key,
     ...(end && end.key !== start.key && { end: end.key }),
@@ -716,8 +722,8 @@ export function putView(schema: Schema, view: View): Schema {
 
 export function removeView(schema: Schema, id: string): Schema {
   const views = (schema.views ?? []).filter((v) => v.id !== id);
-  const { views: _old, ...rest } = schema;
-  return views.length > 0 ? { ...rest, views } : rest;
+  const { views: _old, defaultView, ...rest } = schema;
+  return views.length > 0 ? { ...rest, views, ...(defaultView && defaultView !== id && { defaultView }) } : rest;
 }
 
 export function serializeSchema(schema: Schema): string {

@@ -268,3 +268,17 @@ Bugün, sırasıyla; her dilimin sonunda commit sorulur. Arayüzü olan dilim ö
 - Renk: Activities, Interviews ve Maintenance türe göre; Payments yöne göre (In, Out); ötekiler duruma göre.
 - CRM'in Log a call ve Log a meeting düğmeleri görüşmeyi şimdiki gün ve saatle yazar; şirketin Last contact'ı da saatiyle görünür. İşe alımın Schedule interview'ı saati de sorar.
 - Panolara (Requests, Work, Content) bir şey eklenmez; Calendar her panoda var.
+
+22 Ekim 2026'da, 5. dilimin kodu yazılırken verilen kararlar:
+- Kural dili genişledi (onaylı): `check()` içinde yalnız okuyan `find()` ve `linked()`; değiştirenler orada reddedilir. Formüllerde ve kurallarda `weekday(x)`, Mon … Sun, günler seçiminin yazdığı gibi İngilizce.
+- Şemada `defaultView`: koleksiyon, cihazda bir görünüm seçilene kadar onunla açılır; Appointments Calendar ile açılır.
+- Takvimin rengi bir bağlantı ya da kişi alanı da olabilir, adının rengiyle; Appointments ekipte çalışana, değilse duruma göre renklenir.
+- Sorular: neyin randevusu (hizmet, kaynak, ikisi), kim veriyor (yalnız ben, ekip), ekip listesi (boş gelir), hizmetler (Consultation 30, Follow-up 15), kaynaklar (Room 1, Room 2), ücret, Bütçe seçiliyse ödeme.
+- Çalışanın mesaisi 09:00–18:00, Pazartesi–Cuma gelir; kendi ekranında değişir. Hizmeti olmayan randevunun süresi 60 dakika gelir.
+- Alanlar: Title, Customer (People), Service, With (Staff), Resource, Start (saatli, zorunlu), Duration, Ends (formül), Status, Price (ücretliyse), Note.
+- Düğmeler: Confirm yalnız Booked olana; Done, No-show, Cancel ve Reschedule Booked ya da Confirmed olana. Cancel nedeni Note'a yazar; Reschedule yeniden Booked yapar.
+- Kontroller: aynı çalışanın ya da kaynağın çakışanı ("Overlaps with …, 14:30"), mesai dışı ("Outside Ayşe's hours, 09:00 to 18:00"), çalışmadığı gün ("Ayşe does not work on Sun"); iptal edilmiş olan işaretlenmez, sayılmaz.
+- Done olan randevunun ödemesi: fiyatı kadar, gelen, Invoiced, Appointments bütçe satırına, randevuya bağlı.
+- People'da Last appointment, Appointments, No-shows; Staff'ta bugünkü randevu sayısı (Today).
+- Ekipte her çalışanın takvim görünümü kendi adıyla; Today ve Upcoming'e yalnız ortak takvim gelir.
+- Şablon Customers grubunda, Customer support'tan sonra; README'de ve karşılama notunda şablon listesinde.

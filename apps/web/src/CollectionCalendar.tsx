@@ -7,6 +7,7 @@ import {
   type CalendarSettings,
   calendarRecords,
   calendarStarts,
+  COLOR_TYPES,
   type Collection,
   type Condition,
   type Field,
@@ -351,7 +352,7 @@ export function CalendarViewDialog({ schema, view, showAs, records, count, onSav
     { value: null, label: t('calendar.noLength'), chip: false },
   ];
   const length = settings.end ? `end:${settings.end}` : settings.duration ? `duration:${settings.duration}` : null;
-  const colors = schema.fields.filter((f) => f.type === 'select');
+  const colors = schema.fields.filter((f) => COLOR_TYPES.includes(f.type));
   const first = schema.fields.find((f) => f.type !== 'name') ?? schema.fields[0]!;
   const save = () => {
     const kept: View = {

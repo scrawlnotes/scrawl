@@ -684,6 +684,13 @@ const FNS: { [name: string]: FnSpec } = {
       return 'number';
     },
   },
+  weekday: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(DAYISH(a!), t('lang.fnDay', { fn: 'weekday' }), n!);
+      return 'text';
+    },
+  },
   sum: {
     args: [1, 1],
     kind: ([a], [n]) => {
@@ -1164,6 +1171,9 @@ export interface Env {
 }
 
 /** Works a function out for the values it is given. */
+/** The days of the week as weekday() gives them, from Sunday, as JS counts them. */
+export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
 export function applyFn(fn: Fn, args: RV[]): RV {
   if (Array.isArray(fn.body)) throw new LangError(t('lang.methodFn', { fn: '' }));
   const outer = fn.env;
@@ -1376,6 +1386,12 @@ function call(fn: string, args: RV[], env: Env): RV {
       if (!(a instanceof Day)) return null;
       const [y, m] = a.toString().split('-').map(Number) as [number, number];
       return fn === 'year' ? y : m;
+    }
+    case 'weekday': {
+      // The day of the week as a choice of days is written: Mon, Tue … Sun.
+      if (!(a instanceof Day)) return null;
+      const [y, m, d] = a.toString().slice(0, 10).split('-').map(Number) as [number, number, number];
+      return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]!;
     }
     case 'sum':
       return numbersIn(args).reduce((s, n) => s + n, 0);
