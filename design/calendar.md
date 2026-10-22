@@ -190,6 +190,7 @@ Uygulama Scrawl sunucusuna bağlı bir space'te bunları da kullanır; sunucusuz
 
 - **Müşterinin kendisinin randevu alması:** sunucuda herkese açık randevu sayfası. Services, Staff, Resources ve boş saatlerden seçilir; alınan randevu Appointments'a Booked kayıt olarak düşer.
 - **Hatırlatma:** sunucuda zamanlanmış iş, randevudan belli bir süre önce müşteriye e-posta ya da SMS (SMS sağlayıcısıyla). Sonraya kalanlar'daki "sunucuda otomasyon"la birlikte.
+- **Pazaryeri ve kargo entegrasyonları:** Trendyol, Hepsiburada, Amazon gibi pazaryerlerinden siparişler kendiliğinden gelir (kanal, pazaryeri sipariş no, satırlar); kargo firması ve takip no pazaryerine geri yazılır; hakedişler, iadeler ve müşteri soruları okunur; kargo firmalarından takip durumu gelir. Sunucuda otomasyonla birlikte. O zamana kadar pazaryeri dosyası içe aktarmayla ya da ajanla gelir. Roadmap ROA-188.
 
 ## 10. Dilimler
 
@@ -304,3 +305,5 @@ Bugün, sırasıyla; her dilimin sonunda commit sorulur. Arayüzü olan dilim ö
 - "To ship" kanala göre renklenir.
 - İkonlar: E-ticaret globe; Randevu clock oldu (calendar İçerik takviminde).
 - README'de ve karşılama notunda on iki şablon.
+- Düzeltme: kanalı olan siparişte "Left to collect" komisyonu düşer (toplam − komisyon − tahsil edilen); hakediş ödenince sıfırlanır. Sipariş satırı siparişinin durumunu gösterir (Order status); ürünün satılanı ve kârı Quote ve Cancelled siparişleri saymaz.
+- Add to app düzeltmesi (onaylı): var olan bir seçim alanına yeni şablonun getirdiği seçenekler eklenir, şablondaki sırasıyla; kişinin eklediği seçenekler ve renkler kalır. Şablonun yazdığı ve kimsenin değiştirmediği formül yenisiyle değişir; kişinin değiştirdiği formüle dokunulmaz. Özet bunları "2 choices, 1 formula worked out anew" diye söyler. Böylece Satış'ı kurulu bir app'e eklenen E-ticaret Packed ve Shipped'i ve yeni "Left to collect"i getirir.

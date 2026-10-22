@@ -2165,6 +2165,8 @@ export const en = {
   'apps.aboutSection': 'a section at its end',
   'apps.wouldBreak': 'What it adds would not work: {what} Change that first, then add it again',
   'apps.addedFields': { one: '1 field', other: '{count} fields' },
+  'apps.addedChoices': { one: '1 choice', other: '{count} choices' },
+  'apps.changedFormulas': { one: '1 formula worked out anew', other: '{count} formulas worked out anew' },
   'apps.addedBlocks': { one: '1 block on its screen', other: '{count} blocks on its screen' },
   'apps.addedRules': { one: '1 rule', other: '{count} rules' },
   'apps.addedRecords': { one: '1 record', other: '{count} records' },

@@ -67,12 +67,15 @@ export const ecommerce: AppTemplate = {
     app.field('products', number('cost', 'Cost', { format: main }));
     app.field('order-lines', { key: 'cost', label: 'Cost', type: 'formula', formula: 'empty(product) || empty(product.cost) ? 0 : quantity * product.cost', format: lineFormat(app) });
     app.field('order-lines', { key: 'profit', label: 'Profit', type: 'formula', formula: `${tax ? 'net' : 'amount'} - cost`, format: lineFormat(app) });
-    app.field('products', rollup('sold', 'Sold', lines, 'sum', 'quantity'));
+    // A line says how its order stands, for a product to count only what was sold: not a quote, not cancelled.
+    app.field('order-lines', { key: 'order_status', label: 'Order status', type: 'lookup', lookup: { link: 'order', field: 'status' } });
+    const sold = [{ field: 'order_status', op: 'is-not' as const, value: ['Cancelled', 'Quote'] }];
+    app.field('products', rollup('sold', 'Sold', lines, 'sum', 'quantity', sold));
     if (returns) {
       app.field('products', rollup('returned', 'Returned', app.path('returns'), 'sum', 'quantity'));
       app.field('products', { key: 'return_rate', label: 'Return rate', type: 'formula', formula: 'sold > 0 ? returned / sold : 0', format: PERCENT });
     }
-    app.field('products', rollup('profit', 'Profit', lines, 'sum', 'profit', undefined, main));
+    app.field('products', rollup('profit', 'Profit', lines, 'sum', 'profit', sold, main));
 
     // Orders: where it came from, by when and how it goes out, and what it earns.
     app.field('orders', link('channel', 'Channel', app.path('channels')));

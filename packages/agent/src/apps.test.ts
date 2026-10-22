@@ -229,6 +229,13 @@ describe('apps', () => {
     await saveRecordTool(agent, { collection: 'Shop/Orders', id, values: { status: 'Delivered' } });
     const payout = (await recordsTool(agent, { collection: 'Shop/Payments' })).data.records.find((p) => p.name === `${code} payout`)!;
     expect(payout.values).toMatchObject({ direction: 'In', amount: 155, status: 'Planned', due: '2026-10-28', order: { id } });
+    // Paid, it leaves nothing to collect: the channel kept its commission.
+    await saveRecordTool(agent, { collection: 'Shop/Payments', id: payout.id, values: { status: 'Paid' } });
+    expect((await read()).values).toMatchObject({ collected: 155, remaining: 0 });
+    // The lamps of a cancelled order are not sold.
+    const cancelled = await saveRecordTool(agent, { collection: 'Shop/Orders', values: { channel: 'Amazon', status: 'Cancelled' } });
+    await saveRecordTool(agent, { collection: 'Shop/Order lines', values: { name: 'Lamp', order: cancelled.data.record.values.code as string, product: 'Lamp', quantity: 5, unit_price: 100 } });
+    expect((await recordsTool(agent, { collection: 'Shop/Products' })).data.records[0]!.values).toMatchObject({ sold: 2, profit: 120 });
     await saveRecordTool(agent, { collection: 'Shop/Orders', id, action: 'Return', input: { product: 'Lamp', quantity: 1, reason: 'Damaged' } });
     const back = (await recordsTool(agent, { collection: 'Shop/Returns' })).data.records[0]!;
     expect(back.values).toMatchObject({ name: `Return of ${code}`, order: { id }, quantity: 1, status: 'Requested', channel: { name: 'Amazon' } });

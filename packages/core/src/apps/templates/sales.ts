@@ -70,7 +70,8 @@ export const sales: AppTemplate = {
     if (tax) app.field('orders', rollup('tax', 'Tax', lines, 'sum', 'tax', undefined, own));
     app.field('orders', rollup('total', 'Total', lines, 'sum', 'amount', undefined, own));
     app.field('orders', rollup('collected', 'Collected', app.path('payments'), 'sum', 'amount', [{ field: 'direction', op: 'is', value: ['In'] }, { field: 'status', op: 'is', value: ['Paid'] }], own));
-    app.field('orders', formula('remaining', 'Left to collect', 'total - collected', own));
+    // A marketplace keeps its commission: what is left to collect of an order of a channel leaves it out.
+    app.field('orders', formula('remaining', 'Left to collect', app.has('ecommerce') ? 'total - commission - collected' : 'total - collected', own));
     app.block('orders', { block: 'linked', collection: lines, style: 'table', fields: ['product', 'quantity', 'unit_price', ...(discount ? ['discount'] : []), ...(tax ? ['tax_rate'] : []), 'amount'], sums: true });
     app.block('orders', { block: 'linked', collection: app.path('payments'), style: 'table', fields: ['amount', 'status', ...(byDueDay(app) ? ['due'] : []), 'paid_on'], sums: true });
     app.block(customer, { block: 'linked', collection: app.path('orders'), style: 'list', fields: ['status', 'total'], sort: 'date' });

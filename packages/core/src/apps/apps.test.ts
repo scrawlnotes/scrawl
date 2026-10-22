@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseBoard } from '../board';
-import { addRecord, type Collection, loadCollection, parseSchema } from '../collection';
+import { addRecord, type Collection, loadCollection, parseSchema, serializeSchema } from '../collection';
 import { Computer } from '../compute';
 import { MemoryFs } from '../fs';
 import { linksIn, resolveHref } from '../links';
@@ -186,6 +186,30 @@ describe('setting up an app', () => {
       ['To ship', 'ship_by', true],
     ]);
     expect(plan.files.some((file) => file.path === 'Shop/Channels/_collection.json')).toBe(true);
+  });
+
+  it('adds E-commerce to an app with Sales: the new choices of its orders, and a formula nobody changed', async () => {
+    const setUp = async (change: (schema: ReturnType<typeof parseSchema>) => void) => {
+      const fs = new MemoryFs();
+      await installApp(fs, planApp({ name: 'Shop', currencies: ['TRY'], templates: [{ id: 'sales' }] }, { ids }));
+      const path = 'Shop/Orders/_collection.json';
+      const schema = parseSchema(await fs.readText(path));
+      change(schema);
+      await fs.writeText(path, serializeSchema(schema));
+      const plan = planApp({ name: '', templates: [{ id: 'ecommerce' }] }, { found: (await findApp(fs, 'Shop'))!, ids });
+      await installApp(fs, plan);
+      return { plan, orders: parseSchema(await fs.readText(path)) };
+    };
+    const field = (schema: ReturnType<typeof parseSchema>, key: string) => schema.fields.find((f) => f.key === key)!;
+    // A choice someone added stays where it is; the new ones come after the ones they follow.
+    const { plan, orders } = await setUp((schema) => field(schema, 'status').options!.push('Returned'));
+    expect(field(orders, 'status').options).toEqual(['Quote', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Invoiced', 'Paid', 'Cancelled', 'Returned']);
+    expect(field(orders, 'status').colors).toMatchObject({ Packed: 'teal', Shipped: 'pink' });
+    expect(field(orders, 'remaining').formula).toBe('total - commission - collected');
+    expect(plan.changed.find((c) => c.startsWith('Orders:'))).toMatch(/2 choices, 1 formula worked out anew/);
+    // A formula someone changed is theirs.
+    const own = await setUp((schema) => (field(schema, 'remaining').formula = 'total - collected - 0'));
+    expect(field(own.orders, 'remaining').formula).toBe('total - collected - 0');
   });
 
   it('says what is wrong with what it was given', () => {

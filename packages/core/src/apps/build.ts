@@ -358,6 +358,31 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
         data.fields.push(field);
         put.push(field);
       }
+      // A field there before: the choices the new templates bring are added to it, each after the one
+      // it follows in the template; a formula they write anew takes the place of the one the template
+      // wrote, when nobody changed it. What the person changed or added stays.
+      let choices = 0;
+      const rewritten: Field[] = [];
+      for (const field of part.fields) {
+        const before = old?.fields.find((o) => o.key === field.key);
+        const there = data.fields.find((f) => f.key === field.key);
+        if (!before || !there || there.type !== field.type) continue;
+        if ((field.type === 'select' || field.type === 'multi-select') && field.options) {
+          const options = [...(there.options ?? [])];
+          const fresh = field.options.filter((o) => !(before.options ?? []).includes(o) && !options.includes(o));
+          for (const option of fresh) {
+            const after = field.options.slice(0, field.options.indexOf(option)).reverse().find((o) => options.includes(o));
+            options.splice(after ? options.indexOf(after) + 1 : options.length, 0, option);
+            if (field.colors?.[option]) there.colors = { ...there.colors, [option]: field.colors[option] };
+          }
+          there.options = options;
+          choices += fresh.length;
+        }
+        if (field.type === 'formula' && field.formula !== before.formula && there.formula === before.formula) {
+          there.formula = field.formula;
+          rewritten.push(there);
+        }
+      }
       const rules = part.rules.filter((r) => !old?.rules.some((o) => o.kind === r.kind && o.name === r.name) && !(was.rules ?? '').includes(JSON.stringify(r.name)));
       const actions = rules.some((r) => r.kind === 'action');
       const blocks = part.blocks.filter((b) => !old?.blocks.some((o) => same(o, b)));
@@ -378,15 +403,17 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
         if (made) data.layout = made;
       }
       const seeded = part.records.filter((r) => !old?.records.some((o) => same(o, r)) && !was.names.includes(String(r.name ?? '').toLowerCase()));
-      if (put.length > 0 || newBlocks.length > 0 || (actions && !layout)) file(join(part.path, COLLECTION_FILE), serializeSchema(data), was.text);
+      if (put.length > 0 || newBlocks.length > 0 || choices > 0 || rewritten.length > 0 || (actions && !layout)) file(join(part.path, COLLECTION_FILE), serializeSchema(data), was.text);
       if (rules.length > 0) {
         const text = was.rules?.trim() ? `${was.rules.replace(/\s*$/, '')}\n\n${rules.map((r) => r.src).join('\n\n')}\n` : rulesText(partName(part), rules);
         file(join(part.path, RULES_FILE), text, was.rules);
       }
       seeds(part, data, seeded);
       final.set(part.path, data);
-      checks.push({ part, fields: put, rules });
+      checks.push({ part, fields: [...put, ...rewritten], rules });
       if (put.length > 0) added.push(t('apps.addedFields', { count: put.length }));
+      if (choices > 0) added.push(t('apps.addedChoices', { count: choices }));
+      if (rewritten.length > 0) added.push(t('apps.changedFormulas', { count: rewritten.length }));
       if (newBlocks.length > 0) added.push(t('apps.addedBlocks', { count: newBlocks.length }));
       if (rules.length > 0) added.push(t('apps.addedRules', { count: rules.length }));
       if (seeded.length > 0) added.push(t('apps.addedRecords', { count: seeded.length }));
