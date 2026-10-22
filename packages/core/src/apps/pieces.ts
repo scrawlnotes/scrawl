@@ -73,6 +73,18 @@ export const PIECES: { [role: string]: PieceInfo } = {
   'dues-periods': { kind: 'collection', name: 'Dues periods', singular: 'period', about: 'each period dues are asked for, with how much and by when.' },
   dues: { kind: 'collection', name: 'Dues', singular: 'due', about: 'what each member owes for each period, and whether it is paid.' },
   donations: { kind: 'collection', name: 'Donations', singular: 'donation', about: 'each gift: from whom, how much, when, and for which campaign.' },
+  accounts: { kind: 'collection', name: 'Accounts', singular: 'account', about: 'your bank accounts, cards and cash, with what is in each.' },
+  transactions: { kind: 'collection', name: 'Transactions', singular: 'transaction', about: 'every bit of money in and out, with its account and its category.' },
+  categories: { kind: 'collection', name: 'Categories', singular: 'category', about: 'what you spend on, each with its limit for the month and what is spent this month.' },
+  bills: { kind: 'collection', name: 'Bills', singular: 'bill', about: 'the bills and subscriptions you pay again and again, and when each is due next.' },
+  items: { kind: 'collection', name: 'Items', singular: 'item', about: 'the things you own: where they are, what they cost, and until when their warranty runs.' },
+  documents: { kind: 'collection', name: 'Documents', singular: 'document', about: 'your ID, passport, licence and policies, with when each runs out.' },
+  vehicles: { kind: 'collection', name: 'Vehicles', singular: 'vehicle', about: 'your car or another vehicle, with its inspection, insurance and service days.' },
+  upkeep: { kind: 'collection', name: 'Home upkeep', singular: 'job', about: 'what is done at home again and again, the boiler, the filters, and when it is next.' },
+  visits: { kind: 'collection', name: 'Appointments', singular: 'appointment', about: 'your appointments with doctors: whom, where and when.' },
+  medications: { kind: 'collection', name: 'Medications', singular: 'medication', about: 'what is taken, how much and when, and when to get more.' },
+  results: { kind: 'collection', name: 'Results', singular: 'result', about: 'test results, with their papers in their notes.' },
+  vaccinations: { kind: 'collection', name: 'Vaccinations', singular: 'vaccination', about: 'each vaccination, and when the next one is due.' },
 };
 
 /** The roles, in the order the pieces are listed: by template, the shared ones first where they are first used. */

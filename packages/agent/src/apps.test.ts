@@ -49,6 +49,9 @@ const MOST: { [id in TemplateId]: Answers } = {
   field: { technicians: ['Ali', 'Veli'], contracts: true, stock: true, invoice: true },
   consulting: { time: true, deadlines: true, customers: 'people', payments: true },
   association: { dues: 'monthly', donations: true, campaigns: true, payments: true },
+  finance: { bills: true },
+  home: { jobs: ['Gutters cleaned yearly'] },
+  health: { for: 'family', family: ['Ayşe', 'Can'], medications: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -71,6 +74,9 @@ const LEAST: { [id in TemplateId]: Answers } = {
   field: { jobs: [], contracts: false, stock: false, invoice: false },
   consulting: { models: [], time: false, deadlines: false, payments: false },
   association: { dues: 'none', types: [], donations: false },
+  finance: { accounts: [], categories: [], bills: false },
+  home: { keeps: [] },
+  health: { for: 'me', medications: false },
 };
 
 /**
@@ -529,6 +535,67 @@ describe('apps', () => {
     expect((await recordsTool(agent, { collection: 'Club/Payments', where: [{ field: 'name', op: 'is', value: 'Can Demir · 2026-10-21' }] })).data.records[0]!.values).toMatchObject({ amount: 5000, status: 'Paid', budget_line: expect.objectContaining({ name: 'Donations' }) });
   });
 
+  it('keeps personal money: balances from the transactions, a category over its limit, a bill paid with what it asks left to its defaults', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Money', templates: ['finance'], currencies: ['TRY'] });
+    const accounts = (await recordsTool(agent, { collection: 'Money/Accounts', sort: { field: 'name' } })).data.records;
+    expect(accounts.map((a) => [a.name, a.values.type])).toEqual([
+      ['Bank account', 'Bank'],
+      ['Cash', 'Cash'],
+      ['Credit card', 'Card'],
+    ]);
+    await saveRecordTool(agent, { collection: 'Money/Accounts', id: accounts[0]!.id, values: { opening: 10000 } });
+    const groceries = (await recordsTool(agent, { collection: 'Money/Categories', where: [{ field: 'name', op: 'is', value: 'Groceries' }] })).data.records[0]!;
+    await saveRecordTool(agent, { collection: 'Money/Categories', id: groceries.id, values: { limit: 1000 } });
+    await saveRecordTool(agent, { collection: 'Money/Transactions', values: { name: 'Market', account: 'Bank account', amount: 1500, category: 'Groceries' } });
+    expect((await recordsTool(agent, { collection: 'Money/Accounts', where: [{ field: 'name', op: 'is', value: 'Bank account' }] })).data.records[0]!.values.balance).toBe(8500);
+    const over = (await recordsTool(agent, { collection: 'Money/Categories', where: [{ field: 'name', op: 'is', value: 'Groceries' }] })).data.records[0]!;
+    expect([over.values.spent, over.values.left, over.problems]).toEqual([1500, -500, [{ kind: 'check', field: 'spent', text: 'Over its limit by 500' }]]);
+
+    const bill = await saveRecordTool(agent, { collection: 'Money/Bills', values: { name: 'Internet', amount: 400, due: '2026-10-15', account: 'Bank account', category: 'Bills' } });
+    expect(bill.data.record.problems).toEqual([{ kind: 'check', field: 'due', text: 'Past its due day: press Paid once it is paid' }]);
+    const paid = await saveRecordTool(agent, { collection: 'Money/Bills', id: bill.data.record.id, action: 'Paid' });
+    expect(paid.data.record.values.due).toBe('2026-11-15');
+    expect(paid.data.record.problems).toBeUndefined();
+    const spent = (await recordsTool(agent, { collection: 'Money/Transactions', where: [{ field: 'name', op: 'is', value: 'Internet' }] })).data.records[0]!.values;
+    expect(spent).toMatchObject({ amount: 400, direction: 'Out', account: expect.objectContaining({ name: 'Bank account' }), category: expect.objectContaining({ name: 'Bills' }), date: '2026-10-21' });
+  });
+
+  it('keeps the home: a job done planned again, a paper a month before it runs out, the car on the first of its days', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Home', templates: ['home'], currencies: ['TRY'] });
+    const jobs = (await recordsTool(agent, { collection: 'Home/Home upkeep', sort: { field: 'name' } })).data.records;
+    expect(jobs.map((j) => [j.name, j.values.every])).toEqual([
+      ['Air conditioner filters', 'Quarterly'],
+      ['Boiler service', 'Yearly'],
+      ['Smoke alarm batteries', 'Yearly'],
+    ]);
+    const boiler = await saveRecordTool(agent, { collection: 'Home/Home upkeep', id: jobs[1]!.id, values: { next: '2026-10-01' } });
+    expect(boiler.data.record.problems).toEqual([{ kind: 'check', field: 'next', text: 'Overdue' }]);
+    expect((await saveRecordTool(agent, { collection: 'Home/Home upkeep', id: jobs[1]!.id, action: 'Done' })).data.record.values).toMatchObject({ last: '2026-10-21', next: '2027-10-21' });
+    const passport = await saveRecordTool(agent, { collection: 'Home/Documents', values: { name: 'Passport', type: 'Passport', expires: '2026-12-15' } });
+    expect(passport.data.record.values.remind).toBe('2026-11-15');
+    const car = await saveRecordTool(agent, { collection: 'Home/Vehicles', values: { name: 'Car', inspection: '2027-03-01', insurance: '2026-10-20', service: '2027-01-10' } });
+    expect(car.data.record.values).toMatchObject({ next: '2026-10-20', next_for: 'Insurance' });
+    expect(car.data.record.problems).toEqual([{ kind: 'check', field: 'next', text: 'Insurance is due' }]);
+    await saveRecordTool(agent, { collection: 'Home/Vehicles', id: car.data.record.id, values: { insurance: '2027-10-20' } });
+    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-12-31' })).data.records as { start: string; record: { name: string } }[];
+    expect(due.map((d) => [d.record.name, d.start])).toEqual([['Passport', '2026-11-15']]);
+  });
+
+  it('keeps a family’s health: an appointment in Upcoming, whose it is, a medication to get more of and a vaccination due', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Health', templates: ['health'], answers: { health: { for: 'family', family: ['Ayşe', 'Can'] } } });
+    await saveRecordTool(agent, { collection: 'Health/Appointments', values: { name: 'Check-up', person: 'Can', doctor: 'Dr. Demir', when: '2026-10-25T10:00' } });
+    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-31' })).data.records as { start: string; record: { name: string; values: { person: string } } }[];
+    expect(due.map((d) => [d.record.name, d.record.values.person, d.start])).toEqual([['Check-up', 'Can', '2026-10-25T10:00']]);
+    const pills = await saveRecordTool(agent, { collection: 'Health/Medications', values: { name: 'Vitamin D', person: 'Ayşe', refill: '2026-10-10' } });
+    expect(pills.data.record.problems).toEqual([{ kind: 'check', field: 'refill', text: 'Time to get more' }]);
+    expect((await saveRecordTool(agent, { collection: 'Health/Medications', id: pills.data.record.id, values: { end: '2026-10-15' } })).data.record.problems).toBeUndefined();
+    const shot = await saveRecordTool(agent, { collection: 'Health/Vaccinations', values: { name: 'Flu', person: 'Ayşe', date: '2025-10-01', next: '2026-10-01' } });
+    expect(shot.data.record.problems).toEqual([{ kind: 'check', field: 'next', text: 'Due' }]);
+  });
+
   it('logs a call from a company, and ships a release asking first when cards are open', async () => {
     const { fs, agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Studio', templates: ['crm', 'product'], answers: { crm: { deals: false } } });
@@ -689,15 +756,9 @@ describe('apps', () => {
     const { agent } = await world();
     const listed = (await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: [] }))).details.templates as { id: string; audience: string }[];
     expect(listed.find((x) => x.id === 'crm')!.audience).toBe('business');
-    // Content taken as a person's for a while.
-    const was = APP_TEMPLATES.content.group;
-    APP_TEMPLATES.content.group = 'life';
-    try {
-      const mixed = await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: ['crm', 'content'], currencies: ['TRY'] }));
-      expect(mixed.details.problems).toEqual(['An app is set up from templates for a business or for a person, not both: crm for a business, content for a person. Set them up as two apps']);
-    } finally {
-      APP_TEMPLATES.content.group = was;
-    }
+    expect(listed.find((x) => x.id === 'finance')!.audience).toBe('personal');
+    const mixed = await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: ['crm', 'finance'], currencies: ['TRY'] }));
+    expect(mixed.details.problems).toEqual(['An app is set up from templates for a business or for a person, not both: crm for a business, finance for a person. Set them up as two apps']);
   });
 });
 

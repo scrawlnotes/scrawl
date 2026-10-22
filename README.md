@@ -26,12 +26,13 @@ Settings › Privacy & Security and choose Open Anyway.
 - **Boards**: columns, cards, comments and phases. A card copies as a brief for a person or an agent.
 - **Collections**: lists of records that link to each other, like people, companies and deals,
   with their own form designer, views, formulas, rules and buttons, and CSV or Excel in and out.
-- **Apps**: collections, boards and rules that work together, set up from twenty ready templates: CRM,
-  Sales and invoicing, Customer support, Appointments and bookings, Project management, Budget and
-  spending, Stock and purchasing, E-commerce, Product development, Recruiting, Assets and maintenance,
-  Content calendar, Subscriptions and memberships, Contracts and renewals, Time off and team, Goals,
-  Incidents and actions, Field service, Consulting, and Association and club. Add a template to an app
-  later.
+- **Apps**: collections, boards and rules that work together, set up from ready templates. For a
+  business: CRM, Sales and invoicing, Customer support, Appointments and bookings, Project management,
+  Budget and spending, Stock and purchasing, E-commerce, Product development, Recruiting, Assets and
+  maintenance, Content calendar, Subscriptions and memberships, Contracts and renewals, Time off and
+  team, Goals, Incidents and actions, Field service, Consulting, and Association and club. For a
+  person: Personal finance; Home, car and documents; and Health. An app is one or the other; add a
+  template to it later.
 - **Templates**: People, Companies, Activities, Feedback and Payments collections; Software,
   Issue tracking, CRM and Simple boards. Ready for running a startup.
 - **Keys**: `.env` files as a table.

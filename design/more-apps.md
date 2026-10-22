@@ -346,3 +346,15 @@ Roadmap'te faz "16 Yeni app şablonları" ve her dilim bir kart; denemeler "dene
 - Bağış: makbuz no RCP-0001, adı "bağışçı · gün". Bütçe'de bağışlar "Donations", aidatlar "Dues" satırına.
 - Kampanyalar Content takviminin Campaigns'iyle aynı parça; bağış tarafı Target, Raised, Reached ekler (Content'in Goal'ü metin).
 - Dernek soruları: üyelik türleri Regular, Student, Honorary; bağışlar varsayılan Evet, kampanyalar Hayır.
+
+5. dilimin kodunda verilenler (23 Ekim, onaylı):
+
+- Hesabın türü adından: "card", "cash", "saving" geçmiyorsa banka hesabı. Varsayılan hesaplar Bank account, Credit card, Cash; varsayılan kategoriler dokuz (Groceries … Other).
+- Para birimi her app'teki gibi App adımında sorulur. Birden çok para biriminde işlem hesabının para birimini alır; kişisel app'te açıklama "each account says which it is in" der.
+- Faturada "Paid automatically" yalnız bir işarettir; son günü geçen işaretli fatura da işaretlenir. Paid tutarı ve hesabı sorar, varsayılanları faturadan.
+- Ev şablonunda hiçbir şey seçilmezse eşyalar kurulur. Ev işinin sıklığı adından, yazmıyorsa yıllık; varsayılan işler Boiler service, Smoke alarm batteries, Air conditioner filters (üç ayda bir).
+- Araçta "Next" en yakın günü, "Next is" hangisi olduğunu yazar (Upcoming bir kaydı bir kez gösterir); yapılan işin yeni günü elle yazılır.
+- Doktor randevuları iş tarafındaki Randevu'dan ayrı bir parça, adı yine Appointments.
+- Aile için isim listesi verilirse "For" seçimdir, liste boşsa metin; takvimler kişiye göre renkli.
+- Sağlıkta kontroller: "Get more by" günü geçmiş ve bitmemiş ilaç; sonraki günü geçmiş aşı (her şablonda en az bir kontrol için). Tahlillerin takvimi yok; randevuda Note alanı var.
+- Ev şablonunun ikonu `keys` (taslaktaki `key` uygulamada yok).

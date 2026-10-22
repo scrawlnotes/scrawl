@@ -232,6 +232,7 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
       return (
         <AppPage
           phone={phone}
+          side={shownSide}
           name={name}
           onName={(value) => {
             setName(value);
@@ -419,8 +420,10 @@ function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, shared
   );
 }
 
-function AppPage({ phone, name, onName, folders, place, onPlace, money, currencies, onCurrencies, problems }: {
+function AppPage({ phone, side, name, onName, folders, place, onPlace, money, currencies, onCurrencies, problems }: {
   phone: boolean;
+  /** Whose app it is: its currencies are said for a business's orders or a person's accounts. */
+  side: Audience;
   name: string;
   onName: (name: string) => void;
   folders: string[];
@@ -522,7 +525,7 @@ function AppPage({ phone, name, onName, folders, place, onPlace, money, currenci
               ))}
             </datalist>
           </div>
-          <small className={wrong ? 'na-help na-bad' : 'na-help'}>{wrong ?? t('apps.currenciesHelp')}</small>
+          <small className={wrong ? 'na-help na-bad' : 'na-help'}>{wrong ?? t(side === 'personal' ? 'apps.currenciesHelpPersonal' : 'apps.currenciesHelp')}</small>
         </div>
       )}
     </div>
