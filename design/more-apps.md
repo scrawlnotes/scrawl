@@ -326,3 +326,23 @@ Roadmap'te faz "16 Yeni app şablonları" ve her dilim bir kart; denemeler "dene
 - Olayda varsayılanlar: önem Major, başlangıç şimdi, sorumlu kişinin kendisi.
 - Talepten olay: talep kartının Incident alanında olay seçilir; olay ona bağlı kartları gösterir.
 - Actions panosunun kolonları To do, Doing, Done.
+
+4. dilimin kodunda verilenler (23 Ekim, onaylı):
+
+- Saha servisinde müşteri CRM'in müşterileridir (CRM kişiler demiyorsa şirketler); şablon sormaz.
+- Bakım aralıkları Varlıklar'daki gibi aylık, 3 ayda bir, 6 ayda bir, yıllık; "sonraki bakım" takvimi ayrı görünüm, Upcoming'e gelmez.
+- Done'ın kısa notu "What was done" alanındadır; uzun rapor ve fotoğraflar kaydın notlarında (düğme notlara yazamaz).
+- İş emri: kod WO-0001, süre 60 dakika, adı türünden ve cihazından, müşterisi cihazından. Teknisyen mesaisi 08:00–17:00, Pazartesi–Cuma; listede adı verilen her teknisyenin kendi takvimi var.
+- Parçalar iş Done olunca "use" türüyle stoktan düşer, Done'dan çıkarsa geri gelir; birden çok depoda varsayılan depodan.
+- Invoice: siparişin satırları ürüne bağlanmaz (stok iki kez düşmesin); vade 30 gün; Bütçe yolunda "Field service" satırı; bir iş emri bir kez faturalanır.
+- Danışmanlıkta müşteri Abonelikteki gibi: CRM'inkiler, yoksa soru (varsayılan Companies); iki şablon aynı yardımcıyı kullanır.
+- Bütçe kullanımı para bütçesi yazıldıysa paradan, yoksa saatten; kontrol "Over its budget: 110% used".
+- Log time saatlik işte faturalanacak sayılır, ücretini işten alır; gün sorusu zorunlu değil, boşsa bugün.
+- Bill önce onay ister; yalnız saatleri ve masrafları faturalar (sabit ücret ve retainer değil); vade 30 gün, "Consulting" satırı.
+- Son tarihlerde listenin her maddesi bir tür olur ("VAT return monthly": tür "VAT return", aylık). Teslim durumları To do, In progress, Delivered.
+- Dernekte aidat dönemleri ayrı bir parça, Dues periods: dönemin tutarı ve son günü; Issue dues bu kaydın üstündedir, çünkü düğme tek kaydın üstünde çalışır. Dönemin adı varsayılan yıl (aylıkta "2026-10").
+- Yeni dönem yazılırken eski aidatı geciken aktif üye Lapsed olur ve yeni aidatı da yazılır; geciken aidatı ödenince yeniden Active.
+- Aidatta düğme yok; Paid ya da Waived elle seçilir.
+- Bağış: makbuz no RCP-0001, adı "bağışçı · gün". Bütçe'de bağışlar "Donations", aidatlar "Dues" satırına.
+- Kampanyalar Content takviminin Campaigns'iyle aynı parça; bağış tarafı Target, Raised, Reached ekler (Content'in Goal'ü metin).
+- Dernek soruları: üyelik türleri Regular, Student, Honorary; bağışlar varsayılan Evet, kampanyalar Hayır.

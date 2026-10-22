@@ -1,10 +1,13 @@
 import type { NumberFormat } from '../../collection';
 import { calendar, checkbox, codeField, currencyField, day, formula, link, nameField, number, rollup, select, text } from '../pieces';
 import { byDueDay, companies, payments, people, products } from '../shared';
-import type { AppDraft, AppTemplate } from '../types';
+import type { Answers, AppDraft, AppTemplate } from '../types';
 
 /** Who an order is for: the CRM's customers, companies unless they are people only. */
 export const customerRole = (app: Pick<AppDraft, 'has' | 'answers'>) => (app.has('crm') && app.answers('crm').customers === 'people' ? 'people' : 'companies');
+
+/** Whose a template's records are, where it asks when there is no CRM: the CRM's customers, else as its answer says. */
+export const clientRole = (app: Pick<AppDraft, 'has' | 'answers'>, answers: Answers) => (app.has('crm') ? customerRole(app) : answers.customers === 'people' ? 'people' : 'companies');
 
 /** A line's money: in the app's currency, or, with more than one, as a number in the currency its order holds. */
 export const lineFormat = (app: AppDraft): NumberFormat => (app.money.multi ? { style: 'number', decimals: 2 } : app.format(false));

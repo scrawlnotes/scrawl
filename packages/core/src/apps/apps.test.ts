@@ -49,6 +49,9 @@ const MOST: { [id in TemplateId]: Answers } = {
   timeoff: { allowance: '25', holidays: 'gb', approvals: true },
   goals: { period: 'half', checkins: true },
   incidents: { actions: true },
+  field: { technicians: ['Ali', 'Veli'], contracts: true, stock: true, invoice: true },
+  consulting: { time: true, deadlines: true, customers: 'people', payments: true },
+  association: { dues: 'monthly', donations: true, campaigns: true, payments: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -68,6 +71,9 @@ const LEAST: { [id in TemplateId]: Answers } = {
   timeoff: { types: [], allowance: '10', holidays: 'none', approvals: false },
   goals: { period: 'year', checkins: false },
   incidents: { types: [], actions: false },
+  field: { jobs: [], contracts: false, stock: false, invoice: false },
+  consulting: { models: [], time: false, deadlines: false, payments: false },
+  association: { dues: 'none', types: [], donations: false },
 };
 
 /** What a template asks of these, given only the questions it asks with this set. */
@@ -302,6 +308,45 @@ describe('setting up an app', () => {
       ['timeoff', ['Approve', 'Reject']],
       ['goals', ['Update']],
       ['incidents', ['Resolve', 'Close', 'Add action']],
+    ]);
+  });
+
+  it('sets up Field service, Consulting and Association on the pieces they share with the others', () => {
+    const plan = planApp(
+      {
+        name: 'Firm',
+        currencies: ['TRY'],
+        templates: [
+          { id: 'sales' },
+          { id: 'projects', answers: { time: true } },
+          { id: 'budget', answers: { expenses: true } },
+          { id: 'stock' },
+          { id: 'content', answers: { campaigns: true } },
+          { id: 'field', answers: { technicians: ['Ali', 'Veli'] } },
+          { id: 'consulting', answers: { deadlines: true, deadlineList: ['VAT return monthly', 'Payroll'] } },
+          { id: 'association', answers: { campaigns: true } },
+        ],
+      },
+      { ids },
+    );
+    const schema = (path: string) => parseSchema(plan.files.find((f) => f.path === `${path}/_collection.json`)!.text);
+    const keys = (path: string) => schema(path).fields.map((f) => f.key);
+    // One Time entries for a project and an engagement, one Expenses for a person and an engagement, one Campaigns for content and donations.
+    expect(keys('Firm/Time entries')).toEqual(expect.arrayContaining(['project', 'engagement', 'billable', 'rate', 'amount', 'billed']));
+    expect(keys('Firm/Expenses')).toEqual(expect.arrayContaining(['person', 'budget_line', 'status', 'engagement', 'billable', 'billed']));
+    expect(keys('Firm/Campaigns')).toEqual(expect.arrayContaining(['goal', 'pieces', 'target', 'raised', 'reached']));
+    expect(plan.created.filter((c) => c.path.startsWith('Firm/Campaigns'))).toHaveLength(1);
+    expect(schema('Firm/Work orders').views!.map((v) => v.name)).toEqual(['Calendar', 'Ali', 'Veli']);
+    expect(keys('Firm/Work orders')).toEqual(expect.arrayContaining(['order', 'parts', 'total']));
+    expect(keys('Firm/Stock movements')).toContain('work_order');
+    const deadlines = schema('Firm/Deadlines');
+    expect(deadlines.fields.find((f) => f.key === 'kind')!.options).toEqual(['VAT return', 'Payroll']);
+    expect(plan.files.find((f) => f.path === 'Firm/Deadlines/_rules.js')!.text).toContain('repeats = kind == "VAT return" ? "Monthly" : kind == "Payroll" ? "Monthly" : null');
+    expect(schema('Firm/Dues periods').fields.find((f) => f.key === 'name')!.default).toBe('=text(year(today()))');
+    expect(plan.templates.filter((s) => ['field', 'consulting', 'association'].includes(s.id)).map((s) => [s.id, s.buttons])).toEqual([
+      ['field', ['Schedule', 'Start', 'Done', 'Invoice']],
+      ['consulting', ['Log time', 'Bill']],
+      ['association', ['Issue dues']],
     ]);
   });
 

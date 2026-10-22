@@ -1,7 +1,7 @@
 import { calendar, currencyField, day, formula, inMain, link, nameField, number, type PieceInfo, rollup, select, text } from '../pieces';
 import { byDueDay, companies, people } from '../shared';
-import type { Answers, AppTemplate, Chosen } from '../types';
-import { customerRole } from './sales';
+import type { AppTemplate } from '../types';
+import { clientRole } from './sales';
 
 // Subscriptions and memberships (design/more-apps.md 3.1): what is sold by the month or the year,
 // who is on it and when each renews. A software subscription, a gym's memberships and a
@@ -23,9 +23,6 @@ export const periodSpan = (field: string) => `(${field} == "Yearly" ? years(1) :
 
 /** The months in a period, as a formula divides by them. */
 const periodMonths = (field: string) => `(${field} == "Yearly" ? 12 : ${field} == "Quarterly" ? 3 : 1)`;
-
-/** Whose subscriptions they are: the CRM's customers when it is there, else as the answer says. */
-export const subscriberRole = (app: Chosen, answers: Answers) => (app.has('crm') ? customerRole(app) : answers.customers === 'people' ? 'people' : 'companies');
 
 /** The words the answer gives: what one who pays is called, and one of their subscriptions and many. */
 const WORDS: { [sells: string]: { customer: string; one: string; plural: string } } = {
@@ -71,7 +68,7 @@ export const subscriptions: AppTemplate = {
     { key: 'payments', kind: 'yesno', label: 'apps.subscriptions.payments', default: true, when: ({ chosen }) => chosen.has('budget'), because: 'budget' },
   ],
   money: () => true,
-  pieces: (answers, app) => ['plans', 'subscriptions', subscriberRole(app, answers)],
+  pieces: (answers, app) => ['plans', 'subscriptions', clientRole(app, answers)],
   names: (answers): { [role: string]: Pick<PieceInfo, 'name' | 'singular' | 'about'> } => {
     if (answers.sells === 'memberships') return { subscriptions: { name: 'Memberships', singular: 'membership', about: 'who is a member on which plan, from when, and when it renews.' } };
     if (answers.sells === 'agreements') return { subscriptions: { name: 'Service agreements', singular: 'agreement', about: 'each service agreement: with whom, on which plan, from when, and when it renews.' } };
@@ -81,7 +78,7 @@ export const subscriptions: AppTemplate = {
     const words = WORDS[answers.sells as string] ?? WORDS.subscriptions!;
     const trial = answers.trial === true;
     const paid = app.has('budget') && app.hasPiece('payments') && answers.payments !== false;
-    const customer = subscriberRole(app, answers);
+    const customer = clientRole(app, answers);
     const subs = app.path('subscriptions');
     const called = app.called('subscriptions');
     const main = app.format(false);

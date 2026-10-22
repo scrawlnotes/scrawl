@@ -62,6 +62,17 @@ export const PIECES: { [role: string]: PieceInfo } = {
   'check-ins': { kind: 'collection', name: 'Check-ins', singular: 'check-in', about: 'each update of a key result: its value on a day, and a note.' },
   incidents: { kind: 'collection', name: 'Incidents', singular: 'incident', about: 'each incident: what happened, how bad, from when to when, why, and what was done.' },
   actions: { kind: 'board', name: 'Actions', about: 'what is done so that it does not happen again, a card each, with whom and by when.' },
+  equipment: { kind: 'collection', name: 'Equipment', singular: 'unit', about: "what you look after at your customers' sites: where it is, what it is, and when it is serviced next." },
+  'work-orders': { kind: 'collection', name: 'Work orders', singular: 'work order', about: "each job at a customer's site: what it is, who goes when, the parts used, and what was done." },
+  'work-order-lines': { kind: 'collection', name: 'Work order lines', singular: 'line', about: 'the parts used on each job, and what they cost.' },
+  technicians: { kind: 'collection', name: 'Technicians', singular: 'technician', about: 'who goes out on the jobs, with their hours and days.' },
+  engagements: { kind: 'collection', name: 'Engagements', singular: 'engagement', about: 'each piece of work for a client: how it is paid, its budget, its dates, and how much of it is used.' },
+  deliverables: { kind: 'collection', name: 'Deliverables', singular: 'deliverable', about: 'what is delivered for each engagement, by whom and by when.' },
+  deadlines: { kind: 'collection', name: 'Deadlines', singular: 'deadline', about: 'what is due for each client again and again, a return, a filing or a report, and when.' },
+  members: { kind: 'collection', name: 'Members', singular: 'member', about: 'the members: their kind of membership, since when, how they stand, and their dues.' },
+  'dues-periods': { kind: 'collection', name: 'Dues periods', singular: 'period', about: 'each period dues are asked for, with how much and by when.' },
+  dues: { kind: 'collection', name: 'Dues', singular: 'due', about: 'what each member owes for each period, and whether it is paid.' },
+  donations: { kind: 'collection', name: 'Donations', singular: 'donation', about: 'each gift: from whom, how much, when, and for which campaign.' },
 };
 
 /** The roles, in the order the pieces are listed: by template, the shared ones first where they are first used. */
