@@ -1,4 +1,4 @@
-import { codeField, day, formula, link, nameField, number, person, rollup, select, text } from '../pieces';
+import { calendar, codeField, day, formula, link, nameField, number, person, rollup, select, text } from '../pieces';
 import { locations } from '../shared';
 import type { AppTemplate } from '../types';
 
@@ -120,6 +120,7 @@ export const assets: AppTemplate = {
     app.field('maintenance', select('type', 'Type', ['Planned', 'Repair', 'Inspection'], { Planned: 'blue', Repair: 'orange', Inspection: 'purple' }));
     app.field('maintenance', day('date', 'Date', true));
     app.field('maintenance', select('status', 'Status', ['Planned', 'Done'], { Planned: 'gray', Done: 'green' }, 'Planned'));
+    app.view('maintenance', calendar({ start: 'date', color: 'type', upcoming: true }, [{ field: 'status', op: 'is', value: ['Planned'] }]));
     app.field('maintenance', text('by', 'Done by'));
     app.field('maintenance', number('cost', 'Cost', { format: main }));
     if (service) {

@@ -211,7 +211,8 @@ describe('apps', () => {
     await createTool(agent, { kind: 'app', name: 'Studio', templates: ['crm', 'product'], answers: { crm: { deals: false } } });
     const firm = await saveRecordTool(agent, { collection: 'Studio/Companies', values: { name: 'Lara Turizm' } });
     const called = await saveRecordTool(agent, { collection: 'Studio/Companies', id: firm.data.record.id, action: 'Log a call' });
-    expect(called.data.record.values.last_contact).toBe('2026-10-21');
+    // A call logged is now: its day and its time.
+    expect(called.data.record.values.last_contact).toMatch(/^2026-10-21T\d\d:\d\d$/);
     const activity = (await recordsTool(agent, { collection: 'Studio/Activities' })).data.records[0]!;
     expect(activity.values).toMatchObject({ name: 'Call with Lara Turizm', type: 'call', by: 'Kaan', company: { name: 'Lara Turizm' } });
 

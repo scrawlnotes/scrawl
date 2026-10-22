@@ -1,5 +1,5 @@
 import type { NumberFormat } from '../../collection';
-import { checkbox, codeField, currencyField, day, formula, link, nameField, number, rollup, select, text } from '../pieces';
+import { calendar, checkbox, codeField, currencyField, day, formula, link, nameField, number, rollup, select, text } from '../pieces';
 import { byDueDay, companies, payments, people, products } from '../shared';
 import type { AppDraft, AppTemplate } from '../types';
 
@@ -62,6 +62,7 @@ export const sales: AppTemplate = {
     app.field('orders', select('status', 'Status', statuses, { Quote: 'gray', Confirmed: 'blue', Delivered: 'purple', Invoiced: 'yellow', Paid: 'green', Cancelled: 'red' }, statuses[0]));
     if (app.money.multi) app.field('orders', currencyField(app));
     if (byDueDay(app)) app.field('orders', day('due', 'Due'));
+    app.view('orders', calendar({ start: byDueDay(app) ? 'due' : 'date', color: 'status' }, [{ field: 'status', op: 'is-not', value: ['Paid', 'Cancelled'] }]));
     app.field('orders', text('invoice_no', 'Invoice no'));
     app.field('orders', rollup('lines', 'Lines', lines, 'count'));
     if (tax) app.field('orders', rollup('subtotal', 'Subtotal', lines, 'sum', 'net', undefined, own));

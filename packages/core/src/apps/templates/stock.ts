@@ -1,4 +1,4 @@
-import { checkbox, codeField, currencyField, day, formula, link, nameField, number, person, rollup, select, text } from '../pieces';
+import { calendar, checkbox, codeField, currencyField, day, formula, link, nameField, number, person, rollup, select, text } from '../pieces';
 import { companies, hasServices, locations, products } from '../shared';
 import type { AppDraft, AppTemplate } from '../types';
 import { lineFormat } from './sales';
@@ -166,6 +166,7 @@ ${movement(app, '  ', 'product: product, direction: "In", type: "transfer", quan
       app.field('purchase-orders', day('date', 'Date', true));
       app.field('purchase-orders', select('status', 'Status', ['Draft', 'Ordered', 'Received', 'Cancelled'], { Draft: 'gray', Ordered: 'blue', Received: 'green', Cancelled: 'red' }, 'Draft'));
       app.field('purchase-orders', day('expected', 'Expected'));
+      app.view('purchase-orders', calendar({ start: 'expected', color: 'status', upcoming: true }, [{ field: 'status', op: 'is', value: ['Ordered'] }]));
       if (places) {
         app.field('purchase-orders', link('location', 'Location', app.path('locations')));
         atMain('purchase-orders');

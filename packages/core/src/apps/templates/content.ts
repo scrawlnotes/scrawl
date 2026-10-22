@@ -1,5 +1,5 @@
 import type { MessageKey } from '@scrawlnotes/i18n';
-import { day, formula, link, nameField, select, text } from '../pieces';
+import { calendar, day, formula, link, nameField, select, text } from '../pieces';
 import type { AppTemplate } from '../types';
 import { stageColumns, stageHints } from './crm';
 
@@ -60,6 +60,7 @@ export const content: AppTemplate = {
       app.field('campaigns', day('start', 'Start', true));
       app.field('campaigns', day('end', 'End'));
       app.field('campaigns', select('status', 'Status', ['Planned', 'Running', 'Done'], { Planned: 'gray', Running: 'blue', Done: 'green' }, 'Planned'));
+      app.view('campaigns', calendar({ start: 'start', end: 'end', color: 'status' }));
       app.field('campaigns', { key: 'pieces', label: 'Pieces', type: 'rollup', rollup: { from: cards, fn: 'count' } });
       app.field('campaigns', { key: 'open_pieces', label: 'Not out yet', type: 'rollup', rollup: { from: cards, fn: 'count', open: true } });
       app.field('campaigns', formula('published', 'Published', 'pieces - open_pieces'));

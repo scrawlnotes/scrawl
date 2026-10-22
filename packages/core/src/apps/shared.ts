@@ -1,4 +1,4 @@
-import { codeField, currencyField, day, formula, link, multi, nameField, number, person, select, text } from './pieces';
+import { calendar, codeField, currencyField, day, formula, link, multi, nameField, number, person, select, text } from './pieces';
 import type { AppDraft } from './types';
 
 // What a shared piece starts with, whichever template sets it up: each template that uses it
@@ -49,6 +49,7 @@ export function payments(app: AppDraft) {
   app.field('payments', select('status', 'Status', ['Planned', 'Invoiced', 'Paid'], { Planned: 'gray', Invoiced: 'yellow', Paid: 'green' }, 'Planned'));
   if (byDueDay(app)) app.field('payments', day('due', 'Due'));
   app.field('payments', day('paid_on', 'Paid on'));
+  app.view('payments', calendar({ start: byDueDay(app) ? 'due' : 'date', color: 'direction', upcoming: true }, [{ field: 'status', op: 'is-not', value: ['Paid'] }]));
   app.field('payments', select('method', 'Method', ['Bank transfer', 'Card', 'Cash'], {}));
   app.field('payments', text('invoice_no', 'Invoice no'));
   if (app.hasPiece('companies')) app.field('payments', link('company', 'Company', app.path('companies')));

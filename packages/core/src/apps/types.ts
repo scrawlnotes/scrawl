@@ -1,6 +1,6 @@
 import type { MessageKey } from '@scrawlnotes/i18n';
 import type { ColumnKind } from '../board';
-import type { Field, LayoutBlock, NumberFormat } from '../collection';
+import type { Field, LayoutBlock, NumberFormat, View } from '../collection';
 
 // An app is a folder of collections, boards, notes and rules set up from ready templates that
 // share their pieces: CRM and Sales one Companies, Sales and Stock one Products, every template
@@ -108,6 +108,8 @@ export interface AppDraft extends Chosen {
   field(role: string, field: Field): void;
   /** Adds a block to the right of a collection's record screen, once. */
   block(role: string, block: LayoutBlock): void;
+  /** Adds a view to a collection as it is set up, once by its id; a collection there before keeps its own views. */
+  view(role: string, view: View): void;
   /** Adds a rule to a collection's `_rules.js`, once by its name. */
   rule(role: string, chunk: RuleChunk): void;
   /** Adds a record to a collection as it is set up: a budget line, a warehouse. */
@@ -171,6 +173,8 @@ export interface CollectionPart {
   fields: Field[];
   /** The blocks on the right of its record screen. */
   blocks: LayoutBlock[];
+  /** The views it starts with: a calendar. */
+  views: View[];
   rules: RuleChunk[];
   /** The records it starts with. */
   records: { [key: string]: string | number | boolean }[];

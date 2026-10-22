@@ -1,4 +1,4 @@
-import { day, link, nameField, openCards, select, text } from '../pieces';
+import { calendar, day, link, nameField, openCards, select, text } from '../pieces';
 import { feedback } from '../shared';
 import type { AppTemplate } from '../types';
 import { keepsFeedback } from './support';
@@ -72,6 +72,7 @@ export const product: AppTemplate = {
       app.field('releases', day('planned', 'Planned'));
       app.field('releases', day('shipped', 'Shipped'));
       app.field('releases', select('status', 'Status', ['Planned', 'Released'], { Planned: 'blue', Released: 'green' }, 'Planned'));
+      app.view('releases', calendar({ start: 'planned', color: 'status' }, [{ field: 'status', op: 'is', value: ['Planned'] }]));
       app.field('releases', openCards('open_cards', 'Open cards', roadmap));
       app.block('releases', { block: 'cards' });
       app.rule('releases', {

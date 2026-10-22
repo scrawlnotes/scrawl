@@ -1,4 +1,4 @@
-import { checkbox, codeField, day, formula, inMain, link, nameField, number, openCards, PERCENT, person, rollup, select, text } from '../pieces';
+import { calendar, checkbox, codeField, day, formula, inMain, link, nameField, number, openCards, PERCENT, person, rollup, select, text } from '../pieces';
 import type { AppTemplate } from '../types';
 
 const STEPS = ['Kickoff', 'Planning', 'Delivery', 'Review'];
@@ -54,6 +54,7 @@ export const projects: AppTemplate = {
     app.field('projects', person('owner', 'Owner', true));
     app.field('projects', day('start', 'Start', true));
     app.field('projects', day('end', 'End'));
+    app.view('projects', calendar({ start: 'start', end: 'end', color: 'status' }, [{ field: 'status', op: 'is-not', value: ['Done', 'Cancelled'] }]));
     if (budget) app.field('projects', number('contract', 'Contract', { format: app.format(false) }));
     app.field('projects', { key: 'cards', label: 'Cards', type: 'rollup', rollup: { from: work, fn: 'count' } });
     app.field('projects', openCards('open_cards', 'Open cards', work));

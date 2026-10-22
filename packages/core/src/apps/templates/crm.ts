@@ -1,6 +1,6 @@
 import type { MessageKey } from '@scrawlnotes/i18n';
 import type { ColumnKind } from '../../board';
-import { day, inMain, link, multi, number, openCards, person, rollup, select } from '../pieces';
+import { calendar, day, dayAndTime, inMain, link, multi, number, openCards, person, rollup, select } from '../pieces';
 import { companies, people } from '../shared';
 import type { AppTemplate } from '../types';
 
@@ -81,7 +81,8 @@ export const crm: AppTemplate = {
 
     app.field('activities', { key: 'name', label: 'Title', type: 'name' });
     app.field('activities', { ...select('type', 'Type', ['note', 'call', 'meeting', 'email'], { note: 'gray', call: 'blue', meeting: 'purple', email: 'yellow' }, 'note'), required: true });
-    app.field('activities', { ...day('date', 'Date', true), required: true });
+    app.field('activities', { ...dayAndTime('date', 'Date', true), required: true });
+    app.view('activities', calendar({ start: 'date', color: 'type', upcoming: true }));
     if (firms) app.field('activities', link('company', 'Company', app.path('companies')));
     app.field('activities', link('person', 'Person', app.path('people')));
     app.field('activities', person('by', 'By', true));
@@ -104,7 +105,7 @@ export const crm: AppTemplate = {
           kind: 'action',
           name: button,
           src: `action("${button}", () => {
-  add("${app.called('activities')}", { name: "${what === 'call' ? 'Call' : 'Meeting'} with " + name, type: "${type}", date: today() })
+  add("${app.called('activities')}", { name: "${what === 'call' ? 'Call' : 'Meeting'} with " + name, type: "${type}", date: now() })
 })`,
         });
       }

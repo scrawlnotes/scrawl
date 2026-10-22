@@ -13,6 +13,7 @@ import {
   newRecordId,
   RECORD_EXT,
   type Schema,
+  type View,
   serializeRecord,
   serializeSchema,
 } from '../collection';
@@ -91,7 +92,7 @@ function emptyPart(role: string, path: string): Part {
   const info = PIECES[role]!;
   if (info.kind === 'board') return { kind: 'board', role, path, about: info.about, columns: [], fields: [] };
   if (info.kind === 'folder') return { kind: 'folder', role, path, about: info.about, notes: [] };
-  return { kind: 'collection', role, path, about: info.about, ...(info.singular && { singular: info.singular }), fields: [], blocks: [], rules: [], records: [] };
+  return { kind: 'collection', role, path, about: info.about, ...(info.singular && { singular: info.singular }), fields: [], blocks: [], views: [], rules: [], records: [] };
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -135,6 +136,11 @@ class Draft implements AppDraft {
   block(role: string, block: LayoutBlock) {
     const part = this.part(role, 'collection');
     if (!part.blocks.some((b) => same(b, block))) part.blocks.push(block);
+  }
+
+  view(role: string, view: View) {
+    const part = this.part(role, 'collection');
+    if (!part.views.some((v) => v.id === view.id)) part.views.push(view);
   }
 
   rule(role: string, chunk: RuleChunk) {
@@ -306,7 +312,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       plan.created.push({ kind: part.kind, path: part.path });
       if (part.kind === 'collection') {
         const layout = layoutFor(part.fields, part.blocks, part.rules.some((r) => r.kind === 'action'));
-        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, fields: part.fields, ...(layout && { layout }) };
+        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), fields: part.fields, ...(layout && { layout }) };
         plan.dirs.push(part.path);
         file(join(part.path, COLLECTION_FILE), serializeSchema(schema));
         if (part.rules.length > 0) file(join(part.path, RULES_FILE), rulesText(partName(part), part.rules));

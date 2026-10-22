@@ -1,5 +1,5 @@
 import type { MessageKey } from '@scrawlnotes/i18n';
-import { codeField, day, formula, link, multi, nameField, number, openCards, person, rollup, select, text } from '../pieces';
+import { calendar, codeField, day, dayAndTime, formula, link, multi, nameField, number, openCards, person, rollup, select, text } from '../pieces';
 import type { AppTemplate } from '../types';
 import { stageColumns, stageHints } from './crm';
 
@@ -96,9 +96,10 @@ export const recruiting: AppTemplate = {
       app.field('interviews', nameField('Title'));
       app.field('interviews', link('candidate', 'Candidate', app.path('candidates')));
       app.field('interviews', link('position', 'Position', app.path('positions')));
-      app.field('interviews', day('date', 'Date', true));
+      app.field('interviews', dayAndTime('date', 'Date', true));
       app.field('interviews', select('type', 'Type', KINDS, { 'Phone screen': 'gray', Technical: 'blue', Culture: 'purple', Final: 'green' }));
       app.field('interviews', person('interviewer', 'Interviewer', true));
+      app.view('interviews', calendar({ start: 'date', color: 'type', upcoming: true }));
       if (scores) {
         app.field('interviews', number('score', 'Score'));
         app.field('interviews', select('recommendation', 'Recommendation', ['Strong yes', 'Yes', 'No', 'Strong no'], { 'Strong yes': 'green', Yes: 'teal', No: 'orange', 'Strong no': 'red' }));
@@ -114,7 +115,7 @@ export const recruiting: AppTemplate = {
         src: `action("Schedule interview", {
   ask: {
     position: { label: "Position", type: "link", collection: "${app.called('positions')}" },
-    date: { label: "Date", type: "date", default: () => today(), required: true },
+    date: { label: "Date", type: "date", time: true, default: () => today(), required: true },
     type: { label: "Type", type: "choice", options: [${KINDS.map((k) => JSON.stringify(k)).join(', ')}], default: "${KINDS[0]}", required: true },
   },
 }, () => {

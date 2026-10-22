@@ -91,6 +91,40 @@ describe('setting up an app', () => {
     expect(plan.templates.find((s) => s.id === 'stock')!.buttons).toEqual(['Correct stock', 'Reorder']);
   });
 
+  it('sets up the calendars of design/calendar.md 5, with their days, colors and conditions', () => {
+    const plan = planApp(
+      {
+        name: 'Atlas',
+        currencies: ['TRY'],
+        templates: [{ id: 'crm' }, { id: 'sales' }, { id: 'projects' }, { id: 'budget' }, { id: 'stock' }, { id: 'product', answers: { releases: true } }, { id: 'recruiting' }, { id: 'assets' }, { id: 'content', answers: { campaigns: true } }],
+      },
+      { ids },
+    );
+    const calendars = new Map(
+      plan.files
+        .filter((file) => file.path.endsWith('_collection.json'))
+        .map((file) => parseSchema(file.text))
+        .flatMap((schema) => (schema.views ?? []).filter((v) => v.kind === 'calendar').map((v) => [schema.role!, { ...v.calendar, conditions: v.conditions }] as const)),
+    );
+    expect(Object.fromEntries(calendars)).toEqual({
+      activities: { start: 'date', color: 'type', upcoming: true, conditions: [] },
+      orders: { start: 'due', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is-not', value: ['Paid', 'Cancelled'] }] },
+      payments: { start: 'due', color: 'direction', upcoming: true, conditions: [{ field: 'status', op: 'is-not', value: ['Paid'] }] },
+      projects: { start: 'start', end: 'end', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is-not', value: ['Done', 'Cancelled'] }] },
+      'purchase-orders': { start: 'expected', color: 'status', upcoming: true, conditions: [{ field: 'status', op: 'is', value: ['Ordered'] }] },
+      releases: { start: 'planned', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
+      interviews: { start: 'date', color: 'type', upcoming: true, conditions: [] },
+      maintenance: { start: 'date', color: 'type', upcoming: true, conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
+      campaigns: { start: 'start', end: 'end', color: 'status', upcoming: false, conditions: [] },
+    });
+    // Activities and interviews hold a time when one is given.
+    const field = (role: string, key: string) =>
+      plan.files.map((file) => (file.path.endsWith('_collection.json') ? parseSchema(file.text) : null)).find((schema) => schema?.role === role)!.fields.find((f) => f.key === key);
+    expect(field('activities', 'date')).toMatchObject({ type: 'date', time: true });
+    expect(field('interviews', 'date')).toMatchObject({ type: 'date', time: true });
+    expect(field('maintenance', 'date')!.time).toBeUndefined();
+  });
+
   it('says what is wrong with what it was given', () => {
     const wrong = (input: Parameters<typeof planApp>[0]) => {
       try {

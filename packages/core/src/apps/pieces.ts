@@ -1,4 +1,4 @@
-import type { Condition, Field, NumberFormat, OptionColor, Rollup } from '../collection';
+import type { CalendarSettings, Condition, Field, NumberFormat, OptionColor, Rollup, View } from '../collection';
 import type { AppDraft } from './types';
 
 // The pieces an app is made of, by role: what each is called when it is set up and what one of
@@ -59,6 +59,18 @@ export const codeField = (prefix: string): Field => ({ key: 'code', label: 'Code
 export const text = (key: string, label: string): Field => ({ key, label, type: 'text' });
 export const number = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'number', ...extra });
 export const day = (key: string, label: string, today = false): Field => ({ key, label, type: 'date', ...(today && { default: '=today()' }) });
+
+/** A date field that holds a time too, when one is given; with none it is all day. */
+export const dayAndTime = (key: string, label: string, today = false): Field => ({ ...day(key, label, today), time: true });
+
+/** A template's Calendar view (design/calendar.md 5): by a date field, its records those of the conditions. */
+export const calendar = (settings: Omit<CalendarSettings, 'upcoming'> & { upcoming?: boolean }, conditions: Condition[] = []): View => ({
+  id: 'calendar',
+  name: 'Calendar',
+  kind: 'calendar',
+  calendar: { ...settings, upcoming: settings.upcoming ?? false },
+  conditions,
+});
 export const checkbox = (key: string, label: string, on?: boolean): Field => ({ key, label, type: 'checkbox', ...(on !== undefined && { default: on }) });
 export const person = (key: string, label: string, me = false): Field => ({ key, label, type: 'person', ...(me && { default: '=me()' }) });
 export const link = (key: string, label: string, collection: string, many = false): Field => ({ key, label, type: 'link', collection, ...(many && { many: true }) });

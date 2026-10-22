@@ -261,3 +261,10 @@ Bugün, sırasıyla; her dilimin sonunda commit sorulur. Arayüzü olan dilim ö
 - Panonun takviminde bitmemiş kartlar, bütün fazlarıyla. Yalnız bilgisayarda; telefonda Board ve List kalır, bilgisayarda seçilen Calendar telefonda Board açılır. Status bar'da "11 cards in October · 12 with no day".
 - Telefonda takvim görünümünde + gösterilen güne kayıt ekler. Uzun basma 0,45 saniye; parmak şeridin üstündeyken yalnız gün değişir, saat kalır.
 - Ajanın `records`'unda `from`, `to` ve `due` (today, upcoming). Bunlar koleksiyonun ilk takvim görünümünün başlangıç alanına göre çalışır, takvim yoksa ilk tarih alanına göre. Koleksiyon verilmezse takvimlerin Today ve Upcoming'e getirdiği kayıtlar gelir; space adlanmadıysa her space'te aranır. Rehber takvim görünümünü ve "bugün neler var" sorusunu anlatır.
+
+22 Ekim 2026'da, 4. dilimin kodu yazılırken verilen kararlar:
+- Takvim görünümü yalnız o kurulumda açılan koleksiyona yazılır; Add to app'te var olan koleksiyona eklenmez. Her şablonun görünümünün adı Calendar.
+- Orders ve Payments vadeye (Due) göre; Bütçe şablonunda vade kapatıldıysa tarihe (Date) göre.
+- Renk: Activities, Interviews ve Maintenance türe göre; Payments yöne göre (In, Out); ötekiler duruma göre.
+- CRM'in Log a call ve Log a meeting düğmeleri görüşmeyi şimdiki gün ve saatle yazar; şirketin Last contact'ı da saatiyle görünür. İşe alımın Schedule interview'ı saati de sorar.
+- Panolara (Requests, Work, Content) bir şey eklenmez; Calendar her panoda var.
