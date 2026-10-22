@@ -291,3 +291,17 @@ Roadmap'te faz "16 Yeni app şablonları" ve her dilim bir kart; denemeler "dene
 - `months()` ve `years()` saate eklenmez; tek başına bir değer olarak boş görünür.
 - Takvim ayarında formül alanı, kaydın kendi alanlarından gün verdiği anlaşılıyorsa listelenir; bağlı kaydın gününü okuyan formül, şablonda ya da ajanın yazdığı dosyada başlangıç verilmişse kabul edilir. Böyle kayıt takvimde ve Upcoming'de sürüklenmez, yalnız açılır.
 - Ajanın şablon listesinde her şablonun `audience`'ı yazar; rehber şablonları iki taraf başlığıyla sayar.
+
+2. dilimin kodunda verilenler (22 Ekim, onaylı):
+
+- Abonelikte "ne satıyorsunuz" cevabı koleksiyonun adını verir: Subscriptions, Memberships ya da Service agreements; üyelikte ödeyen alanı Member olur, Plans aynı kalır. Bunun için şablon, parça adını cevaba göre verebilir (`AppTemplate.names`).
+- Varsayılan planlar Basic monthly, Pro monthly, Pro yearly. Dönem planın adından okunur: yearly ve annual yıllık, quarterly çeyreklik, dönem yoksa aylık; fiyatlar kurulumdan sonra planlara yazılır.
+- Deneme süresi sorusu varsayılan Hayır. Evet ise planda Trial days (14) olur; yeni kayıt Trial ile başlar, yenileme günü denemenin bittiği gündür; Renew Active yapar.
+- Ödeyen: CRM varsa onun müşterileri; yoksa soru sorulur, varsayılan Companies.
+- Yenileme ödemesi Invoiced, vadesi yenileme günü, Bütçe'de koleksiyonun adını taşıyan satıra yazılır.
+- Adı boş kayıt "müşteri · plan" adını alır; plan ve müşteri yalnız aktiflerin aylık değerini toplar.
+- Sözleşmenin karşı tarafı Companies; app'te People varsa Contact alanı da eklenir.
+- Sözleşmede varsayılanlar: durum Active, kendiliğinden yenilenir Evet, dönem Yearly; ihbar sorusu Yok, 15, 30, 60, 90 gün, varsayılan 30.
+- Cancel by takvimi Today ve Upcoming'e gelir; Ends ayrı takvimdir ve aynı sözleşme iki kez görünmesin diye Upcoming'e gelmez.
+- Renew aktif ya da bitmiş sözleşmede; Cancel taslak ya da aktifte, onay ister, neden sormaz.
+- Bütün kümeler testinin yerine her şablon tek başına, aynı taraftan her ikili, her grup ve her taraf hep birlikte (core'da altı cevap ve para birimi biçimiyle, ajanda iki).

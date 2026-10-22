@@ -3,6 +3,7 @@ import { appointments } from './templates/appointments';
 import { assets } from './templates/assets';
 import { budget } from './templates/budget';
 import { content } from './templates/content';
+import { contracts } from './templates/contracts';
 import { crm } from './templates/crm';
 import { ecommerce } from './templates/ecommerce';
 import { product } from './templates/product';
@@ -10,10 +11,11 @@ import { projects } from './templates/projects';
 import { recruiting } from './templates/recruiting';
 import { sales } from './templates/sales';
 import { stock } from './templates/stock';
+import { subscriptions } from './templates/subscriptions';
 import { support } from './templates/support';
 import { type Answer, type Answers, type AppTemplate, type Question, TEMPLATE_IDS, type TemplateId } from './types';
 
-export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content };
+export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content, subscriptions, contracts };
 
 export const isTemplateId = (id: unknown): id is TemplateId => TEMPLATE_IDS.includes(id as TemplateId);
 
@@ -52,14 +54,14 @@ function cleanList(items: string[]): string[] {
   return items.map((i) => i.trim()).filter((i) => i && !seen.has(i.toLowerCase()) && seen.add(i.toLowerCase()));
 }
 
+/** A question's default for a device in `region`: its own there, else the usual one. */
+export const defaultOf = (q: Question, region?: string): Answer => (region && q.regional?.[region]) ?? q.default;
+
 /**
  * A template's answers from what was given, each question it asks with its answer or its default,
  * each it does not ask with its default; and what is wrong with what was given: a question it does
  * not have, an answer that is not one.
  */
-/** A question's default for a device in `region`: its own there, else the usual one. */
-export const defaultOf = (q: Question, region?: string): Answer => (region && q.regional?.[region]) ?? q.default;
-
 export function readAnswers(template: AppTemplate, chosen: ReadonlySet<TemplateId>, given: { [key: string]: unknown } = {}, region?: string): { answers: Answers; problems: string[] } {
   const problems: string[] = [];
   const keys = template.questions.map((q) => q.key);

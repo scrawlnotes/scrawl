@@ -1,6 +1,7 @@
 import type { MessageKey } from '@scrawlnotes/i18n';
 import type { ColumnKind } from '../board';
 import type { Field, LayoutBlock, NumberFormat, View } from '../collection';
+import type { PieceInfo } from './pieces';
 
 // An app is a folder of collections, boards, notes and rules set up from ready templates that
 // share their pieces: CRM and Sales one Companies, Sales and Stock one Products, every template
@@ -11,7 +12,7 @@ import type { Field, LayoutBlock, NumberFormat, View } from '../collection';
 export const APP_FILE = '_app.json';
 
 /** The templates, in the order they are set up: the one before sets up what a shared piece starts with. */
-export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content'] as const;
+export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content', 'subscriptions', 'contracts'] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
@@ -85,6 +86,8 @@ export interface AppTemplate {
   money: (answers: Answers) => boolean;
   /** The pieces it sets up, by role, with its answers and the templates set up with it. */
   pieces: (answers: Answers, app: Chosen) => string[];
+  /** What its answers call its own pieces, where they name them: Memberships for Subscriptions. */
+  names?: (answers: Answers) => { [role: string]: Pick<PieceInfo, 'name' | 'singular' | 'about'> };
   /** Adds its fields, blocks, rules and records to the pieces, and its section to the About note. */
   build: (app: AppDraft, answers: Answers) => void;
 }

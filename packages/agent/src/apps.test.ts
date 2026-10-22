@@ -1,9 +1,9 @@
-import { APP_TEMPLATES, type Answers, MemoryFs, saveMe, TEMPLATE_IDS, type TemplateId } from '@scrawlnotes/core';
+import { APP_TEMPLATES, type Answers, audienceOf, MemoryFs, saveMe, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { checkFile, checkRules } from './check';
 import { fileKind, Refusal } from './paths';
 import { readTool } from './read';
-import { recordsTool, saveRecordTool } from './records';
+import { dueRecordsTool, recordsTool, saveRecordTool } from './records';
 import type { Agent, AgentSpace } from './space';
 import { createTool, writeTool } from './write';
 
@@ -41,6 +41,8 @@ const MOST: { [id in TemplateId]: Answers } = {
   recruiting: { interviews: true, scores: true },
   assets: { assign: true, service: true, places: true, costs: true },
   content: { campaigns: true },
+  subscriptions: { sells: 'memberships', trial: true, customers: 'people', payments: true },
+  contracts: { notice: '60', seats: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -55,6 +57,25 @@ const LEAST: { [id in TemplateId]: Answers } = {
   recruiting: { stages: [], sources: [], interviews: false, steps: [] },
   assets: { categories: [], assign: false, service: false, places: false, costs: false },
   content: { channels: [], stages: [], campaigns: false },
+  subscriptions: { sells: 'agreements', plans: [], trial: false, customers: 'companies', payments: false },
+  contracts: { kinds: [], notice: '0', seats: false },
+};
+
+/**
+ * The sets of templates tried (design/more-apps.md 7): each alone, each with each other of its
+ * side, and each group's and each side's all together. Every set would be too many.
+ */
+const setsToTry = (): TemplateId[][] => {
+  const sideOf = (id: TemplateId) => audienceOf(APP_TEMPLATES[id].group);
+  const out: TemplateId[][] = TEMPLATE_IDS.map((id) => [id]);
+  TEMPLATE_IDS.forEach((a, i) => {
+    for (const b of TEMPLATE_IDS.slice(i + 1)) if (sideOf(a) === sideOf(b)) out.push([a, b]);
+  });
+  for (const groups of Object.values(TEMPLATE_GROUPS)) {
+    for (const group of groups) out.push(TEMPLATE_IDS.filter((id) => APP_TEMPLATES[id].group === group));
+    out.push(TEMPLATE_IDS.filter((id) => (groups as readonly string[]).includes(APP_TEMPLATES[id].group)));
+  }
+  return out.filter((set) => set.length > 0);
 };
 
 /** What a template is asked with this set: only the questions it asks. */
@@ -67,10 +88,10 @@ const answersOf = (set: TemplateId[], all: { [id in TemplateId]: Answers }) =>
   );
 
 describe('apps', () => {
-  it('sets up every set of templates as files the checks of a write take', async () => {
+  it('sets up each template, each two of a side and each group as files the checks of a write take', async () => {
     let apps = 0;
-    for (let mask = 1; mask < 1 << TEMPLATE_IDS.length; mask++) {
-      const set = TEMPLATE_IDS.filter((_, i) => mask & (1 << i));
+    const sets = setsToTry();
+    for (const set of sets) {
       for (const [all, currencies] of [
         [MOST, ['TRY', 'EUR']],
         [LEAST, ['TRY']],
@@ -92,7 +113,7 @@ describe('apps', () => {
         apps++;
       }
     }
-    expect(apps).toBe(8190);
+    expect(apps).toBe(sets.length * 2);
   }, 1_800_000);
 
   it('runs a sale through: a line from its product, the order adding up, stock out on delivery, the payment expected and recorded', async () => {
@@ -260,6 +281,63 @@ describe('apps', () => {
     const payments = (await recordsTool(agent, { collection: 'Clinic/Payments' })).data.records;
     expect(payments).toHaveLength(1);
     expect(payments[0]!.values).toMatchObject({ name: 'Consultation with Can', direction: 'In', amount: 500, status: 'Invoiced', appointment: { id }, budget_line: { name: 'Appointments' } });
+  });
+
+  it('keeps a membership on its plan: renewed a period on with its payment, marked when its day has passed, paused and cancelled', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Gym', templates: ['subscriptions', 'budget'], answers: { subscriptions: { sells: 'memberships', plans: ['Monthly', 'Yearly'], customers: 'people' } }, currencies: ['TRY'] });
+    const plans = (await recordsTool(agent, { collection: 'Gym/Plans' })).data.records;
+    const planId = (name: string) => plans.find((p) => p.name === name)!.id;
+    await saveRecordTool(agent, { collection: 'Gym/Plans', id: planId('Monthly'), values: { price: 600 } });
+    await saveRecordTool(agent, { collection: 'Gym/Plans', id: planId('Yearly'), values: { price: 6000 } });
+    await saveRecordTool(agent, { collection: 'Gym/People', values: { name: 'Ayşe Yılmaz' } });
+    await saveRecordTool(agent, { collection: 'Gym/People', values: { name: 'Can Demir' } });
+
+    // A new one takes its amount, its period, its name and its renewal day from its plan.
+    const ayse = await saveRecordTool(agent, { collection: 'Gym/Memberships', values: { customer: 'Ayşe Yılmaz', plan: 'Yearly', start: '2026-09-01' } });
+    expect(ayse.data.record).toMatchObject({ name: 'Ayşe Yılmaz · Yearly', values: expect.objectContaining({ amount: 6000, period: 'Yearly', renews: '2027-09-01', status: 'Active', monthly_value: 500 }) });
+    const id = ayse.data.record.id;
+    const renewed = await saveRecordTool(agent, { collection: 'Gym/Memberships', id, action: 'Renew' });
+    expect(renewed.data.record.values.renews).toBe('2028-09-01');
+    const payments = (await recordsTool(agent, { collection: 'Gym/Payments' })).data.records;
+    expect(payments.map((p) => p.values)).toEqual([expect.objectContaining({ direction: 'In', amount: 6000, status: 'Invoiced', due: '2027-09-01', budget_line: expect.objectContaining({ name: 'Memberships' }), subscription: expect.objectContaining({ id }) })]);
+    expect((await recordsTool(agent, { collection: 'Gym/Plans', where: [{ field: 'name', op: 'is', value: 'Yearly' }] })).data.records[0]!.values).toMatchObject({ active: 1, monthly_value: 500 });
+
+    // One whose renewal day has passed is marked until it is renewed, paused or cancelled.
+    const can = await saveRecordTool(agent, { collection: 'Gym/Memberships', values: { customer: 'Can Demir', plan: 'Monthly', start: '2026-08-15' } });
+    expect(can.data.record.values.renews).toBe('2026-09-15');
+    expect(can.data.record.problems).toEqual([{ kind: 'check', field: 'renews', text: 'The renewal day has passed: renew it, or cancel it' }]);
+    const press = (action: string, input?: object) => saveRecordTool(agent, { collection: 'Gym/Memberships', id: can.data.record.id, action, ...(input && { input: input as never }) });
+    const paused = (await press('Pause')).data.record;
+    expect([paused.values.status, paused.problems]).toEqual(['Paused', undefined]);
+    expect((await press('Resume')).data.record.values.status).toBe('Active');
+    const cancelled = await press('Cancel', { reason: 'Moved away' });
+    expect(cancelled.data.record.values).toMatchObject({ status: 'Cancelled', cancelled_on: '2026-10-21', reason: 'Moved away' });
+    expect((await recordsTool(agent, { collection: 'Gym/People', where: [{ field: 'name', op: 'is', value: 'Can Demir' }] })).data.records[0]!.values).toMatchObject({ active_memberships: 0 });
+  });
+
+  it('keeps contracts: the day to cancel by in Upcoming, marked when notice passed on one that renews, renewed a period on', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Office', templates: ['contracts'], currencies: ['TRY'] });
+    await saveRecordTool(agent, { collection: 'Office/Companies', values: { name: 'Kule Gayrimenkul' } });
+    await saveRecordTool(agent, { collection: 'Office/Companies', values: { name: 'Ofis Teknik' } });
+    const lease = await saveRecordTool(agent, { collection: 'Office/Contracts', values: { name: 'Office lease', party: 'Kule Gayrimenkul', type: 'Lease', start: '2026-01-01', ends: '2026-12-31', amount: 40000, period: 'Monthly' } });
+    expect(lease.data.record.values).toMatchObject({ status: 'Active', owner: 'Kaan', auto_renews: true, notice_days: 30, cancel_by: '2026-12-01', yearly: 480000 });
+    expect(lease.data.record.problems).toBeUndefined();
+    const copier = await saveRecordTool(agent, { collection: 'Office/Contracts', values: { name: 'Copier service', party: 'Ofis Teknik', type: 'Service', start: '2025-11-11', ends: '2026-11-10', amount: 12000 } });
+    expect(copier.data.record.values).toMatchObject({ period: 'Yearly', cancel_by: '2026-10-11' });
+    expect(copier.data.record.problems).toEqual([{ kind: 'check', field: 'cancel_by', text: 'Notice passed; it renews' }]);
+    const renewed = await saveRecordTool(agent, { collection: 'Office/Contracts', id: copier.data.record.id, action: 'Renew' });
+    expect(renewed.data.record.values).toMatchObject({ start: '2026-11-11', ends: '2027-11-10', cancel_by: '2027-10-11' });
+    expect(renewed.data.record.problems).toBeUndefined();
+    // Upcoming brings the day to cancel by; it is worked out, and stays as it is.
+    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2027-12-31' })).data.records as { view: string; start: string; record: { name: string } }[];
+    expect(due.map((d) => [d.record.name, d.view, d.start])).toEqual([
+      ['Office lease', 'Cancel by', '2026-12-01'],
+      ['Copier service', 'Cancel by', '2027-10-11'],
+    ]);
+    const ended = await saveRecordTool(agent, { collection: 'Office/Contracts', id: lease.data.record.id, action: 'End' });
+    expect(ended.data.record.values.status).toBe('Ended');
   });
 
   it('logs a call from a company, and ships a release asking first when cards are open', async () => {

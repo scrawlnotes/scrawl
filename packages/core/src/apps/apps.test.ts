@@ -13,11 +13,21 @@ import { type Answers, audienceOf, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateI
 let n = 0;
 const ids = () => `id${++n}`;
 
-/** Every set of templates: 4095 of them, and the empty one left out. */
-const sets = (): TemplateId[][] => {
-  const out: TemplateId[][] = [];
-  for (let mask = 1; mask < 1 << TEMPLATE_IDS.length; mask++) out.push(TEMPLATE_IDS.filter((_, i) => mask & (1 << i)));
-  return out;
+/**
+ * The sets of templates tried (design/more-apps.md 7): each alone, each with each other of its
+ * side, and each group's and each side's all together. Every set would be too many.
+ */
+const setsToTry = (): TemplateId[][] => {
+  const sideOf = (id: TemplateId) => audienceOf(TEMPLATES[id].group);
+  const out: TemplateId[][] = TEMPLATE_IDS.map((id) => [id]);
+  TEMPLATE_IDS.forEach((a, i) => {
+    for (const b of TEMPLATE_IDS.slice(i + 1)) if (sideOf(a) === sideOf(b)) out.push([a, b]);
+  });
+  for (const groups of Object.values(TEMPLATE_GROUPS)) {
+    for (const group of groups) out.push(TEMPLATE_IDS.filter((id) => TEMPLATES[id].group === group));
+    out.push(TEMPLATE_IDS.filter((id) => (groups as readonly string[]).includes(TEMPLATES[id].group)));
+  }
+  return out.filter((set) => set.length > 0);
 };
 
 /** The answers that turn on what can be turned on, and the ones that turn it off. */
@@ -34,6 +44,8 @@ const MOST: { [id in TemplateId]: Answers } = {
   recruiting: { interviews: true, scores: true },
   assets: { assign: true, service: true, places: true, costs: true },
   content: { campaigns: true },
+  subscriptions: { sells: 'memberships', trial: true, customers: 'people', payments: true },
+  contracts: { notice: '60', seats: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -48,6 +60,8 @@ const LEAST: { [id in TemplateId]: Answers } = {
   recruiting: { stages: [], sources: [], interviews: false, steps: [] },
   assets: { categories: [], assign: false, service: false, places: false, costs: false },
   content: { channels: [], stages: [], campaigns: false },
+  subscriptions: { sells: 'agreements', plans: [], trial: false, customers: 'companies', payments: false },
+  contracts: { kinds: [], notice: '0', seats: false },
 };
 
 /** What a template asks of these, given only the questions it asks with this set. */
@@ -58,9 +72,10 @@ const given = (set: TemplateId[], all: { [id in TemplateId]: Answers }) =>
   });
 
 describe('setting up an app', () => {
-  it('makes a right app of every set of templates, with every answer turned on, off, and left as it is', () => {
+  it('makes a right app of each template, each two of a side and each group, with every answer turned on, off, and left as it is', () => {
     let made = 0;
-    for (const set of sets()) {
+    const sets = setsToTry();
+    for (const set of sets) {
       for (const answers of [MOST, LEAST, null]) {
         for (const currencies of [['TRY'], ['TRY', 'EUR']]) {
           const templates = answers ? given(set, answers) : set.map((id) => ({ id }));
@@ -70,7 +85,7 @@ describe('setting up an app', () => {
         }
       }
     }
-    expect(made).toBe(4095 * 6);
+    expect(made).toBe(sets.length * 6);
   }, 600_000);
 
   it('sets up a shared piece once, for every template that uses it', () => {
@@ -210,6 +225,41 @@ describe('setting up an app', () => {
     // A formula someone changed is theirs.
     const own = await setUp((schema) => (field(schema, 'remaining').formula = 'total - collected - 0'));
     expect(field(own.orders, 'remaining').formula).toBe('total - collected - 0');
+  });
+
+  it('sets up Subscriptions named as the answer says, its plans from the list, and Contracts on the day to cancel by', () => {
+    const plan = planApp({ name: 'Gym', currencies: ['TRY'], templates: [{ id: 'subscriptions', answers: { sells: 'memberships', plans: ['Monthly', 'Student quarterly', 'Annual'], customers: 'people' } }, { id: 'contracts', answers: { kinds: ['lease', 'software'], notice: '60' } }] }, { ids });
+    const schema = (path: string) => parseSchema(plan.files.find((f) => f.path === `${path}/_collection.json`)!.text);
+    expect(plan.created.filter((c) => c.kind === 'collection').map((c) => c.path)).toEqual(['Gym/Companies', 'Gym/People', 'Gym/Plans', 'Gym/Memberships', 'Gym/Contracts']);
+    const members = schema('Gym/Memberships');
+    expect(members.singular).toBe('membership');
+    expect(members.fields.find((f) => f.key === 'customer')).toMatchObject({ label: 'Member', collection: 'Gym/People' });
+    expect(members.fields.find((f) => f.key === 'status')!.options).toEqual(['Active', 'Paused', 'Cancelled']);
+    expect(members.views!.map((v) => [v.id, v.kind ?? 'table', v.calendar?.start ?? null])).toEqual([
+      ['active', 'table', null],
+      ['cancelled', 'table', null],
+      ['calendar', 'calendar', 'renews'],
+    ]);
+    expect(schema('Gym/People').fields.map((f) => f.key)).toEqual(expect.arrayContaining(['active_memberships', 'monthly_value']));
+    const plans = plan.files.filter((f) => f.path.startsWith('Gym/Plans/') && f.path.endsWith('.md')).map((f) => [/name: (.*)/.exec(f.text)![1], /period: (.*)/.exec(f.text)![1]]);
+    expect(plans).toEqual([
+      ['Monthly', 'Monthly'],
+      ['Student quarterly', 'Quarterly'],
+      ['Annual', 'Yearly'],
+    ]);
+    const contracts = schema('Gym/Contracts');
+    expect(contracts.fields.find((f) => f.key === 'type')!.options).toEqual(['Lease', 'Software']);
+    expect(contracts.fields.find((f) => f.key === 'notice_days')!.default).toBe(60);
+    expect(contracts.fields.map((f) => f.key)).toContain('seats');
+    // The day to cancel by is worked out, and its calendar goes by it.
+    expect(contracts.views!.map((v) => [v.name, v.calendar])).toEqual([
+      ['Cancel by', { start: 'cancel_by', color: 'type', upcoming: true }],
+      ['Ends', { start: 'ends', color: 'type', upcoming: false }],
+    ]);
+    expect(plan.templates.map((s) => [s.id, s.buttons])).toEqual([
+      ['subscriptions', ['Renew', 'Pause', 'Resume', 'Cancel']],
+      ['contracts', ['Renew', 'End', 'Cancel']],
+    ]);
   });
 
   it('says what is wrong with what it was given', () => {

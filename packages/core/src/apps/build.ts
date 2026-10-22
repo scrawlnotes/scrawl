@@ -22,7 +22,7 @@ import { fileNameOf } from '../names';
 import { freePath } from '../paths';
 import { RULES_FILE, rulesProblems, ruleSpaceOf } from '../rules';
 import { aboutAdded, aboutName, aboutNote, partName } from './about';
-import { PIECES, ROLES } from './pieces';
+import { PIECES, type PieceInfo, ROLES } from './pieces';
 import { impliedBy, isTemplateId, readAnswers, readCurrencies, TEMPLATES } from './questions';
 import {
   type AboutSection,
@@ -90,8 +90,7 @@ export interface FoundApp {
 
 const matchingTemplate = (role: string): CollectionTemplate => (COLLECTION_TEMPLATES.includes(role as CollectionTemplate) ? (role as CollectionTemplate) : 'blank');
 
-function emptyPart(role: string, path: string): Part {
-  const info = PIECES[role]!;
+function emptyPart(info: PieceInfo, role: string, path: string): Part {
   if (info.kind === 'board') return { kind: 'board', role, path, about: info.about, columns: [], fields: [] };
   if (info.kind === 'folder') return { kind: 'folder', role, path, about: info.about, notes: [] };
   return { kind: 'collection', role, path, about: info.about, ...(info.singular && { singular: info.singular }), fields: [], blocks: [], views: [], rules: [], records: [] };
@@ -113,7 +112,8 @@ class Draft implements AppDraft {
     paths: ReadonlyMap<string, string>,
     roles: ReadonlySet<string>,
   ) {
-    for (const role of ROLES) if (roles.has(role)) this.parts.set(role, emptyPart(role, paths.get(role)!));
+    const infoOf = piecesNamed(chosen);
+    for (const role of ROLES) if (roles.has(role)) this.parts.set(role, emptyPart(infoOf(role), role, paths.get(role)!));
   }
 
   has = (id: TemplateId) => this.chosen.has(id);
@@ -190,6 +190,13 @@ class Draft implements AppDraft {
     }
     this.building = null;
   }
+}
+
+/** What each piece is called and holds: as PIECES says, or as a template's answers name it, Memberships for Subscriptions. */
+function piecesNamed(chosen: ReadonlyMap<TemplateId, Answers>): (role: string) => PieceInfo {
+  const named = new Map<string, Partial<PieceInfo>>();
+  for (const [id, answers] of chosen) for (const [role, info] of Object.entries(TEMPLATES[id].names?.(answers) ?? {})) named.set(role, info);
+  return (role) => ({ ...PIECES[role]!, ...named.get(role) });
 }
 
 /** The roles the templates set up, in the order of ROLES. */
@@ -274,9 +281,10 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   const paths = new Map<string, string>();
   const names = new Set(found?.taken ?? []);
   for (const [role, piece] of found?.pieces ?? []) paths.set(role, piece.path);
+  const infoOf = piecesNamed(all);
   for (const role of roles) {
     if (paths.has(role)) continue;
-    const info = PIECES[role]!;
+    const info = infoOf(role);
     const path = freePath(folder, fileNameOf(info.name), info.kind === 'board' ? BOARD_EXT : '', names);
     names.add(path.toLowerCase());
     paths.set(role, path);

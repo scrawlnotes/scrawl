@@ -51,6 +51,9 @@ export const PIECES: { [role: string]: PieceInfo } = {
   resources: { kind: 'collection', name: 'Resources', singular: 'resource', about: 'the rooms, tables and things that are booked.' },
   channels: { kind: 'collection', name: 'Channels', singular: 'channel', about: 'where you sell: each marketplace and your own site, with its commission and when it pays.' },
   returns: { kind: 'collection', name: 'Returns', singular: 'return', about: 'what came back from an order, why, and whether it was refunded.' },
+  plans: { kind: 'collection', name: 'Plans', singular: 'plan', about: 'what you sell by the month or the year, with its price.' },
+  subscriptions: { kind: 'collection', name: 'Subscriptions', singular: 'subscription', about: 'who is on which plan, from when, and when it renews.' },
+  contracts: { kind: 'collection', name: 'Contracts', singular: 'contract', about: 'each contract: with whom, from when to when, and by when to give notice.' },
 };
 
 /** The roles, in the order the pieces are listed: by template, the shared ones first where they are first used. */
