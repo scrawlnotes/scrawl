@@ -2583,7 +2583,7 @@ export function App() {
           folders={everyFolder(tree, spaces)}
           folder={dialog.folder}
           adding={dialog.app}
-          onPlan={(input) => session.planAddToApp(dialog.folder, input.templates)}
+          onPlan={(input) => session.planAddToApp(dialog.folder, input.templates, input.currencies)}
           onCreate={async (plan) => {
             const done = await session.installAddToApp(plan, dialog.folder);
             if ('error' in done) return done.error;

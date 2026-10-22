@@ -385,6 +385,14 @@ describe('setting up an app', () => {
     const found = (await findApp(fs, 'Mine'))!;
     expect(() => planApp({ name: '', templates: [{ id: 'support' }] }, { found })).toThrow(/support for a business, health for a person/);
     expect(planApp({ name: '', templates: [{ id: 'home', answers: { keeps: ['documents'] } }] }, { found, ids }).templates.map((s) => s.id)).toEqual(['home']);
+    // An app with no currencies takes the ones given with a template that keeps money; one that has them keeps its own.
+    expect(() => planApp({ name: '', templates: [{ id: 'finance' }] }, { found, ids })).toThrow(/Give the currencies/);
+    const withMoney = planApp({ name: '', currencies: ['EUR', 'TRY'], templates: [{ id: 'finance' }] }, { found, ids });
+    expect(withMoney.app.currencies).toEqual(['EUR', 'TRY']);
+    expect(JSON.parse(withMoney.files.find((f) => f.path === `Mine/${APP_FILE}`)!.text).currencies).toEqual(['EUR', 'TRY']);
+    await installApp(fs, withMoney);
+    const again = (await findApp(fs, 'Mine'))!;
+    expect(planApp({ name: '', currencies: ['USD'], templates: [{ id: 'home' }] }, { found: again, ids }).app.currencies).toEqual(['EUR', 'TRY']);
   });
 });
 

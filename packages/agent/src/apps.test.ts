@@ -760,5 +760,15 @@ describe('apps', () => {
     const mixed = await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: ['crm', 'finance'], currencies: ['TRY'] }));
     expect(mixed.details.problems).toEqual(['An app is set up from templates for a business or for a person, not both: crm for a business, finance for a person. Set them up as two apps']);
   });
+
+  it('adds a template that keeps money to an app that has no currencies, with the ones given', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Mine', templates: ['health'] });
+    const none = await refusal(createTool(agent, { kind: 'app', folder: 'Mine', name: '', templates: ['finance'] }));
+    expect(none.details.problems).toEqual(['Give the currencies the app keeps money in, like TRY or EUR; the first is the main one']);
+    const added = await createTool(agent, { kind: 'app', folder: 'Mine', name: '', templates: ['finance'], currencies: ['TRY'] });
+    expect(added.data).toMatchObject({ templates: ['health', 'finance'] });
+    expect(JSON.parse((await readTool(agent, { path: 'Mine/_app.json' })).data.text).currencies).toEqual(['TRY']);
+  });
 });
 

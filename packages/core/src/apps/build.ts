@@ -274,7 +274,8 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   const all = withImplied(answers);
   const base = withImplied(installed);
 
-  const currencies = found ? found.app.currencies : readCurrencies(input.currencies ?? []);
+  // An app keeps the currencies it has; one with none takes those given when a template added to it holds money.
+  const currencies = found?.app.currencies.length ? found.app.currencies : readCurrencies(input.currencies ?? []);
   if (currencies === null) problems.push(t('apps.currencyCodes'));
   else if (currencies.length === 0 && [...all].some(([id, a]) => TEMPLATES[id].money(a))) problems.push(t('apps.needsCurrencies'));
   if (problems.length > 0) throw new AppProblems(problems);

@@ -2270,6 +2270,7 @@ export const en = {
   'apps.in': 'In',
   'apps.inHelp': 'The top of the space, or a folder in it.',
   'apps.currencies': 'Currencies',
+  'apps.currenciesFirst': 'What you add keeps money, and the app has no currencies yet: give the ones it keeps money in.',
   'apps.main': 'main',
   'apps.addCurrency': 'Add a currency…',
   'apps.removeCurrency': 'Remove {code}',

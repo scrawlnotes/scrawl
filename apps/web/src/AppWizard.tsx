@@ -95,10 +95,11 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
   const answersOf = (id: TemplateId): Answers => readAnswers(APP_TEMPLATES[id], chosenSet, given[id] ?? {}, deviceRegion()).answers;
   const view = { has: (id: TemplateId) => chosenSet.has(id), answers: answersOf };
   const rolesOf = (id: TemplateId) => APP_TEMPLATES[id].pieces(answersOf(id), view);
-  const money = !adding && chosen.some((id) => APP_TEMPLATES[id].money(answersOf(id)));
-  const steps: Step[] = adding ? ['templates', ...chosen, 'summary'] : ['templates', 'app', ...chosen, 'summary'];
+  // Its currencies are asked when what is chosen holds money: added to an app, only when the app has none yet.
+  const money = chosen.some((id) => APP_TEMPLATES[id].money(answersOf(id))) && (!adding || adding.currencies.length === 0);
+  const steps: Step[] = adding ? ['templates', ...(money ? (['app'] as const) : []), ...chosen, 'summary'] : ['templates', 'app', ...chosen, 'summary'];
   const step = steps[Math.min(at, steps.length - 1)]!;
-  const stepLabel = (s: Step) => (s === 'templates' ? t('apps.step.templates') : s === 'app' ? t('apps.step.app') : s === 'summary' ? t('apps.step.summary') : t(APP_TEMPLATES[s].name));
+  const stepLabel = (s: Step) => (s === 'templates' ? t('apps.step.templates') : s === 'app' ? t(adding ? 'apps.currencies' : 'apps.step.app') : s === 'summary' ? t('apps.step.summary') : t(APP_TEMPLATES[s].name));
   // A phone's back button says where it goes in a word.
   const backLabel = (s: Step) => (s === 'templates' || s === 'app' || s === 'summary' ? stepLabel(s) : t(APP_TEMPLATES[s].short));
 
@@ -193,7 +194,7 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
     if (at === 0) onClose();
     else setAt(at - 1);
   };
-  const ready = step === 'templates' ? chosen.length > 0 : step === 'app' ? name.trim() !== '' && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length : true;
+  const ready = step === 'templates' ? chosen.length > 0 : step === 'app' ? (!!adding || name.trim() !== '') && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length : true;
   const title = adding ? t('apps.addTo', { name: adding.name }) : t('apps.title');
   const go = adding ? t('apps.add') : t('apps.create');
 
@@ -233,6 +234,7 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
         <AppPage
           phone={phone}
           side={shownSide}
+          adding={!!adding}
           name={name}
           onName={(value) => {
             setName(value);
@@ -420,10 +422,12 @@ function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, shared
   );
 }
 
-function AppPage({ phone, side, name, onName, folders, place, onPlace, money, currencies, onCurrencies, problems }: {
+function AppPage({ phone, side, adding, name, onName, folders, place, onPlace, money, currencies, onCurrencies, problems }: {
   phone: boolean;
   /** Whose app it is: its currencies are said for a business's orders or a person's accounts. */
   side: Audience;
+  /** Added to an app that has no currencies yet: only they are asked. */
+  adding: boolean;
   name: string;
   onName: (name: string) => void;
   folders: string[];
@@ -456,27 +460,33 @@ function AppPage({ phone, side, name, onName, folders, place, onPlace, money, cu
     next.splice(to, 0, moved!);
     onCurrencies(next);
   };
+  const help = t(side === 'personal' ? 'apps.currenciesHelpPersonal' : 'apps.currenciesHelp');
   return (
     <div className={phone ? 'na-mapp' : 'na-fields'}>
-      <label className="na-field">
-        <span>{t('apps.name')}</span>
-        <input id="app-name" autoFocus value={name} aria-invalid={problems.length > 0 || undefined} onChange={(event) => onName(event.target.value)} />
-        {/* What keeps the app from being made here is said where it is mended: its name, mostly. */}
-        {problems.length > 0 ? (
-          problems.map((p) => (
-            <small key={p} className="na-help na-bad" role="alert">
-              {p}
-            </small>
-          ))
-        ) : (
-          <small className="na-help">{t('apps.nameHelp')}</small>
-        )}
-      </label>
-      <div className="na-field">
-        <span>{t('apps.in')}</span>
-        <FolderField folders={folders} value={place} onChange={onPlace} />
-        <small className="na-help">{t('apps.inHelp')}</small>
-      </div>
+      {adding && <p className="na-lead wide">{t('apps.currenciesFirst')}</p>}
+      {!adding && (
+        <>
+          <label className="na-field">
+            <span>{t('apps.name')}</span>
+            <input id="app-name" autoFocus value={name} aria-invalid={problems.length > 0 || undefined} onChange={(event) => onName(event.target.value)} />
+            {/* What keeps the app from being made here is said where it is mended: its name, mostly. */}
+            {problems.length > 0 ? (
+              problems.map((p) => (
+                <small key={p} className="na-help na-bad" role="alert">
+                  {p}
+                </small>
+              ))
+            ) : (
+              <small className="na-help">{t('apps.nameHelp')}</small>
+            )}
+          </label>
+          <div className="na-field">
+            <span>{t('apps.in')}</span>
+            <FolderField folders={folders} value={place} onChange={onPlace} />
+            <small className="na-help">{t('apps.inHelp')}</small>
+          </div>
+        </>
+      )}
       {money && (
         <div className="na-field wide">
           <span>{t('apps.currencies')}</span>
@@ -499,6 +509,7 @@ function AppPage({ phone, side, name, onName, folders, place, onPlace, money, cu
             ))}
             <input
               className="na-add"
+              autoFocus={adding}
               list="app-currencies"
               aria-label={t('apps.addCurrency')}
               placeholder={t('apps.addCurrency')}
@@ -525,7 +536,10 @@ function AppPage({ phone, side, name, onName, folders, place, onPlace, money, cu
               ))}
             </datalist>
           </div>
-          <small className={wrong ? 'na-help na-bad' : 'na-help'}>{wrong ?? t(side === 'personal' ? 'apps.currenciesHelpPersonal' : 'apps.currenciesHelp')}</small>
+          {/* Added to an app, what keeps it from being added is said here: its currencies are all that is asked. */}
+          <small className={wrong || (adding && problems.length > 0) ? 'na-help na-bad' : 'na-help'} role={adding && problems.length > 0 ? 'alert' : undefined}>
+            {wrong ?? (adding && problems[0]) ?? help}
+          </small>
         </div>
       )}
     </div>

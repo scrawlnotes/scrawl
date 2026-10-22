@@ -3727,11 +3727,12 @@ export class Session {
    * The plan of templates added to the app in `folder`: what is set up, what is added to what is
    * there, what is left as it is, and what would not work, said rather than thrown. Writes nothing.
    */
-  async planAddToApp(folder: string, templates: AppInput['templates']): Promise<AppPlan> {
+  async planAddToApp(folder: string, templates: AppInput['templates'], currencies?: AppInput['currencies']): Promise<AppPlan> {
     const { fs, local } = this.at(folder);
     const found = await findApp(fs, local);
     if (!found) throw new AppProblems([t('apps.notApp')]);
-    return planApp({ name: found.app.name, templates }, { found, keepBlocked: true });
+    // The currencies are taken only by an app that has none yet.
+    return planApp({ name: found.app.name, templates, currencies }, { found, keepBlocked: true });
   }
 
   /**

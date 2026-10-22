@@ -149,7 +149,7 @@ An app is a folder set up from ready templates at once: its collections, boards 
 
 ${appTemplates()}
 
-To add templates to an app, give its folder as \`folder\`: only what is missing is added, the pieces found by the role in their schema or board file (\`"role": "orders"\`) wherever they are and whatever they are called now; nothing there is changed or taken away, and the result says what was added. \`_app.json\` in the app's folder keeps which templates it was set up from, with their answers: \`read\` it, never \`write\` it. After that, change the app as any other collection, board or rule, and keep its About note right.
+To add templates to an app, give its folder as \`folder\`; an app that keeps no money yet takes \`currencies\` with a template that does. Only what is missing is added, the pieces found by the role in their schema or board file (\`"role": "orders"\`) wherever they are and whatever they are called now; nothing there is changed or taken away, and the result says what was added. \`_app.json\` in the app's folder keeps which templates it was set up from, with their answers: \`read\` it, never \`write\` it. After that, change the app as any other collection, board or rule, and keep its About note right.
 
 ## Who did what
 
