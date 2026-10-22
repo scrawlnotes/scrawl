@@ -388,7 +388,7 @@ export const currentPhase = (board: Board): Phase | undefined => board.phases.fi
 export function cardValues(board: Board, card: Card): CollectionRecord['values'] {
   const values: CollectionRecord['values'] = {};
   for (const field of board.fields ?? []) {
-    const value = readValue(field.type, card.values?.[field.key], field.many);
+    const value = readValue(field.type, card.values?.[field.key], field.many, field.time);
     if (value !== null) values[field.key] = value;
   }
   return values;
@@ -397,7 +397,7 @@ export function cardValues(board: Board, card: Card): CollectionRecord['values']
 /** A card's value for one of its board's fields, a formula worked out for `today`; null with none. */
 export function cardValue(board: Board, card: Card, field: Field, today = ''): FieldValue {
   if (field.type === 'formula') return evaluateFormula(field.formula ?? '', cardValues(board, card), { fields: board.fields ?? [] }, today);
-  return readValue(field.type, card.values?.[field.key], field.many);
+  return readValue(field.type, card.values?.[field.key], field.many, field.time);
 }
 
 /** The fields a card shows on its face: the board's first link and its first number, a deal's company and value. */

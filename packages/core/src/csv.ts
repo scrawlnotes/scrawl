@@ -1,5 +1,5 @@
 import { type Board } from './board';
-import { isDay } from './day';
+import { clockOf, dateOf, dateTimeOf, isDateTime, isDay } from './day';
 import {
   type Collection,
   currencyOf,
@@ -108,12 +108,13 @@ export function sheetDate(serial: number, date1904 = false): string {
   return seconds ? `${date} ${time}` : date;
 }
 
-/** A day as the days a workbook counts from 1900, for `sheetDate` to read back. */
+/** A day, or a day with its time, as the days a workbook counts from 1900 with the time as the fraction, for `sheetDate` to read back. */
 export function sheetSerial(day: string): number {
-  const [y, m, d] = day.split('-').map(Number);
+  const [y, m, d] = day.slice(0, 10).split('-').map(Number);
   const days = (Date.UTC(y!, m! - 1, d!) - Date.UTC(1899, 11, 30)) / 86_400_000;
+  const time = day.length > 10 ? (Number(day.slice(11, 13)) * 60 + Number(day.slice(14, 16))) / 1440 : 0;
   // Before the made-up 29 February 1900, a day less.
-  return days < 61 ? days - 1 : days;
+  return (days < 61 ? days - 1 : days) + time;
 }
 
 /**
@@ -185,7 +186,7 @@ function sheetCellOf(field: Field, value: FieldValue | undefined, values: Record
   if (typeof value === 'number' || typeof value === 'boolean') return value;
   if (typeof value === 'string') {
     // What is worked out can come out as a day: the last contact.
-    if ((field.type === 'date' || isComputed(field.type)) && isDay(value)) return { day: value };
+    if ((field.type === 'date' || isComputed(field.type)) && (isDay(value) || isDateTime(value))) return { day: value };
     if (field.type === 'url' || field.type === 'email') {
       const href = fieldHref(field.type, value);
       if (href) return { text: value, href };
@@ -243,7 +244,8 @@ export function guessType(values: string[]): FieldType {
   const filled = values.map((v) => v.trim()).filter(Boolean);
   if (filled.length === 0) return 'text';
   if (filled.every((v) => numberOf(v) !== null)) return 'number';
-  if (filled.every((v) => dayOf(v) !== null)) return 'date';
+  if (filled.every((v) => dayOf(v) !== null || dateTimeOf(v) !== null)) return 'date';
+  if (filled.every((v) => clockOf(v) !== null)) return 'time';
   if (filled.every((v) => /^(yes|no|true|false)$/i.test(v))) return 'checkbox';
   return 'text';
 }
@@ -285,7 +287,9 @@ function valueOf(field: Field, text: string, targets: { [dir: string]: Record[] 
     case 'number':
       return numberOf(t) ?? t;
     case 'date':
-      return dayOf(t) ?? t;
+      return dateOf(t, field.time) ?? dayOf(t) ?? t;
+    case 'time':
+      return clockOf(t) ?? t;
     case 'checkbox':
       return /^(yes|true|1|x)$/i.test(t) ? true : /^(no|false|0)$/i.test(t) ? false : t;
     case 'multi-select':
@@ -328,7 +332,9 @@ export function planImport(collection: Collection, header: string[], rows: strin
     if ('field' in target) return fields.find((f) => f.key === target.field) ?? null;
     if (!('add' in target)) return null;
     const label = header[i]!.trim() || `Column ${i + 1}`;
-    const field: Field = { key: keyFor(label, keys), label, type: target.add, ...((target.add === 'select' || target.add === 'multi-select') && { options: [] }) };
+    // A date whose cells have their times keeps them.
+    const timed = target.add === 'date' && rows.some((r) => dateTimeOf(r[i] ?? '') !== null);
+    const field: Field = { key: keyFor(label, keys), label, type: target.add, ...((target.add === 'select' || target.add === 'multi-select') && { options: [] }), ...(timed && { time: true }) };
     keys.add(field.key);
     fields.push(field);
     return field;

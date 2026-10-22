@@ -76,7 +76,7 @@ export interface SearchData {
 }
 
 /** The fields whose values are read as text: not numbers, days, boxes or what is worked out. */
-const UNREAD = new Set(['number', 'date', 'checkbox', 'formula', 'name', 'code']);
+const UNREAD = new Set(['number', 'date', 'time', 'checkbox', 'formula', 'name', 'code']);
 
 /** Where a path is: its space, when there are spaces, and its folders: `Acme › Sales`. */
 function trailOf(path: string, named: boolean): string {

@@ -51,3 +51,55 @@ export function isDay(text: string): boolean {
   const days = [31, leap(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]!;
   return day <= days;
 }
+
+// A time of day is written `HH:mm`, and a day with its time `YYYY-MM-DDTHH:mm`: the clock on the
+// wall, with no time zone, so that 14:30 is 14:30 for everyone who reads it.
+
+const CLOCK = /^(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/;
+const DATE_TIME = /^(\d{4}-\d{2}-\d{2})[T ](\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(?:Z|[+-]\d{2}:?\d{2})?$/;
+
+/** A time of day as `HH:mm`, from `9:05`, `09:05` or `09:05:30`; null when it is not one. */
+export function clockOf(text: string): string | null {
+  const m = CLOCK.exec(text.trim());
+  if (!m) return null;
+  const [h, min] = [Number(m[1]), Number(m[2])];
+  return h < 24 && min < 60 ? `${pad(h)}:${pad(min)}` : null;
+}
+
+/** Whether `text` is a time of day as the files write it, `HH:mm`. */
+export const isClock = (text: string) => /^\d{2}:\d{2}$/.test(text) && clockOf(text) === text;
+
+/** A day with its time as `YYYY-MM-DDTHH:mm`, from `2026-10-22T14:30`, `2026-10-22 14:30` or with seconds; null when it is not one. */
+export function dateTimeOf(text: string): string | null {
+  const m = DATE_TIME.exec(text.trim());
+  if (!m || !isDay(m[1]!)) return null;
+  const clock = clockOf(m[2]!);
+  return clock ? `${m[1]}T${clock}` : null;
+}
+
+/** Whether `text` is a day with its time as the files write it, `YYYY-MM-DDTHH:mm`. */
+export const isDateTime = (text: string) => dateTimeOf(text) === text;
+
+/** A date's value as the files write it: a day, or with `time` a day with its time; null when it is neither. */
+export function dateOf(text: string, time = false): string | null {
+  const t = text.trim();
+  if (isDay(t)) return t;
+  const moment = dateTimeOf(t);
+  if (!moment) return null;
+  return time ? moment : moment.slice(0, 10);
+}
+
+/** The time of a date's value, `14:30`; null for a day alone. */
+export const timeOf = (value: string): string | null => (value.length > 10 && value[10] === 'T' ? value.slice(11, 16) : null);
+
+/** Minutes typed as a duration: `90`, `1:30`, `1 h 30 min`, `2h`; null when it is not one. */
+export function minutesOf(text: string): number | null {
+  const t = text.trim().toLowerCase();
+  if (!t) return null;
+  if (/^\d+(?:[.,]\d+)?$/.test(t)) return Math.round(Number(t.replace(',', '.')));
+  const clock = /^(\d+):(\d{2})$/.exec(t);
+  if (clock) return Number(clock[1]) * 60 + Number(clock[2]);
+  const words = /^(?:(\d+(?:[.,]\d+)?)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:in(?:utes?|s)?)?)?$/.exec(t);
+  if (words && (words[1] || words[2])) return Math.round(Number((words[1] ?? '0').replace(',', '.')) * 60) + Number(words[2] ?? 0);
+  return null;
+}

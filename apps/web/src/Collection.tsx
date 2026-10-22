@@ -85,6 +85,7 @@ import {
   TODAY,
   unplacedFields,
   valueText,
+  timeOf,
 } from '@scrawlnotes/core';
 import type { ScrawlEditor } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
@@ -115,6 +116,7 @@ import { useNarrow } from './narrow';
 import { FilterSheet, PhoneCollectionList, ViewSheet } from './PhoneCollection';
 import { Subtasks } from './Subtasks';
 import { dueClass, dueLabel } from './Tasks';
+import { DateTimeBox, DurationBox } from './TimeInputs';
 import { quote } from './text';
 
 // A collection, after the Collection views of design/mockups.html: one table of its records, a
@@ -193,7 +195,8 @@ const SHOWN_FIRST = 15;
 const WIDTHS: { [type in Field['type']]: [number, number] } = {
   text: [100, 160],
   number: [76, 110],
-  date: [92, 116],
+  date: [92, 136],
+  time: [64, 80],
   select: [92, 132],
   'multi-select': [110, 176],
   checkbox: [56, 80],
@@ -217,7 +220,10 @@ const SIDES = 8;
 /** How much a column other than the first grows to fill a wide window: half its width again at most. */
 const GROW = 0.5;
 
-const widthsOf = (field: Field) => WIDTHS[field.type];
+/** A day with its time is wider: the day and the clock, or the boxes of both while it is typed. */
+const DATE_TIME: [number, number] = [180, 244];
+
+const widthsOf = (field: Field) => (field.type === 'date' && field.time ? DATE_TIME : WIDTHS[field.type]);
 
 /**
  * The widths of the columns. Ones dragged keep the width they were left at, the others have
@@ -346,7 +352,17 @@ export function Cell({ field, value, ctx, values }: {
     );
   }
   if (typeof value === 'number') return <span className="num">{formatNumber(value, field.format, currencyOf(field.format, values))}</span>;
-  const kind = field.type === 'name' ? 'ct name' : field.type === 'code' ? 'ct code' : field.type === 'date' || field.type === 'rollup' ? 'ct dt' : 'ct';
+  // A day with its time shows its clock after it; one with no time, where the field has one, all day.
+  if (field.type === 'date' && typeof value === 'string') {
+    const time = timeOf(value);
+    return (
+      <span className="ct dt">
+        {value.slice(0, 10)}
+        {time ? <span className="tm">{time}</span> : field.time && <span className="allday">{t('collection.allDay')}</span>}
+      </span>
+    );
+  }
+  const kind = field.type === 'name' ? 'ct name' : field.type === 'code' ? 'ct code' : field.type === 'date' || field.type === 'time' || field.type === 'rollup' ? 'ct dt' : 'ct';
   return <span className={field.type === 'number' || field.type === 'formula' ? 'num' : kind}>{text}</span>;
 }
 
@@ -665,9 +681,13 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
         </label>
       );
     case 'number':
+      if (field.format?.style === 'duration') return <DurationBox id={id} label={field.label} value={typeof value === 'number' ? value : null} autoFocus={autoFocus} onChange={onChange} onEnter={onEnter} />;
       return <NumberBox id={id} field={field} value={typeof value === 'number' ? value : null} currency={currency} autoFocus={autoFocus} onChange={onChange} onEnter={onEnter} />;
     case 'date':
-      return <input id={id} type="date" autoFocus={autoFocus} aria-label={field.label} value={valueText(value)} onChange={(event) => onChange(event.target.value || null)} />;
+      if (field.time) return <DateTimeBox id={id} label={field.label} value={typeof value === 'string' && value ? value : null} autoFocus={autoFocus} onChange={onChange} />;
+      return <input id={id} type="date" autoFocus={autoFocus} aria-label={field.label} value={typeof value === 'string' ? value.slice(0, 10) : ''} onChange={(event) => onChange(event.target.value || null)} />;
+    case 'time':
+      return <input id={id} type="time" autoFocus={autoFocus} aria-label={field.label} value={typeof value === 'string' ? value : ''} onChange={(event) => onChange(event.target.value || null)} />;
     default: {
       const text = valueText(value);
       const input = (
@@ -1751,6 +1771,8 @@ export function ConditionRow({ schema, condition, records, shown, onChange, onRe
           <input type="number" step="any" className="cv" aria-label={t('collection.value')} placeholder={t('collection.value')} value={typeof value === 'number' ? value : typeof value === 'string' ? value : ''} onChange={(event) => onChange({ ...condition, value: event.target.value === '' ? undefined : Number(event.target.value) })} />
         ) : field.type === 'date' ? (
           <DayValue value={typeof value === 'string' ? value : undefined} onChange={(day) => onChange({ ...condition, value: day })} />
+        ) : field.type === 'time' ? (
+          <input type="time" className="cv" aria-label={t('collection.value')} value={typeof value === 'string' ? value : ''} onChange={(event) => onChange({ ...condition, value: event.target.value || undefined })} />
         ) : (
           <input type="text" className="cv" aria-label={t('collection.value')} placeholder={t('collection.value')} value={typeof value === 'string' ? value : ''} onChange={(event) => onChange({ ...condition, value: event.target.value })} />
         )

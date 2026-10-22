@@ -98,7 +98,7 @@ interface Thing extends Findable {
 }
 
 /** The fields whose values are read as text: not numbers, days, boxes or what is worked out. */
-const UNREAD = new Set(['number', 'date', 'checkbox', 'formula', 'lookup', 'rollup', 'name', 'code']);
+const UNREAD = new Set(['number', 'date', 'time', 'checkbox', 'formula', 'lookup', 'rollup', 'name', 'code']);
 
 const joined = (...parts: (string | null | undefined | false)[]) => parts.filter(Boolean).join(' · ');
 

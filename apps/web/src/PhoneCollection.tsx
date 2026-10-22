@@ -54,6 +54,7 @@ import {
   unplacedFields,
   valueText,
   type View,
+  minutesOf,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -64,6 +65,7 @@ import { Subtasks } from './Subtasks';
 import { DateSheet } from './PhoneTasks';
 import { Empty, Sheet, SheetClose } from './sheets';
 import { dueClass, dueLabel } from './Tasks';
+import { dateLabel, DateTimeSheet, TimeSheet } from './TimeInputs';
 import { quote } from './text';
 
 // A collection on a phone, after the Phone collection views of design/mockups.html. The table is a
@@ -94,11 +96,11 @@ const ADDRESS = {
 
 const isAddress = (type: Field['type']): type is keyof typeof ADDRESS => type in ADDRESS;
 const isNumeric = (field: Field) => field.type === 'number' || field.type === 'formula' || (field.type === 'rollup' && (field.rollup?.fn === 'count' || field.rollup?.fn === 'sum'));
-/** A day, as a date field and a rollup of days hold it. */
-const isDay = (value: FieldValue | undefined): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+/** A day, or a day with its time, as a date field and a rollup of days hold it. */
+const isDay = (value: FieldValue | undefined): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(value);
 /** What a formula or a rollup works out to, as a row shows it: a number in its field's format, a day, or its text. */
 const workedText = (value: FieldValue, today: string, field?: Field, values?: Entry['values']) =>
-  typeof value === 'number' ? formatNumber(value, field?.format, currencyOf(field?.format, values)) : isDay(value) ? dueLabel(value, today) : valueText(value);
+  typeof value === 'number' ? formatNumber(value, field?.format, currencyOf(field?.format, values)) : isDay(value) ? dateLabel(value, today) : valueText(value);
 /** Whether a field holds days: a date, or the latest or earliest of a rollup. */
 const holdsDays = (field: Field) => field.type === 'date' || (field.type === 'rollup' && (field.rollup?.fn === 'max' || field.rollup?.fn === 'min'));
 
@@ -173,7 +175,7 @@ function ShownValue({ field, value, today }: { field: Field; value: FieldValue |
     const links = (Array.isArray(value) ? value : [value]).filter(isLink);
     return <span className="tx">{links.map((link) => recordLabel(link)).join(', ')}</span>;
   }
-  if (field.type === 'date') return <span className="tx">{dueLabel(valueText(value), today)}</span>;
+  if (field.type === 'date' && typeof value === 'string') return <span className="tx">{dateLabel(value, today)}</span>;
   if (typeof value === 'number') return <span className="tx">{formatNumber(value, field.format)}</span>;
   return <span className="tx">{valueText(value)}</span>;
 }
@@ -183,7 +185,7 @@ function ListValue({ field, value, today, values }: { field: Field; value: Field
   if (field.type === 'checkbox') return value === true ? <span>{field.label}</span> : null;
   if (field.type === 'select' || field.type === 'multi-select') return <ShownValue field={field} value={value} today={today} />;
   if (field.type === 'link') return <span>{(Array.isArray(value) ? value : [value]).filter(isLink).map((link) => recordLabel(link)).join(', ')}</span>;
-  if (isDay(value)) return <span>{dueLabel(value, today)}</span>;
+  if (isDay(value)) return <span>{dateLabel(value, today)}</span>;
   if (typeof value === 'number') return <span>{formatNumber(value, field.format, currencyOf(field.format, values))}</span>;
   return <span>{valueText(value ?? null)}</span>;
 }
@@ -194,11 +196,13 @@ function ListValue({ field, value, today, values }: { field: Field; value: Field
  * A number typed in place: what is typed stays as it is typed, the value is kept once it is a
  * number. With a format (`shown`), it shows as the list does until it is typed in.
  */
-function NumberBox({ value, label, autoFocus, shown, onChange }: { value: number | null; label: string; autoFocus: boolean; shown?: string; onChange: (value: number | null) => void }) {
+function NumberBox({ value, label, autoFocus, shown, duration, onChange }: { value: number | null; label: string; autoFocus: boolean; shown?: string; duration?: boolean; onChange: (value: number | null) => void }) {
   const [text, setText] = useState(value === null ? '' : String(value));
   const [typing, setTyping] = useState(autoFocus);
+  // A duration is typed as minutes or as hours and minutes, 1:30.
+  const read = (raw: string) => (raw.trim() === '' ? null : duration ? (minutesOf(raw) ?? NaN) : Number(raw.replace(',', '.')));
   useEffect(() => {
-    const typed = text.trim() === '' ? null : Number(text.replace(',', '.'));
+    const typed = read(text);
     if (typed !== value) setText(value === null ? '' : String(value));
     // Only a value changed from outside is written over what is typed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -216,7 +220,7 @@ function NumberBox({ value, label, autoFocus, shown, onChange }: { value: number
       onChange={(event) => {
         const raw = event.target.value;
         setText(raw);
-        const typed = raw.trim() === '' ? null : Number(raw.replace(',', '.'));
+        const typed = read(raw);
         if (typed === null || Number.isFinite(typed)) onChange(typed);
       }}
     />
@@ -271,8 +275,9 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
     case 'multi-select':
     case 'link':
     case 'date':
+    case 'time':
     case 'person': {
-      const hint = field.type === 'multi-select' ? t('phone.addValue') : field.type === 'person' ? t('card.unassigned') : field.type === 'date' ? t('phone.none') : t('phone.choose');
+      const hint = field.type === 'multi-select' ? t('phone.addValue') : field.type === 'person' ? t('card.unassigned') : field.type === 'date' || field.type === 'time' ? t('phone.none') : t('phone.choose');
       return (
         <button type="button" className={classes} onClick={onPick}>
           {label}
@@ -292,6 +297,7 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
             label={field.label}
             autoFocus={autoFocus}
             shown={field.format && typeof value === 'number' ? formatNumber(value, field.format, currencyOf(field.format, values)) : undefined}
+            duration={field.format?.style === 'duration'}
             onChange={onChange}
           />
         </label>
@@ -550,9 +556,11 @@ function FieldPicker({ field, value, about, today, ctx, onChange, onOpen, onClos
 }) {
   if (field.type === 'select' || field.type === 'multi-select') return <ChoiceSheet field={field} value={value} about={about} onChange={onChange} onClose={onClose} />;
   if (field.type === 'link') return <LinkSheet field={field} value={value} records={field.collection ? ctx.records(field.collection) : null} onChange={onChange} onOpen={onOpen} onClose={onClose} />;
+  if (field.type === 'date' && field.time) return <DateTimeSheet label={field.label} title={about} value={typeof value === 'string' && value ? value : null} today={today} onChange={onChange} onClose={onClose} />;
   if (field.type === 'date') {
-    return <DateSheet label={field.label} title={about} current={typeof value === 'string' && value ? value : null} today={today} onPick={(day) => onChange(day)} onClose={onClose} />;
+    return <DateSheet label={field.label} title={about} current={typeof value === 'string' && value ? value.slice(0, 10) : null} today={today} onPick={(day) => onChange(day)} onClose={onClose} />;
   }
+  if (field.type === 'time') return <TimeSheet label={field.label} title={about} value={typeof value === 'string' && value ? value : null} onChange={onChange} onClose={onClose} />;
   return <TextSheet label={field.label} value={valueText(value)} placeholder={field.type === 'person' ? t('card.unassigned') : field.label} onSave={(text) => onChange(text || null)} onClose={onClose} />;
 }
 
@@ -1577,6 +1585,14 @@ export function FilterSheet({ schema, first, conditions, total, count, records, 
             value={typeof value === 'number' ? value : typeof value === 'string' ? value : ''}
             onChange={(event) => set(index, { ...condition, value: event.target.value === '' ? undefined : Number(event.target.value.replace(',', '.')) })}
           />
+        </label>
+      );
+    }
+    if (field.type === 'time') {
+      return (
+        <label className="mb-fr">
+          {label}
+          <input className="in r" type="time" aria-label={t('collection.value')} value={typeof value === 'string' ? value : ''} onChange={(event) => set(index, { ...condition, value: event.target.value || undefined })} />
         </label>
       );
     }

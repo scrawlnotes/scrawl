@@ -61,7 +61,7 @@ const sheetName = (name: string) => name.replace(/[\\/?*[\]:]/g, ' ').trim().sli
 
 /** How many letters a cell shows, for its column's width: its longest line. */
 function shownLength(value: SheetCell): number {
-  if (typeof value === 'object') return 'day' in value ? 10 : 'number' in value ? String(Math.round(value.number)).length + 6 : value.text.length;
+  if (typeof value === 'object') return 'day' in value ? value.day.length + 2 : 'number' in value ? String(Math.round(value.number)).length + 6 : value.text.length;
   return Math.max(...String(value).split('\n').map((line) => line.length));
 }
 
@@ -82,8 +82,8 @@ export async function writeSheet(name: string, rows: SheetCell[][]): Promise<Blo
       const at = XLSX.utils.encode_cell({ r, c });
       if (typeof value === 'number') sheet[at] = { t: 'n', v: value };
       else if (typeof value === 'boolean') sheet[at] = { t: 'b', v: value };
-      // `m/d/yy` is Excel's own short date, which each reader sees in the way of their country.
-      else if (typeof value === 'object' && 'day' in value) sheet[at] = { t: 'n', v: sheetSerial(value.day), z: 'm/d/yy' };
+      // `m/d/yy` is Excel's own short date, which each reader sees in the way of their country; with its time, `m/d/yy h:mm`.
+      else if (typeof value === 'object' && 'day' in value) sheet[at] = { t: 'n', v: sheetSerial(value.day), z: value.day.length > 10 ? 'm/d/yy h:mm' : 'm/d/yy' };
       // A number keeps its format: money with its symbol, a share as one.
       else if (typeof value === 'object' && 'number' in value) sheet[at] = { t: 'n', v: value.number, z: value.format };
       else if (typeof value === 'object') sheet[at] = { t: 's', v: value.text, l: { Target: value.href } };

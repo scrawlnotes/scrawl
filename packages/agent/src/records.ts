@@ -16,7 +16,8 @@ import {
   linkTo,
   actionsOf,
   type ActionRule,
-  isDay,
+  clockOf,
+  dateOf,
   loadBoard,
   loadCollection,
   loadList,
@@ -134,8 +135,13 @@ function answersFor(action: ActionRule | undefined, input: { [key: string]: unkn
       if (!a.options!.includes(String(raw))) throw new Refusal(`${a.key} is one of ${a.options!.join(', ')}`);
       out[a.key] = String(raw);
     } else if (a.type === 'date') {
-      if (!isDay(String(raw))) throw new Refusal(`${a.key} takes a day as YYYY-MM-DD`);
-      out[a.key] = String(raw);
+      const day = dateOf(String(raw), a.time);
+      if (!day) throw new Refusal(a.time ? `${a.key} takes a day as YYYY-MM-DD, or with its time as YYYY-MM-DDTHH:mm` : `${a.key} takes a day as YYYY-MM-DD`);
+      out[a.key] = day;
+    } else if (a.type === 'time') {
+      const clock = clockOf(String(raw));
+      if (!clock) throw new Refusal(`${a.key} takes a time as HH:mm`);
+      out[a.key] = clock;
     } else if (a.type === 'link') {
       const path = pathNamed(world.collections.map((c) => c.dir), a.collection!, dir);
       const collection = world.collections.find((c) => c.dir === path);
@@ -245,7 +251,7 @@ export async function parseValues(fs: VaultFs, fields: Field[], given: { [key: s
       values[field.key] = null;
       continue;
     }
-    const value = readValue(field.type, raw, field.many);
+    const value = readValue(field.type, raw, field.many, field.time);
     if (value === null) extra[field.key] = raw;
     else values[field.key] = value;
   }

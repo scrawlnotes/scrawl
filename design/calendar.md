@@ -1,6 +1,6 @@
 # Takvim, saat ve kalan şablonlar (taslak)
 
-Durum: 22 Ekim 2026'da onaylandı, PLAN'a 15. aşama olarak işlendi. Kararlar 11. bölümde.
+Durum: 22 Ekim 2026'da onaylandı, PLAN'a 15. aşama olarak işlendi. Kararlar 11. bölümde. 1. dilim kodda (mockup 6e1c8f0).
 
 ## 1. Amaç
 
@@ -215,3 +215,14 @@ Bugün, sırasıyla; her dilimin sonunda commit sorulur. Arayüzü olan dilim ö
 4. **Randevu'da Satış zinciri yok:** Done olan randevu Bütçe'ye ödeme yazar, sipariş açmaz.
 5. **E-ticaret:** ayrı şablon, Satış'ın sorusu değil; kanal ve kargo listelerinin varsayılanı cihazın bölgesine göre; pazaryeri içe aktarması şimdilik ajanla.
 6. **PLAN'da yeri:** yeni aşama "15 Takvim ve kalan şablonlar"; Dropbox 16, Google Drive 17, Mobil 18 oldu.
+
+22 Ekim 2026'da, 1. dilimin kodu yazılırken verilen kararlar:
+- Tablo tarihi bugünkü gibi yazar: "2026-10-22 14:30"; saati olmayan, alanı saatliyse soluk "all day".
+- Bilgisayarda tarayıcının kendi gün ve saat kutuları; saatin 24 ya da 12 saat yazılışı tarayıcının dilinden. Saat kutusu gün seçilene kadar kapalı.
+- Telefonda dakika çarkı beşer beşer (değer beşin katı değilse o da listede); Time açılınca 09:00'dan başlar; sheet'in altında No date tarihi temizler.
+- Süre "90", "1:30", "1 h 30 min" ya da "2h" diye yazılır, bilgisayarda da telefonda da.
+- `now()` geldi; iki saatli değerin farkı dakika, öteki gün; karşılaştırmada saatsiz değer 00:00.
+- Saatsiz alana saatli değer gelirse (ajan, içe aktarma, kural) yalnız günü yazılır.
+- İçe aktarmada hücreleri saatli sütun saatli tarih, yalnız saatler Time alanı olur; Excel'e saatli değer saatiyle (`m/d/yy h:mm`) gider.
+- Düğmenin sorusu `type: "time"` ya da `type: "date", time: true` olabilir; ajan cevaplar.
+- Fields'teki alan listesinde "date and time" ve "number · duration"; saatli tarih sütunu daha geniş.

@@ -332,7 +332,9 @@ function fitOf(field: Field): string {
     case 'number':
       return 'a number, like 4900';
     case 'date':
-      return 'a day on the calendar as YYYY-MM-DD';
+      return field.time ? 'a day on the calendar as YYYY-MM-DD, or with its time as YYYY-MM-DDTHH:mm' : 'a day on the calendar as YYYY-MM-DD';
+    case 'time':
+      return 'a time as HH:mm';
     case 'checkbox':
       return 'true or false';
     default:

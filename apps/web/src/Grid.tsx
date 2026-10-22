@@ -1,8 +1,9 @@
-import { type Field, type FieldValue, isComputed, isEmpty, isLink, isLinkable, type Link, linkTo, type Record, recordLabel, valueText } from '@scrawlnotes/core';
+import { type Field, type FieldValue, isComputed, isEmpty, isLink, isLinkable, type Link, linkTo, type Record, recordLabel, valueText, minutesOf } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
 import { Chip, choiceOptions, type Option, OptionList } from './choices';
 import { type ValueContext } from './Collection';
+import { DateTimeBox } from './TimeInputs';
 
 // A table typed in as a sheet is, after the slice 3 views of design/mockups.html: a click picks
 // a cell; typing, Enter, a second click or a double click edits it; a choice, a link or a day
@@ -133,7 +134,44 @@ export function CellEditor({ field, value, typed, ctx, onDone }: {
   if (field.type === 'select') return <ChoiceEditor field={field} value={typeof value === 'string' ? value : null} onDone={onDone} />;
   if (field.type === 'multi-select') return <ChoicesEditor field={field} value={Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []} onDone={onDone} />;
   if (field.type === 'link') return <LinkEditor field={field} value={value} typed={typed} ctx={ctx} onDone={onDone} />;
+  if (field.type === 'date' && field.time) return <DateTimeEditor field={field} value={value} onDone={onDone} />;
   return <TextEditor field={field} value={value} typed={typed} onDone={onDone} />;
+}
+
+/**
+ * A day with its time in a cell: the day's box and the time's, as in the form. Enter writes it and
+ * goes down, Tab along, Esc leaves it; leaving the cell writes it.
+ */
+function DateTimeEditor({ field, value, onDone }: { field: Field; value: FieldValue | undefined; onDone: (value: FieldValue | undefined, then?: Then) => void }) {
+  const [held, setHeld] = useState<string | null>(typeof value === 'string' && value ? value : null);
+  const ended = useRef(false);
+  const end = (keep: boolean, then?: Then) => {
+    if (ended.current) return;
+    ended.current = true;
+    onDone(keep ? held : undefined, then);
+  };
+  return (
+    <span
+      className="ce-dt"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) end(true);
+      }}
+    >
+      <DateTimeBox
+        label={field.label}
+        value={held}
+        autoFocus
+        onChange={setHeld}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') end(true, 'down');
+          else if (event.key === 'Escape') end(false);
+          else return;
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      />
+    </span>
+  );
 }
 
 /** A line typed in: text, a number, a day. Enter writes it and goes down, Tab along, Esc leaves it; leaving it writes it. */
@@ -146,16 +184,17 @@ function TextEditor({ field, value, typed, onDone }: { field: Field; value: Fiel
     if (!keep) return onDone(undefined);
     const clean = text.trim();
     if (field.type === 'number') {
-      const n = Number(clean.replace(',', '.'));
+      // A duration is typed as minutes or as hours and minutes, 1:30.
+      const n = field.format?.style === 'duration' ? (minutesOf(clean) ?? NaN) : Number(clean.replace(',', '.'));
       return onDone(clean === '' ? null : Number.isFinite(n) ? n : undefined, then);
     }
-    onDone(field.type === 'date' ? clean || null : text === '' ? null : text, then);
+    onDone(field.type === 'date' || field.type === 'time' ? clean || null : text === '' ? null : text, then);
   };
   return (
     <input
       className="ce-in"
       autoFocus
-      type={field.type === 'date' ? 'date' : 'text'}
+      type={field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : 'text'}
       inputMode={field.type === 'number' ? 'decimal' : undefined}
       autoComplete="off"
       spellCheck={false}
@@ -163,7 +202,7 @@ function TextEditor({ field, value, typed, onDone }: { field: Field; value: Fiel
       value={text}
       onFocus={(event) => {
         // What was there is chosen, to be typed over; a key that began it keeps the caret after it.
-        if (typed === undefined && field.type !== 'date') event.currentTarget.select();
+        if (typed === undefined && field.type !== 'date' && field.type !== 'time') event.currentTarget.select();
       }}
       onChange={(event) => setText(event.target.value)}
       onBlur={() => end(true)}

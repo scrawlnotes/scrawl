@@ -463,7 +463,7 @@ describe('tried by hand', () => {
     const schema = await refusal(writeTool(agent, { path, text: JSON.stringify({ version: 2, fields }) }));
     expect(schema.details.problems).toEqual([
       'The key name is there twice; each field has its own',
-      'amount has the type "money", which is none of name, code, text, number, date, select, multi-select, checkbox, url, email, phone, person, link, formula, lookup, rollup',
+      'amount has the type "money", which is none of name, code, text, number, date, time, select, multi-select, checkbox, url, email, phone, person, link, formula, lookup, rollup',
       'The key Big Key is not one: a key is lowercase letters, digits and _, like big_key',
       'total: a rollup with sum needs rollup.field, the field it works out',
       'There is more than one name field; a collection has one at most',
@@ -558,7 +558,7 @@ describe('tried by hand', () => {
       }),
     );
     expect(wrong.details.problems).toEqual([
-      'budget: format.style is one of number, currency, percent',
+      'budget: format.style is one of number, currency, percent, duration',
       'budget: format.decimals is 0 to 4',
       'price: format is for numbers, and for formulas, lookups and rollups giving one',
       'status: default: “Won” is not one of the choices of Status.',

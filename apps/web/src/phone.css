@@ -6987,3 +6987,101 @@ body > .mb-lifted {
 .na-sheet .na-box.bad .icon {
   color: var(--sl-danger, #e5484d);
 }
+
+/* A day with its time on a phone: Time on a switch under the month, the wheel under it; a time alone on its wheel. */
+.mb-tmrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  margin: 0 16px;
+  padding: 0 2px;
+  border-top: 1px solid var(--sl-line);
+  color: var(--sl-fg);
+  font-size: 16px;
+  text-align: left;
+}
+
+.mb-tmrow .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--sl-dim);
+}
+
+.mb-tmrow b {
+  font-weight: 500;
+}
+
+.mb-tmrow .tm {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--sl-sel);
+  color: var(--sl-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-tmrow .all {
+  margin-left: auto;
+  color: var(--sl-faint);
+}
+
+.mb-tmrow .mb-sw {
+  margin-left: 0;
+}
+
+.tw {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 16px 8px;
+  border-radius: 10px;
+  background: var(--sl-code);
+  font-variant-numeric: tabular-nums;
+}
+
+.tw-col {
+  height: 170px;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  padding: 68px 0;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.tw-col::-webkit-scrollbar {
+  display: none;
+}
+
+.tw-col button {
+  display: block;
+  width: 64px;
+  height: 34px;
+  border-radius: 6px;
+  color: var(--sl-faint);
+  font-size: 17px;
+  scroll-snap-align: center;
+}
+
+.tw-col button.on {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.tw .sep {
+  color: var(--sl-dim);
+  font-size: 20px;
+}
+
+.mb-clear {
+  margin: 4px 16px 8px;
+  padding: 12px;
+  border-radius: 10px;
+  color: var(--sl-p1);
+  font-size: 16px;
+  text-align: center;
+}

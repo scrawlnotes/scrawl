@@ -1360,7 +1360,7 @@ export function ButtonDialog({ name, record, lines, onConfirm, onClose }: {
 
 /** A question of a button as a field, for the form's own box: a choice is a select, a link picks from its collection. */
 const askedField = (q: AskQuestion): Field =>
-  ({ key: q.key, label: q.label, type: q.type === 'choice' ? 'select' : q.type, ...(q.options && { options: q.options }), ...(q.collection && { collection: q.collection }) }) as Field;
+  ({ key: q.key, label: q.label, type: q.type === 'choice' ? 'select' : q.type, ...(q.options && { options: q.options }), ...(q.collection && { collection: q.collection }), ...(q.time && { time: true }) }) as Field;
 
 /**
  * The window of a button that asks before it runs: its name, what it is about, its questions in

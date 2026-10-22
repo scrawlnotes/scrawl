@@ -1,6 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import type { Field, FieldValue, Link, Schema } from './collection';
-import { isDay } from './day';
+import { clockOf, isDay, dateTimeOf, timeOf } from './day';
 
 // The language of formulas, and later of rules: a syntax like JS's, read by our own reader,
 // which takes only what it knows. Numbers, texts, days, yes or no and lists; a field by its key
@@ -472,7 +472,8 @@ export function reader(tokens: Token[]): Reader {
 export const ASK_INPUT = '\u0000ask\u0000';
 
 /** What a value is, as far as can be told before working it out. */
-export type Kind = 'number' | 'text' | 'day' | 'bool' | 'null' | 'any' | { list: Kind } | { record: string };
+/** A day may hold its time; a time is a time of day alone; a span is minutes to add to either: `minutes(30)`. */
+export type Kind = 'number' | 'text' | 'day' | 'time' | 'span' | 'bool' | 'null' | 'any' | { list: Kind } | { record: string };
 
 const isList = (k: Kind): k is { list: Kind } => typeof k === 'object' && 'list' in k;
 const isRecordKind = (k: Kind): k is { record: string } => typeof k === 'object' && 'record' in k;
@@ -532,6 +533,8 @@ export function kindOfField(field: Field, scope: Scope, stack: string[] = []): K
       return 'number';
     case 'date':
       return 'day';
+    case 'time':
+      return 'time';
     case 'checkbox':
       return 'bool';
     case 'multi-select':
@@ -575,7 +578,7 @@ export function kindOfField(field: Field, scope: Scope, stack: string[] = []): K
       if (!source) return 'any';
       try {
         const kind = kindOfField(source, { ...scope, fields: scope.schemaOf?.(r.from)?.fields ?? [] }, [...stack, `${r.from}#${source.key}`]);
-        return kind === 'number' || kind === 'day' ? kind : 'any';
+        return kind === 'number' || kind === 'day' || kind === 'time' ? kind : 'any';
       } catch {
         return 'any';
       }
@@ -596,6 +599,7 @@ interface FnSpec {
 // Yes or no counts as 1 or 0 where a number is taken, as in JS: a flag times an amount.
 const NUMBERISH = (k: Kind) => k === 'number' || k === 'bool' || k === 'any' || k === 'null';
 const DAYISH = (k: Kind) => k === 'day' || k === 'any' || k === 'null';
+const TIMEISH = (k: Kind) => k === 'time' || k === 'any' || k === 'null';
 
 function need(ok: boolean, message: string, node: Node) {
   if (!ok) throw new LangError(message, node.at);
@@ -603,6 +607,43 @@ function need(ok: boolean, message: string, node: Node) {
 
 const FNS: { [name: string]: FnSpec } = {
   today: { args: [0, 0], kind: () => 'day' },
+  now: { args: [0, 0], kind: () => 'day' },
+  minutes: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(NUMBERISH(a!), t('lang.fnNumber', { fn: 'minutes' }), n!);
+      return 'span';
+    },
+  },
+  hours: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(NUMBERISH(a!), t('lang.fnNumber', { fn: 'hours' }), n!);
+      return 'span';
+    },
+  },
+  day: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(DAYISH(a!), t('lang.fnDay', { fn: 'day' }), n!);
+      return 'day';
+    },
+  },
+  time: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(DAYISH(a!), t('lang.fnDay', { fn: 'time' }), n!);
+      return 'time';
+    },
+  },
+  at: {
+    args: [2, 2],
+    kind: ([a, b], [n, m]) => {
+      need(DAYISH(a!), t('lang.fnDay', { fn: 'at' }), n!);
+      need(TIMEISH(b!), t('lang.fnTime', { fn: 'at' }), m!);
+      return 'day';
+    },
+  },
   me: { args: [0, 0], notInFormula: true, kind: () => 'text' },
   next: {
     args: [1, 2],
@@ -666,12 +707,12 @@ function extreme(fn: string, args: Kind[], nodes: Node[]): Kind {
   const items = args.length === 1 && isList(args[0]!) ? [(args[0] as { list: Kind }).list] : args;
   const known = items.filter((k) => k !== 'any' && k !== 'null');
   const kind = known[0] ?? 'any';
-  known.forEach((k, i) => need((k === 'number' || k === 'day') && k === kind, t('lang.fnExtreme', { fn }), nodes[Math.min(i, nodes.length - 1)]!));
+  known.forEach((k, i) => need((k === 'number' || k === 'day' || k === 'time') && k === kind, t('lang.fnExtreme', { fn }), nodes[Math.min(i, nodes.length - 1)]!));
   return kind;
 }
 
 /** The names a few spreadsheet functions go by here, said when one of them is written. */
-const ELSEWHERE: { [name: string]: string } = { and: '&&', or: '||', not: '!', now: 'today()', concat: '+' };
+const ELSEWHERE: { [name: string]: string } = { and: '&&', or: '||', not: '!', concat: '+' };
 
 /**
  * What an expression gives, and the fields of the record it reads; throws a LangError saying
@@ -797,8 +838,15 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
         const loose = (k: Kind) => k === 'any' || k === 'null';
         switch (n.op) {
           case '+': {
-            // A text on either side makes a text; else numbers, or a day and a number of days.
+            // A text on either side makes a text; else numbers, or a day and a number of days; a span goes on a day or a time.
             if (a === 'text' || b === 'text') return 'text';
+            if (a === 'span' || b === 'span') {
+              const [other, node] = a === 'span' ? [b, n.right] : [a, n.left];
+              if (other === 'span' || other === 'day' || other === 'time') return other;
+              if (loose(other)) return 'any';
+              throw new LangError(t('lang.spanOn', { what: words(node, other) }), node.at);
+            }
+            if (a === 'time' || b === 'time') throw new LangError(t('lang.timeAdd'), n.at);
             const addable = (k: Kind) => k === 'number' || k === 'bool' || k === 'day' || loose(k);
             if (!addable(a)) throw new LangError(t('lang.notAddable', { what: words(n.left, a) }), n.left.at);
             if (!addable(b)) throw new LangError(t('lang.notAddable', { what: words(n.right, b) }), n.right.at);
@@ -807,7 +855,15 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
             return loose(a) || loose(b) ? 'any' : 'number';
           }
           case '-': {
-            // A day taken from a day is a number of days; a number of days taken from a day is a day.
+            // A span taken from a day or a time leaves a day or a time; a time from a time is minutes.
+            if (b === 'span') {
+              if (a === 'span' || a === 'day' || a === 'time') return a;
+              if (loose(a)) return 'any';
+              throw new LangError(t('lang.spanOn', { what: words(n.left, a) }), n.left.at);
+            }
+            if (a === 'time' && (b === 'time' || loose(b))) return 'number';
+            if (a === 'time' || b === 'time') throw new LangError(t('lang.timeAdd'), n.at);
+            // A day taken from a day is a number of days, of minutes when both have their time; a number of days taken from a day is a day.
             const takeable = (k: Kind) => k === 'number' || k === 'bool' || k === 'day' || loose(k);
             if (!takeable(a)) throw new LangError(t('lang.notNumberOrDay', { what: words(n.left, a), op: '-' }), n.left.at);
             if (!takeable(b) || ((a === 'number' || a === 'bool') && b === 'day')) throw new LangError(t('lang.notNumberOrDay', { what: words(n.right, b), op: '-' }), n.right.at);
@@ -825,7 +881,7 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
           case '<=':
           case '>':
           case '>=':
-            if (!loose(a) && !loose(b) && !(sameKind(a, b) && (a === 'number' || a === 'day' || a === 'text'))) throw new LangError(t('lang.compare', { a: kindWords(a), b: kindWords(b) }), n.at);
+            if (!loose(a) && !loose(b) && !(sameKind(a, b) && (a === 'number' || a === 'day' || a === 'time' || a === 'span' || a === 'text'))) throw new LangError(t('lang.compare', { a: kindWords(a), b: kindWords(b) }), n.at);
             return 'bool';
           case '==':
           case '!=':
@@ -910,19 +966,58 @@ export function formulaInfo(expr: string, scope: Scope): Checked | { problem: st
 
 // ---------- working out ----------
 
-/** A day, as a count of days since 1970-01-01, so that days are added to and taken from. */
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const clockText = (m: number) => `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+const clockMinutes = (text: string) => Number(text.slice(0, 2)) * 60 + Number(text.slice(3, 5));
+
+/**
+ * A day, as a count of days since 1970-01-01, so that days are added to and taken from; with its
+ * time, the minutes since its start (14:30 is 870), null for a day alone, which is all day.
+ */
 export class Day {
-  constructor(readonly n: number) {}
+  constructor(
+    readonly n: number,
+    readonly m: number | null = null,
+  ) {}
   toString(): string {
-    return new Date(this.n * 86400000).toISOString().slice(0, 10);
+    const day = new Date(this.n * 86400000).toISOString().slice(0, 10);
+    return this.m === null ? day : `${day}T${clockText(this.m)}`;
+  }
+  /** Minutes since 1970-01-01: a day alone at its start. */
+  get at(): number {
+    return this.n * 1440 + (this.m ?? 0);
   }
 }
 
-/** A day as a Day; null when the text is not one. */
+/** A day from minutes since 1970-01-01, with its time. */
+const dayAt = (minutes: number) => new Day(Math.floor(minutes / 1440), ((minutes % 1440) + 1440) % 1440);
+
+/** A day, or a day with its time, as a Day; null when the text is not one. */
 export function dayValue(text: string): Day | null {
-  if (!isDay(text)) return null;
-  const [y, m, d] = text.split('-').map(Number) as [number, number, number];
-  return new Day(Math.round(Date.UTC(y, m - 1, d) / 86400000));
+  const value = isDay(text) ? text : dateTimeOf(text);
+  if (!value) return null;
+  const [y, m, d] = value.slice(0, 10).split('-').map(Number) as [number, number, number];
+  const time = timeOf(value);
+  return new Day(Math.round(Date.UTC(y, m - 1, d) / 86400000), time ? clockMinutes(time) : null);
+}
+
+/** A time of day, as minutes since midnight: 14:30 is 870. */
+export class Clock {
+  constructor(readonly m: number) {}
+  toString(): string {
+    return clockText(this.m);
+  }
+}
+
+/** A time of day as a Clock; null when the text is not one. */
+export function clockValue(text: string): Clock | null {
+  const clock = clockOf(text);
+  return clock ? new Clock(clockMinutes(clock)) : null;
+}
+
+/** A span of minutes, `minutes(30)`, `hours(2)`: what is added to a day or a time. */
+export class Duration {
+  constructor(readonly minutes: number) {}
 }
 
 /** A linked record as the language holds it: where it is, and its name for what shows it. */
@@ -956,7 +1051,7 @@ export class Fn {
 }
 
 /** A value as the language works with it. */
-export type RV = number | string | boolean | null | Day | Ref | CardRef | Obj | Fn | RV[];
+export type RV = number | string | boolean | null | Day | Clock | Duration | Ref | CardRef | Obj | Fn | RV[];
 
 export const isCardRef = (v: unknown): v is CardRef => typeof v === 'object' && v !== null && (v as CardRef).cardref === true;
 
@@ -969,6 +1064,8 @@ export function toRuntime(field: Pick<Field, 'type' | 'collection'>, value: Fiel
   switch (field.type) {
     case 'date':
       return typeof value === 'string' ? dayValue(value) : null;
+    case 'time':
+      return typeof value === 'string' ? clockValue(value) : null;
     case 'link': {
       const ref = (l: Link): Ref => ({ ref: true, dir: field.collection ?? '', id: l.id, name: l.name, ...(l.code && { code: l.code }) });
       if (Array.isArray(value)) return (value as unknown[]).filter(isLinkValue).map(ref);
@@ -988,7 +1085,8 @@ export function toRuntime(field: Pick<Field, 'type' | 'collection'>, value: Fiel
 /** A value of the language as a record shows it: a day as YYYY-MM-DD, a linked record as a link. */
 export function fromRuntime(v: RV): FieldValue {
   if (v === null || v === undefined || v instanceof Obj || v instanceof Fn || isCardRef(v)) return null;
-  if (v instanceof Day) return v.toString();
+  if (v instanceof Day || v instanceof Clock) return v.toString();
+  if (v instanceof Duration) return v.minutes;
   if (isRef(v)) return { id: v.id, name: v.name, ...(v.code && { code: v.code }) };
   if (Array.isArray(v)) {
     const items = v.flat(8).filter((x) => x !== null && x !== undefined);
@@ -1005,7 +1103,10 @@ export const isNothing = (v: RV) => v === null || v === '' || (Array.isArray(v) 
 /** A value as text: what `text()` and `+` with a text make of it. */
 export function textOf(v: RV): string {
   if (v === null || v === undefined || v instanceof Obj || v instanceof Fn || isCardRef(v)) return '';
-  if (v instanceof Day) return v.toString();
+  // A day with its time reads as the day and the clock.
+  if (v instanceof Day) return v.m === null ? v.toString() : v.toString().replace('T', ' ');
+  if (v instanceof Clock) return v.toString();
+  if (v instanceof Duration) return String(v.minutes);
   if (isRef(v)) return v.name;
   if (Array.isArray(v)) return v.map(textOf).filter(Boolean).join(', ');
   if (typeof v === 'number') return Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100);
@@ -1020,7 +1121,9 @@ const numberOf = (v: RV): number | null => (typeof v === 'number' ? v : typeof v
 /** Whether two values are the same as the language compares them: a link by its record, a day by its day. */
 export function equal(a: RV, b: RV): boolean {
   if (isNothing(a) || isNothing(b)) return isNothing(a) && isNothing(b);
-  if (a instanceof Day || b instanceof Day) return a instanceof Day && b instanceof Day && a.n === b.n;
+  if (a instanceof Day || b instanceof Day) return a instanceof Day && b instanceof Day && a.n === b.n && a.m === b.m;
+  if (a instanceof Clock || b instanceof Clock) return a instanceof Clock && b instanceof Clock && a.m === b.m;
+  if (a instanceof Duration || b instanceof Duration) return a instanceof Duration && b instanceof Duration && a.minutes === b.minutes;
   if (isRef(a) && isRef(b)) return a.id && b.id ? a.id === b.id : a.name.trim().toLowerCase() === b.name.trim().toLowerCase();
   if (isRef(a) && typeof b === 'string') return a.name === b || a.code === b;
   if (isRef(b) && typeof a === 'string') return b.name === a || b.code === a;
@@ -1030,7 +1133,10 @@ export function equal(a: RV, b: RV): boolean {
 
 function order(a: RV, b: RV): number | null {
   if (typeof a === 'number' && typeof b === 'number') return a - b;
-  if (a instanceof Day && b instanceof Day) return a.n - b.n;
+  // A day alone is at its start, as 00:00.
+  if (a instanceof Day && b instanceof Day) return a.at - b.at;
+  if (a instanceof Clock && b instanceof Clock) return a.m - b.m;
+  if (a instanceof Duration && b instanceof Duration) return a.minutes - b.minutes;
   if (typeof a === 'string' && typeof b === 'string') return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
   return null;
 }
@@ -1040,6 +1146,8 @@ export interface Env {
   field(key: string): RV;
   member(ref: Ref, key: string): RV;
   today: string;
+  /** The day and the time it is, `YYYY-MM-DDTHH:mm`; unset for this device's clock on today. */
+  now?: string;
   me?: string;
   /** The next number with a prefix, in so many digits at least: one more than the highest the field has in the collection. */
   next?(prefix: string, digits: number): string;
@@ -1176,17 +1284,21 @@ export function evaluate(node: Node, env: Env): RV {
           }
           case '+': {
             if (typeof a === 'string' || typeof b === 'string') return textOf(a) + textOf(b);
+            if (a instanceof Duration || b instanceof Duration) return plus(a instanceof Duration ? b : a, (a instanceof Duration ? a : (b as Duration)).minutes);
             const [x, y] = [numberOf(a), numberOf(b)];
             if (x !== null && y !== null) return x + y;
-            if (a instanceof Day && y !== null) return new Day(a.n + Math.trunc(y));
-            if (x !== null && b instanceof Day) return new Day(b.n + Math.trunc(x));
+            if (a instanceof Day && y !== null) return new Day(a.n + Math.trunc(y), a.m);
+            if (x !== null && b instanceof Day) return new Day(b.n + Math.trunc(x), b.m);
             return null;
           }
           case '-': {
+            if (b instanceof Duration) return plus(a, -b.minutes);
             const [x, y] = [numberOf(a), numberOf(b)];
             if (x !== null && y !== null) return x - y;
-            if (a instanceof Day && b instanceof Day) return a.n - b.n;
-            if (a instanceof Day && y !== null) return new Day(a.n - Math.trunc(y));
+            // Two days with their times are so many minutes apart; else so many days.
+            if (a instanceof Day && b instanceof Day) return a.m !== null && b.m !== null ? a.at - b.at : a.n - b.n;
+            if (a instanceof Clock && b instanceof Clock) return a.m - b.m;
+            if (a instanceof Day && y !== null) return new Day(a.n - Math.trunc(y), a.m);
             return null;
           }
           case '*':
@@ -1206,6 +1318,20 @@ export function evaluate(node: Node, env: Env): RV {
   return typeof result === 'number' && !Number.isFinite(result) ? null : result;
 }
 
+/** A day, a time or a span with minutes added: a day alone at its start gets a time; a time goes round the clock. */
+function plus(v: RV, minutes: number): RV {
+  if (v instanceof Day) return dayAt(v.at + Math.round(minutes));
+  if (v instanceof Clock) return new Clock((((v.m + Math.round(minutes)) % 1440) + 1440) % 1440);
+  if (v instanceof Duration) return new Duration(v.minutes + minutes);
+  return null;
+}
+
+/** This device's clock on `today`, for now() where none is given. */
+function nowOn(today: string): string {
+  const d = new Date();
+  return `${today}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 const numbersIn = (args: RV[]): number[] => args.flat(8).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
 const daysIn = (args: RV[]): Day[] => args.flat(8).filter((v): v is Day => v instanceof Day);
 
@@ -1214,6 +1340,18 @@ function call(fn: string, args: RV[], env: Env): RV {
   switch (fn) {
     case 'today':
       return dayValue(env.today);
+    case 'now':
+      return dayValue(env.now ?? nowOn(env.today));
+    case 'minutes':
+      return typeof a === 'number' ? new Duration(a) : null;
+    case 'hours':
+      return typeof a === 'number' ? new Duration(a * 60) : null;
+    case 'day':
+      return a instanceof Day ? new Day(a.n) : null;
+    case 'time':
+      return a instanceof Day && a.m !== null ? new Clock(a.m) : null;
+    case 'at':
+      return a instanceof Day ? (b instanceof Clock ? new Day(a.n, b.m) : new Day(a.n)) : null;
     case 'me':
       return env.me ?? null;
     case 'next': {
@@ -1246,8 +1384,10 @@ function call(fn: string, args: RV[], env: Env): RV {
       const numbers = numbersIn(args);
       if (numbers.length > 0) return fn === 'min' ? Math.min(...numbers) : Math.max(...numbers);
       const days = daysIn(args);
-      if (days.length === 0) return null;
-      return days.reduce((x, y) => ((fn === 'min' ? y.n < x.n : y.n > x.n) ? y : x));
+      if (days.length > 0) return days.reduce((x, y) => ((fn === 'min' ? y.at < x.at : y.at > x.at) ? y : x));
+      const clocks = args.flat(8).filter((v): v is Clock => v instanceof Clock);
+      if (clocks.length === 0) return null;
+      return clocks.reduce((x, y) => ((fn === 'min' ? y.m < x.m : y.m > x.m) ? y : x));
     }
     case 'contains': {
       if (a === null || a === undefined || b === null || b === undefined) return false;

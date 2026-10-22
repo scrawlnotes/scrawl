@@ -53,6 +53,7 @@ import { Sheet } from './sheets';
 import { StatusIcon } from './StatusIcon';
 import { Subtasks } from './Subtasks';
 import { dueClass, dueLabel } from './Tasks';
+import { dateLabel } from './TimeInputs';
 import { clockTime, pastDayLabel } from './text';
 
 /** What the card panel does, on the board at the path given. */
@@ -1015,8 +1016,8 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
           ? formatNumber(value, field.format, currencyOf(field.format, card.values))
           : links.length > 0
             ? links.map((link) => link.name || link.code).join(', ')
-            : field.type === 'date'
-              ? dueLabel(valueText(value), today)
+            : field.type === 'date' && typeof value === 'string'
+              ? dateLabel(value, today)
               : valueText(value)}
       </span>
     );
@@ -1236,6 +1237,7 @@ const FIELD_ICONS: { [type in Field['type']]: IconName } = {
   text: 'pen',
   number: 'hash',
   date: 'calendar',
+  time: 'clock',
   select: 'tag',
   'multi-select': 'tag',
   checkbox: 'check',

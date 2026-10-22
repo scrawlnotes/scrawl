@@ -15,8 +15,8 @@ import {
   type RollupFn,
   type Schema,
 } from './collection';
-import { isDay } from './day';
-import { Day, type Env, evaluate, fromRuntime, isRef, type Kind, kindOfField, type Ref, type RV, type Scope, textOf, toRuntime } from './lang';
+import { clockOf, dateOf, isDay } from './day';
+import { Clock, Day, type Env, evaluate, fromRuntime, isRef, type Kind, kindOfField, type Ref, type RV, type Scope, textOf, toRuntime } from './lang';
 import { failedChecks, rulesOf } from './rules';
 
 // What is worked out across a space: formulas, which may read a linked record's field
@@ -58,7 +58,12 @@ export function valueFor(field: Field, v: RV): FieldValue {
   if (v === null) return null;
   switch (field.type) {
     case 'date':
-      return v instanceof Day ? v.toString() : typeof v === 'string' && isDay(v) ? v : null;
+      // A date with no time keeps the day alone.
+      if (v instanceof Day) return (field.time ? v : new Day(v.n)).toString();
+      return typeof v === 'string' ? dateOf(v, field.time) : null;
+    case 'time':
+      if (v instanceof Clock) return v.toString();
+      return typeof v === 'string' ? clockOf(v) : null;
     case 'number':
       return typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'boolean' ? (v ? 1 : 0) : null;
     case 'checkbox':
@@ -412,9 +417,11 @@ export function withComputed(collection: Collection, collections: readonly Colle
 }
 
 /** The type a kind shows as on screen. */
-function typeOfKind(kind: Kind): { type: FieldType; collection?: string; many?: boolean } {
+function typeOfKind(kind: Kind): { type: FieldType; collection?: string; many?: boolean; format?: Field['format'] } {
   if (kind === 'number') return { type: 'number' };
   if (kind === 'day') return { type: 'date' };
+  if (kind === 'time') return { type: 'time' };
+  if (kind === 'span') return { type: 'number', format: { style: 'duration' } };
   if (kind === 'bool') return { type: 'checkbox' };
   if (typeof kind === 'object' && 'record' in kind) return { type: 'link', collection: kind.record };
   if (typeof kind === 'object' && 'list' in kind) {

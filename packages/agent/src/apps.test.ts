@@ -325,6 +325,24 @@ describe('apps', () => {
     expect(forklift.data.record.values).toMatchObject({ location: expect.objectContaining({ name: 'Main warehouse' }) });
   });
 
+  it('keeps a day with its time, a time and a duration as their fields hold them', async () => {
+    const { fs, agent } = await world();
+    const schema = { version: 2, template: 'blank', fields: [
+      { key: 'name', label: 'Name', type: 'name' },
+      { key: 'starts', label: 'Starts', type: 'date', time: true },
+      { key: 'duration', label: 'Duration', type: 'number', format: { style: 'duration' } },
+      { key: 'ends', label: 'Ends', type: 'formula', formula: 'starts + minutes(duration)' },
+      { key: 'arrival', label: 'Arrival window', type: 'time' },
+      { key: 'next', label: 'Next visit', type: 'date' },
+    ] };
+    await fs.writeText('Visits/_collection.json', JSON.stringify(schema));
+    const saved = await saveRecordTool(agent, { collection: 'Visits', values: { name: 'Planned maintenance', starts: '2026-10-22 14:30', duration: 90, arrival: '9:05', next: '2027-01-21T10:00' } });
+    expect(saved.data.record.values).toMatchObject({ starts: '2026-10-22T14:30', ends: '2026-10-22T16:00', arrival: '09:05', next: '2027-01-21' });
+    expect(saved.data.record.problems).toBeUndefined();
+    const wrong = await saveRecordTool(agent, { collection: 'Visits', values: { name: 'Rope tension', arrival: 'noon' } });
+    expect(wrong.data.record.problems?.[0]).toMatchObject({ field: 'arrival' });
+  });
+
   it('adds a template to an app, says what it added, and refuses what is wrong', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Atlas', templates: ['crm'], currencies: ['TRY'] });

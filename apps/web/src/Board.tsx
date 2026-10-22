@@ -995,6 +995,7 @@ const LIST_WIDTHS: { [type in Field['type']]: number } = {
   text: 140,
   number: 90,
   date: 96,
+  time: 70,
   select: 110,
   'multi-select': 140,
   checkbox: 50,

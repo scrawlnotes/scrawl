@@ -34,7 +34,7 @@ export interface CheckRule {
 }
 
 /** What a question of a button asks for. */
-export const ASK_TYPES = ['number', 'text', 'date', 'choice', 'link', 'person'] as const;
+export const ASK_TYPES = ['number', 'text', 'date', 'time', 'choice', 'link', 'person'] as const;
 export type AskType = (typeof ASK_TYPES)[number];
 
 /** A question a button asks before it runs, read in its body as `input.key`. */
@@ -46,6 +46,8 @@ export interface AskRule {
   options?: string[];
   /** A link's collection, by name as the person calls it. */
   collection?: string;
+  /** A date that takes its time too. */
+  time?: boolean;
   /** A value, or what works one out from the record. */
   default?: Node;
   required: boolean;
@@ -212,6 +214,9 @@ function readAsk(value: Node): AskRule[] {
         ask.collection = v.v.trim();
       } else if (part.key === 'default') {
         ask.default = v.k === 'arrow' && !Array.isArray(v.body) && v.params.length === 0 ? v.body : v;
+      } else if (part.key === 'time') {
+        if (v.k !== 'bool') throw new LangError(t('rules.askTime'), v.at);
+        ask.time = v.v;
       } else if (part.key === 'required') {
         if (v.k !== 'bool') throw new LangError(t('rules.askRequired'), v.at);
         ask.required = v.v;
@@ -229,7 +234,7 @@ function readAsk(value: Node): AskRule[] {
 /** A question as a field, for what reads its answer: a choice is a select, a link links to `collection` (a path). */
 export function askField(ask: AskRule, collection?: string): Field {
   const type = ask.type === 'choice' ? 'select' : ask.type;
-  return { key: ask.key, label: ask.label, type, ...(ask.options && { options: ask.options }), ...(ask.type === 'link' && { collection: collection ?? ask.collection ?? '' }) } as Field;
+  return { key: ask.key, label: ask.label, type, ...(ask.options && { options: ask.options }), ...(ask.type === 'link' && { collection: collection ?? ask.collection ?? '' }), ...(ask.type === 'date' && ask.time && { time: true }) } as Field;
 }
 
 /** What a rule finds by name in the space: its collections, boards and task lists, by path. */

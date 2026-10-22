@@ -259,6 +259,8 @@ export interface AskQuestion {
   options?: string[];
   /** A link's collection, by its path in the space. */
   collection?: string;
+  /** A date that takes its time too. */
+  time?: boolean;
   required: boolean;
   value: FieldValue;
   note?: string;
@@ -281,6 +283,7 @@ export function askOf(rules: string, name: string, dir: string, recordId: string
     type: a.type,
     ...(a.options && { options: a.options }),
     ...(a.type === 'link' && { collection: pathNamed(paths, a.collection!, dir) ?? a.collection! }),
+    ...(a.time && { time: true }),
     required: a.required,
     value: given[a.key] ?? null,
   }));

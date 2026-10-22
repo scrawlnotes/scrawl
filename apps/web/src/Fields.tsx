@@ -128,6 +128,8 @@ interface DraftField {
   defaultValue: DefaultValue | null;
   defaultFormula: string;
   format: NumberFormat | null;
+  /** A date that may hold a time too. */
+  time: boolean;
   fresh: boolean;
 }
 
@@ -248,6 +250,7 @@ function draftFields(fields: Field[]): DraftField[] {
       lookup: { link: f.lookup?.link ?? '', field: f.lookup?.field ?? '' },
       ...draftDefault(f),
       format: f.format ?? null,
+      time: !!f.time,
       fresh: false,
     }),
   );
@@ -270,6 +273,7 @@ const freshField = (fields: DraftField[]): DraftField => ({
   defaultValue: null,
   defaultFormula: '',
   format: null,
+  time: false,
   fresh: true,
 });
 
@@ -307,6 +311,7 @@ function toField(f: DraftField): Field {
     ...(f.type === 'lookup' && { lookup: { link: f.lookup.link, field: f.lookup.field } }),
     ...(defaultOf(f) !== undefined && { default: defaultOf(f) }),
     ...(f.format && (f.type === 'number' || isComputed(f.type)) && { format: f.format }),
+    ...(f.time && f.type === 'date' && { time: true }),
   };
 }
 
@@ -405,6 +410,8 @@ function typeWords(field: DraftField): string {
   if (field.type === 'link' && field.collection) return `${type} · ${collectionName(field.collection)}`;
   if (field.type === 'rollup' && field.rollup.from) return `${type} · ${field.rollup.from.endsWith(BOARD_EXT) ? boardName(field.rollup.from) : collectionName(field.rollup.from)}`;
   if (field.type === 'lookup' && field.lookup.link) return `${type} · ${field.lookup.link}`;
+  if (field.type === 'date' && field.time) return t('fields.dateAndTime');
+  if (field.type === 'number' && field.format?.style === 'duration') return `${type} · ${t('fields.style.duration').toLowerCase()}`;
   return type;
 }
 
@@ -768,6 +775,17 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
           {field.key}
         </span>
       </div>
+      {field.type === 'date' && (
+        <>
+          <div className="fe-row">
+            <label className="fcheck">
+              <input type="checkbox" checked={field.time} onChange={(event) => onChange({ time: event.target.checked })} />
+              {t('fields.withTime')}
+            </label>
+          </div>
+          {field.time && <p className="fi-note">{t('fields.withTimeHelp')}</p>}
+        </>
+      )}
       {isChoice(field.type) && (
         <>
           <Choices field={field} onChange={(choices) => onChange({ choices })} />
@@ -892,6 +910,8 @@ function DefaultRow({ field, fields, schemaOf, preview, onChange }: {
     box = <DayValue value={value === TODAY_DEFAULT ? TODAY : typeof value === 'string' ? value : undefined} todayHint={t('fields.todayMade')} none={t('fields.noDefault')} onChange={(v) => onChange({ defaultValue: v === TODAY ? TODAY_DEFAULT : (v ?? null) })} />;
   } else if (field.type === 'person') {
     box = <Picker className="in" options={[none, { value: ME_DEFAULT, label: t('fields.defaultMe'), hint: t('fields.defaultMeHint'), chip: false }]} value={value === ME_DEFAULT ? ME_DEFAULT : null} text={typeof value === 'string' && value !== ME_DEFAULT ? value : undefined} label={t('fields.noDefault')} onPick={(v) => onChange({ defaultValue: v })} />;
+  } else if (field.type === 'time') {
+    box = <input className="in" type="time" aria-label={t('fields.default')} value={typeof value === 'string' ? value : ''} onChange={(event) => onChange({ defaultValue: event.target.value || null })} />;
   } else if (field.type === 'number') {
     box = <input className="in" type="number" aria-label={t('fields.default')} placeholder={t('fields.noDefault')} value={typeof value === 'number' ? value : ''} onChange={(event) => onChange({ defaultValue: event.target.value === '' ? null : Number(event.target.value) })} />;
   } else {
@@ -953,7 +973,7 @@ function FormatRow({ field, fields, onChange }: { field: DraftField; fields: Dra
   const currency = format?.currencyField ? `field:${format.currencyField}` : (format?.currency ?? null);
   // What a number looks like on this device: money in its currency, or in the first choice of the field holding one.
   const sampleCurrency = format?.currency ?? held?.choices.map((c) => c.name.trim()).find((c) => /^[A-Za-z]{3}$/.test(c))?.toUpperCase();
-  const sample = format ? formatNumber(format.style === 'percent' ? 0.185 : format.decimals ? 1240000.5 : 1240000, format, sampleCurrency) : null;
+  const sample = format ? formatNumber(format.style === 'percent' ? 0.185 : format.style === 'duration' ? 90 : format.decimals ? 1240000.5 : 1240000, format, sampleCurrency) : null;
   return (
     <>
       <div className="fe-row">
@@ -991,6 +1011,7 @@ function FormatRow({ field, fields, onChange }: { field: DraftField; fields: Dra
             />
           ))}
       </div>
+      {format?.style !== 'duration' && (
       <div className="fe-row">
         <span className="fe-name">{t('fields.decimals')}</span>
         <span className="vsw" role="group" aria-label={t('fields.decimals')}>
@@ -1001,7 +1022,8 @@ function FormatRow({ field, fields, onChange }: { field: DraftField; fields: Dra
           ))}
         </span>
       </div>
-      {sample && <p className="fi-note">{t('fields.formatNote', { sample })}</p>}
+      )}
+      {format?.style === 'duration' ? <p className="fi-note">{t('fields.durationHelp')}</p> : sample && <p className="fi-note">{t('fields.formatNote', { sample })}</p>}
     </>
   );
 }

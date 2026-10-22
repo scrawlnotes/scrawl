@@ -1,7 +1,7 @@
 import { t } from '@scrawlnotes/i18n';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { isDay } from './day';
-import { dayValue, type Env, evaluate, formulaInfo, fromRuntime, type Kind, kindWords, type Node, parseExpression, type RV, type Scope, toRuntime } from './lang';
+import { clockOf, dateOf, isClock, isDay, isDateTime, timeOf } from './day';
+import { clockValue, dayValue, type Env, evaluate, formulaInfo, fromRuntime, type Kind, kindWords, type Node, parseExpression, type RV, type Scope, toRuntime } from './lang';
 import { basename, type Entry, join, type VaultFs } from './fs';
 import { fileNameOf, shownName } from './names';
 import { freePath, moveTree } from './paths';
@@ -20,9 +20,9 @@ import { readSubtasks, type Subtask, writtenSubtask } from './subtasks';
 export const COLLECTION_FILE = '_collection.json';
 export const RECORD_EXT = '.md';
 
-export type FieldType = 'name' | 'code' | 'text' | 'number' | 'date' | 'select' | 'multi-select' | 'checkbox' | 'url' | 'email' | 'phone' | 'person' | 'link' | 'formula' | 'lookup' | 'rollup';
+export type FieldType = 'name' | 'code' | 'text' | 'number' | 'date' | 'time' | 'select' | 'multi-select' | 'checkbox' | 'url' | 'email' | 'phone' | 'person' | 'link' | 'formula' | 'lookup' | 'rollup';
 
-export const FIELD_TYPES: readonly FieldType[] = ['name', 'code', 'text', 'number', 'date', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person', 'link', 'formula', 'lookup', 'rollup'];
+export const FIELD_TYPES: readonly FieldType[] = ['name', 'code', 'text', 'number', 'date', 'time', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person', 'link', 'formula', 'lookup', 'rollup'];
 
 /** What a rollup does with what links to the record: counts it, adds it up, averages it, or takes its most or least. */
 export type RollupFn = 'count' | 'sum' | 'avg' | 'max' | 'min';
@@ -55,7 +55,8 @@ export interface Lookup {
 
 /** How a number is written: plain, as money or as a share; money in the field's currency, or in the one a field of the record holds; with so many decimals. */
 export interface NumberFormat {
-  style: 'number' | 'currency' | 'percent';
+  /** A duration is minutes, written as hours and minutes: 1 h 30 min. */
+  style: 'number' | 'currency' | 'percent' | 'duration';
   /** The currency's code, `TRY`, for every record. */
   currency?: string;
   /** The key of the record's field that holds its currency's code, for a record each in its own. */
@@ -64,7 +65,7 @@ export interface NumberFormat {
   decimals?: number;
 }
 
-export const FORMAT_STYLES: readonly NumberFormat['style'][] = ['number', 'currency', 'percent'];
+export const FORMAT_STYLES: readonly NumberFormat['style'][] = ['number', 'currency', 'percent', 'duration'];
 
 /** A field's default value: one the field holds, or `=` and an expression worked out when a record is made (`=today()`, `=next("PRJ-", 4)`). */
 export type DefaultValue = string | number | boolean | string[];
@@ -101,6 +102,8 @@ export interface Field {
   default?: DefaultValue;
   /** How a number, or a formula, lookup or rollup giving one, is written. */
   format?: NumberFormat;
+  /** A date that may hold a time too, `2026-10-22T14:30`; one with no time is all day. */
+  time?: boolean;
 }
 
 /**
@@ -473,6 +476,7 @@ function readField(raw: unknown): Field | null {
     if (raw.many === true) field.many = true;
   }
   if (type === 'formula') field.formula = typeof raw.formula === 'string' ? raw.formula : '';
+  if (type === 'date' && raw.time === true) field.time = true;
   if (type === 'rollup') {
     const r = isRecord(raw.rollup) ? raw.rollup : {};
     const fn = ROLLUP_FNS.includes(r.fn as RollupFn) ? (r.fn as RollupFn) : 'count';
@@ -704,8 +708,11 @@ function readLink(raw: unknown): Link | null {
   return null;
 }
 
-/** A front matter value as a field of `type` holds it; null when it does not fit. A link field that holds `many` reads as a list. */
-export function readValue(type: FieldType, raw: unknown, many = false): FieldValue {
+/**
+ * A front matter value as a field of `type` holds it; null when it does not fit. A link field that
+ * holds `many` reads as a list; a date with `time` keeps the time it is given.
+ */
+export function readValue(type: FieldType, raw: unknown, many = false, time = false): FieldValue {
   if (raw === null || raw === undefined) return null;
   switch (type) {
     case 'link': {
@@ -723,10 +730,12 @@ export function readValue(type: FieldType, raw: unknown, many = false): FieldVal
     case 'multi-select':
       return Array.isArray(raw) ? raw.map(String).filter((s) => s.trim()) : typeof raw === 'string' && raw.trim() ? [raw] : null;
     case 'date': {
-      // `yaml` reads a day as text; another tool may have written a time with it.
-      const text = raw instanceof Date ? raw.toISOString().slice(0, 10) : String(raw).trim().slice(0, 10);
-      return isDay(text) ? text : null;
+      // `yaml` reads a day as text; another tool may have written a time with it, kept where the field has one.
+      if (raw instanceof Date) return raw.toISOString().slice(0, 10);
+      return dateOf(String(raw), time);
     }
+    case 'time':
+      return typeof raw === 'string' || typeof raw === 'number' ? clockOf(String(raw)) : null;
     default:
       return typeof raw === 'string' ? raw : typeof raw === 'number' || typeof raw === 'boolean' ? String(raw) : null;
   }
@@ -781,7 +790,16 @@ export function formatNumber(n: number, format?: NumberFormat, currency?: string
     }
   }
   if (format?.style === 'percent') return formatter({ style: 'percent', ...digits }).format(n);
+  if (format?.style === 'duration') return durationText(n);
   return formatter(digits).format(n);
+}
+
+/** Minutes as hours and minutes: 45 min, 1 h, 1 h 30 min; less than none with a minus before. */
+export function durationText(minutes: number): string {
+  const all = Math.round(Math.abs(minutes));
+  const [h, m] = [Math.floor(all / 60), all % 60];
+  const text = [h ? t('duration.hours', { count: h }) : '', m || !h ? t('duration.minutes', { count: m }) : ''].filter(Boolean).join(' ');
+  return minutes < 0 && all > 0 ? `−${text}` : text;
 }
 
 /** A number as the screen shows it, with no format of its own. */
@@ -794,6 +812,8 @@ export function valueText(value: FieldValue | undefined): string {
   if (Array.isArray(value)) return value.map((v) => (isLink(v) ? recordLabel(v) : v)).join(', ');
   if (typeof value === 'boolean') return t(value ? 'collection.yes' : 'collection.no');
   if (typeof value === 'number') return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
+  // A day with its time reads as the day and the clock.
+  if (timeOf(value)) return `${value.slice(0, 10)} ${value.slice(11)}`;
   return String(value);
 }
 
@@ -825,7 +845,7 @@ export function formulaNode(expr: string): Node | null {
  */
 function computedRuntime(value: FieldValue | undefined): RV {
   if (value === null || value === undefined) return null;
-  if (typeof value === 'string') return isDay(value) ? dayValue(value) : value;
+  if (typeof value === 'string') return isDay(value) || isDateTime(value) ? dayValue(value) : isClock(value) ? clockValue(value) : value;
   if (isLink(value)) return { ref: true, dir: '', id: value.id, name: value.name, ...(value.code && { code: value.code }) };
   if (Array.isArray(value)) return (value as unknown[]).map((v) => (isLink(v) ? v.name : String(v)));
   return value;
@@ -878,6 +898,8 @@ function fitsType(kind: Kind, field: Field): boolean {
       return kind === 'number' || kind === 'bool';
     case 'date':
       return kind === 'day';
+    case 'time':
+      return kind === 'time';
     case 'checkbox':
       return kind === 'bool';
     case 'link':
@@ -908,7 +930,9 @@ export function defaultProblem(field: Field, schema: Pick<Schema, 'fields'>, sch
     case 'checkbox':
       return typeof given === 'boolean' ? null : t('fields.defaultCheckbox');
     case 'date':
-      return typeof given === 'string' && isDay(given) ? null : t('fields.defaultDay');
+      return typeof given === 'string' && dateOf(given, field.time) === given ? null : t('fields.defaultDay');
+    case 'time':
+      return typeof given === 'string' && isClock(given) ? null : t('fields.defaultTime');
     case 'select':
       return typeof given === 'string' && options.includes(given) ? null : t('collection.problem.choice', { value: String(given), field: field.label });
     case 'multi-select': {
@@ -965,7 +989,8 @@ export function typeOfValue(value: FieldValue | undefined): FieldType {
   if (typeof value === 'boolean') return 'checkbox';
   if (isLink(value) || (Array.isArray(value) && value.length > 0 && isLink(value[0]))) return 'link';
   if (Array.isArray(value)) return 'multi-select';
-  return typeof value === 'string' && isDay(value) ? 'date' : 'text';
+  if (typeof value === 'string' && (isDay(value) || isDateTime(value))) return 'date';
+  return typeof value === 'string' && isClock(value) ? 'time' : 'text';
 }
 
 // ---------- record files ----------
@@ -1039,7 +1064,7 @@ function recordOf(front: { [key: string]: unknown }, body: string, schema: Schem
       extra[key] = raw;
       continue;
     }
-    const value = readValue(field.type, raw, field.many);
+    const value = readValue(field.type, raw, field.many, field.time);
     if (value !== null) values[key] = value;
     else if (raw !== null && raw !== undefined) extra[key] = raw;
   }
@@ -1393,6 +1418,8 @@ export function opsFor(type: FieldType): ConditionOp[] {
       return ['is', 'gt', 'lt', 'before', 'after', 'empty', 'not-empty'];
     case 'date':
       return ['on', 'before', 'after', 'empty', 'not-empty'];
+    case 'time':
+      return ['is', 'before', 'after', 'empty', 'not-empty'];
     case 'checkbox':
       return ['true', 'false'];
     case 'select':
@@ -1438,7 +1465,8 @@ export function matchesCondition(record: Pick<Record, 'values'>, schema: Pick<Sc
   };
   const number = typeof value === 'number' ? value : null;
   const n = typeof condition.value === 'number' ? condition.value : Number(condition.value);
-  const day = typeof value === 'string' ? value : '';
+  // A day with its time is on its day: before and after it by the day too. A time is compared as a time.
+  const day = typeof value === 'string' ? (field.type === 'time' ? value : value.slice(0, 10)) : '';
   // A day's condition may ask about today, which moves with the day.
   const target = condition.value === TODAY ? today : typeof condition.value === 'string' ? condition.value : '';
   switch (condition.op) {
@@ -1453,6 +1481,7 @@ export function matchesCondition(record: Pick<Record, 'values'>, schema: Pick<Sc
     case 'contains':
       return !empty && wanted.length > 0 && wanted.some((w) => valueText(value).toLowerCase().includes(lower(w)));
     case 'is':
+      if (field.type === 'time') return !!day && day === target;
       return field.type === 'number' || typeof value === 'number' ? number !== null && number === n : !empty && has();
     case 'is-not':
       return empty || !has();
@@ -1506,6 +1535,8 @@ export function groupRecords(records: Record[], schema: Schema, key: string, tod
     if (isEmpty(value)) add('', '', record);
     else if (isLink(value)) add(value.id || value.name, recordLabel(value), record);
     else if (Array.isArray(value)) for (const v of value) (isLink(v) ? add(v.id || v.name, recordLabel(v), record) : add(v, v, record));
+    // A day with its time groups on its day.
+    else if (as.type === 'date' && typeof value === 'string') add(value.slice(0, 10), value.slice(0, 10), record);
     else add(String(value), valueText(value), record);
   }
   const order = as.options ?? [];
