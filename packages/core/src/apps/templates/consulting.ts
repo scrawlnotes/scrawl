@@ -144,10 +144,10 @@ export const consulting: AppTemplate = {
   ask: {
     hours: { label: "Hours", type: "number", required: true },
     note: { label: "What was done", type: "text" },
-    date: { label: "Day", type: "date", default: () => today() },
+    date: { label: "Day", type: "date", default: () => today(), required: true },
   },
 }, () => {
-  add("${app.called('time-entries')}", { name: empty(input.note) ? "Work" : input.note, engagement: this, hours: input.hours, date: empty(input.date) ? today() : input.date, billable: fee_model == "Hourly", rate: rate })
+  add("${app.called('time-entries')}", { name: empty(input.note) ? "Work" : input.note, engagement: this, hours: input.hours, date: input.date, billable: fee_model == "Hourly", rate: rate })
 })`,
       });
     }

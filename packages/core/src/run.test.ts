@@ -330,7 +330,12 @@ describe('a button that asks', () => {
       { kind: 'add', dir: 'Atlas/Budget lines', values: { name: 'Labour', category: 'Labour', planned: 1200000 } },
       { kind: 'update', dir: 'Atlas/Budget lines', id: 'l1', values: { planned: 0 } },
     ]);
-    expect(() => planAction(ASKS, 'Grow budget', 'Atlas/Projects', 'p1', s, { category: 'Labour' })).toThrow('Share is needed.');
+    // A question left out takes its default, as the window shows it; one given empty is still needed.
+    expect(planAction(ASKS, 'Grow budget', 'Atlas/Projects', 'p1', s, { category: 'Labour' }).changes).toMatchObject([
+      { kind: 'add', dir: 'Atlas/Budget lines', values: { name: 'Labour', planned: 720000 } },
+      { kind: 'update', dir: 'Atlas/Budget lines', id: 'l1', values: { planned: 0 } },
+    ]);
+    expect(() => planAction(ASKS, 'Grow budget', 'Atlas/Projects', 'p1', s, { category: 'Labour', share: null })).toThrow('Share is needed.');
   });
 
   it('picks an item of a list by its place', () => {

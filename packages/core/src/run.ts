@@ -230,8 +230,10 @@ export function planAction(rules: string, name: string, dir: string, recordId: s
   const action = actionsOf(rules).find((a) => a.name === name);
   if (!action) throw new RuleStop(t('run.noAction', { name }), 0);
   const o = overlayOf(space);
-  const input = action.ask ? inputOf(action, given, space, dir) : undefined;
-  const missing = action.ask?.find((a) => a.required && isEmpty(given[a.key] ?? null));
+  // A question not given at all takes its default, as the window shows it: an agent may leave out what has one.
+  const answers = action.ask ? { ...Object.fromEntries((askOf(rules, name, dir, recordId, space, given)?.questions ?? []).map((q) => [q.key, q.value])), ...given } : given;
+  const input = action.ask ? inputOf(action, answers, space, dir) : undefined;
+  const missing = action.ask?.find((a) => a.required && isEmpty(answers[a.key] ?? null));
   if (missing) throw new RuleStop(t('run.needed', { label: missing.label }), lineAt(rules, missing.at));
   execute({ src: rules, body: action.body, dir, id: recordId, ...(input && { input }) }, o, space, action.when && { node: action.when, name, hint: action.hint, at: action.at });
   const stops = saveChanged(o, space);
