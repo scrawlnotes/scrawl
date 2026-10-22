@@ -2926,6 +2926,19 @@ p { margin: 0; max-width: 68ch; }
 .c3-mgrid { margin-top: 6px; }
 .cv-mrec.past { opacity: .5; }
 .cv-tip.c3-mtip { left: 8px; font-size: 12px; }
+/* New app templates (stage 16), slice 1: the New app window's Templates step, Business or Personal. */
+.dir[data-dir="apps16"] { margin-top: 56px; }
+.dir[data-dir="apps16"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="apps16"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="apps16"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.dir[data-dir="apps16"] .mock.dir-a:not(.phones) { height: 830px; }
+.dir[data-dir="apps16"] .na-page { display: flex; flex-direction: column; min-height: 0; }
+.ap-filter { display: flex; flex: none; align-items: center; gap: 12px; margin: 0 0 12px; }
+.ap-filter small { color: var(--m-faint); font-size: 12px; }
+.ap-scroll { flex: 1; min-height: 0; max-height: 560px; overflow-y: auto; padding-right: 4px; }
+.ap-mfilter { padding: 4px 4px 10px; }
+.ap-mfilter .na-mseg { display: flex; }
+.ap-mfilter .na-mseg span { flex: 1; text-align: center; }
 </style>
 
 <main class="page">
@@ -3520,6 +3533,23 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-c3view="c3up">Upcoming List</button>
         <button type="button" data-c3view="c3board">Pano</button>
         <button type="button" data-c3view="c3phone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="apps16">
+    <div class="brief">
+      <div>
+        <span class="letter">YENİ APP ŞABLONLARI · 16. AŞAMA · 1. DİLİM</span>
+        <h2>Şablonlar: Business ve Personal</h2>
+        <p>New app penceresinin Templates adımında kartların üstünde <b>Business · Personal</b>; seçilen cihazda kalır, kişisel space'te Personal ile açılır. Bir app ya iş ya kişisel şablonlardan kurulur: öbür tarafa geçince seçilenler bırakılır; Add to app yalnız app'in kendi tarafını sunar. Business'ta iş şablonları bugünkü gruplarında (Customers, Money, Work), sekizi yeni; Personal'da on kişisel şablon üç grupta: <b>Money and home</b>, <b>Health</b> ve <b>Life</b>. Telefonda aynı seçim sheet'in üstünde.</p>
+        <ul class="traits"><li>Business · Personal</li><li>bir app tek taraftan</li><li>kişisel space'te Personal</li><li>20 iş, 10 kişisel şablon</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="16. aşama 1. dilim görünümü">
+        <button type="button" data-apview="apbiz">Business</button>
+        <button type="button" data-apview="appers">Personal</button>
+        <button type="button" data-apview="apphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -10452,6 +10482,113 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderC3(sectionC3, b.dataset.c3view);
   });
   renderC3(sectionC3, 'c3week');
+
+  // New app templates (stage 16), slice 1 (Oct 22): the New app window's Templates step says
+  // Business or Personal above the cards, kept on the device, and opens on Personal in a personal
+  // space. An app is set up from one side: another side lets go of what was chosen. Business keeps
+  // its groups, Customers, Money and Work; Personal has three, Money and home, Health, and Life.
+  var AP_T = {
+    crm: ['CRM', 'person', 'Your customers, the people there, every call and meeting, and your deals.', [['collection', 'Companies'], ['collection', 'People'], ['board', 'Deals']]],
+    support: ['Customer support', 'comment', 'Requests from customers, from the first message to its answer.', [['board', 'Requests'], ['collection', 'Feedback']]],
+    appointments: ['Appointments and bookings', 'clock', 'Appointments with customers, or bookings of rooms and tables, on a calendar.', [['collection', 'Appointments'], ['collection', 'Services'], ['collection', 'Staff']]],
+    content: ['Content calendar', 'cal', 'What you publish, by stage and day, and your campaigns.', [['board', 'Content'], ['collection', 'Campaigns']]],
+    field: ['Field service', 'pen', 'Work orders at your customers’ sites: who goes when, the parts used, the report.', [['collection', 'Work orders'], ['collection', 'Equipment'], ['collection', 'Technicians']]],
+    consulting: ['Consulting', 'share', 'Your clients and engagements, deliverables, hours and expenses, and billing.', [['collection', 'Engagements'], ['collection', 'Time entries'], ['collection', 'Deliverables']]],
+    association: ['Association and club', 'person', 'Members and their dues, donations and campaigns.', [['collection', 'Members'], ['collection', 'Dues'], ['collection', 'Donations']]],
+    sales: ['Sales and invoicing', 'tag', 'Products, quotes, orders and the money coming in.', [['collection', 'Products'], ['collection', 'Orders'], ['collection', 'Payments']]],
+    budget: ['Budget and spending', 'stack', 'What you plan to earn and spend, and the payments in and out.', [['collection', 'Budget lines'], ['collection', 'Payments']]],
+    stock: ['Stock and purchasing', 'table', 'What you have, every movement in and out, and what you order.', [['collection', 'Products'], ['collection', 'Stock movements']]],
+    ecommerce: ['E-commerce', 'globe', 'Selling on marketplaces and your own site: commissions, shipping, returns.', [['collection', 'Channels'], ['collection', 'Returns']]],
+    subscriptions: ['Subscriptions and memberships', 'restore', 'Plans, who is on them and when each renews; what comes in each month.', [['collection', 'Plans'], ['collection', 'Subscriptions']]],
+    projects: ['Project management', 'board', 'Projects, the work on each as cards, the hours and the budget.', [['collection', 'Projects'], ['board', 'Work']]],
+    product: ['Product development', 'flag', 'The work on your product from idea to release.', [['board', 'Roadmap'], ['collection', 'Releases']]],
+    recruiting: ['Recruiting', 'clip', 'The jobs you hire for, who applied and where each is on the way.', [['collection', 'Positions'], ['collection', 'Candidates'], ['board', 'Hiring']]],
+    assets: ['Assets and maintenance', 'laptop', 'What the company owns, who has it, and its maintenance.', [['collection', 'Assets'], ['collection', 'Maintenance']]],
+    contracts: ['Contracts and renewals', 'file', 'Leases, insurance, suppliers, software: when each ends and when to give notice.', [['collection', 'Contracts']]],
+    timeoff: ['Time off and team', 'week', 'Your people, their leave and who is away when.', [['collection', 'Employees'], ['collection', 'Leave requests'], ['collection', 'Holidays']]],
+    goals: ['Goals', 'flag', 'Goals for the quarter or the year and the results that measure them.', [['collection', 'Goals'], ['collection', 'Key results']]],
+    incidents: ['Incidents and actions', 'warn', 'Outages, quality and safety issues, what caused them and what is done about it.', [['collection', 'Incidents'], ['board', 'Actions']]],
+    finance: ['Personal finance', 'stack', 'Your accounts, what comes in and goes out, a budget by category, and your bills.', [['collection', 'Accounts'], ['collection', 'Transactions'], ['collection', 'Bills']]],
+    home: ['Home, car and documents', 'key', 'Warranties, documents that expire, the car’s inspection and insurance, home upkeep.', [['collection', 'Items'], ['collection', 'Documents'], ['collection', 'Vehicles']]],
+    health: ['Health', 'sun', 'Doctor’s appointments, medicines, results and vaccinations.', [['collection', 'Appointments'], ['collection', 'Medications']]],
+    recipes: ['Recipes and meal plan', 'bullets', 'Your recipes, the week’s meals and the shopping list.', [['collection', 'Recipes'], ['collection', 'Meal plan'], ['collection', 'Shopping list']]],
+    travel: ['Travel', 'globe', 'Trips, bookings with their times, places to see, packing and spending.', [['collection', 'Trips'], ['collection', 'Bookings']]],
+    jobs: ['Job search', 'clip', 'Where you applied, how each stands, interviews and when to follow up.', [['collection', 'Applications'], ['collection', 'Interviews']]],
+    people: ['People and birthdays', 'person', 'The people close to you, their birthdays every year, when you last talked.', [['collection', 'People'], ['collection', 'Moments']]],
+    reading: ['Reading and watching', 'quote', 'Books, films and series: what is next, what you finished and how you liked it.', [['collection', 'Library']]],
+    sport: ['Sport and training', 'rise', 'Workouts, the week’s plan, sets and records, body measures and races.', [['collection', 'Workouts'], ['collection', 'Plan'], ['collection', 'Races']]],
+    habits: ['Habits and goals', 'check', 'Habits you tick each day, how you kept them this week, your own goals.', [['collection', 'Habits'], ['collection', 'Check-ins'], ['collection', 'Goals']]]
+  };
+  var AP_NEW = { field: 1, consulting: 1, association: 1, subscriptions: 1, contracts: 1, timeoff: 1, goals: 1, incidents: 1, finance: 1, home: 1, health: 1, recipes: 1, sport: 1, travel: 1, jobs: 1, people: 1, reading: 1, habits: 1 };
+  var AP_BUSINESS = [['Customers', ['crm', 'support', 'appointments', 'content', 'field', 'consulting', 'association']], ['Money', ['sales', 'budget', 'stock', 'ecommerce', 'subscriptions']], ['Work', ['projects', 'product', 'recruiting', 'assets', 'contracts', 'timeoff', 'goals', 'incidents']]];
+  var AP_PERSONAL = [['Money and home', ['finance', 'home', 'recipes']], ['Health', ['health', 'sport', 'habits']], ['Life', ['travel', 'jobs', 'people', 'reading']]];
+  function apCard(id, chosen) {
+    var t = AP_T[id];
+    var on = !!chosen[id];
+    return '<div class="na-card' + (on ? ' on' : '') + '"><span class="tick">' + (on ? ICON.check : '') + '</span>' +
+      '<span class="hd">' + (ICON[t[1]] || ICON.app) + t[0] + '</span><span class="what">' + t[2] + '</span>' +
+      '<span class="sets">' + t[3].map(function (s) { return '<span>' + ICON[s[0]] + s[1] + '</span>'; }).join('') + '</span></div>';
+  }
+  function apGroups(groups, chosen) {
+    return groups.map(function (g) { return '<div class="na-group"><div class="label">' + g[0] + '</div><div class="na-cards">' + g[1].map(function (id) { return apCard(id, chosen); }).join('') + '</div></div>'; }).join('');
+  }
+  function apFilter(on) {
+    return '<div class="ap-filter"><span class="na-seg">' + ['Business', 'Personal'].map(function (o) { return '<span' + (o === on ? ' class="on"' : '') + '>' + o + '</span>'; }).join('') + '</span>' +
+      '<small>' + (on === 'Personal' ? 'For you and your home' : 'For a business, a team or a club') + ' · an app is one or the other</small></div>';
+  }
+  function apTemplates(on) {
+    var chosen = on === 'Personal' ? { finance: true, travel: true } : { crm: true, field: true, stock: true };
+    var groups = on === 'Personal' ? AP_PERSONAL : AP_BUSINESS;
+    var count = on === 'Personal' ? '2 templates' : '3 templates · Companies and Products are shared';
+    var steps = ['Templates', 'App'].concat(Object.keys(chosen).map(function (id) { return AP_T[id][0]; }), ['Summary']);
+    return naWindow(0, apFilter(on) + '<div class="ap-scroll">' + apGroups(groups, chosen) + '</div>', count).replace(/<div class="steps">[\s\S]*?<\/div>/, '<div class="steps">' + steps.map(function (st, i) { return '<span' + (i === 0 ? ' class="on"' : '') + '>' + st + '</span>'; }).join('') + '</div>');
+  }
+  function apApp(over, personal) {
+    var tree = '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 11 }) +
+      opRowT({ sp: true, open: !!personal, label: 'Personal' }) +
+      (personal ? opRowT({ d: 1, folder: true, label: 'Notes' }) + opRowT({ d: 1, folder: true, label: 'Home' }) : '') +
+      opRowT({ sp: true, open: !personal, label: CA_SPACE }) +
+      (personal ? '' : opRowT({ d: 1, folder: true, label: 'Operations' }) + opRowT({ d: 1, folder: true, label: 'Sales' })) + '</div>' + spFoot(null);
+    return '<aside class="side">' + tree + '</aside><section class="main"><div class="panes">' + pane(tab('notes', personal ? 'Groceries' : 'Price list 2026', 'x', true) + '<div class="tab plus">+</div>', personal ? '<div class="ed"><h1>Groceries</h1><p>Milk, eggs, bread.</p></div>' : NA_NOTE) + '</div>' +
+      '<div class="status"><span>58 words</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  function apPhone() {
+    var page = mbPage(mbNav('Personal', ['dots']) + mbHead('Groceries'), '<div class="mb-ed"><p>Milk, eggs, bread.</p></div>');
+    function mcard(id, on) {
+      var t = AP_T[id];
+      return '<div class="na-mcard' + (on ? ' on' : '') + '"><span class="ck">' + (on ? ICON.check : '') + '</span><span class="tx"><b>' + t[0] + '</b><small>' + t[2] + '</small></span></div>';
+    }
+    function sheet(on) {
+      var groups = on === 'Personal' ? AP_PERSONAL : AP_BUSINESS;
+      return naSheet('New app', 'Cancel', 'Next', 0, '<div class="ap-mfilter"><span class="na-mseg">' + ['Business', 'Personal'].map(function (o) { return '<span' + (o === on ? ' class="on"' : '') + '>' + o + '</span>'; }).join('') + '</span></div>' +
+        groups.map(function (g) { return '<div class="na-mlabel">' + g[0] + '</div><div class="na-mgroup">' + g[1].map(function (id) { return mcard(id, id === 'finance' || id === 'travel'); }).join('') + '</div>'; }).join(''));
+    }
+    return mbPhone('Kişisel space: Personal ile açılır', page, mbTabs('browse') + sheet('Personal')) + mbPhone('Business: iş şablonları gruplarıyla', page, mbTabs('browse') + sheet('Business'));
+  }
+  var AP_VIEWS = {
+    apbiz: function () { return apApp(apTemplates('Business')); },
+    appers: function () { return apApp(apTemplates('Personal'), true); }
+  };
+  function renderAp(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'apphone') {
+      mock.className = 'mock dir-a phones mbs';
+      mock.innerHTML = apPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = AP_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-apview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.apview === view));
+    });
+  }
+  var sectionAp = document.querySelector('.dir[data-dir="apps16"]');
+  sectionAp.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-apview]');
+    if (b) renderAp(sectionAp, b.dataset.apview);
+  });
+  renderAp(sectionAp, 'apbiz');
 
   // Scrawl apps (stage 14), slice 1 (Oct 21): a button that asks for a value before it runs. A
   // rule written as action("Correct stock", { ask: { total: { label, type, default } } }, …) opens
