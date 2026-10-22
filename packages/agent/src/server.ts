@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { cardsTool, commentTool, MAX_ITEMS, saveCardTool } from './cards';
 import { BRIEF, GUIDE } from './guide';
 import { readTool, searchTool, spacesTool, treeTool } from './read';
-import { recordsTool, saveRecordTool } from './records';
+import { dueRecordsTool, recordsTool, saveRecordTool } from './records';
 import { answer } from './results';
 import { moveTool } from './move';
 import { type Agent, type Client } from './space';
@@ -177,17 +177,20 @@ export function buildServer(agent: Agent): McpServer {
     'records',
     {
       title: 'Records',
-      description: 'Lists the records of a collection with their values, formulas and rollups worked out, and `problems` on values that do not fit the schema. `where` filters by field (key or label) with ops contains, is, is-not, empty, not-empty, gt, lt, before, after, on, true, false; `sort` orders; `limit` caps at 100 when left out. Use it before save_record to see what is there.',
+      description: 'Lists the records of a collection with their values, formulas and rollups worked out, and `problems` on values that do not fit the schema. `where` filters by field (key or label) with ops contains, is, is-not, empty, not-empty, gt, lt, before, after, on, true, false; `sort` orders; `limit` caps at 100 when left out. `from` and `to` (YYYY-MM-DD), or `due`, keep the records on those days, by the field its calendar goes by. With no collection, gives what the calendars that show in Today and Upcoming bring there, today\'s with `due: "today"`, in every space unless one is named: what is on today, with the tasks and cards. Use it before save_record to see what is there.',
       inputSchema: z.object({
         space,
-        collection: z.string().describe('The collection, by name or path.'),
+        collection: z.string().optional().describe('The collection, by name or path. Left out with due, from or to: the records the calendars bring to Today and Upcoming.'),
+        from: z.string().optional().describe('The first day, YYYY-MM-DD.'),
+        to: z.string().optional().describe('The last day, YYYY-MM-DD.'),
+        due: z.enum(['today', 'upcoming']).optional().describe('Today, or after today.'),
         where: z.array(z.object({ field: z.string(), op: z.string(), value: z.union([z.string(), z.number(), z.array(z.string())]).optional() })).optional(),
         sort: z.object({ field: z.string(), dir: z.enum(['asc', 'desc']).optional() }).optional(),
         limit: z.number().int().positive().optional().describe('At most this many; 100 when left out.'),
       }),
       annotations: { readOnlyHint: true },
     },
-    (args) => answer(() => recordsTool(agent, args)),
+    (args) => answer(() => (args.collection ? recordsTool(agent, { ...args, collection: args.collection }) : dueRecordsTool(agent, args))),
   );
 
   server.registerTool(

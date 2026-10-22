@@ -1,6 +1,7 @@
 import { locale, t } from '@scrawlnotes/i18n';
 import {
   type AppFile,
+  type Record as CollectionRecord,
   basename,
   DEFAULT_LOOK,
   foldersFirst,
@@ -47,7 +48,10 @@ import {
   phaseCards,
   dueCards,
   dueCardSubtasks,
+  dueRecords,
   dueRecordSubtasks,
+  movedValues,
+  withComputed,
   type Subtask,
   updateSubtask,
   filterCards,
@@ -1464,6 +1468,15 @@ export function App() {
   const dueSubtasksNow: DueSubtask[] = [...dueCardSubtasks(boards), ...dueRecordSubtasks(collections)].sort(
     (a, b) => a.subtask.due!.localeCompare(b.subtask.due!) || a.subtask.priority - b.subtask.priority,
   );
+  // The records the calendars that show in Today and Upcoming bring there; only their collections are worked out.
+  const dueRecordsNow = useMemo(() => {
+    const all = Object.values(collections);
+    const shown = all.filter((c) => c.schema.views?.some((v) => v.kind === 'calendar' && v.calendar?.upcoming));
+    return dueRecords(
+      shown.map((c) => withComputed(c, all, boards, today)),
+      today,
+    );
+  }, [collections, boards, today]);
   /** Changes the subtasks of a card or a record, from the list as it is now. */
   const changeSubtasksOf = (ref: SubtaskRef, change: (list: Subtask[]) => Subtask[]) =>
     'board' in ref ? session.changeCardSubtasks(ref.board, ref.id, change) : void session.changeRecordSubtasks(ref.collection, ref.id, change);
@@ -1472,7 +1485,19 @@ export function App() {
     editor: (home, parent, doc, onChange, hint) => session.openEditor(home, parent, doc, onChange, hint),
     attach: (editor, home, files) => session.attachTo(editor, home, files),
   };
+  // A record a calendar moved or stretched: its values written, said with Undo, which writes back what they were.
+  const moveRecord = (dir: string, id: string, values: CollectionRecord['values'], text: string) => {
+    const record = collections[dir]?.records.find((r) => r.id === id);
+    if (!record) return;
+    const before = Object.fromEntries(Object.keys(values).map((key) => [key, record.values[key] ?? null]));
+    void session.updateRecord(dir, id, { values }).then((failed) => {
+      if (failed) return setNotice(failed);
+      undoable(text, () => void session.updateRecord(dir, id, { values: before }));
+    });
+  };
   const taskActions: TaskActions = {
+    dueRecords: () => dueRecordsNow,
+    moveRecord,
     description: descriptionHost,
     add: (target, input) => session.addTask(target, input),
     update: (target, id, change) => session.updateTask(target, id, change),
@@ -1496,13 +1521,23 @@ export function App() {
         ('board' in item ? boards[item.board]?.cards.find((card) => card.id === item.id)?.subtasks : collections[item.collection]?.records.find((r) => r.id === item.id)?.subtasks)?.find(
           (s) => s.id === item.subtask,
         );
+      // A record a calendar brings goes to the day, at the time it had.
+      const recordOf = (item: { calendar: string; id: string }) => dueRecordsNow.find((due) => due.collection === item.calendar && due.record.id === item.id);
       const dueOf = (item: Dated) =>
-        (isSubtaskRef(item)
+        ('calendar' in item
+          ? (recordOf(item)?.start.slice(0, 10) ?? null)
+          : isSubtaskRef(item)
           ? subtaskOf(item)?.due
           : 'list' in item
             ? tasks[item.list]?.find((task) => task.id === item.id)?.due
             : boards[item.board]?.cards.find((card) => card.id === item.id)?.due) ?? null;
       const give = (item: Dated, day: string | null) => {
+        if ('calendar' in item) {
+          const due = recordOf(item);
+          const values = due && day && movedValues(due.schema, due.view.calendar!, due, day + due.start.slice(10));
+          if (values) void session.updateRecord(item.calendar, item.id, { values });
+          return;
+        }
         if (isSubtaskRef(item)) return changeSubtasksOf(item, (list) => updateSubtask(list, item.subtask, { due: day }));
         if ('list' in item) return session.updateTask(item.list, item.id, { due: day });
         session.updateCard(item.board, item.id, { due: day });
@@ -1568,6 +1603,7 @@ export function App() {
   const collectionActions: CollectionActions = {
     addRecord: (dir, input) => session.addRecord(dir, input),
     updateRecord: (dir, id, patch) => session.updateRecord(dir, id, patch),
+    moveRecord,
     removeRecord: (dir, record) => ask(t('delete.record'), recordDeleteText(record), () => void session.trashRecord(dir, record)),
     pressButton,
     openNote: (path) => void session.open(path),
@@ -1602,6 +1638,7 @@ export function App() {
   };
   const boardActions: BoardActions = {
     addCard: (board, input) => session.addCard(board, input),
+    moveDue: (board, id, due) => taskActions.reschedule([{ board, id }], due),
     moveCard: (board, id, place) => session.moveCard(board, id, place),
     moveToColumn: (board, id, column) => {
       const whole = boards[board];
@@ -1730,7 +1767,8 @@ export function App() {
       const cards = dueCards(boards).filter((d) => d.card.due! <= today);
       const subtasks = dueSubtasksNow.filter((d) => d.subtask.due! <= today);
       const overdue = dueNow.overdue.length + cards.filter((d) => late(d.card.due)).length + subtasks.filter((d) => late(d.subtask.due)).length;
-      return counted(dueNow.overdue.length + dueNow.today.length + subtasks.length, cards.length, overdue);
+      const records = dueRecordsNow.filter((d) => d.start.slice(0, 10) <= today).length;
+      return [...counted(dueNow.overdue.length + dueNow.today.length + subtasks.length, cards.length, overdue), ...(records > 0 ? [t('count.records', { count: records })] : [])];
     }
     if (activeFilter) {
       const found = filterTasks(activeFilter, tasks, today, me?.id).flatMap((group) => group.tasks);

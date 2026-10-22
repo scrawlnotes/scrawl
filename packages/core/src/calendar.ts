@@ -1,4 +1,5 @@
-import { timeOf } from './day';
+import { type CalendarSettings, type Collection, type Field, isComputed, matchesConditions, type Record, type Schema, type View } from './collection';
+import { isDay, isDateTime, timeOf } from './day';
 import { addDays } from './tasks';
 
 // The calendar's days and its boxes (design/calendar.md 3): a week from its Monday, and the things
@@ -111,3 +112,141 @@ const ymd = (value: string): [number, number, number] => {
   const [y, m, d] = value.slice(0, 10).split('-').map(Number) as [number, number, number];
   return [y, m - 1, d];
 };
+
+/** A record on a calendar: its day, or its day and time; its end or its length in minutes; the choice it is colored by. */
+export interface CalendarRecord {
+  record: Record;
+  start: string;
+  end: string | null;
+  minutes: number | null;
+  /** The value of the view's color field, and that field. */
+  choice: string | null;
+  colorField: Field | null;
+}
+
+/** A value of a date field as a day, or a day and a time; null for anything else. */
+const dateValue = (value: unknown): string | null => (typeof value === 'string' && (isDay(value) || isDateTime(value)) ? value : null);
+
+/**
+ * The records of a Calendar view, `collection` with what is worked out among its values: those
+ * that match its conditions and have a day to start on, each with its end or its length.
+ */
+export function calendarRecords(collection: Collection, view: View, today: string): CalendarRecord[] {
+  const settings = view.calendar;
+  if (!settings) return [];
+  const colorField = settings.color ? (collection.schema.fields.find((f) => f.key === settings.color) ?? null) : null;
+  const out: CalendarRecord[] = [];
+  for (const record of collection.records) {
+    const start = dateValue(record.values[settings.start]);
+    if (!start || !matchesConditions(record, collection.schema, view.conditions, today)) continue;
+    const end = settings.end ? dateValue(record.values[settings.end]) : null;
+    const length = settings.duration ? record.values[settings.duration] : null;
+    const choice = colorField ? record.values[colorField.key] : null;
+    out.push({
+      record,
+      start,
+      // An end before its start is no end.
+      end: end && end > start ? end : null,
+      minutes: typeof length === 'number' && length > 0 ? length : null,
+      choice: typeof choice === 'string' && choice ? choice : null,
+      colorField,
+    });
+  }
+  return out.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+}
+
+/** A record that a calendar brings to Today and Upcoming: of which collection, and by which view. */
+export interface DueRecord extends CalendarRecord {
+  collection: string;
+  view: View;
+  schema: Schema;
+}
+
+/** The last day a record is on: its end's, else its start's. */
+export const lastDayOf = (item: Pick<CalendarRecord, 'start' | 'end'>) => (item.end ?? item.start).slice(0, 10);
+
+/**
+ * What the calendars that show in Today and Upcoming bring there, `collections` with what is
+ * worked out among their values: their records from today on, and those that began before and go
+ * on today; a record two calendars show comes once, by the first. By its day, those of a day with
+ * no time first.
+ */
+export function dueRecords(collections: readonly Collection[], today: string): DueRecord[] {
+  const out: DueRecord[] = [];
+  const seen = new Set<string>();
+  for (const collection of collections) {
+    for (const view of collection.schema.views ?? []) {
+      if (view.kind !== 'calendar' || !view.calendar?.upcoming) continue;
+      for (const item of calendarRecords(collection, view, today)) {
+        const key = `${collection.dir}/${item.record.id}`;
+        if (seen.has(key) || lastDayOf(item) < today) continue;
+        seen.add(key);
+        out.push({ ...item, collection: collection.dir, view, schema: collection.schema });
+      }
+    }
+  }
+  return out.sort((a, b) => compareOnDay(a.start, b.start));
+}
+
+/** Two starts in a day's order: by the day, then one with no time first, then by the time. */
+export function compareOnDay(a: string, b: string): number {
+  const [dayA, dayB] = [a.slice(0, 10), b.slice(0, 10)];
+  if (dayA !== dayB) return dayA < dayB ? -1 : 1;
+  const [timeA, timeB] = [timeOf(a), timeOf(b)];
+  if (!timeA || !timeB) return timeA ? 1 : timeB ? -1 : 0;
+  return timeA < timeB ? -1 : timeA > timeB ? 1 : 0;
+}
+
+/** The day a due record is on in Today: its own, or today when it began before and goes on. */
+export const dayInToday = (item: Pick<CalendarRecord, 'start' | 'end'>, today: string) => (item.start.slice(0, 10) < today ? today : item.start.slice(0, 10));
+
+/** A field of the schema that is written, not worked out; null for one that is not there or is worked out. */
+const written = (schema: Schema, key: string | undefined) => {
+  const field = key ? schema.fields.find((f) => f.key === key) : undefined;
+  return field && !isComputed(field.type) ? field : null;
+};
+
+/**
+ * What a record's values become when it is moved to start at `start`, a day or a day and a time:
+ * its start, and its end, when it is written, moved as much; a time given to a field that holds a
+ * day alone is left out. Null when its start is worked out and cannot be written.
+ */
+export function movedValues(schema: Schema, settings: CalendarSettings, item: Pick<CalendarRecord, 'start' | 'end'>, start: string): Record['values'] | null {
+  const field = written(schema, settings.start);
+  if (!field) return null;
+  const to = field.time ? start : start.slice(0, 10);
+  const values: Record['values'] = { [field.key]: to };
+  const end = written(schema, settings.end);
+  if (end && item.end) {
+    const shift = (minutesOfDay(to) ?? 0) - (minutesOfDay(item.start) ?? 0) + dayCount(item.start, to) * 1440;
+    const moved = minutesOfDay(item.end) === null ? addDays(item.end, Math.round(shift / 1440)) : atMinutes(item.end.slice(0, 10), minutesOfDay(item.end)! + shift);
+    values[end.key] = end.time ? moved : moved.slice(0, 10);
+  }
+  return values;
+}
+
+/** Days from one value's day to another's. */
+const dayCount = (from: string, to: string) => Math.round((Date.UTC(...ymd(to)) - Date.UTC(...ymd(from))) / 86_400_000);
+
+/**
+ * What a record's values become when its foot is dragged to `end`, a day and a time: its length
+ * in minutes, or its end, whichever the calendar goes by and is written. Null when neither can be.
+ */
+export function stretchedValues(schema: Schema, settings: CalendarSettings, item: Pick<CalendarRecord, 'start'>, end: string): Record['values'] | null {
+  const minutes = minutesBetween(item.start, end);
+  if (minutes === null || minutes <= 0) return null;
+  const duration = written(schema, settings.duration);
+  if (duration) return { [duration.key]: minutes };
+  const field = written(schema, settings.end);
+  if (field?.time) return { [field.key]: end };
+  return null;
+}
+
+/** What a record added on a calendar starts with: its start, and its length or its end when the calendar has one written. */
+export function startingValues(schema: Schema, settings: CalendarSettings, start: string, end: string | null): Record['values'] {
+  const field = written(schema, settings.start);
+  if (!field) return {};
+  const values: Record['values'] = { [field.key]: field.time ? start : start.slice(0, 10) };
+  if (end && minutesOfDay(start) !== null) Object.assign(values, stretchedValues(schema, settings, { start: values[field.key] as string }, end) ?? {});
+  return values;
+}

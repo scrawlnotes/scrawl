@@ -1,8 +1,17 @@
 import {
   addDays,
+  atMinutes,
   basename,
   type Board,
   BOARD_EXT,
+  type CalendarRecord,
+  collectionName,
+  dayInToday,
+  DEFAULT_LENGTH,
+  type DueRecord,
+  minutesOfDay,
+  recordLabel,
+  timeOf,
   cardRef,
   type DueCardSubtask,
   type DueRecordSubtask,
@@ -40,6 +49,7 @@ import {
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import {
+  type CSSProperties,
   type DragEvent,
   Fragment,
   type KeyboardEvent,
@@ -55,6 +65,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { choiceColor } from './Calendar';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { priorityItems } from './PhoneTasks';
@@ -83,8 +94,8 @@ export function rowDescription(text: string | undefined): { text: string; files:
 /** A subtask of a card or of a record: what it is in, and its own id. */
 export type SubtaskRef = { board: string; id: string; subtask: string } | { collection: string; id: string; subtask: string };
 
-/** Something with a day, to give it another: a task, a card, or a subtask of a card or a record. */
-export type Dated = { list: string; id: string } | { board: string; id: string } | SubtaskRef;
+/** Something with a day, to give it another: a task, a card, a subtask of a card or a record, or a record a calendar brings, by its collection. */
+export type Dated = { list: string; id: string } | { board: string; id: string } | SubtaskRef | { calendar: string; id: string };
 
 export const isSubtaskRef = (item: Dated): item is SubtaskRef => 'subtask' in item;
 
@@ -161,6 +172,10 @@ export interface TaskActions {
   nameSection?: (list: string, section: Section | null) => void;
   /** Gives the tasks and cards one new day, all at once, with Undo: what is overdue, moved on. */
   reschedule: (items: Dated[], due: string | null) => void;
+  /** The records the calendars that show in Today and Upcoming bring there, by their day. */
+  dueRecords: () => DueRecord[];
+  /** Writes values a calendar moved or stretched a record to, saying so with `text` and Undo. */
+  moveRecord: (dir: string, id: string, values: CollectionRecord['values'], text: string) => void;
   /** On a phone: a day chosen in a sheet, about `title`. */
   pickDay?: (title: string, onPick: (due: string | null) => void) => void;
   /** The open subtasks with a day of every card and record, by day then priority. */
@@ -1929,17 +1944,22 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
   const cardItem = ({ board, card }: { board: string; card: Card }, grouped?: boolean) => (
     <CardRow key={`${board}#${card.id}`} board={board} whole={boards[board]!} card={card} today={today} actions={actions} grouped={grouped} />
   );
-  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = [], action?: ReactNode) =>
-    tasks.length + cards.length > 0 && (
+  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = [], action?: ReactNode, records: DueRecord[] = []) =>
+    tasks.length + cards.length + records.length > 0 && (
       <div key={title}>
         <div className="sec">
-          {title} <small>{tasks.length + cards.length}</small>
+          {title} <small>{tasks.length + cards.length + records.length}</small>
           {action}
         </div>
         {tasks.map(item)}
         {cards.map((due) => cardItem(due))}
+        {records.map((due) => (
+          <RecordRow key={recordKey(due)} due={due} day={today} today={today} actions={actions} />
+        ))}
       </div>
     );
+  // The records of today, those with no time first, then by the hour.
+  const records = recordsByDay(actions.dueRecords(), today).get(today) ?? [];
   const cards = splitDueCards(boards, today);
   const subtasks = splitDueSubtasks(actions.dueSubtasks(), today);
   const due = dueToday(lists, today);
@@ -1953,7 +1973,7 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
   const finished = Object.entries(lists)
     .flatMap(([list, tasks]) => tasks.filter((task) => task.done && task.completed && dayOf(new Date(task.completed)) === today).map((task) => ({ list, task })))
     .sort((a, b) => (a.task.completed! < b.task.completed! ? 1 : -1));
-  const nothingDue = due.overdue.length + due.today.length + byBoard.size === 0;
+  const nothingDue = due.overdue.length + due.today.length + byBoard.size + records.length === 0;
   // What is overdue moves on to one day, all at once, as Todoist's Reschedule does.
   const late = due.overdue.map(({ list, task }) => ({ list, id: task.id }));
   const reschedule = (event: MouseEvent) => {
@@ -1994,7 +2014,7 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
           {t('tasks.reschedule')}
         </button>,
       )}
-      {section(t('tasks.today'), due.today)}
+      {section(t('tasks.today'), due.today, [], undefined, records)}
       {[...byBoard].map(([place, dues]) => (
         <div key={place}>
           <div className="sec">
@@ -2020,3 +2040,85 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
     </TaskPage>
   );
 }
+
+/** What tells a record a calendar brings apart: its collection and its id. */
+export const recordKey = (due: DueRecord) => `${due.collection}@${due.record.id}`;
+
+/** The records the calendars bring, by the day each is under: its own, or today when it began before and goes on. */
+export function recordsByDay(records: readonly DueRecord[], today: string): Map<string, DueRecord[]> {
+  const byDay = new Map<string, DueRecord[]>();
+  for (const due of records) {
+    const day = dayInToday(due, today);
+    byDay.set(day, [...(byDay.get(day) ?? []), due]);
+  }
+  return byDay;
+}
+
+/** When a record is, as its row says it: all day, its start's time, or its start's and its end's. */
+export function recordWhen(due: Pick<CalendarRecord, 'start' | 'end' | 'minutes'>, day: string): string {
+  const from = timeOf(due.start);
+  if (!from || due.start.slice(0, 10) < day) return t('collection.allDay');
+  const end = due.end ? (due.end.slice(0, 10) === day ? timeOf(due.end) : null) : due.minutes ? timeOf(atMinutes(day, (minutesOfDay(due.start) ?? 0) + due.minutes)) : null;
+  return end ? `${from} – ${end}` : from;
+}
+
+/** What a record's row says after its time: its collection, its first person, its first link. */
+export function recordWords(due: DueRecord): string[] {
+  const person = due.schema.fields.find((f) => f.type === 'person');
+  const link = due.schema.fields.find((f) => f.type === 'link');
+  const linked = link ? due.record.values[link.key] : null;
+  const first = Array.isArray(linked) ? linked[0] : linked;
+  return [
+    collectionName(due.collection),
+    person && typeof due.record.values[person.key] === 'string' ? (due.record.values[person.key] as string) : '',
+    first && typeof first === 'object' && 'name' in first ? first.name : '',
+  ].filter(Boolean);
+}
+
+/**
+ * A record a calendar brings to Today or Upcoming, after the Today mockup of stage 15 slice 3: its
+ * color where a task has its box, its name, then when it is and where it is from; one whose time
+ * has passed today is faint, never late. It opens in its collection.
+ */
+export function RecordRow({ due, day, today, actions }: { due: DueRecord; day: string; today: string; actions: TaskActions }) {
+  const when = recordWhen(due, day);
+  const ends = due.end ?? (minutesOfDay(due.start) !== null ? atMinutes(due.start.slice(0, 10), (minutesOfDay(due.start) ?? 0) + (due.minutes ?? DEFAULT_LENGTH)) : null);
+  const past = day === today && !!ends && ends <= nowValue(today);
+  const title = recordLabel(due.record) || t('collection.untitled');
+  const style = { '--cc': choiceColor(due.colorField, due.choice) } as CSSProperties;
+  const open = () => actions.openRecord(due.collection, due.record.id);
+  if (isPhone()) {
+    return (
+      <button type="button" className={past ? 'mb-rrow past' : 'mb-rrow'} style={style} onClick={open}>
+        <em>{minutesOfDay(due.start) === null || due.start.slice(0, 10) < day ? t('collection.allDay') : timeOf(due.start)}</em>
+        <span>
+          <b>{title}</b>
+          <small>{recordWords(due).join(' · ')}</small>
+        </span>
+      </button>
+    );
+  }
+  return (
+    <div className={past ? 'task rec-row past' : 'task rec-row'} style={style} role="button" tabIndex={0} onClick={open} onKeyDown={(event) => event.key === 'Enter' && open()}>
+      <span className="rbar" />
+      <div>
+        <div className="tt">{title}</div>
+        <div className="meta">
+          <span className="when">{when}</span>
+          {recordWords(due).map((word, i) => (
+            <span key={i}>
+              {i === 0 && <Icon name="collection" />}
+              {word}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The day and the time it is now, as a value with its time. */
+const nowValue = (today: string) => {
+  const now = new Date();
+  return `${today}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+};

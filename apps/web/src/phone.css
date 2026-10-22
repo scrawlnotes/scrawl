@@ -7280,3 +7280,100 @@ body > .mb-lifted {
 .mb-hcol .tg-box small {
   font-size: 12.5px;
 }
+
+/* A record a calendar brings to Today and Upcoming: its time, then its color and its name. */
+.mb-rrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--sl-line);
+  background: none;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.mb-rrow em {
+  flex: none;
+  width: 50px;
+  color: var(--sl-dim);
+  font-size: 14px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-rrow > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--cc);
+}
+
+.mb-rrow b {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-rrow small {
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-rrow.past {
+  opacity: 0.5;
+}
+
+.mb-chip.rec {
+  background: color-mix(in srgb, var(--cc) 20%, transparent);
+}
+
+.mb-chip.rec i {
+  background: var(--cc);
+}
+
+/* A collection's Calendar view on a phone: its Day fills the page, its hours scroll alone. */
+.mb-body:has(.mb-cday) > .mb-cv {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mb-cday {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mb-wstrip .drop b {
+  outline: 2px solid var(--sl-accent);
+  outline-offset: 1px;
+}
+
+.mb-hcol .mb-tip {
+  left: 8px;
+  z-index: 4;
+  font-size: 12px;
+}
+
+.mb-hcol .tg-box.ghost {
+  opacity: 0.3;
+}
+
+.mb-views .mb-view .icon {
+  width: 15px;
+  height: 15px;
+  margin-right: 4px;
+  vertical-align: -2px;
+}

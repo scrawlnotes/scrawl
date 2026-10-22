@@ -1166,7 +1166,11 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
  * three of the fields the view shows, on the right its number or its day. Grouped, each group has
  * its head with how many and the number added up. A view held opens its menu.
  */
-export function PhoneCollectionList({ name, count, schema, today, fields, records, shown, groups, groupField, closed, filtered, problems, query, views, view, onToggle, onQuery, onPickView, onViewMenu, onViewSheet, onOpen, onAdd, onFields }: {
+export function PhoneCollectionList({ name, count, schema, today, fields, records, shown, groups, groupField, closed, filtered, problems, query, views, view, onToggle, onQuery, onPickView, onViewMenu, onViewSheet, onOpen, onAdd, onFields, side, body }: {
+  /** Beside the name: a calendar's Day and Month. */
+  side?: ReactNode;
+  /** In place of the list: a calendar. */
+  body?: ReactNode;
   name: string;
   count: string;
   schema: Schema;
@@ -1237,10 +1241,20 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
   };
   return (
     <>
-      <header className="mb-head">
-        <h1>{name}</h1>
-        <small>{count}</small>
-      </header>
+      {side ? (
+        <header className="mb-head split">
+          <div>
+            <h1>{name}</h1>
+            <small>{count}</small>
+          </div>
+          {side}
+        </header>
+      ) : (
+        <header className="mb-head">
+          <h1>{name}</h1>
+          <small>{count}</small>
+        </header>
+      )}
       {!noFields && records.length > 0 && (
         <label className="mb-searchbar">
           <Icon name="search" />
@@ -1255,6 +1269,7 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
             </button>
             {views.map((v) => (
               <button key={v.id} type="button" role="tab" aria-selected={view?.id === v.id} className={view?.id === v.id ? 'mb-view on' : 'mb-view'} onClick={() => onPickView(v.id)} {...hold(() => onViewMenu(v))}>
+                {v.kind === 'calendar' && <Icon name="calendar" />}
                 {v.name}
               </button>
             ))}
@@ -1264,7 +1279,7 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
           </button>
         </div>
       )}
-      <div className="mb-clist">
+      {body ?? <div className="mb-clist">
         {noFields ? (
           <Empty icon="collection" title={t('collection.noFields')} action={{ label: t('collection.fields'), run: onFields }} />
         ) : records.length === 0 ? (
@@ -1276,7 +1291,7 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
         ) : (
           shown.map((r) => row(r))
         )}
-      </div>
+      </div>}
     </>
   );
 }

@@ -6,7 +6,7 @@ import { cardsTool, commentTool, saveCardTool } from './cards';
 import { BRIEF, GUIDE } from './guide';
 import { Refusal } from './paths';
 import { readTool, searchTool, spacesTool, treeTool } from './read';
-import { recordsTool, saveRecordTool } from './records';
+import { dueRecordsTool, recordsTool, saveRecordTool } from './records';
 import { buildServer } from './server';
 import { type Agent, type AgentSpace, exists, pickElement } from './space';
 import { saveTaskTool, tasksTool } from './tasks';
@@ -1054,5 +1054,22 @@ describe('over MCP', () => {
     expect(many.isError).toBeFalsy();
     expect(many.structuredContent).toMatchObject({ created: 2, cards: [{ title: 'Point one' }, { title: 'Point two' }] });
     await client.close();
+  });
+});
+
+describe('records on a calendar', () => {
+  it("gives what the calendars bring to Today and Upcoming, and a collection's records on some days", async () => {
+    const { agent, fs, activities } = await sample();
+    const path = `${activities}/_collection.json`;
+    const schema = JSON.parse(await fs.readText(path));
+    await fs.writeText(path, JSON.stringify({ ...schema, views: [{ id: 'c', name: 'Calendar', kind: 'calendar', calendar: { start: 'date', upcoming: true }, conditions: [] }] }));
+    for (const [name, date] of [['Kickoff', '2026-10-15'], ['Review', '2026-10-17'], ['Intro', '2026-10-10']]) await saveRecordTool(agent, { collection: 'Activities', values: { name: name!, date: date! } });
+    const today = await dueRecordsTool(agent, { due: 'today' });
+    expect(today.data.records).toMatchObject([{ collection: 'CRM/Activities', view: 'Calendar', start: '2026-10-15', record: { name: 'Kickoff' } }]);
+    // From today on when no day is asked for; a past one is not brought.
+    expect((await dueRecordsTool(agent, {})).data.records.map((r) => (r as { record: { name: string } }).record.name)).toEqual(['Kickoff', 'Review']);
+    const days = await recordsTool(agent, { collection: 'Activities', from: '2026-10-10', to: '2026-10-15' });
+    expect(days.data.records.map((r) => r.name).sort()).toEqual(['Intro', 'Kickoff']);
+    expect((await refusal(recordsTool(agent, { collection: 'Activities', from: 'tomorrow' }))).message).toContain('YYYY-MM-DD');
   });
 });

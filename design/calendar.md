@@ -246,3 +246,18 @@ Bugün, sırasıyla; her dilimin sonunda commit sorulur. Arayüzü olan dilim ö
 - Today'de görevler ve kartlar, sonra tüm gün kayıtlar, sonra saatliler saat sırasıyla. Kaydın satırında kutu yerine renginde çizgi; önce saati, sonra koleksiyonu, kişisi, bağlı kaydı. Geçmişte kalan soluk. Upcoming'in List'inde günlerin altında aynı sıra.
 - Panonun Calendar'ı yalnız ay: kartın saati yok. Status bar günü olmayan kartları sayar.
 - Telefonda takvim görünümü görünüm çiplerinde, Day ve Month; kurulması bilgisayarda. Kutuya uzun basıp sürükleyince saati, şeritteki güne bırakınca günü değişir. Today'de kayıtlar saat sütunuyla.
+
+22 Ekim 2026'da, 3. dilimin kodu yazılırken verilen kararlar:
+- Dosyada `"kind": "calendar"` ve `"calendar": { start, end?, duration?, color?, upcoming }`. İkisi birden yazılmışsa end geçer. Silinmiş bir alanı adlayan ayar düşer; start ilk tarih alanına döner, tarih alanı hiç yoksa görünüm tablo olur.
+- Yeni takvim görünümü: adı Calendar, ilk tarih alanı, süre biçimli bir sayı varsa Length'te o, ilk seçim alanı renk, Show in Today and Upcoming açık.
+- Length'te bitiş için tarih alanları ve tarih veren formüller, süre için sayılar ve sayı veren formüller, bir de None. Color'da yalnız seçim alanları.
+- Görünümün Day, Week ya da Month seçimi cihazda, tarayıcının deposunda kalır.
+- Başlangıcı formül olan kayıt taşınmaz, yalnız açılır. Bitişi yazılan bir alansa kayıtla birlikte kayar. Süre ya da bitiş yazılan bir alan değilse kutunun altı çekilmez. Yalnız gün tutan alana saat yazılmaz.
+- Tüm gün satırında ve ayda sürüklenen kayıt günü alır, saati kalır.
+- Ayda günün boş yerine ya da tüm gün hücresine tıklayınca o güne yeni kayıt açılır. Ayda günün numarası o günün Day'ini açar; +N more günün listesini küçük bir pencerede gösterir.
+- Today'de kayıtlar Today bölümünde görevlerden sonra gelir; kartlar bugünkü gibi panolarının altında kalır. Önceki gün başlayıp bugün süren kayıt bugünün altında tüm gün görünür. Bugün bitmiş olan soluktur.
+- Upcoming'in takviminde bugünden ileriki saatli kayıtlar kutudur, orada da taşınır ve uzatılır, Undo'suyla. Status bar'da "5 tasks · 4 records this week"; Today'de "… · 3 records".
+- Kenar çubuğundaki Today ve Upcoming sayıları kayıtları saymaz, bugünkü gibi.
+- Panonun takviminde bitmemiş kartlar, bütün fazlarıyla. Yalnız bilgisayarda; telefonda Board ve List kalır, bilgisayarda seçilen Calendar telefonda Board açılır. Status bar'da "11 cards in October · 12 with no day".
+- Telefonda takvim görünümünde + gösterilen güne kayıt ekler. Uzun basma 0,45 saniye; parmak şeridin üstündeyken yalnız gün değişir, saat kalır.
+- Ajanın `records`'unda `from`, `to` ve `due` (today, upcoming). Bunlar koleksiyonun ilk takvim görünümünün başlangıç alanına göre çalışır, takvim yoksa ilk tarih alanına göre. Koleksiyon verilmezse takvimlerin Today ve Upcoming'e getirdiği kayıtlar gelir; space adlanmadıysa her space'te aranır. Rehber takvim görünümünü ve "bugün neler var" sorusunu anlatır.

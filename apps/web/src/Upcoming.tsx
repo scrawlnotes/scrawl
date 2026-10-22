@@ -1,6 +1,13 @@
 import {
   addDays,
   type Board,
+  dayInToday,
+  type DueRecord,
+  minutesOfDay,
+  movedValues,
+  recordLabel,
+  stretchedValues,
+  timeOf,
   type Card,
   dayRuns,
   dueCards,
@@ -16,7 +23,7 @@ import {
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type ReactElement, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { TimeGrid } from './Calendar';
+import { type CalendarBox, choiceColor, TimeGrid } from './Calendar';
 import { type CalendarRange, loadCalendarRange, loadUpcomingView, pageBox, pageWindow, saveCalendarRange, saveUpcomingView, type UpcomingView } from './device';
 import type { TaskPlaceChoice } from './dialogs';
 import { StillOpening } from './Loading';
@@ -28,6 +35,10 @@ import {
   type DueSubtask,
   isSubtaskRef,
   placeOf,
+  RecordRow,
+  recordKey,
+  recordsByDay,
+  recordWords,
   splitDueCards,
   splitDueSubtasks,
   SubtaskRow,
@@ -89,19 +100,20 @@ function freeDay(day: string, sameMonth: boolean, today: string): string {
   return sameMonth ? `${toDate(day).toLocaleDateString(locale(), { weekday: 'short' })} ${Number(day.slice(8))}` : dateWords(day, today);
 }
 
-/** A task in its list, a card on its board, or a subtask of a card or a record, on a day of the calendar. */
-export type Entry = { list: string; task: Task } | { board: string; card: Card } | DueSubtask;
+/** A task in its list, a card on its board, a subtask of a card or a record, or a record a calendar brings, on a day of the calendar. */
+export type Entry = { list: string; task: Task } | { board: string; card: Card } | DueSubtask | { calendar: DueRecord };
 
 /** What a task, a card or a subtask is told apart by. */
 const datedKey = (item: Dated) =>
-  isSubtaskRef(item) ? `${'board' in item ? item.board : item.collection}~${item.id}~${item.subtask}` : 'list' in item ? `${item.list}/${item.id}` : `${item.board}#${item.id}`;
+  'calendar' in item ? `${item.calendar}@${item.id}` : isSubtaskRef(item) ? `${'board' in item ? item.board : item.collection}~${item.id}~${item.subtask}` : 'list' in item ? `${item.list}/${item.id}` : `${item.board}#${item.id}`;
 
-const datedOf = (entry: Entry): Dated => ('subtask' in entry ? subtaskRefOf(entry) : 'task' in entry ? { list: entry.list, id: entry.task.id } : { board: entry.board, id: entry.card.id });
+const datedOf = (entry: Entry): Dated => ('calendar' in entry ? { calendar: entry.calendar.collection, id: entry.calendar.record.id } : 'subtask' in entry ? subtaskRefOf(entry) : 'task' in entry ? { list: entry.list, id: entry.task.id } : { board: entry.board, id: entry.card.id });
 
 export const entryKey = (entry: Entry) => datedKey(datedOf(entry));
 
 /** An entry as the views over every list show it: a task's row, a card's, a subtask's. */
 export function EntryRow({ entry, lists, boards, today, actions }: { entry: Entry; lists: Record<string, Task[]>; boards: Record<string, Board>; today: string; actions: TaskActions }) {
+  if ('calendar' in entry) return <RecordRow due={entry.calendar} day={dayInToday(entry.calendar, today)} today={today} actions={actions} />;
   if ('subtask' in entry) return <SubtaskRow due={entry} today={today} actions={actions} byDay />;
   if ('task' in entry) return <TaskItem list={entry.list} task={entry.task} tasks={lists[entry.list] ?? []} today={today} showDone={false} actions={actions} flat byDay />;
   return <CardRow board={entry.board} whole={boards[entry.board]!} card={entry.card} today={today} actions={actions} byDay />;
@@ -111,7 +123,7 @@ export function EntryRow({ entry, lists, boards, today, actions }: { entry: Entr
  * Everything open with a day, by day: the tasks by priority, then the cards, then the subtasks of
  * cards and records; and the tasks, the cards and the subtasks apart, to count.
  */
-export function datedByDay(lists: Record<string, Task[]>, boards: Record<string, Board>, today: string, subtasks: DueSubtask[]) {
+export function datedByDay(lists: Record<string, Task[]>, boards: Record<string, Board>, today: string, subtasks: DueSubtask[], records: readonly DueRecord[] = []) {
   const due = dueToday(lists, today);
   const tasks = [...due.overdue, ...due.today, ...dueUpcoming(lists, today).flatMap((d) => d.tasks)];
   const cards = dueCards(boards);
@@ -120,11 +132,12 @@ export function datedByDay(lists: Record<string, Task[]>, boards: Record<string,
   for (const each of tasks) put(each.task.due!, each);
   for (const each of cards) put(each.card.due!, each);
   for (const each of subtasks) put(each.subtask.due!, each);
-  return { tasks, cards, subtasks, byDay };
+  for (const each of records) put(dayInToday(each, today), { calendar: each });
+  return { tasks, cards, subtasks, records, byDay };
 }
 
 /** How many tasks and cards, said the status bar's way. */
-const countWords = (tasks: number, cards: number) => [t('count.tasks', { count: tasks }), ...(cards > 0 ? [t('count.cards', { count: cards })] : [])];
+const countWords = (tasks: number, cards: number, records = 0) => [t('count.tasks', { count: tasks }), ...(cards > 0 ? [t('count.cards', { count: cards })] : []), ...(records > 0 ? [t('count.records', { count: records })] : [])];
 
 /** The header's Add task, pressed: `asked` counts the presses, and a view opens adding at each new one. */
 function useAsked(asked: number, open: () => void) {
@@ -233,15 +246,17 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   tasksOn.set(today, due.today);
   cards.later.set(today, cards.today);
   subtasks.later.set(today, subtasks.today);
-  const busy = [...tasksOn, ...cards.later, ...subtasks.later].filter(([, on]) => on.length > 0).map(([day]) => day);
-  const runs = dayRuns(busy, today);
+  const recordsOn = recordsByDay(actions.dueRecords(), today);
+  const busy = [...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day);
+  const runs = dayRuns([...new Set(busy)], today);
 
   const open = (at: string, day: string) => setAdding({ at, due: day, n: (adding?.n ?? 0) + 1 });
   useAsked(asked, () => open(tomorrow, tomorrow));
   const taskCount =
     due.overdue.length + [...tasksOn.values()].reduce((sum, on) => sum + on.length, 0) + subtasks.overdue.length + [...subtasks.later.values()].reduce((sum, on) => sum + on.length, 0);
   const cardCount = cards.overdue.length + [...cards.later.values()].reduce((sum, on) => sum + on.length, 0);
-  useEffect(() => onStatus(countWords(taskCount, cardCount)), [taskCount, cardCount]);
+  const recordCount = [...recordsOn.values()].reduce((sum, on) => sum + on.length, 0);
+  useEffect(() => onStatus(countWords(taskCount, cardCount, recordCount)), [taskCount, cardCount, recordCount]);
 
   const composer = adding && (
     <TaskComposer
@@ -313,13 +328,15 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
     const dayTasks = tasksOn.get(day) ?? [];
     const dayCards = cards.later.get(day) ?? [];
     const daySubtasks = subtasks.later.get(day) ?? [];
+    const dayRecords = recordsOn.get(day) ?? [];
     rows.push(
       <div key={`sec:${day}`} className="sec" data-day={day}>
-        {dayHeading(day, today)} <small>{dayTasks.length + dayCards.length + daySubtasks.length}</small>
+        {dayHeading(day, today)} <small>{dayTasks.length + dayCards.length + daySubtasks.length + dayRecords.length}</small>
       </div>,
       ...dayTasks.map(item),
       ...dayCards.map(cardItem),
       ...daySubtasks.map(subtaskItem),
+      ...dayRecords.map((due) => <RecordRow key={recordKey(due)} due={due} day={day} today={today} actions={actions} />),
     );
     const here = place(adding?.at === day);
     rows.push(
@@ -379,7 +396,7 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
   const [dropOn, setDropOn] = useState<string | null>(null);
   const days = monthDays(month);
 
-  const { tasks, cards, subtasks, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks());
+  const { tasks, cards, subtasks, records, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
 
   // As many lines as a day has room for, however tall the window is.
   useLayoutEffect(() => {
@@ -404,9 +421,10 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
   const inMonth = (day: string) => day.slice(0, 7) === month;
   const taskCount = tasks.filter((each) => inMonth(each.task.due!)).length + subtasks.filter((each) => inMonth(each.subtask.due!)).length;
   const cardCount = cards.filter((each) => inMonth(each.card.due!)).length;
+  const recordCount = records.filter((each) => inMonth(dayInToday(each, today))).length;
   useEffect(
-    () => onStatus(dragging ? [t('tasks.dropOnDay')] : [t('tasks.inMonth', { what: countWords(taskCount, cardCount).join(' · '), month: toDate(`${month}-01`).toLocaleDateString(locale(), { month: 'long' }) })]),
-    [dragging, taskCount, cardCount, month],
+    () => onStatus(dragging ? [t('tasks.dropOnDay')] : [t('tasks.inMonth', { what: countWords(taskCount, cardCount, recordCount).join(' · '), month: toDate(`${month}-01`).toLocaleDateString(locale(), { month: 'long' }) })]),
+    [dragging, taskCount, cardCount, recordCount, month],
   );
 
   const end = () => {
@@ -546,6 +564,33 @@ function DayChip({ entry, day, today, boards, lifted, onDragStart, onDragEnd, on
   onDragEnd: () => void;
   onOpen: () => void;
 }) {
+  if ('calendar' in entry) {
+    const due = entry.calendar;
+    const name = recordLabel(due.record) || t('collection.untitled');
+    const time = due.start.slice(0, 10) === day ? timeOf(due.start) : null;
+    return (
+      <button
+        type="button"
+        draggable
+        className={['cal-t', 'rec', time && 'timed', lifted && 'ghost'].filter(Boolean).join(' ')}
+        style={{ '--cc': choiceColor(due.colorField, due.choice) } as CSSProperties}
+        title={name}
+        onDragStart={(event) => {
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', name);
+          onDragStart();
+        }}
+        onDragEnd={onDragEnd}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpen();
+        }}
+      >
+        {time ? <em>{time}</em> : <i className="sq" />}
+        <span>{name}</span>
+      </button>
+    );
+  }
   const isCard = 'card' in entry && !('subtask' in entry);
   const { title, priority } = 'subtask' in entry ? entry.subtask : 'task' in entry ? entry.task : entry.card;
   return (
@@ -583,7 +628,7 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
   const [opened, setOpened] = useState<Opened | null>(null);
   const [dragging, setDragging] = useState<{ item: Dated; from: string } | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
-  const { tasks, cards, subtasks, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks());
+  const { tasks, cards, subtasks, records, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
   const one = days.length === 1;
   // A day shows all it has; a week three a day, and +N more.
   const fit = one ? Number.MAX_SAFE_INTEGER : 3;
@@ -596,14 +641,37 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
   const shown = (day: string) => day >= days[0]! && day <= days.at(-1)!;
   const taskCount = tasks.filter((each) => shown(each.task.due!)).length + subtasks.filter((each) => shown(each.subtask.due!)).length;
   const cardCount = cards.filter((each) => shown(each.card.due!)).length;
+  const timed = records.filter((each) => minutesOfDay(each.start) !== null && each.start.slice(0, 10) >= today);
+  const recordCount = records.filter((each) => shown(dayInToday(each, today))).length;
+  const boxes: CalendarBox[] = timed.map((due) => ({
+    key: recordKey(due),
+    title: recordLabel(due.record) || t('collection.untitled'),
+    sub: recordWords(due).join(' · '),
+    start: due.start,
+    end: due.end,
+    minutes: due.minutes,
+    color: choiceColor(due.colorField, due.choice),
+    movable: !!movedValues(due.schema, due.view.calendar!, due, due.start),
+  }));
+  const dueOf = new Map(timed.map((due) => [recordKey(due), due]));
+  const moveBox = (box: CalendarBox, start: string) => {
+    const due = dueOf.get(box.key);
+    const values = due && movedValues(due.schema, due.view.calendar!, due, start);
+    if (due && values) actions.moveRecord(due.collection, due.record.id, values, t('calendar.moved', { name: box.title, when: `${dateWords(start.slice(0, 10), today)}, ${timeOf(start)}` }));
+  };
+  const stretchBox = (box: CalendarBox, end: string) => {
+    const due = dueOf.get(box.key);
+    const values = due && stretchedValues(due.schema, due.view.calendar!, due, end);
+    if (due && values) actions.moveRecord(due.collection, due.record.id, values, t('calendar.stretched', { name: box.title, time: timeOf(end) ?? '' }));
+  };
   useEffect(
     () =>
       onStatus(
         dragging
           ? [t('tasks.dropOnDay')]
-          : [one ? t('tasks.onDay', { what: countWords(taskCount, cardCount).join(' · '), day: dateWords(days[0]!, today) }) : t('tasks.inWeek', { what: countWords(taskCount, cardCount).join(' · ') })],
+          : [one ? t('tasks.onDay', { what: countWords(taskCount, cardCount, recordCount).join(' · '), day: dateWords(days[0]!, today) }) : t('tasks.inWeek', { what: countWords(taskCount, cardCount, recordCount).join(' · ') })],
       ),
-    [dragging, taskCount, cardCount, days[0], one],
+    [dragging, taskCount, cardCount, recordCount, days[0], one],
   );
   const end = () => {
     setDragging(null);
@@ -611,7 +679,8 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
   };
 
   const cell = (day: string) => {
-    const entries = byDay.get(day) ?? [];
+    // What has a time is on the hours.
+    const entries = (byDay.get(day) ?? []).filter((entry) => !('calendar' in entry && dueOf.has(recordKey(entry.calendar))));
     const visible = entries.length > fit ? entries.slice(0, fit - 1) : entries;
     const more = entries.length - visible.length;
     return (
@@ -666,7 +735,7 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
 
   return (
     <div className="up-week">
-      <TimeGrid days={days} today={today} allDay={cell} boxes={[]} onOpen={() => {}} gridRef={grid} />
+      <TimeGrid days={days} today={today} allDay={cell} boxes={boxes} onOpen={(box) => dueOf.get(box.key) && actions.openRecord(dueOf.get(box.key)!.collection, dueOf.get(box.key)!.record.id)} onMove={moveBox} onResize={stretchBox} gridRef={grid} />
       {opened && (
         <DayWindow
           key={opened.day}

@@ -184,10 +184,27 @@ export interface Condition {
   value?: string | number | string[];
 }
 
-/** A saved way of looking at the table: which records, in what order, grouped how, with which columns. */
+/**
+ * How a Calendar view lays its records out (design/calendar.md 4): the date field each starts on;
+ * how long it is, by a field it ends on or a number field of minutes, else 30 minutes; the choice
+ * field it is colored by; and whether its records show in Today and Upcoming.
+ */
+export interface CalendarSettings {
+  start: string;
+  end?: string;
+  duration?: string;
+  color?: string;
+  upcoming: boolean;
+}
+
+/** A saved way of looking at the records: a table, which records, in what order, grouped how, with which columns; or a calendar of them. */
 export interface View {
   id: string;
   name: string;
+  /** A calendar of the records; unset for a table. */
+  kind?: 'calendar';
+  /** The calendar's settings, with `kind`. */
+  calendar?: CalendarSettings;
   conditions: Condition[];
   sort?: RecordSort;
   /** The field grouped by; null or unset for none. */
@@ -650,6 +667,11 @@ function readViews(raw: unknown, fields: Field[]): View[] {
     if (!isRecord(item) || typeof item.id !== 'string' || typeof item.name !== 'string' || !item.id || !item.name.trim()) continue;
     const conditions = (Array.isArray(item.conditions) ? item.conditions : []).map((c) => readCondition(c, fields)).filter((c): c is Condition => c !== null);
     const view: View = { id: item.id, name: item.name, conditions };
+    if (item.kind === 'calendar') {
+      const calendar = readCalendar(item.calendar, fields);
+      // With no date field left to go by it is a table again.
+      if (calendar) Object.assign(view, { kind: 'calendar', calendar });
+    }
     if (isSort(item.sort)) view.sort = { key: item.sort.key, dir: item.sort.dir };
     if (typeof item.group === 'string' && item.group) view.group = cleanFieldKey(item.group);
     if (Array.isArray(item.columns)) view.columns = strings(item.columns).map(cleanFieldKey).filter((k) => fields.some((f) => f.key === k));
@@ -658,6 +680,31 @@ function readViews(raw: unknown, fields: Field[]): View[] {
     views.push(view);
   }
   return views;
+}
+
+/** The fields a calendar can start on: the dates. */
+export const calendarStarts = (fields: readonly Field[]) => fields.filter((f) => f.type === 'date');
+
+/**
+ * A Calendar view's settings as its file has them: its start a date field, else the first there
+ * is; its end a date or a field worked out, its length a number or one worked out, its color a
+ * choice; one that names a field gone is without it. Null when there is no date field.
+ */
+function readCalendar(raw: unknown, fields: Field[]): CalendarSettings | null {
+  const given = isRecord(raw) ? raw : {};
+  const field = (key: unknown, fits: (f: Field) => boolean) => (typeof key === 'string' ? fields.find((f) => f.key === cleanFieldKey(key) && fits(f)) : undefined);
+  const start = field(given.start, (f) => f.type === 'date') ?? calendarStarts(fields)[0];
+  if (!start) return null;
+  const end = field(given.end, (f) => f.type === 'date' || isComputed(f.type));
+  const duration = end ? undefined : field(given.duration, (f) => f.type === 'number' || isComputed(f.type));
+  const color = field(given.color, (f) => f.type === 'select');
+  return {
+    start: start.key,
+    ...(end && end.key !== start.key && { end: end.key }),
+    ...(duration && { duration: duration.key }),
+    ...(color && { color: color.key }),
+    upcoming: given.upcoming !== false,
+  };
 }
 
 /** Adds a view at the end, or replaces the one of the same id. */

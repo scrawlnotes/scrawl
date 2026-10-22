@@ -32,11 +32,12 @@ import {
   reviewCount,
   valueText,
 } from '@scrawlnotes/core';
-import { t } from '@scrawlnotes/i18n';
+import { locale, t } from '@scrawlnotes/i18n';
 import { type DragEvent, Fragment, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNarrow } from './narrow';
 import { StatusIcon } from './StatusIcon';
+import { MonthCalendar, type MonthChip } from './Calendar';
 import { CardPanel, type CardPanelActions } from './CardPanel';
 import { assigneeLabel, initialOf } from './People';
 import { labelHue } from './choices';
@@ -64,6 +65,8 @@ export interface BoardActions extends CardPanelActions {
   moveCard: (board: string, id: string, place: CardPlace) => void;
   /** Asks first, then deletes the card. */
   removeCard: (board: string, card: Card) => void;
+  /** Gives a card another due day, saying so with Undo. */
+  moveDue: (board: string, id: string, due: string) => void;
   /** Opens the card beside the columns. */
   openCard: (board: string, id: string) => void;
   addColumn: (board: string, name: string, kind: ColumnKind, after?: string) => void;
@@ -1493,7 +1496,9 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
 }) {
   const phone = isPhone();
   const current = currentPhase(board);
-  const [view, setView] = useState<'board' | 'list'>(look?.view ?? board.view ?? 'board');
+  // A phone has the board and the list; a calendar chosen on a computer is the board there.
+  const [view, setView] = useState<'board' | 'list' | 'calendar'>(() => { const was = look?.view ?? board.view ?? 'board'; return phone && was === 'calendar' ? 'board' : was; });
+  const [month, setMonth] = useState(today.slice(0, 7));
   const [designing, setDesigning] = useState(false);
   const [shown, setShown] = useState<Shown>(() => firstShown(board, look));
   /** A phase chosen here is remembered; until one is, the board opens on its current phase. */
@@ -1508,7 +1513,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
     const { view: v, shown: s, chosen: c, toggled: g, inFull: f } = latest.current;
     onLook({ view: v, ...(c && { phase: 'all' in s ? null : (s.phase ?? '') }), ...(g.length > 0 && { toggled: g }), ...(f.length > 0 && { inFull: f }) });
   };
-  const chooseView = (next: 'board' | 'list') => {
+  const chooseView = (next: 'board' | 'list' | 'calendar') => {
     setView(next);
     remember({ view: next });
   };
@@ -1570,7 +1575,12 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
   const statusPhase = board.phasesOn ? shownPhase : undefined;
   const shownCount = board.cards.filter(visible).length;
   const progress = statusPhase ? phaseProgress(board, statusPhase.id) : null;
-  const status = [
+  // On the calendar: the cards of the month, and those with no day.
+  const dated = board.cards.filter((card) => card.due && !isFinished(board, card));
+  const status = view === 'calendar' ? [
+    t('tasks.inMonth', { what: t('count.cards', { count: dated.filter((card) => card.due!.slice(0, 7) === month).length }), month: new Date(`${month}-01T12:00:00`).toLocaleDateString(locale(), { month: 'long' }) }),
+    t('calendar.noDay', { count: board.cards.filter((card) => !card.due && !isFinished(board, card)).length }),
+  ] : [
     ...(statusPhase && progress ? [t('board.phaseStatus', { phase: statusPhase.name, done: progress.done, total: progress.total })] : []),
     ...(board.phasesOn && 'phase' in shown && shown.phase === null ? [t('card.noPhase')] : []),
     t('count.cards', { count: shownCount }),
@@ -1788,7 +1798,11 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
           <button type="button" role="tab" aria-selected={view === 'list'} onClick={() => chooseView('list')}>
             {t('board.viewList')}
           </button>
+          <button type="button" role="tab" aria-selected={view === 'calendar'} onClick={() => chooseView('calendar')}>
+            {t('calendar.calendar')}
+          </button>
         </span>
+        {view === 'calendar' && <MonthNav month={month} today={today} onMonth={setMonth} />}
         {waiting > 0 && <span className="wait">{t('board.toReview', { count: waiting })}</span>}
         <button type="button" className="ghost" onClick={() => setDesigning(true)}>
           {t('collection.fields')}
@@ -1809,6 +1823,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
         </p>
       )}
       {phone && view === 'board' && <ColumnTabs columns={board.columns} counts={counts} current={onScreen} onPick={goToColumn} />}
+      {view === 'calendar' && <BoardCalendar board={board} path={path} month={month} today={today} actions={actions} />}
       {view === 'list' && phone && (
         <PhoneBoardList
           board={board}
@@ -1945,4 +1960,48 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
     {open && !phone && <CardPanel key={open.id} board={board} path={path} card={open} today={today} actions={actions} onClose={onCloseCard} />}
     </div>
   );
+}
+
+/** A month's Today, back and forth and its name, for a board's calendar. */
+function MonthNav({ month, today, onMonth }: { month: string; today: string; onMonth: (month: string) => void }) {
+  const shift = (by: number) => {
+    const [y, m] = month.split('-').map(Number) as [number, number];
+    const first = new Date(y, m - 1 + by, 1);
+    onMonth(`${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}`);
+  };
+  return (
+    <span className="up-month">
+      <button type="button" className="up-today" onClick={() => onMonth(today.slice(0, 7))}>
+        {t('day.today')}
+      </button>
+      <button type="button" aria-label={t('calendar.previous.month')} title={t('calendar.previous.month')} onClick={() => shift(-1)}>
+        <Icon name="back" />
+      </button>
+      <button type="button" aria-label={t('calendar.next.month')} title={t('calendar.next.month')} onClick={() => shift(1)}>
+        <Icon name="chevron" />
+      </button>
+      <span className="mn">{new Date(`${month}-01T12:00:00`).toLocaleDateString(locale(), { month: 'long', year: 'numeric' })}</span>
+    </span>
+  );
+}
+
+/**
+ * A board's Calendar, after the Calendar mockups of stage 15 slice 3: the month, each open card on
+ * its due day with its key, in its priority's color; dragged to another day it is due then, with
+ * Undo. A card has no time, so the month is all there is.
+ */
+function BoardCalendar({ board, path, month, today, actions }: { board: Board; path: string; month: string; today: string; actions: BoardActions }) {
+  const chipsOf = (day: string): MonthChip[] =>
+    board.cards
+      .filter((card) => card.due === day && !isFinished(board, card))
+      .sort((a, b) => a.priority - b.priority)
+      .map((card) => ({
+        key: card.id,
+        title: card.title,
+        priority: card.priority,
+        cardKey: keyOf(board, card),
+        late: day < today,
+        onOpen: () => actions.openCard(path, card.id),
+      }));
+  return <MonthCalendar month={month} today={today} chipsOf={chipsOf} onMove={(chip, _from, to) => actions.moveDue(path, chip.key, to)} />;
 }

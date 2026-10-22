@@ -49,7 +49,7 @@ export interface TreeNode {
 
 /** How a board was last looked at on this device: as columns or as a list, and which phase. */
 export interface BoardLook {
-  view: 'board' | 'list';
+  view: 'board' | 'list' | 'calendar';
   /** The phase shown: its id, '' for the cards in no phase, or null for every card; unset until one is chosen. */
   phase?: string | null;
   /** In the list, the groups opened or closed against their default (finished ones closed, the rest open), by id. */
@@ -1064,7 +1064,7 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
         const { view, phase, toggled, inFull } = look as Partial<BoardLook>;
         const ids = (list: unknown) => (Array.isArray(list) ? list.filter((id): id is string => typeof id === 'string') : []);
         boards[path] = {
-          view: view === 'list' ? 'list' : 'board',
+          view: view === 'list' || view === 'calendar' ? view : 'board',
           ...((typeof phase === 'string' || phase === null) && { phase }),
           ...(ids(toggled).length > 0 && { toggled: ids(toggled) }),
           ...(ids(inFull).length > 0 && { inFull: ids(inFull) }),

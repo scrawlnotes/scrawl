@@ -1,12 +1,12 @@
-import { addDays, type Board, type Card, dayRuns, dueToday, dueUpcoming, INBOX_TASKS, keyOf, monthDays, type Task, weekDays } from '@scrawlnotes/core';
+import { addDays, type Board, type Card, dayRuns, dueToday, dueUpcoming, INBOX_TASKS, keyOf, minutesOfDay, monthDays, movedValues, recordLabel, type Task, weekDays } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, Fragment, useState } from 'react';
-import { PhoneHours } from './Calendar';
+import { type CalendarBox, choiceColor, PhoneHours } from './Calendar';
 import { Icon } from './Icon';
 import { StillOpening } from './Loading';
 import { Empty } from './sheets';
 import { dateWords } from './TaskComposer';
-import { CardRow, type Dated, type DueSubtask, placeOf, splitDueCards, splitDueSubtasks, SubtaskRow, subtaskRefOf, type TaskActions, TaskItem, TaskPage } from './Tasks';
+import { CardRow, type Dated, type DueSubtask, placeOf, RecordRow, recordKey, recordsByDay, splitDueCards, splitDueSubtasks, SubtaskRow, subtaskRefOf, type TaskActions, TaskItem, TaskPage } from './Tasks';
 import { datedByDay, dayHeading, type Entry, entryKey, EntryRow, freeWords, monthWords } from './Upcoming';
 
 // Upcoming on a phone, after the Phone views of the Upcoming and Calendar mockups, in three views
@@ -38,15 +38,41 @@ export function PhoneUpcoming(props: Props) {
 
 /** A day on a phone: its week's strip, a dot under each day that has something; the day's tasks and cards; its hours. */
 function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: Props) {
-  const { byDay } = datedByDay(lists, boards, today, actions.dueSubtasks());
-  const entries = byDay.get(day) ?? [];
+  const { byDay, records } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
+  const [target, setTarget] = useState<string | null>(null);
+  // What has a time is on the hours; the rest above them.
+  const timed = records.filter((due) => minutesOfDay(due.start) !== null && due.start.slice(0, 10) === day);
+  const entries = (byDay.get(day) ?? []).filter((entry) => !('calendar' in entry && timed.includes(entry.calendar)));
+  const boxes: CalendarBox[] = timed.map((due) => ({
+    key: `${due.collection}@${due.record.id}`,
+    title: recordLabel(due.record) || t('collection.untitled'),
+    start: due.start,
+    end: due.end,
+    minutes: due.minutes,
+    color: choiceColor(due.colorField, due.choice),
+    movable: !!movedValues(due.schema, due.view.calendar!, due, due.start),
+  }));
+  const move = (box: CalendarBox, start: string) => {
+    const due = timed.find((each) => `${each.collection}@${each.record.id}` === box.key);
+    const values = due && movedValues(due.schema, due.view.calendar!, due, start);
+    if (due && values) actions.moveRecord(due.collection, due.record.id, values, t('calendar.moved', { name: box.title, when: `${dateWords(start.slice(0, 10), today)}, ${start.slice(11)}` }));
+  };
   // A task opens as its sheet, a card on its board, a subtask in its card or its record.
   const open = (entry: Entry) => {
+    if ('calendar' in entry) return actions.openRecord(entry.calendar.collection, entry.calendar.record.id);
     if ('subtask' in entry) return 'board' in entry ? actions.openCard(entry.board, entry.card.id) : actions.openRecord(entry.collection, entry.record.id);
     if ('task' in entry) return actions.open?.(entry.list, entry.task.id);
     actions.openCard(entry.board, entry.card.id);
   };
   const chip = (entry: Entry) => {
+    if ('calendar' in entry) {
+      return (
+        <button key={entryKey(entry)} type="button" className="mb-chip rec" style={{ '--cc': choiceColor(entry.calendar.colorField, entry.calendar.choice) } as CSSProperties} onClick={() => open(entry)}>
+          <i className="sq" />
+          <span>{recordLabel(entry.calendar.record) || t('collection.untitled')}</span>
+        </button>
+      );
+    }
     const isCard = 'card' in entry && !('subtask' in entry);
     const { title, priority } = 'subtask' in entry ? entry.subtask : 'task' in entry ? entry.task : entry.card;
     return (
@@ -63,7 +89,7 @@ function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: P
         {weekDays(day).map((each) => {
           const busy = byDay.has(each);
           return (
-            <button key={each} type="button" className={[each === day && 'on', each === today && 'today'].filter(Boolean).join(' ') || undefined} aria-pressed={each === day} aria-label={dateWords(each, today)} onClick={() => onDay(each)}>
+            <button key={each} type="button" data-day={each} className={[each === day && 'on', each === today && 'today', target === each && 'drop'].filter(Boolean).join(' ') || undefined} aria-pressed={each === day} aria-label={dateWords(each, today)} onClick={() => onDay(each)}>
               <small>{new Date(`${each}T12:00:00`).toLocaleDateString(locale(), { weekday: 'narrow' })}</small>
               <b>{Number(each.slice(8))}</b>
               <i className={busy ? undefined : 'no'} />
@@ -72,7 +98,7 @@ function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: P
         })}
       </div>
       {entries.length > 0 && <div className="mb-allday">{entries.map(chip)}</div>}
-      <PhoneHours day={day} today={today} boxes={[]} onOpen={() => {}} onSwipe={(by) => onDay(addDays(day, by))} />
+      <PhoneHours day={day} today={today} boxes={boxes} onOpen={(box) => { const due = timed.find((each) => `${each.collection}@${each.record.id}` === box.key); if (due) actions.openRecord(due.collection, due.record.id); }} onSwipe={(by) => onDay(addDays(day, by))} onMove={move} onTarget={setTarget} />
     </TaskPage>
   );
 }
@@ -85,8 +111,9 @@ function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
   tasksOn.set(today, due.today);
   cards.later.set(today, cards.today);
   subtasks.later.set(today, subtasks.today);
-  const busy = [...tasksOn, ...cards.later, ...subtasks.later].filter(([, on]) => on.length > 0).map(([day]) => day);
-  const runs = dayRuns(busy, today);
+  const recordsOn = recordsByDay(actions.dueRecords(), today);
+  const busy = [...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day);
+  const runs = dayRuns([...new Set(busy)], today);
 
   const item = ({ list, task }: { list: string; task: Task }) => (
     <TaskItem key={`${list}/${task.id}`} list={list} task={task} tasks={lists[list] ?? []} today={today} showDone={false} actions={actions} flat byDay />
@@ -126,11 +153,14 @@ function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
           <Fragment key={run.day}>
             <div className="sec">
               {dayHeading(run.day, today)}{' '}
-              <small>{(tasksOn.get(run.day)?.length ?? 0) + (cards.later.get(run.day)?.length ?? 0) + (subtasks.later.get(run.day)?.length ?? 0)}</small>
+              <small>{(tasksOn.get(run.day)?.length ?? 0) + (cards.later.get(run.day)?.length ?? 0) + (subtasks.later.get(run.day)?.length ?? 0) + (recordsOn.get(run.day)?.length ?? 0)}</small>
             </div>
             {(tasksOn.get(run.day) ?? []).map(item)}
             {(cards.later.get(run.day) ?? []).map(cardItem)}
             {(subtasks.later.get(run.day) ?? []).map(subtaskItem)}
+            {(recordsOn.get(run.day) ?? []).map((due) => (
+              <RecordRow key={recordKey(due)} due={due} day={run.day} today={today} actions={actions} />
+            ))}
           </Fragment>
         ),
       )}
@@ -148,7 +178,7 @@ function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
 
 function PhoneMonth({ lists, boards, today, actions, day, onDay, still = null }: Props) {
   const [month, setMonth] = useState(day.slice(0, 7));
-  const { byDay } = datedByDay(lists, boards, today, actions.dueSubtasks());
+  const { byDay } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
   const entries = byDay.get(day) ?? [];
   const shift = (by: number) => {
     const [y, m] = month.split('-').map(Number) as [number, number];

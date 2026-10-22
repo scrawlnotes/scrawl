@@ -1,6 +1,9 @@
 import {
   type Board,
   boardName,
+  calendarRecords,
+  calendarStarts,
+  startingValues,
   boardsLinkingTo,
   cardValue,
   type ChoiceRenames,
@@ -88,7 +91,7 @@ import {
   timeOf,
 } from '@scrawlnotes/core';
 import type { ScrawlEditor } from '@scrawlnotes/editor';
-import { t } from '@scrawlnotes/i18n';
+import { locale, t } from '@scrawlnotes/i18n';
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -103,6 +106,7 @@ import {
   useState,
 } from 'react';
 import { CardPanel, type CardPanelActions } from './CardPanel';
+import { CalendarNav, CalendarViewDialog, calendarStatus, CollectionCalendar, firstRange, PhoneCollectionCalendar, useCalendarNav } from './CollectionCalendar';
 import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { FieldsDialog } from './Fields';
 import { CellEditor, useGrid } from './Grid';
@@ -130,6 +134,8 @@ export interface CollectionActions {
   /** Returns a message when the record cannot be made. */
   addRecord: (dir: string, input: NewRecord) => Promise<string | null>;
   updateRecord: (dir: string, id: string, patch: RecordPatch) => Promise<string | null>;
+  /** Writes values a calendar moved or stretched a record to, saying so with `text` and Undo. */
+  moveRecord: (dir: string, id: string, values: Record['values'], text: string) => void;
   /** Asks first, then moves the record's file to the trash. */
   removeRecord: (dir: string, record: Record) => void;
   /** Runs a button of the collection's rules on a record as it is written: asks first when it says so; says what it did, with Undo, or where it stopped. */
@@ -1787,7 +1793,7 @@ export function ConditionRow({ schema, condition, records, shown, onChange, onRe
 }
 
 /** The conditions of the table, edited in a window; Apply shows them, Save as view keeps them in the schema. */
-function FilterDialog({ schema, first, conditions, count, records, showAs, view, onApply, onSave, onClose }: {
+function FilterDialog({ schema, first, conditions, count, records, showAs, view, naming: startNaming = false, onApply, onSave, onClose }: {
   schema: Schema;
   /** A field as its value shows: a formula with the type of what it gives. */
   showAs: (field: Field) => Field;
@@ -1799,6 +1805,8 @@ function FilterDialog({ schema, first, conditions, count, records, showAs, view,
   records: CollectionActions['records'];
   /** The saved view being edited, when one is. */
   view: View | null;
+  /** Opens with the name of a new view asked for: a table view added from +. */
+  naming?: boolean;
   onApply: (conditions: Condition[]) => void;
   /** Saves the conditions as a view: the one edited, or a new one by the name typed. */
   onSave: (conditions: Condition[], name: string) => void;
@@ -1806,7 +1814,7 @@ function FilterDialog({ schema, first, conditions, count, records, showAs, view,
 }) {
   const [draft, setDraft] = useState<Condition[]>(conditions);
   const [name, setName] = useState(view?.name ?? '');
-  const [naming, setNaming] = useState(false);
+  const [naming, setNaming] = useState(startNaming);
   const backdrop = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const add = () => setDraft([...draft, { field: first.key, op: opsFor(showAs(first).type)[0]! }]);
@@ -1922,8 +1930,11 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const narrow = useNarrow();
   const [query, setQuery] = useState('');
   const [full, setFull] = useState(false);
-  const [open, setOpen] = useState<{ kind: 'new' } | { kind: 'record'; id: string } | null>(null);
+  const [open, setOpen] = useState<{ kind: 'new'; values?: Record['values'] } | { kind: 'record'; id: string } | null>(null);
   const [filtering, setFiltering] = useState(false);
+  // A new table view from +, named in the filter's window; a Calendar view's window, for a new one or the one edited.
+  const [newTable, setNewTable] = useState(false);
+  const [calendaring, setCalendaring] = useState<{ view: View | null } | null>(null);
   const [designing, setDesigning] = useState(false);
   /** On a phone, the view's sheet: its sort, grouping, filter and the fields the list shows. */
   const [viewing, setViewing] = useState(false);
@@ -1935,6 +1946,8 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const [adHoc, setAdHoc] = useState<Condition[]>([]);
   const views = schema.views ?? [];
   const view = views.find((v) => v.id === look?.view) ?? null;
+  const calendarView = view?.kind === 'calendar' ? view : null;
+  const nav = useCalendarNav(`${dir}#${view?.id ?? ''}`, calendarView ? firstRange(schema, calendarView) : 'week', today);
   const fieldsByKey = useMemo(() => new Map(schema.fields.map((f) => [f.key, f])), [schema]);
   // Records come by their name, else by the first field; a sort by a field taken out falls back to that too.
   const firstSort: RecordSort = { key: nameField(schema)?.key ?? schema.fields[0]?.key ?? '', dir: 'asc' };
@@ -1972,13 +1985,15 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const groups = useMemo(() => (state.group ? groupRecords(shown, schema, state.group, today, shownAs.get(state.group)) : null), [shown, schema, state.group, today, shownAs]);
   const groupField = state.group ? fieldsByKey.get(state.group) : undefined;
 
+  const calendarItems = useMemo(() => (calendarView ? calendarRecords({ ...rolled, records: matching }, { ...calendarView, conditions: [] }, today) : []), [calendarView, rolled, matching, today]);
   useEffect(() => {
+    if (calendarView) return onStatus([calendarStatus(calendarItems, nav)]);
     onStatus([
       applied.length > 0 || query ? t('collection.matching', { count: shown.length }) : t('count.records', { count: records.length }),
       ...(problems.size > 0 ? [t('collection.toCheck', { count: problems.size })] : []),
       t('collection.sortedBy', { field: sortField?.label ?? state.sort.key }),
     ]);
-  }, [records.length, shown.length, applied.length, query, sortField, state.sort.key, problems.size]);
+  }, [records.length, shown.length, applied.length, query, sortField, state.sort.key, problems.size, calendarView, calendarItems, nav.range, nav.focus]);
   useEffect(() => () => onStatus(null), []);
 
   const opened = open?.kind === 'record' ? collection.records.find((r) => r.id === open.id) : undefined;
@@ -2258,7 +2273,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const columnsPicked = fields.slice(1).map((f) => f.key);
   const viewMenu = (event: MouseEvent, v: View) =>
     actions.menu(event, [
-      { label: t('collection.edit'), run: () => setFiltering(true) },
+      { label: t('collection.edit'), run: () => (v.kind === 'calendar' ? setCalendaring({ view: v }) : setFiltering(true)) },
       { label: t('menu.delete'), run: () => actions.ask(t('delete.view'), t('delete.viewText', { name: quote(v.name) }), () => {
         void actions.changeSchema(dir, (s) => removeView(s, v.id));
         if (look?.view === v.id) pickView(null);
@@ -2270,6 +2285,22 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
     if (view) void actions.changeSchema(dir, (s) => putView(s, { ...view, conditions }));
     else setAdHoc(conditions);
     setFiltering(false);
+  };
+  // + : a table view as the table is now, named in the filter's window; or a calendar's window.
+  const addView = (event: MouseEvent) =>
+    actions.menu(event, [
+      { label: t('calendar.table'), icon: 'collection', run: () => setNewTable(true) },
+      { label: t('calendar.calendar'), icon: 'calendar', run: () => setCalendaring({ view: null }), ...(calendarStarts(schema.fields).length === 0 && { disabled: t('calendar.needsDate') }) },
+    ]);
+  const saveNewTable = (conditions: Condition[], viewName: string) => {
+    const table = calendarView ? { conditions: [] as Condition[], sort: sortOf(look?.sort), group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null } : state;
+    const saved: View = { id: crypto.randomUUID(), name: viewName, conditions, sort: table.sort, ...(table.group && { group: table.group }), ...(table.columns && { columns: table.columns }), ...(table.widths && { widths: table.widths }) };
+    void actions.changeSchema(dir, (s) => putView(s, saved)).then((failed) => !failed && pickView(saved.id));
+    setNewTable(false);
+  };
+  const saveCalendar = (saved: View) => {
+    void actions.changeSchema(dir, (s) => putView(s, saved)).then((failed) => !failed && pickView(saved.id));
+    setCalendaring(null);
   };
   const saveFilter = (conditions: Condition[], viewName: string) => {
     const saved: View = view
@@ -2312,7 +2343,13 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
       <section className="bv collection-view mb-cv">
         <PhoneCollectionList
           name={name}
-          count={applied.length > 0 || query ? t('phone.matchOf', { count: shown.length, total: records.length }) : t('count.records', { count: records.length })}
+          count={
+            calendarView && nav.range !== 'month'
+              ? new Date(`${nav.focus}T12:00:00`).toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric' })
+              : applied.length > 0 || query
+                ? t('phone.matchOf', { count: shown.length, total: records.length })
+                : t('count.records', { count: records.length })
+          }
           schema={schema}
           today={today}
           fields={fields.slice(1).map(asShown)}
@@ -2332,10 +2369,39 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
           onViewMenu={phoneViewMenu}
           onViewSheet={() => setViewing(true)}
           onOpen={(record) => (actions.show ? actions.show(dir, record.id) : openRecord(record.id))}
-          onAdd={() => (actions.create ? actions.create(dir) : setOpen({ kind: 'new' }))}
+          onAdd={() => {
+            // On a calendar, a new record starts on the day shown.
+            const values = calendarView ? startingValues(schema, calendarView.calendar!, nav.focus, null) : undefined;
+            if (actions.create) actions.create(dir, values);
+            else setOpen({ kind: 'new', values });
+          }}
           onFields={() => setDesigning(true)}
+          side={
+            calendarView && (
+              <div className="mb-seg" role="tablist">
+                {(['day', 'month'] as const).map((range) => (
+                  <button key={range} type="button" role="tab" aria-selected={range === 'month' ? nav.range === 'month' : nav.range !== 'month'} onClick={() => nav.choose(range)}>
+                    {t(`calendar.${range}`)}
+                  </button>
+                ))}
+              </div>
+            )
+          }
+          body={
+            calendarView && (
+              <PhoneCollectionCalendar
+                collection={rolled}
+                records={matching}
+                view={calendarView}
+                nav={nav}
+                today={today}
+                actions={actions}
+                onOpen={(id) => (actions.show ? actions.show(dir, id) : openRecord(id))}
+              />
+            )
+          }
         />
-        {open?.kind === 'new' && <RecordDialog collection={collection} record={null} today={today} actions={actions} onClose={() => setOpen(null)} />}
+        {open?.kind === 'new' && <RecordDialog collection={collection} record={null} values={open.values} today={today} actions={actions} onClose={() => setOpen(null)} />}
         {opened && <RecordDialog key={opened.id} collection={collection} record={opened} today={today} actions={actions} onClose={() => setOpen(null)} />}
         {designing && <FieldsDialog collection={collection} actions={actions} onClose={() => setDesigning(false)} />}
         {viewing && !filtering && (
@@ -2395,24 +2461,29 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
           </button>
           {views.map((v) => (
             <button key={v.id} type="button" role="tab" aria-selected={view?.id === v.id} onClick={() => pickView(v.id)} onContextMenu={(event) => viewMenu(event, v)}>
+              {v.kind === 'calendar' && <Icon name="calendar" />}
               {v.name}
             </button>
           ))}
+          <button type="button" className="add-view" title={t('calendar.addView')} aria-label={t('calendar.addView')} onClick={addView}>
+            <Icon name="plus" />
+          </button>
         </span>
         {/* With no fields there is nothing to filter, group or show as a column. */}
         <span className="tools" hidden={noFields}>
+          {calendarView && <CalendarNav nav={nav} today={today} />}
           <button type="button" className={applied.length > 0 ? 'ghost on' : 'ghost'} onClick={() => setFiltering(true)}>
             {applied.length > 0 ? t('collection.filterCount', { count: applied.length }) : t('collection.filter')}
           </button>
-          <Picker
+          {!calendarView && <Picker
             className={state.group ? 'ghost on' : 'ghost'}
             options={groupOptions}
             value={state.group}
             label={t('collection.group')}
             text={state.group ? t('collection.groupBy', { field: groupField?.label ?? state.group }) : t('collection.group')}
             onPick={(key) => change({ group: key })}
-          />
-          {!narrow && (
+          />}
+          {!narrow && !calendarView && (
             <ColumnsPicker
               options={columnOptions}
               picked={columnsPicked}
@@ -2428,10 +2499,41 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
           )}
         </span>
       </div>
-      {table}
-      {open?.kind === 'new' && <RecordDialog collection={collection} record={null} today={today} actions={actions} onClose={() => setOpen(null)} />}
+      {calendarView ? (
+        <CollectionCalendar
+          collection={rolled}
+          records={matching}
+          view={calendarView}
+          nav={nav}
+          today={today}
+          actions={actions}
+          onOpen={(id) => setOpen({ kind: 'record', id })}
+          onNew={(values) => setOpen({ kind: 'new', values })}
+        />
+      ) : (
+        table
+      )}
+      {open?.kind === 'new' && <RecordDialog collection={collection} record={null} values={open.values} today={today} actions={actions} onClose={() => setOpen(null)} />}
       {opened && <RecordDialog key={opened.id} collection={collection} record={opened} today={today} actions={actions} onClose={() => setOpen(null)} />}
       {designing && <FieldsDialog collection={collection} actions={actions} onClose={() => setDesigning(false)} />}
+      {calendaring && (
+        <CalendarViewDialog schema={schema} view={calendaring.view} showAs={asShown} records={actions.records} count={countFor} onSave={saveCalendar} onClose={() => setCalendaring(null)} />
+      )}
+      {newTable && (
+        <FilterDialog
+          schema={schema}
+          first={fields[1] ?? fields[0]!}
+          conditions={calendarView ? [] : state.conditions}
+          count={countFor}
+          records={actions.records}
+          showAs={asShown}
+          view={null}
+          naming
+          onApply={() => setNewTable(false)}
+          onSave={saveNewTable}
+          onClose={() => setNewTable(false)}
+        />
+      )}
       {filtering && (
         <FilterDialog
           schema={schema}

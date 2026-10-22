@@ -1,4 +1,9 @@
 import {
+  addDays,
+  calendarStarts,
+  dayInToday,
+  dueRecords,
+  isDay,
   addRecord,
   type Board,
   type Collection,
@@ -46,7 +51,7 @@ import {
   type VaultFs,
 } from '@scrawlnotes/core';
 import { Refusal } from './paths';
-import { type Agent, elementsOf, nowOf, pickAcross, pickRecord, todayOf } from './space';
+import { type Agent, elementsOf, nowOf, pickAcross, pickRecord, pickSpace, todayOf } from './space';
 import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
 // Collections: asking for records with conditions, and adding or changing one. A link is given
@@ -193,7 +198,30 @@ function conditionOf(schema: Schema, where: Where): Condition {
   return { field: field.key, op: where.op as ConditionOp, ...(where.value !== undefined && { value: where.value }) };
 }
 
-export async function recordsTool(agent: Agent, args: { space?: string; collection: string; where?: Where[]; sort?: { field: string; dir?: 'asc' | 'desc' }; limit?: number }) {
+/** Days asked for: from and to, each a day or left open; `due` today or upcoming as tasks have it. */
+export interface DayRange {
+  from?: string;
+  to?: string;
+  due?: 'today' | 'upcoming';
+}
+
+/** The days a range asks for, checked; null when it asks for none. */
+function daysOf(args: DayRange, today: string): { from?: string; to?: string } | null {
+  for (const day of [args.from, args.to]) if (day !== undefined && !isDay(day)) throw new Refusal(`${day} is not a day: write it as YYYY-MM-DD`);
+  if (args.due === 'today') return { from: today, to: today };
+  if (args.due === 'upcoming') return { from: addDays(today, 1), ...(args.to && { to: args.to }) };
+  if (args.from === undefined && args.to === undefined) return null;
+  return { ...(args.from && { from: args.from }), ...(args.to && { to: args.to }) };
+}
+
+const within = (day: string, days: { from?: string; to?: string }) => (!days.from || day >= days.from) && (!days.to || day <= days.to);
+
+/** The field a collection's records are on a day by: the one its first Calendar view goes by, else its first date field. */
+function dayField(schema: Schema): string | null {
+  return schema.views?.find((v) => v.kind === 'calendar')?.calendar?.start ?? calendarStarts(schema.fields)[0]?.key ?? null;
+}
+
+export async function recordsTool(agent: Agent, args: { space?: string; collection: string; where?: Where[]; sort?: { field: string; dir?: 'asc' | 'desc' }; limit?: number } & DayRange) {
   const { space, element } = await pickAcross(agent, args.space, args.collection, ['collection'], 'collection');
   const today = todayOf(agent);
   const computer = await computerAround(space.fs, await loadCollection(space.fs, element.path), today);
@@ -201,6 +229,12 @@ export async function recordsTool(agent: Agent, args: { space?: string; collecti
   const { schema } = collection;
   const conditions = (args.where ?? []).map((w) => conditionOf(schema, w));
   let records = collection.records.filter((r) => matchesConditions(r, schema, conditions, today));
+  const days = daysOf(args, today);
+  if (days) {
+    const key = dayField(schema);
+    if (!key) throw new Refusal(`${element.path} has no date field to go by`);
+    records = records.filter((r) => typeof r.values[key] === 'string' && within((r.values[key] as string).slice(0, 10), days));
+  }
   if (args.sort) records = sortRecords(records, schema, { key: pickField(schema.fields, args.sort.field).key, dir: args.sort.dir ?? 'asc' }, today);
   const limit = args.limit ?? 100;
   return {
@@ -371,4 +405,40 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
   // Worked out again with the record as written, for what links to it and what it reads.
   const after = new Computer([{ ...collection, records: [...collection.records.filter((r) => r.id !== record.id), record] }, ...around.collections], around.boards, today);
   return { data: { space: space.id, collection: element.path, created, onSave, record: recordsOut(after, collection, [record], today)[0]! } };
+}
+
+/**
+ * What the calendars that show in Today and Upcoming bring there, with no collection named: in the
+ * space named, else in every space; today's, those of the days asked for, or from today on. Each
+ * record with its collection, the view that brings it, its start, and its end or its length.
+ */
+export async function dueRecordsTool(agent: Agent, args: { space?: string; limit?: number } & DayRange) {
+  const spaces = args.space?.trim() ? [await pickSpace(agent, args.space)] : await agent.spaces();
+  const across = spaces.length > 1;
+  const today = todayOf(agent);
+  const days = daysOf(args, today) ?? { from: today };
+  const out: object[] = [];
+  for (const space of spaces) {
+    const { collections, boards } = await ruleSpaceNow(space.fs, today, undefined);
+    const shown = collections.filter((c) => c.schema.views?.some((v) => v.kind === 'calendar' && v.calendar?.upcoming));
+    if (shown.length === 0) continue;
+    const computer = new Computer(collections, boards, today);
+    for (const due of dueRecords(
+      shown.map((c) => computer.withValues(c.dir)!),
+      today,
+    )) {
+      if (!within(dayInToday(due, today), days)) continue;
+      out.push({
+        ...(across && { space: space.id, spaceName: space.name }),
+        collection: due.collection,
+        view: due.view.name,
+        start: due.start,
+        ...(due.end && { end: due.end }),
+        ...(due.minutes && { minutes: due.minutes }),
+        record: recordOut(due.record, due.schema, today, computer.checks(due.collection, due.record)),
+      });
+    }
+  }
+  const limit = args.limit ?? 100;
+  return { data: { today, total: out.length, records: out.slice(0, limit) } };
 }
