@@ -227,3 +227,12 @@ export function chooseLanguage(tag: string) {
   write(LANGUAGE, tag === languages[0]!.tag ? null : tag);
   window.location.reload();
 }
+
+/** The region the device is set to, as a code, `TR`: from the browser's language; undefined when it says none. */
+export function deviceRegion(): string | undefined {
+  try {
+    return new Intl.Locale(navigator.language).maximize().region;
+  } catch {
+    return undefined;
+  }
+}

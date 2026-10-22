@@ -6,10 +6,10 @@ import { lineFormat } from './sales';
 const LOCATIONS = ['Main warehouse', 'Second warehouse'];
 
 /** The statuses of an order its stock goes out at, by the answer. */
-const OUT_AT: { [answer: string]: string[] } = { confirmed: ['Confirmed', 'Delivered', 'Invoiced', 'Paid'], delivered: ['Delivered', 'Invoiced', 'Paid'] };
+const OUT_AT: { [answer: string]: string[] } = { confirmed: ['Confirmed', 'Packed', 'Shipped', 'Delivered', 'Invoiced', 'Paid'], delivered: ['Delivered', 'Invoiced', 'Paid'] };
 
 /** What adds a movement in a rule, in a warehouse of its own: its stock level, found or added, goes with it. */
-function movement(app: AppDraft, indent: string, values: string, product: string, location: string | null): string {
+export function movement(app: AppDraft, indent: string, values: string, product: string, location: string | null): string {
   const moves = app.called('stock-movements');
   if (!location) return `${indent}add("${moves}", { ${values} })`;
   const levels = app.called('stock-levels');

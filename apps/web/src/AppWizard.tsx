@@ -19,7 +19,7 @@ import {
 } from '@scrawlnotes/core';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, useRef, useState } from 'react';
-import { isPhone } from './device';
+import { deviceRegion, isPhone } from './device';
 import { Dialog, type FolderChoice, FolderField } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { folderLabel } from './items';
@@ -86,7 +86,8 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
   const installed = new Set<TemplateId>((adding?.templates ?? []).map((x) => x.id));
   // What the questions and the pieces are worked out with: the app's templates and the ones chosen.
   const chosenSet = new Set<TemplateId>([...installed, ...chosen]);
-  const answersOf = (id: TemplateId): Answers => readAnswers(APP_TEMPLATES[id], chosenSet, given[id] ?? {}).answers;
+  // An answer not given is the template's default for where the device is: its own channels and carriers.
+  const answersOf = (id: TemplateId): Answers => readAnswers(APP_TEMPLATES[id], chosenSet, given[id] ?? {}, deviceRegion()).answers;
   const view = { has: (id: TemplateId) => chosenSet.has(id), answers: answersOf };
   const rolesOf = (id: TemplateId) => APP_TEMPLATES[id].pieces(answersOf(id), view);
   const money = !adding && chosen.some((id) => APP_TEMPLATES[id].money(answersOf(id)));

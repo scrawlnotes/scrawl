@@ -6,14 +6,14 @@ import { MemoryFs } from '../fs';
 import { linksIn, resolveHref } from '../links';
 import { APP_FILE, AppProblems, planApp } from './build';
 import { installApp, undoApp } from './install';
-import { TEMPLATES } from './questions';
+import { readAnswers, TEMPLATES } from './questions';
 import { findApp } from './roles';
 import { type Answers, TEMPLATE_IDS, type TemplateId } from './types';
 
 let n = 0;
 const ids = () => `id${++n}`;
 
-/** Every set of templates: 2047 of them, and the empty one left out. */
+/** Every set of templates: 4095 of them, and the empty one left out. */
 const sets = (): TemplateId[][] => {
   const out: TemplateId[][] = [];
   for (let mask = 1; mask < 1 << TEMPLATE_IDS.length; mask++) out.push(TEMPLATE_IDS.filter((_, i) => mask & (1 << i)));
@@ -29,6 +29,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   projects: { for: 'both', time: true, budget: true },
   budget: { periods: 'monthly', due: true, expenses: true, expected: true },
   stock: { purchasing: true, locations: true, deduct: 'confirmed', payables: true },
+  ecommerce: { returns: true, budget: true },
   product: { bugs: true, releases: true, phases: true, feedback: true },
   recruiting: { interviews: true, scores: true },
   assets: { assign: true, service: true, places: true, costs: true },
@@ -42,6 +43,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   projects: { for: 'internal', time: false, budget: false, steps: [] },
   budget: { periods: 'none', due: false, expenses: false, categories: [] },
   stock: { purchasing: false, locations: false, deduct: 'no' },
+  ecommerce: { channels: [], carriers: [], returns: false, budget: false },
   product: { bugs: false, releases: false, phases: false, feedback: false },
   recruiting: { stages: [], sources: [], interviews: false, steps: [] },
   assets: { categories: [], assign: false, service: false, places: false, costs: false },
@@ -68,8 +70,8 @@ describe('setting up an app', () => {
         }
       }
     }
-    expect(made).toBe(2047 * 6);
-  }, 180_000);
+    expect(made).toBe(4095 * 6);
+  }, 600_000);
 
   it('sets up a shared piece once, for every template that uses it', () => {
     const plan = planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'crm' }, { id: 'sales' }, { id: 'stock' }, { id: 'support' }] }, { ids });
@@ -165,6 +167,25 @@ describe('setting up an app', () => {
     expect(marked(d)).toEqual(['Ayşe does not work on Sun']);
     expect(marked(e)).toEqual(['Overlaps with Also in room 1, 10:30']);
     expect(marked(f)).toEqual(['Overlaps with In room 1, 10:00']);
+  });
+
+  it('sets up E-commerce on Sales, its lists by the region, its statuses and its To ship calendar', () => {
+    const lists = (region?: string) => {
+      const { answers } = readAnswers(TEMPLATES.ecommerce, new Set(['ecommerce']), {}, region);
+      return [answers.channels, answers.carriers];
+    };
+    expect(lists('TR')).toEqual([['Trendyol', 'Hepsiburada', 'Amazon', 'Own site'], ['Yurtiçi Kargo', 'Aras Kargo', 'MNG Kargo', 'PTT Kargo']]);
+    expect(lists('DE')).toEqual([['Amazon', 'eBay', 'Etsy', 'Own site'], ['DHL', 'UPS', 'FedEx', 'DPD']]);
+    expect(lists()).toEqual(lists('US'));
+    const plan = planApp({ name: 'Shop', currencies: ['TRY'], templates: [{ id: 'ecommerce' }] }, { ids });
+    expect(plan.templates.map((t) => t.id)).toEqual(['sales', 'ecommerce']);
+    const orders = parseSchema(plan.files.find((file) => file.path === 'Shop/Orders/_collection.json')!.text);
+    expect(orders.fields.find((f) => f.key === 'status')!.options).toEqual(['Quote', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Invoiced', 'Paid', 'Cancelled']);
+    expect(orders.views!.map((v) => [v.name, v.calendar!.start, v.calendar!.upcoming])).toEqual([
+      ['Calendar', 'due', false],
+      ['To ship', 'ship_by', true],
+    ]);
+    expect(plan.files.some((file) => file.path === 'Shop/Channels/_collection.json')).toBe(true);
   });
 
   it('says what is wrong with what it was given', () => {

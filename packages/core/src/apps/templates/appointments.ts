@@ -36,7 +36,7 @@ export const appointments: AppTemplate = {
   group: 'customers',
   name: 'apps.appointments.name',
   short: 'apps.appointments.short',
-  icon: 'calendar',
+  icon: 'clock',
   what: 'apps.appointments.what',
   questions: [
     {

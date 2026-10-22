@@ -55,11 +55,11 @@ export const sales: AppTemplate = {
     }
     app.field('products', checkbox('on_sale', 'For sale', true));
 
-    const statuses = [...(quotes ? ['Quote'] : []), 'Confirmed', 'Delivered', 'Invoiced', 'Paid', 'Cancelled'];
+    const statuses = [...(quotes ? ['Quote'] : []), 'Confirmed', ...(app.has('ecommerce') ? ['Packed', 'Shipped'] : []), 'Delivered', 'Invoiced', 'Paid', 'Cancelled'];
     app.field('orders', codeField('ORD-'));
     app.field('orders', link('customer', 'Customer', app.path(customer)));
     app.field('orders', day('date', 'Date', true));
-    app.field('orders', select('status', 'Status', statuses, { Quote: 'gray', Confirmed: 'blue', Delivered: 'purple', Invoiced: 'yellow', Paid: 'green', Cancelled: 'red' }, statuses[0]));
+    app.field('orders', select('status', 'Status', statuses, { Quote: 'gray', Confirmed: 'blue', Packed: 'teal', Shipped: 'pink', Delivered: 'purple', Invoiced: 'yellow', Paid: 'green', Cancelled: 'red' }, statuses[0]));
     if (app.money.multi) app.field('orders', currencyField(app));
     if (byDueDay(app)) app.field('orders', day('due', 'Due'));
     app.view('orders', calendar({ start: byDueDay(app) ? 'due' : 'date', color: 'status' }, [{ field: 'status', op: 'is-not', value: ['Paid', 'Cancelled'] }]));

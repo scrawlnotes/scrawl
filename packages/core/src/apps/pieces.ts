@@ -49,6 +49,8 @@ export const PIECES: { [role: string]: PieceInfo } = {
   services: { kind: 'collection', name: 'Services', singular: 'service', about: 'what you give an appointment for, with how long it takes.' },
   staff: { kind: 'collection', name: 'Staff', singular: 'person', about: 'who takes the appointments, with their hours and days.' },
   resources: { kind: 'collection', name: 'Resources', singular: 'resource', about: 'the rooms, tables and things that are booked.' },
+  channels: { kind: 'collection', name: 'Channels', singular: 'channel', about: 'where you sell: each marketplace and your own site, with its commission and when it pays.' },
+  returns: { kind: 'collection', name: 'Returns', singular: 'return', about: 'what came back from an order, why, and whether it was refunded.' },
 };
 
 /** The roles, in the order the pieces are listed: by template, the shared ones first where they are first used. */

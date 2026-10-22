@@ -282,3 +282,25 @@ Bugün, sırasıyla; her dilimin sonunda commit sorulur. Arayüzü olan dilim ö
 - People'da Last appointment, Appointments, No-shows; Staff'ta bugünkü randevu sayısı (Today).
 - Ekipte her çalışanın takvim görünümü kendi adıyla; Today ve Upcoming'e yalnız ortak takvim gelir.
 - Şablon Customers grubunda, Customer support'tan sonra; README'de ve karşılama notunda şablon listesinde.
+
+22 Ekim 2026'da E-ticaret için onaylanan öneri:
+- E-ticaret seçilince Satış da kurulur; Stok zorunlu değil, varsa iade stoğa döner. Money grubunda.
+- Channels: ad, komisyon %, sipariş başı ücret, hakediş günü; sipariş sayısı, ciro, net kâr, iade oranı.
+- Orders'a kanal, pazaryeri sipariş no, kargoya son gün, kargo firması, takip no, kargo maliyeti; Confirmed ile Delivered arasında Packed ve Shipped; komisyon, ürün maliyeti, net kâr, marj.
+- Returns (soruya göre): sipariş, ürün, adet, neden, durum (Requested, Received, Refunded, Rejected), iade tutarı.
+- Products'a satılan, iade edilen, iade oranı, kâr; Stok yoksa maliyet.
+- Ship (kargo firması ve takip no) ve Return düğmeleri; Received stoğa giriş, Refunded giden ödeme, Delivered kanalın hakedişi beklenen tahsilat; kargoya son günü geçen sipariş işaretlenir; Destek varsa talep kanallarına pazaryeri soruları ve yorumlar.
+- Orders'a "To ship" takvimi, kargoya son güne göre, Today ve Upcoming'de; Satış'ın vade takvimi kalır.
+- Sorular: kanallar, kargo firmaları, iadeler, Bütçe seçiliyse hakediş ve iade ödemeleri. Varsayılan listeler bölgeye göre: Türkiye'de Trendyol, Hepsiburada, Amazon, Own site ve Yurtiçi, Aras, MNG, PTT Kargo; başka yerde Amazon, eBay, Etsy, Own site ve DHL, UPS, FedEx, DPD. Ajan genel listeyle kurar.
+
+22 Ekim 2026'da, 6. dilimin kodu yazılırken verilen kararlar:
+- Bölge, şablon penceresinde tarayıcının dilinden okunur (tr → TR). Soru tanımına bölgeye göre varsayılan (`regional`) eklendi.
+- Packed ve Shipped Satış'ın durumlarına E-ticaret kuruluysa girer. Stok'ta "onaylanınca düş" seçiliyse bu iki durumda da stok düşmüş sayılır.
+- Komisyon pay olarak tutulur (0,2 = %20) ve yüzde görünür. Net kâr vergi açıksa ara toplamdan, değilse toplamdan hesaplanır.
+- Kanalın sayıları Cancelled ve Quote siparişleri saymaz. İadenin kanalı kaydedilirken siparişinden yazılır; kanalın iade oranı buradan çıkar.
+- Ürünün satılan adedi bütün sipariş satırlarını sayar, iptal edilenleri de; satırın durumu yok.
+- Ship yalnız Confirmed ya da Packed olana, Return yalnız gönderilmiş olana çıkar. İade "Return of ORD-0001" adıyla Requested açılır.
+- Hakediş Planned yazılır; tutarı toplamdan komisyon düşülerek, vadesi bugün + kanalın günü. İade ödemesi Paid, bugün yazılır. İkisi de Sales bütçe satırına gider.
+- "To ship" kanala göre renklenir.
+- İkonlar: E-ticaret globe; Randevu clock oldu (calendar İçerik takviminde).
+- README'de ve karşılama notunda on iki şablon.

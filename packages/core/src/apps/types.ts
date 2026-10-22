@@ -11,7 +11,7 @@ import type { Field, LayoutBlock, NumberFormat, View } from '../collection';
 export const APP_FILE = '_app.json';
 
 /** The templates, in the order they are set up: the one before sets up what a shared piece starts with. */
-export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'product', 'recruiting', 'assets', 'content'] as const;
+export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content'] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
@@ -43,6 +43,8 @@ export interface Question {
   /** A choice's or a multi's options, by value, with what each says. */
   options?: { value: string; label: MessageKey }[];
   default: Answer;
+  /** Its default where the usual one does not fit, by the region of the device that asks: `TR`. */
+  regional?: { [region: string]: Answer };
   /** Asked only when this holds; else its answer is its default, and the template reads it so. */
   when?: (asking: Asking) => boolean;
   /** The key of the question of the same template it hangs on: the wizard shows it under that one. */

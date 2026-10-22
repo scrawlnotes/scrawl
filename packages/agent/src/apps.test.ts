@@ -36,6 +36,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   projects: { for: 'both', time: true, budget: true },
   budget: { periods: 'monthly', due: true, expenses: true, expected: true },
   stock: { purchasing: true, locations: true, deduct: 'confirmed', payables: true },
+  ecommerce: { returns: true, budget: true },
   product: { bugs: true, releases: true, phases: true, feedback: true },
   recruiting: { interviews: true, scores: true },
   assets: { assign: true, service: true, places: true, costs: true },
@@ -49,6 +50,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   projects: { for: 'internal', time: false, budget: false, steps: [] },
   budget: { periods: 'none', due: false, expenses: false, categories: [] },
   stock: { purchasing: false, locations: false, deduct: 'no' },
+  ecommerce: { channels: [], carriers: [], returns: false, budget: false },
   product: { bugs: false, releases: false, phases: false, feedback: false },
   recruiting: { stages: [], sources: [], interviews: false, steps: [] },
   assets: { categories: [], assign: false, service: false, places: false, costs: false },
@@ -90,8 +92,8 @@ describe('apps', () => {
         apps++;
       }
     }
-    expect(apps).toBe(4094);
-  }, 900_000);
+    expect(apps).toBe(8190);
+  }, 1_800_000);
 
   it('runs a sale through: a line from its product, the order adding up, stock out on delivery, the payment expected and recorded', async () => {
     const { fs, agent } = await world();
@@ -206,6 +208,36 @@ describe('apps', () => {
     expect(closed.data.record.values).toMatchObject({ status: 'Done', open_cards: 0, progress: 1, hours: 6, billable_hours: 6 });
     const board = JSON.parse(await fs.readText('Lifts/Work.board.json'));
     expect(board.cards.map((c: { title: string }) => c.title)).toEqual(['Antalya Hotel: Kickoff', 'Antalya Hotel: Planning', 'Antalya Hotel: Delivery', 'Antalya Hotel: Review']);
+  });
+
+  it('sells on a channel: what an order earns, its shipping and payout, a return back into stock and paid back', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Shop', templates: ['sales', 'ecommerce', 'stock', 'budget'], currencies: ['TRY'], answers: { sales: { tax: false } } });
+    await saveRecordTool(agent, { collection: 'Shop/Channels', id: 'Amazon', values: { commission: 0.2, fee: 5, payout_days: 7 } });
+    await saveRecordTool(agent, { collection: 'Shop/Products', values: { name: 'Lamp', price: 100, cost: 40 } });
+    const order = await saveRecordTool(agent, { collection: 'Shop/Orders', values: { channel: 'Amazon', status: 'Confirmed', ship_by: '2026-10-20', shipping_cost: 10 } });
+    const id = order.data.record.id;
+    const code = order.data.record.values.code as string;
+    await saveRecordTool(agent, { collection: 'Shop/Order lines', values: { name: 'Lamp', order: code, product: 'Lamp', quantity: 2, unit_price: 100 } });
+    const read = async () => (await recordsTool(agent, { collection: 'Shop/Orders' })).data.records.find((r) => r.id === id)!;
+    // 200 less a commission of 20% and 5, the shipping and what the lamps cost.
+    expect((await read()).values).toMatchObject({ total: 200, commission: 45, cost: 80, net_profit: 65 });
+    expect((await read()).problems).toEqual([expect.objectContaining({ field: 'ship_by', text: 'Late to ship' })]);
+    const shipped = await saveRecordTool(agent, { collection: 'Shop/Orders', id, action: 'Ship', input: { carrier: 'DHL', tracking: 'JD0001' } });
+    expect(shipped.data.record.values).toMatchObject({ status: 'Shipped', carrier: 'DHL', tracking: 'JD0001' });
+    expect((await read()).problems ?? []).toEqual([]);
+    await saveRecordTool(agent, { collection: 'Shop/Orders', id, values: { status: 'Delivered' } });
+    const payout = (await recordsTool(agent, { collection: 'Shop/Payments' })).data.records.find((p) => p.name === `${code} payout`)!;
+    expect(payout.values).toMatchObject({ direction: 'In', amount: 155, status: 'Planned', due: '2026-10-28', order: { id } });
+    await saveRecordTool(agent, { collection: 'Shop/Orders', id, action: 'Return', input: { product: 'Lamp', quantity: 1, reason: 'Damaged' } });
+    const back = (await recordsTool(agent, { collection: 'Shop/Returns' })).data.records[0]!;
+    expect(back.values).toMatchObject({ name: `Return of ${code}`, order: { id }, quantity: 1, status: 'Requested', channel: { name: 'Amazon' } });
+    await saveRecordTool(agent, { collection: 'Shop/Returns', id: back.id, values: { status: 'Received' } });
+    const moves = (await recordsTool(agent, { collection: 'Shop/Stock movements' })).data.records;
+    expect(moves.filter((m) => m.values.type === 'return').map((m) => [m.values.direction, m.values.quantity])).toEqual([['In', 1]]);
+    await saveRecordTool(agent, { collection: 'Shop/Returns', id: back.id, values: { status: 'Refunded', refund: 100 } });
+    const refund = (await recordsTool(agent, { collection: 'Shop/Payments' })).data.records.find((p) => p.values.direction === 'Out')!;
+    expect(refund.values).toMatchObject({ amount: 100, status: 'Paid', return: { id: back.id } });
   });
 
   it('books an appointment from its service, and writes it as a payment when it is done', async () => {

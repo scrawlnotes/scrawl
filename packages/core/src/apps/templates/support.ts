@@ -39,7 +39,7 @@ export const support: AppTemplate = {
   build(app, answers) {
     companies(app);
     people(app);
-    const channels = (answers.channels as string[] | undefined) ?? [];
+    const channels = [...((answers.channels as string[] | undefined) ?? []), ...(app.has('ecommerce') ? ['marketplace questions', 'reviews'] : [])];
     app.columns('requests', [
       ['New', 'backlog'],
       ['In progress', 'active'],
@@ -49,7 +49,7 @@ export const support: AppTemplate = {
     ]);
     if (app.hasPiece('companies')) app.field('requests', link('company', 'Company', app.path('companies')));
     app.field('requests', link('person', 'Person', app.path('people')));
-    if (channels.length > 0) app.field('requests', select('channel', 'Channel', channels, { email: 'yellow', phone: 'blue', chat: 'green', 'web form': 'purple', social: 'pink' }));
+    if (channels.length > 0) app.field('requests', select('channel', 'Channel', channels, { email: 'yellow', phone: 'blue', chat: 'green', 'web form': 'purple', social: 'pink', 'marketplace questions': 'orange', reviews: 'teal' }));
     app.field('requests', select('type', 'Type', ['question', 'problem', 'request'], { question: 'blue', problem: 'red', request: 'purple' }));
     for (const role of ['companies', 'people']) if (app.hasPiece(role)) app.block(role, { block: 'cards' });
     if (answers.feedback !== false) feedback(app);

@@ -4,6 +4,7 @@ import { assets } from './templates/assets';
 import { budget } from './templates/budget';
 import { content } from './templates/content';
 import { crm } from './templates/crm';
+import { ecommerce } from './templates/ecommerce';
 import { product } from './templates/product';
 import { projects } from './templates/projects';
 import { recruiting } from './templates/recruiting';
@@ -12,7 +13,7 @@ import { stock } from './templates/stock';
 import { support } from './templates/support';
 import { type Answer, type Answers, type AppTemplate, type Question, TEMPLATE_IDS, type TemplateId } from './types';
 
-export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, product, recruiting, assets, content };
+export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content };
 
 export const isTemplateId = (id: unknown): id is TemplateId => TEMPLATE_IDS.includes(id as TemplateId);
 
@@ -56,14 +57,17 @@ function cleanList(items: string[]): string[] {
  * each it does not ask with its default; and what is wrong with what was given: a question it does
  * not have, an answer that is not one.
  */
-export function readAnswers(template: AppTemplate, chosen: ReadonlySet<TemplateId>, given: { [key: string]: unknown } = {}): { answers: Answers; problems: string[] } {
+/** A question's default for a device in `region`: its own there, else the usual one. */
+export const defaultOf = (q: Question, region?: string): Answer => (region && q.regional?.[region]) ?? q.default;
+
+export function readAnswers(template: AppTemplate, chosen: ReadonlySet<TemplateId>, given: { [key: string]: unknown } = {}, region?: string): { answers: Answers; problems: string[] } {
   const problems: string[] = [];
   const keys = template.questions.map((q) => q.key);
   for (const key of Object.keys(given)) if (!keys.includes(key)) problems.push(t('apps.noQuestion', { template: template.id, key, keys: keys.join(', ') }));
   const answers: Answers = {};
   for (const q of template.questions) {
     const asked = !q.when || q.when({ chosen, answers: { ...answers } });
-    let value: unknown = asked && given[q.key] !== undefined ? given[q.key] : q.default;
+    let value: unknown = asked && given[q.key] !== undefined ? given[q.key] : defaultOf(q, region);
     const wrong = wrongAnswer(q, value);
     if (wrong) {
       problems.push(`${template.id}.${q.key}: ${wrong}`);
@@ -78,6 +82,8 @@ export function readAnswers(template: AppTemplate, chosen: ReadonlySet<TemplateI
 export function impliedBy(answers: ReadonlyMap<TemplateId, Answers>): TemplateId[] {
   const implied: TemplateId[] = [];
   if (answers.has('projects') && !answers.has('budget') && answers.get('projects')!.budget === true) implied.push('budget');
+  // E-commerce sells as Sales does.
+  if (answers.has('ecommerce') && !answers.has('sales')) implied.push('sales');
   return implied;
 }
 
