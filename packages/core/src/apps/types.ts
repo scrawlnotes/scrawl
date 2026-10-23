@@ -12,7 +12,7 @@ import type { PieceInfo } from './pieces';
 export const APP_FILE = '_app.json';
 
 /** The templates, in the order they are set up: the one before sets up what a shared piece starts with. */
-export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content', 'subscriptions', 'contracts', 'timeoff', 'goals', 'incidents', 'field', 'consulting', 'association', 'finance', 'home', 'health', 'recipes', 'travel', 'split', 'jobs'] as const;
+export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content', 'subscriptions', 'contracts', 'timeoff', 'goals', 'incidents', 'field', 'consulting', 'association', 'finance', 'home', 'health', 'recipes', 'travel', 'split', 'jobs', 'people', 'reading', 'sport', 'habits'] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 

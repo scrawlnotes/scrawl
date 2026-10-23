@@ -59,6 +59,10 @@ const MOST: { [id in TemplateId]: Answers } = {
   travel: {},
   split: { people: ['Ayşe', 'Can', 'Deniz'], methods: 'all', abroad: true, finance: true },
   jobs: {},
+  people: { anniversaries: true, often: true },
+  reading: { progress: true, goal: '24', quotes: true, lending: true, releases: true },
+  habits: { goals: true },
+  sport: { sets: true, body: true, races: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -88,6 +92,10 @@ const LEAST: { [id in TemplateId]: Answers } = {
   travel: { keeps: [] },
   split: { people: [], methods: 'equal', abroad: false, finance: false },
   jobs: { stages: [] },
+  people: { anniversaries: false, often: false },
+  reading: { types: [], services: [], progress: false, goal: 'none', quotes: false, lending: false, releases: false },
+  habits: { habits: [], goals: false },
+  sport: { sports: [], body: false, races: false },
 };
 
 /** What a template asks of these, given only the questions it asks with this set. */
@@ -380,6 +388,16 @@ describe('setting up an app', () => {
     const expenses = parseSchema(trip.files.find((f) => f.path === 'Away/Expenses/_collection.json')!.text);
     expect(expenses.fields.map((f) => f.key)).toEqual(expect.arrayContaining(['trip', 'payer', 'between', 'total', 'category']));
     expect(trip.files.find((f) => f.path === 'Away/Trips/_rules.js')!.text).toContain('action("Settle up"');
+  });
+
+  it('sets up Reading and watching with the services of the region, and this year from its first day with its goal', () => {
+    expect(readAnswers(TEMPLATES.reading, new Set(['reading']), {}, 'TR').answers.services).toEqual(['Netflix', 'Disney+', 'Prime Video', 'Max', 'Exxen', 'TOD', 'Gain', 'Mubi', 'YouTube', 'Crunchyroll', 'Webtoon', 'Kindle', 'Paper']);
+    expect(readAnswers(TEMPLATES.reading, new Set(['reading']), {}, 'US').answers.services).toContain('Hulu');
+    const plan = planApp({ name: 'Shelf', templates: [{ id: 'reading', answers: { goal: '24' } }] }, { ids, today: '2026-10-23' });
+    const year = plan.files.find((f) => f.path.startsWith('Shelf/Years/') && f.path.endsWith('.md'))!.text;
+    expect([/name: (.*)/.exec(year)![1], /start: (.*)/.exec(year)![1], /target: (.*)/.exec(year)![1]]).toEqual(['"2026"', '2026-01-01', '24']);
+    const library = parseSchema(plan.files.find((f) => f.path === 'Shelf/Library/_collection.json')!.text);
+    expect(library.views!.map((v) => v.name)).toEqual(['Coming out', 'Up next', 'In progress', 'Finished this year', 'By type', 'By where', 'Finished']);
   });
 
   it('says what is wrong with what it was given', () => {

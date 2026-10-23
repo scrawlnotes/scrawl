@@ -101,6 +101,22 @@ export const PIECES: { [role: string]: PieceInfo } = {
   employers: { kind: 'collection', name: 'Companies', singular: 'company', about: 'the companies you apply to.' },
   applications: { kind: 'collection', name: 'Applications', singular: 'application', about: 'each job you applied for: where, how it stands, and what is next.' },
   'job-interviews': { kind: 'collection', name: 'Interviews', singular: 'interview', about: 'each interview: for which job, when, and with whom.' },
+  'close-people': { kind: 'collection', name: 'People', singular: 'person', about: 'the people close to you: how you know them, their birthdays, and when you last talked.' },
+  moments: { kind: 'collection', name: 'Moments', singular: 'moment', about: 'each call, visit and message, with its day.' },
+  library: { kind: 'collection', name: 'Library', singular: 'work', about: 'every book, film, series, anime, manga, webtoon, podcast and game: where to find it, how far you are, what you thought.' },
+  'reading-log': { kind: 'collection', name: 'Log', singular: 'entry', about: 'what was read or watched each day, and how much.' },
+  'reading-years': { kind: 'collection', name: 'Years', singular: 'year', about: 'each year: what you finished, your goal, and your days in a row.' },
+  'reading-lists': { kind: 'collection', name: 'Lists', singular: 'list', about: 'your own lists: for the summer, award nominees, what a friend picked.' },
+  quotes: { kind: 'collection', name: 'Quotes', singular: 'quote', about: 'the lines you keep, from which work and where in it.' },
+  habits: { kind: 'collection', name: 'Habits', singular: 'habit', about: 'what you do every day or every week, and how you kept it.' },
+  'habit-checkins': { kind: 'collection', name: 'Check-ins', singular: 'check-in', about: 'each day a habit was done.' },
+  'personal-goals': { kind: 'collection', name: 'Goals', singular: 'goal', about: 'your own goals, by when, and how far you are.' },
+  workouts: { kind: 'collection', name: 'Workouts', singular: 'workout', about: 'each workout: what, when, how long, how far and how hard.' },
+  'training-plan': { kind: 'collection', name: 'Plan', singular: 'session', about: 'what is planned on which day.' },
+  exercises: { kind: 'collection', name: 'Exercises', singular: 'exercise', about: 'each exercise and its muscle group, your best and when you last did it.' },
+  sets: { kind: 'collection', name: 'Sets', singular: 'set', about: 'each set: the exercise, the weight and the reps.' },
+  'body-measures': { kind: 'collection', name: 'Body', singular: 'measure', about: 'your weight, waist and body fat on each day, and how far from the first.' },
+  races: { kind: 'collection', name: 'Races and goals', singular: 'race', about: 'each race or goal: when, what you aim for, and how it went.' },
 };
 
 /** The roles, in the order the pieces are listed: by template, the shared ones first where they are first used. */

@@ -56,6 +56,10 @@ const MOST: { [id in TemplateId]: Answers } = {
   travel: {},
   split: { people: ['Ayşe', 'Can', 'Deniz'], methods: 'all', abroad: true, finance: true },
   jobs: {},
+  people: { anniversaries: true, often: true },
+  reading: { progress: true, goal: '24', quotes: true, lending: true, releases: true },
+  habits: { goals: true },
+  sport: { sets: true, body: true, races: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -85,6 +89,10 @@ const LEAST: { [id in TemplateId]: Answers } = {
   travel: { keeps: [] },
   split: { people: [], methods: 'equal', abroad: false, finance: false },
   jobs: { stages: [] },
+  people: { anniversaries: false, often: false },
+  reading: { types: [], services: [], progress: false, goal: 'none', quotes: false, lending: false, releases: false },
+  habits: { habits: [], goals: false },
+  sport: { sports: [], body: false, races: false },
 };
 
 /**
@@ -696,6 +704,74 @@ describe('apps', () => {
     expect([now.values.heard, now.problems]).toEqual(['2026-10-23', undefined]);
     const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-31' })).data.records as { record: { name: string } }[];
     expect(due.map((d) => d.record.name)).toContain('Video · Backend developer');
+  });
+
+  it('keeps the people close to you: the next birthday or anniversary every year, and someone not talked to for a while', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Close', templates: ['people'] });
+    const ayse = await saveRecordTool(agent, { collection: 'Close/People', values: { name: 'Ayşe', relation: 'Friend', birthday: '1990-11-03', anniversary: '2015-06-10', often: 30 } });
+    expect(ayse.data.record.values).toMatchObject({ next_birthday: '2026-11-03', age: 36, next_anniversary: '2027-06-10', next: '2026-11-03', occasion: 'Birthday' });
+    expect(ayse.data.record.problems).toEqual([{ kind: 'check', field: 'last', text: 'Not talked yet' }]);
+    expect((await saveRecordTool(agent, { collection: 'Close/Moments', values: { person: 'Ayşe', type: 'Call', date: '2026-09-01' } })).data.record.name).toBe('Call with Ayşe');
+    const person = async () => (await recordsTool(agent, { collection: 'Close/People' })).data.records[0]!;
+    expect([(await person()).values.last, (await person()).problems]).toEqual(['2026-09-01', [{ kind: 'check', field: 'last', text: 'Not talked for 50 days' }]]);
+    await saveRecordTool(agent, { collection: 'Close/Moments', values: { person: 'Ayşe', type: 'Visit', date: '2026-10-18' } });
+    expect((await person()).problems).toBeUndefined();
+    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-12-31' })).data.records as { start: string; record: { name: string } }[];
+    expect(due.map((d) => [d.record.name, d.start])).toEqual([['Ayşe', '2026-11-03']]);
+  });
+
+  it('keeps reading and watching: Update to the last page, the year and its days in a row, a friend’s pick, a lent book, what comes out', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Shelf', templates: ['people', 'reading'], answers: { reading: { goal: '24', lending: true } } });
+    await saveRecordTool(agent, { collection: 'Shelf/People', values: { name: 'Ayşe' } });
+    const dune = await saveRecordTool(agent, { collection: 'Shelf/Library', values: { name: 'Dune', type: 'Book', by: 'Frank Herbert', total: 600, status: 'Up next', recommended: 'Ayşe', where: 'Kindle' } });
+    expect(dune.data.record.values).toMatchObject({ unit: 'pages', recommended: expect.objectContaining({ name: 'Ayşe' }) });
+    const id = dune.data.record.id;
+    const update = (now: number) => saveRecordTool(agent, { collection: 'Shelf/Library', id, action: 'Update', input: { now } });
+    expect((await update(150)).data.record.values).toMatchObject({ done: 150, percent: 0.25, status: 'In progress', started: '2026-10-21' });
+    expect((await update(600)).data.record.values).toMatchObject({ done: 600, status: 'Done', finished: '2026-10-21', read_in: expect.objectContaining({ name: '2026' }) });
+    expect((await recordsTool(agent, { collection: 'Shelf/Log', sort: { field: 'amount' } })).data.records.map((l) => [l.name, l.values.amount])).toEqual([
+      ['Dune · 150 pages', 150],
+      ['Dune · 450 pages', 450],
+    ]);
+    const year = (await recordsTool(agent, { collection: 'Shelf/Years' })).data.records[0]!;
+    expect(year.values).toMatchObject({ name: '2026', target: 24, finished: 1, pages: 600, streak: 1, days_now: 1, projected: 1, pace: 'Behind' });
+    const rated = await saveRecordTool(agent, { collection: 'Shelf/Library', id, values: { rating: 7 } });
+    expect(rated.data.record.problems).toEqual([{ kind: 'check', field: 'rating', text: 'A rating is from 1 to 5' }]);
+    const lent = await saveRecordTool(agent, { collection: 'Shelf/Library', values: { name: 'Solaris', lent_to: 'Can', lent_on: '2026-09-01', back_by: '2026-10-01' } });
+    expect(lent.data.record.problems).toEqual([{ kind: 'check', field: 'back_by', text: 'Can has it since 2026-09-01' }]);
+    await saveRecordTool(agent, { collection: 'Shelf/Library', values: { name: 'Dune: Part Three', type: 'Film', release: '2026-12-18' } });
+    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-12-31' })).data.records as { start: string; view: string; record: { name: string } }[];
+    expect(due.map((d) => [d.record.name, d.view, d.start])).toEqual([['Dune: Part Three', 'Coming out', '2026-12-18']]);
+    expect((await saveRecordTool(agent, { collection: 'Shelf/Quotes', values: { name: 'Fear is the mind-killer.', item: 'Dune', where: 'p. 8' } })).data.record.values.item).toMatchObject({ name: 'Dune' });
+  });
+
+  it('ticks a habit once a day, and keeps workouts: a planned one done, sets and the best, the body since the first, a race', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Me', templates: ['habits', 'sport'], answers: { sport: { body: true, races: true } } });
+    const walk = (await recordsTool(agent, { collection: 'Me/Habits', where: [{ field: 'name', op: 'is', value: 'Walk 30 minutes' }] })).data.records[0]!;
+    const ticked = await saveRecordTool(agent, { collection: 'Me/Habits', id: walk.id, action: 'Done today' });
+    expect(ticked.data.record.values).toMatchObject({ today: 1, last_7: 1 });
+    expect((await refusal(saveRecordTool(agent, { collection: 'Me/Habits', id: walk.id, action: 'Done today' }))).message).toMatch(/Done today already/);
+    const late = await saveRecordTool(agent, { collection: 'Me/Goals', values: { name: 'Learn to swim', due: '2026-09-30' } });
+    expect(late.data.record.problems).toEqual([{ kind: 'check', field: 'due', text: 'Past its day' }]);
+
+    const planned = await saveRecordTool(agent, { collection: 'Me/Plan', values: { date: '2026-10-22', type: 'Run', minutes: 45 } });
+    expect(planned.data.record.name).toBe('Run');
+    const run = await saveRecordTool(agent, { collection: 'Me/Plan', id: planned.data.record.id, action: 'Done' });
+    expect(run.data.record.values).toMatchObject({ status: 'Done', workout: expect.objectContaining({ name: 'Run' }) });
+    const gym = await saveRecordTool(agent, { collection: 'Me/Workouts', values: { name: 'Push day', when: '2026-10-20T18:00', type: 'Gym', minutes: 60, effort: 12 } });
+    expect(gym.data.record.problems).toEqual([{ kind: 'check', field: 'effort', text: 'Effort is from 1 to 10' }]);
+    await saveRecordTool(agent, { collection: 'Me/Exercises', values: { name: 'Bench press', muscle: 'Chest' } });
+    const set = await saveRecordTool(agent, { collection: 'Me/Sets', values: { workout: 'Push day', exercise: 'Bench press', weight: 80, reps: 5 } });
+    expect(set.data.record).toMatchObject({ name: 'Bench press 80 × 5', values: expect.objectContaining({ date: '2026-10-20' }) });
+    expect((await recordsTool(agent, { collection: 'Me/Exercises' })).data.records[0]!.values).toMatchObject({ best: 80, last: '2026-10-20' });
+    expect((await recordsTool(agent, { collection: 'Me/Workouts', where: [{ field: 'this_week', op: 'true' }] })).data.total).toBe(2);
+    await saveRecordTool(agent, { collection: 'Me/Body', values: { date: '2026-10-01', weight: 80 } });
+    expect((await saveRecordTool(agent, { collection: 'Me/Body', values: { date: '2026-10-21', weight: 78.5 } })).data.record.values.change).toBe(-1.5);
+    const race = await saveRecordTool(agent, { collection: 'Me/Races and goals', values: { name: '10K', date: '2026-10-12', target: 'Under 50 min' } });
+    expect(race.data.record.problems).toEqual([{ kind: 'check', field: 'result', text: 'Write how it went' }]);
   });
 
   it('logs a call from a company, and ships a release asking first when cards are open', async () => {

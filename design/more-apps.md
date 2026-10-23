@@ -371,3 +371,15 @@ Roadmap'te faz "16 Yeni app şablonları" ve her dilim bir kart; denemeler "dene
 - Tariflerde tür seçenekleri Main, Soup, Salad, Side, Dessert, Breakfast, Snack; alışveriş listesi "To buy" görünümüyle açılır; malzemesiz tarif "No ingredients yet" diye işaretlenir (her şablonda bir kontrol için).
 - Seyahatte rezervasyon türleri Flight, Hotel, Train, Car, Event; harcama kategorileri Transport, Stay, Food, Activities, Shopping, Other; "biten, başlangıçtan önce" kontrolleri.
 - İş aramada aşamalar CRM'deki gibi okunur (Rejected bitmiş, son aşama tamam); takip kontrolü yalnız süren başvurularda. Companies iş tarafındakinden ayrı bir parça.
+
+7. dilimin kodunda verilenler (23 Ekim, onaylı):
+
+- Yakınlarda kişi, doğum günü ve yıldönümünden önce gelenin gününde Upcoming'e gelir, hangisi olduğunu ve gireceği yaşı söyler. Yakınlık Family, Friend, Partner, Colleague, Other; görüşme türü Call, Visit, Message, Other, adı "Call with Ayşe" gibi.
+- Okumada yıllık hedef Yok, 12, 24, 36, 52 (varsayılan Yok); alıntılar Evet, ödünç Hayır, çıkış günleri Evet. "Kağıt" listede Paper. Kapak bir link alanı.
+- İlerleme birimi türe göre: kitap sayfa; manga ve webtoon chapter; film dakika; oyun saat; dizi, anime, podcast bölüm.
+- Yıl kaydı: bu yılınki kurulumda 1 Ocak'tan, hedefiyle; yeni bir yılda eser bitince o yılın kaydı açılır. Hız: bitenler × 365 ÷ yılın geçen günleri. Art arda günler bir gün atlanınca 0.
+- "Bu haftaki sayfa ve bölüm" günlükte birime göre gruplanmış "This week" görünümüdür (son 7 gün, toplamlarıyla).
+- Okuma görünümleri: Up next, In progress (ilerlemeye göre), Finished this year, By type, By where, bitenlerin takvimi (Upcoming'e gelmez); Coming out ve Lent Upcoming'e gelir.
+- Alışkanlıklarda varsayılanlar Walk 30 minutes, Read 20 pages, Drink 2 litres of water, In bed by 23:00; günlük, haftada 7. "Last 7 days" takvim haftası değil. Hedefe yetişemeyecek alışkanlık işaretlenir, bugün yapılmadıysa hâlâ yapılabilir sayılır (her şablonda bir kontrol için). Hedeflerde durumlar Not started, On track, At risk, Done; ilerleme yüzde.
+- Sporda set ve tekrar sorusu yalnız Gym seçiliyse; vücut ölçüleri ve yarışlar varsayılan Hayır; türlere Other eklenir. Plan durumları Planned, Done, Skipped; Done antrenmanı o günün tarihiyle, saatsiz yazar ve plana bağlar. Set antrenmanının gününü alır. Yarışta hedef ve sonuç metin; günü geçmiş ve sonucu yazılmamış yarış işaretlenir.
+- Health grubunun sırası taslaktaki gibi: Health, Sport and training, Habits and goals.
