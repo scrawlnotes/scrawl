@@ -151,9 +151,10 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
       // The protocol does not carry the client's name with every request; the sign-in does.
       client: { name: clientName || 'Agent' },
       // The agent of this account and client, made the first time it writes (design/activity.md 2.1).
-      self: async (client) => {
+      self: async (client, make = true) => {
         const name = client.name?.trim() || clientName || 'Agent';
-        return { ...oauth.identity(account.id, clientId, name), client: name, ...(account.name && { owner: account.name }) };
+        const identity = make ? oauth.identity(account.id, clientId, name) : oauth.findIdentity(account.id, clientId);
+        return identity && { ...identity, client: name, ...(account.name && { owner: account.name }) };
       },
     };
   };

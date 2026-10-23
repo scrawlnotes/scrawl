@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
-import { columnCards, createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadPeople, loadSchema, MemoryFs, readTrash, restoreFromTrash, saveMe, savePeople, serializeBoard } from '@scrawlnotes/core';
+import { columnCards, createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadPeople, loadSchema, MemoryFs, readTrash, restoreFromTrash, saveBoard, saveMe, savePeople, serializeBoard, updateCard } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { cardsTool, commentTool, saveCardTool } from './cards';
 import { BRIEF, GUIDE } from './guide';
@@ -58,7 +58,7 @@ describe('looking around', () => {
     const { agent } = await sample();
     const spaces = await spacesTool(agent);
     const { guide, ...data } = spaces.data;
-    expect(data).toEqual({ today: '2026-10-15', person: 'Kaan', spaces: [{ id: 'personal', name: 'Personal', where: 'this computer', personal: true, people: [] }] });
+    expect(data).toEqual({ today: '2026-10-15', person: 'Kaan', you: null, spaces: [{ id: 'personal', name: 'Personal', where: 'this computer', personal: true, people: [] }] });
     // The guide comes after them as text, and in the structured content too.
     expect(spaces.text.startsWith(JSON.stringify(data))).toBe(true);
     expect(spaces.text).toContain(GUIDE);
@@ -965,8 +965,8 @@ describe('less to go through', () => {
     await commentTool(agent, CLIENT, { board: 'Scrawl', card: two.key, text: 'Started' });
     const listed = (await cardsTool(agent, { board: 'Scrawl' })).data;
     expect(listed.cards).toEqual([
-      { key: 'SCR-1', title: 'One', column: 'Backlog', priority: 4, due: null, assignee: null, subtasks: '1/2' },
-      { key: 'SCR-2', title: 'Two', column: 'Backlog', priority: 4, due: null, assignee: null, comments: 1 },
+      { key: 'SCR-1', title: 'One', column: 'Backlog', priority: 4, due: null, assignee: null, subtasks: '1/2', workedOn: ['Claude Code · Kaan'] },
+      { key: 'SCR-2', title: 'Two', column: 'Backlog', priority: 4, due: null, assignee: null, comments: 1, workedOn: ['Claude Code · Kaan'] },
     ]);
     expect(listed.columns[0]).toEqual({ name: 'Backlog', kind: 'backlog' });
     expect((await cardsTool(agent, { board: 'Scrawl', full: true })).data.cards[0]).toMatchObject({ description: 'Long words' });
@@ -1008,12 +1008,12 @@ describe('less to go through', () => {
       ['Today there', 'Team'],
     ]);
     expect((await cardsTool(agent, { assignee: 'me' })).data.cards.map((c) => c.title)).toEqual(['Today there']);
-    expect((await refusal(cardsTool(agent, {}))).message).toContain('due, assignee or label');
+    expect((await refusal(cardsTool(agent, {}))).message).toContain('due, assignee, label, by or since');
     expect((await tasksTool(agent, { due: 'today' })).data.tasks.map((t) => [t.title, t.spaceName])).toEqual([
       ['Inbox today', 'Personal'],
       ['Team task today', 'Team'],
     ]);
-    expect((await refusal(tasksTool(agent, {}))).message).toContain('give due or assignee');
+    expect((await refusal(tasksTool(agent, {}))).message).toContain('give due, assignee, by or since');
   });
 
   it('finds a space by its name, says which space each hit is in, and offers only names that are near', async () => {
@@ -1166,6 +1166,88 @@ describe('the agent’s own identity', () => {
     const task = (await loadList(fs, 'Inbox.tasks.json')).tasks.find((t) => t.id === id)!;
     expect(task.timeline!.map((e) => `${e.kind}:${e.byId}`)).toEqual(['assign:me:4f2a9c1e', 'done:me:4f2a9c1e']);
     expect(task.workedOn).toEqual([{ id: self.id, name: 'Claude Code · Kaan', at: expect.any(String) }]);
+  });
+
+  it('finds what is given to it and what it worked on, by itself, the person or a name, since a day', async () => {
+    const personal = new MemoryFs();
+    const shared = new MemoryFs();
+    const seen = '2026-10-15T08:00:00.000Z';
+    const self = { id: 'me:4f2a9c1e', name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC' };
+    await savePeople(shared, [
+      { id: 'me', name: 'Kaan Arslan', seen, active: true },
+      { id: 'mert', name: 'Mert Kaya', seen, active: true },
+      { id: self.id, name: self.name, agent: { client: 'Claude Code', place: 'KAAN-PC', owner: 'Kaan Arslan' }, seen, active: true },
+      { id: 'mert:1a2b3c4d', name: 'Cursor', agent: { client: 'Cursor', owner: 'Mert Kaya' }, seen, active: true },
+    ]);
+    await createTaskList(shared, '', 'Tasks');
+    const board = await createBoard(shared, '', 'Scrawl', 'software');
+    let day = NOW;
+    let made = false;
+    const as: Agent = {
+      spaces: async () => [spaceOf(personal), spaceOf(shared, false, 'Acme')],
+      person: async () => ({ id: 'me', name: 'Kaan Arslan' }),
+      now: () => day,
+      // Made the first time it writes; what only reads finds it, and makes nothing.
+      self: async (_client, make = true) => (made || make ? ((made = true), self) : null),
+    };
+    const acme = { space: 'Acme', board: 'Scrawl' };
+    const titles = (found: { cards: { [key: string]: unknown }[] }) => found.cards.map((c) => c.title);
+    const me = 'Claude Code (KAAN-PC) · Kaan';
+    // Before it has written it is no one yet, and nothing is given to it.
+    expect((await spacesTool(as, CLIENT)).data.you).toBeNull();
+    expect((await cardsTool(as, { assignee: 'self' }, CLIENT)).data.total).toBe(0);
+    expect(made).toBe(false);
+    // It gives work to itself, to another's agent by its name with whose it is, and to the person.
+    await saveCardTool(as, CLIENT, { ...acme, title: 'Export a board', assignee: 'self' });
+    await saveCardTool(as, CLIENT, { ...acme, title: 'Import rows', assignee: 'Cursor · Mert' });
+    await saveTaskTool(as, CLIENT, { space: 'Acme', list: 'Tasks', title: 'Send the estimate', assignee: 'self' });
+    await saveTaskTool(as, CLIENT, { space: 'Acme', list: 'Tasks', title: 'Sign the offer', assignee: 'me' });
+    expect((await loadBoard(shared, board)).cards.map((c) => c.assignee)).toEqual([{ id: self.id, name: self.name }, { id: 'mert:1a2b3c4d', name: 'Cursor' }]);
+    expect((await loadList(shared, 'Tasks.tasks.json')).tasks.map((t) => t.assignee)).toEqual([{ id: self.id, name: self.name }, { id: 'me', name: 'Kaan Arslan' }]);
+    expect((await spacesTool(as, CLIENT)).data).toMatchObject({ you: { id: self.id, name: self.name }, spaces: [{ people: [] }, { people: ['Kaan Arslan', 'Mert Kaya'], agents: [me, 'Cursor · Mert'] }] });
+    // What is given to it, or to an agent by its name, wherever it is.
+    expect(titles((await cardsTool(as, { assignee: 'self' }, CLIENT)).data)).toEqual(['Export a board']);
+    expect((await tasksTool(as, { assignee: 'self' }, CLIENT)).data.tasks.map((t) => t.title)).toEqual(['Send the estimate']);
+    expect(titles((await cardsTool(as, { assignee: 'Cursor' }, CLIENT)).data)).toEqual(['Import rows']);
+    // The next day it finishes a card and a task, and Kaan changes the other card in the app.
+    day = new Date(2026, 9, 16, 9, 0);
+    await saveCardTool(as, CLIENT, { ...acme, id: 'SCR-1', column: 'done' });
+    await saveTaskTool(as, CLIENT, { space: 'Acme', list: 'Tasks', id: 'Send the estimate', done: true });
+    const shown = await loadBoard(shared, board);
+    await saveBoard(shared, board, updateCard(shown, shown.cards[1]!.id, { priority: 2 }, () => day, { name: 'Kaan Arslan', id: 'me' }));
+    // What it did since a day comes, done or not; what Kaan did is Kaan's.
+    expect(titles((await cardsTool(as, { by: 'self' }, CLIENT)).data)).toEqual(['Import rows', 'Export a board']);
+    expect(titles((await cardsTool(as, { by: 'self', since: '2026-10-16' }, CLIENT)).data)).toEqual(['Export a board']);
+    expect(titles((await cardsTool(as, { ...acme, by: 'self', since: '2026-10-16' }, CLIENT)).data)).toEqual(['Export a board']);
+    expect(titles((await cardsTool(as, { by: 'me', since: '2026-10-16' }, CLIENT)).data)).toEqual(['Import rows']);
+    expect(titles((await cardsTool(as, { by: 'Kaan Arslan' }, CLIENT)).data)).toEqual(['Import rows']);
+    expect(titles((await cardsTool(as, { by: 'Claude Code (KAAN-PC)', open: true }, CLIENT)).data)).toEqual(['Import rows']);
+    expect((await cardsTool(as, { by: 'self', since: '2026-10-17' }, CLIENT)).data.total).toBe(0);
+    expect(titles((await cardsTool(as, { since: '2026-10-16' }, CLIENT)).data)).toEqual(['Import rows', 'Export a board']);
+    // A short card says who worked on it, the latest first; in full, with when, and what mattered on it.
+    expect((await cardsTool(as, { ...acme, card: 'SCR-2' }, CLIENT)).data.cards[0]).toMatchObject({ assignee: { id: 'mert:1a2b3c4d', name: 'Cursor · Mert' } });
+    expect((await cardsTool(as, { ...acme, phase: 'all', open: false }, CLIENT)).data.cards.find((c) => c.key === 'SCR-2')).toMatchObject({ assignee: 'Cursor · Mert', workedOn: ['Kaan Arslan', me] });
+    expect((await cardsTool(as, { ...acme, card: 'SCR-1' }, CLIENT)).data.cards[0]).toMatchObject({
+      workedOn: [{ name: me, at: expect.any(String) }],
+      activity: [
+        { kind: 'created', by: me },
+        { kind: 'assign', by: me, given: me },
+        { kind: 'move', by: me, from: 'Backlog', to: 'Done' },
+      ],
+    });
+    expect((await tasksTool(as, { by: 'self', since: '2026-10-16', full: true }, CLIENT)).data.tasks).toMatchObject([
+      { title: 'Send the estimate', done: true, workedOn: [{ name: me }], activity: [{ kind: 'created', by: me }, { kind: 'assign', given: me }, { kind: 'done', by: me }] },
+    ]);
+    expect((await tasksTool(as, { space: 'Acme', list: 'Tasks', by: 'self' }, CLIENT)).data.tasks).toMatchObject([
+      { title: 'Send the estimate', workedOn: [me] },
+      { title: 'Sign the offer', workedOn: [me] },
+    ]);
+    // A name that is none of them is refused with the people and the agents.
+    const wrong = await refusal(saveCardTool(as, CLIENT, { ...acme, title: 'Third', assignee: 'Ayşe' }));
+    expect(wrong.details).toMatchObject({ people: ['Kaan Arslan', 'Mert Kaya'], agents: [me, 'Cursor · Mert'] });
+    // Where the door knows no identity, nothing is given to "self".
+    const { self: _, ...nobody } = as;
+    expect((await refusal(saveCardTool(nobody, CLIENT, { ...acme, title: 'Third', assignee: 'self' }))).message).toContain('Who you are is not known here');
   });
 
   it('is made as the client’s name when the door knows no identity', async () => {

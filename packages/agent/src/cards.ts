@@ -32,9 +32,10 @@ import {
   valueText,
   type VaultFs,
 } from '@scrawlnotes/core';
+import { cardActivity, type People, peopleIn, workedOnNames, workedOnOut, writerOf } from './activity';
 import { checkOpen, cleanPath, Refusal } from './paths';
 import { parseValues } from './records';
-import { actorOf, type Agent, authorOf, type AgentSpace, type Client, type Due, dueIs, elementsOf, exists, isAssignee, noteRefOf, nowOf, personRefOf, pickAcross, pickSpace, todayOf } from './space';
+import { actorOf, type Agent, authorOf, type AgentSpace, type Client, type Due, dueIs, elementsOf, exists, isAssignee, nameIn, noteRefOf, nowOf, personRefOf, pickAcross, pickSpace, selfOf, todayOf, type Who, workedOnBy } from './space';
 import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
 // Boards: the cards of a board, short, and of every board by a day or a person; a card in full or
@@ -116,12 +117,13 @@ function valuesOf(board: Board, card: Card, today: string): { [key: string]: Fie
  * A card as a list gives it: what tells cards apart and how far each is, without its texts. Its
  * description, subtasks and comments come with the card alone, or with `full: true`.
  */
-export function cardLine(board: Board, card: Card, today: string) {
+export function cardLine(board: Board, card: Card, today: string, people: People = []) {
   const column = columnOf(board, card);
   const phase = card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
   const values = valuesOf(board, card, today);
   const comments = card.timeline.filter((entry) => entry.kind === 'comment').length;
   const ticked = card.subtasks?.filter((s) => s.done).length ?? 0;
+  const worked = workedOnNames(card, people);
   return {
     key: keyOf(board, card),
     title: card.title,
@@ -130,16 +132,17 @@ export function cardLine(board: Board, card: Card, today: string) {
     priority: card.priority,
     due: card.due,
     ...(card.labels?.length && { labels: card.labels }),
-    assignee: card.assignee?.name ?? null,
+    assignee: card.assignee ? nameIn(card.assignee, people) : null,
     ...(Object.keys(values).length > 0 && { values }),
     ...(card.subtasks?.length && { subtasks: `${ticked}/${card.subtasks.length}` }),
     ...(comments > 0 && { comments }),
     ...(card.note && { note: card.note }),
+    ...(worked.length > 0 && { workedOn: worked }),
   };
 }
 
-/** A card as the tools give it in full. */
-export function cardOut(board: Board, card: Card, today: string) {
+/** A card as the tools give it in full: with who worked on it and what mattered on it, by name. */
+export function cardOut(board: Board, card: Card, today: string, people: People = []) {
   const column = columnOf(board, card);
   const phase = card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
   const values = valuesOf(board, card, today);
@@ -153,11 +156,17 @@ export function cardOut(board: Board, card: Card, today: string) {
     priority: card.priority,
     due: card.due,
     ...(card.labels?.length && { labels: card.labels }),
-    assignee: card.assignee ?? null,
+    assignee: card.assignee ? { ...card.assignee, name: nameIn(card.assignee, people) } : null,
     ...(Object.keys(values).length > 0 && { values }),
     ...(card.subtasks?.length && { subtasks: card.subtasks.map(subtaskOut) }),
     ...(card.note && { note: card.note }),
-    comments: card.timeline.flatMap((entry) => (entry.kind === 'comment' ? [{ at: entry.at, ...(entry.by && { by: entry.by }), text: entry.text }] : [])),
+    comments: card.timeline.flatMap((entry) => {
+      if (entry.kind !== 'comment') return [];
+      const by = writerOf(entry, people);
+      return [{ at: entry.at, ...(by && { by }), text: entry.text }];
+    }),
+    workedOn: workedOnOut(card, people),
+    activity: cardActivity(board, card, people),
     created: card.created,
     updated: card.updated,
     completed: card.completed,
@@ -219,7 +228,7 @@ function boardOut(path: string, board: Board) {
 
 export interface CardsArgs {
   space?: string;
-  /** Left out with `due`, `assignee` or `label`: every board. */
+  /** Left out with `due`, `assignee`, `label`, `by` or `since`: every board. */
   board?: string;
   card?: string;
   column?: string;
@@ -227,41 +236,57 @@ export interface CardsArgs {
   assignee?: string;
   label?: string;
   due?: Due;
+  /** Who worked on it: "self" the agent, "me" the person, or a name. */
+  by?: string;
+  /** Worked on since this day, by `by` when given, else by anyone. */
+  since?: string;
   open?: boolean;
   brief?: boolean;
   /** Each card with its description, subtasks and comments. */
   full?: boolean;
 }
 
-/** The cards that are what `assignee`, `label` and `due` ask for. */
-async function fitsOf(agent: Agent, args: CardsArgs): Promise<(card: Card) => boolean> {
+/** Who worked on what is asked for: with `by` or `since`, what is done and every phase come too, unless told otherwise. */
+const lookingBack = (args: CardsArgs) => !!args.by?.trim() || !!args.since?.trim();
+
+/** The cards that are what `assignee`, `label`, `due`, `by` and `since` ask for, among a space's people. */
+async function fitsOf(agent: Agent, client: Client, args: CardsArgs): Promise<(card: Card, people: People) => boolean> {
   const today = todayOf(agent);
-  const person = args.assignee ? await agent.person() : null;
-  return (card) => (!args.assignee || isAssignee(card.assignee, args.assignee, person)) && (!args.label || !!card.labels?.some((l) => same(l, args.label!))) && (!args.due || dueIs(card.due, args.due, today));
+  const since = dayArg(args.since, 'Since') ?? undefined;
+  const asked = args.assignee || args.by;
+  const person = asked ? await agent.person() : null;
+  const self = asked ? await selfOf(agent, client) : null;
+  return (card, people) =>
+    (!args.assignee || isAssignee(card.assignee, args.assignee, person, self, people)) &&
+    (!args.label || !!card.labels?.some((l) => same(l, args.label!))) &&
+    (!args.due || dueIs(card.due, args.due, today)) &&
+    (!lookingBack(args) || workedOnBy(card, args.by?.trim() || undefined, since, { person, self, people, timeZone: agent.timeZone }));
 }
 
-/** The cards of one board, or, with no board given, the cards of every board that fit `due`, `assignee` or `label`. */
-export function cardsTool(agent: Agent, args: CardsArgs & { board: string }): ReturnType<typeof boardCards>;
-export function cardsTool(agent: Agent, args: CardsArgs & { board?: undefined }): ReturnType<typeof acrossBoards>;
-export function cardsTool(agent: Agent, args: CardsArgs): ReturnType<typeof boardCards> | ReturnType<typeof acrossBoards>;
-export function cardsTool(agent: Agent, args: CardsArgs) {
-  return args.board?.trim() ? boardCards(agent, { ...args, board: args.board }) : acrossBoards(agent, args);
+/** The cards of one board, or, with no board given, the cards of every board that fit `due`, `assignee`, `label`, `by` or `since`. */
+export function cardsTool(agent: Agent, args: CardsArgs & { board: string }, client?: Client): ReturnType<typeof boardCards>;
+export function cardsTool(agent: Agent, args: CardsArgs & { board?: undefined }, client?: Client): ReturnType<typeof acrossBoards>;
+export function cardsTool(agent: Agent, args: CardsArgs, client?: Client): ReturnType<typeof boardCards> | ReturnType<typeof acrossBoards>;
+export function cardsTool(agent: Agent, args: CardsArgs, client: Client = {}) {
+  return args.board?.trim() ? boardCards(agent, client, { ...args, board: args.board }) : acrossBoards(agent, client, args);
 }
 
 /** Across boards a card's day matters, not its phase: every open card that fits, wherever it is. */
-async function acrossBoards(agent: Agent, args: CardsArgs) {
+async function acrossBoards(agent: Agent, client: Client, args: CardsArgs) {
   if (args.card) throw new Refusal('Which board is the card on? Give board too, or find the card with search');
-  if (!args.due && !args.assignee && !args.label) throw new Refusal('Give a board, or due, assignee or label to look across every board');
+  if (!args.due && !args.assignee && !args.label && !lookingBack(args)) throw new Refusal('Give a board, or due, assignee, label, by or since to look across every board');
   const today = todayOf(agent);
-  const fits = await fitsOf(agent, args);
+  const fits = await fitsOf(agent, client, args);
+  const open = args.open ?? !lookingBack(args);
   const spaces = args.space?.trim() ? [await pickSpace(agent, args.space)] : await agent.spaces();
   const found: { [key: string]: unknown; due: string | null; priority: number }[] = [];
   for (const space of spaces) {
+    const people = await peopleIn(space.fs);
     for (const element of await elementsOf(space.fs, ['board'])) {
       const board = await loadBoard(space.fs, element.path);
       for (const card of board.cards) {
-        if (((args.open ?? true) && isFinished(board, card)) || !fits(card)) continue;
-        found.push({ ...(args.full ? cardOut(board, card, today) : cardLine(board, card, today)), board: element.path, boardName: boardName(element.path), space: space.id, spaceName: space.name });
+        if ((open && isFinished(board, card)) || !fits(card, people)) continue;
+        found.push({ ...(args.full ? cardOut(board, card, today, people) : cardLine(board, card, today, people)), board: element.path, boardName: boardName(element.path), space: space.id, spaceName: space.name });
       }
     }
   }
@@ -269,23 +294,23 @@ async function acrossBoards(agent: Agent, args: CardsArgs) {
   return { data: { today, total: found.length, cards: found } };
 }
 
-async function boardCards(agent: Agent, args: CardsArgs & { board: string }) {
+async function boardCards(agent: Agent, client: Client, args: CardsArgs & { board: string }) {
   const today = todayOf(agent);
-  const fits = await fitsOf(agent, args);
+  const fits = await fitsOf(agent, client, args);
   const { space, element } = await pickAcross(agent, args.space, args.board, ['board'], 'board');
-  const board = await loadBoard(space.fs, element.path);
+  const [board, people] = await Promise.all([loadBoard(space.fs, element.path), peopleIn(space.fs)]);
   let cards: Card[];
   if (args.card) cards = [pickCard(board, args.card)];
   else {
-    const current = board.phasesOn ? currentPhase(board) : undefined;
+    const current = board.phasesOn && !lookingBack(args) ? currentPhase(board) : undefined;
     cards = args.phase ? (fold(args.phase) === 'all' ? board.cards : phaseCards(board, pickPhase(board, args.phase)?.id ?? null)) : current ? phaseCards(board, current.id) : board.cards;
-    if (args.open ?? true) cards = cards.filter((c) => !isFinished(board, c));
+    if (args.open ?? !lookingBack(args)) cards = cards.filter((c) => !isFinished(board, c));
     if (args.column) {
       const column = pickColumn(board, args.column);
       const kind = COLUMN_KINDS.includes(fold(args.column) as ColumnKind) ? (fold(args.column) as ColumnKind) : null;
       cards = cards.filter((c) => (kind ? columnOf(board, c)?.kind === kind : c.column === column.id));
     }
-    cards = cards.filter(fits);
+    cards = cards.filter((c) => fits(c, people));
     const order = new Map(board.columns.map((c, i) => [c.id, i]));
     cards = [...cards].sort((a, b) => (order.get(a.column) ?? 99) - (order.get(b.column) ?? 99) || a.order - b.order);
   }
@@ -297,7 +322,7 @@ async function boardCards(agent: Agent, args: CardsArgs & { board: string }) {
       spaceName: space.name,
       ...boardOut(element.path, board),
       total: cards.length,
-      cards: cards.map((c) => (full ? cardOut(board, c, today) : cardLine(board, c, today))),
+      cards: cards.map((c) => (full ? cardOut(board, c, today, people) : cardLine(board, c, today, people))),
       ...(brief && { brief }),
     },
     ...(brief && { text: brief }),
@@ -382,42 +407,46 @@ export function saveCardTool(agent: Agent, client: Client, args: CardArgs) {
   return args.items ? saveCards(agent, client, { ...args, items: args.items }) : saveCard(agent, client, args);
 }
 
-/** The board a card or cards go on, the clock and the actor. */
+/** The board a card or cards go on, the clock, the actor, and who "me" and "self" are. */
 async function cardPlace(agent: Agent, client: Client, args: CardArgs) {
   const { space, element } = await pickAcross(agent, args.space, args.board, ['board'], 'board');
-  const name = actorOf(client, await agent.person());
+  const person = await agent.person();
+  const name = actorOf(client, person);
   const author = await authorOf(agent, client, name);
+  const [board, people, self] = await Promise.all([loadBoard(space.fs, element.path), peopleIn(space.fs), selfOf(agent, client, true)]);
   return {
     space,
     element,
-    board: await loadBoard(space.fs, element.path),
+    board,
+    people,
     now: nowOf(agent),
     // What it does on a card is written with its name and, when the door knows it, its identity.
     by: { ...(name && { name }), ...(author?.id && { id: author.id }) } satisfies Actor,
     author,
+    who: { me: person, self } satisfies Who,
     today: todayOf(agent),
     where: { space: space.id, spaceName: space.name, board: element.path },
   };
 }
 
 async function saveCard(agent: Agent, client: Client, args: CardArgs) {
-  const { space, element, board, now, by, author, today, where } = await cardPlace(agent, client, args);
-  const step = await applyCard(space, board, args, now, by, author);
-  if (step.status === 'exists') return { data: { ...where, created: false, exists: true, message: step.message, card: cardOut(board, step.card, today) } };
+  const { space, element, board, people, now, by, author, who, today, where } = await cardPlace(agent, client, args);
+  const step = await applyCard(space, board, args, now, by, author, who);
+  if (step.status === 'exists') return { data: { ...where, created: false, exists: true, message: step.message, card: cardOut(board, step.card, today, people) } };
   await saveBoard(space.fs, element.path, step.board);
-  return { data: { ...where, created: step.status === 'created', card: cardOut(step.board, step.board.cards.find((c) => c.id === step.card.id)!, today) } };
+  return { data: { ...where, created: step.status === 'created', card: cardOut(step.board, step.board.cards.find((c) => c.id === step.card.id)!, today, people) } };
 }
 
 async function saveCards(agent: Agent, client: Client, args: CardArgs & { items: CardItem[] }) {
   checkItems(args, args.items, 'card');
   const place = await cardPlace(agent, client, args);
-  const { space, element, now, by, author, today, where } = place;
+  const { space, element, people, now, by, author, who, today, where } = place;
   let { board } = place;
   // Every card is checked and laid on the board before anything is written: one refused, none written.
   const done: CardDone[] = [];
   for (const [i, item] of args.items.entries()) {
     try {
-      const step = await applyCard(space, board, item, now, by, author);
+      const step = await applyCard(space, board, item, now, by, author, who);
       board = step.board;
       done.push(step);
     } catch (error) {
@@ -433,19 +462,19 @@ async function saveCards(agent: Agent, client: Client, args: CardArgs & { items:
       created: count('created'),
       changed: count('changed'),
       exists: count('exists'),
-      cards: done.map((step) => ({ status: step.status, ...cardLine(board, board.cards.find((c) => c.id === step.card.id)!, today) })),
+      cards: done.map((step) => ({ status: step.status, ...cardLine(board, board.cards.find((c) => c.id === step.card.id)!, today, people) })),
     },
   };
 }
 
 /** One card added to `board` or changed on it, as `args` asks; the board is not written. */
-async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: Date, by: Actor, author: PersonRef | undefined): Promise<CardDone> {
+async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: Date, by: Actor, author: PersonRef | undefined, who: Who): Promise<CardDone> {
   const column = args.column ? pickColumn(board, args.column) : undefined;
   const phase = args.phase ? pickPhase(board, args.phase) : undefined;
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
   if (args.priority !== undefined && priority === undefined) throw new Refusal('Priority is 1 (highest) to 4 (none)', { given: args.priority });
   const due = dayArg(args.due, 'Due');
-  const assignee = args.assignee === undefined ? undefined : await personRefOf(space, args.assignee);
+  const assignee = args.assignee === undefined ? undefined : await personRefOf(space, args.assignee, who);
   const values = args.values ? await parseValues(space.fs, board.fields ?? [], args.values) : undefined;
   if (values && Object.keys(values.extra).length > 0) {
     const [key, raw] = Object.entries(values.extra)[0]!;
@@ -458,7 +487,7 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
   if (args.id) {
     card = pickCard(board, args.id);
     if (args.title !== undefined && !args.title.trim()) throw new Refusal('A card’s title cannot be empty; leave title out to keep it', { card: keyOf(board, card) });
-    const subtasks = args.subtasks ? await applySubtasks(space, card.subtasks ?? [], args.subtasks, now) : undefined;
+    const subtasks = args.subtasks ? await applySubtasks(space, card.subtasks ?? [], args.subtasks, now, who) : undefined;
     board = updateCard(
       board,
       card.id,
@@ -507,7 +536,7 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
       ...(note && { note }),
       ...(author && { author }),
     };
-    const subtasks = args.subtasks ? await applySubtasks(space, [], args.subtasks, now) : [];
+    const subtasks = args.subtasks ? await applySubtasks(space, [], args.subtasks, now, who) : [];
     const before = board.cards.length;
     board = addCard(board, input, () => now, by);
     if (board.cards.length === before) throw new Refusal('The card could not be added');
@@ -522,6 +551,7 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
 export async function commentTool(agent: Agent, client: Client, args: { space?: string; board: string; card: string; text: string }) {
   const { space, element } = await pickAcross(agent, args.space, args.board, ['board'], 'board');
   let board = await loadBoard(space.fs, element.path);
+  const people = await peopleIn(space.fs);
   const card = pickCard(board, args.card);
   const text = args.text.trim();
   if (!text) throw new Refusal('A comment needs text');
@@ -531,11 +561,11 @@ export async function commentTool(agent: Agent, client: Client, args: { space?: 
   // A cut-off call sent again must not say the same thing twice.
   const last = [...card.timeline].reverse().find((entry) => entry.kind === 'comment');
   if (last && last.kind === 'comment' && last.text === text && (last.by ?? null) === (by ?? null)) {
-    return { data: { space: space.id, board: element.path, written: false, message: 'This is already the last comment on the card, by you; it was not written again.', card: cardOut(board, card, todayOf(agent)) } };
+    return { data: { space: space.id, board: element.path, written: false, message: 'This is already the last comment on the card, by you; it was not written again.', card: cardOut(board, card, todayOf(agent), people) } };
   }
   board = addComment(board, card.id, text, () => now, { ...(by && { name: by }), ...(author?.id && { id: author.id }) });
   await saveBoard(space.fs, element.path, board);
-  return { data: { space: space.id, board: element.path, written: true, card: cardOut(board, board.cards.find((c) => c.id === card.id)!, todayOf(agent)) } };
+  return { data: { space: space.id, board: element.path, written: true, card: cardOut(board, board.cards.find((c) => c.id === card.id)!, todayOf(agent), people) } };
 }
 
 /** A path inside a space that must exist, for tools that take one. */

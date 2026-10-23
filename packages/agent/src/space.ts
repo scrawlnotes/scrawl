@@ -9,7 +9,10 @@ import {
   fileNameOf,
   fold,
   isAgent,
+  isAgentId,
   loadPeople,
+  ownerName,
+  type Person as PersonRow,
   type PersonRef,
   type Record as CollectionRecord,
   readTree,
@@ -20,6 +23,7 @@ import {
   TASK_LIST_EXT,
   type TreeNode,
   type VaultFs,
+  type WorkedOn,
   wallClock,
   withAgent,
 } from '@scrawlnotes/core';
@@ -63,9 +67,10 @@ export interface Agent {
   client?: Client;
   /**
    * The agent itself, as what it writes carries it (design/activity.md 2): found where it
-   * connects, made the first time it writes. Null when the door does not know whose agent it is.
+   * connects, made the first time it writes; with `make` false only found, as what only reads
+   * asks. Null when the door does not know whose agent it is, or it is not made yet.
    */
-  self?: (client: Client) => Promise<AgentRow | null>;
+  self?: (client: Client, make?: boolean) => Promise<AgentRow | null>;
 }
 
 /** The client that is calling, as it names itself: "Claude Code", "Claude", "ChatGPT", "Cursor". */
@@ -88,6 +93,11 @@ export const clockOf = (agent: Agent): Date => wallClock(nowOf(agent), agent.tim
 export function actorOf(client: Client, person: Person | null): string | undefined {
   const parts = [client.name?.trim(), person?.name?.trim()].filter((part): part is string => !!part);
   return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
+/** The agent itself when the door knows it; with `make` false, only when it has written before, as what only reads asks. */
+export async function selfOf(agent: Agent, client: Client, make = false): Promise<AgentRow | null> {
+  return (await agent.self?.(client, make).catch(() => null)) ?? null;
 }
 
 /** Who made a task or a card: the agent itself when the door knows it, else the name a change is written as. */
@@ -292,11 +302,35 @@ export function dueIs(day: string | null | undefined, due: Due, today: string): 
   return due === 'overdue' ? day < today : due === 'today' ? day === today : day > today;
 }
 
-/** Whether `assignee`, as an agent asked for it, is the one a task or a card is given to: `me` is the person. */
-export function isAssignee(given: { id?: string; name?: string } | null | undefined, asked: string, person: Person | null): boolean {
+/**
+ * Whether `asked` is who a task or a card is given to, or one who worked on it: "me" is the
+ * person, "self" the agent; else an id or a name, an agent's as its row has it, with whose it is or not.
+ */
+export function isAssignee(given: { id?: string; name?: string } | null | undefined, asked: string, person: Person | null, self: AgentRow | null = null, people: Pick<PersonRow, 'id' | 'name' | 'agent'>[] = []): boolean {
   if (!given) return false;
   if (fold(asked.trim()) === 'me') return !!person && ((!!person.id && given.id === person.id) || (!!person.name && !!given.name && same(given.name, person.name)));
-  return (!!given.name && same(given.name, asked)) || given.id === asked;
+  if (fold(asked.trim()) === 'self') return !!self && given.id === self.id;
+  const row = given.id ? people.find((p) => p.id === given.id) : undefined;
+  return given.id === asked.trim() || [given.name, row?.name, nameIn(given, people)].some((name) => !!name && same(name, asked));
+}
+
+/** Who someone is, by name, as the tools say it: a person's name; an agent's with whose it is, "Claude Code (KAAN-PC) · Kaan". */
+export function nameIn(who: { id?: string; name?: string }, people: Pick<PersonRow, 'id' | 'name' | 'agent'>[]): string {
+  const row = who.id ? people.find((p) => p.id === who.id) : undefined;
+  const name = row?.name ?? who.name ?? '';
+  if (!row || !isAgentId(row.id)) return name;
+  const owner = ownerName(row, people as PersonRow[])?.split(/\s+/)[0];
+  return owner ? `${name} · ${owner}` : name;
+}
+
+/**
+ * Whether `asked` worked on it, since `since` when given: "me" the person, "self" the agent, else
+ * a name, an agent's with whose it is or not. With no one asked, whether anyone worked on it since.
+ */
+export function workedOnBy(item: { workedOn?: WorkedOn[] }, asked: string | undefined, since: string | undefined, who: { person: Person | null; self: AgentRow | null; people: PersonRow[]; timeZone?: string }): boolean {
+  const workers = (item.workedOn ?? []).filter((w) => !since || dayIn(new Date(w.at), who.timeZone) >= since);
+  if (!asked) return workers.length > 0 || !since;
+  return workers.some((w) => isAssignee(w, asked, who.person, who.self, who.people));
 }
 
 /** The note a task or a card is about, by path or name; null unlinks it. */
@@ -331,23 +365,42 @@ export async function peopleOf(fs: VaultFs): Promise<string[]> {
   return (await loadPeople(fs).catch(() => [])).filter((p) => p.active && p.name && !isAgent(p)).map((p) => p.name!);
 }
 
+/** The names of a space's agents that still change something there, each with whose it is: "Claude Code (KAAN-PC) · Kaan". */
+export async function agentsOf(fs: VaultFs): Promise<string[]> {
+  const people = await loadPeople(fs).catch(() => []);
+  return people.filter((p) => p.active && isAgent(p)).map((p) => nameIn(p, people));
+}
+
+/** Who "me" and "self" are when a name is given: the person, and the agent itself. */
+export interface Who {
+  me?: Person | null;
+  self?: AgentRow | null;
+}
+
 /**
- * Who a name means in a space: the person of that name in the space's people, or the one person
- * a first or a last name fits ("Kaan" is Kaan Arslan). In a space that has people, a name that
- * fits none of them is refused with their names; the personal space, and one with no people yet,
- * keep the name as it was typed. Null gives it to nobody.
+ * Who a name means in a space: "me" the person, "self" the agent itself; the person or the agent
+ * of that name in the space's people, an agent also by its name with whose it is ("Claude Code ·
+ * Mert"); or the one person a first or a last name fits ("Kaan" is Kaan Arslan). In a space that
+ * has people, a name that fits none of them is refused with their names; the personal space, and
+ * one with no people yet, keep the name as it was typed. Null gives it to nobody.
  */
-export async function personRefOf(space: Pick<AgentSpace, 'fs' | 'personal'>, name: string | null | undefined): Promise<PersonRef | null> {
+export async function personRefOf(space: Pick<AgentSpace, 'fs' | 'personal'>, name: string | null | undefined, who: Who = {}): Promise<PersonRef | null> {
   if (name === null) return null;
   const clean = name?.trim();
   if (!clean) return null;
-  const people = (await loadPeople(space.fs).catch(() => [])).filter((p) => p.name && !isAgent(p));
-  const shown = (found: typeof people) => found.map((p) => ({ id: p.id, name: p.name }));
-  const byId = people.find((p) => p.id === clean);
+  if (fold(clean) === 'self') {
+    if (!who.self) throw new Refusal('Who you are is not known here, so nothing can be given to you; give a person’s name');
+    return { id: who.self.id, name: who.self.name };
+  }
+  if (fold(clean) === 'me' && who.me?.id) return { id: who.me.id, ...(who.me.name && { name: who.me.name }) };
+  const all = (await loadPeople(space.fs).catch(() => [])).filter((p) => p.name);
+  const people = all.filter((p) => !isAgent(p));
+  const shown = (found: typeof all) => found.map((p) => ({ id: p.id, name: nameIn(p, all) }));
+  const byId = all.find((p) => p.id === clean);
   if (byId) return refOf(byId);
-  const whole = people.filter((p) => same(p.name!, clean));
+  const whole = all.filter((p) => same(p.name!, clean) || (isAgent(p) && same(nameIn(p, all), clean)));
   if (whole.length === 1) return refOf(whole[0]!);
-  if (whole.length > 1) throw new Refusal(`More than one person is called ${clean}; say which by id`, { candidates: shown(whole) });
+  if (whole.length > 1) throw new Refusal(`More than one is called ${clean}; say which by id, or an agent by its name with whose it is`, { candidates: shown(whole) });
   const words = fold(clean).split(/\s+/);
   const part = people.filter((p) => {
     const theirs = fold(p.name!).split(/\s+/);
@@ -356,5 +409,5 @@ export async function personRefOf(space: Pick<AgentSpace, 'fs' | 'personal'>, na
   if (part.length === 1) return refOf(part[0]!);
   if (part.length > 1) throw new Refusal(`More than one person is called ${clean}; give the whole name`, { candidates: shown(part) });
   if (space.personal || people.length === 0) return { name: clean };
-  throw new Refusal(`No one called ${clean} is in this space; give the name of one of its people`, { people: people.map((p) => p.name) });
+  throw new Refusal(`No one called ${clean} is in this space; give the name of one of its people or agents`, { people: people.map((p) => p.name), agents: all.filter(isAgent).map((p) => nameIn(p, all)) });
 }

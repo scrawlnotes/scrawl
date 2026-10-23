@@ -358,8 +358,13 @@ export class OAuth {
     return transaction(this.db, () => this.identityOf(account, clientId, client));
   }
 
+  /** The agent of an account and a client when it is made; null before it first writes. */
+  findIdentity(account: string, clientId: string): AgentIdentity | null {
+    return (this.db.prepare('SELECT id, name FROM agent_identities WHERE account_id = ? AND client_id = ?').get(account, clientId) as AgentIdentity | undefined) ?? null;
+  }
+
   private identityOf(account: string, clientId: string, client: string, name?: string): AgentIdentity {
-    const found = this.db.prepare('SELECT id, name FROM agent_identities WHERE account_id = ? AND client_id = ?').get(account, clientId) as AgentIdentity | undefined;
+    const found = this.findIdentity(account, clientId);
     if (found) return found;
     const same = (this.db.prepare('SELECT COUNT(*) AS n FROM agent_identities WHERE account_id = ? AND client = ?').get(account, client) as { n: number }).n;
     const made = { id: `${account}:${randomBytes(4).toString('hex')}`, name: name ?? (same === 0 ? client : `${client} (${same + 1})`) };

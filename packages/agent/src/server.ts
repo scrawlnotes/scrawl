@@ -44,13 +44,15 @@ const subtasks = z
       done: z.boolean().optional(),
       due: z.string().nullable().optional().describe('A day as YYYY-MM-DD; null for none.'),
       priority: z.number().int().min(1).max(4).optional(),
-      assignee: z.string().nullable().optional(),
+      assignee: z.string().nullable().optional().describe('Who it is given to, as for the card: a name, "me", "self"; null for nobody.'),
       remove: z.boolean().optional().describe('true takes it off the list.'),
     }),
   )
   .optional()
   .describe('Subtasks to add, change, tick off (done: true) or take off (remove: true); the others stay as they are. One level, in the order added.');
 const another = z.boolean().optional().describe('true to add it even though one with the same name is already there. Left out, the tool returns the one that exists instead of adding a second.');
+const by = z.string().optional().describe('Who worked on it, as its workedOn has them: "self" for you, "me" for the person, or a person’s or an agent’s name. With by or since, what is done comes too.');
+const since = z.string().optional().describe('A day as YYYY-MM-DD: worked on since that day, by `by` when given, else by anyone.');
 
 /** The MCP server over the spaces `agent` gives, with every tool and the guide. */
 export function buildServer(agent: Agent): McpServer {
@@ -72,10 +74,10 @@ export function buildServer(agent: Agent): McpServer {
     'spaces',
     {
       title: 'Spaces',
-      description: 'Start here, once. Lists the spaces you can reach (id, name, where it lives, whether it is the personal one, its people by name), with today’s date and the person’s name, and then the guide: how to work in Scrawl and how each file is laid out (a collection’s schema, a board, a task list). Read the guide before anything else. The other tools find a board, a list, a collection or a file by its name in every space; give `space` to look in one, and to make something new when there is more than one.',
+      description: 'Start here, once. Lists the spaces you can reach (id, name, where it lives, whether it is the personal one, its people and its agents by name), with today’s date, the person’s name and who you are (`you`, once you have written), and then the guide: how to work in Scrawl and how each file is laid out (a collection’s schema, a board, a task list). Read the guide before anything else. The other tools find a board, a list, a collection or a file by its name in every space; give `space` to look in one, and to make something new when there is more than one.',
       annotations: { readOnlyHint: true },
     },
-    () => answer(() => spacesTool(agent)),
+    (ctx) => answer(() => spacesTool(agent, client(ctx))),
   );
 
   server.registerTool(
@@ -254,23 +256,25 @@ export function buildServer(agent: Agent): McpServer {
     'cards',
     {
       title: 'Cards',
-      description: 'Lists the cards of a board, short: key, title, column, phase, priority, due, labels, assignee, values, how many subtasks are ticked and how many comments. The open cards of the current phase unless told otherwise. `column` picks a column by name or by kind (backlog, active, review, done, dropped); `phase` picks a phase by name, or "all"; open: false includes done and dropped cards. For one card give `card` (its key like SCR-12, its number or id): it comes in full, and with brief: true as one text with its description, linked note and phase: what you need to take it on. full: true gives every card in full. Without `board`, `due`, `assignee` or `label` looks across every board (of `space`, or of every space), each card with its board and space: "what is due today" is due: "today". assignee: "me" is the person.',
+      description: 'Lists the cards of a board, short: key, title, column, phase, priority, due, labels, assignee, values, how many subtasks are ticked and how many comments. The open cards of the current phase unless told otherwise. `column` picks a column by name or by kind (backlog, active, review, done, dropped); `phase` picks a phase by name, or "all"; open: false includes done and dropped cards. For one card give `card` (its key like SCR-12, its number or id): it comes in full, and with brief: true as one text with its description, linked note and phase: what you need to take it on. full: true gives every card in full. Without `board`, `due`, `assignee`, `label`, `by` or `since` looks across every board (of `space`, or of every space), each card with its board and space: "what is due today" is due: "today". assignee: "me" is the person, "self" what is given to you. `by` and `since` find who worked on what: by: "self" with since yesterday is what you did since. A short card says who worked on it, by name; a card in full gives `workedOn` with when, and `activity`: what mattered on it, made, moved, given and ticked, with who did each.',
       inputSchema: z.object({
         space,
-        board: z.string().optional().describe('The board, by name or path. Left out with due, assignee or label: every board.'),
+        board: z.string().optional().describe('The board, by name or path. Left out with due, assignee, label, by or since: every board.'),
         card: z.string().optional().describe('One card, by key (SCR-12), number or id.'),
         column: z.string().optional(),
         phase: z.string().optional().describe('A phase by name, or "all".'),
-        assignee: z.string().optional().describe('A person’s name; "me" for the person.'),
+        assignee: z.string().optional().describe('A person’s or an agent’s name; "me" for the person, "self" for you.'),
         label: z.string().optional(),
         due: z.enum(['overdue', 'today', 'upcoming']).optional(),
-        open: z.boolean().optional().describe('Only cards not done or dropped; true when left out.'),
+        by,
+        since,
+        open: z.boolean().optional().describe('Only cards not done or dropped; true when left out, but with by or since.'),
         brief: z.boolean().optional(),
         full: z.boolean().optional().describe('Each card with its description, subtasks and comments.'),
       }),
       annotations: { readOnlyHint: true },
     },
-    (args) => answer(() => cardsTool(agent, args)),
+    (args, ctx) => answer(() => cardsTool(agent, args, client(ctx))),
   );
 
   const cardFields = {
@@ -282,7 +286,7 @@ export function buildServer(agent: Agent): McpServer {
     priority: z.number().int().min(1).max(4).optional().describe('1 highest, 4 none.'),
     due: day,
     labels: z.array(z.string()).optional(),
-    assignee: z.string().nullable().optional().describe('A person of the space by name (a first or a last name is enough when only one has it); null for nobody.'),
+    assignee: z.string().nullable().optional().describe('A person or an agent of the space by name (a first or a last name is enough when only one person has it; an agent by its name, or with whose it is: "Claude Code · Mert"); "me" for the person, "self" for you; null for nobody.'),
     values,
     note: z.string().nullable().optional().describe('The note it is about, by path or name; null unlinks it.'),
     subtasks,
@@ -321,17 +325,20 @@ export function buildServer(agent: Agent): McpServer {
     'tasks',
     {
       title: 'Tasks',
-      description: 'Lists tasks: of one list (`list` by name or path), or of every list filtered by `due` (overdue, today, upcoming) or `assignee`; with neither `list` nor `space`, those of every space, each task with its space. Open tasks unless `done` says otherwise: true for finished ones, "all" for both. assignee: "me" is the person. Use it before save_task to see what is there.',
+      description: 'Lists tasks: of one list (`list` by name or path), or of every list filtered by `due` (overdue, today, upcoming) or `assignee`; with neither `list` nor `space`, those of every space, each task with its space. Open tasks unless `done` says otherwise: true for finished ones, "all" for both. assignee: "me" is the person, "self" what is given to you. `by` and `since` find who worked on what, in every list and space too: by: "self" with since yesterday is what you did since. Each task says who worked on it, by name; full: true gives `workedOn` with when, and `activity`: what mattered on it, made, given, done and opened again, with who did each. Use it before save_task to see what is there.',
       inputSchema: z.object({
         space,
         list: z.string().optional().describe('A task list by name or path; every list when left out.'),
         due: z.enum(['overdue', 'today', 'upcoming']).optional(),
-        assignee: z.string().optional().describe('A person’s name; "me" for the person.'),
-        done: z.union([z.boolean(), z.literal('all')]).optional().describe('false (the default) for open tasks, true for done ones, "all" for both.'),
+        assignee: z.string().optional().describe('A person’s or an agent’s name; "me" for the person, "self" for you.'),
+        by,
+        since,
+        done: z.union([z.boolean(), z.literal('all')]).optional().describe('false (the default) for open tasks, true for done ones, "all" for both; "all" with by or since.'),
+        full: z.boolean().optional().describe('Each task with when each who worked on it did, and what mattered on it.'),
       }),
       annotations: { readOnlyHint: true },
     },
-    (args) => answer(() => tasksTool(agent, args)),
+    (args, ctx) => answer(() => tasksTool(agent, args, client(ctx))),
   );
 
   const taskFields = {
@@ -340,7 +347,7 @@ export function buildServer(agent: Agent): McpServer {
     description: z.string().optional(),
     due: day,
     priority: z.number().int().min(1).max(4).optional(),
-    assignee: z.string().nullable().optional().describe('A person of the space by name (a first or a last name is enough when only one has it); null for nobody.'),
+    assignee: z.string().nullable().optional().describe('A person or an agent of the space by name (a first or a last name is enough when only one person has it; an agent by its name, or with whose it is: "Claude Code · Mert"); "me" for the person, "self" for you; null for nobody.'),
     record: z.union([z.string(), z.object({ collection: z.string(), record: z.string() })]).nullable().optional(),
     note: z.string().nullable().optional().describe('The note it is about, by path or name; null unlinks it.'),
     section: z.string().nullable().optional().describe('The section it goes in, by name; null for none.'),

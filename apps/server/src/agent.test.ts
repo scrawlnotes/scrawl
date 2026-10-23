@@ -332,7 +332,10 @@ describe('working through /mcp', () => {
     const first = await connect(s);
     expect((await s.account(key).agents())[0]).toMatchObject({ client: 'Test agent', name: null });
     const client = await mcp(s, first.access);
-    await client.callTool({ name: 'spaces', arguments: {} });
+    // Looking around makes none: it is no one yet, and nothing is given to it.
+    expect((await client.callTool({ name: 'spaces', arguments: {} })).structuredContent).toMatchObject({ you: null });
+    expect((await client.callTool({ name: 'cards', arguments: { assignee: 'self' } })).structuredContent).toMatchObject({ total: 0 });
+    expect(s.server.db.prepare('SELECT COUNT(*) AS n FROM agent_identities').get()).toEqual({ n: 0 });
     expect(people()).toEqual([]);
     // Writing in the personal space writes no one there; writing in Acme writes it into Acme's people.
     expect((await client.callTool({ name: 'save_task', arguments: { title: 'Renew the domain' } })).structuredContent).toMatchObject({ space: 'sp-kaanmine' });
@@ -346,6 +349,9 @@ describe('working through /mcp', () => {
     expect(peopleVersions()).toBe(1);
     const board = JSON.parse(readOf(s, s.server.files.file(SPACE, 'Scrawl.board.json')!.hash)) as { cards: { author: { id: string } }[] };
     expect(board.cards[0]!.author.id).toBe(agent.id);
+    // Now it knows who it is, and finds what it did, its person's name beside its own.
+    expect((await client.callTool({ name: 'spaces', arguments: {} })).structuredContent).toMatchObject({ you: { id: agent.id, name: 'Test agent' } });
+    expect((await client.callTool({ name: 'cards', arguments: { by: 'self' } })).structuredContent).toMatchObject({ cards: [{ title: 'Write the server door', workedOn: ['Test agent · Kaan'] }] });
     // Renamed, the next change writes the new name.
     const connection = (await s.account(key).agents())[0]!;
     expect(await s.account(key).renameAgent(connection.id, ' Claude Code (Mac mini) ')).toEqual({ id: agent.id, name: 'Claude Code (Mac mini)' });

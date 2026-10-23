@@ -70,12 +70,13 @@ export function agentOf(found: FoundVault[], client?: string, machine = machineN
     person: async () => (personal ? loadMe(new NodeFs(personal.folder)).catch(() => null) : null),
     ...(client && { client: { name: client } }),
     // The agent of this client on this computer, kept in the person's own space (design/activity.md 2.1).
-    self: async (asked) => {
+    self: async (asked, make = true) => {
       if (!personal) return null;
       const fs = new NodeFs(personal.folder);
       const me = await loadMe(fs).catch(() => null);
       if (!me?.id) return null;
       const made = withComputerAgent(await loadAgents(fs), me.id, asked.name?.trim() || client || 'Agent', machine);
+      if (made.made && !make) return null;
       // Seen once a day, as a space's people are: the list says when each was last here.
       const seen = seenAgent(made.agents, made.agent.id);
       if (made.made || seen) await saveAgents(fs, seen ?? made.agents);

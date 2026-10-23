@@ -122,11 +122,15 @@ describe('the agent on this computer', () => {
     expect(await agentOf(found, undefined, 'KAAN-PC').self!({ name: 'Claude Code' })).toBeNull();
     await saveMe(new NodeFs(personal), { id: 'k', name: 'Kaan' });
     const agent = agentOf(found, undefined, 'KAAN-PC');
+    // What only reads asks without making: before it first writes, it is no one, and nothing is written.
+    expect(await agent.self!({ name: 'Claude Code' }, false)).toBeNull();
+    expect(await loadAgents(new NodeFs(personal))).toEqual([]);
     const self = await agent.self!({ name: 'Claude Code' });
     expect(self).toMatchObject({ name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC', owner: 'Kaan' });
     expect(self!.id).toMatch(/^k:[0-9a-f]{8}$/);
     expect(await loadAgents(new NodeFs(personal))).toEqual([expect.objectContaining({ id: self!.id, machine: 'KAAN-PC' })]);
     expect((await agent.self!({ name: 'Claude Code' }))!.id).toBe(self!.id);
+    expect((await agent.self!({ name: 'Claude Code' }, false))!.id).toBe(self!.id);
     // Another client, or the same one on another computer, is another agent; the client the command was started with stands in for one that says no name.
     expect((await agent.self!({ name: 'Cursor' }))!.id).not.toBe(self!.id);
     expect((await agentOf(found, undefined, 'MAC-MINI').self!({ name: 'Claude Code' }))!.name).toBe('Claude Code (MAC-MINI)');

@@ -24,18 +24,20 @@ import {
   updateTask,
   type VaultFs,
 } from '@scrawlnotes/core';
+import { type People, peopleIn, taskActivity, workedOnNames, workedOnOut } from './activity';
 import { checkItems, dayArg } from './cards';
 import { Refusal } from './paths';
-import { actorOf, type Agent, authorOf, type AgentSpace, type Client, type Due, dueIs, type Element, elementsOf, exists, isAssignee, noteRefOf, nowOf, personRefOf, pickAcross, pickElement, pickRecord, pickSpace, todayOf } from './space';
+import { actorOf, type Agent, authorOf, type AgentSpace, type Client, type Due, dueIs, type Element, elementsOf, exists, isAssignee, nameIn, noteRefOf, nowOf, personRefOf, pickAcross, pickElement, pickRecord, pickSpace, selfOf, todayOf, type Who, workedOnBy } from './space';
 
 // Tasks: what is due, the tasks of a list, adding, moving and closing one. A task without a list
 // goes to the personal space's Inbox, as Todoist's.
 
 const same = (a: string, b: string) => fold(a.trim()) === fold(b.trim());
 
-/** A task as the tools give it. */
-export function taskOut(list: string, tasks: TaskList, task: Task) {
+/** A task as the tools give it: with who worked on it, by name; in full, with when each did and what mattered on it. */
+export function taskOut(list: string, tasks: TaskList, task: Task, people: People = [], full = false) {
   const section = task.section ? tasks.sections.find((s) => s.id === task.section) : undefined;
+  const worked = workedOnNames(task, people);
   return {
     id: task.id,
     list,
@@ -47,18 +49,36 @@ export function taskOut(list: string, tasks: TaskList, task: Task) {
     ...(task.description && { description: task.description }),
     ...(section && { section: section.name }),
     ...(task.parent && { parent: task.parent }),
-    assignee: task.assignee ?? null,
+    assignee: task.assignee ? { ...task.assignee, name: nameIn(task.assignee, people) } : null,
     ...(task.record && { record: task.record }),
     ...(task.note && { note: task.note }),
     ...(task.card && { card: task.card }),
+    ...(full ? { workedOn: workedOnOut(task, people), activity: taskActivity(task, people) } : worked.length > 0 && { workedOn: worked }),
     created: task.created,
     updated: task.updated,
     completed: task.completed,
   };
 }
 
-export async function tasksTool(agent: Agent, args: { space?: string; list?: string; due?: Due; assignee?: string; done?: boolean | 'all' }) {
+export interface TasksArgs {
+  space?: string;
+  list?: string;
+  due?: Due;
+  assignee?: string;
+  /** Who worked on it: "self" the agent, "me" the person, or a name. */
+  by?: string;
+  /** Worked on since this day, by `by` when given, else by anyone. */
+  since?: string;
+  done?: boolean | 'all';
+  /** Each task with when each who worked on it did, and what mattered on it. */
+  full?: boolean;
+}
+
+export async function tasksTool(agent: Agent, args: TasksArgs, client: Client = {}) {
   const spaces = await agent.spaces();
+  // Who worked on what is asked for: with by or since, what is done comes too, unless done says otherwise.
+  const lookingBack = !!args.by?.trim() || !!args.since?.trim();
+  const since = dayArg(args.since, 'Since') ?? undefined;
   // With no list and no space named, a day or a person looks in every space: what is due today, wherever it is.
   const across = !args.list && !args.space?.trim() && spaces.length > 1;
   let places: { space: AgentSpace; lists: Element[] }[];
@@ -66,23 +86,28 @@ export async function tasksTool(agent: Agent, args: { space?: string; list?: str
     const { space, element } = await pickAcross(agent, args.space, args.list, ['tasks'], 'task list');
     places = [{ space, lists: [element] }];
   } else if (across) {
-    if (!args.due && !args.assignee) throw new Refusal('Which space? Name one with `space`, or give due or assignee to look in every space', { spaces: spaces.map(({ id, name, where }) => ({ id, name, where })) });
+    if (!args.due && !args.assignee && !lookingBack) throw new Refusal('Which space? Name one with `space`, or give due, assignee, by or since to look in every space', { spaces: spaces.map(({ id, name, where }) => ({ id, name, where })) });
     places = await Promise.all(spaces.map(async (space) => ({ space, lists: await elementsOf(space.fs, ['tasks']) })));
   } else {
     const space = await pickSpace(agent, args.space);
     places = [{ space, lists: await elementsOf(space.fs, ['tasks']) }];
   }
   const today = todayOf(agent);
-  const person = args.assignee ? await agent.person() : null;
+  const asked = args.assignee || args.by;
+  const person = asked ? await agent.person() : null;
+  const self = asked ? await selfOf(agent, client) : null;
+  const done = args.done ?? (lookingBack ? 'all' : false);
   const out: (ReturnType<typeof taskOut> & { space?: string; spaceName?: string })[] = [];
   for (const { space, lists } of places) {
+    const people = await peopleIn(space.fs);
     for (const list of lists) {
       const loaded = await loadList(space.fs, list.path);
       for (const task of loaded.tasks) {
-        if (args.done !== 'all' && task.done !== (args.done ?? false)) continue;
+        if (done !== 'all' && task.done !== done) continue;
         if (args.due && !dueIs(task.due, args.due, today)) continue;
-        if (args.assignee && !isAssignee(task.assignee, args.assignee, person)) continue;
-        out.push({ ...taskOut(list.path, loaded, task), ...(across && { space: space.id, spaceName: space.name }) });
+        if (args.assignee && !isAssignee(task.assignee, args.assignee, person, self, people)) continue;
+        if (lookingBack && !workedOnBy(task, args.by?.trim() || undefined, since, { person, self, people, timeZone: agent.timeZone })) continue;
+        out.push({ ...taskOut(list.path, loaded, task, people, args.full), ...(across && { space: space.id, spaceName: space.name }) });
       }
     }
   }
@@ -229,19 +254,22 @@ async function taskPlace(agent: Agent, client: Client, args: TaskArgs) {
     if (!(await exists(space.fs, path))) await space.fs.writeText(path, serializeList({ sections: [], tasks: [] }));
   }
   const now = nowOf(agent);
-  const by = actorOf(client, await agent.person());
-  return { space, path, list: await loadList(space.fs, path), clock: () => now, by, author: await authorOf(agent, client, by) };
+  const person = await agent.person();
+  const by = actorOf(client, person);
+  const author = await authorOf(agent, client, by);
+  const [list, people, self] = await Promise.all([loadList(space.fs, path), peopleIn(space.fs), selfOf(agent, client, true)]);
+  return { space, path, list, people, clock: () => now, by, author, who: { me: person, self } satisfies Who };
 }
 
 async function saveTask(agent: Agent, client: Client, args: TaskArgs) {
-  const { space, path, list, clock, by, author } = await taskPlace(agent, client, args);
+  const { space, path, list, people, clock, by, author, who } = await taskPlace(agent, client, args);
   if (args.toList && !args.id) throw new Refusal('toList moves a task that is there; to add a task to another list, give that list as list');
   const target = args.toList ? await pickElement(space.fs, args.toList, ['tasks'], 'task list') : undefined;
   const elsewhere = target && target.path !== path ? target.path : undefined;
   if (elsewhere && args.parent) throw new Refusal('A task moved to another list goes at its top level; move it first, then give parent');
-  const step = await applyTask(space, list, path, args, clock, by, author, !elsewhere);
+  const step = await applyTask(space, list, path, args, clock, by, author, who, !elsewhere);
   const where = { space: space.id, spaceName: space.name };
-  if (step.status === 'exists') return { data: { ...where, list: path, created: false, exists: true, message: step.message, task: taskOut(path, list, list.tasks.find((t) => t.id === step.id)!) } };
+  if (step.status === 'exists') return { data: { ...where, list: path, created: false, exists: true, message: step.message, task: taskOut(path, list, list.tasks.find((t) => t.id === step.id)!, people, true) } };
   const created = step.status === 'created';
   if (elsewhere) {
     const to = await loadList(space.fs, elsewhere);
@@ -249,22 +277,22 @@ async function saveTask(agent: Agent, client: Client, args: TaskArgs) {
     const into = args.after !== undefined ? placeTask(moved.to, elsewhere, step.id, null, args.section ?? null, clock, args.after) : moved.to;
     await saveList(space.fs, path, moved.from);
     await saveList(space.fs, elsewhere, into);
-    return { data: { ...where, list: elsewhere, from: path, created, task: taskOut(elsewhere, into, into.tasks.find((t) => t.id === step.id)!), ...(step.followed && { followed: step.followed }) } };
+    return { data: { ...where, list: elsewhere, from: path, created, task: taskOut(elsewhere, into, into.tasks.find((t) => t.id === step.id)!, people, true), ...(step.followed && { followed: step.followed }) } };
   }
   await saveList(space.fs, path, step.list);
-  return { data: { ...where, list: path, created, task: taskOut(path, step.list, step.list.tasks.find((t) => t.id === step.id)!), ...(step.followed && { followed: step.followed }) } };
+  return { data: { ...where, list: path, created, task: taskOut(path, step.list, step.list.tasks.find((t) => t.id === step.id)!, people, true), ...(step.followed && { followed: step.followed }) } };
 }
 
 async function saveTasks(agent: Agent, client: Client, args: TaskArgs & { items: TaskItem[] }) {
   checkItems(args, args.items, 'task');
-  const { space, path, clock, by, author, ...place } = await taskPlace(agent, client, args);
+  const { space, path, people, clock, by, author, who, ...place } = await taskPlace(agent, client, args);
   let { list } = place;
   // Every task is checked and laid in the list before anything is written: one refused, none written.
   const done: TaskDone[] = [];
   for (const [i, item] of args.items.entries()) {
     try {
       if ((item as TaskArgs).toList) throw new Refusal('toList moves one task at a time, without items');
-      const step = await applyTask(space, list, path, item, clock, by, author, true);
+      const step = await applyTask(space, list, path, item, clock, by, author, who, true);
       list = step.list;
       done.push(step);
     } catch (error) {
@@ -282,19 +310,19 @@ async function saveTasks(agent: Agent, client: Client, args: TaskArgs & { items:
       created: count('created'),
       changed: count('changed'),
       exists: count('exists'),
-      tasks: done.map((step) => ({ status: step.status, ...taskOut(path, list, list.tasks.find((t) => t.id === step.id)!), ...(step.followed && { followed: step.followed }) })),
+      tasks: done.map((step) => ({ status: step.status, ...taskOut(path, list, list.tasks.find((t) => t.id === step.id)!, people), ...(step.followed && { followed: step.followed }) })),
     },
   };
 }
 
 /** One task added to `list` or changed in it, as `args` asks, placed where it asks when `place`; the list is not written. */
-async function applyTask(space: AgentSpace, list: TaskList, path: string, args: TaskItem, clock: () => Date, by: string | undefined, author: PersonRef | undefined, place: boolean): Promise<TaskDone> {
+async function applyTask(space: AgentSpace, list: TaskList, path: string, args: TaskItem, clock: () => Date, by: string | undefined, author: PersonRef | undefined, who: Who, place: boolean): Promise<TaskDone> {
   // What it does on a task is written with its name and, when the door knows it, its identity.
   const actor: Actor = { ...(by && { name: by }), ...(author?.id && { id: author.id }) };
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
   if (args.priority !== undefined && priority === undefined) throw new Refusal('Priority is 1 (highest) to 4 (none)', { given: args.priority });
   const due = dayArg(args.due, 'Due');
-  const assignee = args.assignee === undefined ? undefined : await personRefOf(space, args.assignee);
+  const assignee = args.assignee === undefined ? undefined : await personRefOf(space, args.assignee, who);
   const record = args.record === undefined ? undefined : await recordRefOf(space.fs, args.record);
   const note = await noteRefOf(space.fs, args.note);
   let tasks = list.tasks;

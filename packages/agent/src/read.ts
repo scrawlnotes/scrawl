@@ -19,7 +19,7 @@ import {
 import { GUIDE } from './guide';
 import { checkPart, partOf, PARTS } from './parts';
 import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
-import { type Agent, type AgentSpace, type ElementKind, elementsOf, exists, peopleOf, pickPath, pickSpace, todayOf } from './space';
+import { type Agent, type AgentSpace, agentsOf, type Client, type ElementKind, elementsOf, exists, peopleOf, pickPath, pickSpace, selfOf, todayOf } from './space';
 
 // Looking around: the spaces, what is in one, a file's text, and finding anything by name or by
 // text, as the sidebar and the search window do. Nothing here writes.
@@ -35,13 +35,20 @@ export const hashOf = (text: string) => createHash('sha256').update(text, 'utf8'
  * nothing else of the server. The guide is in the structured content too, as a client that shows
  * only that (Claude Code does) would leave it out.
  */
-export async function spacesTool(agent: Agent) {
-  const [spaces, person] = await Promise.all([agent.spaces(), agent.person()]);
+export async function spacesTool(agent: Agent, client: Client = {}) {
+  const [spaces, person, self] = await Promise.all([agent.spaces(), agent.person(), selfOf(agent, client)]);
   const data = {
     today: todayOf(agent),
     person: person?.name ?? null,
-    // Who a card or a task can be given to: the space's people, by name.
-    spaces: await Promise.all(spaces.map(async ({ id, name, where, personal, fs }) => ({ id, name, where, personal, people: await peopleOf(fs) }))),
+    // Who the agent is, as what it changes is written: known once it has written, as only that makes it.
+    you: self && { id: self.id, name: self.name },
+    // Who a card or a task can be given to: the space's people and its agents, by name.
+    spaces: await Promise.all(
+      spaces.map(async ({ id, name, where, personal, fs }) => {
+        const agents = await agentsOf(fs);
+        return { id, name, where, personal, people: await peopleOf(fs), ...(agents.length > 0 && { agents }) };
+      }),
+    ),
   };
   return { data: { ...data, guide: GUIDE }, text: `${JSON.stringify(data)}\n\n${GUIDE}` };
 }
