@@ -1,6 +1,23 @@
 import { t } from '@scrawlnotes/i18n';
 import { BOARD_EXT, type BoardLinks, loadBoard, newBoard, parseBoard, saveBoard, serializeBoard, type Template } from './board';
-import { COLLECTION_FILE, type ColumnWidths, collectionName, isCollection, loadSchema, namedById, parseRecord, parseSchema, RECORD_EXT, readWidths, recordTitle, type RecordSort } from './collection';
+import {
+  COLLECTION_FILE,
+  type ColumnWidths,
+  collectionName,
+  isCollection,
+  loadSchema,
+  moveCollection,
+  namedById,
+  parseRecord,
+  parseSchema,
+  RECORD_EXT,
+  readWidths,
+  recordTitle,
+  type RecordSort,
+  renameCollection,
+  retargetLinks,
+  serializeSchema,
+} from './collection';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { APP_FILE } from './apps/types';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
@@ -237,21 +254,66 @@ export async function moveItem(fs: VaultFs, path: string, folder: string): Promi
   return target;
 }
 
+/** Whether `path` is `folder` or under it, all the way down. */
+export const isUnder = (path: string, folder: string) => path === folder || path.startsWith(`${folder}/`);
+
+/**
+ * Moves a folder with everything in it into `folder`, numbered when a folder there has its name,
+ * as a collection's folder moves. Not into itself. Returns its new path.
+ */
+export async function moveFolder(fs: VaultFs, path: string, folder: string): Promise<string> {
+  if (isUnder(folder, path)) throw new Error(t('error.folderInItself'));
+  return moveCollection(fs, path, folder);
+}
+
+/** Gives a folder a name of the user's choosing, where it is; numbered when the name is taken. Returns its new path. */
+export async function renameFolder(fs: VaultFs, path: string, name: string): Promise<string> {
+  const clean = cleanName(name);
+  if (!clean || isHidden(clean)) throw new Error(t('error.folderName'));
+  return renameCollection(fs, path, clean);
+}
+
 // ---------- between spaces ----------
 
 /**
- * What a file says about other items of its space, left out as it goes to another space, where
- * the same path would be some other item: a task's note, card and record, a card's or a phase's
- * note. A field keeps the collection it reads, a folder of whichever space it is in.
+ * What a file says about other items of its space, as it goes to another space, where the same
+ * path would be some other item: a task's note, card and record, a card's or a phase's note. What
+ * it says about an item that goes along, in a folder that moves, points at it where `moved` puts
+ * it; the rest is left out. A link field, a rollup or a linked-records block points at a
+ * collection or a board that goes along where it is put, and otherwise keeps what it reads, a
+ * folder of whichever space it is in. `pieces` are the collections and the boards that go along.
  */
-function withoutLinks(path: string, text: string): string {
+function withLinksMoved(path: string, text: string, moved: (path: string) => string | null, pieces: readonly { from: string; to: string }[]): string {
   if (path.endsWith(TASK_LIST_EXT)) {
     const list = parseList(text);
-    return serializeList({ ...list, tasks: list.tasks.map(({ note: _n, card: _c, record: _r, ...task }) => task) });
+    const tasks = list.tasks.map(({ note: was, card: of, record: about, ...task }) => {
+      const note = was ? moved(was) : null;
+      // A card is its board's path and its id: `Deals.board.json#c1`.
+      const hash = of ? of.lastIndexOf('#') : -1;
+      const board = of ? moved(of.slice(0, hash)) : null;
+      const collection = about ? moved(about.collection) : null;
+      return { ...task, ...(note && { note }), ...(board && { card: board + of!.slice(hash) }), ...(collection && { record: { ...about!, collection } }) };
+    });
+    return serializeList({ ...list, tasks });
   }
   if (path.endsWith(BOARD_EXT)) {
     const board = parseBoard(text);
-    return serializeBoard({ ...board, cards: board.cards.map(({ note: _n, ...card }) => card), phases: board.phases.map(({ note: _n, ...phase }) => phase) });
+    const noted = (was: string | null | undefined) => {
+      const note = was ? moved(was) : null;
+      return note ? { note } : {};
+    };
+    const linked = (collection: string | undefined) => (collection ? moved(collection) : null);
+    return serializeBoard({
+      ...board,
+      cards: board.cards.map(({ note, ...card }) => ({ ...card, ...noted(note) })),
+      phases: board.phases.map(({ note, ...phase }) => ({ ...phase, ...noted(note) })),
+      ...(board.fields && { fields: board.fields.map((field) => (field.type === 'link' && linked(field.collection) ? { ...field, collection: linked(field.collection)! } : field)) }),
+    });
+  }
+  if (basename(path) === COLLECTION_FILE && pieces.length > 0) {
+    const schema = parseSchema(text);
+    const retargeted = pieces.reduce((each, piece) => retargetLinks(each, piece.from, piece.to), schema);
+    return retargeted === schema ? text : serializeSchema(retargeted);
   }
   return text;
 }
@@ -260,21 +322,25 @@ function withoutLinks(path: string, text: string): string {
 const writtenAs = (path: string) => [path, path.replace(/[() <>]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)];
 
 /**
- * Copies a note, a task list, a board, a keys file or a collection into `folder` of another
- * space, as a move between spaces does before the original goes to its own trash: under a free
- * name there, with the attached files its text links to, and without what it says about items of
- * the space it came from. Returns its path in the other space.
+ * Copies a note, a task list, a board, a keys file, a collection or a folder with everything in
+ * it into `folder` of another space, as a move between spaces does before the original goes to
+ * its own trash: under a free name there, with the attached files its text links to, and without
+ * what it says about items of the space it came from, but for those that go along with it.
+ * Returns its path in the other space.
  */
 export async function copyToSpace(from: VaultFs, path: string, to: VaultFs, folder: string): Promise<string> {
   // Asked of the folder it is in: a disk that is asked what is inside a file says that is wrong.
   const entry = (await from.list(dirname(path))).find((each) => each.path === path);
-  const isDir = entry?.kind === 'dir' && isCollection(await from.list(path));
-  // The files that go, by their path under the item.
+  const isDir = entry?.kind === 'dir';
+  // The files that go, by their path under the item, and its folders, empty ones too.
   const files: string[] = [];
+  const dirs: string[] = [path];
   const visit = async (dir: string) => {
     for (const entry of await from.list(dir)) {
-      if (entry.kind === 'dir') await visit(entry.path);
-      else files.push(entry.path);
+      if (entry.kind === 'dir') {
+        dirs.push(entry.path);
+        await visit(entry.path);
+      } else files.push(entry.path);
     }
   };
   if (isDir) await visit(path);
@@ -308,13 +374,17 @@ export async function copyToSpace(from: VaultFs, path: string, to: VaultFs, fold
 
   const [name, ext] = isDir ? [basename(path), ''] : splitName(basename(path));
   const target = freePath(folder, name, ext, await names(to, folder));
+  // What is in the folder goes along, under the same path in the copy.
+  const moved = (each: string) => (isDir && isUnder(each, path) ? target + each.slice(path.length) : null);
+  const pieces = files.filter((file) => file.endsWith(BOARD_EXT)).map((board) => ({ from: board, to: moved(board)! }));
+  for (const file of files) if (basename(file) === COLLECTION_FILE) pieces.push({ from: dirname(file), to: moved(dirname(file))! });
   for (const file of files) {
-    const into = isDir ? join(target, file.slice(path.length + 1)) : target;
+    const into = moved(file) ?? target;
     const text = texts.get(file);
     if (text === undefined) await to.writeBlob(into, await from.readBlob(file));
-    else await to.writeText(into, relinked(withoutLinks(file, text)));
+    else await to.writeText(into, relinked(withLinksMoved(file, text, moved, pieces)));
   }
-  if (isDir) await to.mkdir(target);
+  if (isDir) for (const dir of dirs) await to.mkdir(moved(dir)!);
   return target;
 }
 

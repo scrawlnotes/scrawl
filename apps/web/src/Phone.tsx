@@ -1,4 +1,4 @@
-import { DEFAULT_LOOK, type FolderLook, type Found, type NodeTimes, INBOX_TASKS, sortedNodes, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
+import { DEFAULT_LOOK, type FolderLook, type Found, type NodeTimes, INBOX_TASKS, isUnder, sortedNodes, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -166,6 +166,8 @@ export interface PhoneProps {
   onItemMenu: (id: string, page?: boolean) => void;
   /** A folder's menu; `addFolder` names a new folder in it. */
   onFolderMenu: (path: string, addFolder: () => void) => void;
+  /** A folder moved or renamed, from where it was to where it is: its pages, and those of the folders in it, show it there. `at` tells one from the next. */
+  movedFolder: { from: string; to: string; at: number } | null;
   /** How a space's top is put in order, as a sheet: by its key, '' for the personal space. */
   onSpaceOrder: (key: string) => void;
   /** How the items of a folder are put in order, by its path; a space's top by its key, the personal one's by ''. */
@@ -527,6 +529,7 @@ export function Phone(props: PhoneProps) {
   const stage = useRef<HTMLDivElement>(null);
   const holders = useRef(new Map<number, HTMLDivElement>());
   const lastActive = useRef<string | null>(null);
+  const lastTabs = useRef(tabs);
   const started = useRef(false);
   const stacksNow = useRef(stacks);
   stacksNow.current = stacks;
@@ -612,13 +615,25 @@ export function Phone(props: PhoneProps) {
   // page over the one on screen. What is renamed or moved keeps its page; what is closed loses it.
   useEffect(() => {
     if (!ready) return;
-    const changed = lastActive.current !== active;
+    // A tab renamed or moved, alone or with the folder it is in, keeps its place among the tabs:
+    // its pages show it where it is now, and it is not taken for something the app opened.
+    const was = lastTabs.current;
+    lastTabs.current = tabs;
+    const follow = (id: string) => {
+      const at = was.indexOf(id);
+      return tabs.includes(id) || at < 0 || was.length !== tabs.length || was.includes(tabs[at]!) ? id : tabs[at]!;
+    };
+    const changed = lastActive.current !== active && (lastActive.current === null || follow(lastActive.current) !== active);
     // What was open last time opens as it was, without sliding in.
     const first = !started.current;
     started.current = true;
     lastActive.current = active;
     const current = stacksNow.current;
     const next = { ...current };
+    for (const each of PLACES) {
+      const pages = current[each].map((page) => (page.kind === 'item' && follow(page.id) !== page.id ? { ...page, id: follow(page.id) } : page));
+      if (pages.some((page, i) => page !== current[each][i])) next[each] = pages;
+    }
     let added: Page | null = null;
     const shown = next[place][next[place].length - 1]!;
     if (changed && isItem(active) && !(shown.kind === 'item' && shown.id === active)) {
@@ -645,6 +660,16 @@ export function Phone(props: PhoneProps) {
     // Only what is open and what is on screen decide; the place is read as it is now.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, tabs, active]);
+
+  // A folder moved or renamed keeps its page, and so does a folder in it, showing it where it is now.
+  const moved = props.movedFolder;
+  useEffect(() => {
+    if (!moved) return;
+    const follow = (page: Page): Page => (page.kind === 'folder' && isUnder(page.path, moved.from) ? { ...page, path: moved.to + page.path.slice(moved.from.length) } : page);
+    setStacks((current) => Object.fromEntries(Object.entries(current).map(([each, pages]) => [each, pages.map(follow)])) as typeof current);
+    // Each move once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moved?.at]);
 
   // The page on top shows what is open: the app is told, and the drawing moves into it.
   useEffect(() => {

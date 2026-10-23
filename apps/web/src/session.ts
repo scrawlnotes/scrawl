@@ -3262,6 +3262,15 @@ export class Session {
     if (!before || (before.folder ?? '') !== (filter.folder ?? '')) this.placed?.(filter.folder ?? '', filterTab(filter.id));
   }
 
+  /** Puts a saved filter in another folder of the personal space, in the sidebar; `''` is its top. Nothing opens. */
+  placeFilter(id: string, folder: string) {
+    const filter = this.snapshot.filters.find((each) => each.id === id);
+    if (!filter || (filter.folder ?? '') === folder) return;
+    const { folder: _was, ...rest } = filter;
+    this.writeFilters(this.snapshot.filters.map((each) => (each.id === id ? { ...rest, ...(folder && { folder }) } : each)));
+    this.placed?.(folder, filterTab(id));
+  }
+
   /** Deletes a saved filter, and closes its tab; its tasks stay where they are. The interface asks first. */
   async removeFilter(id: string) {
     const tab = filterTab(id);

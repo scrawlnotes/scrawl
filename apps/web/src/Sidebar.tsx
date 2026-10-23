@@ -1,4 +1,4 @@
-import { DEFAULT_LOOK, droppedSpaces, type FolderLook, INBOX_TASKS, type NodeTimes, inSpace, listName, localPath, shownName, sortedNodes, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { DEFAULT_LOOK, dirname, droppedSpaces, type FolderLook, INBOX_TASKS, isUnder, type NodeTimes, inSpace, listName, localPath, shownName, sortedNodes, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { LATEST_RELEASE } from './desktopUpdate';
@@ -11,8 +11,12 @@ import { isDesktop } from './storage';
 import type { SpaceSyncView } from './sync';
 import { percent, signInAsk, signInFresh } from './SyncViews';
 
-// A note or a task list being dragged onto a folder.
+// A note, a task list, a board, a keys file, a collection or a folder being dragged into a folder.
 const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
+/** A saved filter being dragged into a folder of the personal space, where filters sit. */
+const FILTER_DRAG_TYPE = 'application/x-scrawl-filter';
+/** How long a closed folder is held over, while something is dragged, before it opens. */
+const OPEN_WHILE_DRAGGING = 700;
 /** A space's heading being dragged to another place among the spaces. */
 const SPACE_DRAG_TYPE = 'application/x-scrawl-space';
 
@@ -49,7 +53,10 @@ interface Props {
   /** Open tasks behind a row, by the id of the tab the row opens. */
   counts: Record<string, number>;
   onOpen: (id: string) => void;
+  /** Something dropped on a folder, a space's heading or a row, which puts it in that row's folder. */
   onMove: (path: string, folder: string) => void;
+  /** A saved filter dropped in a folder of the personal space; `''` is its top. */
+  onPlaceFilter: (id: string, folder: string) => void;
   /** Makes a folder in `parent`, at the top for `''`; returns a message when it cannot. */
   onNewFolder: (name: string, parent: string) => Promise<string | null>;
   /** A right click on a note, a task list or a folder. */
@@ -90,9 +97,10 @@ interface Props {
    * A folder or a space found by the search window, by its path or a space's key: the folders it
    * is in open, so does it, and its row is brought into sight and marked for a moment. With
    * `item`, something made or moved into the folder: the folder opens the same way, and the item's
-   * row is brought into sight. `at` tells one ask from the next.
+   * row is brought into sight; a folder moved or renamed comes with where it was, `from`, and the
+   * folders open in it stay open. `at` tells one ask from the next.
    */
-  reveal: { path: string; item?: string; at: number } | null;
+  reveal: { path: string; item?: string; from?: string; at: number } | null;
   /** The spaces still read as the app opens: `''` for the personal one, the others by id. */
   reading: ReadonlySet<string>;
   /** Folders looked at, read first while the app opens: those open as it starts, and one opened. */
@@ -128,6 +136,7 @@ export function Sidebar({
   counts,
   onOpen,
   onMove,
+  onPlaceFilter,
   onNewFolder,
   onItemMenu,
   onFolderMenu,
@@ -169,7 +178,14 @@ export function Sidebar({
   // The row found, marked for a moment once it is in sight.
   const [flash, setFlash] = useState<string | null>(null);
   const nav = useRef<HTMLElement>(null);
+  // The folder something dragged would go in, `''` for the personal space's top; its row is
+  // marked, and so are the rows beside which it would go.
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  // What is being dragged among the rows: a folder does not go into itself, a filter only into the
+  // personal space, and nothing goes where it already is.
+  const dragged = useRef<{ path: string } | { filter: string; folder: string } | null>(null);
+  // A closed folder held over while something is dragged, which opens after a moment.
+  const opening = useRef<{ path: string; timer: number } | null>(null);
   // A space dragged among the others: the heading it would go before or after, by its id, the
   // personal one's null (only after it: it stays first).
   const [spaceDrop, setSpaceDrop] = useState<{ id: string | null; after: boolean } | null>(null);
@@ -229,6 +245,21 @@ export function Sidebar({
   // put in opens the same way, and the row of what was put there comes into sight.
   useEffect(() => {
     if (!reveal) return;
+    // A folder moved or renamed: the folders open in it, and those shown in full, are where it is now.
+    const { from, item } = reveal;
+    if (from !== undefined && item !== undefined) {
+      const follow = (paths: ReadonlySet<string>) => new Set([...paths].map((path) => (isUnder(path, from) ? item + path.slice(from.length) : path)));
+      setOpened((current) => {
+        const next = follow(current);
+        savePaths(OPENED, next);
+        return next;
+      });
+      setShownInFull((current) => {
+        const next = follow(current);
+        savePaths(SHOWN_IN_FULL, next);
+        return next;
+      });
+    }
     const space = spaceOf(reveal.path);
     const key = spaceKey(space);
     if (folded.has(key)) toggleSpace(key);
@@ -359,20 +390,96 @@ export function Sidebar({
     </>
   );
 
+  /** Opens a folder, as a closed one held over while something is dragged does; one open stays open. */
+  const openFolder = (path: string) => {
+    onWant([path]);
+    setOpened((current) => {
+      if (current.has(path)) return current;
+      const next = new Set(current).add(path);
+      savePaths(OPENED, next);
+      return next;
+    });
+  };
+  const stopOpening = () => {
+    if (opening.current) window.clearTimeout(opening.current.timer);
+    opening.current = null;
+  };
+
+  /** A row or a heading is dragged: a note, a list, a board, a keys file, a collection or a folder, by its path. */
+  const dragProps = (path: string) => ({
+    draggable: true,
+    onDragStart: (event: DragEvent) => {
+      event.dataTransfer.setData(ITEM_DRAG_TYPE, path);
+      event.dataTransfer.effectAllowed = 'move';
+      dragged.current = { path };
+    },
+    onDragEnd: () => {
+      dragged.current = null;
+      setDropTarget(null);
+      stopOpening();
+    },
+  });
+
+  /**
+   * Whether what is dragged can go in `folder`: not where it already is, a folder not into itself
+   * or a folder inside it, a filter only into the personal space. Something dragged from elsewhere,
+   * not known here, is let in, and the move says why when it cannot be.
+   */
+  const canDrop = (folder: string, types: readonly string[]) => {
+    const now = dragged.current;
+    if (types.includes(FILTER_DRAG_TYPE)) return !now || ('filter' in now && spaceOf(folder) === null && folder !== now.folder);
+    if (!types.includes(ITEM_DRAG_TYPE)) return false;
+    return !now || ('path' in now && dirname(now.path) !== folder && !isUnder(folder, now.path));
+  };
+
+  // A folder, a space's heading or a row takes what is dropped on it into its folder: a row's
+  // folder is the one it is in, a space's top for one at the top.
   const dropProps = (folder: string) => ({
     onDragOver: (event: DragEvent) => {
-      if (!event.dataTransfer.types.includes(ITEM_DRAG_TYPE)) return;
+      if (!canDrop(folder, event.dataTransfer.types)) return;
       event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
       setDropTarget(folder);
     },
     onDragLeave: () => setDropTarget(null),
     onDrop: (event: DragEvent) => {
       event.preventDefault();
       setDropTarget(null);
+      stopOpening();
+      if (!canDrop(folder, event.dataTransfer.types)) return;
+      const filter = event.dataTransfer.getData(FILTER_DRAG_TYPE);
       const path = event.dataTransfer.getData(ITEM_DRAG_TYPE);
-      if (path) onMove(path, folder);
+      if (filter) onPlaceFilter(filter, folder);
+      else if (path) onMove(path, folder);
     },
   });
+
+  /** A folder's row takes what is dropped on it, and opens when it is held over closed. */
+  const folderDropProps = (path: string, open: boolean) => {
+    const drop = dropProps(path);
+    return {
+      ...drop,
+      onDragOver: (event: DragEvent) => {
+        drop.onDragOver(event);
+        const now = dragged.current;
+        const into = !now || !('path' in now) || !isUnder(path, now.path);
+        if (open || !into || opening.current?.path === path) return;
+        stopOpening();
+        const timer = window.setTimeout(() => {
+          opening.current = null;
+          openFolder(path);
+        }, OPEN_WHILE_DRAGGING);
+        opening.current = { path, timer };
+      },
+      onDragLeave: () => {
+        drop.onDragLeave();
+        if (opening.current?.path === path) stopOpening();
+      },
+    };
+  };
+
+  /** A row beside which what is dragged would go: in the folder that is marked. */
+  const besideDrop = (folder: string) => (dropTarget === folder ? ' drop-in' : '');
 
   // On a touch screen, where there is no right click, a row's menu opens from its ··· button.
   const more = (onMenu: (event: MouseEvent) => void) => (
@@ -381,8 +488,8 @@ export function Sidebar({
     </button>
   );
 
-  const viewRow = (id: string, label: ReactNode, depth: number, onMenu?: (event: MouseEvent) => void) => (
-    <div key={id} className={`it${id === active ? ' on' : ''}${marked(id)}`} style={indent(depth)} data-path={id} onContextMenu={onMenu}>
+  const viewRow = (id: string, label: ReactNode, depth: number, onMenu?: (event: MouseEvent) => void, drag?: { className: string } & Record<string, unknown>) => (
+    <div key={id} {...drag} className={`it${id === active ? ' on' : ''}${marked(id)}${drag?.className ?? ''}`} style={indent(depth)} data-path={id} onContextMenu={onMenu}>
       <button type="button" className="it-main" onClick={() => onOpen(id)}>
         {label}
       </button>
@@ -402,17 +509,19 @@ export function Sidebar({
   );
 
   // A task list, a board or a collection shows how many of its tasks, cards or records are open; deleting is in its menu.
+  // It is dragged to another place, and what is dropped on it goes in its folder.
   const itemRow = (node: TreeNode, depth: number, spaced: boolean) => {
     const tab = node.kind === 'collection' ? collectionTab(node.path) : tabOf(node.path);
     const counted = node.kind === 'tasks' || node.kind === 'board' || node.kind === 'collection';
+    const folder = dirname(node.path);
     return (
       <div
         key={node.path}
-        className={`it${tab === active ? ' on' : ''}${marked(node.path)}`}
+        className={`it${tab === active ? ' on' : ''}${marked(node.path)}${besideDrop(folder)}`}
         style={indent(depth)}
         data-path={node.path}
-        draggable
-        onDragStart={(event) => event.dataTransfer.setData(ITEM_DRAG_TYPE, node.path)}
+        {...dragProps(node.path)}
+        {...dropProps(folder)}
         onContextMenu={(event) => onItemMenu(event, node.path)}
       >
         <button type="button" className="it-main" onClick={() => onOpen(tab)}>
@@ -450,9 +559,24 @@ export function Sidebar({
     </>
   );
 
-  // The saved filters sit in their folders; one in none, or in a folder that is gone, at the personal space's top.
+  // The saved filters sit in their folders; one in none, or in a folder that is gone, at the personal
+  // space's top. One is dragged to another folder of the personal space, and what is dropped on it
+  // goes in its folder.
   const folderPaths = folderPathsOf(tree);
   const placeOf = (filter: TaskFilter) => (filter.folder && folderPaths.has(filter.folder) ? filter.folder : '');
+  const filterDrag = (filter: TaskFilter) => ({
+    draggable: true,
+    onDragStart: (event: DragEvent) => {
+      event.dataTransfer.setData(FILTER_DRAG_TYPE, filter.id);
+      event.dataTransfer.effectAllowed = 'move';
+      dragged.current = { filter: filter.id, folder: placeOf(filter) };
+    },
+    onDragEnd: () => {
+      dragged.current = null;
+      setDropTarget(null);
+      stopOpening();
+    },
+  });
   const filterRows = (folder: string, depth: number) =>
     filters
       .filter((filter) => placeOf(filter) === folder)
@@ -466,6 +590,7 @@ export function Sidebar({
           </>,
           depth,
           (event) => onFilterMenu(event, filter),
+          { ...filterDrag(filter), ...dropProps(folder), className: besideDrop(folder) },
         ),
       );
 
@@ -478,7 +603,8 @@ export function Sidebar({
           className={`it fold${node.path === dropTarget ? ' drop' : ''}${marked(node.path)}`}
           style={indent(depth)}
           data-path={node.path}
-          {...dropProps(node.path)}
+          {...dragProps(node.path)}
+          {...folderDropProps(node.path, open)}
           onContextMenu={(event) => folderMenu(event, node.path)}
         >
           <button type="button" className="it-main" aria-expanded={open} onClick={() => toggle(node.path)}>
@@ -507,6 +633,8 @@ export function Sidebar({
           <span>{listName(INBOX_TASKS)}</span>
         </>,
         depth,
+        undefined,
+        { ...dropProps(''), className: besideDrop('') },
       )}
       {filterRows('', depth)}
       {rows(

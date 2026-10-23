@@ -715,4 +715,93 @@ describe('between spaces', () => {
     expect((await to.list('CRM/Companies')).map((e) => e.name).sort()).toEqual(['_collection.json', 'a1.md']);
     expect(await to.readText('CRM/Companies/_collection.json')).toBe(await from.readText(`${dir}/_collection.json`));
   });
+
+  it('copies a folder with everything in it, its links kept among what goes along', async () => {
+    const { copyToSpace } = await import('./vault');
+    const { createCollection, loadSchema } = await import('./collection');
+    const from = new MemoryFs();
+    const to = new MemoryFs();
+    await from.writeText('_attachments/plan.png', 'picture');
+    await from.writeText('Sales/Pilot plan.md', '# Pilot\n\n![](../_attachments/plan.png)\n[Notes](Deals/Notes.md)\n');
+    await from.writeText('Sales/Deals/Notes.md', 'notes');
+    await from.writeText('Elsewhere.md', 'not in it');
+    await from.mkdir('Sales/Empty');
+    const people = await createCollection(from, 'Sales', 'People', 'people');
+    const companies = await createCollection(from, 'Sales', 'Companies', 'companies');
+    const tasks = addTask(
+      addTask([], { title: 'Call', note: 'Sales/Pilot plan.md', card: 'Sales/Deals.board.json#c', record: { collection: companies, id: 'a', name: 'Acme' } }, () => at, 't1'),
+      { title: 'Read', note: 'Elsewhere.md', record: { collection: 'Other/Companies', id: 'b', name: 'Beta' } },
+      () => at,
+      't2',
+    );
+    await from.writeText('Sales/Tasks.tasks.json', serializeTasks(tasks));
+    let board = (await import('./board')).newBoard('Deals', 'crm', undefined, { company: companies, contact: 'Other/People' });
+    board = addCard(board, { title: 'Pilot', note: 'Sales/Pilot plan.md' }, () => at, 'Kaan', 'c');
+    board = addCard(board, { title: 'Other', note: 'Elsewhere.md' }, () => at, 'Kaan', 'd');
+    await saveBoard(from, 'Sales/Deals.board.json', board);
+    await to.writeText('Clients/Sales/old.md', 'there already');
+
+    expect(await copyToSpace(from, 'Sales', to, 'Clients')).toBe('Clients/Sales 2');
+    expect(await to.readText('Clients/Sales 2/Pilot plan.md')).toBe(await from.readText('Sales/Pilot plan.md'));
+    expect(await to.readText('Clients/Sales 2/Deals/Notes.md')).toBe('notes');
+    expect(await to.readText('_attachments/plan.png')).toBe('picture');
+    expect((await to.list('Clients/Sales 2')).find((e) => e.name === 'Empty')?.kind).toBe('dir');
+    expect(await to.stat('Elsewhere.md')).toBeNull();
+    // What points inside the folder points at the copy; what points out of it is left out.
+    const [call, read] = await loadTasks(to, 'Clients/Sales 2/Tasks.tasks.json');
+    expect(call).toMatchObject({ note: 'Clients/Sales 2/Pilot plan.md', card: 'Clients/Sales 2/Deals.board.json#c', record: { collection: 'Clients/Sales 2/Companies', id: 'a' } });
+    expect(read).not.toHaveProperty('note');
+    expect(read).not.toHaveProperty('record');
+    const copied = await loadBoard(to, 'Clients/Sales 2/Deals.board.json');
+    expect(copied.cards.map((card) => card.note)).toEqual(['Clients/Sales 2/Pilot plan.md', undefined]);
+    expect(copied.fields?.filter((field) => field.type === 'link').map((field) => field.type === 'link' && field.collection)).toEqual(['Clients/Sales 2/Companies', 'Other/People']);
+    // A collection's link to one that goes along points at it there.
+    const schema = await loadSchema(to, 'Clients/Sales 2/People');
+    expect(schema.fields.filter((field) => field.type === 'link').map((field) => field.type === 'link' && field.collection)).toEqual(['Clients/Sales 2/Companies']);
+    expect(JSON.stringify(await loadSchema(to, 'Clients/Sales 2/Companies'))).not.toContain(`"${people}"`);
+  });
+});
+
+describe('moving folders', () => {
+  it('moves a folder with everything in it, empty folders too, numbered where its name is taken', async () => {
+    const { moveFolder } = await import('./vault');
+    const fs = new MemoryFs();
+    await fs.writeText('Work/Plan.md', 'plan');
+    await fs.writeText('Work/Deep/Tasks.tasks.json', serializeTasks([]));
+    await fs.mkdir('Work/Empty');
+    await fs.writeText('Archive/Work/old.md', 'there already');
+    expect(await moveFolder(fs, 'Work', 'Archive')).toBe('Archive/Work 2');
+    expect(await fs.readText('Archive/Work 2/Plan.md')).toBe('plan');
+    expect(await fs.stat('Archive/Work 2/Deep/Tasks.tasks.json')).not.toBeNull();
+    expect((await fs.list('Archive/Work 2')).find((e) => e.name === 'Empty')?.kind).toBe('dir');
+    expect((await fs.list('')).map((e) => e.name)).not.toContain('Work');
+    // To the top of the space, and where it already is.
+    expect(await moveFolder(fs, 'Archive/Work 2', '')).toBe('Work 2');
+    expect(await moveFolder(fs, 'Work 2', '')).toBe('Work 2');
+  });
+
+  it('does not move a folder into itself or a folder inside it', async () => {
+    const { moveFolder } = await import('./vault');
+    const fs = new MemoryFs();
+    await fs.writeText('Work/Deep/Plan.md', 'plan');
+    await expect(moveFolder(fs, 'Work', 'Work')).rejects.toThrow();
+    await expect(moveFolder(fs, 'Work', 'Work/Deep')).rejects.toThrow();
+    expect(await fs.readText('Work/Deep/Plan.md')).toBe('plan');
+    // A folder whose name only starts the same is another folder.
+    await fs.mkdir('Workshop');
+    expect(await moveFolder(fs, 'Work', 'Workshop')).toBe('Workshop/Work');
+  });
+
+  it('renames a folder where it is, its case alone too, numbered where the name is taken', async () => {
+    const { renameFolder } = await import('./vault');
+    const fs = new MemoryFs();
+    await fs.writeText('Clients/Acme/Plan.md', 'plan');
+    await fs.mkdir('Clients/Beta');
+    expect(await renameFolder(fs, 'Clients/Acme', 'Beta')).toBe('Clients/Beta 2');
+    expect(await fs.readText('Clients/Beta 2/Plan.md')).toBe('plan');
+    expect(await renameFolder(fs, 'Clients/Beta 2', 'beta 2')).toBe('Clients/beta 2');
+    expect(await fs.readText('Clients/beta 2/Plan.md')).toBe('plan');
+    await expect(renameFolder(fs, 'Clients/beta 2', '  ')).rejects.toThrow();
+    await expect(renameFolder(fs, 'Clients/beta 2', '.hidden')).rejects.toThrow();
+  });
 });

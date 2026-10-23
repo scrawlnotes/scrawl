@@ -158,8 +158,9 @@ const keepFocus = (event: ReactMouseEvent) => event.preventDefault();
 
 /**
  * The folders of the Create and Move to windows, after the Spaces create view of
- * design/mockups.html: each space's folders under the space's name, which picks its top. A folder
- * shows its name and, beside it, the folders it is in, so that two of the same name are told apart.
+ * design/mockups.html: each space's folders under the space's name, which picks its top and reads
+ * as a place to pick, as the folders do. A folder shows its name and, beside it, the folders it is
+ * in, so that two of the same name are told apart.
  */
 function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: string; onPick: (index: number) => void }) {
   const list = useRef<HTMLDivElement>(null);
@@ -187,13 +188,20 @@ function FolderList({ picker, empty, onPick }: { picker: FolderPicker; empty: st
         const space = spaceOf(folder);
         const local = localPath(folder);
         const rows: ReactElement[] = [];
-        // A space's top is its heading, and picks it; a heading without its top only names the space.
+        // A space's top is its heading, and picks it; a heading without its top, as where something
+        // already is, only names the space.
         if (space !== group) {
           group = space;
-          if (local === '') return [option(folder, i, 'group', spaceLabel(space))];
+          const heading = (
+            <>
+              <Icon name="space" />
+              <span className="nm">{spaceLabel(space)}</span>
+            </>
+          );
+          if (local === '') return [option(folder, i, 'group', heading)];
           rows.push(
             <div key={`group:${space ?? ''}`} className="group" role="presentation">
-              {spaceLabel(space)}
+              {heading}
             </div>,
           );
         }
@@ -615,7 +623,7 @@ function NewItemForm({ kind, template: chosenTemplate, folders, folder, collecti
   );
 }
 
-/** Picks the folder to move a note or a task list to. Typing filters the list and can name a new folder. */
+/** Picks the folder to move an item or a folder to. Typing filters the list and can name a new folder. */
 export function MoveDialog({ folders, current, onMove, onCreate, onClose }: {
   folders: string[];
   current: string;
@@ -1108,9 +1116,9 @@ export function NewCardDialog({ title, note, boards, initial, onAdd, onClose }: 
 }
 
 /**
- * The name and the place of a note, a task list, a board, a keys file or a collection, from its
- * menu's Rename or its tab double-clicked: its name, and its folder as the Create window has it,
- * where it is now. Save changes what was changed, the name first.
+ * The name and the place of a note, a task list, a board, a keys file, a collection or a folder,
+ * from its menu's Rename or its tab double-clicked: its name, and its folder as the Create window
+ * has it, where it is now. Save changes what was changed, the name first.
  */
 export function RenameDialog({ name, folder, folders, onSave, onClose }: {
   name: string;

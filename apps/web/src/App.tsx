@@ -3,6 +3,8 @@ import {
   type AppFile,
   type Record as CollectionRecord,
   basename,
+  isUnder,
+  shownName,
   DEFAULT_LOOK,
   foldersFirst,
   type FolderLook,
@@ -954,7 +956,7 @@ export function App() {
     if (path && path !== INBOX_TASKS) items.push(...inGroups(itemMenuItems(path)));
     setMenu({ at: { x: event.clientX, y: event.clientY }, items, target: `tab:${id}` });
   };
-  /** What an item is called, as the Rename window shows it. */
+  /** What an item or a folder is called, as the Rename window shows it. */
   const nameOfItem = (path: string) =>
     isTaskListPath(path)
       ? listName(path)
@@ -964,7 +966,11 @@ export function App() {
           ? keysName(path)
           : path in collections
             ? collectionName(path)
-            : (titles[path] ?? '');
+            : session.isFolder(path)
+              ? shownName(basename(path))
+              : (titles[path] ?? '');
+  /** The places something can be moved to: not into itself, when it is a folder, nor a folder inside it. */
+  const placesFor = (path: string) => everyFolder(tree, spaces).filter((folder) => !isUnder(folder, path));
   /** The Rename window's name and folder: the name first, then the move, where either changed. */
   const saveNameAndPlace = async (path: string, name: string, folder: FolderChoice): Promise<string | null> => {
     let at = path;
@@ -1064,7 +1070,7 @@ export function App() {
     const top = localPath(path) === '';
     const sub = top ? undefined : parent ? t('phone.kindIn', { kind: t('create.folder'), folder: folderLabel(parent) }) : t('create.folder');
     // A space's top has its order on its own button; a folder has it in its menu.
-    showSheet(top ? folderMenuItems(path, addFolder) : [...appItems(path), ...folderMenuItems(path, addFolder), ...orderItems(path), folderDelete(path)], { icon: top ? 'space' : 'folder', title: folderLabel(path), sub });
+    showSheet(top ? folderMenuItems(path, addFolder) : [...appItems(path), ...folderMenuItems(path, addFolder), ...placeItems(path, true), ...orderItems(path), folderDelete(path)], { icon: top ? 'space' : 'folder', title: folderLabel(path), sub });
   };
   // A collection as a CSV file, saved where the user says.
   const exportCsv = async (dir: string) => {
@@ -1127,7 +1133,12 @@ export function App() {
   // A folder, as a space: its + for what can be made in it, and its other button for how its
   // items are put in order and deleting it.
   const folderAdd = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, folderMenuItems(path, addFolder), path);
-  const folderMenu = (event: MouseEvent, path: string) => openMenu(event, [...appItems(path), ...orderItems(path), folderDelete(path)], path);
+  const folderMenu = (event: MouseEvent, path: string) => openMenu(event, [...appItems(path), ...placeItems(path, appItems(path).length > 0), ...orderItems(path), folderDelete(path)], path);
+  // A folder goes elsewhere, with what is in it, or gets another name, as a note does.
+  const placeItems = (path: string, apart: boolean): MenuItem[] => [
+    { label: t('menu.moveTo'), icon: 'move', apart, run: () => setDialog({ kind: 'move', path }) },
+    { label: t('menu.rename'), icon: 'pen', run: () => setDialog({ kind: 'rename', path }) },
+  ];
   // An app's folder has Add to app first: the New app window, with the app's templates there already.
   const appItems = (path: string): MenuItem[] =>
     [tree, ...spaces.map((s) => s.tree)].some((nodes) => findNode(nodes, path)?.app)
@@ -1268,7 +1279,7 @@ export function App() {
     session.say = (text) => setShown({ text });
     session.ruled = (event) => saveRuled(event);
     // What is made or moved into a folder is shown there: the folder opens in the sidebar.
-    session.placed = (folder, item) => setRevealFolder({ path: folder, item, at: Date.now() });
+    session.placed = (folder, item, from) => setRevealFolder({ path: folder, item, ...(from !== undefined && { from }), at: Date.now() });
     // A link inside the space opens what it points at: a folder in the sidebar, a file as Files opens it.
     session.openTarget = (target) => {
       if (target.kind === 'folder') {
@@ -1432,7 +1443,7 @@ export function App() {
   // A task, a folder or a space found: brought into sight where it is, and marked. A folder
   // something was made or moved into opens to it.
   const [revealTask, setRevealTask] = useState<{ list: string; id: string; at: number } | null>(null);
-  const [revealFolder, setRevealFolder] = useState<{ path: string; item?: string; at: number } | null>(null);
+  const [revealFolder, setRevealFolder] = useState<{ path: string; item?: string; from?: string; at: number } | null>(null);
   /** Opens what was found: a note at the words found in it, a task in its list, a card, a record, a file, a folder in the sidebar. */
   const openFound = (found: Found<Thing>) => {
     const target = found.item.target;
@@ -2175,6 +2186,7 @@ export function App() {
             onNewFolder={(name, parent) => session.newFolder(name, parent)}
             onItemMenu={phoneItemMenu}
             onFolderMenu={phoneFolderMenu}
+            movedFolder={revealFolder?.from !== undefined && revealFolder.item !== undefined ? { from: revealFolder.from, to: revealFolder.item, at: revealFolder.at } : null}
             onSpaceOrder={(key) => showSheet(orderItems(key), { icon: 'tune', title: key === '' ? (space.name ?? t('settings.personal')) : folderLabel(key) })}
             folderLooks={folderLooks}
             times={nodeTimes}
@@ -2382,6 +2394,7 @@ export function App() {
             void session.open(id);
           }}
           onMove={moveAndSay}
+          onPlaceFilter={(id, folder) => session.placeFilter(id, folder)}
           onNewFolder={(name, parent) => session.newFolder(name, parent)}
           onItemMenu={itemMenu}
           onFolderMenu={folderMenu}
@@ -2709,7 +2722,7 @@ export function App() {
       )}
       {dialog?.kind === 'move' && (
         <MoveDialog
-          folders={everyFolder(tree, spaces)}
+          folders={placesFor(dialog.path)}
           current={dirname(dialog.path)}
           onMove={(target) => {
             moveAndSay(dialog.path, target);
@@ -2730,7 +2743,7 @@ export function App() {
         <RenameDialog
           name={nameOfItem(dialog.path)}
           folder={dirname(dialog.path)}
-          folders={everyFolder(tree, spaces)}
+          folders={placesFor(dialog.path)}
           onSave={(name, folder) => saveNameAndPlace(dialog.path, name, folder)}
           onClose={closeDialog}
         />

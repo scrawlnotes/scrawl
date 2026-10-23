@@ -397,7 +397,32 @@ describe('moving', () => {
     expect((await refusal(moveTool(agent, { path: 'Roadmap' }))).message).toContain('folder');
     expect((await refusal(moveTool(agent, { path: 'Roadmap', folder: 'Nowhere' }))).details.folders).toEqual(['CRM', 'Plans']);
     expect((await refusal(moveTool(agent, { path: 'Roadmap', folder: 'CRM/Customers' }))).message).toContain('collection');
-    expect((await refusal(moveTool(agent, { path: 'Plans', name: 'Roadmaps' }))).message).toContain('Folders are not moved');
+  });
+
+  it('moves and renames a folder with everything in it, and what points at what is in it follows', async () => {
+    const { agent, fs, note } = await sample();
+    await writeTool(agent, { path: note, text: '# Roadmap\n\nFor [Companies](../CRM/Companies).\n' });
+    await writeTool(agent, { path: 'Links.md', text: 'See [the roadmap](Plans/Roadmap.md) and [CRM](CRM).\n' });
+    const acme = await saveRecordTool(agent, { collection: 'Companies', values: { Name: 'Acme Corp' } });
+    await saveTaskTool(agent, CLIENT, { title: 'Call Acme', record: 'Acme Corp' });
+
+    const moved = await moveTool(agent, { path: 'CRM', folder: 'Plans' });
+    expect(moved.data).toMatchObject({ kind: 'folder', from: 'CRM', to: 'Plans/CRM', moved: true });
+    expect((await loadCollection(fs, 'Plans/CRM/Companies')).records.map((r) => r.id)).toEqual([acme.data.record.id]);
+    // A collection's link to one that moved with it, a task's record, a note's link: all where they are now.
+    expect((await loadSchema(fs, 'Plans/CRM/Activities')).fields.find((f) => f.key === 'company')!.collection).toBe('Plans/CRM/Companies');
+    expect((await loadList(fs, 'Inbox.tasks.json')).tasks[0]!.record).toMatchObject({ collection: 'Plans/CRM/Companies', id: acme.data.record.id });
+    expect(await fs.readText('Plans/Roadmap.md')).toContain('For [Companies](CRM/Companies).');
+    expect(await fs.readText('Links.md')).toBe('See [the roadmap](Plans/Roadmap.md) and [CRM](Plans/CRM).\n');
+
+    const renamed = await moveTool(agent, { path: 'Plans', name: 'Projects' });
+    expect(renamed.data).toMatchObject({ kind: 'folder', to: 'Projects' });
+    expect((await listVersions(fs, 'Projects/Roadmap.md')).length).toBe(1);
+    expect((await loadList(fs, 'Inbox.tasks.json')).tasks[0]!.record!.collection).toBe('Projects/CRM/Companies');
+    expect(await fs.readText('Links.md')).toBe('See [the roadmap](Projects/Roadmap.md) and [CRM](Projects/CRM).\n');
+
+    expect((await refusal(moveTool(agent, { path: 'Projects', folder: 'Projects/CRM' }))).message).toContain('into itself');
+    expect((await refusal(moveTool(agent, { path: 'Projects', folder: 'Projects' }))).message).toContain('into itself');
   });
 });
 

@@ -186,10 +186,10 @@ export function buildServer(agent: Agent): McpServer {
     'move',
     {
       title: 'Move or rename',
-      description: 'Moves a note, a task list, a board or a collection into another folder (`folder`), gives it a new name (`name`), or both. Tasks, cards, link fields and rollups that point at it point at its new place. A name that is taken gets a number. Folders themselves are not moved: move what is in them. Records are not moved: they belong to their collection.',
+      description: 'Moves a note, a task list, a board, a collection or a folder with everything in it into another folder (`folder`), gives it a new name (`name`), or both. Tasks, cards, link fields, rollups and the links of notes that point at it, or at what is in it, point at its new place. A name that is taken gets a number. A folder does not go into itself or a folder inside it. Records are not moved: they belong to their collection.',
       inputSchema: z.object({
         space,
-        path: z.string().describe('What to move: its path, or its name when that is enough.'),
+        path: z.string().describe('What to move, a folder too: its path, or its name when that is enough.'),
         folder: z.string().optional().describe('The folder to move it into; "" for the top of the space.'),
         name: z.string().optional().describe('Its new name, without extension.'),
       }),

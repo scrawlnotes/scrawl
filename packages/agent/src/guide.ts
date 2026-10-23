@@ -60,7 +60,7 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 | Finish or drop | a task: \`save_task\` with \`done: true\`; a card: \`save_card\` with \`column: "done"\` or \`"dropped"\` |
 | Change a board's columns, phases or fields, a list's sections, a collection's fields or views | \`read\` with \`part\` (\`"phases"\`, \`"columns"\`, \`"sections"\`, \`"fields"\`, \`"views"\`), change it, \`write\` it back with the same \`part\` and \`ifMatch\`; the cards follow as in the app |
 | Rename a choice of a select field | \`write\` the field with the new name in its options, and \`renames\`; the records and cards holding the old name take the new one |
-| Move or rename a note, list, board or collection | \`move\`; what points at it follows |
+| Move or rename a note, list, board, collection or folder | \`move\`; what points at it, and at what is in it, follows |
 | Remove a note, list, board, folder or collection | \`trash\` with its path or name |
 | Remove one task, card or record, or a section with its tasks | \`trash\` with the list, board or collection as \`path\` and \`id\`, or \`section\`; what is finished is closed instead, not trashed |
 | Say what you did on a card | \`comment\` |
