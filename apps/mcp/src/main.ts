@@ -79,7 +79,7 @@ export function agentOf(found: FoundVault[], client?: string, machine = machineN
       // Seen once a day, as a space's people are: the list says when each was last here.
       const seen = seenAgent(made.agents, made.agent.id);
       if (made.made || seen) await saveAgents(fs, seen ?? made.agents);
-      return { id: made.agent.id, name: made.agent.name, client: made.agent.client, place: made.agent.machine };
+      return { id: made.agent.id, name: made.agent.name, client: made.agent.client, place: made.agent.machine, ...(me.name && { owner: me.name }) };
     },
   };
 }

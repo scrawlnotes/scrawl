@@ -69,7 +69,7 @@ Her değişiklik tek tek yazılmaz. Yalnız önemli olaylar, kısa bir satırla 
 ### 2.3 Space'teki satır
 
 ```json
-{ "id": "69167c7c-…:4f2a9c1e", "name": "Claude Code", "agent": { "client": "Claude Code", "place": "Mac mini" }, "seen": "2026-10-23T14:02:11.000Z", "active": true }
+{ "id": "69167c7c-…:4f2a9c1e", "name": "Claude Code", "agent": { "client": "Claude Code", "place": "Mac mini", "owner": "Kaan Arslan" }, "seen": "2026-10-23T14:02:11.000Z", "active": true }
 ```
 
 - Ajan bir space'e ilk yazdığında bu satırı `.scrawl/people.json`'a yazar. `seen` günde en çok bir kez güncellenir. Pasife alınan ajan bir sonraki yazışında yeniden aktif olur, insanın space'i yeniden açması gibi.
@@ -125,7 +125,7 @@ Kayıtlar kartın `timeline`'ında, bugünkü taşımaların ve yorumların yan�
 
 Mockup: `design/mockups.html`, "Kim ne yaptı, ajanlar dahil" bölümü (23 Ekim, onaylı).
 
-- **Ajan ve insan:** ajan kare içinde istemcisinin baş harfiyle, insan yuvarlakla görünür; aynı harfle başlayan bir insanla karışmaz. Sahibinin adı ajanın adından sonra soluk ve küçük durur: "Claude Code (Mac mini) · Kaan". Satır gibi dar yerlerde (görev satırı, telefon) yalnız ajanın adı.
+- **Ajan ve insan:** ajan kare içinde istemcisinin baş harfiyle, insan yuvarlakla görünür; aynı harfle başlayan bir insanla karışmaz. Sahibinin adı ajanın adından sonra soluk ve küçük durur: "Claude Code (Mac mini) · Kaan". Dar yerlerde de (görev satırı, telefon) böyledir; sahibinin adı ajanın adına yazılmaz, her yerde yanında gösterilir (23 Ekim, kullanıcının kararı).
 - **Kart penceresi:** zaman çizgisinde her olay tek kısa satır: "Kaan created this", "Kaan gave it to Claude Code (Mac mini) · Kaan", "Claude Code (Mac mini) · Kaan Todo → Doing", "… ticked 3 subtasks". Olayı yapan koyu, sahibi soluk, olay ikisinin arası renkte.
 - **Worked on:** kart penceresinde sağda, alanların altında; en son çalışan üstte, yanında zamanı.
 - **Atama:** Assignee'de seçici: Nobody, People in Scrawl, sonra Agents; her ajanın yanında kimin olduğu ("yours", "Mert's").
@@ -209,10 +209,10 @@ Sonra yayın; kararı kullanıcının. Her dilimden sonra commit sorulur. Aşama
 
 23 Ekim. Kodda; Roadmap ROA-219, deneme ROA-224.
 
-- **Varsayılan ad.** Bilgisayardaki ajanın adında makinenin adı hep var: "Claude Code (KAAN-PC)". Makinenin adı masaüstü uygulamasının aldığı gibi `COMPUTERNAME`, `HOSTNAME`, yoksa bilgisayarın adı; alan adı atılır. Sunucu ajanın hangi makinede olduğunu bilmez: orada ad yalnız istemcinin adıdır, aynı hesabın aynı istemciden ikinci ajanı "Claude Code (2)" olur. Ad Settings › Agents'tan değişir.
+- **Varsayılan ad.** Bilgisayardaki ajanın adında makinenin adı hep var: "Claude Code (KAAN-PC)". Makinenin adı masaüstü uygulamasının aldığı gibi `COMPUTERNAME`, `HOSTNAME`, yoksa bilgisayarın adı; alan adı atılır. Sunucu ajanın hangi makinede olduğunu bilmez: orada ad yalnız istemcinin adıdır, aynı hesabın aynı istemciden ikinci ajanı "Claude Code (2)" olur. Ad Settings › Agents'tan değişir. Sahibinin adı ada yazılmaz; ekranda her yerde yanında durur (4. bölüm). Makinenin adı bilgisayardaki ajanda kalır: aynı kişinin iki bilgisayardaki ajanını o ayırır, olmasa sunucudaki aynı istemciyle de aynı adı alırdı.
 - **Sunucuda anahtar.** Hesap ve OAuth istemcisi (`agent_identities` tablosu). Aynı istemci yeniden girince aynı kimliği alır. Kimlik ajanın ilk yazışında açılır; ondan önce listede istemcinin adı görünür. Rename henüz yazmamış bir bağlantının kimliğini o adla açar. `PATCH /api/v1/agents/:id` `{ name }`.
 - **Bilgisayarda** `.scrawl/agents.json` kişisel space'te; sync'te kayıt kayıt birleşir (`agents` türü). İki oturum aynı anda açarsa önce açılanı kullanılır. `seen` günde en çok bir kez yazılır; listede son görülme ondan.
-- **Space'e yazılması.** Yazan sekiz aracın (`write`, `create`, `trash`, `move`, `save_record`, `save_card`, `comment`, `save_task`) sonucu hangi space'i söylüyorsa ajan oraya yazılır; tek bir sarmalayıcıda. `people.json`'da `agent: { client, place }` alanıyla. `parsePeople` artık bilinmeyen alanları korur.
+- **Space'e yazılması.** Yazan sekiz aracın (`write`, `create`, `trash`, `move`, `save_record`, `save_card`, `comment`, `save_task`) sonucu hangi space'i söylüyorsa ajan oraya yazılır; tek bir sarmalayıcıda. `people.json`'da `agent: { client, place, owner }` alanıyla; `owner` sahibinin o anki adıdır. Ekran sahibin adını önce space'in kişilerinden alır, orada yoksa (sahibi space'i uygulamadan hiç açmamışsa) `owner`'dan; sahibi adını değiştirince ajanın bir sonraki yazışında satır da değişir. `parsePeople` artık bilinmeyen alanları korur.
 - **`author`.** Ajanın açtığı görev ve kart `{ id, name }` taşır. Kimliği bilinmeyen kapıda (kişisi olmayan klasör) eskisi gibi "Claude Code · Kaan".
 - **2. dilime kadar.** Ajanlar atama seçicilerinde ve People listesinde yok; space sayfasında yalnız Agents altında. `spaces` aracının `people`'ında da yok, kişi adıyla atamada da aranmaz.
 - **Ekranda.** Settings › Agents'ta bilgisayarın bloğunda bu bilgisayarın ajanları (masaüstünün bilgisayar adıyla süzülür; ad bilinmezse hepsi), sunucunun bloğunda bağlı ajanlar adlarıyla; menüde Rename (yerinde, Cancel ve Save), sunucudakilerde Disconnect. Telefonda adlar görünür, Rename yok (taslakta yoktu). Ajanın karesi uygulamada da kare: masaüstünde 5, telefonda 8 piksel köşe.

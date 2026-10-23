@@ -22,18 +22,20 @@ export interface Person {
   agent?: AgentPlace;
 }
 
-/** What an agent is, beside its name: its client as it names itself, and the computer it runs on, if one. */
+/** What an agent is, beside its name: its client as it names itself, the computer it runs on, if one, and its person's name. */
 export interface AgentPlace {
   client?: string;
   place?: string;
+  /** Its person's name when it last wrote itself in: whose it is shows by it where the person is not among the space's people. */
+  owner?: string;
 }
 
 const clean = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
 
 function readAgentPlace(raw: unknown): AgentPlace | undefined {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
-  const { client, place } = raw as Record<string, unknown>;
-  return { ...(clean(client) && { client: clean(client) }), ...(clean(place) && { place: clean(place) }) };
+  const { client, place, owner } = raw as Record<string, unknown>;
+  return { ...(clean(client) && { client: clean(client) }), ...(clean(place) && { place: clean(place) }), ...(clean(owner) && { owner: clean(owner) }) };
 }
 
 export function parsePeople(text: string): Person[] {
@@ -122,10 +124,16 @@ export const ownerOf = (id: string): string => (isAgentId(id) ? id.slice(0, id.i
 /** Whether a person of a space is an agent. */
 export const isAgent = (person: Pick<Person, 'id'>) => isAgentId(person.id);
 
+/** Whose an agent is, by name: its person's as the space's people have it now, else as the agent last wrote it. */
+export function ownerName(agent: Pick<Person, 'id' | 'agent'>, people: Person[]): string | undefined {
+  const owner = people.find((p) => p.id === ownerOf(agent.id) && !isAgent(p));
+  return owner?.name ?? agent.agent?.owner;
+}
+
 /** The agent as it is now, in the list: its row brought up to date, or added; changing something makes it active again. */
 export function withAgent(people: Person[], agent: AgentRow, now = new Date()): Person[] {
   const { name: _n, agent: _a, ...keep } = people.find((p) => p.id === agent.id) ?? { id: agent.id, seen: '', active: true };
-  const place: AgentPlace = { ...(agent.client && { client: agent.client }), ...(agent.place && { place: agent.place }) };
+  const place: AgentPlace = { ...(agent.client && { client: agent.client }), ...(agent.place && { place: agent.place }), ...(agent.owner && { owner: agent.owner }) };
   const next: Person = { ...keep, name: agent.name, agent: place, seen: now.toISOString(), active: true };
   const rest = people.filter((p) => p.id !== agent.id);
   return [...rest, next].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '') || a.id.localeCompare(b.id));
@@ -140,6 +148,7 @@ export function sameAgent(people: Person[], agent: AgentRow, now = new Date()): 
     found.name === agent.name &&
     (found.agent?.client ?? '') === (agent.client ?? '') &&
     (found.agent?.place ?? '') === (agent.place ?? '') &&
+    (found.agent?.owner ?? '') === (agent.owner ?? '') &&
     seenToday(found, now)
   );
 }

@@ -339,7 +339,7 @@ describe('working through /mcp', () => {
     expect(s.server.files.file('sp-kaanmine', '.scrawl/people.json')).toBeFalsy();
     await client.callTool({ name: 'create', arguments: { kind: 'board', name: 'Scrawl', template: 'software', space: SPACE } });
     const agent = people().find((p) => p.id.startsWith(`${PERSON}:`))!;
-    expect(agent).toMatchObject({ name: 'Test agent', agent: { client: 'Test agent' }, active: true });
+    expect(agent).toMatchObject({ name: 'Test agent', agent: { client: 'Test agent', owner: 'Kaan Arslan' }, active: true });
     expect((await s.account(key).agents())[0]).toMatchObject({ name: 'Test agent' });
     // The same day, the next change writes no more; the card carries the identity.
     await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', title: 'Write the server door' } });

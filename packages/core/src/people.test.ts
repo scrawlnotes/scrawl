@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryFs } from './fs';
-import { agentId, isAgent, loadPeople, mergePeople, ownerOf, parsePeople, sameAgent, samePerson, savePeople, serializePeople, setActive, withAgent, withPerson } from './people';
+import { agentId, isAgent, loadPeople, ownerName, mergePeople, ownerOf, parsePeople, sameAgent, samePerson, savePeople, serializePeople, setActive, withAgent, withPerson } from './people';
 
 const at = (day: string) => new Date(`2026-10-${day}T10:00:00Z`);
 
@@ -58,15 +58,20 @@ describe('people', () => {
     expect(id).toBe('k:4f2a9c1e');
     expect(ownerOf(id)).toBe('k');
     expect(ownerOf('k')).toBe('k');
-    const agent = { id, name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC' };
+    const agent = { id, name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC', owner: 'Kaan' };
     let people = withPerson([], { id: 'k', name: 'Kaan' }, at('12'));
     expect(sameAgent(people, agent, at('12'))).toBe(false);
     people = withAgent(people, agent, at('12'));
-    expect(people.find(isAgent)).toEqual({ id, name: 'Claude Code (KAAN-PC)', agent: { client: 'Claude Code', place: 'KAAN-PC' }, seen: '2026-10-12T10:00:00.000Z', active: true });
+    expect(people.find(isAgent)).toEqual({ id, name: 'Claude Code (KAAN-PC)', agent: { client: 'Claude Code', place: 'KAAN-PC', owner: 'Kaan' }, seen: '2026-10-12T10:00:00.000Z', active: true });
     expect(people.filter((p) => !isAgent(p)).map((p) => p.id)).toEqual(['k']);
     expect(sameAgent(people, agent, at('12'))).toBe(true);
     // Renamed, or the next day: written again.
     expect(sameAgent(people, { ...agent, name: 'Laptop agent' }, at('12'))).toBe(false);
+    expect(sameAgent(people, { ...agent, owner: 'Kaan Arslan' }, at('12'))).toBe(false);
+    // Whose it is: its person's name in the space now, else the one it wrote.
+    expect(ownerName(people.find(isAgent)!, people)).toBe('Kaan');
+    expect(ownerName(people.find(isAgent)!, withPerson(people, { id: 'k', name: 'Kaan Arslan' }, at('12')))).toBe('Kaan Arslan');
+    expect(ownerName(people.find(isAgent)!, people.filter(isAgent))).toBe('Kaan');
     expect(sameAgent(people, agent, at('13'))).toBe(false);
     // Made inactive, it is active again the next time it changes something.
     people = setActive(people, id, false);

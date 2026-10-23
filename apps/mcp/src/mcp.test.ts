@@ -123,7 +123,7 @@ describe('the agent on this computer', () => {
     await saveMe(new NodeFs(personal), { id: 'k', name: 'Kaan' });
     const agent = agentOf(found, undefined, 'KAAN-PC');
     const self = await agent.self!({ name: 'Claude Code' });
-    expect(self).toMatchObject({ name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC' });
+    expect(self).toMatchObject({ name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC', owner: 'Kaan' });
     expect(self!.id).toMatch(/^k:[0-9a-f]{8}$/);
     expect(await loadAgents(new NodeFs(personal))).toEqual([expect.objectContaining({ id: self!.id, machine: 'KAAN-PC' })]);
     expect((await agent.self!({ name: 'Claude Code' }))!.id).toBe(self!.id);

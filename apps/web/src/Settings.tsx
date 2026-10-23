@@ -1,4 +1,4 @@
-import { type ComputerAgent, dayOf, isAgent, type Me, type MovedMark, newSpaceId, ownerOf, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
+import { type ComputerAgent, dayOf, isAgent, type Me, type MovedMark, newSpaceId, ownerName, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
 import { languages, locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
@@ -769,8 +769,8 @@ function People({ people, me, onActive }: { people: Person[]; me: Me | null; onA
 function SpaceAgents({ people, onActive }: { people: Person[]; onActive: (person: string, active: boolean) => void }) {
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; id: string } | null>(null);
   const today = dayOf(new Date());
-  const ownerName = (agent: Person) => people.find((person) => person.id === ownerOf(agent.id))?.name;
-  const shown = people.filter(isAgent).sort((a, b) => Number(!a.active) - Number(!b.active) || (ownerName(a) ?? '').localeCompare(ownerName(b) ?? '') || (a.name ?? '').localeCompare(b.name ?? ''));
+  const whose = (agent: Person) => ownerName(agent, people);
+  const shown = people.filter(isAgent).sort((a, b) => Number(!a.active) - Number(!b.active) || (whose(a) ?? '').localeCompare(whose(b) ?? '') || (a.name ?? '').localeCompare(b.name ?? ''));
   const open = (event: MouseEvent, id: string) => {
     event.preventDefault();
     setMenu({ at: { x: event.clientX, y: event.clientY }, id });
@@ -781,7 +781,7 @@ function SpaceAgents({ people, onActive }: { people: Person[]; onActive: (person
       <p className="st-note">{t('settings.agentsAbout')}</p>
       <div className="st-list">
         {shown.map((agent) => {
-          const owner = ownerName(agent);
+          const owner = whose(agent);
           return (
             <div key={agent.id} className={`st-li one${agent.active ? '' : ' off'}${menu?.id === agent.id ? ' menu-on' : ''}`} {...(agent.active && { onContextMenu: (event: MouseEvent) => open(event, agent.id) })}>
               <span className="who bot" aria-hidden="true">

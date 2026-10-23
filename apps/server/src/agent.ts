@@ -153,7 +153,7 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
       // The agent of this account and client, made the first time it writes (design/activity.md 2.1).
       self: async (client) => {
         const name = client.name?.trim() || clientName || 'Agent';
-        return { ...oauth.identity(account.id, clientId, name), client: name };
+        return { ...oauth.identity(account.id, clientId, name), client: name, ...(account.name && { owner: account.name }) };
       },
     };
   };
