@@ -1,4 +1,5 @@
 import {
+  type Actor,
   addCard,
   addComment,
   type Board,
@@ -384,14 +385,16 @@ export function saveCardTool(agent: Agent, client: Client, args: CardArgs) {
 /** The board a card or cards go on, the clock and the actor. */
 async function cardPlace(agent: Agent, client: Client, args: CardArgs) {
   const { space, element } = await pickAcross(agent, args.space, args.board, ['board'], 'board');
-  const by = actorOf(client, await agent.person());
+  const name = actorOf(client, await agent.person());
+  const author = await authorOf(agent, client, name);
   return {
     space,
     element,
     board: await loadBoard(space.fs, element.path),
     now: nowOf(agent),
-    by,
-    author: await authorOf(agent, client, by),
+    // What it does on a card is written with its name and, when the door knows it, its identity.
+    by: { ...(name && { name }), ...(author?.id && { id: author.id }) } satisfies Actor,
+    author,
     today: todayOf(agent),
     where: { space: space.id, spaceName: space.name, board: element.path },
   };
@@ -436,7 +439,7 @@ async function saveCards(agent: Agent, client: Client, args: CardArgs & { items:
 }
 
 /** One card added to `board` or changed on it, as `args` asks; the board is not written. */
-async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: Date, by: string | undefined, author: PersonRef | undefined): Promise<CardDone> {
+async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: Date, by: Actor, author: PersonRef | undefined): Promise<CardDone> {
   const column = args.column ? pickColumn(board, args.column) : undefined;
   const phase = args.phase ? pickPhase(board, args.phase) : undefined;
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
@@ -472,6 +475,7 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
         ...(note !== undefined && { note }),
       },
       () => now,
+      by,
     );
     // To another column, at its end unless after says where; or to another place in its own.
     if ((column && column.id !== card.column) || args.after !== undefined) {
@@ -508,7 +512,7 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
     board = addCard(board, input, () => now, by);
     if (board.cards.length === before) throw new Refusal('The card could not be added');
     card = board.cards[board.cards.length - 1]!;
-    if (subtasks.length > 0) board = updateCard(board, card.id, { subtasks }, () => now);
+    if (subtasks.length > 0) board = updateCard(board, card.id, { subtasks }, () => now, by);
     if (args.after !== undefined) board = moveCard(board, card.id, { column: card.column, after: afterOf(board, card.column, args.after, card.id) }, () => now, by);
     created = true;
   }
@@ -523,12 +527,13 @@ export async function commentTool(agent: Agent, client: Client, args: { space?: 
   if (!text) throw new Refusal('A comment needs text');
   const now = nowOf(agent);
   const by = actorOf(client, await agent.person());
+  const author = await authorOf(agent, client, by);
   // A cut-off call sent again must not say the same thing twice.
   const last = [...card.timeline].reverse().find((entry) => entry.kind === 'comment');
   if (last && last.kind === 'comment' && last.text === text && (last.by ?? null) === (by ?? null)) {
     return { data: { space: space.id, board: element.path, written: false, message: 'This is already the last comment on the card, by you; it was not written again.', card: cardOut(board, card, todayOf(agent)) } };
   }
-  board = addComment(board, card.id, text, () => now, by);
+  board = addComment(board, card.id, text, () => now, { ...(by && { name: by }), ...(author?.id && { id: author.id }) });
   await saveBoard(space.fs, element.path, board);
   return { data: { space: space.id, board: element.path, written: true, card: cardOut(board, board.cards.find((c) => c.id === card.id)!, todayOf(agent)) } };
 }

@@ -20,6 +20,8 @@ import {
   type Subtask,
   type TimelineEntry,
   valueText,
+  workerKey,
+  workersOf,
 } from '@scrawlnotes/core';
 import type { ScrawlEditor, ScrawlViewer } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
@@ -44,7 +46,7 @@ import { labelHue, useEscape } from './choices';
 import { AttachButton } from './Description';
 import { Icon, type IconName } from './Icon';
 import { boardLabel } from './items';
-import { assigneeLabel, PersonPicker, type SpacePeople, Who } from './People';
+import { assigneeLabel, firstName, NameOf, PersonPicker, type SpacePeople, WhoOf } from './People';
 import { PeopleSheet } from './PhoneSpaces';
 import { AssigneeSheet, KindMark, Label, LabelSheet, PhaseSheet, StatusSheet } from './PhoneBoard';
 import { LinkSheet } from './PhoneCollection';
@@ -100,11 +102,13 @@ function AssigneeField({ team, current, onPick }: { team: SpacePeople; current: 
   const name = current ? assigneeLabel(current, team.people) : null;
   return (
     <>
-      <button ref={field} id="card-assignee" type="button" className={`st-field who-field${open ? ' open' : ''}`} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button ref={field} id="card-assignee" type="button" className={`st-field who-field${open ? ' open' : ''}`} aria-haspopup="listbox" aria-expanded={open} title={name ?? undefined} onClick={() => setOpen(!open)}>
         {current ? (
           <>
-            <Who name={name ?? undefined} />
-            <span className="nm">{name}</span>
+            <WhoOf who={current} people={team.people} />
+            <span className="nm">
+              <NameOf who={current} people={team.people} />
+            </span>
           </>
         ) : (
           <span className="nm none">{t('people.nobody')}</span>
@@ -617,14 +621,120 @@ function SaveButton({ onSave }: { onSave: () => void }) {
   );
 }
 
-/** Who did something on the timeline: the name it was done under; with none, You in the personal space, where there is only you, else Someone. */
-const actor = (by: string | undefined, team: SpacePeople | null) => by ?? (team ? t('card.someone') : t('card.you'));
+/** Who wrote an entry of the timeline: the person or the agent its id is, with the name it was written under; null when nothing says. */
+const writerOf = (entry: { by?: string; byId?: string }): PersonRef | null => (entry.byId ? { id: entry.byId, ...(entry.by && { name: entry.by }) } : entry.by ? { name: entry.by } : null);
+
+/** Who did something on the timeline, as words: a person's first name, an agent's name and whose it is; with none, You in the personal space, where there is only you, else Someone. */
+const writerText = (who: PersonRef | null, team: SpacePeople | null) => (who ? firstName(who, team?.people) : team ? t('card.someone') : t('card.you'));
+
+/** Who did something on the timeline, as it shows: an agent's whose faint after its name. */
+function Writer({ who, team }: { who: PersonRef | null; team: SpacePeople | null }) {
+  return who ? <NameOf who={who} people={team?.people} first /> : <>{writerText(null, team)}</>;
+}
+
+/**
+ * A card's timeline, in one stream (design/activity.md 1.2): who made it, then only what
+ * mattered, each on one short line with the face and the name of who did it: a move, who it was
+ * given to, the subtasks ticked off; and the comments. An entry of a kind this version does not
+ * know is not shown.
+ */
+function Timeline({ board, path, card, team, today, actions }: { board: Board; path: string; card: Card; team: SpacePeople | null; today: string; actions: CardPanelActions }) {
+  const people = team?.people;
+  const columnName = (id: string | null) => (id === null ? '' : (board.columns.find((c) => c.id === id)?.name ?? t('card.removedColumn')));
+  const line = (key: string, who: PersonRef | null, what: ReactNode, at: string) => (
+    <div key={key} className="tl-ev">
+      <WhoOf who={who ?? {}} people={people} />
+      <span className="tx">
+        <b>
+          <Writer who={who} team={team} />
+        </b>{' '}
+        {what}
+      </span>
+      <span className="t">{when(at, today)}</span>
+    </div>
+  );
+  const subtaskTitle = (id: string | undefined) => card.subtasks?.find((s) => s.id === id)?.title;
+  return (
+    <>
+      {card.author && card.created && line('created', card.author, t('card.createdThis'), card.created)}
+      {card.timeline.map((entry) => {
+        const who = writerOf(entry);
+        if (entry.kind === 'move') return line(entry.id, who, entry.from === null ? t('card.movedIn', { to: columnName(entry.to) }) : t('card.moved', { from: columnName(entry.from), to: columnName(entry.to) }), entry.at);
+        if (entry.kind === 'assign') {
+          return line(
+            entry.id,
+            who,
+            entry.given ? (
+              <>
+                {t('card.gaveTo')}{' '}
+                <b>
+                  <NameOf who={entry.given} people={people} first />
+                </b>
+              </>
+            ) : (
+              t('card.gaveToNobody')
+            ),
+            entry.at,
+          );
+        }
+        if (entry.kind === 'tick') {
+          const one = entry.subtasks.length === 1 ? subtaskTitle(entry.subtasks[0]) : undefined;
+          return line(entry.id, who, one ? t('card.tickedOne', { title: one }) : t('card.ticked', { count: entry.subtasks.length }), entry.at);
+        }
+        if (entry.kind === 'comment') {
+          return (
+            <Comment
+              key={entry.id}
+              entry={entry}
+              who={<Writer who={who} team={team} />}
+              whoText={writerText(who, team)}
+              face={<WhoOf who={who ?? {}} people={people} />}
+              today={today}
+              menu={actions.menu}
+              viewer={(parent, doc) => actions.viewer(path, parent, doc)}
+              onEdit={(text) => actions.editComment(path, card.id, entry.id, text)}
+              onRemove={() => actions.removeComment(path, card.id, entry.id)}
+            />
+          );
+        }
+        return null;
+      })}
+    </>
+  );
+}
+
+/** Who worked on a card, under its fields: each once, the latest first, with when they last did. */
+function WorkedOnList({ card, team, today }: { card: Card; team: SpacePeople | null; today: string }) {
+  const workers = workersOf(card);
+  if (workers.length === 0) return null;
+  return (
+    <div className="worked">
+      <span className="wl">{t('card.workedOn')}</span>
+      {workers.map((worker) => {
+        const who = { ...(worker.id && { id: worker.id }), ...(worker.name && { name: worker.name }) };
+        return (
+          <div key={workerKey(worker)} className="wk" title={assigneeLabel(who, team?.people)}>
+            <WhoOf who={who} people={team?.people} />
+            <span className="nm">
+              <NameOf who={who} people={team?.people} first />
+            </span>
+            <span className="t">{when(worker.at, today)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 /** One comment on the timeline, with its menu: edit in place, or delete. */
-function Comment({ entry, who, today, onEdit, onRemove, menu, viewer }: {
+function Comment({ entry, who, whoText, face, today, onEdit, onRemove, menu, viewer }: {
   entry: Extract<TimelineEntry, { kind: 'comment' }>;
-  /** Who wrote it, as the timeline says it. */
-  who: string;
+  /** Who wrote it, as the timeline shows it. */
+  who: ReactNode;
+  /** The same in words, for its menu's head on a phone. */
+  whoText: string;
+  /** Their face. */
+  face: ReactNode;
   today: string;
   onEdit: (text: string) => void;
   onRemove: () => void;
@@ -640,7 +750,7 @@ function Comment({ entry, who, today, onEdit, onRemove, menu, viewer }: {
         { label: t('card.editComment'), icon: 'pen', run: () => setDraft(entry.text) },
         { label: t('menu.delete'), icon: 'trash', danger: true, run: onRemove },
       ],
-      { icon: 'comment', title: who, sub: when(entry.at, today) },
+      { icon: 'comment', title: whoText, sub: when(entry.at, today) },
     );
   const save = () => {
     if (draft?.trim()) onEdit(draft);
@@ -649,6 +759,7 @@ function Comment({ entry, who, today, onEdit, onRemove, menu, viewer }: {
   return (
     <div className="tl-cm" onContextMenu={open}>
       <div className="h">
+        {face}
         <b>{who}</b>
         {entry.edited && <small>{t('card.edited')}</small>}
         <span className="t">{when(entry.at, today)}</span>
@@ -805,26 +916,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
         )}
         <div className="cp-sec">{t('card.timeline')}</div>
         <div className="tlog">
-          {card.timeline.map((entry) =>
-            entry.kind === 'move' ? (
-              <div key={entry.id} className="tl-ev">
-                <b>{actor(entry.by, team)}</b>
-                <span>{entry.from === null ? t('card.movedIn', { to: columnName(entry.to) }) : t('card.moved', { from: columnName(entry.from), to: columnName(entry.to) })}</span>
-                <span className="t">{when(entry.at, today)}</span>
-              </div>
-            ) : (
-              <Comment
-                key={entry.id}
-                entry={entry}
-                who={actor(entry.by, team)}
-                today={today}
-                menu={actions.menu}
-                viewer={(parent, doc) => actions.viewer(path, parent, doc)}
-                onEdit={(text) => actions.editComment(path, card.id, entry.id, text)}
-                onRemove={() => actions.removeComment(path, card.id, entry.id)}
-              />
-            ),
-          )}
+          <Timeline board={board} path={path} card={card} team={team} today={today} actions={actions} />
           <div className="cp-new">
             <GrowingField
               value={comment}
@@ -905,6 +997,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
             })}
           </div>
         )}
+        <WorkedOnList card={card} team={team} today={today} />
         </aside>
       </div>
     </section>
@@ -1163,28 +1256,9 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
           menu={actions.menu}
           place="card"
         />
-        {card.timeline.length > 0 && <div className="mb-cap mb-cpad">{t('card.timeline')}</div>}
+        {(card.timeline.length > 0 || card.author) && <div className="mb-cap mb-cpad">{t('card.timeline')}</div>}
         <div className="mb-ctl tlog">
-          {card.timeline.map((entry) =>
-            entry.kind === 'move' ? (
-              <div key={entry.id} className="tl-ev">
-                <b>{actor(entry.by, team)}</b>
-                <span>{entry.from === null ? t('card.movedIn', { to: columnName(entry.to) }) : t('card.moved', { from: columnName(entry.from), to: columnName(entry.to) })}</span>
-                <span className="t">{when(entry.at, today)}</span>
-              </div>
-            ) : (
-              <Comment
-                key={entry.id}
-                entry={entry}
-                who={actor(entry.by, team)}
-                today={today}
-                menu={actions.menu}
-                viewer={(parent, doc) => actions.viewer(path, parent, doc)}
-                onEdit={(text) => actions.editComment(path, card.id, entry.id, text)}
-                onRemove={() => actions.removeComment(path, card.id, entry.id)}
-              />
-            ),
-          )}
+          <Timeline board={board} path={path} card={card} team={team} today={today} actions={actions} />
         </div>
       </div>
       <div className="mb-compose">

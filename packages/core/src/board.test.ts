@@ -51,6 +51,7 @@ import {
   updatePhase,
 } from './board';
 import { MemoryFs } from './fs';
+import { mergeFile } from './sync/merge-files';
 
 const now = () => new Date('2026-10-07T12:00:00.000Z');
 const later = () => new Date('2026-10-07T13:00:00.000Z');
@@ -536,5 +537,79 @@ describe("a board's own fields", () => {
     expect(setBoardFields(next, []).fields).toBeUndefined();
     // A name or code field written by hand reads as text: a card has its own title and key.
     expect(parseBoard(JSON.stringify({ fields: [{ key: 'name', label: 'Name', type: 'name' }] })).fields![0]!.type).toBe('text');
+  });
+});
+
+describe('what mattered on a card, and who worked on it', () => {
+  const kaan = { name: 'Kaan', id: 'k' };
+  const agent = { name: 'Claude Code · Kaan', id: 'k:4f2a9c1e' };
+  const at = (minutes: number) => () => new Date(Date.parse('2026-10-07T12:00:00.000Z') + minutes * 60_000);
+
+  it('writes who it is given to, with the id of who gave it, and who made it worked on it', () => {
+    let board = addCard(newBoard('Roadmap', 'software', ids('c')), { title: 'Export', assignee: { id: 'm', name: 'Mert' } }, at(0), kaan, 'x');
+    expect(card(board, 'x').author).toEqual({ id: 'k', name: 'Kaan' });
+    expect(card(board, 'x').timeline).toEqual([expect.objectContaining({ kind: 'assign', by: 'Kaan', byId: 'k', given: { id: 'm', name: 'Mert' } })]);
+    expect(card(board, 'x').workedOn).toEqual([{ id: 'k', name: 'Kaan', at: '2026-10-07T12:00:00.000Z' }]);
+    // The same person again writes nothing; another, and nobody, do.
+    board = updateCard(board, 'x', { assignee: { id: 'm', name: 'Mert K.' } }, at(1), kaan);
+    expect(card(board, 'x').timeline).toHaveLength(1);
+    board = updateCard(board, 'x', { assignee: agent }, at(2), kaan);
+    board = updateCard(board, 'x', { assignee: null }, at(3), kaan);
+    expect(card(board, 'x').timeline.map((e) => (e.kind === 'assign' ? (e.given?.name ?? 'nobody') : e.kind))).toEqual(['Mert', 'Claude Code · Kaan', 'nobody']);
+  });
+
+  it('writes the subtasks ticked off, one entry for an actor’s few minutes', () => {
+    let board = addCard(newBoard('Roadmap', 'software', ids('c')), { title: 'Export', subtasks: [{ title: 'Rows' }, { title: 'Labels' }, { title: 'Days' }] }, at(0), kaan, 'x');
+    const [rows, labels, days] = card(board, 'x').subtasks!.map((s) => s.id);
+    const tick = (id: string, done: boolean) => card(board, 'x').subtasks!.map((s) => (s.id === id ? { ...s, done } : s));
+    board = updateCard(board, 'x', { subtasks: tick(rows!, true) }, at(10), agent);
+    board = updateCard(board, 'x', { subtasks: tick(labels!, true) }, at(15), agent);
+    expect(card(board, 'x').timeline).toEqual([expect.objectContaining({ kind: 'tick', byId: agent.id, subtasks: [rows, labels], at: '2026-10-07T12:15:00.000Z' })]);
+    // Opened again: nothing written. Another actor, or later on: an entry of its own.
+    board = updateCard(board, 'x', { subtasks: tick(labels!, false) }, at(16), agent);
+    board = updateCard(board, 'x', { subtasks: tick(days!, true) }, at(17), kaan);
+    board = updateCard(board, 'x', { subtasks: tick(labels!, true) }, at(40), agent);
+    expect(card(board, 'x').timeline.map((e) => (e.kind === 'tick' ? `${e.byId}:${e.subtasks.length}` : e.kind))).toEqual(['k:4f2a9c1e:2', 'k:1', 'k:4f2a9c1e:1']);
+  });
+
+  it('keeps who worked on it once each, also for what writes no entry; a move in its column is not working on it', () => {
+    let board = software('a');
+    board = updateCard(board, 'a', { description: 'One row per card.' }, at(5), agent);
+    board = moveCard(board, 'a', { column: col(board, 'Doing'), after: null }, at(6), agent);
+    board = addComment(board, 'a', 'Done.', at(7), kaan);
+    expect(card(board, 'a').timeline.map((e) => `${e.kind}:${e.byId}`)).toEqual(['move:k:4f2a9c1e', 'comment:k']);
+    expect(card(board, 'a').workedOn).toEqual([
+      { name: 'kaan', at: '2026-10-07T12:00:00.000Z' },
+      { id: 'k:4f2a9c1e', name: 'Claude Code · Kaan', at: '2026-10-07T12:06:00.000Z' },
+      { id: 'k', name: 'Kaan', at: '2026-10-07T12:07:00.000Z' },
+    ]);
+    const before = card(board, 'a').workedOn;
+    board = addCard(board, { title: 'b', column: col(board, 'Doing') }, at(8), undefined, 'b');
+    board = moveCard(board, 'a', { column: col(board, 'Doing'), after: 'b' }, at(9), { id: 'm', name: 'Mert' });
+    expect(card(board, 'a').workedOn).toEqual(before);
+    const comment = card(board, 'a').timeline[1]!.id;
+    board = editComment(board, 'a', comment, 'Done, all rows.', at(10), { id: 'm', name: 'Mert' });
+    expect(card(board, 'a').workedOn!.map((w) => w.id ?? w.name)).toEqual(['kaan', 'k:4f2a9c1e', 'k', 'm']);
+  });
+
+  it('reads and writes back what it wrote, and an entry of a kind it does not know as it came', () => {
+    let board = addCard(newBoard('Roadmap', 'software', ids('c')), { title: 'Export', assignee: { id: 'm', name: 'Mert' } }, at(0), agent, 'x');
+    const text = serializeBoard(board).replace('"timeline": [', '"timeline": [{ "id": "z", "at": "2026-10-08T00:00:00.000Z", "kind": "pin", "by": "Mert", "note": "kept" },');
+    board = parseBoard(text);
+    expect(card(board, 'x').timeline.map((e) => e.kind)).toEqual(['unknown', 'assign']);
+    expect(card(board, 'x').workedOn).toEqual([{ id: agent.id, name: agent.name, at: '2026-10-07T12:00:00.000Z' }]);
+    const again = JSON.parse(serializeBoard(board)) as { cards: { timeline: { kind: string; note?: string }[] }[] };
+    expect(again.cards[0]!.timeline[0]).toEqual({ id: 'z', at: '2026-10-08T00:00:00.000Z', kind: 'pin', by: 'Mert', note: 'kept' });
+    expect(parseBoard(serializeBoard(board))).toEqual(board);
+  });
+
+  it('merges who worked on it from two devices, each at the later time', () => {
+    const base = software('a');
+    const local = updateCard(base, 'a', { title: 'A' }, at(5), kaan);
+    const remote = addComment(base, 'a', 'Hi', at(6), agent);
+    const merged = parseBoard(mergeFile('board', serializeBoard(base), serializeBoard(local), serializeBoard(remote)).text);
+    expect(card(merged, 'a').workedOn!.map((w) => w.id ?? w.name).sort()).toEqual(['k', 'k:4f2a9c1e', 'kaan']);
+    expect(card(merged, 'a').title).toBe('A');
+    expect(card(merged, 'a').timeline.map((e) => e.kind)).toEqual(['comment']);
   });
 });

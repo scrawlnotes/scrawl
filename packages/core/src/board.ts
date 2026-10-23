@@ -6,7 +6,7 @@ import { addSubtask, type NewSubtask, readSubtasks, type Subtask, writtenSubtask
 import type { Priority } from './tasks';
 
 // A board is a file of its own in a folder: `<name>.board.json`. It holds its columns, its
-// phases and its cards; a card carries its own timeline of moves and comments. A board may have
+// phases and its cards; a card carries its own timeline of what mattered on it, and who worked on it. A board may have
 // fields of its own, of a collection's types but name and code (a card has its title and key):
 // a deal's company and value. Everything here is a pure function over the board value, as with
 // task lists; the interface saves the result.
@@ -44,10 +44,47 @@ export interface Phase {
   note?: string | null;
 }
 
-/** A card's timeline holds its moves between columns and the comments on it, in one stream. */
+/** Who changes a card: the name its timeline is written with, and the id of the person or the agent when it is known (design/activity.md 3.1). */
+export interface Actor {
+  name?: string;
+  id?: string;
+}
+
+/** Who, as what changes a board takes it: a name alone, as before, or an actor. */
+export type By = string | Actor | undefined;
+
+/** The actor a `By` stands for; nobody when it is none. */
+export const actorIn = (by: By): Actor => (typeof by === 'string' ? { name: by } : (by ?? {}));
+
+/** When an entry of a timeline was written, and by whom: the name it was written with, and the id. */
+interface Stamp {
+  id: string;
+  at: string;
+  by?: string;
+  byId?: string;
+}
+
+/**
+ * A card's timeline: only what mattered on it, in one stream (design/activity.md 1.2): its moves
+ * between columns, the comments on it, who it was given to and the subtasks ticked off. An entry
+ * of a kind a newer version writes is kept as it is, and not shown.
+ */
 export type TimelineEntry =
-  | { id: string; at: string; by?: string; kind: 'move'; from: string | null; to: string }
-  | { id: string; at: string; by?: string; kind: 'comment'; text: string; edited?: string };
+  | (Stamp & { kind: 'move'; from: string | null; to: string })
+  | (Stamp & { kind: 'comment'; text: string; edited?: string })
+  | (Stamp & { kind: 'assign'; given?: PersonRef })
+  | (Stamp & { kind: 'tick'; subtasks: string[] })
+  | (Stamp & { kind: 'unknown'; raw: { [key: string]: unknown } });
+
+/** Someone who changed a card, a person or an agent, once each, with when they last did. */
+export interface WorkedOn {
+  id?: string;
+  name?: string;
+  at: string;
+}
+
+/** Ticks of one actor this close after its last are written as the same entry. */
+const TICKS_TOGETHER_MS = 10 * 60 * 1000;
 
 export interface Card {
   id: string;
@@ -67,8 +104,7 @@ export interface Card {
   due: string | null;
   /** Free words; a board colours them. Left out when empty. */
   labels?: string[];
-  /** Who the card is on: a person's or an agent's name. */
-  /** Who it is given to: a person of the space, or in the personal space a name as it was typed. */
+  /** Who it is given to: a person or an agent of the space, or in the personal space a name as it was typed. */
   assignee?: PersonRef | null;
   /** Who made it. */
   author?: PersonRef | null;
@@ -86,6 +122,8 @@ export interface Card {
   values?: { [key: string]: unknown };
   /** Its own subtasks, in their order; left out when it has none. */
   subtasks?: Subtask[];
+  /** Everyone who changed it, a person or an agent, once each: what changes leave no entry on the timeline still show here. Left out when no one is known. */
+  workedOn?: WorkedOn[];
 }
 
 export interface Board {
@@ -290,6 +328,9 @@ function parseCards(list: unknown, columns: Column[]): Card[] {
     const subtasks = readSubtasks(raw.subtasks);
     if (subtasks.length > 0) card.subtasks = subtasks;
     else delete card.subtasks;
+    const worked = readWorkedOn(raw.workedOn);
+    if (worked.length > 0) card.workedOn = worked;
+    else delete card.workedOn;
     for (const key of ['assignee', 'author'] as const) {
       const ref = readPersonRef(raw[key]);
       if (ref) card[key] = ref;
@@ -305,20 +346,80 @@ function parseCards(list: unknown, columns: Column[]): Card[] {
 const isValues = (raw: unknown): raw is { [key: string]: unknown } =>
   typeof raw === 'object' && raw !== null && !Array.isArray(raw) && Object.keys(raw).length > 0;
 
+const isObject = (raw: unknown): raw is { [key: string]: unknown } => typeof raw === 'object' && raw !== null && !Array.isArray(raw);
+
 function parseTimeline(list: unknown): TimelineEntry[] {
   if (!Array.isArray(list)) return [];
   const out: TimelineEntry[] = [];
-  for (const raw of list as Partial<TimelineEntry>[]) {
-    if (!raw || typeof raw.id !== 'string' || typeof raw.at !== 'string') continue;
-    const by = typeof raw.by === 'string' ? { by: raw.by } : {};
-    if (raw.kind === 'move' && typeof raw.to === 'string') {
-      out.push({ id: raw.id, at: raw.at, ...by, kind: 'move', from: typeof raw.from === 'string' ? raw.from : null, to: raw.to });
-    } else if (raw.kind === 'comment' && typeof raw.text === 'string') {
-      out.push({ id: raw.id, at: raw.at, ...by, kind: 'comment', text: raw.text, ...(typeof raw.edited === 'string' && { edited: raw.edited }) });
+  for (const raw of list) {
+    if (!isObject(raw) || typeof raw.id !== 'string' || typeof raw.at !== 'string') continue;
+    // Unknown fields are kept, so a newer version's data survives being saved by an older one.
+    const { id, at, by, byId, kind, ...rest } = raw;
+    const stamp: Stamp = { id: raw.id, at: raw.at, ...(typeof by === 'string' && { by }), ...(typeof byId === 'string' && { byId }) };
+    if (kind === 'move' && typeof rest.to === 'string') {
+      out.push({ ...rest, ...stamp, kind: 'move', from: typeof rest.from === 'string' ? rest.from : null, to: rest.to });
+    } else if (kind === 'comment' && typeof rest.text === 'string') {
+      out.push({ ...rest, ...stamp, kind: 'comment', text: rest.text, ...(typeof rest.edited === 'string' && { edited: rest.edited }) });
+    } else if (kind === 'assign') {
+      const { given, ...others } = rest;
+      const ref = readPersonRef(given);
+      out.push({ ...others, ...stamp, kind: 'assign', ...(ref && { given: ref }) });
+    } else if (kind === 'tick' && Array.isArray(rest.subtasks)) {
+      out.push({ ...rest, ...stamp, kind: 'tick', subtasks: rest.subtasks.filter((s): s is string => typeof s === 'string') });
+    } else {
+      // A kind this version does not know, kept to be written back as it came.
+      out.push({ ...stamp, kind: 'unknown', raw: kind === 'unknown' && isObject(rest.raw) ? rest.raw : raw });
     }
   }
   return out;
 }
+
+/** Who worked on a card, as the file has them: each with when, and an id or a name. */
+function readWorkedOn(list: unknown): WorkedOn[] {
+  if (!Array.isArray(list)) return [];
+  const out: WorkedOn[] = [];
+  for (const raw of list) {
+    if (!isObject(raw) || typeof raw.at !== 'string') continue;
+    const id = typeof raw.id === 'string' && raw.id ? raw.id : undefined;
+    const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : undefined;
+    if (!id && !name) continue;
+    const worker: WorkedOn = { ...(id && { id }), ...(name && { name }), at: raw.at };
+    if (!out.some((w) => workerKey(w) === workerKey(worker))) out.push(worker);
+  }
+  return out;
+}
+
+/** Who a worker is, to find them again: their id, else their name. */
+export const workerKey = (worker: { id?: string; name?: string }): string => worker.id ?? `name:${worker.name ?? ''}`;
+
+/** Those who worked on a card, the latest first. */
+export const workersOf = (card: Card): WorkedOn[] => [...(card.workedOn ?? [])].sort((a, b) => b.at.localeCompare(a.at));
+
+/** Who worked on a card from three versions: everyone either side has, each at the later time. */
+export function mergeWorkedOn(...lists: (WorkedOn[] | undefined)[]): WorkedOn[] {
+  const merged = new Map<string, WorkedOn>();
+  for (const worker of lists.flatMap((list) => list ?? [])) {
+    const had = merged.get(workerKey(worker));
+    if (!had || had.at < worker.at) merged.set(workerKey(worker), worker);
+  }
+  return [...merged.values()];
+}
+
+/** The card with the actor among those who worked on it, at `stamp`; as it was when the actor is no one. */
+function workedBy(card: Card, actor: Actor, stamp: string): Card {
+  if (!actor.id && !actor.name) return card;
+  const worker: WorkedOn = { ...(actor.id && { id: actor.id }), ...(actor.name && { name: actor.name }), at: stamp };
+  return { ...card, workedOn: [...(card.workedOn ?? []).filter((w) => workerKey(w) !== workerKey(worker)), worker] };
+}
+
+/** What an entry of the timeline says of who wrote it. */
+const stampOf = (actor: Actor) => ({ ...(actor.name && { by: actor.name }), ...(actor.id && { byId: actor.id }) });
+
+/** Whether an entry was written by the actor. */
+const writtenBy = (entry: Stamp, actor: Actor) => (actor.id ? entry.byId === actor.id : !entry.byId && entry.by === actor.name);
+
+/** A person a card is given to, to tell whether it changed: their id, else their name. */
+const refKey = (ref: PersonRef | null | undefined) => (ref ? (ref.id ?? `name:${ref.name ?? ''}`) : '');
 
 /** Exactly one phase is current while any is open: the first open one, when none is marked. */
 function withOneCurrent(phases: Phase[]): Phase[] {
@@ -335,7 +436,12 @@ function withOneCurrent(phases: Phase[]): Phase[] {
 /** A board as its file holds it. */
 export function serializeBoard(board: Board): string {
   const { phases, ...rest } = board;
-  const cards = rest.cards.map((c) => (c.subtasks ? { ...c, subtasks: c.subtasks.map(writtenSubtask) } : c));
+  const cards = rest.cards.map((c) => ({
+    ...c,
+    ...(c.subtasks && { subtasks: c.subtasks.map(writtenSubtask) }),
+    // A kind of entry this version does not know goes back as it came.
+    timeline: c.timeline.map((entry) => (entry.kind === 'unknown' ? entry.raw : entry)),
+  }));
   return `${JSON.stringify({ version: 1, ...rest, cards, ...(phases.length > 0 && { phases }) }, null, 2)}\n`;
 }
 
@@ -489,7 +595,7 @@ export function moveColumn(board: Board, id: string, after: string | null): Boar
  * Removes a column; its cards go to the end of the first column that remains. The last column
  * and the last done column stay.
  */
-export function removeColumn(board: Board, id: string, now: Clock = () => new Date(), by?: string): Board {
+export function removeColumn(board: Board, id: string, now: Clock = () => new Date(), by?: By): Board {
   const column = board.columns.find((c) => c.id === id);
   if (!column || board.columns.length === 1) return board;
   if (column.kind === 'done' && board.columns.filter((c) => c.kind === 'done').length === 1) return board;
@@ -660,9 +766,10 @@ export interface NewCard {
 
 /**
  * Adds a card at the end of its column, with the next key: or first, or after a card, as asked.
- * A title of only spaces adds none.
+ * A title of only spaces adds none. Who adds it worked on it; given to someone, its timeline says so.
  */
-export function addCard(board: Board, input: NewCard, now: Clock = () => new Date(), by?: string, id: string = newId()): Board {
+export function addCard(board: Board, input: NewCard, now: Clock = () => new Date(), by?: By, id: string = newId()): Board {
+  const actor = actorIn(by);
   const title = input.title.trim();
   const column = input.column && board.columns.some((c) => c.id === input.column) ? input.column : board.columns[0]?.id;
   if (!title || !column) return board;
@@ -683,16 +790,18 @@ export function addCard(board: Board, input: NewCard, now: Clock = () => new Dat
     due: input.due ?? null,
     ...(input.labels && input.labels.length > 0 && { labels: cleanLabels(input.labels) }),
     ...(input.assignee && { assignee: input.assignee }),
-    ...(input.author ? { author: input.author } : by && { author: { name: by } }),
+    ...(input.author ? { author: input.author } : (actor.id || actor.name) && { author: { ...(actor.id && { id: actor.id }), ...(actor.name && { name: actor.name }) } }),
     ...(input.note && { note: input.note }),
     ...(input.values && filledValues(input.values) && { values: filledValues(input.values) }),
     created: stamp,
     updated: stamp,
     completed: columnOf(board, { column } as Card)?.kind === 'done' ? stamp : null,
-    timeline: [],
+    timeline: input.assignee ? [{ id: newId(), at: stamp, ...stampOf(actor), kind: 'assign', given: input.assignee }] : [],
   };
   const subtasks = (input.subtasks ?? []).reduce<Subtask[]>((list, s) => addSubtask(list, s, now), []);
   if (subtasks.length > 0) card.subtasks = subtasks;
+  const worked = workedBy(card, actor, stamp).workedOn;
+  if (worked) card.workedOn = worked;
   // The cards after it in its column move down one to make room.
   const cards = after ? board.cards.map((c) => (c.column === column && c.order > after.order ? { ...c, order: c.order + 1 } : c)) : board.cards;
   return { ...board, nextKey: board.nextKey + 1, cards: [...cards, card] };
@@ -707,15 +816,19 @@ export type CardPatch = Partial<Pick<Card, 'title' | 'description' | 'priority' 
 
 /**
  * Changes a card. An empty title keeps the old one; an empty description, label list, assignee
- * or note is removed; a phase the board does not have is treated as none.
+ * or note is removed; a phase the board does not have is treated as none. Who changes it worked
+ * on it; its timeline says who it is given to now and which subtasks they ticked off, the ticks
+ * of a few minutes as one entry.
  */
-export function updateCard(board: Board, id: string, patch: CardPatch, now: Clock = () => new Date()): Board {
+export function updateCard(board: Board, id: string, patch: CardPatch, now: Clock = () => new Date(), by?: By): Board {
   if (patch.title !== undefined && !patch.title.trim()) return board;
+  const actor = actorIn(by);
   return {
     ...board,
     cards: board.cards.map((c) => {
       if (c.id !== id) return c;
-      const next: Card = { ...c, updated: iso(now) };
+      const stamp = iso(now);
+      const next: Card = { ...c, updated: stamp };
       if (patch.title !== undefined) next.title = patch.title.trim();
       if (patch.priority !== undefined) next.priority = patch.priority;
       if (patch.due !== undefined) next.due = patch.due;
@@ -726,9 +839,23 @@ export function updateCard(board: Board, id: string, patch: CardPatch, now: Cloc
       if (patch.values !== undefined) setOrDrop(next, 'values', filledValues({ ...c.values, ...patch.values }));
       if (patch.subtasks !== undefined) setOrDrop(next, 'subtasks', patch.subtasks.length > 0 ? patch.subtasks : undefined);
       if (patch.note !== undefined) setOrDrop(next, 'note', patch.note || undefined);
-      return next;
+      if (patch.assignee !== undefined && refKey(c.assignee) !== refKey(next.assignee)) {
+        next.timeline = [...next.timeline, { id: newId(), at: stamp, ...stampOf(actor), kind: 'assign', ...(next.assignee && { given: next.assignee }) }];
+      }
+      const ticked = (next.subtasks ?? []).filter((s) => s.done && !c.subtasks?.find((was) => was.id === s.id)?.done).map((s) => s.id);
+      if (patch.subtasks !== undefined && ticked.length > 0) next.timeline = withTicks(next.timeline, ticked, actor, stamp);
+      return workedBy(next, actor, stamp);
     }),
   };
+}
+
+/** The timeline with subtasks ticked off: added to the actor's last entry when it is ticks of a few minutes ago, else a new one. */
+function withTicks(timeline: TimelineEntry[], ticked: string[], actor: Actor, stamp: string): TimelineEntry[] {
+  const last = timeline.at(-1);
+  if (last?.kind === 'tick' && writtenBy(last, actor) && Date.parse(stamp) - Date.parse(last.at) <= TICKS_TOGETHER_MS) {
+    return [...timeline.slice(0, -1), { ...last, at: stamp, subtasks: [...new Set([...last.subtasks, ...ticked])] }];
+  }
+  return [...timeline, { id: newId(), at: stamp, ...stampOf(actor), kind: 'tick', subtasks: ticked }];
 }
 
 function setOrDrop<K extends 'description' | 'labels' | 'assignee' | 'phase' | 'values' | 'subtasks' | 'note'>(card: Card, field: K, value: Card[K] | undefined): void {
@@ -744,9 +871,10 @@ export interface CardPlace {
 
 /**
  * Moves a card within its column or to another. A change of column is written to the card's
- * timeline, and entering a done column marks it completed.
+ * timeline, and to who worked on it; entering a done column marks it completed.
  */
-export function moveCard(board: Board, id: string, place: CardPlace, now: Clock = () => new Date(), by?: string): Board {
+export function moveCard(board: Board, id: string, place: CardPlace, now: Clock = () => new Date(), by?: By): Board {
+  const actor = actorIn(by);
   const card = board.cards.find((c) => c.id === id);
   const column = board.columns.find((c) => c.id === place.column);
   if (!card || !column) return board;
@@ -762,14 +890,15 @@ export function moveCard(board: Board, id: string, place: CardPlace, now: Clock 
     ...board,
     cards: board.cards.map((c) => {
       if (c.id === id) {
-        return {
+        const moved: Card = {
           ...c,
           column: place.column,
           order: orderOf.get(id)!,
           updated: stamp,
           completed: column.kind === 'done' ? (changed ? stamp : c.completed) : null,
-          timeline: changed ? [...c.timeline, { id: newId(), at: stamp, ...(by && { by }), kind: 'move', from: c.column, to: place.column }] : c.timeline,
+          timeline: changed ? [...c.timeline, { id: newId(), at: stamp, ...stampOf(actor), kind: 'move', from: c.column, to: place.column }] : c.timeline,
         };
+        return changed ? workedBy(moved, actor, stamp) : moved;
       }
       const order = orderOf.get(c.id);
       return order === undefined || order === c.order ? c : { ...c, order };
@@ -778,7 +907,7 @@ export function moveCard(board: Board, id: string, place: CardPlace, now: Clock 
 }
 
 /** Moves a card to the end of the first column of `kind`: what an agent does without knowing names. */
-export function moveCardToKind(board: Board, id: string, kind: ColumnKind, now: Clock = () => new Date(), by?: string): Board {
+export function moveCardToKind(board: Board, id: string, kind: ColumnKind, now: Clock = () => new Date(), by?: By): Board {
   const column = firstColumn(board, kind);
   if (!column) return board;
   return moveCard(board, id, { column: column.id, after: columnCards(board, column.id).filter((c) => c.id !== id).pop()?.id ?? null }, now, by);
@@ -801,28 +930,30 @@ export function relinkBoardNote(board: Board, from: string, to: string): Board {
 // ---------- comments ----------
 
 /** Adds a comment to a card's timeline. A comment of only spaces adds none. */
-export function addComment(board: Board, cardId: string, text: string, now: Clock = () => new Date(), by?: string, id: string = newId()): Board {
+export function addComment(board: Board, cardId: string, text: string, now: Clock = () => new Date(), by?: By, id: string = newId()): Board {
   const clean = text.trim();
   if (!clean) return board;
   const stamp = iso(now);
-  return mapCard(board, cardId, (c) => ({ ...c, updated: stamp, timeline: [...c.timeline, { id, at: stamp, ...(by && { by }), kind: 'comment', text: clean }] }));
+  const actor = actorIn(by);
+  return mapCard(board, cardId, (c) => workedBy({ ...c, updated: stamp, timeline: [...c.timeline, { id, at: stamp, ...stampOf(actor), kind: 'comment', text: clean }] }, actor, stamp));
 }
 
 /** Changes a comment's text and notes when it was edited. An empty text keeps the old one. */
-export function editComment(board: Board, cardId: string, id: string, text: string, now: Clock = () => new Date()): Board {
+export function editComment(board: Board, cardId: string, id: string, text: string, now: Clock = () => new Date(), by?: By): Board {
   const clean = text.trim();
   if (!clean) return board;
   const stamp = iso(now);
-  return mapCard(board, cardId, (c) => ({
-    ...c,
-    updated: stamp,
-    timeline: c.timeline.map((e) => (e.id === id && e.kind === 'comment' && e.text !== clean ? { ...e, text: clean, edited: stamp } : e)),
-  }));
+  return mapCard(board, cardId, (c) =>
+    c.timeline.some((e) => e.id === id && e.kind === 'comment' && e.text !== clean)
+      ? workedBy({ ...c, updated: stamp, timeline: c.timeline.map((e) => (e.id === id && e.kind === 'comment' ? { ...e, text: clean, edited: stamp } : e)) }, actorIn(by), stamp)
+      : { ...c, updated: stamp },
+  );
 }
 
-export function removeComment(board: Board, cardId: string, id: string, now: Clock = () => new Date()): Board {
+export function removeComment(board: Board, cardId: string, id: string, now: Clock = () => new Date(), by?: By): Board {
+  const stamp = iso(now);
   return mapCard(board, cardId, (c) =>
-    c.timeline.some((e) => e.id === id && e.kind === 'comment') ? { ...c, updated: iso(now), timeline: c.timeline.filter((e) => e.id !== id) } : c,
+    c.timeline.some((e) => e.id === id && e.kind === 'comment') ? workedBy({ ...c, updated: stamp, timeline: c.timeline.filter((e) => e.id !== id) }, actorIn(by), stamp) : c,
   );
 }
 

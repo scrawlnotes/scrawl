@@ -217,3 +217,14 @@ Sonra yayın; kararı kullanıcının. Her dilimden sonra commit sorulur. Aşama
 - **2. dilime kadar.** Ajanlar atama seçicilerinde ve People listesinde yok; space sayfasında yalnız Agents altında. `spaces` aracının `people`'ında da yok, kişi adıyla atamada da aranmaz.
 - **Ekranda.** Settings › Agents'ta bilgisayarın bloğunda bu bilgisayarın ajanları (masaüstünün bilgisayar adıyla süzülür; ad bilinmezse hepsi), sunucunun bloğunda bağlı ajanlar adlarıyla; menüde Rename (yerinde, Cancel ve Save), sunucudakilerde Disconnect. Telefonda adlar görünür, Rename yok (taslakta yoktu). Ajanın karesi uygulamada da kare: masaüstünde 5, telefonda 8 piksel köşe.
 - **Denenmedi.** Masaüstü uygulamasında bilgisayarın bloğu ve gerçek istemcilerle (Claude Code stdio, claude.ai, ChatGPT) yazış.
+
+## 11. Yazılırken: 2. dilim (Kartın etkinliği)
+
+23 Ekim. Kodda; Roadmap ROA-220, deneme ROA-225.
+
+- **Olaylar.** `assign` (kime; atama kalkınca `given` yok) ve `tick` (biten alt görevlerin kimlikleri). Atamayla açılan kartta da `assign` yazılır, açanın adıyla. Aynı kişiye yeniden atamak, alt görevi yeniden açmak kayıt bırakmaz. Bir kişinin ya da ajanın on dakika içinde art arda bitirdikleri, araya başka kayıt girmediyse, tek `tick`.
+- **`byId`** taşıma, yorum, atama ve alt görev kayıtlarında. Uygulama insanı `me.json` kimliğiyle, ajan kendi kimliğiyle yazar; kimliği bilinmeyen ajan eskisi gibi yalnız adla.
+- **`workedOn`.** Kartı açan, alanlarını, açıklamasını ya da alt görevlerini değiştiren, sütununu değiştiren, yorum yazan, düzenleyen ya da silen yazılır. Aynı sütunda yer değiştirmek yazılmaz. Faz kapanınca kayan kartlar yazılmaz; sütun silinince taşınan kartlar taşıyanın adıyla yazılır (taşıma kaydı da öyle). Sync'te iki taraftakiler birleşir, zamanın sonuncusu kalır.
+- **Bilinmeyen kayıt.** Bu sürümün tanımadığı türde bir kayıt olduğu gibi tutulur ve geri yazılır; ekranda görünmez.
+- **Ekranda.** Zaman çizgisi masaüstünde ve telefonda aynı bileşen: başta `author`'dan "… created this", her satırda yazanın yüzü; insanın ilk adı, ajanın adı ve soluk sahibi. Worked on kart penceresinde alanların altında. Kart yüzünde atananın solunda üzerinde çalışmış ajanlar (atanan değilse) en çok üç küçük kare; List görünümünde atanan ajansa kare. Atama seçicisinde People'ın altında Agents, her birinin yanında "yours" ya da "Mert's"; arama sahibin adını da bulur. Seçici görevlerde de aynı olduğu için görev de ajana verilebiliyor; görevin etkinliği 3. dilimde.
+- **Telefon.** Zaman çizgisi bu dilimde telefonda da yeni satırlarla görünüyor. Telefonda Worked on ve atama sheet'inde ajanlar 5. dilimde.

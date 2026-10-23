@@ -14423,3 +14423,122 @@ button.st-li:hover,
 .rec-row.past {
   opacity: 0.5;
 }
+
+/* Who did what on a card (design/activity.md 4): a face before each line of the timeline and
+   each comment, a person round, an agent a square with its client's first letter; an agent's
+   whose faint after its name; on a card's face, a small square for each agent that worked on it. */
+.tl-ev {
+  align-items: center;
+}
+
+.tl-ev .tx {
+  min-width: 0;
+  color: var(--sl-dim);
+}
+
+.tl-ev .tx b {
+  color: var(--sl-fg);
+}
+
+.tl-ev .who,
+.tl-cm .h .who,
+.worked .who {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-size: 8.5px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+.tl-cm .h {
+  align-items: center;
+}
+
+.of {
+  color: var(--sl-faint);
+  font-size: 0.92em;
+  font-weight: 400;
+}
+
+:is(.kc, .lrow, .meta, .rpick, .st-field, .tl-ev, .tl-cm, .worked, .mb-kc, .mb-row) .who.bot {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--sl-accent) 22%, transparent);
+  color: var(--sl-accent);
+}
+
+.rpick.ppick .rr.at .who.bot {
+  background: color-mix(in srgb, var(--sl-accent) 32%, transparent);
+}
+
+.rpick.ppick .rg-list .rr small {
+  margin-left: auto;
+}
+
+.kc .whos {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.kc .whos .who {
+  margin-left: 0;
+}
+
+.kc .whos .who.sm {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--sl-accent) 14%, transparent);
+  font-size: 7.5px;
+  line-height: 13px;
+}
+
+.kc .whos .who.sm + span {
+  margin-left: 2px;
+}
+
+/* Who worked on a card, under its fields: each once, the latest first. */
+.worked {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sl-line);
+}
+
+.worked .wl {
+  margin-bottom: 3px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.worked .wk {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 24px;
+  font-size: 12px;
+}
+
+.worked .nm {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worked .t {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 11px;
+  white-space: nowrap;
+}

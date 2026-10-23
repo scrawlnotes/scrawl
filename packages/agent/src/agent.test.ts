@@ -1143,6 +1143,19 @@ describe('the agent’s own identity', () => {
     await client.close();
   });
 
+  it('writes what it does on a card with its identity, and is among those who worked on it', async () => {
+    const { agent, fs, board } = await sample();
+    const self = { id: 'me:4f2a9c1e', name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC' };
+    const as: Agent = { ...agent, self: async () => self };
+    await saveCardTool(as, CLIENT, { board: 'Scrawl', title: 'Export', assignee: 'Kaan', subtasks: [{ title: 'Rows' }, { title: 'Days' }] });
+    await saveCardTool(as, CLIENT, { board: 'Scrawl', id: 'SCR-1', column: 'Doing', subtasks: [{ id: 'Rows', done: true }, { id: 'Days', done: true }] });
+    await commentTool(as, CLIENT, { board: 'Scrawl', card: 'SCR-1', text: 'Both done.' });
+    const card = (await loadBoard(fs, board)).cards[0]!;
+    expect(card.timeline.map((e) => `${e.kind}:${e.byId}`)).toEqual(['assign:me:4f2a9c1e', 'tick:me:4f2a9c1e', 'move:me:4f2a9c1e', 'comment:me:4f2a9c1e']);
+    expect(card.timeline.find((e) => e.kind === 'tick')).toMatchObject({ subtasks: card.subtasks!.map((s) => s.id) });
+    expect(card.workedOn).toEqual([{ id: self.id, name: 'Claude Code · Kaan', at: expect.any(String) }]);
+  });
+
   it('is made as the client’s name when the door knows no identity', async () => {
     const { agent, fs, board } = await sample();
     await saveCardTool({ ...agent, self: async () => null }, CLIENT, { board: 'Scrawl', title: 'No identity' });

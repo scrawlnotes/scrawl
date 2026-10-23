@@ -34,6 +34,7 @@ import {
   addSection,
   addTask,
   ATTACHMENTS,
+  type Actor,
   type Board,
   BOARD_EXT,
   type BoardLook,
@@ -2522,9 +2523,10 @@ export class Session {
     this.meetSpaces();
   }
 
-  /** The name a card's timeline records for what is done here; none while the name is empty. */
-  private get by(): string | undefined {
-    return this.snapshot.me?.name;
+  /** Who what is done here on a card is written as: the name, none while it is empty, and the id of the person (design/activity.md 3.1). */
+  private get by(): Actor | undefined {
+    const me = this.snapshot.me;
+    return me ? { ...(me.name && { name: me.name }), id: me.id } : undefined;
   }
 
   /**
@@ -3548,14 +3550,14 @@ export class Session {
   }
 
   updateCard(board: string, id: string, patch: CardPatch) {
-    this.changeBoard(board, (current) => updateCard(current, id, patch));
+    this.changeBoard(board, (current) => updateCard(current, id, patch, undefined, this.by));
   }
 
   /** Changes a card's subtasks, from the list as it is now. */
   changeCardSubtasks(board: string, id: string, change: (list: Subtask[]) => Subtask[]) {
     this.changeBoard(board, (current) => {
       const card = current.cards.find((c) => c.id === id);
-      return card ? updateCard(current, id, { subtasks: change(card.subtasks ?? []) }) : current;
+      return card ? updateCard(current, id, { subtasks: change(card.subtasks ?? []) }, undefined, this.by) : current;
     });
   }
 
@@ -3599,7 +3601,7 @@ export class Session {
   }
 
   editComment(board: string, id: string, comment: string, text: string) {
-    this.changeBoard(board, (current) => editComment(current, id, comment, text));
+    this.changeBoard(board, (current) => editComment(current, id, comment, text, undefined, this.by));
   }
 
   /** Deletes a comment; returns what puts it back where it was on the timeline, for Undo. */
@@ -3607,7 +3609,7 @@ export class Session {
     const card = this.snapshot.boards[board]?.cards.find((c) => c.id === id);
     const at = card?.timeline.findIndex((entry) => entry.id === comment) ?? -1;
     const entry = at >= 0 ? card!.timeline[at]! : undefined;
-    this.changeBoard(board, (current) => removeComment(current, id, comment));
+    this.changeBoard(board, (current) => removeComment(current, id, comment, undefined, this.by));
     return () => {
       if (!entry) return;
       this.changeBoard(board, (current) => ({

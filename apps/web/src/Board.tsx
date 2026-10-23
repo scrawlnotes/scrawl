@@ -22,6 +22,7 @@ import {
   isEmpty,
   isLink,
   keyOf,
+  isAgentId,
   isFinished,
   type NewCard,
   type Phase,
@@ -39,7 +40,7 @@ import { useNarrow } from './narrow';
 import { StatusIcon } from './StatusIcon';
 import { MonthCalendar, type MonthChip } from './Calendar';
 import { CardPanel, type CardPanelActions } from './CardPanel';
-import { assigneeLabel, initialOf } from './People';
+import { assigneeLabel, CardWho, hasCardWho, initialOf, WhoOf } from './People';
 import { labelHue } from './choices';
 import { Cell, type ValueContext } from './Collection';
 import { BoardFieldsDialog } from './Fields';
@@ -306,7 +307,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
           <span className="top">
             <i className={`p${card.priority}`} />
             {keyOf(board, card)}
-            {card.assignee && <span className="mb-who">{initialOf(card.assignee, people)}</span>}
+            {card.assignee && <span className={`mb-who${isAgentId(card.assignee.id) ? ' bot' : ''}`}>{initialOf(card.assignee, people)}</span>}
           </span>
           <b>{card.title}</b>
           {(card.due || subtasks || card.labels?.length || comments > 0 || phase || face.length > 0) && (
@@ -360,7 +361,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
           <i className={`dot p${card.priority}`} />
           <span>{card.title}</span>
         </span>
-        {(card.due || subtasks || card.labels?.length || comments > 0 || noteTitle !== null || phase || face.length > 0 || card.assignee) && (
+        {(card.due || subtasks || card.labels?.length || comments > 0 || noteTitle !== null || phase || face.length > 0 || hasCardWho(card)) && (
           <span className="meta">
             {card.due && <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span>}
             {subtasks}
@@ -390,11 +391,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
                 </span>
               ),
             )}
-            {card.assignee && (
-              <span className="who" title={assigneeLabel(card.assignee, people)}>
-                {initialOf(card.assignee, people)}
-              </span>
-            )}
+            <CardWho card={card} people={people} />
           </span>
         )}
       </button>
@@ -1206,13 +1203,7 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
             </span>
           ))}
         </span>
-        <span>
-          {card.assignee && (
-            <span className="who" title={assigneeLabel(card.assignee, people)}>
-              {initialOf(card.assignee, people)}
-            </span>
-          )}
-        </span>
+        <span title={card.assignee ? assigneeLabel(card.assignee, people) : undefined}>{card.assignee && <WhoOf who={card.assignee} people={people} />}</span>
         <span className={card.due ? dueClass(card.due, today) : 'due'}>{card.due ? dueLabel(card.due, today) : ''}</span>
         {own.map((field) => (
           <span key={field.key} className={isNumber(field) ? 'own r' : 'own'}>

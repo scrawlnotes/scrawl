@@ -1,5 +1,5 @@
 import { t } from '@scrawlnotes/i18n';
-import { addCard, type Board, type Card, cardValue, loadBoard, moveCard, type NewCard, removeCard, saveBoard } from './board';
+import { addCard, type Board, type By, type Card, cardValue, loadBoard, moveCard, type NewCard, removeCard, saveBoard } from './board';
 import {
   addRecord,
   type Collection,
@@ -824,7 +824,7 @@ export function savedWords(after: Plan, space: Words): string {
 // ---------- writing a plan ----------
 
 /** Puts a plan's changes in the space's files at once; gives what undoes them: the added to the trash, the changed back, the removed from the trash. */
-export async function writePlan(fs: VaultFs, plan: Plan, space: Pick<RuleSpaceNow, 'collections'>, now: () => Date = () => new Date(), by?: string): Promise<() => Promise<void>> {
+export async function writePlan(fs: VaultFs, plan: Plan, space: Pick<RuleSpaceNow, 'collections'>, now: () => Date = () => new Date(), by?: By): Promise<() => Promise<void>> {
   const undo: (() => Promise<void>)[] = [];
   const collection = (dir: string) => space.collections.find((c) => c.dir === dir);
   const fresh = async (dir: string, id: string): Promise<Record | null> => {

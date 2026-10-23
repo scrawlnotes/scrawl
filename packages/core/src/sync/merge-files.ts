@@ -1,6 +1,6 @@
 import { diffIndices } from 'node-diff3';
 import { mergeAgents, parseAgents } from '../agents';
-import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from '../board';
+import { type Board, BOARD_EXT, type Card, mergeWorkedOn, parseBoard, serializeBoard, type TimelineEntry } from '../board';
 import { parseFilters, serializeFilters, type TaskFilter } from '../filters';
 import { KEYS_EXT } from '../keys';
 import { RULES_FILE } from '../rules';
@@ -170,6 +170,10 @@ function mergeCard(was: Card | undefined, mine: Card, theirs: Card): Card {
   const merged: Card = { ...card, timeline: mergeTimeline(was?.timeline ?? [], mine.timeline, theirs.timeline) };
   if (subtasks.length > 0) merged.subtasks = subtasks;
   else delete merged.subtasks;
+  // Who worked on it: everyone either side has, at the later time.
+  const worked = mergeWorkedOn(was?.workedOn, mine.workedOn, theirs.workedOn);
+  if (worked.length > 0) merged.workedOn = worked;
+  else delete merged.workedOn;
   return merged;
 }
 

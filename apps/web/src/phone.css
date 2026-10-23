@@ -7425,3 +7425,32 @@ body > .mb-lifted {
   margin-right: 4px;
   vertical-align: -2px;
 }
+
+/* The timeline's faces on a phone (design/activity.md 4). */
+.mb-ctl .tl-ev {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.mb-ctl .tl-ev .tx {
+  flex: 1;
+  line-height: 1.35;
+}
+
+.mb-ctl .tl-ev .who,
+.mb-ctl .tl-cm .h .who {
+  width: 22px;
+  height: 22px;
+  font-size: 10.5px;
+  line-height: 22px;
+}
+
+.mb-ctl .tl-ev .t {
+  padding-top: 2px;
+}
+
+.mb-kc .mb-who.bot {
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--sl-accent) 22%, transparent);
+  color: var(--sl-accent);
+}
