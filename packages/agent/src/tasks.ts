@@ -200,6 +200,8 @@ interface TaskDone {
   id: string;
   status: 'created' | 'changed' | 'exists';
   message?: string;
+  /** What changed beside it: the open subtasks completed with it. */
+  followed?: string[];
 }
 
 /** One task added or changed, or, with `items`, many in one list in one go. */
@@ -244,10 +246,10 @@ async function saveTask(agent: Agent, client: Client, args: TaskArgs) {
     const into = args.after !== undefined ? placeTask(moved.to, elsewhere, step.id, null, args.section ?? null, clock, args.after) : moved.to;
     await saveList(space.fs, path, moved.from);
     await saveList(space.fs, elsewhere, into);
-    return { data: { ...where, list: elsewhere, from: path, created, task: taskOut(elsewhere, into, into.tasks.find((t) => t.id === step.id)!) } };
+    return { data: { ...where, list: elsewhere, from: path, created, task: taskOut(elsewhere, into, into.tasks.find((t) => t.id === step.id)!), ...(step.followed && { followed: step.followed }) } };
   }
   await saveList(space.fs, path, step.list);
-  return { data: { ...where, list: path, created, task: taskOut(path, step.list, step.list.tasks.find((t) => t.id === step.id)!) } };
+  return { data: { ...where, list: path, created, task: taskOut(path, step.list, step.list.tasks.find((t) => t.id === step.id)!), ...(step.followed && { followed: step.followed }) } };
 }
 
 async function saveTasks(agent: Agent, client: Client, args: TaskArgs & { items: TaskItem[] }) {
@@ -277,7 +279,7 @@ async function saveTasks(agent: Agent, client: Client, args: TaskArgs & { items:
       created: count('created'),
       changed: count('changed'),
       exists: count('exists'),
-      tasks: done.map((step) => ({ status: step.status, ...taskOut(path, list, list.tasks.find((t) => t.id === step.id)!) })),
+      tasks: done.map((step) => ({ status: step.status, ...taskOut(path, list, list.tasks.find((t) => t.id === step.id)!), ...(step.followed && { followed: step.followed }) })),
     },
   };
 }
@@ -349,11 +351,18 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
     id = tasks[tasks.length - 1]!.id;
     created = true;
   }
-  if (args.done !== undefined) tasks = setDone(tasks, id, args.done, clock);
+  // Completing a task completes its open subtasks too, as in the app; the result says which.
+  let along: string[] = [];
+  if (args.done !== undefined) {
+    const open = new Set(tasks.filter((t) => !t.done && t.id !== id).map((t) => t.id));
+    tasks = setDone(tasks, id, args.done, clock);
+    if (args.done) along = tasks.filter((t) => open.has(t.id) && t.done).map((t) => t.title);
+  }
   let next: TaskList = { ...list, tasks };
   // A new one is where parent and section put it already; after moves it among its siblings.
   if (place && (args.after !== undefined || (!created && (args.parent !== undefined || args.section !== undefined)))) {
     next = placeTask(next, path, id, created ? undefined : args.parent, created ? undefined : args.section, clock, args.after);
   }
-  return { list: next, id, status: created ? 'created' : 'changed' };
+  const followed = along.length > 0 ? [`${along.length === 1 ? 'Its open subtask was' : `Its ${along.length} open subtasks were`} completed with it: ${along.join(', ')}`] : undefined;
+  return { list: next, id, status: created ? 'created' : 'changed', ...(followed && { followed }) };
 }

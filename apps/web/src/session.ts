@@ -85,6 +85,7 @@ import {
   emptyTrash,
   INBOX_TASKS,
   isScratchNote,
+  type Leftovers,
   listName,
   keepVersion,
   type KeysLook,
@@ -3637,8 +3638,8 @@ export class Session {
   }
 
   /** Closes a phase; its unfinished cards go to the next phase, or out of any phase when there is none. */
-  closePhase(board: string, id: string) {
-    this.changeBoard(board, (current) => closePhase(current, id, 'next'));
+  closePhase(board: string, id: string, leftovers: Leftovers) {
+    this.changeBoard(board, (current) => closePhase(current, id, leftovers));
   }
 
   reopenPhase(board: string, id: string) {

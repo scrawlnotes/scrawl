@@ -69,7 +69,7 @@ Yazılan parça eskisiyle karşılaştırılır. Uygulamada aynı değişiklik k
 | Kolon çıkarıldı | Kartları ilk kolonun sonuna geçer (bugün reddediliyor) | `removeColumn` |
 | Kolonun türü değişti | done'a girenlere bitiş zamanı yazılır, done'dan çıkanlardan silinir | `setColumnKind` |
 | Faz çıkarıldı | Kartları fazsız kalır | `removePhase` |
-| Açık bir faz done oldu | Bitmemiş kartları sonraki açık faza geçer, sonraki faz yoksa fazsız kalır | `closePhase(…, 'next')`, uygulama da bunu çağırıyor |
+| Açık bir faz done oldu | Bitmemiş kartları `unfinished`'ın dediği yere gider: adıyla açık bir faza, `"none"` ile fazsız, `"stay"` ile kapanan fazda kalır. Verilmezse sonraki açık faza geçer; sonrasında açık faz yoksa ilk açık faza, hiç açık faz yoksa fazsız kalır (23 Ekim) | `nextOpenPhase`; uygulamada Close phase penceresi aynı seçimi sorar, `closePhase` |
 | Alanlar değişti | Değerler kartta kalır | `setBoardFields` |
 
 Kart taşınınca timeline'a ajanın adı yazılır, save_card'da olduğu gibi. Sonuç ne olduğunu söyler: "3 cards went to Stage 17", "2 cards went to Backlog".
@@ -111,7 +111,7 @@ Rehberin kuralı "tekrar çağır, hiçbir şey iki kez olmaz". Yeni girdiler de
 ### Araç şemaları (`packages/agent/src/server.ts`)
 
 - `read`: `part: z.string().optional()`.
-- `write`: `text` artık zorunlu değil. Yeni girdiler: `part: z.string().optional()`, `edits: z.array(z.object({ find: z.string().min(1), replace: z.string(), all: z.boolean().optional() })).min(1).max(50).optional()` ve `append: z.string().optional()`. `text`, `edits` ve `append`'ten tam olarak biri verilmelidir, yoksa istek reddedilir. `part` yalnızca `text` ile birlikte verilebilir.
+- `write`: `text` artık zorunlu değil. Yeni girdiler: `part: z.string().optional()`, `edits: z.array(z.object({ find: z.string().min(1), replace: z.string(), all: z.boolean().optional() })).min(1).max(50).optional()` ve `append: z.string().optional()`. `text`, `edits` ve `append`'ten tam olarak biri verilmelidir, yoksa istek reddedilir. `part` yalnızca `text` ile birlikte verilebilir. `unfinished: z.string().optional()` (23 Ekim): `part: "phases"` bir fazı done yazınca bitmemiş kartların gideceği yer. Açık olmayan, bulunmayan ya da kapanan fazın kendisini gösteren değer reddedilir ve hiçbir şey yazılmaz; red açık fazları sayar.
 - `write`'a da `client(ctx)` gider, save_card'a gittiği gibi: kart taşınınca timeline'a kimin taşıdığı yazılır.
 - Açıklamalar yeniden yazılır. `write`'ınki şunu söyler: "bütün dosya `text` ile, bir JSON parçası `part` ile, bir notun bir yeri `edits` ile, notun sonu `append` ile". `read`'inki: "bir pano, liste ya da şemanın tek parçası için `part`".
 
@@ -119,11 +119,11 @@ Rehberin kuralı "tekrar çağır, hiçbir şey iki kez olmaz". Yeni girdiler de
 
 - `PARTS`: her dosya türünün parçaları ve parça olmadığında verilen boş değer. Listeler için `[]`, ötekiler için `null`.
 - `partOf(kind, data, part)`: parçanın değeri ve metni. Metin `JSON.stringify(value, null, 2)`, hash'i `hashOf(metin)`.
-- `boardWithPart(board, part, value, now, by)`: id'si olmayanlara id verir. Sonra yukarıdaki tablodaki işleri yapar:
+- `boardWithPart(board, part, value, renames, now, by, unfinished)`: id'si olmayanlara id verir. Sonra yukarıdaki tablodaki işleri yapar:
   - Çıkarılan her kolonun kartları `moveCard` ile yeni listenin ilk kolonunun sonuna gider.
   - Türü değişen her kolon için `setColumnKind` çağrılır.
   - Çıkarılan fazlar için `removePhase` çağrılır.
-  - Açıkken done olan fazlar için `closePhase(…, 'next')`, yeni sıraya göre çağrılır.
+  - Açıkken done olan fazların bitmemiş kartları `unfinished`'ın dediği yere gider; verilmezse yeni sıraya göre `nextOpenPhase`'in verdiği faza.
   - `fields` için `setBoardFields(board, value)` çağrılır.
   - Diğer parçalar olduğu gibi atanır.
 
@@ -159,7 +159,7 @@ Rehberin kuralı "tekrar çağır, hiçbir şey iki kez olmaz". Yeni girdiler de
 - `read` + `part: "phases"`: yalnızca fazlar gelir, hash doğrudur. Geçersiz bir parça listesiyle reddedilir. `cards`, `tasks` ve `nextKey` reddedilir.
 - Faz eklemek: kartlar bayt bayt aynı kalır. Id'si olmayan faza id verilir.
 - Arada bir kart taşınmış olsa da fazların `ifMatch`'i geçer. Fazlar değişmişse reddedilir.
-- Faz done olur: bitmemiş kartlar sonraki faza geçer, son fazdaysa fazsız kalır. Sonuç bunu söyler.
+- Faz done olur: bitmemiş kartlar sonraki faza geçer, son fazdaysa fazsız kalır. Sonuç bunu söyler. `unfinished` ile `"stay"`, adıyla bir faz ve `"none"`; kapanan faz, done faz ve bulunmayan ad reddedilir.
 - Kolon çıkarılır: kartları ilk kolonun sonuna geçer, timeline'a ajanın adı yazılır. Son done kolonu çıkarılınca istek reddedilir.
 - Kolonun türü done olur: kartlara bitiş zamanı yazılır.
 - Görevleri olan section çıkarılmak istenince istek reddedilir. Boş section çıkarılır.

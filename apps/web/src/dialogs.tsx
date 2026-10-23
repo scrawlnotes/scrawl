@@ -16,6 +16,7 @@ import {
   filterName,
   INBOX_TASKS,
   join,
+  type Leftovers,
   listName,
   localPath,
   newSchema,
@@ -1312,6 +1313,117 @@ export function ConfirmDialog({ title, message, places, after, brief, action, da
         </button>
         <button type="button" className="primary" onClick={onConfirm}>
           {action}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
+/**
+ * Closing a phase with cards not finished: they move to an open phase, the next one picked, out
+ * of any phase, or stay in it. On a phone a sheet, the open phases a row each with a tick.
+ */
+export function ClosePhaseDialog({ name, cards, phases, next, onConfirm, onClose }: {
+  /** The phase's name, quoted. */
+  name: string;
+  /** How many of its cards are not finished, as words: 3 cards. */
+  cards: string;
+  /** The open phases they can move to, in their order. */
+  phases: Phase[];
+  /** The one picked to begin with: the next open phase. */
+  next: string | undefined;
+  onConfirm: (leftovers: Leftovers) => void;
+  onClose: () => void;
+}) {
+  const [choice, setChoice] = useState<'move' | 'none' | 'stay'>(next ? 'move' : 'none');
+  const [target, setTarget] = useState(next ?? '');
+  const title = t('phase.close');
+  const message = t('phase.closeLeft', { name, cards });
+  const confirm = () => onConfirm(choice === 'move' ? { phase: target } : choice === 'none' ? 'backlog' : 'stay');
+  if (isPhone()) {
+    const row = (key: string, icon: IconName, text: string, on: boolean, pick: () => void) => (
+      <button key={key} type="button" className="mb-fr pick" role="radio" aria-checked={on} onClick={pick}>
+        <Icon name={icon} />
+        <span className="in">{text}</span>
+        <span className="tick">{on && <Icon name="check" />}</span>
+      </button>
+    );
+    return (
+      <Sheet label={title} className="mb-create" onClose={onClose}>
+        <div className="mb-sh">
+          <b>{title}</b>
+          <SheetClose onClose={onClose} />
+        </div>
+        <div className="mb-ask close-left" role="radiogroup" aria-label={message}>
+          <p>{message}</p>
+          {phases.length > 0 && (
+            <>
+              <div className="mb-cap">{t('phase.leftMove')}</div>
+              <div className="mb-group">
+                {phases.map((phase) =>
+                  row(phase.id, 'phase', phase.name, choice === 'move' && target === phase.id, () => {
+                    setChoice('move');
+                    setTarget(phase.id);
+                  }),
+                )}
+              </div>
+            </>
+          )}
+          <div className="mb-group apart">
+            {row('none', 'phase', t('phase.leftNone'), choice === 'none', () => setChoice('none'))}
+            {row('stay', 'phase', t('phase.leftStay', { name }), choice === 'stay', () => setChoice('stay'))}
+          </div>
+          <button type="button" className="go" onClick={confirm}>
+            {t('phase.closeAction')}
+          </button>
+        </div>
+      </Sheet>
+    );
+  }
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' || event.target instanceof HTMLButtonElement || event.target instanceof HTMLSelectElement) return;
+    event.preventDefault();
+    confirm();
+  };
+  return (
+    <Dialog label={title} className="close-phase" onClose={onClose} onKeyDown={onKey}>
+      <h2>{title}</h2>
+      <p className="confirm">{message}</p>
+      <div className="na-radio close-left" role="radiogroup" aria-label={message}>
+        {phases.length > 0 && (
+          <span className="move">
+            <button type="button" role="radio" aria-checked={choice === 'move'} onClick={() => setChoice('move')}>
+              {t('phase.leftMove')}
+            </button>
+            <select
+              aria-label={t('phase.leftMove')}
+              value={target}
+              onChange={(event) => {
+                setTarget(event.target.value);
+                setChoice('move');
+              }}
+            >
+              {phases.map((phase) => (
+                <option key={phase.id} value={phase.id}>
+                  {phase.name}
+                </option>
+              ))}
+            </select>
+          </span>
+        )}
+        <button type="button" role="radio" aria-checked={choice === 'none'} onClick={() => setChoice('none')}>
+          {t('phase.leftNone')}
+        </button>
+        <button type="button" role="radio" aria-checked={choice === 'stay'} onClick={() => setChoice('stay')}>
+          {t('phase.leftStay', { name })}
+        </button>
+      </div>
+      <div className="dialog-actions">
+        <button type="button" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" onClick={confirm}>
+          {t('phase.closeAction')}
         </button>
       </div>
     </Dialog>

@@ -6481,6 +6481,15 @@ body > .mb-lifted {
   text-align: center;
 }
 
+/* Closing a phase: the open phases to move to, then out of any phase and keeping it, Close under them. */
+.mb-ask.close-left .mb-cap {
+  padding-top: 6px;
+}
+
+.mb-ask.close-left .go {
+  margin-top: 18px;
+}
+
 /* What stopped a button: kept until its × closes it. */
 .mb-toast.bad span {
   white-space: normal;

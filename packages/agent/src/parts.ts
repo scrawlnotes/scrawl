@@ -1,10 +1,10 @@
-import { type Board, type ChoiceRenames, type Column, columnCards, type Field, isFinished, moveCard, type Phase, removePhase, renameInViews, type Schema, type Section, sectionTasks, setBoardFields, type TaskList } from '@scrawlnotes/core';
+import { type Board, type ChoiceRenames, type Column, columnCards, type Field, fold, isFinished, moveCard, nextOpenPhase, type Phase, removePhase, renameInViews, type Schema, type Section, sectionTasks, setBoardFields, type TaskList } from '@scrawlnotes/core';
 import { type FileKind, Refusal } from './paths';
 
 // A part of a board, a task list or a schema, read and written alone: a board's phases without its
 // cards, a list's sections without its tasks. A part written does to the cards what the same change
 // does in the app: a column taken away sends its cards to the first, a phase closed sends what is
-// not finished to the next. See design/agent-parts.md.
+// not finished to the next, or where `unfinished` says. See design/agent-parts.md.
 
 type Json = { [key: string]: unknown };
 
@@ -58,8 +58,26 @@ export function checkRenames(before: Field[], after: Field[], renames: ChoiceRen
   }
 }
 
+const same = (a: string, b: string) => fold(a.trim()) === fold(b.trim());
+
+/**
+ * Where the cards not finished of a phase closed go: the open phase `unfinished` names, no phase
+ * with "none", or they stay with "stay"; the next open phase when it says nothing.
+ */
+function leftoversOf(board: Board, closed: Phase, unfinished: string | undefined): Phase | null | 'stay' {
+  if (unfinished === undefined) return nextOpenPhase(board, closed.id) ?? null;
+  const wanted = unfinished.trim();
+  if (fold(wanted) === 'none') return null;
+  if (fold(wanted) === 'stay') return 'stay';
+  const found = board.phases.find((p) => p.id === wanted) ?? board.phases.find((p) => same(p.name, wanted));
+  if (found && found.id !== closed.id && found.state !== 'done') return found;
+  if (!found && fold(wanted) === 'next') return nextOpenPhase(board, closed.id) ?? null;
+  const why = !found ? 'there is no phase called that' : found.id === closed.id ? 'it is the phase closing' : 'that phase is done';
+  throw new Refusal(`unfinished is ${unfinished}, but ${why}: give an open phase's name, "none" or "stay". Nothing was written`, { open: board.phases.filter((p) => p.state !== 'done' && p.id !== closed.id).map((p) => p.name) });
+}
+
 /** A board with one part as written, and what that did to its cards, a line each. */
-export function boardWithPart(board: Board, part: string, value: unknown, renames: ChoiceRenames | undefined, now: Date, by: string | undefined): { board: Board; followed: string[] } {
+export function boardWithPart(board: Board, part: string, value: unknown, renames: ChoiceRenames | undefined, now: Date, by: string | undefined, unfinished?: string): { board: Board; followed: string[] } {
   const followed: string[] = [];
   const stamp = now.toISOString();
   switch (part) {
@@ -90,25 +108,29 @@ export function boardWithPart(board: Board, part: string, value: unknown, rename
       for (const gone of board.phases.filter((p) => !phases.some((n) => n.id === p.id))) {
         const n = out.cards.filter((c) => c.phase === gone.id).length;
         out = removePhase(out, gone.id);
-        if (n > 0) followed.push(`${cardsWord(n)} of ${gone.name} are in no phase now`);
+        if (n > 0) followed.push(`${cardsWord(n)} of ${gone.name} ${n === 1 ? 'is' : 'are'} in no phase now`);
       }
-      // A phase closed: its cards not finished go to the next open phase, or to none (closePhase, as the app closes one).
-      for (const [i, phase] of phases.entries()) {
+      // A phase closed: its cards not finished go where unfinished says, the next open phase when it says nothing (closePhase, as the app closes one).
+      for (const phase of phases) {
         const before = board.phases.find((p) => p.id === phase.id);
         if (!before || before.state === 'done' || phase.state !== 'done') continue;
         const left = new Set(out.cards.filter((c) => c.phase === phase.id && !isFinished(out, c)).map((c) => c.id));
         if (left.size === 0) continue;
-        const next = phases.slice(i + 1).find((p) => p.state !== 'done');
+        const to = leftoversOf({ ...out, phases }, phase, unfinished);
+        if (to === 'stay') {
+          followed.push(`${cardsWord(left.size)} of ${phase.name} not finished ${left.size === 1 ? 'stays' : 'stay'} in it`);
+          continue;
+        }
         out = {
           ...out,
           cards: out.cards.map((c) => {
             if (!left.has(c.id)) return c;
-            if (next) return { ...c, phase: next.id, updated: stamp };
+            if (to) return { ...c, phase: to.id, updated: stamp };
             const { phase: _gone, ...rest } = c;
             return { ...rest, updated: stamp };
           }),
         };
-        followed.push(`${cardsWord(left.size)} of ${phase.name} not finished ${next ? `went to ${next.name}` : 'are in no phase now'}`);
+        followed.push(`${cardsWord(left.size)} of ${phase.name} not finished ${to ? `went to ${to.name}` : `${left.size === 1 ? 'is' : 'are'} in no phase now`}`);
       }
       return { board: { ...out, phases }, followed };
     }

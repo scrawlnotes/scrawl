@@ -562,22 +562,41 @@ function stripPhase(card: Card): Card {
 }
 
 /**
- * Closes a phase: it is done, and the next open phase becomes current. Cards of it that are not
- * finished go to the next phase, or to no phase with `'backlog'`.
+ * Where the cards of a phase that are not finished go when it closes and nothing else is said:
+ * the next open phase, or the first open one when none comes after it.
  */
-export function closePhase(board: Board, id: string, leftovers: 'next' | 'backlog', now: Clock = () => new Date()): Board {
+export function nextOpenPhase(board: Board, id: string): Phase | undefined {
+  const open = (p: Phase) => p.id !== id && p.state !== 'done';
+  return board.phases.slice(board.phases.findIndex((p) => p.id === id) + 1).find(open) ?? board.phases.find(open);
+}
+
+/**
+ * What becomes of a closing phase's cards that are not finished: they go to the next open phase,
+ * to the open phase given, to no phase with `'backlog'`, or stay in it with `'stay'`.
+ */
+export type Leftovers = 'next' | 'backlog' | 'stay' | { phase: string };
+
+/**
+ * Closes a phase: it is done, and the next open phase becomes current. Its cards that are not
+ * finished go where `leftovers` says; to no phase when the phase it names is not open.
+ */
+export function closePhase(board: Board, id: string, leftovers: Leftovers, now: Clock = () => new Date()): Board {
   const at = board.phases.findIndex((p) => p.id === id);
   if (at === -1 || board.phases[at]!.state === 'done') return board;
-  const next = board.phases.slice(at + 1).find((p) => p.state !== 'done');
+  const target =
+    leftovers === 'next' ? nextOpenPhase(board, id) : typeof leftovers === 'object' ? board.phases.find((p) => p.id === leftovers.phase && p.id !== id && p.state !== 'done') : undefined;
   const stamp = iso(now);
   const phases = board.phases.map((p) => (p.id === id ? { ...p, state: 'done' as const } : p.state === 'current' ? { ...p, state: 'upcoming' as const } : p));
   return {
     ...board,
     phases: withOneCurrent(phases),
-    cards: board.cards.map((c) => {
-      if (c.phase !== id || isFinished(board, c)) return c;
-      return leftovers === 'next' && next ? { ...c, phase: next.id, updated: stamp } : { ...stripPhase(c), updated: stamp };
-    }),
+    cards:
+      leftovers === 'stay'
+        ? board.cards
+        : board.cards.map((c) => {
+            if (c.phase !== id || isFinished(board, c)) return c;
+            return target ? { ...c, phase: target.id, updated: stamp } : { ...stripPhase(c), updated: stamp };
+          }),
   };
 }
 

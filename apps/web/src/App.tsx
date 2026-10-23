@@ -42,6 +42,7 @@ import {
   listName,
   PieceHomeGone,
   localPath,
+  nextOpenPhase,
   openCardCount,
   openCount,
   parseCardRef,
@@ -72,6 +73,7 @@ import { createPortal } from 'react-dom';
 import {
   AskDialog,
   ButtonDialog,
+  ClosePhaseDialog,
   ConfirmDialog,
   type ConfirmPlace,
   ContextMenu,
@@ -198,6 +200,7 @@ type OpenDialog =
   | { kind: 'renameFile'; path: string; view?: EditorView }
   | { kind: 'export'; path: string }
   | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void; places?: ConfirmPlace[]; after?: string; brief?: string }
+  | { kind: 'closePhase'; board: string; phase: Phase; left: number }
   | { kind: 'button'; run: ButtonRun; record: string }
   | { kind: 'askButton'; dir: string; id: string; name: string }
   | { kind: 'removeSpace'; id: string }
@@ -682,23 +685,16 @@ export function App() {
   };
   const deletePhase = (board: string, phase: Phase) =>
     ask(t('delete.phase'), t('delete.phaseText', { name: quote(phase.name) }), () => session.removePhase(board, phase.id));
+  // Its cards not finished go where the window says: the next open phase is picked to begin with.
   const closePhase = (board: string, phase: Phase) => {
     const whole = boards[board];
     if (!whole) return;
-    const at = whole.phases.findIndex((p) => p.id === phase.id);
-    const next = whole.phases.slice(at + 1).find((p) => p.state !== 'done');
     const left = phaseCards(whole, phase.id).filter((card) => {
       const kind = whole.columns.find((column) => column.id === card.column)?.kind;
       return kind !== 'done' && kind !== 'dropped';
     }).length;
-    const name = quote(phase.name);
-    const message =
-      left === 0
-        ? t('phase.closeText', { name })
-        : next
-          ? t('phase.closeLeftovers', { name, cards: t('count.cards', { count: left }), next: quote(next.name) })
-          : t('phase.closeToBacklog', { name, cards: t('count.cards', { count: left }) });
-    ask(t('phase.close'), message, () => session.closePhase(board, phase.id), t('phase.closeAction'), false);
+    if (left > 0) return setDialog({ kind: 'closePhase', board, phase, left });
+    ask(t('phase.close'), t('phase.closeText', { name: quote(phase.name) }), () => session.closePhase(board, phase.id, 'next'), t('phase.closeAction'), false);
   };
 
   const deleteForever = (item: TrashItem, then?: () => void) =>
@@ -2816,6 +2812,19 @@ export function App() {
           onConfirm={() => {
             setDialog(null);
             dialog.run();
+          }}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'closePhase' && (
+        <ClosePhaseDialog
+          name={quote(dialog.phase.name)}
+          cards={t('count.cards', { count: dialog.left })}
+          phases={(boards[dialog.board]?.phases ?? []).filter((p) => p.id !== dialog.phase.id && p.state !== 'done')}
+          next={boards[dialog.board] && nextOpenPhase(boards[dialog.board]!, dialog.phase.id)?.id}
+          onConfirm={(leftovers) => {
+            setDialog(null);
+            session.closePhase(dialog.board, dialog.phase.id, leftovers);
           }}
           onClose={closeDialog}
         />

@@ -875,6 +875,13 @@ describe('tried by hand', () => {
     expect(moved.data).toMatchObject({ list: 'Plans/Later.tasks.json', from: 'Plans/Launch.tasks.json' });
     expect((await loadList(fs, 'Plans/Later.tasks.json')).tasks.map((t) => t.title)).toEqual(['Write the post', 'Draft']);
     expect((await loadList(fs, 'Plans/Launch.tasks.json')).tasks.map((t) => t.title)).toEqual(['Ship']);
+    // Done, with its open subtasks: they are done with it, and the result names them.
+    await saveTaskTool(agent, CLIENT, { list: 'Later', title: 'Outline', parent: id });
+    await saveTaskTool(agent, CLIENT, { list: 'Later', id: 'Outline', done: true });
+    const finished = await saveTaskTool(agent, CLIENT, { list: 'Later', id, done: true });
+    expect(finished.data).toMatchObject({ followed: ['Its open subtask was completed with it: Draft'] });
+    expect((await loadList(fs, 'Plans/Later.tasks.json')).tasks.every((t) => t.done)).toBe(true);
+    expect((await saveTaskTool(agent, CLIENT, { list: 'Later', id, done: false })).data).not.toHaveProperty('followed');
     // Five levels deep is as deep as it goes.
     let parent = other.data.task.id;
     for (let level = 1; level <= 4; level++) parent = (await saveTaskTool(agent, CLIENT, { list: 'Launch', title: `Level ${level}`, parent })).data.task.id;
@@ -1153,6 +1160,35 @@ describe('a part at a time', () => {
     expect((await refusal(writeTool(agent, { path: board, part: 'phases', text: '{}' }))).message).toContain('is a list');
     expect((await refusal(writeTool(agent, { path: board, part: 'phases', text: JSON.stringify([{ name: 'A', state: 'current' }, { name: 'B', state: 'current' }]) }))).details.problems).toEqual(['More than one phase is current; one is, while any is open']);
     expect((await refusal(readTool(agent, { path: 'Plans/Roadmap.md', part: 'phases' }))).message).toContain('has no parts');
+  });
+
+  it('closes a phase with its cards not finished kept in it, sent to a phase named, or to none, as unfinished says', async () => {
+    const { agent, fs, board } = await phased();
+    const read = await readTool(agent, { path: board, part: 'phases' });
+    await writeTool(agent, { path: board, part: 'phases', text: JSON.stringify([...(JSON.parse(read.text) as object[]), { name: 'Apps', state: 'upcoming' }]) });
+    type Written = { id: string; name: string; state: string };
+    const phases = JSON.parse((await readTool(agent, { path: board, part: 'phases' })).text) as Written[];
+    const closing = (done: string[], current: string) => JSON.stringify(phases.map((p) => ({ ...p, state: done.includes(p.name) ? 'done' : p.name === current ? 'current' : 'upcoming' })));
+    // A phase that is not one to go to is refused, and nothing is written.
+    expect((await refusal(writeTool(agent, { path: board, part: 'phases', text: closing(['Agent'], 'Server'), unfinished: 'Agent' }))).message).toContain('it is the phase closing');
+    const nowhere = await refusal(writeTool(agent, { path: board, part: 'phases', text: closing(['Agent'], 'Server'), unfinished: 'Nowhere' }));
+    expect(nowhere.message).toContain('no phase called that');
+    expect(nowhere.details.open).toEqual(['Server', 'Apps']);
+    expect((await loadBoard(fs, board)).phases[0]!.state).toBe('current');
+    // Kept in it: the phase closes, its card stays.
+    const stay = await writeTool(agent, { path: board, part: 'phases', text: closing(['Agent'], 'Server'), unfinished: 'stay' });
+    expect(stay.data.followed).toEqual(['1 card of Agent not finished stays in it']);
+    expect(await phaseOf(fs, board, 'Open one')).toBe('p1');
+    expect((await loadBoard(fs, board)).phases.map((p) => p.state)).toEqual(['done', 'current', 'upcoming']);
+    // A phase done is none to go to; one named in any case is.
+    expect((await refusal(writeTool(agent, { path: board, part: 'phases', text: closing(['Agent', 'Server'], 'Apps'), unfinished: 'Agent' }))).message).toContain('that phase is done');
+    const named = await writeTool(agent, { path: board, part: 'phases', text: closing(['Agent', 'Server'], 'Apps'), unfinished: 'apps' });
+    expect(named.data.followed).toEqual(['1 card of Server not finished went to Apps']);
+    expect(await phaseOf(fs, board, 'Later one')).toBe(phases[2]!.id);
+    // To none: in no phase.
+    const none = await writeTool(agent, { path: board, part: 'phases', text: closing(['Agent', 'Server', 'Apps'], ''), unfinished: 'none' });
+    expect(none.data.followed).toEqual(['1 card of Apps not finished is in no phase now']);
+    expect(await phaseOf(fs, board, 'Later one')).toBeUndefined();
   });
 
   it('writes a board’s columns alone: a column taken away sends its cards to the first, a kind changed marks them finished', async () => {

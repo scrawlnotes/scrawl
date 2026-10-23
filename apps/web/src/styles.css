@@ -6599,6 +6599,33 @@ textarea.tt-edit {
   font-size: 11.5px;
 }
 
+/* closing a phase: where its cards not finished go, the phase to move to picked beside its choice */
+.dialog.close-phase .close-left {
+  margin: 0 0 4px;
+}
+
+.dialog.close-phase .close-left button {
+  font-size: 13px;
+}
+
+.dialog.close-phase .close-left .move {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dialog.close-phase .close-left select {
+  min-width: 140px;
+  max-width: 240px;
+  padding: 3px 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 13px;
+}
+
 /* the phase window */
 .dialog.phase-dialog .field {
   grid-template-columns: 70px minmax(0, 1fr);

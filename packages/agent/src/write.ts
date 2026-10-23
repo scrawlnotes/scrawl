@@ -96,6 +96,8 @@ export interface WriteArgs {
   append?: string;
   /** Choices renamed in a select field, by its key: the cards and records holding the old name take the new one. */
   renames?: ChoiceRenames;
+  /** Where the cards not finished of a phase written done go: an open phase's name, "none" or "stay"; the next open phase when left out. */
+  unfinished?: string;
   ifMatch?: string;
 }
 
@@ -224,7 +226,7 @@ async function writePart(agent: Agent, client: Client, space: AgentSpace, path: 
   let followed: string[] = [];
   if (kind === 'board') {
     const by = actorOf(client, await agent.person());
-    const done = boardWithPart(parseBoard(raw), part, value, args.renames, nowOf(agent), by);
+    const done = boardWithPart(parseBoard(raw), part, value, args.renames, nowOf(agent), by, args.unfinished);
     text = serializeBoard(done.board);
     followed = done.followed;
   } else if (kind === 'tasks') {

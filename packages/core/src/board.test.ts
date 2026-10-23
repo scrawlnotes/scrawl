@@ -26,6 +26,7 @@ import {
   moveColumn,
   movePhase,
   newBoard,
+  nextOpenPhase,
   openCardCount,
   parseBoard,
   phaseBrief,
@@ -392,11 +393,27 @@ describe('phases', () => {
     expect(card(toNext, 'B')).toMatchObject({ phase: 'p2', updated: later().toISOString() });
     const toBacklog = closePhase(board, 'p1', 'backlog', later);
     expect(card(toBacklog, 'B')).not.toHaveProperty('phase');
+    const staying = closePhase(board, 'p1', 'stay', later);
+    expect(staying.phases.map((p) => p.state)).toEqual(['done', 'current']);
+    expect(staying.cards).toBe(board.cards);
     expect(closePhase(toNext, 'p1', 'next')).toBe(toNext);
     // The last phase closes too; nothing is current then.
     const last = closePhase(toNext, 'p2', 'next');
     expect(last.phases.map((p) => p.state)).toEqual(['done', 'done']);
     expect(currentPhase(last)).toBeUndefined();
+  });
+
+  it('close with leftovers going to a phase picked, the first open one when none comes after', () => {
+    let board = addPhase(addPhase(addPhase(software('A'), { name: 'P1' }, 'p1'), { name: 'P2' }, 'p2'), { name: 'P3' }, 'p3');
+    board = updateCard(board, 'A', { phase: 'p2' });
+    expect(nextOpenPhase(board, 'p2')?.id).toBe('p3');
+    expect(card(closePhase(board, 'p2', { phase: 'p1' }), 'A').phase).toBe('p1');
+    // A phase that is done, or the one closing, is none to go to.
+    expect(card(closePhase(board, 'p2', { phase: 'p2' }), 'A')).not.toHaveProperty('phase');
+    const p3done = closePhase(board, 'p3', 'stay');
+    expect(card(closePhase(p3done, 'p2', { phase: 'p3' }), 'A')).not.toHaveProperty('phase');
+    expect(nextOpenPhase(p3done, 'p2')?.id).toBe('p1');
+    expect(card(closePhase(p3done, 'p2', 'next'), 'A').phase).toBe('p1');
   });
 
   it('lose their cards to no phase when removed', () => {
