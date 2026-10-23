@@ -2,6 +2,7 @@ import { diffIndices } from 'node-diff3';
 import { mergeAgents, parseAgents } from '../agents';
 import { mergeWorkedOn } from '../activity';
 import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from '../board';
+import { type Favorite, FAVORITES_FILE, favoriteKey, parseFavorites, serializeFavorites } from '../favorites';
 import { parseFilters, serializeFilters, type TaskFilter } from '../filters';
 import { KEYS_EXT } from '../keys';
 import { LABELS_FILE, parseLabels, serializeLabels, type SpaceLabel } from '../labels';
@@ -14,7 +15,7 @@ import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrd
 
 // Merging a file changed on both sides, by what kind of file it is. See design/sync.md, section 5.
 
-export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'labels' | 'space' | 'me' | 'people' | 'agents' | 'trash';
+export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'favorites' | 'labels' | 'space' | 'me' | 'people' | 'agents' | 'trash';
 
 const TRASH_INDEX = '.scrawl/trash/index.json';
 
@@ -27,6 +28,7 @@ export function mergeKindOf(path: string): MergeKind | null {
   if (lower.endsWith(TASK_LIST_EXT)) return 'tasks';
   if (lower.endsWith(BOARD_EXT)) return 'board';
   if (lower === '.scrawl/filters.json') return 'filters';
+  if (lower === FAVORITES_FILE) return 'favorites';
   if (lower === LABELS_FILE) return 'labels';
   if (lower === '.scrawl/space.json') return 'space';
   if (lower === '.scrawl/me.json') return 'me';
@@ -240,6 +242,12 @@ function mergeFilterFile(base: string, local: string, remote: string): string {
   return serializeFilters(mergeRecords(b, l, r, byId, (was, mine, theirs) => mergeFields(was, mine, theirs)));
 }
 
+/** The favorites starred on both sides, each one by what it is, in the order both sides gave them. */
+function mergeFavoritesFile(base: string, local: string, remote: string): string {
+  const [b, l, r] = [base, local, remote].map(parseFavorites) as [Favorite[], Favorite[], Favorite[]];
+  return serializeFavorites(mergeRecords(b, l, r, favoriteKey, (was, mine, theirs) => mergeFields(was, mine, theirs)));
+}
+
 /** A space's labels from both sides: one is the same label by its name in any case, its color the side that changed it. */
 function mergeLabelsFile(base: string, local: string, remote: string): string {
   const [b, l, r] = [base, local, remote].map(parseLabels) as [SpaceLabel[], SpaceLabel[], SpaceLabel[]];
@@ -271,6 +279,7 @@ const MERGERS: Record<Exclude<MergeKind, 'text'>, (base: string, local: string, 
   tasks: mergeTasks,
   board: mergeBoard,
   filters: mergeFilterFile,
+  favorites: mergeFavoritesFile,
   labels: mergeLabelsFile,
   space: (base, local, remote) => serializeSpace(mergeFields(parseSpace(base), parseSpace(local), parseSpace(remote))),
   me: (base, local, remote) => {
@@ -287,6 +296,7 @@ const READERS: Record<Exclude<MergeKind, 'text'>, (text: string) => unknown> = {
   tasks: parseList,
   board: parseBoard,
   filters: parseFilters,
+  favorites: parseFavorites,
   labels: parseLabels,
   space: parseSpace,
   me: parseMe,

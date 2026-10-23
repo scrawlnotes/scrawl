@@ -26,6 +26,7 @@ describe('which files merge', () => {
     expect(mergeKindOf('Inbox.tasks.json')).toBe('tasks');
     expect(mergeKindOf('Scrawl/Roadmap.board.json')).toBe('board');
     expect(mergeKindOf('.scrawl/filters.json')).toBe('filters');
+    expect(mergeKindOf('.scrawl/favorites.json')).toBe('favorites');
     expect(mergeKindOf('.scrawl/space.json')).toBe('space');
     expect(mergeKindOf('.scrawl/trash/index.json')).toBe('trash');
     expect(mergeKindOf('_attachments/photo.png')).toBeNull();
@@ -216,6 +217,14 @@ describe('merging the files of a space', () => {
     expect(JSON.parse(merged('filters', filters(['a']), filters(['a', 'b']), filters(['a', 'c']))).filters.map((f: { id: string }) => f.id).sort()).toEqual(['a', 'b', 'c']);
     const trash = (names: string[]) => `${JSON.stringify({ version: 1, items: names.map((name) => ({ name, from: `x/${name}`, deleted: '2026-10-02T10:00:00.000Z' })) })}\n`;
     expect(JSON.parse(merged('trash', trash([]), trash(['a.md']), trash(['b.md']))).items.map((r: { name: string }) => r.name).sort()).toEqual(['a.md', 'b.md']);
+  });
+
+  it('merges favorites by what each one is, keeping both sides\' and dropping the one taken off', () => {
+    const favorites = (items: object[]) => `${JSON.stringify({ version: 1, favorites: items })}\n`;
+    const base = favorites([{ item: 'Plan.md' }, { filter: 'p1' }]);
+    const mine = favorites([{ item: 'Plan.md' }, { filter: 'p1' }, { label: 'bug', space: '@sp-abcdefgh' }]);
+    const theirs = favorites([{ filter: 'p1' }, { item: 'Work.tasks.json' }]);
+    expect(JSON.parse(merged('favorites', base, mine, theirs)).favorites).toEqual([{ filter: 'p1' }, { item: 'Work.tasks.json' }, { label: 'bug', space: '@sp-abcdefgh' }]);
   });
 
   it('merges the settings of a space field by field', () => {

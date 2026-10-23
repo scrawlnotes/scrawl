@@ -5,8 +5,9 @@ import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEv
 import { createPortal } from 'react-dom';
 import type { PhoneUpcomingView } from './PhoneUpcoming';
 import { Icon, type IconName } from './Icon';
-import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, FILTERS, folderLabel, folderOf, iconOf, isNote, labelOfTab, nameOf, NEW_FILTER, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, FILTERS, folderLabel, folderOf, iconOf, isNote, nameOf, NEW_FILTER, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
+import type { FavoriteRow } from './Sidebar';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAgents } from './Agents';
 import { PhoneLogs, useLogView } from './Logs';
@@ -169,6 +170,8 @@ export interface PhoneProps {
   onNewFolder: (name: string, parent: string) => Promise<string | null>;
   /** The menu of something open, or of a filter, as an action sheet; `page` when it comes from its page's ···. */
   onItemMenu: (id: string, page?: boolean) => void;
+  /** What is starred and there, in its order, at the top of Browse. */
+  favorites: FavoriteRow[];
   /** A task list's or a board's filter, for its page's bar: whether it asks anything, and what opens it; null for anything else. */
   itemFilter: (id: string) => { on: boolean; open: () => void } | null;
   /** What keeps a filter page, in its bar: Save, or Save as filter; null for anything else, or nothing to keep. */
@@ -329,8 +332,10 @@ export function useHold(onHold?: (row: HTMLElement) => void) {
 }
 
 /** A row of a list: an icon, a name and a line under it, a count or a time, and an arrow. Held, it opens its menu. */
-function Row({ icon, label, sub, right, folder, onClick, onHold }: {
+function Row({ icon, lead, label, sub, right, folder, onClick, onHold }: {
   icon: IconName;
+  /** In place of the icon: a label's dot. */
+  lead?: ReactNode;
   label: string;
   sub?: ReactNode;
   right?: ReactNode;
@@ -341,7 +346,7 @@ function Row({ icon, label, sub, right, folder, onClick, onHold }: {
   const hold = useHold(onHold);
   return (
     <button type="button" className={folder ? 'mb-row fold' : 'mb-row'} onClick={onClick} {...hold}>
-      <Icon name={icon} />
+      {lead ?? <Icon name={icon} />}
       <span className="tx">
         <b>{label}</b>
         {sub && <small>{sub}</small>}
@@ -1098,11 +1103,24 @@ export function Phone(props: PhoneProps) {
   const browsePage = () => {
     // The personal space's own list, Inbox, first; it has no menu.
     const personalFirst = <Row icon="tasks" label={listName(INBOX_TASKS)} right={counts[tasksOf(INBOX_TASKS)] || ''} onClick={() => openItem(tasksOf(INBOX_TASKS))} />;
-    // After the Phone spaces view of design/mockups.html: Filters & Labels at the top, then each space
-    // as a section, the personal one first, the others in the sidebar's order, each with what is at its top.
+    // After the Phone spaces view of design/mockups.html: Favorites at the top, then Filters & Labels,
+    // then each space as a section, the personal one first, the others in the sidebar's order, each
+    // with what is at its top. A favorite held has its menu, with Remove from favorites.
     return (
       <>
-        <div className="mb-list">
+        {props.favorites.length > 0 && (
+          <>
+            <div className="mb-sec">
+              <span>{t('favorites.title')}</span>
+            </div>
+            <div className="mb-list">
+              {props.favorites.map((row) => (
+                <Row key={row.key} icon={row.icon} lead={row.dot} label={row.name} sub={row.space} right={row.count || ''} onClick={() => openItem(row.tab)} onHold={itemHold(row.tab)} />
+              ))}
+            </div>
+          </>
+        )}
+        <div className={props.favorites.length > 0 ? 'mb-list fl-mgap' : 'mb-list'}>
           <Row icon="filter" label={t('filters.title')} onClick={() => openItem(FILTERS)} />
         </div>
         {spaceSection(
@@ -1422,8 +1440,8 @@ export function Phone(props: PhoneProps) {
           scrolled={false}
           filter={props.itemFilter(page.id)}
           action={props.itemAction(page.id) ?? undefined}
-          // Filters & Labels, a new filter and a label's view have no menu.
-          {...(page.id !== FILTERS && page.id !== NEW_FILTER && labelOfTab(page.id) === null && { onMenu: () => props.onItemMenu(page.id, true) })}
+          // Filters & Labels and a new filter have no menu.
+          {...(page.id !== FILTERS && page.id !== NEW_FILTER && { onMenu: () => props.onItemMenu(page.id, true) })}
         />
         <div
           className="mb-holder"

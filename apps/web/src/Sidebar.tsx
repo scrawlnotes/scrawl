@@ -17,6 +17,26 @@ const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
 const OPEN_WHILE_DRAGGING = 700;
 /** A space's heading being dragged to another place among the spaces. */
 const SPACE_DRAG_TYPE = 'application/x-scrawl-space';
+/** A favorite being dragged to another place among the favorites. */
+const FAVORITE_DRAG_TYPE = 'application/x-scrawl-favorite';
+
+/**
+ * A favorite as the sidebar and a phone's Browse show it (design/filters.md 5): what it opens, its
+ * icon or a label's dot, its name, its space's name when it is not in the personal one, and how
+ * many open tasks, cards or records it shows.
+ */
+export interface FavoriteRow {
+  /** What tells it from the others, `favoriteKey`. */
+  key: string;
+  /** The tab it opens. */
+  tab: string;
+  name: string;
+  icon: IconName;
+  /** A label's dot, in place of the icon. */
+  dot?: ReactNode;
+  space?: string;
+  count: number;
+}
 
 /** A folder with more than this many items shows only its first `SHOWN`, and how many more there are. */
 const MANY = 20;
@@ -102,6 +122,12 @@ interface Props {
   syncs: readonly SpaceSyncView[];
   /** Signs in for a space waiting for it: to its server, or to OneDrive. */
   onSignIn: (unit: SpaceSyncView) => void;
+  /** What is starred and there, in its order; none hides the heading too. */
+  favorites: FavoriteRow[];
+  /** A favorite's menu, from its right click or its ···. */
+  onFavoriteMenu: (event: MouseEvent, row: FavoriteRow) => void;
+  /** Puts the favorites in this order, by their keys. */
+  onOrderFavorites: (keys: string[]) => void;
 }
 
 /** The key a space's heading folds and marks under; the personal space's is `@personal`. */
@@ -110,7 +136,6 @@ const FOLDED = 'scrawl.side.folded';
 
 /** How far in a row is: each level of folders one step. */
 const indent = (depth: number) => ({ '--d': depth }) as CSSProperties;
-
 
 /** One tree: views over everything on top, then each space under its heading, the personal one first with its Inbox. */
 export function Sidebar({
@@ -143,6 +168,9 @@ export function Sidebar({
   onWant,
   syncs,
   onSignIn,
+  favorites,
+  onFavoriteMenu,
+  onOrderFavorites,
 }: Props) {
   // A folder starts closed; one opened stays open, on this device, until it is closed.
   const [opened, setOpened] = useState(() => loadPaths(OPENED));
@@ -169,6 +197,8 @@ export function Sidebar({
   // A space dragged among the others: the heading it would go before or after, by its id, the
   // personal one's null (only after it: it stays first).
   const [spaceDrop, setSpaceDrop] = useState<{ id: string | null; after: boolean } | null>(null);
+  // A favorite dragged among the others: the row it would go before or after, by its key.
+  const [favoriteDrop, setFavoriteDrop] = useState<{ key: string; after: boolean } | null>(null);
   // The folder a new folder is being named in, `''` for the top; null while none is.
   const [addingIn, setAddingIn] = useState<string | null>(null);
   const [folderName, setFolderName] = useState('');
@@ -616,6 +646,59 @@ export function Sidebar({
     },
   });
 
+  /**
+   * A favorite, under Filters & Labels: a row as an item's, its space's name faint after its name.
+   * It is dragged before or after another, by the half it is over; its menu is its item's, with
+   * Remove from favorites.
+   */
+  const favoriteRow = (row: FavoriteRow) => {
+    const menu = (event: MouseEvent) => onFavoriteMenu(event, row);
+    const drop = favoriteDrop?.key === row.key ? (favoriteDrop.after ? ' drop-after' : ' drop-before') : '';
+    return (
+      <div
+        key={row.key}
+        className={`it fav${row.tab === active ? ' on' : ''}${marked(`fav:${row.key}`)}${drop}`}
+        style={indent(0)}
+        draggable
+        onDragStart={(event: DragEvent) => {
+          event.dataTransfer.setData(FAVORITE_DRAG_TYPE, row.key);
+          event.dataTransfer.effectAllowed = 'move';
+        }}
+        onDragEnd={() => setFavoriteDrop(null)}
+        onDragOver={(event: DragEvent) => {
+          if (!event.dataTransfer.types.includes(FAVORITE_DRAG_TYPE)) return;
+          event.preventDefault();
+          const box = event.currentTarget.getBoundingClientRect();
+          const after = event.clientY > box.top + box.height / 2;
+          if (favoriteDrop?.key !== row.key || favoriteDrop.after !== after) setFavoriteDrop({ key: row.key, after });
+        }}
+        onDragLeave={() => setFavoriteDrop(null)}
+        onDrop={(event: DragEvent) => {
+          const dragged = event.dataTransfer.getData(FAVORITE_DRAG_TYPE);
+          const at = favoriteDrop;
+          setFavoriteDrop(null);
+          if (!dragged || !at) return;
+          event.preventDefault();
+          const now = favorites.map((each) => each.key);
+          const keys = droppedSpaces(now, dragged, at.key, at.after);
+          if (keys.join('\n') !== now.join('\n')) onOrderFavorites(keys);
+        }}
+        onContextMenu={menu}
+      >
+        <button type="button" className="it-main" onClick={() => onOpen(row.tab)}>
+          <i className="it-pad" />
+          {row.dot ?? <Icon name={row.icon} />}
+          <span>
+            {row.name}
+            {row.space && <em className="fav-space"> · {row.space}</em>}
+          </span>
+        </button>
+        <span className="ct">{row.count || ''}</span>
+        {more(menu)}
+      </div>
+    );
+  };
+
   /** How a space's sync stands on this device; none for one that does not sync. */
   const syncOf = (id: string | null) => syncs.find((unit) => (unit.space ?? '') === (id ?? ''));
   /** A space in its first turn on this device, with nothing in it yet: it says how far the turn is. */
@@ -709,6 +792,8 @@ export function Sidebar({
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
         {viewRow(FILTERS, <span>{t('filters.title')}</span>, 0)}
+        {favorites.length > 0 && <div className="grp">{t('favorites.title')}</div>}
+        {favorites.map(favoriteRow)}
         {spaceRow(null, personalName)}
         {!folded.has(spaceKey(null)) && syncOf(null)?.phase === 'signedOut' && signInRow(syncOf(null)!)}
         {!folded.has(spaceKey(null)) && addingIn === '' && folderForm(1)}

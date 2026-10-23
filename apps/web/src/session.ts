@@ -96,6 +96,12 @@ import {
   type PlaceChoices,
   listVersions,
   loadFilters,
+  loadFavorites,
+  type Favorite,
+  moveFavorites,
+  relabelFavorites,
+  saveFavorites,
+  starFavorite,
   writePresetFilters,
   loadLabels,
   colorLabel,
@@ -473,6 +479,8 @@ export interface Snapshot {
   collectionLooks: Record<string, CollectionLook>;
   /** The saved filters, in the order they were made. */
   filters: TaskFilter[];
+  /** What the person starred, in the order they put it (design/filters.md 5); what is gone is still here, not shown. */
+  favorites: Favorite[];
   /** Each space's labels as its `.scrawl/labels.json` keeps them, by the space's key: `''` for the personal one, the others by id. */
   labels: Record<string, SpaceLabel[]>;
   /** The settings of the open space, its name among them. */
@@ -733,6 +741,7 @@ export class Session {
     collections: {},
     collectionLooks: {},
     filters: [],
+    favorites: [],
     labels: {},
     space: {},
     trash: [],
@@ -864,6 +873,7 @@ export class Session {
     if (!this.welcomeClosed) await this.personal.writeText(WELCOME_NOTE, this.welcomeText());
     const welcomeHere = await welcomeThere(this.personal);
     const filters = (keptConnection() === null && (await writePresetFilters(this.personal).catch(() => null))) || (await loadFilters(this.personal));
+    const favorites = await loadFavorites(this.personal);
     const space = await loadSpace(this.personal);
     // Nothing is asked at the first start: the name and the email wait for a space where others see them.
     const me = await startMe(this.personal, this.snapshot.me);
@@ -937,6 +947,7 @@ export class Session {
       collections: {},
       collectionLooks: workspace.collections,
       filters,
+      favorites,
       labels,
       space,
       trash: [],
@@ -2526,8 +2537,9 @@ export class Session {
     saveRecent(recent);
   }
 
-  /** A board's, a task list's or a keys file's look goes with it when it moves. */
+  /** A board's, a task list's or a keys file's look goes with it when it moves, and its star. */
   private moveLook(from: string, to: string) {
+    this.moveStars(from, to);
     const { [from]: look, ...rest } = this.snapshot.boardLooks;
     if (look) this.set({ boardLooks: { ...rest, [to]: look } });
     const { [from]: listLook, ...lists } = this.snapshot.listLooks;
@@ -2696,6 +2708,7 @@ export class Session {
     const read = await this.readLists(readNodes, reads(PERSONAL));
     const trash = await this.readTrash(reads);
     const filters = reads(PERSONAL) ? await loadFilters(this.personal) : before.filters;
+    const favorites = reads(PERSONAL) ? await loadFavorites(this.personal) : before.favorites;
     const labels = { ...before.labels, ...(await this.readLabels(reads)) };
     const space = reads(PERSONAL) ? await loadSpace(this.personal) : before.space;
     const now = this.snapshot;
@@ -2717,6 +2730,7 @@ export class Session {
       collections: freshenAll({ ...Object.fromEntries(Object.entries(now.collections).filter(([dir]) => !mine(dir))), ...read.collections }),
       trash: [...now.trash.filter((item) => !mine(item.path)), ...trash].sort((a, b) => b.deleted.localeCompare(a.deleted)),
       filters,
+      favorites,
       labels,
       space,
     });
@@ -2917,6 +2931,7 @@ export class Session {
     for (const path of Object.keys(this.snapshot.boards)) this.changeBoard(path, (board) => retargetBoardLinks(board, from, to));
     for (const list of Object.keys(this.snapshot.tasks)) this.changeList(list, (current) => relinkTaskRecords(current, from, to));
     const { [from]: look, ...looks } = this.snapshot.collectionLooks;
+    this.moveStars(from, to);
     const [tab, target] = [collectionTab(from), collectionTab(to)];
     this.moveRecent(tab, target);
     const { tabs, active } = this.snapshot;
@@ -3384,6 +3399,32 @@ export class Session {
     const tab = filterTab(id);
     if (this.snapshot.tabs.includes(tab)) await this.close(tab);
     this.writeFilters(this.snapshot.filters.filter((f) => f.id !== id));
+    this.writeFavorites(starFavorite(this.snapshot.favorites, { filter: id }, false));
+  }
+
+  /** Stars something into Favorites, after what is there, or takes its star off. */
+  star(favorite: Favorite, on: boolean) {
+    this.writeFavorites(starFavorite(this.snapshot.favorites, favorite, on));
+  }
+
+  /** Puts Favorites in the order they are dragged into. */
+  orderFavorites(favorites: Favorite[]) {
+    this.writeFavorites(favorites);
+  }
+
+  /** What moved or was renamed, and what was in it, keeps its star. */
+  private moveStars(from: string, to: string) {
+    this.writeFavorites(moveFavorites(this.snapshot.favorites, from, to));
+  }
+
+  /** Writes the favorites, when they changed. */
+  private writeFavorites(favorites: Favorite[]) {
+    if (favorites === this.snapshot.favorites) return;
+    this.set({ favorites, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(() => saveFavorites(this.personal, favorites))
+      .catch(() => undefined)
+      .then(() => this.markSaved());
   }
 
   /** Names the open space; a name of only spaces gives it back the name of its kind. */
@@ -3452,6 +3493,8 @@ export class Session {
     for (const list of Object.keys(this.snapshot.tasks).filter(here)) this.changeTasks(list, (tasks) => relabelTasks(tasks, from, to));
     for (const board of Object.keys(this.snapshot.boards).filter(here)) this.changeBoard(board, (current) => relabelBoard(current, from, to));
     this.writeLabels(path, relabelKnown(this.labelsAt(path), from, to));
+    // A starred label keeps its star renamed, and loses it deleted.
+    this.writeFavorites(relabelFavorites(this.snapshot.favorites, space ? inSpace(space, '') : undefined, from, to));
   }
 
   /** Deletes a section with its tasks; the interface asks first. */
@@ -4598,6 +4641,7 @@ export class Session {
       if (now !== null) this.moveRecent(seen.id, now);
     }
     const looks = <T>(by: Record<string, T>) => Object.fromEntries(Object.entries(by).map(([key, look]) => [moved(key) ?? key, look]));
+    this.moveStars(from, to);
     const { boardLooks, listLooks, keysLooks, collectionLooks, folderLooks, tabs, active, filters } = this.snapshot;
     const shown = active === null ? null : movedTab(active);
     this.set({

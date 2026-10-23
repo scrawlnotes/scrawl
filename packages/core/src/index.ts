@@ -10,6 +10,7 @@ export * from './order';
 export * from './calendar';
 export * from './csv';
 export * from './day';
+export * from './favorites';
 export * from './fields';
 export * from './filters';
 export * from './files';

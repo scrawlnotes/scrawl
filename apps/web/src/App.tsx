@@ -4,6 +4,10 @@ import {
   asksAnything,
   assigneesOf,
   choosesAnything,
+  type Favorite,
+  favoriteKey,
+  isFavorite,
+  sameLabel,
   type FilterChoices,
   filterName,
   NO_CHOICES,
@@ -187,7 +191,7 @@ import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
 import { LoadingView, Spin, stillOpening } from './Loading';
 import { openingDrawn, openingFailed } from './opening';
 import { pendingJoin } from './servers';
-import { Sidebar } from './Sidebar';
+import { type FavoriteRow, Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Thing, thingsOf } from './Search';
 import { type Dated, dueLabel, type DueSubtask, FilterPage, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList, TodayView } from './Tasks';
@@ -271,14 +275,14 @@ const keys = (key: string) => `${isDesktop ? 'Ctrl' : 'Alt'}+${key}`;
 /** The system's file manager is Finder on a Mac. */
 const onMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent);
 /**
- * An item's menu on a computer, in groups: its name and place, what it keeps and gives out, then
- * Delete. A phone's sheet keeps the items as they come.
+ * An item's menu on a computer, in groups: its star, its name and place, what it keeps and gives
+ * out, then Delete. A phone's sheet keeps the items as they come.
  */
-const ITEM_GROUPS: IconName[][] = [['pen', 'move'], ['clock', 'export', 'import'], ['trash']];
+const ITEM_GROUPS: IconName[][] = [['star'], ['pen', 'move'], ['clock', 'export', 'import'], ['trash']];
 const inGroups = (items: MenuItem[]): MenuItem[] => {
   const groups = ITEM_GROUPS.map((icons) => icons.flatMap((icon) => items.filter((item) => item.icon === icon)));
   // An item no group names goes with what it keeps and gives out, before Delete.
-  groups[1]!.push(...items.filter((item) => !groups.flat().includes(item)));
+  groups[2]!.push(...items.filter((item) => !groups.flat().includes(item)));
   return groups.flatMap((group) => group.map((item, i) => ({ ...item, apart: i === 0 })));
 };
 
@@ -375,7 +379,7 @@ export function App() {
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const desktopUpdate = useDesktopUpdate();
-  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, favorites, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -728,12 +732,35 @@ export function App() {
 
   // A filter's menu: rename it, or delete it; its tasks stay where they are. It is changed on its page.
   const filterMenu = (event: MouseEvent, filter: TaskFilter) => openMenu(event, filterMenuItems(filter), filterTab(filter.id));
+  /**
+   * What a tab would be starred as (design/filters.md 5): a note, a list, a board, a keys file or a
+   * collection by its path, a filter, a label in its space; null for what is not starred: Inbox,
+   * which is always at the top, the onboarding note, a record and a view.
+   */
+  const favoriteOf = (tab: string): Favorite | null => {
+    const filter = filterOf(tab);
+    if (filter !== null) return { filter };
+    const label = labelOfTab(tab);
+    if (label !== null) {
+      const { space, name } = splitLabel(label);
+      return { label: name, ...(space && { space: inSpace(space, '') }) };
+    }
+    const path = collectionPathOf(tab) ?? pathOf(tab);
+    return path !== null && path !== INBOX_TASKS && path !== WELCOME_NOTE && !(dirname(path) in collections) ? { item: path } : null;
+  };
+  /** Add to favorites, or Remove from favorites for what is starred. */
+  const starItem = (favorite: Favorite): MenuItem => {
+    const on = isFavorite(favorites, favorite);
+    return { label: t(on ? 'favorites.remove' : 'favorites.add'), icon: 'star', run: () => session.star(favorite, !on) };
+  };
   const filterMenuItems = (filter: TaskFilter): MenuItem[] => [
+    starItem({ filter: filter.id }),
     { label: t('menu.rename'), icon: 'pen', run: () => setDialog({ kind: 'renameFilter', filter }) },
     {
       label: t('menu.delete'),
       icon: 'trash',
       danger: true,
+      apart: true,
       run: () => ask(t('delete.filter'), t('delete.filterText', { name: quote(filter.name) }), () => void session.removeFilter(filter.id)),
     },
   ];
@@ -1027,6 +1054,9 @@ export function App() {
     ];
     if (path && isDesktop && isOnDisk(path)) items.push({ label: t(onMac ? 'tab.revealFinder' : 'tab.revealExplorer'), apart: true, run: () => session.revealAttached(path) });
     if (path && path !== INBOX_TASKS) items.push(...inGroups(itemMenuItems(path)));
+    // A filter's and a label's tab are starred from here too.
+    const starred = favoriteOf(id);
+    if (starred && !('item' in starred)) items.push({ ...starItem(starred), apart: true });
     setMenu({ at: { x: event.clientX, y: event.clientY }, items, target: `tab:${id}` });
   };
   /** What an item or a folder is called, as the Rename window shows it. */
@@ -1067,7 +1097,10 @@ export function App() {
   /** Whether the item is a note (a record is one too): not a task list, a board, a keys file or a collection. */
   const isNoteFile = (path: string) => !(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections);
   // The onboarding note stays where it is, as it is called: it has its history and goes out, and is closed rather than deleted.
-  const itemMenuItems = (path: string, history: (path: string) => void = (path) => void showHistory(path)): MenuItem[] => [
+  const itemMenuItems = (path: string, history: (path: string) => void = (path) => void showHistory(path)): MenuItem[] => {
+    const starred = favoriteOf(path in collections ? collectionTab(path) : tabOf(path));
+    return [
+      ...(starred ? [starItem(starred)] : []),
       ...(path === WELCOME_NOTE
         ? []
         : [
@@ -1088,6 +1121,7 @@ export function App() {
         : []),
       ...(path === WELCOME_NOTE ? [] : [{ label: t('menu.delete'), icon: 'trash' as const, danger: true, run: () => deleteItem(path) }]),
     ];
+  };
   /** On a phone a menu is an action sheet, with what it is about at its top. */
   const showSheet = (items: MenuItem[], head?: MenuHead) => setMenu({ at: { x: 0, y: 0 }, items, head });
   /**
@@ -1107,6 +1141,12 @@ export function App() {
       ...(page && id === active && written !== null && { foot: writtenText(written) }),
     };
     if (filter) return showSheet(filterMenuItems(filter), head);
+    // A label's view, and its row held in Filters & Labels: its star.
+    const label = labelOfTab(id);
+    if (label !== null) {
+      const { space: where, name } = splitLabel(label);
+      return showSheet([starItem(favoriteOf(id)!)], { icon: 'tag', title: name, sub: t('phone.kindIn', { kind: t('filters.label'), folder: spaceLabel(where) }) });
+    }
     const path = collectionPathOf(id) ?? pathOf(id);
     // A note's own page has Find and Markdown; its history opens as pages over it.
     const markdown: MenuItem[] = page && isNote(id)
@@ -1945,6 +1985,49 @@ export function App() {
     return page ? { place: filterPlace(page), about: page.title, choices: page.choices, onChange: (next) => page.onChange({ ...next, folders: next.folders ?? [] }) } : null;
   };
   const filterPageOn = pageOf(active);
+  /**
+   * Favorites as the sidebar and Browse show them, in their order: what is in the trash or gone, a
+   * filter deleted, a label nothing has, a space not on this device, is left out, and comes back
+   * with it.
+   */
+  const favoriteRows: FavoriteRow[] = favorites.flatMap((favorite): FavoriteRow[] => {
+    const key = favoriteKey(favorite);
+    if ('filter' in favorite) {
+      const filter = filters.find((each) => each.id === favorite.filter);
+      const tab = filterTab(favorite.filter);
+      return filter ? [{ key, tab, name: filter.name, icon: 'filter', count: counts[tab] ?? 0 }] : [];
+    }
+    if ('label' in favorite) {
+      const where = spaceOf(favorite.space ?? '');
+      if (where && !spaces.some((each) => each.id === where)) return [];
+      const use = labelsApi.of(inSpace(where, '')).find((each) => sameLabel(each.name, favorite.label));
+      if (!use) return [];
+      const label = labelIn(where, use.name);
+      const count = shownBy({ ...EVERYTHING, labels: [use.name], folders: [inSpace(where, '')] });
+      return [{ key, tab: labelTab(label), name: use.name, icon: 'tag', dot: <LabelDot path={label} name={use.name} />, ...(where && { space: spaceLabel(where) }), count }];
+    }
+    const path = favorite.item;
+    if (!(path in titles || path in tasks || path in boards || path in keyFiles || path in collections)) return [];
+    const tab = path in collections ? collectionTab(path) : tabOf(path);
+    const where = spaceOf(path);
+    return [{ key, tab, name: nameOf(tab, tabTitles, filters), icon: iconOf(tab), ...(where && { space: spaceLabel(where) }), count: counts[tab] ?? 0 }];
+  });
+  /** A favorite's menu in the sidebar: its item's or its filter's, a label's Remove from favorites; its row stays marked. */
+  const favoriteMenu = (event: MouseEvent, row: FavoriteRow) => {
+    const filter = filters.find((each) => each.id === filterOf(row.tab));
+    const path = collectionPathOf(row.tab) ?? pathOf(row.tab);
+    const starred = favoriteOf(row.tab);
+    const items = filter ? filterMenuItems(filter) : path !== null ? inGroups(itemMenuItems(path)) : starred ? [starItem(starred)] : [];
+    openMenu(event, items, `fav:${row.key}`);
+  };
+  /** Favorites dragged into this order, by the keys of those shown; those not shown keep their places. */
+  const orderFavorites = (keys: string[]) => {
+    const byKey = new Map(favorites.map((each) => [favoriteKey(each), each]));
+    const shown = new Set(keys);
+    const next = keys.map((key) => byKey.get(key)!);
+    let at = 0;
+    session.orderFavorites(favorites.map((each) => (shown.has(favoriteKey(each)) ? next[at++]! : each)));
+  };
   // Filters & Labels: each filter's count, and every space's labels under its name, the personal space's first.
   const filterCounts = Object.fromEntries(filters.map((filter) => [filter.id, counts[filterTab(filter.id)] ?? 0]));
   const labelGroups: LabelGroup[] = [
@@ -2138,6 +2221,9 @@ export function App() {
         onAdd={() => void session.open(NEW_FILTER)}
         onFilterMenu={filterMenu}
         onFilterHold={(filter) => phoneItemMenu(filterTab(filter.id))}
+        onLabelHold={(group, name) => phoneItemMenu(labelTab(labelIn(group.space, name)))}
+        starred={(favorite) => isFavorite(favorites, favorite)}
+        onStar={(favorite) => session.star(favorite, !isFavorite(favorites, favorite))}
         onEditLabels={(group) => setLabelsOpen(group.path)}
       />
     )}
@@ -2398,6 +2484,7 @@ export function App() {
             }}
             onNewFolder={(name, parent) => session.newFolder(name, parent)}
             onItemMenu={phoneItemMenu}
+            favorites={favoriteRows}
             itemFilter={(id) => {
               const target = sheetOf(id);
               return target && { on: asksAnything(target.choices), open: () => setFilterSheet({ tab: id, step: null }) };
@@ -2666,6 +2753,9 @@ export function App() {
           onWant={(paths) => session.want(paths)}
           syncs={sync.all}
           onSignIn={signInFor}
+          favorites={favoriteRows}
+          onFavoriteMenu={favoriteMenu}
+          onOrderFavorites={orderFavorites}
         />
         <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
         <main className="main">
@@ -2951,9 +3041,11 @@ export function App() {
         <SaveFilterDialog
           // A name made of what it picks, until another is typed: "bug · Scrawl".
           name={filterName(dialog.choices, folderLabel, (id) => everyone?.people.find((person) => person.id === id)?.name ?? t('card.someone'))}
-          onSave={(name) => {
+          onSave={(name, favorite) => {
             const from = dialog.from;
-            session.saveFilter({ ...dialog.choices, id: crypto.randomUUID(), name });
+            const id = crypto.randomUUID();
+            session.saveFilter({ ...dialog.choices, id, name });
+            if (favorite) session.star({ filter: id }, true);
             // A new filter becomes the one saved; a label's view stays as it is.
             if (from === NEW_FILTER) {
               setNewFilter(EVERYTHING);

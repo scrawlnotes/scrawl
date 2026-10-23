@@ -1876,6 +1876,10 @@ export const en = {
   'filter.preset.noDate': 'No date',
   // Filters & Labels (design/filters.md 4)
   'filters.title': 'Filters & Labels',
+  'filters.label': 'Label',
+  'favorites.title': 'Favorites',
+  'favorites.add': 'Add to favorites',
+  'favorites.remove': 'Remove from favorites',
   'filters.filters': 'Filters',
   'filters.labels': 'Labels',
   'filters.add': 'Add filter',
