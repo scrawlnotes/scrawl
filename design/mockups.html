@@ -2939,6 +2939,54 @@ p { margin: 0; max-width: 68ch; }
 .ap-mfilter { padding: 4px 4px 10px; }
 .ap-mfilter .na-mseg { display: flex; }
 .ap-mfilter .na-mseg span { flex: 1; text-align: center; }
+/* Activity and the agents' identities (Oct 23, design/activity.md): an agent is a square with its
+   client's first letter, a person a circle; whose an agent is follows its name, faint. */
+.mock .who.ag { border-radius: 4px; background: color-mix(in srgb, var(--m-accent) 24%, transparent); color: var(--m-accent); }
+.mock .st-li .who.ag { border-radius: 5px; }
+.mock .mb-row .who.ag { border-radius: 8px; background: color-mix(in srgb, var(--m-accent) 22%, transparent); }
+.ac-of { color: var(--m-faint); font-weight: 400; }
+.tl-ev.ac-ev { align-items: center; }
+.tl-ev.ac-ev .tx { min-width: 0; color: var(--m-dim); }
+.tl-ev.ac-ev .tx b { color: var(--m-fg); font-weight: 500; }
+.tl-ev.ac-ev .tx > b:first-child { margin-right: 7px; }
+.tl-ev.ac-ev .ac-of, .ac-worked .ac-of, .cm-side .ac-of { font-size: 11px; }
+.ac-tl .who, .ac-chip .who, .ac-worked .who { flex: none; width: 16px; height: 16px; border-radius: 50%; background: var(--m-sel); color: var(--m-fg); font: 600 8.5px/16px var(--m-ui); text-align: center; }
+.ac-tl .tl-cm .h { align-items: center; }
+.ac-tl .tl-cm .h b { font-weight: 600; }
+.ac-subs { display: flex; flex-direction: column; margin-top: -4px; }
+.ac-worked { display: flex; flex-direction: column; gap: 1px; margin-top: 2px; }
+.ac-worked .r { display: flex; align-items: center; gap: 7px; min-height: 24px; font-size: 12px; color: var(--m-fg); }
+.ac-worked .nm { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ac-worked .t { margin-left: auto; color: var(--m-faint); font-size: 11px; white-space: nowrap; }
+.cm-side .in .ac-nm { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.kc .ac-stack { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; }
+.kc .ac-stack .who { margin-left: 0; }
+.kc .ac-stack .who.sm { width: 13px; height: 13px; border-radius: 3px; background: color-mix(in srgb, var(--m-accent) 14%, transparent); font-size: 7.5px; line-height: 13px; }
+.kc .ac-stack .who.sm + .who:not(.sm) { margin-left: 2px; }
+.ac-pick .rr small { margin-left: auto; font-family: var(--m-ui); }
+.ac-dlg { width: 470px; }
+.ac-dlg .what { margin: -2px 0 14px; font-size: 14px; font-weight: 500; }
+.ac-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.ac-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 3px; border-radius: 12px; background: var(--m-sel); color: var(--m-fg); font-size: 12px; }
+.ac-chip .ac-of { color: var(--m-dim); font-size: 11px; }
+.ac-log { padding-top: 12px; border-top: 1px solid var(--m-line); }
+.st-li.ac-li .nm b { white-space: nowrap; }
+.st-dlg.ac-tall { height: 720px; }
+.st-li.ac-ren { gap: 8px; padding: 4px 10px; }
+.ac-ren .in { flex: 1; min-width: 0; padding: 3px 8px; border: 1px solid var(--m-accent); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); font-size: 12.5px; }
+.ac-ren .st-btn { padding: 2px 10px; }
+.ac-mtl .mb-ev, .ac-mact .mb-ev { align-items: flex-start; gap: 10px; }
+.ac-mtl .mb-ev .mb-who, .ac-mact .mb-ev .mb-who { width: 22px; height: 22px; font-size: 10.5px; }
+.ac-mtl .mb-ev .tx, .ac-mact .mb-ev .tx { flex: 1; min-width: 0; padding-top: 1px; line-height: 1.35; }
+.ac-mtl .mb-ev .tx b, .ac-mact .mb-ev .tx b { margin-right: 5px; }
+.ac-mtl .mb-ev .t, .ac-mact .mb-ev .t { padding-top: 2px; }
+.ac-mtl .mb-cm .h .ac-of { margin-left: -4px; }
+.ac-mact { padding: 2px 14px; }
+.ac-mwork .mb-fr .fl { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ac-mcard .mb-fr .val { white-space: nowrap; }
+.ac-mstack { display: inline-flex; align-items: center; }
+.ac-mstack .mb-who { width: 24px; height: 24px; margin-left: -6px; box-shadow: 0 0 0 2px var(--m-bg); font-size: 11px; }
+.ac-mstack .mb-who:first-child { margin-left: 0; }
 </style>
 
 <main class="page">
@@ -3550,6 +3598,29 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-apview="apbiz">Business</button>
         <button type="button" data-apview="appers">Personal</button>
         <button type="button" data-apview="apphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="activity">
+    <div class="brief">
+      <div>
+        <span class="letter">ETKİNLİK VE AJANLAR · TASLAK</span>
+        <h2>Kim ne yaptı, ajanlar dahil</h2>
+        <p>Her ajanın kendi kimliği vardır ve bütün işini onunla yapar; kimliği yoksa ilk yazışında yenisini açar. Ajan hep birinin ajanıdır ve öbürlerinden ayrılır: <b>Claude Code (Mac mini) · Kaan</b>, <b>Cursor · Mert</b>. Ajan kare içinde istemcisinin baş harfiyle görünür, insan yuvarlakla. Kartın zaman çizgisine yalnız önemli olaylar, tek kısa satırla yazılır: sütun, yorum, kime verildiği, biten alt görevler. Kimin çalıştığı ayrıca <b>Worked on</b>'da, her biri bir kez. Kart ve görev tek kişiye verilir; ajana da verilebilir. Kart yüzünde atananın yanında, üzerinde çalışmış ajanlar küçük karelerle. Görevin akışı ··· menüsündeki Activity'de; telefonda görevin sheet'inde. Ajanlar Settings › Agents'ta adlarıyla, Rename ile; space'in sayfasında Agents altında. Teknik tasarım <code>design/activity.md</code>.</p>
+        <ul class="traits"><li>her ajanın kimliği</li><li>ajan kare, insan yuvarlak</li><li>yalnız önemli olaylar</li><li>Worked on</li><li>iş ajana verilir</li><li>Rename</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Etkinlik görünümü">
+        <button type="button" data-acview="accard">Card</button>
+        <button type="button" data-acview="acassign">Assignee</button>
+        <button type="button" data-acview="acboard">Board</button>
+        <button type="button" data-acview="actask">Task menu</button>
+        <button type="button" data-acview="actaskact">Task activity</button>
+        <button type="button" data-acview="acagents">Agents</button>
+        <button type="button" data-acview="acrename">Rename</button>
+        <button type="button" data-acview="acpeople">Space people</button>
+        <button type="button" data-acview="acphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -10786,6 +10857,290 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderSa(sectionSa, b.dataset.saview);
   });
   renderSa(sectionSa, 'sarecord');
+
+  // Activity and the agents' own identities (Oct 23, a draft; design/activity.md). In Scrawl, Kaan
+  // has three agents, Claude Code on the laptop and on the Mac mini and ChatGPT; Mert has Cursor.
+  // An agent is a square with its client's first letter, a person a circle. A card's timeline has
+  // only what matters, one short line each; who worked on it is kept beside, once each.
+  var AC_PEOPLE = [
+    { ini: 'K', name: 'Kaan Arslan', mail: 'kaan@outlook.com', you: true, seen: 'now' },
+    { ini: 'M', name: 'Mert Kaya', mail: 'mert@kaya.dev', seen: '3 h' }
+  ];
+  var AC_LAPTOP = { ini: 'C', name: 'Claude Code (Laptop)', of: 'Kaan', seen: 'now' };
+  var AC_MAC = { ini: 'C', name: 'Claude Code (Mac mini)', of: 'Kaan', seen: '12 min' };
+  var AC_GPT = { ini: 'G', name: 'ChatGPT', of: 'Kaan', seen: 'Mon' };
+  var AC_CURSOR = { ini: 'C', name: 'Cursor', of: 'Mert', seen: 'Oct 20' };
+  var AC_AGENTS = [AC_LAPTOP, AC_MAC, AC_GPT, AC_CURSOR];
+  function acWho(ini, agent, cls) { return '<span class="who' + (agent ? ' ag' : '') + (cls ? ' ' + cls : '') + '">' + ini + '</span>'; }
+  var AC_K = acWho('K'), AC_M = acWho('M'), AC_C = acWho('C', true), AC_G = acWho('G', true);
+  /** An agent as the others see it: its name, then whose it is, faint. */
+  function acName(a) { return a.name + '<span class="ac-of"> · ' + a.of + '</span>'; }
+  /** One thing that mattered, on one line: who, what, when. */
+  function acEv(face, actor, what, t) { return '<div class="tl-ev ac-ev">' + face + '<span class="tx"><b>' + actor + '</b>' + what + '</span><span class="t">' + t + '</span></div>'; }
+  function acCm(face, actor, t, body) { return '<div class="tl-cm"><div class="h">' + face + '<b>' + actor + '</b><span class="t">' + t + '</span></div><p>' + body + '</p></div>'; }
+  function acTree(on, foot) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 9 }) +
+      spRowT({ sp: true, label: 'Personal' }) +
+      spRowT({ sp: true, open: true, label: 'Scrawl' }) +
+      spRowT({ d: 1, icon: 'board', label: 'Roadmap', ct: 14, on: on === 'board' }) +
+      spRowT({ d: 1, icon: 'tasks', label: 'Tasks', ct: 5, on: on === 'tasks' }) +
+      spRowT({ d: 1, icon: 'notes', label: 'Release checklist' }) +
+      spRowT({ d: 1, folder: true, label: 'design', ct: 12 }) +
+      spRowT({ sp: true, label: 'Side projects' }) +
+      '</div>' + spFoot(foot || null);
+  }
+  function acApp(on, body, status, foot) {
+    var tabs = on === 'tasks'
+      ? tab('board', 'Roadmap', 'x', false) + tab('tasks', 'Tasks · Scrawl', 'x', true)
+      : tab('board', 'Roadmap', 'x', true) + tab('tasks', 'Tasks · Scrawl', 'x', false);
+    return '<aside class="side">' + acTree(on, foot) + '</aside><section class="main"><div class="panes">' + pane(tabs + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>' + status + '</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  /** A card's face: the one it is given to last, and before it a small square for each agent that worked on it. */
+  function acFace(o) {
+    var stack = (o.agents || []).map(function (ini) { return acWho(ini, true, 'sm'); }).join('') + (o.who ? acWho(o.who, o.agent) : '');
+    return kc({ key: o.key, p: o.p, title: o.title, done: o.done, on: o.on, meta: (o.meta || '') + (stack ? '<span class="ac-stack">' + stack + '</span>' : '') });
+  }
+  function acBoard(sel) {
+    return '<div class="bv">' + boardHead('board') + '<div class="bwrap"><div class="board">' +
+      colm('backlog', 'Backlog', 2,
+        acFace({ key: 'SCR-36', title: 'Undo a column moved by mistake', meta: lbl('board') }) +
+        acFace({ key: 'SCR-35', title: 'Keyboard on the phase strip', meta: lbl('board') })) +
+      colm('active', 'Todo', 2,
+        acFace({ key: 'SCR-34', p: 'p2', title: 'Import cards from a CSV', meta: lbl('board') }) +
+        acFace({ key: 'SCR-33', p: 'p3', title: 'Week view in Upcoming', meta: lbl('tasks'), who: 'M' })) +
+      colm('active', 'Doing', 2,
+        acFace({ key: 'SCR-32', p: 'p2', title: 'Rename an agent in Settings', meta: '<span class="today">Today</span>' + lbl('board'), who: 'C', agent: true }) +
+        acFace({ key: 'SCR-30', p: 'p1', title: 'Calendar: drag to reschedule', meta: lbl('tasks'), who: 'K', agents: ['C'] })) +
+      colm('review', 'Review', 2,
+        acFace({ key: 'SCR-31', p: 'p2', title: 'Export a board as CSV', meta: '<span>Oct 24</span>' + lbl('board') + '<span class="cm">' + ICON.comment + '2</span>', who: 'C', agent: true, on: sel === 'SCR-31' }) +
+        acFace({ key: 'SCR-29', p: 'p3', title: 'Search: whole words first', meta: lbl('editor') + '<span class="cm">' + ICON.comment + '1</span>', who: 'M', agents: ['C'] })) +
+      colm('done', 'Done', 6,
+        acFace({ key: 'SCR-28', title: 'Callouts in notes', done: true, who: 'C', agent: true }) +
+        acFace({ key: 'SCR-27', title: 'Rename a file from Files', done: true, who: 'K', agents: ['C', 'G'] }),
+        { fold: '4 older cards' }) +
+      '</div></div></div>';
+  }
+  function acSub(title, done) { return '<div class="rtask' + (done ? ' done' : '') + '"><span class="cb"></span><span class="tt">' + title + '</span></div>'; }
+  function acWorked(face, name, t) { return '<div class="r">' + face + '<span class="nm">' + name + '</span><span class="t">' + t + '</span></div>'; }
+  /**
+   * The card, over the board: on its timeline what mattered, one line each, and the comments; at
+   * the right, under its fields, who worked on it, newest first. Claude Code on the laptop wrote
+   * the description over and left no line, so it is only in Worked on.
+   */
+  function acCardModal(picking) {
+    function f(label, value, cls) { return '<span class="fl">' + label + '</span><span class="in' + (cls ? ' ' + cls : '') + '">' + value + '</span>'; }
+    var picker = '<div class="rpick ac-pick" style="top: 322px; right: 20px"><div class="rq"><span class="ph">Find a person or an agent</span></div>' +
+      '<div class="rr"><span class="fpad"></span><b>Nobody</b></div>' +
+      '<div class="rg">People in Scrawl</div>' +
+      AC_PEOPLE.map(function (p) { return '<div class="rr">' + acWho(p.ini) + '<b>' + p.name + '</b><small>' + (p.you ? 'you' : p.mail) + '</small></div>'; }).join('') +
+      '<div class="rg">Agents</div>' +
+      AC_AGENTS.map(function (a) { return '<div class="rr' + (a === AC_MAC ? ' on' : '') + '">' + acWho(a.ini, true) + '<b>' + a.name + '</b><small>' + (a.of === 'Kaan' ? 'yours' : a.of + '’s') + '</small></div>'; }).join('') +
+      '<div class="rn">Everyone who has opened Scrawl, and the agents that have changed something in it.</div></div>';
+    return '<div class="ovl center"><div class="cmod" style="position: relative">' + (picking ? picker : '') +
+      '<div class="cp-head"><span class="key">SCR-31</span><span>Roadmap · Scrawl</span><span class="more" style="margin-left: auto">···</span><span class="x" style="margin-left: 4px">×</span></div>' +
+      '<div class="cm-body"><div class="cm-main">' +
+        '<div class="cp-title">Export a board as CSV</div>' +
+        '<div class="cp-sec">Description</div>' +
+        '<div class="cp-desc"><div class="ln">One row per card, with its own fields and the board’s, in the order of the List view. The description stays out.</div></div>' +
+        '<div class="cp-sec">Subtasks · 3/4</div><div class="ac-subs">' +
+          acSub('One row per card, with its fields', true) + acSub('Labels in one cell', true) + acSub('Days as YYYY-MM-DD', true) + acSub('The List view’s own columns') + '</div>' +
+        '<div class="cp-sec">Timeline</div><div class="tlog ac-tl">' +
+          acEv(AC_K, 'Kaan', 'created this', 'Oct 20') +
+          acEv(AC_K, 'Kaan', 'gave it to <b>' + acName(AC_MAC) + '</b>', 'Oct 21') +
+          acEv(AC_C, acName(AC_MAC), 'Todo → Doing', '09:12') +
+          acEv(AC_C, acName(AC_MAC), 'ticked 3 subtasks', '10:40') +
+          acCm(AC_C, acName(AC_MAC), '10:41', 'Export writes one row per card with its fields; the description stays out. Left: the List view’s own columns.') +
+          acEv(AC_C, acName(AC_MAC), 'Doing → Review', '10:41') +
+          acCm(AC_K, 'Kaan', '11:05', 'Looks right. The List view’s columns can be a card of their own.') +
+          '<div class="cp-new">Write a comment…</div></div>' +
+      '</div><div class="cm-side">' +
+        f('Status', '<i class="kind review" style="background: var(--m-accent)"></i>Review<span class="dd">▾</span>') +
+        f('Priority', '<i class="dot p2"></i>p2<span class="dd">▾</span>') +
+        f('Labels', lbl('board')) +
+        f('Due', 'Oct 24') +
+        f('Assignee', AC_C + '<span class="ac-nm">' + acName(AC_MAC) + '</span>', picking ? 'sp-on' : '') +
+        '<span class="sep"></span>' +
+        '<span class="fl">Worked on</span><div class="ac-worked">' +
+          acWorked(AC_K, 'Kaan', '11:05') + acWorked(AC_C, acName(AC_MAC), '10:41') + acWorked(AC_C, acName(AC_LAPTOP), 'Oct 22') + '</div>' +
+      '</div></div></div></div>';
+  }
+  function acTaskRow(p, title, meta, o) {
+    o = o || {};
+    return '<div class="task' + (o.hover ? ' rhover' : '') + '"><span class="cb ' + p + '"></span><div><div class="tt">' + title + '</div>' +
+      (meta ? '<div class="meta">' + meta + '</div>' : '') + '</div>' +
+      (o.hover ? '<span class="racts"><span title="Date">' + ICON.cal + '</span><span title="Priority">' + ICON.flag + '</span><span title="Give to">' + ICON.person + '</span><span title="Record">' + ICON.collection + '</span><span title="Move to">' + ICON.move + '</span><span class="more on">···</span></span>' : '') + '</div>';
+  }
+  /** The tasks of Scrawl; one is given to Claude Code on the laptop, one to ChatGPT. Its menu has Activity… before Delete. */
+  function acTasks(menu) {
+    var m = menu ? '<div class="cmenu" style="right: 22px; top: 82px"><span>Add subtask</span><span>Date…</span><span>Priority…</span><span>Give to…</span><span>Record…</span><span>Move to…</span><i></i><span class="hot">Activity…</span><i></i><span class="red">Delete</span></div>' : '';
+    return '<div class="tasksv" style="position: relative"><div class="th"><b>Tasks</b><span class="chip">Scrawl</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      acTaskRow('p1', 'Collect the October feedback in one note', '<span>Oct 24</span>' + AC_C + '<span>Claude Code (Laptop)</span>', { hover: menu }) +
+      acTaskRow('p2', 'Write the release notes for 0.1.14', '<span class="today">Today</span>' + AC_K + '<span>Kaan</span>') +
+      acTaskRow('', 'Check the Mac mini backup', '<span>Oct 25</span>' + AC_G + '<span>ChatGPT</span>') +
+      acTaskRow('p3', 'Renew the Apple Developer account', '<span>Oct 30</span>' + AC_M + '<span>Mert</span>') +
+      acTaskRow('', 'Try the server on a phone', '') +
+      '<div class="qa">+ Add task</div></div>' + m + '</div>';
+  }
+  /** A task's activity: who worked on it, then what mattered. Claude Code has it now and has not changed it yet. */
+  function acTaskActivity() {
+    function chip(face, name) { return '<span class="ac-chip">' + face + name + '</span>'; }
+    return '<div class="ovl center"><div class="mdlg ac-dlg"><h3>Activity</h3>' +
+      '<p class="what">Collect the October feedback in one note</p>' +
+      '<div class="label">Worked on</div><div class="ac-chips">' + chip(AC_K, 'Kaan') + chip(AC_G, acName(AC_GPT)) + '</div>' +
+      '<div class="tlog ac-tl ac-log">' +
+        acEv(AC_K, 'Kaan', 'created this', 'Oct 20') +
+        acEv(AC_K, 'Kaan', 'gave it to <b>' + acName(AC_GPT) + '</b>', 'Oct 20') +
+        acEv(AC_G, acName(AC_GPT), 'finished it', 'Oct 21') +
+        acEv(AC_K, 'Kaan', 'reopened it', 'Oct 22') +
+        acEv(AC_K, 'Kaan', 'gave it to <b>' + acName(AC_LAPTOP) + '</b>', 'Oct 22') +
+      '</div><div class="foot"><span class="st-btn" style="margin-left: auto">Close</span></div></div></div>';
+  }
+  /** An agent in Settings › Agents: its name, its client and since when, when it was last here; Rename in its menu, and Disconnect for one on a server. */
+  function acAgentLi(a, o) {
+    o = o || {};
+    if (o.renaming) return '<div class="st-li one ac-ren">' + acWho(a.ini, true) + '<span class="in">' + a.name + '<span class="caret"></span></span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span></div>';
+    return spLi({ who: a.ini, name: a.name, sub: a.sub, r: a.r, more: true, cls: 'one ac-li' + (o.menu ? ' menu' : ''),
+      menu: o.menu ? '<div class="cmenu"><span class="hot">Rename</span>' + (o.local ? '' : '<i></i><span class="red">Disconnect</span>') + '</div>' : '' }).replace('<span class="who">', '<span class="who ag">');
+  }
+  function acAgentsPage(o) {
+    o = o || {};
+    var here = [{ ini: 'C', name: 'Claude Code (Laptop)', sub: 'Claude Code · Oct 15', r: 'just now' }];
+    var there = [
+      { ini: 'C', name: 'Claude Code (Mac mini)', sub: 'Claude Code · Oct 16', r: '12 min ago' },
+      { ini: 'G', name: 'ChatGPT', sub: 'ChatGPT · Oct 14', r: 'Mon' },
+      { ini: 'C', name: 'Claude', sub: 'Claude · Oct 15', r: 'Oct 19' }
+    ];
+    return '<p class="st-note">An agent reaches your notes the way you do. Each one has a name of its own; what it does carries that name and yours.</p>' +
+      '<div class="st-space tight"><div class="top">' + ICON.laptop + '<b>Laptop</b><small>Personal · Scrawl · Side projects</small></div>' +
+        '<div class="st-row"><span class="fl">Command</span><span class="path">npx -y @scrawlnotes/mcp</span><span class="btn">Copy</span></div>' +
+        '<div class="st-acts"><span class="lab">Add to</span><span class="st-btn">Claude Desktop</span><span class="st-btn">Claude Code</span><span class="st-btn">Cursor</span></div>' +
+        '<div class="st-list">' + here.map(function (a) { return acAgentLi(a, { local: true }); }).join('') + '</div>' +
+      '</div>' +
+      '<div class="st-space tight srv"><div class="top">' + ICON.server + '<b>' + SRV_HOST + '</b><small>kaan@outlook.com</small></div>' +
+        '<div class="st-row"><span class="fl">Address</span><span class="path">' + AG_ADDRESS + '</span><span class="btn">Copy</span></div>' +
+        '<div class="st-acts"><span class="lab">Add to</span><span class="st-btn">Claude</span><span class="st-btn">ChatGPT</span><span class="st-btn">Gemini</span><span class="st-btn">Claude Code</span></div>' +
+        '<div class="st-list">' + there.map(function (a, i) { return acAgentLi(a, { menu: o.menu && i === 0, renaming: o.renaming && i === 0 }); }).join('') + '</div>' +
+        '<p class="st-note">Disconnect ends one’s access until it signs in again; what it did keeps its name.</p>' +
+      '</div>';
+  }
+  /** A space's page: under its people, everyone's agents that have changed something in it, each with whose it is. */
+  function acSpacePage() {
+    var people = AC_PEOPLE.map(function (p) { return spLi({ who: p.ini, name: p.name + (p.you ? ' <small>you</small>' : ''), sub: p.mail, r: p.seen, more: !p.you, cls: 'one' }); }).join('');
+    var agents = AC_AGENTS.map(function (a, i) {
+      return spLi({ who: a.ini, name: a.name, sub: a.of + '’s agent', r: a.seen, more: true, cls: 'one ac-li' + (i === 3 ? ' menu' : ''), menu: i === 3 ? '<div class="cmenu"><span>Make inactive</span></div>' : '' })
+        .replace('<span class="who">', '<span class="who ag">');
+    }).join('');
+    return '<span class="st-back">' + ICON.chevl + 'Spaces</span>' +
+      '<div class="st-space tight"><div class="top">' + ICON.space + '<b>Scrawl</b><small>Shared</small></div>' +
+      '<div class="st-row"><span class="fl">Name</span><span class="in">Scrawl</span><span class="btn save">Save</span></div>' +
+      '<div class="st-row"><span class="fl">Folder</span><span class="path">' + SP_DEFAULT + 'Scrawl</span><span class="btn">Change…</span></div>' +
+      '<div class="st-sync"><span class="fl">Sync</span><div class="what">' +
+        '<span class="who">' + ICON.server + '<b>' + SRV_HOST + '</b><small>kaan@outlook.com</small></span>' +
+        '<span class="state"><i></i>Synced 4 s ago</span><span class="acts"><span class="st-btn">Sync now</span></span></div></div>' +
+      '</div>' +
+      '<span class="st-label">People</span>' +
+      '<p class="st-note">Everyone who has opened this space; a task or a card is given to one of them. One can be made inactive; opening the space again makes them active.</p>' +
+      '<div class="st-list">' + people + '</div>' +
+      '<span class="st-label">Agents</span>' +
+      '<p class="st-note">Everyone’s agents that have changed something here; a task or a card can be given to one of them too. One can be made inactive; it is active again when it changes something.</p>' +
+      '<div class="st-list">' + agents + '</div>' +
+      '<div class="st-acts"><span class="st-btn">Remove from this device</span></div>';
+  }
+  /** On a phone: the card's page with its fields, its timeline, the people and agents to give it to, and a task's activity in its sheet. */
+  function acPhone() {
+    var K = mbWho('K'), C = mbWho('C', true), G = mbWho('G', true);
+    function ev(face, actor, what, t) { return '<div class="mb-ev">' + face + '<span class="tx"><b>' + actor + '</b>' + what + '</span><span class="t">' + t + '</span></div>'; }
+    var compose = '<div class="mb-compose"><span class="f">Write a comment…</span><span class="go off">Comment</span></div>';
+    var card = mbPage(mbNav('Roadmap', ['dots']),
+      '<div class="mb-ckey">SCR-31 · Roadmap</div><div class="mb-ctitle">Export a board as CSV</div>' +
+      '<div class="mb-form" style="padding-top: 0"><div class="mb-group ac-mcard">' +
+        mbField('board', 'Status', '<i class="mb-k review"></i>Review' + MB_CHEV) +
+        mbField('flag', 'Priority', ICON.flag + 'p2', 'p2') +
+        mbField('tag', 'Labels', mbLbl('board')) +
+        mbField('cal', 'Due', 'Oct 24') +
+        mbField('person', 'Assignee', C + 'Claude Code (Mac mini)') +
+      '</div>' +
+      '<div class="mb-cap">Worked on</div><div class="mb-group ac-mwork">' +
+        '<div class="mb-fr">' + K + '<span class="fl">Kaan</span><span class="val">11:05</span></div>' +
+        '<div class="mb-fr">' + C + '<span class="fl">Claude Code (Mac mini)</span><span class="val">10:41</span></div>' +
+        '<div class="mb-fr">' + C + '<span class="fl">Claude Code (Laptop)</span><span class="val">Oct 22</span></div>' +
+      '</div></div>');
+    var timeline = mbPage(mbNav('Roadmap', ['dots'], 'SCR-31', 'bar'),
+      '<div class="mb-cap" style="padding-left: 16px">Timeline</div><div class="mb-tl ac-mtl">' +
+        ev(K, 'Kaan', 'created this', 'Oct 20') +
+        ev(K, 'Kaan', 'gave it to Claude Code (Mac mini)', 'Oct 21') +
+        ev(C, 'Claude Code (Mac mini)', 'Todo → Doing', '09:12') +
+        ev(C, 'Claude Code (Mac mini)', 'ticked 3 subtasks', '10:40') +
+        '<div class="mb-cm"><div class="h">' + C + 'Claude Code (Mac mini)<span class="t">10:41</span></div><p>Export writes one row per card with its fields; the description stays out. Left: the List view’s own columns.</p></div>' +
+        ev(C, 'Claude Code (Mac mini)', 'Doing → Review', '10:41') +
+        '<div class="mb-cm"><div class="h">' + K + 'Kaan<span class="t">11:05</span></div><p>Looks right. The List view’s columns can be a card of their own.</p></div>' +
+      '</div>');
+    var assign = MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Assign to</b><small>Export a board as CSV</small><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-row">' + ICON.person + '<span class="tx"><b>Nobody</b></span></div>' +
+      '<div class="mb-sec">People in Scrawl</div>' +
+      AC_PEOPLE.map(function (p) { return mbPerson(p, false); }).join('') +
+      '<div class="mb-sec">Agents</div>' +
+      AC_AGENTS.map(function (a) {
+        return '<div class="mb-row">' + acWho(a.ini, true) + '<span class="tx"><b>' + a.name + '</b><small>' + (a.of === 'Kaan' ? 'Yours' : a.of + '’s') + '</small></span>' + (a === AC_MAC ? ICON.check.replace('<svg', '<svg class="tick"') : '') + '</div>';
+      }).join('') + '</div>';
+    var list = mbPage(mbNav('Scrawl', ['dots']) + mbHead('Tasks'),
+      mbT({ p: 'p1', title: 'Collect the October feedback in one note', meta: mi('cal', 'Oct 24') + mi('person', 'Claude Code (Laptop)') }) +
+      mbT({ p: 'p2', title: 'Write the release notes for 0.1.14', meta: mi('cal', 'Today', 'late') + mi('person', 'Kaan') }) +
+      mbT({ title: 'Check the Mac mini backup', meta: mi('cal', 'Oct 25') + mi('person', 'ChatGPT') }));
+    var task = MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh"><span class="mb-crumb">' + ICON.tasks + 'Tasks · Scrawl</span><span class="x dots">' + ICON.dots3 + '</span><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-task big"><span class="cb p1"></span><span class="tx"><b>Collect the October feedback in one note</b></span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr">' + ICON.cal + '<span class="fl">Date</span><span class="val">Oct 24</span></div>' +
+        '<div class="mb-fr">' + ICON.flag + '<span class="fl">Priority</span><span class="val p1">' + ICON.flag + 'p1</span></div>' +
+        '<div class="mb-fr">' + ICON.person + '<span class="fl">Given to</span><span class="val">' + C + 'Claude Code (Laptop)</span></div>' +
+      '</div>' +
+      '<div class="mb-cap">Activity</div><div class="mb-group ac-mact">' +
+        ev(K, 'Kaan', 'created this', 'Oct 20') +
+        ev(K, 'Kaan', 'gave it to ChatGPT', 'Oct 20') +
+        ev(G, 'ChatGPT', 'finished it', 'Oct 21') +
+        ev(K, 'Kaan', 'reopened it', 'Oct 22') +
+        ev(K, 'Kaan', 'gave it to Claude Code (Laptop)', 'Oct 22') +
+      '</div></div></div>';
+    return [
+      mbPhone('Kart: ajana verilmiş, altında Worked on', card, compose),
+      mbPhone('Zaman çizgisi: yalnız önemli olaylar', timeline, compose),
+      mbPhone('Atama: insanlar, sonra ajanlar', card, assign),
+      mbPhone('Görevin sheet’inde Activity', list, mbTabs('browse') + task)
+    ].join('');
+  }
+  var AC_VIEWS = {
+    accard: function () { return acApp('board', acBoard('SCR-31'), '14 cards') + acCardModal(false); },
+    acassign: function () { return acApp('board', acBoard('SCR-31'), '14 cards') + acCardModal(true); },
+    acboard: function () { return acApp('board', acBoard(), '14 cards'); },
+    actask: function () { return acApp('tasks', acTasks(true), '5 tasks'); },
+    actaskact: function () { return acApp('tasks', acTasks(false), '5 tasks') + acTaskActivity(); },
+    acagents: function () { return acApp('board', acBoard(), '14 cards', 'settings') + agSettings(acAgentsPage({ menu: true })); },
+    acrename: function () { return acApp('board', acBoard(), '14 cards', 'settings') + agSettings(acAgentsPage({ renaming: true })); },
+    acpeople: function () { return acApp('board', acBoard(), '14 cards', 'sync') + agSettings(acSpacePage(), '', { on: 'spaces', tall: true }).replace('class="st-dlg tall"', 'class="st-dlg tall ac-tall"'); }
+  };
+  function renderAc(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'acphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = acPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = AC_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-acview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.acview === view));
+    });
+  }
+  var sectionAc = document.querySelector('.dir[data-dir="activity"]');
+  sectionAc.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-acview]');
+    if (b) renderAc(sectionAc, b.dataset.acview);
+  });
+  renderAc(sectionAc, 'accard');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
