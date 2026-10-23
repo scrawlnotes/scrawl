@@ -2,6 +2,21 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.13
+
+A calendar for what has a day and a time, templates for a business and for a person, callouts in notes, and folders that move.
+
+- A date field can hold a time too, never needing one; a field can be a time of day, and a number a length, shown as 1 h 30 min. A formula adds minutes, hours, months and years to a day, and counts the working days between two.
+- Upcoming has a full calendar: Day, Week and Month, back and forth, Today. A collection and a board can have a Calendar view by a date: drag over its hours to add, drag a record or a card to move it, its foot to make it longer. A calendar's records come to Today and Upcoming beside the tasks; a calendar may go by a day a formula works out, as a birthday every year.
+- New app says Business or Personal, and an app is set up from one of them. For a business, besides the ten: Appointments and bookings, E-commerce, Subscriptions and memberships, Contracts and renewals, Time off and team, Goals, Incidents and actions, Field service, Consulting, and Association and club. For a person: Personal finance; Home, car and documents; Recipes and meal plan; Health; Sport and training; Habits and goals; Travel; Shared expenses; Job search; People and birthdays; and Reading and watching. A question's answer may start as your region has it: a marketplace, a carrier, the days of leave, the public holidays, where you watch.
+- Add to app asks the currencies of an app that keeps no money yet, when what is added does.
+- Callouts in notes, as GitHub writes them: Note, Tip, Important, Warning and Caution, from the format bar's Callout, the / menu, or a quote that starts with `[!NOTE]`.
+- A folder moves with everything in it, or gets another name: dragged in the sidebar, or with Move to… and Rename. What points at what is in it follows. What is dropped on a row goes into that row's folder.
+- Files can be renamed in Files, and in a note's, a card's or a record's file bar; every link to them follows.
+- Search says where each thing found is, the whole way down to it. A right click on a folder has Add new first; New app and New folder are apart in the + menus.
+- The welcome note says where your notes are, and how to have them on every device.
+- Settings › Agents adds Antigravity, and Cursor for a Scrawl server.
+
 ## 0.1.12
 
 A deleted folder stays deleted.
