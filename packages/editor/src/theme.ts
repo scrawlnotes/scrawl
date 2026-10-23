@@ -159,6 +159,36 @@ const editorTheme = EditorView.theme({
     color: 'var(--sl-dim)',
     paddingLeft: '28px',
   },
+  // A callout: a box of its kind's colour, with a quote's bar on its left in that colour. Its
+  // first line is a widget, the title, drawn on the same box.
+  '.cm-sl-callout-note': { '--sl-callout': 'var(--sl-kind-active)' },
+  '.cm-sl-callout-tip': { '--sl-callout': 'var(--sl-kind-done)' },
+  '.cm-sl-callout-important': { '--sl-callout': 'var(--sl-purple)' },
+  '.cm-sl-callout-warning': { '--sl-callout': 'var(--sl-p2)' },
+  '.cm-sl-callout-caution': { '--sl-callout': 'var(--sl-kind-dropped)' },
+  '.cm-sl-quote.cm-sl-callout, .cm-sl-callout-title': {
+    '--sl-callout-tint': 'color-mix(in srgb, var(--sl-callout) 9%, transparent)',
+    background:
+      'linear-gradient(var(--sl-callout), var(--sl-callout)) 12px 0 / 3px 100% no-repeat, linear-gradient(var(--sl-callout-tint), var(--sl-callout-tint)) 12px 0 / calc(100% - 28px) 100% no-repeat',
+    color: 'var(--sl-fg)',
+  },
+  '.cm-sl-callout-last': { paddingBottom: '6px' },
+  '.cm-sl-callout-title': { padding: '6px 28px 1px 28px' },
+  '.cm-sl-callout-kind': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '0',
+    border: '0',
+    background: 'none',
+    color: 'var(--sl-callout)',
+    font: '600 0.92em var(--sl-font-ui)',
+    lineHeight: '1.65',
+    cursor: 'pointer',
+  },
+  '.cm-sl-callout-kind svg': { width: '15px', height: '15px', flex: 'none' },
+  '.cm-sl-callout-kind:not(:disabled):hover span': { textDecoration: 'underline' },
+  '.cm-sl-callout-kind:disabled': { cursor: 'default' },
   '.cm-sl-codeblock': { backgroundColor: 'var(--sl-code)', fontFamily: 'var(--sl-font-mono)' },
   // The copy button sits in the top right corner of the block, over the opening fence's line.
   '.cm-sl-codeblock-first': { position: 'relative' },

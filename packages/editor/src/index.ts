@@ -45,6 +45,8 @@ import { livePreview, type LivePreviewOptions, mediaChanged, setSourceMode, sour
 import { textSelection } from './selection';
 import { type SlashItem, slashMenu } from './slash';
 import { enterTable, tableGrid, tableRanges } from './table';
+import { CALLOUT_ICONS, setCallout } from './callout';
+import { calloutBlocks } from './calloutBlock';
 import { scrawlTheme } from './theme';
 
 export { clipboard, markdownSlice, visibleText } from './clipboard';
@@ -64,6 +66,8 @@ export { buildDecorations, type LinkTap, livePreview, type LivePreviewOptions, s
 export { literalInput, positionsToEscape } from './literal';
 export { textSelection } from './selection';
 export { cellMarkdown, parseTable, serializeTable, tableGrid } from './table';
+export { CALLOUT_ICONS, CALLOUT_TYPES, type CalloutType, calloutAt, changeCallout, findCallouts, removeCallout, setCallout } from './callout';
+export { calloutActions, calloutBlocks } from './calloutBlock';
 export { scrawlTheme } from './theme';
 export type { EditorState, TransactionSpec } from '@codemirror/state';
 
@@ -147,6 +151,7 @@ const SLASH_ICONS = {
   list: '<path d="M10 6.5h10M10 12h10M10 17.5h10"/><circle cx="5" cy="6.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="5" cy="17.5" r="1.3" fill="currentColor" stroke="none"/>',
   ordered: '<path d="M10.5 6.5h9.5M10.5 12h9.5M10.5 17.5h9.5"/><path d="M4.4 5.2 5.6 4.4v4.2"/><path d="M4.2 10.9c.3-.6 2.1-.8 2.1.4 0 .9-2.1 1.7-2.1 2.9h2.3"/><path d="M4.3 16h2l-1 1.3c.7 0 1.2.4 1.2 1s-.6 1.2-1.3 1.2c-.4 0-.8-.2-1-.4"/>',
   quote: '<path d="M5.5 5v14"/><path d="M10 8h9M10 12h9M10 16h6"/>',
+  callout: CALLOUT_ICONS.callout,
   codeBlock: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 9.5L7 12l2.5 2.5M14.5 9.5L17 12l-2.5 2.5"/>',
   table: '<rect x="3.5" y="5" width="17" height="14" rx="1.5"/><path d="M3.5 10h17M3.5 14.5h17M9.5 5v14M15 5v14"/>',
   divider: '<path d="M4 12h16"/>',
@@ -225,6 +230,7 @@ export function createViewer(options: LivePreviewOptions & { parent: HTMLElement
     markdownSupport,
     livePreview(options),
     tableGrid,
+    calloutBlocks(),
     scrawlTheme,
   ];
   const view = new EditorView({ parent: options.parent, state: EditorState.create({ doc: options.doc ?? '', extensions }) });
@@ -266,6 +272,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
     { label: t('slash.list'), icon: SLASH_ICONS.list, run: toggleList('bullet') },
     { label: t('slash.ordered'), icon: SLASH_ICONS.ordered, run: toggleList('ordered') },
     { label: t('slash.quote'), icon: SLASH_ICONS.quote, run: toggleLinePrefix('quote') },
+    { label: t('slash.callout'), icon: SLASH_ICONS.callout, run: setCallout('note') },
     { label: t('slash.codeBlock'), icon: SLASH_ICONS.codeBlock, run: toggleCodeBlock },
     { label: t('slash.table'), icon: SLASH_ICONS.table, run: addTable },
     { label: t('slash.divider'), icon: SLASH_ICONS.divider, run: insertDivider },
@@ -308,6 +315,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         markdownSupport,
         livePreview(options),
         tableGrid,
+        calloutBlocks(options),
         options.placeholder ? placeholder(options.placeholder) : [],
         // On a phone the keyboard starts a sentence with a capital, after a full stop and on a new
         // line, as a notes app's does; the editor's own default turns it off.

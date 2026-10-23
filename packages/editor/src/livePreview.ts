@@ -19,6 +19,7 @@ import {
 } from '@codemirror/view';
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { t } from '@scrawlnotes/i18n';
+import { calloutMarker } from './callout';
 import { bareAddress, linkUrl } from './commands';
 import { IMAGE_SIZES, type ImageSize, MIN_IMAGE_WIDTH, readImageAlt, sizeOfWidth, writtenImageAlt } from './imageWidth';
 import { attachmentOf, AudioWidget, type AwayFileInfo, FileWidget, isAudio, type ItemAction, ItemWidget, type MediaOptions, selectWidget, sizeText } from './media';
@@ -111,6 +112,8 @@ export interface PreviewItem {
   deco?: Decoration;
   role?: Role;
   span?: { from: number; to: number };
+  /** What the range reads as where something else draws it: a callout's marker line, as its title. */
+  reads?: string;
 }
 type Item = PreviewItem;
 
@@ -551,12 +554,16 @@ function collect(
     out.push({ from: node.from, to: node.to, deco: Decoration.replace({ widget, kind: 'image', alt }), role: 'unit' });
   };
 
+  // A callout's marker line, drawn as its title by calloutBlock.ts: nothing in it is decorated here.
+  let title: { from: number; to: number } | null = null;
+
   for (const { from, to } of ranges) {
     tree.iterate({
       from,
       to,
       enter: (ref) => {
         const name = ref.name;
+        if (title && ref.from >= title.from && ref.to <= title.to) return false;
 
         const heading = /^ATXHeading([1-6])$/.exec(name);
         if (heading) {
@@ -639,6 +646,14 @@ function collect(
         }
 
         if (name === 'Blockquote') {
+          const first = doc.lineAt(ref.from);
+          const type = ref.node.parent?.name === 'Document' && doc.lineAt(ref.to).number > first.number ? calloutMarker(first.text) : null;
+          if (type) {
+            title = { from: first.from, to: first.to };
+            out.push({ from: first.from, to: first.to, role: 'unit', reads: t(`callout.${type}`) });
+            lineDecos(first.to + 1, ref.to, quoteLine);
+            return;
+          }
           lineDecos(ref.from, ref.to, quoteLine);
           return;
         }

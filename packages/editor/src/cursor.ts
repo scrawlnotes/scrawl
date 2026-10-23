@@ -1,5 +1,6 @@
 import {
   Annotation,
+  type ChangeSpec,
   EditorSelection,
   EditorState,
   type Extension,
@@ -8,6 +9,7 @@ import {
   Transaction,
 } from '@codemirror/state';
 import { type Command, type EditorView, keymap } from '@codemirror/view';
+import { backspaceInCallout, calloutTextStart, deleteAboveCallout, enterInEmptyCallout, findCallouts, leaveCalloutTitle } from './callout';
 import { type RoleRange, roleRanges, sourceMode } from './livePreview';
 import { enterTableEnd, tableRanges } from './table';
 
@@ -113,7 +115,9 @@ const normalizeCursor = EditorState.transactionFilter.of((tr) => {
   const ranges = after.map((range, i) => {
     if (!range.empty) return range;
     const prev = before.length === after.length ? before[i]!.head : -1;
-    const pos = restingPosition(state, range.head, prev, pointer);
+    let pos = restingPosition(state, range.head, prev, pointer);
+    // Off a callout's marker line, which is drawn as its title.
+    pos = leaveCalloutTitle(state, pos, prev, pointer) ?? pos;
     if (pos === range.head) return range;
     changed = true;
     return EditorSelection.cursor(pos);
@@ -129,6 +133,13 @@ function singleCursor(state: EditorState): number | null {
 
 const moveRaw = (view: EditorView, pos: number) =>
   view.dispatch({ selection: { anchor: pos }, annotations: rawSelection.of(true) });
+
+/** Makes an edit a key press was turned into, with the cursor placed where it says; false when there is none. */
+function edit(view: EditorView, change: { changes: ChangeSpec[]; anchor: number } | null, userEvent: string): boolean {
+  if (!change) return false;
+  view.dispatch({ changes: change.changes, selection: { anchor: change.anchor }, annotations: rawSelection.of(true), scrollIntoView: true, userEvent });
+  return true;
+}
 
 /** Removes a formatted span whose only character is about to be deleted, marks included. */
 function deleteLastCharOfSpan(view: EditorView, edge: RoleRange | undefined, roles: RoleRange[]): boolean {
@@ -270,6 +281,7 @@ const backspace: Command = (view) => {
   const start = singleCursor(view.state);
   if (start === null) return false;
   if (backspaceUnderTable(view, start)) return true;
+  if (edit(view, backspaceInCallout(view.state, start), 'delete.backward')) return true;
   const roles = rolesOnLine(view.state, start);
   let pos = start;
   for (let r; (r = roles.find((r) => isInline(r) && r.to === pos && r.from < pos)); ) pos = r.from;
@@ -283,7 +295,7 @@ const backspace: Command = (view) => {
 const deleteForward: Command = (view) => {
   const start = singleCursor(view.state);
   if (start === null) return false;
-  if (deleteAboveTable(view, start)) return true;
+  if (deleteAboveTable(view, start) || deleteAboveCallout(view.state, start)) return true;
   const roles = rolesOnLine(view.state, start);
   let pos = start;
   for (let r; (r = roles.find((r) => isInline(r) && r.from === pos && r.to > pos)); ) pos = r.to;
@@ -323,16 +335,46 @@ const leaveEmptyBlock: Command = (view) => {
   return true;
 };
 
+/**
+ * Text typed or pasted on the edge of a callout's marker line, where a note that starts with one
+ * opens, goes to the start of the callout's text: in front of the marker it would break it.
+ */
+const typeOffCalloutTitle = EditorState.transactionFilter.of((tr) => {
+  if (!tr.docChanged || !(tr.isUserEvent('input.type') || tr.isUserEvent('input.paste'))) return tr;
+  const head = singleCursor(tr.startState);
+  if (head === null) return tr;
+  const callout = findCallouts(tr.startState).find((c) => head === c.title.from || head === c.title.to);
+  if (!callout) return tr;
+  const inserted: string[] = [];
+  let pure = true;
+  tr.changes.iterChanges((fromA, toA, _fromB, _toB, text) => {
+    if (fromA !== head || toA !== head) pure = false;
+    inserted.push(text.toString());
+  });
+  if (!pure) return tr;
+  const text = inserted.join('');
+  const at = calloutTextStart(tr.startState, callout);
+  return { changes: { from: at, insert: text }, selection: { anchor: at + text.length }, scrollIntoView: true, userEvent: tr.annotation(Transaction.userEvent) };
+});
+
 export const cursorBehavior: Extension = [
   normalizeCursor,
   keepSpansWhole,
+  typeOffCalloutTitle,
   // Highest: the Markdown keymap also binds Enter and Backspace at high precedence and would run first.
   Prec.highest(
     keymap.of([
       { key: 'Backspace', run: backspace },
       { key: 'Delete', run: deleteForward },
       { key: 'Space', run: leaveSpan },
-      { key: 'Enter', run: (view) => leaveEmptyBlock(view) || leaveSpan(view) },
+      {
+        key: 'Enter',
+        run: (view) => {
+          const start = singleCursor(view.state);
+          const empty = start === null ? null : enterInEmptyCallout(view.state, start);
+          return edit(view, empty, 'input') || leaveEmptyBlock(view) || leaveSpan(view);
+        },
+      },
     ]),
   ),
 ];

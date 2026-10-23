@@ -1227,17 +1227,34 @@ export function App() {
   // An image, file or recording in a note has its right-click menu drawn like the others; on a
   // phone, where holding it opens it, it says what it is and how large.
   useEffect(() => {
-    const icons = { open: 'open', reveal: 'folder', small: 'sizeSmall', medium: 'sizeMedium', full: 'sizeFull', delete: 'trash' } as const;
+    const icons = {
+      open: 'open',
+      reveal: 'folder',
+      small: 'sizeSmall',
+      medium: 'sizeMedium',
+      full: 'sizeFull',
+      delete: 'trash',
+      note: 'calloutNote',
+      tip: 'calloutTip',
+      important: 'calloutImportant',
+      warning: 'calloutWarning',
+      caution: 'calloutCaution',
+      removeCallout: 'callout',
+    } as const;
+    const calloutKinds: ReadonlySet<string> = new Set(['note', 'tip', 'important', 'warning', 'caution']);
     const kinds = { image: ['image', 'phone.image'], file: ['file', 'phone.file'], audio: ['audio', 'phone.recording'] } as const;
     session.showMenu = (at, actions, about) => {
-      // An image's sizes are a group of their own, the one it is drawn at ticked.
+      // An image's sizes are a group of their own, the one it is drawn at ticked; so is a callout's
+      // kind, each in its colour on a phone, and Remove callout under them.
       const items: MenuItem[] = actions.map((action) => ({
         label: action.label,
         run: action.run,
         icon: icons[action.kind],
         danger: action.kind === 'delete',
-        apart: action.kind === 'small',
+        apart: action.kind === 'small' || action.kind === 'removeCallout',
         checked: action.on,
+        className: calloutKinds.has(action.kind) ? `callout-kind callout-${action.kind}` : undefined,
+        mark: calloutKinds.has(action.kind),
       }));
       const head: MenuHead | undefined = about && {
         icon: kinds[about.kind][0],
@@ -1819,6 +1836,7 @@ export function App() {
         onStop={() => session.stopRecording()}
         onToTask={startToTask}
         onToCard={startToCard}
+        onCallout={(at) => session.calloutMenu(at)}
       />
     )}
     {showingEditor && !phone && (
@@ -1837,6 +1855,7 @@ export function App() {
         toTaskKeys={keys('T')}
         onImage={() => session.pickImage()}
         onFind={() => session.openFind()}
+        onCallout={(at) => session.calloutMenu(at)}
       />
     )}
     <div className="editor" ref={host} hidden={!showingEditor} />

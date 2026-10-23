@@ -270,6 +270,44 @@ const shapes = {
       <path d="M9.5 9.5L7 12l2.5 2.5M14.5 9.5L17 12l-2.5 2.5" />
     </>
   ),
+  /** A callout, and its five kinds: the same as the note draws on its title (the editor's CALLOUT_ICONS). */
+  callout: (
+    <>
+      <rect x="3.5" y="5" width="17" height="14" rx="2" />
+      <path d="M7.5 5v14" />
+      <path d="M11 10h6M11 14h4" />
+    </>
+  ),
+  calloutNote: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5.5M12 7.8v.2" />
+    </>
+  ),
+  calloutTip: (
+    <>
+      <path d="M9.5 18h5M10.5 21h3" />
+      <path d="M12 3.5a5.5 5.5 0 0 0-3.3 9.9c.6.5 1 1.2 1 2.1V16h4.6v-.5c0-.9.4-1.6 1-2.1A5.5 5.5 0 0 0 12 3.5z" />
+    </>
+  ),
+  calloutImportant: (
+    <>
+      <path d="M5.5 4h13A1.5 1.5 0 0 1 20 5.5v10a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V17A1.5 1.5 0 0 1 4 15.5v-10A1.5 1.5 0 0 1 5.5 4z" />
+      <path d="M12 7.5v4.5M12 14.3v.2" />
+    </>
+  ),
+  calloutWarning: (
+    <>
+      <path d="M10.3 4.3a2 2 0 0 1 3.4 0l7.3 12.7a2 2 0 0 1-1.7 3H4.7a2 2 0 0 1-1.7-3z" />
+      <path d="M12 9.5v4M12 16.6v.2" />
+    </>
+  ),
+  calloutCaution: (
+    <>
+      <path d="M8.3 3.5h7.4l4.8 4.8v7.4l-4.8 4.8H8.3l-4.8-4.8V8.3z" />
+      <path d="M12 8v4.5M12 15.6v.2" />
+    </>
+  ),
   /** Renaming. */
   pen: <path d="M5 19l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L9 17.5z M13.5 7l3 3" />,
   /** A note's history. */

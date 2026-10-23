@@ -39,7 +39,7 @@ function Recording({ since, onStop }: { since: number; onStop: () => void }) {
 }
 
 interface Button {
-  action: FormatAction | 'link' | 'toTask' | 'toCard' | 'image' | 'record';
+  action: FormatAction | 'link' | 'callout' | 'toTask' | 'toCard' | 'image' | 'record';
   /** An icon, or a face that reads the same in every language. */
   face: IconName | 'B' | 'I' | 'S' | '</>' | 'H1' | 'H2' | 'H3';
   /** What it says, for a screen reader and in words where there is no icon. */
@@ -51,7 +51,7 @@ interface Button {
 const FACES: ReadonlySet<string> = new Set(['B', 'I', 'S', '</>', 'H1', 'H2', 'H3']);
 
 /** The format bar of a phone, at the top of the note. */
-export function PhoneFormatBar({ format, recording, recordError, onFormat, onLink, onImage, onRecord, onStop, onToTask, onToCard }: {
+export function PhoneFormatBar({ format, recording, recordError, onFormat, onLink, onImage, onRecord, onStop, onToTask, onToCard, onCallout }: {
   format: FormatState | null;
   recording: { since: number } | null;
   recordError: string | null;
@@ -62,6 +62,8 @@ export function PhoneFormatBar({ format, recording, recordError, onFormat, onLin
   onStop: () => void;
   onToTask: () => void;
   onToCard: () => void;
+  /** Opens the callout's kinds in a sheet. */
+  onCallout: (at: { x: number; y: number }) => void;
 }) {
   const bar = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState({ left: false, right: false });
@@ -99,6 +101,7 @@ export function PhoneFormatBar({ format, recording, recordError, onFormat, onLin
       { action: 'outdent', face: 'outdent', label: t('format.outdent') },
       { action: 'indent', face: 'indent', label: t('format.indent') },
       { action: 'quote', face: 'quote', label: t('format.quote'), on: (f) => f.quote },
+      { action: 'callout', face: 'callout', label: t('format.callout'), on: (f) => !!f.callout },
       { action: 'codeBlock', face: 'codeBlock', label: t('format.codeBlock'), on: (f) => f.codeBlock },
     ],
     [
@@ -113,8 +116,12 @@ export function PhoneFormatBar({ format, recording, recordError, onFormat, onLin
       { action: 'toCard', face: 'board', label: t('format.toCard'), className: 'text' },
     ],
   ];
-  const run = (action: Button['action']) => {
+  const run = (action: Button['action'], button: HTMLElement) => {
     if (action === 'link') onLink();
+    else if (action === 'callout') {
+      const box = button.getBoundingClientRect();
+      onCallout({ x: box.left, y: box.bottom });
+    }
     else if (action === 'toTask') onToTask();
     else if (action === 'toCard') onToCard();
     else if (action === 'image') onImage();
@@ -147,7 +154,7 @@ export function PhoneFormatBar({ format, recording, recordError, onFormat, onLin
               title={button.label}
               disabled={!format}
               aria-pressed={button.on ? ((format && button.on(format)) ?? false) : undefined}
-              onClick={() => run(button.action)}
+              onClick={(event) => run(button.action, event.currentTarget)}
             >
               {button.className === 'text' ? button.label : FACES.has(button.face) ? button.face : <Icon name={button.face as IconName} />}
             </button>

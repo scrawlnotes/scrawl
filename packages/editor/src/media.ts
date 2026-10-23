@@ -1,6 +1,7 @@
 import { EditorSelection, type Transaction } from '@codemirror/state';
 import { EditorView, WidgetType } from '@codemirror/view';
 import { t } from '@scrawlnotes/i18n';
+import type { CalloutType } from './callout';
 
 /** How a note reaches the files attached to it. All of it is optional; without it the widgets only show. */
 export interface MediaOptions {
@@ -54,12 +55,12 @@ const HOLD_MS = 450;
 /** How far a finger moves before it is scrolling rather than holding. */
 const SLOP = 8;
 
-/** Something that can be done with an image, file or recording in a note. */
+/** Something that can be done with an image, file or recording in a note, or with a callout. */
 export interface ItemAction {
-  kind: 'open' | 'reveal' | ImageSizeKind | 'delete';
+  kind: 'open' | 'reveal' | ImageSizeKind | 'delete' | CalloutType | 'removeCallout';
   label: string;
   run: () => void;
-  /** The size an image is drawn at now. */
+  /** The size an image is drawn at now; a callout's kind now. */
   on?: boolean;
 }
 
@@ -202,7 +203,8 @@ function removeWidget(view: EditorView, dom: HTMLElement, length: number, focus:
   if (focus) view.focus();
 }
 
-const ACTION_ICONS: Record<ItemAction['kind'], string> = {
+// A callout's kinds are only in its menu, never in this bar.
+const ACTION_ICONS: Partial<Record<ItemAction['kind'], string>> = {
   open: '<path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
   reveal: '<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
   delete: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7"/><path d="M10.5 10.5v5.5M13.5 10.5v5.5"/>',

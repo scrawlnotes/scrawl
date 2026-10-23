@@ -21,7 +21,7 @@ interface Span {
 export function visibleText(state: EditorState, from: number, to: number, links = false): string {
   const replaced = new Set(['hide', 'image', 'attachment']);
   const items = previewItems(state, from, to)
-    .filter((item) => item.to > item.from && replaced.has(item.deco?.spec.kind))
+    .filter((item) => item.to > item.from && (replaced.has(item.deco?.spec.kind) || item.reads !== undefined))
     .sort((a, b) => a.from - b.from);
   let out = '';
   let pos = from;
@@ -30,7 +30,9 @@ export function visibleText(state: EditorState, from: number, to: number, links 
     const end = Math.min(item.to, to);
     if (end <= start) continue;
     out += state.sliceDoc(pos, start);
-    if (item.deco!.spec.kind === 'image') out += links ? readImageAlt(item.deco!.spec.alt as string).label : '';
+    // A callout's marker line reads as its title, the way it shows.
+    if (item.reads !== undefined) out += item.reads;
+    else if (item.deco!.spec.kind === 'image') out += links ? readImageAlt(item.deco!.spec.alt as string).label : '';
     // An attached file reads as its name, the way it shows.
     else if (item.deco!.spec.kind === 'attachment') out += item.deco!.spec.label as string;
     else if (links && item.role === 'close') {

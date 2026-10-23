@@ -1479,6 +1479,8 @@ export interface MenuItem {
   flag?: Priority;
   /** On a phone: a class for its row, as a priority's colour. */
   className?: string;
+  /** On a computer too: its icon before it, coloured by its `className`, as a callout's kind is. */
+  mark?: boolean;
   /** The one of a few that is set, as an image's size: a tick after it. */
   checked?: boolean;
   /**
@@ -1704,7 +1706,7 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
             <button
               type="button"
               role="menuitem"
-              className={item.flag ? `prio p${item.flag}` : undefined}
+              className={item.flag ? `prio p${item.flag}` : item.mark ? item.className : undefined}
               onMouseEnter={() => setSub(null)}
               onClick={() => {
                 onClose();
@@ -1712,6 +1714,7 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
               }}
             >
               {item.flag && <Icon name="flag" />}
+              {item.mark && item.icon && <Icon name={item.icon} />}
               {item.label}
               {item.flag && item.value && <span className="val">{item.value}</span>}
               {item.checked && <span className="val">✓</span>}

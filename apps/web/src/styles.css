@@ -21,6 +21,8 @@
   --sl-kind-review: var(--sl-accent);
   --sl-kind-done: #5cb87a;
   --sl-kind-dropped: #f0706a;
+  /* A callout of the Important kind. */
+  --sl-purple: #d08ae0;
   --sl-font-ui: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   --sl-font-mono: 'JetBrains Mono', Consolas, 'Courier New', monospace;
   --sl-font-editor: var(--sl-font-mono);
@@ -47,6 +49,7 @@
   --sl-kind-active: #2f6fc4;
   --sl-kind-done: #2e8a55;
   --sl-kind-dropped: #c9342c;
+  --sl-purple: #8a3fb0;
 }
 
 html,
@@ -1018,6 +1021,20 @@ input:focus {
 .menu button.prio.p1 .icon { color: var(--sl-p1); }
 .menu button.prio.p2 .icon { color: var(--sl-p2); }
 .menu button.prio.p3 .icon { color: var(--sl-p3); }
+
+/* A callout's kind in its menu, on a computer and in a phone's sheet: its icon in its colour, as
+   the note draws its title. */
+.menu button.callout-kind .icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.callout-kind.callout-note .icon { color: var(--sl-kind-active); }
+.callout-kind.callout-tip .icon { color: var(--sl-kind-done); }
+.callout-kind.callout-important .icon { color: var(--sl-purple); }
+.callout-kind.callout-warning .icon { color: var(--sl-p2); }
+.callout-kind.callout-caution .icon { color: var(--sl-kind-dropped); }
 
 .menu button .val {
   margin-left: auto;

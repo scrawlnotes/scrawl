@@ -1,6 +1,6 @@
 # Notta callout (taslak)
 
-Durum: 20 Ekim 2026'da Alexandrie karşılaştırmasından çıktı; taslak ilk başta Mermaid diyagramlarını da kapsıyordu. 23 Ekim'de kullanıcı diyagramı taslaktan çıkardı; yalnız callout kaldı. Onaylanmadı, kod yazılmadı, PLAN'a işlenmedi. Karar bekleyenler 9. bölümde.
+Durum: 20 Ekim 2026'da Alexandrie karşılaştırmasından çıktı; taslak ilk başta Mermaid diyagramlarını da kapsıyordu. 23 Ekim'de kullanıcı diyagramı taslaktan çıkardı; yalnız callout kaldı. Aynı gün 9. bölümdeki iki karar verildi. Kod yazılmadı, PLAN'a işlenmedi.
 
 ## 1. Neden
 
@@ -80,7 +80,18 @@ Tek dilimdir.
 - 4.8: rehberde callout biçimi.
 - 4.9: telefon format bar'ına Callout simgesi.
 
-## 9. Karar bekleyenler
+## 9. Kararlar (23 Ekim)
 
-1. **Ekrandaki ad:** Callout. GitHub "alert", Obsidian "callout" diyor; notta bir kutu için Callout daha anlaşılır.
+1. **Ekrandaki ad:** Callout.
 2. **Türler:** yalnız GitHub'ın beşi çizilir; Obsidian'ın diğer türleri (`[!info]`, `[!danger]`…) ve başlıklı callout alıntı kalır. Böylece dosya GitHub'da da aynı görünür.
+
+## 10. Yazarken çıkanlar (23 Ekim)
+
+- **Backspace, metnin başında:** callout'u kaldırır, metin kalır (kelime işlemcide kutunun kalkması gibi). Yoksa metin işaret satırına yapışır ve callout dağılırdı. İçi boş callout Backspace'te de, Enter'da da bütünüyle gider, yerinde boş bir satır kalır.
+- **Delete, callout'un üstündeki satırın sonunda:** bir şey yapmaz; işaret satırı yukarı çekilmez (tablodaki gibi).
+- **Başlığın kenarı:** callout'la başlayan bir not açılınca imleç işaret satırının başında durur. Orada imleç çizilmez; yazılan ya da yapıştırılan şey callout'un metninin başına gider.
+- **Yalnız işaret satırı:** içinde başka satır olmayan alıntı callout değildir; GitHub'daki gibi en az bir satırı olmalı.
+- **Important'ın rengi:** temalarda mor yoktu, anahtar kelime rengi de her temada mor değil (Paper'da kırmızı, Sand'de yeşil). Temalara `purple` eklendi, her biri kendi kaynağından: Scrawl, Harbor ve Clay'in anahtar kelime moru, Paper'da GitHub'ın Important rengi, Sand'de Solarized'ın violet'i, Pastel'de Catppuccin'in mauve'u, Midnight'ta Tokyo Night'ın moru, Frost'ta Nord'un aurora moru. Diğer dört tür var olan renkleri kullanır: Note sütunların active mavisi, Tip done yeşili, Warning p2 turuncusu, Caution dropped kırmızısı.
+- **Menüler:** biçim çubuğunun Callout'u da başlık da uygulamanın sağ tık menüsünü açar; telefonda bu bir sheet'tir. Türler kendi renkli simgeleriyle bilgisayarda da görünür.
+- **Düz metin olarak:** kopyalanan ve sayılan metinde işaret satırı türün adı olarak okunur ("Warning"), ekrandaki gibi.
+- **Kart açıklaması, yorum ve kayıt gövdesi:** callout orada da çizilir ve başlığı menüsünü açar; biçim çubukları olmadığı için orada `/` menüsünden eklenir.

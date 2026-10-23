@@ -1,6 +1,6 @@
 import type { FormatState } from '@scrawlnotes/editor';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
+import { Fragment, type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import { OptionList } from './choices';
 import { choiceHint, type LinkChoice, matchChoices } from './linkChoices';
 import type { FormatAction } from './session';
@@ -30,6 +30,8 @@ interface Props {
   onImage: () => void;
   /** Find and replace in the note. */
   onFind: () => void;
+  /** Opens the callout's kinds under the Callout button, at `at`. */
+  onCallout: (at: { x: number; y: number }) => void;
 }
 
 const clock = (ms: number) => {
@@ -102,7 +104,7 @@ const keepEditorFocus = (event: MouseEvent) => {
 };
 
 /** The formatting controls: a fixed row above the editor that acts on the selection or the word at the cursor. */
-export function FormatBar({ format, onFormat, onLink, linkChoices, linkHref, recording, recordError, onRecord, onStop, onToTask, onToCard, toTaskKeys, onImage, onFind }: Props) {
+export function FormatBar({ format, onFormat, onLink, linkChoices, linkHref, recording, recordError, onRecord, onStop, onToTask, onToCard, toTaskKeys, onImage, onFind, onCallout }: Props) {
   const [linking, setLinking] = useState(false);
   // Whether the bar goes on past the right edge of a narrow window.
   const bar = useRef<HTMLDivElement>(null);
@@ -233,17 +235,34 @@ export function FormatBar({ format, onFormat, onLink, linkChoices, linkHref, rec
             </button>
           )}
           {items.map((item) => (
-            <button
-              key={item.action}
-              type="button"
-              className={item.className}
-              title={t(item.title)}
-              disabled={!format}
-              aria-pressed={(format && item.active?.(format)) ?? false}
-              onClick={() => onFormat(item.action)}
-            >
-              {MARKS.has(item.label) ? item.label : t(item.label as MessageKey)}
-            </button>
+            <Fragment key={item.action}>
+              <button
+                type="button"
+                className={item.className}
+                title={t(item.title)}
+                disabled={!format}
+                aria-pressed={(format && item.active?.(format)) ?? false}
+                onClick={() => onFormat(item.action)}
+              >
+                {MARKS.has(item.label) ? item.label : t(item.label as MessageKey)}
+              </button>
+              {/* Beside Quote: its kinds open in a menu under it. */}
+              {item.action === 'quote' && (
+                <button
+                  type="button"
+                  title={t('format.calloutTitle')}
+                  disabled={!format}
+                  aria-haspopup="menu"
+                  aria-pressed={!!format?.callout}
+                  onClick={(event) => {
+                    const box = event.currentTarget.getBoundingClientRect();
+                    onCallout({ x: box.left, y: box.bottom + 4 });
+                  }}
+                >
+                  {t('format.callout')}
+                </button>
+              )}
+            </Fragment>
           ))}
           {i === 0 && (
             <button type="button" title={t('format.link')} disabled={!format} aria-pressed={!!format?.link} onClick={startLink}>

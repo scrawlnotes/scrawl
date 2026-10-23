@@ -1,5 +1,8 @@
+import { t } from '@scrawlnotes/i18n';
 import { Marked, type Token, type Tokens } from 'marked';
+import { CALLOUT_TYPES, calloutSvg, type CalloutType } from './callout';
 import { readImageAlt } from './imageWidth';
+import { type CalloutToken, markCallouts } from './render';
 
 // A note going out as a file, after the Export views of design/mockups.html (PLAN 4.7): as one
 // HTML file with its images and recordings in it, or as the content of a PDF. Both read the note
@@ -49,6 +52,9 @@ export function titled(markdown: string, name: string): string {
   return `# ${name}\n\n${markdown}`;
 }
 
+/** A callout's colour on a white page: GitHub's, as its alerts have them. */
+const CALLOUT_COLOURS: Record<CalloutType, string> = { note: '#0969da', tip: '#1a7f37', important: '#8250df', warning: '#9a6700', caution: '#d1242f' };
+
 const STYLE = `
 body { margin: 0; background: #fff; color: #1d2026; font: 16px/1.6 "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, sans-serif; }
 main { max-width: 720px; margin: 0 auto; padding: 48px 24px 64px; }
@@ -72,6 +78,11 @@ th { background: #f3f4f6; }
 hr { margin: 22px 0; border: 0; border-top: 1px solid #d9dce3; }
 .file { display: inline-flex; gap: 8px; padding: 2px 10px; border: 1px solid #d9dce3; border-radius: 5px; color: #4b505a; font-size: 14px; }
 .file small { color: #8a8f99; font-size: 14px; }
+.callout { margin: 0 0 14px; padding: 8px 14px 1px; border-left: 3px solid; }
+.callout-title { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-weight: 600; }
+.callout-title svg { width: 16px; height: 16px; flex: none; }
+.callout > :last-child { margin-bottom: 7px; }
+${CALLOUT_TYPES.map((type) => `.callout-${type} { border-color: ${CALLOUT_COLOURS[type]}; background: ${CALLOUT_COLOURS[type]}12; }\n.callout-${type} .callout-title { color: ${CALLOUT_COLOURS[type]}; }`).join('\n')}
 `;
 
 const fileChip = (file: OutFile) => `<span class="file">${escapeHtml(file.title)}<small>${escapeHtml(file.size)}</small></span>`;
@@ -93,6 +104,13 @@ export function exportHtml(markdown: string, name: string, files: OutFiles): str
         if (file.kind === 'audio' && file.data) return `<audio controls src="${file.data}"></audio>`;
         return fileChip(file);
       },
+      // A callout is a box of its kind's colour with its icon and name over what is in it.
+      blockquote(token) {
+        const callout = (token as CalloutToken).callout;
+        if (!callout) return false;
+        const title = `<p class="callout-title">${calloutSvg(callout.type)}${escapeHtml(t(`callout.${callout.type}`))}</p>`;
+        return `<div class="callout callout-${callout.type}">${title}\n${this.parser.parse(callout.tokens)}</div>\n`;
+      },
       link(token) {
         const file = fileAt(files, token.href);
         if (!file) return false;
@@ -102,7 +120,7 @@ export function exportHtml(markdown: string, name: string, files: OutFiles): str
       },
     },
   });
-  const body = out.parse(titled(markdown, name), { async: false });
+  const body = out.parser(markCallouts(out.lexer(titled(markdown, name)), out.defaults));
   return `<!doctype html>\n<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(name)}</title><style>${STYLE}</style></head>\n<body><main>\n${body}</main></body></html>\n`;
 }
 
@@ -185,12 +203,18 @@ function imageSize(file: OutFile, shown: number | null = null): PdfNode {
   return { width: Math.round(width * scale * 100) / 100 };
 }
 const SIZES = [0, 20, 16, 13.5, 12, 11.5, 11];
+
+/** A colour faded towards white, as a callout's background on a page. */
+function tint(hex: string, strength = 0.07): string {
+  const channel = (at: number) => Math.round(255 - (255 - parseInt(hex.slice(at, at + 2), 16)) * strength);
+  return `#${[1, 3, 5].map((at) => channel(at).toString(16).padStart(2, '0')).join('')}`;
+}
 const GREY = '#8a8f99';
 
 /** The note's content in a PDF: headings, paragraphs, lists with their boxes, quotes, code, tables, images. */
 export function pdfContent(markdown: string, name: string, files: OutFiles, fonts: PdfFonts): PdfNode[] {
   const lexer = new Marked({ gfm: true, breaks: true });
-  const tokens = lexer.lexer(titled(markdown, name));
+  const tokens = markCallouts(lexer.lexer(titled(markdown, name)), lexer.defaults);
 
   const text = (value: string, look: Look): PdfNode[] =>
     fontRuns(value, look.mono ? fonts.mono : fonts.sans).map((run) => ({
@@ -315,7 +339,19 @@ export function pdfContent(markdown: string, name: string, files: OutFiles, font
           ];
         }
         case 'blockquote': {
-          const each = token as Tokens.Blockquote;
+          const each = token as CalloutToken;
+          if (each.callout) {
+            // A box of its kind's colour, its name over what is in it, as the HTML has it.
+            const colour = CALLOUT_COLOURS[each.callout.type];
+            const heading = { text: text(t(`callout.${each.callout.type}`), { ...look, bold: true, color: colour }), margin: [0, 0, 0, 3] };
+            return [
+              {
+                table: { widths: ['*'], body: [[{ stack: [heading, ...blocks(each.callout.tokens, look)], fillColor: tint(colour) }]] },
+                layout: { hLineWidth: () => 0, vLineWidth: (i: number) => (i === 0 ? 2.5 : 0), vLineColor: () => colour, paddingLeft: () => 11, paddingRight: () => 9, paddingTop: () => 6, paddingBottom: () => 0 },
+                margin: [0, 0, 0, 9],
+              },
+            ];
+          }
           return [
             {
               table: { widths: ['*'], body: [[{ stack: blocks(each.tokens, { ...look, color: '#4b505a' }) }]] },

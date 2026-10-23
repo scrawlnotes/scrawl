@@ -13,6 +13,7 @@ import {
 import type { KeyBinding } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 import { t } from '@scrawlnotes/i18n';
+import { calloutAt, type CalloutType } from './callout';
 import { attachmentOf } from './media';
 
 interface Span {
@@ -540,10 +541,13 @@ export interface FormatState {
   list: boolean;
   ordered: boolean;
   quote: boolean;
+  /** The kind of the callout the cursor is in. */
+  callout: CalloutType | null;
   codeBlock: boolean;
 }
 
 export function formatState(state: EditorState): FormatState {
+  const callout = calloutAt(state, state.selection.main.head);
   return {
     bold: isMarkActive(state, '**'),
     italic: isMarkActive(state, '*'),
@@ -553,7 +557,9 @@ export function formatState(state: EditorState): FormatState {
     heading: headingLevel(state),
     list: hasLinePrefix(state, 'list'),
     ordered: ORDERED_ITEM.test(state.doc.lineAt(state.selection.main.head).text),
-    quote: hasLinePrefix(state, 'quote'),
+    // A callout is a quote too, but it shows as a callout, not as a quote.
+    quote: !callout && hasLinePrefix(state, 'quote'),
+    callout: callout?.type ?? null,
     codeBlock: enclosing(state, state.selection.main, 'FencedCode') !== null,
   };
 }

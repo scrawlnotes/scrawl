@@ -156,9 +156,12 @@ import {
   relinkBoardNote,
   relinkNote,
   loadWorkspace,
+  isUnder,
+  moveFolder,
   moveHistory,
   moveItem,
   copyToSpace,
+  renameFolder,
   type NewTask,
   parseBoard,
   parseList,
@@ -248,6 +251,7 @@ import {
   addCursorBelow,
   addTable,
   attachmentsIn,
+  calloutActions,
   closeSearchPanel,
   type Copy,
   copyFollows,
@@ -731,8 +735,12 @@ export class Session {
   ruled: ((event: RuleEvent) => void) | null = null;
   /** A link tapped in a note on a touch screen; the interface sets it, to show what can be done with it. */
   linkTap: ((link: LinkTap) => void) | null = null;
-  /** Something made or moved into `folder`, by its path or a filter's tab; the interface sets it, to open the folder to it. */
-  placed: ((folder: string, item: string) => void) | null = null;
+  /**
+   * Something made or moved into `folder`, by its path or a filter's tab; the interface sets it, to
+   * open the folder to it. A folder moved or renamed comes with where it was, `from`, so that what
+   * was open in it stays open where it is now.
+   */
+  placed: ((folder: string, item: string, from?: string) => void) | null = null;
   /**
    * A phone: a tap on an image opens it, holding one opens its menu, and a tap on a link asks what
    * to do with it; none of them brings up the keyboard.
@@ -4216,36 +4224,56 @@ export class Session {
   }
 
   /**
-   * Moves a note, a task list, a board, a keys file or a collection into `folder`: of its own
-   * space, or of another one, which is a copy there and the original in its own trash.
+   * Moves a note, a task list, a board, a keys file, a collection or a folder with everything in
+   * it into `folder`: of its own space, or of another one, which is a copy there and the original
+   * in its own trash. A folder does not go into itself or a folder inside it.
    */
   async move(path: string, folder: string) {
     if (dirname(path) === folder) return;
     const source = this.at(path);
     const into = this.at(folder);
+    const isFolder = this.isFolder(path);
+    if (isFolder && isUnder(folder, path)) throw new Error(t('error.folderInItself'));
     let moved: string | undefined;
     if (source.space !== into.space) moved = await this.moveAcross(path, folder);
-    else if (path in this.snapshot.collections) moved = await this.moveCollection(path, folder);
+    else if (isFolder) {
+      await this.settle();
+      moved = inSpace(source.space, await moveFolder(source.fs, source.local, into.local));
+      if (moved !== path) await this.refolder(path, moved);
+    } else if (path in this.snapshot.collections) moved = await this.moveCollection(path, folder);
     else {
       await this.settle();
       moved = inSpace(source.space, await moveItem(source.fs, source.local, into.local));
       await this.repath(path, moved);
     }
-    if (moved) this.placed?.(folder, moved);
+    if (moved) this.placed?.(folder, moved, isFolder ? path : undefined);
+  }
+
+  /** The node of a space's tree at `path`, from the tree as it was last read. */
+  private nodeAt(path: string): TreeNode | null {
+    const space = spaceOf(path);
+    return findNode(space ? (this.snapshot.spaces.find((each) => each.id === space)?.tree ?? []) : this.snapshot.tree, path);
+  }
+
+  /** Whether `path` is a folder of a space: not a collection, which is a folder on disk too. */
+  isFolder(path: string): boolean {
+    return this.nodeAt(path)?.kind === 'folder';
   }
 
   /**
-   * Moves a note, a task list, a board, a keys file or a collection to another space: it is
-   * copied there with the files it links to, and goes to the trash of its own space, where it can
-   * be restored. What it said about items of its old space is left out there; what in its old
-   * space linked to it links to it in the trash, as to anything deleted. Its tab stays where it
-   * is, showing it in its new place. Returns its path there.
+   * Moves a note, a task list, a board, a keys file, a collection or a folder to another space:
+   * it is copied there with the files it links to, and goes to the trash of its own space, where
+   * it can be restored. What it said about items of its old space is left out there, but for what
+   * goes along with it in a folder; what in its old space linked to it links to it in the trash,
+   * as to anything deleted. Its tabs stay where they are, showing what they showed in its new
+   * place. Returns its path there.
    */
   private async moveAcross(path: string, folder: string): Promise<string> {
     await this.settle();
     const source = this.at(path);
     const into = this.at(folder);
-    const collection = path in this.snapshot.collections;
+    // A collection and a folder go to the trash whole, with what is in them.
+    const whole = path in this.snapshot.collections || this.isFolder(path);
     let local: string;
     try {
       local = await copyToSpace(source.fs, source.local, into.fs, into.local);
@@ -4256,22 +4284,121 @@ export class Session {
       local = await copyToSpace(source.fs, source.local, into.fs, into.local);
     }
     const copied = inSpace(into.space, local);
-    // In its new space it was made when it was made in its old one.
-    const made = this.snapshot.created[path.toLowerCase()];
-    await this.madeNow([copied], made === undefined ? new Date() : new Date(made));
-    if (collection) await trashFolder(source.fs, source.local);
+    await this.carryMadeAcross(path, copied);
+    if (whole) await trashFolder(source.fs, source.local);
     else await trashItem(source.fs, source.local);
-    const [from, to] = collection ? [collectionTab(path), collectionTab(copied)] : [tabOf(path), tabOf(copied)];
-    this.states.delete(path);
-    this.disk.delete(path);
-    this.moveLook(path, copied);
-    this.moveRecent(from, to);
-    const { tabs, active } = this.snapshot;
-    this.set({ tabs: tabs.map((tab) => (tab === from ? to : tab)), ...(active === from && { active: null }) });
+    const shown = this.followMove(path, copied, true);
     await this.refreshTree();
-    if (active === from) await this.open(to);
+    if (shown) await this.open(shown);
     this.saveWorkspace();
     return copied;
+  }
+
+  /** In its new space, what moved there was made when it was made in its old one, and so was everything in it. */
+  private async carryMadeAcross(from: string, to: string) {
+    const [old, now] = [from.toLowerCase(), to.toLowerCase()];
+    const times: Record<string, number> = { [now]: Date.now() };
+    for (const [path, time] of Object.entries(this.snapshot.created)) if (isUnder(path, old)) times[now + path.slice(old.length)] = time;
+    const { fs } = this.at(to);
+    await markCreated(fs, this.deviceId, Object.fromEntries(Object.entries(times).map(([path, time]) => [localPath(path), time]))).catch(() => undefined);
+    this.set({ created: { ...times, ...this.snapshot.created } });
+  }
+
+  /**
+   * What was at `from`, and everything under it when it is a folder, is at `to` now: its tabs
+   * follow, and its place in Recent, how each thing is looked at, and the filters that look in a
+   * folder that moved. In its own space what is being edited goes along. To another space it is
+   * read again there; the tab on screen, when it moved, is left for the caller to open again, and
+   * is returned.
+   */
+  private followMove(from: string, to: string, across: boolean): string | null {
+    const moved = (path: string) => (isUnder(path, from) ? to + path.slice(from.length) : null);
+    const movedTab = (tab: string): string | null => {
+      const dir = collectionPathOf(tab);
+      const path = dir ?? pathOf(tab);
+      const now = path === null ? null : moved(path);
+      return now === null ? null : dir === null ? tabOf(now) : collectionTab(now);
+    };
+    const rekey = <T>(kept: Map<string, T>) => {
+      for (const [path, value] of [...kept]) {
+        const now = moved(path);
+        if (now === null) continue;
+        kept.delete(path);
+        if (!across) kept.set(now, value);
+      }
+    };
+    rekey(this.states);
+    rekey(this.disk);
+    rekey(this.records);
+    for (const path of [...this.versionedAt.keys()]) if (moved(path) !== null) this.versionedAt.delete(path);
+    for (const seen of this.snapshot.recent) {
+      const now = movedTab(seen.id);
+      if (now !== null) this.moveRecent(seen.id, now);
+    }
+    const looks = <T>(by: Record<string, T>) => Object.fromEntries(Object.entries(by).map(([key, look]) => [moved(key) ?? key, look]));
+    const { boardLooks, keysLooks, collectionLooks, folderLooks, tabs, active, filters } = this.snapshot;
+    const shown = active === null ? null : movedTab(active);
+    this.set({
+      boardLooks: looks(boardLooks),
+      keysLooks: looks(keysLooks),
+      collectionLooks: looks(collectionLooks),
+      folderLooks: looks(folderLooks),
+      tabs: tabs.map((tab) => movedTab(tab) ?? tab),
+      ...(shown !== null && { active: across ? null : shown }),
+    });
+    // A filter looks where the folder is now; one that sits in it in the sidebar sits there, in the personal space.
+    const refiled = filters.map((filter) => {
+      const folders = filter.folders.map((each) => moved(each) ?? each);
+      const folder = !across && filter.folder !== undefined ? moved(filter.folder) : null;
+      return folder !== null || folders.some((each, i) => each !== filter.folders[i]) ? { ...filter, folders, ...(folder !== null && { folder }) } : filter;
+    });
+    if (refiled.some((filter, i) => filter !== filters[i])) this.writeFilters(refiled);
+    return across ? shown : null;
+  }
+
+  /**
+   * A folder went from `from` to `to` in its space, moved or renamed, with everything in it: its
+   * things follow as one thing moved does. Their tabs, what is being edited, Recent and how each
+   * is looked at go along, and so do the history of its notes and when its things were made; what
+   * points at what is in it, from tasks, cards, collections and notes, points at it there.
+   */
+  private async refolder(from: string, to: string) {
+    // What is in it, as the tree had it before.
+    const inside: TreeNode[] = [];
+    const visit = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        inside.push(node);
+        visit(node.children ?? []);
+      }
+    };
+    visit(this.nodeAt(from)?.children ?? []);
+    await this.carryMade(from, to);
+    await this.moveHistory(from, to);
+    this.followMove(from, to, false);
+    // Read again where it is now, so that what points at what is in it is changed there.
+    await this.refreshTree();
+    const { fs } = this.at(to);
+    const lists = Object.keys(this.snapshot.tasks);
+    const boards = Object.keys(this.snapshot.boards);
+    for (const node of inside) {
+      const [was, now] = [node.path, to + node.path.slice(from.length)];
+      if (node.kind === 'note') {
+        for (const list of lists) this.changeList(list, (current) => relinkNote(current, was, now));
+        for (const board of boards) this.changeBoard(board, (current) => relinkBoardNote(current, was, now));
+      } else if (node.kind === 'board') {
+        for (const list of lists) this.changeList(list, (current) => relinkBoard(current, was, now));
+        await this.retargetSchemas(was, now);
+      } else if (node.kind === 'collection') {
+        await this.retargetSchemas(was, now);
+        for (const board of boards) this.changeBoard(board, (current) => retargetBoardLinks(current, was, now));
+        for (const list of lists) this.changeList(list, (current) => relinkTaskRecords(current, was, now));
+      }
+      // What was deleted from a list or a board goes back to it where it is now.
+      if (node.kind === 'tasks' || node.kind === 'board') await relinkTrash(fs, localPath(was), localPath(now)).catch(() => undefined);
+    }
+    await this.relinkNotes(from, to);
+    await this.refreshTree();
+    this.saveWorkspace();
   }
 
   /** Moves a note, a task list or a board into a folder that is created for it, at the top of its space. Returns a message when the name cannot be used. */
@@ -4287,15 +4414,16 @@ export class Session {
     }
   }
 
-  /** Gives a note, a task list, a board, a keys file or a collection a name. Returns a message when the name cannot be used. */
+  /** Gives a note, a task list, a board, a keys file, a collection or a folder a name. Returns a message when the name cannot be used. */
   async rename(path: string, name: string): Promise<string | null> {
     const done = await this.renamed(path, name);
     return 'error' in done ? done.error : null;
   }
 
-  /** Gives an item a name; returns where it is after, or why the name cannot be used. */
+  /** Gives an item or a folder a name; returns where it is after, or why the name cannot be used. */
   async renamed(path: string, name: string): Promise<{ path: string } | { error: string }> {
     if (path in this.snapshot.collections) return this.renamedCollection(path, name);
+    if (this.isFolder(path)) return this.renamedFolder(path, name);
     await this.settle();
     try {
       const { fs, space, local } = this.at(path);
@@ -4304,6 +4432,22 @@ export class Session {
       return { path: target };
     } catch (error) {
       return { error: error instanceof Error ? error.message : t('error.rename') };
+    }
+  }
+
+  /** Renames a folder where it is, what is in it following; returns where it is after, or why the name cannot be used. */
+  private async renamedFolder(path: string, name: string): Promise<{ path: string } | { error: string }> {
+    await this.settle();
+    try {
+      const { fs, space, local } = this.at(path);
+      const target = inSpace(space, await renameFolder(fs, local, name));
+      if (target !== path) {
+        await this.refolder(path, target);
+        this.placed?.(dirname(target), target, path);
+      }
+      return { path: target };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : t('error.folderName') };
     }
   }
 
@@ -4324,6 +4468,13 @@ export class Session {
     if (!view || !this.snapshot.format) return;
     formatCommands[action](view);
     view.focus();
+  }
+
+  /** The format bar's Callout: the five kinds, and Remove callout in one, in the menu a callout's title opens. */
+  calloutMenu(at: { x: number; y: number }) {
+    const view = this.editor?.view;
+    if (!view || !this.snapshot.format) return;
+    this.showMenu?.(at, calloutActions(view, undefined, !this.touch || view.hasFocus));
   }
 
   /** Links what is selected, or changes or takes away the link at the cursor; with nothing selected, `text` is put as the link's text. On a phone the keyboard stays as it was. */
