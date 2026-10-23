@@ -3076,6 +3076,77 @@ p { margin: 0; max-width: 68ch; }
 .lb-mpal span.on { box-shadow: 0 0 0 3px var(--m-bg), 0 0 0 5px var(--lc); }
 .lb-mname { padding: 0 14px; min-height: 48px; display: flex; align-items: center; font-size: 16px; }
 .lb-mdel { display: flex; align-items: center; justify-content: center; min-height: 48px; color: #f0706a; font-size: 16px; }
+
+/* filtering in place, Filters & Labels and Favorites (Oct 23, a draft; design/filters.md) */
+.fxm .th .srch ~ .fbtn, .fxm .th .srch ~ .ghost, .fxm .th .srch ~ .add { margin-left: 0; }
+.fxm .th .fbtn { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-dim); font-size: 12px; white-space: nowrap; }
+.mock.fxm .th .fbtn svg { width: 12px; height: 12px; }
+.fxm .th .fbtn.on { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); color: var(--m-accent); }
+.fxm .th .fbtn.down { background: var(--m-sel); }
+.fxm .th b .fx-ldot { display: inline-block; width: 10px; height: 10px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--lc); }
+.fx-bar { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 26px 10px; }
+.fx-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 3px 0 10px; border-radius: 12px; background: color-mix(in srgb, var(--m-accent) 13%, transparent); color: var(--m-dim); font-size: 12px; white-space: nowrap; }
+.fx-chip b { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: var(--m-fg); }
+.fx-chip b i { width: 7px; height: 7px; border-radius: 50%; background: var(--lc); }
+.fx-chip .x { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: var(--m-faint); font-size: 14px; line-height: 1; }
+.fx-chip.open { box-shadow: inset 0 0 0 1px var(--m-accent); }
+.fx-add, .fx-clear { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 6px; color: var(--m-faint); font-size: 12px; }
+.mock .fx-add svg { width: 11px; height: 11px; }
+.fx-add.down { background: var(--m-sel); color: var(--m-fg); }
+.fx-end { display: inline-flex; gap: 6px; margin-left: auto; }
+.fx-pop { position: absolute; z-index: 6; width: 224px; padding: 4px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .4); font-size: 12.5px; text-align: left; }
+.fx-pop .r { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 0 8px; border-radius: 5px; color: var(--m-fg); }
+.fx-pop .r.hot { background: var(--m-sel); }
+.mock .fx-pop .r svg { flex: none; width: 13px; height: 13px; color: var(--m-dim); }
+.fx-pop .r small { margin-left: auto; color: var(--m-faint); font-size: 11.5px; }
+.fx-pop .r i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--lc, var(--m-faint)); }
+.fx-pop .r .tk { margin-left: auto; color: var(--m-accent); font-size: 12px; }
+.fx-pop .hd { display: flex; align-items: center; gap: 6px; padding: 5px 8px 6px; color: var(--m-fg); font-size: 12px; font-weight: 600; }
+.mock .fx-pop .hd svg { width: 12px; height: 12px; color: var(--m-faint); }
+.fx-pop .q { display: flex; align-items: center; margin-bottom: 4px; padding: 5px 8px 7px; border-bottom: 1px solid var(--m-line); color: var(--m-faint); }
+.fx-pop .sep { height: 1px; margin: 4px 2px; background: var(--m-line); }
+.fx-pop .cap { padding: 5px 8px 3px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.fx-pop .cond { display: flex; gap: 6px; padding: 2px 6px 6px; }
+.fx-pop .cond .in { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); white-space: nowrap; }
+.fx-pop .cond .in.num { width: 44px; border-color: var(--m-accent); }
+.fx-pop .cond .dd { color: var(--m-faint); font-size: 10px; }
+.fx-pop .note { padding: 2px 8px 6px; color: var(--m-faint); font-size: 11.5px; }
+.fx-key { margin-right: 7px; color: var(--m-faint); font: 11px var(--m-mono); }
+.it .fx-dot { flex: none; width: 8px; height: 8px; margin: 0 4px; border-radius: 50%; background: var(--lc); }
+.bv > .fx-bar { padding-right: 16px; padding-left: 16px; }
+.fx-mgap { height: 18px; }
+.it .fx-sp { color: var(--m-faint); font-style: normal; }
+.fx-gap { height: 10px; }
+.fx-fl { flex: 1; min-height: 0; overflow: hidden; padding: 0 26px 16px; }
+.fx-fl .gh { display: flex; align-items: center; gap: 8px; padding: 16px 4px 6px; border-bottom: 1px solid var(--m-line); color: var(--m-fg); font-size: 13px; font-weight: 600; }
+.fx-fl .gh .chev { width: 10px; color: var(--m-faint); font-size: 10px; }
+.fx-fl .gh small { color: var(--m-faint); font-size: 12px; font-weight: 400; }
+.fx-fl .gh .act { margin-left: auto; color: var(--m-faint); font-size: 12px; font-weight: 400; }
+.fx-fl .gh .act.plus { font-size: 17px; line-height: 1; }
+.fx-li { position: relative; display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 4px 0 22px; border-bottom: 1px solid var(--m-line); font-size: 13px; }
+.mock .fx-li > svg { flex: none; width: 14px; height: 14px; color: var(--m-dim); }
+.fx-li > i { flex: none; width: 9px; height: 9px; margin: 0 2.5px; border-radius: 50%; background: var(--lc); }
+.fx-li small { margin-left: auto; color: var(--m-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.fx-li .star, .fx-li .more { display: grid; place-items: center; width: 24px; height: 22px; border-radius: 4px; color: var(--m-faint); letter-spacing: 1px; }
+.fx-li .star.on { color: #e0b040; }
+.mock .fx-li .star svg { width: 14px; height: 14px; }
+.fx-li.hover { margin: 0 -4px; padding: 0 8px 0 26px; border-radius: 5px; background: var(--m-side); }
+.fx-li.hover .star { color: var(--m-fg); }
+.fx-li .cmenu { top: 32px; right: 4px; }
+.fx-check { display: flex; align-items: center; gap: 8px; margin: 12px 2px 2px; color: var(--m-fg); font-size: 13px; }
+.fx-check .box { display: grid; place-items: center; width: 15px; height: 15px; border: 1px solid var(--m-accent); border-radius: 4px; background: var(--m-accent); color: var(--m-on-accent); font-size: 10px; }
+.fx-mchips { display: flex; flex: none; gap: 8px; padding: 2px 16px 10px; overflow: hidden; }
+.fx-mchips .c { display: inline-flex; flex: none; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 12px; border-radius: 16px; background: color-mix(in srgb, var(--m-accent) 15%, transparent); color: var(--m-dim); font-size: 14px; white-space: nowrap; }
+.fx-mchips .c b { font-weight: 500; color: var(--m-fg); }
+.fx-mchips .c .x { display: grid; place-items: center; width: 22px; height: 22px; color: var(--m-faint); font-size: 17px; }
+.fx-mchips .clr { display: inline-flex; flex: none; align-items: center; padding: 0 6px; color: var(--m-accent); font-size: 14px; }
+.mb-nav .ib.fx-on { position: relative; }
+.mb-nav .ib.fx-on::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: color-mix(in srgb, var(--m-accent) 20%, transparent); }
+.fx-mdot { flex: none; width: 11px; height: 11px; margin: 0 6.5px; border-radius: 50%; background: var(--lc); }
+.fx-back { display: grid; place-items: center; width: 28px; height: 28px; margin-left: -8px; color: var(--m-accent); }
+.mock .fx-back svg { width: 22px; height: 22px; }
+.fxm .mb-row .star { flex: none; color: #e0b040; }
+.mock .fxm .mb-row .star svg, .mock.fxm .mb-row .star svg { width: 15px; height: 15px; }
 </style>
 
 <main class="page">
@@ -3737,6 +3808,33 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-lbview="lbrecord">Record</button>
         <button type="button" data-lbview="lbphone">Telefon</button>
         <button type="button" data-lbview="lbphone2">Telefon 2</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="filters">
+    <div class="brief">
+      <div>
+        <span class="letter">FİLTRELER · TASLAK</span>
+        <h2>Yerinde süzme, Filters &amp; Labels, Favorites</h2>
+        <p>Görev listesi ve pano olduğu yerde süzülür: başlıkta <b>Search</b> ve <b>Filter</b>. Filter'da Labels, Priority, Due, Given to; panoda ayrıca panonun alanları. Seçilen her şey başlığın altında bir çiptir, × ile kalkar; dosya oluşmaz, süzme bu cihazda kalır. Her yerde birden süzmek Todoist'teki gibi <b>Filters &amp; Labels</b> sayfasından: altı hazır filtre, senin eklediklerin, space'lere göre etiketler. <b>+ Add filter</b> boş bir filtre açar; <b>Save as filter</b> demezsen bir şey yazılmaz. Her şey yıldızlanır ve kenar çubuğunda <b>Favorites</b>'a çıkar. Create'te Filter yok. Listede ve panoda Save yok, Todoist'teki gibi; adı olan filtre Filters &amp; Labels'ta yapılır. Teknik tasarım <code>design/filters.md</code>.</p>
+        <ul class="traits"><li>yerinde süzme</li><li>çipler</li><li>bu cihazda kalır</li><li>hazır filtreler</li><li>etiket görünümü</li><li>Favorites</li><li>Create'te Filter yok</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Filtre görünümü">
+        <button type="button" data-fxview="fxlist">List</button>
+        <button type="button" data-fxview="fxmenu">Filter menu</button>
+        <button type="button" data-fxview="fxlabels">Labels</button>
+        <button type="button" data-fxview="fxboard">Board</button>
+        <button type="button" data-fxview="fxfield">Board field</button>
+        <button type="button" data-fxview="fxindex">Filters &amp; Labels</button>
+        <button type="button" data-fxview="fxnew">New filter</button>
+        <button type="button" data-fxview="fxsave">Save as filter</button>
+        <button type="button" data-fxview="fxsaved">Saved filter</button>
+        <button type="button" data-fxview="fxlabel">Label</button>
+        <button type="button" data-fxview="fxfav">Favorite</button>
+        <button type="button" data-fxview="fxphone">Telefon</button>
+        <button type="button" data-fxview="fxphone2">Telefon 2</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -11483,6 +11581,257 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderLb(sectionLb, b.dataset.lbview);
   });
   renderLb(sectionLb, 'lblist');
+
+  // Filtering in place, Filters & Labels and Favorites (Oct 23, a draft; design/filters.md). A list
+  // or a board is filtered where it is, from Filter in its header; each thing chosen is a chip
+  // under it, and this device keeps it. Every list and board at once is Filters & Labels, as in
+  // Todoist: ready filters, the user's own, the labels of each space. Anything can be starred into
+  // Favorites. A list or a board keeps no filter by a name, as in Todoist.
+  ICON.star = '<svg viewBox="0 0 24 24"><path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z"/></svg>';
+  ICON.starf = ICON.star.replace('<path', '<path fill="currentColor"');
+  ICON.fxfield = '<svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="M8 12h8"/></svg>';
+  LB.editor = 'purple'; LB.tasks = 'blue'; LB.agents = 'teal';
+  // The tasks of Scrawl: ten, four of them bugs. Someday has none, so it hides while bugs are shown.
+  var FX_TASKS = [
+    { p: 'p1', title: 'Fix the crash when a label has an emoji', meta: '<span>Oct 24</span>', lb: ['bug'] },
+    { p: 'p2', title: 'Write the release notes for 0.1.14', meta: '<span class="today">Today</span>', lb: ['release'] },
+    { p: 'p2', title: 'Sync drops the last line of a long note', meta: '<span class="today">Today</span>', lb: ['bug'], who: ['M', 'Mert'] },
+    { p: 'p3', title: 'Call the accountant about the VAT return', meta: '<span>Oct 27</span>', lb: ['call', 'waiting'] },
+    { p: '', title: 'Search misses words with an apostrophe', meta: '', lb: ['bug', 'later'] },
+    { sec: 'Phone', p: 'p2', title: 'Try the server on a phone', meta: '<span>Oct 25</span>', lb: ['phone'] },
+    { sec: 'Phone', p: '', title: 'Swipe to finish misses on a short row', meta: '', lb: ['bug', 'phone'], who: ['K', 'Kaan'] },
+    { sec: 'Phone', p: 'p3', title: 'Renew the Apple Developer account', meta: '<span>Oct 30</span>', lb: ['waiting'] },
+    { sec: 'Someday', p: '', title: 'A week view in Upcoming', meta: '', lb: ['design'] },
+    { sec: 'Someday', p: '', title: 'Collect the October feedback in one note', meta: '', lb: ['feedback'] }
+  ];
+  function fxIs(t, o) {
+    return (!o.label || t.lb.indexOf(o.label) >= 0) && (!o.prio || o.prio.indexOf(t.p) >= 0);
+  }
+  function fxRow(t) { return lbRow(t.p, t.title, t.meta + lbLs(t.lb) + (t.who ? lbWho(t.who[0], t.who[1]) : ''), {}); }
+  function fxCardRow(c) {
+    return '<div class="task"><span class="cb sq ' + (c.p || '') + '"></span><div><div class="tt"><span class="fx-key">' + c.key + '</span>' + c.title + '</div>' +
+      '<div class="meta"><span>' + c.col + '</span>' + lbLs(c.lb) + '</div></div></div>';
+  }
+  /** A header with Search and Filter: Filter · n once something is chosen, pressed while its menu is open. */
+  function fxHead(name, extra, count, down, tail) {
+    return '<div class="th"><b>' + name + '</b>' + (extra || '') + '<span class="srch">' + ICON.find + 'Search…</span>' +
+      '<span class="fbtn' + (count ? ' on' : '') + (down ? ' down' : '') + '">' + ICON.filter + 'Filter' + (count ? ' · ' + count : '') + '</span>' + (tail || '') + '</div>';
+  }
+  function fxChip(k, v, open) { return '<span class="fx-chip' + (open ? ' open' : '') + '">' + k + ': <b>' + v + '</b><span class="x">×</span></span>'; }
+  function fxLbV(names) { return names.map(function (n) { return '<i style="--lc:' + lbC(n) + '"></i>' + n; }).join(', '); }
+  /** The chips under a header, + Filter and Clear after them; `end` at the right: Save as filter, or Revert and Save. */
+  function fxBar(chips, end, addDown) {
+    return '<div class="fx-bar">' + chips.join('') + '<span class="fx-add' + (addDown ? ' down' : '') + '">' + ICON.plus + 'Filter</span>' +
+      (chips.length ? '<span class="fx-clear">Clear</span>' : '') + (end ? '<span class="fx-end">' + end + '</span>' : '') + '</div>';
+  }
+  /** Filter's menu: what can be asked; on a board, its own fields under a line. */
+  function fxMenu(board, style, hot) {
+    function r(icon, label, sub) { return '<div class="r' + (hot === label ? ' hot' : '') + '">' + ICON[icon] + label + '<small>' + (sub || '›') + '</small></div>'; }
+    return '<div class="fx-pop" style="' + style + '">' + r('tag', 'Labels') + r('flag', 'Priority') + r('cal', 'Due') + r('person', 'Given to') +
+      (board ? '<div class="sep"></div><div class="cap">Roadmap’s fields</div>' + r('fxfield', 'Area', 'Choice') + r('fxfield', 'Estimate', 'Number') + r('fxfield', 'Release', 'Day') : '') + '</div>';
+  }
+  /** One question's values, after ← from the menu: the labels, the picked first and ticked. */
+  function fxLabelsPop(style, picked, hot) {
+    var all = picked.concat(['waiting', 'release', 'call', 'phone', 'board', 'design', 'feedback', 'later'].filter(function (n) { return picked.indexOf(n) < 0; }));
+    return '<div class="fx-pop" style="' + style + '"><div class="hd">' + ICON.chevl + 'Labels</div><div class="q">Find a label</div>' +
+      all.map(function (n) { return '<div class="r' + (n === hot ? ' hot' : '') + '" style="--lc:' + lbC(n) + '"><i></i>' + n + (picked.indexOf(n) >= 0 ? '<span class="tk">✓</span>' : '') + '</div>'; }).join('') + '</div>';
+  }
+  function fxTasks(o) {
+    o = o || {};
+    var shown = FX_TASKS.filter(function (t) { return fxIs(t, o); });
+    var body = [undefined, 'Phone', 'Someday'].map(function (sec) {
+      var rows = shown.filter(function (t) { return t.sec === sec; });
+      if (!rows.length) return '';
+      return (sec ? '<div class="sec">' + sec + ' <small>' + rows.length + '</small></div>' : '') + rows.map(fxRow).join('');
+    }).join('');
+    return '<div class="tasksv" style="position: relative">' + fxHead('Tasks', '<span class="chip">Scrawl</span>', (o.chips || []).length, o.down, '<button type="button" class="add">Add task</button>') +
+      (o.chips ? fxBar(o.chips, o.end) : '') +
+      '<div class="tl">' + body + '<div class="qa">+ Add task</div></div>' + (o.pop || '') + '</div>';
+  }
+  // Roadmap: ten cards; five carry board, two of them have an Estimate over 3.
+  var FX_COLS = [
+    ['backlog', 'Backlog', [{ key: 'SCR-36', title: 'Undo a column moved by mistake', lb: ['board'], est: 2 }, { key: 'SCR-35', title: 'Keyboard on the phase strip', lb: ['board'], est: 1 }, { key: 'SCR-37', title: 'Paste a table from Excel', lb: ['editor'] }]],
+    ['active', 'Todo', [{ key: 'SCR-34', p: 'p2', title: 'Import cards from a CSV', lb: ['board'], est: 5 }, { key: 'SCR-33', p: 'p3', title: 'Week view in Upcoming', lb: ['tasks'], who: 'M' }]],
+    ['active', 'Doing', [{ key: 'SCR-32', p: 'p2', title: 'Rename an agent in Settings', lb: ['agents'], who: 'C', agent: true }, { key: 'SCR-30', p: 'p1', title: 'Calendar: drag to reschedule', lb: ['tasks'], who: 'K' }]],
+    ['review', 'Review', [{ key: 'SCR-31', p: 'p2', title: 'Export a board as CSV', lb: ['board'], who: 'C', agent: true, est: 8 }, { key: 'SCR-29', title: 'Search: whole words first', lb: ['editor'], who: 'M' }]],
+    ['done', 'Done', [{ key: 'SCR-27', title: 'Move a folder by dragging', lb: ['board'], done: true, who: 'K', est: 3 }]]
+  ];
+  function fxBoard(o) {
+    o = o || {};
+    var cols = FX_COLS.map(function (c) {
+      var cards = c[2].filter(function (k) { return (!o.label || k.lb.indexOf(o.label) >= 0) && (!o.over || (k.est || 0) > o.over); });
+      return colm(c[0], c[1], cards.length, cards.map(function (k) {
+        return acFace({ key: k.key, p: k.p, title: k.title, done: k.done, meta: k.lb.map(lbL).join(''), who: k.who, agent: k.agent });
+      }).join(''));
+    }).join('');
+    var vsw = '<span class="vsw"><span class="on">Board</span><span>List</span><span>Calendar</span></span>';
+    return '<div class="bv" style="position: relative">' + fxHead('Roadmap', vsw, (o.chips || []).length, false, '<button type="button" class="ghost">Fields</button><button type="button" class="ghost">···</button>') +
+      (o.chips ? fxBar(o.chips, o.end, o.addDown) : '') +
+      '<div class="bwrap"><div class="board">' + cols + '</div></div>' + (o.pop || '') + '</div>';
+  }
+  // Favorites in the sidebar, under Today, Upcoming and Filters & Labels: a filter, a label, a
+  // board and a note, in the order they were starred; what is not in the personal space says its space.
+  function fxTree(on, menu) {
+    function fav(icon, label, sp, ct, isOn, lc) {
+      return '<div class="it fx' + (isOn ? ' on' : '') + '" style="--d: 0"><span class="fpad"></span>' + (lc ? '<i class="fx-dot" style="--lc:' + lc + '"></i>' : ICON[icon]) +
+        '<span>' + label + (sp ? '<em class="fx-sp"> · ' + sp + '</em>' : '') + '</span>' + (ct ? '<span class="ct">' + ct + '</span>' : '') + '</div>';
+    }
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 9 }) + row({ label: 'Filters &amp; Labels', on: on === 'index' }) +
+      '<div class="grp">Favorites</div>' +
+      fav('filter', 'Priority 1', null, 3, on === 'p1') + fav(null, 'bug', 'Scrawl', 6, on === 'bug', lbC('bug')) + fav('board', 'Roadmap', 'Scrawl', 10) + fav('notes', 'Weekly review') +
+      '<div class="fx-gap"></div>' +
+      spRowT({ sp: true, label: 'Personal' }) +
+      spRowT({ sp: true, open: true, label: 'Scrawl' }) +
+      spRowT({ d: 1, icon: 'board', label: 'Roadmap', ct: 10, on: on === 'board' }) +
+      spRowT({ d: 1, icon: 'tasks', label: 'Tasks', ct: 10, on: on === 'tasks', menu: menu }) +
+      spRowT({ d: 1, icon: 'collection', label: 'Companies', ct: 24 }) +
+      spRowT({ d: 1, folder: true, label: 'design', ct: 12 }) +
+      spRowT({ sp: true, label: 'Side projects' }) +
+      '</div>' + spFoot(null);
+  }
+  function fxApp(on, tabs, body, status, over, menu) {
+    return '<aside class="side">' + fxTree(on, menu) + '</aside><section class="main"><div class="panes">' + pane(tabs + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>' + status + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  var FX_TAB_TASKS = tab('tasks', 'Tasks · Scrawl', 'x', true);
+  var FX_TAB_BOARD = tab('board', 'Roadmap · Scrawl', 'x', true);
+  // Filters & Labels: the six ready filters and one of the user's, then the labels of each space.
+  var FX_FILTERS = [['Priority 1', 3, true], ['Priority 2', 7], ['Priority 3', 4], ['Given to others', 5], ['No date', 11], ['Given to me', 6], ['Scrawl bugs', 6]];
+  var FX_LABELS = [['Scrawl', [['bug', 6, true], ['board', 5], ['call', 3], ['design', 2], ['feedback', 2], ['phone', 3], ['release', 5], ['waiting', 6]]], ['Personal', [['errand', 2], ['later', 0]]]];
+  function fxIndex(o) {
+    o = o || {};
+    function li(inner, ct, fav, key) {
+      var hover = o.hover === key;
+      return '<div class="fx-li' + (hover ? ' hover' : '') + '">' + inner + '<small>' + (ct || '') + '</small>' +
+        '<span class="star' + (fav ? ' on' : '') + '">' + (fav ? ICON.starf : hover ? ICON.star : '') + '</span><span class="more">' + (hover ? '···' : '') + '</span>' +
+        (hover && o.menu ? '<div class="cmenu"><span class="hot">Add to favorites</span><span>Rename</span><i></i><span class="red">Delete</span></div>' : '') + '</div>';
+    }
+    var filters = FX_FILTERS.map(function (f) { return li(ICON.filter + '<span>' + f[0] + '</span>', f[1], f[2], f[0]); }).join('');
+    var labels = FX_LABELS.map(function (g) {
+      return '<div class="gh"><span class="chev">▾</span>Labels<small>' + g[0] + '</small><span class="act">Edit labels</span></div>' +
+        g[1].map(function (l) { return li('<i style="--lc:' + lbC(l[0]) + '"></i><span>' + l[0] + '</span>', l[1], l[2], l[0]); }).join('');
+    }).join('');
+    return '<div class="tasksv" style="position: relative"><div class="th"><b>Filters &amp; Labels</b></div><div class="fx-fl">' +
+      '<div class="gh"><span class="chev">▾</span>Filters<span class="act plus">+</span></div>' + filters + labels + '</div></div>';
+  }
+  // What a filter over everything shows: Scrawl's bugs, its tasks and then Roadmap's cards.
+  var FX_BUG_CARDS = [{ key: 'SCR-38', p: 'p2', title: 'The board scrolls to the top after a move', lb: ['bug'], col: 'Review' }, { key: 'SCR-40', title: 'Labels lose their color after sync', lb: ['bug'], col: 'Backlog' }];
+  function fxFound(o) {
+    var tasks = FX_TASKS.filter(function (t) { return fxIs(t, o); });
+    var cards = FX_BUG_CARDS.filter(function (c) { return !o.prio || o.prio.indexOf(c.p || '') >= 0; });
+    return '<div class="tl">' + '<div class="sec">Tasks · Scrawl <small>' + tasks.length + '</small></div>' + tasks.map(fxRow).join('') +
+      '<div class="sec">Roadmap · Scrawl <small>' + cards.length + '</small></div>' + cards.map(fxCardRow).join('') + '</div>';
+  }
+  function fxFilterPage(name, o) {
+    return '<div class="tasksv" style="position: relative">' + fxHead(name, o.extra, o.chips.length) + fxBar(o.chips, o.end) + fxFound(o) + '</div>';
+  }
+  var FX_SCRAWL = fxChip('In', 'Scrawl');
+  var FX_BUG = fxChip('Labels', fxLbV(['bug']));
+  function fxSaveAsk() {
+    return '<div class="ovl center"><div class="mdlg" style="width: 400px"><h3>Save as filter</h3>' +
+      '<div class="label">Name</div><div class="field filled">bug · Scrawl<span class="caret"></span></div>' +
+      '<div class="fx-check"><span class="box">✓</span>Add to favorites</div>' +
+      '<div class="foot"><span class="st-btn" style="margin-left: auto">Cancel</span><span class="st-btn go">Save</span></div></div></div>';
+  }
+  var FX_VIEWS = {
+    fxlist: function () { return fxApp('tasks', FX_TAB_TASKS, fxTasks({ label: 'bug', chips: [FX_BUG] }), '4 of 10 tasks'); },
+    fxmenu: function () { return fxApp('tasks', FX_TAB_TASKS, fxTasks({ down: true, pop: fxMenu(false, 'top: 44px; right: 104px', 'Labels') }), '10 tasks'); },
+    fxlabels: function () { return fxApp('tasks', FX_TAB_TASKS, fxTasks({ label: 'bug', chips: [fxChip('Labels', fxLbV(['bug']), true)], pop: fxLabelsPop('top: 80px; left: 26px', ['bug'], 'waiting') }), '4 of 10 tasks'); },
+    fxboard: function () { return fxApp('board', FX_TAB_BOARD, fxBoard({ label: 'board', chips: [fxChip('Labels', fxLbV(['board']))], addDown: true, pop: fxMenu(true, 'top: 80px; left: 144px', 'Estimate') }), '5 of 10 cards'); },
+    fxfield: function () {
+      var pop = '<div class="fx-pop" style="top: 80px; left: 144px; width: 250px"><div class="hd">' + ICON.chevl + 'Estimate</div>' +
+        '<div class="cond"><span class="in">is more than<span class="dd">▾</span></span><span class="in num">3<span class="caret"></span></span></div>' +
+        '<div class="note">Cards with no Estimate are left out.</div></div>';
+      return fxApp('board', FX_TAB_BOARD, fxBoard({ label: 'board', over: 3, chips: [fxChip('Labels', fxLbV(['board'])), fxChip('Estimate', 'more than 3', true)], pop: pop }), '2 of 10 cards');
+    },
+    fxindex: function () { return fxApp('index', tab('filter', 'Filters &amp; Labels', 'x', true), fxIndex({ hover: 'Scrawl bugs', menu: true }), '7 filters · 10 labels'); },
+    fxnew: function () { return fxApp('none', tab('filter', 'Filters &amp; Labels', 'x', false) + tab('filter', 'New filter', 'x', true), fxFilterPage('New filter', { label: 'bug', chips: [FX_SCRAWL, FX_BUG], end: '<span class="st-btn">Save as filter</span>' }), '4 tasks · 2 cards'); },
+    fxsave: function () { return fxApp('none', tab('filter', 'Filters &amp; Labels', 'x', false) + tab('filter', 'New filter', 'x', true), fxFilterPage('New filter', { label: 'bug', chips: [FX_SCRAWL, FX_BUG], end: '<span class="st-btn">Save as filter</span>' }), '4 tasks · 2 cards', fxSaveAsk()); },
+    fxsaved: function () {
+      return fxApp('none', tab('filter', 'Filters &amp; Labels', 'x', false) + tab('filter', 'Scrawl bugs', 'x', true),
+        fxFilterPage('Scrawl bugs', { label: 'bug', prio: ['p1', 'p2'], chips: [FX_SCRAWL, FX_BUG, fxChip('Priority', 'p1, p2')], end: '<span class="st-btn">Revert</span><span class="st-btn go">Save</span>' }), '2 tasks · 1 card');
+    },
+    fxlabel: function () {
+      var name = '<i class="fx-ldot" style="--lc:' + lbC('bug') + '"></i>bug';
+      return fxApp('bug', tab('tag', 'bug · Scrawl', 'x', true), fxFilterPage(name, { label: 'bug', extra: '<span class="chip">Scrawl</span>', chips: [] }).replace(/<div class="fx-bar">.*?<\/div>/, ''), '4 tasks · 2 cards');
+    },
+    fxfav: function () {
+      var menu = '<div class="cmenu" style="left: 170px; top: 340px"><span class="hot">Add to favorites</span><i></i><span>Move to…</span><span>Rename</span><i></i><span class="red">Delete</span></div>';
+      return fxApp('tasks', FX_TAB_TASKS, fxTasks({}), '10 tasks', menu, true);
+    }
+  };
+  /** On a phone: the list filtered with its chips, Filter's sheet, the labels' sheet, and Filters & Labels. */
+  function fxPhone() {
+    var nav = mbNav('Scrawl', ['filter', 'dots']).replace('<span class="ib">' + ICON.filter, '<span class="ib fx-on">' + ICON.filter);
+    var chips = '<div class="fx-mchips"><span class="c">Labels: <b>bug</b><span class="x">×</span></span><span class="clr">Clear</span></div>';
+    function mt(t) { return mbT({ p: t.p, title: t.title, meta: (t.meta ? mi('cal', t.meta.replace(/<[^>]+>/g, ''), t.meta.indexOf('today') >= 0 ? 'late' : '') : '') + '<span class="lb-mlbs">' + t.lb.map(lbM).join('') + '</span>' + (t.who ? mi('person', t.who[1]) : '') }); }
+    var bugs = FX_TASKS.filter(function (t) { return t.lb.indexOf('bug') >= 0; });
+    var list = mbPage(nav + mbHead('Tasks', '4 of 10') + chips, bugs.map(mt).join(''));
+    var sheet = MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Filter</b><small>Tasks · Scrawl</small><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-search">' + ICON.find + 'Find in these tasks</div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr">' + ICON.tag + '<span class="fl">Labels</span><span class="val">' + lbM('bug') + '</span>' + MB_CHEV + '</div>' +
+        '<div class="mb-fr">' + ICON.flag + '<span class="fl">Priority</span><span class="val">Any</span>' + MB_CHEV + '</div>' +
+        '<div class="mb-fr">' + ICON.cal + '<span class="fl">Due</span><span class="val">Any</span>' + MB_CHEV + '</div>' +
+        '<div class="mb-fr">' + ICON.person + '<span class="fl">Given to</span><span class="val">Anyone</span>' + MB_CHEV + '</div>' +
+      '</div><div class="mb-group" style="margin-top: 14px"><div class="lb-mdel" style="color: var(--m-accent)">Clear filter</div></div></div></div>';
+    function pick(n, on) { return '<div class="mb-row" style="--lc:' + lbC(n) + '"><i class="dot"></i><span class="tx"><b>' + n + '</b></span>' + (on ? ICON.check.replace('<svg', '<svg class="tick"') : '') + '</div>'; }
+    var labels = MB_DIM + '<div class="mb-sheet lb-msh"><span class="grab"></span>' +
+      '<div class="mb-sh"><span class="fx-back">' + ICON.chevl + '</span><b>Labels</b><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-search">' + ICON.find + 'Find a label</div>' +
+      pick('bug', true) + pick('waiting') + pick('release') + pick('call') + pick('phone') + pick('design') + '</div>';
+    function dotRow(n, ct, fav) { return '<div class="mb-row"><i class="fx-mdot" style="--lc:' + lbC(n) + '"></i><span class="tx"><b>' + n + '</b></span>' + (fav ? '<span class="star">' + ICON.starf + '</span>' : '') + '<span class="ct">' + ct + '</span>' + MB_CHEV + '</div>'; }
+    function filterRow(f) { return '<div class="mb-row">' + ICON.filter + '<span class="tx"><b>' + f[0] + '</b></span>' + (f[2] ? '<span class="star">' + ICON.starf + '</span>' : '') + '<span class="ct">' + f[1] + '</span>' + MB_CHEV + '</div>'; }
+    var index = mbPage(mbNav('Browse', ['plus']) + mbHead('Filters &amp; Labels'),
+      '<div class="mb-sec">Filters</div>' + FX_FILTERS.map(filterRow).join('') +
+      '<div class="mb-sec">Labels <small>Scrawl</small></div>' + dotRow('bug', 6, true) + dotRow('board', 5) + dotRow('release', 5) + dotRow('waiting', 6));
+    return [
+      mbPhone('Süzülmüş liste: çipler başlığın altında', list, mbTabs('browse') + MB_FAB),
+      mbPhone('Filter sheet’i: ölçütler, seçilenler sağda', list, mbTabs('browse') + sheet),
+      mbPhone('Bir ölçüt: işaretle, liste arkada süzülür', list, mbTabs('browse') + labels),
+      mbPhone('Filters & Labels', index, mbTabs('browse'))
+    ].join('');
+  }
+  /** On a phone: Browse with Favorites and Filters & Labels, and a saved filter changed. */
+  function fxPhone2() {
+    function fav(icon, label, sub, ct, lc) {
+      return '<div class="mb-row">' + (lc ? '<i class="fx-mdot" style="--lc:' + lc + '"></i>' : ICON[icon]) + '<span class="tx"><b>' + label + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' + (ct !== undefined ? '<span class="ct">' + ct + '</span>' : '') + MB_CHEV + '</div>';
+    }
+    var browse = mbPage(mbHead('Browse', null, true),
+      '<div class="mb-sec">Favorites</div>' + fav('filter', 'Priority 1', null, 3) + fav(null, 'bug', 'Scrawl', 6, lbC('bug')) + fav('board', 'Roadmap', 'Scrawl', 10) + fav('notes', 'Weekly review') +
+      '<div class="fx-mgap"></div>' + mbRow({ icon: 'filter', label: 'Filters &amp; Labels' }) +
+      '<div class="fx-mgap"></div>' + mbRow({ icon: 'space', label: 'Personal', ct: 14 }) + mbRow({ icon: 'space', label: 'Scrawl', ct: 9 }) + mbRow({ icon: 'space', label: 'Side projects', ct: 3 }));
+    function mt(t) { return mbT({ p: t.p, title: t.title, meta: '<span class="lb-mlbs">' + t.lb.map(lbM).join('') + '</span>' + (t.who ? mi('person', t.who[1]) : '') }); }
+    var chips = '<div class="fx-mchips"><span class="c">In: <b>Scrawl</b><span class="x">×</span></span><span class="c">Labels: <b>bug</b><span class="x">×</span></span><span class="c">Priority: <b>p1, p2</b><span class="x">×</span></span></div>';
+    var saved = mbPage(mbNav('Filters & Labels', ['Save']) + mbHead('Scrawl bugs', '2 tasks · 1 card') + chips,
+      FX_TASKS.filter(function (t) { return t.lb.indexOf('bug') >= 0 && (t.p === 'p1' || t.p === 'p2'); }).map(mt).join('') +
+      mbT({ key: 'SCR-38', p: 'p2', title: 'The board scrolls to the top after a move', meta: mi('board', 'Roadmap · Review') + '<span class="lb-mlbs">' + lbM('bug') + '</span>' }));
+    return [
+      mbPhone('Browse: Favorites, Filters & Labels', browse, mbTabs('browse')),
+      mbPhone('Kayıtlı filtre değişince üstte Save', saved, mbTabs('browse'))
+    ].join('');
+  }
+  function renderFx(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'fxphone' || view === 'fxphone2') {
+      mock.className = 'mock dir-a phones mbs lbm fxm' + (view === 'fxphone' ? ' four' : '');
+      mock.innerHTML = view === 'fxphone' ? fxPhone() : fxPhone2();
+    } else {
+      mock.className = 'mock dir-a wider lbm fxm';
+      mock.innerHTML = FX_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-fxview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.fxview === view));
+    });
+  }
+  var sectionFx = document.querySelector('.dir[data-dir="filters"]');
+  sectionFx.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-fxview]');
+    if (b) renderFx(sectionFx, b.dataset.fxview);
+  });
+  renderFx(sectionFx, 'fxlist');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
