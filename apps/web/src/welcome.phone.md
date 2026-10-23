@@ -8,6 +8,34 @@ Each item is a plain file. Work on it in Scrawl, open it in another editor, or h
 
 ---
 
+## 💾 Your notes are on this phone
+
+Scrawl has no sign-up and no cloud of its own. What you write is saved here, on this phone, not online.
+
+So when you open Scrawl in another browser, on your computer or on another phone, it is empty. Nothing is lost: your notes are still here.
+
+To have the same notes everywhere, sync them to one of these:
+
+- ☁️ **OneDrive:** your own Microsoft storage. Good for your own devices, and a folder shared with others.
+- 🗄️ **Scrawl server:** a server your team runs, with Docker. Good for a team; changes reach others in seconds.
+
+1. Here, open **Sync** in **Browse**, then **Sync…**, and choose OneDrive or a server.
+2. On your computer or other device, open Scrawl, press **Sync**, and choose the same OneDrive folder or the same server.
+
+From then on, what you change on one shows up on the others.
+
+---
+
+## 📦 Versions
+
+Scrawl is the same app everywhere. Once synced, each version shows the same work.
+
+- 🌐 **Web:** open [app.scrawlnotes.com](https://app.scrawlnotes.com) in any browser. It works offline once loaded.
+- 💻 **Desktop, for Windows and Mac:** on a computer, open app.scrawlnotes.com, press **Downloads** at the foot of the sidebar and install it. It updates itself.
+- 📱 **Phone, for iPhone and Android:** it is not in the app stores. Open app.scrawlnotes.com on your phone and add it to the home screen: in Safari use **Share › Add to Home Screen**, in Chrome use **⋮ › Add to Home screen**. From then on it opens from the home screen like any app.
+
+---
+
 ## ➕ What you can add
 
 In **Browse**, press **+** at the bottom right and pick one. A note is enough to start; add lists and boards to the same folder as the project grows.
@@ -24,20 +52,6 @@ Tasks with dates, priorities and subtasks. **Today** and **Upcoming** gather dat
 
 Cards in columns. **Software** works in phases, **Issue tracking** shows issues as a list, **CRM** gives each deal a company, a contact and a value. Each card has a description, fields, and a timeline of moves and comments.
 
-### 🧩 Collections
-
-Records such as companies, people or payments, each on its own form.
-
-🎨 **Design your own forms.** Collections come with a form designer, **Fields**. Choose the fields you need (text, number, date, select, checkbox, email, phone, person, link, formula, lookup, rollup), drag them into columns, and put notes and linked records beside them. Make a form for whatever you keep track of: candidates, suppliers, equipment, anything.
-
-Templates include **Companies**, **People**, **Activities**, **Feedback** and **Payments**. Records link to each other, so a company shows its people and activities. You can bring in rows from CSV or Excel.
-
-Rules in **Fields** check records, add buttons such as **Start project**, and fill in fields when a record is saved.
-
-### 🧱 Apps
-
-Collections, boards and rules that work together, set up from ready templates. For a business: **CRM**, **Sales and invoicing**, **Customer support**, **Appointments and bookings**, **Project management**, **Budget and spending**, **Stock and purchasing**, **E-commerce**, **Product development**, **Recruiting**, **Assets and maintenance**, **Content calendar**, **Subscriptions and memberships**, **Contracts and renewals**, **Time off and team**, **Goals**, **Incidents and actions**, **Field service**, **Consulting** and **Association and club**. For a person: **Personal finance**, **Home, car and documents**, **Recipes and meal plan**, **Health**, **Sport and training**, **Habits and goals**, **Travel**, **Shared expenses**, **Job search**, **People and birthdays** and **Reading and watching**. In **Browse**, press **+** and pick **App**, choose **Business** or **Personal** and the ones you need and answer a few questions; each comes with an answer ready. The app's folder gets everything, linked to each other, and an **About** note on how it is used. **Add to app**, in the folder's **···** menu, adds another template later.
-
 ### 🔑 Keys
 
 API keys, passwords and settings in a `.env` file. Secret values stay hidden until shown. Copy one value, or a whole group as `.env` text.
@@ -47,6 +61,23 @@ API keys, passwords and settings in a `.env` file. Secret values stay hidden unt
 | At the foot of the screen | In Browse |
 | --- | --- |
 | **Recent**, **Browse**, **Today**, **Search** | Your spaces and folders, **Files**, **Trash**, **Sync**, **Settings** |
+
+---
+
+## 🧱 Apps and collections
+
+### 🧩 Collections
+
+Records such as companies, people or payments, each on its own form. Start from a template (**Companies**, **People**, **Activities**, **Feedback**, **Payments**) or an empty one. With **Fields** you design the form: choose the fields, drag them into columns, link records to each other, and add rules and buttons. You can bring in rows from CSV or Excel.
+
+### 🧱 Apps
+
+Collections, boards and rules set up together from ready templates. In **Browse**, press **+** and pick **App**, choose the ones you need and answer a few questions.
+
+- **For a business:** CRM, sales and invoicing, customer support, projects, stock, recruiting, contracts, and more.
+- **For a person:** personal finance, health, travel, recipes, habits, reading, and more.
+
+**Add to app**, in the folder's **···** menu, adds another one later.
 
 ---
 
@@ -68,29 +99,14 @@ What the agent changes carries its name. When it rewrites a note, the earlier ve
 
 ---
 
-## 🔄 Sync
+## 🗄️ Scrawl server
 
-Until you connect it, your work stays on this device. It syncs to two places:
+**You don't need one.** A server is for a team that wants:
 
-| Where | What it is | Good for |
-| --- | --- | --- |
-| ☁️ **OneDrive** | Your own, or a folder shared with you | Your devices and shared spaces |
-| 🗄️ **Scrawl server** | Your team's own | Team spaces; changes in seconds |
+- spaces with accounts and invite links, where a change reaches everyone in seconds;
+- Claude, ChatGPT or Gemini working on your notes from the web and the phone.
 
-- 💡 **Your devices:** open **Sync** in **Browse** and connect your OneDrive. Your work is then on every device you use.
-- 👥 **Your team:** **Settings › Spaces** adds a space on a shared OneDrive folder or on your Scrawl server. Everyone in it sees the same work, and tasks and cards can be given to them.
-- 🔒 **Your files:** they are only on your devices, your OneDrive and your own server; Scrawl keeps none of them.
-
----
-
-## 📦 Versions
-
-| Version | Where | Good to know |
-| --- | --- | --- |
-| 🌐 **Web** | [app.scrawlnotes.com](https://app.scrawlnotes.com) | Works offline once loaded |
-| 💻 **Desktop** | **Downloads**, in the web app | Windows and Mac; updates itself |
-| 📱 **Phone** | [app.scrawlnotes.com](https://app.scrawlnotes.com) | Add it to the home screen |
-| 🗄️ **Server** | Your own, with Docker | For a team; changes in seconds |
+The team runs it on its own machine with Docker ([steps](https://github.com/scrawlnotes/scrawl/tree/main/apps/server)). Then they connect it in **Settings › Spaces › Add space… › Connect a server…**
 
 ---
 
