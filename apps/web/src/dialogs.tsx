@@ -3,17 +3,11 @@ import {
   basename,
   type BoardLinks,
   type CollectionTemplate,
-  type Condition,
   defaultCollectionName,
   dirname,
-  DUE_RULES,
   type Field,
-  isComplete,
   isEmpty,
-  opsFor,
   type Record as CollectionRecord,
-  type FilterChoices,
-  filterName,
   INBOX_TASKS,
   join,
   type Leftovers,
@@ -25,7 +19,6 @@ import {
   type Priority,
   RuleStop,
   spaceOf,
-  type TaskFilter,
   type Template,
 } from '@scrawlnotes/core';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
@@ -46,11 +39,11 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { type Option, Picker } from './choices';
-import { ConditionRow, FieldInput, type ValueContext } from './Collection';
+import { FieldInput, type ValueContext } from './Collection';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import { Icon, type IconName } from './Icon';
 import type { ExportFormat } from './exporting';
-import { collectionLabel, folderLabel, placeWords, shownPath, spaceLabel } from './items';
+import { collectionLabel, placeWords, shownPath, spaceLabel } from './items';
 import type { ButtonRun } from './session';
 import { ActionSheet, AskSheet, Sheet, SheetClose } from './sheets';
 
@@ -363,11 +356,11 @@ function FolderPop({ anchor, folders, value, onPick, onClose }: {
   );
 }
 
-export type NewKind = 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'app' | 'filter';
-export type ItemKind = Exclude<NewKind, 'filter' | 'app'>;
+export type NewKind = 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'app';
+export type ItemKind = Exclude<NewKind, 'app'>;
 
-// Keys come after Board and before Filter, which is a view rather than a file; what they are for
-// is said beside them, as the kind least known.
+// Keys come after Board; what they are for is said beside them, as the kind least known. Filters
+// are made in Filters & Labels, not here (design/filters.md 6).
 export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: MessageKey }[] = [
   { kind: 'note', label: 'create.note', icon: 'note', text: 'create.noteText' },
   { kind: 'tasks', label: 'create.tasks', icon: 'tasks', text: 'create.tasksText' },
@@ -376,7 +369,6 @@ export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: M
   { kind: 'collection', label: 'create.collection', icon: 'collection', text: 'create.collectionText' },
   // An app is ready templates set up together, in a window of its own (design/scrawl-apps.md 2).
   { kind: 'app', label: 'create.app', icon: 'app', text: 'create.appText' },
-  { kind: 'filter', label: 'create.filter', icon: 'filter', text: 'create.filterText' },
 ];
 
 /**
@@ -385,7 +377,7 @@ export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: M
  * folder's menu has the kind chosen already, and Back goes to the choice; the start page's
  * templates have the template chosen too.
  */
-export function NewDialog({ start = null, template = null, folders, folder, collections, onCreate, onFilter, onApp, onClose }: {
+export function NewDialog({ start = null, template = null, folders, folder, collections, onCreate, onApp, onClose }: {
   /** The kind chosen already, if any. */
   start?: ItemKind | null;
   /** A board's or a collection's template chosen already, if any. */
@@ -398,9 +390,7 @@ export function NewDialog({ start = null, template = null, folders, folder, coll
   collections: string[];
   /** Returns a message when the item cannot be made. */
   onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => Promise<string | null>;
-  /** A filter has a window of its own. */
-  onFilter: () => void;
-  /** And so has an app. */
+  /** An app has a window of its own. */
   onApp: () => void;
   onClose: () => void;
 }) {
@@ -410,7 +400,7 @@ export function NewDialog({ start = null, template = null, folders, folder, coll
       <NewItemForm kind={kind} template={template} folders={folders} folder={folder} collections={collections} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
     );
   }
-  return <KindChoice onPick={(picked) => (picked === 'filter' ? onFilter() : picked === 'app' ? onApp() : setKind(picked))} onClose={onClose} />;
+  return <KindChoice onPick={(picked) => (picked === 'app' ? onApp() : setKind(picked))} onClose={onClose} />;
 }
 
 export const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard', keys: 'create.newKeys', collection: 'create.newCollection' };
@@ -695,156 +685,6 @@ function Chips<T>({ label, items, picked, onPick, name }: {
         ))}
       </div>
     </div>
-  );
-}
-
-/**
- * Makes a filter or changes one, after the Filter edit view of design/mockups.html (direction
- * A). Every choice narrows what it shows; the count of open tasks and cards follows them. When
- * boards in its folders have fields of their own, it asks about them too, as the Filter fields
- * view draws it: those conditions are about cards, so with one the filter shows cards only.
- */
-export function FilterDialog({ filter, folders, places, place, count, withPeople = false, fields, records, onSave, onClose }: {
-  /** The filter changed; null for a new one. */
-  filter: TaskFilter | null;
-  /** The personal space as a whole, its top-level folders, then every other space as a whole. */
-  folders: string[];
-  /** Every place the filter can sit in, the personal space's top first. */
-  places: string[];
-  /** Where a new filter sits: the folder of the tab on screen, or the personal space's top. */
-  place: string;
-  /** How many open tasks and cards the choices would show. */
-  count: (choices: FilterChoices) => number;
-  /** There are spaces with people, where a task or a card is given to someone: the filter can show the user's only. */
-  withPeople?: boolean;
-  /** The boards' own fields in the folders chosen. */
-  fields: (choices: FilterChoices) => Field[];
-  /** The records of a collection, for a condition on a link. */
-  records: (collection: string) => CollectionRecord[] | null;
-  onSave: (filter: TaskFilter) => void;
-  onClose: () => void;
-}) {
-  const [name, setName] = useState(filter?.name ?? '');
-  // Where it sits in the sidebar; one whose folder is gone sits at the personal space's top.
-  const [where, setWhere] = useState(() => {
-    const kept = filter ? (filter.folder ?? '') : place;
-    return places.includes(kept) ? kept : '';
-  });
-  const [choices, setChoices] = useState<FilterChoices>(
-    filter ?? { due: 'any', priorities: [], folders: [], text: '' },
-  );
-  const toggle = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
-  const own = fields(choices);
-  const conditions = (choices.fields ?? []).filter((c) => own.some((f) => f.key === c.field));
-  const setConditions = (next: Condition[]) => setChoices({ ...choices, fields: next.length > 0 ? next : undefined });
-  const save = () => {
-    const { fields: _all, folder: _was, ...rest } = choices as FilterChoices & { folder?: string };
-    const asked = conditions.filter(isComplete);
-    onSave({
-      ...rest,
-      ...(asked.length > 0 && { fields: asked }),
-      id: filter?.id ?? crypto.randomUUID(),
-      name: name.trim() || filterName(choices, folderLabel),
-      text: choices.text.trim(),
-      ...(where !== '' && { folder: where }),
-    });
-  };
-  const shown = count({ ...choices, fields: conditions });
-  return (
-    <Dialog
-      label={t('filter.title')}
-      className="filter-dialog"
-      onClose={onClose}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
-          event.preventDefault();
-          save();
-        }
-      }}
-    >
-      <h2>{t('filter.title')}</h2>
-      <div className="frow">
-        <span>{t('filter.name')}</span>
-        <input aria-label={t('filter.name')} placeholder={filterName(choices, folderLabel)} autoFocus value={name} onChange={(event) => setName(event.target.value)} />
-      </div>
-      <div className="frow">
-        <span>{t('filter.folder')}</span>
-        <Picker options={places.map((path) => ({ value: path, label: path, chip: false }))} value={where} label={t('filter.folder')} onPick={(path) => path && setWhere(path)} />
-      </div>
-      <Chips
-        label={t('filter.due')}
-        name="due"
-        items={DUE_RULES.map((rule) => ({ value: rule, label: t(`filter.due.${rule}`) }))}
-        picked={(rule) => choices.due === rule}
-        onPick={(due) => setChoices({ ...choices, due })}
-      />
-      <Chips<Priority>
-        label={t('filter.priority')}
-        items={([1, 2, 3, 4] as Priority[]).map((p) => ({ value: p, label: p === 4 ? t('filter.priorityNone') : `p${p}`, dot: p === 4 ? undefined : `p${p}` }))}
-        picked={(p) => choices.priorities.includes(p)}
-        onPick={(p) => setChoices({ ...choices, priorities: toggle(choices.priorities, p) })}
-      />
-      <Chips<string | null>
-        label={t('filter.in')}
-        items={[{ value: null, label: t('filter.allLists') }, ...folders.map((f) => ({ value: f, label: folderLabel(f) }))]}
-        picked={(f) => (f === null ? choices.folders.length === 0 : choices.folders.includes(f))}
-        onPick={(f) => setChoices({ ...choices, folders: f === null ? [] : toggle(choices.folders, f) })}
-      />
-      {(withPeople || choices.mine) && (
-        <Chips<boolean>
-          label={t('filter.assignee')}
-          name="assignee"
-          items={[
-            { value: false, label: t('filter.anyone') },
-            { value: true, label: t('filter.me') },
-          ]}
-          picked={(mine) => !!choices.mine === mine}
-          onPick={(mine) => {
-            const { mine: _was, ...rest } = choices;
-            setChoices(mine ? { ...rest, mine: true } : rest);
-          }}
-        />
-      )}
-      {own.length > 0 && (
-        <div className="frow frow-top">
-          <span>{t('filter.fields')}</span>
-          <div className="fconds">
-            {conditions.map((condition, i) => (
-              <ConditionRow
-                key={i}
-                schema={{ fields: own }}
-                condition={condition}
-                records={records}
-                onChange={(next) => setConditions(conditions.map((c, j) => (j === i ? next : c)))}
-                onRemove={() => setConditions(conditions.filter((_, j) => j !== i))}
-              />
-            ))}
-            <button type="button" className="cond-add" onClick={() => setConditions([...conditions, { field: own[0]!.key, op: opsFor(own[0]!.type)[0]! }])}>
-              {t('collection.addCondition')}
-            </button>
-            {conditions.length > 0 && <p className="dialog-hint">{t('filter.fieldsNote')}</p>}
-          </div>
-        </div>
-      )}
-      <div className="frow">
-        <span>{t('filter.contains')}</span>
-        <input
-          aria-label={t('filter.contains')}
-          placeholder={t('filter.containsHint')}
-          value={choices.text}
-          onChange={(event) => setChoices({ ...choices, text: event.target.value })}
-        />
-      </div>
-      <div className="dialog-actions filter-foot">
-        <span className="count">{t('filter.matching', { count: shown })}</span>
-        <button type="button" onClick={onClose}>
-          {t('dialog.cancel')}
-        </button>
-        <button type="button" className="primary" onClick={save}>
-          {t('filter.save')}
-        </button>
-      </div>
-    </Dialog>
   );
 }
 

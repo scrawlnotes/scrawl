@@ -46,7 +46,7 @@ function FolderName({ path, space = false }: { path: string; space?: boolean }) 
   );
 }
 
-export function PhoneCreate({ start = null, folders, folder, collections, onCreate, onFilter, onApp, onClose }: {
+export function PhoneCreate({ start = null, folders, folder, collections, onCreate, onApp, onClose }: {
   /** The kind chosen already, if any. */
   start?: ItemKind | null;
   /** Every place, the personal space's top first. */
@@ -57,8 +57,6 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
   collections: string[];
   /** Returns a message when the item cannot be made. */
   onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => Promise<string | null>;
-  /** A filter has a window of its own. */
-  onFilter: () => void;
   /** And so has an app. */
   onApp: () => void;
   onClose: () => void;
@@ -92,7 +90,7 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
         </div>
         <div className="mb-kinds">
           {KINDS.map((item) => (
-            <button key={item.kind} type="button" className="mb-row" onClick={() => (item.kind === 'filter' ? onFilter() : item.kind === 'app' ? onApp() : setKind(item.kind))}>
+            <button key={item.kind} type="button" className="mb-row" onClick={() => (item.kind === 'app' ? onApp() : setKind(item.kind))}>
               <Icon name={item.icon} />
               <span className="tx">
                 <b>{t(item.label)}</b>

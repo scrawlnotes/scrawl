@@ -116,6 +116,35 @@ export async function loadFilters(fs: VaultFs): Promise<TaskFilter[]> {
 
 export const saveFilters = (fs: VaultFs, filters: TaskFilter[]) => fs.writeText(FILE, serializeFilters(filters));
 
+/**
+ * The ready filters a person starts with (design/filters.md 4.3), as Todoist's: ordinary filters,
+ * changed, renamed and deleted as any. Each has its own id, so that two devices writing them before
+ * they meet keep one of each.
+ */
+export function presetFilters(): TaskFilter[] {
+  const base = { due: 'any' as DueRule, priorities: [] as Priority[], folders: [] as string[], text: '' };
+  return [
+    { ...base, id: 'p1', name: t('filter.preset.p1'), priorities: [1] },
+    { ...base, id: 'p2', name: t('filter.preset.p2'), priorities: [2] },
+    { ...base, id: 'p3', name: t('filter.preset.p3'), priorities: [3] },
+    { ...base, id: 'given-me', name: t('filter.preset.givenMe'), assignees: [GIVEN.me] },
+    { ...base, id: 'given-others', name: t('filter.preset.givenOthers'), assignees: [GIVEN.others] },
+    { ...base, id: 'no-date', name: t('filter.preset.noDate'), due: 'none' },
+  ];
+}
+
+/** Writes the ready filters where there is no filters file yet, and returns them; null when there is one. */
+export async function writePresetFilters(fs: VaultFs): Promise<TaskFilter[] | null> {
+  try {
+    await fs.readText(FILE);
+    return null;
+  } catch {
+    const presets = presetFilters();
+    await saveFilters(fs, presets);
+    return presets;
+  }
+}
+
 /** The last day of the week `today` is in. Weeks run from Monday to Sunday. */
 export function endOfWeek(today: string): string {
   const [y, m, d] = today.split('-').map(Number) as [number, number, number];
@@ -277,16 +306,20 @@ export function filterCards(filter: FilterChoices, boards: Record<string, Board>
     .filter((group) => group.cards.length > 0);
 }
 
-/** A name made of what a filter picks, for one left unnamed: `This week · p1`. `folderName` words a folder it looks in. */
-export function filterName(filter: FilterChoices, folderName: (folder: string) => string = basename): string {
+/**
+ * A name made of what a filter picks, for one left unnamed: `bug · Scrawl`, `This week · p1`.
+ * `folderName` words a folder it looks in, `personName` a person or an agent it is given to.
+ */
+export function filterName(filter: FilterChoices, folderName: (folder: string) => string = basename, personName: (id: string) => string = (id) => id): string {
   const parts: string[] = [];
+  if (filter.labels?.length) parts.push(filter.labels.join(', '));
   if (filter.due !== 'any') parts.push(t(`filter.due.${filter.due}`));
   if (filter.priorities.length > 0) {
     parts.push([...filter.priorities].sort().map((p) => (p === 4 ? t('filter.noPriority') : `p${p}`)).join(', '));
   }
-  if (filter.labels?.length) parts.push(filter.labels.join(', '));
+  const who = assigneesOf(filter).map((id) => (id === GIVEN.me ? t('filter.mine') : id === GIVEN.others ? t('filter.others') : id === GIVEN.nobody ? t('people.nobody') : personName(id)));
+  if (who.length > 0) parts.push(who.join(', '));
   if (filter.folders.length > 0) parts.push(filter.folders.map((f) => folderName(f)).join(', '));
-  if (filter.mine) parts.push(t('filter.mine'));
   if (filter.text.trim()) parts.push(`“${filter.text.trim()}”`);
   return parts.join(' · ') || t('filter.everything');
 }

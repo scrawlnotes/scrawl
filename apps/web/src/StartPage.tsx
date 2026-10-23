@@ -54,7 +54,7 @@ export function StartPage({ empty, recent, titles, filters, lists, boards, today
   boards: Record<string, Board>;
   today: string;
   actions: TaskActions;
-  /** Opens Create at the kind's second step; a filter opens its own window. */
+  /** Opens Create at the kind's second step. */
   onKind: (kind: NewKind) => void;
   /** Opens Create for a board or a collection with the template chosen. */
   onTemplate: (start: { kind: 'board'; template: Template } | { kind: 'collection'; template: CollectionTemplate }) => void;

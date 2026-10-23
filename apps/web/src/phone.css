@@ -7855,3 +7855,36 @@ body > .mb-lifted {
   height: 8px;
   background: var(--sl-side);
 }
+
+/* Filters & Labels on a phone: Browse's sections and rows; a label's row has its dot where an icon is,
+   and its section Edit labels at the right. */
+.mb-row > .lbl-dot {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  margin: 0 5px;
+}
+
+.fl-msec small {
+  margin-left: 8px;
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mb-sec.fl-msec button.fl-act {
+  width: auto;
+  padding: 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mb-head h1 .lbl-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin: 0 10px 4px 0;
+  vertical-align: middle;
+}

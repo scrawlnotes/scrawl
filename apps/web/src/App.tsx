@@ -2,6 +2,10 @@ import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type AppFile,
   asksAnything,
+  assigneesOf,
+  choosesAnything,
+  type FilterChoices,
+  filterName,
   NO_CHOICES,
   type LabelUse,
   labelUses,
@@ -72,7 +76,7 @@ import {
   WELCOME_NOTE,
 } from '@scrawlnotes/core';
 import { type EditorStats, type EditorView, type LinkTap, sizeText } from '@scrawlnotes/editor';
-import { type DragEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
   AskDialog,
@@ -81,7 +85,6 @@ import {
   ConfirmDialog,
   type ConfirmPlace,
   ContextMenu,
-  FilterDialog,
   type FolderChoice,
   type ItemKind,
   type MenuHead,
@@ -117,7 +120,14 @@ import { folderLabel, setSpaceNames,
   collectionTab,
   filterOf,
   filterTab,
+  FILTERS,
   folderOf,
+  labelIn,
+  labelOfTab,
+  labelTab,
+  NEW_FILTER,
+  spaceLabel,
+  splitLabel,
   iconOf,
   isBoardPath,
   isKeysPath,
@@ -180,13 +190,14 @@ import { pendingJoin } from './servers';
 import { Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Thing, thingsOf } from './Search';
-import { type Dated, dueLabel, type DueSubtask, FilterView, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList, TodayView } from './Tasks';
+import { type Dated, dueLabel, type DueSubtask, FilterPage, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList, TodayView } from './Tasks';
 import { Upcoming } from './Upcoming';
 import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
 import { contentsText, quote, writtenText } from './text';
-import { type Labels, LabelSheet, LabelsContext, LabelsWindow } from './labels';
-import { FilterSheet, type FilterStep } from './FilterBar';
+import { LabelDot, type Labels, LabelSheet, LabelsContext, LabelsWindow } from './labels';
+import { type Choices, type FilterPlace, FilterSheet, type FilterStep, type FolderChoice as FilterFolder } from './FilterBar';
+import { FiltersAndLabels, type LabelGroup, SaveFilterDialog } from './FiltersPage';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { TrashPreviewDialog, TrashPreviewPage } from './TrashPreview';
 import type { DescriptionHost } from './Description';
@@ -214,9 +225,35 @@ type OpenDialog =
   | { kind: 'moveTask'; list: string; id: string }
   | { kind: 'toTask'; note: string; title: string; description: string }
   | { kind: 'toCard'; note: string; title: string; description: string }
-  | { kind: 'filter'; filter: TaskFilter | null; place?: string }
+  | { kind: 'renameFilter'; filter: TaskFilter }
+  // What a new filter or a label's view picks, saved as a filter by a name; `from` is its tab.
+  | { kind: 'saveFilter'; choices: FilterChoices; from: string }
   | { kind: 'settings'; section?: SettingsSection; space?: string | null }
   | null;
+
+/** A filter page (design/filters.md 4): a saved filter as it is changed here, a new one, or a label's view. */
+interface FilterPageModel {
+  title: string;
+  /** A label's view: the label in its space. */
+  label?: string;
+  /** The saved filter shown. */
+  saved?: TaskFilter;
+  choices: FilterChoices;
+  /** What it asks besides what is picked: a label's view its label in its space. */
+  base?: Partial<FilterChoices>;
+  onChange: (choices: FilterChoices) => void;
+  /** A saved filter picks something else here than it was saved with. */
+  changed?: boolean;
+}
+
+/** A filter over everything that asks nothing yet: a new one. */
+const EVERYTHING: FilterChoices = { ...NO_CHOICES, folders: [] };
+
+/** Whether two filters pick the same: a saved filter's page changed or not. */
+const sameChoices = (a: FilterChoices, b: FilterChoices) => {
+  const key = (c: FilterChoices) => JSON.stringify([c.due, [...c.priorities].sort(), c.text.trim(), c.labels ?? [], assigneesOf(c), c.fields ?? [], c.folders]);
+  return key(a) === key(b);
+};
 
 // A tab being dragged to another place in the tab bar.
 const TAB_DRAG_TYPE = 'application/x-scrawl-tab';
@@ -338,7 +375,7 @@ export function App() {
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const desktopUpdate = useDesktopUpdate();
-  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -689,10 +726,10 @@ export function App() {
     setOpenCard({ board, id });
   };
 
-  // A filter's menu: change it, or delete it; its tasks stay where they are.
+  // A filter's menu: rename it, or delete it; its tasks stay where they are. It is changed on its page.
   const filterMenu = (event: MouseEvent, filter: TaskFilter) => openMenu(event, filterMenuItems(filter), filterTab(filter.id));
   const filterMenuItems = (filter: TaskFilter): MenuItem[] => [
-    { label: t('filter.edit'), icon: 'filter', run: () => setDialog({ kind: 'filter', filter }) },
+    { label: t('menu.rename'), icon: 'pen', run: () => setDialog({ kind: 'renameFilter', filter }) },
     {
       label: t('menu.delete'),
       icon: 'trash',
@@ -1018,14 +1055,14 @@ export function App() {
     if (folder.create) return session.moveToNewFolder(at, folder.folder);
     return folder.folder !== dirname(at) ? moveTo(at, folder.folder) : null;
   };
-  /** A tab double-clicked is renamed as its menu's Rename does; a filter's name is in its own window, and a view has none. */
+  /** A tab double-clicked is renamed as its menu's Rename does, a filter's too; a view has no name to change. */
   const renameTab = async (id: string) => {
     const filter = filters.find((each) => each.id === filterOf(id));
     const path = collectionPathOf(id) ?? pathOf(id);
     if (!filter && (!path || path === INBOX_TASKS || path === WELCOME_NOTE)) return;
     // A note opened by the clicks takes the focus a moment later; the window comes after that, so that its field keeps it.
     await session.open(id);
-    window.setTimeout(() => setDialog(filter ? { kind: 'filter', filter } : { kind: 'rename', path: path! }));
+    window.setTimeout(() => setDialog(filter ? { kind: 'renameFilter', filter } : { kind: 'rename', path: path! }));
   };
   /** Whether the item is a note (a record is one too): not a task list, a board, a keys file or a collection. */
   const isNoteFile = (path: string) => !(isTaskListPath(path) || isBoardPath(path) || isKeysPath(path) || path in collections);
@@ -1062,11 +1099,10 @@ export function App() {
     const icon = iconOf(id);
     const kinds = { note: 'create.note', tasks: 'create.tasks', board: 'create.board', keys: 'create.keys', collection: 'create.collection', filter: 'create.filter' } as const;
     const kind = t(kinds[icon as keyof typeof kinds] ?? 'create.note');
-    const where = filter ? (filter.folder ?? '') : (folderOf(id) ?? '');
     const head: MenuHead = {
       icon,
       title: nameOf(id, tabTitles, filters),
-      sub: t('phone.kindIn', { kind, folder: folderLabel(where) }),
+      sub: t('phone.kindIn', { kind, folder: filter ? t('filters.title') : folderLabel(folderOf(id) ?? '') }),
       // A note's own page, where there is no status bar, says when it was last written under its menu.
       ...(page && id === active && written !== null && { foot: writtenText(written) }),
     };
@@ -1256,14 +1292,6 @@ export function App() {
       { label: label('menu.newKeysHere', 'menu.add.keys'), icon: 'keys', run: createHere('keys') },
       { label: label('menu.newCollectionHere', 'menu.add.collection'), icon: 'collection', run: createHere('collection') },
       {
-        label: label('menu.newFilterHere', 'menu.add.filter'),
-        icon: 'filter',
-        run: () => {
-          setDrawer(false);
-          setDialog({ kind: 'filter', filter: null, place: path });
-        },
-      },
-      {
         label: label('menu.newAppHere', 'menu.add.app'),
         icon: 'app',
         apart: true,
@@ -1401,7 +1429,10 @@ export function App() {
   const [taskSheet, setTaskSheet] = useState<{ list: string; id: string; subtask: boolean } | null>(null);
   const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record' | 'assignee' | 'labels'; list: string; id: string } | null>(null);
   // On a phone, what a list or a board is filtered by, in a sheet: from the bar's button, or a chip's step.
-  const [filterSheet, setFilterSheet] = useState<{ path: string; step: FilterStep | null } | null>(null);
+  const [filterSheet, setFilterSheet] = useState<{ tab: string; step: FilterStep | null } | null>(null);
+  // A filter being made, until it is saved; a saved filter changed on its page, until it is saved or put back.
+  const [newFilter, setNewFilter] = useState<FilterChoices>(EVERYTHING);
+  const [filterDrafts, setFilterDrafts] = useState<Record<string, FilterChoices>>({});
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
   // On a phone, how Upcoming shows, and the day chosen in its month, which + adds to there; tomorrow until one is chosen.
   const [upcomingView, setUpcomingView] = useState(loadUpcomingView);
@@ -1596,7 +1627,7 @@ export function App() {
       pickRecord: (list: string, id: string) => setTaskPicker({ kind: 'record', list, id }),
       pickAssignee: (list: string, id: string) => setTaskPicker({ kind: 'assignee', list, id }),
       pickLabels: (list: string, id: string) => setTaskPicker({ kind: 'labels', list, id }),
-      pickFilter: (list: string, step: FilterStep | null = null) => setFilterSheet({ path: list, step }),
+      pickFilter: (list: string, step: FilterStep | null = null) => setFilterSheet({ tab: tasksOf(list), step }),
       quickAdd: (list: string, section: string | null, due?: string) => setQuickAdd({ list, section, due: due ?? null }),
       nameSection: (list: string, section: Section | null) => setSectionSheet({ list, section }),
       pickDay: (title: string, onPick: (due: string | null) => void) => setDayPicker({ title, onPick }),
@@ -1723,7 +1754,7 @@ export function App() {
   };
   const boardActions: BoardActions = {
     addCard: (board, input) => session.addCard(board, input),
-    pickFilter: (board, step = null) => setFilterSheet({ path: board, step }),
+    pickFilter: (board, step = null) => setFilterSheet({ tab: boardOf(board), step }),
     moveDue: (board, id, due) => taskActions.reschedule([{ board, id }], due),
     moveCard: (board, id, place) => session.moveCard(board, id, place),
     moveToColumn: (board, id, column) => {
@@ -1807,11 +1838,11 @@ export function App() {
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;
-  for (const filter of filters) {
-    counts[filterTab(filter.id)] =
-      filterTasks(filter, tasks, today, me?.id).reduce((sum, group) => sum + group.tasks.length, 0) +
-      filterCards(filter, boards, today, me?.id).reduce((sum, group) => sum + group.cards.length, 0);
-  }
+  /** How many open tasks and unfinished cards a filter page shows. */
+  const shownBy = (asked: FilterChoices) =>
+    filterTasks(asked, tasks, today, me?.id).reduce((sum, group) => sum + group.tasks.length, 0) +
+    filterCards(asked, boards, today, me?.id).reduce((sum, group) => sum + group.cards.length, 0);
+  for (const filter of filters) counts[filterTab(filter.id)] = shownBy(filter);
   const list = active ? listOf(active) : null;
   const boardPath = active ? boardPathOf(active) : null;
   const board = boardPath !== null ? boards[boardPath] : undefined;
@@ -1827,11 +1858,103 @@ export function App() {
   // And under what shows tasks, and in Search, the spaces still read.
   const still = stillOpening(reading, new Map([['', space.name ?? t('settings.personal')], ...spaces.map((each) => [each.id, each.name] as const)]));
   const isDueView = active === TODAY || active === UPCOMING;
-  const filterId = active ? filterOf(active) : null;
-  const activeFilter = filters.find((filter) => filter.id === filterId) ?? null;
+  // Where a filter over everything can look: the personal space as a whole and its top folders, then every other space as a whole.
+  const filterFolders: FilterFolder[] = ['', ...tree.filter((node) => node.kind === 'folder').map((node) => node.path), ...spaces.map((each) => inSpace(each.id, ''))].map(
+    (value) => ({ value, text: folderLabel(value), space: value === '' || (spaceOf(value) !== null && localPath(value) === '') }),
+  );
+  // Every space's labels as one: the same name in two spaces is one label.
+  const everyLabel = (): LabelUse[] => {
+    const merged = new Map<string, LabelUse>();
+    for (const path of ['', ...spaces.map((each) => inSpace(each.id, ''))]) {
+      for (const use of labelsApi.of(path)) {
+        const was = merged.get(use.name.toLowerCase());
+        merged.set(use.name.toLowerCase(), was ? { ...was, tasks: was.tasks + use.tasks, cards: was.cards + use.cards } : use);
+      }
+    }
+    return [...merged.values()];
+  };
+  // Everyone of every space, for what a filter over everything asks about who.
+  const everyone: SpacePeople | null =
+    spaces.length > 0 ? { name: '', people: [...new Map(spaces.flatMap((each) => each.people).map((person) => [person.id, person])).values()], ...(me && { me: me.id }) } : null;
+  /** The filter page a tab shows, or null when it shows none. */
+  const pageOf = (tab: string | null): FilterPageModel | null => {
+    if (!tab) return null;
+    const saved = filters.find((each) => each.id === filterOf(tab));
+    if (saved) {
+      const draft = filterDrafts[saved.id];
+      return { title: saved.name, saved, choices: draft ?? saved, onChange: (next) => setFilterDrafts((was) => ({ ...was, [saved.id]: next })), changed: !!draft && !sameChoices(draft, saved) };
+    }
+    if (tab === NEW_FILTER) return { title: t('filters.new'), choices: newFilter, onChange: setNewFilter };
+    const label = labelOfTab(tab);
+    if (label === null) return null;
+    const { space, name } = splitLabel(label);
+    return { title: name, label, choices: { ...EVERYTHING, ...labelLooks[label] }, base: { labels: [name], folders: [inSpace(space, '')] }, onChange: (next) => session.lookAtLabel(label, next) };
+  };
+  /** What a filter page asks about: where it can look, every space's labels or a label's space's people, and the boards' fields. */
+  const filterPlace = (page: FilterPageModel): FilterPlace => ({
+    path: page.label ?? '',
+    team: page.label ? peopleOf(page.label) : everyone,
+    folders: filterFolders,
+    ...(page.label ? { skip: ['labels', 'in'] } : { labels: everyLabel() }),
+    fields: filterFields({ ...page.choices, ...page.base }, boards),
+    used: (key) => [...new Set(Object.entries(boards).flatMap(([path, whole]) => boardPlace(path, whole, null).used!(key)))],
+  });
+  /** What keeps a filter page: Save for a saved filter changed, Save as filter for a new one or a label's view that picks something here. */
+  const keepOf = (tab: string, page: FilterPageModel): { label: string; run: () => void } | null => {
+    const { saved } = page;
+    if (saved) {
+      return page.changed
+        ? {
+            label: t('filters.save'),
+            run: () => {
+              session.saveFilter({ ...saved, ...page.choices, id: saved.id, name: saved.name });
+              setFilterDrafts(({ [saved.id]: _done, ...rest }) => rest);
+            },
+          }
+        : null;
+    }
+    const asked = { ...page.choices, ...page.base };
+    return choosesAnything(page.choices) || page.choices.folders.length > 0 ? { label: t('filters.saveAs'), run: () => setDialog({ kind: 'saveFilter', choices: asked, from: tab }) } : null;
+  };
+  /** The end of a filter page's chips on a computer: Save as filter, or Revert and Save. */
+  const filterEnd = (tab: string, page: FilterPageModel): ReactNode => {
+    const keep = keepOf(tab, page);
+    if (!keep) return null;
+    return (
+      <>
+        {page.saved && (
+          <button type="button" className="ghost" onClick={() => setFilterDrafts(({ [page.saved!.id]: _put, ...rest }) => rest)}>
+            {t('filters.revert')}
+          </button>
+        )}
+        <button type="button" className={page.saved ? 'primary' : 'ghost'} onClick={keep.run}>
+          {keep.label}
+        </button>
+      </>
+    );
+  };
+  /** What Filter's sheet filters on a phone, by the tab it was opened for: a list, a board or a filter page. */
+  const sheetOf = (tab: string): { place: FilterPlace; about: string; choices: Choices; onChange: (choices: Choices) => void } | null => {
+    const list = listOf(tab);
+    if (list !== null) return { place: { path: list, team: peopleOf(list) }, about: listName(list), choices: listLooks[list]?.filter ?? NO_CHOICES, onChange: (filter) => session.lookAtList(list, { filter }) };
+    const boardAt = boardPathOf(tab);
+    if (boardAt !== null && boards[boardAt]) {
+      return { place: boardPlace(boardAt, boards[boardAt], peopleOf(boardAt)), about: boardName(boardAt), choices: boardLooks[boardAt]?.filter ?? NO_CHOICES, onChange: (filter) => session.filterBoard(boardAt, filter) };
+    }
+    const page = pageOf(tab);
+    return page ? { place: filterPlace(page), about: page.title, choices: page.choices, onChange: (next) => page.onChange({ ...next, folders: next.folders ?? [] }) } : null;
+  };
+  const filterPageOn = pageOf(active);
+  // Filters & Labels: each filter's count, and every space's labels under its name, the personal space's first.
+  const filterCounts = Object.fromEntries(filters.map((filter) => [filter.id, counts[filterTab(filter.id)] ?? 0]));
+  const labelGroups: LabelGroup[] = [
+    { space: null, name: spaceLabel(null), path: '', labels: labelsApi.of('') },
+    ...spaces.map((each) => ({ space: each.id, name: each.name, path: inSpace(each.id, ''), labels: labelsApi.of(inSpace(each.id, '')) })),
+  ].filter((group, index, all) => group.labels.length > 0 || (index === 0 && all.every((each) => each.labels.length === 0)));
   /**
    * What the status bar says of a task view, after the mockups: a list's open tasks, with those due
-   * today and those late; Today's and a filter's tasks and cards, with the late ones; the trash's items.
+   * today and those late; Today's and a filter's tasks and cards, with the late ones; Filters & Labels'
+   * filters and labels; the trash's items.
    */
   const taskViewStatus = (): string[] | null => {
     const late = (day: string | null | undefined) => !!day && day < today;
@@ -1856,18 +1979,18 @@ export function App() {
       const records = dueRecordsNow.filter((d) => d.start.slice(0, 10) <= today).length;
       return [...counted(dueNow.overdue.length + dueNow.today.length + subtasks.length, cards.length, overdue), ...(records > 0 ? [t('count.records', { count: records })] : [])];
     }
-    if (activeFilter) {
-      const found = filterTasks(activeFilter, tasks, today, me?.id).flatMap((group) => group.tasks);
-      const cards = filterCards(activeFilter, boards, today, me?.id).flatMap((group) => group.cards);
+    if (filterPageOn) {
+      const asked = { ...filterPageOn.choices, ...filterPageOn.base };
+      const found = filterTasks(asked, tasks, today, me?.id).flatMap((group) => group.tasks);
+      const cards = filterCards(asked, boards, today, me?.id).flatMap((group) => group.cards);
       return counted(found.length, cards.length, found.filter((task) => late(task.due)).length + cards.filter((card) => late(card.due)).length);
     }
+    if (active === FILTERS) return [t('count.filters', { count: filters.length }), t('count.labels', { count: labelGroups.reduce((sum, group) => sum + group.labels.length, 0) })];
     if (active === TRASH) return [t('count.items', { count: trash.length })];
     return null;
   };
   // A filtered list says how many of its tasks show instead.
   const taskStatus = active && listOf(active) !== null && viewStatus ? viewStatus : taskViewStatus();
-  // Filters look in the whole personal space, or in its top-level folders, with everything inside them.
-  const topFolders = ['', ...tree.filter((node) => node.kind === 'folder').map((node) => node.path)];
 
   // The start page: nothing in any space yet, Inbox's own list and folders aside, makes it offer the
   // templates and an agent; Recent shows what is still there.
@@ -1875,6 +1998,7 @@ export function App() {
     nodes.some((node) => (node.kind === 'folder' ? holdsItems(node.children ?? []) : node.path !== INBOX_TASKS));
   const nothingYet = reading.size === 0 && !holdsItems(tree) && spaces.every((each) => !holdsItems(each.tree)) && (tasks[INBOX_TASKS]?.length ?? 0) === 0;
   const stillThere = (id: string) => {
+    if (id === FILTERS || id === NEW_FILTER || labelOfTab(id) !== null) return true;
     const filter = filterOf(id);
     if (filter !== null) return filters.some((each) => each.id === filter);
     const list = listOf(id);
@@ -2003,16 +2127,38 @@ export function App() {
         still={still}
       />
     )}
-    {activeFilter && (
-      <FilterView
-        filter={activeFilter}
+    {active === FILTERS && (
+      <FiltersAndLabels
+        filters={filters}
+        counts={filterCounts}
+        groups={labelGroups}
+        onOpenFilter={(filter) => void session.open(filterTab(filter.id))}
+        labelCount={(group, name) => shownBy({ ...EVERYTHING, labels: [name], folders: [group.path] })}
+        onOpenLabel={(group, name) => void session.open(labelTab(labelIn(group.space, name)))}
+        onAdd={() => void session.open(NEW_FILTER)}
+        onFilterMenu={filterMenu}
+        onFilterHold={(filter) => phoneItemMenu(filterTab(filter.id))}
+        onEditLabels={(group) => setLabelsOpen(group.path)}
+      />
+    )}
+    {filterPageOn && active && (
+      <FilterPage
+        key={active}
+        title={filterPageOn.title}
+        lead={filterPageOn.label ? <LabelDot path={filterPageOn.label} name={filterPageOn.title} /> : undefined}
+        {...(filterPageOn.label && { detail: spaceLabel(splitLabel(filterPageOn.label).space) })}
+        place={filterPlace(filterPageOn)}
+        choices={filterPageOn.choices}
+        base={filterPageOn.base}
+        onChange={filterPageOn.onChange}
+        end={filterEnd(active, filterPageOn)}
+        onSheet={(step) => setFilterSheet({ tab: active, step })}
         still={still}
         lists={tasks}
         boards={boards}
         today={today}
         {...(me && { me: me.id })}
         actions={taskActions}
-        onEdit={() => setDialog({ kind: 'filter', filter: activeFilter })}
       />
     )}
     {!phone && active === TRASH && (
@@ -2042,7 +2188,7 @@ export function App() {
       />
     )}
     {!phone && active === FILES && filesView}
-    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && !isDueView && !activeFilter && active !== TRASH && active !== FILES &&
+    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && !isDueView && !filterPageOn && active !== FILTERS && active !== TRASH && active !== FILES &&
       (active ? (
         <section className="placeholder">
           <h1>{labelOf(active, tabTitles, filters)}</h1>
@@ -2059,7 +2205,7 @@ export function App() {
             boards={boards}
             today={today}
             actions={taskActions}
-            onKind={(kind) => setDialog(kind === 'filter' ? { kind: 'filter', filter: null, place: createIn } : kind === 'app' ? { kind: 'newApp', folder: createIn } : { kind: 'new', start: kind })}
+            onKind={(kind) => setDialog(kind === 'app' ? { kind: 'newApp', folder: createIn } : { kind: 'new', start: kind })}
             onTemplate={(start) => setDialog({ kind: 'new', start: start.kind, template: start.template })}
             onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
             onOpen={(id) => void (id === WELCOME_NOTE ? session.openWelcome() : session.open(id))}
@@ -2253,10 +2399,13 @@ export function App() {
             onNewFolder={(name, parent) => session.newFolder(name, parent)}
             onItemMenu={phoneItemMenu}
             itemFilter={(id) => {
-              const path = listOf(id) ?? boardPathOf(id);
-              if (path === null) return null;
-              const filter = (listOf(id) !== null ? listLooks[path]?.filter : boardLooks[path]?.filter) ?? NO_CHOICES;
-              return { on: asksAnything(filter), open: () => setFilterSheet({ path, step: null }) };
+              const target = sheetOf(id);
+              return target && { on: asksAnything(target.choices), open: () => setFilterSheet({ tab: id, step: null }) };
+            }}
+            itemAction={(id) => {
+              if (id === FILTERS) return { label: t('filters.add'), icon: 'plus', run: () => void session.open(NEW_FILTER) };
+              const page = pageOf(id);
+              return page && keepOf(id, page);
             }}
             onFolderMenu={phoneFolderMenu}
             movedFolder={revealFolder?.from !== undefined && revealFolder.item !== undefined ? { from: revealFolder.from, to: revealFolder.item, at: revealFolder.at } : null}
@@ -2400,18 +2549,20 @@ export function App() {
             })()}
           {filterSheet &&
             (() => {
-              const { path, step } = filterSheet;
-              const board = boards[path];
+              const { tab, step } = filterSheet;
+              const target = sheetOf(tab);
               return (
-                <FilterSheet
-                  key={`${path}#${step ?? ''}`}
-                  place={board ? boardPlace(path, board, peopleOf(path)) : { path, team: peopleOf(path) }}
-                  about={board ? boardName(path) : listName(path)}
-                  start={step}
-                  choices={(board ? boardLooks[path]?.filter : listLooks[path]?.filter) ?? NO_CHOICES}
-                  onChange={(filter) => (board ? session.filterBoard(path, filter) : session.lookAtList(path, { filter }))}
-                  onClose={() => setFilterSheet(null)}
-                />
+                target && (
+                  <FilterSheet
+                    key={`${tab}#${step ?? ''}`}
+                    place={target.place}
+                    about={target.about}
+                    start={step}
+                    choices={target.choices}
+                    onChange={target.onChange}
+                    onClose={() => setFilterSheet(null)}
+                  />
+                )
               );
             })()}
           {taskPicker &&
@@ -2486,13 +2637,10 @@ export function App() {
             void session.open(id);
           }}
           onMove={moveAndSay}
-          onPlaceFilter={(id, folder) => session.placeFilter(id, folder)}
           onNewFolder={(name, parent) => session.newFolder(name, parent)}
           onItemMenu={itemMenu}
           onFolderMenu={folderMenu}
           onFolderAdd={folderAdd}
-          filters={filters}
-          onFilterMenu={filterMenu}
           menuTarget={menu?.target ?? null}
           spaces={spaces}
           personalName={space.name ?? t('settings.personal')}
@@ -2682,7 +2830,6 @@ export function App() {
           folder={createIn}
           collections={Object.keys(collections)}
           onCreate={create}
-          onFilter={() => setDialog({ kind: 'filter', filter: null, place: createIn })}
           onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
           onClose={closeDialog}
         />
@@ -2697,7 +2844,6 @@ export function App() {
           folder={createIn}
           collections={Object.keys(collections)}
           onCreate={create}
-          onFilter={() => setDialog({ kind: 'filter', filter: null, place: createIn })}
           onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
           onClose={closeDialog}
         />
@@ -2791,22 +2937,28 @@ export function App() {
           onClose={closeDialog}
         />
       )}
-      {dialog?.kind === 'filter' && (
-        <FilterDialog
-          filter={dialog.filter}
-          // The personal space's top folders, then every other space as a whole.
-          folders={[...topFolders, ...spaces.map((each) => inSpace(each.id, ''))]}
-          places={['', ...folderPaths(tree)]}
-          place={dialog.place ?? newFolder}
-          count={(choices) =>
-            filterTasks(choices, tasks, today, me?.id).reduce((sum, group) => sum + group.tasks.length, 0) +
-            filterCards(choices, boards, today, me?.id).reduce((sum, group) => sum + group.cards.length, 0)
-          }
-          withPeople={spaces.length > 0}
-          fields={(choices) => filterFields(choices, boards)}
-          records={(dir) => collections[dir]?.records ?? null}
-          onSave={(filter) => {
-            session.saveFilter(filter);
+      {dialog?.kind === 'renameFilter' && (
+        <RenameDialog
+          name={dialog.filter.name}
+          onSave={async (name) => {
+            if (name.trim()) session.saveFilter({ ...dialog.filter, name: name.trim() });
+            return null;
+          }}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'saveFilter' && (
+        <SaveFilterDialog
+          // A name made of what it picks, until another is typed: "bug · Scrawl".
+          name={filterName(dialog.choices, folderLabel, (id) => everyone?.people.find((person) => person.id === id)?.name ?? t('card.someone'))}
+          onSave={(name) => {
+            const from = dialog.from;
+            session.saveFilter({ ...dialog.choices, id: crypto.randomUUID(), name });
+            // A new filter becomes the one saved; a label's view stays as it is.
+            if (from === NEW_FILTER) {
+              setNewFilter(EVERYTHING);
+              void session.close(NEW_FILTER);
+            }
             setDialog(null);
           }}
           onClose={closeDialog}

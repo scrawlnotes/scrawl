@@ -613,8 +613,13 @@ describe('attachments, folders and the workspace', () => {
         'Scrawl/Tasks.tasks.json': { filter: { due: 'any', priorities: [1], text: 'crash', labels: ['bug'] } },
         'Home/Chores.tasks.json': { filter: { due: 'any', priorities: [], text: 'only text' } },
       },
+      labelLooks: { '@sp-acme/bug': { due: 'overdue', priorities: [], text: 'crash' }, waiting: { due: 'any', priorities: [], text: '' } },
     });
-    expect(await loadWorkspace(fs)).toEqual({ ...empty, lists: { 'Scrawl/Tasks.tasks.json': { filter: { due: 'any', priorities: [1], text: '', labels: ['bug'] } } } });
+    expect(await loadWorkspace(fs)).toEqual({
+      ...empty,
+      lists: { 'Scrawl/Tasks.tasks.json': { filter: { due: 'any', priorities: [1], text: '', labels: ['bug'] } } },
+      labelLooks: { '@sp-acme/bug': { due: 'overdue', priorities: [], text: '' } },
+    });
   });
 
   it('keeps what a board is filtered by with how it is looked at', async () => {

@@ -16,6 +16,7 @@ import {
   serializeFilters,
   taskMatches,
   taskPicks,
+  writePresetFilters,
 } from './filters';
 import { MemoryFs } from './fs';
 import { addTask, type Task, updateTask } from './tasks';
@@ -194,7 +195,29 @@ describe('filtering a list where it is (design/filters.md)', () => {
     );
     expect(filters).toEqual([{ id: 'f1', name: 'Bugs', due: 'any', priorities: [], folders: [], text: '', labels: ['bug'], assignees: [GIVEN.others], later: 'kept' }]);
     expect(parseFilters(serializeFilters(filters))).toEqual(filters);
-    expect(filterName({ ...all, labels: ['bug', 'waiting'], priorities: [1] })).toBe('p1 · bug, waiting');
+    expect(filterName({ ...all, labels: ['bug', 'waiting'], priorities: [1] })).toBe('bug, waiting · p1');
+    expect(filterName({ ...all, labels: ['bug'], folders: ['@sp-acme'] }, () => 'Acme')).toBe('bug · Acme');
+    expect(filterName({ ...all, assignees: [GIVEN.me, 'u-mert'] }, undefined, () => 'Mert')).toBe('Mine, Mert');
+  });
+
+  it('writes the ready filters where there is no file yet, each with its own id, and only then', async () => {
+    const fs = new MemoryFs();
+    const presets = await writePresetFilters(fs);
+    expect(presets?.map((f) => [f.id, f.name])).toEqual([
+      ['p1', 'Priority 1'],
+      ['p2', 'Priority 2'],
+      ['p3', 'Priority 3'],
+      ['given-me', 'Given to me'],
+      ['given-others', 'Given to others'],
+      ['no-date', 'No date'],
+    ]);
+    expect(await loadFilters(fs)).toEqual(presets);
+    // One deleted stays deleted: there is a file now.
+    await saveFilters(fs, presets!.slice(1));
+    expect(await writePresetFilters(fs)).toBe(null);
+    expect((await loadFilters(fs)).map((f) => f.id)).not.toContain('p1');
+    const given = presets!.find((f) => f.id === 'given-others')!;
+    expect(matchesFilter(given, 'Inbox.tasks.json', task('his', { assignee: { id: 'u-mert', name: 'Mert' } }), today, 'u-kaan')).toBe(true);
   });
 });
 

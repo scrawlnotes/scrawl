@@ -24,9 +24,7 @@ import {
   dirname,
   dueToday,
   filterCards,
-  filterFields,
   filterTasks,
-  opTakesValue,
   keyOf,
   parseCardRef,
   INBOX_TASKS,
@@ -42,7 +40,7 @@ import {
   type Section,
   sectionTasks,
   type Task,
-  type TaskFilter,
+  type FilterChoices,
   taskMatches,
   taskPicks,
   type TaskList as List,
@@ -80,7 +78,7 @@ import { priorityItems } from './PhoneTasks';
 import { DatePop, TaskComposer } from './TaskComposer';
 import { AttachButton, type DescriptionHost, DescriptionField } from './Description';
 import { ContextMenu } from './dialogs';
-import { type FilterPlace, type FilterStep, PhoneFilterChips, SearchBox, useFilter } from './FilterBar';
+import { type Choices, type FilterPlace, type FilterStep, PhoneFilterChips, SearchBox, useFilter } from './FilterBar';
 import { LabelChip, LabelDot, LabelPop, useAtLabels } from './labels';
 import { Icon, type IconName } from './Icon';
 import { StillOpening } from './Loading';
@@ -1311,9 +1309,13 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
 }
 
 /** The header and list frame the task views share, with the add row at the end of the list. */
-export function TaskPage({ title, detail, extra, bar, onAdd, onAddClick, footer, bare, adding, children }: {
+export function TaskPage({ title, lead, detail, sub, extra, bar, onAdd, onAddClick, footer, bare, adding, children }: {
   title: string;
+  /** Before the title: a label's dot. */
+  lead?: ReactNode;
   detail?: string;
+  /** A detail a phone shows too, under the title: a label's space. */
+  sub?: string;
   /** More in the header, after the detail. */
   extra?: ReactNode;
   /** Under the header: what the view is filtered by. */
@@ -1339,7 +1341,11 @@ export function TaskPage({ title, detail, extra, bar, onAdd, onAddClick, footer,
       <section className="tasks mb-tasks">
         {!bare && (
           <header className="mb-head">
-            <h1>{title}</h1>
+            <h1>
+              {lead}
+              {title}
+            </h1>
+            {sub && <small>{sub}</small>}
             {extra && <div className="mb-chips">{extra}</div>}
           </header>
         )}
@@ -1355,8 +1361,11 @@ export function TaskPage({ title, detail, extra, bar, onAdd, onAddClick, footer,
     <section className="tasks">
       {!bare && (
         <header className="th">
-          <b>{title}</b>
-          {detail && <span>{detail}</span>}
+          <b>
+            {lead}
+            {title}
+          </b>
+          {(detail ?? sub) && <span>{detail ?? sub}</span>}
           {extra}
           {(onAdd || onAddClick) && (
             <button type="button" className="add" onClick={onAddClick ?? (() => setComposing(true))}>
@@ -2050,55 +2059,58 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
 }
 
 /**
- * A saved filter: the open tasks of every list that match it, by the list they are in, after the
- * Filter view of design/mockups.html (direction A).
+ * A filter over every list and board (design/filters.md 4): the open tasks and the unfinished
+ * cards that match, by the list or the board they are in, under the Search, Filter and chips a
+ * list has. A saved filter, a new one and a label's view are all this page; the chips end with
+ * what keeps it, `end`.
  */
-export function FilterView({ filter, lists, boards, today, me, actions, onEdit, still = null }: {
-  filter: TaskFilter;
+export function FilterPage({ title, lead, detail, place, choices, base, onChange, end, onSheet, lists, boards, today, me, actions, still = null }: {
+  title: string;
+  /** Before the title: a label's dot. */
+  lead?: ReactNode;
+  /** After the title: a label's space. */
+  detail?: string;
+  place: FilterPlace;
+  /** What is picked here. */
+  choices: FilterChoices;
+  /** What the page asks besides, not picked here: a label's view its label in its space. */
+  base?: Partial<FilterChoices>;
+  onChange: (choices: FilterChoices) => void;
+  /** At the chips' end: Save as filter, or Revert and Save. */
+  end?: ReactNode;
+  /** On a phone: a chip opens its step in Filter's sheet. */
+  onSheet?: (step: FilterStep) => void;
   /** The spaces still read as the app opens, said under what is found so far. */
   still?: string | null;
   lists: Record<string, Task[]>;
   boards: Record<string, Board>;
   today: string;
-  /** The user's id, for a filter of what is given to them. */
+  /** The user's id, for what is given to them. */
   me?: string;
   actions: TaskActions;
-  onEdit: () => void;
 }) {
-  const groups = filterTasks(filter, lists, today, me);
-  const cardGroups = filterCards(filter, boards, today, me);
-  // A condition on a board's field as it reads: "Company is Acme Corp".
-  const fields = filterFields(filter, boards);
-  const asked = (filter.fields ?? []).flatMap((c) => {
-    const field = fields.find((f) => f.key === c.field);
-    if (!field) return [];
-    const value = Array.isArray(c.value) ? c.value.join(', ') : c.value === undefined ? '' : String(c.value);
-    return [`${field.label} ${t(`collection.op.${c.op}`)}${opTakesValue(c.op) ? ` ${value}` : ''}`];
-  });
-  const chips = [
-    filter.due !== 'any' && t(`filter.due.${filter.due}`),
-    ...[...filter.priorities].sort().map((p) => (p === 4 ? t('filter.noPriority') : `p${p}`)),
-    ...(filter.folders.length > 0 ? filter.folders.map((f) => folderLabel(f)) : [t('filter.allLists')]),
-    ...asked,
-    filter.text.trim() && `“${filter.text.trim()}”`,
-  ].filter(Boolean);
+  const asked: FilterChoices = { ...choices, ...base };
+  const change = (next: Choices) => onChange({ ...next, folders: next.folders ?? [] });
+  const filter = useFilter(place, choices, change, isPhone() ? undefined : end);
+  const groups = filterTasks(asked, lists, today, me);
+  const cardGroups = filterCards(asked, boards, today, me);
   return (
     <TaskPage
-      title={filter.name}
+      title={title}
+      lead={lead}
+      {...(detail && { sub: detail })}
       footer={<StillOpening text={still} />}
       extra={
-        <>
-          {chips.map((chip, i) => (
-            <span key={i} className="chip">
-              {chip}
-            </span>
-          ))}
-          <button type="button" className="ghost" onClick={onEdit}>
-            {t('filter.edit')}
-          </button>
-        </>
+        !isPhone() && (
+          <>
+            <SearchBox value={choices.text} onChange={(text) => change({ ...choices, text })} />
+            {filter.button}
+          </>
+        )
       }
+      bar={isPhone() ? <PhoneFilterChips place={place} choices={choices} onChange={change} onOpen={(step) => onSheet?.(step)} /> : filter.chips}
     >
+      {filter.menu}
       {groups.map(({ list, tasks }) => (
         <div key={list}>
           <div className="sec">

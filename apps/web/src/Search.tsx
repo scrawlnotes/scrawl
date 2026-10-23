@@ -215,7 +215,7 @@ export function thingsOf(data: SearchData): Thing[] {
     }
   }
   for (const filter of data.filters) {
-    things.push({ kind: 'filter', name: filter.name, target: { kind: 'tab', id: filterTab(filter.id) }, icon: 'filter', trail: trailOf(filter.folder ? `${filter.folder}/x` : 'x') });
+    things.push({ kind: 'filter', name: filter.name, target: { kind: 'tab', id: filterTab(filter.id) }, icon: 'filter', trail: [t('filters.title')] });
   }
   for (const file of data.files) {
     const kind = kindOf(file);

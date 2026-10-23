@@ -35,11 +35,22 @@ import { useAway, usePopPlace } from './TaskComposer';
 // picked shows as chips under the header: a chip opens its values again, × takes it off. Nothing is
 // written to a file; the device keeps it.
 
-/** What every list and board can be asked. */
-type Question = 'labels' | 'priority' | 'due' | 'assignee';
+/** What every list and board can be asked; a filter over all of them asks where too. */
+type Question = 'in' | 'labels' | 'priority' | 'due' | 'assignee';
 
 /** One question of Filter, or one of a board's fields: a row of its menu, and a chip once something is asked in it. */
 export type FilterStep = Question | `field:${string}`;
+
+/** What is picked: a list's or a board's choices, and a filter's, which looks in some folders. */
+export type Choices = PlaceChoices & { folders?: string[] };
+
+/** A place a filter can look in: a space as a whole or a folder of one, with everything inside. */
+export interface FolderChoice {
+  value: string;
+  text: string;
+  /** A space as a whole, not one of its folders. */
+  space?: boolean;
+}
 
 /** Where the filtering is: a path in the space whose labels are offered, and that space's people, none in the personal space. */
 export interface FilterPlace {
@@ -49,13 +60,22 @@ export interface FilterPlace {
   fields?: Field[];
   /** What the board's cards hold in a field, offered among its values. */
   used?: (key: string) => string[];
+  /** For a filter over everything: where it can look. */
+  folders?: FolderChoice[];
+  /** The labels offered, when they are every space's and not the path's space's. */
+  labels?: LabelUse[];
+  /** Questions not asked: a label's view does not ask for its label nor where. */
+  skip?: Question[];
 }
 
-const STEP_NAME: Record<Question, MessageKey> = { labels: 'card.labels', priority: 'filter.priority', due: 'filter.due', assignee: 'filter.assignee' };
-const STEP_ICON: Record<Question, IconName> = { labels: 'tag', priority: 'flag', due: 'calendar', assignee: 'person' };
+const STEP_NAME: Record<Question, MessageKey> = { in: 'filter.in', labels: 'card.labels', priority: 'filter.priority', due: 'filter.due', assignee: 'filter.assignee' };
+const STEP_ICON: Record<Question, IconName> = { in: 'folder', labels: 'tag', priority: 'flag', due: 'calendar', assignee: 'person' };
 
-/** The questions in the menu's order; Given to only where there are people to give work to. */
-const questionsOf = (place: FilterPlace): Question[] => ['labels', 'priority', 'due', ...(place.team ? (['assignee'] as const) : [])];
+/** The questions in the menu's order; In only for a filter over everything, Given to only where there are people to give work to. */
+const questionsOf = (place: FilterPlace): Question[] =>
+  ([...(place.folders ? (['in'] as const) : []), 'labels', 'priority', 'due', ...(place.team ? (['assignee'] as const) : [])] as Question[]).filter(
+    (question) => !place.skip?.includes(question),
+  );
 
 /** A board's fields as steps of the menu; a formula still without its formula asks nothing. */
 const fieldStepsOf = (place: FilterPlace): FilterStep[] => (place.fields ?? []).filter((f) => f.type !== 'formula' || f.formula).map((f) => `field:${f.key}` as const);
@@ -68,10 +88,10 @@ const fieldOf = (step: FilterStep, place: FilterPlace) => (isQuestion(step) ? un
 const stepName = (step: FilterStep, place: FilterPlace) => (isQuestion(step) ? t(STEP_NAME[step]) : (fieldOf(step, place)?.label ?? ''));
 
 /** The condition the choices hold on a field; one at most for each. */
-const conditionOf = (choices: PlaceChoices, key: string) => choices.fields?.find((c) => c.field === key);
+const conditionOf = (choices: Choices, key: string) => choices.fields?.find((c) => c.field === key);
 
 /** The choices with a field's condition set anew, or taken off with null. */
-function withCondition(choices: PlaceChoices, key: string, condition: Condition | null): PlaceChoices {
+function withCondition(choices: Choices, key: string, condition: Condition | null): Choices {
   const { fields: _fields, ...rest } = choices;
   const others = (choices.fields ?? []).filter((c) => c.field !== key);
   const fields = condition ? [...others, condition] : others;
@@ -79,8 +99,10 @@ function withCondition(choices: PlaceChoices, key: string, condition: Condition 
 }
 
 /** What is picked in one question, as the values the choices hold. */
-function pickedIn(step: Question, choices: PlaceChoices): string[] {
+function pickedIn(step: Question, choices: Choices): string[] {
   switch (step) {
+    case 'in':
+      return choices.folders ?? [];
     case 'labels':
       return choices.labels ?? [];
     case 'priority':
@@ -93,7 +115,7 @@ function pickedIn(step: Question, choices: PlaceChoices): string[] {
 }
 
 /** The choices with one question's picks set anew; an older filter's `mine` becomes who it is given to, and what is left empty goes. */
-function withPicked(choices: PlaceChoices, step: Question, picked: string[]): PlaceChoices {
+function withPicked(choices: Choices, step: Question, picked: string[]): Choices {
   const { labels: _labels, assignees: _assignees, mine: _mine, ...rest } = choices;
   const labels = step === 'labels' ? picked : (choices.labels ?? []);
   const assignees = step === 'assignee' ? picked : assigneesOf(choices);
@@ -101,23 +123,24 @@ function withPicked(choices: PlaceChoices, step: Question, picked: string[]): Pl
     ...rest,
     ...(step === 'priority' && { priorities: picked.map(Number) as Priority[] }),
     ...(step === 'due' && { due: (picked[0] as DueRule | undefined) ?? 'any' }),
+    ...(step === 'in' && { folders: picked }),
     ...(labels.length > 0 && { labels }),
     ...(assignees.length > 0 && { assignees }),
   };
 }
 
 /** The choices with nothing asked in a step. */
-const withNothing = (choices: PlaceChoices, step: FilterStep) => (isQuestion(step) ? withPicked(choices, step, []) : withCondition(choices, step.slice(6), null));
+const withNothing = (choices: Choices, step: FilterStep) => (isQuestion(step) ? withPicked(choices, step, []) : withCondition(choices, step.slice(6), null));
 
 /** Whether something is asked in a step: a value picked, or a field's condition that says enough. */
-function asks(step: FilterStep, choices: PlaceChoices): boolean {
+function asks(step: FilterStep, choices: Choices): boolean {
   if (isQuestion(step)) return pickedIn(step, choices).length > 0;
   const condition = conditionOf(choices, step.slice(6));
   return !!condition && isComplete(condition);
 }
 
 /** The steps something is asked in: the chips under the header. */
-export const askedSteps = (place: FilterPlace, choices: PlaceChoices) => [...questionsOf(place), ...fieldStepsOf(place)].filter((step) => asks(step, choices));
+export const askedSteps = (place: FilterPlace, choices: Choices) => [...questionsOf(place), ...fieldStepsOf(place)].filter((step) => asks(step, choices));
 
 /** Whether a picked value is the one a row stands for; a label whatever its case. */
 const same = (step: Question, a: string, b: string) => (step === 'labels' ? sameLabel(a, b) : a === b);
@@ -138,6 +161,8 @@ const nameOf = (person: Person) => person.name ?? t('settings.unnamed');
  */
 function valueRows(step: Question, place: FilterPlace, known: LabelUse[], first: string[]): ValueRow[] {
   switch (step) {
+    case 'in':
+      return (place.folders ?? []).map((folder) => ({ value: folder.value, text: folder.text, lead: <Icon name={folder.space ? 'space' : 'folder'} /> }));
     case 'labels': {
       const used = [...known].sort((a, b) => b.tasks + b.cards - (a.tasks + a.cards) || a.name.localeCompare(b.name)).map((use) => use.name);
       const names = [...first, ...used.filter((name) => !first.some((each) => sameLabel(each, name)))];
@@ -174,6 +199,7 @@ function valueRows(step: Question, place: FilterPlace, known: LabelUse[], first:
 
 /** How a picked value reads on its chip. */
 function valueText(step: Question, value: string, place: FilterPlace): string {
+  if (step === 'in') return place.folders?.find((folder) => folder.value === value)?.text ?? value;
   if (step === 'labels') return value;
   if (step === 'priority') return value === '4' ? t('filter.noPriority') : `p${value}`;
   if (step === 'due') return t(`filter.due.${value as Exclude<DueRule, 'any'>}`);
@@ -197,7 +223,7 @@ function conditionText(condition: Condition, field: Field | undefined): string {
 }
 
 /** What is asked in a step, in words: the values, or Any. */
-function summary(step: FilterStep, choices: PlaceChoices, place: FilterPlace): string {
+function summary(step: FilterStep, choices: Choices, place: FilterPlace): string {
   if (!isQuestion(step)) {
     const condition = conditionOf(choices, step.slice(6));
     return condition && isComplete(condition) ? conditionText(condition, fieldOf(step, place)) : t('filter.any');
@@ -226,8 +252,9 @@ type ValueBox = { kind: 'number' | 'text' | 'date' | 'time'; value: string; set:
  * field's are what can be asked of it, one at a time, then its values: a choice's or a link's to
  * pick, any of them matching, or a box to type one in; a day takes Today too.
  */
-function useStep(step: FilterStep | null, place: FilterPlace, choices: PlaceChoices, onChange: (choices: PlaceChoices) => void, query: string, first: string[]) {
-  const known = useLabels().of(place.path);
+function useStep(step: FilterStep | null, place: FilterPlace, choices: Choices, onChange: (choices: Choices) => void, query: string, first: string[]) {
+  const spaceLabels = useLabels().of(place.path);
+  const known = place.labels ?? spaceLabels;
   const typed = query.trim().toLowerCase();
   if (!step) return { rows: [] as StepRow[], finds: false, box: null as ValueBox | null };
   if (isQuestion(step)) {
@@ -301,8 +328,8 @@ export function FilterMenu({ anchor, place, start, choices, onChange, onClose }:
   anchor: HTMLElement;
   place: FilterPlace;
   start: FilterStep | null;
-  choices: PlaceChoices;
-  onChange: (choices: PlaceChoices) => void;
+  choices: Choices;
+  onChange: (choices: Choices) => void;
   onClose: () => void;
 }) {
   const [step, setStep] = useState(start);
@@ -468,14 +495,14 @@ export function SearchBox({ value, onChange }: { value: string; onChange: (value
 }
 
 /** What a chip says it asks: the values, a label's with its dot, or a field's condition. */
-function ChipValues({ step, choices, place }: { step: FilterStep; choices: PlaceChoices; place: FilterPlace }) {
+function ChipValues({ step, choices, place }: { step: FilterStep; choices: Choices; place: FilterPlace }) {
   if (!isQuestion(step)) return <b>{summary(step, choices, place)}</b>;
   return (
     <b>
       {pickedIn(step, choices).map((value, index) => (
         <Fragment key={value}>
           {index > 0 && t('list.separator')}
-          {step === 'labels' && <LabelValueDot path={place.path} name={value} />}
+          {step === 'labels' && <LabelValueDot place={place} name={value} />}
           {valueText(step, value, place)}
         </Fragment>
       ))}
@@ -488,7 +515,7 @@ function ChipValues({ step, choices, place }: { step: FilterStep; choices: Place
  * The button says how many steps are asked; a chip opens its step's rows, × takes it off; + Filter
  * opens the questions, Clear takes everything off.
  */
-export function useFilter(place: FilterPlace, choices: PlaceChoices, onChange: (choices: PlaceChoices) => void) {
+export function useFilter(place: FilterPlace, choices: Choices, onChange: (choices: Choices) => void, end?: ReactNode) {
   const [open, setOpen] = useState<{ step: FilterStep | null; anchor: HTMLElement } | null>(null);
   const asked = askedSteps(place, choices);
   /** Whether the menu is open from this element. */
@@ -509,7 +536,7 @@ export function useFilter(place: FilterPlace, choices: PlaceChoices, onChange: (
       {asked.length > 0 ? t('filter.buttonCount', { count: asked.length }) : t('filter.button')}
     </button>
   );
-  const chips = asked.length > 0 && (
+  const chips = (asked.length > 0 || !!end) && (
     <div className="fx-bar">
       {asked.map((step) => (
         <span key={step} data-step={step} className={open?.anchor.dataset.step === step ? 'fx-chip open' : 'fx-chip'}>
@@ -532,26 +559,29 @@ export function useFilter(place: FilterPlace, choices: PlaceChoices, onChange: (
         <Icon name="plus" />
         {t('filter.button')}
       </button>
-      <button
-        type="button"
-        className="fx-clear"
-        onClick={() => {
-          setOpen(null);
-          onChange({ ...NO_CHOICES, text: choices.text });
-        }}
-      >
-        {t('filter.clear')}
-      </button>
+      {asked.length > 0 && (
+        <button
+          type="button"
+          className="fx-clear"
+          onClick={() => {
+            setOpen(null);
+            onChange({ ...NO_CHOICES, text: choices.text });
+          }}
+        >
+          {t('filter.clear')}
+        </button>
+      )}
+      {end && <span className="fx-end">{end}</span>}
     </div>
   );
   const menu = open && <FilterMenu anchor={open.anchor} place={place} start={open.step} choices={choices} onChange={onChange} onClose={() => setOpen(null)} />;
   return { button, chips, menu };
 }
 
-/** A picked label's dot on its chip, in the color its space gives it. */
-function LabelValueDot({ path, name }: { path: string; name: string }) {
-  const known = useLabels().of(path);
-  return <i className="lbl-dot" style={hueStyle(labelColor(name, known), name)} aria-hidden="true" />;
+/** A picked label's dot on its chip, in the color its space gives it, or the one every space's labels give it. */
+function LabelValueDot({ place, name }: { place: FilterPlace; name: string }) {
+  const spaceLabels = useLabels().of(place.path);
+  return <i className="lbl-dot" style={hueStyle(labelColor(name, place.labels ?? spaceLabels), name)} aria-hidden="true" />;
 }
 
 /**
@@ -561,8 +591,8 @@ function LabelValueDot({ path, name }: { path: string; name: string }) {
  */
 export function PhoneFilterChips({ place, choices, onChange, onOpen }: {
   place: FilterPlace;
-  choices: PlaceChoices;
-  onChange: (choices: PlaceChoices) => void;
+  choices: Choices;
+  onChange: (choices: Choices) => void;
   onOpen: (step: FilterStep) => void;
 }) {
   const asked = askedSteps(place, choices);
@@ -597,8 +627,8 @@ export function FilterSheet({ place, about, start = null, choices, onChange, onC
   /** What is filtered, said beside the title. */
   about?: string;
   start?: FilterStep | null;
-  choices: PlaceChoices;
-  onChange: (choices: PlaceChoices) => void;
+  choices: Choices;
+  onChange: (choices: Choices) => void;
   onClose: () => void;
 }) {
   const [step, setStep] = useState(start);
@@ -639,8 +669,8 @@ export function FilterSheet({ place, about, start = null, choices, onChange, onC
               <Icon name="search" />
               <input
                 type="search"
-                aria-label={t(place.fields ? 'filter.findCards' : 'filter.findTasks')}
-                placeholder={t(place.fields ? 'filter.findCards' : 'filter.findTasks')}
+                aria-label={t(place.folders ? 'filter.findBoth' : place.fields ? 'filter.findCards' : 'filter.findTasks')}
+                placeholder={t(place.folders ? 'filter.findBoth' : place.fields ? 'filter.findCards' : 'filter.findTasks')}
                 enterKeyHint="done"
                 autoComplete="off"
                 value={choices.text}

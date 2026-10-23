@@ -1,11 +1,11 @@
-import { DEFAULT_LOOK, dirname, droppedSpaces, type FolderLook, INBOX_TASKS, isUnder, type NodeTimes, inSpace, listName, localPath, shownName, sortedNodes, spaceOf, type TaskFilter, type TreeNode } from '@scrawlnotes/core';
+import { DEFAULT_LOOK, dirname, droppedSpaces, type FolderLook, INBOX_TASKS, isUnder, type NodeTimes, inSpace, listName, localPath, shownName, sortedNodes, spaceOf, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { LATEST_RELEASE } from './desktopUpdate';
 import { cutShort, useHoverTip } from './HoverTip';
 import { Icon, type IconName } from './Icon';
 import { Spin } from './Loading';
-import { collectionTab, countItems, FILES, filterTab, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { collectionTab, countItems, FILES, FILTERS, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { isDesktop } from './storage';
 import type { SpaceSyncView } from './sync';
@@ -13,8 +13,6 @@ import { percent, signInAsk, signInFresh } from './SyncViews';
 
 // A note, a task list, a board, a keys file, a collection or a folder being dragged into a folder.
 const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
-/** A saved filter being dragged into a folder of the personal space, where filters sit. */
-const FILTER_DRAG_TYPE = 'application/x-scrawl-filter';
 /** How long a closed folder is held over, while something is dragged, before it opens. */
 const OPEN_WHILE_DRAGGING = 700;
 /** A space's heading being dragged to another place among the spaces. */
@@ -55,8 +53,6 @@ interface Props {
   onOpen: (id: string) => void;
   /** Something dropped on a folder, a space's heading or a row, which puts it in that row's folder. */
   onMove: (path: string, folder: string) => void;
-  /** A saved filter dropped in a folder of the personal space; `''` is its top. */
-  onPlaceFilter: (id: string, folder: string) => void;
   /** Makes a folder in `parent`, at the top for `''`; returns a message when it cannot. */
   onNewFolder: (name: string, parent: string) => Promise<string | null>;
   /** A right click on a note, a task list or a folder. */
@@ -65,9 +61,6 @@ interface Props {
   onFolderMenu: (event: MouseEvent, path: string, addFolder?: () => void) => void;
   /** A folder's +: what can be made in it; `addFolder` starts naming a folder inside it, under its row. */
   onFolderAdd: (event: MouseEvent, path: string, addFolder: () => void) => void;
-  /** The saved filters, under Today and Upcoming. */
-  filters: TaskFilter[];
-  onFilterMenu: (event: MouseEvent, filter: TaskFilter) => void;
   /** Opens the settings; `settingsOpen` while they are open on any section but Spaces. */
   onSettings: () => void;
   settingsOpen: boolean;
@@ -118,15 +111,6 @@ const FOLDED = 'scrawl.side.folded';
 /** How far in a row is: each level of folders one step. */
 const indent = (depth: number) => ({ '--d': depth }) as CSSProperties;
 
-/** Every folder of the tree, by path. */
-function folderPathsOf(nodes: TreeNode[], into = new Set<string>()): Set<string> {
-  for (const node of nodes) {
-    if (node.kind !== 'folder') continue;
-    into.add(node.path);
-    folderPathsOf(node.children ?? [], into);
-  }
-  return into;
-}
 
 /** One tree: views over everything on top, then each space under its heading, the personal one first with its Inbox. */
 export function Sidebar({
@@ -136,13 +120,10 @@ export function Sidebar({
   counts,
   onOpen,
   onMove,
-  onPlaceFilter,
   onNewFolder,
   onItemMenu,
   onFolderMenu,
   onFolderAdd,
-  filters,
-  onFilterMenu,
   onSettings,
   settingsOpen,
   onSync,
@@ -181,9 +162,8 @@ export function Sidebar({
   // The folder something dragged would go in, `''` for the personal space's top; its row is
   // marked, and so are the rows beside which it would go.
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  // What is being dragged among the rows: a folder does not go into itself, a filter only into the
-  // personal space, and nothing goes where it already is.
-  const dragged = useRef<{ path: string } | { filter: string; folder: string } | null>(null);
+  // What is being dragged among the rows: a folder does not go into itself, and nothing goes where it already is.
+  const dragged = useRef<{ path: string } | null>(null);
   // A closed folder held over while something is dragged, which opens after a moment.
   const opening = useRef<{ path: string; timer: number } | null>(null);
   // A space dragged among the others: the heading it would go before or after, by its id, the
@@ -422,14 +402,13 @@ export function Sidebar({
 
   /**
    * Whether what is dragged can go in `folder`: not where it already is, a folder not into itself
-   * or a folder inside it, a filter only into the personal space. Something dragged from elsewhere,
-   * not known here, is let in, and the move says why when it cannot be.
+   * or a folder inside it. Something dragged from elsewhere, not known here, is let in, and the move
+   * says why when it cannot be.
    */
   const canDrop = (folder: string, types: readonly string[]) => {
     const now = dragged.current;
-    if (types.includes(FILTER_DRAG_TYPE)) return !now || ('filter' in now && spaceOf(folder) === null && folder !== now.folder);
     if (!types.includes(ITEM_DRAG_TYPE)) return false;
-    return !now || ('path' in now && dirname(now.path) !== folder && !isUnder(folder, now.path));
+    return !now || (dirname(now.path) !== folder && !isUnder(folder, now.path));
   };
 
   // A folder, a space's heading or a row takes what is dropped on it into its folder: a row's
@@ -447,10 +426,8 @@ export function Sidebar({
       setDropTarget(null);
       stopOpening();
       if (!canDrop(folder, event.dataTransfer.types)) return;
-      const filter = event.dataTransfer.getData(FILTER_DRAG_TYPE);
       const path = event.dataTransfer.getData(ITEM_DRAG_TYPE);
-      if (filter) onPlaceFilter(filter, folder);
-      else if (path) onMove(path, folder);
+      if (path) onMove(path, folder);
     },
   });
 
@@ -462,7 +439,7 @@ export function Sidebar({
       onDragOver: (event: DragEvent) => {
         drop.onDragOver(event);
         const now = dragged.current;
-        const into = !now || !('path' in now) || !isUnder(path, now.path);
+        const into = !now || !isUnder(path, now.path);
         if (open || !into || opening.current?.path === path) return;
         stopOpening();
         const timer = window.setTimeout(() => {
@@ -559,42 +536,7 @@ export function Sidebar({
     </>
   );
 
-  // The saved filters sit in their folders; one in none, or in a folder that is gone, at the personal
-  // space's top. One is dragged to another folder of the personal space, and what is dropped on it
-  // goes in its folder.
-  const folderPaths = folderPathsOf(tree);
-  const placeOf = (filter: TaskFilter) => (filter.folder && folderPaths.has(filter.folder) ? filter.folder : '');
-  const filterDrag = (filter: TaskFilter) => ({
-    draggable: true,
-    onDragStart: (event: DragEvent) => {
-      event.dataTransfer.setData(FILTER_DRAG_TYPE, filter.id);
-      event.dataTransfer.effectAllowed = 'move';
-      dragged.current = { filter: filter.id, folder: placeOf(filter) };
-    },
-    onDragEnd: () => {
-      dragged.current = null;
-      setDropTarget(null);
-      stopOpening();
-    },
-  });
-  const filterRows = (folder: string, depth: number) =>
-    filters
-      .filter((filter) => placeOf(filter) === folder)
-      .map((filter) =>
-        viewRow(
-          filterTab(filter.id),
-          <>
-            <i className="it-pad" />
-            <Icon name="filter" />
-            <span>{filter.name}</span>
-          </>,
-          depth,
-          (event) => onFilterMenu(event, filter),
-          { ...filterDrag(filter), ...dropProps(folder), className: besideDrop(folder) },
-        ),
-      );
-
-  // A folder being added in a folder is named at the top of what it holds; its filters come first.
+  // A folder being added in a folder is named at the top of what it holds.
   const folderRow = (node: TreeNode, depth: number): ReactNode => {
     const open = opened.has(node.path);
     return (
@@ -614,15 +556,14 @@ export function Sidebar({
           {viewAndAdd((event) => folderMenu(event, node.path), (event) => folderAdd(event, node.path))}
         </div>
         {open && addingIn === node.path && folderForm(depth + 1)}
-        {open && filterRows(node.path, depth + 1)}
         {open && children(node, depth + 1, true)}
         {open && node.reading && loadingRow(depth + 1)}
       </div>
     );
   };
 
-  // The personal space: its own task list, Inbox, first, as Todoist's; then its filters and what is
-  // at its top, folders and the rest.
+  // The personal space: its own task list, Inbox, first, as Todoist's; then what is at its top,
+  // folders and the rest.
   const personal = (depth: number) => (
     <>
       {viewRow(
@@ -636,7 +577,6 @@ export function Sidebar({
         undefined,
         { ...dropProps(''), className: besideDrop('') },
       )}
-      {filterRows('', depth)}
       {rows(
         '',
         tree.filter((node) => node.path !== INBOX_TASKS),
@@ -768,6 +708,7 @@ export function Sidebar({
         </button>
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
+        {viewRow(FILTERS, <span>{t('filters.title')}</span>, 0)}
         {spaceRow(null, personalName)}
         {!folded.has(spaceKey(null)) && syncOf(null)?.phase === 'signedOut' && signInRow(syncOf(null)!)}
         {!folded.has(spaceKey(null)) && addingIn === '' && folderForm(1)}

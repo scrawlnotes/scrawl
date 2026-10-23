@@ -1,4 +1,4 @@
-import { basename, BOARD_EXT, boardName, collectionName, dirname, isScratchNote, KEYS_EXT, keysName, listName, localPath, shownName, spaceOf, TASK_LIST_EXT, type TaskFilter, type TreeNode, WELCOME_NOTE } from '@scrawlnotes/core';
+import { basename, BOARD_EXT, boardName, collectionName, dirname, inSpace, isScratchNote, KEYS_EXT, keysName, listName, localPath, shownName, spaceOf, TASK_LIST_EXT, type TaskFilter, type TreeNode, WELCOME_NOTE } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import type { IconName } from './Icon';
 
@@ -8,16 +8,30 @@ export const TODAY = 'view:today';
 export const UPCOMING = 'view:upcoming';
 export const TRASH = 'view:trash';
 export const FILES = 'view:files';
+/** Filters & Labels: the saved filters and every space's labels (design/filters.md 4). */
+export const FILTERS = 'view:filters';
+/** A filter being made, over every list and board, until it is saved. */
+export const NEW_FILTER = 'view:new-filter';
 const TASKS = 'tasks:';
 const BOARD = 'board:';
 const KEYS = 'keys:';
 const FILTER = 'filter:';
 const COLLECTION = 'collection:';
+const LABEL = 'label:';
 
 /** The tab of a saved filter, by its id. */
 export const filterTab = (id: string) => `${FILTER}${id}`;
 /** The id of the filter a tab shows, or null for any other tab. */
 export const filterOf = (tab: string) => (tab.startsWith(FILTER) ? tab.slice(FILTER.length) : null);
+
+/** The tab of a label's view: the label in its space, `@sp-…/bug`, or `bug` in the personal one. */
+export const labelTab = (label: string) => `${LABEL}${label}`;
+/** The label in its space a tab shows, or null for any other tab. */
+export const labelOfTab = (tab: string) => (tab.startsWith(LABEL) ? tab.slice(LABEL.length) : null);
+/** A label in its space, as its view is kept: written as a path of that space is. */
+export const labelIn = (space: string | null, name: string) => inSpace(space, name);
+/** A label in its space as its name and its space; the space null for the personal one. */
+export const splitLabel = (label: string) => ({ space: spaceOf(label), name: localPath(label) });
 
 /** The tab of a task list, by the path of its file. */
 export const tasksOf = (list: string) => `${TASKS}${list}`;
@@ -186,7 +200,8 @@ export function iconOf(id: string): IconName {
   if (id === TRASH) return 'trash';
   if (id === FILES) return 'clip';
   if (id.startsWith(COLLECTION)) return 'collection';
-  if (id.startsWith(FILTER)) return 'filter';
+  if (id.startsWith(FILTER) || id === FILTERS || id === NEW_FILTER) return 'filter';
+  if (id.startsWith(LABEL)) return 'tag';
   if (id.startsWith(KEYS)) return 'keys';
   return isNote(id) ? 'note' : id.startsWith(BOARD) ? 'board' : 'tasks';
 }
@@ -196,6 +211,13 @@ export function labelOf(id: string, titles: Record<string, string>, filters: Tas
   const filter = filterOf(id);
   if (filter !== null) return filters.find((f) => f.id === filter)?.name ?? t('filter.title');
   if (id === UPCOMING) return t('side.upcoming');
+  if (id === FILTERS) return t('filters.title');
+  if (id === NEW_FILTER) return t('filters.new');
+  const label = labelOfTab(id);
+  if (label !== null) {
+    const { space, name } = splitLabel(label);
+    return t('filters.inSpace', { label: name, space: spaceLabel(space) });
+  }
   if (id === TRASH) return t('side.trash');
   if (id === FILES) return t('side.files');
   const list = listOf(id);

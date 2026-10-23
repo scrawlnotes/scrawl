@@ -96,6 +96,7 @@ import {
   type PlaceChoices,
   listVersions,
   loadFilters,
+  writePresetFilters,
   loadLabels,
   colorLabel,
   relabelBoard,
@@ -354,6 +355,7 @@ import {
   setCarriedSeen,
 } from './storage';
 import { knownServers, onServersChanged, rememberServer, tellTimeZones } from './servers';
+import { keptConnection } from './sync';
 
 const SAVE_DELAY_MS = 400;
 
@@ -455,6 +457,8 @@ export interface Snapshot {
   boardLooks: Record<string, BoardLook>;
   /** What each task list is filtered by on this device, and the text it is searched for until the app closes, by the path of its file; one filtered by nothing is not here. */
   listLooks: Record<string, ListLook>;
+  /** What each label's view is filtered by besides its label, the same way, by the label in its space. */
+  labelLooks: Record<string, PlaceChoices>;
   /** How the items of a folder are put in order on this device, by its path; a space's top by its key, the personal one's by ''. */
   folderLooks: Record<string, FolderLook>;
   /** When each item of every space was made, as the app keeps it, by its path lowercased. */
@@ -721,6 +725,7 @@ export class Session {
     boards: {},
     boardLooks: {},
     listLooks: {},
+    labelLooks: {},
     folderLooks: {},
     created: {},
     keys: {},
@@ -858,7 +863,7 @@ export class Session {
     this.welcomeClosed = workspace.welcomeClosed === true;
     if (!this.welcomeClosed) await this.personal.writeText(WELCOME_NOTE, this.welcomeText());
     const welcomeHere = await welcomeThere(this.personal);
-    const filters = await loadFilters(this.personal);
+    const filters = (keptConnection() === null && (await writePresetFilters(this.personal).catch(() => null))) || (await loadFilters(this.personal));
     const space = await loadSpace(this.personal);
     // Nothing is asked at the first start: the name and the email wait for a space where others see them.
     const me = await startMe(this.personal, this.snapshot.me);
@@ -925,6 +930,7 @@ export class Session {
       boards: {},
       boardLooks: workspace.boards,
       listLooks: workspace.lists ?? {},
+      labelLooks: workspace.labelLooks ?? {},
       folderLooks: workspace.folders ?? {},
       keys: {},
       keysLooks: workspace.keys,
@@ -2229,7 +2235,7 @@ export class Session {
   }
 
   private saveWorkspace() {
-    const { tabs, active, reading, tasks, boards, boardLooks, listLooks, keys, keysLooks, collections, collectionLooks, folderLooks } = this.snapshot;
+    const { tabs, active, reading, tasks, boards, boardLooks, listLooks, labelLooks, keys, keysLooks, collections, collectionLooks, folderLooks } = this.snapshot;
     // Lists, boards, keys files and collections that are gone are forgotten; while the spaces are
     // still read, one not read yet is not gone: the opening forgets those once it has them all.
     const there = (path: string, items: Record<string, unknown>) => path in items || this.opening !== null || reading.size > 0;
@@ -2252,6 +2258,7 @@ export class Session {
           }),
       ),
       ...(Object.keys(lists).length > 0 && { lists }),
+      ...(Object.keys(labelLooks).length > 0 && { labelLooks: Object.fromEntries(Object.entries(labelLooks).map(([label, look]) => [label, { ...look, text: '' }])) }),
       keys: Object.fromEntries(Object.entries(keysLooks).filter(([path]) => there(path, keys))),
       collections: Object.fromEntries(Object.entries(collectionLooks).filter(([path]) => there(path, collections))),
       ...(this.welcomeClosed && { welcomeClosed: true }),
@@ -2331,6 +2338,13 @@ export class Session {
   /** Remembers how a board is looked at: as columns or a list, and which phase. */
   lookAtBoard(path: string, look: BoardLook) {
     this.set({ boardLooks: { ...this.snapshot.boardLooks, [path]: look } });
+    this.saveWorkspace();
+  }
+
+  /** Remembers what a label's view is filtered by besides its label, as a list's filter is remembered. */
+  lookAtLabel(label: string, filter: PlaceChoices) {
+    const { [label]: _was, ...rest } = this.snapshot.labelLooks;
+    this.set({ labelLooks: choosesAnything(filter) ? { ...rest, [label]: filter } : rest });
     this.saveWorkspace();
   }
 
@@ -2743,6 +2757,12 @@ export class Session {
     const changed = [report.downloaded, report.merged, report.conflicts, report.moved, report.removedHere].some((paths) => paths.length > 0);
     // Only this space changed: the others are not read again.
     if (changed) await this.rescan(space);
+    // The personal space's first turn has brought its filters, if it has any; where it has none, the
+    // ready ones are written (design/filters.md 4.3).
+    if (space === null) {
+      const presets = await writePresetFilters(this.personal).catch(() => null);
+      if (presets) this.set({ filters: presets });
+    }
   }
 
   /** A file moved by sync: its tab and editing state go with it. */
@@ -3350,23 +3370,13 @@ export class Session {
     this.changeList(list, (current) => moveSection(current, id, after));
   }
 
-  /** Saves a filter, a new one or a changed one, and shows it. */
+  /** Saves a filter, a new one, which it shows, or a changed one, renamed where it is. */
   saveFilter(filter: TaskFilter) {
     const { filters } = this.snapshot;
     const before = filters.find((f) => f.id === filter.id);
     const next = before ? filters.map((f) => (f.id === filter.id ? filter : f)) : [...filters, filter];
     this.writeFilters(next);
-    void this.open(filterTab(filter.id));
-    if (!before || (before.folder ?? '') !== (filter.folder ?? '')) this.placed?.(filter.folder ?? '', filterTab(filter.id));
-  }
-
-  /** Puts a saved filter in another folder of the personal space, in the sidebar; `''` is its top. Nothing opens. */
-  placeFilter(id: string, folder: string) {
-    const filter = this.snapshot.filters.find((each) => each.id === id);
-    if (!filter || (filter.folder ?? '') === folder) return;
-    const { folder: _was, ...rest } = filter;
-    this.writeFilters(this.snapshot.filters.map((each) => (each.id === id ? { ...rest, ...(folder && { folder }) } : each)));
-    this.placed?.(folder, filterTab(id));
+    if (!before) void this.open(filterTab(filter.id));
   }
 
   /** Deletes a saved filter, and closes its tab; its tasks stay where they are. The interface asks first. */

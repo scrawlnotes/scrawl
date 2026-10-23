@@ -106,6 +106,8 @@ export interface Workspace {
   boards: Record<string, BoardLook>;
   /** By the path of each task list; only those filtered are kept. */
   lists?: Record<string, ListLook>;
+  /** What a label's view is filtered by besides its label, by the label in its space (`@sp-…/bug`, `bug` in the personal one); only those filtered are kept. */
+  labelLooks?: Record<string, PlaceChoices>;
   /** By the path of each keys file. */
   keys: Record<string, KeysLook>;
   /** By the path of each collection's folder. */
@@ -1179,6 +1181,13 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
         if (asksAnything(filter)) lists[path] = { filter };
       }
     }
+    const labelLooks: Record<string, PlaceChoices> = {};
+    if (data.labelLooks && typeof data.labelLooks === 'object') {
+      for (const [label, look] of Object.entries(data.labelLooks as Record<string, unknown>)) {
+        const filter = { ...readChoices(look), text: '' };
+        if (asksAnything(filter)) labelLooks[label] = filter;
+      }
+    }
     const keys: Record<string, KeysLook> = {};
     if (data.keys && typeof data.keys === 'object') {
       for (const [path, look] of Object.entries(data.keys as Record<string, unknown>)) {
@@ -1215,6 +1224,7 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
       active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null,
       boards,
       ...(Object.keys(lists).length > 0 && { lists }),
+      ...(Object.keys(labelLooks).length > 0 && { labelLooks }),
       keys,
       collections,
       ...(data.welcomeClosed === true && { welcomeClosed: true }),

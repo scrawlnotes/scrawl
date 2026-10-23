@@ -5,7 +5,7 @@ import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEv
 import { createPortal } from 'react-dom';
 import type { PhoneUpcomingView } from './PhoneUpcoming';
 import { Icon, type IconName } from './Icon';
-import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, filterTab, folderLabel, folderOf, iconOf, isNote, nameOf, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, FILTERS, folderLabel, folderOf, iconOf, isNote, labelOfTab, nameOf, NEW_FILTER, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAgents } from './Agents';
@@ -171,6 +171,8 @@ export interface PhoneProps {
   onItemMenu: (id: string, page?: boolean) => void;
   /** A task list's or a board's filter, for its page's bar: whether it asks anything, and what opens it; null for anything else. */
   itemFilter: (id: string) => { on: boolean; open: () => void } | null;
+  /** What keeps a filter page, in its bar: Save, or Save as filter; null for anything else, or nothing to keep. */
+  itemAction: (id: string) => { label: string; icon?: IconName; run: () => void } | null;
   /** A folder's menu; `addFolder` names a new folder in it. */
   onFolderMenu: (path: string, addFolder: () => void) => void;
   /** A folder moved or renamed, from where it was to where it is: its pages, and those of the folders in it, show it there. `at` tells one from the next. */
@@ -247,7 +249,6 @@ function saveSeen(seen: Record<string, number>) {
   }
 }
 
-
 function findFolder(nodes: TreeNode[], path: string): TreeNode | undefined {
   for (const node of nodes) {
     if (node.path === path) return node;
@@ -255,15 +256,6 @@ function findFolder(nodes: TreeNode[], path: string): TreeNode | undefined {
     if (found) return found;
   }
   return undefined;
-}
-
-function folderPaths(nodes: TreeNode[], into = new Set<string>()): Set<string> {
-  for (const node of nodes) {
-    if (node.kind !== 'folder') continue;
-    into.add(node.path);
-    folderPaths(node.children ?? [], into);
-  }
-  return into;
 }
 
 const folderName = folderLabel;
@@ -373,7 +365,8 @@ function NavBar({ back, onBack, title, scrolled, filter, onMenu, action, choose 
   /** A list's or a board's Filter, before its menu; lit while it is filtered. */
   filter?: { on: boolean; open: () => void } | null;
   onMenu?: (event: MouseEvent) => void;
-  action?: { label: string; run: () => void };
+  /** A word at the right, Save; with an icon, a button of it, Filters & Labels' +. */
+  action?: { label: string; icon?: IconName; run: () => void };
   /** Rows being chosen: Select all on the left, how many in the middle, Done on the right. */
   choose?: { count: number; all: boolean; onAll: () => void; onDone: () => void };
 }) {
@@ -410,11 +403,16 @@ function NavBar({ back, onBack, title, scrolled, filter, onMenu, action, choose 
           <Icon name="more" />
         </button>
       )}
-      {action && (
-        <button type="button" className="mb-done" onClick={action.run}>
-          {action.label}
-        </button>
-      )}
+      {action &&
+        (action.icon ? (
+          <button type="button" className="mb-ib" aria-label={action.label} title={action.label} onClick={action.run}>
+            <Icon name={action.icon} />
+          </button>
+        ) : (
+          <button type="button" className="mb-done" onClick={action.run}>
+            {action.label}
+          </button>
+        ))}
     </div>
   );
 }
@@ -954,17 +952,9 @@ export function Phone(props: PhoneProps) {
     return nameOf(page.id, titles, filters);
   };
 
-  const folders = folderPaths(tree);
-  // The saved filters sit in their folders; one in none, or in a folder that is gone, at the personal space's top.
-  const placeOf = (filter: TaskFilter) => (filter.folder && folders.has(filter.folder) ? filter.folder : '');
-
-  /** Where something opened is: its folder, or its space's name at the top of one. */
+  /** Where something opened is: its folder, or its space's name at the top of one; a filter is everywhere. */
   const whereOf = (id: string): ReactNode => {
-    const filter = filterOf(id);
-    if (filter !== null) {
-      const found = filters.find((each) => each.id === filter);
-      return found ? folderName(placeOf(found)) : '';
-    }
+    if (filterOf(id) !== null || id === FILTERS || id === NEW_FILTER) return '';
     // Something of another space says the space before its folder: `Acme · Sales`.
     const where = spaceWhere(pathOf(id) ?? collectionPathOf(id) ?? '');
     if (where) return where;
@@ -1106,28 +1096,15 @@ export function Phone(props: PhoneProps) {
   );
 
   const browsePage = () => {
-    // The personal space's own list, Inbox, first, then its filters; it has no menu.
-    const personalFirst = (
-      <>
-        <Row icon="tasks" label={listName(INBOX_TASKS)} right={counts[tasksOf(INBOX_TASKS)] || ''} onClick={() => openItem(tasksOf(INBOX_TASKS))} />
-        {filters
-          .filter((filter) => placeOf(filter) === '')
-          .map((filter) => (
-            <Row
-              key={filter.id}
-              icon="filter"
-              label={filter.name}
-              right={counts[filterTab(filter.id)] || ''}
-              onClick={() => openItem(filterTab(filter.id))}
-              onHold={itemHold(filterTab(filter.id))}
-            />
-          ))}
-      </>
-    );
-    // After the Phone spaces view of design/mockups.html: each space is a section, the personal one
-    // first, the others in the sidebar's order, each with what is at its top.
+    // The personal space's own list, Inbox, first; it has no menu.
+    const personalFirst = <Row icon="tasks" label={listName(INBOX_TASKS)} right={counts[tasksOf(INBOX_TASKS)] || ''} onClick={() => openItem(tasksOf(INBOX_TASKS))} />;
+    // After the Phone spaces view of design/mockups.html: Filters & Labels at the top, then each space
+    // as a section, the personal one first, the others in the sidebar's order, each with what is at its top.
     return (
       <>
+        <div className="mb-list">
+          <Row icon="filter" label={t('filters.title')} onClick={() => openItem(FILTERS)} />
+        </div>
         {spaceSection(
           'personal',
           spaceLabel(null),
@@ -1150,19 +1127,8 @@ export function Phone(props: PhoneProps) {
   const folderPage = (path: string) => {
     const node = findFolder([...tree, ...props.spaces.flatMap((space) => space.tree)], path);
     const children = inOrder(path, node?.children ?? []);
-    const placed = filters.filter((filter) => placeOf(filter) === path);
     const rows = (
       <>
-        {placed.map((filter) => (
-          <Row
-            key={filter.id}
-            icon="filter"
-            label={filter.name}
-            right={counts[filterTab(filter.id)] || ''}
-            onClick={() => openItem(filterTab(filter.id))}
-            onHold={itemHold(filterTab(filter.id))}
-          />
-        ))}
         {children.map((child) => {
             if (child.kind === 'folder') {
               return (
@@ -1192,7 +1158,7 @@ export function Phone(props: PhoneProps) {
           })}
       </>
     );
-    const empty = placed.length === 0 && children.length === 0;
+    const empty = children.length === 0;
     if (node?.reading || (!node && props.reading.has(spaceOf(path) ?? ''))) return <div className="mb-list">{loadingRow}</div>;
     if (empty && newFolderIn !== path) {
       return <Empty icon="folder" title={t('phone.emptyFolder')} text={t('phone.emptyFolderText')} action={{ label: t('create.title'), run: () => props.onCreate(path) }} />;
@@ -1455,7 +1421,9 @@ export function Phone(props: PhoneProps) {
           {...nav}
           scrolled={false}
           filter={props.itemFilter(page.id)}
-          onMenu={() => props.onItemMenu(page.id, true)}
+          action={props.itemAction(page.id) ?? undefined}
+          // Filters & Labels, a new filter and a label's view have no menu.
+          {...(page.id !== FILTERS && page.id !== NEW_FILTER && labelOfTab(page.id) === null && { onMenu: () => props.onItemMenu(page.id, true) })}
         />
         <div
           className="mb-holder"
