@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   asksAnything,
+  choosesAnything,
   endOfWeek,
   type FilterChoices,
   filterName,
@@ -103,7 +104,7 @@ describe('filters', () => {
 });
 
 import { addCard, moveCardToKind, newBoard, updateCard } from './board';
-import { filterCards, filterFields } from './filters';
+import { cardMatches, filterCards, filterFields } from './filters';
 
 describe('filtering a list where it is (design/filters.md)', () => {
   const kaan = { id: 'u-kaan', name: 'Kaan' };
@@ -155,6 +156,11 @@ describe('filtering a list where it is (design/filters.md)', () => {
     expect(asksAnything({ ...NO_CHOICES, assignees: [GIVEN.nobody] })).toBe(true);
     expect(asksAnything({ ...NO_CHOICES, due: 'none' })).toBe(true);
     expect(asksAnything({ ...NO_CHOICES, text: 'loan' })).toBe(true);
+    // A condition still without its value asks nothing, but is chosen: the look keeps it while it is picked.
+    const picking = { ...NO_CHOICES, fields: [{ field: 'value', op: 'gt' as const }] };
+    expect(asksAnything(picking)).toBe(false);
+    expect(choosesAnything(picking)).toBe(true);
+    expect(choosesAnything(NO_CHOICES)).toBe(false);
   });
 
   it('shows a matching subtask under its task, the task kept but not matching', () => {
@@ -249,5 +255,18 @@ describe("filters on boards' fields", () => {
     const read = parseFilters(serializeFilters([{ ...big, id: 'f', name: 'Big' }]))[0]!;
     expect(read.fields).toEqual(big.fields);
     expect('fields' in parseFilters(serializeFilters([{ ...all, id: 'g', name: 'All' }]))[0]!).toBe(false);
+  });
+
+  it('filter a board where it is: its fields, labels and who, finished cards too', () => {
+    let board = deals();
+    board = updateCard(board, 'k1', { labels: ['Pilot'], assignee: { id: 'u-mert', name: 'Mert' } }, now);
+    board = moveCardToKind(board, 'k2', 'done', now);
+    const titles = (choices: Parameters<typeof cardMatches>[0]) => board.cards.filter((card) => cardMatches(choices, board, card, today, 'u-kaan')).map((card) => card.title);
+    expect(titles({ ...NO_CHOICES, fields: [{ field: 'value', op: 'gt', value: 20000 }] })).toEqual(['Annual plan']);
+    expect(titles({ ...NO_CHOICES, labels: ['pilot'] })).toEqual(['Pilot']);
+    expect(titles({ ...NO_CHOICES, assignees: [GIVEN.others] })).toEqual(['Pilot']);
+    expect(titles({ ...NO_CHOICES, assignees: [GIVEN.nobody], text: 'plan' })).toEqual(['Annual plan']);
+    // A field the board does not have leaves every card out.
+    expect(titles({ ...NO_CHOICES, fields: [{ field: 'estimate', op: 'empty' }] })).toEqual([]);
   });
 });

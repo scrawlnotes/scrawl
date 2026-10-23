@@ -617,6 +617,23 @@ describe('attachments, folders and the workspace', () => {
     expect(await loadWorkspace(fs)).toEqual({ ...empty, lists: { 'Scrawl/Tasks.tasks.json': { filter: { due: 'any', priorities: [1], text: '', labels: ['bug'] } } } });
   });
 
+  it('keeps what a board is filtered by with how it is looked at', async () => {
+    const fs = new MemoryFs();
+    const empty = { tabs: [], active: null, keys: {}, collections: {} };
+    const fields = [{ field: 'estimate', op: 'gt' as const, value: 3 }];
+    await saveWorkspace(fs, {
+      ...empty,
+      boards: {
+        'Scrawl/Roadmap.board.json': { view: 'list', filter: { due: 'any', priorities: [], text: 'csv', labels: ['board'], fields } },
+        'Home/Plan.board.json': { view: 'board', filter: { due: 'any', priorities: [], text: 'only text' } },
+      },
+    });
+    expect((await loadWorkspace(fs)).boards).toEqual({
+      'Scrawl/Roadmap.board.json': { view: 'list', filter: { due: 'any', priorities: [], text: '', labels: ['board'], fields } },
+      'Home/Plan.board.json': { view: 'board' },
+    });
+  });
+
   it('keeps the onboarding note on the device until it is closed', async () => {
     const fs = new MemoryFs();
     await fs.writeText(WELCOME_NOTE, '# Welcome to Scrawl\n');

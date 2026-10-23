@@ -169,8 +169,8 @@ export interface PhoneProps {
   onNewFolder: (name: string, parent: string) => Promise<string | null>;
   /** The menu of something open, or of a filter, as an action sheet; `page` when it comes from its page's ···. */
   onItemMenu: (id: string, page?: boolean) => void;
-  /** A task list's filter, for its page's bar: whether it asks anything, and what opens it; null for what is not a list. */
-  listFilter: (id: string) => { on: boolean; open: () => void } | null;
+  /** A task list's or a board's filter, for its page's bar: whether it asks anything, and what opens it; null for anything else. */
+  itemFilter: (id: string) => { on: boolean; open: () => void } | null;
   /** A folder's menu; `addFolder` names a new folder in it. */
   onFolderMenu: (path: string, addFolder: () => void) => void;
   /** A folder moved or renamed, from where it was to where it is: its pages, and those of the folders in it, show it there. `at` tells one from the next. */
@@ -370,7 +370,7 @@ function NavBar({ back, onBack, title, scrolled, filter, onMenu, action, choose 
   onBack?: () => void;
   title?: string;
   scrolled: boolean;
-  /** A list's Filter, before its menu; lit while the list is filtered. */
+  /** A list's or a board's Filter, before its menu; lit while it is filtered. */
   filter?: { on: boolean; open: () => void } | null;
   onMenu?: (event: MouseEvent) => void;
   action?: { label: string; run: () => void };
@@ -1454,7 +1454,7 @@ export function Phone(props: PhoneProps) {
         <NavBar
           {...nav}
           scrolled={false}
-          filter={props.listFilter(page.id)}
+          filter={props.itemFilter(page.id)}
           onMenu={() => props.onItemMenu(page.id, true)}
         />
         <div

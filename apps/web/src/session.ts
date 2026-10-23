@@ -36,6 +36,7 @@ import {
   ATTACHMENTS,
   type Actor,
   asksAnything,
+  choosesAnything,
   type Board,
   BOARD_EXT,
   type BoardLook,
@@ -92,6 +93,7 @@ import {
   keepVersion,
   type KeysLook,
   type ListLook,
+  type PlaceChoices,
   listVersions,
   loadFilters,
   loadLabels,
@@ -2227,22 +2229,31 @@ export class Session {
   }
 
   private saveWorkspace() {
-    const { tabs, active, tasks, boards, boardLooks, listLooks, keys, keysLooks, collections, collectionLooks, folderLooks } = this.snapshot;
-    // Boards and keys files that are gone are forgotten. A list keeps what it is filtered by, not
-    // the text it is searched for, which goes when the app does.
+    const { tabs, active, reading, tasks, boards, boardLooks, listLooks, keys, keysLooks, collections, collectionLooks, folderLooks } = this.snapshot;
+    // Lists, boards, keys files and collections that are gone are forgotten; while the spaces are
+    // still read, one not read yet is not gone: the opening forgets those once it has them all.
+    const there = (path: string, items: Record<string, unknown>) => path in items || this.opening !== null || reading.size > 0;
+    // A list and a board keep what they are filtered by, not the text searched for, which goes when the app does.
     const lists = Object.fromEntries(
       Object.entries(listLooks).flatMap(([path, look]) => {
         const filter = look.filter && { ...look.filter, text: '' };
-        return path in tasks && filter && asksAnything(filter) ? [[path, { filter }]] : [];
+        return there(path, tasks) && filter && asksAnything(filter) ? [[path, { filter }]] : [];
       }),
     );
     void saveWorkspace(this.personal, {
       tabs,
       active,
-      boards: Object.fromEntries(Object.entries(boardLooks).filter(([path]) => path in boards)),
+      boards: Object.fromEntries(
+        Object.entries(boardLooks)
+          .filter(([path]) => there(path, boards))
+          .map(([path, { filter, ...look }]) => {
+            const kept = filter && { ...filter, text: '' };
+            return [path, kept && asksAnything(kept) ? { ...look, filter: kept } : look];
+          }),
+      ),
       ...(Object.keys(lists).length > 0 && { lists }),
-      keys: Object.fromEntries(Object.entries(keysLooks).filter(([path]) => path in keys)),
-      collections: Object.fromEntries(Object.entries(collectionLooks).filter(([path]) => path in collections)),
+      keys: Object.fromEntries(Object.entries(keysLooks).filter(([path]) => there(path, keys))),
+      collections: Object.fromEntries(Object.entries(collectionLooks).filter(([path]) => there(path, collections))),
       ...(this.welcomeClosed && { welcomeClosed: true }),
       ...(Object.keys(folderLooks).length > 0 && { folders: folderLooks }),
     });
@@ -2323,10 +2334,15 @@ export class Session {
     this.saveWorkspace();
   }
 
+  /** What a board is filtered by, its other looks kept: from a phone's sheet, which the board does not hold. */
+  filterBoard(path: string, filter: PlaceChoices) {
+    this.lookAtBoard(path, { ...(this.snapshot.boardLooks[path] ?? { view: 'board' }), filter });
+  }
+
   /** Remembers what a task list is filtered by, and the text searched for until the app closes; a filter that asks nothing is forgotten. */
   lookAtList(path: string, look: ListLook) {
     const { [path]: _was, ...rest } = this.snapshot.listLooks;
-    this.set({ listLooks: look.filter && asksAnything(look.filter) ? { ...rest, [path]: look } : rest });
+    this.set({ listLooks: look.filter && choosesAnything(look.filter) ? { ...rest, [path]: look } : rest });
     this.saveWorkspace();
   }
 

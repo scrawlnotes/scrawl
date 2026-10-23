@@ -15311,3 +15311,41 @@ button.st-li:hover,
   margin-left: 8px;
   color: var(--sl-accent);
 }
+
+/* A board's fields in Filter's menu, under a line; a field's values under its conditions, a box to type one in. */
+.fx-menu .fx-sep {
+  flex: none;
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--sl-line);
+}
+
+.fx-menu .fx-cap {
+  flex: none;
+  padding: 4px 6px 2px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.fx-menu .fx-box {
+  flex: none;
+  margin: 6px 4px 2px;
+  padding: 5px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  outline: none;
+}
+
+.fx-menu .fx-box:focus {
+  border-color: var(--sl-accent);
+}
+
+/* A board filtered to nothing, under its chips. */
+.bv > .fx-empty {
+  margin: 0 26px 8px;
+}

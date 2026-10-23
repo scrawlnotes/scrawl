@@ -1867,6 +1867,8 @@ export const en = {
   'filter.nothingHereText': 'Take something off the filter, or clear it.',
   'filter.sheet': 'Filter',
   'filter.findTasks': 'Find in these tasks',
+  'filter.findCards': 'Find in these cards',
+  'filter.nothingCards': 'No cards match the filter.',
   'filter.any': 'Any',
   'tasks.search': 'Search',
   'tasks.takeOffStart': 'Take off {what}',

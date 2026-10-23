@@ -1,11 +1,14 @@
 import {
   addDays,
+  asksAnything,
+  choosesAnything,
   type Board,
   type Person,
   type BoardLook,
   columnStatus,
   type ColumnStatus,
   type Card,
+  cardMatches,
   type CardPlace,
   cardSum,
   computerFor,
@@ -25,7 +28,9 @@ import {
   isAgentId,
   isFinished,
   type NewCard,
+  NO_CHOICES,
   type Phase,
+  type PlaceChoices,
   phaseCards,
   phaseProgress,
   formatNumber,
@@ -40,7 +45,8 @@ import { useNarrow } from './narrow';
 import { StatusIcon } from './StatusIcon';
 import { MonthCalendar, type MonthChip } from './Calendar';
 import { CardPanel, type CardPanelActions } from './CardPanel';
-import { assigneeLabel, CardWho, hasCardWho, initialOf, WhoOf } from './People';
+import { assigneeLabel, CardWho, hasCardWho, initialOf, type SpacePeople, WhoOf } from './People';
+import { type FilterPlace, type FilterStep, PhoneFilterChips, SearchBox, useFilter } from './FilterBar';
 import { Cell, usedValues, type ValueContext } from './Collection';
 import { BoardFieldsDialog } from './Fields';
 import { isPhone, pageBox } from './device';
@@ -91,6 +97,27 @@ export interface BoardActions extends CardPanelActions {
   ask: (title: string, message: string, run: () => void, action: string) => void;
   /** Writes the board's own fields, its cards' choices renamed with them. */
   saveBoardFields: (board: string, fields: Field[], renames: ChoiceRenames) => void;
+  /** On a phone: what a board is filtered by, in a sheet; `step` opens one step's rows. */
+  pickFilter?: (board: string, step?: FilterStep | null) => void;
+}
+
+/**
+ * What filtering a board asks about (design/filters.md 2): its space's labels and people, its own
+ * fields, and what its cards hold in each, the most held first, offered among a field's values.
+ */
+export function boardPlace(path: string, board: Board, team: SpacePeople | null): FilterPlace {
+  const used = (key: string) => {
+    const counts = new Map<string, number>();
+    for (const card of board.cards) {
+      const value = card.values?.[key];
+      for (const each of Array.isArray(value) ? value : [value]) {
+        const word = isLink(each) ? each.name : typeof each === 'string' ? each.trim() : '';
+        if (word) counts.set(word, (counts.get(word) ?? 0) + 1);
+      }
+    }
+    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([word]) => word);
+  };
+  return { path, team, fields: board.fields ?? [], used };
 }
 
 const DRAG_TYPE = 'application/x-scrawl-card';
@@ -1310,11 +1337,13 @@ const ROW_HOLD_MS = 450;
  * picked again turning it around, and adds up the board's number, or counts the cards. A row
  * tapped opens its card; held, its actions.
  */
-function PhoneBoardList({ board, path, today, actions, onStatus, onAdd }: {
+function PhoneBoardList({ board, path, today, actions, visible, onStatus, onAdd }: {
   board: Board;
   path: string;
   today: string;
   actions: BoardActions;
+  /** The cards the filter shows. */
+  visible: (card: Card) => boolean;
   onStatus: (card: Card) => void;
   onAdd: () => void;
 }) {
@@ -1330,8 +1359,8 @@ function PhoneBoardList({ board, path, today, actions, onStatus, onAdd }: {
   // The number on the right: the one sorted by, else the board's first.
   const number = sortedBy && isNumber(sortedBy) ? sortedBy : own.find(isNumber);
   const link = own.find((field) => field.type === 'link');
-  const cards = sortCards(board, board.cards, sort, undefined, valueOf);
-  const numbers = number ? board.cards.map((card) => valueOf(card, number)).filter((v): v is number => typeof v === 'number') : [];
+  const cards = sortCards(board, board.cards.filter(visible), sort, undefined, valueOf);
+  const numbers = number ? board.cards.filter(visible).map((card) => valueOf(card, number)).filter((v): v is number => typeof v === 'number') : [];
   const total = numbers.length > 0 ? numbers.reduce((a, b) => a + b, 0) : null;
   const fields: { field: Sort['field']; label: string; icon: IconName }[] = [
     { field: 'status', label: t('list.status'), icon: 'board' },
@@ -1498,13 +1527,27 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
   const [toggled, setToggled] = useState<string[]>(look?.toggled ?? []);
   const [inFull, setInFull] = useState<string[]>(look?.inFull ?? []);
   // The look as it is now, ahead of the next draw: two changes in a row must not keep a stale one.
-  const latest = useRef({ view, shown, chosen: phaseChosen, toggled, inFull });
-  latest.current = { view, shown, chosen: phaseChosen, toggled, inFull };
+  // What the board is filtered by, with the text searched for: the device's look, which a phone's sheet changes too.
+  const asked = look?.filter ?? NO_CHOICES;
+  const latest = useRef({ view, shown, chosen: phaseChosen, toggled, inFull, filter: asked });
+  latest.current = { view, shown, chosen: phaseChosen, toggled, inFull, filter: asked };
   const remember = (next: Partial<typeof latest.current>) => {
     latest.current = { ...latest.current, ...next };
-    const { view: v, shown: s, chosen: c, toggled: g, inFull: f } = latest.current;
-    onLook({ view: v, ...(c && { phase: 'all' in s ? null : (s.phase ?? '') }), ...(g.length > 0 && { toggled: g }), ...(f.length > 0 && { inFull: f }) });
+    const { view: v, shown: s, chosen: c, toggled: g, inFull: f, filter: q } = latest.current;
+    onLook({
+      view: v,
+      ...(c && { phase: 'all' in s ? null : (s.phase ?? '') }),
+      ...(g.length > 0 && { toggled: g }),
+      ...(f.length > 0 && { inFull: f }),
+      ...(choosesAnything(q) && { filter: q }),
+    });
   };
+  const chooseFilter = (next: PlaceChoices) => remember({ filter: next });
+  const team = actions.people?.(path) ?? null;
+  const filter = useFilter(boardPlace(path, board, team), asked, chooseFilter);
+  const filtering = asksAnything(asked);
+  /** Whether the filter shows a card, in every view. */
+  const matches = (card: Card) => !filtering || cardMatches(asked, board, card, today, team?.me);
   const chooseView = (next: 'board' | 'list' | 'calendar') => {
     setView(next);
     remember({ view: next });
@@ -1562,20 +1605,22 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
   const shownPhase = 'phase' in shown ? board.phases.find((p) => p.id === shown.phase) : undefined;
   // Every phase as a lane across the columns, and a lane for cards in none when there are any.
   const unphased = phaseCards(board, null);
-  const visible = (card: Card) => ('all' in shown ? true : shown.phase === null ? unphased.includes(card) : card.phase === shown.phase);
+  const inPhase = (card: Card) => ('all' in shown ? true : shown.phase === null ? unphased.includes(card) : card.phase === shown.phase);
+  const visible = (card: Card) => inPhase(card) && matches(card);
   // The status bar, after the mockups: "Phase 3 · 4/13 done · 13 cards", the cards being those shown.
   const statusPhase = board.phasesOn ? shownPhase : undefined;
   const shownCount = board.cards.filter(visible).length;
   const progress = statusPhase ? phaseProgress(board, statusPhase.id) : null;
   // On the calendar: the cards of the month, and those with no day.
-  const dated = board.cards.filter((card) => card.due && !isFinished(board, card));
+  const dated = board.cards.filter((card) => card.due && !isFinished(board, card) && matches(card));
   const status = view === 'calendar' ? [
     t('tasks.inMonth', { what: t('count.cards', { count: dated.filter((card) => card.due!.slice(0, 7) === month).length }), month: new Date(`${month}-01T12:00:00`).toLocaleDateString(locale(), { month: 'long' }) }),
-    t('calendar.noDay', { count: board.cards.filter((card) => !card.due && !isFinished(board, card)).length }),
+    t('calendar.noDay', { count: board.cards.filter((card) => !card.due && !isFinished(board, card) && matches(card)).length }),
   ] : [
     ...(statusPhase && progress ? [t('board.phaseStatus', { phase: statusPhase.name, done: progress.done, total: progress.total })] : []),
     ...(board.phasesOn && 'phase' in shown && shown.phase === null ? [t('card.noPhase')] : []),
-    t('count.cards', { count: shownCount }),
+    // Filtered, how many of the phase's cards show.
+    filtering ? t('filter.shownOf', { shown: shownCount, all: t('count.cards', { count: board.cards.filter(inPhase).length }) }) : t('count.cards', { count: shownCount }),
   ];
   const statusKey = status.join('\u0000');
   useEffect(() => onStatus?.(status), [statusKey]);
@@ -1796,6 +1841,8 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
         </span>
         {view === 'calendar' && <MonthNav month={month} today={today} onMonth={setMonth} />}
         {waiting > 0 && <span className="wait">{t('board.toReview', { count: waiting })}</span>}
+        <SearchBox value={asked.text} onChange={(text) => chooseFilter({ ...asked, text })} />
+        {filter.button}
         <button type="button" className="ghost" onClick={() => setDesigning(true)}>
           {t('collection.fields')}
         </button>
@@ -1803,6 +1850,16 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
           {t('board.more')}
         </button>
       </header>
+      )}
+      {phone ? <PhoneFilterChips place={boardPlace(path, board, team)} choices={asked} onChange={chooseFilter} onOpen={(step) => actions.pickFilter?.(path, step)} /> : filter.chips}
+      {filter.menu}
+      {filtering && !board.cards.some(matches) && (
+        <p className="task-empty fx-empty">
+          {t('filter.nothingCards')}
+          <button type="button" onClick={() => chooseFilter(NO_CHOICES)}>
+            {t('filter.clearFilter')}
+          </button>
+        </p>
       )}
       {designing && (
         <BoardFieldsDialog board={board} path={path} collections={actions.recordActions.collections()} actions={actions} onClose={() => setDesigning(false)} />
@@ -1815,13 +1872,14 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
         </p>
       )}
       {phone && view === 'board' && <ColumnTabs columns={board.columns} counts={counts} current={onScreen} onPick={goToColumn} />}
-      {view === 'calendar' && <BoardCalendar board={board} path={path} month={month} today={today} actions={actions} />}
+      {view === 'calendar' && <BoardCalendar board={board} path={path} month={month} today={today} actions={actions} visible={matches} />}
       {view === 'list' && phone && (
         <PhoneBoardList
           board={board}
           path={path}
           today={today}
           actions={actions}
+          visible={matches}
           onStatus={setStatusFor}
           onAdd={() => setQuickAdding(board.columns[Math.min(onScreen, board.columns.length - 1)]?.id ?? null)}
         />
@@ -1833,7 +1891,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
           today={today}
           actions={actions}
           openCard={openCard}
-          visible={() => true}
+          visible={matches}
           toggled={toggled}
           inFull={inFull}
           onToggle={toggleGroup}
@@ -1863,7 +1921,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
                     board={board}
                     path={path}
                     column={column}
-                    cards={columnCards(board, column.id).filter((card) => (card.phase ?? null) === lane.id || (lane.id === null && !!card.phase && !board.phases.some((p) => p.id === card.phase)))}
+                    cards={columnCards(board, column.id).filter((card) => matches(card) && ((card.phase ?? null) === lane.id || (lane.id === null && !!card.phase && !board.phases.some((p) => p.id === card.phase))))}
                     shown={shown}
                     lane={lane.id}
                     today={today}
@@ -1983,10 +2041,18 @@ function MonthNav({ month, today, onMonth }: { month: string; today: string; onM
  * its due day with its key, in its priority's color; dragged to another day it is due then, with
  * Undo. A card has no time, so the month is all there is.
  */
-function BoardCalendar({ board, path, month, today, actions }: { board: Board; path: string; month: string; today: string; actions: BoardActions }) {
+function BoardCalendar({ board, path, month, today, actions, visible }: {
+  board: Board;
+  path: string;
+  month: string;
+  today: string;
+  actions: BoardActions;
+  /** The cards the filter shows. */
+  visible: (card: Card) => boolean;
+}) {
   const chipsOf = (day: string): MonthChip[] =>
     board.cards
-      .filter((card) => card.due === day && !isFinished(board, card))
+      .filter((card) => card.due === day && !isFinished(board, card) && visible(card))
       .sort((a, b) => a.priority - b.priority)
       .map((card) => ({
         key: card.id,

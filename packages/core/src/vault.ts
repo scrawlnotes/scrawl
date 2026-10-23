@@ -74,6 +74,8 @@ export interface BoardLook {
   toggled?: string[];
   /** In the list, the long groups shown in full, by id. */
   inFull?: string[];
+  /** What its cards are filtered by in every view, the text searched for left out (design/filters.md 2.5). */
+  filter?: PlaceChoices;
 }
 
 /** How a task list was last looked at on this device: what it is filtered by, the text it is searched for left out (design/filters.md 2.5). */
@@ -1157,13 +1159,15 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
     if (data.boards && typeof data.boards === 'object') {
       for (const [path, look] of Object.entries(data.boards as Record<string, unknown>)) {
         if (!look || typeof look !== 'object') continue;
-        const { view, phase, toggled, inFull } = look as Partial<BoardLook>;
+        const { view, phase, toggled, inFull, filter } = look as Partial<BoardLook>;
         const ids = (list: unknown) => (Array.isArray(list) ? list.filter((id): id is string => typeof id === 'string') : []);
+        const filtered = { ...readChoices(filter), text: '' };
         boards[path] = {
           view: view === 'list' || view === 'calendar' ? view : 'board',
           ...((typeof phase === 'string' || phase === null) && { phase }),
           ...(ids(toggled).length > 0 && { toggled: ids(toggled) }),
           ...(ids(inFull).length > 0 && { inFull: ids(inFull) }),
+          ...(asksAnything(filtered) && { filter: filtered }),
         };
       }
     }

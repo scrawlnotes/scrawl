@@ -96,7 +96,7 @@ import {
   RenameDialog,
   type TaskPlaceChoice,
 } from './dialogs';
-import { type BoardActions, BoardView } from './Board';
+import { type BoardActions, boardPlace, BoardView } from './Board';
 import { FormatBar } from './FormatBar';
 import { cutShort, useHoverTip } from './HoverTip';
 import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History';
@@ -1400,8 +1400,8 @@ export function App() {
   // task above the keyboard.
   const [taskSheet, setTaskSheet] = useState<{ list: string; id: string; subtask: boolean } | null>(null);
   const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record' | 'assignee' | 'labels'; list: string; id: string } | null>(null);
-  // On a phone, what a list is filtered by, in a sheet: from the bar's button, or a chip's question.
-  const [filterSheet, setFilterSheet] = useState<{ list: string; step: FilterStep | null } | null>(null);
+  // On a phone, what a list or a board is filtered by, in a sheet: from the bar's button, or a chip's step.
+  const [filterSheet, setFilterSheet] = useState<{ path: string; step: FilterStep | null } | null>(null);
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
   // On a phone, how Upcoming shows, and the day chosen in its month, which + adds to there; tomorrow until one is chosen.
   const [upcomingView, setUpcomingView] = useState(loadUpcomingView);
@@ -1596,7 +1596,7 @@ export function App() {
       pickRecord: (list: string, id: string) => setTaskPicker({ kind: 'record', list, id }),
       pickAssignee: (list: string, id: string) => setTaskPicker({ kind: 'assignee', list, id }),
       pickLabels: (list: string, id: string) => setTaskPicker({ kind: 'labels', list, id }),
-      pickFilter: (list: string, step: FilterStep | null = null) => setFilterSheet({ list, step }),
+      pickFilter: (list: string, step: FilterStep | null = null) => setFilterSheet({ path: list, step }),
       quickAdd: (list: string, section: string | null, due?: string) => setQuickAdd({ list, section, due: due ?? null }),
       nameSection: (list: string, section: Section | null) => setSectionSheet({ list, section }),
       pickDay: (title: string, onPick: (due: string | null) => void) => setDayPicker({ title, onPick }),
@@ -1723,6 +1723,7 @@ export function App() {
   };
   const boardActions: BoardActions = {
     addCard: (board, input) => session.addCard(board, input),
+    pickFilter: (board, step = null) => setFilterSheet({ path: board, step }),
     moveDue: (board, id, due) => taskActions.reschedule([{ board, id }], due),
     moveCard: (board, id, place) => session.moveCard(board, id, place),
     moveToColumn: (board, id, column) => {
@@ -2251,9 +2252,11 @@ export function App() {
             }}
             onNewFolder={(name, parent) => session.newFolder(name, parent)}
             onItemMenu={phoneItemMenu}
-            listFilter={(id) => {
-              const list = listOf(id);
-              return list === null ? null : { on: asksAnything(listLooks[list]?.filter ?? NO_CHOICES), open: () => setFilterSheet({ list, step: null }) };
+            itemFilter={(id) => {
+              const path = listOf(id) ?? boardPathOf(id);
+              if (path === null) return null;
+              const filter = (listOf(id) !== null ? listLooks[path]?.filter : boardLooks[path]?.filter) ?? NO_CHOICES;
+              return { on: asksAnything(filter), open: () => setFilterSheet({ path, step: null }) };
             }}
             onFolderMenu={phoneFolderMenu}
             movedFolder={revealFolder?.from !== undefined && revealFolder.item !== undefined ? { from: revealFolder.from, to: revealFolder.item, at: revealFolder.at } : null}
@@ -2395,17 +2398,22 @@ export function App() {
                 />
               );
             })()}
-          {filterSheet && (
-            <FilterSheet
-              key={`${filterSheet.list}#${filterSheet.step ?? ''}`}
-              place={{ path: filterSheet.list, team: peopleOf(filterSheet.list) }}
-              about={listName(filterSheet.list)}
-              start={filterSheet.step}
-              choices={listLooks[filterSheet.list]?.filter ?? NO_CHOICES}
-              onChange={(filter) => session.lookAtList(filterSheet.list, { filter })}
-              onClose={() => setFilterSheet(null)}
-            />
-          )}
+          {filterSheet &&
+            (() => {
+              const { path, step } = filterSheet;
+              const board = boards[path];
+              return (
+                <FilterSheet
+                  key={`${path}#${step ?? ''}`}
+                  place={board ? boardPlace(path, board, peopleOf(path)) : { path, team: peopleOf(path) }}
+                  about={board ? boardName(path) : listName(path)}
+                  start={step}
+                  choices={(board ? boardLooks[path]?.filter : listLooks[path]?.filter) ?? NO_CHOICES}
+                  onChange={(filter) => (board ? session.filterBoard(path, filter) : session.lookAtList(path, { filter }))}
+                  onClose={() => setFilterSheet(null)}
+                />
+              );
+            })()}
           {taskPicker &&
             (() => {
               const task = tasks[taskPicker.list]?.find((each) => each.id === taskPicker.id);

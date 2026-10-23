@@ -168,6 +168,9 @@ function givenMatches(asked: string[], ref: PersonRef | null | undefined, me: st
 const labelsMatch = (asked: string[] | undefined, labels: string[] | undefined) =>
   !asked?.length || asked.some((name) => (labels ?? []).some((label) => sameLabel(label, name)));
 
+/** Whether anything is chosen, a condition still without its value too: what a list's or a board's look keeps while it is picked. */
+export const choosesAnything = (choices: PlaceChoices) => asksAnything(choices) || !!choices.fields?.length;
+
 /** Whether a title or its description has the text, in any case; no text takes everything. */
 function textMatches(text: string, item: { title: string; description?: string }): boolean {
   const asked = text.trim().toLowerCase();
@@ -231,17 +234,24 @@ export function filterTasks(filter: FilterChoices, lists: Record<string, Task[]>
     .filter((group) => group.tasks.length > 0);
 }
 
-/** Whether a card of the board at `board` is one the filter shows: not finished, and matching as a task would. */
-export function matchesFilterCard(filter: FilterChoices, board: string, whole: Board, card: Card, today: string, me?: string): boolean {
-  if (isFinished(whole, card) || !dueMatches(filter.due, card.due, today)) return false;
-  if (!givenMatches(assigneesOf(filter), card.assignee, me)) return false;
-  if (filter.priorities.length > 0 && !filter.priorities.includes(card.priority)) return false;
-  if (!inFolders(filter.folders, dirname(board))) return false;
-  if (!labelsMatch(filter.labels, card.labels) || !textMatches(filter.text, card)) return false;
+/**
+ * Whether a card of `whole`, finished or not, is one the choices take, as a task would be, and by
+ * the board's own fields: what a board filtered where it is shows.
+ */
+export function cardMatches(choices: PlaceChoices, whole: Board, card: Card, today: string, me?: string): boolean {
+  if (!dueMatches(choices.due, card.due, today)) return false;
+  if (!givenMatches(assigneesOf(choices), card.assignee, me)) return false;
+  if (choices.priorities.length > 0 && !choices.priorities.includes(card.priority)) return false;
+  if (!labelsMatch(choices.labels, card.labels) || !textMatches(choices.text, card)) return false;
   // A condition on a field the card's board does not have leaves the card out.
   const fields = whole.fields ?? [];
   const values = { values: cardValues(whole, card) };
-  return fieldConditions(filter).every((c) => fields.some((f) => f.key === c.field) && matchesCondition(values, { fields }, c, today));
+  return fieldConditions(choices).every((c) => fields.some((f) => f.key === c.field) && matchesCondition(values, { fields }, c, today));
+}
+
+/** Whether a card of the board at `board` is one the filter shows: not finished, and matching as a task would. */
+export function matchesFilterCard(filter: FilterChoices, board: string, whole: Board, card: Card, today: string, me?: string): boolean {
+  return !isFinished(whole, card) && inFolders(filter.folders, dirname(board)) && cardMatches(filter, whole, card, today, me);
 }
 
 /** The fields the boards in a filter's folders have, by key, the first board's label and type for each: what its conditions can ask about. */
