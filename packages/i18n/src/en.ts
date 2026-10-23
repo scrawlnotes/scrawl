@@ -1797,6 +1797,7 @@ export const en = {
   'people.everyoneAndAgents': 'Everyone who has opened {space}, and the agents that have changed something in it.',
   'people.agents': 'Agents',
   'people.yours': 'yours',
+  'people.yoursAlone': 'Yours',
   'people.whose': '{name}’s',
   'people.inactive': { one: '{names} is inactive and not offered.', other: '{names} are inactive and not offered.' },
   'tasks.assignee': 'Given to',

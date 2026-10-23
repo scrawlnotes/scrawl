@@ -252,3 +252,13 @@ Sonra yayın; kararı kullanıcının. Her dilimden sonra commit sorulur. Aşama
 - **Okuyan araç kimlik oluşturmaz.** Kapının `self`'i `make: false` ile yalnız bulur: sunucuda `findIdentity`, bilgisayarda `agents.json`'a yazmadan.
 - **Rehber.** Davranış maddelerinde "değiştirdiğin her şey kendi kimliğinle yazılır", `me` ve `self`, space'in ajanları. Araç tablosunda "sana verilenler" ve "kimin ne yaptığı" satırları. Görev ve kart dosyasının anlatımında `timeline` ve `workedOn`; elle yazılmaz.
 - **Denendi.** Yerel sunucuda (localhost:8080, Acme) yeni bir Claude Code bağlantısıyla: yazmadan önce `you: null`; ROA-2'yi ve bir görevi kendine verdi, görevi bitirdi, kartı Review'a taşıdı; `assignee: "self"`, `by: "self"` ile `since`, `by: "me"`, tam kartın ve görevin `activity`'si, bulunamayan ad. Denenmedi: gerçek istemciler (Claude Code stdio, claude.ai, ChatGPT).
+
+## 14. Yazılırken: 5. dilim (Telefon)
+
+23 Ekim. Kodda; Roadmap ROA-223, deneme ROA-228.
+
+- **Kart sayfası.** Assignee satırında atananın yüzü (ajan kare) ve adı; ajanın sahibi soluk. Alanların altında Worked on: en son çalışan üstte, yüzü, adı ve zamanı. Kimse çalışmadıysa bölüm yok. Zaman çizgisi 2. dilimden beri telefonda da aynı.
+- **Atama sheet'i.** People in … altında Agents: space'in etkin ajanları, kişinin kendi ajanları önce. Her satırda istemcinin harfiyle kare, ajanın adı, altında "Yours" ya da "Mert's". Görevin, kartın ve alt görevin sheet'i aynı. Alttaki not ajanları da anar. Uzun bir başlıkta "Assign to" artık kesilmiyor; kesilen başlık.
+- **Görev sheet'i.** Given to satırında yüz ve ad; ajanın sahibi soluk. Alt görevlerin altında Activity: masaüstündeki pencerenin satırları, aynı bileşenle (`TaskEntries`). Hiç kaydı olmayan eski görevde bu bölüm yok.
+- **Satırlar.** Telefondaki görev, kart ve alt görev satırlarında ajanın sahibinin adı soluk.
+- **Denendi.** Tarayıcıda telefon boyutunda (375×812), koyu ve açık temada, yerel sunucudaki Acme ile: Launch'taki görevin sheet'i ve Activity'si, görevi Claude Code (5)'e vermek, ROA-1'in sayfası, kartın atama sheet'i. Denenmedi: iPhone.

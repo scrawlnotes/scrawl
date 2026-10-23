@@ -21,7 +21,8 @@ import { listCrumb, type MenuHead, type MenuItem, placesShown, type TaskPlaceCho
 import { Icon, type IconName } from './Icon';
 import { collectionLabel, listLabel, spaceLabel } from './items';
 import { MonthGrid, useMonth } from './MonthGrid';
-import { firstName } from './People';
+import { hasTaskActivity, TaskEntries } from './Activity';
+import { NameOf, WhoOf } from './People';
 import { ActionSheet, Sheet, SheetClose, useAdded } from './sheets';
 import { dueClass, dueLabel, type TaskActions, TitleField } from './Tasks';
 
@@ -512,7 +513,16 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
             field(
               'person',
               t('tasks.assignee'),
-              task.assignee ? firstName(task.assignee, team.people) : <span className="none">{t('people.nobody')}</span>,
+              task.assignee ? (
+                <>
+                  <WhoOf who={task.assignee} people={team.people} />
+                  <span className="tx">
+                    <NameOf who={task.assignee} people={team.people} first />
+                  </span>
+                </>
+              ) : (
+                <span className="none">{t('people.nobody')}</span>
+              ),
               () => actions.pickAssignee?.(list, task.id),
             )}
           {field(
@@ -577,6 +587,14 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
                     <span className="in">{t('tasks.addSubtask')}</span>
                   </button>
                 ))}
+            </div>
+          </>
+        )}
+        {hasTaskActivity(task) && (
+          <>
+            <div className="mb-cap">{t('tasks.activity')}</div>
+            <div className="mb-group mb-act tlog">
+              <TaskEntries task={task} team={team} today={today} />
             </div>
           </>
         )}

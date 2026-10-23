@@ -7454,3 +7454,91 @@ body > .mb-lifted {
   background: color-mix(in srgb, var(--sl-accent) 22%, transparent);
   color: var(--sl-accent);
 }
+
+/* Who a card or a task is given to, and who worked on a card, on a phone: a round initial, an
+   agent's square; an agent's whose faint after its name (design/activity.md 4). */
+.mb-fr .who,
+.mb-act .tl-ev .who {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font: 600 10.5px/1 var(--sl-font-ui);
+}
+
+.mb-fr .who.bot,
+.mb-act .tl-ev .who.bot {
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--sl-accent) 22%, transparent);
+  color: var(--sl-accent);
+}
+
+.mb-cbody .mb-form .mb-cap {
+  margin-bottom: -6px;
+  padding: 6px 0 0;
+}
+
+.mb-worked .mb-fr .fl {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sl-fg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-cbody .mb-worked .mb-fr + .mb-fr::before {
+  left: 36px;
+}
+
+.mb-worked .mb-fr .val {
+  flex: none;
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+/* Assign to keeps its words; what is given is cut short after them. */
+.mb-people .mb-sh b {
+  flex: none;
+}
+
+.mb-people .mb-sh small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A task's activity under its sheet: what mattered on it, one short line each. */
+.mb-act {
+  padding: 4px 14px;
+}
+
+.mb-act .tl-ev {
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 0;
+  color: var(--sl-dim);
+  font-size: 14.5px;
+}
+
+.mb-act .tl-ev .tx {
+  flex: 1;
+  line-height: 1.35;
+}
+
+.mb-act .tl-ev b {
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.mb-act .tl-ev .t {
+  padding-top: 2px;
+  color: var(--sl-faint);
+  font-size: 13px;
+}

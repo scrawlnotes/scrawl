@@ -7,7 +7,8 @@ import { clockTime, pastDayLabel } from './text';
 
 // Who did what on a card or a task (design/activity.md 4): a line for each thing that mattered,
 // with the face and the name of who did it; and a task's activity in a window of its own, after
-// the Task activity view of design/mockups.html, opened from its ··· menu.
+// the Task activity view of design/mockups.html, opened from its ··· menu, and on a phone under
+// its sheet.
 
 /** A moment on a timeline: the time of day today, else the day. */
 export function when(iso: string, today: string): string {
@@ -55,13 +56,36 @@ export function GaveTo({ given, team }: { given: PersonRef | undefined; team: Sp
   );
 }
 
+/** The entries of a task's timeline its activity shows: those of a kind this version knows. */
+const taskEntries = (task: Task) => (task.timeline ?? []).filter((entry) => entry.kind !== 'unknown');
+
+/** Whether a task has anything for its activity: who made it, or an entry. */
+export const hasTaskActivity = (task: Task) => (!!task.author && !!task.created) || taskEntries(task).length > 0;
+
+/** What mattered on a task, one line each: who made it, who it was given to, done and opened again. */
+export function TaskEntries({ task, team, today }: { task: Task; team: SpacePeople | null; today: string }) {
+  return (
+    <>
+      {task.author && task.created && (
+        <ActivityLine who={task.author} team={team} at={task.created} today={today}>
+          {t('card.createdThis')}
+        </ActivityLine>
+      )}
+      {taskEntries(task).map((entry) => (
+        <ActivityLine key={entry.id} who={writerOf(entry)} team={team} at={entry.at} today={today}>
+          {entry.kind === 'assign' ? <GaveTo given={entry.given} team={team} /> : entry.kind === 'done' ? t('tasks.finishedIt') : t('tasks.reopenedIt')}
+        </ActivityLine>
+      ))}
+    </>
+  );
+}
+
 /**
  * A task's activity, in a window: who worked on it, once each, then what mattered on it, one
  * line each: who made it, who it was given to, done and opened again. Close ends it.
  */
 export function TaskActivity({ task, team, today, onClose }: { task: Task; team: SpacePeople | null; today: string; onClose: () => void }) {
   const workers = workersOf(task);
-  const entries = (task.timeline ?? []).filter((entry) => entry.kind !== 'unknown');
   return (
     <Dialog label={t('tasks.activity')} className="task-activity" onClose={onClose}>
       <h2>{t('tasks.activity')}</h2>
@@ -83,17 +107,8 @@ export function TaskActivity({ task, team, today, onClose }: { task: Task; team:
         </>
       )}
       <div className="tlog ac-log">
-        {task.author && task.created && (
-          <ActivityLine who={task.author} team={team} at={task.created} today={today}>
-            {t('card.createdThis')}
-          </ActivityLine>
-        )}
-        {entries.map((entry) => (
-          <ActivityLine key={entry.id} who={writerOf(entry)} team={team} at={entry.at} today={today}>
-            {entry.kind === 'assign' ? <GaveTo given={entry.given} team={team} /> : entry.kind === 'done' ? t('tasks.finishedIt') : t('tasks.reopenedIt')}
-          </ActivityLine>
-        ))}
-        {!task.author && entries.length === 0 && <p className="none">{t('tasks.noActivity')}</p>}
+        <TaskEntries task={task} team={team} today={today} />
+        {!hasTaskActivity(task) && <p className="none">{t('tasks.noActivity')}</p>}
       </div>
       <div className="dialog-actions">
         <button type="button" onClick={onClose}>

@@ -1,5 +1,5 @@
 import type { MovedMark, Person, PersonRef, ServerSpace } from '@scrawlnotes/core';
-import { isAgent, refOf } from '@scrawlnotes/core';
+import { isAgent, ownerName, ownerOf, refOf } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import type { MenuItem } from './dialogs';
@@ -887,8 +887,9 @@ export function PhoneAddSpaceSheet({ values, onClose }: { values: SettingsValues
 }
 
 /**
- * Giving a task or a card to someone on a phone: Nobody, then the active people of its space, the
- * one it is given to ticked; under them, who has opened the space and who is left out.
+ * Giving a task or a card to someone on a phone: Nobody, then the active people of its space, then
+ * its agents, each with whose it is, the user's first; the one it is given to ticked. Under them,
+ * who has opened the space and who is left out.
  */
 export function PeopleSheet({ about, team, current, onPick, onClose }: {
   /** What is being given: the task's or the card's title. */
@@ -901,6 +902,10 @@ export function PeopleSheet({ about, team, current, onPick, onClose }: {
   const rank = (person: Person) => (person.id === team.me ? 0 : person.name ? 1 : 2);
   const offered = team.people.filter((person) => person.active && !isAgent(person)).sort((a, b) => rank(a) - rank(b) || (a.name ?? '').localeCompare(b.name ?? '', locale()));
   const inactive = team.people.filter((person) => !person.active && !isAgent(person)).map((person) => person.name ?? t('settings.unnamed'));
+  const whose = (agent: Person) => ownerName(agent, team.people) ?? '';
+  const agents = team.people
+    .filter((person) => person.active && isAgent(person))
+    .sort((a, b) => Number(ownerOf(b.id) === team.me) - Number(ownerOf(a.id) === team.me) || whose(a).localeCompare(whose(b), locale()) || (a.name ?? '').localeCompare(b.name ?? '', locale()));
   const pick = (assignee: PersonRef | null) => {
     onPick(assignee);
     onClose();
@@ -939,8 +944,27 @@ export function PeopleSheet({ about, team, current, onPick, onClose }: {
           </button>
         ))}
       </div>
+      {agents.length > 0 && (
+        <>
+          <div className="mb-sec">
+            <span>{t('people.agents')}</span>
+          </div>
+          <div className="mb-list">
+            {agents.map((agent) => (
+              <button key={agent.id} type="button" className="mb-row person" onClick={() => pick(refOf(agent))}>
+                <Who name={agent.agent?.client ?? agent.name} agent />
+                <span className="tx">
+                  <b>{agent.name ?? agent.agent?.client ?? t('agents.unnamedAgent')}</b>
+                  <small>{ownerOf(agent.id) === team.me ? t('people.yoursAlone') : t('people.whose', { name: whose(agent).split(/\s+/)[0] || t('card.someone') })}</small>
+                </span>
+                <Tick on={current?.id === agent.id} />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <p className="mb-p">
-        {t('people.everyone', { space: team.name })}
+        {team.people.some(isAgent) ? t('people.everyoneAndAgents', { space: team.name }) : t('people.everyone', { space: team.name })}
         {inactive.length > 0 && ` ${t('people.inactive', { count: inactive.length, names: new Intl.ListFormat(locale(), { type: 'conjunction' }).format(inactive) })}`}
       </p>
     </Sheet>

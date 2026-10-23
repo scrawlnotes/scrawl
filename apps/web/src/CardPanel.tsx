@@ -1001,6 +1001,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
   const computer = computerFor(null, records.collections(), { ...records.boards(), [path]: board }, today);
   // In a space with people a card is given to one of them; in the personal space a name is typed.
   const team = actions.people?.(path) ?? null;
+  const workers = workersOf(card);
   const ctx: ValueContext = {
     records: records.records,
     collection: records.collection,
@@ -1187,8 +1188,10 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
               t('card.assignee'),
               card.assignee ? (
                 <>
-                  <span className="mb-who">{(card.assignee.name ?? '?').slice(0, 1).toUpperCase()}</span>
-                  <span className="tx">{assigneeLabel(card.assignee, actions.people?.(path)?.people)}</span>
+                  <WhoOf who={card.assignee} people={team?.people} />
+                  <span className="tx">
+                    <NameOf who={card.assignee} people={team?.people} />
+                  </span>
                 </>
               ) : (
                 <span className="none">{t('card.unassigned')}</span>
@@ -1201,6 +1204,25 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
               })}
             {(board.fields ?? []).map(fieldRow)}
           </div>
+          {workers.length > 0 && (
+            <>
+              <div className="mb-cap">{t('card.workedOn')}</div>
+              <div className="mb-group mb-worked">
+                {workers.map((worker) => {
+                  const who = { ...(worker.id && { id: worker.id }), ...(worker.name && { name: worker.name }) };
+                  return (
+                    <div key={workerKey(worker)} className="mb-fr">
+                      <WhoOf who={who} people={team?.people} />
+                      <span className="fl">
+                        <NameOf who={who} people={team?.people} first />
+                      </span>
+                      <span className="val">{when(worker.at, today)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
         <div className="mb-cap mb-cpad">{t('card.description')}</div>
         <div className="mb-cdesc" ref={host} />

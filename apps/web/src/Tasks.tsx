@@ -75,7 +75,7 @@ import { Icon, type IconName } from './Icon';
 import { StillOpening } from './Loading';
 import { boardHeading, boardLabel, boardWhere, collectionHeading, collectionLabel, collectionWhere, folderLabel, listHeading, listLabel, listWhere } from './items';
 import { TaskActivity } from './Activity';
-import { AssigneeChip, firstName, PersonPicker, type SpacePeople } from './People';
+import { AssigneeChip, NameOf, PersonPicker, type SpacePeople } from './People';
 import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
@@ -631,7 +631,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
     task.assignee && (
       <span key="who">
         <Icon name="person" />
-        {firstName(task.assignee, actions.people?.(list)?.people)}
+        <NameOf who={task.assignee} people={actions.people?.(list)?.people} first />
       </span>
     ),
     task.record && (
@@ -1786,7 +1786,7 @@ export function CardRow({ board, whole, card, today, actions, grouped, byDay }: 
               {card.assignee && (
                 <span>
                   <Icon name="person" />
-                  {firstName(card.assignee, actions.people?.(board)?.people)}
+                  <NameOf who={card.assignee} people={actions.people?.(board)?.people} first />
                 </span>
               )}
             </span>
@@ -1885,7 +1885,7 @@ export function SubtaskRow({ due, today, actions, grouped, byDay }: {
               {subtask.assignee && (
                 <span>
                   <Icon name="person" />
-                  {firstName(subtask.assignee, people)}
+                  <NameOf who={subtask.assignee} people={people} first />
                 </span>
               )}
             </span>
