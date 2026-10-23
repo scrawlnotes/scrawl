@@ -47,7 +47,7 @@ function placeName(places: TaskPlaceChoice[], list: string, section: string | nu
  * Where a picker opens: under the button that opened it, or over it where there is more room
  * below than it needs; as high as it needs, at most, and never off the window.
  */
-function usePopPlace(anchor: HTMLElement, width: number, tall: number): CSSProperties | null {
+export function usePopPlace(anchor: HTMLElement, width: number, tall: number): CSSProperties | null {
   const [place, setPlace] = useState<CSSProperties | null>(null);
   useLayoutEffect(() => {
     const measure = () => {
@@ -71,7 +71,7 @@ function usePopPlace(anchor: HTMLElement, width: number, tall: number): CSSPrope
 }
 
 /** A press anywhere but on the picker or the button that opened it closes the picker. */
-function useAway(pop: RefObject<HTMLElement | null>, anchor: HTMLElement, onClose: () => void) {
+export function useAway(pop: RefObject<HTMLElement | null>, anchor: HTMLElement, onClose: () => void) {
   const latest = useRef(onClose);
   latest.current = onClose;
   useEffect(() => {
@@ -239,6 +239,9 @@ export interface ComposerStart {
   due: string | null;
   list: string;
   section: string | null;
+  /** In a filtered list, what a new task starts with so that it shows there. */
+  priority?: Priority;
+  labels?: string[];
 }
 
 /**
@@ -265,9 +268,9 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
   // space, whose attachments its files go to; what was written comes along.
   const [added, setAdded] = useState(0);
   const [due, setDue] = useState(start.due);
-  const [priority, setPriority] = useState<Priority>(4);
+  const [priority, setPriority] = useState<Priority>(start.priority ?? 4);
   const [record, setRecord] = useState<TaskRecord | null>(null);
-  const [labels, setLabels] = useState<string[]>([]);
+  const [labels, setLabels] = useState<string[]>(start.labels ?? []);
   const [place, setPlace] = useState({ list: start.list, section: start.section });
   const [open, setOpen] = useState<{ kind: 'date' | 'place' | 'record' | 'labels'; anchor: HTMLElement } | null>(null);
   const titleField = useRef<HTMLTextAreaElement>(null);
@@ -287,7 +290,7 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
     onAdd(place.list, { title, description: description.trim() || undefined, section: place.section, due, priority, record, ...(labels.length > 0 && { labels }) });
     setTitle('');
     setDescription('');
-    setLabels([]);
+    setLabels(start.labels ?? []);
     setAdded((n) => n + 1);
     titleField.current?.focus();
   };

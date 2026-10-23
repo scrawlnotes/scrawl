@@ -18,6 +18,7 @@ import {
   retargetLinks,
   serializeSchema,
 } from './collection';
+import { asksAnything, type PlaceChoices, readChoices } from './filters';
 import { basename, dirname, type Entry, join, type PartsOptions, type VaultFs } from './fs';
 import { APP_FILE } from './apps/types';
 import { KEYS_EXT, keyCount, keysName, parseKeys } from './keys';
@@ -75,6 +76,11 @@ export interface BoardLook {
   inFull?: string[];
 }
 
+/** How a task list was last looked at on this device: what it is filtered by, the text it is searched for left out (design/filters.md 2.5). */
+export interface ListLook {
+  filter?: PlaceChoices;
+}
+
 /** How a keys file was last looked at on this device: as a table or as its text. */
 export interface KeysLook {
   view: 'table' | 'text';
@@ -96,6 +102,8 @@ export interface Workspace {
   active: string | null;
   /** By the path of each board. */
   boards: Record<string, BoardLook>;
+  /** By the path of each task list; only those filtered are kept. */
+  lists?: Record<string, ListLook>;
   /** By the path of each keys file. */
   keys: Record<string, KeysLook>;
   /** By the path of each collection's folder. */
@@ -1159,6 +1167,14 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
         };
       }
     }
+    // A list filtered by nothing is not kept, nor is the text it was searched for.
+    const lists: Record<string, ListLook> = {};
+    if (data.lists && typeof data.lists === 'object') {
+      for (const [path, look] of Object.entries(data.lists as Record<string, unknown>)) {
+        const filter = { ...readChoices((look as Partial<ListLook> | null)?.filter), text: '' };
+        if (asksAnything(filter)) lists[path] = { filter };
+      }
+    }
     const keys: Record<string, KeysLook> = {};
     if (data.keys && typeof data.keys === 'object') {
       for (const [path, look] of Object.entries(data.keys as Record<string, unknown>)) {
@@ -1194,6 +1210,7 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
       tabs,
       active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null,
       boards,
+      ...(Object.keys(lists).length > 0 && { lists }),
       keys,
       collections,
       ...(data.welcomeClosed === true && { welcomeClosed: true }),

@@ -1,14 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
+  asksAnything,
   endOfWeek,
   type FilterChoices,
   filterName,
   filterTasks,
+  GIVEN,
   loadFilters,
   matchesFilter,
+  NO_CHOICES,
   parseFilters,
+  readChoices,
   saveFilters,
   serializeFilters,
+  taskMatches,
+  taskPicks,
 } from './filters';
 import { MemoryFs } from './fs';
 import { addTask, type Task, updateTask } from './tasks';
@@ -98,6 +104,93 @@ describe('filters', () => {
 
 import { addCard, moveCardToKind, newBoard, updateCard } from './board';
 import { filterCards, filterFields } from './filters';
+
+describe('filtering a list where it is (design/filters.md)', () => {
+  const kaan = { id: 'u-kaan', name: 'Kaan' };
+  const mert = { id: 'u-mert', name: 'Mert' };
+  const claude = { id: 'a-claude', name: 'Claude Code' };
+
+  it('takes a task with any one of the labels asked, whatever their case, done or not', () => {
+    const bug = task('crash', { labels: ['Bug', 'phone'] });
+    expect(taskMatches({ ...NO_CHOICES, labels: ['bug'] }, bug, today)).toBe(true);
+    expect(taskMatches({ ...NO_CHOICES, labels: ['waiting', 'PHONE'] }, bug, today)).toBe(true);
+    expect(taskMatches({ ...NO_CHOICES, labels: ['waiting'] }, bug, today)).toBe(false);
+    expect(taskMatches({ ...NO_CHOICES, labels: ['bug'] }, task('none'), today)).toBe(false);
+    // Unlike a saved filter, a list shows what is done when it is asked to.
+    expect(taskMatches({ ...NO_CHOICES, labels: ['bug'] }, { ...bug, done: true }, today)).toBe(true);
+  });
+
+  it('takes a task by who it is given to: me, others, a person or an agent by id, or no one', () => {
+    const mine = task('mine', { assignee: kaan });
+    const his = task('his', { assignee: mert });
+    const agents = task('agents', { assignee: claude });
+    const nobodys = task('nobodys');
+    const by = (assignees: string[]) => [mine, his, agents, nobodys].filter((each) => taskMatches({ ...NO_CHOICES, assignees }, each, today, kaan.id)).map((each) => each.id);
+    expect(by([GIVEN.me])).toEqual(['mine']);
+    expect(by([GIVEN.others])).toEqual(['his', 'agents']);
+    expect(by([GIVEN.nobody])).toEqual(['nobodys']);
+    expect(by([mert.id, claude.id])).toEqual(['his', 'agents']);
+    expect(by([GIVEN.me, GIVEN.nobody])).toEqual(['mine', 'nobodys']);
+    expect(by([])).toEqual(['mine', 'his', 'agents', 'nobodys']);
+    // An older filter's mine is the user.
+    expect(taskMatches({ ...NO_CHOICES, mine: true }, his, today, kaan.id)).toBe(false);
+    // Asking for someone, a task given to them by name only is no one's to the user.
+    expect(taskMatches({ ...NO_CHOICES, assignees: [GIVEN.others] }, task('named', { assignee: { name: 'Mina' } }), today, kaan.id)).toBe(true);
+  });
+
+  it('asks all its choices at once, the text with them', () => {
+    const t1 = task('Fix the sync crash', { labels: ['bug'], priority: 1, due: '2026-10-06' });
+    expect(taskMatches({ ...NO_CHOICES, labels: ['bug'], priorities: [1], due: 'overdue', text: 'SYNC' }, t1, today)).toBe(true);
+    expect(taskMatches({ ...NO_CHOICES, labels: ['bug'], priorities: [2] }, t1, today)).toBe(false);
+    expect(taskMatches({ ...NO_CHOICES, labels: ['bug'], text: 'editor' }, t1, today)).toBe(false);
+    // A condition on a board's field takes no task.
+    expect(taskMatches({ ...NO_CHOICES, fields: [{ field: 'estimate', op: 'gt', value: 3 }] }, t1, today)).toBe(false);
+  });
+
+  it('says whether choices ask anything', () => {
+    expect(asksAnything(NO_CHOICES)).toBe(false);
+    expect(asksAnything({ ...NO_CHOICES, text: '  ' })).toBe(false);
+    expect(asksAnything({ ...NO_CHOICES, labels: [] })).toBe(false);
+    expect(asksAnything({ ...NO_CHOICES, labels: ['bug'] })).toBe(true);
+    expect(asksAnything({ ...NO_CHOICES, assignees: [GIVEN.nobody] })).toBe(true);
+    expect(asksAnything({ ...NO_CHOICES, due: 'none' })).toBe(true);
+    expect(asksAnything({ ...NO_CHOICES, text: 'loan' })).toBe(true);
+  });
+
+  it('shows a matching subtask under its task, the task kept but not matching', () => {
+    const tasks = [
+      task('release'),
+      task('notes', { parent: 'release', labels: ['bug'] }),
+      task('upload', { parent: 'release' }),
+      task('crash', { labels: ['bug'] }),
+      task('steps', { parent: 'crash' }),
+      task('other'),
+    ];
+    const picks = taskPicks(tasks, (each) => !!each.labels?.includes('bug'));
+    expect(Object.fromEntries(picks)).toEqual({ release: false, notes: true, crash: true });
+  });
+
+  it('reads choices from a file, leaving out what is not one of them', () => {
+    expect(readChoices(undefined)).toEqual(NO_CHOICES);
+    expect(readChoices({ due: 'soon', priorities: [1, 7, '2'], labels: ['bug', '', 3, ' '], assignees: [GIVEN.me], text: 4 })).toEqual({
+      due: 'any',
+      priorities: [1],
+      text: '',
+      labels: ['bug'],
+      assignees: [GIVEN.me],
+    });
+    expect(readChoices({ due: 'week', labels: [], mine: true })).toEqual({ due: 'week', priorities: [], text: '', mine: true });
+  });
+
+  it('keeps a saved filter’s labels and who it asks for through its file', () => {
+    const filters = parseFilters(
+      JSON.stringify({ filters: [{ id: 'f1', name: 'Bugs', due: 'any', priorities: [], folders: [], text: '', labels: ['bug'], assignees: [GIVEN.others], later: 'kept' }] }),
+    );
+    expect(filters).toEqual([{ id: 'f1', name: 'Bugs', due: 'any', priorities: [], folders: [], text: '', labels: ['bug'], assignees: [GIVEN.others], later: 'kept' }]);
+    expect(parseFilters(serializeFilters(filters))).toEqual(filters);
+    expect(filterName({ ...all, labels: ['bug', 'waiting'], priorities: [1] })).toBe('p1 · bug, waiting');
+  });
+});
 
 describe('filterCards', () => {
   it('shows the cards that match, not finished ones, by board', () => {

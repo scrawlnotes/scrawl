@@ -1,5 +1,6 @@
 import {
   addDays,
+  asksAnything,
   atMinutes,
   basename,
   type Board,
@@ -29,21 +30,28 @@ import {
   keyOf,
   parseCardRef,
   INBOX_TASKS,
+  GIVEN,
   listName,
+  type ListLook,
   MAX_DEPTH,
   type NewTask,
+  NO_CHOICES,
+  type PlaceChoices,
   type Priority,
   progressOf,
   type Section,
   sectionTasks,
   type Task,
   type TaskFilter,
+  taskMatches,
+  taskPicks,
   type TaskList as List,
   type TaskPatch,
   type TaskPlace,
   type TaskRecord,
   type Record as CollectionRecord,
   recordTitle,
+  refName,
   dropFile,
   filesIn,
 } from '@scrawlnotes/core';
@@ -72,6 +80,7 @@ import { priorityItems } from './PhoneTasks';
 import { DatePop, TaskComposer } from './TaskComposer';
 import { AttachButton, type DescriptionHost, DescriptionField } from './Description';
 import { ContextMenu } from './dialogs';
+import { type FilterPlace, type FilterStep, PhoneFilterChips, SearchBox, useFilter } from './FilterBar';
 import { LabelChip, LabelDot, LabelPop, useAtLabels } from './labels';
 import { Icon, type IconName } from './Icon';
 import { StillOpening } from './Loading';
@@ -161,6 +170,10 @@ export interface TaskActions {
   openRecord: (collection: string, id: string) => void;
   /** The people of the space a list is in, to give its tasks to; null in the personal space, which is only you. */
   people?: (list: string) => SpacePeople | null;
+  /** Says something for a moment, with a button that does `action`: in the status bar, on a phone over the page. */
+  notify?: (text: string, action?: { label: string; run: () => void }) => void;
+  /** On a phone: what a list is filtered by, in a sheet; `step` opens one question's values. */
+  pickFilter?: (list: string, step?: FilterStep | null) => void;
   /** On a phone: opens a task as a sheet; `subtask` starts a new subtask in it. */
   open?: (list: string, id: string, subtask?: boolean) => void;
   /** On a phone: the date of a task, picked in a sheet. */
@@ -362,28 +375,51 @@ export function nextWeek(today: string): string {
 /** The buttons under a row being typed keep the focus in it, so pressing them is not leaving it. */
 const keepTyping = (event: MouseEvent) => event.preventDefault();
 
+/** What a task added to a filtered list starts with besides its name, so that it shows there (design/filters.md 2.4). */
+export type TaskStart = Pick<NewTask, 'labels' | 'priority' | 'due' | 'assignee'>;
+
+/** The start without its labels, which the row keeps as the ones picked with @. */
+const keptOf = ({ labels: _labels, ...kept }: TaskStart = {}): TaskStart => kept;
+
 /**
  * The row a new task is typed into. Add task, or Enter, adds it and keeps the row for the next one.
  * With `labelsAt`, `@` in it puts labels of that list's space on what is added; they show
- * beside its buttons.
+ * beside its buttons. In a filtered list it starts with what `start` gives, shown there too; a
+ * click takes one off.
  */
-export function Composer({ placeholder, addLabel = t('tasks.add'), labelsAt, onAdd, onClose }: {
+export function Composer({ placeholder, addLabel = t('tasks.add'), labelsAt, start, people, today, onAdd, onClose }: {
   placeholder: string;
   addLabel?: string;
   labelsAt?: string;
-  onAdd: (title: string, labels: string[]) => void;
+  start?: TaskStart;
+  /** The people a start's assignee is named among. */
+  people?: SpacePeople | null;
+  /** For a start's day, said as the rows say it. */
+  today?: string;
+  onAdd: (title: string, labels: string[], kept: TaskStart) => void;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState('');
-  const [picked, setPicked] = useState<string[]>([]);
+  const [picked, setPicked] = useState<string[]>(start?.labels ?? []);
+  const [kept, setKept] = useState<TaskStart>(() => keptOf(start));
   const field = useRef<HTMLTextAreaElement>(null);
   const at = useAtLabels({ path: labelsAt ?? '', field, value: title, onValue: setTitle, picked, onPick: (name) => setPicked((now) => [...now, name]) });
   const add = () => {
     if (!title.trim()) return;
-    onAdd(title, picked);
+    onAdd(title, picked, kept);
     setTitle('');
-    setPicked([]);
+    setPicked(start?.labels ?? []);
+    setKept(keptOf(start));
   };
+  const drop = (key: keyof TaskStart) => {
+    const { [key]: _gone, ...rest } = kept;
+    setKept(rest);
+  };
+  const keptChip = (key: keyof TaskStart, text: string, className: string) => (
+    <button key={key} type="button" className="lbl-off" title={t('tasks.takeOffStart', { what: text })} onMouseDown={keepTyping} onClick={() => drop(key)}>
+      <span className={className}>{text}</span>
+    </button>
+  );
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (labelsAt && at.keyDown(event)) return;
     if (event.key === 'Enter') add();
@@ -406,17 +442,21 @@ export function Composer({ placeholder, addLabel = t('tasks.add'), labelsAt, onA
         onChange={setTitle}
         onSelect={labelsAt ? at.track : undefined}
         onKeyDown={onKey}
-        onBlur={() => !title.trim() && picked.length === 0 && onClose()}
+        onBlur={() => !title.trim() && picked.length === (start?.labels?.length ?? 0) && onClose()}
       />
       {labelsAt && at.list}
       <div className="edit-foot">
-        {labelsAt && picked.length > 0 && (
+        {((labelsAt && picked.length > 0) || Object.keys(kept).length > 0) && (
           <span className="lbls">
-            {picked.map((name) => (
-              <button key={name} type="button" className="lbl-off" title={t('tasks.takeOffLabel', { label: name })} onMouseDown={keepTyping} onClick={() => setPicked(picked.filter((each) => each !== name))}>
-                <LabelChip path={labelsAt} name={name} />
-              </button>
-            ))}
+            {kept.priority && kept.priority < 4 && keptChip('priority', `p${kept.priority}`, `kept p${kept.priority}`)}
+            {kept.due && keptChip('due', dueLabel(kept.due, today ?? kept.due), 'kept')}
+            {kept.assignee && keptChip('assignee', refName(kept.assignee, people?.people ?? []) ?? t('card.someone'), 'kept')}
+            {labelsAt &&
+              picked.map((name) => (
+                <button key={name} type="button" className="lbl-off" title={t('tasks.takeOffLabel', { label: name })} onMouseDown={keepTyping} onClick={() => setPicked(picked.filter((each) => each !== name))}>
+                  <LabelChip path={labelsAt} name={name} />
+                </button>
+              ))}
           </span>
         )}
         <button type="button" className="ghost" onMouseDown={keepTyping} onClick={onClose}>
@@ -504,6 +544,8 @@ interface ItemProps {
   byDay?: boolean;
   /** In a list, where tasks can be dragged to another place. */
   drag?: DragHandlers;
+  /** In a filtered list, the tasks it shows: true for one that matches, false for one shown only for a subtask under it that does. */
+  picks?: Map<string, boolean> | null;
 }
 
 /** A task's title and description while they are edited. */
@@ -534,7 +576,7 @@ const HOLD_MS = 450;
  * Pulled right it is done; pulled left it shows Date and More. Held, it lifts: let go where it is,
  * its actions open; carried, it moves.
  */
-function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag }: ItemProps) {
+function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag, picks }: ItemProps) {
   const row = useRef<HTMLDivElement>(null);
   /** How far a finger has pulled the row, while it does. */
   const [pull, setPull] = useState<number | null>(null);
@@ -544,7 +586,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
   /** The tap that ends a pull or a hold is not a tap on the row. */
   const swallow = useRef(false);
 
-  const children = flat ? [] : childrenOf(tasks, task.id).filter((child) => showDone || !child.done);
+  const children = flat ? [] : childrenOf(tasks, task.id).filter((child) => (showDone || !child.done) && (!picks || picks.has(child.id)));
   const progress = progressOf(tasks, task.id);
   const canNest = !flat && depthOf(tasks, task.id) < MAX_DEPTH;
   const head: MenuHead = { icon: 'tasks', title: task.title, sub: t('phone.taskIn', { list: listLabel(list) }) };
@@ -697,7 +739,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
     <>
       <div
         ref={row}
-        className={['mb-task', task.done && 'done', opened && 'opened', pull !== null && 'pulling'].filter(Boolean).join(' ')}
+        className={['mb-task', task.done && 'done', opened && 'opened', pull !== null && 'pulling', picks?.get(task.id) === false && 'kin'].filter(Boolean).join(' ')}
         data-row="task"
         data-id={task.id}
         data-depth={depthOf(tasks, task.id)}
@@ -772,7 +814,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
       {children.length > 0 && (
         <div className="subs">
           {children.map((child) => (
-            <TaskItem key={child.id} list={list} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} />
+            <TaskItem key={child.id} list={list} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} picks={picks} />
           ))}
         </div>
       )}
@@ -780,7 +822,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
   );
 }
 
-function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag }: ItemProps) {
+function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag, picks }: ItemProps) {
   const [editing, setEditing] = useState<Draft | null>(null);
   // The record button, while its list of records is open under it.
   const [picking, setPicking] = useState<HTMLElement | null>(null);
@@ -800,7 +842,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
   const leaving = useRef(false);
   const attacher = useRef<((files: File[]) => void) | null>(null);
 
-  const children = flat ? [] : childrenOf(tasks, task.id).filter((child) => showDone || !child.done);
+  const children = flat ? [] : childrenOf(tasks, task.id).filter((child) => (showDone || !child.done) && (!picks || picks.has(child.id)));
   const progress = progressOf(tasks, task.id);
   const canNest = !flat && depthOf(tasks, task.id) < MAX_DEPTH;
   const labels = task.labels ?? [];
@@ -1069,7 +1111,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
       </button>
     </div>
   );
-  const className = ['task', task.done && 'done', editing && 'editing'].filter(Boolean).join(' ');
+  const className = ['task', task.done && 'done', editing && 'editing', picks?.get(task.id) === false && 'kin'].filter(Boolean).join(' ');
 
   return (
     <>
@@ -1252,7 +1294,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
       {(children.length > 0 || adding) && open && (
         <div className="subs">
           {children.map((child) => (
-            <TaskItem key={child.id} list={list} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} />
+            <TaskItem key={child.id} list={list} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} picks={picks} />
           ))}
           {adding && (
             <Composer
@@ -1269,11 +1311,13 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
 }
 
 /** The header and list frame the task views share, with the add row at the end of the list. */
-export function TaskPage({ title, detail, extra, onAdd, onAddClick, footer, bare, adding, children }: {
+export function TaskPage({ title, detail, extra, bar, onAdd, onAddClick, footer, bare, adding, children }: {
   title: string;
   detail?: string;
   /** More in the header, after the detail. */
   extra?: ReactNode;
+  /** Under the header: what the view is filtered by. */
+  bar?: ReactNode;
   /** Without it the view cannot add tasks. */
   onAdd?: (title: string) => void;
   /** Instead of `onAdd`: the header's Add task button only says it was pressed; the view adds the row itself. */
@@ -1299,6 +1343,7 @@ export function TaskPage({ title, detail, extra, onAdd, onAddClick, footer, bare
             {extra && <div className="mb-chips">{extra}</div>}
           </header>
         )}
+        {bar}
         <div className="tl">
           {children}
           {footer}
@@ -1320,6 +1365,7 @@ export function TaskPage({ title, detail, extra, onAdd, onAddClick, footer, bare
           )}
         </header>
       )}
+      {bar}
       <div className="tl">
         {children}
         {onAdd &&
@@ -1514,7 +1560,7 @@ function SectionComposer({ onAdd, onClose }: { onAdd: (name: string) => void; on
  * A section of a list: its header, which folds it and offers its menu, then its tasks and the
  * row that adds one, after the Sections view of design/mockups.html (direction A).
  */
-function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
+function SectionBlock({ list, section, top, item, actions, drag, dropInto, adding }: {
   list: string;
   section: Section;
   /** Its top-level tasks, as far as they are shown. */
@@ -1524,6 +1570,8 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
   drag: DragHandlers;
   /** A task dragged over the folded section would go in at its end. */
   dropInto: boolean;
+  /** How its add row adds, and what a new task starts with in a filtered list. */
+  adding: Adding;
 }) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
@@ -1614,7 +1662,10 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
             <Composer
               placeholder={t('tasks.name')}
               labelsAt={list}
-              onAdd={(title, labels) => actions.add(list, { title, section: section.id, ...(labels.length > 0 && { labels }) })}
+              start={adding.start}
+              people={adding.people}
+              today={adding.today}
+              onAdd={(title, labels, kept) => adding.add({ title, section: section.id, ...kept, ...(labels.length > 0 && { labels }) })}
               onClose={() => setComposing(false)}
             />
           ) : phone ? (
@@ -1636,11 +1687,54 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
   );
 }
 
+/** How a list's add rows add a task, and what it starts with while the list is filtered. */
+interface Adding {
+  start?: TaskStart;
+  people: SpacePeople | null;
+  today: string;
+  add: (input: NewTask) => void;
+}
+
+/**
+ * What a task added to a filtered list starts with, so that it shows there: the labels picked,
+ * the priority and whom it is given to when one alone is, and today when it is asked for.
+ */
+function filteredStart(choices: PlaceChoices, today: string, team: SpacePeople | null): TaskStart {
+  const [only] = choices.assignees?.length === 1 ? choices.assignees : [];
+  const id = only === GIVEN.me ? team?.me : only === GIVEN.others || only === GIVEN.nobody ? undefined : only;
+  const person = id ? team?.people.find((each) => each.id === id) : undefined;
+  return {
+    ...(choices.labels?.length && { labels: choices.labels }),
+    ...(choices.priorities.length === 1 && { priority: choices.priorities[0] }),
+    ...(choices.due === 'today' && { due: today }),
+    ...(person && { assignee: { id: person.id, ...(person.name && { name: person.name }) } }),
+  };
+}
+
+/** A task as it would be once added, to ask whether a filter shows it. */
+const asAdded = (input: NewTask): Task => ({
+  id: '',
+  title: input.title,
+  done: false,
+  priority: input.priority ?? 4,
+  due: input.due ?? null,
+  parent: input.parent ?? null,
+  order: 0,
+  created: '',
+  updated: '',
+  completed: null,
+  ...(input.description && { description: input.description }),
+  ...(input.labels && { labels: input.labels }),
+  ...(input.assignee && { assignee: input.assignee }),
+});
+
 /**
  * One task list, with the folder it is in beside its name. Tasks in no section come first,
- * without a header; then each section; then the row that adds a section.
+ * without a header; then each section; then the row that adds a section. Search and Filter in the
+ * header narrow it where it is (design/filters.md 2): a task shows when it matches or a subtask
+ * under it does, a section when a task in it shows.
  */
-export function TaskList({ list, tasks, sections, today, actions, places, reveal = null }: {
+export function TaskList({ list, tasks, sections, today, actions, places, reveal = null, look, onLook, onStatus }: {
   list: string;
   tasks: Task[];
   sections: Section[];
@@ -1650,8 +1744,37 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
   places?: TaskPlaceChoice[];
   /** A task found by the search window: shown, done or in a folded section as it may be, brought into sight and marked for a moment. `at` tells one ask from the next. */
   reveal?: { id: string; at: number } | null;
+  /** How the list is looked at: what it is filtered by and the text searched for; the device keeps the first. */
+  look?: ListLook;
+  onLook?: (look: ListLook) => void;
+  /** What the status bar says while the list is filtered; null when it is not. */
+  onStatus?: (status: string[] | null) => void;
 }) {
   const [showDone, setShowDone] = useState(false);
+  // What the list is filtered by, with the text searched for: the device's look, which a phone's sheet changes too.
+  const asked = look?.filter ?? NO_CHOICES;
+  const team = actions.people?.(list) ?? null;
+  const place: FilterPlace = { path: list, team };
+  const choose = (next: PlaceChoices) => onLook?.({ filter: next });
+  const filter = useFilter(place, asked, choose);
+  // A done task matches only while what is done shows, so that a task is not kept for a subtask that is hidden.
+  const picks = asksAnything(asked) ? taskPicks(tasks, (task) => (showDone || !task.done) && taskMatches(asked, task, today, team?.me)) : null;
+  const clear = () => choose(NO_CHOICES);
+  const adding: Adding = {
+    start: picks ? filteredStart(asked, today, team) : undefined,
+    people: team,
+    today,
+    add: (input) => {
+      actions.add(list, input);
+      if (picks && !taskMatches(asked, asAdded(input), today, team?.me)) actions.notify?.(t('filter.hidden', { list: listName(list) }), { label: t('filter.clearFilter'), run: clear });
+    },
+  };
+  // The status bar says how many of the open tasks show.
+  const unfinished = tasks.filter((task) => !task.done);
+  const status = picks ? [t('filter.shownOf', { shown: unfinished.filter((task) => picks.get(task.id)).length, all: t('count.tasks', { count: unfinished.length }) })] : null;
+  const statusKey = status?.join('\u0000') ?? '';
+  useEffect(() => onStatus?.(status), [statusKey]);
+  useEffect(() => () => onStatus?.(null), []);
   const [composing, setComposing] = useState(false);
   // The header's Add task in a list with sections: a new task with the place it goes, chosen at its
   // foot, at first the top of the list; the count tells one opening from the next.
@@ -1660,13 +1783,15 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
   // between two sections, after the one `after` names (null for the top), from the line there.
   const [addingSection, setAddingSection] = useState<{ after?: string | null } | null>(null);
   const whole: List = { sections, tasks };
-  const shown = (task: Task) => showDone || !task.done;
+  const shown = (task: Task) => (showDone || !task.done) && (!picks || picks.has(task.id));
   const rows = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!reveal) return;
     const task = tasks.find((each) => each.id === reveal.id);
     if (!task) return;
     if (task.done) setShowDone(true);
+    // A task the filter hides is found all the same: the filter goes.
+    if (picks && !picks.has(task.id)) clear();
     // A subtask is in its top task's section.
     let top = task;
     for (let parent = tasks.find((each) => each.id === top.parent); parent; parent = tasks.find((each) => each.id === top.parent)) top = parent;
@@ -1778,9 +1903,10 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
   };
 
   const item = (task: Task) => (
-    <TaskItem key={task.id} list={list} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} />
+    <TaskItem key={task.id} list={list} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} picks={picks} />
   );
   const completed = tasks.filter((task) => task.done).length;
+  const nothing = !tasks.some(shown);
   return (
     <TaskPage
       title={listName(list)}
@@ -1788,11 +1914,16 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
       // A new section goes at the end, where its name is typed, and is dragged up from there.
       extra={
         !isPhone() && (
-          <button type="button" className="ghost" onClick={() => setAddingSection({})}>
-            {t('sections.add')}
-          </button>
+          <>
+            <SearchBox value={asked.text} onChange={(text) => choose({ ...asked, text })} />
+            {filter.button}
+            <button type="button" className="ghost" onClick={() => setAddingSection({})}>
+              {t('sections.add')}
+            </button>
+          </>
         )
       }
+      bar={isPhone() ? <PhoneFilterChips place={place} choices={asked} onChange={choose} onOpen={(step) => actions.pickFilter?.(list, step)} /> : filter.chips}
       onAddClick={() => (sections.length > 0 && places ? setPlacing(placing + 1) : setComposing(true))}
       footer={
         completed > 0 && (
@@ -1802,25 +1933,38 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
         )
       }
     >
-      {isPhone() && sections.length === 0 && !tasks.some(shown) && (
-        <Empty
-          icon="tasks"
-          title={t(completed > 0 ? 'phone.allDone' : 'phone.emptyList')}
-          text={t(completed > 0 ? 'phone.allDoneText' : 'phone.emptyListText')}
-          action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(list, null) }}
-        />
+      {filter.menu}
+      {isPhone() && nothing && (picks || sections.length === 0) && (
+        picks ? (
+          <Empty icon="filter" title={t('filter.nothingHere')} text={t('filter.nothingHereText')} action={{ label: t('filter.clearFilter'), run: clear }} />
+        ) : (
+          <Empty
+            icon="tasks"
+            title={t(completed > 0 ? 'phone.allDone' : 'phone.emptyList')}
+            text={t(completed > 0 ? 'phone.allDoneText' : 'phone.emptyListText')}
+            action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(list, null) }}
+          />
+        )
+      )}
+      {!isPhone() && nothing && picks && (
+        <p className="task-empty fx-empty">
+          {t('filter.nothingHere')}
+          <button type="button" onClick={clear}>
+            {t('filter.clearFilter')}
+          </button>
+        </p>
       )}
       {placing > 0 && places && (
         <TaskComposer
           key={`placing:${placing}`}
-          start={{ due: null, list, section: null }}
+          start={{ due: adding.start?.due ?? null, list, section: null, priority: adding.start?.priority, labels: adding.start?.labels }}
           today={today}
           places={places}
           recordChoices={actions.recordChoices}
           recordName={actions.recordTitle}
           menu={actions.menu}
           description={actions.description}
-          onAdd={(target, task) => actions.add(target, task)}
+          onAdd={(target, task) => (target === list ? adding.add(task) : actions.add(target, task))}
           onClose={() => setPlacing(0)}
         />
       )}
@@ -1833,7 +1977,15 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
       >
         {sectionTasks(whole, null).filter(shown).map(item)}
         {composing ? (
-          <Composer placeholder={t('tasks.name')} labelsAt={list} onAdd={(title, labels) => actions.add(list, { title, ...(labels.length > 0 && { labels }) })} onClose={() => setComposing(false)} />
+          <Composer
+            placeholder={t('tasks.name')}
+            labelsAt={list}
+            start={adding.start}
+            people={team}
+            today={today}
+            onAdd={(title, labels, kept) => adding.add({ title, ...kept, ...(labels.length > 0 && { labels }) })}
+            onClose={() => setComposing(false)}
+          />
         ) : !isPhone() ? (
           // The tasks in no section end with their own add row, as each section does.
           <button type="button" className="qa" onClick={() => setComposing(true)}>
@@ -1853,6 +2005,9 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
           // Before each section, Add section shows when the pointer is there, as Todoist's: a new
           // section goes in between.
           const after = index === 0 ? null : sections[index - 1]!.id;
+          const top = sectionTasks(whole, section.id).filter(shown);
+          // Filtered, a section with nothing that shows is left out.
+          if (picks && top.length === 0) return null;
           return (
             <Fragment key={section.id}>
               {addingSection?.after === after ? (
@@ -1867,11 +2022,12 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
               <SectionBlock
                 list={list}
                 section={section}
-                top={sectionTasks(whole, section.id).filter(shown)}
+                top={top}
                 item={item}
                 actions={actions}
                 drag={drag}
                 dropInto={drop?.into === section.id}
+                adding={adding}
               />
             </Fragment>
           );

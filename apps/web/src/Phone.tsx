@@ -169,6 +169,8 @@ export interface PhoneProps {
   onNewFolder: (name: string, parent: string) => Promise<string | null>;
   /** The menu of something open, or of a filter, as an action sheet; `page` when it comes from its page's ···. */
   onItemMenu: (id: string, page?: boolean) => void;
+  /** A task list's filter, for its page's bar: whether it asks anything, and what opens it; null for what is not a list. */
+  listFilter: (id: string) => { on: boolean; open: () => void } | null;
   /** A folder's menu; `addFolder` names a new folder in it. */
   onFolderMenu: (path: string, addFolder: () => void) => void;
   /** A folder moved or renamed, from where it was to where it is: its pages, and those of the folders in it, show it there. `at` tells one from the next. */
@@ -363,11 +365,13 @@ function Row({ icon, label, sub, right, folder, onClick, onHold }: {
  * page offers, Reorder; scrolled, the page's name. The phone's own ✓ above the keyboard puts the
  * keyboard away.
  */
-function NavBar({ back, onBack, title, scrolled, onMenu, action, choose }: {
+function NavBar({ back, onBack, title, scrolled, filter, onMenu, action, choose }: {
   back?: string;
   onBack?: () => void;
   title?: string;
   scrolled: boolean;
+  /** A list's Filter, before its menu; lit while the list is filtered. */
+  filter?: { on: boolean; open: () => void } | null;
   onMenu?: (event: MouseEvent) => void;
   action?: { label: string; run: () => void };
   /** Rows being chosen: Select all on the left, how many in the middle, Done on the right. */
@@ -396,6 +400,11 @@ function NavBar({ back, onBack, title, scrolled, onMenu, action, choose }: {
         </button>
       )}
       {scrolled && title && <span className="mb-mid">{title}</span>}
+      {filter && (
+        <button type="button" className={filter.on ? 'mb-ib fx-nav on' : 'mb-ib fx-nav'} aria-label={t('filter.button')} title={t('filter.button')} onClick={filter.open}>
+          <Icon name="filter" />
+        </button>
+      )}
       {onMenu && (
         <button type="button" className="mb-ib" aria-label={t('side.more')} title={t('side.more')} onClick={onMenu}>
           <Icon name="more" />
@@ -1445,6 +1454,7 @@ export function Phone(props: PhoneProps) {
         <NavBar
           {...nav}
           scrolled={false}
+          filter={props.listFilter(page.id)}
           onMenu={() => props.onItemMenu(page.id, true)}
         />
         <div

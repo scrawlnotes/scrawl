@@ -15046,3 +15046,268 @@ button.st-li:hover,
   margin: 0;
   color: var(--sl-faint);
 }
+
+/* ---------- filtering a list where it is (design/filters.md 2, the Filters views of design/mockups.html) ---------- */
+/* Search and Filter in the header, before Add section and Add task. */
+/* It is as narrow as it can be before the header breaks into two lines, and grows when there is room. */
+.th .fx-search {
+  display: flex;
+  flex: 1 1 130px;
+  max-width: 220px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-left: auto;
+  padding: 0 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-side);
+  color: var(--sl-faint);
+  cursor: text;
+}
+
+.th .fx-search:focus-within {
+  border-color: var(--sl-accent);
+}
+
+.th .fx-search .icon {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.th .fx-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.th .fx-search input::placeholder {
+  color: var(--sl-faint);
+}
+
+.th .fx-search ~ .ghost,
+.th .fx-search ~ .add {
+  margin-left: 0;
+}
+
+.th .fbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.th .fbtn .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.th .fbtn.on {
+  border-color: color-mix(in srgb, var(--sl-accent) 55%, transparent);
+  color: var(--sl-accent);
+}
+
+.th .fbtn[aria-expanded='true'] {
+  background: var(--sl-sel);
+}
+
+/* What the list is filtered by, under the header: a chip for each question, + Filter and Clear. */
+.fx-bar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 26px 10px;
+  font-size: 12px;
+}
+
+.fx-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 24px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sl-accent) 13%, transparent);
+}
+
+.fx-chip.open {
+  box-shadow: inset 0 0 0 1px var(--sl-accent);
+}
+
+.fx-chip .fx-what {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 2px 0 10px;
+  color: var(--sl-dim);
+  white-space: nowrap;
+}
+
+.fx-chip .fx-what b {
+  overflow: hidden;
+  color: var(--sl-fg);
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+.fx-chip .lbl-dot {
+  display: inline-block;
+  margin: 0 4px 1px 0;
+  vertical-align: middle;
+}
+
+.fx-chip .fx-x {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 2px;
+  border-radius: 50%;
+  color: var(--sl-faint);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.fx-chip .fx-x:hover {
+  background: color-mix(in srgb, var(--sl-fg) 10%, transparent);
+  color: var(--sl-fg);
+}
+
+.fx-add,
+.fx-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--sl-faint);
+}
+
+.fx-add .icon {
+  width: 11px;
+  height: 11px;
+}
+
+.fx-add:hover,
+.fx-clear:hover,
+.fx-add[aria-expanded='true'] {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+/* Filter's menu: the questions, each with how many are picked in it, then a question's values. */
+.fx-menu {
+  max-height: 380px;
+  outline: none;
+}
+
+.fx-menu .lbl-rows button {
+  min-height: 26px;
+}
+
+.fx-menu .lbl-rows button .icon {
+  width: 13px;
+  height: 13px;
+  color: var(--sl-dim);
+}
+
+.fx-menu .lbl-rows button small {
+  margin-left: auto;
+  color: var(--sl-accent);
+  font-size: 11.5px;
+}
+
+.fx-menu .lbl-rows button .go {
+  color: var(--sl-faint);
+}
+
+.fx-menu .fx-back {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 6px;
+  color: var(--sl-fg);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.fx-menu .fx-back .icon {
+  width: 12px;
+  height: 12px;
+  color: var(--sl-faint);
+}
+
+.fx-menu .fx-back:hover .icon {
+  color: var(--sl-fg);
+}
+
+.fx-menu .fx-prio .icon {
+  display: block;
+}
+
+.fx-menu .fx-prio.p1 .icon { color: var(--sl-p1); }
+.fx-menu .fx-prio.p2 .icon { color: var(--sl-p2); }
+.fx-menu .fx-prio.p3 .icon { color: var(--sl-p3); }
+
+.fx-menu .who {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+.fx-menu .who.bot {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--sl-accent) 22%, transparent);
+  color: var(--sl-accent);
+}
+
+.fx-menu .who.none {
+  background: none;
+}
+
+/* A task shown only for a subtask under it that matches. */
+.task.kin > div > .tt,
+.mb-task.kin .tx b {
+  color: var(--sl-faint);
+}
+
+/* What a task added to a filtered list starts with, beside the labels picked with @; a click takes it off. */
+.edit-foot .kept {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 9px;
+  color: var(--sl-dim);
+  font-size: 10.5px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.edit-foot .kept.p1 { color: var(--sl-p1); }
+.edit-foot .kept.p2 { color: var(--sl-p2); }
+.edit-foot .kept.p3 { color: var(--sl-p3); }
+
+.fx-empty button {
+  margin-left: 8px;
+  color: var(--sl-accent);
+}

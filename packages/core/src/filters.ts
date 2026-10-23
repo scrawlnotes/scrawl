@@ -2,7 +2,8 @@ import { t } from '@scrawlnotes/i18n';
 import { basename, dirname, type VaultFs } from './fs';
 import { type Board, type Card, cardValues, isFinished } from './board';
 import { type Condition, type Field, isComplete, matchesCondition, readCondition } from './collection';
-import { isMine } from './people';
+import { sameLabel } from './labels';
+import { isMine, type PersonRef } from './people';
 import { spaceOf } from './spaces';
 import { addDays, type Priority, type Task } from './tasks';
 
@@ -25,7 +26,11 @@ export interface TaskFilter {
   folders: string[];
   /** Text the title or the description has, in any case; empty for any. */
   text: string;
-  /** Only what is given to the user: in spaces with people, by the id of their `me.json`. */
+  /** The labels shown, any one of them, whatever their case; none or empty shows every task and card. */
+  labels?: string[];
+  /** Who what is shown is given to, any one of them: a person's or an agent's id, or one of `GIVEN`. None or empty takes anyone and no one. */
+  assignees?: string[];
+  /** Only what is given to the user: in spaces with people, by the id of their `me.json`. `assignees` asks it too; an older filter has only this. */
   mine?: true;
   /** Conditions on the boards' own fields, by key. They are about cards: with any, the filter shows no tasks. */
   fields?: Condition[];
@@ -36,7 +41,39 @@ export interface TaskFilter {
 /** What a filter picks, without its name, its id and where it sits. */
 export type FilterChoices = Omit<TaskFilter, 'id' | 'name' | 'folder'>;
 
+/** What filtering a list or a board where it is picks: a filter's choices without the folders, which are where it is. */
+export type PlaceChoices = Omit<FilterChoices, 'folders'>;
+
+/** Choices that ask nothing: a list or a board filtered by them shows all it has. */
+export const NO_CHOICES: PlaceChoices = { due: 'any', priorities: [], text: '' };
+
+/** Who a task or a card is given to, as a filter asks it besides a person's or an agent's id. */
+export const GIVEN = { me: 'me', others: 'others', nobody: 'none' } as const;
+
 const FILE = '.scrawl/filters.json';
+
+/** The words of a list, without what is not a word or is only spaces; none when nothing is left. */
+function words(raw: unknown): string[] | undefined {
+  const kept = Array.isArray(raw) ? raw.filter((each): each is string => typeof each === 'string' && each.trim() !== '') : [];
+  return kept.length > 0 ? kept : undefined;
+}
+
+/** What a filter or a list's filtering picks, as a file has it: what is not one of the choices is read as asking nothing. */
+export function readChoices(raw: unknown): PlaceChoices {
+  const data = (raw && typeof raw === 'object' ? raw : {}) as Partial<FilterChoices>;
+  const labels = words(data.labels);
+  const assignees = words(data.assignees);
+  const fields = Array.isArray(data.fields) ? data.fields.map((c) => readCondition(c)).filter((c): c is Condition => c !== null) : [];
+  return {
+    due: DUE_RULES.includes(data.due as DueRule) ? (data.due as DueRule) : 'any',
+    priorities: Array.isArray(data.priorities) ? data.priorities.filter((p): p is Priority => [1, 2, 3, 4].includes(p)) : [],
+    text: typeof data.text === 'string' ? data.text : '',
+    ...(labels && { labels }),
+    ...(assignees && { assignees }),
+    ...(data.mine === true && { mine: true }),
+    ...(fields.length > 0 && { fields }),
+  };
+}
 
 /** Reads the saved filters. Anything that is not a usable filter is left out. */
 export function parseFilters(text: string): TaskFilter[] {
@@ -50,22 +87,17 @@ export function parseFilters(text: string): TaskFilter[] {
   const filters: TaskFilter[] = [];
   for (const raw of data.filters as Partial<TaskFilter>[]) {
     if (!raw || typeof raw.id !== 'string' || typeof raw.name !== 'string') continue;
+    // Unknown fields are kept, so a newer version's choices survive an older one saving.
+    const { labels: _labels, assignees: _assignees, mine: _mine, fields: _fields, ...rest } = raw;
     filters.push({
-      // Unknown fields are kept, so a newer version's choices survive an older one saving.
-      ...raw,
+      ...rest,
       id: raw.id,
       name: raw.name,
-      due: DUE_RULES.includes(raw.due as DueRule) ? (raw.due as DueRule) : 'any',
-      priorities: Array.isArray(raw.priorities) ? raw.priorities.filter((p): p is Priority => [1, 2, 3, 4].includes(p)) : [],
+      ...readChoices(raw),
       folders: Array.isArray(raw.folders) ? raw.folders.filter((f): f is string => typeof f === 'string') : [],
-      text: typeof raw.text === 'string' ? raw.text : '',
-      mine: raw.mine === true ? true : undefined,
-      fields: Array.isArray(raw.fields) ? raw.fields.map((c) => readCondition(c)).filter((c): c is Condition => c !== null) : undefined,
       folder: typeof raw.folder === 'string' ? raw.folder : undefined,
     });
     const filter = filters[filters.length - 1]!;
-    if (!filter.fields?.length) delete filter.fields;
-    if (!filter.mine) delete filter.mine;
     if (!filter.folder) delete filter.folder;
   }
   return filters;
@@ -108,7 +140,39 @@ function dueMatches(rule: DueRule, due: string | null, today: string): boolean {
 }
 
 /** The conditions on boards' fields that ask anything: the ones with a value where they need one. */
-const fieldConditions = (filter: FilterChoices) => (filter.fields ?? []).filter(isComplete);
+const fieldConditions = (filter: Pick<FilterChoices, 'fields'>) => (filter.fields ?? []).filter(isComplete);
+
+/** Who the choices take, as given to; an older filter's `mine` is the user. */
+export const assigneesOf = (choices: Pick<FilterChoices, 'assignees' | 'mine'>): string[] =>
+  choices.assignees?.length ? choices.assignees : choices.mine ? [GIVEN.me] : [];
+
+/** Whether choices ask anything: with none, a list or a board filtered by them shows all it has. */
+export const asksAnything = (choices: PlaceChoices) =>
+  choices.due !== 'any' ||
+  choices.priorities.length > 0 ||
+  choices.text.trim() !== '' ||
+  !!choices.labels?.length ||
+  assigneesOf(choices).length > 0 ||
+  fieldConditions(choices).length > 0;
+
+/** Whether something given to `ref` is given to one of `asked`; asking no one takes everything. */
+function givenMatches(asked: string[], ref: PersonRef | null | undefined, me: string | undefined): boolean {
+  if (asked.length === 0) return true;
+  const given = !!(ref?.id || ref?.name);
+  return asked.some((who) =>
+    who === GIVEN.nobody ? !given : who === GIVEN.me ? isMine(ref, me) : who === GIVEN.others ? given && !isMine(ref, me) : ref?.id === who,
+  );
+}
+
+/** Whether something with these labels has one of `asked`, whatever their case; asking none takes everything. */
+const labelsMatch = (asked: string[] | undefined, labels: string[] | undefined) =>
+  !asked?.length || asked.some((name) => (labels ?? []).some((label) => sameLabel(label, name)));
+
+/** Whether a title or its description has the text, in any case; no text takes everything. */
+function textMatches(text: string, item: { title: string; description?: string }): boolean {
+  const asked = text.trim().toLowerCase();
+  return !asked || `${item.title}\n${item.description ?? ''}`.toLowerCase().includes(asked);
+}
 
 /** Whether something in `folder` is in one of the folders a filter looks in; `''` takes the whole personal space. */
 function inFolders(folders: string[], folder: string): boolean {
@@ -116,18 +180,42 @@ function inFolders(folders: string[], folder: string): boolean {
 }
 
 /**
+ * Whether a task, done or not, is one the choices take, wherever it is: what a list filtered
+ * where it is shows. Conditions on boards' fields are about cards and take no task. `me` is the
+ * user's id, for what is given to them.
+ */
+export function taskMatches(choices: PlaceChoices, task: Task, today: string, me?: string): boolean {
+  if (fieldConditions(choices).length > 0 || !dueMatches(choices.due, task.due, today)) return false;
+  if (choices.priorities.length > 0 && !choices.priorities.includes(task.priority)) return false;
+  return labelsMatch(choices.labels, task.labels) && givenMatches(assigneesOf(choices), task.assignee, me) && textMatches(choices.text, task);
+}
+
+/**
+ * What a filtered list shows of its tasks: those that match, true, and the tasks above them, false,
+ * which keep them where they are; a task in neither is not shown. A subtask that does not match
+ * is not shown under one that does.
+ */
+export function taskPicks(tasks: Task[], matches: (task: Task) => boolean): Map<string, boolean> {
+  const children = new Map<string, Task[]>();
+  for (const task of tasks) if (task.parent) children.set(task.parent, [...(children.get(task.parent) ?? []), task]);
+  const picks = new Map<string, boolean>();
+  const visit = (task: Task): boolean => {
+    const own = matches(task);
+    // Every subtask is looked at, so that each one's own answer is kept.
+    const below = (children.get(task.id) ?? []).map(visit).some(Boolean);
+    if (own || below) picks.set(task.id, own);
+    return own || below;
+  };
+  for (const task of tasks) if (!task.parent || !tasks.some((each) => each.id === task.parent)) visit(task);
+  return picks;
+}
+
+/**
  * Whether an open task of the list at `list` is one the filter shows; none is when the filter
  * asks about boards' fields. `me` is the user's id, for a filter of what is given to them.
  */
 export function matchesFilter(filter: FilterChoices, list: string, task: Task, today: string, me?: string): boolean {
-  if (fieldConditions(filter).length > 0) return false;
-  if (task.done || !dueMatches(filter.due, task.due, today)) return false;
-  if (filter.mine && !isMine(task.assignee, me)) return false;
-  if (filter.priorities.length > 0 && !filter.priorities.includes(task.priority)) return false;
-  const folder = dirname(list);
-  if (!inFolders(filter.folders, folder)) return false;
-  const text = filter.text.trim().toLowerCase();
-  return !text || `${task.title}\n${task.description ?? ''}`.toLowerCase().includes(text);
+  return !task.done && inFolders(filter.folders, dirname(list)) && taskMatches(filter, task, today, me);
 }
 
 const byDue = (a: Task, b: Task) =>
@@ -146,12 +234,10 @@ export function filterTasks(filter: FilterChoices, lists: Record<string, Task[]>
 /** Whether a card of the board at `board` is one the filter shows: not finished, and matching as a task would. */
 export function matchesFilterCard(filter: FilterChoices, board: string, whole: Board, card: Card, today: string, me?: string): boolean {
   if (isFinished(whole, card) || !dueMatches(filter.due, card.due, today)) return false;
-  if (filter.mine && !isMine(card.assignee, me)) return false;
+  if (!givenMatches(assigneesOf(filter), card.assignee, me)) return false;
   if (filter.priorities.length > 0 && !filter.priorities.includes(card.priority)) return false;
-  const folder = dirname(board);
-  if (!inFolders(filter.folders, folder)) return false;
-  const text = filter.text.trim().toLowerCase();
-  if (text && !`${card.title}\n${card.description ?? ''}`.toLowerCase().includes(text)) return false;
+  if (!inFolders(filter.folders, dirname(board))) return false;
+  if (!labelsMatch(filter.labels, card.labels) || !textMatches(filter.text, card)) return false;
   // A condition on a field the card's board does not have leaves the card out.
   const fields = whole.fields ?? [];
   const values = { values: cardValues(whole, card) };
@@ -188,6 +274,7 @@ export function filterName(filter: FilterChoices, folderName: (folder: string) =
   if (filter.priorities.length > 0) {
     parts.push([...filter.priorities].sort().map((p) => (p === 4 ? t('filter.noPriority') : `p${p}`)).join(', '));
   }
+  if (filter.labels?.length) parts.push(filter.labels.join(', '));
   if (filter.folders.length > 0) parts.push(filter.folders.map((f) => folderName(f)).join(', '));
   if (filter.mine) parts.push(t('filter.mine'));
   if (filter.text.trim()) parts.push(`“${filter.text.trim()}”`);

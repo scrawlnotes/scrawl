@@ -7709,3 +7709,143 @@ body > .mb-lifted {
 .mb-tbig .lbl-at.inline {
   margin: 6px 0 2px;
 }
+
+/* ---------- filtering a list (design/filters.md 7, the Filters phones of design/mockups.html) ---------- */
+/* Filter in a list's bar, before its menu; lit while the list is filtered. */
+.mb-nav .fx-nav + .mb-ib {
+  margin-left: 0;
+}
+
+.mb-nav .fx-nav.on {
+  position: relative;
+}
+
+.mb-nav .fx-nav.on::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sl-accent) 18%, transparent);
+}
+
+/* What the list is filtered by, under its title, in a row that slides sideways. */
+.fx-mchips {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  padding: 2px 16px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.fx-mchips::-webkit-scrollbar {
+  display: none;
+}
+
+.fx-mchip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 32px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--sl-accent) 15%, transparent);
+  font-size: 14px;
+}
+
+.fx-mchip .fx-what {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 100%;
+  padding: 0 2px 0 12px;
+  color: var(--sl-dim);
+  white-space: nowrap;
+}
+
+.fx-mchip .fx-what b {
+  max-width: 180px;
+  overflow: hidden;
+  color: var(--sl-fg);
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+.fx-mchip .fx-x {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: var(--sl-faint);
+  font-size: 18px;
+}
+
+.fx-mclear {
+  flex: none;
+  padding: 0 6px;
+  color: var(--sl-accent);
+  font-size: 14px;
+}
+
+/* Filter's sheet: the questions with what is picked in each; a question's values a step in. */
+.fx-sheet .fx-sback {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -6px;
+  color: var(--sl-accent);
+}
+
+.mb .fx-sheet .fx-sback .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.fx-sheet .mb-fr .val.on {
+  color: var(--sl-fg);
+}
+
+.fx-sheet .fx-sclear {
+  justify-content: center;
+  color: var(--sl-accent);
+}
+
+.fx-sheet .who {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 24px;
+  text-align: center;
+}
+
+.fx-sheet .who.bot {
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--sl-accent) 22%, transparent);
+  color: var(--sl-accent);
+}
+
+.fx-sheet .who.none {
+  background: none;
+}
+
+.fx-sheet .fx-prio .icon {
+  display: block;
+  width: 21px;
+  height: 21px;
+  color: var(--sl-dim);
+}
+
+.fx-sheet .fx-prio.p1 .icon { color: var(--sl-p1); }
+.fx-sheet .fx-prio.p2 .icon { color: var(--sl-p2); }
+.fx-sheet .fx-prio.p3 .icon { color: var(--sl-p3); }
+
+.fx-sheet .mb-fr .lbl-dot {
+  width: 11px;
+  height: 11px;
+  margin: 0 5px;
+}

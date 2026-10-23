@@ -35,6 +35,7 @@ import {
   addTask,
   ATTACHMENTS,
   type Actor,
+  asksAnything,
   type Board,
   BOARD_EXT,
   type BoardLook,
@@ -90,6 +91,7 @@ import {
   listName,
   keepVersion,
   type KeysLook,
+  type ListLook,
   listVersions,
   loadFilters,
   loadLabels,
@@ -449,6 +451,8 @@ export interface Snapshot {
   boards: Record<string, Board>;
   /** How each board was last looked at on this device, by the path of its file. */
   boardLooks: Record<string, BoardLook>;
+  /** What each task list is filtered by on this device, and the text it is searched for until the app closes, by the path of its file; one filtered by nothing is not here. */
+  listLooks: Record<string, ListLook>;
   /** How the items of a folder are put in order on this device, by its path; a space's top by its key, the personal one's by ''. */
   folderLooks: Record<string, FolderLook>;
   /** When each item of every space was made, as the app keeps it, by its path lowercased. */
@@ -714,6 +718,7 @@ export class Session {
     sections: {},
     boards: {},
     boardLooks: {},
+    listLooks: {},
     folderLooks: {},
     created: {},
     keys: {},
@@ -917,6 +922,7 @@ export class Session {
       sections: {},
       boards: {},
       boardLooks: workspace.boards,
+      listLooks: workspace.lists ?? {},
       folderLooks: workspace.folders ?? {},
       keys: {},
       keysLooks: workspace.keys,
@@ -1114,9 +1120,15 @@ export class Session {
     this.showOpening(o);
     this.opening = null;
     // How things are looked at is kept only for those still there.
-    const { boards, keys, collections, boardLooks, keysLooks, collectionLooks } = this.snapshot;
+    const { tasks, boards, keys, collections, boardLooks, listLooks, keysLooks, collectionLooks } = this.snapshot;
     const there = <T>(looks: Record<string, T>, items: Record<string, unknown>) => Object.fromEntries(Object.entries(looks).filter(([path]) => path in items));
-    this.set({ reading: new Set(), boardLooks: there(boardLooks, boards), keysLooks: there(keysLooks, keys), collectionLooks: there(collectionLooks, collections) });
+    this.set({
+      reading: new Set(),
+      boardLooks: there(boardLooks, boards),
+      listLooks: there(listLooks, tasks),
+      keysLooks: there(keysLooks, keys),
+      collectionLooks: there(collectionLooks, collections),
+    });
     if (this.refreshLater) {
       this.refreshLater = false;
       void this.refreshTree();
@@ -2215,12 +2227,20 @@ export class Session {
   }
 
   private saveWorkspace() {
-    const { tabs, active, boards, boardLooks, keys, keysLooks, collections, collectionLooks, folderLooks } = this.snapshot;
-    // Boards and keys files that are gone are forgotten.
+    const { tabs, active, tasks, boards, boardLooks, listLooks, keys, keysLooks, collections, collectionLooks, folderLooks } = this.snapshot;
+    // Boards and keys files that are gone are forgotten. A list keeps what it is filtered by, not
+    // the text it is searched for, which goes when the app does.
+    const lists = Object.fromEntries(
+      Object.entries(listLooks).flatMap(([path, look]) => {
+        const filter = look.filter && { ...look.filter, text: '' };
+        return path in tasks && filter && asksAnything(filter) ? [[path, { filter }]] : [];
+      }),
+    );
     void saveWorkspace(this.personal, {
       tabs,
       active,
       boards: Object.fromEntries(Object.entries(boardLooks).filter(([path]) => path in boards)),
+      ...(Object.keys(lists).length > 0 && { lists }),
       keys: Object.fromEntries(Object.entries(keysLooks).filter(([path]) => path in keys)),
       collections: Object.fromEntries(Object.entries(collectionLooks).filter(([path]) => path in collections)),
       ...(this.welcomeClosed && { welcomeClosed: true }),
@@ -2300,6 +2320,13 @@ export class Session {
   /** Remembers how a board is looked at: as columns or a list, and which phase. */
   lookAtBoard(path: string, look: BoardLook) {
     this.set({ boardLooks: { ...this.snapshot.boardLooks, [path]: look } });
+    this.saveWorkspace();
+  }
+
+  /** Remembers what a task list is filtered by, and the text searched for until the app closes; a filter that asks nothing is forgotten. */
+  lookAtList(path: string, look: ListLook) {
+    const { [path]: _was, ...rest } = this.snapshot.listLooks;
+    this.set({ listLooks: look.filter && asksAnything(look.filter) ? { ...rest, [path]: look } : rest });
     this.saveWorkspace();
   }
 
@@ -2469,10 +2496,12 @@ export class Session {
     saveRecent(recent);
   }
 
-  /** A board's or a keys file's look goes with it when it moves. */
+  /** A board's, a task list's or a keys file's look goes with it when it moves. */
   private moveLook(from: string, to: string) {
     const { [from]: look, ...rest } = this.snapshot.boardLooks;
     if (look) this.set({ boardLooks: { ...rest, [to]: look } });
+    const { [from]: listLook, ...lists } = this.snapshot.listLooks;
+    if (listLook) this.set({ listLooks: { ...lists, [to]: listLook } });
     const { [from]: keysLook, ...others } = this.snapshot.keysLooks;
     if (keysLook) this.set({ keysLooks: { ...others, [to]: keysLook } });
     // A folder keeps its order, and so does every folder in it.
@@ -4543,10 +4572,11 @@ export class Session {
       if (now !== null) this.moveRecent(seen.id, now);
     }
     const looks = <T>(by: Record<string, T>) => Object.fromEntries(Object.entries(by).map(([key, look]) => [moved(key) ?? key, look]));
-    const { boardLooks, keysLooks, collectionLooks, folderLooks, tabs, active, filters } = this.snapshot;
+    const { boardLooks, listLooks, keysLooks, collectionLooks, folderLooks, tabs, active, filters } = this.snapshot;
     const shown = active === null ? null : movedTab(active);
     this.set({
       boardLooks: looks(boardLooks),
+      listLooks: looks(listLooks),
       keysLooks: looks(keysLooks),
       collectionLooks: looks(collectionLooks),
       folderLooks: looks(folderLooks),

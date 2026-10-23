@@ -1,6 +1,8 @@
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type AppFile,
+  asksAnything,
+  NO_CHOICES,
   type LabelUse,
   labelUses,
   type Record as CollectionRecord,
@@ -184,6 +186,7 @@ import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
 import { contentsText, quote, writtenText } from './text';
 import { type Labels, LabelSheet, LabelsContext, LabelsWindow } from './labels';
+import { FilterSheet, type FilterStep } from './FilterBar';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { TrashPreviewDialog, TrashPreviewPage } from './TrashPreview';
 import type { DescriptionHost } from './Description';
@@ -335,7 +338,7 @@ export function App() {
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const desktopUpdate = useDesktopUpdate();
-  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -1397,6 +1400,8 @@ export function App() {
   // task above the keyboard.
   const [taskSheet, setTaskSheet] = useState<{ list: string; id: string; subtask: boolean } | null>(null);
   const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record' | 'assignee' | 'labels'; list: string; id: string } | null>(null);
+  // On a phone, what a list is filtered by, in a sheet: from the bar's button, or a chip's question.
+  const [filterSheet, setFilterSheet] = useState<{ list: string; step: FilterStep | null } | null>(null);
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
   // On a phone, how Upcoming shows, and the day chosen in its month, which + adds to there; tomorrow until one is chosen.
   const [upcomingView, setUpcomingView] = useState(loadUpcomingView);
@@ -1576,6 +1581,8 @@ export function App() {
     moveRecord,
     description: descriptionHost,
     add: (target, input) => session.addTask(target, input),
+    // A button in a notice does its work and the notice goes.
+    notify: (text, action) => setShown({ text, ...(action && { action: { label: action.label, run: () => (action.run(), setShown(null)) } }) }),
     update: (target, id, change) => session.updateTask(target, id, change),
     setDone: (target, id, done, quiet) => {
       if (!done || quiet) return session.setTaskDone(target, id, done);
@@ -1589,6 +1596,7 @@ export function App() {
       pickRecord: (list: string, id: string) => setTaskPicker({ kind: 'record', list, id }),
       pickAssignee: (list: string, id: string) => setTaskPicker({ kind: 'assignee', list, id }),
       pickLabels: (list: string, id: string) => setTaskPicker({ kind: 'labels', list, id }),
+      pickFilter: (list: string, step: FilterStep | null = null) => setFilterSheet({ list, step }),
       quickAdd: (list: string, section: string | null, due?: string) => setQuickAdd({ list, section, due: due ?? null }),
       nameSection: (list: string, section: Section | null) => setSectionSheet({ list, section }),
       pickDay: (title: string, onPick: (due: string | null) => void) => setDayPicker({ title, onPick }),
@@ -1855,7 +1863,8 @@ export function App() {
     if (active === TRASH) return [t('count.items', { count: trash.length })];
     return null;
   };
-  const taskStatus = taskViewStatus();
+  // A filtered list says how many of its tasks show instead.
+  const taskStatus = active && listOf(active) !== null && viewStatus ? viewStatus : taskViewStatus();
   // Filters look in the whole personal space, or in its top-level folders, with everything inside them.
   const topFolders = ['', ...tree.filter((node) => node.kind === 'folder').map((node) => node.path)];
 
@@ -1930,6 +1939,9 @@ export function App() {
         actions={taskActions}
         places={allPlaces()}
         reveal={revealTask?.list === list ? revealTask : null}
+        look={listLooks[list]}
+        onLook={(look) => session.lookAtList(list, look)}
+        onStatus={setViewStatus}
       />
     )}
     {boardPath !== null && board && (
@@ -2239,6 +2251,10 @@ export function App() {
             }}
             onNewFolder={(name, parent) => session.newFolder(name, parent)}
             onItemMenu={phoneItemMenu}
+            listFilter={(id) => {
+              const list = listOf(id);
+              return list === null ? null : { on: asksAnything(listLooks[list]?.filter ?? NO_CHOICES), open: () => setFilterSheet({ list, step: null }) };
+            }}
             onFolderMenu={phoneFolderMenu}
             movedFolder={revealFolder?.from !== undefined && revealFolder.item !== undefined ? { from: revealFolder.from, to: revealFolder.item, at: revealFolder.at } : null}
             onSpaceOrder={(key) => showSheet(orderItems(key), { icon: 'tune', title: key === '' ? (space.name ?? t('settings.personal')) : folderLabel(key) })}
@@ -2379,6 +2395,17 @@ export function App() {
                 />
               );
             })()}
+          {filterSheet && (
+            <FilterSheet
+              key={`${filterSheet.list}#${filterSheet.step ?? ''}`}
+              place={{ path: filterSheet.list, team: peopleOf(filterSheet.list) }}
+              about={listName(filterSheet.list)}
+              start={filterSheet.step}
+              choices={listLooks[filterSheet.list]?.filter ?? NO_CHOICES}
+              onChange={(filter) => session.lookAtList(filterSheet.list, { filter })}
+              onClose={() => setFilterSheet(null)}
+            />
+          )}
           {taskPicker &&
             (() => {
               const task = tasks[taskPicker.list]?.find((each) => each.id === taskPicker.id);
