@@ -973,6 +973,24 @@ export async function saveFile(fs: VaultFs, file: File, options: PartsOptions = 
 }
 
 /**
+ * Gives an attached file another name, its extension kept (typed, it is left off); one left on the
+ * other side is renamed there without being brought here. A name another file has is refused.
+ * What links to it is not changed here: see `relinkFileIn` and `relinkFileInTrash`. Returns its path after.
+ */
+export async function renameAttachment(fs: VaultFs, path: string, name: string): Promise<string> {
+  const ext = splitName(basename(path))[1];
+  const target = join(ATTACHMENTS, `${fileName(name, ext)}${ext}`);
+  if (target === path) return path;
+  const taken = new Set([...(await names(fs, ATTACHMENTS)), ...writing]);
+  // Changing only the case of a name renames the file onto itself, which is not a clash.
+  taken.delete(path.toLowerCase());
+  if (taken.has(target.toLowerCase())) throw new Error(t('error.fileTaken', { name: basename(target) }));
+  if (await awayAt(fs, path)) await moveAway(fs, path, target);
+  else await fs.move(path, target);
+  return target;
+}
+
+/**
  * Reads the folders, task lists, boards, keys files and notes of a vault: task lists first, then
  * boards, then keys files, then collections, then folders, then notes, each by name. With
  * `titles`, a note that did not change since it was kept there is not read again.

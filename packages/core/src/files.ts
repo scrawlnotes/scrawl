@@ -1,8 +1,10 @@
-import { BOARD_EXT, parseBoard, serializeBoard, type TimelineEntry } from './board';
+import { BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from './board';
 import { isCollection, loadSchema, parseRecord, recordTitle, type Schema } from './collection';
 import { basename, dirname, type Entry, type VaultFs } from './fs';
+import { applyChanges, hrefTo, linksIn, type TextChange } from './links';
+import { parsePiece, pieceKindOf, serializePiece } from './pieces';
 import { readAway } from './sync/away';
-import { parseList, serializeList, TASK_LIST_EXT } from './tasks';
+import { parseList, serializeList, type Task, TASK_LIST_EXT } from './tasks';
 import { ATTACHMENTS, displayTitle, listName, readTrash } from './vault';
 
 // Files: every image, recording and file attached in a space, with where each is used. A file is
@@ -146,6 +148,120 @@ export function dropFileFrom(usePath: string, text: string, path: string): strin
   if (usePath.endsWith(BOARD_EXT)) return dropFileFromBoard(text, path);
   if (usePath.endsWith(TASK_LIST_EXT)) return dropFileFromTasks(text, path);
   return dropFile(text, path);
+}
+
+/** A link's text as it reads: a backslash before punctuation dropped. */
+const unescaped = (text: string) => text.replace(/\\([!-/:-@[-`{-~])/g, '$1');
+/** Text as a link's brackets hold it: what Markdown would read gets a backslash, as the editor writes a file's name. */
+const escaped = (text: string) => text.replace(/[\\`*_~[\]<>]/g, '\\$&');
+
+/**
+ * What changes in a Markdown text when the attached file at `from` is renamed `to`: its links and
+ * images point at `to`, and a link whose text is the file's old name takes the new one; text of
+ * its own stays. Links inside code are left. Empty when nothing links to it.
+ */
+export function relinkFileChanges(text: string, from: string, to: string): TextChange[] {
+  const wanted = from.toLowerCase();
+  const changes: TextChange[] = [];
+  for (const link of linksIn(text)) {
+    const angled = link.href.startsWith('<');
+    if (attachmentOf(angled ? link.href.slice(1, -1) : link.href)?.toLowerCase() !== wanted) continue;
+    if (unescaped(text.slice(link.textFrom, link.textTo)) === basename(from)) changes.push({ from: link.textFrom, to: link.textTo, insert: escaped(basename(to)) });
+    changes.push({ from: link.from, to: link.to, insert: angled ? `<${to}>` : hrefTo('', to) });
+  }
+  return changes;
+}
+
+/** A Markdown text with the attached file at `from` renamed `to`, as `relinkFileChanges` says; the text as it was when nothing links to it. */
+export function relinkFile(text: string, from: string, to: string): string {
+  const changes = relinkFileChanges(text, from, to);
+  return changes.length > 0 ? applyChanges(text, changes) : text;
+}
+
+/** Tasks with the attached file at `from` renamed `to` in their descriptions; null when none links to it. */
+function relinkTasks(tasks: Task[], from: string, to: string): Task[] | null {
+  let changed = false;
+  const out = tasks.map((task) => {
+    if (task.description === undefined) return task;
+    const description = relinkFile(task.description, from, to);
+    if (description === task.description) return task;
+    changed = true;
+    return { ...task, description };
+  });
+  return changed ? out : null;
+}
+
+/** A card with the attached file at `from` renamed `to` in its description and comments; null when neither links to it. */
+function relinkCard(card: Card, from: string, to: string): Card | null {
+  const description = card.description === undefined ? undefined : relinkFile(card.description, from, to);
+  let changed = description !== card.description;
+  const timeline = card.timeline.map((entry) => {
+    if (entry.kind !== 'comment') return entry;
+    const text = relinkFile(entry.text, from, to);
+    if (text === entry.text) return entry;
+    changed = true;
+    return { ...entry, text };
+  });
+  return changed ? { ...card, ...(description !== undefined && { description }), timeline } : null;
+}
+
+/**
+ * The text of what uses attached files with the one at `from` renamed `to`: a note or a record, a
+ * task list (its tasks' descriptions), a board (its cards' descriptions and comments), or a task, a
+ * section or a card in the trash. The text as it was when nothing in it links to the file.
+ */
+export function relinkFileIn(usePath: string, text: string, from: string, to: string): string {
+  if (!text.includes(ATTACHMENTS)) return text;
+  if (usePath.endsWith(BOARD_EXT)) {
+    const board = parseBoard(text);
+    let changed = false;
+    const cards = board.cards.map((card) => {
+      const out = relinkCard(card, from, to);
+      if (out) changed = true;
+      return out ?? card;
+    });
+    return changed ? serializeBoard({ ...board, cards }) : text;
+  }
+  if (usePath.endsWith(TASK_LIST_EXT)) {
+    const list = parseList(text);
+    const tasks = relinkTasks(list.tasks, from, to);
+    return tasks ? serializeList({ ...list, tasks }) : text;
+  }
+  if (pieceKindOf(usePath)) {
+    const piece = parsePiece(text);
+    if (!piece) return text;
+    if (piece.kind === 'card') {
+      const card = relinkCard(piece.card, from, to);
+      return card ? serializePiece({ ...piece, card }) : text;
+    }
+    const tasks = relinkTasks(piece.tasks, from, to);
+    return tasks ? serializePiece({ ...piece, tasks }) : text;
+  }
+  return usePath.endsWith('.md') ? relinkFile(text, from, to) : text;
+}
+
+/**
+ * Points what links to the attached file at `from` in the trash at `to`, where it was renamed:
+ * notes, records, task lists and boards deleted, alone or in a folder, and tasks, sections and
+ * cards deleted. A note restored, or a card put back, then shows the file.
+ */
+export async function relinkFileInTrash(fs: VaultFs, from: string, to: string): Promise<void> {
+  const relink = async (path: string) => {
+    const text = await fs.readText(path).catch(() => null);
+    if (text === null) return;
+    const out = relinkFileIn(path, text, from, to);
+    if (out !== text) await fs.writeText(path, out);
+  };
+  const visit = async (dir: string) => {
+    for (const entry of await fs.list(dir)) {
+      if (entry.kind === 'dir') await visit(entry.path);
+      else if (entry.name.endsWith('.md') || entry.name.endsWith('.json')) await relink(entry.path);
+    }
+  };
+  for (const item of await readTrash(fs)) {
+    if (item.kind === 'folder' || item.kind === 'collection') await visit(item.path);
+    else if (item.kind !== 'attachment' && item.kind !== 'keys' && !item.away) await relink(item.path);
+  }
 }
 
 /** Adds what the notes, records and boards at and under `dir` use, by the file used. */

@@ -327,9 +327,12 @@ class AwayWidget extends ItemWidget {
   protected key() {
     return `away\n${this.src}\n${this.name}\n${this.length}\n${this.there.size}`;
   }
-  // Not here: nothing to show in its folder.
+  // Not here: nothing to show in its folder; it is renamed where it is.
   protected file() {
     return null;
+  }
+  protected attached() {
+    return this.src;
   }
   // Opening it brings it first.
   protected opener() {

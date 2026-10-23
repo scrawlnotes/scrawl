@@ -61,8 +61,8 @@ interface Props {
   onNewFolder: (name: string, parent: string) => Promise<string | null>;
   /** A right click on a note, a task list or a folder. */
   onItemMenu: (event: MouseEvent, path: string) => void;
-  /** A folder's menu; `addFolder` starts naming a folder inside it, under its row. */
-  onFolderMenu: (event: MouseEvent, path: string) => void;
+  /** A folder's menu; on a right click `addFolder`, which starts naming a folder inside it, under its row, for its Add new. */
+  onFolderMenu: (event: MouseEvent, path: string, addFolder?: () => void) => void;
   /** A folder's +: what can be made in it; `addFolder` starts naming a folder inside it, under its row. */
   onFolderAdd: (event: MouseEvent, path: string, addFolder: () => void) => void;
   /** The saved filters, under Today and Upcoming. */
@@ -80,8 +80,8 @@ interface Props {
   spaces: SpaceView[];
   /** What the personal space is called, for its heading. */
   personalName: string;
-  /** A space heading's menu of what to view and the rest; null is the personal space. */
-  onSpaceMenu: (event: MouseEvent, id: string | null) => void;
+  /** A space heading's menu of what to view and the rest; null is the personal space. On a right click `addFolder`, for its Add new. */
+  onSpaceMenu: (event: MouseEvent, id: string | null, addFolder?: () => void) => void;
   /** Puts the spaces beside the personal one in this order, by id. */
   onOrderSpaces: (ids: string[]) => void;
   /** A space heading's +: what can be made at its top. `addFolder` starts naming a folder there. */
@@ -605,7 +605,7 @@ export function Sidebar({
           data-path={node.path}
           {...dragProps(node.path)}
           {...folderDropProps(node.path, open)}
-          onContextMenu={(event) => folderMenu(event, node.path)}
+          onContextMenu={(event) => onFolderMenu(event, node.path, () => startFolder(node.path))}
         >
           <button type="button" className="it-main" aria-expanded={open} onClick={() => toggle(node.path)}>
             {folderHead(open, shownName(node.name))}
@@ -731,7 +731,7 @@ export function Sidebar({
           },
           onDragEnd: () => setSpaceDrop(null),
         })}
-        onContextMenu={menu}
+        onContextMenu={(event) => onSpaceMenu(event, id, () => startFolder(top))}
       >
         <button type="button" className="it-main" aria-expanded={open} onClick={() => toggleSpace(key)}>
           <span className={open ? 'chev open' : 'chev'}>

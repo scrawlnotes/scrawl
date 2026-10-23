@@ -234,7 +234,13 @@ import {
   dropFileFrom,
   dropFileFromBoard,
   dropFileFromTasks,
+  fileUses,
   listFiles,
+  relinkFile,
+  relinkFileChanges,
+  relinkFileIn,
+  relinkFileInTrash,
+  renameAttachment,
   readAway,
   type AwayFile,
   AwayFilesError,
@@ -273,6 +279,7 @@ import {
   type LinkTap,
   openSearchPanel,
   linkText,
+  outsideHistory,
   type ScrawlEditor,
   type ScrollPlace,
   type ScrawlViewer,
@@ -729,6 +736,8 @@ export class Session {
   private readonly unlinked = new Set<string>();
   /** Shows the menu of a right click in a note; the interface sets it, to draw it like its other menus. */
   showMenu: ((at: { x: number; y: number }, items: ItemAction[], about?: ItemAbout) => void) | null = null;
+  /** Asks an attached file another name, from its bar or its menu in the editor `view`; the interface sets it, for its Rename window. */
+  askFileName: ((path: string, view: EditorView) => void) | null = null;
   /** Says something for a moment in the status bar, from the window. */
   say: ((text: string) => void) | null = null;
   /** Says what a collection's rules did as records were saved, or where they stopped; the interface sets it, for its toast. */
@@ -1876,6 +1885,7 @@ export class Session {
       resolveImage: (src: string) => this.resolveImageAt(home(), src),
       openFile: (src: string) => void this.openFile(home(), src),
       revealFile: isDesktop ? (src: string) => void revealFileOnDesktop(this.attached(home(), src)).catch(() => undefined) : undefined,
+      renameFile: (src: string, view: EditorView) => this.askFileName?.(this.attached(home(), src), view),
       openLink: (href: string) => this.followLink(home(), href),
       fileSize: (src: string) => this.sizes.get(this.attached(home(), src)) ?? this.awayAt(this.attached(home(), src))?.size,
       resolveAudio: (src: string) => this.mediaUrl(home(), src),
@@ -2122,7 +2132,14 @@ export class Session {
    */
   private resolveImageAt(home: string, src: string): string | Promise<string> {
     if (!src.startsWith(`${ATTACHMENTS}/`)) return src;
-    return this.imageOf(this.attached(home, src));
+    // An address may be written escaped, as a renamed image's is: `Whiteboard%20plan.png`.
+    let path = src;
+    try {
+      path = decodeURIComponent(src);
+    } catch {
+      // A `%` of its own: the address is the name.
+    }
+    return this.imageOf(this.attached(home, path));
   }
 
   /** The address an attached image loads from, by its path in the app: Files shows it small. */
@@ -4128,6 +4145,102 @@ export class Session {
       for (const dir of collections) await this.reloadCollection(dir);
       await this.freshTrash();
     };
+  }
+
+  /**
+   * Gives an attached file another name, its extension kept: what links to it follows, notes,
+   * records, tasks and cards, those in the trash too. What is open changes where it is, outside its
+   * undo, which would point it at a name no file has. `view` is the editor of a card's description
+   * or a record's notes the rename came from, whose text its opener saves. Returns where the file
+   * is after, or why the name cannot be used.
+   */
+  async renameFile(path: string, name: string, view?: EditorView): Promise<{ path: string } | { error: string }> {
+    await this.settle();
+    const { fs, space, local } = this.at(path);
+    let to: string;
+    try {
+      to = await renameAttachment(fs, local, name);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : t('error.fileRename') };
+    }
+    if (to === local) return { path };
+    const target = inSpace(space, to);
+    const size = this.sizes.get(path);
+    this.sizes.delete(path);
+    if (size !== undefined) this.sizes.set(target, size);
+    this.forgetMedia([path]);
+    await this.recountFiles();
+    if (view && view !== this.editor?.view) {
+      const changes = relinkFileChanges(view.state.doc.toString(), local, to);
+      if (changes.length > 0) view.dispatch({ changes, annotations: outsideHistory });
+    }
+    const uses = (await fileUses(fs).catch(() => null))?.get(local.toLowerCase()) ?? [];
+    const collections = new Set<string>();
+    const done = new Set<string>();
+    for (const use of uses) {
+      const at = inSpace(space, use.path);
+      if (use.inTrash || done.has(at)) continue;
+      done.add(at);
+      try {
+        if (use.kind === 'card' && this.snapshot.boards[at]) {
+          this.changeBoard(at, (current) => {
+            const text = serializeBoard(current);
+            const out = relinkFileIn(use.path, text, local, to);
+            return out === text ? current : parseBoard(out);
+          });
+        } else if (use.kind === 'task' && at in this.snapshot.tasks) {
+          this.changeList(at, (current) => {
+            const text = serializeList(current);
+            const out = relinkFileIn(use.path, text, local, to);
+            return out === text ? current : parseList(out);
+          });
+        } else if (use.kind === 'card' || use.kind === 'task') {
+          // A list or a board not read here is changed in its file.
+          const text = await fs.readText(use.path);
+          const out = relinkFileIn(use.path, text, local, to);
+          if (out !== text) await fs.writeText(use.path, out);
+        } else {
+          await this.relinkText(at, local, to, use.kind === 'note');
+          if (use.kind === 'record') collections.add(dirname(at));
+        }
+      } catch {
+        // Gone meanwhile: nothing of it to change.
+      }
+    }
+    await relinkFileInTrash(fs, local, to).catch(() => undefined);
+    this.editor?.refreshMedia();
+    for (const dir of collections) await this.reloadCollection(dir);
+    return { path: target };
+  }
+
+  /**
+   * Points the links of a note or a record at an attached file renamed from `from` to `to`, wherever
+   * its text is: on screen, open behind, waiting to be written, or only in its file. On screen and
+   * open behind it is outside the note's undo. With `keep`, a note keeps its text from before as a
+   * version, as a file deleted leaves it.
+   */
+  private async relinkText(path: string, from: string, to: string, keep: boolean) {
+    const view = this.editor?.view;
+    const state = view && this.snapshot.active === path ? view.state : this.states.get(path);
+    const before = state ? state.doc.toString() : (this.pending.get(path) ?? (await this.fs.readText(path)));
+    if (relinkFileChanges(before, from, to).length === 0) return;
+    if (keep) await this.keep(path, before, true);
+    // Asked again after keeping it: the note may have been typed in meanwhile.
+    if (view && this.snapshot.active === path) {
+      view.dispatch({ changes: relinkFileChanges(view.state.doc.toString(), from, to), annotations: outsideHistory });
+      return;
+    }
+    const behind = this.states.get(path);
+    if (behind) {
+      const next = behind.update({ changes: relinkFileChanges(behind.doc.toString(), from, to), annotations: outsideHistory }).state;
+      this.states.set(path, next);
+      this.queueSave(path, next.doc.toString());
+      return;
+    }
+    const text = relinkFile(this.pending.get(path) ?? before, from, to);
+    if (this.pending.has(path)) return this.queueSave(path, text);
+    await this.fs.writeText(path, text);
+    if (this.disk.has(path)) this.disk.set(path, text);
   }
 
   /**

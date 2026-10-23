@@ -1,4 +1,4 @@
-import { locale, t } from '@scrawlnotes/i18n';
+import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type AppFile,
   type Record as CollectionRecord,
@@ -66,7 +66,7 @@ import {
   type TreeNode,
   WELCOME_NOTE,
 } from '@scrawlnotes/core';
-import { type EditorStats, type LinkTap, sizeText } from '@scrawlnotes/editor';
+import { type EditorStats, type EditorView, type LinkTap, sizeText } from '@scrawlnotes/editor';
 import { type DragEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -194,6 +194,8 @@ type OpenDialog =
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
+  // An attached file, from Files or from its bar in a note; `view` is the editor that bar is in.
+  | { kind: 'renameFile'; path: string; view?: EditorView }
   | { kind: 'export'; path: string }
   | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void; places?: ConfirmPlace[]; after?: string; brief?: string }
   | { kind: 'button'; run: ButtonRun; record: string }
@@ -211,6 +213,12 @@ type OpenDialog =
 const TAB_DRAG_TYPE = 'application/x-scrawl-tab';
 /** The files a collection imports: CSV and Excel. */
 const IMPORTABLE = '.csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
+
+/** A file's name and its extension, `Lease` and `.pdf`; a name with no dot after its first character has none. */
+const nameAndExt = (name: string): [string, string] => {
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
+};
 
 // Ctrl+N and Ctrl+W belong to the browser on the web, so Alt is used there.
 const keys = (key: string) => `${isDesktop ? 'Ctrl' : 'Alt'}+${key}`;
@@ -780,6 +788,7 @@ export function App() {
     ...(isDesktop
       ? { reveal: (file) => session.revealAttached(file.path) }
       : { download: (file) => void session.attachedBlob(file.path).then((blob) => downloadBlob(file.name, blob), () => undefined) }),
+    rename: (file) => setDialog({ kind: 'renameFile', path: file.path }),
     remove: askDeleteFiles,
     openUse,
     image: session.imageOf,
@@ -791,6 +800,7 @@ export function App() {
           ),
           { label: t('files.open'), icon: 'open', run: () => void session.openAttached(file.path), apart: file.uses.length > 0 },
           { label: t('files.share'), icon: 'share', run: () => void shareFiles([file]) },
+          { label: t('files.rename'), icon: 'pen', run: () => setDialog({ kind: 'renameFile', path: file.path }) },
           { label: t('menu.delete'), icon: 'trash', danger: true, run: () => askDeleteFiles([file]) },
         ],
         { icon: 'file', title: fileTitle(file), sub: `${sizeText(file.size)}${trashSpaces.length > 1 ? ` · ${spaceName(file.space)}` : ''}`, picture: <Thumb file={file} image={session.imageOf} className="mb-thumb" /> },
@@ -877,8 +887,9 @@ export function App() {
   // has no more than its settings.
   // Its +: what can be made at its top.
   const spaceAdd = (event: MouseEvent, id: string | null, addFolder: () => void) => openMenu(event, folderMenuItems(inSpace(id, ''), addFolder), id ? `@${id}` : '@personal');
-  // Its other button: how its top is put in order, then its settings, its place and leaving this device.
-  const spaceMenu = (event: MouseEvent, id: string | null) => {
+  // Its other button: how its top is put in order, then its settings, its place and leaving this
+  // device; a right click, `addFolder`, has Add new over them.
+  const spaceMenu = (event: MouseEvent, id: string | null, addFolder?: () => void) => {
     const at = id ? spaces.findIndex((space) => space.id === id) : -1;
     const items: MenuItem[] = [
       ...orderItems(id ? inSpace(id, '') : ''),
@@ -891,7 +902,7 @@ export function App() {
         { label: t('side.removeSpace'), apart: true, run: () => askRemoveSpace(id) },
       );
     }
-    openMenu(event, items, id ? `@${id}` : '@personal');
+    openMenu(event, addFolder ? withAddNew(inSpace(id, ''), addFolder, items) : items, id ? `@${id}` : '@personal');
   };
   const askRemoveSpace = (id: string) => setDialog({ kind: 'removeSpace', id });
   /**
@@ -1131,9 +1142,12 @@ export function App() {
     written: (node) => (node.kind === 'collection' ? collections[node.path]?.written : undefined),
   };
   // A folder, as a space: its + for what can be made in it, and its other button for how its
-  // items are put in order and deleting it.
+  // items are put in order and deleting it; a right click, `addFolder`, has Add new over them.
   const folderAdd = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, folderMenuItems(path, addFolder), path);
-  const folderMenu = (event: MouseEvent, path: string) => openMenu(event, [...appItems(path), ...placeItems(path, appItems(path).length > 0), ...orderItems(path), folderDelete(path)], path);
+  const folderMenu = (event: MouseEvent, path: string, addFolder?: () => void) => {
+    const items = [...appItems(path), ...placeItems(path, appItems(path).length > 0), ...orderItems(path), folderDelete(path)];
+    openMenu(event, addFolder ? withAddNew(path, addFolder, items) : items, path);
+  };
   // A folder goes elsewhere, with what is in it, or gets another name, as a note does.
   const placeItems = (path: string, apart: boolean): MenuItem[] => [
     { label: t('menu.moveTo'), icon: 'move', apart, run: () => setDialog({ kind: 'move', path }) },
@@ -1194,15 +1208,17 @@ export function App() {
   // What can be made in a folder, or at the top of a space. A new note shows at once, out from
   // under the drawer; anything else opens its Create or Filter window with the folder chosen, the
   // drawer closed so that what is made shows; a new folder is named in the sidebar, under the
-  // folder it goes in.
-  const folderMenuItems = (path: string, addFolder: () => void): MenuItem[] => {
+  // folder it goes in. An app and a folder are each apart from the rest. In a right click's Add
+  // new, `short`, they are named by what they are only.
+  const folderMenuItems = (path: string, addFolder: () => void, short = false): MenuItem[] => {
     const createHere = (start: ItemKind) => () => {
       setDrawer(false);
       setDialog({ kind: 'new', start, folder: path });
     };
+    const label = (here: MessageKey, named: MessageKey) => t(short ? named : here);
     return [
       {
-        label: t('menu.newNoteHere'),
+        label: label('menu.newNoteHere', 'menu.add.note'),
         icon: 'note',
         run: () => {
           setDrawer(false);
@@ -1210,29 +1226,35 @@ export function App() {
           void session.newNote(path);
         },
       },
-      { label: t('menu.newListHere'), icon: 'tasks', run: createHere('tasks') },
-      { label: t('menu.newBoardHere'), icon: 'board', run: createHere('board') },
-      { label: t('menu.newKeysHere'), icon: 'keys', run: createHere('keys') },
-      { label: t('menu.newCollectionHere'), icon: 'collection', run: createHere('collection') },
+      { label: label('menu.newListHere', 'menu.add.list'), icon: 'tasks', run: createHere('tasks') },
+      { label: label('menu.newBoardHere', 'menu.add.board'), icon: 'board', run: createHere('board') },
+      { label: label('menu.newKeysHere', 'menu.add.keys'), icon: 'keys', run: createHere('keys') },
+      { label: label('menu.newCollectionHere', 'menu.add.collection'), icon: 'collection', run: createHere('collection') },
       {
-        label: t('menu.newAppHere'),
-        icon: 'app',
-        run: () => {
-          setDrawer(false);
-          setDialog({ kind: 'newApp', folder: path });
-        },
-      },
-      {
-        label: t('menu.newFilterHere'),
+        label: label('menu.newFilterHere', 'menu.add.filter'),
         icon: 'filter',
         run: () => {
           setDrawer(false);
           setDialog({ kind: 'filter', filter: null, place: path });
         },
       },
-      { label: t('menu.newFolderHere'), icon: 'folder', run: addFolder, apart: true },
+      {
+        label: label('menu.newAppHere', 'menu.add.app'),
+        icon: 'app',
+        apart: true,
+        run: () => {
+          setDrawer(false);
+          setDialog({ kind: 'newApp', folder: path });
+        },
+      },
+      { label: label('menu.newFolderHere', 'menu.add.folder'), icon: 'folder', run: addFolder, apart: true },
     ];
   };
+  /** A right click on a folder or a space's heading: Add new first, what can be made there as its own menu, then the rest of its menu. */
+  const withAddNew = (path: string, addFolder: () => void, items: MenuItem[]): MenuItem[] => [
+    { label: t('menu.addNew'), icon: 'plus', run: () => undefined, items: folderMenuItems(path, addFolder, true) },
+    ...items.map((item, index) => (index === 0 ? { ...item, apart: true } : item)),
+  ];
   const closeMenu = useCallback(() => setMenu(null), []);
 
   // An image, file or recording in a note has its right-click menu drawn like the others; on a
@@ -1241,6 +1263,7 @@ export function App() {
     const icons = {
       open: 'open',
       reveal: 'folder',
+      rename: 'pen',
       small: 'sizeSmall',
       medium: 'sizeMedium',
       full: 'sizeFull',
@@ -1274,6 +1297,8 @@ export function App() {
       };
       setMenu({ at, items, head });
     };
+    // An attached file's Rename, in its bar or its menu in a note.
+    session.askFileName = (path, view) => setDialog({ kind: 'renameFile', path, view });
     // A link tapped in a note, on a phone.
     session.linkTap = setLinkTap;
     session.say = (text) => setShown({ text });
@@ -1291,6 +1316,7 @@ export function App() {
     };
     return () => {
       session.showMenu = null;
+      session.askFileName = null;
       session.linkTap = null;
       session.say = null;
       session.ruled = null;
@@ -1421,8 +1447,8 @@ export function App() {
     // Opened while the app still reads, it reads again once all of it is read.
   }, [searchOn, ready, reading.size === 0]);
   const searchThings = useMemo<Thing[] | null>(
-    () => (searchRead ? thingsOf({ tree, spaces, titles: tabTitles, tasks, boards, collections, filters, texts: searchRead.texts, files: searchRead.files, today }) : null),
-    [searchRead, tree, spaces, tabTitles, tasks, boards, collections, filters, today],
+    () => (searchRead ? thingsOf({ tree, spaces, titles: tabTitles, tasks, sections, boards, collections, filters, texts: searchRead.texts, files: searchRead.files, today }) : null),
+    [searchRead, tree, spaces, tabTitles, tasks, sections, boards, collections, filters, today],
   );
   // What the search offers at its foot: making something, the views, the settings, sync.
   const searchActions: SearchAction[] = [
@@ -2745,6 +2771,19 @@ export function App() {
           folder={dirname(dialog.path)}
           folders={placesFor(dialog.path)}
           onSave={(name, folder) => saveNameAndPlace(dialog.path, name, folder)}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'renameFile' && (
+        <RenameDialog
+          name={nameAndExt(basename(dialog.path))[0]}
+          ext={nameAndExt(basename(dialog.path))[1]}
+          onSave={async (name) => {
+            const done = await session.renameFile(dialog.path, name, dialog.view);
+            if ('error' in done) return done.error;
+            readFilesAgain();
+            return null;
+          }}
           onClose={closeDialog}
         />
       )}

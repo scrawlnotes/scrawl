@@ -57,6 +57,8 @@ export interface FileActions {
   reveal?: (file: FileRow) => void;
   /** In a browser: the file saved where downloads go. */
   download?: (file: FileRow) => void;
+  /** Asks the file another name; what links to it follows. */
+  rename: (file: FileRow) => void;
   remove: (files: FileRow[]) => void;
   openUse: (use: FileUse) => void;
   /** Where an image shows from. */
@@ -182,6 +184,9 @@ function FileLine({ file, today, chosen, choosing, going, actions, onChoose }: {
               <Icon name="download" />
             </button>
           )}
+          <button type="button" title={t('files.rename')} aria-label={t('files.rename')} onClick={() => actions.rename(file)}>
+            <Icon name="pen" />
+          </button>
           <button type="button" title={t('menu.delete')} aria-label={t('menu.delete')} onClick={() => actions.remove([file])}>
             <Icon name="trash" />
           </button>
@@ -190,6 +195,9 @@ function FileLine({ file, today, chosen, choosing, going, actions, onChoose }: {
         <span className="task-actions">
           <button type="button" title={t('files.open')} aria-label={t('files.open')} onClick={() => actions.open(file)}>
             <Icon name="open" />
+          </button>
+          <button type="button" title={t('files.rename')} aria-label={t('files.rename')} onClick={() => actions.rename(file)}>
+            <Icon name="pen" />
           </button>
           {actions.reveal ? (
             <button type="button" title={t('files.reveal')} aria-label={t('files.reveal')} onClick={() => actions.reveal!(file)}>

@@ -1,6 +1,7 @@
 import {
   type Board,
   boardName,
+  type Card,
   cardValue,
   type Collection,
   collectionName,
@@ -17,6 +18,7 @@ import {
   recordTitle,
   search,
   searchIndex,
+  type Section,
   type Span,
   spaceOf,
   type Task,
@@ -27,11 +29,11 @@ import {
 } from '@scrawlnotes/core';
 import { sizeText } from '@scrawlnotes/editor';
 import { type MessageKey, t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { fileTitle, kindOf } from './Files';
 import { StillOpening } from './Loading';
 import { Icon, type IconName } from './Icon';
-import { boardOf, collectionTab, filterTab, keysOf, listHeading, spaceLabel, tasksOf } from './items';
+import { boardOf, collectionTab, filterTab, keysOf, spaceLabel, tasksOf } from './items';
 import type { FileRow, SpaceView } from './session';
 import { dueLabel } from './Tasks';
 
@@ -55,8 +57,14 @@ export type Target =
 export interface Thing extends Findable {
   target: Target;
   icon: IconName;
-  /** Where it is: its space and folders, its list and day, its board and column. */
-  where: string;
+  /**
+   * Where it is, the whole way down to it: its space, when there are spaces, and its folders;
+   * then a task's list, section and the tasks it is under, a card's board and column, a record's
+   * collection, and what a file is in.
+   */
+  trail: string[];
+  /** Beside its name: a task's day, a file's size. */
+  aside?: string;
   /** A task's priority, for its circle. */
   priority?: number;
 }
@@ -67,6 +75,7 @@ export interface SearchData {
   spaces: SpaceView[];
   titles: Record<string, string>;
   tasks: Record<string, Task[]>;
+  sections: Record<string, Section[]>;
   boards: Record<string, Board>;
   collections: Record<string, Collection>;
   filters: TaskFilter[];
@@ -78,42 +87,76 @@ export interface SearchData {
 /** The fields whose values are read as text: not numbers, days, boxes or what is worked out. */
 const UNREAD = new Set(['number', 'date', 'time', 'checkbox', 'formula', 'name', 'code']);
 
-/** Where a path is: its space, when there are spaces, and its folders: `Acme › Sales`. */
-function trailOf(path: string, named: boolean): string {
-  const space = spaceOf(path);
-  const folders = dirname(localPath(path)).split('/').filter(Boolean);
-  const head = space ? spaceLabel(space) : named ? spaceLabel(null) : null;
-  return [head, ...folders].filter(Boolean).join(' › ');
-}
-
-const joined = (...parts: (string | null | undefined | false)[]) => parts.filter(Boolean).join(' · ');
-
 /** Everything to be found, from what the app has read. */
 export function thingsOf(data: SearchData): Thing[] {
   const named = data.spaces.length > 0;
+  /** Where a path is: its space, when there are spaces, and its folders: `Acme › Sales`. */
+  const trailOf = (path: string): string[] => {
+    const space = spaceOf(path);
+    const folders = dirname(localPath(path)).split('/').filter(Boolean).map(shownName);
+    return space || named ? [spaceLabel(space), ...folders] : folders;
+  };
+  // Each list's tasks by their ids, for the tasks a subtask is under.
+  const byList = new Map(Object.entries(data.tasks).map(([list, tasks]) => [list, new Map(tasks.map((task) => [task.id, task]))]));
+  /** Where a task is: its list's place and name, its section, and the tasks it is under, the top one first. */
+  const taskTrail = (list: string, task: Task): string[] => {
+    const tasks = byList.get(list);
+    const above: Task[] = [];
+    let up = task.parent ? tasks?.get(task.parent) : undefined;
+    // A list whose parents go round is not followed round.
+    while (up && up !== task && !above.includes(up)) {
+      above.unshift(up);
+      up = up.parent ? tasks?.get(up.parent) : undefined;
+    }
+    // A subtask is in its top task's section.
+    const top = above[0] ?? task;
+    const section = top.section ? data.sections[list]?.find((each) => each.id === top.section)?.name : undefined;
+    return [...trailOf(list), listName(list), ...(section ? [section] : []), ...above.map((each) => each.title)];
+  };
+  /** Where a card is: its board's place and name, and its column. */
+  const cardTrail = (path: string, card: Card | undefined): string[] => {
+    const column = card && data.boards[path]?.columns.find((each) => each.id === card.column);
+    return [...trailOf(path), boardName(path), ...(column ? [column.name] : [])];
+  };
+  /** Where a record is: its collection's place and name. */
+  const recordTrail = (dir: string): string[] => [...trailOf(dir), collectionName(dir)];
+  /** Where a file is: what it is in, the whole way down to that, by the first use not in the trash. */
+  const fileTrail = (file: FileRow): string[] => {
+    const use = file.uses.find((each) => !each.inTrash);
+    if (!use) return file.space || named ? [spaceLabel(file.space)] : [];
+    if (use.kind === 'task') {
+      const task = use.task && byList.get(use.path)?.get(use.task.id);
+      return [...(task ? taskTrail(use.path, task) : [...trailOf(use.path), listName(use.path)]), use.title];
+    }
+    if (use.kind === 'card') {
+      const card = use.card && data.boards[use.path]?.cards.find((each) => each.id === use.card!.id);
+      return [...cardTrail(use.path, card), use.card ? `${use.title} ${use.card.title}` : use.title];
+    }
+    if (use.kind === 'record') return [...recordTrail(dirname(use.path)), use.title];
+    return [...trailOf(use.path), use.title];
+  };
   const things: Thing[] = [];
   const visit = (nodes: TreeNode[]) => {
     for (const node of nodes) {
-      const where = trailOf(node.path, named);
+      const trail = trailOf(node.path);
       const name = data.titles[node.path] ?? node.title ?? node.name;
-      if (node.kind === 'note') things.push({ kind: 'note', name, text: data.texts.get(node.path) ?? '', target: { kind: 'note', path: node.path }, icon: 'note', where });
-      else if (node.kind === 'tasks') things.push({ kind: 'tasks', name, target: { kind: 'tab', id: tasksOf(node.path) }, icon: 'tasks', where });
-      else if (node.kind === 'board') things.push({ kind: 'board', name, target: { kind: 'tab', id: boardOf(node.path) }, icon: 'board', where });
-      else if (node.kind === 'keys') things.push({ kind: 'keys', name: keysName(node.path), target: { kind: 'tab', id: keysOf(node.path) }, icon: 'keys', where });
-      else if (node.kind === 'collection') things.push({ kind: 'collection', name: collectionName(node.path), target: { kind: 'tab', id: collectionTab(node.path) }, icon: 'collection', where });
+      if (node.kind === 'note') things.push({ kind: 'note', name, text: data.texts.get(node.path) ?? '', target: { kind: 'note', path: node.path }, icon: 'note', trail });
+      else if (node.kind === 'tasks') things.push({ kind: 'tasks', name, target: { kind: 'tab', id: tasksOf(node.path) }, icon: 'tasks', trail });
+      else if (node.kind === 'board') things.push({ kind: 'board', name, target: { kind: 'tab', id: boardOf(node.path) }, icon: 'board', trail });
+      else if (node.kind === 'keys') things.push({ kind: 'keys', name: keysName(node.path), target: { kind: 'tab', id: keysOf(node.path) }, icon: 'keys', trail });
+      else if (node.kind === 'collection') things.push({ kind: 'collection', name: collectionName(node.path), target: { kind: 'tab', id: collectionTab(node.path) }, icon: 'collection', trail });
       else if (node.kind === 'folder') {
-        things.push({ kind: 'folder', name: shownName(node.name), target: { kind: 'folder', path: node.path }, icon: 'folder', where });
+        things.push({ kind: 'folder', name: shownName(node.name), target: { kind: 'folder', path: node.path }, icon: 'folder', trail });
         visit(node.children ?? []);
       }
     }
   };
   visit(data.tree);
   for (const space of data.spaces) {
-    things.push({ kind: 'space', name: space.name, target: { kind: 'space', id: space.id }, icon: 'space', where: '' });
+    things.push({ kind: 'space', name: space.name, target: { kind: 'space', id: space.id }, icon: 'space', trail: [] });
     visit(space.tree);
   }
   for (const [list, tasks] of Object.entries(data.tasks)) {
-    const heading = listHeading(list);
     for (const task of tasks) {
       things.push({
         kind: 'task',
@@ -122,7 +165,8 @@ export function thingsOf(data: SearchData): Thing[] {
         done: task.done,
         target: { kind: 'task', list, id: task.id, subtask: task.parent !== null },
         icon: 'tasks',
-        where: joined(heading, task.due && !task.done && dueLabel(task.due, data.today)),
+        trail: taskTrail(list, task),
+        ...(task.due && !task.done && { aside: dueLabel(task.due, data.today) }),
         priority: task.priority,
       });
     }
@@ -146,12 +190,12 @@ export function thingsOf(data: SearchData): Thing[] {
         done: column?.kind === 'done' || column?.kind === 'dropped',
         target: { kind: 'card', board: path, id: card.id },
         icon: 'board',
-        where: joined(boardName(path), column?.name),
+        trail: cardTrail(path, card),
       });
     }
   }
   for (const [dir, collection] of Object.entries(data.collections)) {
-    const where = joined(collectionName(dir), trailOf(dir, named));
+    const trail = recordTrail(dir);
     for (const record of collection.records) {
       const fields = collection.schema.fields
         .filter((field) => !UNREAD.has(field.type))
@@ -165,22 +209,22 @@ export function thingsOf(data: SearchData): Thing[] {
         fields,
         target: { kind: 'record', dir, id: record.id },
         icon: 'collection',
-        where,
+        trail,
       });
     }
   }
   for (const filter of data.filters) {
-    things.push({ kind: 'filter', name: filter.name, target: { kind: 'tab', id: filterTab(filter.id) }, icon: 'filter', where: trailOf(filter.folder ? `${filter.folder}/x` : 'x', named) });
+    things.push({ kind: 'filter', name: filter.name, target: { kind: 'tab', id: filterTab(filter.id) }, icon: 'filter', trail: trailOf(filter.folder ? `${filter.folder}/x` : 'x') });
   }
   for (const file of data.files) {
-    const use = file.uses.find((each) => !each.inTrash);
     const kind = kindOf(file);
     things.push({
       kind: 'file',
       name: fileTitle(file),
       target: { kind: 'file', file },
       icon: kind === 'audio' ? 'audio' : kind,
-      where: joined(use && t('search.in', { name: use.card ? `${use.title} ${use.card.title}` : use.title }), sizeText(file.size)),
+      trail: fileTrail(file),
+      aside: sizeText(file.size),
     });
   }
   return things;
@@ -293,6 +337,25 @@ function Name({ found }: { found: Found<Thing> }) {
         <Marked text={item.name} spans={found.inName} />
       </span>
     </>
+  );
+}
+
+/**
+ * Where something found is, over its name: its space first and what it is in last. Where it is
+ * too long, what is between gives way first, each shortened with an ellipsis; the whole way is in
+ * its tip.
+ */
+function Trail({ trail }: { trail: string[] }) {
+  if (trail.length === 0) return null;
+  return (
+    <span className="trail" title={trail.join(' › ')}>
+      {trail.map((crumb, index) => (
+        <Fragment key={index}>
+          {index > 0 && <span className="sep">›</span>}
+          <span className={index === 0 || index === trail.length - 1 ? 'end' : 'mid'}>{crumb}</span>
+        </Fragment>
+      ))}
+    </span>
   );
 }
 
@@ -492,10 +555,11 @@ export function SearchWindow({ things, actions, onPick, onClose, still = null }:
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => pick(each)}
                 >
+                  <Trail trail={each.item.trail} />
                   <Lead thing={each.item} />
                   <span className="l1">
                     <Name found={each} />
-                    {each.item.where && <span className="wh">{each.item.where}</span>}
+                    {each.item.aside && <span className="wh">{each.item.aside}</span>}
                   </span>
                   <span className="kd">{kindWord(each.item)}</span>
                   {each.line && (
@@ -557,8 +621,8 @@ export function SearchWindow({ things, actions, onPick, onClose, still = null }:
 
 /**
  * The Search tab on a phone: the box under the title, the tabs under it, and what was found under
- * them, a row each with what it is and where under its name; with nothing typed the searches made
- * last. The actions come at the foot. Cancel takes back what was typed and the keyboard.
+ * them, a row each with where it is over its name and what it is beside it; with nothing typed the
+ * searches made last. The actions come at the foot. Cancel takes back what was typed and the keyboard.
  */
 export function PhoneSearch({ things, actions, query, onQuery, onPick, still = null }: {
   things: Thing[] | null;
@@ -681,18 +745,18 @@ export function PhoneSearch({ things, actions, query, onQuery, onPick, still = n
             <div className="mb-sx-list">
               {shown.map((each, index) => (
                 <button key={index} type="button" className="mb-sxr" onClick={() => pick(each)}>
+                  <Trail trail={each.item.trail} />
                   <Lead thing={each.item} />
-                  <span className="tx">
-                    <b>
-                      <Name found={each} />
-                    </b>
-                    <small>{joined(kindWord(each.item), each.item.where)}</small>
-                    {each.line && (
-                      <small className="snip">
-                        <Marked text={each.line.text} spans={each.line.marks} />
-                      </small>
-                    )}
-                  </span>
+                  <b>
+                    <Name found={each} />
+                    {each.item.aside && <span className="wh">{each.item.aside}</span>}
+                  </b>
+                  <small className="kd">{kindWord(each.item)}</small>
+                  {each.line && (
+                    <small className="snip">
+                      <Marked text={each.line.text} spans={each.line.marks} />
+                    </small>
+                  )}
                 </button>
               ))}
               {found.length > SHOWN && <p className="mb-p">{t('search.narrow', { count: SHOWN })}</p>}

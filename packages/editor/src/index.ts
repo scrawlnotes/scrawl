@@ -11,7 +11,7 @@ import {
   selectNextOccurrence,
   selectSelectionMatches,
 } from '@codemirror/search';
-import { EditorState } from '@codemirror/state';
+import { EditorState, Transaction } from '@codemirror/state';
 import {
   crosshairCursor,
   drawSelection,
@@ -70,6 +70,9 @@ export { CALLOUT_ICONS, CALLOUT_TYPES, type CalloutType, calloutAt, changeCallou
 export { calloutActions, calloutBlocks } from './calloutBlock';
 export { scrawlTheme } from './theme';
 export type { EditorState, TransactionSpec } from '@codemirror/state';
+
+/** Marks a change that undo passes over: one the app made to follow something else, as a file renamed. */
+export const outsideHistory = Transaction.addToHistory.of(false);
 
 /** Counts are of the text as it reads on screen: hidden Markdown syntax is not counted. */
 export interface EditorStats {

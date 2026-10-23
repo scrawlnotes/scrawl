@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { addCard, addComment, newBoard, parseBoard, serializeBoard } from './board';
 import { addRecord, createCollection, loadCollection } from './collection';
-import { dropFile, dropFileFrom, dropFileFromBoard, listFiles } from './files';
+import { dropFile, dropFileFrom, dropFileFromBoard, listFiles, relinkFile, relinkFileIn, relinkFileInTrash } from './files';
 import { MemoryFs } from './fs';
+import { cardPiece, parsePiece, taskPiece } from './pieces';
 import { addTask, parseList, serializeList } from './tasks';
-import { trashItem } from './vault';
+import { readTrash, renameAttachment, trashFolder, trashItem, trashPiece } from './vault';
 
 const blob = (size: number) => new Blob([new Uint8Array(size)]);
 let ids = 0;
@@ -105,5 +106,87 @@ describe('files', () => {
     expect(out.cards[0]!.timeline.filter((e) => e.kind === 'comment')).toEqual([]);
     const text = serializeBoard(board);
     expect(dropFileFromBoard(text, '_attachments/other.pdf')).toBe(text);
+  });
+
+  it('renamed, are pointed at by their new name in a note; a link showing the old name shows the new one', () => {
+    const text = [
+      'Photos:',
+      '![](_attachments/2026-10-06-143207.png)',
+      'See [scope v3.pdf](<_attachments/scope v3.pdf>) and [the scope](_attachments/scope%20v3.pdf "Scope").',
+      '`[scope v3.pdf](_attachments/scope%20v3.pdf)`',
+      '[my\\_list.pdf](_attachments/my_list.pdf) [other](_attachments/other.pdf)',
+    ].join('\n');
+    expect(relinkFile(text, '_attachments/scope v3.pdf', '_attachments/Scope (final).pdf').split('\n')).toEqual([
+      'Photos:',
+      '![](_attachments/2026-10-06-143207.png)',
+      'See [Scope (final).pdf](<_attachments/Scope (final).pdf>) and [the scope](_attachments/Scope%20%28final%29.pdf "Scope").',
+      // Code is shown as it is written, not as a link.
+      '`[scope v3.pdf](_attachments/scope%20v3.pdf)`',
+      '[my\\_list.pdf](_attachments/my_list.pdf) [other](_attachments/other.pdf)',
+    ]);
+    expect(relinkFile(text, '_attachments/2026-10-06-143207.PNG', '_attachments/Whiteboard.png').split('\n')[1]).toBe('![](_attachments/Whiteboard.png)');
+    expect(relinkFile(text, '_attachments/my_list.pdf', '_attachments/new_list.pdf').split('\n')[4]).toBe('[new\\_list.pdf](_attachments/new_list.pdf) [other](_attachments/other.pdf)');
+    expect(relinkFile(text, '_attachments/none.pdf', '_attachments/x.pdf')).toBe(text);
+  });
+
+  it('renamed, are pointed at by their new name in cards, tasks and records', () => {
+    let board = newBoard('Deals', 'simple', id);
+    board = addCard(board, { title: 'Acme', description: 'Offer:\n[offer.pdf](_attachments/offer.pdf)' }, at, undefined, 'c1');
+    board = addComment(board, 'c1', 'See ![](_attachments/offer.pdf)', at, undefined, 'm1');
+    board = addCard(board, { title: 'Globex' }, at, undefined, 'c2');
+    const out = parseBoard(relinkFileIn('Deals.board.json', serializeBoard(board), '_attachments/offer.pdf', '_attachments/Offer 2026.pdf'));
+    expect(out.cards.find((c) => c.id === 'c1')!.description).toBe('Offer:\n[Offer 2026.pdf](_attachments/Offer%202026.pdf)');
+    expect(out.cards.find((c) => c.id === 'c1')!.timeline.find((e) => e.kind === 'comment')).toMatchObject({ text: 'See ![](_attachments/Offer%202026.pdf)' });
+    expect(out.cards.find((c) => c.id === 'c2')).toEqual(board.cards.find((c) => c.id === 'c2'));
+    expect(relinkFileIn('Deals.board.json', serializeBoard(board), '_attachments/other.pdf', '_attachments/x.pdf')).toBe(serializeBoard(board));
+
+    const tasks = addTask([], { title: 'Send the quote', description: '[quote.pdf](_attachments/quote.pdf)' }, at, 't1');
+    const list = serializeList({ sections: [], tasks });
+    expect(parseList(relinkFileIn('Sales.tasks.json', list, '_attachments/quote.pdf', '_attachments/Quote 12.pdf')).tasks[0]!.description).toBe('[Quote 12.pdf](_attachments/Quote%2012.pdf)');
+
+    const record = '---\nid: r1\nname: Acme\n---\n[lease.pdf](_attachments/lease.pdf)\n';
+    expect(relinkFileIn('People/r1.md', record, '_attachments/lease.pdf', '_attachments/Lease 2026.pdf')).toBe('---\nid: r1\nname: Acme\n---\n[Lease 2026.pdf](_attachments/Lease%202026.pdf)\n');
+  });
+
+  it('get another name, their extension kept, a name taken refused; one left on the other side is renamed there', async () => {
+    const fs = new MemoryFs();
+    await fs.writeBlob('_attachments/scan.pdf', blob(30));
+    await fs.writeBlob('_attachments/taken.pdf', blob(10));
+    await expect(renameAttachment(fs, '_attachments/scan.pdf', 'Taken')).rejects.toThrow('Taken.pdf');
+    await expect(renameAttachment(fs, '_attachments/scan.pdf', '  ')).rejects.toThrow();
+    // The extension typed is left off; another is part of the name.
+    expect(await renameAttachment(fs, '_attachments/scan.pdf', 'Lease.pdf')).toBe('_attachments/Lease.pdf');
+    expect(await renameAttachment(fs, '_attachments/Lease.pdf', 'lease')).toBe('_attachments/lease.pdf');
+    expect(await renameAttachment(fs, '_attachments/lease.pdf', 'lease')).toBe('_attachments/lease.pdf');
+    expect(await renameAttachment(fs, '_attachments/lease.pdf', 'lease.docx')).toBe('_attachments/lease.docx.pdf');
+    expect((await fs.readBlob('_attachments/lease.docx.pdf')).size).toBe(30);
+
+    await fs.writeText('.scrawl/sync-state.json', awayState([{ path: '_attachments/M24-stelora.png', size: 42_900_000 }]));
+    expect(await renameAttachment(fs, '_attachments/M24-stelora.png', 'Site plan')).toBe('_attachments/Site plan.png');
+    expect((await listFiles(fs)).find((f) => f.away)).toMatchObject({ name: 'Site plan.png', size: 42_900_000 });
+  });
+
+  it('renamed, are pointed at by their new name in the trash: notes, folders, cards and tasks', async () => {
+    const fs = new MemoryFs();
+    const link = '[scan.pdf](_attachments/scan.pdf)';
+    await fs.writeText('Old.md', `${link}\n`);
+    await fs.writeText('Old folder/Inside.md', `${link}\n`);
+    await trashItem(fs, 'Old.md', at());
+    await trashFolder(fs, 'Old folder', at());
+    let board = newBoard('Deals', 'simple', id);
+    board = addCard(board, { title: 'Acme', description: link }, at, undefined, 'c1');
+    await trashPiece(fs, 'Deals.board.json', cardPiece(board, 'c1')!, at());
+    const tasks = addTask([], { title: 'Sign', description: link }, at, 't1');
+    await trashPiece(fs, 'Sales.tasks.json', taskPiece({ sections: [], tasks }, 't1')!, at());
+
+    await relinkFileInTrash(fs, '_attachments/scan.pdf', '_attachments/Lease.pdf');
+    const now = '[Lease.pdf](_attachments/Lease.pdf)';
+    const trash = await readTrash(fs);
+    expect(await fs.readText(trash.find((i) => i.kind === 'note')!.path)).toBe(`${now}\n`);
+    expect(await fs.readText(`${trash.find((i) => i.kind === 'folder')!.path}/Inside.md`)).toBe(`${now}\n`);
+    const card = parsePiece(await fs.readText(trash.find((i) => i.kind === 'card')!.path));
+    expect(card?.kind === 'card' && card.card.description).toBe(now);
+    const task = parsePiece(await fs.readText(trash.find((i) => i.kind === 'task')!.path));
+    expect(task?.kind === 'task' && task.tasks[0]!.description).toBe(now);
   });
 });

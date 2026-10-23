@@ -64,11 +64,13 @@ export function hrefTo(folder: string, path: string): string {
   return parts.map((p) => (p === '..' ? p : escapePart(p))).join('/') || '.';
 }
 
-/** A Markdown link or image as written: where its address starts and ends, and the address. */
+/** A Markdown link or image as written: where its address starts and ends, and the address; where its text, between the brackets, starts and ends. */
 interface WrittenLink {
   from: number;
   to: number;
   href: string;
+  textFrom: number;
+  textTo: number;
 }
 
 /** The links of a Markdown text, outside code: `[text](address)` and `![alt](address)`. */
@@ -81,8 +83,9 @@ export function linksIn(text: string): WrittenLink[] {
   // Its text may hold brackets, one pair deep: [A [b]](address).
   const LINK = /!?\[(?:[^[\]\\\n]|\\.|\[(?:[^[\]\\\n]|\\.)*\])*\]\(([ \t]*)(<[^>\n]*>|[^\s()]+)(?:[ \t]+"[^"\n]*")?[ \t]*\)/g;
   for (const m of plain.matchAll(LINK)) {
-    const from = m.index! + m[0].indexOf('](') + 2 + m[1]!.length;
-    links.push({ from, to: from + m[2]!.length, href: text.slice(from, from + m[2]!.length) });
+    const textTo = m.index! + m[0].indexOf('](');
+    const from = textTo + 2 + m[1]!.length;
+    links.push({ from, to: from + m[2]!.length, href: text.slice(from, from + m[2]!.length), textFrom: m.index! + (m[0].startsWith('!') ? 2 : 1), textTo });
   }
   return links;
 }

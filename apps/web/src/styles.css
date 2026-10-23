@@ -1228,6 +1228,37 @@ input:focus {
   border-color: var(--sl-accent);
 }
 
+/* An attached file's name, its extension after it in the same box: kept, not typed. */
+.field > .name-ext {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-faint);
+  font-size: inherit;
+}
+
+.field > .name-ext:focus-within {
+  border-color: var(--sl-accent);
+}
+
+.dialog .name-ext input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 2px;
+  border: 0;
+  outline: none;
+}
+
+.name-ext i {
+  flex-shrink: 0;
+  padding-right: 8px;
+  font-style: normal;
+}
+
 .dialog p {
   margin: 2px;
   color: var(--sl-dim);
@@ -3888,7 +3919,7 @@ textarea.tt-edit {
 .flhead,
 .flrow {
   display: grid;
-  grid-template-columns: 14px 46px minmax(0, 1.15fr) minmax(0, 1.3fr) 64px 64px 80px;
+  grid-template-columns: 14px 46px minmax(0, 1.15fr) minmax(0, 1.3fr) 64px 64px 94px;
   align-items: center;
   gap: 0 10px;
   margin: 0 -8px;
@@ -11230,6 +11261,43 @@ button.st-li:hover,
   background: var(--sl-faint);
 }
 
+/* Where it is, over its name, the space first. */
+.sx-r .trail {
+  grid-column: 2 / 4;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.sx-r .trail,
+.mb-sxr .trail {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sx-r .trail > span,
+.mb-sxr .trail > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sx-r .trail .sep,
+.mb-sxr .trail .sep {
+  flex: none;
+}
+
+/* Where the way is long, what is between its ends gives way first, an ellipsis each; the ends
+   give way once that is as short as it goes, and before it by no more than a sliver too thin to
+   show, so no end is cut for nothing. */
+.sx-r .trail .mid,
+.mb-sxr .trail .mid {
+  flex-shrink: 100000;
+  min-width: 1.5em;
+}
+
 .sx-r .l1 {
   display: flex;
   align-items: baseline;
@@ -11245,8 +11313,7 @@ button.st-li:hover,
 }
 
 .sx-r .nm {
-  flex: none;
-  max-width: 65%;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -11260,12 +11327,9 @@ button.st-li:hover,
 }
 
 .sx-r .wh {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
+  flex: none;
   color: var(--sl-faint);
   font-size: 12px;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -11287,6 +11351,7 @@ button.st-li:hover,
   background: var(--sl-sel);
 }
 
+.sx-r.on .trail,
 .sx-r.on .wh,
 .sx-r.on .kd {
   color: var(--sl-dim);

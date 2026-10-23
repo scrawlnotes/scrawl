@@ -9,6 +9,8 @@ export interface MediaOptions {
   openFile?: (src: string) => void;
   /** Shows an attached file selected in its folder, in the system's file manager. */
   revealFile?: (src: string) => void;
+  /** Asks an attached file another name; `view` is the editor it was asked in, whose links follow. */
+  renameFile?: (src: string, view: EditorView) => void;
   /** An attached file's size in bytes, when it is known. */
   fileSize?: (src: string) => number | undefined;
   /** An address the browser can play an attached recording from. */
@@ -57,7 +59,7 @@ const SLOP = 8;
 
 /** Something that can be done with an image, file or recording in a note, or with a callout. */
 export interface ItemAction {
-  kind: 'open' | 'reveal' | ImageSizeKind | 'delete' | CalloutType | 'removeCallout';
+  kind: 'open' | 'reveal' | 'rename' | ImageSizeKind | 'delete' | CalloutType | 'removeCallout';
   label: string;
   run: () => void;
   /** The size an image is drawn at now; a callout's kind now. */
@@ -207,6 +209,7 @@ function removeWidget(view: EditorView, dom: HTMLElement, length: number, focus:
 const ACTION_ICONS: Partial<Record<ItemAction['kind'], string>> = {
   open: '<path d="M14 4h6v6M20 4l-8.5 8.5M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
   reveal: '<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  rename: '<path d="M5 19l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L9 17.5z M13.5 7l3 3"/>',
   delete: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7"/><path d="M10.5 10.5v5.5M13.5 10.5v5.5"/>',
   // The sizes are words side by side in the bar, as one control.
   small: '',
@@ -283,6 +286,10 @@ export abstract class ItemWidget extends WidgetType {
   protected abstract opener(): (() => void) | null;
   /** The attached file the item shows, for Show in folder; null for an image from the web. */
   protected abstract file(): string | null;
+  /** The attached file the item stands for, here or not, for Rename; null for an image from the web. */
+  protected attached(): string | null {
+    return this.file();
+  }
 
   eq(other: ItemWidget) {
     return other.identity() === this.identity() && other.selected === this.selected && other.active === this.active;
@@ -300,9 +307,12 @@ export abstract class ItemWidget extends WidgetType {
     const open = this.opener();
     const file = this.file();
     const reveal = this.options.revealFile;
+    const rename = this.options.renameFile;
     const actions: ItemAction[] = [];
     if (open) actions.push({ kind: 'open', label: t('editor.item.open'), run: open });
     if (file && reveal) actions.push({ kind: 'reveal', label: t('editor.item.reveal'), run: () => reveal(file) });
+    const attached = this.attached();
+    if (attached && rename) actions.push({ kind: 'rename', label: t('editor.item.rename'), run: () => rename(attached, view) });
     actions.push(...this.moreActions(view, root));
     actions.push({ kind: 'delete', label: t('editor.item.delete'), run: () => removeWidget(view, root, this.length, !this.options.touch) });
     return actions;

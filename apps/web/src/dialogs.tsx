@@ -1118,13 +1118,17 @@ export function NewCardDialog({ title, note, boards, initial, onAdd, onClose }: 
 /**
  * The name and the place of a note, a task list, a board, a keys file, a collection or a folder,
  * from its menu's Rename or its tab double-clicked: its name, and its folder as the Create window
- * has it, where it is now. Save changes what was changed, the name first.
+ * has it, where it is now. Save changes what was changed, the name first. An attached file has
+ * only its name, its extension shown after it and kept.
  */
-export function RenameDialog({ name, folder, folders, onSave, onClose }: {
+export function RenameDialog({ name, ext, folder = '', folders, onSave, onClose }: {
   name: string;
+  /** An attached file's extension, `.pdf`. */
+  ext?: string;
   /** The folder it is in. */
-  folder: string;
-  folders: string[];
+  folder?: string;
+  /** Where it can go; without them it stays where it is, as an attached file does. */
+  folders?: string[];
   /** Saves the name and the folder; returns a message when either cannot be. */
   onSave: (name: string, folder: FolderChoice) => Promise<string | null>;
   onClose: () => void;
@@ -1142,6 +1146,18 @@ export function RenameDialog({ name, folder, folders, onSave, onClose }: {
     if (failed) setError(failed);
     else onClose();
   };
+  const input = (
+    <input
+      id="rename-item"
+      autoFocus
+      value={value}
+      onFocus={(event) => event.target.select()}
+      onChange={(event) => {
+        setValue(event.target.value);
+        setError(null);
+      }}
+    />
+  );
   return (
     <Dialog label={t('rename.title')} className="new-item" onClose={onClose}>
       <h2>{t('rename.title')}</h2>
@@ -1149,28 +1165,28 @@ export function RenameDialog({ name, folder, folders, onSave, onClose }: {
         <div className="dialog-body">
           <label className="field">
             <span>{t('create.name')}</span>
-            <input
-              id="rename-item"
-              autoFocus
-              value={value}
-              onFocus={(event) => event.target.select()}
-              onChange={(event) => {
-                setValue(event.target.value);
-                setError(null);
-              }}
-            />
+            {ext ? (
+              <span className="name-ext">
+                {input}
+                <i>{ext}</i>
+              </span>
+            ) : (
+              input
+            )}
           </label>
-          <div className="field">
-            <span>{t('create.folder')}</span>
-            <FolderField
-              folders={folders}
-              value={choice}
-              onChange={(picked) => {
-                setChoice(picked);
-                setError(null);
-              }}
-            />
-          </div>
+          {folders && (
+            <div className="field">
+              <span>{t('create.folder')}</span>
+              <FolderField
+                folders={folders}
+                value={choice}
+                onChange={(picked) => {
+                  setChoice(picked);
+                  setError(null);
+                }}
+              />
+            </div>
+          )}
           {error && <p role="alert">{error}</p>}
         </div>
         <div className="dialog-actions">
@@ -1737,8 +1753,9 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
               {item.apart && <hr />}
               <button
                 type="button"
-                role="menuitemradio"
-                aria-checked={!!item.checked}
+                // A choice, as Group by's, is ticked; something to do, as Add new's, is not.
+                role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
+                aria-checked={item.checked === undefined ? undefined : item.checked}
                 disabled={item.disabled !== undefined}
                 onClick={() => {
                   onClose();
