@@ -162,6 +162,7 @@ export function thingsOf(data: SearchData): Thing[] {
         kind: 'task',
         name: task.title,
         text: task.description ?? '',
+        ...(task.labels?.length && { fields: [[t('card.labels'), task.labels.join(', ')] as [string, string]] }),
         done: task.done,
         target: { kind: 'task', list, id: task.id, subtask: task.parent !== null },
         icon: 'tasks',

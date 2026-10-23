@@ -190,3 +190,10 @@ Pencereler (Rename, kayıt formu, Fields, Settings'teki ad, Keys satırı) dış
 - `@` listenin satır içi eklemesinde (`+ Add task`, section ve alt görev satırı) seçilen etiketler Cancel ve Add task'ın solunda çip olarak görünür; tıklayınca kalkar.
 - Açıklamada Enter, editörün açtığı bir liste (`/` menüsü) varken listenin olur; Shift+Enter editörün kendi alt satırıdır.
 - Panoda sütun ve faz adını yerinde değiştirmenin Save'i de masaüstünde kalktı (aynı durum: dışarı tıklamak ve Enter zaten kaydediyordu).
+
+## 13. Yazılırken: 3. dilim (arama ve ajan)
+
+- Arama penceresi görevi etiketinden de bulur; satırda kartlardaki gibi "Labels: …" alanı görünür.
+- `tasks` aracının `label` süzgeci büyük-küçük harf farksızdır; `due` ve `assignee` gibi, liste ve space verilmeden bütün space'lerde arar.
+- `save_task`'ta `labels` dizinin tamamıdır: verilen, görevdekilerin yerine geçer; `[]` hepsini kaldırır. `items` ile eklerken de olur.
+- Rehber, bir space'te görev ve kart etiketlerinin ortak olduğunu ve yeni etiket uydurmadan önce varolanlara bakılacağını söyler; rengi ve yeniden adlandırması kişinindir.

@@ -317,6 +317,29 @@ describe('tasks', () => {
     expect((await saveTaskTool(both, CLIENT, { title: 'Renew the domain' })).data).toMatchObject({ space: 'personal', list: 'Inbox.tasks.json' });
     expect((await refusal(saveTaskTool(both, CLIENT, { title: 'x', space: 'Acme' }))).message).toContain('Which list');
   });
+
+  it('puts labels on a task, many at once too, finds tasks by one in every space, and takes them off', async () => {
+    const { agent, fs } = await sample();
+    const call = await saveTaskTool(agent, CLIENT, { title: 'Call the accountant', labels: ['call', ' Waiting ', 'waiting'] });
+    expect(call.data.task.labels).toEqual(['call', 'Waiting']);
+    await saveTaskTool(agent, CLIENT, { items: [{ title: 'Renew the domain', labels: ['waiting'] }, { title: 'Write the release notes' }] });
+    const other = new MemoryFs();
+    await createTaskList(other, '', 'Errands');
+    const both = agentOf(spaceOf(fs), { ...spaceOf(other, false, 'Home') });
+    await saveTaskTool(both, CLIENT, { space: 'Home', list: 'Errands', title: 'Return the parcel', labels: ['WAITING'] });
+    expect((await tasksTool(agent, { label: 'waiting' })).data.tasks.map((t) => t.title)).toEqual(['Call the accountant', 'Renew the domain']);
+    const everywhere = await tasksTool(both, { label: 'Waiting' });
+    expect(everywhere.data.tasks.map((t) => [t.title, t.spaceName])).toEqual([
+      ['Call the accountant', 'Personal'],
+      ['Renew the domain', 'Personal'],
+      ['Return the parcel', 'Home'],
+    ]);
+    const changed = await saveTaskTool(agent, CLIENT, { id: call.data.task.id, labels: ['call'] });
+    expect(changed.data.task.labels).toEqual(['call']);
+    const bare = await saveTaskTool(agent, CLIENT, { id: call.data.task.id, labels: [] });
+    expect(bare.data.task).not.toHaveProperty('labels');
+    expect((await loadList(fs, 'Inbox.tasks.json')).tasks.find((t) => t.id === call.data.task.id)).not.toHaveProperty('labels');
+  });
 });
 
 describe('not twice', () => {
@@ -1013,7 +1036,7 @@ describe('less to go through', () => {
       ['Inbox today', 'Personal'],
       ['Team task today', 'Team'],
     ]);
-    expect((await refusal(tasksTool(agent, {}))).message).toContain('give due, assignee, by or since');
+    expect((await refusal(tasksTool(agent, {}))).message).toContain('give due, assignee, label, by or since');
   });
 
   it('finds a space by its name, says which space each hit is in, and offers only names that are near', async () => {

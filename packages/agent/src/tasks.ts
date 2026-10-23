@@ -46,6 +46,7 @@ export function taskOut(list: string, tasks: TaskList, task: Task, people: Peopl
     done: task.done,
     due: task.due,
     priority: task.priority,
+    ...(task.labels?.length && { labels: task.labels }),
     ...(task.description && { description: task.description }),
     ...(section && { section: section.name }),
     ...(task.parent && { parent: task.parent }),
@@ -65,6 +66,8 @@ export interface TasksArgs {
   list?: string;
   due?: Due;
   assignee?: string;
+  /** A label it has, in any case. */
+  label?: string;
   /** Who worked on it: "self" the agent, "me" the person, or a name. */
   by?: string;
   /** Worked on since this day, by `by` when given, else by anyone. */
@@ -86,7 +89,7 @@ export async function tasksTool(agent: Agent, args: TasksArgs, client: Client = 
     const { space, element } = await pickAcross(agent, args.space, args.list, ['tasks'], 'task list');
     places = [{ space, lists: [element] }];
   } else if (across) {
-    if (!args.due && !args.assignee && !lookingBack) throw new Refusal('Which space? Name one with `space`, or give due, assignee, by or since to look in every space', { spaces: spaces.map(({ id, name, where }) => ({ id, name, where })) });
+    if (!args.due && !args.assignee && !args.label?.trim() && !lookingBack) throw new Refusal('Which space? Name one with `space`, or give due, assignee, label, by or since to look in every space', { spaces: spaces.map(({ id, name, where }) => ({ id, name, where })) });
     places = await Promise.all(spaces.map(async (space) => ({ space, lists: await elementsOf(space.fs, ['tasks']) })));
   } else {
     const space = await pickSpace(agent, args.space);
@@ -106,6 +109,7 @@ export async function tasksTool(agent: Agent, args: TasksArgs, client: Client = 
         if (done !== 'all' && task.done !== done) continue;
         if (args.due && !dueIs(task.due, args.due, today)) continue;
         if (args.assignee && !isAssignee(task.assignee, args.assignee, person, self, people)) continue;
+        if (args.label?.trim() && !task.labels?.some((label) => same(label, args.label!.trim()))) continue;
         if (lookingBack && !workedOnBy(task, args.by?.trim() || undefined, since, { person, self, people, timeZone: agent.timeZone })) continue;
         out.push({ ...taskOut(list.path, loaded, task, people, args.full), ...(across && { space: space.id, spaceName: space.name }) });
       }
@@ -149,6 +153,8 @@ export interface TaskArgs {
   description?: string;
   due?: string | null;
   priority?: number;
+  /** Its labels, all of them: what is given replaces what it had; an empty list takes them off. */
+  labels?: string[];
   assignee?: string | null;
   record?: string | { collection: string; record: string } | null;
   /** The note it is about, by path or name; null unlinks it. */
@@ -345,6 +351,7 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
         ...(args.description !== undefined && { description: args.description }),
         ...(due !== undefined && { due }),
         ...(priority !== undefined && { priority }),
+        ...(args.labels !== undefined && { labels: args.labels }),
         ...(assignee !== undefined && { assignee }),
         ...(record !== undefined && { record }),
         ...(note !== undefined && { note }),
@@ -374,6 +381,7 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
       ...(args.description !== undefined && { description: args.description }),
       ...(due !== undefined && { due }),
       ...(priority !== undefined && { priority }),
+      ...(args.labels?.length && { labels: args.labels }),
       ...(assignee && { assignee }),
       ...(record && { record }),
       ...(note && { note }),

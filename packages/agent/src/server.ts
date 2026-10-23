@@ -325,12 +325,13 @@ export function buildServer(agent: Agent): McpServer {
     'tasks',
     {
       title: 'Tasks',
-      description: 'Lists tasks: of one list (`list` by name or path), or of every list filtered by `due` (overdue, today, upcoming) or `assignee`; with neither `list` nor `space`, those of every space, each task with its space. Open tasks unless `done` says otherwise: true for finished ones, "all" for both. assignee: "me" is the person, "self" what is given to you. `by` and `since` find who worked on what, in every list and space too: by: "self" with since yesterday is what you did since. Each task says who worked on it, by name; full: true gives `workedOn` with when, and `activity`: what mattered on it, made, given, done and opened again, with who did each. Use it before save_task to see what is there.',
+      description: 'Lists tasks: of one list (`list` by name or path), or of every list filtered by `due` (overdue, today, upcoming), `assignee` or `label`; with neither `list` nor `space`, those of every space, each task with its space. Open tasks unless `done` says otherwise: true for finished ones, "all" for both. assignee: "me" is the person, "self" what is given to you. `by` and `since` find who worked on what, in every list and space too: by: "self" with since yesterday is what you did since. Each task says who worked on it, by name; full: true gives `workedOn` with when, and `activity`: what mattered on it, made, given, done and opened again, with who did each. Use it before save_task to see what is there.',
       inputSchema: z.object({
         space,
         list: z.string().optional().describe('A task list by name or path; every list when left out.'),
         due: z.enum(['overdue', 'today', 'upcoming']).optional(),
         assignee: z.string().optional().describe('A person’s or an agent’s name; "me" for the person, "self" for you.'),
+        label: z.string().optional().describe('Only the tasks with this label, in any case.'),
         by,
         since,
         done: z.union([z.boolean(), z.literal('all')]).optional().describe('false (the default) for open tasks, true for done ones, "all" for both; "all" with by or since.'),
@@ -347,6 +348,7 @@ export function buildServer(agent: Agent): McpServer {
     description: z.string().optional(),
     due: day,
     priority: z.number().int().min(1).max(4).optional(),
+    labels: z.array(z.string()).optional().describe('All its labels: they replace what it has; [] takes them off. A space’s tasks and cards share their labels: use the ones there before making new ones.'),
     assignee: z.string().nullable().optional().describe('A person or an agent of the space by name (a first or a last name is enough when only one person has it; an agent by its name, or with whose it is: "Claude Code · Mert"); "me" for the person, "self" for you; null for nobody.'),
     record: z.union([z.string(), z.object({ collection: z.string(), record: z.string() })]).nullable().optional(),
     note: z.string().nullable().optional().describe('The note it is about, by path or name; null unlinks it.'),
