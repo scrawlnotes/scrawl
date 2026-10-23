@@ -268,6 +268,8 @@ export interface ServerAgent {
   client: string;
   connected: number;
   seen: number;
+  /** The agent's own name, which the person changes; null until it has written (design/activity.md 2.1). */
+  name?: string | null;
 }
 
 export class ServerAccount {
@@ -385,6 +387,11 @@ export class ServerAccount {
   /** The agents connected to this account on the server, the newest first. */
   agents(): Promise<ServerAgent[]> {
     return this.client.json('/agents');
+  }
+
+  /** A new name for the agent of a connection; what it writes from then on carries it. */
+  renameAgent(id: string, name: string): Promise<{ id: string; name: string }> {
+    return this.client.json(`/agents/${encodeURIComponent(id)}`, { ...jsonBody({ name }), method: 'PATCH' });
   }
 
   /** Ends an agent's connection: its tokens stop, and it signs in again the next time it is used. */

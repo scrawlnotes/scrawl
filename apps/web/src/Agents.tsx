@@ -1,4 +1,4 @@
-import { dayOf, RemoteSignedOut, type ServerAgent } from '@scrawlnotes/core';
+import { type ComputerAgent, dayOf, RemoteSignedOut, type ServerAgent } from '@scrawlnotes/core';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { version as mcpVersion } from '../../mcp/package.json';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
@@ -51,6 +51,12 @@ const seenText = (seen: number) => dueLabel(dayOf(new Date(seen)), dayOf(new Dat
 
 const clientName = (agent: ServerAgent) => agent.client || t('agents.unnamedAgent');
 
+/** What an agent is called: its own name once it has one, else its client's. */
+const agentName = (agent: ServerAgent) => agent.name || clientName(agent);
+
+/** An agent's square: its client's first letter. */
+const initialOf = (client: string) => (client.trim() || '?').slice(0, 1).toUpperCase();
+
 /** Copies on click, and says Copied for a moment where it was clicked. */
 function useCopy(): [copied: string | null, copy: (key: string, text: string) => void] {
   const [copied, setCopied] = useState<string | null>(null);
@@ -88,11 +94,19 @@ export function useAgents(url: string) {
       setError(serverFailure(failure, host));
     }
   };
-  return { host, agents, error, disconnect };
+  const rename = async (id: string, name: string) => {
+    try {
+      await serverAccount(url).renameAgent(id, name);
+      await load();
+    } catch (failure) {
+      setError(serverFailure(failure, host));
+    }
+  };
+  return { host, agents, error, disconnect, rename };
 }
 
 /** Settings › Agents on a computer. */
-export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'folder' | 'onSection'>) {
+export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'folder' | 'onSection' | 'computerAgents' | 'onRenameComputerAgent'>) {
   const servers = useKnownServers();
   const [copied, copy] = useCopy();
   const [adding, setAdding] = useState<{ to: AddTo; server: KnownServer } | null>(null);
@@ -141,6 +155,7 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
               </button>
             </span>
           </div>
+          {values.computerAgents && values.onRenameComputerAgent && <ComputerAgents load={values.computerAgents} onRename={values.onRenameComputerAgent} />}
           <p className="st-note">{t('agents.thisComputerNote')}</p>
         </div>
       ) : (
@@ -192,6 +207,7 @@ type ServerAddTo = AddTo | Terminal | 'cursor' | 'antigravity';
 function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; copied: string | null; onCopy: (key: string, text: string) => void; onAdd: (to: ServerAddTo) => void }) {
   const a = useAgents(server.url);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; agent: ServerAgent } | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const address = mcpAddress(server.url);
   const open = (event: MouseEvent, agent: ServerAgent) => {
     event.preventDefault();
@@ -248,25 +264,135 @@ function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; c
       )}
       {a.agents && a.agents.length > 0 && (
         <div className="st-list">
-          {a.agents.map((agent) => (
-            <div key={agent.id} className={`st-li one${menu?.agent.id === agent.id ? ' menu-on' : ''}`} onContextMenu={(event) => open(event, agent)}>
-              <span className="who bot" aria-hidden="true">
-                {clientName(agent).slice(0, 1).toUpperCase()}
-              </span>
-              <span className="nm">
-                <b>{clientName(agent)}</b>
-                <small>{t('agents.connectedOn', { day: dayText(agent.connected) })}</small>
-              </span>
-              <span className="r">{seenText(agent.seen)}</span>
-              <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => open(event, agent)}>
-                ···
-              </button>
-            </div>
-          ))}
+          {a.agents.map((agent) =>
+            renaming === agent.id ? (
+              <AgentRename key={agent.id} initial={initialOf(clientName(agent))} name={agentName(agent)} onCancel={() => setRenaming(null)} onSave={(name) => void a.rename(agent.id, name).then(() => setRenaming(null))} />
+            ) : (
+              <div key={agent.id} className={`st-li one ag-li${menu?.agent.id === agent.id ? ' menu-on' : ''}`} onContextMenu={(event) => open(event, agent)}>
+                <span className="who bot" aria-hidden="true">
+                  {initialOf(clientName(agent))}
+                </span>
+                <span className="nm">
+                  <b>{agentName(agent)}</b>
+                  <small>{t('agents.clientOn', { client: clientName(agent), day: dayText(agent.connected) })}</small>
+                </span>
+                <span className="r">{seenText(agent.seen)}</span>
+                <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => open(event, agent)}>
+                  ···
+                </button>
+              </div>
+            ),
+          )}
         </div>
       )}
       {a.agents && <p className="st-note">{a.agents.length > 0 ? t('agents.connectedAbout') : t('agents.noneConnected')}</p>}
-      {menu && <ContextMenu at={menu.at} items={[{ label: t('agents.disconnect'), danger: true, run: () => void a.disconnect(menu.agent.id) }]} onClose={() => setMenu(null)} />}
+      {menu && (
+        <ContextMenu
+          at={menu.at}
+          items={[
+            { label: t('agents.rename'), run: () => setRenaming(menu.agent.id) },
+            { label: t('agents.disconnect'), danger: true, run: () => void a.disconnect(menu.agent.id) },
+          ]}
+          onClose={() => setMenu(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** This computer's name as the desktop app has it, which the command an agent runs here takes too; null where it is not known. */
+async function thisComputer(): Promise<string | null> {
+  if (!isDesktop) return null;
+  return (await import('@tauri-apps/api/core')).invoke<string | null>('device_name').catch(() => null);
+}
+
+/** Whether two names are one computer: in any case, without a domain. */
+const sameComputer = (a: string, b: string) => a.split('.')[0]!.toLowerCase() === b.split('.')[0]!.toLowerCase();
+
+/**
+ * The person's agents on this computer, in its block (design/activity.md 2.1): each with its
+ * name, its client and since when, and when it last changed something; Rename in its menu. They
+ * are kept in the person's own space, which syncs: another computer's are not shown here.
+ */
+function ComputerAgents({ load, onRename }: { load: () => Promise<ComputerAgent[]>; onRename: (id: string, name: string) => Promise<void> }) {
+  const [agents, setAgents] = useState<ComputerAgent[]>([]);
+  const [computer, setComputer] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ at: { x: number; y: number }; id: string } | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const reload = useCallback(() => void load().then(setAgents, () => setAgents([])), [load]);
+  useEffect(() => {
+    reload();
+    void thisComputer().then(setComputer);
+  }, [reload]);
+  const here = agents.filter((agent) => !computer || sameComputer(agent.machine, computer));
+  if (here.length === 0) return null;
+  const open = (event: MouseEvent, id: string) => {
+    event.preventDefault();
+    setMenu({ at: { x: event.clientX, y: event.clientY }, id });
+  };
+  const rename = (id: string, name: string) =>
+    void onRename(id, name).then(() => {
+      setRenaming(null);
+      reload();
+    });
+  return (
+    <div className="st-list">
+      {here.map((agent) =>
+        renaming === agent.id ? (
+          <AgentRename key={agent.id} initial={initialOf(agent.client)} name={agent.name} onCancel={() => setRenaming(null)} onSave={(name) => rename(agent.id, name)} />
+        ) : (
+          <div key={agent.id} className={`st-li one ag-li${menu?.id === agent.id ? ' menu-on' : ''}`} onContextMenu={(event) => open(event, agent.id)}>
+            <span className="who bot" aria-hidden="true">
+              {initialOf(agent.client)}
+            </span>
+            <span className="nm">
+              <b>{agent.name}</b>
+              <small>{t('agents.clientOn', { client: agent.client, day: dayText(Date.parse(agent.created)) })}</small>
+            </span>
+            <span className="r">{agent.seen ? seenText(Date.parse(agent.seen)) : ''}</span>
+            <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => open(event, agent.id)}>
+              ···
+            </button>
+          </div>
+        ),
+      )}
+      {menu && <ContextMenu at={menu.at} items={[{ label: t('agents.rename'), run: () => setRenaming(menu.id) }]} onClose={() => setMenu(null)} />}
+    </div>
+  );
+}
+
+/** An agent's row while it is renamed: its name in a box, Cancel and Save; Enter saves, Esc goes back. */
+function AgentRename({ initial, name, onSave, onCancel }: { initial: string; name: string; onSave: (name: string) => void; onCancel: () => void }) {
+  const [typed, setTyped] = useState(name);
+  const save = () => {
+    const clean = typed.trim();
+    if (!clean) return;
+    if (clean === name) onCancel();
+    else onSave(clean);
+  };
+  return (
+    <div className="st-li one ag-ren">
+      <span className="who bot" aria-hidden="true">
+        {initial}
+      </span>
+      <input
+        className="in"
+        autoFocus
+        aria-label={t('agents.name')}
+        value={typed}
+        onChange={(event) => setTyped(event.target.value)}
+        onFocus={(event) => event.target.select()}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') save();
+          if (event.key === 'Escape') onCancel();
+        }}
+      />
+      <button type="button" onClick={onCancel}>
+        {t('dialog.cancel')}
+      </button>
+      <button type="button" className="primary" disabled={!typed.trim()} onClick={save}>
+        {t('settings.save')}
+      </button>
     </div>
   );
 }
@@ -543,11 +669,11 @@ function PhoneServerAgents({ server }: { server: KnownServer }) {
             {a.agents.map((agent) => (
               <button key={agent.id} type="button" className="mb-row person" onClick={() => setHeld(agent)}>
                 <span className="who bot" aria-hidden="true">
-                  {clientName(agent).slice(0, 1).toUpperCase()}
+                  {initialOf(clientName(agent))}
                 </span>
                 <span className="tx">
-                  <b>{clientName(agent)}</b>
-                  <small>{t('agents.connectedOn', { day: dayText(agent.connected) })}</small>
+                  <b>{agentName(agent)}</b>
+                  <small>{t('agents.clientOn', { client: clientName(agent), day: dayText(agent.connected) })}</small>
                 </span>
                 <span className="ct">{seenText(agent.seen)}</span>
               </button>
@@ -560,7 +686,7 @@ function PhoneServerAgents({ server }: { server: KnownServer }) {
       )}
       {held && (
         <ActionSheet
-          head={{ icon: 'agent', title: clientName(held), sub: `${a.host} · ${t('agents.connectedOn', { day: dayText(held.connected) })}` }}
+          head={{ icon: 'agent', title: agentName(held), sub: `${a.host} · ${t('agents.connectedOn', { day: dayText(held.connected) })}` }}
           items={[{ label: t('agents.disconnect'), danger: true, run: () => void a.disconnect(held.id) }]}
           onClose={() => setHeld(null)}
         />

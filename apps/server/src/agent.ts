@@ -120,7 +120,7 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
           // The SDK measures expiry by the real clock; the server's own clock (which tests set) says how long is left.
           expiresAt: Math.floor(Date.now() / 1000) + Math.max(1, Math.floor((verified.expiresAt - now()) / 1000)),
           resource: new URL(oauth.resource),
-          extra: { account: verified.account, device: verified.device, clientName: verified.clientName },
+          extra: { account: verified.account, device: verified.device, clientId: verified.clientId, clientName: verified.clientName },
         };
       },
     },
@@ -130,7 +130,7 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
   });
 
   /** The spaces and the person an agent works on, for one request: those of the account the token is for. */
-  const agentOf = (account: Account, device: string, clientName: string): Agent => {
+  const agentOf = (account: Account, device: string, clientId: string, clientName: string): Agent => {
     const timeZone = accounts.timeZoneOf(account.id);
     return {
       spaces: async () =>
@@ -150,13 +150,18 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
       ...(timeZone && { timeZone }),
       // The protocol does not carry the client's name with every request; the sign-in does.
       client: { name: clientName || 'Agent' },
+      // The agent of this account and client, made the first time it writes (design/activity.md 2.1).
+      self: async (client) => {
+        const name = client.name?.trim() || clientName || 'Agent';
+        return { ...oauth.identity(account.id, clientId, name), client: name };
+      },
     };
   };
 
   const handler = createMcpHandler((ctx) => {
-    const extra = ctx.authInfo?.extra as { account: Account; device: string; clientName: string } | undefined;
+    const extra = ctx.authInfo?.extra as { account: Account; device: string; clientId: string; clientName: string } | undefined;
     if (!extra) throw new Error('No account for this request');
-    return buildServer(agentOf(extra.account, extra.device, extra.clientName));
+    return buildServer(agentOf(extra.account, extra.device, extra.clientId, extra.clientName));
   });
 
   app.all('/mcp', async (c) => {
@@ -168,6 +173,15 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
   // ---------- the account's connections ----------
 
   app.get('/api/v1/agents', (c) => c.json(oauth.list(c.get('account').id)));
+  app.patch('/api/v1/agents/:id', async (c) => {
+    let body: unknown = null;
+    try {
+      body = await c.req.json();
+    } catch {
+      // Not JSON: no name, refused below.
+    }
+    return c.json(oauth.rename(c.get('account'), c.req.param('id'), (body as { name?: unknown } | null)?.name));
+  });
   app.delete('/api/v1/agents/:id', (c) => {
     oauth.disconnect(c.get('account'), c.req.param('id'));
     live.end({ device: c.req.param('id') });

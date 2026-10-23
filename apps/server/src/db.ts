@@ -126,6 +126,20 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE accounts ADD COLUMN time_zone TEXT;
   `,
+  // Each agent's own identity (design/activity.md 2.1): one for an account and an OAuth client,
+  // made the first time it writes, kept when it signs in again; its name is the client's, and
+  // the person changes it.
+  `
+  CREATE TABLE agent_identities (
+    id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL REFERENCES accounts (id),
+    client_id TEXT NOT NULL,
+    client TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE (account_id, client_id)
+  );
+  `,
 ];
 
 export function openDb(file: string): Db {

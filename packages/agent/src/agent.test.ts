@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
-import { columnCards, createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadSchema, MemoryFs, readTrash, restoreFromTrash, saveMe, savePeople, serializeBoard } from '@scrawlnotes/core';
+import { columnCards, createBoard, createCollection, createFolder, createNote, createTaskList, listVersions, loadBoard, loadList, loadCollection, loadPeople, loadSchema, MemoryFs, readTrash, restoreFromTrash, saveMe, savePeople, serializeBoard } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { cardsTool, commentTool, saveCardTool } from './cards';
 import { BRIEF, GUIDE } from './guide';
@@ -1086,6 +1086,67 @@ describe('over MCP', () => {
     expect(many.isError).toBeFalsy();
     expect(many.structuredContent).toMatchObject({ created: 2, cards: [{ title: 'Point one' }, { title: 'Point two' }] });
     await client.close();
+  });
+});
+
+describe('the agent’s own identity', () => {
+  it('writes itself into a shared space it changes, once a day, never into the personal one, and makes what it adds as itself', async () => {
+    const personal = new MemoryFs();
+    const shared = new MemoryFs();
+    await savePeople(shared, [{ id: 'me', name: 'Kaan', seen: '2026-10-15T08:00:00.000Z', active: true }]);
+    const list = await createTaskList(shared, '', 'Tasks');
+    const board = await createBoard(shared, '', 'Scrawl', 'software');
+    let day = NOW;
+    const self = { id: 'me:4f2a9c1e', name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC' };
+    const asked: (string | undefined)[] = [];
+    const agent: Agent = {
+      spaces: async () => [spaceOf(personal), spaceOf(shared, false, 'Acme')],
+      person: async () => ({ id: 'me', name: 'Kaan' }),
+      now: () => day,
+      self: async (client) => {
+        asked.push(client.name);
+        return self;
+      },
+    };
+    const server = buildServer(agent);
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverSide);
+    const client = new Client({ name: 'claude-code', version: '1.0.0' });
+    await client.connect(clientSide);
+    // Looking around writes nothing.
+    await client.callTool({ name: 'tasks', arguments: { list: 'Tasks', space: 'Acme' } });
+    expect((await loadPeople(shared)).map((p) => p.id)).toEqual(['me']);
+    // Its first change in Acme writes it in; the task is made as it.
+    await client.callTool({ name: 'save_task', arguments: { list: 'Tasks', title: 'Send the estimate', space: 'Acme' } });
+    expect((await loadPeople(shared)).find((p) => p.id === self.id)).toMatchObject({ name: 'Claude Code (KAAN-PC)', agent: { client: 'Claude Code', place: 'KAAN-PC' }, active: true });
+    expect((await loadList(shared, list)).tasks[0]!.author).toEqual({ id: self.id, name: 'Claude Code (KAAN-PC)' });
+    expect(asked).toContain('Claude Code');
+    const people = await shared.readText('.scrawl/people.json');
+    // The same day, a card and a comment write the people no more; the card is made as it too.
+    await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', title: 'Export a board', space: 'Acme' } });
+    await client.callTool({ name: 'comment', arguments: { board: 'Scrawl', card: 'SCR-1', text: 'Done.', space: 'Acme' } });
+    expect(await shared.readText('.scrawl/people.json')).toBe(people);
+    expect((await loadBoard(shared, board)).cards[0]!.author).toEqual({ id: self.id, name: 'Claude Code (KAAN-PC)' });
+    // Made inactive, the next change makes it active again; the next day, it is seen again.
+    await savePeople(shared, (await loadPeople(shared)).map((p) => (p.id === self.id ? { ...p, active: false } : p)));
+    await client.callTool({ name: 'write', arguments: { path: 'Notes.md', text: 'Hello.\n', space: 'Acme' } });
+    expect((await loadPeople(shared)).find((p) => p.id === self.id)!.active).toBe(true);
+    day = new Date(2026, 9, 16, 9, 0);
+    await client.callTool({ name: 'create', arguments: { kind: 'note', name: 'Next day', space: 'Acme' } });
+    expect((await loadPeople(shared)).find((p) => p.id === self.id)!.seen.slice(0, 10)).toBe('2026-10-16');
+    // In the personal space, nobody's people are written.
+    await client.callTool({ name: 'save_task', arguments: { title: 'Renew the domain' } });
+    expect(await exists(personal, '.scrawl/people.json')).toBeNull();
+    // Its row is not one of the people a task is given to.
+    const spaces = (await client.callTool({ name: 'spaces', arguments: {} })).structuredContent as { spaces: { name: string; people: string[] }[] };
+    expect(spaces.spaces.find((s) => s.name === 'Acme')!.people).toEqual(['Kaan']);
+    await client.close();
+  });
+
+  it('is made as the client’s name when the door knows no identity', async () => {
+    const { agent, fs, board } = await sample();
+    await saveCardTool({ ...agent, self: async () => null }, CLIENT, { board: 'Scrawl', title: 'No identity' });
+    expect((await loadBoard(fs, board)).cards[0]!.author).toEqual({ name: 'Claude Code · Kaan' });
   });
 });
 

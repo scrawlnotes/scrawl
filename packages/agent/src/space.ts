@@ -1,4 +1,5 @@
 import {
+  type AgentRow,
   basename,
   BOARD_EXT,
   type Collection,
@@ -7,16 +8,20 @@ import {
   dirname,
   fileNameOf,
   fold,
+  isAgent,
   loadPeople,
   type PersonRef,
   type Record as CollectionRecord,
   readTree,
   refOf,
+  sameAgent,
+  savePeople,
   shownName,
   TASK_LIST_EXT,
   type TreeNode,
   type VaultFs,
   wallClock,
+  withAgent,
 } from '@scrawlnotes/core';
 import { Refusal } from './paths';
 
@@ -56,6 +61,11 @@ export interface Agent {
   timeZone?: string;
   /** The client, when the door knows it better than the protocol says: on the server, the OAuth client that signed in. */
   client?: Client;
+  /**
+   * The agent itself, as what it writes carries it (design/activity.md 2): found where it
+   * connects, made the first time it writes. Null when the door does not know whose agent it is.
+   */
+  self?: (client: Client) => Promise<AgentRow | null>;
 }
 
 /** The client that is calling, as it names itself: "Claude Code", "Claude", "ChatGPT", "Cursor". */
@@ -78,6 +88,33 @@ export const clockOf = (agent: Agent): Date => wallClock(nowOf(agent), agent.tim
 export function actorOf(client: Client, person: Person | null): string | undefined {
   const parts = [client.name?.trim(), person?.name?.trim()].filter((part): part is string => !!part);
   return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
+/** Who made a task or a card: the agent itself when the door knows it, else the name a change is written as. */
+export async function authorOf(agent: Agent, client: Client, by: string | undefined): Promise<PersonRef | undefined> {
+  const self = await agent.self?.(client).catch(() => null);
+  if (self) return { id: self.id, name: self.name };
+  return by ? { name: by } : undefined;
+}
+
+/**
+ * The agent writes itself into the people of a space it changed, once a day, as a person does
+ * opening it; made inactive there, it is active again. Never into the personal space, which is
+ * only its person's. A row that cannot be written is written the next time.
+ */
+export async function meet(agent: Agent, client: Client, spaceId: unknown): Promise<void> {
+  if (typeof spaceId !== 'string' || !agent.self) return;
+  try {
+    const space = (await agent.spaces()).find((s) => s.id === spaceId);
+    if (!space || space.personal) return;
+    const self = await agent.self(client);
+    if (!self) return;
+    const people = await loadPeople(space.fs);
+    const now = nowOf(agent);
+    if (!sameAgent(people, self, now)) await savePeople(space.fs, withAgent(people, self, now));
+  } catch {
+    // Written the next time it changes something there.
+  }
 }
 
 const same = (a: string, b: string) => fold(a.trim()) === fold(b.trim());
@@ -289,9 +326,9 @@ export function pickRecord(collection: Collection, ref: string): CollectionRecor
   throw new Refusal(`No record is called ${ref} in ${collection.dir}`, { ...(close.length > 0 && { nearest: close.map((c) => shown(c.record)) }) });
 }
 
-/** The names of a space's people, those who still open it. */
+/** The names of a space's people, those who still open it; its agents are not among them. */
 export async function peopleOf(fs: VaultFs): Promise<string[]> {
-  return (await loadPeople(fs).catch(() => [])).filter((p) => p.active && p.name).map((p) => p.name!);
+  return (await loadPeople(fs).catch(() => [])).filter((p) => p.active && p.name && !isAgent(p)).map((p) => p.name!);
 }
 
 /**
@@ -304,7 +341,7 @@ export async function personRefOf(space: Pick<AgentSpace, 'fs' | 'personal'>, na
   if (name === null) return null;
   const clean = name?.trim();
   if (!clean) return null;
-  const people = (await loadPeople(space.fs).catch(() => [])).filter((p) => p.name);
+  const people = (await loadPeople(space.fs).catch(() => [])).filter((p) => p.name && !isAgent(p));
   const shown = (found: typeof people) => found.map((p) => ({ id: p.id, name: p.name }));
   const byId = people.find((p) => p.id === clean);
   if (byId) return refOf(byId);

@@ -11,6 +11,7 @@ import {
   moveTask,
   moveTaskToList,
   type NewTask,
+  type PersonRef,
   type Priority,
   saveList,
   sectionTasks,
@@ -24,7 +25,7 @@ import {
 } from '@scrawlnotes/core';
 import { checkItems, dayArg } from './cards';
 import { Refusal } from './paths';
-import { actorOf, type Agent, type AgentSpace, type Client, type Due, dueIs, type Element, elementsOf, exists, isAssignee, noteRefOf, nowOf, personRefOf, pickAcross, pickElement, pickRecord, pickSpace, todayOf } from './space';
+import { actorOf, type Agent, authorOf, type AgentSpace, type Client, type Due, dueIs, type Element, elementsOf, exists, isAssignee, noteRefOf, nowOf, personRefOf, pickAcross, pickElement, pickRecord, pickSpace, todayOf } from './space';
 
 // Tasks: what is due, the tasks of a list, adding, moving and closing one. A task without a list
 // goes to the personal space's Inbox, as Todoist's.
@@ -227,16 +228,17 @@ async function taskPlace(agent: Agent, client: Client, args: TaskArgs) {
     if (!(await exists(space.fs, path))) await space.fs.writeText(path, serializeList({ sections: [], tasks: [] }));
   }
   const now = nowOf(agent);
-  return { space, path, list: await loadList(space.fs, path), clock: () => now, by: actorOf(client, await agent.person()) };
+  const by = actorOf(client, await agent.person());
+  return { space, path, list: await loadList(space.fs, path), clock: () => now, by, author: await authorOf(agent, client, by) };
 }
 
 async function saveTask(agent: Agent, client: Client, args: TaskArgs) {
-  const { space, path, list, clock, by } = await taskPlace(agent, client, args);
+  const { space, path, list, clock, by, author } = await taskPlace(agent, client, args);
   if (args.toList && !args.id) throw new Refusal('toList moves a task that is there; to add a task to another list, give that list as list');
   const target = args.toList ? await pickElement(space.fs, args.toList, ['tasks'], 'task list') : undefined;
   const elsewhere = target && target.path !== path ? target.path : undefined;
   if (elsewhere && args.parent) throw new Refusal('A task moved to another list goes at its top level; move it first, then give parent');
-  const step = await applyTask(space, list, path, args, clock, by, !elsewhere);
+  const step = await applyTask(space, list, path, args, clock, by, author, !elsewhere);
   const where = { space: space.id, spaceName: space.name };
   if (step.status === 'exists') return { data: { ...where, list: path, created: false, exists: true, message: step.message, task: taskOut(path, list, list.tasks.find((t) => t.id === step.id)!) } };
   const created = step.status === 'created';
@@ -254,14 +256,14 @@ async function saveTask(agent: Agent, client: Client, args: TaskArgs) {
 
 async function saveTasks(agent: Agent, client: Client, args: TaskArgs & { items: TaskItem[] }) {
   checkItems(args, args.items, 'task');
-  const { space, path, clock, by, ...place } = await taskPlace(agent, client, args);
+  const { space, path, clock, by, author, ...place } = await taskPlace(agent, client, args);
   let { list } = place;
   // Every task is checked and laid in the list before anything is written: one refused, none written.
   const done: TaskDone[] = [];
   for (const [i, item] of args.items.entries()) {
     try {
       if ((item as TaskArgs).toList) throw new Refusal('toList moves one task at a time, without items');
-      const step = await applyTask(space, list, path, item, clock, by, true);
+      const step = await applyTask(space, list, path, item, clock, by, author, true);
       list = step.list;
       done.push(step);
     } catch (error) {
@@ -285,7 +287,7 @@ async function saveTasks(agent: Agent, client: Client, args: TaskArgs & { items:
 }
 
 /** One task added to `list` or changed in it, as `args` asks, placed where it asks when `place`; the list is not written. */
-async function applyTask(space: AgentSpace, list: TaskList, path: string, args: TaskItem, clock: () => Date, by: string | undefined, place: boolean): Promise<TaskDone> {
+async function applyTask(space: AgentSpace, list: TaskList, path: string, args: TaskItem, clock: () => Date, by: string | undefined, author: PersonRef | undefined, place: boolean): Promise<TaskDone> {
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
   if (args.priority !== undefined && priority === undefined) throw new Refusal('Priority is 1 (highest) to 4 (none)', { given: args.priority });
   const due = dayArg(args.due, 'Due');
@@ -343,7 +345,7 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
       ...(assignee && { assignee }),
       ...(record && { record }),
       ...(note && { note }),
-      ...(by && { author: { name: by } }),
+      ...(author && { author }),
     };
     const before = tasks.length;
     tasks = addTask(tasks, input, clock);

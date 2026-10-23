@@ -56,6 +56,14 @@ export interface AgentConnection {
   client: string;
   connected: number;
   seen: number;
+  /** The agent's own name, once it has written; null before. */
+  name: string | null;
+}
+
+/** An agent's own identity: `<its account>:<its own>`, and its name. */
+export interface AgentIdentity {
+  id: string;
+  name: string;
 }
 
 /** What a bearer token stands for, once checked. */
@@ -334,10 +342,44 @@ export class OAuth {
   list(account: string): AgentConnection[] {
     return this.db
       .prepare(
-        `SELECT d.id, a.client_name AS client, a.created_at AS connected, d.seen_at AS seen FROM agents a JOIN devices d ON d.id = a.device_id
+        `SELECT d.id, a.client_name AS client, a.created_at AS connected, d.seen_at AS seen, i.name AS name FROM agents a JOIN devices d ON d.id = a.device_id
+         LEFT JOIN agent_identities i ON i.account_id = d.account_id AND i.client_id = a.client_id
          WHERE d.account_id = ? AND d.revoked_at IS NULL ORDER BY a.created_at DESC`,
       )
       .all(account) as unknown as AgentConnection[];
+  }
+
+  /**
+   * The agent of an account and a client, made the first time it writes (design/activity.md 2.1).
+   * Its name is the client's; a second agent of the account from the same client is "Claude Code (2)",
+   * as the server does not know which computer it is on.
+   */
+  identity(account: string, clientId: string, client: string): AgentIdentity {
+    return transaction(this.db, () => this.identityOf(account, clientId, client));
+  }
+
+  private identityOf(account: string, clientId: string, client: string, name?: string): AgentIdentity {
+    const found = this.db.prepare('SELECT id, name FROM agent_identities WHERE account_id = ? AND client_id = ?').get(account, clientId) as AgentIdentity | undefined;
+    if (found) return found;
+    const same = (this.db.prepare('SELECT COUNT(*) AS n FROM agent_identities WHERE account_id = ? AND client = ?').get(account, client) as { n: number }).n;
+    const made = { id: `${account}:${randomBytes(4).toString('hex')}`, name: name ?? (same === 0 ? client : `${client} (${same + 1})`) };
+    this.db.prepare('INSERT INTO agent_identities (id, account_id, client_id, client, name, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(made.id, account, clientId, client, made.name, this.now());
+    return made;
+  }
+
+  /** A new name for the agent of one of the account's connections; an agent that has not written yet is made with it. */
+  rename(by: Account, device: string, name: unknown): AgentIdentity {
+    const clean = typeof name === 'string' ? name.trim().slice(0, 100) : '';
+    if (!clean) throw new Refused(400, 'no-name', 'Give the agent a name');
+    const row = this.db.prepare('SELECT d.account_id, a.client_id, a.client_name FROM agents a JOIN devices d ON d.id = a.device_id WHERE a.device_id = ? AND d.revoked_at IS NULL').get(device) as
+      | { account_id: string; client_id: string; client_name: string }
+      | undefined;
+    if (!row || row.account_id !== by.id) throw new Refused(404, 'no-agent', 'No such agent connection of yours');
+    return transaction(this.db, () => {
+      const agent = this.identityOf(by.id, row.client_id, row.client_name || 'Agent', clean);
+      this.db.prepare('UPDATE agent_identities SET name = ? WHERE id = ?').run(clean, agent.id);
+      return { id: agent.id, name: clean };
+    });
   }
 
   /** Ends one of the account's own agent connections: its tokens stop, and the agent has to sign in again. */

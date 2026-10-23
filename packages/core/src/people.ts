@@ -6,7 +6,8 @@ import { mergeFields, mergeRecords } from './sync/merge-records';
 // name and the email they had then and when they were last seen. A task or a card is given to
 // one of them. Nobody is added by hand; a person without a name is in the list all the same,
 // shown as Unnamed until they set one and open the space again. One can be made inactive, and
-// is active again the next time they open the space.
+// is active again the next time they open the space. An agent is one of them too, written the
+// first time it changes something there (design/activity.md 2.3).
 
 const FILE = '.scrawl/people.json';
 
@@ -14,12 +15,26 @@ export interface Person {
   id: string;
   name?: string;
   email?: string;
-  /** When they last opened the space, as an ISO time. */
+  /** When they last opened the space, as an ISO time; an agent, when it last changed something. */
   seen: string;
   active: boolean;
+  /** An agent's: the client it is and where it runs. Whose agent it is, its id says. */
+  agent?: AgentPlace;
+}
+
+/** What an agent is, beside its name: its client as it names itself, and the computer it runs on, if one. */
+export interface AgentPlace {
+  client?: string;
+  place?: string;
 }
 
 const clean = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
+
+function readAgentPlace(raw: unknown): AgentPlace | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const { client, place } = raw as Record<string, unknown>;
+  return { ...(clean(client) && { client: clean(client) }), ...(clean(place) && { place: clean(place) }) };
+}
 
 export function parsePeople(text: string): Person[] {
   let data: unknown;
@@ -33,14 +48,18 @@ export function parsePeople(text: string): Person[] {
   const people: Person[] = [];
   for (const item of list) {
     if (!item || typeof item !== 'object') continue;
-    const { id, name, email, seen, active } = item as Record<string, unknown>;
+    const { id, name, email, seen, active, agent, ...rest } = item as Record<string, unknown>;
     if (typeof id !== 'string' || !id.trim()) continue;
+    const place = readAgentPlace(agent);
     people.push({
+      // Unknown fields are kept, so a newer version's data survives being saved by an older one.
+      ...rest,
       id: id.trim(),
       ...(clean(name) && { name: clean(name) }),
       ...(clean(email) && { email: clean(email) }),
       seen: typeof seen === 'string' ? seen : '',
       active: active !== false,
+      ...(place && { agent: place }),
     });
   }
   return people;
@@ -73,9 +92,56 @@ export function withPerson(people: Person[], me: Me, now = new Date()): Person[]
  */
 export function samePerson(people: Person[], me: Me, now = new Date()): boolean {
   const found = people.find((p) => p.id === me.id);
-  const seen = found?.seen ? new Date(found.seen) : null;
-  const today = !!seen && !Number.isNaN(seen.getTime()) && seen.toDateString() === now.toDateString();
-  return !!found && found.active && (found.name ?? '') === (me.name ?? '') && (found.email ?? '') === (me.email ?? '') && today;
+  return !!found && found.active && (found.name ?? '') === (me.name ?? '') && (found.email ?? '') === (me.email ?? '') && seenToday(found, now);
+}
+
+/** Whether a row was seen on the day of `now`, in the local calendar. */
+function seenToday(person: Person, now: Date): boolean {
+  const seen = person.seen ? new Date(person.seen) : null;
+  return !!seen && !Number.isNaN(seen.getTime()) && seen.toDateString() === now.toDateString();
+}
+
+/**
+ * An agent as it writes itself into a space: its id, `<its person's id>:<its own>`, which tells
+ * whose it is; its name; the client it is and the computer it runs on, if one.
+ */
+export interface AgentRow extends AgentPlace {
+  id: string;
+  name: string;
+}
+
+/** The id of a person's agent: theirs, a colon, and the agent's own. A person's id never has a colon. */
+export const agentId = (person: string, own: string) => `${person}:${own}`;
+
+/** Whether an id is an agent's rather than a person's. */
+export const isAgentId = (id: string | undefined): boolean => !!id && id.includes(':');
+
+/** The id of the person an agent is of; the id itself when it is a person's. */
+export const ownerOf = (id: string): string => (isAgentId(id) ? id.slice(0, id.indexOf(':')) : id);
+
+/** Whether a person of a space is an agent. */
+export const isAgent = (person: Pick<Person, 'id'>) => isAgentId(person.id);
+
+/** The agent as it is now, in the list: its row brought up to date, or added; changing something makes it active again. */
+export function withAgent(people: Person[], agent: AgentRow, now = new Date()): Person[] {
+  const { name: _n, agent: _a, ...keep } = people.find((p) => p.id === agent.id) ?? { id: agent.id, seen: '', active: true };
+  const place: AgentPlace = { ...(agent.client && { client: agent.client }), ...(agent.place && { place: agent.place }) };
+  const next: Person = { ...keep, name: agent.name, agent: place, seen: now.toISOString(), active: true };
+  const rest = people.filter((p) => p.id !== agent.id);
+  return [...rest, next].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '') || a.id.localeCompare(b.id));
+}
+
+/** Whether the list already says this about the agent, active and seen today: then its change writes nothing more. */
+export function sameAgent(people: Person[], agent: AgentRow, now = new Date()): boolean {
+  const found = people.find((p) => p.id === agent.id);
+  return (
+    !!found &&
+    found.active &&
+    found.name === agent.name &&
+    (found.agent?.client ?? '') === (agent.client ?? '') &&
+    (found.agent?.place ?? '') === (agent.place ?? '') &&
+    seenToday(found, now)
+  );
 }
 
 export function setActive(people: Person[], id: string, active: boolean): Person[] {

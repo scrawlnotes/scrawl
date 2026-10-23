@@ -6,7 +6,7 @@ import { readTool, searchTool, spacesTool, treeTool } from './read';
 import { dueRecordsTool, recordsTool, saveRecordTool } from './records';
 import { answer } from './results';
 import { moveTool } from './move';
-import { type Agent, type Client } from './space';
+import { type Agent, type Client, meet } from './space';
 import { saveTaskTool, tasksTool } from './tasks';
 import { trashTool } from './trash';
 import { createTool, writeTool } from './write';
@@ -56,6 +56,13 @@ const another = z.boolean().optional().describe('true to add it even though one 
 export function buildServer(agent: Agent): McpServer {
   const server = new McpServer({ name: 'scrawl', version: VERSION }, { capabilities: { tools: {}, resources: {} }, instructions: BRIEF });
   const client = (ctx: ServerContext) => clientOf(server, agent, ctx);
+  // What changes a space writes the agent into its people, once a day (design/activity.md 2.3).
+  const writing = (ctx: ServerContext, run: () => Promise<{ data: { [key: string]: unknown }; text?: string }>) =>
+    answer(async () => {
+      const done = await run();
+      await meet(agent, client(ctx), done.data.space);
+      return done;
+    });
 
   server.registerResource('guide', 'scrawl://guide', { title: 'Scrawl guide', description: 'How a Scrawl space is laid out, what each file holds, and how an agent behaves in it. The spaces tool returns it too.', mimeType: 'text/markdown' }, async (uri) => ({
     contents: [{ uri: uri.href, mimeType: 'text/markdown', text: GUIDE }],
@@ -134,7 +141,7 @@ export function buildServer(agent: Agent): McpServer {
       }),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     },
-    (args, ctx) => answer(() => writeTool(agent, args, client(ctx))),
+    (args, ctx) => writing(ctx, () => writeTool(agent, args, client(ctx))),
   );
 
   server.registerTool(
@@ -167,7 +174,7 @@ export function buildServer(agent: Agent): McpServer {
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    (args) => answer(() => createTool(agent, args)),
+    (args, ctx) => writing(ctx, () => createTool(agent, args)),
   );
 
   server.registerTool(
@@ -183,7 +190,7 @@ export function buildServer(agent: Agent): McpServer {
       }),
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
-    (args) => answer(() => trashTool(agent, args)),
+    (args, ctx) => writing(ctx, () => trashTool(agent, args)),
   );
 
   server.registerTool(
@@ -199,7 +206,7 @@ export function buildServer(agent: Agent): McpServer {
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     },
-    (args) => answer(() => moveTool(agent, args)),
+    (args, ctx) => writing(ctx, () => moveTool(agent, args)),
   );
 
   server.registerTool(
@@ -240,7 +247,7 @@ export function buildServer(agent: Agent): McpServer {
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    (args) => answer(() => saveRecordTool(agent, args)),
+    (args, ctx) => writing(ctx, () => saveRecordTool(agent, args)),
   );
 
   server.registerTool(
@@ -296,7 +303,7 @@ export function buildServer(agent: Agent): McpServer {
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    (args, ctx) => answer(() => saveCardTool(agent, client(ctx), args)),
+    (args, ctx) => writing(ctx, () => saveCardTool(agent, client(ctx), args)),
   );
 
   server.registerTool(
@@ -307,7 +314,7 @@ export function buildServer(agent: Agent): McpServer {
       inputSchema: z.object({ space, board: z.string(), card: z.string().describe('The card’s key, number or id.'), text: z.string() }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    (args, ctx) => answer(() => commentTool(agent, client(ctx), args)),
+    (args, ctx) => writing(ctx, () => commentTool(agent, client(ctx), args)),
   );
 
   server.registerTool(
@@ -357,7 +364,7 @@ export function buildServer(agent: Agent): McpServer {
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    (args, ctx) => answer(() => saveTaskTool(agent, client(ctx), args)),
+    (args, ctx) => writing(ctx, () => saveTaskTool(agent, client(ctx), args)),
   );
 
   return server;

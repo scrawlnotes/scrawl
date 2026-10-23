@@ -1,7 +1,7 @@
-import { homedir } from 'node:os';
+import { homedir, hostname } from 'node:os';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { type Agent, buildServer, VERSION as TOOLS_VERSION } from '@scrawlnotes/agent';
-import { loadMe } from '@scrawlnotes/core';
+import { loadAgents, loadMe, saveAgents, seenAgent, withComputerAgent } from '@scrawlnotes/core';
 import { NodeFs } from './nodefs';
 import { type FoundVault, settingsFile, spacesOf, vaultsFromFolders, vaultsFromSettings } from './vaults';
 
@@ -56,13 +56,31 @@ export function parseArgs(argv: string[]): Args {
   return args;
 }
 
+/** This computer's name, as the desktop app takes it for a device: `KAAN-PC`; without its domain. */
+export function machineName(env: NodeJS.ProcessEnv = process.env, host = hostname()): string {
+  const name = [env.COMPUTERNAME, env.HOSTNAME, host].map((n) => n?.trim()).find((n) => !!n) ?? 'this computer';
+  return name.split('.')[0] || name;
+}
+
 /** The tools over the vaults found, as the stdio server serves them. */
-export function agentOf(found: FoundVault[], client?: string): Agent {
+export function agentOf(found: FoundVault[], client?: string, machine = machineName()): Agent {
   const personal = found.find((vault) => vault.personal);
   return {
     spaces: async () => spacesOf(found),
     person: async () => (personal ? loadMe(new NodeFs(personal.folder)).catch(() => null) : null),
     ...(client && { client: { name: client } }),
+    // The agent of this client on this computer, kept in the person's own space (design/activity.md 2.1).
+    self: async (asked) => {
+      if (!personal) return null;
+      const fs = new NodeFs(personal.folder);
+      const me = await loadMe(fs).catch(() => null);
+      if (!me?.id) return null;
+      const made = withComputerAgent(await loadAgents(fs), me.id, asked.name?.trim() || client || 'Agent', machine);
+      // Seen once a day, as a space's people are: the list says when each was last here.
+      const seen = seenAgent(made.agents, made.agent.id);
+      if (made.made || seen) await saveAgents(fs, seen ?? made.agents);
+      return { id: made.agent.id, name: made.agent.name, client: made.agent.client, place: made.agent.machine };
+    },
   };
 }
 

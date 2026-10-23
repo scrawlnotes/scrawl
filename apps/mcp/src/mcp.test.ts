@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import { loadList, saveSpace } from '@scrawlnotes/core';
+import { loadAgents, loadList, saveMe, saveSpace } from '@scrawlnotes/core';
 import { afterEach, describe, expect, it } from 'vitest';
-import { agentOf, parseArgs } from './main';
+import { agentOf, machineName, parseArgs } from './main';
 import { NodeFs } from './nodefs';
 import { configDir, dataDir, settingsFile, spacesOf, vaultsFromFolders, vaultsFromSettings } from './vaults';
 
@@ -109,6 +109,34 @@ describe('finding the vaults', () => {
     expect(() => parseArgs(['--nope'])).toThrow('Unknown option');
     expect(parseArgs(['--help']).help).toBe(true);
     expect((await agentOf(found, 'Claude').person())).toBeNull();
+  });
+});
+
+describe('the agent on this computer', () => {
+  it('is made the first time it is asked for, in the personal space, and is the same after', async () => {
+    const home = temp('self');
+    const personal = join(home, 'Personal');
+    mkdirSync(personal);
+    const { found } = await vaultsFromFolders([personal]);
+    // With no person yet, nobody's agent: nothing is made.
+    expect(await agentOf(found, undefined, 'KAAN-PC').self!({ name: 'Claude Code' })).toBeNull();
+    await saveMe(new NodeFs(personal), { id: 'k', name: 'Kaan' });
+    const agent = agentOf(found, undefined, 'KAAN-PC');
+    const self = await agent.self!({ name: 'Claude Code' });
+    expect(self).toMatchObject({ name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC' });
+    expect(self!.id).toMatch(/^k:[0-9a-f]{8}$/);
+    expect(await loadAgents(new NodeFs(personal))).toEqual([expect.objectContaining({ id: self!.id, machine: 'KAAN-PC' })]);
+    expect((await agent.self!({ name: 'Claude Code' }))!.id).toBe(self!.id);
+    // Another client, or the same one on another computer, is another agent; the client the command was started with stands in for one that says no name.
+    expect((await agent.self!({ name: 'Cursor' }))!.id).not.toBe(self!.id);
+    expect((await agentOf(found, undefined, 'MAC-MINI').self!({ name: 'Claude Code' }))!.name).toBe('Claude Code (MAC-MINI)');
+    expect((await agentOf(found, 'Tester', 'KAAN-PC').self!({}))!.name).toBe('Tester (KAAN-PC)');
+  });
+
+  it('names this computer as the desktop app does, without its domain', () => {
+    expect(machineName({ COMPUTERNAME: 'KAAN-PC' }, 'x')).toBe('KAAN-PC');
+    expect(machineName({ HOSTNAME: 'mini.local' }, 'x')).toBe('mini');
+    expect(machineName({}, 'Kaans-Mac-mini.local')).toBe('Kaans-Mac-mini');
   });
 });
 

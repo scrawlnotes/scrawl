@@ -1,4 +1,5 @@
 import { diffIndices } from 'node-diff3';
+import { mergeAgents, parseAgents } from '../agents';
 import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from '../board';
 import { parseFilters, serializeFilters, type TaskFilter } from '../filters';
 import { KEYS_EXT } from '../keys';
@@ -11,7 +12,7 @@ import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrd
 
 // Merging a file changed on both sides, by what kind of file it is. See design/sync.md, section 5.
 
-export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'space' | 'me' | 'people' | 'trash';
+export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'space' | 'me' | 'people' | 'agents' | 'trash';
 
 const TRASH_INDEX = '.scrawl/trash/index.json';
 
@@ -27,6 +28,7 @@ export function mergeKindOf(path: string): MergeKind | null {
   if (lower === '.scrawl/space.json') return 'space';
   if (lower === '.scrawl/me.json') return 'me';
   if (lower === '.scrawl/people.json') return 'people';
+  if (lower === '.scrawl/agents.json') return 'agents';
   if (lower === TRASH_INDEX) return 'trash';
   return null;
 }
@@ -252,6 +254,7 @@ const MERGERS: Record<Exclude<MergeKind, 'text'>, (base: string, local: string, 
     return me ? serializeMe(me) : local;
   },
   people: mergePeople,
+  agents: mergeAgents,
   trash: mergeTrash,
 };
 
@@ -263,6 +266,7 @@ const READERS: Record<Exclude<MergeKind, 'text'>, (text: string) => unknown> = {
   space: parseSpace,
   me: parseMe,
   people: parsePeople,
+  agents: parseAgents,
   trash: parseTrashIndex,
 };
 

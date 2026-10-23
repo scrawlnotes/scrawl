@@ -11895,9 +11895,64 @@ button.st-li:hover,
   font-weight: 600;
 }
 
+/* An agent is a square with its client's first letter, a person a circle (design/activity.md). */
 .st-li .who.bot,
 .mb-row .who.bot {
+  border-radius: 5px;
   background: color-mix(in srgb, var(--sl-accent) 22%, transparent);
+  color: var(--sl-accent);
+}
+
+.mb-row .who.bot {
+  border-radius: 8px;
+}
+
+.st-li.ag-li .nm b {
+  white-space: nowrap;
+}
+
+/* An agent renamed in its row: its name in a box, Cancel and Save. */
+.st-li.ag-ren {
+  gap: 8px;
+  padding: 4px 10px;
+}
+
+.st-li.ag-ren .in {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--sl-accent);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.st-li.ag-ren button {
+  padding: 2px 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.st-li.ag-ren button:hover {
+  color: var(--sl-fg);
+}
+
+.st-li.ag-ren .primary {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.st-li.ag-ren .primary:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .dialog.ag-add {

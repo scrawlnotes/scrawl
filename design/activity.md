@@ -204,3 +204,16 @@ Sonra yayın; kararı kullanıcının. Her dilimden sonra commit sorulur. Aşama
 4. **Kapsam**
    - a) Görev ve kart. Öneri.
    - b) Notlar ve kayıtlar da: notun History'sinde her sürümün kimden geldiği, kaydın da kendi etkinliği.
+
+## 10. Yazılırken: 1. dilim (Kimlik)
+
+23 Ekim. Kodda; Roadmap ROA-219, deneme ROA-224.
+
+- **Varsayılan ad.** Bilgisayardaki ajanın adında makinenin adı hep var: "Claude Code (KAAN-PC)". Makinenin adı masaüstü uygulamasının aldığı gibi `COMPUTERNAME`, `HOSTNAME`, yoksa bilgisayarın adı; alan adı atılır. Sunucu ajanın hangi makinede olduğunu bilmez: orada ad yalnız istemcinin adıdır, aynı hesabın aynı istemciden ikinci ajanı "Claude Code (2)" olur. Ad Settings › Agents'tan değişir.
+- **Sunucuda anahtar.** Hesap ve OAuth istemcisi (`agent_identities` tablosu). Aynı istemci yeniden girince aynı kimliği alır. Kimlik ajanın ilk yazışında açılır; ondan önce listede istemcinin adı görünür. Rename henüz yazmamış bir bağlantının kimliğini o adla açar. `PATCH /api/v1/agents/:id` `{ name }`.
+- **Bilgisayarda** `.scrawl/agents.json` kişisel space'te; sync'te kayıt kayıt birleşir (`agents` türü). İki oturum aynı anda açarsa önce açılanı kullanılır. `seen` günde en çok bir kez yazılır; listede son görülme ondan.
+- **Space'e yazılması.** Yazan sekiz aracın (`write`, `create`, `trash`, `move`, `save_record`, `save_card`, `comment`, `save_task`) sonucu hangi space'i söylüyorsa ajan oraya yazılır; tek bir sarmalayıcıda. `people.json`'da `agent: { client, place }` alanıyla. `parsePeople` artık bilinmeyen alanları korur.
+- **`author`.** Ajanın açtığı görev ve kart `{ id, name }` taşır. Kimliği bilinmeyen kapıda (kişisi olmayan klasör) eskisi gibi "Claude Code · Kaan".
+- **2. dilime kadar.** Ajanlar atama seçicilerinde ve People listesinde yok; space sayfasında yalnız Agents altında. `spaces` aracının `people`'ında da yok, kişi adıyla atamada da aranmaz.
+- **Ekranda.** Settings › Agents'ta bilgisayarın bloğunda bu bilgisayarın ajanları (masaüstünün bilgisayar adıyla süzülür; ad bilinmezse hepsi), sunucunun bloğunda bağlı ajanlar adlarıyla; menüde Rename (yerinde, Cancel ve Save), sunucudakilerde Disconnect. Telefonda adlar görünür, Rename yok (taslakta yoktu). Ajanın karesi uygulamada da kare: masaüstünde 5, telefonda 8 piksel köşe.
+- **Denenmedi.** Masaüstü uygulamasında bilgisayarın bloğu ve gerçek istemcilerle (Claude Code stdio, claude.ai, ChatGPT) yazış.

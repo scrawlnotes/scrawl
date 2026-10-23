@@ -1,4 +1,4 @@
-import { type Person, type PersonRef, refName, refOf } from '@scrawlnotes/core';
+import { isAgent, type Person, type PersonRef, refName, refOf } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -48,7 +48,7 @@ export function AssigneeChip({ assignee, people }: { assignee: PersonRef; people
 
 /** "Jonas Weber and Ayşe are inactive and not offered": the people a picker leaves out, by name. */
 function inactiveNote(people: Person[]): string | null {
-  const names = people.filter((person) => !person.active).map((person) => person.name ?? t('settings.unnamed'));
+  const names = people.filter((person) => !person.active && !isAgent(person)).map((person) => person.name ?? t('settings.unnamed'));
   if (names.length === 0) return null;
   return t('people.inactive', { count: names.length, names: new Intl.ListFormat(locale(), { type: 'conjunction' }).format(names) });
 }
@@ -79,7 +79,7 @@ export function PersonPicker({ anchor, team, current, width = 310, onPick, onClo
   const q = typed.trim().toLowerCase();
   const rank = (person: Person) => (person.id === team.me ? 0 : person.name ? 1 : 2);
   const offered = team.people
-    .filter((person) => person.active)
+    .filter((person) => person.active && !isAgent(person))
     .filter((person) => !q || (person.name ?? t('settings.unnamed')).toLowerCase().includes(q) || (person.email ?? '').toLowerCase().includes(q))
     .sort((a, b) => rank(a) - rank(b) || (a.name ?? '').localeCompare(b.name ?? ''));
   const rows: Row[] = [...(q ? [] : [{ nobody: true as const }]), ...offered.map((person) => ({ person }))];

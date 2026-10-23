@@ -22,6 +22,7 @@ import {
   loadBoard,
   moveCard,
   type NewCard,
+  type PersonRef,
   type Phase,
   phaseCards,
   type Priority,
@@ -32,7 +33,7 @@ import {
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, Refusal } from './paths';
 import { parseValues } from './records';
-import { actorOf, type Agent, type AgentSpace, type Client, type Due, dueIs, elementsOf, exists, isAssignee, noteRefOf, nowOf, personRefOf, pickAcross, pickSpace, todayOf } from './space';
+import { actorOf, type Agent, authorOf, type AgentSpace, type Client, type Due, dueIs, elementsOf, exists, isAssignee, noteRefOf, nowOf, personRefOf, pickAcross, pickSpace, todayOf } from './space';
 import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
 // Boards: the cards of a board, short, and of every board by a day or a person; a card in full or
@@ -383,20 +384,22 @@ export function saveCardTool(agent: Agent, client: Client, args: CardArgs) {
 /** The board a card or cards go on, the clock and the actor. */
 async function cardPlace(agent: Agent, client: Client, args: CardArgs) {
   const { space, element } = await pickAcross(agent, args.space, args.board, ['board'], 'board');
+  const by = actorOf(client, await agent.person());
   return {
     space,
     element,
     board: await loadBoard(space.fs, element.path),
     now: nowOf(agent),
-    by: actorOf(client, await agent.person()),
+    by,
+    author: await authorOf(agent, client, by),
     today: todayOf(agent),
     where: { space: space.id, spaceName: space.name, board: element.path },
   };
 }
 
 async function saveCard(agent: Agent, client: Client, args: CardArgs) {
-  const { space, element, board, now, by, today, where } = await cardPlace(agent, client, args);
-  const step = await applyCard(space, board, args, now, by);
+  const { space, element, board, now, by, author, today, where } = await cardPlace(agent, client, args);
+  const step = await applyCard(space, board, args, now, by, author);
   if (step.status === 'exists') return { data: { ...where, created: false, exists: true, message: step.message, card: cardOut(board, step.card, today) } };
   await saveBoard(space.fs, element.path, step.board);
   return { data: { ...where, created: step.status === 'created', card: cardOut(step.board, step.board.cards.find((c) => c.id === step.card.id)!, today) } };
@@ -405,13 +408,13 @@ async function saveCard(agent: Agent, client: Client, args: CardArgs) {
 async function saveCards(agent: Agent, client: Client, args: CardArgs & { items: CardItem[] }) {
   checkItems(args, args.items, 'card');
   const place = await cardPlace(agent, client, args);
-  const { space, element, now, by, today, where } = place;
+  const { space, element, now, by, author, today, where } = place;
   let { board } = place;
   // Every card is checked and laid on the board before anything is written: one refused, none written.
   const done: CardDone[] = [];
   for (const [i, item] of args.items.entries()) {
     try {
-      const step = await applyCard(space, board, item, now, by);
+      const step = await applyCard(space, board, item, now, by, author);
       board = step.board;
       done.push(step);
     } catch (error) {
@@ -433,7 +436,7 @@ async function saveCards(agent: Agent, client: Client, args: CardArgs & { items:
 }
 
 /** One card added to `board` or changed on it, as `args` asks; the board is not written. */
-async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: Date, by: string | undefined): Promise<CardDone> {
+async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: Date, by: string | undefined, author: PersonRef | undefined): Promise<CardDone> {
   const column = args.column ? pickColumn(board, args.column) : undefined;
   const phase = args.phase ? pickPhase(board, args.phase) : undefined;
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
@@ -498,6 +501,7 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
       ...(assignee && { assignee }),
       ...(values && { values: values.values }),
       ...(note && { note }),
+      ...(author && { author }),
     };
     const subtasks = args.subtasks ? await applySubtasks(space, [], args.subtasks, now) : [];
     const before = board.cards.length;

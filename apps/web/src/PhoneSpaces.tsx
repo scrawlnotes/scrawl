@@ -1,5 +1,5 @@
 import type { MovedMark, Person, PersonRef, ServerSpace } from '@scrawlnotes/core';
-import { refOf } from '@scrawlnotes/core';
+import { isAgent, refOf } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import type { MenuItem } from './dialogs';
@@ -512,7 +512,7 @@ export function PhoneSpacePage({ space, values, onSync }: { space: SpaceView; va
   const unit = values.sync.all.find((each) => each.space === space.id);
   const me = values.me?.id;
   const rank = (person: Person) => (person.id === me ? 0 : !person.active ? 3 : person.name ? 1 : 2);
-  const people = [...space.people].sort((a, b) => rank(a) - rank(b) || (a.name ?? '').localeCompare(b.name ?? '', locale()));
+  const people = space.people.filter((person) => !isAgent(person)).sort((a, b) => rank(a) - rank(b) || (a.name ?? '').localeCompare(b.name ?? '', locale()));
   return (
     <>
       <div className="mb-form">
@@ -899,8 +899,8 @@ export function PeopleSheet({ about, team, current, onPick, onClose }: {
   onClose: () => void;
 }) {
   const rank = (person: Person) => (person.id === team.me ? 0 : person.name ? 1 : 2);
-  const offered = team.people.filter((person) => person.active).sort((a, b) => rank(a) - rank(b) || (a.name ?? '').localeCompare(b.name ?? '', locale()));
-  const inactive = team.people.filter((person) => !person.active).map((person) => person.name ?? t('settings.unnamed'));
+  const offered = team.people.filter((person) => person.active && !isAgent(person)).sort((a, b) => rank(a) - rank(b) || (a.name ?? '').localeCompare(b.name ?? '', locale()));
+  const inactive = team.people.filter((person) => !person.active && !isAgent(person)).map((person) => person.name ?? t('settings.unnamed'));
   const pick = (assignee: PersonRef | null) => {
     onPick(assignee);
     onClose();

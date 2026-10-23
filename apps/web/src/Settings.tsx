@@ -1,4 +1,4 @@
-import { dayOf, type Me, type MovedMark, newSpaceId, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
+import { type ComputerAgent, dayOf, isAgent, type Me, type MovedMark, newSpaceId, ownerOf, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
 import { languages, locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
@@ -70,6 +70,10 @@ export interface SettingsValues {
   onMoveSpace: (id: string, by: -1 | 1) => void;
   /** Makes a person of a space inactive, or active again. */
   onPersonActive: (space: string, person: string, active: boolean) => void;
+  /** The person's agents on their computers, from their own space. */
+  computerAgents?: () => Promise<ComputerAgent[]>;
+  /** A new name for one of the person's agents on a computer. */
+  onRenameComputerAgent?: (id: string, name: string) => Promise<void>;
   /** Opens another section of the settings: Profile, from where a name is asked for; Spaces with Add space open, from Agents. */
   onSection?: (section: Section, options?: { adding?: boolean }) => void;
   /** Spaces opens with Add space open: asked for from Agents, to connect a server. */
@@ -689,7 +693,7 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
 
 /** Who is in a space, as its row in the list says it: just you, or how many people are active. */
 function peopleWords(people: Person[], me: Me | null): string | null {
-  const active = people.filter((person) => person.active);
+  const active = people.filter((person) => person.active && !isAgent(person));
   if (active.length === 0) return null;
   if (active.length === 1 && active[0]!.id === me?.id) return t('settings.justYou');
   return t('count.people', { count: active.length });
@@ -713,7 +717,7 @@ function People({ people, me, onActive }: { people: Person[]; me: Me | null; onA
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; id: string } | null>(null);
   const today = dayOf(new Date());
   const rank = (person: Person) => (person.id === me?.id ? 0 : !person.active ? 3 : person.name ? 1 : 2);
-  const shown = [...people].sort((a, b) => rank(a) - rank(b) || (a.name ?? '').localeCompare(b.name ?? ''));
+  const shown = people.filter((person) => !isAgent(person)).sort((a, b) => rank(a) - rank(b) || (a.name ?? '').localeCompare(b.name ?? ''));
   const open = (event: MouseEvent, id: string) => {
     event.preventDefault();
     setMenu({ at: { x: event.clientX, y: event.clientY }, id });
@@ -756,6 +760,52 @@ function People({ people, me, onActive }: { people: Person[]; me: Me | null; onA
     </>
   );
 }
+
+/**
+ * The agents of a space, under its people (design/mockups.html, Kim ne yaptı, ajanlar dahil):
+ * everyone's agents that have changed something here, each with whose it is and when it last
+ * did. One is made inactive from its menu; it is active again when it changes something.
+ */
+function SpaceAgents({ people, onActive }: { people: Person[]; onActive: (person: string, active: boolean) => void }) {
+  const [menu, setMenu] = useState<{ at: { x: number; y: number }; id: string } | null>(null);
+  const today = dayOf(new Date());
+  const ownerName = (agent: Person) => people.find((person) => person.id === ownerOf(agent.id))?.name;
+  const shown = people.filter(isAgent).sort((a, b) => Number(!a.active) - Number(!b.active) || (ownerName(a) ?? '').localeCompare(ownerName(b) ?? '') || (a.name ?? '').localeCompare(b.name ?? ''));
+  const open = (event: MouseEvent, id: string) => {
+    event.preventDefault();
+    setMenu({ at: { x: event.clientX, y: event.clientY }, id });
+  };
+  return (
+    <>
+      <span className="st-label">{t('settings.spaceAgents')}</span>
+      <p className="st-note">{t('settings.agentsAbout')}</p>
+      <div className="st-list">
+        {shown.map((agent) => {
+          const owner = ownerName(agent);
+          return (
+            <div key={agent.id} className={`st-li one${agent.active ? '' : ' off'}${menu?.id === agent.id ? ' menu-on' : ''}`} {...(agent.active && { onContextMenu: (event: MouseEvent) => open(event, agent.id) })}>
+              <span className="who bot" aria-hidden="true">
+                {(agent.agent?.client ?? agent.name ?? '?').slice(0, 1).toUpperCase()}
+              </span>
+              <span className="nm">
+                <b>{agent.name ?? agent.agent?.client ?? t('agents.unnamedAgent')}</b>
+                <small>{owner ? t('settings.agentOf', { name: owner }) : t('settings.someonesAgent')}</small>
+              </span>
+              <span className="r">{agent.active ? (agent.seen ? dueLabel(dayOf(new Date(agent.seen)), today) : '') : t('settings.inactive')}</span>
+              {agent.active && (
+                <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => open(event, agent.id)}>
+                  ···
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {menu && <ContextMenu at={menu.at} items={[{ label: t('settings.makeInactive'), run: () => onActive(menu.id, false) }]} onClose={() => setMenu(null)} />}
+    </>
+  );
+}
+
 
 /**
  * The question before a space leaves this device: it stays in its cloud and on the other
@@ -1951,7 +2001,8 @@ function SpacePage({ space, me, onPersonActive, sync, service, onRename, onChang
         </div>
         <SpaceSyncRow view={sync.all.find((unit) => unit.space === space.id)} service={service} />
       </div>
-      {space.source?.provider === 'server' ? <ServerMembers space={space} me={me} /> : space.people.length > 0 && <People people={space.people} me={me} onActive={onPersonActive} />}
+      {space.source?.provider === 'server' ? <ServerMembers space={space} me={me} /> : space.people.some((person) => !isAgent(person)) && <People people={space.people} me={me} onActive={onPersonActive} />}
+      {space.people.some(isAgent) && <SpaceAgents people={space.people} onActive={onPersonActive} />}
       <div className="st-acts">
         <button type="button" onClick={onRemove}>
           {t('settings.removeSpace')}

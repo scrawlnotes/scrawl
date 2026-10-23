@@ -95,7 +95,11 @@ import {
   isSpaceId,
   inSpace,
   fillMe,
+  type ComputerAgent,
+  loadAgents,
   loadPeople,
+  renameAgent,
+  saveAgents,
   loadSpace,
   localPath,
   type Me,
@@ -1246,6 +1250,19 @@ export class Session {
   }
 
   /** Makes a person of a space inactive, or active again: an inactive one is not offered when a task or a card is given. */
+  /** The person's agents on their computers, kept in their own space (design/activity.md 2.1). */
+  computerAgents(): Promise<ComputerAgent[]> {
+    return loadAgents(this.personal);
+  }
+
+  /** A new name for one of them; what it writes from then on carries it, and the spaces' people take it with its next change. */
+  renameComputerAgent(id: string, name: string): Promise<void> {
+    this.set({ saved: false });
+    const done = this.taskWrites.then(async () => saveAgents(this.personal, renameAgent(await loadAgents(this.personal), id, name)));
+    this.taskWrites = done.catch(() => undefined).then(() => this.markSaved());
+    return done;
+  }
+
   setPersonActive(space: string, person: string, active: boolean) {
     const opened = this.opened.get(space);
     if (!opened) return;

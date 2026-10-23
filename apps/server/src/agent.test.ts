@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/client';
@@ -55,6 +55,9 @@ function start() {
 }
 
 type S = ReturnType<typeof start>;
+
+/** A file's text as the server keeps it, by its digest. */
+const readOf = (s: S, hash: string) => readFileSync(s.server.blobs.pathOf(hash), 'utf8');
 
 async function owner(s: S) {
   const { token } = await s.account().setUp({ name: 'Kaan Arslan', email: 'kaan@outlook.com', password: 'a long password', person: PERSON, device: 'Laptop' });
@@ -273,8 +276,8 @@ describe('working through /mcp', () => {
     expect(s.server.db.prepare('SELECT COUNT(*) AS n FROM versions WHERE space_id = ? AND path = ?').get(SPACE, 'Plans/Roadmap.md')).toEqual({ n: 2 });
     const text = await client.callTool({ name: 'read', arguments: { path: 'Scrawl.board.json' } });
     expect((text.content[0] as { text: string }).text).toContain('"prefix": "SCR"');
-    const board = JSON.parse((text.content[0] as { text: string }).text) as { cards: { author: { name: string } }[] };
-    expect(board.cards[0]!.author).toEqual({ name: 'Test agent · Kaan Arslan' });
+    const board = JSON.parse((text.content[0] as { text: string }).text) as { cards: { author: { id: string; name: string } }[] };
+    expect(board.cards[0]!.author).toEqual({ id: expect.stringMatching(new RegExp(`^${PERSON}:[0-9a-f]{8}$`)), name: 'Test agent' });
     // A board's phases alone, read and written back, its cards as they were; a note changed where its text is.
     const phases = await client.callTool({ name: 'read', arguments: { path: 'Scrawl.board.json', part: 'phases' } });
     expect(phases.structuredContent).toMatchObject({ part: 'phases', text: '[]' });
@@ -317,6 +320,62 @@ describe('working through /mcp', () => {
     expect(added.structuredContent).toMatchObject({ space: 'sp-kaanmine', list: 'Inbox.tasks.json' });
     expect(s.server.files.file('sp-kaanmine', 'Inbox.tasks.json')).toBeTruthy();
     await client.close();
+  });
+
+  it('gives each agent its own identity, writes it into a space it changes once a day, and lets the person rename it', async () => {
+    const s = start();
+    const key = await owner(s);
+    await s.account(key).openSpace('sp-kaanmine', 'Personal', true);
+    const people = () => (s.server.files.file(SPACE, '.scrawl/people.json') ? (JSON.parse(readOf(s, s.server.files.file(SPACE, '.scrawl/people.json')!.hash)) as { people: { id: string; name: string; agent?: object }[] }).people : []);
+    const peopleVersions = () => (s.server.db.prepare('SELECT COUNT(*) AS n FROM versions WHERE space_id = ? AND path = ?').get(SPACE, '.scrawl/people.json') as { n: number }).n;
+    // Signed in, it has no identity until it writes.
+    const first = await connect(s);
+    expect((await s.account(key).agents())[0]).toMatchObject({ client: 'Test agent', name: null });
+    const client = await mcp(s, first.access);
+    await client.callTool({ name: 'spaces', arguments: {} });
+    expect(people()).toEqual([]);
+    // Writing in the personal space writes no one there; writing in Acme writes it into Acme's people.
+    expect((await client.callTool({ name: 'save_task', arguments: { title: 'Renew the domain' } })).structuredContent).toMatchObject({ space: 'sp-kaanmine' });
+    expect(s.server.files.file('sp-kaanmine', '.scrawl/people.json')).toBeFalsy();
+    await client.callTool({ name: 'create', arguments: { kind: 'board', name: 'Scrawl', template: 'software', space: SPACE } });
+    const agent = people().find((p) => p.id.startsWith(`${PERSON}:`))!;
+    expect(agent).toMatchObject({ name: 'Test agent', agent: { client: 'Test agent' }, active: true });
+    expect((await s.account(key).agents())[0]).toMatchObject({ name: 'Test agent' });
+    // The same day, the next change writes no more; the card carries the identity.
+    await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', title: 'Write the server door' } });
+    expect(peopleVersions()).toBe(1);
+    const board = JSON.parse(readOf(s, s.server.files.file(SPACE, 'Scrawl.board.json')!.hash)) as { cards: { author: { id: string } }[] };
+    expect(board.cards[0]!.author.id).toBe(agent.id);
+    // Renamed, the next change writes the new name.
+    const connection = (await s.account(key).agents())[0]!;
+    expect(await s.account(key).renameAgent(connection.id, ' Claude Code (Mac mini) ')).toEqual({ id: agent.id, name: 'Claude Code (Mac mini)' });
+    await expect(s.account(key).renameAgent(connection.id, ' ')).rejects.toMatchObject({ status: 400 });
+    await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', title: 'Rename an agent' } });
+    expect(people().find((p) => p.id === agent.id)!.name).toBe('Claude Code (Mac mini)');
+    await client.close();
+    // Another client of the same account is another agent, named apart.
+    const second = await connect(s);
+    const other = await mcp(s, second.access);
+    await other.callTool({ name: 'save_card', arguments: { board: 'Scrawl', title: 'From the second one' } });
+    expect(people().filter((p) => p.id.startsWith(`${PERSON}:`)).map((p) => p.name).sort()).toEqual(['Claude Code (Mac mini)', 'Test agent (2)']);
+    await other.close();
+  });
+
+  it('keeps an agent’s identity when the same client signs in again', async () => {
+    const s = start();
+    const key = await owner(s);
+    const ids: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const done = await signIn(s, { cimd: CLAUDE_DOC });
+      const { body } = await tokensOf(s, done.client, done.code!, done.verifier);
+      const client = await mcp(s, body.access_token!);
+      await client.callTool({ name: 'write', arguments: { path: `Note ${i}.md`, text: 'Hello.\n' } });
+      await client.close();
+      const listed = await s.account(key).agents();
+      expect(listed.every((a) => a.name === 'Claude')).toBe(true);
+      ids.push(...(s.server.db.prepare('SELECT id FROM agent_identities').all() as { id: string }[]).map((r) => r.id));
+    }
+    expect(new Set(ids).size).toBe(1);
   });
 
   it('shows an agent only the spaces its person is in', async () => {
