@@ -14542,3 +14542,74 @@ button.st-li:hover,
   font-size: 11px;
   white-space: nowrap;
 }
+
+/* A task's activity, in a window (design/activity.md 4): who worked on it, then what mattered. */
+.dialog.task-activity {
+  width: min(470px, calc(100vw - 32px));
+}
+
+.dialog.task-activity .what {
+  margin: -4px 0 14px;
+  color: var(--sl-fg);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.dialog.task-activity .wl {
+  margin-bottom: 6px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.ac-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.ac-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 3px;
+  border-radius: 12px;
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-size: 12px;
+}
+
+.ac-chip .who {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sl-fg) 12%, transparent);
+  font-size: 8.5px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+.ac-chip .who.bot {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--sl-accent) 22%, transparent);
+  color: var(--sl-accent);
+}
+
+.ac-chip .of {
+  color: var(--sl-dim);
+}
+
+.dialog.task-activity .ac-log {
+  padding-top: 12px;
+  border-top: 1px solid var(--sl-line);
+  font-size: 12.5px;
+}
+
+.dialog.task-activity .none {
+  margin: 0;
+  color: var(--sl-faint);
+}

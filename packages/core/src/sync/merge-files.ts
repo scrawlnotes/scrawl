@@ -1,13 +1,14 @@
 import { diffIndices } from 'node-diff3';
 import { mergeAgents, parseAgents } from '../agents';
-import { type Board, BOARD_EXT, type Card, mergeWorkedOn, parseBoard, serializeBoard, type TimelineEntry } from '../board';
+import { mergeWorkedOn } from '../activity';
+import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from '../board';
 import { parseFilters, serializeFilters, type TaskFilter } from '../filters';
 import { KEYS_EXT } from '../keys';
 import { RULES_FILE } from '../rules';
 import { mergeMe, parseMe, serializeMe } from '../me';
 import { mergePeople, parsePeople } from '../people';
 import { parseSpace, serializeSpace } from '../space';
-import { parseList, serializeList, type Task, type Section, TASK_LIST_EXT } from '../tasks';
+import { parseList, serializeList, type Task, type TaskEntry, type Section, TASK_LIST_EXT } from '../tasks';
 import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrder } from './merge-records';
 
 // Merging a file changed on both sides, by what kind of file it is. See design/sync.md, section 5.
@@ -148,19 +149,29 @@ const byId = <T extends { id: string }>(record: T) => record.id;
 function mergeTasks(base: string, local: string, remote: string): string {
   const [b, l, r] = [base, local, remote].map(parseList) as [ReturnType<typeof parseList>, ReturnType<typeof parseList>, ReturnType<typeof parseList>];
   const sections = mergeRecords<Section>(b.sections, l.sections, r.sections, byId, (was, mine, theirs) => mergeFields(was, mine, theirs));
-  const merged = mergeRecords<Task>(b.tasks, l.tasks, r.tasks, byId, (was, mine, theirs) => mergeFields(was, mine, theirs, 'updated'));
+  const merged = mergeRecords<Task>(b.tasks, l.tasks, r.tasks, byId, mergeTask);
   // Subtasks go with their parent; a top-level task's place is its section.
   const tasks = spreadOrder(merged, (t) => (t.parent ? `p:${t.parent}` : `s:${t.section ?? ''}`));
   // Read back, so that what the file reader makes of it (a subtask whose parent is gone) is merged too.
   return serializeList(parseList(serializeList({ sections, tasks })));
 }
 
-function mergeTimeline(base: TimelineEntry[], local: TimelineEntry[], remote: TimelineEntry[]): TimelineEntry[] {
-  const merged = mergeRecords<TimelineEntry>(base, local, remote, byId, (was, mine, theirs) =>
-    mergeFields(was, mine, theirs, 'edited' as keyof TimelineEntry & string),
-  );
-  // Moves and comments of both sides, in the order they happened.
+function mergeTimeline<T extends { id: string; at: string }>(base: T[], local: T[], remote: T[]): T[] {
+  const merged = mergeRecords<T>(base, local, remote, byId, (was, mine, theirs) => mergeFields(was, mine, theirs, 'edited' as keyof T & string));
+  // The entries of both sides, in the order they happened.
   return [...merged].sort((a, c) => (a.at < c.at ? -1 : a.at > c.at ? 1 : a.id < c.id ? -1 : a.id > c.id ? 1 : 0));
+}
+
+/** A task changed on both sides: its fields as any record's, the later change winning; its timeline and who worked on it from both. */
+function mergeTask(was: Task | undefined, mine: Task, theirs: Task): Task {
+  const task = mergeFields(was, mine, theirs, 'updated');
+  const timeline = mergeTimeline<TaskEntry>(was?.timeline ?? [], mine.timeline ?? [], theirs.timeline ?? []);
+  if (timeline.length > 0) task.timeline = timeline;
+  else delete task.timeline;
+  const worked = mergeWorkedOn(was?.workedOn, mine.workedOn, theirs.workedOn);
+  if (worked.length > 0) task.workedOn = worked;
+  else delete task.workedOn;
+  return task;
 }
 
 function mergeCard(was: Card | undefined, mine: Card, theirs: Card): Card {

@@ -3347,7 +3347,7 @@ export class Session {
 
   addTask(list: string, input: NewTask) {
     const author = this.authorIn(list);
-    this.changeTasks(list, (tasks) => addTask(tasks, { ...(author && { author }), ...input }));
+    this.changeTasks(list, (tasks) => addTask(tasks, { ...(author && { author }), ...input }, undefined, undefined, this.by));
   }
 
   /** Who makes a task or a card in a space with people: the user, by id and name. The personal space has only them. */
@@ -3357,11 +3357,11 @@ export class Session {
   }
 
   updateTask(list: string, id: string, patch: TaskPatch) {
-    this.changeTasks(list, (tasks) => updateTask(tasks, id, patch));
+    this.changeTasks(list, (tasks) => updateTask(tasks, id, patch, undefined, this.by));
   }
 
   setTaskDone(list: string, id: string, done: boolean) {
-    this.changeTasks(list, (tasks) => setDone(tasks, id, done));
+    this.changeTasks(list, (tasks) => setDone(tasks, id, done, undefined, this.by));
   }
 
   /** Completes a task with its subtasks; returns what reopens just the ones it completed. */
@@ -3369,7 +3369,7 @@ export class Session {
     const before = new Set((this.snapshot.tasks[list] ?? []).filter((task) => !task.done).map((task) => task.id));
     this.setTaskDone(list, id, true);
     const closed = (this.snapshot.tasks[list] ?? []).filter((task) => task.done && before.has(task.id)).map((task) => task.id);
-    return () => this.changeTasks(list, (tasks) => reopenTasks(tasks, closed));
+    return () => this.changeTasks(list, (tasks) => reopenTasks(tasks, closed, undefined, this.by));
   }
 
   /** Deletes a task with its subtasks: it goes to the trash, from where it comes back; returns what brings it back now, for Undo. */

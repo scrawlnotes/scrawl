@@ -1156,6 +1156,18 @@ describe('the agent’s own identity', () => {
     expect(card.workedOn).toEqual([{ id: self.id, name: 'Claude Code · Kaan', at: expect.any(String) }]);
   });
 
+  it('writes what it does on a task with its identity, and is among those who worked on it', async () => {
+    const { agent, fs } = await sample();
+    const self = { id: 'me:4f2a9c1e', name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC' };
+    const as: Agent = { ...agent, self: async () => self };
+    const added = await saveTaskTool(as, CLIENT, { title: 'Collect the feedback', assignee: 'Kaan' });
+    const id = (added.data as { task: { id: string } }).task.id;
+    await saveTaskTool(as, CLIENT, { id, done: true });
+    const task = (await loadList(fs, 'Inbox.tasks.json')).tasks.find((t) => t.id === id)!;
+    expect(task.timeline!.map((e) => `${e.kind}:${e.byId}`)).toEqual(['assign:me:4f2a9c1e', 'done:me:4f2a9c1e']);
+    expect(task.workedOn).toEqual([{ id: self.id, name: 'Claude Code · Kaan', at: expect.any(String) }]);
+  });
+
   it('is made as the client’s name when the door knows no identity', async () => {
     const { agent, fs, board } = await sample();
     await saveCardTool({ ...agent, self: async () => null }, CLIENT, { board: 'Scrawl', title: 'No identity' });

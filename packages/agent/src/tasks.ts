@@ -1,4 +1,5 @@
 import {
+  type Actor,
   addTask,
   childrenOf,
   depthOf,
@@ -288,6 +289,8 @@ async function saveTasks(agent: Agent, client: Client, args: TaskArgs & { items:
 
 /** One task added to `list` or changed in it, as `args` asks, placed where it asks when `place`; the list is not written. */
 async function applyTask(space: AgentSpace, list: TaskList, path: string, args: TaskItem, clock: () => Date, by: string | undefined, author: PersonRef | undefined, place: boolean): Promise<TaskDone> {
+  // What it does on a task is written with its name and, when the door knows it, its identity.
+  const actor: Actor = { ...(by && { name: by }), ...(author?.id && { id: author.id }) };
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
   if (args.priority !== undefined && priority === undefined) throw new Refusal('Priority is 1 (highest) to 4 (none)', { given: args.priority });
   const due = dayArg(args.due, 'Due');
@@ -319,6 +322,7 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
         ...(note !== undefined && { note }),
       },
       clock,
+      actor,
     );
   } else {
     const title = args.title?.trim();
@@ -348,7 +352,7 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
       ...(author && { author }),
     };
     const before = tasks.length;
-    tasks = addTask(tasks, input, clock);
+    tasks = addTask(tasks, input, clock, undefined, actor);
     if (tasks.length === before) throw new Refusal('The task could not be added');
     id = tasks[tasks.length - 1]!.id;
     created = true;
@@ -357,7 +361,7 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
   let along: string[] = [];
   if (args.done !== undefined) {
     const open = new Set(tasks.filter((t) => !t.done && t.id !== id).map((t) => t.id));
-    tasks = setDone(tasks, id, args.done, clock);
+    tasks = setDone(tasks, id, args.done, clock, actor);
     if (args.done) along = tasks.filter((t) => open.has(t.id) && t.done).map((t) => t.title);
   }
   let next: TaskList = { ...list, tasks };

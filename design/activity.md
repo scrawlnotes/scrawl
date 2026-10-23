@@ -228,3 +228,13 @@ Sonra yayın; kararı kullanıcının. Her dilimden sonra commit sorulur. Aşama
 - **Bilinmeyen kayıt.** Bu sürümün tanımadığı türde bir kayıt olduğu gibi tutulur ve geri yazılır; ekranda görünmez.
 - **Ekranda.** Zaman çizgisi masaüstünde ve telefonda aynı bileşen: başta `author`'dan "… created this", her satırda yazanın yüzü; insanın ilk adı, ajanın adı ve soluk sahibi. Worked on kart penceresinde alanların altında. Kart yüzünde atananın solunda üzerinde çalışmış ajanlar (atanan değilse) en çok üç küçük kare; List görünümünde atanan ajansa kare. Atama seçicisinde People'ın altında Agents, her birinin yanında "yours" ya da "Mert's"; arama sahibin adını da bulur. Seçici görevlerde de aynı olduğu için görev de ajana verilebiliyor; görevin etkinliği 3. dilimde.
 - **Telefon.** Zaman çizgisi bu dilimde telefonda da yeni satırlarla görünüyor. Telefonda Worked on ve atama sheet'inde ajanlar 5. dilimde.
+
+## 12. Yazılırken: 3. dilim (Görevin etkinliği)
+
+23 Ekim. Kodda; Roadmap ROA-221, deneme ROA-226.
+
+- **Olaylar.** Görevin `timeline`'ı: `assign` (atamayla açılan görevde de), `done` ve `reopen`, her biri yazanın kimliğiyle. Bitirilen görev açık alt görevlerini de kapatır; her biri kendi `done` kaydını alır. Bitirdikten hemen sonra Undo, aynı kişinin son `done` kaydını geri alır; görev başka biri tarafından açılırsa `reopen` yazılır.
+- **`workedOn`.** Görevi açan, değiştiren, bitiren ya da yeniden açan yazılır. Başka bölüme ya da listeye taşımak yazılmaz; görev başka listeye giderken kayıtları ve Worked on'u onunla gider. Sync'te iki tarafın kayıtları ve Worked on'u birleşir.
+- **Ortak parçalar.** Kimin yaptığı, Worked on ve birleşmesi `packages/core/src/activity.ts`'te; kart ve görev aynısını kullanır. Ekranda satırlar `apps/web/src/Activity.tsx`'te; kartın zaman çizgisi ve görevin penceresi aynı satırı çizer.
+- **Ekranda.** Görev satırının ··· menüsünde ve sağ tık menüsünde Delete'ten önce Activity…: pencerede görevin adı, Worked on (yüz ve adla çipler), "… created this" ve olaylar, Close. Hiç kaydı olmayan eski görevde "Nothing yet.".
+- **Telefon.** Görevin Activity'si telefonda görev sheet'inin altında, 5. dilimde.

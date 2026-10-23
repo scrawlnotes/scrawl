@@ -1,3 +1,4 @@
+import { type Actor, actorIn, type By, isObject, readStamp, readWorkedOn, refKey, type Stamp, stampOf, workedBy, type WorkedOn, writtenBy } from './activity';
 import { evaluateFormula, type Field, type FieldValue, isEmpty, pointsAt, readFields, readValue, type Record as CollectionRecord, valueText } from './collection';
 import { type ChoiceRenames, renameChoices } from './fields';
 import type { VaultFs } from './fs';
@@ -44,26 +45,6 @@ export interface Phase {
   note?: string | null;
 }
 
-/** Who changes a card: the name its timeline is written with, and the id of the person or the agent when it is known (design/activity.md 3.1). */
-export interface Actor {
-  name?: string;
-  id?: string;
-}
-
-/** Who, as what changes a board takes it: a name alone, as before, or an actor. */
-export type By = string | Actor | undefined;
-
-/** The actor a `By` stands for; nobody when it is none. */
-export const actorIn = (by: By): Actor => (typeof by === 'string' ? { name: by } : (by ?? {}));
-
-/** When an entry of a timeline was written, and by whom: the name it was written with, and the id. */
-interface Stamp {
-  id: string;
-  at: string;
-  by?: string;
-  byId?: string;
-}
-
 /**
  * A card's timeline: only what mattered on it, in one stream (design/activity.md 1.2): its moves
  * between columns, the comments on it, who it was given to and the subtasks ticked off. An entry
@@ -75,13 +56,6 @@ export type TimelineEntry =
   | (Stamp & { kind: 'assign'; given?: PersonRef })
   | (Stamp & { kind: 'tick'; subtasks: string[] })
   | (Stamp & { kind: 'unknown'; raw: { [key: string]: unknown } });
-
-/** Someone who changed a card, a person or an agent, once each, with when they last did. */
-export interface WorkedOn {
-  id?: string;
-  name?: string;
-  at: string;
-}
 
 /** Ticks of one actor this close after its last are written as the same entry. */
 const TICKS_TOGETHER_MS = 10 * 60 * 1000;
@@ -346,16 +320,14 @@ function parseCards(list: unknown, columns: Column[]): Card[] {
 const isValues = (raw: unknown): raw is { [key: string]: unknown } =>
   typeof raw === 'object' && raw !== null && !Array.isArray(raw) && Object.keys(raw).length > 0;
 
-const isObject = (raw: unknown): raw is { [key: string]: unknown } => typeof raw === 'object' && raw !== null && !Array.isArray(raw);
-
 function parseTimeline(list: unknown): TimelineEntry[] {
   if (!Array.isArray(list)) return [];
   const out: TimelineEntry[] = [];
   for (const raw of list) {
-    if (!isObject(raw) || typeof raw.id !== 'string' || typeof raw.at !== 'string') continue;
+    const read = readStamp(raw);
+    if (!read) continue;
     // Unknown fields are kept, so a newer version's data survives being saved by an older one.
-    const { id, at, by, byId, kind, ...rest } = raw;
-    const stamp: Stamp = { id: raw.id, at: raw.at, ...(typeof by === 'string' && { by }), ...(typeof byId === 'string' && { byId }) };
+    const { stamp, kind, rest } = read;
     if (kind === 'move' && typeof rest.to === 'string') {
       out.push({ ...rest, ...stamp, kind: 'move', from: typeof rest.from === 'string' ? rest.from : null, to: rest.to });
     } else if (kind === 'comment' && typeof rest.text === 'string') {
@@ -368,58 +340,13 @@ function parseTimeline(list: unknown): TimelineEntry[] {
       out.push({ ...rest, ...stamp, kind: 'tick', subtasks: rest.subtasks.filter((s): s is string => typeof s === 'string') });
     } else {
       // A kind this version does not know, kept to be written back as it came.
-      out.push({ ...stamp, kind: 'unknown', raw: kind === 'unknown' && isObject(rest.raw) ? rest.raw : raw });
+      out.push({ ...stamp, kind: 'unknown', raw: kind === 'unknown' && isObject(rest.raw) ? rest.raw : (raw as { [key: string]: unknown }) });
     }
   }
   return out;
 }
 
-/** Who worked on a card, as the file has them: each with when, and an id or a name. */
-function readWorkedOn(list: unknown): WorkedOn[] {
-  if (!Array.isArray(list)) return [];
-  const out: WorkedOn[] = [];
-  for (const raw of list) {
-    if (!isObject(raw) || typeof raw.at !== 'string') continue;
-    const id = typeof raw.id === 'string' && raw.id ? raw.id : undefined;
-    const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : undefined;
-    if (!id && !name) continue;
-    const worker: WorkedOn = { ...(id && { id }), ...(name && { name }), at: raw.at };
-    if (!out.some((w) => workerKey(w) === workerKey(worker))) out.push(worker);
-  }
-  return out;
-}
 
-/** Who a worker is, to find them again: their id, else their name. */
-export const workerKey = (worker: { id?: string; name?: string }): string => worker.id ?? `name:${worker.name ?? ''}`;
-
-/** Those who worked on a card, the latest first. */
-export const workersOf = (card: Card): WorkedOn[] => [...(card.workedOn ?? [])].sort((a, b) => b.at.localeCompare(a.at));
-
-/** Who worked on a card from three versions: everyone either side has, each at the later time. */
-export function mergeWorkedOn(...lists: (WorkedOn[] | undefined)[]): WorkedOn[] {
-  const merged = new Map<string, WorkedOn>();
-  for (const worker of lists.flatMap((list) => list ?? [])) {
-    const had = merged.get(workerKey(worker));
-    if (!had || had.at < worker.at) merged.set(workerKey(worker), worker);
-  }
-  return [...merged.values()];
-}
-
-/** The card with the actor among those who worked on it, at `stamp`; as it was when the actor is no one. */
-function workedBy(card: Card, actor: Actor, stamp: string): Card {
-  if (!actor.id && !actor.name) return card;
-  const worker: WorkedOn = { ...(actor.id && { id: actor.id }), ...(actor.name && { name: actor.name }), at: stamp };
-  return { ...card, workedOn: [...(card.workedOn ?? []).filter((w) => workerKey(w) !== workerKey(worker)), worker] };
-}
-
-/** What an entry of the timeline says of who wrote it. */
-const stampOf = (actor: Actor) => ({ ...(actor.name && { by: actor.name }), ...(actor.id && { byId: actor.id }) });
-
-/** Whether an entry was written by the actor. */
-const writtenBy = (entry: Stamp, actor: Actor) => (actor.id ? entry.byId === actor.id : !entry.byId && entry.by === actor.name);
-
-/** A person a card is given to, to tell whether it changed: their id, else their name. */
-const refKey = (ref: PersonRef | null | undefined) => (ref ? (ref.id ?? `name:${ref.name ?? ''}`) : '');
 
 /** Exactly one phase is current while any is open: the first open one, when none is marked. */
 function withOneCurrent(phases: Phase[]): Phase[] {

@@ -46,7 +46,8 @@ import { labelHue, useEscape } from './choices';
 import { AttachButton } from './Description';
 import { Icon, type IconName } from './Icon';
 import { boardLabel } from './items';
-import { assigneeLabel, firstName, NameOf, PersonPicker, type SpacePeople, WhoOf } from './People';
+import { ActivityLine, GaveTo, when, Writer, writerOf, writerText } from './Activity';
+import { assigneeLabel, NameOf, PersonPicker, type SpacePeople, WhoOf } from './People';
 import { PeopleSheet } from './PhoneSpaces';
 import { AssigneeSheet, KindMark, Label, LabelSheet, PhaseSheet, StatusSheet } from './PhoneBoard';
 import { LinkSheet } from './PhoneCollection';
@@ -544,12 +545,6 @@ function LabelPicker({ anchor, board, labels, onChange, onClose }: {
   );
 }
 
-/** A moment on the timeline: the time of day today, else the day. */
-function when(iso: string, today: string): string {
-  const day = dayOf(new Date(iso));
-  return day === today ? clockTime(iso) : pastDayLabel(day, today);
-}
-
 /** A text field as tall as what is written in it. */
 function GrowingField({ value, onChange, onKeyDown, placeholder, autoFocus, label }: {
   value: string;
@@ -621,17 +616,6 @@ function SaveButton({ onSave }: { onSave: () => void }) {
   );
 }
 
-/** Who wrote an entry of the timeline: the person or the agent its id is, with the name it was written under; null when nothing says. */
-const writerOf = (entry: { by?: string; byId?: string }): PersonRef | null => (entry.byId ? { id: entry.byId, ...(entry.by && { name: entry.by }) } : entry.by ? { name: entry.by } : null);
-
-/** Who did something on the timeline, as words: a person's first name, an agent's name and whose it is; with none, You in the personal space, where there is only you, else Someone. */
-const writerText = (who: PersonRef | null, team: SpacePeople | null) => (who ? firstName(who, team?.people) : team ? t('card.someone') : t('card.you'));
-
-/** Who did something on the timeline, as it shows: an agent's whose faint after its name. */
-function Writer({ who, team }: { who: PersonRef | null; team: SpacePeople | null }) {
-  return who ? <NameOf who={who} people={team?.people} first /> : <>{writerText(null, team)}</>;
-}
-
 /**
  * A card's timeline, in one stream (design/activity.md 1.2): who made it, then only what
  * mattered, each on one short line with the face and the name of who did it: a move, who it was
@@ -642,16 +626,9 @@ function Timeline({ board, path, card, team, today, actions }: { board: Board; p
   const people = team?.people;
   const columnName = (id: string | null) => (id === null ? '' : (board.columns.find((c) => c.id === id)?.name ?? t('card.removedColumn')));
   const line = (key: string, who: PersonRef | null, what: ReactNode, at: string) => (
-    <div key={key} className="tl-ev">
-      <WhoOf who={who ?? {}} people={people} />
-      <span className="tx">
-        <b>
-          <Writer who={who} team={team} />
-        </b>{' '}
-        {what}
-      </span>
-      <span className="t">{when(at, today)}</span>
-    </div>
+    <ActivityLine key={key} who={who} team={team} at={at} today={today}>
+      {what}
+    </ActivityLine>
   );
   const subtaskTitle = (id: string | undefined) => card.subtasks?.find((s) => s.id === id)?.title;
   return (
@@ -660,23 +637,7 @@ function Timeline({ board, path, card, team, today, actions }: { board: Board; p
       {card.timeline.map((entry) => {
         const who = writerOf(entry);
         if (entry.kind === 'move') return line(entry.id, who, entry.from === null ? t('card.movedIn', { to: columnName(entry.to) }) : t('card.moved', { from: columnName(entry.from), to: columnName(entry.to) }), entry.at);
-        if (entry.kind === 'assign') {
-          return line(
-            entry.id,
-            who,
-            entry.given ? (
-              <>
-                {t('card.gaveTo')}{' '}
-                <b>
-                  <NameOf who={entry.given} people={people} first />
-                </b>
-              </>
-            ) : (
-              t('card.gaveToNobody')
-            ),
-            entry.at,
-          );
-        }
+        if (entry.kind === 'assign') return line(entry.id, who, <GaveTo given={entry.given} team={team} />, entry.at);
         if (entry.kind === 'tick') {
           const one = entry.subtasks.length === 1 ? subtaskTitle(entry.subtasks[0]) : undefined;
           return line(entry.id, who, one ? t('card.tickedOne', { title: one }) : t('card.ticked', { count: entry.subtasks.length }), entry.at);

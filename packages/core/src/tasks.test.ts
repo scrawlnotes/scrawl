@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryFs } from './fs';
+import { mergeFile } from './sync/merge-files';
 import {
   addDays,
   addSection,
@@ -427,5 +428,63 @@ describe('a task about a record', () => {
     expect(found.map((f) => f.task.title)).toEqual(['Send the offer', 'Call Lena', 'Send the deck']);
     const moved = relinkTaskRecords({ sections: [], tasks: inbox }, 'Scrawl/Companies', 'Work/Companies');
     expect(moved.tasks.every((t) => t.record?.collection === 'Work/Companies')).toBe(true);
+  });
+});
+
+describe('what mattered on a task, and who worked on it', () => {
+  const kaan = { name: 'Kaan', id: 'k' };
+  const agent = { name: 'ChatGPT · Kaan', id: 'k:ba44b6c4' };
+  const at = (minutes: number) => () => new Date(Date.parse('2026-10-20T09:00:00.000Z') + minutes * 60_000);
+  const kinds = (task: { timeline?: { kind: string; byId?: string }[] } | undefined) => (task?.timeline ?? []).map((e) => `${e.kind}:${e.byId}`);
+
+  it('writes who it is given to, done and opened again, each with who did it', () => {
+    let tasks = addTask([], { title: 'Collect the October feedback', assignee: { id: 'k:ba44b6c4', name: 'ChatGPT' } }, at(0), 'x', kaan);
+    expect(tasks[0]!.timeline).toEqual([expect.objectContaining({ kind: 'assign', by: 'Kaan', byId: 'k', given: { id: 'k:ba44b6c4', name: 'ChatGPT' } })]);
+    tasks = setDone(tasks, 'x', true, at(60), agent);
+    tasks = setDone(tasks, 'x', false, at(120), kaan);
+    tasks = updateTask(tasks, 'x', { assignee: { id: 'k:4f2a9c1e', name: 'Claude Code (Laptop)' } }, at(121), kaan);
+    tasks = updateTask(tasks, 'x', { title: 'Collect the feedback' }, at(122), agent);
+    expect(kinds(tasks[0])).toEqual(['assign:k', 'done:k:ba44b6c4', 'reopen:k', 'assign:k']);
+    expect(tasks[0]!.workedOn!.map((w) => [w.id, w.at])).toEqual([
+      ['k', '2026-10-20T11:01:00.000Z'],
+      ['k:ba44b6c4', '2026-10-20T11:02:00.000Z'],
+    ]);
+  });
+
+  it('writes done on each subtask a done task closes, and an Undo takes back its own entry', () => {
+    let tasks = addTask([], { title: 'Release' }, at(0), 'p', kaan);
+    tasks = addTask(tasks, { title: 'Notes', parent: 'p' }, at(0), 'c', kaan);
+    tasks = setDone(tasks, 'p', true, at(5), agent);
+    expect(kinds(tasks.find((t) => t.id === 'c'))).toEqual(['done:k:ba44b6c4']);
+    // Undo right after, by the same one: as if it was never done.
+    tasks = reopenTasks(tasks, ['p', 'c'], at(6), agent);
+    expect(tasks.every((t) => !t.done && t.timeline === undefined)).toBe(true);
+    // Done by one and opened by another: that is written.
+    tasks = setDone(tasks, 'c', true, at(7), agent);
+    tasks = reopenTasks(tasks, ['c'], at(8), kaan);
+    expect(kinds(tasks.find((t) => t.id === 'c'))).toEqual(['done:k:ba44b6c4', 'reopen:k']);
+  });
+
+  it('reads and writes back what it wrote, an entry it does not know as it came, and goes to another list with it', () => {
+    let list: TaskList = { sections: [], tasks: setDone(addTask([], { title: 'A' }, at(0), 'a', kaan), 'a', true, at(1), agent) };
+    const text = serializeList(list).replace('"timeline": [', '"timeline": [{ "id": "z", "at": "2026-10-21T00:00:00.000Z", "kind": "snooze", "until": "2026-10-22" },');
+    list = parseList(text);
+    expect(kinds(list.tasks[0])).toEqual(['unknown:undefined', 'done:k:ba44b6c4']);
+    expect((JSON.parse(serializeList(list)) as { tasks: { timeline: { kind: string; until?: string }[] }[] }).tasks[0]!.timeline[0]).toEqual({ id: 'z', at: '2026-10-21T00:00:00.000Z', kind: 'snooze', until: '2026-10-22' });
+    expect(parseList(serializeList(list))).toEqual(list);
+    const moved = moveTaskToList(list, { sections: [], tasks: [] }, 'a', null, at(2));
+    expect(moved.to.tasks[0]!.timeline).toEqual(list.tasks[0]!.timeline);
+    expect(moved.to.tasks[0]!.workedOn).toEqual(list.tasks[0]!.workedOn);
+  });
+
+  it('merges the timeline and who worked on it from two devices', () => {
+    const base = serializeList({ sections: [], tasks: addTask([], { title: 'A' }, at(0), 'a', kaan) });
+    const local = serializeList({ sections: [], tasks: updateTask(parseList(base).tasks, 'a', { assignee: { id: 'm', name: 'Mert' } }, at(5), kaan) });
+    const remote = serializeList({ sections: [], tasks: setDone(parseList(base).tasks, 'a', true, at(6), agent) });
+    const merged = parseList(mergeFile('tasks', base, local, remote).text).tasks[0]!;
+    expect(kinds(merged)).toEqual(['assign:k', 'done:k:ba44b6c4']);
+    expect(merged.workedOn!.map((w) => w.id).sort()).toEqual(['k', 'k:ba44b6c4']);
+    expect(merged.done).toBe(true);
+    expect(merged.assignee).toEqual({ id: 'm', name: 'Mert' });
   });
 });

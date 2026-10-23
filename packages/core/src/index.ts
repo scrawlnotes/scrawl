@@ -20,6 +20,7 @@ export * from './rollup';
 export * from './space';
 export * from './me';
 export * from './people';
+export * from './activity';
 export * from './agents';
 export * from './recent';
 export * from './spaces';

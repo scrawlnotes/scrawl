@@ -1,3 +1,4 @@
+import { actorIn, type By, isObject, readStamp, readWorkedOn, refKey, type Stamp, stampOf, workedBy, type WorkedOn, writtenBy } from './activity';
 import type { VaultFs } from './fs';
 import { type PersonRef, readPersonRef } from './people';
 
@@ -37,6 +38,43 @@ export interface Task {
   card?: string | null;
   /** The record the task is about. */
   record?: TaskRecord | null;
+  /** What mattered on it, one entry each, with who did it: who it was given to, done, opened again. Left out when there is nothing. */
+  timeline?: TaskEntry[];
+  /** Everyone who changed it, a person or an agent, once each, with when they last did. Left out when no one is known. */
+  workedOn?: WorkedOn[];
+}
+
+/**
+ * What mattered on a task (design/activity.md 1.2): who it was given to, done and opened again;
+ * that it was made shows from its author. An entry of a kind a newer version writes is kept as
+ * it is, and not shown.
+ */
+export type TaskEntry =
+  | (Stamp & { kind: 'assign'; given?: PersonRef })
+  | (Stamp & { kind: 'done' })
+  | (Stamp & { kind: 'reopen' })
+  | (Stamp & { kind: 'unknown'; raw: { [key: string]: unknown } });
+
+/** A task's timeline as the file has it. */
+function readTaskTimeline(list: unknown): TaskEntry[] {
+  if (!Array.isArray(list)) return [];
+  const out: TaskEntry[] = [];
+  for (const raw of list) {
+    const read = readStamp(raw);
+    if (!read) continue;
+    // Unknown fields are kept, so a newer version's data survives being saved by an older one.
+    const { stamp, kind, rest } = read;
+    if (kind === 'assign') {
+      const { given, ...others } = rest;
+      const ref = readPersonRef(given);
+      out.push({ ...others, ...stamp, kind: 'assign', ...(ref && { given: ref }) });
+    } else if (kind === 'done' || kind === 'reopen') {
+      out.push({ ...rest, ...stamp, kind });
+    } else {
+      out.push({ ...stamp, kind: 'unknown', raw: kind === 'unknown' && isObject(rest.raw) ? rest.raw : (raw as { [key: string]: unknown }) });
+    }
+  }
+  return out;
 }
 
 /**
@@ -160,6 +198,12 @@ function parseTaskArray(list: unknown): Task[] {
       if (ref) task[key] = ref;
       else delete task[key];
     }
+    const timeline = readTaskTimeline(raw.timeline);
+    if (timeline.length > 0) task.timeline = timeline;
+    else delete task.timeline;
+    const worked = readWorkedOn(raw.workedOn);
+    if (worked.length > 0) task.workedOn = worked;
+    else delete task.workedOn;
   }
   // A subtask whose parent is gone becomes a top-level task instead of disappearing.
   const ids = new Set(tasks.map((t) => t.id));
@@ -168,7 +212,9 @@ function parseTaskArray(list: unknown): Task[] {
 
 /** A task list as its file holds it. A list without sections leaves them out. */
 export function serializeList({ sections, tasks }: TaskList): string {
-  return `${JSON.stringify({ version: 1, ...(sections.length > 0 && { sections }), tasks }, null, 2)}\n`;
+  // A kind of entry this version does not know goes back as it came.
+  const written = tasks.map((t) => (t.timeline?.some((e) => e.kind === 'unknown') ? { ...t, timeline: t.timeline.map((e) => (e.kind === 'unknown' ? e.raw : e)) } : t));
+  return `${JSON.stringify({ version: 1, ...(sections.length > 0 && { sections }), tasks: written }, null, 2)}\n`;
 }
 
 export const serializeTasks = (tasks: Task[]): string => serializeList({ sections: [], tasks });
@@ -378,9 +424,10 @@ export interface NewTask {
 
 /**
  * Adds a task at the end of its siblings: the subtasks of its parent, or the top-level tasks of
- * its section. A subtask deeper than `MAX_DEPTH` is not added.
+ * its section. A subtask deeper than `MAX_DEPTH` is not added. Who adds it worked on it; given to
+ * someone, its timeline says so.
  */
-export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Date(), id: string = newId()): Task[] {
+export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Date(), id: string = newId(), by?: By): Task[] {
   const title = input.title.trim();
   const parent = input.parent ?? null;
   const section = parent === null ? (input.section ?? null) : null;
@@ -407,7 +454,9 @@ export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Da
     ...(input.assignee && { assignee: input.assignee }),
     ...(input.author && { author: input.author }),
   };
-  return [...tasks, task];
+  const actor = actorIn(by);
+  if (input.assignee) task.timeline = [{ id: newId(), at: stamp, ...stampOf(actor), kind: 'assign', given: input.assignee }];
+  return [...tasks, workedBy(task, actor, stamp)];
 }
 
 /** What can be changed of a task by editing it; a record or a note of null unlinks it, an assignee of null gives it to nobody. */
@@ -415,20 +464,26 @@ export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'pr
 
 /**
  * Changes a task. An empty title keeps the old one. A description loses the blank lines and
- * spaces around it, and an empty one is removed; so is a record of null.
+ * spaces around it, and an empty one is removed; so is a record of null. Who changes it worked
+ * on it; its timeline says who it is given to now.
  */
-export function updateTask(tasks: Task[], id: string, patch: TaskPatch, now: Clock = () => new Date()): Task[] {
+export function updateTask(tasks: Task[], id: string, patch: TaskPatch, now: Clock = () => new Date(), by?: By): Task[] {
   if (patch.title !== undefined && !patch.title.trim()) return tasks;
   const clean = { ...patch };
   if (clean.title !== undefined) clean.title = clean.title.trim();
   if (clean.description !== undefined) clean.description = clean.description.trim() || undefined;
+  const actor = actorIn(by);
   return tasks.map((t) => {
     if (t.id !== id) return t;
-    const next: Task = { ...t, ...clean, updated: iso(now) };
+    const stamp = iso(now);
+    const next: Task = { ...t, ...clean, updated: stamp };
     if (next.record === null || next.record === undefined) delete next.record;
     if (next.assignee === null || next.assignee === undefined) delete next.assignee;
     if (next.note === null || next.note === undefined) delete next.note;
-    return next;
+    if (patch.assignee !== undefined && refKey(t.assignee) !== refKey(next.assignee)) {
+      next.timeline = [...(next.timeline ?? []), { id: newId(), at: stamp, ...stampOf(actor), kind: 'assign', ...(next.assignee && { given: next.assignee }) }];
+    }
+    return workedBy(next, actor, stamp);
   });
 }
 
@@ -447,24 +502,39 @@ export function relinkTaskRecords(list: TaskList, from: string, to: string): Tas
 
 /**
  * Completes or reopens a task. Completing a task completes its subtasks too; reopening one
- * reopens the tasks above it, since a finished task cannot have an open subtask.
+ * reopens the tasks above it, since a finished task cannot have an open subtask. Each one that
+ * changes says so on its timeline, and who did it worked on it.
  */
-export function setDone(tasks: Task[], id: string, done: boolean, now: Clock = () => new Date()): Task[] {
+export function setDone(tasks: Task[], id: string, done: boolean, now: Clock = () => new Date(), by?: By): Task[] {
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const affected = new Set([id]);
   if (done) for (const child of descendants(tasks, id)) affected.add(child);
   else for (let task = byId.get(id); task?.parent; task = byId.get(task.parent)) affected.add(task.parent);
   const stamp = iso(now);
+  const actor = actorIn(by);
   return tasks.map((t) =>
-    affected.has(t.id) && t.done !== done ? { ...t, done, completed: done ? stamp : null, updated: stamp } : t,
+    affected.has(t.id) && t.done !== done
+      ? workedBy({ ...t, done, completed: done ? stamp : null, updated: stamp, timeline: [...(t.timeline ?? []), { id: newId(), at: stamp, ...stampOf(actor), kind: done ? 'done' : 'reopen' }] }, actor, stamp)
+      : t,
   );
 }
 
-/** Opens again the tasks `ids` names, done ones only: completing them is undone. */
-export function reopenTasks(tasks: Task[], ids: readonly string[], now: Clock = () => new Date()): Task[] {
+/**
+ * Opens again the tasks `ids` names, done ones only: completing them is undone, and so is the
+ * entry it wrote when it is the last one, by the same actor; else the timeline says it was opened again.
+ */
+export function reopenTasks(tasks: Task[], ids: readonly string[], now: Clock = () => new Date(), by?: By): Task[] {
   const open = new Set(ids);
   const stamp = iso(now);
-  return tasks.map((t) => (open.has(t.id) && t.done ? { ...t, done: false, completed: null, updated: stamp } : t));
+  const actor = actorIn(by);
+  return tasks.map((t) => {
+    if (!open.has(t.id) || !t.done) return t;
+    const last = t.timeline?.at(-1);
+    const timeline: TaskEntry[] = last?.kind === 'done' && writtenBy(last, actor) ? t.timeline!.slice(0, -1) : [...(t.timeline ?? []), { id: newId(), at: stamp, ...stampOf(actor), kind: 'reopen' }];
+    const next: Task = { ...t, done: false, completed: null, updated: stamp, timeline };
+    if (timeline.length === 0) delete next.timeline;
+    return next;
+  });
 }
 
 /** Removes a task together with its subtasks. */

@@ -74,6 +74,7 @@ import { type DescriptionHost, DescriptionField } from './Description';
 import { Icon, type IconName } from './Icon';
 import { StillOpening } from './Loading';
 import { boardHeading, boardLabel, boardWhere, collectionHeading, collectionLabel, collectionWhere, folderLabel, listHeading, listLabel, listWhere } from './items';
+import { TaskActivity } from './Activity';
 import { AssigneeChip, firstName, PersonPicker, type SpacePeople } from './People';
 import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
@@ -755,6 +756,8 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
   // In a space with people a task is given to one of them, from the button that opened the list.
   const team = actions.people?.(list) ?? null;
   const [assigning, setAssigning] = useState<HTMLElement | null>(null);
+  // Its activity, in a window: who worked on it and what mattered on it.
+  const [activity, setActivity] = useState(false);
   const startEditing = () => setEditing({ title: task.title, description: task.description ?? '' });
   const save = () => {
     if (!editing) return;
@@ -800,6 +803,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
       ...(team ? [{ label: t('tasks.assignMenu'), run: () => setAssigning(button) }] : []),
       { label: t('tasks.recordMenu'), run: () => setPicking(button) },
       { label: t('tasks.moveTo'), run: () => actions.moveTo(list, task.id) },
+      { label: t('tasks.activityMenu'), run: () => setActivity(true) },
       { label: t('tasks.delete'), run: () => actions.remove(list, task.id) },
     ]);
   };
@@ -883,6 +887,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
             : (event) =>
                 actions.menu(event, [
                   { label: t('tasks.moveTo'), run: () => actions.moveTo(list, task.id) },
+                  { label: t('tasks.activityMenu'), run: () => setActivity(true) },
                   { label: t('tasks.delete'), run: () => actions.remove(list, task.id) },
                 ])
         }
@@ -998,6 +1003,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
           onClose={() => setAssigning(null)}
         />
       )}
+      {activity && <TaskActivity task={task} team={team} today={today} onClose={() => setActivity(false)} />}
       {(children.length > 0 || adding) && open && (
         <div className="subs">
           {children.map((child) => (

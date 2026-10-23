@@ -1,5 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
-import { addCard, type Board, type By, type Card, cardValue, loadBoard, moveCard, type NewCard, removeCard, saveBoard } from './board';
+import type { By } from './activity';
+import { addCard, type Board, type Card, cardValue, loadBoard, moveCard, type NewCard, removeCard, saveBoard } from './board';
 import {
   addRecord,
   type Collection,
@@ -882,7 +883,7 @@ export async function writePlan(fs: VaultFs, plan: Plan, space: Pick<RuleSpaceNo
       if (was) undo.push(async () => saveBoard(fs, change.board, moveCard(await loadBoard(fs, change.board), change.id, { column: was, after: null }, now, by)));
     } else if (change.kind === 'task') {
       const list = await loadList(fs, change.list);
-      await saveList(fs, change.list, { ...list, tasks: addTask(list.tasks, change.task, now, change.id) });
+      await saveList(fs, change.list, { ...list, tasks: addTask(list.tasks, change.task, now, change.id, by) });
       undo.push(async () => {
         const current = await loadList(fs, change.list);
         await saveList(fs, change.list, { ...current, tasks: removeTask(current.tasks, change.id) });
