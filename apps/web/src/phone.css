@@ -3827,14 +3827,14 @@ body > .mb-lifted {
   display: inline-block;
   padding: 0 8px;
   border-radius: 10px;
-  background: hsl(var(--lh) 60% 55% / 0.18);
-  color: hsl(var(--lh) 60% 65%);
+  background: hsl(var(--lh) var(--ls, 60%) 55% / 0.18);
+  color: hsl(var(--lh) var(--ls, 60%) 65%);
   font-size: 12.5px;
   line-height: 20px;
 }
 
 :root[data-theme='light'] .mb-lbl {
-  color: hsl(var(--lh) 55% 35%);
+  color: hsl(var(--lh) var(--ls, 55%) 35%);
 }
 
 /* a phase's row in a sheet: its name, how far it is, its menu */
@@ -7541,4 +7541,128 @@ body > .mb-lifted {
   padding-top: 2px;
   color: var(--sl-faint);
   font-size: 13px;
+}
+
+/* Labels on a phone: the picker's sheet, the page of a space's labels, one label's sheet */
+.mb-fr .lbl-dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: hsl(var(--lh) var(--ls, 60%) 58%);
+}
+
+.lbl-sheet .mb-fr.pick .in {
+  font-size: 16px;
+}
+
+.lbl-sheet .mb-fr.new {
+  color: var(--sl-dim);
+}
+
+.lbl-sheet .mb-group + .mb-group {
+  margin-top: 12px;
+}
+
+.lbl-sheet .mb-fr > .icon,
+.labels-page .mb-fr > .icon {
+  flex: none;
+  width: 19px;
+  height: 19px;
+  color: var(--sl-dim);
+}
+
+.lbl-sheet .mb-fr > .icon:last-child,
+.labels-page .mb-fr > .icon:last-child {
+  width: 15px;
+  height: 15px;
+  margin-left: auto;
+  color: var(--sl-faint);
+  stroke-width: 2.2;
+}
+
+.lbl-sheet .mb-fr .fl,
+.labels-page .mb-fr .fl {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sl-fg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lbl-sheet .mb-none {
+  margin: 0;
+  padding: 14px;
+  color: var(--sl-faint);
+  font-size: 15px;
+}
+
+.labels-page {
+  padding-top: 4px;
+}
+
+.labels-page .mb-group + .mb-group {
+  margin-top: 14px;
+}
+
+.labels-page .mb-fr .val {
+  font-size: 14.5px;
+  white-space: nowrap;
+}
+
+.labels-page .mb-fr.add,
+.labels-page .mb-fr.add > .icon,
+.labels-page .mb-fr.add .fl {
+  color: var(--sl-accent);
+}
+
+.labels-mname {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+.labels-mname::placeholder {
+  color: var(--sl-faint);
+}
+
+.labels-mpal {
+  display: grid;
+  grid-template-columns: repeat(5, 36px);
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px 16px;
+}
+
+.labels-mpal button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: hsl(var(--lh) var(--ls, 60%) 58%);
+}
+
+.labels-mpal button.on {
+  box-shadow:
+    0 0 0 3px var(--sl-bg),
+    0 0 0 5px hsl(var(--lh) var(--ls, 60%) 58%);
+}
+
+.labels-uses {
+  margin: 10px 4px 12px;
+  color: var(--sl-faint);
+  font-size: 13.5px;
+}
+
+.mb-fr.labels-del {
+  justify-content: center;
+  color: var(--sl-danger, #e5484d);
 }

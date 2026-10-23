@@ -2,6 +2,7 @@ import { type Actor, actorIn, type By, isObject, readStamp, readWorkedOn, refKey
 import { evaluateFormula, type Field, type FieldValue, isEmpty, pointsAt, readFields, readValue, type Record as CollectionRecord, valueText } from './collection';
 import { type ChoiceRenames, renameChoices } from './fields';
 import type { VaultFs } from './fs';
+import { cleanLabels } from './labels';
 import { type PersonRef, readPersonRef } from './people';
 import { addSubtask, type NewSubtask, readSubtasks, type Subtask, writtenSubtask } from './subtasks';
 import type { Priority } from './tasks';
@@ -732,10 +733,6 @@ export function addCard(board: Board, input: NewCard, now: Clock = () => new Dat
   // The cards after it in its column move down one to make room.
   const cards = after ? board.cards.map((c) => (c.column === column && c.order > after.order ? { ...c, order: c.order + 1 } : c)) : board.cards;
   return { ...board, nextKey: board.nextKey + 1, cards: [...cards, card] };
-}
-
-function cleanLabels(labels: string[]): string[] {
-  return [...new Set(labels.map((l) => l.trim()).filter(Boolean))];
 }
 
 /** What can be changed of a card by editing it; `values` changes only the board's fields it names. */

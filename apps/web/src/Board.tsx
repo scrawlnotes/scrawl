@@ -41,13 +41,13 @@ import { StatusIcon } from './StatusIcon';
 import { MonthCalendar, type MonthChip } from './Calendar';
 import { CardPanel, type CardPanelActions } from './CardPanel';
 import { assigneeLabel, CardWho, hasCardWho, initialOf, WhoOf } from './People';
-import { labelHue } from './choices';
 import { Cell, type ValueContext } from './Collection';
 import { BoardFieldsDialog } from './Fields';
 import { isPhone, pageBox } from './device';
 import type { MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
-import { CardQuickAdd, cardHead, ColumnTabs, KindMark, Label, StatusSheet } from './PhoneBoard';
+import { CardQuickAdd, cardHead, ColumnTabs, KindMark, StatusSheet } from './PhoneBoard';
+import { LabelChip } from './labels';
 import { Empty, liftUntilTouch, Sheet, SheetClose } from './sheets';
 import { dueClass, dueLabel } from './Tasks';
 import { holdToDrag } from './touchDrag';
@@ -319,7 +319,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
                 </span>
               )}
               {subtasks}
-              {card.labels?.map((label) => <Label key={label} label={label} />)}
+              {card.labels?.map((label) => <LabelChip key={label} path={path} name={label} className="mb-lbl" />)}
               {comments > 0 && (
                 <span>
                   <Icon name="comment" />
@@ -366,9 +366,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
             {card.due && <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span>}
             {subtasks}
             {card.labels?.map((label) => (
-              <span key={label} className="lbl" style={{ '--lh': labelHue(label) } as React.CSSProperties}>
-                {label}
-              </span>
+              <LabelChip key={label} path={path} name={label} />
             ))}
             {comments > 0 && (
               <span className="cm">
@@ -1198,9 +1196,7 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
         </span>
         <span className="lbls">
           {card.labels?.map((label) => (
-            <span key={label} className="lbl" style={{ '--lh': labelHue(label) } as React.CSSProperties}>
-              {label}
-            </span>
+            <LabelChip key={label} path={path} name={label} />
           ))}
         </span>
         <span title={card.assignee ? assigneeLabel(card.assignee, people) : undefined}>{card.assignee && <WhoOf who={card.assignee} people={people} />}</span>
@@ -1940,6 +1936,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
     {quickAdding && board.columns.length > 0 && (
       <CardQuickAdd
         board={board}
+        path={path}
         column={quickAdding}
         phase={'phase' in shown ? shown.phase : undefined}
         today={today}

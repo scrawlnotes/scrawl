@@ -16,6 +16,7 @@ export * from './files';
 export * from './fs';
 export * from './history';
 export * from './keys';
+export * from './labels';
 export * from './rollup';
 export * from './space';
 export * from './me';

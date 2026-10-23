@@ -19,6 +19,7 @@ import { PhoneServerPage, YouAre } from './ServerPeople';
 import { hostOf, knownServers, pendingJoin } from './servers';
 import { PhoneSearch, type SearchAction, type Thing } from './Search';
 import { ActionSheet, Empty, useViewport } from './sheets';
+import { LabelsPage } from './labels';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
 // Recent, Browse, Today and Search at its foot, and in each of them a stack of pages. A page slides in from the
@@ -52,7 +53,8 @@ type PageKind =
   | { kind: 'trashItem'; item: TrashItem }
   | { kind: 'version'; path: string; version: Version }
   | { kind: 'card'; board: string; id: string }
-  | { kind: 'record'; dir: string; id: string };
+  | { kind: 'record'; dir: string; id: string }
+  | { kind: 'labels'; path: string };
 /** A page, with the key it is drawn by. */
 type Page = PageKind & { key: number };
 
@@ -149,6 +151,9 @@ export interface PhoneProps {
   /** Asks for the personal space's sync page: back from signing in to connect it, its folder is chosen there. */
   syncAsked: boolean;
   onSyncShown: () => void;
+  /** Labels asked for from a picker, by a path in their space: they open as a page. */
+  labelsAsked: string | null;
+  onLabelsShown: () => void;
   /** Something that happened, for a moment; with Undo, which `onUndo` does. */
   notice: Notice | null;
   onUndo: () => void;
@@ -745,6 +750,15 @@ export function Phone(props: PhoneProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncAsked]);
 
+  // Labels, asked for from a picker's Edit labels, open as a page over the one they were asked on.
+  const { labelsAsked, onLabelsShown } = props;
+  useEffect(() => {
+    if (labelsAsked === null) return;
+    onLabelsShown();
+    push({ kind: 'labels', path: labelsAsked });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labelsAsked]);
+
   // A row held for its menu comes down when the menu closes, or at once when it has none.
   const menuOpen = useRef(props.menuOpen);
   menuOpen.current = props.menuOpen;
@@ -926,6 +940,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'trashItem') return page.item.title;
     if (page.kind === 'card') return props.card.label(page.board, page.id);
     if (page.kind === 'record') return props.record.label(page.dir, page.id);
+    if (page.kind === 'labels') return t('labels.title');
     if (page.kind === 'version') return props.history.label(page.version);
     return nameOf(page.id, titles, filters);
   };
@@ -1235,6 +1250,15 @@ export function Phone(props: PhoneProps) {
       return (
         <PageFrame title={titleOf(page, of)} nav={{ ...nav, onMenu: () => props.onFolderMenu(page.path, () => setNewFolderIn(page.path)) }}>
           {folderPage(page.path)}
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'labels') {
+      const space = spaceOf(page.path);
+      const spaceName = space ? (props.spaces.find((each) => each.id === space)?.name ?? '') : (props.settings.values.spaceName ?? t('settings.personal'));
+      return (
+        <PageFrame title={titleOf(page, of)} sub={spaceName} nav={nav}>
+          <LabelsPage path={page.path} />
         </PageFrame>
       );
     }

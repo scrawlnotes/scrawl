@@ -1,6 +1,8 @@
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type AppFile,
+  type LabelUse,
+  labelUses,
   type Record as CollectionRecord,
   basename,
   isUnder,
@@ -181,6 +183,7 @@ import { Upcoming } from './Upcoming';
 import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
 import { contentsText, quote, writtenText } from './text';
+import { type Labels, LabelsContext, LabelsWindow } from './labels';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { TrashPreviewDialog, TrashPreviewPage } from './TrashPreview';
 import type { DescriptionHost } from './Description';
@@ -332,7 +335,7 @@ export function App() {
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const desktopUpdate = useDesktopUpdate();
-  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -354,6 +357,29 @@ export function App() {
   const [sizes, setSizes] = useState(() => ({ phone: loadSize('phone'), computer: loadSize('computer') }));
   const [system, setSystem] = useState(systemShade);
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  /** Labels, asked for from a picker: the space a path is in. On a phone it opens as a page. */
+  const [labelsOpen, setLabelsOpen] = useState<string | null>(null);
+  // The labels of each space, worked out once for each change of its tasks, its cards or its file.
+  const labelsApi = useMemo<Labels>(() => {
+    const worked = new Map<string, LabelUse[]>();
+    return {
+      of: (path) => {
+        const space = spaceOf(path);
+        const key = space ?? '';
+        let uses = worked.get(key);
+        if (!uses) {
+          const here = ([at]: [string, unknown]) => spaceOf(at) === space;
+          uses = labelUses(spaceLabels[key] ?? [], Object.entries(tasks).filter(here).map(([, list]) => list), Object.entries(boards).filter(here).map(([, board]) => board));
+          worked.set(key, uses);
+        }
+        return uses;
+      },
+      add: (path, name) => session.addLabel(path, name),
+      color: (path, name, color) => session.colorLabel(path, name, color),
+      relabel: (path, from, to) => session.relabel(path, from, to),
+      edit: setLabelsOpen,
+    };
+  }, [session, tasks, boards, spaceLabels]);
   // `target` is the sidebar row the menu was opened on, which stays marked while it is open.
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[]; target?: string; head?: MenuHead } | null>(null);
   const tabBar = useRef<HTMLDivElement>(null);
@@ -2094,6 +2120,7 @@ export function App() {
   };
 
   return (
+    <LabelsContext.Provider value={labelsApi}>
     <div className={phone ? 'app phone-app' : drawer ? 'app drawer-open' : 'app'}>
       {phone ? (
         <>
@@ -2180,6 +2207,8 @@ export function App() {
             onSignIn={signInFor}
             syncWord={syncWord(sync)}
             syncAsked={syncAsked}
+            labelsAsked={phone ? labelsOpen : null}
+            onLabelsShown={() => setLabelsOpen(null)}
             onSyncShown={() => setSyncAsked(false)}
             notice={notice}
             onUndo={undoNotice}
@@ -2959,7 +2988,9 @@ export function App() {
           onClose={closeDialog}
         />
       )}
+      {labelsOpen !== null && !phone && <LabelsWindow path={labelsOpen} onClose={() => setLabelsOpen(null)} />}
       {menu && <ContextMenu at={menu.at} items={menu.items} head={menu.head} onClose={closeMenu} />}
     </div>
+    </LabelsContext.Provider>
   );
 }

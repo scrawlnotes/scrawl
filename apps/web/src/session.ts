@@ -92,6 +92,15 @@ import {
   type KeysLook,
   listVersions,
   loadFilters,
+  loadLabels,
+  colorLabel,
+  relabelBoard,
+  relabelKnown,
+  relabelTasks,
+  saveLabels,
+  type SpaceLabel,
+  withLabel,
+  type OptionColor,
   fromSpace,
   isSpaceId,
   inSpace,
@@ -454,6 +463,8 @@ export interface Snapshot {
   collectionLooks: Record<string, CollectionLook>;
   /** The saved filters, in the order they were made. */
   filters: TaskFilter[];
+  /** Each space's labels as its `.scrawl/labels.json` keeps them, by the space's key: `''` for the personal one, the others by id. */
+  labels: Record<string, SpaceLabel[]>;
   /** The settings of the open space, its name among them. */
   space: SpaceInfo;
   /** What is in the trash, the latest deleted first. */
@@ -710,6 +721,7 @@ export class Session {
     collections: {},
     collectionLooks: {},
     filters: [],
+    labels: {},
     space: {},
     trash: [],
     fileCount: 0,
@@ -844,6 +856,7 @@ export class Session {
     // Nothing is asked at the first start: the name and the email wait for a space where others see them.
     const me = await startMe(this.personal, this.snapshot.me);
     const people = await Promise.all([...this.opened.values()].map((each) => loadPeople(each.fs)));
+    const labels = await this.readLabels(() => true);
     if (run !== this.run) return;
 
     this.editor = createEditor({
@@ -910,6 +923,7 @@ export class Session {
       collections: {},
       collectionLooks: workspace.collections,
       filters,
+      labels,
       space,
       trash: [],
     });
@@ -2623,6 +2637,7 @@ export class Session {
     const read = await this.readLists(readNodes, reads(PERSONAL));
     const trash = await this.readTrash(reads);
     const filters = reads(PERSONAL) ? await loadFilters(this.personal) : before.filters;
+    const labels = { ...before.labels, ...(await this.readLabels(reads)) };
     const space = reads(PERSONAL) ? await loadSpace(this.personal) : before.space;
     const now = this.snapshot;
     // A list, a board or a keys file changed here while it was read stays as it is shown: it is
@@ -2643,6 +2658,7 @@ export class Session {
       collections: freshenAll({ ...Object.fromEntries(Object.entries(now.collections).filter(([dir]) => !mine(dir))), ...read.collections }),
       trash: [...now.trash.filter((item) => !mine(item.path)), ...trash].sort((a, b) => b.deleted.localeCompare(a.deleted)),
       filters,
+      labels,
       space,
     });
     await this.recountFiles();
@@ -3332,6 +3348,55 @@ export class Session {
       .then(() => saveFilters(this.personal, filters))
       .catch(() => undefined)
       .then(() => this.markSaved());
+  }
+
+  /** The labels of the spaces read, by their key; a space gone from this device is not there. */
+  private async readLabels(reads: (key: string) => boolean): Promise<Record<string, SpaceLabel[]>> {
+    const spaces: [string, VaultFs][] = [[PERSONAL, this.personal], ...[...this.opened].map(([id, space]): [string, VaultFs] => [id, space.fs])];
+    const read = await Promise.all(spaces.filter(([key]) => reads(key)).map(async ([key, fs]) => [key, await loadLabels(fs)] as const));
+    return Object.fromEntries(read);
+  }
+
+  /** The labels of the space a path is in, as its file keeps them. */
+  labelsAt(path: string): SpaceLabel[] {
+    return this.snapshot.labels[spaceOf(path) ?? PERSONAL] ?? [];
+  }
+
+  /** Writes the labels of the space a path is in, and shows them. */
+  private writeLabels(path: string, labels: SpaceLabel[]) {
+    const key = spaceOf(path) ?? PERSONAL;
+    const fs = key === PERSONAL ? this.personal : this.opened.get(key)?.fs;
+    if (!fs) return;
+    this.set({ labels: { ...this.snapshot.labels, [key]: labels }, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(() => saveLabels(fs, labels))
+      .catch(() => undefined)
+      .then(() => this.markSaved());
+  }
+
+  /** A label made from the picker or with @, in the space of `path`: kept with the color its name gives it, also before anything has it. */
+  addLabel(path: string, name: string) {
+    const known = this.labelsAt(path);
+    const next = withLabel(known, name);
+    if (next.length !== known.length) this.writeLabels(path, next);
+  }
+
+  /** Gives a label of the space of `path` another color. */
+  colorLabel(path: string, name: string, color: OptionColor) {
+    this.writeLabels(path, colorLabel(this.labelsAt(path), name, color));
+  }
+
+  /**
+   * Renames a label everywhere in the space of `path`, or with `to` null takes it off every
+   * task and card there. Its tasks and cards are not worked on by this. The interface asks first
+   * to delete one, and to rename one to a label the space has.
+   */
+  relabel(path: string, from: string, to: string | null) {
+    const space = spaceOf(path);
+    const here = (each: string) => spaceOf(each) === space;
+    for (const list of Object.keys(this.snapshot.tasks).filter(here)) this.changeTasks(list, (tasks) => relabelTasks(tasks, from, to));
+    for (const board of Object.keys(this.snapshot.boards).filter(here)) this.changeBoard(board, (current) => relabelBoard(current, from, to));
+    this.writeLabels(path, relabelKnown(this.labelsAt(path), from, to));
   }
 
   /** Deletes a section with its tasks; the interface asks first. */

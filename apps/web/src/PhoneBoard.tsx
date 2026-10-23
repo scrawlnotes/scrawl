@@ -1,7 +1,7 @@
 import { type Board, type Card, columnCards, type Column, type NewCard, type Phase, phaseProgress, type Priority } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type FormEvent, useRef, useState } from 'react';
-import { labelHue } from './choices';
+import { LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
 import { DateSheet, priorityItems } from './PhoneTasks';
 import { ActionSheet, Sheet, SheetClose, useAdded } from './sheets';
@@ -91,69 +91,6 @@ export function StatusSheet({ board, title, current, onPick, onClose }: {
   );
 }
 
-/** Every label the board's cards have, in the order they first come. */
-const boardLabels = (board: Board) => [...new Set(board.cards.flatMap((card) => card.labels ?? []))];
-
-/** A label in its colour. */
-export const Label = ({ label }: { label: string }) => (
-  <span className="mb-lbl" style={{ '--lh': labelHue(label) } as CSSProperties}>
-    {label}
-  </span>
-);
-
-/** A card's labels, picked in a sheet: the board's labels to tick, and a new one typed. */
-export function LabelSheet({ board, labels, onChange, onClose }: {
-  board: Board;
-  labels: string[];
-  onChange: (labels: string[]) => void;
-  onClose: () => void;
-}) {
-  const [picked, setPicked] = useState(labels);
-  const [typed, setTyped] = useState('');
-  const known = [...new Set([...boardLabels(board), ...picked])];
-  const toggle = (label: string) => {
-    const next = picked.includes(label) ? picked.filter((each) => each !== label) : [...picked, label];
-    setPicked(next);
-    onChange(next);
-  };
-  const add = (event: FormEvent) => {
-    event.preventDefault();
-    const label = typed.trim();
-    if (!label) return;
-    if (!picked.includes(label)) toggle(label);
-    setTyped('');
-  };
-  return (
-    <Sheet label={t('card.labels')} className="mb-create" onClose={onClose}>
-      <div className="mb-sh">
-        <b>{t('card.labels')}</b>
-        <SheetClose onClose={onClose} />
-      </div>
-      <form className="mb-form" onSubmit={add}>
-        <label className="mb-search">
-          <Icon name="plus" />
-          <input aria-label={t('phone.newLabel')} placeholder={t('phone.newLabel')} enterKeyHint="done" value={typed} onChange={(event) => setTyped(event.target.value)} />
-          <button type="submit" className="go" disabled={!typed.trim()}>
-            {t('phone.add')}
-          </button>
-        </label>
-        {known.length > 0 && (
-          <div className="mb-group">
-            {known.map((label) => (
-              <button key={label} type="button" className="mb-fr pick" onClick={() => toggle(label)}>
-                <span className="in">
-                  <Label label={label} />
-                </span>
-                <Tick on={picked.includes(label)} />
-              </button>
-            ))}
-          </div>
-        )}
-      </form>
-    </Sheet>
-  );
-}
-
 /** A card's phase, picked in a sheet: the open phases and the closed ones, and No phase. */
 export function PhaseSheet({ board, current, onPick, onClose }: {
   board: Board;
@@ -206,8 +143,9 @@ export function PhaseSheet({ board, current, onPick, onClose }: {
  * it, its priority, labels, due day and phase as chips, and at the foot its column and Add. It
  * stays for the next one, as the columns' own add row does.
  */
-export function CardQuickAdd({ board, column, phase, today, onAdd, onClose }: {
+export function CardQuickAdd({ board, path, column, phase, today, onAdd, onClose }: {
   board: Board;
+  path: string;
   column: string;
   phase: string | null | undefined;
   today: string;
@@ -286,7 +224,7 @@ export function CardQuickAdd({ board, column, phase, today, onAdd, onClose }: {
       {picking === 'priority' && (
         <ActionSheet head={{ icon: 'flag', title: t('tasks.priority') }} items={priorityItems(priority, setPriority)} onClose={() => setPicking(null)} />
       )}
-      {picking === 'labels' && <LabelSheet board={board} labels={labels} onChange={setLabels} onClose={() => setPicking(null)} />}
+      {picking === 'labels' && <LabelSheet path={path} about={title.trim() || undefined} labels={labels} onChange={setLabels} onClose={() => setPicking(null)} />}
       {picking === 'due' && <DateSheet title={title.trim() || t('board.cardName')} current={due} today={today} onPick={setDue} onClose={() => setPicking(null)} />}
       {picking === 'phase' && <PhaseSheet board={board} current={cardPhase ?? null} onPick={setCardPhase} onClose={() => setPicking(null)} />}
       {picking === 'column' && <StatusSheet board={board} title={t('board.addCard')} current={shownColumn.id} onPick={setWhere} onClose={() => setPicking(null)} />}
