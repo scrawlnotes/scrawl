@@ -11,14 +11,15 @@ self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES)));
 });
 
-// The version taking over drops the files of the ones before.
+// The version taking over drops the files of the ones before. The page opening waits only for it
+// to take over, not for those files to go, so that the first opening of a new version is not
+// late; what is left, should the worker stop on the way, the next version drops.
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key.startsWith('scrawl-') && key !== CACHE).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim()),
-  );
+  event.waitUntil(self.clients.claim());
+  caches
+    .keys()
+    .then((keys) => Promise.all(keys.filter((key) => key.startsWith('scrawl-') && key !== CACHE).map((key) => caches.delete(key))))
+    .catch(() => undefined);
 });
 
 // The user chose to reload into the new version.
