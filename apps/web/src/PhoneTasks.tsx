@@ -18,6 +18,7 @@ import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, useRef, useState } from 'react';
 import { type DescriptionHost, DescriptionField } from './Description';
 import { listCrumb, type MenuHead, type MenuItem, placesShown, type TaskPlaceChoice } from './dialogs';
+import { LabelChip, LabelSheet, useAtLabels } from './labels';
 import { Icon, type IconName } from './Icon';
 import { collectionLabel, listLabel, spaceLabel } from './items';
 import { MonthGrid, useMonth } from './MonthGrid';
@@ -284,7 +285,7 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, de
   recordChoices: () => { dir: string; records: CollectionRecord[] }[];
   recordName: (record: TaskRecord) => string;
   description: DescriptionHost;
-  onAdd: (list: string, task: { title: string; description?: string; section: string | null; due: string | null; priority: Priority; record: TaskRecord | null }) => void;
+  onAdd: (list: string, task: { title: string; description?: string; section: string | null; due: string | null; priority: Priority; record: TaskRecord | null; labels?: string[] }) => void;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState('');
@@ -292,16 +293,19 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, de
   const [due, setDue] = useState(initial.due);
   const [priority, setPriority] = useState<Priority>(4);
   const [record, setRecord] = useState<TaskRecord | null>(null);
+  const [labels, setLabels] = useState<string[]>([]);
   const [place, setPlace] = useState({ list: initial.list, section: initial.section });
-  const [picking, setPicking] = useState<'date' | 'priority' | 'record' | 'place' | null>(null);
+  const [picking, setPicking] = useState<'date' | 'priority' | 'labels' | 'record' | 'place' | null>(null);
   const added = useAdded();
   // The description's editor is made anew once a task is added, and for a list in another space.
   const [count, setCount] = useState(0);
   const titleField = useRef<HTMLTextAreaElement>(null);
+  const at = useAtLabels({ path: place.list, field: titleField, value: title, onValue: setTitle, picked: labels, onPick: (name) => setLabels((now) => [...now, name]), inline: true });
   const add = (event?: FormEvent) => {
     event?.preventDefault();
     if (!title.trim()) return;
-    onAdd(place.list, { title, description: description.trim() || undefined, section: place.section, due, priority, record });
+    onAdd(place.list, { title, description: description.trim() || undefined, section: place.section, due, priority, record, ...(labels.length > 0 && { labels }) });
+    setLabels([]);
     added.say(t('phone.addedTo', { name: title.trim(), place: placeLabel(places, place.list, place.section) }));
     setTitle('');
     setDescription('');
@@ -328,7 +332,13 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, de
             enterKeyHint="send"
             value={title}
             onChange={setTitle}
+            onSelect={at.track}
+            onKeyDown={(event) => {
+              if (at.keyDown(event)) return;
+              if (event.key === 'Enter') add();
+            }}
           />
+          {at.list}
           <DescriptionField
             key={`${spaceOf(place.list) ?? ''}:${count}`}
             home={place.list}
@@ -340,6 +350,7 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, de
           <div className="mb-chips">
             {chip('calendar', due ? dueLabel(due, today) : t('tasks.date'), !!due, 'date', due ? dueClass(due, today) : undefined)}
             {chip('flag', priority === 4 ? t('tasks.priority') : priorityLabel(priority), priority !== 4, 'priority', `p${priority}`)}
+            {chip('tag', labels.length > 0 ? labels.join(', ') : t('tasks.labels'), labels.length > 0, 'labels')}
             {chip('collection', record ? recordName(record) : t('tasks.record'), !!record, 'record')}
           </div>
           <div className="foot">
@@ -356,6 +367,7 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, de
       </Sheet>
       {picking === 'date' && <DateSheet title={title.trim() || t('tasks.name')} current={due} today={today} onPick={setDue} onClose={() => setPicking(null)} />}
       {picking === 'priority' && <ActionSheet head={{ icon: 'flag', title: t('tasks.priority') }} items={priorityItems(priority, setPriority)} onClose={() => setPicking(null)} />}
+      {picking === 'labels' && <LabelSheet path={place.list} about={title.trim() || undefined} labels={labels} onChange={setLabels} onClose={() => setPicking(null)} />}
       {picking === 'record' && <RecordSheet current={record} choices={recordChoices()} onPick={setRecord} onClose={() => setPicking(null)} />}
       {picking === 'place' && (
         <PlaceSheet places={places} current={place} onPick={(chosen) => setPlace({ list: chosen.list, section: chosen.section })} onClose={() => setPicking(null)} />
@@ -388,6 +400,10 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
   const [resets, setResets] = useState(0);
   const [adding, setAdding] = useState(subtask);
   const [newSub, setNewSub] = useState('');
+  const [labeling, setLabeling] = useState(false);
+  const titleField = useRef<HTMLTextAreaElement>(null);
+  const labels = task.labels ?? [];
+  const at = useAtLabels({ path: list, field: titleField, value: title, onValue: setTitle, picked: labels, onPick: (name) => actions.update(list, task.id, { labels: [...labels, name] }), inline: true });
   const changed = (title.trim() && title !== task.title) || description.trim() !== (task.description ?? '');
   const children = childrenOf(tasks, task.id);
   const progress = progressOf(tasks, task.id);
@@ -417,6 +433,7 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
         ...(canNest ? [{ label: t('tasks.addSubtask'), icon: 'plus' as const, run: () => setAdding(true) }] : []),
         { label: t('tasks.dateMenu'), icon: 'calendar', run: () => actions.pickDate?.(list, task.id) },
         { label: t('tasks.priorityMenu'), icon: 'flag', run: priorityMenu },
+        { label: t('tasks.labelsMenu'), icon: 'tag', run: () => setLabeling(true) },
         ...(team ? [{ label: t('tasks.assignMenu'), icon: 'person' as const, run: () => actions.pickAssignee?.(list, task.id) }] : []),
         { label: t('tasks.recordMenu'), icon: 'collection', run: () => actions.pickRecord?.(list, task.id) },
         { label: t('tasks.moveTo'), icon: 'move', run: () => actions.moveTo(list, task.id) },
@@ -441,6 +458,7 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
   const cardKey = task.card ? actions.cardLabel(task.card) : null;
 
   return (
+    <>
     <Sheet label={task.title} className="mb-create mb-tsheet" onClose={onClose}>
       {changed ? (
         <div className="mb-sh three">
@@ -484,7 +502,8 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
           }}
         />
         <div className="tx">
-          <TitleField className="tt" aria-label={t('tasks.title')} value={title} onChange={setTitle} />
+          <TitleField ref={titleField} className="tt" aria-label={t('tasks.title')} value={title} onChange={setTitle} onSelect={at.track} onKeyDown={(event) => void at.keyDown(event)} />
+          {at.list}
           <DescriptionField key={`${task.id}:${resets}`} home={list} value={description} hint={t('tasks.description')} host={actions.description} onChange={setDescription} />
         </div>
       </div>
@@ -508,6 +527,20 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
               </span>
             ),
             priorityMenu,
+          )}
+          {field(
+            'tag',
+            t('tasks.labels'),
+            labels.length > 0 ? (
+              <span className="lbls">
+                {labels.map((name) => (
+                  <LabelChip key={name} path={list} name={name} className="mb-lbl" />
+                ))}
+              </span>
+            ) : (
+              <span className="none">{t('phone.none')}</span>
+            ),
+            () => setLabeling(true),
           )}
           {team &&
             field(
@@ -600,5 +633,7 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
         )}
       </div>
     </Sheet>
+      {labeling && <LabelSheet path={list} about={task.title} labels={labels} onChange={(next) => actions.update(list, task.id, { labels: next })} onClose={() => setLabeling(false)} />}
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import { completionStatus } from '@codemirror/autocomplete';
 import { addCursorBelow, defaultKeymap, history, historyKeymap, indentWithTab, redo, undo } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
@@ -21,6 +22,7 @@ import {
   lineNumbers,
   placeholder,
   rectangularSelection,
+  runScopeHandlers,
 } from '@codemirror/view';
 import { t } from '@scrawlnotes/i18n';
 import { clipboard, visibleText } from './clipboard';
@@ -73,6 +75,12 @@ export type { EditorState, TransactionSpec } from '@codemirror/state';
 
 /** Marks a change that undo passes over: one the app made to follow something else, as a file renamed. */
 export const outsideHistory = Transaction.addToHistory.of(false);
+
+/** Enter as the keyboard's own in an editor: a new line, a list going on, a callout or a quote left. */
+export const enterInEditor = (view: EditorView): boolean => runScopeHandlers(view, new KeyboardEvent('keydown', { key: 'Enter' }), 'editor');
+
+/** Whether a list the editor opened, as the `/` menu, takes Enter now. */
+export const editorTakesEnter = (view: EditorView): boolean => completionStatus(view.state) === 'active';
 
 /** Counts are of the text as it reads on screen: hidden Markdown syntax is not counted. */
 export interface EditorStats {

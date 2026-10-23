@@ -7666,3 +7666,46 @@ body > .mb-lifted {
   justify-content: center;
   color: var(--sl-danger, #e5484d);
 }
+
+/* a task's labels on a phone: in its row after its day, in its sheet, and @ in its name */
+.mb-task .meta > .lbls,
+.mb-fr .val .lbls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mb-task .meta .mb-lbl {
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.lbl-at.inline {
+  display: flex;
+  flex-direction: column;
+  margin: 6px -16px 2px;
+  border-top: 1px solid var(--sl-line);
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.lbl-at.inline button {
+  min-height: 44px;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 0;
+  font-size: 16px;
+}
+
+.lbl-at.inline .lbl-dot {
+  width: 11px;
+  height: 11px;
+}
+
+.lbl-at.inline .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.mb-tbig .lbl-at.inline {
+  margin: 6px 0 2px;
+}

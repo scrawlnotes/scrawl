@@ -488,3 +488,26 @@ describe('what mattered on a task, and who worked on it', () => {
     expect(merged.assignee).toEqual({ id: 'm', name: 'Mert' });
   });
 });
+
+describe('a task’s labels', () => {
+  const at = () => new Date('2026-10-23T10:00:00.000Z');
+
+  it('come with a new task, trimmed and once each, and are left out when there are none', () => {
+    const [task] = addTask([], { title: 'Call the accountant', labels: [' call ', 'Waiting', 'waiting', ''] }, at, 't1');
+    expect(task!.labels).toEqual(['call', 'Waiting']);
+    expect(addTask([], { title: 'Plain', labels: [' '] }, at, 't2')[0]).not.toHaveProperty('labels');
+  });
+
+  it('change with an edit, and go when it leaves none', () => {
+    const tasks = addTask([], { title: 'Call the accountant', labels: ['call'] }, at, 't1');
+    expect(updateTask(tasks, 't1', { labels: ['call', 'Waiting', 'CALL'] }, at)[0]!.labels).toEqual(['call', 'Waiting']);
+    expect(updateTask(tasks, 't1', { labels: [] }, at)[0]).not.toHaveProperty('labels');
+  });
+
+  it('are read from the file, leaving out what is not one', () => {
+    const text = JSON.stringify({ version: 1, sections: [], tasks: [{ id: 'a', title: 'A', labels: ['call', 7, '', 'waiting'] }, { id: 'b', title: 'B', labels: 'call' }] });
+    const tasks = parseList(text).tasks;
+    expect(tasks[0]!.labels).toEqual(['call', 'waiting']);
+    expect(tasks[1]).not.toHaveProperty('labels');
+  });
+});

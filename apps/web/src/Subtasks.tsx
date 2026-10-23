@@ -216,9 +216,6 @@ function DesktopSubtasks(props: SubtasksProps) {
               <button type="button" className="ghost" onMouseDown={(event) => event.preventDefault()} onClick={() => setEditing(null)}>
                 {t('dialog.cancel')}
               </button>
-              <button type="button" className="primary" disabled={!editing.title.trim()} onMouseDown={(event) => event.preventDefault()} onClick={save}>
-                {t('card.save')}
-              </button>
             </div>
           </>
         ) : (

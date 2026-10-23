@@ -518,7 +518,7 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
             className="colm-edit"
             placeholder={t('board.columnName')}
             initial={column.name}
-            action={t('phase.save')}
+            action={isPhone() ? t('phase.save') : undefined}
             onDone={(name) => {
               actions.renameColumn(path, column.id, name);
               setRenaming(false);
@@ -700,7 +700,7 @@ function PhaseStrip({ board, path, shown, onShow, actions }: {
             className="ph-edit"
             placeholder={t('board.phaseName')}
             initial={phase.name}
-            action={t('phase.save')}
+            action={isPhone() ? t('phase.save') : undefined}
             onDone={(name) => {
               actions.renamePhase(path, phase.id, name);
               setRenaming(null);

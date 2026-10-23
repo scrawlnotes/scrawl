@@ -12,7 +12,8 @@ import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElem
 import { createPortal } from 'react-dom';
 import { pageBox, pageWindow } from './device';
 import { listCrumb, type MenuItem, placesShown, type TaskPlaceChoice } from './dialogs';
-import { type DescriptionHost, DescriptionField } from './Description';
+import { AttachButton, type DescriptionHost, DescriptionField } from './Description';
+import { LabelDot, LabelPop, useAtLabels } from './labels';
 import { Icon, type IconName } from './Icon';
 import { listLabel, spaceLabel } from './items';
 import { MonthGrid, useMonth } from './MonthGrid';
@@ -241,9 +242,10 @@ export interface ComposerStart {
 }
 
 /**
- * A new task, typed where it will show: its name and description, its date, priority and record as
- * chips, the list it goes in, Cancel and Add task. Add task, or Enter in the name, adds it and keeps
- * the row with the same date and list for the next one. A record is one of the list's space, as a
+ * A new task, typed where it will show: its name and description, its date, priority, labels and
+ * record as chips with Attach after them, the list it goes in, Cancel and Add task. Add task, or Enter
+ * in the name or the description, adds it and keeps the row with the same date and list for the next
+ * one; Ctrl+Enter is a new line in the description. `@` in the name puts a label on it. A record is one of the list's space, as a
  * task's links do not reach another space.
  */
 export function TaskComposer({ start, today, places, recordChoices, recordName, menu, description: host, onAdd, onClose }: {
@@ -265,11 +267,16 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
   const [due, setDue] = useState(start.due);
   const [priority, setPriority] = useState<Priority>(4);
   const [record, setRecord] = useState<TaskRecord | null>(null);
+  const [labels, setLabels] = useState<string[]>([]);
   const [place, setPlace] = useState({ list: start.list, section: start.section });
-  const [open, setOpen] = useState<{ kind: 'date' | 'place' | 'record'; anchor: HTMLElement } | null>(null);
+  const [open, setOpen] = useState<{ kind: 'date' | 'place' | 'record' | 'labels'; anchor: HTMLElement } | null>(null);
   const titleField = useRef<HTMLTextAreaElement>(null);
+  const labelsChip = useRef<HTMLElement | null>(null);
+  labelsChip.current = open?.kind === 'labels' ? open.anchor : null;
+  const attacher = useRef<((files: File[]) => void) | null>(null);
+  const at = useAtLabels({ path: place.list, field: titleField, value: title, onValue: setTitle, picked: labels, onPick: (name) => setLabels((now) => [...now, name]) });
 
-  const toggle = (kind: 'date' | 'place' | 'record', anchor: HTMLElement) => setOpen((was) => (was?.kind === kind ? null : { kind, anchor }));
+  const toggle = (kind: 'date' | 'place' | 'record' | 'labels', anchor: HTMLElement) => setOpen((was) => (was?.kind === kind ? null : { kind, anchor }));
   // A picker closed, by a pick or not, gives the keyboard back to the name.
   const shut = () => {
     setOpen(null);
@@ -277,9 +284,10 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
   };
   const add = () => {
     if (!title.trim()) return;
-    onAdd(place.list, { title, description: description.trim() || undefined, section: place.section, due, priority, record });
+    onAdd(place.list, { title, description: description.trim() || undefined, section: place.section, due, priority, record, ...(labels.length > 0 && { labels }) });
     setTitle('');
     setDescription('');
+    setLabels([]);
     setAdded((n) => n + 1);
     titleField.current?.focus();
   };
@@ -315,13 +323,15 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
           autoFocus
           value={title}
           onChange={setTitle}
+          onSelect={at.track}
           onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
+            if (at.keyDown(event) || event.key !== 'Enter') return;
             event.preventDefault();
             add();
           }}
         />
       </div>
+      {at.list}
       <DescriptionField
         key={`${spaceOf(place.list) ?? ''}:${added}`}
         home={place.list}
@@ -329,6 +339,8 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
         hint={t('tasks.description')}
         host={host}
         onChange={setDescription}
+        onEnter={add}
+        attacher={attacher}
       />
       <div className="chips">
         <button
@@ -347,6 +359,21 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
         </button>
         <button
           type="button"
+          className={labels.length > 0 ? 'chip lbc' : 'chip'}
+          aria-haspopup="dialog"
+          aria-expanded={open?.kind === 'labels'}
+          onClick={(event) => toggle('labels', event.currentTarget)}
+        >
+          <Icon name="tag" />
+          {labels.length > 0 ? labels.map((name) => (
+              <span key={name} className="dn">
+                <LabelDot path={place.list} name={name} />
+                {name}
+              </span>
+            )) : <span>{t('tasks.labels')}</span>}
+        </button>
+        <button
+          type="button"
           className={record ? 'chip on' : 'chip'}
           aria-haspopup="listbox"
           aria-expanded={open?.kind === 'record'}
@@ -355,6 +382,7 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
           <Icon name="collection" />
           <span>{record ? recordName(record) : t('tasks.record')}</span>
         </button>
+        <AttachButton className="chip ic" iconOnly onFiles={(files) => attacher.current?.(files)} />
       </div>
       <div className="foot">
         <button
@@ -402,6 +430,7 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
           onClose={shut}
         />
       )}
+      {open?.kind === 'labels' && <LabelPop anchor={labelsChip} path={place.list} picked={labels} onChange={setLabels} onClose={shut} />}
       {open?.kind === 'record' && (
         <RecordPicker
           anchor={open.anchor}

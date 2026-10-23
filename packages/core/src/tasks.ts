@@ -1,5 +1,6 @@
 import { actorIn, type By, isObject, readStamp, readWorkedOn, refKey, type Stamp, stampOf, workedBy, type WorkedOn, writtenBy } from './activity';
 import type { VaultFs } from './fs';
+import { cleanLabels } from './labels';
 import { type PersonRef, readPersonRef } from './people';
 
 /** Priority 1 is the highest; 4 means no priority was set. */
@@ -27,9 +28,10 @@ export interface Task {
   assignee?: PersonRef | null;
   /** Who made it, in a space with people. */
   author?: PersonRef | null;
-  // Not used by the interface yet. They are part of the format now so that files written today
-  // stay valid when labels, repeating tasks and reminders arrive.
+  /** Its labels, the words its space's tasks and cards share (design/labels.md). Left out of the file when there is none. */
   labels?: string[];
+  // Not used by the interface yet. They are part of the format now so that files written today
+  // stay valid when repeating tasks and reminders arrive.
   recurrence?: string | null;
   reminder?: string | null;
   /** Path of the note the task was made from. */
@@ -190,6 +192,9 @@ function parseTaskArray(list: unknown): Task[] {
     });
     const task = tasks[tasks.length - 1]!;
     if (typeof raw.card !== 'string') delete task.card;
+    const labels = Array.isArray(raw.labels) ? raw.labels.filter((label): label is string => typeof label === 'string' && label.trim() !== '') : [];
+    if (labels.length > 0) task.labels = labels;
+    else delete task.labels;
     const record = readTaskRecord(raw.record);
     if (record) task.record = record;
     else delete task.record;
@@ -418,6 +423,7 @@ export interface NewTask {
   record?: TaskRecord | null;
   due?: string | null;
   priority?: Priority;
+  labels?: string[];
   assignee?: PersonRef | null;
   author?: PersonRef | null;
 }
@@ -451,6 +457,7 @@ export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Da
     ...(input.note && { note: input.note }),
     ...(input.card && { card: input.card }),
     ...(input.record && { record: input.record }),
+    ...(input.labels && cleanLabels(input.labels).length > 0 && { labels: cleanLabels(input.labels) }),
     ...(input.assignee && { assignee: input.assignee }),
     ...(input.author && { author: input.author }),
   };
@@ -460,11 +467,12 @@ export function addTask(tasks: Task[], input: NewTask, now: Clock = () => new Da
 }
 
 /** What can be changed of a task by editing it; a record or a note of null unlinks it, an assignee of null gives it to nobody. */
-export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'priority' | 'record' | 'assignee' | 'note'>>;
+export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'priority' | 'labels' | 'record' | 'assignee' | 'note'>>;
 
 /**
  * Changes a task. An empty title keeps the old one. A description loses the blank lines and
- * spaces around it, and an empty one is removed; so is a record of null. Who changes it worked
+ * spaces around it, and an empty one is removed; so are no labels and a record of null. Labels
+ * are kept once each, whatever their case. Who changes it worked
  * on it; its timeline says who it is given to now.
  */
 export function updateTask(tasks: Task[], id: string, patch: TaskPatch, now: Clock = () => new Date(), by?: By): Task[] {
@@ -472,12 +480,14 @@ export function updateTask(tasks: Task[], id: string, patch: TaskPatch, now: Clo
   const clean = { ...patch };
   if (clean.title !== undefined) clean.title = clean.title.trim();
   if (clean.description !== undefined) clean.description = clean.description.trim() || undefined;
+  if (clean.labels !== undefined) clean.labels = cleanLabels(clean.labels);
   const actor = actorIn(by);
   return tasks.map((t) => {
     if (t.id !== id) return t;
     const stamp = iso(now);
     const next: Task = { ...t, ...clean, updated: stamp };
     if (next.record === null || next.record === undefined) delete next.record;
+    if (!next.labels?.length) delete next.labels;
     if (next.assignee === null || next.assignee === undefined) delete next.assignee;
     if (next.note === null || next.note === undefined) delete next.note;
     if (patch.assignee !== undefined && refKey(t.assignee) !== refKey(next.assignee)) {

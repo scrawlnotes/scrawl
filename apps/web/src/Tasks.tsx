@@ -69,13 +69,15 @@ import { choiceColor } from './Calendar';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { priorityItems } from './PhoneTasks';
-import { TaskComposer } from './TaskComposer';
-import { type DescriptionHost, DescriptionField } from './Description';
+import { DatePop, TaskComposer } from './TaskComposer';
+import { AttachButton, type DescriptionHost, DescriptionField } from './Description';
+import { ContextMenu } from './dialogs';
+import { LabelChip, LabelDot, LabelPop, useAtLabels } from './labels';
 import { Icon, type IconName } from './Icon';
 import { StillOpening } from './Loading';
 import { boardHeading, boardLabel, boardWhere, collectionHeading, collectionLabel, collectionWhere, folderLabel, listHeading, listLabel, listWhere } from './items';
 import { TaskActivity } from './Activity';
-import { AssigneeChip, NameOf, PersonPicker, type SpacePeople } from './People';
+import { AssigneeChip, NameOf, PersonPicker, type SpacePeople, WhoOf } from './People';
 import { Empty, liftUntilTouch } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
@@ -167,6 +169,8 @@ export interface TaskActions {
   pickRecord?: (list: string, id: string) => void;
   /** On a phone: who a task is given to, picked among the people of its space in a sheet. */
   pickAssignee?: (list: string, id: string) => void;
+  /** On a phone: a task's labels, picked in a sheet. */
+  pickLabels?: (list: string, id: string) => void;
   /** On a phone: a new task, typed above the keyboard, for a list or a section of it, due on `due` if given. */
   quickAdd?: (list: string, section: string | null, due?: string) => void;
   /** On a phone: a section's name in a sheet, a new section's for null. */
@@ -358,15 +362,30 @@ export function nextWeek(today: string): string {
 /** The buttons under a row being typed keep the focus in it, so pressing them is not leaving it. */
 const keepTyping = (event: MouseEvent) => event.preventDefault();
 
-/** The row a new task is typed into. Add task, or Enter, adds it and keeps the row for the next one. */
-export function Composer({ placeholder, addLabel = t('tasks.add'), onAdd, onClose }: { placeholder: string; addLabel?: string; onAdd: (title: string) => void; onClose: () => void }) {
+/**
+ * The row a new task is typed into. Add task, or Enter, adds it and keeps the row for the next one.
+ * With `labelsAt`, `@` in it puts labels of that list's space on what is added; they show
+ * beside its buttons.
+ */
+export function Composer({ placeholder, addLabel = t('tasks.add'), labelsAt, onAdd, onClose }: {
+  placeholder: string;
+  addLabel?: string;
+  labelsAt?: string;
+  onAdd: (title: string, labels: string[]) => void;
+  onClose: () => void;
+}) {
   const [title, setTitle] = useState('');
+  const [picked, setPicked] = useState<string[]>([]);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const at = useAtLabels({ path: labelsAt ?? '', field, value: title, onValue: setTitle, picked, onPick: (name) => setPicked((now) => [...now, name]) });
   const add = () => {
     if (!title.trim()) return;
-    onAdd(title);
+    onAdd(title, picked);
     setTitle('');
+    setPicked([]);
   };
-  const onKey = (event: KeyboardEvent) => {
+  const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (labelsAt && at.keyDown(event)) return;
     if (event.key === 'Enter') add();
     else if (event.key === 'Escape') {
       // The row closes; the window it is in stays.
@@ -378,16 +397,28 @@ export function Composer({ placeholder, addLabel = t('tasks.add'), onAdd, onClos
     <div className="task composing">
       <span className="cb" />
       <TitleField
+        ref={field}
         className="tt-edit"
         aria-label={placeholder}
         placeholder={placeholder}
         autoFocus
         value={title}
         onChange={setTitle}
+        onSelect={labelsAt ? at.track : undefined}
         onKeyDown={onKey}
-        onBlur={() => !title.trim() && onClose()}
+        onBlur={() => !title.trim() && picked.length === 0 && onClose()}
       />
+      {labelsAt && at.list}
       <div className="edit-foot">
+        {labelsAt && picked.length > 0 && (
+          <span className="lbls">
+            {picked.map((name) => (
+              <button key={name} type="button" className="lbl-off" title={t('tasks.takeOffLabel', { label: name })} onMouseDown={keepTyping} onClick={() => setPicked(picked.filter((each) => each !== name))}>
+                <LabelChip path={labelsAt} name={name} />
+              </button>
+            ))}
+          </span>
+        )}
         <button type="button" className="ghost" onMouseDown={keepTyping} onClick={onClose}>
           {t('dialog.cancel')}
         </button>
@@ -537,6 +568,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
         ...(canNest ? [{ label: t('tasks.addSubtask'), icon: 'plus' as const, run: () => actions.open?.(list, task.id, true) }] : []),
         { label: t('tasks.dateMenu'), icon: 'calendar', run: () => actions.pickDate?.(list, task.id) },
         { label: t('tasks.priorityMenu'), icon: 'flag', run: priorityMenu },
+        { label: t('tasks.labelsMenu'), icon: 'tag', run: () => actions.pickLabels?.(list, task.id) },
         { label: t('tasks.recordMenu'), icon: 'collection', run: () => actions.pickRecord?.(list, task.id) },
         { label: t('tasks.moveTo'), icon: 'move', run: () => actions.moveTo(list, task.id) },
         { label: t('tasks.delete'), icon: 'trash', danger: true, run: () => actions.remove(list, task.id) },
@@ -613,6 +645,13 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
       <span key="due" className={dueClass(due, today)}>
         <Icon name="calendar" />
         {dueLabel(due, today)}
+      </span>
+    ),
+    !!task.labels?.length && (
+      <span key="labels" className="lbls">
+        {task.labels.map((name) => (
+          <LabelChip key={name} path={list} name={name} className="mb-lbl" />
+        ))}
       </span>
     ),
     flat && !grouped && (
@@ -748,10 +787,23 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(true);
   const datePicker = useRef<HTMLInputElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+  // The labels' picker, under the button or the chips that opened it.
+  const labelAnchor = useRef<HTMLElement | null>(null);
+  const [labeling, setLabeling] = useState(false);
+  // While it is edited: the picker open from its bar, and the button that opened it.
+  const [pop, setPop] = useState<{ kind: 'date' | 'priority' | 'labels' | 'assignee' | 'record'; anchor: HTMLElement } | null>(null);
+  const popAnchor = useRef<HTMLElement | null>(null);
+  popAnchor.current = pop?.anchor ?? null;
+  // A press outside the row while a picker is open is leaving it: once the picker closes, it saves.
+  const leaving = useRef(false);
+  const attacher = useRef<((files: File[]) => void) | null>(null);
 
   const children = flat ? [] : childrenOf(tasks, task.id).filter((child) => showDone || !child.done);
   const progress = progressOf(tasks, task.id);
   const canNest = !flat && depthOf(tasks, task.id) < MAX_DEPTH;
+  const labels = task.labels ?? [];
 
   // In a space with people a task is given to one of them, from the button that opened the list.
   const team = actions.people?.(list) ?? null;
@@ -766,11 +818,48 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
     if (editing.description.trim() !== (task.description ?? '')) patch.description = editing.description;
     if (Object.keys(patch).length > 0) actions.update(list, task.id, patch);
     setEditing(null);
+    setPop(null);
   };
-  const cancel = () => setEditing(null);
-  // Cancel and Save keep the focus in the fields, so pressing them is not leaving the editor, which saves.
+  const cancel = () => {
+    setEditing(null);
+    setPop(null);
+  };
+  // Cancel and the bar keep the focus in the fields, so pressing them is not leaving the editor, which saves.
   const keepFocus = (event: MouseEvent) => event.preventDefault();
   const setDue = (due: string | null) => actions.update(list, task.id, { due });
+  const setLabels = (next: string[]) => actions.update(list, task.id, { labels: next });
+  const at = useAtLabels({
+    path: list,
+    field: titleRef,
+    value: editing?.title ?? '',
+    onValue: (title) => setEditing((now) => now && { ...now, title }),
+    picked: labels,
+    onPick: (name) => setLabels([...labels, name]),
+  });
+
+  useEffect(() => {
+    if (!pop) return;
+    const down = (event: PointerEvent) => {
+      const target = event.target as HTMLElement;
+      // The picker's own menu, list or window is not elsewhere.
+      leaving.current = !!target.closest('.app') && !rowRef.current?.contains(target) && !target.closest('[role="menu"], [role="listbox"], [role="dialog"]');
+    };
+    window.addEventListener('pointerdown', down, true);
+    return () => window.removeEventListener('pointerdown', down, true);
+  }, [pop]);
+  /** A picker of the bar closed: the name has the keyboard again, unless a press elsewhere left the editor. */
+  const closePop = () => {
+    setPop(null);
+    requestAnimationFrame(() => {
+      if (leaving.current) save();
+      else titleRef.current?.focus();
+      leaving.current = false;
+    });
+  };
+  const openPop = (kind: NonNullable<typeof pop>['kind']) => (event: MouseEvent<HTMLElement>) => {
+    const anchor = event.currentTarget;
+    setPop((was) => (was?.kind === kind ? null : { kind, anchor }));
+  };
 
   const dateMenu = (event: MouseEvent) =>
     actions.menu(event, [
@@ -780,6 +869,10 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
       { label: t('tasks.pickDate'), run: () => datePicker.current?.showPicker() },
       ...(task.due ? [{ label: t('tasks.noDate'), run: () => setDue(null) }] : []),
     ]);
+  const openLabels = (element: HTMLElement) => {
+    labelAnchor.current = element;
+    setLabeling(true);
+  };
   // On a touch screen one button opens everything the row's buttons do. The date and priority
   // menus it leads to open where it was pressed.
   const moreMenu = (event: MouseEvent) => {
@@ -800,6 +893,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
         : []),
       { label: t('tasks.dateMenu'), run: () => dateMenu(point) },
       { label: t('tasks.priorityMenu'), run: () => priorityMenu(point) },
+      { label: t('tasks.labelsMenu'), run: () => openLabels(button) },
       ...(team ? [{ label: t('tasks.assignMenu'), run: () => setAssigning(button) }] : []),
       { label: t('tasks.recordMenu'), run: () => setPicking(button) },
       { label: t('tasks.moveTo'), run: () => actions.moveTo(list, task.id) },
@@ -848,13 +942,22 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
       {described.files}
     </span>
   );
-  const meta = (due || progress.total > 0 || (flat && !grouped) || clips || task.assignee || from || fromCard || about) && (
+  // Its labels after its day; a click on them opens their picker.
+  const chips = labels.length > 0 && (
+    <button type="button" className="lbls" title={t('tasks.labels')} onClick={(event) => openLabels(event.currentTarget)}>
+      {labels.map((name) => (
+        <LabelChip key={name} path={list} name={name} />
+      ))}
+    </button>
+  );
+  const meta = (due || chips || progress.total > 0 || (flat && !grouped) || clips || task.assignee || from || fromCard || about) && (
     <div className="meta">
       {due && (
         <button type="button" className={dueClass(due, today)} title={t('tasks.changeDate')} onClick={dateMenu}>
           {dueLabel(due, today)}
         </button>
       )}
+      {chips}
       {progress.total > 0 &&
         (flat ? (
           <span>{t('tasks.progress', { done: progress.done, total: progress.total })}</span>
@@ -871,11 +974,107 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
       {about}
     </div>
   );
+  // While it is edited the bar has its day, priority, labels, who and record: what stays under the
+  // name and the description is how many subtasks are done and where it came from.
+  const editMeta = (progress.total > 0 || from || fromCard) && (
+    <div className="meta">
+      {progress.total > 0 && (
+        <button type="button" aria-expanded={open} title={t(open ? 'tasks.hideSubtasks' : 'tasks.showSubtasks')} onClick={() => setOpen(!open)}>
+          {open ? '▾' : '▸'} {t('tasks.progress', { done: progress.done, total: progress.total })}
+        </button>
+      )}
+      {from}
+      {fromCard}
+    </div>
+  );
+  const chipClass = (on: boolean, extra?: string | false) => ['chip', on && 'on', extra].filter(Boolean).join(' ');
+  const bar = editing && (
+    <div className="edit-bar">
+      <button
+        type="button"
+        className={chipClass(!!task.due, !!task.due && task.due < today && 'late')}
+        aria-haspopup="dialog"
+        aria-expanded={pop?.kind === 'date'}
+        onMouseDown={keepFocus}
+        onClick={openPop('date')}
+      >
+        <Icon name="calendar" />
+        <span>{task.due ? dueLabel(task.due, today) : t('tasks.date')}</span>
+      </button>
+      <button
+        type="button"
+        className={task.priority === 4 ? 'chip' : `chip on p${task.priority}`}
+        aria-haspopup="menu"
+        aria-expanded={pop?.kind === 'priority'}
+        onMouseDown={keepFocus}
+        onClick={openPop('priority')}
+      >
+        <Icon name="flag" />
+        <span>{task.priority === 4 ? t('tasks.priority') : t('tasks.priorityShort', { n: task.priority })}</span>
+      </button>
+      <button
+        type="button"
+        className={labels.length > 0 ? 'chip lbc' : 'chip'}
+        aria-haspopup="dialog"
+        aria-expanded={pop?.kind === 'labels'}
+        onMouseDown={keepFocus}
+        onClick={openPop('labels')}
+      >
+        <Icon name="tag" />
+        {labels.length > 0 ? labels.map((name) => (
+              <span key={name} className="dn">
+                <LabelDot path={list} name={name} />
+                {name}
+              </span>
+            )) : <span>{t('tasks.labels')}</span>}
+      </button>
+      {team && (
+        <button
+          type="button"
+          className={chipClass(!!task.assignee, !!task.assignee && 'who')}
+          aria-haspopup="listbox"
+          aria-expanded={pop?.kind === 'assignee'}
+          onMouseDown={keepFocus}
+          onClick={openPop('assignee')}
+        >
+          {task.assignee ? (
+            <>
+              <WhoOf who={task.assignee} people={team.people} />
+              <span>
+                <NameOf who={task.assignee} people={team.people} first />
+              </span>
+            </>
+          ) : (
+            <>
+              <Icon name="person" />
+              <span>{t('tasks.assignee')}</span>
+            </>
+          )}
+        </button>
+      )}
+      <button
+        type="button"
+        className={chipClass(!!task.record)}
+        aria-haspopup="listbox"
+        aria-expanded={pop?.kind === 'record'}
+        onMouseDown={keepFocus}
+        onClick={openPop('record')}
+      >
+        <Icon name="collection" />
+        <span>{task.record ? actions.recordTitle(task.record) : t('tasks.record')}</span>
+      </button>
+      <AttachButton className="chip ic" iconOnly onFiles={(files) => attacher.current?.(files)} />
+      <button type="button" className="ghost" onMouseDown={keepFocus} onClick={cancel}>
+        {t('dialog.cancel')}
+      </button>
+    </div>
+  );
   const className = ['task', task.done && 'done', editing && 'editing'].filter(Boolean).join(' ');
 
   return (
     <>
       <div
+        ref={rowRef}
         className={className}
         data-row="task"
         data-id={task.id}
@@ -892,8 +1091,8 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
                 ])
         }
         // Leaving the editor, by a click elsewhere or by Tab, saves it; not the window losing the
-        // focus, as to the file window Attach opens.
-        onBlur={editing ? (event) => document.hasFocus() && !event.currentTarget.contains(event.relatedTarget as Node | null) && save() : undefined}
+        // focus, as to the file window Attach opens, nor a picker of its bar taking it.
+        onBlur={editing ? (event) => !pop && document.hasFocus() && !event.currentTarget.contains(event.relatedTarget as Node | null) && save() : undefined}
       >
         {drag && !editing && <Grip title={t('tasks.drag')} onGrab={(event) => drag.grab(event, { task })} onRelease={drag.release} />}
         <button
@@ -908,18 +1107,22 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
           <>
             <div className="task-body">
               <TitleField
+                ref={titleRef}
                 className="tt-edit"
                 aria-label={t('tasks.title')}
                 autoFocus
                 value={editing.title}
                 onChange={(title) => setEditing({ ...editing, title })}
+                onSelect={at.track}
                 onKeyDown={(event) => {
+                  if (at.keyDown(event)) return;
                   if (event.key === 'Enter') {
                     event.preventDefault();
                     save();
                   } else if (event.key === 'Escape') cancel();
                 }}
               />
+              {at.list}
               <DescriptionField
                 home={list}
                 value={editing.description}
@@ -927,17 +1130,12 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
                 host={actions.description}
                 onChange={(description) => setEditing((now) => now && { ...now, description })}
                 onEscape={cancel}
+                onEnter={save}
+                attacher={attacher}
               />
-              {meta}
+              {editMeta}
             </div>
-            <div className="edit-foot">
-              <button type="button" className="ghost" onMouseDown={keepFocus} onClick={cancel}>
-                {t('dialog.cancel')}
-              </button>
-              <button type="button" className="primary" onMouseDown={keepFocus} onClick={save}>
-                {t('card.save')}
-              </button>
-            </div>
+            {bar}
           </>
         ) : (
           <div className="task-body">
@@ -961,6 +1159,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
           )}
           <IconButton icon="calendar" title={t('tasks.date')} onClick={dateMenu} />
           <IconButton icon="flag" title={t('tasks.priority')} onClick={priorityMenu} />
+          <IconButton icon="tag" title={t('tasks.labels')} onClick={(event) => openLabels(event.currentTarget as HTMLElement)} />
           {team && <IconButton icon="person" title={t('tasks.assignee')} onClick={(event) => setAssigning(assigning ? null : (event.currentTarget as HTMLElement))} />}
           <IconButton icon="collection" title={t('tasks.record')} onClick={(event) => setPicking(picking ? null : (event.currentTarget as HTMLElement))} />
           <IconButton icon="move" title={t('tasks.moveTo')} onClick={() => actions.moveTo(list, task.id)} />
@@ -1003,6 +1202,52 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
           onClose={() => setAssigning(null)}
         />
       )}
+      {labeling && <LabelPop anchor={labelAnchor} path={list} picked={labels} onChange={setLabels} onClose={() => setLabeling(false)} />}
+      {pop?.kind === 'date' && (
+        <DatePop
+          anchor={pop.anchor}
+          current={task.due}
+          today={today}
+          onPick={(day) => {
+            setDue(day);
+            closePop();
+          }}
+          onClose={closePop}
+        />
+      )}
+      {pop?.kind === 'priority' && (
+        <ContextMenu
+          at={{ x: pop.anchor.getBoundingClientRect().left, y: pop.anchor.getBoundingClientRect().bottom + 4 }}
+          items={priorityItems(task.priority, (priority) => actions.update(list, task.id, { priority }))}
+          onClose={closePop}
+        />
+      )}
+      {pop?.kind === 'labels' && <LabelPop anchor={popAnchor} path={list} picked={labels} onChange={setLabels} onClose={closePop} />}
+      {pop?.kind === 'assignee' && team && (
+        <PersonPicker
+          anchor={pop.anchor}
+          team={team}
+          current={task.assignee ?? null}
+          onPick={(assignee) => {
+            actions.update(list, task.id, { assignee });
+            closePop();
+          }}
+          onClose={closePop}
+        />
+      )}
+      {pop?.kind === 'record' && (
+        <RecordPicker
+          anchor={pop.anchor}
+          current={task.record ?? null}
+          choices={actions.recordChoices()}
+          align="left"
+          onPick={(record) => {
+            actions.update(list, task.id, { record });
+            closePop();
+          }}
+          onClose={closePop}
+        />
+      )}
       {activity && <TaskActivity task={task} team={team} today={today} onClose={() => setActivity(false)} />}
       {(children.length > 0 || adding) && open && (
         <div className="subs">
@@ -1010,7 +1255,12 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
             <TaskItem key={child.id} list={list} task={child} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} />
           ))}
           {adding && (
-            <Composer placeholder={t('tasks.subtaskName')} onAdd={(title) => actions.add(list, { title, parent: task.id })} onClose={() => setAdding(false)} />
+            <Composer
+              placeholder={t('tasks.subtaskName')}
+              labelsAt={list}
+              onAdd={(title, picked) => actions.add(list, { title, parent: task.id, ...(picked.length > 0 && { labels: picked }) })}
+              onClose={() => setAdding(false)}
+            />
           )}
         </div>
       )}
@@ -1345,9 +1595,6 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
               <button type="button" className="ghost" onMouseDown={keepTyping} onClick={() => setRenaming(null)}>
                 {t('dialog.cancel')}
               </button>
-              <button type="button" className="primary" disabled={!renaming.trim()} onMouseDown={keepTyping} onClick={rename}>
-                {t('sections.save')}
-              </button>
             </div>
           </>
         )}
@@ -1366,7 +1613,8 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto }: {
           {composing ? (
             <Composer
               placeholder={t('tasks.name')}
-              onAdd={(title) => actions.add(list, { title, section: section.id })}
+              labelsAt={list}
+              onAdd={(title, labels) => actions.add(list, { title, section: section.id, ...(labels.length > 0 && { labels }) })}
               onClose={() => setComposing(false)}
             />
           ) : phone ? (
@@ -1585,7 +1833,7 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
       >
         {sectionTasks(whole, null).filter(shown).map(item)}
         {composing ? (
-          <Composer placeholder={t('tasks.name')} onAdd={(title) => actions.add(list, { title })} onClose={() => setComposing(false)} />
+          <Composer placeholder={t('tasks.name')} labelsAt={list} onAdd={(title, labels) => actions.add(list, { title, ...(labels.length > 0 && { labels }) })} onClose={() => setComposing(false)} />
         ) : !isPhone() ? (
           // The tasks in no section end with their own add row, as each section does.
           <button type="button" className="qa" onClick={() => setComposing(true)}>

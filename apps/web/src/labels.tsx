@@ -6,6 +6,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
   type MouseEvent,
+  type ReactNode,
   type RefObject,
   useContext,
   useEffect,
@@ -57,6 +58,12 @@ export function LabelChip({ path, name, className = 'lbl' }: { path: string; nam
       {name}
     </span>
   );
+}
+
+/** A label of the space a path is in as its dot in its color, for a chip that has many. */
+export function LabelDot({ path, name }: { path: string; name: string }) {
+  const style = useLabelStyle(path);
+  return <i className="lbl-dot" style={style(name)} title={name} aria-label={name} />;
 }
 
 /** A label's dot in its color, for a row of a list. */
@@ -775,5 +782,149 @@ function LabelEditSheet({ path, use, uses, onClose }: { path: string; use: Label
         )}
       </form>
     </Sheet>
+  );
+}
+
+/** The `@word` before the caret in a name being typed, where a label is being asked for: where its `@` is, and the word. */
+export function atWord(text: string, caret: number): { start: number; query: string } | null {
+  const found = /(^|\s)@([^\s@]*)$/.exec(text.slice(0, caret));
+  return found ? { start: caret - found[2]!.length - 1, query: found[2]! } : null;
+}
+
+/** A name with the `@word` at `start` taken out, and the caret where it was. */
+function withoutWord(text: string, start: number, end: number): { text: string; caret: number } {
+  const before = text.slice(0, start);
+  const after = text.slice(end);
+  // One space stays between the words on either side; none at the start or the end.
+  const joined = before.endsWith(' ') && after.startsWith(' ') ? before + after.slice(1) : before + after;
+  return { text: start === 0 ? joined.replace(/^ /, '') : joined, caret: Math.min(start, joined.length) };
+}
+
+/** How many labels the list under a name shows at most. */
+const AT_ROWS = 8;
+
+/**
+ * `@` in a task's name, as in Todoist: typing `@` at the start of a word opens the space's labels
+ * under the name, narrowed by what follows it, with Create for a word no label is yet. Enter, Tab
+ * or a click puts the label on and takes `@word` out of the name; Esc closes the list and leaves
+ * the word as it is typed, as a space after it does. While the list is open Enter is the list's.
+ * Give the field `onSelect={at.track}`, call `at.keyDown` first in its own keys, and show `at.list`.
+ */
+export function useAtLabels({ path, field, value, onValue, picked, onPick, inline = false }: {
+  /** Where the task is or goes: its space's labels are offered. */
+  path: string;
+  field: RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  onValue: (value: string) => void;
+  /** The labels the task has already: they are not offered again. */
+  picked: string[];
+  onPick: (name: string) => void;
+  /** On a phone the list is under the name, in the sheet, not over everything. */
+  inline?: boolean;
+}) {
+  const labels = useLabels();
+  const known = labels.of(path);
+  const [caret, setCaret] = useState<number | null>(null);
+  const [closedAt, setClosedAt] = useState<number | null>(null);
+  const [at, setAt] = useState(0);
+  // Where the caret is: the field's own while it has the keyboard, as it is drawn again after each change.
+  const element = field.current;
+  const live = element && document.activeElement === element ? element.selectionStart : caret;
+  const word = live === null ? null : atWord(value, Math.min(live, value.length));
+  const query = word?.query.toLowerCase() ?? '';
+  const left = known.filter((use) => !picked.some((name) => sameLabel(name, use.name)) && use.name.toLowerCase().includes(query));
+  // The ones that start with what is typed first, then the most used.
+  left.sort((a, b) => Number(b.name.toLowerCase().startsWith(query)) - Number(a.name.toLowerCase().startsWith(query)) || b.tasks + b.cards - (a.tasks + a.cards) || a.name.localeCompare(b.name));
+  const rows: PickRow[] = left.slice(0, AT_ROWS).map((use) => ({ name: use.name, color: use.color }));
+  if (word?.query && !known.some((use) => sameLabel(use.name, word.query)) && !picked.some((name) => sameLabel(name, word.query))) {
+    rows.push({ name: word.query, color: labelColor(word.query, known), create: true });
+  }
+  const open = word !== null && closedAt !== word.start && rows.length > 0;
+  const shown = Math.min(at, rows.length - 1);
+
+  const pick = (row: PickRow) => {
+    if (!word || live === null) return;
+    if (row.create) labels.add(path, row.name);
+    const next = withoutWord(value, word.start, Math.min(live, value.length));
+    onValue(next.text);
+    onPick(row.name);
+    setAt(0);
+    setCaret(next.caret);
+    requestAnimationFrame(() => {
+      field.current?.focus();
+      field.current?.setSelectionRange(next.caret, next.caret);
+    });
+  };
+  /** The field's keys, while the list is open; true when one was the list's. */
+  const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>): boolean => {
+    if (!open || event.nativeEvent.isComposing) return false;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      const last = rows.length - 1;
+      setAt(event.key === 'ArrowDown' ? (shown >= last ? 0 : shown + 1) : shown <= 0 ? last : shown - 1);
+    } else if (event.key === 'Enter' || event.key === 'Tab') {
+      pick(rows[shown]!);
+    } else if (event.key === 'Escape') {
+      setClosedAt(word!.start);
+    } else return false;
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
+  };
+  const track = (event: { currentTarget: HTMLTextAreaElement }) => {
+    setCaret(event.currentTarget.selectionStart);
+    setAt(0);
+  };
+  const list = open ? (
+    inline ? (
+      <div className="lbl-at inline" role="listbox" aria-label={t('card.labels')}>
+        {rows.map((row, index) => (
+          <AtRow key={row.create ? '\u0000create' : row.name} row={row} on={index === shown} onPick={() => pick(row)} />
+        ))}
+      </div>
+    ) : (
+      <AtPop field={field}>
+        {rows.map((row, index) => (
+          <AtRow key={row.create ? '\u0000create' : row.name} row={row} on={index === shown} onHover={() => setAt(index)} onPick={() => pick(row)} />
+        ))}
+      </AtPop>
+    )
+  ) : null;
+  return { keyDown, track, list, open };
+}
+
+function AtRow({ row, on, onHover, onPick }: { row: PickRow; on: boolean; onHover?: () => void; onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={on}
+      tabIndex={-1}
+      className={[on && 'at', row.create && 'new'].filter(Boolean).join(' ') || undefined}
+      // The name keeps the keyboard.
+      onMouseDown={(event) => event.preventDefault()}
+      onMouseMove={onHover}
+      onClick={onPick}
+    >
+      {row.create ? <Icon name="plus" /> : <Dot color={row.color} name={row.name} />}
+      <span className="nm">{row.create ? t('labels.create', { label: row.name }) : row.name}</span>
+    </button>
+  );
+}
+
+/** The `@` list on a computer: under the name being typed, over everything else. */
+function AtPop({ field, children }: { field: RefObject<HTMLTextAreaElement | null>; children: ReactNode }) {
+  const [place, setPlace] = useState<CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    const box = field.current && pageBox(field.current);
+    if (!box) return;
+    const page = pageWindow();
+    const width = 220;
+    setPlace({ top: box.bottom + 4, left: Math.max(EDGE, Math.min(box.left, page.width - width - EDGE)), width });
+  }, [field]);
+  return createPortal(
+    <div className="lbl-picker lbl-at" role="listbox" aria-label={t('card.labels')} style={place ?? { opacity: 0 }}>
+      <div className="lbl-rows">{children}</div>
+    </div>,
+    document.body,
   );
 }

@@ -183,7 +183,7 @@ import { Upcoming } from './Upcoming';
 import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
 import { contentsText, quote, writtenText } from './text';
-import { type Labels, LabelsContext, LabelsWindow } from './labels';
+import { type Labels, LabelSheet, LabelsContext, LabelsWindow } from './labels';
 import { type TrashChoice, type TrashSpace, TrashView } from './Trash';
 import { TrashPreviewDialog, TrashPreviewPage } from './TrashPreview';
 import type { DescriptionHost } from './Description';
@@ -1396,7 +1396,7 @@ export function App() {
   // On a phone a task opens as a sheet; its date and record are picked in sheets; + types a new
   // task above the keyboard.
   const [taskSheet, setTaskSheet] = useState<{ list: string; id: string; subtask: boolean } | null>(null);
-  const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record' | 'assignee'; list: string; id: string } | null>(null);
+  const [taskPicker, setTaskPicker] = useState<{ kind: 'date' | 'record' | 'assignee' | 'labels'; list: string; id: string } | null>(null);
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
   // On a phone, how Upcoming shows, and the day chosen in its month, which + adds to there; tomorrow until one is chosen.
   const [upcomingView, setUpcomingView] = useState(loadUpcomingView);
@@ -1588,6 +1588,7 @@ export function App() {
       pickDate: (list: string, id: string) => setTaskPicker({ kind: 'date', list, id }),
       pickRecord: (list: string, id: string) => setTaskPicker({ kind: 'record', list, id }),
       pickAssignee: (list: string, id: string) => setTaskPicker({ kind: 'assignee', list, id }),
+      pickLabels: (list: string, id: string) => setTaskPicker({ kind: 'labels', list, id }),
       quickAdd: (list: string, section: string | null, due?: string) => setQuickAdd({ list, section, due: due ?? null }),
       nameSection: (list: string, section: Section | null) => setSectionSheet({ list, section }),
       pickDay: (title: string, onPick: (due: string | null) => void) => setDayPicker({ title, onPick }),
@@ -2384,6 +2385,9 @@ export function App() {
               if (!task) return null;
               const close = () => setTaskPicker(null);
               const team = peopleOf(taskPicker.list);
+              if (taskPicker.kind === 'labels') {
+                return <LabelSheet path={taskPicker.list} about={task.title} labels={task.labels ?? []} onChange={(labels) => session.updateTask(taskPicker.list, task.id, { labels })} onClose={close} />;
+              }
               if (taskPicker.kind === 'assignee') {
                 return (
                   team && <PeopleSheet about={task.title} team={team} current={task.assignee ?? null} onPick={(assignee) => session.updateTask(taskPicker.list, task.id, { assignee })} onClose={close} />

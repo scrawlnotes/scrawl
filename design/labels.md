@@ -98,7 +98,7 @@ Durum: 23 Ekim 2026'da kullanıcı görevlere etiket istedi; aynı işe görevin
 
 ### 3.7 Masaüstünde Save'in kalktığı yerler
 
-Dışarı tıklayınca ve Enter'la zaten kaydeden dört yer:
+Dışarı tıklayınca ve Enter'la zaten kaydeden yerler:
 
 | Yer | Bugün | Sonra |
 |---|---|---|
@@ -106,6 +106,7 @@ Dışarı tıklayınca ve Enter'la zaten kaydeden dört yer:
 | Section'ın adı | Cancel, Save | Cancel |
 | Kartın alt görevini düzenleme | Cancel, Save | Cancel |
 | Kartın başlığı ve metin alanları | Değişince Save | Yok |
+| Panoda sütunun ve fazın adı | Save | Yok (telefonda kalır) |
 
 Pencereler (Rename, kayıt formu, Fields, Settings'teki ad, Keys satırı) dışarı tıklayınca kaydetmez; Save'leri kalır.
 
@@ -179,3 +180,13 @@ Pencereler (Rename, kayıt formu, Fields, Settings'teki ad, Keys satırı) dış
 - Kartın seçicisi artık panonun değil space'in etiketlerini önerir (görevlerinkiler de).
 - Telefonda Edit labels, açık sekmenin sayfa yığınına bir sayfa olarak eklenir; geri düğmesi ve kaydırma her sayfadaki gibi.
 - Birleştirme sorusu: "“bug” is already a label · The tasks and cards with “urgent” get “bug” instead." (Merge). Silme sorusu: "It comes off 2 tasks and 1 card. They stay where they are."
+
+## 12. Yazılırken: 2. dilim (görevde etiket ve düzenleme kutusu)
+
+- Bardaki çipler değeri hemen yazar (tarih, öncelik, etiket, kişi, kayıt); Cancel yalnız başlıkla açıklamayı geri alır. Bardan açılan seçici açıkken kutu kapanmaz; seçici kapanınca klavye başlığa döner, seçici açıkken kutunun dışına basılmışsa kutu kaydedip kapanır.
+- Öncelik çipinin menüsü kutunun kendisinden açılır (satırın ··· menüsü değil), böylece kapanınca kutu nereye döneceğini bilir.
+- Satırın düğmelerine Labels simgesi, dokunmatik ekrandaki ··· menüsüne Labels… eklendi; sağ tık menüsü değişmedi.
+- `@` yalnız kelime başında açılır; görevde zaten olan etiket listede çıkmaz; seçilen etiketin önündeki boşluk kalır, kaydederken kırpılır.
+- `@` listenin satır içi eklemesinde (`+ Add task`, section ve alt görev satırı) seçilen etiketler Cancel ve Add task'ın solunda çip olarak görünür; tıklayınca kalkar.
+- Açıklamada Enter, editörün açtığı bir liste (`/` menüsü) varken listenin olur; Shift+Enter editörün kendi alt satırıdır.
+- Panoda sütun ve faz adını yerinde değiştirmenin Save'i de masaüstünde kalktı (aynı durum: dışarı tıklamak ve Enter zaten kaydediyordu).
