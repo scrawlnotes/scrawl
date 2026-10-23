@@ -2,6 +2,20 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.14
+
+Labels on tasks, filtering where a list or a board is, Filters & Labels and Favorites, and who worked on what, agents too.
+
+- A task takes labels, as a card does; a space's tasks and cards share them, each in a color of its own. They are put on from a task's row, from its editor, or with @ as its name is typed. Labels, from the picker's Edit labels…, renames them, colors them and deletes them everywhere in the space.
+- A task being edited has its date, priority, labels, who it is given to, record and Attach in a bar under it. Enter saves it, in the description too, where Ctrl+Enter starts a new line. There is no Save where leaving a field already saves: a task, a section's name, a card's subtask, its title and text fields, a board's column and phase names.
+- A collection's multi-select, as Tags in the CRM, has the same picker, and offers what the other records hold.
+- A task list and a board are filtered where they are: Search and Filter in their header, by labels, priority, due day, who and, on a board, its own fields. This device keeps each one's filter.
+- Filters & Labels is in the sidebar under Today and Upcoming, as Todoist's: the saved filters, six ready ones, and each space's labels, each opening its view. A filter is no longer a file in a folder.
+- Favorites: a note, a list, a board, a keys file, a collection, a filter or a label is starred to the top of the sidebar.
+- Who worked on a card or a task shows under it, agents too: each agent has a name of its own and shows whose it is. A card's timeline and a task's Activity… keep what mattered on it: who it was given to, moves, ticks, done and opened again. Work can be given to an agent.
+- Closing a phase asks what becomes of its cards not finished: to an open phase, out of any phase, or kept in it.
+- Search finds a task by its labels.
+
 ## 0.1.13
 
 A calendar for what has a day and a time, templates for a business and for a person, callouts in notes, and folders that move.
