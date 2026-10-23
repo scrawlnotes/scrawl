@@ -2987,6 +2987,95 @@ p { margin: 0; max-width: 68ch; }
 .ac-mstack { display: inline-flex; align-items: center; }
 .ac-mstack .mb-who { width: 24px; height: 24px; margin-left: -6px; box-shadow: 0 0 0 2px var(--m-bg); font-size: 11px; }
 .ac-mstack .mb-who:first-child { margin-left: 0; }
+
+/* labels on tasks, the one picker, a task's editor with its bar (Oct 23, a draft; design/labels.md) */
+.lbm .lbl { display: inline-flex; align-items: center; padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; white-space: nowrap; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.lbm .meta { align-items: center; }
+.lbm .meta .lbs { display: inline-flex; gap: 4px; }
+.lbm .task { position: relative; }
+.lbm .racts span.on { background: var(--m-sel); color: var(--m-fg); }
+.lb-pop { position: absolute; z-index: 6; width: 236px; padding: 4px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .4); font-size: 12.5px; text-align: left; }
+.lb-pop .q { display: flex; align-items: center; margin-bottom: 4px; padding: 5px 8px 7px; border-bottom: 1px solid var(--m-line); color: var(--m-fg); }
+.lb-pop .q .ph { color: var(--m-faint); }
+.lb-pop .r { display: flex; align-items: center; gap: 8px; min-height: 24px; padding: 0 8px; border-radius: 5px; color: var(--m-fg); }
+.lb-pop .r.hot { background: var(--m-sel); }
+.lb-pop .r i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--lc); }
+.lb-pop .r .tk { margin-left: auto; color: var(--m-accent); font-size: 12px; }
+.lb-pop .r small { margin-left: auto; color: var(--m-faint); font-size: 11px; }
+.lb-pop .r.new, .lb-pop .r.edl { color: var(--m-dim); }
+.mock .lb-pop .r svg { flex: none; width: 12px; height: 12px; margin: 0 -2px; color: var(--m-faint); }
+.lb-pop .sep { height: 1px; margin: 4px 2px; background: var(--m-line); }
+.lb-pop .hint { padding: 4px 8px 2px; color: var(--m-faint); font-size: 11px; }
+.lb-at { padding: 0 2px; border-radius: 3px; background: color-mix(in srgb, var(--m-accent) 20%, transparent); color: var(--m-accent); }
+.lbm .task.editing { margin: 6px -10px; }
+.lbm .task.editing .desc { display: block; margin-top: 2px; color: var(--m-fg); -webkit-line-clamp: unset; }
+.lbm .task.editing .subline { margin-top: 4px; font-size: 11.5px; color: var(--m-dim); }
+.lb-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; padding: 8px 0 0 28px; border-top: 1px solid var(--m-line); }
+.lb-bar .chip, .lbm .up-qa .chips span { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-dim); font-size: 11.5px; box-sizing: border-box; }
+.lb-bar .chip.on, .lbm .up-qa .chips span.on { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); color: var(--m-accent); }
+.lb-bar .chip.p2 { border-color: color-mix(in srgb, var(--m-p2) 55%, transparent); color: var(--m-p2); }
+.lb-bar .chip.lbc, .lbm .up-qa .chips span.lbc { gap: 4px; color: var(--m-fg); }
+.lb-bar .chip.lbc i, .lbm .up-qa .chips span.lbc i { width: 7px; height: 7px; border-radius: 50%; background: var(--lc); }
+.lb-bar .chip.lbc b, .lbm .up-qa .chips span.lbc b { margin-right: 3px; font-weight: 400; }
+.lb-bar .chip.who { gap: 6px; color: var(--m-fg); }
+.lb-bar .chip.who .who { display: grid; place-items: center; width: 15px; height: 15px; margin: 0; border-radius: 50%; background: color-mix(in srgb, var(--m-accent) 22%, transparent); color: var(--m-fg); font-size: 8.5px; font-weight: 600; }
+.lb-bar .chip.ic { width: 26px; padding: 0; justify-content: center; }
+.mock .lb-bar svg, .mock .lbm .up-qa svg { width: 12px; height: 12px; }
+.lb-bar .cancel { margin-left: auto; padding: 3px 10px; border-radius: 6px; color: var(--m-dim); font-size: 12px; }
+.lb-bar .cancel:hover { background: var(--m-sel); }
+.lbm .up-qa { margin-top: 8px; }
+.lbm .up-qa .in { white-space: pre; }
+.lbm .up-qa .chips span.ic { width: 26px; padding: 0; justify-content: center; }
+.mdlg.lb-dlg { width: 470px; padding: 14px 14px 12px; }
+.lb-dlg .hd { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.lb-dlg .hd h3 { margin: 0; }
+.lb-dlg .hd small { color: var(--m-faint); font-size: 12px; }
+.lb-dlg .what { margin: -2px 0 10px; color: var(--m-dim); font-size: 12px; }
+.lb-li { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr) auto 22px; align-items: center; gap: 10px; min-height: 32px; padding: 0 6px 0 8px; border-bottom: 1px solid var(--m-line); font-size: 13px; color: var(--m-fg); }
+.lb-li:last-of-type { border-bottom: 0; }
+.lb-li > i { width: 10px; height: 10px; border-radius: 50%; background: var(--lc); }
+.lb-li > i.picking { box-shadow: 0 0 0 2px var(--m-side), 0 0 0 3.5px var(--lc); }
+.lb-li small { color: var(--m-faint); font-size: 11.5px; white-space: nowrap; }
+.lb-li .more { display: grid; place-items: center; width: 22px; height: 20px; border-radius: 4px; color: var(--m-faint); letter-spacing: 1px; }
+.lb-li.menu { background: var(--m-sel); border-radius: 5px; }
+.lb-li.menu .more { color: var(--m-fg); }
+.lb-li .in { padding: 3px 8px; border: 1px solid var(--m-accent); border-radius: 5px; background: var(--m-bg); }
+.lb-li .cmenu { top: 30px; right: 4px; }
+.lb-pal { position: absolute; top: 28px; left: 2px; z-index: 4; display: flex; gap: 6px; padding: 7px 8px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 8px 22px rgb(0 0 0 / .35); }
+.lb-pal span { width: 16px; height: 16px; border-radius: 50%; background: var(--lc); }
+.lb-pal span.on { box-shadow: 0 0 0 2px var(--m-side), 0 0 0 3.5px var(--lc); }
+.lb-add { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 8px; color: var(--m-faint); font-size: 12.5px; }
+.lb-list { border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-bg); }
+.lb-dlg .foot .st-btn { margin-left: auto; }
+.lbm .fdlg .lb-lf { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 30px; padding: 4px 8px; box-sizing: border-box; }
+.lbm .fdlg .frow .fl small { display: block; margin-top: 2px; color: var(--m-accent); font-size: 11px; letter-spacing: 0; text-transform: none; }
+.lbm .cm-side .in.lbin { position: relative; flex-wrap: wrap; gap: 4px; border-color: var(--m-accent); }
+.lbm .cm-side .in.lbin .lb-pop { top: calc(100% + 4px); right: -1px; }
+.lbm .cb-rm, .lbm .cb-rm .cb-cols, .lbm .cb-rm .cb-col { overflow: visible; }
+.lbm .cb-prop .box.lbin { position: relative; display: flex; flex-wrap: wrap; gap: 4px; }
+.lbm .cb-prop .box.lbin .lb-pop { top: calc(100% + 4px); left: -1px; }
+.lb-mlbs { display: inline-flex; gap: 5px; }
+.lbm .mb-task .meta .mb-lbl { font-size: 12px; line-height: 18px; }
+.lb-msh .mb-search { margin: 0 16px 6px; }
+.lb-msh .mb-row i.dot, .lb-mpage .mb-fr i.dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--lc); }
+.lb-msh .mb-row .tx b { font-weight: 400; }
+.lb-msh .mb-row.new { color: var(--m-dim); }
+.lb-msh .mb-row.edl { margin-top: 6px; border-top: 1px solid var(--m-line); color: var(--m-dim); }
+.mock .lb-msh .mb-row.edl svg.chev { margin-left: auto; }
+.lb-msug { display: flex; flex-direction: column; margin: 8px -16px 0; border-top: 1px solid var(--m-line); }
+.lb-msug .r { display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 0 16px; font-size: 15.5px; }
+.lb-msug .r.hot { background: var(--m-sel); }
+.lb-msug .r i { flex: none; width: 11px; height: 11px; border-radius: 50%; background: var(--lc); }
+.lb-msug .r.new { color: var(--m-dim); }
+.mock .lb-msug .r svg { width: 16px; height: 16px; color: var(--m-faint); }
+.lb-mpage .mb-fr .val { margin-left: auto; color: var(--m-faint); }
+.lb-mpage .mb-fr.addl { gap: 12px; color: var(--m-accent); }
+.mock .lb-mpage .mb-fr.addl svg { width: 18px; height: 18px; }
+.lb-mpal { display: grid; grid-template-columns: repeat(5, 36px); justify-content: space-between; gap: 14px; padding: 14px 18px 16px; }
+.lb-mpal span { width: 36px; height: 36px; border-radius: 50%; background: var(--lc); }
+.lb-mpal span.on { box-shadow: 0 0 0 3px var(--m-bg), 0 0 0 5px var(--lc); }
+.lb-mname { padding: 0 14px; min-height: 48px; display: flex; align-items: center; font-size: 16px; }
+.lb-mdel { display: flex; align-items: center; justify-content: center; min-height: 48px; color: #f0706a; font-size: 16px; }
 </style>
 
 <main class="page">
@@ -3621,6 +3710,33 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-acview="acrename">Rename</button>
         <button type="button" data-acview="acpeople">Space people</button>
         <button type="button" data-acview="acphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="labels">
+    <div class="brief">
+      <div>
+        <span class="letter">ETİKETLER</span>
+        <h2>Görevde etiket, tek seçici, görevin alt barı</h2>
+        <p>Görev etiket alır; bir space'in görevleri ve kartları aynı etiketleri kullanır, her biri kendi rengiyle. Satırda tarihten sonra çip; satırın düğmelerinde ve ··· menüsünde Labels. Seçici her yerde aynı: arama, işaret, <b>Create</b>, en altta <b>Edit labels…</b>. Başlıkta <b>@</b> yazınca liste açılır; seçilen etiket başlıktan çıkıp çipe geçer. Görevin düzenleme kutusunda düğmeler alttaki barda; Attach de orada. Save yok: Enter ya da dışarı tıklamak kaydeder, açıklamada alt satır Ctrl+Enter. Labels penceresinde yeniden adlandırma, renk ve silme. Kart ve koleksiyonun çoklu seçimi aynı seçiciyi kullanır. Teknik tasarım <code>design/labels.md</code>.</p>
+        <ul class="traits"><li>space'te ortak</li><li>dokuz renk</li><li>@ ile ekleme</li><li>tek seçici</li><li>Labels penceresi</li><li>alt bar, Save yok</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Etiket görünümü">
+        <button type="button" data-lbview="lblist">List</button>
+        <button type="button" data-lbview="lbpick">Picker</button>
+        <button type="button" data-lbview="lbedit">Edit</button>
+        <button type="button" data-lbview="lbat">@</button>
+        <button type="button" data-lbview="lbatdone">@ picked</button>
+        <button type="button" data-lbview="lbmanage">Labels</button>
+        <button type="button" data-lbview="lbcolor">Color</button>
+        <button type="button" data-lbview="lbmenu">Label menu</button>
+        <button type="button" data-lbview="lbdelete">Delete</button>
+        <button type="button" data-lbview="lbcard">Card</button>
+        <button type="button" data-lbview="lbrecord">Record</button>
+        <button type="button" data-lbview="lbphone">Telefon</button>
+        <button type="button" data-lbview="lbphone2">Telefon 2</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -11141,6 +11257,232 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderAc(sectionAc, b.dataset.acview);
   });
   renderAc(sectionAc, 'accard');
+
+  // Labels on tasks (Oct 23, a draft; design/labels.md). In Scrawl the tasks and the cards share one
+  // set of labels, each in one of the nine colors a collection's choices have. The picker is one:
+  // a line to find by, the picked labels first and ticked, Create, Edit labels. A task's editor has
+  // its buttons in a bar under it, and no Save.
+  var LBC = { gray: '#8b93a1', red: '#f0706a', orange: '#f0a54a', yellow: '#e0c04a', green: '#5cb87a', teal: '#4ac0b0', blue: '#6aa5f0', purple: '#b48ef0', pink: '#f07ab4' };
+  var LB = { waiting: 'orange', call: 'blue', release: 'green', feedback: 'purple', phone: 'teal', bug: 'red', errand: 'yellow', design: 'pink', later: 'gray', board: 'yellow', export: 'teal', berlin: 'blue', agency: 'purple', enterprise: 'green', pilot: 'orange' };
+  function lbC(name) { return LBC[LB[name]] || LBC.gray; }
+  function lbL(name) { return '<span class="lbl" style="--lc:' + lbC(name) + '">' + name + '</span>'; }
+  function lbM(name) { return '<span class="mb-lbl" style="--lc:' + lbC(name) + '">' + name + '</span>'; }
+  function lbLs(names) { return '<span class="lbs">' + names.map(lbL).join('') + '</span>'; }
+  /**
+   * The picker. `find` is what is typed in its line (none: the line is empty); `at` is the list
+   * under a name being typed, with no line of its own. `create` adds Create for a label that is not
+   * there; `edit` adds Edit labels at the foot (not in a collection).
+   */
+  function lbPop(o) {
+    function row(n, on) { return '<div class="r' + (o.hot === n ? ' hot' : '') + '" style="--lc:' + lbC(n) + '"><i></i>' + n + (on ? '<span class="tk">✓</span>' : '') + '</div>'; }
+    return '<div class="lb-pop"' + (o.style ? ' style="' + o.style + '"' : '') + '>' +
+      (o.at ? '' : '<div class="q">' + (o.find ? o.find + '<span class="caret"></span>' : '<span class="caret"></span><span class="ph">' + (o.ph || 'Find or create a label') + '</span>') + '</div>') +
+      (o.picked || []).map(function (n) { return row(n, true); }).join('') +
+      (o.rest || []).map(function (n) { return row(n, false); }).join('') +
+      (o.create ? '<div class="r new' + (o.hot === 'new' ? ' hot' : '') + '">' + ICON.plus + 'Create “' + o.create + '”</div>' : '') +
+      (o.edit ? '<div class="sep"></div><div class="r edl">' + ICON.pen + 'Edit labels…</div>' : '') + '</div>';
+  }
+  function lbTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 9 }) +
+      spRowT({ sp: true, label: 'Personal' }) +
+      spRowT({ sp: true, open: true, label: 'Scrawl' }) +
+      spRowT({ d: 1, icon: 'board', label: 'Roadmap', ct: 14, on: on === 'board' }) +
+      spRowT({ d: 1, icon: 'tasks', label: 'Tasks', ct: 6, on: on === 'tasks' }) +
+      spRowT({ d: 1, icon: 'collection', label: 'Companies', ct: 24, on: on === 'collection' }) +
+      spRowT({ d: 1, folder: true, label: 'design', ct: 12 }) +
+      spRowT({ sp: true, label: 'Side projects' }) +
+      '</div>' + spFoot(null);
+  }
+  function lbApp(on, label, body, status) {
+    return '<aside class="side">' + lbTree(on) + '</aside><section class="main"><div class="panes">' + pane(tab(on, label, 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>' + status + '</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  /** A task's row; hovered, its buttons with Labels after Priority, the picker open under it when `pop`. */
+  function lbRow(p, title, meta, o) {
+    o = o || {};
+    return '<div class="task' + (o.hover ? ' rhover' : '') + '"><span class="cb ' + p + '"></span><div><div class="tt">' + title + '</div>' +
+      (meta ? '<div class="meta">' + meta + '</div>' : '') + '</div>' +
+      (o.hover ? '<span class="racts"><span title="Date">' + ICON.cal + '</span><span title="Priority">' + ICON.flag + '</span><span title="Labels"' + (o.pop ? ' class="on"' : '') + '>' + ICON.tag + '</span><span title="Give to">' + ICON.person + '</span><span title="Record">' + ICON.collection + '</span><span title="Move to">' + ICON.move + '</span><span class="more">···</span></span>' : '') +
+      (o.pop || '') + '</div>';
+  }
+  function lbWho(ini, name) { return acWho(ini) + '<span>' + name + '</span>'; }
+  /** The labels' chip in a bar: the tag, then each label as a dot and its name. */
+  function lbChip(names, tag) {
+    return '<' + tag + ' class="' + (tag === 'span' ? 'lbc' : 'chip lbc') + '">' + ICON.tag + names.map(function (n) { return '<i style="--lc:' + lbC(n) + '"></i><b>' + n + '</b>'; }).join('') + '</' + tag + '>';
+  }
+  /** Calling the accountant, open to be edited: the name, the description, and under them the bar; Cancel at its end, no Save. */
+  function lbEditing() {
+    return '<div class="task editing"><span class="cb p2"></span><div><div class="tt">Call the accountant about the VAT return</div>' +
+      '<div class="desc">Ask whether the Q3 return can wait until Nov 10.\nShe needs the bank statements first.<span class="caret"></span></div>' +
+      '<div class="subline">from: <u>Finance: October</u></div></div>' +
+      '<div class="lb-bar"><span class="chip on">' + ICON.cal + 'Oct 27</span><span class="chip p2">' + ICON.flag + 'p2</span>' + lbChip(['call', 'waiting'], 'span').replace('class="lbc"', 'class="chip lbc"') +
+        '<span class="chip who">' + acWho('M') + 'Mert</span><span class="chip">' + ICON.collection + 'Record</span><span class="chip ic" title="Attach">' + ICON.clip + '</span>' +
+        '<span class="cancel">Cancel</span></div></div>';
+  }
+  /** Adding a task: `at` with @wa typed and the list under it; `done` once waiting is picked, out of the name and into the chip. */
+  function lbComposer(state) {
+    var name = state === 'at' ? 'Send the invoice to Acme <span class="lb-at">@wa</span><span class="caret"></span>' : 'Send the invoice to Acme<span class="caret"></span>';
+    var labels = state === 'done' ? lbChip(['waiting'], 'span').replace('class="lbc"', 'class="lbc on"') : '<span>' + ICON.tag + 'Labels</span>';
+    return '<div class="up-qa"><div class="r1"><span class="cb"></span><span class="in">' + name + '</span></div>' +
+      '<div class="ds">Description</div>' +
+      '<div class="chips"><span>' + ICON.cal + 'Date</span><span>' + ICON.flag + 'Priority</span>' + labels + '<span>' + ICON.collection + 'Record</span><span class="ic" title="Attach">' + ICON.clip + '</span></div>' +
+      '<div class="foot"><span class="where">' + ICON.tasks + 'Tasks · Scrawl ▾</span><span class="ghost">Cancel</span><span class="add">Add task</span></div>' +
+      (state === 'at' ? lbPop({ at: true, rest: ['waiting'], create: 'wa', hot: 'waiting', style: 'top: 31px; left: 190px; width: 200px' }) : '') + '</div>';
+  }
+  function lbTasks(o) {
+    o = o || {};
+    var pop = o.pick ? lbPop({ picked: ['call', 'waiting'], rest: ['bug', 'release', 'phone', 'feedback', 'errand', 'design', 'later'], hot: 'bug', edit: true, style: 'top: 34px; right: 112px' }) : '';
+    var call = o.edit ? lbEditing() : lbRow('p2', 'Call the accountant about the VAT return', '<span>Oct 27</span>' + lbLs(['call', 'waiting']) + lbWho('M', 'Mert'), { hover: o.hover || o.pick, pop: pop });
+    return '<div class="tasksv" style="position: relative"><div class="th"><b>Tasks</b><span class="chip">Scrawl</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      lbRow('p1', 'Collect the October feedback in one note', '<span>Oct 24</span>' + lbLs(['feedback'])) +
+      lbRow('p2', 'Write the release notes for 0.1.14', '<span class="today">Today</span>' + lbLs(['release'])) +
+      call +
+      lbRow('p3', 'Renew the Apple Developer account', '<span>Oct 30</span>' + lbLs(['waiting']) + lbWho('K', 'Kaan')) +
+      lbRow('', 'Fix the crash when a label has an emoji', lbLs(['bug'])) +
+      lbRow('', 'Try the server on a phone', lbLs(['phone'])) +
+      (o.compose ? lbComposer(o.compose) : '<div class="qa">+ Add task</div>') + '</div></div>';
+  }
+  // The space's labels, by name, each with how many tasks and cards have it.
+  var LB_ALL = [['bug', 4, 6], ['call', 3, 0], ['design', 0, 2], ['errand', 2, 0], ['feedback', 1, 1], ['later', 0, 0], ['phone', 2, 1], ['release', 3, 2], ['waiting', 5, 1]];
+  function lbUses(tasks, cards) {
+    var parts = [];
+    if (tasks) parts.push(tasks + (tasks === 1 ? ' task' : ' tasks'));
+    if (cards) parts.push(cards + (cards === 1 ? ' card' : ' cards'));
+    return parts.length ? parts.join(' · ') : 'not used';
+  }
+  /** Labels, over the list: rename one in place, its color from its dot, Rename, Color and Delete in its menu, Add label at the end. */
+  function lbManage(o) {
+    o = o || {};
+    var rows = LB_ALL.map(function (l) {
+      var name = l[0];
+      var shown = o.renaming === name ? '<span class="in">someday<span class="caret"></span></span>' : '<span>' + name + '</span>';
+      var pal = o.color === name ? '<div class="lb-pal">' + Object.keys(LBC).map(function (c) { return '<span' + (c === LB[name] ? ' class="on"' : '') + ' title="' + c + '" style="--lc:' + LBC[c] + '"></span>'; }).join('') + '</div>' : '';
+      var menu = o.menu === name ? '<div class="cmenu"><span>Rename</span><span>Color</span><i></i><span class="red hot">Delete</span></div>' : '';
+      return '<div class="lb-li' + (o.menu === name ? ' menu' : '') + '" style="--lc:' + lbC(name) + '"><i' + (o.color === name ? ' class="picking"' : '') + '></i>' + shown +
+        '<small>' + lbUses(l[1], l[2]) + '</small><span class="more">···</span>' + pal + menu + '</div>';
+    }).join('');
+    return '<div class="ovl center"><div class="mdlg lb-dlg"><div class="hd"><h3>Labels</h3><small>Scrawl</small></div>' +
+      '<p class="what">The labels of this space’s tasks and cards.</p>' +
+      '<div class="lb-list">' + rows + '<div class="lb-add">' + ICON.plus + 'Add label</div></div>' +
+      '<div class="foot"><span class="st-btn">Close</span></div></div></div>';
+  }
+  function lbDeleteAsk() {
+    return '<div class="ovl center"><div class="mdlg" style="width: 420px"><h3>Delete “waiting”?</h3>' +
+      '<p class="what">It comes off 5 tasks and 1 card. They stay where they are.</p>' +
+      '<div class="foot"><span class="st-btn" style="margin-right: auto">Cancel</span><span class="st-btn red fill">Delete</span></div></div></div>';
+  }
+  /** The card's Labels field with the same picker, the space's labels in it. */
+  function lbCard() {
+    var was = '<span class="fl">Labels</span><span class="in">' + lbl('board') + '</span>';
+    var now = '<span class="fl">Labels</span><span class="in lbin">' + lbL('board') + lbL('export') +
+      lbPop({ picked: ['board', 'export'], rest: ['bug', 'release', 'waiting', 'design', 'feedback'], hot: 'bug', edit: true }) + '</span>';
+    return acCardModal(false).replace(was, now);
+  }
+  /** A collection's multi-select, Tags, with the same picker: its choices and what other records have; no Edit labels, its choices are in Fields. */
+  function lbRecord() {
+    var head = ICON.collection + '<span>Companies · Scrawl</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    var tags = '<div class="cb-prop"><span class="pl">Tags</span><span class="box lbin on">' + lbL('design') + lbL('berlin') +
+      lbPop({ picked: ['design', 'berlin'], rest: ['agency', 'enterprise', 'pilot'], hot: 'agency', ph: 'Find or add a tag' }) + '</span></div>';
+    return cbRecord(head, [
+      cbProp('Name', 'Acme Corp', { req: true }) +
+      cbProp('Website', 'acme.example.com') +
+      cbProp('Segment', lbL('enterprise'), { dd: true }) +
+      tags +
+      cbProp('Notes', 'Design agency in Berlin, about 40 people; three client portals run on spreadsheets today.', { body: true })
+    ], '<span class="st-btn" style="margin-left: auto">Cancel</span><span class="st-btn go">Save</span>');
+  }
+  /** On a phone: labels in the rows, Labels in a task's sheet, the one sheet to pick them, and @ above the keyboard. */
+  function lbPhone() {
+    var list = mbPage(mbNav('Scrawl', ['dots']) + mbHead('Tasks'),
+      mbT({ p: 'p1', title: 'Collect the October feedback in one note', meta: mi('cal', 'Oct 24') + '<span class="lb-mlbs">' + lbM('feedback') + '</span>' }) +
+      mbT({ p: 'p2', title: 'Write the release notes for 0.1.14', meta: mi('cal', 'Today', 'late') + '<span class="lb-mlbs">' + lbM('release') + '</span>' }) +
+      mbT({ p: 'p2', title: 'Call the accountant about the VAT return', meta: mi('cal', 'Oct 27') + '<span class="lb-mlbs">' + lbM('call') + lbM('waiting') + '</span>' + mi('person', 'Mert') }) +
+      mbT({ p: 'p3', title: 'Renew the Apple Developer account', meta: mi('cal', 'Oct 30') + '<span class="lb-mlbs">' + lbM('waiting') + '</span>' }) +
+      mbT({ title: 'Fix the crash when a label has an emoji', meta: '<span class="lb-mlbs">' + lbM('bug') + '</span>' }) +
+      mbT({ title: 'Try the server on a phone', meta: '<span class="lb-mlbs">' + lbM('phone') + '</span>' }));
+    var task = MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh"><span class="mb-crumb">' + ICON.tasks + 'Tasks · Scrawl</span><span class="x dots">' + ICON.dots3 + '</span><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-task big"><span class="cb p2"></span><span class="tx"><b>Call the accountant about the VAT return</b><span class="desc">Ask whether the Q3 return can wait until Nov 10. She needs the bank statements first.</span></span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr">' + ICON.cal + '<span class="fl">Date</span><span class="val">Oct 27</span></div>' +
+        '<div class="mb-fr">' + ICON.flag + '<span class="fl">Priority</span><span class="val p2">' + ICON.flag + 'p2</span></div>' +
+        '<div class="mb-fr">' + ICON.tag + '<span class="fl">Labels</span><span class="val">' + lbM('call') + lbM('waiting') + '</span></div>' +
+        '<div class="mb-fr">' + ICON.person + '<span class="fl">Given to</span><span class="val">' + mbWho('M') + 'Mert</span></div>' +
+        '<div class="mb-fr">' + ICON.collection + '<span class="fl">Record</span><span class="val">None</span></div>' +
+      '</div></div></div>';
+    function pick(n, on) { return '<div class="mb-row" style="--lc:' + lbC(n) + '"><i class="dot"></i><span class="tx"><b>' + n + '</b></span>' + (on ? ICON.check.replace('<svg', '<svg class="tick"') : '') + '</div>'; }
+    var sheet = MB_DIM + '<div class="mb-sheet lb-msh"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Labels</b><small>Call the accountant…</small><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-search">' + ICON.find + 'Find or create a label</div>' +
+      pick('call', true) + pick('waiting', true) + pick('bug') + pick('release') + pick('phone') + pick('feedback') +
+      '<div class="mb-row edl">' + ICON.pen + '<span class="tx"><b>Edit labels</b></span>' + MB_CHEV + '</div></div>';
+    var add = MB_DIM + '<div class="mb-qa"><span class="tt">Send the invoice to Acme <span class="lb-at">@wa</span><span class="caret"></span></span>' +
+      '<div class="lb-msug"><div class="r hot" style="--lc:' + lbC('waiting') + '"><i></i>waiting</div><div class="r new">' + ICON.plus + 'Create “wa”</div></div>' +
+      '<div class="mb-chips"><span class="mb-chip">' + ICON.cal + 'Date</span><span class="mb-chip">' + ICON.flag + 'Priority</span><span class="mb-chip">' + ICON.tag + 'Labels</span><span class="mb-chip">' + ICON.collection + 'Record</span></div>' +
+      '<div class="foot"><span class="where">' + ICON.tasks + 'Tasks · Scrawl' + MB_CHEV + '</span><span class="addb">Add</span></div></div>' + MB_KB;
+    return [
+      mbPhone('Satırda etiketler', list, mbTabs('browse') + MB_FAB),
+      mbPhone('Görevin sheet’inde Labels', list, mbTabs('browse') + task),
+      mbPhone('Tek sheet: ara, işaretle, Edit labels', list, mbTabs('browse') + sheet),
+      mbPhone('Başlıkta @: liste başlığın altında', list, add)
+    ].join('');
+  }
+  /** On a phone: Edit labels, one label's sheet with its name, color and Delete, and Tags in a record with the same sheet. */
+  function lbPhone2() {
+    var page = mbPage(mbNav('Tasks') + mbHead('Labels', 'Scrawl'),
+      '<div class="mb-form lb-mpage"><div class="mb-group">' +
+      LB_ALL.map(function (l) { return '<div class="mb-fr" style="--lc:' + lbC(l[0]) + '"><i class="dot"></i><span class="fl">' + l[0] + '</span><span class="val">' + lbUses(l[1], l[2]) + '</span>' + MB_CHEV + '</div>'; }).join('') +
+      '</div><div class="mb-group" style="margin-top: 14px"><div class="mb-fr addl">' + ICON.plus + 'Add label</div></div></div>');
+    var one = MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>Label</b><span class="ok">Save</span></div>' +
+      '<div class="mb-form"><div class="mb-group"><div class="lb-mname">waiting<span class="caret"></span></div></div>' +
+      '<div class="mb-cap">Color</div><div class="mb-group"><div class="lb-mpal">' + Object.keys(LBC).map(function (c) { return '<span' + (c === 'orange' ? ' class="on"' : '') + ' style="--lc:' + LBC[c] + '"></span>'; }).join('') + '</div></div>' +
+      '<p class="mb-note" style="margin: 10px 4px 12px; color: var(--m-faint); font-size: 13px">On 5 tasks and 1 card in Scrawl.</p>' +
+      '<div class="mb-group"><div class="lb-mdel">Delete label</div></div></div></div>';
+    function pick(n, on) { return '<div class="mb-row" style="--lc:' + lbC(n) + '"><i class="dot"></i><span class="tx"><b>' + n + '</b></span>' + (on ? ICON.check.replace('<svg', '<svg class="tick"') : '') + '</div>'; }
+    var tags = MB_DIM + '<div class="mb-sheet lb-msh"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Tags</b><small>Acme Corp</small><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-search">' + ICON.find + 'Find or add a tag</div>' +
+      pick('design', true) + pick('berlin', true) + pick('agency') + pick('enterprise') + pick('pilot') + '</div>';
+    return [
+      mbPhone('Edit labels: space’in etiketleri', page),
+      mbPhone('Bir etiket: adı, rengi, Delete', page, one),
+      mbPhone('Koleksiyonda aynı sheet: Tags', mbAcme({}), tags)
+    ].join('');
+  }
+  var LB_VIEWS = {
+    lblist: function () { return lbApp('tasks', 'Tasks · Scrawl', lbTasks({ hover: true }), '6 tasks'); },
+    lbpick: function () { return lbApp('tasks', 'Tasks · Scrawl', lbTasks({ pick: true }), '6 tasks'); },
+    lbedit: function () { return lbApp('tasks', 'Tasks · Scrawl', lbTasks({ edit: true }), '6 tasks'); },
+    lbat: function () { return lbApp('tasks', 'Tasks · Scrawl', lbTasks({ compose: 'at' }), '6 tasks'); },
+    lbatdone: function () { return lbApp('tasks', 'Tasks · Scrawl', lbTasks({ compose: 'done' }), '6 tasks'); },
+    lbmanage: function () { return lbApp('tasks', 'Tasks · Scrawl', lbTasks(), '6 tasks') + lbManage({ renaming: 'later' }); },
+    lbcolor: function () { return lbApp('tasks', 'Tasks · Scrawl', lbTasks(), '6 tasks') + lbManage({ color: 'phone' }); },
+    lbmenu: function () { return lbApp('tasks', 'Tasks · Scrawl', lbTasks(), '6 tasks') + lbManage({ menu: 'waiting' }); },
+    lbdelete: function () { return lbApp('tasks', 'Tasks · Scrawl', lbTasks(), '6 tasks') + lbManage({}) + lbDeleteAsk(); },
+    lbcard: function () { return lbApp('board', 'Roadmap', acBoard('SCR-31'), '14 cards') + lbCard(); },
+    lbrecord: function () { return lbApp('collection', 'Companies', colView(false), '24 records') + lbRecord(); }
+  };
+  function renderLb(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'lbphone' || view === 'lbphone2') {
+      mock.className = 'mock dir-a phones mbs lbm' + (view === 'lbphone' ? ' four' : '');
+      mock.innerHTML = view === 'lbphone' ? lbPhone() : lbPhone2();
+    } else {
+      mock.className = 'mock dir-a wider lbm';
+      mock.innerHTML = LB_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-lbview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.lbview === view));
+    });
+  }
+  var sectionLb = document.querySelector('.dir[data-dir="labels"]');
+  sectionLb.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-lbview]');
+    if (b) renderLb(sectionLb, b.dataset.lbview);
+  });
+  renderLb(sectionLb, 'lblist');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
