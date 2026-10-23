@@ -108,6 +108,7 @@ import {
 import { CardPanel, type CardPanelActions } from './CardPanel';
 import { CalendarNav, CalendarViewDialog, calendarStatus, CollectionCalendar, firstRange, PhoneCollectionCalendar, useCalendarNav } from './CollectionCalendar';
 import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
+import { fieldChoices, LabelsField } from './labels';
 import { FieldsDialog } from './Fields';
 import { CellEditor, useGrid } from './Grid';
 import { isPhone, onPage } from './device';
@@ -303,6 +304,15 @@ export interface ValueContext {
   collection: CollectionActions['collection'];
   openLink: (href: string) => void;
   openRecord?: (field: Field, link: Link) => void;
+  /** What the other records, or the board's other cards, hold in a multi-select: offered beside its choices. */
+  used?: (field: Field) => string[];
+}
+
+/** The words a multi-select holds across records or cards, those held most first. */
+export function usedValues(values: unknown[]): string[] {
+  const counts = new Map<string, number>();
+  for (const value of values) if (Array.isArray(value)) for (const each of value) if (typeof each === 'string' && each.trim()) counts.set(each, (counts.get(each) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([word]) => word);
 }
 
 const isAddress = (type: Field['type']) => type === 'url' || type === 'email' || type === 'phone';
@@ -463,72 +473,23 @@ function SelectField({ field, value, onChange }: { field: Field; value: string |
 }
 
 /**
- * The choices of a multi-select as chips in a box, with a line to type in; the list under it
- * shows the choices left, narrowed by what is typed. Enter or a click adds one; what is typed
- * that is no choice is added as it is, which is how tags come to be. Backspace on an empty line
- * takes the last chip off.
+ * The choices of a multi-select as chips in a box; a click opens the picker tasks and cards have,
+ * with the field's choices and what the other records hold, and a word none of them is can be
+ * added, which is how tags come to be. The choices are changed in Fields, not here.
  */
-function ChipsField({ field, value, onChange }: { field: Field; value: string[]; onChange: (value: string[]) => void }) {
-  const [typed, setTyped] = useState('');
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  const input = useRef<HTMLInputElement>(null);
-  const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
-  const q = typed.trim().toLowerCase();
-  const left = (field.options ?? []).filter((o) => !value.includes(o) && (!q || o.toLowerCase().includes(q)));
-  const known = left.some((o) => o.toLowerCase() === q) || value.some((v) => v.toLowerCase() === q);
-  const options: Option[] = [
-    ...choiceOptions(field, left),
-    ...(q && !known ? [{ value: typed.trim(), label: t('collection.addTagNamed', { name: typed.trim() }), chip: false }] : []),
-  ];
-  const add = (item: string | null) => {
-    const clean = item?.trim() ?? '';
-    if (clean && !value.includes(clean)) onChange([...value, clean]);
-    setTyped('');
-  };
+function ChoicesField({ id, field, value, used, onChange }: { id: string; field: Field; value: string[]; used: string[]; onChange: (value: string[]) => void }) {
   return (
-    <>
-      <div ref={box} className="chips" onClick={() => input.current?.focus()}>
-        {value.map((item) => (
-          <Chip key={item} text={item} color={optionColor(field, item)}>
-            <button type="button" aria-label={t('collection.removeChoice', { name: item })} onClick={() => onChange(value.filter((v) => v !== item))}>
-              ×
-            </button>
-          </Chip>
-        ))}
-        <input
-          ref={input}
-          id={`field-${field.key}`}
-          aria-label={field.label}
-          autoComplete="off"
-          placeholder={t('collection.addTag')}
-          value={typed}
-          onFocus={() => setOpen(true)}
-          onChange={(event) => {
-            // Typed or pasted with commas, every complete part becomes a chip at once.
-            const parts = event.target.value.split(',');
-            if (parts.length > 1) {
-              const added = parts.slice(0, -1).map((p) => p.trim()).filter((p, i, all) => p && !value.includes(p) && all.indexOf(p) === i);
-              if (added.length > 0) onChange([...value, ...added]);
-            }
-            setTyped(parts[parts.length - 1]!);
-            setOpen(true);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Backspace' && !typed && value.length > 0) return onChange(value.slice(0, -1));
-            if (open && options.length > 0 && LIST_KEYS.includes(event.key)) return keys.current?.(event);
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              event.stopPropagation();
-              add(typed);
-            } else if (event.key === 'Escape') setOpen(false);
-          }}
-        />
-      </div>
-      {open && options.length > 0 && (
-        <OptionList anchor={box} options={options} current={[]} label={field.label} keys={keys} onPick={add} onClose={() => setOpen(false)} />
-      )}
-    </>
+    <LabelsField
+      id={id}
+      path=""
+      labels={value}
+      known={fieldChoices(field, used)}
+      edit={false}
+      placeholder={t('collection.findOrAdd')}
+      createText={(name) => t('collection.addTagNamed', { name })}
+      onCreate={() => undefined}
+      onChange={onChange}
+    />
   );
 }
 
@@ -678,7 +639,7 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
     case 'select':
       return <SelectField field={field} value={typeof value === 'string' && value ? value : null} onChange={onChange} />;
     case 'multi-select':
-      return <ChipsField field={field} value={Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []} onChange={onChange} />;
+      return <ChoicesField id={id} field={field} value={Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []} used={ctx.used?.(field) ?? []} onChange={onChange} />;
     case 'checkbox':
       return (
         <label className="check">
@@ -1422,7 +1383,7 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
     followed.current = original;
     setDraft((d) => (differs(d, before) ? d : original));
   }, [original]);
-  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])) };
   const buttons = useMemo(() => actionsOf(collection.rules), [collection.rules]);
 
   const layout: Layout = useMemo(() => recordLayout(schema, dir, isNew, actions, buttons.length > 0), [schema, isNew, dir, actions, buttons.length]);
@@ -1960,7 +1921,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const fields = state.columns ? [allFields[0]!, ...state.columns.map((k) => fieldsByKey.get(k)).filter((f): f is Field => !!f && f.key !== allFields[0]!.key)] : allFields;
   const sortField = fieldsByKey.get(state.sort.key);
   const applied = state.conditions.filter(isComplete);
-  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])) };
   const noFields = schema.fields.length === 0;
   // What does not fit the schema in each record, and the checks of the collection's rules it fails, by its id; a record with none is not in it.
   const problems = useMemo(

@@ -59,7 +59,8 @@ import {
 import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
-import { type CollectionActions, type Draft, differs, draftOf, excerpt, NotesBlock, recordLayout, savePreview, singularOf, type ValueContext } from './Collection';
+import { type CollectionActions, type Draft, differs, draftOf, excerpt, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext } from './Collection';
+import { fieldChoices, LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
 import { Subtasks } from './Subtasks';
 import { DateSheet } from './PhoneTasks';
@@ -372,23 +373,14 @@ function FieldRows({ schema, fields, values, rollups, original, problems, firstF
   );
 }
 
-/** The choices of a field in a sheet, each as its chip, the ones picked ticked. One is picked and the sheet closes; of several, each is turned on and off, and a new one can be added. */
+/** A select's choices in a sheet, each as its chip, the one picked ticked; one is picked and the sheet closes. Several choices have the labels' sheet. */
 function ChoiceSheet({ field, value, about, onChange, onClose }: { field: Field; value: FieldValue; about: string; onChange: (value: FieldValue) => void; onClose: () => void }) {
-  const many = field.type === 'multi-select';
-  const picked = many ? (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []) : typeof value === 'string' && value ? [value] : [];
-  const [typed, setTyped] = useState('');
+  const picked = typeof value === 'string' && value ? value : null;
   // A value the choices do not have, as another tool wrote it, stays there to be taken off.
-  const options = [...(field.options ?? []), ...picked.filter((p) => !field.options?.includes(p))];
+  const options = [...(field.options ?? []), ...(picked && !field.options?.includes(picked) ? [picked] : [])];
   const pick = (option: string) => {
-    if (many) return onChange(picked.includes(option) ? picked.filter((p) => p !== option) : [...picked, option]);
-    onChange(picked[0] === option ? null : option);
+    onChange(picked === option ? null : option);
     onClose();
-  };
-  const add = (event: FormEvent) => {
-    event.preventDefault();
-    const clean = typed.trim();
-    if (clean && !picked.includes(clean)) onChange([...picked, clean]);
-    setTyped('');
   };
   return (
     <Sheet label={field.label} className="mb-create" onClose={onClose}>
@@ -398,27 +390,19 @@ function ChoiceSheet({ field, value, about, onChange, onClose }: { field: Field;
         <SheetClose onClose={onClose} />
       </div>
       <div className="mb-form">
-        {(options.length > 0 || many) && (
+        {options.length > 0 && (
           <div className="mb-group">
             {options.map((option) => (
               <button key={option} type="button" className="mb-fr pick" onClick={() => pick(option)}>
                 <span className="in">
                   <Chip text={option} color={optionColor(field, option)} />
                 </span>
-                <Tick on={picked.includes(option)} />
+                <Tick on={picked === option} />
               </button>
             ))}
-            {many && (
-              <form className="mb-fr add-sub" onSubmit={add}>
-                <input className="in" enterKeyHint="done" aria-label={t('phone.newChoice')} placeholder={t('phone.newChoice')} value={typed} onChange={(event) => setTyped(event.target.value)} />
-                <button type="submit" className="go" disabled={!typed.trim()}>
-                  {t('collection.add')}
-                </button>
-              </form>
-            )}
           </div>
         )}
-        {options.length === 0 && !many && <p className="mb-hint">{t('phone.noChoices')}</p>}
+        {options.length === 0 && <p className="mb-hint">{t('phone.noChoices')}</p>}
       </div>
     </Sheet>
   );
@@ -554,7 +538,25 @@ function FieldPicker({ field, value, about, today, ctx, onChange, onOpen, onClos
   onOpen?: (link: Link) => void;
   onClose: () => void;
 }) {
-  if (field.type === 'select' || field.type === 'multi-select') return <ChoiceSheet field={field} value={value} about={about} onChange={onChange} onClose={onClose} />;
+  // Several choices are picked in the sheet tasks and cards have: the field's choices and what other records hold.
+  if (field.type === 'multi-select') {
+    return (
+      <LabelSheet
+        path=""
+        title={field.label}
+        about={about}
+        labels={Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []}
+        known={fieldChoices(field, ctx.used?.(field) ?? [])}
+        edit={false}
+        placeholder={t('collection.findOrAdd')}
+        createText={(name) => t('collection.addTagNamed', { name })}
+        onCreate={() => undefined}
+        onChange={onChange}
+        onClose={onClose}
+      />
+    );
+  }
+  if (field.type === 'select') return <ChoiceSheet field={field} value={value} about={about} onChange={onChange} onClose={onClose} />;
   if (field.type === 'link') return <LinkSheet field={field} value={value} records={field.collection ? ctx.records(field.collection) : null} onChange={onChange} onOpen={onOpen} onClose={onClose} />;
   if (field.type === 'date' && field.time) return <DateTimeSheet label={field.label} title={about} value={typeof value === 'string' && value ? value : null} today={today} onChange={onChange} onClose={onClose} />;
   if (field.type === 'date') {
@@ -618,7 +620,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   const [picking, setPicking] = useState<Field | null>(null);
   const busy = useRef(false);
   const dirty = differs(draft, original);
-  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])) };
 
   // Changed elsewhere, or saved, while nothing is changed here: the page shows the record as it is.
   const dirtyNow = useRef(dirty);
@@ -1064,7 +1066,7 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState<Field | null>(null);
   const busy = useRef(false);
-  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])) };
   // The checks of the collection's rules it fails as it is typed: said under the form, the fields marked.
   const checked = computer.checks(dir, null, draft.values);
   const layout = recordLayout(schema, dir, true, actions);

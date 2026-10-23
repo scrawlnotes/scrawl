@@ -1,4 +1,4 @@
-import { labelColor, type LabelUse, OPTION_COLORS, type OptionColor, sameLabel } from '@scrawlnotes/core';
+import { type Field, labelColor, type LabelUse, OPTION_COLORS, type OptionColor, optionColor, sameLabel } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import {
   createContext,
@@ -66,8 +66,32 @@ export function LabelDot({ path, name }: { path: string; name: string }) {
   return <i className="lbl-dot" style={style(name)} title={name} aria-label={name} />;
 }
 
-/** A label's dot in its color, for a row of a list. */
-const Dot = ({ color, name }: { color: OptionColor; name: string }) => <i className="lbl-dot" style={hueStyle(color, name)} aria-hidden="true" />;
+/** A label's dot in its color, for a row of a list; with none, the color its text gives it, as a collection's choices have. */
+const Dot = ({ color, name }: { color?: OptionColor; name: string }) => <i className="lbl-dot" style={hueStyle(color, name)} aria-hidden="true" />;
+
+/**
+ * What the picker offers when it is not a space's labels: a collection's or a board's field's
+ * choices, in their order, each in the color the field gives it, else the one its text gives it.
+ */
+export interface LabelChoice {
+  name: string;
+  color?: OptionColor;
+}
+
+/**
+ * A multi-select's choices for the picker: its options, then what the other records or cards hold
+ * that is none of them, the most used first (a tag written in one is offered in the next).
+ */
+export function fieldChoices(field: Field, used: string[]): LabelChoice[] {
+  const options = field.options ?? [];
+  return [...options, ...used.filter((value) => !options.includes(value))].map((name) => ({ name, color: optionColor(field, name) }));
+}
+
+/** A label's color among what is offered: a field's choice keeps the one its text gives it when it has none. */
+function colorIn(known: (LabelUse | LabelChoice)[], name: string, given: boolean): OptionColor | undefined {
+  if (!given) return labelColor(name, known);
+  return known.find((each) => each.name === name)?.color;
+}
 
 /** How many tasks and cards have a label. */
 export function usesText(use: Pick<LabelUse, 'tasks' | 'cards'>): string {
@@ -83,26 +107,31 @@ function usesSentence(use: Pick<LabelUse, 'tasks' | 'cards'>): string {
 }
 
 /** A row of the picker: a label, or one to make from what is typed. */
-type PickRow = { name: string; color: OptionColor; create?: true };
+type PickRow = { name: string; color?: OptionColor; create?: true };
 
 /**
- * The rows the picker shows: the picked labels first, then the others, the most used first. The
- * order is the one it opened with, so that nothing moves while it is open; one made is added at
- * the end. What is typed narrows it, and a word no label is yet can be made one.
+ * The rows the picker shows: the picked labels first, then the others, the most used first, or a
+ * field's choices in their own order. The order is the one it opened with, so that nothing moves
+ * while it is open; one made is added at the end. What is typed narrows it, and a word no label is
+ * yet can be made one.
  */
-function usePickRows(known: LabelUse[], picked: string[], query: string) {
+function usePickRows(known: (LabelUse | LabelChoice)[], picked: string[], query: string, given = false) {
   const [order, setOrder] = useState(() => {
-    const rest = known.filter((use) => !picked.some((name) => sameLabel(name, use.name))).sort((a, b) => b.tasks + b.cards - (a.tasks + a.cards) || a.name.localeCompare(b.name));
+    const rest = known.filter((use) => !picked.some((name) => sameLabel(name, use.name)));
+    if (!given) rest.sort((a, b) => uses(b) - uses(a) || a.name.localeCompare(b.name));
     return [...picked, ...rest.map((use) => use.name)];
   });
   const typed = query.trim();
   const rows: PickRow[] = order
     .filter((name) => name.toLowerCase().includes(typed.toLowerCase()))
-    .map((name) => ({ name, color: labelColor(name, known) }));
-  if (typed && !order.some((name) => sameLabel(name, typed))) rows.push({ name: typed, color: labelColor(typed, known), create: true });
+    .map((name) => ({ name, color: colorIn(known, name, given) }));
+  if (typed && !order.some((name) => sameLabel(name, typed))) rows.push({ name: typed, color: colorIn(known, typed, given), create: true });
   const made = (name: string) => setOrder((now) => (now.some((each) => sameLabel(each, name)) ? now : [...now, name]));
   return { rows, made };
 }
+
+/** How many tasks and cards have a label; a field's choice counts none. */
+const uses = (each: LabelUse | LabelChoice) => ('tasks' in each ? each.tasks + each.cards : 0);
 
 /** Picked labels with one put on or taken off. */
 const toggled = (picked: string[], name: string) => (picked.some((each) => sameLabel(each, name)) ? picked.filter((each) => !sameLabel(each, name)) : [...picked, name]);
@@ -122,7 +151,7 @@ export function LabelPop({ anchor, path, picked, known: given, edit = true, plac
   path: string;
   picked: string[];
   /** The labels to pick from, when they are not the space's: a collection's choices. */
-  known?: LabelUse[];
+  known?: LabelChoice[];
   /** Edit labels at the foot; not where the labels are a collection field's choices. */
   edit?: boolean;
   placeholder?: string;
@@ -143,7 +172,7 @@ export function LabelPop({ anchor, path, picked, known: given, edit = true, plac
   const search = useRef<HTMLInputElement>(null);
   /** How tall the picker is with every label in view, measured when it opens. */
   const natural = useRef(0);
-  const { rows, made } = usePickRows(known, picked, query);
+  const { rows, made } = usePickRows(known, picked, query, !!given);
 
   // Under its anchor, or above it when there is more room above; never past the window's edges.
   // Below, it hangs from the anchor and shrinks as the rows are filtered. Above, it keeps the
@@ -306,7 +335,7 @@ export function LabelsField({ id, path, labels, known, edit, placeholder, create
   id?: string;
   path: string;
   labels: string[];
-  known?: LabelUse[];
+  known?: LabelChoice[];
   edit?: boolean;
   placeholder?: string;
   createText?: (name: string) => string;
@@ -322,7 +351,7 @@ export function LabelsField({ id, path, labels, known, edit, placeholder, create
       <button ref={field} id={id} type="button" className="lbl-field" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>
         {labels.length > 0 ? (
           labels.map((name) => (
-            <span key={name} className="lbl" style={hueStyle(labelColor(name, colors), name)}>
+            <span key={name} className="lbl" style={hueStyle(colorIn(colors, name, !!known), name)}>
               {name}
             </span>
           ))
@@ -362,7 +391,7 @@ export function LabelSheet({ path, about, title = t('card.labels'), labels, know
   about?: string;
   title?: string;
   labels: string[];
-  known?: LabelUse[];
+  known?: LabelChoice[];
   edit?: boolean;
   placeholder?: string;
   createText?: (name: string) => string;
@@ -374,7 +403,7 @@ export function LabelSheet({ path, about, title = t('card.labels'), labels, know
   const known = given ?? all.of(path);
   const [picked, setPicked] = useState(labels);
   const [query, setQuery] = useState('');
-  const { rows, made } = usePickRows(known, labels, query);
+  const { rows, made } = usePickRows(known, labels, query, !!given);
   const change = (next: string[]) => {
     setPicked(next);
     onChange(next);

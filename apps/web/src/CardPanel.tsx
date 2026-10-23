@@ -39,7 +39,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Cell, type CollectionActions, FieldInput, RecordDialog, type ValueContext } from './Collection';
+import { Cell, type CollectionActions, FieldInput, RecordDialog, usedValues, type ValueContext } from './Collection';
 import { isPhone, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { useEscape } from './choices';
@@ -554,6 +554,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
     collection: records.collection,
     openLink: records.openLink,
     openRecord: (field: Field, link: Link) => field.collection && setOver({ dir: field.collection, id: link.id }),
+    used: (field: Field) => usedValues(board.cards.map((each) => each.values?.[field.key])),
   };
   const overCollection = over ? records.collection(over.dir) : null;
   const overRecord = over ? (overCollection?.records.find((r) => r.id === over.id) ?? null) : null;
@@ -770,6 +771,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
     collection: records.collection,
     openLink: records.openLink,
     openRecord: (field: Field, link: Link) => field.collection && (records.show ? records.show(field.collection, link.id) : setOver({ dir: field.collection, id: link.id })),
+    used: (field: Field) => usedValues(board.cards.map((each) => each.values?.[field.key])),
   };
   const overCollection = over ? records.collection(over.dir) : null;
   const overRecord = over ? (overCollection?.records.find((r) => r.id === over.id) ?? null) : null;

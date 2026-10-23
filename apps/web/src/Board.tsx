@@ -41,7 +41,7 @@ import { StatusIcon } from './StatusIcon';
 import { MonthCalendar, type MonthChip } from './Calendar';
 import { CardPanel, type CardPanelActions } from './CardPanel';
 import { assigneeLabel, CardWho, hasCardWho, initialOf, WhoOf } from './People';
-import { Cell, type ValueContext } from './Collection';
+import { Cell, usedValues, type ValueContext } from './Collection';
 import { BoardFieldsDialog } from './Fields';
 import { isPhone, pageBox } from './device';
 import type { MenuItem } from './dialogs';
@@ -1157,7 +1157,12 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
     '--lcols': [LIST_COLUMNS, ...own.map((f) => `${LIST_WIDTHS[f.type]}px`)].join(' '),
     '--lmin': `${LIST_LEAST + own.reduce((sum, f) => sum + LIST_WIDTHS[f.type] + 12, 0)}px`,
   } as React.CSSProperties;
-  const ctx: ValueContext = { records: actions.recordActions.records, collection: actions.recordActions.collection, openLink: actions.recordActions.openLink };
+  const ctx: ValueContext = {
+    records: actions.recordActions.records,
+    collection: actions.recordActions.collection,
+    openLink: actions.recordActions.openLink,
+    used: (field) => usedValues(board.cards.map((each) => each.values?.[field.key])),
+  };
   const listed = shown.flatMap((group) => group.cards);
   const sumOf = (field: Field) => {
     const numbers = listed.map((card) => valueOf(card, field)).filter((v): v is number => typeof v === 'number');

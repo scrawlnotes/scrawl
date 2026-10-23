@@ -1256,6 +1256,7 @@ export const en = {
   'collection.yes': 'yes',
   'collection.notesHint': 'Add a note…',
   'collection.addTagNamed': 'Add “{name}”',
+  'collection.findOrAdd': 'Find or add',
   'collection.requiredMissing': 'Needed: {fields}',
   'collection.newRecordShort': 'the new record',
   'collection.discardTitle': 'Discard changes?',

@@ -197,3 +197,11 @@ Pencereler (Rename, kayıt formu, Fields, Settings'teki ad, Keys satırı) dış
 - `tasks` aracının `label` süzgeci büyük-küçük harf farksızdır; `due` ve `assignee` gibi, liste ve space verilmeden bütün space'lerde arar.
 - `save_task`'ta `labels` dizinin tamamıdır: verilen, görevdekilerin yerine geçer; `[]` hepsini kaldırır. `items` ile eklerken de olur.
 - Rehber, bir space'te görev ve kart etiketlerinin ortak olduğunu ve yeni etiket uydurmadan önce varolanlara bakılacağını söyler; rengi ve yeniden adlandırması kişinindir.
+
+## 14. Yazılırken: 4. dilim (koleksiyonun çoklu seçimi)
+
+- Koleksiyonun ve panonun çoklu seçim alanı ortak seçiciyi kullanır: kayıt formunda (bugünkü yazarak eklenen kutunun yerine), tablo hücresinde, kartın alanlarında ve telefonda (sheet). Arama satırı "Find or add", olmayan değer "Add “…”".
+- Listede önce seçili olanlar, sonra alanın seçenekleri şemadaki sırayla, sonra başka kayıtlarda (panoda başka kartlarda) yazılmış değerler, en çok kullanılan önce.
+- Renk alanın verdiği; vermediği seçenek bugünkü gibi metninden renk alır, etiketlerin dokuz rengine dönmez.
+- Yazılan yeni değer yalnız kayda girer: alanın seçeneklerine eklenmez, space'in etiket dosyasına yazılmaz; seçenekler Fields'ta düzenlenir, Edit labels çıkmaz.
+- Tek seçimli alan (select) bugünkü gibi kalır.

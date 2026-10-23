@@ -3,6 +3,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
 import { Chip, choiceOptions, type Option, OptionList } from './choices';
 import { type ValueContext } from './Collection';
+import { fieldChoices, LabelPop } from './labels';
 import { DateTimeBox } from './TimeInputs';
 
 // A table typed in as a sheet is, after the slice 3 views of design/mockups.html: a click picks
@@ -132,7 +133,7 @@ export function CellEditor({ field, value, typed, ctx, onDone }: {
   onDone: (value: FieldValue | undefined, then?: Then) => void;
 }) {
   if (field.type === 'select') return <ChoiceEditor field={field} value={typeof value === 'string' ? value : null} onDone={onDone} />;
-  if (field.type === 'multi-select') return <ChoicesEditor field={field} value={Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []} onDone={onDone} />;
+  if (field.type === 'multi-select') return <ChoicesEditor field={field} value={Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []} used={ctx.used?.(field) ?? []} onDone={onDone} />;
   if (field.type === 'link') return <LinkEditor field={field} value={value} typed={typed} ctx={ctx} onDone={onDone} />;
   if (field.type === 'date' && field.time) return <DateTimeEditor field={field} value={value} onDone={onDone} />;
   return <TextEditor field={field} value={value} typed={typed} onDone={onDone} />;
@@ -264,28 +265,33 @@ function ChoiceEditor({ field, value, onDone }: { field: Field; value: string | 
   );
 }
 
-/** Several choices: each one picked is ticked or taken off; the list closing writes them. */
-function ChoicesEditor({ field, value, onDone }: { field: Field; value: string[]; onDone: (value: FieldValue | undefined, then?: Then) => void }) {
+/**
+ * Several choices: the cell's chips, and under it the picker tasks and cards have, with the
+ * field's choices and what the other records hold; a word none of them is can be added. Closing it
+ * writes what is picked.
+ */
+function ChoicesEditor({ field, value, used, onDone }: { field: Field; value: string[]; used: string[]; onDone: (value: FieldValue | undefined, then?: Then) => void }) {
   const [chosen, setChosen] = useState(value);
   const anchor = useRef<HTMLSpanElement>(null);
-  const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
-  const options = choiceOptions(field, [...(field.options ?? []), ...value.filter((v) => !field.options?.includes(v))]);
   const latest = useRef(chosen);
   latest.current = chosen;
   return (
     <>
-      <ListBox anchor={anchor} keys={keys}>
+      <span ref={anchor} className="ce-box">
         <span className="lbls">
           {chosen.length > 0 ? chosen.map((item) => <Chip key={item} text={item} color={field.colors?.[item]} />) : <span className="none">{t('collection.none')}</span>}
         </span>
-      </ListBox>
-      <OptionList
+      </span>
+      <LabelPop
         anchor={anchor}
-        options={options}
-        current={chosen}
-        label={field.label}
-        keys={keys}
-        onPick={(picked) => picked !== null && setChosen((now) => (now.includes(picked) ? now.filter((v) => v !== picked) : [...now, picked]))}
+        path=""
+        picked={chosen}
+        known={fieldChoices(field, used)}
+        edit={false}
+        placeholder={t('collection.findOrAdd')}
+        createText={(name) => t('collection.addTagNamed', { name })}
+        onCreate={() => undefined}
+        onChange={setChosen}
         onClose={() => onDone(latest.current)}
       />
     </>
