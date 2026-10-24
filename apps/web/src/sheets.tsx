@@ -17,8 +17,8 @@ const KEYBOARD = 120;
 const ADDED_MS = 4000;
 
 /**
- * What a quick add sheet added last, said at its top for a moment while the sheet stays open for
- * the next one: `say` tells it, `line` shows it.
+ * What a quick add sheet added last, said above it for a moment while the sheet stays open for
+ * the next one: `say` tells it, `line` shows it, as the sheet's `toast`.
  */
 export function useAdded() {
   const [added, setAdded] = useState<{ text: string; key: number } | null>(null);
@@ -61,13 +61,15 @@ export function useViewport() {
  * A window on a phone: it comes up from the bottom over a dimmed page, sits above the keyboard,
  * and closes when the dim is tapped or when it is pulled down by its top.
  */
-export function Sheet({ label, className, onClose, onEscape = onClose, onKeyDown, children }: {
+export function Sheet({ label, className, onClose, onEscape = onClose, onKeyDown, toast, children }: {
   label: string;
   className?: string;
   onClose: () => void;
   /** What Esc does, when it is not closing. */
   onEscape?: () => void;
   onKeyDown?: (event: KeyboardEvent) => void;
+  /** Said for a moment over the page right above the sheet: the sheet does not move, and touches go through it. */
+  toast?: ReactNode;
   children: ReactNode;
 }) {
   const view = useViewport();
@@ -111,12 +113,18 @@ export function Sheet({ label, className, onClose, onEscape = onClose, onKeyDown
     setPull(null);
   };
 
+  const pulled = pull ? { transform: `translateY(${pull}px)`, transition: 'none' } : undefined;
   return (
     <div
       className={view.keyboard ? 'mb-sheet-back kb' : 'mb-sheet-back'}
       style={{ top: view.top, height: view.height }}
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
+      {toast && (
+        <div className="mb-sheet-toast" style={pulled}>
+          {toast}
+        </div>
+      )}
       <div
         ref={panel}
         className={className ? `mb-sheet ${className}` : 'mb-sheet'}
@@ -124,7 +132,7 @@ export function Sheet({ label, className, onClose, onEscape = onClose, onKeyDown
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        style={pull ? { transform: `translateY(${pull}px)`, transition: 'none' } : undefined}
+        style={pulled}
         onTouchStart={start}
         onTouchMove={move}
         onTouchEnd={end}

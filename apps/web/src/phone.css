@@ -2541,29 +2541,47 @@ body > .mb-lifted {
   padding: 6px 16px 8px;
 }
 
-/* the task added last, a moment, while the sheet waits for the next one */
-.mb-qa .added {
+/* what was added last, a moment, over the page right above the sheet waiting for the next one:
+   the sheet stays where it is and touches go through */
+.mb-sheet-toast {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: center;
+  height: 0;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.mb-sheet-toast .added {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 2px 0 6px;
-  padding: 9px 12px;
-  border-radius: 10px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 10px;
+  padding: 10px 18px 10px 14px;
+  border-radius: 22px;
   background: var(--sl-fg);
   color: var(--sl-bg);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
   font-size: 14.5px;
   font-weight: 600;
+  line-height: 1.35;
   animation: mb-added 180ms ease;
 }
 
-.mb-qa .added .icon {
+.mb-sheet-toast .added .icon {
   flex: none;
   width: 18px;
   height: 18px;
   stroke-width: 2.4;
 }
 
-.mb-qa .added span {
+.mb-sheet-toast .added span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -189,9 +189,8 @@ export function CardQuickAdd({ board, path, column, phase, today, onAdd, onClose
   );
   return (
     <>
-      <Sheet label={t('board.addCard')} className="mb-qa" onClose={onClose}>
+      <Sheet label={t('board.addCard')} className="mb-qa" toast={added.line} onClose={onClose}>
         <form onSubmit={add}>
-          {added.line}
           <input
             ref={titleField}
             className="tt"

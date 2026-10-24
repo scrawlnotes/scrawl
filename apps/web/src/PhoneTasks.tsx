@@ -320,9 +320,8 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, de
   );
   return (
     <>
-      <Sheet label={t('tasks.add')} className="mb-qa" onClose={onClose}>
+      <Sheet label={t('tasks.add')} className="mb-qa" toast={added.line} onClose={onClose}>
         <form onSubmit={add}>
-          {added.line}
           <TitleField
             ref={titleField}
             className="tt"
