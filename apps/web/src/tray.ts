@@ -7,14 +7,20 @@ import { isDesktop } from './storage';
 // Running on with the window closed, on the desktop (design/background.md): the shell keeps a
 // tray icon (src-tauri/src/background.rs) whose menu has its words from here and a line saying
 // how sync stands. While Background is on, closing the window hides it; Quit in the menu closes
-// the app once what was typed is written.
+// the app once what was typed is written. Opening at login is the system's, read from it.
 
 let background = true;
+/** Whether Scrawl opens at login, once the system has said. */
+let autostart: boolean | null = null;
 const listeners = new Set<() => void>();
+
+function changed() {
+  for (const listener of listeners) listener();
+}
 
 function set(next: boolean) {
   background = next;
-  for (const listener of listeners) listener();
+  changed();
 }
 
 const subscribe = (listener: () => void) => {
@@ -57,4 +63,25 @@ export const useBackground = () => useSyncExternalStore(subscribe, () => backgro
 export function setBackground(on: boolean) {
   set(on);
   void invoke('background_set', { on }).catch(() => undefined);
+}
+
+/** Whether Scrawl starts in the background at login: null until the system has said. */
+export const useAutostart = () => useSyncExternalStore(subscribe, () => autostart);
+
+/** Asks the system again: it may have been turned off there (Task Manager's Startup apps). */
+export function readAutostart() {
+  if (!isDesktop) return;
+  void invoke<boolean>('autostart_get').then(
+    (on) => {
+      autostart = on;
+      changed();
+    },
+    () => undefined,
+  );
+}
+
+export function setAutostart(on: boolean) {
+  autostart = on;
+  changed();
+  void invoke('autostart_set', { on }).then(readAutostart, readAutostart);
 }

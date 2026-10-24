@@ -497,9 +497,12 @@ async fn boot_color(app: tauri::AppHandle, bg: String) -> Result<(), String> {
     write_atomic(&file, text.as_bytes())
 }
 
-/// The page is drawn: a window that waited for it is shown.
+/// The page is drawn: a window that waited for it is shown, unless Scrawl started without one.
 #[tauri::command]
 fn window_ready(window: tauri::WebviewWindow) {
+    if background::keeps_hidden(window.app_handle()) {
+        return;
+    }
     if !window.is_visible().unwrap_or(true) {
         let _ = window.show();
     }
@@ -508,8 +511,9 @@ fn window_ready(window: tauri::WebviewWindow) {
 /// The window, made here rather than from tauri.conf.json alone: it opens in the colour the app
 /// was last drawn on, never the web view's white while it starts. On macOS the web view's own
 /// colour cannot be set, so there the window is hidden until the page is drawn (`window_ready`),
-/// three seconds at most.
-fn open_window(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+/// three seconds at most. Started by the computer, it opens hidden, and stays so until the tray
+/// shows it (`background`).
+fn open_window(app: &tauri::App, hidden: bool) -> Result<(), Box<dyn std::error::Error>> {
     let config = app.config().app.windows.first().cloned().ok_or("no window in tauri.conf.json")?;
     let bg = boot_file(app.handle())
         .ok()
@@ -518,10 +522,10 @@ fn open_window(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|boot| hex_color(&boot.bg))
         // The page's own colour before a theme is kept: the dark one.
         .unwrap_or(tauri::window::Color(0x1e, 0x22, 0x29, 255));
-    let wait = cfg!(target_os = "macos");
+    let wait = cfg!(target_os = "macos") && !hidden;
     let window = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?
         .background_color(bg)
-        .visible(!wait)
+        .visible(!wait && !hidden)
         .build()?;
     if wait {
         std::thread::spawn(move || {
@@ -535,8 +539,14 @@ fn open_window(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // First: Scrawl started again while it runs brings its window back instead.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| background::show(app)))
+        // First: Scrawl started again while it runs brings its window back instead, unless it is
+        // the computer starting it.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if !background::asks_hidden(&args) {
+                background::show(app);
+            }
+        }))
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![background::BACKGROUND_ARG])))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
@@ -546,7 +556,12 @@ pub fn run() {
         .manage(background::Background::default())
         .setup(|app| {
             background::load(app.handle());
-            open_window(app)?;
+            let hidden = background::asks_hidden(&std::env::args().collect::<Vec<_>>());
+            if hidden {
+                background::start_hidden(app.handle());
+            }
+            open_window(app, hidden)?;
+            background::autostart_once(app.handle());
             update::start(app.handle());
             Ok(())
         })
@@ -593,6 +608,8 @@ pub fn run() {
             background::tray_status,
             background::background_get,
             background::background_set,
+            background::autostart_get,
+            background::autostart_set,
             background::quit_now
         ])
         .build(tauri::generate_context!())

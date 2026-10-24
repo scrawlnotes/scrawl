@@ -18,7 +18,7 @@ import { LogsSection } from './Logs';
 import { checkForUpdates, releasePage, useAppVersion, useDesktopUpdate } from './desktopUpdate';
 import { APP_VERSION, checkForWebUpdate, PUBLISHED, subscribeUpdate, webUpdatesOn, webUpdateStatus } from './pwa';
 import { type AskOneDrive, isDesktop, type OneDriveAnswer, openUrlOnDesktop } from './storage';
-import { setBackground, useBackground } from './tray';
+import { readAutostart, setAutostart, setBackground, useAutostart, useBackground } from './tray';
 
 export type Section = 'profile' | 'appearance' | 'general' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
 
@@ -238,9 +238,11 @@ function WebAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) 
  * The version running and what is new in it; under it how the updates stand, as a space's page
  * shows its sync, with what can be done. The web has its own, WebAbout.
  */
-/** Settings › General, on the desktop: what the app does with its window closed (design/background.md 2.4). */
+/** Settings › General, on the desktop: what the app does with its window closed, and whether it opens at login (design/background.md 2.4). */
 function General() {
   const background = useBackground();
+  const autostart = useAutostart();
+  useEffect(readAutostart, []);
   return (
     <>
       <span className="st-label">{t('settings.general')}</span>
@@ -250,6 +252,13 @@ function General() {
           <span>
             {t('general.background')}
             <small>{t('general.backgroundNote')}</small>
+          </span>
+        </label>
+        <label className="st-check">
+          <input type="checkbox" checked={autostart ?? false} disabled={autostart === null} onChange={(event) => setAutostart(event.target.checked)} />
+          <span>
+            {t('general.login')}
+            <small>{t('general.loginNote')}</small>
           </span>
         </label>
       </div>

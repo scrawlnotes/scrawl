@@ -224,3 +224,18 @@ Onaydan sonra, ayrıca önerilip onayla yapılır:
   - Uygulama ikinci kez başlatılınca ikinci kopya hemen kapandı, gizli pencere geri geldi.
   - Background kapalıyken pencereyi kapatmak uygulamadan çıktı.
 - **Elle denenecek:** tepsi simgesinin ve menüsünün görünüşü, sol tık ve sağ tık, Quit (bekleyen kaydın yazılması), bildirimin görünüşü, gizliyken sync turu, General ve Agents ekranları, macOS.
+
+## 13. 2. dilim yazılırken görülenler (24 Ekim 2026)
+
+- **Açılışta başlama:** `tauri-plugin-autostart` 2.7 (altında `auto-launch` 0.6), argüman `--background`. Windows'ta değer `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` altında, adı ürünün adı (`Scrawl`). Eklentinin `is_enabled`'ı Task Manager'ın Startup apps anahtarına da bakar, orada kapatılan General'de kapalı görünür. macOS'ta `MacosLauncher::LaunchAgent`.
+- **Bir kez açılması:** yalnız derlenmiş uygulamada, ilk başlangıçta ya da bu sürüme güncellenen kurulumun ilk başlangıcında (`shell.json`'da `autostartSet`). Geliştirirken çalışan uygulama başlangıca yazılmaz; yazılsaydı kurulu uygulamayla aynı adı (`Scrawl`) taşır, onun satırının üstüne yazardı.
+- **Penceresiz başlama:** `--background` ile pencere görünmez kurulur, sayfa yüklenir ve sync döner. Sayfa çizilince gelen `window_ready` pencereyi göstermez; tepsiden Open ya da Scrawl'ın yeniden başlatılması gösterir. Bilgisayarın ikinci kez `--background` ile başlattığı kopya hiçbir şey göstermez. macOS'ta o sırada Dock'ta simge olmaz.
+- **Kaldırma:** `windows/hooks.nsh`, `NSIS_HOOK_POSTUNINSTALL` ile iki değeri siler: Run'daki satır ve Task Manager'ın anahtarı. Tauri'nin yükleyicisi güncellemede kaldırıcıyı çalıştırmaz ("In update mode, always proceeds without uninstalling"); kanca yalnız uygulama gerçekten kaldırılınca çalışır. Kişi elle yeniden kurarken "önce kaldır"ı seçerse başlangıç satırı da gider ve `autostartSet` kaldığı için kendiliğinden geri gelmez; General'den açılır. Kanca NSIS'in derleyicisinden geçti, gerçek bir kaldırmada denenmedi.
+- **General:** ikinci satır "Open at login". Durumu bölüm açılınca sistemden okunur; okunana kadar kutu pasif.
+- **Testler:** Rust'ta `--background`'u tanıyan test, `shell.json`'da `autostartSet` (Rust 20 test).
+- **Windows'ta denendi**, ayrı kimlikle (sonra silindi):
+  - `--background` ile başlayınca ana pencere görünmez kaldı, sayfa açıldı (ayar dosyası yazıldı).
+  - İkinci kez `--background` ile başlatılınca ikinci kopya kapandı, pencere gizli kaldı.
+  - Argümansız başlatılınca pencere geldi.
+  - Geliştirme derlemesi başlangıca satır yazmadı.
+- **Elle denenecek:** bilgisayar yeniden başlayınca Scrawl'ın tepside açılması, General'deki "Open at login"in açılıp kapanması ve Task Manager'da kapatılınca kapalı görünmesi, kaldırınca satırın gitmesi, macOS'ta LaunchAgent.

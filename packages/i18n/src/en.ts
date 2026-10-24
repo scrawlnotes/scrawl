@@ -257,6 +257,8 @@ export const en = {
   'settings.general': 'General',
   'general.background': 'Keep running when the window is closed',
   'general.backgroundNote': 'Your notes keep syncing, so agents on this computer work on what’s current.',
+  'general.login': 'Open at login',
+  'general.loginNote': 'Scrawl starts in the background when you sign in to this computer.',
   'tray.open': 'Open Scrawl',
   'tray.quit': 'Quit Scrawl',
   'tray.syncedAt': 'Synced at {time}',

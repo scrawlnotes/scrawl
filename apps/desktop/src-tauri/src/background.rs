@@ -1,5 +1,6 @@
 //! Running on with the window closed (design/background.md): the tray icon and its menu, the
-//! window hidden instead of closed, Quit, and what the app keeps of it in `shell.json`.
+//! window hidden instead of closed, Quit, starting without a window when the computer does, and
+//! what the app keeps of it in `shell.json`.
 //!
 //! The web app gives the menu its words and says how sync stands. Until it has, there is no tray
 //! icon, and closing the window closes the app: a window is never hidden with nothing there to
@@ -16,7 +17,11 @@ use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, CloseRequestApi, Emitter, Manager, Window, Wry};
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_notification::NotificationExt;
+
+/// The argument Scrawl is started with when the computer starts it: no window, the tray only.
+pub const BACKGROUND_ARG: &str = "--background";
 
 /// How long Quit waits for the web app to write what was typed before the app closes anyway.
 const QUIT_WAIT: Duration = Duration::from_secs(3);
@@ -30,11 +35,13 @@ pub struct Shell {
     pub background: bool,
     /// The notification of the first close was shown.
     pub background_told: bool,
+    /// Opening at login was turned on once, as it comes. Turned off after that, it stays off.
+    pub autostart_set: bool,
 }
 
 impl Default for Shell {
     fn default() -> Self {
-        Shell { background: true, background_told: false }
+        Shell { background: true, background_told: false, autostart_set: false }
     }
 }
 
@@ -60,12 +67,13 @@ struct Tray {
     words: Words,
 }
 
-/// The app's running in the background: `shell.json` as read, the tray once it is there, and
-/// whether Quit was asked.
+/// The app's running in the background: `shell.json` as read, the tray once it is there,
+/// whether the window is kept hidden since a start without one, and whether Quit was asked.
 #[derive(Default)]
 pub struct Background {
     shell: Mutex<Shell>,
     tray: Mutex<Option<Tray>>,
+    hidden: AtomicBool,
     quitting: AtomicBool,
 }
 
@@ -82,6 +90,40 @@ pub fn load(app: &AppHandle) {
         .and_then(|text| serde_json::from_str::<Shell>(&text).ok())
         .unwrap_or_default();
     *app.state::<Background>().shell.lock().unwrap() = shell;
+}
+
+/// Whether Scrawl was started without a window, by the computer as it started.
+pub fn asks_hidden(args: &[String]) -> bool {
+    args.iter().any(|arg| arg == BACKGROUND_ARG)
+}
+
+/// The window stays hidden from the start: the page opens and syncs, and nothing shows it but
+/// the tray, or Scrawl started again.
+pub fn start_hidden(app: &AppHandle) {
+    app.state::<Background>().hidden.store(true, Ordering::SeqCst);
+    #[cfg(target_os = "macos")]
+    let _ = app.set_dock_visibility(false);
+}
+
+/// Whether the window was started hidden and not shown since: the page's being drawn does not
+/// show it then.
+pub fn keeps_hidden(app: &AppHandle) -> bool {
+    app.state::<Background>().hidden.load(Ordering::SeqCst)
+}
+
+/// Opening at login comes on by itself once, in a built app: at its first start, or the first
+/// start of the version that brought it. Turned off after that, it is not turned on again.
+pub fn autostart_once(app: &AppHandle) {
+    if cfg!(debug_assertions) {
+        return;
+    }
+    let state = app.state::<Background>();
+    let mut shell = state.shell.lock().unwrap();
+    if shell.autostart_set || app.autolaunch().enable().is_err() {
+        return;
+    }
+    shell.autostart_set = true;
+    let _ = save(app, &shell);
 }
 
 fn save(app: &AppHandle, shell: &Shell) -> Result<(), String> {
@@ -134,6 +176,7 @@ fn tell_once(app: &AppHandle) {
 
 /// Brings the window back: shown, not minimized, in front.
 pub fn show(app: &AppHandle) {
+    app.state::<Background>().hidden.store(false, Ordering::SeqCst);
     #[cfg(target_os = "macos")]
     let _ = app.set_dock_visibility(true);
     if let Some(window) = app.get_webview_window("main") {
@@ -268,6 +311,20 @@ pub fn background_set(app: AppHandle, on: bool) -> Result<(), String> {
     save(&app, &shell)
 }
 
+/// Whether Scrawl starts in the background when the person signs in to the computer: as the
+/// system has it, which may have turned it off too (Task Manager's Startup apps).
+#[tauri::command]
+pub fn autostart_get(app: AppHandle) -> Result<bool, String> {
+    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn autostart_set(app: AppHandle, on: bool) -> Result<(), String> {
+    let manager = app.autolaunch();
+    let done = if on { manager.enable() } else { manager.disable() };
+    done.map_err(|e| e.to_string())
+}
+
 /// What was typed is written: Quit closes the app now.
 #[tauri::command]
 pub fn quit_now(app: AppHandle) {
@@ -290,10 +347,22 @@ mod tests {
     #[test]
     fn a_missing_shell_file_runs_in_the_background() {
         let shell: Shell = serde_json::from_str("{}").unwrap();
-        assert_eq!(shell, Shell { background: true, background_told: false });
+        assert_eq!(shell, Shell { background: true, background_told: false, autostart_set: false });
+        // A file from the version before opening at login: it is turned on once.
         let off: Shell = serde_json::from_str(r#"{ "background": false, "backgroundTold": true }"#).unwrap();
-        assert_eq!(off, Shell { background: false, background_told: true });
-        assert_eq!(serde_json::to_value(&off).unwrap(), serde_json::json!({ "background": false, "backgroundTold": true }));
+        assert_eq!(off, Shell { background: false, background_told: true, autostart_set: false });
+        assert_eq!(
+            serde_json::to_value(&off).unwrap(),
+            serde_json::json!({ "background": false, "backgroundTold": true, "autostartSet": false })
+        );
+    }
+
+    #[test]
+    fn only_the_computer_starts_scrawl_without_a_window() {
+        let args = |list: &[&str]| list.iter().map(|arg| arg.to_string()).collect::<Vec<_>>();
+        assert!(asks_hidden(&args(&["scrawl.exe", "--background"])));
+        assert!(!asks_hidden(&args(&["scrawl.exe"])));
+        assert!(!asks_hidden(&args(&["scrawl.exe", "--backgrounds"])));
     }
 
     #[test]
