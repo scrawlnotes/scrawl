@@ -108,8 +108,9 @@ export function createApp(parts: Parts) {
   // ---------- without a key: how the server stands, setting it up, signing in ----------
 
   // `personal`: it keeps personal spaces, so the app offers it for one (design/spaces.md); `chat`:
-  // it has messaging, so the app shows Chat (design/chat.md, 1.2).
-  app.get('/api/v1/server', (c) => c.json({ version: VERSION, new: accounts.isNew(), setupOpen: accounts.setupOpen(), personal: true, chat: true }));
+  // it has messaging, so the app shows Chat (design/chat.md, 1.2); `maxFileMb`: the largest file it
+  // takes, which a message's file is weighed against before it is sent (design/chat.md, 4).
+  app.get('/api/v1/server', (c) => c.json({ version: VERSION, new: accounts.isNew(), setupOpen: accounts.setupOpen(), personal: true, chat: true, maxFileMb: Math.round(config.maxFileBytes / (1024 * 1024)) }));
   app.post('/api/v1/setup', async (c) => c.json(await accounts.setUp(await json(c))));
   app.post('/api/v1/sessions', async (c) => c.json(await accounts.signIn(await json(c), addressOf(c))));
 

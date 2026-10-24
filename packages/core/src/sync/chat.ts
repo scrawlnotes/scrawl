@@ -212,6 +212,59 @@ export function mentionAt(text: string, cursor: number): { from: number; query: 
   return { from: cursor - match[2]!.length - 1, query: match[2]! };
 }
 
+// ---------- links to Scrawl ----------
+
+/** What a chip in a message can point at: a note, a list or a task, a board or a card, a collection or a record. */
+export type ChipKind = 'note' | 'tasks' | 'task' | 'board' | 'card' | 'collection' | 'record';
+
+const ITEM_KINDS = new Set<string>(['note', 'tasks', 'task', 'board', 'card', 'collection', 'record']);
+
+/** Something of a space a message points at (design/chat.md, 3.7): its kind, the space by its id, its path in the space, and the id of a task, a card or a record, which finds it after it moved. */
+export interface ChipRef {
+  kind: ChipKind;
+  space: string;
+  path: string;
+  id?: string;
+}
+
+/** A chip's address: `scrawl:item/card/sp-…/Sales%2FDeals.board.json?id=…`. */
+export function itemLink(item: ChipRef): string {
+  return `scrawl:item/${item.kind}/${encodeURIComponent(item.space)}/${encodeURIComponent(item.path)}${item.id ? `?id=${encodeURIComponent(item.id)}` : ''}`;
+}
+
+/** What a chip's address points at; null for any other address. */
+export function parseItemLink(href: string): ChipRef | null {
+  const match = /^scrawl:item\/([a-z]+)\/([^/?]+)\/([^?]*)(?:\?id=(.+))?$/.exec(href);
+  if (!match || !ITEM_KINDS.has(match[1]!)) return null;
+  try {
+    return { kind: match[1] as ChipKind, space: decodeURIComponent(match[2]!), path: decodeURIComponent(match[3]!), ...(match[4] && { id: decodeURIComponent(match[4]) }) };
+  } catch {
+    return null;
+  }
+}
+
+/** A chip as a message has it: its name as the link's words, where it is as its title. */
+export function itemChip(item: ChipRef, name: string, where: string): string {
+  const words = name.replace(/[[\]\\]/g, '').trim() || item.path;
+  return `[${words}](${itemLink(item)}${where ? ` "${where.replace(/["\\]/g, '')}"` : ''})`;
+}
+
+/** A message's address, by its server's address, its conversation and its id: `scrawl:chat/<server>/<chat>/<message>`. */
+export function chatLink(server: string, chat: string, message: string): string {
+  return `scrawl:chat/${encodeURIComponent(server)}/${encodeURIComponent(chat)}/${encodeURIComponent(message)}`;
+}
+
+/** The message an address points at; null for any other address. */
+export function parseChatLink(href: string): { server: string; chat: string; message: string } | null {
+  const match = /^scrawl:chat\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(href);
+  if (!match) return null;
+  try {
+    return { server: decodeURIComponent(match[1]!), chat: decodeURIComponent(match[2]!), message: decodeURIComponent(match[3]!) };
+  } catch {
+    return null;
+  }
+}
+
 // ---------- reading a message ----------
 
 /**

@@ -420,13 +420,15 @@ type Row = { kind: 'found'; found: Found<Thing> } | { kind: 'past'; search: stri
  * arrow keys move through it, and left and right at an end of what is typed change the tab; Enter
  * opens, Esc closes; a click opens too.
  */
-export function SearchWindow({ things, actions, onPick, onClose, still = null }: {
+export function SearchWindow({ things, actions, onPick, onClose, still = null, placeholder }: {
   things: Thing[] | null;
   actions: SearchAction[];
   onPick: (found: Found<Thing>) => void;
   onClose: () => void;
   /** The spaces still read as the app opens, whose things are not found yet. */
   still?: string | null;
+  /** What the box says when it picks something for another place, as a chip for a message. */
+  placeholder?: string;
 }) {
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<SearchTab>('all');
@@ -528,7 +530,7 @@ export function SearchWindow({ things, actions, onPick, onClose, still = null }:
             aria-expanded={rows.length > 0}
             aria-controls="sx-list"
             aria-label={t('search.title')}
-            placeholder={t('search.placeholder')}
+            placeholder={placeholder ?? t('search.placeholder')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />

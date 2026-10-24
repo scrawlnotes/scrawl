@@ -48,6 +48,10 @@ import {
   inSpace,
   spaceOf,
   INBOX_TASKS,
+  itemChip,
+  type ChipKind,
+  type ChipRef,
+  parseItemLink,
   keyCount,
   keyOf,
   keysName,
@@ -196,10 +200,10 @@ import { openingDrawn, openingFailed } from './opening';
 import { pendingJoin } from './servers';
 import { type FavoriteRow, Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
-import { type SearchAction, SearchWindow, type Thing, thingsOf } from './Search';
+import { type SearchAction, SearchWindow, type Target, type Thing, thingsOf } from './Search';
 import { type Dated, dueLabel, type DueSubtask, FilterPage, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList, TodayView } from './Tasks';
 import { Upcoming } from './Upcoming';
-import { ChatView } from './Chat';
+import { type ChatLinks, type ChipState, ChatView } from './Chat';
 import { store as chatStore, useChat } from './chatStore';
 import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
@@ -234,11 +238,46 @@ type OpenDialog =
   | { kind: 'moveTask'; list: string; id: string }
   | { kind: 'toTask'; note: string; title: string; description: string }
   | { kind: 'toCard'; note: string; title: string; description: string }
+  // From a message in Chat: `from` is where it is and who wrote it, its description links back to it.
+  | { kind: 'chatTask'; from: string; title: string; description: string }
+  | { kind: 'chatCard'; from: string; title: string; description: string }
   | { kind: 'renameFilter'; filter: TaskFilter }
   // What a new filter or a label's view picks, saved as a filter by a name; `from` is its tab.
   | { kind: 'saveFilter'; choices: FilterChoices; from: string }
   | { kind: 'settings'; section?: SettingsSection; space?: string | null }
   | null;
+
+/**
+ * What the search found, as a chip of a message points at it (design/chat.md, 3.7): a note, a
+ * list, a board or a collection by its path in its space, a task, a card or a record by its id
+ * too; null for what is in the personal space, which no one else sees, and for anything else.
+ */
+function itemOfTarget(target: Target): ChipRef | null {
+  const ref = (kind: ChipKind, path: string, id?: string): ChipRef | null => {
+    const space = spaceOf(path);
+    return space ? { kind, space, path: localPath(path), ...(id && { id }) } : null;
+  };
+  switch (target.kind) {
+    case 'note':
+      return ref('note', target.path);
+    case 'task':
+      return ref('task', target.list, target.id);
+    case 'card':
+      return ref('card', target.board, target.id);
+    case 'record':
+      return ref('record', target.dir, target.id);
+    case 'tab': {
+      const list = listOf(target.id);
+      if (list !== null) return ref('tasks', list);
+      const board = boardPathOf(target.id);
+      if (board !== null) return ref('board', board);
+      const dir = collectionPathOf(target.id);
+      return dir !== null ? ref('collection', dir) : null;
+    }
+    default:
+      return null;
+  }
+}
 
 /** A filter page (design/filters.md 4): a saved filter as it is changed here, a new one, or a label's view. */
 interface FilterPageModel {
@@ -1547,7 +1586,9 @@ export function App() {
   const [searching, setSearching] = useState(false);
   const [searchRead, setSearchRead] = useState<{ texts: Map<string, string>; files: FileRow[] } | null>(null);
   const [searchShown, setSearchShown] = useState(false);
-  const searchOn = phone ? searchShown : searching;
+  // The search picking a note, a task or a card of a server's spaces, to go in a message there as a chip.
+  const [chipPick, setChipPick] = useState<{ url: string; done: (chip: string | null) => void } | null>(null);
+  const searchOn = phone ? searchShown : searching || chipPick !== null;
   useEffect(() => {
     if (!searchOn || !ready) return;
     let current = true;
@@ -1609,6 +1650,110 @@ export function App() {
         return setRevealFolder({ path: inSpace(target.id, ''), at: Date.now() });
     }
   };
+  // Chat's links (design/chat.md, 3.7): a chip opens what it points at in a space here, by its id
+  // wherever a task, a card or a record went; a message's link opens Chat at it.
+  const [chatGoTo, setChatGoTo] = useState<{ href: string; at: number } | null>(null);
+  /** The spaces here that are on a server, which the chips of its messages can point into. */
+  const spacesOn = (url: string) => spaces.filter((each) => each.source?.provider === 'server' && each.source.place.url === url).map((each) => each.id);
+  /** How what a chip points at opens; or why it cannot. */
+  const chipTarget = (href: string): Exclude<ChipState, 'here'> | (() => void) => {
+    const item = parseItemLink(href);
+    if (!item) return 'gone';
+    // A space of a server one is in has its rooms in Chat, though it is not on this device.
+    if (!spaces.some((each) => each.id === item.space)) return chat.servers.some((server) => server.chats.some((each) => each.space === item.space)) ? 'notHere' : 'noAccess';
+    const path = inSpace(item.space, item.path);
+    const holding = <T,>(all: Record<string, T>, has: (value: T) => boolean) =>
+      all[path] !== undefined && has(all[path]) ? path : Object.keys(all).find((each) => spaceOf(each) === item.space && has(all[each]!));
+    const id = item.id ?? '';
+    switch (item.kind) {
+      case 'note':
+        return titles[path] !== undefined ? () => void session.open(path) : 'gone';
+      case 'tasks':
+        return tasks[path] ? () => void session.open(tasksOf(path)) : 'gone';
+      case 'board':
+        return boards[path] ? () => void session.open(boardOf(path)) : 'gone';
+      case 'collection':
+        return collections[path] ? () => void session.open(collectionTab(path)) : 'gone';
+      case 'task': {
+        const list = holding(tasks, (all) => all.some((task) => task.id === id));
+        if (!list) return 'gone';
+        return () => {
+          if (phone) return setTaskSheet({ list, id, subtask: !!tasks[list]!.find((task) => task.id === id)!.parent });
+          void session.open(tasksOf(list));
+          setRevealTask({ list, id, at: Date.now() });
+        };
+      }
+      case 'card': {
+        const board = holding(boards, (one) => one.cards.some((card) => card.id === id));
+        return board ? () => showCard(board, id) : 'gone';
+      }
+      case 'record': {
+        const dir = holding(collections, (one) => one.records.some((record) => record.id === id));
+        return dir ? () => (phone ? setRecordAsked({ dir, id }) : setRecordOver({ dir, id })) : 'gone';
+      }
+    }
+  };
+  /** A note, a list, a board or a collection of a server's space, dragged from the sidebar into a message there. */
+  const chipOfPath = (url: string, path: string): string | null => {
+    const space = spaceOf(path);
+    if (!space || !spacesOn(url).includes(space)) return null;
+    const kind: ChipKind | null = collections[path] ? 'collection' : isTaskListPath(path) ? 'tasks' : isBoardPath(path) ? 'board' : titles[path] !== undefined ? 'note' : null;
+    if (!kind) return null;
+    const name = kind === 'collection' ? collectionName(path) : kind === 'tasks' ? listName(path) : kind === 'board' ? boardName(path) : titles[path] || basename(path);
+    const where = [spaces.find((each) => each.id === space)?.name, basename(localPath(dirname(path)))].filter(Boolean).join(' · ');
+    return itemChip({ kind, space, path: localPath(path) }, name, where);
+  };
+  const chatLinks = useMemo<ChatLinks>(
+    () => ({
+      open: (href) => {
+        const target = chipTarget(href);
+        if (typeof target === 'function') return target();
+        const space = chat.servers.flatMap((server) => server.chats).find((each) => each.space === parseItemLink(href)?.space)?.spaceName ?? '';
+        setShown({ text: target === 'notHere' ? t('chat.notHereText', { space }) : target === 'noAccess' ? t('chat.noAccessText') : t('chat.goneText') });
+      },
+      stateOf: (href) => {
+        const target = chipTarget(href);
+        return typeof target === 'function' ? 'here' : target;
+      },
+      pick: (url) => new Promise((done) => setChipPick({ url, done })),
+      chipOf: chipOfPath,
+      toTask: (title, description, from) => setDialog({ kind: 'chatTask', title, description, from }),
+      toCard: (title, description, from) => setDialog({ kind: 'chatCard', title, description, from }),
+      say: (text) => setShown({ text }),
+    }),
+    [spaces, titles, tasks, boards, collections, phone, chat.servers],
+  );
+  /** What the search offers to pick from for a chip: what is in the spaces of the conversation's server. */
+  const pickThings = useMemo(() => {
+    if (!chipPick || !searchThings) return null;
+    const allowed = new Set(spacesOn(chipPick.url));
+    return searchThings.filter((thing) => {
+      const item = itemOfTarget(thing.target);
+      return item !== null && allowed.has(item.space);
+    });
+  }, [chipPick, searchThings]);
+  const pickChip = (found: Found<Thing>) => {
+    const item = itemOfTarget(found.item.target);
+    const where = [...found.item.trail.slice(-2), found.item.aside].filter(Boolean).join(' · ');
+    chipPick?.done(item ? itemChip(item, [found.item.key, found.item.name].filter(Boolean).join(' '), where) : null);
+    setChipPick(null);
+  };
+  // A link to a message or a chip, in a note or a task's description, opens as it does in Chat.
+  const openScrawl = useRef<(href: string) => void>(() => undefined);
+  openScrawl.current = (href) => {
+    if (!href.startsWith('scrawl:chat/')) return chatLinks.open(href);
+    // Chat comes to the phone with its own pages (design/chat.md, 14, slice 5).
+    if (phone) return;
+    setChatGoTo({ href, at: Date.now() });
+    void session.open(CHAT);
+  };
+  useEffect(() => {
+    session.openScrawl = (href) => openScrawl.current(href);
+    return () => {
+      session.openScrawl = null;
+    };
+  }, []);
+
   // On a phone + on a board types a card for the column on screen; the page's menu opens its Fields.
   const [boardAdding, setBoardAdding] = useState(0);
   const [boardFields, setBoardFields] = useState(0);
@@ -2208,7 +2353,7 @@ export function App() {
       />
     )}
     {!phone && active === TODAY && <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} still={still} />}
-    {!phone && active === CHAT && <ChatView snapshot={chat} menu={openMenu} onStatus={setViewStatus} />}
+    {!phone && active === CHAT && <ChatView snapshot={chat} menu={openMenu} onStatus={setViewStatus} links={chatLinks} goTo={chatGoTo} />}
     {!phone && active === UPCOMING && (
       <Upcoming
         lists={tasks}
@@ -3024,6 +3169,19 @@ export function App() {
         />
       )}
       {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onClose={() => setSearching(false)} still={still} />}
+      {chipPick && !phone && (
+        <SearchWindow
+          things={pickThings}
+          actions={[]}
+          onPick={pickChip}
+          onClose={() => {
+            chipPick.done(null);
+            setChipPick(null);
+          }}
+          still={still}
+          placeholder={t('chat.findItem')}
+        />
+      )}
       {dialog?.kind === 'removeSpace' &&
         (() => {
           const space = spaces.find((each) => each.id === dialog.id);
@@ -3247,6 +3405,42 @@ export function App() {
             />
           );
         })()}
+      {dialog?.kind === 'chatTask' &&
+        (() => {
+          // Any list of any space; Inbox first.
+          const places = allPlaces();
+          const inbox = places.findIndex((place) => place.list === INBOX_TASKS && place.section === null);
+          return (
+            <NewTaskDialog
+              title={dialog.title}
+              note={dialog.from}
+              places={places}
+              initial={Math.max(inbox, 0)}
+              onAdd={(title, place) => {
+                session.addTask(place.list, { title, description: dialog.description, section: place.section });
+                setNotice(t('toTask.added', { list: listLabel(place.list) }));
+                setDialog(null);
+              }}
+              onClose={closeDialog}
+            />
+          );
+        })()}
+      {dialog?.kind === 'chatCard' && (
+        <NewCardDialog
+          title={dialog.title}
+          note={dialog.from}
+          boards={Object.keys(boards)
+            .sort()
+            .map((board) => ({ board, label: boardName(board), folder: folderLabel(dirname(board)) }))}
+          initial={0}
+          onAdd={(title, choice) => {
+            session.addCard(choice.board, { title, description: dialog.description });
+            setNotice(t('toCard.added', { board: boardLabel(choice.board) }));
+            setDialog(null);
+          }}
+          onClose={closeDialog}
+        />
+      )}
       {/* A server whose key no longer works, asked to sign in to again by its spaces' sync. */}
       {sync.serverSignIn &&
         (phone ? (

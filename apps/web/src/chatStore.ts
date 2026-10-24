@@ -2,6 +2,7 @@ import {
   applyChatChanges,
   ChatClient,
   type ChatEvent,
+  type ChatFile,
   type ChatInfo,
   type ChatKept,
   type ChatMessage,
@@ -27,6 +28,8 @@ export interface Pending {
   chat: string;
   body: string;
   replyTo: string | null;
+  /** Its files, uploaded before it was written. */
+  files: ChatFile[];
   at: number;
   /** Why the server would not take it; unset while it waits to be sent. */
   failed?: string;
@@ -46,6 +49,8 @@ export interface ChatServer {
   typing: { [chat: string]: { [account: string]: number } };
   /** Who of those sharing a space is using Scrawl now. */
   active: string[];
+  /** The largest file the server takes, in megabytes; null when it does not say. */
+  maxFileMb: number | null;
 }
 
 export interface ChatSnapshot {
@@ -165,10 +170,11 @@ class OneServer {
   constructor(
     readonly url: string,
     me: string,
+    maxFileMb: number | null,
     private readonly changed: () => void,
   ) {
     this.client = new ChatClient({ url, token: () => serverKey(url) });
-    this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [] };
+    this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [], maxFileMb };
   }
 
   async start() {
@@ -296,8 +302,8 @@ class OneServer {
   }
 
   /** Writes a message: shown at once, sent now or when the server is reached. */
-  send(chat: string, body: string, replyTo: string | null) {
-    const pending: Pending = { id: newMessageId(), chat, body, replyTo, at: Date.now() };
+  send(chat: string, body: string, replyTo: string | null, files: ChatFile[] = []) {
+    const pending: Pending = { id: newMessageId(), chat, body, replyTo, files, at: Date.now() };
     this.set({ pending: [...this.state.pending, pending] });
     void this.flush();
   }
@@ -311,7 +317,7 @@ class OneServer {
       for (const pending of this.state.pending) {
         if (pending.failed) continue;
         try {
-          const sent = await this.client.send(pending.chat, { id: pending.id, body: pending.body, replyTo: pending.replyTo });
+          const sent = await this.client.send(pending.chat, { id: pending.id, body: pending.body, replyTo: pending.replyTo, files: pending.files ?? [] });
           this.put([sent]);
         } catch (error) {
           if (error instanceof RemoteOffline) break;
@@ -364,7 +370,82 @@ class OneServer {
   async react(message: string, emoji: string, on: boolean) {
     this.put([await this.client.react(message, emoji, on)]);
   }
+
+  /**
+   * Forwards a message to other conversations of the server, each with the words written with it
+   * first, as a message of its own (design/chat.md, 3.4).
+   */
+  async forward(message: string, chats: string[], note: string) {
+    for (const chat of chats) {
+      if (note.trim()) this.put([await this.client.send(chat, { id: newMessageId(), body: note })]);
+      this.put([await this.client.send(chat, { id: newMessageId(), body: '', forwardOf: message })]);
+    }
+    void this.turn();
+  }
+
+  /**
+   * Sends a file to the server, to attach to a message: its digest and size come back. How much
+   * went is told as it goes; `stop` ends it.
+   */
+  upload(file: Blob, progress: (sent: number) => void, stop: AbortSignal): Promise<{ hash: string; size: number }> {
+    return serverKey(this.url).then(
+      (key) =>
+        new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest();
+          request.open('POST', `${this.url}/api/v1/chat/files`);
+          if (key) request.setRequestHeader('Authorization', `Bearer ${key}`);
+          request.upload.onprogress = (event) => progress(event.loaded);
+          request.onload = () => {
+            if (request.status >= 200 && request.status < 300) resolve(JSON.parse(request.responseText) as { hash: string; size: number });
+            else reject(new Error(request.status === 413 ? 'too-large' : 'upload'));
+          };
+          request.onerror = () => reject(new Error('offline'));
+          request.onabort = () => reject(new Error('stopped'));
+          stop.addEventListener('abort', () => request.abort());
+          request.send(file);
+        }),
+    );
+  }
+
+  private urls = new Map<string, Promise<string>>();
+
+  /**
+   * A file of a message as an address the page shows: kept on the device once read, by its
+   * digest, so that it is read from the server once.
+   */
+  fileUrl(hash: string, type = ''): Promise<string> {
+    let url = this.urls.get(hash);
+    if (!url) {
+      url = this.fileBlob(hash, type).then((blob) => URL.createObjectURL(blob));
+      url.catch(() => this.urls.delete(hash));
+      this.urls.set(hash, url);
+    }
+    return url;
+  }
+
+  /** A file of a message as it is, from what is kept on the device or else the server. */
+  async fileBlob(hash: string, type = ''): Promise<Blob> {
+    const address = `${this.url}/api/v1/chat/files/${hash}`;
+    const kept = await caches
+      .open(FILES)
+      .then((cache) => cache.match(address))
+      .catch(() => undefined);
+    if (kept) return kept.blob();
+    const key = await serverKey(this.url);
+    const response = await fetch(address, { headers: key ? { Authorization: `Bearer ${key}` } : {} });
+    if (!response.ok) throw new Error(`The server answered ${response.status}`);
+    const blob = await response.blob();
+    const typed = type && !blob.type.startsWith(type.split('/')[0]!) ? new Blob([blob], { type }) : blob;
+    void caches
+      .open(FILES)
+      .then((cache) => cache.put(address, new Response(typed, { headers: { 'Content-Type': typed.type } })))
+      .catch(() => undefined);
+    return typed;
+  }
 }
+
+/** Where the files of messages are kept on the device once read. */
+const FILES = 'scrawl-chat-files';
 
 // ---------- every server ----------
 
@@ -412,14 +493,17 @@ class ChatStore {
       if (this.servers.has(each.url) || !(await serverKey(each.url))) continue;
       const account = new ServerAccount({ url: each.url, token: () => serverKey(each.url) });
       let me = each.id ?? '';
+      let maxFileMb: number | null = null;
       try {
-        if (!(await account.status()).chat) continue;
+        const status = await account.status();
+        if (!status.chat) continue;
+        maxFileMb = status.maxFileMb ?? null;
         if (!me) me = (await account.me()).id;
       } catch {
         continue;
       }
       if (this.servers.has(each.url)) continue;
-      const server = new OneServer(each.url, me, () => this.changed());
+      const server = new OneServer(each.url, me, maxFileMb, () => this.changed());
       this.servers.set(each.url, server);
       void server.start();
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyChatChanges, type ChatInfo, type ChatMessage, continues, mentionAt, mentioned, personLink, plainText, withMessages } from './chat';
+import { applyChatChanges, type ChatInfo, type ChatMessage, chatLink, continues, itemChip, itemLink, mentionAt, mentioned, parseChatLink, parseItemLink, personLink, plainText, withMessages } from './chat';
 
 // What the app works out of messages (design/chat.md): mentions, plain text, runs under one
 // face, and what changed put into what is kept.
@@ -100,5 +100,25 @@ describe('what is kept', () => {
     expect(Object.keys(next.messages)).toEqual(['one']);
     expect(next.messages.one!.map((each) => each.seq)).toEqual([1, 2]);
     expect(next.cursor).toBe(6);
+  });
+});
+
+describe('what a message points at', () => {
+  it('writes a chip as a link with its name and where it is, and reads it back', () => {
+    const card = { kind: 'card' as const, space: 'sp-acme1234', path: 'Product/Roadmap.board.json', id: 'c-1' };
+    expect(itemLink(card)).toBe('scrawl:item/card/sp-acme1234/Product%2FRoadmap.board.json?id=c-1');
+    expect(parseItemLink(itemLink(card))).toEqual(card);
+    const note = { kind: 'note' as const, space: 'sp-acme1234', path: 'Release notes (0.2).md' };
+    expect(parseItemLink(itemLink(note))).toEqual(note);
+    expect(itemChip(card, 'SCR-41 [Agent] guide', 'Roadmap · "Review"')).toBe('[SCR-41 Agent guide](scrawl:item/card/sp-acme1234/Product%2FRoadmap.board.json?id=c-1 "Roadmap · Review")');
+    expect(parseItemLink('scrawl:item/folder/sp-acme1234/x')).toBeNull();
+    expect(parseItemLink('https://example.com')).toBeNull();
+  });
+
+  it('writes a message’s link by its server, conversation and id, and reads it back', () => {
+    const link = chatLink('https://chat.example.com:8080', 'ch-1', 'm-2');
+    expect(link).toBe('scrawl:chat/https%3A%2F%2Fchat.example.com%3A8080/ch-1/m-2');
+    expect(parseChatLink(link)).toEqual({ server: 'https://chat.example.com:8080', chat: 'ch-1', message: 'm-2' });
+    expect(parseChatLink('scrawl:chat/a/b')).toBeNull();
   });
 });

@@ -50,11 +50,12 @@ export interface LinkTap {
 }
 
 // Addresses a Ctrl/Cmd+click opens: a web or mail address, and a path to something in the space
-// (no scheme, not a place in the note). Any other link is only text to edit.
+// (no scheme, not a place in the note); and a message's address or a chip's, which the app opens
+// (design/chat.md, 3.7). Any other link is only text to edit.
 const OUTSIDE = /^(https?:|mailto:)/i;
 const followable = (href: string) => {
   const h = href.trim();
-  return OUTSIDE.test(h) || (h !== '' && !/^[a-z][a-z0-9+.-]*:/i.test(h) && !h.startsWith('#') && !h.startsWith('//'));
+  return OUTSIDE.test(h) || /^scrawl:(chat|item)\//.test(h) || (h !== '' && !/^[a-z][a-z0-9+.-]*:/i.test(h) && !h.startsWith('#') && !h.startsWith('//'));
 };
 
 const openInBrowser = (href: string) => void (OUTSIDE.test(href) && window.open(href, '_blank', 'noopener'));

@@ -518,6 +518,15 @@ const shapes = {
       <path d="M10 20a2 2 0 0 0 4 0M4.5 4.5l15 15" />
     </>
   ),
+  // A message's files: forwarding it, and a recording's or a video's player.
+  forward: (
+    <>
+      <path d="M14 6l5.5 5.5L14 17" />
+      <path d="M19 11.5h-8.5a6 6 0 0 0-6 6V19" />
+    </>
+  ),
+  playFill: <path d="M7.5 5v14l11-7z" fill="currentColor" stroke="none" />,
+  pauseFill: <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" stroke="none" />,
 };
 
 export type IconName = keyof typeof shapes;

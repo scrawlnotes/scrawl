@@ -1,11 +1,30 @@
-import { type ChatInfo, type ChatMessage, continues, mentionAt, personLink, plainText, ROOM_MENTION } from '@scrawlnotes/core';
-import { createEditor, editorTakesEnter, type EditorView, messageHtml, type ScrawlEditor, toggleBold, toggleCode, toggleCodeBlock, toggleItalic, toggleLinePrefix, toggleList, toggleStrike } from '@scrawlnotes/editor';
+import { type ChatFile, type ChatInfo, type ChatMessage, chatLink, continues, mentionAt, parseChatLink, personLink, plainText, ROOM_MENTION } from '@scrawlnotes/core';
+import {
+  createEditor,
+  editorTakesEnter,
+  type EditorView,
+  highlightCodeBlocks,
+  MARKDOWN_TYPE,
+  messageHtml,
+  type ScrawlEditor,
+  toggleBold,
+  toggleCode,
+  toggleCodeBlock,
+  toggleItalic,
+  toggleLinePrefix,
+  toggleList,
+  toggleStrike,
+} from '@scrawlnotes/editor';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { measure } from './chatMedia';
+import { Attachments, ForwardDialog, type Going, isImage, RecorderBar, Tray } from './ChatParts';
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store } from './chatStore';
 import { ConfirmDialog, type MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { hostOf } from './servers';
+import { ITEM_DRAG_TYPE } from './Sidebar';
+import { clipboardFilesOnDesktop, isDesktop } from './storage';
 
 // Chat (design/chat.md, 8.1; design/mockups.html, Messaging): one tab, the conversations of every
 // server on its left, each server's rooms under their spaces and then the direct messages; the
@@ -13,10 +32,65 @@ import { hostOf } from './servers';
 
 type Open = { url: string; chat: string };
 
+/**
+ * What a chip's thing is to this person: there to open; in a space of theirs that is not on this
+ * device; in a space they are not in; or not found.
+ */
+export type ChipState = 'here' | 'notHere' | 'noAccess' | 'gone';
+
+/** What Chat asks of the app around it: what a message points at, and what is made from one (design/chat.md, 3.7). */
+export interface ChatLinks {
+  /** Opens what a chip points at: a note, a list, a task, a board, a card, a collection or a record. */
+  open: (href: string) => void;
+  stateOf: (href: string) => ChipState;
+  /** Asks for a note, a task or a card of the server's spaces; its chip, or null when none was picked. */
+  pick: (url: string) => Promise<string | null>;
+  /** The chip of what is dragged from the sidebar, by its path; null when it is not in a space of that server. */
+  chipOf: (url: string, path: string) => string | null;
+  /** New task and New card from a message: its first words, the description that links back to it, and where it is from. */
+  toTask: (title: string, description: string, from: string) => void;
+  toCard: (title: string, description: string, from: string) => void;
+  say: (text: string) => void;
+}
+
 interface Props {
   snapshot: ChatSnapshot;
   menu: (event: MouseEvent, items: MenuItem[]) => void;
   onStatus: (parts: string[] | null) => void;
+  links: ChatLinks;
+  /** A message's link followed elsewhere, as in a task's description: Chat opens at it. */
+  goTo: { href: string; at: number } | null;
+}
+
+/** How many files a message takes. */
+const MAX_FILES = 10;
+
+/** When the last message's link followed from elsewhere was. */
+let followedAt = 0;
+
+/** The largest file a server takes, in words: 1 GB, 250 MB. */
+const limitText = (mb: number) => (mb >= 1024 && mb % 1024 === 0 ? `${mb / 1024} GB` : `${mb} MB`);
+
+/** A day as a message's link back names it: Oct 24, and the year when it is not this one. */
+function shortDay(at: number): string {
+  const day = new Date(at);
+  return day.toLocaleDateString(locale(), { month: 'short', day: 'numeric', ...(day.getFullYear() !== new Date().getFullYear() && { year: 'numeric' }) });
+}
+
+/**
+ * Puts words on the clipboard as a copy does, right in the click; with `markdown`, as Markdown too
+ * for a note or a message to paste in, as a link copied with its words (design/chat.md, 3.7).
+ */
+function copy(text: string, markdown?: string): Promise<void> {
+  const put = (event: ClipboardEvent) => {
+    event.clipboardData?.setData('text/plain', text);
+    if (markdown) event.clipboardData?.setData(MARKDOWN_TYPE, markdown);
+    event.preventDefault();
+  };
+  document.addEventListener('copy', put);
+  const done = document.execCommand('copy');
+  document.removeEventListener('copy', put);
+  return done ? Promise.resolve() : navigator.clipboard.writeText(text);
 }
 
 /** The six reactions a message offers first; the rest are found in the full list. */
@@ -77,10 +151,12 @@ function quoteText(text: string, file: string | null): string {
   return file ? t('chat.file') : '';
 }
 
-export function ChatView({ snapshot, menu, onStatus }: Props) {
+export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
   const [open, setOpen] = useState<Open | null>(lastOpen);
   // In a narrow window the list and the conversation take turns.
   const [listShown, setListShown] = useState(false);
+  // The message a link opened Chat at, brought into sight once its conversation is on screen.
+  const [target, setTarget] = useState<{ message: string; at: number } | null>(null);
   const server = open ? snapshot.servers.find((each) => each.url === open.url) : undefined;
   const chat = server?.chats.find((each) => each.id === open!.chat && !each.hidden);
   // The first conversation there is, when the one last open is not there any more.
@@ -105,11 +181,37 @@ export function ChatView({ snapshot, menu, onStatus }: Props) {
     setListShown(false);
   };
 
+  /** A message's link: its conversation opens at it; one not there for this person says so. */
+  const follow = (href: string) => {
+    const link = parseChatLink(href);
+    if (!link) return;
+    const server = snapshot.servers.find((each) => each.url === link.server);
+    const there = server?.chats.find((each) => each.id === link.chat);
+    if (!there) return links.say(t('chat.linkGone'));
+    pick({ url: link.server, chat: link.chat });
+    setTarget({ message: link.message, at: Date.now() });
+  };
+  useEffect(() => {
+    // Once each: Chat opened again later does not go back to it.
+    if (!goTo || goTo.at <= followedAt || !snapshot.servers.length) return;
+    followedAt = goTo.at;
+    follow(goTo.href);
+  }, [goTo?.at, snapshot.servers.length > 0]);
+
   return (
     <div className={`chat${listShown ? ' list-shown' : ''}`}>
       <ChatList servers={snapshot.servers} open={shown} onOpen={pick} />
       {shownServer && shownChat ? (
-        <Conversation key={`${shownServer.url} ${shownChat.id}`} server={shownServer} chat={shownChat} menu={menu} onList={() => setListShown(true)} />
+        <Conversation
+          key={`${shownServer.url} ${shownChat.id}`}
+          server={shownServer}
+          chat={shownChat}
+          menu={menu}
+          links={links}
+          target={target}
+          onFollow={follow}
+          onList={() => setListShown(true)}
+        />
       ) : (
         <div className="chat-conv chat-none">
           <Icon name="chat" />
@@ -117,6 +219,21 @@ export function ChatView({ snapshot, menu, onStatus }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+/** What goes before a conversation's name in a list: the other's face with its dot, two faces, a lock or #. */
+function leadOf(chat: ChatInfo, server: ChatServer): ReactNode {
+  const people = others(chat, server.me);
+  if (chat.kind === 'private') return <Icon name="lock" />;
+  if (chat.kind !== 'direct') return <span className="hs">#</span>;
+  if (people.length === 1) return <Face id={people[0]!.id} name={people[0]!.name} size="sm" online={server.active.includes(people[0]!.id)} />;
+  return (
+    <span className="ch-faces">
+      {people.slice(0, 2).map((person) => (
+        <Face key={person.id} id={person.id} name={person.name} size="xs" />
+      ))}
+    </span>
   );
 }
 
@@ -128,26 +245,9 @@ function ChatList({ servers, open, onOpen }: { servers: ChatServer[]; open: Open
     const off = chat.notify === 'off';
     const unread = chat.unread > 0 && !off && !on;
     const draft = !on && draftOf(server.url, chat.id).trim() !== '';
-    const people = others(chat, server.me);
-    const lead =
-      chat.kind === 'direct' ? (
-        people.length === 1 ? (
-          <Face id={people[0]!.id} name={people[0]!.name} size="sm" online={server.active.includes(people[0]!.id)} />
-        ) : (
-          <span className="ch-faces">
-            {people.slice(0, 2).map((person) => (
-              <Face key={person.id} id={person.id} name={person.name} size="xs" />
-            ))}
-          </span>
-        )
-      ) : chat.kind === 'private' ? (
-        <Icon name="lock" />
-      ) : (
-        <span className="hs">#</span>
-      );
     return (
       <button type="button" key={chat.id} className={`chat-row${on ? ' on' : ''}${unread ? ' un' : ''}${off ? ' off' : ''}`} onClick={() => onOpen({ url: server.url, chat: chat.id })}>
-        {lead}
+        {leadOf(chat, server)}
         <span className="nm">{titleOf(chat, server.me)}</span>
         {chat.alerts > 0 && !on ? <span className="n">{chat.alerts}</span> : off ? <Icon name="bellOff" /> : draft ? <span className="dr">{t('chat.draft')}</span> : null}
       </button>
@@ -182,7 +282,15 @@ function ChatList({ servers, open, onOpen }: { servers: ChatServer[]; open: Open
 }
 
 /** One conversation: its head, its messages with the days between them and the line before what is new, and the box to write in. */
-function Conversation({ server, chat, menu, onList }: { server: ChatServer; chat: ChatInfo; menu: Props['menu']; onList: () => void }) {
+function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
+  server: ChatServer;
+  chat: ChatInfo;
+  menu: Props['menu'];
+  links: ChatLinks;
+  target: { message: string; at: number } | null;
+  onFollow: (href: string) => void;
+  onList: () => void;
+}) {
   const one = store.server(server.url);
   const nameOf = useMemo(() => namesOf(server), [server.chats]);
   const messages = server.messages[chat.id] ?? [];
@@ -193,8 +301,12 @@ function Conversation({ server, chat, menu, onList }: { server: ChatServer; chat
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<ChatMessage | null>(null);
+  const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
   const [reacting, setReacting] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  // Files dragged over the conversation go in the box to write in.
+  const [dropping, setDropping] = useState(false);
+  const addFiles = useRef<((files: File[]) => void) | null>(null);
   const atEnd = useRef(true);
   const placed = useRef(false);
   const lastSeq = messages.at(-1)?.seq ?? 0;
@@ -202,6 +314,10 @@ function Conversation({ server, chat, menu, onList }: { server: ChatServer; chat
   useEffect(() => {
     void one?.open(chat.id);
   }, [chat.id]);
+
+  useEffect(() => {
+    if (target) void jump(target.message);
+  }, [target?.at]);
 
   // On opening: at the line before what is new, else at the end. After that, at the end while it was there.
   useLayoutEffect(() => {
@@ -266,14 +382,40 @@ function Conversation({ server, chat, menu, onList }: { server: ChatServer; chat
   };
 
   const mine = (message: ChatMessage) => message.author === server.me && !message.agent;
+  /** Where a message is, as its link back and Forward name it: #dev, or a direct message. */
+  const where = chat.kind === 'direct' ? t('chat.aDirect') : `#${chat.name}`;
+  /** A task or a card from a message: its first line, and its words with a link back to it under them. */
+  const made = (message: ChatMessage) => {
+    const first = plainText(message.body.split('\n').find((line) => line.trim()) ?? '') || message.files[0]?.name || '';
+    const back = `[${t('chat.fromLink', { where, name: nameOf(message.author), day: shortDay(message.at) })}](${chatLink(server.url, chat.id, message.id)})`;
+    return { title: first.slice(0, 200), description: message.body.trim() ? `${message.body.trim()}\n\n${back}` : back, from: `${where} · ${nameOf(message.author)}` };
+  };
   const messageMenu = (event: MouseEvent, message: ChatMessage) => {
     const items: MenuItem[] = [];
     if (mine(message) && !message.forwarded) items.push({ label: t('chat.edit'), icon: 'pen', run: () => setEditing(message.id) });
-    items.push({ label: t('chat.copyText'), icon: 'copy', run: () => void navigator.clipboard.writeText(message.body) });
+    items.push({ label: t('chat.copyText'), icon: 'copy', run: () => void copy(message.body).catch(() => undefined) });
+    items.push({
+      label: t('chat.copyLink'),
+      icon: 'link',
+      run: () => {
+        const address = chatLink(server.url, chat.id, message.id);
+        void copy(address, `[${t('chat.fromLink', { where, name: nameOf(message.author), day: shortDay(message.at) })}](${address})`).then(
+          () => links.say(t('chat.linkCopied')),
+          () => links.say(t('error.clipboard')),
+        );
+      },
+    });
+    const task = made(message);
+    items.push({ label: t('chat.toTask'), icon: 'tasks', apart: true, run: () => links.toTask(task.title, task.description, task.from) });
+    items.push({ label: t('chat.toCard'), icon: 'board', run: () => links.toCard(task.title, task.description, task.from) });
     // Whoever wrote it deletes it; in a room, the space's managers too, which the server says.
     items.push({ label: t('chat.delete'), icon: 'trash', danger: true, apart: true, run: () => setDeleting(message) });
     menu(event, items);
   };
+  /** A link in a message: another message opens in Chat, a chip opens what it points at. */
+  const onLink = (href: string) => (href.startsWith('scrawl:chat/') ? onFollow(href) : links.open(href));
+
+  const hasFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');
 
   // Seen, in a direct message of two: under the last of this person's messages the other has read.
   const otherRead = chat.kind === 'direct' && chat.members.length === 2 && chat.reads ? Math.max(0, ...Object.values(chat.reads)) : 0;
@@ -304,7 +446,25 @@ function Conversation({ server, chat, menu, onList }: { server: ChatServer; chat
     );
 
   return (
-    <section className="chat-conv" onPointerDown={readNow} onKeyDown={readNow}>
+    <section
+      className="chat-conv"
+      onPointerDown={readNow}
+      onKeyDown={readNow}
+      onDragOver={(event) => {
+        if (!hasFiles(event) || !addFiles.current) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+        setDropping(true);
+      }}
+      onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setDropping(false)}
+      onDrop={(event) => {
+        setDropping(false);
+        // The box to write in takes files dropped in it itself.
+        if (event.defaultPrevented || !event.dataTransfer.files.length || !addFiles.current) return;
+        event.preventDefault();
+        addFiles.current([...event.dataTransfer.files]);
+      }}
+    >
       <header className="ch-head">
         <button type="button" className="ch-back" aria-label={t('chat.title')} onClick={onList}>
           <Icon name="back" />
@@ -358,8 +518,12 @@ function Conversation({ server, chat, menu, onList }: { server: ChatServer; chat
                   void one?.react(message.id, emoji, !had).catch(() => undefined);
                 }}
                 onReacting={(on) => setReacting(on ? message.id : null)}
+                onForward={() => setForwarding(message)}
                 onMenu={(event) => messageMenu(event, message)}
                 onJump={(id) => void jump(id)}
+                url={server.url}
+                chipState={links.stateOf}
+                onLink={onLink}
               />
               {message.id === seenAt && <div className="ch-seen">{t('chat.seen')}</div>}
             </div>
@@ -375,7 +539,37 @@ function Conversation({ server, chat, menu, onList }: { server: ChatServer; chat
       ) : goneAll ? (
         <p className="ch-closed">{t('chat.goneNote', { name: titleOf(chat, server.me) })}</p>
       ) : (
-        <Composer key={`${server.url} ${chat.id}`} server={server} chat={chat} replyTo={replyTo} nameOf={nameOf} onCancelReply={() => setReplyTo(null)} />
+        <Composer
+          key={`${server.url} ${chat.id}`}
+          server={server}
+          chat={chat}
+          replyTo={replyTo}
+          nameOf={nameOf}
+          menu={menu}
+          links={links}
+          dropping={dropping}
+          addFiles={addFiles}
+          onCancelReply={() => setReplyTo(null)}
+        />
+      )}
+      {forwarding && (
+        <ForwardDialog
+          server={server}
+          message={forwarding}
+          face={<Face id={forwarding.author} name={nameOf(forwarding.author)} size="sm" />}
+          from={
+            <>
+              <b>{nameOf(forwarding.author)}</b> · {where} · {timeOf(forwarding.at)}
+            </>
+          }
+          titleOf={(each) => titleOf(each, server.me)}
+          leadOf={(each) => leadOf(each, server)}
+          onClose={() => setForwarding(null)}
+          onDone={(count) => {
+            setForwarding(null);
+            links.say(t('chat.forwarded', { count }));
+          }}
+        />
       )}
       {deleting && (
         <ConfirmDialog
@@ -411,8 +605,12 @@ function MessageRow(props: {
   onReply: () => void;
   onReact: (emoji: string) => void;
   onReacting: (on: boolean) => void;
+  onForward: () => void;
   onMenu: (event: MouseEvent) => void;
   onJump: (id: string) => void;
+  url: string;
+  chipState: (href: string) => ChipState;
+  onLink: (href: string) => void;
 }) {
   const { message, cont, nameOf, me } = props;
   const quote = message.replyTo && props.quoted ? { ...message.replyTo, text: props.quoted.body, file: props.quoted.files[0]?.type ?? null, deleted: props.quoted.deleted !== null } : message.replyTo;
@@ -424,6 +622,10 @@ function MessageRow(props: {
     return /<\/p>\s*$/.test(body) ? body.replace(/<\/p>\s*$/, ` ${mark}</p>`) : `${body}${mark}`;
   }, [message.body, message.edited]);
   const forwarded = message.forwarded;
+  const body = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (body.current) shape(body.current, props.chipState);
+  }, [html, props.chipState, props.editing]);
   return (
     <div className={`ch-m${cont ? ' cont' : ''}${props.reacting ? ' hold' : ''}${props.flash ? ' flash' : ''}`} data-id={message.id} onContextMenu={message.deleted ? undefined : (event) => (event.preventDefault(), props.onMenu(event))}>
       {cont ? <span className="tm">{timeOf(message.at)}</span> : <Face id={message.author} name={name} />}
@@ -436,7 +638,7 @@ function MessageRow(props: {
         )}
         {forwarded && (
           <div className="ch-fw">
-            <Icon name="reply" />
+            <Icon name="forward" />
             {t('chat.forwardedFrom', { where: forwarded.kind === 'direct' ? t('chat.aDirect') : `#${forwarded.name}`, name: forwarded.authorName })}
           </div>
         )}
@@ -451,8 +653,9 @@ function MessageRow(props: {
         ) : props.editing ? (
           <MessageEditor body={message.body} onSave={props.onEdit} onCancel={props.onCancelEdit} />
         ) : (
-          <div className="bd" dangerouslySetInnerHTML={{ __html: html }} />
+          message.body.trim() !== '' && <div className="bd" ref={body} onClick={(event) => onBodyClick(event, props.onLink)} dangerouslySetInnerHTML={{ __html: html }} />
         )}
+        {!message.deleted && message.files.length > 0 && <Attachments url={props.url} files={message.files} />}
         {message.reactions.length > 0 && (
           <div className="ch-rx">
             {message.reactions.map((reaction) => (
@@ -478,6 +681,9 @@ function MessageRow(props: {
           <button type="button" title={t('chat.reply')} aria-label={t('chat.reply')} onClick={props.onReply}>
             <Icon name="reply" />
           </button>
+          <button type="button" title={t('chat.forward')} aria-label={t('chat.forward')} onClick={props.onForward}>
+            <Icon name="forward" />
+          </button>
           <button type="button" title={t('chat.more')} aria-label={t('chat.more')} onClick={(event) => props.onMenu(event)}>
             <Icon name="more" />
           </button>
@@ -485,6 +691,50 @@ function MessageRow(props: {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * What a message's HTML cannot know: its code coloured, and each chip as it is to this person,
+ * faint with No access or Moved or deleted when it cannot be opened (design/chat.md, 3.7).
+ */
+function shape(root: HTMLElement, stateOf: (href: string) => ChipState) {
+  void highlightCodeBlocks(root);
+  for (const chip of root.querySelectorAll<HTMLElement>('.msg-chip')) {
+    const state = stateOf(chip.dataset.href ?? '');
+    chip.classList.toggle('faint', state !== 'here');
+    let why = chip.querySelector('em');
+    if (state === 'here') {
+      why?.remove();
+      continue;
+    }
+    why ??= chip.appendChild(document.createElement('em'));
+    why.textContent = state === 'notHere' ? t('chat.notHere') : state === 'noAccess' ? t('chat.noAccess') : t('chat.gone');
+  }
+}
+
+/** A click in a message's words: a chip or a message's link opens, a code block is copied or unfolded. */
+function onBodyClick(event: MouseEvent, onLink: (href: string) => void) {
+  const at = event.target as HTMLElement;
+  const link = at.closest<HTMLElement>('.msg-chip, a.msg-chat');
+  if (link) {
+    event.preventDefault();
+    return onLink(link.dataset.href ?? '');
+  }
+  const button = at.closest<HTMLElement>('[data-act]');
+  const box = button?.closest<HTMLElement>('.msg-codebox');
+  if (!button || !box) return;
+  if (button.dataset.act === 'more') {
+    box.classList.add('open');
+    button.remove();
+    return;
+  }
+  void copy(box.querySelector('pre')?.textContent ?? '').then(
+    () => {
+      button.textContent = t('chat.copied');
+      window.setTimeout(() => (button.textContent = t('chat.copy')), 1500);
+    },
+    () => undefined,
   );
 }
 
@@ -509,7 +759,9 @@ function PendingRow({ url, pending, me, nameOf, after, replied }: { url: string;
             <span>{quoteText(replied.body, replied.files[0]?.type ?? null)}</span>
           </div>
         )}
-        <div className="bd" dangerouslySetInnerHTML={{ __html: html }} />
+        {pending.body.trim() !== '' && <div className="bd" dangerouslySetInnerHTML={{ __html: html }} />}
+        {/* What waited on this device from before files went in messages has none. */}
+        {(pending.files ?? []).length > 0 && <Attachments url={url} files={pending.files} />}
         {pending.failed ? (
           <div className="ch-fail">
             <Icon name="warn" />
@@ -662,8 +914,22 @@ interface Choice {
   insert: string;
 }
 
-/** The box to write in: Markdown in the editor notes have; Enter sends; @ offers the people of the conversation. */
-function Composer({ server, chat, replyTo, nameOf, onCancelReply }: { server: ChatServer; chat: ChatInfo; replyTo: ChatMessage | null; nameOf: (id: string) => string; onCancelReply: () => void }) {
+/**
+ * The box to write in: Markdown in the editor notes have; Enter sends; @ offers the people of the
+ * conversation; + adds files, a code block or a chip; the microphone records a voice message.
+ */
+function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFiles: addFilesHere, onCancelReply }: {
+  server: ChatServer;
+  chat: ChatInfo;
+  replyTo: ChatMessage | null;
+  nameOf: (id: string) => string;
+  menu: Props['menu'];
+  links: ChatLinks;
+  dropping: boolean;
+  /** Where the conversation hands the files dropped on it. */
+  addFiles: RefObject<((files: File[]) => void) | null>;
+  onCancelReply: () => void;
+}) {
   const one = store.server(server.url);
   const box = useRef<HTMLDivElement>(null);
   const editor = useRef<ScrawlEditor | null>(null);
@@ -672,7 +938,128 @@ function Composer({ server, chat, replyTo, nameOf, onCancelReply }: { server: Ch
   // The formatting row, which Aa opens over the box; and the emoji, over it too.
   const [formatting, setFormatting] = useState(false);
   const [emoji, setEmoji] = useState(false);
+  // The files on their way into the message, over the box; and a voice message being recorded in its place.
+  const [going, setGoing] = useState<Going[]>([]);
+  const goingNow = useRef(going);
+  goingNow.current = going;
+  const [recording, setRecording] = useState(false);
   const placeholder = chat.kind === 'direct' ? t('chat.messageTo', { name: titleOf(chat, server.me) }) : t('chat.messageTo', { name: `#${chat.name}` });
+
+  const change = (key: string, patch: Partial<Going>) => setGoing((was) => was.map((each) => (each.key === key ? { ...each, ...patch } : each)));
+  const letGo = (each: Going) => {
+    if (!each.file && !each.failed) each.stop.abort();
+    if (each.preview) URL.revokeObjectURL(each.preview);
+  };
+  useEffect(() => () => goingNow.current.forEach(letGo), []);
+
+  /** Files for the message: each measured, its small picture sent, then itself, with how far it went. */
+  const add = (files: File[]) => {
+    if (!one || !files.length) return;
+    const room = MAX_FILES - goingNow.current.length;
+    if (files.length > room) links.say(t('chat.tooMany', { count: MAX_FILES }));
+    const limit = server.maxFileMb;
+    const added: Going[] = [];
+    for (const file of files.slice(0, Math.max(0, room))) {
+      if (limit !== null && file.size > limit * 1024 * 1024) {
+        links.say(t('chat.tooLarge', { size: limitText(limit) }));
+        continue;
+      }
+      const each: Going = { key: crypto.randomUUID(), name: file.name || 'file', type: file.type, size: file.size, sent: 0, preview: isImage(file) ? URL.createObjectURL(file) : null, stop: new AbortController() };
+      added.push(each);
+      void (async () => {
+        try {
+          const measured = await measure(file);
+          if (measured.thumb && !each.preview) change(each.key, { preview: URL.createObjectURL(measured.thumb) });
+          const thumb = measured.thumb ? (await one.upload(measured.thumb, () => undefined, each.stop.signal)).hash : undefined;
+          const sent = await one.upload(file, (count) => change(each.key, { sent: count }), each.stop.signal);
+          const done: ChatFile = {
+            hash: sent.hash,
+            name: each.name,
+            type: file.type || 'application/octet-stream',
+            size: sent.size,
+            ...(measured.width && { width: measured.width }),
+            ...(measured.height && { height: measured.height }),
+            ...(measured.duration !== undefined && Number.isFinite(measured.duration) && { duration: measured.duration }),
+            ...(thumb && { thumb }),
+          };
+          change(each.key, { sent: file.size, file: done });
+        } catch (error) {
+          if (each.stop.signal.aborted) return;
+          change(each.key, { failed: error instanceof Error && error.message === 'too-large' && limit !== null ? t('chat.tooLarge', { size: limitText(limit) }) : t('chat.notUploaded') });
+        }
+      })();
+    }
+    if (added.length) setGoing((was) => [...was, ...added]);
+    editor.current?.view.focus();
+  };
+  const adding = useRef(add);
+  adding.current = add;
+  useEffect(() => {
+    addFilesHere.current = (files) => adding.current(files);
+    return () => {
+      addFilesHere.current = null;
+    };
+  }, []);
+
+  const remove = (key: string) => {
+    const each = goingNow.current.find((one) => one.key === key);
+    if (each) letGo(each);
+    setGoing((was) => was.filter((one) => one.key !== key));
+  };
+
+  /** Photos and files…: the computer's own picker, many at once. */
+  const pickFiles = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.addEventListener('change', () => add([...(input.files ?? [])]));
+    input.click();
+  };
+
+  /** Puts a chip where the cursor is, apart from the words around it. */
+  const putChip = (chip: string, at?: number) => {
+    const view = editor.current?.view;
+    if (!view) return;
+    const from = at ?? view.state.selection.main.head;
+    const before = view.state.doc.sliceString(Math.max(0, from - 1), from);
+    const insert = `${before && !/\s/.test(before) ? ' ' : ''}${chip} `;
+    view.dispatch({ changes: { from, insert }, selection: { anchor: from + insert.length } });
+    view.focus();
+  };
+
+  const plusMenu = (event: MouseEvent) =>
+    menu(event, [
+      { label: t('chat.photosFiles'), icon: 'image', run: pickFiles },
+      {
+        label: t('chat.codeBlock'),
+        icon: 'codeBlock',
+        run: () => {
+          const view = editor.current?.view;
+          if (view) toggleCodeBlock(view);
+          view?.focus();
+        },
+      },
+      { label: t('chat.itemChip'), icon: 'link', run: () => void links.pick(server.url).then((chip) => (chip ? putChip(chip) : editor.current?.view.focus())) },
+    ]);
+
+  /** A voice message: its recording sent, then the message with it, an answer when one is being written. */
+  const sendVoice = async (blob: Blob, seconds: number) => {
+    if (!one) return;
+    const type = blob.type || 'audio/webm';
+    const extension = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+    const now = new Date();
+    const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}.${String(now.getMinutes()).padStart(2, '0')}`;
+    try {
+      const sent = await one.upload(blob, () => undefined, new AbortController().signal);
+      one.send(chat.id, '', replyTo?.id ?? null, [{ hash: sent.hash, name: `${t('chat.voiceFile', { stamp })}.${extension}`, type, size: sent.size, duration: Math.round(seconds * 10) / 10 }]);
+    } catch (error) {
+      links.say(t('chat.notUploaded'));
+      throw error;
+    }
+    setRecording(false);
+    onCancelReply();
+    window.setTimeout(() => editor.current?.view.focus());
+  };
 
   const look = () => {
     const view = editor.current?.view;
@@ -693,6 +1080,10 @@ function Composer({ server, chat, replyTo, nameOf, onCancelReply }: { server: Ch
         if (doc.trim()) one?.typing(chat.id);
         window.setTimeout(look);
       },
+      // Pasted and dropped files, a screenshot too, go in the message.
+      addFiles: (files) => adding.current(files),
+      pastedFiles: isDesktop ? clipboardFilesOnDesktop : undefined,
+      onEmptyPaste: () => links.say(t('editor.pasteNothing')),
       placeholder: () => {
         const shown = document.createElement('span');
         shown.textContent = placeholder;
@@ -732,14 +1123,21 @@ function Composer({ server, chat, replyTo, nameOf, onCancelReply }: { server: Ch
     view.focus();
   };
 
+  // What is uploaded goes with the words; what is still on its way holds Send, what failed stays in the tray.
+  const ready = going.filter((each) => each.file);
+  const uploading = going.some((each) => !each.file && !each.failed);
+  const canSend = !uploading && (text.trim() !== '' || ready.length > 0);
+
   const send = () => {
     const view = editor.current?.view;
     const body = view?.state.doc.toString() ?? '';
-    if (!view || !body.trim() || !one) return;
-    one.send(chat.id, body, replyTo?.id ?? null);
+    if (!view || !canSend || !one) return;
+    one.send(chat.id, body.trim() ? body : '', replyTo?.id ?? null, ready.map((each) => each.file!));
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
     keepDraft(server.url, chat.id, '');
     setText('');
+    ready.forEach(letGo);
+    setGoing((was) => was.filter((each) => !each.file));
     onCancelReply();
   };
 
@@ -778,8 +1176,32 @@ function Composer({ server, chat, replyTo, nameOf, onCancelReply }: { server: Ch
     send();
   };
 
+  // A row of the sidebar dragged in: a note, a list, a board or a collection, as a chip.
+  const takesItem = (event: DragEvent) => event.dataTransfer.types.includes(ITEM_DRAG_TYPE);
+
   return (
-    <div className={`ch-cmp${text.trim() ? ' on' : ''}`} onKeyDownCapture={onKeyDownCapture} onKeyUp={look} onMouseUp={look}>
+    <div
+      className={`ch-cmp${text.trim() || going.length || recording || dropping ? ' on' : ''}${recording ? ' rec' : ''}`}
+      onKeyDownCapture={recording ? undefined : onKeyDownCapture}
+      onKeyUp={look}
+      onMouseUp={look}
+      onDragOverCapture={(event) => {
+        if (!takesItem(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = 'move';
+      }}
+      onDropCapture={(event) => {
+        if (!takesItem(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const chip = links.chipOf(server.url, event.dataTransfer.getData(ITEM_DRAG_TYPE));
+        if (!chip) return links.say(t('chat.notOnServer'));
+        const view = editor.current?.view;
+        putChip(chip, view?.posAtCoords({ x: event.clientX, y: event.clientY }) ?? undefined);
+      }}
+    >
+      {recording && <RecorderBar onSend={sendVoice} onCancel={() => (setRecording(false), window.setTimeout(() => editor.current?.view.focus()))} />}
       {replyTo && (
         <div className="rp">
           <Icon name="reply" />
@@ -836,8 +1258,12 @@ function Composer({ server, chat, replyTo, nameOf, onCancelReply }: { server: Ch
           ))}
         </div>
       )}
+      <Tray going={going} onRemove={remove} />
       <div className="in" ref={box} />
       <div className="bar">
+        <button type="button" className="ib" title={t('chat.add')} aria-label={t('chat.add')} onMouseDown={(event) => event.preventDefault()} onClick={plusMenu}>
+          <Icon name="plus" />
+        </button>
         <button type="button" className={`ib${formatting ? ' on' : ''}`} title={t('chat.format')} aria-label={t('chat.format')} aria-pressed={formatting} onMouseDown={(event) => event.preventDefault()} onClick={() => setFormatting(!formatting)}>
           <span className="aa">Aa</span>
         </button>
@@ -869,7 +1295,10 @@ function Composer({ server, chat, replyTo, nameOf, onCancelReply }: { server: Ch
           />
         )}
         <span className="gap" />
-        <button type="button" className={`send${text.trim() ? ' go' : ''}`} title={t('chat.send')} aria-label={t('chat.send')} disabled={!text.trim()} onMouseDown={(event) => event.preventDefault()} onClick={send}>
+        <button type="button" className="ib" title={t('chat.record')} aria-label={t('chat.record')} onMouseDown={(event) => event.preventDefault()} onClick={() => setRecording(true)}>
+          <Icon name="audio" />
+        </button>
+        <button type="button" className={`send${canSend ? ' go' : ''}`} title={t('chat.send')} aria-label={t('chat.send')} disabled={!canSend} onMouseDown={(event) => event.preventDefault()} onClick={send}>
           <Icon name="send" />
         </button>
       </div>

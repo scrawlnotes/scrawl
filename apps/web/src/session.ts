@@ -1391,12 +1391,20 @@ export class Session {
   /** Where the window shows what a link inside the space points at. */
   openTarget: ((target: LinkTarget) => void) | null = null;
 
+  /** Where the window opens a message's address or a chip's, from a note, a description or a comment. */
+  openScrawl: ((href: string) => void) | null = null;
+
   /**
    * Opens a link of something at `home` (a note, a card's board, a record's collection): a web or
    * mail address in the browser, a path in its space in the app, read from the folder `home` is
    * in. One to what is not there says so.
    */
   async followLink(home: string, href: string) {
+    // A message's address or a chip's: the window opens it (design/chat.md, 3.7).
+    if (/^scrawl:(chat|item)\//.test(href)) {
+      this.openScrawl?.(href);
+      return;
+    }
     if (!isInsideHref(href)) {
       if (isDesktop) void openUrlOnDesktop(href).catch(() => undefined);
       else window.open(href, '_blank', 'noopener');

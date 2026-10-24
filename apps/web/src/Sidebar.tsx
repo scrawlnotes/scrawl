@@ -12,7 +12,7 @@ import type { SpaceSyncView } from './sync';
 import { percent, signInAsk, signInFresh } from './SyncViews';
 
 // A note, a task list, a board, a keys file, a collection or a folder being dragged into a folder.
-const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
+export const ITEM_DRAG_TYPE = 'application/x-scrawl-item';
 /** How long a closed folder is held over, while something is dragged, before it opens. */
 const OPEN_WHILE_DRAGGING = 700;
 /** A space's heading being dragged to another place among the spaces. */

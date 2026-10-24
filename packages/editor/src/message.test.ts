@@ -20,7 +20,20 @@ describe('a message as HTML', () => {
     expect(html).toContain('a cat');
   });
 
-  it('keeps a code block as it was written, with its language', () => {
-    expect(messageHtml('```ts\nconst a = "<b>";\n```')).toBe('<pre class="msg-code" data-lang="ts"><code>const a = &quot;&lt;b&gt;&quot;;</code></pre>');
+  it('keeps a code block as it was written, with its language and Copy, folded past fifteen lines', () => {
+    const short = messageHtml('```ts\nconst a = "<b>";\n```');
+    expect(short).toContain('<pre class="msg-code" data-lang="ts"><code>const a = &quot;&lt;b&gt;&quot;;</code></pre>');
+    expect(short).toContain('<span>ts</span><button type="button" class="msg-copy" data-act="copy">Copy</button>');
+    expect(short).not.toContain('msg-more');
+    const long = messageHtml('```\n' + Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n') + '\n```');
+    expect(long).toContain('<div class="msg-codebox long">');
+    expect(long).toContain('Show all 20 lines');
+  });
+
+  it('makes a note, a task or a card a chip that opens it, and a message’s address a link in the app', () => {
+    const chip = messageHtml('[SCR-41 Agent guide](scrawl:item/card/sp-acme/Roadmap.board.json?id=c1 "Roadmap · Review")');
+    expect(chip).toContain('<button type="button" class="msg-chip" data-href="scrawl:item/card/sp-acme/Roadmap.board.json?id=c1" data-kind="card">');
+    expect(chip).toContain('<b>SCR-41 Agent guide</b><small>Roadmap · Review</small></button>');
+    expect(messageHtml('[See this](scrawl:chat/localhost%3A8080/ch-1/m-1)')).toContain('<a class="msg-chat" href="#" data-href="scrawl:chat/localhost%3A8080/ch-1/m-1">See this</a>');
   });
 });

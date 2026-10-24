@@ -200,6 +200,8 @@ export interface ServerStatus {
   personal?: boolean;
   /** It has messaging (design/chat.md); a server from before it came leaves it out, and the app shows no Chat for it. */
   chat?: boolean;
+  /** The largest file it takes, in megabytes; a server from before messaging leaves it out. */
+  maxFileMb?: number;
 }
 
 export interface ServerAccountInfo {
