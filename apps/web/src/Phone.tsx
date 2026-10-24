@@ -25,9 +25,10 @@ import { ActionSheet, Empty, useViewport } from './sheets';
 import { LabelsPage } from './labels';
 import type { ChatLinks } from './Chat';
 import type { MenuItem } from './dialogs';
-import { BrowseRoomsDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
+import type { InfoTab } from './ChatRooms';
 import { store as chatStore, useChat } from './chatStore';
 import { partName, PhoneChatConversation, PhoneChatInfo, PhoneChatList, PhoneChatPart } from './PhoneChat';
+import { PhoneBrowseRooms, PhoneNewMessage, PhoneNewRoom } from './PhoneChatNew';
 import { titleOf as chatTitle } from './ChatFaces';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
@@ -555,7 +556,7 @@ export function Phone(props: PhoneProps) {
   const chat = useChat();
   const places: Place[] = chat.servers.length ? [...PLACES, 'chat'] : PLACES;
   // New room, Browse rooms and New message, from Chat's +, for a server.
-  const [making, setMaking] = useState<{ kind: 'newRoom' | 'browse' | 'newMessage'; url: string } | null>(null);
+  const [making, setMaking] = useState<{ kind: 'newRoom' | 'browse' | 'newMessage'; url: string; space?: string } | null>(null);
   // What was typed in Search, kept while another tab is on screen.
   const [query, setQuery] = useState('');
   /** A page sliding in, by its key: it starts at the right edge. */
@@ -1273,6 +1274,13 @@ export function Phone(props: PhoneProps) {
                 )
             }
             onInvite={() => props.chat.links.invite(null)}
+            onAddRoom={(event, url, space) =>
+              props.chat.menu(event, [
+                { label: t('chat.createRoom'), icon: 'plus', run: () => setMaking({ kind: 'newRoom', url, space }) },
+                { label: t('chat.browseRooms'), icon: 'search', run: () => setMaking({ kind: 'browse', url, space }) },
+              ])
+            }
+            onNewMessage={(url) => setMaking({ kind: 'newMessage', url })}
           />
         </PageFrame>
       );
@@ -1804,11 +1812,11 @@ export function Phone(props: PhoneProps) {
           ))}
         </nav>
       )}
-      {making?.kind === 'newRoom' && makingServer && <NewRoomDialog server={makingServer} space={null} onDone={(made) => openMade(making.url, made)} onClose={() => setMaking(null)} />}
-      {making?.kind === 'browse' && makingServer && (
-        <BrowseRoomsDialog server={makingServer} space={null} onOpen={(room) => openMade(making.url, room)} onNewRoom={() => setMaking({ kind: 'newRoom', url: making.url })} onClose={() => setMaking(null)} />
+      {making?.kind === 'newRoom' && makingServer && <PhoneNewRoom server={makingServer} space={making.space ?? null} onDone={(made) => openMade(making.url, made)} onClose={() => setMaking(null)} />}
+      {making?.kind === 'browse' && makingServer && <PhoneBrowseRooms server={makingServer} space={making.space ?? null} onOpen={(room) => openMade(making.url, room)} onClose={() => setMaking(null)} />}
+      {making?.kind === 'newMessage' && makingServer && (
+        <PhoneNewMessage server={makingServer} menu={props.chat.menu} links={props.chat.links} onDone={(made) => openMade(making.url, made)} onClose={() => setMaking(null)} />
       )}
-      {making?.kind === 'newMessage' && makingServer && <NewMessageDialog server={makingServer} onDone={(made) => openMade(making.url, made)} onClose={() => setMaking(null)} />}
       <nav className={places.length > 4 ? 'mb-tabbar five' : 'mb-tabbar'} aria-label={t('phone.places')}>
         {places.map((each) => (
           <button key={each} type="button" aria-current={each === place ? 'page' : undefined} onClick={() => choose(each)}>

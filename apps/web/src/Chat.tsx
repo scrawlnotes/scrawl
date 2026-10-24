@@ -25,7 +25,7 @@ import { Icon, type IconName } from './Icon';
 import { Face, leadOf, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { BrowseRoomsDialog, ChatInfoDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
 import { ChatResults } from './ChatSearch';
-import { ChatIntro, notWrittenTo, teammatesOf } from './ChatStart';
+import { ChatIntro, notWrittenTo, staysFolded, useFolded } from './ChatStart';
 import { type Hit, type HitFilters, useMessageSearch } from './messageSearch';
 import { hostOf } from './servers';
 import { ITEM_DRAG_TYPE } from './Sidebar';
@@ -269,9 +269,7 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
         open={finding ? null : shown}
         onOpen={pick}
         onAdd={addMenu}
-        onNewRoom={(url) => setMaking({ kind: 'newRoom', url, space: null })}
         onWrite={(url, person) => void store.server(url)?.direct([person]).then((made) => pick({ url, chat: made.id }), () => links.say(t('chat.notChanged')))}
-        onInvite={() => links.invite(null)}
         box={searchBox(listBox, 'ch-find')}
       />
       {finding ? (
@@ -329,18 +327,14 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
 }
 
 /** The conversations: each server's rooms under their spaces by name, then its direct messages, the latest first. */
-function ChatList({ servers, open, onOpen, onAdd, onNewRoom, onWrite, onInvite, box }: {
+function ChatList({ servers, open, onOpen, onAdd, onWrite, box }: {
   servers: ChatServer[];
   open: Open | null;
   onOpen: (open: Open) => void;
   /** The + of a space's heading, or of Direct's (space null). */
   onAdd: (event: MouseEvent, url: string, space: string | null) => void;
-  /** New room… under a server's rooms. */
-  onNewRoom: (url: string) => void;
   /** Someone to write to, with no direct message yet: it opens. */
   onWrite: (url: string, person: string) => void;
-  /** Invite people…, when no one shares a space with this person. */
-  onInvite: () => void;
   /** The box to search messages in, at the top. */
   box: ReactNode;
 }) {
@@ -360,9 +354,15 @@ function ChatList({ servers, open, onOpen, onAdd, onNewRoom, onWrite, onInvite, 
       </button>
     );
   };
+  // Folded sections, kept on this device: a folded one shows only its open and unread conversations.
+  const folds = useFolded();
+  const stays = (server: ChatServer, chat: ChatInfo) => staysFolded(chat, open?.url === server.url && open.chat === chat.id);
   const heading = (name: string, url: string, space: string | null) => (
-    <div className="chat-grp">
-      <span>{name}</span>
+    <div className={folds.isFolded(url, space) ? 'chat-grp folded' : 'chat-grp'}>
+      <button type="button" className="fold" aria-expanded={!folds.isFolded(url, space)} onClick={() => folds.toggle(url, space)}>
+        <Icon name="chevron" />
+        <span>{name}</span>
+      </button>
       <button type="button" className="gadd" title={space === null ? t('chat.newMessageDots') : t('chat.add')} aria-label={space === null ? t('chat.newMessageDots') : t('chat.add')} onClick={(event) => onAdd(event, url, space)}>
         <Icon name="plus" />
       </button>
@@ -391,45 +391,25 @@ function ChatList({ servers, open, onOpen, onAdd, onNewRoom, onWrite, onInvite, 
               .map(([space, group]) => (
                 <div key={space} className="chat-group">
                   {heading(group.name, server.url, space)}
-                  {group.chats.sort((a, b) => a.name.localeCompare(b.name)).map((chat) => row(server, chat))}
+                  {group.chats
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .filter((chat) => !folds.isFolded(server.url, space) || stays(server, chat))
+                    .map((chat) => row(server, chat))}
                 </div>
               ))}
-            {spaces.size > 0 && (
-              <button type="button" className="chat-row addr" onClick={() => onNewRoom(server.url)}>
-                <span className="ic2">
-                  <Icon name="plus" />
-                </span>
-                <span className="nm">{t('chat.newRoomDots')}</span>
-              </button>
-            )}
             <div className="chat-group">
               {heading(many ? t('chat.directMessagesOn', { server: hostOf(server.url) }) : t('chat.directMessages'), server.url, null)}
-              {direct.map((chat) => row(server, chat))}
-              {/* The people to write to with no direct message yet, a few; with no one at all, Invite people…. */}
-              {notWrittenTo(server)
-                .slice(0, 5)
-                .map((person) => (
-                  <button type="button" key={person.id} className="chat-row" onClick={() => onWrite(server.url, person.id)}>
-                    <Face id={person.id} name={person.name} size="sm" online={server.active.includes(person.id)} />
-                    <span className="nm">{person.name}</span>
-                    <span className="sb">{person.space}</span>
-                  </button>
-                ))}
-              {teammatesOf(server).length > 0 ? (
-                <button type="button" className="chat-row addr" onClick={(event) => onAdd(event, server.url, null)}>
-                  <span className="ic2">
-                    <Icon name="plus" />
-                  </span>
-                  <span className="nm">{t('chat.newMessageDots')}</span>
-                </button>
-              ) : (
-                <button type="button" className="chat-row addr" onClick={onInvite}>
-                  <span className="ic2">
-                    <Icon name="plus" />
-                  </span>
-                  <span className="nm">{t('chat.invitePeopleDots')}</span>
-                </button>
-              )}
+              {direct.filter((chat) => !folds.isFolded(server.url, null) || stays(server, chat)).map((chat) => row(server, chat))}
+              {/* The people to write to with no direct message yet, a few, as the direct messages are. */}
+              {!folds.isFolded(server.url, null) &&
+                notWrittenTo(server)
+                  .slice(0, 5)
+                  .map((person) => (
+                    <button type="button" key={person.id} className="chat-row" onClick={() => onWrite(server.url, person.id)}>
+                      <Face id={person.id} name={person.name} size="sm" online={server.active.includes(person.id)} />
+                      <span className="nm">{person.name}</span>
+                    </button>
+                  ))}
             </div>
           </div>
         );
@@ -1358,7 +1338,17 @@ interface Choice {
  * The box to write in: Markdown in the editor notes have; Enter sends; @ offers the people of the
  * conversation; + adds files, a code block or a chip; the microphone records a voice message.
  */
-function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFiles: addFilesHere, onCancelReply, phone = false }: {
+/**
+ * New message's box on a phone (design/chat.md 25): no conversation is there yet. Send makes it, or
+ * finds the one there is, sends there and opens it; with no one picked it does not send.
+ */
+export interface FreshBox {
+  placeholder: string;
+  make: (() => Promise<ChatInfo>) | null;
+  onSent: (chat: ChatInfo) => void;
+}
+
+export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFiles: addFilesHere, onCancelReply, phone = false, fresh }: {
   server: ChatServer;
   chat: ChatInfo;
   replyTo: ChatMessage | null;
@@ -1371,11 +1361,15 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
   onCancelReply: () => void;
   /** The phone's box: +, the words, and Send or the microphone held to record. */
   phone?: boolean;
+  /** New message's box: `chat` stands for the conversation to be, its people or its room. */
+  fresh?: FreshBox;
 }) {
   const one = store.server(server.url);
+  // New message's words are kept apart from every conversation's until they are sent.
+  const draftKey = fresh ? 'new' : chat.id;
   const box = useRef<HTMLDivElement>(null);
   const editor = useRef<ScrawlEditor | null>(null);
-  const [text, setText] = useState(() => draftOf(server.url, chat.id));
+  const [text, setText] = useState(() => draftOf(server.url, draftKey));
   const [mention, setMention] = useState<{ from: number; to: number; query: string; at: number } | null>(null);
   // The formatting row, which Aa opens over the box; and the emoji, over it too.
   const [formatting, setFormatting] = useState(false);
@@ -1387,7 +1381,24 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
   const [recording, setRecording] = useState(false);
   // On a phone the box is a pill until it is tapped, a card with the words over Aa, emoji, @ and Send while in use.
   const [focused, setFocused] = useState(false);
-  const placeholder = chat.kind === 'direct' ? t('chat.messageTo', { name: titleOf(chat, server.me) }) : t('chat.messageTo', { name: `#${chat.name}` });
+  const placeholder = fresh ? fresh.placeholder : chat.kind === 'direct' ? t('chat.messageTo', { name: titleOf(chat, server.me) }) : t('chat.messageTo', { name: `#${chat.name}` });
+  // Send held while New message's conversation is being made.
+  const making = useRef(false);
+
+  /** Where a message goes: this conversation, or in New message's box the one made or found for it. */
+  const target = async (): Promise<ChatInfo | null> => {
+    if (!fresh) return chat;
+    if (!fresh.make || making.current) return null;
+    making.current = true;
+    try {
+      return await fresh.make();
+    } catch {
+      links.say(t('chat.notMade'));
+      return null;
+    } finally {
+      making.current = false;
+    }
+  };
 
   const change = (key: string, patch: Partial<Going>) => setGoing((was) => was.map((each) => (each.key === key ? { ...each, ...patch } : each)));
   const letGo = (each: Going) => {
@@ -1575,9 +1586,11 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
     const extension = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
     const now = new Date();
     const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}.${String(now.getMinutes()).padStart(2, '0')}`;
+    let to: ChatInfo | null = null;
     try {
       const sent = await one.upload(blob, () => undefined, new AbortController().signal);
-      one.send(chat.id, '', replyTo?.id ?? null, [{ hash: sent.hash, name: `${t('chat.voiceFile', { stamp })}.${extension}`, type, size: sent.size, duration: Math.round(seconds * 10) / 10 }]);
+      to = await target();
+      if (to) one.send(to.id, '', replyTo?.id ?? null, [{ hash: sent.hash, name: `${t('chat.voiceFile', { stamp })}.${extension}`, type, size: sent.size, duration: Math.round(seconds * 10) / 10 }]);
     } catch (error) {
       links.say(t('chat.notUploaded'));
       throw error;
@@ -1585,6 +1598,7 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
     setRecording(false);
     setLocked(null);
     onCancelReply();
+    if (to && fresh) return fresh.onSent(to);
     window.setTimeout(() => editor.current?.view.focus());
   };
 
@@ -1603,8 +1617,8 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
       doc: text,
       onChange: (doc) => {
         setText(doc);
-        keepDraft(server.url, chat.id, doc);
-        if (doc.trim()) one?.typing(chat.id);
+        keepDraft(server.url, draftKey, doc);
+        if (doc.trim() && !fresh) one?.typing(chat.id);
         window.setTimeout(look);
       },
       // Pasted and dropped files, a screenshot too, go in the message.
@@ -1673,20 +1687,25 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
   // What is uploaded goes with the words; what is still on its way holds Send, what failed stays in the tray.
   const ready = going.filter((each) => each.file);
   const uploading = going.some((each) => !each.file && !each.failed);
-  const canSend = !uploading && (text.trim() !== '' || ready.length > 0);
+  const canSend = !uploading && (text.trim() !== '' || ready.length > 0) && (!fresh || fresh.make !== null);
   const open = focused || text.trim() !== '' || going.length > 0 || replyTo !== null;
 
   const send = () => {
     const view = editor.current?.view;
     const body = view?.state.doc.toString() ?? '';
     if (!view || !canSend || !one) return;
-    one.send(chat.id, body.trim() ? body : '', replyTo?.id ?? null, ready.map((each) => each.file!));
-    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
-    keepDraft(server.url, chat.id, '');
-    setText('');
-    ready.forEach(letGo);
-    setGoing((was) => was.filter((each) => !each.file));
-    onCancelReply();
+    const deliver = (to: ChatInfo) => {
+      one.send(to.id, body.trim() ? body : '', replyTo?.id ?? null, ready.map((each) => each.file!));
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
+      keepDraft(server.url, draftKey, '');
+      setText('');
+      ready.forEach(letGo);
+      setGoing((was) => was.filter((each) => !each.file));
+      onCancelReply();
+      fresh?.onSent(to);
+    };
+    if (!fresh) return deliver(chat);
+    void target().then((to) => to && deliver(to));
   };
 
   const onKeyDownCapture = (event: KeyboardEvent) => {
