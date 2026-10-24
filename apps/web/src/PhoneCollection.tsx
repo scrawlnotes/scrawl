@@ -942,9 +942,13 @@ function LinkedTab({ block, dir, schema: own, record, today, actions }: { block:
   const named = block.fields ? block.fields.map(byKey).filter((f): f is Field => !!f) : schema.fields.filter((f) => f.type !== 'name' && f.type !== 'code' && !back.has(f.key));
   // A table is a list here: its first number on the right, summed under it when the block sums.
   const number = block.style === 'table' ? named.find((f) => (shownAs.get(f.key) ?? f).type === 'number') : undefined;
+  // A value that says the row's title again, a workout item's exercise, is left out.
   const shown = (r: Entry) =>
     named
-      .filter((f) => f !== number && !isEmpty(fieldValueOf(r, f, schema, today)))
+      .filter((f) => {
+        const value = fieldValueOf(r, f, schema, today);
+        return f !== number && f.type !== 'checkbox' && !isEmpty(value) && valueText(value) !== recordTitle(r);
+      })
       .slice(0, 2);
   const sums = number && block.sums ? columnSums(rows, schema, number.key, today) : null;
   // A table in groups (design/gym.md 4.2) has a heading over each, and over each of its second.
@@ -956,22 +960,41 @@ function LinkedTab({ block, dir, schema: own, record, today, actions }: { block:
       {count !== null && <small>{count}</small>}
     </div>
   );
+  // A table with a column that ticks a row off has its tick at the start of each row, ticked or unticked where it is (a workout's items).
+  const tick = block.style === 'table' ? named.find((f) => f.type === 'checkbox') : undefined;
   const line = (r: Entry) => {
-        const amount = number ? fieldValueOf(r, number, schema, today) : undefined;
-        return (
-          <button key={r.id} type="button" className="mb-cr" onClick={() => open(r)}>
-            <span className="tx">
-              <b>{recordTitle(r)}</b>
-              <small>
-                {r.name && r.code && <span className="key">{r.code}</span>}
-                {shown(r).map((f) => (
-                  <ListValue key={f.key} field={shownAs.get(f.key) ?? f} value={fieldValueOf(r, f, schema, today)} today={today} values={r.values} />
-                ))}
-              </small>
-            </span>
-            {typeof amount === 'number' && <span className="rt num">{formatNumber(amount, number!.format, currencyOf(number!.format, r.values))}</span>}
-          </button>
-        );
+    const amount = number ? fieldValueOf(r, number, schema, today) : undefined;
+    const on = tick ? r.values[tick.key] === true : false;
+    const row = (
+      <button key={r.id} type="button" className={tick && !on ? 'mb-cr off' : 'mb-cr'} onClick={() => open(r)}>
+        <span className="tx">
+          <b>{recordTitle(r)}</b>
+          <small>
+            {r.name && r.code && <span className="key">{r.code}</span>}
+            {shown(r).map((f) => (
+              <ListValue key={f.key} field={shownAs.get(f.key) ?? f} value={fieldValueOf(r, f, schema, today)} today={today} values={r.values} />
+            ))}
+          </small>
+        </span>
+        {typeof amount === 'number' && <span className="rt num">{formatNumber(amount, number!.format, currencyOf(number!.format, r.values))}</span>}
+      </button>
+    );
+    if (!tick) return row;
+    return (
+      <div key={r.id} className="mb-tickrow">
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={on}
+          aria-label={recordTitle(r)}
+          className={on ? 'mb-tick on' : 'mb-tick'}
+          onClick={() => void actions.updateRecord(source.dir, r.id, { values: { [tick.key]: !on } }).then((failed) => failed && actions.say?.(failed))}
+        >
+          {on && <Icon name="check" />}
+        </button>
+        {row}
+      </div>
+    );
   };
   return (
     <div className="mb-rlist">

@@ -10,6 +10,7 @@ import {
   type FieldValue,
   isComputed,
   isEmpty,
+  isLink,
   linkFieldsTo,
   linkTo,
   nameField,
@@ -392,7 +393,7 @@ export function planSave(dir: string, record: Record, old: Record | null, space:
     }
   }
   const now = o.collections.get(dir)!.records.find((r) => r.id === record.id) ?? record;
-  after.changes = o.changes.filter((c) => !(c.kind === 'update' && c.dir === dir && c.id === record.id));
+  after.changes = linkedAs(o.changes.filter((c) => !(c.kind === 'update' && c.dir === dir && c.id === record.id)), now);
   return { values: now.values, set, after, stops };
 }
 function execute(r: Run, o: Overlay, space: RuleSpaceNow, when?: { node: Node; name: string; hint?: string; at: number }): void {
@@ -686,6 +687,18 @@ function execute(r: Run, o: Overlay, space: RuleSpaceNow, when?: { node: Node; n
 /** A record of a collection with these values, its name and code following: a new one, before it is written. */
 export const recordWith = (collection: Pick<Collection, 'dir' | 'schema'>, id: string, values: Record['values']): Record =>
   withValues(collection, { id, path: join(collection.dir, `${id}.md`), name: '', code: '', values: {}, extra: {}, body: '' }, values);
+
+/**
+ * `changes` with their links to `record` as it is written: what an onChange added before an onSave
+ * named the record links to it by that name.
+ */
+export function linkedAs(changes: Change[], record: Record): Change[] {
+  const to = linkTo(record);
+  const fix = (value: FieldValue): FieldValue => (isLink(value) && value.id === record.id && (value.name !== to.name || value.code !== to.code) ? to : value);
+  return changes.map((c) =>
+    c.kind === 'add' || c.kind === 'update' ? { ...c, values: Object.fromEntries(Object.entries(c.values).map(([key, value]) => [key, Array.isArray(value) ? (value.map(fix) as FieldValue) : fix(value)])) } : c,
+  );
+}
 
 /** A record with values put in, its name and code following. */
 function withValues(collection: Pick<Collection, 'schema'>, record: Record, values: Record['values']): Record {

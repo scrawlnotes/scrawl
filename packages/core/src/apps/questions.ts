@@ -11,6 +11,7 @@ import { ecommerce } from './templates/ecommerce';
 import { field } from './templates/field';
 import { finance } from './templates/finance';
 import { goals } from './templates/goals';
+import { gym } from './templates/gym';
 import { habits } from './templates/habits';
 import { health } from './templates/health';
 import { home } from './templates/home';
@@ -32,7 +33,7 @@ import { timeoff } from './templates/timeoff';
 import { travel } from './templates/travel';
 import { type Answer, type Answers, type AppTemplate, type Question, TEMPLATE_IDS, type TemplateId } from './types';
 
-export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content, subscriptions, contracts, timeoff, goals, incidents, field, consulting, association, finance, home, health, recipes, travel, split, jobs, people, reading, habits, sport };
+export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content, subscriptions, contracts, timeoff, goals, incidents, field, consulting, association, finance, home, health, recipes, travel, split, jobs, people, reading, habits, sport, gym };
 
 export const isTemplateId = (id: unknown): id is TemplateId => TEMPLATE_IDS.includes(id as TemplateId);
 

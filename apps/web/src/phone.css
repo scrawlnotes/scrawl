@@ -4592,6 +4592,45 @@ body > .mb-lifted {
   text-align: left;
 }
 
+/* A row ticked off where it is: its tick, then the row; one not ticked faint and struck through. */
+.mb-tickrow {
+  display: flex;
+  align-items: center;
+  padding-left: 16px;
+}
+
+.mb-tickrow > .mb-cr {
+  flex: 1;
+  padding-left: 12px;
+}
+
+.mb-tick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--sl-faint);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.mb-tick.on {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+}
+
+.mb-tick .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.mb-cr.off b {
+  color: var(--sl-faint);
+  text-decoration: line-through;
+}
+
 .mb-cr:active {
   background: color-mix(in srgb, var(--sl-fg) 6%, var(--sl-bg));
 }

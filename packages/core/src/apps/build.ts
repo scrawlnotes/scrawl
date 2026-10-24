@@ -205,7 +205,8 @@ class Draft implements AppDraft {
 /** What each piece is called and holds: as PIECES says, or as a template's answers name it, Memberships for Subscriptions. */
 function piecesNamed(chosen: ReadonlyMap<TemplateId, Answers>): (role: string) => PieceInfo {
   const named = new Map<string, Partial<PieceInfo>>();
-  for (const [id, answers] of chosen) for (const [role, info] of Object.entries(TEMPLATES[id].names?.(answers) ?? {})) named.set(role, info);
+  const app = { has: (id: TemplateId) => chosen.has(id), answers: (id: TemplateId) => chosen.get(id) ?? {} };
+  for (const [id, answers] of chosen) for (const [role, info] of Object.entries(TEMPLATES[id].names?.(answers, app) ?? {})) named.set(role, info);
   return (role) => ({ ...PIECES[role]!, ...named.get(role) });
 }
 

@@ -1526,7 +1526,8 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   /** Writes the form; false when it cannot be, saying why. */
   const write = async (): Promise<boolean> => {
     if (busy.current) return false;
-    const missing = missingFields(draft.values, schema);
+    // What the rules will write as it is saved, a name by its onSave, is not missing.
+    const missing = missingFields(toBe, schema);
     if (missing.length > 0) {
       const labels = missing.filter((k) => k !== named?.key).map((k) => fields.get(k)?.label ?? k);
       setError(named && missing.includes(named.key) ? t('collection.nameNeeded') : t('collection.requiredMissing', { fields: labels.join(t('list.separator')) }));

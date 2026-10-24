@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseBoard } from '../board';
-import { addRecord, type Collection, loadCollection, parseSchema, serializeSchema } from '../collection';
+import { addRecord, type Collection, loadCollection, parseSchema, type Record, serializeSchema } from '../collection';
+import { dueRecords } from '../calendar';
+import { planSave, recordWith, type RuleSpaceNow } from '../run';
 import { Computer } from '../compute';
 import { MemoryFs } from '../fs';
 import { linksIn, resolveHref } from '../links';
@@ -63,6 +65,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   reading: { progress: true, goal: '24', quotes: true, lending: true, releases: true },
   habits: { goals: true },
   sport: { sets: true, body: true, races: true },
+  gym: { days: true, sets: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -96,6 +99,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   reading: { types: [], services: [], progress: false, goal: 'none', quotes: false, lending: false, releases: false },
   habits: { habits: [], goals: false },
   sport: { sports: [], body: false, races: false },
+  gym: { days: false, sets: false },
 };
 
 /** What a template asks of these, given only the questions it asks with this set. */
@@ -667,5 +671,94 @@ describe('editing an app', () => {
       await installApp(fs, await edit(fs, [{ id, answers: most.answers }]));
       expect(JSON.parse(await fs.readText(`Atlas/${APP_FILE}`)).templates[0].answers, id).toEqual(readAnswers(TEMPLATES[id], new Set([id]), { ...least.answers, ...most.answers }).answers);
     }
+  });
+});
+
+describe('Gym', () => {
+  async function gymApp(answers: Answers) {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Gym', templates: [{ id: 'gym', answers }] }, { ids }));
+    const load = (dir: string) => loadCollection(fs, `Gym/${dir}`);
+    const add = async (dir: string, values: Record['values']) => addRecord(fs, await load(dir), { values });
+    const chest = await add('Exercises', { name: 'Chest press', muscle: 'Chest' });
+    const walk = await add('Exercises', { name: 'Walk' });
+    const program = await add('Programs', { name: 'Full body', days: ['Mon', 'Wed', 'Fri'], from: '2026-10-12', duration: '45–60 min' });
+    const to = (r: Record) => ({ id: r.id, name: r.name });
+    await add('Program items', { name: 'Walk', program: to(program), part: 'Warm-up', order: 1, exercise: to(walk), time: '5 min' });
+    await add('Program items', { name: 'Chest press', program: to(program), part: 'Workout', order: 2, exercise: to(chest), sets: '3', reps: '8–12' });
+    const space = async (): Promise<RuleSpaceNow> => ({ collections: await Promise.all(['Exercises', 'Programs', 'Program items', 'Workouts', 'Workout items'].map(load)), boards: {}, lists: {}, today: '2026-10-21' });
+    return { fs, load, add, to, chest, program, space };
+  }
+
+  it('fills a workout from its program as the program is picked, each move ticked, its weight as the last time', async () => {
+    const { add, to, chest, program, space, load } = await gymApp({});
+    // Monday's workout, written before: the chest press at 42.5 kg, 3 × 12.
+    const monday = await add('Workouts', { name: 'Full body · Mon', day: '2026-10-19', program: to(program), status: 'Done' });
+    await add('Workout items', { name: 'Chest press', workout: to(monday), exercise: to(chest), part: 'Workout', done: true, sets: 3, reps: 12, kg: 42.5, day: '2026-10-19' });
+    const workouts = await load('Workouts');
+    const wednesday = recordWith(workouts, 'w2', { day: '2026-10-21', program: to(program), status: 'Done' });
+    const ran = planSave('Gym/Workouts', wednesday, null, await space(), { field: 'program' });
+    expect(ran.stops).toEqual([]);
+    const lines = ran.after.changes.map((c) => ('values' in c ? c.values : {})).sort((x, y) => Number(x.order) - Number(y.order));
+    expect(lines).toMatchObject([
+      { name: 'Walk', part: 'Warm-up', done: true, day: '2026-10-21', time: '5 min', workout: { id: 'w2' } },
+      { name: 'Chest press', part: 'Workout', done: true, sets: 3, reps: 12, kg: 42.5, last_time: '42.5 kg · 3 × 12' },
+    ]);
+    // Saved at once, its moves link to it by the name its onSave gives it.
+    const saved = planSave('Gym/Workouts', wednesday, null, await space());
+    expect(saved.values.name).toBe('Full body · 2026-10-21');
+    expect(saved.after.changes.map((c) => ('values' in c ? c.values.workout : null))).toEqual([
+      { id: 'w2', name: 'Full body · 2026-10-21' },
+      { id: 'w2', name: 'Full body · 2026-10-21' },
+    ]);
+  });
+
+  it('writes each set a line when asked, from the program’s sets', async () => {
+    const { to, program, space, load } = await gymApp({ sets: true });
+    const ran = planSave('Gym/Workouts', recordWith(await load('Workouts'), 'w1', { day: '2026-10-21', program: to(program) }), null, await space(), { field: 'program' });
+    expect(ran.after.changes.map((c) => ('values' in c ? `${c.values.name} ${c.values.set}` : '')).sort()).toEqual(['Chest press 1', 'Chest press 2', 'Chest press 3', 'Walk 1']);
+    const schema = parseSchema(await (await gymApp({ sets: true })).fs.readText('Gym/Workouts/_collection.json'));
+    expect(JSON.stringify(schema.layout)).toContain('"group":["part","exercise"]');
+  });
+
+  it('brings a program’s days to Today and Upcoming, a day closed by its workout, one not gone to too', async () => {
+    const { add, to, program, space } = await gymApp({});
+    await add('Workouts', { name: 'Full body · Mon', day: '2026-10-19', program: to(program), status: 'Done' });
+    await add('Workouts', { name: 'Full body · Wed', day: '2026-10-14', program: to(program), status: "Didn't go" });
+    const s = await space();
+    const due = dueRecords(s.collections, '2026-10-21', { until: '2026-10-23' });
+    expect(due.map((d) => [d.day, d.late ?? false])).toEqual([
+      ['2026-10-12', true],
+      ['2026-10-16', true],
+      ['2026-10-21', false],
+      ['2026-10-23', false],
+    ]);
+    expect(due[0]!.view.calendar!.repeat).toMatchObject({ start: 'Start', skip: { label: "Didn't go", set: { status: "Didn't go" } } });
+    // Without program days, nothing comes.
+    const off = await gymApp({ days: false });
+    expect(dueRecords((await off.space()).collections, '2026-10-21')).toEqual([]);
+  });
+
+  it('says how regular each move is in the last 4 weeks, and marks one done in less than 7 of 10', async () => {
+    const { add, to, chest, program, space, load } = await gymApp({});
+    const day = (n: number) => `2026-10-${String(n).padStart(2, '0')}`;
+    for (const [n, done] of [[12, true], [14, false], [16, false], [19, true]] as const) {
+      const w = await add('Workouts', { name: `W ${n}`, day: day(n), program: to(program), status: 'Done' });
+      await add('Workout items', { name: 'Chest press', workout: to(w), exercise: to(chest), part: 'Workout', done, sets: 3, reps: 12, kg: 40 + n, day: day(n) });
+    }
+    const s = await space();
+    const computer = new Computer(s.collections, {}, '2026-10-21');
+    const exercises = await load('Exercises');
+    const press = exercises.records.find((r) => r.name === 'Chest press')!;
+    const values = computer.values('Gym/Exercises', press);
+    expect([values.best_kg, values.last_done, values.last_4_weeks, values.regular]).toEqual([59, '2026-10-19', '2 of 4', 0.5]);
+    expect(computer.checks('Gym/Exercises', press).map((p) => p.message)).toEqual(['Done in 2 of 4 of its workouts in the last 4 weeks']);
+  });
+
+  it('names its workouts Gym workouts beside Sport and training, sharing Exercises', () => {
+    const plan = planApp({ name: 'Me', templates: [{ id: 'sport' }, { id: 'gym' }] }, { ids });
+    const made = plan.created.map((c) => c.path);
+    expect(made).toEqual(expect.arrayContaining(['Me/Workouts', 'Me/Exercises', 'Me/Gym workouts', 'Me/Workout items', 'Me/Programs']));
+    expect(made.filter((p) => p === 'Me/Exercises')).toHaveLength(1);
   });
 });

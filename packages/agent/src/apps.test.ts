@@ -60,6 +60,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   reading: { progress: true, goal: '24', quotes: true, lending: true, releases: true },
   habits: { goals: true },
   sport: { sets: true, body: true, races: true },
+  gym: { days: true, sets: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
   crm: { customers: 'people', deals: false },
@@ -93,6 +94,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   reading: { types: [], services: [], progress: false, goal: 'none', quotes: false, lending: false, releases: false },
   habits: { habits: [], goals: false },
   sport: { sports: [], body: false, races: false },
+  gym: { days: false, sets: false },
 };
 
 /**

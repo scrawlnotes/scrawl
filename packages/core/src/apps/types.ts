@@ -12,7 +12,7 @@ import type { PieceInfo } from './pieces';
 export const APP_FILE = '_app.json';
 
 /** The templates, in the order they are set up: the one before sets up what a shared piece starts with. */
-export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content', 'subscriptions', 'contracts', 'timeoff', 'goals', 'incidents', 'field', 'consulting', 'association', 'finance', 'home', 'health', 'recipes', 'travel', 'split', 'jobs', 'people', 'reading', 'sport', 'habits'] as const;
+export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content', 'subscriptions', 'contracts', 'timeoff', 'goals', 'incidents', 'field', 'consulting', 'association', 'finance', 'home', 'health', 'recipes', 'travel', 'split', 'jobs', 'people', 'reading', 'sport', 'gym', 'habits'] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
@@ -87,7 +87,7 @@ export interface AppTemplate {
   /** The pieces it sets up, by role, with its answers and the templates set up with it. */
   pieces: (answers: Answers, app: Chosen) => string[];
   /** What its answers call its own pieces, where they name them: Memberships for Subscriptions. */
-  names?: (answers: Answers) => { [role: string]: Pick<PieceInfo, 'name' | 'singular' | 'about'> };
+  names?: (answers: Answers, app: Chosen) => { [role: string]: Pick<PieceInfo, 'name' | 'singular' | 'about'> };
   /** Adds its fields, blocks, rules and records to the pieces, and its section to the About note. */
   build: (app: AppDraft, answers: Answers) => void;
 }
@@ -156,7 +156,7 @@ export interface AppFile {
 
 /** A rule of a collection's `_rules.js`, added once by its name: the check's message, the button's or the onSave's name. */
 export interface RuleChunk {
-  kind: 'check' | 'action' | 'onSave';
+  kind: 'check' | 'action' | 'onSave' | 'onChange';
   name: string;
   src: string;
 }

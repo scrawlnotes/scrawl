@@ -156,6 +156,7 @@ import {
   planSave,
   changesOf,
   type Change,
+  linkedAs,
   planWords,
   recordWith,
   type RuleSpaceNow,
@@ -3182,11 +3183,16 @@ export class Session {
     }
   }
 
-  /** What runs on save with what the form's onChanges added put first: what they add is there before what the onSaves do. */
+  /**
+   * What runs on save with what the form's onChanges added put first: what they add is there before
+   * what the onSaves do, and links to the record by the name they give it.
+   */
   private withDrafted(dir: string, id: string, values: CollectionRecord['values'], ran: SaveRun | null, drafted: Change[] | undefined): SaveRun | null {
-    if (!drafted?.length) return ran;
+    const collection = this.snapshot.collections[dir];
+    if (!drafted?.length || !collection) return ran;
     const after = ran?.after ?? { action: '', dir: localPath(dir), id, confirm: false, changes: [] };
-    return { values: ran?.values ?? values, set: ran?.set ?? {}, after: { ...after, changes: [...drafted, ...after.changes] }, stops: ran?.stops ?? [] };
+    const written = ran?.values ?? values;
+    return { values: written, set: ran?.set ?? {}, after: { ...after, changes: linkedAs([...drafted, ...after.changes], recordWith(collection, id, written)) }, stops: ran?.stops ?? [] };
   }
 
   /**
