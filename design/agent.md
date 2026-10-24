@@ -105,7 +105,7 @@ Araç açıklamaları (`description`) ve `annotations` doğru doldurulur: okuyan
 - **`--vault <klasör>`** (tekrarlanabilir): masaüstü uygulaması olmayan bir makinede ya da yalnız belli klasörler için. Her klasör bir space'tir; `space.json`'u olmayan klasör "Personal" sayılır. Ayar dosyası da yoksa ve `--vault` de verilmemişse komut ne yapılacağını söyleyip çıkar.
 - **Taşıma:** stdio, `serveStdio` ile; her bağlantı için `McpServer` fabrikadan kurulur. Log yalnız stderr'e; stdout protokolündür.
 - **Dosya sistemi:** `NodeFs` (`node:fs/promises`, `VaultFs`'i dolduran küçük sınıf; `apps/web/src/tauriFs.ts`'in Node hali). Büyük-küçük harf ve Unicode biçimi `keyOf` ile uygulamadaki gibi.
-- **Uygulama ne zaman görür:** masaüstü uygulaması pencere öne gelince vault'u yeniden tarar (`session.rescan`, bugün de başka bir program değiştirmiş olabilir diye); ajanın yazdığı, pencereye dönünce görünür. OneDrive'daki space'te sync kopyadan buluta taşır; uygulama kapalıysa açılınca. Anında görmek için dosya izleme sonra.
+- **Uygulama ne zaman görür:** masaüstü uygulaması pencere öne gelince vault'u yeniden tarar (`session.rescan`, bugün de başka bir program değiştirmiş olabilir diye). Masaüstü uygulaması klasörleri izler. Ajanın yazdığı açık pencerede hemen görünür ve sync onu saniyeler içinde götürür. Pencere kapalıyken uygulama tepside çalışmayı sürdürür (`design/background.md`). Uygulamadan Quit ile çıkılmışsa ajanın yazdığı uygulama açılınca gider.
 - **Claude Desktop:** `.mcpb` paketi (`manifest.json` 0.3, `server.type: "node"`, bağımlılıklar pakette). `user_config` tek bir alan: `folders`, tür `directory`, `multiple: true`, isteğe bağlı; boş bırakılırsa ayar dosyası. Paket GitHub Releases'te durur ve uygulamanın Agents ekranındaki düğme onu açar; Claude Desktop "kur" diye sorar.
 - **Claude Code:** `claude mcp add --scope user scrawl -- npx -y @scrawlnotes/mcp`. `--scope user` olmadan Claude Code sunucuyu yalnız komutun çalıştığı klasöre ekler ve başka klasörde açılan oturum onu görmez. Proje başına istenirse `.mcp.json`'a aynı satır. Kaldırmak: `claude mcp remove scrawl`.
 - **Codex:** `codex mcp add scrawl -- npx -y @scrawlnotes/mcp`; Codex sunucularını `~/.codex/config.toml`'da her klasör için tutar, terminaldeki Codex, editör eklentisi ve ChatGPT masaüstü uygulaması aynı ayarı kullanır. Kaldırmak: `codex mcp remove scrawl`.
@@ -183,7 +183,7 @@ Aynı `packages/agent`; fabrikaya hesap, `ServerFs` üreticisi, aktör ("Claude 
 3. **Bilgisayardaki kapı:** `NodeFs`, `apps/mcp` (`scrawl-mcp`, ayar dosyası ve `--vault`, stdio), npm paketi, `.mcpb` paketi; Claude Code ve Claude Desktop ile deneme.
 4. **Arayüz ve rehber:** Settings › Agents mockup'ı, sonra bilgisayar ve telefon ekranı; hesabın sunucu sayfasında Agents; Cursor deeplink; README'lerde istemci başına adımlar.
 
-Sonra: komut satırı yüzü (aynı paketin ikinci yüzü, ihtiyaç çıkarsa), sunucuda zamanlanmış ajan koşuları ve otomasyon (ajan sunucuda koşar, aynı araçlarla), ajan için ince yetkiler (salt okunur ajan, space'e göre), dosya izleme (masaüstünde anında yenileme), eklerin okunması.
+Sonra: komut satırı yüzü (aynı paketin ikinci yüzü, ihtiyaç çıkarsa), sunucuda zamanlanmış ajan koşuları ve otomasyon (ajan sunucuda koşar, aynı araçlarla), ajan için ince yetkiler (salt okunur ajan, space'e göre), eklerin okunması.
 
 ## 12. Kararlar (15 Ekim 2026)
 
