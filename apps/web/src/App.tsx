@@ -1362,11 +1362,10 @@ export function App() {
       { label: t('side.resetOrder'), icon: 'undo', run: () => session.lookAtFolder(key, DEFAULT_LOOK), ...(isDefaultLook(look) && { disabled: '' }) },
     ];
   };
-  // What can be made in a folder, or at the top of a space. A new note shows at once, out from
-  // under the drawer; anything else opens its Create or Filter window with the folder chosen, the
-  // drawer closed so that what is made shows; a new folder is named in the sidebar, under the
-  // folder it goes in. An app and a folder are each apart from the rest. In a right click's Add
-  // new, `short`, they are named by what they are only.
+  // What can be made in a folder, or at the top of a space. Each opens its Create window with the
+  // folder chosen, a note too, the drawer closed so that what is made shows; a new folder is named
+  // in the sidebar, under the folder it goes in. An app and a folder are each apart from the rest.
+  // In a right click's Add new, `short`, they are named by what they are only.
   const folderMenuItems = (path: string, addFolder: () => void, short = false): MenuItem[] => {
     const createHere = (start: ItemKind) => () => {
       setDrawer(false);
@@ -1374,15 +1373,7 @@ export function App() {
     };
     const label = (here: MessageKey, named: MessageKey) => t(short ? named : here);
     return [
-      {
-        label: label('menu.newNoteHere', 'menu.add.note'),
-        icon: 'note',
-        run: () => {
-          setDrawer(false);
-          session.holdKeyboard();
-          void session.newNote(path);
-        },
-      },
+      { label: label('menu.newNoteHere', 'menu.add.note'), icon: 'note', run: createHere('note') },
       { label: label('menu.newListHere', 'menu.add.list'), icon: 'tasks', run: createHere('tasks') },
       { label: label('menu.newBoardHere', 'menu.add.board'), icon: 'board', run: createHere('board') },
       { label: label('menu.newKeysHere', 'menu.add.keys'), icon: 'keys', run: createHere('keys') },

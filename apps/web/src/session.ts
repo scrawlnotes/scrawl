@@ -78,7 +78,6 @@ import {
   type RecordPatch,
   type Record as CollectionRecord,
   createNote,
-  createScratchNote,
   createTaskList,
   deleteFromTrash,
   dirname,
@@ -3843,16 +3842,6 @@ export class Session {
 
   setPhasesOn(board: string, on: boolean) {
     this.changeBoard(board, (current) => setPhasesOn(current, on));
-  }
-
-  /** Creates an empty scratch note in `folder`, at the top of the personal space without one, and opens it. */
-  async newNote(folder = '') {
-    const { fs, space, local } = this.at(folder);
-    const path = inSpace(space, await createScratchNote(fs, new Date(), local));
-    await this.madeNow([path]);
-    await this.refreshTree();
-    await this.open(path);
-    this.placed?.(dirname(path), path);
   }
 
   /**

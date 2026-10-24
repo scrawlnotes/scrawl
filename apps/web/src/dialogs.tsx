@@ -405,7 +405,10 @@ export function NewDialog({ start = null, template = null, folders, folder, coll
 
 export const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard', keys: 'create.newKeys', collection: 'create.newCollection' };
 // A collection's is the name its template gives it.
-export const NAME_HINTS: Record<Exclude<ItemKind, 'collection'>, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName', keys: 'create.keysName' };
+const NAME_HINTS: Record<Exclude<ItemKind, 'collection'>, MessageKey> = { note: 'create.noteName', tasks: 'create.listName', board: 'create.boardName', keys: 'create.keysName' };
+/** What the name's box shows while it is empty: that it may stay so, and what the item is called then. */
+export const nameHint = (kind: ItemKind, collectionTemplate: CollectionTemplate) =>
+  t('create.optionalName', { name: kind === 'collection' ? defaultCollectionName(collectionTemplate) : t(NAME_HINTS[kind]) });
 
 /** The ways a collection can start: its fields, which the Fields window changes later. */
 export const COLLECTION_TEMPLATES: { template: CollectionTemplate; label: MessageKey; text: MessageKey }[] = [
@@ -520,7 +523,7 @@ function NewItemForm({ kind, template: chosenTemplate, folders, folder, collecti
           <input
             id="new-name"
             autoFocus
-            placeholder={kind === 'collection' ? defaultCollectionName(collectionTemplate) : t(NAME_HINTS[kind])}
+            placeholder={nameHint(kind, collectionTemplate)}
             value={name}
             onChange={(event) => {
               setName(event.target.value);

@@ -1,7 +1,7 @@
-import { basename, type BoardLinks, type CollectionTemplate, defaultCollectionName, dirname, inSpace, join, localPath, newSchema, spaceOf, type Template } from '@scrawlnotes/core';
+import { basename, type BoardLinks, type CollectionTemplate, dirname, inSpace, join, localPath, newSchema, spaceOf, type Template } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
-import { COLLECTION_TEMPLATES, type FolderChoice, type ItemKind, KINDS, NAME_HINTS, TEMPLATES, TITLES, useFolderPicker } from './dialogs';
+import { COLLECTION_TEMPLATES, type FolderChoice, type ItemKind, KINDS, nameHint, TEMPLATES, TITLES, useFolderPicker } from './dialogs';
 import { Icon } from './Icon';
 import { collectionLabel, placeWords, spaceLabel } from './items';
 import { FolderForm } from './Phone';
@@ -328,7 +328,7 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
               className="in"
               autoFocus={!named.current}
               enterKeyHint="go"
-              placeholder={kind === 'collection' ? defaultCollectionName(collectionTemplate) : t(NAME_HINTS[kind])}
+              placeholder={nameHint(kind, collectionTemplate)}
               value={name}
               onChange={(event) => {
                 setName(event.target.value);

@@ -5347,6 +5347,11 @@ body > .mb-lifted {
   flex: none;
 }
 
+/* Create's labels are short: the name's box has room for its whole hint on a narrow phone. */
+.mb-create .mb-fr .fl {
+  width: 70px;
+}
+
 /* ---------- spaces on a phone: Settings › Spaces, a space's page, Add space, giving to someone ---------- */
 
 .mb-p {
