@@ -37,10 +37,10 @@ p { margin: 0; max-width: 68ch; }
 .pick button + button { border-left: 1px solid var(--rule); }
 .pick button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
 .pick button:focus-visible, .mock button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* direction A has many views: its buttons wrap onto more lines instead of running off the edge */
-.dir[data-dir="a"] .brief .pick, .dir[data-dir="server"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
-.dir[data-dir="a"] .brief .pick button, .dir[data-dir="server"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
-.dir[data-dir="a"] .brief .pick button[aria-pressed="true"], .dir[data-dir="server"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+/* a section's views: their buttons wrap onto more lines instead of running off the edge */
+.brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
 
 .dir { display: flex; flex-direction: column; gap: 16px; }
 .brief { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 32px; }
@@ -3158,7 +3158,6 @@ p { margin: 0; max-width: 68ch; }
 .ch-find.on { border-color: var(--m-accent); }
 .ch-find .q { color: var(--m-fg); }
 .ch-grp { display: flex; align-items: center; gap: 6px; padding: 12px 14px 4px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
-.ch-grp .fchv { font-size: 9px; letter-spacing: 0; }
 .ch-grp .gadd { margin-left: auto; font-size: 15px; line-height: 1; letter-spacing: 0; }
 .ch-c { display: flex; align-items: center; gap: 8px; min-height: 27px; margin: 0 6px; padding: 0 8px; border-radius: 5px; color: var(--m-dim); white-space: nowrap; }
 .ch-c .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -3445,6 +3444,45 @@ p { margin: 0; max-width: 68ch; }
 .chp-pill .pl { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--m-fg) 8%, transparent); color: var(--m-dim); }
 .chp-pill .in { flex: 1; min-width: 0; color: var(--m-faint); font-size: 16px; }
 .chp-pill .mic { display: grid; place-items: center; flex: none; width: 34px; height: 34px; color: var(--m-dim); }
+/* Round 3: a line over Direct messages, and the sheets of New message, New room and Browse rooms */
+.mb-sec.chp-dm { margin-top: 10px; border-top: 1px solid var(--m-line); }
+/* Chat's list has no lines between its rows */
+.mb-body .chp-c + .chp-c::before { display: none; }
+.chp-down .chp-scroll { transform: translateY(-194px); }
+.ch-grp.dm { margin-top: 8px; border-top: 1px solid var(--m-line); }
+.mb-sheet.chn { overflow: hidden; }
+.mb-sheet.chn.overkb { top: 54px; }
+.chn-to { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 48px; padding: 6px 16px; border-bottom: 1px solid var(--m-line); font-size: 16px; }
+.chn-to .lb, .chn-to .ph { color: var(--m-faint); }
+.chn-to .caret, .chn-name .caret { display: inline-block; width: 2px; height: 20px; margin-left: 1px; vertical-align: middle; background: var(--m-accent); }
+.chn-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 3px; border-radius: 7px; background: color-mix(in srgb, var(--m-accent) 18%, transparent); font-size: 15px; font-weight: 500; }
+.chn-chip .ch-f { border-radius: 5px; }
+.chn-list { flex: 1; min-height: 0; overflow: hidden; padding: 4px 0; }
+.chn-r { display: flex; align-items: center; gap: 14px; min-height: 50px; padding: 4px 16px; font-size: 16px; }
+.chn-r .ld { display: grid; flex: none; place-items: center; width: 30px; color: var(--m-dim); }
+.chn-r .hs { font: 400 22px/1 var(--m-ui); }
+.mock .chn-r .ld svg { width: 19px; height: 19px; }
+.chn-r .nm { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.chn-r .nm small { color: var(--m-faint); font-size: 13px; }
+.chn-r.kind .nm { font-weight: 600; }
+.chn-r.kind .nm small { font-weight: 400; }
+.chn-r.old { color: var(--m-dim); }
+.chn-r .in { color: var(--m-faint); font-size: 13.5px; }
+.chn-r .ck { display: grid; flex: none; place-items: center; width: 22px; height: 22px; box-sizing: border-box; border: 2px solid var(--m-line); border-radius: 50%; color: #fff; }
+.chn-r .ck.on { border-color: var(--m-accent); background: var(--m-accent); }
+.mock .chn-r .ck svg { width: 13px; height: 13px; stroke-width: 3; }
+.chn-lb { flex: none; padding: 14px 16px 6px; font-size: 14px; font-weight: 600; }
+.chn-lb .hs { margin-right: 2px; color: var(--m-faint); font-weight: 400; }
+.chn-lb small { color: var(--m-faint); font-size: 14px; font-weight: 400; }
+.chn-name { display: flex; flex: none; align-items: center; gap: 10px; padding: 2px 16px 10px; border-bottom: 1px solid var(--m-line); font-size: 19px; }
+.chn-name .hs { color: var(--m-faint); font-size: 22px; }
+.chn-note { display: flex; flex: none; gap: 12px; margin: 14px 16px; padding: 11px 13px; border: 1px solid var(--m-line); border-radius: 12px; color: var(--m-dim); font-size: 14px; line-height: 1.4; }
+.mock .chn-note svg { flex: none; width: 19px; height: 19px; color: var(--m-faint); }
+.chn-spaces { display: flex; flex: none; gap: 8px; padding: 2px 16px 4px; overflow: hidden; }
+.chn-spaces span { flex: none; height: 30px; padding: 0 13px; box-sizing: border-box; border: 1px solid var(--m-line); border-radius: 15px; color: var(--m-dim); font-size: 13.5px; line-height: 28px; white-space: nowrap; }
+.chn-spaces span.on { border-color: transparent; background: var(--m-sel); color: var(--m-fg); }
+.chn .chn-find { flex: none; margin: 6px 16px 4px; }
+.chn .chp-pill { margin: 6px 12px 6px; }
 .mock .chp-pill svg { width: 21px; height: 21px; }
 .chp-open { flex: none; margin: 4px 8px 8px; padding: 10px 12px 6px; border: 1px solid var(--m-line); border-radius: 16px; background: var(--m-side); }
 .chp-open .in { color: var(--m-fg); font-size: 16px; line-height: 22px; }
@@ -3727,6 +3765,80 @@ p { margin: 0; max-width: 68ch; }
 .qn-msep { height: 8px; background: color-mix(in srgb, var(--m-bg) 55%, var(--m-side)); }
 .mock .mb-acts .a .on svg { width: 20px; height: 20px; color: var(--m-accent); stroke-width: 2.2; }
 .qn-mmod { padding: 10px 16px 12px; border-top: 1px solid var(--m-line); color: var(--m-faint); font-size: 13px; text-align: center; }
+/* Gym (draft): a program's items in parts, a workout's ticked from it, how regular each move is. */
+.cc-blk .cc-row.gp { grid-template-columns: 22px minmax(0, 1fr) 48px 64px 76px 62px minmax(0, 1fr); }
+.cc-blk .cc-row.gw { grid-template-columns: 30px minmax(0, 1fr) 48px 56px 64px 64px 128px; }
+.cc-blk .cc-row.gs { grid-template-columns: 30px minmax(0, 1fr) 44px 56px 64px 128px; }
+.cc-row .gy-note { color: var(--m-dim); }
+.cc-row .gy-note .t { overflow: hidden; text-overflow: ellipsis; }
+.cc-row .gy-last { color: var(--m-faint); font-variant-numeric: tabular-nums; }
+.cc-row .ck { justify-content: center; padding: 0; }
+.gy-ck { display: grid; place-items: center; width: 14px; height: 14px; border: 1.5px solid var(--m-faint); border-radius: 3px; box-sizing: border-box; }
+.gy-ck.on { border-color: var(--m-accent); background: var(--m-accent); color: var(--m-on-accent); }
+.mock .gy-ck svg { width: 11px; height: 11px; stroke-width: 2.6; }
+.cc-row.gy-off > span:not(.ck) { color: var(--m-faint); }
+.cc-row.gy-off .nm .t { text-decoration: line-through; text-decoration-color: var(--m-faint); }
+.gy-part { display: flex; align-items: center; gap: 8px; padding: 12px 0 4px 30px; border-bottom: 1px solid var(--m-line); color: var(--m-dim); font-size: 11.5px; font-weight: 600; }
+.gy-part small { color: var(--m-faint); font-weight: 400; }
+.gy-part .all { margin-left: auto; color: var(--m-faint); font-weight: 400; }
+.cc-row.gy-sub > span.nm { padding-left: 22px; color: var(--m-dim); font-weight: 400; }
+.cc-row .gy-set { color: var(--m-dim); }
+.gy-days { display: flex; gap: 5px; }
+.gy-prop .box { flex-direction: column; align-items: stretch; gap: 6px; min-height: 0; padding: 8px 10px; color: var(--m-fg); font-size: 12.5px; line-height: 1.5; }
+.gy-prop .box b { color: var(--m-dim); font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.gy-prop .box p { margin: 0; }
+.gy-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 260px; border: 1px dashed var(--m-line); border-radius: 8px; color: var(--m-faint); font-size: 12.5px; text-align: center; }
+.gy-empty b { color: var(--m-dim); font-weight: 500; }
+.gy-pick { position: relative; }
+.gy-pick .cc-menu { width: 300px; }
+.gy-pick .cc-menu small { margin-left: auto; color: var(--m-faint); font-size: 11px; }
+.gy-views { display: flex; gap: 4px; padding: 0 16px 6px; font-size: 12px; }
+.gy-views span { padding: 3px 10px; border-radius: 5px; color: var(--m-dim); }
+.gy-views span.on { background: var(--m-sel); color: var(--m-fg); }
+.ca-row.gy-prog { grid-template-columns: minmax(0, 1fr) 160px 88px 88px 120px; }
+.ca-row.gy-log { grid-template-columns: 112px minmax(0, 1fr) 96px 80px 88px minmax(0, 1fr); }
+.ca-row.gy-log.off .tt, .ca-row.gy-log.off .dt { color: var(--m-faint); }
+.ca-row.gy-ex { grid-template-columns: minmax(0, 1fr) 96px 92px 112px 150px 80px 80px; }
+.ca-row .gy-bar { display: flex; align-items: center; gap: 8px; }
+.gy-bar i { flex: 1; height: 5px; border-radius: 3px; background: var(--m-line); overflow: hidden; }
+.gy-bar i b { display: block; height: 100%; border-radius: 3px; background: var(--m-accent); }
+.gy-bar.low i b { background: #f0706a; }
+.gy-bar span { width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+/* On a phone: the day's program in Today; the workout as a ticked list; a move's numbers in a sheet. */
+.gy-mtoday { margin: 4px 16px 0; overflow: hidden; border-radius: 12px; background: var(--m-bg); }
+.gy-mt { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; }
+.gy-mt + .gy-mt { border-top: 1px solid var(--m-line); }
+.gy-mt .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.gy-mt .tx b { font-weight: 500; font-size: 15px; }
+.gy-mt .tx small { color: var(--m-faint); font-size: 13px; }
+.gy-mt .go { padding: 5px 12px; border-radius: 14px; background: var(--m-accent); color: var(--m-on-accent); font-size: 13px; font-weight: 600; }
+.gy-mt .rc { width: 20px; height: 20px; border: 1.5px solid var(--m-faint); border-radius: 50%; box-sizing: border-box; }
+.mock .gy-mt > svg { width: 20px; height: 20px; color: var(--m-accent); }
+.gy-mcap { padding: 18px 16px 6px; color: var(--m-faint); font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; }
+.gy-mcap span { float: right; text-transform: none; letter-spacing: 0; color: var(--m-accent); }
+.gy-ml { margin: 0 16px; overflow: hidden; border-radius: 12px; background: var(--m-bg); }
+.gy-mr { position: relative; display: flex; align-items: center; gap: 12px; min-height: 50px; padding: 6px 14px; }
+.gy-mr + .gy-mr::before { content: ''; position: absolute; top: 0; left: 46px; right: 0; border-top: 1px solid var(--m-line); }
+.gy-mr .c { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border: 1.5px solid var(--m-faint); border-radius: 50%; box-sizing: border-box; }
+.gy-mr .c.on { border-color: var(--m-accent); background: var(--m-accent); color: var(--m-on-accent); }
+.mock .gy-mr .c svg { width: 13px; height: 13px; stroke-width: 2.6; }
+.gy-mr .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.gy-mr .tx b { overflow: hidden; font-weight: 400; font-size: 15px; white-space: nowrap; text-overflow: ellipsis; }
+.gy-mr .tx small { color: var(--m-faint); font-size: 12.5px; }
+.gy-mr .rt { color: var(--m-dim); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gy-mr.off .tx b { color: var(--m-faint); text-decoration: line-through; }
+.gy-mr.off .rt { color: var(--m-faint); }
+.gy-mr.on { background: color-mix(in srgb, var(--m-sel) 45%, transparent); }
+.gy-step { display: inline-flex; align-items: center; gap: 14px; margin-left: auto; }
+.gy-step i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--m-sel); color: var(--m-fg); font-style: normal; font-size: 18px; }
+.gy-step b { min-width: 36px; text-align: center; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.gy-mhint { padding: 8px 18px 0; color: var(--m-faint); font-size: 13px; }
+.c3-rec .gy-acts { display: flex; gap: 6px; margin-top: 7px; }
+.c3-rec .gy-acts .st-btn { padding: 2px 10px; font-size: 11.5px; }
+.c3-rec .meta .late { color: var(--m-p1); }
+.cal-t.gy-plan { background: none; box-shadow: inset 0 0 0 1px var(--m-line); color: var(--m-dim); }
+.gy-mt .skip { color: var(--m-dim); font-size: 13px; }
+.gy-mt .late { color: var(--m-p1); }
 </style>
 
 <main class="page">
@@ -4446,6 +4558,8 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-chview="chemptydm">Boş DM</button>
         <button type="button" data-chview="chphone3">Telefon boş</button>
         <button type="button" data-chview="chphone4">Telefon yazarken</button>
+        <button type="button" data-chview="chphone5">Telefon liste</button>
+        <button type="button" data-chview="chphone6">Telefon oda</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -4507,6 +4621,33 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-qnview="qnsearch">Search</button>
         <button type="button" data-qnview="qnphone">Telefon</button>
         <button type="button" data-qnview="qnphone2">Telefon 2</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="gym">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>Gym: programlar ve gidişler</h2>
+        <p>Bugünkü Spor şablonu olduğu gibi kalır; bu ayrı bir şablon. Önce <b>program</b> yazılır: günleri, notu ve maddeleri, bölüm bölüm (Warm-up, Workout, Cool-down, Cardio); her maddede set, tekrar, süre, dinlenme ve not. Salonda <b>New workout</b>: gün bugün, program seçilince bütün maddeleri işaretli gelir; set ve tekrar programdan, kilo son seferden. Yapılmayanın işareti kaldırılır, değişen yazılır, Save. Programın günleri Today ve Upcoming'e gelir; o gün <b>Start</b> ya da <b>Didn't go</b> denir. Didn't go o güne "gitmedim" diye bir kayıt yazar; yazılmamış geçmiş gün Overdue'da kalır. Workouts ne zaman ve ne kadar gidildiğini, Exercises her hareketin ne kadar düzenli yapıldığını ve kilonun nasıl arttığını gösterir. Şablon kurulurken sorar: <b>setleri tek tek takip edecek misin?</b> Hayır ise gidişte her hareket bir satır (3 × 12, 45 kg); Evet ise her set bir satır, kendi tekrarı ve kilosuyla.</p>
+        <ul class="traits"><li>ayrı şablon</li><li>program: bölümler ve maddeler</li><li>program seçilince işaretli gelir</li><li>kilo son seferden</li><li>Today ve Upcoming</li><li>düzenlilik ve en iyi kilo</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Gym görünümü">
+        <button type="button" data-gyview="gyask">Şablon sorusu</button>
+        <button type="button" data-gyview="gyprogram">Program</button>
+        <button type="button" data-gyview="gynew">New workout</button>
+        <button type="button" data-gyview="gyrow">Gidiş: set takibi yok</button>
+        <button type="button" data-gyview="gyset">Gidiş: set takibi var</button>
+        <button type="button" data-gyview="gytoday">Today</button>
+        <button type="button" data-gyview="gyskip">Didn't go</button>
+        <button type="button" data-gyview="gyup">Upcoming</button>
+        <button type="button" data-gyview="gylog">Workouts</button>
+        <button type="button" data-gyview="gycal">Workouts takvimi</button>
+        <button type="button" data-gyview="gyex">Exercises</button>
+        <button type="button" data-gyview="gyone">Bir hareket</button>
+        <button type="button" data-gyview="gyphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -12614,11 +12755,11 @@ p { margin: 0; max-width: 68ch; }
       return '<div class="ch-c' + (on === x.id ? ' on' : '') + (un ? ' un' : '') + (x.off ? ' off' : '') + '">' + lead + '<span class="nm">' + x.name + '</span>' +
         (un && x.n ? '<span class="n">' + x.n + '</span>' : x.off ? CI.belloff.replace('<svg', '<svg class="mt"') : x.draft ? '<span class="dr">Draft</span>' : '') + '</div>';
     }
-    function grp(name) { return '<div class="ch-grp"><span class="fchv">▾</span>' + name + '<span class="gadd">+</span></div>'; }
+    function grp(name, dm) { return '<div class="ch-grp' + (dm ? ' dm' : '') + '">' + name + '<span class="gadd">+</span></div>'; }
     return '<div class="ch-list"><div class="ch-find' + (o.q ? ' on' : '') + '">' + ICON.find + (o.q ? '<span class="q">' + o.q + '</span><span class="caret"></span>' : '<span>Search messages</span>') + '</div>' +
       grp('Scrawl') + c({ id: 'design', name: 'design', un: true }) + c({ id: 'dev', name: 'dev' }) + c({ id: 'founders', name: 'founders', priv: true, un: true, n: 2 }) + c({ id: 'general', name: 'general' }) + c({ id: 'releases', name: 'releases', off: true }) +
       grp('Side projects') + c({ id: 'sgeneral', name: 'general' }) + c({ id: 'ideas', name: 'ideas', draft: true }) +
-      grp('Direct') + c({ id: 'elif', dm: 'E', online: true, name: 'Elif Demir', un: true, n: 1 }) + c({ id: 'mert', dm: 'M', online: true, name: 'Mert Kaya' }) + c({ id: 'grp', grp: ['M', 'E'], name: 'Mert, Elif' }) +
+      grp('Direct messages', true) + c({ id: 'elif', dm: 'E', online: true, name: 'Elif Demir', un: true, n: 1 }) + c({ id: 'mert', dm: 'M', online: true, name: 'Mert Kaya' }) + c({ id: 'grp', grp: ['M', 'E'], name: 'Mert, Elif' }) +
       '</div>';
   }
   /** The sidebar: Chat under Today and Upcoming, its number what is unread and tells you. */
@@ -12829,15 +12970,17 @@ p { margin: 0; max-width: 68ch; }
     return '<div class="ch-intro"><span class="big' + (o.face ? ' face' : '') + '">' + o.lead + '</span><h3>' + o.title + '</h3><p>' + o.text + '</p>' + (o.small ? '<small>' + o.small + '</small>' : '') +
       (o.cards ? '<div class="ias">' + o.cards.map(function (c) { return '<span class="ia">' + c[0] + c[1] + '</span>'; }).join('') + '</div>' : '') + '</div>';
   }
-  /** The list with little in it: each space's general room; under Direct messages the people to write to, or Invite people. */
+  /**
+   * The list with little in it: each space's general room; under a line, Direct messages and the
+   * people to write to. A heading's + (under the pointer) opens New room… and Browse rooms…, or New message….
+   */
   function chListSparse(on, people) {
-    function grp(name) { return '<div class="ch-grp"><span class="fchv">▾</span>' + name + '<span class="gadd">+</span></div>'; }
+    function grp(name, dm) { return '<div class="ch-grp' + (dm ? ' dm' : '') + '">' + name + '<span class="gadd">+</span></div>'; }
     function room(space) { var id = 'g-' + space; return '<div class="ch-c' + (on === id ? ' on' : '') + '">' + CH_HASH + '<span class="nm">general</span></div>'; }
     function dm(ini, name, sub) { var id = 'dm-' + ini; return '<div class="ch-c' + (on === id ? ' on' : '') + '">' + chF(ini, { sz: 'sm' }) + '<span class="nm">' + name + '</span>' + (sub ? '<span class="sb">' + sub + '</span>' : '') + '</div>'; }
-    function add(label) { return '<div class="ch-c addr"><span class="ic2">' + ICON.plus + '</span><span class="nm">' + label + '</span></div>'; }
     return '<div class="ch-list"><div class="ch-find">' + ICON.find + '<span>Search messages</span></div>' +
-      CH_SPACES.map(function (s) { return grp(s) + room(s); }).join('') + add('New room…') +
-      grp('Direct messages') + (people ? dm('M', 'Mert Kaya', 'Klinitra') + dm('E', 'Elif Demir', 'Scrawl') + add('New message…') : add('Invite people…')) + '</div>';
+      CH_SPACES.map(function (s) { return grp(s) + room(s); }).join('') +
+      grp('Direct messages', true) + (people ? dm('M', 'Mert Kaya', 'Klinitra') + dm('E', 'Elif Demir', 'Scrawl') : '') + '</div>';
   }
   var CH_GEN_INTRO = chIntro({
     lead: '#', title: '#general',
@@ -12868,15 +13011,18 @@ p { margin: 0; max-width: 68ch; }
     return '<div class="chp-open' + (o.tall ? ' tall' : '') + '"><div class="in">' + (text ? '<span>' + text + '<span class="caret"></span></span>' : '<span class="caret"></span><span class="ph">' + o.ph + '</span>') + '</div>' +
       '<div class="bar"><span class="pl">' + ICON.plus + '</span><span class="ib">' + CI.aa + '</span><span class="ib">' + CI.smile + '</span><span class="ib">' + CI.at + '</span><span class="gap"></span><span class="send' + (text ? ' go' : '') + '">' + CI.send + '</span></div></div>';
   }
-  /** Chat's list with little in it: a row always has its second line; Direct messages offers the people, or Invite people. */
-  function chpListSparse(people) {
+  /**
+   * Chat's list with little in it: a row always has its second line; Direct messages, under a
+   * line, offers the people, or Invite people. down: scrolled to its foot, Direct messages on screen.
+   */
+  function chpListSparse(people, down) {
     function room(space, last) { return '<div class="mb-sec">' + space + '</div>' + chpC({ name: 'general', last: last || '<span class="none">No messages yet</span>' }); }
     var direct = people
       ? chpC({ dm: 'M', online: true, name: 'Mert Kaya', last: 'In Klinitra · say hello' }) + chpC({ dm: 'E', name: 'Elif Demir', last: 'In Scrawl · say hello' })
       : '<div class="chp-c addr"><span class="chp-ic">' + ICON.plus + '</span><span class="tx"><b>Invite people</b><small>Only you are in these spaces so far</small></span></div>';
     return mbPage(mbHead('Chat', null, true) + '<div class="mb-searchbar">' + ICON.find + 'Search messages</div>',
-      room('Game Development') + room('Klinitra', people ? 'Mert: Is the demo on Friday?' : '') + room('OZBI') + room('Scrawl') +
-      '<div class="mb-sec">Direct messages</div>' + direct);
+      '<div class="chp-scroll">' + room('Game Development') + room('Klinitra', people ? 'Mert: Is the demo on Friday?' : '') + room('OZBI') + room('Scrawl') +
+      '<div class="mb-sec chp-dm">Direct messages</div>' + direct + '</div>', null, down ? 'chp-down' : '');
   }
   function chpRoom(o) {
     var nav = '<div class="mb-nav bar"><span class="back">' + ICON.chevl + 'Chat</span><span class="mid chp-mid"><b>' + o.title + '</b><small' + (o.active ? ' class="act"' : '') + '>' + o.sub + '</small></span>' +
@@ -12906,12 +13052,66 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Uzun mesaj: on iki satırda katlanır, Show more açar', chpRoom({ title: '# dev', sub: '6 people', msgs: chM({ who: 'K', t: '11:50', body: CHP_LONG, fold: true }) + chM({ who: 'E', t: '11:52', body: 'Read it, thanks. One question about the phone build.' }), cmp: chpPill('Message #dev') }))
     ].join('');
   }
+  // Round 3 (Oct 24): the list as the empty pages were approved, a line over Direct messages and
+  // none between the rows. The + at the foot gives New message, New room and Browse rooms; each is a
+  // sheet as tall as the screen, as Slack's: New message with To and the box to write the first
+  // message in; New room in three steps, its space and name, public or private, the people; Browse rooms.
+  function chnR(lead, name, o) {
+    o = o || {};
+    return '<div class="chn-r' + (o.kind ? ' kind' : '') + (o.old ? ' old' : '') + '">' + (lead ? '<span class="ld">' + lead + '</span>' : '') + '<span class="nm">' + name + (o.sub ? '<small>' + o.sub + '</small>' : '') + '</span>' +
+      (o.joined ? '<span class="in">Joined</span>' : '') + (o.on === undefined ? '' : '<span class="ck' + (o.on ? ' on' : '') + '">' + (o.on ? ICON.check : '') + '</span>') + '</div>';
+  }
+  function chnSheet(head, body, kb) {
+    return MB_DIM + '<div class="mb-sheet large chn' + (kb ? ' overkb' : '') + '"><span class="grab"></span>' + head + body + '</div>' + (kb ? MB_KB : '');
+  }
+  function chnHead(left, title, right, off) {
+    return '<div class="mb-sh three"><span class="cancel">' + left + '</span><b>' + title + '</b>' + (right ? '<span class="ok' + (off ? ' off' : '') + '">' + right + '</span>' : '<span></span>') + '</div>';
+  }
+  function chnChip(ini) { return '<span class="chn-chip">' + chF(ini, { sz: 'sm' }) + '<span>' + CH_P[ini].name + '</span></span>'; }
+  function chnTo(label, chips, ph) {
+    return '<div class="chn-to">' + (label ? '<span class="lb">' + label + '</span>' : '') + chips + '<span class="caret"></span>' + (ph ? '<span class="ph">' + ph + '</span>' : '') + '</div>';
+  }
+  var CHN_PLUS = MB_DIM + '<div class="mb-acts"><div class="mb-card">' +
+    '<div class="a">' + CI.edit + 'New message</div><div class="a">' + ICON.plus + 'New room</div><div class="a">' + ICON.find + 'Browse rooms</div></div>' +
+    '<div class="mb-card"><div class="a cancel">Cancel</div></div></div>';
+  function chPhone5() {
+    var mert = chF('M', { sz: 'md', on: true }), elif = chF('E', { sz: 'md' });
+    var all = chnR(mert, 'Mert Kaya', { on: false }) + chnR(CH_HASH, 'general', { sub: 'Klinitra', on: false }) + chnR(elif, 'Elif Demir', { on: false }) +
+      chnR(CH_HASH, 'general', { sub: 'Game Development', on: false }) + chnR(CH_HASH, 'general', { sub: 'OZBI', on: false }) + chnR(CH_HASH, 'general', { sub: 'Scrawl', on: false });
+    var picked = chnR(mert, 'Mert Kaya', { on: true }) + chnR(elif, 'Elif Demir', { on: true });
+    return [
+      mbPhone('Chat, aşağı kaydırılmış: çizgi yalnız Direct messages’ın üstünde, satır arası çizgi yok', chpListSparse(true, true), chTabs(1) + MB_FAB),
+      mbPhone('+: New message, New room, Browse rooms', chpListSparse(true), chTabs(1) + MB_FAB + CHN_PLUS),
+      mbPhone('New message: room’lar ve kişiler, en son yazışılan üstte', chpListSparse(true),
+        chnSheet(chnHead('Cancel', 'New message'), chnTo('To:', '', 'Find a room or person') + '<div class="chn-list">' + all + '</div>' + chpPill('Write a message'), true)),
+      mbPhone('Kişiler seçilince: çip, room’lar listeden kalkar; Send konuşmayı açar', chpListSparse(true),
+        chnSheet(chnHead('Cancel', 'New message'), chnTo('To:', chnChip('M') + chnChip('E')) + '<div class="chn-list">' + picked + '</div>' + chpPill('Message Mert Kaya, Elif Demir'), true))
+    ].join('');
+  }
+  function chPhone6() {
+    var spaces = CH_SPACES.map(function (name) { return chnR('', name, { on: name === 'Klinitra' }); }).join('');
+    var note = '<div class="chn-note">' + CI.chat + '<span>A room is where people talk about one topic. Give it a name that is easy to find and understand.</span></div>';
+    var kinds = chnR(CH_HASH, 'Public', { kind: true, sub: 'Anyone in Klinitra finds it and joins.', on: true }) + chnR(CI.lock, 'Private', { kind: true, sub: 'Only the people you add see it.', on: false });
+    var pills = '<div class="chn-spaces"><span>Game Development</span><span class="on">Klinitra</span><span>OZBI</span><span>Scrawl</span></div>';
+    var rooms = chnR(CH_HASH, 'general', { sub: '3 people', joined: true }) + chnR(CH_HASH, 'launch', { sub: '2 people · The demo on Friday', joined: true }) +
+      chnR(CH_HASH, 'design', { sub: '2 people · Screens and mockups' }) + '<div class="chn-lb">Archived</div>' + chnR(CH_HASH, 'old-demo', { sub: '1 person', old: true });
+    return [
+      mbPhone('New room 1: space’i ve adı', chpListSparse(true),
+        chnSheet(chnHead('Cancel', 'Create a room', 'Next'), '<div class="chn-lb">Space</div>' + spaces + '<div class="chn-lb">Name</div><div class="chn-name"><span class="hs">#</span><span>launch<span class="caret"></span></span></div>' + note)),
+      mbPhone('New room 2: Public ya da Private, Create', chpListSparse(true),
+        chnSheet(chnHead(ICON.chevl + 'Back', 'Visibility', 'Create'), '<div class="chn-lb"><span class="hs">#</span>launch <small>· Klinitra</small></div>' + kinds)),
+      mbPhone('New room 3: kişiler, Add ya da Skip; room açılır', chpListSparse(true),
+        chnSheet(chnHead('Skip', 'Add people', 'Add'), chnTo('', chnChip('M'), '') + '<div class="chn-list">' + chnR(chF('M', { sz: 'md', on: true }), 'Mert Kaya', { on: true }) + chnR(chF('E', { sz: 'md' }), 'Elif Demir', { on: false }) + '</div>')),
+      mbPhone('Browse rooms: space’ler, arama, room’lar; dokununca açılır', chpListSparse(true),
+        chnSheet(chnHead('Cancel', 'Browse rooms'), pills + '<div class="mb-search chn-find">' + ICON.find + 'Find a room</div><div class="chn-list">' + rooms + '</div>'))
+    ].join('');
+  }
   function renderCh(section, view) {
     var mock = section.querySelector('.mock');
     mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
-    if (view === 'chphone' || view === 'chphone2' || view === 'chphone3' || view === 'chphone4') {
+    if (/^chphone[2-6]?$/.test(view)) {
       mock.className = 'mock dir-a phones mbs chm four';
-      mock.innerHTML = { chphone: chPhone, chphone2: chPhone2, chphone3: chPhone3, chphone4: chPhone4 }[view]();
+      mock.innerHTML = { chphone: chPhone, chphone2: chPhone2, chphone3: chPhone3, chphone4: chPhone4, chphone5: chPhone5, chphone6: chPhone6 }[view]();
     } else {
       mock.className = 'mock dir-a wider chm';
       mock.innerHTML = CH_VIEWS[view]();
@@ -13537,6 +13737,335 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderQn(sectionQn, b.dataset.qnview);
   });
   renderQn(sectionQn, 'qnmain');
+
+  // Gym (draft, Oct 24): a template of its own beside Sport and training, which stays as it is. A
+  // program has its days, its note and its items in parts; a workout picks a program and its items
+  // come ticked, the sets and reps from the program, the weight from the last time; what was not
+  // done is unticked. Workouts say when and how much; Exercises how regular each move is.
+  LC.Mon = '#6aa5f0'; LC.Wed = '#6aa5f0'; LC.Fri = '#6aa5f0';
+  LC.Chest = '#f0706a'; LC.Back = '#6aa5f0'; LC.Shoulders = '#e0a040'; LC.Legs = '#5cb87a'; LC.Core = '#d9c44a';
+  var GY_TICK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var GY_PROGRAM = '3 Gün Full Body';
+  /** The program's items, by part: sets, reps, time, rest, note; `last` is the weight and sets of the last time. */
+  var GY_PARTS = [
+    { part: 'Warm-up', items: [
+      { name: 'Yürüyüş / bisiklet', time: '5 min', note: 'Konuşabilecek tempo' },
+      { name: 'Omuz çevirme', reps: '10–10' },
+      { name: 'Bodyweight squat', reps: '10' },
+      { name: 'Hafif ısınma seti', sets: '1', note: 'İlk hareketten önce' }
+    ] },
+    { part: 'Workout', items: [
+      { name: 'Chest Press Machine', sets: '3', reps: '12', rest: '90 s', note: 'Göğüs seviyesinde itin', kg: '45', last: '42,5 kg · 3 × 12' },
+      { name: 'Lat Pulldown', sets: '3', reps: '12', rest: '90 s', note: 'Çubuğu göğse çekin', kg: '47,5', last: '47,5 kg · 3 × 12' },
+      { name: 'Seated Row Machine', sets: '3', reps: '12', rest: '90 s', note: 'Dirsekleri geriye çekin', kg: '40', last: '40 kg · 3 × 11' },
+      { name: 'Shoulder Press Machine', sets: '3', reps: '10', rest: '90 s', note: 'Omuz hizasından yukarı', kg: '25', last: '25 kg · 3 × 10' },
+      { name: 'Leg Press', sets: '3', reps: '12', rest: '2 min', note: 'Dizleri tam kilitlemeyin', kg: '70', last: '65 kg · 3 × 12' },
+      { name: 'Leg Extension', sets: '2', reps: '15', rest: '60 s', note: 'Ön bacak odaklı', kg: '30', last: '30 kg · 2 × 15' },
+      { name: 'Lying Leg Curl', sets: '2', reps: '15', rest: '60 s', note: 'Arka bacak odaklı', kg: '25', last: '25 kg · 2 × 14' },
+      { name: 'Abdominal Crunch Machine', sets: '3', reps: '15', rest: '60 s', note: 'Karın kaslarını sıkın', kg: '30', last: '30 kg · 3 × 15' }
+    ] },
+    { part: 'Cool-down', items: [
+      { name: 'Hafif yürüyüş, nefes düzenleme', time: '2–3 min' },
+      { name: 'Göğüs (kapı eşiği) esnetme', sets: '1–2', time: '20–30 s' },
+      { name: 'Lat / sırt esnetme', sets: '1–2', time: '20–30 s' },
+      { name: 'Arka omuz esnetme', sets: '1–2', time: '20–30 s' },
+      { name: 'Quadriceps esnetme', sets: '1–2', time: '20–30 s' },
+      { name: 'Hamstring esnetme', sets: '1–2', time: '20–30 s' },
+      { name: 'Kalça (figure-4) esnetme', sets: '1–2', time: '20–30 s' }
+    ] },
+    { part: 'Cardio', items: [
+      { name: 'Yürüyüş / bisiklet', time: '10–15 min', note: 'Antrenman sonu' }
+    ] }
+  ];
+  /** What was not done in the workout on Oct 23, and the weight typed over the program's. */
+  var GY_SKIPPED = { 'Lying Leg Curl': true, 'Hamstring esnetme': true, 'Yürüyüş / bisiklet|Cardio': true };
+  var GY_TYPED = 'Leg Press';
+  function gyEmpty(x) { return x || '<span class="calc">–</span>'; }
+  /** The sidebar: Personal open, its Gym folder with the app's collections. */
+  function gyTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 5, on: on === 'today' }) + row({ label: 'Upcoming', ct: 9, on: on === 'upcoming' }) +
+      opRowT({ sp: true, open: true, label: 'Personal' }) +
+      opRowT({ d: 1, folder: true, open: true, label: 'Gym' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Workouts', ct: 9, on: on === 'workouts' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Programs', ct: 1, on: on === 'programs' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Exercises', ct: 21, on: on === 'exercises' }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Program items', ct: 20 }) +
+      opRowT({ d: 2, icon: 'collection', label: 'Workout items', ct: 160 }) +
+      opRowT({ d: 2, icon: 'notes', label: 'About Gym' }) +
+      opRowT({ d: 1, folder: true, label: 'Home', ct: 5 }) +
+      opRowT({ sp: true, label: 'Acme' }) +
+      '</div>' + spFoot(null);
+  }
+  function gyApp(on, body, over, count) {
+    var tabs = tab('collection', 'Workouts · Personal', 'x', on === 'workouts') + tab('collection', 'Programs · Personal', 'x', on === 'programs') +
+      tab('collection', 'Exercises · Personal', 'x', on === 'exercises') + '<div class="tab plus">+</div>';
+    return '<aside class="side">' + gyTree(on) + '</aside><section class="main"><div class="panes">' + pane(tabs, body) + '</div>' +
+      '<div class="status"><span>' + count + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  function gyHead(name, count, views) {
+    return caHead(name, count) + (views ? '<div class="gy-views">' + views.map(function (v, i) { return '<span' + (i === 0 ? ' class="on"' : '') + '>' + v + '</span>'; }).join('') + '</div>' : '');
+  }
+  /** Programs: the one program, its days, how many times and when it was last done. */
+  function gyPrograms() {
+    return '<div class="bv">' + gyHead('Programs', '1 record') + '<div class="blist">' +
+      '<div class="ca-row gy-prog head"><span>Name</span><span>Days</span><span class="num">Items</span><span class="num">Done</span><span>Last</span></div>' +
+      '<div class="ca-row gy-prog"><span class="tt">' + GY_PROGRAM + '</span><span class="gy-days">' + lbl('Mon') + lbl('Wed') + lbl('Fri') + '</span><span class="num">20</span><span class="num">8</span><span class="dt">Oct 23</span></div>' +
+      '</div></div>';
+  }
+  /** The window of a record of the app: its fields on the left, its items on the right. */
+  function gyWindow(kind, left, right, foot) {
+    var head = ICON.collection + '<span>' + kind + ' · Personal</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    return '<div class="ovl center"><div class="rmod cc-rm"><div class="cp-head">' + head + '</div>' +
+      '<div class="cc-cols"><div class="cc-col">' + left + '</div><div class="cc-col">' + right + '</div></div>' +
+      '<div class="rm-foot">' + (foot || '<span class="st-btn">Cancel</span><span class="st-btn go off">Save</span>') + '</div></div></div>';
+  }
+  /** The program's window: its days and its note; its items as one table, in their parts. */
+  function gyProgram() {
+    var left = ccProp('Name', GY_PROGRAM, { req: true }) +
+      ccProp('Days', '<span class="gy-days">' + lbl('Mon') + lbl('Wed') + lbl('Fri') + '</span>', { dd: true }) +
+      '<div class="cc-two">' + ccProp('Duration', '45–60 min') + ccProp('Done', '8 times · last Oct 23') + '</div>' +
+      '<div class="cc-prop gy-prop"><span class="pl">Notes</span><span class="box">' +
+      '<b>Yoğunluk</b><p>Set sonunda form bozulmasın, 1–3 tekrar yedek kalsın. İlk 2 hafta çoğu hareket 2 set.</p>' +
+      '<b>İlerleme kuralı</b><p>Tüm setlerde üst sınıra ulaşırsan: üst vücut makineleri +1–2,5 kg, Leg Press +2,5–5 kg. Form bozulursa ağırlığı artırma.</p>' +
+      '<b>Kardiyo</b><p>Boş gün 20–30 dk yürüyüş. Hedef haftada 120–150 dk.</p></span></div>';
+    var n = 0;
+    var parts = GY_PARTS.map(function (p) {
+      return '<div class="gy-part">' + p.part + ' <small>' + p.items.length + '</small></div>' + p.items.map(function (x) {
+        n++;
+        return '<div class="cc-row gp"><span class="go calc">' + n + '</span><span class="nm"><span class="t">' + x.name + '</span></span>' +
+          '<span class="num">' + gyEmpty(x.sets) + '</span><span class="num">' + gyEmpty(x.reps) + '</span><span class="num">' + gyEmpty(x.time) + '</span><span class="num">' + gyEmpty(x.rest) + '</span>' +
+          '<span class="gy-note"><span class="t">' + (x.note || '') + '</span></span></div>';
+      }).join('') + '<div class="cc-addrow">+ Add to ' + p.part + '</div>';
+    }).join('');
+    var right = '<div class="cc-blk"><div class="blk-h">Items <small>20</small></div>' +
+      '<div class="cc-row gp head"><span></span><span>Item</span><span class="num">Sets</span><span class="num">Reps</span><span class="num">Time</span><span class="num">Rest</span><span>Note</span></div>' +
+      parts + '</div>';
+    return gyWindow('Programs', left, right);
+  }
+  /** A new workout: the day is today; the program not picked yet, its menu open. */
+  function gyNew() {
+    var menu = '<div class="cc-menu"><span class="on">' + GY_PROGRAM + '<small>Mon, Wed, Fri · 20 items</small></span></div>';
+    var left = ccProp('Day', 'Oct 23, 2026 · Friday', { req: true }) +
+      '<div class="cc-prop gy-pick"><span class="pl">Program</span><span class="box" style="border-color: var(--m-accent)"><span class="calc">Choose…</span><span class="dd">▾</span></span>' + menu + '</div>' +
+      ccProp('Duration', '<span class="calc">min</span>') +
+      ccProp('Notes', 'Add a note…', { body: true });
+    var right = '<div class="cc-blk"><div class="blk-h">Items <small>0</small></div><div class="gy-empty"><b>Pick a program</b>Its items come here, all ticked: the sets and reps from the program, the weight from the last time.</div></div>';
+    return gyWindow('Workouts', left, right);
+  }
+  /** The workout of Oct 23, as it is being saved: its items ticked from the program, two unticked, a weight typed. */
+  function gyWorkout(perSet) {
+    var left = ccProp('Day', 'Oct 23, 2026 · Friday', { req: true }) +
+      ccProp('Program', '<span class="lk">' + GY_PROGRAM + '</span>', { dd: true }) +
+      ccProp('Duration', '55 min') +
+      '<div class="cc-prop gy-prop"><span class="pl">Notes</span><span class="box"><p>Leg curl makinesi doluydu.</p></span></div>';
+    var done = 0, all = 0;
+    var parts = GY_PARTS.map(function (p) {
+      var rows = p.items.map(function (x) {
+        all++;
+        var off = GY_SKIPPED[x.name] || GY_SKIPPED[x.name + '|' + p.part];
+        if (!off) done++;
+        var ck = '<span class="ck"><span class="gy-ck' + (off ? '' : ' on') + '">' + (off ? '' : GY_TICK) + '</span></span>';
+        var kg = x.name === GY_TYPED ? '<span class="num edit">70<span class="caret"></span></span>' : '<span class="num">' + gyEmpty(x.kg) + '</span>';
+        if (perSet && x.kg) {
+          var sets = [];
+          for (var s = 1; s <= +x.sets; s++) {
+            var reps = x.name === 'Seated Row Machine' && s === 3 ? '10' : x.reps;
+            sets.push('<div class="cc-row gs gy-sub' + (off ? ' gy-off' : '') + '"><span class="ck"><span class="gy-ck' + (off ? '' : ' on') + '">' + (off ? '' : GY_TICK) + '</span></span><span class="nm">Set ' + s + '</span><span class="num gy-set">' + s + '</span><span class="num">' + reps + '</span>' +
+              (x.name === GY_TYPED && s === 3 ? '<span class="num edit">72,5<span class="caret"></span></span>' : '<span class="num">' + x.kg + '</span>') + '<span class="gy-last">' + (s === 1 ? x.last : '') + '</span></div>');
+          }
+          return '<div class="cc-row gs' + (off ? ' gy-off' : '') + '">' + ck + '<span class="nm"><span class="t">' + x.name + '</span></span><span></span><span></span><span></span><span></span></div>' + sets.join('');
+        }
+        if (perSet) {
+          return '<div class="cc-row gs' + (off ? ' gy-off' : '') + '">' + ck + '<span class="nm"><span class="t">' + x.name + '</span></span><span class="num">' + gyEmpty(x.sets) + '</span><span class="num">' + gyEmpty(x.reps || x.time) + '</span><span class="num"><span class="calc">–</span></span><span class="gy-last"></span></div>';
+        }
+        return '<div class="cc-row gw' + (off ? ' gy-off' : '') + '">' + ck + '<span class="nm"><span class="t">' + x.name + '</span></span>' +
+          '<span class="num">' + gyEmpty(x.sets) + '</span><span class="num">' + gyEmpty(x.reps) + '</span>' + kg + '<span class="num">' + gyEmpty(x.time) + '</span><span class="gy-last">' + (x.last || '') + '</span></div>';
+      }).join('');
+      return '<div class="gy-part">' + p.part + ' <small>' + p.items.length + '</small><span class="all">Untick all</span></div>' + rows;
+    }).join('');
+    var head = perSet
+      ? '<div class="cc-row gs head"><span></span><span>Item</span><span class="num">Set</span><span class="num">Reps</span><span class="num">Kg</span><span>Last time</span></div>'
+      : '<div class="cc-row gw head"><span></span><span>Item</span><span class="num">Sets</span><span class="num">Reps</span><span class="num">Kg</span><span class="num">Time</span><span>Last time</span></div>';
+    var right = '<div class="cc-blk"><div class="blk-h">Items <small>' + done + ' of ' + all + ' done</small></div>' + head + parts + '</div>';
+    return gyWindow('Workouts', left, right, '<span class="hint">From ' + GY_PROGRAM + '; what you change stays in this workout</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span>');
+  }
+  // October's program days up to Friday the 23rd: eight done, Monday the 12th not gone, Wednesday the 21st not written yet.
+  LC.Done = '#5cb87a'; LC["Didn't go"] = '#8b93a1';
+  var GY_LOG = [
+    ['Oct 23', 'Fri', 'Done', '7 of 8', '55 min', 'Leg curl makinesi doluydu.'], ['Oct 19', 'Mon', 'Done', '8 of 8', '52 min', ''],
+    ['Oct 16', 'Fri', 'Done', '6 of 8', '40 min', 'Erken çıktım'], ['Oct 14', 'Wed', 'Done', '8 of 8', '60 min', ''], ['Oct 12', 'Mon', "Didn't go", '', '', 'Hastaydım'],
+    ['Oct 9', 'Fri', 'Done', '8 of 8', '55 min', ''], ['Oct 7', 'Wed', 'Done', '7 of 8', '50 min', ''], ['Oct 5', 'Mon', 'Done', '8 of 8', '57 min', ''],
+    ['Oct 2', 'Fri', 'Done', '8 of 8', '48 min', 'İlk 2 hafta: 2 set']
+  ];
+  /** Workouts: when, which program, gone or not, how much of it was done, how long; this month's, its counts and its time under it. */
+  function gyLog() {
+    var rows = GY_LOG.map(function (w) {
+      var off = w[2] !== 'Done';
+      return '<div class="ca-row gy-log' + (off ? ' off' : '') + '"><span class="dt">' + w[0] + ' · ' + w[1] + '</span><span class="tt">' + GY_PROGRAM + '</span>' + lbl(w[2]) +
+        '<span class="num">' + (w[3] || '<span class="empty">–</span>') + '</span><span class="num">' + (w[4] || '<span class="empty">–</span>') + '</span><span class="lk">' + w[5] + '</span></div>';
+    }).join('');
+    return '<div class="bv">' + gyHead('Workouts', '9 records', ['This month', 'This week', 'All', 'Calendar']) + '<div class="blist">' +
+      '<div class="ca-row gy-log head"><span class="sorted">Day ↓</span><span>Program</span><span>Status</span><span class="num">Moves</span><span class="num">Duration</span><span>Note</span></div>' + rows +
+      '<div class="ca-row gy-log sum"><span>8 done</span><span>1 didn’t go · 10 planned</span><span></span><span class="num">60 of 64</span><span class="num">6 h 57 min</span><span></span></div></div></div>';
+  }
+  /** Workouts' Calendar: October, each program day as it went: done, not gone, not written yet, still to come. */
+  function gyCalendar() {
+    var DAYS = { 2: 'Done', 5: 'Done', 7: 'Done', 9: 'Done', 12: "Didn't go", 14: 'Done', 16: 'Done', 19: 'Done', 21: 'late', 23: 'Done', 26: 'plan', 28: 'plan', 30: 'plan' };
+    var cells = '';
+    for (var i = 0; i < 42; i++) {
+      var date = new Date(2026, 8, 28 + i);
+      var d = date.getDate();
+      var inOct = date.getMonth() === 9;
+      var st = inOct ? DAYS[d] : null;
+      var chip = '';
+      if (st === 'Done') chip = '<span class="cal-t" style="--pc: #5cb87a"><i class="sq"></i><span>' + GY_PROGRAM + '</span></span>';
+      else if (st === "Didn't go") chip = '<span class="cal-t" style="--pc: #8b93a1"><i class="sq"></i><span>Didn’t go</span></span>';
+      else if (st === 'late') chip = '<span class="cal-t late" style="--pc: var(--m-p1)"><i class="sq"></i><span>Not written</span></span>';
+      else if (st === 'plan') chip = '<span class="cal-t gy-plan"><i class="sq"></i><span>' + GY_PROGRAM + '</span></span>';
+      var cls = ['cd', !inOct && 'out', chip && 'busy', inOct && d === 23 && 'today'].filter(Boolean).join(' ');
+      cells += '<div class="' + cls + '"><span class="n">' + d + '</span>' + chip + '</div>';
+    }
+    return '<div class="bv">' + gyHead('Workouts', '9 records').replace('<span class="srch">', '<span class="cv-nav"><span class="cv-today">Today</span><span class="nav">' + ICON.chevl + '</span><span class="nav">' + ICON.chevr + '</span><b>October 2026</b></span><span class="srch">') +
+      '<div class="gy-views"><span>This month</span><span>This week</span><span>All</span><span class="on">Calendar</span></div>' +
+      '<div class="up-cal"><div class="wd"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div><div class="grid">' + cells + '</div></div></div>';
+  }
+  var GY_EX = [
+    ['Chest Press Machine', 'Chest', 'Oct 23', '8 of 8', 100, '45 kg', '45 kg'], ['Lat Pulldown', 'Back', 'Oct 23', '8 of 8', 100, '47,5 kg', '47,5 kg'],
+    ['Seated Row Machine', 'Back', 'Oct 23', '7 of 8', 88, '40 kg', '40 kg'], ['Shoulder Press Machine', 'Shoulders', 'Oct 23', '7 of 8', 88, '25 kg', '25 kg'],
+    ['Leg Press', 'Legs', 'Oct 23', '8 of 8', 100, '70 kg', '70 kg'], ['Leg Extension', 'Legs', 'Oct 23', '6 of 8', 75, '30 kg', '30 kg'],
+    ['Lying Leg Curl', 'Legs', 'Oct 19', '4 of 8', 50, '25 kg', '25 kg'], ['Abdominal Crunch Machine', 'Core', 'Oct 23', '7 of 8', 88, '30 kg', '30 kg']
+  ];
+  /** The program's day as a record in Today: its bar, its name, what it is; Start and Didn't go while it is not written. */
+  function gyTodayRec(late) {
+    return '<div class="task c3-rec" style="--cc: #5cb87a"><span class="c3-rbar"></span><div><div class="tt">' + GY_PROGRAM + '</div>' +
+      '<div class="meta">' + (late ? '<span class="late">Wed, Oct 21</span>' : '') + '<span>' + ICON.collection + 'Programs</span><span>Gym · 45–60 min · 8 moves</span></div>' +
+      (late === undefined ? '' : '<div class="gy-acts"><span class="st-btn go">Start</span><span class="st-btn">Didn’t go</span></div>') + '</div></div>';
+  }
+  /** Today, Friday the 23rd: Wednesday's program day not written yet, late; today's with the tasks. */
+  function gyToday(skipped) {
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Fri, Oct 23</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      (skipped ? '' : '<div class="sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' + gyTodayRec(true)) +
+      '<div class="sec">Today <small>3</small></div>' +
+      upTask({ t: 'Pay the rent', w: 'Inbox', p: 'p2' }) + upTask({ t: 'Call the dentist', w: 'Home' }) + gyTodayRec(false) +
+      '<div class="qa">+ Add task</div></div></div>' +
+      (skipped ? '<div class="cd-toast">Wed, Oct 21: didn’t go<span class="undo">Undo</span></div>' : '');
+    return '<aside class="side">' + gyTree('today') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>2 tasks · 1 program day</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  /** Upcoming's List: the program on its days, with the tasks; no buttons till its day comes. */
+  function gyUpcoming() {
+    var body = '<div class="tasksv"><div class="th"><b>Upcoming</b><span class="up-seg"><span class="on">List</span><span>Calendar</span></span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Tomorrow <span class="when">· Sat, Oct 24</span> <small>1</small></div>' + upTask({ t: 'Buy a gym towel', w: 'Inbox' }) + '<div class="qa">+ Add task</div>' +
+      '<div class="up-gap">1 free day · Sun 25</div>' +
+      '<div class="sec">Mon, Oct 26 <small>2</small></div>' + upTask({ t: 'Renew the car insurance', w: 'Home', p: 'p1' }) + gyTodayRec() + '<div class="qa">+ Add task</div>' +
+      '<div class="up-gap">1 free day · Tue 27</div>' +
+      '<div class="sec">Wed, Oct 28 <small>1</small></div>' + gyTodayRec() + '<div class="qa">+ Add task</div>' +
+      '<div class="up-gap">1 free day · Thu 29</div>' +
+      '<div class="sec">Fri, Oct 30 <small>1</small></div>' + gyTodayRec() + '<div class="qa">+ Add task</div>' +
+      '</div></div>';
+    return '<aside class="side">' + gyTree('upcoming') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Upcoming', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>3 tasks · 3 program days</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  /** Exercises: when each was last done, in how many of the last 4 weeks' workouts of its program, its best and its last weight. */
+  function gyExercises() {
+    var rows = GY_EX.map(function (e) {
+      return '<div class="ca-row gy-ex"><span class="tt">' + e[0] + '</span>' + lbl(e[1]) + '<span class="dt">' + e[2] + '</span><span class="num">' + e[3] + '</span>' +
+        '<span class="gy-bar' + (e[4] < 70 ? ' low' : '') + '"><i><b style="width: ' + e[4] + '%"></b></i><span>' + e[4] + '%</span></span><span class="num">' + e[5] + '</span><span class="num">' + e[6] + '</span></div>';
+    }).join('');
+    return '<div class="bv">' + gyHead('Exercises', '21 records', ['Weights', 'Warm-up and stretches', 'All']) + '<div class="blist">' +
+      '<div class="ca-row gy-ex head"><span>Name</span><span>Muscle</span><span>Last done</span><span class="num">Last 4 weeks</span><span>Regular</span><span class="num">Best</span><span class="num">Last</span></div>' + rows + '</div></div>';
+  }
+  /** One move: its numbers on the left; every time it was done, newest first, on the right. */
+  function gyOne() {
+    var left = ccProp('Name', 'Chest Press Machine', { req: true }) +
+      '<div class="cc-two">' + ccProp('Muscle', lbl('Chest'), { dd: true }) + ccProp('In', '<span class="lk">' + GY_PROGRAM + '</span>') + '</div>' +
+      '<div class="cc-two">' + ccProp('Best', '45 kg') + ccProp('Last done', 'Oct 23') + '</div>' +
+      '<div class="cc-two">' + ccProp('Last 4 weeks', '8 of 8') + ccProp('Regular', '100%') + '</div>' +
+      '<div class="cc-prop gy-prop"><span class="pl">Notes</span><span class="box"><p>Koltuk 4. delikte.</p></span></div>';
+    var hist = [['Oct 23', '3', '12', '45'], ['Oct 19', '3', '12', '42,5'], ['Oct 16', '3', '11', '42,5'], ['Oct 14', '3', '12', '40'],
+      ['Oct 9', '3', '10', '40'], ['Oct 7', '2', '12', '35'], ['Oct 5', '2', '12', '35'], ['Oct 2', '2', '12', '30']];
+    var right = '<div class="cc-blk"><div class="blk-h">Done <small>8</small></div>' +
+      '<div class="cc-row gs head"><span></span><span>Workout</span><span class="num">Sets</span><span class="num">Reps</span><span class="num">Kg</span><span></span></div>' +
+      hist.map(function (h) {
+        return '<div class="cc-row gs"><span class="go"></span><span class="nm"><span class="t">' + h[0] + ' · ' + GY_PROGRAM + '</span></span><span class="num">' + h[1] + '</span><span class="num">' + h[2] + '</span><span class="num">' + h[3] + '</span><span></span></div>';
+      }).join('') + '</div>';
+    return gyWindow('Exercises', left, right);
+  }
+  /** On a phone: the day's program in Today; the workout ticked from it; a move's numbers in a sheet. */
+  function gyPhone() {
+    var today = mbPage(mbHead('Today', 'Friday, Oct 23', true),
+      '<div class="gy-mcap">Overdue</div><div class="gy-mtoday"><div class="gy-mt">' + ICON.collection + '<span class="tx"><b>' + GY_PROGRAM + '</b><small><span class="late">Wed, Oct 21</span> · Gym</small></span><span class="skip">Didn’t go</span><span class="go">Start</span></div></div>' +
+      '<div class="gy-mcap">Today</div><div class="gy-mtoday"><div class="gy-mt">' + ICON.collection + '<span class="tx"><b>' + GY_PROGRAM + '</b><small>Gym · 45–60 min · 8 moves</small></span><span class="skip">Didn’t go</span><span class="go">Start</span></div></div>' +
+      '<div class="gy-mtoday" style="margin-top: 8px"><div class="gy-mt"><span class="rc"></span><span class="tx"><b>Pay the rent</b></span></div><div class="gy-mt"><span class="rc"></span><span class="tx"><b>Call the dentist</b></span></div></div>');
+    var nav = '<div class="mb-nav"><span class="tb plain">Cancel</span><span class="mid">New workout</span><span class="acts"><span class="tb">Save</span></span></div>';
+    function mrow(x, off, on) {
+      var right = x.kg ? x.sets + ' × ' + x.reps + ' · ' + (x.name === GY_TYPED ? '70' : x.kg) + ' kg' : (x.time || (x.sets ? x.sets + ' set' : x.reps));
+      return '<div class="gy-mr' + (off ? ' off' : '') + (on ? ' on' : '') + '"><span class="c' + (off ? '' : ' on') + '">' + (off ? '' : GY_TICK) + '</span><span class="tx"><b>' + x.name + '</b>' + (x.last ? '<small>Last ' + x.last + '</small>' : '') + '</span><span class="rt">' + right + '</span></div>';
+    }
+    var w = GY_PARTS[1].items;
+    var top = nav + '<div class="mb-form" style="padding-top: 8px"><div class="mb-group wide">' + mbVal('Day', 'Today') + mbVal('Program', GY_PROGRAM) + '</div></div>' +
+      '<div class="gy-mcap">Warm-up<span>4 of 4</span></div><div class="gy-ml">' + GY_PARTS[0].items.slice(0, 2).map(function (x) { return mrow(x); }).join('') + '</div>';
+    var moves = '<div class="gy-mcap">Workout<span>7 of 8</span></div><div class="gy-ml">' + w.map(function (x) { return mrow(x, x.name === 'Lying Leg Curl'); }).join('') + '</div>';
+    var form = top + moves;
+    // Scrolled down to the moves: the warm-up's last two above them.
+    var scrolled = nav.replace('class="mb-nav"', 'class="mb-nav bar"') + '<div class="gy-ml" style="margin-top: 8px">' + GY_PARTS[0].items.slice(2).map(function (x) { return mrow(x); }).join('') + '</div>' + moves;
+    var sheet = MB_DIM + '<div class="mb-sheet"><span class="grab"></span><div class="mb-sh three"><span class="cancel">Cancel</span><b>Leg Press</b><span class="ok">Done</span></div>' +
+      '<div class="mb-form"><div class="mb-group wide">' +
+      '<div class="mb-fr"><span class="fl">Done</span><span class="gy-step"><span class="gy-mr" style="padding: 0; min-height: 0"><span class="c on">' + GY_TICK + '</span></span></span></div>' +
+      '<div class="mb-fr"><span class="fl">Sets</span><span class="gy-step"><i>−</i><b>3</b><i>+</i></span></div>' +
+      '<div class="mb-fr"><span class="fl">Reps</span><span class="gy-step"><i>−</i><b>12</b><i>+</i></span></div>' +
+      '<div class="mb-fr"><span class="fl">Kg</span><span class="gy-step"><i>−</i><b>70</b><i>+</i></span></div>' +
+      '</div><div class="gy-mhint">Last time 65 kg · 3 × 12. Program: Dizleri tam kilitlemeyin.</div></div></div>';
+    var formLeg = form.replace('<div class="gy-mr"><span class="c on">' + GY_TICK + '</span><span class="tx"><b>Leg Press', '<div class="gy-mr on"><span class="c on">' + GY_TICK + '</span><span class="tx"><b>Leg Press');
+    return mbPhone('Today: yazılmamış gün Overdue’da; Start ya da Didn’t go', today, mbTabs('today')) +
+      mbPhone('Start: gün ve program hazır, hepsi işaretli', mbPage('', form), '') +
+      mbPhone('Aşağıda: yapılmayanın işareti kalkar', mbPage('', scrolled), '') +
+      mbPhone('Bir harekete dokununca: set, tekrar, kilo', mbPage('', formLeg), sheet);
+  }
+  /** New app, Gym's page: one question, whether each set is written on its own. */
+  function gyAsk() {
+    var steps = '<div class="steps">' + ['Templates', 'App', 'Gym', 'Summary'].map(function (s, i) { return '<span' + (i === 2 ? ' class="on"' : i < 2 ? ' class="done"' : '') + '>' + s + '</span>'; }).join('') + '</div>';
+    var page = '<p class="na-lead">Every answer is ready; change only what is different for you.</p><div class="na-qs">' +
+      naQ('Will you track each set?', naSeg(['Yes', 'No'], 'No'), { help: 'No: a move is one line in a workout, 3 × 12 at 45 kg. Yes: each set is a line, with its own reps and weight.' }) +
+      '</div>';
+    return '<div class="ovl"><div class="mdlg na-dlg"><div class="na-top"><h3>New app</h3><span class="x">×</span></div>' + steps +
+      '<div class="na-page">' + page + '</div>' +
+      '<div class="foot"><span class="count">Gym · 1 question</span><span class="st-btn">Back</span><span class="st-btn go">Next</span></div></div></div>';
+  }
+  var GY_VIEWS = {
+    gyask: function () { return gyApp('programs', gyPrograms(), gyAsk(), '1 record'); },
+    gyprogram: function () { return gyApp('programs', gyPrograms(), gyProgram(), '1 record'); },
+    gynew: function () { return gyApp('workouts', gyLog(), gyNew(), '9 records'); },
+    gyrow: function () { return gyApp('workouts', gyLog(), gyWorkout(false), '9 records'); },
+    gyset: function () { return gyApp('workouts', gyLog(), gyWorkout(true), '9 records'); },
+    gytoday: function () { return gyToday(false); },
+    gyskip: function () { return gyToday(true); },
+    gyup: gyUpcoming,
+    gylog: function () { return gyApp('workouts', gyLog(), '', '9 records'); },
+    gycal: function () { return gyApp('workouts', gyCalendar(), '', '9 records'); },
+    gyex: function () { return gyApp('exercises', gyExercises(), '', '21 records'); },
+    gyone: function () { return gyApp('exercises', gyExercises(), gyOne(), '21 records'); }
+  };
+  function renderGy(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'gyphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = gyPhone();
+    } else {
+      mock.className = 'mock dir-a' + (/^gy(log|ex|ask|today|skip|up|cal)$/.test(view) ? '' : ' wider');
+      mock.innerHTML = GY_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-gyview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.gyview === view));
+    });
+  }
+  var sectionGy = document.querySelector('.dir[data-dir="gym"]');
+  sectionGy.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-gyview]');
+    if (b) renderGy(sectionGy, b.dataset.gyview);
+  });
+  renderGy(sectionGy, 'gyask');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
