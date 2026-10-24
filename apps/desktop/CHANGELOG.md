@@ -2,6 +2,21 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.15
+
+Scrawl keeps running with its window closed, Chat on a Scrawl server, and quick notes.
+
+- Closing the window leaves Scrawl in the tray, still syncing, so that an agent on this computer reads what is current and what it writes leaves in seconds. The tray has Open Scrawl, how sync stands and Quit Scrawl. Settings › General › Keep running when the window is closed turns it off.
+- Scrawl opens when you sign in to the computer, without a window; Settings › General › Open at login turns it off.
+- What another program writes in a space's folder, an agent above all, is synced at once, and shows without a click.
+- An update goes in while the window is closed, or when you close it.
+- Chat, on a Scrawl server: every shared space has a general room, anyone opens public and private rooms, and direct messages go to one person or up to nine. A message takes photos, videos, files and voice, reactions, and a reply quoting what it answers; it points at a note, a task, a card or a record, and becomes a task or a card. Direct messages, private rooms and mentions tell you, each conversation set to All, Mentions or Off. Search finds messages too, and an agent reads and writes them through the server. With the server out of reach, Chat opens with what this device keeps.
+- Quick notes, as in Keep: a few lines each, seen as cards with what they say, in your personal space. Quick notes is in the sidebar under Filters & Labels, with how many there are. Take a note… has a title and the note's own editor, with images, files and recordings; a note is pinned, and they are in your order, by when they were made or by when they were changed. Quick note is first in Create and in every + menu.
+- A list is made by typing `- `, `* ` or `1. ` at the start of a line; Undo right after keeps it as text.
+- A folder's New note here… and a right click's Add new › Note… open Create with that folder chosen; the name may stay empty.
+- Upcoming has a number beside it, as Today has.
+- The ready filters now come to those who never had them.
+
 ## 0.1.14
 
 Labels on tasks, filtering where a list or a board is, Filters & Labels and Favorites, and who worked on what, agents too.
