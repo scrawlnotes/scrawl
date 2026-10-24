@@ -25,7 +25,7 @@ import { Icon, type IconName } from './Icon';
 import { Face, leadOf, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { BrowseRoomsDialog, ChatInfoDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
 import { ChatResults } from './ChatSearch';
-import { ChatIntro, notWrittenTo, staysFolded, useFolded } from './ChatStart';
+import { ChatIntro, notWrittenTo } from './ChatStart';
 import { type Hit, type HitFilters, useMessageSearch } from './messageSearch';
 import { hostOf } from './servers';
 import { ITEM_DRAG_TYPE } from './Sidebar';
@@ -354,15 +354,9 @@ function ChatList({ servers, open, onOpen, onAdd, onWrite, box }: {
       </button>
     );
   };
-  // Folded sections, kept on this device: a folded one shows only its open and unread conversations.
-  const folds = useFolded();
-  const stays = (server: ChatServer, chat: ChatInfo) => staysFolded(chat, open?.url === server.url && open.chat === chat.id);
   const heading = (name: string, url: string, space: string | null) => (
-    <div className={folds.isFolded(url, space) ? 'chat-grp folded' : 'chat-grp'}>
-      <button type="button" className="fold" aria-expanded={!folds.isFolded(url, space)} onClick={() => folds.toggle(url, space)}>
-        <Icon name="chevron" />
-        <span>{name}</span>
-      </button>
+    <div className="chat-grp">
+      <span>{name}</span>
       <button type="button" className="gadd" title={space === null ? t('chat.newMessageDots') : t('chat.add')} aria-label={space === null ? t('chat.newMessageDots') : t('chat.add')} onClick={(event) => onAdd(event, url, space)}>
         <Icon name="plus" />
       </button>
@@ -391,25 +385,21 @@ function ChatList({ servers, open, onOpen, onAdd, onWrite, box }: {
               .map(([space, group]) => (
                 <div key={space} className="chat-group">
                   {heading(group.name, server.url, space)}
-                  {group.chats
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .filter((chat) => !folds.isFolded(server.url, space) || stays(server, chat))
-                    .map((chat) => row(server, chat))}
+                  {group.chats.sort((a, b) => a.name.localeCompare(b.name)).map((chat) => row(server, chat))}
                 </div>
               ))}
-            <div className="chat-group">
+            <div className="chat-group direct">
               {heading(many ? t('chat.directMessagesOn', { server: hostOf(server.url) }) : t('chat.directMessages'), server.url, null)}
-              {direct.filter((chat) => !folds.isFolded(server.url, null) || stays(server, chat)).map((chat) => row(server, chat))}
+              {direct.map((chat) => row(server, chat))}
               {/* The people to write to with no direct message yet, a few, as the direct messages are. */}
-              {!folds.isFolded(server.url, null) &&
-                notWrittenTo(server)
-                  .slice(0, 5)
-                  .map((person) => (
-                    <button type="button" key={person.id} className="chat-row" onClick={() => onWrite(server.url, person.id)}>
-                      <Face id={person.id} name={person.name} size="sm" online={server.active.includes(person.id)} />
-                      <span className="nm">{person.name}</span>
-                    </button>
-                  ))}
+              {notWrittenTo(server)
+                .slice(0, 5)
+                .map((person) => (
+                  <button type="button" key={person.id} className="chat-row" onClick={() => onWrite(server.url, person.id)}>
+                    <Face id={person.id} name={person.name} size="sm" online={server.active.includes(person.id)} />
+                    <span className="nm">{person.name}</span>
+                  </button>
+                ))}
             </div>
           </div>
         );
