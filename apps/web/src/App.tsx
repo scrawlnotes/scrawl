@@ -43,6 +43,7 @@ import {
   type FileUse,
   type Found,
   dueToday,
+  dueUpcoming,
   filterTasks,
   filterFields,
   inSpace,
@@ -2035,8 +2036,11 @@ export function App() {
     />
   );
   const dueNow = dueToday(tasks, today);
-  const dueCardsNow = dueCards(boards).filter((d) => d.card.due! <= today).length + dueSubtasksNow.filter((d) => d.subtask.due! <= today).length;
-  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts };
+  // Today counts what is late and due today, Upcoming what is due after it: neither counts what the other does.
+  const cardDays = [...dueCards(boards).map((d) => d.card.due!), ...dueSubtasksNow.map((d) => d.subtask.due!)];
+  const dueCardsNow = cardDays.filter((day) => day <= today).length;
+  const dueLater = dueUpcoming(tasks, today).reduce((sum, d) => sum + d.tasks.length, 0) + cardDays.length - dueCardsNow;
+  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [UPCOMING]: dueLater, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;

@@ -1318,17 +1318,22 @@ export function Phone(props: PhoneProps) {
           }
           head={
             <div className="mb-seg" role="tablist">
-              {(['today', 'upcoming'] as const).map((kind) => (
-                <button
-                  key={kind}
-                  type="button"
-                  role="tab"
-                  aria-selected={due === kind}
-                  onClick={() => setDue(kind)}
-                >
-                  {kind === 'today' ? t('side.today') : t('side.upcoming')}
-                </button>
-              ))}
+              {(['today', 'upcoming'] as const).map((kind) => {
+                // The sidebar's numbers: Today's what is late and due today, Upcoming's what is due after it.
+                const count = props.counts[kind === 'today' ? TODAY : UPCOMING];
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    role="tab"
+                    aria-selected={due === kind}
+                    onClick={() => setDue(kind)}
+                  >
+                    {kind === 'today' ? t('side.today') : t('side.upcoming')}
+                    {count ? <small>{count.toLocaleString(locale())}</small> : null}
+                  </button>
+                );
+              })}
             </div>
           }
         >
