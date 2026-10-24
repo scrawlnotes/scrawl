@@ -3590,6 +3590,88 @@ p { margin: 0; max-width: 68ch; }
 .pm-msacc { display: flex; align-items: center; gap: 7px; margin: -2px 4px 10px; color: var(--m-dim); font-size: 14px; }
 .mock .pm-msacc svg { width: 16px; height: 16px; }
 .mb-fr .val .pm-mval { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------- quick notes ---------- */
+.qn { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.qn .th { position: relative; }
+.qn .th .srch .caret { height: 13px; margin-left: 1px; }
+.qn-sort { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-dim); font-size: 12px; }
+.mock .qn-sort svg { width: 13px; height: 13px; }
+.qn-sort.hot { background: var(--m-sel); color: var(--m-fg); }
+.qnm .qn-sortm { top: 46px; right: 26px; left: auto; min-width: 170px; }
+.cmenu span .qn-tk { width: 14px; height: 14px; color: var(--m-accent); stroke-width: 2.2; }
+.qn-scroll { flex: 1; min-height: 0; overflow: hidden; padding: 6px 26px 20px; }
+.qn-take { width: 600px; margin: 4px auto 22px; padding: 11px 16px; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-side); color: var(--m-faint); font-size: 14px; box-shadow: 0 1px 6px rgb(0 0 0 / .18); }
+.mock.qnd { height: 780px; grid-template-rows: minmax(0, 1fr); }
+.qn-sec { width: 748px; margin: 0 auto 8px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.qn-grid { display: flex; align-items: flex-start; justify-content: center; gap: 14px; margin-bottom: 20px; }
+.qn-col { display: flex; flex-direction: column; gap: 14px; width: 240px; }
+.qn-cw { position: relative; }
+.qn-card { position: relative; max-height: 320px; overflow: hidden; padding: 12px 14px 13px; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-bg); color: var(--m-fg); font-size: 13px; line-height: 1.5; }
+.qn-card .t { display: block; margin-bottom: 4px; padding-right: 22px; font: 600 14px/1.45 var(--m-ui); }
+.qn-card .bd { font: 12.5px/1.6 var(--m-ed); }
+.qn-card.gone { visibility: hidden; }
+.qn-card p { margin: 0; }
+.qn-card .li { position: relative; padding-left: 14px; }
+.qn-card .li::before { content: "•"; position: absolute; left: 2px; color: var(--m-faint); }
+.qn-card .lnk { color: var(--m-accent); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+.mock .qn-card .pic { display: block; margin: 2px 0 8px; }
+.mock .qn-card .pic svg.wb { width: 100%; height: auto; }
+.qn-card .aud { margin: 2px 0 0; }
+.qn-card.long::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 56px; background: linear-gradient(transparent, var(--m-bg)); }
+.qn-card.hover { border-color: var(--m-faint); box-shadow: 0 2px 12px rgb(0 0 0 / .3); }
+.qn-card .pin { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--m-bg); color: var(--m-dim); }
+.mock .qn-card .pin svg { width: 16px; height: 16px; }
+.qn-card .more { position: absolute; right: 8px; bottom: 6px; padding: 0 6px; border-radius: 4px; background: var(--m-sel); color: var(--m-fg); letter-spacing: 1px; }
+.qn-card mark, .qn-mcard mark { padding: 0 1px; border-radius: 2px; background: color-mix(in srgb, var(--m-accent) 32%, transparent); color: inherit; }
+.qn-cw .qn-cmenu { top: calc(100% - 6px); left: 196px; min-width: 160px; }
+.qn-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 110px; color: var(--m-faint); font-size: 13px; }
+.mock .qn-empty svg { width: 42px; height: 42px; stroke-width: 1.2; }
+.qn-ed { width: 600px; margin: 4px auto 22px; overflow: hidden; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-side); box-shadow: 0 6px 22px rgb(0 0 0 / .35); }
+.qn-ed.win { width: 720px; margin: 0; background: var(--m-bg); box-shadow: 0 16px 40px rgb(0 0 0 / .45); }
+.qn-ed .fbar { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent); mask-image: linear-gradient(90deg, #000 90%, transparent); }
+.qn-ed .fbar .g { flex: none; }
+.qn-ed .fbar .g span { display: inline-flex; align-items: center; }
+.mock .qn-ed .fbar svg { width: 14px; height: 14px; }
+.qn-title { display: flex; align-items: center; gap: 8px; padding: 14px 12px 2px 18px; color: var(--m-fg); font-size: 16px; font-weight: 600; }
+.qn-title.none { color: var(--m-faint); font-weight: 500; }
+.qn-title .pin { display: grid; place-items: center; width: 28px; height: 28px; margin-left: auto; border-radius: 50%; color: var(--m-dim); }
+.qn-title .pin.on { color: var(--m-accent); }
+.mock .qn-title .pin svg { width: 17px; height: 17px; }
+.qn-body { min-height: 64px; padding: 6px 18px 12px; font: 13px/1.65 var(--m-ed); }
+.qn-body.none { color: var(--m-faint); }
+.qn-body p { margin: 0; }
+.qn-body .li { position: relative; padding-left: 16px; }
+.qn-body .li::before { content: "•"; position: absolute; left: 3px; color: var(--m-faint); }
+.qn-body .caret { margin-right: 1px; }
+.qn-foot { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px 0 18px; color: var(--m-faint); font-size: 12px; }
+.qn-foot .r { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.qn-foot .dots { padding: 2px 7px; border-radius: 4px; color: var(--m-dim); letter-spacing: 1px; }
+.qn-foot .st-btn { border-color: transparent; color: var(--m-fg); font-weight: 600; }
+.choices-m .qn-sep { height: 1px; margin: 4px 2px; background: var(--m-line); }
+.qnm .qn-plusm { left: 168px; top: 236px; min-width: 210px; }
+.qn-mgrid { display: flex; align-items: flex-start; gap: 10px; padding: 0 12px; }
+.qn-mcol { display: flex; flex: 1; flex-direction: column; gap: 10px; min-width: 0; }
+.qn-mcard { position: relative; max-height: 220px; overflow: hidden; padding: 11px 12px 12px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-bg); color: var(--m-fg); font-size: 14.5px; line-height: 1.4; }
+.qn-mcard .t { display: block; margin-bottom: 3px; font: 600 15.5px/1.35 var(--m-ui); }
+.qn-mcard .bd { font: 13px/1.5 var(--m-ed); }
+.qn-mcard p { margin: 0; }
+.qn-mcard .li { position: relative; padding-left: 14px; }
+.qn-mcard .li::before { content: "•"; position: absolute; left: 2px; color: var(--m-faint); }
+.qn-mcard .lnk { color: var(--m-accent); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+.mock .qn-mcard .pic { display: block; margin: 2px 0 6px; }
+.mock .qn-mcard .pic svg.wb { width: 100%; height: auto; }
+.qn-mcard.long::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: linear-gradient(transparent, var(--m-bg)); }
+.qn-mcard.lift { z-index: 6; border-color: var(--m-faint); background: var(--m-side); box-shadow: 0 10px 30px rgb(0 0 0 / .45); transform: scale(1.04); }
+.qn-mcard.lift.long::after { background: linear-gradient(transparent, var(--m-side)); }
+.qn-mtitle { padding: 16px 18px 2px; color: var(--m-fg); font: 600 21px/1.3 var(--m-ui); }
+.qn-mtitle.none { color: var(--m-faint); font-weight: 500; }
+.mb-ed.qn-mbody { padding-top: 8px; }
+.qn-mbody p { margin: 0; }
+.qn-mbody .ph { color: var(--m-faint); }
+.qn-msep { height: 8px; background: color-mix(in srgb, var(--m-bg) 55%, var(--m-side)); }
+.mock .mb-acts .a .on svg { width: 20px; height: 20px; color: var(--m-accent); stroke-width: 2.2; }
+.qn-mmod { padding: 10px 16px 12px; border-top: 1px solid var(--m-line); color: var(--m-faint); font-size: 13px; text-align: center; }
 </style>
 
 <main class="page">
@@ -4339,6 +4421,33 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-pmview="pmphone2">Telefon 2</button>
         <button type="button" data-pmview="pmphone3">Telefon 3</button>
         <button type="button" data-pmview="pmphone4">Telefon 4</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="quick">
+    <div class="brief">
+      <div>
+        <span class="letter">HIZLI NOTLAR · TASLAK</span>
+        <h2>Quick notes</h2>
+        <p>Birkaç satırlık notlar, Keep'teki gibi kart kart, içerikleriyle. Kenar çubuğunda Filters &amp; Labels'ın altında <b>Quick notes</b> ve kaç not olduğu; telefonda Browse'da aynı yerde. Yalnız Personal'da; ağaçta görünmez. Üstte <b>Take a note…</b>: tıklayınca notun biçim çubuğu, <b>Title</b> ve not açılır, imleç notta; Close, Esc ya da dışarı tıklamak kaydeder. Karta tıklayınca ortada aynı pencere açılır. Editör notunkiyle aynı: resim, dosya, ses kaydı, tablo, To task. Pinlenen notlar üstte <b>Pinned</b>. Sıra Keep'teki gibi: <b>Custom</b> (yeni üstte, sürükleyerek), <b>Date created</b>, <b>Date modified</b>. Her + menüsünde en üstte Quick note; Create'te <kbd>1</kbd>, seçince açık olanın üstünde boş pencere. Teknik tasarım <code>design/quick-notes.md</code>.</p>
+        <ul class="traits"><li>yalnız Personal</li><li>kart ızgarası</li><li>Title ve not</li><li>notun editörü</li><li>Pin</li><li>Keep'in sırası</li><li>+ menülerinde en üstte</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Hızlı not görünümü">
+        <button type="button" data-qnview="qnmain">Quick notes</button>
+        <button type="button" data-qnview="qntake">Take a note</button>
+        <button type="button" data-qnview="qnopen">A note</button>
+        <button type="button" data-qnview="qnmenu">Card menu</button>
+        <button type="button" data-qnview="qnsort">Sort</button>
+        <button type="button" data-qnview="qnfind">Search here</button>
+        <button type="button" data-qnview="qnempty">Empty</button>
+        <button type="button" data-qnview="qncreate">Create</button>
+        <button type="button" data-qnview="qnany">From anywhere</button>
+        <button type="button" data-qnview="qnplus">Folder +</button>
+        <button type="button" data-qnview="qnsearch">Search</button>
+        <button type="button" data-qnview="qnphone">Telefon</button>
+        <button type="button" data-qnview="qnphone2">Telefon 2</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -13062,6 +13171,228 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderPm(sectionPm, b.dataset.pmview);
   });
   renderPm(sectionPm, 'pmmenu');
+
+  // Quick notes (Oct 24, design/quick-notes.md): a few lines each, seen at a glance as cards, as in
+  // Keep. They are in the personal space only, in a folder the tree leaves out. A note has a title
+  // and a body, the note's own editor and format bar; pinned ones stand on top.
+  ICON.quick = '<svg viewBox="0 0 24 24"><path d="M5 4.5h14v10l-5 5H5z"/><path d="M14 19.5v-5h5"/><path d="M8.5 9h7M8.5 12.5h4"/></svg>';
+  ICON.pin = '<svg viewBox="0 0 24 24"><path d="M9 3.5h6M10 3.5l-.6 6.2L6.5 13v1.5h11V13l-2.9-3.3-.6-6.2"/><path d="M12 14.5v6"/></svg>';
+  /** Each note as a card shows it: its title, if it has one, and its body as the editor draws it. */
+  var QN = {
+    tire: { t: 'Tire pressure', b: '<p>Front: 36</p><p>Rear: 42</p>' },
+    company: { t: 'Company details', b: '<p>Northwind Software Ltd.</p><p>Teknopark, Block B, No: 12, Ankara</p><p>Tax office: Ostim · 1234567890</p>' },
+    podcast: { t: 'Podcast topics', long: true, b: '<div class="li">Hybrid models: what changed this year</div><div class="li">Why no one at work opens Copilot</div><div class="li">Small models on a phone</div>' +
+      '<div class="li">Agents that write to files, not chat</div><div class="li">The cost of a long context</div><div class="li">Open weights and who pays for them</div><div class="li">Voice as the next keyboard</div>' },
+    flat: { t: 'Mert’s new flat', b: '<p>Block A, No 5</p><p><span class="lnk">maps.app.goo.gl/x7Qp2Lm</span></p>' },
+    manager: { t: 'Building manager', b: '<p>Necati Bey</p><p>0532 000 00 00</p>' },
+    door: { b: '<p>Gökhan’s flat: C-16</p>' },
+    shop: { t: 'Shopping', b: '<div class="li">Tomatoes</div><div class="li">Cola</div><div class="li">Bread</div><div class="li">Olive oil</div>' },
+    lena: { b: '<p>Ask Lena when the invoice is due</p>' },
+    retro: { t: 'Retro whiteboard', b: '<span class="pic">' + BOARD_PHOTO + '</span><p>From Friday’s retro</p>' },
+    voice: { t: 'Idea for the intro', b: '<span class="aud"><span class="play"></span><span class="wv">' + waveOf(0) + '</span>0:42</span>' }
+  };
+  // Custom order, the newest first; a card goes to the shortest column, so the order reads row by row.
+  var QN_PINNED = [['tire'], ['company'], ['podcast']];
+  var QN_OTHERS = [['flat', 'retro'], ['manager', 'lena', 'voice'], ['door', 'shop']];
+  var QN_FOUND = {
+    flat: { t: 'Mert’s new <mark>flat</mark>', b: QN.flat.b },
+    door: { b: '<p>Gökhan’s <mark>flat</mark>: C-16</p>' }
+  };
+  /** A card; hovered it shows the pin and ···, with its menu under ··· when it is open. */
+  function qnCard(k, o) {
+    o = o || {};
+    var n = o.found ? QN_FOUND[k] : QN[k];
+    var lit = o.hover || o.menu;
+    var card = '<div class="qn-card' + (QN[k].long ? ' long' : '') + (lit ? ' hover' : '') + (o.gone ? ' gone' : '') + '">' + (n.t ? '<b class="t">' + n.t + '</b>' : '') + '<div class="bd">' + n.b + '</div>' +
+      (lit ? '<span class="pin" title="Pin">' + ICON.pin + '</span><span class="more">···</span>' : '') + '</div>';
+    if (!o.menu) return card;
+    return '<div class="qn-cw">' + card + '<div class="cmenu qn-cmenu"><span>Copy</span><span>Move to…</span><span>History…</span><i></i><span class="red">Delete</span></div></div>';
+  }
+  function qnGrid(cols, looks) {
+    return '<div class="qn-grid">' + cols.map(function (c) {
+      return '<div class="qn-col">' + c.map(function (k) { return qnCard(k, (looks || {})[k]); }).join('') + '</div>';
+    }).join('') + '</div>';
+  }
+  // The note's own format bar, in its order: the end of it scrolls when the window is narrower.
+  var QN_FBAR = '<div class="fbar">' +
+    '<div class="g"><span>' + ICON.undo + '</span><span>' + ICON.redo + '</span></div>' +
+    '<div class="g"><span><b>B</b></span><span><em>I</em></span><span><s>S</s></span><span>&lt;/&gt;</span><span>' + ICON.link + '</span></div>' +
+    '<div class="g"><span>H1</span><span>H2</span><span>H3</span></div>' +
+    '<div class="g"><span>' + ICON.bullets + '</span><span>1.</span><span>→</span><span>←</span><span>' + ICON.quote + '</span><span>Callout</span><span>' + ICON.cblock + '</span></div>' +
+    '<div class="g"><span>' + ICON.find + '</span><span>Next match</span><span>All matches</span><span>Cursor below</span></div>' +
+    '<div class="g"><span>' + ICON.image + '</span><span>' + ICON.table + '</span><span>—</span><span>' + ICON.audio + '</span></div>' +
+    '<div class="g"><span>To task</span><span>To card</span></div></div>';
+  /**
+   * Take a note, opened in place, and the window a card opens: the format bar, the title with the
+   * pin beside it, the body. A new one has Close alone; an old one says when it changed, and has ···.
+   */
+  function qnEditor(o) {
+    var n = o.key ? QN[o.key] : null;
+    var pin = '<span class="pin' + (o.pinned ? ' on' : '') + '" title="' + (o.pinned ? 'Unpin' : 'Pin') + '">' + ICON.pin + '</span>';
+    var title = n && n.t ? '<div class="qn-title">' + n.t + pin + '</div>' : '<div class="qn-title none">Title' + pin + '</div>';
+    var body = n ? '<div class="qn-body">' + (o.body || n.b) + '</div>' : '<div class="qn-body none"><span class="caret"></span>Take a note…</div>';
+    var foot = n
+      ? '<div class="qn-foot"><span>Modified today, 19:23</span><span class="r"><span class="dots">···</span><span class="st-btn">Close</span></span></div>'
+      : '<div class="qn-foot"><span class="r"><span class="st-btn">Close</span></span></div>';
+    return '<div class="qn-ed' + (o.win ? ' win' : '') + '">' + QN_FBAR + title + body + foot + '</div>';
+  }
+  /** The Quick notes tab: its name and number, search and Sort, Take a note, then the cards. */
+  function qnView(o) {
+    o = o || {};
+    var check = ICON.check.replace('<svg', '<svg class="qn-tk"');
+    var top = '<div class="th"><b>Quick notes</b><span class="count">' + (o.find ? '2 of 10' : o.empty ? '' : '10 notes') + '</span>' +
+      '<span class="srch">' + ICON.find + (o.find ? '<span style="color: var(--m-fg)">flat</span><span class="caret"></span>' : 'Search…') + '</span>' +
+      '<span class="qn-sort' + (o.sort ? ' hot' : '') + '">' + ICON.sort + 'Custom</span>' +
+      (o.sort ? '<div class="cmenu qn-sortm"><span>Custom' + check + '</span><span>Date created</span><span>Date modified</span></div>' : '') + '</div>';
+    var take = o.taking ? qnEditor({}) : '<div class="qn-take">Take a note…</div>';
+    var body;
+    if (o.empty) body = take + '<div class="qn-empty">' + ICON.quick + '<span>Notes you take here show up as cards.</span></div>';
+    else if (o.find) body = take + qnGrid([['flat'], ['door'], []], { flat: { found: true }, door: { found: true } });
+    else body = take + '<div class="qn-sec">Pinned</div>' + qnGrid(QN_PINNED, o.looks) + '<div class="qn-sec">Others</div>' + qnGrid(QN_OTHERS, o.looks);
+    return '<div class="qn">' + top + '<div class="qn-scroll">' + body + '</div></div>';
+  }
+  /** The sidebar: Quick notes under Filters & Labels, with how many there are; then Favorites and the spaces. */
+  function qnTree(on, menu) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 9 }) + row({ label: 'Filters &amp; Labels' }) +
+      row({ label: 'Quick notes', ct: 10, on: on === 'quick' }) +
+      '<div class="grp">Favorites</div>' +
+      '<div class="it fx" style="--d: 0"><span class="fpad"></span>' + ICON.board + '<span>Roadmap<em class="fx-sp"> · Scrawl</em></span><span class="ct">10</span></div>' +
+      '<div class="fx-gap"></div>' +
+      spRowT({ sp: true, open: true, label: 'Personal' }) +
+      spRowT({ d: 1, icon: 'tasks', label: 'Inbox', ct: 5 }) +
+      spRowT({ d: 1, folder: true, label: 'Home', ct: 6, menu: menu }) +
+      spRowT({ d: 1, folder: true, label: 'Work', ct: 11 }) +
+      spRowT({ d: 1, icon: 'notes', label: 'Reading list', on: on === 'note' }) +
+      spRowT({ sp: true, label: 'Scrawl' }) +
+      spRowT({ sp: true, label: 'Side projects' }) +
+      '</div>' + spFoot(null);
+  }
+  function qnApp(o) {
+    return '<aside class="side">' + (o.tree || qnTree(o.on, o.menu)) + '</aside><section class="main"><div class="panes">' + pane(o.tabs + '<div class="tab plus">+</div>', o.body) + '</div>' +
+      '<div class="status">' + (o.status || '') + syncStatus(false, null) + '</div></section>' + (o.over || '');
+  }
+  var QN_TABS = tab('quick', 'Quick notes', 'x', true) + tab('notes', 'Reading list', 'x', false);
+  var QN_NOTE_TABS = tab('quick', 'Quick notes', 'x', false) + tab('notes', 'Reading list', 'x', true);
+  var QN_READING = '<div class="ed"><div class="col">' +
+    '<div class="ln h1">Reading list</div><div class="ln">&nbsp;</div>' +
+    '<div class="ln li"><span class="bu">•</span>Designing Data-Intensive Applications, chapter 5</div>' +
+    '<div class="ln li"><span class="bu">•</span>The local-first essay, again</div>' +
+    '<div class="ln li"><span class="bu">•</span>CRDTs for text, the Peritext paper</div>' +
+    '</div></div>';
+  function qnTabApp(view, over) { return qnApp({ on: 'quick', tabs: QN_TABS, body: view, status: '<span>10 quick notes</span>', over: over }); }
+  function qnNoteApp(over, tree) { return qnApp({ on: 'note', tree: tree, tabs: QN_NOTE_TABS, body: QN_READING, status: '<span>Ln 5, Col 38</span><span>21 words</span><span>Markdown</span>', over: over }); }
+  // Create, with Quick note first and apart: it has no second step, and opens the window.
+  function qnCreate() {
+    function choice(n, icon, label, note, on) { return '<span' + (on ? ' class="on"' : '') + '><kbd>' + n + '</kbd>' + ICON[icon] + label + (note ? '<small>' + note + '</small>' : '') + '</span>'; }
+    return '<div class="ovl"><div class="mdlg" style="width: 420px"><h3>Create</h3><div class="choices-m">' +
+      choice(1, 'quick', 'Quick note', 'A few lines, seen at a glance', true) + '<i class="qn-sep"></i>' +
+      choice(2, 'notes', 'Note', 'Meetings, ideas, anything written') + choice(3, 'tasks', 'Task list', 'To-dos with dates and priorities') +
+      choice(4, 'board', 'Board', 'Cards in columns: a project, a pipeline') + choice(5, 'key', 'Keys', 'API keys, passwords, settings') +
+      choice(6, 'collection', 'Collection', 'Companies, people, payments…') + choice(7, 'app', 'App', 'Ready templates set up together') +
+      '</div></div></div>';
+  }
+  // A folder's +: New quick note first, apart, with no "here": it goes to Personal from anywhere.
+  var QN_PLUS = '<div class="cmenu qn-plusm"><span>New quick note</span><i></i><span>New note here…</span><span>New task list here…</span><span>New board here…</span>' +
+    '<span>New keys file here…</span><span>New collection here…</span><i></i><span>New app here</span><i></i><span>New folder here</span></div>';
+  var QN_SX = [
+    { icon: 'quick', name: 'Building manager', where: 'Quick notes · Oct 21', kind: 'Quick note', snip: '<mark>Necati</mark> Bey · 0532 000 00 00' },
+    { cb: 'p3', name: 'Pay <mark>Necati</mark> Bey the dues', where: 'Inbox · Tomorrow', kind: 'Task' },
+    { icon: 'notes', name: 'Moving in', where: 'Personal › Home · Oct 2', kind: 'Note', snip: '…the keys are with <mark>Necati</mark> Bey on the ground floor…' }
+  ];
+  var QN_VIEWS = {
+    qnmain: function () { return qnTabApp(qnView({ looks: { manager: { hover: true } } })); },
+    qntake: function () { return qnTabApp(qnView({ taking: true })); },
+    qnopen: function () { return qnTabApp(qnView({ looks: { company: { gone: true } } }), '<div class="ovl center">' + qnEditor({ key: 'company', win: true, pinned: true, body: QN.company.b.replace('1234567890</p>', '1234567890<span class="caret"></span></p>') }) + '</div>'); },
+    qnmenu: function () { return qnTabApp(qnView({ looks: { manager: { menu: true } } })); },
+    qnsort: function () { return qnTabApp(qnView({ sort: true })); },
+    qnfind: function () { return qnTabApp(qnView({ find: true })); },
+    qnempty: function () { return qnApp({ on: 'quick', tabs: QN_TABS, body: qnView({ empty: true }), status: '<span>No quick notes</span>' }).replace('<span class="ct">10</span></div><div class="grp">', '</div><div class="grp">'); },
+    qncreate: function () { return qnNoteApp(qnCreate()); },
+    qnany: function () { return qnNoteApp('<div class="ovl center">' + qnEditor({ win: true }) + '</div>'); },
+    qnplus: function () { return qnNoteApp(QN_PLUS, qnTree('note', true)); },
+    qnsearch: function () {
+      var tree = qnTree('note').replace('<div class="tree fxt">', '<div class="tree fxt"><div class="it sx-side on">' + ICON.find + '<span>Search</span></div>');
+      return qnNoteApp('<div class="ovl sx-ovl"><div class="sx">' + sxQuery('necati', '3 results') + '<div class="sx-list">' +
+        QN_SX.map(function (r, i) { return sxRow(Object.assign({ on: i === 0 }, r)); }).join('') + '</div></div></div>', tree);
+    }
+  };
+  // On a phone: Quick notes in Browse under Filters & Labels, its page of cards in two columns, a
+  // card's page with the note's format bar, and Quick note first in Create.
+  function qnmCard(k, lift) {
+    var n = QN[k];
+    return '<div class="qn-mcard' + (n.long ? ' long' : '') + (lift ? ' lift' : '') + '">' + (n.t ? '<b class="t">' + n.t + '</b>' : '') + '<div class="bd">' + n.b + '</div></div>';
+  }
+  function qnmGrid(cols, lift) {
+    return '<div class="qn-mgrid">' + cols.map(function (c) { return '<div class="qn-mcol">' + c.map(function (k) { return qnmCard(k, k === lift); }).join('') + '</div>'; }).join('') + '</div>';
+  }
+  function qnmBrowse() {
+    return mbPage(mbHead('Browse', null, true),
+      '<div class="mb-sec">Favorites</div>' + mbRow({ icon: 'board', label: 'Roadmap', sub: 'Scrawl', ct: 10 }) + mbRow({ icon: 'notes', label: 'Weekly review' }) +
+      '<div class="fx-mgap"></div>' + mbRow({ icon: 'filter', label: 'Filters &amp; Labels' }) + mbRow({ icon: 'quick', label: 'Quick notes', ct: 10 }) +
+      '<div class="fx-mgap"></div>' + mbRow({ icon: 'space', label: 'Personal', ct: 14 }) + mbRow({ icon: 'space', label: 'Scrawl', ct: 9 }) + mbRow({ icon: 'space', label: 'Side projects', ct: 3 }));
+  }
+  function qnmPage(lift) {
+    return mbPage(mbNav('Browse', ['sort']) + mbHead('Quick notes'),
+      '<div class="mb-searchbar">' + ICON.find + 'Search</div>' +
+      '<div class="mb-sec">Pinned</div>' + qnmGrid([['tire', 'podcast'], ['company']], lift) +
+      '<div class="mb-sec">Others</div>' + qnmGrid([['flat', 'door', 'retro'], ['manager', 'shop', 'lena']], lift));
+  }
+  /** A quick note as a page: back, the pin and ···; the note's format bar; the title, then the body. */
+  function qnmNote(fresh) {
+    var body = fresh
+      ? '<div class="qn-mtitle none">Title</div><div class="mb-ed qn-mbody"><span class="caret"></span><span class="ph">Note</span></div>'
+      : '<div class="qn-mtitle">Company details</div><div class="mb-ed qn-mbody">' + QN.company.b + '</div>';
+    return mbPage(mbNav('Quick notes', ['pin', 'dots']) + mbFbar(), body);
+  }
+  function qnmCreate() {
+    function r(icon, label, sub) { return mbRow({ icon: icon, label: label, sub: sub, chev: false }); }
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh"><b>Create</b><small>in Personal</small><span class="x">' + ICON.x + '</span></div>' +
+      r('quick', 'Quick note', 'A few lines, seen at a glance') + '<div class="qn-msep"></div>' +
+      r('notes', 'Note') + r('tasks', 'Task list') + r('board', 'Board') + r('key', 'Keys', 'API keys, passwords, settings') +
+      r('collection', 'Collection', 'Companies, people, payments…') + r('app', 'App') + '</div>';
+  }
+  var QNM_TICK = ICON.check;
+  function qnPhone() {
+    return [
+      mbPhone('Browse: Filters & Labels’ın altında, sayısıyla', qnmBrowse(), mbTabs('browse') + MB_FAB),
+      mbPhone('Quick notes: iki kolon kart, + yeni not', qnmPage(), mbTabs('browse') + MB_FAB),
+      mbPhone('Basılı tutunca: Unpin, Copy, Move to…, Delete', qnmPage('company'), mbTabs('browse') + MB_DIM +
+        mbActions('quick', 'Company details', 'Quick note', [[{ icon: 'pin', label: 'Unpin' }, { icon: 'copies', label: 'Copy' }, { icon: 'move', label: 'Move to…' }], [{ icon: 'trash', label: 'Delete', red: true }]])),
+      mbPhone('Sort: Keep’teki üç sıra', qnmPage(), mbTabs('browse') + MB_DIM +
+        mbActions('sort', 'Sort', 'Quick notes', [[{ icon: 'quick', label: 'Custom', on: QNM_TICK }, { icon: 'cal', label: 'Date created' }, { icon: 'clock', label: 'Date modified' }]]))
+    ].join('');
+  }
+  function qnPhone2() {
+    var more = mbActions('quick', 'Company details', 'Quick note', [[{ icon: 'copies', label: 'Copy' }, { icon: 'move', label: 'Move to…' }], [{ icon: 'find', label: 'Find' }, { icon: 'md', label: 'Markdown' }, { icon: 'clock', label: 'History' }], [{ icon: 'trash', label: 'Delete', red: true }]])
+      .replace('</div><div class="mb-card"><div class="a cancel">', '<div class="qn-mmod">Modified today, 19:23</div></div><div class="mb-card"><div class="a cancel">');
+    return [
+      mbPhone('Karta dokununca: format bar, Title, not', qnmNote(false), mbTabs('browse')),
+      mbPhone('Yeni hızlı not: imleç notta, klavye açık', qnmNote(true), MB_KB),
+      mbPhone('+ sheet’inde en üstte Quick note', qnmBrowse(), mbTabs('browse') + qnmCreate()),
+      mbPhone('Notun ··· menüsü', qnmNote(false), mbTabs('browse') + MB_DIM + more)
+    ].join('');
+  }
+  function renderQn(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (/^qnphone/.test(view)) {
+      mock.className = 'mock dir-a phones mbs four qnm';
+      mock.innerHTML = { qnphone: qnPhone, qnphone2: qnPhone2 }[view]();
+    } else {
+      mock.className = 'mock dir-a qnm qnd';
+      mock.innerHTML = QN_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-qnview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.qnview === view));
+    });
+  }
+  var sectionQn = document.querySelector('.dir[data-dir="quick"]');
+  sectionQn.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-qnview]');
+    if (b) renderQn(sectionQn, b.dataset.qnview);
+  });
+  renderQn(sectionQn, 'qnmain');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
