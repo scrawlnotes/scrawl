@@ -3482,6 +3482,81 @@ p { margin: 0; max-width: 68ch; }
 .chp-nt .ch-lg { width: 20px; height: 20px; border-radius: 5px; font-size: 12px; }
 .chp-nt b { display: block; font-size: 15px; font-weight: 600; }
 .chp-nt p { margin: 1px 0 0; color: var(--m-fg); font-size: 15px; }
+
+/* ---------- file and folder permissions (stage 20) ---------- */
+.mock .pm-lk svg { width: 11px; height: 11px; margin-left: 5px; color: var(--m-faint); stroke-width: 2; vertical-align: -1px; }
+.pmm .pm-menu { left: 190px; top: 208px; min-width: 190px; }
+.cmenu span small { color: var(--m-faint); font-size: 12px; }
+.pm-dlg { width: 470px; padding: 16px; }
+.pm-h { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.pm-ic { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 8px; background: var(--m-sel); color: var(--m-dim); }
+.mock .pm-ic svg { width: 18px; height: 18px; }
+.pm-t { display: flex; flex-direction: column; min-width: 0; }
+.pm-t b { font-size: 14px; font-weight: 600; }
+.pm-t small { color: var(--m-faint); font-size: 12px; }
+.pm-h .x { align-self: flex-start; margin-left: auto; color: var(--m-faint); font-size: 17px; line-height: 1; }
+.ch-vis.pm-vis { margin-top: 0; }
+.ch-vis .o.off { opacity: .45; }
+.pm-why { margin: 8px 2px 0; color: var(--m-faint); font-size: 11.5px; line-height: 1.45; }
+.pm-ppl { display: flex; flex-direction: column; gap: 1px; }
+.pm-pk { min-height: 36px; }
+.pm-pk .nm em { margin-left: 6px; color: var(--m-faint); font-size: 11.5px; font-style: normal; }
+.pm-pk.fixed .bx { opacity: .5; }
+.pm-tag { margin-left: auto; padding: 0 7px; border: 1px solid var(--m-line); border-radius: 9px; color: var(--m-dim); font-size: 11px; line-height: 18px; }
+.pm-chg { margin-left: auto; font-size: 11.5px; }
+.pm-tag + .pm-chg { margin-left: 8px; }
+.pm-chg.gain { color: var(--m-accent); }
+.pm-chg.out { color: var(--m-p1); }
+.pm-always { display: flex; align-items: center; gap: 8px; margin: 10px 8px 0; color: var(--m-faint); font-size: 11.5px; line-height: 1.45; }
+.pm-always .ch-f { box-shadow: 0 0 0 2px var(--m-side); }
+.pm-always .ch-f + .ch-f { margin-left: -12px; }
+.pm-always b { color: var(--m-dim); font-weight: 500; }
+.pm-warn { display: flex; gap: 8px; margin-top: 12px; padding: 8px 10px; border-radius: 6px; background: color-mix(in srgb, var(--m-p1) 12%, transparent); color: var(--m-fg); font-size: 12px; line-height: 1.45; }
+.mock .pm-warn svg { flex: none; width: 15px; height: 15px; margin-top: 1px; color: var(--m-p1); }
+.pm-warn b { font-weight: 600; }
+.pm-gone { display: flex; gap: 8px; padding: 6px 12px 4px 8px; }
+.mock .pm-gone svg { flex: none; width: 14px; height: 14px; margin-top: 2px; color: var(--m-dim); }
+.pm-gone b { display: block; font-weight: 600; }
+.pm-gone small { color: var(--m-dim); font-size: 11.5px; }
+.sp-row.pm-out { padding-left: 30px; }
+.pm-sep { height: 1px; margin: 6px 4px; background: var(--m-line); }
+.mb-row .pm-lk svg { width: 13px; height: 13px; margin-left: 6px; }
+.pm-sh { justify-content: space-between; }
+.pm-sh .cn { color: var(--m-dim); font-size: 16px; }
+.pm-sh .sv { color: var(--m-accent); font-size: 16px; font-weight: 600; }
+.pm-mbody { flex: 1; min-height: 0; overflow: hidden; padding: 0 16px; }
+.pm-mhd { display: flex; align-items: center; gap: 12px; padding: 2px 4px 4px; }
+.mock .pm-mhd > svg { flex: none; width: 24px; height: 24px; color: var(--m-accent); }
+.pm-mhd span { display: flex; flex-direction: column; }
+.pm-mhd b { font-size: 16px; font-weight: 600; }
+.pm-mhd small { color: var(--m-faint); font-size: 13.5px; }
+.pm-mbody .mb-sec { padding: 12px 4px 6px; }
+.pm-mbody .mb-p { padding: 8px 4px 0; font-size: 13.5px; }
+.pm-mbody .mb-p b { color: var(--m-dim); font-weight: 500; }
+.pm-r { position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 14px; }
+.pm-r + .pm-r::before { content: ''; position: absolute; top: 0; left: 46px; right: 0; border-top: 1px solid var(--m-line); }
+.pm-r.off { opacity: .45; }
+.pm-rd { flex: none; width: 20px; height: 20px; box-sizing: border-box; border: 2px solid var(--m-faint); border-radius: 50%; }
+.pm-r.on .pm-rd { border: 6px solid var(--m-accent); }
+.pm-r .tx { display: flex; flex-direction: column; gap: 1px; }
+.pm-r .tx small { color: var(--m-faint); font-size: 13.5px; }
+.pm-mp { min-height: 48px; padding: 0 14px; }
+.mb-row.pm-mp + .mb-row.pm-mp::before { left: 53px; }
+.pm-mp .tx { padding: 6px 0; }
+.pm-mp .tx b em { color: var(--m-faint); font-size: 13.5px; font-style: normal; }
+.pm-mp .tx small { font-size: 13px; }
+.pm-mp .tx small.gain { color: var(--m-accent); }
+.pm-mp .tx small.out { color: var(--m-p1); }
+.mock .pm-mp .tick { flex: none; width: 20px; height: 20px; color: var(--m-accent); stroke-width: 2.2; }
+.pm-mp.fixed .tick { opacity: .45; }
+.pm-mwarn { display: flex; gap: 10px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--m-p1) 14%, transparent); font-size: 14px; line-height: 1.4; }
+.mock .pm-mwarn svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--m-p1); }
+.pm-mgone { display: flex; gap: 12px; padding: 14px 16px 4px; }
+.mock .pm-mgone svg { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--m-dim); }
+.pm-mgone span { display: flex; flex-direction: column; }
+.pm-mgone b { font-weight: 600; }
+.pm-mgone small { color: var(--m-faint); font-size: 13.5px; }
+.pm-mgap { height: 10px; border-bottom: 1px solid var(--m-line); margin-bottom: 4px; }
 </style>
 
 <main class="page">
@@ -4197,6 +4272,30 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-chview="chset">Settings</button>
         <button type="button" data-chview="chphone">Telefon</button>
         <button type="button" data-chview="chphone2">Telefon 2</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="perm">
+    <div class="brief">
+      <div>
+        <span class="letter">YETKİ · TASLAK</span>
+        <h2>Dosya ve klasör yetkisi</h2>
+        <p>Yalnız sunucudaki paylaşılan space'lerde. Dosyanın ve klasörün menüsünde, Move to… ve Rename'in yanında <b>Access…</b>: <b>Everyone in Acme</b> ya da <b>Only these people</b>. Listede olmayan onu hiç görmez, adını da. Listeye o şeyin bulunduğu yeri görenler eklenir. Kuranın satırında <b>Set this up</b>; onu listeden yalnız Owner ve Admin çıkarır, herkese açmayı da yalnız kuran, Owner ve Admin yapar. Owner ve Admin listede yer almaz, her zaman görür; pencere onları adlarıyla söyler. Listeden biri çıkınca ya da ilk kez kısıtlanınca pencere kimin göremeyeceğini ve onun cihazlarından silineceğini söyler. Kısıtlı dosya ve klasörün yanında, onu görenlere küçük bir kilit: kenar çubuğunda, Files'ta, aramada. Görmesi biten kişinin sync panelinde <b>Removed from this device</b>; görmediği bir şeyle aynı adı taşıyan dosyası Not synced'da kalır. Telefonda menü action sheet, Access bir sheet. Teknik tasarım <code>design/permissions.md</code>.</p>
+        <ul class="traits"><li>yalnız sunucuda</li><li>dosya ve klasör</li><li>görmeyen adını da görmez</li><li>kuran korunur</li><li>Owner ve Admin hep görür</li><li>kilit</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Yetki görünümü">
+        <button type="button" data-pmview="pmmenu">Menu</button>
+        <button type="button" data-pmview="pmrestrict">Restrict</button>
+        <button type="button" data-pmview="pmedit">As a member</button>
+        <button type="button" data-pmview="pmowner">As the owner</button>
+        <button type="button" data-pmview="pmnote">A note</button>
+        <button type="button" data-pmview="pmfiles">Files</button>
+        <button type="button" data-pmview="pmsearch">Search</button>
+        <button type="button" data-pmview="pmsync">Sync</button>
+        <button type="button" data-pmview="pmphone">Telefon</button>
+        <button type="button" data-pmview="pmphone2">Telefon 2</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -12531,6 +12630,297 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderCh(sectionCh, b.dataset.chview);
   });
   renderCh(sectionCh, 'chmain');
+
+  // File and folder permissions on a server (stage 20, Oct 24, a draft; design/permissions.md). In
+  // a shared space on a server a file or a folder can be seen by chosen people only; whoever is not
+  // on its list does not see it at all, not even its name. Access… in its menu says who sees it;
+  // a small lock marks it for those who do. The one who set it up stays on its list unless the
+  // owner or an admin takes them off, and only they open it to everyone again; the server's owner
+  // and admins see everything in the spaces they are in, and are not on any list.
+  ICON.lock = '<svg viewBox="0 0 24 24"><rect x="5.5" y="10.5" width="13" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>';
+  var PM_LK = '<span class="pm-lk">' + ICON.lock + '</span>';
+  // Acme on the server: Kaan owns the server, Lena is an admin, the other four are members. Deniz
+  // restricted Finance to Deniz and Mert; Mert restricted the note on discounts to Mert and Deniz.
+  var PM_P = {
+    K: { name: 'Kaan Arslan', c: '#6aa5f0' },
+    L: { name: 'Lena Hartmann', c: '#f0a54a' },
+    D: { name: 'Deniz Ak', c: '#f0706a' },
+    M: { name: 'Mert Kaya', c: '#4cc3a0' },
+    E: { name: 'Elif Demir', c: '#c792ea' },
+    J: { name: 'Jonas Weber', c: '#8fb56a' }
+  };
+  function pmF(ini, sz) { return '<span class="ch-f' + (sz ? ' ' + sz : '') + '" style="--fc:' + PM_P[ini].c + '">' + ini + '</span>'; }
+  function pmNames(list) {
+    var n = list.map(function (i) { return '<b>' + PM_P[i].name + '</b>'; });
+    return n.length < 2 ? n[0] : n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1];
+  }
+  /**
+   * The sidebar as one person sees Acme. Elif is on neither list, so for her Finance and the note
+   * on discounts are not there at all. `locked` is false before Finance was restricted.
+   */
+  function pmTree(o) {
+    var sees = o.as !== 'E';
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 9 }) + row({ label: 'Chat' }) + row({ label: 'Filters &amp; Labels' }) +
+      '<div class="fx-gap"></div>' +
+      spRowT({ sp: true, label: 'Personal' }) +
+      spRowT({ sp: true, open: true, label: 'Acme' }) +
+      (sees
+        ? spRowT({ d: 1, folder: true, open: true, label: 'Finance' + (o.locked === false ? '' : PM_LK), ct: 2, menu: o.menu }) +
+          spRowT({ d: 2, icon: 'notes', label: 'Budget 2027', on: o.on === 'budget' }) +
+          spRowT({ d: 2, icon: 'collection', label: 'Payments', ct: 18 })
+        : '') +
+      spRowT({ d: 1, folder: true, open: true, label: 'Sales', ct: sees ? 4 : 3 }) +
+      spRowT({ d: 2, icon: 'tasks', label: 'Tasks', ct: 5 }) +
+      spRowT({ d: 2, icon: 'board', label: 'Deals', ct: 8 }) +
+      spRowT({ d: 2, icon: 'collection', label: 'Companies', ct: 24 }) +
+      (sees ? spRowT({ d: 2, icon: 'notes', label: 'Discounts we can give' + PM_LK, on: o.on === 'discounts' }) : '') +
+      spRowT({ d: 1, folder: true, label: 'Support', ct: 3 }) +
+      spRowT({ d: 1, folder: true, open: !sees, label: 'meetings', ct: 6 }) +
+      (sees ? '' : spRowT({ d: 2, icon: 'notes', label: 'Standup 10-23', on: true })) +
+      spRowT({ sp: true, label: 'Side projects' }) +
+      '</div>' + spFoot(null, false, o.files).replace('<span>Files</span><span class="ct">9</span>', '<span>Files</span><span class="ct">6</span>');
+  }
+  var PM_SYNCED = 'Synced just now';
+  function pmApp(o) {
+    var sync = syncStatus(false, o.syncOpen ? 'open' : null).replace('Synced to OneDrive 12 s ago', PM_SYNCED);
+    return '<aside class="side">' + pmTree(o) + '</aside><section class="main"><div class="panes">' + pane(o.tabs + '<div class="tab plus">+</div>', o.body) + '</div>' +
+      '<div class="status">' + (o.status || '') + sync + '</div></section>' + (o.over || '');
+  }
+  var PM_NOTE_ST = '<span>Ln 6, Col 31</span><span>58 words</span><span>Markdown</span>';
+  var PM_BUDGET = '<div class="ed"><div class="col">' +
+    '<div class="ln h1">Budget 2027</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">What we plan to spend next year, by team. The numbers come from <span class="lnk">Payments</span>.</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln li"><span class="bu">•</span>Sales: €184,000, with two hires in Q2</div>' +
+    '<div class="ln li"><span class="bu">•</span>Support: €96,000</div>' +
+    '<div class="ln li"><span class="bu">•</span>Hosting and tools: €38,500</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">The bank’s offer for the credit line:</div>' +
+    '<div class="ln"><span class="file">' + ICON.file + 'credit-line-offer.pdf<small>1.8 MB</small></span></div>' +
+    '</div></div>';
+  var PM_DISCOUNTS = '<div class="ed"><div class="col">' +
+    '<div class="ln h1">Discounts we can give</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln">Check with Deniz before a deal goes to Proposal.</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln li"><span class="bu">•</span>Yearly plan: up to 15% when their budget is set for the year</div>' +
+    '<div class="ln li"><span class="bu">•</span>Two portals or more: 10% on the second</div>' +
+    '<div class="ln li"><span class="bu">•</span>Pilot: the first month free, never more</div>' +
+    '</div></div>';
+  var PM_STANDUP = '<div class="ed"><div class="col">' +
+    '<div class="ln h1">Standup 10-23</div>' +
+    '<div class="ln">&nbsp;</div>' +
+    '<div class="ln li"><span class="bu">•</span>Mert: the Northwind renewal goes out on Monday</div>' +
+    '<div class="ln li"><span class="bu">•</span>Elif: the portal FAQ is half done</div>' +
+    '<div class="ln li"><span class="bu">•</span>Jonas: two tickets left from the weekend</div>' +
+    '</div></div>';
+  var PM_TAB_BUDGET = tab('notes', 'Budget 2027', 'x', true) + tab('board', 'Deals · Sales', 'x', false);
+  /** Who can do what in the window: lift it to everyone, take its setter off. */
+  function pmCan(o) {
+    var boss = o.as === 'K' || o.as === 'L';
+    return { boss: boss, lift: boss || o.as === o.setBy };
+  }
+  /** The people in the order they stand when it opens: its setter, those on it, then the others. */
+  function pmOrder(o) {
+    var was = o.was || o.pick;
+    function rest(on) { return o.offer.filter(function (i) { return i !== o.setBy && (was.indexOf(i) >= 0) === on; }); }
+    return [o.setBy].concat(rest(true), rest(false));
+  }
+  /** Those who see it now and will not once it is saved. */
+  function pmGone(o) { return (o.was || o.pick).filter(function (i) { return o.pick.indexOf(i) < 0; }); }
+  function pmAlways(o) {
+    return (o.as === 'K' ? '<b>You</b>, the server’s owner,' : '<b>Kaan Arslan</b>, the server’s owner,') + ' and <b>Lena Hartmann</b>, an admin, always see it.';
+  }
+  function pmLoses(o) { return pmNames(pmGone(o)) + ' will no longer see ' + o.name + '. It is deleted from their devices, with anything not sent yet.'; }
+  /**
+   * Access…: who can see a file or a folder. Everyone in the space, or only these people, picked
+   * among those who see where it is. The setter's row stays ticked for a member; the owner and
+   * admins see it anyway, and are not on it. `as` opens it, `pick` is ticked now, `was` when it opened.
+   */
+  function pmAccess(o) {
+    var can = pmCan(o);
+    var was = o.was || o.pick;
+    function pr(ini) {
+      var on = o.pick.indexOf(ini) >= 0, before = was.indexOf(ini) >= 0, setter = ini === o.setBy;
+      return '<div class="ch-pick pm-pk' + (on ? ' on' : '') + (setter && !can.boss ? ' fixed' : '') + '"><span class="bx">' + (on ? '✓' : '') + '</span>' + pmF(ini, 'md') +
+        '<span class="nm">' + PM_P[ini].name + (ini === o.as ? '<em>you</em>' : '') + '</span>' +
+        (setter ? '<span class="pm-tag">Set this up</span>' : '') +
+        (on && !before ? '<span class="pm-chg gain">Gets access</span>' : !on && before ? '<span class="pm-chg out">Loses access</span>' : '') + '</div>';
+    }
+    return '<div class="ovl center"><div class="mdlg pm-dlg">' +
+      '<div class="pm-h"><span class="pm-ic">' + ICON[o.icon] + '</span><span class="pm-t"><b>' + o.name + '</b><small>' + o.where + '</small></span><span class="x">×</span></div>' +
+      '<div class="label">Who can see it</div>' +
+      '<div class="ch-vis pm-vis"><div class="o' + (can.lift ? '' : ' off') + '"><span class="rdo"></span><span><b>Everyone in Acme</b><small>All 6 people in Acme.</small></span></div>' +
+      '<div class="o on"><span class="rdo"></span><span><b>Only these people</b><small>No one else in Acme sees it, not even its name.</small></span></div></div>' +
+      (can.lift ? '' : '<p class="pm-why">Only ' + PM_P[o.setBy].name + ', who set this up, and the server’s owner and admins open it to everyone.</p>') +
+      '<div class="label" style="margin-top: 14px">People</div><div class="pm-ppl">' + pmOrder(o).map(pr).join('') + '</div>' +
+      '<div class="pm-always">' + pmF('K', 'xs') + pmF('L', 'xs') + '<span>' + pmAlways(o) + '</span></div>' +
+      (pmGone(o).length ? '<div class="pm-warn">' + ICON.warn + '<span>' + pmLoses(o) + '</span></div>' : '') +
+      '<div class="foot"><span class="st-btn" style="margin-left: auto">Cancel</span><span class="st-btn go">Save</span></div></div></div>';
+  }
+  var PM_FINANCE = { icon: 'folder', name: 'Finance', where: 'Folder in Acme', setBy: 'D', offer: ['D', 'M', 'E', 'J'] };
+  function pmWith(base, extra) { var o = {}; for (var k in base) o[k] = base[k]; for (var j in extra) o[j] = extra[j]; return o; }
+  // A folder's menu, as the app has it: Access… after Move to… and Rename.
+  var PM_MENU = '<div class="cmenu pm-menu"><span>Add new<small>›</small></span><i></i><span>Move to…</span><span>Rename</span><span class="hot">Access…</span><i></i>' +
+    '<span>Group by<small>›</small></span><span>Sort by<small>›</small></span><i></i><span class="red">Delete folder</span></div>';
+  // Files: an attachment takes the lock of what uses it.
+  var PM_FILES = [
+    { kind: 'file', ext: 'PDF', name: 'credit-line-offer.pdf' + PM_LK, used: [['notes', 'Budget 2027']], size: '1.8 MB', day: 'Oct 22' },
+    { kind: 'file', ext: 'PDF', name: 'invoice-0412.pdf' + PM_LK, used: [['collection', 'Cloud hosting']], size: '240 KB', day: 'Oct 20' },
+    { kind: 'file', ext: 'PDF', name: 'pilot-offer.pdf', used: [['notes', 'Pilot offer'], ['board', 'DEA-12']], size: '2.6 MB', day: 'Oct 9' },
+    { kind: 'image', pic: 'shot', name: 'Image · Oct 9, 11:20', used: [['collection', 'Acme Corp']], size: '1.4 MB', day: 'Oct 9' }
+  ];
+  function pmFiles() {
+    var mine = FILES_PERSONAL.slice(3, 5);
+    return '<div class="tasksv"><div class="th"><b>Files</b><span class="count">6 files · 7.5 MB</span><span class="srch">' + ICON.find + 'Search…</span></div>' +
+      '<div class="fv-chips"><span class="on">All<small>6</small></span><span>Images<small>2</small></span><span>Recordings<small>1</small></span><span>Files<small>3</small></span></div>' +
+      '<div class="tl"><div class="flhead"><span></span><span></span><span>Name</span><span>Used in</span><span class="r">Size</span><span class="r sorted">Added ↓</span><span></span></div>' +
+      '<div class="sec spc">' + ICON.space + 'Acme <small>4 · 6.0 MB</small></div>' + PM_FILES.map(function (f) { return frow(f); }).join('') +
+      '<div class="sec spc">' + ICON.space + 'Personal <small>2 · 1.5 MB</small></div>' + mine.map(function (f) { return frow(f); }).join('') + '</div></div>';
+  }
+  var PM_SX = [
+    { icon: 'notes', name: '<mark>Budget</mark> 2027' + PM_LK, where: 'Acme › Finance · Oct 22', kind: 'Note' },
+    { icon: 'collection', name: 'Cloud hosting' + PM_LK, where: 'Payments · Acme › Finance', kind: 'Record', snip: 'Note: counted in the <mark>budget</mark> for 2027' },
+    { cb: 'p2', name: 'Ask Deniz for the <mark>budget</mark> sheet', where: 'Tasks · Acme › Sales', kind: 'Task' },
+    { icon: 'notes', name: 'Discounts we can give' + PM_LK, where: 'Acme › Sales · Oct 20', kind: 'Note', snip: '…up to 15% when their <mark>budget</mark> is set for the year' },
+    { icon: 'board', key: 'DEA-14', name: 'Northwind renewal', where: 'Deals · Proposal', kind: 'Card', snip: '…their <mark>budget</mark> is set in January…' }
+  ];
+  /** Elif's sync panel: Finance went from this device, with the rest of the turn under it. */
+  function pmSyncPanel() {
+    function sr(name, state, on) { return '<div class="sp-sp' + (on ? ' on' : '') + '">' + ICON.space + '<span class="nm">' + name + '</span><span class="r">' + state + '</span></div>'; }
+    return '<div class="sp"><div class="sp-spaces">' + sr('Personal', 'Synced 12 s ago') + sr('Acme', PM_SYNCED, true) + sr('Side projects', 'Synced 2 min ago') + '</div>' +
+      '<div class="sp-head"><div class="sp-title"><b>Acme · Synced with ' + SRV_HOST + '</b><small>just now</small></div>' +
+      '<div class="sp-sub">Last turn: 2 brought, 1 merged, 1 removed from this device</div></div>' +
+      '<div class="sp-tabs"><span class="on">Done<small>4</small></span><span>Not synced<small class="warn">1</small></span></div>' +
+      '<div class="sp-list"><div class="pm-gone">' + ICON.lock + '<span><b>Removed from this device</b><small>You no longer have access to these.</small></span></div>' +
+        spRow('folder', 'Finance', 'Acme', '2 items', 'pm-out') +
+        '<div class="pm-sep"></div>' +
+        spRow('down', 'Standup 10-23.md', 'meetings', 'brought') +
+        spRow('down', 'Portal FAQ.md', 'Support', 'brought') +
+        spRow('merge', 'Tasks.tasks.json', 'Sales', 'merged') + '</div>' +
+      '<div class="sp-foot"><span class="left">Changes come in as they are made</span><span class="st-btn">Sync settings</span><span class="st-btn go">Sync now</span></div></div>';
+  }
+  var PM_VIEWS = {
+    // Deniz restricts Finance: its menu, then the window.
+    pmmenu: function () { return pmApp({ as: 'D', locked: false, menu: true, on: 'budget', tabs: PM_TAB_BUDGET, body: PM_BUDGET, status: PM_NOTE_ST, over: PM_MENU }); },
+    pmrestrict: function () {
+      return pmApp({ as: 'D', locked: false, on: 'budget', tabs: PM_TAB_BUDGET, body: PM_BUDGET, status: PM_NOTE_ST,
+        over: pmAccess(pmWith(PM_FINANCE, { as: 'D', pick: ['D', 'M'], was: ['D', 'M', 'E', 'J'] })) });
+    },
+    // Mert is on its list: he gives it to Elif too; he cannot open it to everyone or take Deniz off.
+    pmedit: function () {
+      return pmApp({ as: 'M', on: 'budget', tabs: PM_TAB_BUDGET, body: PM_BUDGET, status: PM_NOTE_ST,
+        over: pmAccess(pmWith(PM_FINANCE, { as: 'M', pick: ['D', 'M', 'E'], was: ['D', 'M'] })) });
+    },
+    // Kaan owns the server and is on no list; he takes Mert off, and could take Deniz off too.
+    pmowner: function () {
+      return pmApp({ as: 'K', on: 'budget', tabs: PM_TAB_BUDGET, body: PM_BUDGET, status: PM_NOTE_ST,
+        over: pmAccess(pmWith(PM_FINANCE, { as: 'K', pick: ['D'], was: ['D', 'M'] })) });
+    },
+    // A single note in Sales, from its tab's menu: Mert set it up, so he may open it to everyone.
+    pmnote: function () {
+      return pmApp({ as: 'M', on: 'discounts', tabs: tab('notes', 'Discounts we can give', 'x', true) + tab('board', 'Deals · Sales', 'x', false), body: PM_DISCOUNTS, status: PM_NOTE_ST,
+        over: pmAccess({ as: 'M', icon: 'notes', name: 'Discounts we can give', where: 'Note in Acme › Sales', setBy: 'M', offer: ['D', 'M', 'E', 'J'], pick: ['D', 'M'] }) });
+    },
+    pmfiles: function () { return pmApp({ as: 'M', files: true, tabs: tab('clip', 'Files', 'x', true), body: pmFiles(), status: '<span>6 files</span><span>7.5 MB</span>' }); },
+    pmsearch: function () {
+      var rows = PM_SX.map(function (r, i) { return sxRow(pmWith(r, { on: i === 0 })); }).join('');
+      return pmApp({ as: 'M', on: 'budget', tabs: PM_TAB_BUDGET, body: PM_BUDGET, status: PM_NOTE_ST,
+        over: '<div class="ovl sx-ovl"><div class="sx">' + sxQuery('budget', '5 results') + '<div class="sx-list">' + rows + '</div></div></div>' });
+    },
+    // Elif was taken off Finance: it went from her devices, and the panel says so.
+    pmsync: function () {
+      return pmApp({ as: 'E', tabs: tab('notes', 'Standup 10-23', 'x', true), body: PM_STANDUP, status: '<span>Ln 5, Col 42</span><span>31 words</span><span>Markdown</span>', syncOpen: true, over: pmSyncPanel() });
+    }
+  };
+  // On a phone: the same, as an action sheet and a sheet of its own.
+  function pmmAcme(lift) {
+    return mbPage(mbNav('Browse', ['dots']) + mbHead('Acme'),
+      mbRow({ icon: 'folder', fold: true, label: 'Finance' + PM_LK, ct: 2, cls: lift ? 'lift' : '' }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Sales', ct: 4 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'Support', ct: 3 }) +
+      mbRow({ icon: 'folder', fold: true, label: 'meetings', ct: 6 }) +
+      mbRow({ icon: 'notes', label: 'Team handbook', sub: '<em>Oct 3</em>Who does what, and where things are' }) +
+      mbRow({ icon: 'notes', label: 'Holidays 2026', sub: '<em>Sep 12</em>The office is closed on these days' }));
+  }
+  var PMM_ACTS = mbActions('folder', 'Finance', 'Folder in Acme', [
+    [{ icon: 'star', label: 'Add to favorites' }],
+    [{ icon: 'move', label: 'Move to…' }, { icon: 'pen', label: 'Rename' }, { icon: 'lock', label: 'Access…', on: '2 people' }],
+    [{ icon: 'bin', label: 'Delete folder', red: true }]
+  ]);
+  function pmmAccess(o) {
+    var can = pmCan(o);
+    var was = o.was || o.pick;
+    function pr(ini) {
+      var on = o.pick.indexOf(ini) >= 0, before = was.indexOf(ini) >= 0, setter = ini === o.setBy;
+      var sub = setter ? '<small>Set this up</small>' : on && !before ? '<small class="gain">Gets access</small>' : !on && before ? '<small class="out">Loses access</small>' : '';
+      return '<div class="mb-row pm-mp' + (setter && !can.boss ? ' fixed' : '') + '">' + pmF(ini, 'md') +
+        '<span class="tx"><b>' + PM_P[ini].name + (ini === o.as ? ' <em>you</em>' : '') + '</b>' + sub + '</span>' + (on ? ICON.check.replace('<svg', '<svg class="tick"') : '') + '</div>';
+    }
+    function opt(label, sub, on, off) { return '<div class="pm-r' + (on ? ' on' : '') + (off ? ' off' : '') + '"><span class="pm-rd"></span><span class="tx"><b>' + label + '</b><small>' + sub + '</small></span></div>'; }
+    return MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh pm-sh"><span class="cn">Cancel</span><b>Access</b><span class="sv">Save</span></div>' +
+      '<div class="pm-mbody"><div class="pm-mhd">' + ICON[o.icon] + '<span><b>' + o.name + '</b><small>' + o.where + '</small></span></div>' +
+      '<div class="mb-sec">Who can see it</div><div class="mb-group">' +
+        opt('Everyone in Acme', 'All 6 people in Acme.', false, !can.lift) + opt('Only these people', 'No one else in Acme sees it, not even its name.', true) + '</div>' +
+      (can.lift ? '' : '<p class="mb-p">Only ' + PM_P[o.setBy].name + ', who set this up, and the server’s owner and admins open it to everyone.</p>') +
+      '<div class="mb-sec">People</div><div class="mb-group">' + pmOrder(o).map(pr).join('') + '</div>' +
+      (pmGone(o).length ? '<div class="pm-mwarn">' + ICON.warn + '<span>' + pmLoses(o) + '</span></div>' : '') +
+      '<p class="mb-p">' + pmAlways(o) + '</p>' +
+      '</div></div>';
+  }
+  function pmPhone() {
+    return [
+      mbPhone('Kısıtlı klasörün yanında kilit', pmmAcme(), mbTabs('browse') + MB_FAB),
+      mbPhone('Basılı tutunca menüde Access…', pmmAcme(true), mbTabs('browse') + MB_DIM + PMM_ACTS),
+      mbPhone('Listedeki biri: herkese açamaz, kuranı çıkaramaz', pmmAcme(), pmmAccess(pmWith(PM_FINANCE, { as: 'M', pick: ['D', 'M', 'E'], was: ['D', 'M'] }))),
+      mbPhone('Owner: biri çıkınca uyarı', pmmAcme(), pmmAccess(pmWith(PM_FINANCE, { as: 'K', pick: ['D'], was: ['D', 'M'] })))
+    ].join('');
+  }
+  /** Elif's Acme on her phone: Finance removed from it, and her note whose name Acme has already. */
+  function pmmSync(bad) {
+    var top = mbNav('Sync', ['Sync now']) + mbHead('Acme', SRV_HOST + ' · elif@acme.example');
+    var state = '<div class="mb-sync"><div class="st"><b>Synced</b><small>just now</small></div><div class="sub">Last turn: 2 brought, 1 merged, 1 removed from this device</div></div>';
+    var body = bad
+      ? mbSyncTabs([{ label: 'Done', n: 4 }, { label: 'Not synced', n: 1, on: true, warn: true }]) +
+        mbSyncBad('notes', 'Discounts we can give', 'Sales', 'Acme has something by this name that you can’t see. Rename it; until then it stays on this device.') +
+        '<p class="mb-p">Changes come in as they are made.</p>'
+      : mbSyncTabs([{ label: 'Done', n: 4, on: true }, { label: 'Not synced', n: 1, warn: true }]) +
+        '<div class="pm-mgone">' + ICON.lock + '<span><b>Removed from this device</b><small>You no longer have access to these.</small></span></div>' +
+        mbSyncRow('folder', 'Finance', 'Acme · 2 items', 'removed') +
+        '<div class="pm-mgap"></div>' +
+        mbSyncRow('notes', 'Standup 10-23', 'meetings', 'brought', 'down') +
+        mbSyncRow('notes', 'Portal FAQ', 'Support', 'brought', 'down') +
+        mbSyncRow('tasks', 'Tasks', 'Sales', 'merged', 'merge');
+    return mbPage(top, state + body);
+  }
+  function pmPhone2() {
+    return [
+      mbPhone('Görmesi biten: Removed from this device', pmmSync(false)),
+      mbPhone('Görmediği bir şeyle aynı ad: Not synced', pmmSync(true))
+    ].join('');
+  }
+  function renderPm(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'pmphone' || view === 'pmphone2') {
+      mock.className = 'mock dir-a phones mbs pmm' + (view === 'pmphone' ? ' four' : '');
+      mock.innerHTML = view === 'pmphone' ? pmPhone() : pmPhone2();
+    } else {
+      mock.className = 'mock dir-a wider pmm';
+      mock.innerHTML = PM_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-pmview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.pmview === view));
+    });
+  }
+  var sectionPm = document.querySelector('.dir[data-dir="perm"]');
+  sectionPm.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-pmview]');
+    if (b) renderPm(sectionPm, b.dataset.pmview);
+  });
+  renderPm(sectionPm, 'pmmenu');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

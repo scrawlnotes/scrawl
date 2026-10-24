@@ -1,10 +1,10 @@
 # Sunucuda dosya ve klasör yetkisi (taslak)
 
-Durum: 24 Ekim 2026, onaylı. Kararların hepsi konuşularak verildi (11. bölüm); 12. bölümdeki dört karar önerildiği gibi onaylandı. PLAN'a 20. aşama olarak işlendi (13. bölüm); Dropbox, S3 ve GitHub 21, Google Drive 22, Mobil 23 oldu. Roadmap'te faz 20, kartlar ROA-256–260. Kodda bir şey yazılmadı; kod kullanıcı söyleyince başlar. PLAN'ın Sonraya kalanlarındaki "sunucuda ince yetkiler" maddesinin klasöre göre yetki kısmıdır. Salt okunur hiç olmayacak; PLAN'dan da çıkarıldı (11. bölüm, 9. karar).
+Durum: 24 Ekim 2026, onaylı. Kararların hepsi konuşularak verildi (11. bölüm); 12. bölümdeki dört karar önerildiği gibi onaylandı. PLAN'a 20. aşama olarak işlendi (13. bölüm); Dropbox, S3 ve GitHub 21, Google Drive 22, Mobil 23 oldu. Roadmap'te faz 20, kartlar ROA-256–260. Mockup 24 Ekim'de onaylandı (`design/mockups.html`, Dosya ve klasör yetkisi); 2.4, 2.6 ve 3. bölüm ona göre. Kodda bir şey yazılmadı; kod kullanıcı söyleyince başlar. PLAN'ın Sonraya kalanlarındaki "sunucuda ince yetkiler" maddesinin klasöre göre yetki kısmıdır. Salt okunur hiç olmayacak; PLAN'dan da çıkarıldı (11. bölüm, 9. karar).
 
 ## 1. Kapsam
 
-Sunucudaki paylaşılan bir space'te bir dosya ya da klasör yalnız seçilen kişilere görünür. Örnek: Satış space'inde Finance klasörünü yalnız Ayşe ve Mehmet görür; diğerleri için Finance hiç yoktur.
+Sunucudaki paylaşılan bir space'te bir dosya ya da klasör yalnız seçilen kişilere görünür. Örnek (mockup'takiyle aynı): Acme space'inde Finance klasörünü yalnız Deniz ve Mert görür; Elif ve Jonas için Finance hiç yoktur. Kaan sunucunun Owner'ı, Lena Admin'i; ikisi de her zaman görür.
 
 - Yetki dosyaya da klasöre de verilir: not, görev listesi, pano, koleksiyon, keys dosyası, klasör.
 - Pano ve görev listesi tek dosyadır. Kart ya da görev tek başına kısıtlanmaz; bütün pano ya da liste kısıtlanır.
@@ -40,7 +40,7 @@ Sunucudaki paylaşılan bir space'te bir dosya ya da klasör yalnız seçilen ki
 
 - Bir kişinin bir şeyi görmesi bittiğinde (listeden çıkarıldı, kısıt kuruldu, kısıtlı bir yere taşındı) o şey kişinin bütün cihazlarından doğrudan silinir, çöpe gitmez.
 - Cihazda yapılmış ama henüz gönderilmemiş değişiklik de onunla gider. Klasörse, içinde bu cihazda açılıp gönderilmemiş dosyalar da klasörle gider.
-- Sync paneli bunu söyler: "Removed from this device: you no longer have access", altında silinenlerin adları. Bunlardan biri açık bir sekmedeyse sekme kapanır.
+- Sync paneli bunu söyler: space'in Done sekmesinin başında **Removed from this device** grubu, altında "You no longer have access to these." ve silinenler; bir klasör tek satırdır ("Finance · 2 items"). Son turun özetinde de yazar: "1 removed from this device". Silinenlerden biri açık bir sekmedeyse sekme kapanır.
 - Kapalı bir cihazdaki kopya, cihaz sunucuya ilk bağlandığında silinir. O zamana kadar cihazda durur; bütün sync araçlarında böyledir.
 
 ### 2.5 Ekler
@@ -54,28 +54,33 @@ Resim ve PDF gibi ekler space'in en üstündeki ortak `_attachments/` klasörün
 
 ### 2.6 Aynı ad
 
-Yollar büyük-küçük harfe bakmadan tek sayılır. Bir kişi, göremediği bir dosyayla aynı yerde aynı adı kullanırsa dosyası gönderilmez ve cihazında kalır. Sync paneli "This name is taken in Satış. Rename it." der. Bu, orada göremediği bir şey olduğunu söyler; yollarla tutan bir depoda bundan kaçınılamaz. Çöpteki ve eklerdeki adlar saat taşıdığı için orada neredeyse hiç olmaz.
+Yollar büyük-küçük harfe bakmadan tek sayılır. Bir kişi, göremediği bir dosyayla aynı yerde aynı adı kullanırsa dosyası gönderilmez ve cihazında kalır. Sync panelinin Not synced sekmesinde dosyanın altında: "Acme has something by this name that you can’t see. Rename it; until then it stays on this device." Bu, orada göremediği bir şey olduğunu söyler; yollarla tutan bir depoda bundan kaçınılamaz. Çöpteki ve eklerdeki adlar saat taşıdığı için orada neredeyse hiç olmaz.
 
 ## 3. Ekranda
 
-Bu bölüm neyin nerede olduğunu söyler. Yerleşim, taslak onaylanınca `design/mockups.html`'de mockup'la gelir.
+Mockup: `design/mockups.html`, Dosya ve klasör yetkisi (24 Ekim'de onaylandı). Masaüstünde Menu, Restrict, As a member, As the owner, A note, Files, Search, Sync; telefonda iki sayfa.
 
 ### 3.1 Access penceresi
 
-- Yalnız sunucudaki paylaşılan space'lerde. Dosyanın ve klasörün menüsünde **Access…**: kenar çubuğunda, Files'ta ve notun dosya çubuğunda. Telefonda aynı menüden bottom sheet olarak açılır.
-- Başlık: "Who can see "Finance"".
-- İki seçenek: "Everyone in Satış" ve "Only these people".
-- İkincisinde liste: space'te o şeyin bulunduğu yeri gören kişiler, her biri eklenir ya da çıkarılır. Kuranın satırında "Set this up" yazar; onun satırında çıkarma yalnız Owner ve Admin'e görünür.
-- Altta silik bir satır: "The server's owner and admins always see it."
-- Birini çıkarmak, o şeyi onun cihazlarından silmek demek olduğu için pencere bunu da söyler: "Removing someone deletes it from their devices."
+- **Nerede:** yalnız sunucudaki paylaşılan space'lerde, dosyanın ve klasörün menüsünde, Move to… ve Rename'den sonra **Access…**; kenar çubuğundaki satırın ve sekmenin menüsünde. Telefonda satır basılı tutulunca ya da sayfanın ··· menüsünde açılan action sheet'te, yanında listedeki kişi sayısıyla ("2 people").
+- **Başı:** öğenin simgesi, adı ve yeri ("Folder in Acme", "Note in Acme › Sales").
+- **Who can see it:** iki seçenek, **Everyone in Acme** ("All 6 people in Acme.") ve **Only these people** ("No one else in Acme sees it, not even its name."). Herkese açamayan biri için ilki soluk ve kapalıdır, altında: "Only Deniz Ak, who set this up, and the server’s owner and admins open it to everyone." (2.2)
+- **People:** o şeyin bulunduğu yeri görenler, her biri bir kutuyla. Sıra pencere açıldığındaki haldir: kuran, listedekiler, sonra diğerleri; işaretlendikçe satırlar yer değiştirmez. Kişi kendi satırında "you" görür. Kuranın satırında **Set this up**; bir üyeye kutusu soluk ve kapalıdır, Owner ve Admin'e açıktır.
+- **Değişen satır:** eklenenin sağında **Gets access**, çıkanın sağında **Loses access**.
+- **Owner ve Admin:** listenin altında adlarıyla, yüzleriyle: "Kaan Arslan, the server’s owner, and Lena Hartmann, an admin, always see it." Pencereyi Owner açtıysa "You, the server’s owner, …".
+- **Uyarı:** biri erişimi kaybedecekse (listeden çıkıyor ya da öğe ilk kez kısıtlanıyor) Save'in üstünde: "Elif Demir and Jonas Weber will no longer see Finance. It is deleted from their devices, with anything not sent yet." Kimse kaybetmiyorsa uyarı yoktur.
+- **Kaydetmek:** **Cancel** ve **Save**. Dışarı tıklamak kaydetmez, çünkü birini çıkarmak o şeyi onun cihazlarından siler.
+- **Telefonda:** aynısı büyük bir sheet'te. Üstte Cancel, Access ve Save; seçenekler, People'da kutu yerine sağda işaret; uyarı listenin altında, Owner ve Admin satırı en altta.
 
 ### 3.2 Kilit
 
-Kısıtlı dosya ve klasörlerin yanında, onları görenlere küçük bir kilit görünür: kenar çubuğunda, Files'ta ve aramada.
+Kısıtlı dosya ve klasörlerin adının yanında, onları görenlere küçük bir kilit: kenar çubuğunda, Files'ta, aramanın sonuçlarında ve telefonda Browse'da. Bir ek, onu kullanan kısıtlıysa Files'ta kilitle görünür (2.5).
 
 ### 3.3 Sync paneli
 
-İki yeni satır: görmesi bitenler (2.4) ve adı alınmış olanlar (2.6).
+- **Done:** başında Removed from this device grubu (2.4), sonra turun geri kalanı.
+- **Not synced:** göremediği bir şeyle aynı adı taşıyan dosya, nedeniyle (2.6).
+- Telefonda space'in Sync sayfasında aynısı.
 
 ## 4. Sunucu
 
@@ -240,7 +245,7 @@ Kalanlar:
 1. **Sunucu:** tablolar, `View`, süzme, `hidden` ve yeniden numaralama, dosya istekleri, taşımada kısıt, `move-dir`, yetki istekleri, canlı kanal, ajan.
 2. **Motor:** `hidden`, `RemoteForbidden`, klasör taşıma.
 3. **Ortak dosyalar ve ekler.**
-4. **Uygulama:** Access penceresi (masaüstü ve telefon), kilit, sync panelindeki satırlar. Mockup bu dilimden önce onaylanır.
+4. **Uygulama:** Access penceresi (masaüstü ve telefon), kilit, sync panelindeki satırlar. Mockup 24 Ekim'de onaylandı.
 
 Sunucu, web ve masaüstü birlikte yayınlanır (6. bölüm).
 
@@ -264,6 +269,7 @@ Sunucu, web ve masaüstü birlikte yayınlanır (6. bölüm).
 8. Görmesi biten dosya cihazdan doğrudan silinir, gönderilmemiş değişikliğiyle birlikte.
 9. Salt okunur yok ve hiç olmayacak; PLAN'ın Sonraya kalanlarından da çıkarıldı.
 10. 12. bölümdeki dört karar önerildiği gibi (her birinde a) onaylandı: ekleri sunucu, onları kullananlardan çıkarır; Owner ve Admin üyesi oldukları space'lerde görür; kısıtı kuran, Owner ve Admin kaldırır; ajan yetki değiştirmez.
+11. Mockup onaylandı: Access… Move to… ve Rename'den sonra; uyarı yalnız biri erişimi kaybedince, kimin kaybettiğini adıyla söyler; satırlarda Gets access ve Loses access; Owner ve Admin adlarıyla; kişilerin sırası açıldığındaki hal; Cancel ve Save, dışarı tıklamak kaydetmez; ad çakışmasının metni; sync panelinde Removed from this device grubu.
 
 ## 12. Onayına sunulan kararlar
 
