@@ -79,10 +79,16 @@ interface Kept extends ChatKept {
   url: string;
   me: string;
   pending: Pending[];
+  /** What the server said of itself the last time: the largest file it takes, whether it sends notifications. */
+  maxFileMb?: number | null;
+  push?: boolean;
 }
 
 const DB = 'scrawl-chat';
 const STORE = 'servers';
+
+/** How long the device's store has to open: one that does not, as a browser's can hang, keeps nothing this time. */
+const OPEN_MS = 5000;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -90,11 +96,17 @@ function openDb(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: 'url' });
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+    window.setTimeout(() => reject(new Error('The device’s store did not open')), OPEN_MS);
   });
 }
 
 let db: Promise<IDBDatabase> | null = null;
-const database = () => (db ??= openDb());
+const database = () =>
+  (db ??= openDb().catch((error: unknown) => {
+    // Opened again the next time it is needed.
+    db = null;
+    throw error;
+  }));
 
 async function readKept(url: string): Promise<Kept | null> {
   try {
@@ -178,6 +190,8 @@ class OneServer {
     maxFileMb: number | null,
     push: boolean,
     private readonly changed: () => void,
+    /** Opened from what this device keeps, the server out of reach: it is asked about itself once reached. */
+    private unconfirmed = false,
   ) {
     this.client = new ChatClient({ url, token: () => serverKey(url) });
     this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [], maxFileMb, visiting: null, push };
@@ -195,6 +209,10 @@ class OneServer {
       onChanged: () => undefined,
       onLive: (on) => {
         if (!on) return;
+        if (this.unconfirmed) {
+          this.unconfirmed = false;
+          void store.confirm(this.url);
+        }
         // Back on the channel: what changed meanwhile, what waits to go, and whether this device is in use.
         void this.turn();
         void this.flush();
@@ -221,6 +239,16 @@ class OneServer {
     this.live?.send(message);
   }
 
+  /** Asked about itself again the next time the channel reaches it. */
+  unconfirm() {
+    this.unconfirmed = true;
+  }
+
+  /** What the server says of itself now, once it is reached after an opening without it. */
+  took(maxFileMb: number | null, push: boolean) {
+    this.set({ maxFileMb, push });
+  }
+
   private set(change: Partial<ChatServer>) {
     this.state = { ...this.state, ...change };
     this.changed();
@@ -231,7 +259,7 @@ class OneServer {
   private save() {
     const messages: Kept['messages'] = {};
     for (const [chat, list] of Object.entries(this.state.messages)) messages[chat] = list.slice(-KEEP);
-    void writeKept({ url: this.url, me: this.state.me, chats: this.state.chats, messages, cursor: this.cursor, pending: this.state.pending });
+    void writeKept({ url: this.url, me: this.state.me, chats: this.state.chats, messages, cursor: this.cursor, pending: this.state.pending, maxFileMb: this.state.maxFileMb, push: this.state.push });
   }
 
   /** Asks what changed since the last number seen, as many pages as there are; one turn at a time. */
@@ -551,12 +579,23 @@ class ChatStore {
     });
     window.addEventListener('online', () => {
       for (const server of this.servers.values()) server.wake();
+      // A server out of reach at the opening, with nothing kept of it, is tried again.
+      void this.follow();
     });
     window.setInterval(() => this.tellUse(), 30_000);
   }
 
-  /** Opens the servers signed in to that have messaging, and closes those signed out of. */
+  /** Tries the servers out of reach again in a while, when one was. */
+  private again = 0;
+
+  /**
+   * Opens the servers signed in to that have messaging, and closes those signed out of. One out of
+   * reach opens from what this device keeps of it, the server asked about itself once reached; one
+   * with nothing kept is tried again in a minute, and when the device is back online.
+   */
   private async follow() {
+    window.clearTimeout(this.again);
+    let missed = false;
     const known = knownServers();
     for (const [url, server] of this.servers) {
       if (known.some((each) => each.url === url)) continue;
@@ -569,20 +608,52 @@ class ChatStore {
       let me = each.id ?? '';
       let maxFileMb: number | null = null;
       let push = false;
+      let unconfirmed = false;
       try {
         const status = await account.status();
         if (!status.chat) continue;
         maxFileMb = status.maxFileMb ?? null;
         push = status.push === true;
         if (!me) me = (await account.me()).id;
-      } catch {
-        continue;
+      } catch (error) {
+        // Signed out, or refused: not opened. Out of reach: from what is kept, when this device keeps its messaging.
+        if (!(error instanceof RemoteOffline)) continue;
+        const kept = await readKept(each.url);
+        if (!kept || (me && kept.me !== me)) {
+          missed = true;
+          continue;
+        }
+        me = kept.me;
+        maxFileMb = kept.maxFileMb ?? null;
+        push = kept.push ?? false;
+        unconfirmed = true;
       }
       if (this.servers.has(each.url)) continue;
-      const server = new OneServer(each.url, me, maxFileMb, push, () => this.changed());
+      const server = new OneServer(each.url, me, maxFileMb, push, () => this.changed(), unconfirmed);
       this.servers.set(each.url, server);
       void server.start();
     }
+    if (missed) this.again = window.setTimeout(() => void this.follow(), 60_000);
+    this.changed();
+  }
+
+  /**
+   * A server opened from what this device keeps, reached now: what it says of itself is taken, and
+   * one that has no messaging any more, or whose account is not this one, closes.
+   */
+  async confirm(url: string) {
+    const server = this.servers.get(url);
+    if (!server) return;
+    const account = new ServerAccount({ url, token: () => serverKey(url) });
+    try {
+      const status = await account.status();
+      if (status.chat && (await account.me()).id === server.state.me) return server.took(status.maxFileMb ?? null, status.push === true);
+    } catch (error) {
+      // Out of reach again: asked once more when the channel reaches it.
+      if (error instanceof RemoteOffline) return server.unconfirm();
+    }
+    server.stop();
+    this.servers.delete(url);
     this.changed();
   }
 

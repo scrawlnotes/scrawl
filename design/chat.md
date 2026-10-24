@@ -521,6 +521,7 @@ Kodda netleşenler:
 - **Dar Chat:** Chat'in kendi genişliği 600 pikselin altındaysa liste ve konuşma sırayla görünür. Pencere değil Chat ölçülür, çünkü kenar çubuğu açıkken 800 piksellik pencerede de konuşma sıkışıyordu.
 - **Saat** cihazın dilinin biçiminde, başında sıfır olmadan: 3:30 PM, 15:30.
 - **Telefonda** Chat bu dilimde yoktur (5. dilim).
+- **Çevrimdışı açılış** (24 Ekim, sonradan): uygulama açılırken sunucuya ulaşamazsa Chat, cihazda o sunucudan tutulanla açılır (konuşmalar, son mesajlar, en büyük dosya ve bildirim bilgisi de tutulur); yazılan Sending olarak bekler. Canlı kanal sunucuya ulaşınca sunucunun durumu yeniden sorulur ve iş kaldığı yerden sürer; sunucunun artık mesajlaşması yoksa ya da hesap değiştiyse o sunucunun Chat'i kapanır. Cihazda hiçbir şey tutulmuyorsa Chat görünmez; sunucu dakikada bir ve cihaz yeniden internete bağlanınca denenir. Cihazdaki depo beş saniyede açılmazsa (tarayıcıda takılabiliyor) o seferlik hiçbir şey tutulmamış sayılır. Sunucu bağlantısı hiç yoksa Chat zaten yoktur.
 
 ## 19. Yazılırken: 3. dilim (Ekler ve bağ)
 
