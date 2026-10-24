@@ -424,9 +424,11 @@ export async function dueRecordsTool(agent: Agent, args: { space?: string; limit
     const shown = collections.filter((c) => c.schema.views?.some((v) => v.kind === 'calendar' && v.calendar?.upcoming));
     if (shown.length === 0) continue;
     const computer = new Computer(collections, boards, today);
+    // A program's days (design/gym.md 4.3) are worked out to the last day asked for; one gone by with nothing closing it is late, said with its day.
     for (const due of dueRecords(
       shown.map((c) => computer.withValues(c.dir)!),
       today,
+      { all: collections, ...(days.to && { until: days.to }) },
     )) {
       if (!within(dayInToday(due, today), days)) continue;
       out.push({
@@ -436,6 +438,7 @@ export async function dueRecordsTool(agent: Agent, args: { space?: string; limit
         start: due.start,
         ...(due.end && { end: due.end }),
         ...(due.minutes && { minutes: due.minutes }),
+        ...(due.day && { day: due.day, ...(due.late && { late: true }) }),
         record: recordOut(due.record, due.schema, today, computer.checks(due.collection, due.record)),
       });
     }

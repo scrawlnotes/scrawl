@@ -132,7 +132,7 @@ export function datedByDay(lists: Record<string, Task[]>, boards: Record<string,
   for (const each of tasks) put(each.task.due!, each);
   for (const each of cards) put(each.card.due!, each);
   for (const each of subtasks) put(each.subtask.due!, each);
-  for (const each of records) put(dayInToday(each, today), { calendar: each });
+  for (const each of records) put(each.day ?? dayInToday(each, today), { calendar: each });
   return { tasks, cards, subtasks, records, byDay };
 }
 
@@ -247,6 +247,8 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   cards.later.set(today, cards.today);
   subtasks.later.set(today, subtasks.today);
   const recordsOn = recordsByDay(actions.dueRecords(), today);
+  // A program's days that went by with nothing written for them stay in Overdue (design/gym.md 4.3).
+  const lateRecords = actions.dueRecords().filter((d) => d.late);
   const busy = [...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day);
   const runs = dayRuns([...new Set(busy)], today);
 
@@ -255,7 +257,7 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   const taskCount =
     due.overdue.length + [...tasksOn.values()].reduce((sum, on) => sum + on.length, 0) + subtasks.overdue.length + [...subtasks.later.values()].reduce((sum, on) => sum + on.length, 0);
   const cardCount = cards.overdue.length + [...cards.later.values()].reduce((sum, on) => sum + on.length, 0);
-  const recordCount = [...recordsOn.values()].reduce((sum, on) => sum + on.length, 0);
+  const recordCount = [...recordsOn.values()].reduce((sum, on) => sum + on.length, 0) + lateRecords.length;
   useEffect(() => onStatus(countWords(taskCount, cardCount, recordCount)), [taskCount, cardCount, recordCount]);
 
   const composer = adding && (
@@ -295,17 +297,20 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
     ...cards.overdue.map(({ board, card }) => ({ board, id: card.id })),
     ...subtasks.overdue.map(subtaskRefOf),
   ];
-  if (late.length > 0) {
+  if (late.length + lateRecords.length > 0) {
     rows.push(
       <div key="sec:late" className="sec">
-        {t('tasks.overdue')} <small>{late.length}</small>
-        <button type="button" className="resch" aria-haspopup="dialog" aria-expanded={!!rescheduling} onClick={(event) => setRescheduling(rescheduling ? null : event.currentTarget)}>
-          {t('tasks.reschedule')}
-        </button>
+        {t('tasks.overdue')} <small>{late.length + lateRecords.length}</small>
+        {late.length > 0 && (
+          <button type="button" className="resch" aria-haspopup="dialog" aria-expanded={!!rescheduling} onClick={(event) => setRescheduling(rescheduling ? null : event.currentTarget)}>
+            {t('tasks.reschedule')}
+          </button>
+        )}
       </div>,
       ...due.overdue.map(item),
       ...cards.overdue.map(cardItem),
       ...subtasks.overdue.map(subtaskItem),
+      ...lateRecords.map((d) => <RecordRow key={recordKey(d)} due={d} day={d.day!} today={today} actions={actions} />),
     );
   }
 
@@ -349,7 +354,7 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
           ]),
     );
   }
-  if (late.length === 0 && runs.length === 0 && !adding) {
+  if (late.length + lateRecords.length === 0 && runs.length === 0 && !adding) {
     rows.push(
       <p key="empty" className="task-empty">
         {t('tasks.nothingLater')}
@@ -572,7 +577,7 @@ function DayChip({ entry, day, today, boards, lifted, onDragStart, onDragEnd, on
     return (
       <button
         type="button"
-        draggable={!!movedValues(due.schema, due.view.calendar!, due, due.start)}
+        draggable={!due.day && !!movedValues(due.schema, due.view.calendar!, due, due.start)}
         className={['cal-t', 'rec', time && 'timed', lifted && 'ghost'].filter(Boolean).join(' ')}
         style={{ '--cc': choiceColor(due.colorField, due.choice) } as CSSProperties}
         title={name}

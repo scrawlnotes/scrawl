@@ -199,6 +199,26 @@ export interface CalendarSettings {
   duration?: string;
   color?: string;
   upcoming: boolean;
+  /** Its records come on weekdays rather than on a day of their own: a program on its days. */
+  repeat?: RepeatSettings;
+}
+
+/**
+ * A calendar whose records come on weekdays (design/gym.md 4.3): each on the days its `days` holds,
+ * from its `from`, each day until a record of another collection closes it. Nothing is written for
+ * a day; the days are worked out as they are read.
+ */
+export interface RepeatSettings {
+  /** The multi-select of the weekdays a record comes on: Mon … Sun. */
+  days: string;
+  /** The date field it comes from; without one, from today. */
+  from?: string;
+  /** What closes a day: a record of `collection` (its path) whose `link` is the record and whose `day` is that day. */
+  closedBy: { collection: string; link: string; day: string };
+  /** The button that opens a new record of `closedBy` for the day. */
+  start?: string;
+  /** The button that closes the day with a record of these values. */
+  skip?: { label: string; set: { [key: string]: FieldValue } };
 }
 
 /** A saved way of looking at the records: a table, which records, in what order, grouped how, with which columns; or a calendar of them. */
@@ -716,17 +736,38 @@ export const calendarStarts = (fields: readonly Field[]) => [...fields.filter((f
 function readCalendar(raw: unknown, fields: Field[]): CalendarSettings | null {
   const given = isRecord(raw) ? raw : {};
   const field = (key: unknown, fits: (f: Field) => boolean) => (typeof key === 'string' ? fields.find((f) => f.key === cleanFieldKey(key) && fits(f)) : undefined);
-  const start = field(given.start, (f) => f.type === 'date' || givesDay(f, fields, true)) ?? calendarStarts(fields)[0];
-  if (!start) return null;
-  const end = field(given.end, (f) => f.type === 'date' || isComputed(f.type));
+  const repeat = readRepeat(given.repeat, fields);
+  // One that repeats starts on its weekdays, from its own day when it has one.
+  const start = field(given.start, (f) => f.type === 'date' || givesDay(f, fields, true)) ?? (repeat ? undefined : calendarStarts(fields)[0]);
+  if (!start && !repeat) return null;
+  const end = start && field(given.end, (f) => f.type === 'date' || isComputed(f.type));
   const duration = end ? undefined : field(given.duration, (f) => f.type === 'number' || isComputed(f.type));
   const color = field(given.color, (f) => COLOR_TYPES.includes(f.type));
   return {
-    start: start.key,
-    ...(end && end.key !== start.key && { end: end.key }),
+    start: start?.key ?? repeat?.from ?? '',
+    ...(end && end.key !== start?.key && { end: end.key }),
     ...(duration && { duration: duration.key }),
     ...(color && { color: color.key }),
     upcoming: given.upcoming !== false,
+    ...(repeat && { repeat }),
+  };
+}
+
+/** A calendar's repeat as its file has it; null without one, or with no multi-select of days or nothing that closes a day. */
+function readRepeat(raw: unknown, fields: Field[]): RepeatSettings | null {
+  if (!isRecord(raw) || !isRecord(raw.closedBy)) return null;
+  const days = typeof raw.days === 'string' ? fields.find((f) => f.key === cleanFieldKey(raw.days as string) && f.type === 'multi-select') : undefined;
+  const from = typeof raw.from === 'string' ? fields.find((f) => f.key === cleanFieldKey(raw.from as string) && f.type === 'date') : undefined;
+  const { collection, link, day } = raw.closedBy;
+  if (!days || typeof collection !== 'string' || typeof link !== 'string' || typeof day !== 'string') return null;
+  const skip = isRecord(raw.skip) && typeof raw.skip.label === 'string' && raw.skip.label.trim() ? raw.skip : null;
+  const set = skip && isRecord(skip.set) ? Object.fromEntries(Object.entries(skip.set).filter(([, v]) => ['string', 'number', 'boolean'].includes(typeof v))) : {};
+  return {
+    days: days.key,
+    ...(from && { from: from.key }),
+    closedBy: { collection: collection.replace(/^\/+|\/+$/g, ''), link: cleanFieldKey(link), day: cleanFieldKey(day) },
+    ...(typeof raw.start === 'string' && raw.start.trim() && { start: raw.start.trim() }),
+    ...(skip && { skip: { label: (skip.label as string).trim(), set: set as { [key: string]: FieldValue } } }),
   };
 }
 

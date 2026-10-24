@@ -181,3 +181,57 @@ describe('the calendar', () => {
     expect(startingValues(schema, { start: 'due', upcoming: true }, '2026-10-23T15:00', '2026-10-23T16:30')).toEqual({ due: '2026-10-23' });
   });
 });
+
+describe('days that repeat', () => {
+  const programs = (calendar: object, records: Record[]): Collection =>
+    ({
+      dir: 'Gym/Programs',
+      schema: parseSchema(
+        JSON.stringify({
+          version: 2,
+          fields: [
+            { key: 'name', type: 'name' },
+            { key: 'days', type: 'multi-select', options: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
+            { key: 'from', type: 'date' },
+          ],
+          views: [{ id: 'days', name: 'Program days', kind: 'calendar', calendar, conditions: [] }],
+        }),
+      ),
+      records,
+    }) as Collection;
+  const record = (dir: string, id: string, values: Record['values']): Record => ({ id, path: `${dir}/${id}.md`, name: id, code: '', values: { name: id, ...values }, extra: {}, body: '' });
+  const REPEAT = { upcoming: true, repeat: { days: 'days', from: 'from', closedBy: { collection: 'Gym/Workouts', link: 'program', day: 'day' }, start: 'Start', skip: { label: "Didn't go", set: { status: "Didn't go", note: { no: 1 } } } } };
+  const workouts = (records: Record[]): Collection => ({ dir: 'Gym/Workouts', schema: parseSchema(JSON.stringify({ version: 2, fields: [{ key: 'name', type: 'name' }, { key: 'program', type: 'link', collection: 'Gym/Programs' }, { key: 'day', type: 'date' }] })), records }) as Collection;
+
+  it('reads a calendar that repeats: its days, from, what closes a day and its buttons', () => {
+    const view = programs(REPEAT, []).schema.views![0]!;
+    expect(view.calendar).toEqual({ start: 'from', upcoming: true, repeat: { days: 'days', from: 'from', closedBy: { collection: 'Gym/Workouts', link: 'program', day: 'day' }, start: 'Start', skip: { label: "Didn't go", set: { status: "Didn't go" } } } });
+    // Without a multi-select of days it is no repeat: a calendar of its first date.
+    expect(programs({ upcoming: true, repeat: { ...REPEAT.repeat, days: 'from' } }, []).schema.views![0]!.calendar).toEqual({ start: 'from', upcoming: true });
+  });
+
+  it('brings a record on its weekdays from its day, late ones in Overdue, a day closed by a record left out', () => {
+    // Wednesday 21 October 2026; the program from Monday the 12th, on Mondays, Wednesdays and Fridays.
+    const today = '2026-10-21';
+    const full = record('Gym/Programs', 'p1', { days: ['Mon', 'Wed', 'Fri'], from: '2026-10-12' });
+    const none = record('Gym/Programs', 'p2', { days: [] });
+    const done = (day: string) => record('Gym/Workouts', `w-${day}`, { program: { id: 'p1', name: 'p1' }, day });
+    const gym = programs(REPEAT, [full, none]);
+    const due = dueRecords([gym], today, { all: [gym, workouts([done('2026-10-12'), done('2026-10-14'), done('2026-10-16')])], until: '2026-10-26' });
+    expect(due.map((d) => [d.day, d.late ?? false])).toEqual([
+      ['2026-10-19', true],
+      ['2026-10-21', false],
+      ['2026-10-23', false],
+      ['2026-10-26', false],
+    ]);
+    // Its day is its start, and the calendar's own view has no record of it.
+    expect(due[1]!.start).toBe('2026-10-21');
+    expect(calendarRecords(gym, gym.schema.views![0]!, today)).toEqual([]);
+    // With no day of its own, from today on.
+    const fresh = programs(REPEAT, [record('Gym/Programs', 'p3', { days: ['Thu'] })]);
+    expect(dueRecords([fresh], today, { until: '2026-10-29' }).map((d) => d.day)).toEqual(['2026-10-22', '2026-10-29']);
+    // Weekdays named in another language go by their place among seven, Monday first.
+    const local = { ...gym, schema: { ...gym.schema, fields: gym.schema.fields.map((f) => (f.key === 'days' ? { ...f, options: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'] } : f)) }, records: [record('Gym/Programs', 'p4', { days: ['Çar'] })] };
+    expect(dueRecords([local], today, { until: '2026-10-28' }).map((d) => d.day)).toEqual(['2026-10-21', '2026-10-28']);
+  });
+});

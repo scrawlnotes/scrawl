@@ -84,6 +84,9 @@ import {
   type TreeNode,
   QUICK_NOTES,
   WELCOME_NOTE,
+  newRecordId,
+  recordWith,
+  type DueRecord,
 } from '@scrawlnotes/core';
 import { type EditorStats, type EditorView, type LinkTap, sizeText } from '@scrawlnotes/editor';
 import { type DragEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -527,6 +530,8 @@ export function App() {
   // On a phone a record opens as a page, asked for here; a new one is a form in a sheet; the
   // collection's page menu asks for its Fields. A record's page asks before its changes are lost.
   const [recordAsked, setRecordAsked] = useState<{ dir: string; id: string } | null>(null);
+  // A new record's window opened from outside its collection: a program day's Start (design/gym.md 4.3).
+  const [recordNew, setRecordNew] = useState<{ dir: string; values: CollectionRecord['values'] } | null>(null);
   const [newRecord, setNewRecord] = useState<{ dir: string; values?: Parameters<NonNullable<CollectionActions['create']>>[1] } | null>(null);
   const [collectionFields, setCollectionFields] = useState(0);
   const recordGuards = useRef(new Map<string, (then: () => void) => void>());
@@ -1838,9 +1843,11 @@ export function App() {
   const dueRecordsNow = useMemo(() => {
     const all = Object.values(collections);
     const shown = all.filter((c) => c.schema.views?.some((v) => v.kind === 'calendar' && v.calendar?.upcoming));
+    // A program's days two weeks on; what closes one is looked for among every collection.
     return dueRecords(
       shown.map((c) => withComputed(c, all, boards, today)),
       today,
+      { all, until: addDays(today, 13) },
     );
   }, [collections, boards, today]);
   /** Changes the subtasks of a card or a record, from the list as it is now. */
@@ -1861,9 +1868,37 @@ export function App() {
       undoable(text, () => void session.updateRecord(dir, id, { values: before }));
     });
   };
+  /** A program day's record to close it with: of the collection that closes it, for its day, linked to the program; null when that collection is not there. */
+  const closingOf = (due: DueRecord) => {
+    const repeat = due.view.calendar?.repeat;
+    const space = spaceOf(due.collection);
+    const target = repeat && Object.values(collections).find((c) => spaceOf(c.dir) === space && localPath(c.dir) === localPath(repeat.closedBy.collection));
+    if (!repeat || !target) return null;
+    return { repeat, target, values: { [repeat.closedBy.day]: due.day!, [repeat.closedBy.link]: { id: due.record.id, name: recordTitle(due.record) } } };
+  };
   const taskActions: TaskActions = {
     dueRecords: () => dueRecordsNow,
     moveRecord,
+    // Start opens the new record of the day, its link set, so that what its rules fill comes with it.
+    startDay: (due) => {
+      const closing = closingOf(due);
+      if (!closing) return setNotice(t('repeat.noCloser', { collection: due.view.calendar?.repeat?.closedBy.collection ?? '' }));
+      if (phone) collectionActions.create?.(closing.target.dir, closing.values);
+      else setRecordNew({ dir: closing.target.dir, values: closing.values });
+    },
+    // The other button writes the day closed at once, its rules' rows left out, with Undo.
+    skipDay: (due) => {
+      const closing = closingOf(due);
+      if (!closing?.repeat.skip) return setNotice(t('repeat.noCloser', { collection: due.view.calendar?.repeat?.closedBy.collection ?? '' }));
+      const { repeat, target, values } = closing;
+      const id = newRecordId();
+      const made = { ...values, ...repeat.skip!.set };
+      void session.addRecord(target.dir, { values: made }, { id, drafted: [] }).then((failed) => {
+        if (failed) return setNotice(failed);
+        const day = new Date(`${due.day}T00:00`).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' });
+        setShown({ text: t('repeat.skipped', { day, what: repeat.skip!.label }), undo: () => void session.trashRecord(target.dir, recordWith(target, id, made)), toast: true });
+      });
+    },
     description: descriptionHost,
     add: (target, input) => session.addTask(target, input),
     // A button in a notice does its work and the notice goes.
@@ -2092,7 +2127,10 @@ export function App() {
   const cardDays = [...dueCards(boards).map((d) => d.card.due!), ...dueSubtasksNow.map((d) => d.subtask.due!)];
   const dueCardsNow = cardDays.filter((day) => day <= today).length;
   const dueLater = dueUpcoming(tasks, today).reduce((sum, d) => sum + d.tasks.length, 0) + cardDays.length - dueCardsNow;
-  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [UPCOMING]: dueLater, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts, [QUICK]: quick.length };
+  // A program's days count: today's and those gone by in Today, those to come in Upcoming (design/gym.md 4.3).
+  const programDays = dueRecordsNow.filter((d) => d.day);
+  const daysNow = programDays.filter((d) => d.day! <= today).length;
+  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow + daysNow, [UPCOMING]: dueLater + programDays.length - daysNow, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts, [QUICK]: quick.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;
@@ -3342,6 +3380,9 @@ export function App() {
           onImport={(plan) => session.importRecords(importing.dir, plan)}
           onClose={() => setImporting(null)}
         />
+      )}
+      {recordNew && collections[recordNew.dir] && (
+        <RecordDialog collection={collections[recordNew.dir]!} record={null} values={recordNew.values} today={today} actions={collectionActions} onClose={() => setRecordNew(null)} />
       )}
       {recordOver && collections[recordOver.dir]?.records.some((r) => r.id === recordOver.id) && (
         <RecordDialog

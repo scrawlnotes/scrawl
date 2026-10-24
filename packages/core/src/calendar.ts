@@ -1,5 +1,6 @@
 import { type CalendarSettings, type Collection, type Field, isComputed, matchesConditions, type Record, type Schema, type View } from './collection';
 import { isDay, isDateTime, timeOf } from './day';
+import { localPath, spaceOf } from './spaces';
 import { addDays } from './tasks';
 
 // The calendar's days and its boxes (design/calendar.md 3): a week from its Monday, and the things
@@ -133,7 +134,8 @@ const dateValue = (value: unknown): string | null => (typeof value === 'string' 
  */
 export function calendarRecords(collection: Collection, view: View, today: string): CalendarRecord[] {
   const settings = view.calendar;
-  if (!settings) return [];
+  // One that repeats has no day of its own: its days are worked out for Today and Upcoming.
+  if (!settings || settings.repeat) return [];
   const colorField = settings.color ? (collection.schema.fields.find((f) => f.key === settings.color) ?? null) : null;
   const out: CalendarRecord[] = [];
   for (const record of collection.records) {
@@ -141,21 +143,26 @@ export function calendarRecords(collection: Collection, view: View, today: strin
     if (!start || !matchesConditions(record, collection.schema, view.conditions, today)) continue;
     const end = settings.end ? dateValue(record.values[settings.end]) : null;
     const length = settings.duration ? record.values[settings.duration] : null;
-    // A choice by itself; a linked record or a person by its name.
-    const held = colorField ? record.values[colorField.key] : null;
-    const first = Array.isArray(held) ? held[0] : held;
-    const choice = typeof first === 'string' ? first : first && typeof first === 'object' && 'name' in first ? first.name : null;
+    const choice = choiceOf(record, colorField);
     out.push({
       record,
       start,
       // An end before its start is no end.
       end: end && end > start ? end : null,
       minutes: typeof length === 'number' && length > 0 ? length : null,
-      choice: typeof choice === 'string' && choice ? choice : null,
+      choice,
       colorField,
     });
   }
   return out.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+}
+
+/** What a record is colored by: a choice by itself; a linked record or a person by its name. */
+function choiceOf(record: Record, colorField: Field | null): string | null {
+  const held = colorField ? record.values[colorField.key] : null;
+  const first = Array.isArray(held) ? held[0] : held;
+  const choice = typeof first === 'string' ? first : first && typeof first === 'object' && 'name' in first ? first.name : null;
+  return typeof choice === 'string' && choice ? choice : null;
 }
 
 /** A record that a calendar brings to Today and Upcoming: of which collection, and by which view. */
@@ -163,6 +170,10 @@ export interface DueRecord extends CalendarRecord {
   collection: string;
   view: View;
   schema: Schema;
+  /** One of the days a repeating record comes on (design/gym.md 4.3), not closed yet: that day. */
+  day?: string;
+  /** That day went by with nothing closing it: it stays in Overdue. */
+  late?: boolean;
 }
 
 /** The last day a record is on: its end's, else its start's. */
@@ -174,12 +185,21 @@ export const lastDayOf = (item: Pick<CalendarRecord, 'start' | 'end'>) => (item.
  * on today; a record two calendars show comes once, by the first. By its day, those of a day with
  * no time first.
  */
-export function dueRecords(collections: readonly Collection[], today: string): DueRecord[] {
+export function dueRecords(collections: readonly Collection[], today: string, { all = collections, until = addDays(today, 62) }: DueOptions = {}): DueRecord[] {
   const out: DueRecord[] = [];
   const seen = new Set<string>();
   for (const collection of collections) {
     for (const view of collection.schema.views ?? []) {
       if (view.kind !== 'calendar' || !view.calendar?.upcoming) continue;
+      if (view.calendar.repeat) {
+        for (const item of repeatDays(collection, view, today, until, all)) {
+          const key = `${collection.dir}/${item.record.id}/${item.day}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push(item);
+        }
+        continue;
+      }
       for (const item of calendarRecords(collection, view, today)) {
         const key = `${collection.dir}/${item.record.id}`;
         if (seen.has(key) || lastDayOf(item) < today) continue;
@@ -189,6 +209,66 @@ export function dueRecords(collections: readonly Collection[], today: string): D
     }
   }
   return out.sort((a, b) => compareOnDay(a.start, b.start));
+}
+
+export interface DueOptions {
+  /** Every collection of the space, for the one that closes a repeating record's days. */
+  all?: readonly Collection[];
+  /** The last day a repeating record's days are worked out to. */
+  until?: string;
+}
+
+/** The weekday a choice of a repeat's days stands for, 0 Sunday to 6 Saturday: by its name's first letters, else by its place among seven, Monday first. */
+function weekdayOf(option: string, index: number, count: number): number | null {
+  const named = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].indexOf(option.trim().slice(0, 3).toLowerCase());
+  if (named >= 0) return named;
+  return count === 7 && index >= 0 ? (index + 1) % 7 : null;
+}
+
+const weekdayOfDay = (day: string) => {
+  const [y, m, d] = ymd(day);
+  return new Date(y, m, d).getDay();
+};
+
+/** The collection that closes a repeating record's days: at its path in the record's space. */
+function closingCollection(dir: string, path: string, all: readonly Collection[]): Collection | undefined {
+  const space = spaceOf(dir);
+  return all.find((c) => spaceOf(c.dir) === space && localPath(c.dir) === localPath(path));
+}
+
+/**
+ * The days a calendar that repeats brings to Today and Upcoming (design/gym.md 4.3): each record
+ * that matches its conditions, on each weekday it holds, from its own day (else today) to `until`;
+ * a day a record of the closing collection links to it on is closed and left out. Those before
+ * today are late, from its day on, however many.
+ */
+export function repeatDays(collection: Collection, view: View, today: string, until: string, all: readonly Collection[]): DueRecord[] {
+  const repeat = view.calendar?.repeat;
+  if (!repeat) return [];
+  const { schema } = collection;
+  const options = schema.fields.find((f) => f.key === repeat.days)?.options ?? [];
+  const colorField = view.calendar!.color ? (schema.fields.find((f) => f.key === view.calendar!.color) ?? null) : null;
+  // The days closed, by the record they close and the day.
+  const closed = new Set<string>();
+  for (const r of closingCollection(collection.dir, repeat.closedBy.collection, all)?.records ?? []) {
+    const day = dateValue(r.values[repeat.closedBy.day])?.slice(0, 10);
+    const held = r.values[repeat.closedBy.link];
+    for (const link of Array.isArray(held) ? held : [held]) if (day && link && typeof link === 'object' && 'id' in link) closed.add(`${link.id}/${day}`);
+  }
+  const out: DueRecord[] = [];
+  for (const record of collection.records) {
+    if (!matchesConditions(record, schema, view.conditions, today)) continue;
+    const held = record.values[repeat.days];
+    const weekdays = new Set((Array.isArray(held) ? held : []).flatMap((v) => (typeof v === 'string' ? [weekdayOf(v, options.indexOf(v), options.length)] : [])).filter((w): w is number => w !== null));
+    if (weekdays.size === 0) continue;
+    const from = (repeat.from ? dateValue(record.values[repeat.from])?.slice(0, 10) : null) ?? today;
+    const choice = choiceOf(record, colorField);
+    for (let day = from; day <= until; day = addDays(day, 1)) {
+      if (!weekdays.has(weekdayOfDay(day)) || closed.has(`${record.id}/${day}`)) continue;
+      out.push({ record, start: day, end: null, minutes: null, choice, colorField, collection: collection.dir, view, schema, day, ...(day < today && { late: true }) });
+    }
+  }
+  return out;
 }
 
 /** Two starts in a day's order: by the day, then one with no time first, then by the time. */

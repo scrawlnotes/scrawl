@@ -1506,6 +1506,12 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
     const set = Object.keys(ran.set).filter((k) => k !== key);
     if (set.length > 0) setDraft((d) => ({ ...d, values: { ...d.values, ...Object.fromEntries(set.map((k) => [k, ran.values[k] ?? null])) } }));
   };
+  // A new record given a field an onChange watches, a program day's Start, has what it adds from the start.
+  useEffect(() => {
+    if (!isNew) return;
+    for (const key of new Set(watched.map((w) => w.field))) if (!isEmpty(given?.[key] ?? null)) setValue(key, given![key]!);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   /** The rows the form adds to a linked table, not written until Save; typed in and added to there. */
   const drafts: LinkedDrafts | undefined =
     watched.length > 0
