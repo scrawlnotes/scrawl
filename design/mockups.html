@@ -3147,6 +3147,341 @@ p { margin: 0; max-width: 68ch; }
 .mock .fx-back svg { width: 22px; height: 22px; }
 .fxm .mb-row .star { flex: none; color: #e0b040; }
 .mock .fxm .mb-row .star svg, .mock.fxm .mb-row .star svg { width: 15px; height: 15px; }
+
+/* messaging (Oct 24, a draft; design/chat.md): one Chat tab, its conversations on its left */
+.chm .it .ch-ct { margin-left: auto; min-width: 17px; padding: 0 5px; border-radius: 9px; background: var(--m-accent); color: var(--m-on-accent); font: 600 10.5px/17px var(--m-ui); text-align: center; }
+.mock.chm.wider { grid-template-rows: minmax(0, 1fr); }
+.ch { position: relative; flex: 1; min-height: 0; display: flex; }
+.ch-list { flex: none; width: 232px; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--m-line); }
+.ch-find { display: flex; align-items: center; gap: 7px; flex: none; margin: 10px 10px 2px; padding: 5px 9px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-faint); font-size: 12.5px; }
+.mock .ch-find svg { flex: none; width: 13px; height: 13px; }
+.ch-find.on { border-color: var(--m-accent); }
+.ch-find .q { color: var(--m-fg); }
+.ch-grp { display: flex; align-items: center; gap: 6px; padding: 12px 14px 4px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.ch-grp .fchv { font-size: 9px; letter-spacing: 0; }
+.ch-grp .gadd { margin-left: auto; font-size: 15px; line-height: 1; letter-spacing: 0; }
+.ch-c { display: flex; align-items: center; gap: 8px; min-height: 27px; margin: 0 6px; padding: 0 8px; border-radius: 5px; color: var(--m-dim); white-space: nowrap; }
+.ch-c .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ch-c .hs, .ch-head .hs, .ch-pick .hs, .ch-r .hs { flex: none; width: 14px; color: var(--m-faint); font: 500 14px/1 var(--m-mono); text-align: center; }
+.mock .ch-c > svg, .mock .ch-pick > svg { flex: none; width: 13px; height: 13px; margin: 0 .5px; color: var(--m-faint); }
+.ch-c.un { color: var(--m-fg); font-weight: 600; }
+.ch-c.off { color: var(--m-faint); }
+.ch-c.on { background: var(--m-sel); color: var(--m-fg); }
+.ch-c .n { margin-left: auto; min-width: 17px; padding: 0 5px; border-radius: 9px; background: var(--m-accent); color: var(--m-on-accent); font: 600 10.5px/17px var(--m-ui); text-align: center; }
+.ch-c .dr { margin-left: auto; color: var(--m-faint); font-size: 11px; font-weight: 400; }
+.mock .ch-c .mt { width: 12px; height: 12px; margin-left: auto; color: var(--m-faint); }
+/* faces: a person round, an agent square; a green dot while someone is using Scrawl */
+.ch-f { position: relative; flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, var(--fc) 32%, var(--m-bg)); color: var(--m-fg); font: 600 12.5px/1 var(--m-ui); }
+.ch-f.ag { border-radius: 8px; color: var(--m-accent); }
+.ch-f.sm { width: 18px; height: 18px; font-size: 9.5px; }
+.ch-f.sm.ag { border-radius: 4px; }
+.ch-f.xs { width: 16px; height: 16px; font-size: 8.5px; }
+.ch-f.md { width: 26px; height: 26px; font-size: 11px; }
+.ch-f.lg { width: 40px; height: 40px; font-size: 15px; }
+.ch-f i { position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border-radius: 50%; background: #3fb950; box-shadow: 0 0 0 2px var(--m-bg); }
+.ch-f.sm i { right: -3px; bottom: -2px; width: 7px; height: 7px; }
+.ch-f.lg i { width: 11px; height: 11px; }
+.ch-g { display: inline-flex; flex: none; }
+.ch-g .ch-f + .ch-f { margin-left: -7px; box-shadow: 0 0 0 1.5px var(--m-bg); }
+/* the conversation */
+.ch-conv { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ch-head { position: relative; display: flex; align-items: center; gap: 8px; flex: none; height: 50px; padding: 0 14px 0 20px; border-bottom: 1px solid var(--m-line); }
+.ch-head .hs { font-size: 17px; }
+.ch-head b { font-size: 15px; font-weight: 700; }
+.ch-head .tp { min-width: 0; overflow: hidden; margin-left: 6px; color: var(--m-faint); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.ch-head .tp.act, .chp-mid small.act { color: #3fb950; }
+.ch-head .acts { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.ch-head .ppl { display: inline-flex; align-items: center; gap: 5px; height: 26px; margin-right: 6px; padding: 0 9px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-dim); font-size: 12px; }
+.mock .ch-head .ppl svg { width: 14px; height: 14px; }
+.ch-head .ib, .ch-cmp .ib { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 5px; color: var(--m-dim); }
+.mock .ch-head .ib svg, .mock .ch-cmp .ib svg { width: 16px; height: 16px; }
+.ch-head .ib.down { background: var(--m-sel); color: var(--m-fg); }
+.ch-msgs { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; padding-bottom: 4px; }
+.ch-day { display: flex; align-items: center; gap: 12px; flex: none; margin: 12px 20px 4px; color: var(--m-faint); font-size: 11.5px; font-weight: 500; }
+.ch-day::before, .ch-day::after { content: ''; flex: 1; border-top: 1px solid var(--m-line); }
+.ch-new { display: flex; align-items: center; gap: 8px; flex: none; margin: 6px 20px 0; color: var(--m-p1); font-size: 11px; font-weight: 600; }
+.ch-new::before { content: ''; flex: 1; border-top: 1px solid color-mix(in srgb, var(--m-p1) 55%, transparent); }
+.ch-m { position: relative; display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 10px; flex: none; padding: 6px 20px 3px; }
+.ch-m.cont { padding-top: 1px; }
+.ch-m .tm { align-self: start; padding-top: 3px; color: transparent; font-size: 10.5px; text-align: right; font-variant-numeric: tabular-nums; }
+.ch-m.hover { background: var(--m-side); }
+.ch-m.hover .tm { color: var(--m-faint); }
+.ch-m .bx { min-width: 0; }
+.ch-m .hd { display: flex; align-items: baseline; gap: 8px; }
+.ch-m .hd b { font-weight: 600; }
+.ch-m .hd .of { color: var(--m-faint); font-weight: 400; }
+.ch-m .hd .t { color: var(--m-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.ch-m .bd { color: var(--m-fg); }
+.ch-m .bd b { font-weight: 700; }
+.ch-m .lk { color: var(--m-accent); text-decoration: underline; text-underline-offset: 3px; }
+.ch-ed { margin-left: 5px; color: var(--m-faint); font-size: 11px; }
+.ch-at { padding: 0 3px; border-radius: 3px; background: color-mix(in srgb, var(--m-accent) 18%, transparent); color: var(--m-accent); font-weight: 500; }
+.ch-q { display: flex; flex-direction: column; max-width: 520px; margin: 3px 0 4px; padding: 4px 10px 5px 12px; border-radius: 6px; background: color-mix(in srgb, var(--m-fg) 6%, transparent); box-shadow: inset 3px 0 0 var(--m-accent); font-size: 12.5px; }
+.ch-q b { color: var(--m-accent); font-size: 12px; font-weight: 600; }
+.ch-q span { overflow: hidden; color: var(--m-dim); text-overflow: ellipsis; white-space: nowrap; }
+.ch-fw { display: flex; align-items: center; gap: 5px; color: var(--m-faint); font-size: 12px; }
+.mock .ch-fw svg { width: 13px; height: 13px; }
+.ch-code { position: relative; max-width: 540px; margin: 5px 0 3px; padding: 9px 12px; overflow: hidden; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-code); font: 12px/1.6 var(--m-mono); white-space: pre; }
+.ch-code .lg { position: absolute; top: 7px; right: 36px; color: var(--m-faint); font: 10.5px var(--m-ui); }
+.ch-code .cp { position: absolute; top: 4px; right: 6px; display: grid; place-items: center; width: 24px; height: 24px; color: var(--m-faint); }
+.mock .ch-code .cp svg { width: 14px; height: 14px; }
+.ch-code .k { color: var(--m-p3); }
+.ch-code .s { color: #7fbf7f; }
+.ch-code .c { color: var(--m-faint); }
+.ch-file { display: flex; align-items: center; gap: 10px; width: 300px; margin: 5px 0 3px; padding: 8px 10px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-side); }
+.ch-file .fi { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 6px; background: color-mix(in srgb, var(--m-p1) 20%, transparent); color: var(--m-p1); }
+.ch-file .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ch-file .tx b { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.ch-file .tx small { color: var(--m-faint); font-size: 11.5px; }
+.ch-file .dl { display: grid; place-items: center; color: var(--m-dim); }
+.mock .ch-file svg { width: 16px; height: 16px; }
+.ch-voice { display: flex; align-items: center; gap: 10px; width: 290px; margin: 5px 0 3px; padding: 6px 10px 6px 6px; border: 1px solid var(--m-line); border-radius: 22px; background: var(--m-side); }
+.ch-voice .pl { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--m-accent); color: var(--m-on-accent); }
+.mock .ch-voice .pl svg { width: 13px; height: 13px; margin-left: 2px; }
+.ch-voice .wv, .ch-rec .wv { flex: 1; display: flex; align-items: center; gap: 2px; height: 26px; overflow: hidden; }
+.ch-voice .wv i, .ch-rec .wv i { flex: none; width: 3px; border-radius: 2px; background: var(--m-faint); }
+.ch-voice .wv i.p { background: var(--m-accent); }
+.ch-voice .du { color: var(--m-dim); font: 11.5px var(--m-mono); }
+.ch-voice .spd { padding: 0 6px; border: 1px solid var(--m-line); border-radius: 9px; color: var(--m-dim); font-size: 10.5px; font-weight: 600; }
+.ch-img { width: 300px; height: 168px; margin: 5px 0 3px; overflow: hidden; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-side); }
+.ch-img .shot { position: relative; display: flex; gap: 8px; height: 100%; padding: 12px; box-sizing: border-box; }
+.ch-img .c { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 5px; background: color-mix(in srgb, var(--m-fg) 6%, transparent); }
+.ch-img .c b { width: 40%; height: 5px; border-radius: 3px; background: var(--m-faint); opacity: .6; }
+.ch-img .c i { height: 22px; border: 1px solid var(--m-line); border-radius: 4px; background: var(--m-bg); }
+.ch-img .drag { position: absolute; top: 62px; right: -46px; width: 120px; height: 26px; border: 1px solid var(--m-accent); border-radius: 4px; background: var(--m-bg); box-shadow: 0 6px 16px rgb(0 0 0 / .35); transform: rotate(-3deg); }
+.ch-chip { display: inline-flex; align-items: center; gap: 7px; max-width: 420px; margin: 5px 0 3px; padding: 5px 10px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); font-size: 12.5px; }
+.mock .ch-chip svg { flex: none; width: 14px; height: 14px; color: var(--m-dim); }
+.ch-chip b { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.ch-chip small { color: var(--m-faint); font-size: 11.5px; white-space: nowrap; }
+.ch-rx { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 2px; }
+.ch-rx span { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 1px solid var(--m-line); border-radius: 11px; font-size: 12px; }
+.ch-rx span b { color: var(--m-dim); font-size: 11.5px; font-weight: 600; }
+.ch-rx span.me { border-color: color-mix(in srgb, var(--m-accent) 60%, transparent); background: color-mix(in srgb, var(--m-accent) 14%, transparent); }
+.ch-rx span.me b { color: var(--m-accent); }
+.ch-seen { flex: none; padding: 0 20px 2px 62px; color: var(--m-faint); font-size: 11px; }
+.ch-typing { flex: none; height: 20px; padding: 2px 20px 0; color: var(--m-faint); font-size: 11.5px; }
+/* hovering a message: its buttons at its top right, ··· opens the rest */
+.ch-acts { position: absolute; top: -14px; right: 20px; z-index: 2; display: flex; gap: 1px; padding: 2px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-bg); box-shadow: 0 4px 12px rgb(0 0 0 / .25); }
+.ch-acts span { display: grid; place-items: center; width: 28px; height: 26px; border-radius: 5px; color: var(--m-dim); letter-spacing: 1px; }
+.mock .ch-acts svg { width: 15px; height: 15px; }
+.ch-acts span.on { background: var(--m-sel); color: var(--m-fg); }
+.cmenu.ch-mm { top: auto; right: 20px; bottom: calc(100% + 16px); }
+/* the box to write in */
+.ch-cmp { flex: none; margin: 0 16px 14px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-bg); }
+.ch-cmp.on { border-color: color-mix(in srgb, var(--m-accent) 55%, var(--m-line)); }
+.ch-cmp .rp { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 12px; border-bottom: 1px solid var(--m-line); color: var(--m-dim); font-size: 12px; white-space: nowrap; }
+.mock .ch-cmp .rp svg { flex: none; width: 14px; height: 14px; color: var(--m-accent); }
+.ch-cmp .rp b { color: var(--m-fg); font-weight: 600; }
+.ch-cmp .rp .sn { min-width: 0; overflow: hidden; color: var(--m-faint); text-overflow: ellipsis; }
+.ch-cmp .rp .x { margin-left: auto; color: var(--m-faint); font-size: 15px; line-height: 1; }
+.ch-cmp .in { padding: 9px 12px 2px; color: var(--m-faint); }
+.ch-cmp .in.typed { color: var(--m-fg); }
+.ch-cmp .bar { display: flex; align-items: center; gap: 1px; padding: 2px 6px 6px; }
+.ch-cmp .bar .gap { flex: 1; }
+.ch-cmp .send { display: grid; place-items: center; width: 30px; height: 28px; margin-left: 4px; border-radius: 6px; color: var(--m-faint); }
+.ch-cmp .send.go { background: var(--m-accent); color: var(--m-on-accent); }
+.mock .ch-cmp .send svg { width: 15px; height: 15px; }
+.ch-rec { display: flex; align-items: center; gap: 12px; padding: 9px 8px 9px 14px; }
+.ch-rec .rd { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--m-p1); }
+.ch-rec .tm { color: var(--m-fg); font: 12.5px var(--m-mono); }
+.ch-rec .wv i { background: color-mix(in srgb, var(--m-p1) 65%, var(--m-faint)); }
+.ch-rec .st-btn { margin-left: 6px; }
+.ch-rec .send { margin-left: 0; }
+/* @: who is in the conversation, then @room */
+.ch-pop { position: absolute; left: 16px; bottom: 122px; z-index: 4; width: 290px; padding: 4px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .4); font-size: 12.5px; }
+.ch-pop .cap { padding: 5px 8px 4px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.ch-pop .r { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 8px; border-radius: 5px; }
+.ch-pop .r.hot { background: var(--m-sel); }
+.ch-pop .r small { margin-left: auto; color: var(--m-faint); font-size: 11.5px; }
+.ch-pop .r .atr { display: grid; place-items: center; flex: none; width: 18px; height: 18px; color: var(--m-accent); font-weight: 700; }
+.mock .ch-pop .r .atr svg { width: 15px; height: 15px; }
+.ch-pop .sep { height: 1px; margin: 4px 2px; background: var(--m-line); }
+/* search: the results in the conversation's place */
+.ch-res { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ch-fl { display: flex; gap: 6px; flex: none; padding: 10px 20px; border-bottom: 1px solid var(--m-line); }
+.ch-fl span { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border: 1px solid var(--m-line); border-radius: 12px; color: var(--m-dim); font-size: 12px; }
+.ch-fl span b { color: var(--m-fg); font-weight: 500; }
+.ch-fl .dd { color: var(--m-faint); font-size: 9px; font-style: normal; }
+.ch-r { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; column-gap: 10px; align-items: start; padding: 11px 20px; border-bottom: 1px solid var(--m-line); }
+.ch-r.hot { background: var(--m-side); }
+.ch-r .wh { display: flex; align-items: center; gap: 5px; color: var(--m-faint); font-size: 11.5px; white-space: nowrap; }
+.ch-r .wh b { margin-right: 3px; color: var(--m-fg); font-size: 13px; font-weight: 600; }
+.ch-r .wh .hs { width: auto; font-size: 12px; }
+.mock .ch-r .wh svg { width: 11px; height: 11px; }
+.ch-r .tx { margin-top: 2px; }
+.ch-r mark { padding: 0 1px; border-radius: 2px; background: color-mix(in srgb, var(--m-accent) 30%, transparent); color: var(--m-fg); }
+.ch-r .ch-th { width: 60px; height: 42px; aspect-ratio: auto; }
+/* windows over the conversation */
+.ch-fq { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 2px 8px; margin-bottom: 12px; padding: 9px 11px; border-radius: 7px; background: color-mix(in srgb, var(--m-fg) 6%, transparent); box-shadow: inset 3px 0 0 var(--m-accent); font-size: 12.5px; }
+.ch-fq > span { color: var(--m-faint); }
+.ch-fq > span b { color: var(--m-fg); font-weight: 600; }
+.ch-fq p { grid-column: 2; margin: 0; color: var(--m-fg); }
+.ch-fq small { grid-column: 2; display: flex; align-items: center; gap: 5px; color: var(--m-faint); font-size: 11.5px; }
+.mock .ch-fq small svg, .mock .mdlg .field.ch-ff svg { width: 13px; height: 13px; }
+.mdlg .field.ch-ff { display: flex; align-items: center; gap: 7px; }
+.ch-pick { display: flex; align-items: center; gap: 9px; min-height: 31px; padding: 0 8px; border-radius: 5px; font-size: 13px; }
+.ch-pick.on { background: color-mix(in srgb, var(--m-sel) 60%, transparent); }
+.ch-pick .bx { display: grid; place-items: center; flex: none; width: 15px; height: 15px; box-sizing: border-box; border: 1px solid var(--m-faint); border-radius: 4px; color: var(--m-on-accent); font-size: 10px; }
+.ch-pick.on .bx { border-color: var(--m-accent); background: var(--m-accent); }
+.ch-pick small { margin-left: auto; color: var(--m-faint); font-size: 11.5px; }
+.mdlg.ch-info { padding: 0; overflow: hidden; }
+.ch-info .ih { display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px; }
+.ch-info .ih .hs { color: var(--m-faint); font: 500 17px/1 var(--m-mono); }
+.ch-info .ih b { font-size: 15px; }
+.ch-info .ih .tp { color: var(--m-faint); font-size: 12.5px; }
+.ch-info .ih .x { margin-left: auto; color: var(--m-faint); font-size: 16px; line-height: 1; }
+.ch-tabs { display: flex; gap: 18px; padding: 0 16px; border-bottom: 1px solid var(--m-line); font-size: 12.5px; }
+.ch-tabs span { padding: 7px 0 8px; color: var(--m-dim); }
+.ch-tabs span small { margin-left: 3px; color: var(--m-faint); }
+.ch-tabs span.on { color: var(--m-fg); box-shadow: inset 0 -2px 0 var(--m-accent); }
+.ch-mo { padding: 12px 16px 6px; color: var(--m-faint); font-size: 11.5px; }
+.ch-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 0 16px 14px; }
+.ch-th { position: relative; aspect-ratio: 1; overflow: hidden; border: 1px solid var(--m-line); border-radius: 6px; background: color-mix(in srgb, var(--tc) 20%, var(--m-side)); }
+.ch-th i { position: absolute; left: 14%; right: 30%; height: 9%; border-radius: 3px; background: color-mix(in srgb, var(--tc) 50%, var(--m-bg)); }
+.ch-th i:nth-child(1) { top: 22%; }
+.ch-th i:nth-child(2) { top: 42%; right: 46%; }
+.ch-th i:nth-child(3) { top: 62%; right: 20%; }
+.ch-th.b { display: flex; gap: 7%; padding: 14% 10%; box-sizing: border-box; }
+.ch-th.b u { flex: 1; border-radius: 3px; background: color-mix(in srgb, var(--tc) 30%, var(--m-bg)); box-shadow: inset 0 9px 0 -4px color-mix(in srgb, var(--tc) 55%, var(--m-bg)); }
+.ch-th.p::before { content: ''; position: absolute; top: 16%; right: 18%; width: 17%; aspect-ratio: 1; border-radius: 50%; background: #f2c76a; opacity: .8; }
+.ch-th.p::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 58%; background: color-mix(in srgb, var(--tc) 55%, var(--m-bg)); clip-path: polygon(0 55%, 28% 8%, 52% 50%, 72% 26%, 100% 66%, 100% 100%, 0 100%); }
+.ch-th .vd { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 26px; height: 26px; margin: -13px; border-radius: 50%; background: rgb(0 0 0 / .5); color: #fff; }
+.mock .ch-th .vd svg { width: 11px; height: 11px; margin-left: 2px; }
+.ch-th small { position: absolute; right: 5px; bottom: 3px; color: #fff; font-size: 10px; text-shadow: 0 1px 2px rgb(0 0 0 / .7); }
+.ch-th .vd, .ch-th small { z-index: 1; }
+.ch-info .foot { margin: 0; padding: 10px 16px; }
+.ch-nsel { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-fg); font-size: 12px; }
+.mock .ch-nsel svg { width: 13px; height: 13px; color: var(--m-dim); }
+.ch-nsel .dd { color: var(--m-faint); font-size: 9px; }
+.ch-vis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.ch-vis .o { display: flex; gap: 9px; padding: 9px 10px; border: 1px solid var(--m-line); border-radius: 7px; font-size: 12.5px; }
+.ch-vis .o.on { border-color: var(--m-accent); }
+.ch-vis .o b { display: block; color: var(--m-fg); font-weight: 600; }
+.ch-vis .o small { color: var(--m-faint); font-size: 11.5px; }
+.ch-vis .rdo { flex: none; width: 13px; height: 13px; margin-top: 2px; box-sizing: border-box; border: 1.5px solid var(--m-faint); border-radius: 50%; }
+.ch-vis .o.on .rdo { border: 4px solid var(--m-accent); }
+.mdlg .field.ch-ppl { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 6px; }
+.ch-ppl .pc { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 2px 0 4px; border-radius: 12px; background: var(--m-sel); color: var(--m-fg); font-size: 12px; }
+.ch-ppl .pc .x { padding: 0 5px; color: var(--m-faint); font-size: 13px; }
+.ch-ppl .hint { padding-left: 4px; color: var(--m-faint); }
+.mdlg .field .hs { margin-right: 4px; color: var(--m-faint); font-family: var(--m-mono); }
+/* the bell: All, Mentions, Off */
+.ch-bell { position: absolute; top: 44px; right: 46px; z-index: 4; width: 280px; padding: 4px; border: 1px solid var(--m-line); border-radius: 7px; background: var(--m-side); box-shadow: 0 10px 26px rgb(0 0 0 / .4); }
+.ch-bell .cap { padding: 6px 8px 4px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.ch-bell .r { display: grid; grid-template-columns: minmax(0, 1fr) 16px; padding: 6px 8px; border-radius: 5px; }
+.ch-bell .r b { font-size: 12.5px; font-weight: 500; }
+.ch-bell .r small { grid-column: 1; color: var(--m-faint); font-size: 11.5px; }
+.ch-bell .r .tk { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--m-accent); }
+.ch-bell .r.on { background: var(--m-sel); }
+/* a notification of the computer's own, at the corner of the screen */
+.ch-toast { position: absolute; right: 18px; bottom: 36px; z-index: 8; width: 340px; padding: 12px 14px 13px; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-side); box-shadow: 0 14px 34px rgb(0 0 0 / .45); }
+.ch-toast .ap { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; color: var(--m-dim); font-size: 11.5px; }
+.ch-toast .ap small { margin-left: auto; color: var(--m-faint); }
+.ch-lg { display: grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 4px; background: var(--m-accent); color: var(--m-on-accent); font: 700 10px/1 var(--m-ui); }
+.ch-toast b { display: block; font-weight: 600; }
+.ch-toast p { margin: 2px 0 0; color: var(--m-dim); }
+.ch-opt { display: flex; gap: 10px; }
+.ch-opt .box { display: grid; place-items: center; flex: none; width: 15px; height: 15px; margin-top: 2px; box-sizing: border-box; border: 1px solid var(--m-accent); border-radius: 4px; background: var(--m-accent); color: var(--m-on-accent); font-size: 10px; }
+.ch-opt b { display: block; font-weight: 500; }
+.ch-opt small { color: var(--m-faint); font-size: 12px; }
+/* on a phone: Chat is the fifth tab */
+.chm .mb-tabbar.ch5 { grid-template-columns: repeat(5, 1fr); }
+.chm .mb-tabbar span { position: relative; }
+.chm .mb-tabbar .bdg { position: absolute; top: 3px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: var(--m-p1); color: #fff; font: 600 11px/18px var(--m-ui); font-style: normal; text-align: center; }
+.chp-ban { display: flex; align-items: center; gap: 12px; flex: none; margin: 0 16px 2px; padding: 11px 8px 11px 14px; border-radius: 12px; background: var(--m-side); }
+.mock .chp-ban > svg { flex: none; width: 22px; height: 22px; color: var(--m-accent); }
+.chp-ban .tx { flex: 1; min-width: 0; font-size: 14.5px; }
+.chp-ban .go { color: var(--m-accent); font-size: 15px; font-weight: 600; }
+.chp-ban .x { display: grid; place-items: center; width: 26px; height: 26px; color: var(--m-faint); }
+.mock .chp-ban .x svg { width: 16px; height: 16px; }
+.chp-c { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 16px; }
+.chp-c + .chp-c::before { content: ''; position: absolute; top: 0; left: 68px; right: 0; border-top: 1px solid var(--m-line); }
+.chp-ic { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--m-side); color: var(--m-dim); font: 500 19px/1 var(--m-mono); }
+.mock .chp-ic svg { width: 18px; height: 18px; }
+.chp-c .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.chp-c .tx b { overflow: hidden; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.chp-c .tx b.un { font-weight: 600; }
+.chp-c .tx small { overflow: hidden; color: var(--m-faint); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.chp-c .rt { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.chp-c .rt small { color: var(--m-faint); font-size: 13px; }
+.chp-c .rt small.hot { color: var(--m-accent); }
+.chp-c .rt em { min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: var(--m-accent); color: var(--m-on-accent); font: 600 12px/20px var(--m-ui); font-style: normal; text-align: center; }
+.mock .chp-c .rt svg { width: 15px; height: 15px; color: var(--m-faint); }
+.chp-c.off .tx b { color: var(--m-faint); }
+.chp-g { position: relative; flex: none; width: 40px; height: 40px; }
+.chp-g .ch-f { position: absolute; }
+.chp-g .ch-f:first-child { top: 0; left: 0; }
+.chp-g .ch-f + .ch-f { right: 0; bottom: 0; box-shadow: 0 0 0 2px var(--m-bg); }
+.chp-sel { display: grid; place-items: center; flex: none; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px solid var(--m-faint); border-radius: 50%; color: var(--m-on-accent); }
+.chp-sel.on { border-color: var(--m-accent); background: var(--m-accent); }
+.mock .chp-sel svg { width: 15px; height: 15px; stroke-width: 2.6; }
+.mb-sheet .chp-c + .chp-c::before { left: 104px; }
+.chp-mid { display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
+.chp-mid b { font-weight: 600; }
+.chp-mid small { color: var(--m-faint); font-size: 12px; font-weight: 400; }
+.chp-msgs { display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 6px; }
+.chp-msgs .ch-m, .chp-lift .ch-m { grid-template-columns: 36px minmax(0, 1fr); padding: 7px 14px 3px; font-size: 15.5px; }
+.chp-msgs .ch-m.cont { padding-top: 1px; }
+.chp-msgs .ch-m > .ch-f, .chp-lift .ch-m > .ch-f { width: 36px; height: 36px; font-size: 14px; }
+.chp-msgs .ch-m .hd .t, .chp-lift .ch-m .hd .t { font-size: 12.5px; }
+.chp-msgs .ch-img, .chp-msgs .ch-file, .chp-msgs .ch-voice, .chp-lift .ch-img { width: auto; max-width: 290px; }
+.chp-msgs .ch-q { font-size: 14px; }
+.chp-msgs .ch-q b { font-size: 13.5px; }
+.chp-msgs .ch-day, .chp-msgs .ch-new { margin-right: 14px; margin-left: 14px; font-size: 13px; }
+.chp-msgs .ch-chip { flex-wrap: wrap; row-gap: 0; max-width: 100%; font-size: 14px; }
+.chp-msgs .ch-chip small { flex-basis: 100%; padding-left: 21px; font-size: 13px; }
+.chp-msgs .ch-rx span { height: 26px; font-size: 14px; }
+.chp-msgs .ch-seen { padding: 0 14px 2px 64px; font-size: 13px; }
+.chp-typing { flex: none; padding: 0 16px 6px; color: var(--m-faint); font-size: 13.5px; }
+.chp-cmp { position: relative; display: flex; align-items: center; gap: 8px; flex: none; padding: 8px 10px 30px; border-top: 1px solid var(--m-line); background: var(--m-side); }
+.chp-cmp .pl, .chp-cmp .mic { display: grid; place-items: center; flex: none; width: 36px; height: 36px; color: var(--m-accent); }
+.mock .chp-cmp .pl svg, .mock .chp-cmp .mic svg { width: 26px; height: 26px; }
+.chp-cmp .in { flex: 1; min-width: 0; height: 36px; padding: 0 14px; box-sizing: border-box; border: 1px solid var(--m-line); border-radius: 18px; background: var(--m-bg); color: var(--m-faint); line-height: 34px; }
+.chp-cmp.rec { gap: 10px; padding-left: 18px; }
+.chp-cmp.rec .rd { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--m-p1); }
+.chp-cmp.rec .tm { color: var(--m-fg); font: 15px var(--m-mono); }
+.chp-cmp.rec .sl { flex: 1; display: flex; align-items: center; justify-content: center; gap: 2px; height: 36px; color: var(--m-faint); font-size: 15px; }
+.mock .chp-cmp.rec .sl svg { width: 16px; height: 16px; }
+.chp-cmp.rec .big { display: grid; place-items: center; flex: none; width: 64px; height: 64px; margin: -22px -6px -14px 0; border-radius: 50%; background: var(--m-accent); color: var(--m-on-accent); box-shadow: 0 6px 18px rgb(0 0 0 / .35); }
+.mock .chp-cmp.rec .big svg { width: 30px; height: 30px; }
+.chp-lockp { position: absolute; right: 20px; bottom: 116px; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 44px; padding: 10px 0 8px; border: 1px solid var(--m-line); border-radius: 22px; background: var(--m-side); color: var(--m-dim); box-shadow: 0 6px 18px rgb(0 0 0 / .3); }
+.mock .chp-lockp svg { width: 20px; height: 20px; }
+.chp-hold { position: absolute; top: 96px; right: 12px; left: 12px; z-index: 7; display: flex; flex-direction: column; gap: 8px; }
+.chp-rxbar { display: flex; align-items: center; align-self: flex-start; gap: 2px; padding: 5px 8px; border-radius: 26px; background: var(--m-side); box-shadow: 0 8px 24px rgb(0 0 0 / .4); font-size: 25px; }
+.chp-rxbar span { display: grid; place-items: center; width: 40px; height: 40px; }
+.chp-rxbar .more { width: 34px; height: 34px; margin-left: 2px; border-radius: 50%; background: var(--m-sel); color: var(--m-dim); }
+.mock .chp-rxbar .more svg { width: 18px; height: 18px; }
+.chp-lift .ch-img { height: 130px; }
+.chp-lift { padding: 2px 0 8px; border-radius: 14px; background: var(--m-bg); box-shadow: 0 10px 30px rgb(0 0 0 / .45); }
+.chp-acts { align-self: flex-end; width: 230px; overflow: hidden; border-radius: 14px; background: var(--m-side); box-shadow: 0 10px 30px rgb(0 0 0 / .45); }
+.chp-acts .r { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 16px; font-size: 16px; }
+.chp-acts .r + .r { border-top: 1px solid var(--m-line); }
+.mock .chp-acts .r svg { width: 20px; height: 20px; color: var(--m-dim); }
+.chp-ih { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: none; padding: 4px 16px 16px; }
+.chp-ih .chp-ic { width: 64px; height: 64px; margin-bottom: 6px; border-radius: 16px; font-size: 30px; }
+.chp-ih b { font-size: 22px; font-weight: 700; }
+.chp-ih small { color: var(--m-faint); font-size: 14px; }
+.chp-info { display: flex; flex-direction: column; gap: 14px; padding: 0 16px; }
+.mock .chp-info .mb-fr > svg { flex: none; width: 20px; height: 20px; color: var(--m-dim); }
+.chp-info .mb-fr .fl { width: auto; color: var(--m-fg); }
+.chp-info .mb-fr.red { color: var(--m-p1); }
+.chp-info .cap { display: flex; align-items: baseline; margin: 0 2px -6px; color: var(--m-faint); font-size: 12.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.chp-info .cap .all { margin-left: auto; color: var(--m-accent); font-size: 15px; letter-spacing: 0; text-transform: none; }
+.chp-media { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.chp-fwdf { display: flex; align-items: center; gap: 10px; margin-top: auto; padding: 10px 16px 0; border-top: 1px solid var(--m-line); }
+.chp-fwdf .in { flex: 1; height: 38px; padding: 0 14px; box-sizing: border-box; border: 1px solid var(--m-line); border-radius: 19px; background: var(--m-bg); color: var(--m-faint); line-height: 36px; }
+.chp-fwdf .go { padding: 9px 16px; border-radius: 19px; background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; white-space: nowrap; }
+.mb-page.chp-ls { align-items: center; background: var(--m-rail); }
+.chp-ls .lt { margin-top: 34px; color: var(--m-fg); font: 300 80px/1 var(--m-ui); letter-spacing: -.02em; }
+.chp-ls .ld { margin-top: 6px; color: var(--m-dim); font-size: 18px; }
+.chp-ls .fill { flex: 1; }
+.chp-nt { align-self: stretch; margin: 0 10px 8px; padding: 11px 14px 12px; border-radius: 18px; background: var(--m-side); box-shadow: 0 6px 20px rgb(0 0 0 / .25); }
+.chp-nt:last-child { margin-bottom: 90px; }
+.chp-nt .ap { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; color: var(--m-dim); font-size: 12.5px; letter-spacing: .04em; }
+.chp-nt .ap small { margin-left: auto; color: var(--m-faint); font-size: 13px; letter-spacing: 0; }
+.chp-nt .ch-lg { width: 20px; height: 20px; border-radius: 5px; font-size: 12px; }
+.chp-nt b { display: block; font-size: 15px; font-weight: 600; }
+.chp-nt p { margin: 1px 0 0; color: var(--m-fg); font-size: 15px; }
 </style>
 
 <main class="page">
@@ -3835,6 +4170,33 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-fxview="fxfav">Favorite</button>
         <button type="button" data-fxview="fxphone">Telefon</button>
         <button type="button" data-fxview="fxphone2">Telefon 2</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="chat">
+    <div class="brief">
+      <div>
+        <span class="letter">MESAJLAŞMA · TASLAK</span>
+        <h2>Room'lar, DM'ler ve bildirimler</h2>
+        <p>Yalnız sunucudaki space'lerde. Kenar çubuğunda Upcoming'in altında tek bir <b>Chat</b> satırı ve tek bir Chat sekmesi: solda her space'in room'ları ve DM'ler, sağda konuşma. Room public ya da private; her space'te <b>general</b>. DM iki kişilik ya da en çok dokuz kişilik grup. Mesaj markdown'dır; resim, dosya, kod bloğu ve ses kaydı taşır. WhatsApp'taki gibi alıntılı cevap var, thread yok; Forward, tepki, @mention ve @room var. Mesajda not, görev ve kart çip olur; mesajdan To task ve To card açılır. Yeşil nokta, "yazıyor" ve iki kişilik DM'de Seen. Bildirim: DM ve mention her zaman, private room'da her mesaj, public room'da mention; her konuşmada All, Mentions, Off. Masaüstünde tepsiden, telefonda ve tarayıcıda Web Push. Geçmiş hiç silinmez. Teknik tasarım <code>design/chat.md</code>.</p>
+        <ul class="traits"><li>yalnız sunucuda</li><li>tek Chat sekmesi</li><li>alıntılı cevap</li><li>ses kaydı</li><li>Scrawl çipleri</li><li>Web Push</li><li>geçmiş silinmez</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Mesajlaşma görünümü">
+        <button type="button" data-chview="chmain">Chat</button>
+        <button type="button" data-chview="chhover">Message menu</button>
+        <button type="button" data-chview="chreply">Reply</button>
+        <button type="button" data-chview="chvoice">Voice</button>
+        <button type="button" data-chview="chfwd">Forward</button>
+        <button type="button" data-chview="chdm">Direct</button>
+        <button type="button" data-chview="chsearch">Search</button>
+        <button type="button" data-chview="chinfo">Room info</button>
+        <button type="button" data-chview="chnew">New room</button>
+        <button type="button" data-chview="chbell">Bell</button>
+        <button type="button" data-chview="chset">Settings</button>
+        <button type="button" data-chview="chphone">Telefon</button>
+        <button type="button" data-chview="chphone2">Telefon 2</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -11832,6 +12194,343 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderFx(sectionFx, b.dataset.fxview);
   });
   renderFx(sectionFx, 'fxlist');
+
+  // Messaging (Oct 24, a draft; design/chat.md). One Chat row in the sidebar and one Chat tab: on
+  // its left each server space's rooms and the direct messages, on its right the conversation.
+  var CI = {
+    chat: '<svg viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-4.5 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>',
+    lock: '<svg viewBox="0 0 24 24"><rect x="5.5" y="10.5" width="13" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>',
+    bell: '<svg viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5h-14z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
+    info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".9" fill="currentColor" stroke="none"/></svg>',
+    reply: '<svg viewBox="0 0 24 24"><path d="M10 6l-5.5 5.5L10 17"/><path d="M5 11.5h8.5a6 6 0 0 1 6 6V19"/></svg>',
+    fwd: '<svg viewBox="0 0 24 24"><path d="M14 6l5.5 5.5L14 17"/><path d="M19 11.5h-8.5a6 6 0 0 0-6 6V19"/></svg>',
+    smile: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14a4.2 4.2 0 0 0 7 0"/><circle cx="9.3" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="14.7" cy="10" r=".9" fill="currentColor" stroke="none"/></svg>',
+    mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5"/></svg>',
+    send: '<svg viewBox="0 0 24 24"><path d="M4.5 11.5L19.5 5l-6.5 15-2.5-6z"/><path d="M10.5 14l9-9"/></svg>',
+    at: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M15.5 12v1.5a2.5 2.5 0 0 0 5 0V12a8.5 8.5 0 1 0-3.5 6.9"/></svg>',
+    aa: '<svg viewBox="0 0 24 24"><text x="12" y="16.5" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor" stroke="none" font-family="IBM Plex Sans, sans-serif">Aa</text></svg>',
+    play: '<svg viewBox="0 0 24 24"><path d="M7.5 5v14l11-7z" fill="currentColor" stroke="none"/></svg>',
+    dl: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/></svg>',
+    copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h2"/></svg>',
+    edit: '<svg viewBox="0 0 24 24"><path d="M5 19l1-4 9.5-9.5a2 2 0 0 1 3 3L9 18z"/></svg>',
+    up: '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>',
+    people: '<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M15.5 14.2a4.8 4.8 0 0 1 5 4.8"/></svg>'
+  };
+  CI.belloff = CI.bell.replace('</svg>', '<path d="M4.5 4.5l15 15"/></svg>');
+  ICON.chchat = CI.chat;
+  var CH_P = { K: { name: 'Kaan Arslan', c: '#6aa5f0' }, M: { name: 'Mert Kaya', c: '#4cc3a0' }, E: { name: 'Elif Demir', c: '#c792ea' } };
+  /** A face: a person round in their own color, an agent square; the green dot while they use Scrawl. */
+  function chF(ini, o) {
+    o = o || {};
+    return '<span class="ch-f' + (o.sz ? ' ' + o.sz : '') + (o.ag ? ' ag' : '') + '" style="--fc:' + (o.ag ? 'var(--m-accent)' : CH_P[ini].c) + '">' + ini + (o.on ? '<i></i>' : '') + '</span>';
+  }
+  var CH_HASH = '<span class="hs">#</span>';
+  /** A message: a face, a name and the time over the first one; the same person's next ones under it, without. */
+  function chM(o) {
+    var name = o.ag ? 'Claude Code (Laptop)<span class="of"> · Kaan</span>' : CH_P[o.who].name;
+    return '<div class="ch-m' + (o.cont ? ' cont' : '') + (o.hover ? ' hover' : '') + '">' + (o.cont ? '<span class="tm">' + o.t + '</span>' : chF(o.who, { ag: o.ag })) +
+      '<div class="bx">' + (o.cont ? '' : '<div class="hd"><b>' + name + '</b><span class="t">' + o.t + '</span></div>') +
+      (o.fw ? '<div class="ch-fw">' + CI.fwd + o.fw + '</div>' : '') + (o.q ? '<div class="ch-q"><b>' + CH_P[o.q[0]].name + '</b><span>' + o.q[1] + '</span></div>' : '') +
+      (o.body ? '<div class="bd">' + o.body + (o.edited ? '<span class="ch-ed">(edited)</span>' : '') + '</div>' : '') + (o.extra || '') +
+      (o.rx ? '<div class="ch-rx">' + o.rx.map(function (r) { return '<span' + (r[2] ? ' class="me"' : '') + '>' + r[0] + '<b>' + r[1] + '</b></span>'; }).join('') + '</div>' : '') +
+      '</div>' + (o.over || '') + '</div>';
+  }
+  function chFile(name, sub) {
+    return '<div class="ch-file"><span class="fi">' + ICON.file + '</span><span class="tx"><b>' + name + '</b><small>' + sub + '</small></span><span class="dl">' + CI.dl + '</span></div>';
+  }
+  var CH_WAVE = [6, 10, 15, 9, 13, 18, 11, 7, 14, 17, 10, 6, 12, 16, 8, 13, 9, 5, 11, 7, 12, 15, 9, 6, 10, 14, 8, 5, 9, 12];
+  function chBars(played, n) { return CH_WAVE.slice(0, n || CH_WAVE.length).map(function (h, i) { return '<i' + (i < played ? ' class="p"' : '') + ' style="height:' + h + 'px"></i>'; }).join(''); }
+  function chVoice(dur, played) {
+    return '<div class="ch-voice"><span class="pl">' + CI.play + '</span><span class="wv">' + chBars(played || 0) + '</span><span class="du">' + dur + '</span><span class="spd">1x</span></div>';
+  }
+  // A screenshot of a narrow board, the card being dragged cut off at its right edge.
+  function chImg() {
+    return '<div class="ch-img"><div class="shot"><span class="c"><b></b><i></i><i></i><i></i></span><span class="c"><b></b><i></i><i></i></span><span class="c"><b></b><i></i></span><span class="drag"></span></div></div>';
+  }
+  function chCode(lang, lines) { return '<div class="ch-code"><span class="lg">' + lang + '</span><span class="cp">' + CI.copy + '</span>' + lines + '</div>'; }
+  function chChip(icon, name, where) { return '<div><span class="ch-chip">' + ICON[icon] + '<b>' + name + '</b><small>' + where + '</small></span></div>'; }
+  var CH_TC = ['#6aa5f0', '#4cc3a0', '#c792ea', '#f0a54a', '#f0706a', '#4cc3a0', '#6aa5f0', '#f0a54a', '#c792ea', '#6aa5f0'];
+  function chThumbs(n, video) {
+    return CH_TC.slice(0, n).map(function (c, i) {
+      var kind = 'blpblplbpblp'.charAt(i);
+      var inner = kind === 'b' ? '<u></u><u></u><u></u>' : kind === 'l' ? '<i></i><i></i><i></i>' : '';
+      return '<span class="ch-th ' + kind + '" style="--tc:' + c + '">' + inner + (video && video.indexOf(i) >= 0 ? '<span class="vd">' + CI.play + '</span><small>0:32</small>' : '') + '</span>';
+    }).join('');
+  }
+  /** #dev: the freeze, the release, the agent's fix, then what came in since Kaan last looked. */
+  function chDev(o) {
+    o = o || {};
+    var acts = '<div class="ch-acts"><span>' + CI.smile + '</span><span>' + CI.reply + '</span><span>' + CI.fwd + '</span><span class="on">···</span></div>' +
+      '<div class="cmenu ch-mm"><span>Edit</span><span>Copy text</span><span>Copy link</span><i></i><span class="hot">To task</span><span>To card</span><i></i><span class="red">Delete</span></div>';
+    return '<div class="ch-day">Yesterday</div>' +
+      chM({ who: 'M', t: '17:48', body: 'Can we freeze <span class="ic">main</span> tomorrow at noon? I’d like to cut <b>server 0.2.21</b> after the chat migrations land.' }) +
+      chM({ who: 'K', t: '17:52', body: 'Yes. I’ll write the release notes in the morning.', rx: [['👍', 2, true]] }) +
+      '<div class="ch-day">Today</div>' +
+      chM({ who: 'M', t: '10:12', body: 'Pushed 0.2.21 to Coolify. Can someone look at the release notes?', extra: chFile('release-notes-0.2.21.pdf', '182 KB · PDF') }) +
+      chM({ who: 'K', t: '10:20', q: ['M', 'Pushed 0.2.21 to Coolify. Can someone look at the release notes?'], body: 'Looks good. One thing: the agent guide still says 17 tools.' }) +
+      chM({ who: 'C', ag: true, t: '10:24', body: 'Updated the guide; the two chat tools are in it now.',
+        extra: chCode('TypeScript', '<span class="k">export const</span> CHAT_TOOLS = [\n  <span class="s">\'messages\'</span>,      <span class="c">// read and search</span>\n  <span class="s">\'send_message\'</span>,  <span class="c">// write to a room or a person</span>\n];') +
+          chChip('board', 'SCR-41 Agent guide: chat tools', 'Roadmap · Review') }) +
+      '<div class="ch-new"><span>New</span></div>' +
+      chM({ who: 'E', t: '11:40', body: 'The drag preview is cut off on narrow boards:', extra: chImg(), rx: [['👀', 2]] }) +
+      chM({ who: 'E', t: '11:41', cont: true, body: 'Same on the iPad.' }) +
+      chM({ who: 'M', t: '11:43', extra: chVoice('0:14') }) +
+      (o.hover ? chM({ who: 'K', t: '11:45', body: 'I’ll look at the preview after lunch.', hover: true, over: acts }) : '');
+  }
+  function chHead(o) {
+    return '<div class="ch-head">' + o.lead + '<b>' + o.name + '</b>' + (o.sub ? '<span class="tp' + (o.active ? ' act' : '') + '">' + o.sub + '</span>' : '') +
+      '<span class="acts">' + (o.ppl ? '<span class="ppl">' + CI.people + o.ppl + '</span>' : '') + '<span class="ib">' + ICON.find + '</span><span class="ib' + (o.bell ? ' down' : '') + '">' + CI.bell + '</span><span class="ib">' + CI.info + '</span></span>' +
+      (o.over || '') + '</div>';
+  }
+  var CH_DEV_HEAD = chHead({ lead: CH_HASH, name: 'dev', sub: 'Builds, releases and bugs', ppl: 6 });
+  function chCmp(o) {
+    o = o || {};
+    return '<div class="ch-cmp' + (o.text ? ' on' : '') + '">' + (o.reply || '') + '<div class="in' + (o.text ? ' typed' : '') + '">' + (o.text || o.ph || 'Message #dev') + '</div>' +
+      '<div class="bar"><span class="ib">' + ICON.plus + '</span><span class="ib">' + CI.aa + '</span><span class="ib">' + CI.at + '</span><span class="ib">' + CI.smile + '</span><span class="gap"></span>' +
+      '<span class="ib">' + CI.mic + '</span><span class="send' + (o.text ? ' go' : '') + '">' + CI.send + '</span></div></div>';
+  }
+  var CH_REC = '<div class="ch-cmp on"><div class="ch-rec"><span class="rd"></span><span class="tm">0:07</span><span class="wv">' + chBars(0, 24) + '</span>' +
+    '<span class="st-btn">Cancel</span><span class="send go">' + CI.send + '</span></div></div>';
+  function chConv(head, msgs, o) {
+    o = o || {};
+    return '<div class="ch-conv">' + head + '<div class="ch-msgs">' + msgs + '</div><div class="ch-typing">' + (o.typing || '') + '</div>' + (o.cmp || chCmp({ ph: o.ph })) + (o.over || '') + '</div>';
+  }
+  /** The conversations: each server space's rooms by name, then the direct messages, the latest first. */
+  function chList(on, o) {
+    o = o || {};
+    function c(x) {
+      var lead = x.dm ? chF(x.dm, { sz: 'sm', on: x.online }) : x.grp ? '<span class="ch-g">' + chF(x.grp[0], { sz: 'xs' }) + chF(x.grp[1], { sz: 'xs' }) + '</span>' : x.priv ? CI.lock : CH_HASH;
+      var un = x.un && on !== x.id;
+      return '<div class="ch-c' + (on === x.id ? ' on' : '') + (un ? ' un' : '') + (x.off ? ' off' : '') + '">' + lead + '<span class="nm">' + x.name + '</span>' +
+        (un && x.n ? '<span class="n">' + x.n + '</span>' : x.off ? CI.belloff.replace('<svg', '<svg class="mt"') : x.draft ? '<span class="dr">Draft</span>' : '') + '</div>';
+    }
+    function grp(name) { return '<div class="ch-grp"><span class="fchv">▾</span>' + name + '<span class="gadd">+</span></div>'; }
+    return '<div class="ch-list"><div class="ch-find' + (o.q ? ' on' : '') + '">' + ICON.find + (o.q ? '<span class="q">' + o.q + '</span><span class="caret"></span>' : '<span>Search messages</span>') + '</div>' +
+      grp('Scrawl') + c({ id: 'design', name: 'design', un: true }) + c({ id: 'dev', name: 'dev' }) + c({ id: 'founders', name: 'founders', priv: true, un: true, n: 2 }) + c({ id: 'general', name: 'general' }) + c({ id: 'releases', name: 'releases', off: true }) +
+      grp('Side projects') + c({ id: 'sgeneral', name: 'general' }) + c({ id: 'ideas', name: 'ideas', draft: true }) +
+      grp('Direct') + c({ id: 'elif', dm: 'E', online: true, name: 'Elif Demir', un: true, n: 1 }) + c({ id: 'mert', dm: 'M', online: true, name: 'Mert Kaya' }) + c({ id: 'grp', grp: ['M', 'E'], name: 'Mert, Elif' }) +
+      '</div>';
+  }
+  /** The sidebar: Chat under Today and Upcoming, its number what is unread and tells you. */
+  function chTree(n) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 9 }) +
+      '<div class="it on"><span>Chat</span><span class="ch-ct">' + n + '</span></div>' + row({ label: 'Filters &amp; Labels' }) +
+      '<div class="fx-gap"></div>' +
+      spRowT({ sp: true, label: 'Personal' }) + spRowT({ sp: true, open: true, label: 'Scrawl' }) +
+      spRowT({ d: 1, icon: 'board', label: 'Roadmap', ct: 14 }) + spRowT({ d: 1, icon: 'tasks', label: 'Tasks', ct: 5 }) + spRowT({ d: 1, icon: 'notes', label: 'Release checklist' }) + spRowT({ d: 1, folder: true, label: 'design', ct: 12 }) +
+      spRowT({ sp: true, label: 'Side projects' }) + '</div>' + spFoot(null);
+  }
+  function chApp(n, list, right, status, over) {
+    return '<aside class="side">' + chTree(n) + '</aside><section class="main"><div class="panes">' +
+      pane(tab('notes', 'Release checklist', 'x', false) + tab('chchat', 'Chat', 'x', true) + '<div class="tab plus">+</div>', '<div class="ch">' + list + right + '</div>') + '</div>' +
+      '<div class="status"><span>' + status + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  function chDevApp(o) {
+    o = o || {};
+    return chApp(3, chList('dev'), chConv(o.head || CH_DEV_HEAD, chDev(o), { typing: o.typing === undefined ? 'Elif Demir is typing…' : o.typing, cmp: o.cmp, over: o.pop }), '#dev · 6 people', o.over);
+  }
+  // Writing to Elif: her face with the green dot, a task as a chip, and Seen under the last one she read.
+  function chElif() {
+    return '<div class="ch-day">Yesterday</div>' +
+      chM({ who: 'E', t: '17:20', body: 'Is the chat migration in tomorrow’s server?' }) +
+      chM({ who: 'K', t: '17:31', fw: 'Forwarded from #dev · Mert Kaya', body: 'Can we freeze <span class="ic">main</span> tomorrow at noon? I’d like to cut <b>server 0.2.21</b> after the chat migrations land.' }) +
+      chM({ who: 'E', t: '17:33', body: 'Great, thanks.' }) +
+      '<div class="ch-day">Today</div>' +
+      chM({ who: 'E', t: '9:58', body: 'Do you have the link for the Apple Developer renewal?' }) +
+      chM({ who: 'K', t: '10:01', body: 'Here: <span class="lk">developer.apple.com/account</span>' }) +
+      chM({ who: 'K', t: '10:02', cont: true, body: 'It runs out on Oct 30, so I gave you the task:', extra: chChip('tasks', 'Renew the Apple Developer account', 'Tasks · Scrawl · Oct 30') }) +
+      chM({ who: 'E', t: '10:03', body: 'Thanks, I’ll do it after lunch.', rx: [['❤️', 1, true]] }) +
+      chM({ who: 'K', t: '11:47', body: 'Also, could you send me a voice message from your iPhone? I’d like to hear one played on Windows.' }) +
+      '<div class="ch-seen">Seen</div>';
+  }
+  var CH_ELIF_HEAD = chHead({ lead: chF('E', { sz: 'md', on: true }), name: 'Elif Demir', sub: 'Active', active: true });
+  /** Search: the results where the conversation was, newest first, with what to narrow them by. */
+  function chSearch() {
+    function r(who, where, when, text, thumb, hot) {
+      return '<div class="ch-r' + (hot ? ' hot' : '') + '">' + chF(who) + '<div><div class="wh"><b>' + CH_P[who].name + '</b>' + where + '<span>· ' + when + '</span></div><div class="tx">' + text + '</div></div>' +
+        (thumb ? '<span class="ch-th" style="--tc:#6aa5f0"><i></i><i></i><i></i></span>' : '<span></span>') + '</div>';
+    }
+    var m = function (w) { return '<mark>' + w + '</mark>'; };
+    return '<div class="ch-res"><div class="ch-head"><b>Search</b><span class="tp">4 results for “drag preview”</span></div>' +
+      '<div class="ch-fl"><span>From: <b>Anyone</b><i class="dd">▾</i></span><span>In: <b>Anywhere</b><i class="dd">▾</i></span><span>Has<i class="dd">▾</i></span><span>Date: <b>Any time</b><i class="dd">▾</i></span></div>' +
+      r('E', '<span>in</span><span class="hs">#</span><span>dev</span>', 'Today 11:40', 'The ' + m('drag') + ' ' + m('preview') + ' is cut off on narrow boards:', true, true) +
+      r('M', '<span>in</span>' + CI.lock + '<span>founders</span>', 'Thursday', 'Could the ' + m('drag') + ' ' + m('preview') + ' be a ghost of the card instead?') +
+      r('E', '<span>to you</span>', 'Oct 20', m('Preview') + ' of the new ' + m('drag') + ' handles, in drag-handles.png', true) +
+      r('K', '<span>in</span><span class="hs">#</span><span>design</span>', 'Oct 14', m('Drag') + 'ging a card should keep its width in the ' + m('preview') + '.') +
+      '</div>';
+  }
+  function chFwd() {
+    function r(lead, name, sub, on) { return '<div class="ch-pick' + (on ? ' on' : '') + '"><span class="bx">' + (on ? '✓' : '') + '</span>' + lead + '<span class="nm">' + name + '</span><small>' + sub + '</small></div>'; }
+    return '<div class="ovl center"><div class="mdlg" style="width: 460px"><h3>Forward message</h3>' +
+      '<div class="ch-fq">' + chF('E', { sz: 'sm' }) + '<span><b>Elif Demir</b> · #dev · 11:40</span><p>The drag preview is cut off on narrow boards:</p><small>' + ICON.image + 'Photo</small></div>' +
+      '<div class="field ch-ff">' + ICON.find + 'Find a room or person</div>' +
+      '<div class="label" style="margin-top: 12px">Recent</div>' +
+      r(CH_HASH, 'design', 'Scrawl', true) + r(chF('M', { sz: 'sm', on: true }), 'Mert Kaya', 'Direct', true) + r(CI.lock, 'founders', 'Scrawl') +
+      r(CH_HASH, 'general', 'Scrawl') + r(CH_HASH, 'ideas', 'Side projects') + r('<span class="ch-g">' + chF('M', { sz: 'xs' }) + chF('E', { sz: 'xs' }) + '</span>', 'Mert, Elif', 'Direct') +
+      '<div class="label" style="margin-top: 12px">Add a message</div><div class="field filled">Same as SCR-38?<span class="caret"></span></div>' +
+      '<div class="foot"><span class="count">2 selected</span><span class="st-btn">Cancel</span><span class="st-btn go">Forward</span></div></div></div>';
+  }
+  function chInfo() {
+    var tabs = ['About', 'People<small>6</small>', 'Media<small>12</small>', 'Files<small>4</small>', 'Voice<small>3</small>', 'Links<small>5</small>'];
+    return '<div class="ovl center"><div class="mdlg ch-info" style="width: 600px"><div class="ih"><span class="hs">#</span><b>dev</b><span class="tp">Builds, releases and bugs</span><span class="x">×</span></div>' +
+      '<div class="ch-tabs">' + tabs.map(function (t, i) { return '<span' + (i === 2 ? ' class="on"' : '') + '>' + t + '</span>'; }).join('') + '</div>' +
+      '<div class="ch-mo">October</div><div class="ch-grid">' + chThumbs(10, [3]) + '</div>' +
+      '<div class="ch-mo" style="padding-top: 0">September</div><div class="ch-grid">' + chThumbs(2) + '</div>' +
+      '<div class="foot"><span class="ch-nsel">' + CI.bell + 'Mentions<span class="dd">▾</span></span><span class="st-btn" style="margin-left: auto">Export…</span><span class="st-btn">Leave room</span><span class="st-btn">Archive room</span></div></div></div>';
+  }
+  function chNewRoom() {
+    return '<div class="ovl center"><div class="mdlg" style="width: 460px"><h3>New room</h3>' +
+      '<div class="label">Space</div><div class="field filled ch-ff">Scrawl<span class="dd">▾</span></div>' +
+      '<div class="label" style="margin-top: 10px">Name</div><div class="field filled"><span class="hs">#</span>mobile<span class="caret"></span></div>' +
+      '<div class="label" style="margin-top: 10px">Topic</div><div class="field">Optional</div>' +
+      '<div class="ch-vis"><div class="o"><span class="rdo"></span><span><b>Public</b><small>Anyone in Scrawl finds it and joins.</small></span></div>' +
+      '<div class="o on"><span class="rdo"></span><span><b>Private</b><small>Only the people you add see it.</small></span></div></div>' +
+      '<div class="label" style="margin-top: 12px">People</div><div class="field ch-ppl"><span class="pc">' + chF('M', { sz: 'xs' }) + 'Mert Kaya<span class="x">×</span></span>' +
+      '<span class="pc">' + chF('E', { sz: 'xs' }) + 'Elif Demir<span class="x">×</span></span><span class="hint">Add people</span></div>' +
+      '<div class="foot"><span class="st-btn" style="margin-left: auto">Cancel</span><span class="st-btn go">Create</span></div></div></div>';
+  }
+  function chSettings() {
+    return '<div class="ovl"><div class="st-dlg"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
+      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + row({ icon: 'cog', label: 'General' }) +
+      '<div class="it on">' + CI.bell + '<span>Notifications</span></div>' + row({ icon: 'space', label: 'Spaces' }) + row({ icon: 'agent', label: 'Agents' }) +
+      '</nav><div class="st-body">' +
+      '<div class="st-label">On this computer</div>' +
+      '<div class="ch-opt"><span class="box">✓</span><span><b>Show notifications</b><small>New messages show as Windows notifications, also while Scrawl runs in the tray.</small></span></div>' +
+      '<span class="st-btn" style="align-self: flex-start">Send a test notification</span>' +
+      '<div class="st-label" style="margin-top: 14px">In each conversation</div>' +
+      '<p class="st-note" style="margin: 0">The bell at the top of a room or a direct message picks All, Mentions or Off. Direct messages and private rooms start on All, public rooms on Mentions.</p>' +
+      '</div></div></div></div>';
+  }
+  var CH_VIEWS = {
+    chmain: function () { return chDevApp(); },
+    chhover: function () { return chDevApp({ hover: true, typing: '' }); },
+    chreply: function () {
+      var reply = '<div class="rp">' + CI.reply + '<span>Replying to <b>Elif Demir</b></span><span class="sn">The drag preview is cut off on narrow boards:</span><span class="x">×</span></div>';
+      function p(face, name, sub, hot) { return '<div class="r' + (hot ? ' hot' : '') + '">' + face + '<span>' + name + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; }
+      var pop = '<div class="ch-pop"><div class="cap">In #dev</div>' + p(chF('M', { sz: 'sm', on: true }), 'Mert Kaya', null, true) + p(chF('E', { sz: 'sm', on: true }), 'Elif Demir') +
+        '<div class="sep"></div>' + p('<span class="atr">' + CI.people + '</span>', '@room', 'Notify everyone in #dev') + '</div>';
+      return chDevApp({ typing: '', cmp: chCmp({ reply: reply, text: 'Looks like the column clips it. Does the phone do it too, @<span class="caret"></span>' }), pop: pop });
+    },
+    chvoice: function () { return chDevApp({ typing: '', cmp: CH_REC }); },
+    chfwd: function () { return chDevApp({ typing: '', over: chFwd() }); },
+    chdm: function () { return chApp(2, chList('elif'), chConv(CH_ELIF_HEAD, chElif(), { typing: 'Elif Demir is typing…', ph: 'Message Elif Demir' }), 'Elif Demir'); },
+    chsearch: function () { return chApp(3, chList('', { q: 'drag preview' }), chSearch(), '4 results'); },
+    chinfo: function () { return chDevApp({ typing: '', over: chInfo() }); },
+    chnew: function () { return chDevApp({ typing: '', over: chNewRoom() }); },
+    chbell: function () {
+      function r(name, sub, on) { return '<div class="r' + (on ? ' on' : '') + '"><b>' + name + '</b><small>' + sub + '</small>' + (on ? '<span class="tk">✓</span>' : '') + '</div>'; }
+      var bell = '<div class="ch-bell"><div class="cap">Notify me about</div>' + r('All messages', 'Every new message in #dev.') + r('Mentions', 'When someone writes @Kaan or @room.', true) + r('Off', 'Nothing, and #dev is shown faint.') + '</div>';
+      var toast = '<div class="ch-toast"><div class="ap"><span class="ch-lg">S</span>Scrawl<small>now</small></div><b>Mert Kaya · founders</b><p>Two investor intros came in. The notes are in Pipeline.</p></div>';
+      return chDevApp({ head: chHead({ lead: CH_HASH, name: 'dev', sub: 'Builds, releases and bugs', ppl: 6, bell: true, over: bell }), typing: '', over: toast });
+    },
+    chset: function () { return chDevApp({ typing: '', over: chSettings() }); }
+  };
+  // On a phone: Chat is the fifth tab; a conversation is a page of its own, without the tab bar.
+  function chTabs(n) {
+    function t(icon, label, on, b) { return '<span' + (on ? ' class="on"' : '') + '>' + icon + label + (b ? '<em class="bdg">' + b + '</em>' : '') + '</span>'; }
+    return '<nav class="mb-tabbar ch5">' + t(ICON.clock, 'Recent') + t(ICON.folder, 'Browse') + t(ICON.day, 'Today') + t(ICON.find, 'Search') + t(CI.chat, 'Chat', true, n) + '</nav>';
+  }
+  function chpC(o) {
+    var lead = o.dm ? chF(o.dm, { sz: 'lg', on: o.online }) : o.grp ? '<span class="chp-g">' + chF(o.grp[0], { sz: 'md' }) + chF(o.grp[1], { sz: 'md' }) + '</span>' : '<span class="chp-ic">' + (o.priv ? CI.lock : '#') + '</span>';
+    return '<div class="chp-c' + (o.off ? ' off' : '') + '">' + (o.pick !== undefined ? '<span class="chp-sel' + (o.pick ? ' on' : '') + '">' + (o.pick ? ICON.check : '') + '</span>' : '') + lead +
+      '<span class="tx"><b' + (o.un ? ' class="un"' : '') + '>' + o.name + '</b>' + (o.last ? '<small>' + o.last + '</small>' : '') + '</span>' +
+      (o.t ? '<span class="rt"><small' + (o.n ? ' class="hot"' : '') + '>' + o.t + '</small>' + (o.n ? '<em>' + o.n + '</em>' : o.off ? CI.belloff : '') + '</span>' : '') + '</div>';
+  }
+  function chpList() {
+    var ban = '<div class="chp-ban">' + CI.bell + '<span class="tx">Get notified of new messages.</span><span class="go">Turn on</span><span class="x">' + ICON.x + '</span></div>';
+    return mbPage(mbHead('Chat', null, true) + '<div class="mb-searchbar">' + ICON.find + 'Search messages</div>' + ban,
+      '<div class="mb-sec">Scrawl</div>' +
+      chpC({ name: 'design', un: true, last: 'Elif: New icons for the tab bar', t: '10:05' }) +
+      chpC({ name: 'dev', last: 'Mert: Voice message · 0:14', t: '11:43' }) +
+      chpC({ name: 'founders', priv: true, un: true, n: 2, last: 'Mert: Two investor intros came in…', t: '11:52' }) +
+      chpC({ name: 'general', last: 'Kaan: The office is closed on Friday', t: 'Mon' }) +
+      chpC({ name: 'releases', off: true, last: 'Claude Code: 0.2.21 is live', t: '11:20' }) +
+      '<div class="mb-sec">Direct</div>' +
+      chpC({ dm: 'E', online: true, name: 'Elif Demir', un: true, n: 1, last: 'Sure, sending one now', t: '11:49' }) +
+      chpC({ dm: 'M', online: true, name: 'Mert Kaya', last: 'You: Merged, thanks', t: '9:30' }) +
+      '<div class="mb-sec">Side projects</div>' + chpC({ name: 'ideas', last: 'Draft: A Kanban for the garden', t: 'Oct 20' }));
+  }
+  function chpConv(o) {
+    var nav = '<div class="mb-nav bar"><span class="back">' + ICON.chevl + 'Chat</span><span class="mid chp-mid"><b>' + o.title + '</b><small' + (o.active ? ' class="act"' : '') + '>' + o.sub + '</small></span>' +
+      '<span class="acts"><span class="ib">' + CI.info + '</span></span></div>';
+    return '<div class="mb-page">' + nav + '<div class="mb-body chp-msgs">' + o.msgs + '</div>' + (o.typing ? '<div class="chp-typing">' + o.typing + '</div>' : '') +
+      (o.cmp || '<div class="chp-cmp"><span class="pl">' + ICON.plus + '</span><span class="in">' + (o.ph || 'Message #dev') + '</span><span class="mic">' + CI.mic + '</span></div>') + '</div>';
+  }
+  var CHP_DEV = '<div class="ch-day">Today</div>' +
+    chM({ who: 'M', t: '10:12', body: 'Pushed 0.2.21 to Coolify. Can someone look at the release notes?', extra: chFile('release-notes-0.2.21.pdf', '182 KB · PDF') }) +
+    chM({ who: 'K', t: '10:20', q: ['M', 'Pushed 0.2.21 to Coolify. Can someone look at the release notes?'], body: 'Looks good. One thing: the agent guide still says 17 tools.', rx: [['👍', 1]] }) +
+    '<div class="ch-new"><span>New</span></div>' +
+    chM({ who: 'E', t: '11:40', body: 'The drag preview is cut off on narrow boards:', extra: chImg() }) +
+    chM({ who: 'E', t: '11:41', cont: true, body: 'Same on the iPad.' }) +
+    chM({ who: 'M', t: '11:43', extra: chVoice('0:14', 9) });
+  var CHP_DEV_O = { title: '# dev', sub: '6 people', msgs: CHP_DEV };
+  function chpWith(extra) { var o = {}; for (var k in CHP_DEV_O) o[k] = CHP_DEV_O[k]; for (var j in extra) o[j] = extra[j]; return o; }
+  /** Held: the message lifts over the dimmed page, the reactions above it and what can be done under it. */
+  function chpHold() {
+    function a(icon, label) { return '<div class="r"><span>' + label + '</span>' + icon + '</div>'; }
+    return MB_DIM + '<div class="chp-hold"><div class="chp-rxbar">' + ['👍', '❤️', '😂', '🎉', '👀', '✅'].map(function (e) { return '<span>' + e + '</span>'; }).join('') + '<span class="more">' + ICON.plus + '</span></div>' +
+      '<div class="chp-lift">' + chM({ who: 'E', t: '11:40', body: 'The drag preview is cut off on narrow boards:', extra: chImg() }) + '</div>' +
+      '<div class="chp-acts">' + a(CI.reply, 'Reply') + a(CI.fwd, 'Forward') + a(CI.copy, 'Copy') + a(ICON.tasks, 'To task') + a(ICON.board, 'To card') + a(ICON.link, 'Copy link') + '</div></div>';
+  }
+  var CHP_REC = '<div class="chp-cmp rec"><span class="rd"></span><span class="tm">0:07</span><span class="sl">' + ICON.chevl + 'Slide to cancel</span><span class="big">' + CI.mic + '</span></div>';
+  var CHP_LOCK = '<span class="chp-lockp">' + CI.lock + CI.up + '</span>';
+  function chpFwd() {
+    return MB_DIM + '<div class="mb-sheet large"><span class="grab"></span><div class="mb-sh"><b>Forward</b><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-search" style="margin: 0 16px 4px">' + ICON.find + 'Find a room or person</div><div class="mb-sec">Recent</div>' +
+      chpC({ pick: true, name: 'design', last: 'Scrawl' }) + chpC({ pick: true, dm: 'M', online: true, name: 'Mert Kaya', last: 'Direct' }) + chpC({ pick: false, name: 'founders', priv: true, last: 'Scrawl' }) +
+      chpC({ pick: false, name: 'general', last: 'Scrawl' }) + chpC({ pick: false, grp: ['M', 'E'], name: 'Mert, Elif', last: 'Direct' }) +
+      '<div class="chp-fwdf"><span class="in">Add a message</span><span class="go">Forward to 2</span></div></div>';
+  }
+  function chpInfo() {
+    function fr(icon, label, val, red) { return '<div class="mb-fr' + (red ? ' red' : '') + '">' + icon + '<span class="fl">' + label + '</span>' + (val !== undefined ? '<span class="val">' + val + '</span>' + MB_CHEV : '') + '</div>'; }
+    return mbPage(mbNav('dev', []), '<div class="chp-ih"><span class="chp-ic">#</span><b>dev</b><small>Builds, releases and bugs</small></div><div class="chp-info">' +
+      '<div class="mb-group">' + fr(CI.bell, 'Notifications', 'Mentions') + fr(CI.people, 'People', '6') + '</div>' +
+      '<div class="cap">Media · 12<span class="all">See all</span></div><div class="chp-media">' + chThumbs(8, [3]) + '</div>' +
+      '<div class="mb-group">' + fr(ICON.file, 'Files', '4') + fr(CI.mic, 'Voice', '3') + fr(ICON.link, 'Links', '5') + '</div>' +
+      '<div class="mb-group">' + fr(CI.dl, 'Export…', '') + fr(ICON.x, 'Leave room', undefined, true) + '</div></div>');
+  }
+  function chpLock() {
+    function n(t, who, text) { return '<div class="chp-nt"><div class="ap"><span class="ch-lg">S</span>SCRAWL<small>' + t + '</small></div><b>' + who + '</b><p>' + text + '</p></div>'; }
+    return '<div class="mb-page chp-ls"><div class="lt">9:41</div><div class="ld">Saturday, October 24</div><div class="fill"></div>' +
+      n('2 min ago', 'Elif Demir', 'Voice message · 0:09') + n('now', 'Mert Kaya · founders', 'Two investor intros came in. The notes are in Pipeline.') + '</div>';
+  }
+  function chPhone() {
+    return [
+      mbPhone('Chat: space’ler, sonra Direct', chpList(), chTabs(3) + MB_FAB),
+      mbPhone('Konuşma: sekme yok, altta yazma kutusu', chpConv(CHP_DEV_O)),
+      mbPhone('Basılı tutunca: tepkiler ve işlemler', chpConv(CHP_DEV_O), chpHold()),
+      mbPhone('Ses: basılı tut, sola vazgeç, yukarı kilitle', chpConv(chpWith({ cmp: CHP_REC })), CHP_LOCK)
+    ].join('');
+  }
+  function chPhone2() {
+    var elif = chElif().replace('could you send me a voice message from your iPhone? I’d like to hear one played on Windows.', 'could you send me a voice message from your iPhone?');
+    return [
+      mbPhone('DM: Active, Seen ve yazıyor', chpConv({ title: 'Elif Demir', sub: 'Active', active: true, msgs: elif, typing: 'Elif Demir is typing…', ph: 'Message Elif Demir' })),
+      mbPhone('Forward: sheet’te birden çok konuşma', chpConv(CHP_DEV_O), chpFwd()),
+      mbPhone('Room’un sayfası', chpInfo()),
+      mbPhone('Kilit ekranında bildirim', chpLock())
+    ].join('');
+  }
+  function renderCh(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'chphone' || view === 'chphone2') {
+      mock.className = 'mock dir-a phones mbs chm four';
+      mock.innerHTML = view === 'chphone' ? chPhone() : chPhone2();
+    } else {
+      mock.className = 'mock dir-a wider chm';
+      mock.innerHTML = CH_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-chview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.chview === view));
+    });
+  }
+  var sectionCh = document.querySelector('.dir[data-dir="chat"]');
+  sectionCh.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-chview]');
+    if (b) renderCh(sectionCh, b.dataset.chview);
+  });
+  renderCh(sectionCh, 'chmain');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
