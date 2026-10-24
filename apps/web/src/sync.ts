@@ -45,7 +45,7 @@ import { isDesktop, vaultFolder } from './storage';
  * Sooner on a phone, which is put away soon after something is jotted down.
  */
 const afterSaveMs = () => (isPhone() ? 1500 : 5000);
-/** While the app is open and on screen, a turn this often; for a space on a server that says what changes as it does, every other time. */
+/** While the app is open and on screen (on the desktop, open at all), a turn this often; for a space on a server that says what changes as it does, every other time. */
 const EVERY_MS = 30_000;
 /** A save goes to a server this soon: the others see it in a second or two. */
 const SERVER_AFTER_SAVE_MS = 1000;
@@ -395,7 +395,9 @@ export class SyncService {
     );
     let ticks = 0;
     this.every = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
+      // The desktop app syncs with its window hidden or minimized too: it runs on in the tray for
+      // the agents on the computer (design/background.md 3).
+      if (!isDesktop && document.visibilityState !== 'visible') return;
       ticks++;
       // A space on a server that tells what changes needs the turn only as a check, every other time.
       for (const [key, unit] of this.units) if (!(unit.live && ticks % 2)) this.syncNow(key);

@@ -12,6 +12,7 @@ import { ActionSheet } from './sheets';
 import { isDesktop, openUrlOnDesktop } from './storage';
 import { ServerIcon } from './SyncViews';
 import { dueLabel } from './Tasks';
+import { setBackground, useBackground } from './tray';
 
 // Settings › Agents, after the Agents part of design/mockups.html (design/agent.md, 8): an agent
 // reaches the notes the way the person does. On this computer, the command the clients start and
@@ -108,6 +109,7 @@ export function useAgents(url: string) {
 /** Settings › Agents on a computer. */
 export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'folder' | 'onSection' | 'computerAgents' | 'onRenameComputerAgent'>) {
   const servers = useKnownServers();
+  const background = useBackground();
   const [copied, copy] = useCopy();
   const [adding, setAdding] = useState<{ to: AddTo; server: KnownServer } | null>(null);
   const [running, setRunning] = useState<{ to: Terminal; server?: KnownServer } | null>(null);
@@ -157,6 +159,14 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
           </div>
           {values.computerAgents && values.onRenameComputerAgent && <ComputerAgents load={values.computerAgents} onRename={values.onRenameComputerAgent} />}
           <p className="st-note">{t('agents.thisComputerNote')}</p>
+          {!background && (
+            <div className="ag-closed">
+              <span>{t('agents.closedWaits')}</span>
+              <button type="button" onClick={() => setBackground(true)}>
+                {t('agents.keepRunning')}
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="ag-none">

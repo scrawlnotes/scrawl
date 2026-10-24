@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scrawl: tepsi simgesi</title>
+<style>
+:root {
+  --bg: #111318; --panel: #191c23; --fg: #e3e6ec; --muted: #9299a7; --rule: #2b2f3a; --accent: #e0a84a;
+  --font-ui: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+:root[data-theme="light"] { --bg: #f4f5f7; --panel: #ffffff; --fg: #1d2129; --muted: #5c6371; --rule: #d6dae2; --accent: #a8690c; color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font-ui); }
+.page { max-width: 1180px; margin: 0 auto; padding: 36px 20px 64px; display: flex; flex-direction: column; gap: 22px; }
+h1 { margin: 0; font-size: 1.6rem; }
+h2 { margin: 0; font-size: 1.2rem; }
+p { margin: 0; max-width: 72ch; color: var(--muted); }
+p b, p code { color: var(--fg); }
+code { font: .9em var(--font-mono); }
+.letter { font: 600 .78rem var(--font-mono); letter-spacing: .08em; color: var(--accent); }
+.brief { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 32px; }
+.brief > div { display: flex; flex-direction: column; gap: 6px; flex: 1 1 420px; }
+.traits { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 8px; font-size: .82rem; color: var(--muted); }
+.traits li { border: 1px solid var(--rule); border-radius: 4px; padding: 1px 8px; }
+.pick { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.pick button { font: inherit; font-size: .9rem; color: var(--fg); border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; cursor: pointer; }
+.pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #17130a; }
+.controls { display: flex; align-items: center; gap: 10px; font-size: .85rem; color: var(--muted); }
+.mock { border: 1px solid var(--rule); border-radius: 9px; background: var(--panel); padding: 22px 24px 26px; overflow-x: auto; }
+.tr-h { margin: 22px 0 10px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.tr-h:first-child { margin-top: 0; }
+.tr-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px 28px; }
+.tr-cell { display: flex; flex-direction: column; gap: 7px; }
+.tr-cell canvas { display: block; border-radius: 6px; }
+.tr-cell small { color: var(--muted); font-size: 12px; }
+.tr-cell small b { color: var(--fg); font-weight: 500; }
+.tr-cell small em { color: var(--accent); font-style: normal; }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="brief">
+    <div>
+      <span class="letter">TEPSİ SİMGESİ · 18. AŞAMA · TASLAK</span>
+      <h1>Pencere kapalıyken Scrawl'ın simgesi</h1>
+      <p>Windows'ta simge, uygulama simgesinin küçüğü: koyu kare, üstünde üç altın dalga. Görev çubuğu açık da olsa koyu da olsa seçilir, görev çubuğundaki Scrawl simgesiyle de aynıdır. Her ekran ölçeği için ayrı çizildi (16, 20, 24 ve 32 px), kenarları piksele oturur. 16 px'te eğri bulanıklaştığı için dalgalar orada elle, birer piksellik basamaklarla çizildi. macOS'ta yalnız dalgalar var: menü çubuğu onları açıkta siyah, koyuda beyaz gösterir.</p>
+      <p>Her şerit, o ölçekteki ekranın pikselleriyle birebir çizilir. <b>bu ekran</b> yazan şerit, simgenin bu ekranda görüneceği haldir. Teknik tasarım <code>design/background.md</code> 2.2.</p>
+      <ul class="traits"><li>uygulama simgesinin küçüğü</li><li>dört boyut, ayrı ayrı</li><li>16 px elle</li><li>macOS'ta template</li><li>açık ve koyu</li></ul>
+    </div>
+    <div class="controls">
+      <span class="pick" role="group" aria-label="Görünüm">
+        <button type="button" data-view="win">Windows</button>
+        <button type="button" data-view="mac">macOS</button>
+        <button type="button" data-view="zoom">Büyütülmüş</button>
+      </span>
+      <span class="pick" role="group" aria-label="Sayfa teması">
+        <button type="button" data-mode="dark">Dark</button>
+        <button type="button" data-mode="light">Light</button>
+      </span>
+    </div>
+  </div>
+  <div class="mock" id="mock"></div>
+</main>
+
+<script>
+(function () {
+  // The icons the app will use (apps/desktop/src-tauri/icons once approved), as they are.
+  var IMG = {
+    'tray-16': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAfElEQVQ4jWOQU9LkklPSnCqnpPlJTknzP5H4E1QPFwOU8Z9MPJWBkM0PVnjBMTaXMKArxqYRnyEMuGzDpgGbOAMuJxPyEk4D5IjzO34DHhDhd4JhIIfHQIIGyJHgJQZK/E9UND4gJRAf4PE/PgMIZiI8BoCTMsWZiaLsDACClq98hCftxAAAAABJRU5ErkJggg==',
+    'tray-20': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAB2klEQVQ4jWOQU9JkkFPSdJJT0jwhp6T5W05J8z+J+DdUL8gMBphhf8gwCB3/AZnFADX9P5XwCQZkbyqqaGEoMjLQ+T+1xPb/1YUe/68s8Pg/odDmv4G+Dk7vMyAL7J/o8j/G1+S/qroWWFNNsuX/aws9/j9Y4YWCry7w+F+ZaPFfX08HrBbZDBQD7y7zxNB8Zpb7/8wws/+amtr/tbS0/+dFmv8/N9sdRY0cLgPtLfX/L6q1/39zsSdYU1O61X8NTW0Mr2lqaf9vzbT+f36OO1gtTgPRsbyy5n8TQ12wy4iNGAZcEtE+xv8PT3EFewkUFLPK7fBFxn+cBlqZ6v1fWGsPNuj+cq//p2a6gWMXxL80z+N/boTZf2U1SESYGuniNxCkGWQISPPiOof/1mZ68OSUEmwKj4zrizz+n5zh9v/eci/8BoIUH5nq+j/W1wSrd3R0tP9PLLL9f3sJJDWADJXDZyAoAkARQSic1DW0wd5VwKIWIwxBibUv3+b/5fke4EQ9rdQWa1gRFSklcRZgg9AT943Fnv8b0qzA2ZAkAx+s8AIn1oJo8//a2trgRJ0RagYOK2y5ApeBv2GcrhxrsEHoitTUtf7XpViCsyEBA3/TpPiiegFL1SoAAGQJjF9tWQKVAAAAAElFTkSuQmCC',
+    'tray-24': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAPoAAAD6AG1e1JrAAACAklEQVRIibWWXWvTYBTH8wH6GUJNX5P0zaZt2rW1nW1jUkSkV9WBVCYMhrjpjUWGiEgFBVt8oSoqtbbdLryUXemFgqgICjJXcTraT/KXJ+1gdlnTrMvFuUme8//lOf/zPCcUzbAUzbAWmmErNMP2aYbFlNEfahFNakf82yEIYySIpoUa0mBSVKhDKgv2Kxc1+tDm4DQXz8748bR8DBsNGb9bCl7fmkUxL+hC9gA+PsrhYjECv88DxsEhnw7g+bUUtlfz6K3tjfW7GcydFOBy83C6OX2AlkjPQOgCttqKZuK7WhYXCmFwHA+7k0NBCqJzI20cEAv7cP9KEt+fncCftoI3dzI4fzoEq027xnIqgFfX0+g2ZfxqKvoArbA5OUQEL9wsb7iTxgKI0feWEurXke2THTVWUkiKvukAHg+PlfkYfr4cCI/G346C6nICouA1DvjyWFIFdgtutRR8rkvY1AB+fSKpfk0M2J1MEpfnRLXHyTtyLs6dCuH9g5xu94wF/Hgh4+bCDNh9TD1i57B0VsSnumQcEA56VYFJTRSOetVmMGQyuY8unRHxtprFdiev+nJ7MT5WaGIAqTkR1OqeblNGZTGORGSKNj3onUMbAZD7qHY5geNxP6z2gS9XS1G1qw4C+G/gkJNLBLUWu9w8yqUoPjzMGRo4po9Mi9lD39Tfln/15sJWO66DcgAAAABJRU5ErkJggg==',
+    'tray-32': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAPoAAAD6AG1e1JrAAACoUlEQVRYhcWX3WvTYBTGc90/IpN03UzSZu3atHa2ae3Wj1Rl6sQJU5Q5mQhTmdLpFEER8WMIwzq16qZupbsTUcE78RMEpYpKxQ3t39GbR96QjhTT0aStuXigNMl7fnnPc87JS9EMS6my0QyboRm2SDNshWZYtFgVde2MGkuJS6k/OmmGLbUhaD2V1JhU9c3/Z3AthI1StwQWKUOpebEKoEi1yXCNqkKZfZjneVw60oePdxL4XUjj1ewAJvcFYHdwhtah6l2Y2OvHBrv+tbEhEV8eJFFeTv+j1zfj2B7zNA9QXk7j5Uw/RrZ50b2RR1c3h2HZi6dXYrqBtfpTSGN+OgI56gbj4OByOs0BlNfRt4UUpkeDEHtdyk5Fgj2YORbCSl7Wvd8wwOxkWMmt3mK5KQmCS/+twgFBd5cMA9AMi4TkxuL5KEqPU/i5KKNwIdpQfjvsLA7u8OHFtX6s5mV8nU+aA6DrqE8UlPwSb5itIlMAw7JXKbfqtpJduXE8pJRkWwE4jkfutFTXkJ/vJRW4lgMwDg7ju0V8ytXW/LtbcSW/xBva/++fkRD0CWvPsyxvHuDZ1ZhSatoAxISk3Kr3kN5wYiRQcx/pASRNpIf8WpLNA5Q1gb8/TGFsl1h3EU+PU4EzUv8NAazmZdzOSOh11+9kWo3uFPF+Lr4W/MejlHmArVs8ptxNegBJE+khnV1c81XQYWdxYNCH55qmkj0Vxiafy5TrDQFs9gt4cll/+BCDnTsUNDx+Gwa4PhHCypL+YNHqTTaOw0Oi6WZErWfCalktnI0grRmtR/f48WEuYdjxhgHeZuMYHNAfPsRgF8f7asZvSwFO7g/A3oCLQ34Bd6ckpRmZBai0ws3NfJQWrf4sz1h9MLFZfTSjrD6cWno8/wu5NlnkdK7nywAAAABJRU5ErkJggg==',
+    'tray-template': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABD0lEQVQ4jc3SOyhGcRzG8U/u5ZJSLHIpJQurzEaLMhjskndmsVmYSXaDQVmMZllZpJRLFkqJV7n36tSf3vif47DwrTOcc57nOef//H78V2pSnvdjDde4xzZGsoKOMIlWVGMI63hFKXLtYhQNqC8Pekwx7GMCzajDMLYiug96sIpLPGEH46hIOcEgNlHE3Xe91aILjX5JG5bC10rhDzfQlzegBXO4CQEPOMFtuH/GMrqzQk6DMDFcoBAmIkxxDAdl5Z4H3ReSl1eYR1NMgCpM4zg2rXc6gzAv7aHL1O2ewh5ecIbFLEOMQjDGlrKIBfTmCSqF7V7BACrRgZlQamonn0n2JjHGSKY3i8OfHPHveQMNNU+xGdH92QAAAABJRU5ErkJggg==',
+    'tray-template@2x': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAACXBIWXMAAAPoAAAD6AG1e1JrAAACD0lEQVRYhe3XTYhNcRjH8c8YpugWeU2TsZXxkp0s7LynZkcslIVsSJQNC8VGkdjIQlkQuyl531nITl5GtkaTvEbdKG8zOvUoXXfOPf9z7zU13W/9d/9zzu95/s/z/H+HDh0mnl4cxUN8wSiGcRmbMaXsi+cl7l+E8/iGsZz1HNvQlSqoimOY1WDfApzG1wZCatcjbEwR9ufBakS+DrP/yt4WXCohpHY9xSH0owfTsCRPUOoawXGsxozIQB924iZ+FXzPP7xLFPIKeyPKPJbiWhR7kqBK1NCnBg++wUFMl8Yq3M4RNi6ViPwePsbmLHs3sKuEkFqW4xSGokO/44XJOAzXYytWonsiRPRgT8yT2vPPjvZsdFfb6YoWflmg87KaOIc57RKzJu6o1NmUZexAgZFQiKnYFC06ljMM7+I6HuPnOPuGQ9j8Ot/Jai+XQdzH55zjuBDzpJbsitkfAuo9mwl+EgHciYByZ4+cbIyGlVhcILvZEe3Dh7LXRSNBD+KOSiXL2JkC1qSQoB+4FVahWfpC2Ns6YrLay2UAazFT6+nGihikG2KwTg4W4kjMomoUeGY7rkS0pf1yKr0Jfnl7O4XNxcmSfnmgjJHP42IL/PJQ+OVlrbg26n3gNU7ELKpEBrLfnx0xdRv55ZYJGknwy1dzhDUt6D0Ol/TLg3X8clPsboFf7g+//Cw6tEMH/5vf6ZdGyaWhUWQAAAAASUVORK5CYII='
+  };
+
+  // Read at each drawing: the page's zoom and the screen it is on can change.
+  var dpr = window.devicePixelRatio || 1;
+  var loaded = Promise.all(Object.keys(IMG).map(function (k) {
+    return new Promise(function (done) {
+      var img = new Image();
+      img.onload = function () { done([k, img]); };
+      img.src = IMG[k];
+    });
+  })).then(function (list) {
+    var o = {};
+    list.forEach(function (p) { o[p[0]] = p[1]; });
+    return o;
+  });
+
+  // A canvas w × h in the screen's own pixels: nothing is scaled between it and the screen.
+  function canvas(w, h) {
+    var c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    c.style.width = w / dpr + 'px';
+    c.style.height = h / dpr + 'px';
+    return c;
+  }
+  function rounded(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+  // The template, as the menu bar draws it: its shape in the bar's colour.
+  function tint(img, color) {
+    var c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    var g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = 'source-in';
+    g.fillStyle = color;
+    g.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+  function wifi(g, x, y, k) {
+    var cx = x + 8 * k, cy = y + 13 * k;
+    [3, 6.5, 10].forEach(function (r) {
+      g.beginPath();
+      g.arc(cx, cy, r * k, -Math.PI * 0.75, -Math.PI * 0.25);
+      g.stroke();
+    });
+    g.beginPath();
+    g.arc(cx, cy, 1 * k, 0, Math.PI * 2);
+    g.fill();
+  }
+  function cell(c, label) {
+    var d = document.createElement('div');
+    d.className = 'tr-cell';
+    d.appendChild(c);
+    var s = document.createElement('small');
+    s.innerHTML = label;
+    d.appendChild(s);
+    return d;
+  }
+  function here(scale) {
+    return Math.abs(dpr - scale) < 0.01 ? ' · <em>bu ekran</em>' : '';
+  }
+
+  // Windows 11's taskbar, its right end: the arrow to the hidden icons, two other apps, Scrawl,
+  // then network, sound and battery, and the clock. In logical pixels, times the scale.
+  function windowsBar(imgs, scale, dark) {
+    var W = 300, H = 48, k = scale;
+    var px = function (v) { return Math.round(v * k); };
+    var c = canvas(px(W), px(H)), g = c.getContext('2d');
+    var fg = dark ? '#ffffff' : '#1b1b1b';
+    g.fillStyle = dark ? '#1c1c1c' : '#eeeeee';
+    g.fillRect(0, 0, c.width, c.height);
+    g.strokeStyle = fg;
+    g.fillStyle = fg;
+    g.lineWidth = k;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    var top = px(16);
+    g.beginPath();
+    g.moveTo(px(12), px(26));
+    g.lineTo(px(16), px(22));
+    g.lineTo(px(20), px(26));
+    g.stroke();
+    g.fillStyle = '#4c8df6';
+    rounded(g, px(40), top, px(16), px(16), px(8));
+    g.fill();
+    g.fillStyle = '#3aa76d';
+    rounded(g, px(72), top, px(16), px(16), px(3));
+    g.fill();
+    g.drawImage(imgs['tray-' + px(16)], px(104), top);
+    g.fillStyle = fg;
+    wifi(g, px(140), top, k);
+    var sx = px(164);
+    g.beginPath();
+    g.moveTo(sx + 2 * k, top + 6 * k);
+    g.lineTo(sx + 5 * k, top + 6 * k);
+    g.lineTo(sx + 9 * k, top + 3 * k);
+    g.lineTo(sx + 9 * k, top + 13 * k);
+    g.lineTo(sx + 5 * k, top + 10 * k);
+    g.lineTo(sx + 2 * k, top + 10 * k);
+    g.closePath();
+    g.stroke();
+    g.beginPath();
+    g.arc(sx + 9 * k, top + 8 * k, 3.5 * k, -Math.PI / 4, Math.PI / 4);
+    g.stroke();
+    var bx = px(188);
+    rounded(g, bx + k, top + 4 * k, 12 * k, 8 * k, 2 * k);
+    g.stroke();
+    g.fillRect(bx + 3 * k, top + 6 * k, 7 * k, 4 * k);
+    g.fillRect(bx + 13.5 * k, top + 6.5 * k, 1.5 * k, 3 * k);
+    g.textAlign = 'right';
+    g.textBaseline = 'middle';
+    g.font = 12 * k + 'px "Segoe UI", system-ui, sans-serif';
+    g.fillText('14:32', px(W - 12), px(17));
+    g.fillText('24.10.2026', px(W - 12), px(32));
+    return c;
+  }
+
+  // The menu bar's right end on macOS: another app's item, Scrawl, battery, Wi-Fi, Control Centre
+  // and the clock. In points, times 1 or 2.
+  function macBar(imgs, scale, dark) {
+    var W = 330, H = 24, k = scale;
+    var c = canvas(W * k, H * k), g = c.getContext('2d');
+    var fg = dark ? '#ffffff' : 'rgba(0, 0, 0, 0.85)';
+    g.fillStyle = dark ? '#262628' : '#ececec';
+    g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = fg;
+    g.strokeStyle = fg;
+    g.lineWidth = 1.1 * k;
+    g.lineCap = 'round';
+    g.textAlign = 'right';
+    g.textBaseline = 'middle';
+    g.font = '500 ' + 13 * k + 'px -apple-system, "SF Pro Text", system-ui, sans-serif';
+    var x = (W - 10) * k;
+    g.fillText('Sat 24 Oct  14:32', x, 12.5 * k);
+    x -= g.measureText('Sat 24 Oct  14:32').width + 14 * k;
+    // Control Centre: two switches
+    rounded(g, x - 15 * k, 7 * k, 15 * k, 4.5 * k, 2.25 * k);
+    g.stroke();
+    rounded(g, x - 15 * k, 13 * k, 15 * k, 4.5 * k, 2.25 * k);
+    g.stroke();
+    x -= 15 * k + 14 * k;
+    wifi(g, x - 16 * k, 5 * k, k);
+    x -= 16 * k + 12 * k;
+    rounded(g, x - 24 * k, 7.5 * k, 22 * k, 10 * k, 3 * k);
+    g.stroke();
+    g.fillRect(x - 22.5 * k, 9 * k, 15 * k, 7 * k);
+    g.fillRect(x - 1.5 * k, 10.5 * k, 1.5 * k, 4 * k);
+    x -= 24 * k + 14 * k;
+    var icon = imgs[k === 1 ? 'tray-template' : 'tray-template@2x'];
+    g.drawImage(tint(icon, fg), x - icon.width, 3 * k);
+    x -= icon.width + 14 * k;
+    g.beginPath();
+    g.arc(x - 8 * k, 12 * k, 6.5 * k, 0, Math.PI * 2);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(x - 8 * k, 8.5 * k);
+    g.lineTo(x - 8 * k, 12 * k);
+    g.lineTo(x - 5.5 * k, 13.5 * k);
+    g.stroke();
+    return c;
+  }
+
+  // An icon's pixels, each a square z screen pixels wide.
+  function zoomed(img, z, bg, color) {
+    var c = canvas(img.width * z, img.height * z), g = c.getContext('2d');
+    if (bg) {
+      g.fillStyle = bg;
+      g.fillRect(0, 0, c.width, c.height);
+    }
+    g.imageSmoothingEnabled = false;
+    g.drawImage(color ? tint(img, color) : img, 0, 0, c.width, c.height);
+    return c;
+  }
+
+  function heading(text) {
+    var h = document.createElement('div');
+    h.className = 'tr-h';
+    h.textContent = text;
+    return h;
+  }
+  function row(cells) {
+    var r = document.createElement('div');
+    r.className = 'tr-row';
+    cells.forEach(function (c) { r.appendChild(c); });
+    return r;
+  }
+
+  var VIEWS = {
+    win: function (mock, imgs) {
+      [[true, 'Koyu görev çubuğu'], [false, 'Açık görev çubuğu']].forEach(function (t) {
+        mock.appendChild(heading(t[1]));
+        mock.appendChild(row([1, 1.25, 1.5, 2].map(function (s) {
+          return cell(windowsBar(imgs, s, t[0]), '<b>%' + s * 100 + '</b> · ' + s * 16 + ' px' + here(s));
+        })));
+      });
+    },
+    mac: function (mock, imgs) {
+      [[false, 'Açık menü çubuğu'], [true, 'Koyu menü çubuğu']].forEach(function (t) {
+        mock.appendChild(heading(t[1]));
+        mock.appendChild(row([1, 2].map(function (s) {
+          return cell(macBar(imgs, s, t[0]), '<b>' + (s === 1 ? '@1x' : '@2x, Retina') + '</b> · ' + 18 * s + ' px' + here(s));
+        })));
+      });
+    },
+    zoom: function (mock, imgs) {
+      mock.appendChild(heading('Windows, her piksel bir kare'));
+      mock.appendChild(row([[16, 1, ', elle çizildi'], [20, 1.25, ''], [24, 1.5, ''], [32, 2, '']].map(function (s) {
+        return cell(zoomed(imgs['tray-' + s[0]], Math.round(320 / s[0]), null, null), '<b>' + s[0] + ' px</b> · %' + s[1] * 100 + s[2] + here(s[1]));
+      })));
+      mock.appendChild(heading('macOS, açıkta ve koyuda'));
+      mock.appendChild(row([['tray-template', '18 px · @1x', 1], ['tray-template@2x', '36 px · @2x', 2]].reduce(function (all, s) {
+        var img = imgs[s[0]], z = Math.round(320 / img.width);
+        return all.concat([
+          cell(zoomed(img, z, '#ececec', 'rgba(0, 0, 0, 0.85)'), '<b>' + s[1] + '</b>, açık' + here(s[2])),
+          cell(zoomed(img, z, '#262628', '#ffffff'), '<b>' + s[1] + '</b>, koyu' + here(s[2]))
+        ]);
+      }, [])));
+    }
+  };
+
+  var mock = document.getElementById('mock');
+  var current = 'win';
+  function render(view) {
+    current = view;
+    document.querySelectorAll('[data-view]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.view === view));
+    });
+    loaded.then(function (imgs) {
+      if (current !== view) return;
+      dpr = window.devicePixelRatio || 1;
+      mock.innerHTML = '';
+      VIEWS[view](mock, imgs);
+    });
+  }
+  function setMode(mode) {
+    document.documentElement.dataset.theme = mode;
+    document.querySelectorAll('[data-mode]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
+    });
+  }
+  document.querySelectorAll('[data-view]').forEach(function (b) {
+    b.addEventListener('click', function () { render(b.dataset.view); });
+  });
+  document.querySelectorAll('[data-mode]').forEach(function (b) {
+    b.addEventListener('click', function () { setMode(b.dataset.mode); });
+  });
+  // A zoom or another screen changes the ratio: the strips are drawn again in its pixels.
+  var shown = dpr;
+  window.addEventListener('resize', function () {
+    if ((window.devicePixelRatio || 1) !== shown) {
+      shown = window.devicePixelRatio || 1;
+      render(current);
+    }
+  });
+  setMode('dark');
+  render('win');
+})();
+</script>
+</body>
+</html>

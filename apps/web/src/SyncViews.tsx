@@ -10,6 +10,7 @@ import { useNarrow } from './narrow';
 import type { Connection, SpaceSync, SpaceSyncView, SyncPhase, SyncService, SyncSnapshot, TurnView } from './sync';
 import { hostOf } from './servers';
 import { isDesktop } from './storage';
+import { clockTime } from './text';
 
 // What sync shows: its row in a space's settings, this device's name, the window to choose a
 // folder of the cloud drive in, and its place in the status bar. After the Settings views of
@@ -924,6 +925,20 @@ function standing(all: readonly SpaceSyncView[]): SpaceSyncView | null {
 
 /** A space's key among those that sync: its id, or the personal one's. */
 export const keyOf = (unit: SpaceSyncView) => unit.space ?? '';
+
+/**
+ * How sync stands in one line, for the tray's menu on the desktop: what the status bar says, with
+ * the time of the last turn instead of how long ago it was, since the menu is not redrawn as time
+ * goes. Empty while nothing syncs.
+ */
+export function trayText(all: readonly SpaceSyncView[]): string {
+  const shown = standing(all);
+  if (!shown) return '';
+  const { phase, syncedAt } = shown;
+  if (phase === 'syncing') return t('sync.syncing');
+  if (phase === 'off' || phase === 'idle') return syncedAt === null ? t('sync.notYet') : t('tray.syncedAt', { time: clockTime(new Date(syncedAt).toISOString()) });
+  return statusText(phase, shown.connection, shown);
+}
 
 export interface SyncStatusProps {
   sync: SyncSnapshot;

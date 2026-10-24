@@ -1,6 +1,7 @@
 //! The desktop shell: a window around the web app, plus file access to the vault folder,
 //! opening attached files, reading the titles of web pages, and what signing in to a cloud
-//! drive needs (`cloud`), and the app's own updates (`update`).
+//! drive needs (`cloud`), the app's own updates (`update`), and running on in the tray with the
+//! window closed (`background`).
 //!
 //! The commands mirror the `VaultFs` interface of `packages/core`. Every path is relative to
 //! the vault root that the user chose, and may not leave it.
@@ -15,6 +16,7 @@ use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
 
+mod background;
 mod clipboard;
 mod cloud;
 mod update;
@@ -533,15 +535,25 @@ fn open_window(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // First: Scrawl started again while it runs brings its window back instead.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| background::show(app)))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(cloud::Listeners::default())
         .manage(update::Updates::default())
+        .manage(background::Background::default())
         .setup(|app| {
+            background::load(app.handle());
             open_window(app)?;
             update::start(app.handle());
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                background::on_close(window, api);
+            }
         })
         .invoke_handler(tauri::generate_handler![
             boot_color,
@@ -576,14 +588,21 @@ pub fn run() {
             cloud::device_name,
             update::update_state,
             update::update_check,
-            update::update_restart
+            update::update_restart,
+            background::tray_start,
+            background::tray_status,
+            background::background_get,
+            background::background_set,
+            background::quit_now
         ])
         .build(tauri::generate_context!())
         .expect("error while running Scrawl")
-        .run(|app, event| {
-            if let tauri::RunEvent::ExitRequested { .. } = event {
-                update::on_exit(app);
-            }
+        .run(|app, event| match event {
+            tauri::RunEvent::ExitRequested { .. } => update::on_exit(app),
+            // The Dock's icon clicked with the window hidden or closed brings it back.
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen { has_visible_windows: false, .. } => background::show(app),
+            _ => {}
         });
 }
 

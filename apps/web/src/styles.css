@@ -12309,6 +12309,61 @@ button.st-li:hover,
   background: var(--sl-bg);
 }
 
+/* With Background off: what an agent writes waits while Scrawl is closed, and Keep running beside it. */
+.ag-closed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.ag-closed span {
+  flex: 1;
+  min-width: 0;
+}
+
+.ag-closed button {
+  flex: none;
+  padding: 4px 11px;
+  border: 1px solid var(--sl-accent);
+  border-radius: 6px;
+  color: var(--sl-accent);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ag-closed button:hover {
+  background: color-mix(in srgb, var(--sl-accent) 12%, transparent);
+}
+
+/* Settings › General on the desktop (design/background.md 2.4): a box, a check in each row, what
+   it does in a faint line under its name. */
+.st-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.st-check input {
+  flex: none;
+  margin: 2px 0 0;
+  accent-color: var(--sl-accent);
+}
+
+.st-check span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--sl-fg);
+}
+
+.st-check small {
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
 .ag-none {
   display: flex;
   flex-direction: column;

@@ -18,12 +18,14 @@ import { LogsSection } from './Logs';
 import { checkForUpdates, releasePage, useAppVersion, useDesktopUpdate } from './desktopUpdate';
 import { APP_VERSION, checkForWebUpdate, PUBLISHED, subscribeUpdate, webUpdatesOn, webUpdateStatus } from './pwa';
 import { type AskOneDrive, isDesktop, type OneDriveAnswer, openUrlOnDesktop } from './storage';
+import { setBackground, useBackground } from './tray';
 
-export type Section = 'profile' | 'appearance' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
+export type Section = 'profile' | 'appearance' | 'general' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
 
 const SECTIONS: { id: Section; label: MessageKey; icon: IconName }[] = [
   { id: 'profile', label: 'settings.profile', icon: 'person' },
   { id: 'appearance', label: 'settings.appearance', icon: 'appearance' },
+  { id: 'general', label: 'settings.general', icon: 'tune' },
   { id: 'spaces', label: 'settings.spaces', icon: 'space' },
   { id: 'agents', label: 'settings.agents', icon: 'agent' },
   { id: 'language', label: 'settings.language', icon: 'language' },
@@ -107,8 +109,9 @@ export interface SettingsProps extends SettingsValues {
   onClose: () => void;
 }
 
-/** The sections, Language once there is more than one language, About on the desktop and the web, not on a phone. */
-export const settingsSections = () => SECTIONS.filter((section) => (section.id !== 'language' || languages.length > 1) && (section.id !== 'about' || isDesktop || !isPhone()));
+/** The sections, General on the desktop only, Language once there is more than one language, About on the desktop and the web, not on a phone. */
+export const settingsSections = () =>
+  SECTIONS.filter((section) => (section.id !== 'general' || isDesktop) && (section.id !== 'language' || languages.length > 1) && (section.id !== 'about' || isDesktop || !isPhone()));
 
 /** What a section is set to, beside it in the list of a phone. */
 export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }: Pick<SettingsValues, 'mode' | 'theme' | 'spaceName' | 'me' | 'spaces'>): string {
@@ -117,13 +120,13 @@ export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }
   // With more than one space, how many there are; with one, what it is called.
   if (id === 'spaces') return spaces.length > 0 ? String(spaces.length + 1) : (spaceName ?? t('settings.personal'));
   if (id === 'agents') return knownServers().length > 0 ? t('agents.viaServers', { count: knownServers().length }) : '';
-  if (id === 'about' || id === 'logs') return '';
+  if (id === 'about' || id === 'logs' || id === 'general') return '';
   return languages.find((language) => language.tag === languageTag())?.name ?? '';
 }
 
 /** What a section has, in the window or on a phone's page. */
 export function SettingsSection({ section, ...values }: SettingsValues & { section: Section }) {
-  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'spaces' ? <Spaces {...values} /> : section === 'agents' ? <Agents {...values} /> : section === 'logs' ? <LogsSection /> : section === 'about' ? <About {...values} /> : <Language />;
+  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'general' ? <General /> : section === 'spaces' ? <Spaces {...values} /> : section === 'agents' ? <Agents {...values} /> : section === 'logs' ? <LogsSection /> : section === 'about' ? <About {...values} /> : <Language />;
 }
 
 /** The source, under both Abouts. */
@@ -235,6 +238,25 @@ function WebAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) 
  * The version running and what is new in it; under it how the updates stand, as a space's page
  * shows its sync, with what can be done. The web has its own, WebAbout.
  */
+/** Settings › General, on the desktop: what the app does with its window closed (design/background.md 2.4). */
+function General() {
+  const background = useBackground();
+  return (
+    <>
+      <span className="st-label">{t('settings.general')}</span>
+      <div className="st-space">
+        <label className="st-check">
+          <input type="checkbox" checked={background} onChange={(event) => setBackground(event.target.checked)} />
+          <span>
+            {t('general.background')}
+            <small>{t('general.backgroundNote')}</small>
+          </span>
+        </label>
+      </div>
+    </>
+  );
+}
+
 function About({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
   if (!isDesktop) return <WebAbout onRestartUpdate={onRestartUpdate} />;
   return <DesktopAbout onRestartUpdate={onRestartUpdate} />;

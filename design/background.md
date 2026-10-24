@@ -209,3 +209,18 @@ Onaydan sonra, ayrıca önerilip onayla yapılır:
 - 4.8 Ajan: "Sonra" listesindeki "dosya izleme" çıkar. Bilgisayardaki kapının satırına "uygulama arka planda çalıştığı sürece ajanın yazdığı hemen sync edilir" eklenir.
 - Roadmap panosu: 18. faz, dört dilim kartı, 8.2'deki denemeler "deneme" etiketli kartlar.
 - `design/agent.md` 6, "Uygulama ne zaman görür" maddesi bu belgeye bağlanır.
+
+## 12. 1. dilim yazılırken görülenler (24 Ekim 2026)
+
+- **Tepsi simgesi:** onaylı çizim (`design/tray-icon.html`) `apps/desktop/src-tauri/icons/tray/`'da: Windows için `tray-16/20/24/32.png`, macOS için `tray-template.png` ve `tray-template@2x.png`. Simge, uygulamanın başladığı ekranın ölçeğine göre seçilir: istenen boyuttan küçük olmayan en küçüğü, %175 ve üstünde 32 px. macOS'ta @2x ekranda 36 px'lik çizim kullanılır. Önizleme `mockups.html`'e değil ayrı bir sayfaya kondu, çünkü o sırada başka bir oturum `mockups.html`'de çalışıyordu.
+- **Tepsi ne zaman kurulur:** menünün sözcüklerini, ilk kapatma bildirimini ve sync satırını web tarafı verir (`tray_start`, `tray_status`), `cloud.rs`'teki giriş sayfaları gibi. Tepsi bu yüzden sayfa açılınca kurulur. O ana kadar pencere kapatılırsa uygulama kapanır: geri getirecek simge olmadan pencere hiç gizlenmez.
+- **Sync satırı:** hiçbir space sync etmiyorsa menüden çıkar ve fareyle üstüne gelince yalnız "Scrawl" yazar.
+- **macOS'ta Dock:** `ActivationPolicy::Accessory` yerine Tauri'nin `set_dock_visibility` işlevi kullanıldı; etkisi aynı. Pencere kapalıyken Dock'taki simgeye tıklanırsa (`RunEvent::Reopen`) pencere geri gelir.
+- **Kod:** `src-tauri/src/background.rs` (tepsi, kapatma, Quit, `shell.json`); `lib.rs`'te `tauri-plugin-single-instance` ilk eklenti, `tauri-plugin-notification`, `on_window_event`. Tauri'ye `tray-icon` ve `image-png` özellikleri eklendi. Web tarafında `tray.ts`, `SyncViews.tsx`'te `trayText`, `sync.ts`'te masaüstünde gizliyken de dönen tur, Settings'te General, Agents'ta Keep running satırı.
+- **Testler:** Rust'ta dört test: kapatma kararı, `shell.json` yokken varsayılanlar, ölçeğe göre simge, her simgenin boyutu (Rust 19 test).
+- **Windows'ta denendi**, gerçek notlara dokunmayan ayrı bir kimlikle (`app.scrawlnotes.desktop.trytray`, sonra silindi):
+  - Pencere kapatılınca gizlendi, uygulama çalışmayı sürdürdü.
+  - İlk kapatma bildirimi bir kez gönderildi (`shell.json`'da `backgroundTold`).
+  - Uygulama ikinci kez başlatılınca ikinci kopya hemen kapandı, gizli pencere geri geldi.
+  - Background kapalıyken pencereyi kapatmak uygulamadan çıktı.
+- **Elle denenecek:** tepsi simgesinin ve menüsünün görünüşü, sol tık ve sağ tık, Quit (bekleyen kaydın yazılması), bildirimin görünüşü, gizliyken sync turu, General ve Agents ekranları, macOS.

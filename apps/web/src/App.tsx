@@ -186,7 +186,8 @@ import { StartPage } from './StartPage';
 import { type SpaceSyncView, SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { restartIntoUpdate, useDesktopUpdate } from './desktopUpdate';
-import { SyncStatus, syncWord } from './SyncViews';
+import { SyncStatus, syncWord, trayText } from './SyncViews';
+import { startTray, trayStatus } from './tray';
 import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
 import { LoadingView, Spin, stillOpening } from './Loading';
 import { openingDrawn, openingFailed } from './opening';
@@ -352,6 +353,9 @@ export function App() {
   });
   const [syncService] = useState(() => new SyncService(session));
   const sync = useSyncExternalStore(syncService.subscribe, syncService.getSnapshot);
+  // On the desktop, the tray's icon and its line of sync; Quit there writes what was typed first.
+  useEffect(() => startTray(() => session.beforeSync()), [session]);
+  useEffect(() => trayStatus(trayText(sync.all)), [sync]);
   /**
    * Signs in for a space waiting for it. A space on a server asks for its password; for OneDrive,
    * in the browser the page goes to Microsoft and back, and on the desktop it is done in
