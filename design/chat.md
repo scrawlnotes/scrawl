@@ -120,7 +120,7 @@ Chat sekmesi bütün sunucuları birlikte gösterir: önce her sunucunun space'l
 
 ### 3.5 Mention
 
-- @ yazınca konuşmadaki kişiler listelenir; seçilen ad mesajda çip olur.
+- @ yazınca konuşmadaki kişiler listelenir; seçilen ad mesajda çip olur. Mesajda bir linktir: `[@Mert Kaya](scrawl:person/<id>)`, `@room` için `[@room](scrawl:room)`.
 - Room'da listenin sonunda `@room` vardır: "Notify everyone in #dev". DM'de yoktur.
 - Ajanlar listede yoktur, çünkü bot yok; ajan mesajı okuyunca bir şey yapmaz.
 
@@ -332,6 +332,8 @@ messages_fts  FTS5, içeriksiz (content=''), rowid = messages.rowid,
 | İstek | Ne yapar |
 |---|---|
 | `GET /chat` | konuşmalar: tür, ad, space, üyeler, son mesaj, `readSeq`, okunmamış ve bildirimli sayısı, `notify`; ayrıca `cursor` |
+| `GET /chat/:id` | tek konuşma |
+| `GET /spaces/:id/rooms` | Browse rooms: space'in public room'ları, kişinin içinde olduğu private'lar ve arşivlenenler |
 | `GET /chat/changes?cursor=N` | o imleçten sonra değişen konuşmalar, üyelikler ve mesajlar (yeni, düzenlenen, silinen, tepkisi değişen); konuşma başına en çok 100 yeni mesaj, fazlası `more` |
 | `GET /chat/:id/messages?before=&after=&around=&limit=` | mesajlar; `around` bir mesajın çevresi (arama, cevap, bildirim) |
 | `POST /chat/rooms` `{ space, name, topic, kind, members }` | yeni room; ad varsa 409 |
@@ -478,3 +480,22 @@ Mesaj 40.000 karakter; mesaj başına 10 ek; ses kaydı 15 dakika; grup DM 9 ki�
 - **6 Aşamalar:** 19 Mesajlaşma. Dropbox, S3 ve GitHub 20, Google Drive 21, Mobil 22. Sonraya kalanlara bot ile sesli ve görüntülü arama.
 - **7 Riskler:** native iOS'ta bildirim (6.7).
 - **Roadmap:** faz 19, planın kartı ve dilim başına bir kart (ROA-243–250, 5. dilim ROA-252); bot ile sesli ve görüntülü arama Backlog'da "Sonra:" kartı (ROA-251).
+
+## 17. Yazılırken: 1. dilim (Sunucu)
+
+24 Ekim. Kodda: `apps/server/src/chat.ts` (konuşmalar, mesajlar, okundu, ekler, değişiklik akışı), `db.ts` (göç), `live.ts` (yazıyor ve çevrimiçi), `app.ts` (yollar), `server.ts`; testler `chat.test.ts` (23 test, sunucu 65). Push ve bildirim tabloları (`push_subscriptions`) 6. dilimle, arama tablosu (`messages_fts`) 7. dilimle gelir.
+
+Kodda netleşenler:
+
+- **Değişiklik akışı:** her yazma `meta` tablosundaki `chat_rev` sayacını bir artırır ve satıra yazar. `changes` her seferinde kişinin bütün konuşmalarını o anki haliyle verir (listede olmayan bırakılmıştır), mesajlardan yalnız imleçten sonra değişenleri, en çok 500'er. İmleçsiz istek yalnız konuşmaları verir; mesajlar sayfa sayfa gelir.
+- **Görünmeyen konuşma yoktur:** private room ve DM'in dışındakine 404 döner, 403 değil; var olduğu da belli olmaz.
+- **Public room'a katılmadan:** okunur; yazılmaz, tepki konmaz, bildirim seçimi yapılmaz (403), okunmamış sayılmaz.
+- **Space'ten çıkarılan** o space'in room'larından da çıkar; davetle dönünce yalnız `general`'a döner, eski private room'larına değil. Sunucudan çıkarılan için de öyle.
+- **DM'de biri sunucudan çıkınca:** iki kişilik DM okunur, yazılmaz (410 `gone`). Grup DM'de en az bir kişi kaldıkça yazılır.
+- **Forward:** gövdeyi ve ekleri kaynak mesajdan sunucu alır; "Add a message" uygulamanın ayrıca gönderdiği bir mesajdır. Forward edilen mesaj düzenlenmez (409 `forwarded`).
+- **Ajanın mesajı:** sahibi siler, düzenleyemez; düzenlemek mesajı yazanın işidir.
+- **Ekler:** dosya önce `POST /chat/files` ile gider, sonra mesaja hash'iyle eklenir. Bir hash'i yalnız onu yükleyen ya da onu taşıyan bir mesajı gören ekler; böylece başka bir space'teki dosyanın hash'ini bilen onu sohbetten alamaz. Yükleyen, mesaja eklemeden önce de dosyasını alır. Mesaj silinince dosya artık verilmez.
+- **`general`'ın adı:** space'te zaten `general` adında bir room varsa (sonradan açılmış, eskisinin adı değiştirilmiş) yenisi `general room` adını alır.
+- **Çevrimiçi:** uygulama canlı kanaldan `{ type: "active", active, viewing }` der; kişinin bir cihazı kullanılıyorsa kişi çevrimiçidir. Haber, kişiyle bir space'i paylaşanlara gider; bağlanan cihaz o an çevrimiçi olanları alır. "Kullanılıyor" demeyi (pencere önde, son 5 dakikada dokunulmuş) uygulama yapar (2. dilim).
+- **Yazıyor:** aynı kişi aynı konuşmada 2,5 saniyede en çok bir kez duyurulur; kaydedilmez.
+- **Uygulamanın eski sürümleri** canlı kanalın yeni olaylarını tanımaz ve yok sayar; sync bugünkü gibi çalışır.

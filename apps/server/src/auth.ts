@@ -31,7 +31,7 @@ export interface AccountInfo extends Account {
 /** What a request that asks for something it cannot have is told: the code says what, for the app to say it in its words. */
 export class Refused extends Error {
   constructor(
-    readonly status: 400 | 401 | 403 | 404 | 409 | 410 | 413 | 429,
+    readonly status: 400 | 401 | 403 | 404 | 409 | 410 | 413 | 422 | 429,
     readonly code: string,
     message: string,
   ) {

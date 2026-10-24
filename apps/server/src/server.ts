@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { createApp } from './app';
 import { Accounts } from './auth';
 import { Blobs } from './blobs';
+import { Chats } from './chat';
 import type { Config } from './config';
 import { type Db, openDb } from './db';
 import { SpaceFiles } from './files';
@@ -23,6 +24,9 @@ export function makeServer(config: Config, options: { now?: () => number; pageSi
   const spaces = new Spaces(db, now);
   const invites = new Invites(db, accounts, spaces, config.url, now);
   const oauth = new OAuth(db, accounts, config.url, now, options.fetchDoc);
-  const app = createApp({ config, blobs, files, accounts, spaces, live, invites, oauth, now });
-  return { db, blobs, files, accounts, spaces, live, invites, oauth, app };
+  const chats = new Chats(db, spaces, blobs, (people, event) => live.tell(people, event), now);
+  // Spaces from before messaging get their general rooms.
+  chats.openGenerals();
+  const app = createApp({ config, blobs, files, accounts, spaces, live, invites, oauth, chats, now });
+  return { db, blobs, files, accounts, spaces, live, invites, oauth, chats, app };
 }

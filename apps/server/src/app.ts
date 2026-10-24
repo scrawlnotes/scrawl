@@ -7,6 +7,7 @@ import { type Account, type Accounts, Refused } from './auth';
 import { type Blobs, TooLarge } from './blobs';
 import { type Config, VERSION } from './config';
 import { BadPath, checkPath, Conflict, type SpaceFiles } from './files';
+import type { Chats } from './chat';
 import type { Live, LiveSocket } from './live';
 import type { Invites } from './invites';
 import { agentRoutes } from './agent';
@@ -27,6 +28,7 @@ export interface Parts {
   live: Live;
   invites: Invites;
   oauth: OAuth;
+  chats: Chats;
   /** The server's clock, for what is measured against it. */
   now: () => number;
 }
@@ -63,7 +65,7 @@ function pathIn(c: Context, space: string): string {
 const unquote = (tag: string) => tag.trim().replace(/^W\//, '').replace(/^"|"$/g, '');
 
 export function createApp(parts: Parts) {
-  const { config, blobs, files, accounts, spaces, live, invites, oauth } = parts;
+  const { config, blobs, files, accounts, spaces, live, invites, oauth, chats } = parts;
   const app = new Hono<Env>();
 
   app.use(
@@ -105,14 +107,20 @@ export function createApp(parts: Parts) {
 
   // ---------- without a key: how the server stands, setting it up, signing in ----------
 
-  // `personal`: it keeps personal spaces, so the app offers it for one (design/spaces.md).
-  app.get('/api/v1/server', (c) => c.json({ version: VERSION, new: accounts.isNew(), setupOpen: accounts.setupOpen(), personal: true }));
+  // `personal`: it keeps personal spaces, so the app offers it for one (design/spaces.md); `chat`:
+  // it has messaging, so the app shows Chat (design/chat.md, 1.2).
+  app.get('/api/v1/server', (c) => c.json({ version: VERSION, new: accounts.isNew(), setupOpen: accounts.setupOpen(), personal: true, chat: true }));
   app.post('/api/v1/setup', async (c) => c.json(await accounts.setUp(await json(c))));
   app.post('/api/v1/sessions', async (c) => c.json(await accounts.signIn(await json(c), addressOf(c))));
 
   // A link: what it is, joining a space with an invite, a new password with a reset link.
   app.get('/api/v1/invites/:code', (c) => c.json(invites.look(c.req.param('code'))));
-  app.post('/api/v1/invites/:code/accept', async (c) => c.json(await invites.accept(c.req.param('code'), await json(c), addressOf(c))));
+  app.post('/api/v1/invites/:code/accept', async (c) => {
+    const joined = await invites.accept(c.req.param('code'), await json(c), addressOf(c));
+    // Someone new in a space is in its general room.
+    chats.spaceChanged(joined.space.id);
+    return c.json(joined);
+  });
   app.post('/api/v1/invites/:code/reset', async (c) => {
     const done = await invites.setPassword(c.req.param('code'), await json(c));
     // Its other devices' connections end with their keys.
@@ -121,7 +129,19 @@ export function createApp(parts: Parts) {
   });
 
   // The live channel: a browser cannot give a WebSocket a header, so the key comes as the first
-  // message, within five seconds. Then the device hears every change of the spaces its person is in.
+  // message, within five seconds. Then the device hears every change of the spaces its person is in,
+  // and what happens in their conversations. It says whether Scrawl is in use on it, which
+  // conversation is on its screen, and that its person is writing in one.
+  const heard = (socket: LiveSocket, data: unknown) => {
+    let said: { type?: unknown; active?: unknown; viewing?: unknown; chat?: unknown } = {};
+    try {
+      said = JSON.parse(String(data)) as typeof said;
+    } catch {
+      return;
+    }
+    if (said.type === 'active') live.setActive(socket, said.active === true, typeof said.viewing === 'string' ? said.viewing : null);
+    else if (said.type === 'typing' && typeof said.chat === 'string') live.tell(chats.typing(socket.account, said.chat), { type: 'typing', chat: said.chat, account: socket.account });
+  };
   app.get(
     '/api/v1/live',
     upgradeWebSocket(() => {
@@ -132,7 +152,10 @@ export function createApp(parts: Parts) {
           waiting = setTimeout(() => ws.close(4001, 'No key'), 5000);
         },
         onMessage(event, ws) {
-          if (socket) return;
+          if (socket) {
+            heard(socket, event.data);
+            return;
+          }
           clearTimeout(waiting);
           let hello: { type?: unknown; token?: unknown } = {};
           try {
@@ -149,6 +172,7 @@ export function createApp(parts: Parts) {
           socket = { account: who.account.id, device: who.device, send: (text) => ws.send(text), close: () => ws.close(4401, 'Signed out') };
           live.add(socket);
           ws.send(JSON.stringify({ type: 'ready' }));
+          live.presenceFor(socket);
         },
         onClose() {
           clearTimeout(waiting);
@@ -183,6 +207,7 @@ export function createApp(parts: Parts) {
   app.delete('/api/v1/accounts/:id', (c) => {
     const gone = accounts.remove(c.get('account'), c.req.param('id'));
     live.end({ account: gone.id });
+    chats.leftSpaces(gone.id);
     return c.body(null, 204);
   });
   app.post('/api/v1/accounts/:id/reset', (c) => c.json(invites.reset(c.req.param('id'), c.get('account'))));
@@ -192,7 +217,11 @@ export function createApp(parts: Parts) {
   // The person's time zone, which the app tells as it signs in and as it opens.
   app.patch('/api/v1/me', async (c) => c.json(accounts.setTimeZone(c.get('account').id, (await json(c)).timeZone)));
   app.get('/api/v1/spaces', (c) => c.json(spaces.of(c.get('account').id)));
-  app.post('/api/v1/spaces', async (c) => c.json(spaces.open(c.get('account'), await json(c))));
+  app.post('/api/v1/spaces', async (c) => {
+    const opened = spaces.open(c.get('account'), await json(c));
+    if (!opened.personal) chats.openGeneral(opened.id);
+    return c.json(opened);
+  });
   // A new name, by its managers.
   app.patch('/api/v1/spaces/:id', async (c) => c.json(spaces.rename(c.req.param('id'), (await json(c)).name, c.get('account'))));
 
@@ -215,9 +244,13 @@ export function createApp(parts: Parts) {
     const account = c.req.param('account');
     spaces.remove(space, account, c.get('account'));
     live.nudge(account, space);
+    chats.leftSpaces(account);
+    chats.spaceChanged(space);
     return c.body(null, 204);
   });
   app.post('/api/v1/spaces/:id/invites', (c) => c.json(invites.invite(c.req.param('id'), c.get('account'))));
+  // Its rooms for Browse rooms (design/chat.md, 8.1).
+  app.get('/api/v1/spaces/:id/rooms', (c) => c.json(chats.rooms(c.get('account').id, c.req.param('id'))));
 
   app.get('/api/v1/spaces/:id/changes', (c) => {
     const cursor = c.req.query('cursor');
@@ -272,6 +305,66 @@ export function createApp(parts: Parts) {
     files.mkdir(c.req.param('id'), typeof body.path === 'string' ? body.path : '', actor(c));
     return c.body(null, 204);
   });
+
+  // ---------- messaging (design/chat.md, 11.2) ----------
+
+  const me = (c: Context<Env>) => c.get('account');
+  const number = (value: string | undefined) => (value === undefined || value === '' || !Number.isFinite(Number(value)) ? undefined : Number(value));
+
+  // Without a cursor, every conversation someone is in; with one, what changed after it.
+  app.get('/api/v1/chat', (c) => c.json(chats.changes(me(c).id, null)));
+  app.get('/api/v1/chat/changes', (c) => c.json(chats.changes(me(c).id, number(c.req.query('cursor')) ?? null)));
+  app.post('/api/v1/chat/rooms', async (c) => c.json(chats.openRoom(me(c), await json(c))));
+  app.post('/api/v1/chat/direct', async (c) => c.json(chats.direct(me(c), (await json(c)).people)));
+
+  // A file is sent on its own, then attached to a message by its digest.
+  app.post('/api/v1/chat/files', async (c) => {
+    const taken = await blobs.take(c.req.raw.body, config.maxFileBytes);
+    try {
+      return c.json(chats.upload(me(c).id, taken));
+    } finally {
+      rmSync(taken.temp, { force: true });
+    }
+  });
+  app.get('/api/v1/chat/files/:hash', (c) => {
+    const file = chats.file(me(c).id, c.req.param('hash'));
+    const stream = Readable.toWeb(blobs.open(file.hash)) as ReadableStream<Uint8Array>;
+    // A file's content never changes under its digest.
+    return c.body(stream, 200, {
+      'Content-Type': file.type || 'application/octet-stream',
+      'Content-Length': String(file.size),
+      'Cache-Control': 'private, max-age=31536000, immutable',
+      ETag: `"${file.hash}"`,
+    });
+  });
+
+  app.patch('/api/v1/chat/messages/:message', async (c) => c.json(chats.edit(me(c), c.req.param('message'), await json(c))));
+  app.delete('/api/v1/chat/messages/:message', (c) => c.json(chats.remove(me(c), c.req.param('message'))));
+  app.put('/api/v1/chat/messages/:message/reactions/:emoji', (c) => c.json(chats.react(me(c), c.req.param('message'), c.req.param('emoji'), true)));
+  app.delete('/api/v1/chat/messages/:message/reactions/:emoji', (c) => c.json(chats.react(me(c), c.req.param('message'), c.req.param('emoji'), false)));
+
+  app.get('/api/v1/chat/:id', (c) => c.json(chats.one(me(c).id, c.req.param('id'))));
+  app.patch('/api/v1/chat/:id', async (c) => c.json(chats.change(me(c), c.req.param('id'), await json(c))));
+  app.get('/api/v1/chat/:id/messages', (c) => {
+    const around = c.req.query('around');
+    return c.json(
+      chats.messages(me(c).id, c.req.param('id'), {
+        ...(number(c.req.query('before')) !== undefined && { before: number(c.req.query('before')) }),
+        ...(number(c.req.query('after')) !== undefined && { after: number(c.req.query('after')) }),
+        ...(around && { around }),
+        ...(number(c.req.query('limit')) !== undefined && { limit: number(c.req.query('limit')) }),
+      }),
+    );
+  });
+  app.post('/api/v1/chat/:id/messages', async (c) => c.json(chats.send(me(c), c.req.param('id'), await json(c))));
+  app.post('/api/v1/chat/:id/join', (c) => c.json(chats.join(me(c), c.req.param('id'))));
+  app.post('/api/v1/chat/:id/members', async (c) => c.json(chats.add(me(c), c.req.param('id'), (await json(c)).accounts)));
+  app.delete('/api/v1/chat/:id/members/:account', (c) => {
+    chats.leave(me(c), c.req.param('id'), c.req.param('account'));
+    return c.body(null, 204);
+  });
+  app.patch('/api/v1/chat/:id/me', async (c) => c.json(chats.setMine(me(c), c.req.param('id'), await json(c))));
+  app.post('/api/v1/chat/:id/read', async (c) => c.json(chats.read(me(c), c.req.param('id'), (await json(c)).seq)));
 
   // ---------- agents: the MCP door and its sign-in ----------
 

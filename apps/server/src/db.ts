@@ -1,8 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 
 // The server's list of what it keeps: accounts and their devices, spaces and who is in them,
-// invites, and every file of every space with its versions. A file's content is not here but in
-// the blobs beside it, by its digest. See design/server.md, section 4.
+// invites, every file of every space with its versions, and the messages (design/chat.md). A
+// file's content is not here but in the blobs beside it, by its digest. See design/server.md, section 4.
 
 export type Db = DatabaseSync;
 
@@ -139,6 +139,93 @@ const MIGRATIONS: string[] = [
     created_at INTEGER NOT NULL,
     UNIQUE (account_id, client_id)
   );
+  `,
+  // Messaging (design/chat.md, 11.1): the conversations, a space's rooms and the server's direct
+  // messages; who is in each and how far they read; the messages with their files, mentions and
+  // reactions; and what each person uploaded, which only they attach. Every change takes the
+  // next number of the chat's own count, `chat_rev`, which a device asks what changed after.
+  `
+  CREATE TABLE chats (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('public', 'private', 'direct')),
+    space_id TEXT REFERENCES spaces (id),
+    name TEXT NOT NULL DEFAULT '',
+    topic TEXT NOT NULL DEFAULT '',
+    general INTEGER NOT NULL DEFAULT 0,
+    direct_key TEXT UNIQUE,
+    created_by TEXT NOT NULL REFERENCES accounts (id),
+    created_at INTEGER NOT NULL,
+    archived_at INTEGER,
+    last_seq INTEGER NOT NULL DEFAULT 0,
+    rev INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX chats_name ON chats (space_id, name COLLATE NOCASE) WHERE kind <> 'direct';
+  CREATE UNIQUE INDEX chats_general ON chats (space_id) WHERE general = 1;
+  CREATE TABLE chat_members (
+    chat_id TEXT NOT NULL REFERENCES chats (id),
+    account_id TEXT NOT NULL REFERENCES accounts (id),
+    added_by TEXT,
+    joined_at INTEGER NOT NULL,
+    left_at INTEGER,
+    read_seq INTEGER NOT NULL DEFAULT 0,
+    notify TEXT CHECK (notify IN ('all', 'mentions', 'off')),
+    hidden INTEGER NOT NULL DEFAULT 0,
+    rev INTEGER NOT NULL,
+    PRIMARY KEY (chat_id, account_id)
+  );
+  CREATE INDEX chat_members_account ON chat_members (account_id);
+  CREATE TABLE messages (
+    id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL REFERENCES chats (id),
+    seq INTEGER NOT NULL,
+    author_id TEXT NOT NULL REFERENCES accounts (id),
+    agent_id TEXT,
+    body TEXT NOT NULL DEFAULT '',
+    mentions_room INTEGER NOT NULL DEFAULT 0,
+    reply_to TEXT,
+    forward_of TEXT,
+    forward_from TEXT,
+    created_at INTEGER NOT NULL,
+    edited_at INTEGER,
+    deleted_at INTEGER,
+    rev INTEGER NOT NULL,
+    UNIQUE (chat_id, seq)
+  );
+  CREATE INDEX messages_rev ON messages (rev);
+  CREATE TABLE message_files (
+    message_id TEXT NOT NULL REFERENCES messages (id),
+    n INTEGER NOT NULL,
+    hash TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    type TEXT NOT NULL DEFAULT '',
+    size INTEGER NOT NULL,
+    width INTEGER,
+    height INTEGER,
+    duration REAL,
+    thumb TEXT,
+    PRIMARY KEY (message_id, n)
+  );
+  CREATE INDEX message_files_hash ON message_files (hash);
+  CREATE INDEX message_files_thumb ON message_files (thumb);
+  CREATE TABLE mentions (
+    message_id TEXT NOT NULL REFERENCES messages (id),
+    account_id TEXT NOT NULL,
+    PRIMARY KEY (message_id, account_id)
+  );
+  CREATE TABLE reactions (
+    message_id TEXT NOT NULL REFERENCES messages (id),
+    account_id TEXT NOT NULL,
+    emoji TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    PRIMARY KEY (message_id, account_id, emoji)
+  );
+  CREATE TABLE chat_uploads (
+    hash TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    PRIMARY KEY (hash, account_id)
+  );
+  INSERT INTO meta (key, value) VALUES ('chat_rev', '0');
   `,
 ];
 
