@@ -25,7 +25,7 @@ Verilen kararlar (20 Ekim 2026):
 - Sayı biçimi cihazın dil ve bölge ayarına göredir (4.6).
 - Para birimini kaydın bir alanından okuyan sütunda tablo ve grup toplamı para birimine göre ayrılır; rollup ve formülde v1'de para birimi alan başınadır (4.6).
 - Bu iş 13. aşamanın (Dropbox, S3, GitHub) önüne girer.
-- Finans ayrı bir space olmaz, space'ler arası link de gerekmez. Bölümler space'in içinde yetkiyle ayrılır; bu, sunucuda klasöre göre yetkiyle gelir (PLAN, Sonraya kalanlar).
+- Finans ayrı bir space olmaz, space'ler arası link de gerekmez. Bölümler space'in içinde yetkiyle ayrılır; bu, sunucuda klasöre göre yetkiyle gelir (PLAN 20. aşama, `design/permissions.md`).
 
 20 Ekim 2026'da, 1. dilimin mockup'ıyla verilen kararlar:
 - Bağlanan bir kayıt yokken `sum` 0 verir; `avg`, `max` ve `min` boş kalır. Yeni bir projenin kalanı böylece bütçenin kendisidir (4.4).

@@ -6,7 +6,7 @@
 
 **Bu aşamada:** ekibin kendi makinesine kurduğu bir Docker sunucusu; space'ler orada durur; istemci ona sync motoruyla, OneDrive'ın yanında bir sağlayıcı olarak bağlanır; bir kişinin değişikliği diğerine bir iki saniyede geçer; hesap, cihaz anahtarı, davet linki; kurulum rehberi, yedek ve güncelleme.
 
-**Sonra:** ince yetkiler (salt okunur üye, klasöre göre yetki), SSO, otomasyon, zamanlanmış ajan koşuları, "şu an düzenliyor" göstergesi, sunucudaki sürüm geçmişinin ekranı ve notta "son yazan kazanır + şerit", Postgres, SSO, lisans, link ile paylaşma, CRDT. 12. aşamadaki ajan (MCP) bu API'nin üstüne kurulur.
+**Sonra:** ince yetkiler (klasöre göre yetki, `design/permissions.md`), SSO, otomasyon, zamanlanmış ajan koşuları, "şu an düzenliyor" göstergesi, sunucudaki sürüm geçmişinin ekranı ve notta "son yazan kazanır + şerit", Postgres, SSO, lisans, link ile paylaşma, CRDT. 12. aşamadaki ajan (MCP) bu API'nin üstüne kurulur.
 
 ## 2. Genel yapı
 
