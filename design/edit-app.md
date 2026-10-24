@@ -36,16 +36,17 @@ Bir cevap değişince yeni cevapla kurulacak olanla bugün kurulu olan karşıla
 - **Pencere:** sihirbazın kendisi, başlığı "Edit Spare parts".
   - Adımlar: kurulu her şablonun soru sayfası, sonra **Changes**. Şablonlar adımı yok, şablon eklemek Add to app'in işi.
   - App başına sorulanlardan yalnız para birimleri değişir: eklenir, ana para birimi değişir. Ad klasörün adıdır, Rename ile değişir.
-- **Sorular:** bugünkü cevaplarla gelir. Değiştirilen sorunun yanında küçük bir nokta görünür. Başka şablona bağlı soru bugünkü gibi nedeniyle gelir.
-- **Changes sayfası:** Add to app'in özeti gibi, üç bölüm:
+- **Sorular:** bugünkü cevaplarla gelir. Değiştirilen sorunun başında küçük bir nokta, yanında eski cevabı ("was Yes") görünür. Liste cevabında yeniden adlanan öğe eski adını ("was Proposal"), eklenen "new" der; kaldırılan üstü çizili kalır, **Put back** ile döner; sorunun yanında kaç değişiklik olduğu ("3 changes"). Başka şablona bağlı soru bugünkü gibi nedeniyle gelir.
+- **Changes sayfası:** Add to app'in özeti gibi, en çok dört bölüm; yalnız dolu olanlar görünür:
   - **Added:** eklenecekler.
-  - **Taken off:** kaldırılacak ayarlar.
-  - **Kept:** kalan veri ve kişinin değiştirdiği ayarlar, nedeniyle.
+  - **Changed:** yerinde değişenler: yeniden adlanan sütun ve kartları, tanıtım notunun bölümü.
+  - **Taken off:** kaldırılacak ayarlar, ne olacağıyla ("Today, Upcoming and Overdue no longer show a program's days").
+  - **Kept:** kalan veri ve kişinin değiştirdiği ayarlar, nedeniyle ve ne yapılabileceğiyle.
 
   En altta "Records are never deleted." yazar. Hiçbir cevap değişmediyse sayfa "Nothing changes" der ve Save kapalıdır.
 - **Save:** bir kerede yazar. Toast'ta "Gym: 1 view taken off, 2 fields kept" ve Undo.
 - **Tanıtım notu:** değişen şablonun bölümü yeni cevaplarla yeniden yazılır. Kişi o bölümü değiştirdiyse dokunulmaz, özet söyler.
-- **Mockup:** pencere ve Changes sayfası, masaüstü ve telefon; koddan önce.
+- **Mockup:** `design/mockups.html`, "Edit app" bölümü: klasörün menüsü, CRM'de aşamalar ve Changes, Gym'de program günleri ve Changes, değişen yok, Undo, telefon.
 
 ## 4. Teknik tasarım
 
@@ -64,7 +65,7 @@ Bir cevap değişince yeni cevapla kurulacak olanla bugün kurulu olan karşıla
 
 ### 4.2 Web ve masaüstü
 
-- `AppWizard.tsx`'e üçüncü kip: `editing?: AppFile`. Adımlar kurulu şablonlar ve Changes. `EditSummary` Add to app'in `AddSummary`'sinin üç bölümlü hâli.
+- `AppWizard.tsx`'e üçüncü kip: `editing?: AppFile`. Adımlar kurulu şablonlar ve Changes. `EditSummary` Add to app'in `AddSummary`'sinin dört bölümlü hâli.
 - **Oturum:** `planEditApp`, `installEditApp`; ağacı yeniden okur, Undo verir.
 - **Telefonda** sheet, bugünkü sihirbaz gibi.
 

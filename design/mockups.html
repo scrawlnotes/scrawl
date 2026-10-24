@@ -3838,6 +3838,24 @@ p { margin: 0; max-width: 68ch; }
 .c3-rec .meta .late { color: var(--m-p1); }
 .cal-t.gy-plan { background: none; box-shadow: inset 0 0 0 1px var(--m-line); color: var(--m-dim); }
 .gy-mt .skip { color: var(--m-dim); font-size: 13px; }
+/* Edit app (stage 21, slice 1): a changed answer marked with what it was; Changes in up to four parts. */
+.na-q > .ql .ea-dot { display: inline-block; width: 6px; height: 6px; margin: 0 7px 1px 0; border-radius: 50%; background: var(--m-accent); vertical-align: middle; }
+.na-q > .ql .ea-was { margin-left: 8px; color: var(--m-faint); font-size: 11.5px; font-weight: 400; }
+.na-list .it.ea-new { border-color: color-mix(in srgb, var(--m-accent) 55%, var(--m-line)); }
+.na-list .it.ea-new small, .na-list .it.ea-ren small { color: var(--m-accent); }
+.na-list .it.ea-gone { border-style: dashed; background: none; }
+.na-list .it.ea-gone .t { color: var(--m-faint); text-decoration: line-through; }
+.na-list .it.ea-gone .put { color: var(--m-accent); font-size: 11.5px; }
+.aa-sum.ea { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.aa-sum.ea .col.ea-one { grid-column: 1 / -1; }
+.aa-sum .pc.ea-off { color: var(--m-dim); }
+.aa-sum .pc.ea-off small { color: var(--m-dim); }
+.aa-sum .pc.ea-kept small { color: var(--m-dim); }
+.aa-sum .col .ea-why { margin: 2px 0 4px 19px; color: var(--m-faint); font-size: 11.5px; line-height: 1.45; }
+.ea-none { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 200px; border: 1px dashed var(--m-line); border-radius: 8px; color: var(--m-faint); font-size: 12.5px; text-align: center; }
+.ea-none b { color: var(--m-dim); font-size: 13.5px; font-weight: 500; }
+.na-mq .ea-mwas { display: block; margin: -4px 4px 8px; color: var(--m-accent); font-size: 13px; }
+.na-mrow.ea-head { min-height: 0; padding: 10px 14px 4px; color: var(--m-faint); font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; border-bottom: 0; }
 .gy-mt .late { color: var(--m-p1); }
 </style>
 
@@ -4648,6 +4666,28 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-gyview="gyex">Exercises</button>
         <button type="button" data-gyview="gyone">Bir hareket</button>
         <button type="button" data-gyview="gyphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="editapp">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · 21. AŞAMA · 1. DİLİM</span>
+        <h2>Edit app</h2>
+        <p>Kurulu bir app'in cevapları sonradan değişir. App klasörünün ··· menüsünde Add to app…'in altında <b>Edit app…</b>. Sihirbaz kurulu her şablonun soru sayfasıyla açılır; cevaplar bugünkü hâliyle gelir, değişen sorunun başında nokta ve eski cevabı. Liste cevaplarında yeniden adlanan öğe eski adını, eklenen "new" der; kaldırılan üstü çizili kalır, Put back ile döner. Son sayfa <b>Changes</b>: Added, Changed, Taken off, Kept; yalnız dolu olanlar. İlke: ayarlar gider, veri kalır. Kural, düğme ve görünüm kalkar; kayıt, alan, koleksiyon ve pano kalır; kişinin değiştirdiğine dokunulmaz. Save bir kerede yazar, toast'ta Undo. Hiçbir cevap değişmediyse "Nothing changes" ve Save soluk. Telefonda klasörün action sheet'inde, sihirbaz sheet. Teknik tasarım <code>design/edit-app.md</code>.</p>
+        <ul class="traits"><li>··· menüsünde Edit app…</li><li>kurulu şablonların soruları</li><li>bugünkü cevaplar</li><li>değişen soruda nokta ve eski cevap</li><li>Changes: Added, Changed, Taken off, Kept</li><li>ayarlar gider, veri kalır</li><li>Save ve Undo</li><li>telefonda sheet</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Edit app görünümü">
+        <button type="button" data-eaview="eamenu">Klasörün menüsü</button>
+        <button type="button" data-eaview="eacrm">CRM: aşamalar</button>
+        <button type="button" data-eaview="eacrmchanges">CRM: Changes</button>
+        <button type="button" data-eaview="eagym">Gym: program günleri</button>
+        <button type="button" data-eaview="eagymchanges">Gym: Changes</button>
+        <button type="button" data-eaview="eanone">Değişen yok</button>
+        <button type="button" data-eaview="eadone">Kaydedildi: Undo</button>
+        <button type="button" data-eaview="eaphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -14066,6 +14106,137 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderGy(sectionGy, b.dataset.gyview);
   });
   renderGy(sectionGy, 'gyask');
+
+  // Edit app (stage 21, slice 1, design/edit-app.md): an installed app's answers changed. The
+  // folder's ··· menu has Edit app… under Add to app…; the window asks each installed template's
+  // questions with today's answers, a changed one marked with what it was; its last page, Changes,
+  // says what is added, changed, taken off and kept. Settings go, data stays; Save, then Undo.
+  var EA_MORE = aaMenu('left: 196px; top: 168px', [
+    { icon: 'app', label: 'Add to app…' }, { icon: 'pen', label: 'Edit app…', hot: true }, '-',
+    { icon: 'bullets', label: 'Group by', value: 'Type ›' }, { icon: 'sort', label: 'Sort by', value: 'Name ›' }, { icon: 'undo', label: 'Reset to defaults' }, '-',
+    { icon: 'trash', label: 'Delete folder', red: true }]);
+  function eaWindow(name, steps, at, page, count, o) {
+    o = o || {};
+    var last = at === steps.length - 1;
+    return '<div class="ovl"><div class="mdlg na-dlg"><div class="na-top"><h3>Edit ' + name + '</h3><span class="x">×</span></div>' + aaSteps(at, steps) +
+      '<div class="na-page">' + page + '</div>' +
+      '<div class="foot"><span class="count">' + count + '</span>' + (at > 0 ? '<span class="st-btn">Back</span>' : '<span class="st-btn">Cancel</span>') +
+      '<span class="st-btn go' + (o.off ? ' off' : '') + '">' + (last ? 'Save' : 'Next') + '</span></div></div></div>';
+  }
+  /** A question as the edit asks it: today's answer; one changed has a dot and what it was. */
+  function eaQ(label, control, was, o) {
+    o = o || {};
+    var q = naQ((was ? '<i class="ea-dot"></i>' : '') + label + (was ? '<span class="ea-was">' + was + '</span>' : ''), control, o);
+    return q;
+  }
+  var EA_LEAD = '<p class="na-lead">Your answers as they are now. What a change does is shown on the last page, before anything is written.</p>';
+  var EA_CRM_STEPS = ['CRM', 'Sales and invoicing', 'Changes'];
+  /** CRM in Spare parts: deals still tracked; the stages: Proposal renamed Quote, Negotiation added, Meeting taken off. */
+  function eaCrm() {
+    var stages = '<div class="na-list">' + [
+      ['Lead', 'waiting'], ['Contacted'], ['Meeting', '', 'gone'], ['Quote', 'was Proposal', 'ren'], ['Negotiation', 'new', 'new'], ['Won', 'done'], ['Lost', 'dropped']
+    ].map(function (it) {
+      if (it[2] === 'gone') return '<span class="it ea-gone"><span class="gr">⋮⋮</span><span class="t">' + it[0] + '</span><span class="put">Put back</span></span>';
+      return '<span class="it' + (it[2] ? ' ea-' + it[2] : '') + '"><span class="gr">⋮⋮</span><span class="t">' + it[0] + '</span>' + (it[1] ? '<small>' + it[1] + '</small>' : '') + '<span class="x">×</span></span>';
+    }).join('') + '<span class="na-add">' + ICON.plus + 'Add a stage</span></div>';
+    var page = EA_LEAD + '<div class="na-qs">' +
+      eaQ('Who are your customers?', naRadio(['Companies and the people there', 'People only'], 0)) +
+      eaQ('Will you track deals?', naSeg(['Yes', 'No'], 'Yes')) +
+      eaQ('The stages of a deal', stages, '3 changes', { sub: true, help: 'The columns of the Deals board, in this order. A stage renamed keeps its deals; one taken off goes only if no deal is in it.' }) +
+      '</div>';
+    return eaWindow('Spare parts', EA_CRM_STEPS, 0, page, 'CRM · 1 answer changed');
+  }
+  function eaWhere(name, sub) { return '<div class="na-where">' + ICON.folder + '<b>' + name + '</b><small>' + sub + '</small></div>'; }
+  var EA_NEVER = '<div class="aa-kept">' + ICON.info + '<span><b>Records are never deleted.</b> Rules, buttons and views an answer brought go with it; collections, boards, fields and what is in them stay.</span></div>';
+  /** Spare parts' Changes: a column added, one renamed, one kept because deals are in it. */
+  function eaCrmChanges() {
+    var page = eaWhere('Spare parts', 'in Atlas Lifts · CRM, Sales and invoicing') + '<div class="aa-sum ea">' +
+      '<div class="col"><h4>Added</h4>' + aaPc('board', 'Deals', 'a Negotiation column', 'aa-add') + '</div>' +
+      '<div class="col"><h4>Changed</h4>' + aaPc('board', 'Deals', 'Proposal is now Quote; its 4 deals follow', 'aa-add') + aaPc('notes', 'About Spare parts', 'CRM’s section, with the new stages', 'aa-add') + '</div>' +
+      '<div class="col ea-one"><h4>Kept</h4>' + aaPc('board', 'Deals', 'the Meeting column', 'ea-kept') +
+      '<p class="ea-why">3 deals are in it. Move them to another stage and take the column off on the board, or put Meeting back.</p></div>' +
+      '</div>' + EA_NEVER;
+    return eaWindow('Spare parts', EA_CRM_STEPS, 2, page, '1 added, 2 changed, 1 kept');
+  }
+  var EA_GYM_STEPS = ['Gym', 'Changes'];
+  /** Gym: program days no longer tracked; each set as it was. */
+  function eaGym(phone) {
+    var page = EA_LEAD + '<div class="na-qs">' +
+      eaQ('Will you track your program days?', naSeg(['Yes', 'No'], 'No'), 'was Yes', { help: 'Yes: a program’s days come to Today and Upcoming, and one not written stays in Overdue.' }) +
+      eaQ('Will you track each set?', naSeg(['Yes', 'No'], 'No'), null, { help: 'No: a move is one line in a workout, 3 × 12 at 45 kg. Yes: each set is a line, with its own reps and weight.' }) +
+      '</div>';
+    return eaWindow('Gym', EA_GYM_STEPS, 0, page, 'Gym · 1 answer changed');
+  }
+  /** Gym's Changes: the view of program days taken off; the fields kept with what is in them. */
+  function eaGymChanges() {
+    var page = eaWhere('Gym', 'in Personal · Gym') + '<div class="aa-sum ea">' +
+      '<div class="col"><h4>Taken off</h4>' + aaPc('cal', 'Program days', 'Programs’ calendar view', 'ea-off') +
+      '<p class="ea-why">Today, Upcoming and Overdue no longer show a program’s days. Workouts are written as before.</p></div>' +
+      '<div class="col"><h4>Kept</h4>' + aaPc('collection', 'Programs', 'Days and From, with what is in them', 'ea-kept') +
+      '<p class="ea-why">Turn program days on again and they count from From.</p></div>' +
+      '<div class="col ea-one"><h4>Changed</h4>' + aaPc('notes', 'About Gym', 'its section, without program days', 'aa-add') + '</div>' +
+      '</div>' + EA_NEVER;
+    return eaWindow('Gym', EA_GYM_STEPS, 1, page, '1 taken off, 1 kept, 1 changed');
+  }
+  /** Every answer as it was: nothing to write. */
+  function eaNone() {
+    var page = eaWhere('Gym', 'in Personal · Gym') + '<div class="ea-none"><b>Nothing changes</b>Every answer is as it was. Go back to change one.</div>';
+    return eaWindow('Gym', EA_GYM_STEPS, 1, page, 'No answer changed', { off: true });
+  }
+  /** On a phone: Edit app in the folder's action sheet; Gym's question; its Changes. */
+  function eaPhone() {
+    var page = mbPage(mbNav('Personal', ['dots']) + mbHead('Gym', '6 items · App'), '<div>' +
+      [['notes', 'About Gym'], ['collection', 'Exercises'], ['collection', 'Program items'], ['collection', 'Programs'], ['collection', 'Workout items'], ['collection', 'Workouts']]
+        .map(function (p) { return mbRow({ icon: p[0], label: p[1] }); }).join('') + '</div>');
+    var menu = MB_DIM + mbActions('folder', 'Gym', 'App · Gym', [
+      [{ icon: 'app', label: 'Add to app' }, { icon: 'pen', label: 'Edit app' }],
+      [{ icon: 'notes', label: 'New note here' }, { icon: 'app', label: 'New app here' }, { icon: 'folder', label: 'New folder here' }],
+      [{ icon: 'sort', label: 'Sort by', on: 'Name' }],
+      [{ icon: 'trash', label: 'Delete folder', red: true }]]);
+    function sheet(back, next, at, body) {
+      return MB_DIM + '<div class="mb-sheet na-sheet"><span class="grab"></span><div class="mb-sh three"><span class="cancel">' + (back === 'Cancel' ? 'Cancel' : ICON.chevl + back) + '</span><b>Edit Gym</b><span class="ok">' + next + '</span></div>' +
+        '<div class="na-msteps">' + [0, 1].map(function (i) { return '<i' + (i <= at ? ' class="on"' : '') + '></i>'; }).join('') + '</div><div class="na-mbody">' + body + '</div></div>';
+    }
+    var ask = sheet('Cancel', 'Next', 0,
+      '<div class="na-mq"><span class="ql">Will you track your program days?</span><span class="ea-mwas">Was Yes</span><span class="na-mseg"><span>Yes</span><span class="on">No</span></span></div>' +
+      '<div class="na-mq"><span class="ql">Will you track each set?</span><span class="na-mseg"><span>Yes</span><span class="on">No</span></span></div>');
+    var changes = sheet('Gym', '', 1,
+      '<div class="na-mgroup"><div class="na-mrow ea-head">Taken off</div><div class="na-mrow">Program days<small>view; not in Today</small></div></div>' +
+      '<div class="na-mgroup" style="margin-top: 10px"><div class="na-mrow ea-head">Kept</div><div class="na-mrow">Programs<small>Days and From</small></div></div>' +
+      '<div class="na-mgroup" style="margin-top: 10px"><div class="na-mrow ea-head">Changed</div><div class="na-mrow">About Gym<small>its section</small></div></div>' +
+      '<p class="na-help" style="margin: 8px 4px 14px; font-size: 13px">Records are never deleted.</p><span class="na-mbtn">Save</span>');
+    return mbPhone('Klasörün menüsünde Edit app', page, mbTabs('browse') + menu) + mbPhone('Değişen soru: eski cevabı', page, mbTabs('browse') + ask) +
+      mbPhone('Changes ve Save', page, mbTabs('browse') + changes);
+  }
+  var EA_VIEWS = {
+    eamenu: function () { return aaApp(EA_MORE, { hot: true }); },
+    eacrm: function () { return aaApp(eaCrm()); },
+    eacrmchanges: function () { return aaApp(eaCrmChanges()); },
+    eagym: function () { return gyApp('programs', gyPrograms(), eaGym(), '1 record'); },
+    eagymchanges: function () { return gyApp('programs', gyPrograms(), eaGymChanges(), '1 record'); },
+    eanone: function () { return gyApp('programs', gyPrograms(), eaNone(), '1 record'); },
+    eadone: function () { return gyApp('programs', gyPrograms(), '<div class="cd-toast">Gym: 1 view taken off, 1 kept, 1 changed<span class="undo">Undo</span></div>', '1 record'); }
+  };
+  function renderEa(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'eaphone') {
+      mock.className = 'mock dir-a phones mbs';
+      mock.innerHTML = eaPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = EA_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-eaview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.eaview === view));
+    });
+  }
+  var sectionEa = document.querySelector('.dir[data-dir="editapp"]');
+  sectionEa.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-eaview]');
+    if (b) renderEa(sectionEa, b.dataset.eaview);
+  });
+  renderEa(sectionEa, 'eamenu');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
