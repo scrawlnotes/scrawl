@@ -562,3 +562,21 @@ Kodda netleşenler:
 - **Leave room:** private room'da önce sorar ("Leave #founders?"), public'te sormaz; general'da ve DM'de yoktur. DM'de yerinde Hide vardır.
 - **Archive room:** önce sorar. Arşivlenen room listeden kalkar ama arşivleyende açık kalır, okunur, yazılmaz. Arşivli room'un Info'sunda Unarchive room vardır (tasarımda yoktu; yanlışlıkla arşivleneni geri almak için eklendi), About'ta ne zaman arşivlendiği yazar.
 - **Grup DM** yerelde üç kişi olmadığı için tarayıcıda denenmedi; sunucusu 1. dilimin testlerinde.
+
+## 21. Yazılırken: 5. dilim (Telefon)
+
+24 Ekim. Kodda: `PhoneChat.tsx` (liste, konuşma sayfası, Info sayfası ve bölümleri), `Phone.tsx` (beşinci sekme, sayfalar, + ve rozet), `Chat.tsx` (konuşmanın telefon kipi: üst çubuk, basılı tutma, sağa çekerek cevap, telefonun yazma kutusu, basılı tutarak ses kaydı), `ChatRooms.tsx` (Info'nun işleri `useChatInfo` ve `InfoBody` olarak bilgisayar penceresiyle telefon sayfasında ortak), `ChatParts.tsx` (kayıt çubuğu başlamış bir kaydı da alır), `App.tsx`, `phone.css` ve metinler. Tarayıcıda telefon boyutunda (Android kimliğiyle) iki kişiyle denendi: liste, konuşma, basılı tutup tepki, sağa çekip cevap, Send, + menüsü, basılı tutarak kayıt (bırakınca gider, sola çekince vazgeçer, yukarı çekince kilitlenir, kısa dokunuş uyarır), Info ve bölümleri, bölümden mesaja dönüş, FAB, Browse rooms ve Forward sheet'leri, mesajın içindeki mesaj linki, sekmedeki rozet.
+
+Kodda netleşenler:
+
+- **Sekme:** sunucu Chat veriyorsa beşinci sekme Chat'tir; rozeti bildirim veren okunmamışların sayısıdır (99'dan sonra 99+). Bilgisayarda açılmış Chat sekmesi telefonda Recent'te öğe olarak görünmez.
+- **Liste:** önce her space'in room'ları ada göre, sonra Direct (en yeni üstte), arşivliler ve gizliler yok. Satırda son mesaj: "Kaan: …", kendininki "You: …", iki kişilik DM'de yalnız metin, taslak varsa "Draft: …" (vurgulu). Dosya için "Photo", "Video", "Voice message · 0:14" ya da dosyanın adı. Saat bugünse saat, bu hafta gün kısaltması, öncesi tarih. Bildirim veren okunmamış varsa sayı rozeti, Off'ta zil işareti.
+- **+ (FAB):** listede New message, New room, Browse rooms (birden çok sunucuda her biri sunucusuyla). Tasarımda New message ve New room vardı; telefonda public room'a katılmanın başka yolu olmadığı için Browse rooms da eklendi. Pencereler telefonda sheet olarak açılır.
+- **Konuşma sayfası:** altında tab bar yoktur; yazma kutusu oradadır. Üst çubukta geri, ortada ad ve kişi sayısı (DM'de Active), sağda ⓘ; ada dokunmak da Info'yu açar.
+- **Basılı tutmak:** mesaj 450 ms sonra öne çıkar, cihaz titreşimi destekliyorsa kısa titrer. Üstte altı tepki ve + (tam liste), altta Reply, Forward, Copy text, Copy link, To task, To card, (kendininkinde) Edit ve Delete. Parmağı kaldırınca gelen dokunuş altındakini açmaz. Mesajlarda yazı seçilmez; kopyalamak Copy text'le.
+- **Sağa çekmek:** 56 pikselden sonra bırakınca cevaplar; çekilirken solda cevap oku belirir. Yukarı aşağı kaydırma çekmeyi bırakır.
+- **Yazma kutusu:** solda + (Photo library, Camera, File…), ortada yazı, sağda yazı ya da ek varken Send, yokken mikrofon. Return alt satıra geçer. Mention listesi bilgisayardaki gibi; Aa, @ ve emoji düğmeleri yoktur (klavyede var). Not, görev ve kart çipi telefonda eklenmez (+ menüsü tasarımdaki gibi).
+- **Basılı tutarak ses kaydı:** kırmızı nokta, süre, "Slide to cancel" ve parmağın altında büyük mikrofon; üstte kilit. 110 piksel sola çekmek vazgeçer, 80 piksel yukarı çekmek kilitler ve bilgisayardaki kayıt çubuğu (Cancel, Send) açılır; bırakınca gider. 0,6 saniyeden kısa dokunuş göndermez, "Hold to record a voice message" der.
+- **Info sayfası:** taslaktaki gibi; room'da About satırı da var (ad ve konu, açan ve yöneticiler değiştirir). People, About, Media (See all), Files, Voice ve Links birer sayfa açar; bölümlerde kimin ne zaman paylaştığına dokunmak konuşmaya, o mesaja döner. Leave room kırmızı ve en altta.
+- **Mesaj linki:** bir notta ya da açıklamada Chat sekmesini o konuşmada, mesajda açar; bir mesajın içindeki mesaj linki yeni konuşmayı öncekinin üstüne açar.
+- **Denenmeyen:** öykünmede Return tuşu Android kimliği yüzünden editöre ulaşmadı (CodeMirror Enter'ı orada klavyenin kendi girişinden alır); gerçek telefonda denenecek. Gerçek mikrofon, kamera ve dokunmatik hareketler iPhone'da denenecek.

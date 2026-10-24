@@ -2743,4 +2743,14 @@ export const en = {
   'chat.unarchiveRoom': 'Unarchive room',
   'chat.archiveTitle': 'Archive {name}?',
   'chat.archiveText': 'It is read, not written. It leaves the list and stays in Browse rooms under Archived.',
+  // On a phone (design/chat.md, 8.2).
+  'chat.photoLibrary': 'Photo library',
+  'chat.camera': 'Camera',
+  'chat.fileDots': 'File…',
+  'chat.holdToRecord': 'Hold to record a voice message',
+  'chat.slideToCancel': 'Slide to cancel',
+  'chat.draftLine': 'Draft: {text}',
+  'chat.youLine': 'You: {text}',
+  'chat.notifications': 'Notifications',
+  'chat.seeAll': 'See all',
 } as const;

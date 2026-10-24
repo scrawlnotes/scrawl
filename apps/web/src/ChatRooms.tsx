@@ -1,6 +1,6 @@
 import { type ChatFile, type ChatInfo, type ChatNotify, type ChatPerson, type ChatShared, ServerError } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { AudioPlayer, FileRow, isAudio, isImage, isVideo, Lightbox, useFileUrl } from './ChatParts';
 import { Face, leadOf, shortDay, titleOf } from './ChatFaces';
 import { clock } from './chatMedia';
@@ -347,26 +347,12 @@ function monthOf(at: number): string {
 }
 
 /**
- * A conversation's Info window (design/chat.md, 8.1): About with its name and topic, which
- * whoever opened it and the space's managers change; People; what was shared in it, each going to
- * its message; and at its foot what it tells this person, Export…, Leave room or Hide, Archive room.
+ * What a conversation's Info shows and does, on a computer's window and a phone's page alike:
+ * what was shared in it, what it tells this person, Export…, Leave room, Hide and Archive room,
+ * each asked first where it should be.
  */
-export function ChatInfoDialog({ server, chat, tab: first, nameOf, menu, onJump, onLeft, say, onClose }: {
-  server: ChatServer;
-  chat: ChatInfo;
-  tab: InfoTab;
-  nameOf: (id: string) => string;
-  menu: (event: MouseEvent, items: MenuItem[]) => void;
-  /** Goes to a message in the conversation, the window closed. */
-  onJump: (message: string) => void;
-  /** The conversation is off the list: left, hidden or archived. */
-  onLeft: () => void;
-  say: (text: string) => void;
-  onClose: () => void;
-}) {
+export function useChatInfo({ server, chat, say, onLeft, onClose }: { server: ChatServer; chat: ChatInfo; say: (text: string) => void; onLeft: () => void; onClose: () => void }) {
   const one = store.server(server.url)!;
-  const direct = chat.kind === 'direct';
-  const [tab, setTab] = useState<InfoTab>(direct && first === 'about' ? 'people' : first);
   const [shared, setShared] = useState<ChatShared | null>(null);
   const [asking, setAsking] = useState<'leave' | 'archive' | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -380,29 +366,6 @@ export function ChatInfoDialog({ server, chat, tab: first, nameOf, menu, onJump,
       live = false;
     };
   }, [chat.id, chat.lastSeq]);
-  const media = shared?.files.filter((each) => isImage(each.file) || isVideo(each.file)) ?? [];
-  const files = shared?.files.filter((each) => !isImage(each.file) && !isVideo(each.file) && !isAudio(each.file)) ?? [];
-  const voice = shared?.files.filter((each) => isAudio(each.file)) ?? [];
-  const links = shared?.links ?? [];
-  const count = (n: number) => (shared ? <small>{n}</small> : null);
-  const tabs: { id: InfoTab; label: string; n?: number }[] = [
-    ...(direct ? [] : [{ id: 'about' as const, label: t('chat.about') }]),
-    { id: 'people', label: t('chat.people'), n: chat.members.length },
-    { id: 'media', label: t('chat.media'), n: media.length },
-    { id: 'files', label: t('chat.files'), n: files.length },
-    { id: 'voice', label: t('chat.voiceTab'), n: voice.length },
-    { id: 'links', label: t('chat.links'), n: links.length },
-  ];
-
-  const notifyMenu = (event: MouseEvent) =>
-    menu(
-      event,
-      NOTIFY.map((each) => ({
-        label: t(`chat.notify.${each}`),
-        checked: chat.notify === each,
-        run: () => void one.notify(chat.id, each).catch(() => say(t('chat.notChanged'))),
-      })),
-    );
   const exportIt = async () => {
     setExporting(true);
     try {
@@ -441,13 +404,128 @@ export function ChatInfoDialog({ server, chat, tab: first, nameOf, menu, onJump,
       say(t('chat.notChanged'));
     }
   };
+  const notifyItems = (): MenuItem[] =>
+    NOTIFY.map((each) => ({
+      label: t(`chat.notify.${each}`),
+      checked: chat.notify === each,
+      run: () => void one.notify(chat.id, each).catch(() => say(t('chat.notChanged'))),
+    }));
+  return {
+    shared,
+    media: shared?.files.filter((each) => isImage(each.file) || isVideo(each.file)) ?? [],
+    files: shared?.files.filter((each) => !isImage(each.file) && !isVideo(each.file) && !isAudio(each.file)) ?? [],
+    voice: shared?.files.filter((each) => isAudio(each.file)) ?? [],
+    links: shared?.links ?? [],
+    exporting,
+    exportIt,
+    hide,
+    /** Leave room: a private room asks first, as a room one is brought back into by someone in it. */
+    askLeave: () => (chat.kind === 'private' ? setAsking('leave') : void leave()),
+    /** Archive room asks first; Unarchive room does not. */
+    askArchive: () => (chat.archived === null ? setAsking('archive') : void archive(false)),
+    notifyItems,
+    canLeave: chat.kind !== 'direct' && chat.joined && !chat.general,
+    canArchive: chat.kind !== 'direct' && !chat.general && chat.manage === true,
+    asking: (
+      <>
+        {asking === 'leave' && (
+          <ConfirmDialog title={t('chat.leaveTitle', { name: `#${chat.name}` })} message={t('chat.leaveText')} action={t('chat.leaveRoom')} danger onConfirm={() => void leave()} onClose={() => setAsking(null)} />
+        )}
+        {asking === 'archive' && (
+          <ConfirmDialog title={t('chat.archiveTitle', { name: `#${chat.name}` })} message={t('chat.archiveText')} action={t('chat.archiveRoom')} onConfirm={() => void archive(true)} onClose={() => setAsking(null)} />
+        )}
+      </>
+    ),
+  };
+}
+
+export type ChatInfoState = ReturnType<typeof useChatInfo>;
+
+/** One part of a conversation's Info: its About, its people, or what was shared in it. */
+export function InfoBody({ server, chat, tab, info, nameOf, say, onJump }: {
+  server: ChatServer;
+  chat: ChatInfo;
+  tab: InfoTab;
+  info: ChatInfoState;
+  nameOf: (id: string) => string;
+  say: (text: string) => void;
+  onJump: (message: string) => void;
+}) {
+  const { shared, media, files, voice, links } = info;
   /** Who shared it and when: it goes to the message. */
   const from = (item: { message: string; author: string; at: number }) => (
     <button type="button" className="from" title={t('chat.showInChat')} onClick={() => onJump(item.message)}>
       {nameOf(item.author)} · {shortDay(item.at)}
     </button>
   );
+  const loading = <p className="ch-none">{t('chat.loading')}</p>;
+  if (tab === 'about') return <About server={server} chat={chat} nameOf={nameOf} say={say} />;
+  if (tab === 'people') return <People server={server} chat={chat} say={say} />;
+  if (!shared) return loading;
+  if (tab === 'media') return <Media url={server.url} items={media} onJump={onJump} />;
+  if (tab === 'files') {
+    if (!files.length) return <p className="ch-none">{t('chat.noFiles')}</p>;
+    return files.map((each, i) => (
+      <div key={`${each.message}${i}`} className="ch-shared-row">
+        <FileRow url={server.url} file={each.file} />
+        {from(each)}
+      </div>
+    ));
+  }
+  if (tab === 'voice') {
+    if (!voice.length) return <p className="ch-none">{t('chat.noVoice')}</p>;
+    return voice.map((each, i) => (
+      <div key={`${each.message}${i}`} className="ch-shared-row">
+        <AudioPlayer url={server.url} file={each.file} />
+        {from(each)}
+      </div>
+    ));
+  }
+  if (!links.length) return <p className="ch-none">{t('chat.noLinks')}</p>;
+  return links.map((each, i) => (
+    <div key={`${each.message}${i}`} className="ch-shared-row">
+      <a className="ch-link" href={each.url} target="_blank" rel="noopener noreferrer">
+        <Icon name="link" />
+        <span className="tx">
+          <b>{each.text}</b>
+          {each.text !== each.url && <small>{each.url}</small>}
+        </span>
+      </a>
+      {from(each)}
+    </div>
+  ));
+}
 
+/**
+ * A conversation's Info window (design/chat.md, 8.1): About with its name and topic, which
+ * whoever opened it and the space's managers change; People; what was shared in it, each going to
+ * its message; and at its foot what it tells this person, Export…, Leave room or Hide, Archive room.
+ */
+export function ChatInfoDialog({ server, chat, tab: first, nameOf, menu, onJump, onLeft, say, onClose }: {
+  server: ChatServer;
+  chat: ChatInfo;
+  tab: InfoTab;
+  nameOf: (id: string) => string;
+  menu: (event: MouseEvent, items: MenuItem[]) => void;
+  /** Goes to a message in the conversation, the window closed. */
+  onJump: (message: string) => void;
+  /** The conversation is off the list: left, hidden or archived. */
+  onLeft: () => void;
+  say: (text: string) => void;
+  onClose: () => void;
+}) {
+  const direct = chat.kind === 'direct';
+  const [tab, setTab] = useState<InfoTab>(direct && first === 'about' ? 'people' : first);
+  const info = useChatInfo({ server, chat, say, onLeft, onClose });
+  const count = (n: number) => (info.shared ? <small>{n}</small> : null);
+  const tabs: { id: InfoTab; label: string; n?: ReactNode }[] = [
+    ...(direct ? [] : [{ id: 'about' as const, label: t('chat.about') }]),
+    { id: 'people', label: t('chat.people'), n: <small>{chat.members.length}</small> },
+    { id: 'media', label: t('chat.media'), n: count(info.media.length) },
+    { id: 'files', label: t('chat.files'), n: count(info.files.length) },
+    { id: 'voice', label: t('chat.voiceTab'), n: count(info.voice.length) },
+    { id: 'links', label: t('chat.links'), n: count(info.links.length) },
+  ];
   return (
     <>
       <Dialog label={titleOf(chat, server.me)} className="ch-info" onClose={onClose}>
@@ -463,91 +541,43 @@ export function ChatInfoDialog({ server, chat, tab: first, nameOf, menu, onJump,
           {tabs.map((each) => (
             <button type="button" role="tab" aria-selected={tab === each.id} key={each.id} className={tab === each.id ? 'on' : ''} onClick={() => setTab(each.id)}>
               {each.label}
-              {each.n !== undefined && (each.id === 'people' ? <small>{each.n}</small> : count(each.n))}
+              {each.n}
             </button>
           ))}
         </div>
         <div className="ch-info-body">
-          {tab === 'about' && <About server={server} chat={chat} nameOf={nameOf} say={say} />}
-          {tab === 'people' && <People server={server} chat={chat} say={say} />}
-          {tab === 'media' && (shared ? <Media url={server.url} items={media} onJump={onJump} /> : <p className="ch-none">{t('chat.loading')}</p>)}
-          {tab === 'files' &&
-            (files.length ? (
-              files.map((each, i) => (
-                <div key={`${each.message}${i}`} className="ch-shared-row">
-                  <FileRow url={server.url} file={each.file} />
-                  {from(each)}
-                </div>
-              ))
-            ) : (
-              <p className="ch-none">{shared ? t('chat.noFiles') : t('chat.loading')}</p>
-            ))}
-          {tab === 'voice' &&
-            (voice.length ? (
-              voice.map((each, i) => (
-                <div key={`${each.message}${i}`} className="ch-shared-row">
-                  <AudioPlayer url={server.url} file={each.file} />
-                  {from(each)}
-                </div>
-              ))
-            ) : (
-              <p className="ch-none">{shared ? t('chat.noVoice') : t('chat.loading')}</p>
-            ))}
-          {tab === 'links' &&
-            (links.length ? (
-              links.map((each, i) => (
-                <div key={`${each.message}${i}`} className="ch-shared-row">
-                  <a className="ch-link" href={each.url} target="_blank" rel="noopener noreferrer">
-                    <Icon name="link" />
-                    <span className="tx">
-                      <b>{each.text}</b>
-                      {each.text !== each.url && <small>{each.url}</small>}
-                    </span>
-                  </a>
-                  {from(each)}
-                </div>
-              ))
-            ) : (
-              <p className="ch-none">{shared ? t('chat.noLinks') : t('chat.loading')}</p>
-            ))}
+          <InfoBody server={server} chat={chat} tab={tab} info={info} nameOf={nameOf} say={say} onJump={onJump} />
         </div>
         <div className="ch-info-foot">
           {chat.joined && (
-            <button type="button" className="ch-nsel" onClick={notifyMenu}>
+            <button type="button" className="ch-nsel" onClick={(event) => menu(event, info.notifyItems())}>
               <Icon name={chat.notify === 'off' ? 'bellOff' : 'bell'} />
               {t(`chat.notify.${chat.notify}`)}
               <Icon name="chevron" />
             </button>
           )}
           <span className="gap" />
-          <button type="button" className="st-btn" disabled={exporting} onClick={() => void exportIt()}>
-            {exporting ? t('chat.exporting') : t('chat.export')}
+          <button type="button" className="st-btn" disabled={info.exporting} onClick={() => void info.exportIt()}>
+            {info.exporting ? t('chat.exporting') : t('chat.export')}
           </button>
-          {direct ? (
-            <button type="button" className="st-btn" onClick={() => void hide()}>
+          {direct && (
+            <button type="button" className="st-btn" onClick={() => void info.hide()}>
               {t('chat.hide')}
             </button>
-          ) : (
-            chat.joined &&
-            !chat.general && (
-              <button type="button" className="st-btn" onClick={() => (chat.kind === 'private' ? setAsking('leave') : void leave())}>
-                {t('chat.leaveRoom')}
-              </button>
-            )
           )}
-          {!direct && !chat.general && chat.manage && (
-            <button type="button" className="st-btn" onClick={() => (chat.archived === null ? setAsking('archive') : void archive(false))}>
+          {info.canLeave && (
+            <button type="button" className="st-btn" onClick={info.askLeave}>
+              {t('chat.leaveRoom')}
+            </button>
+          )}
+          {info.canArchive && (
+            <button type="button" className="st-btn" onClick={info.askArchive}>
               {chat.archived === null ? t('chat.archiveRoom') : t('chat.unarchiveRoom')}
             </button>
           )}
         </div>
       </Dialog>
-      {asking === 'leave' && (
-        <ConfirmDialog title={t('chat.leaveTitle', { name: `#${chat.name}` })} message={t('chat.leaveText')} action={t('chat.leaveRoom')} onConfirm={() => void leave()} onClose={() => setAsking(null)} />
-      )}
-      {asking === 'archive' && (
-        <ConfirmDialog title={t('chat.archiveTitle', { name: `#${chat.name}` })} message={t('chat.archiveText')} action={t('chat.archiveRoom')} onConfirm={() => void archive(true)} onClose={() => setAsking(null)} />
-      )}
+      {info.asking}
     </>
   );
 }
@@ -679,7 +709,7 @@ function People({ server, chat, say }: { server: ChatServer; chat: ChatInfo; say
 }
 
 /** The photos and videos shared, by month, the latest first: a photo opens large, a video goes to its message. */
-function Media({ url, items, onJump }: { url: string; items: ChatShared['files']; onJump: (message: string) => void }) {
+export function Media({ url, items, onJump }: { url: string; items: ChatShared['files']; onJump: (message: string) => void }) {
   const [viewing, setViewing] = useState<number | null>(null);
   const images = items.filter((each) => isImage(each.file));
   if (!items.length) return <p className="ch-none">{t('chat.noMedia')}</p>;
@@ -723,7 +753,7 @@ function Media({ url, items, onJump }: { url: string; items: ChatShared['files']
   );
 }
 
-function MediaThumb({ url, file, title, onOpen }: { url: string; file: ChatFile; title: string; onOpen: () => void }) {
+export function MediaThumb({ url, file, title, onOpen }: { url: string; file: ChatFile; title: string; onOpen: () => void }) {
   const shown = useFileUrl(url, file.thumb ?? (isImage(file) ? file.hash : undefined), file.thumb ? 'image/webp' : file.type);
   return (
     <button type="button" className="ch-th" title={title} onClick={onOpen}>

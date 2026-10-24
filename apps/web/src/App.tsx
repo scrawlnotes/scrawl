@@ -1742,10 +1742,9 @@ export function App() {
   const openScrawl = useRef<(href: string) => void>(() => undefined);
   openScrawl.current = (href) => {
     if (!href.startsWith('scrawl:chat/')) return chatLinks.open(href);
-    // Chat comes to the phone with its own pages (design/chat.md, 14, slice 5).
-    if (phone) return;
     setChatGoTo({ href, at: Date.now() });
-    void session.open(CHAT);
+    // On a phone Chat is a tab of its own, which opens at the message.
+    if (!phone) void session.open(CHAT);
   };
   useEffect(() => {
     session.openScrawl = (href) => openScrawl.current(href);
@@ -2750,6 +2749,7 @@ export function App() {
                 else then();
               },
             }}
+            chat={{ links: chatLinks, menu: openMenu, goTo: chatGoTo }}
           />
           {newRecord && collections[newRecord.dir] && (
             <PhoneNewRecord

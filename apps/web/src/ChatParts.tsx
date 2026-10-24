@@ -368,8 +368,13 @@ export function Tray({ going, onRemove }: { going: Going[]; onRemove: (key: stri
  * A voice message being recorded, in the place of the box: the red dot, its time, how loud it is,
  * Cancel and Send. At fifteen minutes it stops and waits for Send.
  */
-export function RecorderBar({ onSend, onCancel }: { onSend: (blob: Blob, seconds: number) => Promise<void>; onCancel: () => void }) {
-  const [recording, setRecording] = useState<Recording | null>(null);
+export function RecorderBar({ onSend, onCancel, going }: {
+  onSend: (blob: Blob, seconds: number) => Promise<void>;
+  onCancel: () => void;
+  /** A recording already going: on a phone, one held and then locked. */
+  going?: Recording;
+}) {
+  const [recording, setRecording] = useState<Recording | null>(going ?? null);
   const [failed, setFailed] = useState(false);
   const [levels, setLevels] = useState<number[]>([]);
   const [seconds, setSeconds] = useState(0);
@@ -382,6 +387,12 @@ export function RecorderBar({ onSend, onCancel }: { onSend: (blob: Blob, seconds
     if (recording) sendButton.current?.focus();
   }, [recording]);
   useEffect(() => {
+    // One held and locked on a phone goes on; else it starts here.
+    if (going) {
+      return () => {
+        if (!stopped.current) void going.stop();
+      };
+    }
     let made: Recording | null = null;
     let live = true;
     void Recording.start().then((started) => {

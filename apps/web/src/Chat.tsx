@@ -16,8 +16,8 @@ import {
   toggleStrike,
 } from '@scrawlnotes/editor';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
-import { type DragEvent, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { measure } from './chatMedia';
+import { type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { clock, measure, Recording } from './chatMedia';
 import { Attachments, ForwardDialog, type Going, isImage, RecorderBar, Tray } from './ChatParts';
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store } from './chatStore';
 import { ConfirmDialog, type MenuItem } from './dialogs';
@@ -287,8 +287,15 @@ function ChatList({ servers, open, onOpen, onAdd }: {
   );
 }
 
+/** On a phone the conversation is a page (design/chat.md, 8.2): its bar goes back to Chat, and ⓘ opens its Info page. */
+export interface PhoneMode {
+  back: string;
+  onBack: () => void;
+  onInfo: () => void;
+}
+
 /** One conversation: its head, its messages with the days between them and the line before what is new, and the box to write in. */
-function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
+export function Conversation({ server, chat, menu, links, target, onFollow, onList, phone }: {
   server: ChatServer;
   chat: ChatInfo;
   menu: Props['menu'];
@@ -296,6 +303,7 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
   target: { message: string; at: number } | null;
   onFollow: (href: string) => void;
   onList: () => void;
+  phone?: PhoneMode;
 }) {
   const one = store.server(server.url);
   const nameOf = useMemo(() => namesOf(server), [server.chats]);
@@ -322,6 +330,8 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
   };
   const [reacting, setReacting] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  // On a phone: a message held, lifted over the dimmed page as it showed.
+  const [lifted, setLifted] = useState<{ message: ChatMessage; html: string } | null>(null);
   // Files dragged over the conversation go in the box to write in.
   const [dropping, setDropping] = useState(false);
   const addFiles = useRef<((files: File[]) => void) | null>(null);
@@ -408,7 +418,9 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
     const back = `[${t('chat.fromLink', { where, name: nameOf(message.author), day: shortDay(message.at) })}](${chatLink(server.url, chat.id, message.id)})`;
     return { title: first.slice(0, 200), description: message.body.trim() ? `${message.body.trim()}\n\n${back}` : back, from: `${where} · ${nameOf(message.author)}` };
   };
-  const messageMenu = (event: MouseEvent, message: ChatMessage) => {
+  const messageMenu = (event: MouseEvent, message: ChatMessage) => menu(event, actionsOf(message));
+  /** What is done with a message: Edit for whoever wrote it, Copy text and Copy link, To task and To card, Delete. */
+  const actionsOf = (message: ChatMessage): MenuItem[] => {
     const items: MenuItem[] = [];
     if (mine(message) && !message.forwarded) items.push({ label: t('chat.edit'), icon: 'pen', run: () => setEditing(message.id) });
     items.push({ label: t('chat.copyText'), icon: 'copy', run: () => void copy(message.body).catch(() => undefined) });
@@ -428,7 +440,11 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
     items.push({ label: t('chat.toCard'), icon: 'board', run: () => links.toCard(task.title, task.description, task.from) });
     // Whoever wrote it deletes it; in a room, the space's managers too, which the server says.
     items.push({ label: t('chat.delete'), icon: 'trash', danger: true, apart: true, run: () => setDeleting(message) });
-    menu(event, items);
+    return items;
+  };
+  const react = (message: ChatMessage, emoji: string) => {
+    const had = message.reactions.some((each) => each.emoji === emoji && each.people.includes(server.me));
+    void one?.react(message.id, emoji, !had).catch(() => undefined);
   };
   /** A link in a message: another message opens in Chat, a chip opens what it points at. */
   const onLink = (href: string) => (href.startsWith('scrawl:chat/') ? onFollow(href) : links.open(href));
@@ -465,7 +481,7 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
 
   return (
     <section
-      className="chat-conv"
+      className={phone ? 'chat-conv phone' : 'chat-conv'}
       onPointerDown={readNow}
       onKeyDown={readNow}
       onDragOver={(event) => {
@@ -483,6 +499,21 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
         addFiles.current([...event.dataTransfer.files]);
       }}
     >
+      {phone ? (
+        <div className="mb-nav bar chp-nav">
+          <button type="button" className="mb-back" aria-label={t('phone.back', { page: phone.back })} onClick={phone.onBack}>
+            <Icon name="back" />
+            <span>{phone.back}</span>
+          </button>
+          <button type="button" className="chp-mid" onClick={phone.onInfo}>
+            <b>{chat.kind === 'private' ? titleOf(chat, server.me) : chat.kind === 'direct' ? titleOf(chat, server.me) : `# ${chat.name}`}</b>
+            <small className={otherActive ? 'act' : ''}>{chat.kind === 'direct' ? (otherActive ? t('chat.active') : people.length > 1 ? t('count.people', { count: chat.members.length }) : '') : t('count.people', { count: chat.members.length })}</small>
+          </button>
+          <button type="button" className="mb-ib" aria-label={t('chat.info')} title={t('chat.info')} onClick={phone.onInfo}>
+            <Icon name="info" />
+          </button>
+        </div>
+      ) : (
       <header className="ch-head">
         <button type="button" className="ch-back" aria-label={t('chat.title')} onClick={onList}>
           <Icon name="back" />
@@ -502,6 +533,7 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
           </button>
         </span>
       </header>
+      )}
       <div className="ch-msgs" ref={scroller} onScroll={onScroll}>
         {server.older[chat.id] === false || (messages[0]?.seq ?? 1) <= 1 ? (
           <p className="ch-start">{chat.kind === 'direct' ? t('chat.startDirect', { name: titleOf(chat, server.me) }) : t('chat.startRoom', { name: chat.name })}</p>
@@ -535,8 +567,7 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
                 onReply={() => setReplyTo(message)}
                 onReact={(emoji) => {
                   setReacting(null);
-                  const had = message.reactions.some((each) => each.emoji === emoji && each.people.includes(server.me));
-                  void one?.react(message.id, emoji, !had).catch(() => undefined);
+                  react(message, emoji);
                 }}
                 onReacting={(on) => setReacting(on ? message.id : null)}
                 onForward={() => setForwarding(message)}
@@ -545,6 +576,10 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
                 url={server.url}
                 chipState={links.stateOf}
                 onLink={onLink}
+                {...(phone && {
+                  onHold: (row: HTMLElement) => !message.deleted && setLifted({ message, html: row.outerHTML }),
+                  onSwipe: () => !message.deleted && setReplyTo(message),
+                })}
               />
               {message.id === seenAt && <div className="ch-seen">{t('chat.seen')}</div>}
             </div>
@@ -578,6 +613,22 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
           dropping={dropping}
           addFiles={addFiles}
           onCancelReply={() => setReplyTo(null)}
+          phone={!!phone}
+        />
+      )}
+      {lifted && (
+        <PhoneHold
+          html={lifted.html}
+          actions={[
+            { label: t('chat.reply'), icon: 'reply', run: () => setReplyTo(lifted.message) },
+            { label: t('chat.forward'), icon: 'forward', run: () => setForwarding(lifted.message) },
+            ...actionsOf(lifted.message),
+          ]}
+          onReact={(emoji) => {
+            react(lifted.message, emoji);
+            setLifted(null);
+          }}
+          onClose={() => setLifted(null)}
         />
       )}
       {forwarding && (
@@ -655,8 +706,12 @@ function MessageRow(props: {
   url: string;
   chipState: (href: string) => ChipState;
   onLink: (href: string) => void;
+  /** On a phone: a finger resting on it lifts it; drawn to the right, it is answered. */
+  onHold?: (row: HTMLElement) => void;
+  onSwipe?: () => void;
 }) {
   const { message, cont, nameOf, me } = props;
+  const press = usePress(props.onHold, props.onSwipe);
   const quote = message.replyTo && props.quoted ? { ...message.replyTo, text: props.quoted.body, file: props.quoted.files[0]?.type ?? null, deleted: props.quoted.deleted !== null } : message.replyTo;
   const name = nameOf(message.author);
   const html = useMemo(() => {
@@ -671,7 +726,17 @@ function MessageRow(props: {
     if (body.current) shape(body.current, props.chipState);
   }, [html, props.chipState, props.editing]);
   return (
-    <div className={`ch-m${cont ? ' cont' : ''}${props.reacting ? ' hold' : ''}${props.flash ? ' flash' : ''}`} data-id={message.id} onContextMenu={message.deleted ? undefined : (event) => (event.preventDefault(), props.onMenu(event))}>
+    <div
+      className={`ch-m${cont ? ' cont' : ''}${props.reacting ? ' hold' : ''}${props.flash ? ' flash' : ''}`}
+      data-id={message.id}
+      style={press.style}
+      {...(props.onHold ? press.handlers : { onContextMenu: message.deleted ? undefined : (event: MouseEvent) => (event.preventDefault(), props.onMenu(event)) })}
+    >
+      {press.pulled > 0 && (
+        <span className="chp-swipe" style={{ opacity: Math.min(1, press.pulled / SWIPE) }}>
+          <Icon name="reply" />
+        </span>
+      )}
       {cont ? <span className="tm">{timeOf(message.at)}</span> : <Face id={message.author} name={name} />}
       <div className="bx">
         {!cont && (
@@ -717,7 +782,7 @@ function MessageRow(props: {
           </div>
         )}
       </div>
-      {!message.deleted && !props.editing && (
+      {!message.deleted && !props.editing && !props.onHold && (
         <div className="ch-acts">
           <button type="button" className={props.reacting ? 'on' : ''} title={t('chat.react')} aria-label={t('chat.react')} onClick={() => props.onReacting(!props.reacting)}>
             <Icon name="smile" />
@@ -734,6 +799,137 @@ function MessageRow(props: {
           {props.reacting && <ReactionPicker onPick={props.onReact} onClose={() => props.onReacting(false)} />}
         </div>
       )}
+    </div>
+  );
+}
+
+/** How long a finger rests on a message before it lifts, and how far it is drawn to answer it. */
+const HOLD_MS = 450;
+const SWIPE = 56;
+
+/**
+ * On a phone: a finger resting on a message lifts it (`onHold`, with its row); one drawn to the
+ * right pulls it along, and past a little answers it (`onSwipe`). A finger moving up or down is
+ * scrolling. Without `onHold`, nothing.
+ */
+function usePress(onHold?: (row: HTMLElement) => void, onSwipe?: () => void) {
+  const [pulled, setPulled] = useState(0);
+  const at = useRef<{ x: number; y: number; timer: number; fired: boolean; swiping: boolean; row: HTMLElement } | null>(null);
+  const end = () => {
+    if (at.current) window.clearTimeout(at.current.timer);
+    at.current = null;
+    setPulled(0);
+  };
+  if (!onHold) return { pulled: 0, style: undefined, handlers: {} };
+  return {
+    pulled,
+    style: pulled ? { transform: `translateX(${pulled}px)`, transition: 'none' } : undefined,
+    handlers: {
+      onPointerDown: (event: PointerEvent<HTMLDivElement>) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        const row = event.currentTarget;
+        at.current = {
+          x: event.clientX,
+          y: event.clientY,
+          fired: false,
+          swiping: false,
+          row,
+          timer: window.setTimeout(() => {
+            if (!at.current) return;
+            at.current.fired = true;
+            navigator.vibrate?.(8);
+            onHold(row);
+          }, HOLD_MS),
+        };
+      },
+      onPointerMove: (event: PointerEvent<HTMLDivElement>) => {
+        const now = at.current;
+        if (!now || now.fired) return;
+        const x = event.clientX - now.x;
+        const y = event.clientY - now.y;
+        if (!now.swiping) {
+          if (Math.abs(y) > 10) return end();
+          if (x < 10 || x < Math.abs(y)) return;
+          now.swiping = true;
+          window.clearTimeout(now.timer);
+          try {
+            now.row.setPointerCapture(event.pointerId);
+          } catch {
+            // Captured or not, the row follows while the finger stays on it.
+          }
+        }
+        setPulled(Math.max(0, Math.min(x, 90)));
+      },
+      onPointerUp: () => {
+        if (at.current?.swiping && pulled >= SWIPE) onSwipe?.();
+        const fired = at.current?.fired;
+        end();
+        // The tap that ends a hold opens nothing under the finger.
+        if (fired) suppressClick();
+      },
+      onPointerCancel: end,
+      onContextMenu: (event: MouseEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        if (!at.current?.fired) onHold(event.currentTarget);
+        end();
+      },
+    },
+  };
+}
+
+/** Takes the click that comes after a finger lifted from a hold. */
+function suppressClick() {
+  const take = (event: Event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  window.addEventListener('click', take, { capture: true, once: true });
+  window.setTimeout(() => window.removeEventListener('click', take, { capture: true }), 250);
+}
+
+/**
+ * On a phone, a message held (design/chat.md, 8.2; design/mockups.html, Messaging): it lifts over
+ * the dimmed page, the reactions above it, every emoji behind +, and what can be done under it.
+ */
+function PhoneHold({ html, actions, onReact, onClose }: { html: string; actions: MenuItem[]; onReact: (emoji: string) => void; onClose: () => void }) {
+  const [all, setAll] = useState(false);
+  return (
+    <div className="chp-hold-layer" onClick={onClose}>
+      <div className="chp-hold" onClick={(event) => event.stopPropagation()}>
+        {all ? (
+          <div className="chp-allrx">
+            <ReactionPicker onPick={onReact} onClose={() => setAll(false)} startWide />
+          </div>
+        ) : (
+          <div className="chp-rxbar">
+            {QUICK.map((emoji) => (
+              <button type="button" key={emoji} onClick={() => onReact(emoji)}>
+                {emoji}
+              </button>
+            ))}
+            <button type="button" className="more" aria-label={t('chat.allEmoji')} onClick={() => setAll(true)}>
+              <Icon name="plus" />
+            </button>
+          </div>
+        )}
+        <div className="chp-lift" aria-hidden="true" dangerouslySetInnerHTML={{ __html: html }} />
+        <div className="chp-acts">
+          {actions.map((action) => (
+            <button
+              type="button"
+              key={action.label}
+              className={action.danger ? 'r red' : 'r'}
+              onClick={() => {
+                onClose();
+                action.run();
+              }}
+            >
+              <span>{action.label}</span>
+              {action.icon && <Icon name={action.icon} />}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -832,9 +1028,9 @@ function PendingRow({ url, pending, me, nameOf, after, replied }: { url: string;
 type Emoji = { unicode: string; label: string; tags?: string[]; group?: number; order?: number };
 
 /** The six quick reactions, then every emoji there is, found by its name. */
-function ReactionPicker({ onPick, onClose }: { onPick: (emoji: string) => void; onClose: () => void }) {
+function ReactionPicker({ onPick, onClose, startWide = false }: { onPick: (emoji: string) => void; onClose: () => void; startWide?: boolean }) {
   const [all, setAll] = useState<Emoji[] | null>(null);
-  const [wide, setWide] = useState(false);
+  const [wide, setWide] = useState(startWide);
   const [find, setFind] = useState('');
   // Over the message instead of under it, when under it would go past the foot of the conversation.
   const [up, setUp] = useState(false);
@@ -962,7 +1158,7 @@ interface Choice {
  * The box to write in: Markdown in the editor notes have; Enter sends; @ offers the people of the
  * conversation; + adds files, a code block or a chip; the microphone records a voice message.
  */
-function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFiles: addFilesHere, onCancelReply }: {
+function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFiles: addFilesHere, onCancelReply, phone = false }: {
   server: ChatServer;
   chat: ChatInfo;
   replyTo: ChatMessage | null;
@@ -973,6 +1169,8 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
   /** Where the conversation hands the files dropped on it. */
   addFiles: RefObject<((files: File[]) => void) | null>;
   onCancelReply: () => void;
+  /** The phone's box: +, the words, and Send or the microphone held to record. */
+  phone?: boolean;
 }) {
   const one = store.server(server.url);
   const box = useRef<HTMLDivElement>(null);
@@ -1052,10 +1250,13 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
   };
 
   /** Photos and files…: the computer's own picker, many at once. */
-  const pickFiles = () => {
+  /** Photos and files…: the device's own picker, many at once; on a phone the photos, or the camera. */
+  const pickFiles = (accept = '', camera = false) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.multiple = true;
+    input.multiple = !camera;
+    if (accept) input.accept = accept;
+    if (camera) input.setAttribute('capture', 'environment');
     input.addEventListener('change', () => add([...(input.files ?? [])]));
     input.click();
   };
@@ -1072,8 +1273,16 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
   };
 
   const plusMenu = (event: MouseEvent) =>
-    menu(event, [
-      { label: t('chat.photosFiles'), icon: 'image', run: pickFiles },
+    menu(
+      event,
+      phone
+        ? [
+            { label: t('chat.photoLibrary'), icon: 'image', run: () => pickFiles('image/*,video/*') },
+            { label: t('chat.camera'), icon: 'image', run: () => pickFiles('image/*', true) },
+            { label: t('chat.fileDots'), icon: 'file', run: () => pickFiles() },
+          ]
+        : [
+      { label: t('chat.photosFiles'), icon: 'image', run: () => pickFiles() },
       {
         label: t('chat.codeBlock'),
         icon: 'codeBlock',
@@ -1084,7 +1293,78 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
         },
       },
       { label: t('chat.itemChip'), icon: 'link', run: () => void links.pick(server.url).then((chip) => (chip ? putChip(chip) : editor.current?.view.focus())) },
-    ]);
+          ],
+    );
+
+  // On a phone the microphone is held: drawn left the recording is dropped, drawn up it is locked
+  // and waits for Send in the bar a computer has; let go, it is sent.
+  const [hold, setHold] = useState<{ x: number; y: number; dx: number; since: number } | null>(null);
+  const holding = useRef<{ recording: Promise<Recording | null>; done: boolean } | null>(null);
+  const [locked, setLocked] = useState<Recording | null>(null);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!hold) return;
+    const timer = window.setInterval(() => tick((n) => n + 1), 200);
+    return () => window.clearInterval(timer);
+  }, [hold !== null]);
+  const dropHold = () => {
+    const now = holding.current;
+    if (!now || now.done) return;
+    now.done = true;
+    void now.recording.then((recording) => recording?.stop());
+    setHold(null);
+  };
+  const mic = {
+    onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Not captured: the finger's moves still reach the button while it stays on it.
+      }
+      const recording = Recording.start();
+      holding.current = { recording, done: false };
+      setHold({ x: event.clientX, y: event.clientY, dx: 0, since: Date.now() });
+      void recording.then((started) => {
+        if (started) return;
+        dropHold();
+        links.say(t('format.noMicrophone'));
+      });
+    },
+    onPointerMove: (event: PointerEvent<HTMLButtonElement>) => {
+      const now = holding.current;
+      if (!hold || !now || now.done) return;
+      const dx = event.clientX - hold.x;
+      const dy = event.clientY - hold.y;
+      if (dx < -CANCEL_X) return dropHold();
+      if (dy < -LOCK_Y) {
+        now.done = true;
+        setHold(null);
+        void now.recording.then((recording) => {
+          if (!recording) return;
+          setLocked(recording);
+          setRecording(true);
+        });
+        return;
+      }
+      setHold({ ...hold, dx: Math.min(0, dx) });
+    },
+    onPointerUp: () => {
+      const now = holding.current;
+      if (!now || now.done) return;
+      now.done = true;
+      setHold(null);
+      void now.recording.then(async (recording) => {
+        if (!recording) return;
+        const seconds = recording.seconds();
+        const blob = await recording.stop();
+        // A tap is not a recording: it says how to make one.
+        if (seconds < 0.6) return links.say(t('chat.holdToRecord'));
+        await sendVoice(blob, seconds).catch(() => undefined);
+      });
+    },
+    onPointerCancel: dropHold,
+  };
 
   /** A voice message: its recording sent, then the message with it, an answer when one is being written. */
   const sendVoice = async (blob: Blob, seconds: number) => {
@@ -1101,6 +1381,7 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
       throw error;
     }
     setRecording(false);
+    setLocked(null);
     onCancelReply();
     window.setTimeout(() => editor.current?.view.focus());
   };
@@ -1213,7 +1494,8 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
       onCancelReply();
       return;
     }
-    if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.nativeEvent.isComposing || editorTakesEnter(view)) return;
+    // On a phone Enter is a new line; Send sends.
+    if (phone || event.key !== 'Enter' || event.shiftKey || event.altKey || event.nativeEvent.isComposing || editorTakesEnter(view)) return;
     if (inFence(view.state.doc.toString(), view.state.selection.main.head)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -1225,7 +1507,7 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
 
   return (
     <div
-      className={`ch-cmp${text.trim() || going.length || recording || dropping ? ' on' : ''}${recording ? ' rec' : ''}`}
+      className={`ch-cmp${phone ? ' chp-box' : ''}${text.trim() || going.length || recording || dropping ? ' on' : ''}${recording ? ' rec' : ''}${hold ? ' holding' : ''}`}
       onKeyDownCapture={recording ? undefined : onKeyDownCapture}
       onKeyUp={look}
       onMouseUp={look}
@@ -1245,7 +1527,17 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
         putChip(chip, view?.posAtCoords({ x: event.clientX, y: event.clientY }) ?? undefined);
       }}
     >
-      {recording && <RecorderBar onSend={sendVoice} onCancel={() => (setRecording(false), window.setTimeout(() => editor.current?.view.focus()))} />}
+      {recording && (
+        <RecorderBar
+          onSend={sendVoice}
+          onCancel={() => {
+            setRecording(false);
+            setLocked(null);
+            if (!phone) window.setTimeout(() => editor.current?.view.focus());
+          }}
+          {...(locked && { going: locked })}
+        />
+      )}
       {replyTo && (
         <div className="rp">
           <Icon name="reply" />
@@ -1303,6 +1595,42 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
         </div>
       )}
       <Tray going={going} onRemove={remove} />
+      {phone ? (
+        <div className="chp-row">
+          {!hold && (
+            <button type="button" className="pl" aria-label={t('chat.add')} onMouseDown={(event) => event.preventDefault()} onClick={plusMenu}>
+              <Icon name="plus" />
+            </button>
+          )}
+          <div className={hold ? 'in gone' : 'in'} ref={box} />
+          {hold && (
+            <>
+              <span className="rd" />
+              <span className="tm">{clock((Date.now() - hold.since) / 1000)}</span>
+              <span className="sl" style={{ transform: `translateX(${hold.dx / 2}px)`, opacity: 1 + hold.dx / CANCEL_X }}>
+                <Icon name="back" />
+                {t('chat.slideToCancel')}
+              </span>
+            </>
+          )}
+          {canSend && !hold ? (
+            <button type="button" className="send go" aria-label={t('chat.send')} onMouseDown={(event) => event.preventDefault()} onClick={send}>
+              <Icon name="send" />
+            </button>
+          ) : (
+            <button type="button" key="mic" className={hold ? 'mic big' : 'mic'} aria-label={t('chat.holdToRecord')} {...mic}>
+              <Icon name="audio" />
+            </button>
+          )}
+          {hold && (
+            <span className="chp-lockp" aria-hidden="true">
+              <Icon name="lock" />
+              <Icon name="up" />
+            </span>
+          )}
+        </div>
+      ) : (
+      <>
       <div className="in" ref={box} />
       <div className="bar">
         <button type="button" className="ib" title={t('chat.add')} aria-label={t('chat.add')} onMouseDown={(event) => event.preventDefault()} onClick={plusMenu}>
@@ -1346,6 +1674,12 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
           <Icon name="send" />
         </button>
       </div>
+      </>
+      )}
     </div>
   );
 }
+
+/** How far the held microphone is drawn left to drop the recording, and up to lock it. */
+const CANCEL_X = 110;
+const LOCK_Y = 80;

@@ -1,11 +1,11 @@
-import { DEFAULT_LOOK, type FolderLook, type Found, type NodeTimes, INBOX_TASKS, isUnder, sortedNodes, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
+import { type ChatInfo, DEFAULT_LOOK, type FolderLook, parseChatLink, type Found, type NodeTimes, INBOX_TASKS, isUnder, sortedNodes, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { PhoneUpcomingView } from './PhoneUpcoming';
 import { Icon, type IconName } from './Icon';
-import { boardOf, collectionPathOf, collectionTab, countItems, FILES, filterOf, FILTERS, folderLabel, folderOf, iconOf, isNote, nameOf, NEW_FILTER, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardOf, CHAT, collectionPathOf, collectionTab, countItems, FILES, filterOf, FILTERS, folderLabel, folderOf, iconOf, isNote, nameOf, NEW_FILTER, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import type { FavoriteRow } from './Sidebar';
 import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
@@ -21,6 +21,12 @@ import { hostOf, knownServers, pendingJoin } from './servers';
 import { PhoneSearch, type SearchAction, type Thing } from './Search';
 import { ActionSheet, Empty, useViewport } from './sheets';
 import { LabelsPage } from './labels';
+import type { ChatLinks } from './Chat';
+import type { MenuItem } from './dialogs';
+import { BrowseRoomsDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
+import { store as chatStore, useChat } from './chatStore';
+import { partName, PhoneChatConversation, PhoneChatInfo, PhoneChatList, PhoneChatPart } from './PhoneChat';
+import { titleOf as chatTitle } from './ChatFaces';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
 // Recent, Browse, Today and Search at its foot, and in each of them a stack of pages. A page slides in from the
@@ -31,7 +37,7 @@ import { LabelsPage } from './labels';
 // rest of the tabs by itself.
 
 /** The places of the tab bar. */
-export type Place = 'recent' | 'browse' | 'today' | 'search';
+export type Place = 'recent' | 'browse' | 'today' | 'search' | 'chat';
 const PLACES: Place[] = ['recent', 'browse', 'today', 'search'];
 
 /**
@@ -55,7 +61,11 @@ type PageKind =
   | { kind: 'version'; path: string; version: Version }
   | { kind: 'card'; board: string; id: string }
   | { kind: 'record'; dir: string; id: string }
-  | { kind: 'labels'; path: string };
+  | { kind: 'labels'; path: string }
+  // Chat's pages: a conversation, at a message a link asked for; its Info; a part of its Info.
+  | { kind: 'chatConv'; url: string; chat: string; target?: { message: string; at: number } }
+  | { kind: 'chatInfo'; url: string; chat: string }
+  | { kind: 'chatPart'; url: string; chat: string; tab: InfoTab };
 /** A page, with the key it is drawn by. */
 type Page = PageKind & { key: number };
 
@@ -224,12 +234,15 @@ export interface PhoneProps {
     onMenu: (dir: string, id: string) => void;
     leave: (dir: string, id: string, then: () => void) => void;
   };
+  /** Chat, the fifth tab, with a server that has messaging: what its messages point at, the menu, and a message's link followed elsewhere. */
+  chat: { links: ChatLinks; menu: (event: MouseEvent, items: MenuItem[]) => void; goTo: { href: string; at: number } | null };
 }
 
 // Started from the clock, so that a page made after the module is loaded again never takes the key of one still on screen.
 let pageKeys = Date.now();
 const root = (): Page => ({ kind: 'root', key: ++pageKeys });
-const views = new Set([TODAY, UPCOMING, TRASH, FILES]);
+// Chat, a tab on a computer, is a place of the tab bar here.
+const views = new Set([TODAY, UPCOMING, TRASH, FILES, CHAT]);
 /** Whether a tab is something open, as opposed to a view the tab bar shows. */
 const isItem = (id: string | null): id is string => id !== null && !views.has(id);
 
@@ -516,7 +529,12 @@ export function Phone(props: PhoneProps) {
   const { ready, tabs, active, titles, tree, filters, counts, item } = props;
   // The app opens on its first place, Recent, with what was open last over it.
   const [place, setPlace] = useState<Place>('recent');
-  const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ recent: [root()], browse: [root()], today: [root()], search: [root()] }));
+  const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ recent: [root()], browse: [root()], today: [root()], search: [root()], chat: [root()] }));
+  // Chat is a place with a server that has messaging; its number is what is unread and tells you.
+  const chat = useChat();
+  const places: Place[] = chat.servers.length ? [...PLACES, 'chat'] : PLACES;
+  // New room, Browse rooms and New message, from Chat's +, for a server.
+  const [making, setMaking] = useState<{ kind: 'newRoom' | 'browse' | 'newMessage'; url: string } | null>(null);
   // What was typed in Search, kept while another tab is on screen.
   const [query, setQuery] = useState('');
   /** A page sliding in, by its key: it starts at the right edge. */
@@ -936,7 +954,14 @@ export function Phone(props: PhoneProps) {
   // ---------- the pages ----------
 
   const titleOf = (page: Page, of: Place): string => {
-    if (page.kind === 'root') return of === 'today' ? t('side.today') : of === 'recent' ? t('phone.recent') : of === 'search' ? t('phone.search') : t('phone.browse');
+    if (page.kind === 'root') return of === 'today' ? t('side.today') : of === 'recent' ? t('phone.recent') : of === 'search' ? t('phone.search') : of === 'chat' ? t('chat.title') : t('phone.browse');
+    if (page.kind === 'chatConv') {
+      const server = chat.servers.find((each) => each.url === page.url);
+      const found = server?.chats.find((each) => each.id === page.chat) ?? (server?.visiting?.id === page.chat ? server.visiting : undefined);
+      return found && server ? (found.kind === 'direct' ? chatTitle(found, server.me) : found.name) : t('chat.title');
+    }
+    if (page.kind === 'chatInfo') return t('chat.info');
+    if (page.kind === 'chatPart') return partName(page.tab);
     if (page.kind === 'folder') return folderName(page.path);
     if (page.kind === 'trash') return t('side.trash');
     if (page.kind === 'files') return t('side.files');
@@ -1193,6 +1218,50 @@ export function Phone(props: PhoneProps) {
     const below = pages[index - 1];
     const back = below ? titleOf(below, of) : undefined;
     const nav = below ? { back, onBack: pop } : undefined;
+    if (page.kind === 'root' && of === 'chat') {
+      return (
+        <PageFrame title={titleOf(page, of)}>
+          <PhoneChatList onOpen={(url, id) => push({ kind: 'chatConv', url, chat: id })} />
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'chatConv') {
+      return (
+        <PhoneChatConversation
+          url={page.url}
+          chat={page.chat}
+          target={page.target ?? null}
+          links={props.chat.links}
+          menu={props.chat.menu}
+          back={back ?? t('chat.title')}
+          onBack={pop}
+          onInfo={() => push({ kind: 'chatInfo', url: page.url, chat: page.chat })}
+          onFollow={followChat}
+        />
+      );
+    }
+    if (page.kind === 'chatInfo') {
+      return (
+        <PageFrame nav={nav}>
+          <PhoneChatInfo
+            url={page.url}
+            chat={page.chat}
+            menu={props.chat.menu}
+            say={props.chat.links.say}
+            onPart={(tab) => push({ kind: 'chatPart', url: page.url, chat: page.chat, tab })}
+            onLeft={() => setStacks((current) => ({ ...current, chat: [current.chat[0]!] }))}
+            onClose={pop}
+          />
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'chatPart') {
+      return (
+        <PageFrame title={titleOf(page, of)} nav={nav}>
+          <PhoneChatPart url={page.url} chat={page.chat} tab={page.tab} say={props.chat.links.say} onJump={(message) => jumpChat(page.url, page.chat, message)} />
+        </PageFrame>
+      );
+    }
     if (page.kind === 'root' && of === 'recent') return <PageFrame title={titleOf(page, of)}>{recentPage()}</PageFrame>;
     if (page.kind === 'root' && of === 'browse') return <PageFrame title={titleOf(page, of)}>{browsePage()}</PageFrame>;
     if (page.kind === 'root' && of === 'search') {
@@ -1454,13 +1523,75 @@ export function Phone(props: PhoneProps) {
     );
   };
 
+  /** A conversation opens on Chat's place over its list, at a message when one is asked for. */
+  const openChat = (url: string, id: string, message?: string) => {
+    const page: Page = { kind: 'chatConv', url, chat: id, ...(message && { target: { message, at: Date.now() } }), key: ++pageKeys };
+    setPlace('chat');
+    setStacks((current) => ({ ...current, chat: [current.chat[0]!, page] }));
+    slideIn(page.key);
+  };
+  /** A message's link in a message: its conversation opens over the one it was in. */
+  const followChat = (href: string) => {
+    const link = parseChatLink(href);
+    if (!link) return;
+    const server = chat.servers.find((each) => each.url === link.server);
+    if (!server?.chats.some((each) => each.id === link.chat)) return props.chat.links.say(t('chat.linkGone'));
+    const page: Page = { kind: 'chatConv', url: link.server, chat: link.chat, target: { message: link.message, at: Date.now() }, key: ++pageKeys };
+    setStacks((current) => ({ ...current, chat: [...current.chat, page] }));
+    slideIn(page.key);
+  };
+  /** From Info's parts back to the conversation, at the message. */
+  const jumpChat = (url: string, id: string, message: string) =>
+    setStacks((current) => {
+      const at = current.chat.map((page) => page.kind === 'chatConv' && page.url === url && page.chat === id).lastIndexOf(true);
+      if (at < 0) return current;
+      const conv = current.chat[at]!;
+      return { ...current, chat: [...current.chat.slice(0, at), { ...conv, target: { message, at: Date.now() } }] };
+    });
+  // A message's link followed in a note or a task's description opens Chat at it.
+  const followed = useRef(0);
+  useEffect(() => {
+    const goTo = props.chat.goTo;
+    if (!goTo || goTo.at <= followed.current || !chat.servers.length) return;
+    followed.current = goTo.at;
+    const link = parseChatLink(goTo.href);
+    if (!link) return;
+    if (!chat.servers.find((each) => each.url === link.server)?.chats.some((each) => each.id === link.chat)) return props.chat.links.say(t('chat.linkGone'));
+    openChat(link.server, link.chat, link.message);
+    // Each link once, when Chat is there.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.chat.goTo?.at, chat.servers.length > 0]);
+  /** A conversation from New room, Browse rooms or New message: one this person is in opens; a room they are not in is read. */
+  const openMade = (url: string, made: ChatInfo) => {
+    setMaking(null);
+    const server = chat.servers.find((each) => each.url === url);
+    if (!server?.chats.some((each) => each.id === made.id && !each.hidden)) chatStore.server(url)?.visit(made);
+    openChat(url, made.id);
+  };
+  /** Chat's +: New message, New room, Browse rooms; with more than one server, for each. */
+  const chatAdd = (event: MouseEvent) =>
+    props.chat.menu(
+      event,
+      chat.servers.flatMap((server) => {
+        const on = chat.servers.length > 1 ? ` · ${hostOf(server.url)}` : '';
+        return [
+          { label: t('chat.newMessage') + on, icon: 'pen' as const, run: () => setMaking({ kind: 'newMessage', url: server.url }) },
+          { label: t('chat.newRoom') + on, icon: 'plus' as const, run: () => setMaking({ kind: 'newRoom', url: server.url }) },
+          { label: t('chat.browseRooms') + on, icon: 'search' as const, run: () => setMaking({ kind: 'browse', url: server.url }) },
+        ];
+      }),
+    );
+  const makingServer = making ? chat.servers.find((each) => each.url === making.url) : undefined;
+
   const shownPages = leaving?.place === place ? [...stack, leaving.page] : stack;
   // + adds what the page is for: on Today a task due today, on Upcoming one due tomorrow, or on the
   // day chosen in its month; in Browse and a folder Create for that folder; in a list a task.
   const fab =
-    top.kind === 'root' && place === 'today'
+    top.kind === 'root' && place === 'chat'
+      ? (chatAdd as () => void)
+      : top.kind === 'root' && place === 'today'
       ? () => props.onAdd(due === 'today' ? TODAY : UPCOMING)
-      : (top.kind === 'root' && place !== 'search') || top.kind === 'folder'
+      : (top.kind === 'root' && place !== 'search' && place !== 'chat') || top.kind === 'folder'
         ? () => props.onCreate(top.kind === 'folder' ? top.path : '')
         : top.kind === 'item' && props.canAdd(top.id)
           ? () => props.onAdd(top.id)
@@ -1469,7 +1600,7 @@ export function Phone(props: PhoneProps) {
   return (
     // The phone's own layout fills what the phone shows: with the keyboard up it ends on the keyboard.
     // A card's page has its comment box where the tab bar is.
-    <div className={['mb', keyboard ? 'keyboard' : '', top.kind === 'card' ? 'card-page' : '', choosing ? 'choosing' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
+    <div className={['mb', keyboard ? 'keyboard' : '', top.kind === 'card' ? 'card-page' : '', top.kind === 'chatConv' ? 'chat-page' : '', choosing ? 'choosing' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
       <div ref={stage} className="mb-stage" onTouchStartCapture={edgeStart} onTouchMoveCapture={edgeMove} onTouchEndCapture={edgeEnd} onTouchCancelCapture={edgeEnd}>
         {shownPages.map((page, index) => {
           const isLeaving = leaving?.page.key === page.key;
@@ -1490,7 +1621,7 @@ export function Phone(props: PhoneProps) {
         })}
       </div>
       {fab && (
-        <button type="button" className="mb-fab" aria-label={t('phone.create')} title={t('phone.create')} onClick={fab}>
+        <button type="button" className="mb-fab" aria-label={place === 'chat' ? t('chat.add') : t('phone.create')} title={place === 'chat' ? t('chat.add') : t('phone.create')} onClick={fab}>
           <Icon name="plus" />
         </button>
       )}
@@ -1572,11 +1703,17 @@ export function Phone(props: PhoneProps) {
           ))}
         </nav>
       )}
-      <nav className="mb-tabbar" aria-label={t('phone.places')}>
-        {PLACES.map((each) => (
+      {making?.kind === 'newRoom' && makingServer && <NewRoomDialog server={makingServer} space={null} onDone={(made) => openMade(making.url, made)} onClose={() => setMaking(null)} />}
+      {making?.kind === 'browse' && makingServer && (
+        <BrowseRoomsDialog server={makingServer} space={null} onOpen={(room) => openMade(making.url, room)} onNewRoom={() => setMaking({ kind: 'newRoom', url: making.url })} onClose={() => setMaking(null)} />
+      )}
+      {making?.kind === 'newMessage' && makingServer && <NewMessageDialog server={makingServer} onDone={(made) => openMade(making.url, made)} onClose={() => setMaking(null)} />}
+      <nav className={places.length > 4 ? 'mb-tabbar five' : 'mb-tabbar'} aria-label={t('phone.places')}>
+        {places.map((each) => (
           <button key={each} type="button" aria-current={each === place ? 'page' : undefined} onClick={() => choose(each)}>
-            {each === 'today' ? <DayIcon /> : <Icon name={each === 'recent' ? 'clock' : each === 'search' ? 'search' : 'folder'} />}
-            <span>{each === 'today' ? t('side.today') : each === 'recent' ? t('phone.recent') : each === 'search' ? t('phone.search') : t('phone.browse')}</span>
+            {each === 'today' ? <DayIcon /> : <Icon name={each === 'recent' ? 'clock' : each === 'search' ? 'search' : each === 'chat' ? 'chat' : 'folder'} />}
+            <span>{each === 'today' ? t('side.today') : each === 'recent' ? t('phone.recent') : each === 'search' ? t('phone.search') : each === 'chat' ? t('chat.title') : t('phone.browse')}</span>
+            {each === 'chat' && chat.alerts > 0 && <em className="bdg">{chat.alerts > 99 ? '99+' : chat.alerts}</em>}
           </button>
         ))}
       </nav>

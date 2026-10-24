@@ -7922,3 +7922,836 @@ body > .mb-lifted {
   margin: 0 10px 4px 0;
   vertical-align: middle;
 }
+
+/* ---------- Chat, the fifth tab (design/chat.md 8.2; design/mockups.html, Messaging, Telefon) ---------- */
+
+.mb-tabbar.five {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.mb-tabbar button {
+  position: relative;
+}
+
+.mb-tabbar .bdg {
+  position: absolute;
+  top: 3px;
+  left: calc(50% + 6px);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font: 600 11px/18px var(--sl-font-ui);
+  font-style: normal;
+  text-align: center;
+}
+
+/* a conversation is a page with no tab bar under it: the box to write in is there */
+.mb.chat-page {
+  --ph-bar: 0px;
+}
+
+.mb.chat-page .mb-tabbar {
+  display: none;
+}
+
+.chp-none {
+  margin: 32px 16px;
+  color: var(--sl-faint);
+  text-align: center;
+}
+
+.chp-none.small {
+  margin: 4px 2px;
+  text-align: left;
+}
+
+/* the list: a row for each conversation, with its latest message */
+.chp-c {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  color: var(--sl-fg);
+  text-align: left;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.chp-c:active {
+  background: color-mix(in srgb, var(--sl-fg) 6%, var(--sl-bg));
+}
+
+.chp-c + .chp-c::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 68px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.chp-ic {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--sl-side);
+  color: var(--sl-dim);
+  font: 500 19px/1 var(--sl-font-mono);
+}
+
+.mb .chp-ic .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.chp-ic.big {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 6px;
+  border-radius: 16px;
+  font-size: 30px;
+}
+
+.mb .chp-ic.big .icon {
+  width: 28px;
+  height: 28px;
+}
+
+.chp-c .ch-face.lg {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+
+.chp-g {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+
+.chp-g .ch-face {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
+.chp-g .ch-face:first-child {
+  top: 0;
+  left: 0;
+}
+
+.chp-g .ch-face + .ch-face {
+  right: 0;
+  bottom: 0;
+  box-shadow: 0 0 0 2px var(--sl-bg);
+}
+
+.chp-c .tx {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.chp-c .tx b {
+  overflow: hidden;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chp-c .tx b.un {
+  font-weight: 600;
+}
+
+.chp-c .tx small {
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chp-c .tx small.dr {
+  color: var(--sl-accent);
+}
+
+.chp-c .rt {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.chp-c .rt small {
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.chp-c .rt small.hot {
+  color: var(--sl-accent);
+}
+
+.chp-c .rt em {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font: 600 12px/20px var(--sl-font-ui);
+  font-style: normal;
+  text-align: center;
+}
+
+.mb .chp-c .rt .icon {
+  width: 15px;
+  height: 15px;
+  color: var(--sl-faint);
+}
+
+.chp-c.off .tx b {
+  color: var(--sl-faint);
+}
+
+/* a conversation as a page */
+.mb-page > .chat-conv.phone {
+  flex: 1;
+  min-height: 0;
+}
+
+.chp-nav .mb-back {
+  max-width: 34%;
+}
+
+.chp-mid {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 50%;
+  line-height: 1.2;
+  transform: translateX(-50%);
+}
+
+.chp-mid b {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chp-mid small {
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.chp-mid small.act {
+  color: var(--sl-kind-done);
+}
+
+.chat-conv.phone .ch-msgs {
+  padding-bottom: 6px;
+}
+
+.chat-conv.phone .ch-m {
+  grid-template-columns: 36px minmax(0, 1fr);
+  padding: 7px 14px 3px;
+  font-size: 15.5px;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  transition: transform 160ms ease;
+}
+
+.chat-conv.phone .ch-m.cont {
+  padding-top: 1px;
+}
+
+.chat-conv.phone .ch-m > .ch-face.md {
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
+}
+
+.chat-conv.phone .ch-m:hover {
+  background: none;
+}
+
+.chat-conv.phone .ch-m .hd .t {
+  font-size: 12.5px;
+}
+
+.chat-conv.phone .ch-day,
+.chat-conv.phone .ch-new {
+  margin-right: 14px;
+  margin-left: 14px;
+  font-size: 13px;
+}
+
+.chat-conv.phone .ch-q {
+  font-size: 14px;
+}
+
+.chat-conv.phone .ch-rx button {
+  height: 28px;
+  font-size: 14px;
+}
+
+.chat-conv.phone .ch-seen {
+  padding: 0 14px 2px 64px;
+  font-size: 13px;
+}
+
+.chat-conv.phone .ch-typing {
+  height: auto;
+  min-height: 0;
+  padding: 0 16px 4px;
+  font-size: 13.5px;
+}
+
+.chat-conv.phone .ch-img,
+.chat-conv.phone .ch-file,
+.chat-conv.phone .ch-voice {
+  max-width: min(290px, 100%);
+}
+
+.chat-conv.phone .ch-imgs {
+  grid-template-columns: repeat(2, minmax(0, 140px));
+}
+
+.chat-conv.phone .ch-closed,
+.chat-conv.phone .ch-joinbar {
+  margin: 0;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  border: 0;
+  border-top: 1px solid var(--sl-line);
+  border-radius: 0;
+  background: var(--sl-side);
+}
+
+/* drawn to the right, the answer's arrow shows at the left */
+.chp-swipe {
+  position: absolute;
+  top: 50%;
+  left: -34px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-top: -14px;
+  border-radius: 50%;
+  background: var(--sl-side);
+  color: var(--sl-accent);
+}
+
+.mb .chp-swipe .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* a message held: lifted over the dimmed page, the reactions above it, what can be done under it */
+.chp-hold-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / 0.45);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  animation: chp-fade 160ms ease;
+}
+
+@keyframes chp-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.chp-hold {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 56px);
+  right: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100% - env(safe-area-inset-top) - 72px);
+}
+
+.chp-rxbar {
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 5px 8px;
+  border-radius: 26px;
+  background: var(--sl-side);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  font-size: 25px;
+}
+
+.chp-rxbar button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.chp-rxbar button:active {
+  background: var(--sl-sel);
+}
+
+.chp-rxbar .more {
+  width: 34px;
+  height: 34px;
+  margin-left: 2px;
+  background: var(--sl-sel);
+  color: var(--sl-dim);
+}
+
+.mb .chp-rxbar .more .icon,
+.chp-rxbar .more .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.chp-allrx .ch-pick {
+  position: static;
+  width: auto;
+  max-height: 46vh;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+}
+
+.chp-allrx .ch-pick .grid {
+  max-height: 32vh;
+}
+
+.chp-lift {
+  flex: none;
+  max-height: 32vh;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--sl-bg);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+  pointer-events: none;
+}
+
+.chp-lift .ch-m {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  column-gap: 10px;
+  padding: 10px 14px 8px;
+  font-size: 15.5px;
+  transform: none !important;
+}
+
+.chp-lift .chp-swipe {
+  display: none;
+}
+
+.chp-acts {
+  display: flex;
+  flex-direction: column;
+  align-self: flex-end;
+  width: 240px;
+  min-height: 0;
+  overflow-y: auto;
+  border-radius: 14px;
+  background: var(--sl-side);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+}
+
+.chp-acts .r {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--sl-fg);
+  font-size: 16px;
+  text-align: left;
+}
+
+.chp-acts .r + .r {
+  border-top: 1px solid var(--sl-line);
+}
+
+.chp-acts .r:active {
+  background: var(--sl-sel);
+}
+
+.chp-acts .r.red {
+  color: var(--sl-danger);
+}
+
+.chp-acts .r .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--sl-dim);
+}
+
+.chp-acts .r.red .icon {
+  color: var(--sl-danger);
+}
+
+/* the phone's box to write in: +, the words in a pill, Send or the microphone held to record */
+.ch-cmp.chp-box {
+  margin: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  border: 0;
+  border-top: 1px solid var(--sl-line);
+  border-radius: 0;
+  background: var(--sl-side);
+}
+
+.ch-cmp.chp-box:focus-within {
+  border-color: var(--sl-line);
+}
+
+.chp-row {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.chp-row .pl,
+.chp-row .mic {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: var(--sl-accent);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mb .chp-row .pl .icon,
+.mb .chp-row .mic .icon {
+  width: 26px;
+  height: 26px;
+}
+
+.chp-row .in {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  max-height: 30vh;
+  padding: 7px 14px 5px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 1px solid var(--sl-line);
+  border-radius: 18px;
+  background: var(--sl-bg);
+  font-size: 16px;
+}
+
+.chp-row .in.gone {
+  display: none;
+}
+
+.chp-row .send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  border-radius: 50%;
+}
+
+.mb .chp-row .send .icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* the microphone held: the red dot, its time, slide to cancel, the microphone large under the finger */
+.ch-cmp.holding .chp-row {
+  align-items: center;
+  gap: 10px;
+  padding-left: 18px;
+}
+
+.chp-row .rd {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sl-p1);
+  animation: ch-blink 1.2s ease-in-out infinite;
+}
+
+.chp-row .tm {
+  color: var(--sl-fg);
+  font: 15px var(--sl-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.chp-row .sl {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 36px;
+  color: var(--sl-faint);
+  font-size: 15px;
+}
+
+.mb .chp-row .sl .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.chp-row .mic.big {
+  width: 64px;
+  height: 64px;
+  margin: -22px -6px -14px 0;
+  border-radius: 50%;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+}
+
+.mb .chp-row .mic.big .icon {
+  width: 30px;
+  height: 30px;
+}
+
+.chp-lockp {
+  position: absolute;
+  right: 20px;
+  bottom: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 44px;
+  padding: 10px 0 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 22px;
+  background: var(--sl-side);
+  color: var(--sl-dim);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.3);
+}
+
+.mb .chp-lockp .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.ch-cmp.chp-box .ch-rec {
+  min-height: 52px;
+}
+
+.ch-cmp.chp-box .rp {
+  padding: 8px 10px 8px 14px;
+  font-size: 13.5px;
+}
+
+.ch-cmp.chp-box .ch-pop {
+  right: 8px;
+  left: 8px;
+  width: auto;
+  font-size: 15px;
+}
+
+/* Info as a page: the mark, name and topic; groups of rows; the photos and videos */
+.chp-ih {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 16px 18px;
+  text-align: center;
+}
+
+.chp-ih .ch-face.lg {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 6px;
+  font-size: 26px;
+}
+
+.chp-ih b {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.chp-ih small {
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+.chp-info {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 16px;
+}
+
+.chp-info .mb-group {
+  background: var(--sl-side);
+}
+
+.mb .chp-info .mb-fr > .icon:first-child {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--sl-dim);
+}
+
+.chp-info .mb-fr .fl {
+  flex: 1;
+  width: auto;
+  color: var(--sl-fg);
+}
+
+.chp-info .mb-fr .val {
+  color: var(--sl-faint);
+}
+
+.mb .chp-info .mb-fr > .icon:last-child:not(:first-child) {
+  width: 16px;
+  height: 16px;
+  color: var(--sl-faint);
+}
+
+.chp-info .mb-fr.red,
+.chp-info .mb-fr.red .fl,
+.mb .chp-info .mb-fr.red > .icon:first-child {
+  color: var(--sl-danger);
+}
+
+.chp-info .cap {
+  display: flex;
+  align-items: baseline;
+  margin: 0 2px -6px;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.chp-info .cap .all {
+  margin-left: auto;
+  color: var(--sl-accent);
+  font-size: 15px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.chp-media {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+/* a part of Info as a page */
+.chp-part {
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px;
+}
+
+.chp-part .ch-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.chp-part .ch-shared-row {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 8px 0;
+}
+
+.chp-part .ch-shared-row .ch-file,
+.chp-part .ch-shared-row .ch-voice,
+.chp-part .ch-shared-row .ch-link {
+  flex-basis: 100%;
+}
+
+.chp-part .ch-person {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.chp-part .ch-about input,
+.chp-part .ch-about .ch-name {
+  font-size: 16px;
+}
+
+.chp-part .ch-about input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+}
+
+.chp-part .ch-about .ch-name input {
+  border: 0;
+  padding-left: 2px;
+}
+
+/* the windows of Chat as sheets */
+.mb-sheet.dialog.ch-room-dlg,
+.mb-sheet.dialog.ch-browse,
+.mb-sheet.dialog.ch-fwd {
+  width: auto;
+  max-height: calc(100% - env(safe-area-inset-top) - 12px);
+}
+
+.mb-sheet.dialog.ch-browse .dialog-actions > .left {
+  grid-column: 3;
+  justify-self: end;
+  color: var(--sl-accent);
+}
+
+.mb-sheet.dialog.ch-fwd .dialog-actions > .count {
+  display: none;
+}
+
+.mb-sheet.dialog .ch-browse-list,
+.mb-sheet.dialog .ch-picks {
+  max-height: none;
+  margin: 0;
+}
+
+.mb-sheet.dialog .ch-browse-row .go,
+.mb-sheet.dialog .ch-pick-row {
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.mb-sheet.dialog .ch-vis {
+  grid-template-columns: 1fr;
+}
