@@ -289,6 +289,8 @@ export class SyncService {
   private units = new Map<string, Unit>();
   private afterSave = 0;
   private afterServerSave = 0;
+  /** A turn coming for a space whose folder another program changed, by the space's key. */
+  private afterOutside = new Map<string, number>();
   private every = 0;
   /** Each server's live channel, by its address, open while a space on it syncs here. */
   private lives = new Map<string, ServerLive>();
@@ -410,8 +412,29 @@ export class SyncService {
     window.clearInterval(this.every);
     window.clearTimeout(this.afterSave);
     window.clearTimeout(this.afterServerSave);
+    for (const timer of this.afterOutside.values()) window.clearTimeout(timer);
+    this.afterOutside.clear();
     for (const live of this.lives.values()) live.stop();
     this.lives.clear();
+  }
+
+  /**
+   * Another program changed a space's folder on the desktop, an agent most of all: its turn comes
+   * as after a save, a second later on a server and a few seconds later elsewhere, the same
+   * waiting starting over while it goes on writing (design/background.md 4).
+   */
+  changedOutside(space: string | null) {
+    const key = space ?? PERSONAL;
+    const unit = this.units.get(key);
+    if (!unit?.connection) return;
+    window.clearTimeout(this.afterOutside.get(key));
+    this.afterOutside.set(
+      key,
+      window.setTimeout(() => {
+        this.afterOutside.delete(key);
+        this.syncNow(key);
+      }, unit.connection.server ? SERVER_AFTER_SAVE_MS : afterSaveMs()),
+    );
   }
 
   /**

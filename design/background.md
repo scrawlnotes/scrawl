@@ -239,3 +239,13 @@ Onaydan sonra, ayrıca önerilip onayla yapılır:
   - Argümansız başlatılınca pencere geldi.
   - Geliştirme derlemesi başlangıca satır yazmadı.
 - **Elle denenecek:** bilgisayar yeniden başlayınca Scrawl'ın tepside açılması, General'deki "Open at login"in açılıp kapanması ve Task Manager'da kapatılınca kapalı görünmesi, kaldırınca satırın gitmesi, macOS'ta LaunchAgent.
+
+## 14. 3. dilim yazılırken görülenler (24 Ekim 2026)
+
+- **İzleme:** `src-tauri/src/watch.rs`, `notify-debouncer-full` 0.5 (`notify` 8.2), değişiklikler bir saniye toplanır. Klasörler gerçek yollarıyla izlenir (`canonicalize`; macOS'ta FSEvents gerçek yolu verir), olaydaki yol klasörün içine göre `/` ile anlatılır. Dosyaya bakmak (`Access`) değişiklik sayılmaz. Olmayan klasör listeden düşer, izlenemeyen klasör ötekileri durdurmaz.
+- **Hangi klasörler:** sayfa, açık olan space'lerin klasörlerini izletir: kişisel vault ve `spaceEntries()`'teki her klasör. Space eklenince, çıkarılınca ya da taşınınca liste yeniden verilir; Rust eski izlemeyi bırakır.
+- **Uygulamanın kendi yazdığı:** `TauriFs` yazdığı, taşıdığı, sildiği ve açtığı her yolu, işten önce ve iş bitince, üç saniyeliğine kendi sayar. Bir klasör sayıldıysa içindekiler de sayılır: silinen bir klasörün dosyaları tek tek olay doğurur. Sync'in indirdikleri de `TauriFs`'ten geçtiği için ayıklanır.
+- **Tur:** `SyncService.changedOutside(space)` yalnız o space'in turunu, kayıttan sonraki bekleyişle başlatır; yazma sürdükçe bekleyiş baştan başlar. Pencere görünürse `session.rescan(space)` da çalışır.
+- **Testler:** Rust'ta iki test: olayların klasöre göre toplanması (bakma ve klasör dışı atlanır) ve gerçek bir klasöre yazılan dosyanın bildirilmesi (Rust 22 test).
+- **Windows'ta denendi**, ayrı kimlikle (sonra silindi): pencere açık ve odaktayken dışarıdan yazılan not, pencereye dokunulmadan beş saniye içinde kenar çubuğunda göründü. Bu, sayfaya WebView2'nin hata ayıklama kapısından bakılarak doğrulandı.
+- **Elle denenecek:** pencere kapalıyken ajanın yazdığının telefonda saniyeler içinde görünmesi, açık pencerede ajanın yazdığının hemen görünmesi, uygulamanın kendi kaydının boş tur doğurmaması (sync paneli), macOS.

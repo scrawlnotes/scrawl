@@ -1,7 +1,7 @@
 //! The desktop shell: a window around the web app, plus file access to the vault folder,
 //! opening attached files, reading the titles of web pages, and what signing in to a cloud
-//! drive needs (`cloud`), the app's own updates (`update`), and running on in the tray with the
-//! window closed (`background`).
+//! drive needs (`cloud`), the app's own updates (`update`), running on in the tray with the
+//! window closed (`background`), and watching the spaces' folders (`watch`).
 //!
 //! The commands mirror the `VaultFs` interface of `packages/core`. Every path is relative to
 //! the vault root that the user chose, and may not leave it.
@@ -20,6 +20,7 @@ mod background;
 mod clipboard;
 mod cloud;
 mod update;
+mod watch;
 
 #[derive(Serialize)]
 struct Entry {
@@ -554,6 +555,7 @@ pub fn run() {
         .manage(cloud::Listeners::default())
         .manage(update::Updates::default())
         .manage(background::Background::default())
+        .manage(watch::Watches::default())
         .setup(|app| {
             background::load(app.handle());
             let hidden = background::asks_hidden(&std::env::args().collect::<Vec<_>>());
@@ -610,7 +612,8 @@ pub fn run() {
             background::background_set,
             background::autostart_get,
             background::autostart_set,
-            background::quit_now
+            background::quit_now,
+            watch::watch_folders
         ])
         .build(tauri::generate_context!())
         .expect("error while running Scrawl")

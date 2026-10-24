@@ -188,6 +188,7 @@ import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { restartIntoUpdate, useDesktopUpdate } from './desktopUpdate';
 import { SyncStatus, syncWord, trayText } from './SyncViews';
 import { startTray, trayStatus } from './tray';
+import { startWatching } from './watch';
 import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
 import { LoadingView, Spin, stillOpening } from './Loading';
 import { openingDrawn, openingFailed } from './opening';
@@ -356,6 +357,8 @@ export function App() {
   // On the desktop, the tray's icon and its line of sync; Quit there writes what was typed first.
   useEffect(() => startTray(() => session.beforeSync()), [session]);
   useEffect(() => trayStatus(trayText(sync.all)), [sync]);
+  // On the desktop, what another program writes in the spaces' folders, an agent above all, syncs at once.
+  useEffect(() => startWatching(session, syncService), [session, syncService]);
   /**
    * Signs in for a space waiting for it. A space on a server asks for its password; for OneDrive,
    * in the browser the page goes to Microsoft and back, and on the desktop it is done in
