@@ -1,4 +1,4 @@
-import { Readable } from 'node:stream';
+import { PassThrough, Readable } from 'node:stream';
 import { rmSync } from 'node:fs';
 import { upgradeWebSocket } from '@hono/node-server';
 import { type Context, Hono } from 'hono';
@@ -12,6 +12,7 @@ import type { Live, LiveSocket } from './live';
 import type { Invites } from './invites';
 import { agentRoutes } from './agent';
 import type { OAuth } from './oauth';
+import { zipInto } from './export';
 import { joinPage, type JoinFound, readyPage } from './pages';
 import type { Spaces } from './spaces';
 
@@ -366,6 +367,20 @@ export function createApp(parts: Parts) {
   });
   app.patch('/api/v1/chat/:id/me', async (c) => c.json(chats.setMine(me(c), c.req.param('id'), await json(c))));
   app.post('/api/v1/chat/:id/read', async (c) => c.json(chats.read(me(c), c.req.param('id'), (await json(c)).seq)));
+  // Its files and links for its Info window, and its export: a zip written as it is sent (design/chat.md, 8.1 and 10).
+  app.get('/api/v1/chat/:id/shared', (c) => c.json(chats.shared(me(c).id, c.req.param('id'))));
+  app.get('/api/v1/chat/:id/export', (c) => {
+    const { name, entries } = chats.exportOf(me(c).id, c.req.param('id'), c.req.query('tz') ?? 'UTC');
+    const out = new PassThrough();
+    void zipInto(
+      out,
+      entries.map((entry) => ({ name: entry.name, from: entry.hash ? blobs.pathOf(entry.hash) : null, ...(entry.text !== undefined && { text: entry.text }), at: entry.at })),
+    ).catch((error: unknown) => out.destroy(error instanceof Error ? error : new Error(String(error))));
+    return c.body(Readable.toWeb(out) as ReadableStream<Uint8Array>, 200, {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}.zip`,
+    });
+  });
 
   // ---------- agents: the MCP door and its sign-in ----------
 

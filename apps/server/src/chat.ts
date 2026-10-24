@@ -85,6 +85,22 @@ export interface ChatInfo {
   alerts: number;
   /** In a direct message, how far each of the others read: what Seen says. */
   reads: { [account: string]: number } | null;
+  /** Whether this person changes the room's name and topic and archives it: whoever opened it, and its space's managers. */
+  manage: boolean;
+}
+
+/** A conversation's files and links, the latest first, for its Info window (design/chat.md, 8.1). */
+export interface Shared {
+  files: { message: string; author: string; at: number; file: ChatFile }[];
+  links: { message: string; author: string; at: number; url: string; text: string }[];
+}
+
+/** A file of a conversation's export: Markdown written here, or a file's content by its digest. */
+export interface ExportEntry {
+  name: string;
+  text?: string;
+  hash?: string;
+  at: number;
 }
 
 interface ChatRow {
@@ -152,6 +168,8 @@ const MAX_NAME = 40;
 const MAX_TOPIC = 250;
 const PAGE = 50;
 const MAX_PAGE = 200;
+/** How many files and links a conversation's Info window lists, of each. */
+const MAX_SHARED = 500;
 const CHANGES_PAGE = 500;
 const SEND_WINDOW_MS = 10_000;
 const SEND_MAX = 30;
@@ -602,6 +620,103 @@ export class Chats {
 
   // ---------- files ----------
 
+  /**
+   * A conversation's files and links, the latest first, for its Info window: the files of the
+   * messages not deleted, and the web addresses written in them, each once a message.
+   */
+  shared(account: string, id: string): Shared {
+    const chat = this.see(id, account);
+    const files = this.db
+      .prepare('SELECT f.*, m.author_id, m.created_at FROM message_files f JOIN messages m ON m.id = f.message_id WHERE m.chat_id = ? AND m.deleted_at IS NULL ORDER BY m.seq DESC, f.n LIMIT ?')
+      .all(chat.id, MAX_SHARED) as unknown as (FileRow & { author_id: string; created_at: number })[];
+    const written = this.db
+      .prepare("SELECT id, author_id, created_at, body FROM messages WHERE chat_id = ? AND deleted_at IS NULL AND (body LIKE '%http://%' OR body LIKE '%https://%') ORDER BY seq DESC LIMIT ?")
+      .all(chat.id, MAX_SHARED) as { id: string; author_id: string; created_at: number; body: string }[];
+    const links: Shared['links'] = [];
+    for (const row of written) {
+      for (const link of linksIn(row.body)) links.push({ message: row.id, author: row.author_id, at: row.created_at, ...link });
+      if (links.length >= MAX_SHARED) break;
+    }
+    return { files: files.map((row) => ({ message: row.message_id, author: row.author_id, at: row.created_at, file: fileOf(row) })), links };
+  }
+
+  /**
+   * A conversation as its export has it (design/chat.md, 10): a Markdown file a month, its days as
+   * headings, each message under who wrote it and when, an answer with its quote, a forward with
+   * where it came from, and its files in `_attachments/`, linked. The days and the times are those
+   * of `timeZone`, the person's.
+   */
+  exportOf(account: string, id: string, timeZone: string): { name: string; entries: ExportEntry[] } {
+    const chat = this.see(id, account);
+    const zone = validZone(timeZone);
+    const rows = this.db.prepare('SELECT * FROM messages WHERE chat_id = ? ORDER BY seq').all(chat.id) as unknown as MessageRow[];
+    const names = new Map<string, string>();
+    const nameOf = (account: string) => {
+      if (!names.has(account)) {
+        const row = this.db.prepare('SELECT name, email FROM accounts WHERE id = ?').get(account) as { name: string; email: string } | undefined;
+        names.set(account, row ? row.name || row.email : 'Someone');
+      }
+      return names.get(account)!;
+    };
+    const agents = new Map<string, string>();
+    const agentOf = (agent: string) => {
+      if (!agents.has(agent)) agents.set(agent, (this.db.prepare('SELECT name FROM agent_identities WHERE id = ?').get(agent) as { name: string } | undefined)?.name ?? 'Agent');
+      return agents.get(agent)!;
+    };
+    const title = chat.kind === 'direct' ? this.listeners(chat).filter((each) => each !== account).map(nameOf).join(', ') : `#${chat.name}`;
+    const month = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit' });
+    const monthName = new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: 'long' });
+    const day = new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const time = new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit' });
+    const files = this.filesOf(rows.filter((row) => row.deleted_at === null).map((row) => row.id));
+    const attached = new Map<string, ExportEntry>();
+    const months = new Map<string, { lines: string[]; day: string; at: number }>();
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    for (const row of rows) {
+      const key = month.format(row.created_at).slice(0, 7);
+      let part = months.get(key);
+      if (!part) {
+        part = { lines: [`# ${title} · ${monthName.format(row.created_at)}`, ''], day: '', at: row.created_at };
+        if (chat.topic) part.lines.push(chat.topic, '');
+        months.set(key, part);
+      }
+      part.at = row.created_at;
+      const today = day.format(row.created_at);
+      if (today !== part.day) {
+        part.day = today;
+        part.lines.push(`## ${today}`, '');
+      }
+      const by = row.agent_id ? `${agentOf(row.agent_id)} · ${nameOf(row.author_id)}` : nameOf(row.author_id);
+      part.lines.push(`**${by}** ${time.format(row.created_at)}${row.edited_at && !row.deleted_at ? ' (edited)' : ''}`);
+      if (row.deleted_at) {
+        part.lines.push('*This message was deleted.*', '');
+        continue;
+      }
+      if (row.reply_to) {
+        const source = byId.get(row.reply_to);
+        if (!source || source.deleted_at) part.lines.push('> Message deleted', '');
+        else part.lines.push(`> **${nameOf(source.author_id)}** ${plainOf(source.body).slice(0, 200) || 'A file'}`, '');
+      }
+      if (row.forward_from) {
+        const from = JSON.parse(row.forward_from) as { kind: ChatKind; name: string; authorName: string };
+        part.lines.push(`*Forwarded from ${from.kind === 'direct' ? 'a direct message' : `#${from.name}`} · ${from.authorName}*`);
+      }
+      if (row.body.trim()) part.lines.push(textOf(row.body));
+      for (const file of files.get(row.id) ?? []) {
+        let entry = attached.get(file.hash);
+        if (!entry) {
+          entry = { name: `_attachments/${file.hash.slice(0, 8)}-${safeName(file.name || 'file')}`, hash: file.hash, at: row.created_at };
+          attached.set(file.hash, entry);
+        }
+        const link = encodeURI(entry.name);
+        part.lines.push(file.type.startsWith('image/') ? `![${file.name}](${link})` : `[${file.name || 'File'}](${link})`);
+      }
+      part.lines.push('');
+    }
+    const entries: ExportEntry[] = [...months].map(([key, part]) => ({ name: `${key}.md`, text: part.lines.join('\n'), at: part.at }));
+    return { name: safeName(chat.kind === 'direct' ? title : chat.name) || 'conversation', entries: [...entries, ...attached.values()] };
+  }
+
   /** Keeps a file someone sent, for them to attach to a message. */
   upload(account: string, taken: Taken): { hash: string; size: number } {
     this.blobs.keep(taken);
@@ -623,6 +738,12 @@ export class Chats {
   }
 
   // ---------- inside ----------
+
+  /** Whether an account manages a space, as its own role and the server's say. */
+  private managesSpace(space: string, account: string): boolean {
+    const row = this.db.prepare('SELECT id, role FROM accounts WHERE id = ?').get(account) as Pick<Account, 'id' | 'role'> | undefined;
+    return !!row && this.spaces.manages(space, row as Account);
+  }
 
   private nextRev(): number {
     return Number((this.db.prepare("UPDATE meta SET value = CAST(value AS INTEGER) + 1 WHERE key = 'chat_rev' RETURNING value").get() as { value: string }).value);
@@ -808,19 +929,7 @@ export class Chats {
     const map = new Map<string, ChatFile[]>();
     if (!ids.length) return map;
     const rows = this.db.prepare(`SELECT * FROM message_files WHERE message_id IN (${marks(ids.length)}) ORDER BY message_id, n`).all(...ids) as unknown as FileRow[];
-    for (const row of rows) {
-      const file: ChatFile = {
-        hash: row.hash,
-        name: row.name,
-        type: row.type,
-        size: row.size,
-        ...(row.width !== null && { width: row.width }),
-        ...(row.height !== null && { height: row.height }),
-        ...(row.duration !== null && { duration: row.duration }),
-        ...(row.thumb !== null && { thumb: row.thumb }),
-      };
-      map.set(row.message_id, [...(map.get(row.message_id) ?? []), file]);
-    }
+    for (const row of rows) map.set(row.message_id, [...(map.get(row.message_id) ?? []), fileOf(row)]);
     return map;
   }
 
@@ -919,6 +1028,61 @@ export class Chats {
       unread,
       alerts,
       reads,
+      manage: chat.kind !== 'direct' && (chat.created_by === account || this.managesSpace(chat.space_id!, account)),
     };
+  }
+}
+
+/** A file's row as the app reads it. */
+function fileOf(row: FileRow): ChatFile {
+  return {
+    hash: row.hash,
+    name: row.name,
+    type: row.type,
+    size: row.size,
+    ...(row.width !== null && { width: row.width }),
+    ...(row.height !== null && { height: row.height }),
+    ...(row.duration !== null && { duration: row.duration }),
+    ...(row.thumb !== null && { thumb: row.thumb }),
+  };
+}
+
+/** The web addresses in a message, each once: a link's words and address, or an address written as it is. */
+export function linksIn(body: string): { url: string; text: string }[] {
+  const found = new Map<string, string>();
+  for (const match of body.matchAll(/\[([^\]]*)\]\((https?:\/\/[^\s)]+)[^)]*\)|(https?:\/\/[^\s<>()[\]]+)/g)) {
+    const url = (match[2] ?? match[3]!).replace(/[.,;:!?'"]+$/, '');
+    if (!found.has(url)) found.set(url, match[1]?.trim() || url);
+  }
+  return [...found].map(([url, text]) => ({ url, text }));
+}
+
+/** A message's words for its export: a mention as @Name, a chip and a message's link by their words. */
+function textOf(body: string): string {
+  return body.replace(/\[([^\]]*)\]\(scrawl:[^)]*\)/g, '$1');
+}
+
+/** A message as plain words, for a quote in the export. */
+function plainOf(body: string): string {
+  return textOf(body)
+    .replace(/```[^\n]*\n?/g, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[*_~`>#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** A name a file can have on any computer. */
+function safeName(name: string): string {
+  return name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').trim().slice(0, 120);
+}
+
+/** A time zone the export can use; UTC when it is not one. */
+function validZone(zone: string): string {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: zone });
+    return zone;
+  } catch {
+    return 'UTC';
   }
 }

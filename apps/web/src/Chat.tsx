@@ -22,6 +22,8 @@ import { Attachments, ForwardDialog, type Going, isImage, RecorderBar, Tray } fr
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store } from './chatStore';
 import { ConfirmDialog, type MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
+import { Face, leadOf, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
+import { BrowseRoomsDialog, ChatInfoDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
 import { hostOf } from './servers';
 import { ITEM_DRAG_TYPE } from './Sidebar';
 import { clipboardFilesOnDesktop, isDesktop } from './storage';
@@ -71,12 +73,6 @@ let followedAt = 0;
 /** The largest file a server takes, in words: 1 GB, 250 MB. */
 const limitText = (mb: number) => (mb >= 1024 && mb % 1024 === 0 ? `${mb / 1024} GB` : `${mb} MB`);
 
-/** A day as a message's link back names it: Oct 24, and the year when it is not this one. */
-function shortDay(at: number): string {
-  const day = new Date(at);
-  return day.toLocaleDateString(locale(), { month: 'short', day: 'numeric', ...(day.getFullYear() !== new Date().getFullYear() && { year: 'numeric' }) });
-}
-
 /**
  * Puts words on the clipboard as a copy does, right in the click; with `markdown`, as Markdown too
  * for a note or a message to paste in, as a link copied with its words (design/chat.md, 3.7).
@@ -95,41 +91,6 @@ function copy(text: string, markdown?: string): Promise<void> {
 
 /** The six reactions a message offers first; the rest are found in the full list. */
 const QUICK = ['👍', '❤️', '😂', '🎉', '👀', '✅'];
-
-/** Someone's name in a conversation, from the people the server named; Someone when it named them nowhere. */
-function namesOf(server: ChatServer): (id: string) => string {
-  const names = new Map<string, string>();
-  for (const chat of server.chats) for (const person of chat.members) names.set(person.id, person.name);
-  return (id) => names.get(id) || t('card.someone');
-}
-
-/** What a conversation is called in the list and over it: a room's name, or the others in a direct message. */
-function titleOf(chat: ChatInfo, me: string): string {
-  if (chat.kind !== 'direct') return chat.name;
-  const others = chat.members.filter((person) => person.id !== me);
-  if (others.length === 1) return others[0]!.name;
-  return others.map((person) => person.name.split(/\s+/)[0]).join(', ');
-}
-
-const others = (chat: ChatInfo, me: string) => chat.members.filter((person) => person.id !== me);
-
-/** A face's colour, the same for someone wherever they show. */
-function hueOf(id: string): number {
-  let hash = 0;
-  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  return Math.abs(hash) % 6;
-}
-
-function Face({ id, name, size = 'md', online = false }: { id: string; name: string; size?: 'sm' | 'xs' | 'md' | 'lg'; online?: boolean }) {
-  return (
-    <span className={`ch-face ${size} h${hueOf(id)}`} aria-hidden="true">
-      {(name.trim()[0] ?? '?').toUpperCase()}
-      {online && <i />}
-    </span>
-  );
-}
-
-const timeOf = (at: number) => new Date(at).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' });
 
 /** A day as the conversation divides it: Today, Yesterday, a weekday this week, else the date. */
 function dayOf(at: number): string {
@@ -157,13 +118,17 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
   const [listShown, setListShown] = useState(false);
   // The message a link opened Chat at, brought into sight once its conversation is on screen.
   const [target, setTarget] = useState<{ message: string; at: number } | null>(null);
+  // New room, Browse rooms and New message, for a server, from the list's headings.
+  const [making, setMaking] = useState<{ kind: 'newRoom' | 'browse'; url: string; space: string | null } | { kind: 'newMessage'; url: string } | null>(null);
+  /** A conversation of a server: one this person is in, or a room read from Browse rooms. */
+  const found = (server: ChatServer | undefined, id: string) => server?.chats.find((each) => each.id === id && !each.hidden) ?? (server?.visiting?.id === id ? server.visiting : undefined);
   const server = open ? snapshot.servers.find((each) => each.url === open.url) : undefined;
-  const chat = server?.chats.find((each) => each.id === open!.chat && !each.hidden);
+  const chat = open ? found(server, open.chat) : undefined;
   // The first conversation there is, when the one last open is not there any more.
-  const first = snapshot.servers.flatMap((each) => each.chats.filter((c) => !c.hidden).map((c) => ({ url: each.url, chat: c.id }))).at(0);
+  const first = snapshot.servers.flatMap((each) => each.chats.filter((c) => !c.hidden && c.archived === null).map((c) => ({ url: each.url, chat: c.id }))).at(0);
   const shown: Open | null = chat ? open : (first ?? null);
   const shownServer = shown ? snapshot.servers.find((each) => each.url === shown.url) : undefined;
-  const shownChat = shownServer?.chats.find((each) => each.id === shown!.chat);
+  const shownChat = shown ? found(shownServer, shown.chat) : undefined;
 
   useEffect(() => {
     store.setViewing(shown);
@@ -179,7 +144,25 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
     setOpen(next);
     keepOpen(next.url, next.chat);
     setListShown(false);
+    // A room read without being in it is left when another conversation opens.
+    for (const each of snapshot.servers) if (each.visiting && !(each.url === next.url && each.visiting.id === next.chat)) store.server(each.url)?.visit(null);
   };
+  /** A conversation from a window: one this person is in opens; a room they are not in is read. */
+  const openFrom = (url: string, chat: ChatInfo) => {
+    setMaking(null);
+    const server = snapshot.servers.find((each) => each.url === url);
+    if (!server?.chats.some((each) => each.id === chat.id && !each.hidden)) store.server(url)?.visit(chat);
+    pick({ url, chat: chat.id });
+  };
+  /** The + of a heading in the list: a space's New room… and Browse rooms…; Direct's opens New message. */
+  const addMenu = (event: MouseEvent, url: string, space: string | null) => {
+    if (space === null) return setMaking({ kind: 'newMessage', url });
+    menu(event, [
+      { label: t('chat.newRoomDots'), icon: 'plus', run: () => setMaking({ kind: 'newRoom', url, space }) },
+      { label: t('chat.browseRoomsDots'), icon: 'search', run: () => setMaking({ kind: 'browse', url, space }) },
+    ]);
+  };
+  const makingServer = making ? snapshot.servers.find((each) => each.url === making.url) : undefined;
 
   /** A message's link: its conversation opens at it; one not there for this person says so. */
   const follow = (href: string) => {
@@ -200,7 +183,7 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
 
   return (
     <div className={`chat${listShown ? ' list-shown' : ''}`}>
-      <ChatList servers={snapshot.servers} open={shown} onOpen={pick} />
+      <ChatList servers={snapshot.servers} open={shown} onOpen={pick} onAdd={addMenu} />
       {shownServer && shownChat ? (
         <Conversation
           key={`${shownServer.url} ${shownChat.id}`}
@@ -218,59 +201,82 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
           <p>{snapshot.servers.length ? t('chat.pick') : t('chat.loading')}</p>
         </div>
       )}
+      {making?.kind === 'newRoom' && makingServer && (
+        <NewRoomDialog server={makingServer} space={making.space} onDone={(made) => openFrom(making.url, made)} onClose={() => setMaking(null)} />
+      )}
+      {making?.kind === 'browse' && makingServer && (
+        <BrowseRoomsDialog
+          server={makingServer}
+          space={making.space}
+          onOpen={(room) => openFrom(making.url, room)}
+          onNewRoom={(space) => setMaking({ kind: 'newRoom', url: making.url, space })}
+          onClose={() => setMaking(null)}
+        />
+      )}
+      {making?.kind === 'newMessage' && makingServer && <NewMessageDialog server={makingServer} onDone={(made) => openFrom(making.url, made)} onClose={() => setMaking(null)} />}
     </div>
   );
 }
 
-/** What goes before a conversation's name in a list: the other's face with its dot, two faces, a lock or #. */
-function leadOf(chat: ChatInfo, server: ChatServer): ReactNode {
-  const people = others(chat, server.me);
-  if (chat.kind === 'private') return <Icon name="lock" />;
-  if (chat.kind !== 'direct') return <span className="hs">#</span>;
-  if (people.length === 1) return <Face id={people[0]!.id} name={people[0]!.name} size="sm" online={server.active.includes(people[0]!.id)} />;
-  return (
-    <span className="ch-faces">
-      {people.slice(0, 2).map((person) => (
-        <Face key={person.id} id={person.id} name={person.name} size="xs" />
-      ))}
-    </span>
-  );
-}
-
 /** The conversations: each server's rooms under their spaces by name, then its direct messages, the latest first. */
-function ChatList({ servers, open, onOpen }: { servers: ChatServer[]; open: Open | null; onOpen: (open: Open) => void }) {
+function ChatList({ servers, open, onOpen, onAdd }: {
+  servers: ChatServer[];
+  open: Open | null;
+  onOpen: (open: Open) => void;
+  /** The + of a space's heading, or of Direct's (space null). */
+  onAdd: (event: MouseEvent, url: string, space: string | null) => void;
+}) {
   const many = servers.length > 1;
   const row = (server: ChatServer, chat: ChatInfo) => {
     const on = open?.url === server.url && open.chat === chat.id;
     const off = chat.notify === 'off';
     const unread = chat.unread > 0 && !off && !on;
     const draft = !on && draftOf(server.url, chat.id).trim() !== '';
+    // A room read without being in it, or archived, shows only while it is open.
+    const peek = !chat.joined || chat.archived !== null;
     return (
-      <button type="button" key={chat.id} className={`chat-row${on ? ' on' : ''}${unread ? ' un' : ''}${off ? ' off' : ''}`} onClick={() => onOpen({ url: server.url, chat: chat.id })}>
+      <button type="button" key={chat.id} className={`chat-row${on ? ' on' : ''}${unread ? ' un' : ''}${off ? ' off' : ''}${peek ? ' peek' : ''}`} onClick={() => onOpen({ url: server.url, chat: chat.id })}>
         {leadOf(chat, server)}
         <span className="nm">{titleOf(chat, server.me)}</span>
         {chat.alerts > 0 && !on ? <span className="n">{chat.alerts}</span> : off ? <Icon name="bellOff" /> : draft ? <span className="dr">{t('chat.draft')}</span> : null}
       </button>
     );
   };
+  const heading = (name: string, url: string, space: string | null) => (
+    <div className="chat-grp">
+      <span>{name}</span>
+      <button type="button" className="gadd" title={space === null ? t('chat.newMessageDots') : t('chat.add')} aria-label={space === null ? t('chat.newMessageDots') : t('chat.add')} onClick={(event) => onAdd(event, url, space)}>
+        <Icon name="plus" />
+      </button>
+    </div>
+  );
   return (
     <nav className="chat-list" aria-label={t('chat.title')}>
       {servers.map((server) => {
-        const shown = server.chats.filter((chat) => !chat.hidden);
-        const spaces = new Map<string, ChatInfo[]>();
-        for (const chat of shown) if (chat.kind !== 'direct') spaces.set(chat.spaceName || chat.space!, [...(spaces.get(chat.spaceName || chat.space!) ?? []), chat]);
+        const isOpen = (chat: ChatInfo) => open?.url === server.url && open.chat === chat.id;
+        const shown = server.chats.filter((chat) => !chat.hidden && (chat.archived === null || isOpen(chat)));
+        if (server.visiting && isOpen(server.visiting) && !shown.some((chat) => chat.id === server.visiting!.id)) shown.push(server.visiting);
+        const spaces = new Map<string, { name: string; chats: ChatInfo[] }>();
+        for (const chat of shown) {
+          if (chat.kind === 'direct' || !chat.space) continue;
+          const group = spaces.get(chat.space) ?? { name: chat.spaceName || chat.space, chats: [] };
+          group.chats.push(chat);
+          spaces.set(chat.space, group);
+        }
         const direct = shown.filter((chat) => chat.kind === 'direct').sort((a, b) => (b.last?.at ?? b.createdAt) - (a.last?.at ?? a.createdAt));
         return (
           <div key={server.url} className="chat-server">
-            {[...spaces].sort(([a], [b]) => a.localeCompare(b)).map(([space, chats]) => (
-              <div key={space} className="chat-group">
-                <div className="chat-grp">{space}</div>
-                {chats.sort((a, b) => a.name.localeCompare(b.name)).map((chat) => row(server, chat))}
-              </div>
-            ))}
-            {direct.length > 0 && (
+            {[...spaces]
+              .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+              .map(([space, group]) => (
+                <div key={space} className="chat-group">
+                  {heading(group.name, server.url, space)}
+                  {group.chats.sort((a, b) => a.name.localeCompare(b.name)).map((chat) => row(server, chat))}
+                </div>
+              ))}
+            {spaces.size > 0 && (
               <div className="chat-group">
-                <div className="chat-grp">{many ? t('chat.directOn', { server: hostOf(server.url) }) : t('chat.direct')}</div>
+                {heading(many ? t('chat.directOn', { server: hostOf(server.url) }) : t('chat.direct'), server.url, null)}
                 {direct.map((chat) => row(server, chat))}
               </div>
             )}
@@ -302,6 +308,18 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
   const [editing, setEditing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<ChatMessage | null>(null);
   const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
+  // The Info window, at a tab; and a room read without being in it, joined.
+  const [info, setInfo] = useState<InfoTab | null>(null);
+  const [joining, setJoining] = useState(false);
+  const join = async () => {
+    setJoining(true);
+    try {
+      await one?.join(chat.id);
+    } catch {
+      links.say(t('chat.notChanged'));
+    }
+    setJoining(false);
+  };
   const [reacting, setReacting] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   // Files dragged over the conversation go in the box to write in.
@@ -336,7 +354,7 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
   // What is on screen at the end, with the window in front, is read.
   const readNow = () => {
     const box = scroller.current;
-    if (!box || !lastSeq || document.visibilityState !== 'visible' || !document.hasFocus()) return;
+    if (!box || !lastSeq || !chat.joined || document.visibilityState !== 'visible' || !document.hasFocus()) return;
     if (box.scrollHeight - box.scrollTop - box.clientHeight < 40) one?.read(chat.id, lastSeq);
   };
   useEffect(() => {
@@ -472,14 +490,17 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
         {lead}
         <b>{titleOf(chat, server.me)}</b>
         {chat.kind === 'direct' ? otherActive && <span className="tp act">{t('chat.active')}</span> : chat.topic && <span className="tp">{chat.topic}</span>}
-        {chat.kind !== 'direct' && (
-          <span className="acts">
-            <span className="ppl" title={chat.members.map((person) => person.name).join(', ')}>
+        <span className="acts">
+          {chat.kind !== 'direct' && (
+            <button type="button" className="ppl" title={chat.members.map((person) => person.name).join(', ')} onClick={() => setInfo('people')}>
               <Icon name="people" />
               {chat.members.length}
-            </span>
-          </span>
-        )}
+            </button>
+          )}
+          <button type="button" className="ib" title={t('chat.info')} aria-label={t('chat.info')} onClick={() => setInfo(chat.kind === 'direct' ? 'people' : 'about')}>
+            <Icon name="info" />
+          </button>
+        </span>
       </header>
       <div className="ch-msgs" ref={scroller} onScroll={onScroll}>
         {server.older[chat.id] === false || (messages[0]?.seq ?? 1) <= 1 ? (
@@ -536,6 +557,13 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
       <div className="ch-typing">{typing.length === 0 ? '' : typing.length === 1 ? t('chat.typingOne', { name: typing[0]! }) : typing.length === 2 ? t('chat.typingTwo', { a: typing[0]!, b: typing[1]! }) : t('chat.typingMany')}</div>
       {chat.archived !== null ? (
         <p className="ch-closed">{t('chat.archivedNote')}</p>
+      ) : !chat.joined ? (
+        <div className="ch-joinbar">
+          <span>{t('chat.notJoined', { name: chat.name })}</span>
+          <button type="button" className="st-btn go" disabled={joining} onClick={() => void join()}>
+            {t('chat.join')}
+          </button>
+        </div>
       ) : goneAll ? (
         <p className="ch-closed">{t('chat.goneNote', { name: titleOf(chat, server.me) })}</p>
       ) : (
@@ -569,6 +597,22 @@ function Conversation({ server, chat, menu, links, target, onFollow, onList }: {
             setForwarding(null);
             links.say(t('chat.forwarded', { count }));
           }}
+        />
+      )}
+      {info && (
+        <ChatInfoDialog
+          server={server}
+          chat={chat}
+          tab={info}
+          nameOf={nameOf}
+          menu={menu}
+          onJump={(id) => {
+            setInfo(null);
+            void jump(id);
+          }}
+          onLeft={() => setInfo(null)}
+          say={links.say}
+          onClose={() => setInfo(null)}
         />
       )}
       {deleting && (

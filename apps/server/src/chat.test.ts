@@ -4,9 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serve } from '@hono/node-server';
 import { ServerAccount } from '@scrawlnotes/core';
+import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, describe, expect, it } from 'vitest';
 import { WebSocketServer } from 'ws';
 import type { Config } from './config';
+import { linksIn } from './chat';
 import { makeServer } from './server';
 
 // Messaging (design/chat.md): rooms and direct messages, messages and what is done to them, how
@@ -363,6 +365,78 @@ describe('files', () => {
     expect((await s.call(s.elif, 'GET', `/chat/files/${photo.body.hash}`)).status).toBe(200);
     await s.call(s.mert, 'DELETE', `/chat/messages/${message.id}`);
     expect((await s.call(s.elif, 'GET', `/chat/files/${photo.body.hash}`)).status).toBe(404);
+  });
+});
+
+describe('a conversation’s Info and export', () => {
+  it('says who changes a room: whoever opened it and the space’s managers, not the others', async () => {
+    const s = await start();
+    const design = await s.room(s.mert, 'design', 'public');
+    expect(design.manage).toBe(true);
+    expect((await s.call(s.kaan, 'GET', `/chat/${design.id}`)).body.manage).toBe(true);
+    expect((await s.call(s.elif, 'GET', `/chat/${design.id}`)).body.manage).toBe(false);
+    expect((await s.call(s.elif, 'PATCH', `/chat/${design.id}`, { topic: 'Mine now' })).status).toBe(403);
+    const dm = (await s.call(s.kaan, 'POST', '/chat/direct', { people: [MERT] })).body;
+    expect(dm.manage).toBe(false);
+  });
+
+  it('lists the files and the links of the messages not deleted, the latest first', async () => {
+    const s = await start();
+    const general = await s.general(s.kaan);
+    const photo = await s.call(s.kaan, 'POST', '/chat/files', new Uint8Array([1, 2]));
+    const notes = await s.call(s.mert, 'POST', '/chat/files', new Uint8Array([3]));
+    await s.say(s.kaan, general.id, 'The board', { files: [{ hash: photo.body.hash, name: 'board.png', type: 'image/png', width: 800, height: 600 }] });
+    s.later(60_000);
+    await s.say(s.mert, general.id, 'See [the docs](https://scrawlnotes.com/docs) and https://github.com/scrawlnotes/scrawl.', { files: [{ hash: notes.body.hash, name: 'notes.pdf', type: 'application/pdf' }] });
+    const gone = await s.say(s.elif, general.id, 'https://example.com/secret');
+    await s.call(s.elif, 'DELETE', `/chat/messages/${gone.id}`);
+    const shared = (await s.call(s.elif, 'GET', `/chat/${general.id}/shared`)).body;
+    expect(shared.files.map((each: { file: { name: string }; author: string }) => [each.file.name, each.author])).toEqual([
+      ['notes.pdf', MERT],
+      ['board.png', KAAN],
+    ]);
+    expect(shared.files[1].file).toMatchObject({ type: 'image/png', width: 800, height: 600 });
+    expect(shared.links.map((each: { url: string; text: string }) => [each.url, each.text])).toEqual([
+      ['https://scrawlnotes.com/docs', 'the docs'],
+      ['https://github.com/scrawlnotes/scrawl', 'https://github.com/scrawlnotes/scrawl'],
+    ]);
+    const founders = await s.room(s.kaan, 'founders', 'private');
+    expect((await s.call(s.elif, 'GET', `/chat/${founders.id}/shared`)).status).toBe(404);
+  });
+
+  it('finds a link once in a message, without what ends the sentence', () => {
+    expect(linksIn('[a](https://x.dev/a) https://x.dev/a, and (https://y.dev/b?c=1).')).toEqual([
+      { url: 'https://x.dev/a', text: 'a' },
+      { url: 'https://y.dev/b?c=1', text: 'https://y.dev/b?c=1' },
+    ]);
+  });
+
+  it('exports a conversation as Markdown, a file a month, with its files', async () => {
+    const s = await start();
+    const general = await s.general(s.kaan);
+    const first = await s.say(s.mert, general.id, 'Can we freeze **main** at noon, [@Kaan Arslan](scrawl:person/' + KAAN + ')?');
+    s.later(5 * 60_000);
+    const photo = await s.call(s.kaan, 'POST', '/chat/files', new Uint8Array([7, 7, 7]));
+    await s.say(s.kaan, general.id, 'Yes. See [Roadmap](scrawl:item/board/sp-acmeacme/Roadmap.board.json "Acme")', { replyTo: first.id, files: [{ hash: photo.body.hash, name: 'plan.png', type: 'image/png' }] });
+    const gone = await s.say(s.elif, general.id, 'Wrong room');
+    await s.call(s.elif, 'DELETE', `/chat/messages/${gone.id}`);
+    s.later(9 * 24 * 60 * 60_000);
+    await s.say(s.mert, general.id, 'Next month');
+    const response = await s.server.app.request(`${URL}/api/v1/chat/${general.id}/export?tz=Europe/Istanbul`, { headers: { Authorization: `Bearer ${s.elif}` } });
+    expect(response.headers.get('Content-Type')).toBe('application/zip');
+    expect(response.headers.get('Content-Disposition')).toContain("filename*=UTF-8''general.zip");
+    const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    expect(Object.keys(files).sort()).toEqual(['2026-10.md', '2026-11.md', `_attachments/${photo.body.hash.slice(0, 8)}-plan.png`]);
+    expect([...files[`_attachments/${photo.body.hash.slice(0, 8)}-plan.png`]!]).toEqual([7, 7, 7]);
+    const october = strFromU8(files['2026-10.md']!);
+    expect(october).toContain('# #general · October 2026');
+    expect(october).toContain('## Saturday, October 24, 2026');
+    expect(october).toContain('**Mert** 13:00\nCan we freeze **main** at noon, @Kaan Arslan?');
+    expect(october).toContain('**Kaan Arslan** 13:05\n> **Mert** Can we freeze main at noon, @Kaan Arslan?\n\nYes. See Roadmap\n![plan.png](_attachments/');
+    expect(october).toContain('**Elif** 13:05\n*This message was deleted.*');
+    expect(october).not.toContain('Wrong room');
+    expect(strFromU8(files['2026-11.md']!)).toContain('## Monday, November 2, 2026\n\n**Mert** 13:05\nNext month');
+    expect((await s.call(s.deniz, 'GET', `/chat/${general.id}/export`)).status).toBe(404);
   });
 });
 

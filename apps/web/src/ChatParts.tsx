@@ -77,8 +77,11 @@ function ImageThumb({ url, file, one, more, onOpen }: { url: string; file: ChatF
   );
 }
 
-/** A photo large, over everything; the arrows go through the message's photos. */
-function Lightbox({ url, images, at, onClose }: { url: string; images: ChatFile[]; at: number; onClose: () => void }) {
+/**
+ * A photo large, over everything; the arrows go through the message's photos, or a conversation's
+ * in its Info window, where Show in chat goes to the message it came in.
+ */
+export function Lightbox({ url, images, at, onClose, onShow }: { url: string; images: ChatFile[]; at: number; onClose: () => void; onShow?: (index: number) => void }) {
   const [index, setIndex] = useState(at);
   const file = images[index]!;
   const shown = useFileUrl(url, file.hash, file.type);
@@ -98,6 +101,12 @@ function Lightbox({ url, images, at, onClose }: { url: string; images: ChatFile[
       <div className="bar">
         <span className="nm">{file.name}</span>
         {images.length > 1 && <span className="ct">{t('chat.photoOf', { at: index + 1, count: images.length })}</span>}
+        {onShow && (
+          <button type="button" onClick={() => onShow(index)}>
+            <Icon name="chat" />
+            {t('chat.showInChat')}
+          </button>
+        )}
         <button type="button" onClick={() => void save(url, file)}>
           <Icon name="download" />
           {t('chat.download')}
@@ -158,7 +167,7 @@ function barsOf(hash: string, count: number): number[] {
 const SPEEDS = [1, 1.5, 2];
 
 /** A recording's player: play, the bars as far as it played, its time, and how fast. */
-function AudioPlayer({ url, file }: { url: string; file: ChatFile }) {
+export function AudioPlayer({ url, file }: { url: string; file: ChatFile }) {
   const audio = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [at, setAt] = useState(0);
@@ -264,7 +273,7 @@ async function save(url: string, file: ChatFile) {
 }
 
 /** Any other file: its name, size and kind. Open shows it where the browser shows it, else saves it. */
-function FileRow({ url, file }: { url: string; file: ChatFile }) {
+export function FileRow({ url, file }: { url: string; file: ChatFile }) {
   const viewable = !isDesktop && (file.type === 'application/pdf' || file.type.startsWith('text/'));
   const open = async () => {
     if (!viewable) return void save(url, file);

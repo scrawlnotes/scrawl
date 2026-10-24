@@ -15,6 +15,7 @@ export {
   type ChatPage,
   type ChatPerson,
   type ChatSend,
+  type ChatShared,
   chatLink,
   continues,
   itemChip,

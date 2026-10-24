@@ -4,6 +4,7 @@ import {
   type ChatEvent,
   type ChatFile,
   type ChatInfo,
+  type ChatNotify,
   type ChatKept,
   type ChatMessage,
   newMessageId,
@@ -51,6 +52,8 @@ export interface ChatServer {
   active: string[];
   /** The largest file the server takes, in megabytes; null when it does not say. */
   maxFileMb: number | null;
+  /** A room read without being in it, from Browse rooms: there while it is open. */
+  visiting: ChatInfo | null;
 }
 
 export interface ChatSnapshot {
@@ -174,7 +177,7 @@ class OneServer {
     private readonly changed: () => void,
   ) {
     this.client = new ChatClient({ url, token: () => serverKey(url) });
-    this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [], maxFileMb };
+    this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [], maxFileMb, visiting: null };
   }
 
   async start() {
@@ -369,6 +372,71 @@ class OneServer {
 
   async react(message: string, emoji: string, on: boolean) {
     this.put([await this.client.react(message, emoji, on)]);
+  }
+
+  // ---------- rooms (design/chat.md, 2 and 8.1) ----------
+
+  /** Reads a room without being in it; null leaves it. */
+  visit(chat: ChatInfo | null) {
+    if (this.state.visiting?.id !== chat?.id) this.set({ visiting: chat });
+  }
+
+  /** A change made, then what changed asked for, so that the list shows it before the answer is used. */
+  private async made<T>(work: Promise<T>): Promise<T> {
+    const done = await work;
+    await this.turn();
+    return done;
+  }
+
+  openRoom(room: { space: string; name: string; topic?: string; kind: 'public' | 'private'; members?: string[] }) {
+    return this.made(this.client.openRoom(room));
+  }
+
+  /** A space's rooms for Browse rooms: its public ones, the private ones this person is in, and those archived. */
+  rooms(space: string) {
+    return this.client.rooms(space);
+  }
+
+  async join(chat: string) {
+    const joined = await this.made(this.client.join(chat));
+    if (this.state.visiting?.id === chat) this.set({ visiting: null });
+    return joined;
+  }
+
+  add(chat: string, accounts: string[]) {
+    return this.made(this.client.add(chat, accounts));
+  }
+
+  leave(chat: string) {
+    return this.made(this.client.leave(chat, this.state.me));
+  }
+
+  /** A direct message off the list until its next message, or back on it. */
+  hide(chat: string, hidden: boolean) {
+    return this.made(this.client.setMine(chat, { hidden }));
+  }
+
+  /** What a conversation tells this person: all, mentions or nothing; null for its kind's own. */
+  notify(chat: string, notify: ChatNotify | null) {
+    return this.made(this.client.setMine(chat, { notify }));
+  }
+
+  changeRoom(chat: string, change: { name?: string; topic?: string; archived?: boolean }) {
+    return this.made(this.client.changeRoom(chat, change));
+  }
+
+  /** The direct message with these people: the one there is, back on the list, or a new one. */
+  direct(people: string[]) {
+    return this.made(this.client.direct(people));
+  }
+
+  shared(chat: string) {
+    return this.client.shared(chat);
+  }
+
+  /** A conversation's export, its days and times as this device has them. */
+  exportZip(chat: string) {
+    return this.client.export(chat, Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
   }
 
   /**

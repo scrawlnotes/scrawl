@@ -1,6 +1,7 @@
 import { createReadStream, createWriteStream, mkdirSync } from 'node:fs';
 import { once } from 'node:events';
 import { dirname, join } from 'node:path';
+import type { Writable } from 'node:stream';
 import { DatabaseSync } from 'node:sqlite';
 import { Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 import type { Config } from './config';
@@ -49,22 +50,42 @@ export async function exportSpace(config: Config, which: string, out?: string, n
 }
 
 /** Writes the files into a zip as they are read, so a large space never sits in memory. */
-async function writeZip(target: string, files: { name: string; from: string | null; at: number }[]) {
+async function writeZip(target: string, files: ZipFile[]) {
   const file = createWriteStream(target);
+  const done = once(file, 'close');
+  await zipInto(file, files);
+  await done;
+}
+
+/** A file in a zip: its content from a file on disk, or text written for it; a folder has neither. */
+export interface ZipFile {
+  name: string;
+  from: string | null;
+  text?: string;
+  at: number;
+}
+
+/**
+ * Writes the files into a zip on `out` as they are read, waiting for it to take each piece, and
+ * ends it: a file, or a download as it goes (a conversation's export, design/chat.md 10).
+ */
+export async function zipInto(out: Writable, files: ZipFile[]) {
   let failed: Error | null = null;
   const zip = new Zip((error, chunk, final) => {
     if (error) failed = error;
-    else file.write(chunk);
-    if (final) file.end();
+    else out.write(chunk);
+    if (final) out.end();
   });
   const drained = async () => {
-    if (file.writableNeedDrain) await once(file, 'drain');
+    if (out.writableNeedDrain) await once(out, 'drain');
   };
   for (const each of files) {
-    const entry = each.from && !PACKED.test(each.name) ? new ZipDeflate(each.name, { level: 6 }) : new ZipPassThrough(each.name);
+    const packs = (each.from || each.text !== undefined) && !PACKED.test(each.name);
+    const entry = packs ? new ZipDeflate(each.name, { level: 6 }) : new ZipPassThrough(each.name);
     entry.mtime = each.at;
     zip.add(entry);
-    if (each.from) {
+    if (each.text !== undefined) entry.push(new TextEncoder().encode(each.text));
+    else if (each.from) {
       for await (const chunk of createReadStream(each.from)) {
         entry.push(chunk as Uint8Array);
         await drained();
@@ -72,8 +93,8 @@ async function writeZip(target: string, files: { name: string; from: string | nu
     }
     entry.push(new Uint8Array(0), true);
     if (failed) throw failed;
+    await drained();
   }
   zip.end();
-  await once(file, 'close');
   if (failed) throw failed;
 }

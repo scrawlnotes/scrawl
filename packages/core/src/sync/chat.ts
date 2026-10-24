@@ -65,6 +65,14 @@ export interface ChatInfo {
   unread: number;
   alerts: number;
   reads: { [account: string]: number } | null;
+  /** Whether this person changes the room and archives it: whoever opened it and its space's managers; a server from before says nothing. */
+  manage?: boolean;
+}
+
+/** A conversation's files and links, the latest first, for its Info window (design/chat.md, 8.1). */
+export interface ChatShared {
+  files: { message: string; author: string; at: number; file: ChatFile }[];
+  links: { message: string; author: string; at: number; url: string; text: string }[];
 }
 
 /** What changed after a cursor: every conversation someone is in as it now is, and the messages new or changed. */
@@ -176,6 +184,17 @@ export class ChatClient {
   async leave(chat: string, account: string): Promise<void> {
     const response = await this.client.request(`/chat/${encodeURIComponent(chat)}/members/${encodeURIComponent(account)}`, { method: 'DELETE' });
     if (!response.ok) throw await errorOf(response);
+  }
+
+  shared(chat: string): Promise<ChatShared> {
+    return this.client.json(`/chat/${encodeURIComponent(chat)}/shared`);
+  }
+
+  /** A conversation as a zip of Markdown and its files, its days and times in `timeZone` (design/chat.md, 10). */
+  async export(chat: string, timeZone: string): Promise<Blob> {
+    const response = await this.client.request(`/chat/${encodeURIComponent(chat)}/export?tz=${encodeURIComponent(timeZone)}`);
+    if (!response.ok) throw await errorOf(response);
+    return response.blob();
   }
 }
 
