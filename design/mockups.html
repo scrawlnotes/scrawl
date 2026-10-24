@@ -3571,6 +3571,25 @@ p { margin: 0; max-width: 68ch; }
 .pm-mval { gap: 6px; }
 .mock .pm-mval > svg:first-child { width: 17px; height: 17px; color: var(--m-dim); }
 .mb-head h2 .pm-lk svg { width: 17px; height: 17px; margin-left: 8px; vertical-align: 0; }
+.pm-nfacc { display: flex; align-items: center; gap: 5px; margin: 1px 8px 4px calc(4px + var(--d) * 16px + 36px); padding: 2px 6px; border-radius: 4px; color: var(--m-dim); font-size: 11.5px; white-space: nowrap; }
+.pm-nfacc:hover { background: var(--m-sel); }
+.mock .pm-nfacc svg { flex: none; width: 12px; height: 12px; color: var(--m-faint); }
+.pm-nfacc .dd { color: var(--m-faint); font-size: 10px; }
+.pm-wacc { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; padding: 1px 8px; border: 1px solid var(--m-line); border-radius: 10px; color: var(--m-dim); font-size: 11.5px; }
+.mock .pm-wacc svg { width: 11px; height: 11px; }
+.pm-mfr { display: flex; align-items: center; gap: 10px; margin: 6px 12px 0; padding: 6px 6px 6px 12px; border: 1px solid var(--m-accent); border-radius: 12px; background: var(--m-bg); }
+.mock .pm-mfr > svg { flex: none; width: 22px; height: 22px; color: var(--m-accent); }
+.pm-mfr .in { flex: 1; min-width: 0; font-size: 17px; }
+.pm-mfr .in .caret { display: inline-block; width: 2px; height: 20px; margin: 0 1px -4px; background: var(--m-accent); }
+.pm-mfr .go { padding: 7px 14px; border-radius: 9px; background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+.pm-mfr .x { display: grid; place-items: center; width: 30px; height: 30px; color: var(--m-faint); }
+.mock .pm-mfr .x svg { width: 18px; height: 18px; }
+.pm-mfacc { display: flex; align-items: center; gap: 7px; padding: 8px 18px 10px 24px; color: var(--m-faint); font-size: 14px; }
+.mock .pm-mfacc svg { flex: none; width: 17px; height: 17px; }
+.pm-mfacc .pm-cl { margin-left: auto; color: var(--m-accent); font-weight: 600; }
+.pm-msacc { display: flex; align-items: center; gap: 7px; margin: -2px 4px 10px; color: var(--m-dim); font-size: 14px; }
+.mock .pm-msacc svg { width: 16px; height: 16px; }
+.mb-fr .val .pm-mval { display: inline-flex; align-items: center; gap: 6px; }
 </style>
 
 <main class="page">
@@ -4296,7 +4315,7 @@ p { margin: 0; max-width: 68ch; }
       <div>
         <span class="letter">YETKİ · TASLAK</span>
         <h2>Dosya ve klasör yetkisi</h2>
-        <p>Yalnız sunucudaki paylaşılan space'lerde. Dosyanın ve klasörün menüsünde, Move to… ve Rename'in yanında <b>Access…</b>: <b>Everyone in Acme</b> ya da <b>Only these people</b>. Listede olmayan onu hiç görmez, adını da. Listeye o şeyin bulunduğu yeri görenler eklenir. Kuranın satırında <b>Set this up</b>; onu listeden yalnız Owner ve Admin çıkarır, herkese açmayı da yalnız kuran, Owner ve Admin yapar. Owner ve Admin listede yer almaz, her zaman görür; pencere onları adlarıyla söyler. Listeden biri çıkınca ya da ilk kez kısıtlanınca pencere kimin göremeyeceğini ve onun cihazlarından silineceğini söyler. Kısıtlı dosya ve klasörün yanında, onu görenlere küçük bir kilit: kenar çubuğunda, Files'ta, aramada. Create'te Folder'ın altında <b>Access</b>: önce <b>Everyone in Acme</b> (kısıtlı bir klasörde onu görenler); <b>Change…</b> aynı pencereyi açar, yeni öğede kimse bir şey kaybetmediği için uyarı yoktur ve <b>Done</b> Create'e döner; seçilen satırda görünür. Görmesi biten kişinin sync panelinde <b>Removed from this device</b>; görmediği bir şeyle aynı adı taşıyan dosyası Not synced'da kalır. Telefonda menü action sheet, Access bir sheet. Teknik tasarım <code>design/permissions.md</code>.</p>
+        <p>Yalnız sunucudaki paylaşılan space'lerde. Dosyanın ve klasörün menüsünde, Move to… ve Rename'in yanında <b>Access…</b>: <b>Everyone in Acme</b> ya da <b>Only these people</b>. Listede olmayan onu hiç görmez, adını da. Listeye o şeyin bulunduğu yeri görenler eklenir. Kuranın satırında <b>Set this up</b>; onu listeden yalnız Owner ve Admin çıkarır, herkese açmayı da yalnız kuran, Owner ve Admin yapar. Owner ve Admin listede yer almaz, her zaman görür; pencere onları adlarıyla söyler. Listeden biri çıkınca ya da ilk kez kısıtlanınca pencere kimin göremeyeceğini ve onun cihazlarından silineceğini söyler. Kısıtlı dosya ve klasörün yanında, onu görenlere küçük bir kilit: kenar çubuğunda, Files'ta, aramada. Create'te Folder'ın altında <b>Access</b>: önce <b>Everyone in Acme</b> (kısıtlı bir klasörde onu görenler); <b>Change…</b> aynı pencereyi açar, yeni öğede kimse bir şey kaybetmediği için uyarı yoktur ve <b>Done</b> Create'e döner; seçilen satırda görünür. Kenar çubuğundaki ve telefondaki New folder satırının altında da kimin göreceği ve Change…; New app'in App adımında Name ve In'in altında Access, özette kimlerin göreceği. Görmesi biten kişinin sync panelinde <b>Removed from this device</b>; görmediği bir şeyle aynı adı taşıyan dosyası Not synced'da kalır. Telefonda menü action sheet, Access bir sheet. Teknik tasarım <code>design/permissions.md</code>.</p>
         <ul class="traits"><li>yalnız sunucuda</li><li>dosya ve klasör</li><li>görmeyen adını da görmez</li><li>kuran korunur</li><li>Owner ve Admin hep görür</li><li>kilit</li><li>telefonda da</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Yetki görünümü">
@@ -4309,12 +4328,17 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-pmview="pmcreatepick">Create: Access</button>
         <button type="button" data-pmview="pmcreated">Create: chosen</button>
         <button type="button" data-pmview="pmcreatefin">Create in Finance</button>
+        <button type="button" data-pmview="pmfolder">New folder</button>
+        <button type="button" data-pmview="pmfolderset">New folder: chosen</button>
+        <button type="button" data-pmview="pmapp">New app</button>
+        <button type="button" data-pmview="pmappsum">New app: summary</button>
         <button type="button" data-pmview="pmfiles">Files</button>
         <button type="button" data-pmview="pmsearch">Search</button>
         <button type="button" data-pmview="pmsync">Sync</button>
         <button type="button" data-pmview="pmphone">Telefon</button>
         <button type="button" data-pmview="pmphone2">Telefon 2</button>
         <button type="button" data-pmview="pmphone3">Telefon 3</button>
+        <button type="button" data-pmview="pmphone4">Telefon 4</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -12688,7 +12712,8 @@ p { margin: 0; max-width: 68ch; }
           spRowT({ d: 2, icon: 'notes', label: 'Budget 2027', on: o.on === 'budget' }) +
           spRowT({ d: 2, icon: 'collection', label: 'Payments', ct: 18 })
         : '') +
-      spRowT({ d: 1, folder: true, open: true, label: 'Sales', ct: sees ? 4 : 3 }) +
+      spRowT({ d: 1, folder: true, open: true, label: 'Sales', ct: sees ? 4 : 3, menu: !!o.newFolder }) +
+      (o.newFolder ? pmNewFolder(o.newFolder) : '') +
       spRowT({ d: 2, icon: 'tasks', label: 'Tasks', ct: 5 }) +
       spRowT({ d: 2, icon: 'board', label: 'Deals', ct: 8 }) +
       spRowT({ d: 2, icon: 'collection', label: 'Companies', ct: 24 }) +
@@ -12798,6 +12823,22 @@ p { margin: 0; max-width: 68ch; }
       '<div class="label" style="margin-top: 10px">Access</div><div class="field filled pm-acf' + (o.hot ? ' hot' : '') + '">' + pmAcc(o.acc) + '<span class="pm-cl">Change…</span></div>' +
       '<div class="foot"><span class="st-btn" style="margin-left: auto">Back</span><span class="st-btn go">Create</span></div></div></div>';
   }
+  /** New folder here, in the sidebar: its name's row, and under it who will see it, with Change…. */
+  function pmNewFolder(acc) {
+    var who = acc === 'only' ? ICON.lock + '<span>You and Deniz Ak</span>' : CI.people + '<span>Everyone in Acme</span>';
+    return '<div class="it-new" style="--d: 2"><span class="fpad"></span>' + ICON.folder + '<span class="in">Pricing<span class="caret"></span></span><span class="st-btn go">Add</span><span class="x" title="Cancel">×</span></div>' +
+      '<div class="pm-nfacc" style="--d: 2" title="Change who sees it">' + who + '<span class="dd">▾</span></div>';
+  }
+  /** New app's App step and its summary in Acme: Access under the name and the place, as in Create. */
+  function pmNaApp(acc) {
+    var field = '<div class="wide"><div class="label">Access</div><div class="field filled pm-acf">' + pmAcc(acc) + '<span class="pm-cl">Change…</span></div>' +
+      '<p class="na-help">Who sees Sales desk and everything set up in it.</p></div>';
+    return naAppPage().replace(/Spare parts/g, 'Sales desk').replace(/Atlas Lifts/g, 'Acme').replace('<div class="wide"><div class="label">Currencies', field + '<div class="wide"><div class="label">Currencies');
+  }
+  function pmNaSummary() {
+    return naSummary().replace(/Spare parts/g, 'Sales desk').replace(/Atlas Lifts/g, 'Acme')
+      .replace('<small>in Acme</small>', '<small>in Acme</small><span class="pm-wacc">' + ICON.lock + 'You and Deniz Ak</span>');
+  }
   function pmCreateApp(over) {
     return pmApp({ as: 'M', on: 'discounts', tabs: tab('notes', 'Discounts we can give', 'x', true) + tab('board', 'Deals · Sales', 'x', false), body: PM_DISCOUNTS, status: PM_NOTE_ST, over: over });
   }
@@ -12870,6 +12911,12 @@ p { margin: 0; max-width: 68ch; }
     pmcreatepick: function () { return pmCreateApp(pmCreate({ acc: 'all' }) + pmAccess(pmWith(PM_NEW, { pick: ['M', 'D'] }))); },
     pmcreated: function () { return pmCreateApp(pmCreate({ acc: 'only' })); },
     pmcreatefin: function () { return pmCreateApp(pmCreate({ acc: 'finance' })); },
+    // New folder here, in the sidebar: under its name, who will see it; Change… opens the window as from Create.
+    pmfolder: function () { return pmApp({ as: 'M', newFolder: 'all', on: 'discounts', tabs: tab('notes', 'Discounts we can give', 'x', true), body: PM_DISCOUNTS, status: PM_NOTE_ST }); },
+    pmfolderset: function () { return pmApp({ as: 'M', newFolder: 'only', on: 'discounts', tabs: tab('notes', 'Discounts we can give', 'x', true), body: PM_DISCOUNTS, status: PM_NOTE_ST }); },
+    // New app: Access on its App step, and the summary says who will see it.
+    pmapp: function () { return pmCreateApp(pmNaApp('all')); },
+    pmappsum: function () { return pmCreateApp(pmNaSummary()); },
     pmfiles: function () { return pmApp({ as: 'M', files: true, tabs: tab('clip', 'Files', 'x', true), body: pmFiles(), status: '<span>6 files</span><span>7.5 MB</span>' }); },
     pmsearch: function () {
       var rows = PM_SX.map(function (r, i) { return sxRow(pmWith(r, { on: i === 0 })); }).join('');
@@ -12949,6 +12996,29 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Kısıtlı klasörde: onu görenler', PMM_FINANCE, mbTabs('browse') + pmmNew('finance'))
     ].join('');
   }
+  // New folder on a phone: its row at the top of the folder's page, who will see it under it.
+  function pmmNewFolder() {
+    return mbPage(mbNav('Acme', ['dots']) + mbHead('Sales'),
+      '<div class="pm-mfr">' + ICON.folder + '<span class="in">Pricing<span class="caret"></span></span><span class="go">Add</span><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="pm-mfacc">' + CI.people + '<span>Everyone in Acme</span><span class="pm-cl">Change…</span></div>' +
+      mbRow({ icon: 'tasks', label: 'Tasks', ct: 5 }) + mbRow({ icon: 'board', label: 'Deals', ct: 8 }) + mbRow({ icon: 'collection', label: 'Companies', ct: 24 }));
+  }
+  function pmPhone4() {
+    var page = mbPage(mbNav('Acme', ['dots']) + mbHead('Sales'), mbRow({ icon: 'tasks', label: 'Tasks', ct: 5 }) + mbRow({ icon: 'board', label: 'Deals', ct: 8 }) + mbRow({ icon: 'collection', label: 'Companies', ct: 24 }));
+    var app = naSheet('App', 'Templates', 'Next', 1,
+      '<div class="na-mgroup">' + mbVal('Name', 'Sales desk', { text: true, cls: 'lnkc' }) + mbVal('In', 'Acme') + mbVal('Access', '<span class="pm-mval">' + CI.people + 'Everyone in Acme</span>') + mbVal('Currencies', 'TRY, EUR') + '</div>' +
+      '<p class="na-help" style="margin: 8px 4px 0; font-size: 13px">Access is who sees Sales desk and everything set up in it.</p>');
+    var summary = naSheet('Summary', 'Stock', '', 5,
+      '<div class="na-mlabel">Sales desk, in Acme</div><div class="pm-msacc">' + ICON.lock + 'You and Deniz Ak</div>' +
+      '<div class="na-mgroup"><div class="na-mrow">CRM<small>3 collections, Deals</small></div><div class="na-mrow">Sales and invoicing<small>4 collections</small></div><div class="na-mrow">Stock and purchasing<small>5 collections</small></div><div class="na-mrow">About Sales desk<small>note</small></div></div>' +
+      '<p class="na-help" style="margin: 8px 4px 14px; font-size: 13px">12 collections, 1 board, 1 note. Companies and Products are shared.</p><span class="na-mbtn">Create</span>');
+    return [
+      mbPhone('New folder: adın altında Access', pmmNewFolder(), MB_KB),
+      mbPhone('Change…: aynı sheet, Done', pmmNewFolder(), pmmAccess(pmWith(PM_NEW, { icon: 'folder', name: 'Pricing', where: 'New folder in Acme › Sales', pick: ['M', 'D'] }))),
+      mbPhone('New app: adı ve yeriyle Access', page, mbTabs('browse') + app),
+      mbPhone('Özette kimlerin göreceği', page, mbTabs('browse') + summary)
+    ].join('');
+  }
   /** Elif's Acme on her phone: Finance removed from it, and her note whose name Acme has already. */
   function pmmSync(bad) {
     var top = mbNav('Sync', ['Sync now']) + mbHead('Acme', SRV_HOST + ' · elif@acme.example');
@@ -12975,9 +13045,9 @@ p { margin: 0; max-width: 68ch; }
   function renderPm(section, view) {
     var mock = section.querySelector('.mock');
     mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
-    if (view === 'pmphone' || view === 'pmphone2' || view === 'pmphone3') {
+    if (/^pmphone/.test(view)) {
       mock.className = 'mock dir-a phones mbs pmm' + (view === 'pmphone2' ? '' : ' four');
-      mock.innerHTML = view === 'pmphone' ? pmPhone() : view === 'pmphone2' ? pmPhone2() : pmPhone3();
+      mock.innerHTML = { pmphone: pmPhone, pmphone2: pmPhone2, pmphone3: pmPhone3, pmphone4: pmPhone4 }[view]();
     } else {
       mock.className = 'mock dir-a wider pmm';
       mock.innerHTML = PM_VIEWS[view]();

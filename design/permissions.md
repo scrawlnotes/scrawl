@@ -1,6 +1,6 @@
 # Sunucuda dosya ve klasör yetkisi (taslak)
 
-Durum: 24 Ekim 2026, onaylı. Kararların hepsi konuşularak verildi (11. bölüm); 12. bölümdeki dört karar önerildiği gibi onaylandı. PLAN'a 20. aşama olarak işlendi (13. bölüm); Dropbox, S3 ve GitHub 21, Google Drive 22, Mobil 23 oldu. Roadmap'te faz 20, kartlar ROA-256–260. Mockup 24 Ekim'de onaylandı (`design/mockups.html`, Dosya ve klasör yetkisi); 2.4, 2.6 ve 3. bölüm ona göre. Aynı gün Create'e Access eklendi ve onaylandı (3.4, 4.4, 5.4). Kodda bir şey yazılmadı; kod kullanıcı söyleyince başlar. PLAN'ın Sonraya kalanlarındaki "sunucuda ince yetkiler" maddesinin klasöre göre yetki kısmıdır. Salt okunur hiç olmayacak; PLAN'dan da çıkarıldı (11. bölüm, 9. karar).
+Durum: 24 Ekim 2026, onaylı. Kararların hepsi konuşularak verildi (11. bölüm); 12. bölümdeki dört karar önerildiği gibi onaylandı. PLAN'a 20. aşama olarak işlendi (13. bölüm); Dropbox, S3 ve GitHub 21, Google Drive 22, Mobil 23 oldu. Roadmap'te faz 20, kartlar ROA-256–260. Mockup 24 Ekim'de onaylandı (`design/mockups.html`, Dosya ve klasör yetkisi); 2.4, 2.6 ve 3. bölüm ona göre. Aynı gün Create'e, kenar çubuğundaki New folder satırına ve New app'e Access eklendi ve onaylandı (3.4, 4.4, 5.4). Kodda bir şey yazılmadı; kod kullanıcı söyleyince başlar. PLAN'ın Sonraya kalanlarındaki "sunucuda ince yetkiler" maddesinin klasöre göre yetki kısmıdır. Salt okunur hiç olmayacak; PLAN'dan da çıkarıldı (11. bölüm, 9. karar).
 
 ## 1. Kapsam
 
@@ -58,7 +58,7 @@ Yollar büyük-küçük harfe bakmadan tek sayılır. Bir kişi, göremediği bi
 
 ## 3. Ekranda
 
-Mockup: `design/mockups.html`, Dosya ve klasör yetkisi (24 Ekim'de onaylandı). Masaüstünde Menu, Restrict, As a member, As the owner, A note, Create, Create: Access, Create: chosen, Create in Finance, Files, Search, Sync; telefonda üç sayfa.
+Mockup: `design/mockups.html`, Dosya ve klasör yetkisi (24 Ekim'de onaylandı). Masaüstünde Menu, Restrict, As a member, As the owner, A note, Create, Create: Access, Create: chosen, Create in Finance, New folder, New folder: chosen, New app, New app: summary, Files, Search, Sync; telefonda dört sayfa.
 
 ### 3.1 Access penceresi
 
@@ -90,7 +90,9 @@ Bir şey oluşturulurken de kısıtlanabilir, böylece bir an bile herkese açı
 - **Önce:** "Everyone in Acme · All 6 people". Seçilen klasör kısıtlıysa "Everyone who sees Finance", yanında o klasörü görenlerin yüzleri ve adları ("Deniz Ak and you").
 - **Change…:** 3.1'deki pencereyi açar. Öğe henüz kimseye görünmediği için Gets access, Loses access ve uyarı yoktur; Save yerine **Done**, Create'e döner. Oluşturan kişi kurandır ("Set this up").
 - **Seçilince:** satır kimlerin göreceğini söyler: kilit, "Only these people", yüzler ve adlar ("You and Deniz Ak").
-- **Açık:** kenar çubuğundaki New folder satırı (ad yazılıp Add) ve New app Create'ten geçmez. Onlara da Access eklenip eklenmeyeceği sorulacak; eklenmezse yeni klasörün adı, menüden kısıtlanana kadar birkaç saniye herkese görünür.
+- **New folder:** kenar çubuğunda New folder here ile açılan ad satırının altında küçük bir satır: "Everyone in Acme ▾", seçilince kilit ve "You and Deniz Ak ▾". Kenar çubuğu dar olduğu için ayrı bir Change… yoktur; satırın kendisi tıklanınca aynı pencereyi açar. Telefonda klasör sayfasının başındaki ad satırının altında aynısı, yanında Change….
+- **New app:** sihirbazın App adımında Name ve In'in altında **Access**, Create'teki gibi ("Who sees Sales desk and everything set up in it."). Özette uygulamanın adı ve yerinin yanında kimlerin göreceği: kilit ve "You and Deniz Ak". Telefonda App sheet'inde Access satırı, özette aynısı. Kısıt uygulamanın klasörüne kurulur; içinde kurulan her şey onu taşır.
+- Yeni bir klasör ya da uygulama da kısıtıyla açılır (5.4); adı bir an bile herkese görünmez.
 
 ## 4. Sunucu
 
@@ -215,7 +217,7 @@ Yeni hata `RemoteForbidden(path, why)`: `ServerRemote` 403 `taken`'ı ve `no-acc
 
 Create'te Only these people seçilince (3.4) öğe sunucuya kısıtıyla birlikte gitmelidir; önce dosya gidip kısıt sonra gelirse arada başkasının cihazına inebilir.
 
-- Uygulama öğeyi yazarken kısıtını cihaza özel `.scrawl/sync-access.json`'a koyar: yol ve kişiler. Dosya `DEVICE_ONLY`'e eklenir.
+- Uygulama öğeyi yazarken kısıtını cihaza özel `.scrawl/sync-access.json`'a koyar: yol ve kişiler. Dosya `DEVICE_ONLY`'e eklenir. Create'ten, New folder satırından ve New app'ten gelen kısıtların hepsi buradan gider; yeni bir klasörde ve uygulamada kısıt klasöre kurulur.
 - Motor yüklemeden önce bu listeye bakar. Bekleyen bir dosyanın ilk yazımı kısıtı taşır (`write`'a isteğe bağlı `access`); bekleyen bir klasör (koleksiyon) içindekilerden önce kısıtıyla açılır (`mkdir`'e `access`). İçindekiler ondan sonra gider; yoksa ilk dosya klasörü kısıtsız açardı.
 - Sunucu kabul edince satır listeden düşer. Reddederse (adı alınmış) dosya 5.2'deki gibi cihazda kalır, satır da kalır.
 - Cihaz çevrimdışıyken oluşturulan öğe de böyle bekler ve kısıtıyla gider.
@@ -257,7 +259,7 @@ Kalanlar:
 - `hidden`: dosya ve klasör doğrudan silinir, çöpe gitmez; değişmiş ve gönderilmemiş olan da silinir; taban, geçmiş ve `away` kaydı gider; `removed`'da da gelen yol `hidden` sayılır.
 - `RemoteForbidden`: tur durmaz, dosya cihazda kalır ve raporda görünür.
 - Klasör taşıma: tek `moveDir` gider; içinde değişen dosya taşımadan sonra yüklenir; `moveDir`'i olmayan sağlayıcıda dosyalar tek tek taşınır.
-- Kısıtıyla oluşturulan öğe: not kısıtıyla gider; koleksiyonda önce klasör kısıtıyla açılır, içindekiler sonra; çevrimdışı oluşturulan sonra kısıtıyla gider; sunucu reddederse dosya ve bekleyen kısıt cihazda kalır.
+- Kısıtıyla oluşturulan öğe: not kısıtıyla gider; koleksiyonda, yeni klasörde ve New app'in klasöründe önce klasör kısıtıyla açılır, içindekiler sonra; çevrimdışı oluşturulan sonra kısıtıyla gider; sunucu reddederse dosya ve bekleyen kısıt cihazda kalır.
 - Sözleşme: `ServerRemote`, test içinde açılan bir sunucuya karşı iki hesapla, biri görür öbürü görmez. Kısıt kurulunca, kaldırılınca ve taşınınca iki cihaz da doğru halde kalır.
 
 ### 8.3 Elle (bitti ölçütü)
@@ -269,7 +271,7 @@ Kalanlar:
 1. **Sunucu:** tablolar, `View`, süzme, `hidden` ve yeniden numaralama, dosya istekleri, kısıtıyla oluşturmak, taşımada kısıt, `move-dir`, yetki istekleri, canlı kanal, ajan.
 2. **Motor:** `hidden`, `RemoteForbidden`, klasör taşıma, kısıtıyla oluşturulan öğe.
 3. **Ortak dosyalar ve ekler.**
-4. **Uygulama:** Access penceresi (masaüstü ve telefon), Create'te Access, kilit, sync panelindeki satırlar. Mockup 24 Ekim'de onaylandı.
+4. **Uygulama:** Access penceresi (masaüstü ve telefon), Create'te, New folder satırında ve New app'te Access, kilit, sync panelindeki satırlar. Mockup 24 Ekim'de onaylandı.
 
 Sunucu, web ve masaüstü birlikte yayınlanır (6. bölüm).
 
@@ -294,7 +296,8 @@ Sunucu, web ve masaüstü birlikte yayınlanır (6. bölüm).
 9. Salt okunur yok ve hiç olmayacak; PLAN'ın Sonraya kalanlarından da çıkarıldı.
 10. 12. bölümdeki dört karar önerildiği gibi (her birinde a) onaylandı: ekleri sunucu, onları kullananlardan çıkarır; Owner ve Admin üyesi oldukları space'lerde görür; kısıtı kuran, Owner ve Admin kaldırır; ajan yetki değiştirmez.
 11. Mockup onaylandı: Access… Move to… ve Rename'den sonra; uyarı yalnız biri erişimi kaybedince, kimin kaybettiğini adıyla söyler; satırlarda Gets access ve Loses access; Owner ve Admin adlarıyla; kişilerin sırası açıldığındaki hal; Cancel ve Save, dışarı tıklamak kaydetmez; ad çakışmasının metni; sync panelinde Removed from this device grubu.
-12. Create'te Access (mockup onaylı): Folder'ın altında, önce Everyone (kısıtlı klasörde onu görenler); Change… aynı pencere, Done ile Create'e döner; kısıtlı oluşturulan öğe sunucuya kısıtıyla aynı istekte gider. New folder satırı ve New app açık (3.4).
+12. Create'te Access (mockup onaylı): Folder'ın altında, önce Everyone (kısıtlı klasörde onu görenler); Change… aynı pencere, Done ile Create'e döner; kısıtlı oluşturulan öğe sunucuya kısıtıyla aynı istekte gider.
+13. New folder satırında ve New app'te de Access (mockup onaylı): kenar çubuğunda ad satırının altında "Everyone in Acme ▾", telefonda Change…; New app'in App adımında Access, özette kimlerin göreceği.
 
 ## 12. Onayına sunulan kararlar
 
