@@ -2713,6 +2713,11 @@ textarea.tt-edit {
   overflow-wrap: anywhere;
 }
 
+/* A click on it opens the task for editing, as on its title. */
+.task .desc {
+  cursor: text;
+}
+
 .task.done .desc {
   color: var(--sl-faint);
 }
@@ -15683,14 +15688,19 @@ button.st-li:hover,
   border-right: 1px solid var(--sl-line);
 }
 
+/* a line between the sections, as Slack's */
+.chat-group + .chat-group,
+.chat-server + .chat-server .chat-group:first-child {
+  margin-top: 8px;
+  padding-top: 2px;
+  border-top: 1px solid var(--sl-line);
+}
+
+/* a section's heading, as Slack's: ▾ and its name fold it, + is there under the pointer */
 .chat-grp {
-  padding: 12px 14px 4px;
-  overflow: hidden;
-  color: var(--sl-faint);
-  font-size: 10.5px;
-  letter-spacing: 0.07em;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
+  margin: 10px 6px 1px;
+  color: var(--sl-dim);
+  font-size: 13px;
   white-space: nowrap;
 }
 
@@ -17943,10 +17953,39 @@ button.ch-video img {
 .chat-grp {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
 }
 
-.chat-grp > span {
+.chat-grp .fold {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px 0 5px;
+  border-radius: 5px;
+  color: inherit;
+  font-weight: 500;
+}
+
+.chat-grp .fold:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.chat-grp .fold .icon {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  transform: rotate(90deg);
+  transition: transform 0.12s ease;
+}
+
+.chat-grp.folded .fold .icon {
+  transform: none;
+}
+
+.chat-grp .fold span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -17958,7 +17997,7 @@ button.ch-video img {
   place-items: center;
   width: 20px;
   height: 20px;
-  margin: -3px -6px -3px auto;
+  margin: 0 2px 0 auto;
   border-radius: 4px;
   color: var(--sl-faint);
   opacity: 0;

@@ -1183,7 +1183,11 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
             <button type="button" className="tt" onClick={startEditing}>
               {task.title}
             </button>
-            {described.text && <div className="desc">{described.text}</div>}
+            {described.text && (
+              <div className="desc" onClick={startEditing}>
+                {described.text}
+              </div>
+            )}
             {meta}
           </div>
         )}
