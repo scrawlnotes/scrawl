@@ -681,6 +681,8 @@ const FNS: { [name: string]: FnSpec } = {
   },
   empty: { args: [1, 1], kind: () => 'bool' },
   text: { args: [1, 1], kind: () => 'text' },
+  // A text's number: "12" is 12, a range's top "8–12" is 12 (design/gym.md 4.1).
+  number: { args: [1, 1], kind: () => 'number' },
   abs: {
     args: [1, 1],
     kind: ([a], [n]) => {
@@ -1434,6 +1436,15 @@ function call(fn: string, args: RV[], env: Env): RV {
       return isNothing(a ?? null);
     case 'text':
       return textOf(a ?? null);
+    case 'number': {
+      if (typeof a === 'number') return a;
+      if (typeof a !== 'string') return null;
+      // The numbers written in it, a decimal comma read as a point; of a range, the top one.
+      const found = (a.match(/\d+(?:[.,]\d+)?/g) ?? []).map((x) => Number(x.replace(',', '.')));
+      if (found.length === 0) return null;
+      const top = Math.max(...found);
+      return found.length === 1 && /^\s*-/.test(a) ? -top : top;
+    }
     case 'abs':
       return typeof a === 'number' ? Math.abs(a) : null;
     case 'round': {

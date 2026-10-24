@@ -76,10 +76,21 @@ export interface SaveRule {
   at: number;
 }
 
+/** What runs when a field changes, as read (design/gym.md 4.1): the field, its name and what it does. */
+export interface ChangeRule {
+  field: string;
+  /** Where the field is named in the file. */
+  fieldAt: number;
+  name: string;
+  body: Stmt[];
+  at: number;
+}
+
 export interface Rules {
   checks: CheckRule[];
   actions: ActionRule[];
   saves: SaveRule[];
+  changes: ChangeRule[];
 }
 
 /** What is wrong with a rules file: where, on which line, and what. */
@@ -96,10 +107,11 @@ export function parseRules(src: string): Rules {
   const checks: CheckRule[] = [];
   const actions: ActionRule[] = [];
   const saves: SaveRule[] = [];
+  const changes: ChangeRule[] = [];
   while (read.peek().k !== 'end') {
     const start = read.next();
     if (start.k !== 'id') read.fail(start);
-    if ((start.v !== 'check' && start.v !== 'action' && start.v !== 'onsave') || !read.isOp('(')) throw new LangError(t('rules.onlyCheck'), start.at);
+    if ((start.v !== 'check' && start.v !== 'action' && start.v !== 'onsave' && start.v !== 'onchange') || !read.isOp('(')) throw new LangError(t('rules.onlyCheck'), start.at);
     read.next();
     if (start.v === 'action') {
       actions.push(readAction(read, start.at, actions));
@@ -107,6 +119,10 @@ export function parseRules(src: string): Rules {
     }
     if (start.v === 'onsave') {
       saves.push(readSave(read, start.at, saves));
+      continue;
+    }
+    if (start.v === 'onchange') {
+      changes.push(readChange(read, start.at, changes));
       continue;
     }
     const first = read.next();
@@ -127,18 +143,27 @@ export function parseRules(src: string): Rules {
     if (read.isOp(';')) read.next();
     checks.push({ field, fieldAt: first.at, test, message, at: start.at });
   }
-  return { checks, actions, saves };
+  return { checks, actions, saves, changes };
+}
+
+/** The rest of `onChange(`: the field, its name and its body. */
+function readChange(read: Reader, at: number, before: readonly ChangeRule[]): ChangeRule {
+  const first = read.next();
+  if (first.k !== 'str' || !first.v.trim()) throw new LangError(t('rules.changeField'), first.at);
+  read.expect(',');
+  const { name, body } = readSave(read, at, before, true);
+  return { field: first.v.trim(), fieldAt: first.at, name, body, at };
 }
 
 /** The rest of `onSave(`: its name and its body. */
-function readSave(read: Reader, at: number, before: readonly SaveRule[]): SaveRule {
+function readSave(read: Reader, at: number, before: readonly SaveRule[], change = false): SaveRule {
   const label = read.next();
-  if (label.k !== 'str' || !label.v.trim()) throw new LangError(t('rules.saveName'), label.at);
+  if (label.k !== 'str' || !label.v.trim()) throw new LangError(t(change ? 'rules.changeName' : 'rules.saveName'), label.at);
   const name = label.v.trim();
-  if (before.some((s) => s.name.toLowerCase() === name.toLowerCase())) throw new LangError(t('rules.saveTwice', { name }), label.at);
+  if (before.some((s) => s.name.toLowerCase() === name.toLowerCase())) throw new LangError(t(change ? 'rules.changeTwice' : 'rules.saveTwice', { name }), label.at);
   read.expect(',');
   const body = read.expression();
-  if (body.k !== 'arrow' || body.params.length > 0) throw new LangError(t('rules.saveBody'), body.at);
+  if (body.k !== 'arrow' || body.params.length > 0) throw new LangError(t(change ? 'rules.changeBody' : 'rules.saveBody'), body.at);
   read.expect(')');
   if (read.isOp(';')) read.next();
   return { name, body: Array.isArray(body.body) ? body.body : [{ k: 'expr', node: body.body, at: body.body.at }], at };
@@ -506,6 +531,18 @@ export function rulesProblems(src: string, scope: Scope, space?: RuleSpace): Rul
   for (const save of rules.saves) {
     try {
       checkBody(save.body, undefined, scope, space, true);
+    } catch (error) {
+      if (error instanceof LangError) problems.push(said(error.at, error.message));
+      else throw error;
+    }
+  }
+  for (const change of rules.changes) {
+    if (!scope.fields.some((f) => f.key === change.field)) {
+      problems.push(said(change.fieldAt, t('fields.formulaUnknown', { name: change.field })));
+      continue;
+    }
+    try {
+      checkBody(change.body, undefined, scope, space, true);
     } catch (error) {
       if (error instanceof LangError) problems.push(said(error.at, error.message));
       else throw error;

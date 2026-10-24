@@ -154,12 +154,15 @@ import {
   type Plan,
   planAction,
   planSave,
+  changesOf,
+  type Change,
   planWords,
   recordWith,
   type RuleSpaceNow,
   RuleStop,
   savedWords,
   savesOf,
+  type SaveOptions,
   type SaveRun,
   type SaveStop,
   writePlan,
@@ -532,6 +535,12 @@ export interface Snapshot {
 }
 
 /** What a collection's rules did as records were saved: what they did elsewhere, said, with what undoes it; where they stopped. */
+/** What the record form saves with a record (design/gym.md 4.1): the id a new one was shown with, and what its onChanges added as it was typed in, in the space's own paths. */
+export interface FormSave {
+  id?: string;
+  drafted?: Change[];
+}
+
 export interface RuleEvent {
   done: string;
   undo?: () => Promise<void>;
@@ -3071,12 +3080,16 @@ export class Session {
     return target;
   }
 
-  /** Adds a record to a collection, as a file of its own named after its id; its collection's rules run as it is saved. Returns a message when it cannot be made. */
-  async addRecord(dir: string, input: NewRecord): Promise<string | null> {
+  /**
+   * Adds a record to a collection, as a file of its own named after its id; its collection's rules
+   * run as it is saved. From the form, `form` gives the id it showed and what its onChanges added
+   * as it was typed in, written with it. Returns a message when it cannot be made.
+   */
+  async addRecord(dir: string, input: NewRecord, form?: FormSave): Promise<string | null> {
     const collection = this.snapshot.collections[dir];
     if (!collection) return t('error.create');
-    const id = newRecordId();
-    const ran = this.onSave(dir, recordWith(collection, id, input.values ?? {}), null);
+    const id = form?.id ?? newRecordId();
+    const ran = this.withDrafted(dir, id, input.values ?? {}, this.onSave(dir, recordWith(collection, id, input.values ?? {}), null, undefined, { changes: !form?.drafted }), form?.drafted);
     let made: CollectionRecord;
     try {
       const { fs, space } = this.at(dir);
@@ -3090,12 +3103,17 @@ export class Session {
     return null;
   }
 
-  /** Changes a record and writes its file, which stays where it is; its collection's rules run as it is saved. Returns a message when it cannot be saved. */
-  async updateRecord(dir: string, id: string, patch: RecordPatch): Promise<string | null> {
+  /**
+   * Changes a record and writes its file, which stays where it is; its collection's rules run as it
+   * is saved, and what the form's onChanges added is written with it. Returns a message when it
+   * cannot be saved.
+   */
+  async updateRecord(dir: string, id: string, patch: RecordPatch, form?: FormSave): Promise<string | null> {
     const collection = this.snapshot.collections[dir];
     const record = collection?.records.find((r) => r.id === id);
     if (!collection || !record) return t('error.record');
-    const ran = this.onSave(dir, { ...record, values: { ...record.values, ...(patch.values ?? {}) } }, record);
+    const values = { ...record.values, ...(patch.values ?? {}) };
+    const ran = this.withDrafted(dir, id, values, this.onSave(dir, { ...record, values }, record, undefined, { changes: !form?.drafted }), form?.drafted);
     if (ran) patch = { ...patch, values: ran.values };
     try {
       const { fs, space } = this.at(dir);
@@ -3142,10 +3160,33 @@ export class Session {
    * What the collection at `dir` runs as a record is saved, worked out on its space: `record` as
    * it is to be written, `old` as it was, null for a new one. Null when it runs nothing on save.
    */
-  private onSave(dir: string, record: CollectionRecord, old: CollectionRecord | null, space: RuleSpaceNow = this.ruleSpace(dir)): SaveRun | null {
-    if (savesOf(this.snapshot.collections[dir]?.rules).length === 0) return null;
+  private onSave(dir: string, record: CollectionRecord, old: CollectionRecord | null, space: RuleSpaceNow = this.ruleSpace(dir), options: SaveOptions = {}): SaveRun | null {
+    const rules = this.snapshot.collections[dir]?.rules;
+    if (savesOf(rules).length === 0 && changesOf(rules).length === 0) return null;
     const local = (r: CollectionRecord) => ({ ...r, path: localPath(r.path) });
-    return planSave(localPath(dir), local(record), old && local(old), space);
+    return planSave(localPath(dir), local(record), old && local(old), space, options);
+  }
+
+  /**
+   * What the onChanges of `field` do as the form changes it (design/gym.md 4.1), writing nothing:
+   * the record's fields they set, and what they add, in the space's own paths, for the form to show
+   * as rows not written yet. Null when nothing watches the field, or what watches it stopped.
+   */
+  planChange(dir: string, id: string, values: CollectionRecord['values'], old: CollectionRecord | null, field: string): SaveRun | null {
+    const collection = this.snapshot.collections[dir];
+    if (!collection || !changesOf(collection.rules).some((c) => c.field === field)) return null;
+    try {
+      return this.onSave(dir, old ? { ...old, values } : recordWith(collection, id, values), old, undefined, { field });
+    } catch {
+      return null;
+    }
+  }
+
+  /** What runs on save with what the form's onChanges added put first: what they add is there before what the onSaves do. */
+  private withDrafted(dir: string, id: string, values: CollectionRecord['values'], ran: SaveRun | null, drafted: Change[] | undefined): SaveRun | null {
+    if (!drafted?.length) return ran;
+    const after = ran?.after ?? { action: '', dir: localPath(dir), id, confirm: false, changes: [] };
+    return { values: ran?.values ?? values, set: ran?.set ?? {}, after: { ...after, changes: [...drafted, ...after.changes] }, stops: ran?.stops ?? [] };
   }
 
   /**

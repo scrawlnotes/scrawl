@@ -24,7 +24,7 @@ import {
 import { Computer, valueFor } from './compute';
 import { basename, join, type VaultFs } from './fs';
 import { type CardRef, dayValue, type Env, equal, evaluate, Fn, fromRuntime, isCardRef, isRef, LangError, type Node, Obj, type Ref, type RV, type Stmt, textOf, toRuntime, truthy } from './lang';
-import { type ActionRule, askField, type AskType, lineAt, pathNamed, rulesOf, type SaveRule } from './rules';
+import { type ActionRule, askField, type AskType, type ChangeRule, lineAt, pathNamed, rulesOf, type SaveRule } from './rules';
 import { addSubtask, type NewSubtask } from './subtasks';
 import { addTask, loadList, type NewTask, removeTask, saveList, type Task } from './tasks';
 import { readTrash, restoreFromTrash, trashItem } from './vault';
@@ -194,6 +194,9 @@ function oldOf(space: RuleSpaceNow, dir: string, before: Record | null): Obj {
 /** What a collection runs when one of its records is saved, in their order in its rules. */
 export const savesOf = (rules: string | undefined): SaveRule[] => (rules ? (rulesOf(rules)?.saves ?? []) : []);
 
+/** What a collection runs when a field of a record changes, in their order in its rules (design/gym.md 4.1). */
+export const changesOf = (rules: string | undefined): ChangeRule[] => (rules ? (rulesOf(rules)?.changes ?? []) : []);
+
 /**
  * Runs what runs on save for each record the overlay's changes add or change, once each, in their
  * order: what that changes runs nothing again. One that stops is left out and said.
@@ -349,14 +352,25 @@ export interface SaveRun {
   stops: SaveStop[];
 }
 
+/** Which of a collection's rules run as a record is saved. */
+export interface SaveOptions {
+  /** Whether the onChanges of the fields that changed run first; not when the form ran them as each was changed. */
+  changes?: boolean;
+  /** Only the onChanges of this field and no onSave: what the form runs as the field is changed, to show what they add before Save. */
+  field?: string;
+}
+
 /**
  * Runs what a record's collection runs when it is saved: `record` as it is to be written (a new
- * one with the id it will have), `old` as it was, null for a new one. Each onSave sees what the
- * ones before it set; what one changes runs none again. Writes nothing.
+ * one with the id it will have), `old` as it was, null for a new one. First the onChanges of the
+ * fields that changed, then the onSaves; each sees what the ones before it set; what one changes
+ * runs none again. Writes nothing.
  */
-export function planSave(dir: string, record: Record, old: Record | null, space: RuleSpaceNow): SaveRun {
+export function planSave(dir: string, record: Record, old: Record | null, space: RuleSpaceNow, { changes = true, field }: SaveOptions = {}): SaveRun {
   const collection = space.collections.find((c) => c.dir === dir);
-  const saves = savesOf(collection?.rules);
+  const changed = (key: string) => JSON.stringify(record.values[key] ?? null) !== JSON.stringify(old?.values[key] ?? null);
+  const ons = changesOf(collection?.rules).filter((c) => (field !== undefined ? c.field === field : changes && changed(c.field)));
+  const saves: { name: string; body: SaveRule['body'] }[] = [...ons, ...(field !== undefined ? [] : savesOf(collection?.rules))];
   const after: Plan = { action: '', dir, id: record.id, confirm: false, changes: [] };
   if (!collection || saves.length === 0) return { values: record.values, set: {}, after, stops: [] };
   const o = overlayOf(space);

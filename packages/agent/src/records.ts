@@ -36,6 +36,7 @@ import {
   RuleStop,
   savedWords,
   savesOf,
+  changesOf,
   type SaveRun,
   type Task,
   writePlan,
@@ -321,7 +322,7 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
   let created = false;
   // What the collection runs as a record is saved runs before it is written, as in the app.
   const me = (await agent.person())?.name || undefined;
-  const saving = savesOf(collection.rules).length > 0;
+  const saving = savesOf(collection.rules).length > 0 || changesOf(collection.rules).length > 0;
   let ran: SaveRun | null = null;
   const twins = args.id || args.another ? null : twinsOf(collection, values);
   if (twins) {

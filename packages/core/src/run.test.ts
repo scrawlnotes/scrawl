@@ -349,3 +349,80 @@ describe('a button that asks', () => {
     expect(rulesProblems('action("Pick", () => { const x = name[0] })', { fields: s.collections[0]!.schema.fields, dir: 'Atlas/Projects' })[0]?.message).toMatch(/not a list/);
   });
 });
+
+describe('what runs when a field changes', () => {
+  const CHANGES = `onChange("program", "Fill from the program", () => {
+  for (const i of find("Program items", { program: program })) {
+    add("Workout items", { name: i.name, part: i.part, sets: number(i.sets), reps: number(i.reps), done: true })
+  }
+})
+
+onSave("Its name", () => {
+  if (empty(name)) name = program.name
+})
+`;
+  function gym() {
+    const programs: Collection = { dir: 'Gym/Programs', schema: schema([]), records: [record('Gym/Programs', 'p1', 'Full body'), record('Gym/Programs', 'p2', 'Legs')] };
+    const items: Collection = {
+      dir: 'Gym/Program items',
+      schema: schema([
+        { key: 'program', label: 'Program', type: 'link', collection: 'Gym/Programs' },
+        { key: 'part', label: 'Part', type: 'select', options: ['Warm-up', 'Workout'] },
+        { key: 'sets', label: 'Sets', type: 'text' },
+        { key: 'reps', label: 'Reps', type: 'text' },
+      ]),
+      records: [
+        record('Gym/Program items', 'i1', 'Walk', { program: link('p1', 'Full body'), part: 'Warm-up', reps: '' }),
+        record('Gym/Program items', 'i2', 'Chest press', { program: link('p1', 'Full body'), part: 'Workout', sets: '3', reps: '8–12' }),
+        record('Gym/Program items', 'i3', 'Leg press', { program: link('p2', 'Legs'), part: 'Workout', sets: '3', reps: '12' }),
+      ],
+    };
+    const workouts: Collection = { dir: 'Gym/Workouts', schema: schema([{ key: 'program', label: 'Program', type: 'link', collection: 'Gym/Programs' }]), records: [], rules: CHANGES };
+    const lines: Collection = {
+      dir: 'Gym/Workout items',
+      schema: schema([
+        { key: 'workout', label: 'Workout', type: 'link', collection: 'Gym/Workouts' },
+        { key: 'part', label: 'Part', type: 'select', options: ['Warm-up', 'Workout'] },
+        { key: 'sets', label: 'Sets', type: 'number' },
+        { key: 'reps', label: 'Reps', type: 'number' },
+        { key: 'done', label: 'Done', type: 'checkbox' },
+      ]),
+      records: [],
+    };
+    return { collections: [programs, items, workouts, lines], boards: {}, lists: {}, today, me: 'Kaan' };
+  }
+  const workout = (program: string, name = '') => record('Gym/Workouts', 'w1', name, { program: link(program, program === 'p1' ? 'Full body' : 'Legs') });
+
+  it('is checked where it is written: the field it watches is there', () => {
+    const s = gym();
+    const scope = { fields: s.collections[2]!.schema.fields, dir: 'Gym/Workouts' };
+    const where = { collections: s.collections.map((c) => ({ dir: c.dir, fields: c.schema.fields })), boards: [], lists: [] };
+    expect(rulesProblems(CHANGES, scope, where)).toEqual([]);
+    expect(rulesProblems('onChange("programme", "A", () => {})', scope, where)[0]!.message).toMatch(/programme/);
+    expect(rulesProblems('onChange("program", () => {})', scope, where)[0]!.message).toMatch(/its name/);
+    expect(rulesProblems('onChange(program, "A", () => {})', scope, where)[0]!.message).toMatch(/the key of the field/);
+  });
+
+  it('runs as the form changes the field, alone, what it adds linked to the record and not written', () => {
+    const s = gym();
+    const run = planSave('Gym/Workouts', workout('p1'), null, s, { field: 'program' });
+    expect(run.after.changes).toMatchObject([
+      { kind: 'add', dir: 'Gym/Workout items', by: 'Fill from the program', values: { name: 'Walk', part: 'Warm-up', workout: { id: 'w1' }, done: true } },
+      { kind: 'add', dir: 'Gym/Workout items', values: { name: 'Chest press', sets: 3, reps: 12, done: true } },
+    ]);
+    // The onSave waits for Save.
+    expect(run.set).toEqual({});
+    expect(run.values.name).toBe('');
+  });
+
+  it('runs on save when the field changed, before the onSaves; not when the form ran it, nor when the field is as it was', () => {
+    const s = gym();
+    const made = planSave('Gym/Workouts', workout('p2'), null, s);
+    expect(made.after.changes.map((c) => ('values' in c ? c.values.name : ''))).toEqual(['Leg press']);
+    expect(made.values.name).toBe('Legs');
+    expect(planSave('Gym/Workouts', workout('p2'), null, s, { changes: false }).after.changes).toEqual([]);
+    const was = workout('p2', 'Legs');
+    expect(planSave('Gym/Workouts', { ...was, values: { ...was.values } }, was, s).after.changes).toEqual([]);
+    expect(planSave('Gym/Workouts', workout('p1', 'Legs'), was, s).after.changes).toHaveLength(2);
+  });
+});

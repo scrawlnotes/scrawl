@@ -1971,8 +1971,9 @@ export function App() {
     }
   };
   const collectionActions: CollectionActions = {
-    addRecord: (dir, input) => session.addRecord(dir, input),
-    updateRecord: (dir, id, patch) => session.updateRecord(dir, id, patch),
+    addRecord: (dir, input, form) => session.addRecord(dir, input, form),
+    updateRecord: (dir, id, patch, form) => session.updateRecord(dir, id, patch, form),
+    planChange: (dir, id, values, old, field) => session.planChange(dir, id, values, old, field),
     moveRecord,
     removeRecord: (dir, record) => ask(t('delete.record'), recordDeleteText(record), () => void session.trashRecord(dir, record)),
     pressButton,

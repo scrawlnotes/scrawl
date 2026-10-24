@@ -9,6 +9,7 @@ import {
   type Field,
   formulaProblem,
   fieldValueOf,
+  groupLinked,
   groupRecords,
   matchesConditions,
   opsFor,
@@ -695,5 +696,22 @@ describe('linked records as a table', () => {
     expect(items[1]).toEqual({ block: 'linked', collection: 'Atlas/Transactions', style: 'table' });
     expect(items[2]).toEqual({ block: 'linked', collection: 'X' });
     expect(parseSchema(serializeSchema(read)).layout).toEqual(read.layout);
+  });
+
+  it('groups a linked table by a field, and in each by a second in the order the records come', () => {
+    const block = { block: 'linked', collection: 'Gym/Workout items', style: 'table', group: ['part', 'exercise', 'more'] };
+    const read = parseSchema(JSON.stringify({ version: 2, fields: [{ key: 'name', type: 'name' }], layout: { columns: [{ sections: [{ items: [block] }] }] } }));
+    expect(read.layout!.columns[0]!.sections[0]!.items[0]).toEqual({ ...block, group: ['part', 'exercise'] });
+    const schema = parseSchema(
+      JSON.stringify({ version: 2, fields: [{ key: 'name', type: 'name' }, { key: 'part', type: 'select', options: ['Warm-up', 'Workout'] }, { key: 'exercise', type: 'link', collection: 'Gym/Exercises' }] }),
+    );
+    const set = (id: string, part: string, exercise: string) => ({ id, path: `Gym/Workout items/${id}.md`, name: id, code: '', values: { name: id, part, exercise: { id: exercise, name: exercise } }, extra: {}, body: '' });
+    const records = [set('a', 'Workout', 'Row'), set('b', 'Workout', 'Chest'), set('c', 'Warm-up', 'Walk'), set('d', 'Workout', 'Row')];
+    const groups = groupLinked(records, schema, ['part', 'exercise'], '2026-10-24');
+    expect(groups.map((g) => [g.label, g.groups!.map((s) => `${s.label}: ${s.records.map((r) => r.id).join('')}`)])).toEqual([
+      ['Warm-up', ['Walk: c']],
+      ['Workout', ['Row: ad', 'Chest: b']],
+    ]);
+    expect(groupLinked(records, schema, [], '2026-10-24')).toEqual([{ key: '', label: '', records }]);
   });
 });

@@ -1087,10 +1087,20 @@ function BlockEditor({ block, dir, collections, buttons, onRules, onChange, onDe
       ? t('fields.linkedNone', { collection: name })
       : t(style === 'timeline' ? 'fields.linkedTimeline' : style === 'table' ? 'fields.linkedTable' : 'fields.linkedList', { collection: name.toLowerCase(), field: back.join(' / ') });
   const restyle = (next: LinkedStyle) => {
-    const { sort: _sort, fields: _fields, sums: _sums, ...rest } = block;
-    // A list and a table keep the fields they show, and the order; a table its sums.
+    const { sort: _sort, fields: _fields, sums: _sums, group: _group, ...rest } = block;
+    // A list and a table keep the fields they show, and the order; a table its sums and its groups.
     const kept = next !== 'timeline' && style !== 'timeline';
-    onChange({ ...rest, style: next, ...(kept && block.fields && { fields: block.fields }), ...(kept && block.sort && { sort: block.sort }), ...(next === 'table' && block.sums && { sums: true }) });
+    onChange({ ...rest, style: next, ...(kept && block.fields && { fields: block.fields }), ...(kept && block.sort && { sort: block.sort }), ...(next === 'table' && block.sums && { sums: true }), ...(next === 'table' && block.group && { group: block.group }) });
+  };
+  // A table's rows in groups by a field or two (design/gym.md 4.2): a choice, a link, a person or a tick.
+  const groupable: Option[] = [{ value: '', label: t('fields.noGroup'), chip: false }, ...fields.filter((f) => ['select', 'link', 'person', 'checkbox'].includes(f.type) && !(source && linkFieldsTo(source.schema, dir).includes(f))).map((f) => ({ value: f.key, label: t('fields.groupBy', { field: f.label }), chip: false }))];
+  const regroup = (level: 0 | 1, key: string | null) => {
+    const { group: _group, ...rest } = block;
+    const now = [...(block.group ?? [])];
+    if (key) now[level] = key;
+    else now.splice(level);
+    const group = now.filter((k, i) => k && now.indexOf(k) === i).slice(0, 2);
+    onChange(group.length > 0 ? { ...rest, group } : rest);
   };
   return (
     <div className="fe">
@@ -1143,6 +1153,12 @@ function BlockEditor({ block, dir, collections, buttons, onRules, onChange, onDe
           />
           {t('fields.sums')}
         </label>
+      )}
+      {style === 'table' && groupable.length > 1 && (
+        <div className="fe-row">
+          <Picker className="in" options={groupable} value={block.group?.[0] ?? ''} label={t('fields.grouped')} onPick={(key) => regroup(0, key || null)} />
+          {block.group?.[0] && <Picker className="in" options={groupable.filter((o) => o.value !== block.group![0])} value={block.group[1] ?? ''} label={t('fields.groupedThen')} onPick={(key) => regroup(1, key || null)} />}
+        </div>
       )}
       <p className="fi-note">{note}</p>
     </div>

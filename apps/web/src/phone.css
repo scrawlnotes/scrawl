@@ -322,6 +322,21 @@ html:has(.phone-app) body {
   text-transform: uppercase;
 }
 
+.mb-sec small {
+  margin-left: 8px;
+  letter-spacing: 0;
+}
+
+/* A linked table's second group, an exercise under its part, as a line of its own. */
+.mb-sec.mb-gsub {
+  min-height: 34px;
+  padding-top: 6px;
+  color: var(--sl-dim);
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .mb-sec button {
   display: grid;
   place-items: center;

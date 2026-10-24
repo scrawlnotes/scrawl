@@ -29,6 +29,7 @@ import {
   type LinkedBlock,
   linkedCards,
   linkedRecords,
+  groupLinked,
   linkedValues,
   linkFieldsTo,
   linkTo,
@@ -946,9 +947,16 @@ function LinkedTab({ block, dir, schema: own, record, today, actions }: { block:
       .filter((f) => f !== number && !isEmpty(fieldValueOf(r, f, schema, today)))
       .slice(0, 2);
   const sums = number && block.sums ? columnSums(rows, schema, number.key, today) : null;
-  return (
-    <div className="mb-rlist">
-      {rows.map((r) => {
+  // A table in groups (design/gym.md 4.2) has a heading over each, and over each of its second.
+  const grouped = block.style === 'table' && !!block.group?.length;
+  const groups = groupLinked(rows, schema, grouped ? block.group! : [], today);
+  const heading = (key: string, label: string, count: number | null, sub = false) => (
+    <div key={`h-${sub ? 's' : 'g'}-${key}`} className={sub ? 'mb-sec mb-gsub' : 'mb-sec'}>
+      {label || t('collection.none')}
+      {count !== null && <small>{count}</small>}
+    </div>
+  );
+  const line = (r: Entry) => {
         const amount = number ? fieldValueOf(r, number, schema, today) : undefined;
         return (
           <button key={r.id} type="button" className="mb-cr" onClick={() => open(r)}>
@@ -964,7 +972,12 @@ function LinkedTab({ block, dir, schema: own, record, today, actions }: { block:
             {typeof amount === 'number' && <span className="rt num">{formatNumber(amount, number!.format, currencyOf(number!.format, r.values))}</span>}
           </button>
         );
-      })}
+  };
+  return (
+    <div className="mb-rlist">
+      {grouped
+        ? groups.flatMap((g) => [heading(g.key, g.label, g.records.length), ...(g.groups ? g.groups.flatMap((s) => [heading(`${g.key}-${s.key}`, s.label, null, true), ...s.records.map(line)]) : g.records.map(line))])
+        : rows.map(line)}
       {sums && (
         <div className="mb-sumrow">
           {t('phone.sumOf', { field: number!.label.toLowerCase() })}

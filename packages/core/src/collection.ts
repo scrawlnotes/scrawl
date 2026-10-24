@@ -133,13 +133,17 @@ export const NAME_KEY = 'name';
 export type LayoutItem =
   | { field: string }
   | { block: 'body' }
-  | { block: 'linked'; collection: string; sort?: string; style?: LinkedStyle; fields?: string[]; sums?: boolean }
+  | { block: 'linked'; collection: string; sort?: string; style?: LinkedStyle; fields?: string[]; sums?: boolean; group?: string[] }
   | { block: 'cards' }
   | { block: 'subtasks' }
   /** The buttons of the collection's rules (`action(…)` in _rules.js). */
   | { block: 'actions' };
 
-/** How a block shows the records that link to the record: newest first by a day, a list, or a table whose cells are typed in, with its sums when `sums`. */
+/**
+ * How a block shows the records that link to the record: newest first by a day, a list, or a table
+ * whose cells are typed in, with its sums when `sums`, in groups by one field or two when `group`
+ * (design/gym.md 4.2): a program's items by their part, a workout's sets by their exercise.
+ */
 export type LinkedStyle = 'list' | 'timeline' | 'table';
 
 export type LinkedBlock = Extract<LayoutItem, { block: 'linked' }>;
@@ -545,6 +549,7 @@ function readItem(raw: unknown): LayoutItem | null {
   if (raw.block === 'body' || raw.block === 'cards' || raw.block === 'subtasks' || raw.block === 'actions') return { block: raw.block };
   if (raw.block === 'linked' && typeof raw.collection === 'string') {
     const fields = strings(raw.fields).map(cleanFieldKey).filter(Boolean);
+    const group = strings(raw.group).map(cleanFieldKey).filter(Boolean).slice(0, 2);
     return {
       block: 'linked',
       collection: raw.collection.replace(/^\/+|\/+$/g, ''),
@@ -552,6 +557,7 @@ function readItem(raw: unknown): LayoutItem | null {
       ...((raw.style === 'list' || raw.style === 'timeline' || raw.style === 'table') && { style: raw.style }),
       ...(fields.length > 0 && { fields }),
       ...(raw.sums === true && { sums: true }),
+      ...(group.length > 0 && { group }),
     };
   }
   return null;
@@ -1606,6 +1612,26 @@ export function groupRecords(records: Record[], schema: Schema, key: string, tod
   const order = as.options ?? [];
   const rank = (g: RecordGroup) => (g.key === '' ? Number.MAX_SAFE_INTEGER : order.includes(g.key) ? order.indexOf(g.key) : order.length);
   return [...groups.values()].sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+/** A group of a linked table, with the groups in it by its second field. */
+export interface LinkedGroup extends RecordGroup {
+  groups?: RecordGroup[];
+}
+
+/**
+ * A linked table's records in groups (design/gym.md 4.2): by its first field as a collection groups
+ * them, in each by its second in the order the records come, a workout's sets under each exercise
+ * as the program has them; without a field, one group of all.
+ */
+export function groupLinked(records: Record[], schema: Schema, keys: readonly string[], today: string): LinkedGroup[] {
+  const [first, second] = keys;
+  if (!first) return [{ key: '', label: '', records }];
+  return groupRecords(records, schema, first, today).map((g) => {
+    if (!second) return g;
+    const at = (inner: RecordGroup) => Math.min(...inner.records.map((r) => g.records.indexOf(r)));
+    return { ...g, groups: groupRecords(g.records, schema, second, today).sort((a, b) => at(a) - at(b)) };
+  });
 }
 
 /** A sum of money in one currency; no currency for numbers whose record has none. */

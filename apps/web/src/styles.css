@@ -13226,6 +13226,100 @@ button.st-li:hover,
   left: 0;
 }
 
+/* A linked table in groups (design/gym.md 4.2): a group's heading over its rows, Untick all; a second level's own tick. */
+.ltable .ctable .crow.grp,
+.ltable .ctable .crow.grp2 {
+  cursor: default;
+}
+
+.ltable .ctable .crow.grp:hover,
+.ltable .ctable .crow.grp2:hover {
+  background: none;
+}
+
+.ltable .ctable .crow.grp > .gh,
+.ltable .ctable .crow.grp2 > .gh {
+  grid-column: 1 / -1;
+  justify-self: start;
+  position: sticky;
+  left: 0;
+  gap: 8px;
+}
+
+.ltable .ctable .crow.grp > .gh {
+  padding: 12px 8px 4px 30px;
+  color: var(--sl-dim);
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ltable .ctable .crow.grp > .gh b {
+  font-weight: 600;
+}
+
+.ltable .ctable .crow.grp > .gh small {
+  color: var(--sl-faint);
+}
+
+.ltable .ctable .crow.grp > .gh .gall {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.ltable .ctable .crow.grp > .gh .gall:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.ltable .ctable .crow.grp2 > .gh {
+  padding: 5px 8px;
+  font-weight: 500;
+}
+
+.ltable .gtick {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--sl-faint);
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.ltable .gtick.on {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+}
+
+.ltable .gtick .icon {
+  width: 11px;
+  height: 11px;
+}
+
+/* A row not ticked is faint and struck through; one the form adds and has not written yet has a mark of its own. */
+.ltable .ctable .crow.off > div:not(.r) {
+  color: var(--sl-faint);
+}
+
+.ltable .ctable .crow.off .ct.name {
+  text-decoration: line-through;
+}
+
+.ltable .ctable .crow.draft > .c0 {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--sl-accent) 55%, transparent);
+}
+
+.ltable .cadd.gadd {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
 /* On a phone, a linked table is a list; its sum under it. */
 .mb-sumrow {
   display: flex;
