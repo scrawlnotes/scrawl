@@ -528,7 +528,9 @@ export class Chats {
       if (chat.kind === 'direct') this.db.prepare('UPDATE chat_members SET hidden = 0, rev = ? WHERE chat_id = ? AND hidden = 1').run(rev, chat.id);
       return this.messageRow(messageId)!;
     });
-    return this.told(chat, row);
+    const told = this.told(chat, row);
+    this.onSent?.(chat.id, row.id);
+    return told;
   }
 
   /** Changes a message's text, by whoever wrote it. A forwarded message is someone else's words, and stays. */
@@ -715,6 +717,71 @@ export class Chats {
     }
     const entries: ExportEntry[] = [...months].map(([key, part]) => ({ name: `${key}.md`, text: part.lines.join('\n'), at: part.at }));
     return { name: safeName(chat.kind === 'direct' ? title : chat.name) || 'conversation', entries: [...entries, ...attached.values()] };
+  }
+
+  /** Told of every new message, after those in its conversation heard it: the push (design/chat.md, 11.4). */
+  onSent: ((chat: string, message: string) => void) | null = null;
+
+  /**
+   * Whom a message tells (design/chat.md, 6.1): those in its conversation but whoever wrote it, who
+   * have not read it, as each one's choice says: every message (All, a direct message's and a
+   * private room's own), their mentions and @room (Mentions, a public room's own), or nothing (Off).
+   * A deleted message tells no one.
+   */
+  alertsFor(messageId: string): { account: string; mention: boolean }[] {
+    const row = this.messageRow(messageId);
+    if (!row || row.deleted_at !== null) return [];
+    const chat = this.row(row.chat_id);
+    if (chat.archived_at !== null) return [];
+    const mentioned = new Set((this.db.prepare('SELECT account_id FROM mentions WHERE message_id = ?').all(row.id) as { account_id: string }[]).map((each) => each.account_id));
+    const out: { account: string; mention: boolean }[] = [];
+    for (const account of this.listeners(chat)) {
+      if (account === row.author_id) continue;
+      const me = this.member(chat.id, account);
+      if (chat.kind === 'public' && !chat.general && !this.isIn(chat, account)) continue;
+      if ((me?.read_seq ?? 0) >= row.seq) continue;
+      const notify = me?.notify ?? DEFAULT_NOTIFY[chat.kind];
+      const mention = mentioned.has(account) || row.mentions_room === 1;
+      if (notify === 'off' || (notify === 'mentions' && !mention)) continue;
+      out.push({ account, mention });
+    }
+    return out;
+  }
+
+  /**
+   * A message as its notification says it to someone (design/chat.md, 6.4): who wrote it, and
+   * where unless it is a direct message of two; its first 140 characters without Markdown's marks,
+   * or what kind of file it is.
+   */
+  pushContent(messageId: string, account: string): { title: string; body: string; direct: boolean } | null {
+    const row = this.messageRow(messageId);
+    if (!row || row.deleted_at !== null) return null;
+    const chat = this.row(row.chat_id);
+    const nameOf = (id: string) => {
+      const found = this.db.prepare('SELECT name, email FROM accounts WHERE id = ?').get(id) as { name: string; email: string } | undefined;
+      return found ? found.name || found.email : 'Someone';
+    };
+    const author = nameOf(row.author_id);
+    let title = author;
+    if (chat.kind !== 'direct') title = `${author} · #${chat.name}`;
+    else {
+      const others = this.listeners(chat).filter((each) => each !== account);
+      if (others.length > 1) title = `${author} · ${others.map((each) => nameOf(each).split(/\s+/)[0]).join(', ')}`;
+    }
+    let body = plainOf(row.body);
+    if (!body) {
+      const file = this.filesOf([row.id]).get(row.id)?.[0];
+      if (file?.type.startsWith('image/')) body = 'Photo';
+      else if (file?.type.startsWith('video/')) body = 'Video';
+      else if (file?.type.startsWith('audio/')) body = file.duration !== undefined ? `Voice message · ${Math.floor(file.duration / 60)}:${String(Math.floor(file.duration % 60)).padStart(2, '0')}` : 'Voice message';
+      else if (file) body = `File: ${file.name}`;
+    }
+    return { title, body: body.length > 140 ? `${body.slice(0, 139)}…` : body, direct: chat.kind === 'direct' };
+  }
+
+  /** What is unread and tells someone, in every conversation: the app's badge. */
+  alertCount(account: string): number {
+    return this.list(account).reduce((sum, chat) => sum + chat.alerts, 0);
   }
 
   /** Keeps a file someone sent, for them to attach to a message. */

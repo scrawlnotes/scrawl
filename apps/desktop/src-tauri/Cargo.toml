@@ -30,3 +30,5 @@ tokio = { version = "1", features = ["net", "time", "io-util", "macros", "rt"] }
 # Files copied in Explorer, read from the clipboard when they are pasted into a note.
 [target.'cfg(windows)'.dependencies]
 clipboard-win = "5"
+# A message's notification of Scrawl's own, which the next of its conversation replaces and reading it takes away.
+windows = { version = "0.62", features = ["Foundation", "Data_Xml_Dom", "UI_Notifications"] }

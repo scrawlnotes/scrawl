@@ -205,6 +205,7 @@ import { type Dated, dueLabel, type DueSubtask, FilterPage, isSubtaskRef, type S
 import { Upcoming } from './Upcoming';
 import { type ChatLinks, type ChipState, ChatView } from './Chat';
 import { store as chatStore, useChat } from './chatStore';
+import { onNotificationClick, startNotifications } from './notify';
 import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
 import { contentsText, quote, writtenText } from './text';
@@ -493,7 +494,10 @@ export function App() {
   const [viewStatus, setViewStatus] = useState<string[] | null>(null);
   // Messaging on the servers signed in to that have it (design/chat.md): Chat shows when one does.
   const chat = useChat();
-  useEffect(() => chatStore.start(), []);
+  useEffect(() => {
+    chatStore.start();
+    startNotifications();
+  }, []);
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
   const [tabGap, setTabGap] = useState<number | null>(null);
   // With nothing open, a computer shows the start page; a phone its own Recent.
@@ -1748,8 +1752,11 @@ export function App() {
   };
   useEffect(() => {
     session.openScrawl = (href) => openScrawl.current(href);
+    // A notification clicked opens Chat at its message.
+    const stop = onNotificationClick((href) => openScrawl.current(href));
     return () => {
       session.openScrawl = null;
+      stop();
     };
   }, []);
 

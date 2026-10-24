@@ -1,10 +1,11 @@
-import { type ChatFile, type ChatInfo, type ChatMessage, plainText } from '@scrawlnotes/core';
+import { type ChatFile, type ChatInfo, type ChatMessage, type ChatNotify, plainText } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { clock, kindText, MAX_RECORDING_S, Recording, sizeText } from './chatMedia';
 import { type ChatServer, store } from './chatStore';
 import { Dialog } from './dialogs';
 import { Icon } from './Icon';
+import { closeBanner, turnOn, useNotify } from './notify';
 import { isDesktop, saveFile } from './storage';
 
 // A message's files as its conversation shows them (design/chat.md, 4; design/mockups.html,
@@ -562,5 +563,117 @@ export function ForwardDialog({ server, message, face, from, titleOf, leadOf, on
         </button>
       </div>
     </Dialog>
+  );
+}
+
+/**
+ * Over the chat lists while this device shows no notifications (design/chat.md, 6.6): Turn on,
+ * which a browser asks about with its own window, or × for good on this device; on an iPhone in
+ * Safari, what gets them.
+ */
+export function NotifyBanner({ phone }: { phone?: boolean }) {
+  const notify = useNotify();
+  const [failed, setFailed] = useState(false);
+  if (!notify.banner) return null;
+  const home = notify.state === 'homeScreen';
+  return (
+    <div className={phone ? 'ch-ban phone' : 'ch-ban'}>
+      <Icon name="bell" />
+      <span className="tx">{t(failed ? 'notify.failed' : home ? 'notify.bannerHomeScreen' : 'notify.banner')}</span>
+      {!home && (
+        <button type="button" className="go" disabled={notify.busy} onClick={() => void turnOn().then((came) => setFailed(came === 'failed'))}>
+          {t('notify.turnOn')}
+        </button>
+      )}
+      <button type="button" className="x" aria-label={t('notice.close')} title={t('notice.close')} onClick={closeBanner}>
+        <Icon name="close" />
+      </button>
+    </div>
+  );
+}
+
+const NOTIFY: ChatNotify[] = ['all', 'mentions', 'off'];
+
+/**
+ * The bell at the top of a conversation (design/chat.md, 6.6): what it tells this person, All,
+ * Mentions or Off, each said under its name, the one chosen ticked.
+ */
+export function NotifyBell({ chat, label, me, onPick }: {
+  chat: ChatInfo;
+  /** The conversation as the choices name it: #dev, founders, Elif Demir. */
+  label: string;
+  /** This person's first name, as a mention of them is read. */
+  me: string;
+  onPick: (notify: ChatNotify) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    box.current?.querySelector<HTMLButtonElement>('.r.on')?.focus();
+    const close = (event: globalThis.MouseEvent | globalThis.KeyboardEvent) => {
+      if ('key' in event ? event.key !== 'Escape' : box.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    };
+    const away = () => setOpen(false);
+    window.addEventListener('mousedown', close);
+    window.addEventListener('keydown', close);
+    window.addEventListener('blur', away);
+    return () => {
+      window.removeEventListener('mousedown', close);
+      window.removeEventListener('keydown', close);
+      window.removeEventListener('blur', away);
+    };
+  }, [open]);
+  const direct = chat.kind === 'direct';
+  const notes: Record<ChatNotify, string> = {
+    all: direct ? t('chat.notifyAllDirect') : t('chat.notifyAllRoom', { name: label }),
+    mentions: direct ? t('chat.notifyMentionsDirect', { name: me }) : t('chat.notifyMentions', { name: me }),
+    off: t('chat.notifyOff', { name: label }),
+  };
+  const names: Record<ChatNotify, string> = { all: t('chat.notifyAll'), mentions: t('chat.notify.mentions'), off: t('chat.notify.off') };
+  const move = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    const rows = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('.r')];
+    const at = rows.indexOf(document.activeElement as HTMLButtonElement);
+    rows[(at + (event.key === 'ArrowDown' ? 1 : rows.length - 1)) % rows.length]?.focus();
+  };
+  return (
+    <span className="ch-bellw" ref={box}>
+      <button
+        type="button"
+        className={open ? 'ib down' : 'ib'}
+        title={t('chat.notifications')}
+        aria-label={t('chat.notifications')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <Icon name={chat.notify === 'off' ? 'bellOff' : 'bell'} />
+      </button>
+      {open && (
+        <div className="ch-bell" role="menu" onKeyDown={move}>
+          <div className="cap">{t('chat.notifyAbout')}</div>
+          {NOTIFY.map((each) => (
+            <button
+              type="button"
+              key={each}
+              role="menuitemradio"
+              aria-checked={chat.notify === each}
+              className={chat.notify === each ? 'r on' : 'r'}
+              onClick={() => {
+                setOpen(false);
+                if (each !== chat.notify) onPick(each);
+              }}
+            >
+              <b>{names[each]}</b>
+              <small>{notes[each]}</small>
+              {chat.notify === each && <span className="tk">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
   );
 }

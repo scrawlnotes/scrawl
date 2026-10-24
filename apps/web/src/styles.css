@@ -12364,6 +12364,19 @@ button.st-li:hover,
   font-size: 12px;
 }
 
+/* Notifications: the test, and what came of it */
+.st-test {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.st-check small.st-bad,
+.st-test .st-bad {
+  color: var(--sl-p1);
+}
+
 .ag-none {
   display: flex;
   flex-direction: column;
@@ -17603,6 +17616,134 @@ button.ppl:hover {
 .ch-head .ib .icon {
   width: 16px;
   height: 16px;
+}
+
+/* the bell: what the conversation tells this person (design/chat.md, 6.6) */
+.ch-bellw {
+  position: relative;
+  display: inline-flex;
+}
+
+.ch-head .ib.down {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.ch-bell {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  padding: 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-side);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.4);
+}
+
+.ch-bell .cap {
+  padding: 6px 8px 4px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.ch-bell .r {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  text-align: left;
+}
+
+.ch-bell .r:hover,
+.ch-bell .r:focus-visible,
+.ch-bell .r.on {
+  outline: none;
+  background: var(--sl-sel);
+}
+
+.ch-bell .r b {
+  color: var(--sl-fg);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.ch-bell .r small {
+  grid-column: 1;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.ch-bell .r .tk {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  color: var(--sl-accent);
+}
+
+/* over the list while this device shows no notifications: Turn on, or × */
+.ch-ban {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 22px;
+  align-items: start;
+  gap: 4px 8px;
+  margin: 6px 8px 4px;
+  padding: 9px 4px 9px 10px;
+  border-radius: 7px;
+  background: var(--sl-side);
+  font-size: 12.5px;
+}
+
+.ch-ban > .icon {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: var(--sl-accent);
+}
+
+.ch-ban .tx {
+  grid-column: 2;
+  color: var(--sl-fg);
+  line-height: 1.35;
+}
+
+.ch-ban .go {
+  grid-row: 2;
+  grid-column: 2;
+  justify-self: start;
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+.ch-ban .go:disabled {
+  opacity: 0.6;
+}
+
+.ch-ban .x {
+  display: grid;
+  grid-row: 1;
+  grid-column: 3;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: -3px;
+  border-radius: 5px;
+  color: var(--sl-faint);
+}
+
+.ch-ban .x:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.ch-ban .x .icon {
+  width: 14px;
+  height: 14px;
 }
 
 /* a public room read without being in it: Join in the box's place */

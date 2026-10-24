@@ -18,7 +18,7 @@ import {
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { clock, measure, Recording } from './chatMedia';
-import { Attachments, ForwardDialog, type Going, isImage, RecorderBar, Tray } from './ChatParts';
+import { Attachments, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, Tray } from './ChatParts';
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store } from './chatStore';
 import { ConfirmDialog, type MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
@@ -252,6 +252,7 @@ function ChatList({ servers, open, onOpen, onAdd }: {
   );
   return (
     <nav className="chat-list" aria-label={t('chat.title')}>
+      <NotifyBanner />
       {servers.map((server) => {
         const isOpen = (chat: ChatInfo) => open?.url === server.url && open.chat === chat.id;
         const shown = server.chats.filter((chat) => !chat.hidden && (chat.archived === null || isOpen(chat)));
@@ -343,14 +344,21 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     void one?.open(chat.id);
   }, [chat.id]);
 
+  // Opened at a message: the conversation is not put at its end while it is brought into sight.
+  const aiming = useRef(false);
   useEffect(() => {
-    if (target) void jump(target.message);
+    if (!target) return;
+    aiming.current = true;
+    void jump(target.message).finally(() => {
+      aiming.current = false;
+      placed.current = true;
+    });
   }, [target?.at]);
 
   // On opening: at the line before what is new, else at the end. After that, at the end while it was there.
   useLayoutEffect(() => {
     const box = scroller.current;
-    if (!box || !messages.length) return;
+    if (!box || !messages.length || aiming.current) return;
     if (!placed.current) {
       placed.current = true;
       const line = box.querySelector<HTMLElement>('.ch-new');
@@ -404,6 +412,8 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
       row = scroller.current?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
     }
     if (!row) return;
+    // Away from the end: new messages do not take the reader there.
+    atEnd.current = false;
     row.scrollIntoView({ block: 'center', behavior: 'smooth' });
     setFlash(id);
     window.setTimeout(() => setFlash(null), 1600);
@@ -527,6 +537,14 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
               <Icon name="people" />
               {chat.members.length}
             </button>
+          )}
+          {chat.joined && (
+            <NotifyBell
+              chat={chat}
+              label={chat.kind === 'public' ? `#${chat.name}` : titleOf(chat, server.me)}
+              me={nameOf(server.me).split(/\s+/)[0]!}
+              onPick={(notify) => void one?.notify(chat.id, notify).catch(() => links.say(t('chat.notChanged')))}
+            />
           )}
           <button type="button" className="ib" title={t('chat.info')} aria-label={t('chat.info')} onClick={() => setInfo(chat.kind === 'direct' ? 'people' : 'about')}>
             <Icon name="info" />

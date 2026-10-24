@@ -7969,6 +7969,45 @@ body > .mb-lifted {
   text-align: left;
 }
 
+/* over the list while this phone shows no notifications, as the Messaging mockups have it */
+.mb .ch-ban.phone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 16px 8px;
+  padding: 11px 8px 11px 14px;
+  border-radius: 12px;
+  font-size: 14.5px;
+}
+
+.mb .ch-ban.phone > .icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+}
+
+.mb .ch-ban.phone .tx {
+  flex: 1;
+  min-width: 0;
+}
+
+.mb .ch-ban.phone .go {
+  font-size: 15px;
+}
+
+.mb .ch-ban.phone .x {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+}
+
+.mb .ch-ban.phone .x .icon {
+  width: 16px;
+  height: 16px;
+}
+
 /* the list: a row for each conversation, with its latest message */
 .chp-c {
   position: relative;

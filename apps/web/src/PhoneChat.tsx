@@ -4,7 +4,7 @@ import { type MouseEvent, useEffect } from 'react';
 import { type ChatLinks, Conversation } from './Chat';
 import { Face, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { clock } from './chatMedia';
-import { isAudio, isImage, isVideo } from './ChatParts';
+import { isAudio, isImage, isVideo, NotifyBanner } from './ChatParts';
 import { InfoBody, type InfoTab, MediaThumb, useChatInfo } from './ChatRooms';
 import { type ChatServer, draftOf, store, useChat } from './chatStore';
 import type { MenuItem } from './dialogs';
@@ -90,6 +90,7 @@ export function PhoneChatList({ onOpen }: { onOpen: (url: string, chat: string) 
   };
   return (
     <div className="chp-list">
+      <NotifyBanner phone />
       {snapshot.servers.map((server) => {
         const nameOf = namesOf(server);
         const shown = server.chats.filter((chat) => !chat.hidden && chat.archived === null);

@@ -19,13 +19,16 @@ import { checkForUpdates, releasePage, useAppVersion, useDesktopUpdate } from '.
 import { APP_VERSION, checkForWebUpdate, PUBLISHED, subscribeUpdate, webUpdatesOn, webUpdateStatus } from './pwa';
 import { type AskOneDrive, isDesktop, type OneDriveAnswer, openUrlOnDesktop } from './storage';
 import { readAutostart, setAutostart, setBackground, useAutostart, useBackground } from './tray';
+import { store as chatStore } from './chatStore';
+import { notifySnapshot, sendTest, turnOff, turnOn, useNotify } from './notify';
 
-export type Section = 'profile' | 'appearance' | 'general' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
+export type Section = 'profile' | 'appearance' | 'general' | 'notifications' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
 
 const SECTIONS: { id: Section; label: MessageKey; icon: IconName }[] = [
   { id: 'profile', label: 'settings.profile', icon: 'person' },
   { id: 'appearance', label: 'settings.appearance', icon: 'appearance' },
   { id: 'general', label: 'settings.general', icon: 'tune' },
+  { id: 'notifications', label: 'settings.notifications', icon: 'bell' },
   { id: 'spaces', label: 'settings.spaces', icon: 'space' },
   { id: 'agents', label: 'settings.agents', icon: 'agent' },
   { id: 'language', label: 'settings.language', icon: 'language' },
@@ -109,9 +112,19 @@ export interface SettingsProps extends SettingsValues {
   onClose: () => void;
 }
 
-/** The sections, General on the desktop only, Language once there is more than one language, About on the desktop and the web, not on a phone. */
+/**
+ * The sections, General on the desktop only, Notifications once a server with messaging is
+ * signed in to, Language once there is more than one language, About on the desktop and the web,
+ * not on a phone.
+ */
 export const settingsSections = () =>
-  SECTIONS.filter((section) => (section.id !== 'general' || isDesktop) && (section.id !== 'language' || languages.length > 1) && (section.id !== 'about' || isDesktop || !isPhone()));
+  SECTIONS.filter(
+    (section) =>
+      (section.id !== 'general' || isDesktop) &&
+      (section.id !== 'notifications' || chatStore.read().servers.length > 0) &&
+      (section.id !== 'language' || languages.length > 1) &&
+      (section.id !== 'about' || isDesktop || !isPhone()),
+  );
 
 /** What a section is set to, beside it in the list of a phone. */
 export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }: Pick<SettingsValues, 'mode' | 'theme' | 'spaceName' | 'me' | 'spaces'>): string {
@@ -120,13 +133,14 @@ export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }
   // With more than one space, how many there are; with one, what it is called.
   if (id === 'spaces') return spaces.length > 0 ? String(spaces.length + 1) : (spaceName ?? t('settings.personal'));
   if (id === 'agents') return knownServers().length > 0 ? t('agents.viaServers', { count: knownServers().length }) : '';
+  if (id === 'notifications') return notifySnapshot().state === 'on' ? t('phone.on') : t('phone.off');
   if (id === 'about' || id === 'logs' || id === 'general') return '';
   return languages.find((language) => language.tag === languageTag())?.name ?? '';
 }
 
 /** What a section has, in the window or on a phone's page. */
 export function SettingsSection({ section, ...values }: SettingsValues & { section: Section }) {
-  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'general' ? <General /> : section === 'spaces' ? <Spaces {...values} /> : section === 'agents' ? <Agents {...values} /> : section === 'logs' ? <LogsSection /> : section === 'about' ? <About {...values} /> : <Language />;
+  return section === 'profile' ? <Profile {...values} /> : section === 'appearance' ? <Appearance {...values} /> : section === 'general' ? <General /> : section === 'notifications' ? <Notifications /> : section === 'spaces' ? <Spaces {...values} /> : section === 'agents' ? <Agents {...values} /> : section === 'logs' ? <LogsSection /> : section === 'about' ? <About {...values} /> : <Language />;
 }
 
 /** The source, under both Abouts. */
@@ -262,6 +276,61 @@ function General() {
           </span>
         </label>
       </div>
+    </>
+  );
+}
+
+/**
+ * Notifications of new messages (design/chat.md, 6.6): on a computer whether the app shows them; in
+ * a browser and on a phone whether this device gets them, which the browser is asked for, and why
+ * it cannot when it cannot; a test; the bell of each conversation said.
+ */
+function Notifications() {
+  const notify = useNotify();
+  const [test, setTest] = useState<'sending' | 'sent' | 'notSent' | null>(null);
+  const [failed, setFailed] = useState(false);
+  const on = notify.state === 'on';
+  const change = async (wanted: boolean) => {
+    setTest(null);
+    setFailed(false);
+    if (!wanted) return turnOff();
+    setFailed((await turnOn()) === 'failed');
+  };
+  const send = async () => {
+    setTest('sending');
+    setTest((await sendTest().catch(() => false)) ? 'sent' : 'notSent');
+  };
+  let note: MessageKey;
+  if (isDesktop) note = /Windows/.test(navigator.userAgent) ? 'notify.showNoteWindows' : /Mac/.test(navigator.userAgent) ? 'notify.showNoteMac' : 'notify.showNote';
+  else if (notify.state === 'blocked') note = 'notify.blocked';
+  else if (notify.state === 'homeScreen') note = 'notify.homeScreen';
+  else if (notify.state === 'unsupported') note = 'notify.unsupported';
+  else note = isPhone() ? 'notify.deviceNotePhone' : 'notify.deviceNote';
+  const cannot = notify.state === 'blocked' || notify.state === 'homeScreen' || notify.state === 'unsupported';
+  return (
+    <>
+      <span className="st-label">{t(isDesktop ? 'notify.thisComputer' : 'notify.thisDevice')}</span>
+      <div className="st-space">
+        <label className="st-check">
+          <input type="checkbox" checked={on} disabled={notify.busy || cannot} onChange={(event) => void change(event.target.checked)} />
+          <span>
+            {t(isDesktop ? 'notify.show' : 'notify.device')}
+            <small>{t(note)}</small>
+            {failed && <small className="st-bad">{t('notify.failed')}</small>}
+          </span>
+        </label>
+        {!cannot && (
+          <div className="st-test">
+            <button type="button" className="st-btn" disabled={!on || test === 'sending'} onClick={() => void send()}>
+              {t('notify.test')}
+            </button>
+            {test === 'sent' && <span className="st-note">{t('notify.testSent')}</span>}
+            {test === 'notSent' && <span className="st-note st-bad">{t('notify.testNotSent')}</span>}
+          </div>
+        )}
+      </div>
+      <span className="st-label">{t('notify.each')}</span>
+      <p className="st-note">{t(isPhone() ? 'notify.eachNotePhone' : 'notify.eachNote')}</p>
     </>
   );
 }

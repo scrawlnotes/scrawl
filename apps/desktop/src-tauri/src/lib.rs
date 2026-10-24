@@ -16,6 +16,7 @@ use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
 
+mod alerts;
 mod background;
 mod clipboard;
 mod cloud;
@@ -565,6 +566,7 @@ pub fn run() {
             }
             open_window(app, hidden)?;
             background::autostart_once(app.handle());
+            alerts::listen(app.handle());
             update::start(app.handle());
             Ok(())
         })
@@ -608,6 +610,8 @@ pub fn run() {
             update::update_check,
             update::update_restart,
             background::tray_start,
+            alerts::chat_notify,
+            alerts::chat_unnotify,
             background::tray_status,
             background::background_get,
             background::background_set,

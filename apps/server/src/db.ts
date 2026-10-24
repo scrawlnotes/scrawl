@@ -227,6 +227,20 @@ const MIGRATIONS: string[] = [
   );
   INSERT INTO meta (key, value) VALUES ('chat_rev', '0');
   `,
+  // Notifications by Web Push (design/chat.md, 11.4): each browser that asked for them, by the
+  // address its push service gave it, for the person and the device it is on.
+  `
+  CREATE TABLE push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL REFERENCES accounts (id),
+    device_id TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    failed_at INTEGER
+  );
+  CREATE INDEX push_subscriptions_account ON push_subscriptions (account_id);
+  `,
 ];
 
 export function openDb(file: string): Db {

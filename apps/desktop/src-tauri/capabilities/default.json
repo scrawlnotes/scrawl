@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the main window may do: the core window APIs, the folder picker and the Save window.",
+  "description": "What the main window may do: the core window APIs, the folder picker, the Save window, and the number on the app's icon.",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save"]
+  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save", "core:window:allow-set-badge-count", "core:window:allow-set-overlay-icon"]
 }

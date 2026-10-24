@@ -54,6 +54,8 @@ export interface ChatServer {
   maxFileMb: number | null;
   /** A room read without being in it, from Browse rooms: there while it is open. */
   visiting: ChatInfo | null;
+  /** Whether it sends notifications by Web Push (design/chat.md, 11.4). */
+  push: boolean;
 }
 
 export interface ChatSnapshot {
@@ -174,10 +176,11 @@ class OneServer {
     readonly url: string,
     me: string,
     maxFileMb: number | null,
+    push: boolean,
     private readonly changed: () => void,
   ) {
     this.client = new ChatClient({ url, token: () => serverKey(url) });
-    this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [], maxFileMb, visiting: null };
+    this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [], maxFileMb, visiting: null, push };
   }
 
   async start() {
@@ -261,9 +264,12 @@ class OneServer {
 
   private heard(event: ChatEvent) {
     if (event.type === 'message') {
+      // New, not a message changed: past the conversation's latest when it came.
+      const before = this.state.chats.find((each) => each.id === event.chat);
+      const fresh = !before || event.message.seq > before.lastSeq;
       this.put([event.message]);
-      // The counts are the server's: they come with the next turn.
-      void this.turn();
+      // The counts are the server's: they come with the next turn, and a notification after them.
+      void this.turn().then(() => fresh && store.onNew?.(this.url, event.message));
     } else if (event.type === 'chat') void this.turn();
     else if (event.type === 'typing') {
       const typing = { ...this.state.typing, [event.chat]: { ...this.state.typing[event.chat], [event.account]: Date.now() + TYPING_MS } };
@@ -562,16 +568,18 @@ class ChatStore {
       const account = new ServerAccount({ url: each.url, token: () => serverKey(each.url) });
       let me = each.id ?? '';
       let maxFileMb: number | null = null;
+      let push = false;
       try {
         const status = await account.status();
         if (!status.chat) continue;
         maxFileMb = status.maxFileMb ?? null;
+        push = status.push === true;
         if (!me) me = (await account.me()).id;
       } catch {
         continue;
       }
       if (this.servers.has(each.url)) continue;
-      const server = new OneServer(each.url, me, maxFileMb, () => this.changed());
+      const server = new OneServer(each.url, me, maxFileMb, push, () => this.changed());
       this.servers.set(each.url, server);
       void server.start();
     }
@@ -582,8 +590,16 @@ class ChatStore {
     return this.servers.get(url);
   }
 
+  /** Told of a new message of someone else's, once the counts are in: what shows it as a notification on the desktop. */
+  onNew: ((url: string, message: ChatMessage) => void) | null = null;
+
+  /** Whether a conversation is on screen here, the window in front. */
+  onScreen(url: string, chat: string): boolean {
+    return this.viewing?.url === url && this.viewing.chat === chat && document.visibilityState === 'visible' && document.hasFocus();
+  }
+
   /** Whether Scrawl is in use on this device now: on screen, in front, touched lately. */
-  private inUse(): boolean {
+  inUse(): boolean {
     return document.visibilityState === 'visible' && document.hasFocus() && Date.now() - this.lastTouch < IN_USE_MS;
   }
 

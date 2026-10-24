@@ -89,6 +89,12 @@ export class Live {
     return false;
   }
 
+  /** Whether Scrawl is in use on this device now: it hears what is new on the live channel, not as a push. */
+  isDeviceActive(device: string): boolean {
+    for (const socket of this.sockets) if (socket.device === device && socket.active) return true;
+    return false;
+  }
+
   /** Whether a conversation is on the screen of one of someone's devices in use. */
   isViewing(account: string, chat: string): boolean {
     for (const socket of this.sockets) if (socket.account === account && socket.active && socket.viewing === chat) return true;

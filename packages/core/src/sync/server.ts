@@ -202,6 +202,8 @@ export interface ServerStatus {
   chat?: boolean;
   /** The largest file it takes, in megabytes; a server from before messaging leaves it out. */
   maxFileMb?: number;
+  /** It sends notifications by Web Push (design/chat.md, 11.4); a server from before them leaves it out. */
+  push?: boolean;
 }
 
 export interface ServerAccountInfo {

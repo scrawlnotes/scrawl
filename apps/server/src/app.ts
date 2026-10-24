@@ -8,6 +8,7 @@ import { type Blobs, TooLarge } from './blobs';
 import { type Config, VERSION } from './config';
 import { BadPath, checkPath, Conflict, type SpaceFiles } from './files';
 import type { Chats } from './chat';
+import type { Push } from './push';
 import type { Live, LiveSocket } from './live';
 import type { Invites } from './invites';
 import { agentRoutes } from './agent';
@@ -30,6 +31,7 @@ export interface Parts {
   invites: Invites;
   oauth: OAuth;
   chats: Chats;
+  push: Push;
   /** The server's clock, for what is measured against it. */
   now: () => number;
 }
@@ -66,7 +68,7 @@ function pathIn(c: Context, space: string): string {
 const unquote = (tag: string) => tag.trim().replace(/^W\//, '').replace(/^"|"$/g, '');
 
 export function createApp(parts: Parts) {
-  const { config, blobs, files, accounts, spaces, live, invites, oauth, chats } = parts;
+  const { config, blobs, files, accounts, spaces, live, invites, oauth, chats, push } = parts;
   const app = new Hono<Env>();
 
   app.use(
@@ -111,7 +113,7 @@ export function createApp(parts: Parts) {
   // `personal`: it keeps personal spaces, so the app offers it for one (design/spaces.md); `chat`:
   // it has messaging, so the app shows Chat (design/chat.md, 1.2); `maxFileMb`: the largest file it
   // takes, which a message's file is weighed against before it is sent (design/chat.md, 4).
-  app.get('/api/v1/server', (c) => c.json({ version: VERSION, new: accounts.isNew(), setupOpen: accounts.setupOpen(), personal: true, chat: true, maxFileMb: Math.round(config.maxFileBytes / (1024 * 1024)) }));
+  app.get('/api/v1/server', (c) => c.json({ version: VERSION, new: accounts.isNew(), setupOpen: accounts.setupOpen(), personal: true, chat: true, push: true, maxFileMb: Math.round(config.maxFileBytes / (1024 * 1024)) }));
   app.post('/api/v1/setup', async (c) => c.json(await accounts.setUp(await json(c))));
   app.post('/api/v1/sessions', async (c) => c.json(await accounts.signIn(await json(c), addressOf(c))));
 
@@ -367,6 +369,17 @@ export function createApp(parts: Parts) {
   });
   app.patch('/api/v1/chat/:id/me', async (c) => c.json(chats.setMine(me(c), c.req.param('id'), await json(c))));
   app.post('/api/v1/chat/:id/read', async (c) => c.json(chats.read(me(c), c.req.param('id'), (await json(c)).seq)));
+  // Notifications by Web Push (design/chat.md, 6 and 11.4): the server's key, a browser's subscription, a test.
+  app.get('/api/v1/push/key', (c) => c.json({ key: push.keys.publicKey }));
+  app.post('/api/v1/push/subscriptions', async (c) => {
+    push.subscribe(me(c).id, c.get('device'), await json(c));
+    return c.body(null, 204);
+  });
+  app.delete('/api/v1/push/subscriptions', async (c) => {
+    push.unsubscribe(me(c).id, (await json(c)).endpoint);
+    return c.body(null, 204);
+  });
+  app.post('/api/v1/push/test', async (c) => c.json({ sent: await push.test(me(c).id, c.get('device')) }));
   // Its files and links for its Info window, and its export: a zip written as it is sent (design/chat.md, 8.1 and 10).
   app.get('/api/v1/chat/:id/shared', (c) => c.json(chats.shared(me(c).id, c.req.param('id'))));
   app.get('/api/v1/chat/:id/export', (c) => {

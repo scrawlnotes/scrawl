@@ -190,6 +190,28 @@ export class ChatClient {
     return this.client.json(`/chat/${encodeURIComponent(chat)}/shared`);
   }
 
+  /** The server's own key, which a browser subscribes to its push service with (design/chat.md, 11.4). */
+  async pushKey(): Promise<string> {
+    return (await this.client.json<{ key: string }>('/push/key')).key;
+  }
+
+  /** This browser's subscription, for this device: the server sends it notifications. */
+  async subscribePush(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }): Promise<void> {
+    const response = await this.client.request('/push/subscriptions', json('POST', subscription));
+    if (!response.ok) throw await errorOf(response);
+  }
+
+  /** Notifications off in this browser: the server forgets its subscription. */
+  async unsubscribePush(endpoint: string): Promise<void> {
+    const response = await this.client.request('/push/subscriptions', json('DELETE', { endpoint }));
+    if (!response.ok) throw await errorOf(response);
+  }
+
+  /** A test notification to this device; how many of its browsers it went to. */
+  async testPush(): Promise<number> {
+    return (await this.client.json<{ sent: number }>('/push/test', { method: 'POST' })).sent;
+  }
+
   /** A conversation as a zip of Markdown and its files, its days and times in `timeZone` (design/chat.md, 10). */
   async export(chat: string, timeZone: string): Promise<Blob> {
     const response = await this.client.request(`/chat/${encodeURIComponent(chat)}/export?tz=${encodeURIComponent(timeZone)}`);
