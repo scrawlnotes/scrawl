@@ -915,7 +915,8 @@ export class Session {
       if (filter !== null) return filters.some((f) => f.id === filter);
       return id !== WELCOME_NOTE || welcomeHere;
     });
-    let active = workspace.active;
+    // A phone opens on Browse with nothing over it: what was on screen last time is in Recent.
+    let active = this.touch ? null : workspace.active;
     // Not closed yet: its tab is the first, and on screen when it was not open already.
     if (!this.welcomeClosed && welcomeHere && !tabs.includes(WELCOME_NOTE)) {
       tabs = [WELCOME_NOTE, ...tabs];
@@ -952,7 +953,7 @@ export class Session {
       trash: [],
     });
     // With no tabs from last time nothing is opened: the start page shows.
-    const first = active && tabs.includes(active) ? active : tabs[0];
+    const first = active && tabs.includes(active) ? active : this.touch ? undefined : tabs[0];
     const reading = this.readOpening(run, measure, first ?? null);
     if (first) await this.openFirst(first, measure);
     await reading;
