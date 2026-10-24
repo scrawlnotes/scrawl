@@ -102,7 +102,7 @@ import {
   relabelFavorites,
   saveFavorites,
   starFavorite,
-  writePresetFilters,
+  addPresetFilters,
   loadLabels,
   colorLabel,
   relabelBoard,
@@ -872,7 +872,7 @@ export class Session {
     this.welcomeClosed = workspace.welcomeClosed === true;
     if (!this.welcomeClosed) await this.personal.writeText(WELCOME_NOTE, this.welcomeText());
     const welcomeHere = await welcomeThere(this.personal);
-    const filters = (keptConnection() === null && (await writePresetFilters(this.personal).catch(() => null))) || (await loadFilters(this.personal));
+    const filters = (keptConnection() === null && (await addPresetFilters(this.personal).catch(() => null))) || (await loadFilters(this.personal));
     const favorites = await loadFavorites(this.personal);
     const space = await loadSpace(this.personal);
     // Nothing is asked at the first start: the name and the email wait for a space where others see them.
@@ -2771,11 +2771,11 @@ export class Session {
     const changed = [report.downloaded, report.merged, report.conflicts, report.moved, report.removedHere].some((paths) => paths.length > 0);
     // Only this space changed: the others are not read again.
     if (changed) await this.rescan(space);
-    // The personal space's first turn has brought its filters, if it has any; where it has none, the
-    // ready ones are written (design/filters.md 4.3).
+    // The personal space's first turn has brought its filters, if it has any, and whether the ready
+    // ones were given on another device; where they were not, they are given now (design/filters.md 4.3).
     if (space === null) {
-      const presets = await writePresetFilters(this.personal).catch(() => null);
-      if (presets) this.set({ filters: presets });
+      const given = await addPresetFilters(this.personal).catch(() => null);
+      if (given) this.set({ filters: given });
     }
   }
 

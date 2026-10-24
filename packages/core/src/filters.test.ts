@@ -16,7 +16,7 @@ import {
   serializeFilters,
   taskMatches,
   taskPicks,
-  writePresetFilters,
+  addPresetFilters,
 } from './filters';
 import { MemoryFs } from './fs';
 import { addTask, type Task, updateTask } from './tasks';
@@ -200,9 +200,9 @@ describe('filtering a list where it is (design/filters.md)', () => {
     expect(filterName({ ...all, assignees: [GIVEN.me, 'u-mert'] }, undefined, () => 'Mert')).toBe('Mine, Mert');
   });
 
-  it('writes the ready filters where there is no file yet, each with its own id, and only then', async () => {
+  it('gives the ready filters once, each with its own id, and one deleted does not come back', async () => {
     const fs = new MemoryFs();
-    const presets = await writePresetFilters(fs);
+    const presets = await addPresetFilters(fs);
     expect(presets?.map((f) => [f.id, f.name])).toEqual([
       ['p1', 'Priority 1'],
       ['p2', 'Priority 2'],
@@ -212,12 +212,23 @@ describe('filtering a list where it is (design/filters.md)', () => {
       ['no-date', 'No date'],
     ]);
     expect(await loadFilters(fs)).toEqual(presets);
-    // One deleted stays deleted: there is a file now.
+    // One deleted stays deleted: the file says they were given, and saving keeps that.
     await saveFilters(fs, presets!.slice(1));
-    expect(await writePresetFilters(fs)).toBe(null);
+    expect(await addPresetFilters(fs)).toBe(null);
     expect((await loadFilters(fs)).map((f) => f.id)).not.toContain('p1');
     const given = presets!.find((f) => f.id === 'given-others')!;
     expect(matchesFilter(given, 'Inbox.tasks.json', task('his', { assignee: { id: 'u-mert', name: 'Mert' } }), today, 'u-kaan')).toBe(true);
+  });
+
+  it('gives the ready filters to a file there before them, empty or with filters of its own, before those', async () => {
+    const empty = new MemoryFs();
+    await empty.writeText('.scrawl/filters.json', serializeFilters([]));
+    expect((await addPresetFilters(empty))?.map((f) => f.id)).toEqual(['p1', 'p2', 'p3', 'given-me', 'given-others', 'no-date']);
+    expect(await addPresetFilters(empty)).toBe(null);
+    const own = new MemoryFs();
+    const mine = { id: 'bugs', name: 'Bugs', due: 'any' as const, priorities: [], folders: [], text: '', labels: ['bug'] };
+    await own.writeText('.scrawl/filters.json', serializeFilters([mine, { ...mine, id: 'p2', name: 'Urgent' }]));
+    expect((await addPresetFilters(own))?.map((f) => f.name)).toEqual(['Priority 1', 'Priority 3', 'Given to me', 'Given to others', 'No date', 'Bugs', 'Urgent']);
   });
 });
 

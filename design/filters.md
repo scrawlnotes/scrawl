@@ -109,8 +109,10 @@ Todoist gibi. HubSpot gibi görünüm sekmeleri de mockup'ta çizilmişti; seçi
 
 - Priority 1, Priority 2, Priority 3, Given to me, Given to others, No date.
 - Sıradan filtrelerdir: değiştirilir, yeniden adlandırılır, silinir.
-- `.scrawl/filters.json` yoksa yazılır. Sabit kimlikleri vardır (`p1`, `p2`, `p3`, `given-me`, `given-others`, `no-date`); iki cihaz ikisini de yazsa sync tek kopya bırakır.
-- Silinen hazır filtre geri gelmesin diye dosya, personal space'in ilk sync'i bittikten sonra hâlâ yoksa yazılır.
+- Her kişiye bir kez eklenir: `.scrawl/filters.json` varsa da, içinde kişinin kendi filtreleri varsa da. Kişide olmayanlar onunkilerin önüne girer; dosyaya verildikleri yazılır (`presets`), silinen hazır filtre bir daha gelmez. İleride yeni bir hazır filtre çıkarsa o da bir kez eklenir.
+- Sabit kimlikleri vardır (`p1`, `p2`, `p3`, `given-me`, `given-others`, `no-date`); iki cihaz ikisini de eklese sync tek kopya bırakır.
+- Personal space sync'liyse personal space'in ilk sync'i bittikten sonra eklenir, başka cihazda verildiyse eklenmez.
+- 24 Ekim: ilk kural dosya yoksa yazmaktı; bir kullanıcıda 19 Ekim'den kalma boş bir `filters.json` olduğu için hazır filtreler hiç gelmedi, kural bununla değişti.
 
 ### 4.4 Yeni filtre
 
@@ -187,7 +189,7 @@ interface FilterChoices {
 ### 8.3 Kayıtlı: `.scrawl/filters.json`
 
 - Biçim aynı; `labels` ve `assignees` eklenir. `folder` okunur, kullanılmaz.
-- Hazır filtreler sabit kimlikleriyle (4.3).
+- Hazır filtreler sabit kimlikleriyle (4.3). `presets`: kişiye verilen hazır filtre takımı, `1`; yoksa henüz verilmemiş. Sync iki taraftan büyüğünü tutar.
 
 ### 8.4 Favoriler: `.scrawl/favorites.json`
 

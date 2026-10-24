@@ -75,15 +75,25 @@ export function readChoices(raw: unknown): PlaceChoices {
   };
 }
 
-/** Reads the saved filters. Anything that is not a usable filter is left out. */
-export function parseFilters(text: string): TaskFilter[] {
-  let data: { filters?: unknown } | null;
+/**
+ * The saved filters as their file has them, and which set of the ready filters the person has been
+ * given (`PRESETS`), 0 for none yet.
+ */
+export interface FiltersFile {
+  filters: TaskFilter[];
+  presets: number;
+}
+
+/** Reads the filters file. Anything that is not a usable filter is left out. */
+export function parseFiltersFile(text: string): FiltersFile {
+  let data: { filters?: unknown; presets?: unknown } | null;
   try {
     data = JSON.parse(text) as typeof data;
   } catch {
-    return [];
+    return { filters: [], presets: 0 };
   }
-  if (!Array.isArray(data?.filters)) return [];
+  const presets = typeof data?.presets === 'number' && Number.isInteger(data.presets) && data.presets > 0 ? data.presets : 0;
+  if (!Array.isArray(data?.filters)) return { filters: [], presets };
   const filters: TaskFilter[] = [];
   for (const raw of data.filters as Partial<TaskFilter>[]) {
     if (!raw || typeof raw.id !== 'string' || typeof raw.name !== 'string') continue;
@@ -100,25 +110,38 @@ export function parseFilters(text: string): TaskFilter[] {
     const filter = filters[filters.length - 1]!;
     if (!filter.folder) delete filter.folder;
   }
-  return filters;
+  return { filters, presets };
 }
 
-export const serializeFilters = (filters: TaskFilter[]) => `${JSON.stringify({ version: 1, filters }, null, 2)}\n`;
+/** Reads the saved filters. Anything that is not a usable filter is left out. */
+export const parseFilters = (text: string): TaskFilter[] => parseFiltersFile(text).filters;
 
-/** The saved filters of a vault; none when there is no file yet. */
-export async function loadFilters(fs: VaultFs): Promise<TaskFilter[]> {
+export const serializeFilters = (filters: TaskFilter[], presets = 0) => `${JSON.stringify({ version: 1, ...(presets > 0 && { presets }), filters }, null, 2)}\n`;
+
+/** The filters file of a vault; none when there is no file yet. */
+async function readFiltersFile(fs: VaultFs): Promise<FiltersFile> {
   try {
-    return parseFilters(await fs.readText(FILE));
+    return parseFiltersFile(await fs.readText(FILE));
   } catch {
-    return [];
+    return { filters: [], presets: 0 };
   }
 }
 
-export const saveFilters = (fs: VaultFs, filters: TaskFilter[]) => fs.writeText(FILE, serializeFilters(filters));
+/** The saved filters of a vault; none when there is no file yet. */
+export const loadFilters = async (fs: VaultFs): Promise<TaskFilter[]> => (await readFiltersFile(fs)).filters;
+
+/** Writes the saved filters, the file keeping which ready filters were given. */
+export async function saveFilters(fs: VaultFs, filters: TaskFilter[]): Promise<void> {
+  const { presets } = await readFiltersFile(fs);
+  await fs.writeText(FILE, serializeFilters(filters, presets));
+}
+
+/** The set of ready filters there is now; a later set with new ones adds them once more. */
+export const PRESETS = 1;
 
 /**
- * The ready filters a person starts with (design/filters.md 4.3), as Todoist's: ordinary filters,
- * changed, renamed and deleted as any. Each has its own id, so that two devices writing them before
+ * The ready filters a person is given (design/filters.md 4.3), as Todoist's: ordinary filters,
+ * changed, renamed and deleted as any. Each has its own id, so that two devices adding them before
  * they meet keep one of each.
  */
 export function presetFilters(): TaskFilter[] {
@@ -133,16 +156,18 @@ export function presetFilters(): TaskFilter[] {
   ];
 }
 
-/** Writes the ready filters where there is no filters file yet, and returns them; null when there is one. */
-export async function writePresetFilters(fs: VaultFs): Promise<TaskFilter[] | null> {
-  try {
-    await fs.readText(FILE);
-    return null;
-  } catch {
-    const presets = presetFilters();
-    await saveFilters(fs, presets);
-    return presets;
-  }
+/**
+ * Gives the person the ready filters once, also when they have a filters file and filters of their
+ * own: those they do not have go before theirs, and the file says they were given, so that one
+ * deleted does not come back. Returns the filters; null when they were given already.
+ */
+export async function addPresetFilters(fs: VaultFs): Promise<TaskFilter[] | null> {
+  const { filters, presets } = await readFiltersFile(fs);
+  if (presets >= PRESETS) return null;
+  const added = presetFilters().filter((preset) => !filters.some((each) => each.id === preset.id));
+  const given = [...added, ...filters];
+  await fs.writeText(FILE, serializeFilters(given, PRESETS));
+  return given;
 }
 
 /** The last day of the week `today` is in. Weeks run from Monday to Sunday. */

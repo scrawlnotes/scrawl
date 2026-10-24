@@ -3,7 +3,7 @@ import { mergeAgents, parseAgents } from '../agents';
 import { mergeWorkedOn } from '../activity';
 import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from '../board';
 import { type Favorite, FAVORITES_FILE, favoriteKey, parseFavorites, serializeFavorites } from '../favorites';
-import { parseFilters, serializeFilters, type TaskFilter } from '../filters';
+import { type FiltersFile, parseFiltersFile, serializeFilters } from '../filters';
 import { KEYS_EXT } from '../keys';
 import { LABELS_FILE, parseLabels, serializeLabels, type SpaceLabel } from '../labels';
 import { RULES_FILE } from '../rules';
@@ -237,9 +237,10 @@ function mergeBoard(base: string, local: string, remote: string): string {
   return serializeBoard(parseBoard(serializeBoard(board)));
 }
 
+/** Saved filters by id; the ready filters were given when either side gave them. */
 function mergeFilterFile(base: string, local: string, remote: string): string {
-  const [b, l, r] = [base, local, remote].map(parseFilters) as [TaskFilter[], TaskFilter[], TaskFilter[]];
-  return serializeFilters(mergeRecords(b, l, r, byId, (was, mine, theirs) => mergeFields(was, mine, theirs)));
+  const [b, l, r] = [base, local, remote].map(parseFiltersFile) as [FiltersFile, FiltersFile, FiltersFile];
+  return serializeFilters(mergeRecords(b.filters, l.filters, r.filters, byId, (was, mine, theirs) => mergeFields(was, mine, theirs)), Math.max(l.presets, r.presets));
 }
 
 /** The favorites starred on both sides, each one by what it is, in the order both sides gave them. */
@@ -295,7 +296,7 @@ const MERGERS: Record<Exclude<MergeKind, 'text'>, (base: string, local: string, 
 const READERS: Record<Exclude<MergeKind, 'text'>, (text: string) => unknown> = {
   tasks: parseList,
   board: parseBoard,
-  filters: parseFilters,
+  filters: parseFiltersFile,
   favorites: parseFavorites,
   labels: parseLabels,
   space: parseSpace,

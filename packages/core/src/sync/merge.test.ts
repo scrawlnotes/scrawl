@@ -219,6 +219,11 @@ describe('merging the files of a space', () => {
     expect(JSON.parse(merged('trash', trash([]), trash(['a.md']), trash(['b.md']))).items.map((r: { name: string }) => r.name).sort()).toEqual(['a.md', 'b.md']);
   });
 
+  it('keeps that the ready filters were given when either side gave them', () => {
+    const file = (presets: number) => `${JSON.stringify({ version: 1, ...(presets > 0 && { presets }), filters: [] })}\n`;
+    expect(JSON.parse(merged('filters', file(0), file(1), file(0))).presets).toBe(1);
+  });
+
   it('merges favorites by what each one is, keeping both sides\' and dropping the one taken off', () => {
     const favorites = (items: object[]) => `${JSON.stringify({ version: 1, favorites: items })}\n`;
     const base = favorites([{ item: 'Plan.md' }, { filter: 'p1' }]);
