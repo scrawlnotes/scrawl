@@ -118,6 +118,7 @@ import { ImportDialog } from './Import';
 import { isSpreadsheet, readSheets, type Sheet, writeSheet } from './spreadsheet';
 import { folderLabel, setSpaceNames,
   boardLabel,
+  CHAT,
   boardOf,
   boardPathOf,
   collectionPathOf,
@@ -198,6 +199,8 @@ import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Thing, thingsOf } from './Search';
 import { type Dated, dueLabel, type DueSubtask, FilterPage, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList, TodayView } from './Tasks';
 import { Upcoming } from './Upcoming';
+import { ChatView } from './Chat';
+import { store as chatStore, useChat } from './chatStore';
 import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
 import { contentsText, quote, writtenText } from './text';
@@ -449,6 +452,9 @@ export function App() {
   const recordGuards = useRef(new Map<string, (then: () => void) => void>());
   /** What the status bar says about a view other than a note's: a keys file's counts, or its cursor. */
   const [viewStatus, setViewStatus] = useState<string[] | null>(null);
+  // Messaging on the servers signed in to that have it (design/chat.md): Chat shows when one does.
+  const chat = useChat();
+  useEffect(() => chatStore.start(), []);
   /** Where a dragged tab would land: the gap before the tab at this index, or after the last one. */
   const [tabGap, setTabGap] = useState<number | null>(null);
   // With nothing open, a computer shows the start page; a phone its own Recent.
@@ -1881,7 +1887,7 @@ export function App() {
   );
   const dueNow = dueToday(tasks, today);
   const dueCardsNow = dueCards(boards).filter((d) => d.card.due! <= today).length + dueSubtasksNow.filter((d) => d.subtask.due! <= today).length;
-  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [TRASH]: trash.length, [FILES]: fileCount };
+  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;
@@ -2202,6 +2208,7 @@ export function App() {
       />
     )}
     {!phone && active === TODAY && <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} still={still} />}
+    {!phone && active === CHAT && <ChatView snapshot={chat} menu={openMenu} onStatus={setViewStatus} />}
     {!phone && active === UPCOMING && (
       <Upcoming
         lists={tasks}
@@ -2281,7 +2288,7 @@ export function App() {
       />
     )}
     {!phone && active === FILES && filesView}
-    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && !isDueView && !filterPageOn && active !== FILTERS && active !== TRASH && active !== FILES &&
+    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && !isDueView && !filterPageOn && active !== FILTERS && active !== TRASH && active !== FILES && active !== CHAT &&
       (active ? (
         <section className="placeholder">
           <h1>{labelOf(active, tabTitles, filters)}</h1>
@@ -2726,6 +2733,7 @@ export function App() {
           titles={titles}
           active={active}
           counts={counts}
+          chat={chat.servers.length > 0}
           onOpen={(id) => {
             setDrawer(false);
             void session.open(id);
@@ -2841,7 +2849,7 @@ export function App() {
             {stats && <span>{t('count.words', { count: stats.words })}</span>}
             {stats && <span>{t('count.characters', { count: stats.chars })}</span>}
             {stats && written !== null && <span>{writtenText(written)}</span>}
-            {(keysText !== undefined || collection || active === UPCOMING || boardPath !== null) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
+            {(keysText !== undefined || collection || active === UPCOMING || active === CHAT || boardPath !== null) && viewStatus?.map((part, i) => <span key={i}>{part}</span>)}
             {taskStatus?.map((part, i) => <span key={`task-${i}`}>{part}</span>)}
             {notice && !notice.toast && (
               <span className="notice" role="status">

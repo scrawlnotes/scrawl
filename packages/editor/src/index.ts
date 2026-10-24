@@ -59,6 +59,7 @@ export { createRulesEditor, type RulesEditor, type RulesProblem } from './rules'
 export { literalPattern } from './find';
 export { showFound } from './found';
 export { exportHtml, fontRuns, type OutFile, type OutFiles, PDF_WIDTH, pdfContent, type PdfFonts, type PdfNode, titled } from './export';
+export { messageHtml } from './message';
 export { addCopy, type Copy, copyFollows, copyPosition, copyProgress, dropCopy, progressText, showCopy } from './copies';
 export { linkAddress, linkText, pastedLink, pastedUrl } from './links';
 export { cursorBehavior, restingPosition } from './cursor';

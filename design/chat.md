@@ -499,3 +499,25 @@ Kodda netleşenler:
 - **Çevrimiçi:** uygulama canlı kanaldan `{ type: "active", active, viewing }` der; kişinin bir cihazı kullanılıyorsa kişi çevrimiçidir. Haber, kişiyle bir space'i paylaşanlara gider; bağlanan cihaz o an çevrimiçi olanları alır. "Kullanılıyor" demeyi (pencere önde, son 5 dakikada dokunulmuş) uygulama yapar (2. dilim).
 - **Yazıyor:** aynı kişi aynı konuşmada 2,5 saniyede en çok bir kez duyurulur; kaydedilmez.
 - **Uygulamanın eski sürümleri** canlı kanalın yeni olaylarını tanımaz ve yok sayar; sync bugünkü gibi çalışır.
+
+
+## 18. Yazılırken: 2. dilim (Masaüstü ve web, konuşma)
+
+24 Ekim. Kodda: core'da `packages/core/src/sync/chat.ts` (`ChatClient`, mention linki, düz metin, aynı yüzün altında akan mesajlar, değişikliklerin önbelleğe işlenmesi; 6 test) ve canlı kanal istemcisinin olayları geçirmesi ve söylemesi (`ServerLive` `onEvent` ve `send`); editörde `message.ts` (mesajın HTML'i; 3 test); web'de `chatStore.ts` (sunucu başına konuşmalar ve mesajlar, önbellek, kuyruk, yazıyor, çevrimiçi, taslak), `Chat.tsx` (sekme, liste, konuşma, mesaj, yazma kutusu), `Sidebar.tsx` (Chat satırı), `App.tsx`, `items.ts`, `Icon.tsx`, stiller ve metinler. Sunucu konuşmada space'in adını da verir (`spaceName`). Tarayıcıda yerel sunucuda iki kişiyle denendi: mesaj, alıntılı cevap, mention, tepki, düzenleme, silme, New çizgisi, yazıyor, Active, Seen, taslak, sunucu kapalıyken yazılan mesajın sonradan gitmesi.
+
+Kodda netleşenler:
+
+- **Ayrı canlı bağlantı:** Chat sunucuya sync'inkinden ayrı bir canlı bağlantı açar; sync'in koduna dokunulmaz. Kullanılıyor bilgisini yalnız Chat'in bağlantısı söyler.
+- **Önbellek:** IndexedDB'de sunucu başına bir kayıt: konuşmalar, konuşma başına son 500 mesaj, imleç ve gönderilmeyi bekleyenler; değişince bir saniye içinde yazılır.
+- **Kuyruk:** mesaj yazıldığı anda konuşmada soluk ve "Sending" ile görünür. Sunucuya ulaşılamıyorsa canlı bağlantı geri gelince sırayla gider; sunucu reddederse "Not sent", yanında Retry ve Delete.
+- **Okundu:** konuşma ekranda, pencere önde ve en alttayken okunmuş sayılır; konuşmaya tıklamak, bir tuşa basmak ya da pencereye dönmek de okutur.
+- **New çizgisi** konuşma açıldığı andaki ilk okunmamışın üstünde durur, konuşma açık kaldıkça kalır.
+- **Kullanılıyor:** pencere görünür, önde ve son 5 dakikada dokunulmuşsa. Uygulama bunu değişince ve 30 saniyede bir söyler.
+- **Yazma kutusu:** Enter gönderir, kod bloğunda alt satıra geçer. Aa satırı: kalın, italik, üstü çizili, kod, liste, alıntı, kod bloğu. @ ve emoji düğmeleri. + (ekler) ve mikrofon 3. dilimde.
+- **Emoji:** altı hızlı tepki; tam liste `emojibase-data` (MIT) ile, ilk açılışta yüklenir (ayrı parça, sıkıştırılmış 83 KB), adı ve etiketleriyle aranır. Yazma kutusundaki emoji düğmesi aynı listeyi açar.
+- **Silmek sorar:** "Delete this message?" penceresi; mesaj herkes için silinir.
+- **Alıntı:** cevaplanan mesaj ekrandaysa alıntı onun şimdiki halini gösterir, düzenlenmiş ya da silinmiş.
+- **Bu dilimde mesajın menüsü:** Edit, Copy text, Delete. Copy link, To task, To card ve Forward 3. dilimle gelir. Başlıktaki arama 7., zil 6., Info 4. dilimle; listedeki arama kutusu 7., başlıkların +'sı 4. dilimle.
+- **Dar Chat:** Chat'in kendi genişliği 600 pikselin altındaysa liste ve konuşma sırayla görünür. Pencere değil Chat ölçülür, çünkü kenar çubuğu açıkken 800 piksellik pencerede de konuşma sıkışıyordu.
+- **Saat** cihazın dilinin biçiminde, başında sıfır olmadan: 3:30 PM, 15:30.
+- **Telefonda** Chat bu dilimde yoktur (5. dilim).

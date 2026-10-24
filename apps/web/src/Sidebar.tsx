@@ -5,7 +5,7 @@ import { LATEST_RELEASE } from './desktopUpdate';
 import { cutShort, useHoverTip } from './HoverTip';
 import { Icon, type IconName } from './Icon';
 import { Spin } from './Loading';
-import { collectionTab, countItems, FILES, FILTERS, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { CHAT, collectionTab, countItems, FILES, FILTERS, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { isDesktop } from './storage';
 import type { SpaceSyncView } from './sync';
@@ -70,6 +70,8 @@ interface Props {
   active: string | null;
   /** Open tasks behind a row, by the id of the tab the row opens. */
   counts: Record<string, number>;
+  /** Whether a server this device is signed in to has messaging: Chat shows under Upcoming (design/chat.md, 8.1). */
+  chat?: boolean;
   onOpen: (id: string) => void;
   /** Something dropped on a folder, a space's heading or a row, which puts it in that row's folder. */
   onMove: (path: string, folder: string) => void;
@@ -143,6 +145,7 @@ export function Sidebar({
   titles,
   active,
   counts,
+  chat = false,
   onOpen,
   onMove,
   onNewFolder,
@@ -500,7 +503,8 @@ export function Sidebar({
       <button type="button" className="it-main" onClick={() => onOpen(id)}>
         {label}
       </button>
-      <span className="ct">{counts[id] || ''}</span>
+      {/* Chat's number is what is unread and tells this person: a mark, not a count of things. */}
+      <span className={id === CHAT && counts[id] ? 'ct alert' : 'ct'}>{counts[id] || ''}</span>
       {onMenu && more(onMenu)}
     </div>
   );
@@ -791,6 +795,7 @@ export function Sidebar({
         </button>
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
+        {chat && viewRow(CHAT, <span>{t('chat.title')}</span>, 0)}
         {viewRow(FILTERS, <span>{t('filters.title')}</span>, 0)}
         {favorites.length > 0 && <div className="grp">{t('favorites.title')}</div>}
         {favorites.map(favoriteRow)}

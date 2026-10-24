@@ -37,7 +37,7 @@ export class ServerError extends Error {
   }
 }
 
-async function errorOf(response: Response): Promise<ServerError> {
+export async function errorOf(response: Response): Promise<ServerError> {
   let code = '';
   let message = response.statusText;
   try {
@@ -56,7 +56,7 @@ const DOWN = new Set([500, 502, 503, 504]);
 const encodePath = (path: string) => path.split('/').map(encodeURIComponent).join('/');
 
 /** Requests to the server: its address, this device's key, and an unreachable server told as offline. */
-class Client {
+export class ServerClient {
   private readonly fetch: typeof fetch;
 
   constructor(private readonly options: ServerOptions) {
@@ -102,11 +102,11 @@ interface ChangesPage {
 }
 
 export class ServerRemote implements RemoteStore {
-  private readonly client: Client;
+  private readonly client: ServerClient;
   private readonly base: string;
 
   constructor(options: ServerOptions & { space: string }) {
-    this.client = new Client(options);
+    this.client = new ServerClient(options);
     this.base = `/spaces/${encodeURIComponent(options.space)}`;
   }
 
@@ -198,6 +198,8 @@ export interface ServerStatus {
   setupOpen: boolean;
   /** It keeps personal spaces; a server from before they came leaves it out, and would open a shared one instead. */
   personal?: boolean;
+  /** It has messaging (design/chat.md); a server from before it came leaves it out, and the app shows no Chat for it. */
+  chat?: boolean;
 }
 
 export interface ServerAccountInfo {
@@ -273,10 +275,10 @@ export interface ServerAgent {
 }
 
 export class ServerAccount {
-  private readonly client: Client;
+  private readonly client: ServerClient;
 
   constructor(options: ServerOptions) {
-    this.client = new Client(options);
+    this.client = new ServerClient(options);
   }
 
   status(): Promise<ServerStatus> {
@@ -411,6 +413,8 @@ export interface LiveOptions {
   onLive?: (live: boolean) => void;
   /** The server no longer takes this device's key; `notYet` when this device has none. */
   onSignedOut?: (notYet: boolean) => void;
+  /** Anything else the server says, as messaging's events (design/chat.md, 11.3). */
+  onEvent?: (event: { type: string; [key: string]: unknown }) => void;
   /** `WebSocket` itself, unless a test gives another. */
   WebSocket?: typeof WebSocket;
 }
@@ -426,6 +430,8 @@ const QUIET_MS = 75_000;
  */
 export class ServerLive {
   private socket: WebSocket | null = null;
+  /** The server took the key: what is said now is heard. */
+  private ready = false;
   private stopped = true;
   private tries = 0;
   private retry: ReturnType<typeof setTimeout> | undefined;
@@ -445,7 +451,15 @@ export class ServerLive {
     clearTimeout(this.quiet);
     const socket = this.socket;
     this.socket = null;
+    this.ready = false;
     socket?.close();
+  }
+
+  /** Says something to the server, once the connection is open and the key was taken; false when it is not. */
+  send(message: object): boolean {
+    if (!this.socket || !this.ready || this.socket.readyState !== 1) return false;
+    this.socket.send(JSON.stringify(message));
+    return true;
   }
 
   /** Opens again at once what is closed: the network came back, or the app came to the front. */
@@ -475,7 +489,7 @@ export class ServerLive {
     socket.onopen = () => socket.send(JSON.stringify({ type: 'hello', token }));
     socket.onmessage = (event: MessageEvent) => {
       this.heard(socket);
-      let message: { type?: string; space?: string; seq?: number } = {};
+      let message: { type?: string; space?: string; seq?: number; [key: string]: unknown } = {};
       try {
         message = JSON.parse(String(event.data)) as typeof message;
       } catch {
@@ -483,16 +497,18 @@ export class ServerLive {
       }
       if (message.type === 'ready') {
         this.tries = 0;
+        this.ready = true;
         this.options.onLive?.(true);
       } else if (message.type === 'changed' && typeof message.space === 'string') this.options.onChanged(message.space, Number(message.seq));
       else if (message.type === 'signed-out') {
         this.stop();
         this.options.onSignedOut?.(false);
-      }
+      } else if (typeof message.type === 'string' && message.type !== 'ping') this.options.onEvent?.(message as { type: string });
     };
     socket.onclose = () => {
       if (this.socket !== socket) return;
       this.socket = null;
+      this.ready = false;
       clearTimeout(this.quiet);
       this.options.onLive?.(false);
       this.later();

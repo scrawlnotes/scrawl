@@ -15608,3 +15608,1011 @@ button.st-li:hover,
   margin: 0 8px 2px 0;
   vertical-align: middle;
 }
+
+/* messaging: after the Messaging views of design/mockups.html (design/chat.md, 8.1) */
+.it .ct.alert {
+  min-width: 17px;
+  margin-right: 6px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+
+.chat {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+.chat-list {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 232px;
+  padding: 4px 0 12px;
+  overflow-y: auto;
+  border-right: 1px solid var(--sl-line);
+}
+
+.chat-grp {
+  padding: 12px 14px 4px;
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chat-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 12px);
+  min-height: 27px;
+  margin: 0 6px;
+  padding: 0 8px;
+  border-radius: 5px;
+  color: var(--sl-dim);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.chat-row:hover {
+  background: color-mix(in srgb, var(--sl-fg) 8%, transparent);
+}
+
+.chat-row .nm {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-row .hs,
+.ch-head .hs {
+  flex: none;
+  width: 14px;
+  color: var(--sl-faint);
+  font: 500 14px/1 var(--sl-font-mono);
+  text-align: center;
+}
+
+.chat-row > .icon {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 0 0.5px;
+  color: var(--sl-faint);
+}
+
+.chat-row.un {
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.chat-row.off {
+  color: var(--sl-faint);
+}
+
+.chat-row.on {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.chat-row .n {
+  margin-left: auto;
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font: 600 10.5px/17px var(--sl-font-ui);
+  text-align: center;
+}
+
+.chat-row .dr {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.chat-row.off > .icon:last-child {
+  width: 12px;
+  height: 12px;
+  margin-left: auto;
+}
+
+/* faces: a person's initial in their own colour; a green dot while they use Scrawl */
+.ch-face {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--fc) 32%, var(--sl-bg));
+  color: var(--sl-fg);
+  font: 600 12.5px/1 var(--sl-font-ui);
+}
+
+.ch-face.h0 { --fc: #6aa5f0; }
+.ch-face.h1 { --fc: #4cc3a0; }
+.ch-face.h2 { --fc: #c792ea; }
+.ch-face.h3 { --fc: #f0a54a; }
+.ch-face.h4 { --fc: #f0706a; }
+.ch-face.h5 { --fc: #5ccfc0; }
+
+.ch-face.md {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+.ch-m > .ch-face.md {
+  width: 32px;
+  height: 32px;
+  font-size: 12.5px;
+}
+
+.ch-face.sm {
+  width: 18px;
+  height: 18px;
+  font-size: 9.5px;
+}
+
+.ch-face.xs {
+  width: 16px;
+  height: 16px;
+  font-size: 8.5px;
+}
+
+.ch-face i {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #3fb950;
+  box-shadow: 0 0 0 2px var(--sl-bg);
+}
+
+.ch-face.sm i {
+  right: -3px;
+  bottom: -2px;
+  width: 7px;
+  height: 7px;
+}
+
+.ch-faces {
+  display: inline-flex;
+  flex: none;
+}
+
+.ch-faces .ch-face + .ch-face {
+  margin-left: -7px;
+  box-shadow: 0 0 0 1.5px var(--sl-bg);
+}
+
+/* the conversation */
+.chat-conv {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-none {
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--sl-faint);
+}
+
+.chat-none .icon {
+  width: 28px;
+  height: 28px;
+}
+
+.ch-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 50px;
+  padding: 0 14px 0 20px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.ch-head .hs {
+  font-size: 17px;
+}
+
+.ch-head > .icon {
+  width: 15px;
+  height: 15px;
+  color: var(--sl-faint);
+}
+
+.ch-head b {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-head .tp {
+  min-width: 0;
+  margin-left: 6px;
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-head .tp.act {
+  color: #3fb950;
+}
+
+.ch-head .acts {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.ch-head .ppl {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.ch-head .ppl .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.ch-back {
+  display: none;
+}
+
+.ch-msgs {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 8px 0 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Few messages sit at the foot, by the box to write in. */
+.ch-msgs > :first-child {
+  margin-top: auto;
+}
+
+.ch-start {
+  margin: 12px 20px 6px;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+}
+
+.ch-day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 20px 4px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.ch-day::before,
+.ch-day::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--sl-line);
+}
+
+.ch-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 20px 0;
+  color: var(--sl-p1);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ch-new::before {
+  content: '';
+  flex: 1;
+  border-top: 1px solid color-mix(in srgb, var(--sl-p1) 55%, transparent);
+}
+
+.ch-m {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: 10px;
+  padding: 6px 20px 3px;
+}
+
+.ch-m.cont {
+  padding-top: 1px;
+}
+
+.ch-m:hover,
+.ch-m.hold {
+  background: color-mix(in srgb, var(--sl-fg) 4%, transparent);
+}
+
+.ch-m.flash {
+  background: color-mix(in srgb, var(--sl-accent) 14%, transparent);
+  transition: background 0.4s;
+}
+
+.ch-m .tm {
+  align-self: start;
+  padding-top: 3px;
+  color: transparent;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ch-m:hover .tm {
+  color: var(--sl-faint);
+}
+
+.ch-m .bx {
+  min-width: 0;
+}
+
+.ch-m .hd {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ch-m .hd b {
+  font-weight: 600;
+}
+
+.ch-m .hd .t {
+  color: var(--sl-faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ch-m .bd {
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.ch-m .bd p {
+  margin: 0;
+}
+
+.ch-m .bd p + p,
+.ch-m .bd ul,
+.ch-m .bd ol,
+.ch-m .bd blockquote,
+.ch-m .bd table {
+  margin: 4px 0 0;
+}
+
+.ch-m .bd ul,
+.ch-m .bd ol {
+  padding-left: 22px;
+}
+
+.ch-m .bd blockquote {
+  padding-left: 10px;
+  border-left: 3px solid var(--sl-line);
+  color: var(--sl-dim);
+}
+
+.ch-m .bd .msg-h {
+  font-weight: 700;
+}
+
+.ch-m .bd code {
+  padding: 0 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 4px;
+  background: var(--sl-code);
+  font: 0.9em var(--sl-font-mono);
+}
+
+.ch-m .bd .msg-code {
+  max-width: 640px;
+  margin: 5px 0 3px;
+  padding: 9px 12px;
+  overflow-x: auto;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-code);
+  font: 12px/1.6 var(--sl-font-mono);
+  white-space: pre;
+}
+
+.ch-m .bd .msg-code code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+}
+
+.ch-m .bd a {
+  color: var(--sl-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ch-m .bd .msg-at {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--sl-accent) 18%, transparent);
+  color: var(--sl-accent);
+  font-weight: 500;
+}
+
+.ch-ed {
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.ch-del {
+  color: var(--sl-faint);
+  font-style: italic;
+}
+
+.ch-q {
+  display: flex;
+  flex-direction: column;
+  max-width: 520px;
+  margin: 3px 0 4px;
+  padding: 4px 10px 5px 12px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--sl-fg) 6%, transparent);
+  box-shadow: inset 3px 0 0 var(--sl-accent);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+button.ch-q {
+  width: fit-content;
+  min-width: 0;
+  max-width: min(520px, 100%);
+}
+
+.ch-q b {
+  color: var(--sl-accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ch-q span {
+  overflow: hidden;
+  color: var(--sl-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-fw {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.ch-fw .icon {
+  width: 13px;
+  height: 13px;
+  transform: scaleX(-1);
+}
+
+.ch-rx {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 4px 0 2px;
+}
+
+.ch-rx button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 11px;
+  font-size: 12px;
+}
+
+.ch-rx button b {
+  color: var(--sl-dim);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.ch-rx button.me {
+  border-color: color-mix(in srgb, var(--sl-accent) 60%, transparent);
+  background: color-mix(in srgb, var(--sl-accent) 14%, transparent);
+}
+
+.ch-rx button.me b {
+  color: var(--sl-accent);
+}
+
+.ch-seen {
+  padding: 0 20px 2px 62px;
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.ch-m.pending .bd {
+  color: var(--sl-dim);
+}
+
+.ch-going,
+.ch-fail {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.ch-going .icon,
+.ch-fail .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.ch-fail {
+  color: var(--sl-p1);
+}
+
+.ch-fail button {
+  margin-left: 6px;
+  color: var(--sl-fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* the pointer on a message: its buttons at its top right; ··· opens the rest */
+.ch-acts {
+  position: absolute;
+  top: -14px;
+  right: 20px;
+  z-index: 2;
+  display: none;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-bg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.25);
+}
+
+.ch-m:hover .ch-acts,
+.ch-m.hold .ch-acts {
+  display: flex;
+}
+
+.ch-acts > button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 26px;
+  border-radius: 5px;
+  color: var(--sl-dim);
+}
+
+.ch-acts > button:hover,
+.ch-acts > button.on {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.ch-acts .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.ch-pick {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  background: var(--sl-side);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.4);
+}
+
+.ch-pick.wide {
+  width: 332px;
+}
+
+.ch-pick.up {
+  top: auto;
+  bottom: 32px;
+}
+
+/* In the box to write in it opens over the box, from its left. */
+.ch-cmp .ch-pick {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 6px);
+  left: 0;
+}
+
+.ch-pick .quick {
+  display: flex;
+  gap: 2px;
+}
+
+.ch-pick button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  font-size: 20px;
+}
+
+.ch-pick button:hover {
+  background: var(--sl-sel);
+}
+
+.ch-pick .more {
+  color: var(--sl-dim);
+}
+
+.ch-pick .more .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.ch-pick .find {
+  padding: 5px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  outline: none;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+}
+
+.ch-pick .find:focus {
+  border-color: var(--sl-accent);
+}
+
+.ch-pick .grid {
+  display: grid;
+  grid-template-columns: repeat(9, 34px);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ch-editing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 2px 0;
+}
+
+.ch-edit-box {
+  align-self: stretch;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--sl-accent) 55%, var(--sl-line));
+  border-radius: 6px;
+  background: var(--sl-bg);
+}
+
+/* The box to write in and a message changed in place have the editor's Markdown, not a note's page: no line numbers, no margins. */
+.ch-edit-box .cm-editor,
+.ch-cmp .in .cm-editor {
+  height: auto;
+  background: none;
+  font: 13px/1.5 var(--sl-font-ui);
+}
+
+.ch-edit-box .cm-gutters,
+.ch-cmp .in .cm-gutters {
+  display: none !important;
+}
+
+.ch-edit-box .cm-scroller,
+.ch-cmp .in .cm-scroller {
+  overflow: visible;
+  font: inherit;
+}
+
+.ch-edit-box .cm-content,
+.ch-cmp .in .cm-content,
+.ch-edit-box .cm-line,
+.ch-cmp .in .cm-line {
+  padding: 0;
+}
+
+.ch-cancel {
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.ch-cancel:hover {
+  color: var(--sl-fg);
+}
+
+.ch-typing {
+  flex: none;
+  height: 20px;
+  padding: 2px 20px 0;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.ch-closed {
+  flex: none;
+  margin: 0 16px 14px;
+  padding: 12px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 8px;
+  color: var(--sl-faint);
+  text-align: center;
+}
+
+/* the box to write in */
+.ch-cmp {
+  position: relative;
+  flex: none;
+  margin: 0 16px 14px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  background: var(--sl-bg);
+}
+
+.ch-cmp:focus-within {
+  border-color: color-mix(in srgb, var(--sl-accent) 55%, var(--sl-line));
+}
+
+.ch-cmp .rp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-dim);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ch-cmp .rp > .icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--sl-accent);
+}
+
+.ch-cmp .rp .sn {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sl-faint);
+  text-overflow: ellipsis;
+}
+
+.ch-cmp .rp .x {
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  color: var(--sl-faint);
+}
+
+.ch-cmp .rp .x .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.ch-cmp .fmt {
+  display: flex;
+  gap: 1px;
+  padding: 4px 6px 0;
+}
+
+.ch-cmp .fmt button {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 5px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.ch-cmp .fmt button:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.ch-cmp .fmt .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.ch-cmp .in {
+  max-height: 40vh;
+  padding: 6px 12px 0;
+  overflow-y: auto;
+}
+
+.ch-cmp .bar {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px 6px 6px;
+}
+
+.ch-cmp .bar .gap {
+  flex: 1;
+}
+
+.ch-cmp .ib {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  color: var(--sl-dim);
+}
+
+.ch-cmp .ib:hover,
+.ch-cmp .ib.on {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.ch-cmp .ib .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.ch-cmp .aa {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ch-cmp .send {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 28px;
+  margin-left: 4px;
+  border-radius: 6px;
+  color: var(--sl-faint);
+}
+
+.ch-cmp .send.go {
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+}
+
+.ch-cmp .send .icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* @: who is in the conversation, then @room */
+.ch-pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  width: 290px;
+  padding: 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-side);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.4);
+  font-size: 12.5px;
+}
+
+.ch-pop .cap {
+  padding: 5px 8px 4px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.ch-pop .r {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 5px;
+  text-align: left;
+}
+
+.ch-pop .r.hot {
+  background: var(--sl-sel);
+}
+
+.ch-pop .r small {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.ch-pop .atr {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: var(--sl-accent);
+}
+
+.ch-pop .atr .icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* too narrow for both: the list and the conversation take turns */
+@container (max-width: 600px) {
+  .chat-list {
+    display: none;
+    flex: 1;
+    width: auto;
+    border-right: 0;
+  }
+
+  .chat.list-shown .chat-list {
+    display: flex;
+  }
+
+  .chat.list-shown .chat-conv {
+    display: none;
+  }
+
+  .ch-back {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    margin-left: -10px;
+    color: var(--sl-dim);
+  }
+}

@@ -330,7 +330,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardPathOf, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardPathOf, CHAT, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
 import { JobQueue } from './jobs';
 import { type OpeningMeasure, openingMeasure, seconds } from './opening';
 import welcomeComputer from './welcome.md?raw';
@@ -661,7 +661,7 @@ function tabKind(id: string): string {
   if (keysPathOf(id) !== null) return 'a keys file';
   if (collectionPathOf(id) !== null) return 'a collection';
   if (filterOf(id) !== null) return 'a filter';
-  if (VIEWS.has(id)) return id === TODAY ? 'Today' : id === UPCOMING ? 'Upcoming' : id === FILES ? 'Files' : 'the trash';
+  if (VIEWS.has(id)) return id === TODAY ? 'Today' : id === UPCOMING ? 'Upcoming' : id === FILES ? 'Files' : id === CHAT ? 'Chat' : 'the trash';
   return isNote(id) ? 'a note' : 'a view';
 }
 
@@ -675,7 +675,7 @@ function titlesOf(nodes: TreeNode[], out: Record<string, string> = {}): Record<s
 
 const RECENT = 'scrawl.recent';
 /** The views over everything: on screen, but not something opened, so not in Recent. */
-const VIEWS = new Set([TODAY, UPCOMING, TRASH, FILES]);
+const VIEWS = new Set([TODAY, UPCOMING, TRASH, FILES, CHAT]);
 
 /** The start page's Recent as this device kept it. */
 function loadRecent(): Seen[] {

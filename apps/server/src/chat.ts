@@ -62,6 +62,8 @@ export interface ChatInfo {
   id: string;
   kind: ChatKind;
   space: string | null;
+  /** The space's name, for a device that does not have the space. */
+  spaceName: string;
   name: string;
   topic: string;
   general: boolean;
@@ -899,6 +901,7 @@ export class Chats {
       id: chat.id,
       kind: chat.kind,
       space: chat.space_id,
+      spaceName: chat.space_id ? ((this.db.prepare('SELECT name FROM spaces WHERE id = ?').get(chat.space_id) as { name: string } | undefined)?.name ?? '') : '',
       name: chat.name,
       topic: chat.topic,
       general: chat.general === 1,

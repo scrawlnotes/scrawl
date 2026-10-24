@@ -1,6 +1,29 @@
 export { type AwayFile, type AwayOp, awayAt, mayStayAway, moveAway, readAway, removeAway } from './away';
 export { conflictPath, fetchAway, type SyncDevice, type SyncJob, type SyncJobKind, type SyncJobResult, type SyncOptions, type SyncProgress, type SyncReport, syncOnce } from './engine';
 export { FakeGraph } from './fake-graph';
+export {
+  applyChatChanges,
+  type ChatChanges,
+  ChatClient,
+  type ChatEvent,
+  type ChatFile,
+  type ChatInfo,
+  type ChatKept,
+  type ChatKind,
+  type ChatMessage,
+  type ChatNotify,
+  type ChatPage,
+  type ChatPerson,
+  type ChatSend,
+  continues,
+  mentionAt,
+  mentioned,
+  newMessageId,
+  personLink,
+  plainText,
+  ROOM_MENTION,
+  withMessages,
+} from './chat';
 export { clearLeftPlace, MOVED_DIR, type MovedMark, movedAt, movedPath, parseMoved, serializeMoved } from './moved';
 export { type Merged, mergeFile, mergeKindOf, mergeText } from './merge-files';
 export { GRAPH, GraphError, type GraphOptions, OneDriveAccount, type OneDriveFolder, OneDriveRemote, oneDriveTakes } from './onedrive';

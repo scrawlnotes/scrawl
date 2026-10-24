@@ -470,6 +470,54 @@ const shapes = {
       <path d="M7.5 12h9M7.5 12l2-2M7.5 12l2 2M16.5 12l-2-2M16.5 12l-2 2" />
     </>
   ),
+  // Messaging (design/chat.md): Chat, a private room, answering, a reaction, sending, a mention, what tells you.
+  chat: <path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-4.5 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />,
+  lock: (
+    <>
+      <rect x="5.5" y="10.5" width="13" height="9.5" rx="2" />
+      <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+    </>
+  ),
+  reply: (
+    <>
+      <path d="M10 6l-5.5 5.5L10 17" />
+      <path d="M5 11.5h8.5a6 6 0 0 1 6 6V19" />
+    </>
+  ),
+  smile: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M8.5 14a4.2 4.2 0 0 0 7 0" />
+      <circle cx="9.3" cy="10" r=".9" fill="currentColor" stroke="none" />
+      <circle cx="14.7" cy="10" r=".9" fill="currentColor" stroke="none" />
+    </>
+  ),
+  send: (
+    <>
+      <path d="M4.5 11.5L19.5 5l-6.5 15-2.5-6z" />
+      <path d="M10.5 14l9-9" />
+    </>
+  ),
+  at: (
+    <>
+      <circle cx="12" cy="12" r="3.5" />
+      <path d="M15.5 12v1.5a2.5 2.5 0 0 0 5 0V12a8.5 8.5 0 1 0-3.5 6.9" />
+    </>
+  ),
+  people: (
+    <>
+      <circle cx="9" cy="9" r="3.2" />
+      <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+      <circle cx="16.5" cy="9.5" r="2.6" />
+      <path d="M15.5 14.2a4.8 4.8 0 0 1 5 4.8" />
+    </>
+  ),
+  bellOff: (
+    <>
+      <path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5h-14z" />
+      <path d="M10 20a2 2 0 0 0 4 0M4.5 4.5l15 15" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof shapes;

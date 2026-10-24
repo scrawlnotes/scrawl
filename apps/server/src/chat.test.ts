@@ -88,7 +88,7 @@ describe('rooms', () => {
   it('gives every shared space a general room everyone in it is in, and a personal space none', async () => {
     const s = await start();
     const general = await s.general(s.mert);
-    expect(general).toMatchObject({ kind: 'public', name: 'general', joined: true, notify: 'mentions', unread: 0 });
+    expect(general).toMatchObject({ kind: 'public', name: 'general', spaceName: 'Acme', joined: true, notify: 'mentions', unread: 0 });
     expect((general.members as { name: string }[]).map((person) => person.name)).toEqual(['Elif', 'Kaan Arslan', 'Mert']);
     expect((await s.list(s.kaan)).filter((chat) => chat.general).map((chat) => chat.space).sort()).toEqual([ACME, OTHER].sort());
     expect((await s.call(s.mert, 'DELETE', `/chat/${general.id}/members/${MERT}`)).body.error.code).toBe('general');
