@@ -832,6 +832,11 @@ export class Session {
   askFileName: ((path: string, view: EditorView) => void) | null = null;
   /** Says something for a moment in the status bar, from the window. */
   say: ((text: string) => void) | null = null;
+  /**
+   * Opens a quick note in its window, with the words found at `spans` of its file marked; the
+   * interface sets it where it has the window. Without it a quick note opens as a note does.
+   */
+  showQuick: ((path: string, spans?: [number, number][]) => void) | null = null;
   /** Says what a collection's rules did as records were saved, or where they stopped; the interface sets it, for its toast. */
   ruled: ((event: RuleEvent) => void) | null = null;
   /** A link tapped in a note on a touch screen; the interface sets it, to show what can be done with it. */
@@ -3555,7 +3560,7 @@ export class Session {
    * and goes at the top of the order, once something is in it. `onTitle` hears the title change
    * from elsewhere: a merge, a version restored.
    */
-  async openQuickNote(path: string | null, parent: HTMLElement, onTitle: (title: string) => void, pinned = false): Promise<QuickOpened> {
+  async openQuickNote(path: string | null, parent: HTMLElement, onTitle: (title: string) => void, pinned = false, found?: [number, number][]): Promise<QuickOpened> {
     if (this.quick) await this.closeQuickNote(this.quick.id);
     const id = ++this.quickOpens;
     const fresh = path === null;
@@ -3589,11 +3594,13 @@ export class Session {
       record: () => void this.startRecording(),
     });
     this.set({ quickFormat: formatState(quick.editor.view.state) });
-    // It opens to be written in: the cursor at the end of what it says.
-    if (this.focusOnOpen) {
-      quick.editor.view.dispatch({ selection: { anchor: body.length } });
-      quick.editor.view.focus();
-    }
+    // It opens to be written in: the cursor at the end of what it says. Opened from the search, at
+    // the words found in its body: they are found in its file, where the title comes first.
+    const skip = (text ?? '').length - body.length;
+    const spans = (found ?? []).map(([from, to]): [number, number] => [from - skip, to - skip]).filter(([, to]) => to > 0);
+    if (spans.length > 0) showFound(quick.editor.view, spans);
+    else if (this.focusOnOpen) quick.editor.view.dispatch({ selection: { anchor: body.length } });
+    if (this.focusOnOpen) quick.editor.view.focus();
     return { id, path: at, title, pinned: quick.pinned };
   }
 
@@ -3604,6 +3611,11 @@ export class Session {
     const { title, body } = splitQuickNote(text);
     const read = quick ? visibleText(quick.editor.view.state, 0, quick.editor.view.state.doc.length, true) : body;
     return copyText(title ? `${title}${read ? `\n\n${read}` : ''}` : read, text);
+  }
+
+  /** The quick note's window takes the keyboard back, as a window opened over it closes. */
+  focusQuick() {
+    this.quick?.editor.view.focus();
   }
 
   /** The quick note in its window as plain Markdown, or formatted again. */
@@ -3875,6 +3887,8 @@ export class Session {
 
   /** Shows a note or a view, adding a tab for it when it has none. */
   async open(id: string) {
+    // A quick note opens in its window, from wherever it is asked for: a search, a task's note, Files.
+    if (isQuickNote(id) && this.showQuick) return this.showQuick(id);
     const editor = this.editor;
     if (!editor) return;
     const { active, tabs } = this.snapshot;
@@ -4505,6 +4519,7 @@ export class Session {
       }
     };
     visit(this.snapshot.tree);
+    visit(this.snapshot.quick);
     for (const space of this.snapshot.spaces) visit(space.tree);
     return new Map(await Promise.all(paths.map(async (path) => [path, await this.currentText(path).catch(() => '')] as const)));
   }
@@ -4539,6 +4554,7 @@ export class Session {
    * phone is a page sliding in.
    */
   async openAt(path: string, spans: [number, number][]) {
+    if (isQuickNote(path) && this.showQuick) return this.showQuick(path, spans);
     await this.open(path);
     window.setTimeout(() => {
       const view = this.editor?.view;

@@ -13,8 +13,8 @@ import { writtenText } from './text';
 
 /** What the cards and the windows ask of the app. */
 export interface QuickActions {
-  /** The editor of a quick note, or of a new one with `path` null, in `parent`. */
-  open: (path: string | null, parent: HTMLElement, onTitle: (title: string) => void, pinned: boolean) => Promise<QuickOpened>;
+  /** The editor of a quick note, or of a new one with `path` null, in `parent`; at the words a search found in its file. */
+  open: (path: string | null, parent: HTMLElement, onTitle: (title: string) => void, pinned: boolean, found?: [number, number][]) => Promise<QuickOpened>;
   /** Writes what the editor `id` opened holds and lets it go. */
   close: (id: number) => Promise<void>;
   title: (title: string) => void;
@@ -210,6 +210,8 @@ interface EditorProps {
   pinned?: boolean;
   /** When the note was last written, under it in the window. */
   modified?: number;
+  /** The words a search found in its file, marked as it opens. */
+  found?: [number, number][];
   /** In the window in the middle, rather than in place of Take a note…. */
   inWindow: boolean;
   /** The note's format bar, working on this editor while it is open. */
@@ -224,7 +226,7 @@ interface EditorProps {
  * Close. What is written is kept as it is typed; closing writes the rest. The cursor starts in the
  * note; a click on the title, or Enter there, moves it.
  */
-function QuickEditor({ path, pinned: pinnedAtFirst = false, modified, inWindow, bar, actions, onClose }: EditorProps) {
+function QuickEditor({ path, pinned: pinnedAtFirst = false, modified, found, inWindow, bar, actions, onClose }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const opened = useRef<QuickOpened | null>(null);
   const [made, setMade] = useState<QuickOpened | null>(null);
@@ -234,7 +236,7 @@ function QuickEditor({ path, pinned: pinnedAtFirst = false, modified, inWindow, 
 
   useEffect(() => {
     let live = true;
-    void actions.open(path, host.current!, (text) => live && setTitle(text), pinnedAtFirst).then((done) => {
+    void actions.open(path, host.current!, (text) => live && setTitle(text), pinnedAtFirst, found).then((done) => {
       if (!live) return void actions.close(done.id);
       opened.current = done;
       setMade(done);
@@ -318,10 +320,10 @@ function QuickEditor({ path, pinned: pinnedAtFirst = false, modified, inWindow, 
 }
 
 /** A quick note open in the window in the middle: Escape and a click outside close it, as Close does. */
-export function QuickWindow({ path, modified, bar, actions, onClose }: { path: string | null; modified?: number; bar: ReactNode; actions: QuickActions; onClose: () => void }) {
+export function QuickWindow({ path, modified, found, bar, actions, onClose }: { path: string | null; modified?: number; found?: [number, number][]; bar: ReactNode; actions: QuickActions; onClose: () => void }) {
   return (
     <Dialog label={t('quick.title')} className="qn-window" onClose={onClose}>
-      <QuickEditor path={path} modified={modified} inWindow bar={bar} actions={actions} onClose={onClose} />
+      <QuickEditor path={path} modified={modified} {...(found && { found })} inWindow bar={bar} actions={actions} onClose={onClose} />
     </Dialog>
   );
 }

@@ -1890,6 +1890,10 @@ export const en = {
   'filter.preset.noDate': 'No date',
   // Quick notes (design/quick-notes.md)
   'quick.title': 'Quick notes',
+  'quick.new': 'New quick note',
+  'create.quick': 'Quick note',
+  'create.quickText': 'A few lines, seen at a glance',
+  'search.kind.quick': 'Quick note',
   'quick.count': { one: '{count} note', other: '{count} notes' },
   'quick.found': '{count} of {total}',
   'quick.takeNote': 'Take a note…',

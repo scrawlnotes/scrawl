@@ -744,9 +744,9 @@ input:focus {
   color: var(--sl-fg);
 }
 
-/* Every day the kinds are known: a row, each its icon over its name. */
+/* Every day the kinds are known: a row, each its icon over its name; Quick note first among them. */
 .start-kinds.row {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .start-kinds.row .start-kind {
@@ -1299,6 +1299,16 @@ input:focus {
   flex-direction: column;
   max-height: 46vh;
   overflow-y: auto;
+}
+
+/* Create: a quick note apart from the rest, which ask a name and a folder (design/quick-notes.md 3.5). */
+.choices-apart {
+  flex: none;
+  width: calc(100% - 4px);
+  height: 1px;
+  margin: 4px 2px;
+  border: 0;
+  background: var(--sl-line);
 }
 
 .choices button {

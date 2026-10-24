@@ -356,12 +356,14 @@ function FolderPop({ anchor, folders, value, onPick, onClose }: {
   );
 }
 
-export type NewKind = 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'app';
-export type ItemKind = Exclude<NewKind, 'app'>;
+export type NewKind = 'quick' | 'note' | 'tasks' | 'board' | 'keys' | 'collection' | 'app';
+export type ItemKind = Exclude<NewKind, 'app' | 'quick'>;
 
-// Keys come after Board; what they are for is said beside them, as the kind least known. Filters
-// are made in Filters & Labels, not here (design/filters.md 6).
+// A quick note comes first and apart: it has no second step, and goes to the personal space from
+// anywhere (design/quick-notes.md 3.5). Keys come after Board; what they are for is said beside
+// them, as the kind least known. Filters are made in Filters & Labels, not here (design/filters.md 6).
 export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: MessageKey }[] = [
+  { kind: 'quick', label: 'create.quick', icon: 'quick', text: 'create.quickText' },
   { kind: 'note', label: 'create.note', icon: 'note', text: 'create.noteText' },
   { kind: 'tasks', label: 'create.tasks', icon: 'tasks', text: 'create.tasksText' },
   { kind: 'board', label: 'create.board', icon: 'board', text: 'create.boardText' },
@@ -377,7 +379,7 @@ export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: M
  * folder's menu has the kind chosen already, and Back goes to the choice; the start page's
  * templates have the template chosen too.
  */
-export function NewDialog({ start = null, template = null, folders, folder, collections, onCreate, onApp, onClose }: {
+export function NewDialog({ start = null, template = null, folders, folder, collections, onCreate, onApp, onQuick, onClose }: {
   /** The kind chosen already, if any. */
   start?: ItemKind | null;
   /** A board's or a collection's template chosen already, if any. */
@@ -392,6 +394,8 @@ export function NewDialog({ start = null, template = null, folders, folder, coll
   onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => Promise<string | null>;
   /** An app has a window of its own. */
   onApp: () => void;
+  /** A quick note opens its window over what is open, with nothing more to ask. */
+  onQuick: () => void;
   onClose: () => void;
 }) {
   const [kind, setKind] = useState<ItemKind | null>(start);
@@ -400,7 +404,7 @@ export function NewDialog({ start = null, template = null, folders, folder, coll
       <NewItemForm kind={kind} template={template} folders={folders} folder={folder} collections={collections} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
     );
   }
-  return <KindChoice onPick={(picked) => (picked === 'app' ? onApp() : setKind(picked))} onClose={onClose} />;
+  return <KindChoice onPick={(picked) => (picked === 'app' ? onApp() : picked === 'quick' ? onQuick() : setKind(picked))} onClose={onClose} />;
 }
 
 export const TITLES: Record<ItemKind, MessageKey> = { note: 'create.newNote', tasks: 'create.newList', board: 'create.newBoard', keys: 'create.newKeys', collection: 'create.newCollection' };
@@ -445,20 +449,22 @@ function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onCl
       <h2>{t('create.title')}</h2>
       <div className="choices" role="listbox">
         {KINDS.map((item, i) => (
-          <button
-            key={item.kind}
-            type="button"
-            role="option"
-            aria-selected={i === index}
-            tabIndex={-1}
-            onMouseEnter={() => setIndex(i)}
-            onClick={() => onPick(item.kind)}
-          >
-            <kbd>{i + 1}</kbd>
-            <Icon name={item.icon} />
-            <span>{t(item.label)}</span>
-            {item.text && <small>{t(item.text)}</small>}
-          </button>
+          <Fragment key={item.kind}>
+            <button
+              type="button"
+              role="option"
+              aria-selected={i === index}
+              tabIndex={-1}
+              onMouseEnter={() => setIndex(i)}
+              onClick={() => onPick(item.kind)}
+            >
+              <kbd>{i + 1}</kbd>
+              <Icon name={item.icon} />
+              <span>{t(item.label)}</span>
+              {item.text && <small>{t(item.text)}</small>}
+            </button>
+            {item.kind === 'quick' && <hr className="choices-apart" />}
+          </Fragment>
         ))}
       </div>
     </Dialog>

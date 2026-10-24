@@ -458,8 +458,27 @@ export function App() {
   const [sizes, setSizes] = useState(() => ({ phone: loadSize('phone'), computer: loadSize('computer') }));
   const [system, setSystem] = useState(systemShade);
   const [dialog, setDialog] = useState<OpenDialog>(null);
-  /** The quick note open in its window in the middle; a new one has no path yet (design/quick-notes.md 3.4). */
-  const [quickWindow, setQuickWindow] = useState<{ path: string | null; made?: number } | null>(null);
+  /**
+   * The quick note open in its window in the middle, with the words a search found in it; a new
+   * one has no path yet (design/quick-notes.md 3.4). `made` tells two openings apart.
+   */
+  const [quickWindow, setQuickWindow] = useState<{ path: string | null; made: number; found?: [number, number][] } | null>(null);
+  /** A new quick note in its window, over whatever is open: from Create, a + menu, the start page, the search. */
+  const newQuick = () => {
+    setDrawer(false);
+    setDialog(null);
+    setQuickWindow({ path: null, made: Date.now() });
+  };
+  // A quick note asked for anywhere, a search's, a task's note, Files', opens in its window; a
+  // phone has no window yet, and opens it as a note.
+  useEffect(() => {
+    session.showQuick = phone ? null : (path, found) => setQuickWindow({ path, made: Date.now(), ...(found && { found }) });
+  }, [session, phone]);
+  // To task, History or Move to closing over the quick note's window gives it the keyboard back:
+  // Escape closes it then, as before they opened.
+  useEffect(() => {
+    if (!dialog && quickWindow) session.focusQuick();
+  }, [dialog]);
   /** Labels, asked for from a picker: the space a path is in. On a phone it opens as a page. */
   const [labelsOpen, setLabelsOpen] = useState<string | null>(null);
   // The labels of each space, worked out once for each change of its tasks, its cards or its file.
@@ -1382,7 +1401,9 @@ export function App() {
     };
     const label = (here: MessageKey, named: MessageKey) => t(short ? named : here);
     return [
-      { label: label('menu.newNoteHere', 'menu.add.note'), icon: 'note', run: createHere('note') },
+      // A quick note first and apart: it goes to the personal space from any folder, so it is not "here".
+      ...(phone ? [] : [{ label: label('quick.new', 'create.quick'), icon: 'quick' as const, run: newQuick }]),
+      { label: label('menu.newNoteHere', 'menu.add.note'), icon: 'note', apart: !phone, run: createHere('note') },
       { label: label('menu.newListHere', 'menu.add.list'), icon: 'tasks', run: createHere('tasks') },
       { label: label('menu.newBoardHere', 'menu.add.board'), icon: 'board', run: createHere('board') },
       { label: label('menu.newKeysHere', 'menu.add.keys'), icon: 'keys', run: createHere('keys') },
@@ -1603,11 +1624,12 @@ export function App() {
     // Opened while the app still reads, it reads again once all of it is read.
   }, [searchOn, ready, reading.size === 0]);
   const searchThings = useMemo<Thing[] | null>(
-    () => (searchRead ? thingsOf({ tree, spaces, titles: tabTitles, tasks, sections, boards, collections, filters, texts: searchRead.texts, files: searchRead.files, today }) : null),
-    [searchRead, tree, spaces, tabTitles, tasks, sections, boards, collections, filters, today],
+    () => (searchRead ? thingsOf({ tree, quick, spaces, titles: tabTitles, tasks, sections, boards, collections, filters, texts: searchRead.texts, files: searchRead.files, today }) : null),
+    [searchRead, tree, quick, spaces, tabTitles, tasks, sections, boards, collections, filters, today],
   );
   // What the search offers at its foot: making something, the views, the settings, sync.
   const searchActions: SearchAction[] = [
+    ...(phone ? [] : [{ id: 'quick', label: t('quick.new'), icon: 'quick' as const, run: () => newQuick() }]),
     { id: 'note', label: t('create.newNote'), icon: 'note', first: true, run: () => setDialog({ kind: 'new', start: 'note' }) },
     { id: 'create', label: t('search.create'), icon: 'plus', first: true, run: () => setDialog({ kind: 'new' }) },
     { id: 'tasks', label: t('create.newList'), icon: 'tasks', run: () => setDialog({ kind: 'new', start: 'tasks' }) },
@@ -2291,7 +2313,7 @@ export function App() {
     />
   );
   const quickActions: QuickActions = {
-    open: (path, parent, onTitle, pinned) => session.openQuickNote(path, parent, onTitle, pinned),
+    open: (path, parent, onTitle, pinned, found) => session.openQuickNote(path, parent, onTitle, pinned, found),
     close: (id) => session.closeQuickNote(id),
     title: (text) => session.quickTitle(text),
     pin: (path, on) => session.pinQuick(path, on),
@@ -2505,7 +2527,7 @@ export function App() {
         open={quickWindow?.path ?? null}
         bar={quickBar}
         actions={quickActions}
-        onOpen={(path) => setQuickWindow({ path })}
+        onOpen={(path) => setQuickWindow({ path, made: Date.now() })}
       />
     )}
     {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && !isDueView && !filterPageOn && active !== FILTERS && active !== TRASH && active !== FILES && active !== CHAT && active !== QUICK &&
@@ -2525,7 +2547,7 @@ export function App() {
             boards={boards}
             today={today}
             actions={taskActions}
-            onKind={(kind) => setDialog(kind === 'app' ? { kind: 'newApp', folder: createIn } : { kind: 'new', start: kind })}
+            onKind={(kind) => (kind === 'quick' ? newQuick() : setDialog(kind === 'app' ? { kind: 'newApp', folder: createIn } : { kind: 'new', start: kind }))}
             onTemplate={(start) => setDialog({ kind: 'new', start: start.kind, template: start.template })}
             onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
             onOpen={(id) => void (id === WELCOME_NOTE ? session.openWelcome() : session.open(id))}
@@ -3151,8 +3173,9 @@ export function App() {
       {/* Under every other window: To task, History and Move to open over it. */}
       {quickWindow && !phone && (
         <QuickWindow
-          key={quickWindow.path ?? `new:${quickWindow.made}`}
+          key={quickWindow.made}
           path={quickWindow.path}
+          {...(quickWindow.found && { found: quickWindow.found })}
           modified={quickWindow.path ? quick.find((note) => note.path === quickWindow.path)?.modified : undefined}
           bar={quickBar}
           actions={quickActions}
@@ -3183,6 +3206,7 @@ export function App() {
           collections={Object.keys(collections)}
           onCreate={create}
           onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
+          onQuick={newQuick}
           onClose={closeDialog}
         />
       )}

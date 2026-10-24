@@ -70,11 +70,15 @@ export interface Thing extends Findable {
   aside?: string;
   /** A task's priority, for its circle. */
   priority?: number;
+  /** What it is, at the end of its row, where its kind does not say it: a quick note is a note. */
+  word?: MessageKey;
 }
 
 /** What is searched: everything the app has read, the notes' texts and the attached files. */
 export interface SearchData {
   tree: TreeNode[];
+  /** The quick notes, which the tree leaves out. */
+  quick: TreeNode[];
   spaces: SpaceView[];
   titles: Record<string, string>;
   tasks: Record<string, Task[]>;
@@ -155,6 +159,11 @@ export function thingsOf(data: SearchData): Thing[] {
     }
   };
   visit(data.tree);
+  // A quick note is found as a note is, in Notes too; its row says it is a quick note, in Quick notes.
+  for (const node of data.quick) {
+    const name = data.titles[node.path] ?? node.title ?? node.name;
+    things.push({ kind: 'note', name, text: data.texts.get(node.path) ?? '', target: { kind: 'note', path: node.path }, icon: 'quick', trail: trailOf(node.path), word: 'search.kind.quick' });
+  }
   for (const space of data.spaces) {
     things.push({ kind: 'space', name: space.name, target: { kind: 'space', id: space.id }, icon: 'space', trail: [] });
     visit(space.tree);
@@ -319,7 +328,7 @@ const KIND_WORDS: Record<FindKind, MessageKey> = {
   folder: 'search.kind.folder',
   space: 'search.kind.space',
 };
-const kindWord = (thing: Thing) => t(KIND_WORDS[thing.kind]);
+const kindWord = (thing: Thing) => t(thing.word ?? KIND_WORDS[thing.kind]);
 
 /** A task's circle, as its list draws it; or the icon of what was found. */
 function Lead({ thing }: { thing: Thing }) {

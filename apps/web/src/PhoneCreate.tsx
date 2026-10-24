@@ -89,8 +89,9 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
           <SheetClose onClose={onClose} />
         </div>
         <div className="mb-kinds">
-          {KINDS.map((item) => (
-            <button key={item.kind} type="button" className="mb-row" onClick={() => (item.kind === 'app' ? onApp() : setKind(item.kind))}>
+          {/* A quick note comes to a phone with its own page (design/quick-notes.md 4). */}
+          {KINDS.filter((item) => item.kind !== 'quick').map((item) => (
+            <button key={item.kind} type="button" className="mb-row" onClick={() => (item.kind === 'app' ? onApp() : item.kind !== 'quick' && setKind(item.kind))}>
               <Icon name={item.icon} />
               <span className="tx">
                 <b>{t(item.label)}</b>
