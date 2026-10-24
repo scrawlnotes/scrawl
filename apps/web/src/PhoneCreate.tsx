@@ -46,7 +46,7 @@ function FolderName({ path, space = false }: { path: string; space?: boolean }) 
   );
 }
 
-export function PhoneCreate({ start = null, folders, folder, collections, onCreate, onApp, onClose }: {
+export function PhoneCreate({ start = null, folders, folder, collections, onCreate, onApp, onQuick, onClose }: {
   /** The kind chosen already, if any. */
   start?: ItemKind | null;
   /** Every place, the personal space's top first. */
@@ -59,6 +59,8 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
   onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => Promise<string | null>;
   /** And so has an app. */
   onApp: () => void;
+  /** A quick note opens its page, in the tap that chose it. */
+  onQuick: () => void;
   onClose: () => void;
 }) {
   const [kind, setKind] = useState<ItemKind | null>(start);
@@ -89,15 +91,18 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
           <SheetClose onClose={onClose} />
         </div>
         <div className="mb-kinds">
-          {/* A quick note comes to a phone with its own page (design/quick-notes.md 4). */}
-          {KINDS.filter((item) => item.kind !== 'quick').map((item) => (
-            <button key={item.kind} type="button" className="mb-row" onClick={() => (item.kind === 'app' ? onApp() : item.kind !== 'quick' && setKind(item.kind))}>
-              <Icon name={item.icon} />
-              <span className="tx">
-                <b>{t(item.label)}</b>
-                {item.text && <small>{t(item.text)}</small>}
-              </span>
-            </button>
+          {/* A quick note first and apart: the sheet goes, and its page opens with the keyboard (design/quick-notes.md 4). */}
+          {KINDS.map((item) => (
+            <Fragment key={item.kind}>
+              <button type="button" className="mb-row" onClick={() => (item.kind === 'app' ? onApp() : item.kind === 'quick' ? onQuick() : setKind(item.kind))}>
+                <Icon name={item.icon} />
+                <span className="tx">
+                  <b>{t(item.label)}</b>
+                  {item.text && <small>{t(item.text)}</small>}
+                </span>
+              </button>
+              {item.kind === 'quick' && <div className="mb-kinds-apart" />}
+            </Fragment>
           ))}
         </div>
       </Sheet>

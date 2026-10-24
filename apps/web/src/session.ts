@@ -3574,8 +3574,9 @@ export class Session {
     const { title, body } = splitQuickNote(text ?? '');
     const quick: QuickOpen = { id, path: at, title, fresh, made: !fresh, pinned: fresh ? pinned : this.snapshot.quickOrder.pinned.includes(basename(at)), onTitle, editor: null! };
     this.quick = quick;
+    // What it shows while empty: Take a note…, as Keep has it; on a phone Note, as an empty note there.
     const hint = document.createElement('span');
-    hint.textContent = t('quick.takeNote');
+    hint.textContent = this.touch ? t('phone.notePlaceholder') : t('quick.takeNote');
     quick.editor = createEditor({
       parent,
       doc: body,
@@ -3601,6 +3602,10 @@ export class Session {
     if (spans.length > 0) showFound(quick.editor.view, spans);
     else if (this.focusOnOpen) quick.editor.view.dispatch({ selection: { anchor: body.length } });
     if (this.focusOnOpen) quick.editor.view.focus();
+    // On a phone a new one opens to be written in, with the keyboard held since the tap; one with
+    // something in it opens to be read, as a note does. The keyboard goes a moment later, to the one
+    // still open then: a page opened and closed at once leaves it to the next.
+    else if (this.keeper) window.setTimeout(() => this.quick === quick && this.releaseKeyboard(fresh));
     return { id, path: at, title, pinned: quick.pinned };
   }
 
@@ -3704,6 +3709,14 @@ export class Session {
       this.set({ quick: [{ name: basename(quick.path), path: quick.path, kind: 'note', title: displayTitle(quick.path, text) }, ...this.snapshot.quick] });
     }
     void this.refreshTree(null);
+  }
+
+  /**
+   * Closes the quick note at `path` if it is open, writing what is in it: before it is moved or
+   * deleted, so that its window or page, going later, does not write it back where it was.
+   */
+  async finishQuick(path: string) {
+    if (this.quick?.path === path) await this.closeQuickNote(this.quick.id);
   }
 
   /** A quick note pinned, or not; a new one in its window is pinned as it is written. */
@@ -3989,7 +4002,8 @@ export class Session {
       keeper.remove();
     };
     const focus = (tries: number) => {
-      const view = this.editor?.view;
+      // A new quick note's page takes it, as a note's does (design/quick-notes.md 4).
+      const view = this.quick?.editor.view ?? this.editor?.view;
       if (view && view.dom.getClientRects().length === 0 && tries > 0) return void requestAnimationFrame(() => focus(tries - 1));
       view?.focus();
       done();
@@ -5109,7 +5123,9 @@ export class Session {
    * note's window while one is open, else the note on screen; null with neither.
    */
   private typing(): { view: EditorView; note: string; format: boolean } | null {
-    if (this.quick) return { view: this.quick.editor.view, note: this.quick.path, format: this.snapshot.quickFormat !== null };
+    // On a phone a note may be opened over a quick note's page, from a link in it: with the cursor
+    // in it, the note is the one typed in.
+    if (this.quick && !this.editor?.view.hasFocus) return { view: this.quick.editor.view, note: this.quick.path, format: this.snapshot.quickFormat !== null };
     const view = this.editor?.view;
     const note = this.snapshot.active;
     return view && note && isNote(note) ? { view, note, format: this.snapshot.format !== null } : null;

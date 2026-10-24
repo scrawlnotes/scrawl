@@ -2,14 +2,16 @@ import { nameMatch, orderQuickNotes, type QuickOrder, type QuickSort, splitQuick
 import { copyText, type ScrawlViewer, visibleText } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
 import { type DragEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Dialog, type MenuItem } from './dialogs';
+import { Dialog, type MenuHead, type MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import type { QuickOpened } from './session';
 import { writtenText } from './text';
+import { holdToDrag } from './touchDrag';
 
 // Quick notes (design/quick-notes.md): a few lines each, seen at a glance as cards with what they
 // say, as in Keep. Take a note… at the top opens in place to write a new one; a card opens in a
-// window in the middle. Both have the note's own format bar and editor.
+// window in the middle. Both have the note's own format bar and editor. On a phone the cards are a
+// page of two columns, and a note opens as a page of its own (4).
 
 /** What the cards and the windows ask of the app. */
 export interface QuickActions {
@@ -31,14 +33,36 @@ export interface QuickActions {
   history: (path: string) => void;
   trash: (path: string) => void;
   markdown: (on: boolean) => void;
+  /** Find and replace in the note open. */
+  find: () => void;
   /** A menu at the pointer, as the app draws its menus. */
   menu: (event: MouseEvent, items: MenuItem[]) => void;
+  /** On a phone, an action sheet with what it is about at its top. */
+  sheet: (items: MenuItem[], head: MenuHead) => void;
   /** Says something for a moment. */
   say: (text: string) => void;
 }
 
 const CARD = 240;
 const GAP = 14;
+/** On a phone, the gap between the two columns of cards. */
+const PHONE_GAP = 10;
+
+/** The ways the quick notes are put in order, as Keep has them, the one chosen ticked. */
+export const quickSortItems = (sort: QuickSort, onSort: (sort: QuickSort) => void): MenuItem[] =>
+  (['custom', 'created', 'modified'] as const).map((each) => ({
+    label: t(each === 'custom' ? 'quick.sortCustom' : each === 'created' ? 'quick.sortCreated' : 'quick.sortModified'),
+    icon: each === 'custom' ? 'quick' : each === 'created' ? 'calendar' : 'clock',
+    checked: sort === each,
+    run: () => onSort(each),
+  }));
+
+/** What a quick note's sheet says it is about: its title, or its first line. */
+const headOf = (text: string, foot?: string): MenuHead => {
+  const { title, body } = splitQuickNote(text);
+  const first = body.split('\n').find((line) => line.trim() !== '') ?? '';
+  return { icon: 'quick', title: title || first || t('create.quick'), sub: t('create.quick'), ...(foot && { foot }) };
+};
 
 /** A text as it shows, with the spans found in it marked. */
 function Marked({ text, spans }: { text: string; spans: [number, number][] }) {
@@ -89,14 +113,17 @@ interface CardProps {
   onDragStart: (path: string) => void;
   onDragOver: (path: string, before: boolean) => void;
   onDragEnd: () => void;
+  /** On a phone: held and moved, it is dragged with the finger (touchDrag.ts), which says where it is. */
+  phone?: { onMove: (x: number, y: number) => void; onDrop: () => void };
 }
 
 /**
  * A note as a card: its title, then its body as the editor draws it, cut where it is long. A link
  * or a recording in it works where it is; anywhere else a click opens the note. Hovered, it shows
- * its pin and its menu.
+ * its pin and its menu. On a phone, held and let go where it was its sheet opens; held and moved,
+ * by hand, it is dragged.
  */
-function QuickCard({ path, text, spans, pinned, away, dragging, draggable, actions, onOpen, onHeight, onDragStart, onDragOver, onDragEnd }: CardProps) {
+function QuickCard({ path, text, spans, pinned, away, dragging, draggable, actions, onOpen, onHeight, onDragStart, onDragOver, onDragEnd, phone }: CardProps) {
   const { title, body } = useMemo(() => splitQuickNote(text), [text]);
   const card = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -132,12 +159,25 @@ function QuickCard({ path, text, spans, pinned, away, dragging, draggable, actio
     return () => watch.disconnect();
   }, [path]);
 
+  const copy = () => void (copyNote(text, viewer.current) && actions.say(t('quick.copied')));
+  /** A phone's sheet: what is done with a card there, its pin first, as it has no button for it. */
+  const sheet = () =>
+    actions.sheet(
+      [
+        { label: t(pinned ? 'quick.unpin' : 'quick.pin'), icon: 'pin', run: () => actions.pin(path, !pinned) },
+        { label: t('quick.copy'), icon: 'copy', run: copy },
+        { label: t('menu.moveTo'), icon: 'move', run: () => actions.moveTo(path) },
+        { label: t('menu.delete'), icon: 'trash', danger: true, run: () => actions.trash(path) },
+      ],
+      headOf(text),
+    );
   const menu = (event: MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
+    if (phone) return sheet();
     setMenuOpen(true);
     actions.menu(event, [
-      { label: t('quick.copy'), icon: 'copy', run: () => void (copyNote(text, viewer.current) && actions.say(t('quick.copied'))) },
+      { label: t('quick.copy'), icon: 'copy', run: copy },
       { label: t('menu.moveTo'), icon: 'move', run: () => actions.moveTo(path) },
       { label: t('menu.history'), icon: 'clock', run: () => actions.history(path) },
       { label: t('menu.delete'), icon: 'trash', danger: true, apart: true, run: () => actions.trash(path) },
@@ -159,7 +199,23 @@ function QuickCard({ path, text, spans, pinned, away, dragging, draggable, actio
     <div
       ref={card}
       className={`qn-card${menuOpen ? ' menu-on' : ''}${long ? ' long' : ''}${away ? ' away' : ''}${dragging ? ' dragging' : ''}`}
-      draggable={draggable}
+      data-quick={path}
+      draggable={!phone && draggable}
+      onPointerDown={(event) => {
+        if (!phone || (event.target as HTMLElement).closest('.cm-sl-link, button, audio')) return;
+        holdToDrag(event, {
+          element: card.current!,
+          onLift: () => (draggable ? onDragStart(path) : undefined),
+          onMove: (x, y) => draggable && phone.onMove(x, y),
+          onDrop: () => (draggable ? phone.onDrop() : onDragEnd()),
+          onCancel: onDragEnd,
+          // Let go where it lifted: what can be done with it.
+          onStill: () => {
+            onDragEnd();
+            sheet();
+          },
+        });
+      }}
       onClick={(event) => {
         const target = event.target as HTMLElement;
         const link = target.closest<HTMLElement>('.cm-sl-link');
@@ -167,7 +223,8 @@ function QuickCard({ path, text, spans, pinned, away, dragging, draggable, actio
         if (target.closest('button, audio, .cm-sl-media, .qn-cardbtn')) return;
         onOpen(path);
       }}
-      onContextMenu={menu}
+      // A phone's long press is the hold above, which opens the sheet.
+      onContextMenu={phone ? (event) => event.preventDefault() : menu}
       onDragStart={(event: DragEvent) => {
         event.dataTransfer.effectAllowed = 'move';
         event.dataTransfer.setData('text/plain', title || body.slice(0, 80));
@@ -186,19 +243,23 @@ function QuickCard({ path, text, spans, pinned, away, dragging, draggable, actio
         </b>
       )}
       <div ref={host} className="qn-cbody" hidden={body === ''} />
-      <button
-        type="button"
-        className={`qn-cardbtn qn-cpin${pinned ? ' on' : ''}`}
-        title={t(pinned ? 'quick.unpin' : 'quick.pin')}
-        aria-label={t(pinned ? 'quick.unpin' : 'quick.pin')}
-        aria-pressed={pinned}
-        onClick={() => actions.pin(path, !pinned)}
-      >
-        <Icon name="pin" />
-      </button>
-      <button type="button" className="qn-cardbtn qn-cmore" title={t('side.more')} aria-label={t('side.more')} onClick={menu}>
-        ···
-      </button>
+      {!phone && (
+        <>
+          <button
+            type="button"
+            className={`qn-cardbtn qn-cpin${pinned ? ' on' : ''}`}
+            title={t(pinned ? 'quick.unpin' : 'quick.pin')}
+            aria-label={t(pinned ? 'quick.unpin' : 'quick.pin')}
+            aria-pressed={pinned}
+            onClick={() => actions.pin(path, !pinned)}
+          >
+            <Icon name="pin" />
+          </button>
+          <button type="button" className="qn-cardbtn qn-cmore" title={t('side.more')} aria-label={t('side.more')} onClick={menu}>
+            ···
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -217,16 +278,19 @@ interface EditorProps {
   /** The note's format bar, working on this editor while it is open. */
   bar: ReactNode;
   actions: QuickActions;
-  /** Asks to close it: Close, Escape or a click outside. */
+  /** Asks to close it: Close, Escape or a click outside; on a phone, back. */
   onClose: () => void;
+  /** On a phone, a page of its own: its bar has back, named after the page under it, the pin and ···. */
+  phoneBack?: string;
 }
 
 /**
  * A quick note being written: the format bar, the title with the pin beside it, the note, and
  * Close. What is written is kept as it is typed; closing writes the rest. The cursor starts in the
- * note; a click on the title, or Enter there, moves it.
+ * note; a click on the title, or Enter there, moves it. On a phone it is a page: back, the pin and
+ * ··· at its top, then the format bar, the title and the note.
  */
-function QuickEditor({ path, pinned: pinnedAtFirst = false, modified, found, inWindow, bar, actions, onClose }: EditorProps) {
+function QuickEditor({ path, pinned: pinnedAtFirst = false, modified, found, inWindow, bar, actions, onClose, phoneBack }: EditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const opened = useRef<QuickOpened | null>(null);
   const [made, setMade] = useState<QuickOpened | null>(null);
@@ -273,6 +337,76 @@ function QuickEditor({ path, pinned: pinnedAtFirst = false, modified, found, inW
       { label: t('menu.delete'), icon: 'trash', danger: true, apart: true, run: () => actions.trash(made.path) },
     ]);
   };
+  // On a phone, its page's ···: as the window's, with Find, and when it was last written under it.
+  const phoneMore = () => {
+    if (!made || path === null) return;
+    actions.sheet(
+      [
+        { label: t('quick.copy'), icon: 'copy', run: () => void (actions.copy(made.path) && actions.say(t('quick.copied'))) },
+        { label: t('menu.moveTo'), icon: 'move', run: () => actions.moveTo(made.path) },
+        { label: t('find.find'), icon: 'search', run: actions.find },
+        {
+          label: t('status.markdown'),
+          icon: 'markdown',
+          value: markdown ? t('phone.on') : t('phone.off'),
+          run: () => {
+            setMarkdown(!markdown);
+            actions.markdown(!markdown);
+          },
+        },
+        { label: t('menu.history'), icon: 'clock', run: () => actions.history(made.path) },
+        { label: t('menu.delete'), icon: 'trash', danger: true, run: () => actions.trash(made.path) },
+      ],
+      { icon: 'quick', title: title || t('create.quick'), ...(title && { sub: t('create.quick') }), ...(modified !== undefined && { foot: writtenText(modified) }) },
+    );
+  };
+  const titleField = (
+    <input
+      type="text"
+      value={title}
+      placeholder={t('quick.titleHint')}
+      aria-label={t('quick.titleHint')}
+      autoComplete="off"
+      spellCheck={false}
+      enterKeyHint="next"
+      onChange={(event) => {
+        setTitle(event.target.value);
+        actions.title(event.target.value);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        toBody();
+      }}
+    />
+  );
+  const pinLabel = t(pinned ? 'quick.unpin' : 'quick.pin');
+  if (phoneBack !== undefined) {
+    return (
+      <div className="qn-ed phone">
+        <div className="mb-nav">
+          <button type="button" className="mb-back" aria-label={t('phone.back', { page: phoneBack })} onClick={onClose}>
+            <Icon name="back" />
+            <span>{phoneBack}</span>
+          </button>
+          <span className="qn-navgap" />
+          <button type="button" className={pinned ? 'mb-ib qn-npin on' : 'mb-ib qn-npin'} aria-label={pinLabel} title={pinLabel} aria-pressed={pinned} onClick={pin}>
+            <Icon name="pin" />
+          </button>
+          {path !== null && (
+            <button type="button" className="mb-ib" aria-label={t('side.more')} title={t('side.more')} onClick={phoneMore}>
+              <Icon name="more" />
+            </button>
+          )}
+        </div>
+        {bar}
+        <div className="qn-mscroll">
+          <div className="qn-title">{titleField}</div>
+          <div ref={host} className="qn-body" />
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       className={inWindow ? 'qn-ed win' : 'qn-ed'}
@@ -282,24 +416,8 @@ function QuickEditor({ path, pinned: pinnedAtFirst = false, modified, found, inW
     >
       {bar}
       <div className="qn-title">
-        <input
-          type="text"
-          value={title}
-          placeholder={t('quick.titleHint')}
-          aria-label={t('quick.titleHint')}
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(event) => {
-            setTitle(event.target.value);
-            actions.title(event.target.value);
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            toBody();
-          }}
-        />
-        <button type="button" className={pinned ? 'qn-pin on' : 'qn-pin'} title={t(pinned ? 'quick.unpin' : 'quick.pin')} aria-label={t(pinned ? 'quick.unpin' : 'quick.pin')} aria-pressed={pinned} onClick={pin}>
+        {titleField}
+        <button type="button" className={pinned ? 'qn-pin on' : 'qn-pin'} title={pinLabel} aria-label={pinLabel} aria-pressed={pinned} onClick={pin}>
           <Icon name="pin" />
         </button>
       </div>
@@ -317,6 +435,11 @@ function QuickEditor({ path, pinned: pinnedAtFirst = false, modified, found, inW
       </div>
     </div>
   );
+}
+
+/** A quick note as a page of a phone, or a new one with `path` null: back closes it, writing what is in it. */
+export function PhoneQuickNote({ path, found, back, modified, bar, actions, onBack }: { path: string | null; found?: [number, number][]; back: string; modified?: number; bar: ReactNode; actions: QuickActions; onBack: () => void }) {
+  return <QuickEditor path={path} {...(found && { found })} {...(modified !== undefined && { modified })} inWindow={false} bar={bar} actions={actions} onClose={onBack} phoneBack={back} />;
 }
 
 /** A quick note open in the window in the middle: Escape and a click outside close it, as Close does. */
@@ -341,23 +464,31 @@ interface Props {
   bar: ReactNode;
   actions: QuickActions;
   onOpen: (path: string) => void;
+  /** A phone's page of them: its title and Sort are the page's, the cards in two columns, + makes one. */
+  phone?: boolean;
 }
 
-/** The Quick notes tab: its name and how many, search and Sort, Take a note…, then the cards. */
-export function QuickNotes({ notes, texts, order, sort, created, open, bar, actions, onOpen }: Props) {
+/**
+ * The Quick notes tab: its name and how many, search and Sort, Take a note…, then the cards. On a
+ * phone, the search and the cards, two columns of them.
+ */
+export function QuickNotes({ notes, texts, order, sort, created, open, bar, actions, onOpen, phone = false }: Props) {
   const [query, setQuery] = useState('');
   const [taking, setTaking] = useState(false);
   const taker = useRef<HTMLDivElement>(null);
   const grid = useRef<HTMLDivElement>(null);
-  const [columns, setColumns] = useState(3);
+  const [columns, setColumns] = useState(phone ? 2 : 3);
   const heights = useRef(new Map<string, number>());
   const [, relayout] = useState(0);
   const [drag, setDrag] = useState<{ path: string; shown: string[] } | null>(null);
+  // What a finger's drag reads as it goes, between its moves.
+  const dragNow = useRef(drag);
+  dragNow.current = drag;
 
-  // As many columns of cards as the width takes.
+  // As many columns of cards as the width takes; a phone's two.
   useLayoutEffect(() => {
     const element = grid.current;
-    if (!element) return;
+    if (!element || phone) return;
     const fit = () => setColumns(Math.max(1, Math.floor((element.clientWidth + GAP) / (CARD + GAP))));
     fit();
     const watch = new ResizeObserver(fit);
@@ -397,6 +528,34 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
     relayout((n) => n + 1);
   };
 
+  /** The card dragged goes before or after the one it is over, in its own section. */
+  const placeDrag = (over: string, before: boolean) =>
+    setDrag((now) => {
+      if (!now || over === now.path || pinnedSet.has(over) !== pinnedSet.has(now.path)) return now;
+      const rest = now.shown.filter((each) => each !== now.path);
+      const at = rest.indexOf(over) + (before ? 0 : 1);
+      const shown = [...rest.slice(0, at), now.path, ...rest.slice(at)];
+      return shown.join('\n') === now.shown.join('\n') ? now : { ...now, shown };
+    });
+  /** The order as the cards stand, kept once the card is let go. */
+  const dropDrag = () => {
+    const now = dragNow.current;
+    if (now) actions.order(now.shown);
+    setDrag(null);
+  };
+  // A finger dragging a card: the card under it says where it would go.
+  const touch = {
+    onMove: (x: number, y: number) => {
+      const over = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-quick]');
+      const path = over?.dataset.quick;
+      if (!over || !path) return;
+      const box = over.getBoundingClientRect();
+      placeDrag(path, y < box.top + box.height / 2);
+    },
+    onDrop: dropDrag,
+  };
+  const width = (count: number) => (phone ? undefined : { width: count * CARD + (count - 1) * GAP });
+
   /** The cards in columns, each in the shortest so far: their order reads row by row. */
   const masonry = (list: string[]) => {
     const cols: string[][] = Array.from({ length: Math.min(columns, Math.max(1, list.length)) }, () => []);
@@ -404,10 +563,12 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
     for (const path of list) {
       const at = sums.indexOf(Math.min(...sums));
       cols[at]!.push(path);
-      sums[at]! += (heights.current.get(path) ?? 120) + GAP;
+      sums[at]! += (heights.current.get(path) ?? 120) + (phone ? PHONE_GAP : GAP);
     }
+    // A phone's two columns stand even with one card.
+    if (phone && cols.length < columns) cols.push([]);
     return (
-      <div className="qn-grid" style={{ width: columns * CARD + (columns - 1) * GAP }}>
+      <div className="qn-grid" style={width(columns)}>
         {cols.map((col, index) => (
           <div className="qn-col" key={index}>
             {col.map((path) => (
@@ -424,14 +585,9 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
                 onOpen={onOpen}
                 onHeight={onHeight}
                 onDragStart={(dragged) => setDrag({ path: dragged, shown: [...sorted.pinned, ...sorted.others] })}
-                onDragOver={(over, before) => {
-                  if (!drag || over === drag.path || pinnedSet.has(over) !== pinnedSet.has(drag.path)) return;
-                  const rest = drag.shown.filter((each) => each !== drag.path);
-                  const at = rest.indexOf(over) + (before ? 0 : 1);
-                  const shown = [...rest.slice(0, at), drag.path, ...rest.slice(at)];
-                  if (shown.join('\n') !== drag.shown.join('\n')) setDrag({ ...drag, shown });
-                }}
+                onDragOver={placeDrag}
                 onDragEnd={() => setDrag(null)}
+                {...(phone && { phone: touch })}
               />
             ))}
           </div>
@@ -440,38 +596,59 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
     );
   };
 
-  const sortItems: MenuItem[] = (['custom', 'created', 'modified'] as const).map((each) => ({
-    label: t(each === 'custom' ? 'quick.sortCustom' : each === 'created' ? 'quick.sortCreated' : 'quick.sortModified'),
-    checked: sort === each,
-    run: () => actions.sort(each),
-  }));
+  const sortItems = quickSortItems(sort, actions.sort);
   const sortLabel = sortItems.find((item) => item.checked)?.label;
   const shownCount = pinned.length + others.length;
+  const section = (label: string) =>
+    phone ? (
+      <div className="mb-sec">{label}</div>
+    ) : (
+      <div className="qn-sec" style={width(columns)}>
+        {label}
+      </div>
+    );
+  const search = (
+    <label className={phone ? 'mb-searchbar' : 'qn-search'}>
+      <Icon name="search" />
+      <input
+        type="search"
+        enterKeyHint="search"
+        value={query}
+        placeholder={phone ? t('phone.search') : t('quick.search')}
+        aria-label={t('quick.search')}
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => event.key === 'Escape' && setQuery('')}
+      />
+    </label>
+  );
 
   return (
-    <div className="qn">
-      <div className="qn-top">
-        <b>{t('quick.title')}</b>
-        {notes.length > 0 && <span className="count">{query.trim() ? t('quick.found', { count: shownCount, total: notes.length }) : t('quick.count', { count: notes.length })}</span>}
-        <label className="qn-search">
-          <Icon name="search" />
-          <input type="search" value={query} placeholder={t('quick.search')} aria-label={t('quick.search')} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Escape' && setQuery('')} />
-        </label>
-        <button type="button" className="qn-sort" title={t('quick.sort')} onClick={(event) => actions.menu(event, sortItems)}>
-          <Icon name="sort" />
-          {sortLabel}
-        </button>
-      </div>
-      <div className="qn-scroll">
-        <div ref={taker} className="qn-taking">
-          {taking ? (
-            <QuickEditor path={null} inWindow={false} bar={bar} actions={actions} onClose={() => setTaking(false)} />
-          ) : (
-            <button type="button" className="qn-take" onClick={() => setTaking(true)}>
-              {t('quick.takeNote')}
-            </button>
-          )}
+    <div className={phone ? 'qn phone' : 'qn'}>
+      {phone ? (
+        notes.length > 0 && search
+      ) : (
+        <div className="qn-top">
+          <b>{t('quick.title')}</b>
+          {notes.length > 0 && <span className="count">{query.trim() ? t('quick.found', { count: shownCount, total: notes.length }) : t('quick.count', { count: notes.length })}</span>}
+          {search}
+          <button type="button" className="qn-sort" title={t('quick.sort')} onClick={(event) => actions.menu(event, sortItems)}>
+            <Icon name="sort" />
+            {sortLabel}
+          </button>
         </div>
+      )}
+      <div className="qn-scroll">
+        {!phone && (
+          <div ref={taker} className="qn-taking">
+            {taking ? (
+              <QuickEditor path={null} inWindow={false} bar={bar} actions={actions} onClose={() => setTaking(false)} />
+            ) : (
+              <button type="button" className="qn-take" onClick={() => setTaking(true)}>
+                {t('quick.takeNote')}
+              </button>
+            )}
+          </div>
+        )}
         <div
           ref={grid}
           className="qn-cards"
@@ -495,15 +672,9 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
             <>
               {pinned.length > 0 && (
                 <Fragment>
-                  <div className="qn-sec" style={{ width: columns * CARD + (columns - 1) * GAP }}>
-                    {t('quick.pinned')}
-                  </div>
+                  {section(t('quick.pinned'))}
                   {masonry(pinned)}
-                  {others.length > 0 && (
-                    <div className="qn-sec" style={{ width: columns * CARD + (columns - 1) * GAP }}>
-                      {t('quick.others')}
-                    </div>
-                  )}
+                  {others.length > 0 && section(t('quick.others'))}
                 </Fragment>
               )}
               {others.length > 0 && masonry(others)}

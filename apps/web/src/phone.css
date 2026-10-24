@@ -8946,3 +8946,138 @@ body > .mb-lifted {
 .mb-sheet.dialog .ch-vis {
   grid-template-columns: 1fr;
 }
+
+/* ---------- quick notes (design/quick-notes.md 4) ---------- */
+
+/* Create: a quick note apart from the rest, which ask a name and a folder. */
+.mb-kinds-apart {
+  height: 8px;
+  background: color-mix(in srgb, var(--sl-bg) 55%, var(--sl-side));
+}
+
+/* Their page: the search, then the cards in two columns. */
+.qn.phone {
+  display: block;
+}
+
+.qn.phone .qn-scroll {
+  overflow: visible;
+  padding: 0 12px 24px;
+}
+
+.qn.phone .qn-cards {
+  align-items: stretch;
+}
+
+.qn.phone .mb-sec {
+  padding-left: 4px;
+}
+
+.qn.phone .qn-grid {
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.qn.phone .qn-col {
+  flex: 1;
+  gap: 10px;
+  width: auto;
+}
+
+.qn.phone .qn-card {
+  max-height: 230px;
+  padding: 11px 12px 12px;
+  border-radius: 12px;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.qn.phone .qn-card:hover {
+  border-color: var(--sl-line);
+  box-shadow: none;
+}
+
+.qn.phone .qn-card::after {
+  height: 48px;
+}
+
+.qn.phone .qn-ctitle {
+  margin-bottom: 3px;
+  padding-right: 0;
+  font-size: 15.5px;
+}
+
+.qn.phone .qn-cbody .cm-editor {
+  --sl-editor-size: 13.5px;
+}
+
+.qn.phone .qn-cbody .cm-content,
+.qn.phone .qn-cbody .cm-line {
+  padding: 0;
+}
+
+.qn.phone .qn-empty,
+.qn.phone .qn-none {
+  margin-top: 56px;
+  font-size: 15px;
+  text-align: center;
+}
+
+/* A note's page: back, the pin and ···; the note's format bar; the title, then the note. */
+.qn-ed.phone {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--sl-bg);
+  box-shadow: none;
+}
+
+.qn-navgap {
+  flex: 1;
+}
+
+.qn-npin.on {
+  color: var(--sl-accent);
+}
+
+/* The note fills the page under its title, so that find and replace sit at its foot as in a note. */
+.qn-mscroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.qn-ed.phone .qn-title {
+  padding: 16px 18px 2px;
+}
+
+.qn-ed.phone .qn-title input {
+  font: 600 21px/1.3 var(--sl-font-ui);
+}
+
+.qn-ed.phone .qn-body {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.qn-ed.phone .qn-body .cm-editor {
+  flex: 1 0 auto;
+}
+
+.phone-app .qn-ed.phone .qn-body .cm-content {
+  padding: 8px 0 40vh 18px;
+}
+
+.phone-app .qn-ed.phone .qn-body .cm-line {
+  padding-right: 18px;
+}

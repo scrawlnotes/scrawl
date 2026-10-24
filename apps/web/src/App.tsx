@@ -160,7 +160,7 @@ import { folderLabel, setSpaceNames,
   FILES,
   UPCOMING,
 } from './items';
-import { type QuickActions, QuickNotes, QuickWindow } from './QuickNotes';
+import { PhoneQuickNote, type QuickActions, QuickNotes, quickSortItems, QuickWindow } from './QuickNotes';
 import { choiceHref, type LinkChoice, linkChoices } from './linkChoices';
 import { addedCounts, counts as appCounts, NewAppDialog } from './AppWizard';
 import {
@@ -463,16 +463,27 @@ export function App() {
    * one has no path yet (design/quick-notes.md 3.4). `made` tells two openings apart.
    */
   const [quickWindow, setQuickWindow] = useState<{ path: string | null; made: number; found?: [number, number][] } | null>(null);
-  /** A new quick note in its window, over whatever is open: from Create, a + menu, the start page, the search. */
+  /** On a phone, a quick note's page asked for: a new one has no path (design/quick-notes.md 4). */
+  const [phoneQuick, setPhoneQuick] = useState<{ path: string | null; found?: [number, number][]; at: number } | null>(null);
+  /**
+   * A new quick note in its window, over whatever is open: from Create, a + menu, the start page,
+   * the search. On a phone, in a page of its own, the keyboard held for it from the tap.
+   */
   const newQuick = () => {
     setDrawer(false);
     setDialog(null);
+    if (phone) {
+      session.holdKeyboard();
+      return setPhoneQuick({ path: null, at: Date.now() });
+    }
     setQuickWindow({ path: null, made: Date.now() });
   };
-  // A quick note asked for anywhere, a search's, a task's note, Files', opens in its window; a
-  // phone has no window yet, and opens it as a note.
+  // A quick note asked for anywhere, a search's, a task's note, Files', opens in its window; on a
+  // phone in its page.
   useEffect(() => {
-    session.showQuick = phone ? null : (path, found) => setQuickWindow({ path, made: Date.now(), ...(found && { found }) });
+    session.showQuick = phone
+      ? (path, found) => setPhoneQuick({ path, at: Date.now(), ...(found && { found }) })
+      : (path, found) => setQuickWindow({ path, made: Date.now(), ...(found && { found }) });
   }, [session, phone]);
   // To task, History or Move to closing over the quick note's window gives it the keyboard back:
   // Escape closes it then, as before they opened.
@@ -1402,8 +1413,8 @@ export function App() {
     const label = (here: MessageKey, named: MessageKey) => t(short ? named : here);
     return [
       // A quick note first and apart: it goes to the personal space from any folder, so it is not "here".
-      ...(phone ? [] : [{ label: label('quick.new', 'create.quick'), icon: 'quick' as const, run: newQuick }]),
-      { label: label('menu.newNoteHere', 'menu.add.note'), icon: 'note', apart: !phone, run: createHere('note') },
+      { label: label('quick.new', 'create.quick'), icon: 'quick', run: newQuick },
+      { label: label('menu.newNoteHere', 'menu.add.note'), icon: 'note', apart: true, run: createHere('note') },
       { label: label('menu.newListHere', 'menu.add.list'), icon: 'tasks', run: createHere('tasks') },
       { label: label('menu.newBoardHere', 'menu.add.board'), icon: 'board', run: createHere('board') },
       { label: label('menu.newKeysHere', 'menu.add.keys'), icon: 'keys', run: createHere('keys') },
@@ -1629,7 +1640,7 @@ export function App() {
   );
   // What the search offers at its foot: making something, the views, the settings, sync.
   const searchActions: SearchAction[] = [
-    ...(phone ? [] : [{ id: 'quick', label: t('quick.new'), icon: 'quick' as const, run: () => newQuick() }]),
+    { id: 'quick', label: t('quick.new'), icon: 'quick', run: () => newQuick() },
     { id: 'note', label: t('create.newNote'), icon: 'note', first: true, run: () => setDialog({ kind: 'new', start: 'note' }) },
     { id: 'create', label: t('search.create'), icon: 'plus', first: true, run: () => setDialog({ kind: 'new' }) },
     { id: 'tasks', label: t('create.newList'), icon: 'tasks', run: () => setDialog({ kind: 'new', start: 'tasks' }) },
@@ -2322,20 +2333,40 @@ export function App() {
     viewer: (path, parent, body) => session.openViewer(path, parent, body),
     followLink: (path, href) => void session.followLink(path, href),
     copy: (path) => session.copyQuick(path),
+    // What is open of it is written and closed first, so that it is not written back where it was.
     moveTo: (path) => {
       setQuickWindow(null);
-      setDialog({ kind: 'move', path });
+      void session.finishQuick(path).then(() => setDialog({ kind: 'move', path }));
     },
-    // The window, open or not, stays under it; a version restored goes into it.
-    history: (path) => setDialog({ kind: 'history', path }),
+    // The window, open or not, stays under it; a version restored goes into it. On a phone its
+    // pages open over the note's page.
+    history: (path) => (phone ? setPhoneHistory(path) : setDialog({ kind: 'history', path })),
     trash: (path) => {
       setQuickWindow(null);
-      toTrash(session.trashQuick(path));
+      toTrash(session.finishQuick(path).then(() => session.trashQuick(path)));
     },
     markdown: (on) => session.setQuickSource(on),
+    find: () => session.openFind(),
     menu: (event, items) => openMenu(event, items),
+    sheet: (items, head) => showSheet(items, head),
     say: (text) => setNotice(text),
   };
+  // On a phone, the quick note's page has the note's format bar at its top, as a note's page has.
+  const quickPhoneBar = (
+    <PhoneFormatBar
+      format={quickFormat}
+      recording={recording}
+      recordError={recordError}
+      onFormat={(action) => session.format(action)}
+      onLink={() => setLinkEdit({ url: quickFormat?.link?.url ?? '', linked: !!quickFormat?.link && !quickFormat.link.bare })}
+      onImage={() => session.pickImage()}
+      onRecord={() => void session.startRecording()}
+      onStop={() => session.stopRecording()}
+      onToTask={startToTask}
+      onToCard={startToCard}
+      onCallout={(at) => session.calloutMenu(at)}
+    />
+  );
 
   // What is open: a note in the editor, or the view of a list, a board, a keys file, a collection,
   // a filter or the trash. On a computer it fills the main area under the tabs; on a phone it is
@@ -2756,6 +2787,28 @@ export function App() {
             folderLooks={folderLooks}
             times={nodeTimes}
             menuOpen={menu !== null}
+            quick={{
+              count: quick.length,
+              list: (open) => (
+                <QuickNotes phone notes={quick} texts={quickTexts} order={quickOrder} sort={quickSort} created={created} open={null} bar={null} actions={quickActions} onOpen={open} />
+              ),
+              note: (page) => (
+                <PhoneQuickNote
+                  path={page.path}
+                  {...(page.found && { found: page.found })}
+                  back={page.back}
+                  {...(page.path && { modified: quick.find((note) => note.path === page.path)?.modified })}
+                  bar={quickPhoneBar}
+                  // Moved or deleted from its page, the page goes first.
+                  actions={{ ...quickActions, moveTo: (path) => (page.onBack(), quickActions.moveTo(path)), trash: (path) => (page.onBack(), quickActions.trash(path)) }}
+                  onBack={page.onBack}
+                />
+              ),
+              onSort: () => showSheet(quickSortItems(quickSort, (sort) => session.sortQuick(sort)), { icon: 'sort', title: t('quick.sort'), sub: t('quick.title') }),
+              onNew: () => session.holdKeyboard(),
+              open: phoneQuick,
+              onShown: () => setPhoneQuick(null),
+            }}
             history={{
               open: phoneHistory,
               onShown: () => setPhoneHistory(null),
@@ -3192,6 +3245,7 @@ export function App() {
           collections={Object.keys(collections)}
           onCreate={create}
           onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
+          onQuick={newQuick}
           onClose={closeDialog}
         />
       )}

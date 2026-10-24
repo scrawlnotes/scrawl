@@ -1,4 +1,4 @@
-import { type ChatInfo, DEFAULT_LOOK, type FolderLook, parseChatLink, type Found, type NodeTimes, INBOX_TASKS, isUnder, sortedNodes, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
+import { type ChatInfo, DEFAULT_LOOK, type FolderLook, parseChatLink, type Found, type NodeTimes, INBOX_TASKS, isQuickNote, isUnder, sortedNodes, inSpace, listName, shownName, spaceOf, type TaskFilter, type TrashItem, type TreeNode, type Version } from '@scrawlnotes/core';
 import { revealCursor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -64,6 +64,9 @@ type PageKind =
   | { kind: 'card'; board: string; id: string }
   | { kind: 'record'; dir: string; id: string }
   | { kind: 'labels'; path: string }
+  // Quick notes' page, and a quick note's, a new one with no path (design/quick-notes.md 4).
+  | { kind: 'quick' }
+  | { kind: 'quickNote'; path: string | null; found?: [number, number][] }
   // Chat's pages: a conversation, at a message a link asked for; its Info; a part of its Info.
   | { kind: 'chatConv'; url: string; chat: string; target?: { message: string; at: number } }
   | { kind: 'chatInfo'; url: string; chat: string }
@@ -239,6 +242,21 @@ export interface PhoneProps {
   };
   /** Chat, the fifth tab, with a server that has messaging: what its messages point at, the menu, and a message's link followed elsewhere. */
   chat: { links: ChatLinks; menu: (event: MouseEvent, items: MenuItem[]) => void; goTo: { href: string; at: number } | null };
+  /**
+   * Quick notes (design/quick-notes.md 4): how many, beside their row in Browse; `list` draws their
+   * page's cards, opening one as a page; `note` draws a note's page, a new one with `path` null;
+   * `onSort` opens Sort; `onNew` is the tap that makes one, holding the keyboard for it; `open` asks
+   * for a note's page from elsewhere (Create, the search, a task's note).
+   */
+  quick: {
+    count: number;
+    list: (open: (path: string) => void) => ReactNode;
+    note: (page: { path: string | null; found?: [number, number][]; back: string; onBack: () => void }) => ReactNode;
+    onSort: () => void;
+    onNew: () => void;
+    open: { path: string | null; found?: [number, number][]; at: number } | null;
+    onShown: () => void;
+  };
 }
 
 // Started from the clock, so that a page made after the module is loaded again never takes the key of one still on screen.
@@ -595,7 +613,8 @@ export function Phone(props: PhoneProps) {
     if (target.kind === 'folder') return push({ kind: 'folder', path: target.path });
     if (target.kind === 'space') return setPlace('browse');
     // A page opens over Search here and now: what is open already would not open one by itself,
-    // and a card opens over its board's page.
+    // and a card opens over its board's page. A quick note opens a page of its own, as it is asked.
+    if (target.kind === 'note' && isQuickNote(target.path)) return props.search.onPick(found);
     if (target.kind === 'note') push({ kind: 'item', id: target.path });
     else if (target.kind === 'tab') push({ kind: 'item', id: target.id });
     else if (target.kind === 'card') push({ kind: 'item', id: boardOf(target.board) });
@@ -622,7 +641,10 @@ export function Phone(props: PhoneProps) {
   const push = (page: PageKind) => {
     if (page.kind === 'folder') props.onWant([page.path]);
     const added: Page = { ...page, key: ++pageKeys };
-    setStacks((current) => ({ ...current, [place]: [...current[place], added] }));
+    // One quick note is open at a time: one opened from a link in another takes the other's page.
+    // A place's pages are drawn only while it is on screen, so another place's keep theirs.
+    const kept = (pages: Page[]) => (page.kind === 'quickNote' ? pages.filter((each) => each.kind !== 'quickNote') : pages);
+    setStacks((current) => ({ ...current, [place]: [...kept(current[place]), added] }));
     slideIn(added.key);
   };
   /** Goes on once every record's page among `pages`, the top first, has asked about its changes. */
@@ -903,6 +925,15 @@ export function Phone(props: PhoneProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trashAsked]);
 
+  // A quick note asked for elsewhere, or a new one from Create, opens as a page over the one on screen.
+  const { open: quickAsked, onShown: quickShown } = props.quick;
+  useEffect(() => {
+    if (!quickAsked) return;
+    quickShown();
+    push({ kind: 'quickNote', path: quickAsked.path, ...(quickAsked.found && { found: quickAsked.found }) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickAsked?.at]);
+
   // A note's history opens as a page over the note's.
   const { open: historyAsked, onShown: historyShown } = props.history;
   useEffect(() => {
@@ -982,6 +1013,8 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'card') return props.card.label(page.board, page.id);
     if (page.kind === 'record') return props.record.label(page.dir, page.id);
     if (page.kind === 'labels') return t('labels.title');
+    if (page.kind === 'quick') return t('quick.title');
+    if (page.kind === 'quickNote') return page.path ? (titles[page.path] ?? t('create.quick')) : t('quick.new');
     if (page.kind === 'version') return props.history.label(page.version);
     return nameOf(page.id, titles, filters);
   };
@@ -1151,6 +1184,8 @@ export function Phone(props: PhoneProps) {
         )}
         <div className={props.favorites.length > 0 ? 'mb-list fl-mgap' : 'mb-list'}>
           <Row icon="filter" label={t('filters.title')} onClick={() => openItem(FILTERS)} />
+          {/* Quick notes, with how many there are, under Filters & Labels (design/quick-notes.md 4). */}
+          <Row icon="quick" label={t('quick.title')} right={props.quick.count || ''} onClick={() => push({ kind: 'quick' })} />
         </div>
         {spaceSection(
           'personal',
@@ -1356,6 +1391,16 @@ export function Phone(props: PhoneProps) {
           <LabelsPage path={page.path} />
         </PageFrame>
       );
+    }
+    if (page.kind === 'quick') {
+      return (
+        <PageFrame title={titleOf(page, of)} nav={{ ...nav, action: { label: t('quick.sort'), icon: 'sort', run: props.quick.onSort } }}>
+          {props.quick.list((path) => push({ kind: 'quickNote', path }))}
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'quickNote') {
+      return <div className="mb-holder qn-holder">{props.quick.note({ path: page.path, ...(page.found && { found: page.found }), back: back ?? t('phone.browse'), onBack: pop })}</div>;
     }
     if (page.kind === 'files') {
       const own = props.filesChoice;
@@ -1624,7 +1669,13 @@ export function Phone(props: PhoneProps) {
   // + adds what the page is for: on Today a task due today, on Upcoming one due tomorrow, or on the
   // day chosen in its month; in Browse and a folder Create for that folder; in a list a task.
   const fab =
-    top.kind === 'root' && place === 'chat'
+    top.kind === 'quick'
+      ? () => {
+          // A new quick note, the keyboard held for it from this tap.
+          props.quick.onNew();
+          push({ kind: 'quickNote', path: null });
+        }
+      : top.kind === 'root' && place === 'chat'
       ? (chatAdd as () => void)
       : top.kind === 'root' && place === 'today'
       ? () => props.onAdd(due === 'today' ? TODAY : UPCOMING)

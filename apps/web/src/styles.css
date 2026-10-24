@@ -19056,8 +19056,8 @@ button.ppl:hover {
 
 /* The body reads as the note does; what is pressed in it is the card's, but its links and players. */
 .qn-cbody .cm-editor {
+  --sl-editor-size: 12.5px;
   height: auto;
-  font-size: 12.5px;
 }
 
 .qn-cbody .cm-scroller {
