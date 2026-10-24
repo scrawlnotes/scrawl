@@ -1,7 +1,10 @@
 //! The app's own updates (`design/desktop-release.md`). A little after the app opens and every
 //! few hours it looks on GitHub for a newer version, downloads it without a word and tells the
 //! web app, which shows Restart in the status bar. Restart installs it and opens the new
-//! version; not pressed, the update goes in when the app closes.
+//! version. With the window closed, the app running in the tray, it goes in by itself and the new
+//! version opens hidden too (`design/background.md` 6); with the window open and Restart not
+//! pressed, when the window is closed, or when the person quits the app. Not when the system closes
+//! it, shutting down: an installer cut short there would leave no app.
 //!
 //! Only a built app looks by itself: while developing, nothing is looked for until Settings ›
 //! About asks.
@@ -11,6 +14,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
+
+/// How long an update going in with the window closed waits for the web app to write what was
+/// typed, before it goes in anyway.
+const HIDDEN_WAIT: Duration = Duration::from_secs(10);
 use tauri_plugin_updater::{Error, Update, UpdaterExt};
 
 /// The first look, a little after the app opens so that it does not slow the start.
@@ -45,6 +52,8 @@ pub struct Updates(Mutex<Inner>);
 struct Inner {
     status: Status,
     ready: Option<(Update, Vec<u8>)>,
+    /// The update is going in with the window closed.
+    installing: bool,
 }
 
 impl Inner {
@@ -93,8 +102,8 @@ fn set<R: Runtime>(app: &AppHandle<R>, status: Status) {
 }
 
 /// Looks for a newer version and downloads it, or says how things stand if a look is running
-/// or an update is downloaded.
-async fn look<R: Runtime>(app: &AppHandle<R>) -> Status {
+/// or an update is downloaded. Downloaded with the window closed, it goes in.
+async fn look(app: &AppHandle) -> Status {
     if let Some(status) = app.state::<Updates>().0.lock().unwrap().begin() {
         return status;
     }
@@ -104,6 +113,9 @@ async fn look<R: Runtime>(app: &AppHandle<R>) -> Status {
         reason: error.to_string(),
     });
     set(app, status.clone());
+    if matches!(status, Status::Ready { .. }) {
+        install_when_hidden(app);
+    }
     status
 }
 
@@ -129,7 +141,7 @@ async fn fetch<R: Runtime>(app: &AppHandle<R>) -> Result<Status, Error> {
 }
 
 /// Looks a little after the app opens and every few hours after that, in a built app only.
-pub fn start<R: Runtime>(app: &AppHandle<R>) {
+pub fn start(app: &AppHandle) {
     if cfg!(debug_assertions) {
         return;
     }
@@ -154,24 +166,59 @@ pub async fn update_check(app: AppHandle) -> Status {
     look(&app).await
 }
 
-/// Installs the downloaded update and opens the new version. The web app has written what was
-/// being typed first. On Windows the installer takes over and the app exits here.
-#[tauri::command]
-pub fn update_restart(app: AppHandle) -> Result<(), String> {
+/// An update is downloaded and the window is not on screen, closed or not shown since a start at
+/// login: it goes in now, and the new version opens hidden too. The web app writes what was typed
+/// first, as for Restart (`install-update`, then `update_restart`); if it does not answer, the
+/// update goes in a little later anyway.
+pub fn install_when_hidden(app: &AppHandle) {
+    let hidden = app.get_webview_window("main").is_some_and(|window| !window.is_visible().unwrap_or(true));
+    {
+        let updates = app.state::<Updates>();
+        let mut inner = updates.0.lock().unwrap();
+        if !hidden || inner.ready.is_none() || inner.installing {
+            return;
+        }
+        inner.installing = true;
+    }
+    crate::background::mark_reopen_hidden(app, true);
+    let _ = app.emit("install-update", ());
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(HIDDEN_WAIT);
+        let _ = install_now(&app);
+    });
+}
+
+/// Installs the downloaded update and opens the new version. On Windows the installer takes over
+/// and the app exits here; it opens the new version itself, with the arguments this one had.
+fn install_now(app: &AppHandle) -> Result<(), String> {
     let ready = app.state::<Updates>().0.lock().unwrap().ready.take();
     let Some((update, bytes)) = ready else {
         return Err("No update is ready.".into());
     };
     if let Err(error) = update.install(&bytes) {
-        set(&app, Status::Failed { offline: false, reason: error.to_string() });
+        crate::background::mark_reopen_hidden(app, false);
+        app.state::<Updates>().0.lock().unwrap().installing = false;
+        set(app, Status::Failed { offline: false, reason: error.to_string() });
         return Err(error.to_string());
     }
     app.restart()
 }
 
-/// When the app closes with an update downloaded, the update goes in, and the app does not
-/// open again. On Windows the installer takes over and the app exits here.
-pub fn on_exit<R: Runtime>(app: &AppHandle<R>) {
+/// Restart, or an update going in with the window closed: the web app has written what was being
+/// typed first.
+#[tauri::command]
+pub fn update_restart(app: AppHandle) -> Result<(), String> {
+    install_now(&app)
+}
+
+/// When the person closes the app with an update downloaded, the update goes in, and the app does
+/// not open again; when the system closes it, it does not, and goes in later. On Windows the
+/// installer takes over and the app exits here.
+pub fn on_exit(app: &AppHandle) {
+    if !crate::background::closing_by_person(app) {
+        return;
+    }
     let ready = app.state::<Updates>().0.lock().unwrap().ready.take();
     if let Some((update, bytes)) = ready {
         let _ = update.restart_after_install(false).install(&bytes);

@@ -23,8 +23,8 @@ Kurulum açılışta değil kapanışta yapılır: açılış hiç yavaşlamaz.
 1. Açılıştan 30 sn sonra ve sonra 4 saatte bir `latest.json` okunur.
 2. Yeni sürüm varsa sessizce iner ve imzası doğrulanır. İnerken hiçbir şey görünmez.
 3. Durum çubuğunda **New version ready · Restart** çıkar. Web'deki "Reload"ın yeri ve sözü aynıdır, yalnız düğme Restart'tır.
-4. Restart: yazılan kaydedilir, uygulama kapanır, küçük bir ilerleme penceresi görünür (NSIS passive), uygulama yeni sürümle açılır. Birkaç saniye sürer.
-5. Basılmazsa: pencere kapatılınca aynı kurulum çalışır, uygulama yeniden açılmaz.
+4. Restart: yazılan kaydedilir, uygulama kapanır, uygulama yeni sürümle açılır. Birkaç saniye sürer. 24 Ekim'den beri kurulum sessizdir (NSIS quiet): ilerleme penceresi görünmez, çünkü pencere kapalıyken kendiliğinden kurulan güncelleme hiçbir şey göstermemeli ve eklenti kurulum biçimini kurulum başına seçtirmiyor (`design/background.md` 6).
+5. Basılmazsa: pencere kapatılınca uygulama tepside çalışmayı sürdürür ve güncelleme o an kurulur, yeni sürüm penceresiz açılır. Kişi Quit ile ya da arka planda çalışma kapalıyken pencereyi kapatarak çıkarsa kurulur, uygulama yeniden açılmaz. Sistem kapanırken kurulmaz (`design/background.md` 2.6).
 6. İnternet yoksa ya da GitHub'a ulaşılamazsa hiçbir şey görünmez.
 7. Settings › About (yeni bölüm, yalnız masaüstünde): sürüm, What's new (bu sürümün GitHub sayfası), Check for updates ve sonucu (Up to date, Downloading 0.2.0…, Restart, ya da neden kontrol edilemediği); en altta açık kaynak ve GitHub linki.
 
@@ -74,7 +74,7 @@ Secret'lar: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. �
 - Zamanlayıcı: 30 sn sonra ve 4 saatte bir `check` → yeni sürüm varsa `download` → `Ready`. Her değişiklik `update` event'iyle web'e gider.
 - Komutlar: `update_state`, `update_check` (About'tan), `update_restart` (`install`, `restart_after_install(true)`).
 - `RunEvent::ExitRequested`: durum `Ready` ise `restart_after_install(false)` ile `install`. Windows'ta `install` uygulamayı kendisi kapatır.
-- Config: `plugins.updater` içinde `pubkey`, `endpoints`, `windows.installMode: "passive"`. `bundle.createUpdaterArtifacts: true` yalnız `tauri.release.conf.json`'da, CI `--config` ile verir: yoksa elle `pnpm desktop:build` özel anahtar ister.
+- Config: `plugins.updater` içinde `pubkey`, `endpoints`, `windows.installMode: "quiet"` (24 Ekim'e kadar `"passive"`). `bundle.createUpdaterArtifacts: true` yalnız `tauri.release.conf.json`'da, CI `--config` ile verir: yoksa elle `pnpm desktop:build` özel anahtar ister.
 - JS eklentisinin izinleri (`updater:default`) verilmez. Web yalnız bizim üç komutumuzu çağırır.
 
 **Web:**

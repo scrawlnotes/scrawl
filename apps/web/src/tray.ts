@@ -32,20 +32,22 @@ const subscribe = (listener: () => void) => {
 const onMac = () => /Mac/.test(navigator.userAgent);
 
 /**
- * Gives the shell the tray's words, which puts the icon there, and answers its Quit: what was
- * typed is written first. Returns what stops listening.
+ * Gives the shell the tray's words, which puts the icon there, and answers its Quit and an update
+ * going in with the window closed (design/background.md 6): what was typed is written first.
+ * Returns what stops listening.
  */
-export function startTray(beforeQuit: () => Promise<void>): () => void {
+export function startTray(writeFirst: () => Promise<void>): () => void {
   if (!isDesktop) return () => undefined;
   const words = { open: t('tray.open'), quit: t('tray.quit'), toldTitle: t('tray.toldTitle'), toldBody: t(onMac() ? 'tray.toldBodyMac' : 'tray.toldBody') };
   void invoke('tray_start', { words }).catch(() => undefined);
   void invoke<boolean>('background_get').then(set, () => undefined);
-  const stop = listen('quit', () => {
-    void beforeQuit()
+  const after = (command: string) => () => {
+    void writeFirst()
       .catch(() => undefined)
-      .finally(() => void invoke('quit_now'));
-  });
-  return () => void stop.then((off) => off());
+      .finally(() => void invoke(command).catch(() => undefined));
+  };
+  const stops = [listen('quit', after('quit_now')), listen('install-update', after('update_restart'))];
+  return () => stops.forEach((stop) => void stop.then((off) => off()));
 }
 
 let said: string | null = null;

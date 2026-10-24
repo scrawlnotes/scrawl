@@ -558,7 +558,8 @@ pub fn run() {
         .manage(watch::Watches::default())
         .setup(|app| {
             background::load(app.handle());
-            let hidden = background::asks_hidden(&std::env::args().collect::<Vec<_>>());
+            // Started by the computer, or the new version of an app updated with its window closed.
+            let hidden = background::asks_hidden(&std::env::args().collect::<Vec<_>>()) || background::reopens_hidden(app.handle());
             if hidden {
                 background::start_hidden(app.handle());
             }

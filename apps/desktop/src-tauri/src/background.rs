@@ -10,7 +10,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::image::Image;
@@ -25,6 +25,9 @@ pub const BACKGROUND_ARG: &str = "--background";
 
 /// How long Quit waits for the web app to write what was typed before the app closes anyway.
 const QUIT_WAIT: Duration = Duration::from_secs(3);
+/// How soon after an update was put in with the window closed the app must start again to open
+/// hidden: a mark older than this is one whose install did not come through.
+const REOPEN_HIDDEN_MS: u64 = 5 * 60 * 1000;
 
 /// What the app keeps of running in the background, in its config folder beside settings.json.
 /// Not in settings.json: the web app writes that one whole with the fields it knows.
@@ -37,11 +40,14 @@ pub struct Shell {
     pub background_told: bool,
     /// Opening at login was turned on once, as it comes. Turned off after that, it stays off.
     pub autostart_set: bool,
+    /// When an update was put in with the window closed, in milliseconds since 1970, 0 for none:
+    /// the version it brings starts hidden, as the one before was.
+    pub start_hidden_at: u64,
 }
 
 impl Default for Shell {
     fn default() -> Self {
-        Shell { background: true, background_told: false, autostart_set: false }
+        Shell { background: true, background_told: false, autostart_set: false, start_hidden_at: 0 }
     }
 }
 
@@ -68,7 +74,8 @@ struct Tray {
 }
 
 /// The app's running in the background: `shell.json` as read, the tray once it is there,
-/// whether the window is kept hidden since a start without one, and whether Quit was asked.
+/// whether the window is kept hidden since a start without one, and whether the person is closing
+/// the app (Quit, or the window closed with Background off), which the updates ask.
 #[derive(Default)]
 pub struct Background {
     shell: Mutex<Shell>,
@@ -95,6 +102,44 @@ pub fn load(app: &AppHandle) {
 /// Whether Scrawl was started without a window, by the computer as it started.
 pub fn asks_hidden(args: &[String]) -> bool {
     args.iter().any(|arg| arg == BACKGROUND_ARG)
+}
+
+fn now() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |time| time.as_millis() as u64)
+}
+
+/// Whether an update put in at `at` with the window closed is this start: a moment ago.
+pub fn reopening(at: u64, now: u64) -> bool {
+    at > 0 && now >= at && now - at < REOPEN_HIDDEN_MS
+}
+
+/// Whether this start is the new version of an app updated with its window closed. The mark is
+/// taken either way, so that it never hides a window opened later.
+pub fn reopens_hidden(app: &AppHandle) -> bool {
+    let state = app.state::<Background>();
+    let mut shell = state.shell.lock().unwrap();
+    if shell.start_hidden_at == 0 {
+        return false;
+    }
+    let hidden = reopening(shell.start_hidden_at, now());
+    shell.start_hidden_at = 0;
+    let _ = save(app, &shell);
+    hidden
+}
+
+/// An update goes in with the window closed: the version it brings opens hidden too; or it did
+/// not go in, and nothing is to open hidden.
+pub fn mark_reopen_hidden(app: &AppHandle, on: bool) {
+    let state = app.state::<Background>();
+    let mut shell = state.shell.lock().unwrap();
+    shell.start_hidden_at = if on { now() } else { 0 };
+    let _ = save(app, &shell);
+}
+
+/// Whether the person is closing the app: Quit in the tray, or the window closed while it does
+/// not go on in the tray. Not so when the system closes it, shutting down or signing out.
+pub fn closing_by_person(app: &AppHandle) -> bool {
+    app.state::<Background>().quitting.load(Ordering::SeqCst)
 }
 
 /// The window stays hidden from the start: the page opens and syncs, and nothing shows it but
@@ -146,6 +191,9 @@ pub fn on_close(window: &Window, api: &CloseRequestApi) {
     if hides(background, tray, state.quitting.load(Ordering::SeqCst)) {
         api.prevent_close();
         hide(window);
+    } else {
+        // The window closes, and the app with it: the person's own closing.
+        state.quitting.store(true, Ordering::SeqCst);
     }
 }
 
@@ -156,6 +204,8 @@ fn hide(window: &Window) {
     #[cfg(target_os = "macos")]
     let _ = app.set_dock_visibility(false);
     tell_once(app);
+    // An update waiting for the window to close goes in now.
+    crate::update::install_when_hidden(app);
 }
 
 /// The first time the window is closed, the system says once that Scrawl goes on in the tray.
@@ -174,9 +224,13 @@ fn tell_once(app: &AppHandle) {
     let _ = app.notification().builder().title(&words.told_title).body(&words.told_body).show();
 }
 
-/// Brings the window back: shown, not minimized, in front.
+/// Brings the window back: shown, not minimized, in front. An update about to go in while it was
+/// hidden opens the new version with its window then.
 pub fn show(app: &AppHandle) {
     app.state::<Background>().hidden.store(false, Ordering::SeqCst);
+    if app.state::<Background>().shell.lock().unwrap().start_hidden_at != 0 {
+        mark_reopen_hidden(app, false);
+    }
     #[cfg(target_os = "macos")]
     let _ = app.set_dock_visibility(true);
     if let Some(window) = app.get_webview_window("main") {
@@ -347,14 +401,24 @@ mod tests {
     #[test]
     fn a_missing_shell_file_runs_in_the_background() {
         let shell: Shell = serde_json::from_str("{}").unwrap();
-        assert_eq!(shell, Shell { background: true, background_told: false, autostart_set: false });
+        assert_eq!(shell, Shell { background: true, background_told: false, autostart_set: false, start_hidden_at: 0 });
         // A file from the version before opening at login: it is turned on once.
         let off: Shell = serde_json::from_str(r#"{ "background": false, "backgroundTold": true }"#).unwrap();
-        assert_eq!(off, Shell { background: false, background_told: true, autostart_set: false });
+        assert_eq!(off, Shell { background: false, background_told: true, autostart_set: false, start_hidden_at: 0 });
         assert_eq!(
             serde_json::to_value(&off).unwrap(),
-            serde_json::json!({ "background": false, "backgroundTold": true, "autostartSet": false })
+            serde_json::json!({ "background": false, "backgroundTold": true, "autostartSet": false, "startHiddenAt": 0 })
         );
+    }
+
+    #[test]
+    fn only_a_fresh_update_opens_hidden() {
+        let at = 1_000_000_000;
+        assert!(reopening(at, at + 20_000));
+        assert!(!reopening(at, at + REOPEN_HIDDEN_MS));
+        assert!(!reopening(0, at));
+        // A clock set back since: not this start.
+        assert!(!reopening(at, at - 1));
     }
 
     #[test]
