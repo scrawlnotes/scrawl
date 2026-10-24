@@ -9,13 +9,14 @@ import { LABELS_FILE, parseLabels, serializeLabels, type SpaceLabel } from '../l
 import { RULES_FILE } from '../rules';
 import { mergeMe, parseMe, serializeMe } from '../me';
 import { mergePeople, parsePeople } from '../people';
+import { mergeQuickOrders, parseQuickOrder, QUICK_NOTES_FILE, serializeQuickOrder } from '../quick-notes';
 import { parseSpace, serializeSpace } from '../space';
 import { parseList, serializeList, type Task, type TaskEntry, type Section, TASK_LIST_EXT } from '../tasks';
 import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrder } from './merge-records';
 
 // Merging a file changed on both sides, by what kind of file it is. See design/sync.md, section 5.
 
-export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'favorites' | 'labels' | 'space' | 'me' | 'people' | 'agents' | 'trash';
+export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'favorites' | 'labels' | 'quickNotes' | 'space' | 'me' | 'people' | 'agents' | 'trash';
 
 const TRASH_INDEX = '.scrawl/trash/index.json';
 
@@ -30,6 +31,7 @@ export function mergeKindOf(path: string): MergeKind | null {
   if (lower === '.scrawl/filters.json') return 'filters';
   if (lower === FAVORITES_FILE) return 'favorites';
   if (lower === LABELS_FILE) return 'labels';
+  if (lower === QUICK_NOTES_FILE) return 'quickNotes';
   if (lower === '.scrawl/space.json') return 'space';
   if (lower === '.scrawl/me.json') return 'me';
   if (lower === '.scrawl/people.json') return 'people';
@@ -282,6 +284,7 @@ const MERGERS: Record<Exclude<MergeKind, 'text'>, (base: string, local: string, 
   filters: mergeFilterFile,
   favorites: mergeFavoritesFile,
   labels: mergeLabelsFile,
+  quickNotes: (base, local, remote) => serializeQuickOrder(mergeQuickOrders(parseQuickOrder(base), parseQuickOrder(local), parseQuickOrder(remote), mergeOrder)),
   space: (base, local, remote) => serializeSpace(mergeFields(parseSpace(base), parseSpace(local), parseSpace(remote))),
   me: (base, local, remote) => {
     const me = mergeMe(parseMe(base), parseMe(local), parseMe(remote), mergeFields);
@@ -299,6 +302,7 @@ const READERS: Record<Exclude<MergeKind, 'text'>, (text: string) => unknown> = {
   filters: parseFiltersFile,
   favorites: parseFavorites,
   labels: parseLabels,
+  quickNotes: parseQuickOrder,
   space: parseSpace,
   me: parseMe,
   people: parsePeople,

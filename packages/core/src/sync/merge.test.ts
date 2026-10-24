@@ -27,6 +27,7 @@ describe('which files merge', () => {
     expect(mergeKindOf('Scrawl/Roadmap.board.json')).toBe('board');
     expect(mergeKindOf('.scrawl/filters.json')).toBe('filters');
     expect(mergeKindOf('.scrawl/favorites.json')).toBe('favorites');
+    expect(mergeKindOf('.scrawl/quick-notes.json')).toBe('quickNotes');
     expect(mergeKindOf('.scrawl/space.json')).toBe('space');
     expect(mergeKindOf('.scrawl/trash/index.json')).toBe('trash');
     expect(mergeKindOf('_attachments/photo.png')).toBeNull();
@@ -230,6 +231,17 @@ describe('merging the files of a space', () => {
     const mine = favorites([{ item: 'Plan.md' }, { filter: 'p1' }, { label: 'bug', space: '@sp-abcdefgh' }]);
     const theirs = favorites([{ filter: 'p1' }, { item: 'Work.tasks.json' }]);
     expect(JSON.parse(merged('favorites', base, mine, theirs)).favorites).toEqual([{ filter: 'p1' }, { item: 'Work.tasks.json' }, { label: 'bug', space: '@sp-abcdefgh' }]);
+  });
+
+  it('merges the quick notes\' order from the side that reordered it, and a pin taken off on one side is off', () => {
+    const order = (names: string[], pinned: string[]) => `${JSON.stringify({ version: 1, order: names, pinned })}\n`;
+    const base = order(['c.md', 'b.md', 'a.md'], ['a.md', 'b.md']);
+    // Here a new note came first and b was unpinned; there a was dragged to the top.
+    const mine = order(['d.md', 'c.md', 'b.md', 'a.md'], ['a.md']);
+    const theirs = order(['a.md', 'c.md', 'b.md'], ['a.md', 'b.md']);
+    expect(JSON.parse(merged('quickNotes', base, mine, theirs))).toMatchObject({ order: ['d.md', 'a.md', 'c.md', 'b.md'], pinned: ['a.md'] });
+    // A note moved away on one side is out of the order.
+    expect(JSON.parse(merged('quickNotes', base, order(['c.md', 'a.md'], ['a.md', 'b.md']), theirs)).order).toEqual(['a.md', 'c.md']);
   });
 
   it('merges the settings of a space field by field', () => {

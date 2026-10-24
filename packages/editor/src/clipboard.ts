@@ -103,6 +103,28 @@ function write(event: ClipboardEvent, view: EditorView): Span[] | null {
   return ranges;
 }
 
+/**
+ * Puts a whole text on the clipboard as copying it from a note does: as it reads, as HTML, and its
+ * Markdown, for pasting back into a note. Called from a click: the page writes it as a copy.
+ */
+export function copyText(plain: string, markdown: string): boolean {
+  const write = (event: ClipboardEvent) => {
+    if (!event.clipboardData) return;
+    event.clipboardData.setData('text/plain', plain);
+    event.clipboardData.setData('text/html', renderHtml(markdown));
+    event.clipboardData.setData(MARKDOWN_TYPE, markdown);
+    event.preventDefault();
+  };
+  document.addEventListener('copy', write);
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    document.removeEventListener('copy', write);
+  }
+}
+
 export const clipboard: Extension = EditorView.domEventHandlers({
   copy: (event, view) => write(event, view) !== null,
   cut(event, view) {

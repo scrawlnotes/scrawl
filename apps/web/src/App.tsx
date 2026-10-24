@@ -82,6 +82,7 @@ import {
   type BoardLinks,
   type TrashItem,
   type TreeNode,
+  QUICK_NOTES,
   WELCOME_NOTE,
 } from '@scrawlnotes/core';
 import { type EditorStats, type EditorView, type LinkTap, sizeText } from '@scrawlnotes/editor';
@@ -151,6 +152,7 @@ import { folderLabel, setSpaceNames,
   nameOf,
   pathOf,
   pathTip,
+  QUICK,
   tabOf,
   tasksOf,
   TODAY,
@@ -158,6 +160,7 @@ import { folderLabel, setSpaceNames,
   FILES,
   UPCOMING,
 } from './items';
+import { type QuickActions, QuickNotes, QuickWindow } from './QuickNotes';
 import { choiceHref, type LinkChoice, linkChoices } from './linkChoices';
 import { addedCounts, counts as appCounts, NewAppDialog } from './AppWizard';
 import {
@@ -431,7 +434,7 @@ export function App() {
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const desktopUpdate = useDesktopUpdate();
-  const { ready, reading, folder, defaultFolder, me, tree, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, favorites, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, quick, quickOrder, quickSort, quickTexts, quickFormat, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, favorites, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -446,6 +449,8 @@ export function App() {
   // What the note on screen can link to, offered as a link's address is typed.
   const noteLinks = useMemo(() => (active && isNote(active) ? linkChoices(tree, active) : []), [tree, active]);
   const noteHref = (choice: LinkChoice) => choiceHref(active ?? '', choice);
+  // What a quick note can link to: the personal space's notes and items, from its folder.
+  const quickLinks = useMemo(() => linkChoices(tree, `${QUICK_NOTES}/.md`), [tree]);
   // The mode and the theme chosen on this device, and the shade the device itself is in, for System.
   const [mode, setMode] = useState<Mode>(loadMode);
   const [numbers, setNumbers] = useState<Numbers>(loadNumbers);
@@ -453,6 +458,8 @@ export function App() {
   const [sizes, setSizes] = useState(() => ({ phone: loadSize('phone'), computer: loadSize('computer') }));
   const [system, setSystem] = useState(systemShade);
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  /** The quick note open in its window in the middle; a new one has no path yet (design/quick-notes.md 3.4). */
+  const [quickWindow, setQuickWindow] = useState<{ path: string | null; made?: number } | null>(null);
   /** Labels, asked for from a picker: the space a path is in. On a phone it opens as a page. */
   const [labelsOpen, setLabelsOpen] = useState<string | null>(null);
   // The labels of each space, worked out once for each change of its tasks, its cards or its file.
@@ -556,13 +563,13 @@ export function App() {
       // known by what it types too.
       else if (event.code === 'Comma' || event.key === ',') setDialog({ kind: 'settings' });
       else if (event.code === 'KeyW' && active) void session.close(active);
-      else if (event.code === 'KeyT' && active && isNote(active)) startToTask();
+      else if (event.code === 'KeyT' && ((active && isNote(active)) || quickWindow)) startToTask();
       else return;
       event.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [session, active]);
+  }, [session, active, quickWindow]);
 
   useEffect(() => {
     if (!drawer) return;
@@ -2040,7 +2047,7 @@ export function App() {
   const cardDays = [...dueCards(boards).map((d) => d.card.due!), ...dueSubtasksNow.map((d) => d.subtask.due!)];
   const dueCardsNow = cardDays.filter((day) => day <= today).length;
   const dueLater = dueUpcoming(tasks, today).reduce((sum, d) => sum + d.tasks.length, 0) + cardDays.length - dueCardsNow;
-  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [UPCOMING]: dueLater, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts };
+  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow, [UPCOMING]: dueLater, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts, [QUICK]: quick.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;
@@ -2235,6 +2242,7 @@ export function App() {
       return counted(found.length, cards.length, found.filter((task) => late(task.due)).length + cards.filter((card) => late(card.due)).length);
     }
     if (active === FILTERS) return [t('count.filters', { count: filters.length }), t('count.labels', { count: labelGroups.reduce((sum, group) => sum + group.labels.length, 0) })];
+    if (active === QUICK) return [t('quick.statusCount', { count: quick.length })];
     if (active === TRASH) return [t('count.items', { count: trash.length })];
     return null;
   };
@@ -2259,6 +2267,52 @@ export function App() {
     const dir = collectionPathOf(id);
     if (dir !== null) return dir in collections;
     return id in tabTitles;
+  };
+
+  // The quick note being written, in Take a note… or in its window, has the note's format bar: it
+  // works on that editor while it is open (design/quick-notes.md 3.2, 3.4).
+  const quickBar = (
+    <FormatBar
+      format={quickFormat}
+      onFormat={(action) => session.format(action)}
+      onLink={(url, text) => session.setLink(url, text)}
+      linkChoices={quickLinks}
+      linkHref={(choice) => choiceHref(`${QUICK_NOTES}/.md`, choice)}
+      recording={recording}
+      recordError={recordError}
+      onRecord={() => void session.startRecording()}
+      onStop={() => session.stopRecording()}
+      onToTask={startToTask}
+      onToCard={startToCard}
+      toTaskKeys={keys('T')}
+      onImage={() => session.pickImage()}
+      onFind={() => session.openFind()}
+      onCallout={(at) => session.calloutMenu(at)}
+    />
+  );
+  const quickActions: QuickActions = {
+    open: (path, parent, onTitle, pinned) => session.openQuickNote(path, parent, onTitle, pinned),
+    close: (id) => session.closeQuickNote(id),
+    title: (text) => session.quickTitle(text),
+    pin: (path, on) => session.pinQuick(path, on),
+    sort: (sort) => session.sortQuick(sort),
+    order: (shown) => session.orderQuick(shown),
+    viewer: (path, parent, body) => session.openViewer(path, parent, body),
+    followLink: (path, href) => void session.followLink(path, href),
+    copy: (path) => session.copyQuick(path),
+    moveTo: (path) => {
+      setQuickWindow(null);
+      setDialog({ kind: 'move', path });
+    },
+    // The window, open or not, stays under it; a version restored goes into it.
+    history: (path) => setDialog({ kind: 'history', path }),
+    trash: (path) => {
+      setQuickWindow(null);
+      toTrash(session.trashQuick(path));
+    },
+    markdown: (on) => session.setQuickSource(on),
+    menu: (event, items) => openMenu(event, items),
+    say: (text) => setNotice(text),
   };
 
   // What is open: a note in the editor, or the view of a list, a board, a keys file, a collection,
@@ -2441,7 +2495,20 @@ export function App() {
       />
     )}
     {!phone && active === FILES && filesView}
-    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && !isDueView && !filterPageOn && active !== FILTERS && active !== TRASH && active !== FILES && active !== CHAT &&
+    {!phone && active === QUICK && (
+      <QuickNotes
+        notes={quick}
+        texts={quickTexts}
+        order={quickOrder}
+        sort={quickSort}
+        created={created}
+        open={quickWindow?.path ?? null}
+        bar={quickBar}
+        actions={quickActions}
+        onOpen={(path) => setQuickWindow({ path })}
+      />
+    )}
+    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && !isDueView && !filterPageOn && active !== FILTERS && active !== TRASH && active !== FILES && active !== CHAT && active !== QUICK &&
       (active ? (
         <section className="placeholder">
           <h1>{labelOf(active, tabTitles, filters)}</h1>
@@ -3079,6 +3146,18 @@ export function App() {
           </footer>
         </main>
         </>
+      )}
+
+      {/* Under every other window: To task, History and Move to open over it. */}
+      {quickWindow && !phone && (
+        <QuickWindow
+          key={quickWindow.path ?? `new:${quickWindow.made}`}
+          path={quickWindow.path}
+          modified={quickWindow.path ? quick.find((note) => note.path === quickWindow.path)?.modified : undefined}
+          bar={quickBar}
+          actions={quickActions}
+          onClose={() => setQuickWindow(null)}
+        />
       )}
 
       {showNew && phone && (

@@ -28,6 +28,7 @@ import { type FolderLook, sortedNodes } from './order';
 /** The order a folder's items are read in: by kind, the folders among them, then by name. The app puts them as each folder is set to show. */
 const READ_ORDER: FolderLook = { group: 'type', by: 'name', dir: 'asc', foldersFirst: false };
 import { freePath, moveTree, parseStamp, splitName, stamp } from './paths';
+import type { QuickSort } from './quick-notes';
 import { type Piece, PIECE_EXTS, pieceCount, pieceKindOf, pieceTitle, parsePiece, putBackCard, putBackTasks, serializePiece } from './pieces';
 import { awayAt, moveAway, readAway, removeAway } from './sync/away';
 import { keyOf } from './sync/paths';
@@ -116,6 +117,8 @@ export interface Workspace {
   welcomeClosed?: boolean;
   /** How the items of a folder are put in order, by its path; a space's top by its key, the personal one's by ''. */
   folders?: Record<string, FolderLook>;
+  /** How the quick notes are put in order on this device, when not by hand (design/quick-notes.md 2.3). */
+  quickSort?: Exclude<QuickSort, 'custom'>;
 }
 
 /**
@@ -1229,6 +1232,8 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
       collections,
       ...(data.welcomeClosed === true && { welcomeClosed: true }),
       ...(Object.keys(folders).length > 0 && { folders }),
+      // By hand is the default, and is not kept.
+      ...((data.quickSort === 'created' || data.quickSort === 'modified') && { quickSort: data.quickSort }),
     };
   } catch {
     return { tabs: [], active: null, boards: {}, keys: {}, collections: {} };

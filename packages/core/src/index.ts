@@ -33,6 +33,7 @@ export * from './vault';
 export * from './search';
 export * from './trashed';
 export * from './pieces';
+export * from './quick-notes';
 export * from './names';
 export * from './links';
 export * from './apps';

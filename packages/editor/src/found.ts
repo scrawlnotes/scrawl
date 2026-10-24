@@ -20,6 +20,16 @@ export const foundField = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 });
 
+/** Marks the words found at `spans`, where they are, without moving anything: in a card, as a search narrows the cards. */
+export function markFoundWords(view: EditorView, spans: [number, number][]) {
+  const length = view.state.doc.length;
+  const marks = spans
+    .map(([from, to]) => ({ from: Math.min(from, length), to: Math.min(to, length) }))
+    .filter((span) => span.to > span.from)
+    .sort((a, b) => a.from - b.from);
+  view.dispatch({ effects: markFound.of(marks) });
+}
+
 /** Marks the words found at `spans` in the note on screen, and brings the first of them into sight. */
 export function showFound(view: EditorView, spans: [number, number][]) {
   const length = view.state.doc.length;

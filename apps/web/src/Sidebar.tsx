@@ -5,7 +5,7 @@ import { LATEST_RELEASE } from './desktopUpdate';
 import { cutShort, useHoverTip } from './HoverTip';
 import { Icon, type IconName } from './Icon';
 import { Spin } from './Loading';
-import { CHAT, collectionTab, countItems, FILES, FILTERS, pathOf, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { CHAT, collectionTab, countItems, FILES, FILTERS, pathOf, QUICK, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { isDesktop } from './storage';
 import type { SpaceSyncView } from './sync';
@@ -797,6 +797,8 @@ export function Sidebar({
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
         {chat && viewRow(CHAT, <span>{t('chat.title')}</span>, 0)}
         {viewRow(FILTERS, <span>{t('filters.title')}</span>, 0)}
+        {/* Quick notes, with how many there are: they are in no folder (design/quick-notes.md 3.1). */}
+        {viewRow(QUICK, <span>{t('quick.title')}</span>, 0)}
         {favorites.length > 0 && <div className="grp">{t('favorites.title')}</div>}
         {favorites.map(favoriteRow)}
         {spaceRow(null, personalName)}

@@ -37,7 +37,7 @@ import {
   toggleList,
 } from './commands';
 import { findPanel } from './find';
-import { foundField } from './found';
+import { foundField, markFoundWords } from './found';
 import { attachmentChanges, widgetMoves } from './media';
 import { linkPaste } from './links';
 import { cursorBehavior } from './cursor';
@@ -51,7 +51,7 @@ import { CALLOUT_ICONS, setCallout } from './callout';
 import { calloutBlocks } from './calloutBlock';
 import { scrawlTheme } from './theme';
 
-export { clipboard, MARKDOWN_TYPE, markdownSlice, visibleText } from './clipboard';
+export { clipboard, copyText, MARKDOWN_TYPE, markdownSlice, visibleText } from './clipboard';
 export * from './commands';
 export { addCursorBelow, closeSearchPanel, openSearchPanel, redo, searchPanelOpen, selectNextOccurrence, selectSelectionMatches, undo };
 export { createEnvEditor, type EnvEditor } from './env';
@@ -228,12 +228,15 @@ function fileInput(addFiles: (files: File[], at: number) => void, pastedFiles?: 
 const markdownSupport = markdown({ base: markdownLanguage, codeLanguages: languages, pasteURLAsLink: false });
 
 export interface ScrawlViewer {
+  view: EditorView;
   /** Shows another text, from the top. */
   show(doc: string): void;
+  /** Marks words found in it, where they are; none takes the marks away. */
+  mark(spans: [number, number][]): void;
   destroy(): void;
 }
 
-/** A note as it reads in the editor, without editing: for looking at an earlier version. */
+/** A note as it reads in the editor, without editing: for looking at an earlier version, or on a quick note's card. */
 export function createViewer(options: LivePreviewOptions & { parent: HTMLElement; doc?: string }): ScrawlViewer {
   const extensions = [
     EditorState.readOnly.of(true),
@@ -243,14 +246,17 @@ export function createViewer(options: LivePreviewOptions & { parent: HTMLElement
     livePreview(options),
     tableGrid,
     calloutBlocks(),
+    foundField,
     scrawlTheme,
   ];
   const view = new EditorView({ parent: options.parent, state: EditorState.create({ doc: options.doc ?? '', extensions }) });
   return {
+    view,
     show(doc) {
       view.setState(EditorState.create({ doc, extensions }));
       view.scrollDOM.scrollTop = 0;
     },
+    mark: (spans) => markFoundWords(view, spans),
     destroy: () => view.destroy(),
   };
 }

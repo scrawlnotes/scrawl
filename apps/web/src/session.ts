@@ -276,6 +276,21 @@ import {
   serializeRecent,
   WELCOME_NOTE,
   welcomeThere,
+  addQuickNote,
+  basename,
+  dropQuickNote,
+  isQuickNote,
+  joinQuickNote,
+  loadQuickOrder,
+  pinQuickNote,
+  orderQuickNotes,
+  placeQuickNotes,
+  quickNotePath,
+  type QuickOrder,
+  type QuickSort,
+  saveQuickOrder,
+  splitQuickNote,
+  splitQuickTree,
 } from '@scrawlnotes/core';
 import {
   addCopy,
@@ -317,6 +332,7 @@ import {
   type LinkInfo,
   setLink,
   visibleText,
+  copyText,
   showCopy,
   showFound,
   toggleBold,
@@ -329,7 +345,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardPathOf, CHAT, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardPathOf, CHAT, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, QUICK, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
 import { JobQueue } from './jobs';
 import { type OpeningMeasure, openingMeasure, seconds } from './opening';
 import welcomeComputer from './welcome.md?raw';
@@ -442,8 +458,18 @@ export interface Snapshot {
   defaultFolder: string | null;
   /** Who the user is, from the personal space; null until the first start has asked. */
   me: Me | null;
-  /** The personal space's tree. */
+  /** The personal space's tree, its quick notes left out. */
   tree: TreeNode[];
+  /** The quick notes as the tree read them (design/quick-notes.md). */
+  quick: TreeNode[];
+  /** Their order by hand and the pinned ones, by file name. */
+  quickOrder: QuickOrder;
+  /** How they are put in order on this device. */
+  quickSort: QuickSort;
+  /** What each quick note says, by its path; read once Quick notes is shown. */
+  quickTexts: Record<string, string>;
+  /** Formatting at the cursor in the quick note's window; null while none is open. */
+  quickFormat: FormatState | null;
   /** The spaces beside the personal one, in the sidebar's order, each with its tree. */
   spaces: SpaceView[];
   tabs: string[];
@@ -674,7 +700,7 @@ function titlesOf(nodes: TreeNode[], out: Record<string, string> = {}): Record<s
 
 const RECENT = 'scrawl.recent';
 /** The views over everything: on screen, but not something opened, so not in Recent. */
-const VIEWS = new Set([TODAY, UPCOMING, TRASH, FILES, CHAT]);
+const VIEWS = new Set([TODAY, UPCOMING, TRASH, FILES, CHAT, QUICK]);
 
 /** The start page's Recent as this device kept it. */
 function loadRecent(): Seen[] {
@@ -710,6 +736,29 @@ function freshenAll(collections: Record<string, Collection>): Record<string, Col
   return out;
 }
 
+/** A quick note open in its window: what it holds, and whether it was written yet. */
+interface QuickOpen {
+  /** Which opening of a window this is: a window closes its own. */
+  id: number;
+  path: string;
+  title: string;
+  editor: ScrawlEditor;
+  /** Made in this window: there was no file when it opened. */
+  fresh: boolean;
+  /** Its file is written: it had something in it once. */
+  made: boolean;
+  pinned: boolean;
+  onTitle: (title: string) => void;
+}
+
+/** What the quick note's window shows of the note it opened. */
+export interface QuickOpened {
+  id: number;
+  path: string;
+  title: string;
+  pinned: boolean;
+}
+
 /**
  * The open vault and its editor: which notes are open, what is unsaved, and every action the
  * interface offers. React renders from `getSnapshot` and calls the methods.
@@ -722,6 +771,11 @@ export class Session {
     defaultFolder: null,
     me: null,
     tree: [],
+    quick: [],
+    quickOrder: { order: [], pinned: [] },
+    quickSort: 'custom',
+    quickTexts: {},
+    quickFormat: null,
     spaces: [],
     tabs: [],
     active: null,
@@ -873,6 +927,7 @@ export class Session {
     const welcomeHere = await welcomeThere(this.personal);
     const filters = (keptConnection() === null && (await addPresetFilters(this.personal).catch(() => null))) || (await loadFilters(this.personal));
     const favorites = await loadFavorites(this.personal);
+    const quickOrder = await loadQuickOrder(this.personal);
     const space = await loadSpace(this.personal);
     // Nothing is asked at the first start: the name and the email wait for a space where others see them.
     const me = await startMe(this.personal, this.snapshot.me);
@@ -932,6 +987,10 @@ export class Session {
       defaultFolder: defaultVaultFolder(),
       me,
       tree: [],
+      quick: [],
+      quickOrder,
+      quickSort: workspace.quickSort ?? 'custom',
+      quickTexts: {},
       spaces,
       titles: {},
       tabs,
@@ -1215,12 +1274,16 @@ export class Session {
     o.dirty = false;
     const now = this.snapshot;
     const patch: Partial<Snapshot> = {};
-    if (o.changed.has(PERSONAL)) patch.tree = treeOfRead(o.reads.get(PERSONAL)!);
+    if (o.changed.has(PERSONAL)) {
+      const { tree, notes } = splitQuickTree(treeOfRead(o.reads.get(PERSONAL)!));
+      patch.tree = tree;
+      patch.quick = notes;
+    }
     if ([...o.changed].some((key) => key !== PERSONAL)) {
       patch.spaces = now.spaces.map((view) => (o.changed.has(view.id) && o.reads.has(view.id) ? { ...view, tree: prefixTree(treeOfRead(o.reads.get(view.id)!), view.id) } : view));
     }
     if (patch.tree || patch.spaces) {
-      const everything = [...(patch.tree ?? now.tree), ...(patch.spaces ?? now.spaces).flatMap((view) => view.tree)];
+      const everything = [...(patch.tree ?? now.tree), ...(patch.quick ?? now.quick), ...(patch.spaces ?? now.spaces).flatMap((view) => view.tree)];
       // A note being typed keeps the title it has now.
       const typed = Object.fromEntries([...this.pending.keys()].filter((path) => path in now.titles).map((path) => [path, now.titles[path]!]));
       patch.titles = { ...o.early, ...titlesOf(everything), ...typed };
@@ -1244,6 +1307,7 @@ export class Session {
     o.finished.clear();
     if (finished.length > 0) patch.reading = new Set([...now.reading].filter((key) => !finished.includes(key)));
     this.set(patch);
+    if (patch.quick) void this.readQuickTexts();
     for (const key of finished) void this.closeGoneTabs(key);
   }
 
@@ -1699,6 +1763,7 @@ export class Session {
       ...[...this.states].filter(([path]) => mine(path)).map(([, state]) => state.doc.toString()),
       // With no note on screen the editor holds the last one shown, which may be gone.
       ...(this.editor && this.snapshot.active && isNote(this.snapshot.active) && mine(this.onScreen) ? [this.editor.view.state.doc.toString()] : []),
+      ...(this.quick && mine(this.quick.path) ? [this.quickText(this.quick)] : []),
     ];
   }
 
@@ -1791,6 +1856,7 @@ export class Session {
 
   /** Puts text merged in from the file into the open note, the cursor staying where it was. */
   private showMerged(path: string, saved: string, merged: string) {
+    if (this.quick?.path === path) return this.mergeIntoQuick(this.quick, saved, merged);
     const view = path === this.snapshot.active ? this.editor?.view : undefined;
     const state = view?.state ?? this.states.get(path);
     if (!state) return;
@@ -1910,10 +1976,11 @@ export class Session {
     return moveHistory(source.fs, source.local, target.local).catch(() => undefined);
   }
 
-  /** The text of an open note as it is now, saved or not. */
+  /** The text of an open note as it is now, saved or not; of a quick note, as Quick notes read it. */
   textOf(path: string): string {
+    if (this.quick?.path === path) return this.quickText(this.quick);
     const state = path === this.snapshot.active ? this.editor?.view.state : this.states.get(path);
-    return state?.doc.toString() ?? this.disk.get(path) ?? '';
+    return state?.doc.toString() ?? this.pending.get(path) ?? this.disk.get(path) ?? this.snapshot.quickTexts[path] ?? '';
   }
 
   /** An address the browser can play or show a file attached at `home` from. */
@@ -2098,8 +2165,8 @@ export class Session {
       }
       return;
     }
-    const view = this.editor?.view;
-    if (view && this.snapshot.active === path) {
+    const view = this.viewOf(path);
+    if (view) {
       const spec = make(view.state);
       if (spec) view.dispatch(spec);
       return;
@@ -2126,10 +2193,10 @@ export class Session {
     }
   }
 
-  /** Records from the microphone into the note on screen, until `stopRecording`. */
+  /** Records from the microphone into the note on screen, or the quick note in its window, until `stopRecording`. */
   async startRecording() {
-    const note = this.snapshot.active;
-    if (this.recorder || !note || !isNote(note)) return;
+    const note = this.typing()?.note;
+    if (this.recorder || !note) return;
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -2171,8 +2238,8 @@ export class Session {
    * at the end of the note, also when its tab was closed meanwhile.
    */
   private async insertInto(path: string, markdown: string) {
-    const view = this.editor?.view;
-    if (view && this.snapshot.active === path) {
+    const view = this.viewOf(path);
+    if (view) {
       const line = view.state.doc.lineAt(view.state.selection.main.head);
       const insert = (line.length > 0 ? '\n' : '') + markdown;
       view.dispatch({
@@ -2232,6 +2299,7 @@ export class Session {
    * note has now is kept as a version first.
    */
   async restoreVersion(path: string, text: string) {
+    if (isQuickNote(path)) return this.restoreQuickVersion(path, text);
     await this.open(path);
     const view = this.editor?.view;
     if (!view || this.snapshot.active !== path) return;
@@ -2282,6 +2350,7 @@ export class Session {
       collections: Object.fromEntries(Object.entries(collectionLooks).filter(([path]) => there(path, collections))),
       ...(this.welcomeClosed && { welcomeClosed: true }),
       ...(Object.keys(folderLooks).length > 0 && { folders: folderLooks }),
+      ...(this.snapshot.quickSort !== 'custom' && { quickSort: this.snapshot.quickSort }),
     });
   }
 
@@ -2578,7 +2647,7 @@ export class Session {
     const parent = this.parent!;
     await this.flush();
     this.dispose();
-    this.set({ tabs: [], tree: [], titles: {} });
+    this.set({ tabs: [], tree: [], quick: [], quickTexts: {}, titles: {} });
     await this.start(parent);
   }
 
@@ -2710,7 +2779,8 @@ export class Session {
     await this.settle();
     const edits = new Map(this.edits);
     const before = this.snapshot;
-    const tree = reads(PERSONAL) ? await this.treeOf(this.personal) : before.tree;
+    const { tree, notes: quick } = reads(PERSONAL) ? splitQuickTree(await this.treeOf(this.personal)) : { tree: before.tree, notes: before.quick };
+    const quickOrder = reads(PERSONAL) ? await loadQuickOrder(this.personal) : before.quickOrder;
     const views = await this.spaceViews(reads);
     const readNodes = [...(reads(PERSONAL) ? tree : []), ...views.filter((view) => reads(view.id)).flatMap((view) => view.tree)];
     const read = await this.readLists(readNodes, reads(PERSONAL));
@@ -2726,11 +2796,15 @@ export class Session {
       ...Object.fromEntries(Object.entries(shown).filter(([path]) => !mine(path))),
       ...Object.fromEntries(Object.entries(got).map(([path, value]) => [path, path in shown && this.edits.get(path) !== edits.get(path) ? shown[path]! : value])),
     });
-    const everything = [...tree, ...views.flatMap((view) => view.tree)];
+    const everything = [...tree, ...quick, ...views.flatMap((view) => view.tree)];
+    // A quick note being typed keeps the title it has now.
+    const typed = Object.fromEntries([...this.pending.keys()].filter((path) => path in now.titles).map((path) => [path, now.titles[path]!]));
     this.set({
       tree,
+      quick,
+      quickOrder,
       spaces: views,
-      titles: titlesOf(everything),
+      titles: { ...titlesOf(everything), ...typed },
       tasks: fresh(read.tasks, now.tasks),
       sections: fresh(read.sections, now.sections),
       boards: fresh(read.boards, now.boards),
@@ -2742,6 +2816,7 @@ export class Session {
       labels,
       space,
     });
+    if (reads(PERSONAL)) void this.readQuickTexts();
     await this.recountFiles();
     // Times of things made on other devices come with their files, and what they carry with the personal space's.
     void this.readCreatedTimes();
@@ -3374,9 +3449,9 @@ export class Session {
    * line the cursor is on. Its first line is the title, the rest the description.
    */
   taskFromNote(): { note: string; title: string; description: string } | null {
-    const view = this.editor?.view;
-    const note = this.snapshot.active;
-    if (!view || !note || !isNote(note)) return null;
+    const typing = this.typing();
+    if (!typing) return null;
+    const { view, note } = typing;
     const { state } = view;
     const { main } = state.selection;
     const line = state.doc.lineAt(main.head);
@@ -3431,6 +3506,251 @@ export class Session {
     this.set({ favorites, saved: false });
     this.taskWrites = this.taskWrites
       .then(() => saveFavorites(this.personal, favorites))
+      .catch(() => undefined)
+      .then(() => this.markSaved());
+  }
+
+  // ---------- quick notes (design/quick-notes.md) ----------
+
+  /** The quick note open in its window, with its own editor; the format bar, recording and To task work on it while it is open. */
+  private quick: QuickOpen | null = null;
+  private quickOpens = 0;
+  /** Paths given to new quick notes and not written yet, lowercased: two made in one second differ. */
+  private readonly quickTaken = new Set<string>();
+  /** What each quick note said when it was last read, with when its file was written then. */
+  private readonly quickRead = new Map<string, { modified: number | undefined; text: string }>();
+  private quickReads: Promise<void> = Promise.resolve();
+
+  /** Reads what the quick notes say, those changed since they were read; one being typed says what is typed. */
+  private readQuickTexts(): Promise<void> {
+    this.quickReads = this.quickReads.then(async () => {
+      const texts: Record<string, string> = {};
+      await Promise.all(
+        this.snapshot.quick.map(async (node) => {
+          const typed = this.quick?.path === node.path ? this.quickText(this.quick) : this.pending.get(node.path);
+          if (typed !== undefined) return void (texts[node.path] = typed);
+          const kept = this.quickRead.get(node.path);
+          if (kept && kept.modified !== undefined && kept.modified === node.modified) return void (texts[node.path] = kept.text);
+          const text = await this.personal.readText(node.path).catch(() => null);
+          if (text === null) return;
+          this.quickRead.set(node.path, { modified: node.modified, text });
+          texts[node.path] = text;
+        }),
+      );
+      for (const path of this.quickRead.keys()) if (!(path in texts)) this.quickRead.delete(path);
+      // A note written here in the meantime shows what was written.
+      this.set({ quickTexts: { ...texts, ...Object.fromEntries(Object.entries(this.snapshot.quickTexts).filter(([path]) => this.pending.has(path) || this.quick?.path === path)) } });
+    });
+    return this.quickReads;
+  }
+
+  /** What a quick note open in its window says now: its title and its body, as its file has them. */
+  private quickText(quick: QuickOpen): string {
+    return joinQuickNote(quick.title, quick.editor.view.state.doc.toString());
+  }
+
+  /**
+   * Opens a quick note in its window, or a new one when `path` is null: its title for the window's
+   * field, its body in an editor in `parent`, wired as the note editor is. A new one is written,
+   * and goes at the top of the order, once something is in it. `onTitle` hears the title change
+   * from elsewhere: a merge, a version restored.
+   */
+  async openQuickNote(path: string | null, parent: HTMLElement, onTitle: (title: string) => void, pinned = false): Promise<QuickOpened> {
+    if (this.quick) await this.closeQuickNote(this.quick.id);
+    const id = ++this.quickOpens;
+    const fresh = path === null;
+    const at = path ?? (await quickNotePath(this.personal, new Date(), this.quickTaken));
+    if (fresh) this.quickTaken.add(at.toLowerCase());
+    let text = this.pending.get(at);
+    if (text === undefined && !fresh) {
+      text = await this.personal.readText(at).catch(() => '');
+      this.disk.set(at, text);
+    }
+    const { title, body } = splitQuickNote(text ?? '');
+    const quick: QuickOpen = { id, path: at, title, fresh, made: !fresh, pinned: fresh ? pinned : this.snapshot.quickOrder.pinned.includes(basename(at)), onTitle, editor: null! };
+    this.quick = quick;
+    const hint = document.createElement('span');
+    hint.textContent = t('quick.takeNote');
+    quick.editor = createEditor({
+      parent,
+      doc: body,
+      ...this.filesOf(() => at),
+      addFiles: (files, pos) => void this.copyFiles(quick.editor.view, at, files, pos),
+      pastedFiles: isDesktop ? clipboardFilesOnDesktop : undefined,
+      onEmptyPaste: () => this.say?.(t('editor.pasteNothing')),
+      // The editor reports as soon as it exists, before it is kept here.
+      onStats: () => quick.editor && this.quick === quick && this.set({ quickFormat: formatState(quick.editor.view.state) }),
+      onChange: () => this.quickChanged(quick),
+      showMenu: (pos, items, about) => this.showMenu?.(pos, items, about),
+      touch: this.touch,
+      onLinkTap: this.touch ? (link) => this.tapped(at, link) : undefined,
+      placeholder: () => hint,
+      onAttachments: (removed, added) => this.attachmentsChanged(at, removed, added),
+      record: () => void this.startRecording(),
+    });
+    this.set({ quickFormat: formatState(quick.editor.view.state) });
+    // It opens to be written in: the cursor at the end of what it says.
+    if (this.focusOnOpen) {
+      quick.editor.view.dispatch({ selection: { anchor: body.length } });
+      quick.editor.view.focus();
+    }
+    return { id, path: at, title, pinned: quick.pinned };
+  }
+
+  /** A quick note's whole text on the clipboard, the one in its window as it is now: as it reads, as HTML, and its Markdown. */
+  copyQuick(path: string): boolean {
+    const quick = this.quick?.path === path ? this.quick : null;
+    const text = quick ? this.quickText(quick) : this.textOf(path);
+    const { title, body } = splitQuickNote(text);
+    const read = quick ? visibleText(quick.editor.view.state, 0, quick.editor.view.state.doc.length, true) : body;
+    return copyText(title ? `${title}${read ? `\n\n${read}` : ''}` : read, text);
+  }
+
+  /** The quick note in its window as plain Markdown, or formatted again. */
+  setQuickSource(on: boolean) {
+    this.quick?.editor.setSourceMode(on);
+    this.quick?.editor.view.focus();
+  }
+
+  /** The title typed in the quick note's window. */
+  quickTitle(title: string) {
+    if (!this.quick) return;
+    this.quick.title = title;
+    this.quickChanged(this.quick);
+  }
+
+  /** The quick note in its window changed: it is written a moment after, as a note is; a new one once it has something in it. */
+  private quickChanged(quick: QuickOpen) {
+    if (this.quick !== quick || this.external) return;
+    const text = this.quickText(quick);
+    if (!quick.made) {
+      if (text.trim() === '') return;
+      quick.made = true;
+      // The order is written as the notes show now, so that a new one is on top of those not placed
+      // yet too, as one made on another device.
+      const { quick: notes, quickOrder, created } = this.snapshot;
+      const shown = orderQuickNotes(notes.map((node) => node.path), quickOrder, 'custom', { created: (path) => created[path.toLowerCase()] });
+      this.writeQuickOrder(addQuickNote(placeQuickNotes(quickOrder, [...shown.pinned, ...shown.others]), basename(quick.path), quick.pinned));
+      void this.madeNow([quick.path], new Date());
+    }
+    this.queueSave(quick.path, text);
+    this.set({ quickTexts: { ...this.snapshot.quickTexts, [quick.path]: text } });
+  }
+
+  /** Text merged in from the file of the quick note in its window: its title and its body take it, the cursor staying where it was. */
+  private mergeIntoQuick(quick: QuickOpen, saved: string, merged: string) {
+    const current = this.quickText(quick);
+    const next = current === saved ? merged : mergeText(saved, current, merged).text;
+    if (next === current) return;
+    const { title, body } = splitQuickNote(next);
+    if (title !== quick.title) {
+      quick.title = title;
+      quick.onTitle(title);
+    }
+    const view = quick.editor.view;
+    const was = view.state.doc.toString();
+    if (body !== was) {
+      this.external = true;
+      try {
+        view.dispatch({ changes: changeBetween(was, body) });
+      } finally {
+        this.external = false;
+      }
+    }
+    if (this.pending.has(quick.path)) this.pending.set(quick.path, next);
+    this.set({ quickTexts: { ...this.snapshot.quickTexts, [quick.path]: next } });
+  }
+
+  /**
+   * Closes the quick note's window `id` opened, writing what is in it. With nothing in it, a new
+   * one leaves nothing behind and one emptied goes to the trash, as Keep lets an empty note go.
+   */
+  async closeQuickNote(id: number) {
+    const quick = this.quick;
+    if (!quick || quick.id !== id) return;
+    const text = this.quickText(quick);
+    this.quick = null;
+    this.quickTaken.delete(quick.path.toLowerCase());
+    quick.editor.destroy();
+    this.set({ quickFormat: null });
+    if (text.trim() === '') {
+      const { [quick.path]: _gone, ...texts } = this.snapshot.quickTexts;
+      this.set({ quickTexts: texts });
+      if (!quick.made) return;
+      if (quick.fresh) {
+        this.pending.delete(quick.path);
+        await this.personal.remove(quick.path).catch(() => undefined);
+        this.writeQuickOrder(dropQuickNote(this.snapshot.quickOrder, basename(quick.path)));
+        return void this.refreshTree(null);
+      }
+      await this.flush();
+      return this.trash(quick.path);
+    }
+    await this.flush();
+    // A new one is shown at once; the tree brings when its file was written.
+    if (!this.snapshot.quick.some((node) => node.path === quick.path)) {
+      this.set({ quick: [{ name: basename(quick.path), path: quick.path, kind: 'note', title: displayTitle(quick.path, text) }, ...this.snapshot.quick] });
+    }
+    void this.refreshTree(null);
+  }
+
+  /** A quick note pinned, or not; a new one in its window is pinned as it is written. */
+  pinQuick(path: string, on: boolean) {
+    if (this.quick?.path === path && !this.quick.made) {
+      this.quick.pinned = on;
+      return;
+    }
+    if (this.quick?.path === path) this.quick.pinned = on;
+    this.writeQuickOrder(pinQuickNote(this.snapshot.quickOrder, basename(path), on));
+  }
+
+  /** How the quick notes are put in order on this device. */
+  sortQuick(sort: QuickSort) {
+    this.set({ quickSort: sort });
+    this.saveWorkspace();
+  }
+
+  /** The quick notes' order by hand after one was dragged: all of them as they show, pinned ones first. */
+  orderQuick(shown: string[]) {
+    this.writeQuickOrder(placeQuickNotes(this.snapshot.quickOrder, shown));
+  }
+
+  /** A quick note to the trash, without asking; what is returned puts it back where it was in the order, which keeps it. */
+  async trashQuick(path: string): Promise<() => Promise<void>> {
+    await this.trash(path);
+    const item = this.snapshot.trash.find((each) => each.from === path);
+    return async () => {
+      if (item) await this.restore(item);
+    };
+  }
+
+  /** An earlier version of a quick note put back: into its window when it is open, else into its file; the text it has now is kept as a version first. */
+  private async restoreQuickVersion(path: string, text: string) {
+    const quick = this.quick?.path === path ? this.quick : null;
+    await this.keep(path, quick ? this.quickText(quick) : await this.personal.readText(path).catch(() => ''), true);
+    const restored = await restoreAttachments(this.personal, [text]).catch(() => []);
+    if (restored.length) {
+      this.forgetMedia(restored);
+      await this.freshTrash();
+    }
+    if (quick && this.quick === quick) {
+      const { title, body } = splitQuickNote(text);
+      quick.title = title;
+      quick.onTitle(title);
+      const view = quick.editor.view;
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: body }, selection: { anchor: 0 }, userEvent: 'input.restore' });
+      this.quickChanged(quick);
+      return;
+    }
+    this.queueSave(path, text);
+    await this.flush();
+    this.set({ quickTexts: { ...this.snapshot.quickTexts, [path]: text } });
+  }
+
+  private writeQuickOrder(order: QuickOrder) {
+    this.set({ quickOrder: order, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(() => saveQuickOrder(this.personal, order))
       .catch(() => undefined)
       .then(() => this.markSaved());
   }
@@ -4768,26 +5088,43 @@ export class Session {
     return null;
   }
 
-  format(action: FormatAction) {
+  /**
+   * The editor the format bar, recording and To task work on, with the note it holds: the quick
+   * note's window while one is open, else the note on screen; null with neither.
+   */
+  private typing(): { view: EditorView; note: string; format: boolean } | null {
+    if (this.quick) return { view: this.quick.editor.view, note: this.quick.path, format: this.snapshot.quickFormat !== null };
     const view = this.editor?.view;
-    if (!view || !this.snapshot.format) return;
-    formatCommands[action](view);
-    view.focus();
+    const note = this.snapshot.active;
+    return view && note && isNote(note) ? { view, note, format: this.snapshot.format !== null } : null;
+  }
+
+  /** The editor a note is in now: the quick note's window, or the note on screen; none for a note not shown. */
+  private viewOf(path: string): EditorView | undefined {
+    if (this.quick?.path === path) return this.quick.editor.view;
+    return this.snapshot.active === path ? this.editor?.view : undefined;
+  }
+
+  format(action: FormatAction) {
+    const typing = this.typing();
+    if (!typing?.format) return;
+    formatCommands[action](typing.view);
+    typing.view.focus();
   }
 
   /** The format bar's Callout: the five kinds, and Remove callout in one, in the menu a callout's title opens. */
   calloutMenu(at: { x: number; y: number }) {
-    const view = this.editor?.view;
-    if (!view || !this.snapshot.format) return;
-    this.showMenu?.(at, calloutActions(view, undefined, !this.touch || view.hasFocus));
+    const typing = this.typing();
+    if (!typing?.format) return;
+    this.showMenu?.(at, calloutActions(typing.view, undefined, !this.touch || typing.view.hasFocus));
   }
 
   /** Links what is selected, or changes or takes away the link at the cursor; with nothing selected, `text` is put as the link's text. On a phone the keyboard stays as it was. */
   setLink(url: string, text?: string) {
-    const view = this.editor?.view;
-    if (!view || !this.snapshot.format) return;
-    setLink(url, text)(view);
-    if (this.focusOnOpen) view.focus();
+    const typing = this.typing();
+    if (!typing?.format) return;
+    setLink(url, text)(typing.view);
+    if (this.focusOnOpen) typing.view.focus();
   }
 
   setSource(source: boolean) {
@@ -4816,26 +5153,27 @@ export class Session {
 
   /** Find and replace in the note on screen. */
   openFind() {
-    const view = this.editor?.view;
-    if (view && this.snapshot.format) openSearchPanel(view);
+    const typing = this.typing();
+    if (typing?.format) openSearchPanel(typing.view);
   }
 
   closeFind() {
-    const view = this.editor?.view;
+    const view = this.typing()?.view;
     if (view && searchPanelOpen(view.state)) closeSearchPanel(view);
   }
 
-  /** An image from the device, put in the note on screen at the cursor. */
+  /** An image from the device, put in the note on screen, or the quick note in its window, at the cursor. */
   pickImage() {
-    const view = this.editor?.view;
-    if (!view || !this.snapshot.format) return;
+    const typing = this.typing();
+    if (!typing?.format) return;
+    const { view, note } = typing;
     const at = view.state.selection.main.head;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
     input.addEventListener('change', () => {
       const file = input.files?.[0];
-      if (file) this.addFiles([file], at);
+      if (file) void this.copyFiles(this.quick?.path === note ? view : note, note, [file], at);
     });
     input.click();
   }

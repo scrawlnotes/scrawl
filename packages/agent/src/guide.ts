@@ -95,6 +95,8 @@ A note is markdown. A note that was never named is called after its first line. 
 
 A callout, a box for a note, a tip or a warning, is GitHub's: a quote whose first line is only its kind, \`> [!NOTE]\`, \`> [!TIP]\`, \`> [!IMPORTANT]\`, \`> [!WARNING]\` or \`> [!CAUTION]\`, and its text on the lines after, each starting \`> \`, with a blank line before the next paragraph. The app draws these five in their colours; any other kind, a title beside the kind, or one inside a list stays a plain quote.
 
+Quick notes are a few lines each that the person sees as cards in the app, in their personal space only: notes in its \`Quick notes\` folder. To add one, \`create\` a note there; its title, if it has one, is its first line as a heading, \`# Building manager\`, and what it says comes after a blank line. They are read and changed as any note is.
+
 To change a part of a note, \`write\` with \`edits\`, not the whole note: each \`find\` copied from the note as it is, there once (give more of the text around it when it is there more often, or \`all: true\` for every place), with its \`replace\`. A long note is written a piece at a time: \`write\` its start with \`text\`, then each piece after with \`append\`. It is read a piece at a time too: \`read\` gives \`lineCount\`, \`read\` with \`lines: { from, to }\` gives those lines, and \`search\` gives the line a word is on as \`lineNo\`.
 
 ## Task lists

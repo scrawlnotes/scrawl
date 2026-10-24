@@ -14,6 +14,8 @@ export const FILTERS = 'view:filters';
 export const NEW_FILTER = 'view:new-filter';
 /** Chat: the conversations of every server with messaging, and the one open (design/chat.md, 8.1). */
 export const CHAT = 'view:chat';
+/** Quick notes: a few lines each, as cards (design/quick-notes.md). */
+export const QUICK = 'view:quick';
 const TASKS = 'tasks:';
 const BOARD = 'board:';
 const KEYS = 'keys:';
@@ -202,6 +204,7 @@ export function iconOf(id: string): IconName {
   if (id === TRASH) return 'trash';
   if (id === FILES) return 'clip';
   if (id === CHAT) return 'chat';
+  if (id === QUICK) return 'quick';
   if (id.startsWith(COLLECTION)) return 'collection';
   if (id.startsWith(FILTER) || id === FILTERS || id === NEW_FILTER) return 'filter';
   if (id.startsWith(LABEL)) return 'tag';
@@ -224,6 +227,7 @@ export function labelOf(id: string, titles: Record<string, string>, filters: Tas
   if (id === TRASH) return t('side.trash');
   if (id === FILES) return t('side.files');
   if (id === CHAT) return t('chat.title');
+  if (id === QUICK) return t('quick.title');
   const list = listOf(id);
   if (list !== null) return listLabel(list);
   const board = boardPathOf(id);

@@ -124,6 +124,20 @@ const shapes = {
     </>
   ),
   filter: <path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />,
+  // A quick note: a card with its corner turned, as a sticky note's (design/quick-notes.md).
+  quick: (
+    <>
+      <path d="M5 4.5h14v10l-5 5H5z" />
+      <path d="M14 19.5v-5h5" />
+      <path d="M8.5 9h7M8.5 12.5h4" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M9 3.5h6M10 3.5l-.6 6.2L6.5 13v1.5h11V13l-2.9-3.3-.6-6.2" />
+      <path d="M12 14.5v6" />
+    </>
+  ),
   star: <path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z" />,
   /** A star filled in: what is in Favorites. */
   starOn: <path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z" fill="currentColor" />,
