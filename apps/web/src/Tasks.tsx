@@ -91,13 +91,14 @@ import { holdToDrag, pressOnField } from './touchDrag';
 /** A task in its list, or a card on its board: something with a day to move. */
 /**
  * A description as a row shows it: its text without the images and files in it, which are
- * counted instead, for a clip beside the task.
+ * counted instead, for a clip beside the task; a link by its words, as the description reads.
  */
 export function rowDescription(text: string | undefined): { text: string; files: number } {
   if (!text) return { text: '', files: 0 };
   const files = filesIn(text);
   let plain = text;
   for (const file of files) plain = dropFile(plain, file);
+  plain = plain.replace(/(?<!\\)!?\[([^\]]*)\]\((?:[^()\s]|\([^()\s]*\))*(?:\s+"[^"]*")?\)/g, '$1');
   return { text: plain.trim(), files: files.size };
 }
 
