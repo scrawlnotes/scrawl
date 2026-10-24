@@ -37,9 +37,10 @@ export function hueOf(id: string): number {
   return Math.abs(hash) % 6;
 }
 
-export function Face({ id, name, size = 'md', online = false }: { id: string; name: string; size?: 'sm' | 'xs' | 'md' | 'lg'; online?: boolean }) {
+/** A person's round face with their initial; an agent's is a square (design/chat.md, 9). */
+export function Face({ id, name, size = 'md', online = false, agent = false }: { id: string; name: string; size?: 'sm' | 'xs' | 'md' | 'lg'; online?: boolean; agent?: boolean }) {
   return (
-    <span className={`ch-face ${size} h${hueOf(id)}`} aria-hidden="true">
+    <span className={`ch-face ${size} ${agent ? 'ag' : `h${hueOf(id)}`}`} aria-hidden="true">
       {(name.trim()[0] ?? '?').toUpperCase()}
       {online && <i />}
     </span>

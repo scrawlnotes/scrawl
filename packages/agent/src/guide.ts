@@ -66,6 +66,8 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 | Remove a note, list, board, folder or collection | \`trash\` with its path or name |
 | Remove one task, card or record, or a section with its tasks | \`trash\` with the list, board or collection as \`path\` and \`id\`, or \`section\`; what is finished is closed instead, not trashed |
 | Say what you did on a card | \`comment\` |
+| On a Scrawl server: see the conversations and what is unread, read a room or a direct message, find a message | \`messages\` |
+| On a Scrawl server: write in a room or to a person | \`send_message\` |
 
 Not yours: restoring from the trash, seeing a note's versions, attached files, settings and people. Ask the person for those.
 
@@ -158,6 +160,16 @@ To add templates to an app, give its folder as \`folder\`; an app that keeps no 
 ## Who did what
 
 Every change you make is written with your name and the person's ("Claude Code · Kaan") on card timelines and in the server's history. Assign a card or a task to a person by their name as the space knows them, as \`spaces\` lists them; a first or a last name is enough when only one person has it. In a space with people, a name that is none of them is refused; in the personal space a name is kept as it is written.
+
+## Messages
+
+On a Scrawl server the people of a space talk in rooms (\`#general\`, \`#dev\`) and in direct messages. \`messages\` reads them as the person sees them; \`send_message\` writes as you, under your own name with the person's after it. A computer's Scrawl has no messages.
+
+- Reading marks nothing read: what the person has not read stays unread for them.
+- Write when something is done that someone is waiting for, saying where it is ("The release notes are in Releases/0.3"), or to ask what you cannot find out yourself. Do not write that you are starting, nor what a card's comment already says, nor an answer to every message.
+- Write where it belongs: a room's matter in its room, a question for one person to them. Mention someone with \`@Name\` when they need to see it; \`@room\` only when everyone does.
+- Answer a message with \`replyTo\`, so the answer quotes it.
+- A message is words, in Markdown: no files. Put a file in a space, and write where it is.
 `;
 
 /** The guide up to how a space is laid out: how to behave, what each tool is for, a call cut off. Sent as the server's instructions. */

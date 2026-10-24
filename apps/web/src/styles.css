@@ -15771,6 +15771,23 @@ button.st-li:hover,
   font: 600 12.5px/1 var(--sl-font-ui);
 }
 
+/* an agent's face: a square, in the accent */
+.ch-face.ag {
+  --fc: var(--sl-accent);
+  border-radius: 8px;
+  color: var(--sl-accent);
+}
+
+.ch-face.sm.ag,
+.ch-face.xs.ag {
+  border-radius: 4px;
+}
+
+.ch-m .hd .of {
+  color: var(--sl-faint);
+  font-weight: 400;
+}
+
 .ch-face.h0 { --fc: #6aa5f0; }
 .ch-face.h1 { --fc: #4cc3a0; }
 .ch-face.h2 { --fc: #c792ea; }

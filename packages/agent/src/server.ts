@@ -1,6 +1,7 @@
 import { McpServer, type ServerContext } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { cardsTool, commentTool, MAX_ITEMS, saveCardTool } from './cards';
+import { messagesTool, sendMessageTool } from './chat';
 import { BRIEF, GUIDE } from './guide';
 import { readTool, searchTool, spacesTool, treeTool } from './read';
 import { dueRecordsTool, recordsTool, saveRecordTool } from './records';
@@ -11,8 +12,9 @@ import { saveTaskTool, tasksTool } from './tasks';
 import { trashTool } from './trash';
 import { createTool, writeTool } from './write';
 
-// The MCP server: the fifteen tools and the guide, over whatever spaces a door gives it. The
-// same server runs over stdio on a computer and over HTTP on a Scrawl server. See design/agent.md.
+// The MCP server: the fifteen tools and the guide, over whatever spaces a door gives it, and on a
+// Scrawl server the two of messaging. The same server runs over stdio on a computer and over HTTP
+// on a Scrawl server. See design/agent.md and design/chat.md, 9.
 
 export const VERSION = '0.1.0';
 
@@ -65,6 +67,45 @@ export function buildServer(agent: Agent): McpServer {
       await meet(agent, client(ctx), done.data.space);
       return done;
     });
+
+  // Messaging, where the door has it: a Scrawl server's conversations.
+  if (agent.chat) {
+    server.registerTool(
+      'messages',
+      {
+        title: 'Messages',
+        description:
+          'The conversations of the Scrawl server: rooms and direct messages, as the person sees them. With nothing given, every conversation with how many messages the person has not read. With `in`, a conversation’s latest messages (`limit`, 30 when left out), or the first ones since a day (`since`). With `query`, `from` or `has`, the messages found, the newest first, everywhere or in `in` only. Each message has who wrote it, when, its Markdown, what it answers and its files’ names, types and sizes. Reading marks nothing read.',
+        inputSchema: z.object({
+          in: z.string().optional().describe('A conversation: a room by name (#dev or dev), a person for your direct message with them, or its id.'),
+          space: z.string().optional().describe('The space of the room `in` names, when more than one space has a room by that name.'),
+          query: z.string().optional().describe('Words to find: each where a word starts, with or without accents.'),
+          from: z.string().optional().describe('Who wrote it, by name; "me" for the person.'),
+          has: z.enum(['photos', 'files', 'voice', 'code', 'links']).optional(),
+          since: z.string().optional().describe('A day as YYYY-MM-DD: what was written that day and after.'),
+          limit: z.number().int().min(1).max(100).optional(),
+        }),
+        annotations: { readOnlyHint: true },
+      },
+      (args) => answer(() => messagesTool(agent, args)),
+    );
+
+    server.registerTool(
+      'send_message',
+      {
+        title: 'Send a message',
+        description:
+          'Writes a message, as you, in a room or to a person: their direct message, opened when there is none. Markdown; @Name mentions someone in the conversation and @room everyone in a room. `replyTo` answers a message, quoting it. Words only: no files. Write when something is done that someone waits for, or to ask what you cannot find out; see the guide’s Messages.',
+        inputSchema: z.object({
+          to: z.string().describe('A room by name (#dev or dev), a person by name, or a conversation’s id.'),
+          text: z.string().describe('The message, Markdown.'),
+          replyTo: z.string().optional().describe('The id of the message it answers, from messages.'),
+          space: z.string().optional().describe('The space of the room `to` names, when more than one space has a room by that name.'),
+        }),
+      },
+      (args, ctx) => writing(ctx, () => sendMessageTool(agent, args, client(ctx))),
+    );
+  }
 
   server.registerResource('guide', 'scrawl://guide', { title: 'Scrawl guide', description: 'How a Scrawl space is laid out, what each file holds, and how an agent behaves in it. The spaces tool returns it too.', mimeType: 'text/markdown' }, async (uri) => ({
     contents: [{ uri: uri.href, mimeType: 'text/markdown', text: GUIDE }],

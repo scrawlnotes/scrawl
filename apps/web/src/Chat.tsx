@@ -840,6 +840,8 @@ function MessageRow(props: {
   const press = usePress(props.onHold, props.onSwipe);
   const quote = message.replyTo && props.quoted ? { ...message.replyTo, text: props.quoted.body, file: props.quoted.files[0]?.type ?? null, deleted: props.quoted.deleted !== null } : message.replyTo;
   const name = nameOf(message.author);
+  // An agent's message is the agent's, with its person after it: "Claude Code (Laptop) · Kaan".
+  const agent = message.agent ? message.agentName || t('chat.agent') : null;
   const html = useMemo(() => {
     const body = messageHtml(message.body);
     if (!message.edited) return body;
@@ -863,11 +865,14 @@ function MessageRow(props: {
           <Icon name="reply" />
         </span>
       )}
-      {cont ? <span className="tm">{timeOf(message.at)}</span> : <Face id={message.author} name={name} />}
+      {cont ? <span className="tm">{timeOf(message.at)}</span> : <Face id={message.agent ?? message.author} name={agent ?? name} agent={!!agent} />}
       <div className="bx">
         {!cont && (
           <div className="hd">
-            <b>{name}</b>
+            <b>
+              {agent ?? name}
+              {agent && <span className="of"> · {name}</span>}
+            </b>
             <span className="t">{timeOf(message.at)}</span>
           </div>
         )}

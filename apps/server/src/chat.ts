@@ -43,6 +43,8 @@ export interface Message {
   author: string;
   /** The agent that wrote it for its author, when one did. */
   agent: string | null;
+  /** That agent's name as its person calls it: "Claude Code (Laptop)". */
+  agentName: string | null;
   body: string;
   mentions: string[];
   mentionsRoom: boolean;
@@ -536,9 +538,10 @@ export class Chats {
       this.writeFiles(messageId, files);
       this.writeMentions(messageId, mentions);
       this.index(messageId);
-      // Who wrote it has read up to it; a hidden direct message comes back to everyone in it.
+      // Who wrote it has read up to it, unless their agent wrote it: an agent reads nothing for them
+      // (design/chat.md, 9). A hidden direct message comes back to everyone in it.
       this.enter(chat.id, by.id, by.id, rev);
-      this.db.prepare('UPDATE chat_members SET read_seq = MAX(read_seq, ?), rev = ? WHERE chat_id = ? AND account_id = ?').run(seq, rev, chat.id, by.id);
+      if (agent === null) this.db.prepare('UPDATE chat_members SET read_seq = MAX(read_seq, ?), rev = ? WHERE chat_id = ? AND account_id = ?').run(seq, rev, chat.id, by.id);
       if (chat.kind === 'direct') this.db.prepare('UPDATE chat_members SET hidden = 0, rev = ? WHERE chat_id = ? AND hidden = 1').run(rev, chat.id);
       return this.messageRow(messageId)!;
     });
@@ -666,73 +669,22 @@ export class Chats {
    */
   exportOf(account: string, id: string, timeZone: string): { name: string; entries: ExportEntry[] } {
     const chat = this.see(id, account);
-    const zone = validZone(timeZone);
-    const rows = this.db.prepare('SELECT * FROM messages WHERE chat_id = ? ORDER BY seq').all(chat.id) as unknown as MessageRow[];
-    const names = new Map<string, string>();
-    const nameOf = (account: string) => {
-      if (!names.has(account)) {
-        const row = this.db.prepare('SELECT name, email FROM accounts WHERE id = ?').get(account) as { name: string; email: string } | undefined;
-        names.set(account, row ? row.name || row.email : 'Someone');
-      }
-      return names.get(account)!;
-    };
-    const agents = new Map<string, string>();
-    const agentOf = (agent: string) => {
-      if (!agents.has(agent)) agents.set(agent, (this.db.prepare('SELECT name FROM agent_identities WHERE id = ?').get(agent) as { name: string } | undefined)?.name ?? 'Agent');
-      return agents.get(agent)!;
-    };
-    const title = chat.kind === 'direct' ? this.listeners(chat).filter((each) => each !== account).map(nameOf).join(', ') : `#${chat.name}`;
-    const month = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit' });
-    const monthName = new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: 'long' });
-    const day = new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const time = new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit' });
-    const files = this.filesOf(rows.filter((row) => row.deleted_at === null).map((row) => row.id));
-    const attached = new Map<string, ExportEntry>();
-    const months = new Map<string, { lines: string[]; day: string; at: number }>();
-    const byId = new Map(rows.map((row) => [row.id, row]));
-    for (const row of rows) {
-      const key = month.format(row.created_at).slice(0, 7);
-      let part = months.get(key);
-      if (!part) {
-        part = { lines: [`# ${title} · ${monthName.format(row.created_at)}`, ''], day: '', at: row.created_at };
-        if (chat.topic) part.lines.push(chat.topic, '');
-        months.set(key, part);
-      }
-      part.at = row.created_at;
-      const today = day.format(row.created_at);
-      if (today !== part.day) {
-        part.day = today;
-        part.lines.push(`## ${today}`, '');
-      }
-      const by = row.agent_id ? `${agentOf(row.agent_id)} · ${nameOf(row.author_id)}` : nameOf(row.author_id);
-      part.lines.push(`**${by}** ${time.format(row.created_at)}${row.edited_at && !row.deleted_at ? ' (edited)' : ''}`);
-      if (row.deleted_at) {
-        part.lines.push('*This message was deleted.*', '');
-        continue;
-      }
-      if (row.reply_to) {
-        const source = byId.get(row.reply_to);
-        if (!source || source.deleted_at) part.lines.push('> Message deleted', '');
-        else part.lines.push(`> **${nameOf(source.author_id)}** ${plainOf(source.body).slice(0, 200) || 'A file'}`, '');
-      }
-      if (row.forward_from) {
-        const from = JSON.parse(row.forward_from) as { kind: ChatKind; name: string; authorName: string };
-        part.lines.push(`*Forwarded from ${from.kind === 'direct' ? 'a direct message' : `#${from.name}`} · ${from.authorName}*`);
-      }
-      if (row.body.trim()) part.lines.push(textOf(row.body));
-      for (const file of files.get(row.id) ?? []) {
-        let entry = attached.get(file.hash);
-        if (!entry) {
-          entry = { name: `_attachments/${file.hash.slice(0, 8)}-${safeName(file.name || 'file')}`, hash: file.hash, at: row.created_at };
-          attached.set(file.hash, entry);
-        }
-        const link = encodeURI(entry.name);
-        part.lines.push(file.type.startsWith('image/') ? `![${file.name}](${link})` : `[${file.name || 'File'}](${link})`);
-      }
-      part.lines.push('');
+    const title = chat.kind === 'direct' ? this.listeners(chat).filter((each) => each !== account).map((each) => this.nameOf(each)).join(', ') : `#${chat.name}`;
+    const kept = new Map<string, ExportEntry>();
+    const entries = transcriptOf(this.db, chat, title, timeZone, { folder: '_attachments', link: '_attachments', kept });
+    return { name: safeName(chat.kind === 'direct' ? title : chat.name) || 'conversation', entries: [...entries, ...kept.values()] };
+  }
+
+  /** A conversation's latest messages, or the first ones written since a time; the oldest first: what an agent reads (design/chat.md, 9). */
+  recent(account: string, id: string, query: { since?: number; limit: number }): { messages: Message[]; more: boolean } {
+    const chat = this.see(id, account);
+    const limit = Math.min(MAX_PAGE, Math.max(1, Math.floor(query.limit)));
+    if (query.since !== undefined) {
+      const rows = this.db.prepare('SELECT * FROM messages WHERE chat_id = ? AND created_at >= ? ORDER BY seq LIMIT ?').all(chat.id, query.since, limit + 1) as unknown as MessageRow[];
+      return { messages: this.messagesOf(rows.slice(0, limit)), more: rows.length > limit };
     }
-    const entries: ExportEntry[] = [...months].map(([key, part]) => ({ name: `${key}.md`, text: part.lines.join('\n'), at: part.at }));
-    return { name: safeName(chat.kind === 'direct' ? title : chat.name) || 'conversation', entries: [...entries, ...attached.values()] };
+    const rows = this.db.prepare('SELECT * FROM messages WHERE chat_id = ? ORDER BY seq DESC LIMIT ?').all(chat.id, limit + 1) as unknown as MessageRow[];
+    return { messages: this.messagesOf(rows.slice(0, limit).reverse()), more: rows.length > limit };
   }
 
   // ---------- search ----------
@@ -1085,11 +1037,7 @@ export class Chats {
   }
 
   private filesOf(ids: string[]): Map<string, ChatFile[]> {
-    const map = new Map<string, ChatFile[]>();
-    if (!ids.length) return map;
-    const rows = this.db.prepare(`SELECT * FROM message_files WHERE message_id IN (${marks(ids.length)}) ORDER BY message_id, n`).all(...ids) as unknown as FileRow[];
-    for (const row of rows) map.set(row.message_id, [...(map.get(row.message_id) ?? []), fileOf(row)]);
-    return map;
+    return filesIn(this.db, ids);
   }
 
   /** Messages as the app reads them, with their files, mentions, reactions and the quote of what they answer. */
@@ -1109,6 +1057,11 @@ export class Chats {
       else list.push({ emoji: row.emoji, people: [row.account_id] });
       reactions.set(row.message_id, list);
     }
+    // An agent's message carries its name, as the person calls it (design/chat.md, 9).
+    const agentIds = [...new Set(rows.map((row) => row.agent_id).filter((each): each is string => each !== null))];
+    const agentNames = new Map(
+      agentIds.length ? (this.db.prepare(`SELECT id, name FROM agent_identities WHERE id IN (${marks(agentIds.length)})`).all(...agentIds) as { id: string; name: string }[]).map((row) => [row.id, row.name]) : [],
+    );
     const quoted = [...new Set(rows.map((row) => row.reply_to).filter((each): each is string => each !== null))];
     const quotes = new Map<string, Message['replyTo']>();
     if (quoted.length) {
@@ -1125,6 +1078,7 @@ export class Chats {
       seq: row.seq,
       author: row.author_id,
       agent: row.agent_id,
+      agentName: row.agent_id === null ? null : (agentNames.get(row.agent_id) ?? 'Agent'),
       body: row.body,
       mentions: mentions.get(row.id) ?? [],
       mentionsRoom: row.mentions_room === 1,
@@ -1190,6 +1144,86 @@ export class Chats {
       manage: chat.kind !== 'direct' && (chat.created_by === account || this.managesSpace(chat.space_id!, account)),
     };
   }
+}
+
+/**
+ * A conversation as Markdown, a file a month (design/chat.md, 10): day headings, each message
+ * under who wrote it and when, a reply with its quote, a forward with where it came from, and its
+ * files as links. A file is kept once in `attachments.kept`, under `attachments.folder`, which a
+ * month's file reaches as `attachments.link`. What Export… gives, and the server's export of a
+ * space under Chat/; it only reads.
+ */
+export function transcriptOf(db: Db, chat: { id: string; topic: string }, title: string, timeZone: string, attachments: { folder: string; link: string; kept: Map<string, ExportEntry> }): ExportEntry[] {
+  const zone = validZone(timeZone);
+  const rows = db.prepare('SELECT * FROM messages WHERE chat_id = ? ORDER BY seq').all(chat.id) as unknown as MessageRow[];
+  const names = new Map<string, string>();
+  const nameOf = (account: string) => {
+    if (!names.has(account)) {
+      const row = db.prepare('SELECT name, email FROM accounts WHERE id = ?').get(account) as { name: string; email: string } | undefined;
+      names.set(account, row ? row.name || row.email : 'Someone');
+    }
+    return names.get(account)!;
+  };
+  const agents = new Map<string, string>();
+  const agentOf = (agent: string) => {
+    if (!agents.has(agent)) agents.set(agent, (db.prepare('SELECT name FROM agent_identities WHERE id = ?').get(agent) as { name: string } | undefined)?.name ?? 'Agent');
+    return agents.get(agent)!;
+  };
+  const month = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit' });
+  const monthName = new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: 'long' });
+  const day = new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const time = new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit' });
+  const files = filesIn(db, rows.filter((row) => row.deleted_at === null).map((row) => row.id));
+  const months = new Map<string, { lines: string[]; day: string; at: number }>();
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  for (const row of rows) {
+    const key = month.format(row.created_at).slice(0, 7);
+    let part = months.get(key);
+    if (!part) {
+      part = { lines: [`# ${title} · ${monthName.format(row.created_at)}`, ''], day: '', at: row.created_at };
+      if (chat.topic) part.lines.push(chat.topic, '');
+      months.set(key, part);
+    }
+    part.at = row.created_at;
+    const today = day.format(row.created_at);
+    if (today !== part.day) {
+      part.day = today;
+      part.lines.push(`## ${today}`, '');
+    }
+    const by = row.agent_id ? `${agentOf(row.agent_id)} · ${nameOf(row.author_id)}` : nameOf(row.author_id);
+    part.lines.push(`**${by}** ${time.format(row.created_at)}${row.edited_at && !row.deleted_at ? ' (edited)' : ''}`);
+    if (row.deleted_at) {
+      part.lines.push('*This message was deleted.*', '');
+      continue;
+    }
+    if (row.reply_to) {
+      const source = byId.get(row.reply_to);
+      if (!source || source.deleted_at) part.lines.push('> Message deleted', '');
+      else part.lines.push(`> **${nameOf(source.author_id)}** ${plainOf(source.body).slice(0, 200) || 'A file'}`, '');
+    }
+    if (row.forward_from) {
+      const from = JSON.parse(row.forward_from) as { kind: ChatKind; name: string; authorName: string };
+      part.lines.push(`*Forwarded from ${from.kind === 'direct' ? 'a direct message' : `#${from.name}`} · ${from.authorName}*`);
+    }
+    if (row.body.trim()) part.lines.push(textOf(row.body));
+    for (const file of files.get(row.id) ?? []) {
+      const stored = `${file.hash.slice(0, 8)}-${safeName(file.name || 'file')}`;
+      if (!attachments.kept.has(file.hash)) attachments.kept.set(file.hash, { name: `${attachments.folder}/${stored}`, hash: file.hash, at: row.created_at });
+      const link = encodeURI(`${attachments.link}/${stored}`);
+      part.lines.push(file.type.startsWith('image/') ? `![${file.name}](${link})` : `[${file.name || 'File'}](${link})`);
+    }
+    part.lines.push('');
+  }
+  return [...months].map(([key, part]) => ({ name: `${key}.md`, text: part.lines.join('\n'), at: part.at }));
+}
+
+/** The files of messages, in their order, by message. */
+function filesIn(db: Db, ids: string[]): Map<string, ChatFile[]> {
+  const map = new Map<string, ChatFile[]>();
+  if (!ids.length) return map;
+  const rows = db.prepare(`SELECT * FROM message_files WHERE message_id IN (${marks(ids.length)}) ORDER BY message_id, n`).all(...ids) as unknown as FileRow[];
+  for (const row of rows) map.set(row.message_id, [...(map.get(row.message_id) ?? []), fileOf(row)]);
+  return map;
 }
 
 /** A file's row as the app reads it. */

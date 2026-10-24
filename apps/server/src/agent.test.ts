@@ -251,7 +251,8 @@ describe('working through /mcp', () => {
     const socket: LiveSocket = { account: PERSON, device: 'laptop', send: (text) => heard.push(text), close: () => undefined };
     s.server.live.add(socket);
     const client = await mcp(s, access);
-    expect((await client.listTools()).tools.length).toBe(15);
+    // The fifteen, and messages and send_message: a server has messaging.
+    expect((await client.listTools()).tools.length).toBe(17);
     expect(client.getInstructions()).toContain('## What each tool is for');
     expect(((await client.callTool({ name: 'spaces', arguments: {} })).content as { text: string }[])[0]!.text).toContain('# Scrawl for agents');
     const made =await client.callTool({ name: 'create', arguments: { kind: 'board', name: 'Scrawl', template: 'software' } });
@@ -407,5 +408,68 @@ describe('working through /mcp', () => {
     expect(refused.isError).toBe(true);
     await agent.close();
     expect(done.code).toBeTruthy();
+  });
+});
+
+describe('messages', () => {
+  it('reads the person’s conversations without marking them read, finds a message, and writes as the agent', async () => {
+    const s = start();
+    const kaan = await owner(s);
+    await s.account(kaan).setTimeZone('Europe/Istanbul');
+    const { link } = await s.account(kaan).invite(SPACE);
+    const { token: mert } = await s.account().accept(link.split('/').pop()!, { name: 'Mert Kaya', email: 'mert@example.com', password: 'a long password', person: 'person-mert', device: 'Phone' });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const call = async (token: string, method: string, path: string, body?: unknown): Promise<any> =>
+      (
+        await s.server.app.request(`${URL_}/api/v1${path}`, {
+          method,
+          headers: { Authorization: `Bearer ${token}`, ...(body !== undefined && { 'Content-Type': 'application/json' }) },
+          ...(body !== undefined && { body: JSON.stringify(body) }),
+        })
+      ).json();
+    let made = 0;
+    const say = (token: string, chat: string, body: string) => call(token, 'POST', `/chat/${chat}/messages`, { id: `m-agent-${++made}`, body });
+    const general = ((await call(kaan, 'GET', '/chat')).chats as { id: string; general: boolean }[]).find((chat) => chat.general)!;
+    await say(mert, general.id, 'The release notes are late');
+    s.later(60_000);
+    const asked = await say(mert, general.id, 'Can someone write the **release notes**?');
+    const { access } = await connect(s);
+    const client = await mcp(s, access);
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(['messages', 'send_message']));
+    const call_ = async (name: string, args: { [key: string]: unknown }) => {
+      const result = await client.callTool({ name, arguments: args });
+      return { error: result.isError === true, data: result.structuredContent as { [key: string]: unknown } };
+    };
+
+    // The conversations, with what Kaan has not read.
+    const listed = await call_('messages', {});
+    expect(listed.data.conversations).toEqual([{ id: general.id, name: '#general', kind: 'public', space: 'Acme', unread: 2, last: '2026-10-15 13:01' }]);
+    // A room's latest messages, in Istanbul's time; reading them marks nothing read.
+    const read = await call_('messages', { in: 'general', limit: 1 });
+    expect(read.data).toEqual({ in: '#general', space: 'Acme', messages: [{ id: asked.id, at: '2026-10-15 13:01', from: 'Mert Kaya', text: 'Can someone write the **release notes**?' }], more: 'There are older ones: ask with since' });
+    expect(((await call(kaan, 'GET', '/chat')).chats as { unread: number }[])[0]!.unread).toBe(2);
+    // Found by a word, without its accent's care, and by who wrote it.
+    expect(((await call_('messages', { query: 'NOTES', from: 'Mert' })).data.messages as { text: string; in: string }[]).map((each) => [each.in, each.text])).toEqual([
+      ['#general', 'Can someone write the **release notes**?'],
+      ['#general', 'The release notes are late'],
+    ]);
+    expect((await call_('messages', { in: 'random' })).error).toBe(true);
+
+    // An answer in the room, quoting the question, Mert mentioned; then a direct message to him, opened by his name.
+    const sent = await call_('send_message', { to: '#general', text: 'Done, @Mert: they are in Releases/0.3.', replyTo: asked.id });
+    expect(sent.data).toMatchObject({ sent: { in: '#general', at: '2026-10-15 13:01' }, space: SPACE });
+    const [answer] = (await call(mert, 'GET', `/chat/${general.id}/messages?limit=1`)).messages as { body: string; author: string; agent: string; agentName: string; replyTo: { id: string }; mentions: string[] }[];
+    expect(answer).toMatchObject({ body: 'Done, [@Mert Kaya](scrawl:person/person-mert): they are in Releases/0.3.', author: PERSON, agentName: 'Test agent', replyTo: { id: asked.id }, mentions: ['person-mert'] });
+    expect(answer!.agent).toMatch(new RegExp(`^${PERSON}:[0-9a-f]{8}$`));
+    // Writing is not reading: what Kaan had not read stays unread, and his agent's message is his own, never unread.
+    expect(((await call(kaan, 'GET', '/chat')).chats as { unread: number }[])[0]!.unread).toBe(2);
+
+    const direct = await call_('send_message', { to: 'Mert Kaya', text: 'Also, the changelog needs a date.' });
+    expect(direct.data).toMatchObject({ sent: { in: 'Mert Kaya' } });
+    const mine = ((await call(mert, 'GET', '/chat')).chats as { kind: string; unread: number; last: { body: string; agentName: string } }[]).find((chat) => chat.kind === 'direct')!;
+    expect(mine).toMatchObject({ unread: 1, last: { body: 'Also, the changelog needs a date.', agentName: 'Test agent' } });
+    expect((await call_('messages', { in: 'Mert' })).data).toMatchObject({ in: 'Mert Kaya', messages: [{ from: 'Test agent · Kaan Arslan', text: 'Also, the changelog needs a date.' }] });
+    expect((await call_('send_message', { to: 'Nobody', text: 'Hello' })).error).toBe(true);
+    await client.close();
   });
 });

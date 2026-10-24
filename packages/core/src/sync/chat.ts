@@ -30,6 +30,8 @@ export interface ChatMessage {
   seq: number;
   author: string;
   agent: string | null;
+  /** The agent's name as its person calls it, "Claude Code (Laptop)"; a server from before leaves it out. */
+  agentName?: string | null;
   body: string;
   mentions: string[];
   mentionsRoom: boolean;

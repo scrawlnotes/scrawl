@@ -27,6 +27,7 @@ import {
   wallClock,
   withAgent,
 } from '@scrawlnotes/core';
+import type { AgentChat } from './chat';
 import { Refusal } from './paths';
 
 // The agent's view of what it may reach: spaces, each a file system of its own, and finding things
@@ -71,6 +72,8 @@ export interface Agent {
    * asks. Null when the door does not know whose agent it is, or it is not made yet.
    */
   self?: (client: Client, make?: boolean) => Promise<AgentRow | null>;
+  /** The person's conversations, on a Scrawl server (design/chat.md, 9); a computer has none. */
+  chat?: AgentChat;
 }
 
 /** The client that is calling, as it names itself: "Claude Code", "Claude", "ChatGPT", "Cursor". */

@@ -1,10 +1,12 @@
+import { randomUUID } from 'node:crypto';
 import { type AuthInfo, createMcpHandler, OAuthError, OAuthErrorCode, requireBearerAuth } from '@modelcontextprotocol/server';
-import { type Agent, buildServer } from '@scrawlnotes/agent';
+import { type Agent, type AgentChat, type AgentConversation, type AgentMessage, buildServer } from '@scrawlnotes/agent';
 import { type Context, type Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { ServerFs } from './agentfs';
 import type { Parts } from './app';
 import { type Account, Refused } from './auth';
+import type { ChatInfo, Message } from './chat';
 import { OAuthRefused, SCOPE } from './oauth';
 import { authorizePage, oauthErrorPage } from './pages';
 import { VERSION } from './config';
@@ -22,7 +24,7 @@ function stringsOf(data: { [key: string]: unknown }): { [key: string]: string | 
 }
 
 export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context) => string) {
-  const { config, oauth, accounts, spaces, files, blobs, live } = parts;
+  const { config, oauth, accounts, spaces, files, blobs, live, chats } = parts;
   const now = parts.now;
   const host = new URL(config.url).host;
   const open = cors({ origin: '*', allowHeaders: ['Authorization', 'Content-Type', 'Accept', 'Mcp-Protocol-Version', 'Mcp-Session-Id'], allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'], exposeHeaders: ['WWW-Authenticate', 'Mcp-Session-Id'], maxAge: 86400 });
@@ -129,6 +131,57 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
     expectedResource: new URL(oauth.resource),
   });
 
+  /**
+   * The person's conversations, for an agent (design/chat.md, 9): as the person sees them, read
+   * without marking anything read, written as the person with the agent's identity on each message.
+   */
+  const chatOf = (account: Account): AgentChat => {
+    /** Everyone the person shares a space with, and themselves. */
+    const people = () => {
+      const found = new Map<string, string>([[account.id, account.name || account.email]]);
+      for (const space of spaces.of(account.id)) for (const member of spaces.members(space.id)) found.set(member.id, member.name || member.email);
+      return found;
+    };
+    const conversation = (chat: ChatInfo): AgentConversation => {
+      const others = chat.members.filter((person) => person.id !== account.id);
+      return {
+        id: chat.id,
+        name: chat.kind === 'public' ? `#${chat.name}` : chat.kind === 'private' ? chat.name : others.map((person) => person.name).join(', ') || account.name,
+        kind: chat.kind,
+        space: chat.space ? { id: chat.space, name: chat.spaceName } : null,
+        people: chat.kind === 'direct' ? others : chat.members,
+        unread: chat.unread,
+        last: chat.last?.at ?? null,
+        archived: chat.archived !== null,
+      };
+    };
+    const message = (names: Map<string, string>) => (row: Message): AgentMessage => ({
+      id: row.id,
+      chat: row.chat,
+      at: row.at,
+      author: names.get(row.author) ?? 'Someone',
+      agent: row.agentName,
+      text: row.body,
+      replyTo: row.replyTo && { id: row.replyTo.id, author: names.get(row.replyTo.author) ?? 'Someone', text: row.replyTo.deleted ? '' : row.replyTo.text },
+      forwarded: row.forwarded && `${row.forwarded.kind === 'direct' ? 'a direct message' : `#${row.forwarded.name}`} · ${row.forwarded.authorName}`,
+      files: row.files.map((file) => ({ name: file.name, type: file.type, size: file.size })),
+      reactions: row.reactions.map((reaction) => ({ emoji: reaction.emoji, count: reaction.people.length })),
+      edited: row.edited !== null,
+      deleted: row.deleted !== null,
+    });
+    return {
+      conversations: async () => chats.list(account.id).filter((chat) => !chat.hidden || chat.unread > 0).map(conversation),
+      messages: async (chat, query) => {
+        const page = chats.recent(account.id, chat, query);
+        return { messages: page.messages.map(message(people())), more: page.more };
+      },
+      search: async (query) => chats.search(account.id, query).messages.map(message(people())),
+      send: async (chat, body, replyTo, agent) => message(people())(chats.send(account, chat, { id: `m-${randomUUID()}`, body, replyTo }, agent)),
+      direct: async (people) => conversation(chats.direct(account, people)),
+      people: async () => [...people()].filter(([id]) => id !== account.id).map(([id, name]) => ({ id, name })),
+    };
+  };
+
   /** The spaces and the person an agent works on, for one request: those of the account the token is for. */
   const agentOf = (account: Account, device: string, clientId: string, clientName: string): Agent => {
     const timeZone = accounts.timeZoneOf(account.id);
@@ -156,6 +209,7 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
         const identity = make ? oauth.identity(account.id, clientId, name) : oauth.findIdentity(account.id, clientId);
         return identity && { ...identity, client: name, ...(account.name && { owner: account.name }) };
       },
+      chat: chatOf(account),
     };
   };
 

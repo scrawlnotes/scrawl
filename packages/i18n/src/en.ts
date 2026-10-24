@@ -2827,4 +2827,6 @@ export const en = {
   'search.messages': 'Messages',
   'search.kind.message': 'Message',
   'search.messagesMore': 'More in Messages',
+  // An agent's message (design/chat.md, 9).
+  'chat.agent': 'Agent',
 } as const;
