@@ -4,6 +4,7 @@ import {
   indexPath,
   saveSchema,
   columnSum,
+  columnSums,
   type Condition,
   evaluateFormula,
   type Field,
@@ -26,7 +27,9 @@ import {
   isComplete,
   linkFieldsTo,
   linkGone,
+  type LinkedBlock,
   linkedRecords,
+  linkedSort,
   linkedValues,
   linkingCollections,
   newRecordId,
@@ -647,6 +650,10 @@ describe('formulas, conditions, groups and sums', () => {
     expect(columnSum(records, schema, 'total', today)).toBe(231.5);
     expect(columnSum(records, schema, 'qty', today)).toBe(6);
     expect(columnSum(records, schema, 'status', today)).toBeNull();
+    // A percent does not add up: its column has no sum.
+    const share = { ...schema, fields: [...schema.fields, { key: 'share', label: 'Share', type: 'formula' as const, formula: 'qty / 10', format: { style: 'percent' as const } }] };
+    expect(columnSum(records, share, 'share', today)).toBeNull();
+    expect(columnSums(records, share, 'share', today)).toBeNull();
     expect(sortRecords(records, schema, { key: 'total', dir: 'desc' }, today).map((r) => r.name)).toEqual(['Globex', 'Acme', 'Initech']);
   });
 
@@ -713,5 +720,19 @@ describe('linked records as a table', () => {
       ['Workout', ['Row: ad', 'Chest: b']],
     ]);
     expect(groupLinked(records, schema, [], '2026-10-24')).toEqual([{ key: '', label: '', records }]);
+  });
+
+  it('sorts a linked list or table newest first by a day, with dir', () => {
+    const block = { block: 'linked', collection: 'Gym/Workout items', style: 'table', sort: 'day', dir: 'desc' };
+    const read = parseSchema(JSON.stringify({ version: 2, fields: [{ key: 'name', type: 'name' }], layout: { columns: [{ sections: [{ items: [block, { block: 'linked', collection: 'X', dir: 'desc' }, { block: 'linked', collection: 'Y', sort: 'day', dir: 'down' }] }] }] } }));
+    const items = read.layout!.columns[0]!.sections[0]!.items as LinkedBlock[];
+    expect(items[0]).toEqual(block);
+    // Down is said with desc, and only with a field to sort by.
+    expect(items[1]).toEqual({ block: 'linked', collection: 'X' });
+    expect(items[2]).toEqual({ block: 'linked', collection: 'Y', sort: 'day' });
+    const schema = parseSchema(JSON.stringify({ version: 2, fields: [{ key: 'name', type: 'name' }, { key: 'day', type: 'date' }] }));
+    expect(linkedSort(items[0]!, schema)).toEqual({ key: 'day', dir: 'desc' });
+    expect(linkedSort(items[1]!, schema)).toEqual({ key: 'name', dir: 'asc' });
+    expect(linkedSort(items[2]!, schema)).toEqual({ key: 'day', dir: 'asc' });
   });
 });

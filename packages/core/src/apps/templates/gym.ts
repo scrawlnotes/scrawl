@@ -161,7 +161,7 @@ export const gym: AppTemplate = {
     app.field('exercises', formula('last_4_weeks', 'Last 4 weeks', 'in_4w > 0 ? text(done_4w) + " of " + text(in_4w) : ""'));
     app.field('exercises', formula('regular', 'Regular', 'in_4w > 0 ? done_4w / in_4w : 0', PERCENT));
     app.view('exercises', { id: 'weights', name: 'Weights', conditions: [{ field: 'best_kg', op: 'not-empty' }], columns: ['name', 'muscle', 'best_kg', 'last_done', 'last_4_weeks', 'regular'] });
-    app.block('exercises', { block: 'linked', collection: items, style: 'table', fields: sets ? ['day', 'set', 'reps', 'kg'] : ['day', 'sets', 'reps', 'kg'], sort: 'day' });
+    app.block('exercises', { block: 'linked', collection: items, style: 'table', fields: sets ? ['day', 'set', 'reps', 'kg'] : ['day', 'sets', 'reps', 'kg'], sort: 'day', dir: 'desc' });
     app.rule('exercises', { kind: 'check', name: 'Less than 7 of 10', src: 'check("regular", () => in_4w == 0 || regular >= 0.7, `Done in ${last_4_weeks} of its workouts in the last 4 weeks`)' });
 
     app.about({

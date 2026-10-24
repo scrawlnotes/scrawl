@@ -1075,11 +1075,23 @@ function BlockEditor({ block, dir, collections, buttons, onRules, onChange, onDe
   const style = linkedStyle(block, source);
   const fields = source?.schema.fields ?? [];
   const days = fields.filter((f) => f.type === 'date');
+  // A list or a table goes by a field, or by a day newest first: an exercise's workouts.
+  const down = ':desc';
   const sorts: Option[] =
     style === 'timeline'
       ? days.map((f) => ({ value: f.key, label: t('fields.sortNewest', { field: f.label }), chip: false }))
-      : fields.filter((f) => f.type !== 'formula').map((f) => ({ value: f.key, label: t('fields.sortName', { field: f.label }), chip: false }));
-  const sort = block.sort && sorts.some((o) => o.value === block.sort) ? block.sort : ((style === 'timeline' ? days[0]?.key : (source && nameField(source.schema)?.key)) ?? null);
+      : fields
+          .filter((f) => f.type !== 'formula')
+          .flatMap((f) => [
+            { value: f.key, label: t('fields.sortName', { field: f.label }), chip: false },
+            ...(f.type === 'date' ? [{ value: f.key + down, label: t('fields.sortNewest', { field: f.label }), chip: false }] : []),
+          ]);
+  const picked = block.sort && style !== 'timeline' && block.dir === 'desc' ? block.sort + down : block.sort;
+  const sort = picked && sorts.some((o) => o.value === picked) ? picked : ((style === 'timeline' ? days[0]?.key : (source && nameField(source.schema)?.key)) ?? null);
+  const resort = (value: string) => {
+    const { dir: _dir, ...rest } = block;
+    onChange(value.endsWith(down) ? { ...rest, sort: value.slice(0, -down.length), dir: 'desc' } : { ...rest, sort: value });
+  };
   const back = source ? linkFieldsTo(source.schema, dir).map((f) => f.label.toLowerCase()) : [];
   const name = collectionName(block.collection);
   const note =
@@ -1087,10 +1099,10 @@ function BlockEditor({ block, dir, collections, buttons, onRules, onChange, onDe
       ? t('fields.linkedNone', { collection: name })
       : t(style === 'timeline' ? 'fields.linkedTimeline' : style === 'table' ? 'fields.linkedTable' : 'fields.linkedList', { collection: name.toLowerCase(), field: back.join(' / ') });
   const restyle = (next: LinkedStyle) => {
-    const { sort: _sort, fields: _fields, sums: _sums, group: _group, ...rest } = block;
+    const { sort: _sort, dir: _dir, fields: _fields, sums: _sums, group: _group, ...rest } = block;
     // A list and a table keep the fields they show, and the order; a table its sums and its groups.
     const kept = next !== 'timeline' && style !== 'timeline';
-    onChange({ ...rest, style: next, ...(kept && block.fields && { fields: block.fields }), ...(kept && block.sort && { sort: block.sort }), ...(next === 'table' && block.sums && { sums: true }), ...(next === 'table' && block.group && { group: block.group }) });
+    onChange({ ...rest, style: next, ...(kept && block.fields && { fields: block.fields }), ...(kept && block.sort && { sort: block.sort, ...(block.dir && { dir: block.dir }) }), ...(next === 'table' && block.sums && { sums: true }), ...(next === 'table' && block.group && { group: block.group }) });
   };
   // A table's rows in groups by a field or two (design/gym.md 4.2): a choice, a link, a person or a tick.
   const groupable: Option[] = [{ value: '', label: t('fields.noGroup'), chip: false }, ...fields.filter((f) => ['select', 'link', 'person', 'checkbox'].includes(f.type) && !(source && linkFieldsTo(source.schema, dir).includes(f))).map((f) => ({ value: f.key, label: t('fields.groupBy', { field: f.label }), chip: false }))];
@@ -1122,7 +1134,7 @@ function BlockEditor({ block, dir, collections, buttons, onRules, onChange, onDe
           </button>
         </span>
         {sorts.length > 0 ? (
-          <Picker className="in" options={sorts} value={sort} label={t('fields.order')} onPick={(key) => key && onChange({ ...block, sort: key })} />
+          <Picker className="in" options={sorts} value={sort} label={t('fields.order')} onPick={(key) => key && resort(key)} />
         ) : (
           style === 'timeline' && <span className="fe-meta">{t('fields.noDate')}</span>
         )}

@@ -133,7 +133,7 @@ export const NAME_KEY = 'name';
 export type LayoutItem =
   | { field: string }
   | { block: 'body' }
-  | { block: 'linked'; collection: string; sort?: string; style?: LinkedStyle; fields?: string[]; sums?: boolean; group?: string[] }
+  | { block: 'linked'; collection: string; sort?: string; dir?: 'desc'; style?: LinkedStyle; fields?: string[]; sums?: boolean; group?: string[] }
   | { block: 'cards' }
   | { block: 'subtasks' }
   /** The buttons of the collection's rules (`action(…)` in _rules.js). */
@@ -142,7 +142,8 @@ export type LayoutItem =
 /**
  * How a block shows the records that link to the record: newest first by a day, a list, or a table
  * whose cells are typed in, with its sums when `sums`, in groups by one field or two when `group`
- * (design/gym.md 4.2): a program's items by their part, a workout's sets by their exercise.
+ * (design/gym.md 4.2): a program's items by their part, a workout's sets by their exercise. A list
+ * and a table go up by `sort`, down with `dir`: an exercise's workouts newest first.
  */
 export type LinkedStyle = 'list' | 'timeline' | 'table';
 
@@ -574,6 +575,7 @@ function readItem(raw: unknown): LayoutItem | null {
       block: 'linked',
       collection: raw.collection.replace(/^\/+|\/+$/g, ''),
       ...(typeof raw.sort === 'string' && { sort: cleanFieldKey(raw.sort) }),
+      ...(typeof raw.sort === 'string' && raw.dir === 'desc' && { dir: 'desc' as const }),
       ...((raw.style === 'list' || raw.style === 'timeline' || raw.style === 'table') && { style: raw.style }),
       ...(fields.length > 0 && { fields }),
       ...(raw.sums === true && { sums: true }),
@@ -1655,6 +1657,9 @@ export function groupRecords(records: Record[], schema: Schema, key: string, tod
   return [...groups.values()].sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
+/** How a linked list or table is sorted: by its field, up or down by `dir`; by the name without one. */
+export const linkedSort = (block: LinkedBlock, schema: Schema): RecordSort => ({ key: block.sort ?? nameField(schema)?.key ?? '', dir: (block.sort && block.dir) || 'asc' });
+
 /** A group of a linked table, with the groups in it by its second field. */
 export interface LinkedGroup extends RecordGroup {
   groups?: RecordGroup[];
@@ -1707,10 +1712,10 @@ export function columnSums(records: Record[], schema: Schema, key: string, today
   return [...sums].sort(([a], [b]) => rank(a) - rank(b)).map(([currency, value]) => ({ value, ...(currency && { currency }) }));
 }
 
-/** The sum of a number or formula column over records; null when the column is not one, or no record has a value. */
+/** The sum of a number or formula column over records; null when the column is not one, is a percent, which does not add up, or no record has a value. */
 export function columnSum(records: Record[], schema: Schema, key: string, today: string): number | null {
   const field = schema.fields.find((f) => f.key === key);
-  if (!field || (field.type !== 'number' && !isComputed(field.type))) return null;
+  if (!field || (field.type !== 'number' && !isComputed(field.type)) || field.format?.style === 'percent') return null;
   let sum = 0;
   let any = false;
   for (const record of records) {

@@ -29,6 +29,7 @@ import {
   type LinkedBlock,
   linkedCards,
   linkedRecords,
+  linkedSort,
   groupLinked,
   linkedValues,
   linkFieldsTo,
@@ -901,7 +902,7 @@ function LinkedTab({ block, dir, schema: own, record, today, actions }: { block:
   const timeline = block.style ? block.style === 'timeline' : !!day;
   const rows = timeline
     ? sortRecords(records, schema, day ? { key: day.key, dir: 'desc' } : { key: nameField(schema)?.key ?? '', dir: 'asc' }, today)
-    : sortRecords(records, schema, { key: block.sort ?? nameField(schema)?.key ?? '', dir: 'asc' }, today);
+    : sortRecords(records, schema, linkedSort(block, schema), today);
   if (rows.length === 0) {
     return (
       <Empty

@@ -59,6 +59,7 @@ import {
   type LinkedBlock,
   linkedCards,
   linkedRecords,
+  linkedSort,
   linkedValues,
   linkFieldsTo,
   linkGone,
@@ -841,7 +842,7 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, onOpen, onA
   const timeline = block.style ? block.style === 'timeline' : !!day;
   const rows = timeline
     ? sortRecords(records, schema, day ? { key: day.key, dir: 'desc' } : { key: nameField(schema)?.key ?? '', dir: 'asc' }, today)
-    : sortRecords(records, schema, { key: block.sort ?? nameField(schema)?.key ?? '', dir: 'asc' }, today);
+    : sortRecords(records, schema, linkedSort(block, schema), today);
   if (rows.length === 0) {
     return (
       <div className="blk">
@@ -1060,7 +1061,7 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
   const unsaved = drafts?.rows(source) ?? [];
   const isDraft = new Set(unsaved.map((r) => r.id));
   const linked = [...linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) })), ...unsaved.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) }))];
-  const sorted = sortRecords(linked, schema, { key: block.sort ?? nameField(schema)?.key ?? '', dir: 'asc' }, today);
+  const sorted = sortRecords(linked, schema, linkedSort(block, schema), today);
   const groups = groupLinked(sorted, schema, block.group ?? [], today);
   // The rows in the order they are shown, group by group, for the keyboard to go through.
   const rows = groups.flatMap((g) => (g.groups ? g.groups.flatMap((s) => s.records) : g.records));
@@ -2073,14 +2074,19 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   const groupField = state.group ? fieldsByKey.get(state.group) : undefined;
 
   const calendarItems = useMemo(() => (calendarView ? calendarRecords({ ...rolled, records: matching }, { ...calendarView, conditions: [] }, today) : []), [calendarView, rolled, matching, today]);
+  // What the status bar says, written when its words change: what they come from is worked out
+  // anew at each render, and writing it each time would render again, without end.
+  const status = calendarView
+    ? [calendarStatus(calendarItems, nav)]
+    : [
+        applied.length > 0 || query ? t('collection.matching', { count: shown.length }) : t('count.records', { count: records.length }),
+        ...(problems.size > 0 ? [t('collection.toCheck', { count: problems.size })] : []),
+        t('collection.sortedBy', { field: sortField?.label ?? state.sort.key }),
+      ];
+  const said = status.join('\u0000');
   useEffect(() => {
-    if (calendarView) return onStatus([calendarStatus(calendarItems, nav)]);
-    onStatus([
-      applied.length > 0 || query ? t('collection.matching', { count: shown.length }) : t('count.records', { count: records.length }),
-      ...(problems.size > 0 ? [t('collection.toCheck', { count: problems.size })] : []),
-      t('collection.sortedBy', { field: sortField?.label ?? state.sort.key }),
-    ]);
-  }, [records.length, shown.length, applied.length, query, sortField, state.sort.key, problems.size, calendarView, calendarItems, nav.range, nav.focus]);
+    onStatus(said.split('\u0000'));
+  }, [said]);
   useEffect(() => () => onStatus(null), []);
 
   const opened = open?.kind === 'record' ? collection.records.find((r) => r.id === open.id) : undefined;
