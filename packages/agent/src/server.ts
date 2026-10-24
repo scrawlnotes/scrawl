@@ -202,7 +202,7 @@ export function buildServer(agent: Agent): McpServer {
     'create',
     {
       title: 'Create',
-      description: 'Makes a new note, task list, board, collection or folder with a name, in `folder` (the top of the space when left out), and returns its path. Board templates: software, simple, issues, crm. Collection templates: companies, people, activities, feedback, payments, blank (no fields: then write its _collection.json). With kind app, sets up an app from `templates` (crm, sales, support, projects, budget, stock, product) in a folder of its name: their collections, boards, rules and an About note, each template with its `answers`, the ones not given taking their defaults; when `folder` is an app already, the templates are added to it. The guide\'s Apps says each template\'s questions. One of that kind and name already in the folder is not made again: the tool returns it with exists: true; another: true makes a second one, numbered.',
+      description: 'Makes a new note, task list, board, collection or folder with a name, in `folder` (the top of the space when left out), and returns its path. Board templates: software, simple, issues, crm. Collection templates: companies, people, activities, feedback, payments, blank (no fields: then write its _collection.json). With kind app, sets up an app from `templates` (crm, sales, support, projects, budget, stock, product) in a folder of its name: their collections, boards, rules and an About note, each template with its `answers`, the ones not given taking their defaults; when `folder` is an app already, the templates are added to it, and the ones it has take the `answers` given (what an answer brought and no longer does goes, its rules, buttons and views; records, fields, collections and boards stay). The guide\'s Apps says each template\'s questions. One of that kind and name already in the folder is not made again: the tool returns it with exists: true; another: true makes a second one, numbered.',
       inputSchema: z.object({
         space: spaceToMake,
         folder: z.string().optional().describe('The folder to make it in; the top of the space when left out.'),
@@ -214,6 +214,7 @@ export function buildServer(agent: Agent): McpServer {
         templates: z.array(z.string()).optional().describe('For an app: the templates it is set up from, or added to it.'),
         answers: z.record(z.string(), z.record(z.string(), z.unknown())).optional().describe('For an app: by template, the answers to its questions, { "sales": { "tax": true, "quotes": false } }.'),
         currencies: z.array(z.string()).optional().describe('For a new app that keeps money: the codes of its currencies, the main one first, ["TRY", "EUR"].'),
+        renames: z.record(z.string(), z.record(z.string(), z.record(z.string(), z.string()))).optional().describe('Changing the answers of an app: by template and question, the items of a list typed anew, each old with its new, { "crm": { "stages": { "Proposal": "Quote" } } }; their column, choice or record is renamed with what holds it.'),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },

@@ -162,7 +162,7 @@ import { folderLabel, setSpaceNames,
 } from './items';
 import { PhoneQuickNote, type QuickActions, QuickNotes, quickSortItems, QuickWindow } from './QuickNotes';
 import { choiceHref, type LinkChoice, linkChoices } from './linkChoices';
-import { addedCounts, counts as appCounts, NewAppDialog } from './AppWizard';
+import { addedCounts, counts as appCounts, editCounts, NewAppDialog } from './AppWizard';
 import {
   applyNumbers,
   applySize,
@@ -229,6 +229,7 @@ type OpenDialog =
   | { kind: 'new'; start?: ItemKind; folder?: string; template?: Template | CollectionTemplate }
   | { kind: 'newApp'; folder: string }
   | { kind: 'addToApp'; folder: string; app: AppFile }
+  | { kind: 'editApp'; folder: string; app: AppFile }
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
@@ -1349,7 +1350,7 @@ export function App() {
     { label: t('menu.moveTo'), icon: 'move', apart, run: () => setDialog({ kind: 'move', path }) },
     { label: t('menu.rename'), icon: 'pen', run: () => setDialog({ kind: 'rename', path }) },
   ];
-  // An app's folder has Add to app first: the New app window, with the app's templates there already.
+  // An app's folder has Add to app first, the New app window with the app's templates there already; then Edit app, its answers to change.
   const appItems = (path: string): MenuItem[] =>
     [tree, ...spaces.map((s) => s.tree)].some((nodes) => findNode(nodes, path)?.app)
       ? [
@@ -1359,6 +1360,14 @@ export function App() {
             run: () => {
               setDrawer(false);
               void session.appAt(path).then((app) => app && setDialog({ kind: 'addToApp', folder: path, app }));
+            },
+          },
+          {
+            label: t('menu.editApp'),
+            icon: 'pen',
+            run: () => {
+              setDrawer(false);
+              void session.appAt(path).then((app) => app && setDialog({ kind: 'editApp', folder: path, app }));
             },
           },
         ]
@@ -3278,6 +3287,22 @@ export function App() {
             setDialog(null);
             const added = plan.templates.map((s) => s.title);
             setShown({ text: t('apps.added', { templates: new Intl.ListFormat(locale(), { type: 'conjunction' }).format(added), name: plan.app.name, what: addedCounts(plan) }), undo: () => void done.undo(), toast: true });
+            return null;
+          }}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'editApp' && (
+        <NewAppDialog
+          folders={everyFolder(tree, spaces)}
+          folder={dialog.folder}
+          editing={dialog.app}
+          onPlan={(input) => session.planEditApp(dialog.folder, input.templates, input.currencies)}
+          onCreate={async (plan) => {
+            const done = await session.installEditApp(plan, dialog.folder);
+            if ('error' in done) return done.error;
+            setDialog(null);
+            setShown({ text: t('apps.edited', { name: plan.app.name, what: editCounts(plan) }), undo: () => void done.undo(), toast: true });
             return null;
           }}
           onClose={closeDialog}

@@ -4299,6 +4299,23 @@ export class Session {
   }
 
   /**
+   * The plan of the app in `folder` with its templates' answers changed (Edit app,
+   * design/edit-app.md): what is added, changed in place, taken off and kept. Its records are read,
+   * for a choice or a record renamed to be followed. Writes nothing.
+   */
+  async planEditApp(folder: string, templates: AppInput['templates'], currencies?: AppInput['currencies']): Promise<AppPlan> {
+    const { fs, local } = this.at(folder);
+    const found = await findApp(fs, local, { records: true });
+    if (!found) throw new AppProblems([t('apps.notApp')]);
+    return planApp({ name: found.app.name, templates, currencies }, { found, keepBlocked: true, edit: true });
+  }
+
+  /** Changes an app's answers as planned, as Add to app writes: Undo puts every file back as it was. */
+  installEditApp(plan: AppPlan, folder: string): Promise<{ undo: () => Promise<void> } | { error: string }> {
+    return this.installAddToApp(plan, folder);
+  }
+
+  /**
    * Adds templates to an app as planned. Gives what takes it back: what was set up to the trash,
    * its tabs closed, what was added to taken away, what was changed as it was.
    */

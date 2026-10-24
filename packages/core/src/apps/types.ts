@@ -251,6 +251,29 @@ export interface AppPlan {
   blocked?: string[];
   /** What each template set up sets up, for the wizard's summary: in the order they are set up, a piece under the first that has it. */
   templates: TemplateSummary[];
+  /** Set when the plan changes the answers of templates set up before (Edit app): `added` says what is added, this the rest. */
+  edit?: AppEdit;
+}
+
+/** A piece and what changing answers does to it, in plain words: "Deals", "Proposal is now Quote; its 4 cards follow". */
+export interface EditItem {
+  kind: Part['kind'] | 'note';
+  name: string;
+  what: string;
+}
+
+/** What changing answers does besides adding (design/edit-app.md 2): settings go, data stays. */
+export interface AppEdit {
+  /** No answer is changed: nothing is written. */
+  same: boolean;
+  /** The templates whose answers are changed. */
+  templates: TemplateId[];
+  /** What is changed in place: a column or a choice renamed, a record renamed, the About note's section. */
+  changed: EditItem[];
+  /** The settings the old answers brought that go: rules and buttons, views, a column or a choice nothing holds. */
+  takenOff: EditItem[];
+  /** What stays, and why: the data, and a setting the person changed. */
+  kept: EditItem[];
 }
 
 /** What a template sets up, as the wizard's summary says it. */

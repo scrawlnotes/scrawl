@@ -58,13 +58,15 @@ type Step = 'templates' | 'app' | TemplateId | 'summary';
 /** A piece's name and kind, by its role. */
 const pieceOf = (role: string) => PIECES[role]!;
 
-export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClose }: {
+export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreate, onClose }: {
   /** Every place, the personal space's top first. */
   folders: string[];
   /** The place it starts in. */
   folder: string;
   /** Templates added to an app set up before (Add to app): its `_app.json`. Its templates are shown faint, its name and currencies are not asked. */
   adding?: AppFile;
+  /** An app whose answers are changed (Edit app, design/edit-app.md): its templates' questions with the answers they have, then what changes. */
+  editing?: AppFile;
   /** The plan of what was chosen; throws AppProblems for what is wrong with it. */
   onPlan: (input: AppInput, place: FolderChoice) => Promise<AppPlan>;
   /** Sets it up; a message when it could not be. */
@@ -75,7 +77,8 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
   const [at, setAt] = useState(0);
   // Added to an app, its own side; else as the device keeps it, by the space it is made in.
   const personal = spaceOf(folder) === null;
-  const appSide = (adding?.templates ?? []).map((x) => APP_TEMPLATES[x.id]).find(Boolean);
+  const app = adding ?? editing;
+  const appSide = (app?.templates ?? []).map((x) => APP_TEMPLATES[x.id]).find(Boolean);
   const [side, setSide] = useState<Audience>(() => (appSide ? audienceOf(appSide.group) : loadAppSide(personal)));
   const shownSide = SIDES.includes(side) ? side : SIDES[0]!;
   const [chosen, setChosen] = useState<TemplateId[]>([]);
@@ -83,12 +86,14 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
   const [place, setPlace] = useState<FolderChoice>(() => ({ folder: folders.includes(folder) ? folder : (folders[0] ?? ''), create: false }));
   const [currencies, setCurrencies] = useState<string[]>(() => [localCurrency()]);
   // An app's own templates are read with the answers they were set up with.
-  const [given, setGiven] = useState<Partial<Record<TemplateId, Answers>>>(() => Object.fromEntries((adding?.templates ?? []).map((x) => [x.id, x.answers])));
+  const [given, setGiven] = useState<Partial<Record<TemplateId, Answers>>>(() => Object.fromEntries((app?.templates ?? []).map((x) => [x.id, x.answers])));
+  // Editing, where each item of a list answer came from: its place in the list as it was, null for one added.
+  const [origins, setOrigins] = useState<Record<string, (number | null)[]>>({});
   const [plan, setPlan] = useState<AppPlan | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
   const busy = useRef(false);
 
-  const installed = new Set<TemplateId>((adding?.templates ?? []).map((x) => x.id));
+  const installed = new Set<TemplateId>((app?.templates ?? []).map((x) => x.id));
   // What the questions and the pieces are worked out with: the app's templates and the ones chosen.
   const chosenSet = new Set<TemplateId>([...installed, ...chosen]);
   // An answer not given is the template's default for where the device is: its own channels and carriers.
@@ -96,10 +101,17 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
   const view = { has: (id: TemplateId) => chosenSet.has(id), answers: answersOf };
   const rolesOf = (id: TemplateId) => APP_TEMPLATES[id].pieces(answersOf(id), view);
   // Its currencies are asked when what is chosen holds money: added to an app, only when the app has none yet.
-  const money = chosen.some((id) => APP_TEMPLATES[id].money(answersOf(id))) && (!adding || adding.currencies.length === 0);
-  const steps: Step[] = adding ? ['templates', ...(money ? (['app'] as const) : []), ...chosen, 'summary'] : ['templates', 'app', ...chosen, 'summary'];
+  // Editing, the app's templates that ask something, in their order.
+  const edited = editing ? TEMPLATE_IDS.filter((id) => installed.has(id) && askedQuestions(APP_TEMPLATES[id], chosenSet, answersOf(id)).length > 0) : [];
+  const money = (editing ? edited : chosen).some((id) => APP_TEMPLATES[id].money(answersOf(id))) && (!app || app.currencies.length === 0);
+  const steps: Step[] = editing
+    ? [...(money ? (['app'] as const) : []), ...edited, 'summary']
+    : adding
+      ? ['templates', ...(money ? (['app'] as const) : []), ...chosen, 'summary']
+      : ['templates', 'app', ...chosen, 'summary'];
   const step = steps[Math.min(at, steps.length - 1)]!;
-  const stepLabel = (s: Step) => (s === 'templates' ? t('apps.step.templates') : s === 'app' ? t(adding ? 'apps.currencies' : 'apps.step.app') : s === 'summary' ? t('apps.step.summary') : t(APP_TEMPLATES[s].name));
+  const stepLabel = (s: Step) =>
+    s === 'templates' ? t('apps.step.templates') : s === 'app' ? t(app ? 'apps.currencies' : 'apps.step.app') : s === 'summary' ? t(editing ? 'apps.step.changes' : 'apps.step.summary') : t(APP_TEMPLATES[s].name);
   // A phone's back button says where it goes in a word.
   const backLabel = (s: Step) => (s === 'templates' || s === 'app' || s === 'summary' ? stepLabel(s) : t(APP_TEMPLATES[s].short));
 
@@ -143,7 +155,37 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
   const sharedPieces = [...new Set(chosen.flatMap((id) => rolesOf(id)).filter((role, _, all) => chosen.filter((id) => rolesOf(id).includes(role)).length > 1))].map((r) => pieceOf(r).name);
   const sharedNames = [...new Set(sharedPieces)];
 
-  const input = (): AppInput => ({ name: adding?.name ?? name, currencies, templates: chosen.map((id) => ({ id, answers: answersOf(id) })) });
+  // Editing: the answers as they were, and the items of a list typed anew, each with its new name.
+  const wasOf = (id: TemplateId): Answers => readAnswers(APP_TEMPLATES[id], chosenSet, editing?.templates.find((x) => x.id === id)?.answers ?? {}).answers;
+  const listOf = (value: Answer | undefined): string[] => (Array.isArray(value) ? value : []);
+  const fromOf = (id: TemplateId, key: string): (number | null)[] => origins[`${id}.${key}`] ?? listOf(wasOf(id)[key]).map((_, i) => i);
+  const renamesOf = (id: TemplateId): { [question: string]: { [from: string]: string } } => {
+    const out: { [question: string]: { [from: string]: string } } = {};
+    for (const q of APP_TEMPLATES[id].questions) {
+      if (q.kind !== 'list') continue;
+      const was = (wasOf(id)[q.key] as string[] | undefined) ?? [];
+      const items = (given[id]?.[q.key] as string[] | undefined) ?? was;
+      fromOf(id, q.key).forEach((f, i) => {
+        const now = items[i]?.trim();
+        if (f !== null && now && now !== was[f]) (out[q.key] ??= {})[was[f]!] = now;
+      });
+    }
+    return out;
+  };
+  /** How many items of a list answer are added, typed anew or taken off. */
+  const listChangesOf = (id: TemplateId, key: string) => {
+    const was = (wasOf(id)[key] as string[] | undefined) ?? [];
+    const from = fromOf(id, key);
+    const items = (given[id]?.[key] as string[] | undefined) ?? was;
+    const gone = was.filter((_, i) => !from.includes(i)).length;
+    return gone + from.filter((f, i) => items[i]?.trim() && (f === null || items[i]!.trim() !== was[f])).length;
+  };
+  const changedOf = (id: TemplateId) => askedQuestions(APP_TEMPLATES[id], chosenSet, answersOf(id)).filter((q) => JSON.stringify(answersOf(id)[q.key]) !== JSON.stringify(wasOf(id)[q.key])).length;
+
+  const input = (): AppInput =>
+    editing
+      ? { name: editing.name, currencies, templates: edited.map((id) => ({ id, answers: answersOf(id), renames: renamesOf(id) })) }
+      : { name: adding?.name ?? name, currencies, templates: chosen.map((id) => ({ id, answers: answersOf(id) })) };
   const answer = (id: TemplateId, key: string, value: Answer) => setGiven((now) => ({ ...now, [id]: { ...answersOf(id), ...now[id], [key]: value } }));
   const toggle = (id: TemplateId) => setChosen((now) => (now.includes(id) ? now.filter((x) => x !== id) : TEMPLATE_IDS.filter((x) => x === id || now.includes(x))));
   // An app is of one side: the other lets go of what was chosen.
@@ -194,9 +236,9 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
     if (at === 0) onClose();
     else setAt(at - 1);
   };
-  const ready = step === 'templates' ? chosen.length > 0 : step === 'app' ? (!!adding || name.trim() !== '') && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length : true;
-  const title = adding ? t('apps.addTo', { name: adding.name }) : t('apps.title');
-  const go = adding ? t('apps.add') : t('apps.create');
+  const ready = step === 'templates' ? chosen.length > 0 : step === 'app' ? (!!app || name.trim() !== '') && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length && !plan.edit?.same : true;
+  const title = editing ? t('apps.edit', { name: editing.name }) : adding ? t('apps.addTo', { name: adding.name }) : t('apps.title');
+  const go = editing ? t('apps.save') : adding ? t('apps.add') : t('apps.create');
 
   const foot = (): string => {
     if (step === 'templates') {
@@ -209,9 +251,10 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
       return sharedNames.length > 0 ? `${count} · ${t('apps.shared', { count: sharedNames.length, pieces: listed(sharedNames) })}` : count;
     }
     if (step === 'app') return [name.trim(), money ? currencies.join(', ') : ''].filter(Boolean).join(' · ');
-    if (step === 'summary') return plan ? (plan.blocked?.length ? t('apps.cantAdd') : adding ? addedCounts(plan) : counts(plan)) : '';
+    if (step === 'summary') return plan ? (plan.blocked?.length ? t('apps.cantAdd') : plan.edit ? (plan.edit.same ? t('apps.noneChanged') : editCounts(plan)) : adding ? addedCounts(plan) : counts(plan)) : '';
     const asked = askedQuestions(APP_TEMPLATES[step], chosenSet, answersOf(step));
-    return t('apps.questions', { template: t(APP_TEMPLATES[step].name), count: asked.length });
+    const changed = editing ? changedOf(step) : 0;
+    return changed > 0 ? t('apps.answersChanged', { template: t(APP_TEMPLATES[step].name), count: changed }) : t('apps.questions', { template: t(APP_TEMPLATES[step].name), count: asked.length });
   };
 
   const page = () => {
@@ -234,7 +277,7 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
         <AppPage
           phone={phone}
           side={shownSide}
-          adding={!!adding}
+          adding={!!app}
           name={name}
           onName={(value) => {
             setName(value);
@@ -250,8 +293,21 @@ export function NewAppDialog({ folders, folder, adding, onPlan, onCreate, onClos
         />
       );
     }
-    if (step === 'summary') return plan && (adding ? <AddSummary phone={phone} plan={plan} installed={installed} place={place} /> : <SummaryPage phone={phone} plan={plan} place={place} />);
-    return <QuestionsPage id={step} chosen={chosenSet} installed={installed} answers={answersOf(step)} onAnswer={(key, value) => answer(step, key, value)} />;
+    if (step === 'summary') return plan && (plan.edit ? <EditSummary phone={phone} plan={plan} /> : adding ? <AddSummary phone={phone} plan={plan} installed={installed} place={place} /> : <SummaryPage phone={phone} plan={plan} place={place} />);
+    return (
+      <QuestionsPage
+        id={step}
+        chosen={chosenSet}
+        installed={installed}
+        answers={answersOf(step)}
+        onAnswer={(key, value) => answer(step, key, value)}
+        was={editing ? wasOf(step) : undefined}
+        from={(key) => fromOf(step, key)}
+        onFrom={(key, from) => setOrigins((now) => ({ ...now, [`${step}.${key}`]: from }))}
+        changes={(key) => listChangesOf(step, key)}
+        typed={(key) => given[step]?.[key] as string[] | undefined}
+      />
+    );
   };
   const shownProblems = step === 'app' ? [] : problems;
 
@@ -546,19 +602,32 @@ function AppPage({ phone, side, adding, name, onName, folders, place, onPlace, m
   );
 }
 
-function QuestionsPage({ id, chosen, installed, answers, onAnswer }: {
+function QuestionsPage({ id, chosen, installed, answers, onAnswer, was, from, onFrom, changes, typed }: {
   id: TemplateId;
   chosen: ReadonlySet<TemplateId>;
   installed: ReadonlySet<TemplateId>;
   answers: Answers;
   onAnswer: (key: string, value: Answer) => void;
+  /** Editing: the answers as they were; a question answered otherwise has a dot and what it was. */
+  was?: Answers;
+  /** Editing: where each item of a list came from, its place in the list as it was. */
+  from?: (key: string) => (number | null)[];
+  onFrom?: (key: string, from: (number | null)[]) => void;
+  /** Editing: how many items of a list are added, typed anew or taken off. */
+  changes?: (key: string) => number;
+  /** Editing: a list's items as they are typed, an empty one too, for where each came from to keep to them. */
+  typed?: (key: string) => string[] | undefined;
 }) {
   const asked = askedQuestions(APP_TEMPLATES[id], chosen, answers);
   const keys = new Set(asked.map((q) => q.key));
   return (
     <div className="na-qs">
-      <p className="na-lead">{t('apps.ready')}</p>
-      {asked.map((q) => (
+      <p className="na-lead">{t(was ? 'apps.editLead' : 'apps.ready')}</p>
+      {asked.map((q) => {
+        const before = was?.[q.key] ?? q.default;
+        const changed = !!was && JSON.stringify(answers[q.key] ?? q.default) !== JSON.stringify(before);
+        const origin = was && q.kind === 'list' && from ? { was: Array.isArray(before) ? before : [], from: from(q.key), items: typed?.(q.key) ?? (Array.isArray(before) ? before : []) } : undefined;
+        return (
         <div key={q.key} className={q.under && keys.has(q.under) ? 'na-q sub' : 'na-q'}>
           {q.because && chosen.has(q.because) && (
             <span className="na-why">
@@ -567,18 +636,52 @@ function QuestionsPage({ id, chosen, installed, answers, onAnswer }: {
             </span>
           )}
           <span className="ql" id={`q-${q.key}`}>
+            {changed && <i className="na-dot" aria-hidden="true" />}
             {t(q.label)}
+            {changed && <small className="na-was">{wasSaid(q, before, q.kind === 'list' ? (changes?.(q.key) ?? 0) : 0)}</small>}
           </span>
-          <Control question={q} value={answers[q.key] ?? q.default} onChange={(value) => onAnswer(q.key, value)} />
+          <Control
+            question={q}
+            value={answers[q.key] ?? q.default}
+            onChange={(value, moved) => {
+              if (moved) onFrom?.(q.key, moved);
+              onAnswer(q.key, value);
+            }}
+            origin={origin}
+          />
           {q.help && <small className="na-help">{t(q.help)}</small>}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
+/** Editing, a list as it was, where each item now came from in it (null for one added), and the items as typed. */
+interface ListOrigin {
+  was: string[];
+  from: (number | null)[];
+  items: string[];
+}
+
+/** What a changed answer was, in a few words: "was Yes"; for a list, how many of its items changed. */
+function wasSaid(q: Question, before: Answer, listChanges: number): string {
+  if (q.kind === 'yesno') return t('apps.was', { answer: t(before === true ? 'apps.yes' : 'apps.no') });
+  const label = (v: string) => t(q.options?.find((o) => o.value === v)?.label ?? ('' as MessageKey)) || v;
+  if (q.kind === 'choice') return t('apps.was', { answer: label(String(before)) });
+  if (q.kind === 'multi') return t('apps.was', { answer: listed((before as string[]).map(label)) });
+  if (q.kind === 'list') return t('apps.listChanges', { count: Math.max(1, listChanges) });
+  return t('apps.was', { answer: String(before) });
+}
+
 /** A question's answer as it is asked: a pair or a few short choices as a row of buttons, longer ones as a list, a list of items to change. */
-function Control({ question: q, value, onChange }: { question: Question; value: Answer; onChange: (value: Answer) => void }) {
+function Control({ question: q, value, onChange, origin }: {
+  question: Question;
+  value: Answer;
+  /** With where each item of a list came from, when an edit keeps it. */
+  onChange: (value: Answer, from?: (number | null)[]) => void;
+  origin?: ListOrigin;
+}) {
   const label = `q-${q.key}`;
   if (q.kind === 'yesno') {
     return (
@@ -616,33 +719,54 @@ function Control({ question: q, value, onChange }: { question: Question; value: 
       </span>
     );
   }
-  if (q.kind === 'list') return <ListControl question={q} items={Array.isArray(value) ? value : []} onChange={onChange} />;
+  if (q.kind === 'list') return <ListControl question={q} items={origin?.items ?? (Array.isArray(value) ? value : [])} onChange={onChange} origin={origin} />;
   return <input aria-labelledby={label} value={typeof value === 'string' ? value : ''} onChange={(event) => onChange(event.target.value)} />;
 }
 
-/** A list's items, each typed in its own box; dragged by its grip to move it, × to take it away, a button to add one. */
-function ListControl({ question: q, items, onChange }: { question: Question; items: string[]; onChange: (items: string[]) => void }) {
+/**
+ * A list's items, each typed in its own box; dragged by its grip to move it, × to take it away, a
+ * button to add one. Editing an app (`origin`), each item keeps where it came from: one typed anew
+ * says what it was, one added says so, one taken off stays struck through with Put back.
+ */
+function ListControl({ question: q, items, onChange, origin }: { question: Question; items: string[]; onChange: (items: string[], from?: (number | null)[]) => void; origin?: ListOrigin }) {
   const dragged = useRef<number | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const hints = q.hints?.(items.filter((i) => i.trim())) ?? [];
+  // Where each item came from goes with it, as it moves, goes or comes.
+  const from = origin ? items.map((_, i) => origin.from[i] ?? null) : null;
+  const change = (next: string[], nextFrom?: (number | null)[]) => onChange(next, from ? nextFrom : undefined);
   // A hint goes by the item's place among the ones written.
   let written = -1;
   const drop = (to: number) => {
-    const from = dragged.current;
+    const at = dragged.current;
     dragged.current = null;
-    if (from === null || from === to) return;
-    const next = [...items];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved!);
-    onChange(next);
+    if (at === null || at === to) return;
+    const move = <T,>(list: T[]) => {
+      const next = [...list];
+      const [moved] = next.splice(at, 1);
+      next.splice(to, 0, moved!);
+      return next;
+    };
+    change(move(items), from ? move(from) : undefined);
+  };
+  const add = () => {
+    setFocus(items.length);
+    change([...items, ''], from ? [...from, null] : undefined);
+  };
+  /** Puts an item taken off back, after the last one that was before it. */
+  const putBack = (was: number) => {
+    const at = from!.reduce<number>((place, f, i) => (f !== null && f < was ? i + 1 : place), 0);
+    change([...items.slice(0, at), origin!.was[was]!, ...items.slice(at)], [...from!.slice(0, at), was, ...from!.slice(at)]);
   };
   return (
     <div className="na-list" aria-labelledby={`q-${q.key}`}>
       {items.map((item, i) => {
         if (item.trim()) written++;
         const hint = item.trim() ? hints[written] : null;
+        const f = from?.[i];
+        const said = !from || !item.trim() ? null : f === null || f === undefined ? t('apps.newItem') : item.trim() !== origin!.was[f] ? t('apps.wasItem', { item: origin!.was[f]! }) : null;
         return (
-          <div key={i} className="it" onDragOver={(event: DragEvent) => event.preventDefault()} onDrop={() => drop(i)}>
+          <div key={i} className={said ? 'it edited' : 'it'} onDragOver={(event: DragEvent) => event.preventDefault()} onDrop={() => drop(i)}>
             <span className="gr" draggable title={t('apps.moveItem')} onDragStart={() => (dragged.current = i)}>
               ⋮⋮
             </span>
@@ -650,30 +774,41 @@ function ListControl({ question: q, items, onChange }: { question: Question; ite
               value={item}
               autoFocus={focus === i}
               aria-label={item || t(q.label)}
-              onChange={(event) => onChange(items.map((x, j) => (j === i ? event.target.value : x)))}
+              onChange={(event) => change(items.map((x, j) => (j === i ? event.target.value : x)), from ?? undefined)}
               onKeyDown={(event) => {
                 if (event.key !== 'Enter') return;
                 event.preventDefault();
-                setFocus(items.length);
-                onChange([...items, '']);
+                add();
               }}
             />
-            {hint && <small>{t(hint)}</small>}
-            <button type="button" className="x" aria-label={t('apps.removeItem', { item })} title={t('apps.removeItem', { item })} onClick={() => onChange(items.filter((_, j) => j !== i))}>
+            {said ? <small className="was">{said}</small> : hint && <small>{t(hint)}</small>}
+            <button
+              type="button"
+              className="x"
+              aria-label={t('apps.removeItem', { item })}
+              title={t('apps.removeItem', { item })}
+              onClick={() => change(items.filter((_, j) => j !== i), from?.filter((_, j) => j !== i))}
+            >
               <Icon name="close" />
             </button>
           </div>
         );
       })}
+      {origin?.was.map((item, was) =>
+        from!.includes(was) ? null : (
+          <div key={`gone-${was}`} className="it gone">
+            <span className="gr" aria-hidden="true">
+              ⋮⋮
+            </span>
+            <span className="t">{item}</span>
+            <button type="button" className="put" onClick={() => putBack(was)}>
+              {t('apps.putBack')}
+            </button>
+          </div>
+        ),
+      )}
       {q.add && (
-        <button
-          type="button"
-          className="na-add"
-          onClick={() => {
-            setFocus(items.length);
-            onChange([...items, '']);
-          }}
-        >
+        <button type="button" className="na-add" onClick={add}>
           <Icon name="plus" />
           {t(q.add)}
         </button>
@@ -883,6 +1018,109 @@ function AddSummary({ phone, plan, installed, place }: { phone: boolean; plan: A
         </div>
       </div>
       {boxes}
+    </>
+  );
+}
+
+/** What an edit adds: the pieces set up anew and what is added to what is there. */
+const editAdded = (plan: AppPlan) => [...plan.created.filter((c) => c.kind !== 'note').map((c) => ({ kind: c.kind, name: c.path.split('/').at(-1)!.replace(/\.board\.json$/, ''), what: t('apps.newPiece') })), ...plan.added];
+
+/** What changing answers does, in words: "1 added, 2 changed, 1 kept". */
+export function editCounts(plan: AppPlan): string {
+  const edit = plan.edit;
+  if (!edit) return '';
+  const parts: [MessageKey, number][] = [
+    ['apps.countAdded', editAdded(plan).length],
+    ['apps.countChanged', edit.changed.length],
+    ['apps.countTakenOff', edit.takenOff.length],
+    ['apps.countKept', edit.kept.length],
+  ];
+  return parts
+    .filter(([, n]) => n > 0)
+    .map(([key, n]) => t(key, { count: n }))
+    .join(', ');
+}
+
+/**
+ * Changes (design/edit-app.md 3): what changing answers adds, changes in place, takes off and
+ * keeps, only the parts that have something; under them, that records are never deleted. With no
+ * answer changed, that nothing changes.
+ */
+function EditSummary({ phone, plan }: { phone: boolean; plan: AppPlan }) {
+  const edit = plan.edit!;
+  const templates = listed(plan.app.templates.map((x) => t(APP_TEMPLATES[x.id].name)));
+  if (edit.same) {
+    return (
+      <div className="na-none">
+        <b>{t('apps.nothingChanges')}</b>
+        {t('apps.nothingChangesMore')}
+      </div>
+    );
+  }
+  const parts: [MessageKey, { kind: string; name: string; what: string }[]][] = [
+    ['apps.editAdded', editAdded(plan)],
+    ['apps.editChanged', edit.changed],
+    ['apps.editTakenOff', edit.takenOff],
+    ['apps.editKept', edit.kept],
+  ];
+  const shown = parts.filter(([, items]) => items.length > 0);
+  const never = (
+    <div className="na-box">
+      <Icon name="info" />
+      <span>
+        <b>{t('apps.neverDeleted')}</b> {t('apps.neverDeletedMore')}
+      </span>
+    </div>
+  );
+  if (phone) {
+    return (
+      <>
+        {shown.map(([title, items]) => (
+          <div key={title}>
+            <div className="na-label">{t(title)}</div>
+            <div className="na-mgroup">
+              {items.map((a, i) => (
+                <div key={i} className="na-mrow">
+                  {a.name}
+                  <small>{a.what}</small>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {plan.blocked?.length ? null : never}
+      </>
+    );
+  }
+  return (
+    <>
+      <div className="na-where">
+        <Icon name="folder" />
+        <b>{plan.app.name}</b>
+        <small>{templates}</small>
+      </div>
+      <div className="na-edit">
+        {shown.map(([title, items], i) => (
+          <div key={title} className={shown.length % 2 === 1 && i === shown.length - 1 ? 'col wide' : 'col'}>
+            <h4>{t(title)}</h4>
+            {items.map((a, j) => (
+              <div key={j} className="pc">
+                <Icon name={PIECE_ICON[a.kind] ?? 'collection'} />
+                {a.name}
+                <small>{a.what}</small>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      {plan.blocked?.length ? (
+        <div className="na-box bad" role="alert">
+          <Icon name="warn" />
+          <span>{plan.blocked.join(' ')}</span>
+        </div>
+      ) : (
+        never
+      )}
     </>
   );
 }

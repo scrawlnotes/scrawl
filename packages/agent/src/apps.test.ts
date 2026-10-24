@@ -122,6 +122,19 @@ const answersOf = (set: TemplateId[], all: { [id in TemplateId]: Answers }) =>
   );
 
 describe('apps', () => {
+  it('changes the answers of an app it has, renaming a stage with its deals, and adds a template it has not', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Atlas', templates: ['crm'], currencies: ['TRY'] });
+    const changed = await createTool(agent, { kind: 'app', name: 'Atlas', folder: 'Atlas', templates: ['crm'], answers: { crm: { stages: ['Lead', 'Contacted', 'Meeting', 'Quote', 'Won', 'Lost'] } }, renames: { crm: { stages: { Proposal: 'Quote' } } } });
+    expect(changed.data).toMatchObject({ answered: ['crm'], changed: expect.arrayContaining(['Deals: Proposal is now Quote']) });
+    const board = JSON.parse(((await readTool(agent, { path: 'Atlas/Deals.board.json' })).data as { text: string }).text);
+    expect(board.columns.map((c: { name: string }) => c.name)).toContain('Quote');
+    const same = await createTool(agent, { kind: 'app', name: 'Atlas', folder: 'Atlas', templates: ['crm'], answers: { crm: { deals: true } } });
+    expect(same.data).toMatchObject({ message: 'Every answer is as it was; nothing was changed.' });
+    const both = await createTool(agent, { kind: 'app', name: 'Atlas', folder: 'Atlas', templates: ['crm', 'sales'], answers: { crm: { deals: false } } });
+    expect(both.data).toMatchObject({ answered: ['crm'], templates: ['crm', 'sales'] });
+  });
+
   it('sets up each template, each two of a side and each group as files the checks of a write take', async () => {
     let apps = 0;
     const sets = setsToTry();
@@ -927,7 +940,8 @@ describe('apps', () => {
     expect((await refusal(writeTool(agent, { path: 'Atlas/_app.json', text: '{}' }))).message).toMatch(/read, not written/);
     const wrong = await refusal(createTool(agent, { kind: 'app', name: 'Shop', templates: ['sales'], answers: { sales: { tax: 'yes' } } }));
     expect(wrong.details.problems).toEqual(['sales.tax: the answer is true or false', 'Give the currencies the app keeps money in, like TRY or EUR; the first is the main one']);
-    expect((await refusal(createTool(agent, { kind: 'app', folder: 'Atlas', name: '', templates: ['crm'] }))).details.problems).toEqual(['crm is in the app already']);
+    // A template the app has is not set up again: its answers are taken, here the same as before.
+    expect((await createTool(agent, { kind: 'app', folder: 'Atlas', name: '', templates: ['crm'] })).data).toMatchObject({ message: 'Every answer is as it was; nothing was changed.' });
   });
 
   it('says whom each template is for, and refuses an app of both sides', async () => {

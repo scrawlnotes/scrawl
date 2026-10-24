@@ -1,5 +1,5 @@
 import { BOARD_EXT, parseBoard } from '../board';
-import { COLLECTION_FILE, loadCollection, parseSchema, RECORD_EXT } from '../collection';
+import { COLLECTION_FILE, loadCollection, parseSchema, RECORD_EXT, type Record } from '../collection';
 import { type Entry, join, type VaultFs } from '../fs';
 import { APP_FILE, type FoundApp, type FoundPiece } from './build';
 import { aboutName } from './about';
@@ -33,11 +33,16 @@ export async function readAppFile(fs: VaultFs, folder: string): Promise<AppFile 
 /** Whether a folder is an app: it holds `_app.json`. */
 export const isApp = (entries: Entry[]) => entries.some((e) => e.kind === 'file' && e.name === APP_FILE);
 
-/** The app in `folder` as it is: its file, its pieces by role, its About note and the names taken; null when it is not an app. */
-export async function findApp(fs: VaultFs, folder: string): Promise<FoundApp | null> {
+/**
+ * The app in `folder` as it is: its file, its pieces by role, its About note and the names taken;
+ * null when it is not an app. With `records`, its collections' records too, for an edit to rename
+ * what they hold.
+ */
+export async function findApp(fs: VaultFs, folder: string, { records = false }: { records?: boolean } = {}): Promise<FoundApp | null> {
   const app = await readAppFile(fs, folder);
   if (!app) return null;
   const pieces = new Map<string, FoundPiece>();
+  const held = new Map<string, { record: Record; text: string }[]>();
   const top = await fs.list(folder);
   const visit = async (dir: string, entries: Entry[]) => {
     if (entries.some((e) => e.kind === 'file' && e.name === COLLECTION_FILE)) {
@@ -46,6 +51,7 @@ export async function findApp(fs: VaultFs, folder: string): Promise<FoundApp | n
       if (role && PIECES[role] && !pieces.has(role)) {
         const collection = await loadCollection(fs, dir).catch(() => null);
         pieces.set(role, { kind: 'collection', path: dir, text, rules: collection?.rules ?? null, names: (collection?.records ?? []).map((r) => r.name.toLowerCase()) });
+        if (records && collection) held.set(dir, await Promise.all(collection.records.map(async (record) => ({ record, text: await fs.readText(record.path) }))));
       }
       return;
     }
@@ -71,6 +77,7 @@ export async function findApp(fs: VaultFs, folder: string): Promise<FoundApp | n
     pieces,
     about: note ? { path: note.path, text: await fs.readText(note.path) } : null,
     taken: new Set(top.map((e) => e.path.toLowerCase())),
+    ...(records && { records: held }),
   };
 }
 

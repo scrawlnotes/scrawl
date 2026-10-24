@@ -545,3 +545,127 @@ describe('installing an app', () => {
     expect((await fs.list('Atlas')).map((e) => e.name)).not.toContain('Stock movements');
   });
 });
+
+describe('editing an app', () => {
+  /** Puts a card in a board's column, by the column's name. */
+  const card = async (fs: MemoryFs, path: string, title: string, column: string) => {
+    const board = JSON.parse(await fs.readText(path));
+    const key = (board.cards ?? []).length + 1;
+    board.cards = [...(board.cards ?? []), { id: `card${key}`, key, title, column: board.columns.find((c: { name: string }) => c.name === column).id, order: key }];
+    await fs.writeText(path, JSON.stringify(board, null, 2));
+  };
+  const edit = async (fs: MemoryFs, templates: { id: string; answers?: Answers; renames?: { [q: string]: { [from: string]: string } } }[]) =>
+    planApp({ name: '', templates }, { found: (await findApp(fs, 'Atlas', { records: true }))!, ids, edit: true });
+  const said = (items: { name: string; what: string }[]) => items.map((i) => `${i.name}: ${i.what}`);
+
+  it('renames a stage with its cards, adds one, takes off an empty one and keeps one a deal is in', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'crm' }] }, { ids }));
+    await card(fs, 'Atlas/Deals.board.json', 'Lara Turizm', 'Meeting');
+    await card(fs, 'Atlas/Deals.board.json', 'Atakule', 'Proposal');
+    const plan = await edit(fs, [{ id: 'crm', answers: { stages: ['Lead', 'Quote', 'Negotiation', 'Won', 'Lost'] }, renames: { stages: { Proposal: 'Quote' } } }]);
+    expect(said(plan.added)).toEqual(['Deals: a Negotiation column']);
+    expect(said(plan.edit!.changed)).toEqual(['Deals: Proposal is now Quote; its card follows', 'About Atlas: its CRM section, with the new answers']);
+    expect(said(plan.edit!.takenOff)).toEqual(['Deals: the Contacted column']);
+    expect(said(plan.edit!.kept)).toEqual(['Deals: the Meeting column: 1 card is in it']);
+    const done = await installApp(fs, plan);
+    const board = parseBoard(await fs.readText('Atlas/Deals.board.json'));
+    expect(board.columns.map((c) => c.name)).toEqual(['Lead', 'Meeting', 'Quote', 'Negotiation', 'Won', 'Lost']);
+    expect(board.cards.find((c) => c.title === 'Atakule')!.column).toBe(board.columns.find((c) => c.name === 'Quote')!.id);
+    expect(await fs.readText('Atlas/About Atlas.md')).toContain('**Negotiation:**');
+    expect(JSON.parse(await fs.readText(`Atlas/${APP_FILE}`)).templates[0].answers.stages).toEqual(['Lead', 'Quote', 'Negotiation', 'Won', 'Lost']);
+    await undoApp(fs, done);
+    expect(parseBoard(await fs.readText('Atlas/Deals.board.json')).columns.map((c) => c.name)).toEqual(['Lead', 'Contacted', 'Meeting', 'Proposal', 'Won', 'Lost']);
+    expect(JSON.parse(await fs.readText(`Atlas/${APP_FILE}`)).templates[0].answers.stages).toContain('Proposal');
+  });
+
+  it('takes off the view and the rule an answer brought, keeps the records, and brings them back', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Atlas', templates: [{ id: 'sport', answers: { races: true } }] }, { ids }));
+    const races = await loadCollection(fs, 'Atlas/Races and goals');
+    await addRecord(fs, races, { values: { name: 'Istanbul 10K', date: '2026-11-08' } });
+    const off = await edit(fs, [{ id: 'sport', answers: { races: false } }]);
+    expect(said(off.edit!.takenOff)).toEqual(['Races and goals: the Calendar view', 'Races and goals: the rule Write the result']);
+    expect(said(off.edit!.kept)).toEqual(['Races and goals: with its record']);
+    await installApp(fs, off);
+    const schema = parseSchema(await fs.readText('Atlas/Races and goals/_collection.json'));
+    expect(schema.views ?? []).toEqual([]);
+    expect(schema.fields.map((f) => f.key)).toContain('result');
+    expect(await fs.readText('Atlas/Races and goals/_rules.js')).not.toContain('Write how it went');
+    expect((await loadCollection(fs, 'Atlas/Races and goals')).records.map((r) => r.name)).toEqual(['Istanbul 10K']);
+    // Turned on again, what was taken off comes back; the record is where it was.
+    const on = await edit(fs, [{ id: 'sport', answers: { races: true } }]);
+    expect(said(on.added)).toEqual(expect.arrayContaining(['Races and goals: 1 rule', 'Races and goals: the Calendar view']));
+    await installApp(fs, on);
+    expect(parseSchema(await fs.readText('Atlas/Races and goals/_collection.json')).views!.map((v) => v.name)).toEqual(['Calendar']);
+    expect(await fs.readText('Atlas/Races and goals/_rules.js')).toContain('Write how it went');
+  });
+
+  it('keeps a view and a rule the person changed, and says so', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Atlas', templates: [{ id: 'sport', answers: { races: true } }] }, { ids }));
+    const schema = JSON.parse(await fs.readText('Atlas/Races and goals/_collection.json'));
+    schema.views[0].name = 'My races';
+    await fs.writeText('Atlas/Races and goals/_collection.json', JSON.stringify(schema));
+    const rules = await fs.readText('Atlas/Races and goals/_rules.js');
+    await fs.writeText('Atlas/Races and goals/_rules.js', rules.replace('Write how', 'Say how'));
+    const plan = await edit(fs, [{ id: 'sport', answers: { races: false } }]);
+    expect(plan.edit!.takenOff).toEqual([]);
+    expect(said(plan.edit!.kept)).toEqual(['Races and goals: the Calendar view, changed by you', 'Races and goals: Write the result, changed by you', 'Races and goals: as it is']);
+  });
+
+  it('renames a record an answer set up, with the links to it, and keeps one gone', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'stock', answers: { locations: true } }] }, { ids }));
+    const locations = await loadCollection(fs, 'Atlas/Locations');
+    const main = locations.records.find((r) => r.name === 'Main warehouse')!;
+    // A collection that links to Locations, with a record linked to the main warehouse.
+    const found = (await findApp(fs, 'Atlas'))!;
+    const linking = [...found.pieces.values()].find((p) => p.kind === 'collection' && parseSchema(p.text).fields.some((f) => f.type === 'link' && f.collection === 'Atlas/Locations'))!;
+    const key = parseSchema(linking.text).fields.find((f) => f.type === 'link' && f.collection === 'Atlas/Locations')!.key;
+    await addRecord(fs, await loadCollection(fs, linking.path), { values: { [key]: { id: main.id, name: 'Main warehouse' } } });
+    const plan = await edit(fs, [{ id: 'stock', answers: { locationList: ['Depot', 'Store Moda'] }, renames: { locationList: { 'Main warehouse': 'Depot' } } }]);
+    expect(said(plan.edit!.changed)).toContain('Locations: Main warehouse is now Depot');
+    expect(said(plan.edit!.kept)).toEqual(['Locations: Second warehouse, with what is in it']);
+    expect(said(plan.added)).toContain('Locations: 1 record');
+    await installApp(fs, plan);
+    expect((await loadCollection(fs, 'Atlas/Locations')).records.map((r) => r.name).sort()).toEqual(['Depot', 'Second warehouse', 'Store Moda']);
+    const linked = (await loadCollection(fs, linking.path)).records[0]!;
+    expect(linked.values[key]).toEqual({ id: main.id, name: 'Depot' });
+  });
+
+  it('renames a choice with what holds it, and takes off one nothing holds', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'budget' }] }, { ids }));
+    const lines = await loadCollection(fs, 'Atlas/Budget lines');
+    await addRecord(fs, lines, { values: { name: 'Office', category: 'Rent' } });
+    const plan = await edit(fs, [{ id: 'budget', answers: { categories: ['Office', 'Salaries', 'Marketing', 'Software', 'Travel'] }, renames: { categories: { Rent: 'Office' } } }]);
+    expect(said(plan.edit!.changed)).toEqual(expect.arrayContaining(['Budget lines: Category: Rent is now Office; its record follows']));
+    expect(said(plan.edit!.takenOff)).toEqual(expect.arrayContaining(['Budget lines: the Other choice of Category']));
+    await installApp(fs, plan);
+    const after = await loadCollection(fs, 'Atlas/Budget lines');
+    expect(after.schema.fields.find((f) => f.key === 'category')!.options).toEqual(['Office', 'Salaries', 'Marketing', 'Software', 'Travel']);
+    expect(after.records[0]!.values.category).toBe('Office');
+  });
+
+  it('writes nothing when no answer changes', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'crm' }] }, { ids }));
+    const plan = await edit(fs, [{ id: 'crm', answers: { deals: true } }]);
+    expect(plan.edit!.same).toBe(true);
+    expect(plan.files).toEqual([]);
+    await expect(edit(fs, [{ id: 'sales', answers: {} }])).rejects.toThrow('sales is not in the app');
+  });
+
+  it('turns every template’s answers off and on again, each time a right app, an answer not given kept as it is', async () => {
+    for (const id of TEMPLATE_IDS) {
+      const fs = new MemoryFs();
+      const most = given([id], MOST)[0]!;
+      await installApp(fs, planApp({ name: 'Atlas', currencies: ['TRY'], templates: [most] }, { ids }));
+      const least = given([id], LEAST)[0]!;
+      await installApp(fs, await edit(fs, [{ id, answers: least.answers }]));
+      await installApp(fs, await edit(fs, [{ id, answers: most.answers }]));
+      expect(JSON.parse(await fs.readText(`Atlas/${APP_FILE}`)).templates[0].answers, id).toEqual(readAnswers(TEMPLATES[id], new Set([id]), { ...least.answers, ...most.answers }).answers);
+    }
+  });
+});

@@ -14288,6 +14288,122 @@ button.st-li:hover,
   color: var(--sl-danger, #e5484d);
 }
 
+/* Edit app (design/edit-app.md 3): an answer changed, with what it was; Changes in up to four parts. */
+.na-q > .ql .na-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 7px 1px 0;
+  border-radius: 50%;
+  background: var(--sl-accent);
+  vertical-align: middle;
+}
+
+.na-q > .ql .na-was {
+  margin-left: 8px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.na-list .it.edited {
+  border-color: color-mix(in srgb, var(--sl-accent) 55%, var(--sl-line));
+}
+
+.na-list .it small.was {
+  color: var(--sl-accent);
+}
+
+.na-list .it.gone {
+  border-style: dashed;
+  background: none;
+}
+
+.na-list .it.gone .t {
+  flex: 1;
+  padding: 2px;
+  color: var(--sl-faint);
+  text-decoration: line-through;
+}
+
+.na-list .it.gone .put {
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--sl-accent);
+  font-size: 11.5px;
+}
+
+.na-list .it.gone .put:hover {
+  background: var(--sl-sel);
+}
+
+.na-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.na-edit .col {
+  padding: 10px 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+}
+
+.na-edit .col.wide {
+  grid-column: 1 / -1;
+}
+
+.na-edit h4 {
+  margin: 0 0 8px;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.na-edit .pc {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  color: var(--sl-fg);
+  font-size: 12.5px;
+}
+
+.na-edit .pc .icon {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--sl-dim);
+}
+
+.na-edit .pc small {
+  margin-left: auto;
+  color: var(--sl-dim);
+  font-size: 11px;
+  text-align: right;
+}
+
+.na-none {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 200px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 8px;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.na-none b {
+  color: var(--sl-dim);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
 .na-box b {
   font-weight: 600;
 }

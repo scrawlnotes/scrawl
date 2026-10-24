@@ -10,19 +10,23 @@ import {
   type Layout,
   type LayoutBlock,
   type LayoutItem,
+  nameField,
   newRecordId,
+  parseSchema,
   RECORD_EXT,
+  type Record as CollectionRecord,
   type Schema,
   type View,
   serializeRecord,
   serializeSchema,
 } from '../collection';
 import { dayIn } from '../day';
-import { basename, join } from '../fs';
+import { type ChoiceRenames, renameChoices, renameInViews } from '../fields';
+import { basename, dirname, join } from '../fs';
 import { fileNameOf } from '../names';
 import { freePath } from '../paths';
 import { RULES_FILE, rulesProblems, ruleSpaceOf } from '../rules';
-import { aboutAdded, aboutName, aboutNote, partName } from './about';
+import { aboutAdded, aboutName, aboutNote, aboutSection, listed, partName } from './about';
 import { PIECES, type PieceInfo, ROLES } from './pieces';
 import { impliedBy, isTemplateId, readAnswers, readCurrencies, TEMPLATES } from './questions';
 import {
@@ -35,6 +39,7 @@ import {
   audienceOf,
   type BoardPart,
   type CollectionPart,
+  type EditItem,
   type FolderPart,
   type Money,
   type Part,
@@ -64,7 +69,8 @@ export interface AppInput {
   /** The app's name: its folder's, in `parent`. */
   name: string;
   currencies?: unknown;
-  templates: { id: string; answers?: { [key: string]: unknown } }[];
+  /** Editing an app, `renames` says the items of a list answer typed anew, by the question: `{ stages: { Proposal: "Quote" } }`. */
+  templates: { id: string; answers?: { [key: string]: unknown }; renames?: { [question: string]: { [from: string]: string } } }[];
 }
 
 /** A piece of an app as it is in the space, found by its role. */
@@ -87,6 +93,8 @@ export interface FoundApp {
   about: { path: string; text: string } | null;
   /** The lowercased paths in its folder. */
   taken: Set<string>;
+  /** The records of its collections with their files' text, by the collection's path: read for an edit, which renames choices and records. */
+  records?: Map<string, { record: CollectionRecord; text: string }[]>;
 }
 
 const matchingTemplate = (role: string): CollectionTemplate => (COLLECTION_TEMPLATES.includes(role as CollectionTemplate) ? (role as CollectionTemplate) : 'blank');
@@ -238,6 +246,8 @@ export interface PlanOptions {
   taken?: ReadonlySet<string>;
   /** Added to an app, what would not work with what is there is said in the plan's `blocked` rather than thrown: for a summary to show it. */
   keepBlocked?: boolean;
+  /** The templates given are the app's own, their answers changed (Edit app, design/edit-app.md); `found` should hold its records. */
+  edit?: boolean;
 }
 
 /**
@@ -245,8 +255,9 @@ export interface PlanOptions {
  * AppProblems for what was given wrong: a template that is not one or is there already, a
  * question that is not one or an answer that is not, the name, the currencies.
  */
-export function planApp(input: AppInput, { parent = '', found, ids, taken = new Set(), keepBlocked = false, today = dayIn(new Date()) }: PlanOptions = {}): AppPlan {
+export function planApp(input: AppInput, { parent = '', found, ids, taken = new Set(), keepBlocked = false, edit = false, today = dayIn(new Date()) }: PlanOptions = {}): AppPlan {
   const problems: string[] = [];
+  if (edit && !found) throw new Error('An app is edited where it is found');
   const title = found ? found.app.name : fileNameOf(input.name ?? '').replace(/\s+/g, ' ').trim();
   if (!title || title.startsWith('.') || title.startsWith('_')) problems.push(t('apps.needsName'));
   const folder = found ? found.folder : join(parent, title);
@@ -254,12 +265,17 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
 
   const installed = new Map<TemplateId, Answers>((found?.app.templates ?? []).filter((x) => isTemplateId(x.id)).map((x) => [x.id, x.answers]));
   const fresh: TemplateId[] = [];
+  // Editing, the templates given are the app's own, with their answers changed.
+  const edited: TemplateId[] = [];
   for (const { id } of input.templates) {
     if (!isTemplateId(id)) problems.push(t('apps.noTemplate', { id: String(id), ids: TEMPLATE_IDS.join(', ') }));
-    else if (installed.has(id)) problems.push(t('apps.alreadyThere', { id }));
+    else if (edit) {
+      if (!installed.has(id)) problems.push(t('apps.notInApp', { id, ids: [...installed.keys()].join(', ') }));
+      else if (!edited.includes(id)) edited.push(id);
+    } else if (installed.has(id)) problems.push(t('apps.alreadyThere', { id }));
     else if (!fresh.includes(id)) fresh.push(id);
   }
-  if (fresh.length === 0 && problems.length === 0) problems.push(t('apps.needsTemplate', { ids: TEMPLATE_IDS.join(', ') }));
+  if (!edit && fresh.length === 0 && problems.length === 0) problems.push(t('apps.needsTemplate', { ids: TEMPLATE_IDS.join(', ') }));
   const chosen = new Set<TemplateId>([...installed.keys(), ...fresh]);
   // One side only: a business's pieces and a person's are not linked, and are mostly kept apart.
   const side = (audience: Audience) => [...chosen].filter((id) => audienceOf(TEMPLATES[id].group) === audience);
@@ -271,6 +287,28 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
     problems.push(...read.problems);
     answers.set(id, read.answers);
   }
+  // An answer not given is the one it has; an answer to a question the template no longer asks is let go.
+  const keys = (id: TemplateId) => TEMPLATES[id].questions.map((q) => q.key);
+  const changedIds: TemplateId[] = [];
+  for (const id of edited) {
+    const had = Object.fromEntries(Object.entries(installed.get(id)!).filter(([key]) => keys(id).includes(key)));
+    const read = readAnswers(TEMPLATES[id], chosen, { ...had, ...given.get(id) });
+    problems.push(...read.problems);
+    answers.set(id, read.answers);
+    if (!same(read.answers, readAnswers(TEMPLATES[id], chosen, had).answers)) changedIds.push(id);
+  }
+  // The items of a list answer typed anew, each old one with its new one: a column, a choice, a record follows.
+  const renames = new Map<string, string>();
+  for (const x of input.templates) {
+    if (!isTemplateId(x.id) || !changedIds.includes(x.id)) continue;
+    for (const [key, names] of Object.entries(x.renames ?? {})) {
+      const now = answers.get(x.id)![key];
+      const was = installed.get(x.id)![key];
+      for (const [from, to] of Object.entries(names ?? {})) {
+        if (Array.isArray(was) && was.includes(from) && Array.isArray(now) && now.includes(to) && !now.includes(from)) renames.set(from, to);
+      }
+    }
+  }
   const all = withImplied(answers);
   const base = withImplied(installed);
 
@@ -280,6 +318,10 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   else if (currencies.length === 0 && [...all].some(([id, a]) => TEMPLATES[id].money(a))) problems.push(t('apps.needsCurrencies'));
   if (problems.length > 0) throw new AppProblems(problems);
   const money: Money = { currencies: currencies!, main: currencies![0] ?? '', multi: currencies!.length > 1 };
+  // Every answer as it was: nothing to write.
+  if (edit && changedIds.length === 0) {
+    return { folder, app: found!.app, dirs: [], files: [], created: [], changed: [], added: [], notes: [], templates: [], edit: { same: true, templates: [], changed: [], takenOff: [], kept: [] } };
+  }
 
   // Each piece where it is, or at a free name in the app's folder.
   const roles = rolesOf(all);
@@ -296,7 +338,10 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   }
   const after = new Draft(title, money, today, all, paths, roles);
   after.run();
-  const before = found ? new Draft(title, money, today, base, paths, rolesOf(base)) : null;
+  // A piece only the old answers bring, and no longer there, is given a path for them to be worked out with.
+  const baseRoles = rolesOf(base);
+  for (const role of baseRoles) if (!paths.has(role)) paths.set(role, freePath(folder, fileNameOf(piecesNamed(base)(role).name), piecesNamed(base)(role).kind === 'board' ? BOARD_EXT : '', new Set(names)));
+  const before = found ? new Draft(title, money, today, base, paths, baseRoles) : null;
   before?.run();
 
   const newId = ids ?? (() => crypto.randomUUID());
@@ -308,7 +353,12 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
     plan.notes.push(t('apps.keptField', { piece: partName(part), field: there.label ?? field.key }));
     kept.push({ piece: partName(part), label: there.label ?? field.key, key: field.key, has: there.type, wants: field.type });
   };
-  const file = (path: string, text: string, was: string | null = null) => plan.files.push({ path, text, before: was });
+  // A file written twice, added to and then edited, is written once with what it was before both.
+  const file = (path: string, text: string, was: string | null = null) => {
+    const twice = plan.files.find((f) => f.path === path);
+    if (twice) twice.text = text;
+    else plan.files.push({ path, text, before: was });
+  };
   const checks: { part: CollectionPart; fields: Field[]; rules: RuleChunk[] }[] = [];
   const final = new Map<string, { fields: readonly Field[] }>();
   const boards: { [path: string]: { fields?: readonly Field[]; columns: { name: string }[] } } = {};
@@ -432,7 +482,9 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
         const made = layoutFor(data.fields, newBlocks, actions);
         if (made) data.layout = made;
       }
-      const seeded = part.records.filter((r) => !old?.records.some((o) => same(o, r)) && !was.names.includes(String(r.name ?? '').toLowerCase()));
+      // A record an edit renames (Main warehouse to Depot) is not set up again under its new name.
+      const renamedTo = (name: string) => [...renames].some(([from, to]) => to.toLowerCase() === name && was.names.includes(from.toLowerCase()));
+      const seeded = part.records.filter((r) => !old?.records.some((o) => same(o, r)) && !was.names.includes(String(r.name ?? '').toLowerCase()) && !renamedTo(String(r.name ?? '').toLowerCase()));
       if (put.length > 0 || newBlocks.length > 0 || choices > 0 || rewritten.length > 0 || (actions && !layout)) file(join(part.path, COLLECTION_FILE), serializeSchema(data), was.text);
       if (rules.length > 0) {
         const text = was.rules?.trim() ? `${was.rules.replace(/\s*$/, '')}\n\n${rules.map((r) => r.src).join('\n\n')}\n` : rulesText(partName(part), rules);
@@ -483,6 +535,12 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
     if (piece.kind === 'board' && !boards[piece.path]) boards[piece.path] = JSON.parse(piece.text) as Board;
   }
 
+  // Editing, what the old answers brought and the new do not: settings go, the data stays (design/edit-app.md 2).
+  if (edit) {
+    plan.edit = { same: false, templates: changedIds, changed: [], takenOff: [], kept: [] };
+    editPieces({ found: found!, before: before!, after, renames, schemas: final as Map<string, Schema>, plan, file, newId });
+  }
+
   // The About note: whole for a new app; for an app set up before, the new templates' sections at its end.
   const sections = after.sections.filter((s) => !before?.sections.some((b) => b.id === s.id));
   if (found?.about) {
@@ -490,7 +548,8 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       file(found.about.path, `${found.about.text.replace(/\s*$/, '')}\n\n${aboutAdded(found.about.path, sections, after.parts)}\n`, found.about.text);
       plan.added.push({ kind: 'note', name: basename(found.about.path).replace(/\.md$/, ''), what: t('apps.aboutSection') });
     }
-  } else {
+    if (edit) editAbout(found.about, changedIds, before!, after, plan, file);
+  } else if (!edit) {
     const path = freePath(folder, fileNameOf(aboutName(title)), '.md', names);
     plan.created.push({ kind: 'note', path });
     file(path, aboutNote(path, title, found ? sections : after.sections, after.parts));
@@ -501,7 +560,10 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
     version: 1,
     name: title,
     currencies: money.currencies,
-    templates: [...(found?.app.templates ?? []), ...fresh.map((id) => ({ id, version: TEMPLATES[id].version, answers: answers.get(id)! }))],
+    templates: [
+      ...(found?.app.templates ?? []).map((x) => (changedIds.includes(x.id) ? { ...x, answers: answers.get(x.id)! } : x)),
+      ...fresh.map((id) => ({ id, version: TEMPLATES[id].version, answers: answers.get(id)! })),
+    ],
   };
   const appPath = join(folder, APP_FILE);
   file(appPath, `${JSON.stringify(plan.app, null, 2)}\n`, found ? JSON.stringify(found.app, null, 2) + '\n' : null);
@@ -517,6 +579,237 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
     plan.blocked = said;
   } else if (wrong.length > 0) throw new Error(`The app templates make a wrong app (${[...all.keys()].join(', ')}):\n${wrong.join('\n')}`);
   return plan;
+}
+
+interface EditContext {
+  found: FoundApp;
+  /** What the old answers make, and the new. */
+  before: Draft;
+  after: Draft;
+  /** Items of a list answer typed anew: a column, a choice or a record of that name follows. */
+  renames: ReadonlyMap<string, string>;
+  /** The collections' schemas as the plan leaves them, by path, to be changed further. */
+  schemas: Map<string, Schema>;
+  plan: AppPlan;
+  file: (path: string, text: string, was?: string | null) => void;
+  newId: () => string;
+}
+
+/** A rename in words, with what follows it when something does: "Proposal is now Quote; its 4 cards follow". */
+const followed = (renamed: string, follow: string, count: number) => (count > 0 ? `${renamed}; ${follow}` : renamed);
+
+/** Whether a value holds a choice. */
+const holds = (value: unknown, choice: string) => value === choice || (Array.isArray(value) && value.includes(choice));
+
+/** A rules file without one of the rules the app wrote in it, the lines around it closed up. */
+const withoutRule = (text: string, src: string) => `${text.replace(src, '').replace(/\n{3,}/g, '\n\n').replace(/\s*$/, '')}\n`;
+
+/**
+ * What an edit does besides adding: on each piece the old answers brought, the rules, buttons and
+ * views they wrote and the new do not are taken off where nobody changed them; a column or a choice
+ * typed anew is renamed with what holds it, one gone is taken off where nothing holds it; a record
+ * set up by an answer and typed anew is renamed, with the links to it. Fields and records stay.
+ */
+function editPieces({ found, before, after, renames, schemas, plan, file, newId }: EditContext) {
+  const edit = plan.edit!;
+  // What a file is now: as the plan writes it, else as it is.
+  const textOf = (path: string, was: string | null) => plan.files.find((f) => f.path === path)?.text ?? was;
+  const records = [...(found.records ?? new Map<string, { record: CollectionRecord; text: string }[]>()).entries()].flatMap(([dir, list]) => list.map((r) => ({ dir, record: r.record, text: r.text, changed: false })));
+  const renamedIds = new Map<string, string>();
+
+  for (const [role, piece] of found.pieces) {
+    const now = after.parts.get(role);
+    // A piece the old answers did not bring, kept from before them: it takes what the new bring, its board's columns as they are.
+    const fresh = !before.parts.has(role);
+    const was = before.parts.get(role) ?? (now ? ({ ...now, fields: [], blocks: [], views: [], rules: [], records: [], columns: [], notes: [] } as unknown as Part) : undefined);
+    if (!was || was.kind !== piece.kind) continue;
+    const name = partName({ ...was, path: piece.path } as Part);
+
+    if (piece.kind === 'collection' && was.kind === 'collection') {
+      const at = now?.kind === 'collection' ? now : null;
+      const schema = schemas.get(piece.path) ?? (JSON.parse(piece.text) as Schema);
+      const own = records.filter((r) => r.dir === piece.path);
+      let touched = false;
+      // A view compared as it is written: what the template makes, read back from a schema.
+      const written = (v: View) => JSON.stringify(parseSchema(JSON.stringify({ version: 2, fields: schema.fields, views: [v] })).views?.[0] ?? null);
+
+      // Views: the old answers' go where they are as written; the new answers' come.
+      for (const v of was.views) {
+        if (at?.views.some((o) => o.id === v.id)) continue;
+        const there = (schema.views ?? []).find((o) => o.id === v.id);
+        if (!there) continue;
+        if (written(there) === written(v)) {
+          schema.views = schema.views!.filter((o) => o !== there);
+          if (schema.defaultView === v.id) delete schema.defaultView;
+          touched = true;
+          edit.takenOff.push({ kind: 'collection', name, what: t('apps.edit.viewOff', { view: v.name }) });
+        } else edit.kept.push({ kind: 'collection', name, what: t('apps.edit.viewYours', { view: v.name }) });
+      }
+      for (const v of at?.views ?? []) {
+        if (was.views.some((o) => o.id === v.id) || (schema.views ?? []).some((o) => o.id === v.id)) continue;
+        schema.views = [...(schema.views ?? []), v];
+        if (at!.defaultView === v.id && (schema.defaultView ?? null) === (was.defaultView ?? null)) schema.defaultView = v.id;
+        touched = true;
+        plan.added.push({ kind: 'collection', name, what: t('apps.edit.viewOn', { view: v.name }) });
+      }
+
+      // Choices: one typed anew is renamed, in the records and the views too; one gone goes where nothing holds it.
+      const choices: ChoiceRenames = {};
+      for (const old of was.fields) {
+        if (old.type !== 'select' && old.type !== 'multi-select') continue;
+        const field = at?.fields.find((f) => f.key === old.key && f.type === old.type);
+        const there = schema.fields.find((f) => f.key === old.key && f.type === old.type);
+        if (!field || !there) continue;
+        for (const option of old.options ?? []) {
+          if (field.options?.includes(option) || !there.options?.includes(option)) continue;
+          const label = there.label ?? there.key;
+          const count = found.records ? own.filter((r) => holds(r.record.values[old.key], option)).length : null;
+          const to = renames.get(option);
+          if (to && field.options?.includes(to)) {
+            const options = there.options.filter((o) => o !== to);
+            options[options.indexOf(option)] = to;
+            there.options = options;
+            if (there.colors?.[option]) {
+              const { [option]: color, ...rest } = there.colors;
+              there.colors = { ...rest, [to]: color! };
+            }
+            (choices[old.key] ??= {})[option] = to;
+            touched = true;
+            edit.changed.push({ kind: 'collection', name, what: followed(t('apps.edit.choiceRenamed', { field: label, from: option, to }), t('apps.edit.recordsFollow', { count: count ?? 0 }), count ?? 0) });
+          } else if (count === 0) {
+            there.options = there.options.filter((o) => o !== option);
+            if (there.colors?.[option]) {
+              const { [option]: _, ...rest } = there.colors;
+              there.colors = rest;
+            }
+            touched = true;
+            edit.takenOff.push({ kind: 'collection', name, what: t('apps.edit.choiceOff', { field: label, choice: option }) });
+          } else edit.kept.push({ kind: 'collection', name, what: t('apps.edit.choiceKept', { field: label, choice: option, count: count ?? 1 }) });
+        }
+      }
+      if (Object.keys(choices).length > 0) {
+        schema.views = renameInViews(schema, choices).views;
+        for (const r of own) {
+          const values = renameChoices(r.record.values, choices);
+          if (values !== r.record.values) Object.assign(r, { record: { ...r.record, values }, changed: true });
+        }
+      }
+
+      // Rules and buttons the old answers wrote: taken off as they were written, kept where changed.
+      const rulesPath = join(piece.path, RULES_FILE);
+      let rules = textOf(rulesPath, piece.rules);
+      const rulesWere = rules;
+      for (const r of rules ? was.rules : []) {
+        if (at?.rules.some((o) => o.kind === r.kind && o.name === r.name)) continue;
+        if (rules!.includes(r.src)) {
+          rules = withoutRule(rules!, r.src);
+          edit.takenOff.push({ kind: 'collection', name, what: t(r.kind === 'action' ? 'apps.edit.buttonOff' : 'apps.edit.ruleOff', { rule: r.name }) });
+        } else if (rules!.includes(r.src.match(/^\w+\("[^"]*"/)?.[0] ?? JSON.stringify(r.name))) edit.kept.push({ kind: 'collection', name, what: t('apps.edit.ruleYours', { rule: r.name }) });
+      }
+      if (rules !== rulesWere) file(rulesPath, rules!, piece.rules);
+
+      // A record an answer set up and typed anew is renamed; one gone stays.
+      for (const seed of at ? was.records : []) {
+        const from = String(seed.name ?? '');
+        if (!from || at!.records.some((r) => String(r.name ?? '').toLowerCase() === from.toLowerCase())) continue;
+        const r = own.find((o) => o.record.name.toLowerCase() === from.toLowerCase());
+        if (!r) continue;
+        const to = renames.get(from);
+        if (to && at!.records.some((o) => String(o.name ?? '') === to) && !own.some((o) => o.record.name.toLowerCase() === to.toLowerCase())) {
+          const key = nameField(schema)?.key;
+          Object.assign(r, { record: { ...r.record, name: to, values: key ? { ...r.record.values, [key]: to } : r.record.values }, changed: true });
+          renamedIds.set(r.record.id, to);
+          edit.changed.push({ kind: 'collection', name, what: t('apps.edit.recordRenamed', { from, to }) });
+        } else edit.kept.push({ kind: 'collection', name, what: t('apps.edit.recordKept', { record: r.record.name }) });
+      }
+
+      // Fields the old answers brought: they stay, with what is in them.
+      const left = at ? was.fields.filter((f) => !at.fields.some((o) => o.key === f.key)).flatMap((f) => schema.fields.filter((o) => o.key === f.key).map((o) => o.label ?? o.key)) : [];
+      if (left.length > 0) edit.kept.push({ kind: 'collection', name, what: t('apps.edit.fieldsKept', { fields: listed(left), count: left.length }) });
+      if (!at) edit.kept.push({ kind: 'collection', name, what: own.length > 0 ? t('apps.edit.collectionKept', { count: own.length }) : t('apps.edit.asItIs') });
+      if (touched) file(join(piece.path, COLLECTION_FILE), serializeSchema(schema), piece.text);
+    } else if (piece.kind === 'board' && was.kind === 'board') {
+      const at = now?.kind === 'board' ? now : null;
+      const data = JSON.parse(textOf(piece.path, piece.text)!) as Board;
+      const columns = data.columns ?? [];
+      const cards = data.cards ?? [];
+      let touched = false;
+      const inColumn = (id: string) => cards.filter((c) => c.column === id).length;
+      const olds = was.columns.map(([n]) => n);
+      const news = at?.columns.map(([n]) => n) ?? olds;
+      if (at && !fresh && !same(olds, news)) {
+        for (const column of [...columns]) {
+          if (!olds.includes(column.name) || news.includes(column.name)) continue;
+          const to = renames.get(column.name);
+          const count = inColumn(column.id);
+          // A board keeps a column for what is done.
+          const last = column.kind === 'done' && columns.filter((c) => c.kind === 'done').length === 1;
+          if (to && news.includes(to) && !columns.some((c) => c.name === to)) {
+            edit.changed.push({ kind: 'board', name, what: followed(t('apps.edit.columnRenamed', { from: column.name, to }), t('apps.edit.cardsFollow', { count }), count) });
+            column.name = to;
+            touched = true;
+          } else if (count === 0 && !last) {
+            columns.splice(columns.indexOf(column), 1);
+            touched = true;
+            edit.takenOff.push({ kind: 'board', name, what: t('apps.edit.columnOff', { column: column.name }) });
+          } else edit.kept.push({ kind: 'board', name, what: t('apps.edit.columnKept', { column: column.name, count }) });
+        }
+        at.columns.forEach(([n, kind], i) => {
+          // One the person took off before is not put back.
+          if (columns.some((c) => c.name === n) || olds.includes(n)) return;
+          const prev = at.columns.slice(0, i).reverse().find(([p]) => columns.some((c) => c.name === p));
+          columns.splice(prev ? columns.findIndex((c) => c.name === prev[0]) + 1 : 0, 0, { id: newId(), name: n, kind });
+          touched = true;
+          plan.added.push({ kind: 'board', name, what: t('apps.edit.columnOn', { column: n }) });
+        });
+      }
+      if (!at) edit.kept.push({ kind: 'board', name, what: cards.length > 0 ? t('apps.edit.boardKept', { count: cards.length }) : t('apps.edit.asItIs') });
+      if (touched) file(piece.path, `${JSON.stringify({ ...data, columns }, null, 2)}\n`, piece.text);
+    } else if (!now) edit.kept.push({ kind: piece.kind, name, what: t('apps.edit.asItIs') });
+  }
+
+  // A record renamed: the links to it say its new name.
+  if (renamedIds.size > 0) {
+    for (const r of records) {
+      let values = r.record.values;
+      for (const [key, value] of Object.entries(values)) {
+        const link = (v: unknown) => (v && typeof v === 'object' && 'id' in v && renamedIds.has((v as { id: string }).id) ? { ...(v as object), name: renamedIds.get((v as { id: string }).id)! } : v);
+        const next = Array.isArray(value) ? value.map(link) : link(value);
+        if (JSON.stringify(next) !== JSON.stringify(value)) values = { ...values, [key]: next as CollectionRecord['values'][string] };
+      }
+      if (values !== r.record.values) Object.assign(r, { record: { ...r.record, values }, changed: true });
+    }
+  }
+  for (const r of records) if (r.changed && schemas.has(r.dir)) file(r.record.path, serializeRecord(r.record, schemas.get(r.dir)!), r.text);
+}
+
+/** The About note's section of each template whose answers changed, written anew where it is as the app wrote it; else kept. */
+function editAbout(about: { path: string; text: string }, ids: TemplateId[], before: Draft, after: Draft, plan: AppPlan, file: EditContext['file']) {
+  const name = basename(about.path).replace(/\.md$/, '');
+  // Each piece is said to be set up with the first template that has it, as the note was written; a section added later says none.
+  const fromOf = (sections: Draft['sections']) => {
+    const from = new Map<string, string>();
+    for (const { section } of sections) for (const role of section.pieces) if (!from.has(role)) from.set(role, section.title);
+    return from;
+  };
+  let text = plan.files.find((f) => f.path === about.path)?.text ?? about.text;
+  for (const id of ids) {
+    const old = before.sections.find((s) => s.id === id)?.section;
+    const now = after.sections.find((s) => s.id === id)?.section;
+    if (!old || !now) continue;
+    const ways: [Map<string, string>, Map<string, string>][] = [[fromOf(before.sections), fromOf(after.sections)], [new Map(), new Map()]];
+    const way = ways.find(([from]) => text.includes(aboutSection(old, before.parts, from, dirname(about.path))));
+    if (!way) {
+      plan.edit!.kept.push({ kind: 'note', name, what: t('apps.edit.aboutYours', { section: now.title }) });
+      continue;
+    }
+    const was = aboutSection(old, before.parts, way[0], dirname(about.path));
+    const next = aboutSection(now, after.parts, way[1], dirname(about.path));
+    if (was === next) continue;
+    text = text.replace(was, next);
+    plan.edit!.changed.push({ kind: 'note', name, what: t('apps.edit.aboutSection', { section: now.title }) });
+  }
+  if (text !== (plan.files.find((f) => f.path === about.path)?.text ?? about.text)) file(about.path, text, about.text);
 }
 
 /** What each template sets up, for the wizard's summary: a piece under the first template that has it, with the ones after it that share it. */
