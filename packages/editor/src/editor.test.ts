@@ -32,7 +32,7 @@ describe('word count', () => {
   });
 });
 import { addCopy, type Copy, copiesField, copyFollows, copyPosition, copyProgress, dropCopy, progressText } from './copies';
-import { keepDividers, positionsToEscape } from './literal';
+import { keepDividers, positionsToEscape, typedListStart } from './literal';
 import { buildDecorations, setSourceMode, sourceMode } from './livePreview';
 import { attachmentChanges } from './media';
 import { cellMarkdown, copiedCells, fillCells, parseTable, pasteTable, serializeTable, tableDecorations, tableGrid, tableOfCells } from './table';
@@ -289,21 +289,30 @@ describe('formatting commands', () => {
 });
 
 describe('literal typing', () => {
-  /** Types `text` at the end of `before` and returns the note with the needed backslashes. */
-  function typed(before: string, text: string): string {
-    let state = EditorState.create({ doc: before + text, extensions });
-    let inserted = [{ from: before.length, to: before.length + text.length }];
+  /** Types `text` at the end of the note as the editor does: with the needed backslashes, and a list where one is started. */
+  function typeAtEnd(state: EditorState, text: string): EditorState {
+    const end = state.doc.length;
+    state = state.update({ changes: { from: end, insert: text }, selection: { anchor: end + text.length }, userEvent: 'input.type' }).state;
+    let inserted = [{ from: end, to: end + text.length }];
     for (let pass = 0; pass < 4; pass++) {
       const positions = positionsToEscape(state, inserted);
       if (!positions.length) break;
       const changes = state.changes(positions.map((from) => ({ from, insert: '\\' })));
-      state = state.update({ changes }).state;
+      state = state.update({ changes, userEvent: 'input.type' }).state;
       inserted = inserted.map((r) => ({ from: changes.mapPos(r.from, -1), to: changes.mapPos(r.to, 1) }));
     }
-    return state.doc.toString();
+    for (const spec of typedListStart(state, inserted) ?? []) state = state.update(spec).state;
+    return state;
   }
-  /** Types `text` one character at a time. */
-  const typedSlowly = (text: string) => [...text].reduce((doc, ch) => typed(doc, ch), '');
+  const typed = (before: string, text: string) => typeAtEnd(EditorState.create({ doc: before, extensions }), text).doc.toString();
+  /** Types `text` one character at a time, after `before`, with undo history. */
+  const typing = (text: string, before = '') => [...text].reduce(typeAtEnd, EditorState.create({ doc: before, extensions: [extensions, history()] }));
+  const typedSlowly = (text: string, before = '') => typing(text, before).doc.toString();
+  const lists = (doc: string) => {
+    const names: string[] = [];
+    ensureSyntaxTree(EditorState.create({ doc, extensions }), doc.length, 5000)!.iterate({ enter: (node) => void (/List$/.test(node.name) && names.push(node.name)) });
+    return names;
+  };
 
   it('leaves ordinary text and lone symbols alone', () => {
     expect(typedSlowly('snake_case and 2 * 3 = 6')).toBe('snake_case and 2 * 3 = 6');
@@ -320,10 +329,41 @@ describe('literal typing', () => {
   });
 
   it('keeps typed line starts as text', () => {
-    for (const text of ['# heading', '- item', '1. first', '> quote', '---', '```']) {
+    for (const text of ['# heading', '+ item', '2. second', '1) first', '> quote', '---', '```']) {
       const doc = typedSlowly(text);
       expect(doc.replaceAll('\\', ''), doc).toBe(text);
       expect(decorationsOf(EditorState.create({ doc, extensions })).filter((d) => !d.startsWith('hide')), doc).toEqual([]);
+    }
+  });
+
+  it('makes a list of a dash, a star or 1. typed at the start of a line, with the space after it', () => {
+    expect(typedSlowly('- item')).toBe('- item');
+    expect(typedSlowly('* item')).toBe('* item');
+    expect(typedSlowly('1. first')).toBe('1. first');
+    expect(typedSlowly('  - sub')).toBe('  - sub');
+    expect(typedSlowly('Shopping:\n- milk')).toBe('Shopping:\n- milk');
+    expect(typedSlowly('Steps:\n1. first')).toBe('Steps:\n1. first');
+    expect(typedSlowly('- quoted', '> ')).toBe('> - quoted');
+    for (const doc of ['- item', '1. first', 'Shopping:\n- milk', 'Steps:\n1. first']) expect(lists(typedSlowly(doc)), doc).toHaveLength(1);
+    // The mark is a list as soon as the space is typed, where nothing is above it.
+    expect(lists(typedSlowly('- '))).toEqual(['BulletList']);
+    expect(lists(typedSlowly('1. '))).toEqual(['OrderedList']);
+  });
+
+  it('keeps a dash, star or 1. as text when it is not at the start of a line, or in code', () => {
+    expect(typedSlowly('a - b * c 1. d')).toBe('a - b * c 1. d');
+    expect(typedSlowly('- x', '```\n')).toBe('```\n- x');
+    expect(typed('', '- pasted')).toBe('\\- pasted');
+  });
+
+  it('takes the list back with one undo, the mark staying as text', () => {
+    for (const [text, after] of [['- ', '\\- '], ['1. ', '1\\. '], ['Steps:\n1. ', 'Steps:\n1\\. ']] as const) {
+      let state = typing(text);
+      undo({ state, dispatch: (tr) => (state = tr.state) });
+      expect(state.doc.toString(), text).toBe(after);
+      expect(lists(state.doc.toString()), text).toEqual([]);
+      // What is typed after it stays text.
+      expect(typeAtEnd(state, 'x').doc.toString()).toBe(`${after}x`);
     }
   });
 

@@ -1,5 +1,6 @@
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
-import { type ChangeSet, EditorState, type Extension } from '@codemirror/state';
+import { isolateHistory } from '@codemirror/commands';
+import { type ChangeSet, EditorState, type Extension, Transaction, type TransactionSpec } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 import { sourceMode } from './livePreview';
@@ -60,6 +61,35 @@ export function positionsToEscape(state: EditorState, inserted: readonly Span[])
     });
   }
   return [...out].sort((a, b) => a - b);
+}
+
+// A list is the one thing typing makes: `- `, `* ` or `1. ` at the start of a line, in a quote or
+// a callout too, as other notes apps do. The line before the typed space, its mark escaped or not.
+const LIST_START = /^((?:[ \t]*>[ \t]?)*[ \t]*)(?:(\\?)[-*]|1(\\?)\.)$/;
+const CODE = new Set(['FencedCode', 'CodeBlock', 'InlineCode', 'HTMLBlock', 'CommentBlock']);
+
+/**
+ * The space typed after a list mark at the start of a line makes the line a list item: the mark's
+ * backslash is taken away, in a step of its own, so that undo puts it back and the mark is text
+ * again. A mark that typing did not escape, as one under a line of text, is escaped first, outside
+ * the history. Null when `inserted` is no such space.
+ */
+export function typedListStart(state: EditorState, inserted: readonly Span[]): TransactionSpec[] | null {
+  const space = inserted.length === 1 ? inserted[0]! : null;
+  if (!space || state.doc.sliceString(space.from, space.to) !== ' ') return null;
+  const line = state.doc.lineAt(space.from);
+  const start = LIST_START.exec(line.text.slice(0, space.from - line.from));
+  if (!start) return null;
+  const tree = ensureSyntaxTree(state, line.to, 100) ?? syntaxTree(state);
+  for (let node: SyntaxNode | null = tree.resolveInner(space.from, -1); node; node = node.parent) {
+    if (CODE.has(node.name)) return null;
+  }
+  const backslash = start[2] ?? start[3]!;
+  // Before the dash or star; in `1.` before the dot, as `positionsToEscape` puts it.
+  const at = line.from + start[1]!.length + (start[2] === undefined ? 1 : 0);
+  const unescape: TransactionSpec = { changes: { from: at, to: at + 1 }, userEvent: 'input.format', annotations: isolateHistory.of('full') };
+  if (backslash) return [unescape];
+  return [{ changes: { from: at, insert: '\\' }, annotations: Transaction.addToHistory.of(false) }, unescape];
 }
 
 /**
@@ -133,6 +163,9 @@ export function literalInput(): Extension {
         // Same user event as typing, so one undo step removes the character and its backslash.
         update.view.dispatch({ changes, userEvent: 'input.type' });
         inserted = inserted.map((r) => ({ from: changes.mapPos(r.from, -1), to: changes.mapPos(r.to, 1) }));
+      }
+      if (update.transactions.some((tr) => tr.isUserEvent('input.type'))) {
+        for (const spec of typedListStart(update.view.state, inserted) ?? []) update.view.dispatch(spec);
       }
     } finally {
       busy = false;
