@@ -269,6 +269,13 @@ input:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* a line between the day's views, Today and Upcoming, and the rest */
+.side-div {
+  height: 1px;
+  margin: 6px 8px;
+  background: var(--sl-line);
+}
+
 .grp {
   display: flex;
   align-items: center;
@@ -15963,10 +15970,129 @@ button.st-li:hover,
   margin-top: auto;
 }
 
-.ch-start {
-  margin: 12px 20px 6px;
+/* a conversation's start, as Slack's channel's: what it is, and what to do first (design/chat.md 25) */
+.ch-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 22px 20px 16px;
+}
+
+.ch-intro .big {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sl-accent) 16%, var(--sl-side));
+  color: var(--sl-accent);
+  font: 600 28px/1 var(--sl-font-mono);
+}
+
+.ch-intro .big .icon {
+  width: 26px;
+  height: 26px;
+}
+
+.ch-intro .big.face {
+  width: auto;
+  min-width: 56px;
+  background: none;
+}
+
+.ch-face.xl {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+}
+
+.ch-intro .ch-faces .ch-face.lg {
+  width: 44px;
+  height: 44px;
+  font-size: 17px;
+}
+
+.ch-intro h3 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.ch-intro p {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--sl-dim);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.ch-intro p.topic {
+  color: var(--sl-fg);
+}
+
+.ch-intro small {
   color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.ch-intro .ias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ch-intro .ia {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  color: var(--sl-fg);
   font-size: 12.5px;
+  font-weight: 500;
+}
+
+.ch-intro .ia:hover {
+  background: var(--sl-sel);
+}
+
+.ch-intro .ia .icon {
+  width: 15px;
+  height: 15px;
+  color: var(--sl-dim);
+}
+
+/* the list with little in it: New room…, the people to write to, Invite people… */
+.chat-row.addr {
+  color: var(--sl-faint);
+}
+
+.chat-row .ic2 {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--sl-fg) 8%, transparent);
+  color: var(--sl-dim);
+}
+
+.chat-row .ic2 .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.chat-row .sb {
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 11px;
+  text-overflow: ellipsis;
 }
 
 .ch-day {
@@ -18976,20 +19102,23 @@ button.ppl:hover {
   text-transform: uppercase;
 }
 
+/* A section's cards, each placed where its column puts it (QuickNotes.tsx masonry). */
 .qn-grid {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  position: relative;
   max-width: 100%;
   margin-bottom: 22px;
 }
 
-.qn-col {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  width: 240px;
-  min-width: 0;
+.qn-grid > .qn-card {
+  position: absolute;
+  box-sizing: border-box;
+}
+
+/* While a card is dragged the others slide to where they now stand, as in Keep. */
+.qn-grid.sorting > .qn-card {
+  transition:
+    top 0.18s ease,
+    left 0.18s ease;
 }
 
 /* A card: its title, then its body as the editor draws it, cut where it is long. */

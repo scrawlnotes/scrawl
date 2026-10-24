@@ -103,6 +103,8 @@ export function holdToDrag(event: ReactPointerEvent | PointerEvent, drag: HoldTo
     ghost.classList.remove('lifted', 'on');
     ghost.classList.add('touch-ghost');
     ghost.style.width = `${onPage(box.width)}px`;
+    // It goes where the finger is, not where the element was placed in its own box.
+    ghost.style.top = ghost.style.left = '';
     ghost.setAttribute('aria-hidden', 'true');
     document.body.append(ghost);
     place();

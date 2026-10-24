@@ -8666,6 +8666,248 @@ body > .mb-lifted {
   display: none;
 }
 
+/* The box to write in, as Slack's (design/chat.md 25): a pill with + and the microphone; in use, a
+   card with the words over +, Aa, emoji, @ and Send. Six lines at most, then its words scroll. */
+.ch-cmp.chp-box {
+  border-top: 0;
+  background: transparent;
+}
+
+.mb.keyboard .ch-cmp.chp-box {
+  padding-bottom: 0;
+}
+
+.mb .chp-box .chp-row {
+  align-items: center;
+  gap: 6px;
+  margin: 6px 12px 8px;
+  padding: 4px 4px 4px 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 22px;
+  background: var(--sl-side);
+}
+
+.mb .chp-box .chp-row .pl {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sl-fg) 8%, transparent);
+  color: var(--sl-dim);
+}
+
+.mb .chp-box .chp-row .mic {
+  width: 34px;
+  height: 34px;
+  color: var(--sl-dim);
+}
+
+.mb .chp-box .chp-row .pl .icon,
+.mb .chp-box .chp-row .mic .icon {
+  width: 21px;
+  height: 21px;
+}
+
+.mb .chp-box .chp-row .in {
+  min-height: 0;
+  max-height: calc(6 * 24px + 4px);
+  padding: 5px 2px 3px 6px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.mb .chp-box .chp-row.open {
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 4px 8px 8px;
+  padding: 8px 8px 6px 12px;
+  border-radius: 16px;
+}
+
+.mb .chp-box .chp-row.open .in {
+  flex: 1 1 100%;
+  padding: 2px 4px 2px 0;
+}
+
+.chp-row .bar {
+  position: relative;
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.mb .chp-box .chp-row .bar .pl {
+  width: 32px;
+  height: 32px;
+  margin-right: 4px;
+}
+
+.chp-row .bar .ib {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--sl-dim);
+}
+
+.chp-row .bar .ib.on {
+  background: color-mix(in srgb, var(--sl-fg) 8%, transparent);
+  color: var(--sl-fg);
+}
+
+.mb .chp-row .bar .ib .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.chp-row .bar .aa {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.chp-row .bar .gap {
+  flex: 1;
+}
+
+.mb .chp-box .chp-row .bar .send {
+  width: 40px;
+  height: 32px;
+  border-radius: 16px;
+  background: none;
+  color: var(--sl-faint);
+}
+
+.mb .chp-box .chp-row .bar .send.go {
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+}
+
+/* the emoji over the box, the width of the screen */
+.mb .chp-row .bar .ch-pick {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  left: 0;
+  width: auto;
+}
+
+/* Aa's row over the box */
+.mb .chp-box .fmt {
+  gap: 2px;
+  margin: 0 12px;
+  padding: 4px 0 0;
+  overflow-x: auto;
+}
+
+.mb .chp-box .fmt button {
+  min-width: 40px;
+  height: 36px;
+}
+
+/* the box held for a voice message: the pill takes the recording */
+.mb .chp-box.holding .chp-row {
+  padding-left: 16px;
+}
+
+/* A long message folds past twelve lines; Show more opens it where it is. */
+.mb .ch-m .bd.fold {
+  max-height: 12lh;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent);
+}
+
+.mb .ch-more {
+  margin-top: 4px;
+  color: var(--sl-accent);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+/* A conversation's start, on a phone: larger, the two first things side by side. */
+.mb .ch-intro.phone {
+  gap: 8px;
+  padding: 8px 16px 18px;
+}
+
+.mb .ch-intro.phone .big {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 4px;
+  border-radius: 14px;
+  font-size: 30px;
+}
+
+.mb .ch-intro.phone .big.face {
+  width: auto;
+}
+
+.mb .ch-intro.phone .ch-face.xl {
+  width: 64px;
+  height: 64px;
+  font-size: 25px;
+}
+
+.mb .ch-intro.phone h3 {
+  font-size: 26px;
+  letter-spacing: -0.01em;
+}
+
+.mb .ch-intro.phone p {
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.mb .ch-intro.phone small {
+  font-size: 14px;
+}
+
+.mb .ch-intro.phone .ias {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.mb .ch-intro.phone .ias .ia:only-child {
+  grid-column: 1 / -1;
+}
+
+.mb .ch-intro.phone .ia {
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 14px 8px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.mb .ch-intro.phone .ia .icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* the list: an empty room says so; Invite people's mark in the accent */
+.chp-c .tx small.none {
+  font-style: italic;
+}
+
+.mb .chp-c.addr .chp-ic {
+  background: color-mix(in srgb, var(--sl-accent) 16%, var(--sl-side));
+  color: var(--sl-accent);
+}
+
+/* The box to write in and a message changed in place: under 16 px the phone zooms in on them. */
+.mb .ch-cmp .in .cm-editor,
+.mb .ch-edit-box .cm-editor {
+  font-size: 16px;
+}
+
 .chp-row .send {
   display: grid;
   flex: none;
@@ -8974,15 +9216,8 @@ body > .mb-lifted {
 }
 
 .qn.phone .qn-grid {
-  gap: 10px;
   width: 100%;
   margin-bottom: 0;
-}
-
-.qn.phone .qn-col {
-  flex: 1;
-  gap: 10px;
-  width: auto;
 }
 
 .qn.phone .qn-card {

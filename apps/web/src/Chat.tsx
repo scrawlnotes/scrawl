@@ -25,6 +25,7 @@ import { Icon, type IconName } from './Icon';
 import { Face, leadOf, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { BrowseRoomsDialog, ChatInfoDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
 import { ChatResults } from './ChatSearch';
+import { ChatIntro, notWrittenTo, teammatesOf } from './ChatStart';
 import { type Hit, type HitFilters, useMessageSearch } from './messageSearch';
 import { hostOf } from './servers';
 import { ITEM_DRAG_TYPE } from './Sidebar';
@@ -55,6 +56,8 @@ export interface ChatLinks {
   toTask: (title: string, description: string, from: string) => void;
   toCard: (title: string, description: string, from: string) => void;
   say: (text: string) => void;
+  /** Invite people: the settings of the space, where its invite is; Spaces when none is named. */
+  invite: (space: string | null) => void;
 }
 
 interface Props {
@@ -261,7 +264,16 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
 
   return (
     <div ref={self} className={`chat${listShown ? ' list-shown' : ''}`}>
-      <ChatList servers={snapshot.servers} open={finding ? null : shown} onOpen={pick} onAdd={addMenu} box={searchBox(listBox, 'ch-find')} />
+      <ChatList
+        servers={snapshot.servers}
+        open={finding ? null : shown}
+        onOpen={pick}
+        onAdd={addMenu}
+        onNewRoom={(url) => setMaking({ kind: 'newRoom', url, space: null })}
+        onWrite={(url, person) => void store.server(url)?.direct([person]).then((made) => pick({ url, chat: made.id }), () => links.say(t('chat.notChanged')))}
+        onInvite={() => links.invite(null)}
+        box={searchBox(listBox, 'ch-find')}
+      />
       {finding ? (
         <ChatResults
           query={query}
@@ -317,12 +329,18 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
 }
 
 /** The conversations: each server's rooms under their spaces by name, then its direct messages, the latest first. */
-function ChatList({ servers, open, onOpen, onAdd, box }: {
+function ChatList({ servers, open, onOpen, onAdd, onNewRoom, onWrite, onInvite, box }: {
   servers: ChatServer[];
   open: Open | null;
   onOpen: (open: Open) => void;
   /** The + of a space's heading, or of Direct's (space null). */
   onAdd: (event: MouseEvent, url: string, space: string | null) => void;
+  /** New room… under a server's rooms. */
+  onNewRoom: (url: string) => void;
+  /** Someone to write to, with no direct message yet: it opens. */
+  onWrite: (url: string, person: string) => void;
+  /** Invite people…, when no one shares a space with this person. */
+  onInvite: () => void;
   /** The box to search messages in, at the top. */
   box: ReactNode;
 }) {
@@ -377,11 +395,42 @@ function ChatList({ servers, open, onOpen, onAdd, box }: {
                 </div>
               ))}
             {spaces.size > 0 && (
-              <div className="chat-group">
-                {heading(many ? t('chat.directOn', { server: hostOf(server.url) }) : t('chat.direct'), server.url, null)}
-                {direct.map((chat) => row(server, chat))}
-              </div>
+              <button type="button" className="chat-row addr" onClick={() => onNewRoom(server.url)}>
+                <span className="ic2">
+                  <Icon name="plus" />
+                </span>
+                <span className="nm">{t('chat.newRoomDots')}</span>
+              </button>
             )}
+            <div className="chat-group">
+              {heading(many ? t('chat.directMessagesOn', { server: hostOf(server.url) }) : t('chat.directMessages'), server.url, null)}
+              {direct.map((chat) => row(server, chat))}
+              {/* The people to write to with no direct message yet, a few; with no one at all, Invite people…. */}
+              {notWrittenTo(server)
+                .slice(0, 5)
+                .map((person) => (
+                  <button type="button" key={person.id} className="chat-row" onClick={() => onWrite(server.url, person.id)}>
+                    <Face id={person.id} name={person.name} size="sm" online={server.active.includes(person.id)} />
+                    <span className="nm">{person.name}</span>
+                    <span className="sb">{person.space}</span>
+                  </button>
+                ))}
+              {teammatesOf(server).length > 0 ? (
+                <button type="button" className="chat-row addr" onClick={(event) => onAdd(event, server.url, null)}>
+                  <span className="ic2">
+                    <Icon name="plus" />
+                  </span>
+                  <span className="nm">{t('chat.newMessageDots')}</span>
+                </button>
+              ) : (
+                <button type="button" className="chat-row addr" onClick={onInvite}>
+                  <span className="ic2">
+                    <Icon name="plus" />
+                  </span>
+                  <span className="nm">{t('chat.invitePeopleDots')}</span>
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
@@ -662,7 +711,14 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
       )}
       <div className="ch-msgs" ref={scroller} onScroll={onScroll}>
         {server.older[chat.id] === false || (messages[0]?.seq ?? 1) <= 1 ? (
-          <p className="ch-start">{chat.kind === 'direct' ? t('chat.startDirect', { name: titleOf(chat, server.me) }) : t('chat.startRoom', { name: chat.name })}</p>
+          <ChatIntro
+            server={server}
+            chat={chat}
+            phone={!!phone}
+            onInvite={links.invite}
+            onTopic={() => (phone ? phone.onInfo() : setInfo('about'))}
+            onAddPeople={() => (phone ? phone.onInfo() : setInfo('people'))}
+          />
         ) : null}
         {messages.map((message, i) => {
           const before = messages[i - 1];
@@ -712,7 +768,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
           );
         })}
         {pending.map((each) => (
-          <PendingRow key={each.id} url={server.url} pending={each} me={server.me} nameOf={nameOf} after={messages.at(-1)} replied={each.replyTo ? messages.find((message) => message.id === each.replyTo) : undefined} />
+          <PendingRow key={each.id} url={server.url} pending={each} me={server.me} nameOf={nameOf} after={messages.at(-1)} replied={each.replyTo ? messages.find((message) => message.id === each.replyTo) : undefined} phone={!!phone} />
         ))}
       </div>
       <div className="ch-typing">{typing.length === 0 ? '' : typing.length === 1 ? t('chat.typingOne', { name: typing[0]! }) : typing.length === 2 ? t('chat.typingTwo', { a: typing[0]!, b: typing[1]! }) : t('chat.typingMany')}</div>
@@ -853,6 +909,7 @@ function MessageRow(props: {
   useEffect(() => {
     if (body.current) shape(body.current, props.chipState);
   }, [html, props.chipState, props.editing]);
+  const fold = useFold(body, html, !!props.onHold);
   return (
     <div
       className={`ch-m${cont ? ' cont' : ''}${props.reacting ? ' hold' : ''}${props.flash ? ' flash' : ''}`}
@@ -893,7 +950,12 @@ function MessageRow(props: {
         ) : props.editing ? (
           <MessageEditor body={message.body} onSave={props.onEdit} onCancel={props.onCancelEdit} />
         ) : (
-          message.body.trim() !== '' && <div className="bd" ref={body} onClick={(event) => onBodyClick(event, props.onLink)} dangerouslySetInnerHTML={{ __html: html }} />
+          message.body.trim() !== '' && (
+            <>
+              <div className={fold.className} ref={body} onClick={(event) => onBodyClick(event, props.onLink)} dangerouslySetInnerHTML={{ __html: html }} />
+              {fold.more}
+            </>
+          )
         )}
         {!message.deleted && message.files.length > 0 && <Attachments url={props.url} files={message.files} />}
         {message.reactions.length > 0 && (
@@ -1110,10 +1172,12 @@ function onBodyClick(event: MouseEvent, onLink: (href: string) => void) {
 }
 
 /** A message written here that has not gone yet: soft while it goes; one not taken says so, with Retry and Delete. */
-function PendingRow({ url, pending, me, nameOf, after, replied }: { url: string; pending: Pending; me: string; nameOf: (id: string) => string; after: ChatMessage | undefined; replied: ChatMessage | undefined }) {
+function PendingRow({ url, pending, me, nameOf, after, replied, phone }: { url: string; pending: Pending; me: string; nameOf: (id: string) => string; after: ChatMessage | undefined; replied: ChatMessage | undefined; phone: boolean }) {
   const one = store.server(url);
   const cont = !!after && after.author === me && !after.agent && pending.at - after.at < 5 * 60_000;
   const html = useMemo(() => messageHtml(pending.body), [pending.body]);
+  const body = useRef<HTMLDivElement>(null);
+  const fold = useFold(body, html, phone);
   return (
     <div className={`ch-m pending${cont ? ' cont' : ''}${pending.failed ? ' failed' : ''}`}>
       {cont ? <span className="tm">{timeOf(pending.at)}</span> : <Face id={me} name={nameOf(me)} />}
@@ -1130,7 +1194,12 @@ function PendingRow({ url, pending, me, nameOf, after, replied }: { url: string;
             <span>{quoteText(replied.body, replied.files[0]?.type ?? null)}</span>
           </div>
         )}
-        {pending.body.trim() !== '' && <div className="bd" dangerouslySetInnerHTML={{ __html: html }} />}
+        {pending.body.trim() !== '' && (
+          <>
+            <div className={fold.className} ref={body} dangerouslySetInnerHTML={{ __html: html }} />
+            {fold.more}
+          </>
+        )}
         {/* What waited on this device from before files went in messages has none. */}
         {(pending.files ?? []).length > 0 && <Attachments url={url} files={pending.files} />}
         {pending.failed ? (
@@ -1316,6 +1385,8 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
   const goingNow = useRef(going);
   goingNow.current = going;
   const [recording, setRecording] = useState(false);
+  // On a phone the box is a pill until it is tapped, a card with the words over Aa, emoji, @ and Send while in use.
+  const [focused, setFocused] = useState(false);
   const placeholder = chat.kind === 'direct' ? t('chat.messageTo', { name: titleOf(chat, server.me) }) : t('chat.messageTo', { name: `#${chat.name}` });
 
   const change = (key: string, patch: Partial<Going>) => setGoing((was) => was.map((each) => (each.key === key ? { ...each, ...patch } : each)));
@@ -1547,7 +1618,7 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
       },
     });
     editor.current = made;
-    made.view.focus();
+    if (!phone) made.view.focus();
     made.view.dispatch({ selection: { anchor: made.view.state.doc.length } });
     return () => {
       made.destroy();
@@ -1579,10 +1650,31 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
     view.focus();
   };
 
+  /** @ where the cursor is, apart from a word before it: the mention list opens. */
+  const startMention = () => {
+    const view = editor.current?.view;
+    if (!view) return;
+    const head = view.state.selection.main.head;
+    const before = view.state.doc.sliceString(Math.max(0, head - 1), head);
+    view.dispatch({ changes: { from: head, insert: before && !/\s/.test(before) ? ' @' : '@' }, selection: { anchor: head + (before && !/\s/.test(before) ? 2 : 1) } });
+    view.focus();
+    window.setTimeout(look);
+  };
+  /** An emoji where the cursor is, in place of what is selected. */
+  const putEmoji = (chosen: string) => {
+    const view = editor.current?.view;
+    setEmoji(false);
+    if (!view) return;
+    const at = view.state.selection.main;
+    view.dispatch({ changes: { from: at.from, to: at.to, insert: chosen }, selection: { anchor: at.from + chosen.length } });
+    view.focus();
+  };
+
   // What is uploaded goes with the words; what is still on its way holds Send, what failed stays in the tray.
   const ready = going.filter((each) => each.file);
   const uploading = going.some((each) => !each.file && !each.failed);
   const canSend = !uploading && (text.trim() !== '' || ready.length > 0);
+  const open = focused || text.trim() !== '' || going.length > 0 || replyTo !== null;
 
   const send = () => {
     const view = editor.current?.view;
@@ -1639,6 +1731,8 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
   return (
     <div
       className={`ch-cmp${phone ? ' chp-box' : ''}${text.trim() || going.length || recording || dropping ? ' on' : ''}${recording ? ' rec' : ''}${hold ? ' holding' : ''}`}
+      onFocus={() => setFocused(true)}
+      onBlur={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setFocused(false)}
       onKeyDownCapture={recording ? undefined : onKeyDownCapture}
       onKeyUp={look}
       onMouseUp={look}
@@ -1727,8 +1821,12 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
       )}
       <Tray going={going} onRemove={remove} />
       {phone ? (
-        <div className="chp-row">
-          {!hold && (
+        // A pill with + and the microphone; in use, the words over +, Aa, emoji, @ and Send.
+        <div
+          className={`chp-row${open && !hold ? ' open' : ''}`}
+          onClick={(event) => !open && !(event.target as Element).closest('button') && editor.current?.view.focus()}
+        >
+          {!open && !hold && (
             <button type="button" className="pl" aria-label={t('chat.add')} onMouseDown={(event) => event.preventDefault()} onClick={plusMenu}>
               <Icon name="plus" />
             </button>
@@ -1744,11 +1842,7 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
               </span>
             </>
           )}
-          {canSend && !hold ? (
-            <button type="button" className="send go" aria-label={t('chat.send')} onMouseDown={(event) => event.preventDefault()} onClick={send}>
-              <Icon name="send" />
-            </button>
-          ) : (
+          {!open && (
             <button type="button" key="mic" className={hold ? 'mic big' : 'mic'} aria-label={t('chat.holdToRecord')} {...mic}>
               <Icon name="audio" />
             </button>
@@ -1758,6 +1852,27 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
               <Icon name="lock" />
               <Icon name="up" />
             </span>
+          )}
+          {open && !hold && (
+            <div className="bar">
+              <button type="button" className="pl" aria-label={t('chat.add')} onMouseDown={(event) => event.preventDefault()} onClick={plusMenu}>
+                <Icon name="plus" />
+              </button>
+              <button type="button" className={`ib${formatting ? ' on' : ''}`} aria-label={t('chat.format')} aria-pressed={formatting} onMouseDown={(event) => event.preventDefault()} onClick={() => setFormatting(!formatting)}>
+                <span className="aa">Aa</span>
+              </button>
+              <button type="button" className={`ib${emoji ? ' on' : ''}`} aria-label={t('chat.emoji')} onMouseDown={(event) => event.preventDefault()} onClick={() => setEmoji(!emoji)}>
+                <Icon name="smile" />
+              </button>
+              <button type="button" className="ib" aria-label={t('chat.mention')} onMouseDown={(event) => event.preventDefault()} onClick={startMention}>
+                <Icon name="at" />
+              </button>
+              <span className="gap" />
+              <button type="button" className={`send${canSend ? ' go' : ''}`} aria-label={t('chat.send')} disabled={!canSend} onMouseDown={(event) => event.preventDefault()} onClick={send}>
+                <Icon name="send" />
+              </button>
+              {emoji && <ReactionPicker onPick={putEmoji} onClose={() => setEmoji(false)} startWide />}
+            </div>
           )}
         </div>
       ) : (
@@ -1770,33 +1885,13 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
         <button type="button" className={`ib${formatting ? ' on' : ''}`} title={t('chat.format')} aria-label={t('chat.format')} aria-pressed={formatting} onMouseDown={(event) => event.preventDefault()} onClick={() => setFormatting(!formatting)}>
           <span className="aa">Aa</span>
         </button>
-        <button type="button" className="ib" title={t('chat.mention')} aria-label={t('chat.mention')} onMouseDown={(event) => event.preventDefault()} onClick={() => {
-          const view = editor.current?.view;
-          if (!view) return;
-          const head = view.state.selection.main.head;
-          const before = view.state.doc.sliceString(Math.max(0, head - 1), head);
-          view.dispatch({ changes: { from: head, insert: before && !/\s/.test(before) ? ' @' : '@' }, selection: { anchor: head + (before && !/\s/.test(before) ? 2 : 1) } });
-          view.focus();
-          window.setTimeout(look);
-        }}>
+        <button type="button" className="ib" title={t('chat.mention')} aria-label={t('chat.mention')} onMouseDown={(event) => event.preventDefault()} onClick={startMention}>
           <Icon name="at" />
         </button>
         <button type="button" className={`ib${emoji ? ' on' : ''}`} title={t('chat.emoji')} aria-label={t('chat.emoji')} onMouseDown={(event) => event.preventDefault()} onClick={() => setEmoji(!emoji)}>
           <Icon name="smile" />
         </button>
-        {emoji && (
-          <ReactionPicker
-            onPick={(chosen) => {
-              const view = editor.current?.view;
-              setEmoji(false);
-              if (!view) return;
-              const at = view.state.selection.main;
-              view.dispatch({ changes: { from: at.from, to: at.to, insert: chosen }, selection: { anchor: at.from + chosen.length } });
-              view.focus();
-            }}
-            onClose={() => setEmoji(false)}
-          />
-        )}
+        {emoji && <ReactionPicker onPick={putEmoji} onClose={() => setEmoji(false)} />}
         <span className="gap" />
         <button type="button" className="ib" title={t('chat.record')} aria-label={t('chat.record')} onMouseDown={(event) => event.preventDefault()} onClick={() => setRecording(true)}>
           <Icon name="audio" />
@@ -1809,6 +1904,32 @@ function Composer({ server, chat, replyTo, nameOf, menu, links, dropping, addFil
       )}
     </div>
   );
+}
+
+/** How many lines a message shows on a phone before it folds. */
+const FOLD_LINES = 12;
+
+/**
+ * On a phone a message longer than twelve lines folds (design/chat.md 25), measured as it is
+ * drawn; Show more opens it where it is, and Show less folds it again.
+ */
+function useFold(body: RefObject<HTMLDivElement | null>, html: string, on: boolean): { className: string; more: ReactNode } {
+  const [foldable, setFoldable] = useState(false);
+  const [open, setOpen] = useState(false);
+  useLayoutEffect(() => {
+    const box = body.current;
+    if (!on || !box) return setFoldable(false);
+    const line = parseFloat(getComputedStyle(box).lineHeight) || 22;
+    setFoldable(box.scrollHeight > line * FOLD_LINES + line / 2);
+  }, [html, on]);
+  return {
+    className: foldable && !open ? 'bd fold' : 'bd',
+    more: foldable && (
+      <button type="button" className="ch-more" onClick={() => setOpen(!open)}>
+        {open ? t('chat.showLess') : t('chat.showMore')}
+      </button>
+    ),
+  };
 }
 
 /** How far the held microphone is drawn left to drop the recording, and up to lock it. */

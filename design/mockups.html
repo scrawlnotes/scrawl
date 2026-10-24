@@ -3408,6 +3408,61 @@ p { margin: 0; max-width: 68ch; }
 .chp-c .rt em { min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: var(--m-accent); color: var(--m-on-accent); font: 600 12px/20px var(--m-ui); font-style: normal; text-align: center; }
 .mock .chp-c .rt svg { width: 15px; height: 15px; color: var(--m-faint); }
 .chp-c.off .tx b { color: var(--m-faint); }
+/* Round 2 (Oct 24): the empty and the sparse states, and the box to write in on a phone as Slack's.
+   A conversation starts with what it is and what to do first; a list with little in it says so. */
+.ch-intro { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 22px 20px 16px; }
+.ch-intro .big { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 8px; border-radius: 12px; background: color-mix(in srgb, var(--m-accent) 16%, var(--m-side)); color: var(--m-accent); font: 600 28px/1 var(--m-mono); }
+.mock .ch-intro .big svg { width: 26px; height: 26px; }
+.ch-intro .big.face { background: none; }
+.ch-intro .big.face .ch-f { width: 56px; height: 56px; border-radius: 50%; font-size: 22px; }
+.ch-intro h3 { margin: 0; font-size: 21px; font-weight: 700; }
+.ch-intro p { margin: 0; max-width: 60ch; color: var(--m-dim); font-size: 13.5px; line-height: 1.5; }
+.ch-intro small { color: var(--m-faint); font-size: 12px; }
+.ch-intro .ias { display: flex; gap: 8px; margin-top: 12px; }
+.ch-intro .ia { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid var(--m-line); border-radius: 8px; color: var(--m-fg); font-size: 12.5px; font-weight: 500; }
+.mock .ch-intro .ia svg { width: 15px; height: 15px; color: var(--m-dim); }
+.ch-c .ic2 { display: grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 5px; background: color-mix(in srgb, var(--m-fg) 8%, transparent); color: var(--m-dim); }
+.mock .ch-c .ic2 svg { width: 12px; height: 12px; }
+.ch-c.addr { color: var(--m-faint); }
+.ch-c .sb { margin-left: auto; color: var(--m-faint); font-size: 11px; font-weight: 400; }
+.ch-c .nm.faint { color: var(--m-faint); }
+/* on a phone: a row always has a second line, an empty room says it has nothing yet */
+.chp-c .tx small.none { font-style: italic; }
+.chp-c.addr .chp-ic { background: color-mix(in srgb, var(--m-accent) 16%, var(--m-side)); color: var(--m-accent); }
+.chp-intro { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 18px; }
+.chp-intro .lead { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 14px; background: color-mix(in srgb, var(--m-accent) 16%, var(--m-side)); color: var(--m-accent); font: 600 30px/1 var(--m-mono); }
+.mock .chp-intro .lead svg { width: 28px; height: 28px; }
+.chp-intro .lead.face { background: none; }
+.chp-intro .lead.face .ch-f { width: 64px; height: 64px; font-size: 25px; }
+.chp-intro h3 { margin: 4px 0 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+.chp-intro p { margin: 0; color: var(--m-dim); font-size: 16px; line-height: 1.45; }
+.chp-intro small { color: var(--m-faint); font-size: 14px; }
+.chp-intro .ias { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.chp-intro .ia { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 14px 8px; border: 1px solid var(--m-line); border-radius: 14px; color: var(--m-fg); font-size: 15px; font-weight: 600; text-align: center; }
+.mock .chp-intro .ia svg { width: 22px; height: 22px; color: var(--m-dim); }
+/* the box to write in, as Slack's: a pill with + and the microphone; tapped, a card with the words over Aa, emoji, @ and Send */
+.chp-pill { display: flex; align-items: center; gap: 8px; flex: none; margin: 6px 12px 30px; padding: 4px 6px 4px 4px; border: 1px solid var(--m-line); border-radius: 22px; background: var(--m-side); }
+.chp-pill .pl { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--m-fg) 8%, transparent); color: var(--m-dim); }
+.chp-pill .in { flex: 1; min-width: 0; color: var(--m-faint); font-size: 16px; }
+.chp-pill .mic { display: grid; place-items: center; flex: none; width: 34px; height: 34px; color: var(--m-dim); }
+.mock .chp-pill svg { width: 21px; height: 21px; }
+.chp-open { flex: none; margin: 4px 8px 8px; padding: 10px 12px 6px; border: 1px solid var(--m-line); border-radius: 16px; background: var(--m-side); }
+.chp-open .in { color: var(--m-fg); font-size: 16px; line-height: 22px; }
+.chp-open .in .ph { color: var(--m-faint); }
+.chp-open.tall .in { height: 132px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 26px); mask-image: linear-gradient(to bottom, transparent, #000 26px); display: flex; flex-direction: column; justify-content: flex-end; }
+.chp-open .bar { display: flex; align-items: center; gap: 2px; margin-top: 8px; }
+.chp-open .bar .pl { display: grid; place-items: center; width: 32px; height: 32px; margin-right: 4px; border-radius: 50%; background: color-mix(in srgb, var(--m-fg) 8%, transparent); color: var(--m-dim); }
+.chp-open .bar .ib { display: grid; place-items: center; width: 38px; height: 32px; color: var(--m-dim); }
+.mock .chp-open .bar svg { width: 22px; height: 22px; }
+.chp-open .bar .gap { flex: 1; }
+.chp-open .send { display: grid; place-items: center; width: 40px; height: 32px; border-radius: 16px; color: var(--m-faint); }
+.chp-open .send.go { background: var(--m-accent); color: var(--m-on-accent); }
+.mock .chp-open .send svg { width: 19px; height: 19px; }
+.mb-page.chp-kb { bottom: 300px; }
+/* a long message: past twelve lines it folds, and Show more opens it where it is */
+.ch-m .bd.fold { max-height: 264px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
+.ch-more { display: inline-block; margin-top: 4px; color: var(--m-accent); font-size: 14.5px; font-weight: 600; }
+.ch-m .bd .lk { color: var(--m-accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--m-accent) 45%, transparent); overflow-wrap: anywhere; }
 .chp-g { position: relative; flex: none; width: 40px; height: 40px; }
 .chp-g .ch-f { position: absolute; }
 .chp-g .ch-f:first-child { top: 0; left: 0; }
@@ -4387,6 +4442,10 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-chview="chset">Settings</button>
         <button type="button" data-chview="chphone">Telefon</button>
         <button type="button" data-chview="chphone2">Telefon 2</button>
+        <button type="button" data-chview="chempty">Boş</button>
+        <button type="button" data-chview="chemptydm">Boş DM</button>
+        <button type="button" data-chview="chphone3">Telefon boş</button>
+        <button type="button" data-chview="chphone4">Telefon yazarken</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -12482,7 +12541,7 @@ p { margin: 0; max-width: 68ch; }
     return '<div class="ch-m' + (o.cont ? ' cont' : '') + (o.hover ? ' hover' : '') + '">' + (o.cont ? '<span class="tm">' + o.t + '</span>' : chF(o.who, { ag: o.ag })) +
       '<div class="bx">' + (o.cont ? '' : '<div class="hd"><b>' + name + '</b><span class="t">' + o.t + '</span></div>') +
       (o.fw ? '<div class="ch-fw">' + CI.fwd + o.fw + '</div>' : '') + (o.q ? '<div class="ch-q"><b>' + CH_P[o.q[0]].name + '</b><span>' + o.q[1] + '</span></div>' : '') +
-      (o.body ? '<div class="bd">' + o.body + (o.edited ? '<span class="ch-ed">(edited)</span>' : '') + '</div>' : '') + (o.extra || '') +
+      (o.body ? '<div class="bd' + (o.fold ? ' fold' : '') + '">' + o.body + (o.edited ? '<span class="ch-ed">(edited)</span>' : '') + '</div>' + (o.fold ? '<span class="ch-more">Show more</span>' : '') : '') + (o.extra || '') +
       (o.rx ? '<div class="ch-rx">' + o.rx.map(function (r) { return '<span' + (r[2] ? ' class="me"' : '') + '>' + r[0] + '<b>' + r[1] + '</b></span>'; }).join('') + '</div>' : '') +
       '</div>' + (o.over || '') + '</div>';
   }
@@ -12762,12 +12821,97 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Kilit ekranında bildirim', chpLock())
     ].join('');
   }
+  // Round 2 (Oct 24): what Chat is with little in it, as the person's own spaces are (Game
+  // Development, Klinitra, OZBI and Scrawl, a general room each, nothing written yet), and the box
+  // to write in on a phone as Slack's. A conversation starts with what it is and what to do first.
+  var CH_SPACES = ['Game Development', 'Klinitra', 'OZBI', 'Scrawl'];
+  function chIntro(o) {
+    return '<div class="ch-intro"><span class="big' + (o.face ? ' face' : '') + '">' + o.lead + '</span><h3>' + o.title + '</h3><p>' + o.text + '</p>' + (o.small ? '<small>' + o.small + '</small>' : '') +
+      (o.cards ? '<div class="ias">' + o.cards.map(function (c) { return '<span class="ia">' + c[0] + c[1] + '</span>'; }).join('') + '</div>' : '') + '</div>';
+  }
+  /** The list with little in it: each space's general room; under Direct messages the people to write to, or Invite people. */
+  function chListSparse(on, people) {
+    function grp(name) { return '<div class="ch-grp"><span class="fchv">▾</span>' + name + '<span class="gadd">+</span></div>'; }
+    function room(space) { var id = 'g-' + space; return '<div class="ch-c' + (on === id ? ' on' : '') + '">' + CH_HASH + '<span class="nm">general</span></div>'; }
+    function dm(ini, name, sub) { var id = 'dm-' + ini; return '<div class="ch-c' + (on === id ? ' on' : '') + '">' + chF(ini, { sz: 'sm' }) + '<span class="nm">' + name + '</span>' + (sub ? '<span class="sb">' + sub + '</span>' : '') + '</div>'; }
+    function add(label) { return '<div class="ch-c addr"><span class="ic2">' + ICON.plus + '</span><span class="nm">' + label + '</span></div>'; }
+    return '<div class="ch-list"><div class="ch-find">' + ICON.find + '<span>Search messages</span></div>' +
+      CH_SPACES.map(function (s) { return grp(s) + room(s); }).join('') + add('New room…') +
+      grp('Direct messages') + (people ? dm('M', 'Mert Kaya', 'Klinitra') + dm('E', 'Elif Demir', 'Scrawl') + add('New message…') : add('Invite people…')) + '</div>';
+  }
+  var CH_GEN_INTRO = chIntro({
+    lead: '#', title: '#general',
+    text: 'This is the start of #general. Everyone in Klinitra is in this room, and everyone who joins Klinitra later.',
+    small: 'Opened on Oct 24.',
+    cards: [[CI.people, 'Invite people to Klinitra'], [CI.edit, 'Add a topic']]
+  });
+  function chEmpty() {
+    var head = chHead({ lead: CH_HASH, name: 'general', sub: 'Everyone in Klinitra', ppl: 1 });
+    return chApp('', chListSparse('g-Klinitra', false), chConv(head, CH_GEN_INTRO, { typing: '', ph: 'Message #general' }), '#general · 1 person');
+  }
+  function chEmptyDm() {
+    var head = chHead({ lead: chF('M', { sz: 'md' }), name: 'Mert Kaya', sub: 'Active', active: true });
+    var intro = chIntro({ face: true, lead: chF('M', { sz: 'lg' }), title: 'Mert Kaya', text: 'This is the start of your messages with Mert Kaya. Only the two of you see them.', small: 'Mert is in Klinitra with you.' });
+    return chApp('', chListSparse('dm-M', true), chConv(head, intro, { typing: '', ph: 'Message Mert Kaya' }), 'Mert Kaya');
+  }
+  CH_VIEWS.chempty = chEmpty;
+  CH_VIEWS.chemptydm = chEmptyDm;
+
+  // On a phone.
+  function chpIntro(o) {
+    return '<div class="chp-intro"><span class="lead' + (o.face ? ' face' : '') + '">' + o.lead + '</span><h3>' + o.title + '</h3><p>' + o.text + '</p>' + (o.small ? '<small>' + o.small + '</small>' : '') +
+      (o.cards ? '<div class="ias">' + o.cards.map(function (c) { return '<span class="ia">' + c[0] + c[1] + '</span>'; }).join('') + '</div>' : '') + '</div>';
+  }
+  function chpPill(ph) { return '<div class="chp-pill"><span class="pl">' + ICON.plus + '</span><span class="in">' + ph + '</span><span class="mic">' + CI.mic + '</span></div>'; }
+  function chpOpen(text, o) {
+    o = o || {};
+    return '<div class="chp-open' + (o.tall ? ' tall' : '') + '"><div class="in">' + (text ? '<span>' + text + '<span class="caret"></span></span>' : '<span class="caret"></span><span class="ph">' + o.ph + '</span>') + '</div>' +
+      '<div class="bar"><span class="pl">' + ICON.plus + '</span><span class="ib">' + CI.aa + '</span><span class="ib">' + CI.smile + '</span><span class="ib">' + CI.at + '</span><span class="gap"></span><span class="send' + (text ? ' go' : '') + '">' + CI.send + '</span></div></div>';
+  }
+  /** Chat's list with little in it: a row always has its second line; Direct messages offers the people, or Invite people. */
+  function chpListSparse(people) {
+    function room(space, last) { return '<div class="mb-sec">' + space + '</div>' + chpC({ name: 'general', last: last || '<span class="none">No messages yet</span>' }); }
+    var direct = people
+      ? chpC({ dm: 'M', online: true, name: 'Mert Kaya', last: 'In Klinitra · say hello' }) + chpC({ dm: 'E', name: 'Elif Demir', last: 'In Scrawl · say hello' })
+      : '<div class="chp-c addr"><span class="chp-ic">' + ICON.plus + '</span><span class="tx"><b>Invite people</b><small>Only you are in these spaces so far</small></span></div>';
+    return mbPage(mbHead('Chat', null, true) + '<div class="mb-searchbar">' + ICON.find + 'Search messages</div>',
+      room('Game Development') + room('Klinitra', people ? 'Mert: Is the demo on Friday?' : '') + room('OZBI') + room('Scrawl') +
+      '<div class="mb-sec">Direct messages</div>' + direct);
+  }
+  function chpRoom(o) {
+    var nav = '<div class="mb-nav bar"><span class="back">' + ICON.chevl + 'Chat</span><span class="mid chp-mid"><b>' + o.title + '</b><small' + (o.active ? ' class="act"' : '') + '>' + o.sub + '</small></span>' +
+      '<span class="acts"><span class="ib">' + CI.info + '</span></span></div>';
+    return '<div class="mb-page' + (o.kb ? ' chp-kb' : '') + '">' + nav + '<div class="mb-body chp-msgs">' + o.msgs + '</div>' + o.cmp + '</div>';
+  }
+  var CHP_GEN_INTRO = chpIntro({
+    lead: '#', title: '#general',
+    text: 'This is the start of #general. Everyone in Klinitra is in this room, and everyone who joins later.',
+    cards: [[CI.people, 'Invite people'], [CI.edit, 'Add a topic']]
+  });
+  var CHP_DM_INTRO = chpIntro({ face: true, lead: chF('M', { sz: 'lg' }), title: 'Mert Kaya', text: 'This is the start of your messages with Mert. Only the two of you see them.', small: 'Mert is in Klinitra with you.' });
+  var CHP_LONG = 'This is a long one, so here is everything in one place. The release is on Friday at noon: Mert builds it, Elif checks the phone, and I write the notes. The chat migrations go in first, then the server, then the web and the desktop. If something breaks, we stop and roll back; the backup from Thursday night is on the Mac mini. The notes are in Releases/0.3, the checklist is on the Roadmap board, and the questions that are still open are at the bottom of the plan. Please read the plan before Thursday and write your questions here, not in a direct message, so that everyone sees the answers. The pull request is <span class="lk">https://github.com/scrawlnotes/scrawl/pull/482/files#diff-3f9a2b7c1d0e4f5a6b7c8d9e0f1a2b3c4d5e</span> and the build is on its way.';
+  function chPhone3() {
+    return [
+      mbPhone('Chat: yalnızken, her space’te boş bir general', chpListSparse(false), chTabs(0) + MB_FAB),
+      mbPhone('Chat: ekiple, ilk mesajlar', chpListSparse(true), chTabs(1) + MB_FAB),
+      mbPhone('Boş room: ne olduğu ve ilk iş', chpRoom({ title: '# general', sub: '1 person', msgs: CHP_GEN_INTRO, cmp: chpPill('Message #general') })),
+      mbPhone('Boş DM', chpRoom({ title: 'Mert Kaya', sub: 'Active', active: true, msgs: CHP_DM_INTRO, cmp: chpPill('Message Mert Kaya') }))
+    ].join('');
+  }
+  function chPhone4() {
+    return [
+      mbPhone('Yazma kutusu: dokunulmamışken', chpRoom(chpWith({ cmp: chpPill('Message #dev') }))),
+      mbPhone('Dokununca: yazı üstte, Aa, emoji, @ ve Send altta', chpRoom({ kb: true, title: '# general', sub: '1 person', msgs: CHP_GEN_INTRO, cmp: chpOpen('', { ph: 'Message #general' }) }), MB_KB),
+      mbPhone('Uzun yazarken: altı satırdan sonra kutunun içi kayar', chpRoom({ kb: true, title: '# dev', sub: '6 people', msgs: chM({ who: 'M', t: '11:43', body: 'Pushed 0.2.21 to Coolify.' }), cmp: chpOpen(CHP_LONG.replace(/<[^>]+>/g, ''), { tall: true }) }), MB_KB),
+      mbPhone('Uzun mesaj: on iki satırda katlanır, Show more açar', chpRoom({ title: '# dev', sub: '6 people', msgs: chM({ who: 'K', t: '11:50', body: CHP_LONG, fold: true }) + chM({ who: 'E', t: '11:52', body: 'Read it, thanks. One question about the phone build.' }), cmp: chpPill('Message #dev') }))
+    ].join('');
+  }
   function renderCh(section, view) {
     var mock = section.querySelector('.mock');
     mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
-    if (view === 'chphone' || view === 'chphone2') {
+    if (view === 'chphone' || view === 'chphone2' || view === 'chphone3' || view === 'chphone4') {
       mock.className = 'mock dir-a phones mbs chm four';
-      mock.innerHTML = view === 'chphone' ? chPhone() : chPhone2();
+      mock.innerHTML = { chphone: chPhone, chphone2: chPhone2, chphone3: chPhone3, chphone4: chPhone4 }[view]();
     } else {
       mock.className = 'mock dir-a wider chm';
       mock.innerHTML = CH_VIEWS[view]();

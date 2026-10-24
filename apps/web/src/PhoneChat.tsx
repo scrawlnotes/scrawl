@@ -6,6 +6,7 @@ import { Face, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { clock } from './chatMedia';
 import { isAudio, isImage, isVideo, NotifyBanner } from './ChatParts';
 import { InfoBody, type InfoTab, MediaThumb, useChatInfo } from './ChatRooms';
+import { notWrittenTo, teammatesOf } from './ChatStart';
 import { type ChatServer, draftOf, store, useChat } from './chatStore';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
@@ -56,7 +57,14 @@ function PhoneLead({ chat, server, size = 'list' }: { chat: ChatInfo; server: Ch
 }
 
 /** Chat's first page: each space's rooms by name, then the direct messages, the latest first; each with its latest message. */
-export function PhoneChatList({ onOpen, onSearch }: { onOpen: (url: string, chat: string) => void; onSearch: () => void }) {
+export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
+  onOpen: (url: string, chat: string) => void;
+  onSearch: () => void;
+  /** Someone to write to, with no direct message yet: it opens. */
+  onWrite: (url: string, person: string) => void;
+  /** Invite people, when no one shares a space with this person. */
+  onInvite: () => void;
+}) {
   const snapshot = useChat();
   const many = snapshot.servers.length > 1;
   if (!snapshot.servers.length) return <p className="chp-none">{t('chat.loading')}</p>;
@@ -68,7 +76,7 @@ export function PhoneChatList({ onOpen, onSearch }: { onOpen: (url: string, chat
     const line = draft
       ? t('chat.draftLine', { text: plainText(draft) })
       : !last
-        ? chat.topic
+        ? chat.topic || null
         : last.author === server.me && !last.agent
           ? t('chat.youLine', { text: whatOf(last) })
           : solo
@@ -79,7 +87,7 @@ export function PhoneChatList({ onOpen, onSearch }: { onOpen: (url: string, chat
         <PhoneLead chat={chat} server={server} />
         <span className="tx">
           <b className={chat.unread > 0 && !off ? 'un' : ''}>{titleOf(chat, server.me)}</b>
-          {line && <small className={draft ? 'dr' : ''}>{line}</small>}
+          {line ? <small className={draft ? 'dr' : ''}>{line}</small> : <small className="none">{t('chat.noMessagesYet')}</small>}
         </span>
         <span className="rt">
           {last && <small className={chat.alerts > 0 ? 'hot' : ''}>{whenOf(last.at)}</small>}
@@ -116,11 +124,30 @@ export function PhoneChatList({ onOpen, onSearch }: { onOpen: (url: string, chat
                   {group.chats.sort((a, b) => a.name.localeCompare(b.name)).map((chat) => row(server, chat, nameOf))}
                 </div>
               ))}
-            {direct.length > 0 && (
-              <>
-                <div className="mb-sec">{many ? t('chat.directOn', { server: hostOf(server.url) }) : t('chat.direct')}</div>
-                {direct.map((chat) => row(server, chat, nameOf))}
-              </>
+            <div className="mb-sec">{many ? t('chat.directMessagesOn', { server: hostOf(server.url) }) : t('chat.directMessages')}</div>
+            {direct.map((chat) => row(server, chat, nameOf))}
+            {/* The people to write to with no direct message yet; with no one at all, Invite people. */}
+            {notWrittenTo(server)
+              .slice(0, 5)
+              .map((person) => (
+                <button type="button" key={person.id} className="chp-c" onClick={() => onWrite(server.url, person.id)}>
+                  <Face id={person.id} name={person.name} size="lg" online={server.active.includes(person.id)} />
+                  <span className="tx">
+                    <b>{person.name}</b>
+                    <small>{t('chat.sayHello', { space: person.space })}</small>
+                  </span>
+                </button>
+              ))}
+            {teammatesOf(server).length === 0 && (
+              <button type="button" className="chp-c addr" onClick={onInvite}>
+                <span className="chp-ic">
+                  <Icon name="plus" />
+                </span>
+                <span className="tx">
+                  <b>{t('chat.invitePeople')}</b>
+                  <small>{t('chat.aloneSoFar')}</small>
+                </span>
+              </button>
             )}
           </div>
         );

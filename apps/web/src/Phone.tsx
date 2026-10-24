@@ -1260,7 +1260,20 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'root' && of === 'chat') {
       return (
         <PageFrame title={titleOf(page, of)}>
-          <PhoneChatList onOpen={(url, id) => push({ kind: 'chatConv', url, chat: id })} onSearch={() => push({ kind: 'chatSearch' })} />
+          <PhoneChatList
+            onOpen={(url, id) => push({ kind: 'chatConv', url, chat: id })}
+            onSearch={() => push({ kind: 'chatSearch' })}
+            onWrite={(url, person) =>
+              void chatStore
+                .server(url)
+                ?.direct([person])
+                .then(
+                  (made) => push({ kind: 'chatConv', url, chat: made.id }),
+                  () => props.chat.links.say(t('chat.notChanged')),
+                )
+            }
+            onInvite={() => props.chat.links.invite(null)}
+          />
         </PageFrame>
       );
     }

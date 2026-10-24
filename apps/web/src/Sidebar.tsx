@@ -795,6 +795,7 @@ export function Sidebar({
         </button>
         {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
         {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
+        <div className="side-div" role="separator" />
         {chat && viewRow(CHAT, <span>{t('chat.title')}</span>, 0)}
         {viewRow(FILTERS, <span>{t('filters.title')}</span>, 0)}
         {/* Quick notes, with how many there are: they are in no folder (design/quick-notes.md 3.1). */}
