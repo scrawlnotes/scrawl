@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fold, type Findable, nameMatch, search, searchIndex } from './search';
+import { fold, type Findable, markedText, nameMatch, search, searchIndex } from './search';
 
 const names = (found: { item: Findable }[]) => found.map((f) => f.item.name);
 const find = (items: Findable[], query: string) => search(searchIndex(items), query);
@@ -127,5 +127,14 @@ describe('search', () => {
     expect(line.text.endsWith('…')).toBe(true);
     expect(line.text.slice(line.marks[0]![0], line.marks[0]![1])).toBe('Acme');
     expect(line.spans).toEqual([[before.length, before.length + 4]]);
+  });
+
+  it('marks the words of a message the server found, where they start a word, cut around the first', () => {
+    expect(markedText('Müşteri görüşmesi yarın, İstanbul', 'musteri istanbul')).toEqual({ text: 'Müşteri görüşmesi yarın, İstanbul', marks: [[0, 7], [25, 33]] });
+    expect(markedText('A redrag is not a drag', 'drag').marks).toEqual([[18, 22]]);
+    const long = `${'word '.repeat(30)}the drag preview`;
+    const shown = markedText(long, 'preview');
+    expect(shown.text.startsWith('…')).toBe(true);
+    expect(shown.text.slice(shown.marks[0]![0], shown.marks[0]![1])).toBe('preview');
   });
 });

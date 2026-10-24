@@ -56,7 +56,7 @@ function PhoneLead({ chat, server, size = 'list' }: { chat: ChatInfo; server: Ch
 }
 
 /** Chat's first page: each space's rooms by name, then the direct messages, the latest first; each with its latest message. */
-export function PhoneChatList({ onOpen }: { onOpen: (url: string, chat: string) => void }) {
+export function PhoneChatList({ onOpen, onSearch }: { onOpen: (url: string, chat: string) => void; onSearch: () => void }) {
   const snapshot = useChat();
   const many = snapshot.servers.length > 1;
   if (!snapshot.servers.length) return <p className="chp-none">{t('chat.loading')}</p>;
@@ -90,6 +90,10 @@ export function PhoneChatList({ onOpen }: { onOpen: (url: string, chat: string) 
   };
   return (
     <div className="chp-list">
+      <button type="button" className="mb-searchbar chp-find" onClick={onSearch}>
+        <Icon name="search" />
+        <span>{t('chat.searchMessages')}</span>
+      </button>
       <NotifyBanner phone />
       {snapshot.servers.map((server) => {
         const nameOf = namesOf(server);

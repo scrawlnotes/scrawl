@@ -28,6 +28,8 @@ export function makeServer(config: Config, options: { now?: () => number; pageSi
   const chats = new Chats(db, spaces, blobs, (people, event) => live.tell(people, event), now);
   // Spaces from before messaging get their general rooms.
   chats.openGenerals();
+  // Messages written before search came are found too.
+  chats.indexMessages();
   // A push service takes an https address or an email as who sends.
   const subject = config.url.startsWith('https://') ? config.url : 'mailto:push@scrawlnotes.com';
   const push = new Push(db, live, chats, vapidKeys(join(config.data, 'vapid.json')), subject, config.url, options.sender, options.later);

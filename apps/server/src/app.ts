@@ -318,6 +318,22 @@ export function createApp(parts: Parts) {
   // Without a cursor, every conversation someone is in; with one, what changed after it.
   app.get('/api/v1/chat', (c) => c.json(chats.changes(me(c).id, null)));
   app.get('/api/v1/chat/changes', (c) => c.json(chats.changes(me(c).id, number(c.req.query('cursor')) ?? null)));
+  // Messages found by their words, narrowed by who, where, what and when (design/chat.md, 7).
+  app.get('/api/v1/chat/search', (c) => {
+    const query = (key: string) => c.req.query(key) || undefined;
+    return c.json(
+      chats.search(me(c).id, {
+        q: query('q'),
+        from: query('from'),
+        in: query('in'),
+        has: query('has'),
+        since: number(c.req.query('since')),
+        until: number(c.req.query('until')),
+        before: number(c.req.query('before')),
+        limit: number(c.req.query('limit')),
+      }),
+    );
+  });
   app.post('/api/v1/chat/rooms', async (c) => c.json(chats.openRoom(me(c), await json(c))));
   app.post('/api/v1/chat/direct', async (c) => c.json(chats.direct(me(c), (await json(c)).people)));
 

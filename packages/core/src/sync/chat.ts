@@ -90,6 +90,32 @@ export interface ChatPage {
   newer: boolean;
 }
 
+/** What messages are looked for (design/chat.md, 7): the words, and who wrote them, where, what they have and when. */
+export interface ChatQuery {
+  q?: string;
+  /** Who wrote it: an account. */
+  from?: string;
+  /** Its conversation. */
+  in?: string;
+  has?: ChatHas;
+  /** Written at this time or after, before `until`, in milliseconds. */
+  since?: number;
+  until?: number;
+  /** The next page: the `next` of the one before. */
+  before?: number;
+  limit?: number;
+}
+
+/** What a message found has: photos and videos, other files, voice messages, code, web links. */
+export type ChatHas = 'photos' | 'files' | 'voice' | 'code' | 'links';
+
+/** Messages found, the newest first, with their conversations; `next` is where the next page starts, null at the last. */
+export interface ChatFound {
+  messages: ChatMessage[];
+  chats: ChatInfo[];
+  next: number | null;
+}
+
 /** What the live channel brings of messaging (design/chat.md, 11.3). */
 export type ChatEvent =
   | { type: 'message'; chat: string; message: ChatMessage }
@@ -188,6 +214,12 @@ export class ChatClient {
 
   shared(chat: string): Promise<ChatShared> {
     return this.client.json(`/chat/${encodeURIComponent(chat)}/shared`);
+  }
+
+  /** Messages found by their words, narrowed (design/chat.md, 7). */
+  search(query: ChatQuery): Promise<ChatFound> {
+    const params = new URLSearchParams(Object.entries(query).flatMap(([key, value]) => (value === undefined || value === '' ? [] : [[key, String(value)]])));
+    return this.client.json(`/chat/search?${params}`);
   }
 
   /** The server's own key, which a browser subscribes to its push service with (design/chat.md, 11.4). */

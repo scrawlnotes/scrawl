@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { fold, plainText, queryWords } from '@scrawlnotes/core';
 import { type Account, Refused } from './auth';
 import type { Blobs, Taken } from './blobs';
 import { type Db, transaction } from './db';
@@ -177,6 +178,18 @@ const TYPING_MS = 2_500;
 
 /** What a conversation tells someone who has not chosen: everything in a direct message and a private room, mentions in a public one. */
 const DEFAULT_NOTIFY: Record<ChatKind, Notify> = { public: 'mentions', private: 'all', direct: 'all' };
+
+/**
+ * What a message has, as search narrows by it (design/chat.md, 7): photos and videos, other files,
+ * voice messages, code (a block or a word marked as code) and web links.
+ */
+const HAS: Record<string, string> = {
+  photos: "EXISTS (SELECT 1 FROM message_files f WHERE f.message_id = m.id AND (f.type LIKE 'image/%' OR f.type LIKE 'video/%'))",
+  files: "EXISTS (SELECT 1 FROM message_files f WHERE f.message_id = m.id AND f.type NOT LIKE 'image/%' AND f.type NOT LIKE 'video/%' AND f.type NOT LIKE 'audio/%')",
+  voice: "EXISTS (SELECT 1 FROM message_files f WHERE f.message_id = m.id AND f.type LIKE 'audio/%')",
+  code: "m.body LIKE '%`%'",
+  links: "(m.body LIKE '%http://%' OR m.body LIKE '%https://%')",
+};
 
 // A mention is a link the app writes into the message: `[@Mert Kaya](scrawl:person/<id>)`, and
 // everyone in a room `[@room](scrawl:room)`.
@@ -522,6 +535,7 @@ export class Chats {
         .run(messageId, chat.id, seq, by.id, agent, body, roomMention ? 1 : 0, replyTo, forward?.of ?? null, forward?.from ?? null, this.now(), rev);
       this.writeFiles(messageId, files);
       this.writeMentions(messageId, mentions);
+      this.index(messageId);
       // Who wrote it has read up to it; a hidden direct message comes back to everyone in it.
       this.enter(chat.id, by.id, by.id, rev);
       this.db.prepare('UPDATE chat_members SET read_seq = MAX(read_seq, ?), rev = ? WHERE chat_id = ? AND account_id = ?').run(seq, rev, chat.id, by.id);
@@ -550,6 +564,7 @@ export class Chats {
       this.db.prepare('UPDATE messages SET body = ?, mentions_room = ?, edited_at = ?, rev = ? WHERE id = ?').run(body, roomMention ? 1 : 0, this.now(), this.nextRev(), message.id);
       this.db.prepare('DELETE FROM mentions WHERE message_id = ?').run(message.id);
       this.writeMentions(message.id, mentions);
+      this.index(message.id);
       return this.messageRow(message.id)!;
     });
     return this.told(chat, row);
@@ -568,6 +583,7 @@ export class Chats {
     const row = transaction(this.db, () => {
       this.db.prepare("UPDATE messages SET body = '', mentions_room = 0, deleted_at = ?, rev = ? WHERE id = ?").run(this.now(), this.nextRev(), message.id);
       for (const table of ['message_files', 'mentions', 'reactions']) this.db.prepare(`DELETE FROM ${table} WHERE message_id = ?`).run(message.id);
+      this.index(message.id);
       return this.messageRow(message.id)!;
     });
     return this.told(chat, row);
@@ -717,6 +733,82 @@ export class Chats {
     }
     const entries: ExportEntry[] = [...months].map(([key, part]) => ({ name: `${key}.md`, text: part.lines.join('\n'), at: part.at }));
     return { name: safeName(chat.kind === 'direct' ? title : chat.name) || 'conversation', entries: [...entries, ...attached.values()] };
+  }
+
+  // ---------- search ----------
+
+  /**
+   * Messages found (design/chat.md, 7): every word typed where a word starts, in the message's
+   * words or its files' names, with or without accents and in either case; narrowed by who wrote
+   * it, its conversation, what it has and when. In the conversations someone is in, or in the one
+   * asked for when they see it; the newest first, a page at a time, `next` the place the next one starts.
+   */
+  search(account: string, query: { q?: string; from?: string; in?: string; has?: string; since?: number; until?: number; before?: number; limit?: number }): { messages: Message[]; chats: ChatInfo[]; next: number | null } {
+    // A word of marks alone has nothing to find: the index keeps letters and numbers.
+    const words = queryWords(query.q ?? '').filter((word) => /[\p{L}\p{N}]/u.test(word));
+    const has = query.has && HAS[query.has] ? query.has : undefined;
+    if (!words.length && !query.from && !has) return { messages: [], chats: [], next: null };
+    const where = ['m.deleted_at IS NULL'];
+    const args: (string | number)[] = [];
+    if (words.length) {
+      where.push('m.rowid IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)');
+      args.push(words.map((word) => `"${word.replace(/"/g, '""')}"*`).join(' AND '));
+    }
+    if (query.in) {
+      where.push('m.chat_id = ?');
+      args.push(this.see(query.in, account).id);
+    } else {
+      where.push(
+        `m.chat_id IN (SELECT c.id FROM chats c LEFT JOIN chat_members me ON me.chat_id = c.id AND me.account_id = ?
+           WHERE (c.kind = 'direct' AND me.account_id IS NOT NULL AND me.left_at IS NULL)
+              OR (c.kind <> 'direct' AND c.space_id IN (SELECT space_id FROM members WHERE account_id = ?)
+                  AND (c.general = 1 OR (me.account_id IS NOT NULL AND me.left_at IS NULL))))`,
+      );
+      args.push(account, account);
+    }
+    if (query.from) {
+      where.push('m.author_id = ?');
+      args.push(query.from);
+    }
+    if (has) where.push(HAS[has]!);
+    if (query.since !== undefined) {
+      where.push('m.created_at >= ?');
+      args.push(query.since);
+    }
+    if (query.until !== undefined) {
+      where.push('m.created_at < ?');
+      args.push(query.until);
+    }
+    if (query.before !== undefined) {
+      where.push('m.rowid < ?');
+      args.push(query.before);
+    }
+    const limit = Math.min(MAX_PAGE, Math.max(1, query.limit ?? PAGE));
+    const rows = this.db.prepare(`SELECT m.rowid AS place, m.* FROM messages m WHERE ${where.join(' AND ')} ORDER BY m.rowid DESC LIMIT ?`).all(...args, limit + 1) as unknown as (MessageRow & { place: number })[];
+    const more = rows.length > limit;
+    const page = rows.slice(0, limit);
+    const chats = [...new Set(page.map((row) => row.chat_id))].map((id) => this.info(this.row(id), account));
+    return { messages: this.messagesOf(page), chats, next: more ? page.at(-1)!.place : null };
+  }
+
+  /** Puts the messages written before search came in its index, once. */
+  indexMessages() {
+    if ((this.db.prepare("SELECT value FROM meta WHERE key = 'chat_fts'").get() as { value: string } | undefined)?.value !== '0') return;
+    transaction(this.db, () => {
+      for (const { id } of this.db.prepare('SELECT id FROM messages WHERE deleted_at IS NULL').all() as { id: string }[]) this.index(id);
+      this.db.prepare("UPDATE meta SET value = '1' WHERE key = 'chat_fts'").run();
+    });
+  }
+
+  /** A message's words in the index as it now is: its text without Markdown's marks and its files' names; a deleted one's none. */
+  private index(messageId: string) {
+    const row = this.db.prepare('SELECT rowid AS place, body, deleted_at FROM messages WHERE id = ?').get(messageId) as { place: number; body: string; deleted_at: number | null } | undefined;
+    if (!row) return;
+    this.db.prepare('DELETE FROM messages_fts WHERE rowid = ?').run(row.place);
+    if (row.deleted_at !== null) return;
+    const names = (this.db.prepare('SELECT name FROM message_files WHERE message_id = ?').all(messageId) as { name: string }[]).map((file) => file.name);
+    const words = fold([plainText(row.body), ...names].join(' ')).trim();
+    if (words) this.db.prepare('INSERT INTO messages_fts (rowid, text) VALUES (?, ?)').run(row.place, words);
   }
 
   /** Told of every new message, after those in its conversation heard it: the push (design/chat.md, 11.4). */

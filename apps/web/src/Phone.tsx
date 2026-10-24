@@ -19,6 +19,8 @@ import { percent, placeName, signInAsk, signInFresh } from './SyncViews';
 import { PhoneServerPage, YouAre } from './ServerPeople';
 import { hostOf, knownServers, pendingJoin } from './servers';
 import { PhoneSearch, type SearchAction, type Thing } from './Search';
+import { PhoneChatSearch } from './ChatSearch';
+import type { Hit } from './messageSearch';
 import { ActionSheet, Empty, useViewport } from './sheets';
 import { LabelsPage } from './labels';
 import type { ChatLinks } from './Chat';
@@ -65,7 +67,8 @@ type PageKind =
   // Chat's pages: a conversation, at a message a link asked for; its Info; a part of its Info.
   | { kind: 'chatConv'; url: string; chat: string; target?: { message: string; at: number } }
   | { kind: 'chatInfo'; url: string; chat: string }
-  | { kind: 'chatPart'; url: string; chat: string; tab: InfoTab };
+  | { kind: 'chatPart'; url: string; chat: string; tab: InfoTab }
+  | { kind: 'chatSearch' };
 /** A page, with the key it is drawn by. */
 type Page = PageKind & { key: number };
 
@@ -527,8 +530,8 @@ const KEYBOARD_SETTLES_MS = 120;
 
 export function Phone(props: PhoneProps) {
   const { ready, tabs, active, titles, tree, filters, counts, item } = props;
-  // The app opens on its first place, Recent, with what was open last over it.
-  const [place, setPlace] = useState<Place>('recent');
+  // The app opens on Browse, with nothing over it but the onboarding note when it comes up.
+  const [place, setPlace] = useState<Place>('browse');
   const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ recent: [root()], browse: [root()], today: [root()], search: [root()], chat: [root()] }));
   // Chat is a place with a server that has messaging; its number is what is unread and tells you.
   const chat = useChat();
@@ -962,6 +965,7 @@ export function Phone(props: PhoneProps) {
     }
     if (page.kind === 'chatInfo') return t('chat.info');
     if (page.kind === 'chatPart') return partName(page.tab);
+    if (page.kind === 'chatSearch') return t('chat.search');
     if (page.kind === 'folder') return folderName(page.path);
     if (page.kind === 'trash') return t('side.trash');
     if (page.kind === 'files') return t('side.files');
@@ -1221,7 +1225,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'root' && of === 'chat') {
       return (
         <PageFrame title={titleOf(page, of)}>
-          <PhoneChatList onOpen={(url, id) => push({ kind: 'chatConv', url, chat: id })} />
+          <PhoneChatList onOpen={(url, id) => push({ kind: 'chatConv', url, chat: id })} onSearch={() => push({ kind: 'chatSearch' })} />
         </PageFrame>
       );
     }
@@ -1255,6 +1259,19 @@ export function Phone(props: PhoneProps) {
         </PageFrame>
       );
     }
+    if (page.kind === 'chatSearch') {
+      return (
+        <PageFrame nav={nav}>
+          <PhoneChatSearch
+            menu={props.chat.menu}
+            onOpen={(hit) => {
+              readHit(hit);
+              push({ kind: 'chatConv', url: hit.url, chat: hit.chat.id, target: { message: hit.message.id, at: Date.now() } });
+            }}
+          />
+        </PageFrame>
+      );
+    }
     if (page.kind === 'chatPart') {
       return (
         <PageFrame title={titleOf(page, of)} nav={nav}>
@@ -1267,7 +1284,18 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'root' && of === 'search') {
       return (
         <PageFrame title={titleOf(page, of)}>
-          <PhoneSearch things={props.search.things} actions={searchActions} query={query} onQuery={setQuery} onPick={pickFound} still={props.search.still} />
+          <PhoneSearch
+            things={props.search.things}
+            actions={searchActions}
+            query={query}
+            onQuery={setQuery}
+            onPick={pickFound}
+            onPickMessage={(hit) => {
+              readHit(hit);
+              openChat(hit.url, hit.chat.id, hit.message.id);
+            }}
+            still={props.search.still}
+          />
         </PageFrame>
       );
     }
@@ -1523,6 +1551,10 @@ export function Phone(props: PhoneProps) {
     );
   };
 
+  /** A message found in a conversation not on the list, archived or hidden: it is read as a room from Browse rooms is. */
+  const readHit = (hit: Hit) => {
+    if (!chat.servers.find((each) => each.url === hit.url)?.chats.some((each) => each.id === hit.chat.id && !each.hidden)) chatStore.server(hit.url)?.visit(hit.chat);
+  };
   /** A conversation opens on Chat's place over its list, at a message when one is asked for. */
   const openChat = (url: string, id: string, message?: string) => {
     const page: Page = { kind: 'chatConv', url, chat: id, ...(message && { target: { message, at: Date.now() } }), key: ++pageKeys };

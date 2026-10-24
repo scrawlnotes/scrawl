@@ -24,6 +24,8 @@ import { ConfirmDialog, type MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { Face, leadOf, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { BrowseRoomsDialog, ChatInfoDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
+import { ChatResults } from './ChatSearch';
+import { type Hit, type HitFilters, useMessageSearch } from './messageSearch';
 import { hostOf } from './servers';
 import { ITEM_DRAG_TYPE } from './Sidebar';
 import { clipboardFilesOnDesktop, isDesktop } from './storage';
@@ -130,10 +132,85 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
   const shownServer = shown ? snapshot.servers.find((each) => each.url === shown.url) : undefined;
   const shownChat = shown ? found(shownServer, shown.chat) : undefined;
 
+  // Search (design/chat.md, 7): what is typed in the list's box and what narrows it. The results
+  // take the conversation's place while they are open; a message opened from them closes them,
+  // and the words stay in the box.
+  const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState<HitFilters>({});
+  const [finding, setFinding] = useState(false);
+  const [selected, setSelected] = useState(0);
+  const { hits, state, more } = useMessageSearch(query, filters, finding);
+  const self = useRef<HTMLDivElement>(null);
+  const listBox = useRef<HTMLInputElement>(null);
+  const headBox = useRef<HTMLInputElement>(null);
+  useEffect(() => setSelected(0), [query, JSON.stringify(filters)]);
+  /** Too narrow for the list and the conversation side by side: the box goes over the results. */
+  const narrow = () => (self.current?.clientWidth ?? 1000) <= 600;
+  const focusBox = () => requestAnimationFrame(() => (narrow() ? headBox : listBox).current?.focus());
+  const clearSearch = () => {
+    setQuery('');
+    setFilters({});
+    setFinding(false);
+  };
+  /** A message found: its conversation opens at it; one not on the list, archived or hidden, is read. */
+  const openHit = (hit: Hit) => {
+    setFinding(false);
+    const server = snapshot.servers.find((each) => each.url === hit.url);
+    if (!server?.chats.some((each) => each.id === hit.chat.id && !each.hidden)) store.server(hit.url)?.visit(hit.chat);
+    pick({ url: hit.url, chat: hit.chat.id });
+    setTarget({ message: hit.message.id, at: Date.now() });
+  };
+  /** The magnifier over a conversation: the search opens in it. */
+  const searchIn = (url: string, chat: ChatInfo, me: string) => {
+    setQuery('');
+    setFilters({ in: { url, chat: chat.id, name: chat.kind === 'public' ? `#${chat.name}` : titleOf(chat, me) } });
+    setFinding(true);
+    focusBox();
+  };
+  const searchKeys = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      if (finding) setFinding(false);
+      else if (query || filters.in || filters.from || filters.has || filters.date) clearSearch();
+      else return;
+    } else if (event.key === 'ArrowDown') {
+      if (!finding) setFinding(true);
+      else setSelected((at) => Math.min(at + 1, Math.max(0, hits.length - 1)));
+    } else if (event.key === 'ArrowUp') setSelected((at) => Math.max(at - 1, 0));
+    else if (event.key === 'Enter') {
+      if (finding && hits[selected]) openHit(hits[selected]!);
+      else setFinding(true);
+    } else return;
+    event.preventDefault();
+  };
+  const searchBox = (ref: RefObject<HTMLInputElement | null>, className: string) => (
+    <label className={className}>
+      <Icon name="search" />
+      <input
+        ref={ref}
+        value={query}
+        placeholder={filters.in ? t('chat.searchIn', { name: filters.in.name }) : t('chat.searchMessages')}
+        aria-label={t('chat.searchMessages')}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setFinding(true);
+        }}
+        onFocus={() => (query.trim() || filters.in) && setFinding(true)}
+        onKeyDown={searchKeys}
+      />
+      {(query || finding) && (
+        <button type="button" className="x" title={t('search.clear')} aria-label={t('search.clear')} onMouseDown={(event) => event.preventDefault()} onClick={clearSearch}>
+          <Icon name="close" />
+        </button>
+      )}
+    </label>
+  );
+
   useEffect(() => {
-    store.setViewing(shown);
+    // The results on screen, no conversation is.
+    const viewing = finding ? null : shown;
+    store.setViewing(viewing);
     return () => store.setViewing(null);
-  }, [shown?.url, shown?.chat]);
+  }, [shown?.url, shown?.chat, finding]);
 
   useEffect(() => {
     if (!shownChat || !shownServer) return onStatus(null);
@@ -141,6 +218,7 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
   }, [shownChat?.id, shownChat?.name, shownChat?.members.length]);
 
   const pick = (next: Open) => {
+    setFinding(false);
     setOpen(next);
     keepOpen(next.url, next.chat);
     setListShown(false);
@@ -169,7 +247,7 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
     const link = parseChatLink(href);
     if (!link) return;
     const server = snapshot.servers.find((each) => each.url === link.server);
-    const there = server?.chats.find((each) => each.id === link.chat);
+    const there = server?.chats.find((each) => each.id === link.chat) ?? (server?.visiting?.id === link.chat ? server.visiting : undefined);
     if (!there) return links.say(t('chat.linkGone'));
     pick({ url: link.server, chat: link.chat });
     setTarget({ message: link.message, at: Date.now() });
@@ -182,9 +260,28 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
   }, [goTo?.at, snapshot.servers.length > 0]);
 
   return (
-    <div className={`chat${listShown ? ' list-shown' : ''}`}>
-      <ChatList servers={snapshot.servers} open={shown} onOpen={pick} onAdd={addMenu} />
-      {shownServer && shownChat ? (
+    <div ref={self} className={`chat${listShown ? ' list-shown' : ''}`}>
+      <ChatList servers={snapshot.servers} open={finding ? null : shown} onOpen={pick} onAdd={addMenu} box={searchBox(listBox, 'ch-find')} />
+      {finding ? (
+        <ChatResults
+          query={query}
+          filters={filters}
+          onFilters={setFilters}
+          hits={hits}
+          state={state}
+          more={more}
+          selected={selected}
+          onSelect={setSelected}
+          onOpen={openHit}
+          servers={snapshot.servers}
+          menu={menu}
+          box={searchBox(headBox, 'ch-find')}
+          onList={() => {
+            setFinding(false);
+            setListShown(true);
+          }}
+        />
+      ) : shownServer && shownChat ? (
         <Conversation
           key={`${shownServer.url} ${shownChat.id}`}
           server={shownServer}
@@ -194,6 +291,7 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
           target={target}
           onFollow={follow}
           onList={() => setListShown(true)}
+          onSearch={() => searchIn(shownServer.url, shownChat, shownServer.me)}
         />
       ) : (
         <div className="chat-conv chat-none">
@@ -219,12 +317,14 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
 }
 
 /** The conversations: each server's rooms under their spaces by name, then its direct messages, the latest first. */
-function ChatList({ servers, open, onOpen, onAdd }: {
+function ChatList({ servers, open, onOpen, onAdd, box }: {
   servers: ChatServer[];
   open: Open | null;
   onOpen: (open: Open) => void;
   /** The + of a space's heading, or of Direct's (space null). */
   onAdd: (event: MouseEvent, url: string, space: string | null) => void;
+  /** The box to search messages in, at the top. */
+  box: ReactNode;
 }) {
   const many = servers.length > 1;
   const row = (server: ChatServer, chat: ChatInfo) => {
@@ -252,6 +352,7 @@ function ChatList({ servers, open, onOpen, onAdd }: {
   );
   return (
     <nav className="chat-list" aria-label={t('chat.title')}>
+      {box}
       <NotifyBanner />
       {servers.map((server) => {
         const isOpen = (chat: ChatInfo) => open?.url === server.url && open.chat === chat.id;
@@ -296,12 +397,14 @@ export interface PhoneMode {
 }
 
 /** One conversation: its head, its messages with the days between them and the line before what is new, and the box to write in. */
-export function Conversation({ server, chat, menu, links, target, onFollow, onList, phone }: {
+export function Conversation({ server, chat, menu, links, target, onFollow, onList, onSearch, phone }: {
   server: ChatServer;
   chat: ChatInfo;
   menu: Props['menu'];
   links: ChatLinks;
   target: { message: string; at: number } | null;
+  /** The magnifier over it: the search opens in it. */
+  onSearch?: () => void;
   onFollow: (href: string) => void;
   onList: () => void;
   phone?: PhoneMode;
@@ -536,6 +639,11 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
             <button type="button" className="ppl" title={chat.members.map((person) => person.name).join(', ')} onClick={() => setInfo('people')}>
               <Icon name="people" />
               {chat.members.length}
+            </button>
+          )}
+          {onSearch && (
+            <button type="button" className="ib" title={t('chat.searchHere')} aria-label={t('chat.searchHere')} onClick={onSearch}>
+              <Icon name="search" />
             </button>
           )}
           {chat.joined && (

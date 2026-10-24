@@ -34,6 +34,9 @@ import { fileTitle, kindOf } from './Files';
 import { StillOpening } from './Loading';
 import { Icon, type IconName } from './Icon';
 import { boardOf, collectionTab, filterTab, keysOf, spaceLabel, tasksOf } from './items';
+import { titleOf } from './ChatFaces';
+import { useChat } from './chatStore';
+import { authorOf, type Hit, hitLines, type HitState, useMessageSearch, whenOf } from './messageSearch';
 import type { FileRow, SpaceView } from './session';
 import { dueLabel } from './Tasks';
 
@@ -360,8 +363,8 @@ function Trail({ trail }: { trail: string[] }) {
   );
 }
 
-/** What the tabs over the list narrow it to: everything, or one kind. */
-export type SearchTab = 'all' | 'note' | 'task' | 'card' | 'record' | 'file';
+/** What the tabs over the list narrow it to: everything, or one kind; or the messages of the servers with messaging. */
+export type SearchTab = 'all' | 'note' | 'task' | 'card' | 'record' | 'file' | 'message';
 const TABS: { tab: SearchTab; label: MessageKey }[] = [
   { tab: 'all', label: 'search.all' },
   { tab: 'note', label: 'search.notes' },
@@ -370,7 +373,36 @@ const TABS: { tab: SearchTab; label: MessageKey }[] = [
   { tab: 'record', label: 'search.records' },
   { tab: 'file', label: 'search.files' },
 ];
+const MESSAGES: { tab: SearchTab; label: MessageKey } = { tab: 'message', label: 'search.messages' };
 const inTab = (tab: SearchTab) => (found: Found<Thing>) => tab === 'all' || found.item.kind === tab;
+
+/** How many messages All shows after the rest; Messages has them all. */
+const IN_ALL = 5;
+
+/** Where a message found is, over who wrote it: its space and its room, or Direct and who it is with. */
+const trailOf = (hit: Hit, me: string) =>
+  hit.chat.kind === 'direct' ? [t('chat.direct'), titleOf(hit.chat, me)] : [hit.chat.spaceName, hit.chat.kind === 'public' ? `#${hit.chat.name}` : hit.chat.name];
+
+/** A message found, as a row says it: its words with those typed marked, or the name of its file that has them. */
+function hitSnip(hit: Hit, query: string) {
+  const lines = hitLines(hit, query);
+  const line = lines.text ?? (lines.files[0] ? { text: lines.files[0].name, marks: lines.files[0].marks } : null);
+  return line && <Marked text={line.text} spans={line.marks} />;
+}
+
+/** Messages, in the search window and on a phone's Search tab (design/chat.md, 7): searched by the servers, as the tab shows them. */
+function useMessages(query: string, tab: SearchTab, on: boolean) {
+  const chat = useChat();
+  const messaging = on && chat.servers.length > 0;
+  const typed = query.trim() !== '';
+  const found = useMessageSearch(query, {}, messaging && typed && (tab === 'all' || tab === 'message'));
+  const hits = tab === 'message' ? found.hits : tab === 'all' ? found.hits.slice(0, IN_ALL) : [];
+  const meOf = (url: string) => chat.servers.find((server) => server.url === url)?.me ?? '';
+  return { messaging, hits, all: found.hits, state: found.state, more: found.more, meOf };
+}
+
+/** What Messages says while it has nothing to show: searching, none, out of reach. */
+const messagesEmpty = (state: HitState, query: string) => (state === 'failed' ? t('chat.searchFailed') : state === 'done' ? t('search.nothing', { query: query.trim() }) : t('chat.searching'));
 
 /** Something the app does, offered at the foot of the list: Create, New note, Settings, Sync now. */
 export interface SearchAction {
@@ -392,10 +424,10 @@ function actionsFor(actions: SearchAction[], query: string): { action: SearchAct
 }
 
 /** The tabs over the list; a click on one, or the arrow keys at an end of what is typed, choose it. */
-function Tabs({ tab, onTab, className }: { tab: SearchTab; onTab: (tab: SearchTab) => void; className: string }) {
+function Tabs({ tab, onTab, className, tabs = TABS }: { tab: SearchTab; onTab: (tab: SearchTab) => void; className: string; tabs?: { tab: SearchTab; label: MessageKey }[] }) {
   return (
     <div className={className} role="tablist" aria-label={t('search.title')}>
-      {TABS.map((each) => (
+      {tabs.map((each) => (
         <button
           key={each.tab}
           type="button"
@@ -412,7 +444,7 @@ function Tabs({ tab, onTab, className }: { tab: SearchTab; onTab: (tab: SearchTa
   );
 }
 
-type Row = { kind: 'found'; found: Found<Thing> } | { kind: 'past'; search: string } | { kind: 'action'; action: SearchAction; marks: Span[] };
+type Row = { kind: 'found'; found: Found<Thing> } | { kind: 'message'; hit: Hit } | { kind: 'past'; search: string } | { kind: 'action'; action: SearchAction; marks: Span[] };
 
 /**
  * The search window on a computer, near the top of the app: the box, the tabs, and under them
@@ -420,10 +452,12 @@ type Row = { kind: 'found'; found: Found<Thing> } | { kind: 'past'; search: stri
  * arrow keys move through it, and left and right at an end of what is typed change the tab; Enter
  * opens, Esc closes; a click opens too.
  */
-export function SearchWindow({ things, actions, onPick, onClose, still = null, placeholder }: {
+export function SearchWindow({ things, actions, onPick, onPickMessage, onClose, still = null, placeholder }: {
   things: Thing[] | null;
   actions: SearchAction[];
   onPick: (found: Found<Thing>) => void;
+  /** A message found opens: with it the window has Messages, and finds messages in All too. */
+  onPickMessage?: (hit: Hit) => void;
   onClose: () => void;
   /** The spaces still read as the app opens, whose things are not found yet. */
   still?: string | null;
@@ -442,9 +476,12 @@ export function SearchWindow({ things, actions, onPick, onClose, still = null, p
   const typed = query.trim() !== '';
   const recent = useRecentSearches();
   const offered = tab === 'all' ? actionsFor(actions, query) : [];
-  // One list for the arrow keys: what was found or the searches made last, then the actions.
+  const messages = useMessages(query, tab, !!onPickMessage);
+  const tabs = messages.messaging ? [...TABS, MESSAGES] : TABS;
+  // One list for the arrow keys: what was found or the searches made last, the messages, then the actions.
   const rows: Row[] = [
     ...(typed ? shown.map((each): Row => ({ kind: 'found', found: each })) : recent.searches.map((search): Row => ({ kind: 'past', search }))),
+    ...(typed ? messages.hits.map((hit): Row => ({ kind: 'message', hit })) : []),
     ...offered.map(({ action, marks }): Row => ({ kind: 'action', action, marks })),
   ];
   useEffect(() => setSelected(0), [query, tab]);
@@ -452,6 +489,10 @@ export function SearchWindow({ things, actions, onPick, onClose, still = null, p
   const pick = (each: Found<Thing>) => {
     recent.add(query);
     onPick(each);
+  };
+  const pickMessage = (hit: Hit) => {
+    recent.add(query);
+    onPickMessage?.(hit);
   };
   const searchAgain = (search: string) => {
     setQuery(search);
@@ -461,7 +502,7 @@ export function SearchWindow({ things, actions, onPick, onClose, still = null, p
     onClose();
     action.run();
   };
-  const run = (row: Row) => (row.kind === 'found' ? pick(row.found) : row.kind === 'past' ? searchAgain(row.search) : act(row.action));
+  const run = (row: Row) => (row.kind === 'found' ? pick(row.found) : row.kind === 'message' ? pickMessage(row.hit) : row.kind === 'past' ? searchAgain(row.search) : act(row.action));
   // The keyboard stays in the box while the window is open: a note opened just before it would
   // otherwise take it back, and the arrow keys would move in the note.
   useEffect(() => {
@@ -474,7 +515,7 @@ export function SearchWindow({ things, actions, onPick, onClose, still = null, p
   useEffect(() => {
     list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [selected]);
-  const step = (by: number) => setTab((current) => TABS[Math.min(TABS.length - 1, Math.max(0, TABS.findIndex((each) => each.tab === current) + by))]!.tab);
+  const step = (by: number) => setTab((current) => tabs[Math.min(tabs.length - 1, Math.max(0, tabs.findIndex((each) => each.tab === current) + by))]!.tab);
   const onKey = (event: KeyboardEvent) => {
     const field = input.current;
     const atStart = !field || (field.selectionStart === 0 && field.selectionEnd === 0);
@@ -534,18 +575,30 @@ export function SearchWindow({ things, actions, onPick, onClose, still = null, p
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
-          {typed && things && found.length > 0 && <span className="n">{t('search.results', { count: found.length })}</span>}
+          {typed && things && found.length + messages.hits.length > 0 && <span className="n">{t('search.results', { count: found.length + (tab === 'message' ? messages.hits.length : messages.all.length) })}</span>}
           <button type="button" className="x" title={t('dialog.close')} aria-label={t('dialog.close')} onClick={onClose}>
             <Icon name="close" />
           </button>
         </div>
-        <Tabs tab={tab} onTab={setTab} className="sx-tabs" />
+        <Tabs tab={tab} onTab={setTab} className="sx-tabs" tabs={tabs} />
         {typed ? (
           !things ? (
             <p className="sx-none">{t('search.reading')}</p>
           ) : (
-            <div ref={list} id="sx-list" className="sx-list" role="listbox" aria-label={t('search.title')}>
-              {shown.length === 0 && <p className="sx-none in">{t('search.nothing', { query: query.trim() })}</p>}
+            <div
+              ref={list}
+              id="sx-list"
+              className="sx-list"
+              role="listbox"
+              aria-label={t('search.title')}
+              onScroll={(event) => {
+                const box = event.currentTarget;
+                if (tab === 'message' && box.scrollHeight - box.scrollTop - box.clientHeight < 300) messages.more?.();
+              }}
+            >
+              {tab === 'message'
+                ? messages.hits.length === 0 && <p className="sx-none in">{messagesEmpty(messages.state, query)}</p>
+                : shown.length === 0 && messages.hits.length === 0 && <p className="sx-none in">{t('search.nothing', { query: query.trim() })}</p>}
               {shown.map((each, index) => (
                 <button
                   key={index}
@@ -572,6 +625,36 @@ export function SearchWindow({ things, actions, onPick, onClose, still = null, p
                   )}
                 </button>
               ))}
+              {messages.hits.map((hit, index) => {
+                const at = shown.length + index;
+                return (
+                  <button
+                    key={hit.href}
+                    type="button"
+                    role="option"
+                    aria-selected={at === selected}
+                    className={at === selected ? 'sx-r on' : 'sx-r'}
+                    tabIndex={-1}
+                    onMouseMove={() => at !== selected && setSelected(at)}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => pickMessage(hit)}
+                  >
+                    <Trail trail={trailOf(hit, messages.meOf(hit.url))} />
+                    <Icon name="chat" />
+                    <span className="l1">
+                      <span className="nm">{authorOf(hit)}</span>
+                      <span className="wh">{whenOf(hit.message.at)}</span>
+                    </span>
+                    <span className="kd">{t('search.kind.message')}</span>
+                    <span className="snip">{hitSnip(hit, query)}</span>
+                  </button>
+                );
+              })}
+              {tab === 'all' && messages.all.length > IN_ALL && (
+                <button type="button" className="sx-tomsgs" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => setTab('message')}>
+                  {t('search.messagesMore')}
+                </button>
+              )}
               {found.length > SHOWN && <p className="sx-more">{t('search.narrow', { count: SHOWN })}</p>}
               <StillOpening text={still} />
               {actionsPart}
@@ -627,12 +710,14 @@ export function SearchWindow({ things, actions, onPick, onClose, still = null, p
  * them, a row each with where it is over its name and what it is beside it; with nothing typed the
  * searches made last. The actions come at the foot. Cancel takes back what was typed and the keyboard.
  */
-export function PhoneSearch({ things, actions, query, onQuery, onPick, still = null }: {
+export function PhoneSearch({ things, actions, query, onQuery, onPick, onPickMessage, still = null }: {
   things: Thing[] | null;
   actions: SearchAction[];
   query: string;
   onQuery: (query: string) => void;
   onPick: (found: Found<Thing>) => void;
+  /** A message found opens: with it the tab has Messages, and finds messages in All too. */
+  onPickMessage?: (hit: Hit) => void;
   /** The spaces still read as the app opens, whose things are not found yet. */
   still?: string | null;
 }) {
@@ -645,9 +730,14 @@ export function PhoneSearch({ things, actions, query, onQuery, onPick, still = n
   const typed = query.trim() !== '';
   const recent = useRecentSearches();
   const offered = tab === 'all' ? actionsFor(actions, query) : [];
+  const messages = useMessages(query, tab, !!onPickMessage);
   const pick = (each: Found<Thing>) => {
     recent.add(query);
     onPick(each);
+  };
+  const pickMessage = (hit: Hit) => {
+    recent.add(query);
+    onPickMessage?.(hit);
   };
   const actionsPart = offered.length > 0 && (
     <>
@@ -709,7 +799,7 @@ export function PhoneSearch({ things, actions, query, onQuery, onPick, still = n
           </button>
         )}
       </form>
-      <Tabs tab={tab} onTab={setTab} className="mb-views mb-sx-tabs" />
+      <Tabs tab={tab} onTab={setTab} className="mb-views mb-sx-tabs" tabs={messages.messaging ? [...TABS, MESSAGES] : TABS} />
       {!typed ? (
         <>
           {recent.searches.length > 0 ? (
@@ -743,9 +833,17 @@ export function PhoneSearch({ things, actions, query, onQuery, onPick, still = n
         <p className="mb-p say">{t('search.reading')}</p>
       ) : (
         <>
-          {shown.length === 0 && <p className="mb-p say">{t('search.nothing', { query: query.trim() })}</p>}
-          {shown.length > 0 && (
-            <div className="mb-sx-list">
+          {tab === 'message'
+            ? messages.hits.length === 0 && <p className="mb-p say">{messagesEmpty(messages.state, query)}</p>
+            : shown.length === 0 && messages.hits.length === 0 && <p className="mb-p say">{t('search.nothing', { query: query.trim() })}</p>}
+          {shown.length + messages.hits.length > 0 && (
+            <div
+              className="mb-sx-list"
+              onScroll={(event) => {
+                const box = event.currentTarget;
+                if (tab === 'message' && box.scrollHeight - box.scrollTop - box.clientHeight < 300) messages.more?.();
+              }}
+            >
               {shown.map((each, index) => (
                 <button key={index} type="button" className="mb-sxr" onClick={() => pick(each)}>
                   <Trail trail={each.item.trail} />
@@ -762,6 +860,23 @@ export function PhoneSearch({ things, actions, query, onQuery, onPick, still = n
                   )}
                 </button>
               ))}
+              {messages.hits.map((hit) => (
+                <button key={hit.href} type="button" className="mb-sxr" onClick={() => pickMessage(hit)}>
+                  <Trail trail={trailOf(hit, messages.meOf(hit.url))} />
+                  <Icon name="chat" />
+                  <b>
+                    <span className="nm">{authorOf(hit)}</span>
+                    <span className="wh">{whenOf(hit.message.at)}</span>
+                  </b>
+                  <small className="kd">{t('search.kind.message')}</small>
+                  <small className="snip">{hitSnip(hit, query)}</small>
+                </button>
+              ))}
+              {tab === 'all' && messages.all.length > IN_ALL && (
+                <button type="button" className="mb-sx-tomsgs" onClick={() => setTab('message')}>
+                  {t('search.messagesMore')}
+                </button>
+              )}
               {found.length > SHOWN && <p className="mb-p">{t('search.narrow', { count: SHOWN })}</p>}
               <StillOpening text={still} />
             </div>

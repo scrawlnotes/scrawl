@@ -241,6 +241,13 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX push_subscriptions_account ON push_subscriptions (account_id);
   `,
+  // Messages found by their words (design/chat.md, 7 and 11.6): each message's words and its
+  // files' names, folded as the app's search folds them. Only the words are kept, not the text;
+  // the messages from before it are put in at the next start (Chats.indexMessages).
+  `
+  CREATE VIRTUAL TABLE messages_fts USING fts5 (text, content = '', contentless_delete = 1, tokenize = 'unicode61 remove_diacritics 2');
+  INSERT INTO meta (key, value) VALUES ('chat_fts', '0');
+  `,
 ];
 
 export function openDb(file: string): Db {

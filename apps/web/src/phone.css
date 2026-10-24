@@ -8013,6 +8013,153 @@ body > .mb-lifted {
   height: 16px;
 }
 
+/* Chat's list: the box that opens its search */
+.mb .chp-find {
+  width: calc(100% - 32px);
+  font-size: 16px;
+  text-align: left;
+}
+
+/* a phone's Search tab: All shows a few messages, the rest are under Messages */
+.mb-sx-tomsgs {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  color: var(--sl-accent);
+  font-size: 15px;
+  text-align: left;
+}
+
+/* Chat's search: a page of its own, the box, what narrows it, the messages found */
+.chp-fl {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  padding: 0 16px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chp-fl button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
+  background: var(--sl-side);
+  color: var(--sl-dim);
+  font-size: 14px;
+}
+
+.chp-fl button.on {
+  background: color-mix(in srgb, var(--sl-accent) 18%, var(--sl-side));
+}
+
+.chp-fl button b {
+  color: var(--sl-fg);
+  font-weight: 500;
+}
+
+.chp-fl .dd {
+  color: var(--sl-faint);
+  font-size: 10px;
+}
+
+.chp-hit {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.chp-hit + .chp-hit::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 68px;
+  border-top: 1px solid var(--sl-line);
+}
+
+.mb .chp-hit .ch-face.md {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+
+.chp-hit .bd {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* who, where and when: what does not fit goes under */
+.chp-hit .wh {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  color: var(--sl-faint);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.chp-hit .wh b {
+  margin-right: 2px;
+  color: var(--sl-fg);
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.mb .chp-hit .wh .icon {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.chp-hit .tx {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.chp-hit .fl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sl-dim);
+  font-size: 14px;
+}
+
+.mb .chp-hit .fl .icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.chp-hit .ch-th {
+  width: 52px;
+  height: 52px;
+}
+
+.chp-search .ch-rnone {
+  margin: 24px 16px;
+  color: var(--sl-faint);
+  font-size: 15px;
+}
+
 /* the list: a row for each conversation, with its latest message */
 .chp-c {
   position: relative;

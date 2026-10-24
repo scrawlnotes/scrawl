@@ -206,6 +206,7 @@ import { Upcoming } from './Upcoming';
 import { type ChatLinks, type ChipState, ChatView } from './Chat';
 import { store as chatStore, useChat } from './chatStore';
 import { onNotificationClick, startNotifications } from './notify';
+import type { Hit } from './messageSearch';
 import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
 import { contentsText, quote, writtenText } from './text';
@@ -1618,6 +1619,12 @@ export function App() {
   const [revealTask, setRevealTask] = useState<{ list: string; id: string; at: number } | null>(null);
   const [revealFolder, setRevealFolder] = useState<{ path: string; item?: string; from?: string; at: number } | null>(null);
   /** Opens what was found: a note at the words found in it, a task in its list, a card, a record, a file, a folder in the sidebar. */
+  /** A message found in the search window: Chat opens at it; one in a conversation not on the list, archived or hidden, is read. */
+  const openHit = (hit: Hit) => {
+    setSearching(false);
+    if (!chatStore.read().servers.find((each) => each.url === hit.url)?.chats.some((each) => each.id === hit.chat.id && !each.hidden)) chatStore.server(hit.url)?.visit(hit.chat);
+    openScrawl.current(hit.href);
+  };
   const openFound = (found: Found<Thing>) => {
     const target = found.item.target;
     setSearching(false);
@@ -3166,7 +3173,7 @@ export function App() {
           onClose={closeDialog}
         />
       )}
-      {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onClose={() => setSearching(false)} still={still} />}
+      {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onPickMessage={openHit} onClose={() => setSearching(false)} still={still} />}
       {chipPick && !phone && (
         <SearchWindow
           things={pickThings}

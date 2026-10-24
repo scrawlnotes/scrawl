@@ -139,6 +139,14 @@ export function queryWords(query: string): string[] {
   return [...new Set(fold(query).split(/\s+/).filter(Boolean))];
 }
 
+/**
+ * A text found elsewhere, as a message the server found by its words: as it is shown, cut before
+ * the first word when long, with where each of the words typed starts a word in it.
+ */
+export function markedText(text: string, query: string): { text: string; marks: Span[] } {
+  return cut(text, spansOf(text, queryWords(query)));
+}
+
 /** Where a name has every word of what was typed, each where a word starts; null when it has not all of them. */
 export function nameMatch(name: string, query: string): Span[] | null {
   const words = queryWords(query);
