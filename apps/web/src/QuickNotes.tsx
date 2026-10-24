@@ -48,6 +48,8 @@ const CARD = 240;
 const GAP = 14;
 /** On a phone, the gap between the two columns of cards. */
 const PHONE_GAP = 10;
+/** How much nearer another place must be than its own for a card dragged to take it. */
+const SETTLE = 16;
 
 /** The ways the quick notes are put in order, as Keep has them, the one chosen ticked. */
 export const quickSortItems = (sort: QuickSort, onSort: (sort: QuickSort) => void): MenuItem[] =>
@@ -113,9 +115,8 @@ interface CardProps {
   actions: QuickActions;
   onOpen: (path: string) => void;
   onHeight: (path: string, height: number) => void;
-  onDragStart: (path: string) => void;
-  /** A card dragged is over it, the pointer where it says. */
-  onDragOver: (path: string, x: number, y: number) => void;
+  /** Taken to be dragged: where in it the pointer holds it, and the box of its section. */
+  onDragStart: (path: string, grip: { x: number; y: number }, section: HTMLElement) => void;
   onDragEnd: () => void;
   /** On a phone: held and moved, it is dragged with the finger (touchDrag.ts), which says where it is. */
   phone?: { onMove: (x: number, y: number) => void; onDrop: () => void };
@@ -127,7 +128,7 @@ interface CardProps {
  * its pin and its menu. On a phone, held and let go where it was its sheet opens; held and moved,
  * by hand, it is dragged.
  */
-function QuickCard({ path, text, spans, pinned, away, dragging, draggable, place, actions, onOpen, onHeight, onDragStart, onDragOver, onDragEnd, phone }: CardProps) {
+function QuickCard({ path, text, spans, pinned, away, dragging, draggable, place, actions, onOpen, onHeight, onDragStart, onDragEnd, phone }: CardProps) {
   const { title, body } = useMemo(() => splitQuickNote(text), [text]);
   const card = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -200,6 +201,12 @@ function QuickCard({ path, text, spans, pinned, away, dragging, draggable, place
       window.removeEventListener('keydown', off);
     };
   }, [menuOpen]);
+  /** Taken to be dragged, the pointer at `x`, `y`. */
+  const take = (x: number, y: number) => {
+    const element = card.current!;
+    const box = element.getBoundingClientRect();
+    onDragStart(path, { x: x - box.left, y: y - box.top }, element.parentElement!);
+  };
 
   return (
     <div
@@ -212,7 +219,7 @@ function QuickCard({ path, text, spans, pinned, away, dragging, draggable, place
         if (!phone || (event.target as HTMLElement).closest('.cm-sl-link, button, audio')) return;
         holdToDrag(event, {
           element: card.current!,
-          onLift: () => (draggable ? onDragStart(path) : undefined),
+          onLift: (x, y) => (draggable ? take(x, y) : undefined),
           onMove: (x, y) => draggable && phone.onMove(x, y),
           onDrop: () => (draggable ? phone.onDrop() : onDragEnd()),
           onCancel: onDragEnd,
@@ -235,11 +242,7 @@ function QuickCard({ path, text, spans, pinned, away, dragging, draggable, place
       onDragStart={(event: DragEvent) => {
         event.dataTransfer.effectAllowed = 'move';
         event.dataTransfer.setData('text/plain', title || body.slice(0, 80));
-        onDragStart(path);
-      }}
-      onDragOver={(event: DragEvent) => {
-        event.preventDefault();
-        onDragOver(path, event.clientX, event.clientY);
+        take(event.clientX, event.clientY);
       }}
       onDragEnd={onDragEnd}
     >
@@ -491,8 +494,8 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
   // What a finger's drag reads as it goes, between its moves.
   const dragNow = useRef(drag);
   dragNow.current = drag;
-  // The card the dragged one last moved past, and where the pointer was then.
-  const passed = useRef<{ over: string; x: number; y: number } | null>(null);
+  // The card dragged: where in it the pointer holds it, and the box of its section.
+  const held = useRef<{ grip: { x: number; y: number }; section: HTMLElement } | null>(null);
 
   // As many columns of cards as the width takes; a phone's two.
   useLayoutEffect(() => {
@@ -537,28 +540,56 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
     relayout((n) => n + 1);
   };
 
-  const startDrag = (path: string) => {
+  const gap = phone ? PHONE_GAP : GAP;
+  const heightOf = (path: string) => heights.current.get(path) ?? 120;
+  /** How many columns a section of `count` cards takes. */
+  const columnsFor = (count: number) => (phone ? columns : Math.min(columns, count));
+
+  const startDrag = (path: string, grip: { x: number; y: number }, section: HTMLElement) => {
     const start = [...sorted.pinned, ...sorted.others];
-    passed.current = null;
+    held.current = { grip, section };
     setDrag({ path, start, shown: start });
   };
   /**
-   * The card dragged takes the place of the one it comes over, in its own section, as in Keep: it
-   * goes after it from before it, before it from after it. It moves past a card once until the
-   * pointer comes over another, and only as the pointer moves, so that the cards moving under a
-   * pointer held still do not move it on.
+   * Where the card dragged stands, from the pointer alone: of the places in its section it could
+   * take, as the others would make way, the one nearest where the pointer holds it. So the cards
+   * stand the same for the same pointer wherever it has been, and do not move under one held
+   * still; a place only a little nearer than its own does not take it, so that on the line
+   * between two it does not go back and forth.
    */
-  const placeDrag = (over: string, x: number, y: number) => {
-    const last = passed.current;
-    if (last && (last.over === over || (Math.abs(x - last.x) < 2 && Math.abs(y - last.y) < 2))) return;
-    passed.current = { over, x, y };
-    setDrag((now) => {
-      if (!now || over === now.path || pinnedSet.has(over) !== pinnedSet.has(now.path)) return now;
-      const shown = [...now.shown];
-      shown.splice(shown.indexOf(now.path), 1);
-      shown.splice(now.shown.indexOf(over), 0, now.path);
-      return { ...now, shown };
-    });
+  const placeDrag = (x: number, y: number) => {
+    const now = dragNow.current;
+    const hold = held.current;
+    if (!now || !hold) return;
+    const pinnedOne = pinnedSet.has(now.path);
+    const section = now.shown.filter((path) => pinnedSet.has(path) === pinnedOne);
+    const rest = section.filter((path) => path !== now.path);
+    const here = section.indexOf(now.path);
+    const box = hold.section.getBoundingClientRect();
+    const want = { x: x - box.left - hold.grip.x, y: y - box.top - hold.grip.y };
+    const wide = phone ? (box.width - gap) / 2 : CARD;
+    // Before each of the others and after the last: where it would stand, those before it placed as they are.
+    const sums = Array.from({ length: columnsFor(section.length) }, () => 0);
+    let best = here;
+    let nearest = Infinity;
+    let own = Infinity;
+    for (let at = 0; at <= rest.length; at++) {
+      const column = sums.indexOf(Math.min(...sums));
+      const far = Math.hypot(column * (wide + gap) - want.x, sums[column]! - want.y);
+      if (far < nearest) {
+        nearest = far;
+        best = at;
+      }
+      if (at === here) own = far;
+      const next = rest[at];
+      if (next !== undefined) sums[sums.indexOf(Math.min(...sums))]! += heightOf(next) + gap;
+    }
+    if (best === here || nearest > own - SETTLE) return;
+    const placed = [...rest.slice(0, best), now.path, ...rest.slice(best)];
+    const others = now.shown.filter((path) => pinnedSet.has(path) !== pinnedOne);
+    const moved = { ...now, shown: pinnedOne ? [...placed, ...others] : [...others, ...placed] };
+    dragNow.current = moved;
+    setDrag(moved);
   };
   /** The order as the cards stand, kept once the card is let go. */
   const dropDrag = () => {
@@ -566,14 +597,7 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
     if (now) actions.order(now.shown);
     setDrag(null);
   };
-  // A finger dragging a card: the card under it says where it would go.
-  const touch = {
-    onMove: (x: number, y: number) => {
-      const path = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-quick]')?.dataset.quick;
-      if (path) placeDrag(path, x, y);
-    },
-    onDrop: dropDrag,
-  };
+  const touch = { onMove: placeDrag, onDrop: dropDrag };
   const width = (count: number) => (phone ? undefined : { width: count * CARD + (count - 1) * GAP });
 
   /**
@@ -582,15 +606,14 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
    * card: the one dragged, and the one it is let go on, are those the browser holds.
    */
   const masonry = (list: string[]) => {
-    const gap = phone ? PHONE_GAP : GAP;
-    const sums = Array.from({ length: phone ? columns : Math.min(columns, list.length) }, () => 0);
+    const sums = Array.from({ length: columnsFor(list.length) }, () => 0);
     const places = new Map<string, CSSProperties>();
     for (const path of list) {
       const at = sums.indexOf(Math.min(...sums));
       // A phone's two columns share its width.
       const across = phone ? { left: at === 0 ? 0 : `calc(50% + ${gap / 2}px)`, width: `calc(50% - ${gap / 2}px)` } : { left: at * (CARD + GAP), width: CARD };
       places.set(path, { ...across, top: sums[at] });
-      sums[at]! += (heights.current.get(path) ?? 120) + gap;
+      sums[at]! += heightOf(path) + gap;
     }
     // While one is dragged they stay in the page as they were taken; only where they stand changes.
     const inPage = drag ? [...list].sort((a, b) => drag.start.indexOf(a) - drag.start.indexOf(b)) : list;
@@ -611,7 +634,6 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
             onOpen={onOpen}
             onHeight={onHeight}
             onDragStart={startDrag}
-            onDragOver={placeDrag}
             onDragEnd={() => setDrag(null)}
             {...(phone && { phone: touch })}
           />
@@ -677,7 +699,11 @@ export function QuickNotes({ notes, texts, order, sort, created, open, bar, acti
           ref={grid}
           className="qn-cards"
           // A card dropped anywhere among them, on another or between two, stays where it shows.
-          onDragOver={(event) => drag && event.preventDefault()}
+          onDragOver={(event) => {
+            if (!drag) return;
+            event.preventDefault();
+            placeDrag(event.clientX, event.clientY);
+          }}
           onDrop={(event) => {
             if (!drag) return;
             event.preventDefault();
