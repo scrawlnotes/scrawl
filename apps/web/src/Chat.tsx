@@ -398,6 +398,7 @@ function ChatList({ servers, open, onOpen, onAdd, onWrite, box }: {
                   <button type="button" key={person.id} className="chat-row" onClick={() => onWrite(server.url, person.id)}>
                     <Face id={person.id} name={person.name} size="sm" online={server.active.includes(person.id)} />
                     <span className="nm">{person.name}</span>
+                    <span className="sb">{person.space}</span>
                   </button>
                 ))}
             </div>

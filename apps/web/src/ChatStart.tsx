@@ -1,6 +1,6 @@
 import type { ChatInfo } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type ReactNode, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Face, namesOf, others, shortDay, titleOf } from './ChatFaces';
 import type { ChatServer } from './chatStore';
 import { Icon, type IconName } from './Icon';
@@ -30,41 +30,6 @@ export function notWrittenTo(server: ChatServer): { id: string; name: string; sp
   );
   return teammatesOf(server).filter((person) => !written.has(person.id));
 }
-
-/** The sections of Chat's list folded on this device. */
-const FOLDED = 'scrawl.chatFolded';
-
-/**
- * Chat's sections folded on this device, as Slack's are: a server's space, or its direct messages
- * (space null). A folded one still shows the conversation open and those with something unread.
- */
-export function useFolded() {
-  const [folded, setFolded] = useState<Set<string>>(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem(FOLDED) ?? '[]') as string[]);
-    } catch {
-      return new Set();
-    }
-  });
-  const key = (url: string, space: string | null) => `${url}\n${space ?? 'direct'}`;
-  return {
-    isFolded: (url: string, space: string | null) => folded.has(key(url, space)),
-    toggle: (url: string, space: string | null) =>
-      setFolded((was) => {
-        const now = new Set(was);
-        if (!now.delete(key(url, space))) now.add(key(url, space));
-        try {
-          localStorage.setItem(FOLDED, JSON.stringify([...now]));
-        } catch {
-          // Not kept: folded while the page is open.
-        }
-        return now;
-      }),
-  };
-}
-
-/** What a folded section still shows: the conversation open, and one with something unread. */
-export const staysFolded = (chat: ChatInfo, open: boolean) => open || (chat.unread > 0 && chat.notify !== 'off');
 
 /** The spaces someone shares with this person, by name. */
 function sharedSpaces(server: ChatServer, person: string): string[] {

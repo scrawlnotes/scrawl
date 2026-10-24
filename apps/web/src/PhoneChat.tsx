@@ -1,11 +1,12 @@
-import type { ChatInfo } from '@scrawlnotes/core';
-import { t } from '@scrawlnotes/i18n';
-import { Fragment, type MouseEvent, type ReactNode, useEffect } from 'react';
+import { type ChatInfo, type ChatMessage, plainText } from '@scrawlnotes/core';
+import { locale, t } from '@scrawlnotes/i18n';
+import { type MouseEvent, useEffect } from 'react';
 import { type ChatLinks, Conversation } from './Chat';
-import { Face, namesOf, others, titleOf } from './ChatFaces';
-import { NotifyBanner } from './ChatParts';
+import { Face, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
+import { clock } from './chatMedia';
+import { isAudio, isImage, isVideo, NotifyBanner } from './ChatParts';
 import { InfoBody, type InfoTab, MediaThumb, useChatInfo } from './ChatRooms';
-import { notWrittenTo, staysFolded, teammatesOf, useFolded } from './ChatStart';
+import { notWrittenTo, teammatesOf } from './ChatStart';
 import { type ChatServer, draftOf, store, useChat } from './chatStore';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
@@ -18,6 +19,27 @@ import { hostOf } from './servers';
 /** A conversation of a server: one this person is in, or a room read from Browse rooms. */
 export function chatOf(server: ChatServer | undefined, id: string): ChatInfo | undefined {
   return server?.chats.find((each) => each.id === id && !each.hidden) ?? (server?.visiting?.id === id ? server.visiting : undefined);
+}
+
+/** What a message is in a list's line: its words, or what kind of file it is. */
+function whatOf(message: ChatMessage): string {
+  if (message.deleted) return t('chat.deleted');
+  const words = plainText(message.body);
+  if (words) return words;
+  const file = message.files[0];
+  if (!file) return '';
+  if (isImage(file)) return t('chat.photo');
+  if (isVideo(file)) return t('chat.video');
+  if (isAudio(file)) return file.duration !== undefined ? `${t('chat.voice')} · ${clock(file.duration)}` : t('chat.voice');
+  return file.name || t('chat.file');
+}
+
+/** When the latest message came, as a list's line says it: its time today, its weekday this week, else its day. */
+function whenOf(at: number): string {
+  const days = Math.round((new Date(new Date().toDateString()).getTime() - new Date(new Date(at).toDateString()).getTime()) / 86_400_000);
+  if (days === 0) return timeOf(at);
+  if (days < 7) return new Date(at).toLocaleDateString(locale(), { weekday: 'short' });
+  return shortDay(at);
 }
 
 /** The mark before a conversation on a phone: a room's # or lock in its tile, the other's face, two faces for a group. */
@@ -34,57 +56,46 @@ function PhoneLead({ chat, server, size = 'list' }: { chat: ChatInfo; server: Ch
   );
 }
 
-/**
- * Chat's first page, as Slack's Home (design/chat.md 25): each space a section of its rooms by
- * name with + Add room at its foot, then Direct messages, the latest first, with the people not
- * written to yet and + Start a new message, or + Invite people with no one to write to. A row is
- * one line: its mark and name, bold while unread, its number, a draft's pen. A section folds.
- */
-export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite, onAddRoom, onNewMessage }: {
+/** Chat's first page: each space's rooms by name, then the direct messages, the latest first; each with its latest message. */
+export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
   onOpen: (url: string, chat: string) => void;
   onSearch: () => void;
   /** Someone to write to, with no direct message yet: it opens. */
   onWrite: (url: string, person: string) => void;
   /** Invite people, when no one shares a space with this person. */
   onInvite: () => void;
-  /** + Add room at a space's foot: Create room and Browse rooms. */
-  onAddRoom: (event: MouseEvent, url: string, space: string) => void;
-  /** + Start a new message at Direct messages' foot. */
-  onNewMessage: (url: string) => void;
 }) {
   const snapshot = useChat();
-  const folds = useFolded();
   const many = snapshot.servers.length > 1;
   if (!snapshot.servers.length) return <p className="chp-none">{t('chat.loading')}</p>;
-  const row = (server: ChatServer, chat: ChatInfo) => {
+  const row = (server: ChatServer, chat: ChatInfo, nameOf: (id: string) => string) => {
     const off = chat.notify === 'off';
-    const draft = draftOf(server.url, chat.id).trim() !== '';
+    const draft = draftOf(server.url, chat.id).trim();
+    const last = chat.last;
+    const solo = chat.kind === 'direct' && others(chat, server.me).length === 1;
+    const line = draft
+      ? t('chat.draftLine', { text: plainText(draft) })
+      : !last
+        ? chat.topic || null
+        : last.author === server.me && !last.agent
+          ? t('chat.youLine', { text: whatOf(last) })
+          : solo
+            ? whatOf(last)
+            : `${nameOf(last.author).split(/\s+/)[0]}: ${whatOf(last)}`;
     return (
-      <button type="button" key={chat.id} className={`chp-r${chat.unread > 0 && !off ? ' un' : ''}${off ? ' off' : ''}`} onClick={() => onOpen(server.url, chat.id)}>
-        <RowLead chat={chat} server={server} />
-        <span className="nm">{titleOf(chat, server.me)}</span>
-        {draft && <Icon name="pen" />}
-        {chat.alerts > 0 ? <em>{chat.alerts}</em> : off ? <Icon name="bellOff" /> : null}
+      <button type="button" key={chat.id} className={off ? 'chp-c off' : 'chp-c'} onClick={() => onOpen(server.url, chat.id)}>
+        <PhoneLead chat={chat} server={server} />
+        <span className="tx">
+          <b className={chat.unread > 0 && !off ? 'un' : ''}>{titleOf(chat, server.me)}</b>
+          {line ? <small className={draft ? 'dr' : ''}>{line}</small> : <small className="none">{t('chat.noMessagesYet')}</small>}
+        </span>
+        <span className="rt">
+          {last && <small className={chat.alerts > 0 ? 'hot' : ''}>{whenOf(last.at)}</small>}
+          {chat.alerts > 0 ? <em>{chat.alerts}</em> : off ? <Icon name="bellOff" /> : null}
+        </span>
       </button>
     );
   };
-  const add = (label: string, run: (event: MouseEvent) => void) => (
-    <button type="button" className="chp-r add" onClick={run}>
-      <span className="ic">
-        <Icon name="plus" />
-      </span>
-      <span className="nm">{label}</span>
-    </button>
-  );
-  const section = (url: string, space: string | null, title: string, body: ReactNode) => (
-    <div key={`${url} ${space ?? 'direct'}`} className={folds.isFolded(url, space) ? 'chp-sec folded' : 'chp-sec'}>
-      <button type="button" className="chp-sh" aria-expanded={!folds.isFolded(url, space)} onClick={() => folds.toggle(url, space)}>
-        <b>{title}</b>
-        <Icon name="chevron" />
-      </button>
-      {body}
-    </div>
-  );
   return (
     <div className="chp-list">
       <button type="button" className="mb-searchbar chp-find" onClick={onSearch}>
@@ -93,6 +104,7 @@ export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite, onAddRoom, 
       </button>
       <NotifyBanner phone />
       {snapshot.servers.map((server) => {
+        const nameOf = namesOf(server);
         const shown = server.chats.filter((chat) => !chat.hidden && chat.archived === null);
         const spaces = new Map<string, { name: string; chats: ChatInfo[] }>();
         for (const chat of shown) {
@@ -102,66 +114,45 @@ export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite, onAddRoom, 
           spaces.set(chat.space, group);
         }
         const direct = shown.filter((chat) => chat.kind === 'direct').sort((a, b) => (b.last?.at ?? b.createdAt) - (a.last?.at ?? a.createdAt));
-        const folded = (space: string | null) => folds.isFolded(server.url, space);
         return (
-          <Fragment key={server.url}>
-            {[...spaces]
-              .sort(([, a], [, b]) => a.name.localeCompare(b.name))
-              .map(([space, group]) =>
-                section(
-                  server.url,
-                  space,
-                  group.name,
-                  <>
-                    {group.chats
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .filter((chat) => !folded(space) || staysFolded(chat, false))
-                      .map((chat) => row(server, chat))}
-                    {!folded(space) && add(t('chat.addRoom'), (event) => onAddRoom(event, server.url, space))}
-                  </>,
-                ),
-              )}
-            {section(
-              server.url,
-              null,
-              many ? t('chat.directMessagesOn', { server: hostOf(server.url) }) : t('chat.directMessages'),
-              <>
-                {direct.filter((chat) => !folded(null) || staysFolded(chat, false)).map((chat) => row(server, chat))}
-                {!folded(null) &&
-                  notWrittenTo(server)
-                    .slice(0, 5)
-                    .map((person) => (
-                      <button type="button" key={person.id} className="chp-r" onClick={() => onWrite(server.url, person.id)}>
-                        <span className="ic">
-                          <Face id={person.id} name={person.name} size="md" online={server.active.includes(person.id)} />
-                        </span>
-                        <span className="nm">{person.name}</span>
-                      </button>
-                    ))}
-                {!folded(null) && (teammatesOf(server).length > 0 ? add(t('chat.startNewMessage'), () => onNewMessage(server.url)) : add(t('chat.invitePeople'), onInvite))}
-              </>,
+          <div key={server.url}>
+            {[...spaces.values()]
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((group) => (
+                <div key={group.name}>
+                  <div className="mb-sec">{group.name}</div>
+                  {group.chats.sort((a, b) => a.name.localeCompare(b.name)).map((chat) => row(server, chat, nameOf))}
+                </div>
+              ))}
+            <div className="mb-sec chp-dm">{many ? t('chat.directMessagesOn', { server: hostOf(server.url) }) : t('chat.directMessages')}</div>
+            {direct.map((chat) => row(server, chat, nameOf))}
+            {/* The people to write to with no direct message yet; with no one at all, Invite people. */}
+            {notWrittenTo(server)
+              .slice(0, 5)
+              .map((person) => (
+                <button type="button" key={person.id} className="chp-c" onClick={() => onWrite(server.url, person.id)}>
+                  <Face id={person.id} name={person.name} size="lg" online={server.active.includes(person.id)} />
+                  <span className="tx">
+                    <b>{person.name}</b>
+                    <small>{t('chat.sayHello', { space: person.space })}</small>
+                  </span>
+                </button>
+              ))}
+            {teammatesOf(server).length === 0 && (
+              <button type="button" className="chp-c addr" onClick={onInvite}>
+                <span className="chp-ic">
+                  <Icon name="plus" />
+                </span>
+                <span className="tx">
+                  <b>{t('chat.invitePeople')}</b>
+                  <small>{t('chat.aloneSoFar')}</small>
+                </span>
+              </button>
             )}
-          </Fragment>
+          </div>
         );
       })}
     </div>
-  );
-}
-
-/** A row's mark, as Slack's: # or a lock for a room, the other's face, two faces for a group. */
-function RowLead({ chat, server }: { chat: ChatInfo; server: ChatServer }) {
-  const people = others(chat, server.me);
-  if (chat.kind === 'private') return <span className="ic"><Icon name="lock" /></span>;
-  if (chat.kind !== 'direct') return <span className="ic hs">#</span>;
-  if (people.length === 1) return <span className="ic"><Face id={people[0]!.id} name={people[0]!.name} size="md" online={server.active.includes(people[0]!.id)} /></span>;
-  return (
-    <span className="ic">
-      <span className="ch-faces">
-        {people.slice(0, 2).map((person) => (
-          <Face key={person.id} id={person.id} name={person.name} size="xs" />
-        ))}
-      </span>
-    </span>
   );
 }
 

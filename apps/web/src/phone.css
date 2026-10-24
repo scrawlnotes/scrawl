@@ -8160,136 +8160,6 @@ body > .mb-lifted {
   font-size: 15px;
 }
 
-/* Chat's list as Slack's Home (design/chat.md 25): sections with a line between them, each folded
-   from its heading; a row is one line, its mark and its name, bold while unread. */
-.chp-sec + .chp-sec {
-  margin-top: 6px;
-  border-top: 1px solid var(--sl-line);
-}
-
-.chp-sh {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 46px;
-  padding: 6px 16px 0;
-  box-sizing: border-box;
-  color: var(--sl-fg);
-  text-align: left;
-}
-
-.chp-sh b {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  font-size: 16px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mb .chp-sh .icon {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  color: var(--sl-dim);
-  transform: rotate(-90deg);
-  transition: transform 0.15s ease;
-}
-
-.mb .chp-sec.folded .chp-sh .icon {
-  transform: rotate(90deg);
-}
-
-.chp-r {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  min-height: 44px;
-  padding: 0 16px;
-  box-sizing: border-box;
-  color: var(--sl-dim);
-  font-size: 17px;
-  text-align: left;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.chp-r:active {
-  background: var(--sl-sel);
-}
-
-.chp-r .ic {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 28px;
-  color: var(--sl-dim);
-}
-
-.chp-r .ic.hs {
-  font: 400 22px/1 var(--sl-font-ui);
-}
-
-.mb .chp-r .ic > .icon {
-  width: 20px;
-  height: 20px;
-}
-
-.mb .chp-r .ch-face.md {
-  width: 28px;
-  height: 28px;
-  font-size: 12px;
-}
-
-.chp-r .nm {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chp-r.un {
-  color: var(--sl-fg);
-  font-weight: 600;
-}
-
-.chp-r.off {
-  color: var(--sl-faint);
-}
-
-.mb .chp-r > .icon {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  color: var(--sl-faint);
-}
-
-.chp-r em {
-  flex: none;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 7px;
-  box-sizing: border-box;
-  border-radius: 11px;
-  background: var(--sl-p1);
-  color: #fff;
-  font: 600 12.5px/22px var(--sl-font-ui);
-  font-style: normal;
-  text-align: center;
-}
-
-.chp-r.add {
-  color: var(--sl-dim);
-}
-
-.mb .chp-r.add .ic .icon {
-  width: 22px;
-  height: 22px;
-}
-
 /* Create a room, Browse rooms and New message on a phone, as Slack's (design/chat.md 25): a sheet
    as tall as the screen, its list scrolling between its head and its foot. */
 .mb-sheet.chn {
@@ -8643,12 +8513,9 @@ body > .mb-lifted {
   background: color-mix(in srgb, var(--sl-fg) 6%, var(--sl-bg));
 }
 
-.chp-c + .chp-c::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 68px;
-  right: 0;
+/* no line between the rows; one over Direct messages, apart from the spaces' rooms (design/mockups.html, Telefon liste) */
+.mb-sec.chp-dm {
+  margin-top: 8px;
   border-top: 1px solid var(--sl-line);
 }
 
