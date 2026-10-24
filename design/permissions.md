@@ -1,6 +1,6 @@
 # Sunucuda dosya ve klasör yetkisi (taslak)
 
-Durum: 24 Ekim 2026, onaylı. Kararların hepsi konuşularak verildi (11. bölüm); 12. bölümdeki dört karar önerildiği gibi onaylandı. PLAN'a 20. aşama olarak işlendi (13. bölüm); Dropbox, S3 ve GitHub 21, Google Drive 22, Mobil 23 oldu. Roadmap'te faz 20, kartlar ROA-256–260. Mockup 24 Ekim'de onaylandı (`design/mockups.html`, Dosya ve klasör yetkisi); 2.4, 2.6 ve 3. bölüm ona göre. Kodda bir şey yazılmadı; kod kullanıcı söyleyince başlar. PLAN'ın Sonraya kalanlarındaki "sunucuda ince yetkiler" maddesinin klasöre göre yetki kısmıdır. Salt okunur hiç olmayacak; PLAN'dan da çıkarıldı (11. bölüm, 9. karar).
+Durum: 24 Ekim 2026, onaylı. Kararların hepsi konuşularak verildi (11. bölüm); 12. bölümdeki dört karar önerildiği gibi onaylandı. PLAN'a 20. aşama olarak işlendi (13. bölüm); Dropbox, S3 ve GitHub 21, Google Drive 22, Mobil 23 oldu. Roadmap'te faz 20, kartlar ROA-256–260. Mockup 24 Ekim'de onaylandı (`design/mockups.html`, Dosya ve klasör yetkisi); 2.4, 2.6 ve 3. bölüm ona göre. Aynı gün Create'e Access eklendi ve onaylandı (3.4, 4.4, 5.4). Kodda bir şey yazılmadı; kod kullanıcı söyleyince başlar. PLAN'ın Sonraya kalanlarındaki "sunucuda ince yetkiler" maddesinin klasöre göre yetki kısmıdır. Salt okunur hiç olmayacak; PLAN'dan da çıkarıldı (11. bölüm, 9. karar).
 
 ## 1. Kapsam
 
@@ -58,13 +58,13 @@ Yollar büyük-küçük harfe bakmadan tek sayılır. Bir kişi, göremediği bi
 
 ## 3. Ekranda
 
-Mockup: `design/mockups.html`, Dosya ve klasör yetkisi (24 Ekim'de onaylandı). Masaüstünde Menu, Restrict, As a member, As the owner, A note, Files, Search, Sync; telefonda iki sayfa.
+Mockup: `design/mockups.html`, Dosya ve klasör yetkisi (24 Ekim'de onaylandı). Masaüstünde Menu, Restrict, As a member, As the owner, A note, Create, Create: Access, Create: chosen, Create in Finance, Files, Search, Sync; telefonda üç sayfa.
 
 ### 3.1 Access penceresi
 
 - **Nerede:** yalnız sunucudaki paylaşılan space'lerde, dosyanın ve klasörün menüsünde, Move to… ve Rename'den sonra **Access…**; kenar çubuğundaki satırın ve sekmenin menüsünde. Telefonda satır basılı tutulunca ya da sayfanın ··· menüsünde açılan action sheet'te, yanında listedeki kişi sayısıyla ("2 people").
 - **Başı:** öğenin simgesi, adı ve yeri ("Folder in Acme", "Note in Acme › Sales").
-- **Who can see it:** iki seçenek, **Everyone in Acme** ("All 6 people in Acme.") ve **Only these people** ("No one else in Acme sees it, not even its name."). Herkese açamayan biri için ilki soluk ve kapalıdır, altında: "Only Deniz Ak, who set this up, and the server’s owner and admins open it to everyone." (2.2)
+- **Who can see it:** iki seçenek, **Everyone in Acme** ("All 6 people in Acme.") ve **Only these people** ("No one else in Acme sees it, not even its name."). Herkese açamayan biri için ilki soluk ve kapalıdır, altında: "Only Deniz Ak, who set this up, and the server’s owner and admins open it to everyone." (2.2) Öğe kısıtlı bir klasördeyse ilk seçenek o klasörü görenlerdir: **Everyone who sees Finance**, altında onların adları.
 - **People:** o şeyin bulunduğu yeri görenler, her biri bir kutuyla. Sıra pencere açıldığındaki haldir: kuran, listedekiler, sonra diğerleri; işaretlendikçe satırlar yer değiştirmez. Kişi kendi satırında "you" görür. Kuranın satırında **Set this up**; bir üyeye kutusu soluk ve kapalıdır, Owner ve Admin'e açıktır.
 - **Değişen satır:** eklenenin sağında **Gets access**, çıkanın sağında **Loses access**.
 - **Owner ve Admin:** listenin altında adlarıyla, yüzleriyle: "Kaan Arslan, the server’s owner, and Lena Hartmann, an admin, always see it." Pencereyi Owner açtıysa "You, the server’s owner, …".
@@ -81,6 +81,16 @@ Kısıtlı dosya ve klasörlerin adının yanında, onları görenlere küçük 
 - **Done:** başında Removed from this device grubu (2.4), sonra turun geri kalanı.
 - **Not synced:** göremediği bir şeyle aynı adı taşıyan dosya, nedeniyle (2.6).
 - Telefonda space'in Sync sayfasında aynısı.
+
+### 3.4 Create
+
+Bir şey oluşturulurken de kısıtlanabilir, böylece bir an bile herkese açık kalmaz.
+
+- **Nerede:** yalnız sunucudaki paylaşılan space'lerde, Create'in ikinci adımında Folder'ın altında **Access** satırı. Telefonda New note, New board gibi sheet'lerde Folder'ın altında. Folder kişisel space'e ya da OneDrive'daki bir space'e çevrilirse satır kalkar.
+- **Önce:** "Everyone in Acme · All 6 people". Seçilen klasör kısıtlıysa "Everyone who sees Finance", yanında o klasörü görenlerin yüzleri ve adları ("Deniz Ak and you").
+- **Change…:** 3.1'deki pencereyi açar. Öğe henüz kimseye görünmediği için Gets access, Loses access ve uyarı yoktur; Save yerine **Done**, Create'e döner. Oluşturan kişi kurandır ("Set this up").
+- **Seçilince:** satır kimlerin göreceğini söyler: kilit, "Only these people", yüzler ve adlar ("You and Deniz Ak").
+- **Açık:** kenar çubuğundaki New folder satırı (ad yazılıp Add) ve New app Create'ten geçmez. Onlara da Access eklenip eklenmeyeceği sorulacak; eklenmezse yeni klasörün adı, menüden kısıtlanana kadar birkaç saniye herkese görünür.
 
 ## 4. Sunucu
 
@@ -139,6 +149,8 @@ Görünürlüğü değiştiren bir şey olunca (liste, kısıt, taşıma, ekin k
 | `read` | 404 `no-file`, yokmuş gibi |
 | `move`'un `from`'u, `remove` | 412, yokmuş gibi |
 | `write`, `mkdir`, `move`'un `to`'su | 403 `no-access` kişi o yolu daha önce görüyorduysa (`hidden`'da satırı var), yoksa 403 `taken` |
+
+**Kısıtıyla oluşturmak (3.4):** yeni bir dosya (`write`, `If-None-Match: *`) `Scrawl-Access` başlığıyla, yeni bir klasör (`mkdir`) gövdesinde `access` ile kişilerin hesap kimliklerini taşıyabilir. Sunucu öğeyi ve kısıtını tek işlemde yazar; isteği atan kurandır ve listede olmalıdır, listedekiler 4.7'deki gibi denetlenir. Öğe değişiklik listelerine kısıtıyla birlikte girer, kimseye kısıtsız görünmez. CORS'un izinli başlıklarına `Scrawl-Access` eklenir.
 
 Taşımada kısıt öğeyle gider (2.3): `access` satırları yeni yola geçer. Üst klasörlerden gelip hedefte olmayan kısıtlar, listelerinin kesişimiyle dosyanın kendi satırı olarak yazılır. Hedefteki kısıtlar zaten en az bu kadar darsa bu satır yazılmaz.
 
@@ -199,6 +211,16 @@ Yeni hata `RemoteForbidden(path, why)`: `ServerRemote` 403 `taken`'ı ve `no-acc
 
 `RemoteStore`'a isteğe bağlı `moveDir?(from, to)` eklenir. Motor dosya taşımalarına bakmadan önce şuna bakar: bu cihazda bir klasör gitmiş, yeni bir klasör gelmiş ve eskisindeki her kayıtlı dosya yenisinde aynı göreli yolla duruyorsa bu bir klasör taşımasıdır. Sunucuya tek bir `moveDir` gider; içeriği değişen dosyalar sonra bugünkü gibi yüklenir. Sağlayıcıda `moveDir` yoksa (bugün OneDrive'da yok) dosyalar tek tek taşınır. Öbür cihazlar bunu bugünkü gibi dosya dosya taşıma olarak görür.
 
+### 5.4 Kısıtıyla oluşturulan öğe
+
+Create'te Only these people seçilince (3.4) öğe sunucuya kısıtıyla birlikte gitmelidir; önce dosya gidip kısıt sonra gelirse arada başkasının cihazına inebilir.
+
+- Uygulama öğeyi yazarken kısıtını cihaza özel `.scrawl/sync-access.json`'a koyar: yol ve kişiler. Dosya `DEVICE_ONLY`'e eklenir.
+- Motor yüklemeden önce bu listeye bakar. Bekleyen bir dosyanın ilk yazımı kısıtı taşır (`write`'a isteğe bağlı `access`); bekleyen bir klasör (koleksiyon) içindekilerden önce kısıtıyla açılır (`mkdir`'e `access`). İçindekiler ondan sonra gider; yoksa ilk dosya klasörü kısıtsız açardı.
+- Sunucu kabul edince satır listeden düşer. Reddederse (adı alınmış) dosya 5.2'deki gibi cihazda kalır, satır da kalır.
+- Cihaz çevrimdışıyken oluşturulan öğe de böyle bekler ve kısıtıyla gider.
+- `access`'i yalnız `ServerRemote` kullanır; OneDrive'da Create'te Access yoktur.
+
 ## 6. Eski sürümler
 
 - Görmesi biten yollar `removed`'da da gelir. Eski uygulama onları başka bir cihazda silinmiş sayar ve bu cihazın çöpüne taşır; kopya çöpte kalır. Yeni uygulama `hidden`'a bakar ve doğrudan siler. Bu yüzden sunucu, web ve masaüstü aynı gün yayınlanır; web kendiliğinden, masaüstü güncellemeyle yenilenir.
@@ -226,6 +248,7 @@ Kalanlar:
 - Kuran: başkası çıkaramaz, Owner ve Admin çıkarır; listedekiler üye olmalıdır; kişisel space'te 403.
 - Ortak dosyalar: çöp dizini ve `created` kişiye göre süzülür; geri yazılınca kişinin görmediği satırlar kalır; `If-Match` kişinin gördüğü halin etiketiyle karşılaştırılır.
 - Ekler: kısıtlı bir notun eki onu görmeyene gitmez; herkese açık bir notta da kullanılan ek herkese görünür; kullanılmayan yeni ek yalnız yükleyene görünür; geçişte kullanılmayanlar açık kalır, ilk kullanımda kurala girer; not kısıtlanınca, ek linki eklenince ya da çıkarılınca ekin görünürlüğü değişir; ek, nottan önce gönderilse de arada başkasına inmez.
+- Kısıtıyla oluşturmak: dosya ve klasör kısıtıyla tek işlemde açılır, kimsenin değişiklik listesine kısıtsız girmez; isteği atan listede değilse ya da listede üye olmayan biri varsa reddedilir.
 - Canlı kanal: göremeyen haber almaz.
 - Ajan: `ServerFs` kişinin görmediğini görmez, oraya yazamaz.
 
@@ -234,18 +257,19 @@ Kalanlar:
 - `hidden`: dosya ve klasör doğrudan silinir, çöpe gitmez; değişmiş ve gönderilmemiş olan da silinir; taban, geçmiş ve `away` kaydı gider; `removed`'da da gelen yol `hidden` sayılır.
 - `RemoteForbidden`: tur durmaz, dosya cihazda kalır ve raporda görünür.
 - Klasör taşıma: tek `moveDir` gider; içinde değişen dosya taşımadan sonra yüklenir; `moveDir`'i olmayan sağlayıcıda dosyalar tek tek taşınır.
+- Kısıtıyla oluşturulan öğe: not kısıtıyla gider; koleksiyonda önce klasör kısıtıyla açılır, içindekiler sonra; çevrimdışı oluşturulan sonra kısıtıyla gider; sunucu reddederse dosya ve bekleyen kısıt cihazda kalır.
 - Sözleşme: `ServerRemote`, test içinde açılan bir sunucuya karşı iki hesapla, biri görür öbürü görmez. Kısıt kurulunca, kaldırılınca ve taşınınca iki cihaz da doğru halde kalır.
 
 ### 8.3 Elle (bitti ölçütü)
 
-İki hesap, masaüstü ve web: Finance kısıtlanınca öbür hesapta saniyeler içinde kaybolur; kişi listeye geri eklenince gelir; Finance'tan çöpe atılan bir not öbür hesabın çöpünde görünmez; Finance'ın adı değişince kısıt sürer; Finance'taki bir notun eki öbür hesapta görünmez.
+İki hesap, masaüstü ve web: Finance kısıtlanınca öbür hesapta saniyeler içinde kaybolur; kişi listeye geri eklenince gelir; Finance'tan çöpe atılan bir not öbür hesabın çöpünde görünmez; Finance'ın adı değişince kısıt sürer; Finance'taki bir notun eki öbür hesapta görünmez; Create'te Only these people ile oluşturulan not öbür hesapta hiç görünmez, telefonda çevrimdışı oluşturulsa da.
 
 ## 9. Dilimler
 
-1. **Sunucu:** tablolar, `View`, süzme, `hidden` ve yeniden numaralama, dosya istekleri, taşımada kısıt, `move-dir`, yetki istekleri, canlı kanal, ajan.
-2. **Motor:** `hidden`, `RemoteForbidden`, klasör taşıma.
+1. **Sunucu:** tablolar, `View`, süzme, `hidden` ve yeniden numaralama, dosya istekleri, kısıtıyla oluşturmak, taşımada kısıt, `move-dir`, yetki istekleri, canlı kanal, ajan.
+2. **Motor:** `hidden`, `RemoteForbidden`, klasör taşıma, kısıtıyla oluşturulan öğe.
 3. **Ortak dosyalar ve ekler.**
-4. **Uygulama:** Access penceresi (masaüstü ve telefon), kilit, sync panelindeki satırlar. Mockup 24 Ekim'de onaylandı.
+4. **Uygulama:** Access penceresi (masaüstü ve telefon), Create'te Access, kilit, sync panelindeki satırlar. Mockup 24 Ekim'de onaylandı.
 
 Sunucu, web ve masaüstü birlikte yayınlanır (6. bölüm).
 
@@ -270,6 +294,7 @@ Sunucu, web ve masaüstü birlikte yayınlanır (6. bölüm).
 9. Salt okunur yok ve hiç olmayacak; PLAN'ın Sonraya kalanlarından da çıkarıldı.
 10. 12. bölümdeki dört karar önerildiği gibi (her birinde a) onaylandı: ekleri sunucu, onları kullananlardan çıkarır; Owner ve Admin üyesi oldukları space'lerde görür; kısıtı kuran, Owner ve Admin kaldırır; ajan yetki değiştirmez.
 11. Mockup onaylandı: Access… Move to… ve Rename'den sonra; uyarı yalnız biri erişimi kaybedince, kimin kaybettiğini adıyla söyler; satırlarda Gets access ve Loses access; Owner ve Admin adlarıyla; kişilerin sırası açıldığındaki hal; Cancel ve Save, dışarı tıklamak kaydetmez; ad çakışmasının metni; sync panelinde Removed from this device grubu.
+12. Create'te Access (mockup onaylı): Folder'ın altında, önce Everyone (kısıtlı klasörde onu görenler); Change… aynı pencere, Done ile Create'e döner; kısıtlı oluşturulan öğe sunucuya kısıtıyla aynı istekte gider. New folder satırı ve New app açık (3.4).
 
 ## 12. Onayına sunulan kararlar
 

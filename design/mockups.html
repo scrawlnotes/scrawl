@@ -3557,6 +3557,20 @@ p { margin: 0; max-width: 68ch; }
 .pm-mgone b { font-weight: 600; }
 .pm-mgone small { color: var(--m-faint); font-size: 13.5px; }
 .pm-mgap { height: 10px; border-bottom: 1px solid var(--m-line); margin-bottom: 4px; }
+.pm-new { width: 470px; }
+.pm-new .field.filled { color: var(--m-fg); }
+.pm-pf, .pm-acf { display: flex; align-items: center; gap: 8px; }
+.mock .pm-pf > svg, .mock .pm-acf > svg { flex: none; width: 15px; height: 15px; color: var(--m-dim); }
+.pm-pf .dd { margin-left: auto; color: var(--m-faint); }
+.pm-acf small { color: var(--m-faint); font-size: 12px; }
+.pm-acf .pm-cl { margin-left: auto; color: var(--m-accent); font-size: 12px; font-weight: 500; }
+.pm-acf.hot { border-color: var(--m-accent); }
+.pm-fc { display: inline-flex; }
+.pm-fc .ch-f { box-shadow: 0 0 0 2px var(--m-bg); }
+.pm-fc .ch-f + .ch-f { margin-left: -5px; }
+.pm-mval { gap: 6px; }
+.mock .pm-mval > svg:first-child { width: 17px; height: 17px; color: var(--m-dim); }
+.mb-head h2 .pm-lk svg { width: 17px; height: 17px; margin-left: 8px; vertical-align: 0; }
 </style>
 
 <main class="page">
@@ -4282,7 +4296,7 @@ p { margin: 0; max-width: 68ch; }
       <div>
         <span class="letter">YETKİ · TASLAK</span>
         <h2>Dosya ve klasör yetkisi</h2>
-        <p>Yalnız sunucudaki paylaşılan space'lerde. Dosyanın ve klasörün menüsünde, Move to… ve Rename'in yanında <b>Access…</b>: <b>Everyone in Acme</b> ya da <b>Only these people</b>. Listede olmayan onu hiç görmez, adını da. Listeye o şeyin bulunduğu yeri görenler eklenir. Kuranın satırında <b>Set this up</b>; onu listeden yalnız Owner ve Admin çıkarır, herkese açmayı da yalnız kuran, Owner ve Admin yapar. Owner ve Admin listede yer almaz, her zaman görür; pencere onları adlarıyla söyler. Listeden biri çıkınca ya da ilk kez kısıtlanınca pencere kimin göremeyeceğini ve onun cihazlarından silineceğini söyler. Kısıtlı dosya ve klasörün yanında, onu görenlere küçük bir kilit: kenar çubuğunda, Files'ta, aramada. Görmesi biten kişinin sync panelinde <b>Removed from this device</b>; görmediği bir şeyle aynı adı taşıyan dosyası Not synced'da kalır. Telefonda menü action sheet, Access bir sheet. Teknik tasarım <code>design/permissions.md</code>.</p>
+        <p>Yalnız sunucudaki paylaşılan space'lerde. Dosyanın ve klasörün menüsünde, Move to… ve Rename'in yanında <b>Access…</b>: <b>Everyone in Acme</b> ya da <b>Only these people</b>. Listede olmayan onu hiç görmez, adını da. Listeye o şeyin bulunduğu yeri görenler eklenir. Kuranın satırında <b>Set this up</b>; onu listeden yalnız Owner ve Admin çıkarır, herkese açmayı da yalnız kuran, Owner ve Admin yapar. Owner ve Admin listede yer almaz, her zaman görür; pencere onları adlarıyla söyler. Listeden biri çıkınca ya da ilk kez kısıtlanınca pencere kimin göremeyeceğini ve onun cihazlarından silineceğini söyler. Kısıtlı dosya ve klasörün yanında, onu görenlere küçük bir kilit: kenar çubuğunda, Files'ta, aramada. Create'te Folder'ın altında <b>Access</b>: önce <b>Everyone in Acme</b> (kısıtlı bir klasörde onu görenler); <b>Change…</b> aynı pencereyi açar, yeni öğede kimse bir şey kaybetmediği için uyarı yoktur ve <b>Done</b> Create'e döner; seçilen satırda görünür. Görmesi biten kişinin sync panelinde <b>Removed from this device</b>; görmediği bir şeyle aynı adı taşıyan dosyası Not synced'da kalır. Telefonda menü action sheet, Access bir sheet. Teknik tasarım <code>design/permissions.md</code>.</p>
         <ul class="traits"><li>yalnız sunucuda</li><li>dosya ve klasör</li><li>görmeyen adını da görmez</li><li>kuran korunur</li><li>Owner ve Admin hep görür</li><li>kilit</li><li>telefonda da</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Yetki görünümü">
@@ -4291,11 +4305,16 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-pmview="pmedit">As a member</button>
         <button type="button" data-pmview="pmowner">As the owner</button>
         <button type="button" data-pmview="pmnote">A note</button>
+        <button type="button" data-pmview="pmcreate">Create</button>
+        <button type="button" data-pmview="pmcreatepick">Create: Access</button>
+        <button type="button" data-pmview="pmcreated">Create: chosen</button>
+        <button type="button" data-pmview="pmcreatefin">Create in Finance</button>
         <button type="button" data-pmview="pmfiles">Files</button>
         <button type="button" data-pmview="pmsearch">Search</button>
         <button type="button" data-pmview="pmsync">Sync</button>
         <button type="button" data-pmview="pmphone">Telefon</button>
         <button type="button" data-pmview="pmphone2">Telefon 2</button>
+        <button type="button" data-pmview="pmphone3">Telefon 3</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -12740,7 +12759,9 @@ p { margin: 0; max-width: 68ch; }
    */
   function pmAccess(o) {
     var can = pmCan(o);
-    var was = o.was || o.pick;
+    // A new item, from Create: no one sees it yet, so no one gains or loses it, and Done goes back to Create.
+    var was = o.fresh ? o.pick : o.was || o.pick;
+    var all = o.all || PM_ALL;
     function pr(ini) {
       var on = o.pick.indexOf(ini) >= 0, before = was.indexOf(ini) >= 0, setter = ini === o.setBy;
       return '<div class="ch-pick pm-pk' + (on ? ' on' : '') + (setter && !can.boss ? ' fixed' : '') + '"><span class="bx">' + (on ? '✓' : '') + '</span>' + pmF(ini, 'md') +
@@ -12751,13 +12772,34 @@ p { margin: 0; max-width: 68ch; }
     return '<div class="ovl center"><div class="mdlg pm-dlg">' +
       '<div class="pm-h"><span class="pm-ic">' + ICON[o.icon] + '</span><span class="pm-t"><b>' + o.name + '</b><small>' + o.where + '</small></span><span class="x">×</span></div>' +
       '<div class="label">Who can see it</div>' +
-      '<div class="ch-vis pm-vis"><div class="o' + (can.lift ? '' : ' off') + '"><span class="rdo"></span><span><b>Everyone in Acme</b><small>All 6 people in Acme.</small></span></div>' +
+      '<div class="ch-vis pm-vis"><div class="o' + (can.lift ? '' : ' off') + '"><span class="rdo"></span><span><b>' + all.label + '</b><small>' + all.sub + '</small></span></div>' +
       '<div class="o on"><span class="rdo"></span><span><b>Only these people</b><small>No one else in Acme sees it, not even its name.</small></span></div></div>' +
       (can.lift ? '' : '<p class="pm-why">Only ' + PM_P[o.setBy].name + ', who set this up, and the server’s owner and admins open it to everyone.</p>') +
       '<div class="label" style="margin-top: 14px">People</div><div class="pm-ppl">' + pmOrder(o).map(pr).join('') + '</div>' +
       '<div class="pm-always">' + pmF('K', 'xs') + pmF('L', 'xs') + '<span>' + pmAlways(o) + '</span></div>' +
-      (pmGone(o).length ? '<div class="pm-warn">' + ICON.warn + '<span>' + pmLoses(o) + '</span></div>' : '') +
-      '<div class="foot"><span class="st-btn" style="margin-left: auto">Cancel</span><span class="st-btn go">Save</span></div></div></div>';
+      (!o.fresh && pmGone(o).length ? '<div class="pm-warn">' + ICON.warn + '<span>' + pmLoses(o) + '</span></div>' : '') +
+      '<div class="foot"><span class="st-btn" style="margin-left: auto">Cancel</span><span class="st-btn go">' + (o.fresh ? 'Done' : 'Save') + '</span></div></div></div>';
+  }
+  var PM_ALL = { label: 'Everyone in Acme', sub: 'All 6 people in Acme.' };
+  // A new note of Mert's, from Create. In a space on a server Create has Access, Everyone at
+  // first; in a restricted folder that is everyone who sees the folder.
+  var PM_NEW = { as: 'M', setBy: 'M', icon: 'notes', name: 'Pricing for Northwind', where: 'New note in Acme › Sales', offer: ['D', 'M', 'E', 'J'], fresh: true };
+  /** What Create's Access says: everyone, everyone who sees the folder it goes in, or only some, with their faces. */
+  function pmAcc(acc) {
+    if (acc === 'only') return ICON.lock + '<span class="tx">Only these people</span><span class="pm-fc">' + pmF('M', 'xs') + pmF('D', 'xs') + '</span><small>You and Deniz Ak</small>';
+    if (acc === 'finance') return CI.people + '<span class="tx">Everyone who sees Finance</span><span class="pm-fc">' + pmF('D', 'xs') + pmF('M', 'xs') + '</span><small>Deniz Ak and you</small>';
+    return CI.people + '<span class="tx">Everyone in Acme</span><small>All 6 people</small>';
+  }
+  /** Create's second step, as the app has it: the name, the folder and, in a space on a server, Access. */
+  function pmCreate(o) {
+    return '<div class="ovl"><div class="mdlg pm-new"><h3>New note</h3>' +
+      '<div class="label">Name</div><div class="field filled">Pricing for Northwind</div>' +
+      '<div class="label" style="margin-top: 10px">Folder</div><div class="field filled pm-pf">' + ICON.folder + 'Acme › ' + (o.acc === 'finance' ? 'Finance' + PM_LK : 'Sales') + '<span class="dd">▾</span></div>' +
+      '<div class="label" style="margin-top: 10px">Access</div><div class="field filled pm-acf' + (o.hot ? ' hot' : '') + '">' + pmAcc(o.acc) + '<span class="pm-cl">Change…</span></div>' +
+      '<div class="foot"><span class="st-btn" style="margin-left: auto">Back</span><span class="st-btn go">Create</span></div></div></div>';
+  }
+  function pmCreateApp(over) {
+    return pmApp({ as: 'M', on: 'discounts', tabs: tab('notes', 'Discounts we can give', 'x', true) + tab('board', 'Deals · Sales', 'x', false), body: PM_DISCOUNTS, status: PM_NOTE_ST, over: over });
   }
   var PM_FINANCE = { icon: 'folder', name: 'Finance', where: 'Folder in Acme', setBy: 'D', offer: ['D', 'M', 'E', 'J'] };
   function pmWith(base, extra) { var o = {}; for (var k in base) o[k] = base[k]; for (var j in extra) o[j] = extra[j]; return o; }
@@ -12823,6 +12865,11 @@ p { margin: 0; max-width: 68ch; }
       return pmApp({ as: 'M', on: 'discounts', tabs: tab('notes', 'Discounts we can give', 'x', true) + tab('board', 'Deals · Sales', 'x', false), body: PM_DISCOUNTS, status: PM_NOTE_ST,
         over: pmAccess({ as: 'M', icon: 'notes', name: 'Discounts we can give', where: 'Note in Acme › Sales', setBy: 'M', offer: ['D', 'M', 'E', 'J'], pick: ['D', 'M'] }) });
     },
+    // Create: Access is Everyone at first; Change… opens the same window, and Done brings it back to Create.
+    pmcreate: function () { return pmCreateApp(pmCreate({ acc: 'all', hot: true })); },
+    pmcreatepick: function () { return pmCreateApp(pmCreate({ acc: 'all' }) + pmAccess(pmWith(PM_NEW, { pick: ['M', 'D'] }))); },
+    pmcreated: function () { return pmCreateApp(pmCreate({ acc: 'only' })); },
+    pmcreatefin: function () { return pmCreateApp(pmCreate({ acc: 'finance' })); },
     pmfiles: function () { return pmApp({ as: 'M', files: true, tabs: tab('clip', 'Files', 'x', true), body: pmFiles(), status: '<span>6 files</span><span>7.5 MB</span>' }); },
     pmsearch: function () {
       var rows = PM_SX.map(function (r, i) { return sxRow(pmWith(r, { on: i === 0 })); }).join('');
@@ -12851,7 +12898,8 @@ p { margin: 0; max-width: 68ch; }
   ]);
   function pmmAccess(o) {
     var can = pmCan(o);
-    var was = o.was || o.pick;
+    var was = o.fresh ? o.pick : o.was || o.pick;
+    var all = o.all || PM_ALL;
     function pr(ini) {
       var on = o.pick.indexOf(ini) >= 0, before = was.indexOf(ini) >= 0, setter = ini === o.setBy;
       var sub = setter ? '<small>Set this up</small>' : on && !before ? '<small class="gain">Gets access</small>' : !on && before ? '<small class="out">Loses access</small>' : '';
@@ -12860,13 +12908,13 @@ p { margin: 0; max-width: 68ch; }
     }
     function opt(label, sub, on, off) { return '<div class="pm-r' + (on ? ' on' : '') + (off ? ' off' : '') + '"><span class="pm-rd"></span><span class="tx"><b>' + label + '</b><small>' + sub + '</small></span></div>'; }
     return MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
-      '<div class="mb-sh pm-sh"><span class="cn">Cancel</span><b>Access</b><span class="sv">Save</span></div>' +
+      '<div class="mb-sh pm-sh"><span class="cn">Cancel</span><b>Access</b><span class="sv">' + (o.fresh ? 'Done' : 'Save') + '</span></div>' +
       '<div class="pm-mbody"><div class="pm-mhd">' + ICON[o.icon] + '<span><b>' + o.name + '</b><small>' + o.where + '</small></span></div>' +
       '<div class="mb-sec">Who can see it</div><div class="mb-group">' +
-        opt('Everyone in Acme', 'All 6 people in Acme.', false, !can.lift) + opt('Only these people', 'No one else in Acme sees it, not even its name.', true) + '</div>' +
+        opt(all.label, all.sub, false, !can.lift) + opt('Only these people', 'No one else in Acme sees it, not even its name.', true) + '</div>' +
       (can.lift ? '' : '<p class="mb-p">Only ' + PM_P[o.setBy].name + ', who set this up, and the server’s owner and admins open it to everyone.</p>') +
       '<div class="mb-sec">People</div><div class="mb-group">' + pmOrder(o).map(pr).join('') + '</div>' +
-      (pmGone(o).length ? '<div class="pm-mwarn">' + ICON.warn + '<span>' + pmLoses(o) + '</span></div>' : '') +
+      (!o.fresh && pmGone(o).length ? '<div class="pm-mwarn">' + ICON.warn + '<span>' + pmLoses(o) + '</span></div>' : '') +
       '<p class="mb-p">' + pmAlways(o) + '</p>' +
       '</div></div>';
   }
@@ -12876,6 +12924,29 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Basılı tutunca menüde Access…', pmmAcme(true), mbTabs('browse') + MB_DIM + PMM_ACTS),
       mbPhone('Listedeki biri: herkese açamaz, kuranı çıkaramaz', pmmAcme(), pmmAccess(pmWith(PM_FINANCE, { as: 'M', pick: ['D', 'M', 'E'], was: ['D', 'M'] }))),
       mbPhone('Owner: biri çıkınca uyarı', pmmAcme(), pmmAccess(pmWith(PM_FINANCE, { as: 'K', pick: ['D'], was: ['D', 'M'] })))
+    ].join('');
+  }
+  // Create on a phone: the new note's sheet has Access under Folder, and a tap opens the Access sheet.
+  function pmmFolder(name, rows) { return mbPage(mbNav('Acme', ['dots']) + mbHead(name), rows); }
+  var PMM_SALES = pmmFolder('Sales', mbRow({ icon: 'tasks', label: 'Tasks', ct: 5 }) + mbRow({ icon: 'board', label: 'Deals', ct: 8 }) + mbRow({ icon: 'collection', label: 'Companies', ct: 24 }) +
+    mbRow({ icon: 'notes', label: 'Discounts we can give' + PM_LK, sub: '<em>Oct 20</em>Check with Deniz before a deal goes to Proposal' }));
+  var PMM_FINANCE = pmmFolder('Finance' + PM_LK, mbRow({ icon: 'notes', label: 'Budget 2027', sub: '<em>Oct 22</em>What we plan to spend next year, by team' }) + mbRow({ icon: 'collection', label: 'Payments', ct: 18 }));
+  function pmmNew(acc) {
+    var val = acc === 'only' ? ICON.lock + 'You and Deniz Ak' : acc === 'finance' ? CI.people + 'Who sees Finance' : CI.people + 'Everyone in Acme';
+    return MB_DIM + '<div class="mb-sheet"><span class="grab"></span>' +
+      '<div class="mb-sh three"><span class="cancel">Cancel</span><b>New note</b><span class="ok">Create</span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        '<div class="mb-fr"><span class="fl">Name</span><span class="in">Pricing for Northwind</span></div>' +
+        '<div class="mb-fr"><span class="fl">Folder</span>' + mbFolderValue(acc === 'finance' ? 'Finance' : 'Sales') + '</div>' +
+        '<div class="mb-fr"><span class="fl">Access</span><span class="val pm-mval">' + val + MB_CHEV + '</span></div>' +
+      '</div></div></div>';
+  }
+  function pmPhone3() {
+    return [
+      mbPhone('Create’ta Access: önce Everyone', PMM_SALES, mbTabs('browse') + pmmNew('all')),
+      mbPhone('Dokununca Access sheet’i; yeni öğede Done', PMM_SALES, pmmAccess(pmWith(PM_NEW, { pick: ['M', 'D'] }))),
+      mbPhone('Seçilen Create’ta görünür', PMM_SALES, mbTabs('browse') + pmmNew('only')),
+      mbPhone('Kısıtlı klasörde: onu görenler', PMM_FINANCE, mbTabs('browse') + pmmNew('finance'))
     ].join('');
   }
   /** Elif's Acme on her phone: Finance removed from it, and her note whose name Acme has already. */
@@ -12904,9 +12975,9 @@ p { margin: 0; max-width: 68ch; }
   function renderPm(section, view) {
     var mock = section.querySelector('.mock');
     mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
-    if (view === 'pmphone' || view === 'pmphone2') {
-      mock.className = 'mock dir-a phones mbs pmm' + (view === 'pmphone' ? ' four' : '');
-      mock.innerHTML = view === 'pmphone' ? pmPhone() : pmPhone2();
+    if (view === 'pmphone' || view === 'pmphone2' || view === 'pmphone3') {
+      mock.className = 'mock dir-a phones mbs pmm' + (view === 'pmphone2' ? '' : ' four');
+      mock.innerHTML = view === 'pmphone' ? pmPhone() : view === 'pmphone2' ? pmPhone2() : pmPhone3();
     } else {
       mock.className = 'mock dir-a wider pmm';
       mock.innerHTML = PM_VIEWS[view]();
