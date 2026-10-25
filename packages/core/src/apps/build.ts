@@ -34,6 +34,7 @@ import {
   type Answers,
   type AppDraft,
   type AppFile,
+  type AppMenuFile,
   type AppPlan,
   type Audience,
   audienceOf,
@@ -71,7 +72,14 @@ export interface AppInput {
   currencies?: unknown;
   /** Editing an app, `renames` says the items of a list answer typed anew, by the question: `{ stages: { Proposal: "Quote" } }`. */
   templates: { id: string; answers?: { [key: string]: unknown }; renames?: { [question: string]: { [from: string]: string } } }[];
+  /** An app of no template (design/app-home.md 5.5): its menu, which it is set up with instead. */
+  menu?: AppMenuFile;
+  /** Its icon, one of the templates' icons or the app's. */
+  icon?: string;
 }
+
+/** The icons an app may be given: the templates' and the app's own. */
+export const APP_ICONS: readonly string[] = ['app', ...new Set(TEMPLATE_IDS.map((id) => TEMPLATES[id].icon))];
 
 /** A piece of an app as it is in the space, found by its role. */
 export interface FoundPiece {
@@ -275,6 +283,16 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       else if (!edited.includes(id)) edited.push(id);
     } else if (installed.has(id)) problems.push(t('apps.alreadyThere', { id }));
     else if (!fresh.includes(id)) fresh.push(id);
+  }
+  if (input.icon !== undefined && !APP_ICONS.includes(input.icon)) problems.push(t('apps.noIcon', { icons: APP_ICONS.join(', ') }));
+  // An app of no template is its folder and its file, its menu in it; screens are added to it later (design/app-home.md 5.5).
+  if (!found && input.templates.length === 0 && input.menu) {
+    const currencies = readCurrencies(input.currencies ?? []);
+    if (currencies === null) problems.push(t('apps.currencyCodes'));
+    if (problems.length > 0) throw new AppProblems(problems);
+    const app: AppFile = { version: 1, name: title, currencies: currencies!, templates: [], menu: input.menu, ...(input.icon && { icon: input.icon }) };
+    const files = [{ path: join(folder, APP_FILE), text: `${JSON.stringify(app, null, 2)}\n`, before: null }];
+    return { folder, app, dirs: [folder], files, created: [], changed: [], added: [], notes: [], templates: [] };
   }
   if (!edit && fresh.length === 0 && problems.length === 0) problems.push(t('apps.needsTemplate', { ids: TEMPLATE_IDS.join(', ') }));
   const chosen = new Set<TemplateId>([...installed.keys(), ...fresh]);
@@ -565,6 +583,9 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       ...(found?.app.templates ?? []).map((x) => (changedIds.includes(x.id) ? { ...x, answers: answers.get(x.id)! } : x)),
       ...fresh.map((id) => ({ id, version: TEMPLATES[id].version, answers: answers.get(id)! })),
     ],
+    // Its menu as the person set it stays: what is added comes at the end of its template's module (menuOf).
+    ...(found?.app.menu && { menu: found.app.menu }),
+    ...(found?.app.icon && { icon: found.app.icon }),
   };
   const appPath = join(folder, APP_FILE);
   file(appPath, `${JSON.stringify(plan.app, null, 2)}\n`, found ? JSON.stringify(found.app, null, 2) + '\n' : null);

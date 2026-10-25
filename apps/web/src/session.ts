@@ -15,6 +15,12 @@ import {
   installApp,
   planApp,
   readAppFile,
+  menuFileOf,
+  APP_FILE,
+  join as joinPath,
+  type MenuEdit,
+  pieceName,
+  writeAppMenu,
   undoApp,
   applyChanges,
   isInsideHref,
@@ -4295,6 +4301,8 @@ export class Session {
     template: Template = 'software',
     collectionTemplate: CollectionTemplate = 'companies',
     links?: BoardLinks,
+    /** Made for an app's menu: what is done with it instead of opening it in a tab of its own. */
+    then?: (path: string) => Promise<void>,
   ): Promise<string | null> {
     let path: string;
     try {
@@ -4322,9 +4330,50 @@ export class Session {
       return error instanceof Error ? error.message : t('error.create');
     }
     await this.refreshTree();
-    await this.open(kind === 'collection' ? collectionTab(path) : tabOf(path));
+    if (then) await then(path);
+    else await this.open(kind === 'collection' ? collectionTab(path) : tabOf(path));
     this.placed?.(dirname(path), path);
     return null;
+  }
+
+  /**
+   * Writes an app's menu (Edit menu, design/app-home.md 6), or takes it out for the templates'
+   * again with null: the screens given a new name first, their collections and boards renamed with
+   * what links to them, then `_app.json`. Gives where each renamed one is now and what takes it all
+   * back; or why it could not be, nothing left of it.
+   */
+  async saveAppMenu(folder: string, edit: MenuEdit | null, renames: { path: string; name: string }[]): Promise<{ moved: Map<string, string>; undo: () => Promise<void> } | { error: string }> {
+    await this.settle();
+    const { fs, local } = this.at(folder);
+    const moved = new Map<string, string>();
+    const back = async () => {
+      for (const [from, to] of [...moved].reverse()) await this.renamed(to, pieceName({ kind: from.endsWith('.board.json') ? 'board' : from.endsWith('.md') ? 'note' : 'collection', path: from }));
+    };
+    let before: string;
+    try {
+      for (const r of renames) {
+        const done = await this.renamed(r.path, r.name);
+        if ('error' in done) throw new Error(done.error);
+        if (done.path !== r.path) moved.set(r.path, done.path);
+      }
+      // The menu's screens where their renamed collections and boards are now.
+      const there = (path: string) => moved.get(path) ?? path;
+      const file = edit && menuFileOf({ ...edit, modules: edit.modules.map((m) => ({ ...m, screens: m.screens.map((s) => ({ ...s, path: there(s.path) })) })) }, folder);
+      before = await writeAppMenu(fs, local, file);
+    } catch (error) {
+      await back().catch(() => undefined);
+      return { error: error instanceof Error ? error.message : t('error.rename') };
+    }
+    await this.refreshTree();
+    return {
+      moved,
+      undo: async () => {
+        await this.settle();
+        await fs.writeText(joinPath(local, APP_FILE), before);
+        await back();
+        await this.refreshTree();
+      },
+    };
   }
 
   /**
@@ -4356,8 +4405,9 @@ export class Session {
     const folder = inSpace(space, plan.folder);
     await this.madeNow([folder, ...plan.created.map((c) => inSpace(space, c.path))]);
     await this.refreshTree();
+    // Its About note on screen; an app of no template has none, and opens on its Home.
     const about = plan.created.find((c) => c.kind === 'note');
-    if (about) await this.open(inSpace(space, about.path));
+    await this.open(about ? inSpace(space, about.path) : appTab(folder));
     this.placed?.(folder, about ? inSpace(space, about.path) : folder);
     return {
       undo: async () => {

@@ -82,6 +82,8 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   const [side, setSide] = useState<Audience>(() => (appSide ? audienceOf(appSide.group) : loadAppSide(personal)));
   const shownSide = SIDES.includes(side) ? side : SIDES[0]!;
   const [chosen, setChosen] = useState<TemplateId[]>([]);
+  // An app of no template (design/app-home.md 5.5): named, and its folder made, nothing else asked.
+  const [blank, setBlank] = useState(false);
   const [name, setName] = useState('');
   const [place, setPlace] = useState<FolderChoice>(() => ({ folder: folders.includes(folder) ? folder : (folders[0] ?? ''), create: false }));
   const [currencies, setCurrencies] = useState<string[]>(() => [localCurrency()]);
@@ -108,7 +110,9 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
     ? [...(money ? (['app'] as const) : []), ...edited, 'summary']
     : adding
       ? ['templates', ...(money ? (['app'] as const) : []), ...chosen, 'summary']
-      : ['templates', 'app', ...chosen, 'summary'];
+      : blank
+        ? ['templates', 'app']
+        : ['templates', 'app', ...chosen, 'summary'];
   const step = steps[Math.min(at, steps.length - 1)]!;
   const stepLabel = (s: Step) =>
     s === 'templates' ? t('apps.step.templates') : s === 'app' ? t(app ? 'apps.currencies' : 'apps.step.app') : s === 'summary' ? t(editing ? 'apps.step.changes' : 'apps.step.summary') : t(APP_TEMPLATES[s].name);
@@ -185,9 +189,18 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   const input = (): AppInput =>
     editing
       ? { name: editing.name, currencies, templates: edited.map((id) => ({ id, answers: answersOf(id), renames: renamesOf(id) })) }
-      : { name: adding?.name ?? name, currencies, templates: chosen.map((id) => ({ id, answers: answersOf(id) })) };
+      : blank
+        ? { name, currencies: [], templates: [], menu: { modules: [{ name: '', screens: [] }] } }
+        : { name: adding?.name ?? name, currencies, templates: chosen.map((id) => ({ id, answers: answersOf(id) })) };
   const answer = (id: TemplateId, key: string, value: Answer) => setGiven((now) => ({ ...now, [id]: { ...answersOf(id), ...now[id], [key]: value } }));
-  const toggle = (id: TemplateId) => setChosen((now) => (now.includes(id) ? now.filter((x) => x !== id) : TEMPLATE_IDS.filter((x) => x === id || now.includes(x))));
+  const toggle = (id: TemplateId) => {
+    setBlank(false);
+    setChosen((now) => (now.includes(id) ? now.filter((x) => x !== id) : TEMPLATE_IDS.filter((x) => x === id || now.includes(x))));
+  };
+  const pickBlank = () => {
+    setBlank((now) => !now);
+    setChosen([]);
+  };
   // An app is of one side: the other lets go of what was chosen.
   const pickSide = (to: Audience) => {
     if (to === shownSide) return;
@@ -210,7 +223,16 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   };
   const next = async () => {
     if (busy.current) return;
-    if (step === 'templates' && chosen.length === 0) return;
+    if (step === 'templates' && chosen.length === 0 && !blank) return;
+    // An app of no template is made from its name: there is no summary to show.
+    if (blank && step === 'app') {
+      busy.current = true;
+      const made = await planned();
+      const failed = made ? await onCreate(made, place) : null;
+      busy.current = false;
+      if (failed) setProblems([failed]);
+      return;
+    }
     if (step === 'summary') {
       if (!plan) return;
       busy.current = true;
@@ -236,7 +258,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
     if (at === 0) onClose();
     else setAt(at - 1);
   };
-  const ready = step === 'templates' ? chosen.length > 0 : step === 'app' ? (!!app || name.trim() !== '') && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length && !plan.edit?.same : true;
+  const ready = step === 'templates' ? chosen.length > 0 || blank : step === 'app' ? (!!app || name.trim() !== '') && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length && !plan.edit?.same : true;
   const title = editing ? t('apps.edit', { name: editing.name }) : adding ? t('apps.addTo', { name: adding.name }) : t('apps.title');
   const go = editing ? t('apps.save') : adding ? t('apps.add') : t('apps.create');
 
@@ -246,6 +268,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
         const has = t('apps.has', { name: adding.name, templates: listed([...installed].map((id) => t(APP_TEMPLATES[id].name))) });
         return chosen.length === 0 ? has : `${t('apps.toAdd', { count: chosen.length })} · ${has}`;
       }
+      if (blank) return t('apps.blank');
       if (chosen.length === 0) return t('apps.pickOne');
       const count = t('apps.chosen', { count: chosen.length });
       return sharedNames.length > 0 ? `${count} · ${t('apps.shared', { count: sharedNames.length, pieces: listed(sharedNames) })}` : count;
@@ -269,6 +292,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
           rolesOf={(id) => rolesOf(id).filter((role) => !borrowed(id).has(role))}
           sharedLine={sharedLine}
           onToggle={toggle}
+          blank={adding ? undefined : { on: blank, pick: pickBlank }}
         />
       );
     }
@@ -324,7 +348,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
             <span />
           ) : (
             <button type="button" className={ready ? 'ok' : 'ok off'} disabled={!ready} onClick={() => void next()}>
-              {t('apps.next')}
+              {blank && step === 'app' ? go : t('apps.next')}
             </button>
           )}
         </div>
@@ -374,7 +398,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
           {at === 0 ? t('dialog.cancel') : t('dialog.back')}
         </button>
         <button type="button" className="primary" disabled={!ready} onClick={() => void next()}>
-          {step === 'summary' ? go : t('apps.next')}
+          {step === 'summary' || (blank && step === 'app') ? go : t('apps.next')}
         </button>
       </div>
     </Dialog>
@@ -396,7 +420,7 @@ export function counts(plan: AppPlan): string {
     .join(', ');
 }
 
-function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, sharedLine, onToggle }: {
+function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, sharedLine, onToggle, blank }: {
   phone: boolean;
   /** Whose templates are shown: a business's or a person's. */
   side: Audience;
@@ -408,6 +432,8 @@ function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, shared
   rolesOf: (id: TemplateId) => string[];
   sharedLine: (id: TemplateId) => string | null;
   onToggle: (id: TemplateId) => void;
+  /** A new app may come from no template, at the end: chosen, the templates are not. */
+  blank?: { on: boolean; pick: () => void };
 }) {
   return (
     <>
@@ -474,6 +500,21 @@ function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, shared
           </div>
         );
       })}
+      {blank && (
+        <div className="na-group">
+          <div className="na-label">{t('apps.blankGroup')}</div>
+          <div className={phone ? 'na-mgroup' : 'na-cards'}>
+            <button type="button" role="checkbox" aria-checked={blank.on} className={phone ? 'na-mcard' : 'na-card'} onClick={blank.pick}>
+              <span className="tick">{blank.on && <Icon name="check" />}</span>
+              <span className="hd">
+                {!phone && <Icon name="app" />}
+                {t('apps.blank')}
+              </span>
+              <span className="what">{t('apps.blankText')}</span>
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

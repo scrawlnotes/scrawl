@@ -7,8 +7,14 @@ import {
   type AppFile,
   type AppPiece,
   type AppScreen,
+  appIcon,
+  homeOf,
+  linesIn,
+  type MenuEdit,
+  menuEditOf,
   menuOf,
   PIECES,
+  screenKey,
   asksAnything,
   assigneesOf,
   choosesAnything,
@@ -127,7 +133,7 @@ import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History
 import { PhoneCardPage } from './CardPanel';
 import { LinkActions, LinkSheet, PhoneFormatBar } from './PhoneNote';
 import { DateSheet, QuickAdd, RecordSheet, SectionSheet, TaskSheet } from './PhoneTasks';
-import { Icon, type IconName } from './Icon';
+import { Icon, type IconName, isIconName } from './Icon';
 import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
 import { PhoneNewRecord, PhoneRecordPage } from './PhoneCollection';
@@ -214,6 +220,7 @@ import { startWatching } from './watch';
 import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
 import { LoadingView, Spin, stillOpening } from './Loading';
 import { AppView, PhoneAppHome } from './AppView';
+import { AppMenuDialog } from './AppMenuDialog';
 import { openingDrawn, openingFailed } from './opening';
 import { pendingJoin } from './servers';
 import { type FavoriteRow, Sidebar } from './Sidebar';
@@ -240,10 +247,12 @@ import { type AskOneDrive, chooseSpaceFolder, clipboardFilesOnDesktop, downloadB
 type OpenDialog =
   // A folder's menu chooses the kind and the folder; Create alone leaves them to be chosen. The
   // start page's templates choose a board's or a collection's template too.
-  | { kind: 'new'; start?: ItemKind; folder?: string; template?: Template | CollectionTemplate }
+  // Made from an app (design/app-home.md 5.5), it goes into its folder and a module of its menu.
+  | { kind: 'new'; start?: ItemKind; folder?: string; template?: Template | CollectionTemplate; app?: string }
   | { kind: 'newApp'; folder: string }
   | { kind: 'addToApp'; folder: string; app: AppFile }
   | { kind: 'editApp'; folder: string; app: AppFile }
+  | { kind: 'editMenu'; folder: string }
   | { kind: 'phase'; board: string; phase: Phase }
   | { kind: 'move'; path: string }
   | { kind: 'rename'; path: string }
@@ -696,10 +705,25 @@ export function App() {
   const newFolder = (active && folderOf(active)) ?? '';
   // Or to the folder or the space whose menu Create was opened from.
   const createIn = dialog?.kind === 'new' && dialog.folder !== undefined ? dialog.folder : newFolder;
-  const create = async (kind: ItemKind, choice: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => {
+  const create = async (kind: ItemKind, choice: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks, module?: string) => {
     // A new note is made to be written in: on a phone the keyboard stays for it.
     if (kind === 'note') session.holdKeyboard();
-    const error = await session.create(kind, choice.folder, name, choice.create, template, collectionTemplate, links);
+    // Made from an app: into the module chosen of its menu, then on screen in the app's tab; a note in its own.
+    const inApp = dialog?.kind === 'new' ? dialog.app : undefined;
+    const menu = inApp ? menuEditFor(inApp) : null;
+    const then =
+      inApp && menu && (kind === 'collection' || kind === 'board' || kind === 'note')
+        ? async (path: string) => {
+            const into = menu.modules.find((m) => m.key === module) ?? menu.modules[0];
+            into?.screens.push({ kind, path, name: basename(path), hidden: false });
+            await session.saveAppMenu(inApp, menu, []);
+            void session.appAt(inApp).then((file) => setAppFiles((was) => ({ ...was, [inApp]: file })));
+            if (kind === 'note') return void (await session.open(path));
+            session.lookAtApp(inApp, { ...(appLooks[inApp]?.files && { files: true }), ...(into && { module: into.key }), screen: path });
+            await session.open(appTab(inApp));
+          }
+        : undefined;
+    const error = await session.create(kind, choice.folder, name, choice.create, template, collectionTemplate, links, then);
     if (!error) setDialog(null);
     else session.releaseKeyboard(false);
     return error;
@@ -1411,14 +1435,28 @@ export function App() {
         void session.open(appTab(path));
       },
     };
+    // Edit menu, and New for a screen made in it; Edit app only where there are templates' answers to change.
+    const menuItems: MenuItem[] = [
+      { label: t('menu.editMenu'), icon: 'menu', apart: !phone, run: () => (setDrawer(false), setDialog({ kind: 'editMenu', folder: path })) },
+      { label: t('menu.newInApp'), icon: 'plus', run: () => undefined, items: newInAppItems(path) },
+    ];
+    const answered = (appFiles[path]?.templates.length ?? 1) > 0;
     return [
       ...(phone ? [] : [home, ...(about ? [{ label: about.name, icon: 'note' as const, run: () => void session.open(about.path) }] : [])]),
-      ...(add ? [{ ...add, apart: !phone }, ...edit] : []),
+      ...(appFiles[path] ? menuItems : []),
+      ...(add ? [add, ...(answered ? edit : [])] : []),
       ...(phone ? [] : [{ label: t(look.files ? 'menu.hideFiles' : 'menu.showFiles'), icon: 'folder' as const, apart: true, run: () => session.lookAtApp(path, look.files ? rest : { ...rest, files: true }) }]),
       ...placeItems(path, phone),
       { ...folderDelete(path), label: t('menu.deleteApp') },
     ];
   };
+  /** What can be made in an app for its menu: a collection, a board or a note, in a module asked for in Create. */
+  const newInAppItems = (path: string): MenuItem[] =>
+    (['collection', 'board', 'note'] as const).map((kind) => ({
+      label: t(`create.${kind}`),
+      icon: kind,
+      run: () => (setDrawer(false), setDialog({ kind: 'new', start: kind, folder: path, app: path })),
+    }));
   /** An app's About note, at the top of its folder: its path and its name. */
   const aboutOf = (path: string) => {
     const node = nodeOf(path);
@@ -1918,10 +1956,11 @@ export function App() {
   }, [session, appFolders]);
   const appIcons = Object.fromEntries(
     appFolders.flatMap((path) => {
-      const ids = appFiles[path]?.templates.map((x) => x.id) ?? [];
-      return ids.length === 1 ? [[path, APP_TEMPLATES[ids[0]!].icon as IconName]] : [];
+      const file = appFiles[path];
+      const icon = file ? appIcon(file) : 'app';
+      return [[path, isIconName(icon) ? icon : 'app']];
     }),
-  );
+  ) as Record<string, IconName>;
   const tabIcon = (id: string) => appIcons[appPathOf(id) ?? ''] ?? iconOf(id);
   /** Changes the subtasks of a card or a record, from the list as it is now. */
   const changeSubtasksOf = (ref: SubtaskRef, change: (list: Subtask[]) => Subtask[]) =>
@@ -2230,12 +2269,30 @@ export function App() {
   const piecesIn = (folder: string): AppPiece[] => [
     ...Object.values(collections).flatMap((c) => (c.dir !== folder && isUnder(c.dir, folder) ? [{ kind: 'collection' as const, path: c.dir, ...(c.schema.role && { role: c.schema.role }) }] : [])),
     ...Object.entries(boards).flatMap(([path, each]) => (isUnder(path, folder) ? [{ kind: 'board' as const, path, ...(each.role && { role: each.role }) }] : [])),
-    ...(nodeOf(folder)?.children ?? []).flatMap((node) => {
+    ...(nodeOf(folder)?.children ?? []).flatMap((node): AppPiece[] => {
+      if (node.kind === 'note') return [{ kind: 'note', path: node.path }];
       const role = node.kind === 'folder' ? Object.keys(PIECES).find((r) => PIECES[r]!.kind === 'folder' && PIECES[r]!.name.toLowerCase() === node.name.toLowerCase()) : undefined;
       return role ? [{ kind: 'folder' as const, path: node.path, role }] : [];
     }),
   ];
-  const modulesOf = (folder: string) => (appFiles[folder] ? menuOf(appFiles[folder]!, piecesIn(folder)) : []);
+  // The collections that are another's lines, in no menu.
+  const appLines = useMemo(() => linesIn(Object.values(collections)), [collections]);
+  const modulesOf = (folder: string) => (appFiles[folder] ? menuOf(appFiles[folder]!, folder, piecesIn(folder), appLines) : []);
+  const menuEditFor = (folder: string): MenuEdit | null => (appFiles[folder] ? menuEditOf(appFiles[folder]!, folder, piecesIn(folder), appLines) : null);
+  // Made from an app: the modules of its menu to put it in.
+  const newModules = dialog?.kind === 'new' && dialog.app ? menuEditFor(dialog.app)?.modules.map((m) => ({ key: m.key, name: m.name })) : undefined;
+  // Worked out once, as Edit menu opens: what it starts from.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const editMenu = useMemo(() => (dialog?.kind === 'editMenu' ? menuEditFor(dialog.folder) : null), [dialog]);
+  // A screen opening on a view of its collection: the collection is looked at on that view.
+  const lookAtScreen = (screen: AppScreen | undefined) => {
+    if (screen?.kind === 'collection' && screen.view) session.lookAtCollection(screen.path, { ...collectionLooks[screen.path], view: screen.view });
+  };
+  const openScreen = (screen: AppScreen) => {
+    lookAtScreen(screen);
+    if (screen.kind === 'note') void session.open(screen.path);
+    else if (screen.kind !== 'folder') void session.open(screen.kind === 'collection' ? collectionTab(screen.path) : boardOf(screen.path));
+  };
   const appModules = appPath !== null ? modulesOf(appPath) : [];
   const notesIn = (folder: string) => (nodeOf(folder)?.children ?? []).filter((node) => node.kind === 'note');
   const notesOf = (folder: string) =>
@@ -2658,9 +2715,14 @@ export function App() {
         key={appPath}
         folder={appPath}
         app={appFile}
+        icon={appIcons[appPath] ?? 'app'}
+        home={appFile ? homeOf(appFile) : { today: true, cards: true }}
         modules={appModules}
         look={appLooks[appPath] ?? {}}
-        onLook={(look) => session.lookAtApp(appPath, look)}
+        onLook={(look) => {
+          if (look.screen !== appLooks[appPath]?.screen) lookAtScreen(appModules.flatMap((m) => m.screens).find((s) => screenKey(s) === look.screen));
+          session.lookAtApp(appPath, look);
+        }}
         collections={collections}
         boards={boards}
         notes={appNotes}
@@ -2668,7 +2730,8 @@ export function App() {
         due={dueRecordsNow.filter((d) => isUnder(d.collection, appPath))}
         actions={taskActions}
         screen={appScreen}
-        onOpen={(screen) => screen.kind !== 'folder' && void session.open(screen.kind === 'collection' ? collectionTab(screen.path) : boardOf(screen.path))}
+        onOpen={openScreen}
+        onAdd={(event) => openMenu(event, newInAppItems(appPath))}
         onMenu={(event) => appMenu(event, appPath)}
       />
     )}
@@ -3003,18 +3066,24 @@ export function App() {
               icon: (path) => appIcons[path] ?? 'app',
               sub: (path) => {
                 const modules = modulesOf(path);
-                return (modules.length === 1 ? modules[0]!.screens : modules).map((each) => each.name).join(' · ');
+                return (modules.length === 1 ? modules[0]!.screens : modules).map((each) => each.name || t('app.screens')).join(' · ');
               },
               view: (path, go) => (
                 <PhoneAppHome
                   modules={modulesOf(path)}
+                  shows={appFiles[path] ? homeOf(appFiles[path]!) : { today: true, cards: true }}
                   collections={collections}
                   boards={boards}
                   notes={notesOf(path)}
                   today={today}
                   due={dueRecordsNow.filter((d) => isUnder(d.collection, path))}
                   actions={taskActions}
-                  onScreen={(screen) => (screen.kind === 'folder' ? go.folder(screen.path) : go.item(screen.kind === 'collection' ? collectionTab(screen.path) : boardOf(screen.path)))}
+                  onScreen={(screen) => {
+                    lookAtScreen(screen);
+                    if (screen.kind === 'folder') go.folder(screen.path);
+                    else go.item(screen.kind === 'collection' ? collectionTab(screen.path) : screen.kind === 'note' ? screen.path : boardOf(screen.path));
+                  }}
+                  onAdd={() => showSheet(newInAppItems(path), { icon: appIcons[path] ?? 'app', title: folderLabel(path), sub: t('app.addScreen') })}
                   about={aboutOf(path)}
                   onAbout={(note) => go.item(note)}
                   onFiles={() => go.folder(path)}
@@ -3485,6 +3554,7 @@ export function App() {
           folders={everyFolder(tree, spaces)}
           folder={createIn}
           collections={Object.keys(collections)}
+          modules={newModules}
           onCreate={create}
           onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
           onQuick={newQuick}
@@ -3500,9 +3570,44 @@ export function App() {
           folders={everyFolder(tree, spaces)}
           folder={createIn}
           collections={Object.keys(collections)}
+          modules={newModules}
           onCreate={create}
           onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
           onQuick={newQuick}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'editMenu' && editMenu && (
+        <AppMenuDialog
+          name={appFiles[dialog.folder]?.name ?? folderLabel(dialog.folder)}
+          start={editMenu}
+          templates={(() => {
+            const file = appFiles[dialog.folder]!;
+            return file.menu && file.templates.length > 0 ? menuEditOf({ ...file, menu: undefined }, dialog.folder, piecesIn(dialog.folder), appLines) : null;
+          })()}
+          pieces={piecesIn(dialog.folder).filter((p) => (p.kind === 'collection' || p.kind === 'board') && !appLines.has(p.path))}
+          lines={[...appLines].filter(([path]) => isUnder(path, dialog.folder)).map(([path, owner]) => ({ path, name: collectionName(path), owner: collectionName(owner) }))}
+          views={(path) => (collections[path]?.schema.views ?? []).map((v) => ({ id: v.id, name: v.name }))}
+          phone={phone}
+          onMenu={(event, items) => openMenu(event, items)}
+          onSave={async ({ edit, renames }) => {
+            const folder = dialog.folder;
+            const done = await session.saveAppMenu(folder, edit, renames);
+            if ('error' in done) return done.error;
+            setDialog(null);
+            void session.appAt(folder).then((file) => setAppFiles((was) => ({ ...was, [folder]: file })));
+            // The screen open, renamed, is open still.
+            const look = appLooks[folder];
+            const open = look?.screen?.split('#')[0];
+            const now = open !== undefined ? done.moved.get(open) : undefined;
+            if (look && now) session.lookAtApp(folder, { ...look, screen: look.screen!.replace(open!, now) });
+            setShown({
+              text: t('appMenu.saved'),
+              undo: () => void done.undo().then(() => session.appAt(folder).then((file) => setAppFiles((was) => ({ ...was, [folder]: file })))),
+              toast: true,
+            });
+            return null;
+          }}
           onClose={closeDialog}
         />
       )}

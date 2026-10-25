@@ -12,6 +12,7 @@ import {
   matchesConditions,
   recordProblems,
   recordTitle,
+  screenKey,
   sortRecords,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
@@ -37,7 +38,7 @@ interface Glance {
   first: string[];
 }
 
-/** A screen's count and its first records: a collection by the view it opens on, a board by its open cards, a folder by its notes. */
+/** A screen's count and its first records: a collection by the view it opens on, a board by its open cards, a folder by its notes; none for a note. */
 function glanceOf(screen: AppScreen, collections: Record<string, Collection>, boards: Record<string, Board>, notes: Record<string, string[]>, today: string): Glance | null {
   if (screen.kind === 'board') {
     const board = boards[screen.path];
@@ -46,6 +47,7 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
     const open = board.cards.filter((card) => !closed.has(card.column));
     return { count: { text: t('app.open', { count: open.length }), check: 0 }, first: open.slice(0, 4).map((card: Card) => card.title) };
   }
+  if (screen.kind === 'note') return null;
   if (screen.kind === 'folder') {
     const names = notes[screen.path] ?? [];
     return { count: { text: String(names.length), check: 0 }, first: names.slice(0, 4) };
@@ -56,8 +58,8 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
   const all = Object.values(collections);
   const computer = computerFor(collection, all, boards, today);
   const rolled = computer.withValues(collection.dir) ?? collection;
-  // The view it opens on, when it is a table: its records and its order; a calendar shows them all.
-  const view = schema.views?.find((v) => v.id === schema.defaultView && v.kind !== 'calendar');
+  // The view it opens on, its menu's or its own, when it is a table: its records and its order; a calendar shows them all.
+  const view = schema.views?.find((v) => v.id === (screen.view ?? schema.defaultView) && v.kind !== 'calendar');
   const shown = view ? rolled.records.filter((r) => matchesConditions(r, schema, view.conditions, today)) : rolled.records;
   const sorted = view?.sort ? sortRecords(shown, schema, view.sort, today) : shown;
   const check = collection.records.filter((r) => recordProblems(r, schema).length + computer.checks(collection.dir, r).length > 0).length;
@@ -68,12 +70,19 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
 }
 
 /** The icon of a screen as the menu and Home show it. */
-const screenIcon = (screen: AppScreen): IconName => (screen.kind === 'board' ? 'board' : screen.kind === 'folder' ? 'folder' : 'collection');
+const screenIcon = (screen: AppScreen): IconName => (screen.kind === 'board' ? 'board' : screen.kind === 'folder' ? 'folder' : screen.kind === 'note' ? 'note' : 'collection');
+/** A module's name: the one module of an app of no template has none. */
+const moduleName = (m: AppModule) => m.name || t('app.screens');
+/** A module's icon on Home: its template's, else the app's. */
+const moduleIcon = (m: AppModule): IconName => (m.template ? (APP_TEMPLATES[m.template].icon as IconName) : 'app');
 
-export function AppView({ folder, app, modules, look, onLook, collections, boards, notes, today, due, actions, screen: shownScreen, onOpen, onMenu }: {
+export function AppView({ folder, app, icon, home: shows, modules, look, onLook, collections, boards, notes, today, due, actions, screen: shownScreen, onOpen, onAdd, onMenu }: {
   folder: string;
   /** Its `_app.json`, null while it is read. */
   app: AppFile | null;
+  icon: IconName;
+  /** What its Home shows: Today and the module cards. */
+  home: { today: boolean; cards: boolean };
   modules: AppModule[];
   look: AppLook;
   onLook: (look: AppLook) => void;
@@ -87,20 +96,24 @@ export function AppView({ folder, app, modules, look, onLook, collections, board
   actions: TaskActions;
   /** The screen open: its collection's or its board's view. */
   screen: (screen: AppScreen) => ReactNode;
-  /** A screen in a tab of its own, as Ctrl+click opens it. */
+  /** A screen in a tab of its own, as Ctrl+click opens it; a note always. */
   onOpen: (screen: AppScreen) => void;
+  /** Its menu has nothing: what makes a screen in it. */
+  onAdd: (event: MouseEvent) => void;
   /** The app's ··· menu. */
   onMenu: (event: MouseEvent) => void;
 }) {
   const name = app?.name ?? folder.split('/').pop() ?? folder;
   const one = modules.length === 1;
-  const icon = (one && (APP_TEMPLATES[modules[0]!.template].icon as IconName)) || 'app';
   // The screen open and its module: the one kept when it is still in the menu, else Home.
-  const module = modules.find((m) => m.template === look.module && m.screens.some((s) => s.path === look.screen)) ?? modules.find((m) => m.screens.some((s) => s.path === look.screen));
-  const open = module?.screens.find((s) => s.path === look.screen) ?? null;
+  // A screen given another view in Edit menu is the one kept still.
+  const kept = (s: AppScreen) => screenKey(s) === look.screen || s.path === look.screen?.split('#')[0];
+  const module = modules.find((m) => m.key === look.module && m.screens.some(kept)) ?? modules.find((m) => m.screens.some(kept));
+  const open = module?.screens.find((s) => screenKey(s) === look.screen) ?? module?.screens.find(kept) ?? null;
+  // A note of the menu opens in its own tab.
   const pick = (event: MouseEvent, m: AppModule, s: AppScreen) => {
-    if (event.ctrlKey || event.metaKey) return onOpen(s);
-    onLook({ ...look, module: m.template, screen: s.path });
+    if (event.ctrlKey || event.metaKey || s.kind === 'note') return onOpen(s);
+    onLook({ ...look, module: m.key, screen: screenKey(s) });
   };
   const home = () => onLook({ ...(look.files && { files: true }) });
   const tab = (key: string, label: string, on: boolean, run: (event: MouseEvent) => void) => (
@@ -118,30 +131,34 @@ export function AppView({ folder, app, modules, look, onLook, collections, board
         <nav className="app-mods" role="tablist" aria-label={name}>
           {tab('home', t('app.home'), open === null, home)}
           {one
-            ? modules[0]!.screens.map((s) => tab(s.path, s.name, open?.path === s.path, (event) => pick(event, modules[0]!, s)))
-            : modules.map((m) => tab(m.template, m.name, module?.template === m.template && open !== null, (event) => pick(event, m, m.screens.find((s) => s.path === look.screen) ?? m.screens[0]!)))}
+            ? modules[0]!.screens.map((s) => tab(screenKey(s), s.name, open !== null && screenKey(open) === screenKey(s), (event) => pick(event, modules[0]!, s)))
+            : modules.map((m) => tab(m.key, moduleName(m), module?.key === m.key && open !== null, (event) => pick(event, m, m.screens.find((s) => screenKey(s) === look.screen && s.kind !== 'note') ?? m.screens.find((s) => s.kind !== 'note') ?? m.screens[0]!)))}
         </nav>
         <button type="button" className="app-more" title={t('side.more')} aria-label={t('side.more')} onClick={onMenu}>
           ···
         </button>
       </header>
       {!one && module && open && (
-        <nav className="app-menu" role="tablist" aria-label={module.name}>
-          {module.screens.map((s) => tab(s.path, s.name, s.path === open.path, (event) => pick(event, module, s)))}
+        <nav className="app-menu" role="tablist" aria-label={moduleName(module)}>
+          {module.screens.map((s) => tab(screenKey(s), s.name, screenKey(s) === screenKey(open), (event) => pick(event, module, s)))}
         </nav>
       )}
       {open ? (
         <div className="app-screen">{shownScreen(open)}</div>
       ) : (
-        <AppHome modules={modules} collections={collections} boards={boards} notes={notes} today={today} due={due} actions={actions} onPick={pick} />
+        <AppHome modules={modules} shows={shows} collections={collections} boards={boards} notes={notes} today={today} due={due} actions={actions} onPick={pick} onAdd={onAdd} />
       )}
     </section>
   );
 }
 
-/** An app's Home: what is due today in it, then each module's screens; with one module, its screens as boxes. */
-function AppHome({ modules, collections, boards, notes, today, due, actions, onPick }: {
+/**
+ * An app's Home: what is due today in it, then each module's screens; with one module, its screens
+ * as boxes; each as Edit menu says. With nothing in its menu, how to add a screen.
+ */
+function AppHome({ modules, shows, collections, boards, notes, today, due, actions, onPick, onAdd }: {
   modules: AppModule[];
+  shows: { today: boolean; cards: boolean };
   collections: Record<string, Collection>;
   boards: Record<string, Board>;
   notes: Record<string, string[]>;
@@ -149,21 +166,36 @@ function AppHome({ modules, collections, boards, notes, today, due, actions, onP
   due: DueRecord[];
   actions: TaskActions;
   onPick: (event: MouseEvent, module: AppModule, screen: AppScreen) => void;
+  onAdd: (event: MouseEvent) => void;
 }) {
-  const glances = useMemo(() => new Map(modules.flatMap((m) => m.screens).map((s) => [s.path, glanceOf(s, collections, boards, notes, today)] as const)), [modules, collections, boards, notes, today]);
+  const glances = useMemo(() => new Map(modules.flatMap((m) => m.screens).map((s) => [screenKey(s), glanceOf(s, collections, boards, notes, today)] as const)), [modules, collections, boards, notes, today]);
   // Today: the records of today and those late, then the cards due today or late on its boards.
   const own = Object.fromEntries(Object.entries(boards).filter(([path]) => modules.some((m) => m.screens.some((s) => s.path === path))));
   const cards = splitDueCards(own, today);
   const dueCards = [...cards.overdue, ...cards.today];
   const records = [...due.filter((d) => d.late), ...due.filter((d) => !d.late && (d.day ?? today) === today)];
-  const count = (s: AppScreen) => glances.get(s.path)?.count;
+  const count = (s: AppScreen) => glances.get(screenKey(s))?.count;
   const checks = (s: AppScreen) => {
     const n = count(s)?.check ?? 0;
     return n > 0 && <span className="warn">{t('collection.toCheck', { count: n })}</span>;
   };
+  if (modules.length === 0) {
+    return (
+      <div className="app-home">
+        <div className="app-empty">
+          <b>{t('app.addScreen')}</b>
+          <p>{t('app.addScreenText')}</p>
+          <button type="button" className="primary" onClick={onAdd}>
+            <Icon name="plus" />
+            {t('app.addScreen')}
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="app-home">
-      {records.length + dueCards.length > 0 && (
+      {shows.today && records.length + dueCards.length > 0 && (
         <div className="tasks app-today">
           <div className="app-cap">
             {t('app.today')} <small>{records.length + dueCards.length}</small>
@@ -178,14 +210,14 @@ function AppHome({ modules, collections, boards, notes, today, due, actions, onP
           </div>
         </div>
       )}
-      {modules.length === 1 ? (
+      {!shows.cards ? null : modules.length === 1 ? (
         <>
           <div className="app-cap">{t('app.screens')}</div>
           <div className="app-tiles">
             {modules[0]!.screens.map((s) => {
-              const glance = glances.get(s.path);
+              const glance = glances.get(screenKey(s));
               return (
-                <button key={s.path} type="button" className="app-tile" onClick={(event) => onPick(event, modules[0]!, s)}>
+                <button key={screenKey(s)} type="button" className="app-tile" onClick={(event) => onPick(event, modules[0]!, s)}>
                   <span className="h">
                     <Icon name={screenIcon(s)} />
                     {s.name}
@@ -209,14 +241,14 @@ function AppHome({ modules, collections, boards, notes, today, due, actions, onP
           <div className="app-cap">{t('app.modules')}</div>
           <div className="app-cards">
             {modules.map((m) => (
-              <div key={m.template} className="app-card">
+              <div key={m.key} className="app-card">
                 <h4>
-                  <Icon name={APP_TEMPLATES[m.template].icon as IconName} />
-                  {m.name}
+                  <Icon name={moduleIcon(m)} />
+                  {moduleName(m)}
                   <small>{t('app.screenCount', { count: m.screens.length })}</small>
                 </h4>
                 {m.screens.map((s) => (
-                  <button key={s.path} type="button" className="app-cr" onClick={(event) => onPick(event, m, s)}>
+                  <button key={screenKey(s)} type="button" className="app-cr" onClick={(event) => onPick(event, m, s)}>
                     <Icon name={screenIcon(s)} />
                     <span className="t">{s.name}</span>
                     {checks(s)}
@@ -236,8 +268,9 @@ function AppHome({ modules, collections, boards, notes, today, due, actions, onP
  * An app's page on a phone (design/app-home.md 7): what is due today in it, then each module a
  * group of its screens with their counts, a tap opening the screen's page; its files at the end.
  */
-export function PhoneAppHome({ modules, collections, boards, notes, today, due, actions, onScreen, about, onAbout, onFiles }: {
+export function PhoneAppHome({ modules, shows, collections, boards, notes, today, due, actions, onScreen, onAdd, about, onAbout, onFiles }: {
   modules: AppModule[];
+  shows: { today: boolean; cards: boolean };
   collections: Record<string, Collection>;
   boards: Record<string, Board>;
   notes: Record<string, string[]>;
@@ -245,20 +278,22 @@ export function PhoneAppHome({ modules, collections, boards, notes, today, due, 
   due: DueRecord[];
   actions: TaskActions;
   onScreen: (screen: AppScreen) => void;
+  /** Its menu has nothing: what makes a screen in it. */
+  onAdd: (event: MouseEvent) => void;
   /** Its About note, which on a phone is a row of its page. */
   about: { path: string; name: string } | null;
   onAbout: (path: string) => void;
   onFiles: () => void;
 }) {
-  const glances = useMemo(() => new Map(modules.flatMap((m) => m.screens).map((s) => [s.path, glanceOf(s, collections, boards, notes, today)] as const)), [modules, collections, boards, notes, today]);
+  const glances = useMemo(() => new Map(modules.flatMap((m) => m.screens).map((s) => [screenKey(s), glanceOf(s, collections, boards, notes, today)] as const)), [modules, collections, boards, notes, today]);
   const own = Object.fromEntries(Object.entries(boards).filter(([path]) => modules.some((m) => m.screens.some((s) => s.path === path))));
   const cards = splitDueCards(own, today);
   const dueCards = [...cards.overdue, ...cards.today];
   const records = [...due.filter((d) => d.late), ...due.filter((d) => !d.late && (d.day ?? today) === today)];
   const row = (s: AppScreen) => {
-    const glance = glances.get(s.path);
+    const glance = glances.get(screenKey(s));
     return (
-      <button key={s.path} type="button" className="mb-row" onClick={() => onScreen(s)}>
+      <button key={screenKey(s)} type="button" className="mb-row" onClick={() => onScreen(s)}>
         <Icon name={screenIcon(s)} />
         <span className="tx">
           <b>{s.name}</b>
@@ -271,7 +306,17 @@ export function PhoneAppHome({ modules, collections, boards, notes, today, due, 
   };
   return (
     <div className="mb-list mb-app">
-      {records.length + dueCards.length > 0 && (
+      {modules.length === 0 && (
+        <div className="app-empty">
+          <b>{t('app.addScreen')}</b>
+          <p>{t('app.addScreenText')}</p>
+          <button type="button" className="primary" onClick={onAdd}>
+            <Icon name="plus" />
+            {t('app.addScreen')}
+          </button>
+        </div>
+      )}
+      {shows.today && records.length + dueCards.length > 0 && (
         <>
           <div className="mb-sec">
             {t('app.today')} <small>{records.length + dueCards.length}</small>
@@ -285,8 +330,8 @@ export function PhoneAppHome({ modules, collections, boards, notes, today, due, 
         </>
       )}
       {modules.map((m) => (
-        <div key={m.template}>
-          <div className="mb-sec">{modules.length > 1 ? m.name : t('app.screens')}</div>
+        <div key={m.key}>
+          <div className="mb-sec">{modules.length > 1 ? moduleName(m) : t('app.screens')}</div>
           {m.screens.map(row)}
         </div>
       ))}

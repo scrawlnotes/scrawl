@@ -551,6 +551,9 @@ const shapes = {
 
 export type IconName = keyof typeof shapes;
 
+/** Whether a name written somewhere, an app's icon in its file, is one of the icons. */
+export const isIconName = (name: string): name is IconName => Object.hasOwn(shapes, name);
+
 export function Icon({ name }: { name: IconName }) {
   return (
     <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">

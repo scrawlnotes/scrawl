@@ -9813,3 +9813,104 @@ body > .mb-lifted {
   color: var(--sl-p1);
   font-size: 15px;
 }
+
+/* Edit menu on a phone (design/app-home.md 7): the modules, what Home shows and the lines; a
+   module's screens on a page of their own, with its name and Delete module at the end. */
+.am-sheet .am-body {
+  padding: 4px 16px 28px;
+  overflow-y: auto;
+}
+
+.am-sheet .am-row {
+  min-height: 46px;
+  font-size: 15px;
+}
+
+.am-sheet .am-mods .am-row {
+  border-bottom: 1px solid var(--sl-line);
+  border-radius: 0;
+}
+
+.am-sheet .am-mods .am-row small {
+  margin-left: auto;
+  font-size: 13px;
+}
+
+.am-sheet .am-scr .am-row small {
+  display: none;
+}
+
+.am-sheet .am-grip {
+  padding: 8px 4px;
+  font-size: 13px;
+}
+
+.am-sheet .am-eye,
+.am-sheet .am-more {
+  width: 34px;
+  height: 34px;
+}
+
+.am-sheet .am-home {
+  margin-top: 0;
+  padding: 4px 4px 0;
+  border-top: 0;
+}
+
+.am-sheet .am-home .fcheck {
+  min-height: 36px;
+  font-size: 15px;
+}
+
+.am-sheet .am-faint {
+  font-size: 14px;
+}
+
+.am-sheet .am-faint > span,
+.am-sheet .am-faint > button {
+  min-height: 38px;
+}
+
+.am-sheet .am-faint > button .add {
+  visibility: visible;
+}
+
+.am-sheet .am-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.am-sheet .am-acts button,
+.am-sheet .am-reset {
+  min-height: 44px;
+  border: 1px solid var(--sl-line);
+  border-radius: 10px;
+  color: var(--sl-fg);
+  font-size: 15px;
+}
+
+.am-sheet .am-acts .danger {
+  color: var(--sl-danger, #e5484d);
+}
+
+.am-sheet .am-reset {
+  width: 100%;
+  margin-top: 24px;
+  color: var(--sl-dim);
+}
+
+.am-sheet .am-rename {
+  display: flex;
+  margin-top: 12px;
+}
+
+.am-sheet .am-rename .am-name {
+  padding: 10px;
+  font-size: 16px;
+}
+
+.mb-app .app-empty {
+  margin: 24px 16px 8px;
+}

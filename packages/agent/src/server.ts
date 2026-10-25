@@ -202,7 +202,7 @@ export function buildServer(agent: Agent): McpServer {
     'create',
     {
       title: 'Create',
-      description: 'Makes a new note, task list, board, collection or folder with a name, in `folder` (the top of the space when left out), and returns its path. Board templates: software, simple, issues, crm. Collection templates: companies, people, activities, feedback, payments, blank (no fields: then write its _collection.json). With kind app, sets up an app from `templates` (crm, sales, support, projects, budget, stock, product) in a folder of its name: their collections, boards, rules and an About note, each template with its `answers`, the ones not given taking their defaults; when `folder` is an app already, the templates are added to it, and the ones it has take the `answers` given (what an answer brought and no longer does goes, its rules, buttons and views; records, fields, collections and boards stay). The guide\'s Apps says each template\'s questions. One of that kind and name already in the folder is not made again: the tool returns it with exists: true; another: true makes a second one, numbered.',
+      description: 'Makes a new note, task list, board, collection or folder with a name, in `folder` (the top of the space when left out), and returns its path. Board templates: software, simple, issues, crm. Collection templates: companies, people, activities, feedback, payments, blank (no fields: then write its _collection.json). With kind app, sets up an app from `templates` (crm, sales, support, projects, budget, stock, product) in a folder of its name: their collections, boards, rules and an About note, each template with its `answers`, the ones not given taking their defaults; when `folder` is an app already, the templates are added to it, and the ones it has take the `answers` given (what an answer brought and no longer does goes, its rules, buttons and views; records, fields, collections and boards stay). With kind app and no templates, makes an app of no template, its `menu` empty, or the one given, and its `icon`; given an app as folder with `menu`, changes its menu. A collection, a board or a note made in an app\'s folder with `module` goes into that module of its menu. The guide\'s Apps says each template\'s questions and how menus work. One of that kind and name already in the folder is not made again: the tool returns it with exists: true; another: true makes a second one, numbered.',
       inputSchema: z.object({
         space: spaceToMake,
         folder: z.string().optional().describe('The folder to make it in; the top of the space when left out.'),
@@ -214,6 +214,16 @@ export function buildServer(agent: Agent): McpServer {
         templates: z.array(z.string()).optional().describe('For an app: the templates it is set up from, or added to it.'),
         answers: z.record(z.string(), z.record(z.string(), z.unknown())).optional().describe('For an app: by template, the answers to its questions, { "sales": { "tax": true, "quotes": false } }.'),
         currencies: z.array(z.string()).optional().describe('For a new app that keeps money: the codes of its currencies, the main one first, ["TRY", "EUR"].'),
+        menu: z
+          .object({
+            modules: z.array(z.object({ name: z.string(), screens: z.array(z.union([z.string(), z.object({ path: z.string(), view: z.string().optional() })])) })),
+            hidden: z.array(z.string()).optional(),
+            home: z.object({ today: z.boolean().optional(), cards: z.boolean().optional() }).optional(),
+          })
+          .optional()
+          .describe('For an app: its menu, the modules in order, each with its name and the paths of its screens (collections, boards or notes in its folder), a screen opening on a view with { path, view }; hidden, the paths of screens in no menu; home, whether Home shows Today and the module cards.'),
+        icon: z.string().optional().describe('For a new app of no template: its icon, one of the templates\' icons or "app".'),
+        module: z.string().optional().describe('For a collection, a board or a note made in an app\'s folder: the module of its menu it goes into, by name.'),
         renames: z.record(z.string(), z.record(z.string(), z.record(z.string(), z.string()))).optional().describe('Changing the answers of an app: by template and question, the items of a list typed anew, each old with its new, { "crm": { "stages": { "Proposal": "Quote" } } }; their column, choice or record is renamed with what holds it.'),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },

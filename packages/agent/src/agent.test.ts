@@ -469,7 +469,7 @@ describe('tried by hand', () => {
     expect(note.data).toMatchObject({ path: 'Plans/Roadmap.md', created: false, exists: true });
     expect(await fs.readText('Plans/Roadmap.md')).toContain('Ship the agent');
     expect((await createTool(agent, { folder: 'Plans', kind: 'note', name: 'Roadmap', another: true })).data).toMatchObject({ path: 'Plans/Roadmap 2.md', created: true });
-    expect((await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' })).data.exists).toBe(true);
+    expect((await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' })).data).toMatchObject({ exists: true });
     expect((await createTool(agent, { kind: 'folder', name: 'plans' })).data).toMatchObject({ path: 'Plans', exists: true });
     expect((await refusal(createTool(agent, { kind: 'tasks', name: ' ' }))).message).toBe('A task list needs a name');
   });

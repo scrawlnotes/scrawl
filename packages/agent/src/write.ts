@@ -1,4 +1,9 @@
 import {
+  appPieces,
+  menuEditOf,
+  menuFileOf,
+  readAppFile,
+  writeAppMenu,
   COLLECTION_TEMPLATES,
   type ChoiceRenames,
   type CollectionTemplate,
@@ -299,7 +304,24 @@ export type CreateKind = 'note' | 'tasks' | 'board' | 'collection' | 'folder' | 
 /** Each kind as the agent reads it in a sentence. */
 const KIND_WORDS: { [kind in CreateKind]: string } = { note: 'note', tasks: 'task list', board: 'board', collection: 'collection', folder: 'folder', app: 'app' };
 
-export async function createTool(agent: Agent, args: { space?: string; folder?: string; kind: CreateKind; name: string; template?: string; text?: string; another?: boolean } & Omit<AppArgs, 'folder' | 'name'>) {
+/**
+ * The app a folder is in, itself or one above it, and the module of its menu called `module`: the
+ * one module of an app of no template when it has no name. Refused when there is none.
+ */
+async function moduleIn(space: AgentSpace, folder: string, module: string) {
+  for (let at = folder; at; at = dirname(at)) {
+    const app = await readAppFile(space.fs, at);
+    if (!app) continue;
+    const { pieces, lines } = await appPieces(space.fs, at);
+    const edit = menuEditOf(app, at, pieces, lines);
+    const named = edit.modules.find((m) => fold(m.name) === fold(module)) ?? (edit.modules.length === 1 && !edit.modules[0]!.name ? edit.modules[0] : undefined);
+    if (!named) throw new Refusal(`${app.name} has no module called ${module}; nothing was made`, { modules: edit.modules.map((m) => m.name) });
+    return { folder: at, edit, module: named };
+  }
+  throw new Refusal(`${folder || 'The top of the space'} is not in an app: module is for what is made in an app's folder; nothing was made`);
+}
+
+export async function createTool(agent: Agent, args: { space?: string; folder?: string; kind: CreateKind; name: string; template?: string; text?: string; another?: boolean; module?: string } & Omit<AppArgs, 'folder' | 'name'>) {
   const space = await pickSpace(agent, args.space);
   const folder = args.folder ? checkOpen(cleanPath(args.folder)) : '';
   if (folder) {
@@ -307,6 +329,9 @@ export async function createTool(agent: Agent, args: { space?: string; folder?: 
     if (entry?.kind !== 'dir') throw new Refusal(`No folder at ${folder}; create it first or give one that is there`, { folders: (await elementsOf(space.fs, ['folder'])).map((f) => f.path) });
   }
   if (args.kind === 'app') return createApp(agent, space, { ...args, folder });
+  // Made in an app's folder for a module of its menu: the module is found first, nothing made without it.
+  if (args.module !== undefined && !['collection', 'board', 'note'].includes(args.kind)) throw new Refusal('module is for a collection, a board or a note');
+  const into = args.module !== undefined ? await moduleIn(space, folder, args.module) : null;
   const name = args.name.trim();
   const what = KIND_WORDS[args.kind];
   if (!name && args.kind !== 'note') throw new Refusal(`A ${what} needs a name`);
@@ -355,5 +380,11 @@ export async function createTool(agent: Agent, args: { space?: string; folder?: 
   // When it was made, kept as the app keeps it, for the order by Date created: when its file was written.
   const written = (await space.fs.stat?.(path).catch(() => null))?.modified;
   await markCreated(space.fs, AGENT_DEVICE, { [path]: written ?? nowOf(agent) }).catch(() => undefined);
+  if (into) {
+    const kind = args.kind as 'collection' | 'board' | 'note';
+    into.module.screens.push({ kind, path, name: basename(path), hidden: false });
+    await writeAppMenu(space.fs, into.folder, menuFileOf(into.edit, into.folder));
+    return { data: { space: space.id, path, kind: args.kind, created: true, module: into.module.name } };
+  }
   return { data: { space: space.id, path, kind: args.kind, created: true } };
 }

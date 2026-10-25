@@ -5,12 +5,13 @@ import {
   collectionName,
   displayTitle,
   type Findable,
-  findApp,
+  appPieces,
   listName,
   loadBoard,
   loadCollection,
   loadList,
   menuOf,
+  readAppFile,
   readTree,
   recordTitle,
   search as searchCore,
@@ -68,14 +69,14 @@ interface NodeOut {
 }
 
 async function nodeOut(fs: VaultFs, node: TreeNode): Promise<NodeOut> {
-  const found = node.app ? await findApp(fs, node.path) : null;
-  const pieces = found ? [...found.pieces].map(([role, piece]) => ({ kind: piece.kind, path: piece.path, role })) : [];
+  const app = node.app ? await readAppFile(fs, node.path) : null;
+  const around = app ? await appPieces(fs, node.path) : null;
   return {
     name: node.name,
     path: node.path,
     kind: node.kind,
     ...(node.title !== undefined && { title: node.title }),
-    ...(found && { app: { modules: menuOf(found.app, pieces).map((m) => ({ name: m.name, screens: m.screens.map((s) => s.path) })) } }),
+    ...(app && around && { app: { modules: menuOf(app, node.path, around.pieces, around.lines).map((m) => ({ name: m.name, screens: m.screens.map((s) => s.path) })) } }),
     ...(node.children && { children: await Promise.all(node.children.map((child) => nodeOut(fs, child))) }),
   };
 }

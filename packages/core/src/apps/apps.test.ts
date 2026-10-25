@@ -1,18 +1,18 @@
 import { t } from '@scrawlnotes/i18n';
 import { describe, expect, it } from 'vitest';
 import { parseBoard } from '../board';
-import { addRecord, type Collection, loadCollection, parseSchema, type Record, serializeSchema } from '../collection';
+import { addRecord, type Collection, createCollection, loadCollection, parseSchema, type Record, serializeSchema } from '../collection';
 import { dueRecords } from '../calendar';
 import { planSave, recordWith, type RuleSpaceNow } from '../run';
 import { Computer } from '../compute';
 import { MemoryFs } from '../fs';
 import { linksIn, resolveHref } from '../links';
-import { APP_FILE, AppProblems, type FoundApp, planApp } from './build';
+import { APP_FILE, APP_ICONS, AppProblems, type FoundApp, planApp } from './build';
 import { installApp, undoApp } from './install';
-import { type AppPiece, linesBlocks, menuOf, showsLines } from './menu';
+import { appIcon, type AppPiece, homeOf, linesBlocks, menuEditOf, menuFileOf, menuOf, screenKey, showsLines, unplacedOf } from './menu';
 import { PIECES } from './pieces';
 import { readAnswers, TEMPLATES } from './questions';
-import { findApp } from './roles';
+import { findApp, readAppFile, readAppMenu, writeAppMenu } from './roles';
 import { type Answers, audienceOf, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from './types';
 
 let n = 0;
@@ -465,7 +465,7 @@ describe('the menu of an app', () => {
         const fs = new MemoryFs();
         await installApp(fs, planApp({ name: 'A', currencies: ['EUR'], templates: [{ id, answers: answers[id] }] }, { ids }));
         const found = (await findApp(fs, 'A'))!;
-        const menu = menuOf(found.app, piecesOf(found));
+        const menu = menuOf(found.app, 'A', piecesOf(found));
         const screens = menu.flatMap((m) => m.screens.map((s) => s.role!));
         const wanted = [...found.pieces.keys()].filter((role) => !PIECES[role]!.lines);
         expect(screens.slice().sort(), id).toEqual(wanted.sort());
@@ -478,7 +478,7 @@ describe('the menu of an app', () => {
     const fs = new MemoryFs();
     await installApp(fs, planApp({ name: 'Spare parts', currencies: ['EUR'], templates: [{ id: 'crm' }, { id: 'sales' }, { id: 'stock' }] }, { ids }));
     const found = (await findApp(fs, 'Spare parts'))!;
-    const menu = menuOf(found.app, piecesOf(found));
+    const menu = menuOf(found.app, 'Spare parts', piecesOf(found));
     expect(menu.map((m) => [m.name, m.screens.map((s) => s.name)])).toEqual([
       ['CRM', ['Companies', 'People', 'Deals', 'Activities']],
       ['Sales', ['Orders', 'Payments', 'Companies', 'Products']],
@@ -487,8 +487,122 @@ describe('the menu of an app', () => {
     // Order lines and Purchase order lines are lines: in no module.
     expect(menu.flatMap((m) => m.screens.map((s) => s.name))).not.toContain('Order lines');
     // What a piece is called now is its name in the menu.
-    const renamed = menuOf(found.app, piecesOf(found).map((p) => (p.role === 'companies' ? { ...p, path: 'Spare parts/Customers' } : p)));
+    const renamed = menuOf(found.app, 'Spare parts', piecesOf(found).map((p) => (p.role === 'companies' ? { ...p, path: 'Spare parts/Customers' } : p)));
     expect(renamed[1]!.screens.map((s) => s.name)).toEqual(['Orders', 'Payments', 'Customers', 'Products']);
+  });
+});
+
+describe('the menu the person sets', () => {
+  const piecesOf = (found: FoundApp): AppPiece[] => [...found.pieces].map(([role, p]) => ({ kind: p.kind, path: p.path, role }));
+  const names = (modules: { name: string; screens: { name: string }[] }[]) => modules.map((m) => [m.name, m.screens.map((s) => s.name)]);
+
+  it('is kept in _app.json and shown instead of the templates’, hidden screens left out, a view kept, Home as it says', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Spare parts', currencies: ['EUR'], templates: [{ id: 'crm' }, { id: 'sales' }] }, { ids }));
+    let found = (await findApp(fs, 'Spare parts'))!;
+    const edit = menuEditOf(found.app, 'Spare parts', piecesOf(found));
+    expect(edit.home).toEqual({ today: true, cards: true });
+    // Sales first and called Selling, Payments hidden, Orders opening on a view; no Today on Home.
+    const [crm, sales] = edit.modules;
+    const changed = {
+      modules: [
+        { ...sales!, name: 'Selling', screens: sales!.screens.map((s) => (s.name === 'Payments' ? { ...s, hidden: true } : s.name === 'Orders' ? { ...s, view: 'open' } : s)) },
+        crm!,
+      ],
+      home: { today: false, cards: true },
+    };
+    const file = menuFileOf(changed, 'Spare parts');
+    expect(file.hidden).toEqual(['Payments']);
+    expect(file.home).toEqual({ today: false });
+    expect(file.modules[0]!.screens[0]).toEqual({ path: 'Orders', view: 'open' });
+    const before = await writeAppMenu(fs, 'Spare parts', file);
+    expect(JSON.parse(before).menu).toBeUndefined();
+    found = (await findApp(fs, 'Spare parts'))!;
+    expect(found.app.menu).toEqual(file);
+    const menu = menuOf(found.app, 'Spare parts', piecesOf(found));
+    expect(names(menu)).toEqual([
+      ['Selling', ['Orders', 'Companies', 'Products']],
+      ['CRM', ['Companies', 'People', 'Deals', 'Activities']],
+    ]);
+    expect(menu[0]!.screens[0]).toMatchObject({ view: 'open' });
+    expect(screenKey(menu[0]!.screens[0]!)).toBe('Spare parts/Orders#open');
+    expect(homeOf(found.app)).toEqual({ today: false, cards: true });
+    // The hidden screen is in Edit menu still, in its module, faint.
+    expect(menuEditOf(found.app, 'Spare parts', piecesOf(found)).modules[0]!.screens.find((s) => s.name === 'Payments')?.hidden).toBe(true);
+    // Reset to template: the templates' menu again.
+    await writeAppMenu(fs, 'Spare parts', null);
+    found = (await findApp(fs, 'Spare parts'))!;
+    expect(found.app.menu).toBeUndefined();
+    expect(names(menuOf(found.app, 'Spare parts', piecesOf(found)))[0]![0]).toBe('CRM');
+  });
+
+  it('keeps what a template sets up later at the end of its module, or of a module of its own; what the person made is in no menu until added', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Spare parts', currencies: ['EUR'], templates: [{ id: 'crm' }] }, { ids }));
+    let found = (await findApp(fs, 'Spare parts'))!;
+    const edit = menuEditOf(found.app, 'Spare parts', piecesOf(found));
+    // People taken off CRM's menu by hiding it, then Sales added to the app.
+    edit.modules[0]!.screens = edit.modules[0]!.screens.map((s) => (s.name === 'People' ? { ...s, hidden: true } : s));
+    await writeAppMenu(fs, 'Spare parts', menuFileOf(edit, 'Spare parts'));
+    found = (await findApp(fs, 'Spare parts'))!;
+    await installApp(fs, planApp({ name: 'Spare parts', templates: [{ id: 'sales' }] }, { found, ids }));
+    found = (await findApp(fs, 'Spare parts'))!;
+    expect(found.app.menu?.hidden).toEqual(['People']);
+    await createCollection(fs, 'Spare parts', 'Supplier prices', 'blank');
+    const pieces = [...piecesOf(found), { kind: 'collection' as const, path: 'Spare parts/Supplier prices' }];
+    expect(names(menuOf(found.app, 'Spare parts', pieces))).toEqual([
+      ['CRM', ['Companies', 'Deals', 'Activities']],
+      ['Sales', ['Orders', 'Payments', 'Products']],
+    ]);
+    const now = menuEditOf(found.app, 'Spare parts', pieces);
+    expect(unplacedOf(now, pieces).map((p) => p.path)).toContain('Spare parts/Order lines');
+    expect(unplacedOf(now, pieces, new Map([['Spare parts/Order lines', 'Spare parts/Orders']])).map((p) => p.path)).toEqual(['Spare parts/Supplier prices']);
+  });
+
+  it('sets up an app of no template with its menu, an icon of the app icons, and a template added to it at the end', async () => {
+    const fs = new MemoryFs();
+    expect(() => planApp({ name: 'Garden', templates: [] }, { ids })).toThrow(AppProblems);
+    expect(() => planApp({ name: 'Garden', templates: [], menu: { modules: [{ name: '', screens: [] }] }, icon: 'rocket-ship' }, { ids })).toThrow(/icon is one of/);
+    const plan = planApp({ name: 'Garden', templates: [], menu: { modules: [{ name: '', screens: [] }] }, icon: APP_ICONS[1] }, { ids });
+    expect(plan.created).toEqual([]);
+    expect(plan.dirs).toEqual(['Garden']);
+    await installApp(fs, plan);
+    let found = (await findApp(fs, 'Garden'))!;
+    expect(found.app).toMatchObject({ name: 'Garden', templates: [], menu: { modules: [{ name: '', screens: [] }] } });
+    expect(appIcon(found.app)).toBe(APP_ICONS[1]);
+    expect(menuOf(found.app, 'Garden', [])).toEqual([]);
+    // A screen the person made goes in its one module; a template added comes after it.
+    await createCollection(fs, 'Garden', 'Plants', 'blank');
+    await writeAppMenu(fs, 'Garden', { modules: [{ name: '', screens: [{ path: 'Plants' }] }] });
+    found = (await findApp(fs, 'Garden'))!;
+    await installApp(fs, planApp({ name: 'Garden', currencies: ['EUR'], templates: [{ id: 'finance' }] }, { found, ids }));
+    found = (await findApp(fs, 'Garden'))!;
+    const pieces = [...piecesOf(found), { kind: 'collection' as const, path: 'Garden/Plants' }];
+    const menu = menuOf(found.app, 'Garden', pieces);
+    expect(menu.map((m) => [m.name, m.screens[0]?.name])).toEqual([
+      ['', 'Plants'],
+      [t(TEMPLATES.finance.short), 'Transactions'],
+    ]);
+    expect(found.app.menu).toBeDefined();
+  });
+
+  it('shows an app of no template and no menu as the collections and boards in its folder by name, lines left out', async () => {
+    const fs = new MemoryFs();
+    await fs.mkdir('Garden');
+    await fs.writeText('Garden/_app.json', JSON.stringify({ version: 1, name: 'Garden', currencies: [], templates: [], icon: 'leaf' }));
+    const app = (await readAppFile(fs, 'Garden'))!;
+    expect(app.icon).toBe('leaf');
+    const pieces: AppPiece[] = [
+      { kind: 'collection', path: 'Garden/Plants' },
+      { kind: 'board', path: 'Garden/Jobs.board.json' },
+      { kind: 'collection', path: 'Garden/Plant parts' },
+    ];
+    expect(names(menuOf(app, 'Garden', pieces, new Map([['Garden/Plant parts', 'Garden/Plants']])))).toEqual([['', ['Jobs', 'Plants']]]);
+    expect(readAppMenu({ modules: [{ name: ' Main ', template: 'nope', screens: ['Plants/', { path: 'Jobs.board.json', view: 1 }, 3] }], hidden: ['x', 2], home: { today: false, cards: 'no' } })).toEqual({
+      modules: [{ name: 'Main', screens: [{ path: 'Plants' }, { path: 'Jobs.board.json' }] }],
+      hidden: ['x'],
+      home: { today: false },
+    });
   });
 });
 

@@ -379,7 +379,7 @@ export const KINDS: { kind: NewKind; label: MessageKey; icon: IconName; text?: M
  * folder's menu has the kind chosen already, and Back goes to the choice; the start page's
  * templates have the template chosen too.
  */
-export function NewDialog({ start = null, template = null, folders, folder, collections, onCreate, onApp, onQuick, onClose }: {
+export function NewDialog({ start = null, template = null, folders, folder, collections, modules, onCreate, onApp, onQuick, onClose }: {
   /** The kind chosen already, if any. */
   start?: ItemKind | null;
   /** A board's or a collection's template chosen already, if any. */
@@ -390,8 +390,10 @@ export function NewDialog({ start = null, template = null, folders, folder, coll
   folder: string;
   /** Every collection, by its folder's path: what a CRM board's links can point at. */
   collections: string[];
+  /** Made from an app (design/app-home.md 5.5): its folder is the app's, and it goes into one of these modules of its menu, asked when there are more. */
+  modules?: { key: string; name: string }[];
   /** Returns a message when the item cannot be made. */
-  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => Promise<string | null>;
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks, module?: string) => Promise<string | null>;
   /** An app has a window of its own. */
   onApp: () => void;
   /** A quick note opens its window over what is open, with nothing more to ask. */
@@ -401,7 +403,7 @@ export function NewDialog({ start = null, template = null, folders, folder, coll
   const [kind, setKind] = useState<ItemKind | null>(start);
   if (kind) {
     return (
-      <NewItemForm kind={kind} template={template} folders={folders} folder={folder} collections={collections} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
+      <NewItemForm kind={kind} template={template} folders={folders} folder={folder} collections={collections} modules={modules} onCreate={onCreate} onBack={() => setKind(null)} onClose={onClose} />
     );
   }
   return <KindChoice onPick={(picked) => (picked === 'app' ? onApp() : picked === 'quick' ? onQuick() : setKind(picked))} onClose={onClose} />;
@@ -475,13 +477,14 @@ function KindChoice({ onPick, onClose }: { onPick: (kind: NewKind) => void; onCl
  * The second step of Create: a name, which may be left empty, the folder to put the item in,
  * and for a board the template it starts from.
  */
-function NewItemForm({ kind, template: chosenTemplate, folders, folder, collections, onCreate, onBack, onClose }: {
+function NewItemForm({ kind, template: chosenTemplate, folders, folder, collections, modules, onCreate, onBack, onClose }: {
   kind: ItemKind;
   template: Template | CollectionTemplate | null;
   folders: string[];
   folder: string;
   collections: string[];
-  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => Promise<string | null>;
+  modules?: { key: string; name: string }[];
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks, module?: string) => Promise<string | null>;
   onBack: () => void;
   onClose: () => void;
 }) {
@@ -493,6 +496,7 @@ function NewItemForm({ kind, template: chosenTemplate, folders, folder, collecti
   // A CRM board's links, as chosen; until then they point at Companies and People beside the board.
   const [chosen, setChosen] = useState<Partial<BoardLinks>>({});
   const [error, setError] = useState<string | null>(null);
+  const [module, setModule] = useState(() => modules?.[0]?.key);
   const busy = useRef(false);
   // Where it goes: the folder Create was opened for, or a folder typed to be made.
   const [choice, setChoice] = useState<FolderChoice>(() => ({ folder: folders.includes(folder) ? folder : (folders[0] ?? ''), create: false }));
@@ -506,7 +510,7 @@ function NewItemForm({ kind, template: chosenTemplate, folders, folder, collecti
   const create = async () => {
     if (busy.current) return;
     busy.current = true;
-    const failed = await onCreate(kind, choice, name, template, collectionTemplate, template === 'crm' ? links : undefined);
+    const failed = await onCreate(kind, choice, name, template, collectionTemplate, template === 'crm' ? links : undefined, module);
     busy.current = false;
     setError(failed);
   };
@@ -537,17 +541,31 @@ function NewItemForm({ kind, template: chosenTemplate, folders, folder, collecti
             }}
           />
         </label>
-        <div className="field">
-          <span>{t('create.folder')}</span>
-          <FolderField
-            folders={folders}
-            value={choice}
-            onChange={(picked) => {
-              setChoice(picked);
-              setError(null);
-            }}
-          />
-        </div>
+        {modules ? (
+          modules.length > 1 && (
+            <div className="field">
+              <span>{t('create.module')}</span>
+              <Picker
+                options={modules.map((m) => ({ value: m.key, label: m.name || t('app.screens'), chip: false }))}
+                value={module ?? null}
+                label={t('create.module')}
+                onPick={(key) => key && setModule(key)}
+              />
+            </div>
+          )
+        ) : (
+          <div className="field">
+            <span>{t('create.folder')}</span>
+            <FolderField
+              folders={folders}
+              value={choice}
+              onChange={(picked) => {
+                setChoice(picked);
+                setError(null);
+              }}
+            />
+          </div>
+        )}
         {kind === 'board' && (
           <div className="field templates-field">
             <span id="new-template-label">{t('create.template')}</span>

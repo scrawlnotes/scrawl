@@ -14,7 +14,7 @@ import { Sheet, SheetClose } from './sheets';
 // covers it.
 
 /** What the sheet shows: the form, or one of the lists a row of it opens. */
-type Step = 'form' | 'folder' | 'template' | 'company' | 'contact';
+type Step = 'form' | 'folder' | 'template' | 'company' | 'contact' | 'module';
 
 const folderLabel = placeWords;
 
@@ -46,7 +46,7 @@ function FolderName({ path, space = false }: { path: string; space?: boolean }) 
   );
 }
 
-export function PhoneCreate({ start = null, folders, folder, collections, onCreate, onApp, onQuick, onClose }: {
+export function PhoneCreate({ start = null, folders, folder, collections, modules, onCreate, onApp, onQuick, onClose }: {
   /** The kind chosen already, if any. */
   start?: ItemKind | null;
   /** Every place, the personal space's top first. */
@@ -55,8 +55,10 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
   folder: string;
   /** Every collection, by its folder's path: what a CRM board's links can point at. */
   collections: string[];
+  /** Made from an app (design/app-home.md 5.5): its folder is the app's, and it goes into one of these modules of its menu, asked when there are more. */
+  modules?: { key: string; name: string }[];
   /** Returns a message when the item cannot be made. */
-  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks) => Promise<string | null>;
+  onCreate: (kind: ItemKind, folder: FolderChoice, name: string, template: Template, collectionTemplate: CollectionTemplate, links?: BoardLinks, module?: string) => Promise<string | null>;
   /** And so has an app. */
   onApp: () => void;
   /** A quick note opens its page, in the tap that chose it. */
@@ -72,6 +74,7 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
   // A CRM board's links, as chosen; until then they point at Companies and People beside the board.
   const [chosen, setChosen] = useState<Partial<BoardLinks>>({});
   const [error, setError] = useState<string | null>(null);
+  const [module, setModule] = useState(() => modules?.[0]?.key);
   // The space a new folder is being named in, by its key: `''` for the personal one.
   const [addingIn, setAddingIn] = useState<string | null>(null);
   const busy = useRef(false);
@@ -122,7 +125,7 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
   const create = async () => {
     if (busy.current) return;
     busy.current = true;
-    const failed = await onCreate(kind, place, name, template, collectionTemplate, template === 'crm' ? links : undefined);
+    const failed = await onCreate(kind, place, name, template, collectionTemplate, template === 'crm' ? links : undefined, module);
     busy.current = false;
     setError(failed);
   };
@@ -275,6 +278,29 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
     );
   }
 
+  if (step === 'module' && modules) {
+    return list(
+      t('create.module'),
+      <div className="mb-group">
+        {modules.map((m) => (
+          <button
+            key={m.key}
+            type="button"
+            className="mb-fr pick"
+            onClick={() => {
+              setModule(m.key);
+              setStep('form');
+            }}
+          >
+            <Icon name="app" />
+            <span className="in">{m.name || t('app.screens')}</span>
+            <Tick on={m.key === module} />
+          </button>
+        ))}
+      </div>,
+    );
+  }
+
   if (step === 'company' || step === 'contact') {
     const current = links[step];
     const options = [...new Set([...collections, current])].sort((a, b) => a.localeCompare(b));
@@ -342,14 +368,24 @@ export function PhoneCreate({ start = null, folders, folder, collections, onCrea
               }}
             />
           </label>
-          {row(
-            t('create.folder'),
-            <>
-              <Icon name="folder" />
-              <span className="tx">{place.create ? t('phone.newFolder', { name: folderLabel(place.folder) }) : folderLabel(place.folder)}</span>
-            </>,
-            'folder',
-          )}
+          {modules
+            ? modules.length > 1 &&
+              row(
+                t('create.module'),
+                <>
+                  <Icon name="app" />
+                  <span className="tx">{modules.find((m) => m.key === module)?.name || t('app.screens')}</span>
+                </>,
+                'module',
+              )
+            : row(
+                t('create.folder'),
+                <>
+                  <Icon name="folder" />
+                  <span className="tx">{place.create ? t('phone.newFolder', { name: folderLabel(place.folder) }) : folderLabel(place.folder)}</span>
+                </>,
+                'folder',
+              )}
           {kind === 'board' &&
             row(
               t('create.template'),

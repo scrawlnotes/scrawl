@@ -148,6 +148,38 @@ describe('apps', () => {
     expect(nodes.find((n) => n.path === 'Inbox.tasks.json')?.app).toBeUndefined();
   });
 
+  it('makes an app of no template, puts what is made in it into its menu, and changes an app’s menu', async () => {
+    const { fs, agent } = await world();
+    const made = await createTool(agent, { kind: 'app', name: 'Garden', icon: 'app' });
+    expect(made.data).toMatchObject({ path: 'Garden', kind: 'app', created: true, templates: [] });
+    expect((await refusal(createTool(agent, { kind: 'app', name: 'Yard', icon: 'rocket' }))).message).toMatch(/icon is one of/);
+    expect((await createTool(agent, { kind: 'app', name: 'Garden' })).data).toMatchObject({ exists: true });
+    // What is made with module comes into its one module; a collection made without it is in no menu.
+    await createTool(agent, { folder: 'Garden', kind: 'collection', name: 'Plants', module: 'Main' });
+    await createTool(agent, { folder: 'Garden', kind: 'board', name: 'Jobs', module: '' });
+    await createTool(agent, { folder: 'Garden', kind: 'collection', name: 'Seeds' });
+    expect((await refusal(createTool(agent, { folder: 'Plans', kind: 'note', name: 'x', module: 'Main' }))).message).toMatch(/No folder|not in an app/);
+    expect((await refusal(createTool(agent, { folder: 'Garden', kind: 'tasks', name: 'x', module: 'Main' }))).message).toMatch(/module is for a collection/);
+    const tree = async () => ((await treeTool(agent, {})).data as { nodes: { path: string; app?: { modules: { name: string; screens: string[] }[] } }[] }).nodes.find((n) => n.path === 'Garden')?.app?.modules;
+    expect(await tree()).toEqual([{ name: '', screens: ['Garden/Plants', 'Garden/Jobs.board.json'] }]);
+    // Its menu given: two modules, Seeds in the second, Jobs hidden.
+    const changed = await createTool(agent, { kind: 'app', name: 'Garden', folder: 'Garden', menu: { modules: [{ name: 'Growing', screens: ['Garden/Plants', 'Jobs.board.json'] }, { name: 'Buying', screens: ['Seeds'] }], hidden: ['Jobs.board.json'] } });
+    expect(changed.data).toMatchObject({ created: false, menu: [{ name: 'Growing', screens: ['Garden/Plants'] }, { name: 'Buying', screens: ['Garden/Seeds'] }] });
+    expect(JSON.parse(await fs.readText('Garden/_app.json')).menu.modules[0].screens).toEqual([{ path: 'Plants' }, { path: 'Jobs.board.json' }]);
+    expect((await refusal(createTool(agent, { kind: 'app', name: 'Garden', folder: 'Garden', menu: { modules: [{ name: 'X', screens: ['Weeds'] }] } }))).message).toMatch(/Not in Garden: Weeds/);
+    await createTool(agent, { folder: 'Garden', kind: 'note', name: 'Watering', module: 'buying' });
+    expect(await tree()).toEqual([
+      { name: 'Growing', screens: ['Garden/Plants'] },
+      { name: 'Buying', screens: ['Garden/Seeds', 'Garden/Watering.md'] },
+    ]);
+    expect((await refusal(createTool(agent, { folder: 'Garden', kind: 'collection', name: 'Tools', module: 'Selling' }))).message).toMatch(/no module called Selling/);
+    // A template app's module named as its template keeps what the template sets up.
+    await createTool(agent, { kind: 'app', name: 'Shop', templates: ['crm'], currencies: ['EUR'] });
+    await createTool(agent, { kind: 'app', name: 'Shop', folder: 'Shop', menu: { modules: [{ name: 'CRM', screens: ['Companies', 'People'] }] } });
+    expect(await fs.readText('Shop/_app.json')).toContain('"template": "crm"');
+    expect(((await treeTool(agent, {})).data as { nodes: { path: string; app?: { modules: { screens: string[] }[] } }[] }).nodes.find((n) => n.path === 'Shop')?.app?.modules[0]!.screens).toEqual(['Shop/Companies', 'Shop/People', 'Shop/Deals.board.json', 'Shop/Activities']);
+  });
+
   it('adds an order with its lines at once, each from its product, and says how many lines each order has', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Atlas', templates: ['sales'], currencies: ['TRY'] });
@@ -990,7 +1022,7 @@ describe('apps', () => {
 
   it('says whom each template is for, and refuses an app of both sides', async () => {
     const { agent } = await world();
-    const listed = (await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: [] }))).details.templates as { id: string; audience: string }[];
+    const listed = (await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: ['nope'] }))).details.templates as { id: string; audience: string }[];
     expect(listed.find((x) => x.id === 'crm')!.audience).toBe('business');
     expect(listed.find((x) => x.id === 'finance')!.audience).toBe('personal');
     const mixed = await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: ['crm', 'finance'], currencies: ['TRY'] }));

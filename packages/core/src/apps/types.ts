@@ -151,12 +151,40 @@ export interface InstalledTemplate {
   answers: Answers;
 }
 
-/** `_app.json`: the app's name, its currencies and the templates it was set up with, with their answers. */
+/** A screen of an app's menu as `_app.json` keeps it (design/app-home.md 8.1): its path in the app's folder, and the view it opens on, by its id. */
+export interface MenuScreenFile {
+  path: string;
+  view?: string;
+}
+
+/** A module of an app's menu as `_app.json` keeps it: its name, the template it is of when it is one's, its screens in order. */
+export interface MenuModuleFile {
+  name: string;
+  template?: TemplateId;
+  screens: MenuScreenFile[];
+}
+
+/** An app's menu as the person set it with Edit menu (design/app-home.md 6, 8.1); without one, the templates' menu. */
+export interface AppMenuFile {
+  modules: MenuModuleFile[];
+  /** The screens hidden, by path in the app's folder: in the menu nowhere, their files where they are. */
+  hidden?: string[];
+  /** What Home shows: Today and the module cards, both unless false. */
+  home?: { today?: boolean; cards?: boolean };
+}
+
+/**
+ * `_app.json`: the app's name, its currencies and the templates it was set up with, with their
+ * answers; its menu when the person set one, and its icon when it was given one (an app of no
+ * template, design/app-home.md 5.5).
+ */
 export interface AppFile {
   version: 1;
   name: string;
   currencies: string[];
   templates: InstalledTemplate[];
+  menu?: AppMenuFile;
+  icon?: string;
 }
 
 /** A rule of a collection's `_rules.js`, added once by its name: the check's message, the button's or the onSave's name. */
