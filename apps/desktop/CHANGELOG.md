@@ -2,6 +2,19 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.19
+
+Every table is a plain table, Gym's program holds numbers, and a program's days are on its calendar.
+
+- Every table of records, a collection's, a record's linked records and its lines under its row, is a plain table: each column as wide as its values, a long text cut short. A click on a row opens it; its ··· at the end of the row, and the right click, have Open, the rules' buttons and Delete. Nothing is typed in a cell any more.
+- What a table changes where it is, you pick: Changed in the table, under Columns for a view and in Fields for a linked table, for ticks (one click) and choices (a small list). Gym's workout items come with Done.
+- A duration is kept to the second: 90 s, 1 min 30 s. In a new Gym a program's sets and reps are numbers and its time and rest durations; its program has each range's upper end.
+- A workout's items are drawn as Gym's mockup has them: a narrow tick at the start, each move by its name.
+- A program's days are on its Program days calendar, each as it went: gone to, not gone to, gone by unwritten in red, to come. A day clicked opens its workout, or offers Start and Didn't go.
+- On a phone a new workout's items come with its program, as on a computer.
+- A week's days and any choices are listed in their own order, and kept in it once picked. A new app is named after its templates, Gym, Gym 2. In New app, + Add of a list question works again.
+- A line whose name comes from its move, added empty, says the move is needed, not a name.
+
 ## 0.1.18
 
 Spaces no longer sync over and over with nothing to sync.
