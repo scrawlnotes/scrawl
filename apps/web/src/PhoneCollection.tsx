@@ -876,7 +876,16 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
  * list shows each by its name with a field or two under it. A row opens its record as a page. A
  * collection that is not there is made from here, from the template of its name.
  */
-export function LinkedTab({ block, dir, schema: own, record, today, actions }: { block: LinkedBlock; dir: string; schema: Schema; record: Entry; today: string; actions: CollectionActions }) {
+export function LinkedTab({ block, dir, schema: own, record, today, actions, drafts }: {
+  block: LinkedBlock;
+  dir: string;
+  schema: Schema;
+  record: Entry;
+  today: string;
+  actions: CollectionActions;
+  /** A new record's rows, not written yet (a workout's items from its program): ticked and opened where the form holds them. */
+  drafts?: { rows: Entry[]; tick: (row: Entry, on: boolean) => void; open: (row: Entry) => void };
+}) {
   const [failed, setFailed] = useState<string | null>(null);
   const making = useRef(false);
   const source = actions.collection(block.collection);
@@ -900,11 +909,11 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions }: {
     );
   }
   const { schema } = source;
-  const open = (r: Entry) => actions.show?.(source.dir, r.id);
+  const open = (r: Entry) => (drafts ? drafts.open(r) : actions.show?.(source.dir, r.id));
   // The linked records with what is worked out among their values, their fields as those show.
   const computer = computerFor(source, actions.collections(), actions.boards(), today);
   const shownAs = computer.shown(source.dir);
-  const records = linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) }));
+  const records = drafts ? drafts.rows.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) })) : linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) }));
   const byKey = (key: string | undefined) => (key ? schema.fields.find((f) => f.key === key) : undefined);
   const day = byKey(block.sort)?.type === 'date' ? byKey(block.sort) : schema.fields.find((f) => f.type === 'date');
   const timeline = block.style ? block.style === 'timeline' : !!day;
@@ -963,7 +972,7 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions }: {
   // A table in groups (design/gym.md 4.2) has a heading over each, and over each of its second.
   const grouped = block.style === 'table' && !!block.group?.length;
   const groups = groupLinked(rows, schema, grouped ? block.group! : [], today);
-  const heading = (key: string, label: string, count: number | null, sub = false) => (
+  const heading = (key: string, label: string, count: number | string | null, sub = false) => (
     <div key={`h-${sub ? 's' : 'g'}-${key}`} className={sub ? 'mb-sec mb-gsub' : 'mb-sec'}>
       {label || t('collection.none')}
       {count !== null && <small>{count}</small>}
@@ -997,7 +1006,7 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions }: {
           aria-checked={on}
           aria-label={recordTitle(r)}
           className={on ? 'mb-tick on' : 'mb-tick'}
-          onClick={() => void actions.updateRecord(source.dir, r.id, { values: { [tick.key]: !on } }).then((failed) => failed && actions.say?.(failed))}
+          onClick={() => (drafts ? drafts.tick(r, !on) : void actions.updateRecord(source.dir, r.id, { values: { [tick.key]: !on } }).then((failed) => failed && actions.say?.(failed)))}
         >
           {on && <Icon name="check" />}
         </button>
@@ -1008,7 +1017,7 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions }: {
   return (
     <div className="mb-rlist">
       {grouped
-        ? groups.flatMap((g) => [heading(g.key, g.label, g.records.length), ...(g.groups ? g.groups.flatMap((s) => [heading(`${g.key}-${s.key}`, s.label, null, true), ...s.records.map(line)]) : g.records.map(line))])
+        ? groups.flatMap((g) => [heading(g.key, g.label, tick ? t('phone.ofCount', { ticked: g.records.filter((r) => r.values[tick.key] === true).length, count: g.records.length }) : g.records.length), ...(g.groups ? g.groups.flatMap((s) => [heading(`${g.key}-${s.key}`, s.label, null, true), ...s.records.map(line)]) : g.records.map(line))])
         : rows.map(line)}
       {sums && (
         <div className="mb-sumrow">
@@ -1138,16 +1147,34 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   );
   const title = t('collection.newOne', { singular: singularOf(schema) });
   const typedName = nameField(schema);
+  // A field an onChange watches, a workout's program: what it adds comes into the form at once,
+  // in the place of what it added before, and the fields it sets are set (design/gym.md 4.1).
+  const watched = useMemo(() => changesOf(collection.rules), [collection.rules]);
   const setValue = (key: string, value: FieldValue) => {
     setError(null);
     setDraft((d) => ({ ...d, values: { ...d.values, [key]: value } }));
+    const mine = new Set(watched.filter((w) => w.field === key).map((w) => w.name));
+    if (mine.size === 0 || !actions.planChange) return;
+    const ran = actions.planChange(dir, newId, { ...draft.values, [key]: value }, null, key);
+    if (!ran) return;
+    setDrafted((now) => [...now.filter((c) => !c.by || !mine.has(c.by)), ...ran.after.changes]);
+    const set = Object.keys(ran.set).filter((k) => k !== key);
+    if (set.length > 0) setDraft((d) => ({ ...d, values: { ...d.values, ...Object.fromEntries(set.map((k) => [k, ran.values[k] ?? null])) } }));
   };
+  // Opened with that field given, a program day's Start, it has what that adds from the start.
+  useEffect(() => {
+    for (const key of new Set(watched.map((w) => w.field))) if (!isEmpty(values?.[key] ?? null)) setValue(key, values![key]!);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const create = async () => {
     if (busy.current) return;
-    const missing = missingText(schema, draft.values);
+    // What its rules write as it is saved, a workout's name, is not missing.
+    const will = savePreview(collection, null, draft.values, actions, today);
+    const missing = missingText(schema, will.length > 0 ? { ...draft.values, ...Object.fromEntries(will.map((w) => [w.key, w.value])) } : draft.values);
     if (missing) return setError(missing);
     busy.current = true;
-    const failed = await actions.addRecord(dir, { values: draft.values, body: draft.body, subtasks: draft.subtasks }, lineBlocks.length > 0 ? { id: newId, drafted } : undefined);
+    // What its onChanges added is written with it, and they do not run again.
+    const failed = await actions.addRecord(dir, { values: draft.values, body: draft.body, subtasks: draft.subtasks }, lineBlocks.length > 0 || watched.length > 0 ? { id: newId, drafted } : undefined);
     busy.current = false;
     if (failed) setError(failed);
     else onClose();
@@ -1203,15 +1230,25 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
                     <span>{t('collection.pickFirstText', { field: pickFirst.label.toLowerCase() })}</span>
                   </button>
                 )}
+                {/* As a written record's are: in their groups, each with its tick at its start (the Gym mockup's phone). */}
                 {rows.length > 0 && (
-                  <div className="mb-group">
-                    {rows.map((c) => (
-                      <button key={c.id} type="button" className="mb-fr" onClick={() => setLine({ source, block, id: c.id, values: c.values })}>
-                        <span className="fl">{valueText(c.values[nameField(source.schema)?.key ?? ''] ?? null) || t('collection.newRecordShort')}</span>
-                        <span className="val">{lineSummary(source.schema, block, c.values)}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <LinkedTab
+                    block={{ ...block, style: 'table' }}
+                    dir={dir}
+                    schema={schema}
+                    record={{ ...self, path: '', values: draft.values, extra: {}, body: '' }}
+                    today={today}
+                    actions={actions}
+                    drafts={{
+                      rows: rows.map((c) => recordWith(source, c.id, c.values)),
+                      tick: (row, on) => {
+                        const key = source.schema.fields.find((f) => f.type === 'checkbox' && block.fields?.includes(f.key))?.key;
+                        if (key) setDrafted((now) => now.map((c) => (c.kind === 'add' && c.id === row.id ? { ...c, values: { ...c.values, [key]: on } } : c)));
+                      },
+                      // Its values as the form holds them, not what is worked out from them.
+                      open: (row) => setLine({ source, block, id: row.id, values: rows.find((c) => c.id === row.id)?.values ?? row.values }),
+                    }}
+                  />
                 )}
                 <button type="button" className="mb-addline" onClick={() => setLine({ source, block, id: null, values: linkedValues(source.schema, dir, { ...self, path: '', values: draft.values, extra: {}, body: '' }, schema) })}>
                   {t('collection.addLine')}
@@ -1279,18 +1316,6 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   );
 }
 
-/** What a line not written yet says on the right of its row: the block's fields after its name, filled in. */
-function lineSummary(schema: Schema, block: LinkedBlock, values: Entry['values']): string {
-  const named = nameField(schema)?.key;
-  const fields = (block.fields ?? schema.fields.map((f) => f.key)).filter((key) => key !== named).flatMap((key) => schema.fields.filter((f) => f.key === key && !isComputed(f.type) && f.type !== 'link'));
-  return fields
-    .map((f) => values[f.key])
-    .filter((value) => !isEmpty(value ?? null))
-    .slice(0, 3)
-    .map((value) => valueText(value ?? null))
-    .join(' · ');
-}
-
 /**
  * A line of a new record typed in on a phone (design/app-home.md 4.2): the fields its block shows,
  * its link to the record set and not shown; Add puts it among the record's lines, written with it.
@@ -1316,7 +1341,9 @@ function LineSheet({ source, block, dir, values, known, today, actions, onDone, 
   const back = new Set(linkFieldsTo(schema, dir).map((f) => f.key));
   const named = nameField(schema);
   const keys = [...(named ? [named.key] : []), ...(block.fields ?? schema.fields.map((f) => f.key))];
-  const fields = [...new Set(keys)].flatMap((key) => schema.fields.filter((f) => f.key === key && !back.has(f.key) && f.type !== 'rollup'));
+  // Not those kept off its window: a workout item's name, which its move gives it.
+  const off = hiddenOnForm(schema);
+  const fields = [...new Set(keys)].flatMap((key) => schema.fields.filter((f) => f.key === key && !back.has(f.key) && f.type !== 'rollup' && !off.has(f.key)));
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(source.records.map((r) => r.values[field.key])) };
   const typed = named ? valueText(values[named.key] ?? null) : '';
   const title = known && typed ? typed : t('collection.newOne', { singular: singularOf(schema) });

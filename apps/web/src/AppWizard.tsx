@@ -85,6 +85,15 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   // An app of no template (design/app-home.md 5.5): named, and its folder made, nothing else asked.
   const [blank, setBlank] = useState(false);
   const [name, setName] = useState('');
+  // The name is its templates' short names until one is typed, at a free name where it is made: Gym, CRM, Sales and Stock, Gym 2.
+  const [nameTyped, setNameTyped] = useState(false);
+  const freeName = (folder: string) => {
+    const base = listed(chosen.map((id) => t(APP_TEMPLATES[id].short)));
+    const taken = (n: string) => folders.some((f) => f.toLowerCase() === (folder ? `${folder}/${n}` : n).toLowerCase());
+    let free = base;
+    for (let i = 2; taken(free); i++) free = `${base} ${i}`;
+    return free;
+  };
   const [place, setPlace] = useState<FolderChoice>(() => ({ folder: folders.includes(folder) ? folder : (folders[0] ?? ''), create: false }));
   const [currencies, setCurrencies] = useState<string[]>(() => [localCurrency()]);
   // An app's own templates are read with the answers they were set up with.
@@ -243,6 +252,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
     }
     busy.current = true;
     const ahead = steps[at + 1];
+    if (ahead === 'app' && !app && !nameTyped && chosen.length > 0) setName(freeName(place.folder));
     // The name and the currencies are checked on their page; everything before the summary.
     if (step === 'app' || ahead === 'summary') {
       const made = await planned();
@@ -305,11 +315,15 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
           name={name}
           onName={(value) => {
             setName(value);
+            setNameTyped(true);
             setProblems([]);
           }}
           folders={folders}
           place={place}
-          onPlace={setPlace}
+          onPlace={(to) => {
+            setPlace(to);
+            if (!nameTyped && chosen.length > 0) setName(freeName(to.folder));
+          }}
           money={money}
           currencies={currencies}
           onCurrencies={setCurrencies}
@@ -656,7 +670,7 @@ function QuestionsPage({ id, chosen, installed, answers, onAnswer, was, from, on
   onFrom?: (key: string, from: (number | null)[]) => void;
   /** Editing: how many items of a list are added, typed anew or taken off. */
   changes?: (key: string) => number;
-  /** Editing: a list's items as they are typed, an empty one too, for where each came from to keep to them. */
+  /** A list's items as they are typed, an empty one too: + Add's new one shows to be typed in, and editing, where each came from keeps to them. */
   typed?: (key: string) => string[] | undefined;
 }) {
   const asked = askedQuestions(APP_TEMPLATES[id], chosen, answers);
@@ -683,7 +697,8 @@ function QuestionsPage({ id, chosen, installed, answers, onAnswer, was, from, on
           </span>
           <Control
             question={q}
-            value={answers[q.key] ?? q.default}
+            // A list as it is typed: its answer leaves an empty item out, which + Add has just put there.
+            value={q.kind === 'list' ? (typed?.(q.key) ?? answers[q.key] ?? q.default) : (answers[q.key] ?? q.default)}
             onChange={(value, moved) => {
               if (moved) onFrom?.(q.key, moved);
               onAnswer(q.key, value);

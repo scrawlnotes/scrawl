@@ -768,6 +768,7 @@ export const en = {
   'phone.recordIn': 'Record in {collection}',
   'phone.openAsNote': 'Open as note',
   'phone.sumOf': 'Sum of {field}',
+  'phone.ofCount': '{ticked} of {count}',
   'phone.createNamed': 'Create {name}',
   'phone.newKey': 'New key',
   'phone.noRecent': 'Nothing opened yet',
