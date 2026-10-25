@@ -2,6 +2,12 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.18
+
+Spaces no longer sync over and over with nothing to sync.
+
+- On Windows, every space started a sync again a second or a few seconds after its last one, with nothing changed: the app took the note it keeps of each sync for another program writing in the space. It syncs now when something changed, and checks now and then as before.
+
 ## 0.1.17
 
 An app opens as an app, with its Home and its menu; a record's lines are written inside it; Edit menu and an app of your own; Gym as its mockup has it.
