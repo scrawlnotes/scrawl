@@ -32,6 +32,7 @@ import {
   type LinkedBlock,
   type LinkedStyle,
   linkFieldsTo,
+  changesInTable,
   linkingCollections,
   showsLines,
   mixedCurrency,
@@ -1109,10 +1110,10 @@ function BlockEditor({ block, dir, collections, buttons, onRules, onChange, onDe
       ? t('fields.linkedNone', { collection: name })
       : t(style === 'timeline' ? 'fields.linkedTimeline' : style === 'table' ? 'fields.linkedTable' : 'fields.linkedList', { collection: name.toLowerCase(), field: back.join(' / ') });
   const restyle = (next: LinkedStyle) => {
-    const { sort: _sort, dir: _dir, fields: _fields, sums: _sums, group: _group, ...rest } = block;
-    // A list and a table keep the fields they show, and the order; a table its sums and its groups.
+    const { sort: _sort, dir: _dir, fields: _fields, sums: _sums, group: _group, edit: _edit, ...rest } = block;
+    // A list and a table keep the fields they show, and the order; a table its sums, its groups and what it changes.
     const kept = next !== 'timeline' && style !== 'timeline';
-    onChange({ ...rest, style: next, ...(kept && block.fields && { fields: block.fields }), ...(kept && block.sort && { sort: block.sort, ...(block.dir && { dir: block.dir }) }), ...(next === 'table' && block.sums && { sums: true }), ...(next === 'table' && block.group && { group: block.group }) });
+    onChange({ ...rest, style: next, ...(kept && block.fields && { fields: block.fields }), ...(kept && block.sort && { sort: block.sort, ...(block.dir && { dir: block.dir }) }), ...(next === 'table' && block.sums && { sums: true }), ...(next === 'table' && block.group && { group: block.group }), ...(next === 'table' && block.edit && { edit: block.edit }) });
   };
   // A table's rows in groups by a field or two (design/gym.md 4.2): a choice, a link, a person or a tick.
   const groupable: Option[] = [{ value: '', label: t('fields.noGroup'), chip: false }, ...fields.filter((f) => ['select', 'link', 'person', 'checkbox'].includes(f.type) && !(source && linkFieldsTo(source.schema, dir).includes(f))).map((f) => ({ value: f.key, label: t('fields.groupBy', { field: f.label }), chip: false }))];
@@ -1159,6 +1160,23 @@ function BlockEditor({ block, dir, collections, buttons, onRules, onChange, onDe
             onChange={(picked) => {
               const { fields: _fields, ...rest } = block;
               onChange(picked.length > 0 ? { ...rest, fields: picked } : rest);
+            }}
+          />
+        </div>
+      )}
+      {/* The ticks and choices the table changes where they are, a workout's moves ticked off; none unless picked. */}
+      {style === 'table' && fields.some(changesInTable) && (
+        <div className="fe-row">
+          <span className="fe-name">{t('fields.edited')}</span>
+          <MultiPicker
+            className="in"
+            options={fields.filter(changesInTable).map((f) => ({ value: f.key, label: f.label, chip: false }))}
+            picked={(block.edit ?? []).filter((k) => fields.some((f) => f.key === k && changesInTable(f)))}
+            label={t('fields.edited')}
+            empty={t('collection.none')}
+            onChange={(picked) => {
+              const { edit: _edit, ...rest } = block;
+              onChange(picked.length > 0 ? { ...rest, edit: picked } : rest);
             }}
           />
         </div>

@@ -1,5 +1,5 @@
 import { type Field, type OptionColor, optionColor } from '@scrawlnotes/core';
-import { type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type CSSProperties, Fragment, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { pageBox, pageWindow } from './device';
 
@@ -51,6 +51,8 @@ export interface Option {
   hint?: string;
   /** Shown faint, and not picked. */
   disabled?: boolean;
+  /** A heading over it, where a part of the list starts: a table's columns, then what is changed in it. */
+  head?: string;
 }
 
 /** The choices of a field as options, in the colors the schema gives them. */
@@ -150,22 +152,28 @@ export function OptionList({ anchor, options, current, label, keys, onPick, onCl
       {options.map((option, index) => {
         const on = option.value !== null && current.includes(option.value);
         return (
-          <button
-            key={option.value ?? '\u0000'}
-            type="button"
-            role="option"
-            aria-selected={on}
-            aria-disabled={option.disabled || undefined}
-            tabIndex={-1}
-            className={[index === at && !option.disabled && 'at', option.apart && 'apart', option.disabled && 'off'].filter(Boolean).join(' ') || undefined}
-            onMouseDown={(event) => event.preventDefault()}
-            onMouseMove={() => index !== at && !option.disabled && setAt(index)}
-            onClick={() => !option.disabled && onPick(option.value)}
-          >
-            <span className="nm">{option.chip ? <Chip text={option.label} color={option.color} /> : <span className={option.value === null ? 'none' : undefined}>{option.label}</span>}</span>
-            {option.hint && <small className="hint">{option.hint}</small>}
-            <span className="tick">{on ? '✓' : ''}</span>
-          </button>
+          <Fragment key={option.value ?? '\u0000'}>
+            {option.head && (
+              <div className="ohead" role="presentation">
+                {option.head}
+              </div>
+            )}
+            <button
+              type="button"
+              role="option"
+              aria-selected={on}
+              aria-disabled={option.disabled || undefined}
+              tabIndex={-1}
+              className={[index === at && !option.disabled && 'at', option.apart && 'apart', option.disabled && 'off'].filter(Boolean).join(' ') || undefined}
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseMove={() => index !== at && !option.disabled && setAt(index)}
+              onClick={() => !option.disabled && onPick(option.value)}
+            >
+              <span className="nm">{option.chip ? <Chip text={option.label} color={option.color} /> : <span className={option.value === null ? 'none' : undefined}>{option.label}</span>}</span>
+              {option.hint && <small className="hint">{option.hint}</small>}
+              <span className="tick">{on ? '✓' : ''}</span>
+            </button>
+          </Fragment>
         );
       })}
     </div>,
@@ -235,10 +243,12 @@ export function Picker({ options, value, label, text, onPick, className }: {
 }
 
 /** Several choices from a list: the ones picked as chips in the box, the list stays open while picking. */
-export function MultiPicker({ options, picked, label, onChange, className }: {
+export function MultiPicker({ options, picked, label, empty, onChange, className }: {
   options: Option[];
   picked: string[];
   label: string;
+  /** What the box says with none picked, when a label beside it says what it is; its label else. */
+  empty?: string;
   onChange: (picked: string[]) => void;
   className?: string;
 }) {
@@ -259,7 +269,7 @@ export function MultiPicker({ options, picked, label, onChange, className }: {
       >
         <span className="nm">
           {picked.length === 0 ? (
-            <span className="none">{label}</span>
+            <span className="none">{empty ?? label}</span>
           ) : (
             picked.map((p) => {
               const option = options.find((o) => o.value === p);

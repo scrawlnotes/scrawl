@@ -48,7 +48,7 @@ export const gym: AppTemplate = {
       app.field('programs', multi('days', 'Days', WEEKDAYS));
       app.field('programs', { ...day('from', 'From', true), required: true });
     }
-    app.field('programs', text('duration', 'Duration'));
+    app.field('programs', number('duration', 'Duration', { format: { style: 'duration' } }));
     app.field('programs', rollup('items', 'Items', app.path('program-items'), 'count'));
     app.field('programs', rollup('done', 'Done', workouts, 'count', undefined, [{ field: 'status', op: 'is', value: ['Done'] }]));
     app.field('programs', rollup('last', 'Last', workouts, 'max', 'day', [{ field: 'status', op: 'is', value: ['Done'] }]));
@@ -72,10 +72,11 @@ export const gym: AppTemplate = {
     app.field('program-items', select('part', 'Part', PARTS, PART_COLORS, 'Workout'));
     app.field('program-items', number('order', 'Order'));
     app.field('program-items', { ...link('exercise', 'Exercise', app.path('exercises')), required: true });
-    app.field('program-items', text('sets', 'Sets'));
-    app.field('program-items', text('reps', 'Reps'));
-    app.field('program-items', text('time', 'Time'));
-    app.field('program-items', text('rest', 'Rest'));
+    // Each a number, the time and the rest durations to the second: what a workout takes from it and counts with.
+    app.field('program-items', number('sets', 'Sets'));
+    app.field('program-items', number('reps', 'Reps'));
+    app.field('program-items', number('time', 'Time', { format: { style: 'duration' } }));
+    app.field('program-items', number('rest', 'Rest', { format: { style: 'duration' } }));
     app.field('program-items', text('note', 'Note'));
     app.rule('program-items', { kind: 'onSave', name: 'Its name', src: 'onSave("Its name", () => {\n  if (empty(name) && !empty(exercise)) name = exercise.name\n})' });
 
@@ -100,16 +101,18 @@ export const gym: AppTemplate = {
       fields: sets ? ['done', 'exercise', 'set', 'reps', 'kg', 'last_time'] : ['done', 'exercise', 'sets', 'reps', 'kg', 'time', 'last_time'],
       sort: 'order',
       group: sets ? ['part', 'exercise'] : ['part'],
+      // A move is ticked off where it is, at a click.
+      edit: ['done'],
     });
     const called = app.called('workout-items');
     // The items of the program picked, each ticked, its weight as the last time it was done.
-    const line = (extra: string) => `{ name: i.exercise.name, exercise: i.exercise, part: i.part, order: i.order, done: true, day: day, reps: number(i.reps), time: i.time${extra} }`;
+    const line = (extra: string) => `{ name: i.exercise.name, exercise: i.exercise, part: i.part, order: i.order, done: true, day: day, reps: i.reps, time: i.time${extra} }`;
     const fill = sets
       ? `onChange("program", "Fill from the program", () => {
   for (const i of find("${programItems}", { program: program })) {
     const before = find("${called}", { exercise: i.exercise, done: true }).filter((w) => w.day < day && w.set < 2)
     const last = before.filter((b) => b.day == max(before.map((w) => w.day)))
-    const count = empty(number(i.sets)) ? 1 : number(i.sets)
+    const count = empty(i.sets) ? 1 : i.sets
     for (const s of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((n) => n <= count)) {
       if (last.length > 0) add("${called}", ${line(', set: s, kg: last[0].kg, last_time: text(last[0].kg) + " kg × " + text(last[0].reps)')})
       else add("${called}", ${line(', set: s')})
@@ -120,8 +123,8 @@ export const gym: AppTemplate = {
   for (const i of find("${programItems}", { program: program })) {
     const before = find("${called}", { exercise: i.exercise, done: true }).filter((w) => w.day < day)
     const last = before.filter((b) => b.day == max(before.map((w) => w.day)))
-    if (last.length > 0) add("${called}", ${line(', sets: number(i.sets), kg: last[0].kg, last_time: text(last[0].kg) + " kg · " + text(last[0].sets) + " × " + text(last[0].reps)')})
-    else add("${called}", ${line(', sets: number(i.sets)')})
+    if (last.length > 0) add("${called}", ${line(', sets: i.sets, kg: last[0].kg, last_time: text(last[0].kg) + " kg · " + text(last[0].sets) + " × " + text(last[0].reps)')})
+    else add("${called}", ${line(', sets: i.sets')})
   }
 })`;
     app.rule('gym-workouts', { kind: 'onChange', name: 'Fill from the program', src: fill });
@@ -143,7 +146,7 @@ export const gym: AppTemplate = {
     else app.field('workout-items', number('sets', 'Sets'));
     app.field('workout-items', number('reps', 'Reps'));
     app.field('workout-items', number('kg', 'Kg'));
-    app.field('workout-items', text('time', 'Time'));
+    app.field('workout-items', number('time', 'Time', { format: { style: 'duration' } }));
     app.field('workout-items', text('last_time', 'Last time'));
     app.field('workout-items', day('day', 'Day'));
     app.field('workout-items', formula('recent', 'Last 4 weeks', '!empty(day) && today() - day < 28'));

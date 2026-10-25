@@ -97,6 +97,8 @@ export interface CollectionLook {
   group?: string | null;
   columns?: string[];
   widths?: ColumnWidths;
+  /** The fields changed in the plain table, by key. */
+  edit?: string[];
   /** The records whose lines are open under their rows (design/app-home.md 4.2), by id. */
   opened?: string[];
   /** No ▸ at the start of the rows: their lines are not opened under them. */
@@ -1241,12 +1243,13 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
     if (data.collections && typeof data.collections === 'object') {
       for (const [path, look] of Object.entries(data.collections as Record<string, unknown>)) {
         if (!look || typeof look !== 'object') continue;
-        const { view, sort, group, columns, widths, opened, lines } = look as Partial<CollectionLook>;
+        const { view, sort, group, columns, widths, edit, opened, lines } = look as Partial<CollectionLook>;
         const read: CollectionLook = {};
         if (typeof view === 'string' || view === null) read.view = view;
         if (sort && typeof sort === 'object' && typeof sort.key === 'string' && (sort.dir === 'asc' || sort.dir === 'desc')) read.sort = { key: sort.key, dir: sort.dir };
         if (typeof group === 'string' || group === null) read.group = group;
         if (Array.isArray(columns)) read.columns = columns.filter((c): c is string => typeof c === 'string');
+        if (Array.isArray(edit)) read.edit = edit.filter((k): k is string => typeof k === 'string');
         const sized = readWidths(widths);
         if (sized) read.widths = sized;
         if (Array.isArray(opened)) read.opened = opened.filter((id): id is string => typeof id === 'string');

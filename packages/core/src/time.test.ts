@@ -46,6 +46,7 @@ describe('a day with its time', () => {
     expect(timeOf('2026-10-22T14:30')).toBe('14:30');
     expect(timeOf('2026-10-22')).toBeNull();
     expect([minutesOf('90'), minutesOf('1:30'), minutesOf('1 h 30 min'), minutesOf('2h'), minutesOf('45 min'), minutesOf('soon')]).toEqual([90, 90, 90, 120, 45, null]);
+    expect([minutesOf('90 s'), minutesOf('30 sec'), minutesOf('1 min 30 s'), minutesOf('1.5'), minutesOf('2 min')]).toEqual([1.5, 0.5, 1.5, 1.5, 2]);
   });
 
   it('is kept where the field has a time, and a day alone where it has not', () => {
@@ -65,6 +66,7 @@ describe('a day with its time', () => {
     expect(valueText('2026-10-22T14:30')).toBe('2026-10-22 14:30');
     expect([durationText(90), durationText(45), durationText(60), durationText(0), durationText(-30)]).toEqual(['1 h 30 min', '45 min', '1 h', '0 min', '−30 min']);
     expect(formatNumber(135, { style: 'duration' })).toBe('2 h 15 min');
+    expect([durationText(1.5), durationText(0.5), durationText(2), durationText(60.5)]).toEqual(['1 min 30 s', '30 s', '2 min', '1 h 30 s']);
   });
 });
 

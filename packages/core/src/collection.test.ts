@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addRecord,
+  changesInTable,
   indexPath,
   saveSchema,
   columnSum,
@@ -703,6 +704,17 @@ describe('linked records as a table', () => {
     expect(items[1]).toEqual({ block: 'linked', collection: 'Atlas/Transactions', style: 'table' });
     expect(items[2]).toEqual({ block: 'linked', collection: 'X' });
     expect(parseSchema(serializeSchema(read)).layout).toEqual(read.layout);
+  });
+
+  it('keeps what a table changes where it is: a block’s ticks and choices, a view’s of its fields', () => {
+    const fields = [{ key: 'name', type: 'name' }, { key: 'done', type: 'checkbox' }, { key: 'status', type: 'select', options: ['Done'] }, { key: 'kg', type: 'number' }];
+    const block = { block: 'linked', collection: 'Gym/Workout items', style: 'table', edit: ['done'] };
+    const views = [{ id: 'v', name: 'All', conditions: [], edit: ['status', 'kg', 'gone'] }];
+    const read = parseSchema(JSON.stringify({ version: 2, fields, views, layout: { columns: [{ sections: [{ items: [block, { ...block, edit: [] }] }] }] } }));
+    expect(read.layout!.columns[0]!.sections[0]!.items).toEqual([block, { block: 'linked', collection: 'Gym/Workout items', style: 'table' }]);
+    // A view changes only its ticks and choices: a number or a field it does not have is left out.
+    expect(read.views![0]!.edit).toEqual(['status']);
+    expect(read.fields.map((f) => changesInTable(f))).toEqual([false, true, true, false]);
   });
 
   it('groups a linked table by a field, and in each by a second in the order the records come', () => {

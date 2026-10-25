@@ -92,14 +92,15 @@ export function dateOf(text: string, time = false): string | null {
 /** The time of a date's value, `14:30`; null for a day alone. */
 export const timeOf = (value: string): string | null => (value.length > 10 && value[10] === 'T' ? value.slice(11, 16) : null);
 
-/** Minutes typed as a duration: `90`, `1:30`, `1 h 30 min`, `2h`; null when it is not one. */
+/** Minutes typed as a duration: `90`, `1.5`, `1:30`, `1 h 30 min`, `2h`, `90 s`, `1 min 30 s`; null when it is not one. Kept to the second. */
 export function minutesOf(text: string): number | null {
   const t = text.trim().toLowerCase();
   if (!t) return null;
-  if (/^\d+(?:[.,]\d+)?$/.test(t)) return Math.round(Number(t.replace(',', '.')));
+  const toSecond = (minutes: number) => Math.round(minutes * 60) / 60;
+  if (/^\d+(?:[.,]\d+)?$/.test(t)) return toSecond(Number(t.replace(',', '.')));
   const clock = /^(\d+):(\d{2})$/.exec(t);
   if (clock) return Number(clock[1]) * 60 + Number(clock[2]);
-  const words = /^(?:(\d+(?:[.,]\d+)?)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:in(?:utes?|s)?)?)?$/.exec(t);
-  if (words && (words[1] || words[2])) return Math.round(Number((words[1] ?? '0').replace(',', '.')) * 60) + Number(words[2] ?? 0);
+  const words = /^(?:(\d+(?:[.,]\d+)?)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:in(?:utes?|s)?)?)?\s*(?:(\d+)\s*s(?:ec(?:onds?|s)?)?)?$/.exec(t);
+  if (words && (words[1] || words[2] || words[3])) return toSecond(Number((words[1] ?? '0').replace(',', '.')) * 60 + Number(words[2] ?? 0) + Number(words[3] ?? 0) / 60);
   return null;
 }

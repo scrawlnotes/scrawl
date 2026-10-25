@@ -38,7 +38,7 @@ Beş koleksiyon ve tanıtım notu. Roller (`design/scrawl-apps.md` 4.1): `progra
 | Name | ad | "3 Gün Full Body" |
 | Days | çoklu seçim | Mon … Sun; yalnız `days` Evet ise |
 | From | tarih | yalnız `days` Evet ise; varsayılan kurulduğu gün; günler bu günden sayılır |
-| Duration | metin | "45–60 min" |
+| Duration | süre | 60 min |
 | Notes | gövde | yoğunluk, ilerleme kuralı, boş gün kardiyosu: düz metin |
 | Items | rollup | Program items sayısı |
 | Done | rollup | Done durumundaki gidiş sayısı |
@@ -54,13 +54,13 @@ Ekranında solda alanlar ve not, sağda **Items** tablosu bölümlerine göre gr
 | Part | seçim | Warm-up, Workout, Cool-down, Cardio |
 | Order | sayı | bölüm içindeki sıra; tabloda sürükleyince değişir |
 | Exercise | link · Exercises | zorunlu; yazılan ad yoksa Exercises'e eklenir |
-| Sets | metin | "3", "1–2" |
-| Reps | metin | "12", "10–10" |
-| Time | metin | "5 min", "20–30 s" |
-| Rest | metin | "90 s", "2 min" |
+| Sets | sayı | 3 |
+| Reps | sayı | 12; iki yana yapılan hareketin notunda "Each side" |
+| Time | süre | 5 min, 30 s |
+| Rest | süre | 1 min 30 s, 2 min |
 | Note | metin | "Göğüs seviyesinde itin" |
 
-Sets ve Reps metindir: programda aralık yazılır ("8–12").
+Hepsi tek sayıdır, aralık yazılmaz: gidiş onları olduğu gibi alır, hesaba katılır ve sıralanır (25 Ekim). Süre saniyeyle de yazılır: "90 s", "1 min 30 s".
 
 ### 3.3 Workouts
 
@@ -93,7 +93,7 @@ Kontroller:
 | Sets | sayı | yalnız `sets` Hayır ise |
 | Reps | sayı | |
 | Kg | sayı | |
-| Time | metin | |
+| Time | süre | |
 | Last time | metin | doldururken yazılır: "42,5 kg · 3 × 12" |
 | Day | tarih | gidişin gününü alır (Spor'daki Sets gibi) |
 
@@ -127,7 +127,7 @@ onChange("program", "Fill from the program", () => {
     const before = find("Workout items", { exercise: i.exercise, done: true }).filter((w) => w.day < day)
     const last = before.find((w) => w.day == max(before.map((b) => b.day)))
     add("Workout items", { exercise: i.exercise, part: i.part, order: i.order, done: true,
-      sets: number(i.sets), reps: number(i.reps), time: i.time,
+      sets: i.sets, reps: i.reps, time: i.time,
       kg: empty(last) ? null : last.kg, last_time: empty(last) ? "" : text(last.kg) + " kg · " + text(last.sets) + " × " + text(last.reps) })
   }
 })
@@ -205,7 +205,7 @@ Cevaba göre değişir: `days` Hayır ise Today satırları yok, `sets` Evet ise
 24 Ekim'de önerilerle kapandı.
 
 1. **Spor ve Gym aynı app'te:** Exercises ortak olur (rol `exercises`), ikisinin alanları birleşir. Spor da kuruluysa Gym'in gidiş koleksiyonu "Gym workouts" adını alır.
-2. **Programda aralıkla yazılan tekrar ("8–12"):** gidişe üst sınır gelir; ilerleme kuralı üst sınırı hedef alır. `number("8–12")` 12 verir.
+2. **Programda aralıkla yazılan tekrar ("8–12"):** gidişe üst sınır gelir; ilerleme kuralı üst sınırı hedef alır. `number("8–12")` 12 verir. 25 Ekim: programda aralık kalktı, Sets ve Reps sayı, Time ve Rest saniyeli süre; hazır programda aralığın üstü yazıldı.
 3. **Overdue:** `from`'dan bu yana yazılmayan bütün program günleri durur.
 4. **Dilimler:** her biri ayrı kart.
    1. `onChange` ve taslak satırlar, bağlı tabloda gruplama.

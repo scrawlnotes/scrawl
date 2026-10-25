@@ -1,4 +1,4 @@
-import { durationText, minutesOf, timeOf } from '@scrawlnotes/core';
+import { durationText, durationTyped, minutesOf, timeOf } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
@@ -76,8 +76,9 @@ export function DurationBox({ id, label, value, autoFocus, onChange, onEnter }: 
   onChange: (value: number | null) => void;
   onEnter?: () => void;
 }) {
-  // What is being typed, while it is; the minutes otherwise.
+  // What is being typed, while it is; the minutes otherwise, or the seconds, 90 s, how long beside them when it says more.
   const [typed, setTyped] = useState<string | null>(null);
+  const plain = value === null ? '' : durationTyped(value);
   return (
     <span className="durbox">
       <input
@@ -87,8 +88,8 @@ export function DurationBox({ id, label, value, autoFocus, onChange, onEnter }: 
         autoComplete="off"
         autoFocus={autoFocus}
         aria-label={label}
-        value={typed ?? (value === null ? '' : String(value))}
-        onFocus={() => setTyped(value === null ? '' : String(value))}
+        value={typed ?? plain}
+        onFocus={() => setTyped(plain)}
         onBlur={() => setTyped(null)}
         onChange={(event) => {
           setTyped(event.target.value);
@@ -98,7 +99,7 @@ export function DurationBox({ id, label, value, autoFocus, onChange, onEnter }: 
         }}
         onKeyDown={(event) => onEnter && event.key === 'Enter' && (event.preventDefault(), onEnter())}
       />
-      {value !== null && <span className="unit">{durationText(value)}</span>}
+      {value !== null && durationText(value) !== plain && <span className="unit">{durationText(value)}</span>}
     </span>
   );
 }

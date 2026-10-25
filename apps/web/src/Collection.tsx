@@ -15,6 +15,7 @@ import {
   computerFor,
   actionsOf,
   actionState,
+  changesInTable,
   planSave,
   recordWith,
   changesOf,
@@ -111,7 +112,6 @@ import {
   type ReactNode,
   type RefObject,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -121,7 +121,6 @@ import { CalendarNav, CalendarViewDialog, calendarStatus, CollectionCalendar, fi
 import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { fieldChoices, LabelsField } from './labels';
 import { FieldsDialog } from './Fields';
-import { CellEditor, useGrid } from './Grid';
 import { isPhone, onPage } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { AttachButton } from './Description';
@@ -208,68 +207,96 @@ export interface CollectionActions {
 const MANY_ROWS = 20;
 const SHOWN_FIRST = 15;
 
-// ---------- column widths ----------
+// ---------- tables ----------
 
-/**
- * How wide a column is, by its field's type, in pixels: the narrowest it is made to fit the
- * window, and the width it has when there is room; the name is widest, the code narrow.
- */
-const WIDTHS: { [type in Field['type']]: [number, number] } = {
-  text: [100, 160],
-  number: [76, 110],
-  date: [92, 136],
-  time: [64, 80],
-  select: [92, 132],
-  'multi-select': [110, 176],
-  checkbox: [56, 80],
-  url: [120, 184],
-  email: [130, 200],
-  phone: [104, 140],
-  person: [84, 124],
-  link: [120, 184],
-  formula: [76, 110],
-  lookup: [100, 160],
-  rollup: [92, 120],
-  name: [160, 240],
-  code: [80, 112],
+// Every table of records is one kind of table (the collection's, a record's linked records, its
+// lines under its row): a column a field, each as wide as its values, a long text cut short; a row
+// opens its record at a click, its ··· at its end, and the right click, the same menu: Open, the
+// rules' buttons, Delete. Nothing is typed in a cell; only the fields the table is told to change
+// are, a tick at a click, a choice from its list (`changesInTable`).
+
+/** How wide the values of a type go before they are cut short; the others are as wide as what they hold. */
+const MAX_WIDTH: Partial<{ [type in Field['type']]: number }> = {
+  name: 280,
+  text: 240,
+  link: 200,
+  lookup: 200,
+  formula: 200,
+  'multi-select': 220,
+  url: 220,
+  email: 220,
 };
 /** A column dragged narrower than this stops there. */
-const MIN_WIDTH = 56;
-/** The room between two columns. */
-const GAP = 12;
-/** The room left and right of the rows, inside the table's scrolling box; the first and last cells pad their text by as much again. */
-const SIDES = 8;
-/** How much a column other than the first grows to fill a wide window: half its width again at most. */
-const GROW = 0.5;
+const MIN_WIDTH = 40;
 
-/** A day with its time is wider: the day and the clock, or the boxes of both while it is typed. */
-const DATE_TIME: [number, number] = [180, 244];
+/** A cell's box: its value on one line, cut short at its column's width, the one it was dragged to or its type's. */
+const cellBox = (field: Field, width?: number): CSSProperties | undefined =>
+  width ? { width, maxWidth: width } : MAX_WIDTH[field.type] ? { maxWidth: MAX_WIDTH[field.type] } : undefined;
 
-const widthsOf = (field: Field) => (field.type === 'date' && field.time ? DATE_TIME : WIDTHS[field.type]);
+/** What a value cut short says in full when pointed at. */
+const cutText = (field: Field, value: FieldValue | undefined) => (MAX_WIDTH[field.type] && !isEmpty(value) ? valueText(value) : undefined);
+
+/** A row's keys: Enter opens it, the arrows go to the row above or below it. */
+function rowKeys(event: KeyboardEvent<HTMLTableRowElement>, open: () => void) {
+  if (event.target !== event.currentTarget) return;
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    open();
+    return;
+  }
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+  event.preventDefault();
+  const rows = [...(event.currentTarget.closest('table')?.querySelectorAll<HTMLTableRowElement>(':scope > tbody > tr.rec') ?? [])];
+  rows[rows.indexOf(event.currentTarget) + (event.key === 'ArrowDown' ? 1 : -1)]?.focus();
+}
 
 /**
- * The widths of the columns. Ones dragged keep the width they were left at, the others have
- * theirs. With none dragged they fill `room`: in a wide window every other column grows by up to
- * half again and the first takes what is left; in a narrow one they all give up the same share of
- * what they can give, down to the narrowest each is made; only below that does the table scroll.
+ * A cell the table changes: a tick turns at a click, a choice is picked from its list under it.
+ * Its clicks stay in it, the list's too: the row does not open.
  */
-function columnWidths(fields: Field[], saved: ColumnWidths | undefined, room: number): number[] {
-  if (saved) return fields.map((f) => saved[f.key] ?? widthsOf(f)[1]);
-  const least = fields.map((f) => widthsOf(f)[0]);
-  const base = fields.map((f) => widthsOf(f)[1]);
-  const total = (widths: number[], from = 0) => widths.reduce((sum, w, i) => (i < from ? sum : sum + w), 0);
-  let widths: number[];
-  if (room >= total(base)) {
-    const others = total(base, 1);
-    const grow = others > 0 ? Math.min(room - total(base), others * GROW) / others : 0;
-    widths = base.map((w, i) => (i === 0 ? w : Math.floor(w * (1 + grow))));
-  } else if (room > total(least)) {
-    const share = (room - total(least)) / (total(base) - total(least));
-    widths = base.map((w, i) => Math.floor(least[i]! + (w - least[i]!) * share));
-  } else return least;
-  // The first column takes what is left, the rounding of the others too.
-  widths[0] = room - total(widths, 1);
-  return widths;
+function ChangeCell({ field, value, onChange }: { field: Field; value: FieldValue | undefined; onChange: (value: FieldValue) => void }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLButtonElement>(null);
+  const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
+  if (field.type === 'checkbox') {
+    const on = value === true;
+    return (
+      <button type="button" role="checkbox" aria-checked={on} aria-label={field.label} className={on ? 'tick cbx on' : 'tick cbx'} onClick={(event) => (event.stopPropagation(), onChange(!on))}>
+        {on && <Icon name="check" />}
+      </button>
+    );
+  }
+  const now = typeof value === 'string' && value ? value : null;
+  const options: Option[] = [
+    ...(!field.required ? [{ value: null, label: t('collection.none'), chip: false }] : []),
+    ...choiceOptions(field, field.options ?? []),
+    ...(now && !field.options?.includes(now) ? choiceOptions(field, [now]) : []),
+  ];
+  return (
+    <span className="tchange" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+      <button ref={box} type="button" className="tchoice" aria-haspopup="listbox" aria-expanded={open} aria-label={field.label} onClick={() => setOpen(!open)} onKeyDown={boxKeys(open, setOpen, keys)}>
+        {now ? <Chip text={now} color={optionColor(field, now)} /> : <span className="empty">–</span>}
+        <span className="dd" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+      {open && (
+        <OptionList
+          anchor={box}
+          options={options}
+          current={now ? [now] : []}
+          label={field.label}
+          keys={keys}
+          width={140}
+          onPick={(picked) => {
+            setOpen(false);
+            if (picked !== now) onChange(picked);
+          }}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </span>
+  );
 }
 
 /** The column of a collection with no fields yet: the records by what they are called, "Untitled". */
@@ -938,21 +965,23 @@ export function withDrafts(all: Collection[], drafted: readonly Change[]): Colle
 interface LinkedDrafts {
   /** The rows added to a collection, as records not written yet. */
   rows: (source: Collection) => Record[];
-  /** A row typed in. */
+  /** A row changed: in its window, or a tick in the table. */
   write: (source: Collection, id: string, values: Record['values']) => void;
   /** A row added with + Add row. */
   add: (source: Collection, values: Record['values']) => void;
+  /** A row taken out with Delete. */
+  remove: (source: Collection, id: string) => void;
 }
 
 /**
- * Linked records as a table, after the slice 3 views of design/mockups.html: a column for each
- * field the block shows, its cells typed in as the collection's table's are, the sums of its
- * numbers under it when the block says so, and + Add row, which adds one linked to the record.
- * A record opens over this one from the button at the start of its row, or from its name. In
- * groups by one field or two when the block says so (design/gym.md 4.2): each group's heading
- * says what it is and how many, with Untick all where a column ticks, and + Add to it; a second
- * level's heading ticks its rows or unticks them. In a form whose rules add rows as it is typed in,
- * those rows are among the others, typed in and added to as they are, written on Save.
+ * Linked records as a table: a column for each field the block shows, the sums of its numbers
+ * under it when the block says so, and + Add row, which opens a new one linked to the record. A
+ * row opens its record over this one; its ··· and the right click, Open, its buttons, Delete. The
+ * fields the block's `edit` names change where they are: a workout's moves ticked off. In groups
+ * by one field or two when the block says so (design/gym.md 4.2): each group's heading says what
+ * it is and how many, with Untick all where the table ticks, and + Add to it; a second level's
+ * heading ticks its rows or unticks them. In a form whose rules add rows as it is typed in, those
+ * rows are among the others, changed and opened as they are, written on Save.
  */
 function LinkedTable({ block, source, dir, record, today, actions, drafts, hint, onOpen, onAdd }: {
   block: LinkedBlock;
@@ -977,8 +1006,7 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
   const recordSchema = actions.collection(dir)?.schema;
   const lines = showsLines(block, recordSchema?.role, schema.role);
   const columns = linkedColumns(block, schema, dir, lines);
-  // Where a row opens: its name, else in a table of lines its first column that is not a tick.
-  const openAt = columns.some((f) => f.type === 'name') ? columns.findIndex((f) => f.type === 'name') : Math.max(0, columns.findIndex((f) => f.type !== 'checkbox'));
+  const changes = new Set(columns.filter((f) => changesInTable(f) && block.edit?.includes(f.key)).map((f) => f.key));
   // A row not written yet gives way to its record once it is: as the form is saved.
   const written = linkedRecords(source, dir, record);
   const unsaved = (drafts?.rows(source) ?? []).filter((r) => !written.some((w) => w.id === r.id));
@@ -986,132 +1014,169 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
   const linked = [...written.map((r) => ({ ...r, values: computer.values(source.dir, r) })), ...unsaved.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) }))];
   const sorted = sortRecords(linked, schema, linkedSort(block, schema), today);
   const groups = groupLinked(sorted, schema, block.group ?? [], today);
-  // The rows in the order they are shown, group by group, for the keyboard to go through.
   const rows = groups.flatMap((g) => (g.groups ? g.groups.flatMap((s) => s.records) : g.records));
   const lit = useLit(source);
-  /** A cell typed in: a row not written yet in the form, one written at once. */
+  /** A cell changed: a row not written yet in the form, one written at once. */
   const write = (r: Record, field: Field, value: FieldValue) => {
     if (isDraft.has(r.id)) return drafts!.write(source, r.id, { [field.key]: value });
     lit.wrote(r.id, field.key, value);
     void actions.updateRecord(source.dir, r.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
   };
-  const grid = useGrid({ rows, fields: columns, open: (r) => onOpen(source, r), opener: lines ? columns[openAt]?.key : undefined, write });
   const numeric = (field: Field) => asShown(field).type === 'number';
   const cellClass = (field: Field, i: number) => [i === 0 && 'c0', numeric(field) && 'r'].filter(Boolean).join(' ') || undefined;
-  const widths = columns.map((f) => WIDTHS[asShown(f).type][0]);
   const sums = block.sums ? columns.map((f) => (numeric(f) ? columnSums(rows, schema, f.key, today) : null)) : [];
-  // The column that ticks a row off, for a group's Untick all and its rows' tick.
-  const tick = columns.find((f) => f.type === 'checkbox');
-  const ticked = (r: Record) => r.values[tick!.key] === true;
+  // The column that ticks a row off: how many are ticked, a row not ticked faint; where the table
+  // changes it, a group's Untick all and a second level's tick.
+  const tickColumn = columns.find((f) => f.type === 'checkbox');
+  const tick = tickColumn && changes.has(tickColumn.key) ? tickColumn : undefined;
+  const ticked = (r: Record) => r.values[tickColumn!.key] === true;
   const tickAll = (records: Record[], on: boolean) => records.filter((r) => ticked(r) !== on).forEach((r) => write(r, tick!, on));
+  const countOf = (of: Record[]) => (tickColumn && of.length > 0 ? t('collection.tickedOf', { ticked: of.filter(ticked).length, count: of.length }) : of.length);
   // + Add opens the row's window; + Add to a group starts it with the group's value.
   const startAdding = (group: { key: string; records: Record[] } | null) => {
-    grid.clear();
     const first = block.group?.[0];
     onAdd(source, { ...(recordSchema ? linkedValues(schema, dir, record, recordSchema) : {}), ...(group && first ? { [first]: group.records[0]?.values[first] ?? null } : {}) });
   };
+  const buttons = useMemo(() => actionsOf(source.rules), [source.rules]);
+  // A row's menu: Open, its buttons once it is written, Delete; a row not written yet leaves the form.
+  const rowMenu = (event: MouseEvent, r: Record) =>
+    actions.menu(
+      event,
+      [
+        { label: t('collection.open'), run: () => onOpen(source, r) },
+        ...(isDraft.has(r.id)
+          ? []
+          : buttons.map((button, i) => {
+              const state = actionState(source.rules ?? '', button, computer, source.dir, r);
+              return { label: button.name, icon: 'play' as const, run: () => actions.pressButton(source.dir, r.id, button.name), ...(!state.on && { disabled: state.hint ?? '' }), ...(i === 0 && { apart: true }) };
+            })),
+        { label: t('menu.delete'), run: () => (isDraft.has(r.id) ? drafts!.remove(source, r.id) : actions.removeRecord(source.dir, r)), apart: true, danger: true },
+      ],
+      { icon: 'collection', title: recordTitle(r), sub: collectionName(source.dir) },
+    );
+  const span = columns.length + 1;
   const row = (r: Record) => (
-    <div key={r.id} role="row" className={['crow', grid.picked?.id === r.id && 'on', isDraft.has(r.id) && 'draft', tick && !ticked(r) && 'off'].filter(Boolean).join(' ')}>
+    <tr
+      key={r.id}
+      className={['rec', isDraft.has(r.id) && 'draft', tickColumn && !ticked(r) && 'off'].filter(Boolean).join(' ')}
+      tabIndex={0}
+      onClick={() => onOpen(source, r)}
+      onContextMenu={(event) => rowMenu(event, r)}
+      onKeyDown={(event) => rowKeys(event, () => onOpen(source, r))}
+    >
       {columns.map((field, i) => {
-        const c = grid.cell(r, field);
+        const value = fieldValueOf(r, field, schema, today);
         return (
-          <div
-            key={field.key}
-            role="cell"
-            data-cell={c['data-cell']}
-            className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', (field.type === 'name' || (lines && i === openAt)) && 'opens', lit.on(r.id, field.key) && 'lit'].filter(Boolean).join(' ') || undefined}
-            onClick={c.onClick}
-            onDoubleClick={c.onDoubleClick}
-          >
-            {i === openAt && (
-              <button type="button" className="ropen" title={t('collection.openRecord')} aria-label={t('collection.openRecord')} onClick={(event) => (event.stopPropagation(), onOpen(source, r))}>
-                <Icon name="open" />
-              </button>
-            )}
-            {c.editing ? (
-              <CellEditor field={field} value={r.values[field.key]} typed={grid.editing?.typed} ctx={ctx} onDone={(value, then) => grid.done(r, field, value, then)} />
-            ) : field.key === TITLE.key ? (
-              <span className="ct name">{recordTitle(r)}</span>
-            ) : (
-              <Cell field={asShown(field)} value={fieldValueOf(r, field, schema, today)} ctx={ctx} values={r.values} />
-            )}
-          </div>
+          <td key={field.key} className={[cellClass(field, i), lit.on(r.id, field.key) && 'lit'].filter(Boolean).join(' ') || undefined}>
+            <div className="tc" style={cellBox(asShown(field))} title={cutText(asShown(field), value)}>
+              {changes.has(field.key) ? (
+                <ChangeCell field={field} value={r.values[field.key]} onChange={(next) => write(r, field, next)} />
+              ) : field.key === TITLE.key ? (
+                <span className="ct name">{recordTitle(r)}</span>
+              ) : (
+                <Cell field={asShown(field)} value={value} ctx={ctx} values={r.values} />
+              )}
+            </div>
+          </td>
         );
       })}
-    </div>
+      <td className="tend">
+        <button type="button" className="rmore" title={t('collection.menu')} aria-label={t('collection.menu')} onClick={(event) => (event.stopPropagation(), rowMenu(event, r))}>
+          ···
+        </button>
+      </td>
+    </tr>
   );
   return (
     <div className="blk ltable">
       <div className="blk-h">
         <span>{collectionName(block.collection)}</span>
-        <small>{tick && rows.length > 0 ? t('collection.tickedOf', { ticked: rows.filter(ticked).length, count: rows.length }) : rows.length}</small>
+        <small>{countOf(rows)}</small>
       </div>
-      <div className="ltable-scroll" hidden={!!hint && rows.length === 0}>
-        <div ref={grid.box} className="ctable" role="table" aria-label={collectionName(block.collection)} tabIndex={0} onKeyDown={grid.keyDown} style={{ '--grid': [`minmax(${widths[0]}px, 1fr)`, ...widths.slice(1).map((w) => `${w}px`)].join(' ') } as CSSProperties}>
-          <div className="crow head" role="row">
-            {columns.map((field, i) => (
-              <div key={field.key} role="columnheader" className={cellClass(field, i)}>
-                <span className="hs">{field.label}</span>
-              </div>
-            ))}
-          </div>
-          {groups.map((g) =>
-            !block.group?.length ? (
-              <Fragment key="all">{g.records.map(row)}</Fragment>
-            ) : (
-              <Fragment key={g.key || '-'}>
-                <div role="row" className="crow grp">
-                  <div role="cell" className="gh">
-                    <b>{g.label || t('collection.none')}</b>
-                    <small>{g.records.length}</small>
-                    {tick && g.records.some(ticked) && (
-                      <button type="button" className="gall" onClick={() => tickAll(g.records, false)}>
-                        {t('collection.untickAll')}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {g.groups
-                  ? g.groups.map((s) => (
-                      <Fragment key={s.key || '-'}>
-                        <div role="row" className="crow grp2">
-                          <div role="cell" className="gh">
-                            {tick && (
-                              <button type="button" role="checkbox" aria-checked={s.records.every(ticked)} className={s.records.every(ticked) ? 'gtick on' : 'gtick'} aria-label={s.label} onClick={() => tickAll(s.records, !s.records.every(ticked))}>
-                                {s.records.every(ticked) && <Icon name="check" />}
-                              </button>
-                            )}
-                            <b>{s.label || t('collection.none')}</b>
-                          </div>
-                        </div>
-                        {s.records.map(row)}
-                      </Fragment>
-                    ))
-                  : g.records.map(row)}
-                <button type="button" className="cadd gadd" onClick={() => startAdding(g)}>
-                  {t('collection.addTo', { group: g.label || t('collection.none') })}
-                </button>
-              </Fragment>
-            ),
-          )}
-          {block.sums && rows.length > 0 && (
-            <div className="crow sum" role="row">
+      <div className="ltable-scroll" hidden={rows.length === 0}>
+        <table className="rtable" aria-label={collectionName(block.collection)}>
+          <thead>
+            <tr>
               {columns.map((field, i) => (
-                <div key={field.key} role="cell" className={cellClass(field, i)}>
-                  {i === 0 ? (
-                    <span className="ct">{t('collection.sum')}</span>
-                  ) : sums[i] ? (
-                    <span className={sums[i]!.length > 1 ? 'num split' : 'num'}>
-                      {sums[i]!.map((s, j) => (
-                        <span key={s.currency ?? j}>{formatNumber(s.value, field.format, s.currency)}</span>
-                      ))}
-                    </span>
-                  ) : null}
-                </div>
+                <th key={field.key} className={cellClass(field, i)}>
+                  <div className="tc" style={cellBox(asShown(field))}>
+                    {field.label}
+                  </div>
+                </th>
               ))}
-            </div>
+              <th className="tend" />
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g) =>
+              !block.group?.length ? (
+                <Fragment key="all">{g.records.map(row)}</Fragment>
+              ) : (
+                <Fragment key={g.key || '-'}>
+                  <tr className="tgrp">
+                    <td colSpan={span}>
+                      <div className="gh">
+                        <b>{g.label || t('collection.none')}</b>
+                        <small>{countOf(g.records)}</small>
+                        {tick && g.records.some(ticked) && (
+                          <button type="button" className="gall" onClick={() => tickAll(g.records, false)}>
+                            {t('collection.untickAll')}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  {g.groups
+                    ? g.groups.map((s) => (
+                        <Fragment key={s.key || '-'}>
+                          <tr className="tgrp2">
+                            <td colSpan={span}>
+                              <div className="gh">
+                                {tick && (
+                                  <button type="button" role="checkbox" aria-checked={s.records.every(ticked)} className={s.records.every(ticked) ? 'tick cbx on' : 'tick cbx'} aria-label={s.label} onClick={() => tickAll(s.records, !s.records.every(ticked))}>
+                                    {s.records.every(ticked) && <Icon name="check" />}
+                                  </button>
+                                )}
+                                <b>{s.label || t('collection.none')}</b>
+                              </div>
+                            </td>
+                          </tr>
+                          {s.records.map(row)}
+                        </Fragment>
+                      ))
+                    : g.records.map(row)}
+                  <tr className="gadd">
+                    <td colSpan={span}>
+                      <button type="button" className="cadd" onClick={() => startAdding(g)}>
+                        {t('collection.addTo', { group: g.label || t('collection.none') })}
+                      </button>
+                    </td>
+                  </tr>
+                </Fragment>
+              ),
+            )}
+          </tbody>
+          {block.sums && rows.length > 0 && (
+            <tfoot>
+              <tr className="sum">
+                {columns.map((field, i) => (
+                  <td key={field.key} className={cellClass(field, i)}>
+                    {i === 0 ? (
+                      <span className="ct">{t('collection.sum')}</span>
+                    ) : sums[i] ? (
+                      <span className={sums[i]!.length > 1 ? 'num split' : 'num'}>
+                        {sums[i]!.map((s, j) => (
+                          <span key={s.currency ?? j}>{formatNumber(s.value, field.format, s.currency)}</span>
+                        ))}
+                      </span>
+                    ) : null}
+                  </td>
+                ))}
+                <td className="tend" />
+              </tr>
+            </tfoot>
           )}
-        </div>
+        </table>
       </div>
       {rows.length === 0 &&
         (hint ? (
@@ -1437,6 +1502,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
             const rowId = newRecordId();
             setDrafted((now) => [...now, { kind: 'add', dir: localPath(source.dir), id: rowId, values: actions.planSaved?.(source.dir, rowId, values, null) ?? values }]);
           },
+          remove: (_source, rowId) => setDrafted((now) => now.filter((c) => !(c.kind === 'add' && c.id === rowId))),
         }
     : undefined;
 
@@ -1915,14 +1981,16 @@ interface TableState {
   group: string | null;
   /** The field keys shown; null for every field. */
   columns: string[] | null;
-  /** The columns' widths once one was dragged; null for widths that fit the window. */
+  /** The columns' widths once one was dragged; null for widths that fit their values. */
   widths: ColumnWidths | null;
+  /** The fields changed in the table; null for none. */
+  edit: string[] | null;
 }
 
-type TablePatch = Partial<Pick<TableState, 'sort' | 'group' | 'columns' | 'widths'>>;
+type TablePatch = Partial<Pick<TableState, 'sort' | 'group' | 'columns' | 'widths' | 'edit'>>;
 
 /** A view or the device's look with a change of the table: a key set to null is taken off. */
-function patched<T extends { sort?: RecordSort; group?: string | null; columns?: string[]; widths?: ColumnWidths }>(base: T, patch: TablePatch): T {
+function patched<T extends { sort?: RecordSort; group?: string | null; columns?: string[]; widths?: ColumnWidths; edit?: string[] }>(base: T, patch: TablePatch): T {
   const next: T = { ...base };
   if (patch.sort) next.sort = patch.sort;
   if (patch.group !== undefined) next.group = patch.group;
@@ -1934,11 +2002,17 @@ function patched<T extends { sort?: RecordSort; group?: string | null; columns?:
     if (patch.widths === null) delete next.widths;
     else next.widths = patch.widths;
   }
+  if (patch.edit !== undefined) {
+    if (patch.edit === null) delete next.edit;
+    else next.edit = patch.edit;
+  }
   return next;
 }
 
-/** The value the Columns list gives to fitting the columns to the window again. */
+/** The value the Columns list gives to fitting the columns to their values again. */
 const FIT = '\u0000fit';
+/** Before a field's key in the Columns list, where it is changed in the table. */
+const CHANGE = '\u0001';
 
 /** On a phone, a menu opens from the bottom wherever it was asked for. */
 const NO_POINTER = { preventDefault: () => undefined, clientX: 0, clientY: 0 } as unknown as MouseEvent;
@@ -2002,8 +2076,8 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const firstSort: RecordSort = { key: nameField(schema)?.key ?? schema.fields[0]?.key ?? '', dir: 'asc' };
   const sortOf = (sort: RecordSort | undefined) => (sort && fieldsByKey.has(sort.key) ? sort : firstSort);
   const state: TableState = view
-    ? { conditions: view.conditions, sort: sortOf(view.sort), group: view.group ?? null, columns: view.columns ?? null, widths: view.widths ?? null }
-    : { conditions: adHoc, sort: sortOf(look?.sort), group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null };
+    ? { conditions: view.conditions, sort: sortOf(view.sort), group: view.group ?? null, columns: view.columns ?? null, widths: view.widths ?? null, edit: view.edit ?? null }
+    : { conditions: adHoc, sort: sortOf(look?.sort), group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null, edit: look?.edit ?? null };
   const allFields = useMemo(() => tableFields(collection), [collection]);
   const fields = state.columns ? [allFields[0]!, ...state.columns.map((k) => fieldsByKey.get(k)).filter((f): f is Field => !!f && f.key !== allFields[0]!.key)] : allFields;
   const sortField = fieldsByKey.get(state.sort.key);
@@ -2056,53 +2130,43 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
     if (open?.kind === 'record' && !opened) setOpen(null);
   }, [open, opened]);
 
-  // The table's width, measured, for columns that fill it; and whether it is scrolled sideways,
-  // for the line beside the name that stays.
+  // Whether the table is scrolled sideways, for the line beside the name that stays.
   const scroller = useRef<HTMLDivElement>(null);
-  const [space, setSpace] = useState(0);
   const [scrolled, setScrolled] = useState(false);
-  useLayoutEffect(() => {
-    const box = scroller.current;
-    if (!box) return;
-    const measure = () => setSpace(box.clientWidth);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(box);
-    return () => observer.disconnect();
-  }, [narrow]);
-  const room = space - 2 * SIDES - GAP * (fields.length - 1);
-  // A column being dragged wider or narrower: the widths of every column as they are while it is.
-  const [dragged, setDragged] = useState<number[] | null>(null);
-  const widths = dragged ?? columnWidths(fields, state.widths ?? undefined, room);
-  const tableWidth = widths.reduce((sum, w) => sum + w, 0) + GAP * (fields.length - 1) + 2 * SIDES;
+  // A column being dragged wider or narrower, and the width it has while it is.
+  const [dragged, setDragged] = useState<{ key: string; width: number } | null>(null);
+  const widthOf = (field: Field) => (dragged?.key === field.key ? dragged.width : state.widths?.[field.key]);
+  const boxOf = (field: Field) => cellBox(asShown(field), widthOf(field));
 
-  // Dragging a column's edge: every column keeps the width it has on screen, this one follows the
-  // pointer, and when the pointer lets go the widths are kept as the sort is.
-  const resize = (event: PointerEvent<HTMLSpanElement>, index: number) => {
+  // Dragging a column's edge: it follows the pointer from the width it has on screen, and when the
+  // pointer lets go its width is kept as the sort is; the others stay as wide as their values.
+  const resize = (event: PointerEvent<HTMLSpanElement>, field: Field) => {
     if (event.button !== 0) return;
     event.preventDefault();
+    event.stopPropagation();
     const handle = event.currentTarget;
-    const start = widths;
+    const box = handle.parentElement?.querySelector<HTMLElement>('.tc');
+    if (!box) return;
+    const start = box.offsetWidth;
     const x = event.clientX;
     let latest = start;
     handle.setPointerCapture(event.pointerId);
     const move = (e: globalThis.PointerEvent) => {
-      const width = Math.max(MIN_WIDTH, Math.round(start[index]! + onPage(e.clientX - x)));
-      latest = start.map((w, i) => (i === index ? width : w));
-      setDragged(latest);
+      latest = Math.max(MIN_WIDTH, Math.round(start + onPage(e.clientX - x)));
+      setDragged({ key: field.key, width: latest });
     };
     const done = () => {
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', done);
       handle.removeEventListener('pointercancel', done);
       setDragged(null);
-      if (latest !== start) change({ widths: Object.fromEntries(fields.map((f, i) => [f.key, latest[i]!])) });
+      if (latest !== start) change({ widths: { ...state.widths, [field.key]: latest } });
     };
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', done);
     handle.addEventListener('pointercancel', done);
   };
-  // A double click on the edge gives the column back the width it starts with.
+  // A double click on the edge gives the column back the width of its values.
   const unsize = (key: string) => {
     if (!state.widths || !(key in state.widths)) return;
     const { [key]: _gone, ...rest } = state.widths;
@@ -2110,29 +2174,34 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   };
 
   const openRecord = (id: string) => setOpen({ kind: 'record', id });
-  // A value typed in a cell is written to its record's file; what goes wrong is said.
+  // A tick or a choice changed in the table is written to its record's file; what goes wrong is said.
   const lit = useLit(collection);
   const writeCell = (record: Record, field: Field, value: FieldValue) => {
     lit.wrote(record.id, field.key, value);
     void actions.updateRecord(dir, record.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
   };
+  // The fields the table changes: the view's, or the plain table's on this device.
+  const changes = new Set(fields.filter((f) => changesInTable(f) && state.edit?.includes(f.key)).map((f) => f.key));
   const sortBy = (key: string) => change({ sort: { key, dir: state.sort.key === key && state.sort.dir === 'asc' ? 'desc' : 'asc' } });
   const isNumeric = (field: Field) => asShown(field).type === 'number';
   const cellClass = (field: Field, i: number) => [i === 0 && 'c0', isNumeric(field) && 'r'].filter(Boolean).join(' ') || undefined;
   const head = (field: Field, i: number) => {
     const on = state.sort.key === field.key;
     return (
-      <div key={field.key} role="columnheader" aria-sort={on ? (state.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} className={cellClass(field, i)}>
-        <button type="button" className={on ? 'hs sorted' : 'hs'} onClick={() => sortBy(field.key)}>
-          {field.label}
-          {on && (state.sort.dir === 'asc' ? ' ↑' : ' ↓')}
-        </button>
-        <span className="rz" aria-hidden="true" onPointerDown={(event) => resize(event, i)} onDoubleClick={() => unsize(field.key)} />
-      </div>
+      <th key={field.key} aria-sort={on ? (state.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} className={cellClass(field, i)}>
+        <div className="tc" style={boxOf(field)}>
+          <button type="button" className={on ? 'hs sorted' : 'hs'} onClick={() => sortBy(field.key)}>
+            {field.label}
+            {on && (state.sort.dir === 'asc' ? ' ↑' : ' ↓')}
+          </button>
+        </div>
+        <span className="rz" aria-hidden="true" onPointerDown={(event) => resize(event, field)} onDoubleClick={() => unsize(field.key)} />
+      </th>
     );
   };
   const cellOf = (record: Record, field: Field) => {
     if (field.key === TITLE.key) return <span className="ct name">{recordTitle(record)}</span>;
+    if (changes.has(field.key)) return <ChangeCell field={field} value={record.values[field.key]} onChange={(value) => writeCell(record, field, value)} />;
     const problem = problems.get(record.id)?.find((p) => p.field === field.key);
     const value = fieldValueOf(record, field, schema, today);
     return problem ? (
@@ -2148,8 +2217,8 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
     const why = found.map((p) => problemText(p, fieldsByKey.get(p.field), record)).join(' ');
     return <span className="flag" title={t('collection.problems', { problems: why })} aria-label={t('collection.problems', { problems: why })} />;
   };
-  // A row's ···, at its end on the row pointed at or picked: Open, the buttons of the rules, faint
-  // with why when they may not run now, and Delete.
+  // A row's menu, from its ··· at its end on the row pointed at, or the right click: Open, the
+  // buttons of the rules, faint with why when they may not run now, and Delete.
   const buttons = useMemo(() => actionsOf(collection.rules), [collection.rules]);
   const rowMenu = (event: MouseEvent, record: Record) =>
     actions.menu(
@@ -2164,61 +2233,59 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       ],
       { icon: 'collection', title: recordTitle(record), sub: collectionName(dir) },
     );
-  // A record with several choices is in several groups: its row's key tells them apart. A cell is
-  // picked and typed in as a sheet's; the record opens from the button at the start of the row,
-  // shown on the row pointed at or picked, and from its name.
+  // A record with several choices is in several groups: its row's key tells them apart. A click
+  // on the row opens its record; ▸ at its start opens its lines under it.
+  const span = fields.length + 1;
   const row = (record: Record, group = '') => (
-    <div key={`${group}\u0000${record.id}`} role="row" className={grid.picked?.id === record.id ? 'crow on' : 'crow'}>
-      {fields.map((field, i) => {
-        const c = grid.cell(record, field);
-        return (
-          <div
-            key={field.key}
-            role="cell"
-            data-cell={c['data-cell']}
-            className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', field.type === 'name' && 'opens', lit.on(record.id, field.key) && 'lit'].filter(Boolean).join(' ') || undefined}
-            onClick={c.onClick}
-            onDoubleClick={c.onDoubleClick}
-          >
-            {i === 0 && (
-              <>
-                {linesOn && (
-                  <button
-                    type="button"
-                    className={openedLines.has(record.id) ? 'rlines on' : 'rlines'}
-                    aria-expanded={openedLines.has(record.id)}
-                    title={t('collection.lines')}
-                    aria-label={t('collection.lines')}
-                    onClick={(event) => (event.stopPropagation(), showLines([record.id], !openedLines.has(record.id)))}
-                  >
-                    <Icon name="chevron" />
-                  </button>
-                )}
-                <button type="button" className="ropen" title={t('collection.openRecord')} aria-label={t('collection.openRecord')} onClick={(event) => (event.stopPropagation(), openRecord(record.id))}>
-                  <Icon name="open" />
-                </button>
-                {flag(record)}
-              </>
-            )}
-            {c.editing ? <CellEditor field={field} value={record.values[field.key]} typed={grid.editing?.typed} ctx={ctx} onDone={(value, then) => grid.done(record, field, value, then)} /> : cellOf(record, field)}
+    <tr
+      key={`${group}\u0000${record.id}`}
+      className="rec"
+      tabIndex={0}
+      onClick={() => openRecord(record.id)}
+      onContextMenu={(event) => rowMenu(event, record)}
+      onKeyDown={(event) => rowKeys(event, () => openRecord(record.id))}
+    >
+      {fields.map((field, i) => (
+        <td key={field.key} className={[cellClass(field, i), lit.on(record.id, field.key) && 'lit'].filter(Boolean).join(' ') || undefined}>
+          {i === 0 && linesOn && (
+            <button
+              type="button"
+              className={openedLines.has(record.id) ? 'rlines on' : 'rlines'}
+              aria-expanded={openedLines.has(record.id)}
+              title={t('collection.lines')}
+              aria-label={t('collection.lines')}
+              onClick={(event) => (event.stopPropagation(), showLines([record.id], !openedLines.has(record.id)))}
+            >
+              <Icon name="chevron" />
+            </button>
+          )}
+          {i === 0 && flag(record)}
+          <div className="tc" style={boxOf(field)} title={field.key === TITLE.key ? undefined : cutText(asShown(field), fieldValueOf(record, field, schema, today))}>
+            {cellOf(record, field)}
           </div>
-        );
-      })}
-      <button type="button" className="rmore" title={t('collection.menu')} aria-label={t('collection.menu')} onClick={(event) => rowMenu(event, record)}>
-        ···
-      </button>
-    </div>
+        </td>
+      ))}
+      <td className="tend">
+        <button type="button" className="rmore" title={t('collection.menu')} aria-label={t('collection.menu')} onClick={(event) => (event.stopPropagation(), rowMenu(event, record))}>
+          ···
+        </button>
+      </td>
+    </tr>
   );
   // A record's row, and its lines under it when they are open.
   const withLines = (record: Record, group = '') =>
     linesOn && openedLines.has(record.id)
       ? [
           row(record, group),
-          <div key={`${group}\u0000${record.id}\u0000lines`} className="clines" role="row">
-            {lineBlocks.map(({ block, source }) => (
-              <LinkedTable key={block.collection} block={block} source={source} dir={dir} record={record} today={today} actions={actions} onOpen={(s, r) => setLine({ dir: s.dir, id: r.id })} onAdd={(s, values) => setLine({ dir: s.dir, values })} />
-            ))}
-          </div>,
+          <tr key={`${group}\u0000${record.id}\u0000lines`} className="lines">
+            <td colSpan={span}>
+              <div className="clines">
+                {lineBlocks.map(({ block, source }) => (
+                  <LinkedTable key={block.collection} block={block} source={source} dir={dir} record={record} today={today} actions={actions} onOpen={(s, r) => setLine({ dir: s.dir, id: r.id })} onAdd={(s, values) => setLine({ dir: s.dir, values })} />
+                ))}
+              </div>
+            </td>
+          </tr>,
         ]
       : [row(record, group)];
   const sums = fields.map((f) => columnSums(shown, schema, f.key, today));
@@ -2232,13 +2299,14 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
     </span>
   );
   const sumRow = (of: Record[], label: string, key: string) => (
-    <div key={key} className="crow sum" role="row">
+    <tr key={key} className="sum">
       {fields.map((field, i) => (
-        <div key={field.key} role="cell" className={cellClass(field, i)}>
+        <td key={field.key} className={cellClass(field, i)}>
           {i === 0 ? <span className="ct">{label}</span> : sums[i] !== null ? sumText(field, columnSums(of, schema, field.key, today)) : null}
-        </div>
+        </td>
       ))}
-    </div>
+      <td className="tend" />
+    </tr>
   );
   // A long plain table shows its first rows and a line for the rest; groups show all of theirs.
   const rows = groups || full || shown.length <= MANY_ROWS ? shown : shown.slice(0, SHOWN_FIRST);
@@ -2286,21 +2354,17 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       {t('collection.showMore', { count: shown.length - rows.length })}
     </button>
   );
-  // The rows in the order the table shows them, for the arrows that move the cell picked.
+  // The rows in the order the table shows them, for the view's ··· that opens all their lines.
   const inOrder = groups ? groups.flatMap((group) => (closed.has(group.key) ? [] : group.records)) : rows;
-  const grid = useGrid({ rows: inOrder, fields, open: (record) => openRecord(record.id), write: writeCell });
   // + Add row opens the new record's window, as Add record does.
   const newRow = !noFields && (
-    <button
-      type="button"
-      className="cadd"
-      onClick={() => {
-        grid.clear();
-        setOpen({ kind: 'new' });
-      }}
-    >
-      {t('collection.addRow')}
-    </button>
+    <tr className="add">
+      <td colSpan={span}>
+        <button type="button" className="cadd" onClick={() => setOpen({ kind: 'new' })}>
+          {t('collection.addRow')}
+        </button>
+      </td>
+    </tr>
   );
 
   const table = narrow ? (
@@ -2311,19 +2375,26 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
     </div>
   ) : (
     <div ref={scroller} className={scrolled ? 'blist clist scrolled' : 'blist clist'} onScroll={(event) => setScrolled(event.currentTarget.scrollLeft > 0)}>
-      <div ref={grid.box} className="ctable" role="table" aria-label={name} tabIndex={0} onKeyDown={grid.keyDown} style={{ '--grid': widths.map((w) => `${w}px`).join(' '), minWidth: tableWidth } as CSSProperties}>
-        <div className="crow head" role="row">
-          {fields.map(head)}
-        </div>
-        {groups
-          ? groups.flatMap((group) => [
-              groupHead(group),
-              ...(closed.has(group.key) ? [] : [...group.records.flatMap((r) => withLines(r, group.key)), ...(hasSums ? [sumRow(group.records, t('collection.sum'), `s\u0000${group.key}`)] : [])]),
-            ])
-          : rows.flatMap((r) => withLines(r))}
-        {newRow}
-        {hasSums && shown.length > 0 && sumRow(shown, groups ? t('collection.all') : t('collection.sum'), 'sum')}
-      </div>
+      <table className="rtable cview" aria-label={name}>
+        <thead>
+          <tr>
+            {fields.map(head)}
+            <th className="tend" />
+          </tr>
+        </thead>
+        <tbody>
+          {groups
+            ? groups.flatMap((group) => [
+                <tr key={`g\u0000${group.key}`} className="tgrp">
+                  <td colSpan={span}>{groupHead(group)}</td>
+                </tr>,
+                ...(closed.has(group.key) ? [] : [...group.records.flatMap((r) => withLines(r, group.key)), ...(hasSums ? [sumRow(group.records, t('collection.sum'), `s\u0000${group.key}`)] : [])]),
+              ])
+            : rows.flatMap((r) => withLines(r))}
+          {newRow}
+        </tbody>
+        {hasSums && shown.length > 0 && <tfoot>{sumRow(shown, groups ? t('collection.all') : t('collection.sum'), 'sum')}</tfoot>}
+      </table>
       {more}
       {empty}
     </div>
@@ -2332,6 +2403,8 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const groupOptions: Option[] = [{ value: null, label: t('collection.noGroup'), chip: false }, ...schema.fields.filter((f) => GROUPABLE.includes(asShown(f).type)).map((f) => ({ value: f.key, label: f.label, chip: false }))];
   const columnOptions: Option[] = allFields.slice(1).map((f) => ({ value: f.key, label: f.label, chip: false }));
   const columnsPicked = fields.slice(1).map((f) => f.key);
+  // The ticks and choices among the columns, which the table can change where they are.
+  const changeOptions: Option[] = fields.filter(changesInTable).map((f) => ({ value: f.key, label: f.label, chip: false }));
   // A record's lines in the view's ··· menu (design/app-home.md 4.2): all open, all shut, and whether the rows have them.
   const linesItems: MenuItem[] =
     !narrow && !calendarView && lineBlocks.length > 0
@@ -2379,8 +2452,8 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       { label: t('calendar.calendar'), icon: 'calendar', run: () => setCalendaring({ view: null }), ...(calendarStarts(schema.fields).length === 0 && { disabled: t('calendar.needsDate') }) },
     ]);
   const saveNewTable = (conditions: Condition[], viewName: string) => {
-    const table = calendarView ? { conditions: [] as Condition[], sort: sortOf(look?.sort), group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null } : state;
-    const saved: View = { id: crypto.randomUUID(), name: viewName, conditions, sort: table.sort, ...(table.group && { group: table.group }), ...(table.columns && { columns: table.columns }), ...(table.widths && { widths: table.widths }) };
+    const table = calendarView ? { conditions: [] as Condition[], sort: sortOf(look?.sort), group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null, edit: look?.edit ?? null } : state;
+    const saved: View = { id: crypto.randomUUID(), name: viewName, conditions, sort: table.sort, ...(table.group && { group: table.group }), ...(table.columns && { columns: table.columns }), ...(table.widths && { widths: table.widths }), ...(table.edit && { edit: table.edit }) };
     void actions.changeSchema(dir, (s) => putView(s, saved)).then((failed) => !failed && pickView(saved.id));
     setNewTable(false);
   };
@@ -2391,7 +2464,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const saveFilter = (conditions: Condition[], viewName: string) => {
     const saved: View = view
       ? { ...view, name: viewName, conditions }
-      : { id: crypto.randomUUID(), name: viewName, conditions, sort: state.sort, ...(state.group && { group: state.group }), ...(state.columns && { columns: state.columns }), ...(state.widths && { widths: state.widths }) };
+      : { id: crypto.randomUUID(), name: viewName, conditions, sort: state.sort, ...(state.group && { group: state.group }), ...(state.columns && { columns: state.columns }), ...(state.widths && { widths: state.widths }), ...(state.edit && { edit: state.edit }) };
     void actions.changeSchema(dir, (s) => putView(s, saved)).then((failed) => !failed && pickView(saved.id));
     setAdHoc([]);
     setFiltering(false);
@@ -2595,8 +2668,11 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
             <ColumnsPicker
               options={columnOptions}
               picked={columnsPicked}
+              changeable={changeOptions}
+              changed={[...changes]}
               sized={!!state.widths}
               onChange={(keys) => change({ columns: keys.length === columnOptions.length ? null : keys })}
+              onChanged={(keys) => change({ edit: keys.length > 0 ? keys : null })}
               onFit={() => change({ widths: null })}
             />
           )}
@@ -2665,20 +2741,28 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
 
 /**
  * Which fields the table shows as columns: a list with a tick on each shown; the name is always
- * there. Once a column was dragged wider or narrower, the list ends with a way back to columns
- * that fit the window.
+ * there. Under them, the ticks and choices among them the table changes where they are, none
+ * unless ticked. Once a column was dragged wider or narrower, the list ends with a way back to
+ * columns as wide as their values.
  */
-function ColumnsPicker({ options, picked, sized, onChange, onFit }: {
+function ColumnsPicker({ options, picked, changeable, changed, sized, onChange, onChanged, onFit }: {
   options: Option[];
   picked: string[];
+  changeable: Option[];
+  changed: string[];
   sized: boolean;
   onChange: (picked: string[]) => void;
+  onChanged: (changed: string[]) => void;
   onFit: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLButtonElement>(null);
   const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
-  const all: Option[] = sized ? [...options, { value: FIT, label: t('collection.fitWidth'), chip: false, apart: true }] : options;
+  const all: Option[] = [
+    ...options,
+    ...changeable.map((o, i) => ({ ...o, value: CHANGE + o.value, ...(i === 0 && { apart: true, head: t('collection.changedInTable') }) })),
+    ...(sized ? [{ value: FIT, label: t('collection.fitWidth'), chip: false, apart: true }] : []),
+  ];
   return (
     <>
       <button ref={box} type="button" className="ghost" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)} onKeyDown={(event) => open && LIST_KEYS.includes(event.key) && keys.current?.(event)}>
@@ -2688,13 +2772,16 @@ function ColumnsPicker({ options, picked, sized, onChange, onFit }: {
         <OptionList
           anchor={box}
           options={all}
-          current={picked}
+          current={[...picked, ...changed.map((k) => CHANGE + k)]}
           label={t('collection.columns')}
           keys={keys}
           onPick={(value) => {
             if (value === FIT) {
               setOpen(false);
               onFit();
+            } else if (value?.startsWith(CHANGE)) {
+              const key = value.slice(CHANGE.length);
+              onChanged(changed.includes(key) ? changed.filter((k) => k !== key) : [...changed, key]);
             } else if (value !== null) onChange(picked.includes(value) ? picked.filter((p) => p !== value) : options.filter((o) => o.value === value || picked.includes(o.value!)).map((o) => o.value!));
           }}
           onClose={() => setOpen(false)}

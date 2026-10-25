@@ -64,6 +64,7 @@ import {
   valueText,
   type View,
   minutesOf,
+  durationTyped,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -207,13 +208,15 @@ function ListValue({ field, value, today, values }: { field: Field; value: Field
  * number. With a format (`shown`), it shows as the list does until it is typed in.
  */
 function NumberBox({ value, label, autoFocus, shown, duration, onChange }: { value: number | null; label: string; autoFocus: boolean; shown?: string; duration?: boolean; onChange: (value: number | null) => void }) {
-  const [text, setText] = useState(value === null ? '' : String(value));
+  // A duration with seconds is typed back in seconds, 90 s.
+  const written = (n: number | null) => (n === null ? '' : duration ? durationTyped(n) : String(n));
+  const [text, setText] = useState(written(value));
   const [typing, setTyping] = useState(autoFocus);
   // A duration is typed as minutes or as hours and minutes, 1:30.
   const read = (raw: string) => (raw.trim() === '' ? null : duration ? (minutesOf(raw) ?? NaN) : Number(raw.replace(',', '.')));
   useEffect(() => {
     const typed = read(text);
-    if (typed !== value) setText(value === null ? '' : String(value));
+    if (typed !== value) setText(written(value));
     // Only a value changed from outside is written over what is typed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
@@ -978,8 +981,8 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions, dra
       {count !== null && <small>{count}</small>}
     </div>
   );
-  // A table with a column that ticks a row off has its tick at the start of each row, ticked or unticked where it is (a workout's items).
-  const tick = block.style === 'table' ? named.find((f) => f.type === 'checkbox') : undefined;
+  // A table that ticks a row off where it is (its block's edit, a workout's items) has its tick at the start of each row.
+  const tick = block.style === 'table' ? named.find((f) => f.type === 'checkbox' && block.edit?.includes(f.key)) : undefined;
   const line = (r: Entry) => {
     const amount = number ? fieldValueOf(r, number, schema, today) : undefined;
     const on = tick ? r.values[tick.key] === true : false;

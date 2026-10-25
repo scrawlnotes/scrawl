@@ -618,12 +618,12 @@ describe('what a new Gym starts with', () => {
     const programs = await loadCollection(fs, 'Gym/Programs');
     expect(programs.records).toHaveLength(1);
     const [program] = programs.records;
-    expect(program!.values).toMatchObject({ name: '3-Day Full Body', days: ['Mon', 'Wed', 'Fri'], from: '2026-10-25', duration: '45–60 min' });
+    expect(program!.values).toMatchObject({ name: '3-Day Full Body', days: ['Mon', 'Wed', 'Fri'], from: '2026-10-25', duration: 60 });
     expect(program!.body).toContain('**Progression**');
     const items = await loadCollection(fs, 'Gym/Program items');
     expect(items.records).toHaveLength(20);
     const press = items.records.find((r) => r.name === 'Chest Press Machine')!;
-    expect(press.values).toMatchObject({ part: 'Workout', order: 1, sets: '3', reps: '12', rest: '90 s', note: 'Push at chest height' });
+    expect(press.values).toMatchObject({ part: 'Workout', order: 1, sets: 3, reps: 12, rest: 1.5, note: 'Push at chest height' });
     // Linked by id, as the app links: the program counts its items, the move is the one in Exercises.
     expect((press.values.exercise as { id: string }).id).toBe(exercises.records.find((r) => r.name === 'Chest Press Machine')!.id);
     expect((press.values.program as { id: string }).id).toBe(program!.id);
@@ -915,10 +915,10 @@ describe('Gym', () => {
     const add = async (dir: string, values: Record['values']) => addRecord(fs, await load(dir), { values });
     const chest = await add('Exercises', { name: 'Chest press', muscle: 'Chest' });
     const walk = await add('Exercises', { name: 'Walk' });
-    const program = await add('Programs', { name: 'Full body', days: ['Mon', 'Wed', 'Fri'], from: '2026-10-12', duration: '45–60 min' });
+    const program = await add('Programs', { name: 'Full body', days: ['Mon', 'Wed', 'Fri'], from: '2026-10-12', duration: 60 });
     const to = (r: Record) => ({ id: r.id, name: r.name });
-    await add('Program items', { name: 'Walk', program: to(program), part: 'Warm-up', order: 1, exercise: to(walk), time: '5 min' });
-    await add('Program items', { name: 'Chest press', program: to(program), part: 'Workout', order: 2, exercise: to(chest), sets: '3', reps: '8–12' });
+    await add('Program items', { name: 'Walk', program: to(program), part: 'Warm-up', order: 1, exercise: to(walk), time: 5 });
+    await add('Program items', { name: 'Chest press', program: to(program), part: 'Workout', order: 2, exercise: to(chest), sets: 3, reps: 12 });
     const space = async (): Promise<RuleSpaceNow> => ({ collections: await Promise.all(['Exercises', 'Programs', 'Program items', 'Workouts', 'Workout items'].map(load)), boards: {}, lists: {}, today: '2026-10-21' });
     return { fs, load, add, to, chest, program, space };
   }
@@ -934,7 +934,7 @@ describe('Gym', () => {
     expect(ran.stops).toEqual([]);
     const lines = ran.after.changes.map((c) => ('values' in c ? c.values : {})).sort((x, y) => Number(x.order) - Number(y.order));
     expect(lines).toMatchObject([
-      { name: 'Walk', part: 'Warm-up', done: true, day: '2026-10-21', time: '5 min', workout: { id: 'w2' } },
+      { name: 'Walk', part: 'Warm-up', done: true, day: '2026-10-21', time: 5, workout: { id: 'w2' } },
       { name: 'Chest press', part: 'Workout', done: true, sets: 3, reps: 12, kg: 42.5, last_time: '42.5 kg · 3 × 12' },
     ]);
     // Saved at once, its moves link to it by the name its onSave gives it.

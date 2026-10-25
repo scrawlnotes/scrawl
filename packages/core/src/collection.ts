@@ -55,7 +55,7 @@ export interface Lookup {
 
 /** How a number is written: plain, as money or as a share; money in the field's currency, or in the one a field of the record holds; with so many decimals. */
 export interface NumberFormat {
-  /** A duration is minutes, written as hours and minutes: 1 h 30 min. */
+  /** A duration is minutes, a second a sixtieth of one, written as hours, minutes and seconds: 1 h 30 min, 90 s as 1 min 30 s. */
   style: 'number' | 'currency' | 'percent' | 'duration';
   /** The currency's code, `TRY`, for every record. */
   currency?: string;
@@ -133,7 +133,7 @@ export const NAME_KEY = 'name';
 export type LayoutItem =
   | { field: string }
   | { block: 'body' }
-  | { block: 'linked'; collection: string; sort?: string; dir?: 'desc'; style?: LinkedStyle; fields?: string[]; sums?: boolean; group?: string[]; lines?: boolean }
+  | { block: 'linked'; collection: string; sort?: string; dir?: 'desc'; style?: LinkedStyle; fields?: string[]; sums?: boolean; group?: string[]; lines?: boolean; edit?: string[] }
   | { block: 'cards' }
   | { block: 'subtasks' }
   /** The buttons of the collection's rules (`action(…)` in _rules.js). */
@@ -141,7 +141,7 @@ export type LayoutItem =
 
 /**
  * How a block shows the records that link to the record: newest first by a day, a list, or a table
- * whose cells are typed in, with its sums when `sums`, in groups by one field or two when `group`
+ * whose rows open their records, the fields `edit` names changed in it (`changesInTable`), with its sums when `sums`, in groups by one field or two when `group`
  * (design/gym.md 4.2): a program's items by their part, a workout's sets by their exercise. A list
  * and a table go up by `sort`, down with `dir`: an exercise's workouts newest first. With
  * `lines` they are the record's lines (design/app-home.md 4): an order's, a program's items, typed
@@ -245,9 +245,17 @@ export interface View {
   group?: string | null;
   /** The fields shown as columns, in order; unset for every field. */
   columns?: string[];
-  /** The columns' widths in pixels, by field key, once one was dragged; unset for widths that fit the window. */
+  /** The columns' widths in pixels, by field key, once one was dragged; unset for widths that fit their values. */
   widths?: ColumnWidths;
+  /** The fields changed in the table, by key (`changesInTable`); unset for none. */
+  edit?: string[];
 }
+
+/**
+ * Whether a field can be changed in a table, where a row opens its record: a tick turns at a
+ * click, a choice is picked from its list. A table changes the ones it is told to, none unless.
+ */
+export const changesInTable = (field: Field) => field.type === 'checkbox' || field.type === 'select';
 
 /** Column widths in pixels, by field key. */
 export interface ColumnWidths {
@@ -580,6 +588,7 @@ function readItem(raw: unknown): LayoutItem | null {
   if (raw.block === 'linked' && typeof raw.collection === 'string') {
     const fields = strings(raw.fields).map(cleanFieldKey).filter(Boolean);
     const group = strings(raw.group).map(cleanFieldKey).filter(Boolean).slice(0, 2);
+    const changed = strings(raw.edit).map(cleanFieldKey).filter(Boolean);
     return {
       block: 'linked',
       collection: raw.collection.replace(/^\/+|\/+$/g, ''),
@@ -590,6 +599,7 @@ function readItem(raw: unknown): LayoutItem | null {
       ...(raw.sums === true && { sums: true }),
       ...(group.length > 0 && { group }),
       ...(typeof raw.lines === 'boolean' && { lines: raw.lines }),
+      ...(changed.length > 0 && { edit: changed }),
     };
   }
   return null;
@@ -719,6 +729,8 @@ function readViews(raw: unknown, fields: Field[]): View[] {
     if (Array.isArray(item.columns)) view.columns = strings(item.columns).map(cleanFieldKey).filter((k) => fields.some((f) => f.key === k));
     const widths = readWidths(item.widths, new Set(fields.map((f) => f.key)));
     if (widths) view.widths = widths;
+    const changed = strings(item.edit).map(cleanFieldKey).filter((k) => fields.some((f) => f.key === k && changesInTable(f)));
+    if (changed.length > 0) view.edit = changed;
     views.push(view);
   }
   return views;
@@ -918,13 +930,16 @@ export function formatNumber(n: number, format?: NumberFormat, currency?: string
   return formatter(digits).format(n);
 }
 
-/** Minutes as hours and minutes: 45 min, 1 h, 1 h 30 min; less than none with a minus before. */
+/** Minutes as hours, minutes and seconds: 45 min, 1 h, 1 h 30 min, 1 min 30 s, 30 s; less than none with a minus before. */
 export function durationText(minutes: number): string {
-  const all = Math.round(Math.abs(minutes));
-  const [h, m] = [Math.floor(all / 60), all % 60];
-  const text = [h ? t('duration.hours', { count: h }) : '', m || !h ? t('duration.minutes', { count: m }) : ''].filter(Boolean).join(' ');
+  const all = Math.round(Math.abs(minutes) * 60);
+  const [h, m, s] = [Math.floor(all / 3600), Math.floor(all / 60) % 60, all % 60];
+  const text = [h ? t('duration.hours', { count: h }) : '', m || (!h && !s) ? t('duration.minutes', { count: m }) : '', s ? t('duration.seconds', { count: s }) : ''].filter(Boolean).join(' ');
   return minutes < 0 && all > 0 ? `−${text}` : text;
 }
+
+/** A duration as it is typed back in its box: whole minutes as their number, one with seconds in seconds, 90 s. */
+export const durationTyped = (minutes: number) => (Number.isInteger(minutes) ? String(minutes) : t('duration.seconds', { count: Math.round(minutes * 60) }));
 
 /** A number as the screen shows it, with no format of its own. */
 export const numberText = (n: number) => formatNumber(n);
