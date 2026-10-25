@@ -237,38 +237,66 @@ function closingCollection(dir: string, path: string, all: readonly Collection[]
 }
 
 /**
- * The days a calendar that repeats brings to Today and Upcoming (design/gym.md 4.3): each record
- * that matches its conditions, on each weekday it holds, from its own day (else today) to `until`;
- * a day a record of the closing collection links to it on is closed and left out. Those before
- * today are late, from its day on, however many.
+ * A day a repeating record comes on, as its calendar shows it (design/gym.md 4.3): `open` from
+ * today on, `late` gone by with nothing closing it, `done` closed by a record, `skipped` closed
+ * by the other button's (its `skip` values, a workout not gone to); a closed day says by which.
  */
-export function repeatDays(collection: Collection, view: View, today: string, until: string, all: readonly Collection[]): DueRecord[] {
+export interface RepeatDay extends DueRecord {
+  day: string;
+  state: 'open' | 'late' | 'done' | 'skipped';
+  closedBy?: { collection: string; id: string };
+}
+
+/**
+ * The days a repeating record comes on, closed or not, from `start` to `until`: each record that
+ * matches the view's conditions, on each weekday it holds, from its own day (else today). What a
+ * repeating calendar shows on its days.
+ */
+export function repeatCalendar(collection: Collection, view: View, today: string, start: string, until: string, all: readonly Collection[]): RepeatDay[] {
   const repeat = view.calendar?.repeat;
   if (!repeat) return [];
   const { schema } = collection;
   const options = schema.fields.find((f) => f.key === repeat.days)?.options ?? [];
   const colorField = view.calendar!.color ? (schema.fields.find((f) => f.key === view.calendar!.color) ?? null) : null;
-  // The days closed, by the record they close and the day.
-  const closed = new Set<string>();
-  for (const r of closingCollection(collection.dir, repeat.closedBy.collection, all)?.records ?? []) {
+  // The days closed, by the record they close and the day, with the record that closes each.
+  const closing = closingCollection(collection.dir, repeat.closedBy.collection, all);
+  const closed = new Map<string, Record>();
+  for (const r of closing?.records ?? []) {
     const day = dateValue(r.values[repeat.closedBy.day])?.slice(0, 10);
     const held = r.values[repeat.closedBy.link];
-    for (const link of Array.isArray(held) ? held : [held]) if (day && link && typeof link === 'object' && 'id' in link) closed.add(`${link.id}/${day}`);
+    for (const link of Array.isArray(held) ? held : [held]) if (day && link && typeof link === 'object' && 'id' in link && !closed.has(`${link.id}/${day}`)) closed.set(`${link.id}/${day}`, r);
   }
-  const out: DueRecord[] = [];
+  const skippedBy = (r: Record) => !!repeat.skip && Object.entries(repeat.skip.set).every(([key, value]) => JSON.stringify(r.values[key] ?? null) === JSON.stringify(value));
+  const out: RepeatDay[] = [];
   for (const record of collection.records) {
     if (!matchesConditions(record, schema, view.conditions, today)) continue;
     const held = record.values[repeat.days];
     const weekdays = new Set((Array.isArray(held) ? held : []).flatMap((v) => (typeof v === 'string' ? [weekdayOf(v, options.indexOf(v), options.length)] : [])).filter((w): w is number => w !== null));
     if (weekdays.size === 0) continue;
-    const from = (repeat.from ? dateValue(record.values[repeat.from])?.slice(0, 10) : null) ?? today;
+    const own = (repeat.from ? dateValue(record.values[repeat.from])?.slice(0, 10) : null) ?? today;
     const choice = choiceOf(record, colorField);
-    for (let day = from; day <= until; day = addDays(day, 1)) {
-      if (!weekdays.has(weekdayOfDay(day)) || closed.has(`${record.id}/${day}`)) continue;
-      out.push({ record, start: day, end: null, minutes: null, choice, colorField, collection: collection.dir, view, schema, day, ...(day < today && { late: true }) });
+    for (let day = own > start ? own : start; day <= until; day = addDays(day, 1)) {
+      if (!weekdays.has(weekdayOfDay(day))) continue;
+      const by = closed.get(`${record.id}/${day}`);
+      const state = by ? (skippedBy(by) ? 'skipped' : 'done') : day < today ? 'late' : 'open';
+      out.push({
+        record, start: day, end: null, minutes: null, choice, colorField, collection: collection.dir, view, schema, day, state,
+        ...(state === 'late' && { late: true }),
+        ...(by && closing && { closedBy: { collection: closing.dir, id: by.id } }),
+      });
     }
   }
   return out;
+}
+
+/**
+ * The days a calendar that repeats brings to Today and Upcoming (design/gym.md 4.3): its days not
+ * closed, from each record's own day to `until`; those before today are late, however many.
+ */
+export function repeatDays(collection: Collection, view: View, today: string, until: string, all: readonly Collection[]): DueRecord[] {
+  return repeatCalendar(collection, view, today, '0000-01-01', until, all)
+    .filter((each) => each.state === 'open' || each.state === 'late')
+    .map(({ state: _state, closedBy: _closedBy, ...due }) => due);
 }
 
 /** Two starts in a day's order: by the day, then one with no time first, then by the time. */

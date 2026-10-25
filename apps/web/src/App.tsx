@@ -2129,6 +2129,10 @@ export function App() {
       ask(t('delete.record'), recordDeleteText(record, lines), () => void session.trashRecord(dir, record));
     },
     pressButton,
+    // A program's day on its calendar, as in Today: Start, Didn't go, and the workout that closed it.
+    startDay: (due) => taskActions.startDay?.(due),
+    skipDay: (due) => taskActions.skipDay?.(due),
+    openRecord: (dir, id) => taskActions.openRecord(dir, id),
     openNote: (path) => void session.open(path),
     // The desktop app hands an address to the system; in a browser it opens beside the app.
     openLink: (href) => (isDesktop ? void openUrlOnDesktop(href).catch(() => undefined) : void window.open(href, '_blank', 'noopener')),

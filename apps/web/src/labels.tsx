@@ -110,13 +110,14 @@ function usesSentence(use: Pick<LabelUse, 'tasks' | 'cards'>): string {
 type PickRow = { name: string; color?: OptionColor; create?: true };
 
 /**
- * The rows the picker shows: the picked labels first, then the others, the most used first, or a
- * field's choices in their own order. The order is the one it opened with, so that nothing moves
+ * The rows the picker shows: the picked labels first, then the others, the most used first; a
+ * field's choices all in their own order, a week's days Mon to Sun, the picked ticked where they are. The order is the one it opened with, so that nothing moves
  * while it is open; one made is added at the end. What is typed narrows it, and a word no label is
  * yet can be made one.
  */
 function usePickRows(known: (LabelUse | LabelChoice)[], picked: string[], query: string, given = false) {
   const [order, setOrder] = useState(() => {
+    if (given) return [...known.map((use) => use.name), ...picked.filter((name) => !known.some((use) => sameLabel(use.name, name)))];
     const rest = known.filter((use) => !picked.some((name) => sameLabel(name, use.name)));
     if (!given) rest.sort((a, b) => uses(b) - uses(a) || a.name.localeCompare(b.name));
     return [...picked, ...rest.map((use) => use.name)];
@@ -133,8 +134,16 @@ function usePickRows(known: (LabelUse | LabelChoice)[], picked: string[], query:
 /** How many tasks and cards have a label; a field's choice counts none. */
 const uses = (each: LabelUse | LabelChoice) => ('tasks' in each ? each.tasks + each.cards : 0);
 
-/** Picked labels with one put on or taken off. */
-const toggled = (picked: string[], name: string) => (picked.some((each) => sameLabel(each, name)) ? picked.filter((each) => !sameLabel(each, name)) : [...picked, name]);
+/** Picked labels with one put on or taken off; a field's choices kept in the field's order, Mon, Wed, Fri however they were picked. */
+const toggled = (picked: string[], name: string, choices?: (LabelUse | LabelChoice)[]) => {
+  const next = picked.some((each) => sameLabel(each, name)) ? picked.filter((each) => !sameLabel(each, name)) : [...picked, name];
+  if (!choices) return next;
+  const at = (label: string) => {
+    const i = choices.findIndex((use) => sameLabel(use.name, label));
+    return i < 0 ? choices.length : i;
+  };
+  return [...next].sort((a, b) => at(a) - at(b));
+};
 
 /** How close to the window's edges the picker may come. */
 const EDGE = 8;
@@ -229,7 +238,7 @@ export function LabelPop({ anchor, path, picked, known: given, edit = true, plac
       made(row.name);
       onChange([...picked, row.name]);
     } else {
-      onChange(toggled(picked, row.name));
+      onChange(toggled(picked, row.name, given));
     }
     setQuery('');
     setAt(-1);
@@ -413,7 +422,7 @@ export function LabelSheet({ path, about, title = t('card.labels'), labels, know
       (onCreate ?? ((name: string) => all.add(path, name)))(row.name);
       made(row.name);
       change([...picked, row.name]);
-    } else change(toggled(picked, row.name));
+    } else change(toggled(picked, row.name, given));
     setQuery('');
   };
   const submit = (event: FormEvent) => {

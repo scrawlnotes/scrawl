@@ -3,6 +3,8 @@ import {
   atMinutes,
   compareOnDay,
   monthDays,
+  repeatCalendar,
+  type RepeatDay,
   type CalendarRecord,
   type CalendarSettings,
   calendarRecords,
@@ -25,7 +27,7 @@ import {
   weekDays,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type CSSProperties, type DragEvent, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type DragEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
 import { type CalendarBox, choiceColor, type MonthChip, MonthCalendar, PhoneHours, TimeGrid } from './Calendar';
 import { type Option, Picker, useEscape } from './choices';
 import { type CollectionActions, ConditionRow } from './Collection';
@@ -187,6 +189,7 @@ export function CollectionCalendar({ collection, records, view, nav, today, acti
     if (values) actions.moveRecord(dir, item.record.id, values, t('calendar.stretched', { name: title(item.record), time: timeOf(end) ?? '' }));
   };
   const byKey = new Map(items.map((item) => [item.record.id, item]));
+  if (settings.repeat) return <RepeatCalendar collection={collection} records={records} view={view} nav={nav} today={today} actions={actions} onOpen={onOpen} />;
 
   if (nav.range === 'month') {
     const chipsOf = (day: string): MonthChip[] =>
@@ -293,6 +296,91 @@ export function CollectionCalendar({ collection, records, view, nav, today, acti
         onMove={canMove ? (box, start) => byKey.get(box.key) && move(byKey.get(box.key)!, start) : undefined}
         onResize={resizable ? (box, end) => byKey.get(box.key) && stretch(byKey.get(box.key)!, end) : undefined}
         onSlot={(day, from, to) => onNew(startingValues(schema, settings, atMinutes(day, from), atMinutes(day, to)))}
+      />
+    </div>
+  );
+}
+
+/** The days a repeating calendar shows, as `nav` has them: a month's six weeks, a week, a day. */
+const shownDays = (nav: CalendarNavState) => (nav.range === 'month' ? monthDays(nav.month) : nav.days);
+
+/** A repeating calendar's days among `days` (design/gym.md 4.3), each as it went. */
+export const repeatItems = (collection: Collection, records: Record[], view: View, days: string[], today: string, all: Collection[]): RepeatDay[] =>
+  repeatCalendar({ ...collection, records }, { ...view, conditions: [] }, today, days[0]!, days[days.length - 1]!, all);
+
+/**
+ * What a repeating calendar's day does when it is clicked: a day closed opens the record that
+ * closed it, the day's workout; today's, or one gone by unwritten, offers Start, the other button
+ * and the record itself; one to come opens the record.
+ */
+export function repeatPress(event: MouseEvent, item: RepeatDay, today: string, actions: CollectionActions, onOpen: (id: string) => void) {
+  const repeat = item.view.calendar!.repeat!;
+  if (item.closedBy) return actions.openRecord ? actions.openRecord(item.closedBy.collection, item.closedBy.id) : actions.show?.(item.closedBy.collection, item.closedBy.id);
+  if (item.day > today) return onOpen(item.record.id);
+  actions.menu(
+    event,
+    [
+      { label: repeat.start ?? t('repeat.start'), icon: 'play', run: () => actions.startDay?.(item) },
+      ...(repeat.skip ? [{ label: repeat.skip.label, run: () => actions.skipDay?.(item) }] : []),
+      { label: t('collection.open'), run: () => onOpen(item.record.id), apart: true },
+    ],
+    { icon: 'calendar', title: recordLabel(item.record) || t('collection.untitled'), sub: whenWords(item.day) },
+  );
+}
+
+/**
+ * A calendar that repeats (design/gym.md 4.3): each record on the days it comes on, as each went:
+ * one gone to faint and ticked, one not gone to struck through, one gone by unwritten in red, one
+ * to come as it is. Nothing is dragged, and a day clicked adds nothing.
+ */
+function RepeatCalendar({ collection, records, view, nav, today, actions, onOpen }: {
+  collection: Collection;
+  records: Record[];
+  view: View;
+  nav: CalendarNavState;
+  today: string;
+  actions: CollectionActions;
+  onOpen: (id: string) => void;
+}) {
+  const items = repeatItems(collection, records, view, shownDays(nav), today, actions.collections());
+  const title = (record: Record) => recordLabel(record) || t('collection.untitled');
+  const chip = (item: RepeatDay): MonthChip => ({
+    key: `${item.record.id}/${item.day}`,
+    title: title(item.record),
+    color: choiceColor(item.colorField, item.choice),
+    late: item.state === 'late',
+    done: item.state === 'done',
+    skipped: item.state === 'skipped',
+    movable: false,
+    onOpen: (event) => repeatPress(event, item, today, actions, onOpen),
+  });
+  const chipsOf = (day: string) => items.filter((item) => item.day === day).map(chip);
+  if (nav.range === 'month') return <MonthCalendar month={nav.month} today={today} chipsOf={chipsOf} onNumber={(day) => nav.go(day, 'day')} />;
+  return (
+    <div className="up-week">
+      <TimeGrid
+        key={nav.range}
+        days={nav.days}
+        today={today}
+        allDay={(day) => (
+          <div key={day} className={day === today ? 'tg-ad today' : 'tg-ad'} data-day={day}>
+            {chipsOf(day).map((each) => (
+              <button
+                key={each.key}
+                type="button"
+                className={['cal-t', each.color && 'rec', each.late && 'late', each.done && 'done', each.skipped && 'skipped'].filter(Boolean).join(' ')}
+                style={each.color ? ({ '--cc': each.color } as CSSProperties) : undefined}
+                title={each.title}
+                onClick={(event) => (event.stopPropagation(), each.onOpen(event))}
+              >
+                {each.done ? <Icon name="check" /> : <i className={each.color ? 'sq' : undefined} />}
+                <span>{each.title}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        boxes={[]}
+        onOpen={() => undefined}
       />
     </div>
   );
@@ -460,9 +548,15 @@ export function PhoneCollectionCalendar({ collection, records, view, nav, today,
 }) {
   const settings = view.calendar!;
   const { dir, schema } = collection;
-  const items = calendarRecords({ ...collection, records }, { ...view, conditions: [] }, today);
-  const [target, setTarget] = useState<string | null>(null);
   const day = nav.focus;
+  // A calendar that repeats has its records on their days, each as it went (design/gym.md 4.3).
+  const repeat = !!settings.repeat;
+  const items: (CalendarRecord | RepeatDay)[] = repeat
+    ? repeatItems(collection, records, view, nav.range === 'month' ? monthDays(nav.month) : weekDays(day), today, actions.collections())
+    : calendarRecords({ ...collection, records }, { ...view, conditions: [] }, today);
+  const stateOf = (item: CalendarRecord | RepeatDay) => ('state' in item ? item.state : null);
+  const press = (event: MouseEvent, item: CalendarRecord | RepeatDay) => ('state' in item ? repeatPress(event, item, today, actions, onOpen) : onOpen(item.record.id));
+  const [target, setTarget] = useState<string | null>(null);
   const title = (record: Record) => recordLabel(record) || t('collection.untitled');
   const colorOf = (item: CalendarRecord) => choiceColor(item.colorField, item.choice);
   const busy = new Set(items.map((item) => item.start.slice(0, 10)));
@@ -508,8 +602,8 @@ export function PhoneCollectionCalendar({ collection, records, view, nav, today,
           {dayWords(day)} {list.length > 0 && <small>{list.length}</small>}
         </div>
         {list.map((item) => (
-          <button key={item.record.id} type="button" className="mb-rrow" style={{ '--cc': colorOf(item) } as CSSProperties} onClick={() => onOpen(item.record.id)}>
-            <em>{timeOf(item.start) ?? t('collection.allDay')}</em>
+          <button key={`${item.record.id}/${item.start}`} type="button" className={['mb-rrow', stateOf(item)].filter(Boolean).join(' ')} style={{ '--cc': colorOf(item) } as CSSProperties} onClick={(event) => press(event, item)}>
+            <em>{stateOf(item) === 'done' ? <Icon name="check" /> : (timeOf(item.start) ?? t('collection.allDay'))}</em>
             <span>
               <b>{title(item.record)}</b>
               {subOf(schema, item.record) && <small>{subOf(schema, item.record)}</small>}
@@ -552,8 +646,8 @@ export function PhoneCollectionCalendar({ collection, records, view, nav, today,
       {allDay.length > 0 && (
         <div className="mb-allday">
           {allDay.map((item) => (
-            <button key={item.record.id} type="button" className="mb-chip rec" style={{ '--cc': colorOf(item) } as CSSProperties} onClick={() => onOpen(item.record.id)}>
-              <i className="sq" />
+            <button key={`${item.record.id}/${item.start}`} type="button" className={['mb-chip rec', stateOf(item)].filter(Boolean).join(' ')} style={{ '--cc': colorOf(item) } as CSSProperties} onClick={(event) => press(event, item)}>
+              {stateOf(item) === 'done' ? <Icon name="check" /> : <i className="sq" />}
               <span>{title(item.record)}</span>
             </button>
           ))}

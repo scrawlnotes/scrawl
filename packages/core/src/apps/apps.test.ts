@@ -2,7 +2,7 @@ import { t } from '@scrawlnotes/i18n';
 import { describe, expect, it } from 'vitest';
 import { parseBoard } from '../board';
 import { addRecord, type Collection, createCollection, loadCollection, parseSchema, type Record, serializeSchema } from '../collection';
-import { dueRecords } from '../calendar';
+import { dueRecords, repeatCalendar } from '../calendar';
 import { planSave, recordWith, type RuleSpaceNow } from '../run';
 import { Computer } from '../compute';
 import { MemoryFs } from '../fs';
@@ -967,6 +967,18 @@ describe('Gym', () => {
       ['2026-10-23', false],
     ]);
     expect(due[0]!.view.calendar!.repeat).toMatchObject({ start: 'Start', skip: { label: "Didn't go", set: { status: "Didn't go" } } });
+    // Its calendar shows every day of a week: gone to, not gone to, gone by unwritten, to come.
+    const programs = s.collections.find((c) => c.dir === 'Gym/Programs')!;
+    const view = programs.schema.views!.find((v) => v.kind === 'calendar')!;
+    const days = repeatCalendar(programs, view, '2026-10-21', '2026-10-12', '2026-10-23', s.collections);
+    expect(days.map((d) => [d.day, d.state, d.closedBy ? 'by' : ''])).toEqual([
+      ['2026-10-12', 'late', ''],
+      ['2026-10-14', 'skipped', 'by'],
+      ['2026-10-16', 'late', ''],
+      ['2026-10-19', 'done', 'by'],
+      ['2026-10-21', 'open', ''],
+      ['2026-10-23', 'open', ''],
+    ]);
     // Without program days, nothing comes.
     const off = await gymApp({ days: false });
     expect(dueRecords((await off.space()).collections, '2026-10-21')).toEqual([]);

@@ -2,6 +2,7 @@ import {
   type Board,
   boardName,
   calendarRecords,
+  monthDays,
   calendarStarts,
   startingValues,
   boardsLinkingTo,
@@ -11,6 +12,7 @@ import {
   type CollectionLook,
   collectionOf,
   type ColumnWidths,
+  type DueRecord,
   type Computer,
   computerFor,
   actionsOf,
@@ -117,7 +119,7 @@ import {
   useState,
 } from 'react';
 import { CardPanel, type CardPanelActions } from './CardPanel';
-import { CalendarNav, CalendarViewDialog, calendarStatus, CollectionCalendar, firstRange, PhoneCollectionCalendar, useCalendarNav } from './CollectionCalendar';
+import { CalendarNav, CalendarViewDialog, calendarStatus, CollectionCalendar, firstRange, PhoneCollectionCalendar, repeatItems, useCalendarNav } from './CollectionCalendar';
 import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { fieldChoices, LabelsField } from './labels';
 import { FieldsDialog } from './Fields';
@@ -155,6 +157,11 @@ export interface CollectionActions {
   removeRecord: (dir: string, record: Record) => void;
   /** Runs a button of the collection's rules on a record as it is written: asks first when it says so; says what it did, with Undo, or where it stopped. */
   pressButton: (dir: string, id: string, name: string) => void;
+  /** A repeating calendar's day (design/gym.md 4.3): Start opens the record that closes it, the other button writes it closed. */
+  startDay?: (due: DueRecord) => void;
+  skipDay?: (due: DueRecord) => void;
+  /** Opens a record of another collection over the screen: the workout that closed a program's day. */
+  openRecord?: (dir: string, id: string) => void;
   /** Opens the record's file as a note, in a tab. */
   openNote: (path: string) => void;
   /** Opens a web page, a new mail or a call, outside the app. */
@@ -2114,7 +2121,15 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const groups = useMemo(() => (state.group ? groupRecords(shown, schema, state.group, today, shownAs.get(state.group)) : null), [shown, schema, state.group, today, shownAs]);
   const groupField = state.group ? fieldsByKey.get(state.group) : undefined;
 
-  const calendarItems = useMemo(() => (calendarView ? calendarRecords({ ...rolled, records: matching }, { ...calendarView, conditions: [] }, today) : []), [calendarView, rolled, matching, today]);
+  const calendarItems = useMemo(
+    () =>
+      !calendarView
+        ? []
+        : calendarView.calendar?.repeat
+          ? repeatItems(rolled, matching, calendarView, nav.range === 'month' ? monthDays(nav.month) : nav.days, today, actions.collections())
+          : calendarRecords({ ...rolled, records: matching }, { ...calendarView, conditions: [] }, today),
+    [calendarView, rolled, matching, today, nav.range, nav.month, nav.days, actions],
+  );
   // What the status bar says, written when its words change: what they come from is worked out
   // anew at each render, and writing it each time would render again, without end.
   const status = calendarView

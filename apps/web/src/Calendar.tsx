@@ -1,7 +1,8 @@
 import { atMinutes, type DayBox, type Field, layoutDay, monthDays, type Timed } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { hueStyle } from './choices';
+import { Icon } from './Icon';
 
 // A day or a week of the calendar, after the Calendar mockups (design/calendar.md 3): the days'
 // names, the all-day row, then the hours, scrolled to 07:00, today's column tinted and a line at
@@ -428,9 +429,12 @@ export interface MonthChip {
   /** A card's key, and its square tick. */
   cardKey?: string;
   late?: boolean;
+  /** A repeating calendar's day closed (design/gym.md 4.3): gone to, faint and ticked; not gone to, struck through. */
+  done?: boolean;
+  skipped?: boolean;
   /** Dragged to another day; one that cannot be is only opened. */
   movable?: boolean;
-  onOpen: () => void;
+  onOpen: (event: ReactMouseEvent) => void;
 }
 
 /** How tall a day's number and each line under it are, and the day's padding, in pixels. */
@@ -445,7 +449,7 @@ function MonthLine({ chip, lifted, onDragStart, onDragEnd }: { chip: MonthChip; 
     <button
       type="button"
       draggable={!!onDragStart && chip.movable !== false}
-      className={['cal-t', chip.color && 'rec', chip.time && 'timed', chip.late && 'late', lifted && 'ghost'].filter(Boolean).join(' ')}
+      className={['cal-t', chip.color && 'rec', chip.time && 'timed', chip.late && 'late', chip.done && 'done', chip.skipped && 'skipped', lifted && 'ghost'].filter(Boolean).join(' ')}
       style={style}
       title={chip.title}
       onDragStart={(event) => {
@@ -456,10 +460,10 @@ function MonthLine({ chip, lifted, onDragStart, onDragEnd }: { chip: MonthChip; 
       onDragEnd={onDragEnd}
       onClick={(event) => {
         event.stopPropagation();
-        chip.onOpen();
+        chip.onOpen(event);
       }}
     >
-      {chip.time ? <em>{chip.time}</em> : <i className={chip.cardKey || chip.color ? 'sq' : undefined} />}
+      {chip.done ? <Icon name="check" /> : chip.time ? <em>{chip.time}</em> : <i className={chip.cardKey || chip.color ? 'sq' : undefined} />}
       {chip.cardKey && <span className="key">{chip.cardKey}</span>}
       <span>{chip.title}</span>
     </button>

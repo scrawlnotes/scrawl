@@ -9936,3 +9936,27 @@ body > .mb-lifted {
   font-size: 15px;
   font-weight: 600;
 }
+
+/* A repeating calendar's days on a phone, as on a computer: gone to faint with its tick, not gone to struck through, late in red. */
+.mb-rrow.done,
+.mb-rrow.skipped,
+.mb-chip.done,
+.mb-chip.skipped {
+  opacity: 0.55;
+}
+
+.mb-rrow.done em .icon,
+.mb-chip.done .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--sl-accent);
+}
+
+.mb-rrow.skipped b,
+.mb-chip.skipped span {
+  text-decoration: line-through;
+}
+
+.mb-rrow.late b {
+  color: var(--sl-p1);
+}

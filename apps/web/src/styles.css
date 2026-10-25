@@ -20203,3 +20203,22 @@ button.ppl:hover {
 .ltable .rtable:has(th.tk) tr.gadd .cadd {
   padding-left: 30px;
 }
+
+/* A repeating calendar's days (design/gym.md 4.3): one gone to faint with its tick, one not gone to
+   struck through; one gone by unwritten is late, in red. Nothing is dragged. */
+.cal-t.done,
+.cal-t.skipped {
+  opacity: 0.55;
+}
+
+.cal-t.done .icon {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  color: var(--sl-accent);
+  stroke-width: 2.6;
+}
+
+.cal-t.skipped span {
+  text-decoration: line-through;
+}
