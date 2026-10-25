@@ -20341,3 +20341,28 @@ button.ppl:hover {
 .fitem.off small {
   opacity: 0.5;
 }
+
+/* A tick in a table, a list or a form's worked-out value, as the Gym mockup draws it: a box with a
+   faint edge, filled and marked when ticked; the same as a group's tick. */
+.tick.cbx {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--sl-faint);
+  border-radius: 3px;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.tick.cbx.on {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+}
+
+.tick.cbx .icon {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2.6;
+}

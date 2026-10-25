@@ -351,7 +351,8 @@ export function Cell({ field, value, ctx, values }: {
       </span>
     );
   }
-  if (field.type === 'checkbox') return <span className="tick">{value ? '✓' : ''}</span>;
+  // A tick as the Gym mockup draws it: a box, filled with its mark when ticked.
+  if (field.type === 'checkbox') return <span className={value === true ? 'tick cbx on' : 'tick cbx'}>{value === true && <Icon name="check" />}</span>;
   if (field.type === 'person') return <span className="who">{valueText(value)}</span>;
   if (field.type === 'link') {
     const links = (Array.isArray(value) ? value : [value]).filter(isLink);
