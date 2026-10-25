@@ -2,6 +2,20 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.16
+
+Gym and Edit app, Chat's lists as Slack's, and an older version that no longer syncs over a newer one.
+
+- Edit app…, in an app folder's ··· menu under Add to app…, changes an installed app's answers: its questions open with the answers it has, its last page says what is added, changed, taken off and kept, and no record is ever deleted. Undo takes it back.
+- Gym, a personal template under Health: programs with their weekdays and their moves under Warm-up, Workout, Cool-down and Cardio; a workout filled from its program with each move's sets, reps and the weight of last time; how regularly each move is done. A program's days come to Today, Upcoming and Overdue, with Start and Didn't go.
+- A rule can run as a field changes, with `onChange`: what it adds to a linked table shows in the form before you save. A linked table can be grouped, and can go newest first. `number()` reads a number in a text.
+- A collection's calendar can bring days that come back every week to Today and Upcoming; a day gone by with nothing done is late.
+- A percent column has no sum under a table, and a collection's screen no longer draws itself again without end.
+- Chat's lists are as Slack's: a section folds from its heading, and + beside it adds a room or a message. A new conversation says what it is and what to do first. Create a room, Browse rooms and a new message are as Slack's too.
+- A click on a task's description opens it for editing, as a click on its name does.
+- A quick note dragged goes where the pointer holds it, and no longer moves back and forth.
+- A space a newer Scrawl synced, or whose server asks for a newer one, stops syncing here and says Update Scrawl to keep syncing; Update brings the new version. An older version can no longer undo what a newer one did, such as deleted folders coming back.
+
 ## 0.1.15
 
 Scrawl keeps running with its window closed, Chat on a Scrawl server, and quick notes.
