@@ -20176,7 +20176,7 @@ button.ppl:hover {
   padding-bottom: 4px;
 }
 
-/* A row not ticked is faint, its move struck through; one the form adds and has not written yet has a mark of its own. */
+/* A row not ticked is faint, its move struck through. */
 .ltable tr.off > td:not(.r) {
   color: var(--sl-faint);
 }
@@ -20185,6 +20185,21 @@ button.ppl:hover {
   text-decoration: line-through;
 }
 
-.ltable tr.draft > td:first-child {
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--sl-accent) 55%, transparent);
+
+/* A tick at the start of a row: a narrow column with no heading, as the Gym mockup has it; a group's heading in line with the name after it. */
+.ltable .rtable .tk {
+  width: 14px;
+  padding-right: 4px;
+}
+
+.ltable .rtable td.tk .tc {
+  display: flex;
+}
+
+.ltable .rtable:has(th.tk) tr.tgrp .gh {
+  padding-left: 30px;
+}
+
+.ltable .rtable:has(th.tk) tr.gadd .cadd {
+  padding-left: 30px;
 }

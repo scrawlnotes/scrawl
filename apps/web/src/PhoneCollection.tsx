@@ -602,8 +602,11 @@ function missingText(schema: Schema, values: Entry['values']): string | null {
   const missing = missingFields(values, schema);
   if (missing.length === 0) return null;
   const named = nameField(schema);
-  if (named && missing.includes(named.key)) return t('collection.nameNeeded');
-  return t('collection.requiredMissing', { fields: missing.map((k) => schema.fields.find((f) => f.key === k)?.label ?? k).join(t('list.separator')) });
+  // A name kept off the form comes from what is on it, an item's from its exercise: what is missing there is said.
+  const off = hiddenOnForm(schema);
+  if (named && missing.includes(named.key) && !off.has(named.key)) return t('collection.nameNeeded');
+  const said = missing.length > 1 ? missing.filter((k) => k !== named?.key) : missing;
+  return t('collection.requiredMissing', { fields: said.map((k) => schema.fields.find((f) => f.key === k)?.label ?? k).join(t('list.separator')) });
 }
 
 // ---------- a record as a page ----------

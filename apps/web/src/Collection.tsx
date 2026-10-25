@@ -1023,7 +1023,9 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
     void actions.updateRecord(source.dir, r.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
   };
   const numeric = (field: Field) => asShown(field).type === 'number';
-  const cellClass = (field: Field, i: number) => [i === 0 && 'c0', numeric(field) && 'r'].filter(Boolean).join(' ') || undefined;
+  // A tick the table changes, at the start of a row, is a narrow column with no heading: the block's says how many are done (the Gym mockup).
+  const tickAt = (field: Field, i: number) => i === 0 && field.type === 'checkbox' && changes.has(field.key);
+  const cellClass = (field: Field, i: number) => [i === 0 && 'c0', numeric(field) && 'r', tickAt(field, i) && 'tk'].filter(Boolean).join(' ') || undefined;
   const sums = block.sums ? columns.map((f) => (numeric(f) ? columnSums(rows, schema, f.key, today) : null)) : [];
   // The column that ticks a row off: how many are ticked, a row not ticked faint; where the table
   // changes it, a group's Untick all and a second level's tick.
@@ -1071,8 +1073,9 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
             <div className="tc" style={cellBox(asShown(field))} title={cutText(asShown(field), value)}>
               {changes.has(field.key) ? (
                 <ChangeCell field={field} value={r.values[field.key]} onChange={(next) => write(r, field, next)} />
-              ) : field.key === TITLE.key ? (
-                <span className="ct name">{recordTitle(r)}</span>
+              ) : field.key === TITLE.key || (lines && isLink(value)) ? (
+                // A line's move or product is what the line is: its name, as the record's own.
+                <span className="ct name">{field.key === TITLE.key ? recordTitle(r) : recordLabel(value as Link)}</span>
               ) : (
                 <Cell field={asShown(field)} value={value} ctx={ctx} values={r.values} />
               )}
@@ -1098,9 +1101,9 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
           <thead>
             <tr>
               {columns.map((field, i) => (
-                <th key={field.key} className={cellClass(field, i)}>
+                <th key={field.key} className={cellClass(field, i)} aria-label={field.label}>
                   <div className="tc" style={cellBox(asShown(field))}>
-                    {field.label}
+                    {!tickAt(field, i) && field.label}
                   </div>
                 </th>
               ))}
@@ -1516,8 +1519,11 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
     // What the rules will write as it is saved, a name by its onSave, is not missing.
     const missing = missingFields(toBe, schema);
     if (missing.length > 0) {
-      const labels = missing.filter((k) => k !== named?.key).map((k) => fields.get(k)?.label ?? k);
-      setError(named && missing.includes(named.key) ? t('collection.nameNeeded') : t('collection.requiredMissing', { fields: labels.join(t('list.separator')) }));
+      // A name kept off the form comes from what is on it, an item's from its exercise: what is missing there is said.
+      const nameAsked = !!named && missing.includes(named.key) && !offForm.has(named.key);
+      const said = missing.length > 1 ? missing.filter((k) => k !== named?.key) : missing;
+      const labels = said.map((k) => fields.get(k)?.label ?? k);
+      setError(nameAsked ? t('collection.nameNeeded') : t('collection.requiredMissing', { fields: labels.join(t('list.separator')) }));
       return false;
     }
     // A line not written yet goes back to the record's window, which writes it with the record.
